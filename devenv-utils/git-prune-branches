@@ -1,0 +1,19 @@
+#!/bin/bash
+
+echo Running git fetch, just a moment...
+git fetch -p
+git branch -vv | grep ': gone]' | awk '{print $1}' > /tmp/prunebranches
+echo
+echo "These are the branches that will be pruned."
+echo
+cat /tmp/prunebranches
+echo
+echo "Type 'Y' to proceed"
+read -n 1 conf
+echo
+echo
+if [[ "$conf" = "y" || "$conf" = "Y" ]]; then
+  echo Pruned
+  echo
+  cat /tmp/prunebranches | xargs git branch -D
+fi

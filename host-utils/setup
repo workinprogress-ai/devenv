@@ -1,0 +1,126 @@
+#!/bin/bash
+
+# Ensure that the script is not run with CRLF line endings
+scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"; scriptfile="$0"; if [[ "$(file ${scriptdir}/${scriptfile})" =~ "CRLF" && -f "${scriptdir}/${scriptfile}" && "$(head -n 100 ${scriptdir}/${scriptfile} | grep "^scriptdir.\+dg4MbsIfhbv4-Bash-CRLF-selfheal_Written_By_Kenneth_Lutzke-8Nds9NclkU4sgE" > /dev/null 2>&1 ; echo "$?" )" == "0" ]]; then echo "$(cat ${scriptdir}/${scriptfile} | sed 's/\r$//')" > ${scriptdir}/${scriptfile} ; bash ${scriptdir}/${scriptfile} $@ ; exit ; fi ; echo "" > /dev/null 2>&1
+
+get_script_path() {
+  # Check if realpath is available (Linux or installed on Mac)
+  if command -v realpath > /dev/null 2>&1; then
+    realpath "$0"
+  else
+    # Fallback to using readlink and python for Mac
+    target_file="$0"
+
+    cd "$(dirname "$target_file")"
+    target_file=$(basename "$target_file")
+
+    # Iterate down a (possible) chain of symlinks
+    while [ -L "$target_file" ]; do
+      target_file=$(readlink "$target_file")
+      cd "$(dirname "$target_file")"
+      target_file=$(basename "$target_file")
+    done
+
+    # Compute the canonicalized name by finding the physical path for the directory we're in
+    phys_dir=$(pwd -P)
+    result="$phys_dir/$target_file"
+
+    # Output the final, absolute path
+    echo "$result"
+  fi
+}
+
+# Function to create SSH key
+create_ssh_key() {
+  ssh-keygen -t rsa -b 4096 -C "$email" -f "$SETUP_DIR/github_key" -N ""
+  echo "SSH key created: $SETUP_DIR/github_key"
+  echo "Public key:"
+  cat "$SETUP_DIR/github_key.pub"
+  echo "Instructions to add this key to GitHub:"
+  echo "1. Copy the above public key."
+  echo "2. Go to GitHub -> Settings -> SSH and GPG keys -> New SSH key."
+  echo "3. Paste the copied key and save."
+}
+
+# Function to save a response to a file
+save_response() {
+  local question="$1"
+  local file_name="$2"
+  if [ ! -f "$SETUP_DIR/$file_name" ]; then
+    echo "$question"
+    read -r response
+    if [ -n "$response" ]; then
+      echo "$response" > "$SETUP_DIR/$file_name"
+    fi
+  fi
+}
+
+save_ssh_key() {
+  local file_name="$1"
+  if [ ! -f "$SETUP_DIR/$file_name" ]; then
+    echo "Please paste the SSH key for use with GitHub (end with an empty line):"
+    ssh_key=""
+    while IFS= read -r line; do
+      [ -z "$line" ] && break
+      ssh_key="${ssh_key}${line}\n"
+    done
+    echo -e "$ssh_key" > "$SETUP_DIR/$file_name"
+
+    # Verify the SSH key format
+    if ! grep -q -E '^-----BEGIN OPENSSH PRIVATE KEY-----' "$SETUP_DIR/$file_name"; then
+      echo "Invalid SSH key format. Please try again."
+      rm "$SETUP_DIR/$file_name"
+      save_ssh_key "$file_name"
+    fi
+  fi
+}
+
+script_path=$(get_script_path)
+echo "Script path: $script_path"
+script_folder=$(dirname "$script_path")
+toolbox_root=$(dirname "$script_folder")
+
+# Ensure the setup directory exists
+SETUP_DIR="$toolbox_root/.setup"
+mkdir -p "$SETUP_DIR"
+
+# Asking questions
+save_response "What is your name?" "name.txt"
+
+timezone=$(cat /etc/timezone)
+save_response "What is your timezone?  Hit ENTER for $timezone" "timezone.txt"
+if [ ! -f "$SETUP_DIR/timezone.txt" ]; then
+    echo "$timezone" > "$SETUP_DIR/timezone.txt"
+fi
+
+if [ ! -f "$SETUP_DIR/email.txt" ]; then
+    while true; do
+        save_response "What is your email? (must be in the domain @workinprogress.ai)" "email.txt"
+        email=$(cat "$SETUP_DIR/email.txt")
+        if [[ "$email" == *@workinprogress.ai ]]; then
+            echo "Email accepted"
+            break
+        else
+            echo "Invalid email domain. Please enter an email with the domain @workinprogress.ai"
+            rm "$SETUP_DIR/email.txt"
+        fi
+    done
+fi
+
+if [ ! -f "$SETUP_DIR/github_key" ]; then
+    while true; do
+        echo "Do you need to create a GitHub SSH key? (yes/no)"
+        read -r create_key
+        if [[ "$create_key" == "yes" ]]; then
+            create_ssh_key
+            break
+        elif [[ "$create_key" == "no" ]]; then
+            save_ssh_key "github_key"
+            break
+        else
+            echo "Invalid response. Please answer 'yes' or 'no'."
+        fi
+    done
+fi
+
+echo "Setup complete.  You may now start the dev container."

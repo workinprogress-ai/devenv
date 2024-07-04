@@ -1,0 +1,4 @@
+#!/bin/bash
+
+commit=$(git log --oneline | grep -v "WIP:" | head -1 | cut -c 1-7)
+git reset --soft $commit 

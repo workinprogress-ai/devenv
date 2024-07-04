@@ -1,0 +1,8 @@
+repos/
+repos/*
+.debug/
+.debug/*
+.setup/
+.setup/*
+repo_list
+repo_list.extra

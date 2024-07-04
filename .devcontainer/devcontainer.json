@@ -1,0 +1,103 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/dotnet
+{
+	"name": "OMSNIC - Services Backend",
+
+	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+	"image": "mcr.microsoft.com/devcontainers/dotnet:8.0-bookworm",
+    "containerEnv": {
+        //"GITHUB_USER": "${localEnv:GITHUB_USER}",
+        //"PACKAGE_ACCESS": "${localEnv:PACKAGE_ACCESS}"
+    },
+    "remoteEnv": {
+        "NODE_TLS_REJECT_UNAUTHORIZED": "0",
+        "DEVCONTAINER": "true"
+    },
+
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	"forwardPorts": [6080],
+	"portsAttributes": {
+			"6080": {
+				"protocol": "http"
+			}
+	},
+
+    "remoteUser": "vscode",
+	"postStartCommand": "/bin/bash ./.devcontainer/container-start.sh",
+	"postCreateCommand": "sudo apt update -y; sudo apt install file -y",
+
+    // Docker extra run args
+    // "runArgs": [
+    //     "-v",
+    //     "${env:SSH_AUTH_SOCK}:/tmp/ssh-agent.socket",
+    //     "-e",
+    //     "SSH_AUTH_SOCK=/tmp/ssh-agent.socket"
+    // ],
+
+    // Features to add to the dev container. More info: https://containers.dev/features.
+	"features": {
+        "ghcr.io/devcontainers/features/desktop-lite": {
+            "webPort": 6080,
+            "vncPort": 5091,
+            "password": "vscode"
+		},
+		//"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+        "ghcr.io/devcontainers/features/docker-in-docker": {},
+		"ghcr.io/devcontainers/features/desktop-lite:1": {},
+		"ghcr.io/devcontainers/features/node:1": {}
+	},
+
+	// Configure tool-specific properties.
+	"customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-dotnettools.vscode-dotnet-runtime",
+				"ms-dotnettools.csdevkit",
+                "ms-dotnettools.vscodeintellicode-csharp",
+				"ms-vsliveshare.vsliveshare",
+				"rafistatar.addlocalnetreferences",
+				"schneiderpat.aspnet-helper",
+				"rogalmic.bash-debug",
+				"alefragnani.bookmarks",
+				"ms-dotnettools.vscode-dotnet-pack",
+				"k--kato.docomment",
+				"streetsidesoftware.code-spell-checker",
+				"ms-vscode-remote.remote-containers",
+				"ms-azuretools.vscode-docker",
+				"matijarmk.dotnet-core-commands",
+				"eamodio.gitlens",
+				"tintoy.msbuild-project-tools",
+				"quicktype.quicktype",
+				"christian-kohler.path-intellisense",
+				"dinhani.divider",
+				"wayou.vscode-todo-highlight",
+				"fullstackspider.visual-nuget",
+				"ms-mssql.mssql",
+				"cweijan.vscode-redis-client",
+				"mongodb.mongodb-vscode",
+				"EditorConfig.EditorConfig",
+				"humao.rest-client",
+                "dotjoshjohnson.xml",
+                "rangav.vscode-thunder-client",
+				
+                "simonsiefke.svg-preview",
+                "uctakeoff.vscode-counter",
+                "pflannery.vscode-versionlens",
+                "antmdvs.vscode-react-hooks-snippets",
+                "yoavbls.pretty-ts-errors",
+                "rvest.vs-code-prettier-eslint",
+                "esbenp.prettier-vscode",
+                "devine-davies.make-hidden",
+                "donjayamanne.githistory",
+                "dbaeumer.vscode-eslint",
+                "gurayyarar.dummytextgenerator",
+				
+				"github.copilot",
+				"github.copilot-chat",
+				"github.vscode-pull-request-github",
+				"github.remotehub",
+				"github.vscode-github-actions"
+			]
+        }
+    }
+}
