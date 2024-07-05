@@ -61,6 +61,16 @@ if [ -f $setup_dir/github_key ]; then
 else 
     echo "WARNING!!!  No github key found in $setup_dir/github_key"
 fi
+if [ -f $setup_dir/github_token.txt ]; then
+    PACKAGE_ACCESS=$(cat $setup_dir/github_token.txt)
+else 
+    echo "WARNING!!!  No PAT found in $setup_dir/github_token.txt"
+fi
+if [ -f $setup_dir/github_user.txt ]; then
+    GITHUB_USER=$(cat $setup_dir/github_user.txt)
+else 
+    echo "WARNING!!!  No github user found in $setup_dir/github_user.txt"
+fi
 
 cat <<EOF >>$HOME/.ssh/config
 AddKeysToAgent yes
@@ -112,6 +122,16 @@ export ENV_NAME=local
 export DICTIONARY_SERVER=localhost:6379
 export DOCUMENT_SERVER=localhost
 export GIT_TERMINAL_PROMPT=1
+export PACKAGE_ACCESS=$PACKAGE_ACCESS
+export GITHUB_USER=$GITHUB_USER
+
+cd ~/repos
+if [ -z "$(find . -mindepth 1 -maxdepth 1 -type d)" ]; then
+  echo "No repos have been cloned yet.  If you want to clone the standard repos, run the following command:"
+  echo "update-repos.sh"
+  echo
+fi
+
 EOF
 
 echo "# Package install"
@@ -125,7 +145,7 @@ if [[ -z "$(which nvm)" ]]; then
 fi
 sudo apt update
 sudo apt upgrade -y
-sudo apt install gcc g++ make yarn xmlstarlet redis-tools chromium cifs-utils -y
+sudo apt install gcc g++ make yarn xmlstarlet redis-tools chromium cifs-utils xmlstarlet -y
 #sudo apt install mongocli -y
 
 if [ "$is_arm" == "1" ]; then
@@ -214,9 +234,13 @@ mkdir -p $toolbox_root/.debug/data
 mkdir -p $toolbox_root/.debug/config
 bash $script_folder/download-csharp-debugger.sh
 echo fs.inotify.max_user_instances=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
+mkdir -p $toolbox_root/repos
+ln -s $toolbox_root/repos $HOME/repos
 
 echo "Bootstrap complete"
 echo "--------------------------------------------------------------"
 
 echo "Please exit out of VS Code and let the container restart."
 echo "Please restart the container to complete the setup."
+
+cd $HOME/repos

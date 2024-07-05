@@ -38,7 +38,7 @@ create_ssh_key() {
   cat "$SETUP_DIR/github_key.pub"
   echo "Instructions to add this key to GitHub:"
   echo "1. Copy the above public key."
-  echo "2. Go to GitHub -> Settings -> SSH and GPG keys -> New SSH key."
+  echo "2. Go to GitHub -> Settings -> SSH and GPG keys -> New SSH Key.  Here is a link:  https://github.com/settings/tokens/new"
   echo "3. Paste the copied key and save."
 }
 
@@ -86,6 +86,11 @@ mkdir -p "$SETUP_DIR"
 
 # Asking questions
 save_response "What is your name?" "name.txt"
+save_response "What is your github user?" "github_user.txt"
+echo "For the next step, you will need to paste a PAT (personal access token) from github.  It should have 'read:packages' access." 
+echo "You can create one with this link: https://github.com/settings/tokens/new"
+echo "See the README for information about how to create a PAT."
+save_response "Paste a github token that has package access." "github_token.txt"
 
 timezone=$(cat /etc/timezone)
 save_response "What is your timezone?  Hit ENTER for $timezone" "timezone.txt"

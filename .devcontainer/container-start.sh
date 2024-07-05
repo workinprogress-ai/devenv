@@ -25,3 +25,9 @@ fi
 if [ -f $toolbox_root/.devcontainer/devcontainer/custom_startup.sh ]; then
     /bin/bash $toolbox_root/.devcontainer/custom_startup.sh
 fi
+
+cd $HOME/repos
+if [ -z "$(find . -mindepth 1 -maxdepth 1 -type d)" ]; then
+  echo "No repos have been cloned yet.  If you want to clone the standard repos, run the following command:"
+  echo "update-repos.sh"
+fi
