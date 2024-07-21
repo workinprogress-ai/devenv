@@ -18,7 +18,6 @@ if ! [ -f $HOME/.ran_bootstrap ]; then
     if [ -f $toolbox_root/.devcontainer/devcontainer/custom_bootstrap.sh ]; then
         /bin/bash $toolbox_root/.devcontainer/custom_bootstrap.sh
     fi
-
 fi
 
 # If there is a custom startup, run it
@@ -26,8 +25,14 @@ if [ -f $toolbox_root/.devcontainer/devcontainer/custom_startup.sh ]; then
     /bin/bash $toolbox_root/.devcontainer/custom_startup.sh
 fi
 
-cd $HOME/repos
-if [ -z "$(find . -mindepth 1 -maxdepth 1 -type d)" ]; then
-  echo "No repos have been cloned yet.  If you want to clone the standard repos, run the following command:"
-  echo "update-repos.sh"
+if ! [ -f $HOME/.ran_bootstrap ]; then
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo "WARNING:  Bootstrap has not yet successfully run!"
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+else
+    cd $HOME/repos
+    if [ -z "$(find . -mindepth 1 -maxdepth 1 -type d)" ]; then
+        echo "No repos have been cloned yet.  If you want to clone the standard repos, run the following command:"
+        echo "update-repos.sh"
+    fi
 fi

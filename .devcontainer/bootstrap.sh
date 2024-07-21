@@ -3,6 +3,15 @@
 # Ensure that the script is not run with CRLF line endings
 scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"; scriptfile="$0"; if [[ "$(file ${scriptdir}/${scriptfile})" =~ "CRLF" && -f "${scriptdir}/${scriptfile}" && "$(head -n 100 ${scriptdir}/${scriptfile} | grep "^scriptdir.\+dg4MbsIfhbv4-Bash-CRLF-selfheal_Written_By_Kenneth_Lutzke-8Nds9NclkU4sgE" > /dev/null 2>&1 ; echo "$?" )" == "0" ]]; then echo "$(cat ${scriptdir}/${scriptfile} | sed 's/\r$//')" > ${scriptdir}/${scriptfile} ; bash ${scriptdir}/${scriptfile} $@ ; exit ; fi ; echo "" > /dev/null 2>&1
 
+on_error() {
+  echo "An error occurred. Running cleanup."
+  touch $HOME/.ran_bootstrap
+  exit 1;
+}
+
+# Trap ERR signal which is triggered by any command that exits with a non-zero status
+#trap on_error ERR
+
 script_path=$(readlink -f "$0")
 script_folder=$(dirname "$script_path")
 toolbox_root=$(dirname "$script_folder")
@@ -21,8 +30,6 @@ else
     echo "x86 architecture assumed"
 fi
 
-touch $HOME/.ran_bootstrap
-
 # Make a backup of the .bashrc file so if we run this script multiple times, we don't 
 # end up adding the same stuff over and over.  We will always use the original.
 
@@ -31,12 +38,13 @@ if [ ! -f ~/.bashrc.original ]; then
 fi;
 cp ~/.bashrc.original ~/.bashrc
 
+cd $toolbox_root
 cp repo_list.workinprogress repo_list
 if [ -f repo_list.extra ]; then
     cat repo_list.extra >> repo_list
 fi
 
-sudo apt install curl wget gnupg bash-completion -y
+sudo apt install curl wget gnupg bash-completion iputils-ping -y
 #wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
 #echo "deb http://repo.mongodb.org/apt/debian bullseye/mongodb-org/6.0 main" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
 
@@ -48,7 +56,7 @@ echo "# Get container scripts"
 echo "#############################################"
 wget -O $HOME/.git-completion.bash https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash
 chmod +x $HOME/.git-completion.bash
-chmod +x $toolbox_root/devenv-utils/*
+chmod +x $toolbox_root/scripts/*
 
 echo "Set up SSH to work as it should"
 echo "#############################################"
@@ -103,15 +111,15 @@ export TZ='$(cat $timezone_file)'
 if [ -d "$repos_dir" ]; then
   # Loop through each sub-directory in repos
   for dir in "$repos_dir"/*/; do
-    # Check if _utils directory exists within the sub-directory
-    if [ -d "\${dir}_utils" ]; then
-      # Add _utils to the PATH
-      PATH="\$PATH:\${dir}_utils"
+    # Check if scripts directory exists within the sub-directory
+    if [ -d "\${dir}scripts" ]; then
+      # Add scripts to the PATH
+      PATH="\$PATH:\${dir}scripts"
     fi
   done
 fi
 
-export PATH=\$PATH:\${DEVENV_ROOT}/devenv-utils
+export PATH=\$PATH:\${DEVENV_ROOT}/scripts
 
 # Variables to run services locallys
 export DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false
@@ -125,11 +133,8 @@ export GIT_TERMINAL_PROMPT=1
 export PACKAGE_ACCESS=$PACKAGE_ACCESS
 export GITHUB_USER=$GITHUB_USER
 
-cd ~/repos
-if [ -z "$(find . -mindepth 1 -maxdepth 1 -type d)" ]; then
-  echo "No repos have been cloned yet.  If you want to clone the standard repos, run the following command:"
-  echo "update-repos.sh"
-  echo
+if [[ \$(pwd) == /workspaces* ]]; then
+  cd \$HOME/repos
 fi
 
 EOF
@@ -137,15 +142,20 @@ EOF
 echo "# Package install"
 echo "#############################################"
 
-if [[ -z "$(which nvm)" ]]; then
+if command -v nvm > /dev/null 2>&1; then
     curl -sL https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor | sudo tee /usr/share/keyrings/yarnkey.gpg >/dev/null
     echo "deb [signed-by=/usr/share/keyrings/yarnkey.gpg] https://dl.yarnpkg.com/debian stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
+    export NVM_DIR="/usr/local/share/nvm"
+    source ~/.bashrc
+    source "$NVM_DIR/nvm.sh" # This loads nvm
     nvm install --lts
+    nvm use --lts
 fi
+
 sudo apt update
 sudo apt upgrade -y
-sudo apt install gcc g++ make yarn xmlstarlet redis-tools chromium cifs-utils xmlstarlet -y
+sudo apt install gcc g++ make xmlstarlet redis-tools chromium cifs-utils xmlstarlet -y
 #sudo apt install mongocli -y
 
 if [ "$is_arm" == "1" ]; then
@@ -159,7 +169,6 @@ sudo apt install -y ./mongo-tools.deb
 sudo apt install -y ./mongo-shell.deb
 rm mongo-tools.deb
 rm mongo-shell.deb
-
 
 # # # NOTE:  We do not need to install previous SDK's at the moment.
 
@@ -184,6 +193,11 @@ rm mongo-shell.deb
 echo "# Configure .net"
 echo "#############################################"
 
+local_nuget_dev=$toolbox_root/.debug/local-nuget-dev
+mkdir -p $local_nuget_dev
+dotnet nuget add source $local_nuget_dev -n "dev" 
+dotnet nuget add source https://nuget.pkg.github.com/workinprogress-ai/index.json -n "github" --username $GITHUB_USER --store-password-in-clear-text --password $PACKAGE_ACCESS
+
 /usr/bin/dotnet tool install --global altcover.global
 /usr/bin/dotnet dev-certs https
 sudo -E /usr/bin/dotnet dev-certs https -ep /usr/local/share/ca-certificates/aspnet/https.crt --format PEM
@@ -191,12 +205,9 @@ sudo update-ca-certificates
 
 echo "# Node packages"
 echo "#############################################"
-if [[ -z "$(which npx)" ]]; then
-    npm install -g npx
-fi;
-if [[ -z "$(which zx)" ]]; then
-    npm install -g zx
-fi;
+#npm install -g npx
+npm install -g zx
+npm install -g yarn
 
 echo "# Configure git"
 echo "#############################################"
@@ -236,6 +247,10 @@ bash $script_folder/download-csharp-debugger.sh
 echo fs.inotify.max_user_instances=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
 mkdir -p $toolbox_root/repos
 ln -s $toolbox_root/repos $HOME/repos
+ln -s $toolbox_root $HOME/devenv
+ln -s $toolbox_root/.debug $HOME/debug
+
+touch $HOME/.ran_bootstrap
 
 echo "Bootstrap complete"
 echo "--------------------------------------------------------------"

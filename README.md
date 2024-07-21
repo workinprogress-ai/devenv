@@ -82,13 +82,13 @@ The script will ask you for the following information:
 
 The dev container is a fully functional development environment.  It has all the tools you need to work on the code.  The code is mounted into the container, so any changes you make in the container will be reflected on the host machine.  
 
-When you first bring up the dev environment, it only contains the code that is in the `devenv` repo.  You will need to clone the other repos that you want to work on.  You can do this in the terminal in the dev container if you wish.  Any repos cloned should be put under the `repos/` folder.  For your convenience, there is also a script in the `devenv-utils` folder called `update-repos.sh` that will clone all the repos that you need.  You can run this script in the terminal in the dev container to clone all the repos.  It will also update the repos using `fetch` and `pull`.
+When you first bring up the dev environment, it only contains the code that is in the `devenv` repo.  You will need to clone the other repos that you want to work on.  You can do this in the terminal in the dev container if you wish.  Any repos cloned should be put under the `repos/` folder.  For your convenience, there is also a script in the `scripts` folder called `update-repos.sh` that will clone all the repos that you need.  You can run this script in the terminal in the dev container to clone all the repos.  It will also update the repos using `fetch` and `pull`.
 
 If you wish to add additional repos to the list that is cloned and updated, you can add a file in the root folder called `repo_list.extra` with a list of the additional repo links that you wish to include. 
 
 **Note** that part of the setup script asked for a GitHub SSH key.  This key is used to clone the private repos.  If you did not provide a key, you will not be able to clone the private repos. 
 
-After cloning the repos, it is a good idea to restart Visual Studio to allow the dev container to add any `_utils` folders to your PATH.
+After cloning the repos, it is a good idea to restart Visual Studio to allow the dev container to add any `scripts` folders to your PATH.
 
 Once you have the repos cloned, you can then open any of them in the dev environment.  This can be done by (in VS Code) opening the command palette and choosing "Open Workspace from file" and selecting the workspace you wish to open.  You can also open the terminal in VS Code, navigate to the folder you want to open, and use the command `code <workspace file or folder>`.  Once you open a project, it will be add to the "Recent" list in VS Code and you can quickly open it in the future. 
 
