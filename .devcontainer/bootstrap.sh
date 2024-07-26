@@ -9,6 +9,11 @@ on_error() {
   exit 1;
 }
 
+call_npm() {
+    # Use this to get rid of the annoying warning
+    npm "$@" 2>&1 | grep -v 'NODE_TLS_REJECT_UNAUTHORIZED is set to 0'
+}
+
 # Trap ERR signal which is triggered by any command that exits with a non-zero status
 #trap on_error ERR
 
@@ -39,10 +44,6 @@ fi;
 cp ~/.bashrc.original ~/.bashrc
 
 cd $toolbox_root
-cp repo_list.workinprogress repo_list
-if [ -f repo_list.extra ]; then
-    cat repo_list.extra >> repo_list
-fi
 
 sudo apt install curl wget gnupg bash-completion iputils-ping -y
 #wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
@@ -107,6 +108,11 @@ source \$HOME/.git-completion.bash
 alias ll='ls -lah'
 export TZ='$(cat $timezone_file)'
 
+get-repo() {
+    bash $toolbox_root/scripts/get-repo.sh "$@"
+    source \$HOME/.bashrc
+}
+
 # Check if the repos directory exists
 if [ -d "$repos_dir" ]; then
   # Loop through each sub-directory in repos
@@ -132,12 +138,20 @@ export DOCUMENT_SERVER=localhost
 export GIT_TERMINAL_PROMPT=1
 export PACKAGE_ACCESS=$PACKAGE_ACCESS
 export GITHUB_USER=$GITHUB_USER
+export DEVENV_UPDATE_INTERVAL=$((12 * 3600)) # 12 hours.  This can be changed as needed.
+
+if \$DEVENV_ROOT/.devcontainer/check-update-devenv-repo.sh ; then 
+    #source \$HOME/.bashrc
+    echo "Devenv repo updated!"
+fi
 
 if [[ \$(pwd) == /workspaces* ]]; then
   cd \$HOME/repos
 fi
 
 EOF
+
+cat $toolbox_root/.devcontainer/bash_prompt_snippet >> $HOME/.bashrc
 
 echo "# Package install"
 echo "#############################################"
@@ -206,8 +220,8 @@ sudo update-ca-certificates
 echo "# Node packages"
 echo "#############################################"
 #npm install -g npx
-npm install -g zx
-npm install -g yarn
+call_npm install -g zx
+call_npm install -g yarn
 
 echo "# Configure git"
 echo "#############################################"

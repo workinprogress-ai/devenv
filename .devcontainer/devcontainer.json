@@ -23,7 +23,7 @@
 	},
 
     "remoteUser": "vscode",
-	"postStartCommand": "/bin/bash ./.devcontainer/container-start.sh",
+	"postStartCommand": "/bin/bash .devcontainer/container-start.sh",
 	"postCreateCommand": "sudo apt update -y; sudo apt install file -y",
 
     // Docker extra run args
