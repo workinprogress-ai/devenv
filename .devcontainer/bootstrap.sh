@@ -157,8 +157,9 @@ echo "# Package install"
 echo "#############################################"
 
 if command -v nvm > /dev/null 2>&1; then
-    curl -sL https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor | sudo tee /usr/share/keyrings/yarnkey.gpg >/dev/null
-    echo "deb [signed-by=/usr/share/keyrings/yarnkey.gpg] https://dl.yarnpkg.com/debian stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
+    #curl -sL https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor | sudo tee /usr/share/keyrings/yarnkey.gpg >/dev/null
+    #echo "deb [signed-by=/usr/share/keyrings/yarnkey.gpg] https://dl.yarnpkg.com/debian stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
+    
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
     export NVM_DIR="/usr/local/share/nvm"
     source ~/.bashrc
@@ -264,12 +265,17 @@ ln -s $toolbox_root/repos $HOME/repos
 ln -s $toolbox_root $HOME/devenv
 ln -s $toolbox_root/.debug $HOME/debug
 
-touch $HOME/.ran_bootstrap
+echo "# Configure local devenv repo hooks"
+echo "#############################################"
+yarn install
+
 
 echo "Bootstrap complete"
 echo "--------------------------------------------------------------"
 
 echo "Please exit out of VS Code and let the container restart."
 echo "Please restart the container to complete the setup."
+
+touch $HOME/.ran_bootstrap
 
 cd $HOME/repos
