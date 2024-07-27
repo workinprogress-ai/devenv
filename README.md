@@ -82,15 +82,53 @@ The script will ask you for the following information:
 
 The dev container is a fully functional development environment.  It has all the tools you need to work on the code.  The code is mounted into the container, so any changes you make in the container will be reflected on the host machine.  
 
-When you first bring up the dev environment, it only contains the code that is in the `devenv` repo.  You will need to clone the other repos that you want to work on.  You can do this in the terminal in the dev container if you wish.  Any repos cloned should be put under the `repos/` folder.  For your convenience, there is also a script in the `scripts` folder called `update-repos.sh` that will clone all the repos that you need.  You can run this script in the terminal in the dev container to clone all the repos.  It will also update the repos using `fetch` and `pull`.
+When you first bring up the dev environment, it only contains the code that is in the `devenv` repo.  You will need to clone the other repos that you want to work on.  You can do this in the terminal in the dev container.  
 
-If you wish to add additional repos to the list that is cloned and updated, you can add a file in the root folder called `repo_list.extra` with a list of the additional repo links that you wish to include. 
+When you first open a terminal in the dev container, the current folder will be `~/repos` (the ~ indicates that it is located in the home folder).  The prompt will look something like this: 
+
+```
+@toochevere ➜ ~/repos (<>) $
+```
+
+Any repos cloned should be put under the `repos/` folder.  A command line alias (actually it's a bash function but let's not be picky) exists in order to make this easy:  `get-repo`.  Simply use `get-repo` command with the name of the repo you wish to clone:
+
+```
+@toochevere ➜ ~/repos (<>) $ get-repo devops
+```
+
+If the repos is not yet present under the `~/repos` folder then it will be cloned.  If it is present, it will be updated.   If the newly cloned repos has a `scripts` folder, then it will be automatically added to the `PATH` variable and any scripts will be available.  
 
 **Note** that part of the setup script asked for a GitHub SSH key.  This key is used to clone the private repos.  If you did not provide a key, you will not be able to clone the private repos. 
 
-After cloning the repos, it is a good idea to restart Visual Studio to allow the dev container to add any `scripts` folders to your PATH.
-
 Once you have the repos cloned, you can then open any of them in the dev environment.  This can be done by (in VS Code) opening the command palette and choosing "Open Workspace from file" and selecting the workspace you wish to open.  You can also open the terminal in VS Code, navigate to the folder you want to open, and use the command `code <workspace file or folder>`.  Once you open a project, it will be add to the "Recent" list in VS Code and you can quickly open it in the future. 
+
+## Updating the dev environment
+
+The dev environment will check for updates to it's code.  This happens periodically.  If it finds an update has happened (a new commit has been pushed to `master` in the `devenv` repo) then it will warn the user when a command line is opened.  The user is given the option to pull the latest changes in `master`.  If the change was a major version change, then the user will also be warned they should rebuild the container. 
+
+## Utilities
+
+### Scripts 
+
+A few utility scripts have been provided to make life happy.
+
+* `get-services-config.sh` This script pulls the service config from it's repository into the local dev environment.  It is placed in `~/debug/config`
+* `0x0.st` A script to push a file to the 0x0 file sharing site
+* `count-code-lines.sh` A utility to count code lines in a file or folder
+* `docker-build.sh` A utility to build a project using Docker.
+* `docker-down.sh` A utility to bring down a local docker configuration
+* `docker-up.sh` A utility to bring up a local docker configuration
+* `enable-container-dotnet-debugger.sh` A utility to inject and run the dotnet debugger into a locally running container.
+* `file.io` A utility to push a file to the file.io file sharing site.
+* `update-repos.sh` A utility to update all repos in the `~/repos` folder.
+
+### Git extensions 
+
+The following are additional `git` commands that extend it's basic capabilities. 
+
+* `git graph` Provides a graphical display of the commit history
+* `git graph-all` Provides a graphical display of the commit history for all branches
+* `git prune-branches` Prunes local branches that are no longer needed
 
 ## Coding documentation
 

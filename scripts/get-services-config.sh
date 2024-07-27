@@ -7,8 +7,8 @@ script_path=$(readlink -f "$0")
 script_folder=$(dirname "$script_path")
 toolbox_root=$(dirname "$script_folder")
 
-target_folder=${3:-$CONFIG_FOLDER}
-target_folder=${target_folder:-$toolbox_root/.debug/config}
+branch=$1
+target_folder=${CONFIG_FOLDER:-$toolbox_root/.debug/config}
 
 if [[ -d "$target_folder" ]]; then
     cd "$target_folder"
@@ -19,13 +19,23 @@ if [[ -d "$target_folder" ]]; then
         cd - &>/dev/null
         exit 1
     fi
-
-    rm -fr "$target_folder" &>/dev/null
     cd - &>/dev/null
+    rm -fr "$target_folder" &>/dev/null
 fi
 
-"$script_folder/clone-config-repo.sh" $@
-cd - &>/dev/null
+mkdir -p $target_folder
+echo "Getting the config repo from the remote"
+git clone git@github.com:workinprogress-ai/services-config.git $target_folder # &>/dev/null
+if [[ $? -ne 0 ]]; then
+    echo "git clone of config repo failed".
+    exit 1
+fi
+
+if [ -n "$branch" ]; then
+    cd "$target_folder"
+    git checkout $branch 
+    cd - &>/dev/null
+fi
 
 # Remove the .git folder so that this is no longer a git repo
 rm -fr $target_folder/.git
