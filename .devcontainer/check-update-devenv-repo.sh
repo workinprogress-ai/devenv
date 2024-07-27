@@ -46,12 +46,29 @@ if [ "$LOCAL_HASH" == "$REMOTE_HASH" ]; then
     exit 1
 fi
 
+CURRENT_VERSION=$(git tag -l 'v*' | sort -V | tail -n 1)
+if [[ $CURRENT_VERSION =~ ([0-9]+)\.([0-9]+)\.([0-9]+)(-([a-zA-Z0-9]+)\.([0-9]+))? ]]; then
+    CURRENT_MAJOR_VERSION=${BASH_REMATCH[1]}
+    CURRENT_MINOR_VERSION=${BASH_REMATCH[2]}
+    CURRENT_PATCH_VERSION=${BASH_REMATCH[3]}
+else
+    echo "Error: VERSION format is not recognized"
+    exit 1
+fi
+
 # Ask the user if they want to update the repository
 echo "Changes detected on the remote master branch for the development environment."
 read -p "Do you want to update? (y/n): " answer
 case $answer in
     [Yy]* )
         update_repo
+        if [ "$CURRENT_MAJOR_VERSION" != "$MAJOR_VERSION" ]; then
+            echo 
+            echo "********************************************************"
+            echo "Major version changed.  Please rebuild dev container!"
+            echo "********************************************************"
+            echo 
+        fi
         exit 0;
         ;;
     * )

@@ -35,6 +35,16 @@ else
     echo "x86 architecture assumed"
 fi
 
+VERSION=$(git tag -l 'v*' | sort -V | tail -n 1)
+if [[ $VERSION =~ ([0-9]+)\.([0-9]+)\.([0-9]+)(-([a-zA-Z0-9]+)\.([0-9]+))? ]]; then
+    MAJOR_VERSION=${BASH_REMATCH[1]}
+    MINOR_VERSION=${BASH_REMATCH[2]}
+    PATCH_VERSION=${BASH_REMATCH[3]}
+else
+    echo "Error: VERSION format is not recognized"
+    exit 1
+fi
+
 # Make a backup of the .bashrc file so if we run this script multiple times, we don't 
 # end up adding the same stuff over and over.  We will always use the original.
 
@@ -139,6 +149,10 @@ export GIT_TERMINAL_PROMPT=1
 export PACKAGE_ACCESS=$PACKAGE_ACCESS
 export GITHUB_USER=$GITHUB_USER
 export DEVENV_UPDATE_INTERVAL=$((12 * 3600)) # 12 hours.  This can be changed as needed.
+export INSTALL_VERSION=$VERSION
+export MAJOR_VERSION=$MAJOR_VERSION
+export MINOR_VERSION=$MINOR_VERSION
+export PATCH_VERSION=$PATCH_VERSION
 
 if \$DEVENV_ROOT/.devcontainer/check-update-devenv-repo.sh ; then 
     #source \$HOME/.bashrc
@@ -268,7 +282,6 @@ ln -s $toolbox_root/.debug $HOME/debug
 echo "# Configure local devenv repo hooks"
 echo "#############################################"
 yarn install
-
 
 echo "Bootstrap complete"
 echo "--------------------------------------------------------------"
