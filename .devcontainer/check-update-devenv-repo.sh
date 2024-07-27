@@ -65,7 +65,14 @@ case $answer in
         if [ "$CURRENT_MAJOR_VERSION" != "$MAJOR_VERSION" ]; then
             echo 
             echo "********************************************************"
-            echo "Major version changed.  Please rebuild dev container!"
+            echo "MAJOR VERSION CHANGED.  Please rebuild dev container!"
+            echo "********************************************************"
+            echo 
+        elif [ "$CURRENT_MINOR_VERSION" != "$MINOR_VERSION" ]; then
+            .devcontainer/bootstrap.sh
+            echo 
+            echo "********************************************************"
+            echo "Minor version changed.  Please restart the dev container!"
             echo "********************************************************"
             echo 
         fi

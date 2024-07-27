@@ -14,6 +14,26 @@ call_npm() {
     npm "$@" 2>&1 | grep -v 'NODE_TLS_REJECT_UNAUTHORIZED is set to 0'
 }
 
+add_nuget_source_if_not_exists() {
+    local sourceName="$1"
+    local sourceUrl="$2"
+    local username="$3"
+    local password="$4"
+
+    # Check if the source already exists
+    if ! nuget sources list | grep -q "$sourceUrl"; then
+        if [ -n "$username" ] && [ -n "$password" ]; then
+            nuget sources add -name "$sourceName" -source "$sourceUrl" -username "$username" -password "$password"
+            echo "NuGet source $sourceName with credentials added."
+        else
+            nuget sources add -name "$sourceName" -source "$sourceUrl"
+            echo "NuGet source $sourceName added."
+        fi
+    else
+        echo "NuGet source $sourceName already exists."
+    fi
+}
+
 # Trap ERR signal which is triggered by any command that exits with a non-zero status
 #trap on_error ERR
 
@@ -224,8 +244,9 @@ echo "#############################################"
 
 local_nuget_dev=$toolbox_root/.debug/local-nuget-dev
 mkdir -p $local_nuget_dev
-dotnet nuget add source $local_nuget_dev -n "dev" 
-dotnet nuget add source https://nuget.pkg.github.com/workinprogress-ai/index.json -n "github" --username $GITHUB_USER --store-password-in-clear-text --password $PACKAGE_ACCESS
+
+add_nuget_source_if_not_exists "dev" $local_nuget_dev
+add-add_nuget_source_if_not_exists "github" https://nuget.pkg.github.com/workinprogress-ai/index.json $GITHUB_USER $PACKAGE_ACCESS
 
 /usr/bin/dotnet tool install --global altcover.global
 /usr/bin/dotnet dev-certs https
@@ -275,9 +296,22 @@ mkdir -p $toolbox_root/.debug/config
 bash $script_folder/download-csharp-debugger.sh
 echo fs.inotify.max_user_instances=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
 mkdir -p $toolbox_root/repos
-ln -s $toolbox_root/repos $HOME/repos
-ln -s $toolbox_root $HOME/devenv
-ln -s $toolbox_root/.debug $HOME/debug
+
+if [ ! -L "$HOME/repos" ]; then
+    ln -s "$toolbox_root/repos" "$HOME/repos"
+else
+    echo "Symbolic link $HOME/repos already exists."
+fi
+if [ ! -L "$HOME/devenv" ]; then
+    ln -s "$toolbox_root" "$HOME/devenv"
+else
+    echo "Symbolic link $HOME/devenv already exists."
+fi
+if [ ! -L "$HOME/debug" ]; then
+    ln -s "$toolbox_root/.debug" "$HOME/debug"
+else
+    echo "Symbolic link $HOME/debug already exists."
+fi
 
 echo "# Configure local devenv repo hooks"
 echo "#############################################"
