@@ -246,7 +246,7 @@ local_nuget_dev=$toolbox_root/.debug/local-nuget-dev
 mkdir -p $local_nuget_dev
 
 add_nuget_source_if_not_exists "dev" $local_nuget_dev
-add-add_nuget_source_if_not_exists "github" https://nuget.pkg.github.com/workinprogress-ai/index.json $GITHUB_USER $PACKAGE_ACCESS
+add_nuget_source_if_not_exists "github" https://nuget.pkg.github.com/workinprogress-ai/index.json $GITHUB_USER $PACKAGE_ACCESS
 
 /usr/bin/dotnet tool install --global altcover.global
 /usr/bin/dotnet dev-certs https
