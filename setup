@@ -91,7 +91,6 @@ echo "For the next step, you will need to paste a PAT (personal access token) fr
 echo "You can create one with this link: https://github.com/settings/tokens/new"
 echo "See the README for information about how to create a PAT."
 save_response "Paste a github token that has package access." "github_token.txt"
-
 timezone=$(cat /etc/timezone)
 save_response "What is your timezone?  Hit ENTER for $timezone" "timezone.txt"
 if [ ! -f "$SETUP_DIR/timezone.txt" ]; then
@@ -127,5 +126,15 @@ if [ ! -f "$SETUP_DIR/github_key" ]; then
         fi
     done
 fi
+
+read -p  "The setup script will now attempt to install the remote containers extension to VS Code.  Ok to proceed?" answer
+case $answer in
+    [Yy]* )
+        code --install-extension code --install-extension ms-vscode-remote.remote-containers
+        ;;
+    * )
+        echo "Skipped"
+        ;;
+esac
 
 echo "Setup complete.  You may now start the dev container."

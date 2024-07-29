@@ -11,7 +11,7 @@ See the sections below for instructions on how to set up your dev environment.
 - A unix environment (Linux, MacOS, WSL)
 - Docker (instructions for installing docker are given below under the sections for each environment)
 
-You do not need to have any additional tooling installed on your host machine.  Everything you need will be provided in the dev container.  Although it is not prohibited to use a different editor or IDE for development, Visual Studio Code and the dev environment provided here are considered the standard.  Use of VS Code and this dev environment is _strongly encouraged_.  If you want to be a lone wolf and use a different editor, you will need to figure out how to do certain things on your own.  The team will not be able to provide support for other editors.  If you can't get your bespoke solution working on your own, you will be asked to use VS Code and the dev environment provided here.
+You do not need to have any additional tooling installed on your host machine.  Everything you need will be provided in the dev container.  Although it is not prohibited to use a different editor or IDE for development, Visual Studio Code and the dev environment provided here are considered the standard.  Use of VS Code and this dev environment is _required_.  (see the section on [lone wolf options](./docs/Dev-container-environment.md#lone-wolf-options))
 
 ## Setup of the dev environment
 
@@ -78,63 +78,35 @@ The script will ask you for the following information:
 * A github SSH key:  This is for use when dealing with repository remotes.  The script will help you to create one if you do not already have one.  You will need to add the public part of the key to your [github settings](https://github.com/settings/keys). 
 * A github PAT:  The Personal Access Token is what allows package access and other functions from the dev environment. You can create one by going in github to Settings -> Developer Settings -> Personal Access Tokens -> Classic and click on [the link to create a new token](https://github.com/settings/tokens/new).  This token should have READ access for PACKAGES (look for `read:packages`).  The recommended note should be 'PACKAGE_ACCESS' and the expiration should be 'No Expiration'.  (Note:  An argument could be made that storing the PAT in plain text is a security risk.  This PAT should only have package read access.  If you follow the directions, the overall risk is minimal.  At most, a bad actor could gain access to our packages.  Not the end of the world.  If you are concerned about this, feel free to delete the `github_token.txt` file once the container comes on line.)
 
-## Coding in the dev container
+## Creating the Dev Container
 
-The dev container is a fully functional development environment.  It has all the tools you need to work on the code.  The code is mounted into the container, so any changes you make in the container will be reflected on the host machine.  
+There is a first time procedure to execute to set up the container the first time. Container configuration and setup is handled in two parts:  There is a configuration that defines the basic container setup (the [devcontainer.json](./../.devcontainer/devcontainer.json) file) and a subsequent script that is run once the container is up.
 
-When you first bring up the dev environment, it only contains the code that is in the `devenv` repo.  You will need to clone the other repos that you want to work on.  You can do this in the terminal in the dev container.  
+1) In VS Code, open the repository root folder.  Once VS loads it, you should see a message come up that asks if you want to open it in a dev container.  Click on the button to re-open the folder in a dev container.  Alternatively if you do not get asked to open it in a dev container, you can tell VS explicitly to do so. From the command pallette choose "Dev Containers:  Open Folder in Container..."  Choose the repository root folder.
 
-When you first open a terminal in the dev container, the current folder will be `~/repos` (the ~ indicates that it is located in the home folder).  The prompt will look something like this: 
+2) Once VS opens the folder in a container, the container itself will be created.  The first run will take longer as the container is built.  After that, container start-up should be almost instantaneous.
 
-```
-@toochevere ➜ ~/repos (<>) $
-```
+3) After the container finishes building, shut down VS Code and give it a few seconds for the container to fully shut down.  When `docker ps` shows no containers running, reopen VS and you should be good to go.
 
-Any repos cloned should be put under the `repos/` folder.  A command line alias (actually it's a bash function but let's not be picky) exists in order to make this easy:  `get-repo`.  Simply use `get-repo` command with the name of the repo you wish to clone:
+NOTE:  Be careful that the container has finished building before you shut down VS Code.  This isn't always super clear by looking at the log.  When the log gets to where ports are being forwarded (see example), you are usually good to go.
 
 ```
-@toochevere ➜ ~/repos (<>) $ get-repo devops
+[74284 ms] Port forwarding 43888 > 44963 > 44963 stderr: Connection established
+[79289 ms] Port forwarding 43888 > 44963 > 44963 stderr: Remote close
+[79295 ms] Port forwarding 43888 > 44963 > 44963 terminated with code 0 and signal null.
 ```
 
-If the repos is not yet present under the `~/repos` folder then it will be cloned.  If it is present, it will be updated.   If the newly cloned repos has a `scripts` folder, then it will be automatically added to the `PATH` variable and any scripts will be available.  
+## More information
 
-**Note** that part of the setup script asked for a GitHub SSH key.  This key is used to clone the private repos.  If you did not provide a key, you will not be able to clone the private repos. 
-
-Once you have the repos cloned, you can then open any of them in the dev environment.  This can be done by (in VS Code) opening the command palette and choosing "Open Workspace from file" and selecting the workspace you wish to open.  You can also open the terminal in VS Code, navigate to the folder you want to open, and use the command `code <workspace file or folder>`.  Once you open a project, it will be add to the "Recent" list in VS Code and you can quickly open it in the future. 
-
-## Updating the dev environment
-
-The dev environment will check for updates to it's code.  This happens periodically.  If it finds an update has happened (a new commit has been pushed to `master` in the `devenv` repo) then it will warn the user when a command line is opened.  The user is given the option to pull the latest changes in `master`.  If the change was a major version change, then the user will also be warned they should rebuild the container. 
-
-## Utilities
-
-### Scripts 
-
-A few utility scripts have been provided to make life happy.
-
-* `get-services-config.sh` This script pulls the service config from it's repository into the local dev environment.  It is placed in `~/debug/config`
-* `0x0.st` A script to push a file to the 0x0 file sharing site
-* `count-code-lines.sh` A utility to count code lines in a file or folder
-* `docker-build.sh` A utility to build a project using Docker.
-* `docker-down.sh` A utility to bring down a local docker configuration
-* `docker-up.sh` A utility to bring up a local docker configuration
-* `enable-container-dotnet-debugger.sh` A utility to inject and run the dotnet debugger into a locally running container.
-* `file.io` A utility to push a file to the file.io file sharing site.
-* `update-repos.sh` A utility to update all repos in the `~/repos` folder.
-
-### Git extensions 
-
-The following are additional `git` commands that extend it's basic capabilities. 
-
-* `git graph` Provides a graphical display of the commit history
-* `git graph-all` Provides a graphical display of the commit history for all branches
-* `git prune-branches` Prunes local branches that are no longer needed
+For more information see [The Development Environment](./docs/Dev-container-environment.md) section of the documentation. 
 
 ## Coding documentation
 
-* [Coding Standards](docs/coding-standards.md)
-* [Coding workflow, getting code into production](docs/coding-workflow.md)
-* [Culture](docs/culture.md)
+* [The development environment](./docs/Dev-container-environment.md)
+* [Coding Standards](docs/Coding-standards.md)
+* [Contributing](docs/Contributing.md)
+* [Culture](docs/Culture.md)
+* [Understanding services](./docs/Understanding-services.md)
 
 ## Reference
 
