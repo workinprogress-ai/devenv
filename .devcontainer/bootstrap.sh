@@ -139,7 +139,7 @@ alias ll='ls -lah'
 export TZ='$(cat $timezone_file)'
 
 get-repo() {
-    bash $toolbox_root/scripts/get-repo.sh "$@"
+    bash $toolbox_root/scripts/get-repo.sh "\$@"
     source \$HOME/.bashrc
 }
 
