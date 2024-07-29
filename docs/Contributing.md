@@ -114,13 +114,39 @@ All suggestions need to be carefully considered by the contributor.  They are we
 
 Some suggestions might be of such low importance that they could be skipped if no more changes are to be made because of weightier suggestions.  These can be prepended by `nit: ` by the reviewer.  Example:  `nit:  Remove extra line`
 
-### Git history
+## Git history
 
 History should be orderly and neat.  It should be organized in a way that makes it easy for a reviewer to understand the changes.  We officially use [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) to standardize the commit messages and commit hooks are in place in each repo to assist with compliance to the standard.  Here is a [handy cheat sheet](https://gist.github.com/qoomon/5dfcdf8eec66a051ecd85625518cfd13) to help you.
 
 Generally speaking, each commit should be as small as possible and reasonable, and represent a complete change that can be reviewed independently. In any case, _always think about the reviewer_ and do to others as you would like to have them to do you.
 
 As a final note, if you do not understand git well then you _must_ ask questions and learn how to use it properly.  It can be a bit difficult to understand sometimes; we've all been there.  Simply guessing will result in a mess and is not a good idea.
+
+## Exploratory or experimental work
+
+There are times when it may be necessary to do some exploratory work or other work where you do not want the git hooks to run.  This might be work that is not directly related to a story or issue, perhaps to  understand a problem or to try out a solution.  Or it may be other work that you do not intend to be a part of the official commit history.  In such cases, you should use a branch that is prefixed with `exploratory-`.  Other prefixes could be `wip-` or `tmp-`.  
+
+### Skipping Git Hooks
+
+For a Single Command
+Most Git commands include a -n/--no-verify option to skip hooks:
+
+`git commit -m "..." -n # Skips Git hooks`
+
+For commands without this flag, disable hooks temporarily with HUSKY=0:
+
+`HUSKY=0 git ... # Temporarily disables all Git hooks`
+
+To disable hooks for an extended period (e.g., during rebase/merge):
+
+```
+export HUSKY=0 # Disables all Git hooks
+git ...
+git ...
+unset HUSKY # Re-enables hooks
+```
+
+Disabling commit hooks allows you to work freely without the constraints they impose.  However, you should still commit often and write good commit messages.  When you are done with the exploratory work, you can merge it into a branch that is subject to the commit hooks.  This will allow you to clean up the history and make it presentable.
 
 ## Leave your ego at the door
 
