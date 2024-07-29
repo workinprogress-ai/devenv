@@ -5,7 +5,6 @@ scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"; scriptfile="$0"; 
 
 on_error() {
   echo "An error occurred. Running cleanup."
-  touch $HOME/.ran_bootstrap
   exit 1;
 }
 
@@ -21,12 +20,12 @@ add_nuget_source_if_not_exists() {
     local password="$4"
 
     # Check if the source already exists
-    if ! nuget sources list | grep -q "$sourceUrl"; then
+    if ! dotnet nuget list source | grep -q "\"$sourceUrl\""; then
         if [ -n "$username" ] && [ -n "$password" ]; then
-            nuget sources add -name "$sourceName" -source "$sourceUrl" -username "$username" -password "$password"
+            dotnet nuget add source "$sourceUrl" -n "$sourceName" -u "$username" -p "$password" --store-password-in-clear-text
             echo "NuGet source $sourceName with credentials added."
         else
-            nuget sources add -name "$sourceName" -source "$sourceUrl"
+            dotnet nuget add source "$sourceUrl" -n "$sourceName"
             echo "NuGet source $sourceName added."
         fi
     else
@@ -174,9 +173,23 @@ export MAJOR_VERSION=$MAJOR_VERSION
 export MINOR_VERSION=$MINOR_VERSION
 export PATCH_VERSION=$PATCH_VERSION
 
+container_bootstrap_run_file="\$HOME/.bootstrap_run_time"
+repo_bootstrap_run_file="$toolbox_root/.devcontainer/.bootstrap_run_time"
+
+function get_run_time() {
+    if [ ! -f \$1 ]; then
+        echo "0"
+    else
+        cat \$1
+    fi
+}
+
 if \$DEVENV_ROOT/.devcontainer/check-update-devenv-repo.sh ; then 
     #source \$HOME/.bashrc
     echo "Devenv repo updated!"
+elif [ \$(get_run_time \$container_bootstrap_run_file) != \$(get_run_time \$repo_bootstrap_run_file) ]; then
+    echo "WARNING!!!!!  The container bootstrap run time does not match the repo bootstrap run time."
+    echo "Please rebuild dev env!!!!!!!!!"
 fi
 
 if [[ \$(pwd) == /workspaces* ]]; then
@@ -323,6 +336,10 @@ echo "--------------------------------------------------------------"
 echo "Please exit out of VS Code and let the container restart."
 echo "Please restart the container to complete the setup."
 
-touch $HOME/.ran_bootstrap
+container_bootstrap_run_file="$HOME/.bootstrap_run_time"
+repo_bootstrap_run_file="$toolbox_root/.devcontainer/.bootstrap_run_time"
+
+date +%s > $container_bootstrap_run_file
+cp $container_bootstrap_run_file $repo_bootstrap_run_file
 
 cd $HOME/repos

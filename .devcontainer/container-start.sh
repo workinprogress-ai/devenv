@@ -7,8 +7,18 @@ export DEVCONTAINER=true
 script_path=$(readlink -f "$0")
 script_folder=$(dirname "$script_path")
 toolbox_root=$(dirname "$script_folder")
+container_bootstrap_run_file="$HOME/.bootstrap_run_time"
+repo_bootstrap_run_file="$toolbox_root/.devcontainer/.bootstrap_run_time"
 
-if ! [ -f $HOME/.ran_bootstrap ]; then
+function get_run_time() {
+    if [ ! -f $1 ]; then
+        echo "0"
+    else
+        cat $1
+    fi
+}
+
+if ! [ -f $container_bootstrap_run_file ]; then
     echo "Bootstrap has not yet been run, running now"
     sed -i 's/\r//g' $toolbox_root/.devcontainer/bootstrap.sh
     chmod +x $toolbox_root/.devcontainer/bootstrap.sh
@@ -18,21 +28,26 @@ if ! [ -f $HOME/.ran_bootstrap ]; then
     if [ -f $toolbox_root/.devcontainer/devcontainer/custom_bootstrap.sh ]; then
         /bin/bash $toolbox_root/.devcontainer/custom_bootstrap.sh
     fi
+elif [ $(get_run_time $container_bootstrap_run_file) != $(get_run_time $repo_bootstrap_run_file) ]; then
+    echo "WARNING!!!!!  The container bootstrap run time does not match the repo bootstrap run time."
+    echo "Please rebuild dev env!!!!!!!!!"
+    exit 1;
 fi
+
 
 # If there is a custom startup, run it
 if [ -f $toolbox_root/.devcontainer/devcontainer/custom_startup.sh ]; then
     /bin/bash $toolbox_root/.devcontainer/custom_startup.sh
 fi
 
-if ! [ -f $HOME/.ran_bootstrap ]; then
+if ! [ -f $container_bootstrap_run_file ]; then
     echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
     echo "WARNING:  Bootstrap has not yet successfully run!"
     echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 else
     cd $HOME/repos
     if [ -z "$(find . -mindepth 1 -maxdepth 1 -type d)" ]; then
-        echo "No repos have been cloned yet.  If you want to clone the standard repos, run the following command:"
-        echo "update-repos.sh"
+        echo "No repos have been cloned yet.  If you want to clone a standard repo, run the following command:"
+        echo "get-repo <repo name>"
     fi
 fi
