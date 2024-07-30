@@ -43,6 +43,11 @@ else
     fi
     cd "$TARGET_DIR"
     git fetch --tags
+
+    git config core.autocrlf false
+    git config core.eol lf
+    git config pull.ff only
+
     init=".repo/init.sh"
     if [ -f "$init" ]; then
         echo "=> Running init script for $repo_name..."

@@ -9,6 +9,7 @@ script_folder=$(dirname "$script_path")
 toolbox_root=$(dirname "$script_folder")
 container_bootstrap_run_file="$HOME/.bootstrap_run_time"
 repo_bootstrap_run_file="$toolbox_root/.devcontainer/.bootstrap_run_time"
+bootstrap_running_file="$HOME/.bootstrap_running"
 
 function get_run_time() {
     if [ ! -f $1 ]; then
@@ -18,25 +19,34 @@ function get_run_time() {
     fi
 }
 
-if ! [ -f $container_bootstrap_run_file ]; then
+function on_error() {
+    echo "Error running script"
+    rm $bootstrap_running_file &> /dev/null
+    exit 1
+}
+
+trap on_error ERR
+
+if [ ! -f $container_bootstrap_run_file ] && ! [ -f $bootstrap_running_file ]; then
+    touch $bootstrap_running_file
     echo "Bootstrap has not yet been run, running now"
     sed -i 's/\r//g' $toolbox_root/.devcontainer/bootstrap.sh
     chmod +x $toolbox_root/.devcontainer/bootstrap.sh
     $toolbox_root/.devcontainer/bootstrap.sh
 
     # If there is a custom startup, run it
-    if [ -f $toolbox_root/.devcontainer/devcontainer/custom_bootstrap.sh ]; then
+    if [ -f $toolbox_root/.devcontainer/custom_bootstrap.sh ]; then
         /bin/bash $toolbox_root/.devcontainer/custom_bootstrap.sh
     fi
+    rm $bootstrap_running_file
 elif [ $(get_run_time $container_bootstrap_run_file) != $(get_run_time $repo_bootstrap_run_file) ]; then
     echo "WARNING!!!!!  The container bootstrap run time does not match the repo bootstrap run time."
     echo "Please rebuild dev env!!!!!!!!!"
     exit 1;
 fi
 
-
 # If there is a custom startup, run it
-if [ -f $toolbox_root/.devcontainer/devcontainer/custom_startup.sh ]; then
+if [ -f $toolbox_root/.devcontainer/custom_startup.sh ]; then
     /bin/bash $toolbox_root/.devcontainer/custom_startup.sh
 fi
 

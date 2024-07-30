@@ -4,8 +4,10 @@ repos/*
 .debug/*
 .setup/
 .setup/*
-repo_list
-repo_list.extra
 .update-time
-node_modules
+node_modules/
 .bootstrap_run_time
+.cache/
+.pnpm-store/
+.devcontainer/custom_startup.sh
+.devcontainer/custom_bootstrap.sh

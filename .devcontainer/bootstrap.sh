@@ -204,9 +204,6 @@ echo "# Package install"
 echo "#############################################"
 
 if command -v nvm > /dev/null 2>&1; then
-    #curl -sL https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor | sudo tee /usr/share/keyrings/yarnkey.gpg >/dev/null
-    #echo "deb [signed-by=/usr/share/keyrings/yarnkey.gpg] https://dl.yarnpkg.com/debian stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
-    
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
     export NVM_DIR="/usr/local/share/nvm"
     source ~/.bashrc
@@ -270,7 +267,7 @@ echo "# Node packages"
 echo "#############################################"
 #npm install -g npx
 call_npm install -g zx
-call_npm install -g yarn
+call_npm install -g pnpm
 
 echo "# Configure git"
 echo "#############################################"
@@ -328,7 +325,7 @@ fi
 
 echo "# Configure local devenv repo hooks"
 echo "#############################################"
-yarn install
+pnpm install
 
 echo "Bootstrap complete"
 echo "--------------------------------------------------------------"
