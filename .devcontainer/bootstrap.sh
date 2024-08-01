@@ -100,7 +100,7 @@ else
     echo "WARNING!!!  No github key found in $setup_dir/github_key"
 fi
 if [ -f $setup_dir/github_token.txt ]; then
-    PACKAGE_ACCESS=$(cat $setup_dir/github_token.txt)
+    DEVENV_GH_TOKEN=$(cat $setup_dir/github_token.txt)
 else 
     echo "WARNING!!!  No PAT found in $setup_dir/github_token.txt"
 fi
@@ -165,7 +165,7 @@ export ENV_NAME=local
 export DICTIONARY_SERVER=localhost:6379
 export DOCUMENT_SERVER=localhost
 export GIT_TERMINAL_PROMPT=1
-export PACKAGE_ACCESS=$PACKAGE_ACCESS
+export DEVENV_GH_TOKEN=$DEVENV_GH_TOKEN
 export GITHUB_USER=$GITHUB_USER
 export DEVENV_UPDATE_INTERVAL=$((12 * 3600)) # 12 hours.  This can be changed as needed.
 export INSTALL_VERSION=$VERSION
@@ -214,7 +214,7 @@ fi
 
 sudo apt update
 sudo apt upgrade -y
-sudo apt install gcc g++ make xmlstarlet redis-tools chromium cifs-utils xmlstarlet -y
+sudo apt install gcc g++ make xmlstarlet redis-tools chromium cifs-utils xmlstarlet gh -y
 #sudo apt install mongocli -y
 
 if [ "$is_arm" == "1" ]; then
@@ -249,6 +249,10 @@ rm mongo-shell.deb
 
 # rm dotnet-install.sh
 
+echo "# Log in to github"
+echo "#############################################"
+gh auth login --hostname github.com --with-token <<< $DEVENV_GH_TOKEN
+
 echo "# Configure .net"
 echo "#############################################"
 
@@ -256,7 +260,7 @@ local_nuget_dev=$toolbox_root/.debug/local-nuget-dev
 mkdir -p $local_nuget_dev
 
 add_nuget_source_if_not_exists "dev" $local_nuget_dev
-add_nuget_source_if_not_exists "github" https://nuget.pkg.github.com/workinprogress-ai/index.json $GITHUB_USER $PACKAGE_ACCESS
+add_nuget_source_if_not_exists "github" https://nuget.pkg.github.com/workinprogress-ai/index.json $GITHUB_USER $DEVENV_GH_TOKEN
 
 /usr/bin/dotnet tool install --global altcover.global
 /usr/bin/dotnet dev-certs https

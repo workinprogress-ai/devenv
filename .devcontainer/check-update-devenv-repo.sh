@@ -3,6 +3,8 @@
 script_path=$(readlink -f "$0")
 script_folder=$(dirname "$script_path")
 
+cd $script_folder
+
 # Set the update interval if not already set in the environment
 DEVENV_UPDATE_INTERVAL=${DEVENV_UPDATE_INTERVAL:-$((8 * 3600))} # 12 hours default
 
@@ -43,6 +45,7 @@ LOCAL_HASH=$(git rev-parse master)
 REMOTE_HASH=$(git rev-parse origin/master)
 
 if [ "$LOCAL_HASH" == "$REMOTE_HASH" ]; then
+    cd - &> /dev/null
     exit 1
 fi
 
@@ -52,8 +55,10 @@ if [[ $CURRENT_VERSION =~ ([0-9]+)\.([0-9]+)\.([0-9]+)(-([a-zA-Z0-9]+)\.([0-9]+)
     CURRENT_MINOR_VERSION=${BASH_REMATCH[2]}
     CURRENT_PATCH_VERSION=${BASH_REMATCH[3]}
 else
-    echo "Error: VERSION format is not recognized"
-    exit 1
+    echo "Warning: VERSION format is not recognized"
+    MAJOR_VERSION=0
+    MINOR_VERSION=0
+    PATCH_VERSION=0
 fi
 
 # Ask the user if they want to update the repository
@@ -76,10 +81,12 @@ case $answer in
             echo "********************************************************"
             echo 
         fi
+        cd - &> /dev/null
         exit 0;
         ;;
     * )
         ;;
 esac
 
+cd - &> /dev/null
 exit 1;
