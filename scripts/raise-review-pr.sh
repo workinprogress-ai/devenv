@@ -47,5 +47,8 @@ PR_CMD_RET=$(gh pr create --title "$PR_TITLE" --body "$PR_BODY" --base "$NEW_BRA
 
 git checkout "$CURRENT_BRANCH" || explode "Failed to switch back to the current branch"
 
+git push origin :$NEW_BRANCH || explode "Failed to remove the review branch $NEW_BRANCH"
+git branch -D "$NEW_BRANCH" || explode "Failed to delete the review branch $NEW_BRANCH"
+
 # Output the PR URL
 echo url=$(echo "$PR_CMD_RET" | grep -oP '(?<=Pull Request URL: ).*')
