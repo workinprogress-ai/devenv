@@ -76,7 +76,10 @@ The script will ask you for the following information:
 * Your workinprogress.ai email:  This identifies you by email in all commits. 
 * Your timezone:  This is in order to correctly display your local time within the container.  By default, the script will attempt to determine your time zone.  If it does so correctly, then you can just hit ENTER and accept the default. 
 * A github SSH key:  This is for use when dealing with repository remotes.  The script will help you to create one if you do not already have one.  You will need to add the public part of the key to your [github settings](https://github.com/settings/keys). 
-* A github PAT:  The Personal Access Token is what allows package access and other functions from the dev environment. You can create one by going in github to Settings -> Developer Settings -> Personal Access Tokens -> Classic and click on [the link to create a new token](https://github.com/settings/tokens/new).  This token should have READ access for PACKAGES (look for `read:packages`).  The recommended note should be 'PACKAGE_ACCESS' and the expiration should be 'No Expiration'.  (Note:  An argument could be made that storing the PAT in plain text is a security risk.  This PAT should only have package read access.  If you follow the directions, the overall risk is minimal.  At most, a bad actor could gain access to our packages.  Not the end of the world.  If you are concerned about this, feel free to delete the `github_token.txt` file once the container comes on line.)
+* A github PAT:  The Personal Access Token is what allows package access and other functions from the dev environment. You can create one by going in github to Settings -> Developer Settings -> Personal Access Tokens -> Classic and click on [the link to create a new token](https://github.com/settings/tokens/new).  The recommended note should be 'DEVENV_GH_TOKEN' and the expiration should be 'No Expiration'.  (Note:  An argument could be made that storing the PAT in plain text is a security risk.  If you are concerned about this, feel free to delete the `github_token.txt` file once the container comes on line.)  This token should have the following access:
+   - repo (all)
+   - read:packages
+   - read:org
 
 ## Creating the Dev Container
 
@@ -106,7 +109,8 @@ For more information see [The Development Environment](./docs/Dev-container-envi
 * [Coding Standards](docs/Coding-standards.md)
 * [Contributing](docs/Contributing.md)
 * [Culture](docs/Culture.md)
-* [Understanding services](./docs/Understanding-services.md)
+* For information about services in general, go to the [Services core libraries repo](https://github.com/workinprogress-ai/lib.services.core).
+* For information about specific services, look at the README for the service. 
 
 ## Reference
 

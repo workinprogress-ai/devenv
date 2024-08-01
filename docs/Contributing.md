@@ -12,11 +12,11 @@ There are no super heros on the team.  The work we do is not individual but rath
 
 ## Code quality
 
-Anyone contributing to this repository needs to think about quality, craftsmanship, and attention to detail.  The code that is accepted by the team and merged to `master`.  Therefore, `master` represents code that the team has accepted and owns.
+Anyone contributing to this repository needs to think about quality, craftsmanship, and attention to detail.  
 
 When a Pull Request is raised, it must have already passed review by the contributor themselves.  (Unless it is a draft Pull Request, which is meant for discussion.)  The contributor is responsible for putting forward code of high quality.  Even details such as formatting and line breaks must be carefully aligned to standards.
 
-Although we raise PR's in good faith with our best efforts, nobody is perfect and no one can reach the level of quality on their own that the team can reach together.  Therefore, the [review process](#reviews) is stringent.  Once code is merged to `master`, the team takes responsibility for it and any consequences that may happen because of bugs or mistakes.  The PR process is therefore not taken lightly.
+Although we raise PR's in good faith with our best efforts, nobody is perfect and no one can reach the level of quality on their own that the team can reach together.  Therefore, the [review process](#reviews) is stringent.  Once code is merged to `master`, the team takes responsibility for it and any consequences that may happen because of bugs or mistakes.  So everyone has the right to review code and to contribute toward it's quality. 
 
 Code quality is guided by the [documented coding standards](./Coding-standards.md) but it is more than a set of rules.  It results from a deep pride in the work we do, coupled by attention to detail and a passion for the art.
 
@@ -39,7 +39,7 @@ Work is divided into stories (issues) and tasks.  A story or issue describes _wh
 
 A story or issue has _tasks_.  Tasks are small chunks of work that can be independently implemented without breaking any existing functionality.  
 
-When starting on a story or issue, cut a feature or bugfix branch in which to do the work.
+When starting on a story or issue, cut a feature or bugfix branch in which to do the work.  Generally, you will continue to use that same branch until the feature is complete.  When merging, retain the branch until the feature is complete.  Note that if the branch gets deleted from the remote, it's not big deal.  It will be created again when you push. 
 
 ### Coding (executing a task)
 
@@ -51,17 +51,31 @@ After cutting the branch...
 
 Remember, each commit should contain code that a) does not break anything and b) is fully covered by tests.  It is possible that in some cases, you might need to temporarily lower coverage or make other temporary changes as you implement the overall task.  Generally these should be removed before _merging_.  However, at times code must be left in a partial state between tasks.  Liberally use TODO's for such changes that are still to be done.  Use `TODO: #NNNNN <description>` with the issue or story number and a description of what needs to be done. 
 
-Note:  The commit hooks and protocol is really designed to encourage a TDD approach to coding.  The tests will run with each commit, encouraging a) small and atomic changes and b) accompanying tests.  This will naturally tend to emerge from using TDD.
+Note:  The commit hooks and protocol is really designed to encourage a TDD approach to coding.  The tests will run with each commit, encouraging a) small and atomic changes and b) accompanying tests.  This will naturally tend to emerge from using TDD.  However, if you are not using TDD, you will need to be disciplined about writing tests.  The commit hooks will not allow you to commit without tests.
 
 ### Merging code
 
-Code is merged into `master` by way of a pull request.  The pull request is a way of documenting the merge.  When you bring up the pull request, the *must review* this code before merging it (see the section below on [Reviews](#reviews)).  If the code passes the review, then feel free to merge it.    
+Code is merged into `master` by way of a pull request.  The pull request is a way of documenting the merge.  When you bring up the pull request, the *must review* this code yourself as a first step (see the section below on [Reviews](#reviews)).  
+
+Regarding whether you can simply approve your own PR and merge it will depend on a few factors.  In this, your best judgement as a professional is key.  
+
+Generally, get a review of your code synchronously by pulling someone it to review your code with you together in a conversation.  If no-one is available or this is not possible, get an agreement with someone to review your code within the next few hours.  If this is not possible, then you can merge the code yourself.  In such a case, get a review asynchronously as soon as possible.  In other words, you can merge the code and proceed, but the review must happen. 
+
+So to summarize:
+1. It is preferred to review code synchronously and in real time with another team member.
+2. If that is not possible, then get an agreement to review the code asynchronously.
+3. If that is not possible, then you can merge the code yourself.  But you must get a review as soon as possible.
+4. If the changes are small and fairly trivial, you can opt to skip the review.  If you merge code without a review, you must be prepared to answer for this decision.
 
 When you merge code, various tests will potentially run.  Unit tests will run.  Generally these should pass since the commit hooks obligate you to run them.  After that, any functional tests will run (depending on the repo and where it fits into the overall system).  Any and all tests must result in a GREEN pipeline (all tests must pass).  If that is not the case (if a test fails), then the immediate and non-negotiable priority is to bring the pipeline back to a GREEN or passing state.  
 
-Put another way, you will often merge work that is incomplete or features that are "dark" until a later date.  But you break something, must never never never allow the code in `master` to stay in a broken state.  You must _immediately_ *fix the problem or else revert the code*.  
+Put another way, you will often merge work that is incomplete or features that are "dark" until a later date.  But you break something, must never never never allow the code in `master` to stay in a broken state.  You must _immediately_ *fix the problem or else revert the code*.  In fact, broken code in `master` becomes the problem of the entire team.  So a RED state is disruptive and must be fixed immediately.
 
 After merging, continue working on the same branch.  This will help the _final reviewer_ to examine all the changes related to the same issue or story.  
+
+Obviously, this means that some features will be shipped "dark" because code for those changes could get into production well ahead of the the feature being fully ready.  This takes us back to the absolutely non-negotiable rule:  Never break anything existing.  
+
+The other piece that is necessary at times in order to ship dark is the use of _feature flags_ that can control when something becomes visible to the user.  See the [section on feature flags](#feature-flags) for more information. 
 
 ### Resolving merge conflicts 
 
@@ -77,25 +91,35 @@ Reviews come in three different flavors:
 
 #### Self reviews
 
-As you are merging code via a pull request, you *must review your own code*.  When you do so, treat it as if it belongs to another person.  Review it meticulously and critically.  Be your own worst enemy.  Be the teammate you hate to work with because they are so picky.  
+As you bring up pull requests, you *must review your own code*.  When you do so, treat it as if it belongs to another person.  Review it meticulously and critically.  Be your own worst enemy.  Be the teammate you hate to work with because they are so picky.  
 
 #### "Work in progress" reviews
 
 Every team member should welcome feedback and actively seek it.  As you are working on a story or issue, you should be conscious of the need to invite others to review your code.  
 
-Open a draft PR and tag a member of the team to review your code with you. Inform the person you need a review and then either get on a call together and walk through it doing the review in real time or else get an agreement with the person to do the review asynchronously.  Note that a review in real-time is preferable.  Nothing substitutes for a real conversation.  
+Generally speaking you will want to have someone review your code with each PR.  These are a form of "work in progress" reviews.  You can also open a draft PR and ask a member of the team to review your code with you. Inform the person you need a review and then either get on a call together and walk through it doing the review in real time or else get an agreement with the person to do the review asynchronously.  Note that a review in real-time is preferable.  Nothing substitutes for a real conversation.  
 
-In any case, feedback on the review should be document on the draft PR.  When complete, the contributor can then use the feedback to make changes to the code.  
+In any case, feedback on the review should be documented on the draft PR.  When complete, the contributor can then use the feedback to make changes to the code.  
 
 You should request reviews often!
 
 In addition to requested reviews, any team member should feel that they can review anyone else's code at any time.  Permission does not need to be requested.  In such a case, open a draft PR on the person's branch and provide the feedback.  However keep in mind that without good communication, you could be reviewing things that are in flux and may not represent what someone intends to finally merge. 
 
+#### "Pulse" reviews
+
+Work that is done across all repos should be reviewed on a daily basis.  These reviews are not as deep obviously and are meant to keep a finger on the "pulse" of the project.  For this, some tooling has been created to get a snapshot of all changes that have occurred recently in all repos.  This is a good way to keep up with what is happening in the project.
+
+Generally speaking this type of review will be done by whoever is acting as the lead engineer at the time.  However, any team member can do this type of review. 
+
+If a reviewer notices something on one of these reviews, generally he will bring it up directly to the person.  He might also bring up a draft PR and tag the person with it.  This is a way to keep the process moving forward. 
+
 #### Final reviews
 
 Before a story or issue can be complete, a final review should take place.  For very simple issues, this may not always be necessary.  The review process does not block _tasks_ but will block _features_ or _stories_.  
 
-For the final review, bring up a draft PR and tag someone with it.  Generally the person tagged should be the maintainer of the repo.  There may be the need to iterate several times.  The final review finishes when the reviewer gives a LGTM. 
+For the final review, bring up a draft PR and tag someone with it.  This draft PR should be between the branch where the development has happened and a temporary branch that points to the first _parent commit_ in that same branch.  This will alow for a diff of all that has happened.  
+
+Generally the person tagged for final review should be the maintainer of the repo.  There may be the need to iterate several times.  The final review finishes when the reviewer gives a LGTM.  If the rest of the review process is functioning well, then this review should be quick and easy.  If not, then the maintainer may need to help other reviewers to improve their process.
 
 #### What to look for in a review 
 
@@ -147,6 +171,12 @@ unset HUSKY # Re-enables hooks
 ```
 
 Disabling commit hooks allows you to work freely without the constraints they impose.  However, you should still commit often and write good commit messages.  When you are done with the exploratory work, you can merge it into a branch that is subject to the commit hooks.  This will allow you to clean up the history and make it presentable.
+
+## Feature flags
+
+By merging often, changes will make their way into `master` and be shipped often long before they are fully ready.  As long as nothing is broken by code in `master`, this is not a problem.  However, sometimes it is necessary to ship code will make changes that a user would see if nothing was otherwise done.  This is where feature flags come in.
+
+Feature flags are a set of configurable values that allow code to make a branching decision.  When the feature flag is _disabled_, the code will continue to execute along the previous (deprecated) path.  When the feature flag is _enabled_, the code will execute along the new path.  This allows code to be shipped "dark" and then turned on when it is ready.  It also allows for A/B testing and other types of experimentation.
 
 ## Leave your ego at the door
 
