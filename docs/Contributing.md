@@ -77,6 +77,9 @@ Obviously, this means that some features will be shipped "dark" because code for
 
 The other piece that is necessary at times in order to ship dark is the use of _feature flags_ that can control when something becomes visible to the user.  See the [section on feature flags](#feature-flags) for more information. 
 
+**IMPORTANT NOTE ABOUT MERGE MESSAGES!!!**
+When merging a PR, you **must** customize the merge message and get rid of the garbage that Azure Devops puts there.  The merge commit must follow the standard for [conventional commits](#conventional-commits).  
+
 ### Resolving merge conflicts 
 
 When merging happens often, conflicts are reduced to a minimal and are easier to resolve.  When conflicts occur, _merge `master` back to the work branch_.  
@@ -87,19 +90,21 @@ This might seem to be strange, but there is a specific reason for it.  Because t
 
 The typical PR process tends to create blockers and bureaucracy.  The review process protocol employed here focuses on a) not blocking coding b) personal responsibility.  
 
-Reviews come in three different flavors:
+Reviews come in different flavors:
 
 #### Self reviews
 
 As you bring up pull requests, you *must review your own code*.  When you do so, treat it as if it belongs to another person.  Review it meticulously and critically.  Be your own worst enemy.  Be the teammate you hate to work with because they are so picky.  
 
-#### "Work in progress" reviews
+#### PR reviews (i.e., task-oriented reviews)
 
 Every team member should welcome feedback and actively seek it.  As you are working on a story or issue, you should be conscious of the need to invite others to review your code.  
 
-Generally speaking you will want to have someone review your code with each PR.  These are a form of "work in progress" reviews.  You can also open a draft PR and ask a member of the team to review your code with you. Inform the person you need a review and then either get on a call together and walk through it doing the review in real time or else get an agreement with the person to do the review asynchronously.  Note that a review in real-time is preferable.  Nothing substitutes for a real conversation.  
+Generally speaking you will want to have someone review your code with each PR.  You can also open a draft PR and ask a member of the team to review your code with you. Inform the person you need a review and then either get on a call together and walk through it doing the review in real time or else get an agreement with the person to do the review asynchronously.  Note that a review in real-time is preferable.  Nothing substitutes for a real conversation.  
 
 In any case, feedback on the review should be documented on the draft PR.  When complete, the contributor can then use the feedback to make changes to the code.  
+
+Note that a distinguishing feature of these reviews is that they concentrate on the _task_ being done, not on the whole body of changes in the story or issue.  Reviews that look at all the changes together are [final reviews or "progressive" reviews](#final-reviews-and-progressive-reviews).
 
 You should request reviews often!
 
@@ -113,13 +118,17 @@ Generally speaking this type of review will be done by whoever is acting as the 
 
 If a reviewer notices something on one of these reviews, generally he will bring it up directly to the person.  He might also bring up a draft PR and tag the person with it.  This is a way to keep the process moving forward. 
 
-#### Final reviews
+#### Final reviews and "progressive" reviews
 
-Before a story or issue can be complete, a final review should take place.  For very simple issues, this may not always be necessary.  The review process does not block _tasks_ but will block _features_ or _stories_.  
+Before a story or issue can be complete, a final review should take place.  For very simple issues, this may not always be necessary.  This final review process does not block _tasks_ but will block _features_ or _stories_.  It looks at the entire set of changes involved in a story or issue in order to give a final approval and check for any anti-patterns, etc.
 
-For the final review, bring up a draft PR and tag someone with it.  This draft PR should be between the branch where the development has happened and a temporary branch that points to the first _parent commit_ in that same branch.  This will alow for a diff of all that has happened.  
+For this final review, we use a draft PR that is a diff between the head of the branch and the parent commit of the branch.  All changes from the beginning will be included.  To create this diff, create a temporary "review branch" from the parent commit and then bring up a draft PR pointing at it from the feature branch.  After bringing up the draft PR, delete the temporary branch.  For convenience, we have a script that will do this automatically, `raise-review-pr.sh`.  
 
 Generally the person tagged for final review should be the maintainer of the repo.  There may be the need to iterate several times.  The final review finishes when the reviewer gives a LGTM.  If the rest of the review process is functioning well, then this review should be quick and easy.  If not, then the maintainer may need to help other reviewers to improve their process.
+
+Along with final reviews, occasionally it might be advisable to do a "progressive" review which includes all changes while the feature is still being developed.  A progressive review follows the same pattern using a draft PR.   
+
+_Note, why we are using a draft PR between the HEAD and parent of the branch:  Using a standard PR would not reflect changes that have been going on for a while and getting merged.  By cutting a temporary branch from the original parent commit of the branch and raising a draft PR from the HEAD to that branch, we can get a diff of all the changes that have been made._
 
 #### What to look for in a review 
 
@@ -140,11 +149,26 @@ Some suggestions might be of such low importance that they could be skipped if n
 
 ## Git history
 
-History should be orderly and neat.  It should be organized in a way that makes it easy for a reviewer to understand the changes.  We officially use [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) to standardize the commit messages and commit hooks are in place in each repo to assist with compliance to the standard.  Here is a [handy cheat sheet](https://gist.github.com/qoomon/5dfcdf8eec66a051ecd85625518cfd13) to help you.
+History should be orderly and neat.  It should be organized in a way that makes it easy for a reviewer to understand the changes.  
 
 Generally speaking, each commit should be as small as possible and reasonable, and represent a complete change that can be reviewed independently. In any case, _always think about the reviewer_ and do to others as you would like to have them to do you.
 
 As a final note, if you do not understand git well then you _must_ ask questions and learn how to use it properly.  It can be a bit difficult to understand sometimes; we've all been there.  Simply guessing will result in a mess and is not a good idea.
+
+The [next section](#conventional-commits) will give you some guidance on how to structure your commit messages.
+
+### Conventional commits
+
+We officially use [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) to standardize the commit messages and commit hooks are in place in each repo to assist with compliance to the standard.  Here is a [handy cheat sheet](https://gist.github.com/qoomon/5dfcdf8eec66a051ecd85625518cfd13) to help you.
+
+A brief summary: 
+
+* Use `fix:` for a fix that does not add a feature (patch)
+* Use `feat:` for a feature that does not break anything (minor)
+* Use `refactor:` for refactoring that does not add a feature or fix a bug
+* Use `docs:` for anything that purely changes documentation
+* Use `chore:` for other things that are not code related and that should not result in a version up.
+* Use the exclamation point for breaking changes.  For example `feat!:`
 
 ## Exploratory or experimental work
 
@@ -177,6 +201,10 @@ Disabling commit hooks allows you to work freely without the constraints they im
 By merging often, changes will make their way into `master` and be shipped often long before they are fully ready.  As long as nothing is broken by code in `master`, this is not a problem.  However, sometimes it is necessary to ship code will make changes that a user would see if nothing was otherwise done.  This is where feature flags come in.
 
 Feature flags are a set of configurable values that allow code to make a branching decision.  When the feature flag is _disabled_, the code will continue to execute along the previous (deprecated) path.  When the feature flag is _enabled_, the code will execute along the new path.  This allows code to be shipped "dark" and then turned on when it is ready.  It also allows for A/B testing and other types of experimentation.
+
+## Daily meetings
+
+There is usually at least one meeting per day when the team will work together for a period of time.  This is an ideal time to look at reviews that have been waiting.  It is also a good time for the team lead to do ["pulse" reviews](#pulse-reviews).  If something is noticed that should be discussed, the team is all there.  The reviewer can bring up quick issues right on the call, or else schedule another conversation later. 
 
 ## Leave your ego at the door
 

@@ -44,7 +44,9 @@ A few utility scripts have been provided to make life happy.
 * `docker-up.sh` A utility to bring up a local docker configuration
 * `enable-container-dotnet-debugger.sh` A utility to inject and run the dotnet debugger into a locally running container.
 * `file.io` A utility to push a file to the file.io file sharing site.
+* `get-repo` A utility to clone or update a repo in the `~/repos` folder.
 * `update-repos.sh` A utility to update all repos in the `~/repos` folder.
+* `raise-review-pr.sh` A utility to create a "progressive" or "final" PR for reviewing all changes. 
 
 ### Git extensions 
 

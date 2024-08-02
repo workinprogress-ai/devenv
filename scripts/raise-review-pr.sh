@@ -3,6 +3,11 @@
 # Function to explode if something goes wrong
 explode() {
   echo "Error: $1"
+  if [ -n "$NEW_BRANCH" ] && [ -n "$CURRENT_BRANCH" ] ; then
+    git checkout "$CURRENT_BRANCH" &>/dev/null
+    git push origin :$NEW_BRANCH &>/dev/null
+    git branch -D "$NEW_BRANCH" &>/dev/null
+  fi
   exit 1
 }
 
