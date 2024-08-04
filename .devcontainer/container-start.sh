@@ -55,7 +55,7 @@ if ! [ -f $container_bootstrap_run_file ]; then
     echo "WARNING:  Bootstrap has not yet successfully run!"
     echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 else
-    cd $HOME/repos
+    cd $toolbox_root/repos
     if [ -z "$(find . -mindepth 1 -maxdepth 1 -type d)" ]; then
         echo "No repos have been cloned yet.  If you want to clone a standard repo, run the following command:"
         echo "get-repo <repo name>"

@@ -78,7 +78,7 @@ Obviously, this means that some features will be shipped "dark" because code for
 The other piece that is necessary at times in order to ship dark is the use of _feature flags_ that can control when something becomes visible to the user.  See the [section on feature flags](#feature-flags) for more information. 
 
 **IMPORTANT NOTE ABOUT MERGE MESSAGES!!!**
-When merging a PR, you **must** customize the merge message and get rid of the garbage that Azure Devops puts there.  The merge commit must follow the standard for [conventional commits](#conventional-commits).  
+When merging a PR, you **must** ensure the title (and therefore the merge message) follows the standard for [conventional commits](#conventional-commits).  
 
 ### Resolving merge conflicts 
 
@@ -169,6 +169,46 @@ A brief summary:
 * Use `docs:` for anything that purely changes documentation
 * Use `chore:` for other things that are not code related and that should not result in a version up.
 * Use the exclamation point for breaking changes.  For example `feat!:`
+
+#### How conventional commits play with CI/CD and continuously merging small changes.  
+
+You might have a question about how convention commits work with CI/CD.  After all, we are merging changes that are not yet complete and should not yet be used even though they may get published in the packages as part of the merging process.  Just keep it simple and think in terms of the _public interface_.  In most cases, this resolves any confusion.  For example, let's say you are working on a new method of an existing interface.  When you first add the method, maybe the implementation throws a `NotImplemented` exception.  This gets committed and merged and makes it's way into `master`.  Perhaps you will supply the implementation in the _next_ PR and merge.  _When should you use `feat:`?  With the first commit and merge or with the second one, when the feature is actually complete?_
+
+With the first commit, you are making a change to the **interface** that the code exposes.  This is a feature.  Even though the implementation is not complete, the public interface now exposes it.  So you should use `feat:` in the first commit.  The second commit is a "fix", since technically the feature was not fully working before.  So you should use `fix:` for the second one.  This is the general rule.  If you are not sure, ask someone until it becomes natural.
+
+Common sense then becomes the guide as to when to update a consuming project for the one you are working on.  If the change is not yet complete, then the consuming project should not be updated.  If the change is complete, then the consuming project should be updated to whatever version number has all the changes.  Assuming you follow the rule to **never break anything existing** (at least, not breaking without being explicit about what is happening), then any project that picks up a new version with a feature in progress will not break. 
+
+#### What about breaking changes that are part of a feature that is not yet complete?
+
+##### For Branches Not Yet Merged:
+
+1. **Committing a Breaking Change in a Feature Branch:**
+   - Since the branch has not been merged yet, and you are working on an ongoing feature, you don't need to signal a breaking change explicitly in the context of the feature branch. 
+   - Continue to use `feat:` for your new features. 
+   - When introducing a breaking change within this same branch, it's not necessary to use `feat!:` or `fix!:` because the changes are contained within the branch and not yet visible to `master`.
+
+   **Example:**
+   - Initial commit: `feat: add new authentication module`
+   - Breaking change commit: `feat: update authentication module to use OAuth2`
+
+   When you squash and merge this branch, the breaking change will be included in the single `feat:` commit.
+
+##### For Features Already in Master but Dark:
+
+2. **Breaking Changes to Dark Features in Master:**
+   - When a feature has been merged into `master` and is dark (not yet used), and you later introduce a breaking change to it, you should still follow the conventions to signal the breaking change.
+   - In this case, since the feature is already in `master`, use `fix!` to indicate the breaking change. This helps maintain transparency and adherence to conventional commit messages, ensuring that any changes that might affect other developers or the CI/CD process are properly documented.
+
+   **Example:**
+   - Feature merged to master: `feat: add new authentication module`
+   - Breaking change commit: `fix!: update authentication module to use OAuth2`
+
+##### Summary:
+
+- **Unmerged Branch:** Use `feat:` for new features and include any breaking changes within that context without special notation. Squash merging will combine these into a single `feat:` commit.
+- **Dark Feature in Master:** Use `fix!:` to indicate the breaking change, even if the feature is dark, ensuring proper documentation and adherence to conventional commits.
+
+By following these guidelines, you maintain clarity and consistency in your commit history, making it easier for others to understand the context and impact of changes.
 
 ## Exploratory or experimental work
 

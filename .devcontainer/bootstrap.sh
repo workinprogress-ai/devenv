@@ -193,7 +193,7 @@ elif [ \$(get_run_time \$container_bootstrap_run_file) != \$(get_run_time \$repo
 fi
 
 if [[ \$(pwd) == /workspaces* ]]; then
-  cd \$HOME/repos
+  cd \$DEVENV_ROOT/repos
 fi
 
 EOF
@@ -311,21 +311,21 @@ bash $script_folder/download-csharp-debugger.sh
 echo fs.inotify.max_user_instances=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
 mkdir -p $toolbox_root/repos
 
-if [ ! -L "$HOME/repos" ]; then
-    ln -s "$toolbox_root/repos" "$HOME/repos"
-else
-    echo "Symbolic link $HOME/repos already exists."
-fi
-if [ ! -L "$HOME/devenv" ]; then
-    ln -s "$toolbox_root" "$HOME/devenv"
-else
-    echo "Symbolic link $HOME/devenv already exists."
-fi
-if [ ! -L "$HOME/debug" ]; then
-    ln -s "$toolbox_root/.debug" "$HOME/debug"
-else
-    echo "Symbolic link $HOME/debug already exists."
-fi
+# if [ ! -L "$HOME/repos" ]; then
+#     ln -s "$toolbox_root/repos" "$HOME/repos"
+# else
+#     echo "Symbolic link $HOME/repos already exists."
+# fi
+# if [ ! -L "$HOME/devenv" ]; then
+#     ln -s "$toolbox_root" "$HOME/devenv"
+# else
+#     echo "Symbolic link $HOME/devenv already exists."
+# fi
+# if [ ! -L "$HOME/debug" ]; then
+#     ln -s "$toolbox_root/.debug" "$HOME/debug"
+# else
+#     echo "Symbolic link $HOME/debug already exists."
+# fi
 
 echo "# Configure local devenv repo hooks"
 echo "#############################################"
@@ -343,4 +343,4 @@ repo_bootstrap_run_file="$toolbox_root/.devcontainer/.bootstrap_run_time"
 date +%s > $container_bootstrap_run_file
 cp $container_bootstrap_run_file $repo_bootstrap_run_file
 
-cd $HOME/repos
+cd $toolbox_root/repos
