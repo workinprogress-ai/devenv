@@ -39,7 +39,7 @@ Work is divided into stories (issues) and tasks.  A story or issue describes _wh
 
 A story or issue has _tasks_.  Tasks are small chunks of work that can be independently implemented without breaking any existing functionality.  
 
-When starting on a story or issue, cut a feature or bugfix branch in which to do the work.  Generally, you will continue to use that same branch until the feature is complete.  When merging, retain the branch until the feature is complete.  Note that if the branch gets deleted from the remote, it's not big deal.  It will be created again when you push. 
+When starting on a story or issue, cut a feature or bugfix branch in which to do the work.  Generally, you will continue to use that same branch until the feature is complete.  When merging, retain the branch until the feature is complete.  Note that if the branch gets deleted from the remote, it's not big deal.  It will be created again when you push.  **The key is that the branch must be there until the [final review](#final-reviews-and-progressive-reviews)**
 
 ### Coding (executing a task)
 
@@ -71,7 +71,7 @@ When you merge code, various tests will potentially run.  Unit tests will run.  
 
 Put another way, you will often merge work that is incomplete or features that are "dark" until a later date.  But you break something, must never never never allow the code in `master` to stay in a broken state.  You must _immediately_ *fix the problem or else revert the code*.  In fact, broken code in `master` becomes the problem of the entire team.  So a RED state is disruptive and must be fixed immediately.
 
-After merging, continue working on the same branch.  This will help the _final reviewer_ to examine all the changes related to the same issue or story.  
+After merging, **continue working on the same branch**.  This will help the _final reviewer_ to examine all the changes related to the same issue or story.  **Do not delete the branch until the [final review](#final-reviews-and-progressive-reviews) is complete**
 
 Obviously, this means that some features will be shipped "dark" because code for those changes could get into production well ahead of the the feature being fully ready.  This takes us back to the absolutely non-negotiable rule:  Never break anything existing.  
 
