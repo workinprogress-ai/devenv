@@ -12,8 +12,7 @@ __bash_prompt() {
             fi; \
             if [ "${BRANCH:-}" != "" ]; then \
                 echo -n "\[\033[0;36m\](\[\033[1;31m\]${BRANCH:-}" \
-                && if [ "$(git config --get devcontainers-theme.show-dirty 2>/dev/null)" = 1 ] && \
-                    git --no-optional-locks ls-files --error-unmatch -m --directory --no-empty-directory -o --exclude-standard ":/*" > /dev/null 2>&1; then \
+                && if git --no-optional-locks ls-files --error-unmatch -m --directory --no-empty-directory -o --exclude-standard ":/*" > /dev/null 2>&1; then \
                         echo -n " \[\033[1;33m\]✗"; \
                 fi \
                 && echo -n "\[\033[0;36m\]) "; \
@@ -25,8 +24,9 @@ __bash_prompt() {
 
     local pathpart='`\
         current_path="$(pwd)"; \
-        if [[ "$current_path" == *"/repos/"* ]]; then \
-            echo -n "\[\033[1;34m\].../${current_path#*/repos/}"; \
+        devenv_root="${DEVENV_ROOT:-}"  # Ensure DEVENV_ROOT is set
+        if [[ -n "$devenv_root" && "$current_path" == "$devenv_root/repos/"* ]]; then \
+            echo -n "\[\033[1;34m\]...${current_path#$devenv_root/repos}"; \
         else \
             echo -n "\[\033[1;34m\]$current_path"; \
         fi`'
