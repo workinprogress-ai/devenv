@@ -20,7 +20,7 @@ add_nuget_source_if_not_exists() {
     local password="$4"
 
     # Check if the source already exists
-    if ! dotnet nuget list source | grep -q "\"$sourceUrl\""; then
+    if ! dotnet nuget list source | grep -q "$sourceUrl"; then
         if [ -n "$username" ] && [ -n "$password" ]; then
             dotnet nuget add source "$sourceUrl" -n "$sourceName" -u "$username" -p "$password" --store-password-in-clear-text
             echo "NuGet source $sourceName with credentials added."
@@ -60,8 +60,10 @@ if [[ $VERSION =~ ([0-9]+)\.([0-9]+)\.([0-9]+)(-([a-zA-Z0-9]+)\.([0-9]+))? ]]; t
     MINOR_VERSION=${BASH_REMATCH[2]}
     PATCH_VERSION=${BASH_REMATCH[3]}
 else
-    echo "Error: VERSION format is not recognized"
-    exit 1
+    echo "Warning: VERSION format is not recognized"
+    MAJOR_VERSION=0
+    MINOR_VERSION=0
+    PATCH_VERSION=0
 fi
 
 # Make a backup of the .bashrc file so if we run this script multiple times, we don't 
@@ -87,9 +89,6 @@ echo "#############################################"
 wget -O $HOME/.git-completion.bash https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash
 chmod +x $HOME/.git-completion.bash
 chmod +x $toolbox_root/scripts/*
-
-echo "Set up SSH to work as it should"
-echo "#############################################"
 
 mkdir -p $HOME/.ssh
 touch $HOME/.ssh/github
@@ -117,14 +116,6 @@ EOF
 touch $HOME/.ssh/github
 chmod 600 $HOME/.ssh/github
 
-cat <<EOF >>$HOME/.bashrc
-if [ ! -S ~/.ssh/ssh_auth_sock ]; then
-  eval \`ssh-agent\` &>/dev/null
-  ln -sf "\$SSH_AUTH_SOCK" ~/.ssh/ssh_auth_sock
-fi
-export SSH_AUTH_SOCK=~/.ssh/ssh_auth_sock
-ssh-add -l > /dev/null || ssh-add &>/dev/null
-EOF
 
 echo "# Add additional stuff in .bashrc"
 echo "#############################################"
@@ -135,12 +126,19 @@ export DEVENV_ROOT=$toolbox_root
 export PATH="\$PATH:\${DEVENV_ROOT}/.debug/scripts"
 source \$HOME/.git-completion.bash
 alias ll='ls -lah'
-export TZ='$(cat $timezone_file)'
 
 get-repo() {
     bash $toolbox_root/scripts/get-repo.sh "\$@"
     source \$HOME/.bashrc
 }
+
+devenv() {
+    cd \$DEVENV_ROOT
+}
+
+repos() {
+    cd \$DEVENV_ROOT/repos
+} 
 
 # Check if the repos directory exists
 if [ -d "$repos_dir" ]; then
@@ -156,7 +154,24 @@ fi
 
 export PATH=\$PATH:\${DEVENV_ROOT}/scripts
 
-# Variables to run services locallys
+$toolbox_root/.devcontainer/sanity-check.sh
+source $toolbox_root/.devcontainer/env_vars.sh
+source $toolbox_root/.devcontainer/bash_prompt.sh
+source $toolbox_root/.devcontainer/load-ssh.sh
+
+if \$DEVENV_ROOT/.devcontainer/check-update-devenv-repo.sh ; then 
+    #source \$HOME/.bashrc
+    echo "Devenv repo updated!"
+fi
+
+if [[ \$(pwd) == \${DEVENV_ROOT} ]]; then
+  cd \$DEVENV_ROOT/repos
+fi
+
+EOF
+
+cat <<EOF >>$toolbox_root/.devcontainer/env_vars.sh
+export TZ='$(cat $timezone_file)'
 export DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false
 export DOTNET_USE_POLLING_FILE_WATCHER=true
 export CONFIG_FOLDER=\$DEVENV_ROOT/.debug/config
@@ -172,38 +187,14 @@ export INSTALL_VERSION=$VERSION
 export MAJOR_VERSION=$MAJOR_VERSION
 export MINOR_VERSION=$MINOR_VERSION
 export PATCH_VERSION=$PATCH_VERSION
-
-container_bootstrap_run_file="\$HOME/.bootstrap_run_time"
-repo_bootstrap_run_file="$toolbox_root/.devcontainer/.bootstrap_run_time"
-
-function get_run_time() {
-    if [ ! -f \$1 ]; then
-        echo "0"
-    else
-        cat \$1
-    fi
-}
-
-if \$DEVENV_ROOT/.devcontainer/check-update-devenv-repo.sh ; then 
-    #source \$HOME/.bashrc
-    echo "Devenv repo updated!"
-elif [ \$(get_run_time \$container_bootstrap_run_file) != \$(get_run_time \$repo_bootstrap_run_file) ]; then
-    echo "WARNING!!!!!  The container bootstrap run time does not match the repo bootstrap run time."
-    echo "Please rebuild dev env!!!!!!!!!"
-fi
-
-if [[ \$(pwd) == /workspaces* ]]; then
-  cd \$DEVENV_ROOT/repos
-fi
-
 EOF
 
-cat $toolbox_root/.devcontainer/bash_prompt_snippet >> $HOME/.bashrc
+chmod +x $toolbox_root/.devcontainer/env_vars.sh
 
 echo "# Package install"
 echo "#############################################"
 
-if command -v nvm > /dev/null 2>&1; then
+if command -v nvm > /dev/null 2>&1; then    
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
     export NVM_DIR="/usr/local/share/nvm"
     source ~/.bashrc
@@ -309,6 +300,7 @@ mkdir -p $toolbox_root/.debug/data
 mkdir -p $toolbox_root/.debug/config
 bash $script_folder/download-csharp-debugger.sh
 echo fs.inotify.max_user_instances=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
+
 mkdir -p $toolbox_root/repos
 
 # if [ ! -L "$HOME/repos" ]; then
@@ -330,6 +322,23 @@ mkdir -p $toolbox_root/repos
 echo "# Configure local devenv repo hooks"
 echo "#############################################"
 pnpm install
+
+if [ "$is_arm" == "1" ]; then
+    echo "# Install binfmt support for ARM"
+    echo "#############################################"
+    sudo apt install -y qemu-user-static binfmt-support
+    sudo update-binfmts --enable qemu-x86_64
+    #sudo dpkg --add-architecture i386
+    sudo dpkg --add-architecture amd64
+    sudo apt update
+    sudo apt install -y libc6:amd64
+    #sudo apt install -y libc6:i386
+fi
+
+# If there is a custom startup, run it
+if [ -f $toolbox_root/.devcontainer/custom_bootstrap.sh ]; then
+    /bin/bash $toolbox_root/.devcontainer/custom_bootstrap.sh
+fi
 
 echo "Bootstrap complete"
 echo "--------------------------------------------------------------"

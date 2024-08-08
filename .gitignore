@@ -11,3 +11,4 @@ node_modules/
 .pnpm-store/
 .devcontainer/custom_startup.sh
 .devcontainer/custom_bootstrap.sh
+.devcontainer/env_vars.sh

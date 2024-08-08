@@ -1,3 +1,5 @@
+#!/bin/bash
+
 __bash_prompt() {
     local userpart='`export XIT=$? \
         && [ ! -z "${AZURE_USER:-}" ] && echo -n "\[\033[0;32m\]@${AZURE_USER:-} " || echo -n "\[\033[0;32m\]\u " \
@@ -24,7 +26,7 @@ __bash_prompt() {
 
     local pathpart='`\
         current_path="$(pwd)"; \
-        devenv_root="${DEVENV_ROOT:-}"  # Ensure DEVENV_ROOT is set
+        devenv_root="${DEVENV_ROOT:-}";  \
         if [[ -n "$devenv_root" && "$current_path" == "$devenv_root/repos/"* ]]; then \
             echo -n "\[\033[1;34m\]...${current_path#$devenv_root/repos}"; \
         else \

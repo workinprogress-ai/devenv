@@ -33,16 +33,15 @@ if [ ! -f $container_bootstrap_run_file ] && ! [ -f $bootstrap_running_file ]; t
     sed -i 's/\r//g' $toolbox_root/.devcontainer/bootstrap.sh
     chmod +x $toolbox_root/.devcontainer/bootstrap.sh
     $toolbox_root/.devcontainer/bootstrap.sh
-
-    # If there is a custom startup, run it
-    if [ -f $toolbox_root/.devcontainer/custom_bootstrap.sh ]; then
-        /bin/bash $toolbox_root/.devcontainer/custom_bootstrap.sh
-    fi
+    echo "Bootstrap script executed"
     rm $bootstrap_running_file
 elif [ $(get_run_time $container_bootstrap_run_file) != $(get_run_time $repo_bootstrap_run_file) ]; then
     echo "WARNING!!!!!  The container bootstrap run time does not match the repo bootstrap run time."
     echo "Please rebuild dev env!!!!!!!!!"
     exit 1;
+else
+    $toolbox_root/.devcontainer/startup.sh
+    echo "Startup script executed"
 fi
 
 # If there is a custom startup, run it
