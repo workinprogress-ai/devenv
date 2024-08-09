@@ -76,7 +76,7 @@ cp ~/.bashrc.original ~/.bashrc
 
 cd $toolbox_root
 
-sudo apt install curl wget gnupg bash-completion iputils-ping -y
+sudo apt install curl wget gnupg bash-completion iputils-ping uuid fzf -y
 #wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
 #echo "deb http://repo.mongodb.org/apt/debian bullseye/mongodb-org/6.0 main" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
 
@@ -276,6 +276,7 @@ git config --global core.editor "code --wait"
 git config --global pull.ff only
 git config --global credential.helper store
 git config --global credential.helper 'cache --timeout=999999999'
+git config --global --bool push.autoSetupRemote true
 cd $toolbox_root
 git config --global --add safe.directory $toolbox_root
 

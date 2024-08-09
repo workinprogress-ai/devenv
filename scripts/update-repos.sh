@@ -12,24 +12,26 @@ if [ ! -d "$repos_dir" ]; then
 fi
 
 # Loop through each directory in the target directory
-for repo in "$repos_dir"/*; if [ -d "$repo" ] && [ -d "$repo/.git" ]; then
-    echo "Updating repository in '$repo'..."
-    cd "$repo" 
-    git fetch --all --tags
-    git update-ref refs/heads/master origin/master      # Update the local master branch
-    git pull --rebase
-    if [ $? -ne 0 ]; then
-        echo "Failed to update repository in '$repo'."
-    else
-        echo "Repository in '$repo' updated successfully."
-    fi
+for repo in "$repos_dir"/*; do
+    if [ -d "$repo" ] && [ -d "$repo/.git" ]; then
+        echo "Updating repository in '$repo'..."
+        cd "$repo" 
+        git fetch --all --tags
+        git update-ref refs/heads/master origin/master      # Update the local master branch
+        git pull --rebase
+        if [ $? -ne 0 ]; then
+            echo "Failed to update repository in '$repo'."
+        else
+            echo "Repository in '$repo' updated successfully."
+        fi
 
-    update=".repo/update.sh"
-    if [ -f "$update" ]; then
-        echo "=> Running update script for $repo_name..."
-        $update
+        update=".repo/update.sh"
+        if [ -f "$update" ]; then
+            echo "=> Running update script for $repo_name..."
+            $update
+        fi
+        cd - &>/dev/null
     fi
-    cd - &>/dev/null
 done
 
 echo "All repositories processed."

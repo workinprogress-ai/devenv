@@ -2,6 +2,6 @@
 #
 
 git add -A
-git commit -m "WIP: $@"
+git commit -m "WIP: $@" -n
 git push
 
