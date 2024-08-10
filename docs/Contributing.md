@@ -48,8 +48,13 @@ After cutting the branch...
 1. Code something, adding both "production" code and tests.  Code as small a chunk as possible and write the tests along with it at the same time.  
 2. Commit the code.  At the time you commit, the tests will run and coverage will be checked.  Fix any code coverage issues.  The commit hooks will not allow any commits where tests are not covering the code. 
 3. Repeat until you come to a place where a task is complete. 
+4. When the task is complete, create a Pull Request.  You can do this by running the script `raise-pr.sh` in the repo.  This script will create a PR from the current branch to `master`.  The PR will be a draft PR.  Modify the title and add any relevant description.  
+5. Review the PR yourself doing a [self review](#self-reviews).  Make any necessary changes.  Add clarifying comments if necessary. 
+6. Request a review from a team member.  If possible, do this synchronously.  See the section on [Merge reviews](#merge-reviews-i.e.-task-oriented-reviews) for more information.  If the PR is trivial, then you can opt to leave out this step, but remember you are responsible for what you merge!
+7. Continue with the next task.  If the story or issue is complex, you might also request a [progressive review](#final-reviews-and-progressive-reviews) whenever you feel it is necessary.
+8. If there are no more tasks, then the story or issue is complete.  Move on to the [final review](#final-reviews-and-progressive-reviews).
 
-Remember, each commit should contain code that a) does not break anything and b) is fully covered by tests.  It is possible that in some cases, you might need to temporarily lower coverage or make other temporary changes as you implement the overall task.  Generally these should be removed before _merging_.  However, at times code must be left in a partial state between tasks.  Liberally use TODO's for such changes that are still to be done.  Use `TODO: #NNNNN <description>` with the issue or story number and a description of what needs to be done. 
+Remember, each PR should contain code that a) does not break anything and b) is fully covered by tests.  It is possible that in some cases, you might need to temporarily lower coverage or make other temporary changes as you implement the overall task.  Generally these should be removed before _merging_.  However, at times code must be left in a partial state between tasks.  Liberally use TODO's for such changes that are still to be done.  Use `TODO: #NNNNN <description>` with the issue or story number and a description of what needs to be done. 
 
 Note:  The commit hooks and protocol is really designed to encourage a TDD approach to coding.  The tests will run with each commit, encouraging a) small and atomic changes and b) accompanying tests.  This will naturally tend to emerge from using TDD.  However, if you are not using TDD, you will need to be disciplined about writing tests.  The commit hooks will not allow you to commit without tests.
 
@@ -71,8 +76,6 @@ When you merge code, various tests will potentially run.  Unit tests will run.  
 
 Put another way, you will often merge work that is incomplete or features that are "dark" until a later date.  But you break something, must never never never allow the code in `master` to stay in a broken state.  You must _immediately_ *fix the problem or else revert the code*.  In fact, broken code in `master` becomes the problem of the entire team.  So a RED state is disruptive and must be fixed immediately.
 
-After merging, **continue working on the same branch**.  This will help the _final reviewer_ to examine all the changes related to the same issue or story.  **Do not delete the branch until the [final review](#final-reviews-and-progressive-reviews) is complete**
-
 Obviously, this means that some features will be shipped "dark" because code for those changes could get into production well ahead of the the feature being fully ready.  This takes us back to the absolutely non-negotiable rule:  Never break anything existing.  
 
 The other piece that is necessary at times in order to ship dark is the use of _feature flags_ that can control when something becomes visible to the user.  See the [section on feature flags](#feature-flags) for more information. 
@@ -82,35 +85,34 @@ When merging a PR, you **must** ensure the title (and therefore the merge messag
 
 ### Resolving merge conflicts 
 
-When merging happens often, conflicts are reduced to a minimal and are easier to resolve.  When conflicts occur, _merge `master` back to the work branch_.  
+When merging happens often, conflicts are reduced to a minimal and are easier to resolve.  When conflicts occur, generally it is easiest to _rebase the current branch over `master`_.  However, you may also choose to merge `master` into your branch.  (If you are afraid of `rebase` or don't know how to use it, take a moment and up your game with your git-fu.)
 
-This might seem to be strange, but there is a specific reason for it.  Because the [final reviewer](#final-reviews)) will need to see all related changes.  Keeping the same branch with the original history will allow them to do so.  If we were to use rebasing, the history would be neater but the branch would lose track of changes that had already been merged.  
-
-### Reviews
+## Reviews 
 
 The typical PR process tends to create blockers and bureaucracy.  The review process protocol employed here focuses on a) not blocking coding b) personal responsibility.  
 
+In order to accomplish this, the review process is broken down into several types of reviews.  Each type is designed to allow an engineer to continue working without being blocked and at the same time to ensure that the code is of high quality.  
 Reviews come in different flavors:
 
-#### Self reviews
+### Self reviews
 
 As you bring up pull requests, you *must review your own code*.  When you do so, treat it as if it belongs to another person.  Review it meticulously and critically.  Be your own worst enemy.  Be the teammate you hate to work with because they are so picky.  
 
-#### PR reviews (i.e., task-oriented reviews)
+### Merge reviews (i.e., task-oriented reviews)
 
 Every team member should welcome feedback and actively seek it.  As you are working on a story or issue, you should be conscious of the need to invite others to review your code.  
 
-Generally speaking you will want to have someone review your code with each PR.  You can also open a draft PR and ask a member of the team to review your code with you. Inform the person you need a review and then either get on a call together and walk through it doing the review in real time or else get an agreement with the person to do the review asynchronously.  Note that a review in real-time is preferable.  Nothing substitutes for a real conversation.  
+Generally speaking you will want to have someone review your code with each merge using a PR.  
+
+1. Bring up a PR using the script `raise-pr.sh`.   You can also open the PR manually.  Give it a good title and documentation.  
+2. Ask a member of the team to review your code with you.  Inform the person you need a review and then either get on a call together and walk through it doing the review in real time or else get an agreement with the person to do the review asynchronously. 
+3. Merge the PR.  IMPORTANT:  See the section on [merging code](#merging-code) for more information.  If the review is async, then the PR will get merged _before_ the review is done.  This is fine.  The review is still necessary.  You must make sure in that case that the review really does happen.   
 
 In any case, feedback on the review should be documented on the draft PR.  When complete, the contributor can then use the feedback to make changes to the code.  
 
 Note that a distinguishing feature of these reviews is that they concentrate on the _task_ being done, not on the whole body of changes in the story or issue.  Reviews that look at all the changes together are [final reviews or "progressive" reviews](#final-reviews-and-progressive-reviews).
 
-You should request reviews often!
-
-In addition to requested reviews, any team member should feel that they can review anyone else's code at any time.  Permission does not need to be requested.  In such a case, open a draft PR on the person's branch and provide the feedback.  However keep in mind that without good communication, you could be reviewing things that are in flux and may not represent what someone intends to finally merge. 
-
-#### "Pulse" reviews
+### "Pulse" reviews
 
 Work that is done across all repos should be reviewed on a daily basis.  These reviews are not as deep obviously and are meant to keep a finger on the "pulse" of the project.  For this, some tooling has been created to get a snapshot of all changes that have occurred recently in all repos.  This is a good way to keep up with what is happening in the project.
 
@@ -118,17 +120,17 @@ Generally speaking this type of review will be done by whoever is acting as the 
 
 If a reviewer notices something on one of these reviews, generally he will bring it up directly to the person.  He might also bring up a draft PR and tag the person with it.  This is a way to keep the process moving forward. 
 
-#### Final reviews and "progressive" reviews
+### Final reviews and "progressive" reviews
 
-Before a story or issue can be complete, a final review should take place.  For very simple issues, this may not always be necessary.  This final review process does not block _tasks_ but will block _features_ or _stories_.  It looks at the entire set of changes involved in a story or issue in order to give a final approval and check for any anti-patterns, etc.
+Before a story or issue can be complete, a _final review_ should take place.  For very simple issues, this may not always be necessary.  This final review process does not block _tasks_ but will block _features_ or _stories_.  It looks at the entire set of changes involved in a story or issue in order to give a final approval and check for any anti-patterns, etc.
 
-For this final review, we use a draft PR that is a diff between the head of the branch and the parent commit of the branch.  All changes from the beginning will be included.  To create this diff, create a temporary "review branch" from the parent commit and then bring up a draft PR pointing at it from the feature branch.  After bringing up the draft PR, delete the temporary branch.  For convenience, we have a script that will do this automatically, `raise-review-pr.sh`.  
+Final reviews happen in `master`.  We use a draft PR that is a diff between the _first_ relevant commit of the branch and the _last_ commit.  All changes are therefore included.  To create this diff, run the script `raise-review-pr.sh`.  It will ask you to select the _first_ commit in `master` that relates to your story or issue, and the _last_ commit that relates.  It will then create a draft PR with the diff between those two commits.  After creating the PR, tag the appropriate person.
 
 Generally the person tagged for final review should be the maintainer of the repo.  There may be the need to iterate several times.  The final review finishes when the reviewer gives a LGTM.  If the rest of the review process is functioning well, then this review should be quick and easy.  If not, then the maintainer may need to help other reviewers to improve their process.
 
-Along with final reviews, occasionally it might be advisable to do a "progressive" review which includes all changes while the feature is still being developed.  A progressive review follows the same pattern using a draft PR.   
+Along with final reviews, occasionally it might be advisable to do a "progressive" review which includes all changes while the feature is still being developed.  A progressive review follows the same pattern.   
 
-_Note, why we are using a draft PR between the HEAD and parent of the branch:  Using a standard PR would not reflect changes that have been going on for a while and getting merged.  By cutting a temporary branch from the original parent commit of the branch and raising a draft PR from the HEAD to that branch, we can get a diff of all the changes that have been made._
+**Note:**  The objection might be made that by working with commits in `master`, additional irrelevant things might be included in the draft PR used for reviewing.  Generally this will not happen if we use individual repos for each relevant service or library.  However, if it does happen, the PR can simply include documentation about what is not included.  In theory you could cherry-pick / rebase a new branch with just the changes for review, but do you really want to do that?  It's probably easier to just do it this way.  
 
 #### What to look for in a review 
 
@@ -170,7 +172,7 @@ A brief summary:
 * Use `chore:` for other things that are not code related and that should not result in a version up.
 * Use the exclamation point for breaking changes.  For example `feat!:`
 
-#### How conventional commits play with CI/CD and continuously merging small changes.  
+### How conventional commits play with CI/CD and continuously merging small changes.  
 
 You might have a question about how convention commits work with CI/CD.  After all, we are merging changes that are not yet complete and should not yet be used even though they may get published in the packages as part of the merging process.  Just keep it simple and think in terms of the _public interface_.  In most cases, this resolves any confusion.  For example, let's say you are working on a new method of an existing interface.  When you first add the method, maybe the implementation throws a `NotImplemented` exception.  This gets committed and merged and makes it's way into `master`.  Perhaps you will supply the implementation in the _next_ PR and merge.  _When should you use `feat:`?  With the first commit and merge or with the second one, when the feature is actually complete?_
 
@@ -178,9 +180,9 @@ With the first commit, you are making a change to the **interface** that the cod
 
 Common sense then becomes the guide as to when to update a consuming project for the one you are working on.  If the change is not yet complete, then the consuming project should not be updated.  If the change is complete, then the consuming project should be updated to whatever version number has all the changes.  Assuming you follow the rule to **never break anything existing** (at least, not breaking without being explicit about what is happening), then any project that picks up a new version with a feature in progress will not break. 
 
-#### What about breaking changes that are part of a feature that is not yet complete?
+### What about breaking changes that are part of a feature that is not yet complete?
 
-##### For Branches Not Yet Merged:
+#### For Branches Not Yet Merged:
 
 1. **Committing a Breaking Change in a Feature Branch:**
    - Since the branch has not been merged yet, and you are working on an ongoing feature, you don't need to signal a breaking change explicitly in the context of the feature branch. 
@@ -193,7 +195,7 @@ Common sense then becomes the guide as to when to update a consuming project for
 
    When you squash and merge this branch, the breaking change will be included in the single `feat:` commit.
 
-##### For Features Already in Master but Dark:
+#### For Features Already in Master but Dark:
 
 2. **Breaking Changes to Dark Features in Master:**
    - When a feature has been merged into `master` and is dark (not yet used), and you later introduce a breaking change to it, you should still follow the conventions to signal the breaking change.
@@ -203,7 +205,7 @@ Common sense then becomes the guide as to when to update a consuming project for
    - Feature merged to master: `feat: add new authentication module`
    - Breaking change commit: `fix!: update authentication module to use OAuth2`
 
-##### Summary:
+#### Summary:
 
 - **Unmerged Branch:** Use `feat:` for new features and include any breaking changes within that context without special notation. Squash merging will combine these into a single `feat:` commit.
 - **Dark Feature in Master:** Use `fix!:` to indicate the breaking change, even if the feature is dark, ensuring proper documentation and adherence to conventional commits.
