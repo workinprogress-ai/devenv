@@ -20,6 +20,10 @@ random_name() {
   echo $(uuid | cut -c1-8)
 }
 
+get_date() {
+  date +"%Y-%m-%d"
+}
+
 select_commit() {
   prompt="$1"
 
@@ -96,7 +100,7 @@ fi
 PARENT_COMMIT=$(git rev-parse "${FIRST_COMMIT}^") || explode "Failed to get the parent commit $FIRST_COMMIT"
 
 # Create a new branch from the parent commit
-BRANCH_BASE_NAME="review/$(random_name)"
+BRANCH_BASE_NAME="review/$(random_name)-$(get_date)"
 TARGET_BRANCH="$BRANCH_BASE_NAME-target"
 SOURCE_BRANCH="$BRANCH_BASE_NAME-source"
 
@@ -112,9 +116,9 @@ PR_BODY="$PR_DESCRIPTION"
 PR_CMD_RET=$(gh pr create --title "$PR_TITLE" --body "$PR_BODY" --base "$TARGET_BRANCH" --head "$SOURCE_BRANCH" --draft --assignee @me) || explode "Failed to create pull request"
 
 git checkout "$CURRENT_BRANCH" &>/dev/null || explode "Failed to switch back to the current branch"
-git push origin :$TARGET_BRANCH || explode "Failed to remove the review branch $TARGET_BRANCH"
+#git push origin :$TARGET_BRANCH || explode "Failed to remove the review branch $TARGET_BRANCH"
 git branch -D "$TARGET_BRANCH" &>/dev/null || explode "Failed to delete the review branch $TARGET_BRANCH"
-git push origin :$SOURCE_BRANCH || explode "Failed to remove the review branch $SOURCE_BRANCH"
+#git push origin :$SOURCE_BRANCH || explode "Failed to remove the review branch $SOURCE_BRANCH"
 git branch -D "$SOURCE_BRANCH" &>/dev/null || explode "Failed to delete the review branch $SOURCE_BRANCH"
 
 # Output the PR URL
