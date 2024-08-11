@@ -6,8 +6,14 @@ explode() {
   exit 1
 }
 
+PR_TITLE="$1"
+if [ -z "$PR_TITLE" ]; then
+  echo "Usage: raise-review-pr.sh <Title> [REPO_DIR]"
+  exit 1
+fi
+
 # Check if repo folder is supplied as an argument, otherwise use the current directory
-REPO_DIR="${1:-$(pwd)}"
+REPO_DIR="${2:-$(pwd)}"
 
 # Check if the given directory is a git repository
 if ! git rev-parse --is-inside-work-tree &>/dev/null; then
@@ -31,8 +37,7 @@ if [ "$CURRENT_BRANCH" == "review/"* ]; then
 fi
 
 # Create a draft pull request using GitHub CLI
-PR_TITLE="Merge $CURRENT_BRANCH to master"
-PR_CMD_RET=$(gh pr create --title "$PR_TITLE" --base "$CURRENT_BRANCH" --head "master" --draft --assignee @me) || explode "Failed to create pull request"
+PR_CMD_RET=$(gh pr create --title "$PR_TITLE" --body "" --base "$CURRENT_BRANCH" --head "master" --draft --assignee @me) || explode "Failed to create pull request"
 
 # Output the PR URL
 echo url=$(echo "$PR_CMD_RET" | grep -oP '(?<=Pull Request URL: ).*')

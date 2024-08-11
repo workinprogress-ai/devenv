@@ -92,7 +92,7 @@ A few utility scripts have been provided to make life happy.
 * `get-repo` A utility to clone or update a repo in the `~/repos` folder.
 * `update-repos.sh` A utility to update all repos in the `~/repos` folder.
 * `raise-review-pr.sh` A utility to create a "progressive" or "final" PR for reviewing all changes. 
-* `raise-pr.sh` A utility to create a PR for merging code to `master`.
+* `raise-merge-pr.sh` A utility to create a PR for merging code to `master`.
 * `list-version.sh` A utility to list all versions in a repo.
 
 ### Git extensions 

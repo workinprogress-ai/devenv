@@ -48,7 +48,7 @@ After cutting the branch...
 1. Code something, adding both "production" code and tests.  Code as small a chunk as possible and write the tests along with it at the same time.  
 2. Commit the code.  At the time you commit, the tests will run and coverage will be checked.  Fix any code coverage issues.  The commit hooks will not allow any commits where tests are not covering the code. 
 3. Repeat until you come to a place where a task is complete. 
-4. When the task is complete, create a Pull Request.  You can do this by running the script `raise-pr.sh` in the repo.  This script will create a PR from the current branch to `master`.  The PR will be a draft PR.  Modify the title and add any relevant description.  
+4. When the task is complete, create a Pull Request.  You can do this by running the script `raise-merge-pr.sh` in the repo.  This script will create a PR from the current branch to `master`.  The PR will be a draft PR.  Modify the title and add any relevant description.  
 5. Review the PR yourself doing a [self review](#self-reviews).  Make any necessary changes.  Add clarifying comments if necessary. 
 6. Request a review from a team member.  If possible, do this synchronously.  See the section on [Merge reviews](#merge-reviews-i.e.-task-oriented-reviews) for more information.  If the PR is trivial, then you can opt to leave out this step, but remember you are responsible for what you merge!
 7. Continue with the next task.  If the story or issue is complex, you might also request a [progressive review](#final-reviews-and-progressive-reviews) whenever you feel it is necessary.
@@ -104,7 +104,7 @@ Every team member should welcome feedback and actively seek it.  As you are work
 
 Generally speaking you will want to have someone review your code with each merge using a PR.  
 
-1. Bring up a PR using the script `raise-pr.sh`.   You can also open the PR manually.  Give it a good title and documentation.  
+1. Bring up a PR using the script `raise-merge-pr.sh`.   You can also open the PR manually.  Give it a good title and documentation.  
 2. Ask a member of the team to review your code with you.  Inform the person you need a review and then either get on a call together and walk through it doing the review in real time or else get an agreement with the person to do the review asynchronously. 
 3. Merge the PR.  IMPORTANT:  See the section on [merging code](#merging-code) for more information.  If the review is async, then the PR will get merged _before_ the review is done.  This is fine.  The review is still necessary.  You must make sure in that case that the review really does happen.   
 
