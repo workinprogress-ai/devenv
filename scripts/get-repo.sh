@@ -8,15 +8,22 @@ repos_dir=$toolbox_root/repos
 # Function to display usage
 usage() {
   echo "Usage: $0 <repository-name>"
-  exit 1
 }
 
-# Check if a parameter is passed
+REPO_NAME=$1
 if [ -z "$1" ]; then
-  usage
+  usage  
+  REPO_NAME=$(basename `git rev-parse --show-toplevel`)
+  if [ $? -ne 0 ]; then
+    echo "Failed to get the repository name. Please provide the repository name as an argument."
+    exit 1
+  fi
+  if [ ! -d "$repos_dir/$REPO_NAME" ]; then
+    echo "Repository '$REPO_NAME' does not exist in the local repository directory."
+    exit 1
+  fi
 fi
 
-REPO_NAME=$1
 TARGET_DIR=$repos_dir/$REPO_NAME
 GIT_URL_PREFIX="git@github.com:workinprogress-ai"
 
@@ -24,7 +31,7 @@ GIT_URL_PREFIX="git@github.com:workinprogress-ai"
 if [ -d "$TARGET_DIR" ]; then
     echo "Repository '$REPO_NAME' already exists. Fetching latest changes..."
     cd "$TARGET_DIR"
-    git fetch --all --tags
+    git fetch --all --tags -f
     git update-ref refs/heads/master origin/master      # Update the local master branch
     update=".repo/update.sh"
     if [ -f "$update" ]; then

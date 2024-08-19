@@ -1,7 +1,10 @@
 module.exports = {
   branches: [
     'master',
-    "release/*"
+    {
+      "name": "release/*",
+      "prerelease": "beta"
+    }
   ],
   plugins: [
     [
@@ -12,20 +15,19 @@ module.exports = {
           { "type": "docs", "scope": "README", "release": "patch" },
           { "type": "refactor", "release": "patch" },
           { "type": "style", "release": "patch" },
-          { "type": "fix", "release": "patch" },
-          { "type": "fix!", "release": "major" },
-          { "type": "feat!", "release": "major" },
-          { "type": "breaking", "release": "major" },
+          { "type": "breaking", "release": "major" }
         ],
         "parserOpts": {
-          "noteKeywords": ["BREAKING CHANGE", "BREAKING CHANGES", "BREAKING!"]
+          //"noteKeywords": ["BREAKING CHANGE", "BREAKING CHANGES"],
+          "breakingHeaderPattern": /^(\w*)(?:\((.*)\))?!: (.*)$/
+          //"headerPattern": "^(?:Merged PR \\d+:\\s)?(\\w*)(?:\\(([\\w\\$\\.\\-\\* ]*)\\))?:(.*)(?:\\r?\\n|$)"
         }
       }
     ],
     [
       '@semantic-release/exec',
       {
-        publishCmd: "echo  'Executed publishCmd'"
+        publishCmd: "./.azuredevops/prepare-release-version.sh '${ nextRelease.version }'",
       }
     ]
   ]

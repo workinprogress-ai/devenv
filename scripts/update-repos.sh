@@ -16,7 +16,7 @@ for repo in "$repos_dir"/*; do
     if [ -d "$repo" ] && [ -d "$repo/.git" ]; then
         echo "Updating repository in '$repo'..."
         cd "$repo" 
-        git fetch --all --tags
+        git fetch --all --tags -f 
         git update-ref refs/heads/master origin/master      # Update the local master branch
         git pull --rebase
         if [ $? -ne 0 ]; then

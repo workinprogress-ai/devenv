@@ -13,7 +13,7 @@ UPDATE_FILE="$script_folder/.update-time"
 
 # Function to update the repository
 update_repo() {
-    git pull > /dev/null 2>&1
+    git fetch --tags -f > /dev/null 2>&1
     date +%s > "$UPDATE_FILE"
 }
 
@@ -35,8 +35,7 @@ TIME_DIFF=$((CURRENT_TIME - LAST_UPDATE))
 # Check if the time difference is greater than the update interval
 if [ "$TIME_DIFF" -gt "$DEVENV_UPDATE_INTERVAL" ]; then
     # Fetch changes from the remote repository silently
-    git fetch > /dev/null 2>&1
-    date +%s > "$UPDATE_FILE"
+    update_repo &
 fi
 
 
@@ -56,9 +55,9 @@ if [[ $CURRENT_VERSION =~ ([0-9]+)\.([0-9]+)\.([0-9]+)(-([a-zA-Z0-9]+)\.([0-9]+)
     CURRENT_PATCH_VERSION=${BASH_REMATCH[3]}
 else
     echo "Warning: VERSION format is not recognized"
-    MAJOR_VERSION=0
-    MINOR_VERSION=0
-    PATCH_VERSION=0
+    CURRENT_MAJOR_VERSION=0
+    CURRENT_MAJOR_VERSION=0
+    CURRENT_MAJOR_VERSION=0
 fi
 
 # Ask the user if they want to update the repository
@@ -66,7 +65,7 @@ echo "Changes detected on the remote master branch for the development environme
 read -p "Do you want to update? (y/n): " answer
 case $answer in
     [Yy]* )
-        update_repo
+        git pull > /dev/null 2>&1
         if [ "$CURRENT_MAJOR_VERSION" != "$MAJOR_VERSION" ]; then
             echo 
             echo "********************************************************"
@@ -74,7 +73,7 @@ case $answer in
             echo "********************************************************"
             echo 
         elif [ "$CURRENT_MINOR_VERSION" != "$MINOR_VERSION" ]; then
-            .devcontainer/bootstrap.sh
+            $script_folder/bootstrap.sh
             echo 
             echo "********************************************************"
             echo "Minor version changed.  Please restart the dev container!"
