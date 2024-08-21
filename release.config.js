@@ -23,12 +23,6 @@ module.exports = {
           //"headerPattern": "^(?:Merged PR \\d+:\\s)?(\\w*)(?:\\(([\\w\\$\\.\\-\\* ]*)\\))?:(.*)(?:\\r?\\n|$)"
         }
       }
-    ],
-    [
-      '@semantic-release/exec',
-      {
-        publishCmd: "./.azuredevops/prepare-release-version.sh '${ nextRelease.version }'",
-      }
     ]
   ]
 }
