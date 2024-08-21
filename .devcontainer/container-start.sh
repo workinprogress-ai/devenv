@@ -45,8 +45,8 @@ else
 fi
 
 # If there is a custom startup, run it
-if [ -f $toolbox_root/.devcontainer/custom_startup.sh ]; then
-    /bin/bash $toolbox_root/.devcontainer/custom_startup.sh
+if [ -f $toolbox_root/.devcontainer/custom-startup.sh ]; then
+    /bin/bash $toolbox_root/.devcontainer/custom-startup.sh
 fi
 
 if ! [ -f $container_bootstrap_run_file ]; then

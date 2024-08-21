@@ -6,9 +6,9 @@ repos/*
 .setup/*
 .update-time
 node_modules/
+.pnpm-store/
 .bootstrap_run_time
 .cache/
-.pnpm-store/
-.devcontainer/custom_startup.sh
-.devcontainer/custom_bootstrap.sh
-.devcontainer/env_vars.sh
+.devcontainer/custom-startup.sh
+.devcontainer/custom-bootstrap.sh
+.devcontainer/env-vars.sh

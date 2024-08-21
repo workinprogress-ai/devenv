@@ -155,8 +155,8 @@ fi
 export PATH=\$PATH:\${DEVENV_ROOT}/scripts
 
 $toolbox_root/.devcontainer/sanity-check.sh
-source $toolbox_root/.devcontainer/env_vars.sh
-source $toolbox_root/.devcontainer/bash_prompt.sh
+source $toolbox_root/.devcontainer/env-vars.sh
+source $toolbox_root/.devcontainer/bash-prompt.sh
 source $toolbox_root/.devcontainer/load-ssh.sh
 
 if \$DEVENV_ROOT/.devcontainer/check-update-devenv-repo.sh ; then 
@@ -170,7 +170,8 @@ fi
 
 EOF
 
-cat <<EOF >>$toolbox_root/.devcontainer/env_vars.sh
+rm -f $toolbox_root/.devcontainer/env-vars.sh
+cat <<EOF >>$toolbox_root/.devcontainer/env-vars.sh
 export TZ='$(cat $timezone_file)'
 export DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false
 export DOTNET_USE_POLLING_FILE_WATCHER=true
@@ -182,14 +183,16 @@ export DOCUMENT_SERVER=localhost
 export GIT_TERMINAL_PROMPT=1
 export DEVENV_GH_TOKEN=$DEVENV_GH_TOKEN
 export GITHUB_USER=$GITHUB_USER
-export DEVENV_UPDATE_INTERVAL=$((12 * 3600)) # 12 hours.  This can be changed as needed.
+export DEVENV_UPDATE_INTERVAL=$((4 * 3600)) # 12 hours.  This can be changed as needed.
 export INSTALL_VERSION=$VERSION
 export MAJOR_VERSION=$MAJOR_VERSION
 export MINOR_VERSION=$MINOR_VERSION
 export PATCH_VERSION=$PATCH_VERSION
+export repos=\$DEVENV_ROOT/repos
+export devenv=\$DEVENV_ROOT
 EOF
 
-chmod +x $toolbox_root/.devcontainer/env_vars.sh
+chmod +x $toolbox_root/.devcontainer/env-vars.sh
 
 echo "# Package install"
 echo "#############################################"
@@ -286,7 +289,8 @@ else
     echo "WARNING!!!  No name found in $name_file"
 fi
 if [ -f $email_file ]; then
-    git config --global user.email "$(cat $email_file)"
+    USER_EMAIL=$(cat $email_file)
+    git config --global user.email "$USER_EMAIL"
 else
     echo "WARNING!!!  No email found in $email_file"
 fi
@@ -337,8 +341,8 @@ if [ "$is_arm" == "1" ]; then
 fi
 
 # If there is a custom startup, run it
-if [ -f $toolbox_root/.devcontainer/custom_bootstrap.sh ]; then
-    /bin/bash $toolbox_root/.devcontainer/custom_bootstrap.sh
+if [ -f $toolbox_root/.devcontainer/custom-bootstrap.sh ]; then
+    /bin/bash $toolbox_root/.devcontainer/custom-bootstrap.sh
 fi
 
 echo "Bootstrap complete"
