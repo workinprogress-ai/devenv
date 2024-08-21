@@ -243,18 +243,8 @@ rm mongo-shell.deb
 
 # rm dotnet-install.sh
 
-echo "# Log in to github"
-echo "#############################################"
-gh auth login --hostname github.com --with-token <<< $DEVENV_GH_TOKEN
-
 echo "# Configure .net"
 echo "#############################################"
-
-local_nuget_dev=$toolbox_root/.debug/local-nuget-dev
-mkdir -p $local_nuget_dev
-
-add_nuget_source_if_not_exists "dev" $local_nuget_dev
-add_nuget_source_if_not_exists "github" https://nuget.pkg.github.com/workinprogress-ai/index.json $GITHUB_USER $DEVENV_GH_TOKEN
 
 /usr/bin/dotnet tool install --global altcover.global
 /usr/bin/dotnet dev-certs https
@@ -338,6 +328,13 @@ if [ "$is_arm" == "1" ]; then
     sudo apt update
     sudo apt install -y libc6:amd64
     #sudo apt install -y libc6:i386
+else
+    echo "# Installing mongo db compass"
+    echo "#############################################"
+
+    wget -O /tmp/mongodb-compass.deb https://downloads.mongodb.com/compass/mongodb-compass_1.43.5_amd64.deb
+    sudo apt install -y /tmp/mongodb-compass.deb
+    rm /tmp/mongodb-compass.deb
 fi
 
 # If there is a custom startup, run it
