@@ -1,7 +1,7 @@
 #!/bin/bash
 
 target=${1:-$(pwd)}
-version=9999.9999.9999
+version=${2:-'9999.9999.9999'}
 
 # Find all .csproj files in the target directory and its subdirectories
 csproj_files=$(find "$target" -type f -name "*.csproj")
@@ -17,6 +17,13 @@ rm ${publish_dir}/*.nupkg &>/dev/null
 
 # Loop through each .csproj file found
 for csproj in $csproj_files; do
+
+    if [[ "$csproj" == *"/test/"* ]]; then
+        echo "Skipping $csproj"
+        echo 
+        continue
+    fi
+
     echo 
     echo -------------------------------------
     echo Restoring "$csproj"
@@ -65,5 +72,4 @@ echo Pushing packages
 echo 
 dotnet nuget push ${publish_dir}/*.nupkg --source "$DEVENV_ROOT/.debug/local-nuget-dev"
 
-#dotnet nuget locals all --clear
 if [[ "$?" != 0 ]]; then exit 1; fi;
