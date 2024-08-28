@@ -6,9 +6,9 @@ toolbox_root=$(dirname "$script_folder")
 
 export STARTUP_TIME=$(date +%s)
 
-source $toolbox_root/.devcontainer/env_vars.sh
+source $toolbox_root/.devcontainer/env-vars.sh
 source $toolbox_root/.devcontainer/load-ssh.sh
-$toolbox_root/.devcontainer/load-docker.sh
+nohup $toolbox_root/.devcontainer/load-docker.sh &>/dev/null &
 
 $toolbox_root/.devcontainer/sanity-check.sh
 
