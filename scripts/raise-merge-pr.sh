@@ -12,6 +12,14 @@ if [ -z "$PR_TITLE" ]; then
   exit 1
 fi
 
+# Updated regex pattern to match a conventional commit title with optional breaking change indicator
+regex_pattern="^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert|merge)(\(\w+\))?(!)?: .+"
+
+if ! [[ $PR_TITLE =~ $regex_pattern ]]; then
+  echo "Error:  Title must follow the standard for conventional commits."
+  exit 1;
+fi
+
 # Check if repo folder is supplied as an argument, otherwise use the current directory
 REPO_DIR="${2:-$(pwd)}"
 
@@ -37,7 +45,7 @@ if [ "$CURRENT_BRANCH" == "review/"* ]; then
 fi
 
 # Create a draft pull request using GitHub CLI
-PR_CMD_RET=$(gh pr create --title "$PR_TITLE" --body "" --base "$CURRENT_BRANCH" --head "master" --draft --assignee @me) || explode "Failed to create pull request"
+PR_CMD_RET=$(gh pr create --title "$PR_TITLE" --body "" --base "$CURRENT_BRANCH" --head "master" --assignee @me) || explode "Failed to create pull request"
 
 # Output the PR URL
 echo url=$(echo "$PR_CMD_RET" | grep -oP '(?<=Pull Request URL: ).*')

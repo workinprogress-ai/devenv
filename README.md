@@ -17,22 +17,31 @@ You do not need to have any additional tooling installed on your host machine.  
 
 ### Windows
 
-1. Install the WSL2 kernel update package for Window.  
-2. Install a Linux distro from the Microsoft Store.  Ubuntu 22.04 is recommended.
-3. Install Docker Desktop for Windows, using WSL2 as the backend.
-4. Make sure that Docker is configured to expose it's command line to WSL2.  This is done in the Docker Desktop settings.
-5. In the WSL terminal, clone this repo.
-   `git clone git@github.com:workinprogress-ai/devenv.git`  
-6. In the WSL terminal, navigate to the repo directory, and the sub directory under it called `host-utils`.
-   `cd devenv/host-utils`
-7. Run the [setup script](#running-the-setup-script).  This will ask you a few questions about your environment and allow you to specify your SSH key to the private repos.
+Note:  Windows is the most complex environment to set up.  You should properly hate it, and prefer something else.  A Windows machine will need significantly more resources than a Linux or MacOS machine.  An option to consider is to run Linux in a VM instead.
+
+1. Install the WSL2 on Windows.  This is a feature that allows you to run a Linux environment on Windows.  You can find instructions [here](https://docs.microsoft.com/en-us/windows/wsl/install).    
+2. Install a Linux distro from the Microsoft Store.  Ubuntu 22.04 is recommended.  Log in and verify that it runs. 
+3. Configure the WSL with sufficient resources.  This is done in the `.wslconfig` file in your user directory (`C:\Users\[user name]`).  The following is a recommended configuration:
+   ```
+   [wsl2]
+   memory=12GB
+   processors=4
+   ```
+   You can adjust this to suit your system, but that is the recommended minimum.  After making the changes, restart the WSL2 environment by exiting the terminal and restarting it.
+4. Install Docker Desktop for Windows, using WSL2 as the backend.
+5. Make sure that Docker is configured to expose it's command line to WSL2.  This is done in the Docker Desktop settings.
+6. Cone this repo into your WSL2 environment.
+   `git clone https://oms-fort.visualstudio.com/OMSNIC-Fortress-Website/_git/moade`
+7. In the WSL terminal, navigate to the repo directory `moade`
+   `cd moade`
+8. Run the [setup script](#running-the-setup-script).  This will ask you a few questions about your environment and allow you to specify your SSH key to the private repos.
    `./setup`
-8. Once the setup script is complete, navigate back to the root of the repo and run Visual Studio Code, pointing it at the repo directory.
+9. Once the setup script is complete, navigate back to the root of the repo and run Visual Studio Code, pointing it at the repo directory.
    `code .`
-9. VS Code should, after a few seconds, offer to reopen the folder in a container.  If not, open the command palette (Ctrl+Shift+P) and run the command `Remote-Containers: Reopen in Container`.
-10. The dev container will build and start.  This may take a few minutes the first time.  Subsequent starts will be faster.  Once the bootstrap has run, and the container output log shows that it is opening ports, close Visual Studio. 
-11. Reopen Visual Studio Code and the folder in the dev container.  Once again you will be asked if you want to open the folder in a dev container.   Choose to do so, or you can manually open it in the container.  
-12. The dev container will start.  You can now start working on the code.
+10. VS Code should, after a few seconds, offer to reopen the folder in a container.  If not, open the command palette (Ctrl+Shift+P) and run the command `Remote-Containers: Reopen in Container`.
+11. The dev container will build and start.  This may take a few minutes the first time.  Subsequent starts will be faster.  Once the bootstrap has run, and the container output log shows that it is opening ports, close Visual Studio. 
+12. Reopen Visual Studio Code and the folder in the dev container.  Once again you will be asked if you want to open the folder in a dev container.   Choose to do so, or you can manually open it in the container.  
+13. The dev container will start.  You can now start working on the code.
 
 ### MacOS
 
