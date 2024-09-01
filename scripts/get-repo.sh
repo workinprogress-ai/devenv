@@ -32,8 +32,25 @@ if [ -d "$TARGET_DIR" ]; then
     echo "Repository '$REPO_NAME' already exists. Fetching latest changes..."
     cd "$TARGET_DIR"
     git fetch --all --tags -f
-    git branch -f master origin/master   # Update the local master branch
-    #git update-ref refs/heads/master origin/master      
+
+    current_branch=$(git rev-parse --abbrev-ref HEAD)
+    if [ "$current_branch" != "master" ]; then
+        git branch -f master origin/master   # Update the local master branch
+        git pull --rebase                    # update this branch
+        if [ $? -ne 0 ]; then
+            echo "Failed to update repository in '$repo' for branch '$current_branch'."
+        else
+            echo "Repository in '$repo' updated successfully."
+            update=".repo/update.sh"
+            if [ -f "$update" ]; then
+                echo "=> Running update script for $repo_name..."
+                $update
+            fi
+        fi
+    else
+        git reset --hard origin/master
+    fi
+
     update=".repo/update.sh"
     if [ -f "$update" ]; then
         echo "=> Running update script for $repo_name..."

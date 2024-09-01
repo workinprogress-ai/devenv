@@ -17,11 +17,11 @@ for repo in "$repos_dir"/*; do
         echo "Updating repository in '$repo'..."
         cd "$repo" 
         git fetch --all --tags -f
-        git branch -f master origin/master   # Update the local master branch
         
         current_branch=$(git rev-parse --abbrev-ref HEAD)
         if [ "$current_branch" != "master" ]; then
-            git pull --rebase
+            git branch -f master origin/master   # Update the local master branch
+            git pull --rebase                    # update this branch
             if [ $? -ne 0 ]; then
                 echo "Failed to update repository in '$repo' for branch '$current_branch'."
             else
@@ -33,7 +33,7 @@ for repo in "$repos_dir"/*; do
                 fi
             fi
         else
-            echo "Already on master branch, skipping pull/rebase."
+            git reset --hard origin/master
         fi
 
         cd - &>/dev/null
