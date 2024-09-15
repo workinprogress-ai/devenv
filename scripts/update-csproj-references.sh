@@ -7,6 +7,8 @@ target=${1:-$(pwd)}
 cd "$target" || { echo "Directory not found: $target"; exit 1; }
 
 # Find all csproj files and update package references
-#dotnet restore "$csproj" --no-cache
-dotnet outdated "$csproj" --upgrade
+find . -name '*.csproj' -print0 | while IFS= read -r -d '' csproj; do
+  dotnet outdated "$csproj" --upgrade
+done
+#dotnet outdated "$csproj" --upgrade
 
