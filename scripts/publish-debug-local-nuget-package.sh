@@ -45,25 +45,6 @@ for csproj in $csproj_files; do
     dotnet pack "$csproj" --include-symbols --no-build -c Debug -o $publish_dir -p:Version=$version -p:AssemblyVersion=$version
     if [[ "$?" != 0 ]]; then exit 1; fi;
 
-    # Extract the package name from the .csproj file (using regex)
-    package_name=$(grep -oPm1 "(?<=<PackageId>)[^<]+" "$csproj" | tr '[:upper:]' '[:lower:]')
-    # If the package name is not found, use the .csproj file name as the package name
-    if [[ -z "$package_name" ]]; then
-        package_name=$(basename "$csproj" .csproj | tr '[:upper:]' '[:lower:]')
-    fi
-    package_cache_dir="$HOME/.nuget/packages/$package_name"
-
-    if [[ -d "$package_cache_dir" ]]; then
-        echo 
-        echo -------------------------------------
-        echo Removing cache for package "$package_name"
-        echo 
-        rm -rf "$package_cache_dir"
-        if [[ "$?" != 0 ]]; then exit 1; fi;
-    else
-        echo "No cache found for package $package_name"
-    fi
-
 done
 
 echo 
@@ -73,3 +54,26 @@ echo
 dotnet nuget push ${publish_dir}/*.nupkg --source "$DEVENV_ROOT/.debug/local-nuget-dev"
 
 if [[ "$?" != 0 ]]; then exit 1; fi;
+
+# Find all package names in the local feed
+local_feed_dir="$devenv/.debug/local-nuget-dev"
+packages=$(find "$local_feed_dir" -type f -name "*.nupkg" | sed 's/.*\///' | sed 's/\(.*\)\.\(.*\)\.\(.*\)\.nupkg/\1/' | tr '[:upper:]' '[:lower:]' | sort -u)
+
+had_error=0
+
+# Clear the NuGet cache for each package
+for package in $packages; do
+    # Extract the package name without the version number
+    package_name=$(echo "$package" | sed -E 's/\.[0-9]+(\.[0-9]+)*$//')
+
+    package_cache_dir="$HOME/.nuget/packages/$package_name"
+    
+    if [[ -d "$package_cache_dir" ]]; then
+        echo "Removing cache for package: $package_name"
+        rm -rf "$package_cache_dir"
+        if [[ $? != 0 ]]; then
+            echo "WARNING:  Failed to remove cache for package: $package_name"
+            had_error=1
+        fi
+    fi
+done
