@@ -13,7 +13,7 @@ UPDATE_FILE="$script_folder/.update-time"
 
 # Function to update the repository
 update_repo() {
-    git fetch --tags -f > /dev/null 2>&1
+    git fetch --tags -f > /dev/null 2>&1 & disown
     date +%s > "$UPDATE_FILE"
 }
 
@@ -35,15 +35,39 @@ TIME_DIFF=$((CURRENT_TIME - LAST_UPDATE))
 # Check if the time difference is greater than the update interval
 if [ "$TIME_DIFF" -gt "$DEVENV_UPDATE_INTERVAL" ]; then
     # Fetch changes from the remote repository silently
-    update_repo &
+    update_repo
 fi
 
 
 # Check if there are any changes in the remote master branch
-LOCAL_HASH=$(git rev-parse master)
-REMOTE_HASH=$(git rev-parse origin/master)
+# Get the current branch name
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# Get the local hash of the current branch
+LOCAL_HASH=$(git rev-parse "$CURRENT_BRANCH")
+
+# Get the remote hash of the current branch from origin
+REMOTE_HASH=$(git rev-parse "origin/$CURRENT_BRANCH")
 
 if [ "$LOCAL_HASH" == "$REMOTE_HASH" ]; then
+    cd - &> /dev/null
+    exit 1
+fi
+
+if [ "$CURRENT_BRANCH" != "master" ]; then
+    echo "WARNING:  The current branch ${CURRENT_BRANCH} is different on the remote."
+    read -p "Do you want to update? (y/n): " answer
+    case $answer in
+        [Yy]* )
+            git pull > /dev/null 2>&1
+            cd - &> /dev/null
+            echo "Be aware that you may need to rebuild the dev container or re-run the bootstrap depending on the type of changes."
+            exit 1;
+            ;;
+        * )
+            ;;
+    esac
+
     cd - &> /dev/null
     exit 1
 fi

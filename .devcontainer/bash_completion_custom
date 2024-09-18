@@ -1,0 +1,34 @@
+_custom_escape_completion() {
+    local cur
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+
+    # Use the built-in completion function for filenames
+    local IFS=$'\n'
+    for i in $(compgen -f -- "$cur"); do
+        # Skip escaping the $ character, but escape others
+
+        local esc="${i//\\/\\\\}"    # Escape backslashes
+        esc="${esc// /\\ }"          # Escape spaces
+        esc="${esc//!/\\!}"          # Escape exclamation marks
+        esc="${esc//&/\\&}"          # Escape ampersands
+        esc="${esc//(/\\(}"          # Escape opening parentheses
+        esc="${esc//)/\\)}"          # Escape closing parentheses
+        esc="${esc//[/\\[}"          # Escape opening brackets
+        esc="${esc//]/\\]}"          # Escape closing brackets
+        esc="${esc//\*/\\*}"         # Escape asterisks
+        esc="${esc//\?/\\?}"         # Escape question marks
+        esc="${esc//\'/\\\'}"        # Escape single quotes
+        esc="${esc//\"/\\\"}"        # Escape double quotes
+  
+        # Only escape the $ if it's not the first character
+        # if [[ "$i" =~ ^\\\$ ]]; then
+        #     esc="$i"
+        # fi
+
+        COMPREPLY+=("$esc")
+    done
+}
+
+# Register the custom completion function for path completion
+complete -F _custom_escape_completion cd ls

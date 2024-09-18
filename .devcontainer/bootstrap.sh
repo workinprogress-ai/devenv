@@ -109,6 +109,8 @@ else
     echo "WARNING!!!  No github user found in $setup_dir/github_user.txt"
 fi
 
+git remote set-url origin git@github.com:workinprogress-ai/devenv.git
+
 cat <<EOF >>$HOME/.ssh/config
 AddKeysToAgent yes
 IdentityFile $HOME/.ssh/github
@@ -140,6 +142,10 @@ repos() {
     cd \$DEVENV_ROOT/repos
 } 
 
+load-ssh-agent() {
+    source $toolbox_root/.devcontainer/load-ssh.sh
+}
+
 # Check if the repos directory exists
 if [ -d "$repos_dir" ]; then
   # Loop through each sub-directory in repos
@@ -157,7 +163,10 @@ export PATH=\$PATH:\${DEVENV_ROOT}/scripts
 $toolbox_root/.devcontainer/sanity-check.sh
 source $toolbox_root/.devcontainer/env-vars.sh
 source $toolbox_root/.devcontainer/bash-prompt.sh
-source $toolbox_root/.devcontainer/load-ssh.sh
+#source $toolbox_root/.devcontainer/load-ssh.sh
+source $toolbox_root/.devcontainer/bash_completion_custom
+
+load-ssh-agent
 
 if \$DEVENV_ROOT/.devcontainer/check-update-devenv-repo.sh ; then 
     #source \$HOME/.bashrc
@@ -183,7 +192,7 @@ export DOCUMENT_SERVER=localhost
 export GIT_TERMINAL_PROMPT=1
 export DEVENV_GH_TOKEN=$DEVENV_GH_TOKEN
 export GITHUB_USER=$GITHUB_USER
-export DEVENV_UPDATE_INTERVAL=$((4 * 3600)) # 12 hours.  This can be changed as needed.
+export DEVENV_UPDATE_INTERVAL=$((4 * 3600)) # 4 hours.  This can be changed as needed.
 export INSTALL_VERSION=$VERSION
 export MAJOR_VERSION=$MAJOR_VERSION
 export MINOR_VERSION=$MINOR_VERSION
@@ -208,7 +217,7 @@ fi
 
 sudo apt update
 sudo apt upgrade -y
-sudo apt install gcc g++ make xmlstarlet redis-tools chromium cifs-utils xmlstarlet gh -y
+sudo apt install gcc g++ make xmlstarlet redis-tools chromium cifs-utils xmlstarlet gh flatpak software-properties-common -y
 #sudo apt install mongocli -y
 
 if [ "$is_arm" == "1" ]; then
@@ -225,29 +234,26 @@ rm mongo-shell.deb
 
 # # # NOTE:  We do not need to install previous SDK's at the moment.
 
-# echo "# Install .NET"
-# echo "#############################################"
+echo "# Install .NET"
+echo "#############################################"
 
-# wget https://dot.net/v1/dotnet-install.sh
-# chmod +x dotnet-install.sh
-# ./dotnet-install.sh -c 6.0
-# ./dotnet-install.sh -c 7.0
-# ./dotnet-install.sh -c 8.0
+wget https://dot.net/v1/dotnet-install.sh
+chmod +x ./dotnet-install.sh
+sudo ./dotnet-install.sh -c 8.0 -i /usr/share/dotnet
+sudo ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
+rm dotnet-install.sh
 
 # #sudo mv /usr/bin/dotnet /usr/bin/dotnet.old &>/dev/null
-
 # sudo rm -rf /usr/share/dotnet &>/dev/null
 # sudo mv $HOME/.dotnet /usr/share/dotnet
 # sudo rm -rf /usr/bin/dotnet &>/dev/null
 # sudo ln -s  /usr/share/dotnet/dotnet /usr/bin/dotnet
 
-# rm dotnet-install.sh
-
 echo "# Configure .net"
 echo "#############################################"
 
 /usr/bin/dotnet tool install --global altcover.global
-/usr/bin/dotnet dev-certs https
+sudo /usr/bin/dotnet dev-certs https
 sudo -E /usr/bin/dotnet dev-certs https -ep /usr/local/share/ca-certificates/aspnet/https.crt --format PEM
 sudo update-ca-certificates
 dotnet tool install --global dotnet-outdated-tool
@@ -286,6 +292,29 @@ else
     echo "WARNING!!!  No email found in $email_file"
 fi
 
+# echo "# Disable snaps"
+# echo "#############################################"
+# sudo apt-get purge snapd -y
+# sudo rm -rf /var/cache/snapd/
+# sudo rm -rf /snap
+# echo -e "Package: snapd\nPin: release a=*\nPin-Priority: -10" | sudo tee /etc/apt/preferences.d/nosnap.pref
+# echo '
+# Package: *
+# Pin: release o=LP-PPA-mozillateam
+# Pin-Priority: 1001
+
+# Package: firefox
+# Pin: version 1:1snap*
+# Pin-Priority: -1
+# ' | sudo tee /etc/apt/preferences.d/mozilla-firefox
+
+echo "# More installs"
+echo "#############################################"
+#sudo add-apt-repository ppa:mozillateam/ppa -y
+#sudo apt update
+#sudo apt install firefox -y
+sudo apt install chromium -y
+
 #echo "# VS Code extentsions"
 #echo "#############################################"
 #code --install-extension ms-dotnettools.csdevkit
@@ -294,10 +323,10 @@ echo "# Other configuration"
 echo "#############################################"
 mkdir -p $toolbox_root/.debug/data
 mkdir -p $toolbox_root/.debug/config
+mkdir -p $toolbox_root/repos
 bash $script_folder/download-csharp-debugger.sh
 echo fs.inotify.max_user_instances=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
-
-mkdir -p $toolbox_root/repos
+sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
 # if [ ! -L "$HOME/repos" ]; then
 #     ln -s "$toolbox_root/repos" "$HOME/repos"
@@ -319,16 +348,25 @@ echo "# Configure local devenv repo hooks"
 echo "#############################################"
 pnpm install
 
+echo "# Configure nuget"
+echo "#############################################"
+
+local_nuget_dev=$toolbox_root/.debug/local-nuget-dev
+mkdir -p $local_nuget_dev
+ 
+add_nuget_source_if_not_exists "dev" $local_nuget_dev
+add_nuget_source_if_not_exists "github" https://nuget.pkg.github.com/workinprogress-ai/index.json $GITHUB_USER $DEVENV_GH_TOKEN
+
 if [ "$is_arm" == "1" ]; then
-    echo "# Install binfmt support for ARM"
-    echo "#############################################"
-    sudo apt install -y qemu-user-static binfmt-support
-    sudo update-binfmts --enable qemu-x86_64
-    #sudo dpkg --add-architecture i386
-    sudo dpkg --add-architecture amd64
-    sudo apt update
-    sudo apt install -y libc6:amd64
-    #sudo apt install -y libc6:i386
+    echo "ARM:  Cannot install MongoDbCompass"
+    # echo "# Install binfmt support for ARM"
+    # echo "#############################################"
+    # sudo apt install -y qemu-user-static binfmt-support
+    # sudo update-binfmts --enable qemu-x86_64
+    # #sudo dpkg --add-architecture i386
+    # sudo dpkg --add-architecture amd64
+    # sudo apt update
+    # sudo apt install -y libc6:amd64
 else
     echo "# Installing mongo db compass"
     echo "#############################################"
@@ -342,6 +380,11 @@ fi
 if [ -f $toolbox_root/.devcontainer/custom-bootstrap.sh ]; then
     /bin/bash $toolbox_root/.devcontainer/custom-bootstrap.sh
 fi
+
+echo "# Cleanup"
+echo "#############################################"
+pkill ssh-agent &>/dev/null
+sudo apt autoremove -y
 
 echo "Bootstrap complete"
 echo "--------------------------------------------------------------"

@@ -84,8 +84,8 @@ SETUP_DIR="$toolbox_root/.setup"
 mkdir -p "$SETUP_DIR"
 
 # Asking questions
-save_response "What is your name?" "name.txt"
-save_response "What is your github user?" "github_user.txt"
+save_response "What is your HUMAN name?" "name.txt"
+save_response "What is your github user (just the USER, not your email)?" "github_user.txt"
 echo "For the next step, you will need to paste a PAT (personal access token) from github.  It should have 'read:packages' access." 
 echo "You can create one with this link: https://github.com/settings/tokens/new"
 echo "See the README for information about how to create a PAT."

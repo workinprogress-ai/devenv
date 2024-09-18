@@ -72,6 +72,7 @@ else
     git config core.autocrlf false
     git config core.eol lf
     git config pull.ff only
+    git config --global --add safe.directory "$TARGET_DIR"
 
     init=".repo/init.sh"
     if [ -f "$init" ]; then
