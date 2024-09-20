@@ -15,3 +15,5 @@ node_modules/
 .devcontainer/custom_startup.sh
 .devcontainer/custom_bootstrap.sh
 .devcontainer/env_vars.sh
+.devcontainer/bash-functions.sh
+dotnet-install.*

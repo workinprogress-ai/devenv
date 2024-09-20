@@ -31,16 +31,16 @@ get_script_path() {
 }
 
 # Function to create SSH key
-create_ssh_key() {
-  ssh-keygen -t rsa -b 4096 -C "$email" -f "$SETUP_DIR/github_key" -N ""
-  echo "SSH key created: $SETUP_DIR/github_key"
-  echo "Public key:"
-  cat "$SETUP_DIR/github_key.pub"
-  echo "Instructions to add this key to GitHub:"
-  echo "1. Copy the above public key."
-  echo "2. Go to GitHub -> Settings -> SSH and GPG keys -> New SSH Key.  Here is a link:  https://github.com/settings/tokens/new"
-  echo "3. Paste the copied key and save."
-}
+# create_ssh_key() {
+#   ssh-keygen -t rsa -b 4096 -C "$email" -f "$SETUP_DIR/github_key" -N ""
+#   echo "SSH key created: $SETUP_DIR/github_key"
+#   echo "Public key:"
+#   cat "$SETUP_DIR/github_key.pub"
+#   echo "Instructions to add this key to GitHub:"
+#   echo "1. Copy the above public key."
+#   echo "2. Go to GitHub -> Settings -> SSH and GPG keys -> New SSH Key.  Here is a link:  https://github.com/settings/tokens/new"
+#   echo "3. Paste the copied key and save."
+# }
 
 # Function to save a response to a file
 save_response() {
@@ -86,7 +86,10 @@ mkdir -p "$SETUP_DIR"
 # Asking questions
 save_response "What is your HUMAN name?" "name.txt"
 save_response "What is your github user (just the USER, not your email)?" "github_user.txt"
-echo "For the next step, you will need to paste a PAT (personal access token) from github.  It should have 'read:packages' access." 
+echo "For the next step, you will need to paste a PAT (personal access token) from github.  It should have the following access"
+echo "- 'repo'   (all)" 
+echo "- 'read:packages'"
+echo "- 'read: org'" 
 echo "You can create one with this link: https://github.com/settings/tokens/new"
 echo "See the README for information about how to create a PAT."
 save_response "Paste a github token that has package access." "github_token.txt"
@@ -110,21 +113,21 @@ if [ ! -f "$SETUP_DIR/email.txt" ]; then
     done
 fi
 
-if [ ! -f "$SETUP_DIR/github_key" ]; then
-    while true; do
-        echo "Do you need to create a GitHub SSH key? (yes/no)"
-        read -r create_key
-        if [[ "$create_key" == "yes" ]]; then
-            create_ssh_key
-            break
-        elif [[ "$create_key" == "no" ]]; then
-            save_ssh_key "github_key"
-            break
-        else
-            echo "Invalid response. Please answer 'yes' or 'no'."
-        fi
-    done
-fi
+# if [ ! -f "$SETUP_DIR/github_key" ]; then
+#     while true; do
+#         echo "Do you need to create a GitHub SSH key? (yes/no)"
+#         read -r create_key
+#         if [[ "$create_key" == "yes" ]]; then
+#             create_ssh_key
+#             break
+#         elif [[ "$create_key" == "no" ]]; then
+#             save_ssh_key "github_key"
+#             break
+#         else
+#             echo "Invalid response. Please answer 'yes' or 'no'."
+#         fi
+#     done
+# fi
 
 read -p  "The setup script will now attempt to install the remote containers extension to VS Code.  Ok to proceed? (yes/no) " answer
 case $answer in

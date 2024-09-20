@@ -90,6 +90,8 @@ The script will ask you for the following information:
    - read:packages
    - read:org
 
+![PAT permissions](./docs/github_pat_scopes.png)
+
 ## Creating the Dev Container
 
 There is a first time procedure to execute to set up the container the first time. Container configuration and setup is handled in two parts:  There is a configuration that defines the basic container setup (the [devcontainer.json](./../.devcontainer/devcontainer.json) file) and a subsequent script that is run once the container is up.

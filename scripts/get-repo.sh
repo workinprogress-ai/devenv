@@ -10,7 +10,6 @@ usage() {
   echo "Usage: $0 <repository-name>"
 }
 
-REPO_NAME=$1
 if [ -z "$1" ]; then
   usage  
   REPO_NAME=$(basename `git rev-parse --show-toplevel`)
@@ -22,15 +21,19 @@ if [ -z "$1" ]; then
     echo "Repository '$REPO_NAME' does not exist in the local repository directory."
     exit 1
   fi
+else
+    REPO_NAME=${1%/}
 fi
 
 TARGET_DIR=$repos_dir/$REPO_NAME
-GIT_URL_PREFIX="git@github.com:workinprogress-ai"
+GIT_URL_PREFIX="https://${GITHUB_USER}:${DEVENV_GH_TOKEN}@github.com/workinprogress-ai/"
+GIT_URL="${GIT_URL_PREFIX}/${REPO_NAME}.git"
 
 # Check if the target directory exists
 if [ -d "$TARGET_DIR" ]; then
     echo "Repository '$REPO_NAME' already exists. Fetching latest changes..."
     cd "$TARGET_DIR"
+    git remote set-url origin "$GIT_URL"
     git fetch --all --tags -f
 
     current_branch=$(git rev-parse --abbrev-ref HEAD)
@@ -60,7 +63,6 @@ if [ -d "$TARGET_DIR" ]; then
     cd - &>/dev/null
 else
     echo "Repository '$REPO_NAME' does not exist. Attempting to clone..."
-    GIT_URL="${GIT_URL_PREFIX}/${REPO_NAME}.git"
     git clone "$GIT_URL" "$TARGET_DIR"
     if [ $? -ne 0 ]; then
         echo "Failed to clone repository '$REPO_NAME'. Please check the repository name and try again."

@@ -2,7 +2,7 @@
 
 __bash_prompt() {
     local userpart='`export XIT=$? \
-        && [ ! -z "${AZURE_USER:-}" ] && echo -n "\[\033[0;32m\]@${AZURE_USER:-} " || echo -n "\[\033[0;32m\]\u " \
+        && [ ! -z "${GITHUB_USER:-}" ] && echo -n "\[\033[0;32m\]@${GITHUB_USER:-} " || echo -n "\[\033[0;32m\]\u " \
         && [ "$XIT" -ne "0" ] && echo -n "\[\033[1;31m\]➜" || echo -n "\[\033[0m\]➜"`'
 
     local gitbranch='`\

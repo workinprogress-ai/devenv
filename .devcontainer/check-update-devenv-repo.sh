@@ -6,7 +6,7 @@ script_folder=$(dirname "$script_path")
 cd $script_folder
 
 # Set the update interval if not already set in the environment
-DEVENV_UPDATE_INTERVAL=${DEVENV_UPDATE_INTERVAL:-$((8 * 3600))} # 12 hours default
+DEVENV_UPDATE_INTERVAL=${DEVENV_UPDATE_INTERVAL:-$((2 * 3600))} # 2 hours default
 
 # Path to the .update-time file
 UPDATE_FILE="$script_folder/.update-time"

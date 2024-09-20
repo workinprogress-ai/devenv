@@ -20,12 +20,12 @@ add_nuget_source_if_not_exists() {
     local password="$4"
 
     # Check if the source already exists
-    if ! dotnet nuget list source | grep -q "$sourceUrl"; then
+    if ! $dotnet_cmd nuget list source | grep -q "$sourceUrl"; then
         if [ -n "$username" ] && [ -n "$password" ]; then
-            dotnet nuget add source "$sourceUrl" -n "$sourceName" -u "$username" -p "$password" --store-password-in-clear-text
+            $dotnet_cmd nuget add source "$sourceUrl" -n "$sourceName" -u "$username" -p "$password" --store-password-in-clear-text
             echo "NuGet source $sourceName with credentials added."
         else
-            dotnet nuget add source "$sourceUrl" -n "$sourceName"
+            $dotnet_cmd nuget add source "$sourceUrl" -n "$sourceName"
             echo "NuGet source $sourceName added."
         fi
     else
@@ -108,6 +108,16 @@ if [ -f $setup_dir/github_user.txt ]; then
 else 
     echo "WARNING!!!  No github user found in $setup_dir/github_user.txt"
 fi
+if [ -f $email_file ]; then
+    USER_EMAIL=$(cat $email_file)
+else
+    echo "WARNING!!!  No email found in $email_file"
+fi
+if [ -f $name_file ]; then
+    HUMAN_NAME="$(cat $name_file)"
+else
+    echo "WARNING!!!  No human name found in $name_file"
+fi
 
 git remote set-url origin git@github.com:workinprogress-ai/devenv.git
 
@@ -118,15 +128,11 @@ EOF
 touch $HOME/.ssh/github
 chmod 600 $HOME/.ssh/github
 
-
-echo "# Add additional stuff in .bashrc"
+echo "# Create aliases and bash functions script"
 echo "#############################################"
+rm -f $toolbox_root/.devcontainer/bash-functions.sh
+cat <<EOF >$toolbox_root/.devcontainer/bash-functions.sh
 
-cat <<EOF >>$HOME/.bashrc
-
-export DEVENV_ROOT=$toolbox_root
-export PATH="\$PATH:\${DEVENV_ROOT}/.debug/scripts"
-source \$HOME/.git-completion.bash
 alias ll='ls -lah'
 
 get-repo() {
@@ -146,6 +152,51 @@ load-ssh-agent() {
     source $toolbox_root/.devcontainer/load-ssh.sh
 }
 
+check-update-env() {
+    git pull && git fetch --tags -f && $toolbox_root/.devcontainer/check-update-devenv-repo.sh
+}
+
+update-github-token() {
+    source $toolbox_root/.devcontainer/update-github-token.sh
+}
+
+EOF
+chmod +x $toolbox_root/.devcontainer/bash-functions.sh
+
+echo "# Create env-vars.sh"
+echo "#############################################"
+rm -f $toolbox_root/.devcontainer/env-vars.sh
+cat <<EOF >>$toolbox_root/.devcontainer/env-vars.sh
+export TZ='$(cat $timezone_file)'
+export DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false
+export DOTNET_USE_POLLING_FILE_WATCHER=true
+export CONFIG_FOLDER=\$DEVENV_ROOT/.debug/config
+export DATA_FOLDER=\$DEVENV_ROOT/.debug/data
+export ENV_NAME=local
+export DICTIONARY_SERVER=localhost:6379
+export DOCUMENT_SERVER=localhost
+export GIT_TERMINAL_PROMPT=1
+export DEVENV_GH_TOKEN=$DEVENV_GH_TOKEN
+export GITHUB_USER=$GITHUB_USER
+export USER_EMAIL=$USER_EMAIL
+export HUMAN_NAME=$HUMAN_NAME
+export DEVENV_UPDATE_INTERVAL=$((4 * 3600)) # 4 hours.  This can be changed as needed.
+export INSTALL_VERSION=$VERSION
+export MAJOR_VERSION=$MAJOR_VERSION
+export MINOR_VERSION=$MINOR_VERSION
+export PATCH_VERSION=$PATCH_VERSION
+export repos=\$DEVENV_ROOT/repos
+export devenv=\$DEVENV_ROOT
+EOF
+chmod +x $toolbox_root/.devcontainer/env-vars.sh
+
+echo "# Add additional stuff in .bashrc"
+echo "#############################################"
+cat <<EOF >>$HOME/.bashrc
+export DEVENV_ROOT=$toolbox_root
+export PATH="\$PATH:\${DEVENV_ROOT}/.debug/scripts:/home/vscode/.dotnet/tools"
+source \$HOME/.git-completion.bash
+
 # Check if the repos directory exists
 if [ -d "$repos_dir" ]; then
   # Loop through each sub-directory in repos
@@ -162,8 +213,8 @@ export PATH=\$PATH:\${DEVENV_ROOT}/scripts
 
 $toolbox_root/.devcontainer/sanity-check.sh
 source $toolbox_root/.devcontainer/env-vars.sh
+source $toolbox_root/.devcontainer/bash-functions.sh
 source $toolbox_root/.devcontainer/bash-prompt.sh
-#source $toolbox_root/.devcontainer/load-ssh.sh
 source $toolbox_root/.devcontainer/bash_completion_custom
 
 load-ssh-agent
@@ -179,30 +230,6 @@ fi
 
 EOF
 
-rm -f $toolbox_root/.devcontainer/env-vars.sh
-cat <<EOF >>$toolbox_root/.devcontainer/env-vars.sh
-export TZ='$(cat $timezone_file)'
-export DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false
-export DOTNET_USE_POLLING_FILE_WATCHER=true
-export CONFIG_FOLDER=\$DEVENV_ROOT/.debug/config
-export DATA_FOLDER=\$DEVENV_ROOT/.debug/data
-export ENV_NAME=local
-export DICTIONARY_SERVER=localhost:6379
-export DOCUMENT_SERVER=localhost
-export GIT_TERMINAL_PROMPT=1
-export DEVENV_GH_TOKEN=$DEVENV_GH_TOKEN
-export GITHUB_USER=$GITHUB_USER
-export DEVENV_UPDATE_INTERVAL=$((4 * 3600)) # 4 hours.  This can be changed as needed.
-export INSTALL_VERSION=$VERSION
-export MAJOR_VERSION=$MAJOR_VERSION
-export MINOR_VERSION=$MINOR_VERSION
-export PATCH_VERSION=$PATCH_VERSION
-export repos=\$DEVENV_ROOT/repos
-export devenv=\$DEVENV_ROOT
-EOF
-
-chmod +x $toolbox_root/.devcontainer/env-vars.sh
-
 echo "# Package install"
 echo "#############################################"
 
@@ -217,7 +244,7 @@ fi
 
 sudo apt update
 sudo apt upgrade -y
-sudo apt install gcc g++ make xmlstarlet redis-tools chromium cifs-utils xmlstarlet gh flatpak software-properties-common -y
+sudo apt install gcc g++ make xmlstarlet redis-tools cifs-utils xmlstarlet flatpak software-properties-common -y
 #sudo apt install mongocli -y
 
 if [ "$is_arm" == "1" ]; then
@@ -242,6 +269,7 @@ chmod +x ./dotnet-install.sh
 sudo ./dotnet-install.sh -c 8.0 -i /usr/share/dotnet
 sudo ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
 rm dotnet-install.sh
+dotnet_cmd=/usr/bin/dotnet
 
 # #sudo mv /usr/bin/dotnet /usr/bin/dotnet.old &>/dev/null
 # sudo rm -rf /usr/share/dotnet &>/dev/null
@@ -252,11 +280,11 @@ rm dotnet-install.sh
 echo "# Configure .net"
 echo "#############################################"
 
-/usr/bin/dotnet tool install --global altcover.global
-sudo /usr/bin/dotnet dev-certs https
-sudo -E /usr/bin/dotnet dev-certs https -ep /usr/local/share/ca-certificates/aspnet/https.crt --format PEM
+$dotnet_cmd tool install --global altcover.global
+$dotnet_cmd tool install --global dotnet-outdated-tool
+sudo $dotnet_cmd dev-certs https
+sudo -E $dotnet_cmd dev-certs https -ep /usr/local/share/ca-certificates/aspnet/https.crt --format PEM
 sudo update-ca-certificates
-dotnet tool install --global dotnet-outdated-tool
 
 echo "# Node packages"
 echo "#############################################"
@@ -277,20 +305,11 @@ git config --global pull.ff only
 git config --global credential.helper store
 git config --global credential.helper 'cache --timeout=999999999'
 git config --global --bool push.autoSetupRemote true
-cd $toolbox_root
 git config --global --add safe.directory $toolbox_root
+git config --global user.name "$HUMAN_NAME"
+git config --global user.email "$USER_EMAIL"
 
-if [ -f $name_file ]; then
-    git config --global user.name "$(cat $name_file)"
-else
-    echo "WARNING!!!  No name found in $name_file"
-fi
-if [ -f $email_file ]; then
-    USER_EMAIL=$(cat $email_file)
-    git config --global user.email "$USER_EMAIL"
-else
-    echo "WARNING!!!  No email found in $email_file"
-fi
+cd $toolbox_root
 
 # echo "# Disable snaps"
 # echo "#############################################"
