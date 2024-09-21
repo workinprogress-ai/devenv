@@ -10,6 +10,20 @@ usage() {
   echo "Usage: $0 <repository-name>"
 }
 
+configure_git() {
+    local CURRENT_DIR="$(pwd)"
+
+    # Check if the directory is already in the safe.directory list
+    if ! git config --global --get-all safe.directory | grep -Fxq "$CURRENT_DIR"; then
+        # Add the current directory to the safe list
+        git config --global --add safe.directory "$CURRENT_DIR"
+    fi    
+    git config core.autocrlf false
+    git config core.eol lf
+    git config pull.ff only
+    git remote set-url origin "$GIT_URL"
+}
+
 if [ -z "$1" ]; then
   usage  
   REPO_NAME=$(basename `git rev-parse --show-toplevel`)
@@ -33,7 +47,7 @@ GIT_URL="${GIT_URL_PREFIX}/${REPO_NAME}.git"
 if [ -d "$TARGET_DIR" ]; then
     echo "Repository '$REPO_NAME' already exists. Fetching latest changes..."
     cd "$TARGET_DIR"
-    git remote set-url origin "$GIT_URL"
+    configure_git
     git fetch --all --tags -f
 
     current_branch=$(git rev-parse --abbrev-ref HEAD)
@@ -69,12 +83,8 @@ else
         exit 1
     fi
     cd "$TARGET_DIR"
-    git fetch --tags
-
-    git config core.autocrlf false
-    git config core.eol lf
-    git config pull.ff only
-    git config --global --add safe.directory "$TARGET_DIR"
+    configure_git
+    git fetch --all --tags -f
 
     init=".repo/init.sh"
     if [ -f "$init" ]; then
