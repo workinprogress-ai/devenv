@@ -26,3 +26,4 @@ fi
 
 sed -i "s/^GITHUB_TOKEN=.*/GITHUB_TOKEN=${GITHUB_TOKEN}/" "$DEVENV_ROOT/.devcontainer/env-vars.sh"
 
+update-repos.sh
