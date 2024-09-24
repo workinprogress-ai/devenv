@@ -17,3 +17,9 @@ node_modules/
 .devcontainer/env_vars.sh
 .devcontainer/bash-functions.sh
 dotnet-install.*
+temp/
+temp/*
+tmp/
+tmp/*
+mnt/
+mnt/*

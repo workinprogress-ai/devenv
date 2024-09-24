@@ -244,7 +244,7 @@ fi
 
 sudo apt update
 sudo apt upgrade -y
-sudo apt install gcc g++ make xmlstarlet redis-tools cifs-utils xmlstarlet flatpak software-properties-common -y
+sudo apt install gcc g++ make xmlstarlet redis-tools cifs-utils xmlstarlet flatpak software-properties-common sshfs -y
 #sudo apt install mongocli -y
 
 if [ "$is_arm" == "1" ]; then
