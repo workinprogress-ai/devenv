@@ -290,7 +290,8 @@ echo "# Node packages"
 echo "#############################################"
 #npm install -g npx
 call_npm install -g zx
-call_npm install -g pnpm
+call_npm install -g pnpm@8.7.1
+call_npm install -g turbo@2.0.6
 
 echo "# Configure git"
 echo "#############################################"

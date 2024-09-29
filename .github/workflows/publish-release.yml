@@ -15,10 +15,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+          
+      - name: "Install pnpm"
+        if: github.ref == 'refs/heads/master'
+        run: |
+          npm install -g pnpm@8.7.1
+
       - name: "Apply tag"
         if: github.ref == 'refs/heads/master'
         run: |
           CURRENT_TAG=$(git tag -l 'v*' | sort -V | tail -n 1)
-          npm install
-          npm run ci:release
+          pnpm install
+          pnpm run ci:release
 # EOF
