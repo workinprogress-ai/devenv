@@ -84,7 +84,8 @@
 				"humao.rest-client",
                 "dotjoshjohnson.xml",
                 "rangav.vscode-thunder-client",
-				
+				"ms-kubernetes-tools.vscode-kubernetes-tools",
+				"hashicorp.terraform",
                 "simonsiefke.svg-preview",
                 "uctakeoff.vscode-counter",
                 "pflannery.vscode-versionlens",

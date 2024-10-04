@@ -54,6 +54,10 @@ else
     echo "x86 architecture assumed"
 fi
 
+if [[ -z "$HOME" ]]; then
+    export HOME=/home/vscode
+fi
+
 VERSION=$(git tag -l 'v*' | sort -V | tail -n 1)
 if [[ $VERSION =~ ([0-9]+)\.([0-9]+)\.([0-9]+)(-([a-zA-Z0-9]+)\.([0-9]+))? ]]; then
     MAJOR_VERSION=${BASH_REMATCH[1]}
@@ -76,13 +80,93 @@ cp ~/.bashrc.original ~/.bashrc
 
 cd $toolbox_root
 
-sudo apt install curl wget gnupg bash-completion iputils-ping uuid fzf -y
-#wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
-#echo "deb http://repo.mongodb.org/apt/debian bullseye/mongodb-org/6.0 main" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+echo "# OS packages update and install - First round"
+echo "#############################################"
+sudo apt update
+sudo apt upgrade -y
+sudo apt install -y \
+    curl wget gnupg bash-completion iputils-ping uuid fzf gcc g++ make \
+    xmlstarlet redis-tools cifs-utils xmlstarlet flatpak software-properties-common \
+    sshfs chromium apt-transport-https ca-certificates
 
-if [[ -z "$HOME" ]]; then
-    export HOME=/home/vscode
+echo "# Add specialized OS package repositories and keys"
+echo "#############################################"
+
+sudo mkdir -p /etc/apt/keyrings
+
+# Add repository for Terrform
+wget -O- https://apt.releases.hashicorp.com/gpg | \
+gpg --dearmor | \
+sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null
+    echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
+    https://apt.releases.hashicorp.com $(lsb_release -cs) main" | \
+    sudo tee /etc/apt/sources.list.d/hashicorp.list
+
+# Add repository for kubctl
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+sudo chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg # allow unprivileged APT programs to read this keyring
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+sudo chmod 644 /etc/apt/sources.list.d/kubernetes.list   
+
+curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+
+echo "# OS packages update and install - Second round"
+echo "#############################################"
+sudo apt update
+sudo apt install -y \
+    terraform kubectl helm
+
+echo "# Install externally downloaded packages"
+echo "#############################################"
+
+if [ "$is_arm" == "1" ]; then
+    wget -O mongo-shell.deb https://downloads.mongodb.com/compass/mongodb-mongosh_2.1.5_arm64.deb
+    wget -O mongo-tools.deb https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-arm64-100.9.4.deb
+    curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube_latest_arm64.deb
+    mv minikube_latest_arm64.deb minikube.deb
+else
+    wget -O mongo-tools.deb https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-x86_64-100.9.4.deb
+    wget -O mongo-shell.deb https://downloads.mongodb.com/compass/mongodb-mongosh_2.1.5_amd64.deb
+    curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube_latest_amd64.deb
+    mv minikube_latest_amd64.deb minikube.deb
 fi
+sudo apt install -y ./mongo-tools.deb
+sudo apt install -y ./mongo-shell.deb
+sudo apt install -y ./minikube.deb
+rm mongo-tools.deb
+rm mongo-shell.deb
+rm minikube.deb
+
+echo "# Installing mongo db compass"
+echo "#############################################"
+if [ "$is_arm" == "1" ]; then
+    echo "ARM:  Cannot install MongoDbCompass"
+else
+    wget -O /tmp/mongodb-compass.deb https://downloads.mongodb.com/compass/mongodb-compass_1.43.5_amd64.deb
+    sudo apt install -y /tmp/mongodb-compass.deb
+    rm /tmp/mongodb-compass.deb
+fi
+
+echo "# Install .NET"
+echo "#############################################"
+
+wget https://dot.net/v1/dotnet-install.sh
+chmod +x ./dotnet-install.sh
+sudo ./dotnet-install.sh -c 8.0 -i /usr/share/dotnet
+sudo ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
+rm dotnet-install.sh
+dotnet_cmd=/usr/bin/dotnet
+
+# #sudo mv /usr/bin/dotnet /usr/bin/dotnet.old &>/dev/null
+# sudo rm -rf /usr/share/dotnet &>/dev/null
+# sudo mv $HOME/.dotnet /usr/share/dotnet
+# sudo rm -rf /usr/bin/dotnet &>/dev/null
+# sudo ln -s  /usr/share/dotnet/dotnet /usr/bin/dotnet
+
+# wget -O get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+# chmod +x get_helm.sh
+# ./get_helm.sh
 
 echo "# Get container scripts"
 echo "#############################################"
@@ -138,6 +222,7 @@ alias ll='ls -lah'
 get-repo() {
     bash $toolbox_root/scripts/get-repo.sh "\$@"
     source \$HOME/.bashrc
+    cd "$@" &>/dev/null
 }
 
 devenv() {
@@ -152,7 +237,7 @@ load-ssh-agent() {
     source $toolbox_root/.devcontainer/load-ssh.sh
 }
 
-check-update-env() {
+update-dev-env() {
     git pull && git fetch --tags -f && $toolbox_root/.devcontainer/check-update-devenv-repo.sh
 }
 
@@ -230,10 +315,10 @@ fi
 
 EOF
 
-echo "# Package install"
-echo "#############################################"
-
 if command -v nvm > /dev/null 2>&1; then    
+    echo "# Install nvm"
+    echo "#############################################"
+
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
     export NVM_DIR="/usr/local/share/nvm"
     source ~/.bashrc
@@ -241,41 +326,6 @@ if command -v nvm > /dev/null 2>&1; then
     nvm install --lts
     nvm use --lts
 fi
-
-sudo apt update
-sudo apt upgrade -y
-sudo apt install gcc g++ make xmlstarlet redis-tools cifs-utils xmlstarlet flatpak software-properties-common sshfs -y
-#sudo apt install mongocli -y
-
-if [ "$is_arm" == "1" ]; then
-    wget -O mongo-shell.deb https://downloads.mongodb.com/compass/mongodb-mongosh_2.1.5_arm64.deb
-    wget -O mongo-tools.deb https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-arm64-100.9.4.deb
-else
-    wget -O mongo-tools.deb https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-x86_64-100.9.4.deb
-    wget -O mongo-shell.deb https://downloads.mongodb.com/compass/mongodb-mongosh_2.1.5_amd64.deb
-fi
-sudo apt install -y ./mongo-tools.deb
-sudo apt install -y ./mongo-shell.deb
-rm mongo-tools.deb
-rm mongo-shell.deb
-
-# # # NOTE:  We do not need to install previous SDK's at the moment.
-
-echo "# Install .NET"
-echo "#############################################"
-
-wget https://dot.net/v1/dotnet-install.sh
-chmod +x ./dotnet-install.sh
-sudo ./dotnet-install.sh -c 8.0 -i /usr/share/dotnet
-sudo ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
-rm dotnet-install.sh
-dotnet_cmd=/usr/bin/dotnet
-
-# #sudo mv /usr/bin/dotnet /usr/bin/dotnet.old &>/dev/null
-# sudo rm -rf /usr/share/dotnet &>/dev/null
-# sudo mv $HOME/.dotnet /usr/share/dotnet
-# sudo rm -rf /usr/bin/dotnet &>/dev/null
-# sudo ln -s  /usr/share/dotnet/dotnet /usr/bin/dotnet
 
 echo "# Configure .net"
 echo "#############################################"
@@ -311,33 +361,6 @@ git config --global user.name "$HUMAN_NAME"
 git config --global user.email "$USER_EMAIL"
 
 cd $toolbox_root
-
-# echo "# Disable snaps"
-# echo "#############################################"
-# sudo apt-get purge snapd -y
-# sudo rm -rf /var/cache/snapd/
-# sudo rm -rf /snap
-# echo -e "Package: snapd\nPin: release a=*\nPin-Priority: -10" | sudo tee /etc/apt/preferences.d/nosnap.pref
-# echo '
-# Package: *
-# Pin: release o=LP-PPA-mozillateam
-# Pin-Priority: 1001
-
-# Package: firefox
-# Pin: version 1:1snap*
-# Pin-Priority: -1
-# ' | sudo tee /etc/apt/preferences.d/mozilla-firefox
-
-echo "# More installs"
-echo "#############################################"
-#sudo add-apt-repository ppa:mozillateam/ppa -y
-#sudo apt update
-#sudo apt install firefox -y
-sudo apt install chromium -y
-
-#echo "# VS Code extentsions"
-#echo "#############################################"
-#code --install-extension ms-dotnettools.csdevkit
 
 echo "# Other configuration"
 echo "#############################################"
@@ -377,24 +400,10 @@ mkdir -p $local_nuget_dev
 add_nuget_source_if_not_exists "dev" $local_nuget_dev
 add_nuget_source_if_not_exists "github" https://nuget.pkg.github.com/workinprogress-ai/index.json $GITHUB_USER $DEVENV_GH_TOKEN
 
-if [ "$is_arm" == "1" ]; then
-    echo "ARM:  Cannot install MongoDbCompass"
-    # echo "# Install binfmt support for ARM"
-    # echo "#############################################"
-    # sudo apt install -y qemu-user-static binfmt-support
-    # sudo update-binfmts --enable qemu-x86_64
-    # #sudo dpkg --add-architecture i386
-    # sudo dpkg --add-architecture amd64
-    # sudo apt update
-    # sudo apt install -y libc6:amd64
-else
-    echo "# Installing mongo db compass"
-    echo "#############################################"
+echo "# Configure user npmrc file" 
+echo "#############################################"
 
-    wget -O /tmp/mongodb-compass.deb https://downloads.mongodb.com/compass/mongodb-compass_1.43.5_amd64.deb
-    sudo apt install -y /tmp/mongodb-compass.deb
-    rm /tmp/mongodb-compass.deb
-fi
+echo "//npm.pkg.github.com/:_authToken=$DEVENV_GH_TOKEN" > ~/.npmrc
 
 # If there is a custom startup, run it
 if [ -f $toolbox_root/.devcontainer/custom-bootstrap.sh ]; then
