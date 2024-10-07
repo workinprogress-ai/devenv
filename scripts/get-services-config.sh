@@ -24,8 +24,14 @@ if [[ -d "$target_folder" ]]; then
 fi
 
 mkdir -p $target_folder
+if [[ "$(pwd)" == "$target_folder" ]]; then
+    cd .. &>/dev/null
+fi
+
 echo "Getting the config repo from the remote"
-git clone git@github.com:workinprogress-ai/services-config.git $target_folder # &>/dev/null
+GIT_URL="https://${GITHUB_USER}:${DEVENV_GH_TOKEN}@oms-fort.visualstudio.com/OMSNIC-Fortress-Website/_git/services-config"
+git clone $GIT_URL $target_folder
+
 if [[ $? -ne 0 ]]; then
     echo "git clone of config repo failed".
     exit 1
