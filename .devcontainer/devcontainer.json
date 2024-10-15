@@ -97,6 +97,7 @@
                 "donjayamanne.githistory",
                 "dbaeumer.vscode-eslint",
                 "gurayyarar.dummytextgenerator",
+				"davidanson.vscode-markdownlint",
 				
 				"github.copilot",
 				"github.copilot-chat",

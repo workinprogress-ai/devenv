@@ -86,8 +86,8 @@ sudo apt update
 sudo apt upgrade -y
 sudo apt install -y \
     curl wget gnupg bash-completion iputils-ping uuid fzf gcc g++ make \
-    xmlstarlet redis-tools cifs-utils xmlstarlet flatpak software-properties-common \
-    sshfs chromium apt-transport-https ca-certificates
+    xmlstarlet redis-tools cifs-utils xmlstarlet software-properties-common \
+    sshfs apt-transport-https ca-certificates
 
 echo "# Add specialized OS package repositories and keys"
 echo "#############################################"
@@ -137,16 +137,6 @@ sudo apt install -y ./minikube.deb
 rm mongo-tools.deb
 rm mongo-shell.deb
 rm minikube.deb
-
-echo "# Installing mongo db compass"
-echo "#############################################"
-if [ "$is_arm" == "1" ]; then
-    echo "ARM:  Cannot install MongoDbCompass"
-else
-    wget -O /tmp/mongodb-compass.deb https://downloads.mongodb.com/compass/mongodb-compass_1.43.5_amd64.deb
-    sudo apt install -y /tmp/mongodb-compass.deb
-    rm /tmp/mongodb-compass.deb
-fi
 
 echo "# Install .NET"
 echo "#############################################"
