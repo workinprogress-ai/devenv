@@ -262,6 +262,7 @@ export MINOR_VERSION=$MINOR_VERSION
 export PATCH_VERSION=$PATCH_VERSION
 export repos=\$DEVENV_ROOT/repos
 export devenv=\$DEVENV_ROOT
+export debug=\$DEVENV_ROOT/.debug
 EOF
 chmod +x $toolbox_root/.devcontainer/env-vars.sh
 
@@ -357,7 +358,10 @@ echo "#############################################"
 mkdir -p $toolbox_root/.debug/data
 mkdir -p $toolbox_root/.debug/config
 mkdir -p $toolbox_root/repos
-bash $script_folder/download-csharp-debugger.sh
+mkdir -p $toolbox_root/tmp
+if [[ ! -d "$toolbox_root/.debug/remote_debugger" ]]; then
+    $toolbox_root/download-csharp-debugger.sh
+fi
 echo fs.inotify.max_user_instances=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
 sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
