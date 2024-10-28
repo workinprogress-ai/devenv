@@ -35,7 +35,7 @@ for csproj in $csproj_files; do
     echo -------------------------------------
     echo Building "$csproj"
     echo 
-    dotnet build "$csproj" -c Debug --no-restore -p:Version=$version -p:AssemblyVersion=$version -p:FileVersion=$version
+    dotnet build "$csproj" -c Debug --no-restore -p:Version=$version -p:AssemblyVersion=$version -p:FileVersion=$version -p:DebugType=portable -p:DebugSymbols=true
     if [[ "$?" != 0 ]]; then exit 1; fi;
 
     echo 
@@ -69,10 +69,10 @@ for package in $packages; do
     package_cache_dir="$HOME/.nuget/packages/$package_name"
     
     if [[ -d "$package_cache_dir" ]]; then
-        echo "Removing cache for package: $package_name"
+        echo "Removing previous cache for package: $package_name"
         rm -rf "$package_cache_dir"
         if [[ $? != 0 ]]; then
-            echo "WARNING:  Failed to remove cache for package: $package_name"
+            echo "WARNING:  Failed to remove previous cache for package: $package_name"
             had_error=1
         fi
     fi

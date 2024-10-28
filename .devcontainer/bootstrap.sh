@@ -295,11 +295,6 @@ source $toolbox_root/.devcontainer/bash_completion_custom
 
 load-ssh-agent
 
-if \$DEVENV_ROOT/.devcontainer/check-update-devenv-repo.sh ; then 
-    #source \$HOME/.bashrc
-    echo "Devenv repo updated!"
-fi
-
 if [[ \$(pwd) == \${DEVENV_ROOT} ]]; then
   cd \$DEVENV_ROOT/repos
 fi
@@ -362,8 +357,8 @@ mkdir -p $toolbox_root/tmp
 if [[ ! -d "$toolbox_root/.debug/remote_debugger" ]]; then
     $toolbox_root/download-csharp-debugger.sh
 fi
-echo fs.inotify.max_user_instances=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
-sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+echo fs.inotify.max_user_instances=524288 | sudo tee -a /etc/sysctl.conf &>/dev/null
+sudo sysctl -p
 
 # if [ ! -L "$HOME/repos" ]; then
 #     ln -s "$toolbox_root/repos" "$HOME/repos"
@@ -399,7 +394,7 @@ echo "#############################################"
 
 echo "//npm.pkg.github.com/:_authToken=$DEVENV_GH_TOKEN" > ~/.npmrc
 
-# If there is a custom startup, run it
+# If there is a custom bootstrap, run it
 if [ -f $toolbox_root/.devcontainer/custom-bootstrap.sh ]; then
     /bin/bash $toolbox_root/.devcontainer/custom-bootstrap.sh
 fi

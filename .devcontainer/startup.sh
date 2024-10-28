@@ -10,10 +10,11 @@ source $toolbox_root/.devcontainer/env-vars.sh
 source $toolbox_root/.devcontainer/load-ssh.sh
 nohup $toolbox_root/.devcontainer/load-docker.sh &>/dev/null &
 
+
+sudo sysctl fs.inotify.max_user_instances=524288 &>/dev/null
+
+grep -q -F "8.8.8.8" /etc/resolv.conf || echo "nameserver 8.8.8.8   8.8.4.4" | sudo tee -a /etc/resolv.conf &>/dev/null
+
 $toolbox_root/.devcontainer/sanity-check.sh
 
-if $toolbox_root/.devcontainer/check-update-devenv-repo.sh ; then 
-    #source \$HOME/.bashrc
-    echo "Devenv repo updated!"
-fi
 
