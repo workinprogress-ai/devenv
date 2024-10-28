@@ -87,7 +87,7 @@ echo "#############################################"
 sudo apt update
 sudo apt upgrade -y
 sudo apt install -y \
-    curl wget gnupg bash-completion iputils-ping uuid fzf gcc g++ make \
+    curl wget gnupg bash-completion iputils-ping uuid fzf gcc g++ make gh \
     xmlstarlet redis-tools cifs-utils xmlstarlet software-properties-common \
     sshfs apt-transport-https ca-certificates
 
@@ -149,11 +149,11 @@ chmod +x $toolbox_root/scripts/*
 mkdir -p $HOME/.ssh
 touch $HOME/.ssh/github
 
-if [ -f $setup_dir/github_key ]; then
-    cp $setup_dir/github_key $HOME/.ssh/github
-else 
-    echo "WARNING!!!  No github key found in $setup_dir/github_key"
-fi
+# if [ -f $setup_dir/github_key ]; then
+#     cp $setup_dir/github_key $HOME/.ssh/github
+# else 
+#     echo "WARNING!!!  No github key found in $setup_dir/github_key"
+# fi
 if [ -f $setup_dir/github_token.txt ]; then
     DEVENV_GH_TOKEN=$(cat $setup_dir/github_token.txt)
 else 
@@ -175,7 +175,9 @@ else
     echo "WARNING!!!  No human name found in $name_file"
 fi
 
-git remote set-url origin git@github.com:workinprogress-ai/devenv.git
+git remote set-url origin https://${GITHUB_USER}:${DEVENV_GH_TOKEN}@github.com/workinprogress-ai/devenv.git
+
+echo "$DEVENV_GH_TOKEN" | gh auth login --with-token -p https
 
 cat <<EOF >>$HOME/.ssh/config
 AddKeysToAgent yes
