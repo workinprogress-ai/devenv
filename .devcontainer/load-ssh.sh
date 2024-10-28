@@ -22,7 +22,7 @@ is_ssh_agent_running() {
         echo "false"
         exit;
     fi
-    if ! pgrep -u "$USER" ssh-agent > /dev/null 2>&1; then
+    if ! pgrep ssh-agent > /dev/null 2>&1; then
         echo "false"
         exit;
     fi
@@ -38,7 +38,7 @@ if [[ "$force" == "true" || "$agent_running" == "false" ]]; then
     (ssh-agent > ~/.ssh-agent-info) & disown
     sleep 2         # Give ssh-agent some time to write the environment variables
     # Source the generated ssh-agent environment variables
-    echo "ssh-agent started with PID: $(pgrep -u "$USER" ssh-agent)"
+    echo "ssh-agent started with PID: $(pgrep ssh-agent)"
     #rm ~/.ssh-agent-info
 fi
 source ~/.ssh-agent-info &>/dev/null

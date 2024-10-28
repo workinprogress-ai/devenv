@@ -70,6 +70,8 @@ else
     PATCH_VERSION=0
 fi
 
+mkdir -p $devenv/.installs
+
 # Make a backup of the .bashrc file so if we run this script multiple times, we don't 
 # end up adding the same stuff over and over.  We will always use the original.
 
@@ -115,28 +117,12 @@ echo "# OS packages update and install - Second round"
 echo "#############################################"
 sudo apt update
 sudo apt install -y \
-    terraform kubectl helm
+    terraform kubectl helm 
+    #terraform kubectl helm conntrack ipset kubelet kubeadm nftables socat
 
-echo "# Install externally downloaded packages"
-echo "#############################################"
+# echo "# Install externally downloaded packages"
+# echo "#############################################"
 
-if [ "$is_arm" == "1" ]; then
-    wget -O mongo-shell.deb https://downloads.mongodb.com/compass/mongodb-mongosh_2.1.5_arm64.deb
-    wget -O mongo-tools.deb https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-arm64-100.9.4.deb
-    curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube_latest_arm64.deb
-    mv minikube_latest_arm64.deb minikube.deb
-else
-    wget -O mongo-tools.deb https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-x86_64-100.9.4.deb
-    wget -O mongo-shell.deb https://downloads.mongodb.com/compass/mongodb-mongosh_2.1.5_amd64.deb
-    curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube_latest_amd64.deb
-    mv minikube_latest_amd64.deb minikube.deb
-fi
-sudo apt install -y ./mongo-tools.deb
-sudo apt install -y ./mongo-shell.deb
-sudo apt install -y ./minikube.deb
-rm mongo-tools.deb
-rm mongo-shell.deb
-rm minikube.deb
 
 echo "# Install .NET"
 echo "#############################################"
@@ -153,10 +139,6 @@ dotnet_cmd=/usr/bin/dotnet
 # sudo mv $HOME/.dotnet /usr/share/dotnet
 # sudo rm -rf /usr/bin/dotnet &>/dev/null
 # sudo ln -s  /usr/share/dotnet/dotnet /usr/bin/dotnet
-
-# wget -O get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
-# chmod +x get_helm.sh
-# ./get_helm.sh
 
 echo "# Get container scripts"
 echo "#############################################"
@@ -219,6 +201,10 @@ devenv() {
     cd \$DEVENV_ROOT
 }
 
+playground() {
+    cd \$DEVENV_ROOT/playground
+}
+
 repos() {
     cd \$DEVENV_ROOT/repos
 } 
@@ -263,6 +249,7 @@ export PATCH_VERSION=$PATCH_VERSION
 export repos=\$DEVENV_ROOT/repos
 export devenv=\$DEVENV_ROOT
 export debug=\$DEVENV_ROOT/.debug
+export playground=\$DEVENV_ROOT/playground
 EOF
 chmod +x $toolbox_root/.devcontainer/env-vars.sh
 
@@ -354,11 +341,13 @@ mkdir -p $toolbox_root/.debug/data
 mkdir -p $toolbox_root/.debug/config
 mkdir -p $toolbox_root/repos
 mkdir -p $toolbox_root/tmp
+mkdir -p $toolbox_root/playground
 if [[ ! -d "$toolbox_root/.debug/remote_debugger" ]]; then
     $toolbox_root/download-csharp-debugger.sh
 fi
 echo fs.inotify.max_user_instances=524288 | sudo tee -a /etc/sysctl.conf &>/dev/null
 sudo sysctl -p
+sudo usermod -aG docker vscode
 
 # if [ ! -L "$HOME/repos" ]; then
 #     ln -s "$toolbox_root/repos" "$HOME/repos"

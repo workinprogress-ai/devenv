@@ -23,3 +23,7 @@ tmp/
 tmp/*
 mnt/
 mnt/*
+playground/
+playground/*
+.installs/
+.installs/*
