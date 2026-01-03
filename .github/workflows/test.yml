@@ -3,8 +3,14 @@ name: Devenv Tests
 on:
   push:
     branches: [ main, master, release/*, beta/* ]
+    paths:
+      - 'tools/**'
+      - '.devcontainer/**'
   pull_request:
     branches: [ main, master, release/*, beta/* ]
+    paths:
+      - 'tools/**'
+      - '.devcontainer/**'
   workflow_dispatch:
 
 jobs:
