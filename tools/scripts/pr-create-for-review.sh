@@ -117,9 +117,7 @@ PR_URL=$(gh pr create "${repo_spec[@]}" \
   --base "$TARGET_BRANCH" \
   --head "$SOURCE_BRANCH" \
   --draft \
-  --assignee @me \
-  --json url \
-  --template '{{.url}}')
+  --assignee @me 2>&1 | grep -oE 'https://github.com[^ ]+' | head -n1)
 status=$?
 set -e
 

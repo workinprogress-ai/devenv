@@ -135,7 +135,7 @@ ${PR_BODY}"
   fi
 fi
 
-args=(pr create --title "$PR_TITLE" --body "$PR_BODY" --base "$TARGET_BRANCH" --head "$CURRENT_BRANCH" --json url --template '{{.url}}')
+args=(pr create --title "$PR_TITLE" --body "$PR_BODY" --base "$TARGET_BRANCH" --head "$CURRENT_BRANCH")
 [ "$DRAFT" = "true" ] && args+=(--draft)
 for reviewer in "${REVIEWERS[@]}"; do
   args+=(--reviewer "$reviewer")
@@ -146,7 +146,7 @@ done
 
 echo "Creating PR from $CURRENT_BRANCH -> $TARGET_BRANCH..." >&2
 set +e
-PR_URL=$(gh "${args[@]}")
+PR_URL=$(gh "${args[@]}" 2>&1 | grep -oE 'https://github.com[^ ]+' | head -n1)
 status=$?
 set -e
 
