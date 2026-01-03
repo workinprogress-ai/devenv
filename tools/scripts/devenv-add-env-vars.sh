@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Add or update environment variables in .devcontainer/env-vars.sh
-# Usage: add-env-vars.sh "VAR1=value1" "VAR2=value2" ...
+# Usage: devenv-add-env-vars.sh "VAR1=value1" "VAR2=value2" ...
 
 set -euo pipefail
 
@@ -12,7 +12,7 @@ ENV_VARS_FILE="$DEVENV_ROOT/.devcontainer/env-vars.sh"
 
 # Check if at least one environment variable is provided
 if [ $# -eq 0 ]; then
-    die "Usage: add-env-vars.sh \"VAR1=value1\" \"VAR2=value2\" ..." "$EXIT_INVALID_ARGUMENT"
+    die "Usage: devenv-add-env-vars.sh \"VAR1=value1\" \"VAR2=value2\" ..." "$EXIT_INVALID_ARGUMENT"
 fi
 
 # Validate env-vars.sh exists

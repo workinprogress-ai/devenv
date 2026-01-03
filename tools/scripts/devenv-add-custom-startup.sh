@@ -2,7 +2,7 @@
 
 # Add custom startup commands to .devcontainer/custom_startup.sh
 # These commands will be executed after the container starts
-# Usage: add-custom-startup-commands.sh "command1" "command2" ...
+# Usage: devenv-add-custom-startup.sh "command1" "command2" ...
 
 set -euo pipefail
 
@@ -13,7 +13,7 @@ STARTUP_SCRIPT="$DEVENV_ROOT/.devcontainer/custom_startup.sh"
 
 # Check if at least one command is provided
 if [ $# -eq 0 ]; then
-    die "Usage: add-custom-startup-commands.sh \"command1\" \"command2\" ..." "$EXIT_INVALID_ARGUMENT"
+    die "Usage: devenv-add-custom-startup.sh \"command1\" \"command2\" ..." "$EXIT_INVALID_ARGUMENT"
 fi
 
 # Create the startup script if it doesn't exist
@@ -41,7 +41,7 @@ for cmd in "$@"; do
         # Command has valid bash syntax, add it
         log_info "Adding command: $cmd"
         echo "" >> "$STARTUP_SCRIPT"
-        echo "# Added by add-custom-startup-commands.sh" >> "$STARTUP_SCRIPT"
+        echo "# Added by devenv-add-custom-startup.sh" >> "$STARTUP_SCRIPT"
         echo "$cmd" >> "$STARTUP_SCRIPT"
         ((added_count++))
     else

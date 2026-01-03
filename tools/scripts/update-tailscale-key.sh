@@ -35,7 +35,7 @@ fi
 
 # 2. Update env-vars.sh (Persistence)
 echo "    - Updating environment variables..."
-"$DEVENV_ROOT/scripts/add-env-vars.sh" "TS_AUTHKEY=$NEW_KEY"
+"$DEVENV_ROOT/scripts/devenv-add-env-vars.sh" "TS_AUTHKEY=$NEW_KEY"
 
 # 3. Export for current execution scope
 export TS_AUTHKEY="$NEW_KEY"

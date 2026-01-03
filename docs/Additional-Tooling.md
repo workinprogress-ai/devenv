@@ -495,12 +495,12 @@ Stops dependency services and cleans up resources.
 dependencies-down
 ```
 
-### `enable-container-dotnet-debugger.sh`
+### `container-enable-dotnet-debugger.sh`
 
 Injects and runs the .NET debugger into a locally running container for debugging purposes.
 
 ```bash
-enable-container-dotnet-debugger.sh <container-name>
+container-enable-dotnet-debugger.sh <container-name>
 ```
 
 ### `server-run-sql`
@@ -601,12 +601,12 @@ Lists all version tags in the current repository with colorized output.
 repo-version-list
 ```
 
-### `count-code-lines`
+### `metrics-count-code-lines`
 
 Counts lines of code in files or directories, with filtering options.
 
 ```bash
-count-code-lines [file-or-directory]
+metrics-count-code-lines [file-or-directory]
 ```
 
 ### `nuget-clear-local`
@@ -622,12 +622,12 @@ nuget-clear-local
 - Removes all packages from `.debug/local-nuget-dev`
 - Provides warnings if cleanup fails
 
-### `nuget-publish-debug-local`
+### `nuget-publish-local`
 
-Publishes a debug version of a NuGet package to local feed.
+Publishes a NuGet package to local feed.
 
 ```bash
-nuget-publish-debug-local [target-directory] [version] [configuration]
+nuget-publish-local [target-directory] [version] [configuration]
 ```
 
 **Arguments:**
@@ -641,12 +641,12 @@ nuget-publish-debug-local [target-directory] [version] [configuration]
 - Clears cache after publishing
 - Uses temporary directory for build artifacts
 
-### `coverage-open-report`
+### `cs-open-coverage`
 
-Opens the code coverage report in a browser.
+Open coverage reports in a browser (auto-detects chromium or firefox).
 
 ```bash
-coverage-open-report
+cs-open-coverage
 ```
 
 ## Networking and Utilities
@@ -709,12 +709,12 @@ install-extras mongo
 - `tailscale.sh` - Tailscale VPN with SOCKS5 proxy
 - `doctl.sh` - DigitalOcean CLI tool
 
-### `add-env-vars`
+### `devenv-add-env-vars`
 
-Adds or updates environment variables in `.devcontainer/env-vars.sh`.
+Adds or updates environment variables in `env-vars.sh`.
 
 ```bash
-add-env-vars "VAR1=value1" "VAR2=value2" ...
+devenv-add-env-vars "VAR1=value1" "VAR2=value2" ...
 ```
 
 **Features:**
@@ -726,17 +726,17 @@ add-env-vars "VAR1=value1" "VAR2=value2" ...
 **Example:**
 
 ```bash
-add-env-vars "MY_API_KEY=abc123" "DEBUG_MODE=true"
+devenv-add-env-vars "MY_API_KEY=abc123" "DEBUG_MODE=true"
 ```
 
 **Note:** Restart your container or source the env-vars.sh file to apply changes.
 
-### `add-custom-startup-commands`
+### `devenv-add-custom-startup`
 
 Adds custom commands to `.devcontainer/custom_startup.sh` that will run each time VS Code starts.
 
 ```bash
-add-custom-startup-commands "command1" "command2" ...
+devenv-add-custom-startup "command1" "command2" ...
 ```
 
 **Features:**
@@ -748,7 +748,7 @@ add-custom-startup-commands "command1" "command2" ...
 **Example:**
 
 ```bash
-add-custom-startup-commands "echo 'Container started'" "export MY_VAR=value"
+devenv-add-custom-startup "echo 'Container started'" "export MY_VAR=value"
 ```
 
 ### `update-github-token`
@@ -865,7 +865,7 @@ The following convenience aliases are available in the dev container:
 - `mongo-backup-server` / `mongo-restore-server` - MongoDB backup/restore
 
 **NuGet:**
-- `nuget-clear-local` / `nuget-publish-debug-local` - Local NuGet development
+- `nuget-clear-local` / `nuget-publish-local` - Local NuGet development
 
 **Utilities:**
 - `get-public-ip` - Get current public IP

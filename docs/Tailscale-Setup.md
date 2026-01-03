@@ -290,7 +290,7 @@ kill %1
 * **Check `NO_PROXY`:** Ensure `NO_PROXY` includes `localhost,127.0.0.1` and your local network ranges.
 * **Update if needed:**
   ```bash
-   "$DEVENV_TOOLS/add-env-vars.sh" "NO_PROXY=localhost,127.0.0.1,::1,172.16.0.0/12,192.168.0.0/16,.local"
+   "$DEVENV_TOOLS/devenv-add-env-vars.sh" "NO_PROXY=localhost,127.0.0.1,::1,172.16.0.0/12,192.168.0.0/16,.local"
   ```
 
 ### Container restart loses connection

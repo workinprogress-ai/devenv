@@ -8,7 +8,7 @@ source "$DEVENV_ROOT/tools/lib/error-handling.bash"
 
 usage() {
     cat <<'EOF'
-Usage: extract-snupkgs.sh <snupkg-path> [output-dir]
+Usage: cs-extract-snupkgs.sh <snupkg-path> [output-dir]
 
 Extracts a .snupkg (NuGet symbols) into the specified directory.
 If output-dir is omitted, extracts to ./snupkg-extracted/<name> under the current directory.

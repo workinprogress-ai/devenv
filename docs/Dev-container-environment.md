@@ -71,10 +71,10 @@ The `custom_bootstrap.sh` and `custom_startup.sh` are optional scripts that you 
 
 **Managing custom startup commands:**
 
-You can use the `add-custom-startup-commands` script to easily add commands to `custom_startup.sh`:
+You can use the `devenv-add-custom-startup` script to easily add commands to `custom_startup.sh`:
 
 ```bash
-add-custom-startup-commands "command1" "command2"
+devenv-add-custom-startup "command1" "command2"
 ```
 
 The script will:
@@ -85,10 +85,10 @@ The script will:
 
 **Managing environment variables:**
 
-You can use the `add-env-vars` script to add or update environment variables in `env-vars.sh`:
+You can use the `devenv-add-env-vars` script to add or update environment variables in `env-vars.sh`:
 
 ```bash
-add-env-vars "MY_VAR=value" "ANOTHER_VAR=value2"
+devenv-add-env-vars "MY_VAR=value" "ANOTHER_VAR=value2"
 ```
 
 The script will automatically update existing variables to prevent duplicates.
@@ -153,11 +153,11 @@ A few utility scripts have been provided to make life happy.
 
 * `get-services-config` This script pulls the service config from it's repository into the local dev environment.  It is placed in `~/debug/config`
 * `0x0.st` A script to push a file to the 0x0 file sharing site
-* `count-code-lines` A utility to count code lines in a file or folder
+* `metrics-count-code-lines` A utility to count code lines in a file or folder
 * `docker-build` A utility to build a project using Docker.
 * `docker-down` A utility to bring down a local docker configuration
 * `docker-up` A utility to bring up a local docker configuration
-* `enable-container-dotnet-debugger` A utility to inject and run the dotnet debugger into a locally running container.
+* `container-enable-dotnet-debugger` A utility to inject and run the dotnet debugger into a locally running container.
 * `file.io` A utility to push a file to the file.io file sharing site.
 * `repo-get` A utility to clone or update a repo in the `~/repos` folder.
 * `repo-update-all` A utility to update all repos in the `~/repos` folder.
