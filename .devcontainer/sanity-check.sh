@@ -14,10 +14,9 @@ function get_run_time() {
     fi
 }
 
-if $toolbox_root/.devcontainer/check-update-devenv-repo.sh ; then 
-    #source \$HOME/.bashrc
-    echo "Devenv repo updated!"
-elif [ $(get_run_time \$container_bootstrap_run_file) != $(get_run_time \$repo_bootstrap_run_file) ]; then
+$DEVENV_ROOT/.devcontainer/check-update-devenv-repo.sh
+
+if [ $(get_run_time \$container_bootstrap_run_file) != $(get_run_time \$repo_bootstrap_run_file) ]; then
     echo "WARNING!!!!!  The container bootstrap run time does not match the repo bootstrap run time."
     echo "Please rebuild dev env!!!!!!!!!"
 fi

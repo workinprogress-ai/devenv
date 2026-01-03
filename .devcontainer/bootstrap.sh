@@ -8,8 +8,10 @@ on_error() {
   exit 1;
 }
 
+# Trap ERR signal which is triggered by any command that exits with a non-zero status
+#trap on_error ERR
+
 call_npm() {
-    # Use this to get rid of the annoying warning
     npm "$@" 2>&1 | grep -v 'NODE_TLS_REJECT_UNAUTHORIZED is set to 0'
 }
 
@@ -19,7 +21,6 @@ add_nuget_source_if_not_exists() {
     local username="$3"
     local password="$4"
 
-    # Check if the source already exists
     if ! $dotnet_cmd nuget list source | grep -q "$sourceUrl"; then
         if [ -n "$username" ] && [ -n "$password" ]; then
             $dotnet_cmd nuget add source "$sourceUrl" -n "$sourceName" -u "$username" -p "$password" --store-password-in-clear-text
@@ -33,378 +34,562 @@ add_nuget_source_if_not_exists() {
     fi
 }
 
-# Trap ERR signal which is triggered by any command that exits with a non-zero status
-#trap on_error ERR
+initialize_paths() {
+    script_path=$(readlink -f "$0")
+    script_folder=$(dirname "$script_path")
+    toolbox_root=$(dirname "$script_folder")
+    devenv=$toolbox_root
+    setup_dir=$toolbox_root/.setup
+    repos_dir=$toolbox_root/repos
+    timezone_file=$toolbox_root/.setup/timezone.txt
+    name_file=$toolbox_root/.setup/name.txt
+    email_file=$toolbox_root/.setup/email.txt
+}
 
-script_path=$(readlink -f "$0")
-script_folder=$(dirname "$script_path")
-toolbox_root=$(dirname "$script_folder")
-setup_dir=$toolbox_root/.setup
-repos_dir=$toolbox_root/repos
-timezone_file=$toolbox_root/.setup/timezone.txt
-name_file=$toolbox_root/.setup/name.txt
-email_file=$toolbox_root/.setup/email.txt
+detect_architecture() {
+    arch=$(uname -m)
+    is_arm=$([ "$arch" == "aarch64" ] && echo 1)
 
-arch=$(uname -m)
-is_arm=$([ "$arch" == "aarch64" ] && echo 1)
+    if [ "$is_arm" == "1" ]; then
+        echo "ARM architecture detected"
+    else
+        echo "x86 architecture assumed"
+    fi
+}
 
-if [ "$is_arm" == "1" ]; then
-    echo "ARM architecture detected"
-else
-    echo "x86 architecture assumed"
-fi
+ensure_home_is_set() {
+    if [[ -z "$HOME" ]]; then
+        export HOME=/home/vscode
+    fi
+}
 
-if [[ -z "$HOME" ]]; then
-    export HOME=/home/vscode
-fi
+load_version_info() {
+    VERSION=$(git tag -l 'v*' | sort -V | tail -n 1)
+    if [[ $VERSION =~ ([0-9]+)\.([0-9]+)\.([0-9]+)(-([a-zA-Z0-9]+)\.([0-9]+))? ]]; then
+        MAJOR_VERSION=${BASH_REMATCH[1]}
+        MINOR_VERSION=${BASH_REMATCH[2]}
+        PATCH_VERSION=${BASH_REMATCH[3]}
+    else
+        echo "Warning: VERSION format is not recognized"
+        MAJOR_VERSION=0
+        MINOR_VERSION=0
+        PATCH_VERSION=0
+    fi
+}
 
-VERSION=$(git tag -l 'v*' | sort -V | tail -n 1)
-if [[ $VERSION =~ ([0-9]+)\.([0-9]+)\.([0-9]+)(-([a-zA-Z0-9]+)\.([0-9]+))? ]]; then
-    MAJOR_VERSION=${BASH_REMATCH[1]}
-    MINOR_VERSION=${BASH_REMATCH[2]}
-    PATCH_VERSION=${BASH_REMATCH[3]}
-else
-    echo "Warning: VERSION format is not recognized"
-    MAJOR_VERSION=0
-    MINOR_VERSION=0
-    PATCH_VERSION=0
-fi
+prepare_install_directories() {
+    mkdir -p "$devenv/.installs"
+}
 
-mkdir -p $devenv/.installs
+reset_bashrc_to_original() {
+    if [ ! -f ~/.bashrc.original ]; then
+        cp ~/.bashrc ~/.bashrc.original
+    fi
+    cp ~/.bashrc.original ~/.bashrc
+}
 
-# Make a backup of the .bashrc file so if we run this script multiple times, we don't 
-# end up adding the same stuff over and over.  We will always use the original.
+install_os_packages_round1() {
+    echo "# OS packages update and install - First round"
+    echo "#############################################"
+    sudo apt update
+    sudo apt upgrade -y
+    sudo apt install -y \
+        curl wget gnupg bash-completion iputils-ping uuid fzf gcc g++ make gh \
+        xmlstarlet redis-tools cifs-utils xmlstarlet software-properties-common \
+        sshfs apt-transport-https ca-certificates bats
+}
 
-if [ ! -f ~/.bashrc.original ]; then
-    cp ~/.bashrc ~/.bashrc.original
-fi;
-cp ~/.bashrc.original ~/.bashrc
+add_specialized_repositories() {
+    echo "# Add specialized OS package repositories and keys"
+    echo "#############################################"
 
-cd $toolbox_root
+    sudo mkdir -p /etc/apt/keyrings
 
-echo "# OS packages update and install - First round"
-echo "#############################################"
-sudo apt update
-sudo apt upgrade -y
-sudo apt install -y \
-    curl wget gnupg bash-completion iputils-ping uuid fzf gcc g++ make gh \
-    xmlstarlet redis-tools cifs-utils xmlstarlet software-properties-common \
-    sshfs apt-transport-https ca-certificates
-
-echo "# Add specialized OS package repositories and keys"
-echo "#############################################"
-
-sudo mkdir -p /etc/apt/keyrings
-
-# Add repository for Terrform
-wget -O- https://apt.releases.hashicorp.com/gpg | \
-gpg --dearmor | \
-sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null
+    wget -O- https://apt.releases.hashicorp.com/gpg | \
+    gpg --dearmor | \
+    sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null
     echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
     https://apt.releases.hashicorp.com $(lsb_release -cs) main" | \
     sudo tee /etc/apt/sources.list.d/hashicorp.list
 
-# Add repository for kubctl
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-sudo chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg # allow unprivileged APT programs to read this keyring
-echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
-sudo chmod 644 /etc/apt/sources.list.d/kubernetes.list   
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | sudo gpg --dearmor --yes -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    sudo chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+    sudo chmod 644 /etc/apt/sources.list.d/kubernetes.list
+}
 
-curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+install_os_packages_round2() {
+    echo "# OS packages update and install - Second round"
+    echo "#############################################"
+    sudo apt update
+    sudo apt install -y \
+        terraform kubectl
+}
 
-echo "# OS packages update and install - Second round"
-echo "#############################################"
-sudo apt update
-sudo apt install -y \
-    terraform kubectl helm 
-    #terraform kubectl helm conntrack ipset kubelet kubeadm nftables socat
+install_dotnet() {
+    echo "# Install .NET"
+    echo "#############################################"
 
-# echo "# Install externally downloaded packages"
-# echo "#############################################"
+    wget https://dot.net/v1/dotnet-install.sh
+    chmod +x ./dotnet-install.sh
+    sudo ./dotnet-install.sh -c 8.0 -i /usr/share/dotnet
+    sudo ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
+    rm dotnet-install.sh
+    dotnet_cmd=/usr/bin/dotnet
+}
 
+download_container_scripts() {
+    echo "# Get container scripts"
+    echo "#############################################"
+    wget -O "$HOME/.git-completion.bash" https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash
+    chmod +x "$HOME/.git-completion.bash"
+    chmod +x "$toolbox_root"/scripts/*
+}
 
-echo "# Install .NET"
-echo "#############################################"
+load_setup_credentials() {
+    if [ -f "$email_file" ]; then
+        USER_EMAIL=$(cat "$email_file")
+    else
+        echo "WARNING!!!  No email found in $email_file"
+    fi
 
-wget https://dot.net/v1/dotnet-install.sh
-chmod +x ./dotnet-install.sh
-sudo ./dotnet-install.sh -c 8.0 -i /usr/share/dotnet
-sudo ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
-rm dotnet-install.sh
-dotnet_cmd=/usr/bin/dotnet
+    if [ -f "$name_file" ]; then
+        HUMAN_NAME="$(cat "$name_file")"
+    else
+        echo "WARNING!!!  No human name found in $name_file"
+    fi
 
-# #sudo mv /usr/bin/dotnet /usr/bin/dotnet.old &>/dev/null
-# sudo rm -rf /usr/share/dotnet &>/dev/null
-# sudo mv $HOME/.dotnet /usr/share/dotnet
-# sudo rm -rf /usr/bin/dotnet &>/dev/null
-# sudo ln -s  /usr/share/dotnet/dotnet /usr/bin/dotnet
+    if [ -f "$setup_dir/github_token.txt" ]; then
+        GH_TOKEN=$(cat "$setup_dir/github_token.txt")
+        export GH_TOKEN
+    else
+        echo "ERROR: No GitHub token found in $setup_dir/github_token.txt"
+        echo "Run 'setup' to configure your GitHub token"
+        exit 1
+    fi
 
-echo "# Get container scripts"
-echo "#############################################"
-wget -O $HOME/.git-completion.bash https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash
-chmod +x $HOME/.git-completion.bash
-chmod +x $toolbox_root/scripts/*
+    if [ -f "$setup_dir/github_user.txt" ]; then
+        GH_USER=$(cat "$setup_dir/github_user.txt")
+        export GH_USER
+    else
+        echo "ERROR: No GitHub user found in $setup_dir/github_user.txt"
+        echo "Run 'setup' to configure your GitHub username"
+        exit 1
+    fi
 
-mkdir -p $HOME/.ssh
-touch $HOME/.ssh/github
+    if [ -f "$setup_dir/github_org.txt" ]; then
+        GH_ORG=$(cat "$setup_dir/github_org.txt")
+        export GH_ORG
+    else
+        echo "ERROR: No GitHub organization found in $setup_dir/github_org.txt"
+        echo "Run 'setup' to configure your GitHub organization"
+        exit 1
+    fi
 
-# if [ -f $setup_dir/github_key ]; then
-#     cp $setup_dir/github_key $HOME/.ssh/github
-# else 
-#     echo "WARNING!!!  No github key found in $setup_dir/github_key"
-# fi
-if [ -f $setup_dir/github_token.txt ]; then
-    DEVENV_GH_TOKEN=$(cat $setup_dir/github_token.txt)
-else 
-    echo "WARNING!!!  No PAT found in $setup_dir/github_token.txt"
-fi
-if [ -f $setup_dir/github_user.txt ]; then
-    GITHUB_USER=$(cat $setup_dir/github_user.txt)
-else 
-    echo "WARNING!!!  No github user found in $setup_dir/github_user.txt"
-fi
-if [ -f $email_file ]; then
-    USER_EMAIL=$(cat $email_file)
-else
-    echo "WARNING!!!  No email found in $email_file"
-fi
-if [ -f $name_file ]; then
-    HUMAN_NAME="$(cat $name_file)"
-else
-    echo "WARNING!!!  No human name found in $name_file"
-fi
+    if [ -f "$setup_dir/digitalocean_token.txt" ]; then
+        DO_API_TOKEN=$(cat "$setup_dir/digitalocean_token.txt")
+        export DO_API_TOKEN
+    else
+        echo "WARNING: No Digital Ocean API token found in $setup_dir/digitalocean_token.txt (optional)"
+    fi
+}
 
-git remote set-url origin https://${GITHUB_USER}:${DEVENV_GH_TOKEN}@github.com/workinprogress-ai/devenv.git
-
-echo "$DEVENV_GH_TOKEN" | gh auth login --with-token -p https
-
-cat <<EOF >>$HOME/.ssh/config
-AddKeysToAgent yes
-IdentityFile $HOME/.ssh/github
-EOF
-touch $HOME/.ssh/github
-chmod 600 $HOME/.ssh/github
-
-echo "# Create aliases and bash functions script"
-echo "#############################################"
-rm -f $toolbox_root/.devcontainer/bash-functions.sh
-cat <<EOF >$toolbox_root/.devcontainer/bash-functions.sh
+write_bash_functions_file() {
+    echo "# Create aliases and bash functions script"
+    echo "#############################################"
+    rm -f "$toolbox_root"/.devcontainer/bash-functions.sh
+    cat <<'EOF' >"$toolbox_root"/.devcontainer/bash-functions.sh
+#!/bin/bash
+# bash-functions.sh - Special functions that need to modify shell environment
+# All other scripts are accessible via symlinks in $DEVENV_TOOLS (without .sh extension)
 
 alias ll='ls -lah'
 
-get-repo() {
-    bash $toolbox_root/scripts/get-repo.sh "\$@"
-    source \$HOME/.bashrc
-    cd "$@" &>/dev/null
+repo-get() {
+    bash "$DEVENV_ROOT/tools/scripts/repo-get.sh" "$@"
+    if [ -d "$DEVENV_ROOT/repos/$1" ]; then
+        cd "$DEVENV_ROOT/repos/$1" || return
+    fi
 }
 
 devenv() {
-    cd \$DEVENV_ROOT
+    cd "$DEVENV_ROOT" || return
 }
 
 playground() {
-    cd \$DEVENV_ROOT/playground
+    cd "$DEVENV_ROOT/playground" || return
 }
 
 repos() {
-    cd \$DEVENV_ROOT/repos
-} 
-
-load-ssh-agent() {
-    source $toolbox_root/.devcontainer/load-ssh.sh
+    cd "$DEVENV_ROOT/repos" || return
 }
 
 update-dev-env() {
-    git pull && git fetch --tags -f && $toolbox_root/.devcontainer/check-update-devenv-repo.sh
+    local current_dir
+    current_dir=$(pwd)
+    cd "$DEVENV_ROOT" || return
+    git-update
+    cd "$current_dir" || return
+    "$DEVENV_ROOT/.devcontainer/check-update-devenv-repo.sh"
 }
 
-update-github-token() {
-    source $toolbox_root/.devcontainer/update-github-token.sh
-}
-
-EOF
-chmod +x $toolbox_root/.devcontainer/bash-functions.sh
-
-echo "# Create env-vars.sh"
-echo "#############################################"
-rm -f $toolbox_root/.devcontainer/env-vars.sh
-cat <<EOF >>$toolbox_root/.devcontainer/env-vars.sh
-export TZ='$(cat $timezone_file)'
-export DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false
-export DOTNET_USE_POLLING_FILE_WATCHER=true
-export CONFIG_FOLDER=\$DEVENV_ROOT/.debug/config
-export DATA_FOLDER=\$DEVENV_ROOT/.debug/data
-export ENV_NAME=local
-export DICTIONARY_SERVER=localhost:6379
-export DOCUMENT_SERVER=localhost
-export GIT_TERMINAL_PROMPT=1
-export DEVENV_GH_TOKEN=$DEVENV_GH_TOKEN
-export GITHUB_USER=$GITHUB_USER
-export USER_EMAIL=$USER_EMAIL
-export HUMAN_NAME=$HUMAN_NAME
-export DEVENV_UPDATE_INTERVAL=$((4 * 3600)) # 4 hours.  This can be changed as needed.
-export INSTALL_VERSION=$VERSION
-export MAJOR_VERSION=$MAJOR_VERSION
-export MINOR_VERSION=$MINOR_VERSION
-export PATCH_VERSION=$PATCH_VERSION
-export repos=\$DEVENV_ROOT/repos
-export devenv=\$DEVENV_ROOT
-export debug=\$DEVENV_ROOT/.debug
-export playground=\$DEVENV_ROOT/playground
-EOF
-chmod +x $toolbox_root/.devcontainer/env-vars.sh
-
-echo "# Add additional stuff in .bashrc"
-echo "#############################################"
-cat <<EOF >>$HOME/.bashrc
-export DEVENV_ROOT=$toolbox_root
-export PATH="\$PATH:\${DEVENV_ROOT}/.debug/scripts:/home/vscode/.dotnet/tools"
-source \$HOME/.git-completion.bash
-
-# Check if the repos directory exists
-if [ -d "$repos_dir" ]; then
-  # Loop through each sub-directory in repos
-  for dir in "$repos_dir"/*/; do
-    # Check if scripts directory exists within the sub-directory
-    if [ -d "\${dir}scripts" ]; then
-      # Add scripts to the PATH
-      PATH="\$PATH:\${dir}scripts"
+update-tailscale-key() {
+    "$DEVENV_ROOT/tools/scripts/update-tailscale-key.sh" "$@"
+    if [ -f "$DEVENV_ROOT/.devcontainer/env-vars.sh" ]; then
+        source "$DEVENV_ROOT/.devcontainer/env-vars.sh"
     fi
-  done
-fi
+}
 
-export PATH=\$PATH:\${DEVENV_ROOT}/scripts
-
-$toolbox_root/.devcontainer/sanity-check.sh
-source $toolbox_root/.devcontainer/env-vars.sh
-source $toolbox_root/.devcontainer/bash-functions.sh
-source $toolbox_root/.devcontainer/bash-prompt.sh
-source $toolbox_root/.devcontainer/bash_completion_custom
-
-load-ssh-agent
-
-if [[ \$(pwd) == \${DEVENV_ROOT} ]]; then
-  cd \$DEVENV_ROOT/repos
-fi
-
+update-github-key() {
+    "$DEVENV_ROOT/tools/scripts/update-github-key.sh" "$@"
+    if [ -f "$DEVENV_ROOT/.devcontainer/env-vars.sh" ]; then
+        source "$DEVENV_ROOT/.devcontainer/env-vars.sh"
+    fi
+}
 EOF
+    chmod +x "$toolbox_root"/.devcontainer/bash-functions.sh
+}
 
-if command -v nvm > /dev/null 2>&1; then    
-    echo "# Install nvm"
+generate_env_vars_file() {
+    echo "# Generate env-vars.sh from .setup configuration"
     echo "#############################################"
 
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
-    export NVM_DIR="/usr/local/share/nvm"
-    source ~/.bashrc
-    source "$NVM_DIR/nvm.sh" # This loads nvm
-    nvm install --lts
-    nvm use --lts
+    if [ -f "$setup_dir/timezone.txt" ]; then
+        SETUP_TZ=$(cat "$setup_dir/timezone.txt")
+    else
+        SETUP_TZ="${TZ:-UTC}"
+    fi
+
+    cat <<EOF >"$toolbox_root"/.devcontainer/env-vars.sh
+#!/bin/bash
+# This file is auto-generated by bootstrap.sh from .setup/*.txt files
+# Do not edit manually - changes will be overwritten on next bootstrap
+
+# Timezone
+export TZ="$SETUP_TZ"
+
+# .NET settings
+export DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false
+export DOTNET_USE_POLLING_FILE_WATCHER=true
+
+# Core paths
+export DEVENV_ROOT="$toolbox_root"
+export devenv="$toolbox_root"
+export DEVENV_TOOLS="$toolbox_root/tools"
+export CONFIG_FOLDER="$toolbox_root/.debug/config"
+export DATA_FOLDER="$toolbox_root/.debug/data"
+
+# Environment
+export ENV_NAME="${ENV_NAME:-local}"
+export DICTIONARY_SERVER="${DICTIONARY_SERVER:-localhost:6379}"
+export DOCUMENT_SERVER="${DOCUMENT_SERVER:-mongodb://localhost}"
+export MESSAGE_BROKER_SERVER="${MESSAGE_BROKER_SERVER:-nats://localhost:4222}"
+export GIT_TERMINAL_PROMPT=1
+
+# Cloud / registry
+export DIGITALOCEAN_API_TOKEN="${DO_API_TOKEN:-}"
+export DIGITALOCEAN_REGISTRY="${DIGITALOCEAN_REGISTRY:-}"
+export DO_APP_NAME="${DO_APP_NAME:-}"
+export DO_REGION="${DO_REGION:-}"
+
+# GitHub auth (loaded from .setup during bootstrap)
+export GH_USER="${GH_USER:-}"
+export GH_ORG="${GH_ORG:-}"
+export GH_TOKEN="${GH_TOKEN:-}"
+
+# User identity
+export USER_EMAIL="${USER_EMAIL:-}"
+
+# Version placeholders
+export DEVENV_UPDATE_INTERVAL="${DEVENV_UPDATE_INTERVAL:-7200}"
+export INSTALL_VERSION="${INSTALL_VERSION:-v0.0.0}"
+export MAJOR_VERSION="${MAJOR_VERSION:-0}"
+export MINOR_VERSION="${MINOR_VERSION:-0}"
+export PATCH_VERSION="${PATCH_VERSION:-0}"
+
+# Convenience paths 
+export repos="$toolbox_root/repos"
+export playground="$toolbox_root/playground"
+export debug="$toolbox_root/.debug"
+export EDITOR="${EDITOR:-nano}"
+EOF
+    chmod +x "$toolbox_root"/.devcontainer/env-vars.sh
+}
+
+create_tool_symlinks() {
+    echo "# Creating symlinks in tools/ for executable scripts"
+    echo "#############################################"
+    mkdir -p "$toolbox_root/tools"
+    find "$toolbox_root/tools" -maxdepth 1 -type l -delete
+
+    BASH_FUNCTION_SCRIPTS=(
+        "repo-get.sh"
+        "update-tailscale-key.sh"
+        "update-github-key.sh"
+    )
+
+    for script in "$toolbox_root/tools/scripts"/*.sh; do
+        if [ -f "$script" ]; then
+            script_name=$(basename "$script" .sh)
+            script_basename=$(basename "$script")
+
+            skip=false
+            for bash_func_script in "${BASH_FUNCTION_SCRIPTS[@]}"; do
+                if [ "$script_basename" = "$bash_func_script" ]; then
+                    skip=true
+                    break
+                fi
+            done
+
+            if [ "$skip" = false ]; then
+                ln -sf "$script" "$toolbox_root/tools/$script_name"
+            fi
+        fi
+    done
+
+    for script in "$toolbox_root/tools/scripts"/git-*; do
+        if [ -f "$script" ] && [[ ! "$script" =~ \.sh$ ]]; then
+            script_name=$(basename "$script")
+            ln -sf "$script" "$toolbox_root/tools/$script_name"
+        fi
+    done
+
+    if [ -f "$toolbox_root/tools/scripts/file.io" ]; then
+        ln -sf "$toolbox_root/tools/scripts/file.io" "$toolbox_root/tools/file.io"
+    fi
+}
+
+append_bashrc() {
+    echo "# Add additional stuff in .bashrc"
+    echo "#############################################"
+        cat <<EOF >>$HOME/.bashrc
+export DEVENV_ROOT="$toolbox_root"
+export PATH="\$PATH:\${DEVENV_ROOT}/.debug/scripts:/home/vscode/.dotnet/tools"
+source "$HOME/.git-completion.bash"
+
+if [ -d "\${DEVENV_ROOT}/repos" ]; then
+    for dir in "\${DEVENV_ROOT}/repos"/*/; do
+        if [ -d "\${dir}scripts" ]; then
+            PATH="\$PATH:\${dir}scripts"
+        fi
+    done
 fi
 
-echo "# Configure .net"
-echo "#############################################"
+export PATH="\$PATH:\${DEVENV_ROOT}/tools"
 
-$dotnet_cmd tool install --global altcover.global
-$dotnet_cmd tool install --global dotnet-outdated-tool
-sudo $dotnet_cmd dev-certs https
-sudo -E $dotnet_cmd dev-certs https -ep /usr/local/share/ca-certificates/aspnet/https.crt --format PEM
-sudo update-ca-certificates
+source "$toolbox_root/.devcontainer/sanity-check.sh"
+source "$toolbox_root/.devcontainer/tool-versions.sh"
+source "$toolbox_root/.devcontainer/env-vars.sh"
+source "$toolbox_root/.devcontainer/bash-functions.sh"
+source "$toolbox_root/.devcontainer/bash-prompt.sh"
+source "$toolbox_root/.devcontainer/bash_completion_custom"
 
-echo "# Node packages"
-echo "#############################################"
-#npm install -g npx
-call_npm install -g zx
-call_npm install -g pnpm@8.7.1
-call_npm install -g turbo@2.0.6
+source "$toolbox_root/.devcontainer/load-ssh.sh"
 
-echo "# Configure git"
-echo "#############################################"
-git config --global core.autocrlf false
-git config --global core.eol lf
-git config --global merge.tool vscode
-git config --global mergetool.vscode.cmd "code --wait \$MERGED"
-git config --global diff.tool vscode
-git config --global difftool.vscode.cmd "code --wait --diff \$LOCAL \$REMOTE"
-git config --global core.editor "code --wait"
-git config --global pull.ff only
-git config --global credential.helper store
-git config --global credential.helper 'cache --timeout=999999999'
-git config --global --bool push.autoSetupRemote true
-git config --global --add safe.directory $toolbox_root
-git config --global user.name "$HUMAN_NAME"
-git config --global user.email "$USER_EMAIL"
-
-cd $toolbox_root
-
-echo "# Other configuration"
-echo "#############################################"
-mkdir -p $toolbox_root/.debug/data
-mkdir -p $toolbox_root/.debug/config
-mkdir -p $toolbox_root/repos
-mkdir -p $toolbox_root/tmp
-mkdir -p $toolbox_root/playground
-if [[ ! -d "$toolbox_root/.debug/remote_debugger" ]]; then
-    $toolbox_root/download-csharp-debugger.sh
-fi
-echo fs.inotify.max_user_instances=524288 | sudo tee -a /etc/sysctl.conf &>/dev/null
-sudo sysctl -p
-sudo usermod -aG docker vscode
-
-# if [ ! -L "$HOME/repos" ]; then
-#     ln -s "$toolbox_root/repos" "$HOME/repos"
-# else
-#     echo "Symbolic link $HOME/repos already exists."
-# fi
-# if [ ! -L "$HOME/devenv" ]; then
-#     ln -s "$toolbox_root" "$HOME/devenv"
-# else
-#     echo "Symbolic link $HOME/devenv already exists."
-# fi
-# if [ ! -L "$HOME/debug" ]; then
-#     ln -s "$toolbox_root/.debug" "$HOME/debug"
-# else
-#     echo "Symbolic link $HOME/debug already exists."
-# fi
-
-echo "# Configure local devenv repo hooks"
-echo "#############################################"
-pnpm install
-
-echo "# Configure nuget"
-echo "#############################################"
-
-local_nuget_dev=$toolbox_root/.debug/local-nuget-dev
-mkdir -p $local_nuget_dev
- 
-add_nuget_source_if_not_exists "dev" $local_nuget_dev
-add_nuget_source_if_not_exists "github" https://nuget.pkg.github.com/workinprogress-ai/index.json $GITHUB_USER $DEVENV_GH_TOKEN
-
-echo "# Configure user npmrc file" 
-echo "#############################################"
-
-echo "//npm.pkg.github.com/:_authToken=$DEVENV_GH_TOKEN" > ~/.npmrc
-
-# If there is a custom bootstrap, run it
-if [ -f $toolbox_root/.devcontainer/custom-bootstrap.sh ]; then
-    /bin/bash $toolbox_root/.devcontainer/custom-bootstrap.sh
+if [[ \$(pwd) == "\${DEVENV_ROOT}" ]]; then
+    cd "\${DEVENV_ROOT}/repos"
 fi
 
-echo "# Cleanup"
-echo "#############################################"
-pkill ssh-agent &>/dev/null
-sudo apt autoremove -y
+EOF
+}
 
-echo "Bootstrap complete"
-echo "--------------------------------------------------------------"
+install_or_configure_nvm() {
+    if ! command -v nvm > /dev/null 2>&1; then
+        echo "# Install nvm"
+        echo "#############################################"
 
-echo "Please exit out of VS Code and let the container restart."
-echo "Please restart the container to complete the setup."
+        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
+        export NVM_DIR="/usr/local/share/nvm"
 
-container_bootstrap_run_file="$HOME/.bootstrap_run_time"
-repo_bootstrap_run_file="$toolbox_root/.devcontainer/.bootstrap_run_time"
+        sudo mkdir -p $NVM_DIR
+        sudo chown -R $(whoami):$(whoami) "$NVM_DIR"
 
-date +%s > $container_bootstrap_run_file
-cp $container_bootstrap_run_file $repo_bootstrap_run_file
+        source ~/.bashrc
+        source "$NVM_DIR/nvm.sh"
+        nvm install "$NODE_VERSION"
+        nvm use "$NODE_VERSION"
+        sudo chown -R $(whoami):$(whoami) "$NVM_DIR/versions"
+    else
+        echo "# NVM already installed, ensuring proper permissions"
+        echo "#############################################"
+        export NVM_DIR="/usr/local/share/nvm"
 
-cd $toolbox_root/repos
+        if [ -d "$NVM_DIR" ]; then
+            sudo chown -R $(whoami):$(whoami) "$NVM_DIR"
+        fi
+
+        source ~/.bashrc
+        source "$NVM_DIR/nvm.sh" 2>/dev/null || true
+    fi
+}
+
+configure_dotnet_tools() {
+    echo "# Configure .net"
+    echo "#############################################"
+
+    $dotnet_cmd tool install --global altcover.global
+    $dotnet_cmd tool install --global dotnet-outdated-tool
+    sudo $dotnet_cmd dev-certs https
+    sudo mkdir -p /usr/local/share/ca-certificates/aspnet
+    sudo chmod 755 /usr/local/share/ca-certificates/aspnet
+    sudo -E $dotnet_cmd dev-certs https -ep /usr/local/share/ca-certificates/aspnet/https.crt --format PEM || echo "WARNING: Failed to export HTTPS certificate"
+    sudo update-ca-certificates
+}
+
+install_node_packages() {
+    echo "# Node packages"
+    echo "#############################################"
+    call_npm install -g zx
+    call_npm install -g "pnpm@$PNPM_VERSION"
+    call_npm install -g turbo@2.0.6
+}
+
+configure_git() {
+    echo "# Configure git"
+    echo "#############################################"
+    git config --global core.autocrlf false
+    git config --global core.eol lf
+    git config --global merge.tool vscode
+    git config --global mergetool.vscode.cmd "code --wait $MERGED"
+    git config --global diff.tool vscode
+    git config --global difftool.vscode.cmd "code --wait --diff $LOCAL $REMOTE"
+    git config --global core.editor "code --wait"
+    git config --global pull.ff only
+    git config --global --bool push.autoSetupRemote true
+    git config --global --add safe.directory $toolbox_root
+    git config --global user.name "$HUMAN_NAME"
+    git config --global user.email "$USER_EMAIL"
+}
+
+ensure_directories_and_settings() {
+    echo "# Other configuration"
+    echo "#############################################"
+    mkdir -p $toolbox_root/.debug/data
+    mkdir -p $toolbox_root/.debug/config
+    mkdir -p $toolbox_root/repos
+    mkdir -p $toolbox_root/tmp
+    mkdir -p $toolbox_root/playground
+    if [[ ! -d "$toolbox_root/.debug/remote_debugger" ]]; then
+        debugger_script="$DEVENV_ROOT/.devcontainer/download-csharp-debugger.sh"
+        if [ -f "$debugger_script" ]; then
+            $debugger_script
+        else
+            echo "INFO: download-csharp-debugger.sh not found (optional)"
+        fi
+    fi
+    echo fs.inotify.max_user_instances=524288 | sudo tee -a /etc/sysctl.conf &>/dev/null
+    sudo sysctl -p 2>/dev/null || echo "INFO: Some sysctl settings may not be applicable in container environment"
+    sudo usermod -aG docker vscode
+}
+
+install_repo_dependencies() {
+    echo "# Configure local devenv repo hooks"
+    echo "#############################################"
+    CI=1 pnpm install
+}
+
+configure_nuget_sources() {
+    echo "# Configure nuget"
+    echo "#############################################"
+
+    local_nuget_dev=$toolbox_root/.debug/local-nuget-dev
+    mkdir -p $local_nuget_dev
+
+    add_nuget_source_if_not_exists "dev" $local_nuget_dev
+    if [ -n "${GH_TOKEN:-}" ] && [ -n "${GH_USER:-}" ] && [ -n "${GH_ORG:-}" ]; then
+        add_nuget_source_if_not_exists "github" https://nuget.pkg.github.com/${GH_ORG}/index.json $GH_USER $GH_TOKEN
+    else
+        echo "Skipping GitHub NuGet feed: GH_ORG/GH_USER/GH_TOKEN not fully configured"
+    fi
+}
+
+configure_user_npmrc() {
+    echo "# Configure user npmrc file"
+    echo "#############################################"
+    if [ -n "${GH_TOKEN:-}" ]; then
+        echo "//npm.pkg.github.com/:_authToken=$GH_TOKEN" > ~/.npmrc
+    else
+        echo "Skipping npmrc auth token (GH_TOKEN not set)" > ~/.npmrc
+    fi
+}
+
+run_custom_bootstrap_if_present() {
+    if [ -f "$toolbox_root/.devcontainer/custom-bootstrap.sh" ]; then
+        /bin/bash "$toolbox_root/.devcontainer/custom-bootstrap.sh"
+    fi
+}
+
+cleanup_packages() {
+    echo "# Cleanup"
+    echo "#############################################"
+    pkill ssh-agent &>/dev/null
+    sudo apt autoremove -y
+}
+
+record_bootstrap_run_time() {
+    container_bootstrap_run_file="$HOME/.bootstrap_run_time"
+    repo_bootstrap_run_file="$toolbox_root/.devcontainer/.bootstrap_run_time"
+
+    date +%s > $container_bootstrap_run_file
+    cp $container_bootstrap_run_file $repo_bootstrap_run_file
+}
+
+finish_message() {
+    echo "Bootstrap complete"
+    echo "--------------------------------------------------------------"
+    echo "Please exit out of VS Code and let the container restart."
+    echo "Please restart the container to complete the setup."
+}
+
+run_tasks() {
+    local tasks=("$@")
+    local default_tasks=(
+        initialize_paths
+        detect_architecture
+        ensure_home_is_set
+        load_version_info
+        prepare_install_directories
+        reset_bashrc_to_original
+        install_os_packages_round1
+        add_specialized_repositories
+        install_os_packages_round2
+        install_dotnet
+        download_container_scripts
+        load_setup_credentials
+        write_bash_functions_file
+        generate_env_vars_file
+        create_tool_symlinks
+        append_bashrc
+        install_or_configure_nvm
+        configure_dotnet_tools
+        install_node_packages
+        configure_git
+        ensure_directories_and_settings
+        install_repo_dependencies
+        configure_nuget_sources
+        configure_user_npmrc
+        run_custom_bootstrap_if_present
+        cleanup_packages
+        record_bootstrap_run_time
+        finish_message
+    )
+
+    if [ ${#tasks[@]} -eq 0 ]; then
+        tasks=(${default_tasks[@]})
+    fi
+
+    for task in "${tasks[@]}"; do
+        if ! declare -f "$task" >/dev/null; then
+            echo "Unknown task: $task"
+            exit 1
+        fi
+        echo "Running task: $task"
+        "$task"
+    done
+}
+
+# Defaults for common tool versions (override via env as needed)
+PNPM_VERSION=${PNPM_VERSION:-9.0.0}
+NODE_VERSION=${NODE_VERSION:-20}
+
+run_tasks "$@"

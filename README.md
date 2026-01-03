@@ -1,17 +1,26 @@
 # DEVENV (Developer Environment) repo
 
-This repository is the starting point for setting up a working dev environment for working at WorkInProgress.ai.  It provides the tooling necessary to do development on all other repos.  
+This repository is the starting point for setting up a working dev environment for working at WorkInProgress.ai. It provides comprehensive tooling, scripts, and utilities necessary for development across all WorkInProgress.ai repositories.
 
-See the sections below for instructions on how to set up your dev environment.
+## Features
+
+- **Dev Container Environment**: Fully configured development container with all necessary tools
+- **Repository Management**: Scripts for cloning, updating, and managing multiple repositories
+- **Pull Request Workflows**: GitHub CLI-based PR creation and management tools
+- **Developer Utilities**: Script templates, linting, versioning, and code quality tools
+- **Database Tools**: MongoDB, SQL Server, and SMB server utilities
+- **.NET Development**: NuGet package management and local debugging support
+- **Comprehensive Testing**: BATS test framework with extensive coverage
+- **Documentation**: Detailed guides for coding standards, contributing, and best practices
 
 ## Prerequisites
 
 - Git
 - Visual Studio Code (with the Remote - Containers extension installed)
 - A unix environment (Linux, MacOS, WSL)
-- Docker (instructions for installing docker are given below under the sections for each environment)
+- **Docker or Podman** (setup script will help you install either one)
 
-You do not need to have any additional tooling installed on your host machine.  Everything you need will be provided in the dev container.  Although it is not prohibited to use a different editor or IDE for development, Visual Studio Code and the dev environment provided here are considered the standard.  Use of VS Code and this dev environment is _required_.  (see the section on [lone wolf options](./docs/Dev-container-environment.md#lone-wolf-options))
+You do not need to have any additional tooling installed on your host machine. Everything you need will be provided in the dev container. Although it is not prohibited to use a different editor or IDE for development, Visual Studio Code and the dev environment provided here are considered the standard. Use of VS Code and this dev environment is _required_. (see the section on [lone wolf options](./docs/Dev-container-environment.md#lone-wolf-options))
 
 ## Setup of the dev environment
 
@@ -61,36 +70,56 @@ Note:  Windows is the most complex environment to set up.  You should properly h
 
 ### Linux
 
-1. Install Docker.  You may use the script [here](https://get.docker.com) to install Docker on your system.
+1. Install Docker or Podman. The setup script can help you install either container runtime. You can also manually install Docker using the script at [get.docker.com](https://get.docker.com) or install Podman via your package manager (`apt install podman` or `dnf install podman`).
 2. Clone this repo.
-   `git clone git@github.com:workinprogress-ai/devenv.git`  
+   ```bash
+   git clone git@github.com:workinprogress-ai/devenv.git
+   ```
 3. In the terminal, navigate to the repo directory `devenv`
-   `cd devenv`
-4. Run the [setup script](#running-the-setup-script).  This will ask you a few questions about your environment and allow you to specify your SSH key to the private repos.
-   `./setup`
-5. Once the setup script is complete, navigate back to the root of the repo and run Visual Studio Code, pointing it at the repo directory.
-   `code .`
-6. VS Code should, after a few seconds, offer to reopen the folder in a container.  If not, open the command palette (Ctrl+Shift+P) and run the command `Remote-Containers: Reopen in Container`.
-7. The dev container will build and start.  This may take a few minutes the first time.  Subsequent starts will be faster.  Once the bootstrap has run, and the container output log shows that it is opening ports. Close VS Code and re-open it, or select Reload Window from the command palette.   
-8. Reopen Visual Studio Code and the folder in the dev container.  Once again you will be asked if you want to open the folder in a dev container.   Choose to do so, or you can manually open it in the container.  
-9. The dev container will start.  You can now start working on the code.
+   ```bash
+   cd devenv
+   ```
+4. Run the [setup script](#running-the-setup-script). This will ask you a few questions about your environment, help you install a container runtime if needed, and configure your SSH key for repository access.
+   ```bash
+   ./setup
+   ```
+5. Once the setup script is complete, open the project in Visual Studio Code.
+   ```bash
+   code .
+   ```
+6. VS Code should, after a few seconds, offer to reopen the folder in a container. If not, open the command palette (Ctrl+Shift+P) and run the command `Dev Containers: Reopen in Container`.
+7. The dev container will build and start. This may take a few minutes the first time. Subsequent starts will be faster. Once the bootstrap has run, and the container output log shows that it is opening ports, close VS Code and re-open it, or select Reload Window from the command palette.
+8. Reopen Visual Studio Code and the folder in the dev container. The dev container will start. You can now start working on the code.
 
 ## Running the setup script
 
-The [setup script](./host-utils/setup) will ask you a few questions about your environment and allow you to specify your SSH key to the private repos.  It will also install the necessary tools on your host machine to work with the dev container.  The script saves your answers to a hidden folder in the local repo `.setup` and will not ask you the same question twice if you have already run it previously and provided answers.  If you want to run `setup` from the beginning, simply delete any files from the `.setup` folder.  
+The [setup script](./setup) will ask you a few questions about your environment and help you configure everything needed for development. It will also optionally install Docker or Podman if not already present. The script saves your answers to a hidden folder in the local repo `.setup` and will not ask you the same question twice if you have already run it previously and provided answers. If you want to run `setup` from the beginning, simply delete files from the `.setup` folder.
 
 The script will ask you for the following information:
 
-* Your name:  This is the name by which you will be identified in all commits.  
-* Your workinprogress.ai email:  This identifies you by email in all commits. 
-* Your timezone:  This is in order to correctly display your local time within the container.  By default, the script will attempt to determine your time zone.  If it does so correctly, then you can just hit ENTER and accept the default. 
-* A github SSH key:  This is for use when dealing with repository remotes.  The script will help you to create one if you do not already have one.  You will need to add the public part of the key to your [github settings](https://github.com/settings/keys). 
-* A github PAT:  The Personal Access Token is what allows package access and other functions from the dev environment. You can create one by going in github to Settings -> Developer Settings -> Personal Access Tokens -> Classic and click on [the link to create a new token](https://github.com/settings/tokens/new).  The recommended note should be 'DEVENV_GH_TOKEN' and the expiration should be 'No Expiration'.  (Note:  An argument could be made that storing the PAT in plain text is a security risk.  If you are concerned about this, feel free to delete the `github_token.txt` file once the container comes on line.)  This token should have the following access:
-   - repo (all)
-   - read:packages
-   - read:org
+* **Your name**: This is the name by which you will be identified in all commits.
+* **Your workinprogress.ai email**: This identifies you by email in all commits.
+* **Your timezone**: This is in order to correctly display your local time within the container. By default, the script will attempt to determine your time zone. If it does so correctly, then you can just hit ENTER and accept the default.
+* **GitHub username**: Your GitHub account username (not email).
+* **GitHub organization**: The GitHub organization that owns your repositories. The setup script will attempt to auto-detect this from the devenv repository's remote URL. This is used by repository management scripts to clone and create repositories.
+* **GitHub SSH key**: For secure repository access via SSH. The script will:
+  - Ask you to provide an existing SSH key or create a new one (defaults to `~/.ssh/id_ed25519`)
+  - Verify the key can authenticate to GitHub
+  - Configure your `~/.ssh/config` with GitHub SSH settings
+  - Load the key into your SSH agent for immediate use
+  - You will need to add the public key to your [GitHub SSH settings](https://github.com/settings/keys)
+* **GitHub PAT**: The Personal Access Token allows package access and other functions from the dev environment. You can create one by going to [GitHub Settings → Developer Settings → Personal Access Tokens → Tokens (classic)](https://github.com/settings/tokens/new). The recommended note should be 'GH_TOKEN' and the expiration should be 'No Expiration'. This token should have the following scopes:
+  - **repo** (all) - Full control of private repositories
+  - **read:packages** - Download packages from GitHub Package Registry
+  - **read:org** - Read org and team membership, read org projects
+  - **write:discussion** - Write access to discussions
+  - **project** - Full control of projects
 
 ![PAT permissions](./docs/github_pat_scopes.png)
+
+* **Digital Ocean API Token** (optional): If you plan to use Digital Ocean infrastructure tools, you can provide your API token during setup. This enables scripts like `terraform-plan.sh` and other infrastructure utilities to interact with your Digital Ocean account. You can create an API token at [Digital Ocean Account Settings → API → Tokens/Keys](https://cloud.digitalocean.com/account/api/tokens). The token will be validated during setup.
+
+* **Container Runtime**: If neither Docker nor Podman is installed, the script will offer to install one for you. Choose Docker for traditional setup or Podman for a rootless, daemonless alternative.
 
 ## Creating the Dev Container
 
@@ -112,16 +141,35 @@ NOTE:  Be careful that the container has finished building before you shut down 
 
 ## More information
 
-For more information see [The Development Environment](./docs/Dev-container-environment.md) section of the documentation. 
+For more information see the documentation:
 
-## Coding documentation
+**Getting Started:**
+* [The Development Environment](./docs/Dev-container-environment.md) - Comprehensive dev container guide
+* [Additional Tooling](./docs/Additional-Tooling.md) - All available scripts and utilities
 
-* [The development environment](./docs/Dev-container-environment.md)
-* [Coding Standards](docs/Coding-standards.md)
-* [Contributing](docs/Contributing.md)
-* [Culture](docs/Culture.md)
-* For information about services in general, go to the [Services core libraries repo](https://github.com/workinprogress-ai/lib.services.core).
-* For information about specific services, look at the README for the service. 
+**GitHub Issues & Projects:**
+* [GitHub Issues Management](./docs/GitHub-Issues-Management.md) - Complete workflow guide for GitHub Issues, Projects, and Milestones
+* [GitHub Issues Quick Reference](./docs/GitHub-Issues-Quick-Reference.md) - Fast lookup for common commands
+
+**Development Standards:**
+* [Coding Standards](./docs/Coding-standards.md) - Code quality and style guidelines
+* [Contributing](./docs/Contributing.md) - How to contribute to projects
+* [Function Naming Conventions](./docs/Function-Naming-Conventions.md) - Bash function naming standards
+* [Logging Framework](./docs/Logging-Framework.md) - Standardized logging guide
+
+**Advanced Topics:**
+* [Port Forwarding](./docs/Port-forwarding.md) - Remote service access guide
+* [Culture](./docs/Culture.md) - Team culture and practices
+
+## Testing
+
+Run the test suite with:
+
+```bash
+./tests/run-tests.sh
+```
+
+See [tests/README.md](./tests/README.md) for more information about writing and running tests. 
 
 ## Reference
 

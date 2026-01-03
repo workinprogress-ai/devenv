@@ -10,10 +10,10 @@ When you first open a terminal in the dev container, the current folder will be 
 @toochevere ➜ ~/repos (<>) $
 ```
 
-Any repos cloned should be put under the `repos/` folder.  A command line alias (actually it's a bash function but let's not be picky) exists in order to make this easy:  `get-repo`.  Simply use `get-repo` command with the name of the repo you wish to clone:
+Any repos cloned should be put under the `repos/` folder.  A command line alias (actually it's a bash function but let's not be picky) exists in order to make this easy:  `repo-get`.  Simply use `repo-get` command with the name of the repo you wish to clone:
 
 ```
-@toochevere ➜ ~/repos (<>) $ get-repo devops
+@toochevere ➜ ~/repos (<>) $ repo-get devops
 ```
 
 If the repos is not yet present under the `~/repos` folder then it will be cloned.  If it is present, it will be updated.   If the newly cloned repos has a `scripts` folder, then it will be automatically added to the `PATH` variable and any scripts will be available.  
@@ -69,6 +69,76 @@ The `custom_bootstrap.sh` and `custom_startup.sh` are optional scripts that you 
 * The `custom_bootstrap.sh` file is run when the container is first created.  It can be used to install packages or make other changes that should be done once upon creation.  If you want to make permanent modifications for example, to [your `.bashrc` file](#bashrc-file), you should do it in the `custom_bootstrap.sh` file.
 * The `custom_startup.sh` file is run each time vscode starts.
 
+**Managing custom startup commands:**
+
+You can use the `add-custom-startup-commands` script to easily add commands to `custom_startup.sh`:
+
+```bash
+add-custom-startup-commands "command1" "command2"
+```
+
+The script will:
+- Create `custom_startup.sh` if it doesn't exist
+- Validate bash syntax before adding commands
+- Set proper permissions automatically
+- Append commands with documentation comments
+
+**Managing environment variables:**
+
+You can use the `add-env-vars` script to add or update environment variables in `env-vars.sh`:
+
+```bash
+add-env-vars "MY_VAR=value" "ANOTHER_VAR=value2"
+```
+
+The script will automatically update existing variables to prevent duplicates.
+
+## Optional Install Scripts
+
+The `.devcontainer/install-extras/` folder contains optional installation scripts for additional tools not included in the base container. These scripts can be run manually when needed:
+
+### Available Optional Installs
+
+* **`helm.sh`** - Installs Helm package manager for Kubernetes
+* **`minikube.sh`** - Installs Minikube for local Kubernetes clusters
+* **`mongo-tools.sh`** - Installs MongoDB command-line tools (mongosh, mongodump, mongorestore, etc.)
+* **`mongo-compass.sh`** - Installs MongoDB Compass GUI
+* **`chromium.sh`** - Installs Chromium web browser
+* **`firefox.sh`** - Installs Firefox web browser
+* **`flatpak.sh`** - Installs Flatpak package manager
+* **`tailscale.sh`** - Installs and configures Tailscale VPN with SOCKS5 proxy support
+
+### Running Optional Installs
+
+The recommended way to install extras is using the `install-extras` script:
+
+```bash
+# Install a specific tool (auto-runs if only one match)
+install-extras helm
+
+# Interactive menu to select one tool
+install-extras
+
+# Multi-select mode (install several at once)
+install-extras -m
+
+# Filter the list
+install-extras mongo
+```
+
+You can also run the scripts directly if needed:
+
+```bash
+bash .devcontainer/install-extras/helm.sh
+bash .devcontainer/install-extras/tailscale.sh
+```
+
+**Note:** The Tailscale installer is interactive and will:
+- Prompt for your Tailscale auth key
+- Ask for a hostname for this container
+- Configure SOCKS5 proxy for routing traffic through Tailscale
+- Set up automatic reconnection on container restart
+
 ## Container desktop environment
 
 The dev container includes a "light" and simple graphical desktop environment that can be used as an alternative to the terminal.  This is useful for running graphical applications or for those who prefer a graphical interface.  The desktop environment is based on the `xfce` desktop environment.  It is not intended to be a full desktop environment, but rather a simple one that can be used for basic tasks.  It includes a terminal, file manager, and web browser.  It also includes a few other utilities such as a text editor and a calculator. 
@@ -81,19 +151,19 @@ To access the desktop environment, you need to [open a browser to port 6080 on t
 
 A few utility scripts have been provided to make life happy.
 
-* `get-services-config.sh` This script pulls the service config from it's repository into the local dev environment.  It is placed in `~/debug/config`
+* `get-services-config` This script pulls the service config from it's repository into the local dev environment.  It is placed in `~/debug/config`
 * `0x0.st` A script to push a file to the 0x0 file sharing site
-* `count-code-lines.sh` A utility to count code lines in a file or folder
-* `docker-build.sh` A utility to build a project using Docker.
-* `docker-down.sh` A utility to bring down a local docker configuration
-* `docker-up.sh` A utility to bring up a local docker configuration
-* `enable-container-dotnet-debugger.sh` A utility to inject and run the dotnet debugger into a locally running container.
+* `count-code-lines` A utility to count code lines in a file or folder
+* `docker-build` A utility to build a project using Docker.
+* `docker-down` A utility to bring down a local docker configuration
+* `docker-up` A utility to bring up a local docker configuration
+* `enable-container-dotnet-debugger` A utility to inject and run the dotnet debugger into a locally running container.
 * `file.io` A utility to push a file to the file.io file sharing site.
-* `get-repo` A utility to clone or update a repo in the `~/repos` folder.
-* `update-repos.sh` A utility to update all repos in the `~/repos` folder.
-* `raise-review-pr.sh` A utility to create a "progressive" or "final" PR for reviewing all changes. 
-* `raise-merge-pr.sh` A utility to create a PR for merging code to `master`.
-* `list-version.sh` A utility to list all versions in a repo.
+* `repo-get` A utility to clone or update a repo in the `~/repos` folder.
+* `repo-update-all` A utility to update all repos in the `~/repos` folder.
+* `pr-create-for-review` A utility to create a "progressive" or "final" PR for reviewing all changes.
+* `pr-create-for-merge` A utility to create a PR for merging code to the default branch.
+* `repo-version-list` A utility to list all versions in a repo.
 
 ### Git extensions 
 
@@ -102,6 +172,23 @@ The following are additional `git` commands that extend it's basic capabilities.
 * `git graph` Provides a graphical display of the commit history
 * `git graph-all` Provides a graphical display of the commit history for all branches
 * `git prune-branches` Prunes local branches that are no longer needed
+
+## Credentials and Authentication
+
+Your credentials are stored securely in the `.setup` folder on your host machine:
+
+* **GitHub Token** (`.setup/github_token.txt`): Used for GitHub API access, package registry, and SSH-based repository cloning. Automatically loaded as `GH_TOKEN` environment variable.
+* **GitHub Username** (`.setup/github_username.txt`): Your GitHub username. Automatically loaded as `GH_USER` environment variable.
+* **GitHub Organization** (`.setup/github_org.txt`): The GitHub organization that owns your repositories. Automatically loaded as `GH_ORG` environment variable.
+* **Digital Ocean API Token** (`.setup/digitalocean_token.txt`): Used for infrastructure operations via Digital Ocean. Automatically loaded as `DO_API_TOKEN` environment variable.
+* **SSH Key** (`.setup/ssh_key_path.txt`): Path to your SSH private key for secure repository access.
+
+These credentials are automatically loaded into the container environment on startup (via `bootstrap.sh`) and are accessible to all scripts that need them. Credentials are **never** stored in the container image itself — they're only loaded at runtime from your host machine.
+
+**To update credentials:**
+- GitHub Token: Run `./setup` and update when prompted, or manually edit `.setup/github_token.txt`
+- Digital Ocean Token: Run `./setup` and choose the Digital Ocean setup option
+- SSH Key: Configure via the initial setup or re-run the setup script
 
 ## Lone Wolf Options
 

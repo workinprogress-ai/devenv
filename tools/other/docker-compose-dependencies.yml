@@ -1,0 +1,42 @@
+services:
+  redis:
+    container_name: redis
+    image: docker.io/library/redis:latest
+    volumes:
+      - ${DATA_FOLDER}/${ENV_NAME}/redis:/data:rw
+    ports:
+      - target: 6379
+        published: 6379
+        protocol: tcp
+        mode: host
+  mongo:
+    container_name: mongo
+    image: docker.io/library/mongo:latest
+    volumes:
+      - ${DATA_FOLDER}/${ENV_NAME}/mongodb:/data/db:rw
+    ports:
+      - target: 27017
+        published: 27017
+        protocol: tcp
+        mode: host
+  nats:
+    container_name: nats
+    image: docker.io/library/nats:latest
+    volumes:
+      - ${DATA_FOLDER}/${ENV_NAME}/nats:/data:rw
+    ports:
+      - target: 4222
+        published: 4222
+        protocol: tcp
+        mode: host    
+    command: ["--js", "--store_dir", "/data"]
+  
+  # gateway:
+  #   image: ${CONTAINER_REGISTRY}/gateway:${DEPLOY_TAG}
+  #   container_name: gateway
+  #   restart: unless-stopped
+  #   ports:
+  #     - target: 80
+  #       published: 80
+  #       protocol: tcp
+  #       mode: host

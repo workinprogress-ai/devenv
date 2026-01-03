@@ -1,0 +1,95 @@
+#!/bin/bash
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "Error: This is not a Git repository. Please navigate to a valid Git repo and try again."
+  exit 1
+fi
+
+git fetch --tags -f
+
+# Determine the current branch
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+echo "On branch '$current_branch'."
+
+# Check if the current branch has an upstream branch set
+if ! git rev-parse --abbrev-ref @{u} >/dev/null 2>&1; then
+  echo "Error: No upstream branch is set for '$current_branch'."
+  echo "Please set the upstream branch (e.g., 'git branch --set-upstream-to=origin/$current_branch') or switch branches."
+  exit 1
+fi
+
+# Determine the commit differences between local and upstream
+LOCAL=$(git rev-parse @)
+REMOTE=$(git rev-parse @{u})
+BASE=$(git merge-base @ @{u})
+
+if [ "$LOCAL" = "$REMOTE" ]; then
+  echo "Your branch is up to date with the remote."
+  exit 0
+elif [ "$LOCAL" = "$BASE" ]; then
+  echo "Your branch is behind the remote. Ready to pull."
+elif [ "$REMOTE" = "$BASE" ]; then
+  echo "Your branch is ahead of the remote."
+  echo "Please push your local commits before pulling new changes."
+  exit 1
+else
+  echo "Warning: Your branch and the remote have diverged."
+  echo "Manual intervention is required."
+  echo "Suggestion: run 'git pull --rebase' or manually merge your changes."
+  exit 1
+fi
+
+# Check for uncommitted changes
+if [ -n "$(git status --porcelain)" ]; then
+  echo "Uncommitted changes detected."
+  echo "Please choose an option:"
+  echo "  1) Stash changes, pull updates, then reapply the stash"
+  echo "  2) Discard all local changes and pull updates (WARNING: This cannot be undone)"
+  echo "  3) Abort the update"
+  
+  read -p "Enter your choice (1/2/3): " choice
+  
+  case "$choice" in
+    1)
+      echo "Stashing changes..."
+      git stash push -u
+      stash_used=true
+      ;;
+    2)
+      echo "Discarding local changes..."
+      git reset --hard
+      ;;
+    3)
+      echo "Aborting update."
+      exit 0
+      ;;
+    *)
+      echo "Invalid option. Aborting update."
+      exit 1
+      ;;
+  esac
+fi
+
+# Perform the pull operation
+echo "Pulling updates..."
+if ! git pull; then
+  echo "Error: 'git pull' failed. Please check the error messages above."
+  err=1
+fi
+
+# If we stashed changes, try to reapply them
+if [ "$stash_used" = true ]; then
+  echo "Reapplying stashed changes..."
+  if ! git stash pop; then
+    echo "Warning: Failed to automatically reapply stashed changes."
+    echo "You may need to resolve conflicts manually."
+    exit 1
+  fi
+fi
+
+if [ "$err" = 1 ]; then
+  echo "Update failed. Please resolve the issues and try again."
+  exit 1
+fi
+
+echo "Repository update complete."

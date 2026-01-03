@@ -1,0 +1,27 @@
+name: Devenv Tests
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Bats
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats
+      
+      - name: Run tests
+        run: ./tests/run-tests.sh
+        
+      - name: Lint scripts
+        run: |
+          sudo apt-get install -y shellcheck
+          ./scripts/lint-scripts.sh

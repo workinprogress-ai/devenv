@@ -31,13 +31,30 @@ One note about refactoring:  If you do work that is not directly related to the 
 
 ## Coding workflow
 
-See the [culture](./Culture.md) documentation for information about how culture influence our workflow.  Each member of the team is expected to be a professional, responsible for his own contributions.  This inherent trust is allows us to work as equals, and empowers individuals to make correct decisions about the code they contribute. 
+Work is tracked using GitHub Issues and Projects. See [GitHub Issues Management](./GitHub-Issues-Management.md) for the complete workflow.
+
+### Quick Issue Workflow
+
+1. **Create issue**: `issue-create --title "..." --type story|bug`
+2. **Groom in project**: Set milestone (sprint), add labels, estimate
+3. **Start work**: `gh issue edit <issue> --add-assignee "@me"` and update status to "Implementing"
+4. **Submit PR**: `pr-create-for-merge` (automatically updates status to "Review")
+5. **After merge**: Update status to "Merged" then "Staging" then "Production" (auto-closes)
+
+### Issue Hierarchy
+
+- **Epics** (type:epic) - Phases or major features
+- **Stories** (type:story) - Deliverables under epics
+- **Bugs** (type:bug) - Defects, may be under epics
+- **Tasks** - Checkboxes in story/bug bodies
+
+See [GitHub Issues Management](./GitHub-Issues-Management.md) for detailed workflow.
 
 ### Tracking work
 
 Work is divided into stories (issues) and tasks.  A story or issue describes _what_ needs to be done and represents a complete change in the system.  It has acceptance criteria and a description.  It results in value being added to the system. 
 
-A story or issue has _tasks_.  Tasks are small chunks of work that can be independently implemented without breaking any existing functionality.  
+A story or issue has _tasks_.  Tasks are small chunks of work that can be independently implemented without breaking any existing functionality. Tasks are tracked as checkboxes in the issue body.
 
 When starting on a story or issue, cut a feature or bugfix branch in which to do the work.  Generally, you will continue to use that same branch until the feature is complete.  When merging, retain the branch until the feature is complete.  Note that if the branch gets deleted from the remote, it's not big deal.  It will be created again when you push.  **The key is that the branch must be there until the [final review](#final-reviews-and-progressive-reviews)**
 
@@ -48,7 +65,7 @@ After cutting the branch...
 1. Code something, adding both "production" code and tests.  Code as small a chunk as possible and write the tests along with it at the same time.  
 2. Commit the code.  At the time you commit, the tests will run and coverage will be checked.  Fix any code coverage issues.  The commit hooks will not allow any commits where tests are not covering the code. 
 3. Repeat until you come to a place where a task is complete. 
-4. When the task is complete, create a Pull Request.  You can do this by running the script `raise-merge-pr.sh` in the repo.  This script will create a PR from the current branch to `master`.  The PR will be a draft PR.  Modify the title and add any relevant description.  
+4. When the task is complete, create a Pull Request.  You can do this by running the script `pr-create-for-merge` in the repo.  This script will create a PR from the current branch to the repo default branch (usually `main` or `master`).  Use `--draft` if you want a draft PR, and add any relevant description.  
 5. Review the PR yourself doing a [self review](#self-reviews).  Make any necessary changes.  Add clarifying comments if necessary. 
 6. Request a review from a team member.  If possible, do this synchronously.  See the section on [Merge reviews](#merge-reviews-i.e.-task-oriented-reviews) for more information.  If the PR is trivial, then you can opt to leave out this step, but remember you are responsible for what you merge!
 7. Continue with the next task.  If the story or issue is complex, you might also request a [progressive review](#final-reviews-and-progressive-reviews) whenever you feel it is necessary.
@@ -104,7 +121,7 @@ Every team member should welcome feedback and actively seek it.  As you are work
 
 Generally speaking you will want to have someone review your code with each merge using a PR.  
 
-1. Bring up a PR using the script `raise-merge-pr.sh`.   You can also open the PR manually.  Give it a good title and documentation.  
+1. Bring up a PR using the script `pr-create-for-merge.sh`.   You can also open the PR manually.  Give it a good title and documentation.  
 2. Ask a member of the team to review your code with you.  Inform the person you need a review and then either get on a call together and walk through it doing the review in real time or else get an agreement with the person to do the review asynchronously. 
 3. Merge the PR.  IMPORTANT:  See the section on [merging code](#merging-code) for more information.  If the review is async, then the PR will get merged _before_ the review is done.  This is fine.  The review is still necessary.  You must make sure in that case that the review really does happen.   
 
@@ -124,7 +141,7 @@ If a reviewer notices something on one of these reviews, generally he will bring
 
 Before a story or issue can be complete, a _final review_ should take place.  For very simple issues, this may not always be necessary.  This final review process does not block _tasks_ but will block _features_ or _stories_.  It looks at the entire set of changes involved in a story or issue in order to give a final approval and check for any anti-patterns, etc.
 
-Final reviews happen in `master`.  We use a draft PR that is a diff between the _first_ relevant commit of the branch and the _last_ commit.  All changes are therefore included.  To create this diff, run the script `raise-review-pr.sh`.  It will ask you to select the _first_ commit in `master` that relates to your story or issue, and the _last_ commit that relates.  It will then create a draft PR with the diff between those two commits.  After creating the PR, tag the appropriate person.
+Final reviews happen in `master`.  We use a draft PR that is a diff between the _first_ relevant commit of the branch and the _last_ commit.  All changes are therefore included.  To create this diff, run the script `pr-create-for-review`.  It will ask you to select the _first_ commit in `master` that relates to your story or issue, and the _last_ commit that relates.  It will then create a draft PR with the diff between those two commits.  After creating the PR, tag the appropriate person.
 
 Generally the person tagged for final review should be the maintainer of the repo.  There may be the need to iterate several times.  The final review finishes when the reviewer gives a LGTM.  If the rest of the review process is functioning well, then this review should be quick and easy.  If not, then the maintainer may need to help other reviewers to improve their process.
 

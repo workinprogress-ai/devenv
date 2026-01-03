@@ -1,0 +1,50 @@
+#!/bin/bash
+set -euo pipefail
+
+explode() {
+  echo "Error: $1" >&2
+  exit 1
+}
+
+REPO_DIR="${1:-$(pwd)}"
+DAYS="${2:-30}"
+
+git -C "$REPO_DIR" rev-parse --is-inside-work-tree &>/dev/null || explode "Directory $REPO_DIR is not a git repository."
+cd "$REPO_DIR" || explode "Failed to change to repository directory $REPO_DIR."
+
+git fetch origin || explode "Failed to fetch branches from the remote."
+
+REVIEW_BRANCHES=$(git branch -r --list "origin/review/*")
+if [ -z "$REVIEW_BRANCHES" ]; then
+  echo "No review branches found."
+  exit 0
+fi
+
+echo "Found review branches:"
+echo "$REVIEW_BRANCHES"
+
+CURRENT_DATE=$(date +%s)
+
+for BRANCH in $REVIEW_BRANCHES; do
+  BRANCH=$(echo "$BRANCH" | xargs)
+  BRANCH="${BRANCH#origin/}"
+
+  BRANCH_DATE=$(echo "$BRANCH" | grep -oE '[0-9]{2}-[0-9]{2}-[0-9]{2}')
+  if [ -z "$BRANCH_DATE" ]; then
+    echo "Skipping branch $BRANCH; no valid date found in branch name."
+    continue
+  fi
+
+  BRANCH_DATE_FULL="20${BRANCH_DATE:0:2}-${BRANCH_DATE:3:2}-${BRANCH_DATE:6:2}"
+  BRANCH_DATE_EPOCH=$(date -d "$BRANCH_DATE_FULL" +%s)
+  DIFF_DAYS=$(((CURRENT_DATE - BRANCH_DATE_EPOCH) / 86400))
+
+  if [ "$DIFF_DAYS" -ge "$DAYS" ]; then
+    git push origin --delete "$BRANCH" || explode "Failed to delete remote branch $BRANCH"
+    echo "Deleted remote branch $BRANCH"
+  else
+    echo "Skipping branch $BRANCH, last updated $DIFF_DAYS days ago."
+  fi
+done
+
+echo "Review branch cleanup completed."

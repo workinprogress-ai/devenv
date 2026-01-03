@@ -1,0 +1,23 @@
+# Code Owners
+# This file defines who is automatically requested for review on pull requests
+
+# Default owners for everything in the repo
+* @workinprogress-ai/devenv-maintainers
+
+# Scripts and core tooling
+/scripts/ @workinprogress-ai/devenv-maintainers
+/lib/ @workinprogress-ai/devenv-maintainers
+
+# Dev container configuration
+/.devcontainer/ @workinprogress-ai/devenv-maintainers
+/setup @workinprogress-ai/devenv-maintainers
+
+# Documentation
+/docs/ @workinprogress-ai/devenv-maintainers
+/README.md @workinprogress-ai/devenv-maintainers
+
+# Tests
+/tests/ @workinprogress-ai/devenv-maintainers
+
+# GitHub workflows and configuration
+/.github/ @workinprogress-ai/devenv-maintainers
