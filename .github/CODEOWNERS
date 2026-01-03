@@ -2,22 +2,22 @@
 # This file defines who is automatically requested for review on pull requests
 
 # Default owners for everything in the repo
-* @workinprogress-ai/devenv-maintainers
+* @toochevere
 
 # Scripts and core tooling
-/scripts/ @workinprogress-ai/devenv-maintainers
-/lib/ @workinprogress-ai/devenv-maintainers
+/scripts/ @toochevere
+/lib/ @toochevere
 
 # Dev container configuration
-/.devcontainer/ @workinprogress-ai/devenv-maintainers
-/setup @workinprogress-ai/devenv-maintainers
+/.devcontainer/ @toochevere
+/setup @toochevere
 
 # Documentation
-/docs/ @workinprogress-ai/devenv-maintainers
-/README.md @workinprogress-ai/devenv-maintainers
+/docs/ @toochevere
+/README.md @toochevere
 
 # Tests
-/tests/ @workinprogress-ai/devenv-maintainers
+/tests/ @toochevere
 
 # GitHub workflows and configuration
-/.github/ @workinprogress-ai/devenv-maintainers
+/.github/ @toochevere
