@@ -19,4 +19,4 @@ if [ -z "$POD_NAME" ]; then
 fi
 
 echo "Executing command for pod: $POD_NAME"
-kubectl exec $POD_NAME $NAMESPACE_OPTION -- $@
+kubectl exec $POD_NAME $NAMESPACE_OPTION -- "$@"

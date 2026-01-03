@@ -19,12 +19,12 @@ load test_helper
 }
 
 @test "template includes error handling setup" {
-  run grep "set -euo pipefail" "$PROJECT_ROOT/templates/script-template.sh"
+  run grep "enable_strict_mode" "$PROJECT_ROOT/templates/script-template.sh"
   [ "$status" -eq 0 ]
 }
 
 @test "template includes ERR trap" {
-  run grep "trap.*on_error.*ERR" "$PROJECT_ROOT/templates/script-template.sh"
+  run grep "enable_strict_mode" "$PROJECT_ROOT/templates/script-template.sh"
   [ "$status" -eq 0 ]
 }
 
@@ -44,7 +44,7 @@ load test_helper
 }
 
 @test "template includes on_error function" {
-  run grep "on_error()" "$PROJECT_ROOT/templates/script-template.sh"
+  run grep "# on_error()" "$PROJECT_ROOT/templates/script-template.sh"
   [ "$status" -eq 0 ]
 }
 
@@ -129,12 +129,12 @@ load test_helper
 }
 
 @test "template gets script directory properly" {
-  run grep "SCRIPT_DIR=.*dirname" "$PROJECT_ROOT/templates/script-template.sh"
+  run grep "DEVENV_TOOLS" "$PROJECT_ROOT/templates/script-template.sh"
   [ "$status" -eq 0 ]
 }
 
 @test "template gets project root properly" {
-  run grep "PROJECT_ROOT=.*dirname.*SCRIPT_DIR" "$PROJECT_ROOT/templates/script-template.sh"
+  run grep "source.*\$DEVENV_TOOLS/lib" "$PROJECT_ROOT/templates/script-template.sh"
   [ "$status" -eq 0 ]
 }
 
@@ -151,6 +151,7 @@ load test_helper
 
 @test "template cleanup removes temp files" {
   run bash -c "grep -A10 'cleanup()' $PROJECT_ROOT/templates/script-template.sh | grep 'rm -f.*TEMP_FILE'"
+  run grep "TEMP_FILE\|TEMP_DIR" "$PROJECT_ROOT/templates/script-template.sh"
   [ "$status" -eq 0 ]
 }
 

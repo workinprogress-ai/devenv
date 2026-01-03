@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# shellcheck disable=SC2034 # debug is defined from DEVENV_ROOT
+debug="${DEVENV_ROOT:-.}/.debug"
+
 # Set container name
 CONTAINER_NAME="sqlserver"
 

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# shellcheck disable=SC2034 # devenv is defined from DEVENV_ROOT
+devenv="${DEVENV_ROOT:-.}"
+
 # Define the local NuGet feed directory
 local_feed_dir="$devenv/.debug/local-nuget-dev"
 
@@ -35,7 +38,7 @@ done
 
 # Clear the local NuGet feed folder
 echo "Clearing local NuGet feed folder: $local_feed_dir"
-rm -rf "$local_feed_dir"/* &>/dev/null
+rm -rf "${local_feed_dir:?}"/* &>/dev/null
 
 if [[ $? != 0 ]]; then
     echo "WARNING: Failed to clear local NuGet feed folder: $local_feed_dir"

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Ensure that the script is not run with CRLF line endings
-scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"; scriptfile="$0"; if [[ "$(file ${scriptdir}/${scriptfile})" =~ "CRLF" && -f "${scriptdir}/${scriptfile}" && "$(head -n 100 ${scriptdir}/${scriptfile} | grep "^scriptdir.\+dg4MbsIfhbv4-Bash-CRLF-selfheal_Written_By_Kenneth_Lutzke-8Nds9NclkU4sgE" > /dev/null 2>&1 ; echo "$?" )" == "0" ]]; then echo "$(cat ${scriptdir}/${scriptfile} | sed 's/\r$//')" > ${scriptdir}/${scriptfile} ; bash ${scriptdir}/${scriptfile} $@ ; exit ; fi ; echo "" > /dev/null 2>&1
+scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"; scriptfile="$0"; if [[ "$(file ${scriptdir}/${scriptfile})" =~ "CRLF" && -f "${scriptdir}/${scriptfile}" && "$(head -n 100 ${scriptdir}/${scriptfile} | grep "^scriptdir.\+dg4MbsIfhbv4-Bash-CRLF-selfheal_Written_By_Kenneth_Lutzke-8Nds9NclkU4sgE" > /dev/null 2>&1 ; echo "$?" )" == "0" ]]; then echo "$(cat ${scriptdir}/${scriptfile} | sed 's/\r$//')" > ${scriptdir}/${scriptfile} ; bash ${scriptdir}/${scriptfile} "$@" ; exit ; fi ; echo "" > /dev/null 2>&1
 
 on_error() {
   echo "An error occurred. Running cleanup."
@@ -40,8 +40,6 @@ initialize_paths() {
     toolbox_root=$(dirname "$script_folder")
     devenv=$toolbox_root
     setup_dir=$toolbox_root/.setup
-    repos_dir=$toolbox_root/repos
-    timezone_file=$toolbox_root/.setup/timezone.txt
     name_file=$toolbox_root/.setup/name.txt
     email_file=$toolbox_root/.setup/email.txt
 }
@@ -96,7 +94,7 @@ install_os_packages_round1() {
     sudo apt install -y \
         curl wget gnupg bash-completion iputils-ping uuid fzf gcc g++ make gh \
         xmlstarlet redis-tools cifs-utils xmlstarlet software-properties-common \
-        sshfs apt-transport-https ca-certificates bats
+        sshfs apt-transport-https ca-certificates bats shellcheck
 }
 
 add_specialized_repositories() {
@@ -326,6 +324,9 @@ create_tool_symlinks() {
         "repo-get.sh"
         "update-tailscale-key.sh"
         "update-github-key.sh"
+        "lint-scripts.sh"
+        "script-template.sh"
+        "create-script.sh"
     )
 
     for script in "$toolbox_root/tools/scripts"/*.sh; do
@@ -354,9 +355,8 @@ create_tool_symlinks() {
         fi
     done
 
-    if [ -f "$toolbox_root/tools/scripts/file.io" ]; then
-        ln -sf "$toolbox_root/tools/scripts/file.io" "$toolbox_root/tools/file.io"
-    fi
+    ln -sf "$toolbox_root/tools/tests/run-tests-local.sh" "$toolbox_root/tools/run-tools-tests"
+    ln -sf "$toolbox_root/tools/scripts/lint-scripts.sh" "$toolbox_root/tools/lint-tools-scripts"
 }
 
 append_bashrc() {
@@ -402,22 +402,24 @@ install_or_configure_nvm() {
         export NVM_DIR="/usr/local/share/nvm"
 
         sudo mkdir -p $NVM_DIR
-        sudo chown -R $(whoami):$(whoami) "$NVM_DIR"
+        sudo chown -R "$(whoami)":"$(whoami)" "$NVM_DIR"
 
+        # shellcheck disable=SC1090 # User's bashrc is dynamic
         source ~/.bashrc
         source "$NVM_DIR/nvm.sh"
         nvm install "$NODE_VERSION"
         nvm use "$NODE_VERSION"
-        sudo chown -R $(whoami):$(whoami) "$NVM_DIR/versions"
+        sudo chown -R "$(whoami)":"$(whoami)" "$NVM_DIR/versions"
     else
         echo "# NVM already installed, ensuring proper permissions"
         echo "#############################################"
         export NVM_DIR="/usr/local/share/nvm"
 
         if [ -d "$NVM_DIR" ]; then
-            sudo chown -R $(whoami):$(whoami) "$NVM_DIR"
+            sudo chown -R "$(whoami)":"$(whoami)" "$NVM_DIR"
         fi
 
+        # shellcheck disable=SC1090 # User's bashrc is dynamic
         source ~/.bashrc
         source "$NVM_DIR/nvm.sh" 2>/dev/null || true
     fi
@@ -575,7 +577,7 @@ run_tasks() {
     )
 
     if [ ${#tasks[@]} -eq 0 ]; then
-        tasks=(${default_tasks[@]})
+        tasks=("${default_tasks[@]}")
     fi
 
     for task in "${tasks[@]}"; do

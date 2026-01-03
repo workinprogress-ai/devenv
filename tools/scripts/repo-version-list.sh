@@ -23,8 +23,7 @@ fi
 
 get_change_type_and_color() {
   local version="$1"
-  local major minor patch
-  major=$(echo "$version" | cut -d. -f1 | sed 's/^v//')
+  local minor patch
   minor=$(echo "$version" | cut -d. -f2)
   patch=$(echo "$version" | cut -d. -f3)
 

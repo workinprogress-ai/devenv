@@ -3,6 +3,7 @@ set -euo pipefail
 
 # Update all repositories under ./repos using the GitHub-focused repo-get.sh
 
+script_folder="${DEVENV_TOOLS:-.}/scripts"
 repos_dir="$DEVENV_ROOT/repos"
 
 readonly MAX_PARALLEL_JOBS=4

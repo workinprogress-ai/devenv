@@ -52,7 +52,6 @@ do
 
     # Construct and run the SSH command in the background
     echo "Opening tunnel: Local port $PORT to $DESTINATION through $SSH_TARGET"
-    cmd=ssh
     if [ -n "$SSH_CERT" ]; then
         ssh -i $SSH_CERT -NTC -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -L "${PORT}:${DESTINATION}:${PORT}" -p "$SSH_PORT" "$SSH_TARGET" &
     else 

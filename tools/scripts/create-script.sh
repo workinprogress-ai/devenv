@@ -101,7 +101,8 @@ main() {
     sed "s/SCRIPT_NAME\.sh/$script_name/g" "$TEMPLATE_FILE" > "$output_file"
     
     # Update modification date
-    local current_date=$(date +%Y-%m-%d)
+    local current_date
+    current_date=$(date +%Y-%m-%d)
     sed -i "s/YYYY-MM-DD/$current_date/g" "$output_file"
     
     # Make executable

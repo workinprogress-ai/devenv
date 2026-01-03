@@ -102,7 +102,6 @@ git push origin "$TARGET_BRANCH" &>/dev/null || explode "Failed to push new bran
 git checkout -b "$SOURCE_BRANCH" "$FINAL_COMMIT" &>/dev/null || explode "Failed to create new branch $SOURCE_BRANCH"
 git push origin "$SOURCE_BRANCH" &>/dev/null || explode "Failed to push new branch $SOURCE_BRANCH"
 
-REPO_NAME=$(basename "$(git rev-parse --show-toplevel)")
 PR_TITLE="REVIEW: $PR_DESCRIPTION"
 PR_BODY="$PR_DESCRIPTION"
 

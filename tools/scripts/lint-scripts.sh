@@ -5,10 +5,15 @@
 
 set -euo pipefail
 
+# Determine project root - use absolute path to ensure consistency from any directory
+script_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+readonly script_dir
+readonly project_root="${PROJECT_ROOT:-${DEVENV_ROOT:-$(cd "$script_dir/../.." && pwd)}}"
+
 # Configuration
 readonly SCRIPT_VERSION="1.0.0"
-readonly SHELLCHECK_SEVERITY="${SHELLCHECK_SEVERITY:-warning}"
-readonly OUTPUT_FORMAT="${OUTPUT_FORMAT:-tty}"
+SHELLCHECK_SEVERITY="${SHELLCHECK_SEVERITY:-warning}"
+OUTPUT_FORMAT="${OUTPUT_FORMAT:-tty}"
 
 # Colors
 readonly RED='\033[0;31m'

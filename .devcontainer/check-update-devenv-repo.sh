@@ -3,7 +3,7 @@
 
 script_path=$(readlink -f "$0")
 script_folder=$(dirname "$script_path")
-cd "$script_folder"
+cd "$script_folder" || exit 1
 devenv=$(dirname "$script_folder")
 
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
@@ -12,7 +12,7 @@ REMOTE_HASH=$(git rev-parse "origin/$CURRENT_BRANCH" 2>/dev/null)
 
 # If no new updates are available, exit.
 if [ "$LOCAL_HASH" == "$REMOTE_HASH" ]; then
-    cd - > /dev/null
+    cd - > /dev/null || return 
     exit 0
 fi
 
@@ -23,11 +23,11 @@ if [ "$CURRENT_BRANCH" != "master" ]; then
     case $answer in
         [Yy]* )
             $devenv/scripts/git-update
-            cd - > /dev/null
+            cd - > /dev/null || return
             echo "Be aware that you may need to rebuild the dev container or re-run the bootstrap depending on the changes."
             exit 0;;
         * )
-            cd - > /dev/null
+            cd - > /dev/null || return
             exit 1;;
     esac
 fi
@@ -37,12 +37,13 @@ CURRENT_VERSION=$(git tag -l 'v*' | sort -V | tail -n 1)
 if [[ "$CURRENT_VERSION" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
     CURRENT_MAJOR_VERSION=${BASH_REMATCH[1]}
     CURRENT_MINOR_VERSION=${BASH_REMATCH[2]}
+    # shellcheck disable=SC2034  # May be used in future version checks
     CURRENT_PATCH_VERSION=${BASH_REMATCH[3]}
 else
     echo "Warning: VERSION format is not recognized.  Please update manually!"
     echo "You may also need to rebuild the dev container or re-run the bootstrap."
     echo "Current version: $CURRENT_VERSION"
-    cd - > /dev/null
+    cd - > /dev/null || return
     exit 1
 fi
 
@@ -52,7 +53,7 @@ case $answer in
     [Yy]* )
         $devenv/scripts/git-update
         if [ $? -ne 0 ]; then
-            cd - > /dev/null
+            cd - > /dev/null || return
             echo "Error updating the repository. Please update manually (e.g., run 'git pull')."
             echo "You may also need to rebuild the dev container or re-run the bootstrap."
             exit 1
@@ -77,9 +78,9 @@ case $answer in
             echo
         fi
         
-        cd - > /dev/null
+        cd - > /dev/null || return
         exit 0;;
     * )
-        cd - > /dev/null
+        cd - > /dev/null || return
         exit 1;;
 esac

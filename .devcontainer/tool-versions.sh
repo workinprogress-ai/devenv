@@ -64,10 +64,14 @@ verify_node_version() {
     
     # Extract major.minor.patch
     local expected="${NODE_VERSION}"
-    local expected_major=$(echo "$expected" | cut -d. -f1)
-    local expected_minor=$(echo "$expected" | cut -d. -f2)
-    local current_major=$(echo "$current_version" | cut -d. -f1)
-    local current_minor=$(echo "$current_version" | cut -d. -f2)
+    local expected_major
+    expected_major=$(echo "$expected" | cut -d. -f1)
+    local expected_minor
+    expected_minor=$(echo "$expected" | cut -d. -f2)
+    local current_major
+    current_major=$(echo "$current_version" | cut -d. -f1)
+    local current_minor
+    current_minor=$(echo "$current_version" | cut -d. -f2)
     
     # Check major.minor match (patch can differ)
     if [ "$expected_major" != "$current_major" ] || [ "$expected_minor" != "$current_minor" ]; then

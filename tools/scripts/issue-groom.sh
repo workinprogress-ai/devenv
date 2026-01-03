@@ -9,7 +9,8 @@
 set -euo pipefail
 
 readonly SCRIPT_VERSION="1.0.0"
-readonly SCRIPT_NAME="$(basename "$0")"
+SCRIPT_NAME="$(basename "$0")"
+readonly SCRIPT_NAME
 # Source required libraries
 if [ -f "$DEVENV_ROOT/tools/lib/error-handling.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/error-handling.bash"
@@ -24,6 +25,10 @@ if [ -f "$DEVENV_ROOT/tools/lib/github-helpers.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
 fi
 
+if [ -f "$DEVENV_ROOT/tools/lib/git-config.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/git-config.bash"
+fi
+
 # ============================================================================
 # Global Variables
 # ============================================================================
@@ -34,8 +39,11 @@ VERBOSE=0
 ALLOW_DEVENV_REPO=0
 
 # Workflow states
+# shellcheck disable=SC2034 # Used for documentation and potential future use
 readonly STATUS_TBD="TBD"
+# shellcheck disable=SC2034
 readonly STATUS_TO_GROOM="To Groom"
+# shellcheck disable=SC2034
 readonly STATUS_READY="Ready"
 
 # ============================================================================
@@ -366,14 +374,17 @@ main() {
                 shift
                 ;;
             -p|--project)
+                # shellcheck disable=SC2034  # May be used in future feature
                 PROJECT_NAME="$2"
                 shift 2
                 ;;
             -m|--milestone)
+                # shellcheck disable=SC2034  # May be used in future feature
                 MILESTONE="$2"
                 shift 2
                 ;;
             --devenv)
+                # shellcheck disable=SC2034  # Used by check_target_repo
                 ALLOW_DEVENV_REPO=1
                 shift
                 ;;

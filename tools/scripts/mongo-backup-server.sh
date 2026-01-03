@@ -3,14 +3,14 @@
 # Usage: ./backup.sh "<connection_string>" "/path/to/backup_directory"
 
 # Check if mongodump is installed.
-if [ $(which mongodump) ]; then
+if [ "$(which mongodump)" ]; then
     echo "mongodump is installed."
 else
     echo "mongodump is not installed. Please install it before running this script."
     exit 1
 fi
 # Check if mongorestore is installed.
-if [ $(which mongosh) ]; then
+if [ "$(which mongosh)" ]; then
     echo "mongosh is installed."
 else
     echo "mongosh is not installed. Please install it before running this script."
@@ -49,7 +49,7 @@ while IFS= read -r line; do
     databases+=("$line")
 done < <(mongosh "$CONNECTION_STRING" --quiet --eval "var dbs = db.adminCommand('listDatabases'); dbs.databases.forEach(function(d) { print(d.name); });")
 
-echo "Found databases: ${databases[@]}"
+echo "Found databases: ${databases[*]}"
 
 # Back up each database individually.
 for db in "${databases[@]}"; do

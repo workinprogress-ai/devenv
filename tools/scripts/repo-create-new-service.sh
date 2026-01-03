@@ -38,7 +38,6 @@ folder_name="service-$service_name"
 # Creating repo on GitHub
 echo "Creating repo on GitHub"
 
-create_repo="$DEVENV_TOOLS/repo-create.sh"
 get_repo="$DEVENV_TOOLS/repo-get.sh"
 
 if [ -d "$folder_name" ]; then
@@ -86,7 +85,7 @@ rm -f "$repos_dir/$folder_name/$template_name.csproj" # removing the template pr
 rm -rf "$repos_dir/$folder_name/.git" # removing the .git folder to delete references to the template project
 rm -rf "$repos_dir/$folder_name/.pnpm-lock.yaml" # removing pnpm lock file to avoid ENOTFOUND errors when initializing repo
 rm -rf "$repos_dir/$folder_name/node_modules" #  removing node_modules folder to avoid ENOTFOUND errors when initializing repo
-cd "$repos_dir/$folder_name" # changing to the new microservice directory
+cd "$repos_dir/$folder_name" || exit 1 # changing to the new microservice directory
 
 echo "Performing final setup for the new microservice"
 git init # initializing repository

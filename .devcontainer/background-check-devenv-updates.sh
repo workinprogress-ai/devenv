@@ -8,7 +8,7 @@
 script_path=$(readlink -f "$0")
 script_folder=$(dirname "$script_path")
 toolbox_root=$(dirname "$script_folder")
-cd "$script_folder"
+cd "$script_folder" || exit 1
 
 # Configuration constants
 readonly SCRIPT_VERSION="1.0.0"
@@ -104,6 +104,7 @@ while should_continue; do
     fi
     
     # Sleep in small intervals to allow quick response to signals
+    # shellcheck disable=SC2034  # Loop counter intentionally unused
     for i in $(seq 1 $((CHECK_INTERVAL_SECONDS / SLEEP_CHUNK_SECONDS))); do
         sleep "$SLEEP_CHUNK_SECONDS"
         # Check if we should stop during sleep

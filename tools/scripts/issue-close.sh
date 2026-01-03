@@ -9,7 +9,8 @@
 set -euo pipefail
 
 readonly SCRIPT_VERSION="1.0.0"
-readonly SCRIPT_NAME="$(basename "$0")"
+SCRIPT_NAME="$(basename "$0")"
+readonly SCRIPT_NAME
 # Source required libraries
 if [ -f "$DEVENV_ROOT/tools/lib/error-handling.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/error-handling.bash"
@@ -22,6 +23,10 @@ fi
 
 if [ -f "$DEVENV_ROOT/tools/lib/github-helpers.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
+fi
+
+if [ -f "$DEVENV_ROOT/tools/lib/git-config.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/git-config.bash"
 fi
 
 # ============================================================================
@@ -289,6 +294,11 @@ main() {
             -r|--reason)
                 REASON="$2"
                 shift 2
+                ;;
+            --devenv)
+                # shellcheck disable=SC2034  # Used by check_target_repo
+                ALLOW_DEVENV_REPO=1
+                shift
                 ;;
             *)
                 # Assume it's an issue number

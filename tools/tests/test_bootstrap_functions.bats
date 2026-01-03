@@ -76,8 +76,6 @@ EOF
   [ "$status" -eq 0 ]
   run grep "setup_dir=" "$PROJECT_ROOT/.devcontainer/bootstrap.sh"
   [ "$status" -eq 0 ]
-  run grep "repos_dir=" "$PROJECT_ROOT/.devcontainer/bootstrap.sh"
-  [ "$status" -eq 0 ]
 }
 
 @test "bootstrap.sh creates .installs directory" {

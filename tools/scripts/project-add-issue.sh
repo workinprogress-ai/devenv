@@ -9,7 +9,8 @@
 set -euo pipefail
 
 readonly SCRIPT_VERSION="1.0.0"
-readonly SCRIPT_NAME="$(basename "$0")"
+SCRIPT_NAME="$(basename "$0")"
+readonly SCRIPT_NAME
 # Source required libraries
 if [ -f "$DEVENV_ROOT/tools/lib/error-handling.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/error-handling.bash"
@@ -18,6 +19,14 @@ fi
 if [ -f "$DEVENV_ROOT/tools/lib/versioning.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/versioning.bash"
     script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Add issues to GitHub Projects"
+fi
+
+if [ -f "$DEVENV_ROOT/tools/lib/github-helpers.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
+fi
+
+if [ -f "$DEVENV_ROOT/tools/lib/git-config.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/git-config.bash"
 fi
 
 # ============================================================================
@@ -85,29 +94,6 @@ EOF
 log_verbose() {
     if [ "$VERBOSE" -eq 1 ]; then
         log_info "$@"
-    fi
-}
-
-
-# Check if we're in the devenv repo and validate permissions
-check_target_repo() {
-    local git_root
-    git_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
-        log_error "Not in a git repository"
-        exit 1
-    }
-    
-    # Check if we're in the devenv repo
-    if [ -f "$git_root/.devcontainer/bootstrap.sh" ]; then
-        if [ "$ALLOW_DEVENV_REPO" -eq 0 ]; then
-            log_error "The current repository appears to be the devenv repository itself"
-            log_info "Projects should be managed in the target project repositories, not in devenv"
-            log_info "To add issues to projects in devenv anyway, pass the --devenv flag"
-            log_info "Example: project-add \"Q1 2026\" 123 --devenv"
-            exit 1
-        else
-            log_warn "Managing projects in devenv repository (safety override enabled)"
-        fi
     fi
 }
 
@@ -259,6 +245,7 @@ main() {
                 shift 2
                 ;;
             --devenv)
+                # shellcheck disable=SC2034  # Used by check_target_repo
                 ALLOW_DEVENV_REPO=1
                 shift
                 ;;

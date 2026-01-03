@@ -18,9 +18,9 @@ if [ -z "$POD_NAME" ]; then
     exit 1
 fi
 
-if [ -z "$@" ]; then
+if [ $# -eq 0 ]; then
     echo "No command provided to execute on the pod.  Executing /bin/bash by default."
     set -- /bin/bash
 fi
 echo "Executing command on console for pod: $POD_NAME"
-kubectl exec -it $POD_NAME $NAMESPACE_OPTION -- $@
+kubectl exec -it $POD_NAME $NAMESPACE_OPTION -- "$@"

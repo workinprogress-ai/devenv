@@ -90,7 +90,7 @@ telepresence_connect() {
 
 telepresence_watchdog_loop() {
   while true; do
-    if [ $(is_telepresence_connected) != "true" ] ; then
+    if [ "$(is_telepresence_connected)" != "true" ] ; then
       echo -e "$PREFIX [$(date)] Telepresence is not connected. Attempting to reconnect..."
       if telepresence_connect; then
         sleep "$WATCHDOG_INTERVAL"
@@ -126,7 +126,7 @@ if ! kubectl get deployment traffic-manager -n ambassador --no-headers &>/dev/nu
   telepresence helm install
 fi
 
-if [ $(is_telepresence_connected) != 'true' ]; then
+if [ "$(is_telepresence_connected)" != 'true' ]; then
   echo "Starting telepresence..."
   telepresence_watchdog_loop &
   TELEPRESENCE_WATCHDOG_PID=$!

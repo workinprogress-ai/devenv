@@ -9,7 +9,8 @@
 set -euo pipefail
 
 readonly SCRIPT_VERSION="1.0.0"
-readonly SCRIPT_NAME="$(basename "$0")"
+SCRIPT_NAME="$(basename "$0")"
+readonly SCRIPT_NAME
 # Source required libraries
 if [ -f "$DEVENV_ROOT/tools/lib/error-handling.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/error-handling.bash"
@@ -22,6 +23,10 @@ fi
 
 if [ -f "$DEVENV_ROOT/tools/lib/github-helpers.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
+fi
+
+if [ -f "$DEVENV_ROOT/tools/lib/git-config.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/git-config.bash"
 fi
 
 # ============================================================================
@@ -127,6 +132,7 @@ build_filters() {
 
 # Get issues with formatted display
 get_issues() {
+    # shellcheck disable=SC2054 # gh CLI uses comma-separated fields
     local gh_args=(--json number,title,labels,state,updatedAt)
     local repo_spec
     read -ra repo_spec <<< "$(get_repo_spec)"
@@ -147,6 +153,7 @@ get_issues() {
 
 # Interactive selection with fzf
 select_issues() {
+    # shellcheck disable=SC2054 # fzf uses various formats for arguments
     local fzf_args=(
         --delimiter='\t'
         --with-nth=1,2
@@ -255,6 +262,7 @@ main() {
                 shift 2
                 ;;
             --devenv)
+                # shellcheck disable=SC2034  # Used by check_target_repo
                 ALLOW_DEVENV_REPO=1
                 shift
                 ;;

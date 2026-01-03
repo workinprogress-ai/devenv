@@ -4,7 +4,7 @@
 # Note: This script assumes the backup folder contains subdirectories created by the backup script.
 
 # Check if mongorestore is installed.
-if [ $(which mongorestore) ]; then
+if [ "$(which mongorestore)" ]; then
     echo "mongorestore is installed."
 else
     echo "mongorestore is not installed. Please install it before running this script."

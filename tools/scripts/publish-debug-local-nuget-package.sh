@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# shellcheck disable=SC2034 # devenv is defined from DEVENV_ROOT
+devenv="${DEVENV_ROOT:-.}"
+
 target=${1:-$(pwd)}
 version=${2:-'9999.9999.9999'}
 

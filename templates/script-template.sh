@@ -6,22 +6,16 @@
 # Author: Your Name
 # Last Modified: YYYY-MM-DD
 
-# Exit immediately if a command exits with a non-zero status
-# Treat unset variables as an error
-# Fail on pipe errors
-set -euo pipefail
+# Note: Strict error handling (set -euo pipefail and ERR trap) is configured
+# via enable_strict_mode() from error-handling.bash after sourcing libraries
 
 # ============================================================================
 # Configuration and Constants
 # ============================================================================
 
 readonly SCRIPT_VERSION="1.0.0"
+# shellcheck disable=SC2155  # basename is safe and won't fail
 readonly SCRIPT_NAME="$(basename "$0")"
-
-# Get script directory and project root
-readonly SCRIPT_PATH=$(readlink -f "$0")
-readonly SCRIPT_DIR=$(dirname "$SCRIPT_PATH")
-readonly PROJECT_ROOT=$(dirname "$SCRIPT_DIR")
 
 # Default configuration values
 readonly DEFAULT_TIMEOUT=30
@@ -31,32 +25,34 @@ readonly DEFAULT_MAX_RETRIES=3
 # Source Required Libraries
 # ============================================================================
 
-# Source error handling library if available
-if [ -f "$PROJECT_ROOT/lib/error-handling.bash" ]; then
-    # shellcheck source=../lib/error-handling.bash
-    source "$PROJECT_ROOT/lib/error-handling.bash"
+# shellcheck source=../lib/error-handling.bash
+source "$DEVENV_TOOLS/lib/error-handling.bash"
+
+# shellcheck source=../lib/versioning.bash
+source "$DEVENV_TOOLS/lib/versioning.bash"
+
+# Enable strict error handling (sets -euo pipefail and ERR trap)
+enable_strict_mode
+    
+# Display version if requested
+script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Brief description"
+    
+# Check environment compatibility
+if ! check_environment_requirements; then
+    log_fatal "Environment does not meet minimum requirements"
+    exit "$EXIT_GENERAL_ERROR"
 fi
 
-# Source versioning library if available
-if [ -f "$PROJECT_ROOT/lib/versioning.bash" ]; then
-    # shellcheck source=../lib/versioning.bash
-    source "$PROJECT_ROOT/lib/versioning.bash"
-    
-    # Display version if requested
-    script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Brief description"
-    
-    # Check environment compatibility
-    if ! check_environment_requirements; then
-        echo "ERROR: Environment does not meet minimum requirements" >&2
-        exit 1
-    fi
-fi
+# shellcheck source=../lib/retry.bash
+source "$DEVENV_TOOLS/lib/retry.bash"
 
-# Source retry library if available
-if [ -f "$PROJECT_ROOT/lib/retry.bash" ]; then
-    # shellcheck source=../lib/retry.bash
-    source "$PROJECT_ROOT/lib/retry.bash"
-fi
+# Optional: source git-config.bash if working with git repos
+# shellcheck source=../lib/git-config.bash
+# source "$DEVENV_TOOLS/lib/git-config.bash"
+
+# Optional: source github-helpers.bash if working with GitHub
+# shellcheck source=../lib/github-helpers.bash
+# source "$DEVENV_TOOLS/lib/github-helpers.bash"
 
 # ============================================================================
 # Global Variables (avoid if possible, prefer function parameters)
@@ -113,34 +109,32 @@ Exit Codes:
     4   Operation failed
 
 For more information, see the documentation at:
-    $PROJECT_ROOT/docs/
+    $DEVENV_ROOT/docs/
 
 EOF
     exit 0
 }
 
-# Error handler function for script failures
-# Called automatically via ERR trap when any command fails
-# Arguments:
-#   $1: line_number - Line number where error occurred (from LINENO)
-#   $2: command - Command that failed (from BASH_COMMAND)
-# Returns:
-#   Exits with the original command's exit code
-on_error() {
-    local exit_code=$?
-    local line_number=${1:-unknown}
-    local command="${2:-unknown}"
-    
-    echo "ERROR: Script failed at line $line_number with exit code $exit_code" >&2
-    echo "Failed command: $command" >&2
-    
-    # Perform any cleanup needed
-    cleanup
-    
-    exit "$exit_code"
-}
+# Optional: Custom error handler if you need additional error handling beyond library default
+# Note: enable_strict_mode() already sets up on_script_error() from error-handling.bash
+# Only define this if you need custom behavior beyond the standard error handler
+# on_error() {
+#     local exit_code=$?
+#     local line_number=${1:-unknown}
+#     local command="${2:-unknown}"
+#     
+#     log_error "Script failed at line $line_number with exit code $exit_code"
+#     log_error "Failed command: $command"
+#     
+#     # Perform any cleanup needed
+#     cleanup
+#     
+#     exit "$exit_code"
+# }
 
-# Cleanup function - called on script exit
+# Cleanup function - called on script exit via trap
+# Note: This is optional. Only implement if you need custom cleanup.
+# The error-handling.bash library provides safe_remove() for safe file/dir removal.
 # Arguments: None
 # Returns: None
 # Side effects:
@@ -149,21 +143,19 @@ on_error() {
 cleanup() {
     local exit_code=$?
     
-    # Remove temporary files if they exist
-    if [ -n "${TEMP_FILE:-}" ] && [ -f "$TEMP_FILE" ]; then
-        echo "Cleaning up temporary file: $TEMP_FILE" >&2
-        rm -f "$TEMP_FILE"
+    # Use safe_remove from error-handling.bash for cleanup
+    if [ -n "${TEMP_FILE:-}" ]; then
+        safe_remove "$TEMP_FILE"
     fi
     
-    if [ -n "${TEMP_DIR:-}" ] && [ -d "$TEMP_DIR" ]; then
-        echo "Cleaning up temporary directory: $TEMP_DIR" >&2
-        rm -rf "$TEMP_DIR"
+    if [ -n "${TEMP_DIR:-}" ]; then
+        safe_remove "$TEMP_DIR"
     fi
     
     # Kill background processes if any
     if [ -n "${BG_PID:-}" ]; then
         if kill -0 "$BG_PID" 2>/dev/null; then
-            echo "Terminating background process: $BG_PID" >&2
+            log_debug "Terminating background process: $BG_PID"
             kill "$BG_PID" 2>/dev/null || true
         fi
     fi
@@ -171,63 +163,64 @@ cleanup() {
     return "$exit_code"
 }
 
-# Set up error handling traps
-trap 'on_error ${LINENO} "${BASH_COMMAND}"' ERR
+# Set up cleanup trap (ERR trap is already set by enable_strict_mode)
 trap 'cleanup' EXIT
 
-# Validate script dependencies
+# Validate script dependencies using error-handling.bash functions
+# Note: Use require_command from error-handling.bash for cleaner code
 # Arguments: None
 # Returns:
 #   0 if all dependencies are met
-#   3 if dependencies are missing
+#   Exits with EXIT_COMMAND_NOT_FOUND if dependencies are missing
 validate_dependencies() {
-    local missing_deps=()
+    # Use require_command from error-handling.bash
+    # It will automatically exit with proper error code if command is missing
     
-    # Check for required commands
-    local required_commands=(
-        # Add required commands here, e.g.:
-        # "git"
-        # "curl"
-        # "jq"
-    )
+    # Example: require_command "git"
+    # Example: require_command "curl"
+    # Example: require_command "jq"
     
-    for cmd in "${required_commands[@]}"; do
-        if ! command -v "$cmd" &> /dev/null; then
-            missing_deps+=("$cmd")
-        fi
-    done
+    # Or check multiple with custom messages:
+    # require_command "git" "Git is required. Install from https://git-scm.com/"
+    # require_command "jq" "jq is required for JSON processing. Install from https://stedolan.github.io/jq/"
     
-    if [ ${#missing_deps[@]} -gt 0 ]; then
-        echo "ERROR: Missing required dependencies: ${missing_deps[*]}" >&2
-        echo "Please install the missing dependencies and try again." >&2
-        return 3
-    fi
+    # For environment variables:
+    # require_env "GITHUB_TOKEN" "GITHUB_TOKEN must be set for authentication"
+    
+    # For files/directories:
+    # require_file "/path/to/config"
+    # require_directory "/path/to/data"
     
     return 0
 }
 
-# Validate input arguments
+# Validate input arguments using error-handling.bash functions
 # Arguments:
 #   $1: arg1 - First argument to validate
 #   $2: arg2 - Second argument to validate (optional)
 # Returns:
 #   0 if validation passes
-#   2 if validation fails
+#   Exits with proper error code if validation fails
 validate_arguments() {
     local arg1="${1:-}"
     local arg2="${2:-}"
     
-    # Example validation - customize as needed
+    # Use die() from error-handling.bash for cleaner error handling
     if [ -z "$arg1" ]; then
-        echo "ERROR: First argument is required" >&2
-        return 2
+        die "First argument is required" "$EXIT_INVALID_ARGUMENT"
     fi
     
-    # Add more validation as needed
+    # For integer validation, use validate_positive_integer from error-handling.bash
+    # Example: validate_positive_integer "$arg1" "timeout"
+    
+    # For pattern validation:
     # if [[ ! "$arg1" =~ ^[0-9]+$ ]]; then
-    #     echo "ERROR: Argument must be a number" >&2
-    #     return 2
+    #     die "Argument must be a number, got: $arg1" "$EXIT_INVALID_ARGUMENT"
     # fi
+    
+    # Use require_file/require_directory for path validation:
+    # require_file "$arg1"
+    # require_directory "$arg2"
     
     return 0
 }
@@ -246,24 +239,23 @@ validate_arguments() {
 process_data() {
     local input="$1"
     
-    if [ "$VERBOSE" -eq 1 ]; then
-        echo "Processing: $input" >&2
-    fi
+    # Use log_debug/log_info from error-handling.bash
+    log_debug "Processing: $input"
     
     # Add your actual logic here
     
     if [ "$DRY_RUN" -eq 1 ]; then
-        echo "[DRY RUN] Would process: $input"
+        log_info "[DRY RUN] Would process: $input"
         return 0
     fi
     
     # Actual processing
-    echo "Processed: $input"
+    success "Processed: $input"
     
     return 0
 }
 
-# Another example function
+# Another example function with retry logic
 # Arguments:
 #   $1: source - Source location
 #   $2: destination - Destination location
@@ -273,9 +265,13 @@ perform_operation() {
     local source="$1"
     local destination="$2"
     
-    if [ "$VERBOSE" -eq 1 ]; then
-        echo "Performing operation: $source -> $destination" >&2
-    fi
+    log_info "Performing operation: $source -> $destination"
+    
+    # For operations that might fail temporarily, use retry_with_backoff
+    # Example: retry_with_backoff 3 2 curl "$source" -o "$destination"
+    
+    # For critical commands, use run_or_die from error-handling.bash
+    # Example: run_or_die cp "$source" "$destination"
     
     # Add your actual logic here
     
@@ -314,14 +310,11 @@ main() {
                     option_value="$2"
                     shift 2
                 else
-                    echo "ERROR: --option requires a value" >&2
-                    exit 2
+                    die "--option requires a value" "$EXIT_INVALID_ARGUMENT"
                 fi
                 ;;
-            -*)
-                echo "ERROR: Unknown option: $1" >&2
-                echo "Use --help for usage information" >&2
-                exit 2
+            -*-)
+                die "Unknown option: $1. Use --help for usage information" "$EXIT_INVALID_ARGUMENT"
                 ;;
             *)
                 # Positional arguments
@@ -330,34 +323,29 @@ main() {
                 elif [ -z "$arg2" ]; then
                     arg2="$1"
                 else
-                    echo "ERROR: Too many arguments" >&2
-                    exit 2
+                    die "Too many arguments" "$EXIT_INVALID_ARGUMENT"
                 fi
                 shift
                 ;;
         esac
     done
     
-    # Validate dependencies
-    validate_dependencies || exit 3
+    # Validate dependencies (will exit automatically if missing)
+    validate_dependencies
     
-    # Validate arguments
-    validate_arguments "$arg1" "$arg2" || exit 2
+    # Validate arguments (will exit automatically if invalid)
+    validate_arguments "$arg1" "$arg2"
     
-    # Display configuration if verbose
-    if [ "$VERBOSE" -eq 1 ]; then
-        echo "Configuration:" >&2
-        echo "  Script: $SCRIPT_NAME v$SCRIPT_VERSION" >&2
-        echo "  Argument 1: $arg1" >&2
-        [ -n "$arg2" ] && echo "  Argument 2: $arg2" >&2
-        [ -n "$option_value" ] && echo "  Option: $option_value" >&2
-        echo "  Verbose: Yes" >&2
-        echo "  Dry Run: $([[ $DRY_RUN -eq 1 ]] && echo 'Yes' || echo 'No')" >&2
-        echo "" >&2
-    fi
+    # Display configuration using logging functions
+    log_debug "Configuration:"
+    log_debug "  Script: $SCRIPT_NAME v$SCRIPT_VERSION"
+    log_debug "  Argument 1: $arg1"
+    [ -n "$arg2" ] && log_debug "  Argument 2: $arg2"
+    [ -n "$option_value" ] && log_debug "  Option: $option_value"
+    log_debug "  Dry Run: $([[ $DRY_RUN -eq 1 ]] && echo 'Yes' || echo 'No')"
     
     # Main script logic
-    echo "Starting $SCRIPT_NAME..." >&2
+    log_info "Starting $SCRIPT_NAME..."
     
     # Example usage of functions
     process_data "$arg1"
@@ -366,7 +354,8 @@ main() {
         perform_operation "$arg1" "$arg2"
     fi
     
-    echo "✓ $SCRIPT_NAME completed successfully" >&2
+    # Use success() from error-handling.bash for consistent output
+    success "$SCRIPT_NAME completed successfully"
     
     return 0
 }

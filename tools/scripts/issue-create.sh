@@ -10,7 +10,8 @@
 set -euo pipefail
 
 readonly SCRIPT_VERSION="1.0.0"
-readonly SCRIPT_NAME="$(basename "$0")"
+SCRIPT_NAME="$(basename "$0")"
+readonly SCRIPT_NAME
 # Source required libraries
 if [ -f "$DEVENV_ROOT/tools/lib/error-handling.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/error-handling.bash"
@@ -23,6 +24,10 @@ fi
 
 if [ -f "$DEVENV_ROOT/tools/lib/github-helpers.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
+fi
+
+if [ -f "$DEVENV_ROOT/tools/lib/git-config.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/git-config.bash"
 fi
 
 # ============================================================================
@@ -249,31 +254,6 @@ check_dependencies() {
     fi
 }
 
-# Validate that we're not running against devenv repo unless explicitly allowed
-check_target_repo() {
-    local git_root
-    git_root=$(git rev-parse --show-toplevel 2>/dev/null)
-    
-    if [ -z "$git_root" ]; then
-        log_error "Not in a git repository"
-        exit 1
-    fi
-    
-    # Check if we're in the devenv repo
-    if [ -f "$git_root/.devcontainer/bootstrap.sh" ]; then
-        # This is the devenv repo
-        if [ "$ALLOW_DEVENV_REPO" -eq 0 ]; then
-            log_error "The current repository appears to be the devenv repository itself"
-            log_info "Issues should be created in the target project repositories, not in devenv"
-            log_info "To create an issue in devenv anyway, pass the --devenv flag"
-            log_info "Example: issue-create --devenv --title \"...\" --type bug"
-            exit 1
-        else
-            log_warn "Creating issue in devenv repository (safety override enabled)"
-        fi
-    fi
-}
-
 # Build label list including type label if specified
 build_labels() {
     local labels=()
@@ -491,6 +471,7 @@ main() {
                 shift
                 ;;
             --devenv)
+                # shellcheck disable=SC2034  # Used by check_target_repo
                 ALLOW_DEVENV_REPO=1
                 shift
                 ;;

@@ -1,5 +1,6 @@
 #!/bin/bash
 
+script_folder="${DEVENV_TOOLS:-.}/scripts"
 repos_dir="$DEVENV_ROOT/repos"
 
 # Source shared libraries
@@ -166,7 +167,7 @@ for repo in "${REPOS[@]}"; do
             log_error "Failed to checkout master branch"
             failed_repos+=("$repo (checkout failed)")
             ((fail_count++))
-            cd - &>/dev/null
+            cd - &>/dev/null || return
             continue
         fi
     fi
@@ -191,7 +192,7 @@ for repo in "${REPOS[@]}"; do
         log_error "Failed to create empty commit"
         failed_repos+=("$repo (commit failed)")
         ((fail_count++))
-        cd - &>/dev/null
+        cd - &>/dev/null || return
         continue
     fi
     
@@ -202,14 +203,14 @@ for repo in "${REPOS[@]}"; do
         log_warn "You may need to manually push or the commit was created locally"
         failed_repos+=("$repo (push failed)")
         ((fail_count++))
-        cd - &>/dev/null
+        cd - &>/dev/null || return
         continue
     fi
     
     log_info "✓ Successfully forced commit in: $repo"
     ((success_count++))
     
-    cd - &>/dev/null
+    cd - &>/dev/null || return
 done
 
 # Print summary

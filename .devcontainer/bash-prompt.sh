@@ -21,7 +21,6 @@ __bash_prompt() {
             fi; \
         fi`'
 
-    local lightblue='\[\033[1;34m\]'
     local removecolor='\[\033[0m\]'
 
     local pathpart='`\

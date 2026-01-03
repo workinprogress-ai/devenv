@@ -18,4 +18,4 @@ if [ -z "$POD_NAME" ]; then
 fi
 
 echo "Fetching logs for pod: $POD_NAME"
-kubectl logs $POD_NAME $NAMESPACE_OPTION $@
+kubectl logs $POD_NAME $NAMESPACE_OPTION "$@"

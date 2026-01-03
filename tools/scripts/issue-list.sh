@@ -10,7 +10,8 @@
 set -euo pipefail
 
 readonly SCRIPT_VERSION="1.0.0"
-readonly SCRIPT_NAME="$(basename "$0")"
+SCRIPT_NAME="$(basename "$0")"
+readonly SCRIPT_NAME
 # Source required libraries
 if [ -f "$DEVENV_ROOT/tools/lib/error-handling.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/error-handling.bash"
@@ -23,6 +24,10 @@ fi
 
 if [ -f "$DEVENV_ROOT/tools/lib/github-helpers.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
+fi
+
+if [ -f "$DEVENV_ROOT/tools/lib/git-config.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/git-config.bash"
 fi
 
 # ============================================================================
@@ -165,11 +170,13 @@ list_issues() {
             log_verbose "Listing issues in table format"
             ;;
         json)
+            # shellcheck disable=SC2054 # gh CLI uses comma-separated fields
             gh_args+=(--json number,title,state,labels,assignees,milestone,createdAt,updatedAt,url)
             log_verbose "Listing issues in JSON format"
             ;;
         simple)
             # Simple format: number and title only
+            # shellcheck disable=SC2054 # gh CLI uses comma-separated fields
             gh_args+=(--json number,title)
             log_verbose "Listing issues in simple format"
             ;;
@@ -271,6 +278,7 @@ main() {
                 shift
                 ;;
             --devenv)
+                # shellcheck disable=SC2034  # Used by check_target_repo
                 ALLOW_DEVENV_REPO=1
                 shift
                 ;;
