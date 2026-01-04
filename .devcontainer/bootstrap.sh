@@ -2,8 +2,6 @@
 
 # Ensure that the script is not run with CRLF line endings
 scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"; scriptfile="$0"; if [[ "$(file ${scriptdir}/${scriptfile})" =~ "CRLF" && -f "${scriptdir}/${scriptfile}" && "$(head -n 100 ${scriptdir}/${scriptfile} | grep "^scriptdir.\+dg4MbsIfhbv4-Bash-CRLF-selfheal_Written_By_Kenneth_Lutzke-8Nds9NclkU4sgE" > /dev/null 2>&1 ; echo "$?" )" == "0" ]]; then echo "$(cat ${scriptdir}/${scriptfile} | sed 's/\r$//')" > ${scriptdir}/${scriptfile} ; bash ${scriptdir}/${scriptfile} "$@" ; exit ; fi ; echo "" > /dev/null 2>&1
-container_bootstrap_run_file="$HOME/.bootstrap_container_time"
-repo_bootstrap_run_file="$toolbox_root/.runtime/.bootstrap_run_time"
 
 on_error() {
   echo "An error occurred. Running cleanup."
@@ -44,6 +42,8 @@ initialize_paths() {
     setup_dir=$toolbox_root/.setup
     name_file=$toolbox_root/.setup/name.txt
     email_file=$toolbox_root/.setup/email.txt
+    container_bootstrap_run_file="$HOME/.bootstrap_container_time"
+    repo_bootstrap_run_file="$toolbox_root/.runtime/.bootstrap_run_time"
 }
 
 detect_architecture() {
@@ -578,8 +578,11 @@ init_bootstrap_run_time() {
 }
 
 record_bootstrap_run_time() {
+    echo "# Record bootstrap run time"
+    echo "#############################################"
     date +%s > $container_bootstrap_run_file
     cp $container_bootstrap_run_file $repo_bootstrap_run_file
+    echo "Bootstrap run time recorded"
 }
 
 finish_message() {

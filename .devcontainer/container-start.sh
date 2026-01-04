@@ -83,3 +83,9 @@ if ! [ -f $container_bootstrap_run_file ]; then
     echo "WARNING:  Bootstrap has not yet successfully run!"
     echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 fi
+
+# Clean up bootstrap lock file on successful completion
+if [ -f "$bootstrap_lock_file" ]; then
+    rm -f "$bootstrap_lock_file"
+    echo "Bootstrap lock file removed"
+fi
