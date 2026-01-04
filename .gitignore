@@ -29,6 +29,7 @@ playground/*
 .installs/*
 # Ignore symlinks in tools/ but keep subdirectories
 tools/*
+tools/custom/
 !tools/lib/
 !tools/scripts/
 !tools/other/

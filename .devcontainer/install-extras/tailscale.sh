@@ -55,7 +55,7 @@ else
     fi
     
     # Save Key via helper
-    "$DEVENV_ROOT/scripts/add-env-vars.sh" "TS_AUTHKEY=$INPUT_AUTH_KEY"
+    "$DEVENV_TOOLS/devenv-add-env-vars" "TS_AUTHKEY=$INPUT_AUTH_KEY"
     export TS_AUTHKEY="$INPUT_AUTH_KEY"
 fi
 
@@ -78,12 +78,11 @@ fi
 
 # 3. Configure Proxy Environment Variables
 echo "    - Configuring Proxy Env Vars..."
-"$DEVENV_ROOT/scripts/add-env-vars.sh" "ALL_PROXY=socks5://localhost:$TS_PROXY_PORT"
-"$DEVENV_ROOT/scripts/add-env-vars.sh" "HTTP_PROXY=socks5://localhost:$TS_PROXY_PORT"
-"$DEVENV_ROOT/scripts/add-env-vars.sh" "HTTPS_PROXY=socks5://localhost:$TS_PROXY_PORT"
+"$DEVENV_TOOLS/devenv-add-env-vars" "ALL_PROXY=socks5://localhost:$TS_PROXY_PORT"
+"$DEVENV_TOOLS/devenv-add-env-vars" "HTTP_PROXY=socks5://localhost:$TS_PROXY_PORT"
+"$DEVENV_TOOLS/devenv-add-env-vars" "HTTPS_PROXY=socks5://localhost:$TS_PROXY_PORT"
 # Prevent proxying for local dev and internal container traffic
-"$DEVENV_ROOT/scripts/add-env-vars.sh" "NO_PROXY=localhost,127.0.0.1,::1,172.16.0.0/12,192.168.0.0/16,.local"
-
+"$DEVENV_TOOLS/devenv-add-env-vars" "NO_PROXY=localhost,127.0.0.1,::1,172.16.0.0/12,192.168.0.0/16,.local"
 # 4. Construct and Register Startup Logic
 # We use a heredoc to define the exact script that runs on container startup.
 # Variables are manually substituted into the heredoc string
@@ -118,7 +117,7 @@ if ! tailscale status &> /dev/null; then
 fi"
 
 # Pass the logic to custom startup helper
-"$DEVENV_ROOT/scripts/add-custom-startup-commands.sh" "$STARTUP_LOGIC"
+"$DEVENV_TOOLS/devenv-add-custom-startup" "$STARTUP_LOGIC"
 
 
 # 5. Immediate Execution (So it works now)

@@ -274,7 +274,7 @@ main() {
                 fi
                 
                 local selected_issues
-                selected_issues=$("$PROJECT_ROOT/scripts/issue-select.sh" --state "$state_filter" --multi)
+                selected_issues=$("$PROJECT_TOOLS/issue-select" --state "$state_filter" --multi)
                 if [ -z "$selected_issues" ]; then
                     log_error "No issue selected"
                     exit 1

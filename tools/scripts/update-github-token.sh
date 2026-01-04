@@ -33,7 +33,7 @@ fi
 
 # 1. Update env-vars.sh (Persistence)
 echo "    - Updating environment variables..."
-"$DEVENV_ROOT/scripts/devenv-add-env-vars.sh" "GH_TOKEN=$NEW_TOKEN"
+"$DEVENV_TOOLS/devenv-add-env-vars.sh" "GH_TOKEN=$NEW_TOKEN"
 
 # 2. Update token file in .setup folder
 echo "    - Storing token in backup file..."

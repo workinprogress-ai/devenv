@@ -471,6 +471,7 @@ ensure_directories_and_settings() {
     mkdir -p $toolbox_root/repos
     mkdir -p $toolbox_root/tmp
     mkdir -p $toolbox_root/playground
+    mkdir -p $toolbox_root/tools/custom
     if [[ ! -d "$toolbox_root/.debug/remote_debugger" ]]; then
         debugger_script="$DEVENV_ROOT/.devcontainer/download-csharp-debugger.sh"
         if [ -f "$debugger_script" ]; then
@@ -591,7 +592,7 @@ run_tasks() {
 }
 
 # Defaults for common tool versions (override via env as needed)
-PNPM_VERSION=${PNPM_VERSION:-9.0.0}
+PNPM_VERSION=${PNPM_VERSION:-8.7.1}
 NODE_VERSION=${NODE_VERSION:-20}
 
 run_tasks "$@"

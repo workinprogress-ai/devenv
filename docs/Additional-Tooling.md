@@ -731,6 +731,26 @@ devenv-add-env-vars "MY_API_KEY=abc123" "DEBUG_MODE=true"
 
 **Note:** Restart your container or source the env-vars.sh file to apply changes.
 
+### `devenv-add-custom-bootstrap`
+
+Adds custom commands to `.devcontainer/custom-bootstrap.sh` that run whenever the devcontainer is created or the bootstrap sequence executes.
+
+```bash
+devenv-add-custom-bootstrap "command1" "command2" ...
+```
+
+**Features:**
+- Validates bash syntax before adding commands
+- Creates `custom-bootstrap.sh` if it doesn't exist
+- Sets executable permissions automatically
+- Adds documentation comments for each command
+
+**Example:**
+
+```bash
+devenv-add-custom-bootstrap "echo 'Bootstrap step'" "apt-get update"
+```
+
 ### `devenv-add-custom-startup`
 
 Adds custom commands to `.devcontainer/custom_startup.sh` that will run each time VS Code starts.

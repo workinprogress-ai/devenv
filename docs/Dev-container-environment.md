@@ -69,6 +69,20 @@ The `custom_bootstrap.sh` and `custom_startup.sh` are optional scripts that you 
 * The `custom_bootstrap.sh` file is run when the container is first created.  It can be used to install packages or make other changes that should be done once upon creation.  If you want to make permanent modifications for example, to [your `.bashrc` file](#bashrc-file), you should do it in the `custom_bootstrap.sh` file.
 * The `custom_startup.sh` file is run each time vscode starts.
 
+**Managing custom bootstrap commands:**
+
+You can use the `devenv-add-custom-bootstrap` script to add commands to `custom-bootstrap.sh` that run whenever the container is created or the bootstrap sequence executes:
+
+```bash
+devenv-add-custom-bootstrap "command1" "command2"
+```
+
+The script will:
+- Create `custom-bootstrap.sh` if it doesn't exist
+- Validate bash syntax before adding commands
+- Set executable permissions automatically
+- Append commands with documentation comments
+
 **Managing custom startup commands:**
 
 You can use the `devenv-add-custom-startup` script to easily add commands to `custom_startup.sh`:

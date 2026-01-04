@@ -291,7 +291,7 @@ main() {
                 ;;
             --select)
                 # Interactive selection (show all issues by default)
-                ISSUE_NUMBER=$("$PROJECT_ROOT/scripts/issue-select.sh" --state all)
+                ISSUE_NUMBER=$("$PROJECT_TOOLS/issue-select.sh" --state all)
                 if [ -z "$ISSUE_NUMBER" ]; then
                     log_error "No issue selected"
                     exit 1
