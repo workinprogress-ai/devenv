@@ -120,6 +120,7 @@ The `.devcontainer/install-extras/` folder contains optional installation script
 * **`chromium.sh`** - Installs Chromium web browser
 * **`firefox.sh`** - Installs Firefox web browser
 * **`flatpak.sh`** - Installs Flatpak package manager
+* **`zsh.sh`** - Installs zsh and reuses the dev env bash configuration
 * **`tailscale.sh`** - Installs and configures Tailscale VPN with SOCKS5 proxy support
 
 ### Running Optional Installs
@@ -166,7 +167,6 @@ To access the desktop environment, you need to [open a browser to port 6080 on t
 A few utility scripts have been provided to make life happy.
 
 * `get-services-config` This script pulls the service config from it's repository into the local dev environment.  It is placed in `~/debug/config`
-* `0x0.st` A script to push a file to the 0x0 file sharing site
 * `metrics-count-code-lines` A utility to count code lines in a file or folder
 * `docker-build` A utility to build a project using Docker.
 * `docker-down` A utility to bring down a local docker configuration

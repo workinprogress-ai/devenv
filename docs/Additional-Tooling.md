@@ -706,6 +706,7 @@ install-extras mongo
 - `mongo-compass.sh` - MongoDB Compass GUI
 - `chromium.sh`, `firefox.sh` - Web browsers
 - `flatpak.sh` - Flatpak package manager
+- `zsh.sh` - zsh with devenv bash configuration
 - `tailscale.sh` - Tailscale VPN with SOCKS5 proxy
 - `doctl.sh` - DigitalOcean CLI tool
 
