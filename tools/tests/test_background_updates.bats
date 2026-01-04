@@ -119,8 +119,8 @@ fi
 
 echo $$ > "$PID_FILE"
 echo "started"
-# Keep running to simulate a background process
-sleep 60 &
+# Keep running to simulate a background process (short duration for testing)
+sleep 2 &
 wait
 EOF
   chmod +x "$TEST_TEMP_DIR/test_pid_check.sh"
