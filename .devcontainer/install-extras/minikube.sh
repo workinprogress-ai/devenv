@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Install Minikube - Local Kubernetes cluster
+# Minikube runs a single-node Kubernetes cluster locally for development and testing.
+# Supports both ARM64 and AMD64 architectures.
+
 arch=$(uname -m)
 is_arm=$([ "$arch" == "aarch64" ] && echo 1)
 

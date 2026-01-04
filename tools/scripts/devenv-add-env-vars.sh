@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Add or update environment variables in .devcontainer/env-vars.sh
+# Add or update environment variables in .runtime/env-vars.sh
 # Usage: devenv-add-env-vars.sh "VAR1=value1" "VAR2=value2" ...
 
 set -euo pipefail
@@ -8,7 +8,10 @@ set -euo pipefail
 # shellcheck source=../lib/error-handling.bash
 source "$DEVENV_ROOT/tools/lib/error-handling.bash"
 
-ENV_VARS_FILE="$DEVENV_ROOT/.devcontainer/env-vars.sh"
+# Ensure .runtime directory exists
+mkdir -p "$DEVENV_ROOT/.runtime"
+
+ENV_VARS_FILE="$DEVENV_ROOT/.runtime/env-vars.sh"
 
 # Check if at least one environment variable is provided
 if [ $# -eq 0 ]; then

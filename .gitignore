@@ -7,16 +7,16 @@ repos/*
 .update-time
 node_modules/
 .pnpm-store/
-.bootstrap_run_time
 .cache/
 .devcontainer/custom-startup.sh
 .devcontainer/custom-bootstrap.sh
-.devcontainer/env-vars.sh
 .devcontainer/custom_startup.sh
 .devcontainer/custom_bootstrap.sh
-.devcontainer/env_vars.sh
-.devcontainer/bash-functions.sh
 dotnet-install.*
+
+# Runtime-generated files
+.runtime/
+.runtime/*
 temp/
 temp/*
 tmp/

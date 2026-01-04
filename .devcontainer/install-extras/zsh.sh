@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Install and configure Zsh shell
+# Installs zsh and configures it to use the devenv environment setup.
+# Sets zsh as the default shell and creates a custom prompt matching the bash style.
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEVENV_ROOT="${DEVENV_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 TARGET_USER="${SUDO_USER:-${USER:-vscode}}"

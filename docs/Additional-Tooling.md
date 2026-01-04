@@ -795,7 +795,7 @@ update-tailscale-key
 **Features:**
 - Prompts for new reusable auth key (input is hidden)
 - Validates key format (must start with `tskey-`)
-- Updates `TS_AUTHKEY` in `.devcontainer/env-vars.sh`
+- Updates `TS_AUTHKEY` in `.runtime/env-vars.sh`
 - Re-authenticates the Tailscale daemon immediately
 - Sources the updated environment variables in the current shell
 

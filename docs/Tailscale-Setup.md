@@ -135,7 +135,7 @@ update-tailscale-key
 
 This script will:
 - Prompt for the new auth key (input is hidden)
-- Update the stored key in `.devcontainer/env-vars.sh`
+- Update the stored key in `.runtime/env-vars.sh`
 - Re-authenticate the Tailscale daemon immediately
 - No container restart required!
 
@@ -185,7 +185,7 @@ The script will:
 
 #### Environment Variables
 
-The script configures the following proxy variables in `.devcontainer/env-vars.sh`:
+The script configures the following proxy variables in `.runtime/env-vars.sh`:
 
 ```bash
 ALL_PROXY=socks5://localhost:1055

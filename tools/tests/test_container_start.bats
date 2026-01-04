@@ -21,7 +21,7 @@ setup() {
 #!/bin/bash
 echo "Bootstrap running"
 sleep 1
-date +%s > "$HOME/.bootstrap_run_time"
+date +%s > "$HOME/.bootstrap_container_time"
 date +%s > "$(dirname "$0")/.bootstrap_run_time"
 echo "Bootstrap completed"
 EOF

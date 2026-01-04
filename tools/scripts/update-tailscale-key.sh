@@ -41,8 +41,8 @@ echo "    - Updating environment variables..."
 export TS_AUTHKEY="$NEW_KEY"
 
 # 4. Source the updated env-vars to reload in current shell context
-if [ -f "$DEVENV_ROOT/.devcontainer/env-vars.sh" ]; then
-    source "$DEVENV_ROOT/.devcontainer/env-vars.sh"
+if [ -f "$DEVENV_ROOT/.runtime/env-vars.sh" ]; then
+    source "$DEVENV_ROOT/.runtime/env-vars.sh"
 fi
 
 # 5. Re-authenticate Daemon (Immediate Effect)

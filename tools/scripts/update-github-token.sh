@@ -45,8 +45,8 @@ chmod 600 "$TOKEN_FILE"
 export GH_TOKEN="$NEW_TOKEN"
 
 # 3. Source the updated env-vars to reload in current shell context
-if [ -f "$DEVENV_ROOT/.devcontainer/env-vars.sh" ]; then
-    source "$DEVENV_ROOT/.devcontainer/env-vars.sh"
+if [ -f "$DEVENV_ROOT/.runtime/env-vars.sh" ]; then
+    source "$DEVENV_ROOT/.runtime/env-vars.sh"
 fi
 
 echo "    ✅ Success! GitHub token updated."

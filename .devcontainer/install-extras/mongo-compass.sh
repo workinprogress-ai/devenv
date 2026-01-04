@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Install MongoDB Compass GUI
+# MongoDB Compass provides a graphical interface for exploring and managing MongoDB databases.
+# Note: Only available for AMD64 architecture (not ARM).
+
 echo "# Installing MongoDB Compass"
 echo "#############################################"
 

@@ -7,8 +7,8 @@ export DEVCONTAINER=true
 script_path=$(readlink -f "$0")
 script_folder=$(dirname "$script_path")
 toolbox_root=$(dirname "$script_folder")
-container_bootstrap_run_file="$HOME/.bootstrap_run_time"
-repo_bootstrap_run_file="$toolbox_root/.devcontainer/.bootstrap_run_time"
+container_bootstrap_run_file="$HOME/.bootstrap_container_time"
+repo_bootstrap_run_file="$toolbox_root/.runtime/.bootstrap_run_time"
 bootstrap_lock_file="$HOME/.bootstrap.lock"
 
 function get_run_time() {

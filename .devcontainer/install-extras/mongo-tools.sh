@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Install MongoDB command-line tools
+# Includes mongosh (MongoDB Shell), mongodump, mongorestore, and other database utilities.
+# Supports both ARM64 and AMD64 architectures.
+
 tmp_dir=$(mktemp -d)
 cd "$tmp_dir"
 
