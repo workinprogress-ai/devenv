@@ -29,6 +29,14 @@ if [ -f "$DEVENV_ROOT/tools/lib/git-config.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/git-config.bash"
 fi
 
+if [ -f "$DEVENV_ROOT/tools/lib/config-reader.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/config-reader.bash"
+fi
+
+if [ -f "$DEVENV_ROOT/tools/lib/issue-helper.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/issue-helper.bash"
+fi
+
 # ============================================================================
 # Global Variables
 # ============================================================================
@@ -37,6 +45,12 @@ PROJECT_NAME=""
 MILESTONE=""
 VERBOSE=0
 ALLOW_DEVENV_REPO=0
+ISSUE_TYPES=()
+
+# Initialize issue types from config
+initialize_issue_types() {
+    load_issue_types_from_config "$DEVENV_ROOT/devenv.config"
+}
 
 # Workflow states
 # shellcheck disable=SC2034 # Used for documentation and potential future use
@@ -252,27 +266,23 @@ set_issue_type() {
     
     echo ""
     echo "Select issue type:"
-    echo "  1) Epic"
-    echo "  2) Story"
-    echo "  3) Bug"
+    build_type_menu
     echo ""
-    read -rp "Type [1-3]: " type_choice
+    read -rp "Type [1-${#ISSUE_TYPES[@]}]: " type_choice
     
-    local type_label=""
-    case "$type_choice" in
-        1) type_label="type:epic" ;;
-        2) type_label="type:story" ;;
-        3) type_label="type:bug" ;;
-        *)
-            echo "Invalid choice"
-            return 1
-            ;;
-    esac
+    local type_label
+    type_label=$(get_type_label_from_choice "$type_choice")
+    if [ -z "$type_label" ]; then
+        echo "Invalid choice"
+        return 1
+    fi
     
-    # Remove existing type labels
-    gh issue edit "${repo_spec[@]}" "$issue_num" --remove-label "type:epic" 2>/dev/null || true
-    gh issue edit "${repo_spec[@]}" "$issue_num" --remove-label "type:story" 2>/dev/null || true
-    gh issue edit "${repo_spec[@]}" "$issue_num" --remove-label "type:bug" 2>/dev/null || true
+    # Remove all existing type labels
+    local all_labels
+    all_labels=$(get_all_type_labels)
+    for label in $all_labels; do
+        gh issue edit "${repo_spec[@]}" "$issue_num" --remove-label "$label" 2>/dev/null || true
+    done
     
     # Add new type label
     gh issue edit "${repo_spec[@]}" "$issue_num" --add-label "$type_label"
@@ -340,6 +350,9 @@ run_grooming_session() {
 # ============================================================================
 
 main() {
+    # Initialize issue types from config
+    initialize_issue_types
+    
     # Parse command-line arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in

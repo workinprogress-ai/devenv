@@ -1,6 +1,6 @@
 # DEVENV (Developer Environment) repo
 
-This repository is the starting point for setting up a working dev environment for working at WorkInProgress.ai. It provides comprehensive tooling, scripts, and utilities necessary for development across all WorkInProgress.ai repositories.
+A comprehensive development environment setup with dev containers, tooling, and scripts. This repository provides a complete developer experience with infrastructure automation, repository management, and quality tools for teams using GitHub.
 
 ## Features
 
@@ -40,7 +40,7 @@ Note:  Windows is the most complex environment to set up.  You should properly h
 4. Install Docker Desktop for Windows, using WSL2 as the backend.
 5. Make sure that Docker is configured to expose it's command line to WSL2.  This is done in the Docker Desktop settings.
 6. Clone this repo into your WSL2 environment.
-   `git clone git@github.com:workinprogress-ai/devenv.git`  
+   `git clone git@github.com:YOUR-ORG/devenv.git`  
 7. In the WSL terminal, navigate to the repo directory `devenv`
    `cd devenv`
 8. Run the [setup script](#running-the-setup-script).  This will ask you a few questions about your environment and allow you to specify your SSH key to the private repos.
@@ -56,7 +56,7 @@ Note:  Windows is the most complex environment to set up.  You should properly h
 
 1. Install [Docker Desktop for Mac](https://docs.docker.com/desktop/install/mac-install/).
 2. In a terminal, clone this repo.
-   `git clone git@github.com:workinprogress-ai/devenv.git`  
+   `git clone git@github.com:YOUR-ORG/devenv.git`  
 3. In the terminal, navigate to the repo directory `devenv`
    `cd devenv`
 4. Run the [setup script](#running-the-setup-script).  This will ask you a few questions about your environment and allow you to specify your SSH key to the private repos.
@@ -73,7 +73,7 @@ Note:  Windows is the most complex environment to set up.  You should properly h
 1. Install Docker or Podman. The setup script can help you install either container runtime. You can also manually install Docker using the script at [get.docker.com](https://get.docker.com) or install Podman via your package manager (`apt install podman` or `dnf install podman`).
 2. Clone this repo.
    ```bash
-   git clone git@github.com:workinprogress-ai/devenv.git
+   git clone git@github.com:YOUR-ORG/devenv.git
    ```
 3. In the terminal, navigate to the repo directory `devenv`
    ```bash
@@ -98,16 +98,10 @@ The [setup script](./setup) will ask you a few questions about your environment 
 The script will ask you for the following information:
 
 * **Your name**: This is the name by which you will be identified in all commits.
-* **Your workinprogress.ai email**: This identifies you by email in all commits.
+* **Your organization email**: This identifies you by email in all commits.
 * **Your timezone**: This is in order to correctly display your local time within the container. By default, the script will attempt to determine your time zone. If it does so correctly, then you can just hit ENTER and accept the default.
 * **GitHub username**: Your GitHub account username (not email).
 * **GitHub organization**: The GitHub organization that owns your repositories. The setup script will attempt to auto-detect this from the devenv repository's remote URL. This is used by repository management scripts to clone and create repositories.
-* **GitHub SSH key**: For secure repository access via SSH. The script will:
-  - Ask you to provide an existing SSH key or create a new one (defaults to `~/.ssh/id_ed25519`)
-  - Verify the key can authenticate to GitHub
-  - Configure your `~/.ssh/config` with GitHub SSH settings
-  - Load the key into your SSH agent for immediate use
-  - You will need to add the public key to your [GitHub SSH settings](https://github.com/settings/keys)
 * **GitHub PAT**: The Personal Access Token allows package access and other functions from the dev environment. You can create one by going to [GitHub Settings → Developer Settings → Personal Access Tokens → Tokens (classic)](https://github.com/settings/tokens/new). The recommended note should be 'GH_TOKEN' and the expiration should be 'No Expiration'. This token should have the following scopes:
   - **repo** (all) - Full control of private repositories
   - **read:packages** - Download packages from GitHub Package Registry
@@ -144,29 +138,43 @@ NOTE:  Be careful that the container has finished building before you shut down 
 For more information see the documentation:
 
 **Getting Started:**
+
 * [The Development Environment](./docs/Dev-container-environment.md) - Comprehensive dev container guide
 * [Additional Tooling](./docs/Additional-Tooling.md) - All available scripts and utilities
 
 **GitHub Issues & Projects:**
+
 * [GitHub Issues Management](./docs/GitHub-Issues-Management.md) - Complete workflow guide for GitHub Issues, Projects, and Milestones
 * [GitHub Issues Quick Reference](./docs/GitHub-Issues-Quick-Reference.md) - Fast lookup for common commands
 
 **Development Standards:**
+
 * [Coding Standards](./docs/Coding-standards.md) - Code quality and style guidelines
 * [Contributing](./docs/Contributing.md) - How to contribute to projects
 * [Function Naming Conventions](./docs/Function-Naming-Conventions.md) - Bash function naming standards
 * [Logging Framework](./docs/Logging-Framework.md) - Standardized logging guide
 
 **Advanced Topics:**
+
 * [Port Forwarding](./docs/Port-forwarding.md) - Remote service access guide
 * [Culture](./docs/Culture.md) - Team culture and practices
+
+**Customizing the devenv:**
+
+The devenv can be forked and customized to use with other organizations. See [CUSTOMIZATION](./docs/CUSTOMIZATION.md)
 
 ## Testing
 
 Run the test suite with:
 
 ```bash
-./tests/run-tests.sh
+./tools/run-tools-tests
+```
+
+Run linting with:
+
+```bash
+./tools/lint-tools-scripts
 ```
 
 See [tests/README.md](./tests/README.md) for more information about writing and running tests. 

@@ -17,7 +17,7 @@ test_helper_setup() {
     export GH_USER="test-user"
     export GH_ORG="test-org"
     export GH_TOKEN="ghp_test1234567890abcdefghijklmnopqrstuvwxyz"
-    export USER_EMAIL="test@workinprogress.ai"
+    export USER_EMAIL="test@example.com"
     export HUMAN_NAME="Test User"
     export DEVENV_ROOT="$PROJECT_ROOT"
     export HOME="$TEST_TEMP_DIR"

@@ -119,6 +119,7 @@ ensure_gh_login() {
     echo "Error: GitHub CLI is not authenticated and GH_TOKEN is not set" >&2
     echo "Please set GH_TOKEN environment variable or authenticate with: gh auth login" >&2
     exit 1
+}
 
 # Check required dependencies for GitHub CLI operations
 #
@@ -155,5 +156,4 @@ check_dependencies() {
         log_info "Install jq for JSON processing"
         exit 1
     fi
-}
 }

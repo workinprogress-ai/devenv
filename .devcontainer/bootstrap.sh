@@ -44,6 +44,41 @@ initialize_paths() {
     email_file=$toolbox_root/.setup/email.txt
     container_bootstrap_run_file="$HOME/.bootstrap_container_time"
     repo_bootstrap_run_file="$toolbox_root/.runtime/.bootstrap_run_time"
+    config_file="$devenv/devenv.config"
+}
+
+load_config() {
+    # Source the config-reader library
+    local config_reader="$devenv/tools/lib/config-reader.bash"
+    if [ ! -f "$config_reader" ]; then
+        echo "ERROR: Config reader library not found at $config_reader"
+        exit 1
+    fi
+    
+    # Source config-reader
+    # shellcheck source=../tools/lib/config-reader.bash
+    source "$config_reader"
+    
+    # Config file is mandatory
+    if [ ! -f "$config_file" ]; then
+        echo "ERROR: devenv.config not found at $config_file"
+        exit 1
+    fi
+    
+    if ! config_init "$config_file"; then
+        echo "ERROR: Failed to initialize config reader"
+        exit 1
+    fi
+    
+    # Load GitHub organization from config - mandatory field
+    if [ -z "${GH_ORG:-}" ]; then
+        GH_ORG=$(config_read_value "organization" "github_org" "")
+        if [ -z "$GH_ORG" ]; then
+            echo "ERROR: github_org not configured in devenv.config [organization] section"
+            exit 1
+        fi
+        export GH_ORG
+    fi
 }
 
 detect_architecture() {
@@ -542,10 +577,20 @@ configure_nuget_sources() {
     mkdir -p $local_nuget_dev
 
     add_nuget_source_if_not_exists "dev" $local_nuget_dev
-    if [ -n "${GH_TOKEN:-}" ] && [ -n "${GH_USER:-}" ] && [ -n "${GH_ORG:-}" ]; then
-        add_nuget_source_if_not_exists "github" https://nuget.pkg.github.com/${GH_ORG}/index.json $GH_USER $GH_TOKEN
+    
+    # Load NuGet feed URL from config with environment variable expansion
+    if [ -z "${NUGET_FEED_URL:-}" ]; then
+        NUGET_FEED_URL=$(config_read_value "nuget" "feed_url" "")
+    fi
+    
+    # Expand environment variables in feed URL
+    NUGET_FEED_URL=$(echo "$NUGET_FEED_URL" | sed "s|\${GH_ORG}|${GH_ORG}|g")
+    NUGET_FEED_URL=$(echo "$NUGET_FEED_URL" | sed "s|\${GH_USER}|${GH_USER}|g")
+    
+    if [ -n "${GH_TOKEN:-}" ] && [ -n "${GH_USER:-}" ] && [ -n "${GH_ORG:-}" ] && [ -n "${NUGET_FEED_URL:-}" ]; then
+        add_nuget_source_if_not_exists "github" "$NUGET_FEED_URL" $GH_USER $GH_TOKEN
     else
-        echo "Skipping GitHub NuGet feed: GH_ORG/GH_USER/GH_TOKEN not fully configured"
+        echo "Skipping GitHub NuGet feed: GH_ORG/GH_USER/GH_TOKEN/feed_url not fully configured"
     fi
 }
 
@@ -600,6 +645,7 @@ run_tasks() {
         detect_architecture
         ensure_home_is_set
         load_version_info
+        load_config
         prepare_install_directories
         reset_bashrc_to_original
         install_os_packages_round1

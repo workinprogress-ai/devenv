@@ -30,18 +30,6 @@ get_script_path() {
   fi
 }
 
-# Function to create SSH key
-# create_ssh_key() {
-#   ssh-keygen -t rsa -b 4096 -C "$email" -f "$SETUP_DIR/github_key" -N ""
-#   echo "SSH key created: $SETUP_DIR/github_key"
-#   echo "Public key:"
-#   cat "$SETUP_DIR/github_key.pub"
-#   echo "Instructions to add this key to GitHub:"
-#   echo "1. Copy the above public key."
-#   echo "2. Go to GitHub -> Settings -> SSH and GPG keys -> New SSH Key.  Here is a link:  https://github.com/settings/tokens/new"
-#   echo "3. Paste the copied key and save."
-# }
-
 # Function to save a response to a file
 save_response() {
   local question="$1"
@@ -156,156 +144,6 @@ validate_digitalocean_token() {
   done
 }
 
-save_ssh_key() {
-  local file_name="$1"
-  if [ ! -f "$SETUP_DIR/$file_name" ]; then
-    echo "Please paste the SSH key for use with GitHub (end with an empty line):"
-    ssh_key=""
-    while IFS= read -r line; do
-      [ -z "$line" ] && break
-      ssh_key="${ssh_key}${line}\n"
-    done
-    echo -e "$ssh_key" > "$SETUP_DIR/$file_name"
-    chmod 600 "$SETUP_DIR/$file_name"
-
-    # Verify the SSH key format
-    if ! grep -q -E '^-----BEGIN OPENSSH PRIVATE KEY-----' "$SETUP_DIR/$file_name"; then
-      echo "Invalid SSH key format. Please try again."
-      rm "$SETUP_DIR/$file_name"
-      save_ssh_key "$file_name"
-    fi
-  fi
-}
-
-ensure_ssh_agent() {
-  if [ -S "$SSH_AUTH_SOCK" ]; then
-    return 0
-  fi
-
-  # Try to detect a running agent
-  if pgrep ssh-agent >/dev/null 2>&1; then
-    # Attempt to source the most recent agent env file if present
-    if [ -f "$HOME/.ssh-agent-info" ]; then
-      # shellcheck disable=SC1090
-      source "$HOME/.ssh-agent-info" >/dev/null 2>&1 || true
-      if [ -S "$SSH_AUTH_SOCK" ]; then
-        return 0
-      fi
-    fi
-  fi
-
-  echo "Starting ssh-agent..."
-  eval "$(ssh-agent -s)" >/dev/null
-  echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" > "$HOME/.ssh-agent-info"
-  echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> "$HOME/.ssh-agent-info"
-}
-
-setup_ssh_config() {
-  local ssh_key="$1"
-  local ssh_dir="$HOME/.ssh"
-  local ssh_config="$ssh_dir/config"
-
-  mkdir -p "$ssh_dir"
-  chmod 700 "$ssh_dir"
-
-  # Create SSH config entry for GitHub if it doesn't exist
-  if [ ! -f "$ssh_config" ]; then
-    touch "$ssh_config"
-    chmod 600 "$ssh_config"
-  fi
-
-  # Check if GitHub entry already exists
-  if ! grep -q "^Host github.com" "$ssh_config"; then
-    echo "Adding GitHub SSH config entry..."
-    {
-      echo ""
-      echo "# GitHub SSH configuration"
-      echo "Host github.com"
-      echo "    HostName github.com"
-      echo "    User git"
-      echo "    IdentityFile $ssh_key"
-      echo "    AddKeysToAgent yes"
-    } >> "$ssh_config"
-    chmod 600 "$ssh_config"
-  fi
-}
-
-setup_ssh_key() {
-  test_github_ssh() {
-    local ssh_test_output
-    ssh_test_output=$(ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -T git@github.com 2>&1 || true)
-    if grep -qi "successfully authenticated" <<< "$ssh_test_output"; then
-      echo "SSH agent OK: authenticated with GitHub."
-      return 0
-    fi
-
-    echo "SSH auth test failed. Output:"
-    echo "$ssh_test_output"
-    return 1
-  }
-
-  local default_key="$HOME/.ssh/id_ed25519"
-  local key_path
-
-  ensure_ssh_agent
-
-  echo "Checking existing SSH agent access to GitHub..."
-  if test_github_ssh; then
-    return
-  fi
-
-  while true; do
-    echo "Enter path to SSH private key to use for GitHub cloning [$default_key]:"
-    read -r key_path
-    if [ -z "$key_path" ]; then
-      key_path="$default_key"
-    fi
-
-    mkdir -p "$(dirname "$key_path")"
-
-    if [ ! -f "$key_path" ]; then
-      echo "No key found at $key_path. Create a new SSH key here? (yes/no)"
-      read -r create_key
-      if [[ "$create_key" =~ ^[Yy] ]]; then
-        local comment="$email"
-        if [ -z "$comment" ]; then
-          comment="dev@workinprogress.ai"
-        fi
-        ssh-keygen -t ed25519 -C "$comment" -f "$key_path" -N ""
-        echo "SSH key created: $key_path"
-      else
-        echo "Key not created. You can place a key at $key_path or choose another path."
-        read -r -p "Try a different key path? [y/N] " try_again
-        [[ "$try_again" =~ ^[Yy]$ ]] || exit 1
-        continue
-      fi
-    fi
-
-    ensure_ssh_agent
-    if ssh-add "$key_path" >/dev/null 2>&1; then
-      echo "SSH key loaded into agent."
-    else
-      echo "WARNING: Failed to add SSH key to agent. You may need to run 'ssh-add $key_path' manually." >&2
-    fi
-
-    echo "Testing SSH connectivity to git@github.com via your SSH agent..."
-    if test_github_ssh; then
-      # Set up SSH config for GitHub
-      setup_ssh_config "$key_path"
-      
-      if [ -f "${key_path}.pub" ]; then
-        echo "Public key (add to GitHub → Settings → SSH and GPG keys → New SSH key):"
-        cat "${key_path}.pub"
-        echo "-- End public key --"
-      fi
-      return
-    fi
-
-    read -r -p "SSH auth failed. Retry with a different key? [y/N] " retry
-    [[ "$retry" =~ ^[Yy]$ ]] || exit 1
-  done
-}
-
 script_path=$(get_script_path)
 echo "Script path: $script_path"
 toolbox_root=$(dirname "$script_path")
@@ -339,15 +177,42 @@ if [ ! -f "$SETUP_DIR/timezone.txt" ]; then
 fi
 
 if [ ! -f "$SETUP_DIR/email.txt" ]; then
+    # Load email_domain from devenv.config if available
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    CONFIG_FILE="$SCRIPT_DIR/devenv.config"
+    EMAIL_DOMAIN=""
+    
+    if [ -f "$CONFIG_FILE" ]; then
+        EMAIL_DOMAIN=$(grep -E '^\s*email_domain\s*=' "$CONFIG_FILE" | cut -d'=' -f2 | xargs)
+    fi
+    
     while true; do
-        save_response "What is your email? (must be in the domain @workinprogress.ai)" "email.txt"
-        email=$(cat "$SETUP_DIR/email.txt")
-        if [[ "$email" == *@workinprogress.ai ]]; then
-            echo "Email accepted"
-            break
+        if [ -z "$EMAIL_DOMAIN" ]; then
+            save_response "What is your email?" "email.txt"
         else
-            echo "Invalid email domain. Please enter an email with the domain @workinprogress.ai"
-            rm "$SETUP_DIR/email.txt"
+            save_response "What is your email? (must be in the domain @$EMAIL_DOMAIN)" "email.txt"
+        fi
+        
+        email=$(cat "$SETUP_DIR/email.txt")
+        
+        # If no email_domain configured, accept any valid email format
+        if [ -z "$EMAIL_DOMAIN" ]; then
+            if [[ "$email" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+                echo "Email accepted"
+                break
+            else
+                echo "Invalid email format. Please enter a valid email address."
+                rm "$SETUP_DIR/email.txt"
+            fi
+        else
+            # If email_domain is configured, validate against it
+            if [[ "$email" == *@$EMAIL_DOMAIN ]]; then
+                echo "Email accepted"
+                break
+            else
+                echo "Invalid email domain. Please enter an email with the domain @$EMAIL_DOMAIN"
+                rm "$SETUP_DIR/email.txt"
+            fi
         fi
     done
 fi

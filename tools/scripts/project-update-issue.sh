@@ -29,6 +29,10 @@ if [ -f "$DEVENV_ROOT/tools/lib/git-config.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/git-config.bash"
 fi
 
+if [ -f "$DEVENV_ROOT/tools/lib/config-reader.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/config-reader.bash"
+fi
+
 # ============================================================================
 # Global Variables
 # ============================================================================
@@ -36,10 +40,38 @@ fi
 PROJECT_NAME=""
 ISSUE_NUMBER=""
 FIELD_UPDATES=()
-STATUS_WORKFLOW=("TBD" "To Groom" "Ready" "Implementing" "Review" "Merged" "Staging" "Production")
+STATUS_WORKFLOW=()
 DRY_RUN=0
 VERBOSE=0
 ALLOW_DEVENV_REPO=0
+
+# Load workflow status from config
+load_status_workflow() {
+    local config_file="$DEVENV_ROOT/devenv.config"
+    
+    # Config file is mandatory
+    if [ ! -f "$config_file" ]; then
+        log_error "devenv.config not found at $config_file"
+        exit 1
+    fi
+    
+    # Initialize config
+    if ! config_init "$config_file"; then
+        log_error "Failed to initialize config reader"
+        exit 1
+    fi
+    
+    # Load workflow status - mandatory field
+    local workflow_str
+    workflow_str=$(config_read_array "workflows" "status_workflow")
+    if [ -z "$workflow_str" ]; then
+        log_error "status_workflow not configured in devenv.config [workflows] section"
+        exit 1
+    fi
+    
+    # Convert space-separated to array
+    read -ra STATUS_WORKFLOW <<< "$workflow_str"
+}
 
 # ============================================================================
 # Helper Functions
@@ -205,6 +237,9 @@ list_project_fields() {
 main() {
     local list_fields=0
     local status_value=""
+    
+    # Load status workflow from config
+    load_status_workflow
     
     # Parse command-line arguments
     if [ $# -eq 0 ]; then

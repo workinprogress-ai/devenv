@@ -3,13 +3,19 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TESTS_DIR="$DEVENV_TOOLS/tests"
 
 echo "Running Devenv test suite..."
 echo "======================================"
 
-# Run all test files
-if bats "$SCRIPT_DIR"/*.bats; then
+# Verify tests directory exists
+if [ ! -d "$TESTS_DIR" ]; then
+    echo "Error: Test directory not found at $TESTS_DIR"
+    exit 1
+fi
+
+# Run all test files in tests directory
+if bats "$TESTS_DIR"/*.bats; then
     echo "======================================"
     echo "✅ All tests passed!"
     exit 0
