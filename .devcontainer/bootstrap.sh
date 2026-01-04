@@ -136,6 +136,7 @@ install_dotnet() {
     sudo ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
     rm dotnet-install.sh
     dotnet_cmd=/usr/bin/dotnet
+    sudo $dotnet_cmd workload update
 }
 
 download_container_scripts() {
