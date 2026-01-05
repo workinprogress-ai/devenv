@@ -1,1 +1,21 @@
+#!/bin/bash
+
+################################################################################
+# git-graph-all
+#
+# Display a graphical representation of all git branches
+#
+# Usage:
+#   git-graph-all [git-log-options...]
+#
+# Description:
+#   Shows a one-line, decorated, graphical view of the entire commit history
+#   including all branches and remotes.
+#   All arguments are passed through to git log.
+#
+# Dependencies:
+#   - git
+#
+################################################################################
+
 git log --all --decorate --oneline --graph $@

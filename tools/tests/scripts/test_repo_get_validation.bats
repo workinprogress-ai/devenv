@@ -28,8 +28,8 @@ assert_output_contains() {
     assert_success
 }
 
-@test "repo-get: sources git-config library" {
-    run bash -c "grep -q 'source.*lib/git-config.bash' $PROJECT_ROOT/tools/scripts/repo-get.sh"
+@test "repo-get: sources git-operations library" {
+    run bash -c "grep -q 'source.*lib/git-operations.bash' $PROJECT_ROOT/tools/scripts/repo-get.sh"
     assert_success
 }
 

@@ -469,33 +469,9 @@ project-update "Q1 2026" 123 --field "Priority=High"
 
 **Note:** Project field updates currently provide instructions for manual updates or require GraphQL API implementation.
 
-## Docker and Container Management
+## Container Management
 
-Tools for building, running, and managing Docker containers and services.
-
-### `docker-build.sh`
-
-Builds a project using Docker with proper environment configuration.
-
-```bash
-docker-build.sh [service-name]
-```
-
-### `docker-up.sh`
-
-Brings up a local Docker configuration using docker-compose.
-
-```bash
-docker-up.sh
-```
-
-### `docker-down.sh`
-
-Brings down a local Docker configuration and cleans up containers.
-
-```bash
-docker-down.sh
-```
+Tools for managing Docker containers and services.
 
 ### `dependencies-up`
 
@@ -790,12 +766,12 @@ devenv-add-custom-startup "command1" "command2" ...
 devenv-add-custom-startup "echo 'Container started'" "export MY_VAR=value"
 ```
 
-### `update-github-token`
+### `update-github-key`
 
 Updates the GitHub personal access token stored in `.setup/github_token.txt`.
 
 ```bash
-update-github-token [new-token]
+update-github-key [new-token]
 ```
 
 **Interactive mode:** If no token is provided, prompts for input.
@@ -824,14 +800,29 @@ update-tailscale-key
 
 **Note:** This script preserves your container's hostname and route settings during re-authentication.
 
-### Digital Ocean API Token
+### `update-do-key`
 
-Your Digital Ocean API token is stored in `.setup/digitalocean_token.txt` after initial setup. To update it:
+Updates the Digital Ocean API token and reloads the environment.
 
 ```bash
-# Re-run the setup script and select the Digital Ocean token option
-./setup
+update-do-key [new-token]
 ```
+
+**Interactive mode:** If no token is provided, prompts for input (hidden).
+
+**Features:**
+- Accepts token as command-line argument or interactive prompt
+- Validates token format and length
+- Stores token persistently in `.setup/do_token.txt` with secure permissions
+- Updates `DO_TOKEN` environment variable
+- Reloads environment variables in the current shell
+
+**When to use:**
+- Your Digital Ocean API token has been rotated
+- You need to switch to a different Digital Ocean account or organization
+- Updating token after regeneration for security reasons
+
+**Note:** No container restart required after updating the token.
 
 Or manually update the token file:
 
@@ -909,7 +900,9 @@ The following convenience aliases are available in the dev container:
 **Utilities:**
 - `get-public-ip` - Get current public IP
 - `load-ssh-agent` - Load SSH agent from host
-- `update-github-token` - Update GitHub token in setup
+- `update-github-key` - Update GitHub token in setup
+- `update-tailscale-key` - Update Tailscale auth key
+- `update-do-key` - Update Digital Ocean API token
 
 ## Usage Notes
 

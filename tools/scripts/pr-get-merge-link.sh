@@ -1,4 +1,24 @@
 #!/bin/bash
+
+################################################################################
+# pr-get-merge-link.sh
+#
+# Get the merge link for the current branch's pull request
+#
+# Usage:
+#   ./pr-get-merge-link.sh [repository-directory]
+#
+# Arguments:
+#   repository-directory - Path to repository (default: current directory)
+#
+# Dependencies:
+#   - git
+#   - gh (GitHub CLI)
+#   - github-helpers.bash
+#   - issue-operations.bash
+#
+################################################################################
+
 set -euo pipefail
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"

@@ -2,9 +2,16 @@
 
 # Test suite for git-operations.bash library
 
+# Load test helpers
+load ../test_helper
+
 # Setup: Source the library and dependencies
 setup() {
     export DEVENV_ROOT="/workspaces/devenv"
+    export TEST_TEMP_DIR="$(mktemp -d)"
+    export TEST_CONFIG_FILE="$TEST_TEMP_DIR/test.config"
+    export PROJECT_ROOT="$DEVENV_ROOT"
+    
     source "$DEVENV_ROOT/tools/lib/error-handling.bash"
     source "$DEVENV_ROOT/tools/lib/validation.bash"
     source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
@@ -16,15 +23,22 @@ setup() {
     git init -q
     git config user.email "test@example.com"
     git config user.name "Test User"
+    
+    # Save original global git config for restoration after tests
+    SAVED_GIT_CONFIG="$TEST_TEMP_DIR/git_config_backup"
+    git config --global --list > "$SAVED_GIT_CONFIG" 2>/dev/null || true
 }
 
 teardown() {
     rm -rf "$TEST_REPO"
+    if [ -d "$TEST_TEMP_DIR" ]; then
+        rm -rf "$TEST_TEMP_DIR"
+    fi
 }
 
-# ============================================================================
+################################################################################
 # Git Context & State Tests
-# ============================================================================
+################################################################################
 
 @test "get_current_branch returns current branch name" {
     git config user.email "test@example.com"
@@ -255,4 +269,137 @@ body" "789")
     # Test with empty arguments
     result=$(get_current_branch 2>/dev/null || echo "handled")
     [ -n "$result" ]
+}
+
+# ============================================================================
+# Git Configuration Tests 
+# ============================================================================
+
+@test "configure_git_repo sets local repository settings" {
+    local test_repo="$TEST_TEMP_DIR/test-repo"
+    create_mock_git_repo "$test_repo"
+
+    run bash -c "source $PROJECT_ROOT/tools/lib/git-operations.bash && configure_git_repo '$test_repo'"
+    [ "$status" -eq 0 ]
+
+    cd "$test_repo"
+    [ "$(git config core.autocrlf)" = "false" ]
+    [ "$(git config core.eol)" = "lf" ]
+    [ "$(git config pull.ff)" = "only" ]
+}
+
+@test "configure_git_repo adds directory to safe.directory" {
+    local test_repo="$TEST_TEMP_DIR/test-repo"
+    create_mock_git_repo "$test_repo"
+
+    run bash -c "source $PROJECT_ROOT/tools/lib/git-operations.bash && configure_git_repo '$test_repo'"
+    [ "$status" -eq 0 ]
+    git config --global --get-all safe.directory | grep -q "$test_repo"
+}
+
+@test "configure_git_repo updates remote URL when provided" {
+    local test_repo="$TEST_TEMP_DIR/test-repo"
+    create_mock_git_repo "$test_repo"
+    local test_url="https://example.com/test.git"
+
+    run bash -c "source $PROJECT_ROOT/tools/lib/git-operations.bash && configure_git_repo '$test_repo' '$test_url'"
+    [ "$status" -eq 0 ]
+    cd "$test_repo"
+    [ "$(git remote get-url origin)" = "$test_url" ]
+}
+
+@test "configure_git_repo works with current directory" {
+    local test_repo="$TEST_TEMP_DIR/test-repo"
+    create_mock_git_repo "$test_repo"
+    cd "$test_repo"
+
+    run bash -c "source $PROJECT_ROOT/tools/lib/git-operations.bash && configure_git_repo"
+    [ "$status" -eq 0 ]
+    [ "$(git config core.autocrlf)" = "false" ]
+}
+
+@test "configure_git_global sets global git configuration" {
+    # Use a temporary git config for this test to avoid modifying actual global config
+    local temp_git_config="$TEST_TEMP_DIR/.gitconfig"
+    export GIT_CONFIG_GLOBAL="$temp_git_config"
+    
+    run bash -c "source $PROJECT_ROOT/tools/lib/git-operations.bash && configure_git_global 'Test User' 'test@example.com'"
+    [ "$status" -eq 0 ]
+
+    # Read from the temporary config file
+    [ "$(git config --file "$temp_git_config" core.autocrlf)" = "false" ]
+    [ "$(git config --file "$temp_git_config" core.eol)" = "lf" ]
+    [ "$(git config --file "$temp_git_config" pull.ff)" = "only" ]
+    [ "$(git config --file "$temp_git_config" push.autoSetupRemote)" = "true" ]
+    [ "$(git config --file "$temp_git_config" core.editor)" = "code --wait" ]
+    [ "$(git config --file "$temp_git_config" user.name)" = "Test User" ]
+    [ "$(git config --file "$temp_git_config" user.email)" = "test@example.com" ]
+    [ "$(git config --file "$temp_git_config" merge.tool)" = "vscode" ]
+    [ "$(git config --file "$temp_git_config" diff.tool)" = "vscode" ]
+    
+    unset GIT_CONFIG_GLOBAL
+}
+
+@test "configure_git_global works without user identity" {
+    # Use a temporary git config for this test
+    local temp_git_config="$TEST_TEMP_DIR/.gitconfig_nouser"
+    export GIT_CONFIG_GLOBAL="$temp_git_config"
+    
+    run bash -c "source $PROJECT_ROOT/tools/lib/git-operations.bash && configure_git_global"
+    [ "$status" -eq 0 ]
+    
+    # Verify user.name is not set
+    run git config --file "$temp_git_config" user.name
+    [ "$status" -eq 1 ]
+    
+    unset GIT_CONFIG_GLOBAL
+}
+
+@test "add_git_safe_directory adds path to safe list" {
+    local test_dir="$TEST_TEMP_DIR/safe-test"
+    mkdir -p "$test_dir"
+    
+    # Use a temporary git config for this test
+    local temp_git_config="$TEST_TEMP_DIR/.gitconfig_safetest"
+    export GIT_CONFIG_GLOBAL="$temp_git_config"
+
+    run bash -c "source $PROJECT_ROOT/tools/lib/git-operations.bash && add_git_safe_directory '$test_dir'"
+    [ "$status" -eq 0 ]
+    git config --file "$temp_git_config" --get-all safe.directory | grep -q "$test_dir"
+    
+    unset GIT_CONFIG_GLOBAL
+}
+
+@test "add_git_safe_directory does not duplicate entries" {
+    local test_dir="$TEST_TEMP_DIR/safe-test-dup"
+    mkdir -p "$test_dir"
+
+    # Use a temporary git config for this test
+    local temp_git_config="$TEST_TEMP_DIR/.gitconfig_safedup"
+    export GIT_CONFIG_GLOBAL="$temp_git_config"
+
+    run bash -c "source $PROJECT_ROOT/tools/lib/git-operations.bash && add_git_safe_directory '$test_dir'"
+    run bash -c "source $PROJECT_ROOT/tools/lib/git-operations.bash && add_git_safe_directory '$test_dir'"
+
+    local count
+    count=$(git config --file "$temp_git_config" --get-all safe.directory | grep -c "$test_dir" || true)
+    [ "$count" -eq 1 ]
+    
+    unset GIT_CONFIG_GLOBAL
+}
+
+@test "add_git_safe_directory uses current directory by default" {
+    local test_dir="$TEST_TEMP_DIR/current"
+    mkdir -p "$test_dir"
+    cd "$test_dir"
+
+    # Use a temporary git config for this test
+    local temp_git_config="$TEST_TEMP_DIR/.gitconfig_safecwd"
+    export GIT_CONFIG_GLOBAL="$temp_git_config"
+
+    run bash -c "source $PROJECT_ROOT/tools/lib/git-operations.bash && add_git_safe_directory"
+    [ "$status" -eq 0 ]
+    git config --file "$temp_git_config" --get-all safe.directory | grep -q "$test_dir"
+    
+    unset GIT_CONFIG_GLOBAL
 }

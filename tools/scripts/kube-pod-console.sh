@@ -1,5 +1,23 @@
 #!/bin/bash
 
+################################################################################
+# kube-pod-console.sh
+#
+# Open an interactive console/shell to a Kubernetes pod
+#
+# Usage:
+#   ./kube-pod-console.sh <pod-name-part> [kubectl-options...]
+#
+# Environment Variables:
+#   NAMESPACE - Kubernetes namespace (optional)
+#
+# Dependencies:
+#   - kubectl
+#   - error-handling.bash
+#   - kube-selection.bash
+#
+################################################################################
+
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/kube-selection.bash"
 

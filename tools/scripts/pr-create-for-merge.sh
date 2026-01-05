@@ -1,4 +1,29 @@
 #!/bin/bash
+
+################################################################################
+# pr-create-for-merge.sh
+#
+# Create a pull request from the current branch to the repository's default branch
+#
+# Usage:
+#   ./pr-create-for-merge.sh
+#
+# Description:
+#   Creates a pull request from the current branch into the repository's
+#   default branch (main/master). Uses GitHub CLI and prefers SSH remotes.
+#   Supports issue references in PR body.
+#
+# Dependencies:
+#   - git
+#   - gh (GitHub CLI)
+#   - error-handling.bash
+#   - github-helpers.bash
+#   - fzf-selection.bash
+#   - git-operations.bash
+#   - issue-operations.bash
+#
+################################################################################
+
 set -euo pipefail
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/github-helpers.bash"

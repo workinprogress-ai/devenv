@@ -1,5 +1,18 @@
 #!/bin/bash
 
+################################################################################
+# container-enable-dotnet-debugger.sh
+#
+# Enable debugging support in Docker containers for .NET applications
+#
+# Usage:
+#   ./container-enable-dotnet-debugger.sh <container-id>
+#
+# Dependencies:
+#   - docker (Docker daemon)
+#
+################################################################################
+
 if [[ -z "$1" ]]; then
     echo "Provide the container name to enable debugging"
     exit 1

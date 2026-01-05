@@ -1,1 +1,20 @@
+#!/bin/bash
+
+################################################################################
+# git-graph
+#
+# Display a graphical representation of the git commit history
+#
+# Usage:
+#   git-graph [git-log-options...]
+#
+# Description:
+#   Shows a one-line, decorated, graphical view of the commit history.
+#   All arguments are passed through to git log.
+#
+# Dependencies:
+#   - git
+#
+################################################################################
+
 git log --decorate --oneline --graph $@

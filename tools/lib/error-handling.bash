@@ -210,19 +210,6 @@ require_permission() {
     esac
 }
 
-# Validate that a value is a positive integer
-# Args:
-#   $1 - Value to check
-#   $2 - Variable name (for error message)
-validate_positive_integer() {
-    local value="$1"
-    local var_name="$2"
-    
-    if ! [[ "$value" =~ ^[0-9]+$ ]] || [ "$value" -le 0 ]; then
-        die "$var_name must be a positive integer, got: $value" "$EXIT_INVALID_ARGUMENT"
-    fi
-}
-
 # Run a command with error handling
 # Args:
 #   $@ - Command and arguments

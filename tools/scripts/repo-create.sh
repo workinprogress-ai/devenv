@@ -1,4 +1,29 @@
 #!/bin/bash
+
+################################################################################
+# repo-create.sh
+#
+# Create a new GitHub repository
+#
+# Usage:
+#   ./repo-create.sh <repo-name> [--public|--private] [--description "text"]
+#
+# Arguments:
+#   repo-name - Name of the repository to create
+#   --public|--private - Repository visibility (optional)
+#   --description - Repository description (optional)
+#
+# Environment Variables:
+#   GH_ORG - GitHub organization for repository creation
+#
+# Dependencies:
+#   - git
+#   - gh (GitHub CLI)
+#   - repo-operations.bash
+#   - github-helpers.bash
+#
+################################################################################
+
 set -euo pipefail
 source "$DEVENV_TOOLS/lib/repo-operations.bash"
 source "$DEVENV_TOOLS/lib/github-helpers.bash"

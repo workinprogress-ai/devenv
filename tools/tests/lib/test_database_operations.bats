@@ -93,33 +93,6 @@ setup() {
   [[ "$result" == "sa" ]]
 }
 
-# Test SMB operations
-@test "get_smb_host returns configured value" {
-  source "${DEVENV_ROOT}/tools/lib/database-operations.bash"
-  
-  export SMB_HOST="smb.example.com"
-  result=$(get_smb_host)
-  [[ "$result" == "smb.example.com" ]]
-  unset SMB_HOST
-}
-
-@test "get_smb_share returns configured value" {
-  source "${DEVENV_ROOT}/tools/lib/database-operations.bash"
-  
-  export SMB_SHARE="shared"
-  result=$(get_smb_share)
-  [[ "$result" == "shared" ]]
-  unset SMB_SHARE
-}
-
-@test "get_smb_mount_point returns configured or default" {
-  source "${DEVENV_ROOT}/tools/lib/database-operations.bash"
-  
-  unset SMB_MOUNT_POINT
-  result=$(get_smb_mount_point)
-  [[ "$result" == "/mnt/smb" ]]
-}
-
 # Test backup/restore functions
 @test "backup_mongo_database function exists" {
   source "${DEVENV_ROOT}/tools/lib/database-operations.bash"
@@ -129,20 +102,6 @@ setup() {
 @test "restore_mongo_database function exists" {
   source "${DEVENV_ROOT}/tools/lib/database-operations.bash"
   declare -f restore_mongo_database >/dev/null
-}
-
-# Test SMB functions
-@test "mount_smb_share function exists" {
-  source "${DEVENV_ROOT}/tools/lib/database-operations.bash"
-  declare -f mount_smb_share >/dev/null
-}
-
-@test "unmount_smb_share with non-existent mount point" {
-  source "${DEVENV_ROOT}/tools/lib/database-operations.bash"
-  
-  # Should return 0 since it's idempotent
-  unmount_smb_share "/nonexistent/mount" >/dev/null 2>&1
-  [[ $? -eq 0 ]]
 }
 
 # Test library exports

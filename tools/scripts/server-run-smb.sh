@@ -1,5 +1,5 @@
 #!/bin/bash
-source "$DEVENV_TOOLS/lib/database-operations.bash"
+source "$DEVENV_TOOLS/lib/server-operations.bash"
 
 # shellcheck disable=SC2034 # debug is defined from DEVENV_ROOT  
 debug="${DEVENV_ROOT:-.}/.debug"

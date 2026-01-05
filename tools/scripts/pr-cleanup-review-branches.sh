@@ -1,4 +1,23 @@
 #!/bin/bash
+
+################################################################################
+# pr-cleanup-review-branches.sh
+#
+# Clean up old review branches from the repository
+#
+# Usage:
+#   ./pr-cleanup-review-branches.sh [repo-directory] [days-old]
+#
+# Arguments:
+#   repo-directory - Path to repository (default: current directory)
+#   days-old - Remove branches older than this many days (default: 30)
+#
+# Dependencies:
+#   - git
+#   - git-operations.bash
+#
+################################################################################
+
 set -euo pipefail
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 

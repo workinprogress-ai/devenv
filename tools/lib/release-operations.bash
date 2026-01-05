@@ -8,7 +8,7 @@
 #
 # Dependencies:
 #   - error-handling.bash (logging and error utilities)
-#   - git-config.bash (git repository utilities)
+#   - git-operations.bash (git repository utilities)
 #   - validation.bash (general validation functions)
 #
 # Functions exported:
@@ -39,7 +39,7 @@ _RELEASE_OPERATIONS_LOADED="true"
 # shellcheck source=/dev/null
 source "${DEVENV_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/tools/lib/error-handling.bash"
 # shellcheck source=/dev/null
-source "${DEVENV_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/tools/lib/git-config.bash"
+source "${DEVENV_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/tools/lib/git-operations.bash"
 # shellcheck source=/dev/null
 source "${DEVENV_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/tools/lib/validation.bash"
 

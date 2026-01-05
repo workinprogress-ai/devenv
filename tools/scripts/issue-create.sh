@@ -11,7 +11,7 @@ set -euo pipefail
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
-source "$DEVENV_TOOLS/lib/git-config.bash"
+source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/fzf-selection.bash"
 
 readonly SCRIPT_VERSION="1.0.0"

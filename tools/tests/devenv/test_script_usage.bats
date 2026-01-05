@@ -5,21 +5,6 @@ bats_require_minimum_version 1.5.0
 
 load ../test_helper
 
-@test "docker-build.sh has valid syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/docker-build.sh"
-  [ "$status" -eq 0 ]
-}
-
-@test "docker-up.sh has valid syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/docker-up.sh"
-  [ "$status" -eq 0 ]
-}
-
-@test "docker-down.sh has valid syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/docker-down.sh"
-  [ "$status" -eq 0 ]
-}
-
 @test "repo-get.sh has --help or usage function" {
   run grep -E "(show_usage|usage\(\)|--help)" "$PROJECT_ROOT/tools/scripts/repo-get.sh"
   [ "$status" -eq 0 ]

@@ -77,17 +77,17 @@ EOF
     [ "$status" -eq 0 ]
 }
 
-@test "issue-helper.bash: library exists" {
-    [ -f "$PROJECT_ROOT/tools/lib/issue-helper.bash" ]
+@test "issue-operations.bash: library exists" {
+    [ -f "$PROJECT_ROOT/tools/lib/issue-operations.bash" ]
 }
 
-@test "issue-helper.bash: has load_issue_types_from_config function" {
-    run bash -c "source $PROJECT_ROOT/tools/lib/issue-helper.bash && declare -f load_issue_types_from_config"
+@test "issue-operations.bash: has load_issue_types_from_config function" {
+    run bash -c "source $PROJECT_ROOT/tools/lib/issue-operations.bash && declare -f load_issue_types_from_config"
     [ "$status" -eq 0 ]
 }
 
-@test "issue-helper.bash: has build_type_menu function" {
-    run bash -c "source $PROJECT_ROOT/tools/lib/issue-helper.bash && declare -f build_type_menu"
+@test "issue-operations.bash: has build_type_menu function" {
+    run bash -c "source $PROJECT_ROOT/tools/lib/issue-operations.bash && declare -f build_type_menu"
     [ "$status" -eq 0 ]
 }
 
@@ -126,8 +126,8 @@ EOF
     [ "$status" -eq 0 ]
 }
 
-@test "issue-groom.sh: sources issue-helper library" {
-    run grep 'source.*issue-helper.bash' "$PROJECT_ROOT/tools/scripts/issue-groom.sh"
+@test "issue-groom.sh: sources issue-operations library" {
+    run grep 'source.*issue-operations.bash' "$PROJECT_ROOT/tools/scripts/issue-groom.sh"
     [ "$status" -eq 0 ]
 }
 

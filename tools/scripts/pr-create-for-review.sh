@@ -1,4 +1,26 @@
 #!/bin/bash
+
+################################################################################
+# pr-create-for-review.sh
+#
+# Create a draft pull request for code review between two commits
+#
+# Usage:
+#   ./pr-create-for-review.sh
+#
+# Description:
+#   Creates a draft "REVIEW:" pull request using temporary source/target branches
+#   built from two commits. Useful for code review workflows.
+#
+# Dependencies:
+#   - git
+#   - gh (GitHub CLI)
+#   - github-helpers.bash
+#   - fzf-selection.bash
+#   - git-operations.bash
+#
+################################################################################
+
 set -euo pipefail
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
 source "$DEVENV_TOOLS/lib/fzf-selection.bash"

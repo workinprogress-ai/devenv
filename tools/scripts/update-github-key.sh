@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# update-github-token.sh
+# update-github-key.sh
 # Updates the GitHub personal access token and reloads environment
-# Usage: update-github-token.sh [TOKEN]
+# Usage: update-github-key.sh [TOKEN]
 
 set -euo pipefail
 

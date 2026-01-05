@@ -1,5 +1,23 @@
 #!/bin/bash
 
+################################################################################
+# kube-pod-restart.sh
+#
+# Restart a Kubernetes pod/deployment
+#
+# Usage:
+#   ./kube-pod-restart.sh <pod-name-part> [namespace]
+#
+# Environment Variables:
+#   NAMESPACE - Kubernetes namespace (optional)
+#
+# Dependencies:
+#   - kubectl
+#   - error-handling.bash
+#   - kube-selection.bash
+#
+################################################################################
+
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/kube-selection.bash"
 

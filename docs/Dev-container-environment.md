@@ -174,9 +174,6 @@ A few utility scripts have been provided to make life happy.
 
 * `get-services-config` This script pulls the service config from it's repository into the local dev environment.  It is placed in `~/debug/config`
 * `metrics-count-code-lines` A utility to count code lines in a file or folder
-* `docker-build` A utility to build a project using Docker.
-* `docker-down` A utility to bring down a local docker configuration
-* `docker-up` A utility to bring up a local docker configuration
 * `container-enable-dotnet-debugger` A utility to inject and run the dotnet debugger into a locally running container.
 * `file.io` A utility to push a file to the file.io file sharing site.
 * `repo-get` A utility to clone or update a repo in the `~/repos` folder. Use `--select` for an interactive selection menu.

@@ -44,8 +44,8 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "repo-bump-version.sh sources git-config library" {
-  run grep "source.*lib/git-config.bash" "$PROJECT_ROOT/tools/scripts/repo-bump-version.sh"
+@test "repo-bump-version.sh sources git-operations library" {
+  run grep "source.*lib/git-operations.bash" "$PROJECT_ROOT/tools/scripts/repo-bump-version.sh"
   [ "$status" -eq 0 ]
 }
 

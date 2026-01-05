@@ -1,5 +1,21 @@
 #!/bin/bash
 
+################################################################################
+# kube-pod-exec.sh
+#
+# Execute a command in a Kubernetes pod
+#
+# Usage:
+#   ./kube-pod-exec.sh <pod-name-part> <command>
+#
+# Environment Variables:
+#   NAMESPACE - Kubernetes namespace (optional)
+#
+# Dependencies:
+#   - kubectl
+#
+################################################################################
+
 POD_NAME_PART="$1"
 NAMESPACE_OPTION=""
 

@@ -23,8 +23,8 @@ load ../test_helper
   fi
 }
 
-@test "lib/git-config.bash functions have documentation" {
-  run bash -c "grep -B 3 '^configure_git_repo()' $PROJECT_ROOT/tools/lib/git-config.bash | grep -q '# Args:'"
+@test "lib/git-operations.bash functions have documentation" {
+  run bash -c "grep -B 3 '^configure_git_repo()' $PROJECT_ROOT/tools/lib/git-operations.bash | grep -q '# Args:'"
   [ "$status" -eq 0 ]
 }
 

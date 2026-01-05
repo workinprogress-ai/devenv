@@ -1,5 +1,25 @@
 #!/bin/bash
 
+################################################################################
+# repo-create-new-service.sh
+#
+# Create a new microservice from template
+#
+# Usage:
+#   ./repo-create-new-service.sh <microservice-name>
+#
+# Arguments:
+#   microservice-name - Name of the new microservice (lowercase)
+#
+# Description:
+#   Creates a new microservice repository from the service-template,
+#   enforcing lowercase naming conventions.
+#
+# Dependencies:
+#   - git
+#
+################################################################################
+
 repos_dir=$DEVENV_ROOT/repos
 template_name="service-template"
 

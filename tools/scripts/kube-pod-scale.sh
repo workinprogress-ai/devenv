@@ -1,5 +1,23 @@
 #!/bin/bash
 
+################################################################################
+# kube-pod-scale.sh
+#
+# Scale a Kubernetes deployment to a specified replica count
+#
+# Usage:
+#   ./kube-pod-scale.sh <deployment-name-part> <replica-count> [namespace]
+#
+# Environment Variables:
+#   NAMESPACE - Kubernetes namespace (optional)
+#
+# Dependencies:
+#   - kubectl
+#   - error-handling.bash
+#   - kube-selection.bash
+#
+################################################################################
+
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/kube-selection.bash"
 

@@ -1,5 +1,22 @@
 #!/bin/bash
 
+################################################################################
+# kube-logs.sh
+#
+# Retrieve logs from a Kubernetes pod
+#
+# Usage:
+#   ./kube-logs.sh <pod-name-part> [kubectl-options...]
+#
+# Environment Variables:
+#   NAMESPACE - Kubernetes namespace (optional)
+#
+# Dependencies:
+#   - kubectl
+#   - kube-pod-select.sh
+#
+################################################################################
+
 POD_NAME_PART="$1"
 NAMESPACE_OPTION=""
 

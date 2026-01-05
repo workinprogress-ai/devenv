@@ -308,6 +308,14 @@ update-github-key() {
         source "$DEVENV_ROOT/.runtime/env-vars.sh"
     fi
 }
+
+update-do-key() {
+    "$DEVENV_ROOT/tools/scripts/update-do-key.sh" "$@"
+    if [ -f "$DEVENV_ROOT/.runtime/env-vars.sh" ]; then
+        source "$DEVENV_ROOT/.runtime/env-vars.sh"
+    fi
+}
+
 EOF
     chmod +x "$toolbox_root/.runtime/bash-functions.sh"
 }
@@ -391,6 +399,7 @@ create_tool_symlinks() {
         "repo-get.sh"
         "update-tailscale-key.sh"
         "update-github-key.sh"
+        "update-do-key.sh"
         "lint-scripts.sh"
         "script-template.sh"
         "create-script.sh"

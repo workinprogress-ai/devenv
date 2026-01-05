@@ -1,4 +1,24 @@
 #!/bin/bash
+
+################################################################################
+# repo-get-web-url.sh
+#
+# Get the web URL for a repository
+#
+# Usage:
+#   ./repo-get-web-url.sh [repository-directory]
+#
+# Arguments:
+#   repository-directory - Path to repository (default: current directory)
+#
+# Output:
+#   Outputs the web URL of the repository (normalizes SSH to HTTPS)
+#
+# Dependencies:
+#   - git
+#
+################################################################################
+
 set -euo pipefail
 
 REPO_DIR="${1:-$(pwd)}"

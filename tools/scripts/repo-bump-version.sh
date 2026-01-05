@@ -1,8 +1,31 @@
 #!/bin/bash
 
+################################################################################
+# repo-bump-version.sh
+#
+# Bump version in one or more repositories
+#
+# Usage:
+#   ./repo-bump-version.sh <change-type> [repository-names...]
+#
+# Arguments:
+#   change-type - Type of version change (major, minor, patch, prerelease)
+#   repository-names - Names of repositories to bump (optional)
+#
+# Description:
+#   Forces an empty commit in multiple repositories to trigger version updates.
+#
+# Dependencies:
+#   - git
+#   - error-handling.bash
+#   - release-operations.bash
+#   - git-operations.bash
+#
+################################################################################
+
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/release-operations.bash"
-source "$DEVENV_TOOLS/lib/git-config.bash"
+source "$DEVENV_TOOLS/lib/git-operations.bash"
 
 script_folder="${DEVENV_TOOLS:-.}/scripts"
 repos_dir="$DEVENV_ROOT/repos"
