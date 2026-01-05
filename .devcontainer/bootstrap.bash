@@ -113,6 +113,26 @@ ensure_home_is_set() {
     fi
 }
 
+# Ensure bash is the default shell (unless changed later by install-extras/zsh.sh)
+ensure_bash_is_default_shell() {
+    local target_user="${SUDO_USER:-${USER:-vscode}}"
+    local bash_path="/bin/bash"
+    
+    if getent passwd "$target_user" >/dev/null 2>&1; then
+        local current_shell
+        current_shell="$(getent passwd "$target_user" | cut -d: -f7)"
+        
+        if [[ "$current_shell" != "$bash_path" ]]; then
+            echo "Setting default shell for $target_user to bash"
+            sudo chsh -s "$bash_path" "$target_user"
+        else
+            echo "Default shell for $target_user already set to bash"
+        fi
+    else
+        echo "WARNING: Could not look up user $target_user; skipping default shell configuration"
+    fi
+}
+
 # Load version information from git tags
 load_version_info() {
     VERSION=$(git tag -l 'v*' | sort -V | tail -n 1)
@@ -697,6 +717,7 @@ run_tasks() {
         initialize_paths
         detect_architecture
         ensure_home_is_set
+        ensure_bash_is_default_shell
         load_version_info
         load_config
         prepare_install_directories
