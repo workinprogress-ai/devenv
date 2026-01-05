@@ -14,13 +14,38 @@ if [ ! -d "$TESTS_DIR" ]; then
     exit 1
 fi
 
-# Run all test files in tests directory
-if bats "$TESTS_DIR"/*.bats; then
-    echo "======================================"
-    echo "✅ All tests passed!"
-    exit 0
-else
-    echo "======================================"
-    echo "❌ Some tests failed!"
-    exit 1
+# Run library tests
+echo "Running library tests..."
+if [ -d "$TESTS_DIR/lib" ] && [ -n "$(ls -A "$TESTS_DIR/lib"/*.bats 2>/dev/null)" ]; then
+    if ! bats "$TESTS_DIR/lib"/*.bats; then
+        echo "======================================"
+        echo "❌ Library tests failed!"
+        exit 1
+    fi
 fi
+
+# Run script tests
+echo ""
+echo "Running script tests..."
+if [ -d "$TESTS_DIR/scripts" ] && [ -n "$(ls -A "$TESTS_DIR/scripts"/*.bats 2>/dev/null)" ]; then
+    if ! bats "$TESTS_DIR/scripts"/*.bats; then
+        echo "======================================"
+        echo "❌ Script tests failed!"
+        exit 1
+    fi
+fi
+
+# Run devenv tests
+echo ""
+echo "Running devenv tests..."
+if [ -d "$TESTS_DIR/devenv" ] && [ -n "$(ls -A "$TESTS_DIR/devenv"/*.bats 2>/dev/null)" ]; then
+    if ! bats "$TESTS_DIR/devenv"/*.bats; then
+        echo "======================================"
+        echo "❌ Devenv tests failed!"
+        exit 1
+    fi
+fi
+
+echo "======================================"
+echo "✅ All tests passed!"
+exit 0

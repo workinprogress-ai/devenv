@@ -200,7 +200,7 @@ For more information see the documentation:
 
 **Customizing the devenv:**
 
-The devenv can be forked and customized to use with other organizations. See [CUSTOMIZATION](./docs/CUSTOMIZATION.md)
+The devenv can be forked and customized to use with other organizations. See [the Devenv customization guide](./docs/Devenv-Customization.md)
 
 ## Testing
 

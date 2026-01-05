@@ -9,8 +9,13 @@ test_helper_setup() {
     export TEST_TEMP_DIR="$temp_dir"
     export ORIGINAL_PWD="$PWD"
     
-    # Source the project root (go up two levels from tools/tests to workspace root)
-    export PROJECT_ROOT="${BATS_TEST_DIRNAME}/../.."
+    # Source the project root - handle both test locations (tests/ and tests/lib/ or tests/scripts/ or tests/devenv/)
+    # If we're in a subdirectory (lib, scripts, or devenv), go up one more level
+    if [[ "$BATS_TEST_DIRNAME" =~ /tests/(lib|scripts|devenv)$ ]]; then
+        export PROJECT_ROOT="${BATS_TEST_DIRNAME}/../../.."
+    else
+        export PROJECT_ROOT="${BATS_TEST_DIRNAME}/../.."
+    fi
     export DEVENV_ROOT="$PROJECT_ROOT"
     export devenv="$PROJECT_ROOT"
     export DEVENV_TOOLS="$DEVENV_ROOT/tools"
