@@ -7,7 +7,7 @@
 set -euo pipefail
 
 # shellcheck source=../lib/error-handling.bash
-source "$DEVENV_ROOT/tools/lib/error-handling.bash"
+source "$DEVENV_TOOLS/lib/error-handling.bash"
 
 STARTUP_SCRIPT="$DEVENV_ROOT/.devcontainer/custom_startup.sh"
 

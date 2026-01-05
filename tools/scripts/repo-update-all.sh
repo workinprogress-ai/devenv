@@ -1,17 +1,12 @@
 #!/bin/bash
 set -euo pipefail
+source "$DEVENV_TOOLS/lib/repo-operations.bash"
 
 # Update all repositories under ./repos using the GitHub-focused repo-get.sh
 
 script_folder="${DEVENV_TOOLS:-.}/scripts"
 
 # Source repo-operations library
-if [ -f "$DEVENV_ROOT/tools/lib/repo-operations.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/repo-operations.bash"
-else
-    echo "ERROR: repo-operations.bash library not found" >&2
-    exit 1
-fi
 
 readonly MAX_PARALLEL_JOBS=4
 readonly DEFAULT_PARALLEL_JOBS=2

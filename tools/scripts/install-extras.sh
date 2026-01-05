@@ -8,14 +8,10 @@
 #   install-extra.sh <filter>     # filter list by name, auto-run if only one match
 
 set -o pipefail
+source "$DEVENV_TOOLS/lib/fzf-selection.bash"
+
 
 # Source fzf-selection library
-if [ -f "$DEVENV_ROOT/tools/lib/fzf-selection.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/fzf-selection.bash"
-else
-    echo "❌ fzf-selection.bash library not found" >&2
-    exit 2
-fi
 
 # --- config / args ---
 MULTI=0

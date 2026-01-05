@@ -8,10 +8,10 @@ set -euo pipefail
 
 repos_dir="$DEVENV_ROOT/repos"
 
-source "$DEVENV_ROOT/tools/lib/git-config.bash"
-source "$DEVENV_ROOT/tools/lib/repo-operations.bash"
-source "$DEVENV_ROOT/tools/lib/fzf-selection.bash"
-source "$DEVENV_ROOT/tools/lib/error-handling.bash"
+source "$DEVENV_TOOLS/lib/git-config.bash"
+source "$DEVENV_TOOLS/lib/repo-operations.bash"
+source "$DEVENV_TOOLS/lib/fzf-selection.bash"
+source "$DEVENV_TOOLS/lib/error-handling.bash"
 
 usage() {
   echo "Usage: $(basename "$0") [--select] [<repository-name>]" >&2

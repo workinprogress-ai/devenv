@@ -1,13 +1,7 @@
 #!/bin/bash
 
-# Source libraries
-if [ -f "${DEVENV_ROOT}/tools/lib/error-handling.bash" ]; then
-    source "${DEVENV_ROOT}/tools/lib/error-handling.bash"
-fi
-
-if [ -f "${DEVENV_ROOT}/tools/lib/kube-selection.bash" ]; then
-    source "${DEVENV_ROOT}/tools/lib/kube-selection.bash"
-fi
+source "$DEVENV_TOOLS/lib/error-handling.bash"
+source "$DEVENV_TOOLS/lib/kube-selection.bash"
 
 # Ensure correct usage
 if [ $# -lt 1 ]; then
@@ -52,6 +46,7 @@ sleep 5
 
 # Scale back to the original number
 echo "Scaling $DEPLOYMENT_NAME back to $CURRENT_REPLICAS replicas..."
+
 # shellcheck disable=SC2086  # NS_OPTION should not be quoted (can be empty)
 kubectl scale deployment "$DEPLOYMENT_NAME" --replicas="$CURRENT_REPLICAS" $NS_OPTION
 

@@ -1,16 +1,16 @@
 #!/bin/bash
 set -euo pipefail
+source "$DEVENV_TOOLS/lib/error-handling.bash"
+source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/fzf-selection.bash"
+source "$DEVENV_TOOLS/lib/git-operations.bash"
+source "$DEVENV_TOOLS/lib/issue-operations.bash"
+
 
 # Create a PR from the current branch into the repo default branch (main/master by default).
 # Uses GitHub CLI and prefers SSH remotes.
 
-if [ -f "$DEVENV_ROOT/tools/lib/github-helpers.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
-fi
 
-if [ -f "$DEVENV_ROOT/tools/lib/issue-operations.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-fi
 
 usage() {
   echo "Usage: $(basename "$0") <title> [options]" >&2

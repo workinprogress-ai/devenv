@@ -6,7 +6,7 @@
 set -euo pipefail
 
 # Source error handling library
-source "$DEVENV_ROOT/tools/lib/error-handling.bash"
+source "$DEVENV_TOOLS/lib/error-handling.bash"
 
 # Detect current hostname from running Tailscale config, or fallback to system hostname
 CURRENT_HOSTNAME=$(tailscale status --json 2>/dev/null | grep -o '"HostName": "[^"]*"' | cut -d'"' -f4 || true)

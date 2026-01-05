@@ -1,17 +1,7 @@
 #!/bin/bash
 set -euo pipefail
-
-# Source required libraries
-if [ -f "$DEVENV_ROOT/tools/lib/repo-operations.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/repo-operations.bash"
-else
-    echo "ERROR: repo-operations.bash library not found" >&2
-    exit 1
-fi
-
-if [ -f "$DEVENV_ROOT/tools/lib/github-helpers.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
-fi
+source "$DEVENV_TOOLS/lib/repo-operations.bash"
+source "$DEVENV_TOOLS/lib/github-helpers.bash"
 
 usage() {
     echo "Usage: $(basename "$0") <repo-name> [--public|--private] [--description \"text\"]" >&2

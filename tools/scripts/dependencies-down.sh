@@ -1,3 +1,3 @@
 #!/bin/bash
 
-docker compose -f "$DEVENV_TOOLS/docker-compose-dependencies.yml" down
+docker compose -f "$DEVENV_TOOLS/other/docker-compose-dependencies.yml" down

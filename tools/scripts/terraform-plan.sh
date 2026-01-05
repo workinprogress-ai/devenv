@@ -4,7 +4,7 @@
 set -euo pipefail
 
 # shellcheck source=lib/error-handling.bash
-source "$DEVENV_ROOT/tools/lib/error-handling.bash"
+source "$DEVENV_TOOLS/lib/error-handling.bash"
 
 usage() {
     cat <<'EOF'

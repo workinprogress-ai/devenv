@@ -13,10 +13,7 @@
 #   ./kube-intercept.sh mappings.txt backend=9090:80
 #   ./kube-intercept.sh myapp=8080 frontend=3000:3000
 
-# Source kube library for deployment helpers
-if [ -f "$DEVENV_ROOT/tools/lib/kube-selection.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/kube-selection.bash"
-fi
+source "$DEVENV_TOOLS/lib/kube-selection.bash"
 
 # Array to store mapping strings
 mappings=()

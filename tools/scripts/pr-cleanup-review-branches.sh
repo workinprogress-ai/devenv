@@ -1,9 +1,8 @@
 #!/bin/bash
 set -euo pipefail
+source "$DEVENV_TOOLS/lib/git-operations.bash"
 
-if [ -f "$DEVENV_ROOT/tools/lib/git-operations.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/git-operations.bash"
-fi
+
 
 explode() {
   echo "Error: $1" >&2

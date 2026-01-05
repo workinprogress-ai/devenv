@@ -6,18 +6,14 @@
 #          Uses GitHub CLI (gh) for all operations.
 
 set -euo pipefail
+source "$DEVENV_TOOLS/lib/error-handling.bash"
+source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/git-operations.bash"
+source "$DEVENV_TOOLS/lib/issue-operations.bash"
 
-if [ -f "$DEVENV_ROOT/tools/lib/github-helpers.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
-fi
 
-if [ -f "$DEVENV_ROOT/tools/lib/git-operations.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/git-operations.bash"
-fi
 
-if [ -f "$DEVENV_ROOT/tools/lib/issue-operations.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-fi
+
 
 explode() { echo "Error: $1" >&2; exit 1; }
 

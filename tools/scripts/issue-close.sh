@@ -8,30 +8,16 @@
 
 set -euo pipefail
 
+source "$DEVENV_TOOLS/lib/error-handling.bash"
+source "$DEVENV_TOOLS/lib/versioning.bash"
+source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/git-config.bash"
+source "$DEVENV_TOOLS/lib/issue-operations.bash"
+
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-# Source required libraries
-if [ -f "$DEVENV_ROOT/tools/lib/error-handling.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/error-handling.bash"
-fi
-
-if [ -f "$DEVENV_ROOT/tools/lib/versioning.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/versioning.bash"
-    script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Close/reopen GitHub issues"
-fi
-
-if [ -f "$DEVENV_ROOT/tools/lib/github-helpers.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
-fi
-
-if [ -f "$DEVENV_ROOT/tools/lib/git-config.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/git-config.bash"
-fi
-
-if [ -f "$DEVENV_ROOT/tools/lib/issue-operations.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-fi
+script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Close/reopen GitHub issues"
 
 # ============================================================================
 # Global Variables

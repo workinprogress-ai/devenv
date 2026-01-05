@@ -1,19 +1,14 @@
 #!/bin/bash
 set -euo pipefail
+source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/fzf-selection.bash"
+source "$DEVENV_TOOLS/lib/git-operations.bash"
+
 
 # Create a draft "REVIEW:" PR using temporary source/target branches built from two commits.
 
-if [ -f "$DEVENV_ROOT/tools/lib/github-helpers.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
-fi
 
-if [ -f "$DEVENV_ROOT/tools/lib/fzf-selection.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/fzf-selection.bash"
-fi
 
-if [ -f "$DEVENV_ROOT/tools/lib/git-operations.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/git-operations.bash"
-fi
 
 explode() {
   echo "Error: $1" >&2

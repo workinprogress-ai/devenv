@@ -1,12 +1,11 @@
 #!/bin/bash
 
+source "$DEVENV_TOOLS/lib/error-handling.bash"
+source "$DEVENV_TOOLS/lib/release-operations.bash"
+source "$DEVENV_TOOLS/lib/git-config.bash"
+
 script_folder="${DEVENV_TOOLS:-.}/scripts"
 repos_dir="$DEVENV_ROOT/repos"
-
-# Source shared libraries
-source "$DEVENV_ROOT/tools/lib/error-handling.bash"
-source "$DEVENV_ROOT/tools/lib/git-config.bash"
-source "$DEVENV_ROOT/tools/lib/release-operations.bash"
 
 # Function to display usage
 usage() {
@@ -184,6 +183,9 @@ fi
 log_info "========================================"
 
 # Exit with appropriate code
+source "$DEVENV_TOOLS/lib/error-handling.bash"
+source "$DEVENV_TOOLS/lib/release-operations.bash"
+
 if [ $fail_count -gt 0 ]; then
     exit "$EXIT_GENERAL_ERROR"
 else

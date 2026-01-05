@@ -1,16 +1,11 @@
 #!/bin/bash
 # restore.sh: Restore all databases to a MongoDB cluster from a backup.
-source "$DEVENV_ROOT/tools/lib/database-operations.bash"
 # Usage: ./restore.sh "<connection_string>" "/path/to/backup_directory"
 # Note: This script assumes the backup folder contains subdirectories created by the backup script.
 
-# Check if mongorestore is installed.
-if [ "$(which mongorestore)" ]; then
-    echo "mongorestore is installed."
-else
-    echo "mongorestore is not installed. Please install it before running this script."
-    exit 1
-fi
+source "$DEVENV_TOOLS/lib/database-operations.bash"
+
+require_command mongorestore
 
 # Check if proper arguments are provided.
 if [ "$#" -ne 2 ]; then

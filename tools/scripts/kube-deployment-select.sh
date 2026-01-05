@@ -3,14 +3,10 @@
 # Uses fzf for interactive selection when multiple deployments match
 
 set -euo pipefail
+source "$DEVENV_TOOLS/lib/fzf-selection.bash"
+
 
 # Source fzf-selection library
-if [ -f "$DEVENV_ROOT/tools/lib/fzf-selection.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/fzf-selection.bash"
-else
-    echo "Error: fzf-selection.bash library not found" >&2
-    exit 1
-fi
 
 # Check fzf is installed
 check_fzf_installed || exit 1

@@ -1,13 +1,8 @@
 #!/bin/bash
 
-# Source libraries
-if [ -f "${DEVENV_ROOT}/tools/lib/error-handling.bash" ]; then
-    source "${DEVENV_ROOT}/tools/lib/error-handling.bash"
-fi
+source "$DEVENV_TOOLS/lib/error-handling.bash"
+source "$DEVENV_TOOLS/lib/kube-selection.bash"
 
-if [ -f "${DEVENV_ROOT}/tools/lib/kube-selection.bash" ]; then
-    source "${DEVENV_ROOT}/tools/lib/kube-selection.bash"
-fi
 
 # Ensure a search string is provided
 if [ -z "$1" ]; then
@@ -30,5 +25,6 @@ fi
 NS_OPTION=$(get_namespace_option "${NAMESPACE:-}")
 
 echo "Deleting pod: $POD_NAME"
+
 # shellcheck disable=SC2086  # NS_OPTION should not be quoted (can be empty)
 kubectl delete pod "$POD_NAME" $NS_OPTION

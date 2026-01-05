@@ -1,13 +1,8 @@
 #!/bin/bash
 
-# Source libraries
-if [ -f "${DEVENV_ROOT}/tools/lib/error-handling.bash" ]; then
-    source "${DEVENV_ROOT}/tools/lib/error-handling.bash"
-fi
+source "$DEVENV_TOOLS/lib/error-handling.bash"
+source "$DEVENV_TOOLS/lib/kube-selection.bash"
 
-if [ -f "${DEVENV_ROOT}/tools/lib/kube-selection.bash" ]; then
-    source "${DEVENV_ROOT}/tools/lib/kube-selection.bash"
-fi
 
 POD_NAME_PART="$1"
 
@@ -30,5 +25,6 @@ if [ $# -eq 0 ]; then
     set -- /bin/bash
 fi
 echo "Executing command on console for pod: $POD_NAME"
+
 # shellcheck disable=SC2086  # NS_OPTION should not be quoted (can be empty)
 kubectl exec -it "$POD_NAME" $NS_OPTION -- "$@"

@@ -7,31 +7,15 @@
 # Last Modified: 2026-01-01
 
 set -euo pipefail
+source "$DEVENV_TOOLS/lib/error-handling.bash"
+source "$DEVENV_TOOLS/lib/versioning.bash"
+source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/config-reader.bash"
 
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-# Source required libraries
-if [ -f "$DEVENV_ROOT/tools/lib/error-handling.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/error-handling.bash"
-fi
-
-if [ -f "$DEVENV_ROOT/tools/lib/versioning.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/versioning.bash"
-    script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Update issue fields in GitHub Projects"
-fi
-
-if [ -f "$DEVENV_ROOT/tools/lib/github-helpers.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
-fi
-
-if [ -f "$DEVENV_ROOT/tools/lib/git-config.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/git-config.bash"
-fi
-
-if [ -f "$DEVENV_ROOT/tools/lib/config-reader.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/config-reader.bash"
-fi
+script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Update GitHub Project issues"
 
 # ============================================================================
 # Global Variables

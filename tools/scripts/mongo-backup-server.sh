@@ -1,22 +1,11 @@
 #!/bin/bash
 # backup.sh: Back up each non-built-in MongoDB database individually from a MongoDB cluster.
-source "$DEVENV_ROOT/tools/lib/database-operations.bash"
 # Usage: ./backup.sh "<connection_string>" "/path/to/backup_directory"
 
-# Check if mongodump is installed.
-if [ "$(which mongodump)" ]; then
-    echo "mongodump is installed."
-else
-    echo "mongodump is not installed. Please install it before running this script."
-    exit 1
-fi
-# Check if mongorestore is installed.
-if [ "$(which mongosh)" ]; then
-    echo "mongosh is installed."
-else
-    echo "mongosh is not installed. Please install it before running this script."
-    exit 1
-fi
+source "$DEVENV_TOOLS/lib/database-operations.bash"
+
+require_command mongodump
+require_command mongosh
 
 if [ "$#" -ne 2 ]; then
     echo "Usage: $0 <connection_string> <backup_directory>"

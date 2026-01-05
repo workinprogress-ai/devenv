@@ -6,7 +6,7 @@
 set -euo pipefail
 
 # Source error handling library
-source "$DEVENV_ROOT/tools/lib/error-handling.bash"
+source "$DEVENV_TOOLS/lib/error-handling.bash"
 
 echo ">>> 🔐 GitHub Token Update Utility"
 echo "    -------------------------------------------------------"

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-source "$DEVENV_ROOT/tools/lib/infrastructure-utilities.bash"
 #
 # kube-forward-ports.sh
 #
@@ -13,6 +12,8 @@ source "$DEVENV_ROOT/tools/lib/infrastructure-utilities.bash"
 #   ./kube-forward-ports.sh mappings.txt
 #   ./kube-forward-ports.sh mappings.txt backend=9090:80
 #   ./kube-forward-ports.sh myapp=8080 frontend=3000:3000
+
+source "$DEVENV_TOOLS/lib/infrastructure-utilities.bash"
 
 # Array to store mapping strings
 mappings=()

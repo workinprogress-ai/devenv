@@ -1,5 +1,5 @@
 #!/bin/bash
-source "$DEVENV_ROOT/tools/lib/infrastructure-utilities.bash"
+source "$DEVENV_TOOLS/lib/infrastructure-utilities.bash"
 
 cleanup() {
     # Kill all SSH processes to close the tunnels
