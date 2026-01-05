@@ -37,6 +37,10 @@ if [ -f "$DEVENV_ROOT/tools/lib/issue-helper.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/issue-helper.bash"
 fi
 
+if [ -f "$DEVENV_ROOT/tools/lib/issue-operations.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+fi
+
 # ============================================================================
 # Global Variables
 # ============================================================================
@@ -117,19 +121,11 @@ log_verbose() {
     fi
 }
 
-# Get issues that need grooming
+# Get issues that need grooming - uses library function
 get_grooming_issues() {
-    local filters=(--state open --limit 100)
-    local repo_spec
-    read -ra repo_spec <<< "$(get_repo_spec)"
-    
-    # Note: Without project API, we can't filter by Status field
-    # So we get all open issues without type labels or with "needs grooming" label
-    
     log_info "Fetching issues for grooming..."
-    gh issue list "${repo_spec[@]}" "${filters[@]}" --json number,title,labels,body,milestone | \
-        jq -r '.[] | select(.labels | length == 0 or any(.name == "needs-grooming")) | 
-               "#\(.number): \(.title)"'
+    # Use library function to list issues, filtered for open state
+    list_issues_formatted "open" "" "" ""
 }
 
 # Display issue details

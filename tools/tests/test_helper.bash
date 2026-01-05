@@ -4,7 +4,9 @@
 # Common setup for tests
 test_helper_setup() {
     # Create temporary test directory
-    export TEST_TEMP_DIR="$(mktemp -d)"
+    local temp_dir
+    temp_dir="$(mktemp -d)"
+    export TEST_TEMP_DIR="$temp_dir"
     export ORIGINAL_PWD="$PWD"
     
     # Source the project root (go up two levels from tools/tests to workspace root)
@@ -46,7 +48,7 @@ teardown() {
 create_mock_git_repo() {
     local repo_path="$1"
     mkdir -p "$repo_path"
-    cd "$repo_path"
+    cd "$repo_path" || return 1
     git init
     git config user.email "test@example.com"
     git config user.name "Test User"
@@ -58,7 +60,7 @@ create_mock_git_repo() {
     git add README.md
     git commit -m "Initial commit"
     git branch -M main
-    cd "$ORIGINAL_PWD"
+    cd "$ORIGINAL_PWD" || return 1
 }
 
 # Helper to check if a function exists

@@ -6,6 +6,7 @@ repos_dir="$DEVENV_ROOT/repos"
 # Source shared libraries
 source "$DEVENV_ROOT/tools/lib/error-handling.bash"
 source "$DEVENV_ROOT/tools/lib/git-config.bash"
+source "$DEVENV_ROOT/tools/lib/release-operations.bash"
 
 # Function to display usage
 usage() {
@@ -32,58 +33,6 @@ Process:
   commit type support in release config, creates empty commit, and pushes.
 
 EOF
-}
-
-# Function to check if a release config supports custom types (patch/minor/major)
-check_release_config_supports_custom_types() {
-    local repo_path="$1"
-    local config_file=""
-    
-    # Check for release.config.js or release.config.cjs
-    if [ -f "$repo_path/release.config.js" ]; then
-        config_file="$repo_path/release.config.js"
-    elif [ -f "$repo_path/release.config.cjs" ]; then
-        config_file="$repo_path/release.config.cjs"
-    else
-        # No release config found
-        return 1
-    fi
-    
-    # Check if the config has custom type rules (patch, minor, major)
-    if grep -q "type: 'patch'" "$config_file" && \
-       grep -q "type: 'minor'" "$config_file" && \
-       grep -q "type: 'major'" "$config_file"; then
-        return 0
-    else
-        return 1
-    fi
-}
-
-# Function to get conventional commit type based on change type
-get_conventional_commit_type() {
-    local change_type="$1"
-    local supports_custom="$2"
-    
-    if [ "$supports_custom" = "true" ]; then
-        # Use custom types directly
-        echo "$change_type"
-    else
-        # Fall back to conventional commit types
-        case "$change_type" in
-            patch)
-                echo "fix"
-                ;;
-            minor)
-                echo "feat"
-                ;;
-            major)
-                echo "feat!"
-                ;;
-            *)
-                echo "chore"
-                ;;
-        esac
-    fi
 }
 
 # Validate change type parameter
@@ -181,7 +130,7 @@ for repo in "${REPOS[@]}"; do
         log_warn "Repository does not support custom commit types, falling back to conventional commits"
     fi
     
-    # Step 4: Determine commit type
+    # Step 4: Determine commit type using library function
     commit_type=$(get_conventional_commit_type "$CHANGE_TYPE" "$supports_custom")
     commit_message="${commit_type}: force version update"
     

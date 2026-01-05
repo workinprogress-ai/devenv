@@ -13,6 +13,11 @@
 #   ./kube-intercept.sh mappings.txt backend=9090:80
 #   ./kube-intercept.sh myapp=8080 frontend=3000:3000
 
+# Source kube library for deployment helpers
+if [ -f "$DEVENV_ROOT/tools/lib/kube-selection.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/kube-selection.bash"
+fi
+
 # Array to store mapping strings
 mappings=()
 
@@ -50,7 +55,12 @@ for mapping in "${mappings[@]}"; do
   # Allow for multiple ports separated by commas
   IFS=',' read -ra port_pairs <<< "$port_mapping"
 
-  pod_name=$(kube-deployment-select.sh "$deployment_identifier" "Pick a pod for $mapping")
+  # Use library function to get pod name from deployment identifier
+  pod_name=$(get_deployment_info "$deployment_identifier" "Pick a pod for $mapping")
+  if [ -z "$pod_name" ]; then
+    echo "Failed to select pod for deployment: $deployment_identifier" >&2
+    exit 1
+  fi
 
   # Build the port part: --port local:remote ...
   port_args=""

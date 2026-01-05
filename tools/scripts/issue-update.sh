@@ -29,6 +29,10 @@ if [ -f "$DEVENV_ROOT/tools/lib/git-config.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/git-config.bash"
 fi
 
+if [ -f "$DEVENV_ROOT/tools/lib/issue-operations.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+fi
+
 # ============================================================================
 # Global Variables
 # ============================================================================

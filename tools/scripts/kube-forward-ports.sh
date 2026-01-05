@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source "$DEVENV_ROOT/tools/lib/infrastructure-utilities.bash"
 #
 # kube-forward-ports.sh
 #

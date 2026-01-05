@@ -1,28 +1,34 @@
 #!/bin/bash
+# kube-pod-select.sh - Interactive Kubernetes pod selection
+# Uses fzf for interactive selection when multiple pods match
 
-# Ensure fzf is installed
-if ! command -v fzf &> /dev/null; then
-    echo "Error: fzf is not installed. Install it and try again."
+set -euo pipefail
+
+# Source fzf-selection library
+if [ -f "$DEVENV_ROOT/tools/lib/fzf-selection.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/fzf-selection.bash"
+else
+    echo "Error: fzf-selection.bash library not found" >&2
     exit 1
 fi
 
+# Check fzf is installed
+check_fzf_installed || exit 1
+
+# Set header prompt
 HEADER="Select a pod"
-if [ -n "$2" ]; then
+if [ -n "${2:-}" ]; then
     HEADER="$2"
 fi
 
 # Run kube-list-pods.sh with optional arguments
-POD_LIST=$(kube-list-pods.sh "$1")
+POD_LIST=$(kube-list-pods.sh "${1:-}")
 
-# Count the number of lines in the output
-POD_COUNT=$(echo "$POD_LIST" | wc -l)
-
-# Handle cases based on the number of pods found
-if [ "$POD_COUNT" -eq 0 ]; then
+# Handle empty results
+if [ -z "$POD_LIST" ]; then
     echo "No matching pods found." >&2
     exit 1
-elif [ "$POD_COUNT" -eq 1 ]; then
-    echo "$POD_LIST"
-else
-    echo "$POD_LIST" | fzf --header="$HEADER" 
 fi
+
+# Use smart selection: auto-select if 1 pod, show menu if multiple
+fzf_select_smart "$POD_LIST" "$HEADER"

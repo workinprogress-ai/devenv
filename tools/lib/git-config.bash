@@ -9,14 +9,16 @@
 configure_git_repo() {
     local repo_dir="${1:-.}"
     local remote_url="${2:-}"
-    local current_dir="$(pwd)"
+    local current_dir
+    current_dir="$(pwd)"
     
     # Change to repo directory if specified
     if [ "$repo_dir" != "." ]; then
         cd "$repo_dir" || return 1
     fi
     
-    local abs_dir="$(pwd)"
+    local abs_dir
+    abs_dir="$(pwd)"
     
     # Check if the directory is already in the safe.directory list
     if ! git config --global --get-all safe.directory | grep -Fxq "$abs_dir"; then
@@ -34,7 +36,7 @@ configure_git_repo() {
     fi
     
     # Return to original directory
-    cd "$current_dir"
+    cd "$current_dir" || return 1
 }
 
 # Configure global git settings
@@ -74,7 +76,8 @@ configure_git_global() {
 #   $1 - Directory path to add
 add_git_safe_directory() {
     local dir_path="${1:-.}"
-    local abs_path="$(cd "$dir_path" && pwd)"
+    local abs_path
+    abs_path="$(cd "$dir_path" && pwd)"
     
     if ! git config --global --get-all safe.directory | grep -Fxq "$abs_path"; then
         git config --global --add safe.directory "$abs_path"

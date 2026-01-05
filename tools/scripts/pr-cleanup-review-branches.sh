@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+if [ -f "$DEVENV_ROOT/tools/lib/git-operations.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/git-operations.bash"
+fi
+
 explode() {
   echo "Error: $1" >&2
   exit 1
@@ -9,7 +13,11 @@ explode() {
 REPO_DIR="${1:-$(pwd)}"
 DAYS="${2:-30}"
 
-git -C "$REPO_DIR" rev-parse --is-inside-work-tree &>/dev/null || explode "Directory $REPO_DIR is not a git repository."
+# Validate git context using library function
+if ! validate_git_context "$REPO_DIR"; then
+  explode "Invalid git context: $REPO_DIR is not a valid git repository"
+fi
+
 cd "$REPO_DIR" || explode "Failed to change to repository directory $REPO_DIR."
 
 git fetch origin || explode "Failed to fetch branches from the remote."
@@ -40,7 +48,7 @@ for BRANCH in $REVIEW_BRANCHES; do
   DIFF_DAYS=$(((CURRENT_DATE - BRANCH_DATE_EPOCH) / 86400))
 
   if [ "$DIFF_DAYS" -ge "$DAYS" ]; then
-    git push origin --delete "$BRANCH" || explode "Failed to delete remote branch $BRANCH"
+    delete_branch "$BRANCH" origin || explode "Failed to delete remote branch $BRANCH"
     echo "Deleted remote branch $BRANCH"
   else
     echo "Skipping branch $BRANCH, last updated $DIFF_DAYS days ago."

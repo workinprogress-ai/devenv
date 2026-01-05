@@ -5,6 +5,10 @@ if [ -f "$DEVENV_ROOT/tools/lib/github-helpers.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
 fi
 
+if [ -f "$DEVENV_ROOT/tools/lib/issue-operations.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+fi
+
 REPO_DIR="${1:-$(pwd)}"
 cd "$REPO_DIR" || { echo "Invalid repository folder: $REPO_DIR" >&2; exit 1; }
 

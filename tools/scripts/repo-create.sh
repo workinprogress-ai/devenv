@@ -1,6 +1,18 @@
 #!/bin/bash
 set -euo pipefail
 
+# Source required libraries
+if [ -f "$DEVENV_ROOT/tools/lib/repo-operations.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/repo-operations.bash"
+else
+    echo "ERROR: repo-operations.bash library not found" >&2
+    exit 1
+fi
+
+if [ -f "$DEVENV_ROOT/tools/lib/github-helpers.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
+fi
+
 usage() {
     echo "Usage: $(basename "$0") <repo-name> [--public|--private] [--description \"text\"]" >&2
     echo "Creates a GitHub repository under GH_ORG using gh CLI." >&2
@@ -23,24 +35,6 @@ ensure_env() {
         echo "ERROR: GH_USER is not set. Run 'setup' first." >&2
         exit 1
     fi
-}
-
-ensure_gh_login() {
-    # If already authenticated, nothing to do
-    if gh auth status --hostname github.com >/dev/null 2>&1; then
-        return 0
-    fi
-
-    # Try non-interactive login if GH_TOKEN is available
-    if [ -n "${GH_TOKEN:-}" ]; then
-        if echo "$GH_TOKEN" | gh auth login --with-token --hostname github.com --git-protocol ssh --skip-ssh-key >/dev/null 2>&1; then
-            return 0
-        fi
-    fi
-
-    echo "ERROR: Not authenticated with GitHub CLI and GH_TOKEN is not working." >&2
-    echo "Run: gh auth login" >&2
-    exit 1
 }
 
 create_repo() {
@@ -78,8 +72,9 @@ main() {
     local repo_name="$1"
     shift
 
-    if [[ ! "$repo_name" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]; then
-        echo "ERROR: Invalid repository name '$repo_name'. Use letters, numbers, dots, underscores, or hyphens." >&2
+    # Validate repository name using library function
+    if ! validate_repository_name "$repo_name"; then
+        echo "ERROR: Invalid repository name '$repo_name'." >&2
         exit 1
     fi
 
@@ -113,7 +108,15 @@ main() {
 
     require_cmd gh
     ensure_env
-    ensure_gh_login
+    # Use ensure_gh_login from github-helpers if available, otherwise inline check
+    if declare -f ensure_gh_login >/dev/null 2>&1; then
+        ensure_gh_login
+    else
+        gh auth status --hostname github.com >/dev/null 2>&1 || {
+            echo "ERROR: Not authenticated with GitHub CLI. Run: gh auth login" >&2
+            exit 1
+        }
+    fi
     create_repo "$repo_name" "$visibility" "$description"
 }
 

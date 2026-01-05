@@ -9,10 +9,9 @@ set -euo pipefail
 repos_dir="$DEVENV_ROOT/repos"
 
 source "$DEVENV_ROOT/tools/lib/git-config.bash"
-if [ -f "$DEVENV_ROOT/tools/lib/error-handling.bash" ]; then
-    # Optional helper for explode-like helpers if present upstream
-    source "$DEVENV_ROOT/tools/lib/error-handling.bash"
-fi
+source "$DEVENV_ROOT/tools/lib/repo-operations.bash"
+source "$DEVENV_ROOT/tools/lib/fzf-selection.bash"
+source "$DEVENV_ROOT/tools/lib/error-handling.bash"
 
 usage() {
   echo "Usage: $(basename "$0") [--select] [<repository-name>]" >&2
@@ -31,44 +30,21 @@ if [ -z "${GH_TOKEN:-}" ]; then
     exit 1
 fi
 
-# Function to list all repos in organization
-list_org_repos() {
-    gh repo list "$GH_ORG" --limit 1000 --json name --jq '.[].name' 2>/dev/null || {
-        echo "ERROR: Failed to list repositories in organization '$GH_ORG'" >&2
-        exit 1
-    }
-}
-
-# Function to get list of already cloned repos
-list_existing_repos() {
-    if [ -d "$repos_dir" ]; then
-        find "$repos_dir" -mindepth 1 -maxdepth 1 -type d -exec basename {} \;
-    fi
-}
-
-# Function to filter out existing repos from org repos
-get_available_repos() {
-    local org_repos
-    local existing_repos
-    org_repos=$(list_org_repos)
-    existing_repos=$(list_existing_repos)
-    
-    if [ -z "$existing_repos" ]; then
-        echo "$org_repos"
-    else
-        comm -23 <(echo "$org_repos" | sort) <(echo "$existing_repos" | sort)
-    fi
-}
-
 # Function to select a repo using fzf
 select_repo_interactive() {
-    if ! command -v fzf &> /dev/null; then
-        echo "ERROR: fzf is not installed. Install it to use --select option." >&2
-        exit 1
-    fi
+    check_fzf_installed || exit 1
     
+    local org_repos
+    local local_repos
     local available_repos
-    available_repos=$(get_available_repos)
+    
+    org_repos=$(list_organization_repositories "$GH_ORG" 1000) || {
+        echo "ERROR: Failed to list organization repositories" >&2
+        exit 1
+    }
+    
+    local_repos=$(list_local_repositories "$repos_dir")
+    available_repos=$(filter_available_repositories "$org_repos" "$local_repos")
     
     if [ -z "$available_repos" ]; then
         echo "ERROR: No repositories available to clone (all repos already exist in $repos_dir)" >&2
@@ -76,7 +52,7 @@ select_repo_interactive() {
     fi
     
     local selected
-    selected=$(echo "$available_repos" | fzf --prompt="Select repository to clone: " --height=40%)
+    selected=$(fzf_select_single "$available_repos" "Select repository to clone: ")
     
     if [ -z "$selected" ]; then
         echo "ERROR: No repository selected" >&2
@@ -112,18 +88,11 @@ elif [ -z "${1:-}" ]; then
     fi
 else
     input_repo="${1%/}"
-    if [[ ! "$input_repo" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]; then
+    if ! validate_repository_name "$input_repo"; then
         echo "ERROR: Invalid repository name: $input_repo" >&2
         usage
         exit 1
     fi
-    case "$input_repo" in
-        .|..|repos)
-            echo "ERROR: Invalid repository name: $input_repo" >&2
-            usage
-            exit 1
-            ;;
-    esac
     REPO_NAME="$input_repo"
 fi
 

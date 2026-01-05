@@ -29,6 +29,10 @@ if [ -f "$DEVENV_ROOT/tools/lib/git-config.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/git-config.bash"
 fi
 
+if [ -f "$DEVENV_ROOT/tools/lib/issue-operations.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+fi
+
 # ============================================================================
 # Global Variables
 # ============================================================================
@@ -104,86 +108,45 @@ log_verbose() {
 # Verify issue exists
 verify_issue() {
     local issue_num="$1"
-    local repo_spec
-    read -ra repo_spec <<< "$(get_repo_spec)"
-    
-    if ! gh issue view "${repo_spec[@]}" "$issue_num" &> /dev/null; then
+    issue_exists --repo "$(get_repo_spec)" "$issue_num" 2>/dev/null || {
         log_error "Issue #$issue_num not found"
         return 1
-    fi
-    return 0
+    }
 }
 
-# Close an issue
-close_issue() {
+# Close an issue (wrapper around library function with dry-run support)
+close_issue_local() {
     local issue_num="$1"
-    local gh_args=()
-    
-    # Add comment if provided
-    if [ -n "$COMMENT" ]; then
-        gh_args+=(--comment "$COMMENT")
-    fi
-    
-    # Add reason if provided
-    if [ -n "$REASON" ]; then
-        case "$REASON" in
-            completed)
-                gh_args+=(--reason "completed")
-                ;;
-            "not planned"|notplanned|wontfix)
-                gh_args+=(--reason "not planned")
-                ;;
-            *)
-                log_error "Invalid reason: $REASON (must be 'completed' or 'not planned')"
-                return 1
-                ;;
-        esac
-    fi
-    
-    if [ "$DRY_RUN" -eq 1 ]; then
-        log_info "[DRY RUN] Would close issue #$issue_num${gh_args[*]:+ with: ${gh_args[*]}}"
-        return 0
-    fi
-    
-    log_verbose "Closing issue #$issue_num${gh_args[*]:+ with: ${gh_args[*]}}"
-    
     local repo_spec
     read -ra repo_spec <<< "$(get_repo_spec)"
-    if gh issue close "${repo_spec[@]}" "$issue_num" "${gh_args[@]}"; then
-        log_info "Closed issue #$issue_num"
+    
+    if [ "$DRY_RUN" -eq 1 ]; then
+        local msg="[DRY RUN] Would close issue #$issue_num"
+        [ -n "$REASON" ] && msg="$msg (reason: $REASON)"
+        [ -n "$COMMENT" ] && msg="$msg (comment: $COMMENT)"
+        log_info "$msg"
         return 0
-    else
-        log_error "Failed to close issue #$issue_num"
-        return 1
     fi
+    
+    log_verbose "Closing issue #$issue_num"
+    close_issue --repo "${repo_spec[*]}" --reason "$REASON" --comment "$COMMENT" "$issue_num"
 }
 
-# Reopen an issue
-reopen_issue() {
+# Reopen an issue (wrapper around library function with dry-run support)
+reopen_issue_local() {
     local issue_num="$1"
-    local gh_args=()
-    
-    # Add comment if provided
-    if [ -n "$COMMENT" ]; then
-        gh_args+=(--comment "$COMMENT")
-    fi
-    
-    if [ "$DRY_RUN" -eq 1 ]; then
-        log_info "[DRY RUN] Would reopen issue #$issue_num${gh_args[*]:+ with: ${gh_args[*]}}"
-        return 0
-    fi
-    
-    log_verbose "Reopening issue #$issue_num${gh_args[*]:+ with: ${gh_args[*]}}"
-    
     local repo_spec
     read -ra repo_spec <<< "$(get_repo_spec)"
-    if gh issue reopen "${repo_spec[@]}" "$issue_num" "${gh_args[@]}"; then
-        log_info "Reopened issue #$issue_num"
+    
+    if [ "$DRY_RUN" -eq 1 ]; then
+        local msg="[DRY RUN] Would reopen issue #$issue_num"
+        [ -n "$COMMENT" ] && msg="$msg (comment: $COMMENT)"
+        log_info "$msg"
         return 0
-    else
-        log_error "Failed to reopen issue #$issue_num"
-        return 1
     fi
+    
+    log_verbose "Reopening issue #$issue_num"
+    reopen_issue --repo "${repo_spec[*]}" --comment "$COMMENT" "$issue_num"
 }
 
 # Process all issues
@@ -200,12 +163,12 @@ process_issues() {
         # Perform action
         case "$ACTION" in
             close)
-                if ! close_issue "$issue_num"; then
+                if ! close_issue_local "$issue_num"; then
                     failed=$((failed + 1))
                 fi
                 ;;
             reopen)
-                if ! reopen_issue "$issue_num"; then
+                if ! reopen_issue_local "$issue_num"; then
                     failed=$((failed + 1))
                 fi
                 ;;

@@ -30,6 +30,10 @@ if [ -f "$DEVENV_ROOT/tools/lib/git-config.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/git-config.bash"
 fi
 
+if [ -f "$DEVENV_ROOT/tools/lib/issue-operations.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+fi
+
 # ============================================================================
 # Global Variables
 # ============================================================================
@@ -109,48 +113,7 @@ log_verbose() {
     fi
 }
 
-# Build filter arguments for gh issue list
-build_filters() {
-    local filters=()
-    
-    # State filter
-    filters+=(--state "$FILTER_STATE")
-    
-    # Type filter (via label)
-    if [ -n "$FILTER_TYPE" ]; then
-        case "$FILTER_TYPE" in
-            epic|story|bug)
-                filters+=(--label "type:$FILTER_TYPE")
-                ;;
-            *)
-                log_error "Invalid issue type: $FILTER_TYPE (must be epic, story, or bug)"
-                exit 1
-                ;;
-        esac
-    fi
-    
-    # Additional label filters
-    for label in "${FILTER_LABELS[@]}"; do
-        filters+=(--label "$label")
-    done
-    
-    # Assignee filter
-    if [ -n "$FILTER_ASSIGNEE" ]; then
-        filters+=(--assignee "$FILTER_ASSIGNEE")
-    fi
-    
-    # Milestone filter
-    if [ -n "$FILTER_MILESTONE" ]; then
-        filters+=(--milestone "$FILTER_MILESTONE")
-    fi
-    
-    # Limit
-    filters+=(--limit "$LIMIT")
-    
-    echo "${filters[@]}"
-}
-
-# List issues
+# List issues using library filters
 list_issues() {
     local gh_args=()
     local repo_spec
@@ -159,24 +122,39 @@ list_issues() {
     # Add repository specification
     gh_args+=("${repo_spec[@]}")
     
-    # Build filter arguments
-    read -ra filter_args <<< "$(build_filters)"
+    # Build filter arguments using library function
+    local filter_string
+    filter_string=$(build_issue_filters --state "$FILTER_STATE" --type "$FILTER_TYPE" --limit "$LIMIT") || exit 1
+    read -ra filter_args <<< "$filter_string"
     gh_args+=("${filter_args[@]}")
+    
+    # Add label filters (not in library function yet - custom handling)
+    for label in "${FILTER_LABELS[@]}"; do
+        gh_args+=(--label "$label")
+    done
+    
+    # Add assignee if specified
+    if [ -n "$FILTER_ASSIGNEE" ]; then
+        gh_args+=(--assignee "$FILTER_ASSIGNEE")
+    fi
+    
+    # Add milestone if specified
+    if [ -n "$FILTER_MILESTONE" ]; then
+        gh_args+=(--milestone "$FILTER_MILESTONE")
+    fi
     
     # Set output format
     case "$OUTPUT_FORMAT" in
         table)
-            # Default table format
             log_verbose "Listing issues in table format"
             ;;
         json)
-            # shellcheck disable=SC2054 # gh CLI uses comma-separated fields
+            # shellcheck disable=SC2054  # gh CLI uses comma-separated fields
             gh_args+=(--json number,title,state,labels,assignees,milestone,createdAt,updatedAt,url)
             log_verbose "Listing issues in JSON format"
             ;;
         simple)
-            # Simple format: number and title only
-            # shellcheck disable=SC2054 # gh CLI uses comma-separated fields
+            # shellcheck disable=SC2054  # gh CLI uses comma-separated fields
             gh_args+=(--json number,title)
             log_verbose "Listing issues in simple format"
             ;;

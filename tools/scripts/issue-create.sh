@@ -30,6 +30,10 @@ if [ -f "$DEVENV_ROOT/tools/lib/git-config.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/git-config.bash"
 fi
 
+if [ -f "$DEVENV_ROOT/tools/lib/fzf-selection.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/fzf-selection.bash"
+fi
+
 # ============================================================================
 # Global Variables
 # ============================================================================
@@ -150,17 +154,18 @@ select_template_with_fzf() {
         return 1
     fi
     
-    if ! command -v fzf &> /dev/null; then
+    # Use fzf-selection library
+    check_fzf_installed || {
         log_error "fzf is required for template selection but not installed"
         log_info "Install fzf or use --template to specify a template directly"
         return 1
-    fi
+    }
     
+    local preview_cmd='head -20 {}'
     local selected
-    selected=$(echo "$templates" | fzf --preview 'head -20 {}' --preview-window=right:50% --height=50%)
+    selected=$(fzf_select_single "$templates" "Select template: " "$preview_cmd")
     
-    if [ -z "$selected" ]; then
-        log_info "No template selected"
+    if ! fzf_validate_selection "$selected" "template"; then
         return 1
     fi
     

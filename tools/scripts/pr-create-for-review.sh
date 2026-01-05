@@ -7,16 +7,22 @@ if [ -f "$DEVENV_ROOT/tools/lib/github-helpers.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
 fi
 
+if [ -f "$DEVENV_ROOT/tools/lib/fzf-selection.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/fzf-selection.bash"
+fi
+
+if [ -f "$DEVENV_ROOT/tools/lib/git-operations.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/git-operations.bash"
+fi
+
 explode() {
   echo "Error: $1" >&2
   git checkout "$CURRENT_BRANCH" &>/dev/null || true
   if [ -n "${TARGET_BRANCH:-}" ]; then
-    git push origin :"$TARGET_BRANCH" &>/dev/null || true
-    git branch -D "$TARGET_BRANCH" &>/dev/null || true
+    delete_branch "$TARGET_BRANCH" origin &>/dev/null || true
   fi
   if [ -n "${SOURCE_BRANCH:-}" ]; then
-    git push origin :"$SOURCE_BRANCH" &>/dev/null || true
-    git branch -D "$SOURCE_BRANCH" &>/dev/null || true
+    delete_branch "$SOURCE_BRANCH" origin &>/dev/null || true
   fi
   cd - &>/dev/null || true
   exit 1
@@ -30,8 +36,11 @@ script_folder=$(dirname "$(readlink -f "$0")")
 select_commit() {
   local prompt="$1"
   [ -n "$versions" ] || explode "No version tags found in the repository."
+  
+  # Use fzf_select_single from library with custom options
   local selected
   selected=$(echo "$versions" | fzf --ansi --no-sort --tac --prompt="$prompt" --height=40%)
+  
   if [ -n "$selected" ]; then
     local short_hash
     short_hash=$(echo "$selected" | awk '{print $5}')
@@ -50,15 +59,17 @@ fi
 REPO_DIR="${2:-$(pwd)}"
 cd "$REPO_DIR" || explode "Invalid repository folder: $REPO_DIR"
 
-git rev-parse --is-inside-work-tree &>/dev/null || explode "Directory $REPO_DIR is not a git repository."
-if ! git diff-index --quiet HEAD --; then
-  explode "There are uncommitted or staged changes in the current branch."
+# Validate git context using library function
+if ! validate_git_context "$REPO_DIR"; then
+  explode "Invalid git context. Check that: 1) $REPO_DIR is a git repo, 2) working directory is clean"
 fi
 
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-if [[ "$CURRENT_BRANCH" == "review/"* ]]; then
+# Check that we're not on a review branch using library function
+if branch_matches_pattern "review/*"; then
   explode "This script cannot be run on a review branch."
 fi
+
+CURRENT_BRANCH=$(get_current_branch)
 
 versions=$("$script_folder/repo-version-list.sh")
 
@@ -125,7 +136,7 @@ if [ $status -ne 0 ]; then
 fi
 
 git checkout "$CURRENT_BRANCH" &>/dev/null || explode "Failed to switch back to the current branch"
-git branch -D "$TARGET_BRANCH" &>/dev/null || echo "Failed to delete the review branch $TARGET_BRANCH" >&2
-git branch -D "$SOURCE_BRANCH" &>/dev/null || echo "Failed to delete the review branch $SOURCE_BRANCH" >&2
+delete_branch "$TARGET_BRANCH" origin &>/dev/null || echo "Failed to delete the review branch $TARGET_BRANCH" >&2
+delete_branch "$SOURCE_BRANCH" origin &>/dev/null || echo "Failed to delete the review branch $SOURCE_BRANCH" >&2
 
 echo "$PR_URL"

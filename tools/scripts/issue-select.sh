@@ -11,6 +11,7 @@ set -euo pipefail
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
+
 # Source required libraries
 if [ -f "$DEVENV_ROOT/tools/lib/error-handling.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/error-handling.bash"
@@ -27,6 +28,14 @@ fi
 
 if [ -f "$DEVENV_ROOT/tools/lib/git-config.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/git-config.bash"
+fi
+
+if [ -f "$DEVENV_ROOT/tools/lib/fzf-selection.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/fzf-selection.bash"
+fi
+
+if [ -f "$DEVENV_ROOT/tools/lib/issue-operations.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
 fi
 
 # ============================================================================
@@ -107,73 +116,39 @@ log_verbose() {
     fi
 }
 
-# Build filter arguments for gh issue list
-build_filters() {
-    local filters=()
-    
-    filters+=(--state "$FILTER_STATE")
-    
-    if [ -n "$FILTER_TYPE" ]; then
-        filters+=(--label "type:$FILTER_TYPE")
-    fi
-    
-    if [ -n "$FILTER_LABEL" ]; then
-        filters+=(--label "$FILTER_LABEL")
-    fi
-    
-    if [ -n "$FILTER_MILESTONE" ]; then
-        filters+=(--milestone "$FILTER_MILESTONE")
-    fi
-    
-    filters+=(--limit 1000)
-    
-    echo "${filters[@]}"
-}
-
-# Get issues with formatted display
+# Get issues with formatted display using library function
 get_issues() {
-    # shellcheck disable=SC2054 # gh CLI uses comma-separated fields
-    local gh_args=(--json number,title,labels,state,updatedAt)
-    local repo_spec
-    read -ra repo_spec <<< "$(get_repo_spec)"
-    
-    # Add repository specification
-    gh_args+=("${repo_spec[@]}")
-    
-    # Build filter arguments
-    read -ra filter_args <<< "$(build_filters)"
-    gh_args+=("${filter_args[@]}")
-    
-    log_verbose "Fetching issues..." >&2
-    
-    # Get issues and format for fzf
-    gh issue list "${gh_args[@]}" | jq -r '.[] | 
-        "#\(.number)\t\(.title)\t[\(.labels | map(.name) | join(", "))]"'
+    # Use library function to get formatted issues
+    get_issues_for_selection "$FILTER_STATE" "$FILTER_TYPE" "$FILTER_LABEL" "$FILTER_MILESTONE"
 }
 
 # Interactive selection with fzf
 select_issues() {
-    # shellcheck disable=SC2054 # fzf uses various formats for arguments
-    local fzf_args=(
-        --delimiter='\t'
-        --with-nth=1,2
-        --preview='gh issue view {1} 2>/dev/null || echo "Loading..."'
-        --preview-window='right:60%:wrap'
-        --bind='ctrl-/:toggle-preview'
-        --header='Select issue(s) | Ctrl-/ toggle preview | Enter confirm | Esc cancel'
-    )
+    # Check fzf is installed
+    check_fzf_installed || return 1
     
-    if [ "$MULTI_SELECT" -eq 1 ]; then
-        fzf_args+=(--multi)
-        fzf_args+=(--bind='tab:toggle+down')
-        fzf_args+=(--header='TAB to select multiple | Enter to confirm')
+    # Get issues
+    local issues
+    issues=$(get_issues)
+    
+    if [ -z "$issues" ]; then
+        log_error "No issues found matching the filters"
+        return 1
     fi
     
-    local selected
-    selected=$(get_issues | fzf "${fzf_args[@]}")
+    # Build preview command
+    local preview_cmd="gh issue view {1} 2>/dev/null || echo 'Loading...'"
     
-    if [ -z "$selected" ]; then
-        log_verbose "Selection cancelled" >&2
+    # Select using fzf library - use multi or single based on flag
+    local selected
+    if [ "$MULTI_SELECT" -eq 1 ]; then
+        selected=$(echo "$issues" | fzf_select_multi "$issues" "Select issue(s)" "$preview_cmd")
+    else
+        selected=$(echo "$issues" | fzf_select_single "$issues" "Select issue" "$preview_cmd")
+    fi
+    
+    # Validate selection
+    if ! fzf_validate_selection "$selected" "issue"; then
         return 1
     fi
     

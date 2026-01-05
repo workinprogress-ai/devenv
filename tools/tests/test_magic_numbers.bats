@@ -47,8 +47,8 @@ load test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "repo-calc-version.sh defines DEFAULT_START_VERSION constant" {
-  run grep "DEFAULT_START_VERSION=" "$PROJECT_ROOT/tools/scripts/repo-calc-version.sh"
+@test "repo-calc-version.sh sources release-operations library" {
+  run grep "source.*release-operations.bash" "$PROJECT_ROOT/tools/scripts/repo-calc-version.sh"
   [ "$status" -eq 0 ]
 }
 

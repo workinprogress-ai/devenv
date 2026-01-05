@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# Source libraries
+if [ -f "${DEVENV_ROOT}/tools/lib/error-handling.bash" ]; then
+    source "${DEVENV_ROOT}/tools/lib/error-handling.bash"
+fi
+
+if [ -f "${DEVENV_ROOT}/tools/lib/kube-selection.bash" ]; then
+    source "${DEVENV_ROOT}/tools/lib/kube-selection.bash"
+fi
+
 # Ensure a search string is provided
 if [ -z "$1" ]; then
     echo "Usage: $0 <partial-pod-name> [namespace]"
@@ -7,14 +16,9 @@ if [ -z "$1" ]; then
 fi
 
 POD_NAME_PART="$1"
-NAMESPACE_OPTION=""
 
-if [ -n "$NAMESPACE" ]; then
-    NAMESPACE_OPTION="-n $NAMESPACE"
-fi
-
-# Find matching pods
-POD_NAME=$(kube-pod-select.sh $POD_NAME_PART)
+# Find matching pod using library function
+POD_NAME=$(list_pods --namespace "${NAMESPACE:-}" --filter "$POD_NAME_PART" | head -n 1)
 
 # Check if a pod was found
 if [ -z "$POD_NAME" ]; then
@@ -22,5 +26,9 @@ if [ -z "$POD_NAME" ]; then
     exit 1
 fi
 
+# Get namespace option for kubectl commands
+NS_OPTION=$(get_namespace_option "${NAMESPACE:-}")
+
 echo "Deleting pod: $POD_NAME"
-kubectl delete pod $POD_NAME $NAMESPACE_OPTION
+# shellcheck disable=SC2086  # NS_OPTION should not be quoted (can be empty)
+kubectl delete pod "$POD_NAME" $NS_OPTION

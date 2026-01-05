@@ -9,15 +9,13 @@
 
 set -o pipefail
 
-# Cleanup function
-cleanup() {
-  if [ -n "${MENU_TMP:-}" ] && [ -f "$MENU_TMP" ]; then
-    rm -f "$MENU_TMP"
-  fi
-}
-
-# Register cleanup on EXIT
-trap cleanup EXIT
+# Source fzf-selection library
+if [ -f "$DEVENV_ROOT/tools/lib/fzf-selection.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/fzf-selection.bash"
+else
+    echo "❌ fzf-selection.bash library not found" >&2
+    exit 2
+fi
 
 # --- config / args ---
 MULTI=0
@@ -34,7 +32,8 @@ if [[ -n "$1" ]]; then FILTER="$1"; shift; fi
 err() { echo "❌ $*" >&2; }
 info(){ echo "• $*"; }
 
-command -v fzf >/dev/null 2>&1 || { err "fzf is required (apt install fzf)."; exit 2; }
+# Check fzf availability using library function
+check_fzf_installed || exit 2
 
 [[ -d "$EXTRAS_DIR" ]] || { err "Extras directory not found: $EXTRAS_DIR"; exit 1; }
 
@@ -42,32 +41,12 @@ command -v fzf >/dev/null 2>&1 || { err "fzf is required (apt install fzf)."; ex
 mapfile -t FILES < <(find "$EXTRAS_DIR" -maxdepth 1 -type f \( -name '*.sh' -o -perm -u+x -o -perm -g+x -o -perm -o+x \) | sort)
 [[ ${#FILES[@]} -gt 0 ]] || { err "No extras found in $EXTRAS_DIR"; exit 1; }
 
-# Apply filter if specified
-if [[ -n "$FILTER" ]]; then
-  mapfile -t FILTERED < <(printf "%s\n" "${FILES[@]}" | grep -i "$FILTER")
-  FILES=("${FILTERED[@]}")
-  [[ ${#FILES[@]} -gt 0 ]] || { err "No extras match filter: $FILTER"; exit 1; }
-  
-  # If exactly one match, run it directly without fzf
-  if [[ ${#FILES[@]} -eq 1 ]]; then
-    script="${FILES[0]}"
-    info "Found single match: $(basename "$script")"
-    info "Running: $(basename "$script")"
-    if [[ -x "$script" ]]; then
-      "$script"
-    else
-      bash "$script"
-    fi
-    exit $?
-  fi
-fi
-
 # Build the menu lines: NAME<TAB>FULLPATH
-MENU_TMP="$(mktemp)"
+MENU_ITEMS=""
 for f in "${FILES[@]}"; do
   name="$(basename "$f")"
-  printf "%s\t%s\n" "$name" "$f"
-done > "$MENU_TMP"
+  MENU_ITEMS+=$(printf "%s\t%s\n" "$name" "$f")
+done
 
 # Preview command: prefers bat if present
 if command -v bat >/dev/null 2>&1; then
@@ -76,24 +55,30 @@ else
   PREVIEW='sed -n "1,200p" {2}'
 fi
 
-# fzf options
-FZF_OPTS=(
-  --prompt="Install extra > "
-  --border
-  --height=80%
-  --ansi
-  --with-nth=1
-  --delimiter='\t'
-  --preview="$PREVIEW"
-)
+# Use library functions for selection
+SELECTION=""
+if [[ -n "$FILTER" ]]; then
+    # Use filtered selection with smart auto-run
+    SELECTION=$(fzf_select_filtered "$MENU_ITEMS" "$FILTER" "Install extra > " "$PREVIEW" "-i") || { 
+        echo "No selection."; exit 1; 
+    }
+else
+    # Use multi or single selection
+    if [[ $MULTI -eq 1 ]]; then
+        SELECTION=$(fzf_select_multi "$MENU_ITEMS" "Install extra > " "$PREVIEW") || { 
+            echo "No selection."; exit 1; 
+        }
+    else
+        SELECTION=$(fzf_select_single "$MENU_ITEMS" "Install extra > " "$PREVIEW") || { 
+            echo "No selection."; exit 1; 
+        }
+    fi
+fi
 
-[[ $MULTI -eq 1 ]] && FZF_OPTS+=(--multi)
-
-# Run fzf
-SELECTION="$(fzf "${FZF_OPTS[@]}" < "$MENU_TMP")" || { echo "No selection."; exit 1; }
-
-# Extract full paths (2nd field) from selection
-mapfile -t CHOSEN < <(printf "%s\n" "$SELECTION" | awk -F '\t' '{print $2}')
+# Extract full paths (2nd field) from selection using library function
+mapfile -t CHOSEN < <(echo "$SELECTION" | while read -r line; do
+    fzf_extract_field "$line" 2 $'\t'
+done)
 
 # Execute selections in order
 EXIT_CODE=0

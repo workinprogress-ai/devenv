@@ -1,4 +1,5 @@
 #!/bin/bash
+source "$DEVENV_ROOT/tools/lib/container-operations.bash"
 
 env_file=""
 if [ -f "$DEVENV_ROOT/local.env" ]; then

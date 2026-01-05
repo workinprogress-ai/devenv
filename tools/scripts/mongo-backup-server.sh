@@ -1,5 +1,6 @@
 #!/bin/bash
 # backup.sh: Back up each non-built-in MongoDB database individually from a MongoDB cluster.
+source "$DEVENV_ROOT/tools/lib/database-operations.bash"
 # Usage: ./backup.sh "<connection_string>" "/path/to/backup_directory"
 
 # Check if mongodump is installed.

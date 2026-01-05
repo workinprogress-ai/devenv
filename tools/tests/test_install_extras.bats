@@ -23,35 +23,13 @@ load test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "install-extras.sh defines cleanup function" {
-  run grep "^cleanup()" "$PROJECT_ROOT/tools/scripts/install-extras.sh"
+@test "install-extras.sh sources fzf-selection library" {
+  run grep "source.*fzf-selection.bash" "$PROJECT_ROOT/tools/scripts/install-extras.sh"
   [ "$status" -eq 0 ]
 }
 
-@test "install-extras.sh registers EXIT trap" {
-  run grep "trap cleanup EXIT" "$PROJECT_ROOT/tools/scripts/install-extras.sh"
-  [ "$status" -eq 0 ]
-}
-
-@test "install-extras.sh cleanup removes MENU_TMP" {
-  run bash -c "grep -A 3 '^cleanup()' $PROJECT_ROOT/tools/scripts/install-extras.sh | grep -q 'rm -f.*MENU_TMP'"
-  [ "$status" -eq 0 ]
-}
-
-@test "install-extras.sh cleanup checks if MENU_TMP exists" {
-  run bash -c "grep -A 3 '^cleanup()' $PROJECT_ROOT/tools/scripts/install-extras.sh | grep -q 'MENU_TMP'"
-  [ "$status" -eq 0 ]
-  run bash -c "grep -A 3 '^cleanup()' $PROJECT_ROOT/tools/scripts/install-extras.sh | grep -q 'rm -f'"
-  [ "$status" -eq 0 ]
-}
-
-@test "install-extras.sh creates MENU_TMP with mktemp" {
-  run grep 'MENU_TMP.*mktemp' "$PROJECT_ROOT/tools/scripts/install-extras.sh"
-  [ "$status" -eq 0 ]
-}
-
-@test "install-extras.sh requires fzf" {
-  run grep "command -v fzf" "$PROJECT_ROOT/tools/scripts/install-extras.sh"
+@test "install-extras.sh uses check_fzf_installed from library" {
+  run grep "check_fzf_installed" "$PROJECT_ROOT/tools/scripts/install-extras.sh"
   [ "$status" -eq 0 ]
 }
 
@@ -70,13 +48,13 @@ load test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "install-extras.sh auto-runs single match" {
-  run bash -c "grep -A 10 'If exactly one match' $PROJECT_ROOT/tools/scripts/install-extras.sh | grep -q 'exit \$?'"
+@test "install-extras.sh uses fzf_select_filtered for filtered selection" {
+  run grep 'fzf_select_filtered' "$PROJECT_ROOT/tools/scripts/install-extras.sh"
   [ "$status" -eq 0 ]
 }
 
-@test "install-extras.sh uses fzf for selection" {
-  run grep 'fzf.*FZF_OPTS' "$PROJECT_ROOT/tools/scripts/install-extras.sh"
+@test "install-extras.sh uses fzf library functions for selection" {
+  run grep -E '(fzf_select_single|fzf_select_multi)' "$PROJECT_ROOT/tools/scripts/install-extras.sh"
   [ "$status" -eq 0 ]
 }
 

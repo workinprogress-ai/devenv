@@ -1,16 +1,20 @@
 #!/bin/bash
 
-POD_NAME_PART="$1"
-NAMESPACE_OPTION=""
-
-if [ -n "$NAMESPACE" ]; then
-    NAMESPACE_OPTION="-n $NAMESPACE"
+# Source libraries
+if [ -f "${DEVENV_ROOT}/tools/lib/error-handling.bash" ]; then
+    source "${DEVENV_ROOT}/tools/lib/error-handling.bash"
 fi
+
+if [ -f "${DEVENV_ROOT}/tools/lib/kube-selection.bash" ]; then
+    source "${DEVENV_ROOT}/tools/lib/kube-selection.bash"
+fi
+
+POD_NAME_PART="$1"
 
 shift
 
-# Find matching pods
-POD_NAME=$(kube-pod-select.sh $POD_NAME_PART)
+# Find matching pod using library function
+POD_NAME=$(list_pods --namespace "${NAMESPACE:-}" --filter "$POD_NAME_PART" | head -n 1)
 
 # Check if a pod was found
 if [ -z "$POD_NAME" ]; then
@@ -18,9 +22,13 @@ if [ -z "$POD_NAME" ]; then
     exit 1
 fi
 
+# Get namespace option for kubectl commands
+NS_OPTION=$(get_namespace_option "${NAMESPACE:-}")
+
 if [ $# -eq 0 ]; then
     echo "No command provided to execute on the pod.  Executing /bin/bash by default."
     set -- /bin/bash
 fi
 echo "Executing command on console for pod: $POD_NAME"
-kubectl exec -it $POD_NAME $NAMESPACE_OPTION -- "$@"
+# shellcheck disable=SC2086  # NS_OPTION should not be quoted (can be empty)
+kubectl exec -it "$POD_NAME" $NS_OPTION -- "$@"

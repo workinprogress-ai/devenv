@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Source release operations library
+# shellcheck source=/dev/null
+source "${DEVENV_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/tools/lib/error-handling.bash"
+# shellcheck source=/dev/null
+source "${DEVENV_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/tools/lib/release-operations.bash"
+
 # ANSI color codes
 GRAY='\033[1;30m'
 LIGHT_BLUE='\033[1;36m'
@@ -21,36 +27,23 @@ if [ -z "$tags" ]; then
   exit 0
 fi
 
-get_change_type_and_color() {
-  local version="$1"
-  local minor patch
-  minor=$(echo "$version" | cut -d. -f2)
-  patch=$(echo "$version" | cut -d. -f3)
-
-  if [ "$minor" = "0" ] && [ "$patch" = "0" ]; then
-    echo "🔴" "$RED"
-  elif [ "$patch" = "0" ]; then
-    echo "🟡" "$YELLOW"
-  else
-    echo "🟢" "$GREEN"
-  fi
-}
-
 first_commit=true
 for tag in $tags; do
   commit_hash=$(git rev-list -n 1 "$tag")
   commit_date=$(git show -s --format=%ci "$commit_hash" | cut -d' ' -f1,2 | cut -d':' -f1,2)
   short_hash=$(git show -s --format=%h "$commit_hash")
   title=$(git show -s --format=%s "$commit_hash")
+  version="${tag#v}"
 
   if $first_commit; then
     change_type="🔷"
     tag_color="$LIGHT_BLUE"
     first_commit=false
   else
-    change_info=$(get_change_type_and_color "$tag")
-    change_type=$(echo "$change_info" | awk '{print $1}')
-    tag_color=$(echo "$change_info" | awk '{print $2}')
+    change_type=$(get_version_change_type "$version")
+    tag_color="$RED"
+    [[ "$change_type" == "🟡" ]] && tag_color="$YELLOW"
+    [[ "$change_type" == "🟢" ]] && tag_color="$GREEN"
   fi
 
   echo -e "$change_type ${GRAY}$commit_date${RESET} | ${LIGHT_BLUE}$short_hash${RESET} | ${tag_color}$tag${RESET} | ${BLUE}$title${RESET}"

@@ -102,7 +102,7 @@ find_shell_scripts() {
     local search_dir="${1:-$project_root}"
     
     # Find all .sh files, excluding certain directories
-    find "$search_dir" -type f -name "*.sh" \
+    find "$search_dir" -type f \( -name "*.sh" -o -name "*.bash" \) \
         ! -path "*/node_modules/*" \
         ! -path "*/.git/*" \
         ! -path "*/tmp/*" \

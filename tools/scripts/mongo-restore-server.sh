@@ -1,5 +1,6 @@
 #!/bin/bash
 # restore.sh: Restore all databases to a MongoDB cluster from a backup.
+source "$DEVENV_ROOT/tools/lib/database-operations.bash"
 # Usage: ./restore.sh "<connection_string>" "/path/to/backup_directory"
 # Note: This script assumes the backup folder contains subdirectories created by the backup script.
 

@@ -1,24 +1,36 @@
 #!/bin/bash
+# kube-deployment-select.sh - Interactive Kubernetes deployment selection
+# Uses fzf for interactive selection when multiple deployments match
 
-# Ensure fzf is installed
-if ! command -v fzf &> /dev/null; then
-    echo "Error: fzf is not installed. Install it and try again."
+set -euo pipefail
+
+# Source fzf-selection library
+if [ -f "$DEVENV_ROOT/tools/lib/fzf-selection.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/fzf-selection.bash"
+else
+    echo "Error: fzf-selection.bash library not found" >&2
     exit 1
 fi
 
-FILTER="$1"
+# Check fzf is installed
+check_fzf_installed || exit 1
+
+FILTER="${1:-}"
 HEADER="${2:-Select a deployment}"
 
 # Get deployments, apply optional name filter
-DEPLOY_LIST=$(kubectl get deployments --no-headers | awk '{print $1}' | grep -i "${FILTER}")
+DEPLOY_LIST=$(kubectl get deployments --no-headers | awk '{print $1}')
 
-DEPLOY_COUNT=$(echo "$DEPLOY_LIST" | wc -l)
+# Apply filter if provided
+if [ -n "$FILTER" ]; then
+    DEPLOY_LIST=$(echo "$DEPLOY_LIST" | grep -i "$FILTER")
+fi
 
-if [ "$DEPLOY_COUNT" -eq 0 ]; then
+# Handle empty results
+if [ -z "$DEPLOY_LIST" ]; then
     echo "No matching deployments found." >&2
     exit 1
-elif [ "$DEPLOY_COUNT" -eq 1 ]; then
-    echo "$DEPLOY_LIST"
-else
-    echo "$DEPLOY_LIST" | fzf --header="$HEADER"
 fi
+
+# Use smart selection: auto-select if 1 deployment, show menu if multiple
+fzf_select_smart "$DEPLOY_LIST" "$HEADER"

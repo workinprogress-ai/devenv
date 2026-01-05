@@ -8,6 +8,10 @@ if [ -f "$DEVENV_ROOT/tools/lib/github-helpers.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
 fi
 
+if [ -f "$DEVENV_ROOT/tools/lib/issue-operations.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+fi
+
 usage() {
   echo "Usage: $(basename "$0") <title> [options]" >&2
   echo "  --issue <number>     Issue number this PR addresses (required)" >&2
@@ -74,9 +78,9 @@ if [ -n "$ISSUE_NUMBER" ] && [ "$NO_ISSUE" = "true" ]; then
 fi
 
 if [ -n "$ISSUE_NUMBER" ]; then
-  # Validate issue number is numeric
-  if ! [[ "$ISSUE_NUMBER" =~ ^[0-9]+$ ]]; then
-    echo "Error: Issue number must be numeric." >&2
+  # Validate issue number using library function
+  if ! validate_issue_number "$ISSUE_NUMBER"; then
+    echo "Error: Issue number must be numeric and positive." >&2
     exit 1
   fi
 fi

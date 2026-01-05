@@ -2,16 +2,23 @@
 # Centralized error handling and logging library
 # Provides standardized error messages, exit codes, and logging utilities
 
+# Guard against multiple sourcing
+if [ -n "${_ERROR_HANDLING_LOADED:-}" ]; then
+    return 0
+fi
+_ERROR_HANDLING_LOADED=1
+
 # Exit codes - following standard conventions
-readonly EXIT_SUCCESS=0
-readonly EXIT_GENERAL_ERROR=1
-readonly EXIT_MISUSE=2
-readonly EXIT_INVALID_ARGUMENT=3
-readonly EXIT_NOT_FOUND=4
-readonly EXIT_PERMISSION_DENIED=5
-readonly EXIT_TIMEOUT=124
-readonly EXIT_COMMAND_NOT_FOUND=127
-readonly EXIT_INVALID_EXIT=128
+# shellcheck disable=SC2034  # Variables exported for use by sourcing scripts
+export EXIT_SUCCESS=0
+export EXIT_GENERAL_ERROR=1
+export EXIT_MISUSE=2
+export EXIT_INVALID_ARGUMENT=3
+export EXIT_NOT_FOUND=4
+export EXIT_PERMISSION_DENIED=5
+export EXIT_TIMEOUT=124
+export EXIT_COMMAND_NOT_FOUND=127
+export EXIT_INVALID_EXIT=128
 
 # Track if strict mode is enabled
 ERROR_HANDLING_STRICT_MODE_ENABLED=0

@@ -29,6 +29,10 @@ if [ -f "$DEVENV_ROOT/tools/lib/git-config.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/git-config.bash"
 fi
 
+if [ -f "$DEVENV_ROOT/tools/lib/issue-operations.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+fi
+
 # ============================================================================
 # Global Variables
 # ============================================================================
@@ -250,8 +254,8 @@ main() {
                 shift
                 ;;
             *)
-                # Assume it's an issue number
-                if [[ "$1" =~ ^[0-9]+$ ]]; then
+                # Assume it's an issue number using library validation
+                if validate_numeric "$1" && [ "$1" -gt 0 ]; then
                     ISSUE_NUMBERS+=("$1")
                     shift
                 else

@@ -27,9 +27,9 @@ compare_versions() {
     local v1="$1"
     local v2="$2"
     
-    # shellcheck disable=SC2086
+    # shellcheck disable=SC2046,SC2086  # Word splitting intentional for read
     read -r v1_major v1_minor v1_patch <<< $(parse_version "$v1")
-    # shellcheck disable=SC2086
+    # shellcheck disable=SC2046,SC2086  # Word splitting intentional for read
     read -r v2_major v2_minor v2_patch <<< $(parse_version "$v2")
     
     # Default missing parts to 0
@@ -85,6 +85,7 @@ get_git_version() {
 
 # Check bash version compatibility
 # Usage: check_bash_version "4.0"
+# shellcheck disable=SC2120  # Function supports optional argument
 check_bash_version() {
     local required_version="${1:-$MIN_BASH_VERSION}"
     local current_version
@@ -99,6 +100,7 @@ check_bash_version() {
 
 # Check git version compatibility
 # Usage: check_git_version "2.0"
+# shellcheck disable=SC2120  # Function supports optional argument
 check_git_version() {
     local required_version="${1:-$MIN_GIT_VERSION}"
     local current_version

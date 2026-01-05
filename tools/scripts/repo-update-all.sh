@@ -4,7 +4,14 @@ set -euo pipefail
 # Update all repositories under ./repos using the GitHub-focused repo-get.sh
 
 script_folder="${DEVENV_TOOLS:-.}/scripts"
-repos_dir="$DEVENV_ROOT/repos"
+
+# Source repo-operations library
+if [ -f "$DEVENV_ROOT/tools/lib/repo-operations.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/repo-operations.bash"
+else
+    echo "ERROR: repo-operations.bash library not found" >&2
+    exit 1
+fi
 
 readonly MAX_PARALLEL_JOBS=4
 readonly DEFAULT_PARALLEL_JOBS=2
@@ -16,7 +23,9 @@ while [[ $# -gt 0 ]]; do
             [[ -n "${2:-}" && "$2" =~ ^[0-9]+$ ]] || { echo "ERROR: --jobs requires a numeric argument" >&2; exit 1; }
             parallel_jobs="$2"; shift 2 ;;
         -h|--help)
-            echo "Usage: $(basename "$0") [--jobs N]"; echo "Update all repositories in $repos_dir in parallel."; exit 0 ;;
+            echo "Usage: $(basename "$0") [--jobs N]"
+            echo "Update all repositories in repos directory in parallel."
+            exit 0 ;;
         *)
             echo "ERROR: Unknown option: $1" >&2; exit 1 ;;
     esac
@@ -27,35 +36,33 @@ if [ "$parallel_jobs" -gt "$MAX_PARALLEL_JOBS" ]; then
     parallel_jobs=$MAX_PARALLEL_JOBS
 fi
 
-if [ ! -d "$repos_dir" ]; then
-  echo "Target directory '$repos_dir' does not exist." >&2
-  exit 1
-fi
+# Get repos directory using library function
+repos_dir=$(get_or_create_repos_directory) || {
+    echo "ERROR: Could not access repos directory" >&2
+    exit 1
+}
 
-repo_dirs=()
-for repo in "$repos_dir"/*; do
-    if [ -d "$repo/.git" ]; then
-        repo_dirs+=("$repo")
-    fi
-done
+# Get list of local repositories using library function
+repo_list=$(list_local_repositories "$repos_dir")
 
-repo_count=${#repo_dirs[@]}
-if [ "$repo_count" -eq 0 ]; then
+if [ -z "$repo_list" ]; then
     echo "No git repositories found in $repos_dir" >&2
     exit 0
 fi
 
+repo_count=$(echo "$repo_list" | wc -l)
 echo "Updating $repo_count repositories with $parallel_jobs parallel jobs..." >&2
 start_time=$(date +%s)
 
 REPO_GET_SCRIPT="$script_folder/repo-get.sh"
 
 update_single_repo() {
-    local repo="$1"
-    local repo_name
-    repo_name=$(basename "$repo")
+    local repo_name="$1"
+    local repos_base="$2"
+    local repo_path="$repos_base/$repo_name"
+    
     echo "[$repo_name] Starting update..." >&2
-    if cd "$repo" 2>/dev/null; then
+    if cd "$repo_path" 2>/dev/null; then
         if "$REPO_GET_SCRIPT" 2>&1 | sed "s/^/[$repo_name] /"; then
             echo "[$repo_name] ✓ Update completed" >&2
             return 0
@@ -70,9 +77,10 @@ update_single_repo() {
 }
 
 export REPO_GET_SCRIPT
+export repos_dir
 export -f update_single_repo
 
-printf '%s\n' "${repo_dirs[@]}" | xargs -P "$parallel_jobs" -I {} bash -c 'update_single_repo "$@"' _ {}
+echo "$repo_list" | xargs -P "$parallel_jobs" -I {} bash -c 'update_single_repo "$1" "$2"' _ {} "$repos_dir"
 exit_code=$?
 
 end_time=$(date +%s)
