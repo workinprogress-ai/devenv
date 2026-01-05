@@ -26,7 +26,9 @@ You do not need to have any additional tooling installed on your host machine. E
 
 ### Windows
 
-Note:  Windows is the most complex environment to set up.  You should properly hate it, and prefer something else.  A Windows machine will need significantly more resources than a Linux or MacOS machine.  An option to consider is to run Linux in a VM instead.
+Note:  Windows is the most complex environment to set up.  You should properly hate it, and prefer something else.  However, it's a reality in most cases.  A Windows machine will need significantly more resources than a Linux or MacOS machine.  An option to consider is to run Linux in a VM instead.
+
+Note:  The instructions below are for WSL2 using Docker installed in the WSL2 environment.  Docker Desktop for Windows is not recommend. It is problematic and causes problems with case sensitivity in file paths and other Windows related idiosyncrasies. 
 
 1. Install the WSL2 on Windows.  This is a feature that allows you to run a Linux environment on Windows.  You can find instructions [here](https://docs.microsoft.com/en-us/windows/wsl/install).    
 2. Install a Linux distro from the Microsoft Store.  Ubuntu 22.04 is recommended.  Log in and verify that it runs. 
@@ -37,83 +39,120 @@ Note:  Windows is the most complex environment to set up.  You should properly h
    processors=4
    ```
    You can adjust this to suit your system, but that is the recommended minimum.  After making the changes, restart the WSL2 environment by exiting the terminal and restarting it.
-4. Install Docker Desktop for Windows, using WSL2 as the backend.
-5. Make sure that Docker is configured to expose it's command line to WSL2.  This is done in the Docker Desktop settings.
-6. Clone this repo into your WSL2 environment.
-   `git clone git@github.com:YOUR-ORG/devenv.git`  
-7. In the WSL terminal, navigate to the repo directory `devenv`
-   `cd devenv`
-8. Run the [setup script](#running-the-setup-script).  This will ask you a few questions about your environment and allow you to specify your SSH key to the private repos.
-   `./setup`
-9. Once the setup script is complete, navigate back to the root of the repo and run Visual Studio Code, pointing it at the repo directory.
-   `code .`
-10. VS Code should, after a few seconds, offer to reopen the folder in a container.  If not, open the command palette (Ctrl+Shift+P) and run the command `Remote-Containers: Reopen in Container`.
-11. The dev container will build and start.  This may take a few minutes the first time.  Subsequent starts will be faster.  Once the bootstrap has run, and the container output log shows that it is opening ports. Close VS Code and re-open it, or select Reload Window from the command palette. 
-12. Reopen Visual Studio Code and the folder in the dev container.  Once again you will be asked if you want to open the folder in a dev container.   Choose to do so, or you can manually open it in the container.  
-13. The dev container will start.  You can now start working on the code.
+4. Inside the WSL, run the steps for [Linux setup](#linux-setup) to set up your development environment.
 
-### MacOS
+### MacOS setup with OrbStack
 
-1. Install [Docker Desktop for Mac](https://docs.docker.com/desktop/install/mac-install/).
-2. In a terminal, clone this repo.
-   `git clone git@github.com:YOUR-ORG/devenv.git`  
-3. In the terminal, navigate to the repo directory `devenv`
-   `cd devenv`
-4. Run the [setup script](#running-the-setup-script).  This will ask you a few questions about your environment and allow you to specify your SSH key to the private repos.
-   `./setup`
-5. Once the setup script is complete, navigate back to the root of the repo and run Visual Studio Code, pointing it at the repo directory.
-   `code .`
-6. VS Code should, after a few seconds, offer to reopen the folder in a container.  If not, open the command palette (Ctrl+Shift+P) and run the command `Remote-Containers: Reopen in Container`.
-7. The dev container will build and start.  This may take a few minutes the first time.  Subsequent starts will be faster.  Once the bootstrap has run, and the container output log shows that it is opening ports. Close VS Code and re-open it, or select Reload Window from the command palette.  
-8. Reopen Visual Studio Code and the folder in the dev container.  Once again you will be asked if you want to open the folder in a dev container.   Choose to do so, or you can manually open it in the container.  
-9. The dev container will start.  You can now start working on the code.
+This tutorial will guide you through setting up OrbStack and creating your first VM.
 
-### Linux
+#### Prerequisites
 
-1. Install Docker or Podman. The setup script can help you install either container runtime. You can also manually install Docker using the script at [get.docker.com](https://get.docker.com) or install Podman via your package manager (`apt install podman` or `dnf install podman`).
-2. Clone this repo.
-   ```bash
-   git clone git@github.com:YOUR-ORG/devenv.git
-   ```
-3. In the terminal, navigate to the repo directory `devenv`
-   ```bash
-   cd devenv
-   ```
-4. Run the [setup script](#running-the-setup-script). This will ask you a few questions about your environment, help you install a container runtime if needed, and configure your SSH key for repository access.
-   ```bash
-   ./setup
-   ```
-5. Once the setup script is complete, open the project in Visual Studio Code.
-   ```bash
-   code .
-   ```
-6. VS Code should, after a few seconds, offer to reopen the folder in a container. If not, open the command palette (Ctrl+Shift+P) and run the command `Dev Containers: Reopen in Container`.
-7. The dev container will build and start. This may take a few minutes the first time. Subsequent starts will be faster. Once the bootstrap has run, and the container output log shows that it is opening ports, close VS Code and re-open it, or select Reload Window from the command palette.
-8. Reopen Visual Studio Code and the folder in the dev container. The dev container will start. You can now start working on the code.
+- macOS system
+- Terminal access
+- Homebrew installed
+
+#### Installation Steps
+
+1. First, install OrbStack using Homebrew:
+```bash
+brew install orbstack
+```
+2. Create a Debian-based VM named "coding-vm":
+```bash
+orb create debian coding-vm
+```
+> Note: When prompted, allow OrbStack to install the helper. You can dismiss any additional dialogs that appear.
+3. Connect to your new VM via SSH:
+```bash
+ssh orb
+```
+> Note: If asked to verify the fingerprint, type 'yes' and press Enter.
+4. Inside the Orb VM, run the steps for [Linux setup](#linux-setup) to set up your development environment.
+
+#### Notes and follow-up
+
+* To get back to the Orb VM, simply run `ssh orb` in your terminal.
+* To run VS Code and have it work with the Orb VM
+
+   1. Start VS Code.
+   2. Open the Command Palette (⌘+⇧+P) and type `Remote-SSH: Add Host...`.
+   3. Enter `orb` as the host.
+   4. Open the Command Palette again and type `Remote-SSH: Connect to Host...`, then select `orb`.
+   5. Pick the devenv folder.  It will ask you to trust the authors, say yes for the whole path.
+   6. For the toast that appears, select "Reopen in Container".
+   7. Let the container build completely.  Afterward you can come back by using the Recent list.
+
+### Linux setup
+
+#### Prerequisites
+
+* A Debian based Linux distribution (Ubuntu, Debian, etc.)
+
+#### Installation Steps
+
+1. At a terminal, update the package list and install Git:
+```bash
+sudo apt update && sudo apt upgrade -y && sudo apt install apt-utils git -y
+```
+2. Clone devenv repository:
+```bash
+git clone git@github.com:YOUR-ORG/devenv.git
+```
+3. Navigate to the project directory:
+```bash
+cd devenv
+```
+4. Execute the [setup script](#running-the-setup-script):
+```bash
+./setup
+```
+> Note: The setup script will prompt you for environment details and SSH key configuration for private repositories.
+5. At the repo root and launch Visual Studio Code pointing at the repo root.  If it asks you to trust the authors, say yes for the whole path.  Note that if `code` is not found, you may need to add it to the path.  See the next step.:
+```bash
+code .
+```
+6. If `code` command is not found from the terminal, open Visual Studio Code normally and add it to your PATH:
+   - Open the Command Palette (⌘+⇧+P)
+   - Type `Shell Command: Install 'code' command in PATH` and select it
+   - Close VS Code
+   - Restart your terminal and try `code .` again from the project directory
+7. VS Code Container Configuration:
+- Wait for VS Code to detect the dev container configuration
+- If not prompted automatically, open the Command Palette (⌘+⇧+P)
+- Select `Remote-Containers: Reopen in Container`
+8. Initial Container Build:
+- The first build may take several minutes
+- Wait for the bootstrap process to complete
+- When port opening messages appear in the container output log:
+  1. Close VS Code
+  2. Or use Command Palette to select "Reload Window"
+9. Relaunch VS Code:
+- Open VS Code again
+- When prompted, select "Reopen in Container"
+- Alternatively, use the Command Palette to manually reopen in container
+
+Now your development environment is fully configured and ready for coding!
+
+#### Notes
+- Initial container builds take longer; subsequent starts will be faster
+- Ensure all ports are properly opened before starting development
+- Keep VS Code updated for optimal container development experience
 
 ## Running the setup script
 
-The [setup script](./setup) will ask you a few questions about your environment and help you configure everything needed for development. It will also optionally install Docker or Podman if not already present. The script saves your answers to a hidden folder in the local repo `.setup` and will not ask you the same question twice if you have already run it previously and provided answers. If you want to run `setup` from the beginning, simply delete files from the `.setup` folder.
+The [setup script](./setup) will ask you a few questions about your environment and allow you to specify your SSH key to the private repos.  It will also install the necessary tools on your host machine to work with the dev container.  The script saves your answers to a hidden folder in the local repo `.setup` and will not ask you the same question twice if you have already run it previously and provided answers.  If you want to run `setup` from the beginning, simply delete any files from the `.setup` folder.  
 
 The script will ask you for the following information:
 
-* **Your name**: This is the name by which you will be identified in all commits.
-* **Your organization email**: This identifies you by email in all commits.
-* **Your timezone**: This is in order to correctly display your local time within the container. By default, the script will attempt to determine your time zone. If it does so correctly, then you can just hit ENTER and accept the default.
-* **GitHub username**: Your GitHub account username (not email).
-* **GitHub organization**: The GitHub organization that owns your repositories. The setup script will attempt to auto-detect this from the devenv repository's remote URL. This is used by repository management scripts to clone and create repositories.
-* **GitHub PAT**: The Personal Access Token allows package access and other functions from the dev environment. You can create one by going to [GitHub Settings → Developer Settings → Personal Access Tokens → Tokens (classic)](https://github.com/settings/tokens/new). The recommended note should be 'GH_TOKEN' and the expiration should be 'No Expiration'. This token should have the following scopes:
-  - **repo** (all) - Full control of private repositories
-  - **read:packages** - Download packages from GitHub Package Registry
-  - **read:org** - Read org and team membership, read org projects
-  - **write:discussion** - Write access to discussions
-  - **project** - Full control of projects
-
-![PAT permissions](./docs/github_pat_scopes.png)
-
-* **Digital Ocean API Token** (optional): If you plan to use Digital Ocean infrastructure tools, you can provide your API token during setup. This enables scripts like `terraform-plan.sh` and other infrastructure utilities to interact with your Digital Ocean account. You can create an API token at [Digital Ocean Account Settings → API → Tokens/Keys](https://cloud.digitalocean.com/account/api/tokens). The token will be validated during setup.
-
-* **Container Runtime**: If neither Docker nor Podman is installed, the script will offer to install one for you. Choose Docker for traditional setup or Podman for a rootless, daemonless alternative.
+* Your human name:  This is the name by which you will be identified in all commits.  This is YOUR NAME AS A HUMAN BEING, not your username.  The name your mother calls you when she's angry.
+* Your omsnic.com email:  This identifies you by email in all commits. 
+* Your timezone:  This is in order to correctly display your local time within the container.  By default, the script will attempt to determine your time zone.  If it does so correctly, then you can just hit ENTER and accept the default. 
+* A PAT:  The Personal Access Token is what allows package access and other functions from the dev environment.  The recommended note should be 'AZURE_TOKEN' and the expiration should be one year.  This token should have the following permissions:
+   - Work Items: Read & write
+   - Code: Read & write, Status
+   - Build: Read & Execute
+   - Packaging: Read
+* You may also be asked other questions that have to do with installing or minimally configuring your host environment.
 
 ## Creating the Dev Container
 

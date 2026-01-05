@@ -12,7 +12,24 @@ Clones a repository from GitHub into the `repos/` folder.
 
 **Usage:**
 ```bash
-repo-get <repository-name>
+repo-get [--select] [<repository-name>]
+```
+
+**Options:**
+- `--select`: Show an interactive selection menu of repositories in the organization (excludes already cloned repos)
+- `<repository-name>`: Name of the repository to clone/update
+- No arguments: Update the current repository (based on git context)
+
+**Examples:**
+```bash
+# Interactive selection from available repos
+repo-get --select
+
+# Clone or update a specific repository
+repo-get devops
+
+# Update current repository
+repo-get
 ```
 
 **Notes:**
@@ -22,6 +39,7 @@ repo-get <repository-name>
 - Runs `.repo/init.sh` and `.repo/update.sh` hooks if present
 - Supports partial repo names for convenience
 - Prevents cloning into reserved directories
+- Interactive selection requires `fzf` (pre-installed in dev container)
 
 *Note: `get-repo` is a convenience alias for `repo-get`. Both forms work identically.*
 

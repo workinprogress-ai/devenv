@@ -42,7 +42,7 @@ assert_output_contains() {
     cd "$TEST_TEMP_DIR"  # Run from non-git directory
     run "$PROJECT_ROOT/tools/scripts/repo-get.sh" 2>/dev/null
     assert_failure
-    assert_output_contains "Failed to detect repository name"
+    assert_output_contains "Usage:"
 }
 
 @test "repo-get: rejects invalid characters in repo name" {

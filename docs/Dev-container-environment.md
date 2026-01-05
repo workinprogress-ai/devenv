@@ -16,7 +16,13 @@ Any repos cloned should be put under the `repos/` folder.  A command line alias 
 @toochevere ➜ ~/repos (<>) $ repo-get devops
 ```
 
-If the repos is not yet present under the `~/repos` folder then it will be cloned.  If it is present, it will be updated.   If the newly cloned repos has a `scripts` folder, then it will be automatically added to the `PATH` variable and any scripts will be available.  
+If the repos is not yet present under the `~/repos` folder then it will be cloned.  If it is present, it will be updated.   If the newly cloned repos has a `scripts` folder, then it will be automatically added to the `PATH` variable and any scripts will be available.
+
+You can also use `repo-get --select` to see an interactive menu of all repositories in your organization (excluding those already cloned), making it easy to discover and clone new repositories:
+
+```
+@toochevere ➜ ~/repos (<>) $ repo-get --select
+```  
 
 **Note** that part of the setup script asked for an SSH key.  This key is used to clone the private repos.  If you did not provide a key, you will not be able to clone the private repos. 
 
@@ -173,7 +179,7 @@ A few utility scripts have been provided to make life happy.
 * `docker-up` A utility to bring up a local docker configuration
 * `container-enable-dotnet-debugger` A utility to inject and run the dotnet debugger into a locally running container.
 * `file.io` A utility to push a file to the file.io file sharing site.
-* `repo-get` A utility to clone or update a repo in the `~/repos` folder.
+* `repo-get` A utility to clone or update a repo in the `~/repos` folder. Use `--select` for an interactive selection menu.
 * `repo-update-all` A utility to update all repos in the `~/repos` folder.
 * `pr-create-for-review` A utility to create a "progressive" or "final" PR for reviewing all changes.
 * `pr-create-for-merge` A utility to create a PR for merging code to the default branch.
