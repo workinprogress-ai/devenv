@@ -1,0 +1,188 @@
+# Repository type definitions for standardized repo creation and naming
+# This configuration defines naming patterns, templates, and branch protection rules
+# for different repository types in your organization.
+#
+# Each type specifies:
+#   - description: What this type is used for
+#   - template: Optional GitHub template repo to use (use --no-template to skip)
+#   - naming_pattern: Regex pattern that repo names must match
+#   - naming_example: Examples of valid repo names
+#   - branch_protection: Rules for master branch protection
+#   - post_creation_script: Script within repo to run after creation (relative path from repo root)
+#   - delete_post_creation_script: Whether to delete the script after running (default: true)
+#   - post_creation_commit_handling: How to handle changes after post-creation (none|amend|new)
+#       - none: No automatic commit, user must handle changes
+#       - amend: Amend initial commit and force push (if changes exist)
+#       - new: Create new commit with changes (if changes exist)
+
+types:
+  # Planning and documentation repositories
+  # Examples: planning.development.main, planning.roadmap
+  planning:
+    description: Planning and documentation repositories
+    template: template-planning
+    naming_pattern: '^planning(\.[a-z0-9-]+)?\..*[a-z0-9-]+$'
+    naming_example: "planning.development.main or planning.roadmap"
+    post_creation_script: null  # No post-creation script
+    delete_post_creation_script: true
+    post_creation_commit_handling: none
+    branch_protection:
+      require_pull_request: true
+      required_approving_review_count: 1
+      require_code_owner_reviews: false  # Not required for planning docs
+      dismiss_stale_reviews: false
+      require_conversation_resolution: true
+      delete_branch_on_merge: true
+      allow_force_pushes: false
+      allow_admin_bypass: true  # Admins can bypass for emergency fixes
+      required_status_checks: []  # No CI checks required
+
+  # Backend microservices
+  # Format: service.<category>.<name>
+  # Examples: service.platform.identity, service.stargate.resident-profile
+  service:
+    description: Backend microservices
+    template: template-service
+    naming_pattern: '^service\.[a-z0-9-]+\.[a-z0-9-]+$'
+    naming_example: "service.platform.identity or service.stargate.resident-profile"
+    post_creation_script: ".repo/post-create.sh"  # Run customization script
+    delete_post_creation_script: true  # Remove script after execution
+    post_creation_commit_handling: amend  # Clean up initial commit
+    branch_protection:
+      require_pull_request: true
+      required_approving_review_count: 1
+      require_code_owner_reviews: true  # Service code needs owner review
+      dismiss_stale_reviews: false
+      require_conversation_resolution: true
+      delete_branch_on_merge: true
+      allow_force_pushes: false
+      allow_admin_bypass: true
+      # When CI/CD ready, add: ["build", "test", "publish"]
+      required_status_checks: []
+
+  # API Gateway services
+  # Format: gateway.<category>.<name>
+  # Examples: gateway.platform.main, gateway.stargate.api
+  gateway:
+    description: API Gateway services
+    template: template-gateway
+    naming_pattern: '^gateway\.[a-z0-9-]+\.[a-z0-9-]+$'
+    naming_example: "gateway.platform.main or gateway.stargate.api"
+    post_creation_script: ".repo/post-create.sh"
+    delete_post_creation_script: true
+    post_creation_commit_handling: amend
+    branch_protection:
+      require_pull_request: true
+      required_approving_review_count: 1
+      require_code_owner_reviews: true  # Critical component
+      dismiss_stale_reviews: false
+      require_conversation_resolution: true
+      delete_branch_on_merge: true
+      allow_force_pushes: false
+      allow_admin_bypass: true
+      required_status_checks: []
+
+  # Web applications (React, Vue, etc.)
+  # Format: app.web.<name>
+  # Examples: app.web.admin-portal, app.web.resident-dashboard
+  app-web:
+    description: Web applications
+    template: template-app-web
+    naming_pattern: '^app\.web\.[a-z0-9-]+$'
+    naming_example: "app.web.admin-portal or app.web.resident-dashboard"
+    post_creation_script: ".repo/post-create.sh"
+    delete_post_creation_script: true
+    post_creation_commit_handling: amend
+    branch_protection:
+      require_pull_request: true
+      required_approving_review_count: 1
+      require_code_owner_reviews: true
+      dismiss_stale_reviews: false
+      require_conversation_resolution: true
+      delete_branch_on_merge: true
+      allow_force_pushes: false
+      allow_admin_bypass: true
+      required_status_checks: []
+
+  # C# libraries and packages published to GitHub/NuGet
+  # Format: lib.cs.<category>[.<subcategory>].<name>
+  # Examples: lib.cs.common.utilities, lib.cs.platform.auth.core
+  cs-library:
+    description: C# libraries and packages
+    template: template-cs-library
+    naming_pattern: '^lib\.cs\.[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z0-9-]+$'
+    naming_example: "lib.cs.common.utilities or lib.cs.platform.auth.core"
+    post_creation_script: ".repo/post-create.sh"
+    delete_post_creation_script: true
+    post_creation_commit_handling: amend
+    branch_protection:
+      require_pull_request: true
+      required_approving_review_count: 1
+      require_code_owner_reviews: true  # Library code affects many services
+      dismiss_stale_reviews: false
+      require_conversation_resolution: true
+      delete_branch_on_merge: true
+      allow_force_pushes: false
+      allow_admin_bypass: true
+      required_status_checks: []
+
+  # TypeScript/JavaScript packages
+  # Format: pkg.ts.<name>
+  # Examples: pkg.ts.ui-components, pkg.ts.api-client
+  ts-package:
+    description: TypeScript/JavaScript packages
+    template: template-ts-package
+    naming_pattern: '^pkg\.ts\.[a-z0-9-]+$'
+    naming_example: "pkg.ts.ui-components or pkg.ts.api-client"
+    post_creation_script: ".repo/post-create.sh"
+    delete_post_creation_script: true
+    post_creation_commit_handling: amend
+    branch_protection:
+      require_pull_request: true
+      required_approving_review_count: 1
+      require_code_owner_reviews: true
+      dismiss_stale_reviews: false
+      require_conversation_resolution: true
+      delete_branch_on_merge: true
+      allow_force_pushes: false
+      allow_admin_bypass: true
+      required_status_checks: []
+
+  # Repositories with no enforced naming or protection
+  # Use for experimental, temporary, or special-case repos
+  # These can have any kebab-case name
+  none:
+    description: No enforced rules
+    template: null
+    naming_pattern: '^[a-z0-9-]+$'
+    naming_example: "any-valid-repo-name"
+    post_creation_script: null
+    delete_post_creation_script: true
+    post_creation_commit_handling: none
+    branch_protection:
+      require_pull_request: false
+      required_approving_review_count: 0
+      require_code_owner_reviews: false
+      dismiss_stale_reviews: false
+      require_conversation_resolution: false
+      delete_branch_on_merge: false
+      allow_force_pushes: true
+      allow_admin_bypass: true
+      required_status_checks: []
+  # Use for experimental, temporary, or special-case repos
+  # These can have any kebab-case name
+  none:
+    description: Repositories with no enforced naming or protection
+    template: null  # No template used
+    naming_pattern: '^[a-z0-9][a-z0-9-]*[a-z0-9]$'
+    naming_example: "any-valid-repo-name"
+    branch_protection:
+      require_pull_request: false  # No PR requirement
+      required_approving_review_count: 0
+      require_code_owner_reviews: false
+      dismiss_stale_reviews: false
+      require_conversation_resolution: false
+      delete_branch_on_merge: true
+      allow_force_pushes: false
+      allow_admin_bypass: true
+      required_status_checks: []

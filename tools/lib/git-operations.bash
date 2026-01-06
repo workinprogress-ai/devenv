@@ -430,6 +430,128 @@ check_target_repo() {
 }
 
 # ============================================================================
+# GitHub Repository Protection
+# ============================================================================
+
+# Configure branch protection for a GitHub repository
+#
+# Applies branch protection rules to a specified branch (typically master/main)
+# using the GitHub API via gh CLI. Supports comprehensive protection settings
+# including PR requirements, reviews, status checks, and merge restrictions.
+#
+# Usage:
+#   configure_branch_protection "owner/repo" "master" '{...protection settings...}'
+#   configure_branch_protection "$full_repo_name" "$branch_name" "$protection_json"
+#
+# Arguments:
+#   $1 - Full repository name (owner/repo format, required)
+#   $2 - Branch name to protect (required, e.g., "master", "main")
+#   $3 - JSON protection payload with settings (required)
+#
+# Protection Payload Fields:
+#   required_status_checks         - Status checks configuration (object or null)
+#   enforce_admins                 - Whether to enforce rules for admins (bool)
+#   required_pull_request_reviews  - PR review requirements (object)
+#   restrictions                   - Push restrictions (object or null)
+#   allow_force_pushes             - Allow force pushes (bool)
+#   allow_deletions                - Allow branch deletion (bool)
+#   required_conversation_resolution - Require conversation resolution (bool)
+#
+# Returns:
+#   0 on success, 1 on failure
+#   Outputs success/warning message to stdout
+#
+# Examples:
+#   protection_payload='{
+#     "required_status_checks": null,
+#     "enforce_admins": false,
+#     "required_pull_request_reviews": {
+#       "required_approving_review_count": 1,
+#       "require_code_owner_reviews": true,
+#       "dismiss_stale_reviews": true
+#     },
+#     "restrictions": null,
+#     "allow_force_pushes": false,
+#     "allow_deletions": false,
+#     "required_conversation_resolution": true
+#   }'
+#   configure_branch_protection "myorg/myrepo" "master" "$protection_payload"
+#
+# Notes:
+#   - Requires gh CLI authentication with repo admin permissions
+#   - Branch must exist before protection can be applied
+#   - Settings are applied atomically; partial updates not supported
+#
+configure_branch_protection() {
+    local full_name="$1"
+    local branch_name="$2"
+    local protection_payload="$3"
+    
+    if [ -z "$full_name" ] || [ -z "$branch_name" ] || [ -z "$protection_payload" ]; then
+        echo "ERROR: full_name, branch_name, and protection_payload are required" >&2
+        return 1
+    fi
+    
+    # Apply branch protection
+    if gh api -X PUT "repos/${full_name}/branches/${branch_name}/protection" \
+        --input - <<< "$protection_payload" >/dev/null 2>&1; then
+        echo "  ✓ Branch protection configured for $branch_name"
+        return 0
+    else
+        echo "  WARNING: Could not configure branch protection (branch may not exist yet)"
+        echo "  Run this after pushing your first commit to $branch_name"
+        return 1
+    fi
+}
+
+# Set repository-level settings via GitHub API
+#
+# Updates repository-level settings such as delete_branch_on_merge, wikis,
+# issues, projects, etc. using the GitHub API via gh CLI.
+#
+# Usage:
+#   set_repo_setting "owner/repo" "delete_branch_on_merge" "true"
+#   set_repo_setting "$full_repo_name" "has_wiki" "false"
+#
+# Arguments:
+#   $1 - Full repository name (owner/repo format, required)
+#   $2 - Setting name (required, see GitHub API docs for valid fields)
+#   $3 - Setting value (required, typically "true"/"false" or string)
+#
+# Returns:
+#   0 on success, 1 on failure
+#   Outputs success/warning message to stdout
+#
+# Examples:
+#   set_repo_setting "myorg/myrepo" "delete_branch_on_merge" "true"
+#   set_repo_setting "myorg/myrepo" "has_issues" "true"
+#   set_repo_setting "myorg/myrepo" "default_branch" "main"
+#
+# Notes:
+#   - Requires gh CLI authentication with repo admin permissions
+#   - Uses PATCH method to update only specified fields
+#   - See GitHub API docs for complete list of available settings
+#
+set_repo_setting() {
+    local full_name="$1"
+    local setting_name="$2"
+    local setting_value="$3"
+    
+    if [ -z "$full_name" ] || [ -z "$setting_name" ] || [ -z "$setting_value" ]; then
+        echo "ERROR: full_name, setting_name, and setting_value are required" >&2
+        return 1
+    fi
+    
+    if gh api -X PATCH "repos/${full_name}" -f "${setting_name}=${setting_value}" >/dev/null 2>&1; then
+        echo "  ✓ Repository setting '$setting_name' set to '$setting_value'"
+        return 0
+    else
+        echo "  WARNING: Could not set repository setting '$setting_name'"
+        return 1
+    fi
+}
+
+# ============================================================================
 # Export Functions
 # ============================================================================
 
@@ -456,3 +578,5 @@ export -f configure_git_repo
 export -f configure_git_global
 export -f add_git_safe_directory
 export -f check_target_repo
+export -f configure_branch_protection
+export -f set_repo_setting

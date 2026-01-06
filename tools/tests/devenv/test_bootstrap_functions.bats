@@ -21,7 +21,7 @@ load ../test_helper
 }
 
 @test "bootstrap.bash declares key functions" {
-  run grep -E "^(initialize_paths|detect_architecture|ensure_home_is_set|ensure_bash_is_default_shell|load_version_info|run_tasks)\(\)" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  run grep -E "^(initialize_paths|detect_architecture|ensure_home_is_set|ensure_bash_is_default_shell|install_yq|load_version_info|run_tasks)\(\)" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
   [ "$status" -eq 0 ]
 }
 
@@ -114,10 +114,10 @@ EOF
 
 
 @test "run_tasks default task list is ordered" {
-  run bash -c "grep -A40 'local default_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'"
+  run bash -c "grep -A45 'local default_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'"
   [ "$status" -eq 0 ]
   [[ "$output" =~ initialize_paths ]]
-  [[ "$output" =~ ensure_bash_is_default_shell ]]
+  [[ "$output" =~ install_yq ]]
   [[ "$output" =~ finish_message ]]
   [[ "$output" =~ configure_nuget_sources ]]
 }
@@ -166,17 +166,32 @@ EOF
 }
 
 @test "ensure_bash_is_default_shell is included in default task list" {
-  run bash -c "grep -A40 'local default_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep 'ensure_bash_is_default_shell'"
+  run bash -c "grep -A45 'local default_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep 'ensure_bash_is_default_shell'"
   [ "$status" -eq 0 ]
 }
 
 @test "ensure_bash_is_default_shell runs after ensure_home_is_set" {
   run bash -c "
-    tasks=\$(grep -A40 'local default_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+    tasks=\$(grep -A45 'local default_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
     home_line=\$(echo \"\$tasks\" | grep -n 'ensure_home_is_set' | cut -d: -f1)
     bash_line=\$(echo \"\$tasks\" | grep -n 'ensure_bash_is_default_shell' | cut -d: -f1)
     [ \"\$bash_line\" -gt \"\$home_line\" ] && echo 'ordered_correctly' || echo 'wrong_order'
   "
   [ "$status" -eq 0 ]
   [[ "$output" =~ "ordered_correctly" ]]
+}
+
+@test "bootstrap.bash defines install_yq function" {
+  run grep "^install_yq()" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "install_yq function downloads from mikefarah repository" {
+  run grep "mikefarah/yq" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "install_yq is included in default task list" {
+  run bash -c "grep -A45 'local default_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep 'install_yq'"
+  [ "$status" -eq 0 ]
 }

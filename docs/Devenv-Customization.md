@@ -1,18 +1,16 @@
 # Customization Guide for the Devenv
 
-If you've forked this repository for your organization, this guide explains what needs to be customized.
+If you've forked this repository for your organization, this guide explains what to configure so the environment matches your org. The essentials live in `devenv.config`; repository-creation standards live in `tools/config/repo-types.yaml`.
 
-## Quick Start
+## Quick Checklist
 
-When you fork this repository, you only need to customize **one file**:
+- ✅ Update `devenv.config` for org identity, container name, workflows, and bootstrap defaults
+- ✅ (If you use repo creation tooling) Update `tools/config/repo-types.yaml` for naming, templates, branch protection, and post-creation scripts
+- ✅ Create/adjust template repos per type (recommended) so new repos start with CI, CODEOWNERS, and hooks
 
-**`devenv.config`** - All organization-specific settings in one place
+## Required: devenv.config
 
-That's it! No code changes needed.
-
-## What Needs Customization
-
-Edit `devenv.config` in the root directory and update the following sections:
+Edit `devenv.config` in the root directory:
 
 ### [organization]
 
@@ -23,9 +21,9 @@ github_org=your-org
 email_domain=yourorg.com
 ```
 
-- **name**: Your organization name (used in documentation and branding)
-- **github_org**: Your GitHub organization (used for repository cloning and NuGet feeds)
-- **email_domain**: Email domain for commit validation (or leave empty to accept any valid email)
+- **name**: Organization name (for docs/branding)
+- **github_org**: GitHub org/user used for cloning and feeds
+- **email_domain**: Enforced commit email domain (empty = any valid email)
 
 ### [container]
 
@@ -34,7 +32,7 @@ email_domain=yourorg.com
 name=YourOrg Dev Environment
 ```
 
-- **name**: The name displayed in VS Code for the dev container
+- **name**: Display name for the dev container
 
 ### [workflows]
 
@@ -44,8 +42,8 @@ status_workflow=Backlog,Ready,In Progress,In review,Done
 issue_types=story,bug
 ```
 
-- **status_workflow**: Your team's issue workflow (comma-separated, in order)
-- **issue_types**: Issue types your team uses (comma-separated)
+- **status_workflow**: Your issue flow, ordered
+- **issue_types**: Issue types used by your teams
 
 ### [bootstrap]
 
@@ -54,11 +52,23 @@ issue_types=story,bug
 validate_config=true
 ```
 
-- **validate_config**: Whether to validate the config on startup (recommended: true)
+- **validate_config**: Validate config on startup (recommended: true)
 
-## Customization Examples
+## Repo Creation Standards (repo-create.sh)
 
-### Example 1: Small Startup
+If you use `tools/scripts/repo-create.sh`, configure `tools/config/repo-types.yaml`:
+
+- **Naming**: `naming_pattern` and `naming_example` per type (e.g., service.*, gateway.*, app.web.*)
+- **Templates**: `template` per type (or null) to pre-bake CI, CODEOWNERS, and .repo scripts
+- **Post-creation**: `post_creation_script`, `delete_post_creation_script`, and `post_creation_commit_handling` (`none|amend|new`)
+- **Branch protection**: counts/owners/conversation rules, `allow_force_pushes`, `allow_admin_bypass`, `delete_branch_on_merge`
+- **Status checks**: `required_status_checks` should list the exact check run names from your CI (e.g., `Devenv Tests / test`)
+
+Tip: Keep a lightweight template repo for each type so new repos start with pipelines and policies already in place.
+
+## devenv.config Examples
+
+### Small Startup
 
 ```ini
 [organization]
@@ -74,7 +84,7 @@ status_workflow=Backlog,In Progress,Done
 issue_types=story,bug
 ```
 
-### Example 2: Enterprise Organization
+### Enterprise Organization
 
 ```ini
 [organization]
@@ -90,39 +100,22 @@ status_workflow=Backlog,Ready,In Progress,In review,Testing,Done
 issue_types=story,bug
 ```
 
----
+## What You Should NOT Change (unless you want to maintain your fork)
 
-## What You Should NOT Change
+- Test infrastructure (unless enhancing it)
+- Error handling libraries
+- Git configuration helpers
+- Version comparison logic
+- Core script templates
+- Bootstrap framework
 
-- ✅ Test infrastructure (unless you want to enhance it)
-- ✅ Error handling libraries
-- ✅ Git configuration helpers
-- ✅ Version comparison logic
-- ✅ Core script templates
-- ✅ Bootstrap script itself
-
-These are generic and should work for any organization.
-
----
+These are intended to be generic and reused across orgs.
 
 ## Advanced Customization
 
-### Bootstrap Customization
-
-For more advanced customization of the development environment bootstrap process, see [Bootstrap-Customization.md](./Bootstrap-Customization.md).
-
-This guide covers:
-- Modular bootstrap functions
-- Selective bootstrap execution
-- Creating custom bootstrap tasks
-- Function overrides
-- Environment-based bootstrap flows
-
----
+For deeper bootstrap tweaks, see [Bootstrap-Customization.md](./Bootstrap-Customization.md) (modular tasks, overrides, env-based flows).
 
 ## Contributing Improvements Back
-
-If you make improvements that would benefit other organizations, consider contributing them back:
 
 1. Fork the main devenv repository
 2. Create a feature branch
@@ -130,11 +123,9 @@ If you make improvements that would benefit other organizations, consider contri
 4. Ensure all tests pass
 5. Submit a pull request
 
-See [Contributing](./docs/Contributing.md) for more details.
-
----
+See [Contributing](./Contributing.md) for more details.
 
 ## Getting Help
 
-- Check `docs/` folder for feature-specific documentation
+- Check the `docs/` folder for feature-specific topics
 - Review test files in `tools/tests/` for usage examples

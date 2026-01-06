@@ -161,6 +161,46 @@ reset_bashrc_to_original() {
     cp ~/.bashrc.original ~/.bashrc
 }
 
+# Install yq (mikefarah version) for YAML processing
+install_yq() {
+    echo "# Install yq (YAML processor)"
+    echo "#############################################"
+    
+    if command -v yq >/dev/null 2>&1; then
+        echo "yq already installed"
+        return 0
+    fi
+    
+    # Detect architecture
+    local arch
+    arch=$(uname -m)
+    local yq_arch="amd64"
+    if [ "$arch" = "aarch64" ]; then
+        yq_arch="arm64"
+    fi
+    
+    # Get latest version
+    local yq_version
+    yq_version=$(curl -s https://api.github.com/repos/mikefarah/yq/releases/latest | grep -oP '"tag_name": "\K[^"]*')
+    
+    if [ -z "$yq_version" ]; then
+        echo "WARNING: Could not determine yq version, using v4.35.1"
+        yq_version="v4.35.1"
+    fi
+    
+    local yq_url="https://github.com/mikefarah/yq/releases/download/${yq_version}/yq_linux_${yq_arch}"
+    
+    echo "Downloading yq ${yq_version}..."
+    if wget -q -O /tmp/yq "$yq_url"; then
+        sudo chmod +x /tmp/yq
+        sudo mv /tmp/yq /usr/local/bin/yq
+        echo "✓ yq installed successfully"
+    else
+        echo "ERROR: Failed to download yq from $yq_url"
+        exit 1
+    fi
+}
+
 # Install first round of OS packages
 install_os_packages_round1() {
     echo "# OS packages update and install - First round"
@@ -722,6 +762,7 @@ run_tasks() {
         load_config
         prepare_install_directories
         reset_bashrc_to_original
+        install_yq
         install_os_packages_round1
         add_specialized_repositories
         install_os_packages_round2

@@ -403,3 +403,29 @@ body" "789")
     
     unset GIT_CONFIG_GLOBAL
 }
+
+################################################################################
+# GitHub Repository Protection Tests
+################################################################################
+
+@test "git-operations.bash exports configure_branch_protection function" {
+    run bash -c "source $PROJECT_ROOT/tools/lib/git-operations.bash && declare -F configure_branch_protection"
+    [ "$status" -eq 0 ]
+}
+
+@test "git-operations.bash exports set_repo_setting function" {
+    run bash -c "source $PROJECT_ROOT/tools/lib/git-operations.bash && declare -F set_repo_setting"
+    [ "$status" -eq 0 ]
+}
+
+@test "configure_branch_protection requires all parameters" {
+    run bash -c "source $PROJECT_ROOT/tools/lib/git-operations.bash && configure_branch_protection"
+    [ "$status" -ne 0 ]
+    [[ "$output" =~ "required" ]]
+}
+
+@test "set_repo_setting requires all parameters" {
+    run bash -c "source $PROJECT_ROOT/tools/lib/git-operations.bash && set_repo_setting"
+    [ "$status" -ne 0 ]
+    [[ "$output" =~ "required" ]]
+}

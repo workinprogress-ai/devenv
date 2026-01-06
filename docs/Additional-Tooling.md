@@ -43,6 +43,58 @@ repo-get
 
 *Note: `get-repo` is a convenience alias for `repo-get`. Both forms work identically.*
 
+### `repo-create`
+
+Creates a new GitHub repository using standardized org rules, then clones it locally and optionally runs a post-creation script.
+
+**Usage:**
+```bash
+repo-create.sh <repo-name> --type <type> [options]
+repo-create.sh --interactive                  # prompts for type and name
+```
+
+**Key options:**
+- `--type <type>`: Required (planning|service|gateway|app-web|cs-library|ts-package|none)
+- `--interactive` / `-i`: fzf-driven type picker + name prompt
+- `--public` | `--private`: Visibility (default: private)
+- `--description <text>`: Repo description
+- `--no-template`: Skip the type’s template repo
+- `--no-branch-protection`: Skip protection setup
+- `--no-clone`: Do not clone after creation
+- `--no-post-creation`: Skip running the post-creation script (if defined)
+
+**What it enforces:**
+- Naming patterns per type (see `tools/config/repo-types.yaml`)
+- Branch protection on `master` using `gh api`
+- Template repos per type (optional, can be skipped)
+- Local clone via `repo-get` after creation
+- Post-creation script execution (per type) with configurable commit handling
+
+**Post-creation behavior (from repo-types.yaml):**
+- `post_creation_script`: Path in the repo (e.g., `.repo/post-create.sh`). If present, it runs after clone.
+- `delete_post_creation_script`: If true, script is deleted after it runs (default: true).
+- `post_creation_commit_handling`: `none` | `amend` | `new`
+    - `amend`: Amend the initial commit and force-push if the script made changes
+    - `new`: Create a new commit and push if there are changes
+    - `none`: Leave changes unstaged; user decides
+
+**Branch protection checks (`required_status_checks`):**
+List the check run names that must pass before merging. For GitHub Actions, the format is typically:
+```
+"<Workflow name> / <job name>"
+```
+Examples for this repo:
+- CI workflow: `Devenv Tests / test`
+- Release workflow job (runs on master): `Publish release / tag`
+
+Add these strings under the type’s `branch_protection.required_status_checks` array when you want them enforced. If you don’t have CI yet, leave the array empty (`[]`).
+
+**Interactive mode:**
+- Uses `fzf` to pick a type and shows an example name; prompts for repo name.
+- Applies all rules above after selection.
+
+**Config file:** `tools/config/repo-types.yaml` controls types, templates, naming patterns, branch protection, post-creation scripts, and commit handling.
+
 ### `repo-update-all`
 
 Updates all repositories in the `repos/` folder in parallel.

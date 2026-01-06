@@ -3,6 +3,9 @@
 
 set -euo pipefail
 
+# Set DEVENV_TOOLS if not already set (for local runs)
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/tools}"
+
 TESTS_DIR="$DEVENV_TOOLS/tests"
 
 echo "Running Devenv test suite..."
