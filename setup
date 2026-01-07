@@ -30,18 +30,6 @@ get_script_path() {
   fi
 }
 
-# Function to create SSH key
-# create_ssh_key() {
-#   ssh-keygen -t rsa -b 4096 -C "$email" -f "$SETUP_DIR/github_key" -N ""
-#   echo "SSH key created: $SETUP_DIR/github_key"
-#   echo "Public key:"
-#   cat "$SETUP_DIR/github_key.pub"
-#   echo "Instructions to add this key to GitHub:"
-#   echo "1. Copy the above public key."
-#   echo "2. Go to GitHub -> Settings -> SSH and GPG keys -> New SSH Key.  Here is a link:  https://github.com/settings/tokens/new"
-#   echo "3. Paste the copied key and save."
-# }
-
 # Function to save a response to a file
 save_response() {
   local question="$1"
@@ -51,28 +39,109 @@ save_response() {
     read -r response
     if [ -n "$response" ]; then
       echo "$response" > "$SETUP_DIR/$file_name"
+      chmod 600 "$SETUP_DIR/$file_name"
     fi
   fi
 }
 
-save_ssh_key() {
-  local file_name="$1"
-  if [ ! -f "$SETUP_DIR/$file_name" ]; then
-    echo "Please paste the SSH key for use with GitHub (end with an empty line):"
-    ssh_key=""
-    while IFS= read -r line; do
-      [ -z "$line" ] && break
-      ssh_key="${ssh_key}${line}\n"
-    done
-    echo -e "$ssh_key" > "$SETUP_DIR/$file_name"
+# Function to secure a file (readable by owner only)
+secure_file() {
+  local file_path="$1"
+  if [ -f "$file_path" ]; then
+    chmod 600 "$file_path"
+  fi
+}
 
-    # Verify the SSH key format
-    if ! grep -q -E '^-----BEGIN OPENSSH PRIVATE KEY-----' "$SETUP_DIR/$file_name"; then
-      echo "Invalid SSH key format. Please try again."
-      rm "$SETUP_DIR/$file_name"
-      save_ssh_key "$file_name"
+validate_github_pat() {
+  local token_file="$SETUP_DIR/github_token.txt"
+
+  while true; do
+  if [ ! -s "$token_file" ]; then
+    echo "Paste a GitHub PAT (must start with ghp_ and include: repo, read:packages, read:org, write:discussion, project):"
+    read -r new_token
+    if [ -n "$new_token" ]; then
+      echo "$new_token" > "$token_file"
+      chmod 600 "$token_file"
+      else
+        continue
     fi
   fi
+
+  # Prompt for GitHub organization if not already set
+  if [ ! -f "$SETUP_DIR/github_org.txt" ]; then
+    # Try to extract organization from git remote URL
+    detected_org=""
+    if git remote get-url origin &>/dev/null; then
+      remote_url=$(git remote get-url origin)
+      # Extract org from SSH URL: git@github.com:org/repo.git
+      if [[ "$remote_url" =~ git@github\.com:([^/]+)/ ]]; then
+        detected_org="${BASH_REMATCH[1]}"
+      # Extract org from HTTPS URL: https://github.com/org/repo.git
+      elif [[ "$remote_url" =~ github\.com[:/]([^/]+)/ ]]; then
+        detected_org="${BASH_REMATCH[1]}"
+      fi
+    fi
+    
+    if [ -n "$detected_org" ]; then
+      echo "Enter your GitHub organization name [default: $detected_org]:"
+    else
+      echo "Enter your GitHub organization name:"
+    fi
+    read -r github_org
+    
+    # Use detected org as default if user presses enter without input
+    if [ -z "$github_org" ] && [ -n "$detected_org" ]; then
+      github_org="$detected_org"
+    fi
+    
+    if [ -n "$github_org" ]; then
+      echo "$github_org" > "$SETUP_DIR/github_org.txt"
+      chmod 600 "$SETUP_DIR/github_org.txt"
+      echo "GitHub organization set to: $github_org"
+    fi
+  fi
+
+  GH_TOKEN=$(cat "$token_file")
+
+  if [[ "$GH_TOKEN" != ghp_* ]]; then
+    echo "Token must start with ghp_. Please create a new token and paste it."
+    : > "$token_file"
+    continue
+  fi
+    chmod 600 "$token_file"
+    break
+  done
+}
+
+validate_digitalocean_token() {
+  local token_file="$SETUP_DIR/digitalocean_token.txt"
+
+  while true; do
+    if [ ! -s "$token_file" ]; then
+      echo "Paste your Digital Ocean API token (from https://cloud.digitalocean.com/account/api/tokens):"
+      read -r new_token
+      if [ -n "$new_token" ]; then
+        echo "$new_token" > "$token_file"
+        chmod 600 "$token_file"
+      else
+          echo "Token is required. Skipping Digital Ocean token setup."
+        return
+      fi
+    fi
+
+    DO_API_TOKEN=$(cat "$token_file")
+
+    # Test the token by making a simple API call
+    if curl -s -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $DO_API_TOKEN" "https://api.digitalocean.com/v2/account" > /dev/null 2>&1; then
+      echo "Digital Ocean API token validated successfully."
+      chmod 600 "$token_file"
+      break
+    else
+      echo "Invalid Digital Ocean API token. Please check and try again."
+      : > "$token_file"
+      continue
+    fi
+  done
 }
 
 script_path=$(get_script_path)
@@ -82,17 +151,25 @@ toolbox_root=$(dirname "$script_path")
 # Ensure the setup directory exists
 SETUP_DIR="$toolbox_root/.setup"
 mkdir -p "$SETUP_DIR"
+chmod 700 "$SETUP_DIR"
 
 # Asking questions
 save_response "What is your HUMAN name?" "name.txt"
 save_response "What is your github user (just the USER, not your email)?" "github_user.txt"
-echo "For the next step, you will need to paste a PAT (personal access token) from github.  It should have the following access"
-echo "- 'repo'   (all)" 
-echo "- 'read:packages'"
-echo "- 'read: org'" 
-echo "You can create one with this link: https://github.com/settings/tokens/new"
-echo "See the README for information about how to create a PAT."
-save_response "Paste a github token that has package access." "github_token.txt"
+echo "For the next step, you will need a GitHub PAT (personal access token)."
+echo "Create a classic token at: https://github.com/settings/tokens/new"
+echo "Required scopes: repo, read:packages, read:org, write:discussion, project"
+echo "See the README for detailed instructions."
+save_response "Paste your GitHub PAT (starts with ghp_):" "github_token.txt"
+validate_github_pat
+
+echo ""
+echo "Optionally, configure your Digital Ocean API token for infrastructure operations."
+read -p "Do you want to set up Digital Ocean API token? (yes/no) " setup_do
+if [[ "$setup_do" == "yes" ]] || [[ "$setup_do" == "y" ]]; then
+  validate_digitalocean_token
+fi
+
 timezone=$(cat /etc/timezone)
 save_response "What is your timezone?  Hit ENTER for $timezone" "timezone.txt"
 if [ ! -f "$SETUP_DIR/timezone.txt" ]; then
@@ -100,43 +177,242 @@ if [ ! -f "$SETUP_DIR/timezone.txt" ]; then
 fi
 
 if [ ! -f "$SETUP_DIR/email.txt" ]; then
+    # Load email_domain from devenv.config if available
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    CONFIG_FILE="$SCRIPT_DIR/devenv.config"
+    EMAIL_DOMAIN=""
+    
+    if [ -f "$CONFIG_FILE" ]; then
+        EMAIL_DOMAIN=$(grep -E '^\s*email_domain\s*=' "$CONFIG_FILE" | cut -d'=' -f2 | xargs)
+    fi
+    
     while true; do
-        save_response "What is your email? (must be in the domain @workinprogress.ai)" "email.txt"
-        email=$(cat "$SETUP_DIR/email.txt")
-        if [[ "$email" == *@workinprogress.ai ]]; then
-            echo "Email accepted"
-            break
+        if [ -z "$EMAIL_DOMAIN" ]; then
+            save_response "What is your email?" "email.txt"
         else
-            echo "Invalid email domain. Please enter an email with the domain @workinprogress.ai"
-            rm "$SETUP_DIR/email.txt"
+            save_response "What is your email? (must be in the domain @$EMAIL_DOMAIN)" "email.txt"
+        fi
+        
+        email=$(cat "$SETUP_DIR/email.txt")
+        
+        # If no email_domain configured, accept any valid email format
+        if [ -z "$EMAIL_DOMAIN" ]; then
+            if [[ "$email" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+                echo "Email accepted"
+                break
+            else
+                echo "Invalid email format. Please enter a valid email address."
+                rm "$SETUP_DIR/email.txt"
+            fi
+        else
+            # If email_domain is configured, validate against it
+            if [[ "$email" == *@$EMAIL_DOMAIN ]]; then
+                echo "Email accepted"
+                break
+            else
+                echo "Invalid email domain. Please enter an email with the domain @$EMAIL_DOMAIN"
+                rm "$SETUP_DIR/email.txt"
+            fi
         fi
     done
 fi
 
-# if [ ! -f "$SETUP_DIR/github_key" ]; then
-#     while true; do
-#         echo "Do you need to create a GitHub SSH key? (yes/no)"
-#         read -r create_key
-#         if [[ "$create_key" == "yes" ]]; then
-#             create_ssh_key
-#             break
-#         elif [[ "$create_key" == "no" ]]; then
-#             save_ssh_key "github_key"
-#             break
-#         else
-#             echo "Invalid response. Please answer 'yes' or 'no'."
-#         fi
-#     done
-# fi
+# Ensure email variable is populated if the file already existed
+if [ -z "${email:-}" ] && [ -f "$SETUP_DIR/email.txt" ]; then
+  email=$(cat "$SETUP_DIR/email.txt")
+fi
 
-read -p  "The setup script will now attempt to install the remote containers extension to VS Code.  Ok to proceed? (yes/no) " answer
-case $answer in
-    [Yy]* )
-        code --install-extension ms-vscode-remote.remote-containers --force
-        ;;
-    * )
-        echo "Skipped"
-        ;;
-esac
+# Check for container runtime (Docker or Podman)
+has_docker=false
+has_podman=false
 
-echo "Setup complete.  You may now start the dev container."
+if docker --version > /dev/null 2>&1; then
+  has_docker=true
+fi
+
+if podman --version > /dev/null 2>&1; then
+  has_podman=true
+fi
+
+if ! $has_docker && ! $has_podman; then
+  echo "No container runtime detected (Docker or Podman)."
+  read -p "Do you want to install a container runtime? (yes/no) " install_runtime
+  if [[ "$install_runtime" == "yes" ]]; then
+    echo "Which container runtime would you like to install?"
+    echo "1) Docker (traditional, widely used)"
+    echo "2) Podman (rootless, daemonless, Docker-compatible)"
+    read -p "Enter choice (1 or 2): " runtime_choice
+    
+    if [[ "$runtime_choice" == "1" ]]; then
+      # Install Docker
+      if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        curl https://get.docker.com | sh
+        sudo usermod -aG docker "$USER" 
+        need_restart=1     
+      elif [[ "$OSTYPE" == "darwin"* ]]; then
+        read -p "Running Docker directly on Mac is not recommended. Are you sure? (yes/no) " confirm_mac
+        if [[ "$confirm_mac" == "yes" ]]; then
+          if command -v brew > /dev/null 2>&1; then
+            brew install --cask docker
+            echo "Docker installed. Please start Docker from the Applications folder."
+          else
+            echo "Homebrew is not installed. Please install Homebrew first: https://brew.sh/"
+            exit 1
+          fi
+        fi 
+      else
+        echo "Unsupported OS. Please install Docker manually from https://www.docker.com/get-started"
+        exit 1
+      fi
+    elif [[ "$runtime_choice" == "2" ]]; then
+      # Install Podman
+      if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        if command -v apt > /dev/null 2>&1; then
+          echo "Installing Podman via apt..."
+          sudo apt update
+          sudo apt install -y podman podman-compose
+        elif command -v dnf > /dev/null 2>&1; then
+          echo "Installing Podman via dnf..."
+          sudo dnf install -y podman podman-compose
+        elif command -v yum > /dev/null 2>&1; then
+          echo "Installing Podman via yum..."
+          sudo yum install -y podman podman-compose
+        else
+          echo "Unable to detect package manager. Please install Podman manually."
+          exit 1
+        fi
+        # Set up Docker compatibility alias
+        if ! grep -q "alias docker=podman" "$HOME/.bashrc" 2>/dev/null; then
+          echo "alias docker=podman" >> "$HOME/.bashrc"
+          echo "Added 'docker' alias for Podman in .bashrc"
+        fi
+      elif [[ "$OSTYPE" == "darwin"* ]]; then
+        if command -v brew > /dev/null 2>&1; then
+          brew install podman
+          podman machine init
+          podman machine start
+          echo "Podman installed and machine started."
+          # Set up Docker compatibility
+          if ! grep -q "alias docker=podman" "$HOME/.bash_profile" 2>/dev/null; then
+            echo "alias docker=podman" >> "$HOME/.bash_profile"
+            echo "Added 'docker' alias for Podman in .bash_profile"
+          fi
+        else
+          echo "Homebrew is not installed. Please install Homebrew first: https://brew.sh/"
+          exit 1
+        fi
+      else
+        echo "Unsupported OS. Please install Podman manually."
+        exit 1
+      fi
+    else
+      echo "Invalid choice. Installation skipped."
+    fi
+  else
+    echo "Container runtime installation skipped."
+  fi
+elif $has_docker && $has_podman; then
+  echo "Both Docker and Podman are installed. Using Docker by default."
+elif $has_podman; then
+  echo "Podman detected. Using Podman as container runtime."
+fi
+
+# Check write permission
+if [ ! -w "$toolbox_root" ]; then
+  echo "You do NOT have write permission on '$toolbox_root'."
+  echo -n "Do you want to set write permission for all users (chmod -R a+w)? [y/N] "
+  read -r response
+  if [[ "$response" =~ ^[Yy]$ ]]; then
+    chmod -R a+w "$toolbox_root"
+    if [ $? -eq 0 ]; then
+      echo "Permissions updated."
+    else
+      echo "Failed to change permissions. Retrying with sudo..."
+      sudo chmod -R a+w "$toolbox_root"
+      if [ $? -eq 0 ]; then
+        echo "Permissions updated with sudo."
+      else
+        echo "Failed to change permissions with sudo. Please check your permissions manually."
+      fi
+    fi
+  fi
+fi
+
+if ! code -v > /dev/null 2>&1; then
+  echo "Visual Studio Code was not detected or not able to be invoked.  This might be a problem with integration with this environment."
+  echo "Please make sure the following extensions are installed in VS Code:"
+  echo "- Remote SSH Containers:  ms-vscode-remote.remote-ssh"
+  echo "- Dev Containers:  ms-vscode-remote.remote-containers"
+else
+  read -p  "The setup script will now attempt to install the remote containers extension to VS Code.  Ok to proceed? (yes/no) " answer
+  case $answer in
+      [Yy]* )
+          code --install-extension ms-vscode-remote.remote-containers --force
+          code --install-extension ms-vscode-remote.remote-ssh --force
+          ;;
+      * )
+          echo "Skipped"
+          echo "Please make sure the following extensions are installed in VS Code:"
+          echo "- Remote SSH Containers:  ms-vscode-remote.remote-ssh"
+          echo "- Dev Containers:  ms-vscode-remote.remote-containers"
+          ;;
+  esac
+fi 
+
+if [[ -n "${need_restart:-}" ]]; then
+  echo "Recommend a restart for the changes to take effect."
+  read -p "Do you want to restart now? (yes/no) " restart_now
+  if [[ "$restart_now" == "yes" ]]; then
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+      echo "Attempting to restart the system..."
+      sudo shutdown -r now
+      sleep 5
+      echo "The system did not restart.  Please restart manually."
+      exit;
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+      echo "Please restart your computer to apply the changes."
+    fi
+  fi
+else
+  echo "Setup complete.  You may now start the dev container."
+fi
+
+# Post-setup configuration
+echo ""
+echo "=== Post-Setup Configuration ==="
+
+# Initialize git configuration if not already done
+if [ -n "${email:-}" ]; then
+  git config --global user.email "$email" 2>/dev/null || true
+  git config --global user.name "$HUMAN_NAME" 2>/dev/null || true
+  echo "Git configuration initialized."
+fi
+
+# Create .npmrc if GitHub token is available
+if [ -f "$SETUP_DIR/github_token.txt" ]; then
+  github_token=$(cat "$SETUP_DIR/github_token.txt")
+  npmrc_file="$HOME/.npmrc"
+  if [ ! -f "$npmrc_file" ] || ! grep -q "_authToken" "$npmrc_file"; then
+    echo "//npm.pkg.github.com/:_authToken=$github_token" >> "$npmrc_file"
+    echo ".npmrc configured for GitHub npm packages."
+  fi
+fi
+
+# Validation checks
+echo ""
+echo "=== Configuration Summary ==="
+echo "Setup directory: $SETUP_DIR"
+[ -f "$SETUP_DIR/name.txt" ] && echo "✓ User name configured"
+[ -f "$SETUP_DIR/github_user.txt" ] && echo "✓ GitHub user configured"
+[ -f "$SETUP_DIR/github_token.txt" ] && echo "✓ GitHub token configured"
+[ -f "$SETUP_DIR/github_org.txt" ] && echo "✓ GitHub organization configured"
+[ -f "$SETUP_DIR/digitalocean_token.txt" ] && echo "✓ Digital Ocean token configured"
+[ -f "$SETUP_DIR/email.txt" ] && echo "✓ Email configured"
+[ -f "$SETUP_DIR/timezone.txt" ] && echo "✓ Timezone configured"
+
+echo ""
+echo "Next steps:"
+echo "1. Open the dev container in VS Code (Reopen in Container)"
+echo "2. The bootstrap script will run automatically on first start"
+echo "3. Configure additional repositories as needed with 'get-repo <name>'"
+echo ""

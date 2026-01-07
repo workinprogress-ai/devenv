@@ -1,0 +1,582 @@
+#!/bin/bash
+# git-operations.bash
+# Version: 1.0.0
+# Purpose: Reusable Git and GitHub PR operations library
+# Description: Centralized functions for PR operations, branch management, git hygiene checks
+# Requirements: Bash 4.0+, git, gh CLI
+# Author: WorkInProgress.ai
+
+# Guard against multiple sourcing
+if [ -n "${_GIT_OPERATIONS_LOADED:-}" ]; then return 0; fi
+readonly _GIT_OPERATIONS_LOADED=1
+
+# Source dependencies
+# shellcheck disable=SC1091
+if [ -f "$DEVENV_ROOT/tools/lib/error-handling.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/error-handling.bash"
+fi
+
+# shellcheck disable=SC1091
+if [ -f "$DEVENV_ROOT/tools/lib/github-helpers.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
+fi
+
+# shellcheck disable=SC1091
+if [ -f "$DEVENV_ROOT/tools/lib/validation.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/validation.bash"
+fi
+
+# ============================================================================
+# Git Context & State Functions
+# ============================================================================
+
+# Get current git branch
+# Returns: Current branch name
+get_current_branch() {
+    git rev-parse --abbrev-ref HEAD 2>/dev/null || echo ""
+}
+
+# Check if inside git repository
+# Returns: 0 if in git repo, 1 otherwise
+is_in_git_repo() {
+    git rev-parse --is-inside-work-tree >/dev/null 2>&1
+}
+
+# Check if working directory has uncommitted changes
+# Returns: 0 if clean, 1 if there are changes
+is_working_directory_clean() {
+    git diff-index --quiet HEAD -- 2>/dev/null
+}
+
+# Check if current branch matches pattern
+# Args: $1 - branch name to check
+# Returns: 0 if matches, 1 otherwise
+is_branch_name() {
+    local branch="${1:-}"
+    [ -n "$branch" ] && [ "$(get_current_branch)" = "$branch" ]
+}
+
+# Check if branch name matches pattern (glob)
+# Args: $1 - pattern (e.g., "review/*")
+# Returns: 0 if matches, 1 otherwise
+branch_matches_pattern() {
+    local pattern="${1:-}"
+    local current_branch
+    current_branch=$(get_current_branch)
+    # shellcheck disable=SC2053
+    [[ "$current_branch" == $pattern ]]
+}
+
+# ============================================================================
+# Git Branch Management Functions
+# ============================================================================
+
+# Get repository root directory
+# Returns: Root directory path
+get_repo_root() {
+    git rev-parse --show-toplevel 2>/dev/null || pwd
+}
+
+# Get default branch (main or master)
+# Args: $1 - optional repo spec (e.g., "-R owner/repo")
+# Returns: Default branch name
+get_default_branch() {
+    local repo_spec="${1:-}"
+    git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##' || echo "main"
+}
+
+# Check if branch exists locally
+# Args: $1 - branch name
+# Returns: 0 if exists, 1 otherwise
+branch_exists_local() {
+    local branch="${1:-}"
+    [ -n "$branch" ] && git rev-parse --verify --quiet "refs/heads/$branch" >/dev/null 2>&1
+}
+
+# Check if branch exists on remote
+# Args: $1 - branch name
+# Args: $2 - remote (default: origin)
+# Returns: 0 if exists, 1 otherwise
+branch_exists_remote() {
+    local branch="${1:-}"
+    local remote="${2:-origin}"
+    [ -n "$branch" ] && git rev-parse --verify --quiet "refs/remotes/$remote/$branch" >/dev/null 2>&1
+}
+
+# Delete branch locally and remotely
+# Args: $1 - branch name
+# Args: $2 - remote (default: origin)
+# Returns: 0 on success, 1 on failure
+delete_branch() {
+    local branch="${1:-}"
+    local remote="${2:-origin}"
+    
+    [ -n "$branch" ] || { log_error "Branch name required"; return 1; }
+    
+    # Delete remote branch
+    if branch_exists_remote "$branch" "$remote"; then
+        git push "$remote" :"$branch" &>/dev/null || log_warn "Failed to delete remote branch $remote/$branch"
+    fi
+    
+    # Delete local branch
+    if branch_exists_local "$branch"; then
+        git branch -D "$branch" &>/dev/null || log_warn "Failed to delete local branch $branch"
+    fi
+    
+    return 0
+}
+
+# ============================================================================
+# PR Discovery & Linking Functions
+# ============================================================================
+
+# Find open PR from branch to target
+# Args: $1 - source branch (head)
+# Args: $2 - target branch (base)
+# Args: $3 - optional repo spec (e.g., "-R owner/repo")
+# Returns: PR number or empty if not found
+find_pr_by_branches() {
+    local head_branch="${1:-}"
+    local base_branch="${2:-}"
+    local repo_spec="${3:-}"
+    
+    # shellcheck disable=SC2015
+    [ -n "$head_branch" ] && [ -n "$base_branch" ] || { log_error "Head and base branches required"; return 1; }
+    
+    local repo_args=()
+    if [ -n "$repo_spec" ]; then
+        read -ra repo_args <<< "$repo_spec"
+    fi
+    
+    gh pr list "${repo_args[@]}" --head "$head_branch" --base "$base_branch" --state open \
+        --json number --jq '.[0].number' 2>/dev/null || echo ""
+}
+
+# Get PR details by number
+# Args: $1 - PR number
+# Args: $2 - optional repo spec
+# Returns: JSON with PR details (title, body, isDraft, state, author, etc.)
+get_pr_details() {
+    local pr_num="${1:-}"
+    local repo_spec="${2:-}"
+    
+    [ -n "$pr_num" ] || { log_error "PR number required"; return 1; }
+    
+    local repo_args=()
+    if [ -n "$repo_spec" ]; then
+        read -ra repo_args <<< "$repo_spec"
+    fi
+    
+    gh pr view "${repo_args[@]}" "$pr_num" \
+        --json title,body,isDraft,state,author --jq . 2>/dev/null || echo ""
+}
+
+# Check if PR is draft
+# Args: $1 - PR number
+# Args: $2 - optional repo spec
+# Returns: 0 if draft, 1 otherwise
+is_pr_draft() {
+    local pr_num="${1:-}"
+    local repo_spec="${2:-}"
+    
+    [ -n "$pr_num" ] || return 1
+    
+    local details
+    details=$(get_pr_details "$pr_num" "$repo_spec")
+    [ -z "$details" ] && return 1
+    
+    [ "$(echo "$details" | jq -r '.isDraft')" = "true" ]
+}
+
+# Get issue number from PR description
+# Args: $1 - PR number
+# Args: $2 - optional repo spec
+# Returns: Issue number or empty if not found
+extract_issue_from_pr() {
+    local pr_num="${1:-}"
+    local repo_spec="${2:-}"
+    
+    [ -n "$pr_num" ] || return 1
+    
+    local details
+    details=$(get_pr_details "$pr_num" "$repo_spec")
+    [ -z "$details" ] && return 1
+    
+    echo "$details" | jq -r '.body // ""' | grep -Eo '#[0-9]+' | head -n1 | tr -d '#' || echo ""
+}
+
+# ============================================================================
+# PR State & Validation Functions
+# ============================================================================
+
+# Validate conventional commits format
+# Args: $1 - commit message title line
+# Returns: 0 if valid, 1 otherwise
+validate_conventional_commits() {
+    local title="${1:-}"
+    [ -n "$title" ] || return 1
+    
+    local regex='^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert|merge|patch|minor|major)(\([^)]+\))?(!)?: .+'
+    [[ "$title" =~ $regex ]]
+}
+
+# Validate git context (repo, clean WD, not on target branch)
+# Args: $1 - repo directory (optional, default: pwd)
+# Args: $2 - exclude branches (pipe-separated, e.g., "main|master")
+# Returns: 0 if valid, 1 otherwise
+validate_git_context() {
+    local repo_dir="${1:-.}"
+    local exclude_branches="${2:-}"
+    
+    cd "$repo_dir" 2>/dev/null || { log_error "Failed to change to directory: $repo_dir"; return 1; }
+    
+    # Check if in git repo
+    if ! is_in_git_repo; then
+        log_error "Not in a git repository"
+        return 1
+    fi
+    
+    # Check for uncommitted changes
+    if ! is_working_directory_clean; then
+        log_error "Working directory has uncommitted or staged changes"
+        return 1
+    fi
+    
+    # Check if on excluded branch
+    if [ -n "$exclude_branches" ]; then
+        local current_branch
+        current_branch=$(get_current_branch)
+        if [[ "$current_branch" == @($exclude_branches) ]]; then
+            log_error "Cannot run this script on $current_branch branch"
+            return 1
+        fi
+    fi
+    
+    return 0
+}
+
+# ============================================================================
+# Commit Message Building Functions
+# ============================================================================
+
+# Build merge commit message with footer
+# Args: $1 - commit title
+# Args: $2 - commit body (optional)
+# Args: $3 - PR number
+# Args: $4 - issue number (optional)
+# Returns: Full formatted commit message
+build_merge_commit_message() {
+    local title="${1:-}"
+    local body="${2:-}"
+    local pr_num="${3:-}"
+    local issue_num="${4:-}"
+    
+    # shellcheck disable=SC2015
+    [ -n "$title" ] && [ -n "$pr_num" ] || { log_error "Title and PR number required"; return 1; }
+    
+    # Trim body if provided
+    local trimmed_body=""
+    if [ -n "$body" ]; then
+        trimmed_body=$(printf "%s" "$body" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | awk 'NF' ORS=$'\n')
+        if [ -n "$trimmed_body" ]; then
+            trimmed_body="${trimmed_body}
+
+"
+        fi
+    fi
+    
+    # Build footer
+    local footer="#$pr_num"
+    [ -n "$issue_num" ] && footer="$footer #$issue_num"
+    
+    # Build final message
+    printf "%s\n\n%s   %s\n" "$title" "$trimmed_body" "$footer"
+}
+
+# ============================================================================
+# PR Merge Operations
+# ============================================================================
+
+# Merge PR with squash
+# Args: $1 - PR number
+# Args: $2 - commit message
+# Args: $3 - optional repo spec
+# Returns: 0 on success, 1 on failure
+merge_pr_squash() {
+    local pr_num="${1:-}"
+    local commit_msg="${2:-}"
+    local repo_spec="${3:-}"
+    
+    # shellcheck disable=SC2015
+    [ -n "$pr_num" ] && [ -n "$commit_msg" ] || { log_error "PR number and commit message required"; return 1; }
+    
+    local repo_args=()
+    if [ -n "$repo_spec" ]; then
+        read -ra repo_args <<< "$repo_spec"
+    fi
+    
+    log_info "Merging PR $pr_num with squash..."
+    gh pr merge "${repo_args[@]}" "$pr_num" --squash --delete-branch --body "$commit_msg" 2>&1
+}
+
+# ============================================================================
+# Git Configuration Functions (from git-config.bash)
+# ============================================================================
+
+# Configure git settings for a local repository
+# Args:
+#   $1 - Repository directory path (optional, defaults to current directory)
+#   $2 - Remote URL (optional, if provided will update origin with embedded credentials)
+configure_git_repo() {
+    local repo_dir="${1:-.}"
+    local remote_url="${2:-}"
+    local current_dir
+    current_dir="$(pwd)"
+    
+    # Change to repo directory if specified
+    if [ "$repo_dir" != "." ]; then
+        cd "$repo_dir" || return 1
+    fi
+    
+    local abs_dir
+    abs_dir="$(pwd)"
+    
+    # Check if the directory is already in the safe.directory list
+    if ! git config --global --get-all safe.directory | grep -Fxq "$abs_dir"; then
+        git config --global --add safe.directory "$abs_dir"
+    fi
+    
+    # Configure local repository settings
+    git config core.autocrlf false
+    git config core.eol lf
+    git config pull.ff only
+    
+    # Update remote URL if provided (with embedded credentials)
+    if [ -n "$remote_url" ]; then
+        git remote set-url origin "$remote_url"
+    fi
+    
+    # Return to original directory
+    cd "$current_dir" || return 1
+}
+
+# Configure global git settings
+# This should be run once during environment setup
+configure_git_global() {
+    local user_name="${1:-}"
+    local user_email="${2:-}"
+    
+    # Core settings
+    git config --global core.autocrlf false
+    git config --global core.eol lf
+    git config --global core.editor "code --wait"
+    git config --global pull.ff only
+    git config --global --bool push.autoSetupRemote true
+    
+    # Merge and diff tools
+    git config --global merge.tool vscode
+    git config --global mergetool.vscode.cmd "code --wait \$MERGED"
+    git config --global diff.tool vscode
+    git config --global difftool.vscode.cmd "code --wait --diff \$LOCAL \$REMOTE"
+    
+    # Credential management
+    git config --global credential.helper store
+    git config --global credential.helper 'cache --timeout=999999999'
+    
+    # User identity (if provided)
+    if [ -n "$user_name" ]; then
+        git config --global user.name "$user_name"
+    fi
+    if [ -n "$user_email" ]; then
+        git config --global user.email "$user_email"
+    fi
+}
+
+# Add a directory to git's safe.directory list
+# Args:
+#   $1 - Directory path to add
+add_git_safe_directory() {
+    local dir_path="${1:-.}"
+    local abs_path
+    abs_path="$(cd "$dir_path" && pwd)"
+    
+    if ! git config --global --get-all safe.directory | grep -Fxq "$abs_path"; then
+        git config --global --add safe.directory "$abs_path"
+    fi
+}
+
+# Check if we're in the devenv repo and validate permissions
+# Uses the global variable ALLOW_DEVENV_REPO (should be set by calling script)
+# Detects devenv repo by presence of .devcontainer/bootstrap.sh
+# Args: none (uses $ALLOW_DEVENV_REPO global)
+check_target_repo() {
+    local git_root
+    git_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
+        log_error "Not in a git repository"
+        exit 1
+    }
+    
+    # Check if we're in the devenv repo by looking for the bootstrap script
+    if [ -f "$git_root/.devcontainer/bootstrap.sh" ]; then
+        if [ "${ALLOW_DEVENV_REPO:-0}" -eq 0 ]; then
+            log_error "The current repository appears to be the devenv repository itself"
+            log_info "Operations should be performed in target project repositories, not in devenv"
+            log_info "To override this safety check, pass the --devenv flag"
+            exit 1
+        else
+            log_warn "Performing operation in devenv repository (safety override enabled)"
+        fi
+    fi
+}
+
+# ============================================================================
+# GitHub Repository Protection
+# ============================================================================
+
+# Configure branch protection for a GitHub repository
+#
+# Applies branch protection rules to a specified branch (typically master/main)
+# using the GitHub API via gh CLI. Supports comprehensive protection settings
+# including PR requirements, reviews, status checks, and merge restrictions.
+#
+# Usage:
+#   configure_branch_protection "owner/repo" "master" '{...protection settings...}'
+#   configure_branch_protection "$full_repo_name" "$branch_name" "$protection_json"
+#
+# Arguments:
+#   $1 - Full repository name (owner/repo format, required)
+#   $2 - Branch name to protect (required, e.g., "master", "main")
+#   $3 - JSON protection payload with settings (required)
+#
+# Protection Payload Fields:
+#   required_status_checks         - Status checks configuration (object or null)
+#   enforce_admins                 - Whether to enforce rules for admins (bool)
+#   required_pull_request_reviews  - PR review requirements (object)
+#   restrictions                   - Push restrictions (object or null)
+#   allow_force_pushes             - Allow force pushes (bool)
+#   allow_deletions                - Allow branch deletion (bool)
+#   required_conversation_resolution - Require conversation resolution (bool)
+#
+# Returns:
+#   0 on success, 1 on failure
+#   Outputs success/warning message to stdout
+#
+# Examples:
+#   protection_payload='{
+#     "required_status_checks": null,
+#     "enforce_admins": false,
+#     "required_pull_request_reviews": {
+#       "required_approving_review_count": 1,
+#       "require_code_owner_reviews": true,
+#       "dismiss_stale_reviews": true
+#     },
+#     "restrictions": null,
+#     "allow_force_pushes": false,
+#     "allow_deletions": false,
+#     "required_conversation_resolution": true
+#   }'
+#   configure_branch_protection "myorg/myrepo" "master" "$protection_payload"
+#
+# Notes:
+#   - Requires gh CLI authentication with repo admin permissions
+#   - Branch must exist before protection can be applied
+#   - Settings are applied atomically; partial updates not supported
+#
+configure_branch_protection() {
+    local full_name="$1"
+    local branch_name="$2"
+    local protection_payload="$3"
+    
+    if [ -z "$full_name" ] || [ -z "$branch_name" ] || [ -z "$protection_payload" ]; then
+        echo "ERROR: full_name, branch_name, and protection_payload are required" >&2
+        return 1
+    fi
+    
+    # Apply branch protection
+    if gh api -X PUT "repos/${full_name}/branches/${branch_name}/protection" \
+        --input - <<< "$protection_payload" >/dev/null 2>&1; then
+        echo "  ✓ Branch protection configured for $branch_name"
+        return 0
+    else
+        echo "  WARNING: Could not configure branch protection (branch may not exist yet)"
+        echo "  Run this after pushing your first commit to $branch_name"
+        return 1
+    fi
+}
+
+# Set repository-level settings via GitHub API
+#
+# Updates repository-level settings such as delete_branch_on_merge, wikis,
+# issues, projects, etc. using the GitHub API via gh CLI.
+#
+# Usage:
+#   set_repo_setting "owner/repo" "delete_branch_on_merge" "true"
+#   set_repo_setting "$full_repo_name" "has_wiki" "false"
+#
+# Arguments:
+#   $1 - Full repository name (owner/repo format, required)
+#   $2 - Setting name (required, see GitHub API docs for valid fields)
+#   $3 - Setting value (required, typically "true"/"false" or string)
+#
+# Returns:
+#   0 on success, 1 on failure
+#   Outputs success/warning message to stdout
+#
+# Examples:
+#   set_repo_setting "myorg/myrepo" "delete_branch_on_merge" "true"
+#   set_repo_setting "myorg/myrepo" "has_issues" "true"
+#   set_repo_setting "myorg/myrepo" "default_branch" "main"
+#
+# Notes:
+#   - Requires gh CLI authentication with repo admin permissions
+#   - Uses PATCH method to update only specified fields
+#   - See GitHub API docs for complete list of available settings
+#
+set_repo_setting() {
+    local full_name="$1"
+    local setting_name="$2"
+    local setting_value="$3"
+    
+    if [ -z "$full_name" ] || [ -z "$setting_name" ] || [ -z "$setting_value" ]; then
+        echo "ERROR: full_name, setting_name, and setting_value are required" >&2
+        return 1
+    fi
+    
+    if gh api -X PATCH "repos/${full_name}" -f "${setting_name}=${setting_value}" >/dev/null 2>&1; then
+        echo "  ✓ Repository setting '$setting_name' set to '$setting_value'"
+        return 0
+    else
+        echo "  WARNING: Could not set repository setting '$setting_name'"
+        return 1
+    fi
+}
+
+# ============================================================================
+# Export Functions
+# ============================================================================
+
+# Make functions available for sourcing
+export -f get_current_branch
+export -f is_in_git_repo
+export -f is_working_directory_clean
+export -f is_branch_name
+export -f branch_matches_pattern
+export -f get_repo_root
+export -f get_default_branch
+export -f branch_exists_local
+export -f branch_exists_remote
+export -f delete_branch
+export -f find_pr_by_branches
+export -f get_pr_details
+export -f is_pr_draft
+export -f extract_issue_from_pr
+export -f validate_conventional_commits
+export -f validate_git_context
+export -f build_merge_commit_message
+export -f merge_pr_squash
+export -f configure_git_repo
+export -f configure_git_global
+export -f add_git_safe_directory
+export -f check_target_repo
+export -f configure_branch_protection
+export -f set_repo_setting

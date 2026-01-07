@@ -1,115 +1,86 @@
 #!/bin/bash
+# update_interactive.sh - checks for updates and, if found, interacts with the user to perform an update
 
 script_path=$(readlink -f "$0")
 script_folder=$(dirname "$script_path")
+cd "$script_folder" || exit 1
+devenv=$(dirname "$script_folder")
 
-cd $script_folder
-
-# Set the update interval if not already set in the environment
-DEVENV_UPDATE_INTERVAL=${DEVENV_UPDATE_INTERVAL:-$((2 * 3600))} # 2 hours default
-
-# Path to the .update-time file
-UPDATE_FILE="$script_folder/.update-time"
-
-# Function to update the repository
-update_repo() {
-    git fetch --tags -f > /dev/null 2>&1 & disown
-    date +%s > "$UPDATE_FILE"
-}
-
-# Check if the .update-time file exists
-if [ ! -f "$UPDATE_FILE" ]; then
-    date +%s > "$UPDATE_FILE"
-    exit 1
-fi
-
-# Read the last update time
-LAST_UPDATE=$(cat "$UPDATE_FILE")
-
-# Get the current time
-CURRENT_TIME=$(date +%s)
-
-# Calculate the time difference
-TIME_DIFF=$((CURRENT_TIME - LAST_UPDATE))
-
-# Check if the time difference is greater than the update interval
-if [ "$TIME_DIFF" -gt "$DEVENV_UPDATE_INTERVAL" ]; then
-    # Fetch changes from the remote repository silently
-    update_repo
-fi
-
-
-# Check if there are any changes in the remote master branch
-# Get the current branch name
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-
-# Get the local hash of the current branch
 LOCAL_HASH=$(git rev-parse "$CURRENT_BRANCH")
+REMOTE_HASH=$(git rev-parse "origin/$CURRENT_BRANCH" 2>/dev/null)
 
-# Get the remote hash of the current branch from origin
-REMOTE_HASH=$(git rev-parse "origin/$CURRENT_BRANCH")
-
+# If no new updates are available, exit.
 if [ "$LOCAL_HASH" == "$REMOTE_HASH" ]; then
-    cd - &> /dev/null
-    exit 1
+    cd - > /dev/null || return 
+    exit 0
 fi
 
+# If the current branch is not master, warn the user and ask for confirmation.
 if [ "$CURRENT_BRANCH" != "master" ]; then
-    echo "WARNING:  The current branch ${CURRENT_BRANCH} is different on the remote."
+    echo "WARNING: The current branch ${CURRENT_BRANCH} is different on the remote."
     read -p "Do you want to update? (y/n): " answer
     case $answer in
         [Yy]* )
-            git pull > /dev/null 2>&1
-            cd - &> /dev/null
-            echo "Be aware that you may need to rebuild the dev container or re-run the bootstrap depending on the type of changes."
-            exit 1;
-            ;;
+            $devenv/scripts/git-update
+            cd - > /dev/null || return
+            echo "Be aware that you may need to rebuild the dev container or re-run the bootstrap depending on the changes."
+            exit 0;;
         * )
-            ;;
+            cd - > /dev/null || return
+            exit 1;;
     esac
+fi
 
-    cd - &> /dev/null
+# For the master branch, optionally determine the current version from git tags.
+CURRENT_VERSION=$(git tag -l 'v*' | sort -V | tail -n 1)
+if [[ "$CURRENT_VERSION" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+    CURRENT_MAJOR_VERSION=${BASH_REMATCH[1]}
+    CURRENT_MINOR_VERSION=${BASH_REMATCH[2]}
+    # shellcheck disable=SC2034  # May be used in future version checks
+    CURRENT_PATCH_VERSION=${BASH_REMATCH[3]}
+else
+    echo "Warning: VERSION format is not recognized.  Please update manually!"
+    echo "You may also need to rebuild the dev container or re-run the bootstrap."
+    echo "Current version: $CURRENT_VERSION"
+    cd - > /dev/null || return
     exit 1
 fi
 
-CURRENT_VERSION=$(git tag -l 'v*' | sort -V | tail -n 1)
-if [[ $CURRENT_VERSION =~ ([0-9]+)\.([0-9]+)\.([0-9]+)(-([a-zA-Z0-9]+)\.([0-9]+))? ]]; then
-    CURRENT_MAJOR_VERSION=${BASH_REMATCH[1]}
-    CURRENT_MINOR_VERSION=${BASH_REMATCH[2]}
-    CURRENT_PATCH_VERSION=${BASH_REMATCH[3]}
-else
-    echo "Warning: VERSION format is not recognized"
-    CURRENT_MAJOR_VERSION=0
-    CURRENT_MAJOR_VERSION=0
-    CURRENT_MAJOR_VERSION=0
-fi
-
-# Ask the user if they want to update the repository
 echo "Changes detected on the remote master branch for the development environment."
 read -p "Do you want to update? (y/n): " answer
 case $answer in
     [Yy]* )
-        git pull > /dev/null 2>&1
+        $devenv/scripts/git-update
+        if [ $? -ne 0 ]; then
+            cd - > /dev/null || return
+            echo "Error updating the repository. Please update manually (e.g., run 'git pull')."
+            echo "You may also need to rebuild the dev container or re-run the bootstrap."
+            exit 1
+        fi
+        # Optionally, check for version changes (assumes $MAJOR_VERSION and $MINOR_VERSION are defined in your environment)
         if [ "$CURRENT_MAJOR_VERSION" != "$MAJOR_VERSION" ]; then
-            echo 
+            echo
             echo "********************************************************"
             echo "MAJOR VERSION CHANGED.  Please rebuild dev container!"
             echo "********************************************************"
-            echo 
+            echo
         elif [ "$CURRENT_MINOR_VERSION" != "$MINOR_VERSION" ]; then
-            $script_folder/bootstrap.sh
-            echo 
+            "$script_folder/bootstrap.sh"
+            echo
             echo "********************************************************"
             echo "Minor version changed.  Please restart the dev container!"
             echo "********************************************************"
-            echo 
+            echo
+        else
+            echo
+            echo "Patch version change detected.  Update complete"
+            echo
         fi
-        cd - &> /dev/null
-        exit 0;
-        ;;
+        
+        cd - > /dev/null || return
+        exit 0;;
     * )
-        ;;
+        cd - > /dev/null || return
+        exit 1;;
 esac
-
-cd - &> /dev/null
-exit 1;

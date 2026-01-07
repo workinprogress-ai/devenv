@@ -2,7 +2,7 @@
 
 __bash_prompt() {
     local userpart='`export XIT=$? \
-        && [ ! -z "${GITHUB_USER:-}" ] && echo -n "\[\033[0;32m\]@${GITHUB_USER:-} " || echo -n "\[\033[0;32m\]\u " \
+        && [ ! -z "${GH_USER:-}" ] && echo -n "\[\033[0;32m\]@${GH_USER:-} " || echo -n "\[\033[0;32m\]\u " \
         && [ "$XIT" -ne "0" ] && echo -n "\[\033[1;31m\]➜" || echo -n "\[\033[0m\]➜"`'
 
     local gitbranch='`\
@@ -21,7 +21,6 @@ __bash_prompt() {
             fi; \
         fi`'
 
-    local lightblue='\[\033[1;34m\]'
     local removecolor='\[\033[0m\]'
 
     local pathpart='`\

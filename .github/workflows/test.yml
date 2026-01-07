@@ -1,0 +1,36 @@
+name: Devenv Tests
+
+on:
+  push:
+    branches: [ main, master, release/*, beta/* ]
+    paths:
+      - 'tools/**'
+      - '.devcontainer/**'
+  pull_request:
+    branches: [ main, master, release/*, beta/* ]
+    paths:
+      - 'tools/**'
+      - '.devcontainer/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats shellcheck git
+      
+      - name: Set environment variables
+        run: |
+          echo "DEVENV_ROOT=$GITHUB_WORKSPACE" >> $GITHUB_ENV
+          echo "PROJECT_ROOT=$GITHUB_WORKSPACE" >> $GITHUB_ENV
+      
+      - name: Run tests
+        run: ./tools/tests/run-tests-local.sh
+        
+      - name: Lint scripts
+        run: ./tools/scripts/lint-scripts.sh

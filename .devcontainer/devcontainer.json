@@ -4,14 +4,19 @@
 	"name": "WorkInProgress.ai Dev Environment",
 
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-	"image": "mcr.microsoft.com/devcontainers/base:debian",
+	"image": "mcr.microsoft.com/devcontainers/base:bookworm",
     "remoteEnv": {
         //"NODE_TLS_REJECT_UNAUTHORIZED": "0",
-        "DEVCONTAINER": "true"
+		"DEVCONTAINER": "true",
+		"SSH_AUTH_SOCK": "/ssh-agent"
     },
 
+	"mounts": [
+		"source=${localEnv:SSH_AUTH_SOCK},target=/ssh-agent,type=bind"
+	],
+
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	"forwardPorts": [6080],
+	"forwardPorts": [6090],
 	"portsAttributes": {
 			"6080": {
 				"protocol": "http"
@@ -20,9 +25,9 @@
 
 	"runArgs": [
 		// Parameters needed for ZeroTier
-		"--cap-add=NET_ADMIN",
-		"--cap-add=SYS_ADMIN",
-		"--device=/dev/net/tun"
+		// "--cap-add=NET_ADMIN",
+		// "--cap-add=SYS_ADMIN",
+		// "--device=/dev/net/tun"
 	],
 	
     "remoteUser": "vscode",
@@ -40,14 +45,13 @@
     // Features to add to the dev container. More info: https://containers.dev/features.
 	"features": {
         "ghcr.io/devcontainers/features/desktop-lite": {
-            "webPort": 6080,
+            "webPort": 6090,
             "vncPort": 5091,
             "password": "vscode"
 		},
-		//"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
-        "ghcr.io/devcontainers/features/docker-in-docker:2": {},
-		//"ghcr.io/devcontainers/features/desktop-lite:1": {},
-		"ghcr.io/devcontainers/features/node:1": {}
+		"ghcr.io/devcontainers/features/docker-in-docker:2": {},
+		"ghcr.io/devcontainers/features/node:1": {},
+        "ghcr.io/devcontainers/features/github-cli:1": {}
 	},
 
 	// Configure tool-specific properties.
@@ -68,8 +72,8 @@
 				"k--kato.docomment",
 				"streetsidesoftware.code-spell-checker",
 				"ms-vscode-remote.remote-containers",
-				"ms-azuretools.vscode-docker",
-				"matijarmk.dotnet-core-commands",
+				"ms-vscode-remote.remote-ssh",
+				"ms-dotnettools.vscode-dotnet-pack",
 				"eamodio.gitlens",
 				"tintoy.msbuild-project-tools",
 				"quicktype.quicktype",

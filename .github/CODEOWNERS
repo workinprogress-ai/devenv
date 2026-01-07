@@ -1,0 +1,22 @@
+# Code Owners
+
+# Default owners for everything in the repo
+* @toochevere
+
+# Scripts and core tooling
+/scripts/ @toochevere
+/lib/ @toochevere
+
+# Dev container configuration
+/.devcontainer/ @toochevere
+/setup @toochevere
+
+# Documentation
+/docs/ @toochevere
+/README.md @toochevere
+
+# Tests
+/tests/ @toochevere
+
+# GitHub workflows and configuration
+/.github/ @toochevere
