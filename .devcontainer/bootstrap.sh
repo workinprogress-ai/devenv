@@ -5,8 +5,9 @@
 # It sources the bootstrap library and runs the default set of bootstrap tasks.
 #
 # For custom bootstrap behavior, you can:
-# 1. Create a custom-bootstrap.sh file that will be run at the end
-# 2. Fork this script and call specific bootstrap functions from bootstrap.bash
+# 1. Organization level: Create org-custom-bootstrap.sh (committed to repo)
+# 2. User level: Use devenv-add-custom-bootstrap to create user-custom-bootstrap.sh
+# 3. Fork this script and call specific bootstrap functions from bootstrap.bash
 
 # Ensure that the script is not run with CRLF line endings
 scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"; scriptfile="$0"; if [[ "$(file ${scriptdir}/${scriptfile})" =~ "CRLF" && -f "${scriptdir}/${scriptfile}" && "$(head -n 100 ${scriptdir}/${scriptfile} | grep "^scriptdir.\+dg4MbsIfhbv4-Bash-CRLF-selfheal_Written_By_Kenneth_Lutzke-8Nds9NclkU4sgE" > /dev/null 2>&1 ; echo "$?" )" == "0" ]]; then echo "$(cat ${scriptdir}/${scriptfile} | sed 's/\r$//')" > ${scriptdir}/${scriptfile} ; bash ${scriptdir}/${scriptfile} "$@" ; exit ; fi ; echo "" > /dev/null 2>&1

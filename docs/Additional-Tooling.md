@@ -746,6 +746,7 @@ install-extras mongo
 ```
 
 **Available Extras:**
+- `dns-hijack.sh` - DNS split horizon setup with dnsmasq
 - `helm.sh` - Helm package manager for Kubernetes
 - `minikube.sh` - Minikube for local Kubernetes
 - `mongo-tools.sh` - MongoDB CLI tools
@@ -755,6 +756,45 @@ install-extras mongo
 - `zsh.sh` - zsh with devenv bash configuration
 - `tailscale.sh` - Tailscale VPN with SOCKS5 proxy
 - `doctl.sh` - DigitalOcean CLI tool
+
+#### DNS Hijack Setup
+
+The `dns-hijack.sh` script configures split-horizon DNS using dnsmasq, allowing you to route specific domains to different DNS servers (useful for routing internal domains to VPN or local servers).
+
+**Configuration File:** `.devcontainer/install-extras/config/dns-mapping.cfg`
+
+The script requires a configuration file containing domain-to-server mappings. Each line should follow the dnsmasq server directive format:
+
+```bash
+server=/domain.name/IP_ADDRESS
+```
+
+**Example Configuration:**
+```bash
+# Route internal domains to corporate DNS
+server=/company.local/192.168.1.201
+server=/company.net/192.168.1.201
+
+# Route Azure resources to Azure DNS
+server=/company.azure/10.210.2.5
+```
+
+**Installation:**
+```bash
+install-extras dns-hijack
+```
+
+**Setup Steps:**
+1. Ensure the config file exists at `.devcontainer/install-extras/config/dns-mapping.cfg`
+2. Run `install-extras dns-hijack` to install and configure dnsmasq
+3. The script will fail with a helpful error if the config file is missing
+
+**Features:**
+- Automatic dnsmasq installation and configuration
+- Split-horizon DNS routing (specific domains to specific servers)
+- Strict ordering to prioritize mapped domains
+- Upstream DNS fallback for unmapped domains
+- Configuration validation before installation
 
 ### `devenv-add-env-vars`
 
@@ -780,7 +820,7 @@ devenv-add-env-vars "MY_API_KEY=abc123" "DEBUG_MODE=true"
 
 ### `devenv-add-custom-bootstrap`
 
-Adds custom commands to `.devcontainer/custom-bootstrap.sh` that run whenever the devcontainer is created or the bootstrap sequence executes.
+Adds custom commands to `.devcontainer/user-custom-bootstrap.sh` that run whenever the devcontainer is created or the bootstrap sequence executes. These are user-level customizations that are not committed to the repository.
 
 ```bash
 devenv-add-custom-bootstrap "command1" "command2" ...
@@ -788,19 +828,21 @@ devenv-add-custom-bootstrap "command1" "command2" ...
 
 **Features:**
 - Validates bash syntax before adding commands
-- Creates `custom-bootstrap.sh` if it doesn't exist
+- Creates `user-custom-bootstrap.sh` if it doesn't exist
 - Sets executable permissions automatically
 - Adds documentation comments for each command
 
 **Example:**
 
 ```bash
-devenv-add-custom-bootstrap "echo 'Bootstrap step'" "apt-get update"
+devenv-add-custom-bootstrap "echo 'Personal bootstrap step'" "apt-get update"
 ```
+
+**Note:** For organization-wide bootstrap customizations, create `.devcontainer/org-custom-bootstrap.sh` and commit it to the repository.
 
 ### `devenv-add-custom-startup`
 
-Adds custom commands to `.devcontainer/custom_startup.sh` that will run each time VS Code starts.
+Adds custom commands to `.devcontainer/user-custom-startup.sh` that will run each time VS Code starts. These are user-level customizations that are not committed to the repository.
 
 ```bash
 devenv-add-custom-startup "command1" "command2" ...
@@ -808,7 +850,7 @@ devenv-add-custom-startup "command1" "command2" ...
 
 **Features:**
 - Validates bash syntax before adding commands
-- Creates `custom_startup.sh` if it doesn't exist
+- Creates `user-custom-startup.sh` if it doesn't exist
 - Sets executable permissions automatically
 - Adds documentation comments for each command
 
@@ -817,6 +859,8 @@ devenv-add-custom-startup "command1" "command2" ...
 ```bash
 devenv-add-custom-startup "echo 'Container started'" "export MY_VAR=value"
 ```
+
+**Note:** For organization-wide startup customizations, create `.devcontainer/org-custom-startup.sh` and commit it to the repository.
 
 ### `update-github-key`
 

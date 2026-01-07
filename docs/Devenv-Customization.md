@@ -5,8 +5,71 @@ If you've forked this repository for your organization, this guide explains what
 ## Quick Checklist
 
 - ✅ Update `devenv.config` for org identity, container name, workflows, and bootstrap defaults
+- ✅ (Optional) Create `org-custom-bootstrap.sh` and `org-custom-startup.sh` for organization-wide customizations
 - ✅ (If you use repo creation tooling) Update `tools/config/repo-types.yaml` for naming, templates, branch protection, and post-creation scripts
 - ✅ Create/adjust template repos per type (recommended) so new repos start with CI, CODEOWNERS, and hooks
+
+## Organization-Level Custom Scripts
+
+For organization-wide customizations that should apply to all developers, create these scripts in `.devcontainer/`:
+
+### org-custom-bootstrap.sh
+
+Runs during container creation/bootstrap. Use this for:
+- Installing organization-specific tools and dependencies
+- Configuring company-wide settings
+- Setting up organization-specific certificates or credentials
+- Initializing shared development services
+
+**Example:**
+```bash
+#!/bin/bash
+set -euo pipefail
+
+# Install organization-specific tools
+echo "Installing company tools..."
+sudo apt-get install -y custom-company-tool
+
+# Configure organization settings
+echo "Configuring company defaults..."
+git config --global url."https://github.com/your-org/".insteadOf "https://gh/"
+```
+
+### org-custom-startup.sh
+
+Runs each time VS Code starts. Use this for:
+- Starting organization-specific services
+- Validating required environment setup
+- Displaying organization-specific welcome messages
+- Connecting to shared development resources
+
+**Example:**
+```bash
+#!/bin/bash
+set -euo pipefail
+
+echo "🏢 Welcome to YourOrg Development Environment"
+
+# Start organization services if needed
+if ! docker ps | grep -q company-service; then
+    echo "Starting company service..."
+    docker-compose -f $DEVENV_ROOT/.devcontainer/company-services.yml up -d
+fi
+```
+
+**Important:** These scripts should be committed to the repository so all team members benefit from the customizations.
+
+## User-Level Customizations
+
+Individual developers can add their own customizations using:
+- `user-custom-bootstrap.sh` - Personal bootstrap customizations (not committed)
+- `user-custom-startup.sh` - Personal startup customizations (not committed)
+
+Use the helper scripts to add commands:
+```bash
+devenv-add-custom-bootstrap "your-command"
+devenv-add-custom-startup "your-command"
+```
 
 ## Required: devenv.config
 

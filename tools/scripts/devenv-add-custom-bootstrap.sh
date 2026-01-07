@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Add custom bootstrap commands to .devcontainer/custom-bootstrap.sh
+# Add custom bootstrap commands to .devcontainer/user-custom-bootstrap.sh
 # These commands run each time the container is recreated or bootstrap executes
 # Usage: devenv-add-custom-bootstrap.sh "command1" "command2" ...
 
@@ -14,7 +14,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../lib/error-handling.bash"
 
 BOOTSTRAP_DIR="$DEVENV_ROOT/.devcontainer"
-BOOTSTRAP_SCRIPT="$BOOTSTRAP_DIR/custom-bootstrap.sh"
+BOOTSTRAP_SCRIPT="$BOOTSTRAP_DIR/user-custom-bootstrap.sh"
 
 # Require at least one command
 if [ $# -eq 0 ]; then

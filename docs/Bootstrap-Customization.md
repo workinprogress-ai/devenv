@@ -67,25 +67,44 @@ The default bootstrap process executes these tasks in order:
 
 ## Customization Options
 
-### Option 1: Custom Bootstrap Script
+### Option 1: Organization-Level Custom Bootstrap Script
 
-Create `.devcontainer/custom-bootstrap.sh` for organization-specific customizations:
+Create `.devcontainer/org-custom-bootstrap.sh` for organization-wide customizations that should be committed to the repository:
 
 ```bash
 #!/bin/bash
-# custom-bootstrap.sh - Runs automatically at end of default bootstrap
+# org-custom-bootstrap.sh - Runs automatically at end of default bootstrap
+# This file is committed to the repository and applies to all developers
 
-echo "Running custom organization bootstrap..."
+set -euo pipefail
 
-# Add custom tools
-sudo apt install -y my-custom-tool
+echo "Running organization bootstrap..."
+
+# Add organization-specific tools
+sudo apt install -y company-vpn-client
 
 # Configure organization-specific settings
-git config --global url."https://github.com/my-org/".insteadOf "https://github.com/upstream-org/"
+git config --global url."https://github.com/my-org/".insteadOf "https://gh/"
 
-# Set up organization VPN
-setup-vpn.sh
+# Set up organization services
+echo "Starting company services..."
 ```
+
+Similarly, create `.devcontainer/org-custom-startup.sh` for organization startup tasks that run each time the container starts.
+
+### Option 1b: User-Level Custom Scripts
+
+For personal customizations that should NOT be committed, use the helper commands:
+
+```bash
+# Add personal bootstrap commands
+devenv-add-custom-bootstrap "echo 'Personal setup complete'"
+
+# Add personal startup commands
+devenv-add-custom-startup "echo 'Welcome back!'"
+```
+
+These create `user-custom-bootstrap.sh` and `user-custom-startup.sh` which are automatically ignored by git.
 
 ### Option 2: Selective Bootstrap
 
@@ -238,19 +257,22 @@ run_tasks "${TASKS[@]}"
 
 - `init_bootstrap_run_time` - Initialize bootstrap timing
 - `record_bootstrap_run_time` - Record completion time
-- `run_custom_bootstrap_if_present` - Run custom-bootstrap.sh if exists
+- `run_custom_bootstrap_if_present` - Run org-custom-bootstrap.sh and user-custom-bootstrap.sh if they exist
 - `finish_message` - Display completion message
 - `run_tasks` - Execute a list of bootstrap tasks
 
 ## Testing Custom Bootstrap
 
-To test your custom bootstrap without rebuilding the container:
+To test your organization-level bootstrap without rebuilding the container:
 
 ```bash
-# Run your custom bootstrap script directly
-bash /workspaces/devenv/.devcontainer/my-custom-bootstrap.sh
+# Run your organization bootstrap script directly
+bash /workspaces/devenv/.devcontainer/org-custom-bootstrap.sh
 
-# Run specific tasks
+# Or test user-level bootstrap
+bash /workspaces/devenv/.devcontainer/user-custom-bootstrap.sh
+
+# Run specific tasks from bootstrap.bash
 cd /workspaces/devenv/.devcontainer
 source bootstrap.bash
 configure_git
@@ -262,9 +284,15 @@ install_my_tools
 When forking this repository:
 
 1. **Keep `bootstrap.bash` unchanged** - This is the shared library
-2. **Modify `bootstrap.sh`** - Customize the default bootstrap flow
-3. **Add `custom-bootstrap.sh`** - Organization-specific setup
-4. **Document your changes** - Update this file with your customizations
+2. **Modify `bootstrap.sh`** - Customize the default bootstrap flow if needed
+3. **Add `org-custom-bootstrap.sh`** - Organization-wide setup (committed to repo)
+4. **Add `org-custom-startup.sh`** - Organization-wide startup tasks (committed to repo)
+5. **Update `devenv.config`** - Configure organization settings
+6. **Document your changes** - Update this file with your customizations
+
+Users can then add personal customizations using:
+- `devenv-add-custom-bootstrap` - Adds commands to `user-custom-bootstrap.sh`
+- `devenv-add-custom-startup` - Adds commands to `user-custom-startup.sh`
 
 ## Examples from Forks
 

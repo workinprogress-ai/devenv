@@ -710,10 +710,18 @@ configure_user_npmrc() {
     fi
 }
 
-# Run custom bootstrap script if present
+# Run custom bootstrap scripts if present
 run_custom_bootstrap_if_present() {
-    if [ -f "$toolbox_root/.devcontainer/custom-bootstrap.sh" ]; then
-        /bin/bash "$toolbox_root/.devcontainer/custom-bootstrap.sh"
+    # Run organization-level custom bootstrap (for forked repos)
+    if [ -f "$toolbox_root/.devcontainer/org-custom-bootstrap.sh" ]; then
+        echo "Running organization-level custom bootstrap..."
+        /bin/bash "$toolbox_root/.devcontainer/org-custom-bootstrap.sh"
+    fi
+    
+    # Run user-level custom bootstrap (user-specific customizations)
+    if [ -f "$toolbox_root/.devcontainer/user-custom-bootstrap.sh" ]; then
+        echo "Running user-level custom bootstrap..."
+        /bin/bash "$toolbox_root/.devcontainer/user-custom-bootstrap.sh"
     fi
 }
 

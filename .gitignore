@@ -8,10 +8,11 @@ repos/*
 node_modules/
 .pnpm-store/
 .cache/
-.devcontainer/custom-startup.sh
-.devcontainer/custom-bootstrap.sh
-.devcontainer/custom_startup.sh
-.devcontainer/custom_bootstrap.sh
+# User-level custom scripts (ignored - personal customizations)
+.devcontainer/user-custom-startup.sh
+.devcontainer/user-custom-bootstrap.sh
+.devcontainer/user-custom-scripts
+
 dotnet-install.*
 
 # Runtime-generated files

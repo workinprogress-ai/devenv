@@ -68,37 +68,56 @@ Because the dev environment is a Linux os in a container, it has a folder struct
 
 The `.bashrc` file is a file that is run every time a new terminal is opened and when vscode is first started.  It is used to set up the environment for the user.  It sets up the prompt, the aliases, environment variables, and the path.  If you want something to be run every time you open a terminal, you can add it to this file.  
 
-## `custom_bootstrap.sh` and `custom_startup.sh`
+## Custom Bootstrap and Startup Scripts
 
-The `custom_bootstrap.sh` and `custom_startup.sh` are optional scripts that you can provide in order to customize the dev environment.  They need to be put in the `.devcontainer` folder and should be made executable.  These files are not included in the repository.  
+The dev environment supports two levels of custom scripts:
 
-* The `custom_bootstrap.sh` file is run when the container is first created.  It can be used to install packages or make other changes that should be done once upon creation.  If you want to make permanent modifications for example, to [your `.bashrc` file](#bashrc-file), you should do it in the `custom_bootstrap.sh` file.
-* The `custom_startup.sh` file is run each time vscode starts.
+1. **Organization-level scripts** (`org-custom-bootstrap.sh` and `org-custom-startup.sh`) - Committed to the repository for organization-wide customizations
+2. **User-level scripts** (`user-custom-bootstrap.sh` and `user-custom-startup.sh`) - Local user customizations that are not committed
 
-**Managing custom bootstrap commands:**
+### Organization-Level Custom Scripts
 
-You can use the `devenv-add-custom-bootstrap` script to add commands to `custom-bootstrap.sh` that run whenever the container is created or the bootstrap sequence executes:
+These scripts are part of the repository and apply to all users in the organization:
+
+* **`org-custom-bootstrap.sh`** - Runs during container creation/bootstrap for organization-wide setup
+* **`org-custom-startup.sh`** - Runs each time VS Code starts for organization-wide initialization
+
+These files should be created manually in `.devcontainer/` and committed to the repository. They are ideal for:
+- Installing organization-specific tools
+- Configuring company-wide settings
+- Setting up shared development services
+
+### User-Level Custom Scripts
+
+These scripts are for personal customizations and are automatically ignored by git:
+
+* **`user-custom-bootstrap.sh`** - Runs during container creation/bootstrap for personal setup
+* **`user-custom-startup.sh`** - Runs each time VS Code starts for personal initialization
+
+**Managing user-level bootstrap commands:**
+
+You can use the `devenv-add-custom-bootstrap` script to add commands to `user-custom-bootstrap.sh` that run whenever the container is created or the bootstrap sequence executes:
 
 ```bash
 devenv-add-custom-bootstrap "command1" "command2"
 ```
 
 The script will:
-- Create `custom-bootstrap.sh` if it doesn't exist
+- Create `user-custom-bootstrap.sh` if it doesn't exist
 - Validate bash syntax before adding commands
 - Set executable permissions automatically
 - Append commands with documentation comments
 
-**Managing custom startup commands:**
+**Managing user-level startup commands:**
 
-You can use the `devenv-add-custom-startup` script to easily add commands to `custom_startup.sh`:
+You can use the `devenv-add-custom-startup` script to easily add commands to `user-custom-startup.sh`:
 
 ```bash
 devenv-add-custom-startup "command1" "command2"
 ```
 
 The script will:
-- Create `custom_startup.sh` if it doesn't exist
+- Create `user-custom-startup.sh` if it doesn't exist
 - Validate bash syntax before adding commands
 - Set proper permissions automatically
 - Append commands with documentation comments

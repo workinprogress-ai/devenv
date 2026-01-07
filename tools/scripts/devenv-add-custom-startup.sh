@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Add custom startup commands to .devcontainer/custom_startup.sh
+# Add custom startup commands to .devcontainer/user-custom-startup.sh
 # These commands will be executed after the container starts
 # Usage: devenv-add-custom-startup.sh "command1" "command2" ...
 
@@ -9,7 +9,7 @@ set -euo pipefail
 # shellcheck source=../lib/error-handling.bash
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 
-STARTUP_SCRIPT="$DEVENV_ROOT/.devcontainer/custom_startup.sh"
+STARTUP_SCRIPT="$DEVENV_ROOT/.devcontainer/user-custom-startup.sh"
 
 # Check if at least one command is provided
 if [ $# -eq 0 ]; then

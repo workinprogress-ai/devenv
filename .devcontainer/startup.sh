@@ -17,9 +17,16 @@ nohup $toolbox_root/.devcontainer/background-check-devenv-updates.sh > /dev/null
 
 $toolbox_root/.devcontainer/sanity-check.sh
 
-# If there is a custom startup, run it
-if [ -f $toolbox_root/.devcontainer/custom-startup.sh ]; then
-    /bin/bash $toolbox_root/.devcontainer/custom-startup.sh
+# Run organization-level custom startup (for forked repos)
+if [ -f $toolbox_root/.devcontainer/org-custom-startup.sh ]; then
+    echo "Running organization-level custom startup..."
+    /bin/bash $toolbox_root/.devcontainer/org-custom-startup.sh
+fi
+
+# Run user-level custom startup (user-specific customizations)
+if [ -f $toolbox_root/.devcontainer/user-custom-startup.sh ]; then
+    echo "Running user-level custom startup..."
+    /bin/bash $toolbox_root/.devcontainer/user-custom-startup.sh
 fi
 
 
