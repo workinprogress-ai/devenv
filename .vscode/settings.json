@@ -3,5 +3,10 @@
         "devenv",
         "distro",
         "workinprogress"
-    ]
+    ],
+    "workbench.colorCustomizations": {
+        "activityBar.background": "#2B4A5A",
+        "titleBar.activeBackground": "#3D7A92",
+        "titleBar.activeForeground": "#E8F2F7"
+    }
 }

@@ -753,8 +753,8 @@ finish_message() {
 run_tasks() {
     local tasks=("$@")
     local default_tasks=(
-        init_bootstrap_run_time
         initialize_paths
+        init_bootstrap_run_time
         detect_architecture
         ensure_home_is_set
         ensure_bash_is_default_shell
