@@ -6,8 +6,8 @@ Complete documentation for the Devenv project organized by topic and use case.
 
 **New to Devenv?** Start here:
 1. [Dev Container Environment](./Dev-container-environment.md) - Set up and run the dev container
-2. [Contributing](./Contributing.md) - Development workflow and code standards
-3. [Additional Tooling](./Additional-Tooling.md) - Overview of available scripts
+2. [Additional Tooling](./Additional-Tooling.md) - Overview of available scripts
+3. [GitHub Issues Quick Reference](./GitHub-Issues-Quick-Reference.md) - Common issue/PR commands
 
 ## 📋 GitHub Issues & Project Management
 
@@ -46,24 +46,7 @@ Complete workflow for managing GitHub Issues, Projects, and Sprints:
   - Networking and utilities
   - Complete command reference
 
-## 📚 Development Standards
-
-Coding practices, naming conventions, and quality guidelines:
-
-- **[Contributing](./Contributing.md)** (25 KB)
-  - Development workflow
-  - Code quality standards
-  - Review process and protocols
-  - Merging and conflict resolution
-  - Feature flags and dark deployments
-  - Issue tracking and task management
-
-- **[Coding Standards](./Coding-standards.md)** (15 KB)
-  - Code style and formatting
-  - Best practices
-  - Error handling
-  - Testing requirements
-  - Documentation standards
+**Devenv-specific conventions (still in this repo):**
 
 - **[Function Naming Conventions](./Function-Naming-Conventions.md)** (5.7 KB)
   - Bash function naming rules
@@ -101,27 +84,6 @@ Coding practices, naming conventions, and quality guidelines:
   - VS Code remote debugging
   - Database access patterns
 
-## 🤝 Team & Culture
-
-- **[Culture](./Culture.md)** (1.3 KB)
-  - Team values and practices
-
-## 📊 Documentation Statistics
-
-| Document | Size | Purpose |
-|----------|------|---------|
-| GitHub Issues Management | 16 KB | Issue workflow & hierarchy |
-| GitHub Issues Quick Reference | 6 KB | Command lookup & examples |
-| Contributing | 25 KB | Development process |
-| Additional Tooling | 20 KB | Script reference |
-| Coding Standards | 15 KB | Code quality |
-| Tailscale VPN Setup | 13 KB | VPN infrastructure |
-| Dev Container | 11 KB | Environment setup |
-| Function Naming | 5.7 KB | Naming conventions |
-| Logging Framework | 6.6 KB | Logging standards |
-| Port Forwarding | 6.2 KB | Network access |
-| Culture | 1.3 KB | Team values |
-
 **Total: ~115 KB of comprehensive documentation**
 
 ## 🔍 Find Documentation By Topic
@@ -137,12 +99,6 @@ Coding practices, naming conventions, and quality guidelines:
 **...set up my development environment**
 → [Dev Container Environment](./Dev-container-environment.md)
 
-**...contribute code**
-→ [Contributing](./Contributing.md)
-
-**...follow code standards**
-→ [Coding Standards](./Coding-standards.md)
-
 **...create or publish a library**
 → See repository-specific documentation
 
@@ -155,32 +111,12 @@ Coding practices, naming conventions, and quality guidelines:
 **...access remote services**
 → [Port Forwarding](./Port-forwarding.md)
 
-**...understand the team's culture**
-→ [Culture](./Culture.md)
-
 ## 📝 How Documentation is Organized
 
-### For New Developers
 1. Start with [Dev Container Environment](./Dev-container-environment.md) to understand the setup
-2. Read [Contributing](./Contributing.md) to understand the workflow
+2. Read the Contributing documentation for your organization to understand the workflow
 3. Bookmark [GitHub Issues Quick Reference](./GitHub-Issues-Quick-Reference.md) for daily use
 4. Reference [Additional Tooling](./Additional-Tooling.md) as needed
-
-### For Code Authors
-1. [Coding Standards](./Coding-standards.md) - What to write
-2. [Contributing](./Contributing.md) - How to contribute
-3. [Function Naming Conventions](./Function-Naming-Conventions.md) - Function naming rules
-4. [Logging Framework](./Logging-Framework.md) - Logging approach
-
-### For Project Managers
-1. [GitHub Issues Management](./GitHub-Issues-Management.md) - Full workflow guide
-2. [GitHub Issues Quick Reference](./GitHub-Issues-Quick-Reference.md) - Command lookup
-3. [Contributing](./Contributing.md) - Review process
-
-### For DevOps/Infrastructure
-1. [Dev Container Environment](./Dev-container-environment.md) - Container setup
-2. [Port Forwarding](./Port-forwarding.md) - Network access
-3. [Tailscale VPN Setup](./Tailscale-Setup.md) - VPN infrastructure
 
 ## 🔗 Related Resources
 
@@ -195,7 +131,6 @@ Coding practices, naming conventions, and quality guidelines:
 - Check the relevant documentation section above
 - Use script `--help` flags: `issue-create --help`
 - Ask in team chat or create a GitHub issue
-- Refer to [Contributing.md](./Contributing.md) for review and collaboration guidelines
 
 ## 📄 Documentation Standards
 
@@ -210,4 +145,4 @@ All documentation in Devenv follows these principles:
 
 ---
 
-Last updated: January 3, 2026
+Last updated: January 11, 2026
