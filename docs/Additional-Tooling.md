@@ -1071,7 +1071,6 @@ The following convenience aliases are available in the dev container:
 
 **Utilities:**
 - `get-public-ip` - Get current public IP
-- `load-ssh-agent` - Load SSH agent from host
 - `update-github-key` - Update GitHub token in setup
 - `update-tailscale-key` - Update Tailscale auth key
 - `update-do-key` - Update Digital Ocean API token

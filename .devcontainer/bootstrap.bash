@@ -542,7 +542,7 @@ if [ -n "${BASH_VERSION:-}" ]; then
 fi
 
 # SSH setup (works in both shells)
-[ -f "${DEVENV_ROOT}/.devcontainer/load-ssh.sh" ] && source "${DEVENV_ROOT}/.devcontainer/load-ssh.sh"
+#[ -f "${DEVENV_ROOT}/.devcontainer/load-ssh.sh" ] && source "${DEVENV_ROOT}/.devcontainer/load-ssh.sh"
 
 # Convenience: move to repos if starting in repo root (bash-only behavior preserved)
 if [ -n "${BASH_VERSION:-}" ] && [ "$(pwd)" = "${DEVENV_ROOT}" ]; then
