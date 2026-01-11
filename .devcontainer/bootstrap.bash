@@ -561,6 +561,12 @@ append_bashrc() {
     if ! grep -Fq "$marker_start" "$HOME/.bashrc"; then
         cat <<EOF >> "$HOME/.bashrc"
 $marker_start
+# If not running interactively, don't do anything.  This stops the loading of our
+# customizations in non-interactive shells (like scp, etc).
+# It also stops any additional .bashrc processing in case NVM or somebody wants to modify the 
+# bashrc.  This is necessary to avoid potentially breaking vs code itself
+[[ $- != *i* ]] && return
+# Source the devenvrc file if it exists.  This loads our custom awesomeness
 if [ -f "$HOME/.devenvrc" ]; then
     source "$HOME/.devenvrc"
 fi
