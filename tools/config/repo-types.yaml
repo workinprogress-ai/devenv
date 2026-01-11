@@ -7,6 +7,7 @@
 #   - template: Optional GitHub template repo to use (use --no-template to skip)
 #   - naming_pattern: Regex pattern that repo names must match
 #   - naming_example: Examples of valid repo names
+#   - isTemplate: Mark this repository as a GitHub template (default: false)
 #   - branch_protection: Rules for master branch protection
 #   - post_creation_script: Script within repo to run after creation (relative path from repo root)
 #   - delete_post_creation_script: Whether to delete the script after running (default: true)
@@ -16,159 +17,336 @@
 #       - new: Create new commit with changes (if changes exist)
 
 types:
-  # Planning and documentation repositories
+  # Planning and repositories
+  # Format: planning.[category].[name]
   # Examples: planning.development.main, planning.roadmap
   planning:
-    description: Planning and documentation repositories
-    template: template-planning
-    naming_pattern: '^planning(\.[a-z0-9-]+)?\..*[a-z0-9-]+$'
+    description: Planning repositories
+    template: template.planning
+    naming_pattern: '^planning(\.[a-z0-9-]+)+$'
     naming_example: "planning.development.main or planning.roadmap"
+    mainBranch: master
     post_creation_script: null  # No post-creation script
     delete_post_creation_script: true
     post_creation_commit_handling: none
-    branch_protection:
-      require_pull_request: true
-      required_approving_review_count: 1
-      require_code_owner_reviews: false  # Not required for planning docs
-      dismiss_stale_reviews: false
-      require_conversation_resolution: true
-      delete_branch_on_merge: true
-      allow_force_pushes: false
-      allow_admin_bypass: true  # Admins can bypass for emergency fixes
-      required_status_checks: []  # No CI checks required
+    applyRuleset: true
+    rulesets:
+      - name: Planning Repository Rules
+        enforcement: active
+        conditions:
+          ref_name:
+            include:
+              - refs/heads/master
+        rules:
+          - type: pull_request
+            parameters:
+              required_approving_review_count: 1
+              require_code_owner_review: false
+              require_last_push_approval: false
+              dismiss_stale_reviews_on_push: true
+              require_review_from_code_owners: false
+          - type: commit_message_pattern
+            parameters:
+              operator: regex
+              pattern: '^(feat|fix|docs|chore|refactor|test|major|minor|patch)!?:\s.+'
+          - type: branch_name_pattern
+            parameters:
+              operator: regex
+              pattern: '^(feature|bugfix|hotfix|docs)\/[a-z0-9-]+$'
+          - type: commit_author_email_pattern
+            parameters:
+              operator: regex
+              pattern: '.*@.*'
+
+  # Documentation repositories
+  # Format: docs.[category].[name] or docs.[name]
+  # Examples: docs.api.reference, docs.user-guide, docs.architecture
+  documentation:
+    description: Documentation repositories
+    template: template.docs
+    naming_pattern: '^docs(\.[a-z0-9-]+)+$'
+    naming_example: "docs.api.reference, docs.user-guide, or docs.architecture"
+    mainBranch: master
+    post_creation_script: ".repo/post-create.sh"  
+    delete_post_creation_script: true
+    post_creation_commit_handling: amend
+    applyRuleset: true
+    rulesets:
+      - name: Documentation Repository Rules
+        enforcement: active
+        conditions:
+          ref_name:
+            include:
+              - refs/heads/master
+        rules:
+          - type: pull_request
+            parameters:
+              required_approving_review_count: 1
+              require_code_owner_review: true
+              require_last_push_approval: false
+              dismiss_stale_reviews_on_push: true
+              require_review_from_code_owners: true
+          - type: commit_message_pattern
+            parameters:
+              operator: regex
+              pattern: '^(feat|fix|docs|chore)!?:\s.+'
+          - type: branch_name_pattern
+            parameters:
+              operator: regex
+              pattern: '^(feature|bugfix|docs)\/[a-z0-9-]+$'
+          - type: commit_author_email_pattern
+            parameters:
+              operator: regex
+              pattern: '.*@.*'
+
+  # Backend microservices
+  # Template repositories
+  # Format: template.[name]
+  # Examples: template.service, template.web-app, template.cs-library
+  template:
+    description: Template repositories used to scaffold new projects
+    template: null  # No template; these are templates themselves
+    naming_pattern: '^template\.[a-z0-9-]+$'
+    naming_example: "template.service or template.web-app"
+    mainBranch: master
+    isTemplate: true  # Mark this repository as a template
+    post_creation_script: null
+    delete_post_creation_script: true
+    post_creation_commit_handling: none
+    applyRuleset: true
+    rulesets:
+      - name: Template Repository Rules
+        enforcement: active
+        conditions:
+          ref_name:
+            include:
+              - refs/heads/master
+        rules:
+          - type: pull_request
+            parameters:
+              required_approving_review_count: 1
+              require_code_owner_review: true
+              require_last_push_approval: false
+              dismiss_stale_reviews_on_push: true
+              require_review_from_code_owners: true
+          - type: commit_message_pattern
+            parameters:
+              operator: regex
+              pattern: '^(feat|fix|docs|chore|refactor|test|major|minor|patch)!?:\s.+'
+          - type: branch_name_pattern
+            parameters:
+              operator: regex
+              pattern: '^(feature|bugfix|hotfix|docs|template)\/[a-z0-9-]+$'
+          - type: commit_author_email_pattern
+            parameters:
+              operator: regex
+              pattern: '.*@.*'
 
   # Backend microservices
   # Format: service.<category>.<name>
-  # Examples: service.platform.identity, service.stargate.resident-profile
+  # Examples: service.platform.identity, service.deathstar.user-profile
   service:
     description: Backend microservices
-    template: template-service
+    template: template.service
     naming_pattern: '^service\.[a-z0-9-]+\.[a-z0-9-]+$'
-    naming_example: "service.platform.identity or service.stargate.resident-profile"
+    naming_example: "service.platform.identity or service.deathstar.user-profile"
+    mainBranch: master
     post_creation_script: ".repo/post-create.sh"  # Run customization script
     delete_post_creation_script: true  # Remove script after execution
     post_creation_commit_handling: amend  # Clean up initial commit
-    branch_protection:
-      require_pull_request: true
-      required_approving_review_count: 1
-      require_code_owner_reviews: true  # Service code needs owner review
-      dismiss_stale_reviews: false
-      require_conversation_resolution: true
-      delete_branch_on_merge: true
-      allow_force_pushes: false
-      allow_admin_bypass: true
-      # When CI/CD ready, add: ["build", "test", "publish"]
-      required_status_checks: []
+    applyRuleset: true
+    rulesets:
+      - name: Service Repository Rules
+        enforcement: active
+        conditions:
+          ref_name:
+            include:
+              - refs/heads/master
+        rules:
+          - type: pull_request
+            parameters:
+              required_approving_review_count: 1
+              require_code_owner_review: true
+              require_last_push_approval: false
+              dismiss_stale_reviews_on_push: false
+              require_review_from_code_owners: true
+          - type: commit_message_pattern
+            parameters:
+              operator: regex
+              pattern: '^(feat|fix|docs|chore|refactor|test|major|minor|patch)!?:\s.+'
+          - type: branch_name_pattern
+            parameters:
+              operator: regex
+              pattern: '^(feature|bugfix|hotfix|refactor)/[a-z0-9-]+$'
+          - type: commit_author_email_pattern
+            parameters:
+              operator: regex
+              pattern: '.*@.*'
 
   # API Gateway services
   # Format: gateway.<category>.<name>
-  # Examples: gateway.platform.main, gateway.stargate.api
+  # Examples: gateway.platform.main, gateway.deathstar.api
   gateway:
     description: API Gateway services
     template: template-gateway
     naming_pattern: '^gateway\.[a-z0-9-]+\.[a-z0-9-]+$'
-    naming_example: "gateway.platform.main or gateway.stargate.api"
+    naming_example: "gateway.platform.main or gateway.deathstar.api"
+    mainBranch: master
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
-    branch_protection:
-      require_pull_request: true
-      required_approving_review_count: 1
-      require_code_owner_reviews: true  # Critical component
-      dismiss_stale_reviews: false
-      require_conversation_resolution: true
-      delete_branch_on_merge: true
-      allow_force_pushes: false
-      allow_admin_bypass: true
-      required_status_checks: []
+    applyRuleset: true
+    rulesets:
+      - name: Gateway Repository Rules
+        enforcement: active
+        conditions:
+          ref_name:
+            include:
+              - refs/heads/master
+        rules:
+          - type: pull_request
+            parameters:
+              required_approving_review_count: 2
+              require_code_owner_review: true
+              require_last_push_approval: true
+              dismiss_stale_reviews_on_push: false
+              require_review_from_code_owners: true
+          - type: commit_message_pattern
+            parameters:
+              operator: regex
+              pattern: '^(feat|fix|docs|chore|refactor|test|major|minor|patch)!?:\s.+'
+          - type: branch_name_pattern
+            parameters:
+              operator: regex
+              pattern: '^(feature|bugfix|hotfix|refactor)/[a-z0-9-]+$'
+          - type: commit_author_email_pattern
+            parameters:
+              operator: regex
+              pattern: '.*@.*'
 
   # Web applications (React, Vue, etc.)
   # Format: app.web.<name>
-  # Examples: app.web.admin-portal, app.web.resident-dashboard
+  # Examples: app.web.admin-portal, app.web.user-dashboard
   app-web:
     description: Web applications
-    template: template-app-web
+    template: template.app-web
     naming_pattern: '^app\.web\.[a-z0-9-]+$'
-    naming_example: "app.web.admin-portal or app.web.resident-dashboard"
+    naming_example: "app.web.portal or app.web.user-dashboard"
+    mainBranch: master
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
-    branch_protection:
-      require_pull_request: true
-      required_approving_review_count: 1
-      require_code_owner_reviews: true
-      dismiss_stale_reviews: false
-      require_conversation_resolution: true
-      delete_branch_on_merge: true
-      allow_force_pushes: false
-      allow_admin_bypass: true
-      required_status_checks: []
+    applyRuleset: true
+    rulesets:
+      - name: Web Application Repository Rules
+        enforcement: active
+        conditions:
+          ref_name:
+            include:
+              - refs/heads/master
+        rules:
+          - type: pull_request
+            parameters:
+              required_approving_review_count: 1
+              require_code_owner_review: true
+              require_last_push_approval: false
+              dismiss_stale_reviews_on_push: false
+              require_review_from_code_owners: true
+          - type: commit_message_pattern
+            parameters:
+              operator: regex
+              pattern: '^(feat|fix|docs|chore|refactor|test|major|minor|patch)!?:\s.+'
+          - type: branch_name_pattern
+            parameters:
+              operator: regex
+              pattern: '^(feature|bugfix|hotfix|refactor)/[a-z0-9-]+$'
+          - type: commit_author_email_pattern
+            parameters:
+              operator: regex
+              pattern: '.*@.*'
 
   # C# libraries and packages published to GitHub/NuGet
   # Format: lib.cs.<category>[.<subcategory>].<name>
   # Examples: lib.cs.common.utilities, lib.cs.platform.auth.core
   cs-library:
     description: C# libraries and packages
-    template: template-cs-library
+    template: template.cs-library
     naming_pattern: '^lib\.cs\.[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z0-9-]+$'
     naming_example: "lib.cs.common.utilities or lib.cs.platform.auth.core"
+    mainBranch: master
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
-    branch_protection:
-      require_pull_request: true
-      required_approving_review_count: 1
-      require_code_owner_reviews: true  # Library code affects many services
-      dismiss_stale_reviews: false
-      require_conversation_resolution: true
-      delete_branch_on_merge: true
-      allow_force_pushes: false
-      allow_admin_bypass: true
-      required_status_checks: []
+    applyRuleset: true
+    rulesets:
+      - name: C# Library Repository Rules
+        enforcement: active
+        conditions:
+          ref_name:
+            include:
+              - refs/heads/master
+        rules:
+          - type: pull_request
+            parameters:
+              required_approving_review_count: 1
+              require_code_owner_review: true
+              require_last_push_approval: false
+              dismiss_stale_reviews_on_push: false
+              require_review_from_code_owners: true
+          - type: commit_message_pattern
+            parameters:
+              operator: regex
+              pattern: '^(feat|fix|docs|chore|refactor|test|major|minor|patch)!?:\s.+'
+          - type: branch_name_pattern
+            parameters:
+              operator: regex
+              pattern: '^(feature|bugfix|hotfix|refactor)/[a-z0-9-]+$'
+          - type: commit_author_email_pattern
+            parameters:
+              operator: regex
+              pattern: '.*@.*'
 
   # TypeScript/JavaScript packages
   # Format: pkg.ts.<name>
   # Examples: pkg.ts.ui-components, pkg.ts.api-client
   ts-package:
     description: TypeScript/JavaScript packages
-    template: template-ts-package
+    template: template.ts-package
     naming_pattern: '^pkg\.ts\.[a-z0-9-]+$'
     naming_example: "pkg.ts.ui-components or pkg.ts.api-client"
+    mainBranch: master
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
-    branch_protection:
-      require_pull_request: true
-      required_approving_review_count: 1
-      require_code_owner_reviews: true
-      dismiss_stale_reviews: false
-      require_conversation_resolution: true
-      delete_branch_on_merge: true
-      allow_force_pushes: false
-      allow_admin_bypass: true
-      required_status_checks: []
+    applyRuleset: true
+    rulesets:
+      - name: TypeScript Package Repository Rules
+        enforcement: active
+        conditions:
+          ref_name:
+            include:
+              - refs/heads/master
+        rules:
+          - type: pull_request
+            parameters:
+              required_approving_review_count: 1
+              require_code_owner_review: true
+              require_last_push_approval: false
+              dismiss_stale_reviews_on_push: false
+              require_review_from_code_owners: true
+          - type: commit_message_pattern
+            parameters:
+              operator: regex
+              pattern: '^(feat|fix|docs|chore|refactor|test|major|minor|patch):\s.+'
+          - type: branch_name_pattern
+            parameters:
+              operator: regex
+              pattern: '^(feature|bugfix|hotfix|refactor)/[a-z0-9-]+$'
+          - type: commit_author_email_pattern
+            parameters:
+              operator: regex
+              pattern: '.*@.*'
 
-  # Repositories with no enforced naming or protection
-  # Use for experimental, temporary, or special-case repos
-  # These can have any kebab-case name
-  none:
-    description: No enforced rules
-    template: null
-    naming_pattern: '^[a-z0-9-]+$'
-    naming_example: "any-valid-repo-name"
-    post_creation_script: null
-    delete_post_creation_script: true
-    post_creation_commit_handling: none
-    branch_protection:
-      require_pull_request: false
-      required_approving_review_count: 0
-      require_code_owner_reviews: false
-      dismiss_stale_reviews: false
-      require_conversation_resolution: false
-      delete_branch_on_merge: false
-      allow_force_pushes: true
-      allow_admin_bypass: true
-      required_status_checks: []
   # Use for experimental, temporary, or special-case repos
   # These can have any kebab-case name
   none:
@@ -176,13 +354,5 @@ types:
     template: null  # No template used
     naming_pattern: '^[a-z0-9][a-z0-9-]*[a-z0-9]$'
     naming_example: "any-valid-repo-name"
-    branch_protection:
-      require_pull_request: false  # No PR requirement
-      required_approving_review_count: 0
-      require_code_owner_reviews: false
-      dismiss_stale_reviews: false
-      require_conversation_resolution: false
-      delete_branch_on_merge: true
-      allow_force_pushes: false
-      allow_admin_bypass: true
-      required_status_checks: []
+    mainBranch: master
+    applyRuleset: false

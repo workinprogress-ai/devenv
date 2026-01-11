@@ -107,6 +107,7 @@ find_shell_scripts() {
         ! -path "*/.git/*" \
         ! -path "*/tmp/*" \
         ! -path "*/.debug/*" \
+        ! -path "*/repos/*" \
         2>/dev/null | sort
 }
 

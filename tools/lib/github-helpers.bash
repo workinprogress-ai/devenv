@@ -83,8 +83,85 @@ get_repo_owner() {
         if [ -n "$repo_name" ]; then
             repo_spec="-R $repo_name"
         fi
+        # shellcheck disable=SC2086
         gh repo view $repo_spec --json owner -q .owner.login
     fi
+}
+
+# Get the full repository name (owner/repo) from an arbitrary repository path
+#
+# This function extracts the full repository specification (owner/repo format)
+# from a given repository path. It uses gh CLI when available, with a graceful
+# fallback to parsing the git remote URL for robustness.
+#
+# Usage:
+#   full_name=$(get_full_repo_name "/path/to/repo")
+#   echo "$full_name"  # outputs: owner/repo
+#
+# Arguments:
+#   $1 - Path to the repository (required)
+#
+# Returns:
+#   0 on success, 1 on error
+#   Outputs the full repository name in "owner/repo" format
+#
+# Examples:
+#   full_name=$(get_full_repo_name "$REPOS_DIR/my-service")
+#   full_name=$(get_full_repo_name "~/workspace/project")
+#
+# Notes:
+#   - First tries gh repo view for most accurate information
+#   - Falls back to parsing git remote origin URL if gh unavailable
+#   - Requires git repository with remote origin configured
+#
+get_full_repo_name() {
+    local repo_path="${1:-}"
+
+    if [ -z "$repo_path" ]; then
+        echo "ERROR: Repository path is required" >&2
+        return 1
+    fi
+
+    # Change to repo directory and get the full name using gh
+    if ! cd "$repo_path" 2>/dev/null; then
+        echo "ERROR: Failed to change to repository path: $repo_path" >&2
+        return 1
+    fi
+
+    # Use gh to get the full repo name in owner/repo format
+    local full_name
+    full_name=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null) || {
+        # Fallback: try to parse from git remote URL
+        local git_url
+        git_url=$(git config --get remote.origin.url 2>/dev/null || echo "")
+        
+        if [ -z "$git_url" ]; then
+            echo "ERROR: No git remote 'origin' found in repository" >&2
+            return 1
+        fi
+        
+        # Extract owner/repo from URL (handles both HTTPS and SSH formats)
+        # HTTPS: https://github.com/owner/repo.git or https://github.com/owner/repo
+        # SSH: git@github.com:owner/repo.git or git@github.com:owner/repo
+        if [[ "$git_url" =~ ^git@[^:]+:([^/]+)/(.+?)(\.git)?$ ]]; then
+            # SSH format: git@github.com:owner/repo.git
+            local owner="${BASH_REMATCH[1]}"
+            local repo="${BASH_REMATCH[2]}"
+            # Strip .git suffix if present
+            repo="${repo%.git}"
+            full_name="${owner}/${repo}"
+        else
+            # HTTPS format or other: extract last two path segments
+            full_name=$(echo "$git_url" | sed -E 's|.*/([^/]+)/([^/]+?)(\.git)?$|\1/\2|')
+        fi
+        
+        if [ -z "$full_name" ] || [ "$full_name" = "$git_url" ]; then
+            echo "ERROR: Could not parse repository name from git remote URL: $git_url" >&2
+            return 1
+        fi
+    }
+
+    echo "$full_name"
 }
 
 # Ensure GitHub CLI authentication

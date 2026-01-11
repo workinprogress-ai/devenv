@@ -57,18 +57,25 @@ repo-create.sh --interactive                  # prompts for type and name
 - `--type <type>`: Required (planning|service|gateway|app-web|cs-library|ts-package|none)
 - `--interactive` / `-i`: fzf-driven type picker + name prompt
 - `--public` | `--private`: Visibility (default: private)
-- `--description <text>`: Repo description
+- `--description <text>`: Repository description
 - `--no-template`: Skip the type’s template repo
-- `--no-branch-protection`: Skip protection setup
+- `--no-branch-protection`: Skip ruleset setup
 - `--no-clone`: Do not clone after creation
 - `--no-post-creation`: Skip running the post-creation script (if defined)
 
 **What it enforces:**
 - Naming patterns per type (see `tools/config/repo-types.yaml`)
-- Branch protection on `master` using `gh api`
+- GitHub repository rulesets on `master` (requires GitHub Pro or public repo)
 - Template repos per type (optional, can be skipped)
+- Template repository marking (via `isTemplate` config property)
 - Local clone via `repo-get` after creation
 - Post-creation script execution (per type) with configurable commit handling
+
+**Architecture:**
+The script uses the `repo-types` library (`tools/lib/repo-types.bash`) to manage repository configuration, validation, and ruleset application. The library provides common functions for:
+- Loading and validating `repo-types.yaml`
+- Validating repository names against type-specific patterns
+- Applying GitHub rulesets via the GitHub API
 
 **Post-creation behavior (from repo-types.yaml):**
 - `post_creation_script`: Path in the repo (e.g., `.repo/post-create.sh`). If present, it runs after clone.
@@ -76,24 +83,50 @@ repo-create.sh --interactive                  # prompts for type and name
 - `post_creation_commit_handling`: `none` | `amend` | `new`
     - `amend`: Amend the initial commit and force-push if the script made changes
     - `new`: Create a new commit and push if there are changes
-    - `none`: Leave changes unstaged; user decides
 
-**Branch protection checks (`required_status_checks`):**
-List the check run names that must pass before merging. For GitHub Actions, the format is typically:
-```
-"<Workflow name> / <job name>"
-```
-Examples for this repo:
-- CI workflow: `Devenv Tests / test`
-- Release workflow job (runs on master): `Publish release / tag`
+**Ruleset configuration (`applyRuleset` and `rulesets`):**
+Each type can define GitHub repository rulesets that are applied after the initial branch is created:
+- `applyRuleset`: Boolean flag (default: false). When true, rulesets defined in the type are applied.
+- `rulesets`: Array of ruleset definitions with `name`, `enforcement`, conditions, and rules.
+- Rulesets require GitHub Pro or a public repository; failures gracefully degrade with a warning.
+- Common ruleset rules include:
+  - `pull_request`: Require pull requests with approvals
+  - `commit_message_pattern`: Enforce commit message format (e.g., Conventional Commits)
+  - `branch_name_pattern`: Enforce branch naming conventions
+  - `commit_author_email_pattern`: Restrict commit authors by email
 
-Add these strings under the type’s `branch_protection.required_status_checks` array when you want them enforced. If you don’t have CI yet, leave the array empty (`[]`).
+**Commit message patterns:**
+Commit message patterns use Conventional Commits format and support optional breaking-change marker (`!`):
+```
+^(feat|fix|docs|chore|refactor|test|major|minor|patch)!?:\s.+
+```
+Examples:
+- `feat: add new feature`
+- `fix!: breaking change in fix`
+- `docs: update README`
+
+**Examples:**
+```bash
+# Create a service with description and custom visibility
+repo-create.sh service.platform.auth --type service --description "Authentication service" --public
+
+# Create a web app with custom description
+repo-create.sh app.web.dashboard --type app-web --description "User dashboard application"
+
+# Interactive mode
+repo-create.sh --interactive
+```
 
 **Interactive mode:**
-- Uses `fzf` to pick a type and shows an example name; prompts for repo name.
-- Applies all rules above after selection.
+- Uses `fzf` to pick a type and shows an example name
+- Prompts for repository name
+- Prompts for optional description
+- Applies all rules above after selection
 
-**Config file:** `tools/config/repo-types.yaml` controls types, templates, naming patterns, branch protection, post-creation scripts, and commit handling.
+**Config file:** `tools/config/repo-types.yaml` controls types, templates, naming patterns, rulesets, post-creation scripts, and commit handling.
+
+**Note on rulesets:**
+If repository rulesets cannot be applied during creation (e.g., your organization is not on GitHub Pro or the repo is private), use `repo-update-config.sh` later to apply the rulesets to an already-created repository. See the [Internal Scripts](#internal-scripts) section for details.
 
 ### `repo-update-all`
 
@@ -943,6 +976,49 @@ The configuration is placed in `~/.debug/config`.
 ### `docker-compose-dependencies.yml`
 
 Docker Compose configuration file for running development dependencies (databases, message queues, etc.).
+
+## Internal Scripts
+
+Internal utility scripts located in `tools/scripts/` that are not exposed on the global `PATH`. These scripts are designed to support other tools and workflows but may also be run directly when specialized configuration management is needed.
+
+### `repo-update-config.sh`
+
+Applies or updates GitHub repository configuration (particularly rulesets) to an existing cloned repository. This is useful when rulesets could not be applied during initial repository creation due to account limitations (e.g., GitHub Pro requirement for private repos).
+
+**Usage:**
+```bash
+tools/scripts/repo-update-config.sh <repo-path> [--type <type>]
+```
+
+**Arguments:**
+- `<repo-path>`: Path to the cloned repository directory
+
+**Options:**
+- `--type <type>`: Repository type (optional; will be auto-detected from GitHub if not specified)
+
+**Description:**
+This script reads the repository type from either the command-line argument or by querying GitHub for repository topics. It then applies the standardized GitHub rulesets for that type using the same `configure_rulesets_for_type()` function that `repo-create` uses.
+
+**Use cases:**
+- Applying rulesets after upgrading to GitHub Pro
+- Configuring rulesets on repositories created before ruleset support was available
+- Manually updating configuration without recreating the repository
+
+**Examples:**
+```bash
+# Auto-detect type from GitHub repository topics
+tools/scripts/repo-update-config.sh ~/repos/my-service
+
+# Explicitly specify repository type
+tools/scripts/repo-update-config.sh ~/repos/my-docs --type documentation
+```
+
+**Dependencies:**
+- `repo-types.bash` (shared library)
+- GitHub CLI (`gh`)
+- `yq` (YAML processor)
+
+**Related:** See [repo-create](#repo-create) for initial repository creation and ruleset configuration details.
 
 ## Bash Functions and Aliases
 

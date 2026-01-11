@@ -121,13 +121,43 @@ validate_config=true
 
 If you use `tools/scripts/repo-create.sh`, configure `tools/config/repo-types.yaml`:
 
-- **Naming**: `naming_pattern` and `naming_example` per type (e.g., service.*, gateway.*, app.web.*)
-- **Templates**: `template` per type (or null) to pre-bake CI, CODEOWNERS, and .repo scripts
-- **Post-creation**: `post_creation_script`, `delete_post_creation_script`, and `post_creation_commit_handling` (`none|amend|new`)
-- **Branch protection**: counts/owners/conversation rules, `allow_force_pushes`, `allow_admin_bypass`, `delete_branch_on_merge`
-- **Status checks**: `required_status_checks` should list the exact check run names from your CI (e.g., `Devenv Tests / test`)
+### Configuration per type:
 
-Tip: Keep a lightweight template repo for each type so new repos start with pipelines and policies already in place.
+- **Naming**: `naming_pattern` and `naming_example` per type (e.g., `service.*`, `gateway.*`, `app.web.*`, `lib.cs.*`)
+- **Templates**: `template` per type (or null) to pre-bake CI, CODEOWNERS, and .repo scripts
+- **Template marking**: `isTemplate` (boolean, default: false) marks the repository as a GitHub template, making it available for use with "Use this template" button
+- **Post-creation**: `post_creation_script`, `delete_post_creation_script`, and `post_creation_commit_handling` (`none|amend|new`)
+- **Rulesets** (GitHub Pro/public repos only):
+  - `applyRuleset`: Boolean flag to enable ruleset application
+  - `rulesets`: Array of GitHub repository ruleset definitions with rules for PRs, commit messages, branch names, and author emails
+  - Commit message patterns support Conventional Commits with optional breaking-change marker: `(feat|fix|...)!?:\s.+`
+
+### Example ruleset:
+
+```yaml
+service:
+  applyRuleset: true
+  rulesets:
+    - name: "Service Repository Rules"
+      enforcement: active
+      rules:
+        - type: pull_request
+          parameters:
+            required_approving_review_count: 1
+            require_code_owner_review: true
+        - type: commit_message_pattern
+          parameters:
+            operator: regex
+            pattern: '^(feat|fix|docs|chore|refactor|test|major|minor|patch)!?:\s.+'
+        - type: branch_name_pattern
+          parameters:
+            operator: regex
+            pattern: '^(feature|bugfix|hotfix|refactor)/[a-z0-9-]+$'
+```
+
+### Tip
+
+Keep a lightweight template repo for each type so new repos start with pipelines, CODEOWNERS, and `.repo/` hooks already in place.
 
 ## devenv.config Examples
 

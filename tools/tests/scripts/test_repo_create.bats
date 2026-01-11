@@ -47,6 +47,12 @@ load ../test_helper
   [[ "$output" =~ "none" ]]
 }
 
+@test "repo-types.yaml: template type has isTemplate property" {
+  run yq eval '.types.template.isTemplate // false' "$PROJECT_ROOT/tools/config/repo-types.yaml"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
+
 @test "repo-types.yaml: all types have required fields" {
   run bash -c "
     yq eval '.types | keys[]' '$PROJECT_ROOT/tools/config/repo-types.yaml' | while read type; do
@@ -136,12 +142,12 @@ load ../test_helper
 }
 
 @test "repo-create.sh requires yq command" {
-  run grep "require_cmd yq" "$PROJECT_ROOT/tools/scripts/repo-create.sh"
+  run grep "require_command yq" "$PROJECT_ROOT/tools/scripts/repo-create.sh"
   [ "$status" -eq 0 ]
 }
 
-@test "repo-create.sh contains validate_repo_type function" {
-  run grep "^validate_repo_type()" "$PROJECT_ROOT/tools/scripts/repo-create.sh"
+@test "repo-create.sh sources repo-types library" {
+  run grep "repo-types.bash" "$PROJECT_ROOT/tools/scripts/repo-create.sh"
   [ "$status" -eq 0 ]
 }
 
@@ -157,5 +163,87 @@ load ../test_helper
 
 @test "repo-create.sh contains interactive mode" {
   run grep "select_repo_type_interactive" "$PROJECT_ROOT/tools/scripts/repo-create.sh"
+  [ "$status" -eq 0 ]
+}
+
+@test "repo-create.sh exits early when repo already exists (mocked gh)" {
+  local cfg="$TEST_TEMP_DIR/repo-types.yaml"
+  cat > "$cfg" <<'EOF'
+types:
+  none:
+    naming_pattern: ".*"
+    naming_example: "anything"
+    applyRuleset: false
+EOF
+
+  mkdir -p "$TEST_TEMP_DIR/bin"
+  cat > "$TEST_TEMP_DIR/bin/gh" <<'EOF'
+#!/usr/bin/env bash
+if [ "$1" = "repo" ] && [ "$2" = "view" ]; then
+  exit 0
+fi
+
+if [ "$1" = "auth" ] && [ "$2" = "status" ]; then
+  exit 0
+fi
+
+echo "unexpected gh call" >&2
+exit 1
+EOF
+  chmod +x "$TEST_TEMP_DIR/bin/gh"
+
+  PATH="$TEST_TEMP_DIR/bin:$PATH" REPO_TYPES_CONFIG="$cfg" run "$PROJECT_ROOT/tools/scripts/repo-create.sh" test-repo --type none
+  [ "$status" -eq 0 ]
+}
+
+@test "repo-create.sh fails when type missing even with mocked gh" {
+  mkdir -p "$TEST_TEMP_DIR/bin"
+  cat > "$TEST_TEMP_DIR/bin/gh" <<'EOF'
+#!/usr/bin/env bash
+echo "gh should not be called" >&2
+exit 1
+EOF
+  chmod +x "$TEST_TEMP_DIR/bin/gh"
+
+  PATH="$TEST_TEMP_DIR/bin:$PATH" run "$PROJECT_ROOT/tools/scripts/repo-create.sh" test-repo
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Repository type" ]]
+}
+
+@test "repo-create.sh accepts --description parameter" {
+  local cfg="$TEST_TEMP_DIR/repo-types.yaml"
+  cat > "$cfg" <<'EOF'
+types:
+  none:
+    naming_pattern: ".*"
+    naming_example: "anything"
+    applyRuleset: false
+EOF
+
+  mkdir -p "$TEST_TEMP_DIR/bin"
+  cat > "$TEST_TEMP_DIR/bin/gh" <<'EOF'
+#!/usr/bin/env bash
+if [ "$1" = "repo" ] && [ "$2" = "view" ]; then
+  exit 0
+fi
+
+if [ "$1" = "auth" ] && [ "$2" = "status" ]; then
+  exit 0
+fi
+
+# Verify description was passed in gh repo create call
+if [ "$1" = "repo" ] && [ "$2" = "create" ]; then
+  for arg in "$@"; do
+    if [ "$arg" = "Test description" ]; then
+      exit 0
+    fi
+  done
+fi
+
+exit 0
+EOF
+  chmod +x "$TEST_TEMP_DIR/bin/gh"
+
+  PATH="$TEST_TEMP_DIR/bin:$PATH" REPO_TYPES_CONFIG="$cfg" run "$PROJECT_ROOT/tools/scripts/repo-create.sh" test-repo --type none --description "Test description"
   [ "$status" -eq 0 ]
 }

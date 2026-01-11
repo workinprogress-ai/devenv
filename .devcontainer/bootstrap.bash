@@ -455,7 +455,7 @@ create_tool_symlinks() {
     mkdir -p "$toolbox_root/tools"
     find "$toolbox_root/tools" -maxdepth 1 -type l -delete
 
-    BASH_FUNCTION_SCRIPTS=(
+    EXCLUDE_SCRIPTS=(
         "repo-get.sh"
         "update-tailscale-key.sh"
         "update-github-key.sh"
@@ -463,6 +463,7 @@ create_tool_symlinks() {
         "lint-scripts.sh"
         "script-template.sh"
         "create-script.sh"
+        "repo-update-config.sh"
     )
 
     for script in "$toolbox_root/tools/scripts"/*.sh; do
@@ -471,7 +472,7 @@ create_tool_symlinks() {
             script_basename=$(basename "$script")
 
             skip=false
-            for bash_func_script in "${BASH_FUNCTION_SCRIPTS[@]}"; do
+            for bash_func_script in "${EXCLUDE_SCRIPTS[@]}"; do
                 if [ "$script_basename" = "$bash_func_script" ]; then
                     skip=true
                     break
