@@ -128,32 +128,68 @@ If you use `tools/scripts/repo-create.sh`, configure `tools/config/repo-types.ya
 - **Template marking**: `isTemplate` (boolean, default: false) marks the repository as a GitHub template, making it available for use with "Use this template" button
 - **Post-creation**: `post_creation_script`, `delete_post_creation_script`, and `post_creation_commit_handling` (`none|amend|new`)
 - **Rulesets** (GitHub Pro/public repos only):
-  - `applyRuleset`: Boolean flag to enable ruleset application
-  - `rulesets`: Array of GitHub repository ruleset definitions with rules for PRs, commit messages, branch names, and author emails
-  - Commit message patterns support Conventional Commits with optional breaking-change marker: `(feat|fix|...)!?:\s.+`
+  - `rulesetConfigFile`: Path to JSON ruleset file in `tools/config/` (e.g., `ruleset-default.json`)
+  - Set to `null` or blank to disable rulesets for a type
+  - JSON file is a GitHub ruleset export with token placeholders: `{{repo_name}}`, `{{owner}}`, `{{type_name}}`, `{{type_description}}`
 
-### Example ruleset:
+#### Ruleset JSON tokens
+
+Your ruleset JSON file can use these tokens, which are replaced during application:
+- `{{repo_name}}` - Repository name (e.g., `service.platform.identity` → `identity` part only)
+- `{{owner}}` - Organization/owner name
+- `{{type_name}}` - Repository type (e.g., `service`, `documentation`)
+- `{{type_description}}` - Type description from config
+
+### Example configuration:
 
 ```yaml
 service:
-  applyRuleset: true
-  rulesets:
-    - name: "Service Repository Rules"
-      enforcement: active
-      rules:
-        - type: pull_request
-          parameters:
-            required_approving_review_count: 1
-            require_code_owner_review: true
-        - type: commit_message_pattern
-          parameters:
-            operator: regex
-            pattern: '^(feat|fix|docs|chore|refactor|test|major|minor|patch)!?:\s.+'
-        - type: branch_name_pattern
-          parameters:
-            operator: regex
-            pattern: '^(feature|bugfix|hotfix|refactor)/[a-z0-9-]+$'
+  description: Backend microservices
+  template: template.service
+  naming_pattern: '^service\.[a-z0-9-]+\.[a-z0-9-]+$'
+  naming_example: "service.platform.identity"
+  mainBranch: master
+  allowedMergeTypes:
+    - squash
+  rulesetConfigFile: ruleset-default.json
+  post_creation_script: ".repo/post-create.sh"
 ```
+
+### Example ruleset JSON (ruleset-default.json):
+
+```json
+{
+  "name": "{{repo_name}} Protection Ruleset",
+  "target": "branch",
+  "source": "{{owner}}/{{repo_name}}",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["~DEFAULT_BRANCH"],
+      "exclude": []
+    }
+  },
+  "rules": [
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 1,
+        "require_code_owner_review": true
+      }
+    },
+    {
+      "type": "required_linear_history"
+    }
+  ]
+}
+```
+
+**To create a ruleset JSON:**
+1. Configure a ruleset manually in GitHub UI
+2. Export it via API: `gh api repos/OWNER/REPO/rulesets/ID`
+3. Save to `tools/config/your-ruleset.json`
+4. Replace hardcoded values with tokens (`{{repo_name}}`, `{{owner}}`, etc.)
+5. Reference the filename in `rulesetConfigFile` property
 
 ### Tip
 

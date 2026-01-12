@@ -8,7 +8,7 @@
 #   - naming_pattern: Regex pattern that repo names must match
 #   - naming_example: Examples of valid repo names
 #   - isTemplate: Mark this repository as a GitHub template (default: false)
-#   - branch_protection: Rules for master branch protection
+#   - rulesetConfigFile: Path to JSON ruleset file in config/ (null = no ruleset)
 #   - post_creation_script: Script within repo to run after creation (relative path from repo root)
 #   - delete_post_creation_script: Whether to delete the script after running (default: true)
 #   - post_creation_commit_handling: How to handle changes after post-creation (none|amend|new)
@@ -28,38 +28,10 @@ types:
     mainBranch: master
     allowedMergeTypes:
       - squash
-    post_creation_script: null  # No post-creation script
+    post_creation_script: ".repo/post-create.sh"  
     delete_post_creation_script: true
-    post_creation_commit_handling: none
-    applyRuleset: true
-    rulesets:
-      - name: Planning Repository Rules
-        enforcement: active
-        conditions:
-          ref_name:
-            include:
-              - refs/heads/master
-            exclude: []
-        rules:
-          - type: pull_request
-            parameters:
-              required_approving_review_count: 1
-              dismiss_stale_reviews_on_push: false
-              require_code_owner_review: false
-              require_last_push_approval: false
-              required_review_thread_resolution: false
-          - type: commit_message_pattern
-            parameters:
-              operator: regex
-              pattern: '^(feat|fix|docs|chore|refactor|test|major|minor|patch)!?:\s.+'
-          - type: branch_name_pattern
-            parameters:
-              operator: regex
-              pattern: '^(feature|bugfix|hotfix|docs)\/[a-z0-9-]+$'
-          - type: commit_author_email_pattern
-            parameters:
-              operator: regex
-              pattern: '.*@.*'
+    post_creation_commit_handling: amend
+    rulesetConfigFile: ruleset-default.json
 
   # Documentation repositories
   # Format: docs.[category].[name] or docs.[name]
@@ -75,35 +47,7 @@ types:
     post_creation_script: ".repo/post-create.sh"  
     delete_post_creation_script: true
     post_creation_commit_handling: amend
-    applyRuleset: true
-    rulesets:
-      - name: Documentation Repository Rules
-        enforcement: active
-        conditions:
-          ref_name:
-            include:
-              - refs/heads/master
-            exclude: []
-        rules:
-          - type: pull_request
-            parameters:
-              required_approving_review_count: 1
-              dismiss_stale_reviews_on_push: false
-              require_code_owner_review: true
-              require_last_push_approval: false
-              required_review_thread_resolution: false
-          - type: commit_message_pattern
-            parameters:
-              operator: regex
-              pattern: '^(feat|fix|docs|chore)!?:\s.+'
-          - type: branch_name_pattern
-            parameters:
-              operator: regex
-              pattern: '^(feature|bugfix|docs)\/[a-z0-9-]+$'
-          - type: commit_author_email_pattern
-            parameters:
-              operator: regex
-              pattern: '.*@.*'
+    rulesetConfigFile: ruleset-default.json
 
   # Backend microservices
   # Template repositories
@@ -121,35 +65,7 @@ types:
     post_creation_script: null
     delete_post_creation_script: true
     post_creation_commit_handling: none
-    applyRuleset: true
-    rulesets:
-      - name: Template Repository Rules
-        enforcement: active
-        conditions:
-          ref_name:
-            include:
-              - refs/heads/master
-            exclude: []
-        rules:
-          - type: pull_request
-            parameters:
-              required_approving_review_count: 1
-              dismiss_stale_reviews_on_push: false
-              require_code_owner_review: true
-              require_last_push_approval: false
-              required_review_thread_resolution: false
-          - type: commit_message_pattern
-            parameters:
-              operator: regex
-              pattern: '^(feat|fix|docs|chore|refactor|test|major|minor|patch)!?:\s.+'
-          - type: branch_name_pattern
-            parameters:
-              operator: regex
-              pattern: '^(feature|bugfix|hotfix|docs|template)\/[a-z0-9-]+$'
-          - type: commit_author_email_pattern
-            parameters:
-              operator: regex
-              pattern: '.*@.*'
+    rulesetConfigFile: ruleset-default.json
 
   # Backend microservices
   # Format: service.<category>.<name>
@@ -165,35 +81,7 @@ types:
     post_creation_script: ".repo/post-create.sh"  # Run customization script
     delete_post_creation_script: true  # Remove script after execution
     post_creation_commit_handling: amend  # Clean up initial commit
-    applyRuleset: true
-    rulesets:
-      - name: Service Repository Rules
-        enforcement: active
-        conditions:
-          ref_name:
-            include:
-              - refs/heads/master
-            exclude: []
-        rules:
-          - type: pull_request
-            parameters:
-              required_approving_review_count: 1
-              dismiss_stale_reviews_on_push: false
-              require_code_owner_review: true
-              require_last_push_approval: true
-              required_review_thread_resolution: false
-          - type: commit_message_pattern
-            parameters:
-              operator: regex
-              pattern: '^(feat|fix|docs|chore|refactor|test|major|minor|patch)!?:\s.+'
-          - type: branch_name_pattern
-            parameters:
-              operator: regex
-              pattern: '^(feature|bugfix|hotfix|refactor)/[a-z0-9-]+$'
-          - type: commit_author_email_pattern
-            parameters:
-              operator: regex
-              pattern: '.*@.*'
+    rulesetConfigFile: ruleset-default.json
 
   # API Gateway services
   # Format: gateway.<category>.<name>
@@ -209,35 +97,7 @@ types:
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
-    applyRuleset: true
-    rulesets:
-      - name: Gateway Repository Rules
-        enforcement: active
-        conditions:
-          ref_name:
-            include:
-              - refs/heads/master
-            exclude: []
-        rules:
-          - type: pull_request
-            parameters:
-              required_approving_review_count: 2
-              dismiss_stale_reviews_on_push: false
-              require_code_owner_review: true
-              require_last_push_approval: true
-              required_review_thread_resolution: false
-          - type: commit_message_pattern
-            parameters:
-              operator: regex
-              pattern: '^(feat|fix|docs|chore|refactor|test|major|minor|patch)!?:\s.+'
-          - type: branch_name_pattern
-            parameters:
-              operator: regex
-              pattern: '^(feature|bugfix|hotfix|refactor)/[a-z0-9-]+$'
-          - type: commit_author_email_pattern
-            parameters:
-              operator: regex
-              pattern: '.*@.*'
+    rulesetConfigFile: ruleset-default.json
 
   # Web applications (React, Vue, etc.)
   # Format: app.web.<name>
@@ -253,35 +113,7 @@ types:
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
-    applyRuleset: true
-    rulesets:
-      - name: Web Application Repository Rules
-        enforcement: active
-        conditions:
-          ref_name:
-            include:
-              - refs/heads/master
-            exclude: []
-        rules:
-          - type: pull_request
-            parameters:
-              required_approving_review_count: 1
-              dismiss_stale_reviews_on_push: false
-              require_code_owner_review: true
-              require_last_push_approval: false
-              required_review_thread_resolution: false
-          - type: commit_message_pattern
-            parameters:
-              operator: regex
-              pattern: '^(feat|fix|docs|chore|refactor|test|major|minor|patch)!?:\s.+'
-          - type: branch_name_pattern
-            parameters:
-              operator: regex
-              pattern: '^(feature|bugfix|hotfix|refactor)/[a-z0-9-]+$'
-          - type: commit_author_email_pattern
-            parameters:
-              operator: regex
-              pattern: '.*@.*'
+    rulesetConfigFile: ruleset-default.json
 
   # C# libraries and packages published to GitHub/NuGet
   # Format: lib.cs.<category>[.<subcategory>].<name>
@@ -297,35 +129,7 @@ types:
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
-    applyRuleset: true
-    rulesets:
-      - name: C# Library Repository Rules
-        enforcement: active
-        conditions:
-          ref_name:
-            include:
-              - refs/heads/master
-            exclude: []
-        rules:
-          - type: pull_request
-            parameters:
-              required_approving_review_count: 1
-              dismiss_stale_reviews_on_push: false
-              require_code_owner_review: true
-              require_last_push_approval: false
-              required_review_thread_resolution: false
-          - type: commit_message_pattern
-            parameters:
-              operator: regex
-              pattern: '^(feat|fix|docs|chore|refactor|test|major|minor|patch)!?:\s.+'
-          - type: branch_name_pattern
-            parameters:
-              operator: regex
-              pattern: '^(feature|bugfix|hotfix|refactor)/[a-z0-9-]+$'
-          - type: commit_author_email_pattern
-            parameters:
-              operator: regex
-              pattern: '.*@.*'
+    rulesetConfigFile: ruleset-default.json
 
   # TypeScript/JavaScript packages
   # Format: pkg.ts.<name>
@@ -341,35 +145,7 @@ types:
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
-    applyRuleset: true
-    rulesets:
-      - name: TypeScript Package Repository Rules
-        enforcement: active
-        conditions:
-          ref_name:
-            include:
-              - refs/heads/master
-            exclude: []
-        rules:
-          - type: pull_request
-            parameters:
-              required_approving_review_count: 1
-              dismiss_stale_reviews_on_push: false
-              require_code_owner_review: true
-              require_last_push_approval: false
-              required_review_thread_resolution: false
-          - type: commit_message_pattern
-            parameters:
-              operator: regex
-              pattern: '^(feat|fix|docs|chore|refactor|test|major|minor|patch):\s.+'
-          - type: branch_name_pattern
-            parameters:
-              operator: regex
-              pattern: '^(feature|bugfix|hotfix|refactor)/[a-z0-9-]+$'
-          - type: commit_author_email_pattern
-            parameters:
-              operator: regex
-              pattern: '.*@.*'
+    rulesetConfigFile: ruleset-default.json
 
   # Use for experimental, temporary, or special-case repos
   # These can have any kebab-case name
@@ -383,4 +159,4 @@ types:
       - merge
       - squash
       - rebase
-    applyRuleset: false
+    rulesetConfigFile: null

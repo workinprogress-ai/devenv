@@ -64,11 +64,18 @@ get_type_template() {
     yq eval -r ".types.${repo_type}.template // \"null\"" "$config_path" 2>/dev/null || echo "null"
 }
 
-get_type_apply_ruleset() {
+get_type_ruleset_config_file() {
     local repo_type="$1"
     local config_path
     config_path=$(load_repo_types_config "${2:-}") || return 1
-    yq eval -r ".types.${repo_type}.applyRuleset // false" "$config_path" 2>/dev/null || echo "false"
+    local result
+    result=$(yq eval -r ".types.${repo_type}.rulesetConfigFile // \"null\"" "$config_path" 2>/dev/null || echo "null")
+    # Normalize empty/null to "null" string
+    if [ -z "$result" ] || [ "$result" = "null" ]; then
+        echo "null"
+    else
+        echo "$result"
+    fi
 }
 
 get_type_allowed_merge_types() {
@@ -232,91 +239,122 @@ configure_rulesets_for_type() {
         return 0
     fi
 
-    local apply_ruleset
-    apply_ruleset=$(get_type_apply_ruleset "$repo_type" "$config_path")
+    # Get the ruleset config file property
+    local ruleset_file
+    ruleset_file=$(get_type_ruleset_config_file "$repo_type" "$config_path")
 
-    if [ "$apply_ruleset" != "true" ]; then
-        log_info "Ruleset configuration disabled for this type"
+    if [ -z "$ruleset_file" ] || [ "$ruleset_file" = "null" ]; then
+        log_info "No ruleset configured for this type"
         return 0
     fi
 
-    log_info "Configuring repository rulesets..."
+    log_info "Configuring repository ruleset from ${ruleset_file}..."
 
-    local rulesets_json
-    rulesets_json=$(yq eval -r ".types.${repo_type}.rulesets" "$config_path" 2>/dev/null)
-
-    if [ -z "$rulesets_json" ] || [ "$rulesets_json" = "null" ] || [ "$rulesets_json" = "[]" ]; then
-        log_info "No rulesets configured for type '$repo_type'"
+    # Build full path to ruleset JSON file
+    local ruleset_json_path="${DEVENV_TOOLS}/config/${ruleset_file}"
+    
+    if ! validate_file_exists "$ruleset_json_path" "Ruleset JSON" 2>/dev/null; then
+        log_warn "Ruleset file not found: ${ruleset_json_path}"
         return 0
     fi
 
+    # Load and process the JSON with token replacement
+    local payload_json
+    payload_json=$(build_ruleset_payload_from_file "$ruleset_json_path" "$full_name" "$repo_type" "$config_path")
+    
+    if [ -z "$payload_json" ] || [ "$payload_json" = "{}" ]; then
+        log_warn "Failed to generate valid ruleset payload from ${ruleset_file}"
+        return 0
+    fi
+
+    # Extract ruleset name for logging and duplicate detection
+    local ruleset_name
+    ruleset_name=$(echo "$payload_json" | jq -r '.name' 2>/dev/null || echo "Unknown")
+
+    # Check if ruleset already exists
+    local existing_ruleset
+    existing_ruleset=$(gh api "repos/${full_name}/rulesets" 2>/dev/null | jq -r ".[] | select(.name == \"$ruleset_name\") | .id" 2>/dev/null || echo "")
+
+    # Create temp file for API payload
     local temp_payload
     temp_payload=$(mktemp)
+    echo "$payload_json" > "$temp_payload"
 
-    local rulesets_count
-    rulesets_count=$(yq eval ".types.${repo_type}.rulesets | length" "$config_path")
-    local i
-    for ((i=0; i<rulesets_count; i++)); do
-        local ruleset_name
+    local ruleset_output
+    if [ -n "$existing_ruleset" ]; then
+        # Update existing via PUT
+        ruleset_output=$(gh api --input "$temp_payload" -X PUT "repos/${full_name}/rulesets/${existing_ruleset}" 2>&1 || true)
+        rm -f "$temp_payload"
 
-        ruleset_name=$(yq eval -r ".types.${repo_type}.rulesets[$i].name" "$config_path")
-
-        # Validate required fields
-        if [ -z "$ruleset_name" ] || [ "$ruleset_name" = "null" ]; then
-            log_warn "Ruleset name is missing at index $i, skipping"
-            continue
-        fi
-
-        # Check if ruleset already exists
-        local existing_ruleset
-        existing_ruleset=$(gh api "repos/${full_name}/rulesets" 2>/dev/null | jq -r ".[] | select(.name == \"$ruleset_name\") | .id" 2>/dev/null || echo "")
-        
-        if [ -n "$existing_ruleset" ]; then
-            log_info "⊘ Ruleset '$ruleset_name' already exists (skipping)"
-            continue
-        fi
-
-        # Generate JSON payload with proper defaults
-        # Use yq to build the complete ruleset JSON with defaults for missing fields
-        local payload_json
-                payload_json=$(yq eval -o json "
-                {
-                    \"name\": .types.${repo_type}.rulesets[$i].name,
-                    \"target\": \"branch\",
-                    \"enforcement\": (.types.${repo_type}.rulesets[$i].enforcement // \"active\"),
-                    \"conditions\": (.types.${repo_type}.rulesets[$i].conditions // {\"ref_name\": {\"include\": [\"refs/heads/master\"], \"exclude\": []}}),
-                    \"rules\": (.types.${repo_type}.rulesets[$i].rules // [])
-                }
-                " "$config_path" 2>/dev/null || echo "{}")
-
-        # Validate the payload is not empty or just whitespace
-        if [ -z "$payload_json" ] || [ "$payload_json" = "{}" ]; then
-            log_warn "Failed to generate valid JSON payload for ruleset '$ruleset_name'"
-            continue
-        fi
-
-        echo "$payload_json" > "$temp_payload"
-
-        local ruleset_output
-        ruleset_output=$(gh api --input "$temp_payload" -X POST "repos/${full_name}/rulesets" 2>&1 || true)
-
-        if echo "$ruleset_output" | grep -q "\"id\""; then
-            log_info "✓ Ruleset '$ruleset_name' configured"
-        elif echo "$ruleset_output" | grep -qi "must be unique"; then
-            log_info "⊘ Ruleset '$ruleset_name' already exists (skipping)"
+        if echo "$ruleset_output" | jq -e '.id' >/dev/null 2>&1; then
+            log_info "✓ Ruleset '${ruleset_name}' updated"
         elif echo "$ruleset_output" | grep -qi "403\|Upgrade to GitHub Pro\|make this repository public"; then
             log_warn "Rulesets require GitHub Pro or a public repository"
             log_info "Repository created successfully - rulesets can be configured later when upgrading"
-            rm -f "$temp_payload"
-            return 0
         else
-            log_warn "Ruleset configuration failed for '$ruleset_name'"
+            log_warn "Ruleset update failed for '${ruleset_name}'"
             log_warn "API Response: $ruleset_output"
         fi
-    done
+    else
+        # Create new via POST
+        ruleset_output=$(gh api --input "$temp_payload" -X POST "repos/${full_name}/rulesets" 2>&1 || true)
+        rm -f "$temp_payload"
+
+        if echo "$ruleset_output" | jq -e '.id' >/dev/null 2>&1; then
+            log_info "✓ Ruleset '${ruleset_name}' configured"
+        elif echo "$ruleset_output" | grep -qi "must be unique"; then
+            log_info "⊘ Ruleset '${ruleset_name}' already exists (skipping)"
+        elif echo "$ruleset_output" | grep -qi "403\|Upgrade to GitHub Pro\|make this repository public"; then
+            log_warn "Rulesets require GitHub Pro or a public repository"
+            log_info "Repository created successfully - rulesets can be configured later when upgrading"
+        else
+            log_warn "Ruleset configuration failed for '${ruleset_name}'"
+            log_warn "API Response: $ruleset_output"
+        fi
+    fi
+}
+
+# Build ruleset JSON payload from file with token replacement
+# Arguments:
+#   $1 - Absolute path to ruleset JSON file
+#   $2 - Full repository name (owner/repo)
+#   $3 - Repository type key
+#   $4 - Config path
+# Returns: JSON payload on stdout
+build_ruleset_payload_from_file() {
+    local ruleset_file="$1"
+    local full_name="$2"
+    local repo_type="$3"
+    local config_path="$4"
     
-    # Clean up temp file
-    rm -f "$temp_payload"
+    if [ ! -f "$ruleset_file" ]; then
+        echo "{}"
+        return 1
+    fi
+
+    # Extract repo name and owner from full_name (owner/repo)
+    local repo_name="${full_name#*/}"
+    local owner="${full_name%/*}"
+    
+    # Get type description
+    local type_description
+    type_description=$(get_type_description "$repo_type" "$config_path")
+    
+    # Load JSON and replace tokens
+    local payload
+    payload=$(cat "$ruleset_file" | \
+        sed "s/{{repo_name}}/${repo_name}/g" | \
+        sed "s/{{owner}}/${owner}/g" | \
+        sed "s/{{type_name}}/${repo_type}/g" | \
+        sed "s/{{type_description}}/${type_description}/g" | \
+        jq -c . 2>/dev/null)
+    
+    if [ -z "$payload" ] || [ "$payload" = "null" ]; then
+        echo "{}"
+        return 1
+    fi
+    
+    echo "$payload"
 }
 
 # Configure allowed merge types for a repository

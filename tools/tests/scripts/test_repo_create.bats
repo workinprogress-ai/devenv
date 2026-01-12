@@ -173,7 +173,7 @@ types:
   none:
     naming_pattern: ".*"
     naming_example: "anything"
-    applyRuleset: false
+    rulesetConfigFile: null
 EOF
 
   mkdir -p "$TEST_TEMP_DIR/bin"
@@ -217,7 +217,7 @@ types:
   none:
     naming_pattern: ".*"
     naming_example: "anything"
-    applyRuleset: false
+    rulesetConfigFile: null
 EOF
 
   mkdir -p "$TEST_TEMP_DIR/bin"

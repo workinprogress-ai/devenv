@@ -84,16 +84,24 @@ The script uses the `repo-types` library (`tools/lib/repo-types.bash`) to manage
     - `amend`: Amend the initial commit and force-push if the script made changes
     - `new`: Create a new commit and push if there are changes
 
-**Ruleset configuration (`applyRuleset` and `rulesets`):**
-Each type can define GitHub repository rulesets that are applied after the initial branch is created:
-- `applyRuleset`: Boolean flag (default: false). When true, rulesets defined in the type are applied.
-- `rulesets`: Array of ruleset definitions with `name`, `enforcement`, conditions, and rules.
-- Rulesets require GitHub Pro or a public repository; failures gracefully degrade with a warning.
-- Common ruleset rules include:
-  - `pull_request`: Require pull requests with approvals
-  - `commit_message_pattern`: Enforce commit message format (e.g., Conventional Commits)
-  - `branch_name_pattern`: Enforce branch naming conventions
-  - `commit_author_email_pattern`: Restrict commit authors by email
+**Ruleset configuration (`rulesetConfigFile`):**
+Each type can specify a GitHub repository ruleset JSON file:
+- `rulesetConfigFile`: Filename in `tools/config/` (e.g., `ruleset-default.json`)
+- Set to `null` or blank to skip ruleset application
+- JSON file is a GitHub ruleset export (from `gh api repos/OWNER/REPO/rulesets/ID`)
+- Supports token replacement:
+  - `{{repo_name}}` - Repository name
+  - `{{owner}}` - Organization/owner
+  - `{{type_name}}` - Repository type key
+  - `{{type_description}}` - Type description from config
+- Rulesets require GitHub Pro or a public repository; failures gracefully degrade with a warning
+
+**Creating custom ruleset JSON:**
+1. Configure ruleset in GitHub UI for a test repo
+2. Export: `gh api repos/YOUR_ORG/TEST_REPO/rulesets/RULESET_ID`
+3. Save to `tools/config/my-ruleset.json`
+4. Replace hardcoded values with tokens
+5. Reference in type config: `rulesetConfigFile: my-ruleset.json`
 
 **Commit message patterns:**
 Commit message patterns use Conventional Commits format and support optional breaking-change marker (`!`):

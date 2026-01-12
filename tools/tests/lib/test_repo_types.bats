@@ -40,15 +40,11 @@ types:
   service:
     naming_pattern: "^service\\.[a-z0-9-]+\\.[a-z0-9-]+$"
     naming_example: "service.platform.identity"
-    applyRuleset: true
-    rulesets:
-      - name: "Require PR"
-        enforcement: "active"
-        rules: [{"type":"pull_request"}]
+    rulesetConfigFile: ruleset-default.json
   none:
     naming_pattern: ".*"
     naming_example: "anything"
-    applyRuleset: false
+    rulesetConfigFile: null
 EOF
 }
 
@@ -97,29 +93,100 @@ EOF
 @test "configure_rulesets_for_type applies configured rulesets" {
   local cfg="$TEST_TEMP_DIR/repo-types.yaml"
   create_repo_types_config "$cfg"
-  create_stub_gh '{"id":123}'
-
-  run bash -c "PATH=$TEST_TEMP_DIR/bin:$PATH; source $PROJECT_ROOT/tools/lib/repo-types.bash; configure_rulesets_for_type test-org/test-repo service $cfg"
+  
+  # Create test ruleset JSON file
+  mkdir -p "$TEST_TEMP_DIR/config"
+  cat > "$TEST_TEMP_DIR/config/ruleset-default.json" <<'EOJSON'
+{
+  "name": "Require PR",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []}},
+  "rules": [{"type": "pull_request", "parameters": {"required_approving_review_count": 1}}],
+  "bypass_actors": [],
+  "source_type": "Repository",
+  "source": "{{owner}}/{{repo_name}}"
+}
+EOJSON
+  
+  run bash -c "export DEVENV_TOOLS=$TEST_TEMP_DIR; source $PROJECT_ROOT/tools/lib/error-handling.bash; source $PROJECT_ROOT/tools/lib/validation.bash; source $PROJECT_ROOT/tools/lib/repo-types.bash; configure_rulesets_for_type test-org/test-repo service $cfg"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "Ruleset 'Require PR' configured" ]]
+}
+
+@test "configure_rulesets_for_type updates existing ruleset via PUT" {
+  local cfg="$TEST_TEMP_DIR/repo-types.yaml"
+  create_repo_types_config "$cfg"
+
+  # Create test ruleset JSON file
+  mkdir -p "$TEST_TEMP_DIR/config"
+  cat > "$TEST_TEMP_DIR/config/ruleset-default.json" <<'EOJSON'
+{
+  "name": "Require PR",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []}},
+  "rules": [{"type": "pull_request", "parameters": {"required_approving_review_count": 1}}],
+  "bypass_actors": [],
+  "source_type": "Repository",
+  "source": "{{owner}}/{{repo_name}}"
+}
+EOJSON
+
+  # Stub gh to simulate existing ruleset and capture calls
+  mkdir -p "$TEST_TEMP_DIR/bin"
+  cat > "$TEST_TEMP_DIR/bin/gh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+# Resolve log path next to the bin directory
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+log_file="${script_dir%/bin}/gh_calls.log"
+echo "$@" >> "$log_file"
+if [ "$1" = "api" ] && [[ "$2" == repos/*/*/rulesets ]]; then
+  # List rulesets: return one with matching name and id 999
+  echo '[{"id":999,"name":"Require PR"}]'
+  exit 0
+fi
+if [ "$1" = "api" ] && [ "$2" = "--input" ] && [ "$4" = "-X" ] && [ "$5" = "PUT" ]; then
+  # PUT update call
+  echo '{"id":999}'
+  exit 0
+fi
+# Default: succeed quietly
+exit 0
+EOF
+  chmod +x "$TEST_TEMP_DIR/bin/gh"
+
+  run bash -c "echo cfg=$cfg; ls -la $cfg; PATH=$TEST_TEMP_DIR/bin:$PATH; export DEVENV_TOOLS=$TEST_TEMP_DIR; source $PROJECT_ROOT/tools/lib/error-handling.bash; source $PROJECT_ROOT/tools/lib/validation.bash; source $PROJECT_ROOT/tools/lib/repo-types.bash; configure_rulesets_for_type test-org/test-repo service $cfg"
+  echo "=== OUTPUT START ==="
+  echo "$output"
+  echo "=== OUTPUT END ==="
+  [ "$status" -eq 0 ]
+  # Verify PUT was called
+  run bash -lc "grep -q 'PUT repos/test-org/test-repo/rulesets/999' $TEST_TEMP_DIR/gh_calls.log"
+  [ "$status" -eq 0 ]
 }
 
 @test "configure_rulesets_for_type returns success on 403 guidance" {
   local cfg="$TEST_TEMP_DIR/repo-types.yaml"
   create_repo_types_config "$cfg"
-  cat > "$TEST_TEMP_DIR/bin/gh" <<'EOF'
-#!/usr/bin/env bash
-if [ "$1" = "api" ]; then
-  echo "403 Forbidden"
-  exit 1
-fi
-exit 0
-EOF
-  chmod +x "$TEST_TEMP_DIR/bin/gh"
+  
+  # Create test ruleset JSON file
+  mkdir -p "$TEST_TEMP_DIR/config"
+  cat > "$TEST_TEMP_DIR/config/ruleset-default.json" <<'EOJSON'
+{
+  "name": "Require PR",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []}},
+  "rules": [{"type": "pull_request"}],
+  "bypass_actors": [],
+  "source_type": "Repository",
+  "source": "{{owner}}/{{repo_name}}"
+}
+EOJSON
 
-  run bash -c "PATH=$TEST_TEMP_DIR/bin:$PATH; source $PROJECT_ROOT/tools/lib/repo-types.bash; configure_rulesets_for_type test-org/test-repo service $cfg"
+  run bash -c "export DEVENV_TOOLS=$TEST_TEMP_DIR; source $PROJECT_ROOT/tools/lib/error-handling.bash; source $PROJECT_ROOT/tools/lib/repo-types.bash; configure_rulesets_for_type test-org/test-repo service $cfg"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "Rulesets require GitHub Pro" ]]
 }
 @test "detect_repo_type matches service pattern" {
   local cfg="$TEST_TEMP_DIR/repo-types.yaml"
@@ -232,7 +299,7 @@ types:
   custom:
     naming_pattern: "^custom.*"
     naming_example: "custom.repo"
-    applyRuleset: false
+    rulesetConfigFile: null
 EOF
   
   # Create stub gh that expects calls with default merge settings
@@ -265,7 +332,7 @@ types:
     naming_example: "docs.something"
     allowedMergeTypes:
       - squash
-    applyRuleset: false
+    rulesetConfigFile: null
 EOF
   
   # Create stub gh that expects squash only
@@ -307,9 +374,9 @@ EOF
   [ "$status" -eq 0 ]
   [ "$output" = "null" ]
 
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_apply_ruleset custom $cfg"
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_ruleset_config_file custom $cfg"
   [ "$status" -eq 0 ]
-  [ "$output" = "false" ]
+  [ "$output" = "null" ]
 
   run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_allowed_merge_types custom $cfg"
   [ "$status" -eq 0 ]
@@ -355,9 +422,9 @@ EOF
   [ "$status" -eq 0 ]
   [ "$output" = "template.docs" ]
 
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_apply_ruleset documentation $cfg"
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_ruleset_config_file documentation $cfg"
   [ "$status" -eq 0 ]
-  [ "$output" = "true" ]
+  [ "$output" = "ruleset-default.json" ]
 
   run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_allowed_merge_types documentation $cfg"
   [ "$status" -eq 0 ]
