@@ -26,6 +26,8 @@ types:
     naming_pattern: '^planning(\.[a-z0-9-]+)+$'
     naming_example: "planning.development.main or planning.roadmap"
     mainBranch: master
+    allowedMergeTypes:
+      - squash
     post_creation_script: null  # No post-creation script
     delete_post_creation_script: true
     post_creation_commit_handling: none
@@ -37,14 +39,15 @@ types:
           ref_name:
             include:
               - refs/heads/master
+            exclude: []
         rules:
           - type: pull_request
             parameters:
               required_approving_review_count: 1
+              dismiss_stale_reviews_on_push: false
               require_code_owner_review: false
               require_last_push_approval: false
-              dismiss_stale_reviews_on_push: true
-              require_review_from_code_owners: false
+              required_review_thread_resolution: false
           - type: commit_message_pattern
             parameters:
               operator: regex
@@ -67,6 +70,8 @@ types:
     naming_pattern: '^docs(\.[a-z0-9-]+)+$'
     naming_example: "docs.api.reference, docs.user-guide, or docs.architecture"
     mainBranch: master
+    allowedMergeTypes:
+      - squash
     post_creation_script: ".repo/post-create.sh"  
     delete_post_creation_script: true
     post_creation_commit_handling: amend
@@ -78,14 +83,15 @@ types:
           ref_name:
             include:
               - refs/heads/master
+            exclude: []
         rules:
           - type: pull_request
             parameters:
               required_approving_review_count: 1
+              dismiss_stale_reviews_on_push: false
               require_code_owner_review: true
               require_last_push_approval: false
-              dismiss_stale_reviews_on_push: true
-              require_review_from_code_owners: true
+              required_review_thread_resolution: false
           - type: commit_message_pattern
             parameters:
               operator: regex
@@ -109,6 +115,8 @@ types:
     naming_pattern: '^template\.[a-z0-9-]+$'
     naming_example: "template.service or template.web-app"
     mainBranch: master
+    allowedMergeTypes:
+      - squash
     isTemplate: true  # Mark this repository as a template
     post_creation_script: null
     delete_post_creation_script: true
@@ -121,14 +129,15 @@ types:
           ref_name:
             include:
               - refs/heads/master
+            exclude: []
         rules:
           - type: pull_request
             parameters:
               required_approving_review_count: 1
+              dismiss_stale_reviews_on_push: false
               require_code_owner_review: true
               require_last_push_approval: false
-              dismiss_stale_reviews_on_push: true
-              require_review_from_code_owners: true
+              required_review_thread_resolution: false
           - type: commit_message_pattern
             parameters:
               operator: regex
@@ -151,6 +160,8 @@ types:
     naming_pattern: '^service\.[a-z0-9-]+\.[a-z0-9-]+$'
     naming_example: "service.platform.identity or service.deathstar.user-profile"
     mainBranch: master
+    allowedMergeTypes:
+      - squash
     post_creation_script: ".repo/post-create.sh"  # Run customization script
     delete_post_creation_script: true  # Remove script after execution
     post_creation_commit_handling: amend  # Clean up initial commit
@@ -162,14 +173,15 @@ types:
           ref_name:
             include:
               - refs/heads/master
+            exclude: []
         rules:
           - type: pull_request
             parameters:
               required_approving_review_count: 1
-              require_code_owner_review: true
-              require_last_push_approval: false
               dismiss_stale_reviews_on_push: false
-              require_review_from_code_owners: true
+              require_code_owner_review: true
+              require_last_push_approval: true
+              required_review_thread_resolution: false
           - type: commit_message_pattern
             parameters:
               operator: regex
@@ -192,6 +204,8 @@ types:
     naming_pattern: '^gateway\.[a-z0-9-]+\.[a-z0-9-]+$'
     naming_example: "gateway.platform.main or gateway.deathstar.api"
     mainBranch: master
+    allowedMergeTypes:
+      - squash
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
@@ -203,14 +217,15 @@ types:
           ref_name:
             include:
               - refs/heads/master
+            exclude: []
         rules:
           - type: pull_request
             parameters:
               required_approving_review_count: 2
+              dismiss_stale_reviews_on_push: false
               require_code_owner_review: true
               require_last_push_approval: true
-              dismiss_stale_reviews_on_push: false
-              require_review_from_code_owners: true
+              required_review_thread_resolution: false
           - type: commit_message_pattern
             parameters:
               operator: regex
@@ -233,6 +248,8 @@ types:
     naming_pattern: '^app\.web\.[a-z0-9-]+$'
     naming_example: "app.web.portal or app.web.user-dashboard"
     mainBranch: master
+    allowedMergeTypes:
+      - squash
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
@@ -244,14 +261,15 @@ types:
           ref_name:
             include:
               - refs/heads/master
+            exclude: []
         rules:
           - type: pull_request
             parameters:
               required_approving_review_count: 1
+              dismiss_stale_reviews_on_push: false
               require_code_owner_review: true
               require_last_push_approval: false
-              dismiss_stale_reviews_on_push: false
-              require_review_from_code_owners: true
+              required_review_thread_resolution: false
           - type: commit_message_pattern
             parameters:
               operator: regex
@@ -274,6 +292,8 @@ types:
     naming_pattern: '^lib\.cs\.[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z0-9-]+$'
     naming_example: "lib.cs.common.utilities or lib.cs.platform.auth.core"
     mainBranch: master
+    allowedMergeTypes:
+      - squash
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
@@ -285,14 +305,15 @@ types:
           ref_name:
             include:
               - refs/heads/master
+            exclude: []
         rules:
           - type: pull_request
             parameters:
               required_approving_review_count: 1
+              dismiss_stale_reviews_on_push: false
               require_code_owner_review: true
               require_last_push_approval: false
-              dismiss_stale_reviews_on_push: false
-              require_review_from_code_owners: true
+              required_review_thread_resolution: false
           - type: commit_message_pattern
             parameters:
               operator: regex
@@ -315,6 +336,8 @@ types:
     naming_pattern: '^pkg\.ts\.[a-z0-9-]+$'
     naming_example: "pkg.ts.ui-components or pkg.ts.api-client"
     mainBranch: master
+    allowedMergeTypes:
+      - squash
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
@@ -326,14 +349,15 @@ types:
           ref_name:
             include:
               - refs/heads/master
+            exclude: []
         rules:
           - type: pull_request
             parameters:
               required_approving_review_count: 1
+              dismiss_stale_reviews_on_push: false
               require_code_owner_review: true
               require_last_push_approval: false
-              dismiss_stale_reviews_on_push: false
-              require_review_from_code_owners: true
+              required_review_thread_resolution: false
           - type: commit_message_pattern
             parameters:
               operator: regex
@@ -355,4 +379,8 @@ types:
     naming_pattern: '^[a-z0-9][a-z0-9-]*[a-z0-9]$'
     naming_example: "any-valid-repo-name"
     mainBranch: master
+    allowedMergeTypes:
+      - merge
+      - squash
+      - rebase
     applyRuleset: false

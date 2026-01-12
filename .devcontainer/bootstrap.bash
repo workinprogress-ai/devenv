@@ -463,7 +463,6 @@ create_tool_symlinks() {
         "lint-scripts.sh"
         "script-template.sh"
         "create-script.sh"
-        "repo-update-config.sh"
     )
 
     for script in "$toolbox_root/tools/scripts"/*.sh; do
@@ -629,18 +628,17 @@ install_node_packages() {
 configure_git() {
     echo "# Configure git"
     echo "#############################################"
-    git config --global core.autocrlf false
-    git config --global core.eol lf
-    git config --global merge.tool vscode
-    git config --global mergetool.vscode.cmd "code --wait $MERGED"
-    git config --global diff.tool vscode
-    git config --global difftool.vscode.cmd "code --wait --diff $LOCAL $REMOTE"
-    git config --global core.editor "code --wait"
-    git config --global pull.ff only
-    git config --global --bool push.autoSetupRemote true
-    git config --global --add safe.directory $toolbox_root
-    git config --global user.name "$HUMAN_NAME"
-    git config --global user.email "$USER_EMAIL"
+    
+    # Source git-operations library for shared functions
+    local git_ops_lib="$toolbox_root/tools/lib/git-operations.bash"
+    # shellcheck source=../tools/lib/git-operations.bash
+    source "$git_ops_lib"
+    
+    # Configure global git settings with user identity
+    configure_git_global "$HUMAN_NAME" "$USER_EMAIL"
+    
+    # Add the devenv root to safe directories
+    add_git_safe_directory "$toolbox_root"
 }
 
 # Ensure required directories exist and configure system settings

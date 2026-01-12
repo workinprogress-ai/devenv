@@ -140,13 +140,19 @@ main() {
 
     # Apply rulesets
     log_info "Applying configuration for type '$repo_type'..."
-    if configure_rulesets_for_type "$full_name" "$repo_type" "$REPO_TYPES_CONFIG"; then
-        log_info "✓ Configuration applied successfully"
-        return 0
+    if configure_rulesets_for_type "$full_name" "$repo_type" "$REPO_TYPES_CONFIG"; then        
+        log_info "✓ Protection applied successfully"
     else
-        log_error "Failed to apply configuration"
-        return 1
+        log_error "Failed to apply protection"
     fi
+
+    # Configure template setting
+    configure_template_setting_for_type "$full_name" "$repo_type" "$REPO_TYPES_CONFIG"
+    
+    # Configure merge types
+    configure_merge_types_for_type "$full_name" "$repo_type" "$REPO_TYPES_CONFIG"
+    
+    log_info "✓ Configuration applied"
 }
 
 # Ensure GH_ORG is set

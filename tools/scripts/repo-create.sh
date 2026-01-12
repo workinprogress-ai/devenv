@@ -97,9 +97,9 @@ create_initial_branch() {
     local repo_type="$3"
     local repos_dir="$4"
     
-    # Read main branch name from config
+    # Read main branch name from config (with default)
     local main_branch
-    main_branch=$(yq eval -r ".types.${repo_type}.mainBranch // \"master\"" "$REPO_TYPES_CONFIG" 2>/dev/null || echo "master")
+    main_branch=$(get_type_main_branch "$repo_type" "$REPO_TYPES_CONFIG")
     
     local repo_path="${repos_dir}/${repo_name}"
     cd "$repo_path"
@@ -145,9 +145,9 @@ run_post_creation_script() {
     local delete_script
     local commit_handling
     
-    script_path=$(yq eval ".types.${repo_type}.post_creation_script" "$REPO_TYPES_CONFIG")
-    delete_script=$(yq eval ".types.${repo_type}.delete_post_creation_script // true" "$REPO_TYPES_CONFIG")
-    commit_handling=$(yq eval ".types.${repo_type}.post_creation_commit_handling // \"none\"" "$REPO_TYPES_CONFIG")
+    script_path=$(get_type_post_creation_script "$repo_type" "$REPO_TYPES_CONFIG")
+    delete_script=$(get_type_delete_post_creation_script "$repo_type" "$REPO_TYPES_CONFIG")
+    commit_handling=$(get_type_post_creation_commit_handling "$repo_type" "$REPO_TYPES_CONFIG")
     
     # Skip if no script configured
     if [ "$script_path" = "null" ] || [ -z "$script_path" ]; then
@@ -248,10 +248,10 @@ create_repo() {
     log_info "Creating repository '$full_name' (type: $repo_type)..."
     
     # Get template if applicable
-    local template=""
-    if [ "$skip_template" != "true" ]; then
-        template=$(yq eval ".types.${repo_type}.template" "$REPO_TYPES_CONFIG")
-    fi
+        local template=""
+        if [ "$skip_template" != "true" ]; then
+            template=$(get_type_template "$repo_type" "$REPO_TYPES_CONFIG")
+        fi
     
     local args=("repo" "create" "$full_name" "--${visibility}" "--disable-wiki")
     
@@ -272,18 +272,6 @@ create_repo() {
     
     log_info "✓ Repository created: git@github.com:${full_name}.git"
     
-    # Mark repository as template if configured
-    local is_template
-    is_template=$(yq eval ".types.${repo_type}.isTemplate // false" "$REPO_TYPES_CONFIG")
-    if [ "$is_template" = "true" ]; then
-        log_info "Marking repository as a template..."
-        if gh repo edit "$full_name" --template; then
-            log_info "✓ Repository marked as template"
-        else
-            log_warn "Failed to mark repository as template"
-        fi
-    fi
-    
     # Clone repo using repo-get unless skipped
     local repos_dir
     repos_dir=$(get_or_create_repos_directory)
@@ -298,14 +286,20 @@ create_repo() {
                 # Create initial branch to enable branch protection
                 create_initial_branch "$full_name" "$repo_name" "$repo_type" "$repos_dir"
                 
-                # Configure rulesets after branch exists
-                if [ "$skip_protection" != "true" ]; then
-                    configure_rulesets_for_type "$full_name" "$repo_type" "$REPO_TYPES_CONFIG"
-                fi
-                
                 # Run post-creation script if applicable
                 if [ "$skip_post_creation" != "true" ]; then
-                    run_post_creation_script "${repos_dir}/${repo_name}" "$repo_type" "$repo_name"
+                        run_post_creation_script "${repos_dir}/${repo_name}" "$repo_type" "$repo_name"
+                fi
+                
+                # Apply repository configuration (rulesets, merge types, template setting, etc.)
+                if [ "$skip_protection" != "true" ]; then
+                    log_info "Applying repository configuration..."
+                    local update_config_script="${DEVENV_TOOLS}/repo-update-config"
+                    if [ -f "$update_config_script" ] || [ -L "$update_config_script" ]; then
+                        "$update_config_script" "${repos_dir}/${repo_name}"
+                    else
+                        log_warn "repo-update-config script not found, skipping configuration"
+                    fi
                 fi
             else
                 log_warn "Failed to clone repository"
@@ -323,7 +317,7 @@ create_repo() {
     fi
     
     echo ""
-    log_info "Repository creation complete!\""
+    log_info 'Repository creation complete!'
     log_info ""
     log_info "Next steps:"
     if [ "$skip_clone" = "true" ]; then
@@ -345,8 +339,8 @@ select_repo_type_interactive() {
     while IFS= read -r type; do
         local desc
         local example
-        desc=$(yq eval ".types.${type}.description" "$REPO_TYPES_CONFIG")
-        example=$(yq eval ".types.${type}.naming_example" "$REPO_TYPES_CONFIG")
+        desc=$(get_type_description "$type" "$REPO_TYPES_CONFIG")
+        example=$(get_type_naming_example "$type" "$REPO_TYPES_CONFIG")
         local line
         line=$(printf '%s\t%s\tExample: %s' "$type" "$desc" "$example")
         type_list="${type_list}${line}"$'\n'
@@ -368,7 +362,7 @@ select_repo_type_interactive() {
 prompt_for_repo_name() {
     local repo_type="$1"
     local example
-    example=$(yq eval ".types.${repo_type}.naming_example" "$REPO_TYPES_CONFIG")
+    example=$(get_type_naming_example "$repo_type" "$REPO_TYPES_CONFIG")
     
     log_info "Enter repository name (example: $example)"
     

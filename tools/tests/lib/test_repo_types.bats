@@ -81,6 +81,19 @@ EOF
   [ "$status" -ne 0 ]
 }
 
+@test "validate_repo_type extracts repo name from owner/repo format" {
+  local cfg="$TEST_TEMP_DIR/repo-types.yaml"
+  create_repo_types_config "$cfg"
+
+  # Should extract "service.platform.identity" from "workinprogress-ai/service.platform.identity"
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; validate_repo_type workinprogress-ai/service.platform.identity service $cfg"
+  [ "$status" -eq 0 ]
+
+  # Should extract "invalid" from "workinprogress-ai/invalid" and fail pattern match
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; validate_repo_type workinprogress-ai/invalid service $cfg"
+  [ "$status" -ne 0 ]
+}
+
 @test "configure_rulesets_for_type applies configured rulesets" {
   local cfg="$TEST_TEMP_DIR/repo-types.yaml"
   create_repo_types_config "$cfg"
@@ -210,4 +223,171 @@ EOF
   run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; detect_repo_type service.platform.test $cfg silent"
   [ "$status" -eq 0 ]
   [ "$output" = "service" ]
+}
+
+@test "configure_merge_types_for_type handles missing allowedMergeTypes" {
+  local cfg="$TEST_TEMP_DIR/repo-types-no-merge.yaml"
+  cat > "$cfg" <<'EOF'
+types:
+  custom:
+    naming_pattern: "^custom.*"
+    naming_example: "custom.repo"
+    applyRuleset: false
+EOF
+  
+  # Create stub gh that expects calls with default merge settings
+  cat > "$TEST_TEMP_DIR/bin/gh" <<'EOF'
+#!/usr/bin/env bash
+if [ "$1" = "api" ] && [ "$2" = "-X" ] && [ "$3" = "PATCH" ]; then
+  # Should default to merge: true, squash: false, rebase: false
+  if [[ "$@" == *'allow_merge_commit=true'* ]]; then
+    echo '{"allow_merge_commit": true}'
+    exit 0
+  fi
+fi
+exit 0
+EOF
+  chmod +x "$TEST_TEMP_DIR/bin/gh"
+
+  run bash -c "PATH=$TEST_TEMP_DIR/bin:$PATH; source $PROJECT_ROOT/tools/lib/repo-types.bash; configure_merge_types_for_type test-org/test-repo custom $cfg"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "merge: true" ]]
+  [[ "$output" =~ "squash: false" ]]
+  [[ "$output" =~ "rebase: false" ]]
+}
+
+@test "configure_merge_types_for_type reads allowedMergeTypes from config" {
+  local cfg="$TEST_TEMP_DIR/repo-types-squash.yaml"
+  cat > "$cfg" <<'EOF'
+types:
+  docs:
+    naming_pattern: "^docs.*"
+    naming_example: "docs.something"
+    allowedMergeTypes:
+      - squash
+    applyRuleset: false
+EOF
+  
+  # Create stub gh that expects squash only
+  cat > "$TEST_TEMP_DIR/bin/gh" <<'EOF'
+#!/usr/bin/env bash
+if [ "$1" = "api" ] && [ "$2" = "-X" ] && [ "$3" = "PATCH" ]; then
+  if [[ "$@" == *'allow_merge_commit=false'* ]] && [[ "$@" == *'allow_squash_merge=true'* ]]; then
+    echo '{"allow_squash_merge": true}'
+    exit 0
+  fi
+fi
+exit 0
+EOF
+  chmod +x "$TEST_TEMP_DIR/bin/gh"
+
+  run bash -c "PATH=$TEST_TEMP_DIR/bin:$PATH; source $PROJECT_ROOT/tools/lib/repo-types.bash; configure_merge_types_for_type test-org/test-repo docs $cfg"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "merge: false" ]]
+  [[ "$output" =~ "squash: true" ]]
+  [[ "$output" =~ "rebase: false" ]]
+}
+
+# Getter default tests
+
+@test "getters return sensible defaults when properties missing" {
+  local cfg="$TEST_TEMP_DIR/repo-types-min.yaml"
+  cat > "$cfg" <<'EOF'
+types:
+  custom:
+    naming_pattern: "^custom.*"
+    naming_example: "custom.repo"
+EOF
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_main_branch custom $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "master" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_template custom $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "null" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_apply_ruleset custom $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "false" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_allowed_merge_types custom $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "[\"merge\"]" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_is_template custom $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "false" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_post_creation_script custom $cfg"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_delete_post_creation_script custom $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_post_creation_commit_handling custom $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "none" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_description custom $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "No description" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_naming_pattern custom $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "^custom.*" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_naming_example custom $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "custom.repo" ]
+}
+
+@test "getters return real values from full config (documentation)" {
+  local cfg="$PROJECT_ROOT/tools/config/repo-types.yaml"
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_main_branch documentation $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "master" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_template documentation $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "template.docs" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_apply_ruleset documentation $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_allowed_merge_types documentation $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "[\"squash\"]" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_is_template template $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_post_creation_script documentation $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = ".repo/post-create.sh" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_delete_post_creation_script documentation $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_post_creation_commit_handling documentation $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "amend" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_description documentation $cfg"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Documentation repositories" ]]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_naming_pattern documentation $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "^docs(\.[a-z0-9-]+)+$" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_naming_example documentation $cfg"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "docs.api.reference" ]]
 }
