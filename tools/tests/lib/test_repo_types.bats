@@ -355,6 +355,44 @@ EOF
   [[ "$output" =~ "rebase: false" ]]
 }
 
+@test "configure_pr_branch_deletion_for_type applies setting via API" {
+  create_stub_gh '{"success": true}'
+  local cfg
+  cfg=$(mktemp)
+  cat > "$cfg" <<'EOF'
+types:
+  service:
+    naming_pattern: "^service\\.[a-z0-9-]+\\.[a-z0-9-]+$"
+    naming_example: "service.platform.identity"
+    deletePRBranchOnMerge: true
+EOF
+
+  run bash -c "export DEVENV_TOOLS=$TEST_TEMP_DIR; PATH=$TEST_TEMP_DIR/bin:$PATH; source $PROJECT_ROOT/tools/lib/error-handling.bash; source $PROJECT_ROOT/tools/lib/validation.bash; source $PROJECT_ROOT/tools/lib/repo-types.bash; configure_pr_branch_deletion_for_type test-org/test-repo service $cfg"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "PR branch deletion on merge configured" ]]
+  [[ "$output" =~ "enabled: true" ]]
+  rm -f "$cfg"
+}
+
+@test "configure_pr_branch_deletion_for_type respects config setting false" {
+  create_stub_gh '{"success": true}'
+  local cfg
+  cfg=$(mktemp)
+  cat > "$cfg" <<'EOF'
+types:
+  none:
+    naming_pattern: ".*"
+    naming_example: "anything"
+    deletePRBranchOnMerge: false
+EOF
+
+  run bash -c "export DEVENV_TOOLS=$TEST_TEMP_DIR; PATH=$TEST_TEMP_DIR/bin:$PATH; source $PROJECT_ROOT/tools/lib/error-handling.bash; source $PROJECT_ROOT/tools/lib/validation.bash; source $PROJECT_ROOT/tools/lib/repo-types.bash; configure_pr_branch_deletion_for_type test-org/test-repo none $cfg"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Configuring PR branch deletion" ]]
+  [[ "$output" =~ "false" ]]
+  rm -f "$cfg"
+}
+
 # Getter default tests
 
 @test "getters return sensible defaults when properties missing" {
@@ -409,6 +447,10 @@ EOF
   run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_naming_example custom $cfg"
   [ "$status" -eq 0 ]
   [ "$output" = "custom.repo" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_delete_pr_branch_on_merge custom $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
 }
 
 @test "getters return real values from full config (documentation)" {
@@ -457,4 +499,8 @@ EOF
   run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_naming_example documentation $cfg"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "docs.api.reference" ]]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_delete_pr_branch_on_merge documentation $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
 }

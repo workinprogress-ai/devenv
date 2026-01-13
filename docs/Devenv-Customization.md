@@ -123,19 +123,26 @@ If you use `tools/scripts/repo-create.sh`, configure `tools/config/repo-types.ya
 
 ### Configuration per type:
 
-- **Naming**: `naming_pattern` and `naming_example` per type (e.g., `service.*`, `gateway.*`, `app.web.*`, `lib.cs.*`)
+- **Naming**: `naming_pattern` and `naming_example` per type (e.g., `service.<category>.<descriptor>`, `gateway.<category>.<descriptor>`, `app.web.<descriptor>`, `lib.cs.<category>.<descriptor>`)
 - **Templates**: `template` per type (or null) to pre-bake CI, CODEOWNERS, and .repo scripts
 - **Template marking**: `isTemplate` (boolean, default: false) marks the repository as a GitHub template, making it available for use with "Use this template" button
 - **Post-creation**: `post_creation_script`, `delete_post_creation_script`, and `post_creation_commit_handling` (`none|amend|new`)
+- **Merge types**: `allowedMergeTypes` - Controls which merge buttons appear in the GitHub UI (merge|squash|rebase)
+  - This is a repository-level setting that applies globally
+  - Should match the ruleset's `allowed_merge_methods` for consistency
+  - Both settings work together: this controls UI, ruleset enforces on protected branches
+- **PR branch deletion**: `deletePRBranchOnMerge` (boolean, default: true) - Automatically delete PR branches after merge
 - **Rulesets** (GitHub Pro/public repos only):
   - `rulesetConfigFile`: Path to JSON ruleset file in `tools/config/` (e.g., `ruleset-default.json`)
   - Set to `null` or blank to disable rulesets for a type
   - JSON file is a GitHub ruleset export with token placeholders: `{{repo_name}}`, `{{owner}}`, `{{type_name}}`, `{{type_description}}`
+  - Ruleset can also specify `allowed_merge_methods` for protected branches (more restrictive than repo-level setting)
 
 #### Ruleset JSON tokens
 
 Your ruleset JSON file can use these tokens, which are replaced during application:
-- `{{repo_name}}` - Repository name (e.g., `service.platform.identity` → `identity` part only)
+
+- `{{repo_name}}` - Full repository name (e.g., `service.platform.identity`)
 - `{{owner}}` - Organization/owner name
 - `{{type_name}}` - Repository type (e.g., `service`, `documentation`)
 - `{{type_description}}` - Type description from config

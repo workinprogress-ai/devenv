@@ -991,7 +991,7 @@ Internal utility scripts located in `tools/scripts/` that are not exposed on the
 
 ### `repo-update-config.sh`
 
-Applies or updates GitHub repository configuration (particularly rulesets) to an existing cloned repository. This is useful when rulesets could not be applied during initial repository creation due to account limitations (e.g., GitHub Pro requirement for private repos).
+Applies or updates GitHub repository configuration to an existing cloned repository. This is useful when configuration could not be applied during initial repository creation due to account limitations (e.g., GitHub Pro requirement for private repos) or if the configuration has changed and needs to be reapplied.
 
 **Usage:**
 ```bash
@@ -1005,12 +1005,17 @@ tools/scripts/repo-update-config.sh <repo-path> [--type <type>]
 - `--type <type>`: Repository type (optional; will be auto-detected from GitHub if not specified)
 
 **Description:**
-This script reads the repository type from either the command-line argument or by querying GitHub for repository topics. It then applies the standardized GitHub rulesets for that type using the same `configure_rulesets_for_type()` function that `repo-create` uses.
+This script reads the repository type from either the command-line argument or by querying GitHub for repository topics. It then applies the standardized configuration for that type, including:
+- **GitHub rulesets** - Branch protection rules (requires GitHub Pro or public repository)
+- **Merge types** - Allowed merge strategies (merge, squash, rebase) per type
+- **Template setting** - Marks template repositories for "Use this template" button
+- **PR branch deletion** - Automatic deletion of PR branches after merge
 
 **Use cases:**
-- Applying rulesets after upgrading to GitHub Pro
-- Configuring rulesets on repositories created before ruleset support was available
-- Manually updating configuration without recreating the repository
+- Applying configuration after upgrading to GitHub Pro
+- Configuring repositories created before configuration support was available
+- Manually updating repository settings without recreating the repository
+- Bulk applying settings to multiple repositories via scripting
 
 **Examples:**
 ```bash
@@ -1021,12 +1026,19 @@ tools/scripts/repo-update-config.sh ~/repos/my-service
 tools/scripts/repo-update-config.sh ~/repos/my-docs --type documentation
 ```
 
+**Configuration per type:**
+Each repository type defines its configuration in `tools/config/repo-types.yaml`:
+- `allowedMergeTypes` - Which merge strategies are permitted
+- `rulesetConfigFile` - Path to GitHub ruleset JSON (null = skip)
+- `isTemplate` - Whether to mark as a template repository
+- `deletePRBranchOnMerge` - Whether to delete PR branches after merge (true/false)
+
 **Dependencies:**
 - `repo-types.bash` (shared library)
 - GitHub CLI (`gh`)
 - `yq` (YAML processor)
 
-**Related:** See [repo-create](#repo-create) for initial repository creation and ruleset configuration details.
+**Related:** See [repo-create](#repo-create) for initial repository creation details, and [Repo Creation Standards (repo-create.sh)](#repo-creation-standards-repo-createsh) in the Devenv-Customization docs for configuration options.
 
 ## Bash Functions and Aliases
 

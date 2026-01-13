@@ -144,6 +144,20 @@ get_type_naming_example() {
     yq eval -r ".types.${repo_type}.naming_example // \"name.example\"" "$config_path" 2>/dev/null || echo "name.example"
 }
 
+get_type_delete_pr_branch_on_merge() {
+    local repo_type="$1"
+    local config_path
+    config_path=$(load_repo_types_config "${2:-}") || return 1
+    # Use 'has' to check if key exists, otherwise default to true
+    local result
+    result=$(yq eval ".types.${repo_type} | has(\"deletePRBranchOnMerge\")" "$config_path" 2>/dev/null)
+    if [ "$result" = "true" ]; then
+        yq eval -r ".types.${repo_type}.deletePRBranchOnMerge" "$config_path" 2>/dev/null || echo "true"
+    else
+        echo "true"
+    fi
+}
+
 # Validate a repository name against the configured type naming pattern
 validate_repo_type() {
     local repo_name="$1"
@@ -445,6 +459,41 @@ configure_template_setting_for_type() {
         fi
     else
         log_info "Repository template setting: not a template"
+        return 0
+    fi
+}
+
+# Configure PR branch deletion on merge
+# Arguments:
+#   $1 - Full repository name (owner/repo)
+#   $2 - Repository type
+#   $3 - Optional config path (uses default if not provided)
+# Returns: 0 on success, 1 on failure
+configure_pr_branch_deletion_for_type() {
+    local full_name="$1"
+    local repo_type="$2"
+    
+    if [ -z "$full_name" ] || [ -z "$repo_type" ]; then
+        log_error "Repository name and type required"
+        return 1
+    fi
+    
+    local config_path
+    config_path=$(load_repo_types_config "${3:-}") || return 1
+    
+    # Get the setting (default to true for safety)
+    local delete_pr_branch
+    delete_pr_branch=$(get_type_delete_pr_branch_on_merge "$repo_type" "$config_path")
+    
+    log_info "Configuring PR branch deletion on merge..."
+    
+    # Apply setting via GitHub API
+    if gh api -X PATCH "repos/${full_name}" \
+        -f "delete_branch_on_merge=$delete_pr_branch" >/dev/null 2>&1; then
+        log_info "✓ PR branch deletion on merge configured (enabled: $delete_pr_branch)"
+        return 0
+    else
+        log_warn "Could not configure PR branch deletion (may require admin access)"
         return 0
     fi
 }

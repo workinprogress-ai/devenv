@@ -92,10 +92,9 @@ usage() {
 }
 
 create_initial_branch() {
-    local full_name="$1"
-    local repo_name="$2"
-    local repo_type="$3"
-    local repos_dir="$4"
+    local repo_name="$1"  # Full repo name (e.g., service.platform.identity)
+    local repo_type="$2"
+    local repos_dir="$3"
     
     # Read main branch name from config (with default)
     local main_branch
@@ -139,7 +138,7 @@ create_initial_branch() {
 run_post_creation_script() {
     local repo_dir="$1"
     local repo_type="$2"
-    local repo_name="$3"
+    local repo_name="$3"  # Full repo name (e.g., service.platform.identity)
     
     local script_path
     local delete_script
@@ -200,16 +199,18 @@ run_post_creation_script() {
             else
                 # No commit to amend, create new commit instead
                 log_info "No existing commit to amend, creating new commit..."
+                local descriptor="${repo_name##*.}"  # Extract descriptor (last part after final dot)
                 git add -A
-                git commit -m "chore: post-creation setup for ${repo_name}"
+                git commit -m "chore: post-creation setup for ${descriptor}"
                 git push
                 log_info "✓ New commit created and pushed"
             fi
             ;;
         new)
             log_info "Creating new commit for post-creation changes..."
+            local descriptor="${repo_name##*.}"  # Extract descriptor (last part after final dot)
             git add -A
-            git commit -m "chore: post-creation setup for ${repo_name}"
+            git commit -m "chore: post-creation setup for ${descriptor}"
             git push
             log_info "✓ New commit created and pushed"
             ;;
@@ -224,7 +225,7 @@ run_post_creation_script() {
 }
 
 create_repo() {
-    local repo_name="$1"
+    local repo_name="$1"  # Full repo name (e.g., service.platform.identity)
     local visibility="$2"
     local description="$3"
     local repo_type="$4"
@@ -232,7 +233,7 @@ create_repo() {
     local skip_template="$6"
     local skip_clone="$7"
     local skip_post_creation="$8"
-    local full_name="${GH_ORG}/${repo_name}"
+    local full_name="${GH_ORG}/${repo_name}"  # Fully qualified name (e.g., org/service.platform.identity)
 
     # Check if repo already exists
     if gh repo view "$full_name" >/dev/null 2>&1; then
@@ -284,7 +285,7 @@ create_repo() {
                 log_info "✓ Repository cloned to ${repos_dir}/$repo_name"
                 
                 # Create initial branch to enable branch protection
-                create_initial_branch "$full_name" "$repo_name" "$repo_type" "$repos_dir"
+                create_initial_branch "$repo_name" "$repo_type" "$repos_dir"
                 
                 # Run post-creation script if applicable
                 if [ "$skip_post_creation" != "true" ]; then

@@ -152,6 +152,9 @@ main() {
     # Configure merge types
     configure_merge_types_for_type "$full_name" "$repo_type" "$REPO_TYPES_CONFIG"
     
+    # Configure PR branch deletion on merge
+    configure_pr_branch_deletion_for_type "$full_name" "$repo_type" "$REPO_TYPES_CONFIG"
+    
     log_info "✓ Configuration applied"
 }
 
