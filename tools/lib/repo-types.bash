@@ -158,6 +158,110 @@ get_type_delete_pr_branch_on_merge() {
     fi
 }
 
+get_type_has_wiki() {
+    local repo_type="$1"
+    local config_path
+    config_path=$(load_repo_types_config "${2:-}") || return 1
+    local result
+    result=$(yq eval ".types.${repo_type} | has(\"hasWiki\")" "$config_path" 2>/dev/null)
+    if [ "$result" = "true" ]; then
+        yq eval -r ".types.${repo_type}.hasWiki" "$config_path" 2>/dev/null || echo "false"
+    else
+        echo "false"
+    fi
+}
+
+get_type_has_issues() {
+    local repo_type="$1"
+    local config_path
+    config_path=$(load_repo_types_config "${2:-}") || return 1
+    local result
+    result=$(yq eval ".types.${repo_type} | has(\"hasIssues\")" "$config_path" 2>/dev/null)
+    if [ "$result" = "true" ]; then
+        yq eval -r ".types.${repo_type}.hasIssues" "$config_path" 2>/dev/null || echo "true"
+    else
+        echo "true"
+    fi
+}
+
+get_type_has_discussions() {
+    local repo_type="$1"
+    local config_path
+    config_path=$(load_repo_types_config "${2:-}") || return 1
+    local result
+    result=$(yq eval ".types.${repo_type} | has(\"hasDiscussions\")" "$config_path" 2>/dev/null)
+    if [ "$result" = "true" ]; then
+        yq eval -r ".types.${repo_type}.hasDiscussions" "$config_path" 2>/dev/null || echo "false"
+    else
+        echo "false"
+    fi
+}
+
+get_type_has_projects() {
+    local repo_type="$1"
+    local config_path
+    config_path=$(load_repo_types_config "${2:-}") || return 1
+    local result
+    result=$(yq eval ".types.${repo_type} | has(\"hasProjects\")" "$config_path" 2>/dev/null)
+    if [ "$result" = "true" ]; then
+        yq eval -r ".types.${repo_type}.hasProjects" "$config_path" 2>/dev/null || echo "false"
+    else
+        echo "false"
+    fi
+}
+
+get_type_allow_auto_merge() {
+    local repo_type="$1"
+    local config_path
+    config_path=$(load_repo_types_config "${2:-}") || return 1
+    local result
+    result=$(yq eval ".types.${repo_type} | has(\"allowAutoMerge\")" "$config_path" 2>/dev/null)
+    if [ "$result" = "true" ]; then
+        yq eval -r ".types.${repo_type}.allowAutoMerge" "$config_path" 2>/dev/null || echo "true"
+    else
+        echo "true"
+    fi
+}
+
+get_type_allow_update_branch() {
+    local repo_type="$1"
+    local config_path
+    config_path=$(load_repo_types_config "${2:-}") || return 1
+    local result
+    result=$(yq eval ".types.${repo_type} | has(\"allowUpdateBranch\")" "$config_path" 2>/dev/null)
+    if [ "$result" = "true" ]; then
+        yq eval -r ".types.${repo_type}.allowUpdateBranch" "$config_path" 2>/dev/null || echo "true"
+    else
+        echo "true"
+    fi
+}
+
+get_type_allow_forking() {
+    local repo_type="$1"
+    local config_path
+    config_path=$(load_repo_types_config "${2:-}") || return 1
+    local result
+    result=$(yq eval ".types.${repo_type} | has(\"allowForking\")" "$config_path" 2>/dev/null)
+    if [ "$result" = "true" ]; then
+        yq eval -r ".types.${repo_type}.allowForking" "$config_path" 2>/dev/null || echo "false"
+    else
+        echo "false"
+    fi
+}
+
+get_type_use_squash_pr_title_as_default() {
+    local repo_type="$1"
+    local config_path
+    config_path=$(load_repo_types_config "${2:-}") || return 1
+    local result
+    result=$(yq eval ".types.${repo_type} | has(\"useSquashPRTitleAsDefault\")" "$config_path" 2>/dev/null)
+    if [ "$result" = "true" ]; then
+        yq eval -r ".types.${repo_type}.useSquashPRTitleAsDefault" "$config_path" 2>/dev/null || echo "true"
+    else
+        echo "true"
+    fi
+}
+
 # Validate a repository name against the configured type naming pattern
 validate_repo_type() {
     local repo_name="$1"
@@ -494,6 +598,63 @@ configure_pr_branch_deletion_for_type() {
         return 0
     else
         log_warn "Could not configure PR branch deletion (may require admin access)"
+        return 0
+    fi
+}
+
+configure_repository_features_for_type() {
+    local full_name="$1"
+    local repo_type="$2"
+    
+    if [ -z "$full_name" ] || [ -z "$repo_type" ]; then
+        log_error "Repository name and type required"
+        return 1
+    fi
+    
+    local config_path
+    config_path=$(load_repo_types_config "${3:-}") || return 1
+    
+    # Get all feature settings
+    local has_wiki has_issues has_discussions has_projects
+    local allow_auto_merge allow_update_branch allow_forking use_squash_pr_title
+    
+    has_wiki=$(get_type_has_wiki "$repo_type" "$config_path")
+    has_issues=$(get_type_has_issues "$repo_type" "$config_path")
+    has_discussions=$(get_type_has_discussions "$repo_type" "$config_path")
+    has_projects=$(get_type_has_projects "$repo_type" "$config_path")
+    allow_auto_merge=$(get_type_allow_auto_merge "$repo_type" "$config_path")
+    allow_update_branch=$(get_type_allow_update_branch "$repo_type" "$config_path")
+    allow_forking=$(get_type_allow_forking "$repo_type" "$config_path")
+    use_squash_pr_title=$(get_type_use_squash_pr_title_as_default "$repo_type" "$config_path")
+    
+    # Map useSquashPRTitleAsDefault to GitHub API parameter
+    # GitHub uses squash_merge_commit_title: "PR_TITLE" or "COMMIT_OR_PR_TITLE"
+    local squash_merge_commit_title
+    if [ "$use_squash_pr_title" = "true" ]; then
+        squash_merge_commit_title="PR_TITLE"
+    else
+        squash_merge_commit_title="COMMIT_OR_PR_TITLE"
+    fi
+    
+    log_info "Configuring repository features..."
+    
+    # Apply all settings via GitHub API in a single PATCH request
+    if gh api -X PATCH "repos/${full_name}" \
+        -f "has_wiki=$has_wiki" \
+        -f "has_issues=$has_issues" \
+        -f "has_discussions=$has_discussions" \
+        -f "has_projects=$has_projects" \
+        -f "allow_auto_merge=$allow_auto_merge" \
+        -f "allow_update_branch=$allow_update_branch" \
+        -f "allow_forking=$allow_forking" \
+        -f "squash_merge_commit_title=$squash_merge_commit_title" >/dev/null 2>&1; then
+        log_info "✓ Repository features configured:"
+        log_info "  - Wiki: $has_wiki, Issues: $has_issues, Discussions: $has_discussions, Projects: $has_projects"
+        log_info "  - Auto-merge: $allow_auto_merge, Update branch: $allow_update_branch, Forking: $allow_forking"
+        log_info "  - Squash PR title as default: $use_squash_pr_title"
+        return 0
+    else
+        log_warn "Could not configure repository features (may require admin access)"
         return 0
     fi
 }

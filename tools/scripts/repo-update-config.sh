@@ -155,6 +155,9 @@ main() {
     # Configure PR branch deletion on merge
     configure_pr_branch_deletion_for_type "$full_name" "$repo_type" "$REPO_TYPES_CONFIG"
     
+    # Configure repository features (wiki, issues, discussions, projects, etc.)
+    configure_repository_features_for_type "$full_name" "$repo_type" "$REPO_TYPES_CONFIG"
+    
     log_info "✓ Configuration applied"
 }
 

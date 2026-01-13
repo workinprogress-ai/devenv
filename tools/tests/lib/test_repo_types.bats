@@ -393,6 +393,72 @@ EOF
   rm -f "$cfg"
 }
 
+@test "configure_repository_features_for_type applies all settings via API" {
+  create_stub_gh '{"success": true}'
+  local cfg
+  cfg=$(mktemp)
+  cat > "$cfg" <<'EOF'
+types:
+  service:
+    naming_pattern: "^service\\.[a-z0-9-]+\\.[a-z0-9-]+$"
+    naming_example: "service.platform.identity"
+    hasWiki: false
+    hasIssues: true
+    hasDiscussions: false
+    hasProjects: false
+    allowAutoMerge: true
+    allowUpdateBranch: true
+    allowForking: false
+    useSquashPRTitleAsDefault: true
+EOF
+
+  run bash -c "export DEVENV_TOOLS=$TEST_TEMP_DIR; PATH=$TEST_TEMP_DIR/bin:$PATH; source $PROJECT_ROOT/tools/lib/error-handling.bash; source $PROJECT_ROOT/tools/lib/validation.bash; source $PROJECT_ROOT/tools/lib/repo-types.bash; configure_repository_features_for_type test-org/test-repo service $cfg"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Repository features configured" ]]
+  [[ "$output" =~ "Wiki: false" ]]
+  [[ "$output" =~ "Issues: true" ]]
+  [[ "$output" =~ "Discussions: false" ]]
+  [[ "$output" =~ "Projects: false" ]]
+  [[ "$output" =~ "Auto-merge: true" ]]
+  [[ "$output" =~ "Update branch: true" ]]
+  [[ "$output" =~ "Forking: false" ]]
+  [[ "$output" =~ "Squash PR title as default: true" ]]
+  rm -f "$cfg"
+}
+
+@test "configure_repository_features_for_type respects all config settings" {
+  create_stub_gh '{"success": true}'
+  local cfg
+  cfg=$(mktemp)
+  cat > "$cfg" <<'EOF'
+types:
+  template:
+    naming_pattern: "^template\\..*"
+    naming_example: "template.service"
+    hasWiki: true
+    hasIssues: false
+    hasDiscussions: true
+    hasProjects: true
+    allowAutoMerge: false
+    allowUpdateBranch: false
+    allowForking: true
+    useSquashPRTitleAsDefault: false
+EOF
+
+  run bash -c "export DEVENV_TOOLS=$TEST_TEMP_DIR; PATH=$TEST_TEMP_DIR/bin:$PATH; source $PROJECT_ROOT/tools/lib/error-handling.bash; source $PROJECT_ROOT/tools/lib/validation.bash; source $PROJECT_ROOT/tools/lib/repo-types.bash; configure_repository_features_for_type test-org/test-repo template $cfg"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Repository features configured" ]]
+  [[ "$output" =~ "Wiki: true" ]]
+  [[ "$output" =~ "Issues: false" ]]
+  [[ "$output" =~ "Discussions: true" ]]
+  [[ "$output" =~ "Projects: true" ]]
+  [[ "$output" =~ "Auto-merge: false" ]]
+  [[ "$output" =~ "Update branch: false" ]]
+  [[ "$output" =~ "Forking: true" ]]
+  [[ "$output" =~ "Squash PR title as default: false" ]]
+  rm -f "$cfg"
+}
+
 # Getter default tests
 
 @test "getters return sensible defaults when properties missing" {
@@ -451,6 +517,38 @@ EOF
   run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_delete_pr_branch_on_merge custom $cfg"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_has_wiki custom $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "false" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_has_issues custom $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_has_discussions custom $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "false" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_has_projects custom $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "false" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_allow_auto_merge custom $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_allow_update_branch custom $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_allow_forking custom $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "false" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_use_squash_pr_title_as_default custom $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
 }
 
 @test "getters return real values from full config (documentation)" {
@@ -501,6 +599,38 @@ EOF
   [[ "$output" =~ "docs.api.reference" ]]
 
   run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_delete_pr_branch_on_merge documentation $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_has_wiki documentation $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_has_issues documentation $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_has_discussions documentation $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "false" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_has_projects documentation $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "false" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_allow_auto_merge documentation $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_allow_update_branch documentation $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_allow_forking documentation $cfg"
+  [ "$status" -eq 0 ]
+  [ "$output" = "false" ]
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_use_squash_pr_title_as_default documentation $cfg"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }

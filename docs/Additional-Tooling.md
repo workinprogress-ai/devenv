@@ -1010,6 +1010,7 @@ This script reads the repository type from either the command-line argument or b
 - **Merge types** - Allowed merge strategies (merge, squash, rebase) per type
 - **Template setting** - Marks template repositories for "Use this template" button
 - **PR branch deletion** - Automatic deletion of PR branches after merge
+- **Repository features** - Wiki, Issues, Discussions, Projects, Auto-merge, Update branch, Forking, and squash PR title settings
 
 **Use cases:**
 - Applying configuration after upgrading to GitHub Pro
@@ -1032,6 +1033,14 @@ Each repository type defines its configuration in `tools/config/repo-types.yaml`
 - `rulesetConfigFile` - Path to GitHub ruleset JSON (null = skip)
 - `isTemplate` - Whether to mark as a template repository
 - `deletePRBranchOnMerge` - Whether to delete PR branches after merge (true/false)
+- `hasWiki` - Enable/disable Wiki feature (default: false, true for documentation)
+- `hasIssues` - Enable/disable Issues tab (default: true, false for templates)
+- `hasDiscussions` - Enable GitHub Discussions (default: false)
+- `hasProjects` - Enable Projects tab visibility (default: false) — Controls tab in repo; issues can be added to projects regardless
+- `allowAutoMerge` - Allow auto-merge on PRs for automation (default: true)
+- `allowUpdateBranch` - Show "Update branch" button on PRs (default: true)
+- `allowForking` - Allow others to fork the repository (default: true for templates, false otherwise)
+- `useSquashPRTitleAsDefault` - Use PR title for squash commits instead of first commit (default: true)
 
 **Dependencies:**
 - `repo-types.bash` (shared library)

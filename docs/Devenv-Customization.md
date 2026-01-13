@@ -132,6 +132,32 @@ If you use `tools/scripts/repo-create.sh`, configure `tools/config/repo-types.ya
   - Should match the ruleset's `allowed_merge_methods` for consistency
   - Both settings work together: this controls UI, ruleset enforces on protected branches
 - **PR branch deletion**: `deletePRBranchOnMerge` (boolean, default: true) - Automatically delete PR branches after merge
+- **Wiki**: `hasWiki` (boolean, default: false) - Enable/disable the Wiki feature
+  - Set to `true` for documentation repositories where you want a wiki
+  - Most code repositories should keep this disabled to avoid confusion with repository documentation
+- **Issues**: `hasIssues` (boolean, default: true) - Enable/disable the Issues tab
+  - Set to `false` for template repositories since they shouldn't track issues
+  - Keep enabled for active development repositories
+- **Discussions**: `hasDiscussions` (boolean, default: false) - Enable GitHub Discussions
+  - Useful for community-driven projects or public repositories
+  - Provides a forum-like space separate from issues
+- **Projects**: `hasProjects` (boolean, default: false) - Enable the Projects tab visibility
+  - Controls whether the "Projects" tab appears in the repository navigation
+  - Note: This only affects visibility/convenience - issues can be added to GitHub Projects regardless of this setting
+  - Disable if using external project management tools (Jira, Azure DevOps, etc.) or want to reduce tab clutter
+  - Enable only if your team actively uses GitHub Projects and wants easy access from the repo interface
+- **Auto-merge**: `allowAutoMerge` (boolean, default: true) - Allow auto-merge on pull requests
+  - Enables automation workflows to merge PRs after checks pass
+  - Useful for Dependabot and other automated updates
+- **Update branch**: `allowUpdateBranch` (boolean, default: true) - Show "Update branch" button on PRs
+  - Allows contributors to easily update their PR branch with latest changes from base branch
+  - Recommended for most repositories to keep PRs current
+- **Forking**: `allowForking` (boolean, default: false for code, true for templates) - Allow others to fork the repository
+  - Enable for template repositories so others can use them
+  - Keep disabled for private/internal code repositories
+- **Squash PR title**: `useSquashPRTitleAsDefault` (boolean, default: true) - Use PR title as squash commit message
+  - When enabled, squash merges use PR title instead of concatenating all commit messages
+  - Recommended to keep commits in main branch clean and meaningful
 - **Rulesets** (GitHub Pro/public repos only):
   - `rulesetConfigFile`: Path to JSON ruleset file in `tools/config/` (e.g., `ruleset-default.json`)
   - Set to `null` or blank to disable rulesets for a type

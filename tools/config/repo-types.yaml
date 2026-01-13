@@ -19,6 +19,14 @@
 #       Note: This is separate from ruleset's allowed_merge_methods which applies to protected branches
 #       Both settings work together - this sets repo-wide defaults, ruleset enforces on protected branches
 #   - deletePRBranchOnMerge: Whether to delete PR branches after merge (default: true)
+#   - hasWiki: Enable/disable Wiki feature (default: false)
+#   - hasIssues: Enable/disable Issues tab (default: true, false for templates)
+#   - hasDiscussions: Enable GitHub Discussions (default: false)
+#   - hasProjects: Enable Projects tab (default: false)
+#   - allowAutoMerge: Allow auto-merge on PRs for automation (default: true)
+#   - allowUpdateBranch: Show "Update branch" button on PRs (default: true)
+#   - allowForking: Allow others to fork the repository (default: true for templates, false otherwise)
+#   - useSquashPRTitleAsDefault: Use PR title for squash commits instead of first commit (default: true)
 
 types:
   # Planning and repositories
@@ -33,6 +41,14 @@ types:
     allowedMergeTypes:
       - squash
     deletePRBranchOnMerge: true
+    hasWiki: false
+    hasIssues: true
+    hasDiscussions: true
+    hasProjects: true
+    allowAutoMerge: true
+    allowUpdateBranch: true
+    allowForking: false
+    useSquashPRTitleAsDefault: true
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
@@ -50,6 +66,14 @@ types:
     allowedMergeTypes:
       - squash
     deletePRBranchOnMerge: true
+    hasWiki: true
+    hasIssues: true
+    hasDiscussions: false
+    hasProjects: false
+    allowAutoMerge: true
+    allowUpdateBranch: true
+    allowForking: false
+    useSquashPRTitleAsDefault: true
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
@@ -68,6 +92,14 @@ types:
     allowedMergeTypes:
       - squash
     deletePRBranchOnMerge: true
+    hasWiki: false
+    hasIssues: false
+    hasDiscussions: false
+    hasProjects: false
+    allowAutoMerge: true
+    allowUpdateBranch: true
+    allowForking: true
+    useSquashPRTitleAsDefault: true
     isTemplate: true  # Mark this repository as a template
     post_creation_script: null
     delete_post_creation_script: true
@@ -86,6 +118,14 @@ types:
     allowedMergeTypes:
       - squash
     deletePRBranchOnMerge: true
+    hasWiki: false
+    hasIssues: true
+    hasDiscussions: false
+    hasProjects: false
+    allowAutoMerge: true
+    allowUpdateBranch: true
+    allowForking: false
+    useSquashPRTitleAsDefault: true
     post_creation_script: ".repo/post-create.sh"  # Run customization script
     delete_post_creation_script: true  # Remove script after execution
     post_creation_commit_handling: amend  # Clean up initial commit
@@ -103,6 +143,14 @@ types:
     allowedMergeTypes:
       - squash
     deletePRBranchOnMerge: true
+    hasWiki: false
+    hasIssues: true
+    hasDiscussions: false
+    hasProjects: false
+    allowAutoMerge: true
+    allowUpdateBranch: true
+    allowForking: false
+    useSquashPRTitleAsDefault: true
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
@@ -120,6 +168,14 @@ types:
     allowedMergeTypes:
       - squash
     deletePRBranchOnMerge: true
+    hasWiki: false
+    hasIssues: true
+    hasDiscussions: false
+    hasProjects: false
+    allowAutoMerge: true
+    allowUpdateBranch: true
+    allowForking: false
+    useSquashPRTitleAsDefault: true
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
@@ -137,6 +193,14 @@ types:
     allowedMergeTypes:
       - squash
     deletePRBranchOnMerge: true
+    hasWiki: false
+    hasIssues: true
+    hasDiscussions: false
+    hasProjects: false
+    allowAutoMerge: true
+    allowUpdateBranch: true
+    allowForking: false
+    useSquashPRTitleAsDefault: true
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
@@ -154,6 +218,14 @@ types:
     allowedMergeTypes:
       - squash
     deletePRBranchOnMerge: true
+    hasWiki: false
+    hasIssues: true
+    hasDiscussions: false
+    hasProjects: false
+    allowAutoMerge: true
+    allowUpdateBranch: true
+    allowForking: false
+    useSquashPRTitleAsDefault: true
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
@@ -172,4 +244,12 @@ types:
       - squash
       - rebase
     deletePRBranchOnMerge: false
+    hasWiki: true
+    hasIssues: true
+    hasDiscussions: true
+    hasProjects: true
+    allowAutoMerge: true
+    allowUpdateBranch: true
+    allowForking: true
+    useSquashPRTitleAsDefault: false
     rulesetConfigFile: null

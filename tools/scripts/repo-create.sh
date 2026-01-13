@@ -254,7 +254,7 @@ create_repo() {
             template=$(get_type_template "$repo_type" "$REPO_TYPES_CONFIG")
         fi
     
-    local args=("repo" "create" "$full_name" "--${visibility}" "--disable-wiki")
+    local args=("repo" "create" "$full_name" "--${visibility}")
     
     if [ -n "$description" ]; then
         args+=("--description" "$description")
