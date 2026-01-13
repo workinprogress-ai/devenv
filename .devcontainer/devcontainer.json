@@ -60,13 +60,11 @@
             "extensions": [
                 "ms-dotnettools.vscode-dotnet-runtime",
 				"ms-dotnettools.csdevkit",
-                "ms-dotnettools.vscodeintellicode-csharp",
 				"ms-vsliveshare.vsliveshare",
 				"ms-vscode-remote.remote-ssh",
 				"ms-dotnettools.vscode-dotnet-pack",
 
 				"rafistatar.addlocalnetreferences",
-				"schneiderpat.aspnet-helper",
 				"rogalmic.bash-debug",
 				"alefragnani.bookmarks",
 				"k--kato.docomment",
@@ -88,8 +86,6 @@
 				"humao.rest-client",
                 "dotjoshjohnson.xml",
                 "rangav.vscode-thunder-client",
-				"ms-kubernetes-tools.vscode-kubernetes-tools",
-				"hashicorp.terraform",
                 "simonsiefke.svg-preview",
                 "uctakeoff.vscode-counter",
                 "pflannery.vscode-versionlens",
