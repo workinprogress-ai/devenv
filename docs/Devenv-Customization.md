@@ -16,12 +16,14 @@ For organization-wide customizations that should apply to all developers, create
 ### org-custom-bootstrap.sh
 
 Runs during container creation/bootstrap. Use this for:
+
 - Installing organization-specific tools and dependencies
 - Configuring company-wide settings
 - Setting up organization-specific certificates or credentials
 - Initializing shared development services
 
 **Example:**
+
 ```bash
 #!/bin/bash
 set -euo pipefail
@@ -38,12 +40,14 @@ git config --global url."https://github.com/your-org/".insteadOf "https://gh/"
 ### org-custom-startup.sh
 
 Runs each time VS Code starts. Use this for:
+
 - Starting organization-specific services
 - Validating required environment setup
 - Displaying organization-specific welcome messages
 - Connecting to shared development resources
 
 **Example:**
+
 ```bash
 #!/bin/bash
 set -euo pipefail
@@ -62,10 +66,12 @@ fi
 ## User-Level Customizations
 
 Individual developers can add their own customizations using:
+
 - `user-custom-bootstrap.sh` - Personal bootstrap customizations (not committed)
 - `user-custom-startup.sh` - Personal startup customizations (not committed)
 
 Use the helper scripts to add commands:
+
 ```bash
 devenv-add-custom-bootstrap "your-command"
 devenv-add-custom-startup "your-command"
@@ -121,7 +127,7 @@ validate_config=true
 
 If you use `tools/scripts/repo-create.sh`, configure `tools/config/repo-types.yaml`:
 
-### Configuration per type:
+### Configuration per type
 
 - **Naming**: `naming_pattern` and `naming_example` per type (e.g., `service.<category>.<descriptor>`, `gateway.<category>.<descriptor>`, `app.web.<descriptor>`, `lib.cs.<category>.<descriptor>`)
 - **Templates**: `template` per type (or null) to pre-bake CI, CODEOWNERS, and .repo scripts
@@ -155,9 +161,18 @@ If you use `tools/scripts/repo-create.sh`, configure `tools/config/repo-types.ya
 - **Forking**: `allowForking` (boolean, default: false for code, true for templates) - Allow others to fork the repository
   - Enable for template repositories so others can use them
   - Keep disabled for private/internal code repositories
-- **Squash PR title**: `useSquashPRTitleAsDefault` (boolean, default: true) - Use PR title as squash commit message
-  - When enabled, squash merges use PR title instead of concatenating all commit messages
-  - Recommended to keep commits in main branch clean and meaningful
+- **Squash commit title**: `squashMergeCommitTitle` (string, default: PR_TITLE) - Format for squash merge commit titles
+  - `PR_TITLE` - Use the pull request title as the commit title
+  - `COMMIT_OR_PR_TITLE` - Use the first commit message title or PR title (GitHub's original default)
+- **Squash commit message**: `squashMergeCommitMessage` (string, default: COMMIT_MESSAGES) - Format for squash merge commit message body
+  - `PR_BODY` - Use the pull request description
+  - `COMMIT_MESSAGES` - Use all commit messages from the PR (preserves commit history in message)
+  - `BLANK` - No commit message body (clean single-line commits)
+- **GitHub UI Mapping** for squash merge settings:
+  - "Use PR title": `title=PR_TITLE, message=BLANK`
+  - "Use PR title and commit details": `title=PR_TITLE, message=COMMIT_MESSAGES` (default)
+  - "Use PR title and description": `title=PR_TITLE, message=PR_BODY`
+  - "Default message": `title=COMMIT_OR_PR_TITLE, message=COMMIT_MESSAGES`
 - **Rulesets** (GitHub Pro/public repos only):
   - `rulesetConfigFile`: Path to JSON ruleset file in `tools/config/` (e.g., `ruleset-default.json`)
   - Set to `null` or blank to disable rulesets for a type
@@ -173,7 +188,7 @@ Your ruleset JSON file can use these tokens, which are replaced during applicati
 - `{{type_name}}` - Repository type (e.g., `service`, `documentation`)
 - `{{type_description}}` - Type description from config
 
-### Example configuration:
+### Example configuration
 
 ```yaml
 service:
@@ -188,7 +203,7 @@ service:
   post_creation_script: ".repo/post-create.sh"
 ```
 
-### Example ruleset JSON (ruleset-default.json):
+### Example ruleset JSON (ruleset-default.json)
 
 ```json
 {
@@ -218,6 +233,7 @@ service:
 ```
 
 **To create a ruleset JSON:**
+
 1. Configure a ruleset manually in GitHub UI
 2. Export it via API: `gh api repos/OWNER/REPO/rulesets/ID`
 3. Save to `tools/config/your-ruleset.json`

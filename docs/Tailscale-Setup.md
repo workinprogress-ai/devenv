@@ -5,6 +5,7 @@ This guide covers the complete setup of Tailscale VPN for connecting your dev co
 ## Overview
 
 The setup involves three main components:
+
 1. **DigitalOcean Infrastructure** - A gateway droplet that acts as a subnet router
 2. **Tailscale Admin Console** - Configuration of routes and authentication keys
 3. **Dev Container Client** - Installation and configuration in your development environment
@@ -134,10 +135,11 @@ update-tailscale-key
 ```
 
 This script will:
-- Prompt for the new auth key (input is hidden)
-- Update the stored key in `.runtime/env-vars.sh`
-- Re-authenticate the Tailscale daemon immediately
-- No container restart required!
+
+* Prompt for the new auth key (input is hidden)
+* Update the stored key in `.runtime/env-vars.sh`
+* Re-authenticate the Tailscale daemon immediately
+* No container restart required!
 
 Alternatively, for first-time setup or complete reinstallation, run `install-extras tailscale` to go through the full setup process again.
 
@@ -162,9 +164,9 @@ install-extras tailscale
 
 This command will:
 
-- Find the Tailscale installation script in `.devcontainer/install-extras/`
-- Display a preview of the script (if you have `bat` or `fzf` installed)
-- Execute the installation automatically
+* Find the Tailscale installation script in `.devcontainer/install-extras/`
+* Display a preview of the script (if you have `bat` or `fzf` installed)
+* Execute the installation automatically
 
 Alternatively, you can run the interactive menu to see all available extras:
 
@@ -289,6 +291,7 @@ kill %1
 
 * **Check `NO_PROXY`:** Ensure `NO_PROXY` includes `localhost,127.0.0.1` and your local network ranges.
 * **Update if needed:**
+
   ```bash
    "$DEVENV_TOOLS/devenv-add-env-vars.sh" "NO_PROXY=localhost,127.0.0.1,::1,172.16.0.0/12,192.168.0.0/16,.local"
   ```

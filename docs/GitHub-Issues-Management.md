@@ -16,7 +16,7 @@ This guide covers the complete GitHub Issues workflow in Devenv, from issue crea
 
 The GitHub Issues workflow in Devenv replaces Azure DevOps work items with a GitHub-native approach:
 
-```
+```text
 Issue Types:
 ├── Epic (type:epic)
 │   └── Story (type:story, linked to epic)
@@ -37,6 +37,7 @@ Projects: Long-term efforts with Status workflow (TBD → Production)
 **Purpose**: Represents a phase or major feature encompassing multiple stories/bugs.
 
 **Characteristics:**
+
 - Label: `type:epic`
 - No parent issue
 - Can have multiple child stories/bugs
@@ -44,6 +45,7 @@ Projects: Long-term efforts with Status workflow (TBD → Production)
 - May span multiple sprints
 
 **Creation:**
+
 ```bash
 issue-create --title "User Authentication System" --type epic \
     --body "Complete authentication system with OAuth2, SSO, and MFA support" \
@@ -55,6 +57,7 @@ issue-create --title "User Authentication System" --type epic \
 **Purpose**: A specific deliverable that implements part of an epic or feature.
 
 **Characteristics:**
+
 - Label: `type:story`
 - Has a parent epic (using "Part of #123" reference)
 - Contains implementation tasks as checkboxes
@@ -62,6 +65,7 @@ issue-create --title "User Authentication System" --type epic \
 - Should have acceptance criteria
 
 **Creation:**
+
 ```bash
 issue-create --title "Implement OAuth2 Provider Integration" --type story \
     --parent 42 \
@@ -85,6 +89,7 @@ issue-create --title "Implement OAuth2 Provider Integration" --type story \
 **Purpose**: Represents a defect or issue that needs fixing.
 
 **Characteristics:**
+
 - Label: `type:bug`
 - Can be standalone or linked to an epic
 - Contains reproduction steps and fix tasks
@@ -92,6 +97,7 @@ issue-create --title "Implement OAuth2 Provider Integration" --type story \
 - May have "blocked by" relationships
 
 **Creation:**
+
 ```bash
 # Standalone bug
 issue-create --title "Login fails with special characters in password" --type bug \
@@ -135,6 +141,7 @@ Tasks are **NOT** separate issues. They are checkboxes in story/bug bodies:
 ```
 
 Update task progress:
+
 ```bash
 # Edit the issue to update checkboxes
 issue-update 123 --body-file updated-story.md
@@ -145,6 +152,7 @@ issue-update 123 --body-file updated-story.md
 Issues in GitHub Projects use a Status field with 8 states:
 
 ### 1. **TBD** (To Be Determined)
+
 - Newly created issues
 - Not yet ready for grooming
 - May lack acceptance criteria
@@ -153,12 +161,14 @@ Issues in GitHub Projects use a Status field with 8 states:
 **Transition to:** To Groom (when ready for refinement)
 
 ### 2. **To Groom** (Ready for Grooming)
+
 - Ready for backlog grooming session
 - Has basic description
 - Needs refinement and acceptance criteria
 - May need estimation
 
 **Actions during grooming:**
+
 - Add acceptance criteria
 - Clarify requirements
 - Break down into tasks
@@ -169,6 +179,7 @@ Issues in GitHub Projects use a Status field with 8 states:
 **Transition to:** Ready (when grooming complete)
 
 ### 3. **Ready** (Ready for Implementation)
+
 - Fully groomed and understood
 - Has clear acceptance criteria
 - Has implementation tasks
@@ -178,6 +189,7 @@ Issues in GitHub Projects use a Status field with 8 states:
 **Transition to:** Implementing (when developer starts work)
 
 ### 4. **Implementing** (Active Development)
+
 - Developer is actively working
 - Assigned to team member
 - Code changes in progress
@@ -186,12 +198,14 @@ Issues in GitHub Projects use a Status field with 8 states:
 **Transition to:** Review (when ready for code review)
 
 ### 5. **Review** (Code Review)
+
 - Pull request created and open
 - Waiting for code review
 - May have review comments
 - Tests passing
 
 **Substates:**
+
 - Approved → proceed to Merged
 - Changes Needed → go back to Implementing
 - Blocked → may go back to Ready
@@ -199,6 +213,7 @@ Issues in GitHub Projects use a Status field with 8 states:
 **Transition to:** Merged (when PR approved) or Implementing (if changes needed)
 
 ### 6. **Merged** (Merged to Main)
+
 - Pull request merged to main branch
 - Code in development environment
 - May be in QA testing
@@ -209,6 +224,7 @@ Issues in GitHub Projects use a Status field with 8 states:
 **Transition to:** Staging (when ready for deployment)
 
 ### 7. **Staging** (Deployed to Staging)
+
 - Code deployed to staging environment
 - End-to-end testing happening
 - May go back to Implementing if critical issues found
@@ -216,6 +232,7 @@ Issues in GitHub Projects use a Status field with 8 states:
 **Transition to:** Production (when staging validation complete)
 
 ### 8. **Production** (Deployed to Production)
+
 - **Issue automatically closed when reaching Production**
 - Feature/fix live for all users
 - No further work on original issue
@@ -336,11 +353,13 @@ issue-list --type story --web
 The issue management scripts include built-in safety checks to prevent accidental operations against the devenv repository itself. These tools are designed to work with your target project repositories.
 
 **Repo Validation:**
+
 - `issue-create`, `issue-list`, `issue-update`, `issue-close`, and `issue-select` detect when running against devenv repo
 - If detected, they fail with a helpful error message
 - To override and operate on devenv anyway, pass the `--devenv` flag
 
 **Example Override:**
+
 ```bash
 issue-create --devenv --title "Internal issue" --type bug
 ```
@@ -352,6 +371,7 @@ This safety mechanism ensures your team's issue management tools consistently ta
 ### Issue Creation & Management
 
 **`issue-create`** - Create new issues with optional template support
+
 ```bash
 # Default: Interactive template selection with editor
 issue-create --title "Title"
@@ -373,6 +393,7 @@ issue-create --title "Title" [--type epic|story|bug] [--parent ISSUE#] \
 ```
 
 **Template Workflow:**
+
 - Default behavior: Script auto-discovers templates in `.github/ISSUE_TEMPLATE/`
 - Uses fzf to let you select a template interactively
 - Selected template opens in `$EDITOR` for customization
@@ -380,6 +401,7 @@ issue-create --title "Title" [--type epic|story|bug] [--parent ISSUE#] \
 - `--no-interactive`: Use template without editor (for scripts/automation)
 
 **`issue-list`** - List and filter issues
+
 ```bash
 issue-list [--state open|closed|all] [--type epic|story|bug] \
     [--milestone NAME] [--assignee USER] [--label LABEL] \
@@ -387,6 +409,7 @@ issue-list [--state open|closed|all] [--type epic|story|bug] \
 ```
 
 **`issue-update`** - Update issue fields
+
 ```bash
 issue-update ISSUE# [--title TEXT] [--body TEXT] \
     [--add-label LABEL] [--remove-label LABEL] \
@@ -395,11 +418,13 @@ issue-update ISSUE# [--title TEXT] [--body TEXT] \
 ```
 
 **`issue-close`** - Close or reopen issues
+
 ```bash
 issue-close [close|reopen] ISSUE# [--comment TEXT]
 ```
 
 **`issue-select`** - Interactive issue browser
+
 ```bash
 issue-select [--type TYPE] [--milestone NAME] [--multi] \
     [--format number|url|json]
@@ -408,12 +433,14 @@ issue-select [--type TYPE] [--milestone NAME] [--multi] \
 ### Project Management
 
 **`project-add`** - Add issues to projects
+
 ```bash
 project-add PROJECT_NAME ISSUE# [ISSUE#] ... \
     [--field NAME=VALUE]
 ```
 
 **`project-update`** - Update project fields
+
 ```bash
 project-update PROJECT_NAME ISSUE# [--status STATUS] \
     [--field NAME=VALUE] [--list-fields]
@@ -422,6 +449,7 @@ project-update PROJECT_NAME ISSUE# [--status STATUS] \
 ### Grooming & Workflow
 
 **`issue-groom`** - Interactive grooming wizard
+
 ```bash
 issue-groom [--project NAME] [--milestone NAME]
 ```
@@ -575,6 +603,7 @@ project-update "Q1 2026" 150 --status "Production"
    - Helps track epic progress
 
 4. **Add acceptance criteria**: For stories and bugs, always include "Definition of Done"
+
    ```markdown
    ## Acceptance Criteria
    - [ ] User can authenticate with OAuth2
@@ -584,6 +613,7 @@ project-update "Q1 2026" 150 --status "Production"
    ```
 
 5. **Include tasks**: Break down work into checkboxes
+
    ```markdown
    ## Implementation Tasks
    - [ ] Task 1

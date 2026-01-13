@@ -29,6 +29,7 @@
     "@semantic-release/commit-analyzer": "^13.0.0",
     "@semantic-release/exec": "^6.0.3",
     "husky": "^9.0.11",
+    "markdownlint-cli": "^0.39.0",
     "semantic-release": "^24.0.0"
   }
 }

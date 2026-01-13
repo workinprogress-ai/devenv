@@ -11,16 +11,19 @@ Tools for managing repositories, cloning, updating, and working with multiple re
 Clones a repository from GitHub into the `repos/` folder.
 
 **Usage:**
+
 ```bash
 repo-get [--select] [<repository-name>]
 ```
 
 **Options:**
+
 - `--select`: Show an interactive selection menu of repositories in the organization (excludes already cloned repos)
 - `<repository-name>`: Name of the repository to clone/update
 - No arguments: Update the current repository (based on git context)
 
 **Examples:**
+
 ```bash
 # Interactive selection from available repos
 repo-get --select
@@ -33,6 +36,7 @@ repo-get
 ```
 
 **Notes:**
+
 - Automatically configures git settings from `git-config.sh`
 - Supports SSH-first cloning with HTTPS fallback using `GH_TOKEN`
 - Automatically detects default branch (main/master)
@@ -48,12 +52,14 @@ repo-get
 Creates a new GitHub repository using standardized org rules, then clones it locally and optionally runs a post-creation script.
 
 **Usage:**
+
 ```bash
 repo-create.sh <repo-name> --type <type> [options]
 repo-create.sh --interactive                  # prompts for type and name
 ```
 
 **Key options:**
+
 - `--type <type>`: Required (planning|service|gateway|app-web|cs-library|ts-package|none)
 - `--interactive` / `-i`: fzf-driven type picker + name prompt
 - `--public` | `--private`: Visibility (default: private)
@@ -64,6 +70,7 @@ repo-create.sh --interactive                  # prompts for type and name
 - `--no-post-creation`: Skip running the post-creation script (if defined)
 
 **What it enforces:**
+
 - Naming patterns per type (see `tools/config/repo-types.yaml`)
 - GitHub repository rulesets on `master` (requires GitHub Pro or public repo)
 - Template repos per type (optional, can be skipped)
@@ -73,19 +80,22 @@ repo-create.sh --interactive                  # prompts for type and name
 
 **Architecture:**
 The script uses the `repo-types` library (`tools/lib/repo-types.bash`) to manage repository configuration, validation, and ruleset application. The library provides common functions for:
+
 - Loading and validating `repo-types.yaml`
 - Validating repository names against type-specific patterns
 - Applying GitHub rulesets via the GitHub API
 
 **Post-creation behavior (from repo-types.yaml):**
+
 - `post_creation_script`: Path in the repo (e.g., `.repo/post-create.sh`). If present, it runs after clone.
 - `delete_post_creation_script`: If true, script is deleted after it runs (default: true).
 - `post_creation_commit_handling`: `none` | `amend` | `new`
-    - `amend`: Amend the initial commit and force-push if the script made changes
-    - `new`: Create a new commit and push if there are changes
+  - `amend`: Amend the initial commit and force-push if the script made changes
+  - `new`: Create a new commit and push if there are changes
 
 **Ruleset configuration (`rulesetConfigFile`):**
 Each type can specify a GitHub repository ruleset JSON file:
+
 - `rulesetConfigFile`: Filename in `tools/config/` (e.g., `ruleset-default.json`)
 - Set to `null` or blank to skip ruleset application
 - JSON file is a GitHub ruleset export (from `gh api repos/OWNER/REPO/rulesets/ID`)
@@ -97,6 +107,7 @@ Each type can specify a GitHub repository ruleset JSON file:
 - Rulesets require GitHub Pro or a public repository; failures gracefully degrade with a warning
 
 **Creating custom ruleset JSON:**
+
 1. Configure ruleset in GitHub UI for a test repo
 2. Export: `gh api repos/YOUR_ORG/TEST_REPO/rulesets/RULESET_ID`
 3. Save to `tools/config/my-ruleset.json`
@@ -105,15 +116,19 @@ Each type can specify a GitHub repository ruleset JSON file:
 
 **Commit message patterns:**
 Commit message patterns use Conventional Commits format and support optional breaking-change marker (`!`):
-```
+
+```text
 ^(feat|fix|docs|chore|refactor|test|major|minor|patch)!?:\s.+
 ```
+
 Examples:
+
 - `feat: add new feature`
 - `fix!: breaking change in fix`
 - `docs: update README`
 
 **Examples:**
+
 ```bash
 # Create a service with description and custom visibility
 repo-create.sh service.platform.auth --type service --description "Authentication service" --public
@@ -126,6 +141,7 @@ repo-create.sh --interactive
 ```
 
 **Interactive mode:**
+
 - Uses `fzf` to pick a type and shows an example name
 - Prompts for repository name
 - Prompts for optional description
@@ -141,11 +157,13 @@ If repository rulesets cannot be applied during creation (e.g., your organizatio
 Updates all repositories in the `repos/` folder in parallel.
 
 **Usage:**
+
 ```bash
 repo-update-all [--jobs N]
 ```
 
 **Options:**
+
 - `--jobs N`: Set the number of parallel jobs (default: 4)
 
 ### `repo-get-web-url`
@@ -153,6 +171,7 @@ repo-update-all [--jobs N]
 Outputs the GitHub web URL for the current repository.
 
 **Usage:**
+
 ```bash
 repo-get-web-url
 ```
@@ -216,6 +235,7 @@ git update
 ```
 
 **Features:**
+
 - Interactive prompts for stashing or discarding uncommitted changes
 - Automatically switches to default branch
 - Pulls latest changes
@@ -234,6 +254,7 @@ pr-create-for-review
 ```
 
 **Features:**
+
 - Creates draft PRs
 - Supports commit range specification
 - Automatically formats title and body
@@ -248,6 +269,7 @@ pr-create-for-merge
 ```
 
 **Features:**
+
 - Validates Conventional Commits format for title
 - Supports auto-merge flag
 - Can add reviewers, assignees, and labels
@@ -278,6 +300,7 @@ pr-cleanup-review-branches [--days N]
 ```
 
 **Options:**
+
 - `--days N`: Delete review branches older than N days (default: 7)
 
 ## GitHub Issues and Project Management
@@ -293,6 +316,7 @@ issue-create --title "Issue title" [OPTIONS]
 ```
 
 **Options:**
+
 - `--title TITLE`: Issue title (required)
 - `--body TEXT`: Issue body/description
 - `--body-file FILE`: Read body from markdown file
@@ -317,6 +341,7 @@ By default, `issue-create` discovers templates in `.github/ISSUE_TEMPLATE/` and 
 5. When you save and close the editor, the edited content becomes the issue body
 
 **Examples:**
+
 ```bash
 # Interactive mode (select template with fzf, edit in $EDITOR)
 issue-create --title "Login button not working" --type bug
@@ -343,6 +368,7 @@ issue-create --title "OAuth2 Integration" --type story \
 By default, `issue-create` prevents accidental creation of issues in the devenv repository itself. Issues should be created in your target project repositories.
 
 If you need to create an issue in devenv, pass the `--devenv` flag:
+
 ```bash
 issue-create --devenv --title "Internal issue" --type bug
 ```
@@ -356,6 +382,7 @@ issue-list [OPTIONS]
 ```
 
 **Options:**
+
 - `--state STATE`: Filter by state (open, closed, all) - default: open
 - `--type TYPE`: Filter by type (epic, story, bug)
 - `--label LABEL`: Filter by label (repeatable)
@@ -366,6 +393,7 @@ issue-list [OPTIONS]
 - `--web`: Open in browser
 
 **Examples:**
+
 ```bash
 # List all open bugs
 issue-list --type bug
@@ -389,6 +417,7 @@ issue-update ISSUE_NUMBER [OPTIONS]
 ```
 
 **Options:**
+
 - `--title TITLE`: Update title
 - `--body TEXT`: Update body
 - `--body-file FILE`: Read new body from file
@@ -400,6 +429,7 @@ issue-update ISSUE_NUMBER [OPTIONS]
 - `--state STATE`: Set state (open or closed)
 
 **Examples:**
+
 ```bash
 # Update title
 issue-update 123 --title "New title"
@@ -420,14 +450,17 @@ issue-close [ACTION] ISSUE_NUMBER... [OPTIONS]
 ```
 
 **Actions:**
+
 - `close` - Close issue(s) (default)
 - `reopen` - Reopen issue(s)
 
 **Options:**
+
 - `--comment TEXT`: Add comment when closing/reopening
 - `--reason REASON`: Close reason (completed or "not planned")
 
 **Examples:**
+
 ```bash
 # Close single issue
 issue-close 123
@@ -454,6 +487,7 @@ issue-select [OPTIONS]
 ```
 
 **Options:**
+
 - `--state STATE`: Filter by state
 - `--type TYPE`: Filter by type
 - `--milestone NAME`: Filter by milestone
@@ -462,6 +496,7 @@ issue-select [OPTIONS]
 - `--format FORMAT`: Output format (number, url, json)
 
 **Examples:**
+
 ```bash
 # Select an issue interactively
 issue_num=$(issue-select --type story)
@@ -481,10 +516,12 @@ issue-groom [OPTIONS]
 ```
 
 **Options:**
+
 - `--project NAME`: Filter by project
 - `--milestone NAME`: Filter by milestone
 
 **Features:**
+
 - Review issue details
 - Set type (epic/story/bug)
 - Edit title and description
@@ -494,6 +531,7 @@ issue-groom [OPTIONS]
 - Mark as Ready for implementation
 
 **Workflow States:**
+
 - **TBD**: Newly created, needs refinement
 - **To Groom**: Ready for grooming session
 - **Ready**: Groomed and ready for implementation
@@ -507,9 +545,11 @@ project-add PROJECT_NAME ISSUE_NUMBER... [OPTIONS]
 ```
 
 **Options:**
+
 - `--field NAME=VALUE`: Set project field (repeatable)
 
 **Examples:**
+
 ```bash
 # Add issue to project
 project-add "Q1 2026" 123
@@ -532,11 +572,13 @@ project-update PROJECT_NAME ISSUE_NUMBER [OPTIONS]
 ```
 
 **Options:**
+
 - `--status STATUS`: Set Status field (TBD, To Groom, Ready, Implementing, Review, Merged, Staging, Production)
 - `--field NAME=VALUE`: Set custom field (repeatable)
 - `--list-fields`: List available fields in project
 
 **Status Workflow:**
+
 1. **TBD** - Not ready for grooming
 2. **To Groom** - Can be groomed
 3. **Ready** - Groomed, ready to implement
@@ -547,6 +589,7 @@ project-update PROJECT_NAME ISSUE_NUMBER [OPTIONS]
 8. **Production** - Deployed to production (issue closed)
 
 **Examples:**
+
 ```bash
 # Move issue to Ready
 project-update "Q1 2026" 123 --status "Ready"
@@ -599,6 +642,7 @@ server-run-sql
 ```
 
 **Credentials:**
+
 - Username: `SA`
 - Password: `1Passw0rd`
 - Default database: `test` (auto-created)
@@ -612,6 +656,7 @@ server-run-smb
 ```
 
 **Credentials:**
+
 - Username: `devenv`
 - Password: `devenv123`
 - Share: `Data`
@@ -629,6 +674,7 @@ mongo-backup-server <connection-string> <backup-directory>
 ```
 
 **Features:**
+
 - Backs up each non-built-in database individually
 - Creates timestamped backup directories
 - Skips admin, local, and config databases
@@ -642,6 +688,7 @@ mongo-restore-server <connection-string> <backup-directory>
 ```
 
 **Features:**
+
 - Automatically uses the latest backup if multiple exist
 - Drops existing collections before restore
 - Validates backup directory exists
@@ -659,6 +706,7 @@ create-script <script-name>
 ```
 
 **Features:**
+
 - Uses `templates/script-template.sh` as base
 - Automatically makes script executable
 - Includes error handling, cleanup traps, and library sourcing
@@ -672,10 +720,12 @@ lint-scripts [--format <format>] [--fix]
 ```
 
 **Options:**
+
 - `--format`: Output format (tty, json, checkstyle, diff, gcc, quiet)
 - `--fix`: Attempt to automatically fix issues (experimental)
 
 **Features:**
+
 - Scans all `.sh` files in scripts/ and lib/
 - Provides statistics and summary
 - Integrates with CI/CD pipelines
@@ -705,6 +755,7 @@ nuget-clear-local
 ```
 
 **Features:**
+
 - Clears `~/.nuget/packages` cache for local packages
 - Removes all packages from `.debug/local-nuget-dev`
 - Provides warnings if cleanup fails
@@ -718,11 +769,13 @@ nuget-publish-local [target-directory] [version] [configuration]
 ```
 
 **Arguments:**
+
 - `target-directory`: Directory containing .csproj files (default: current directory)
 - `version`: Package version (default: calculated from git)
 - `configuration`: Build configuration (default: Debug)
 
 **Features:**
+
 - Builds all .csproj files except test projects
 - Includes symbols and source
 - Clears cache after publishing
@@ -759,11 +812,13 @@ install-extras [OPTIONS] [FILTER]
 ```
 
 **Options:**
+
 - `-m, --multi` - Multi-select mode (install several extras at once)
 - `--dir PATH` - Override the extras directory (default: `.devcontainer/install-extras/`)
 - `FILTER` - Filter extras by name; auto-runs if only one match
 
 **Features:**
+
 - Interactive fzf menu with preview (using `bat` if available)
 - Single or multi-select installation
 - Filter by name for quick access
@@ -787,6 +842,7 @@ install-extras mongo
 ```
 
 **Available Extras:**
+
 - `dns-hijack.sh` - DNS split horizon setup with dnsmasq
 - `helm.sh` - Helm package manager for Kubernetes
 - `minikube.sh` - Minikube for local Kubernetes
@@ -811,6 +867,7 @@ server=/domain.name/IP_ADDRESS
 ```
 
 **Example Configuration:**
+
 ```bash
 # Route internal domains to corporate DNS
 server=/company.local/192.168.1.201
@@ -821,16 +878,19 @@ server=/company.azure/10.210.2.5
 ```
 
 **Installation:**
+
 ```bash
 install-extras dns-hijack
 ```
 
 **Setup Steps:**
+
 1. Ensure the config file exists at `.devcontainer/install-extras/config/dns-mapping.cfg`
 2. Run `install-extras dns-hijack` to install and configure dnsmasq
 3. The script will fail with a helpful error if the config file is missing
 
 **Features:**
+
 - Automatic dnsmasq installation and configuration
 - Split-horizon DNS routing (specific domains to specific servers)
 - Strict ordering to prioritize mapped domains
@@ -846,6 +906,7 @@ devenv-add-env-vars "VAR1=value1" "VAR2=value2" ...
 ```
 
 **Features:**
+
 - Validates environment variable format (uppercase with underscores)
 - Updates existing variables (removes old values to prevent duplicates)
 - Appends new variables to the file
@@ -868,6 +929,7 @@ devenv-add-custom-bootstrap "command1" "command2" ...
 ```
 
 **Features:**
+
 - Validates bash syntax before adding commands
 - Creates `user-custom-bootstrap.sh` if it doesn't exist
 - Sets executable permissions automatically
@@ -890,6 +952,7 @@ devenv-add-custom-startup "command1" "command2" ...
 ```
 
 **Features:**
+
 - Validates bash syntax before adding commands
 - Creates `user-custom-startup.sh` if it doesn't exist
 - Sets executable permissions automatically
@@ -924,6 +987,7 @@ update-tailscale-key
 ```
 
 **Features:**
+
 - Prompts for new reusable auth key (input is hidden)
 - Validates key format (must start with `tskey-`)
 - Updates `TS_AUTHKEY` in `.runtime/env-vars.sh`
@@ -931,6 +995,7 @@ update-tailscale-key
 - Sources the updated environment variables in the current shell
 
 **When to use:**
+
 - Your reusable auth key has expired (typically after 90 days)
 - You need to switch to a different Tailscale network or organization
 - Admin has rotated the team's auth key
@@ -948,6 +1013,7 @@ update-do-key [new-token]
 **Interactive mode:** If no token is provided, prompts for input (hidden).
 
 **Features:**
+
 - Accepts token as command-line argument or interactive prompt
 - Validates token format and length
 - Stores token persistently in `.setup/do_token.txt` with secure permissions
@@ -955,6 +1021,7 @@ update-do-key [new-token]
 - Reloads environment variables in the current shell
 
 **When to use:**
+
 - Your Digital Ocean API token has been rotated
 - You need to switch to a different Digital Ocean account or organization
 - Updating token after regeneration for security reasons
@@ -994,18 +1061,22 @@ Internal utility scripts located in `tools/scripts/` that are not exposed on the
 Applies or updates GitHub repository configuration to an existing cloned repository. This is useful when configuration could not be applied during initial repository creation due to account limitations (e.g., GitHub Pro requirement for private repos) or if the configuration has changed and needs to be reapplied.
 
 **Usage:**
+
 ```bash
 tools/scripts/repo-update-config.sh <repo-path> [--type <type>]
 ```
 
 **Arguments:**
+
 - `<repo-path>`: Path to the cloned repository directory
 
 **Options:**
+
 - `--type <type>`: Repository type (optional; will be auto-detected from GitHub if not specified)
 
 **Description:**
 This script reads the repository type from either the command-line argument or by querying GitHub for repository topics. It then applies the standardized configuration for that type, including:
+
 - **GitHub rulesets** - Branch protection rules (requires GitHub Pro or public repository)
 - **Merge types** - Allowed merge strategies (merge, squash, rebase) per type
 - **Template setting** - Marks template repositories for "Use this template" button
@@ -1013,12 +1084,14 @@ This script reads the repository type from either the command-line argument or b
 - **Repository features** - Wiki, Issues, Discussions, Projects, Auto-merge, Update branch, Forking, and squash PR title settings
 
 **Use cases:**
+
 - Applying configuration after upgrading to GitHub Pro
 - Configuring repositories created before configuration support was available
 - Manually updating repository settings without recreating the repository
 - Bulk applying settings to multiple repositories via scripting
 
 **Examples:**
+
 ```bash
 # Auto-detect type from GitHub repository topics
 tools/scripts/repo-update-config.sh ~/repos/my-service
@@ -1029,6 +1102,7 @@ tools/scripts/repo-update-config.sh ~/repos/my-docs --type documentation
 
 **Configuration per type:**
 Each repository type defines its configuration in `tools/config/repo-types.yaml`:
+
 - `allowedMergeTypes` - Which merge strategies are permitted
 - `rulesetConfigFile` - Path to GitHub ruleset JSON (null = skip)
 - `isTemplate` - Whether to mark as a template repository
@@ -1040,31 +1114,36 @@ Each repository type defines its configuration in `tools/config/repo-types.yaml`
 - `allowAutoMerge` - Allow auto-merge on PRs for automation (default: true)
 - `allowUpdateBranch` - Show "Update branch" button on PRs (default: true)
 - `allowForking` - Allow others to fork the repository (default: true for templates, false otherwise)
-- `useSquashPRTitleAsDefault` - Use PR title for squash commits instead of first commit (default: true)
+- `squashMergeCommitTitle` - Squash commit title format: PR_TITLE or COMMIT_OR_PR_TITLE (default: PR_TITLE)
+- `squashMergeCommitMessage` - Squash commit message body: PR_BODY, COMMIT_MESSAGES, or BLANK (default: COMMIT_MESSAGES)
 
 **Dependencies:**
+
 - `repo-types.bash` (shared library)
 - GitHub CLI (`gh`)
 - `yq` (YAML processor)
 
-**Related:** See [repo-create](#repo-create) for initial repository creation details, and [Repo Creation Standards (repo-create.sh)](#repo-creation-standards-repo-createsh) in the Devenv-Customization docs for configuration options.
+**Related:** See [repo-create](#repo-create) for initial repository creation details, and [Repo Creation Standards (repo-create.sh)](./Devenv-Customization.md#repo-creation-standards-repo-createsh) in the Devenv-Customization docs for configuration options.
 
 ## Bash Functions and Aliases
 
 The following convenience aliases are available in the dev container:
 
 **Navigation:**
+
 - `devenv` - Navigate to devenv root
 - `playground` - Navigate to playground directory
 - `repos` - Navigate to repos directory
 
 **Repository Management:**
+
 - `repo-get` - Clone/navigate to repository
 - `repo-update-all` - Update all repositories in parallel
 - `update-dev-env` - Update the devenv repository itself
 - `repo-get-web-url` - Get GitHub web URL for current repository
 
 **Pull Request Management:**
+
 - `pr-create-for-merge` - Create PR for merging
 - `pr-create-for-review` - Create draft review PR
 - `pr-get-merge-link` - Get PR link for current branch
@@ -1072,6 +1151,7 @@ The following convenience aliases are available in the dev container:
 - `pr-cleanup-review-branches` - Cleanup old review branches
 
 **Issue Management:**
+
 - `issue-create` - Create new issue
 - `issue-list` - List/filter issues
 - `issue-update` - Update issue fields
@@ -1080,25 +1160,31 @@ The following convenience aliases are available in the dev container:
 - `issue-groom` - Interactive grooming wizard
 
 **Project Management:**
+
 - `project-add` - Add issues to projects
 - `project-update` - Update issue fields in projects
 
 **Development Tools:**
+
 - `create-script` - Create new script from template
 - `lint-scripts` - Validate shell scripts with shellcheck
 - `repo-version-list` - List version tags
 
 **Containers & Services:**
+
 - `dependencies-up` / `dependencies-down` - Start/stop dependencies
 - `server-run-sql` / `server-run-smb` - Start development servers
 
 **Database:**
+
 - `mongo-backup-server` / `mongo-restore-server` - MongoDB backup/restore
 
 **NuGet:**
+
 - `nuget-clear-local` / `nuget-publish-local` - Local NuGet development
 
 **Utilities:**
+
 - `get-public-ip` - Get current public IP
 - `update-github-key` - Update GitHub token in setup
 - `update-tailscale-key` - Update Tailscale auth key

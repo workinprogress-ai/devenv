@@ -26,7 +26,21 @@
 #   - allowAutoMerge: Allow auto-merge on PRs for automation (default: true)
 #   - allowUpdateBranch: Show "Update branch" button on PRs (default: true)
 #   - allowForking: Allow others to fork the repository (default: true for templates, false otherwise)
-#   - useSquashPRTitleAsDefault: Use PR title for squash commits instead of first commit (default: true)
+#   - squashMergeCommitTitle: Title for squash merge commits (default: PR_TITLE)
+#       Valid values: PR_TITLE, COMMIT_OR_PR_TITLE
+#       - PR_TITLE: Use the pull request title as the commit title
+#       - COMMIT_OR_PR_TITLE: Use the first commit message title or PR title (GitHub's original default)
+#   - squashMergeCommitMessage: Message body for squash merge commits (default: COMMIT_MESSAGES)
+#       Valid values: PR_BODY, COMMIT_MESSAGES, BLANK
+#       - PR_BODY: Use the pull request description
+#       - COMMIT_MESSAGES: Use all commit messages from the PR
+#       - BLANK: No commit message body
+#
+#   GitHub UI Mapping:
+#     - "Use PR title": title=PR_TITLE, message=BLANK
+#     - "Use PR title and commit details": title=PR_TITLE, message=COMMIT_MESSAGES
+#     - "Use PR title and description": title=PR_TITLE, message=PR_BODY
+#     - "Default message": title=COMMIT_OR_PR_TITLE, message=COMMIT_MESSAGES
 
 types:
   # Planning and repositories
@@ -45,10 +59,11 @@ types:
     hasIssues: true
     hasDiscussions: true
     hasProjects: true
-    allowAutoMerge: true
+    allowAutoMerge: false
     allowUpdateBranch: true
     allowForking: false
-    useSquashPRTitleAsDefault: true
+    squashMergeCommitTitle: PR_TITLE
+    squashMergeCommitMessage: COMMIT_MESSAGES
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
@@ -70,10 +85,11 @@ types:
     hasIssues: true
     hasDiscussions: false
     hasProjects: false
-    allowAutoMerge: true
+    allowAutoMerge: false
     allowUpdateBranch: true
     allowForking: false
-    useSquashPRTitleAsDefault: true
+    squashMergeCommitTitle: PR_TITLE
+    squashMergeCommitMessage: COMMIT_MESSAGES
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
@@ -93,13 +109,14 @@ types:
       - squash
     deletePRBranchOnMerge: true
     hasWiki: false
-    hasIssues: false
+    hasIssues: true
     hasDiscussions: false
     hasProjects: false
-    allowAutoMerge: true
+    allowAutoMerge: false
     allowUpdateBranch: true
-    allowForking: true
-    useSquashPRTitleAsDefault: true
+    allowForking: false
+    squashMergeCommitTitle: PR_TITLE
+    squashMergeCommitMessage: COMMIT_MESSAGES
     isTemplate: true  # Mark this repository as a template
     post_creation_script: null
     delete_post_creation_script: true
@@ -122,10 +139,11 @@ types:
     hasIssues: true
     hasDiscussions: false
     hasProjects: false
-    allowAutoMerge: true
+    allowAutoMerge: false
     allowUpdateBranch: true
     allowForking: false
-    useSquashPRTitleAsDefault: true
+    squashMergeCommitTitle: PR_TITLE
+    squashMergeCommitMessage: COMMIT_MESSAGES
     post_creation_script: ".repo/post-create.sh"  # Run customization script
     delete_post_creation_script: true  # Remove script after execution
     post_creation_commit_handling: amend  # Clean up initial commit
@@ -147,10 +165,11 @@ types:
     hasIssues: true
     hasDiscussions: false
     hasProjects: false
-    allowAutoMerge: true
+    allowAutoMerge: false
     allowUpdateBranch: true
     allowForking: false
-    useSquashPRTitleAsDefault: true
+    squashMergeCommitTitle: PR_TITLE
+    squashMergeCommitMessage: COMMIT_MESSAGES
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
@@ -172,10 +191,11 @@ types:
     hasIssues: true
     hasDiscussions: false
     hasProjects: false
-    allowAutoMerge: true
+    allowAutoMerge: false
     allowUpdateBranch: true
     allowForking: false
-    useSquashPRTitleAsDefault: true
+    squashMergeCommitTitle: PR_TITLE
+    squashMergeCommitMessage: COMMIT_MESSAGES
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
@@ -197,10 +217,11 @@ types:
     hasIssues: true
     hasDiscussions: false
     hasProjects: false
-    allowAutoMerge: true
+    allowAutoMerge: false
     allowUpdateBranch: true
     allowForking: false
-    useSquashPRTitleAsDefault: true
+    squashMergeCommitTitle: PR_TITLE
+    squashMergeCommitMessage: COMMIT_MESSAGES
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
@@ -222,10 +243,11 @@ types:
     hasIssues: true
     hasDiscussions: false
     hasProjects: false
-    allowAutoMerge: true
+    allowAutoMerge: false
     allowUpdateBranch: true
     allowForking: false
-    useSquashPRTitleAsDefault: true
+    squashMergeCommitTitle: PR_TITLE
+    squashMergeCommitMessage: COMMIT_MESSAGES
     post_creation_script: ".repo/post-create.sh"
     delete_post_creation_script: true
     post_creation_commit_handling: amend
@@ -248,8 +270,9 @@ types:
     hasIssues: true
     hasDiscussions: true
     hasProjects: true
-    allowAutoMerge: true
+    allowAutoMerge: false
     allowUpdateBranch: true
     allowForking: true
-    useSquashPRTitleAsDefault: false
+    squashMergeCommitTitle: COMMIT_OR_PR_TITLE
+    squashMergeCommitMessage: COMMIT_MESSAGES
     rulesetConfigFile: null

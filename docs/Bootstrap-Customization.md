@@ -5,6 +5,7 @@
 The devenv bootstrap process is now modular and customizable. All bootstrap functions are defined in [`.devcontainer/bootstrap.bash`](../.devcontainer/bootstrap.bash), a library that can be sourced and used selectively in custom bootstrap scripts.
 
 This design allows anyone forking this repository to:
+
 - Pick and choose which bootstrap functions to run
 - Override specific functions with custom implementations
 - Add their own bootstrap tasks
@@ -291,6 +292,7 @@ When forking this repository:
 6. **Document your changes** - Update this file with your customizations
 
 Users can then add personal customizations using:
+
 - `devenv-add-custom-bootstrap` - Adds commands to `user-custom-bootstrap.sh`
 - `devenv-add-custom-startup` - Adds commands to `user-custom-startup.sh`
 

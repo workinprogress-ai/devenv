@@ -5,6 +5,7 @@ Complete documentation for the Devenv project organized by topic and use case.
 ## 🚀 Quick Start
 
 **New to Devenv?** Start here:
+
 1. [Dev Container Environment](./Dev-container-environment.md) - Set up and run the dev container
 2. [Additional Tooling](./Additional-Tooling.md) - Overview of available scripts
 3. [GitHub Issues Quick Reference](./GitHub-Issues-Quick-Reference.md) - Common issue/PR commands
@@ -27,6 +28,7 @@ Complete workflow for managing GitHub Issues, Projects, and Sprints:
   - Common issues and solutions
 
 **Key Scripts:**
+
 - `issue-create` - Create new issues
 - `issue-list` - List/filter issues
 - `issue-update` - Update issue fields
@@ -84,11 +86,11 @@ Complete workflow for managing GitHub Issues, Projects, and Sprints:
   - VS Code remote debugging
   - Database access patterns
 
-**Total: ~115 KB of comprehensive documentation**
+Total: ~115 KB of comprehensive documentation
 
 ## 🔍 Find Documentation By Topic
 
-### I want to...
+### I want to
 
 **...understand how to track work**
 → [GitHub Issues Management](./GitHub-Issues-Management.md)
@@ -120,11 +122,11 @@ Complete workflow for managing GitHub Issues, Projects, and Sprints:
 
 ## 🔗 Related Resources
 
-- **GitHub CLI Documentation**: https://cli.github.com/manual/
-- **VS Code Remote Containers**: https://code.visualstudio.com/docs/remote/containers
-- **Docker Documentation**: https://docs.docker.com/
-- **Podman Documentation**: https://docs.podman.io/
-- **Git Documentation**: https://git-scm.com/doc
+- **GitHub CLI Documentation**: <https://cli.github.com/manual/>
+- **VS Code Remote Containers**: <https://code.visualstudio.com/docs/remote/containers>
+- **Docker Documentation**: <https://docs.docker.com/>
+- **Podman Documentation**: <https://docs.podman.io/>
+- **Git Documentation**: <https://git-scm.com/doc>
 
 ## 📞 Getting Help
 

@@ -31,6 +31,7 @@ enable_strict_mode
 ### Logging Functions
 
 #### log_debug
+
 Logs debug-level messages (only shown when `DEBUG=1` or `DEBUG=true`).
 
 ```bash
@@ -41,6 +42,7 @@ log_debug "Found ${count} items to process"
 **Output**: `[2026-01-01T10:30:45-04:00] [DEBUG] Starting configuration validation`
 
 #### log_info
+
 Logs informational messages to stdout.
 
 ```bash
@@ -51,6 +53,7 @@ log_info "Configuration updated successfully"
 **Output**: `[2026-01-01T10:30:45-04:00] [INFO] Processing repository: my-repo`
 
 #### log_warn
+
 Logs warning messages to stderr (non-fatal issues).
 
 ```bash
@@ -61,6 +64,7 @@ log_warn "Using default configuration"
 **Output**: `[2026-01-01T10:30:45-04:00] [WARN] Cache directory not found, creating it`
 
 #### log_error
+
 Logs error messages to stderr (does not exit).
 
 ```bash
@@ -71,6 +75,7 @@ log_error "Invalid configuration file format"
 **Output**: `[2026-01-01T10:30:45-04:00] [ERROR] Failed to connect to database`
 
 #### log_fatal
+
 Logs fatal error messages to stderr and exits with code 1.
 
 ```bash
@@ -93,6 +98,7 @@ log_fatal "Cannot proceed without valid credentials"
 ## Environment Variables
 
 ### DEBUG
+
 Enable debug logging:
 
 ```bash
@@ -168,6 +174,7 @@ log_info "Data processor finished"
 ```
 
 Run with debug output:
+
 ```bash
 DEBUG=1 ./scripts/process-data.sh
 ```
@@ -208,6 +215,7 @@ trap 'on_script_error ${LINENO} "${BASH_COMMAND}"' ERR
    - Use `log_fatal` only for unrecoverable errors
 
 2. **Provide context**
+
    ```bash
    # Good
    log_info "Processing repository: $repo_name ($count files)"
@@ -217,6 +225,7 @@ trap 'on_script_error ${LINENO} "${BASH_COMMAND}"' ERR
    ```
 
 3. **Log before risky operations**
+
    ```bash
    log_debug "Attempting to remove directory: $dir"
    rm -rf "$dir"
@@ -228,6 +237,7 @@ trap 'on_script_error ${LINENO} "${BASH_COMMAND}"' ERR
    - Help with troubleshooting when issues occur
 
 5. **Combine with error handling**
+
    ```bash
    if ! some_command; then
        log_error "Command failed, trying alternative approach"

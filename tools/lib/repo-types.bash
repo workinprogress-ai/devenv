@@ -249,16 +249,29 @@ get_type_allow_forking() {
     fi
 }
 
-get_type_use_squash_pr_title_as_default() {
+get_type_squash_merge_commit_title() {
     local repo_type="$1"
     local config_path
     config_path=$(load_repo_types_config "${2:-}") || return 1
     local result
-    result=$(yq eval ".types.${repo_type} | has(\"useSquashPRTitleAsDefault\")" "$config_path" 2>/dev/null)
+    result=$(yq eval ".types.${repo_type} | has(\"squashMergeCommitTitle\")" "$config_path" 2>/dev/null)
     if [ "$result" = "true" ]; then
-        yq eval -r ".types.${repo_type}.useSquashPRTitleAsDefault" "$config_path" 2>/dev/null || echo "true"
+        yq eval -r ".types.${repo_type}.squashMergeCommitTitle" "$config_path" 2>/dev/null || echo "PR_TITLE"
     else
-        echo "true"
+        echo "PR_TITLE"
+    fi
+}
+
+get_type_squash_merge_commit_message() {
+    local repo_type="$1"
+    local config_path
+    config_path=$(load_repo_types_config "${2:-}") || return 1
+    local result
+    result=$(yq eval ".types.${repo_type} | has(\"squashMergeCommitMessage\")" "$config_path" 2>/dev/null)
+    if [ "$result" = "true" ]; then
+        yq eval -r ".types.${repo_type}.squashMergeCommitMessage" "$config_path" 2>/dev/null || echo "COMMIT_MESSAGES"
+    else
+        echo "COMMIT_MESSAGES"
     fi
 }
 
@@ -518,11 +531,11 @@ configure_merge_types_for_type() {
         allow_rebase=true
     fi
     
-    # Apply settings via GitHub API using -f flags
+    # Apply settings via GitHub API using -F flags for booleans (raw JSON)
     if gh api -X PATCH "repos/${full_name}" \
-        -f "allow_merge_commit=$allow_merge" \
-        -f "allow_squash_merge=$allow_squash" \
-        -f "allow_rebase_merge=$allow_rebase" >/dev/null 2>&1; then
+        -F "allow_merge_commit=$allow_merge" \
+        -F "allow_squash_merge=$allow_squash" \
+        -F "allow_rebase_merge=$allow_rebase" >/dev/null 2>&1; then
         log_info "✓ Merge types configured (merge: $allow_merge, squash: $allow_squash, rebase: $allow_rebase)"
         return 0
     else
@@ -591,9 +604,9 @@ configure_pr_branch_deletion_for_type() {
     
     log_info "Configuring PR branch deletion on merge..."
     
-    # Apply setting via GitHub API
+    # Apply setting via GitHub API using -F flag for boolean (raw JSON)
     if gh api -X PATCH "repos/${full_name}" \
-        -f "delete_branch_on_merge=$delete_pr_branch" >/dev/null 2>&1; then
+        -F "delete_branch_on_merge=$delete_pr_branch" >/dev/null 2>&1; then
         log_info "✓ PR branch deletion on merge configured (enabled: $delete_pr_branch)"
         return 0
     else
@@ -616,7 +629,8 @@ configure_repository_features_for_type() {
     
     # Get all feature settings
     local has_wiki has_issues has_discussions has_projects
-    local allow_auto_merge allow_update_branch allow_forking use_squash_pr_title
+    local allow_auto_merge allow_update_branch allow_forking
+    local squash_merge_commit_title squash_merge_commit_message
     
     has_wiki=$(get_type_has_wiki "$repo_type" "$config_path")
     has_issues=$(get_type_has_issues "$repo_type" "$config_path")
@@ -625,33 +639,23 @@ configure_repository_features_for_type() {
     allow_auto_merge=$(get_type_allow_auto_merge "$repo_type" "$config_path")
     allow_update_branch=$(get_type_allow_update_branch "$repo_type" "$config_path")
     allow_forking=$(get_type_allow_forking "$repo_type" "$config_path")
-    use_squash_pr_title=$(get_type_use_squash_pr_title_as_default "$repo_type" "$config_path")
-    
-    # Map useSquashPRTitleAsDefault to GitHub API parameter
-    # GitHub uses squash_merge_commit_title: "PR_TITLE" or "COMMIT_OR_PR_TITLE"
-    local squash_merge_commit_title
-    if [ "$use_squash_pr_title" = "true" ]; then
-        squash_merge_commit_title="PR_TITLE"
-    else
-        squash_merge_commit_title="COMMIT_OR_PR_TITLE"
-    fi
+    squash_merge_commit_title=$(get_type_squash_merge_commit_title "$repo_type" "$config_path")
+    squash_merge_commit_message=$(get_type_squash_merge_commit_message "$repo_type" "$config_path")
     
     log_info "Configuring repository features..."
     
+    # Build API flags - use -F for booleans (raw JSON), -f for strings
+    local api_flags=(-X PATCH "repos/${full_name}")
+    api_flags+=(-F "has_wiki=$has_wiki" -F "has_issues=$has_issues" -F "has_discussions=$has_discussions" -F "has_projects=$has_projects")
+    api_flags+=(-F "allow_auto_merge=$allow_auto_merge" -F "allow_update_branch=$allow_update_branch" -F "allow_forking=$allow_forking")
+    api_flags+=(-f "squash_merge_commit_title=$squash_merge_commit_title" -f "squash_merge_commit_message=$squash_merge_commit_message")
+    
     # Apply all settings via GitHub API in a single PATCH request
-    if gh api -X PATCH "repos/${full_name}" \
-        -f "has_wiki=$has_wiki" \
-        -f "has_issues=$has_issues" \
-        -f "has_discussions=$has_discussions" \
-        -f "has_projects=$has_projects" \
-        -f "allow_auto_merge=$allow_auto_merge" \
-        -f "allow_update_branch=$allow_update_branch" \
-        -f "allow_forking=$allow_forking" \
-        -f "squash_merge_commit_title=$squash_merge_commit_title" >/dev/null 2>&1; then
+    if gh api "${api_flags[@]}" >/dev/null 2>&1; then
         log_info "✓ Repository features configured:"
         log_info "  - Wiki: $has_wiki, Issues: $has_issues, Discussions: $has_discussions, Projects: $has_projects"
         log_info "  - Auto-merge: $allow_auto_merge, Update branch: $allow_update_branch, Forking: $allow_forking"
-        log_info "  - Squash PR title as default: $use_squash_pr_title"
+        log_info "  - Squash merge: title=$squash_merge_commit_title, message=$squash_merge_commit_message"
         return 0
     else
         log_warn "Could not configure repository features (may require admin access)"

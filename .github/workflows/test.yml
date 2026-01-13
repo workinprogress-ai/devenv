@@ -34,3 +34,40 @@ jobs:
         
       - name: Lint scripts
         run: ./tools/scripts/lint-scripts.sh
+
+  lint-markdown:
+    name: Lint Markdown (changed files)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine changed markdown files
+        id: changed
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          CHANGED_FILES=$(git diff --name-only --diff-filter=ACMRT "$BASE_SHA" "$HEAD_SHA" -- '*.md')
+
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "files=" >> "$GITHUB_OUTPUT"
+            echo "No markdown changes detected; skipping lint."
+            exit 0
+          fi
+
+          echo "files<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$CHANGED_FILES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+          printf 'Markdown files to lint:\n%s\n' "$CHANGED_FILES"
+
+      - name: Install markdownlint-cli
+        if: steps.changed.outputs.files != ''
+        run: npm install -g markdownlint-cli@0.39.0
+
+      - name: Run markdownlint on changed files
+        if: steps.changed.outputs.files != ''
+        run: |
+          echo "${{ steps.changed.outputs.files }}" | xargs -r markdownlint

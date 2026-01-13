@@ -142,6 +142,7 @@ These are user-facing convenience functions, not library functions.
 ### Testing Function Names
 
 Function names should be tested in unit tests:
+
 ```bash
 @test "lib function names use snake_case" {
   # Extract function names from library files

@@ -1,17 +1,28 @@
 #!/bin/sh
 
+# Ensure we run from the devenv repository root
+DEVENV_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$DEVENV_ROOT"
+
+# Lint staged markdown files (if any)
+if git diff --cached --name-only --diff-filter=ACM -z -- '*.md' | grep -qz .; then
+    echo "Linting staged markdown files..."
+    # Always invoke the devenv version of lint-documentation from the devenv root
+    # Pass files directly via pipe to avoid variable expansion issues with null delimiters
+    git diff --cached --name-only --diff-filter=ACM -z -- '*.md' | xargs -0 "$DEVENV_ROOT/tools/lint-documentation"
+fi
 # Check if there are any staged changes in tools/ or .devcontainer/
 if git diff --cached --name-only | grep -qE '^(tools/|\.devcontainer/)'; then
     echo "Changes detected in tools/ or .devcontainer/ - running tests and linting..."
     
     # Run linting
-    if ! ./tools/scripts/lint-scripts.sh; then
+    if ! "$DEVENV_ROOT/tools/scripts/lint-scripts.sh"; then
         echo "Linting failed. Commit aborted."
         exit 1
     fi
     
     # Run tests
-    if ! ./tools/tests/run-tests-local.sh; then
+    if ! "$DEVENV_ROOT/tools/tests/run-tests-local.sh"; then
         echo "Tests failed. Commit aborted."
         exit 1
     fi

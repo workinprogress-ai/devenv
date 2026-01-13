@@ -4,15 +4,15 @@ The dev container is a fully functional development environment.  It has all the
 
 When you first bring up the dev environment, it only contains the code that is in the `devenv` repo.  You will need to clone the other repos that you want to work on.  You can do this in the terminal in the dev container.  
 
-When you first open a terminal in the dev container, the current folder will be `~/repos` (the ~ indicates that it is located in the home folder).  The prompt will look something like this: 
+When you first open a terminal in the dev container, the current folder will be `~/repos` (the ~ indicates that it is located in the home folder).  The prompt will look something like this:
 
-```
+```bash
 @toochevere ➜ ~/repos (<>) $
 ```
 
 Any repos cloned should be put under the `repos/` folder.  A command line alias (actually it's a bash function but let's not be picky) exists in order to make this easy:  `repo-get`.  Simply use `repo-get` command with the name of the repo you wish to clone:
 
-```
+```bash
 @toochevere ➜ ~/repos (<>) $ repo-get devops
 ```
 
@@ -20,13 +20,13 @@ If the repos is not yet present under the `~/repos` folder then it will be clone
 
 You can also use `repo-get --select` to see an interactive menu of all repositories in your organization (excluding those already cloned), making it easy to discover and clone new repositories:
 
-```
+```bash
 @toochevere ➜ ~/repos (<>) $ repo-get --select
 ```  
 
-**Note** that part of the setup script asked for an SSH key.  This key is used to clone the private repos.  If you did not provide a key, you will not be able to clone the private repos. 
+**Note** that part of the setup script asked for an SSH key.  This key is used to clone the private repos.  If you did not provide a key, you will not be able to clone the private repos.
 
-Once you have the repos cloned, you can then open any of them in the dev environment.  This can be done by (in VS Code) opening the command palette and choosing "Open Workspace from file" and selecting the workspace you wish to open.  You can also open the terminal in VS Code, navigate to the folder you want to open, and use the command `code <workspace file or folder>`.  Once you open a project, it will be add to the "Recent" list in VS Code and you can quickly open it in the future. 
+Once you have the repos cloned, you can then open any of them in the dev environment.  This can be done by (in VS Code) opening the command palette and choosing "Open Workspace from file" and selecting the workspace you wish to open.  You can also open the terminal in VS Code, navigate to the folder you want to open, and use the command `code <workspace file or folder>`.  Once you open a project, it will be add to the "Recent" list in VS Code and you can quickly open it in the future.
 
 ## Container isolation
 
@@ -40,7 +40,7 @@ The configuration for the dev container includes an instance of Docker running w
 
 ## Updating the dev environment
 
-The dev environment will check for updates to it's code.  This happens periodically.  If it finds an update has happened (a new commit has been pushed to `master` in the `devenv` repo) then it will warn the user when a command line is opened.  The user is given the option to pull the latest changes in `master`.  If the change was a major version change, then the user will also be warned they should rebuild the container. 
+The dev environment will check for updates to it's code.  This happens periodically.  If it finds an update has happened (a new commit has been pushed to `master` in the `devenv` repo) then it will warn the user when a command line is opened.  The user is given the option to pull the latest changes in `master`.  If the change was a major version change, then the user will also be warned they should rebuild the container.
 
 ## Folder structure in the dev environment
 
@@ -50,17 +50,17 @@ Within this repository, there are a few folders of note:
 
 ### `/workspace` repository folders
 
-* `.devcontainer` This folder contains the configuration for the dev container itself.  It is where the `bootstrap.sh` and `devcontainer.json` files are located.  It also contains a few temporary files that are used by the dev environment to manage the container. 
+* `.devcontainer` This folder contains the configuration for the dev container itself.  It is where the `bootstrap.sh` and `devcontainer.json` files are located.  It also contains a few temporary files that are used by the dev environment to manage the container.
 * `scripts` This folder contains a few utility scripts that are intended to be used by the user.
 * `docs` This folder contains documentation for the dev environment.  It is where you are reading this file right now.
 * `repos` This folder is where the user should clone any repositories they wish to work on.  It is the default folder that the terminal opens to.  When calling the `get-repo` utility, the repo will be cloned here.  This folder is excluded from the repository of the dev environment itself.  
-* `.debug` This folder is where the utility scripts will place any files needed for debugging or other development purposes.  It is excluded from the repository of the dev environment itself.  The services configuration is placed in a subfolder of this folder, as well as the services data folder. 
+* `.debug` This folder is where the utility scripts will place any files needed for debugging or other development purposes.  It is excluded from the repository of the dev environment itself.  The services configuration is placed in a subfolder of this folder, as well as the services data folder.
 
-**Remember** that any files or folders created outside of the mapped repo folder will not be saved if the container is deleted or rebuilt.  So if you want to keep something, make sure it is in the repo folder, perhaps in a place like the `.debug` folder. 
+**Remember** that any files or folders created outside of the mapped repo folder will not be saved if the container is deleted or rebuilt.  So if you want to keep something, make sure it is in the repo folder, perhaps in a place like the `.debug` folder.
 
 ### Home folder
 
-Because the dev environment is a Linux os in a container, it has a folder structure that reflects this as well.  The dev environment is based on Debian, so it has a Debian-like folder structure.  The home folder is `/home/vscode`.  Any processes that run in the container will run as the `vscode` user. 
+Because the dev environment is a Linux os in a container, it has a folder structure that reflects this as well.  The dev environment is based on Debian, so it has a Debian-like folder structure.  The home folder is `/home/vscode`.  Any processes that run in the container will run as the `vscode` user.
 
 **NOTE:**  On rare occasions, some apps get confused about the symlinking.  You can also just open repos or other folders directly from `/workspace/<REPO>` folder.  
 
@@ -83,9 +83,10 @@ These scripts are part of the repository and apply to all users in the organizat
 * **`org-custom-startup.sh`** - Runs each time VS Code starts for organization-wide initialization
 
 These files should be created manually in `.devcontainer/` and committed to the repository. They are ideal for:
-- Installing organization-specific tools
-- Configuring company-wide settings
-- Setting up shared development services
+
+* Installing organization-specific tools
+* Configuring company-wide settings
+* Setting up shared development services
 
 ### User-Level Custom Scripts
 
@@ -103,10 +104,11 @@ devenv-add-custom-bootstrap "command1" "command2"
 ```
 
 The script will:
-- Create `user-custom-bootstrap.sh` if it doesn't exist
-- Validate bash syntax before adding commands
-- Set executable permissions automatically
-- Append commands with documentation comments
+
+* Create `user-custom-bootstrap.sh` if it doesn't exist
+* Validate bash syntax before adding commands
+* Set executable permissions automatically
+* Append commands with documentation comments
 
 **Managing user-level startup commands:**
 
@@ -117,10 +119,11 @@ devenv-add-custom-startup "command1" "command2"
 ```
 
 The script will:
-- Create `user-custom-startup.sh` if it doesn't exist
-- Validate bash syntax before adding commands
-- Set proper permissions automatically
-- Append commands with documentation comments
+
+* Create `user-custom-startup.sh` if it doesn't exist
+* Validate bash syntax before adding commands
+* Set proper permissions automatically
+* Append commands with documentation comments
 
 **Managing environment variables:**
 
@@ -174,20 +177,21 @@ bash .devcontainer/install-extras/tailscale.sh
 ```
 
 **Note:** The Tailscale installer is interactive and will:
-- Prompt for your Tailscale auth key
-- Ask for a hostname for this container
-- Configure SOCKS5 proxy for routing traffic through Tailscale
-- Set up automatic reconnection on container restart
+
+* Prompt for your Tailscale auth key
+* Ask for a hostname for this container
+* Configure SOCKS5 proxy for routing traffic through Tailscale
+* Set up automatic reconnection on container restart
 
 ## Container desktop environment
 
-The dev container includes a "light" and simple graphical desktop environment that can be used as an alternative to the terminal.  This is useful for running graphical applications or for those who prefer a graphical interface.  The desktop environment is based on the `xfce` desktop environment.  It is not intended to be a full desktop environment, but rather a simple one that can be used for basic tasks.  It includes a terminal, file manager, and web browser.  It also includes a few other utilities such as a text editor and a calculator. 
+The dev container includes a "light" and simple graphical desktop environment that can be used as an alternative to the terminal.  This is useful for running graphical applications or for those who prefer a graphical interface.  The desktop environment is based on the `xfce` desktop environment.  It is not intended to be a full desktop environment, but rather a simple one that can be used for basic tasks.  It includes a terminal, file manager, and web browser.  It also includes a few other utilities such as a text editor and a calculator.
 
 To access the desktop environment, you need to [open a browser to port 6080 on the localhost](http://localhost:6080).  The easiest way do this is to open the Ports tab in Vs Code (ctrl+shift+p and type "Ports" and click on the option `View: Toggle Ports`).  Of course, you can also bookmark it in the browser.  The web page will take you to a web-hosted instances of VNC that you can use to access the desktop.  The password is `vscode`.  (It's a super simple interface.  Don't gripe, remember it's running in a container so just use it and be amazed that it works at all.)
 
 ## Utilities
 
-### Scripts 
+### Scripts
 
 A few utility scripts have been provided to make life happy.
 
@@ -201,9 +205,9 @@ A few utility scripts have been provided to make life happy.
 * `pr-create-for-merge` A utility to create a PR for merging code to the default branch.
 * `repo-version-list` A utility to list all versions in a repo.
 
-### Git extensions 
+### Git extensions
 
-The following are additional `git` commands that extend it's basic capabilities. 
+The following are additional `git` commands that extend it's basic capabilities.
 
 * `git graph` Provides a graphical display of the commit history
 * `git graph-all` Provides a graphical display of the commit history for all branches
@@ -222,9 +226,10 @@ Your credentials are stored securely in the `.setup` folder on your host machine
 These credentials are automatically loaded into the container environment on startup (via `bootstrap.sh`) and are accessible to all scripts that need them. Credentials are **never** stored in the container image itself — they're only loaded at runtime from your host machine.
 
 **To update credentials:**
-- GitHub Token: Run `./setup` and update when prompted, or manually edit `.setup/github_token.txt`
-- Digital Ocean Token: Run `./setup` and choose the Digital Ocean setup option
-- SSH Key: Configure via the initial setup or re-run the setup script
+
+* GitHub Token: Run `./setup` and update when prompted, or manually edit `.setup/github_token.txt`
+* Digital Ocean Token: Run `./setup` and choose the Digital Ocean setup option
+* SSH Key: Configure via the initial setup or re-run the setup script
 
 ## Lone Wolf Options
 
@@ -233,5 +238,5 @@ The provided development and VS Code are the officially supported setup.  Other 
 * You're own your own to make it work.
 * If you can't make it work in reasonable way, in a reasonable time, and with a reasonable lack of distraction, then you will need to just use the setup provided.
 * Do not leave any artifacts in the repo that belong to non-supported environments
-* Any non-supported setup must be made to work seamlessly with the official protocols.  Otherwise, you must use the setup provided. 
-* You **must** strictly adhere to the coding standards and protocols.  Without the official setup, you will not have the benefit of certain tools and/or automated checks.  You must do these manually, such as setting up `husky` for the git hooks. 
+* Any non-supported setup must be made to work seamlessly with the official protocols.  Otherwise, you must use the setup provided.
+* You **must** strictly adhere to the coding standards and protocols.  Without the official setup, you will not have the benefit of certain tools and/or automated checks.  You must do these manually, such as setting up `husky` for the git hooks.

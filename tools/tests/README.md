@@ -8,22 +8,26 @@ Tests are written using [BATS (Bash Automated Testing System)](https://github.co
 
 ## Running Tests
 
-### Run all tests:
+### Run all tests
+
 ```bash
 bats tests/
 ```
 
-### Run a specific test file:
+### Run a specific test file
+
 ```bash
 bats tests/test_error_handling.bats
 ```
 
-### Run tests with verbose output:
+### Run tests with verbose output
+
 ```bash
 bats -t tests/
 ```
 
-### Run tests with debug output:
+### Run tests with debug output
+
 ```bash
 DEBUG=1 bats tests/
 ```
@@ -132,6 +136,7 @@ The following environment variables are available in tests:
 ## Test Coverage Areas
 
 ### Libraries (`lib/`)
+
 - `test_error_handling.bats` - Error handling and logging functions
 - `test_config.bats` - Configuration management
 - `test_git_config.bats` - Git configuration utilities
@@ -139,6 +144,7 @@ The following environment variables are available in tests:
 - `test_retry_logic.bats` - Retry logic surface checks
 
 ### Repository & PR scripts (`scripts/`)
+
 - `test_repo_get_validation.bats` - Repo name validation and sourcing
 - `test_repo_update_all.bats` - Parallel update flags and usage
 - `test_repo_calc_version.bats` - Semantic version calculation from commits/tags
@@ -149,12 +155,14 @@ The following environment variables are available in tests:
 - `test_script_template.bats` - Script template validation and create-script.sh
 
 ### Bootstrap & Container
+
 - `test_bootstrap_functions.bats` - Bootstrap script functions and error handling
 - `test_container_start.bats` - Container startup locking and coordination
 - `test_install_extras.bats` - Install-extras script validation
 - `test_background_updates.bats` - Background update checker
 
 ### Hygiene & Standards
+
 - `test_outdated_comments.bats` - Checks for TODO/FIXME and commented-out code
 - `test_function_documentation.bats` - Function documentation standards
 - `test_logging_documentation.bats` - Logging framework documentation validation
@@ -162,11 +170,13 @@ The following environment variables are available in tests:
 - `test_pre_commit_hooks.bats` - Pre-commit hook validation
 
 ### Issue & Project Management
+
 - `test_issue_grooming_wizard.bats` - Issue grooming wizard validation
 - `test_issue_management.bats` - Issue create/list/update/close/select scripts
 - `test_project_management.bats` - Project add-issue and update-issue scripts
 
 ### Service Configuration
+
 - `test_services_config.bats` - Service configuration repository management
 
 ## Best Practices
@@ -181,6 +191,7 @@ The following environment variables are available in tests:
 ## CI Integration
 
 Tests run automatically in GitHub Actions on:
+
 - Pull requests
 - Pushes to main/master
 - Manual workflow dispatch

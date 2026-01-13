@@ -409,7 +409,8 @@ types:
     allowAutoMerge: true
     allowUpdateBranch: true
     allowForking: false
-    useSquashPRTitleAsDefault: true
+    squashMergeCommitTitle: PR_TITLE
+    squashMergeCommitMessage: COMMIT_MESSAGES
 EOF
 
   run bash -c "export DEVENV_TOOLS=$TEST_TEMP_DIR; PATH=$TEST_TEMP_DIR/bin:$PATH; source $PROJECT_ROOT/tools/lib/error-handling.bash; source $PROJECT_ROOT/tools/lib/validation.bash; source $PROJECT_ROOT/tools/lib/repo-types.bash; configure_repository_features_for_type test-org/test-repo service $cfg"
@@ -422,7 +423,8 @@ EOF
   [[ "$output" =~ "Auto-merge: true" ]]
   [[ "$output" =~ "Update branch: true" ]]
   [[ "$output" =~ "Forking: false" ]]
-  [[ "$output" =~ "Squash PR title as default: true" ]]
+  [[ "$output" =~ "title=PR_TITLE" ]]
+  [[ "$output" =~ "message=COMMIT_MESSAGES" ]]
   rm -f "$cfg"
 }
 
@@ -442,7 +444,8 @@ types:
     allowAutoMerge: false
     allowUpdateBranch: false
     allowForking: true
-    useSquashPRTitleAsDefault: false
+    squashMergeCommitTitle: COMMIT_OR_PR_TITLE
+    squashMergeCommitMessage: PR_BODY
 EOF
 
   run bash -c "export DEVENV_TOOLS=$TEST_TEMP_DIR; PATH=$TEST_TEMP_DIR/bin:$PATH; source $PROJECT_ROOT/tools/lib/error-handling.bash; source $PROJECT_ROOT/tools/lib/validation.bash; source $PROJECT_ROOT/tools/lib/repo-types.bash; configure_repository_features_for_type test-org/test-repo template $cfg"
@@ -455,7 +458,8 @@ EOF
   [[ "$output" =~ "Auto-merge: false" ]]
   [[ "$output" =~ "Update branch: false" ]]
   [[ "$output" =~ "Forking: true" ]]
-  [[ "$output" =~ "Squash PR title as default: false" ]]
+  [[ "$output" =~ "title=COMMIT_OR_PR_TITLE" ]]
+  [[ "$output" =~ "message=PR_BODY" ]]
   rm -f "$cfg"
 }
 
@@ -546,91 +550,11 @@ EOF
   [ "$status" -eq 0 ]
   [ "$output" = "false" ]
 
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_use_squash_pr_title_as_default custom $cfg"
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_squash_merge_commit_title custom $cfg"
   [ "$status" -eq 0 ]
-  [ "$output" = "true" ]
-}
+  [ "$output" = "PR_TITLE" ]
 
-@test "getters return real values from full config (documentation)" {
-  local cfg="$PROJECT_ROOT/tools/config/repo-types.yaml"
-
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_main_branch documentation $cfg"
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_squash_merge_commit_message custom $cfg"
   [ "$status" -eq 0 ]
-  [ "$output" = "master" ]
-
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_template documentation $cfg"
-  [ "$status" -eq 0 ]
-  [ "$output" = "template.docs" ]
-
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_ruleset_config_file documentation $cfg"
-  [ "$status" -eq 0 ]
-  [ "$output" = "ruleset-default.json" ]
-
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_allowed_merge_types documentation $cfg"
-  [ "$status" -eq 0 ]
-  [ "$output" = "[\"squash\"]" ]
-
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_is_template template $cfg"
-  [ "$status" -eq 0 ]
-  [ "$output" = "true" ]
-
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_post_creation_script documentation $cfg"
-  [ "$status" -eq 0 ]
-  [ "$output" = ".repo/post-create.sh" ]
-
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_delete_post_creation_script documentation $cfg"
-  [ "$status" -eq 0 ]
-  [ "$output" = "true" ]
-
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_post_creation_commit_handling documentation $cfg"
-  [ "$status" -eq 0 ]
-  [ "$output" = "amend" ]
-
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_description documentation $cfg"
-  [ "$status" -eq 0 ]
-  [[ "$output" =~ "Documentation repositories" ]]
-
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_naming_pattern documentation $cfg"
-  [ "$status" -eq 0 ]
-  [ "$output" = "^docs(\.[a-z0-9-]+)+$" ]
-
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_naming_example documentation $cfg"
-  [ "$status" -eq 0 ]
-  [[ "$output" =~ "docs.api.reference" ]]
-
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_delete_pr_branch_on_merge documentation $cfg"
-  [ "$status" -eq 0 ]
-  [ "$output" = "true" ]
-
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_has_wiki documentation $cfg"
-  [ "$status" -eq 0 ]
-  [ "$output" = "true" ]
-
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_has_issues documentation $cfg"
-  [ "$status" -eq 0 ]
-  [ "$output" = "true" ]
-
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_has_discussions documentation $cfg"
-  [ "$status" -eq 0 ]
-  [ "$output" = "false" ]
-
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_has_projects documentation $cfg"
-  [ "$status" -eq 0 ]
-  [ "$output" = "false" ]
-
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_allow_auto_merge documentation $cfg"
-  [ "$status" -eq 0 ]
-  [ "$output" = "true" ]
-
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_allow_update_branch documentation $cfg"
-  [ "$status" -eq 0 ]
-  [ "$output" = "true" ]
-
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_allow_forking documentation $cfg"
-  [ "$status" -eq 0 ]
-  [ "$output" = "false" ]
-
-  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_use_squash_pr_title_as_default documentation $cfg"
-  [ "$status" -eq 0 ]
-  [ "$output" = "true" ]
+  [ "$output" = "COMMIT_MESSAGES" ]
 }

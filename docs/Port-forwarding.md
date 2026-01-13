@@ -36,6 +36,7 @@ ssh -L <local-port>:localhost:<remote-port> user@remote-host
 ```
 
 **Example:**
+
 ```bash
 # Forward remote port 5000 to local port 8080
 ssh -L 8080:localhost:5000 user@prod-server.example.com
@@ -52,10 +53,12 @@ ssh -fN -L <local-port>:localhost:<remote-port> user@remote-host
 ```
 
 Options:
+
 - `-f`: Fork to background after authentication
 - `-N`: Don't execute remote commands (just forward ports)
 
 **Example:**
+
 ```bash
 ssh -fN -L 5432:localhost:5432 user@db-server.example.com
 ```
@@ -80,6 +83,7 @@ ssh -R <remote-port>:localhost:<local-port> user@remote-host
 ```
 
 **Example:**
+
 ```bash
 # Let remote server access your local web server on port 3000
 ssh -R 8080:localhost:3000 user@remote-host
@@ -96,6 +100,7 @@ docker run -p <local-port>:<container-port> image-name
 ```
 
 **Example:**
+
 ```bash
 # Map container port 80 to local port 8080
 docker run -p 8080:80 nginx
@@ -231,7 +236,7 @@ ssh -o ServerAliveInterval=60 -L 8080:localhost:80 user@remote-host
 
 Or configure in `~/.ssh/config`:
 
-```
+```conf
 Host remote-host
     ServerAliveInterval 60
     ServerAliveCountMax 3

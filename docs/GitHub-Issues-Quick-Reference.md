@@ -5,6 +5,7 @@ Fast lookup for common GitHub Issues commands and workflows.
 ## Issue Commands
 
 ### Create Issue
+
 ```bash
 # Interactive mode (select template with fzf, edit in $EDITOR)
 issue-create --title "Title"
@@ -26,6 +27,7 @@ issue-create --devenv --title "Internal issue" --type bug
 ```
 
 ### List Issues
+
 ```bash
 issue-list                              # All open
 issue-list --type bug                   # Bugs only
@@ -35,6 +37,7 @@ issue-list --state closed               # Closed issues
 ```
 
 ### Update Issue
+
 ```bash
 issue-update 123 --title "New title"
 issue-update 123 --add-label "priority:high"
@@ -44,6 +47,7 @@ issue-update 123 --state closed
 ```
 
 ### Close/Reopen Issue
+
 ```bash
 issue-close 123                         # Close
 issue-close reopen 123                  # Reopen
@@ -51,6 +55,7 @@ issue-close 123 --comment "Fixed"       # With comment
 ```
 
 ### Interactive Selection
+
 ```bash
 issue-select                            # Pick one
 issue-select --multi                    # Pick many
@@ -66,6 +71,7 @@ issue-select --type story               # Filter by type
 | Bug | Defect | Epic or None | Yes (checkboxes) |
 
 ### Create with Parent
+
 ```bash
 issue-create --title "Story" --type story --parent 123
 ```
@@ -73,24 +79,27 @@ issue-create --title "Story" --type story --parent 123
 ## Project Commands
 
 ### Add Issue to Project
+
 ```bash
 project-add "Q1 2026" 123
 ```
 
 ### Update Issue Status in Project
+
 ```bash
 project-update "Q1 2026" 123 --status "Ready"
 ```
 
 ## Status Workflow
 
-```
+```text
 TBD → To Groom → Ready → Implementing → Review → Merged → Staging → Production
                                                                       ↓
                                                             (Auto-closes)
 ```
 
 ### Set Status
+
 ```bash
 project-update "Project" 123 --status "Ready"
 project-update "Project" 123 --status "Implementing"
@@ -103,11 +112,13 @@ project-update "Project" 123 --status "Production"
 ## Sprint Management
 
 ### Assign to Sprint
+
 ```bash
 issue-update 123 --milestone "Sprint 6"
 ```
 
 ### List Issues in Sprint
+
 ```bash
 issue-list --milestone "Sprint 5"
 ```
@@ -115,11 +126,13 @@ issue-list --milestone "Sprint 5"
 ## Grooming
 
 ### Interactive Grooming Session
+
 ```bash
 issue-groom
 ```
 
 **Grooming sets:**
+
 - Type (epic/story/bug)
 - Acceptance criteria
 - Tasks/checkboxes
@@ -130,6 +143,7 @@ issue-groom
 ## Workflow Examples
 
 ### Sprint Planning
+
 ```bash
 issue-groom
 issue-update 123 --milestone "Sprint 6"
@@ -138,6 +152,7 @@ project-update "Q1 2026" 123 --status "Ready"
 ```
 
 ### Start Development
+
 ```bash
 gh issue edit 123 --add-assignee "@me"
 project-update "Q1 2026" 123 --status "Implementing"
@@ -145,12 +160,14 @@ git checkout -b feature/my-feature
 ```
 
 ### Submit PR
+
 ```bash
 pr-create-for-merge
 project-update "Q1 2026" 123 --status "Review"
 ```
 
 ### Merge & Deploy
+
 ```bash
 # After PR approval/merge
 project-update "Q1 2026" 123 --status "Merged"
@@ -175,6 +192,7 @@ project-update "Q1 2026" 123 --status "Production"
 | `--author USER` | Issue creator |
 
 ### Combine Filters
+
 ```bash
 issue-list --type story --milestone "Sprint 5" --assignee none
 ```
@@ -182,17 +200,20 @@ issue-list --type story --milestone "Sprint 5" --assignee none
 ## Label Conventions
 
 ### Type Labels
+
 - `type:epic` - Phase or major feature
 - `type:story` - Deliverable
 - `type:bug` - Defect
 
 ### Priority Labels
+
 - `priority:critical` - Blocking, urgent
 - `priority:high` - Important, high value
 - `priority:medium` - Normal priority
 - `priority:low` - Nice to have
 
 ### Status Labels (optional, use project Status field)
+
 - `status:ready` - Ready to implement
 - `status:blocked` - Blocked by something
 - `status:needs-review` - Waiting for review
@@ -200,24 +221,32 @@ issue-list --type story --milestone "Sprint 5" --assignee none
 ## Common Issues
 
 ### Issue Won't Close When Set to Production
+
 ✅ Solution: Issue auto-closes when Status field set to "Production" in project
+
 - Must be in project first: `project-add "Project" 123`
 - Then set status: `project-update "Project" 123 --status "Production"`
 
 ### Can't Find Issue in Interactive Selection
+
 ✅ Solution: Increase limit or adjust filters
+
 ```bash
 issue-select --state all --limit 100
 ```
 
 ### Task Checkboxes Not Updating
+
 ✅ Solution: Edit full issue body with checkboxes, not just title
+
 ```bash
 issue-update 123 --body-file full-issue.md
 ```
 
 ### Want to Track Custom Fields
+
 ✅ Solution: Use project custom fields or labels
+
 ```bash
 project-update "Project" 123 --field "CustomField=Value"
 # Or use labels: --add-label "estimate:8" --add-label "component:auth"
