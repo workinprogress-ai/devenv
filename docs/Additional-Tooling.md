@@ -262,16 +262,43 @@ pr-create-for-review
 
 ### `pr-create-for-merge`
 
-Creates a pull request for merging code to the main branch.
+Creates a pull request for merging code into a target branch (defaults to the repository's default branch).
 
 ```bash
-pr-create-for-merge
+pr-create-for-merge <title> --issue <number> [--base <branch>]
+```
+
+**Required Options:**
+
+- `<title>`: PR title (should follow Conventional Commits format)
+- `--issue <number>`: Issue number this PR addresses, OR use `--no-issue` if not associated with an issue
+
+**Optional Options:**
+
+- `--base <branch>`: Target branch for the PR (default: repository's default branch). Examples: `master`, `main`, `develop`, `release/v1.0`
+- `--body <text>`: PR body text
+- `--draft`: Create as a draft PR
+- `--reviewer <handle>`: Add a reviewer (can be repeated)
+- `--assignee <handle>`: Add an assignee (default: @me)
+- `--repo-dir <path>`: Repository directory (default: current)
+
+**Examples:**
+
+```bash
+# Create PR for merging to default branch
+pr-create-for-merge "feat: add new feature" --issue 123
+
+# Create PR targeting a different branch
+pr-create-for-merge "fix: critical bug" --issue 456 --base develop
+
+# Create draft PR with reviewer
+pr-create-for-merge "docs: update README" --issue 789 --draft --reviewer @john
 ```
 
 **Features:**
 
 - Validates Conventional Commits format for title
-- Supports auto-merge flag
+- Supports targeting any branch via `--base` option
 - Can add reviewers, assignees, and labels
 - Generates PR description from commits
 
@@ -302,6 +329,100 @@ pr-cleanup-review-branches [--days N]
 **Options:**
 
 - `--days N`: Delete review branches older than N days (default: 7)
+
+## Artifact Management
+
+Tools for listing, filtering, and managing artifacts in GitHub Packages.
+
+### `artifacts-list`
+
+Lists and filters artifacts (packages) from GitHub Packages with support for multiple package types and filtering by name.
+
+**Usage:**
+
+```bash
+artifacts-list --owner <org> [--type <type>] [--name <pattern>] [--format <format>]
+```
+
+**Required Options:**
+
+- `--owner <org>`: Repository owner or organization name (or use `GH_ORG` environment variable)
+
+**Optional Filters:**
+
+- `--type <type>`: Filter by package type. Supported types:
+  - `npm` (JavaScript/Node.js packages)
+  - `nuget` (C#/.NET packages)
+  - `docker` (Container images)
+  - `maven` (Java packages)
+  - `rubygems` (Ruby packages)
+  - `gradle` (Gradle packages)
+  - `cargo` (Rust packages)
+- `--name <pattern>`: Filter packages by name pattern (partial match, case-insensitive)
+- `--repo <repo>`: Query a specific repository (optional)
+
+**Output Options:**
+
+- `--format <format>`: Output format: `table` (default) or `json`
+- `--sort <field>`: Sort by field: `name` (default), `type`, `created_at`, or `updated_at`
+
+**Version Listing:**
+
+- `--versions`: List versions for a specific package. Requires `--type` and `--name`
+
+**Examples:**
+
+```bash
+# List all npm packages in an organization
+artifacts-list --owner myorg --type npm
+
+# List all nuget packages with "service" in the name
+artifacts-list --owner myorg --type nuget --name "service"
+
+# List versions for a specific npm package
+artifacts-list --owner myorg --type npm --name my-package --versions
+
+# Output as JSON for scripting
+artifacts-list --owner myorg --format json | jq '.[] | .name'
+
+# List docker images sorted by creation date
+artifacts-list --owner myorg --type docker --sort created_at
+```
+
+**Features:**
+
+- Supports multiple package types from GitHub Packages
+- Flexible filtering by type and name patterns
+- Outputs formatted table with package information (name, type, URL)
+- Can list versions for a specific package with publish dates
+- JSON output for scripting and automation
+- Case-insensitive name filtering for ease of use
+
+**Output Format:**
+
+The table format shows:
+
+- **NAME**: Package name
+- **TYPE**: Package type (npm, nuget, docker, etc.)
+- **URL**: GitHub Packages URL for the artifact
+
+When listing versions (`--versions`), the table shows:
+
+- **VERSION**: Package version number
+- **PUBLISHED**: Publication date and time
+- **UPDATED**: Last update date and time
+
+**Library Functions:**
+
+The `artifacts-list` script is built on the `artifact-operations.bash` library, which provides reusable functions for querying packages:
+
+- `query_packages`: Query packages with filtering by type and name
+- `get_package_versions`: Get versions for a specific package
+- `get_package_type_id`: Normalize package type names
+- `is_supported_package_type`: Validate package type support
+- `get_supported_package_types`: Get list of supported types
+
+These core functions can be sourced and used in other scripts for artifact-related operations. Output formatting functions are part of the `artifacts-list` script itself since they are specific to that script's display requirements.
 
 ## GitHub Issues and Project Management
 

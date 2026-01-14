@@ -544,9 +544,9 @@ fi
 #[ -f "${DEVENV_ROOT}/.devcontainer/load-ssh.sh" ] && source "${DEVENV_ROOT}/.devcontainer/load-ssh.sh"
 
 # Convenience: move to repos if starting in repo root (bash-only behavior preserved)
-if [ -n "${BASH_VERSION:-}" ] && [ "$(pwd)" = "${DEVENV_ROOT}" ]; then
-    cd "${DEVENV_ROOT}/repos"
-fi
+# if [ -n "${BASH_VERSION:-}" ] && [ "$(pwd)" = "${DEVENV_ROOT}" ]; then
+#     cd "${DEVENV_ROOT}/repos"
+# fi
 DEVENVRC_EOF
 }
 

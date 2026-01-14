@@ -3,14 +3,15 @@
 ################################################################################
 # pr-create-for-merge.sh
 #
-# Create a pull request from the current branch to the repository's default branch
+# Create a pull request from the current branch to a target branch
 #
 # Usage:
-#   ./pr-create-for-merge.sh
+#   ./pr-create-for-merge.sh <title> --issue <number> [--base <branch>]
 #
 # Description:
-#   Creates a pull request from the current branch into the repository's
-#   default branch (main/master). Uses GitHub CLI and prefers SSH remotes.
+#   Creates a pull request from the current branch into a target branch
+#   (defaults to the repository's default branch: main/master).
+#   Use --base to target a different branch. Uses GitHub CLI and prefers SSH remotes.
 #   Supports issue references in PR body.
 #
 # Dependencies:
@@ -32,17 +33,20 @@ source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"
 
 
-# Create a PR from the current branch into the repo default branch (main/master by default).
-# Uses GitHub CLI and prefers SSH remotes.
+# Create a PR from the current branch into a target branch (default: repo's default branch).
+# Use --base to target a specific branch instead. Uses GitHub CLI and prefers SSH remotes.
 
 
 
 usage() {
   echo "Usage: $(basename "$0") <title> [options]" >&2
+  echo "" >&2
+  echo "Options:" >&2
   echo "  --issue <number>     Issue number this PR addresses (required)" >&2
   echo "  --no-issue           Explicitly indicate this PR has no associated issue" >&2
+  echo "  --base <branch>      Target branch for PR (default: repository's default branch)" >&2
+  echo "                        Examples: master, main, develop, release/v1.0" >&2
   echo "  --repo-dir <path>    Repository directory (default: current)" >&2
-  echo "  --base <branch>      Target branch (default: origin's HEAD)" >&2
   echo "  --body <text>        PR body text" >&2
   echo "  --draft              Create as draft" >&2
   echo "  --reviewer <handle>  Add a reviewer (can be repeated)" >&2
