@@ -41,6 +41,18 @@
 #     - "Use PR title and commit details": title=PR_TITLE, message=COMMIT_MESSAGES
 #     - "Use PR title and description": title=PR_TITLE, message=PR_BODY
 #     - "Default message": title=COMMIT_OR_PR_TITLE, message=COMMIT_MESSAGES
+#
+#   - access: List of teams or users with their permission levels (optional, default: none)
+#       Each entry contains:
+#       - name: Team or user name (GitHub team slug or username)
+#       - type: 'team' or 'user' (default: team)
+#       - permission: Permission level mapping to GitHub repository permissions:
+#           * pull (Read) - Can pull/clone, open issues, and comment
+#           * triage (Triage) - Can manage issues/PRs without write access
+#           * push (Write) - Can push, create branches, and manage issues/PRs
+#           * maintain (Maintain) - Push + manage releases and some settings
+#           * admin (Admin) - Full access including settings, webhooks, and team management
+#       If not specified, no default permissions are applied (repository remains with org defaults)
 
 types:
   # Planning and repositories
@@ -68,6 +80,10 @@ types:
     delete_post_creation_script: true
     post_creation_commit_handling: amend
     rulesetConfigFile: ruleset-default.json
+    access:
+      - name: Engineering
+        type: team
+        permission: push
 
   # Documentation repositories
   # Format: docs.<category>.<descriptor> or docs.<descriptor>
@@ -94,6 +110,10 @@ types:
     delete_post_creation_script: true
     post_creation_commit_handling: amend
     rulesetConfigFile: ruleset-default.json
+    access:
+      - name: Engineering
+        type: team
+        permission: push
 
   # Backend microservices
   # Template repositories
@@ -122,6 +142,10 @@ types:
     delete_post_creation_script: true
     post_creation_commit_handling: none
     rulesetConfigFile: ruleset-default.json
+    access:
+      - name: Engineering
+        type: team
+        permission: push
 
   # Backend microservices
   # Format: service.<category>.<descriptor>
@@ -148,6 +172,10 @@ types:
     delete_post_creation_script: true  # Remove script after execution
     post_creation_commit_handling: amend  # Clean up initial commit
     rulesetConfigFile: ruleset-default.json
+    access:
+      - name: Engineering
+        type: team
+        permission: push
 
   # API Gateway services
   # Format: gateway.<category>.<descriptor>
@@ -174,6 +202,10 @@ types:
     delete_post_creation_script: true
     post_creation_commit_handling: amend
     rulesetConfigFile: ruleset-default.json
+    access:
+      - name: Engineering
+        type: team
+        permission: push
 
   # Web applications (React, Vue, etc.)
   # Format: app.web.<descriptor>
@@ -200,6 +232,10 @@ types:
     delete_post_creation_script: true
     post_creation_commit_handling: amend
     rulesetConfigFile: ruleset-default.json
+    access:
+      - name: Engineering
+        type: team
+        permission: push
 
   # C# libraries and packages published to GitHub/NuGet
   # Format: lib.cs.<category>[.<subcategory>].<descriptor>
@@ -226,6 +262,10 @@ types:
     delete_post_creation_script: true
     post_creation_commit_handling: amend
     rulesetConfigFile: ruleset-default.json
+    access:
+      - name: Engineering
+        type: team
+        permission: push
 
   # TypeScript/JavaScript packages
   # Format: pkg.ts.<descriptor>
@@ -252,6 +292,10 @@ types:
     delete_post_creation_script: true
     post_creation_commit_handling: amend
     rulesetConfigFile: ruleset-default.json
+    access:
+      - name: Engineering
+        type: team
+        permission: push
 
   # Use for experimental, temporary, or special-case repos
   # These can have any kebab-case name
@@ -276,3 +320,7 @@ types:
     squashMergeCommitTitle: COMMIT_OR_PR_TITLE
     squashMergeCommitMessage: COMMIT_MESSAGES
     rulesetConfigFile: null
+    access:
+      - name: Engineering
+        type: team
+        permission: push

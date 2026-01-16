@@ -178,6 +178,18 @@ If you use `tools/scripts/repo-create.sh`, configure `tools/config/repo-types.ya
   - Set to `null` or blank to disable rulesets for a type
   - JSON file is a GitHub ruleset export with token placeholders: `{{repo_name}}`, `{{owner}}`, `{{type_name}}`, `{{type_description}}`
   - Ruleset can also specify `allowed_merge_methods` for protected branches (more restrictive than repo-level setting)
+- **Access**: `access` - List of teams or users with their permission levels (optional)
+  - If not specified, no default permissions are applied (repository uses organization defaults)
+  - Each entry contains:
+    - `name`: Team or user name (GitHub team slug or username)
+    - `type`: `team` or `user` (default: team)
+    - `permission`: GitHub repository permission level:
+      - `pull` (Read) - Can pull/clone, open issues, and comment
+      - `triage` (Triage) - Can manage issues/PRs without write access
+      - `push` (Write) - Can push, create branches, and manage issues/PRs
+      - `maintain` (Maintain) - Push + manage releases and some settings
+      - `admin` (Admin) - Full access including settings, webhooks, and team management
+  - Applied automatically during repository creation and when running `repo-update-config`
 
 #### Ruleset JSON tokens
 
@@ -201,6 +213,13 @@ service:
     - squash
   rulesetConfigFile: ruleset-default.json
   post_creation_script: ".repo/post-create.sh"
+  access:
+    - name: Engineering
+      type: team
+      permission: push
+    - name: DevOps
+      type: team
+      permission: admin
 ```
 
 ### Example ruleset JSON (ruleset-default.json)

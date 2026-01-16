@@ -1203,6 +1203,7 @@ This script reads the repository type from either the command-line argument or b
 - **Template setting** - Marks template repositories for "Use this template" button
 - **PR branch deletion** - Automatic deletion of PR branches after merge
 - **Repository features** - Wiki, Issues, Discussions, Projects, Auto-merge, Update branch, Forking, and squash PR title settings
+- **Repository permissions** - Team and user access with specific permission levels
 
 **Use cases:**
 
@@ -1237,6 +1238,33 @@ Each repository type defines its configuration in `tools/config/repo-types.yaml`
 - `allowForking` - Allow others to fork the repository (default: true for templates, false otherwise)
 - `squashMergeCommitTitle` - Squash commit title format: PR_TITLE or COMMIT_OR_PR_TITLE (default: PR_TITLE)
 - `squashMergeCommitMessage` - Squash commit message body: PR_BODY, COMMIT_MESSAGES, or BLANK (default: COMMIT_MESSAGES)
+- `access` - List of teams or users with their permission levels (optional, no default)
+  - Each entry contains:
+    - `name`: Team or user name (GitHub team slug or username)
+    - `type`: `team` or `user` (default: team)
+    - `permission`: GitHub repository permission level:
+      - `pull` (Read) - Can pull/clone, open issues, and comment
+      - `triage` (Triage) - Can manage issues/PRs without write access
+      - `push` (Write) - Can push, create branches, and manage issues/PRs
+      - `maintain` (Maintain) - Push + manage releases and some settings
+      - `admin` (Admin) - Full access including settings, webhooks, and team management
+
+**Example access configuration in repo-types.yaml:**
+
+```yaml
+service:
+  # ... other settings ...
+  access:
+    - name: Engineering
+      type: team
+      permission: push
+    - name: DevOps
+      type: team
+      permission: admin
+    - name: john-doe
+      type: user
+      permission: pull
+```
 
 **Dependencies:**
 

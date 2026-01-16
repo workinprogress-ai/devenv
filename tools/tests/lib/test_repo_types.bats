@@ -558,3 +558,43 @@ EOF
   [ "$status" -eq 0 ]
   [ "$output" = "COMMIT_MESSAGES" ]
 }
+
+@test "get_type_access returns configured access array" {
+  local cfg="$TEST_TEMP_DIR/repo-types.yaml"
+  cat > "$cfg" <<'EOF'
+types:
+  custom:
+    naming_pattern: "^custom.*"
+    naming_example: "custom.repo"
+    access:
+      - name: Engineering
+        type: team
+        permission: push
+      - name: DevOps
+        type: team
+        permission: admin
+EOF
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_access custom $cfg"
+  [ "$status" -eq 0 ]
+  # Output should be valid JSON array
+  [[ "$output" =~ "Engineering" ]]
+  [[ "$output" =~ "DevOps" ]]
+  [[ "$output" =~ "push" ]]
+  [[ "$output" =~ "admin" ]]
+}
+
+@test "get_type_access returns empty array when not specified" {
+  local cfg="$TEST_TEMP_DIR/repo-types.yaml"
+  cat > "$cfg" <<'EOF'
+types:
+  custom:
+    naming_pattern: "^custom.*"
+    naming_example: "custom.repo"
+EOF
+
+  run bash -c "source $PROJECT_ROOT/tools/lib/repo-types.bash; get_type_access custom $cfg"
+  [ "$status" -eq 0 ]
+  # Should return empty array when not specified
+  [ "$output" = "[]" ]
+}

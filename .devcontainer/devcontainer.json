@@ -19,7 +19,8 @@
 	"forwardPorts": [6090],
 	"portsAttributes": {
 			"6080": {
-				"protocol": "http"
+				"protocol": "http",
+				"label": "Desktop Environment"
 			}
 	},
 
@@ -63,7 +64,8 @@
 				"ms-vsliveshare.vsliveshare",
 				"ms-vscode-remote.remote-ssh",
 				"ms-dotnettools.vscode-dotnet-pack",
-
+				"ms-azuretools.vscode-docker",
+				
 				"rafistatar.addlocalnetreferences",
 				"rogalmic.bash-debug",
 				"alefragnani.bookmarks",

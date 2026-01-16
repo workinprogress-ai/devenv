@@ -275,6 +275,24 @@ get_type_squash_merge_commit_message() {
     fi
 }
 
+get_type_access() {
+    local repo_type="$1"
+    local config_path
+    config_path=$(load_repo_types_config "${2:-}") || return 1
+    
+    # Check if access is defined for this type
+    local result
+    result=$(yq eval ".types.${repo_type} | has(\"access\")" "$config_path" 2>/dev/null)
+    
+    if [ "$result" = "true" ]; then
+        # Return the access array as JSON
+        yq eval -o json ".types.${repo_type}.access" "$config_path" 2>/dev/null || echo "[]"
+    else
+        # Return empty array when not specified
+        echo '[]'
+    fi
+}
+
 # Validate a repository name against the configured type naming pattern
 validate_repo_type() {
     local repo_name="$1"
@@ -661,4 +679,97 @@ configure_repository_features_for_type() {
         log_warn "Could not configure repository features (may require admin access)"
         return 0
     fi
+}
+
+# Configure repository permissions (collaborators and team access)
+# Arguments:
+#   $1 - Full repository name (owner/repo)
+#   $2 - Repository type
+#   $3 - Optional config path (uses default if not provided)
+# Returns: 0 on success, 1 on failure
+configure_repository_permissions_for_type() {
+    local full_name="$1"
+    local repo_type="$2"
+    
+    if [ -z "$full_name" ] || [ -z "$repo_type" ]; then
+        log_error "Repository name and type required"
+        return 1
+    fi
+    
+    local config_path
+    config_path=$(load_repo_types_config "${3:-}") || return 1
+    
+    log_info "Configuring repository permissions..."
+    
+    # Get access configuration as JSON array
+    local access_json
+    access_json=$(get_type_access "$repo_type" "$config_path")
+    
+    if [ -z "$access_json" ] || [ "$access_json" = "[]" ]; then
+        log_info "No access configuration specified"
+        return 0
+    fi
+    
+    # Extract owner from full_name (owner/repo)
+    local owner="${full_name%/*}"
+    
+    # Process each access entry
+    local access_count
+    access_count=$(echo "$access_json" | jq 'length' 2>/dev/null || echo "0")
+    
+    if [ "$access_count" -eq 0 ]; then
+        log_info "No access entries to configure"
+        return 0
+    fi
+    
+    local success_count=0
+    local skip_count=0
+    local fail_count=0
+    
+    for ((i=0; i<access_count; i++)); do
+        local name
+        local type
+        local permission
+        
+        name=$(echo "$access_json" | jq -r ".[$i].name" 2>/dev/null)
+        type=$(echo "$access_json" | jq -r ".[$i].type // \"team\"" 2>/dev/null)
+        permission=$(echo "$access_json" | jq -r ".[$i].permission" 2>/dev/null)
+        
+        if [ -z "$name" ] || [ "$name" = "null" ] || [ -z "$permission" ] || [ "$permission" = "null" ]; then
+            log_warn "  ⊘ Skipping invalid access entry: name=$name, permission=$permission"
+            ((skip_count++))
+            continue
+        fi
+        
+        # Apply permission based on type
+        if [ "$type" = "team" ]; then
+            # For teams, use the GitHub API to add team to repository
+            # API endpoint: PUT /orgs/{org}/teams/{team_slug}/repos/{owner}/{repo}
+            if gh api -X PUT "orgs/${owner}/teams/${name}/repos/${full_name}" \
+                -f "permission=$permission" >/dev/null 2>&1; then
+                log_info "  ✓ Team '$name' granted '$permission' permission"
+                ((success_count++))
+            else
+                log_warn "  ✗ Failed to grant team '$name' permission (may not exist or lack admin access)"
+                ((fail_count++))
+            fi
+        elif [ "$type" = "user" ]; then
+            # For users, use the collaborator API
+            # API endpoint: PUT /repos/{owner}/{repo}/collaborators/{username}
+            if gh api -X PUT "repos/${full_name}/collaborators/${name}" \
+                -f "permission=$permission" >/dev/null 2>&1; then
+                log_info "  ✓ User '$name' granted '$permission' permission"
+                ((success_count++))
+            else
+                log_warn "  ✗ Failed to grant user '$name' permission (may not exist or lack admin access)"
+                ((fail_count++))
+            fi
+        else
+            log_warn "  ⊘ Unknown access type '$type' for '$name'"
+            ((skip_count++))
+        fi
+    done
+    
+    log_info "✓ Permission configuration complete: $success_count succeeded, $fail_count failed, $skip_count skipped"
+    return 0
 }
