@@ -7,6 +7,7 @@ If you've forked this repository for your organization, this guide explains what
 - ✅ Update `devenv.config` for org identity, container name, workflows, and bootstrap defaults
 - ✅ (Optional) Create `org-custom-bootstrap.sh` and `org-custom-startup.sh` for organization-wide customizations
 - ✅ (If you use repo creation tooling) Update `tools/config/repo-types.yaml` for naming, templates, branch protection, and post-creation scripts
+- ✅ (If you use issue creation tooling) Update `tools/config/issues-config.yml` to match your organization's GitHub issue types
 - ✅ Create/adjust template repos per type (recommended) so new repos start with CI, CODEOWNERS, and hooks
 
 ## Organization-Level Custom Scripts
@@ -199,6 +200,108 @@ Your ruleset JSON file can use these tokens, which are replaced during applicati
 - `{{owner}}` - Organization/owner name
 - `{{type_name}}` - Repository type (e.g., `service`, `documentation`)
 - `{{type_description}}` - Type description from config
+
+## GitHub Issue Types Configuration (issue-create.sh)
+
+The `issue-create.sh` tool supports GitHub's native issue types (Bug, Feature, Task). To customize your organization's issue types:
+
+### Getting Your Organization's Issue Type IDs
+
+Before configuring `issues-config.yml`, get the issue type IDs from your GitHub organization using the CLI:
+
+```bash
+gh api graphql -f query='query { 
+  organization(login: "YOUR_ORG") { 
+    issueTypes(first: 100) { 
+      edges { 
+        node { 
+          id 
+          name 
+        } 
+      } 
+    } 
+  } 
+}' | jq '.data.organization.issueTypes.edges[] | {name: .node.name, id: .node.id}'
+```
+
+Example output:
+
+```json
+{
+  "name": "Bug",
+  "id": "IT_kwDOCk-E0c4BWVJJ"
+}
+{
+  "name": "Feature",
+  "id": "IT_kwDOCk-E0c4BWVJK"
+}
+```
+
+### Configure Issue Types
+
+Edit `tools/config/issues-config.yml` to define your organization's issue types with their IDs:
+
+```yaml
+types:
+  - name: Bug
+    description: "A bug or defect that needs fixing"
+    id: "IT_kwDOCk-E0c4BWVJJ"
+  
+  - name: Feature
+    description: "A new feature or enhancement"
+    id: "IT_kwDOCk-E0c4BWVJK"
+  
+  - name: Task
+    description: "A task or work item"
+    id: "IT_kwDOCk-E0c4BWVJI"
+```
+
+Each type must have:
+
+- **name**: The issue type name (displayed in GitHub UI)
+- **description**: Human-readable description for users selecting a type
+- **id**: GitHub organization-level issue type ID (required for setting types via API)
+
+### Syncing with GitHub Organization Settings
+
+Your `issues-config.yml` must include the issue type IDs from your GitHub organization. The issue types you define in GitHub's UI will appear as native types in your repositories' issue creation workflow.
+
+To add or modify issue types in GitHub:
+
+1. Go to your **GitHub Organization Settings**
+2. Navigate to **Planning** section
+3. Click on **Issue types**
+4. From there, you can:
+   - **Create** new issue types
+   - **Edit** existing ones (name, icon, description)
+   - **Disable/Delete** issue types you no longer need
+
+After making changes in GitHub, get the updated IDs using one of the methods above and update your `issues-config.yml` file. Keep your `issues-config.yml` synchronized with these settings so that `issue-create.sh` properly validates and applies them.
+
+### Example: Custom Issue Types
+
+If your organization uses different issue categories:
+
+```yaml
+types:
+  - name: Bug
+    description: "Production bug or critical issue"
+    id: "IT_kwDOXXXXXXXXXXXXX1"
+  
+  - name: Enhancement
+    description: "New feature or improvement"
+    id: "IT_kwDOXXXXXXXXXXXXX2"
+  
+  - name: Documentation
+    description: "Documentation or tutorial"
+    id: "IT_kwDOXXXXXXXXXXXXX3"
+  
+  - name: Spike
+    description: "Research task or investigation"
+    id: "IT_kwDOXXXXXXXXXXXXX4"
+```
+
+Note: Replace the `id` values with your actual organization's issue type IDs from GitHub.
 
 ### Example configuration
 

@@ -655,7 +655,72 @@ get_all_type_labels() {
     done
 }
 
+# =========================================================================
+# Issue Type GraphQL Operations
+# =========================================================================
+
+# Set GitHub native issue type on an existing issue
+# Usage: set_issue_type ISSUE_NUMBER REPO_OWNER REPO_NAME TYPE_NAME
+# Notes: Requires that TYPE_NAME exists in tools/config/issues-config.yml with an id
+set_issue_type() {
+    local issue_number="$1"
+    local repo_owner="$2"
+    local repo_name="$3"
+    local type_name="$4"
+
+    if [ -z "$issue_number" ] || [ -z "$repo_owner" ] || [ -z "$repo_name" ] || [ -z "$type_name" ]; then
+        echo "ERROR: set_issue_type requires ISSUE_NUMBER REPO_OWNER REPO_NAME TYPE_NAME" >&2
+        return 1
+    fi
+
+    # Dependencies
+    if ! command -v gh >/dev/null 2>&1; then
+        echo "ERROR: gh CLI is required" >&2
+        return 1
+    fi
+    if ! command -v jq >/dev/null 2>&1; then
+        echo "ERROR: jq is required" >&2
+        return 1
+    fi
+
+    # Get the issue ID from issue number
+    local issue_id
+    issue_id=$(gh api graphql -f query='query { repository(owner: "'$repo_owner'", name: "'$repo_name'") { issue(number: '$issue_number') { id } } }' 2>/dev/null | jq -r '.data.repository.issue.id')
+
+    if [ -z "$issue_id" ] || [ "$issue_id" = "null" ]; then
+        echo "ERROR: Could not find issue #$issue_number" >&2
+        return 1
+    fi
+
+    # Load type ID from config via issues-config library
+    # shellcheck disable=SC1091
+    source "${DEVENV_TOOLS}/lib/issues-config.bash"
+    local type_id
+    type_id=$(get_issue_type_id "$type_name")
+
+    if [ -z "$type_id" ] || [ "$type_id" = "null" ]; then
+        # Non-fatal: if id missing, skip setting to avoid failure
+        echo "WARN: Issue type '$type_name' has no configured ID; skipping type set" >&2
+        return 0
+    fi
+
+    # Update the issue with the type
+    local mutation
+    mutation='mutation { updateIssue(input: {id: "'$issue_id'", issueTypeId: "'$type_id'"}) { issue { number issueType { name } } } }'
+
+    local result
+    result=$(gh api graphql -f query="$mutation" 2>/dev/null)
+
+    if echo "$result" | jq -e '.data.updateIssue.issue.issueType' &>/dev/null; then
+        return 0
+    else
+        echo "WARN: Could not set issue type via API" >&2
+        return 0
+    fi
+}
+
 # Export functions
+export -f set_issue_type
 export -f build_issue_filters
 export -f list_issues_formatted
 export -f get_issues_for_selection

@@ -1,7 +1,7 @@
 #!/bin/bash
 # issue-create.sh - Create a new GitHub issue with labels, assignees, and project assignment
 # Version: 1.0.0
-# Description: Creates GitHub issues with support for type labels (epic/story/bug),
+# Description: Creates GitHub issues with GitHub native type field (Bug/Feature/Task),
 #              milestones, assignees, and automatic project assignment
 # Requirements: Bash 4.0+, gh CLI
 # Author: WorkInProgress.ai
@@ -13,6 +13,8 @@ source "$DEVENV_TOOLS/lib/versioning.bash"
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/fzf-selection.bash"
+source "$DEVENV_TOOLS/lib/issues-config.bash"
+source "$DEVENV_TOOLS/lib/issue-operations.bash"
 
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
@@ -37,6 +39,7 @@ ALLOW_DEVENV_REPO=0  # Prevent running against devenv repo by default
 DRY_RUN=0
 VERBOSE=0
 TEMP_FILE=""
+GITHUB_ORG=""  # Will be populated from repo owner
 
 # ============================================================================
 # Helper Functions
@@ -60,7 +63,7 @@ Optional:
     -t, --title TITLE           Issue title (required only with --no-interactive)
     -b, --body TEXT             Issue body/description
     -f, --body-file FILE        Read issue body from file (markdown)
-    --type TYPE                 Issue type: epic, story, or bug (adds type:TYPE label)
+    --type TYPE                 Issue type: a type from issues-config.yml
     -l, --label LABEL           Add label (can be specified multiple times)
     -a, --assignee USER         Assign to user (can be specified multiple times)
     -m, --milestone NAME        Assign to milestone
@@ -82,17 +85,17 @@ Examples:
     $SCRIPT_NAME --template .github/ISSUE_TEMPLATE/bug_report.md
 
     # Interactive with type and other metadata
-    $SCRIPT_NAME --type bug --label "priority:high" --assignee "john"
+    $SCRIPT_NAME --type Bug --label "priority:high" --assignee "john"
 
     # Create with specific title (overrides template title)
-    $SCRIPT_NAME --title "Login button not working" --type bug
+    $SCRIPT_NAME --title "Login button not working" --type Bug
 
     # Template without editor (automation - title required)
-    $SCRIPT_NAME --title "OAuth2 Integration" --type story \\
+    $SCRIPT_NAME --title "OAuth2 Integration" --type Feature \\
         --template .github/ISSUE_TEMPLATE/story_template.md --no-interactive
 
     # Create without template
-    $SCRIPT_NAME --title "Quick bug" --type bug --no-template \\
+    $SCRIPT_NAME --title "Quick bug" --type Bug --no-template \\
         --body "Something is broken"
 
     # Create story under an epic
@@ -116,6 +119,33 @@ cleanup() {
     fi
 }
 trap cleanup EXIT
+
+# Select issue type using fzf if not provided
+select_issue_type() {
+    if [ -n "$ISSUE_TYPE" ]; then
+        # Type already provided via CLI
+        return 0
+    fi
+    
+    check_fzf_installed || {
+        log_error "fzf is required for type selection but not installed"
+        log_info "Provide type via --type flag or install fzf"
+        return 1
+    }
+    
+    log_info "Select issue type:"
+    local selected
+    selected=$(get_issue_types_array | tr ' ' '\n' | fzf --no-multi --height=10 --preview "echo 'Type: {}'") 
+    
+    if [ -z "$selected" ]; then
+        log_error "No issue type selected"
+        return 1
+    fi
+    
+    ISSUE_TYPE="$selected"
+    log_verbose "Selected type: $ISSUE_TYPE"
+    return 0
+}
 
 # Find all available issue templates
 find_templates() {
@@ -243,32 +273,24 @@ check_dependencies() {
     fi
 }
 
-# Build label list including type label if specified
+# Build label list - exclude type label since type is set via GraphQL mutation
 build_labels() {
     local labels=()
     
-    # Add type label if specified
-    if [ -n "$ISSUE_TYPE" ]; then
-        case "$ISSUE_TYPE" in
-            epic|story|bug)
-                labels+=("type:$ISSUE_TYPE")
-                ;;
-            *)
-                log_error "Invalid issue type: $ISSUE_TYPE (must be epic, story, or bug)"
-                exit 1
-                ;;
-        esac
-    fi
+    # Note: Type label is NOT added here since issue type is set via GraphQL mutation after creation
+    # This avoids issues with the label not existing in the repository
     
-    # Add additional labels
+    # Add explicit labels
     for label in "${ISSUE_LABELS[@]}"; do
         labels+=("$label")
     done
     
-    # Return comma-separated list
-    IFS=,
-    echo "${labels[*]}"
+    # Return space-separated list
+    if [ ${#labels[@]} -gt 0 ]; then
+        echo "${labels[@]}"
+    fi
 }
+
 
 # Prepend parent reference to body if specified
 build_body() {
@@ -292,6 +314,12 @@ create_issue() {
     # Required: title
     gh_args+=(--title "$ISSUE_TITLE")
     
+    # Validate type is set (will be applied after creation via GraphQL)
+    if [ -z "$ISSUE_TYPE" ]; then
+        log_error "Issue type is required"
+        return 1
+    fi
+    
     # Body (always include, even if empty, as gh requires it)
     local final_body
     final_body=$(build_body)
@@ -301,8 +329,7 @@ create_issue() {
     local labels
     labels=$(build_labels)
     if [ -n "$labels" ]; then
-        IFS=',' read -ra label_array <<< "$labels"
-        for label in "${label_array[@]}"; do
+        for label in $labels; do
             gh_args+=(--label "$label")
         done
     fi
@@ -342,6 +369,18 @@ create_issue() {
     # Extract issue number from URL
     local issue_number
     issue_number=$(echo "$issue_url" | grep -oP '/issues/\K\d+')
+    
+    # Set the issue type via GraphQL (organization-level issue types)
+    # Get repo owner from current repository
+    local repo_owner
+    repo_owner=$(gh repo view --json owner -q .owner.login)
+    local repo_name
+    repo_name=$(gh repo view --json name -q .name)
+    
+    if ! set_issue_type "$issue_number" "$repo_owner" "$repo_name" "$ISSUE_TYPE"; then
+        # Issue was created but type setting failed - this is not fatal, just warn
+        log_warn "Issue created but type could not be set"
+    fi
     
     # Add to project if specified
     if [ -n "$ISSUE_PROJECT" ]; then
@@ -485,6 +524,21 @@ main() {
     
     # Validate target repository
     check_target_repo
+    
+    # Select and validate issue type (required)
+    if ! select_issue_type; then
+        log_error "Issue type selection failed"
+        exit 1
+    fi
+    
+    # Use library function to validate (validate_issue_type is from issues-config.bash)
+    local config_path
+    config_path=$(load_issues_config) || exit 1
+    
+    if ! validate_issue_type "$ISSUE_TYPE" "$config_path"; then
+        log_info "Valid types: $(get_issue_types_array)"
+        exit 1
+    fi
     
     # Handle template workflow
     if [ "$USE_TEMPLATE" -eq 1 ]; then

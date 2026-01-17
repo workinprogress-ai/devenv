@@ -443,7 +443,13 @@ export PATCH_VERSION="${PATCH_VERSION:-0}"
 export repos="$toolbox_root/repos"
 export playground="$toolbox_root/playground"
 export debug="$toolbox_root/.debug"
-export EDITOR="${EDITOR:-nano}"
+# Editor defaults
+# Preferred editor fallback (used when VS Code is not available)
+export FALLBACK_EDITOR="${FALLBACK_EDITOR:-nano}"
+export PREF_EDITOR="${PREF_EDITOR:-${FALLBACK_EDITOR}}"
+# Point EDITOR/VISUAL to the tool wrapper, which blocks until closed
+export EDITOR="${EDITOR:-$toolbox_root/tools/editor}"
+export VISUAL="${VISUAL:-$toolbox_root/tools/editor}"
 EOF
     chmod +x "$toolbox_root/.runtime/env-vars.sh"
 }
@@ -493,6 +499,15 @@ create_tool_symlinks() {
 
     ln -sf "$toolbox_root/tools/tests/run-tests-local.sh" "$toolbox_root/tools/run-tools-tests"
     ln -sf "$toolbox_root/tools/scripts/lint-scripts.sh" "$toolbox_root/tools/lint-tools-scripts"
+
+    # Ensure system editor points to our wrapper (done after tool symlinks exist)
+    local system_editor_symlink="/bin/editor"
+    local target_editor="$toolbox_root/tools/editor"
+    if [ -L "$system_editor_symlink" ] || [ -e "$system_editor_symlink" ]; then
+        sudo rm -f "$system_editor_symlink" || true
+    fi
+    sudo ln -sfn "$target_editor" "$system_editor_symlink"
+    echo "✓ Linked $system_editor_symlink -> $target_editor"
 }
 
 # Write shared devenvrc configuration file

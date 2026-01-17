@@ -225,6 +225,57 @@ EOF
     declare -F issue_exists > /dev/null
 }
 
+# =========================================================================
+# Issue type GraphQL operations (mocked gh)
+# =========================================================================
+
+create_mock_gh_for_set_issue_type() {
+        mkdir -p "$TEST_TEMP_DIR/bin"
+        export PATH="$TEST_TEMP_DIR/bin:$PATH"
+        cat > "$TEST_TEMP_DIR/bin/gh" <<'EOF'
+#!/usr/bin/env bash
+if [ "$1" = "api" ] && [ "$2" = "graphql" ]; then
+    args="${*:3}"
+    if echo "$args" | grep -q 'repository(owner:'; then
+        echo '{"data":{"repository":{"issue":{"id":"MDU6SXNzdWUxMjM0NTY="}}}}'
+        exit 0
+    fi
+    if echo "$args" | grep -q 'mutation'; then
+        echo '{"data":{"updateIssue":{"issue":{"issueType":{"name":"Bug"}}}}}'
+        exit 0
+    fi
+fi
+exit 0
+EOF
+        chmod +x "$TEST_TEMP_DIR/bin/gh"
+}
+
+@test "set_issue_type succeeds with mocked gh and config IDs" {
+        create_mock_gh_for_set_issue_type
+        # Prepare issues config with IDs
+        local cfg="$TEST_TEMP_DIR/issues-config.yml"
+        cat > "$cfg" <<'YML'
+types:
+    - name: Bug
+        description: "A bug or defect that needs fixing"
+        id: "IT_kwDOCk-E0c4BWVJJ"
+YML
+        run bash -c "export ISSUES_CONFIG=$cfg; source $PROJECT_ROOT/tools/lib/issues-config.bash; source $PROJECT_ROOT/tools/lib/issue-operations.bash; set_issue_type 123 test-org test-repo Bug"
+        [ "$status" -eq 0 ]
+}
+
+@test "set_issue_type skips when type id missing" {
+        create_mock_gh_for_set_issue_type
+        local cfg="$TEST_TEMP_DIR/issues-config.yml"
+        cat > "$cfg" <<'YML'
+types:
+    - name: Feature
+        description: "A new feature or enhancement"
+YML
+        run bash -c "export ISSUES_CONFIG=$cfg; source $PROJECT_ROOT/tools/lib/issues-config.bash; source $PROJECT_ROOT/tools/lib/issue-operations.bash; set_issue_type 123 test-org test-repo Feature"
+        [ "$status" -eq 0 ]
+}
+
 # ============================================================================
 # Format validation tests
 # ============================================================================

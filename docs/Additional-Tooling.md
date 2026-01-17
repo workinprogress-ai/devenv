@@ -818,6 +818,45 @@ mongo-restore-server <connection-string> <backup-directory>
 
 Tools for building, versioning, and managing development workflows.
 
+### `editor`
+
+Opens a file in VS Code (blocking with `--wait`) with automatic fallback to a preferred editor when VS Code is unavailable.
+
+```bash
+editor <file> [file ...]
+```
+
+**Features:**
+
+- Primary: Opens files in VS Code and **waits** until the file/tab is closed before returning
+- Fallback chain: Uses `$PREF_EDITOR`, then `$FALLBACK_EDITOR` (default: `nano`) if VS Code fails or is unavailable
+- Supports multiple files (each blocks until closed)
+- Used as system `$EDITOR` and `$VISUAL` for git, gh, and other CLI tools
+
+**Configuration:**
+
+- `FALLBACK_EDITOR` - Fallback editor when VS Code is unavailable (default: `nano`)
+- `PREF_EDITOR` - Preferred editor over fallback (defaults to `FALLBACK_EDITOR`)
+- `EDITOR` - Usually set to `$DEVENV_TOOLS/editor` by bootstrap
+- `VISUAL` - Usually set to `$DEVENV_TOOLS/editor` by bootstrap
+
+**Examples:**
+
+```bash
+# Open file directly
+editor /tmp/notes.txt
+
+# Used automatically by git
+git commit --allow-empty  # Opens in VS Code, waits until tab closes
+
+# Used automatically by gh CLI
+gh issue create --body ''  # Opens in VS Code, waits until tab closes
+
+# Configure fallback
+export FALLBACK_EDITOR=vim
+editor somefile.sh  # Uses vim if VS Code fails
+```
+
 ### `tooling-create-script`
 
 Creates a new script from the standard template with error handling, versioning, and cleanup.
@@ -1315,6 +1354,7 @@ The following convenience aliases are available in the dev container:
 
 **Development Tools:**
 
+- `editor` - Open files in VS Code (blocking) with fallback editor support
 - `tooling-create-script` - Create new script from template
 - `lint-scripts` - Validate shell scripts with shellcheck
 - `repo-version-list` - List version tags

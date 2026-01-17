@@ -142,6 +142,8 @@ The following environment variables are available in tests:
 - `test_git_config.bats` - Git configuration utilities
 - `test_versioning.bats` - Version parsing and comparison
 - `test_retry_logic.bats` - Retry logic surface checks
+- `test_editor.bats` - Editor function and VS Code fallback behavior (with mocked code command)
+- `test_issues_config.bats` - GitHub issue type configuration and management functions
 
 ### Repository & PR scripts (`scripts/`)
 
