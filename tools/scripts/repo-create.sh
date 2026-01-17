@@ -363,14 +363,29 @@ select_repo_type_interactive() {
 prompt_for_repo_name() {
     local repo_type="$1"
     local example
+    local repo_name
     example=$(get_type_naming_example "$repo_type" "$REPO_TYPES_CONFIG")
     
     log_info "Enter repository name (example: $example)"
     
-    # Use a dedicated file descriptor to ensure clean stdin after fzf
-    read -r -p "Repository name: " repo_name < /dev/tty
-    
-    validate_not_empty "$repo_name" "Repository name" || exit 1
+    # Loop until valid name is provided
+    while true; do
+        # Use a dedicated file descriptor to ensure clean stdin after fzf
+        read -r -p "Repository name: " repo_name < /dev/tty
+        
+        # Validate not empty
+        if ! validate_not_empty "$repo_name" "Repository name"; then
+            continue
+        fi
+        
+        # Validate naming convention for repo type right after input
+        if validate_repo_type "$repo_name" "$repo_type" "$REPO_TYPES_CONFIG"; then
+            break
+        fi
+        
+        # If validation fails, loop to prompt again
+        log_info "Invalid repository name. Please try again."
+    done
     
     echo "$repo_name"
 }
@@ -489,6 +504,8 @@ main() {
     ensure_gh_login
     
     create_repo "$repo_name" "$visibility" "$description" "$repo_type" "$skip_protection" "$skip_template" "$skip_clone" "$skip_post_creation"
+
+    log_info "Repository '$repo_name' creation process completed.  🍻"
 }
 
 main "$@"
