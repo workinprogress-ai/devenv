@@ -38,20 +38,20 @@ load ../test_helper
   [[ "$output" =~ Usage: ]] || [[ "$output" =~ usage ]]
 }
 
-@test "create-script.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/create-script.sh" --help
+@test "tooling-create-script.sh has --help flag" {
+  run bash "$PROJECT_ROOT/tools/scripts/tooling-create-script.sh" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ Usage: ]]
 }
 
-@test "create-script.sh help describes --dir option" {
-  run bash "$PROJECT_ROOT/tools/scripts/create-script.sh" --help
+@test "tooling-create-script.sh help describes --dir option" {
+  run bash "$PROJECT_ROOT/tools/scripts/tooling-create-script.sh" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ --dir ]]
 }
 
-@test "create-script.sh help describes --force option" {
-  run bash "$PROJECT_ROOT/tools/scripts/create-script.sh" --help
+@test "tooling-create-script.sh help describes --force option" {
+  run bash "$PROJECT_ROOT/tools/scripts/tooling-create-script.sh" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ --force ]]
 }

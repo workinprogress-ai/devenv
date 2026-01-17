@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# update-github-key.sh
+# key-update-github.sh
 # Updates the GitHub personal access token and reloads environment
-# Usage: update-github-key.sh [TOKEN]
+# Usage: key-update-github.sh [TOKEN]
 
 set -euo pipefail
 
@@ -33,7 +33,7 @@ fi
 
 # 1. Update env-vars.sh (Persistence)
 echo "    - Updating environment variables..."
-"$DEVENV_TOOLS/devenv-add-env-vars.sh" "GH_TOKEN=$NEW_TOKEN"
+"$DEVENV_TOOLS/devenv-add-env-vars" "GH_TOKEN=$NEW_TOKEN"
 
 # 2. Update token file in .setup folder
 echo "    - Storing token in backup file..."

@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-readonly TEMPLATE_FILE="$DEVENV_ROOT/templates/script-template.sh"
+readonly TEMPLATE_FILE="$DEVENV_TOOLS/templates/script-template.sh"
 
 show_usage() {
     cat << EOF

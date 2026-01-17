@@ -75,12 +75,12 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "create-script.sh has valid syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/create-script.sh"
+@test "tooling-create-script.sh has valid syntax" {
+  run bash -n "$PROJECT_ROOT/tools/scripts/tooling-create-script.sh"
   [ "$status" -eq 0 ]
 }
 
-@test "create-script.sh references template file" {
-  run grep "template" "$PROJECT_ROOT/tools/scripts/create-script.sh"
+@test "tooling-create-script.sh references template file" {
+  run grep "template" "$PROJECT_ROOT/tools/scripts/tooling-create-script.sh"
   [ "$status" -eq 0 ]
 }

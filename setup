@@ -57,7 +57,7 @@ validate_github_pat() {
 
   while true; do
   if [ ! -s "$token_file" ]; then
-    echo "Paste a GitHub PAT (must start with ghp_ and include: repo, read:packages, read:org, write:discussion, project):"
+    echo "Paste a GitHub PAT (must start with ghp_ and include: repo, workflow, read:packages, read:org, write:discussion, project):"
     read -r new_token
     if [ -n "$new_token" ]; then
       echo "$new_token" > "$token_file"

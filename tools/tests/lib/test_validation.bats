@@ -359,6 +359,82 @@ load ../test_helper
 }
 
 # ============================================================================
+# TitleCase identifier validation tests
+# ============================================================================
+
+@test "validate_identifier_titlecase with valid TitleCase" {
+    source "$DEVENV_ROOT/tools/lib/validation.bash"
+    validate_identifier_titlecase "MyIdentifier"
+}
+
+@test "validate_identifier_titlecase with single uppercase letter" {
+    source "$DEVENV_ROOT/tools/lib/validation.bash"
+    validate_identifier_titlecase "A"
+}
+
+@test "validate_identifier_titlecase with mixed case numbers" {
+    source "$DEVENV_ROOT/tools/lib/validation.bash"
+    validate_identifier_titlecase "MyService123"
+}
+
+@test "validate_identifier_titlecase with all uppercase" {
+    source "$DEVENV_ROOT/tools/lib/validation.bash"
+    validate_identifier_titlecase "CONSTANT"
+}
+
+@test "validate_identifier_titlecase with empty string" {
+    source "$DEVENV_ROOT/tools/lib/validation.bash"
+    ! validate_identifier_titlecase ""
+}
+
+@test "validate_identifier_titlecase with lowercase start" {
+    source "$DEVENV_ROOT/tools/lib/validation.bash"
+    ! validate_identifier_titlecase "myIdentifier"
+}
+
+@test "validate_identifier_titlecase with space" {
+    source "$DEVENV_ROOT/tools/lib/validation.bash"
+    ! validate_identifier_titlecase "My Identifier"
+}
+
+@test "validate_identifier_titlecase with hyphen" {
+    source "$DEVENV_ROOT/tools/lib/validation.bash"
+    ! validate_identifier_titlecase "My-Identifier"
+}
+
+@test "validate_identifier_titlecase with underscore" {
+    source "$DEVENV_ROOT/tools/lib/validation.bash"
+    ! validate_identifier_titlecase "My_Identifier"
+}
+
+@test "validate_identifier_titlecase with dot" {
+    source "$DEVENV_ROOT/tools/lib/validation.bash"
+    ! validate_identifier_titlecase "My.Identifier"
+}
+
+@test "validate_identifier_titlecase with special characters" {
+    source "$DEVENV_ROOT/tools/lib/validation.bash"
+    ! validate_identifier_titlecase "My@Identifier"
+}
+
+@test "validate_identifier_titlecase with context message" {
+    source "$DEVENV_ROOT/tools/lib/validation.bash"
+    output=$(validate_identifier_titlecase "invalid" "CustomContext" 2>&1 || true)
+    [[ "$output" =~ "CustomContext" ]]
+}
+
+@test "validate_identifier_titlecase with default context" {
+    source "$DEVENV_ROOT/tools/lib/validation.bash"
+    output=$(validate_identifier_titlecase "" 2>&1 || true)
+    [[ "$output" =~ "identifier" ]]
+}
+
+@test "validate_identifier_titlecase with numeric start" {
+    source "$DEVENV_ROOT/tools/lib/validation.bash"
+    ! validate_identifier_titlecase "1MyIdentifier"
+}
+
+# ============================================================================
 # Integration tests
 # ============================================================================
 

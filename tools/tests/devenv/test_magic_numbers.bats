@@ -72,9 +72,9 @@ load ../test_helper
 }
 
 @test "script template shows constant definition pattern" {
-  run grep "readonly DEFAULT_TIMEOUT=" "$PROJECT_ROOT/templates/script-template.sh"
+  run grep "readonly DEFAULT_TIMEOUT=" "$DEVENV_TOOLS/templates/script-template.sh"
   [ "$status" -eq 0 ]
-  run grep "readonly DEFAULT_MAX_RETRIES=" "$PROJECT_ROOT/templates/script-template.sh"
+  run grep "readonly DEFAULT_MAX_RETRIES=" "$DEVENV_TOOLS/templates/script-template.sh"
   [ "$status" -eq 0 ]
 }
 

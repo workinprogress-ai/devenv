@@ -355,22 +355,22 @@ update-dev-env() {
     "$DEVENV_ROOT/.devcontainer/check-update-devenv-repo.sh"
 }
 
-update-tailscale-key() {
-    "$DEVENV_ROOT/tools/scripts/update-tailscale-key.sh" "$@"
+key-update-tailscale() {
+    "$DEVENV_ROOT/tools/scripts/key-update-tailscale.sh" "$@"
     if [ -f "$DEVENV_ROOT/.runtime/env-vars.sh" ]; then
         source "$DEVENV_ROOT/.runtime/env-vars.sh"
     fi
 }
 
-update-github-key() {
-    "$DEVENV_ROOT/tools/scripts/update-github-key.sh" "$@"
+key-update-github() {
+    "$DEVENV_ROOT/tools/scripts/key-update-github.sh" "$@"
     if [ -f "$DEVENV_ROOT/.runtime/env-vars.sh" ]; then
         source "$DEVENV_ROOT/.runtime/env-vars.sh"
     fi
 }
 
-update-do-key() {
-    "$DEVENV_ROOT/tools/scripts/update-do-key.sh" "$@"
+key-update-do() {
+    "$DEVENV_ROOT/tools/scripts/key-update-do.sh" "$@"
     if [ -f "$DEVENV_ROOT/.runtime/env-vars.sh" ]; then
         source "$DEVENV_ROOT/.runtime/env-vars.sh"
     fi
@@ -457,12 +457,12 @@ create_tool_symlinks() {
 
     EXCLUDE_SCRIPTS=(
         "repo-get.sh"
-        "update-tailscale-key.sh"
-        "update-github-key.sh"
-        "update-do-key.sh"
+        "key-update-tailscale.sh"
+        "key-update-github.sh"
+        "key-update-do.sh"
         "lint-scripts.sh"
         "script-template.sh"
-        "create-script.sh"
+        "tooling-create-script.sh"
     )
 
     for script in "$toolbox_root/tools/scripts"/*.sh; do

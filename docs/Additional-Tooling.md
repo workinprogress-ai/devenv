@@ -818,17 +818,17 @@ mongo-restore-server <connection-string> <backup-directory>
 
 Tools for building, versioning, and managing development workflows.
 
-### `create-script`
+### `tooling-create-script`
 
 Creates a new script from the standard template with error handling, versioning, and cleanup.
 
 ```bash
-create-script <script-name>
+tooling-create-script <script-name>
 ```
 
 **Features:**
 
-- Uses `templates/script-template.sh` as base
+- Uses `$DEVENV_TOOLS/templates/script-template.sh` as base
 - Automatically makes script executable
 - Includes error handling, cleanup traps, and library sourcing
 
@@ -867,12 +867,12 @@ Counts lines of code in files or directories, with filtering options.
 metrics-count-code-lines [file-or-directory]
 ```
 
-### `nuget-clear-local`
+### `cs-nuget-clear-local`
 
 Clears local NuGet package cache for packages in the local debug feed.
 
 ```bash
-nuget-clear-local
+cs-nuget-clear-local
 ```
 
 **Features:**
@@ -881,12 +881,12 @@ nuget-clear-local
 - Removes all packages from `.debug/local-nuget-dev`
 - Provides warnings if cleanup fails
 
-### `nuget-publish-local`
+### `cs-nuget-publish-local`
 
 Publishes a NuGet package to local feed.
 
 ```bash
-nuget-publish-local [target-directory] [version] [configuration]
+cs-nuget-publish-local [target-directory] [version] [configuration]
 ```
 
 **Arguments:**
@@ -1087,24 +1087,24 @@ devenv-add-custom-startup "echo 'Container started'" "export MY_VAR=value"
 
 **Note:** For organization-wide startup customizations, create `.devcontainer/org-custom-startup.sh` and commit it to the repository.
 
-### `update-github-key`
+### `key-update-github`
 
 Updates the GitHub personal access token stored in `.setup/github_token.txt`.
 
 ```bash
-update-github-key [new-token]
+key-update-github [new-token]
 ```
 
 **Interactive mode:** If no token is provided, prompts for input.
 
-### `update-tailscale-key`
+### `key-update-tailscale`
 
 Updates the Tailscale auth key and re-authenticates the daemon without requiring a container restart.
 
 ```bash
-update-tailscale-key
+key-update-tailscale
 # Or use the bash function:
-update-tailscale-key
+key-update-tailscale
 ```
 
 **Features:**
@@ -1123,12 +1123,12 @@ update-tailscale-key
 
 **Note:** This script preserves your container's hostname and route settings during re-authentication.
 
-### `update-do-key`
+### `key-update-do`
 
 Updates the Digital Ocean API token and reloads the environment.
 
 ```bash
-update-do-key [new-token]
+key-update-do [new-token]
 ```
 
 **Interactive mode:** If no token is provided, prompts for input (hidden).
@@ -1315,7 +1315,7 @@ The following convenience aliases are available in the dev container:
 
 **Development Tools:**
 
-- `create-script` - Create new script from template
+- `tooling-create-script` - Create new script from template
 - `lint-scripts` - Validate shell scripts with shellcheck
 - `repo-version-list` - List version tags
 
@@ -1330,14 +1330,14 @@ The following convenience aliases are available in the dev container:
 
 **NuGet:**
 
-- `nuget-clear-local` / `nuget-publish-local` - Local NuGet development
+- `cs-nuget-clear-local` / `cs-nuget-publish-local` - Local NuGet development
 
 **Utilities:**
 
 - `get-public-ip` - Get current public IP
-- `update-github-key` - Update GitHub token in setup
-- `update-tailscale-key` - Update Tailscale auth key
-- `update-do-key` - Update Digital Ocean API token
+- `key-update-github` - Update GitHub token in setup
+- `key-update-tailscale` - Update Tailscale auth key
+- `key-update-do` - Update Digital Ocean API token
 
 ## Usage Notes
 
@@ -1355,6 +1355,7 @@ The following environment variables should be configured for full functionality:
 - `GH_ORG`: GitHub organization name (owner of repositories)
 - `GH_TOKEN`: GitHub personal access token with:
   - `repo` (full control of private repositories)
+  - `workflow` (update GitHub Actions workflows)
   - `read:packages` (download packages from GitHub Package Registry)
   - `read:org` (read org and team membership, read org projects)
   - `write:discussion` (write access to discussions)

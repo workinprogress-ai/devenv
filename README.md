@@ -174,11 +174,13 @@ The script will ask you for the following information:
 - Your human name:  This is the name by which you will be identified in all commits.  This is YOUR NAME AS A HUMAN BEING, not your username.  The name your mother calls you when she's angry.
 - Your omsnic.com email:  This identifies you by email in all commits.
 - Your timezone:  This is in order to correctly display your local time within the container.  By default, the script will attempt to determine your time zone.  If it does so correctly, then you can just hit ENTER and accept the default.
-- A PAT:  The Personal Access Token is what allows package access and other functions from the dev environment.  The recommended note should be 'AZURE_TOKEN' and the expiration should be one year.  This token should have the following permissions:
-  - Work Items: Read & write
-  - Code: Read & write, Status
-  - Build: Read & Execute
-  - Packaging: Read
+- A PAT:  The Personal Access Token is what allows package access and other functions from the dev environment.  The recommended note should be 'DEVENV_TOKEN'.  This token should have the following permissions:
+  - repo (all)
+  - workflow
+  - read:packages
+  - read:org
+  - write:discussion
+  - project
 - You may also be asked other questions that have to do with installing or minimally configuring your host environment.
 
 ## Creating the Dev Container

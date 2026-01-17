@@ -41,11 +41,11 @@ load ../test_helper
 }
 
 @test "script template includes documentation examples" {
-  run grep "# Arguments:" "$PROJECT_ROOT/templates/script-template.sh"
+  run grep "# Arguments:" "$DEVENV_TOOLS/templates/script-template.sh"
   [ "$status" -eq 0 ]
-  run grep "# Returns:" "$PROJECT_ROOT/templates/script-template.sh"
+  run grep "# Returns:" "$DEVENV_TOOLS/templates/script-template.sh"
   [ "$status" -eq 0 ]
-  run grep "# Side effects:" "$PROJECT_ROOT/templates/script-template.sh"
+  run grep "# Side effects:" "$DEVENV_TOOLS/templates/script-template.sh"
   [ "$status" -eq 0 ]
 }
 

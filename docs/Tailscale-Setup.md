@@ -131,7 +131,7 @@ When you generate the key in the console, ensure you have these **exact** settin
 * **The Fix:** You generate a new key, and your devs can update it without restarting the container:
 
 ```bash
-update-tailscale-key
+key-update-tailscale
 ```
 
 This script will:

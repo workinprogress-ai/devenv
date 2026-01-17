@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
 ################################################################################
-# update-do-key.sh
+# key-update-do.sh
 #
 # Update the Digital Ocean API token and reload environment
 #
 # Usage:
-#   ./update-do-key.sh [TOKEN]
+#   ./key-update-do.sh [TOKEN]
 #
 # Arguments:
 #   TOKEN - Digital Ocean API token (optional, will be prompted if not provided)

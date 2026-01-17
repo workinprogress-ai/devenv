@@ -103,6 +103,39 @@ validate_slug() {
     fi
 }
 
+# Validate TitleCase identifier (alphanumeric only, starts with uppercase)
+# Usage: validate_identifier_titlecase STRING [CONTEXT]
+# Arguments:
+#   STRING                String to validate
+#   CONTEXT               Optional context for error message
+# Returns: 0 if valid, 1 if invalid
+# Example:
+#   validate_identifier_titlecase "$category" "CATEGORY" || return 1
+validate_identifier_titlecase() {
+    local value="$1"
+    local context="${2:-identifier}"
+    
+    # Check if empty
+    if [ -z "$value" ]; then
+        log_error "$context cannot be empty"
+        return 1
+    fi
+    
+    # Check for whitespace or symbols (only alphanumeric allowed)
+    if [[ ! "$value" =~ ^[A-Za-z0-9]+$ ]]; then
+        log_error "$context must contain only letters and numbers (no spaces or symbols)"
+        return 1
+    fi
+    
+    # Check if first character is uppercase (TitleCase requirement)
+    if [[ ! "$value" =~ ^[A-Z] ]]; then
+        log_error "$context must start with an uppercase letter (TitleCase)"
+        return 1
+    fi
+    
+    return 0
+}
+
 # ============================================================================
 # Email Validation
 # ============================================================================
@@ -445,3 +478,4 @@ export -f validate_branch_name
 export -f validate_commit_hash
 export -f validate_semver
 export -f validate_required
+export -f validate_identifier_titlecase

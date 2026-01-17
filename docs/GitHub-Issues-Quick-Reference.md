@@ -11,7 +11,7 @@ Fast lookup for common GitHub Issues commands and workflows.
 issue-create --title "Title"
 
 # With specific template
-issue-create --title "Title" --template ./templates/story.md
+issue-create --title "Title" --template tools/templates/story.md
 
 # Without template
 issue-create --title "Title" --no-template
