@@ -250,6 +250,7 @@ install_dotnet() {
     wget https://dot.net/v1/dotnet-install.sh
     chmod +x ./dotnet-install.sh
     sudo ./dotnet-install.sh -c 8.0 -i /usr/share/dotnet
+    sudo ./dotnet-install.sh -c 9.0 -i /usr/share/dotnet
     sudo ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
     rm dotnet-install.sh
     dotnet_cmd=/usr/bin/dotnet
@@ -621,7 +622,7 @@ configure_dotnet_tools() {
     echo "# Configure .net"
     echo "#############################################"
 
-    $dotnet_cmd tool install --global altcover.global
+    $dotnet_cmd tool install -g dotnet-reportgenerator-globaltool
     $dotnet_cmd tool install --global dotnet-outdated-tool
     sudo $dotnet_cmd dev-certs https
     sudo mkdir -p /usr/local/share/ca-certificates/aspnet
