@@ -575,21 +575,27 @@ append_bashrc() {
 
     if ! grep -Fq "$marker_start" "$HOME/.bashrc"; then
         cat <<EOF >> "$HOME/.bashrc"
-$marker_start
-if [ -f "$HOME/.devenvrc" ]; then
-    source "$HOME/.devenvrc"
+### devenv rc start
+# Only apply interactive customizations for interactive shells
+if [[ \$- == *i* ]]; then
+    if [ -f "$HOME/.devenvrc" ]; then
+        source "$HOME/.devenvrc"
+    fi
 fi
-$marker_end
+### devenv rc end
 EOF
     fi
 }
 
 # Install or configure Node Version Manager
 install_or_configure_nvm() {
-    if ! command -v nvm > /dev/null 2>&1; then
-        echo "# Install nvm"
-        echo "#############################################"
+    local marker_start="### nvm start"
+    local marker_end="### nvm end"
 
+    echo "# Install nvm"
+    echo "#############################################"
+
+    if ! command -v nvm > /dev/null 2>&1; then
         curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
         export NVM_DIR="/usr/local/share/nvm"
 
@@ -602,19 +608,31 @@ install_or_configure_nvm() {
         nvm install "$NODE_VERSION"
         nvm use "$NODE_VERSION"
         sudo chown -R "$(whoami)":"$(whoami)" "$NVM_DIR/versions"
-    else
-        echo "# NVM already installed, ensuring proper permissions"
-        echo "#############################################"
-        export NVM_DIR="/usr/local/share/nvm"
 
-        if [ -d "$NVM_DIR" ]; then
-            sudo chown -R "$(whoami)":"$(whoami)" "$NVM_DIR"
+        # Remove the NVM lines added by the installer script itself
+        sed -i '/export NVM_DIR=/d' "$HOME/.bashrc"
+        sed -i '/\[ -s.*NVM_DIR.*nvm.sh.*\]/d' "$HOME/.bashrc"
+        sed -i '/\[ -s.*NVM_DIR.*bash_completion.*\]/d' "$HOME/.bashrc"
+
+        # Ensure NVM is properly initialized in bashrc with interactive shell guard
+        # Check if our custom NVM block is already present to avoid duplicates
+        if ! grep -q "$marker_start" "$HOME/.bashrc"; then
+            cat <<EOF >> "$HOME/.bashrc"
+$marker_start
+# Only load NVM in interactive shells to avoid interfering with VSCode's Node
+if [[ \$- == *i* ]]; then
+    export NVM_DIR="/usr/local/share/nvm"
+    [ -s "\$NVM_DIR/nvm.sh" ] && \. "\$NVM_DIR/nvm.sh"  # This loads nvm
+    [ -s "\$NVM_DIR/bash_completion" ] && \. "\$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+fi
+$marker_end
+EOF
         fi
 
-        # shellcheck disable=SC1090 # User's bashrc is dynamic
-        source ~/.bashrc
-        source "$NVM_DIR/nvm.sh" 2>/dev/null || true
-    fi
+    else
+        echo "=> NVM already installed"
+
+    fi    
 }
 
 # Configure .NET tools
