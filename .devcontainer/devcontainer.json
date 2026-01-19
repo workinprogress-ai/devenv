@@ -18,7 +18,7 @@
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	"forwardPorts": [6090],
 	"portsAttributes": {
-			"6080": {
+			"6090": {
 				"protocol": "http",
 				"label": "Desktop Environment"
 			}

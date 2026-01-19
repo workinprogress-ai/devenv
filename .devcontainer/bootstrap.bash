@@ -255,6 +255,7 @@ install_dotnet() {
     rm dotnet-install.sh
     dotnet_cmd=/usr/bin/dotnet
     sudo $dotnet_cmd workload update
+    $dotnet_cmd tool install -g dotnet-format
 }
 
 # Download container helper scripts
