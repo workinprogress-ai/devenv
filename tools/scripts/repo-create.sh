@@ -91,6 +91,41 @@ usage() {
     echo "" >&2
 }
 
+# Wait for repository to be ready (has content/commits)
+# This handles the race condition where gh repo create returns before
+# template files are fully synced to the remote
+# Arguments:
+#   $1: full_name - Full repo name (e.g., org/repo-name)
+# Returns:
+#   0 if repo is ready
+#   1 if timeout waiting for repo
+wait_for_repo_ready() {
+    local full_name="$1"
+    local max_attempts=30  # ~2.5 minutes with 5 second intervals
+    local attempt=1
+    local delay=5
+    
+    log_info "Waiting for repository to be ready (template files syncing)..."
+    
+    while [ "$attempt" -le "$max_attempts" ]; do
+        # Check if repo has any commits by looking for the default branch
+        if git ls-remote --heads "git@github.com:${full_name}.git" 2>/dev/null | grep -q refs/heads; then
+            log_info "✓ Repository is ready"
+            return 0
+        fi
+        
+        if [ "$attempt" -lt "$max_attempts" ]; then
+            echo "  Attempt $attempt/$max_attempts: Repository not ready yet, waiting ${delay}s..." >&2
+            sleep "$delay"
+        fi
+        
+        ((attempt++))
+    done
+    
+    log_error "Repository did not become ready within $(($max_attempts * $delay)) seconds"
+    return 1
+}
+
 create_initial_branch() {
     local repo_name="$1"  # Full repo name (e.g., service.platform.identity)
     local repo_type="$2"
@@ -272,6 +307,14 @@ create_repo() {
     fi
     
     log_info "✓ Repository created: git@github.com:${full_name}.git"
+    
+    # Wait for repository to be ready (only when using templates)
+    # This prevents race condition where clone happens before template files are synced
+    if [ -n "$template" ] && [ "$template" != "null" ]; then
+        if ! wait_for_repo_ready "$full_name"; then
+            log_warn "Repository may not be fully ready, but proceeding with clone..."
+        fi
+    fi
     
     # Clone repo using repo-get unless skipped
     local repos_dir

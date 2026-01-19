@@ -166,6 +166,19 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
+@test "repo-create.sh contains wait_for_repo_ready function" {
+  run grep "wait_for_repo_ready" "$PROJECT_ROOT/tools/scripts/repo-create.sh"
+  [ "$status" -eq 0 ]
+}
+
+@test "repo-create.sh only waits when template is used" {
+  run bash -c "
+    grep -A 10 'Wait for repository to be ready' '$PROJECT_ROOT/tools/scripts/repo-create.sh' | 
+    grep -q 'if \[ -n \"\$template\" \]'
+  "
+  [ "$status" -eq 0 ]
+}
+
 @test "repo-create.sh exits early when repo already exists (mocked gh)" {
   local cfg="$TEST_TEMP_DIR/repo-types.yaml"
   cat > "$cfg" <<'EOF'
