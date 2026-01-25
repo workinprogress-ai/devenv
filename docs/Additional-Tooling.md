@@ -1378,6 +1378,7 @@ The following convenience aliases are available in the dev container:
 - `key-update-github` - Update GitHub token in setup
 - `key-update-tailscale` - Update Tailscale auth key
 - `key-update-do` - Update Digital Ocean API token
+- `devenv-vscode-fix-sockets` - Fix stale VS Code IPC sockets (see [Troubleshooting](./Dev-container-environment.md#troubleshooting))
 
 ## Usage Notes
 

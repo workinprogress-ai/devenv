@@ -378,6 +378,34 @@ key-update-do() {
     fi
 }
 
+# Fix stale VS Code IPC sockets (for git credential helper, code CLI, etc.)
+# Run this if you see "Unable to connect to VS Code" errors in long-running terminals
+devenv-vscode-fix-sockets() {
+    local fixed=0
+    
+    # Fix VS Code CLI socket
+    local newest_cli_socket
+    newest_cli_socket=$(ls -t /tmp/vscode-ipc-*.sock 2>/dev/null | head -1)
+    if [[ -n "$newest_cli_socket" && -S "$newest_cli_socket" ]]; then
+        export VSCODE_IPC_HOOK_CLI="$newest_cli_socket"
+        ((fixed++))
+    fi
+
+    # Fix Dev Containers IPC socket (git credential helper)
+    local newest_dc_socket
+    newest_dc_socket=$(ls -t /tmp/vscode-remote-containers-ipc-*.sock 2>/dev/null | head -1)
+    if [[ -n "$newest_dc_socket" && -S "$newest_dc_socket" ]]; then
+        export REMOTE_CONTAINERS_IPC="$newest_dc_socket"
+        ((fixed++))
+    fi
+
+    if [[ $fixed -gt 0 ]]; then
+        echo "✓ VS Code IPC sockets refreshed"
+    else
+        echo "⚠ No VS Code sockets found in /tmp"
+    fi
+}
+
 EOF
     chmod +x "$toolbox_root/.runtime/bash-functions.sh"
 }
@@ -559,6 +587,39 @@ fi
 
 # SSH setup (works in both shells)
 #[ -f "${DEVENV_ROOT}/.devcontainer/load-ssh.sh" ] && source "${DEVENV_ROOT}/.devcontainer/load-ssh.sh"
+
+# Fix stale VS Code IPC sockets in dev containers
+# When VS Code reconnects, it creates new sockets but old terminals retain stale env vars
+# This affects: code CLI, git credential helper, Dev Containers extension IPC
+__fix_vscode_ipc_sockets() {
+    # Fix VS Code CLI socket (used by 'code' command)
+    local newest_cli_socket
+    newest_cli_socket=$(ls -t /tmp/vscode-ipc-*.sock 2>/dev/null | head -1)
+    if [[ -n "$newest_cli_socket" && -S "$newest_cli_socket" ]]; then
+        export VSCODE_IPC_HOOK_CLI="$newest_cli_socket"
+    fi
+
+    # Fix Dev Containers IPC socket (used by git credential helper)
+    local newest_dc_socket
+    newest_dc_socket=$(ls -t /tmp/vscode-remote-containers-ipc-*.sock 2>/dev/null | head -1)
+    if [[ -n "$newest_dc_socket" && -S "$newest_dc_socket" ]]; then
+        export REMOTE_CONTAINERS_IPC="$newest_dc_socket"
+    fi
+}
+
+# Run the fix on shell startup
+__fix_vscode_ipc_sockets
+
+# VS Code CLI wrapper - ensures we always use the newest socket even in long-running terminals
+code() {
+    local newest_socket
+    newest_socket=$(ls -t /tmp/vscode-ipc-*.sock 2>/dev/null | head -1)
+    if [[ -n "$newest_socket" && -S "$newest_socket" ]]; then
+        VSCODE_IPC_HOOK_CLI="$newest_socket" command code "$@"
+    else
+        command code "$@"
+    fi
+}
 
 # Convenience: move to repos if starting in repo root (bash-only behavior preserved)
 # if [ -n "${BASH_VERSION:-}" ] && [ "$(pwd)" = "${DEVENV_ROOT}" ]; then

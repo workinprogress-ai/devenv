@@ -231,6 +231,36 @@ These credentials are automatically loaded into the container environment on sta
 * Digital Ocean Token: Run `./setup` and choose the Digital Ocean setup option
 * SSH Key: Configure via the initial setup or re-run the setup script
 
+## Troubleshooting
+
+### "Unable to connect to VS Code" errors
+
+If you see errors like these when running git commands or using the `code` CLI:
+
+```text
+Unable to connect to VS Code server: Error in request.
+Error: connect ENOENT /tmp/vscode-ipc-XXXXX.sock
+```
+
+or:
+
+```text
+Unable to connect to VS Code Dev Containers extension.
+Error: connect ENOENT /tmp/vscode-remote-containers-ipc-XXXXX.sock
+```
+
+**Cause:** VS Code creates IPC socket files in `/tmp` for communication between the terminal and the editor. When VS Code reconnects (window reload, network hiccup, etc.), it creates new sockets but existing terminals may still reference the old, now-stale socket paths.
+
+**Solution:** Run the following command in the affected terminal:
+
+```bash
+devenv-vscode-fix-sockets
+```
+
+This refreshes the socket environment variables to point to the newest valid sockets. New terminals automatically run this fix on startup.
+
+**Note:** The `code` command has a built-in wrapper that always finds the correct socket, so `code` commands should work even without running the fix.
+
 ## Lone Wolf Options
 
 The provided development and VS Code are the officially supported setup.  Other tools are not supported.  If you want to use a different tool or choose not to use the development environment...
