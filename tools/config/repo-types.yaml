@@ -96,6 +96,7 @@ types:
     mainBranch: master
     allowedMergeTypes:
       - squash
+      - rebase
     deletePRBranchOnMerge: true
     hasWiki: true
     hasIssues: true
@@ -158,6 +159,7 @@ types:
     mainBranch: master
     allowedMergeTypes:
       - squash
+      - rebase
     deletePRBranchOnMerge: true
     hasWiki: false
     hasIssues: true
@@ -188,6 +190,7 @@ types:
     mainBranch: master
     allowedMergeTypes:
       - squash
+      - rebase
     deletePRBranchOnMerge: true
     hasWiki: false
     hasIssues: true
@@ -218,6 +221,7 @@ types:
     mainBranch: master
     allowedMergeTypes:
       - squash
+      - rebase
     deletePRBranchOnMerge: true
     hasWiki: false
     hasIssues: true
@@ -248,6 +252,7 @@ types:
     mainBranch: master
     allowedMergeTypes:
       - squash
+      - rebase
     deletePRBranchOnMerge: true
     hasWiki: false
     hasIssues: true
@@ -278,6 +283,7 @@ types:
     mainBranch: master
     allowedMergeTypes:
       - squash
+      - rebase
     deletePRBranchOnMerge: true
     hasWiki: false
     hasIssues: true
