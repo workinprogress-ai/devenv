@@ -1057,6 +1057,14 @@ install-extras dns-hijack
 - Upstream DNS fallback for unmapped domains
 - Configuration validation before installation
 
+### `devenv-update`
+
+Updates the devenv repository to the latest version from GitHub.
+
+```bash
+devenv-update
+```
+
 ### `devenv-add-env-vars`
 
 Adds or updates environment variables in `env-vars.sh`.
@@ -1327,7 +1335,6 @@ The following convenience aliases are available in the dev container:
 
 - `repo-get` - Clone/navigate to repository
 - `repo-update-all` - Update all repositories in parallel
-- `update-dev-env` - Update the devenv repository itself
 - `repo-get-web-url` - Get GitHub web URL for current repository
 
 **Pull Request Management:**

@@ -22,7 +22,7 @@ if [ "$CURRENT_BRANCH" != "master" ]; then
     read -p "Do you want to update? (y/n): " answer
     case $answer in
         [Yy]* )
-            $devenv/scripts/git-update
+            $devenv/tools/git-update
             cd - > /dev/null || return
             echo "Be aware that you may need to rebuild the dev container or re-run the bootstrap depending on the changes."
             exit 0;;
@@ -51,7 +51,7 @@ echo "Changes detected on the remote master branch for the development environme
 read -p "Do you want to update? (y/n): " answer
 case $answer in
     [Yy]* )
-        $devenv/scripts/git-update
+        $devenv/tools/git-update
         if [ $? -ne 0 ]; then
             cd - > /dev/null || return
             echo "Error updating the repository. Please update manually (e.g., run 'git pull')."

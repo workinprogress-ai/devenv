@@ -348,7 +348,7 @@ repos() {
     cd "$DEVENV_ROOT/repos" || return
 }
 
-update-dev-env() {
+devenv-update() {
     local current_dir
     current_dir=$(pwd)
     cd "$DEVENV_ROOT" || return
