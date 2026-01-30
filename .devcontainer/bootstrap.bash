@@ -684,6 +684,8 @@ $marker_start
 # Only load NVM in interactive shells to avoid interfering with VSCode's Node
 if [[ \$- == *i* ]]; then
     export NVM_DIR="/usr/local/share/nvm"
+    # Disable NVM symlink creation to avoid "File exists" errors
+    export NVM_SYMLINK_CURRENT=false
     [ -s "\$NVM_DIR/nvm.sh" ] && \. "\$NVM_DIR/nvm.sh"  # This loads nvm
     [ -s "\$NVM_DIR/bash_completion" ] && \. "\$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 fi
