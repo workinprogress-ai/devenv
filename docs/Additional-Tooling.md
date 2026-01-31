@@ -746,6 +746,19 @@ Stops dependency services and cleans up resources.
 dependencies-down
 ```
 
+### `docker-restart`
+
+Restarts the Docker daemon by killing it and reloading it. Useful when Docker becomes unresponsive or needs to be refreshed.
+
+```bash
+docker-restart
+```
+
+**What it does:**
+
+1. Kills the Docker daemon using `sudo pkill docker`
+2. Reloads Docker using `.devcontainer/load-docker.sh`
+
 ### `container-enable-dotnet-debugger.sh`
 
 Injects and runs the .NET debugger into a locally running container for debugging purposes.
