@@ -605,6 +605,17 @@ __fix_vscode_ipc_sockets() {
     if [[ -n "$newest_dc_socket" && -S "$newest_dc_socket" ]]; then
         export REMOTE_CONTAINERS_IPC="$newest_dc_socket"
     fi
+    
+    # Remove stale git credential helpers that reference deleted temp files
+    # VS Code Dev Containers injects these into both global and system configs
+    local has_stale_helpers=false
+    git config --list 2>/dev/null | grep -q '/tmp/vscode-remote-containers-.*.js' && has_stale_helpers=true
+    
+    if $has_stale_helpers; then
+        # Simple approach: remove all VS Code credential helpers, they'll be recreated when needed
+        git config --global --unset-all credential.helper 2>/dev/null || true
+        sudo git config --system --unset-all credential.helper 2>/dev/null || true
+    fi
 }
 
 # Run the fix on shell startup
