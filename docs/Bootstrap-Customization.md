@@ -57,14 +57,15 @@ The default bootstrap process executes these tasks in order:
 21. `configure_dotnet_tools` - Configure .NET tools
 22. `install_node_packages` - Install Node.js packages
 23. `configure_git` - Configure git globally
-24. `ensure_directories_and_settings` - Create required directories
-25. `install_repo_dependencies` - Install devenv repo dependencies
-26. `configure_nuget_sources` - Configure NuGet sources
-27. `configure_user_npmrc` - Configure npm registry auth
-28. `run_custom_bootstrap_if_present` - Run custom bootstrap if exists
-29. `cleanup_packages` - Clean up apt packages
-30. `record_bootstrap_run_time` - Record completion time
-31. `finish_message` - Display completion message
+24. `install_copilot_instructions` - Copy `.github/copilot-instructions.md` to `~/.copilot/copilot-instructions.md`
+25. `ensure_directories_and_settings` - Create required directories
+26. `install_repo_dependencies` - Install devenv repo dependencies
+27. `configure_nuget_sources` - Configure NuGet sources
+28. `configure_user_npmrc` - Configure npm registry auth
+29. `run_custom_bootstrap_if_present` - Run custom bootstrap if exists
+30. `cleanup_packages` - Clean up apt packages
+31. `record_bootstrap_run_time` - Record completion time
+32. `finish_message` - Display completion message
 
 ## Customization Options
 
@@ -242,6 +243,7 @@ run_tasks "${TASKS[@]}"
 - `append_bashrc` - Append devenvrc sourcing to bashrc
 - `configure_dotnet_tools` - Install .NET global tools
 - `configure_git` - Configure git settings
+- `install_copilot_instructions` - Copy `.github/copilot-instructions.md` to `~/.copilot/copilot-instructions.md` (skipped silently if source file absent)
 - `configure_nuget_sources` - Configure NuGet package sources
 - `configure_user_npmrc` - Configure npm registry authentication
 - `ensure_directories_and_settings` - Create directories and system settings

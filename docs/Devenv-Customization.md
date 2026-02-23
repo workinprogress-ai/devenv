@@ -5,10 +5,17 @@ If you've forked this repository for your organization, this guide explains what
 ## Quick Checklist
 
 - ✅ Update `devenv.config` for org identity, container name, workflows, and bootstrap defaults
+- ✅ (Optional) Update `.github/copilot-instructions.md` with organization-specific AI coding guidelines
 - ✅ (Optional) Create `org-custom-bootstrap.sh` and `org-custom-startup.sh` for organization-wide customizations
 - ✅ (If you use repo creation tooling) Update `tools/config/repo-types.yaml` for naming, templates, branch protection, and post-creation scripts
 - ✅ (If you use issue creation tooling) Update `tools/config/issues-config.yml` to match your organization's GitHub issue types
 - ✅ Create/adjust template repos per type (recommended) so new repos start with CI, CODEOWNERS, and hooks
+
+## Copilot Instructions
+
+The file `.github/copilot-instructions.md` contains AI coding guidelines that apply to the repository in VS Code (GitHub Copilot reads this file automatically when it exists in the workspace). During bootstrap the file is also copied to `~/.copilot/copilot-instructions.md`, making the same instructions available as the user-level Copilot instructions file.
+
+When forking this repository, update `.github/copilot-instructions.md` with your organization's preferred conventions, code style expectations, and any AI-specific guidance. The copy to `~/.copilot/` is handled automatically by the `install_copilot_instructions` bootstrap task — no additional setup is needed.
 
 ## Organization-Level Custom Scripts
 

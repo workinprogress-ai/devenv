@@ -750,6 +750,21 @@ configure_git() {
     add_git_safe_directory "$toolbox_root"
 }
 
+# Copy Copilot instructions to ~/.copilot/copilot-instructions.md
+install_copilot_instructions() {
+    echo "# Install Copilot instructions"
+    echo "#############################################"
+    local src="$toolbox_root/.github/copilot-instructions.md"
+    local dest="$HOME/.copilot/copilot-instructions.md"
+    if [ -f "$src" ]; then
+        mkdir -p "$HOME/.copilot"
+        cp "$src" "$dest"
+        echo "Copilot instructions copied to $dest"
+    else
+        echo "WARNING: .github/copilot-instructions.md not found, skipping"
+    fi
+}
+
 # Ensure required directories exist and configure system settings
 ensure_directories_and_settings() {
     echo "# Other configuration"
@@ -894,6 +909,7 @@ run_tasks() {
         configure_dotnet_tools
         install_node_packages
         configure_git
+        install_copilot_instructions
         ensure_directories_and_settings
         install_repo_dependencies
         configure_nuget_sources

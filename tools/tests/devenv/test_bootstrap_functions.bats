@@ -195,3 +195,67 @@ EOF
   run bash -c "grep -A45 'local default_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep 'install_yq'"
   [ "$status" -eq 0 ]
 }
+
+@test "bootstrap.bash defines install_copilot_instructions function" {
+  run grep "^install_copilot_instructions()" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "install_copilot_instructions copies to ~/.copilot/copilot-instructions.md" {
+  run grep "copilot-instructions.md" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ ".copilot/copilot-instructions.md" ]]
+}
+
+@test "install_copilot_instructions is included in default task list" {
+  run bash -c "grep -A50 'local default_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep 'install_copilot_instructions'"
+  [ "$status" -eq 0 ]
+}
+
+@test "install_copilot_instructions copies file when source exists" {
+  local src_dir="$TEST_TEMP_DIR/.github"
+  local dest_dir="$TEST_TEMP_DIR/home/.copilot"
+  mkdir -p "$src_dir"
+  echo "# test instructions" > "$src_dir/copilot-instructions.md"
+
+  cat > "$TEST_TEMP_DIR/test_install_copilot.sh" << EOF
+#!/bin/bash
+toolbox_root="$TEST_TEMP_DIR"
+HOME="$TEST_TEMP_DIR/home"
+src="\$toolbox_root/.github/copilot-instructions.md"
+dest="\$HOME/.copilot/copilot-instructions.md"
+if [ -f "\$src" ]; then
+  mkdir -p "\$HOME/.copilot"
+  cp "\$src" "\$dest"
+  echo "copied"
+else
+  echo "skipped"
+fi
+EOF
+  chmod +x "$TEST_TEMP_DIR/test_install_copilot.sh"
+  run "$TEST_TEMP_DIR/test_install_copilot.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "copied" ]]
+  [ -f "$dest_dir/copilot-instructions.md" ]
+}
+
+@test "install_copilot_instructions skips gracefully when source missing" {
+  cat > "$TEST_TEMP_DIR/test_install_copilot_missing.sh" << EOF
+#!/bin/bash
+toolbox_root="$TEST_TEMP_DIR/no-such-dir"
+HOME="$TEST_TEMP_DIR/home2"
+src="\$toolbox_root/.github/copilot-instructions.md"
+dest="\$HOME/.copilot/copilot-instructions.md"
+if [ -f "\$src" ]; then
+  mkdir -p "\$HOME/.copilot"
+  cp "\$src" "\$dest"
+  echo "copied"
+else
+  echo "skipped"
+fi
+EOF
+  chmod +x "$TEST_TEMP_DIR/test_install_copilot_missing.sh"
+  run "$TEST_TEMP_DIR/test_install_copilot_missing.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "skipped" ]]
+}
