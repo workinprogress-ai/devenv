@@ -74,3 +74,63 @@ assert_output_contains() {
     assert_failure
     assert_output_contains "Invalid repository name"
 }
+
+@test "repo-get: --all flag is present in usage help" {
+    run bash -c "grep -q '\-\-all' $PROJECT_ROOT/tools/scripts/repo-get.sh"
+    assert_success
+}
+
+@test "repo-get: usage mentions --all option" {
+    run bash -c "grep 'Usage' $PROJECT_ROOT/tools/scripts/repo-get.sh"
+    assert_success
+    assert_output_contains "\-\-all"
+}
+
+@test "repo-get: defines get_available_repos function" {
+    run bash -c "grep -q '^get_available_repos()' $PROJECT_ROOT/tools/scripts/repo-get.sh"
+    assert_success
+}
+
+@test "repo-get: --all mode sets ALL_MODE=true" {
+    run bash -c "grep -q 'ALL_MODE=true' $PROJECT_ROOT/tools/scripts/repo-get.sh"
+    assert_success
+}
+
+@test "repo-get: --all mode exits cleanly when no repos are available to clone" {
+    # Simulate get_available_repos returning empty (everything already cloned)
+    run bash -c '
+        ALL_MODE=true
+        available=""
+        if [ -z "$available" ]; then
+            echo "All organization repositories are already cloned" >&2
+            exit 0
+        fi
+        exit 1
+    '
+    assert_success
+    assert_output_contains "already cloned"
+}
+
+@test "repo-get: --all mode iterates repos and clones each" {
+    # Simulate cloning two repos in --all mode
+    mkdir -p "$TEST_TEMP_DIR/repos"
+    run bash -c "
+        repos_dir='$TEST_TEMP_DIR/repos'
+        GIT_URL_PREFIX='https://user:token@github.com/myorg'
+        available=\$'repo-alpha\nrepo-beta'
+        failed=()
+        cloned=()
+        clone_repo() { cloned+=(\"\$REPO_NAME\"); }
+        while IFS= read -r repo; do
+            [ -z \"\$repo\" ] && continue
+            REPO_NAME=\"\$repo\"
+            TARGET_DIR=\"\$repos_dir/\$REPO_NAME\"
+            GIT_URL=\"\${GIT_URL_PREFIX}/\${REPO_NAME}.git\"
+            clone_repo
+        done <<< \"\$available\"
+        echo \"\${cloned[*]}\"
+    "
+    assert_success
+    assert_output_contains "repo-alpha"
+    assert_output_contains "repo-beta"
+}

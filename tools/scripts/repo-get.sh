@@ -3,6 +3,7 @@
 # Usage: 
 #   repo-get.sh <repository-name>          # Clone/update specific repo
 #   repo-get.sh --select                   # Interactive selection from available repos
+#   repo-get.sh --all                      # Clone all repos not yet present locally
 #   repo-get.sh                             # Update current repo (git context)
 set -euo pipefail
 
@@ -14,8 +15,9 @@ source "$DEVENV_TOOLS/lib/fzf-selection.bash"
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 
 usage() {
-  echo "Usage: $(basename "$0") [--select] [<repository-name>]" >&2
+  echo "Usage: $(basename "$0") [--select|--all] [<repository-name>]" >&2
   echo "  --select: Show a selection list of repositories in the organization (excludes already cloned repos)" >&2
+  echo "  --all: Clone all repositories in the organization not already present locally" >&2
   echo "  repository-name: Name of the GitHub repository (alphanumeric, hyphens, and dots)" >&2
 }
 
@@ -62,10 +64,31 @@ select_repo_interactive() {
     echo "$selected"
 }
 
+# Function to get all repos not yet cloned locally
+get_available_repos() {
+    local org_repos
+    local local_repos
+    local available_repos
+
+    org_repos=$(list_organization_repositories "$GH_ORG" 1000) || {
+        echo "ERROR: Failed to list organization repositories" >&2
+        exit 1
+    }
+
+    local_repos=$(list_local_repositories "$repos_dir")
+    available_repos=$(filter_available_repositories "$org_repos" "$local_repos")
+
+    echo "$available_repos"
+}
+
 # Parse options
 SELECT_MODE=false
+ALL_MODE=false
 if [ "${1:-}" = "--select" ]; then
     SELECT_MODE=true
+    shift
+elif [ "${1:-}" = "--all" ]; then
+    ALL_MODE=true
     shift
 elif [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
     usage
@@ -75,6 +98,8 @@ fi
 # Validate repo arg or infer from current git repo
 if [ "$SELECT_MODE" = true ]; then
     REPO_NAME=$(select_repo_interactive)
+elif [ "$ALL_MODE" = true ]; then
+    REPO_NAME=""
 elif [ -z "${1:-}" ]; then
     REPO_NAME=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" || echo "")
     if [ -z "$REPO_NAME" ]; then
@@ -161,6 +186,36 @@ clone_repo() {
 
     cd - &>/dev/null
 }
+
+if [ "$ALL_MODE" = true ]; then
+    available=$(get_available_repos)
+    if [ -z "$available" ]; then
+        echo "All organization repositories are already cloned in $repos_dir" >&2
+        exit 0
+    fi
+
+    failed=()
+    while IFS= read -r repo; do
+        [ -z "$repo" ] && continue
+        REPO_NAME="$repo"
+        TARGET_DIR="$repos_dir/$REPO_NAME"
+        GIT_URL="${GIT_URL_PREFIX}/${REPO_NAME}.git"
+        echo "==> Cloning $REPO_NAME..." >&2
+        if ! clone_repo; then
+            echo "WARNING: Failed to clone $REPO_NAME" >&2
+            failed+=("$REPO_NAME")
+        fi
+    done <<< "$available"
+
+    if [ ${#failed[@]} -gt 0 ]; then
+        echo "WARNING: The following repositories could not be cloned:" >&2
+        for r in "${failed[@]}"; do echo "  $r" >&2; done
+        exit 1
+    fi
+
+    echo "All available repositories cloned successfully." >&2
+    exit 0
+fi
 
 if [ -d "$TARGET_DIR" ]; then
     update_existing_repo
