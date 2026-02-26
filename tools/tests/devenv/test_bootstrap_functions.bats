@@ -259,3 +259,57 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" =~ "skipped" ]]
 }
+
+# Idempotency tests
+
+@test "install_dotnet uses ln -sf to allow re-running safely" {
+  run grep "ln -sf.*dotnet" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "install_dotnet skips download when dotnet already installed" {
+  run grep "command -v dotnet" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "install_dotnet installs dotnet-format only when not already present" {
+  run grep "dotnet-format.*tool install\|tool install.*dotnet-format" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+  # Ensure install is guarded by a list check, not unconditional
+  run bash -c "grep -A1 'dotnet-format' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep -q 'tool list\|grep'"
+  [ "$status" -eq 0 ]
+}
+
+@test "configure_dotnet_tools guards reportgenerator install with list check" {
+  run bash -c "grep 'tool list.*reportgenerator\|reportgenerator.*tool list' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'"
+  [ "$status" -eq 0 ]
+}
+
+@test "configure_dotnet_tools guards dotnet-outdated install with list check" {
+  run bash -c "grep 'tool list.*dotnet-outdated\|dotnet-outdated.*tool list' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'"
+  [ "$status" -eq 0 ]
+}
+
+@test "ensure_directories_and_settings guards sysctl.conf append to prevent duplicates" {
+  run grep "grep.*sysctl.conf\|sysctl.conf.*grep" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "init_bootstrap_run_time uses rm -f to avoid failure when file missing" {
+  run bash -c "grep 'rm -f.*repo_bootstrap_run_file\|rm -f.*bootstrap_run' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'"
+  [ "$status" -eq 0 ]
+}
+
+@test "install_or_configure_nvm checks NVM directory not command -v nvm" {
+  # Should check for nvm.sh file presence, not 'command -v nvm' (which fails in non-interactive shells)
+  run bash -c "grep -E 'NVM_DIR.*nvm\.sh|nvm\.sh.*NVM_DIR' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep -v 'source\|\\\\.\|#\|echo\|EOF' | head -5"
+  [ "$status" -eq 0 ]
+  run bash -c "grep '! -f.*nvm.sh\|-f.*NVM_DIR.*nvm.sh' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'"
+  [ "$status" -eq 0 ]
+}
+
+@test "install_or_configure_nvm does not use command -v nvm as its primary check" {
+  # The old check 'command -v nvm' doesn't work in non-interactive shells; should use directory check
+  run bash -c "grep -v '#' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep 'command -v nvm'"
+  [ "$status" -ne 0 ]
+}

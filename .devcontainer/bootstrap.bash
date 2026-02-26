@@ -247,15 +247,20 @@ install_dotnet() {
     echo "# Install .NET"
     echo "#############################################"
 
-    wget https://dot.net/v1/dotnet-install.sh
-    chmod +x ./dotnet-install.sh
-    sudo ./dotnet-install.sh -c 8.0 -i /usr/share/dotnet
-    sudo ./dotnet-install.sh -c 9.0 -i /usr/share/dotnet
-    sudo ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
-    rm dotnet-install.sh
+    if ! command -v dotnet >/dev/null 2>&1; then
+        wget https://dot.net/v1/dotnet-install.sh
+        chmod +x ./dotnet-install.sh
+        sudo ./dotnet-install.sh -c 8.0 -i /usr/share/dotnet
+        sudo ./dotnet-install.sh -c 9.0 -i /usr/share/dotnet
+        sudo ln -sf /usr/share/dotnet/dotnet /usr/bin/dotnet
+        rm -f dotnet-install.sh
+    else
+        echo "dotnet already installed: $(dotnet --version)"
+    fi
+
     dotnet_cmd=/usr/bin/dotnet
     sudo $dotnet_cmd workload update
-    $dotnet_cmd tool install -g dotnet-format
+    $dotnet_cmd tool list -g | grep -q "dotnet-format" || $dotnet_cmd tool install -g dotnet-format
 }
 
 # Download container helper scripts
@@ -668,9 +673,9 @@ install_or_configure_nvm() {
     echo "# Install nvm"
     echo "#############################################"
 
-    if ! command -v nvm > /dev/null 2>&1; then
+    export NVM_DIR="/usr/local/share/nvm"
+    if [ ! -f "$NVM_DIR/nvm.sh" ]; then
         curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
-        export NVM_DIR="/usr/local/share/nvm"
 
         sudo mkdir -p $NVM_DIR
         sudo chown -R "$(whoami)":"$(whoami)" "$NVM_DIR"
@@ -715,8 +720,8 @@ configure_dotnet_tools() {
     echo "# Configure .net"
     echo "#############################################"
 
-    $dotnet_cmd tool install -g dotnet-reportgenerator-globaltool
-    $dotnet_cmd tool install --global dotnet-outdated-tool
+    $dotnet_cmd tool list -g | grep -q "dotnet-reportgenerator" || $dotnet_cmd tool install -g dotnet-reportgenerator-globaltool
+    $dotnet_cmd tool list -g | grep -q "dotnet-outdated" || $dotnet_cmd tool install --global dotnet-outdated-tool
     sudo $dotnet_cmd dev-certs https
     sudo mkdir -p /usr/local/share/ca-certificates/aspnet
     sudo chmod 755 /usr/local/share/ca-certificates/aspnet
@@ -784,7 +789,9 @@ ensure_directories_and_settings() {
             echo "INFO: download-csharp-debugger.sh not found (optional)"
         fi
     fi
-    echo fs.inotify.max_user_instances=524288 | sudo tee -a /etc/sysctl.conf &>/dev/null
+    if ! grep -qF 'fs.inotify.max_user_instances=524288' /etc/sysctl.conf 2>/dev/null; then
+        echo fs.inotify.max_user_instances=524288 | sudo tee -a /etc/sysctl.conf &>/dev/null
+    fi
     sudo sysctl -p 2>/dev/null || echo "INFO: Some sysctl settings may not be applicable in container environment"
     sudo usermod -aG docker vscode
 }
@@ -859,7 +866,7 @@ cleanup_packages() {
 # Initialize bootstrap run time tracking
 init_bootstrap_run_time() {
     date +%s > $container_bootstrap_run_file
-    rm $repo_bootstrap_run_file
+    rm -f $repo_bootstrap_run_file
 }
 
 # Record bootstrap completion time
