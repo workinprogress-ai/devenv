@@ -12,7 +12,7 @@ cleanup() {
 trap cleanup EXIT
 
 target=${1:-$(pwd)}
-version=${2:-"$(repo-calc-version.sh)"}
+version=${2:-"$(repo-calc-version)"}
 release_config=${3:-"Debug"}
 
 # Find all .csproj files in the target directory and its subdirectories
