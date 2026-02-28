@@ -389,15 +389,13 @@ devenv-vscode-fix-sockets() {
     local fixed=0
     
     # Fix VS Code CLI socket - find newest socket that is actively listening
-    # (ss -lx is needed because stale socket *files* pass the -S test but have no listener)
-    local sock cli_socket=""
+    # Capture listening sockets once; stale socket *files* won't appear in ss output
+    local listening sock cli_socket=""
+    listening=$(ss -lxH 2>/dev/null | awk '{print $NF}')
     for sock in /tmp/vscode-ipc-*.sock; do
         [[ -S "$sock" ]] || continue
-        if ss -lx 2>/dev/null | grep -qF "$sock"; then
-            if [[ -z "$cli_socket" ]] || [[ "$sock" -nt "$cli_socket" ]]; then
-                cli_socket="$sock"
-            fi
-        fi
+        grep -qF "$sock" <<< "$listening" || continue
+        [[ -z "$cli_socket" || "$sock" -nt "$cli_socket" ]] && cli_socket="$sock"
     done
     if [[ -n "$cli_socket" ]]; then
         export VSCODE_IPC_HOOK_CLI="$cli_socket"
@@ -606,15 +604,13 @@ fi
 # This affects: code CLI, git credential helper, Dev Containers extension IPC
 __fix_vscode_ipc_sockets() {
     # Fix VS Code CLI socket (used by 'code' command)
-    # Use ss -lx to verify the socket is actively listening, not just present on disk
-    local sock newest_cli_socket=""
+    # Capture listening sockets once; stale socket *files* won't appear in ss output
+    local listening sock newest_cli_socket=""
+    listening=$(ss -lxH 2>/dev/null | awk '{print $NF}')
     for sock in /tmp/vscode-ipc-*.sock; do
         [[ -S "$sock" ]] || continue
-        if ss -lx 2>/dev/null | grep -qF "$sock"; then
-            if [[ -z "$newest_cli_socket" ]] || [[ "$sock" -nt "$newest_cli_socket" ]]; then
-                newest_cli_socket="$sock"
-            fi
-        fi
+        grep -qF "$sock" <<< "$listening" || continue
+        [[ -z "$newest_cli_socket" || "$sock" -nt "$newest_cli_socket" ]] && newest_cli_socket="$sock"
     done
     if [[ -n "$newest_cli_socket" ]]; then
         export VSCODE_IPC_HOOK_CLI="$newest_cli_socket"
@@ -644,14 +640,12 @@ __fix_vscode_ipc_sockets
 
 # VS Code CLI wrapper - ensures we always use the newest *listening* socket even in long-running terminals
 code() {
-    local sock newest_socket=""
+    local listening sock newest_socket=""
+    listening=$(ss -lxH 2>/dev/null | awk '{print $NF}')
     for sock in /tmp/vscode-ipc-*.sock; do
         [[ -S "$sock" ]] || continue
-        if ss -lx 2>/dev/null | grep -qF "$sock"; then
-            if [[ -z "$newest_socket" ]] || [[ "$sock" -nt "$newest_socket" ]]; then
-                newest_socket="$sock"
-            fi
-        fi
+        grep -qF "$sock" <<< "$listening" || continue
+        [[ -z "$newest_socket" || "$sock" -nt "$newest_socket" ]] && newest_socket="$sock"
     done
     if [[ -n "$newest_socket" ]]; then
         VSCODE_IPC_HOOK_CLI="$newest_socket" command code "$@"
