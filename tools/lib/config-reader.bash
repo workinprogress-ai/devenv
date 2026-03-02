@@ -3,6 +3,10 @@
 # Library for reading INI-style configuration files with environment variable expansion
 # Provides: config_read_value(), config_read_array(), config_validate_required()
 
+# Guard against multiple sourcing
+if [ -n "${_CONFIG_READER_LOADED:-}" ]; then return 0; fi
+_CONFIG_READER_LOADED=1
+
 # Initialize config reader
 # Usage: config_init <config_file_path>
 config_init() {
@@ -148,22 +152,6 @@ config_dump() {
         }
     ' "$CONFIG_FILE"
     
-    return 0
-}
-
-# Get configured issue types
-# Usage: config_get_issue_types
-# Returns: Array-friendly space-separated list of issue types
-config_get_issue_types() {
-    local issue_types
-    issue_types=$(config_read_array "workflows" "issue_types")
-    
-    if [[ -z "$issue_types" ]]; then
-        echo "ERROR: issue_types not configured in devenv.config [workflows] section" >&2
-        return 1
-    fi
-    
-    echo "$issue_types"
     return 0
 }
 

@@ -4,6 +4,10 @@
 # Provides a function to open files in the user's preferred editor,
 # preferring VS Code with blocking behavior and falling back gracefully.
 
+# Guard against multiple sourcing
+if [ -n "${_EDITOR_LOADED:-}" ]; then return 0; fi
+_EDITOR_LOADED=1
+
 open_in_editor() {
   local file="$1"
   # Preferred/fallback editor selection

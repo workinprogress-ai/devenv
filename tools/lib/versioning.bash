@@ -2,6 +2,10 @@
 # lib/versioning.bash - Script version management and compatibility checking
 # Version: 1.0.0
 
+# Guard against multiple sourcing
+if [ -n "${_VERSIONING_LOADED:-}" ]; then return 0; fi
+_VERSIONING_LOADED=1
+
 # Version comparison utilities for devenv scripts
 
 # Script version format: MAJOR.MINOR.PATCH

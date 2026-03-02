@@ -159,29 +159,9 @@ EOF
     [[ "$output" =~ "email_domain=test.example.com" ]]
 }
 
-@test "config-reader: config_get_issue_types fails when issue_types missing" {
-    cat > "$TEST_CONFIG_FILE" <<'EOF'
-[workflows]
-status_workflow=Backlog,Done
-EOF
-    run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $TEST_CONFIG_FILE && config_get_issue_types"
-    [ "$status" -ne 0 ]
-    [[ "$output" =~ "not configured" ]]
-}
-
-@test "config-reader: config_get_issue_types succeeds and returns types" {
-    create_test_config
-    run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $TEST_CONFIG_FILE && config_get_issue_types"
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ story ]]
-    [[ "$output" =~ bug ]]
-    [[ "$output" =~ enhancement ]]
-}
-
 @test "config-reader: config_get_status_workflow fails when status_workflow missing" {
     cat > "$TEST_CONFIG_FILE" <<'EOF'
 [workflows]
-issue_types=story,bug
 EOF
     run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $TEST_CONFIG_FILE && config_get_status_workflow"
     [ "$status" -ne 0 ]

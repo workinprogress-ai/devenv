@@ -14,6 +14,10 @@
 #   load_config
 #   install_os_packages_round1
 
+# Guard against multiple sourcing
+if [ -n "${_BOOTSTRAP_LOADED:-}" ]; then return 0; fi
+_BOOTSTRAP_LOADED=1
+
 # Error handler function
 on_error() {
   echo "An error occurred. Running cleanup."

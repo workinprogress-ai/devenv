@@ -3,8 +3,7 @@
 # Uses GitHub's native issue type field (Bug, Feature, Task)
 #
 # To get issue type IDs:
-# - CLI: gh api graphql -f query='query { organization(login: "YOUR_ORG") { issueTypes(first: 100) { edges { node { id name } } } } }' | jq .
-# - GitHub UI: Go to Organization Settings → Planning → Issue types, and when you edit a type, the ID is in the URL
+# - CLI: gh api graphql -f query="query { organization(login: \"$GH_ORG\") { issueTypes(first: 100) { edges { node { id name } } } } }" | jq .
 
 types:
   - name: Bug
@@ -18,3 +17,16 @@ types:
   - name: Task
     description: "A task or work item"
     id: "IT_kwDOCk-E0c4BWVJI"
+
+  - name: Epic
+    description: "A large body of work that can be broken down into smaller tasks"
+    id: "IT_kwDOCk-E0c4B4VUz"
+
+# Planning Configuration
+# Maps requirement document concepts to GitHub issue types.
+# Used when creating issues from a requirements document.
+planning:
+  type_mapping:
+    phases: Epic
+    features: Feature
+    tasks: Task

@@ -30,7 +30,7 @@ ISSUE_TYPES=()
 
 # Initialize issue types from config
 initialize_issue_types() {
-    load_issue_types_from_config "$DEVENV_ROOT/devenv.config"
+    load_issue_types_from_config "$DEVENV_TOOLS/config/issues-config.yml"
 }
 
 # Workflow states

@@ -84,6 +84,17 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
+@test "issue-create.sh supports --blocked-by flag" {
+  run grep -E "blocked-by|BLOCKED_BY" "$PROJECT_ROOT/tools/scripts/issue-create.sh"
+  [ "$status" -eq 0 ]
+}
+
+@test "issue-create.sh help documents --blocked-by" {
+  run bash "$PROJECT_ROOT/tools/scripts/issue-create.sh" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "blocked-by" ]]
+}
+
 @test "issue-list.sh supports filtering options" {
   run grep -E "\-\-state|\-\-label|\-\-assignee" "$PROJECT_ROOT/tools/scripts/issue-list.sh"
   [ "$status" -eq 0 ]

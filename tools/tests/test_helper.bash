@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Test helper functions
 
+# Guard against multiple sourcing
+if [ -n "${_TEST_HELPER_LOADED:-}" ]; then return 0; fi
+_TEST_HELPER_LOADED=1
+
 # Common setup for tests
 test_helper_setup() {
     # Create temporary test directory

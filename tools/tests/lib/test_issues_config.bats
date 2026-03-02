@@ -28,6 +28,12 @@ types:
   - name: Task
     description: "A task or work item"
     id: "IT_kwDOCk-E0c4BWVJI"
+
+planning:
+  type_mapping:
+    phases: Epic
+    features: Feature
+    tasks: Task
 EOF
 }
 
@@ -72,6 +78,11 @@ EOF
     [[ "$output" =~ "Bug" ]]
     [[ "$output" =~ "Feature" ]]
     [[ "$output" =~ "Task" ]]
+}
+
+@test "get_issue_types fails when config file missing" {
+    run bash -c "source $PROJECT_ROOT/tools/lib/issues-config.bash; get_issue_types /tmp/does-not-exist"
+    [ "$status" -ne 0 ]
 }
 
 @test "get_issue_type_description returns type description" {
@@ -136,6 +147,12 @@ EOF
     [[ ! "$output" =~ $'\n' ]]
 }
 
+@test "library guards against multiple sourcing" {
+    run bash -c "source $PROJECT_ROOT/tools/lib/issues-config.bash; source $PROJECT_ROOT/tools/lib/issues-config.bash; echo 'OK'"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "OK" ]]
+}
+
 @test "issues config functions work with env variable override" {
     local cfg="$TEST_TEMP_DIR/issues-config.yml"
     create_issues_config "$cfg"
@@ -143,12 +160,6 @@ EOF
     run bash -c "export ISSUES_CONFIG=$cfg; source $PROJECT_ROOT/tools/lib/issues-config.bash; get_issue_types"
     [ "$status" -eq 0 ]
     [[ "$output" =~ "Bug" ]]
-}
-
-@test "library guards against multiple sourcing" {
-    run bash -c "source $PROJECT_ROOT/tools/lib/issues-config.bash; source $PROJECT_ROOT/tools/lib/issues-config.bash; echo 'OK'"
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "OK" ]]
 }
 
 # =========================================================================
@@ -171,6 +182,62 @@ EOF
     export GH_STUB_RESPONSE="$response"
 }
 
+# =========================================================================
+# Planning type mapping tests
+# =========================================================================
+
+@test "get_planning_type_mapping returns Epic for phases" {
+    local cfg="$TEST_TEMP_DIR/issues-config.yml"
+    create_issues_config "$cfg"
+
+    run bash -c "source $PROJECT_ROOT/tools/lib/issues-config.bash; get_planning_type_mapping phases $cfg"
+    [ "$status" -eq 0 ]
+    [ "$output" = "Epic" ]
+}
+
+@test "get_planning_type_mapping returns Feature for features" {
+    local cfg="$TEST_TEMP_DIR/issues-config.yml"
+    create_issues_config "$cfg"
+
+    run bash -c "source $PROJECT_ROOT/tools/lib/issues-config.bash; get_planning_type_mapping features $cfg"
+    [ "$status" -eq 0 ]
+    [ "$output" = "Feature" ]
+}
+
+@test "get_planning_type_mapping returns Task for tasks" {
+    local cfg="$TEST_TEMP_DIR/issues-config.yml"
+    create_issues_config "$cfg"
+
+    run bash -c "source $PROJECT_ROOT/tools/lib/issues-config.bash; get_planning_type_mapping tasks $cfg"
+    [ "$status" -eq 0 ]
+    [ "$output" = "Task" ]
+}
+
+@test "get_planning_type_mapping fails for unknown concept" {
+    local cfg="$TEST_TEMP_DIR/issues-config.yml"
+    create_issues_config "$cfg"
+
+    run bash -c "source $PROJECT_ROOT/tools/lib/issues-config.bash; get_planning_type_mapping unknown_concept $cfg"
+    [ "$status" -ne 0 ]
+    [[ "$output" =~ "No planning type mapping found" ]]
+}
+
+@test "get_planning_type_mappings returns all mappings" {
+    local cfg="$TEST_TEMP_DIR/issues-config.yml"
+    create_issues_config "$cfg"
+
+    run bash -c "source $PROJECT_ROOT/tools/lib/issues-config.bash; get_planning_type_mappings $cfg"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "phases=Epic" ]]
+    [[ "$output" =~ "features=Feature" ]]
+    [[ "$output" =~ "tasks=Task" ]]
+}
+
+@test "get_planning_type_mapping fails when config file missing" {
+    run bash -c "source $PROJECT_ROOT/tools/lib/issues-config.bash; get_planning_type_mapping phases /tmp/does-not-exist"
+    [ "$status" -ne 0 ]
+}
+
 @test "fetch_org_issue_type_ids returns expected mapping" {
     create_mock_gh_issue_types
     run bash -c "export GH_ORG=test-org; source $PROJECT_ROOT/tools/lib/issues-config.bash; fetch_org_issue_type_ids"
@@ -179,4 +246,3 @@ EOF
     [[ "$output" =~ $'Feature\tIT_kwDOCk-E0c4BWVJK' ]]
     [[ "$output" =~ $'Task\tIT_kwDOCk-E0c4BWVJI' ]]
 }
-

@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # issues-config.bash - Helpers for GitHub issue type configuration
+#
+# All issue type data (names, descriptions, IDs) is read from
+# tools/config/issues-config.yml (the single source of truth).
 
 # Guard against multiple sourcing
 if [ -n "${_ISSUES_CONFIG_LIB_LOADED:-}" ]; then
@@ -99,6 +102,45 @@ get_issue_types_array() {
 }
 
 # ==========================================================================
+# Planning Configuration (requirements doc → issue type mapping)
+# ==========================================================================
+
+# Get the planning type mapping for a given concept (phases, features, tasks)
+# Usage: get_planning_type_mapping <concept> [config_path]
+# Returns: The issue type name mapped to the concept
+get_planning_type_mapping() {
+    local concept="$1"
+    local config_path
+    config_path=$(load_issues_config "${2:-}") || return 1
+    local value
+    value=$(yq eval ".planning.type_mapping.$concept // \"\"" "$config_path" 2>/dev/null) || return 1
+    if [ -z "$value" ]; then
+        echo "ERROR: No planning type mapping found for '$concept'" >&2
+        return 1
+    fi
+    echo "$value"
+}
+
+# Get all planning type mappings as key=value lines
+# Usage: get_planning_type_mappings [config_path]
+# Returns: newline-delimited "concept=IssueType" pairs
+get_planning_type_mappings() {
+    local config_path
+    config_path=$(load_issues_config "${1:-}") || return 1
+    local keys
+    keys=$(yq eval '.planning.type_mapping | keys | .[]' "$config_path" 2>/dev/null) || return 1
+    if [ -z "$keys" ]; then
+        echo "ERROR: No planning type mappings found" >&2
+        return 1
+    fi
+    while IFS= read -r key; do
+        local val
+        val=$(yq eval ".planning.type_mapping.$key" "$config_path" 2>/dev/null)
+        echo "$key=$val"
+    done <<< "$keys"
+}
+
+# ==========================================================================
 # Organization Issue Types Sync (uses GH_ORG)
 # ==========================================================================
 
@@ -140,3 +182,5 @@ export -f get_issue_type_id
 export -f validate_issue_type
 export -f get_issue_types_array
 export -f fetch_org_issue_type_ids
+export -f get_planning_type_mapping
+export -f get_planning_type_mappings

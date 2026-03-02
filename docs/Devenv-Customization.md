@@ -8,7 +8,7 @@ If you've forked this repository for your organization, this guide explains what
 - ✅ (Optional) Update `.github/copilot-instructions.md` with organization-specific AI coding guidelines
 - ✅ (Optional) Create `org-custom-bootstrap.sh` and `org-custom-startup.sh` for organization-wide customizations
 - ✅ (If you use repo creation tooling) Update `tools/config/repo-types.yaml` for naming, templates, branch protection, and post-creation scripts
-- ✅ (If you use issue creation tooling) Update `tools/config/issues-config.yml` to match your organization's GitHub issue types
+- ✅ (If you use issue creation tooling) Update `tools/config/issues-config.yml` with your organization's issue types and GitHub issue type IDs
 - ✅ Create/adjust template repos per type (recommended) so new repos start with CI, CODEOWNERS, and hooks
 
 ## Copilot Instructions
@@ -116,11 +116,9 @@ name=YourOrg Dev Environment
 ```ini
 [workflows]
 status_workflow=Backlog,Ready,In Progress,In review,Done
-issue_types=story,bug
 ```
 
 - **status_workflow**: Your issue flow, ordered
-- **issue_types**: Issue types used by your teams
 
 ### [bootstrap]
 
@@ -210,43 +208,11 @@ Your ruleset JSON file can use these tokens, which are replaced during applicati
 
 ## GitHub Issue Types Configuration (issue-create.sh)
 
-The `issue-create.sh` tool supports GitHub's native issue types (Bug, Feature, Task). To customize your organization's issue types:
-
-### Getting Your Organization's Issue Type IDs
-
-Before configuring `issues-config.yml`, get the issue type IDs from your GitHub organization using the CLI:
-
-```bash
-gh api graphql -f query='query { 
-  organization(login: "YOUR_ORG") { 
-    issueTypes(first: 100) { 
-      edges { 
-        node { 
-          id 
-          name 
-        } 
-      } 
-    } 
-  } 
-}' | jq '.data.organization.issueTypes.edges[] | {name: .node.name, id: .node.id}'
-```
-
-Example output:
-
-```json
-{
-  "name": "Bug",
-  "id": "IT_kwDOCk-E0c4BWVJJ"
-}
-{
-  "name": "Feature",
-  "id": "IT_kwDOCk-E0c4BWVJK"
-}
-```
+The `issue-create.sh` tool supports GitHub's native issue types. Issue types are configured in `tools/config/issues-config.yml`, which is the single source of truth for type names, descriptions, and GitHub API IDs.
 
 ### Configure Issue Types
 
-Edit `tools/config/issues-config.yml` to define your organization's issue types with their IDs:
+Edit `tools/config/issues-config.yml` to define your organization's issue types:
 
 ```yaml
 types:
@@ -263,15 +229,22 @@ types:
     id: "IT_kwDOCk-E0c4BWVJI"
 ```
 
-Each type must have:
+Each entry needs:
 
-- **name**: The issue type name (displayed in GitHub UI)
+- **name**: The issue type name (displayed in GitHub UI and used for validation)
 - **description**: Human-readable description for users selecting a type
 - **id**: GitHub organization-level issue type ID (required for setting types via API)
 
-### Syncing with GitHub Organization Settings
+### Getting Your Organization's Issue Type IDs
 
-Your `issues-config.yml` must include the issue type IDs from your GitHub organization. The issue types you define in GitHub's UI will appear as native types in your repositories' issue creation workflow.
+Get the IDs from your GitHub organization using the CLI:
+
+```bash
+gh api graphql -f query="query { organization(login: \"$GH_ORG\") { issueTypes(first: 100) { edges { node { id name } }
+ } } }" | jq .
+ ```
+
+### Syncing with GitHub Organization Settings
 
 To add or modify issue types in GitHub:
 
@@ -283,11 +256,12 @@ To add or modify issue types in GitHub:
    - **Edit** existing ones (name, icon, description)
    - **Disable/Delete** issue types you no longer need
 
-After making changes in GitHub, get the updated IDs using one of the methods above and update your `issues-config.yml` file. Keep your `issues-config.yml` synchronized with these settings so that `issue-create.sh` properly validates and applies them.
+After making changes in GitHub:
+
+1. Get the updated IDs using the CLI command above
+2. Update `tools/config/issues-config.yml` with the new types and IDs
 
 ### Example: Custom Issue Types
-
-If your organization uses different issue categories:
 
 ```yaml
 types:
@@ -309,6 +283,24 @@ types:
 ```
 
 Note: Replace the `id` values with your actual organization's issue type IDs from GitHub.
+
+### Planning Type Mapping
+
+The `planning` section in `issues-config.yml` maps concepts from a requirements document to GitHub issue types. This is used when creating issues from a requirements document to determine which issue type to assign for each level of the document hierarchy.
+
+```yaml
+planning:
+  type_mapping:
+    phases: Epic
+    features: Feature
+    tasks: Task
+```
+
+Each key under `type_mapping` corresponds to a concept in a requirements document:
+
+- **phases**: High-level project phases, mapped to an issue type (default: `Epic`)
+- **features**: Feature-level items, mapped to an issue type (default: `Feature`)
+- **tasks**: Individual work items, mapped to an issue type (default: `Task`)
 
 ### Example configuration
 
@@ -388,7 +380,6 @@ name=Acme Dev Environment
 
 [workflows]
 status_workflow=Backlog,In Progress,Done
-issue_types=story,bug
 ```
 
 ### Enterprise Organization
@@ -404,7 +395,6 @@ name=Mega Corp Development Environment
 
 [workflows]
 status_workflow=Backlog,Ready,In Progress,In review,Testing,Done
-issue_types=story,bug
 ```
 
 ## What You Should NOT Change (unless you want to maintain your fork)

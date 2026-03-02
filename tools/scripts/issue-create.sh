@@ -32,6 +32,7 @@ ISSUE_ASSIGNEES=()
 ISSUE_MILESTONE=""
 ISSUE_PROJECT=""
 PARENT_ISSUE=""
+BLOCKED_BY_ISSUES=()
 TEMPLATE_FILE=""
 USE_TEMPLATE=1  # Default to using templates
 USE_EDITOR=1    # Default to opening editor
@@ -69,6 +70,7 @@ Optional:
     -m, --milestone NAME        Assign to milestone
     -p, --project NAME          Add to project (name or number)
     --parent ISSUE_NUM          Link to parent issue (for stories/bugs under epics)
+    --blocked-by ISSUE_NUM      Mark as blocked by prerequisite issue (repeatable)
     --template FILE             Use specific template file (opens in editor)
     --no-template               Skip template selection and don't use any template
     --no-interactive            Use template without opening editor (requires --template)
@@ -100,6 +102,12 @@ Examples:
 
     # Create story under an epic
     $SCRIPT_NAME --parent 123 --project "Q1 2026" --milestone "Sprint 5"
+
+    # Create issue blocked by a prerequisite
+    $SCRIPT_NAME --title "Add OAuth" --type Feature --blocked-by 42
+
+    # Multiple prerequisites
+    $SCRIPT_NAME --title "Deploy v2" --type Task --blocked-by 42 --blocked-by 55
 
 EOF
     exit 0
@@ -300,7 +308,15 @@ build_body() {
     if [ -n "$PARENT_ISSUE" ]; then
         body="Part of #${PARENT_ISSUE}\n\n"
     fi
-    
+
+    # Add blocked-by references if specified
+    if [ ${#BLOCKED_BY_ISSUES[@]} -gt 0 ]; then
+        for blocker in "${BLOCKED_BY_ISSUES[@]}"; do
+            body+="Blocked by #${blocker}\n"
+        done
+        body+="\n"
+    fi
+
     # Add main body content
     body+="$ISSUE_BODY"
     
@@ -390,10 +406,22 @@ create_issue() {
         if [ -n "${GITHUB_ORG:-}" ]; then
             owner="$GITHUB_ORG"
         else
-            owner=$(gh repo view "${repo_spec[@]}" --json owner -q .owner.login)
+            owner="$repo_owner"
         fi
         
-        if gh project item-add "$ISSUE_PROJECT" --owner "$owner" --url "$issue_url" &> /dev/null; then
+        # Resolve project name to number if not already a number
+        local project_number="$ISSUE_PROJECT"
+        if ! [[ "$project_number" =~ ^[0-9]+$ ]]; then
+            project_number=$(gh project list --owner "$owner" --format json --jq ".projects[] | select(.title == \"$ISSUE_PROJECT\") | .number" 2>/dev/null | head -1)
+            if [ -z "$project_number" ]; then
+                log_warn "Could not find project: $ISSUE_PROJECT"
+                echo "$issue_url"
+                return 0
+            fi
+            log_verbose "Resolved project '$ISSUE_PROJECT' to number $project_number"
+        fi
+        
+        if gh project item-add "$project_number" --owner "$owner" --url "$issue_url" &> /dev/null; then
             log_info "Added to project: $ISSUE_PROJECT"
         else
             log_warn "Could not add to project: $ISSUE_PROJECT (project may not exist or you may lack permissions)"
@@ -483,6 +511,10 @@ main() {
                 ;;
             --parent)
                 PARENT_ISSUE="$2"
+                shift 2
+                ;;
+            --blocked-by)
+                BLOCKED_BY_ISSUES+=("$2")
                 shift 2
                 ;;
             --template)

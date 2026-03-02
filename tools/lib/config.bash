@@ -2,6 +2,10 @@
 # config.bash - Centralized configuration management for the dev environment
 # Provides consistent configuration loading, validation, and documentation
 
+# Guard against multiple sourcing
+if [ -n "${_CONFIG_LOADED:-}" ]; then return 0; fi
+_CONFIG_LOADED=1
+
 # Version of the configuration system
 readonly CONFIG_VERSION="1.0.0"
 

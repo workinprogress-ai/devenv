@@ -51,11 +51,10 @@ EOF
     [[ "$output" =~ Done ]]
 }
 
-@test "devenv.config: workflows section has issue_types" {
-    run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $PROJECT_ROOT/devenv.config && config_read_array workflows issue_types"
+@test "issues-config.yml: has issue types defined" {
+    run bash -c "source $PROJECT_ROOT/tools/lib/issues-config.bash && get_issue_types $PROJECT_ROOT/tools/config/issues-config.yml"
     [ "$status" -eq 0 ]
-    [[ "$output" =~ story ]]
-    [[ "$output" =~ bug ]]
+    [[ "$output" =~ Bug ]]
 }
 
 @test "config-reader.bash: library exists" {
