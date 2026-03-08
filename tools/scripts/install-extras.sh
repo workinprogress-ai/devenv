@@ -41,8 +41,9 @@ mapfile -t FILES < <(find "$EXTRAS_DIR" -maxdepth 1 -type f \( -name '*.sh' -o -
 MENU_ITEMS=""
 for f in "${FILES[@]}"; do
   name="$(basename "$f")"
-  MENU_ITEMS+=$(printf "%s\t%s\n" "$name" "$f")
+  MENU_ITEMS+="$(printf '%s\t%s' "$name" "$f")"$'\n'
 done
+MENU_ITEMS="${MENU_ITEMS%$'\n'}"
 
 # Preview command: prefers bat if present
 if command -v bat >/dev/null 2>&1; then
