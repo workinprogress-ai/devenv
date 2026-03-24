@@ -17,7 +17,7 @@ scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"; scriptfile="$0"; 
 source "$(dirname "${BASH_SOURCE[0]}")/bootstrap.bash"
 
 # Defaults for common tool versions (override via env as needed)
-PNPM_VERSION=${PNPM_VERSION:-8.7.1}
+PNPM_VERSION=${PNPM_VERSION:-10.32.1}
 NODE_VERSION=${NODE_VERSION:-20}
 
 # Run bootstrap tasks (all default tasks or specific tasks passed as arguments)
