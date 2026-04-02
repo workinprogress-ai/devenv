@@ -319,6 +319,44 @@ merge_pr_squash() {
     gh pr merge "${repo_args[@]}" "$pr_num" --squash --delete-branch --body "$commit_msg" 2>&1
 }
 
+# Merge PR with a specified method (squash, merge, or rebase)
+# Args: $1 - PR number
+# Args: $2 - commit message
+# Args: $3 - merge method (squash, merge, rebase)
+# Args: $4 - optional repo spec
+# Args: $5 - optional "true" to force merge with --admin (bypass checks)
+# Returns: 0 on success, 1 on failure
+merge_pr() {
+    local pr_num="${1:-}"
+    local commit_msg="${2:-}"
+    local method="${3:-squash}"
+    local repo_spec="${4:-}"
+    local force="${5:-false}"
+    
+    # shellcheck disable=SC2015
+    [ -n "$pr_num" ] && [ -n "$commit_msg" ] || { log_error "PR number and commit message required"; return 1; }
+    
+    case "$method" in
+        squash|merge|rebase) ;;
+        *) log_error "Invalid merge method: $method (must be squash, merge, or rebase)"; return 1 ;;
+    esac
+    
+    local repo_args=()
+    if [ -n "$repo_spec" ]; then
+        read -ra repo_args <<< "$repo_spec"
+    fi
+    
+    local merge_args=("${repo_args[@]}" "$pr_num" --"$method" --delete-branch --body "$commit_msg")
+    if [ "$force" = "true" ]; then
+        merge_args+=(--admin)
+        log_info "Merging PR $pr_num with $method (--admin)..."
+    else
+        log_info "Merging PR $pr_num with $method..."
+    fi
+    
+    gh pr merge "${merge_args[@]}" 2>&1
+}
+
 # ============================================================================
 # Git Configuration Functions (from git-config.bash)
 # ============================================================================
@@ -574,6 +612,7 @@ export -f validate_conventional_commits
 export -f validate_git_context
 export -f build_merge_commit_message
 export -f merge_pr_squash
+export -f merge_pr
 export -f configure_git_repo
 export -f configure_git_global
 export -f add_git_safe_directory

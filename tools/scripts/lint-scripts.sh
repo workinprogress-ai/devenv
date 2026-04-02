@@ -109,6 +109,7 @@ find_shell_scripts() {
         ! -path "*/.debug/*" \
         ! -path "*/playground/*" \
         ! -path "*/repos/*" \
+        ! -path "*/tools/cache/*" \
         2>/dev/null | sort
 }
 

@@ -1334,6 +1334,118 @@ service:
 
 **Related:** See [repo-create](#repo-create) for initial repository creation details, and [Repo Creation Standards (repo-create.sh)](./Devenv-Customization.md#repo-creation-standards-repo-createsh) in the Devenv-Customization docs for configuration options.
 
+## Shared Libraries
+
+Reusable bash libraries located in `tools/lib/` that provide common functionality for scripts and other tools. These are sourced (not executed) and include guards to prevent double-loading.
+
+### `repo-cache.bash`
+
+Maintains shallow clones of all organization repositories in a local cache directory for use by cross-repo analysis tools.
+
+**Provided function:**
+
+#### `refresh_repo_cache [filter]`
+
+Clones or updates all organization repositories into `$DEVENV_TOOLS/cache/repo_cache` using minimal shallow clones.
+
+**Arguments:**
+
+- `filter` (optional): A grep-compatible pattern to filter repository names
+
+**Return codes:**
+
+- `0`: All repositories cached successfully
+- `1`: Complete failure (no repos found, missing credentials, or all clones failed)
+- `2`: Partial failure (some repos failed, others succeeded)
+
+**Behaviour:**
+
+- New repos are cloned with `--depth 1 --single-branch --no-tags`
+- Existing repos are updated with `fetch --depth 1` + `reset --hard` + `gc --prune=all`
+- Writes a `.cache_timestamp` file (ISO timestamp + content hash) for staleness detection by downstream tools
+- Outputs the cache directory path on success
+
+**Required environment variables:** `GH_ORG`, `GH_USER`, `GH_TOKEN`
+
+**Example:**
+
+```bash
+source "$DEVENV_TOOLS/lib/repo-cache.bash"
+
+# Cache all org repos
+refresh_repo_cache
+
+# Cache only service repos
+refresh_repo_cache "^service\."
+```
+
+### `cs-dependency-graph.bash`
+
+Builds and queries a reverse dependency graph across all cached C# organization repositories. Scans `.csproj` files to map NuGet package production and consumption relationships between repos.
+
+**Configuration:**
+
+- `CS_DEP_ORG_PREFIX` (default: `WorkInProgress.`): Only packages matching this prefix are considered org-internal
+- `REPO_CACHE_DIR`: Inherited from `repo-cache.bash`
+- `CS_DEP_INDEX_DIR`: Index storage location (default: `$REPO_CACHE_DIR/.index`)
+
+**Provided functions:**
+
+#### `is_index_stale`
+
+Checks whether the dependency index needs rebuilding by comparing `.cache_timestamp` against `.index_timestamp`.
+
+**Return codes:** `0` = stale (rebuild needed), `1` = fresh
+
+#### `build_dependency_index`
+
+Scans all cached repos' `src/**/*.csproj` files (skipping `test/` and `tests/` directories) and produces three TSV index files:
+
+- `package_to_repo.tsv` — Maps each package name to its producing repo
+- `repo_packages.tsv` — Lists all packages each repo publishes
+- `repo_dependencies.tsv` — Lists org-internal package references per repo (excludes self-references and third-party packages)
+
+#### `ensure_dependency_index`
+
+Convenience wrapper: calls `build_dependency_index` only when `is_index_stale` indicates the index is outdated.
+
+#### `list_repo_packages "repo-name"`
+
+Returns the list of NuGet packages produced by a repository (one per line).
+
+#### `list_repo_dependencies "repo-name"`
+
+Returns the list of org-internal packages consumed by a repository (one per line).
+
+#### `get_reverse_dependency_tree "repo-name-or-path"`
+
+Performs a breadth-first traversal to find all repos that depend on the given repo, directly or transitively.
+
+**Output format:** TSV with four columns:
+
+| Column | Description |
+|--------|-------------|
+| DEPTH | Distance from root (0 = direct dependent) |
+| REPO | Name of the dependent repository |
+| PACKAGE_REF | The specific package being consumed |
+| PATH | Full dependency chain (`>` delimited) |
+
+**Example:**
+
+```bash
+source "$DEVENV_TOOLS/lib/cs-dependency-graph.bash"
+
+# Ensure cache and index are current
+refresh_repo_cache
+ensure_dependency_index
+
+# Show what depends on the essentials library
+get_reverse_dependency_tree "lib.cs.common.essentials"
+
+# Filter to direct dependents only
+get_reverse_dependency_tree "lib.cs.common.essentials" | awk -F'\t' '$1 == 0'
+```
+
 ## Bash Functions and Aliases
 
 The following convenience aliases are available in the dev container:
