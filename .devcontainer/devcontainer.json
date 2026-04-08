@@ -101,6 +101,8 @@
                 "gurayyarar.dummytextgenerator",
 				"davidanson.vscode-markdownlint",
 				
+				"pkief.material-icon-theme",
+
 				"github.copilot",
 				"github.copilot-chat",
 				"github.vscode-pull-request-github",
