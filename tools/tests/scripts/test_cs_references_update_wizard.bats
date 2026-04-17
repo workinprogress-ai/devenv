@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for scripts/cs-update-single-repo-wizard.sh
+# Tests for scripts/cs-references-update-wizard.sh
 
 bats_require_minimum_version 1.5.0
 
@@ -34,12 +34,12 @@ CSPROJ
     export PATH="$TEST_TEMP_DIR/bin:$PATH"
     mkdir -p "$TEST_TEMP_DIR/bin"
 
-    # Mock cs-update-references (no-op by default — leaves files unchanged)
-    cat > "$TEST_TEMP_DIR/bin/cs-update-references" <<'EOF'
+    # Mock cs-references-update (no-op by default — leaves files unchanged)
+    cat > "$TEST_TEMP_DIR/bin/cs-references-update" <<'EOF'
 #!/usr/bin/env bash
 exit 0
 EOF
-    chmod +x "$TEST_TEMP_DIR/bin/cs-update-references"
+    chmod +x "$TEST_TEMP_DIR/bin/cs-references-update"
 
     # Mock pr-create-for-merge
     cat > "$TEST_TEMP_DIR/bin/pr-create-for-merge" <<'EOF'
@@ -65,50 +65,50 @@ teardown() {
 
 # ── Syntax and basic contract ──────────────────────────────────────────────
 
-@test "cs-update-single-repo-wizard.sh has valid bash syntax" {
-    run bash -n "$PROJECT_ROOT/tools/scripts/cs-update-single-repo-wizard.sh"
+@test "cs-references-update-wizard.sh has valid bash syntax" {
+    run bash -n "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh"
     [ "$status" -eq 0 ]
 }
 
-@test "cs-update-single-repo-wizard.sh shows usage with --help" {
-    run "$PROJECT_ROOT/tools/scripts/cs-update-single-repo-wizard.sh" --help
+@test "cs-references-update-wizard.sh shows usage with --help" {
+    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --help
     [ "$status" -eq 0 ]
     [[ "$output" =~ "Usage:" ]]
     [[ "$output" =~ "REPO_DIR" ]]
 }
 
-@test "cs-update-single-repo-wizard.sh shows version with --version" {
-    run "$PROJECT_ROOT/tools/scripts/cs-update-single-repo-wizard.sh" --version
+@test "cs-references-update-wizard.sh shows version with --version" {
+    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --version
     [ "$status" -eq 0 ]
     [[ "$output" =~ "1.0.0" ]]
 }
 
-@test "cs-update-single-repo-wizard.sh rejects unknown options" {
-    run "$PROJECT_ROOT/tools/scripts/cs-update-single-repo-wizard.sh" --unknown-flag
+@test "cs-references-update-wizard.sh rejects unknown options" {
+    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --unknown-flag
     [ "$status" -ne 0 ]
 }
 
-@test "cs-update-single-repo-wizard.sh rejects too many arguments" {
-    run "$PROJECT_ROOT/tools/scripts/cs-update-single-repo-wizard.sh" "$REPO_DIR" extra-arg
+@test "cs-references-update-wizard.sh rejects too many arguments" {
+    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" "$REPO_DIR" extra-arg
     [ "$status" -ne 0 ]
 }
 
-@test "cs-update-single-repo-wizard.sh fails on non-existent directory" {
-    run "$PROJECT_ROOT/tools/scripts/cs-update-single-repo-wizard.sh" /this/does/not/exist
+@test "cs-references-update-wizard.sh fails on non-existent directory" {
+    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" /this/does/not/exist
     [ "$status" -ne 0 ]
 }
 
 # ── Dry-run ────────────────────────────────────────────────────────────────
 
-@test "cs-update-single-repo-wizard.sh dry-run prints repo name and exits 0" {
-    run "$PROJECT_ROOT/tools/scripts/cs-update-single-repo-wizard.sh" --dry-run "$REPO_DIR"
+@test "cs-references-update-wizard.sh dry-run prints repo name and exits 0" {
+    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --dry-run "$REPO_DIR"
     [ "$status" -eq 0 ]
     [[ "$output" =~ "DRY RUN" ]]
     [[ "$output" =~ "test-repo" ]]
 }
 
-@test "cs-update-single-repo-wizard.sh dry-run does not modify git state" {
-    run "$PROJECT_ROOT/tools/scripts/cs-update-single-repo-wizard.sh" --dry-run "$REPO_DIR"
+@test "cs-references-update-wizard.sh dry-run does not modify git state" {
+    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --dry-run "$REPO_DIR"
     [ "$status" -eq 0 ]
     # Still on master, no extra branches
     run git -C "$REPO_DIR" branch
@@ -118,37 +118,37 @@ teardown() {
 
 # ── No-op when nothing changes (exit 10) ─────────────────────────────────
 
-@test "cs-update-single-repo-wizard.sh exits 10 when cs-update-references makes no changes" {
-    # cs-update-references mock does nothing → no diff → should exit 10
-    run "$PROJECT_ROOT/tools/scripts/cs-update-single-repo-wizard.sh" "$REPO_DIR"
+@test "cs-references-update-wizard.sh exits 10 when cs-references-update makes no changes" {
+    # cs-references-update mock does nothing → no diff → should exit 10
+    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" "$REPO_DIR"
     [ "$status" -eq 10 ]
 }
 
-@test "cs-update-single-repo-wizard.sh cleans up branch on no-op" {
-    run "$PROJECT_ROOT/tools/scripts/cs-update-single-repo-wizard.sh" "$REPO_DIR"
+@test "cs-references-update-wizard.sh cleans up branch on no-op" {
+    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" "$REPO_DIR"
     [ "$status" -eq 10 ]
     # Branch should have been deleted; master should be current
     run git -C "$REPO_DIR" branch
     [[ ! "$output" =~ "auto-update-dependencies" ]]
 }
 
-# ── cs-update-references failure (exit 21) ────────────────────────────────
+# ── cs-references-update failure (exit 21) ────────────────────────────────
 
-@test "cs-update-single-repo-wizard.sh exits 21 when cs-update-references fails" {
-    cat > "$TEST_TEMP_DIR/bin/cs-update-references" <<'EOF'
+@test "cs-references-update-wizard.sh exits 21 when cs-references-update fails" {
+    cat > "$TEST_TEMP_DIR/bin/cs-references-update" <<'EOF'
 #!/usr/bin/env bash
 exit 1
 EOF
-    run "$PROJECT_ROOT/tools/scripts/cs-update-single-repo-wizard.sh" "$REPO_DIR"
+    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" "$REPO_DIR"
     [ "$status" -eq 21 ]
 }
 
-@test "cs-update-single-repo-wizard.sh cleans up branch on cs-update-references failure" {
-    cat > "$TEST_TEMP_DIR/bin/cs-update-references" <<'EOF'
+@test "cs-references-update-wizard.sh cleans up branch on cs-references-update failure" {
+    cat > "$TEST_TEMP_DIR/bin/cs-references-update" <<'EOF'
 #!/usr/bin/env bash
 exit 1
 EOF
-    run "$PROJECT_ROOT/tools/scripts/cs-update-single-repo-wizard.sh" "$REPO_DIR"
+    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" "$REPO_DIR"
     [ "$status" -eq 21 ]
     run git -C "$REPO_DIR" branch
     [[ ! "$output" =~ "auto-update-dependencies" ]]
@@ -156,10 +156,10 @@ EOF
 
 # ── Custom branch name ─────────────────────────────────────────────────────
 
-@test "cs-update-single-repo-wizard.sh accepts custom --branch name" {
-    # Override cs-update-references to actually change a file so the script
+@test "cs-references-update-wizard.sh accepts custom --branch name" {
+    # Override cs-references-update to actually change a file so the script
     # progresses past the no-op check
-    cat > "$TEST_TEMP_DIR/bin/cs-update-references" <<'EOF'
+    cat > "$TEST_TEMP_DIR/bin/cs-references-update" <<'EOF'
 #!/usr/bin/env bash
 repo_dir="${1:-$PWD}"
 sed -i 's/Version="1\.0\.0"/Version="2.0.0"/' "$repo_dir/src/MyLib.csproj" 2>/dev/null || true
@@ -176,7 +176,7 @@ exec /usr/bin/git "$@"
 EOF
     chmod +x "$TEST_TEMP_DIR/bin/git"
 
-    run "$PROJECT_ROOT/tools/scripts/cs-update-single-repo-wizard.sh" --dry-run --branch custom-branch "$REPO_DIR"
+    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --dry-run --branch custom-branch "$REPO_DIR"
     [ "$status" -eq 0 ]
     [[ "$output" =~ "DRY RUN" ]]
 }
@@ -184,13 +184,13 @@ EOF
 # ── snapshot_versions / detect_major_bumps helpers (sourced) ──────────────
 
 @test "snapshot_versions finds PackageReference versions in src csprojs" {
-    source "$PROJECT_ROOT/tools/scripts/cs-update-single-repo-wizard.sh"
+    source "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh"
     result=$(snapshot_versions "$REPO_DIR")
     [[ "$result" =~ "WorkInProgress.Lib.Common 1.0.0" ]]
 }
 
 @test "detect_major_bumps detects a major version increase" {
-    source "$PROJECT_ROOT/tools/scripts/cs-update-single-repo-wizard.sh"
+    source "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh"
 
     local before_file after_file
     before_file=$(mktemp)
@@ -206,7 +206,7 @@ EOF
 }
 
 @test "detect_major_bumps does not flag a minor version increase" {
-    source "$PROJECT_ROOT/tools/scripts/cs-update-single-repo-wizard.sh"
+    source "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh"
 
     local before_file after_file
     before_file=$(mktemp)
@@ -222,7 +222,7 @@ EOF
 }
 
 @test "detect_major_bumps does not flag a patch version increase" {
-    source "$PROJECT_ROOT/tools/scripts/cs-update-single-repo-wizard.sh"
+    source "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh"
 
     local before_file after_file
     before_file=$(mktemp)

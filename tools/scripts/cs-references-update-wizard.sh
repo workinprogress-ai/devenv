@@ -1,8 +1,8 @@
 #!/bin/bash
-# cs-update-single-repo-wizard.sh - Update NuGet dependencies in a single repository
+# cs-references-update-wizard.sh - Update NuGet dependencies in a single repository
 # Version: 1.0.0
 # Description: Runs the full dependency-update workflow for one repository:
-#              creates a branch, runs cs-update-references, detects major version
+#              creates a branch, runs cs-references-update, detects major version
 #              bumps, runs tests, prompts on failures or breaking changes, and
 #              creates + merges a PR.
 # Requirements: Bash 4.0+, git, gh CLI, jq, dotnet, dotnet-outdated
@@ -19,11 +19,11 @@ readonly DEFAULT_UPDATE_BRANCH="auto-update-dependencies"
 
 # Script-specific exit codes (>= 10 to avoid conflicts with error-handling.bash globals)
 # shellcheck disable=SC2034
-readonly EXIT_NO_CHANGES=10      # No-op: nothing changed after cs-update-references
+readonly EXIT_NO_CHANGES=10      # No-op: nothing changed after cs-references-update
 # shellcheck disable=SC2034
 readonly EXIT_GIT_FAILED=20      # git operation failed (branch, commit, or push)
 # shellcheck disable=SC2034
-readonly EXIT_UPDATE_FAILED=21   # cs-update-references failed
+readonly EXIT_UPDATE_FAILED=21   # cs-references-update failed
 # shellcheck disable=SC2034
 readonly EXIT_TESTS_FAILED=30    # Tests still failing after user had a chance to fix
 # shellcheck disable=SC2034
@@ -53,7 +53,7 @@ Usage: $SCRIPT_NAME [OPTIONS] REPO_DIR
 
 Runs the full NuGet dependency-update workflow for a single repository:
   1. Create branch '$DEFAULT_UPDATE_BRANCH' (or the value of --branch)
-  2. Run cs-update-references to update all NuGet packages
+  2. Run cs-references-update to update all NuGet packages
   3. Detect major version bumps in non-test code (breaking changes)
   4. Run tests — pause for user if they fail
   5. Determine change level (patch: or major:)
@@ -75,9 +75,9 @@ Options:
 
 Exit codes:
     0    Repo was updated (PR created and merged)
-    10   No-op: nothing changed after running cs-update-references
+    10   No-op: nothing changed after running cs-references-update
     20   git operation failed (branch creation, commit, or push)
-    21   cs-update-references failed
+    21   cs-references-update failed
     30   Tests still failing after user had a chance to fix
     40   PR could not be created
     41   PR could not be merged
@@ -260,8 +260,8 @@ main() {
         # ── Step 3: Run dependency update ─────────────────────────────────
 
         log_info "Updating NuGet references in $repo_name..."
-        if ! cs-update-references "$repo_dir" 2>&1; then
-            log_error "cs-update-references failed for $repo_name"
+        if ! cs-references-update "$repo_dir" 2>&1; then
+            log_error "cs-references-update failed for $repo_name"
             rm -f "$before_file" "$after_file"
             git -C "$repo_dir" checkout -f master 2>/dev/null || true
             git -C "$repo_dir" branch -D "$update_branch" 2>/dev/null || true

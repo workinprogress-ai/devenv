@@ -966,14 +966,14 @@ cs-open-coverage
 
 Tools for tracing, updating, and propagating NuGet package changes across C# repositories.
 
-### `cs-dependency-trace`
+### `cs-dependencies-trace`
 
 Traces the reverse dependency tree for a C# repository — shows all repositories that depend on it, directly or transitively.
 
 **Usage:**
 
 ```bash
-cs-dependency-trace [OPTIONS] [TARGET_DIR]
+cs-dependencies-trace [OPTIONS] [TARGET_DIR]
 ```
 
 **Arguments:**
@@ -1006,20 +1006,20 @@ DEPTH:REPO
 ```bash
 # Show all dependents of the essentials library
 cd repos/lib.cs.common.essentials
-cs-dependency-trace
+cs-dependencies-trace
 
 # Show only direct dependents, collapsed by repo
-cs-dependency-trace --by-repo | grep '^0:'
+cs-dependencies-trace --by-repo | grep '^0:'
 ```
 
-### `cs-update-single-repo-wizard`
+### `cs-references-update-wizard`
 
 Runs the full NuGet dependency-update workflow for a **single** repository interactively. Useful for updating one repository without walking the entire dependency tree.
 
 **Usage:**
 
 ```bash
-cs-update-single-repo-wizard [OPTIONS] [REPO_DIR]
+cs-references-update-wizard [OPTIONS] [REPO_DIR]
 ```
 
 **Arguments:**
@@ -1038,9 +1038,9 @@ cs-update-single-repo-wizard [OPTIONS] [REPO_DIR]
 | Code | Meaning |
 |------|---------|
 | `0`  | Repository was updated (PR created and merged) |
-| `10` | No-op — nothing changed after running `cs-update-references` |
+| `10` | No-op — nothing changed after running `cs-references-update` |
 | `20` | git operation failed (branch creation, commit, or push) |
-| `21` | `cs-update-references` failed |
+| `21` | `cs-references-update` failed |
 | `30` | Tests still failing after user had a chance to fix |
 | `40` | PR could not be created |
 | `41` | PR could not be merged |
@@ -1049,7 +1049,7 @@ cs-update-single-repo-wizard [OPTIONS] [REPO_DIR]
 **Workflow:**
 
 1. Create branch (`auto-update-dependencies` by default)
-2. Run `cs-update-references` to update all NuGet packages
+2. Run `cs-references-update` to update all NuGet packages
 3. Detect major version bumps in non-test `.csproj` files
 4. If nothing changed, clean up and exit with code `2`
 5. Commit and push the branch
@@ -1063,61 +1063,93 @@ cs-update-single-repo-wizard [OPTIONS] [REPO_DIR]
 
 ```bash
 # Update a specific repository
-cs-update-single-repo-wizard ~/repos/lib.cs.services.chassis
+cs-references-update-wizard ~/repos/lib.cs.services.chassis
 
 # Dry run to see what would change
-cs-update-single-repo-wizard --dry-run
+cs-references-update-wizard --dry-run
 
 # Use a custom branch name
-cs-update-single-repo-wizard --branch deps/update-q2-2026
+cs-references-update-wizard --branch deps/update-q2-2026
 ```
 
-### `cs-dependency-update-wizard`
+### `cs-dependencies-update-wizard`
 
-Interactive wizard that walks the **reverse dependency tree** of a C# repository and updates each dependent repo's NuGet references — level by level. For each level it delegates the per-repo workflow to `cs-update-single-repo-wizard`, then pauses so the user can confirm GitHub Actions have completed before advancing to the next level.
+Interactive wizard that updates C# NuGet dependencies across repositories. Supports two modes:
+
+- **Single-target mode** (default): walks the reverse dependency tree of a specific library and updates every dependent repo in BFS order.
+- **Global mode** (`--global`): computes a full topological ordering of *all* C# repos in the cache and updates them generation by generation — from foundational libraries up through services. Every repo gets `cs-references-update` run against it, including external package updates.
 
 **Usage:**
 
 ```bash
-cs-dependency-update-wizard [OPTIONS] [TARGET_DIR]
+# Single-target mode
+cs-dependencies-update-wizard [OPTIONS] TARGET_DIR
+
+# Global mode
+cs-dependencies-update-wizard [OPTIONS] --global [N]
 ```
 
 **Arguments:**
 
-- `TARGET_DIR`: Path to the root repository (the one just released). Must contain `.sln` or `.csproj` files. Defaults to the current directory.
+- `TARGET_DIR` *(single-target)*: Path to the released library. Must contain `.sln` or `.csproj` files. Defaults to the current directory.
+- `N` *(global)*: Optional starting generation number (default: `0`). Use this to resume a run that was interrupted — pass the generation number shown in the output.
 
 **Options:**
 
+- `--global [N]`: Global mode — update all C# repos in topological order, optionally starting from generation `N`
 - `--no-refresh`: Skip refreshing the repository cache
 - `--dry-run`: Show what would be updated without making any changes
 - `-h, --help`: Show help and exit
 - `-v, --version`: Show version and exit
 
-**Workflow:**
+**Workflow (single-target):**
 
 For each depth level (0 = direct dependents, 1 = transitive dependents, …):
 
 1. Check whether each dependent repo already uses the latest published version — skip if so
-2. Call `cs-update-single-repo-wizard` to run the full update workflow for that repo
-3. After all repos at a depth level are processed, pause and ask the user to confirm that GitHub Actions have completed
-4. Refresh the repository cache and rebuild the dependency index
-5. Advance to the next depth level
+2. Call `cs-references-update-wizard` for each repo that needs updating
+3. If a repo fails, pause and prompt the user to fix it before continuing
+4. After the level is complete, wait for GitHub Actions, refresh the cache, and advance
+
+**Workflow (--global):**
+
+Generation 0 contains repos with no org-internal dependencies. Generation N contains repos whose org-internal dependencies are all in generations < N.
+
+For each generation:
+
+1. Run `cs-references-update-wizard` for every repo (exit 10 = no changes → skipped silently)
+2. If a repo fails, pause and prompt the user to fix it before continuing with the generation
+3. After the generation is complete, wait for GitHub Actions, refresh the cache, and advance
+
+**Resuming an interrupted global run:**
+
+The generation number is printed in the output header. To resume from where you left off:
+
+```bash
+cs-dependencies-update-wizard --global 3   # restart from generation 3
+```
 
 **Examples:**
 
 ```bash
-# Run after releasing lib.cs.common.essentials
+# Single-target: run after releasing lib.cs.common.essentials
 cd repos/lib.cs.common.essentials
-cs-dependency-update-wizard
+cs-dependencies-update-wizard
 
-# Dry run — show which repos would be updated at each level
-cs-dependency-update-wizard --dry-run
+# Global: update every C# repo from scratch
+cs-dependencies-update-wizard --global
+
+# Global: resume from generation 4 after a previous run was interrupted
+cs-dependencies-update-wizard --global 4
+
+# Dry run — show which repos would be updated at each generation
+cs-dependencies-update-wizard --global --dry-run
 
 # Skip initial cache refresh (useful when cache is already fresh)
-cs-dependency-update-wizard --no-refresh
+cs-dependencies-update-wizard --no-refresh
 ```
 
-**Related:** `cs-update-single-repo-wizard` (single-repo workflow), `cs-dependency-trace` (view the dependency tree without making changes)
+**Related:** `cs-references-update-wizard` (single-repo workflow), `cs-dependencies-trace` (view the dependency tree without making changes)
 
 ## Networking and Utilities
 

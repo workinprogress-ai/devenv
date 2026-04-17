@@ -1,5 +1,5 @@
 #!/bin/bash
-# cs-dependency-trace.sh - Trace reverse dependencies for a C# repository
+# cs-dependencies-trace.sh - Trace reverse dependencies for a C# repository
 # Version: 1.0.0
 # Description: Refreshes the repository cache, builds the dependency index,
 #              and outputs a flat TSV listing of all repositories that depend

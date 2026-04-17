@@ -432,3 +432,160 @@ get_reverse_dependency_tree() {
 
     return 0
 }
+
+# Build a global topological ordering of all C# repositories in the cache
+#
+# Computes dependency generations across ALL cached repositories using Kahn's
+# algorithm on the org-internal dependency graph. This is the basis for a
+# global "update everything" pass.
+#
+# Generation 0 contains repositories with no org-internal dependencies (i.e.,
+# foundational libraries and any repo that only uses external packages).
+# Generation N contains repositories whose org-internal dependencies all
+# belong to generations < N.
+#
+# NOTE: Repositories within the same generation are independent of each other
+# and could in theory be processed in parallel. The current callers process
+# them sequentially to keep interactive error-recovery simple.
+#
+# Output columns (tab-separated):
+#   GENERATION   — 0-based topological depth
+#   REPO         — repository name (basename of cache directory)
+#
+# Within each generation, repositories are sorted alphabetically.
+#
+# Usage:
+#   get_topological_generations
+#
+# Returns:
+#   0 on success (even if cache is empty), 1 on index error
+#   Outputs TSV lines on stdout
+#   Emits log_warn if a dependency cycle is detected
+#
+get_topological_generations() {
+    ensure_dependency_index || return 1
+
+    local pkg_to_repo="$CS_DEP_INDEX_DIR/package_to_repo.tsv"
+    local repo_pkgs="$CS_DEP_INDEX_DIR/repo_packages.tsv"
+    local repo_deps="$CS_DEP_INDEX_DIR/repo_dependencies.tsv"
+
+    for f in "$pkg_to_repo" "$repo_pkgs" "$repo_deps"; do
+        if [ ! -f "$f" ]; then
+            log_error "Index file not found: $f"
+            return 1
+        fi
+    done
+
+    # ── Step 1: Collect all C# repos present in the cache ─────────────────
+
+    declare -A all_repos=()
+    local repo_dir
+    for repo_dir in "$REPO_CACHE_DIR"/*/; do
+        [ -d "$repo_dir" ] || continue
+        local repo_name
+        repo_name=$(basename "$repo_dir")
+        [[ "$repo_name" == .* ]] && continue
+        # Only include repos that contain at least one .csproj file
+        local first_csproj
+        first_csproj=$(find "$repo_dir" -name "*.csproj" -print -quit 2>/dev/null)
+        if [ -n "$first_csproj" ]; then
+            all_repos["$repo_name"]=1
+        fi
+    done
+
+    if [ "${#all_repos[@]}" -eq 0 ]; then
+        return 0
+    fi
+
+    # ── Step 2: Build repo-level dependency edges ─────────────────────────
+
+    # pkg_owner[package] = repo that produces it
+    declare -A pkg_owner=()
+    while IFS=$'\t' read -r pkg repo; do
+        [ -z "$pkg" ] && continue
+        pkg_owner["$pkg"]="$repo"
+    done < "$pkg_to_repo"
+
+    # forward_deps[repo]  = space-separated list of upstream repos it depends on
+    # reverse_deps[upstream] = space-separated list of downstream repos
+    declare -A forward_deps=()
+    declare -A reverse_deps=()
+    while IFS=$'\t' read -r consumer pkg _ver; do
+        [ -z "$consumer" ] && continue
+        [ -z "$pkg" ] && continue
+        local upstream="${pkg_owner[$pkg]:-}"
+        [ -z "$upstream" ] && continue
+        [ "$upstream" = "$consumer" ] && continue               # skip self-deps
+        [ -z "${all_repos[$upstream]:-}" ] && continue          # skip uncached upstreams
+        [ -z "${all_repos[$consumer]:-}" ] && continue          # skip uncached consumers
+        # Add edge only once (space-delimited set membership check)
+        if [[ " ${forward_deps[$consumer]:-} " != *" ${upstream} "* ]]; then
+            forward_deps["$consumer"]+="${upstream} "
+            reverse_deps["$upstream"]+="${consumer} "
+        fi
+    done < "$repo_deps"
+
+    # ── Step 3: Compute initial in-degrees ────────────────────────────────
+
+    declare -A in_degree=()
+    local repo
+    for repo in "${!all_repos[@]}"; do
+        local deps_str="${forward_deps[$repo]:-}"
+        if [ -n "$deps_str" ]; then
+            read -ra _dep_arr <<< "$deps_str"
+            in_degree["$repo"]="${#_dep_arr[@]}"
+        else
+            in_degree["$repo"]=0
+        fi
+    done
+
+    # ── Step 4: Kahn's algorithm ──────────────────────────────────────────
+
+    local generation=0
+    local -a current_gen=()
+    for repo in "${!all_repos[@]}"; do
+        if [ "${in_degree[$repo]}" -eq 0 ]; then
+            current_gen+=("$repo")
+        fi
+    done
+
+    while [ "${#current_gen[@]}" -gt 0 ]; do
+        local -a sorted_gen
+        mapfile -t sorted_gen < <(printf '%s\n' "${current_gen[@]}" | sort)
+
+        for repo in "${sorted_gen[@]}"; do
+            printf '%s\t%s\n' "$generation" "$repo"
+        done
+
+        local -a next_gen=()
+        for repo in "${sorted_gen[@]}"; do
+            local downstreams="${reverse_deps[$repo]:-}"
+            [ -z "$downstreams" ] && continue
+            local downstream
+            for downstream in $downstreams; do
+                [ -z "$downstream" ] && continue
+                in_degree["$downstream"]=$(( in_degree["$downstream"] - 1 ))
+                if [ "${in_degree[$downstream]}" -eq 0 ]; then
+                    next_gen+=("$downstream")
+                fi
+            done
+        done
+
+        current_gen=("${next_gen[@]+"${next_gen[@]}"}")
+        generation=$(( generation + 1 ))
+    done
+
+    # ── Step 5: Warn about cycles ─────────────────────────────────────────
+
+    local cycled_repos=""
+    for repo in "${!all_repos[@]}"; do
+        if [ "${in_degree[$repo]:-0}" -gt 0 ]; then
+            cycled_repos="${cycled_repos}${repo} "
+        fi
+    done
+    if [ -n "$cycled_repos" ]; then
+        log_warn "Cycle detected in dependency graph — these repositories were excluded: ${cycled_repos% }"
+    fi
+
+    return 0
+}
