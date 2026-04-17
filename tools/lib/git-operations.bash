@@ -285,12 +285,17 @@ build_merge_commit_message() {
         fi
     fi
     
-    # Build footer
-    local footer="#$pr_num"
-    [ -n "$issue_num" ] && footer="$footer #$issue_num"
+    # Build footer refs
+    local refs="#$pr_num"
+    [ -n "$issue_num" ] && refs="$refs #$issue_num"
     
-    # Build final message
-    printf "%s\n\n%s   %s\n" "$title" "$trimmed_body" "$footer"
+    # Build final message: title with PR ref inline, then body (if any)
+    local subject="$title ($refs)"
+    if [ -n "$trimmed_body" ]; then
+        printf "%s\n\n%s\n" "$subject" "$trimmed_body"
+    else
+        printf "%s\n" "$subject"
+    fi
 }
 
 # ============================================================================
@@ -346,7 +351,11 @@ merge_pr() {
         read -ra repo_args <<< "$repo_spec"
     fi
     
-    local merge_args=("${repo_args[@]}" "$pr_num" --"$method" --delete-branch --body "$commit_msg")
+    local subject body
+    subject="$(printf "%s" "$commit_msg" | head -n1)"
+    body="$(printf "%s" "$commit_msg" | tail -n +2 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+
+    local merge_args=("${repo_args[@]}" "$pr_num" --"$method" --delete-branch --subject "$subject" --body "$body")
     if [ "$force" = "true" ]; then
         merge_args+=(--admin)
         log_info "Merging PR $pr_num with $method (--admin)..."

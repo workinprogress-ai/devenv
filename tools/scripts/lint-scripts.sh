@@ -102,6 +102,8 @@ find_shell_scripts() {
     local search_dir="${1:-$project_root}"
     
     # Find all .sh files, excluding certain directories
+    # Note: find may return non-zero on permission errors; use || true to prevent
+    # set -e from aborting when pipefail is enabled
     find "$search_dir" -type f \( -name "*.sh" -o -name "*.bash" \) \
         ! -path "*/node_modules/*" \
         ! -path "*/.git/*" \
@@ -110,21 +112,21 @@ find_shell_scripts() {
         ! -path "*/playground/*" \
         ! -path "*/repos/*" \
         ! -path "*/tools/cache/*" \
-        2>/dev/null | sort
+        2>/dev/null | sort || true
 }
 
 lint_script() {
     local script="$1"
     local relative_path="${script#$project_root/}"
     
-    ((total_files++))
+    ((total_files++)) || true
     
     # Skip if file doesn't have execute permission and doesn't start with shebang
     if [ ! -x "$script" ] && ! head -n 1 "$script" | grep -q '^#!.*sh'; then
         if [ "${QUIET:-0}" -eq 0 ]; then
             log_warning "Skipping: $relative_path (not executable, no shebang)"
         fi
-        ((skipped_files++))
+        ((skipped_files++)) || true
         return 0
     fi
     
@@ -147,7 +149,7 @@ lint_script() {
         if [ "${QUIET:-0}" -eq 0 ]; then
             echo -e "${GREEN}✓${NC}"
         fi
-        ((passed_files++))
+        ((passed_files++)) || true
         return 0
     else
         if [ "${QUIET:-0}" -eq 0 ]; then
@@ -155,7 +157,7 @@ lint_script() {
         else
             log_error "Failed: $relative_path"
         fi
-        ((failed_files++))
+        ((failed_files++)) || true
         return 1
     fi
 }

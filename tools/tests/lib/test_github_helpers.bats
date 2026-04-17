@@ -161,3 +161,271 @@ load ../test_helper
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Could not parse repository name" ]]
 }
+
+# ============================================================================
+# wait_for_workflow_runs Tests
+# ============================================================================
+
+@test "wait_for_workflow_runs: requires repo argument" {
+  run bash -c "
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    wait_for_workflow_runs ''
+  "
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Repository" ]]
+}
+
+@test "wait_for_workflow_runs: returns 0 when no active runs and latest succeeded" {
+  run bash -c "
+    gh() {
+      if [[ \"\$*\" =~ 'status' ]]; then
+        echo '0'
+      elif [[ \"\$*\" =~ 'conclusion' ]]; then
+        echo 'success'
+      fi
+      return 0
+    }
+    export -f gh
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    wait_for_workflow_runs 'owner/repo' 'master' 1 5
+  "
+  [ "$status" -eq 0 ]
+}
+
+@test "wait_for_workflow_runs: returns 1 when latest run failed" {
+  run bash -c "
+    gh() {
+      if [[ \"\$*\" =~ 'status' ]]; then
+        echo '0'
+      elif [[ \"\$*\" =~ 'conclusion' ]]; then
+        echo 'failure'
+      fi
+      return 0
+    }
+    export -f gh
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    wait_for_workflow_runs 'owner/repo' 'master' 1 5
+  "
+  [ "$status" -eq 1 ]
+}
+
+@test "wait_for_workflow_runs: returns 1 when latest run cancelled" {
+  run bash -c "
+    gh() {
+      if [[ \"\$*\" =~ 'status' ]]; then
+        echo '0'
+      elif [[ \"\$*\" =~ 'conclusion' ]]; then
+        echo 'cancelled'
+      fi
+      return 0
+    }
+    export -f gh
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    wait_for_workflow_runs 'owner/repo' 'master' 1 5
+  "
+  [ "$status" -eq 1 ]
+}
+
+@test "wait_for_workflow_runs: returns 2 on timeout with active runs" {
+  run bash -c "
+    gh() {
+      # Always report 1 active run
+      if [[ \"\$*\" =~ 'status' ]]; then
+        echo '1'
+      fi
+      return 0
+    }
+    export -f gh
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    wait_for_workflow_runs 'owner/repo' 'master' 1 2
+  "
+  [ "$status" -eq 2 ]
+  [[ "$output" =~ "Timeout" ]]
+}
+
+@test "wait_for_workflow_runs: polls until runs complete then succeeds" {
+  local counter_file="$TEST_TEMP_DIR/gh_call_count"
+  echo "0" > "$counter_file"
+
+  run bash -c "
+    COUNTER_FILE='$counter_file'
+    gh() {
+      if [[ \"\$*\" =~ 'status' ]]; then
+        local count=\$(cat \"\$COUNTER_FILE\")
+        count=\$((count + 1))
+        echo \"\$count\" > \"\$COUNTER_FILE\"
+        if [ \"\$count\" -le 2 ]; then
+          echo '1'
+        else
+          echo '0'
+        fi
+      elif [[ \"\$*\" =~ 'conclusion' ]]; then
+        echo 'success'
+      fi
+      return 0
+    }
+    export -f gh
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    wait_for_workflow_runs 'owner/repo' 'master' 1 10
+  "
+  [ "$status" -eq 0 ]
+}
+
+# ============================================================================
+# wait_for_workflow_runs_multi Tests
+# ============================================================================
+
+@test "wait_for_workflow_runs_multi: returns 0 when all repos succeed" {
+  run bash -c "
+    gh() {
+      if [[ \"\$*\" =~ 'status' ]]; then
+        echo '0'
+      elif [[ \"\$*\" =~ 'conclusion' ]]; then
+        echo 'success'
+      fi
+      return 0
+    }
+    export -f gh
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    wait_for_workflow_runs_multi 'master' 1 5 'owner/repo1' 'owner/repo2'
+  "
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "All workflow runs completed" ]]
+}
+
+@test "wait_for_workflow_runs_multi: returns 1 when any repo fails" {
+  run bash -c "
+    gh() {
+      if [[ \"\$*\" =~ 'status' ]]; then
+        echo '0'
+      elif [[ \"\$*\" =~ 'conclusion' ]]; then
+        # Fail for repo2
+        if [[ \"\$*\" =~ 'repo2' ]]; then
+          echo 'failure'
+        else
+          echo 'success'
+        fi
+      fi
+      return 0
+    }
+    export -f gh
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    wait_for_workflow_runs_multi 'master' 1 5 'owner/repo1' 'owner/repo2'
+  "
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "failed or timed out" ]]
+}
+
+@test "wait_for_workflow_runs_multi: reports which repos failed" {
+  run bash -c "
+    gh() {
+      if [[ \"\$*\" =~ 'status' ]]; then
+        echo '0'
+      elif [[ \"\$*\" =~ 'conclusion' ]]; then
+        echo 'failure'
+      fi
+      return 0
+    }
+    export -f gh
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    wait_for_workflow_runs_multi 'master' 1 5 'owner/repo1' 'owner/repo2'
+  "
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "owner/repo1" ]]
+  [[ "$output" =~ "owner/repo2" ]]
+}
+
+# ============================================================================
+# cancel_branch_workflow_runs Tests
+# ============================================================================
+
+@test "cancel_branch_workflow_runs: requires repo argument" {
+  run bash -c "
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    cancel_branch_workflow_runs '' 'main'
+  "
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Repository and branch required" ]]
+}
+
+@test "cancel_branch_workflow_runs: requires branch argument" {
+  run bash -c "
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    cancel_branch_workflow_runs 'owner/repo' ''
+  "
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Repository and branch required" ]]
+}
+
+@test "cancel_branch_workflow_runs: returns 0 when no active runs" {
+  run bash -c "
+    gh() {
+      if [[ \"\$*\" =~ 'run list' ]]; then
+        echo ''
+        return 0
+      fi
+      return 1
+    }
+    export -f gh
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    cancel_branch_workflow_runs 'owner/repo' 'my-branch'
+  "
+  [ "$status" -eq 0 ]
+}
+
+@test "cancel_branch_workflow_runs: cancels active runs" {
+  local cancel_log="$TEST_TEMP_DIR/cancel_log"
+  touch "$cancel_log"
+
+  run bash -c "
+    CANCEL_LOG='$cancel_log'
+    gh() {
+      if [[ \"\$*\" =~ 'run list' ]]; then
+        printf '111\n222\n'
+        return 0
+      elif [[ \"\$*\" =~ 'run cancel' ]]; then
+        echo \"\$*\" >> \"\$CANCEL_LOG\"
+        return 0
+      fi
+      return 1
+    }
+    export -f gh
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    cancel_branch_workflow_runs 'owner/repo' 'my-branch'
+  "
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$cancel_log")" =~ "111" ]]
+  [[ "$(cat "$cancel_log")" =~ "222" ]]
+}
+
+@test "cancel_branch_workflow_runs: succeeds even if cancel fails" {
+  run bash -c "
+    gh() {
+      if [[ \"\$*\" =~ 'run list' ]]; then
+        printf '999\n'
+        return 0
+      elif [[ \"\$*\" =~ 'run cancel' ]]; then
+        return 1
+      fi
+      return 1
+    }
+    export -f gh
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    cancel_branch_workflow_runs 'owner/repo' 'my-branch'
+  "
+  [ "$status" -eq 0 ]
+}

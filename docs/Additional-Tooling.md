@@ -962,6 +962,163 @@ Open coverage reports in a browser (auto-detects chromium or firefox).
 cs-open-coverage
 ```
 
+## C# Dependency Management
+
+Tools for tracing, updating, and propagating NuGet package changes across C# repositories.
+
+### `cs-dependency-trace`
+
+Traces the reverse dependency tree for a C# repository — shows all repositories that depend on it, directly or transitively.
+
+**Usage:**
+
+```bash
+cs-dependency-trace [OPTIONS] [TARGET_DIR]
+```
+
+**Arguments:**
+
+- `TARGET_DIR`: Path to a directory containing `.sln` or `.csproj` files. Defaults to the current directory.
+
+**Options:**
+
+- `--by-repo`: Collapse output to one line per dependent repo (omitting package detail)
+- `--no-refresh`: Skip refreshing the repository cache
+- `-h, --help`: Show help and exit
+- `-v, --version`: Show version and exit
+
+**Output format (default):**
+
+```text
+DEPTH:REPO:PACKAGE
+```
+
+For example: `0:lib.cs.services.chassis:WorkInProgress.Lib.Services.Chassis.Common`
+
+**Output format (--by-repo):**
+
+```text
+DEPTH:REPO
+```
+
+**Examples:**
+
+```bash
+# Show all dependents of the essentials library
+cd repos/lib.cs.common.essentials
+cs-dependency-trace
+
+# Show only direct dependents, collapsed by repo
+cs-dependency-trace --by-repo | grep '^0:'
+```
+
+### `cs-update-single-repo-wizard`
+
+Runs the full NuGet dependency-update workflow for a **single** repository interactively. Useful for updating one repository without walking the entire dependency tree.
+
+**Usage:**
+
+```bash
+cs-update-single-repo-wizard [OPTIONS] [REPO_DIR]
+```
+
+**Arguments:**
+
+- `REPO_DIR`: Path to the repository to update. Defaults to the current directory.
+
+**Options:**
+
+- `--branch NAME`: Branch to create for the update (default: `auto-update-dependencies`)
+- `--dry-run`: Show what would happen without making any changes
+- `-h, --help`: Show help and exit
+- `-v, --version`: Show version and exit
+
+**Exit codes:**
+
+| Code | Meaning |
+|------|---------|
+| `0`  | Repository was updated (PR created and merged) |
+| `10` | No-op — nothing changed after running `cs-update-references` |
+| `20` | git operation failed (branch creation, commit, or push) |
+| `21` | `cs-update-references` failed |
+| `30` | Tests still failing after user had a chance to fix |
+| `40` | PR could not be created |
+| `41` | PR could not be merged |
+| `1`–`5` | Argument / environment error (from `error-handling.bash`) |
+
+**Workflow:**
+
+1. Create branch (`auto-update-dependencies` by default)
+2. Run `cs-update-references` to update all NuGet packages
+3. Detect major version bumps in non-test `.csproj` files
+4. If nothing changed, clean up and exit with code `2`
+5. Commit and push the branch
+6. Run `./run-tests` if present — pause for the user to fix failures
+7. If major bumps or test failures are detected, prompt the user to confirm the change level (`patch` or `major`)
+8. Create a PR with the selected prefix (`patch:` or `major:`)
+9. Merge the PR
+10. Return to `master` and clean up the local branch
+
+**Examples:**
+
+```bash
+# Update a specific repository
+cs-update-single-repo-wizard ~/repos/lib.cs.services.chassis
+
+# Dry run to see what would change
+cs-update-single-repo-wizard --dry-run
+
+# Use a custom branch name
+cs-update-single-repo-wizard --branch deps/update-q2-2026
+```
+
+### `cs-dependency-update-wizard`
+
+Interactive wizard that walks the **reverse dependency tree** of a C# repository and updates each dependent repo's NuGet references — level by level. For each level it delegates the per-repo workflow to `cs-update-single-repo-wizard`, then pauses so the user can confirm GitHub Actions have completed before advancing to the next level.
+
+**Usage:**
+
+```bash
+cs-dependency-update-wizard [OPTIONS] [TARGET_DIR]
+```
+
+**Arguments:**
+
+- `TARGET_DIR`: Path to the root repository (the one just released). Must contain `.sln` or `.csproj` files. Defaults to the current directory.
+
+**Options:**
+
+- `--no-refresh`: Skip refreshing the repository cache
+- `--dry-run`: Show what would be updated without making any changes
+- `-h, --help`: Show help and exit
+- `-v, --version`: Show version and exit
+
+**Workflow:**
+
+For each depth level (0 = direct dependents, 1 = transitive dependents, …):
+
+1. Check whether each dependent repo already uses the latest published version — skip if so
+2. Call `cs-update-single-repo-wizard` to run the full update workflow for that repo
+3. After all repos at a depth level are processed, pause and ask the user to confirm that GitHub Actions have completed
+4. Refresh the repository cache and rebuild the dependency index
+5. Advance to the next depth level
+
+**Examples:**
+
+```bash
+# Run after releasing lib.cs.common.essentials
+cd repos/lib.cs.common.essentials
+cs-dependency-update-wizard
+
+# Dry run — show which repos would be updated at each level
+cs-dependency-update-wizard --dry-run
+
+# Skip initial cache refresh (useful when cache is already fresh)
+cs-dependency-update-wizard --no-refresh
+```
+
+**Related:** `cs-update-single-repo-wizard` (single-repo workflow), `cs-dependency-trace` (view the dependency tree without making changes)
+
 ## Networking and Utilities
 
 Tools for managing network connections and performing utility functions.

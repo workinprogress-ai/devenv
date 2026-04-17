@@ -16,6 +16,7 @@ readonly SCRIPT_VERSION="1.0.0"
 # shellcheck disable=SC2155
 readonly SCRIPT_NAME="$(basename "$0")"
 readonly UPDATE_BRANCH="auto-update-dependencies"
+readonly SINGLE_REPO_WIZARD="$DEVENV_TOOLS/scripts/cs-update-single-repo-wizard.sh"
 
 # ============================================================================
 # Source Required Libraries
@@ -31,6 +32,9 @@ source "$DEVENV_TOOLS/lib/repo-cache.bash"
 
 # shellcheck source=../lib/cs-dependency-graph.bash
 source "$DEVENV_TOOLS/lib/cs-dependency-graph.bash"
+
+# shellcheck source=../lib/github-helpers.bash
+source "$DEVENV_TOOLS/lib/github-helpers.bash"
 
 # ============================================================================
 # Helper Functions
@@ -59,12 +63,13 @@ Options:
 Workflow:
     For each depth level (0 = direct dependents, 1 = transitive, ...):
       1. Check if the repo already uses the latest version → skip if so
-      2. Create branch '$UPDATE_BRANCH'
-      3. Run cs-update-references to update all NuGet packages
-      4. Detect major version bumps in non-test code (breaking changes)
-      5. Run tests — pause for user if they fail
-      6. Confirm change level with user if breaking changes detected
-      7. Create and merge PR (patch: or major: prefix)
+      2. Delegate to cs-update-single-repo-wizard for the full update workflow:
+         a. Create branch '$UPDATE_BRANCH'
+         b. Run cs-update-references to update all NuGet packages
+         c. Detect major version bumps in non-test code (breaking changes)
+         d. Run tests — pause for user if they fail
+         e. Confirm change level with user if breaking changes detected
+         f. Create and merge PR (patch: or major: prefix)
     After each depth level, pause for user to confirm GH Actions completed.
 
 EOF
@@ -80,61 +85,6 @@ prompt_user() {
     echo ">>> $message"
     read -r -p "    Press Enter to continue (or Ctrl+C to abort)... " < /dev/tty
     echo ""
-}
-
-# Prompt the user for yes/no
-# Usage: prompt_yes_no "question"
-# Returns: 0 for yes, 1 for no
-prompt_yes_no() {
-    local question="$1"
-    local answer
-    echo ""
-    while true; do
-        read -r -p ">>> $question [y/n]: " answer < /dev/tty
-        case "$answer" in
-            [Yy]*) return 0 ;;
-            [Nn]*) return 1 ;;
-            *) echo "    Please answer y or n." ;;
-        esac
-    done
-}
-
-# Snapshot PackageReference versions from non-test csproj files
-# Usage: snapshot_versions REPO_DIR
-# Output: sorted lines of "PACKAGE_NAME VERSION" from src/ csprojs
-snapshot_versions() {
-    local repo_dir="$1"
-    find "$repo_dir" -path "*/src/*.csproj" \
-        ! -path "*/test/*" ! -path "*/tests/*" \
-        -exec grep -ohP 'PackageReference Include="[^"]+" Version="[^"]+"' {} \; 2>/dev/null \
-        | sed -E 's/PackageReference Include="([^"]+)" Version="([^"]+)"/\1 \2/' \
-        | sort -u
-}
-
-# Compare two version snapshots and detect major version bumps
-# Usage: detect_major_bumps BEFORE_FILE AFTER_FILE
-# Returns: 0 if major bumps found, 1 if none
-# Output: lines describing the major bumps
-detect_major_bumps() {
-    local before_file="$1"
-    local after_file="$2"
-    local found_major=1
-
-    while IFS=' ' read -r pkg new_ver; do
-        local old_ver
-        old_ver=$(awk -v p="$pkg" '$1 == p { print $2 }' "$before_file")
-        [ -z "$old_ver" ] && continue
-
-        local old_major="${old_ver%%.*}"
-        local new_major="${new_ver%%.*}"
-
-        if [ "$new_major" != "$old_major" ] && [ "$new_major" -gt "$old_major" ] 2>/dev/null; then
-            echo "  $pkg: $old_ver → $new_ver (MAJOR)"
-            found_major=0
-        fi
-    done < "$after_file"
-
-    return "$found_major"
 }
 
 # Get the latest published version of a package
@@ -301,6 +251,7 @@ main() {
 
         local processed=0
         local skipped=0
+        local -a merged_repos=()
 
         for repo in "${repos_at_depth[@]}"; do
             local repo_dir="$REPO_CACHE_DIR/$repo"
@@ -350,138 +301,26 @@ main() {
                 continue
             fi
 
-            # ── 4a: Create update branch ──────────────────────────────────
+            # ── Delegate per-repo workflow to cs-update-single-repo-wizard ──
 
-            log_info "Creating branch $UPDATE_BRANCH..."
-            git -C "$repo_dir" checkout -b "$UPDATE_BRANCH" 2>/dev/null || {
-                # Branch may already exist from a previous aborted run
-                git -C "$repo_dir" checkout master 2>/dev/null
-                git -C "$repo_dir" branch -D "$UPDATE_BRANCH" 2>/dev/null || true
-                git -C "$repo_dir" checkout -b "$UPDATE_BRANCH" 2>/dev/null || {
-                    log_error "Failed to create branch in $repo — skipping"
-                    continue
-                }
-            }
+            local wizard_rc=0
+            "$SINGLE_REPO_WIZARD" --branch "$UPDATE_BRANCH" "$repo_dir" || wizard_rc=$?
 
-            # ── 4b: Snapshot versions before update ───────────────────────
-
-            local before_file after_file
-            before_file=$(mktemp)
-            after_file=$(mktemp)
-            snapshot_versions "$repo_dir" > "$before_file"
-
-            # ── 4c: Run dependency update ─────────────────────────────────
-
-            log_info "Updating NuGet references..."
-            if ! cs-update-references "$repo_dir" 2>&1; then
-                log_warn "cs-update-references reported issues (continuing)"
-            fi
-
-            # ── 4d: Detect breaking changes via version diff ──────────────
-
-            snapshot_versions "$repo_dir" > "$after_file"
-
-            local has_breaking=0
-            local major_bumps
-            major_bumps=$(detect_major_bumps "$before_file" "$after_file" 2>&1) && has_breaking=1
-            rm -f "$before_file" "$after_file"
-
-            if [ "$has_breaking" -eq 1 ]; then
-                log_warn "Major version bumps detected in non-test code:"
-                echo "$major_bumps"
-            fi
-
-            # Check if anything actually changed
-            if git -C "$repo_dir" diff --quiet; then
-                log_info "No changes after update — skipping"
-                git -C "$repo_dir" checkout master 2>/dev/null
-                git -C "$repo_dir" branch -D "$UPDATE_BRANCH" 2>/dev/null || true
+            if [ "$wizard_rc" -eq 10 ]; then
+                # Exit 10 means the repo was a no-op after updating references
                 skipped=$((skipped + 1))
+                continue
+            elif [ "$wizard_rc" -ne 0 ]; then
+                log_error "Single-repo wizard failed for $repo (exit $wizard_rc) — skipping"
                 continue
             fi
 
-            # ── 4e: Commit and push ───────────────────────────────────────
-
-            git -C "$repo_dir" add -A
-            git -C "$repo_dir" commit -m "chore: update dependencies" --quiet
-
-            log_info "Pushing branch..."
-            if ! git -C "$repo_dir" push -u origin "$UPDATE_BRANCH" --quiet 2>/dev/null; then
-                # Force push in case branch exists on remote from previous aborted run
-                git -C "$repo_dir" push -u origin "$UPDATE_BRANCH" --force --quiet 2>/dev/null || {
-                    log_error "Failed to push branch for $repo — skipping"
-                    git -C "$repo_dir" checkout master 2>/dev/null
-                    git -C "$repo_dir" branch -D "$UPDATE_BRANCH" 2>/dev/null || true
-                    continue
-                }
+            # Track the full repo name for workflow monitoring
+            local full_name
+            full_name=$(get_full_repo_name "$repo_dir" 2>/dev/null) || true
+            if [ -n "$full_name" ]; then
+                merged_repos+=("$full_name")
             fi
-
-            # ── 4f: Run tests ─────────────────────────────────────────────
-
-            local tests_failed=0
-            if [ -x "$repo_dir/run-tests" ]; then
-                log_info "Running tests..."
-                if ! (cd "$repo_dir" && ./run-tests) 2>&1; then
-                    tests_failed=1
-                    log_warn "Tests FAILED for $repo"
-                    prompt_user "Please fix the failing tests in $repo_dir, then press Enter to continue."
-
-                    # Re-commit any fixes the user made
-                    if ! git -C "$repo_dir" diff --quiet; then
-                        git -C "$repo_dir" add -A
-                        git -C "$repo_dir" commit -m "chore: fix tests after dependency update" --quiet
-                        git -C "$repo_dir" push --quiet 2>/dev/null
-                    fi
-                else
-                    log_info "Tests passed"
-                fi
-            else
-                log_warn "No run-tests script found in $repo — skipping tests"
-            fi
-
-            # ── 4g: Determine change level ────────────────────────────────
-
-            local change_level="patch"
-            if [ "$has_breaking" -eq 1 ] || [ "$tests_failed" -eq 1 ]; then
-                log_warn "Breaking changes were detected (major version bumps and/or test failures)."
-                if prompt_yes_no "Treat this as a MAJOR (breaking) change? (No = patch)"; then
-                    change_level="major"
-                fi
-            fi
-
-            local pr_title="${change_level}: update dependencies"
-
-            # ── 4h: Create PR ─────────────────────────────────────────────
-
-            log_info "Creating PR: '$pr_title'..."
-            local pr_url
-            pr_url=$(pr-create-for-merge --no-issue --repo-dir "$repo_dir" --branch "$UPDATE_BRANCH" "$pr_title" 2>&1 | grep -oE 'https://github.com[^ ]+' | head -1) || true
-
-            if [ -z "$pr_url" ]; then
-                log_error "Failed to create PR for $repo"
-                prompt_user "Please resolve the issue manually, then press Enter to continue."
-            else
-                log_info "PR created: $pr_url"
-
-                # ── 4i: Merge PR ──────────────────────────────────────────
-
-                # Brief delay for GitHub API consistency
-                sleep 3
-                log_info "Merging PR..."
-                if ! pr-merge-pull-request "$pr_title" --repo-dir "$repo_dir" --branch "$UPDATE_BRANCH" --force 2>&1; then
-                    log_error "Failed to merge PR for $repo"
-                    prompt_user "Please merge manually, then press Enter to continue."
-                else
-                    log_info "PR merged successfully"
-                fi
-            fi
-
-            # ── 4j: Return to master ──────────────────────────────────────
-
-            sleep 3
-            git -C "$repo_dir" checkout master 2>/dev/null
-            git -C "$repo_dir" pull --quiet 2>/dev/null || true
-            git -C "$repo_dir" branch -D "$UPDATE_BRANCH" 2>/dev/null || true
 
             processed=$((processed + 1))
         done
@@ -502,7 +341,14 @@ main() {
             local next_depth="${depths[$((current_idx + 1))]}"
 
             if [ "$processed" -gt 0 ]; then
-                prompt_user "Depth $depth repos have been merged. Please confirm all GitHub Actions have completed before processing depth $next_depth dependents."
+                log_info "Waiting for GitHub Actions to complete for depth $depth repos before processing depth $next_depth..."
+
+                if [ "${#merged_repos[@]}" -gt 0 ]; then
+                    if ! wait_for_workflow_runs_multi "master" 15 600 "${merged_repos[@]}"; then
+                        log_warn "Some workflow runs failed or timed out."
+                        prompt_user "Please verify GitHub Actions manually, then press Enter to continue."
+                    fi
+                fi
 
                 # Refresh the cache to pick up newly published package versions
                 log_info "Refreshing repository cache for next depth level..."
