@@ -297,6 +297,18 @@ main() {
     if [ "$has_breaking" -eq 1 ]; then
         log_warn "Breaking changes were detected in $repo_name (major version bumps)."
         change_level="major"
+
+        # Run all tests
+        if [ -f "$repo_dir/run-tests" ]; then
+            echo "Running tests..."
+            if ! "$repo_dir/run-tests"; then
+                echo "Tests failed. Commit aborted."
+                exit $EXIT_TESTS_FAILED
+            fi
+            echo "Tests passed!"
+        else
+            echo "No test runner found at $repo_dir/run-tests; skipping tests."
+        fi
     fi
 
     local pr_title="${change_level}: update dependencies"
