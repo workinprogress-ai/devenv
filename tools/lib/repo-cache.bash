@@ -3,7 +3,7 @@
 # Version: 1.0.0
 # Description: Maintains shallow clones of organization repositories in a local cache
 #              for tools that need to inspect multiple repos (e.g. dependency graphs).
-# Requirements: Bash 4.0+, git, gh CLI
+# Requirements: Bash 4.3+, git, gh CLI
 # Author: WorkInProgress.ai
 
 # Guard against multiple sourcing

@@ -166,13 +166,15 @@ sed -i 's/Version="1\.0\.0"/Version="2.0.0"/' "$repo_dir/src/MyLib.csproj" 2>/de
 exit 0
 EOF
     # Override git push so it does not fail (no real remote)
-    cat > "$TEST_TEMP_DIR/bin/git" <<'EOF'
+    local real_git
+    real_git="$(command -v git)"
+    cat > "$TEST_TEMP_DIR/bin/git" <<EOF
 #!/usr/bin/env bash
 # Pass everything through to real git, but no-op push
-if [[ "$*" =~ "push" ]]; then
+if [[ "\$*" =~ "push" ]]; then
     exit 0
 fi
-exec /usr/bin/git "$@"
+exec "$real_git" "\$@"
 EOF
     chmod +x "$TEST_TEMP_DIR/bin/git"
 
