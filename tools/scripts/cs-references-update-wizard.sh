@@ -296,9 +296,7 @@ main() {
     local change_level="patch"
     if [ "$has_breaking" -eq 1 ]; then
         log_warn "Breaking changes were detected in $repo_name (major version bumps)."
-        if prompt_yes_no "Treat this as a MAJOR (breaking) change to $repo_name? (No = patch)"; then
-            change_level="major"
-        fi
+        change_level="major"
     fi
 
     local pr_title="${change_level}: update dependencies"
