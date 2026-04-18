@@ -15,7 +15,7 @@
 readonly SCRIPT_VERSION="1.0.0"
 # shellcheck disable=SC2155
 readonly SCRIPT_NAME="$(basename "$0")"
-readonly DEFAULT_UPDATE_BRANCH="auto-update-dependencies"
+readonly DEFAULT_UPDATE_BRANCH="auto-update-references"
 
 # Script-specific exit codes (>= 10 to avoid conflicts with error-handling.bash globals)
 # shellcheck disable=SC2034
@@ -306,10 +306,10 @@ main() {
     # ── Step 6: Commit and push (git hook will run tests) ──────────────────
 
     git -C "$repo_dir" add -A
-    if ! (cd "$repo_dir" && git commit -m "$pr_title" --quiet) 2>&1; then
+    if ! (cd "$repo_dir" && git commit -m "${pr_title} [skip ci]" --quiet) 2>&1; then
         log_warn "Commit failed for $repo_name (likely a git hook failure)"
         prompt_user "Please fix the issue in $repo_dir, then press Enter to retry."
-        if ! (cd "$repo_dir" && git add -A && git commit -m "$pr_title" --quiet) 2>&1; then
+        if ! (cd "$repo_dir" && git add -A && git commit -m "${pr_title} [skip ci]" --quiet) 2>&1; then
             log_error "Commit still failing for $repo_name — aborting"
             git -C "$repo_dir" checkout -f master 2>/dev/null || true
             git -C "$repo_dir" branch -D "$update_branch" 2>/dev/null || true
@@ -345,16 +345,6 @@ main() {
 
         # ── Step 8: Merge PR ───────────────────────────────────────────────
 
-        # Cancel any validation workflow runs triggered by the PR
-        sleep 5
-        local repo_full_name
-        repo_full_name=$(cd "$repo_dir" && gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null) || true
-        if [ -n "$repo_full_name" ]; then
-            cancel_branch_workflow_runs "$repo_full_name" "$update_branch"
-        fi
-
-        # Brief delay for GitHub API consistency
-        sleep 3
         log_info "Merging PR for $repo_name..."
         if ! (cd "$repo_dir" && pr-complete-merge --force --no-issue-id "$pr_title") 2>&1; then
             log_error "Failed to merge PR for $repo_name"
