@@ -16,7 +16,7 @@
 readonly SCRIPT_VERSION="1.1.0"
 # shellcheck disable=SC2155
 readonly SCRIPT_NAME="$(basename "$0")"
-readonly UPDATE_BRANCH="auto-update-dependencies"
+readonly UPDATE_BRANCH="auto-update-references"
 readonly SINGLE_REPO_WIZARD="$DEVENV_TOOLS/scripts/cs-references-update-wizard.sh"
 
 # ============================================================================
@@ -90,8 +90,8 @@ Workflow (--global):
 
 Failure handling:
     If cs-references-update-wizard exits with a non-zero, non-10 code the
-    wizard pauses and prompts the user to fix the issue manually before
-    proceeding to the next repo in the same generation.
+    wizard prompts to retry. Answering 'n' aborts the entire wizard because
+    downstream repos may depend on the failing repo.
 
 EOF
     exit 0
@@ -106,6 +106,23 @@ prompt_user() {
     echo ">>> $message"
     read -r -p "    Press Enter to continue (or Ctrl+C to abort)... " < /dev/tty
     echo ""
+}
+
+# Prompt the user for yes/no
+# Usage: prompt_yes_no "question"
+# Returns: 0 for yes, 1 for no
+prompt_yes_no() {
+    local question="$1"
+    local answer
+    echo ""
+    while true; do
+        read -r -p ">>> $question [y/n]: " answer < /dev/tty
+        case "$answer" in
+            [Yy]*) echo ""; return 0 ;;
+            [Nn]*) echo ""; return 1 ;;
+            *) echo "    Please answer y or n." ;;
+        esac
+    done
 }
 
 # Get the latest published version of a package
@@ -398,8 +415,26 @@ main() {
                 continue
             elif [ "$wizard_rc" -ne 0 ]; then
                 log_error "Single-repo wizard failed for $repo (exit $wizard_rc)"
-                prompt_user "Fix the issue in $repo manually, then press Enter to continue with this generation."
-                continue
+                # Retry loop: downstream repos may depend on this one, so we cannot skip it
+                while true; do
+                    if ! prompt_yes_no "Retry $repo now? (n = abort the entire wizard)"; then
+                        log_error "Aborting: $repo could not be updated and downstream repos depend on it."
+                        exit 1
+                    fi
+                    wizard_rc=0
+                    "$SINGLE_REPO_WIZARD" --branch "$UPDATE_BRANCH" "$repo_dir" || wizard_rc=$?
+                    if [ "$wizard_rc" -eq 0 ]; then
+                        break
+                    elif [ "$wizard_rc" -eq 10 ]; then
+                        # Treated as success (no changes needed)
+                        wizard_rc=0
+                        break
+                    fi
+                    log_error "Retry failed for $repo (exit $wizard_rc)"
+                done
+                if [ "$wizard_rc" -ne 0 ]; then
+                    continue
+                fi
             fi
 
             # Track the full repo name for workflow monitoring

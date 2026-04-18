@@ -297,21 +297,21 @@ main() {
     if [ "$has_breaking" -eq 1 ]; then
         log_warn "Breaking changes were detected in $repo_name (major version bumps)."
         change_level="major"
-
-        # Run all tests
-        if [ -f "$repo_dir/run-tests" ]; then
-            echo "Running tests..."
-            if ! "$repo_dir/run-tests"; then
-                echo "Tests failed. Commit aborted."
-                exit $EXIT_TESTS_FAILED
-            fi
-            echo "Tests passed!"
-        else
-            echo "No test runner found at $repo_dir/run-tests; skipping tests."
-        fi
     fi
 
-    local pr_title="${change_level}: update dependencies"
+    local pr_title="${change_level}: update references"
+
+    # ── Step 6: Run tests ────────────────────────────────────
+    if [ -f "$repo_dir/run-tests" ]; then
+        echo "Running tests..."
+        if ! "$repo_dir/run-tests"; then
+            echo "Tests failed. Commit aborted."
+            exit $EXIT_TESTS_FAILED
+        fi
+        echo "Tests passed!"
+    else
+        echo "No test runner found at $repo_dir/run-tests; skipping tests."
+    fi
 
     # ── Step 6: Commit and push (git hook will run tests) ──────────────────
 
@@ -342,7 +342,7 @@ main() {
 
     log_info "Creating PR: '$pr_title' for $repo_name..."
     local pr_url
-    pr_url=$(pr-create-for-merge --no-issue --repo-dir "$repo_dir" --branch "$update_branch" "$pr_title" 2>&1 | grep -oE 'https://github.com[^ ]+' | head -1) || true
+    pr_url=$(pr-create-for-merge --no-issue --repo-dir "$repo_dir" --branch "$update_branch" --label "automated" "$pr_title" 2>&1 | grep -oE 'https://github.com[^ ]+' | head -1) || true
 
     if [ -z "$pr_url" ]; then
         log_error "Failed to create PR for $repo_name"

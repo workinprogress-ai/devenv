@@ -815,6 +815,9 @@ ensure_directories_and_settings() {
     fi
     sudo sysctl -p 2>/dev/null || echo "INFO: Some sysctl settings may not be applicable in container environment"
     sudo usermod -aG docker vscode
+    sudo mkdir -p /etc/docker
+    #sudo echo '{}' | sudo tee /etc/docker/daemon.json &>/dev/null
+    #echo '{ "default-runtime": "runc", "runtimes": { "runc": { "path": "runc" } }, "exec-opts": ["native.cgroupdriver=cgroupfs"], "storage-driver": "overlay2" }' | sudo tee /etc/docker/daemon.json &>/dev/null
 }
 
 # Install repository dependencies

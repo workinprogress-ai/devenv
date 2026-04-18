@@ -113,7 +113,7 @@ teardown() {
     # Still on master, no extra branches
     run git -C "$REPO_DIR" branch
     [[ "$output" =~ "master" ]]
-    [[ ! "$output" =~ "auto-update-dependencies" ]]
+    [[ ! "$output" =~ "auto-update-references" ]]
 }
 
 # ── No-op when nothing changes (exit 10) ─────────────────────────────────
@@ -129,7 +129,7 @@ teardown() {
     [ "$status" -eq 10 ]
     # Branch should have been deleted; master should be current
     run git -C "$REPO_DIR" branch
-    [[ ! "$output" =~ "auto-update-dependencies" ]]
+    [[ ! "$output" =~ "auto-update-references" ]]
 }
 
 # ── cs-references-update failure (exit 21) ────────────────────────────────
@@ -151,7 +151,7 @@ EOF
     run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" "$REPO_DIR"
     [ "$status" -eq 21 ]
     run git -C "$REPO_DIR" branch
-    [[ ! "$output" =~ "auto-update-dependencies" ]]
+    [[ ! "$output" =~ "auto-update-references" ]]
 }
 
 # ── Custom branch name ─────────────────────────────────────────────────────

@@ -52,6 +52,7 @@ usage() {
   echo "  --draft              Create as draft" >&2
   echo "  --reviewer <handle>  Add a reviewer (can be repeated)" >&2
   echo "  --assignee <handle>  Add an assignee (default: @me)" >&2
+  echo "  --label <name>       Add a label (can be repeated)" >&2
   exit 1
 }
 
@@ -63,6 +64,7 @@ SOURCE_BRANCH=""
 DRAFT="false"
 REVIEWERS=()
 ASSIGNEES=("@me")
+LABELS=()
 ISSUE_NUMBER=""
 NO_ISSUE="false"
 
@@ -87,6 +89,8 @@ while [[ $# -gt 0 ]]; do
       REVIEWERS+=("$2"); shift 2 ;;
     --assignee)
       ASSIGNEES+=("$2"); shift 2 ;;
+    --label)
+      LABELS+=("$2"); shift 2 ;;
     -h|--help)
       usage ;;
     *)
@@ -179,6 +183,9 @@ for reviewer in "${REVIEWERS[@]}"; do
 done
 for assignee in "${ASSIGNEES[@]}"; do
   args+=(--assignee "$assignee")
+done
+for label in "${LABELS[@]}"; do
+  args+=(--label "$label")
 done
 
 echo "Creating PR from $CURRENT_BRANCH -> $TARGET_BRANCH..." >&2

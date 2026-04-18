@@ -1028,7 +1028,7 @@ cs-references-update-wizard [OPTIONS] [REPO_DIR]
 
 **Options:**
 
-- `--branch NAME`: Branch to create for the update (default: `auto-update-dependencies`)
+- `--branch NAME`: Branch to create for the update (default: `auto-update-references`)
 - `--dry-run`: Show what would happen without making any changes
 - `-h, --help`: Show help and exit
 - `-v, --version`: Show version and exit
@@ -1048,7 +1048,7 @@ cs-references-update-wizard [OPTIONS] [REPO_DIR]
 
 **Workflow:**
 
-1. Create branch (`auto-update-dependencies` by default)
+1. Create branch (`auto-update-references` by default)
 2. Run `cs-references-update` to update all NuGet packages
 3. Detect major version bumps in non-test `.csproj` files
 4. If nothing changed, clean up and exit with code `2`
