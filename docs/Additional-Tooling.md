@@ -1051,13 +1051,13 @@ cs-references-update-wizard [OPTIONS] [REPO_DIR]
 1. Create branch (`auto-update-references` by default)
 2. Run `cs-references-update` to update all NuGet packages
 3. Detect major version bumps in non-test `.csproj` files
-4. If nothing changed, clean up and exit with code `2`
+4. If nothing changed, clean up and exit with code `10`
 5. Commit and push the branch
 6. Run `./run-tests` if present — pause for the user to fix failures
 7. If major bumps or test failures are detected, prompt the user to confirm the change level (`patch` or `major`)
 8. Create a PR with the selected prefix (`patch:` or `major:`)
 9. Merge the PR
-10. Return to `master` and clean up the local branch
+10. Return to the default branch and clean up the local branch
 
 **Examples:**
 
@@ -1610,13 +1610,14 @@ Returns the list of org-internal packages consumed by a repository (one per line
 
 Performs a breadth-first traversal to find all repos that depend on the given repo, directly or transitively.
 
-**Output format:** TSV with four columns:
+**Output format:** TSV with five columns:
 
 | Column | Description |
 |--------|-------------|
 | DEPTH | Distance from root (0 = direct dependent) |
 | REPO | Name of the dependent repository |
 | PACKAGE_REF | The specific package being consumed |
+| VERSION | The version of the referenced package |
 | PATH | Full dependency chain (`>` delimited) |
 
 **Example:**

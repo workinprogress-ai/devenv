@@ -207,6 +207,11 @@ main() {
     local repo_name
     repo_name=$(basename "$repo_dir")
 
+    # Resolve the default branch for this repo (main, master, etc.)
+    local default_branch
+    default_branch=$(git -C "$repo_dir" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##') || true
+    default_branch="${default_branch:-master}"
+
     # ── Dry-run: report and exit ───────────────────────────────────────────
 
     if [ "$dry_run" -eq 1 ]; then
@@ -237,16 +242,16 @@ main() {
 
         log_info "Found changes on branch '$update_branch' — resuming workflow"
     else
-        # ── Step 1: Ensure master is up to date ───────────────────────────
+        # ── Step 1: Ensure default branch is up to date ───────────────────
 
-        log_info "Syncing master to origin in $repo_name..."
-        git -C "$repo_dir" checkout master 2>/dev/null || {
-            log_error "Failed to checkout master in $repo_name"
+        log_info "Syncing $default_branch to origin in $repo_name..."
+        git -C "$repo_dir" checkout "$default_branch" 2>/dev/null || {
+            log_error "Failed to checkout $default_branch in $repo_name"
             exit $EXIT_GIT_FAILED
         }
-        git -C "$repo_dir" fetch origin master --quiet 2>/dev/null || true
-        git -C "$repo_dir" reset --hard origin/master --quiet 2>/dev/null || {
-            log_error "Failed to reset master to origin/master in $repo_name"
+        git -C "$repo_dir" fetch origin "$default_branch" --quiet 2>/dev/null || true
+        git -C "$repo_dir" reset --hard "origin/$default_branch" --quiet 2>/dev/null || {
+            log_error "Failed to reset $default_branch to origin/$default_branch in $repo_name"
             exit $EXIT_GIT_FAILED
         }
         git -C "$repo_dir" clean -fd --quiet 2>/dev/null || true
@@ -256,7 +261,7 @@ main() {
         log_info "Creating branch $update_branch in $repo_name..."
         git -C "$repo_dir" checkout -b "$update_branch" 2>/dev/null || {
             # Branch may already exist from a previous aborted run
-            git -C "$repo_dir" checkout master 2>/dev/null || true
+            git -C "$repo_dir" checkout "$default_branch" 2>/dev/null || true
             git -C "$repo_dir" branch -D "$update_branch" 2>/dev/null || true
             git -C "$repo_dir" checkout -b "$update_branch" 2>/dev/null || {
                 log_error "Failed to create branch $update_branch in $repo_name"
@@ -277,7 +282,7 @@ main() {
         if ! cs-references-update "$repo_dir" 2>&1; then
             log_error "cs-references-update failed for $repo_name"
             rm -f "$before_file" "$after_file"
-            git -C "$repo_dir" checkout -f master 2>/dev/null || true
+            git -C "$repo_dir" checkout -f "$default_branch" 2>/dev/null || true
             git -C "$repo_dir" branch -D "$update_branch" 2>/dev/null || true
             exit $EXIT_UPDATE_FAILED
         fi
@@ -299,7 +304,7 @@ main() {
 
         if git -C "$repo_dir" diff --quiet && git -C "$repo_dir" diff --cached --quiet; then
             log_info "No changes after update — skipping $repo_name"
-            git -C "$repo_dir" checkout master 2>/dev/null || true
+            git -C "$repo_dir" checkout "$default_branch" 2>/dev/null || true
             git -C "$repo_dir" branch -D "$update_branch" 2>/dev/null || true
             exit $EXIT_NO_CHANGES
         fi
@@ -340,7 +345,7 @@ main() {
         prompt_user "Please fix the issue in $repo_dir so that COMMIT HOOKS PASS, then press Enter to retry."
         if ! (cd "$repo_dir" && git add -A && git commit -m "${pr_title} [skip ci]" --quiet) 2>&1; then
             log_error "Commit still failing for $repo_name — aborting"
-            git -C "$repo_dir" checkout -f master 2>/dev/null || true
+            git -C "$repo_dir" checkout -f "$default_branch" 2>/dev/null || true
             git -C "$repo_dir" branch -D "$update_branch" 2>/dev/null || true
             exit $EXIT_TESTS_FAILED
         fi
@@ -351,7 +356,7 @@ main() {
         # Force push in case branch exists on remote from a previous aborted run
         git -C "$repo_dir" push -u origin "$update_branch" --force --quiet 2>/dev/null || {
             log_error "Failed to push branch $update_branch for $repo_name"
-            git -C "$repo_dir" checkout master 2>/dev/null || true
+            git -C "$repo_dir" checkout "$default_branch" 2>/dev/null || true
             git -C "$repo_dir" branch -D "$update_branch" 2>/dev/null || true
             exit $EXIT_GIT_FAILED
         }
@@ -374,7 +379,7 @@ main() {
     if [ -z "$pr_url" ]; then
         log_error "Failed to create PR for $repo_name after 5 attempts"
         prompt_user "Please resolve the PR creation issue manually.  Merge it and then press Enter."
-        git -C "$repo_dir" checkout master 2>/dev/null || true
+        git -C "$repo_dir" checkout "$default_branch" 2>/dev/null || true
         git -C "$repo_dir" branch -D "$update_branch" 2>/dev/null || true
         exit $EXIT_PR_FAILED
     else
@@ -386,7 +391,7 @@ main() {
         if ! (cd "$repo_dir" && pr-complete-merge --force --no-issue-id "$pr_title") 2>&1; then
             log_error "Failed to merge PR for $repo_name"
             prompt_user "Please merge manually, then press Enter."
-            git -C "$repo_dir" checkout master 2>/dev/null || true
+            git -C "$repo_dir" checkout "$default_branch" 2>/dev/null || true
             git -C "$repo_dir" branch -D "$update_branch" 2>/dev/null || true
             exit $EXIT_MERGE_FAILED
         else
@@ -394,10 +399,10 @@ main() {
         fi
     fi
 
-    # ── Step 9: Return to master ───────────────────────────────────────────
+    # ── Step 9: Return to default branch ────────────────────────────────────
 
     sleep 3
-    git -C "$repo_dir" checkout master 2>/dev/null
+    git -C "$repo_dir" checkout "$default_branch" 2>/dev/null
     git -C "$repo_dir" pull --quiet 2>/dev/null || true
     git -C "$repo_dir" branch -D "$update_branch" 2>/dev/null || true
 }

@@ -526,7 +526,15 @@ main() {
                 log_info "Waiting for GitHub Actions to complete before processing generation $next_depth..."
 
                 if [ "${#merged_repos[@]}" -gt 0 ]; then
-                    if ! wait_for_workflow_runs_multi "master" 15 600 "${merged_repos[@]}"; then
+                    local workflow_failed=0
+                    for _repo in "${merged_repos[@]}"; do
+                        local _branch
+                        _branch=$(gh api "repos/$_repo" --jq '.default_branch' 2>/dev/null) || _branch="master"
+                        if ! wait_for_workflow_runs "$_repo" "$_branch" 15 600; then
+                            workflow_failed=1
+                        fi
+                    done
+                    if [ "$workflow_failed" -ne 0 ]; then
                         log_warn "Some workflow runs failed or timed out."
                         prompt_user "Please verify GitHub Actions manually, then press Enter to continue."
                     fi

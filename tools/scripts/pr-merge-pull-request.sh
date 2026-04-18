@@ -165,7 +165,7 @@ read -ra repo_spec <<< "$(get_repo_spec)"
 
 # Find open PR from current branch to target
 log_info "Looking for an open PR from '$CURRENT_BRANCH' -> '$TARGET_BRANCH'..."
-PR_ID=$(find_pr_by_branches "$CURRENT_BRANCH" "$TARGET_BRANCH" "${repo_spec[@]}") || true
+PR_ID=$(find_pr_by_branches "$CURRENT_BRANCH" "$TARGET_BRANCH" "${repo_spec[*]}") || true
 if [ -z "$PR_ID" ]; then
     log_error "No open PR found from '$CURRENT_BRANCH' to '$TARGET_BRANCH'."
     exit 1
@@ -173,7 +173,7 @@ fi
 
 # If no commit message provided, use the PR title
 if [ -z "$COMMIT_MESSAGE" ]; then
-    PR_DETAILS=$(get_pr_details "$PR_ID" "${repo_spec[@]}") || true
+    PR_DETAILS=$(get_pr_details "$PR_ID" "${repo_spec[*]}") || true
     if [ -z "$PR_DETAILS" ]; then
         log_error "Failed to fetch PR details for #$PR_ID."
         exit 1
@@ -198,7 +198,7 @@ if ! validate_conventional_commits "$COMMIT_TITLE"; then
 fi
 
 # Check if PR is a draft
-if is_pr_draft "$PR_ID" "${repo_spec[@]}"; then
+if is_pr_draft "$PR_ID" "${repo_spec[*]}"; then
     if [ "$FORCE" = "true" ]; then
         log_warn "PR #$PR_ID is a draft. Proceeding due to --force."
     else
@@ -209,7 +209,7 @@ fi
 
 # Check issue consistency between CLI arg and PR description
 if [ -n "$ISSUE_NUMBER" ]; then
-    DESC_ISSUE_ID=$(extract_issue_from_pr "$PR_ID" "${repo_spec[@]}") || true
+    DESC_ISSUE_ID=$(extract_issue_from_pr "$PR_ID" "${repo_spec[*]}") || true
     if [ -n "$DESC_ISSUE_ID" ] && [ "$ISSUE_NUMBER" != "$DESC_ISSUE_ID" ]; then
         log_error "PR #$PR_ID references issue #$DESC_ISSUE_ID but --issue $ISSUE_NUMBER was provided."
         exit 1

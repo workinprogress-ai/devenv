@@ -377,6 +377,6 @@ ensure_label() {
     local repo_spec=("$@")
 
     if ! gh label list "${repo_spec[@]}" --json name --jq '.[].name' 2>/dev/null | grep -qx "$label"; then
-        gh label create "$label" "${repo_spec[@]}" --color "#ededed" --description "Automated process" 2>/dev/null || true
+        gh label create "$label" "${repo_spec[@]}" --color "ededed" --description "Automated process" 2>/dev/null || true
     fi
 }
