@@ -78,10 +78,8 @@ get_repo_root() {
 }
 
 # Get default branch (main or master)
-# Args: $1 - optional repo spec (e.g., "-R owner/repo")
 # Returns: Default branch name
 get_default_branch() {
-    local repo_spec="${1:-}"
     git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##' || echo "main"
 }
 
@@ -138,12 +136,14 @@ delete_branch() {
 find_pr_by_branches() {
     local head_branch="${1:-}"
     local base_branch="${2:-}"
+    # shellcheck disable=SC2178
     local repo_spec="${3:-}"
     
     # shellcheck disable=SC2015
     [ -n "$head_branch" ] && [ -n "$base_branch" ] || { log_error "Head and base branches required"; return 1; }
     
     local repo_args=()
+    # shellcheck disable=SC2128
     if [ -n "$repo_spec" ]; then
         read -ra repo_args <<< "$repo_spec"
     fi
@@ -285,12 +285,17 @@ build_merge_commit_message() {
         fi
     fi
     
-    # Build footer
-    local footer="#$pr_num"
-    [ -n "$issue_num" ] && footer="$footer #$issue_num"
+    # Build footer refs
+    local refs="#$pr_num"
+    [ -n "$issue_num" ] && refs="$refs #$issue_num"
     
-    # Build final message
-    printf "%s\n\n%s   %s\n" "$title" "$trimmed_body" "$footer"
+    # Build final message: title with PR ref inline, then body (if any)
+    local subject="$title ($refs)"
+    if [ -n "$trimmed_body" ]; then
+        printf "%s\n\n%s\n" "$subject" "$trimmed_body"
+    else
+        printf "%s\n" "$subject"
+    fi
 }
 
 # ============================================================================
@@ -317,6 +322,48 @@ merge_pr_squash() {
     
     log_info "Merging PR $pr_num with squash..."
     gh pr merge "${repo_args[@]}" "$pr_num" --squash --delete-branch --body "$commit_msg" 2>&1
+}
+
+# Merge PR with a specified method (squash, merge, or rebase)
+# Args: $1 - PR number
+# Args: $2 - commit message
+# Args: $3 - merge method (squash, merge, rebase)
+# Args: $4 - optional repo spec
+# Args: $5 - optional "true" to force merge with --admin (bypass checks)
+# Returns: 0 on success, 1 on failure
+merge_pr() {
+    local pr_num="${1:-}"
+    local commit_msg="${2:-}"
+    local method="${3:-squash}"
+    local repo_spec="${4:-}"
+    local force="${5:-false}"
+    
+    # shellcheck disable=SC2015
+    [ -n "$pr_num" ] && [ -n "$commit_msg" ] || { log_error "PR number and commit message required"; return 1; }
+    
+    case "$method" in
+        squash|merge|rebase) ;;
+        *) log_error "Invalid merge method: $method (must be squash, merge, or rebase)"; return 1 ;;
+    esac
+    
+    local repo_args=()
+    if [ -n "$repo_spec" ]; then
+        read -ra repo_args <<< "$repo_spec"
+    fi
+    
+    local subject body
+    subject="$(printf "%s" "$commit_msg" | head -n1)"
+    body="$(printf "%s" "$commit_msg" | tail -n +2 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+
+    local merge_args=("${repo_args[@]}" "$pr_num" --"$method" --delete-branch --subject "$subject" --body "$body")
+    if [ "$force" = "true" ]; then
+        merge_args+=(--admin)
+        log_info "Merging PR $pr_num with $method (--admin)..."
+    else
+        log_info "Merging PR $pr_num with $method..."
+    fi
+    
+    gh pr merge "${merge_args[@]}" 2>&1
 }
 
 # ============================================================================
@@ -574,6 +621,7 @@ export -f validate_conventional_commits
 export -f validate_git_context
 export -f build_merge_commit_message
 export -f merge_pr_squash
+export -f merge_pr
 export -f configure_git_repo
 export -f configure_git_global
 export -f add_git_safe_directory

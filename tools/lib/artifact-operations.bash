@@ -271,8 +271,8 @@ get_package_versions() {
         versions_result="[]"
     fi
     
-    # Convert response to JSON array format
-    versions_result=$(echo "$versions_result" | jq -s '.' 2>/dev/null || echo "[]")
+    # Convert paginated response to flat JSON array format
+    versions_result=$(echo "$versions_result" | jq -s 'flatten' 2>/dev/null || echo "[]")
     
     echo "$versions_result"
 }

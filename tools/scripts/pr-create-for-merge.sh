@@ -47,10 +47,12 @@ usage() {
   echo "  --base <branch>      Target branch for PR (default: repository's default branch)" >&2
   echo "                        Examples: master, main, develop, release/v1.0" >&2
   echo "  --repo-dir <path>    Repository directory (default: current)" >&2
+  echo "  --branch <name>      Source branch for PR (default: current branch)" >&2
   echo "  --body <text>        PR body text" >&2
   echo "  --draft              Create as draft" >&2
   echo "  --reviewer <handle>  Add a reviewer (can be repeated)" >&2
   echo "  --assignee <handle>  Add an assignee (default: @me)" >&2
+  echo "  --label <name>       Add a label (can be repeated)" >&2
   exit 1
 }
 
@@ -58,9 +60,11 @@ PR_TITLE=""
 PR_BODY=""
 REPO_DIR="$(pwd)"
 TARGET_BRANCH=""
+SOURCE_BRANCH=""
 DRAFT="false"
 REVIEWERS=()
 ASSIGNEES=("@me")
+LABELS=()
 ISSUE_NUMBER=""
 NO_ISSUE="false"
 
@@ -73,6 +77,8 @@ while [[ $# -gt 0 ]]; do
       NO_ISSUE="true"; shift ;;
     --repo-dir)
       REPO_DIR="$2"; shift 2 ;;
+    --branch)
+      SOURCE_BRANCH="$2"; shift 2 ;;
     --base)
       TARGET_BRANCH="$2"; shift 2 ;;
     --body)
@@ -83,6 +89,8 @@ while [[ $# -gt 0 ]]; do
       REVIEWERS+=("$2"); shift 2 ;;
     --assignee)
       ASSIGNEES+=("$2"); shift 2 ;;
+    --label)
+      LABELS+=("$2"); shift 2 ;;
     -h|--help)
       usage ;;
     *)
@@ -128,7 +136,7 @@ if ! git diff-index --quiet HEAD --; then
   exit 1
 fi
 
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+CURRENT_BRANCH=${SOURCE_BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 if [[ "$CURRENT_BRANCH" == "review/"* ]]; then
   echo "This script cannot be run on a review/* branch." >&2
   exit 1
@@ -175,6 +183,10 @@ for reviewer in "${REVIEWERS[@]}"; do
 done
 for assignee in "${ASSIGNEES[@]}"; do
   args+=(--assignee "$assignee")
+done
+for label in "${LABELS[@]}"; do
+  ensure_label "$label" "${repo_spec[@]}"
+  args+=(--label "$label")
 done
 
 echo "Creating PR from $CURRENT_BRANCH -> $TARGET_BRANCH..." >&2

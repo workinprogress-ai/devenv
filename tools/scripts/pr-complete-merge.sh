@@ -18,13 +18,24 @@ source "$DEVENV_TOOLS/lib/issue-operations.bash"
 explode() { echo "Error: $1" >&2; exit 1; }
 
 TARGET_BRANCH="master"
+FORCE="false"
+
+# Parse flags first
+POSITIONAL=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --force) FORCE="true"; shift ;;
+        *) POSITIONAL+=("$1"); shift ;;
+    esac
+done
+set -- "${POSITIONAL[@]}"
 
 ISSUE_ID="${1:-}"
 COMMIT_MESSAGE_RAW="${2:-}"
 REPO_DIR="${3:-$(pwd)}"
 
 if [ -z "${ISSUE_ID:-}" ] || [ -z "${COMMIT_MESSAGE_RAW:-}" ]; then
-  echo "Usage: pr-complete-merge.sh <ISSUE_ID | --select | --no-issue-id> \"<CommitMessage>\" [REPO_DIR]" >&2
+  echo "Usage: pr-complete-merge.sh [--force] <ISSUE_ID | --select | --no-issue-id> \"<CommitMessage>\" [REPO_DIR]" >&2
   exit 1
 fi
 
@@ -64,16 +75,16 @@ read -ra repo_spec <<< "$(get_repo_spec)"
 
 # Find PR from current branch to target using library function
 echo "Looking for an open PR from '$(get_current_branch)' -> '$TARGET_BRANCH'..." >&2
-PR_ID=$(find_pr_by_branches "$(get_current_branch)" "$TARGET_BRANCH" "${repo_spec[@]}") || true
+PR_ID=$(find_pr_by_branches "$(get_current_branch)" "$TARGET_BRANCH" "${repo_spec[*]}") || true
 [ -n "$PR_ID" ] || explode "No open PR found from '$(get_current_branch)' to '$TARGET_BRANCH'."
 
 # Check if PR is draft using library function
-if is_pr_draft "$PR_ID" "${repo_spec[@]}"; then
+if is_pr_draft "$PR_ID" "${repo_spec[*]}"; then
   explode "PR $PR_ID is a Draft. Convert it to open before completing."
 fi
 
 # Get issue from PR description using library function
-DESC_ISSUE_ID=$(extract_issue_from_pr "$PR_ID" "${repo_spec[@]}") || true
+DESC_ISSUE_ID=$(extract_issue_from_pr "$PR_ID" "${repo_spec[*]}") || true
 if [ -n "$DESC_ISSUE_ID" ] && [ "$ISSUE_ID" != '--no-issue-id' ] && [ "$ISSUE_ID" != "$DESC_ISSUE_ID" ]; then
   explode "PR $PR_ID description references a different issue (#$DESC_ISSUE_ID) than provided ($ISSUE_TAG)."
 fi
@@ -84,7 +95,7 @@ MERGE_COMMIT_MESSAGE=$(build_merge_commit_message "$COMMIT_TITLE_LINE" "$COMMIT_
 echo "Completing PR $PR_ID (squash + delete source branch)..." >&2
 
 # Use library function to merge PR
-if ! merge_pr_squash "$PR_ID" "$MERGE_COMMIT_MESSAGE" "${repo_spec[@]}"; then
+if ! merge_pr "$PR_ID" "$MERGE_COMMIT_MESSAGE" "squash" "${repo_spec[*]}" "$FORCE"; then
   explode "Failed to complete PR $PR_ID. (Merge conflicts or branch protection rules may be the cause.)"
 fi
 

@@ -234,3 +234,149 @@ check_dependencies() {
         exit 1
     fi
 }
+
+# ============================================================================
+# GitHub Actions Workflow Monitoring
+# ============================================================================
+
+# Wait for all in-progress GitHub Actions runs to complete for a repository.
+#
+# Polls `gh run list` until no runs are queued or in_progress on the given
+# branch, then returns. Useful for waiting on CI after merging a PR before
+# proceeding to the next step.
+#
+# Arguments:
+#   $1 - Repository in "owner/repo" format (required)
+#   $2 - Branch to monitor (default: master)
+#   $3 - Poll interval in seconds (default: 15)
+#   $4 - Timeout in seconds (default: 600)
+#
+# Returns:
+#   0 if all runs completed successfully
+#   1 if any run failed/cancelled
+#   2 if timeout reached
+#
+wait_for_workflow_runs() {
+    local repo="${1:-}"
+    local branch="${2:-master}"
+    local interval="${3:-15}"
+    local timeout="${4:-600}"
+
+    [ -n "$repo" ] || { log_error "Repository (owner/repo) required"; return 1; }
+
+    local elapsed=0
+
+    while [ "$elapsed" -lt "$timeout" ]; do
+        local active_count
+        active_count=$(gh run list -R "$repo" --branch "$branch" --limit 10 \
+            --json status --jq '[.[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "pending" or .status == "requested")] | length' 2>/dev/null) || active_count=0
+
+        if [ "$active_count" -eq 0 ]; then
+            # No active runs — check if the most recent run succeeded
+            local latest_conclusion
+            latest_conclusion=$(gh run list -R "$repo" --branch "$branch" --limit 1 \
+                --json conclusion --jq '.[0].conclusion // empty' 2>/dev/null) || true
+
+            if [ "$latest_conclusion" = "failure" ] || [ "$latest_conclusion" = "cancelled" ]; then
+                log_warn "Latest workflow run on $repo ($branch) concluded: $latest_conclusion"
+                return 1
+            fi
+            return 0
+        fi
+
+        log_info "Waiting for $active_count workflow run(s) on $repo ($branch)... [${elapsed}s/${timeout}s]"
+        sleep "$interval"
+        elapsed=$((elapsed + interval))
+    done
+
+    log_warn "Timeout (${timeout}s) waiting for workflow runs on $repo ($branch)"
+    return 2
+}
+
+# Wait for workflow runs to complete across multiple repositories.
+#
+# Calls wait_for_workflow_runs for each repo. Collects failures and reports
+# a summary at the end.
+#
+# Arguments:
+#   $1 - Branch to monitor (default: master)
+#   $2 - Poll interval in seconds (default: 15)
+#   $3 - Timeout in seconds (default: 600)
+#   $4..N - Repositories in "owner/repo" format
+#
+# Returns:
+#   0 if all repos' runs completed successfully
+#   1 if any failed
+#
+wait_for_workflow_runs_multi() {
+    local branch="${1:-master}"
+    local interval="${2:-15}"
+    local timeout="${3:-600}"
+    shift 3
+
+    local -a repos=("$@")
+    local -a failed=()
+
+    for repo in "${repos[@]}"; do
+        log_info "Monitoring workflow runs for $repo..."
+        if ! wait_for_workflow_runs "$repo" "$branch" "$interval" "$timeout"; then
+            failed+=("$repo")
+        fi
+    done
+
+    if [ "${#failed[@]}" -gt 0 ]; then
+        log_warn "Workflow runs failed or timed out for: ${failed[*]}"
+        return 1
+    fi
+
+    log_info "All workflow runs completed successfully"
+    return 0
+}
+
+# Cancel any active GitHub Actions workflow runs on a branch.
+#
+# Finds all queued/in-progress/pending runs on the given branch and cancels
+# them. Silently ignores failures — this is best-effort.
+#
+# Arguments:
+#   $1 - Repository in "owner/repo" format (required)
+#   $2 - Branch to cancel runs on (required)
+#
+# Returns:
+#   0 always (best-effort, failures are silently ignored)
+#
+cancel_branch_workflow_runs() {
+    local repo="${1:-}"
+    local branch="${2:-}"
+
+    [ -n "$repo" ] && [ -n "$branch" ] || { log_error "Repository and branch required"; return 1; }
+
+    local run_ids
+    run_ids=$(gh run list -R "$repo" --branch "$branch" --limit 10 \
+        --json databaseId,status \
+        --jq '[.[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "pending" or .status == "requested")] | .[].databaseId' 2>/dev/null) || return 0
+
+    local id
+    for id in $run_ids; do
+        gh run cancel -R "$repo" "$id" 2>/dev/null && \
+            log_info "Cancelled workflow run $id on $branch" || true
+    done
+}
+
+# Ensure a label exists in a GitHub repository, creating it if absent.
+# Usage: ensure_label LABEL [REPO_SPEC...]
+#   LABEL      The label name to ensure exists
+#   REPO_SPEC  Optional repo spec args (e.g. -R owner/repo). Defaults to current repo.
+# Returns:
+#   0 always (best-effort, creation failures are silently ignored)
+#
+ensure_label() {
+    local label="${1:-}"
+    [ -n "$label" ] || { log_error "Label name required"; return 1; }
+    shift
+    local repo_spec=("$@")
+
+    if ! gh label list "${repo_spec[@]}" --json name --jq '.[].name' 2>/dev/null | grep -qx "$label"; then
+        gh label create "$label" "${repo_spec[@]}" --color "ededed" --description "Automated process" 2>/dev/null || true
+    fi
+}

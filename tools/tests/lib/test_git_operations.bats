@@ -7,7 +7,6 @@ load ../test_helper
 
 # Setup: Source the library and dependencies
 setup() {
-    export DEVENV_ROOT="/workspaces/devenv"
     export TEST_TEMP_DIR="$(mktemp -d)"
     export TEST_CONFIG_FILE="$TEST_TEMP_DIR/test.config"
     export PROJECT_ROOT="$DEVENV_ROOT"
@@ -250,7 +249,7 @@ body" "789")
 
 @test "git-operations library loads without error-handling" {
     bash -c "
-        export DEVENV_ROOT='/workspaces/devenv'
+        export DEVENV_ROOT='$DEVENV_ROOT'
         source '$DEVENV_ROOT/tools/lib/error-handling.bash'
         source '$DEVENV_ROOT/tools/lib/git-operations.bash'
         [ -n \"\$(type -t get_current_branch)\" ]

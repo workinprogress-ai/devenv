@@ -962,6 +962,195 @@ Open coverage reports in a browser (auto-detects chromium or firefox).
 cs-open-coverage
 ```
 
+## C# Dependency Management
+
+Tools for tracing, updating, and propagating NuGet package changes across C# repositories.
+
+### `cs-dependencies-trace`
+
+Traces the reverse dependency tree for a C# repository — shows all repositories that depend on it, directly or transitively.
+
+**Usage:**
+
+```bash
+cs-dependencies-trace [OPTIONS] [TARGET_DIR]
+```
+
+**Arguments:**
+
+- `TARGET_DIR`: Path to a directory containing `.sln` or `.csproj` files. Defaults to the current directory.
+
+**Options:**
+
+- `--by-repo`: Collapse output to one line per dependent repo (omitting package detail)
+- `--no-refresh`: Skip refreshing the repository cache
+- `-h, --help`: Show help and exit
+- `-v, --version`: Show version and exit
+
+**Output format (default):**
+
+```text
+DEPTH:REPO:PACKAGE
+```
+
+For example: `0:lib.cs.services.chassis:WorkInProgress.Lib.Services.Chassis.Common`
+
+**Output format (--by-repo):**
+
+```text
+DEPTH:REPO
+```
+
+**Examples:**
+
+```bash
+# Show all dependents of the essentials library
+cd repos/lib.cs.common.essentials
+cs-dependencies-trace
+
+# Show only direct dependents, collapsed by repo
+cs-dependencies-trace --by-repo | grep '^0:'
+```
+
+### `cs-references-update-wizard`
+
+Runs the full NuGet dependency-update workflow for a **single** repository interactively. Useful for updating one repository without walking the entire dependency tree.
+
+**Usage:**
+
+```bash
+cs-references-update-wizard [OPTIONS] [REPO_DIR]
+```
+
+**Arguments:**
+
+- `REPO_DIR`: Path to the repository to update. Defaults to the current directory.
+
+**Options:**
+
+- `--branch NAME`: Branch to create for the update (default: `auto-update-references`)
+- `--dry-run`: Show what would happen without making any changes
+- `-h, --help`: Show help and exit
+- `-v, --version`: Show version and exit
+
+**Exit codes:**
+
+| Code | Meaning |
+|------|---------|
+| `0`  | Repository was updated (PR created and merged) |
+| `10` | No-op — nothing changed after running `cs-references-update` |
+| `20` | git operation failed (branch creation, commit, or push) |
+| `21` | `cs-references-update` failed |
+| `30` | Tests still failing after user had a chance to fix |
+| `40` | PR could not be created |
+| `41` | PR could not be merged |
+| `1`–`5` | Argument / environment error (from `error-handling.bash`) |
+
+**Workflow:**
+
+1. Create branch (`auto-update-references` by default)
+2. Run `cs-references-update` to update all NuGet packages
+3. Detect major version bumps in non-test `.csproj` files
+4. If nothing changed, clean up and exit with code `10`
+5. Commit and push the branch
+6. Run `./run-tests` if present — pause for the user to fix failures
+7. If major bumps or test failures are detected, prompt the user to confirm the change level (`patch` or `major`)
+8. Create a PR with the selected prefix (`patch:` or `major:`)
+9. Merge the PR
+10. Return to the default branch and clean up the local branch
+
+**Examples:**
+
+```bash
+# Update a specific repository
+cs-references-update-wizard ~/repos/lib.cs.services.chassis
+
+# Dry run to see what would change
+cs-references-update-wizard --dry-run
+
+# Use a custom branch name
+cs-references-update-wizard --branch deps/update-q2-2026
+```
+
+### `cs-dependencies-update-wizard`
+
+Interactive wizard that updates C# NuGet dependencies across repositories. Supports two modes:
+
+- **Single-target mode** (default): walks the reverse dependency tree of a specific library and updates every dependent repo in BFS order.
+- **Global mode** (`--global`): computes a full topological ordering of *all* C# repos in the cache and updates them generation by generation — from foundational libraries up through services. Every repo gets `cs-references-update` run against it, including external package updates.
+
+**Usage:**
+
+```bash
+# Single-target mode
+cs-dependencies-update-wizard [OPTIONS] TARGET_DIR
+
+# Global mode
+cs-dependencies-update-wizard [OPTIONS] --global [N]
+```
+
+**Arguments:**
+
+- `TARGET_DIR` *(single-target)*: Path to the released library. Must contain `.sln` or `.csproj` files. Defaults to the current directory.
+- `N` *(global)*: Optional starting generation number (default: `0`). Use this to resume a run that was interrupted — pass the generation number shown in the output.
+
+**Options:**
+
+- `--global [N]`: Global mode — update all C# repos in topological order, optionally starting from generation `N`
+- `--no-refresh`: Skip refreshing the repository cache
+- `--dry-run`: Show what would be updated without making any changes
+- `-h, --help`: Show help and exit
+- `-v, --version`: Show version and exit
+
+**Workflow (single-target):**
+
+For each depth level (0 = direct dependents, 1 = transitive dependents, …):
+
+1. Check whether each dependent repo already uses the latest published version — skip if so
+2. Call `cs-references-update-wizard` for each repo that needs updating
+3. If a repo fails, pause and prompt the user to fix it before continuing
+4. After the level is complete, wait for GitHub Actions, refresh the cache, and advance
+
+**Workflow (--global):**
+
+Generation 0 contains repos with no org-internal dependencies. Generation N contains repos whose org-internal dependencies are all in generations < N.
+
+For each generation:
+
+1. Run `cs-references-update-wizard` for every repo (exit 10 = no changes → skipped silently)
+2. If a repo fails, pause and prompt the user to fix it before continuing with the generation
+3. After the generation is complete, wait for GitHub Actions, refresh the cache, and advance
+
+**Resuming an interrupted global run:**
+
+The generation number is printed in the output header. To resume from where you left off:
+
+```bash
+cs-dependencies-update-wizard --global 3   # restart from generation 3
+```
+
+**Examples:**
+
+```bash
+# Single-target: run after releasing lib.cs.common.essentials
+cd repos/lib.cs.common.essentials
+cs-dependencies-update-wizard
+
+# Global: update every C# repo from scratch
+cs-dependencies-update-wizard --global
+
+# Global: resume from generation 4 after a previous run was interrupted
+cs-dependencies-update-wizard --global 4
+
+# Dry run — show which repos would be updated at each generation
+cs-dependencies-update-wizard --global --dry-run
+
+# Skip initial cache refresh (useful when cache is already fresh)
+cs-dependencies-update-wizard --no-refresh
+```
+
+**Related:** `cs-references-update-wizard` (single-repo workflow), `cs-dependencies-trace` (view the dependency tree without making changes)
+
 ## Networking and Utilities
 
 Tools for managing network connections and performing utility functions.
@@ -1333,6 +1522,119 @@ service:
 - `yq` (YAML processor)
 
 **Related:** See [repo-create](#repo-create) for initial repository creation details, and [Repo Creation Standards (repo-create.sh)](./Devenv-Customization.md#repo-creation-standards-repo-createsh) in the Devenv-Customization docs for configuration options.
+
+## Shared Libraries
+
+Reusable bash libraries located in `tools/lib/` that provide common functionality for scripts and other tools. These are sourced (not executed) and include guards to prevent double-loading.
+
+### `repo-cache.bash`
+
+Maintains shallow clones of all organization repositories in a local cache directory for use by cross-repo analysis tools.
+
+**Provided function:**
+
+#### `refresh_repo_cache [filter]`
+
+Clones or updates all organization repositories into `$DEVENV_TOOLS/cache/repo_cache` using minimal shallow clones.
+
+**Arguments:**
+
+- `filter` (optional): A grep-compatible pattern to filter repository names
+
+**Return codes:**
+
+- `0`: All repositories cached successfully
+- `1`: Complete failure (no repos found, missing credentials, or all clones failed)
+- `2`: Partial failure (some repos failed, others succeeded)
+
+**Behaviour:**
+
+- New repos are cloned with `--depth 1 --single-branch --no-tags`
+- Existing repos are updated with `fetch --depth 1` + `reset --hard` + `gc --prune=all`
+- Writes a `.cache_timestamp` file (ISO timestamp + content hash) for staleness detection by downstream tools
+- Outputs the cache directory path on success
+
+**Required environment variables:** `GH_ORG`, `GH_USER`, `GH_TOKEN`
+
+**Example:**
+
+```bash
+source "$DEVENV_TOOLS/lib/repo-cache.bash"
+
+# Cache all org repos
+refresh_repo_cache
+
+# Cache only service repos
+refresh_repo_cache "^service\."
+```
+
+### `cs-dependency-graph.bash`
+
+Builds and queries a reverse dependency graph across all cached C# organization repositories. Scans `.csproj` files to map NuGet package production and consumption relationships between repos.
+
+**Configuration:**
+
+- `CS_DEP_ORG_PREFIX` (default: `WorkInProgress.`): Only packages matching this prefix are considered org-internal
+- `REPO_CACHE_DIR`: Inherited from `repo-cache.bash`
+- `CS_DEP_INDEX_DIR`: Index storage location (default: `$REPO_CACHE_DIR/.index`)
+
+**Provided functions:**
+
+#### `is_index_stale`
+
+Checks whether the dependency index needs rebuilding by comparing `.cache_timestamp` against `.index_timestamp`.
+
+**Return codes:** `0` = stale (rebuild needed), `1` = fresh
+
+#### `build_dependency_index`
+
+Scans all cached repos' `src/**/*.csproj` files (skipping `test/` and `tests/` directories) and produces three TSV index files:
+
+- `package_to_repo.tsv` — Maps each package name to its producing repo
+- `repo_packages.tsv` — Lists all packages each repo publishes
+- `repo_dependencies.tsv` — Lists org-internal package references per repo (excludes self-references and third-party packages)
+
+#### `ensure_dependency_index`
+
+Convenience wrapper: calls `build_dependency_index` only when `is_index_stale` indicates the index is outdated.
+
+#### `list_repo_packages "repo-name"`
+
+Returns the list of NuGet packages produced by a repository (one per line).
+
+#### `list_repo_dependencies "repo-name"`
+
+Returns the list of org-internal packages consumed by a repository (one per line).
+
+#### `get_reverse_dependency_tree "repo-name-or-path"`
+
+Performs a breadth-first traversal to find all repos that depend on the given repo, directly or transitively.
+
+**Output format:** TSV with five columns:
+
+| Column | Description |
+|--------|-------------|
+| DEPTH | Distance from root (0 = direct dependent) |
+| REPO | Name of the dependent repository |
+| PACKAGE_REF | The specific package being consumed |
+| VERSION | The version of the referenced package |
+| PATH | Full dependency chain (`>` delimited) |
+
+**Example:**
+
+```bash
+source "$DEVENV_TOOLS/lib/cs-dependency-graph.bash"
+
+# Ensure cache and index are current
+refresh_repo_cache
+ensure_dependency_index
+
+# Show what depends on the essentials library
+get_reverse_dependency_tree "lib.cs.common.essentials"
+
+# Filter to direct dependents only
+get_reverse_dependency_tree "lib.cs.common.essentials" | awk -F'\t' '$1 == 0'
+```
 
 ## Bash Functions and Aliases
 
