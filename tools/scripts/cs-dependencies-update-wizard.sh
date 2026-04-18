@@ -125,6 +125,24 @@ prompt_yes_no() {
     done
 }
 
+# Prompt retry / skip / abort
+# Usage: prompt_retry_skip_abort "repo-name"
+# Returns: 0 = retry, 1 = skip, 2 = abort
+prompt_retry_skip_abort() {
+    local repo="$1"
+    local answer
+    echo ""
+    while true; do
+        read -r -p ">>> $repo failed. [r]etry / [s]kip (continue without it) / [a]bort wizard: " answer < /dev/tty
+        case "$answer" in
+            [Rr]*) echo ""; return 0 ;;
+            [Ss]*) echo ""; return 1 ;;
+            [Aa]*) echo ""; return 2 ;;
+            *) echo "    Please answer r, s, or a." ;;
+        esac
+    done
+}
+
 # Get the latest published version of a package
 # Usage: get_latest_version PACKAGE_NAME
 # Output: version string (e.g., "3.0.0")
@@ -415,24 +433,30 @@ main() {
                 continue
             elif [ "$wizard_rc" -ne 0 ]; then
                 log_error "Single-repo wizard failed for $repo (exit $wizard_rc)"
-                # Retry loop: downstream repos may depend on this one, so we cannot skip it
+                # Offer retry / skip / abort
+                local skip_repo=0
                 while true; do
-                    if ! prompt_yes_no "Retry $repo now? (n = abort the entire wizard)"; then
-                        log_error "Aborting: $repo could not be updated and downstream repos depend on it."
+                    local choice
+                    prompt_retry_skip_abort "$repo"; choice=$?
+                    if [ "$choice" -eq 2 ]; then
+                        log_error "Aborting: $repo could not be updated and downstream repos may depend on it."
                         exit 1
+                    elif [ "$choice" -eq 1 ]; then
+                        log_warn "Skipping $repo — downstream repos may be affected."
+                        skip_repo=1
+                        break
                     fi
+                    # choice 0 = retry
                     wizard_rc=0
                     "$SINGLE_REPO_WIZARD" --branch "$UPDATE_BRANCH" "$repo_dir" || wizard_rc=$?
-                    if [ "$wizard_rc" -eq 0 ]; then
-                        break
-                    elif [ "$wizard_rc" -eq 10 ]; then
-                        # Treated as success (no changes needed)
+                    if [ "$wizard_rc" -eq 0 ] || [ "$wizard_rc" -eq 10 ]; then
                         wizard_rc=0
                         break
                     fi
                     log_error "Retry failed for $repo (exit $wizard_rc)"
                 done
-                if [ "$wizard_rc" -ne 0 ]; then
+                if [ "$skip_repo" -eq 1 ] || [ "$wizard_rc" -ne 0 ]; then
+                    skipped=$((skipped + 1))
                     continue
                 fi
             fi

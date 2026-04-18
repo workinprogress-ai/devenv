@@ -346,12 +346,21 @@ main() {
     # ── Step 7: Create PR ──────────────────────────────────────────────────
 
     log_info "Creating PR: '$pr_title' for $repo_name..."
-    local pr_url
-    pr_url=$(pr-create-for-merge --no-issue --repo-dir "$repo_dir" --branch "$update_branch" --label "automated" "$pr_title" 2>&1 | grep -oE 'https://github.com[^ ]+' | head -1) || true
+    sleep 3 # Wait a moment for GitHub to register the new branch before creating PR
+    local pr_url=""
+    local pr_attempt
+    for pr_attempt in 1 2 3; do
+        pr_url=$(pr-create-for-merge --no-issue --repo-dir "$repo_dir" --branch "$update_branch" --label "automated" "$pr_title" 2>&1 | grep -oE 'https://github.com[^ ]+' | head -1) || true
+        [ -n "$pr_url" ] && break
+        if [ "$pr_attempt" -lt 3 ]; then
+            log_warn "PR creation attempt $pr_attempt failed — retrying in 10s..."
+            sleep 10
+        fi
+    done
 
     if [ -z "$pr_url" ]; then
-        log_error "Failed to create PR for $repo_name"
-        prompt_user "Please resolve the PR creation issue manually, then press Enter."
+        log_error "Failed to create PR for $repo_name after 3 attempts"
+        prompt_user "Please resolve the PR creation issue manually.  Merge it and then press Enter."
         git -C "$repo_dir" checkout master 2>/dev/null || true
         git -C "$repo_dir" branch -D "$update_branch" 2>/dev/null || true
         exit $EXIT_PR_FAILED
