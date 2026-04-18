@@ -185,6 +185,7 @@ for assignee in "${ASSIGNEES[@]}"; do
   args+=(--assignee "$assignee")
 done
 for label in "${LABELS[@]}"; do
+  ensure_label "$label" "${repo_spec[@]}"
   args+=(--label "$label")
 done
 

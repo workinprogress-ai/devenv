@@ -74,6 +74,8 @@ Options:
                     optionally starting from generation N
     --no-refresh    Skip refreshing the repository cache
     --dry-run       Show what would be updated without making any changes
+    --auto          Skip the per-generation confirmation prompt (process all
+    --auto-generations  generations automatically). Alias: --auto
 
 Workflow (single-target):
     For each depth level (0 = direct dependents, 1 = transitive, ...):
@@ -175,6 +177,7 @@ main() {
     local dry_run=0
     local global_mode=0
     local global_start_gen=0
+    local auto_generations=0
 
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -191,6 +194,10 @@ main() {
                 ;;
             --dry-run)
                 dry_run=1
+                shift
+                ;;
+            --auto|--auto-generations)
+                auto_generations=1
                 shift
                 ;;
             --global)
@@ -366,6 +373,34 @@ main() {
         local -a repos_at_depth
         mapfile -t repos_at_depth < <(echo "$tree_output" | awk -F'\t' -v d="$depth" '$1 == d { print $2 }')
 
+        # List repos and prompt unless --auto
+        if [ "$auto_generations" -eq 0 ] && [ "$dry_run" -eq 0 ]; then
+            echo ""
+            echo "  Repositories in this generation:"
+            for repo in "${repos_at_depth[@]}"; do
+                echo "    - $repo"
+            done
+            echo ""
+            local gen_answer
+            while true; do
+                read -r -p ">>> Process this generation? [y]es / [s]kip / [a]bort: " gen_answer < /dev/tty
+                case "$gen_answer" in
+                    [Yy]*) echo ""; break ;;
+                    [Ss]*)
+                        echo ""
+                        log_info "Skipping generation $depth."
+                        continue 2
+                        ;;
+                    [Aa]*)
+                        echo ""
+                        log_info "Aborting."
+                        exit 0
+                        ;;
+                    *) echo "    Please answer y, s, or a." ;;
+                esac
+            done
+        fi
+
         local processed=0
         local skipped=0
         local -a merged_repos=()
@@ -436,8 +471,8 @@ main() {
                 # Offer retry / skip / abort
                 local skip_repo=0
                 while true; do
-                    local choice
-                    prompt_retry_skip_abort "$repo"; choice=$?
+                    local choice=0
+                    prompt_retry_skip_abort "$repo" || choice=$?
                     if [ "$choice" -eq 2 ]; then
                         log_error "Aborting: $repo could not be updated and downstream repos may depend on it."
                         exit 1

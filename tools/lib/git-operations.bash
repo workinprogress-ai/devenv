@@ -78,10 +78,8 @@ get_repo_root() {
 }
 
 # Get default branch (main or master)
-# Args: $1 - optional repo spec (e.g., "-R owner/repo")
 # Returns: Default branch name
 get_default_branch() {
-    local repo_spec="${1:-}"
     git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##' || echo "main"
 }
 
@@ -138,12 +136,14 @@ delete_branch() {
 find_pr_by_branches() {
     local head_branch="${1:-}"
     local base_branch="${2:-}"
+    # shellcheck disable=SC2178
     local repo_spec="${3:-}"
     
     # shellcheck disable=SC2015
     [ -n "$head_branch" ] && [ -n "$base_branch" ] || { log_error "Head and base branches required"; return 1; }
     
     local repo_args=()
+    # shellcheck disable=SC2128
     if [ -n "$repo_spec" ]; then
         read -ra repo_args <<< "$repo_spec"
     fi

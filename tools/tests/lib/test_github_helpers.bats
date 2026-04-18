@@ -429,3 +429,78 @@ load ../test_helper
   "
   [ "$status" -eq 0 ]
 }
+
+# ============================================================================
+# ensure_label Tests
+# ============================================================================
+
+@test "ensure_label: requires label argument" {
+  run bash -c "
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    ensure_label ''
+  "
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Label name required" ]]
+}
+
+@test "ensure_label: does not create label when it already exists" {
+  run bash -c "
+    gh() {
+      if [[ \"\$*\" =~ 'label list' ]]; then
+        echo 'automated'
+        return 0
+      fi
+      echo 'UNEXPECTED_GH_CALL' >&2
+      return 1
+    }
+    export -f gh
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    ensure_label 'automated'
+  "
+  [ "$status" -eq 0 ]
+  [[ ! "$output" =~ "UNEXPECTED_GH_CALL" ]]
+}
+
+@test "ensure_label: creates label when it does not exist" {
+  run bash -c "
+    CREATED=0
+    gh() {
+      if [[ \"\$*\" =~ 'label list' ]]; then
+        echo 'some-other-label'
+        return 0
+      fi
+      if [[ \"\$*\" =~ 'label create' ]]; then
+        echo 'CREATED'
+        return 0
+      fi
+      return 0
+    }
+    export -f gh
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    ensure_label 'automated'
+  "
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "CREATED" ]]
+}
+
+@test "ensure_label: succeeds even if label create fails" {
+  run bash -c "
+    gh() {
+      if [[ \"\$*\" =~ 'label list' ]]; then
+        return 0
+      fi
+      if [[ \"\$*\" =~ 'label create' ]]; then
+        return 1
+      fi
+      return 0
+    }
+    export -f gh
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    ensure_label 'automated'
+  "
+  [ "$status" -eq 0 ]
+}

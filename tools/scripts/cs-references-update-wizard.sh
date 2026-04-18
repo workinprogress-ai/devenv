@@ -237,7 +237,21 @@ main() {
 
         log_info "Found changes on branch '$update_branch' — resuming workflow"
     else
-        # ── Step 1: Create update branch ──────────────────────────────────
+        # ── Step 1: Ensure master is up to date ───────────────────────────
+
+        log_info "Syncing master to origin in $repo_name..."
+        git -C "$repo_dir" checkout master 2>/dev/null || {
+            log_error "Failed to checkout master in $repo_name"
+            exit $EXIT_GIT_FAILED
+        }
+        git -C "$repo_dir" fetch origin master --quiet 2>/dev/null || true
+        git -C "$repo_dir" reset --hard origin/master --quiet 2>/dev/null || {
+            log_error "Failed to reset master to origin/master in $repo_name"
+            exit $EXIT_GIT_FAILED
+        }
+        git -C "$repo_dir" clean -fd --quiet 2>/dev/null || true
+
+        # ── Step 2: Create update branch ──────────────────────────────────
 
         log_info "Creating branch $update_branch in $repo_name..."
         git -C "$repo_dir" checkout -b "$update_branch" 2>/dev/null || {
@@ -250,14 +264,14 @@ main() {
             }
         }
 
-        # ── Step 2: Snapshot versions before update ───────────────────────
+        # ── Step 3: Snapshot versions before update ───────────────────────
 
         local before_file after_file
         before_file=$(mktemp)
         after_file=$(mktemp)
         snapshot_versions "$repo_dir" > "$before_file"
 
-        # ── Step 3: Run dependency update ─────────────────────────────────
+        # ── Step 4: Run dependency update ─────────────────────────────────
 
         log_info "Updating NuGet references in $repo_name..."
         if ! cs-references-update "$repo_dir" 2>&1; then
@@ -268,7 +282,7 @@ main() {
             exit $EXIT_UPDATE_FAILED
         fi
 
-        # ── Step 4: Detect breaking changes via version diff ──────────────
+        # ── Step 5: Detect breaking changes via version diff ──────────────
 
         snapshot_versions "$repo_dir" > "$after_file"
 
@@ -291,7 +305,7 @@ main() {
         fi
     fi
 
-    # ── Step 5: Determine change level ────────────────────────────────────
+    # ── Step 6: Determine change level ────────────────────────────────────
 
     local change_level="patch"
     if [ "$has_breaking" -eq 1 ]; then
@@ -306,7 +320,7 @@ main() {
         echo "Running tests..."
         if ! "$repo_dir/run-tests"; then
             log_warn "Tests failed for $repo_name"
-            prompt_user "Please fix the issue in $repo_dir, then press Enter to retry."
+            prompt_user "Please fix the issue in $repo_dir so that TESTS PASS, then press Enter to retry."
 
             if ! "$repo_dir/run-tests"; then
                 log_error "Tests failed for $repo_name"
@@ -323,7 +337,7 @@ main() {
     git -C "$repo_dir" add -A
     if ! (cd "$repo_dir" && git commit -m "${pr_title} [skip ci]" --quiet) 2>&1; then
         log_warn "Commit failed for $repo_name (likely a git hook failure)"
-        prompt_user "Please fix the issue in $repo_dir, then press Enter to retry."
+        prompt_user "Please fix the issue in $repo_dir so that COMMIT HOOKS PASS, then press Enter to retry."
         if ! (cd "$repo_dir" && git add -A && git commit -m "${pr_title} [skip ci]" --quiet) 2>&1; then
             log_error "Commit still failing for $repo_name — aborting"
             git -C "$repo_dir" checkout -f master 2>/dev/null || true
@@ -349,17 +363,16 @@ main() {
     sleep 3 # Wait a moment for GitHub to register the new branch before creating PR
     local pr_url=""
     local pr_attempt
-    for pr_attempt in 1 2 3; do
+    for pr_attempt in 1 2 3 4 5; do
         pr_url=$(pr-create-for-merge --no-issue --repo-dir "$repo_dir" --branch "$update_branch" --label "automated" "$pr_title" 2>&1 | grep -oE 'https://github.com[^ ]+' | head -1) || true
         [ -n "$pr_url" ] && break
-        if [ "$pr_attempt" -lt 3 ]; then
-            log_warn "PR creation attempt $pr_attempt failed — retrying in 10s..."
-            sleep 10
-        fi
+        log_warn "PR creation attempt $pr_attempt failed — retrying in 10s..."
+        echo "pr-create-for-merge --no-issue --repo-dir \"$repo_dir\" --branch \"$update_branch\" --label \"automated\" \"$pr_title\""
+        sleep 10
     done
 
     if [ -z "$pr_url" ]; then
-        log_error "Failed to create PR for $repo_name after 3 attempts"
+        log_error "Failed to create PR for $repo_name after 5 attempts"
         prompt_user "Please resolve the PR creation issue manually.  Merge it and then press Enter."
         git -C "$repo_dir" checkout master 2>/dev/null || true
         git -C "$repo_dir" branch -D "$update_branch" 2>/dev/null || true

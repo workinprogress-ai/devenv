@@ -244,6 +244,9 @@ _update_cached_repo() {
         return 1
     fi
 
+    # Remove untracked files and directories left by any prior failed operations
+    git -C "$repo_dir" clean -fd 2>/dev/null || true
+
     # Prune stale objects to keep disk usage minimal
     git -C "$repo_dir" gc --prune=all --quiet 2>/dev/null || true
 

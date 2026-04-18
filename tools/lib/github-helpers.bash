@@ -362,3 +362,21 @@ cancel_branch_workflow_runs() {
             log_info "Cancelled workflow run $id on $branch" || true
     done
 }
+
+# Ensure a label exists in a GitHub repository, creating it if absent.
+# Usage: ensure_label LABEL [REPO_SPEC...]
+#   LABEL      The label name to ensure exists
+#   REPO_SPEC  Optional repo spec args (e.g. -R owner/repo). Defaults to current repo.
+# Returns:
+#   0 always (best-effort, creation failures are silently ignored)
+#
+ensure_label() {
+    local label="${1:-}"
+    [ -n "$label" ] || { log_error "Label name required"; return 1; }
+    shift
+    local repo_spec=("$@")
+
+    if ! gh label list "${repo_spec[@]}" --json name --jq '.[].name' 2>/dev/null | grep -qx "$label"; then
+        gh label create "$label" "${repo_spec[@]}" --color "#ededed" --description "Automated process" 2>/dev/null || true
+    fi
+}
