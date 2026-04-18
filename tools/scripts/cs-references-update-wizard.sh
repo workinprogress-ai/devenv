@@ -305,8 +305,13 @@ main() {
     if [ -f "$repo_dir/run-tests" ]; then
         echo "Running tests..."
         if ! "$repo_dir/run-tests"; then
-            echo "Tests failed. Commit aborted."
-            exit $EXIT_TESTS_FAILED
+            log_warn "Tests failed for $repo_name"
+            prompt_user "Please fix the issue in $repo_dir, then press Enter to retry."
+
+            if ! "$repo_dir/run-tests"; then
+                log_error "Tests failed for $repo_name"
+                exit $EXIT_TESTS_FAILED
+            fi
         fi
         echo "Tests passed!"
     else
