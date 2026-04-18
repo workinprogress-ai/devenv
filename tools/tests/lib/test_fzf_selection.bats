@@ -40,6 +40,7 @@ setup() {
 # ============================================================================
 
 @test "fzf-selection: check_fzf_installed detects fzf" {
+    command -v fzf >/dev/null 2>&1 || skip "fzf not installed"
     run bash -c "
         source '$PROJECT_ROOT/tools/lib/fzf-selection.bash'
         check_fzf_installed

@@ -1,8 +1,7 @@
 #!/usr/bin/env bats
 
 setup() {
-  export DEVENV_ROOT="/workspaces/devenv"
-  load "${DEVENV_ROOT}/tools/tests/test_helper"
+  load ../test_helper
 }
 
 # Test port utilities
