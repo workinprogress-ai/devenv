@@ -419,6 +419,11 @@ configure_git_global() {
     git config --global core.editor "code --wait"
     git config --global pull.ff only
     git config --global --bool push.autoSetupRemote true
+
+    # Centralized git hooks (blocks committing on top of WIP commits, etc.)
+    if [ -n "${DEVENV_ROOT:-}" ] && [ -d "$DEVENV_ROOT/tools/git-hooks" ]; then
+        git config --global core.hooksPath "$DEVENV_ROOT/tools/git-hooks"
+    fi
     
     # Merge and diff tools
     git config --global merge.tool vscode

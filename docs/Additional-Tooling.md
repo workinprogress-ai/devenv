@@ -216,15 +216,25 @@ git repo <repository-name>
 
 Work-in-progress commit management:
 
-- `git-wip`: Creates a temporary WIP commit
-- `git-unwip`: Removes the last WIP commit and restages changes
+- `git-wip`: Stages all changes, creates a `WIP: <message>` commit, and pushes it to the remote.
+- `git-unwip`: Soft-resets to the last non-WIP commit (restaging your changes) and safely force-pushes to clear the WIP commit from the remote.
 
 ```bash
-git wip
+git wip "saving progress"
 git unwip
 ```
 
-*NOTE*: `git wip` will bypass the normal git hooks. This allows you to create a WIP commit even if your pre-commit hook would normally block the commit. However, be aware that this means that any checks or formatting done by the hooks will not be applied to the WIP commit.
+**Safety guards in `git-unwip`:**
+
+1. **Protected branches** — refuses to run on `main`, `master`, or `develop`.
+2. **Remote WIP check** — only force-pushes if the remote tip is itself a `WIP:` commit; skips the push otherwise.
+3. **`--force-with-lease`** — aborts if the remote has new commits that weren't present when you last fetched, preventing accidental overwrites.
+
+**Global pre-commit hook:**
+
+A global `pre-commit` hook (applied via `core.hooksPath` during bootstrap) prevents committing on top of a WIP commit. If `HEAD` or any unpushed commit on the branch is a `WIP:` commit, the commit is blocked with an error message directing you to run `git-unwip` first.
+
+*NOTE*: `git-wip` bypasses hooks (`-n` flag) intentionally — WIP commits are scratch saves, not production-quality commits.
 
 ### `git update`
 

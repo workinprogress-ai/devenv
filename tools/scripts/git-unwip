@@ -1,4 +1,22 @@
 #!/bin/bash
 
+# Guard 1: refuse to force-push on protected branches
+branch=$(git rev-parse --abbrev-ref HEAD)
+if [[ "$branch" =~ ^(main|master|develop)$ ]]; then
+  echo "git-unwip: won't force-push on protected branch '$branch'."
+  exit 1
+fi
+
+# Find the last non-WIP commit and soft-reset to it
 commit=$(git log --oneline | grep -v "WIP:" | head -1 | cut -c 1-7)
-git reset --soft $commit 
+git reset --soft "$commit"
+
+# Guard 2: only force-push if the remote tip is itself a WIP commit
+remote_msg=$(git log @{u} -1 --format=%s 2>/dev/null)
+if [[ "$remote_msg" != WIP:* ]]; then
+  echo "git-unwip: remote tip is not a WIP commit, skipping force-push."
+  exit 0
+fi
+
+# Guard 3: use --force-with-lease to avoid overwriting unexpected remote commits
+git push --force-with-lease

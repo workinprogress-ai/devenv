@@ -108,8 +108,9 @@ wait_for_repo_ready() {
     log_info "Waiting for repository to be ready (template files syncing)..."
     
     while [ "$attempt" -le "$max_attempts" ]; do
-        # Check if repo has any commits by looking for the default branch
-        if git ls-remote --heads "git@github.com:${full_name}.git" 2>/dev/null | grep -q refs/heads; then
+        # Check if repo has at least one commit. For newly templated repos,
+        # GitHub may briefly return 409 while template files are still syncing.
+        if gh api "repos/${full_name}/commits?per_page=1" --jq 'length' 2>/dev/null | grep -q '^[1-9][0-9]*$'; then
             log_info "✓ Repository is ready"
             return 0
         fi
