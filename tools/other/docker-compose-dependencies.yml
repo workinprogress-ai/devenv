@@ -1,7 +1,7 @@
 services:
   redis:
     container_name: redis
-    image: docker.io/library/redis:latest
+    image: docker.io/library/redis:8.6.2
     volumes:
       - ${DATA_FOLDER}/${ENV_NAME}/redis:/data:rw
     ports:
@@ -11,7 +11,7 @@ services:
         mode: host
   mongo:
     container_name: mongo
-    image: docker.io/library/mongo:latest
+    image: docker.io/library/mongo:8.2.7
     volumes:
       - ${DATA_FOLDER}/${ENV_NAME}/mongodb:/data/db:rw
     ports:
@@ -21,7 +21,7 @@ services:
         mode: host
   nats:
     container_name: nats
-    image: docker.io/library/nats:latest
+    image: docker.io/library/nats:2.14.0
     volumes:
       - ${DATA_FOLDER}/${ENV_NAME}/nats:/data:rw
     ports:

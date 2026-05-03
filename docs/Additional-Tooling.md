@@ -217,10 +217,12 @@ git repo <repository-name>
 Work-in-progress commit management:
 
 - `git-wip`: Stages all changes, creates a `WIP: <message>` commit, and pushes it to the remote.
+  - `--staged-only`: Skip `git add -A` and commit only what is already staged.
 - `git-unwip`: Soft-resets to the last non-WIP commit (restaging your changes) and safely force-pushes to clear the WIP commit from the remote.
 
 ```bash
 git wip "saving progress"
+git wip --staged-only "partial save"
 git unwip
 ```
 

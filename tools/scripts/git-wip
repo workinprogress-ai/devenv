@@ -1,7 +1,28 @@
 #!/bin/bash
 #
 
-git add -A
-git commit -m "WIP: $@" -n
+STAGED_ONLY=false
+COMMIT_MSG_PARTS=()
+
+for arg in "$@"; do
+  case "$arg" in
+    --staged-only)
+      STAGED_ONLY=true
+      ;;
+    --*)
+      echo "Error: unknown flag '$arg'" >&2
+      exit 1
+      ;;
+    *)
+      COMMIT_MSG_PARTS+=("$arg")
+      ;;
+  esac
+done
+
+if [ "$STAGED_ONLY" = false ]; then
+  git add -A
+fi
+
+git commit -m "WIP: ${COMMIT_MSG_PARTS[*]}" -n
 git push
 
