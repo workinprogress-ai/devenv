@@ -32,6 +32,7 @@
         "git log --name-only": true,
         "git log --name-status": true,
         "git log --oneline": true,
-        "git log --graph": true
+        "git log --graph": true,
+        "tools/pr-create-for-merge": true
     }
 }
