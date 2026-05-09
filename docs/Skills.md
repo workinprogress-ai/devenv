@@ -30,7 +30,7 @@ What are you trying to do?
 │
 ├─ 🔎 Review / address feedback
 │   ├─ AI reviews code you wrote        →  /code-review
-│   ├─ You received PR review comments  →  /address-pr-comments
+│   ├─ You received PR review comments  →  /review-response
 │   └─ Quality gates before commit      →  /pre-commit
 │
 └─ 🏁 Wrap up
@@ -99,7 +99,7 @@ Investigates a question, builds a throwaway prototype if needed, and produces a 
 The inverse of `/delegation` — you (or another agent) wrote the code, the AI reviews it. Produces structured feedback grouped by severity (Blocker / Concern / Nit / Praise) using the same hotspot format as `/delegation`.
 
 **Use for:** reviewing a PR, reviewing a local diff, reviewing code from a feature branch  
-**Don't use for:** addressing comments on your own PR (→ `/address-pr-comments`)  
+**Don't use for:** addressing comments on your own PR (→ `/review-response`)  
 **Tool deps:** `pr-get`, `pr-diff`, `pr-comment`
 
 ---
@@ -131,7 +131,7 @@ The inverse of `/delegation` — you (or another agent) wrote the code, the AI r
 |---|---|---|
 | `/triage-issue` | Classify issue, suggest labels, propose ACs | Issue # or pasted text |
 | `/open-pr` | Draft + open a PR from a finished phase | Branch or plan path |
-| `/address-pr-comments` | Address PR review comments one at a time | PR # |
+| `/review-response` | Address PR review comments one at a time | PR # |
 | `/session-handoff` | Summarise session for the next contributor | Issue/PR # (optional) |
 
 ### Quality
@@ -160,7 +160,7 @@ The inverse of `/delegation` — you (or another agent) wrote the code, the AI r
     → /delegation 42                # mechanical phases
     → /pre-commit
     → /open-pr
-      → /address-pr-comments 99
+      → /review-response 99
         → /pre-commit
 ```
 
@@ -194,8 +194,8 @@ The inverse of `/delegation` — you (or another agent) wrote the code, the AI r
 | `/create-implementation-plan` vs `/plan-from-spec` | Interview vs no-interview. Use `plan-from-spec` when the spec already has acceptance criteria. |
 | `/refine-implementation-plan` vs `/plan-update` | Structural changes vs surgical edits. `/plan-update` refuses if you ask for >3 changes. |
 | `/pair-programming` vs `/delegation` | Human-in-the-loop vs AI-drives. Prefer `/pair-programming` when in doubt. |
-| `/code-review` vs `/address-pr-comments` | AI reviews your code vs you address a reviewer's comments. |
-| `/address-pr-comments` vs GitHub PR extension | One-at-a-time with per-comment choice vs batch fix-all. |
+| `/code-review` vs `/review-response` | AI reviews your code vs you address a reviewer's comments. |
+| `/review-response` vs GitHub PR extension | One-at-a-time with per-comment choice vs batch fix-all. |
 | `/rubber-duck` vs `/spike` | No artifact vs produces a findings doc. |
 | `/session-handoff` vs `/plan-update` | Narrative summary vs structured task-state update. |
 

@@ -19,7 +19,7 @@ issue-get <N> | jq -r '.title'
 issue-get <N> | jq -r '.labels[].name'
 ```
 
-For unfamiliar flags, run `issue-get --help`.
+For the full flag reference, see [`../../_tools-reference.md`](../../_tools-reference.md).
 
 ## `issue-comment` — document discoveries
 

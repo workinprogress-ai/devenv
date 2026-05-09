@@ -49,8 +49,8 @@ Skills for reviewing code and addressing feedback.
 
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 |---|---|---|---|
-| `/code-review` | AI reviews code you wrote — structured feedback by severity | "review this PR", "review my changes", "code review", "look over this branch", "review the diff" | addressing comments on your own PR → `/address-pr-comments`; general codebase Q&A |
-| `/address-pr-comments` | Walk through PR review comments one at a time with per-comment choices | "address PR comments", "work through the review feedback", "go through the PR comments with me", "respond to reviewer comments one at a time" | batch fix-all without review (use GitHub PR extension's `address-pr-comments`); opening a PR → `/open-pr` |
+| `/code-review` | AI reviews code you wrote — structured feedback by severity | "review this PR", "review my changes", "code review", "look over this branch", "review the diff" | addressing comments on your own PR → `/review-response`; general codebase Q&A |
+| `/review-response` | Walk through PR review comments one at a time with per-comment choices | "address PR comments", "work through the review feedback", "go through the PR comments with me", "respond to reviewer comments one at a time" | batch fix-all without review (use GitHub PR extension's `address-pr-comments`); opening a PR → `/open-pr` |
 | `/pre-commit` | Run lint, format, type-check, and test as a final gate before committing | "run pre-commit checks", "lint and test before I commit", "is this ready to commit", "check my changes before commit" | opening a PR → `/open-pr`; code review → `/code-review` |
 
 ---
@@ -61,7 +61,7 @@ Skills for closing out a session or shipping work.
 
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 |---|---|---|---|
-| `/open-pr` | Draft and open a GitHub PR from a finished plan phase | "open a PR", "raise a PR", "create a PR", "open a pull request", "let's open a PR", "ship this phase", "wrap this branch into a PR" | responding to existing PR feedback → `/address-pr-comments`; wrapping up without a PR → `/session-handoff` |
+| `/open-pr` | Draft and open a GitHub PR from a finished plan phase | "open a PR", "raise a PR", "create a PR", "open a pull request", "let's open a PR", "ship this phase", "wrap this branch into a PR" | responding to existing PR feedback → `/review-response`; wrapping up without a PR → `/session-handoff` |
 | `/session-handoff` | Produce a structured handoff summary for the next contributor | "wrap up this session", "write a handoff", "session summary for the next person", "I'm tagging out" | updating plan task progress → `/plan-update`; drafting a PR → `/open-pr` |
 
 ---
@@ -89,7 +89,7 @@ The full lifecycle: triage → plan → implement → quality check → ship →
     → /delegation            (mechanical phases)
     → /pre-commit
     → /open-pr
-      → /address-pr-comments
+      → /review-response
         → /pre-commit
 ```
 

@@ -33,6 +33,11 @@
         "git log --name-status": true,
         "git log --oneline": true,
         "git log --graph": true,
-        "tools/pr-create-for-merge": true
+        "tools/pr-threads-get": true,
+        "tools/issue-get": true,
+        "tools/issue-list": true,
+        "tools/pr-get": true,
+        "tools/pr-list": true,
+        "tools/pr-diff": true
     }
 }

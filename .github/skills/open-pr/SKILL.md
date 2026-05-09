@@ -1,6 +1,6 @@
 ---
 name: open-pr
-description: Open a GitHub PR from the current branch — builds a structured title and body from the active plan, git diff, and parent issue, then submits via `pr-create-for-merge`. USE WHEN the user says "open a PR", "raise a PR", "create a PR", "open a pull request", "raise a pull request", "create a pull request", "let's open a PR", "ship this phase", or "wrap this branch into a PR". Always shows the draft for approval before submitting; defaults to ready-for-review, not draft. DO NOT USE FOR responding to existing PR feedback (use `/address-pr-comments`), wrapping up without opening a PR (use `/session-handoff`), getting a code review without a PR (use `/code-review`), or the GitHub extension's reviewer-suggesting flow (use `/create-pull-request`).
+description: Open a GitHub PR from the current branch — builds a structured title and body from the active plan, git diff, and parent issue, then submits via `pr-create-for-merge`. USE WHEN the user says "open a PR", "raise a PR", "create a PR", "open a pull request", "raise a pull request", "create a pull request", "let's open a PR", "ship this phase", or "wrap this branch into a PR". Always shows the draft for approval before submitting; defaults to ready-for-review, not draft. DO NOT USE FOR responding to existing PR feedback (use `/review-response`), wrapping up without opening a PR (use `/session-handoff`), getting a code review without a PR (use `/code-review`), or the GitHub extension's reviewer-suggesting flow (use `/create-pull-request`).
 argument-hint: Optional — branch name or plan path; otherwise uses current branch and detected plan
 ---
 
@@ -16,7 +16,7 @@ Take a committable phase of work from a plan-driven workflow and open a GitHub P
 - The branch has commits, the work is reviewable, and you want a PR opened with a proper body.
 - You want the PR description auto-built from the plan + git history rather than typed by hand.
 
-If a PR already exists and you're responding to feedback, use `/address-pr-comments`. If you're ending a session without opening a PR yet, use `/session-handoff`. If you want a code review and don't need a PR opened, use `/code-review`. If you want the GitHub extension's flow with reviewer suggestions and richer integration, use `/create-pull-request`.
+If a PR already exists and you're responding to feedback, use `/review-response`. If you're ending a session without opening a PR yet, use `/session-handoff`. If you want a code review and don't need a PR opened, use `/code-review`. If you want the GitHub extension's flow with reviewer suggestions and richer integration, use `/create-pull-request`.
 
 ## Prerequisites
 
@@ -109,7 +109,7 @@ After the PR is opened, print the PR URL and number.
 
 ## Sibling skills
 
-- `/address-pr-comments` — once the PR has review feedback to address.
+- `/review-response` — once the PR has review feedback to address.
 - `/session-handoff` — wrap-up that doesn't (yet) open a PR; often runs before this skill.
 - `/code-review` — if you want review feedback without opening a PR.
 - `/create-pull-request` (GitHub extension) — for the richer reviewer-suggesting / label / project flow.

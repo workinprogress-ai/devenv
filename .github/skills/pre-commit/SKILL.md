@@ -113,6 +113,6 @@ Per-tool sections only when there are failures. Skip the "Passed" section if eve
 - `/open-pr` — once checks pass and you've committed, open the PR.
 - `/code-review` — for human-style review feedback on the diff (separate from automated checks).
 - `/coverage-check` — for coverage regression detection (separate concern from pass/fail checks).
-- `/address-pr-comments` — if checks reveal issues that came from PR feedback.
+- `/review-response` — if checks reveal issues that came from PR feedback.
 
 See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.

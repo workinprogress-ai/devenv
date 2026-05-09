@@ -154,6 +154,7 @@ query($owner: String!, $repo: String!, $pr: Int!, $cursor: String) {
           comments(first: 50) {
             nodes {
               id
+              databaseId
               author { login }
               body
               createdAt
@@ -227,7 +228,7 @@ query($owner: String!, $repo: String!, $pr: Int!, $cursor: String) {
         line: .line,
         startLine: .startLine,
         diffSide: .diffSide,
-        comments: .comments.nodes
+        comments: (.comments.nodes | map({id: .databaseId, nodeId: .id, author: .author, body: .body, createdAt: .createdAt, url: .url}))
     }) | sort_by(.path, .line)")
 
     if [ "$OUTPUT_FORMAT" = "pretty" ]; then

@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Review changed code and produce structured, actionable feedback. The inverse of `/delegation`: the human (or another agent) wrote the code, the AI reviews it. USE WHEN the user says "review this PR", "review my changes", "code review", "look over this branch", "review the diff", or hands off a PR / branch / local diff for assessment. Auto-detects input: a PR number → fetches via `pr-get` + `pr-diff`; two refs → diffs locally; nothing → defaults to current-branch-vs-default-branch. Produces a 1–2 sentence summary, then findings grouped by severity (Blocker / Concern / Nit / Praise) using the same hotspot bullet format as `/delegation`. Focuses only on what changed; flags missing tests; surfaces TODO/FIXME left in the diff. Default is print-to-chat; offers to post via `pr-comment` only with explicit confirmation. DO NOT USE for writing or refactoring code (use `/pair-programming` or `/delegation`), for resolving review comments on your own PR (use `/address-pr-comments`), or for general codebase Q&A.
+description: Review changed code and produce structured, actionable feedback. The inverse of `/delegation`: the human (or another agent) wrote the code, the AI reviews it. USE WHEN the user says "review this PR", "review my changes", "code review", "look over this branch", "review the diff", or hands off a PR / branch / local diff for assessment. Auto-detects input: a PR number → fetches via `pr-get` + `pr-diff`; two refs → diffs locally; nothing → defaults to current-branch-vs-default-branch. Produces a 1–2 sentence summary, then findings grouped by severity (Blocker / Concern / Nit / Praise) using the same hotspot bullet format as `/delegation`. Focuses only on what changed; flags missing tests; surfaces TODO/FIXME left in the diff. Default is print-to-chat; offers to post via `pr-comment` only with explicit confirmation. DO NOT USE for writing or refactoring code (use `/pair-programming` or `/delegation`), for resolving review comments on your own PR (use `/review-response`), or for general codebase Q&A.
 argument-hint: PR number, two refs (--base BASE --head HEAD), or nothing (defaults to current branch vs. default branch)
 ---
 
@@ -16,7 +16,7 @@ Review code changes and produce structured, actionable feedback. Inverse of `/de
 - Reviewing local work-in-progress before opening a PR.
 - Reviewing a branch's diff against the default branch as a self-check.
 
-If the user wants the AI to *write* or refactor code, use `/pair-programming` or `/delegation` instead. If the user wants to *respond to* review comments on their own PR, use `/address-pr-comments`.
+If the user wants the AI to *write* or refactor code, use `/pair-programming` or `/delegation` instead. If the user wants to *respond to* review comments on their own PR, use `/review-response`.
 
 ## Inputs
 
@@ -129,6 +129,6 @@ For inline review comments tied to specific lines, note that this skill produces
 - `/delegation` — inverse: AI implements, human reviews. Same hotspot format.
 - `/pair-programming` — interactive collaboration with review checkpoints during the work.
 - `/pre-commit` — local-diff review before opening a PR (subset of this skill's no-args mode).
-- `/address-pr-comments` — for the PR author responding to review comments.
+- `/review-response` — for the PR author responding to review comments.
 
 See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.
