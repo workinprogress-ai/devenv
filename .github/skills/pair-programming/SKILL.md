@@ -87,7 +87,7 @@ Format:
 > [BulkSyncWorker.cs](src/Services/BulkSyncWorker.cs) · [IBulkSyncStep.cs](src/Abstractions/IBulkSyncStep.cs) · [BulkSyncWorkerTests.cs](tests/BulkSyncWorkerTests.cs)
 
 Rules:
-- Workspace-relative paths only — never absolute paths.
+- Paths must be relative to the **workspace root** (the top-level folder open in VS Code), not relative to a repo subdirectory. E.g. `repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs`, not `src/BulkSyncWorker.cs`. VS Code only makes links clickable when the full workspace-root-relative path is used.
 - One line, dot-separated. If there are more than ~8 files, group by subdirectory instead.
 - Repeat this block at every phase transition (not just session start).
 - If a file doesn't exist yet (to be created), omit it — links to non-existent files are noise.
