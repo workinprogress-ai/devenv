@@ -6,6 +6,7 @@ If you've forked this repository for your organization, this guide explains what
 
 - ✅ Update `devenv.config` for org identity, container name, workflows, and bootstrap defaults
 - ✅ (Optional) Update `.github/copilot-instructions.md` with organization-specific AI coding guidelines
+- ✅ (Optional) Add custom Copilot skills to `.github/skills/` for domain-specific workflows
 - ✅ (Optional) Create `org-custom-bootstrap.sh` and `org-custom-startup.sh` for organization-wide customizations
 - ✅ (If you use repo creation tooling) Update `tools/config/repo-types.yaml` for naming, templates, branch protection, and post-creation scripts
 - ✅ (If you use issue creation tooling) Update `tools/config/issues-config.yml` with your organization's issue types and GitHub issue type IDs
@@ -16,6 +17,52 @@ If you've forked this repository for your organization, this guide explains what
 The file `.github/copilot-instructions.md` contains AI coding guidelines that apply to the repository in VS Code (GitHub Copilot reads this file automatically when it exists in the workspace). During bootstrap the file is also copied to `~/.copilot/copilot-instructions.md`, making the same instructions available as the user-level Copilot instructions file.
 
 When forking this repository, update `.github/copilot-instructions.md` with your organization's preferred conventions, code style expectations, and any AI-specific guidance. The copy to `~/.copilot/` is handled automatically by the `install_copilot_instructions` bootstrap task — no additional setup is needed.
+
+## Copilot Skills
+
+This repository ships with a suite of 15 slash-command skills that cover the full development lifecycle — from issue triage through PR review. They live in `.github/skills/` and are invoked with `/skill-name` in Copilot Chat.
+
+See [docs/Skills.md](./Skills.md) for the full catalog and decision tree.
+
+### Adding a custom skill
+
+1. **Read the conventions** — `.github/skills/_conventions.md` defines the required file layout, frontmatter fields, description rules (including the 1024-char limit), section ordering, and confirmation-flow patterns.
+
+2. **Create the skill folder and SKILL.md**:
+
+   ```text
+   .github/skills/<your-skill-name>/
+   └── SKILL.md
+   ```
+
+   The folder name must match the `name:` field in the YAML frontmatter exactly.
+
+3. **Write the description carefully** — it is the only signal Copilot uses to decide whether to auto-load the skill. Include explicit `USE WHEN` and `DO NOT USE FOR` clauses with the exact phrases users will say. Verify the length:
+
+   ```bash
+   awk '/^description:/ {gsub(/^description: */,""); print length}' .github/skills/<name>/SKILL.md
+   ```
+
+4. **Register the skill for `/skill-guru` discoverability** — append a row to the appropriate category table in `.github/skills/skill-guru/references/skills-registry.md`. This is the single file the `skill-guru` routing skill reads; without an entry here, the skill won't be surfaced when users ask "which skill should I use".
+
+   Each row needs: skill name (with `/`), one-line purpose, 2–4 USE WHEN trigger phrases, and a NOT FOR clause.
+
+5. **Add a "Sibling skills" section** at the bottom of your SKILL.md linking back to [docs/Skills.md](./Skills.md). Then add a row for the new skill to the appropriate table in `docs/Skills.md` so it appears in the human-readable catalog.
+
+6. **Reload VS Code** (or run "Developer: Reload Window") for the new slash command to appear in Copilot Chat.
+
+### Adding optional reference files
+
+If your skill needs reusable artifacts (templates, cheatsheets, phrasing tables), put them in a `references/` subfolder:
+
+```text
+.github/skills/<your-skill-name>/
+├── SKILL.md
+└── references/
+    └── my-template.md
+```
+
+The agent loader walks one level deep only — do not nest further. See `_conventions.md` for guidance on what belongs in `references/` vs. inline in `SKILL.md`.
 
 ## Organization-Level Custom Scripts
 

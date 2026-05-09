@@ -1,0 +1,20 @@
+#!/bin/bash
+# pre-commit: block normal commits when WIP commits are present
+
+# Check if HEAD is a WIP commit (covers the case where WIP has been pushed and
+# the local branch is in sync with the remote WIP tip)
+head_msg=$(git log -1 --format=%s 2>/dev/null)
+if [[ "$head_msg" == WIP:* ]]; then
+    echo "error: Cannot commit on top of a WIP commit."
+    echo "       Run 'git-unwip' first, then re-stage your changes."
+    exit 1
+fi
+
+# Also check unpushed history (covers WIP buried among unpushed commits)
+if git rev-parse @{u} >/dev/null 2>&1; then
+    if git log @{u}..HEAD --format=%s 2>/dev/null | grep -q "^WIP:"; then
+        echo "error: WIP commit(s) found in unpushed branch history."
+        echo "       Run 'git-unwip' first, then re-stage your changes."
+        exit 1
+    fi
+fi

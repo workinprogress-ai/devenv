@@ -21,6 +21,27 @@
 set -euo pipefail
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 
+show_usage() {
+  cat << 'EOF'
+Usage: pr-cleanup-review-branches [REPO_DIR] [DAYS_OLD]
+
+Delete remote review branches (origin/review/*) older than DAYS_OLD days.
+Branch age is parsed from the date suffix in the branch name.
+
+Arguments:
+    REPO_DIR    Repository path (default: current directory)
+    DAYS_OLD    Age threshold in days (default: 30)
+
+Options:
+    -h, --help  Show this help and exit
+EOF
+  exit 0
+}
+
+case "${1:-}" in
+  -h|--help) show_usage ;;
+esac
+
 
 
 explode() {

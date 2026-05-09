@@ -417,6 +417,30 @@ issue-update ISSUE# [--title TEXT] [--body TEXT] \
     [--milestone NAME] [--state open|closed]
 ```
 
+**`issue-get`** - Retrieve issue details as structured JSON
+
+```bash
+issue-get ISSUE# [--pretty]
+```
+
+Returns a JSON object with fields: `number`, `title`, `body`, `state`, `labels`, `assignees`, `milestone`, `author`, `createdAt`, `updatedAt`, `closedAt`, `url`, `comments`. Suitable for scripting and automation:
+
+```bash
+# Extract a field
+issue-get 123 | jq -r '.title'
+
+# Get label names
+issue-get 123 | jq -r '.labels[].name'
+```
+
+**`issue-comment`** - Add a comment to an issue
+
+```bash
+issue-comment ISSUE# --body TEXT
+issue-comment ISSUE# --body-file FILE
+issue-comment ISSUE# --edit
+```
+
 **`issue-close`** - Close or reopen issues
 
 ```bash

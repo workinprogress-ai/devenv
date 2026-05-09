@@ -26,6 +26,30 @@ source "$DEVENV_TOOLS/lib/github-helpers.bash"
 source "$DEVENV_TOOLS/lib/fzf-selection.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 
+show_usage() {
+  cat << 'EOF'
+Usage: pr-create-for-review <PR_DESCRIPTION> [REPO_DIR] [FROM_COMMIT] [TO_COMMIT]
+
+Create a draft "REVIEW:" pull request using temporary source/target branches
+built from two commits. If FROM_COMMIT and TO_COMMIT are omitted, an fzf
+picker is launched against the repo's version tags.
+
+Arguments:
+    PR_DESCRIPTION    Required. Used as the PR title (prefixed with "REVIEW: ")
+    REPO_DIR          Repository path (default: current directory)
+    FROM_COMMIT       First (older) commit to compare
+    TO_COMMIT         Last (newer) commit to compare
+
+Options:
+    -h, --help        Show this help and exit
+EOF
+  exit 0
+}
+
+case "${1:-}" in
+  -h|--help) show_usage ;;
+esac
+
 
 # Create a draft "REVIEW:" PR using temporary source/target branches built from two commits.
 
@@ -34,7 +58,9 @@ source "$DEVENV_TOOLS/lib/git-operations.bash"
 
 explode() {
   echo "Error: $1" >&2
-  git checkout "$CURRENT_BRANCH" &>/dev/null || true
+  if [ -n "${CURRENT_BRANCH:-}" ]; then
+    git checkout "$CURRENT_BRANCH" &>/dev/null || true
+  fi
   if [ -n "${TARGET_BRANCH:-}" ]; then
     delete_branch "$TARGET_BRANCH" origin &>/dev/null || true
   fi

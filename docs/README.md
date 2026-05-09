@@ -2,6 +2,22 @@
 
 Complete documentation for the Devenv project organized by topic and use case.
 
+## 🤖 Copilot Skills
+
+A suite of 15 slash-command skills covering the full development lifecycle — from issue triage through PR review:
+
+- **[Skills Catalog](./Skills.md)** — full reference with decision tree, workflow examples, and per-skill docs
+
+**Top skills:**
+
+- `/create-implementation-plan` — turn an issue or idea into a phased plan
+- `/pair-programming` — human + AI collaborate, human stays in control
+- `/delegation` — AI drives mechanical work, human reviews
+- `/spike` — investigate feasibility before planning
+- `/code-review` — AI reviews code you wrote
+
+**Not sure which to use?** Say `/skill-guru` and answer 1–3 questions.
+
 ## 🚀 Quick Start
 
 **New to Devenv?** Start here:
@@ -34,6 +50,9 @@ Complete workflow for managing GitHub Issues, Projects, and Sprints:
 - `issue-update` - Update issue fields
 - `issue-select` - Interactive issue picker
 - `issue-groom` - Backlog grooming wizard
+- `pr-get` / `pr-list` - Fetch PR data as JSON
+- `pr-comment` - Add comment to a PR
+- `pr-diff` - Get unified diff for PR or local refs
 - `project-add` - Add issues to projects
 - `project-update` - Update project fields
 

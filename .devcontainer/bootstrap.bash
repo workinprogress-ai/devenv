@@ -769,6 +769,9 @@ configure_git() {
     # shellcheck source=../tools/lib/git-operations.bash
     source "$git_ops_lib"
     
+    # Ensure DEVENV_ROOT is exported so configure_git_global can locate the hooks directory
+    export DEVENV_ROOT="$toolbox_root"
+
     # Configure global git settings with user identity
     configure_git_global "$HUMAN_NAME" "$USER_EMAIL"
     
