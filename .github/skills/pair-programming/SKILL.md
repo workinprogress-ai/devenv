@@ -77,7 +77,22 @@ Ask, if not provided:
 - If there's a plan: surface Phase 1 / discovery tasks first.
 - If ad-hoc: ask what we're tackling first.
 
-### 5. Decide roles
+### 5. Emit phase file links
+
+Before asking about roles, output a compact **Files in scope** block listing workspace-relative markdown links for every file the upcoming phase touches. Only include files confirmed to exist from the code exploration in step 3. Omit the block entirely in ad-hoc mode or if no files have been confirmed.
+
+Format:
+
+> **Files in scope — Phase 1:**
+> [BulkSyncWorker.cs](src/Services/BulkSyncWorker.cs) · [IBulkSyncStep.cs](src/Abstractions/IBulkSyncStep.cs) · [BulkSyncWorkerTests.cs](tests/BulkSyncWorkerTests.cs)
+
+Rules:
+- Workspace-relative paths only — never absolute paths.
+- One line, dot-separated. If there are more than ~8 files, group by subdirectory instead.
+- Repeat this block at every phase transition (not just session start).
+- If a file doesn't exist yet (to be created), omit it — links to non-existent files are noise.
+
+### 6. Decide roles
 
 Ask: *"Which role do you want first — implementer or reviewer? Or want to split the next batch?"* The AI may **suggest** a split based on task type ("I'll take the test scaffolding, you take the API design") but never starts work without an explicit go-ahead.
 
@@ -164,6 +179,16 @@ Same protocol, minus plan loading:
 - Checkpoint frequently — don't batch up large amounts of work.
 - If scope visibly expands beyond a quick task, **offer to pause and draft a plan**: *"This is growing — want to pause and run `/create-implementation-plan` so we have something to track?"*
 
+## Suggesting a Switch to Delegation
+
+Never suggest this at the start of a session — the user chose pair-programming for a reason.
+
+**Mid-session**, if a distinct run of tasks is clearly mechanical and rote (rename sweeps, test scaffolding, boilerplate, docs-only), offer a one-liner:
+
+> *"The next few tasks are pretty mechanical — I can run with them solo if you want. Just say `/delegation` and I'll take it from here, or we keep pairing if you'd rather stay close."*
+
+Only offer once per session unless the user brings it up again. Never frame it as "you should do this differently" — it's a menu option, not a redirect.
+
 ## Session Wrap-Up
 
 When the user signals end of session (or a phase boundary that suggests a natural break):
@@ -183,6 +208,8 @@ When the user signals end of session (or a phase boundary that suggests a natura
 - Auto-running `issue-comment` / `issue-update` / `issue-create` without explicit confirmation.
 - Pretending to know something instead of saying *"I don't know, let me look."*
 - Updating plan checkboxes without being asked.
+- Suggesting delegation at session start before any collaboration patterns are visible.
+- Emitting file links that haven't been confirmed to exist (guessed paths).
 
 ## Sibling skills
 

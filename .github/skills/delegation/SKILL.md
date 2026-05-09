@@ -86,7 +86,22 @@ Defaults:
 - **Isolate** any high-impact tasks into their own mini-session so review attention concentrates on them.
 - Multi-phase sessions allowed only when all phases are clearly low-impact (e.g. cleanup + docs).
 
-### 5. Confirm and start
+### 5. Emit session file links
+
+Before asking for the go-ahead, output a compact **Files in scope** block listing workspace-relative markdown links for every file the upcoming session touches. Only include files confirmed to exist from codebase exploration. Omit the block if no exploration has been done.
+
+Format:
+
+> **Files in scope — Phase 2:**
+> [BulkSyncWorker.cs](src/Services/BulkSyncWorker.cs) · [IBulkSyncStep.cs](src/Abstractions/IBulkSyncStep.cs) · [BulkSyncWorkerTests.cs](tests/BulkSyncWorkerTests.cs)
+
+Rules:
+- Workspace-relative paths only — never absolute paths.
+- One line, dot-separated. If there are more than ~8 files, group by subdirectory instead.
+- Repeat at the start of every new session.
+- Omit files that don't exist yet (to be created) — broken links are noise.
+
+### 6. Confirm and start
 
 Wait for explicit go-ahead before starting the first session.
 
@@ -185,6 +200,7 @@ If an adjacent bug is discovered, offer both an `issue-comment` on the parent an
 - Auto-proceeding to the next session without user review.
 - Ceremony-heavy task announcements (this isn't pair-programming).
 - Silently expanding scope beyond what was delegated.
+- Emitting file links that haven't been confirmed to exist (guessed paths).
 
 ## Sibling skills
 
