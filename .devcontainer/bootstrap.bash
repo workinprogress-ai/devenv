@@ -780,6 +780,8 @@ configure_git() {
 }
 
 # Copy Copilot instructions to ~/.copilot/copilot-instructions.md
+# and symlink ~/.copilot/skills → <devenv>/.github/skills so that
+# Copilot's default user-home skills path picks them up in every workspace.
 install_copilot_instructions() {
     echo "# Install Copilot instructions"
     echo "#############################################"
@@ -791,6 +793,20 @@ install_copilot_instructions() {
         echo "Copilot instructions copied to $dest"
     else
         echo "WARNING: .github/copilot-instructions.md not found, skipping"
+    fi
+
+    # Symlink ~/.copilot/skills → devenv's skills folder so skills are
+    # available in every VS Code window regardless of which repo is open.
+    local skills_src="$toolbox_root/.github/skills"
+    local skills_link="$HOME/.copilot/skills"
+    if [ -d "$skills_src" ]; then
+        mkdir -p "$HOME/.copilot"
+        # Remove stale link or directory before (re)creating
+        rm -rf "$skills_link"
+        ln -s "$skills_src" "$skills_link"
+        echo "Copilot skills symlinked: $skills_link → $skills_src"
+    else
+        echo "WARNING: .github/skills not found, skipping skills symlink"
     fi
 }
 

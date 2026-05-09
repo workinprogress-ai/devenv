@@ -260,6 +260,91 @@ EOF
   [[ "$output" =~ "skipped" ]]
 }
 
+@test "install_copilot_instructions creates skills symlink to .github/skills" {
+  local toolbox="$TEST_TEMP_DIR/toolbox_skills"
+  local home_dir="$TEST_TEMP_DIR/home_skills"
+  mkdir -p "$toolbox/.github/skills/spike"
+  mkdir -p "$home_dir/.copilot"
+
+  cat > "$TEST_TEMP_DIR/test_skills_symlink.sh" << EOF
+#!/bin/bash
+toolbox_root="$toolbox"
+HOME="$home_dir"
+skills_src="\$toolbox_root/.github/skills"
+skills_link="\$HOME/.copilot/skills"
+if [ -d "\$skills_src" ]; then
+  mkdir -p "\$HOME/.copilot"
+  rm -rf "\$skills_link"
+  ln -s "\$skills_src" "\$skills_link"
+  echo "symlinked"
+else
+  echo "skipped"
+fi
+EOF
+  chmod +x "$TEST_TEMP_DIR/test_skills_symlink.sh"
+  run "$TEST_TEMP_DIR/test_skills_symlink.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "symlinked" ]]
+  [ -L "$home_dir/.copilot/skills" ]
+  [ "$(readlink "$home_dir/.copilot/skills")" = "$toolbox/.github/skills" ]
+}
+
+@test "install_copilot_instructions skills symlink is idempotent" {
+  local toolbox="$TEST_TEMP_DIR/toolbox_skills2"
+  local home_dir="$TEST_TEMP_DIR/home_skills2"
+  mkdir -p "$toolbox/.github/skills"
+  mkdir -p "$home_dir/.copilot"
+  # Pre-create a stale symlink
+  ln -s /tmp/stale "$home_dir/.copilot/skills"
+
+  cat > "$TEST_TEMP_DIR/test_skills_symlink_idem.sh" << EOF
+#!/bin/bash
+toolbox_root="$toolbox"
+HOME="$home_dir"
+skills_src="\$toolbox_root/.github/skills"
+skills_link="\$HOME/.copilot/skills"
+if [ -d "\$skills_src" ]; then
+  mkdir -p "\$HOME/.copilot"
+  rm -rf "\$skills_link"
+  ln -s "\$skills_src" "\$skills_link"
+  echo "symlinked"
+fi
+EOF
+  chmod +x "$TEST_TEMP_DIR/test_skills_symlink_idem.sh"
+  run "$TEST_TEMP_DIR/test_skills_symlink_idem.sh"
+  [ "$status" -eq 0 ]
+  [ -L "$home_dir/.copilot/skills" ]
+  [ "$(readlink "$home_dir/.copilot/skills")" = "$toolbox/.github/skills" ]
+}
+
+@test "install_copilot_instructions skips skills symlink when .github/skills missing" {
+  local toolbox="$TEST_TEMP_DIR/toolbox_noskills"
+  local home_dir="$TEST_TEMP_DIR/home_noskills"
+  mkdir -p "$toolbox/.github"
+  # no skills dir
+
+  cat > "$TEST_TEMP_DIR/test_skills_missing.sh" << EOF
+#!/bin/bash
+toolbox_root="$toolbox"
+HOME="$home_dir"
+skills_src="\$toolbox_root/.github/skills"
+skills_link="\$HOME/.copilot/skills"
+if [ -d "\$skills_src" ]; then
+  mkdir -p "\$HOME/.copilot"
+  rm -rf "\$skills_link"
+  ln -s "\$skills_src" "\$skills_link"
+  echo "symlinked"
+else
+  echo "skipped"
+fi
+EOF
+  chmod +x "$TEST_TEMP_DIR/test_skills_missing.sh"
+  run "$TEST_TEMP_DIR/test_skills_missing.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "skipped" ]]
+  [ ! -e "$home_dir/.copilot/skills" ]
+}
+
 # Idempotency tests
 
 @test "install_dotnet uses ln -sf to allow re-running safely" {
