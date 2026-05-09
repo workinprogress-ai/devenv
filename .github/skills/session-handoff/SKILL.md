@@ -8,6 +8,8 @@ argument-hint: Optional — issue/PR number to post the handoff on; otherwise th
 
 A structured note for whoever picks up the work next — including future-you. Captures what was done, why, what's left, and where to look carefully.
 
+> Consult [`../_tools-reference.md`](../_tools-reference.md) for exact flags before invoking any tool.
+
 ## When to use this skill
 
 - Ending a working session mid-task and someone else will continue.

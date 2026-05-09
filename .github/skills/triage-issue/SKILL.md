@@ -8,6 +8,8 @@ argument-hint: An issue number, list of issue numbers, or pasted issue text to t
 
 Take a fresh / untriaged GitHub issue and produce a structured triage recommendation: type, labels, priority, size, duplicate check, and (if needed) a drafted clarifying comment. Bundle all proposed writes into one confirmation before applying.
 
+> Consult [`../_tools-reference.md`](../_tools-reference.md) for exact flags before invoking any tool.
+
 ## When to use this skill
 
 - A new issue lands and needs labels, priority, and sizing.

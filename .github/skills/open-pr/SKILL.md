@@ -1,12 +1,14 @@
 ---
 name: open-pr
-description: Open a GitHub PR from a plan-driven workflow — drafts a title from the plan/phase, builds a structured body from completed tasks + decisions + diff summary, infers `Closes #N` from the plan or branch, and submits via `pr-create-for-review` (never `gh pr create` directly). USE WHEN the user says "open a PR", "raise a PR", "create a PR", "open a pull request", "raise a pull request", "create a pull request", "let's open a PR", "open a PR for this", "ship this phase", "PR up the work", or "wrap this branch into a PR". Sources content from active `Implementation_plan*.md`, `git log`/`git diff` since branch divergence, the parent issue, and any session-handoff comment already posted; always shows the draft and gets approval before invoking `pr-create-for-review`. Defaults to ready-for-review, not draft. DO NOT USE FOR responding to existing PR feedback (use `/address-pr-comments`), wrapping up without opening a PR (use `/session-handoff`), getting a code review without a PR (use `/code-review`), or the GitHub extension's reviewer-suggesting flow (use `/create-pull-request`).
+description: Open a GitHub PR from the current branch — builds a structured title and body from the active plan, git diff, and parent issue, then submits via `pr-create-for-merge`. USE WHEN the user says "open a PR", "raise a PR", "create a PR", "open a pull request", "raise a pull request", "create a pull request", "let's open a PR", "ship this phase", or "wrap this branch into a PR". Always shows the draft for approval before submitting; defaults to ready-for-review, not draft. DO NOT USE FOR responding to existing PR feedback (use `/address-pr-comments`), wrapping up without opening a PR (use `/session-handoff`), getting a code review without a PR (use `/code-review`), or the GitHub extension's reviewer-suggesting flow (use `/create-pull-request`).
 argument-hint: Optional — branch name or plan path; otherwise uses current branch and detected plan
 ---
 
 # Open PR
 
-Take a committable phase of work from a plan-driven workflow and open a GitHub PR with a structured title and body. Always uses `pr-create-for-review`; never calls `gh pr create` directly.
+Take a committable phase of work from a plan-driven workflow and open a GitHub PR with a structured title and body. Always uses `pr-create-for-merge`; never calls `gh pr create` directly.
+
+> Consult [`../_tools-reference.md`](../_tools-reference.md) for exact flags before invoking any tool.
 
 ## When to use this skill
 
@@ -18,7 +20,7 @@ If a PR already exists and you're responding to feedback, use `/address-pr-comme
 
 ## Prerequisites
 
-- Branch exists, has at least one commit, and is pushed (or `pr-create-for-review` will push it).
+- Branch exists, has at least one commit, and is pushed (or `pr-create-for-merge` will fail).
 - An implementation plan (`Implementation_plan*.md`) is present, OR the user provides title/context to compensate.
 
 If the branch has no commits ahead of base, stop and tell the user — there's nothing to open.
@@ -88,7 +90,7 @@ User can opt into draft mode explicitly ("open as draft", "draft PR"). If they d
 2. Build draft title and body.
 3. Show the full draft in chat.
 4. Ask for edits / confirmation: "Open this PR? (y/n/edit)"
-5. On `y`: invoke `tools/pr-create-for-review --title <title> --body-file <draft>` (with `--draft` if requested).
+5. On `y`: invoke `tools/pr-create-for-merge "<title>" --issue <N> --body "$(cat <draft>)"` (add `--draft` if requested; use `--no-issue` if no parent issue was found).
 6. On `edit`: incorporate the user's changes, re-show, re-confirm.
 7. On `n`: stop. Print the draft so the user can use it manually if they want.
 
@@ -96,7 +98,7 @@ After the PR is opened, print the PR URL and number.
 
 ## Anti-patterns
 
-- **Calling `gh pr create` directly** — always go through `pr-create-for-review` (it handles the project's review conventions).
+- **Calling `gh pr create` or `pr-create-for-review` directly** — always go through `pr-create-for-merge`. (`pr-create-for-review` is a different tool that creates "REVIEW:" diff PRs between two commits — not for feature branches.)
 - **Auto-submitting without showing the draft** — title and body must be reviewed before submission.
 - **Inventing testing notes** — if the user didn't run tests and you don't see them in CI, ask. Don't write "tested locally" speculatively.
 - **Padding the body** — omit empty sections rather than writing "N/A".

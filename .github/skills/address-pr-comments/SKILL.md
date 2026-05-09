@@ -8,6 +8,8 @@ argument-hint: PR number (auto-detected from current branch if omitted)
 
 An interactive, one-comment-at-a-time workflow for working through PR review feedback. You stay in control of every decision: who addresses each comment, whether to reply, and whether to resolve the thread.
 
+> Consult [`../_tools-reference.md`](../_tools-reference.md) for exact flags before invoking any tool.
+
 **This is not a batch tool.** For a fast "fix everything and resolve all threads" pass, use the GitHub PR extension's `address-pr-comments` skill instead. This skill is for when you want to think through each comment with the AI as a partner.
 
 ## When to use this skill
