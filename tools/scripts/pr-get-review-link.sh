@@ -23,6 +23,26 @@ set -euo pipefail
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"
 
+show_usage() {
+  cat << 'EOF'
+Usage: pr-get-review-link [REPO_DIR]
+
+Get the GitHub URL for an open "REVIEW:" pull request in the repository.
+Falls back to any open PR with a head branch under review/.
+
+Arguments:
+    REPO_DIR    Repository path (default: current directory)
+
+Options:
+    -h, --help  Show this help and exit
+EOF
+  exit 0
+}
+
+case "${1:-}" in
+  -h|--help) show_usage ;;
+esac
+
 
 
 

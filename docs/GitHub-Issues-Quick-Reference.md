@@ -46,6 +46,23 @@ issue-update 123 --milestone "Sprint 6"
 issue-update 123 --state closed
 ```
 
+### Get Issue Details
+
+```bash
+issue-get 123                           # Structured JSON
+issue-get 123 --pretty                  # Pretty-printed
+issue-get 123 | jq -r '.title'          # Extract field
+issue-get 123 | jq -r '.labels[].name' # Extract labels
+```
+
+### Add a Comment
+
+```bash
+issue-comment 123 --body "Fixed in PR #456"
+issue-comment 123 --body-file notes.md  # From file
+issue-comment 123 --edit                # Open $EDITOR
+```
+
 ### Close/Reopen Issue
 
 ```bash

@@ -342,6 +342,140 @@ pr-cleanup-review-branches [--days N]
 
 - `--days N`: Delete review branches older than N days (default: 7)
 
+### `pr-get`
+
+Retrieves a pull request's details as structured JSON. Useful for scripting,
+automation, and feeding PR context to AI agents.
+
+```bash
+pr-get PR# [--pretty]
+```
+
+**Examples:**
+
+```bash
+pr-get 123                              # Structured JSON
+pr-get 123 --pretty                     # Pretty-printed
+pr-get 123 | jq -r '.title'             # Extract title
+pr-get 123 | jq -r '.headRefName'       # Source branch
+pr-get 123 | jq -r '.labels[].name'     # Extract labels
+```
+
+### `pr-comment`
+
+Adds a top-level conversation comment to a pull request. For inline review
+comments, use `gh pr review` directly or the GitHub web UI.
+
+```bash
+pr-comment PR# (--body TEXT | --body-file FILE | --edit) [--dry-run]
+```
+
+**Comment sources** (exactly one required):
+
+- `--body TEXT`: Inline comment text
+- `--body-file FILE`: Read comment from a markdown file
+- `--edit`: Open `$EDITOR` to compose
+
+### `pr-diff`
+
+Outputs a unified diff for a PR (via `gh`) or for a local diff between two
+refs. Useful for code review and pre-commit workflows.
+
+```bash
+pr-diff PR# [--name-only]
+pr-diff --base BASE_REF --head HEAD_REF [--name-only]
+```
+
+**Examples:**
+
+```bash
+pr-diff 123                                       # Full PR diff
+pr-diff 123 --name-only                           # Just changed files
+pr-diff --base master --head my-feature           # Local ref-to-ref diff
+```
+
+### `pr-list`
+
+Lists pull requests with filters. JSON output by default for scripting.
+
+```bash
+pr-list [--state open|closed|merged|all] [--author USER] [--label LABEL] \
+        [--base BRANCH] [--head BRANCH] [--limit N] [--pretty | --table]
+```
+
+**Examples:**
+
+```bash
+pr-list                                  # All open PRs (JSON)
+pr-list --table                          # Pretty table
+pr-list --author @me                     # My open PRs
+pr-list --state closed --label bug       # Closed bug PRs
+pr-list --base master                    # PRs targeting master
+```
+
+### `pr-threads-get`
+
+Fetches inline review threads for a PR via GraphQL, preserving thread structure and parent/reply relationships. The REST API loses this context; this tool is the foundation for the `address-pr-comments` skill.
+
+By default returns only unresolved threads, sorted by file path then line number.
+
+```bash
+pr-threads-get PR# [--all] [--pretty]
+```
+
+**Output:** JSON array of thread objects, each containing:
+
+- `id` — GraphQL node ID (used by `pr-thread-resolve`)
+- `isResolved` — boolean
+- `path`, `line`, `startLine`, `diffSide` — comment location
+- `comments[]` — each with `id` (numeric, used by `pr-thread-reply`), `author.login`, `body`, `createdAt`, `url`
+
+**Examples:**
+
+```bash
+pr-threads-get 123                       # Unresolved threads (JSON)
+pr-threads-get 123 --all                 # Include resolved threads
+pr-threads-get 123 --pretty              # Pretty-print
+pr-threads-get 123 | jq length          # Count unresolved threads
+pr-threads-get 123 | jq -r '.[].path' | sort -u   # Files with open comments
+pr-threads-get 123 | jq -r '.[0].comments[0].body' # First comment body
+```
+
+### `pr-thread-reply`
+
+Posts a reply to an existing inline review comment. This is distinct from `pr-comment` (top-level PR conversation). Requires the numeric comment ID from `pr-threads-get`.
+
+```bash
+pr-thread-reply PR# --comment-id COMMENT_ID (--body TEXT | --body-file FILE | --edit) [--dry-run]
+```
+
+**Examples:**
+
+```bash
+pr-thread-reply 123 --comment-id 456 --body "Done — refactored in the latest commit."
+pr-thread-reply 123 --comment-id 456 --body-file reply.md
+pr-thread-reply 123 --comment-id 456 --edit          # Opens $EDITOR
+pr-thread-reply 123 --comment-id 456 --body "LGTM" --dry-run
+```
+
+### `pr-thread-resolve`
+
+Marks a PR review thread as resolved using the GitHub GraphQL `resolveReviewThread` mutation. Takes the GraphQL node ID (starts with `PRRT_`) returned by `pr-threads-get`.
+
+```bash
+pr-thread-resolve THREAD_ID [--dry-run]
+```
+
+**Examples:**
+
+```bash
+pr-thread-resolve PRRT_kwDOAbc123
+pr-thread-resolve PRRT_kwDOAbc123 --dry-run
+
+# Resolve all unresolved threads on PR 123 (use with care)
+pr-threads-get 123 | jq -r '.[].id' | xargs -I{} pr-thread-resolve {}
+```
+
 ## Artifact Management
 
 Tools for listing, filtering, and managing artifacts in GitHub Packages.

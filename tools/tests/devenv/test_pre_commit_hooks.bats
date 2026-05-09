@@ -38,9 +38,46 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "pre-commit hook can be added if needed" {
-  # Devenv doesn't have pre-commit hook yet, but structure exists
-  [ -d "$PROJECT_ROOT/.husky" ]
+@test "global pre-commit hook exists" {
+  [ -f "$PROJECT_ROOT/tools/git-hooks/pre-commit" ]
+}
+
+@test "global pre-commit hook is executable" {
+  [ -x "$PROJECT_ROOT/tools/git-hooks/pre-commit" ]
+}
+
+@test "global pre-commit hook has valid bash syntax" {
+  run bash -n "$PROJECT_ROOT/tools/git-hooks/pre-commit"
+  [ "$status" -eq 0 ]
+}
+
+@test "global pre-commit hook blocks commit when HEAD is a WIP commit" {
+  local repo
+  repo=$(mktemp -d)
+  cd "$repo"
+  git init -q
+  git config user.email "test@test.com"
+  git config user.name "Test"
+  touch file.txt && git add file.txt && git commit -q -m "initial"
+  touch wip.txt && git add wip.txt && git commit -q -m "WIP: in progress"
+  # Simulate running the hook
+  run bash "$PROJECT_ROOT/tools/git-hooks/pre-commit"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"WIP"* ]]
+  rm -rf "$repo"
+}
+
+@test "global pre-commit hook allows commit when no WIP commits present" {
+  local repo
+  repo=$(mktemp -d)
+  cd "$repo"
+  git init -q
+  git config user.email "test@test.com"
+  git config user.name "Test"
+  touch file.txt && git add file.txt && git commit -q -m "initial"
+  run bash "$PROJECT_ROOT/tools/git-hooks/pre-commit"
+  [ "$status" -eq 0 ]
+  rm -rf "$repo"
 }
 
 @test "shellcheck can be used for pre-commit validation" {
