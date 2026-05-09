@@ -8,7 +8,7 @@ argument-hint: Optional — issue/PR number to post the handoff on; otherwise th
 
 A structured note for whoever picks up the work next — including future-you. Captures what was done, why, what's left, and where to look carefully.
 
-> Consult [`../_tools-reference.md`](../_tools-reference.md) for exact flags before invoking any tool.
+> **Do NOT run `--help` on any tool.** All CLI signatures are pre-documented in [`../_tools-reference.md`](../_tools-reference.md) — read that file instead.
 
 ## When to use this skill
 

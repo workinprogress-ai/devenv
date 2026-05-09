@@ -49,6 +49,7 @@ usage() {
   echo "  --repo-dir <path>    Repository directory (default: current)" >&2
   echo "  --branch <name>      Source branch for PR (default: current branch)" >&2
   echo "  --body <text>        PR body text" >&2
+  echo "  --body-file <file>   Read PR body from a file" >&2
   echo "  --draft              Create as draft" >&2
   echo "  --reviewer <handle>  Add a reviewer (can be repeated)" >&2
   echo "  --assignee <handle>  Add an assignee (default: @me)" >&2
@@ -62,6 +63,7 @@ REPO_DIR="$(pwd)"
 TARGET_BRANCH=""
 SOURCE_BRANCH=""
 DRAFT="false"
+BODY_FILE=""
 REVIEWERS=()
 ASSIGNEES=("@me")
 LABELS=()
@@ -83,6 +85,8 @@ while [[ $# -gt 0 ]]; do
       TARGET_BRANCH="$2"; shift 2 ;;
     --body)
       PR_BODY="$2"; shift 2 ;;
+    --body-file)
+      BODY_FILE="$2"; shift 2 ;;
     --draft)
       DRAFT="true"; shift ;;
     --reviewer)
@@ -101,6 +105,12 @@ set -- "${POSITIONAL[@]}"
 
 PR_TITLE="${1:-}"
 [ -n "$PR_TITLE" ] || usage
+
+# Read body from file if --body-file was given
+if [ -n "$BODY_FILE" ]; then
+  [ -f "$BODY_FILE" ] || { echo "Error: body file not found: $BODY_FILE" >&2; exit 1; }
+  PR_BODY="$(cat "$BODY_FILE")"
+fi
 
 # Validate issue requirement
 if [ -z "$ISSUE_NUMBER" ] && [ "$NO_ISSUE" != "true" ]; then

@@ -8,7 +8,7 @@ argument-hint: Optional — branch name or plan path; otherwise uses current bra
 
 Take a committable phase of work from a plan-driven workflow and open a GitHub PR with a structured title and body. Always uses `pr-create-for-merge`; never calls `gh pr create` directly.
 
-> Consult [`../_tools-reference.md`](../_tools-reference.md) for exact flags before invoking any tool.
+> **Do NOT run `--help` on any tool.** All CLI signatures are pre-documented in [`../_tools-reference.md`](../_tools-reference.md) — read that file instead.
 
 ## When to use this skill
 
@@ -90,7 +90,7 @@ User can opt into draft mode explicitly ("open as draft", "draft PR"). If they d
 2. Build draft title and body.
 3. Show the full draft in chat.
 4. Ask for edits / confirmation: "Open this PR? (y/n/edit)"
-5. On `y`: invoke `tools/pr-create-for-merge "<title>" --issue <N> --body "$(cat <draft>)"` (add `--draft` if requested; use `--no-issue` if no parent issue was found).
+5. On `y`: invoke `tools/pr-create-for-merge "<title>" --issue <N> --body-file <draft>` (add `--draft` if requested; use `--no-issue` if no parent issue was found).
 6. On `edit`: incorporate the user's changes, re-show, re-confirm.
 7. On `n`: stop. Print the draft so the user can use it manually if they want.
 

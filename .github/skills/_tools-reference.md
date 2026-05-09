@@ -2,6 +2,8 @@
 
 Quick reference for all CLI tools used by the skill suite. Skills invoke `tools/<name>` relative to the workspace root. Never call `gh` directly — always use these wrappers.
 
+**Do NOT run `--help` on any tool at runtime.** This file contains all signatures — use it instead.
+
 **Common flags available on all tools (not repeated per-entry):**
 - `-n, --dry-run` — show what would happen without executing
 - `-V, --verbose` — enable debug output
@@ -245,7 +247,8 @@ pr-comment 99 --body-file code-review-notes.md
 
 ```
 pr-create-for-merge <title> --issue NUMBER | --no-issue
-                    [--base BRANCH] [--branch BRANCH] [--body TEXT]
+                    [--base BRANCH] [--branch BRANCH]
+                    [--body TEXT] [--body-file FILE]
                     [--draft] [--reviewer HANDLE] [--assignee HANDLE] [--label NAME]
 ```
 
@@ -254,22 +257,27 @@ Key flags:
 - `--no-issue` — explicitly no associated issue
 - `--base BRANCH` — target branch (default: repo default branch)
 - `--branch BRANCH` — source branch (default: current branch)
-- `--body TEXT` — PR body text (use `"$(cat file.md)"` for file content)
+- `--body TEXT` — PR body as inline text
+- `--body-file FILE` — read PR body from a file (preferred for multi-section bodies)
 - `--draft` — open as draft
 - `--reviewer` / `--assignee` / `--label` — repeatable
 
 Examples:
 ```bash
-# Open a ready-for-review PR closing issue #42
+# Open a ready-for-review PR closing issue #42, body from a file
 pr-create-for-merge "feat: add OAuth login (closes #42)" --issue 42 \
-  --body "$(cat /tmp/pr-body.md)"
+  --body-file /tmp/pr-body.md
+
+# Inline body for short descriptions
+pr-create-for-merge "fix: null check in parser" --issue 55 \
+  --body "Fixes null dereference."
 
 # Draft PR with no issue
 pr-create-for-merge "wip: experimenting with new cache layer" --no-issue --draft
 
 # With reviewer
-pr-create-for-merge "fix: null check in parser" --issue 55 \
-  --body "Fixes null dereference." --reviewer alice
+pr-create-for-merge "feat: add OAuth login" --issue 42 \
+  --body-file /tmp/pr-body.md --reviewer alice
 ```
 
 > **Note:** `pr-create-for-review` is a *different* tool — it creates "REVIEW:" diff PRs between two commits for version comparison. Do not use it for standard feature PRs.

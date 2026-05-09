@@ -8,7 +8,7 @@ argument-hint: PR number, two refs (--base BASE --head HEAD), or nothing (defaul
 
 Review code changes and produce structured, actionable feedback. Inverse of `/delegation`: the human or another agent wrote the code; the AI reviews it.
 
-> Consult [`../_tools-reference.md`](../_tools-reference.md) for exact flags before invoking any tool.
+> **Do NOT run `--help` on any tool.** All CLI signatures are pre-documented in [`../_tools-reference.md`](../_tools-reference.md) — read that file instead.
 
 ## When to use this skill
 
