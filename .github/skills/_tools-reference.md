@@ -5,6 +5,7 @@ Quick reference for all CLI tools used by the skill suite. Skills invoke `tools/
 **Do NOT run `--help` on any tool at runtime.** This file contains all signatures — use it instead.
 
 **Common flags available on all tools (not repeated per-entry):**
+
 - `-n, --dry-run` — show what would happen without executing
 - `-V, --verbose` — enable debug output
 - `--devenv` — safety override to run against the devenv repo itself
@@ -23,11 +24,13 @@ issue-get ISSUE_NUMBER [--pretty]
 ```
 
 Key flags:
+
 - `--pretty` — human-readable indented JSON
 
 Output fields: `number`, `title`, `body`, `state`, `labels[]`, `assignees[]`, `milestone`, `author`, `createdAt`, `updatedAt`, `url`, `comments`
 
 Examples:
+
 ```bash
 issue-get 42 --pretty
 issue-get 42 | jq -r '.title'
@@ -46,6 +49,7 @@ issue-list [--state open|closed|all] [--type TYPE] [--label LABEL] [--assignee U
 ```
 
 Key flags:
+
 - `-s, --state` — `open` (default), `closed`, `all`
 - `-t, --type` — `epic`, `story`, `bug`
 - `-l, --label` — repeatable
@@ -54,6 +58,7 @@ Key flags:
 - `-n, --limit` — default 30
 
 Examples:
+
 ```bash
 issue-list --format json | jq -r '.[] | "\(.number) \(.title)"'
 issue-list --type bug --assignee @me
@@ -71,11 +76,13 @@ issue-comment ISSUE_NUMBER (--body TEXT | --body-file FILE | --edit)
 ```
 
 Key flags:
+
 - `-b, --body TEXT` — inline body text
 - `-f, --body-file FILE` — read body from a markdown file
 - `-e, --edit` — open `$EDITOR` to compose
 
 Examples:
+
 ```bash
 issue-comment 42 --body "Fixed in the latest commit."
 issue-comment 42 --body-file handoff.md
@@ -95,11 +102,13 @@ issue-update ISSUE_NUMBER [--title TITLE] [--body TEXT] [--body-file FILE]
 ```
 
 Key flags:
+
 - `--add-label` / `--remove-label` — repeatable; one label per flag
 - `--body-file FILE` — replace body from a file
 - `--state closed` — close the issue
 
 Examples:
+
 ```bash
 issue-update 42 --add-label "status:in-review" --add-assignee "@me"
 issue-update 42 --body-file updated-plan.md
@@ -120,11 +129,13 @@ issue-create [--title TITLE] [--body TEXT | --body-file FILE] [--type TYPE]
 ```
 
 Key flags:
+
 - `--no-template --no-interactive` — non-interactive creation (requires `--title`)
 - `--parent` — links as child of an epic
 - `--blocked-by` — repeatable
 
 Examples:
+
 ```bash
 issue-create --title "Add OAuth" --type Feature --no-template --no-interactive \
   --body-file spike-findings.md
@@ -142,11 +153,13 @@ issue-close [close|reopen] ISSUE_NUMBER... [--comment TEXT] [--reason completed|
 ```
 
 Key flags:
+
 - `--comment TEXT` — add a comment when closing
 - `--reason` — `completed` or `"not planned"` (close only)
 - `reopen` action — first positional arg
 
 Examples:
+
 ```bash
 issue-close 42 --comment "Duplicate of #10" --reason "not planned"
 issue-close reopen 42 --comment "Revisiting this."
@@ -166,11 +179,13 @@ pr-list [--state open|closed|merged|all] [--author USER] [--label LABEL]
 ```
 
 Key flags:
+
 - `--head BRANCH` — filter by source branch (use to detect PR for current branch)
 - `--base BRANCH` — filter by target branch
 - `--table` — human-readable output
 
 Examples:
+
 ```bash
 # Find PR number for current branch
 pr-list --head "$(git branch --show-current)" | jq -r '.[0].number'
@@ -191,6 +206,7 @@ pr-get PR_NUMBER [--pretty]
 Output fields: `number`, `title`, `body`, `state`, `isDraft`, `headRefName`, `baseRefName`, `author`, `labels[]`, `assignees[]`, `reviewRequests[]`, `milestone`, `mergeable`, `mergeStateStatus`, `url`, `createdAt`, `updatedAt`, `comments[]`, `reviews[]`
 
 Examples:
+
 ```bash
 pr-get 99 --pretty
 pr-get 99 | jq -r '.headRefName'
@@ -209,9 +225,11 @@ pr-diff --base BASE_REF --head HEAD_REF [--name-only]
 ```
 
 Key flags:
+
 - `--name-only` — list changed file paths only (no diff content)
 
 Examples:
+
 ```bash
 pr-diff 99
 pr-diff 99 --name-only
@@ -229,11 +247,13 @@ pr-comment PR_NUMBER (--body TEXT | --body-file FILE | --edit)
 ```
 
 Key flags:
+
 - `-b, --body TEXT` — inline body
 - `-f, --body-file FILE` — read from a markdown file
 - `-e, --edit` — open `$EDITOR`
 
 Examples:
+
 ```bash
 pr-comment 99 --body "Reviewed — looks good. Approved."
 pr-comment 99 --body-file code-review-notes.md
@@ -253,6 +273,7 @@ pr-create-for-merge <title> --issue NUMBER | --no-issue
 ```
 
 Key flags:
+
 - `--issue NUMBER` — issue this PR addresses (required unless `--no-issue`)
 - `--no-issue` — explicitly no associated issue
 - `--base BRANCH` — target branch (default: repo default branch)
@@ -263,6 +284,7 @@ Key flags:
 - `--reviewer` / `--assignee` / `--label` — repeatable
 
 Examples:
+
 ```bash
 # Open a ready-for-review PR closing issue #42, body from a file
 pr-create-for-merge "feat: add OAuth login (closes #42)" --issue 42 \
@@ -293,9 +315,11 @@ pr-threads-get PR_NUMBER [--all] [--pretty]
 ```
 
 Key flags:
+
 - `--all` — include resolved threads (default: unresolved only)
 
 Output: JSON array of thread objects. Key fields per thread:
+
 - `id` — GraphQL node ID (e.g. `PRRT_kwDO...`); pass to `pr-thread-resolve`
 - `isResolved` — boolean
 - `path` — file path
@@ -303,6 +327,7 @@ Output: JSON array of thread objects. Key fields per thread:
 - `comments[]` — array; each has `id` (numeric REST ID for `pr-thread-reply`), `author.login`, `body`, `url`
 
 Examples:
+
 ```bash
 pr-threads-get 99 --pretty
 pr-threads-get 99 | jq length          # count unresolved
@@ -320,9 +345,11 @@ pr-thread-reply PR_NUMBER --comment-id COMMENT_ID (--body TEXT | --body-file FIL
 ```
 
 Key flags:
+
 - `--comment-id COMMENT_ID` — **numeric** REST API comment ID from `pr-threads-get` output (`comments[].id`); **required**
 
 Examples:
+
 ```bash
 pr-thread-reply 99 --comment-id 456 --body "Fixed — refactored in the latest commit."
 pr-thread-reply 99 --comment-id 456 --body-file reply.md
@@ -341,6 +368,7 @@ pr-thread-resolve THREAD_ID
 - `THREAD_ID` — **GraphQL node ID** of the thread (starts with `PRRT_`); from `pr-threads-get` output (top-level `id` field). **Not** the PR number.
 
 Examples:
+
 ```bash
 pr-thread-resolve PRRT_kwDOAbc123
 

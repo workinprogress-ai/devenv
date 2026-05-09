@@ -12,12 +12,14 @@ Work *with* the user, not *for* them. Tasks are granular, both parties implement
 ## When to Use
 
 Trigger phrases:
+
 - "pair program" / "let's pair on this" / "pair with me"
 - "work on this issue with me" / "implement this together"
 - "let's tackle this plan together" / "work through this implementation plan"
 - A GH issue or plan is handed off **with collaborative intent** (not "just do it")
 
 Do **not** use for:
+
 - Solo "do this for me" delegations (use the default agent)
 - Pure Q&A or research
 - Sessions where the user wants no checkpoints
@@ -48,6 +50,7 @@ Run these in order. Don't skip.
 ### 1. Identify the work source
 
 Ask, if not provided:
+
 - A GH issue number?
 - A path to an implementation plan markdown?
 - Ad-hoc (no plan)?
@@ -59,6 +62,7 @@ Ask, if not provided:
 **If plan file**: read it.
 
 **If the plan is missing or too thin to pair on** (no task list, no acceptance criteria, no phase structure):
+
 - Warn the user.
 - Offer choices: (a) proceed ad-hoc, (b) pause and draft a plan via the [`/create-implementation-plan`](../create-implementation-plan/SKILL.md) skill first, (c) abort.
 - Wait for an answer.
@@ -112,12 +116,14 @@ This is the heart of the skill. See [handoff-protocol.md](./references/handoff-p
 ## No-Assumptions Rule
 
 Ask before:
+
 - Any non-trivial implementation choice (architecture, error handling strategy, data shape).
 - Acting on ambiguous acceptance criteria — ask which interpretation.
 - Picking between multiple existing patterns in the codebase — ask which to follow.
 - Acting when the user just said something that contradicts the plan — flag the contradiction, ask.
 
 Don't ask about:
+
 - Mechanical choices that match existing style (variable names, formatting, import order).
 - Things that are clearly stated in the plan or the file you just read.
 
@@ -135,6 +141,7 @@ Always confirm the diff before writing.
 See [issue-integration.md](./references/issue-integration.md) for exact CLI invocations.
 
 **Offer** (don't auto-run) to document when:
+
 - A non-obvious design decision was made.
 - An assumption in the plan turned out to be wrong.
 - A new follow-up task / out-of-scope finding emerged.
@@ -143,6 +150,7 @@ See [issue-integration.md](./references/issue-integration.md) for exact CLI invo
 **For adjacent bugs**, also offer to file a **new issue** via `issue-create` (run `issue-create --help` to compose the exact command for the situation).
 
 **Confirmation flow**:
+
 1. Draft the comment / issue text.
 2. Show it in chat.
 3. Wait for explicit *"yes"*.

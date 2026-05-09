@@ -13,6 +13,7 @@ issue-get <N> --pretty
 Output is JSON with: `number`, `title`, `body`, `state`, `labels`, `assignees`, `milestone`, `author`, `createdAt`, `updatedAt`, `closedAt`, `url`, `comments`.
 
 Common follow-ups:
+
 ```bash
 issue-get <N> | jq -r '.body'              # just the description (where the plan usually lives)
 issue-get <N> | jq -r '.title'

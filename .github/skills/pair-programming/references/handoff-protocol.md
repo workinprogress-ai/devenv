@@ -18,15 +18,19 @@ The session is always in one of these states. Make the state visible.
 ## AI as implementer
 
 ### Confirm assignment
+>
 > "Taking 2.1 — adding retry policy to BulkSyncWorker. You're on 2.2?"
 
 ### Announce start
+>
 > "Starting 2.1."
 
 ### Mid-task ask (no-assumptions)
+>
 > "Quick ask before I commit to this — should the retry honour `Retry-After` headers, or use our standard exponential backoff regardless? Plan doesn't specify."
 
 ### Hand back for review
+>
 > "Done with 2.1, ready for review.
 >
 > **Changed**: `BulkSyncWorker.cs` (added `RetryPolicy` field + wired into `PostAsync` call), `BulkSyncWorkerRetryTests.cs` (new file, 4 cases).
@@ -38,9 +42,11 @@ The session is always in one of these states. Make the state visible.
 ## AI as reviewer
 
 ### Acknowledge user's task
+>
 > "Got it, you're on 2.2. I'll wait. Ping me if you want me to look anything up."
 
 ### Reviewing the diff
+
 First: actually run `get_changed_files` and read the diff. Then respond with structure:
 
 > "Reviewed your 2.2.
@@ -48,6 +54,7 @@ First: actually run `get_changed_files` and read the diff. Then respond with str
 > **What works**: handler signature matches the existing `IBulkSyncStep` pattern; cancellation token is honoured.
 >
 > **Concerns**:
+>
 > - The `null` check on line 47 swallows what looks like a real error case — was that intentional?
 > - No test for the empty-batch path; coverage will drop on this file.
 >
@@ -56,9 +63,11 @@ First: actually run `get_changed_files` and read the diff. Then respond with str
 > Approve once you address the empty-batch test, or push back if I'm wrong about line 47."
 
 ### Pushback
+>
 > "Pushing back on that. Swallowing the exception means we'll never know when sync silently breaks, and the existing telemetry hooks in this module specifically log retryable failures. Want me to log + rethrow, or log + return a typed failure result?"
 
 ### Calling out rubber-stamping (significant work only)
+>
 > "You approved that pretty fast — the change touches the public `IBulkSyncStep` contract. Want me to slow down and walk through the implications, or are you good?"
 
 (Skip this for renames, formatting, or pure mechanical refactors.)

@@ -30,6 +30,7 @@ Ask only what you need. If the user's initial message already answers a question
 **Q1 — Work stage** (ask if not already clear):
 
 > "What are you trying to do right now?"
+>
 > - 🔍 Explore / think something through
 > - 📋 Create or update a plan
 > - 🔨 Build / implement something
@@ -39,12 +40,14 @@ Ask only what you need. If the user's initial message already answers a question
 **Q2 — Plan exists?** (ask only if stage is "Build"):
 
 > "Does a plan file or GitHub issue with a task list already exist for this work?"
+>
 > - Yes — plan file or issue
 > - No — working ad-hoc
 
 **Q3 — Impact level?** (ask only if stage is "Build" AND plan exists):
 
 > "How would you describe the work in this phase?"
+>
 > - High-impact — touches public APIs, data shape, security, or novel architecture
 > - Mechanical — refactors, renames, test scaffolding, cleanup, docs
 

@@ -36,15 +36,18 @@ Use this format at the end of every work session (and when aborting mid-session)
 ## Hotspot bullet format
 
 Each hotspot bullet must contain:
+
 1. A **clickable link** to the exact `file:line` (workspace-relative path, `#L<num>` anchor).
 2. A **one-sentence reason** the human should look here.
 
 Bad (too vague):
+
 ```markdown
 - BulkSyncWorker.cs — please review
 ```
 
 Good:
+
 ```markdown
 - [BulkSyncWorker.cs:142](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142) — picked exponential backoff with jitter=0.3 without precedent; sanity-check the multiplier
 ```
@@ -52,6 +55,7 @@ Good:
 ## When to flag a hotspot
 
 Any of:
+
 - AI made a non-obvious choice
 - Public API surface changed
 - A test was loosened, skipped, or weakened
@@ -64,6 +68,7 @@ If a session has **zero** hotspots, say so explicitly — don't omit the section
 ## After delivering the summary
 
 Wait. Do not start the next session. The user reviews and either:
+
 - Accepts → proceed to next session, or wrap up if last.
 - Pushes back → fix per feedback, then re-summarize the same session.
 

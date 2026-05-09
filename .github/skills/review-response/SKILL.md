@@ -97,6 +97,7 @@ On `edit`: user adjusts the plan in free form; re-echo before executing.
 #### 2B — Auto-resolve plan (option 2 or --auto)
 
 Build a "resolve all" plan where every thread is auto-handled:
+
 - `blocker` / `question` / `unclear` → AI proposes a fix or reply
 - `nit` / `praise` → resolve silently (or with a brief "Thanks!" for praise)
 
@@ -158,6 +159,7 @@ Classification: blocker
 ```
 
 **Links:**
+
 - **📄 VS Code link** — `[<path>:<line>](<path>#L<line>)` using `path` and `line` from `pr-threads-get` output. Opens the file at that line in the editor.
 - **🔗 GitHub link** — `comments[0].url` from `pr-threads-get` output, verbatim. Opens the comment in the browser. Do not reconstruct this URL.
 
@@ -219,6 +221,7 @@ Changes made across 4 files.
 ```
 
 Then:
+
 - If any code was changed → offer "Run `/pre-commit` to verify quality gates."
 - If threads left open → list them with a one-line reminder of each comment.
 - If all resolved → "All threads resolved. PR may be ready to merge — check with the reviewer."
@@ -256,4 +259,3 @@ Then:
 - GitHub PR extension's `address-pr-comments` — for a fast batch-fix-all workflow without per-comment choices.
 
 See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.
-

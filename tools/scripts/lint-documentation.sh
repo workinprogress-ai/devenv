@@ -74,10 +74,12 @@ echo "Running markdown linting on:"
 printf ' - %s\n' "${FILES[@]}"
 echo ""
 
-# Always use markdownlint installed in the devenv repository
-MARKDOWNLINT_BIN="$DEVENV_ROOT/node_modules/.bin/markdownlint"
+# Always use markdownlint-cli2 installed in the devenv repository
+# markdownlint-cli2 resolves config per-directory (walks up from each file),
+# so per-folder .markdownlint.json overrides are honoured automatically.
+MARKDOWNLINT_BIN="$DEVENV_ROOT/node_modules/.bin/markdownlint-cli2"
 if [ ! -x "$MARKDOWNLINT_BIN" ]; then
-    echo "Error: markdownlint is not installed in devenv at $MARKDOWNLINT_BIN"
+    echo "Error: markdownlint-cli2 is not installed in devenv at $MARKDOWNLINT_BIN"
     echo "Install it with: pnpm install (in $DEVENV_ROOT)"
     exit 1
 fi
@@ -86,8 +88,6 @@ CMD=("$MARKDOWNLINT_BIN")
 if [ "$FIX_MODE" = true ]; then
     CMD+=(--fix)
 fi
-# Always ignore MD013 (line length)
-CMD+=(--disable MD013 --)
 CMD+=("${FILES[@]}")
 
 # Track file hashes before fix to detect actual modifications

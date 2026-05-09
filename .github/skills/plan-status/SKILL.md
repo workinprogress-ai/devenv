@@ -35,7 +35,7 @@ The user provides exactly one of:
 ### 2. Parse structure
 
 - **Phases**: lines matching `^### Phase N — Title` (capture title and ordering).
-- **Tasks**: lines matching `^- \[( |x)\] N\.M(\.K)? ` — capture number, checkbox state, summary line.
+- **Tasks**: lines matching `^- \[( |x)\] N\.M(\.K)?` — capture number, checkbox state, summary line.
 - **Cancelled tasks**: lines wrapped in `~~strikethrough~~` — track separately, exclude from completion math.
 - **Dependencies**: indented `- depends on N.M, N.M2` lines under each task.
 - **Last update**: most recent date in `## Revision history` section if present; otherwise file mtime (file mode) or `updatedAt` from the issue (issue mode).

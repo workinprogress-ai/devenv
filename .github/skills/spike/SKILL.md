@@ -54,12 +54,14 @@ Do the work:
 - Read code, docs, or external references as needed.
 - If a prototype is required, create it under `playground/spike-<topic>-<YYYY-MM-DD>/` at the workspace root. Use a short slug for `<topic>`.
 - Add a `README.md` to the prototype directory with a prominent header:
+
   ```markdown
   # ⚠️ THROWAWAY — NOT FOR PRODUCTION
 
   This is exploratory code from a spike. It is intentionally minimal,
   may have shortcuts, and is **not** intended to be merged or maintained.
   ```
+
 - Run experiments. Capture commands, outputs, and observations as you go (you'll need them for the findings doc).
 - If the spike grows beyond rough exploration, stop and recommend `/create-implementation-plan` instead.
 

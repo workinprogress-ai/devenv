@@ -29,6 +29,7 @@ user-invocable: true             # default; omit unless you need false
 ```
 
 Optional advanced keys (use only if needed):
+
 - `disable-model-invocation: true` — show as slash command but never auto-load.
 
 ## Description authoring guide
@@ -65,11 +66,13 @@ Use these headings, in this order, omitting any that don't apply. Keep section t
 ## When to push content into `references/`
 
 Push to a reference file when **all** of:
+
 - The content is a concrete artifact (template, cheatsheet, phrasing table, CLI map).
 - A future AI loading the skill might want to copy it verbatim.
 - It would balloon `SKILL.md` past ~300 lines.
 
 Keep in `SKILL.md` when:
+
 - It's procedural language ("first do X, then Y").
 - It's a short list (< ~10 items).
 - It defines the skill's behavior contract (principles, anti-patterns, personality).
@@ -93,6 +96,7 @@ If unsure, prefer `--dry-run` first.
 - `--help` is consistent across the wrappers — when in doubt, instruct the AI to read `--help` for the exact flag set.
 
 Wrapper inventory (as of authoring):
+
 - Issues: `issue-create`, `issue-list`, `issue-update` (incl. `--add-label`/`--remove-label`), `issue-close`, `issue-comment`, `issue-get`, `issue-groom`, `issue-select`
 - PRs: `pr-create-for-review`, `pr-create-for-merge`, `pr-complete-merge`, `pr-merge-pull-request`, `pr-cleanup-review-branches`, `pr-get-review-link`, `pr-get-merge-link` — plus added: `pr-get`, `pr-comment`, `pr-diff`, `pr-list`
 - Projects: `project-add-issue`, `project-update-issue`
@@ -106,16 +110,19 @@ Used by `delegation`, `code-review`, and any skill that asks the human to focus 
 ```
 
 Bad (vague):
+
 ```markdown
 - BulkSyncWorker.cs — please review
 ```
 
 Good:
+
 ```markdown
 - [BulkSyncWorker.cs:142](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142) — picked exponential backoff with jitter=0.3 without precedent; sanity-check the multiplier
 ```
 
 Hotspot criteria (any of):
+
 - Non-obvious choice
 - Public API surface change
 - Test loosened, skipped, or weakened
@@ -126,18 +133,21 @@ Hotspot criteria (any of):
 ## No-assumptions rule (shared)
 
 Ask before:
+
 - Any non-trivial implementation choice not specified in the plan / instructions.
 - Acting on ambiguous acceptance criteria.
 - Picking between multiple existing patterns in the codebase.
 - Acting on a user statement that contradicts the plan — flag the contradiction first.
 
 Don't ask about:
+
 - Mechanical choices that match existing style (variable names, formatting, import order).
 - Things clearly stated in material the AI just read.
 
 ## Sibling cross-link rule
 
 Each skill should link to:
+
 - Its **predecessors** in the workflow (e.g. `pair-programming` links to `create-implementation-plan`).
 - Its **alternatives** (e.g. `delegation` links to `pair-programming` for high-impact work).
 - Its **successors** where natural (e.g. a phase-complete skill linking to `open-pr`).

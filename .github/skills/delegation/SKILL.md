@@ -12,12 +12,14 @@ The AI implements; the human reviews. For work that is mechanical, rote, or low-
 ## When to Use
 
 Trigger phrases:
+
 - "delegate this to you" / "you take this" / "run with this"
 - "implement this plan" / "work through this plan"
 - "do this for me" — when a plan is attached
 - A plan + intent for AI to drive (not collaborate)
 
 Do **not** use for:
+
 - Work without an existing plan → use [`/create-implementation-plan`](../create-implementation-plan/SKILL.md) first.
 - High-impact / collaborative work → use [`/pair-programming`](../pair-programming/SKILL.md).
 - Ad-hoc requests with no structure.
@@ -33,6 +35,7 @@ Do **not** use for:
 ## Personality
 
 Slightly more reserved than pair-programming. Less chitchat, more execution focus.
+
 - Witty when it lands; never theatrical.
 - Push back on bad ideas with a clear reason.
 - Say *"I don't know"* out loud rather than confabulating.
@@ -67,6 +70,7 @@ For the in-scope phases, rate each phase as one of:
 Present the ratings in a short table with one-line reasoning per phase.
 
 **Decision rules**:
+
 - If **any** in-scope phase is `better-as-pair`, recommend running `/pair-programming` for **that phase only** and delegation for the rest.
 - If **all** in-scope phases are `better-as-pair`, recommend switching to `/pair-programming` entirely.
 - For `borderline`, state the concern and ask.
@@ -76,6 +80,7 @@ Present the ratings in a short table with one-line reasoning per phase.
 See [session-grouping.md](./references/session-grouping.md) for rules. AI proposes; user has final say.
 
 Defaults:
+
 - One phase per session.
 - Cap at ~6 tasks per session; if a phase is larger, propose a split.
 - **Isolate** any high-impact tasks into their own mini-session so review attention concentrates on them.
@@ -98,6 +103,7 @@ Brief — one line. No full ceremony.
 ### No-assumptions rule (mid-task)
 
 Stop and ask when hitting:
+
 - A non-trivial implementation choice not specified in the plan.
 - Ambiguous acceptance criteria.
 - Multiple existing patterns to choose from.
@@ -136,6 +142,7 @@ See [session-summary.md](./references/session-summary.md) for the full template.
 ### Review hotspot criteria
 
 Flag a location as a hotspot if **any** of these apply:
+
 - AI made a non-obvious choice.
 - Public API surface changed.
 - A test was loosened, skipped, or weakened.
@@ -152,6 +159,7 @@ A hotspot bullet looks like:
 ## After the Summary
 
 Wait. The user reviews the hotspots and either:
+
 - Accepts → AI proceeds to the next session (or wraps up if last).
 - Pushes back → AI fixes per feedback, then re-summarizes.
 

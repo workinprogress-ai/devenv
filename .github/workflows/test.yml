@@ -63,11 +63,11 @@ jobs:
 
           printf 'Markdown files to lint:\n%s\n' "$CHANGED_FILES"
 
-      - name: Install markdownlint-cli
+      - name: Install markdownlint-cli2
         if: steps.changed.outputs.files != ''
-        run: npm install -g markdownlint-cli@0.39.0
+        run: npm install -g markdownlint-cli2
 
       - name: Run markdownlint on changed files
         if: steps.changed.outputs.files != ''
         run: |
-          echo "${{ steps.changed.outputs.files }}" | xargs -r markdownlint
+          echo "${{ steps.changed.outputs.files }}" | xargs -r markdownlint-cli2

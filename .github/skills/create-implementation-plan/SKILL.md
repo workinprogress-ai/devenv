@@ -12,6 +12,7 @@ Produce a phased, atomic, committable plan that gives a human or another AI enou
 ## When to Use
 
 Trigger phrases:
+
 - "create an implementation plan" / "write an implementation plan"
 - "plan this story" / "plan out this work"
 - "break this task into phases" / "break down this work"
@@ -19,6 +20,7 @@ Trigger phrases:
 - A pasted user story / requirements blob with intent to implement
 
 Do **not** use for:
+
 - Quick coding tasks where no plan file is desired
 - Pure research / Q&A
 - Editing an existing plan (edit the file in place)
@@ -36,21 +38,27 @@ Do **not** use for:
 ## Procedure
 
 ### 1. Identify inputs and target repo
+
 - Determine which repo the plan applies to (the plan file is written to **that** repo's root, not necessarily the current workspace root).
 - If a GH issue number/URL is provided, fetch it. Capture the issue number for later.
 - Capture any pasted story / linked docs.
 
 ### 2. Scan repo conventions (always)
+
 Read, in this order, if present:
+
 - `<target-repo>/.github/copilot-instructions.md`
 - `<target-repo>/AGENTS.md`
 - Any `planning.*` repo in the workspace that may contain related context
 
 ### 3. Explore related code (read-only)
+
 Use the `Explore` subagent (or `search_subagent`) to find existing modules, tests, and patterns the plan must respect. Do not edit anything in this step.
 
 ### 4. Interview the user
+
 Use `vscode_askQuestions` to confirm/fill gaps. Always cover:
+
 - Acceptance criteria (how do we know it's done?)
 - Scope boundaries and explicit non-goals
 - Known risks / unknowns
@@ -59,17 +67,22 @@ Use `vscode_askQuestions` to confirm/fill gaps. Always cover:
 - Whether throwaway scaffolding tests are expected
 
 ### 5. Draft the plan in chat
+
 Use the [plan template](./references/plan-template.md). Follow:
+
 - [Task formatting rules](./references/task-format.md) — atomic `- [ ] N.N` tasks with the link-to-context pattern
 - [Phase rules](./references/phase-rules.md) — Phase 1 is **Discovery & test scaffolding**; the last phase is **Cleanup & docs**; every phase must end committable (tests pass, coverage doesn't regress, single-PR sized)
 - Mark dependencies as `depends on N.N` inline; readers infer parallelism
 - Every task with non-obvious context **must** link to its entry under *Additional task context*
 
 ### 6. Iterate until approved
+
 Show the draft in chat. Revise based on feedback. **Do not write the file yet.**
 
 ### 7. Resolve target filename (numbered suffix, always)
+
 In the target repo root:
+
 - If a GH issue is associated → base name `Implementation_plan-issue-<N>`
 - Otherwise → base name `Implementation_plan`
 - Find the next available zero-padded numeric suffix (`-001`, `-002`, ...) so nothing is overwritten:
@@ -77,9 +90,11 @@ In the target repo root:
   - `Implementation_plan-001.md`, `Implementation_plan-002.md`, ...
 
 ### 8. Write the file
+
 Write the approved plan to `<target-repo>/<resolved-filename>.md`. Confirm the path back to the user.
 
 ### 9. Offer GitHub issue update (only if an issue is associated)
+
 Ask, verbatim:
 
 > Update issue #N description with this plan? (runs `issue-update N --body-file <path>`)

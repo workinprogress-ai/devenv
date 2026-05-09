@@ -144,6 +144,7 @@ Done — 7 threads processed
 ```
 
 Suggest next steps:
+
 - If any code was changed → "Run `/pre-commit` to verify quality gates."
 - If threads left open → "Thread 2 is still open — revisit when ready."
 - If all resolved → "All threads resolved. PR may be ready to merge."

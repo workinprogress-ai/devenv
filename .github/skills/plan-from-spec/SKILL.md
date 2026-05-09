@@ -26,6 +26,7 @@ The user provides exactly one of:
 - **Inline text** — pasted directly in the conversation.
 
 **Auto-detection rules:**
+
 - `^[0-9]+$` → issue number
 - `^https?://` → URL
 - File exists at the given path → file
