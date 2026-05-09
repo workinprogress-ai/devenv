@@ -64,7 +64,7 @@ Output:
         startLine       Start of multi-line comment range (or null)
         diffSide        LEFT or RIGHT
         comments        Array of comment objects:
-            id          Comment node ID (for replying via pr-thread-reply)
+            id          Numeric REST API comment ID / databaseId (for replying via pr-thread-reply)
             author      {login}
             body        Comment text (markdown)
             createdAt   ISO 8601 timestamp

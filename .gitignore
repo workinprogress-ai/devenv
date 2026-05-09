@@ -37,3 +37,4 @@ tools/custom/
 !tools/tests/
 !tools/config
 !tools/templates
+!tools/git-hooks/
