@@ -12,23 +12,28 @@ human or AI to understand the goal without opening other documents.>
 
 ### Phase 1 — Discovery & test scaffolding
 
-- [ ] 1.1 <Task title>
+- [ ] 1.1 [S] <Task title>
   <Brief paragraph explaining the task.>
+  - Files: `<workspace-root-relative/path/File.cs>`
   - <Optional bullet>
   - depends on <N.N> (omit if none)
   - See [Additional context](#task-1-1) (omit if not needed)
 
-- [ ] 1.2 <Task title>
+- [ ] 1.2 [M] <Task title>
   <Brief paragraph.>
+  - Files: `<workspace-root-relative/path/File.cs>`, `<workspace-root-relative/path/FileTests.cs>`
 
 ### Phase 2 — <Phase name>
 
-- [ ] 2.1 <Task title>
+- [ ] 2.1 [M] <Task title>
   <Brief paragraph.>
+  - Files: `<workspace-root-relative/path/File.cs>`
+  - decision: <the choice to make, and why it's non-obvious> (omit if none)
   - depends on 1.2
 
-- [ ] 2.2 <Task title>
+- [ ] 2.2 [L] <Task title>
   <Brief paragraph.>
+  - Files: `<workspace-root-relative/path/File.cs>`, `<workspace-root-relative/path/NewFile.cs>` (new)
   - See [Additional context](#task-2-2)
 
 ### Phase N — Cleanup & docs

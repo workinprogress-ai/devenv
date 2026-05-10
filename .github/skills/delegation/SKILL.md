@@ -88,18 +88,27 @@ Defaults:
 
 ### 5. Emit session file links
 
-Before asking for the go-ahead, output a compact **Files in scope** block listing workspace-relative markdown links for every file the upcoming session touches. Only include files confirmed to exist from codebase exploration. Omit the block if no exploration has been done.
+Before asking for the go-ahead, output a compact **Files in scope** block. If the plan uses the `Files:` bullet convention, collect those paths for all tasks in the upcoming session — no codebase exploration needed. Otherwise, use files confirmed from exploration. Omit the block if no files have been identified.
 
 Format:
 
 > **Files in scope — Phase 2:**
-> [BulkSyncWorker.cs](src/Services/BulkSyncWorker.cs) · [IBulkSyncStep.cs](src/Abstractions/IBulkSyncStep.cs) · [BulkSyncWorkerTests.cs](tests/BulkSyncWorkerTests.cs)
+> [BulkSyncWorker.cs](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs) · [IBulkSyncStep.cs](repos/lib.cs.services.bulk-sync/src/IBulkSyncStep.cs) · [BulkSyncWorkerTests.cs](repos/lib.cs.services.bulk-sync/tests/BulkSyncWorkerTests.cs)
 
 Rules:
 - Paths must be relative to the **workspace root** (the top-level folder open in VS Code), not relative to a repo subdirectory. E.g. `repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs`, not `src/BulkSyncWorker.cs`. VS Code only makes links clickable when the full workspace-root-relative path is used.
 - One line, dot-separated. If there are more than ~8 files, group by subdirectory instead.
 - Repeat at the start of every new session.
-- Omit files that don't exist yet (to be created) — broken links are noise.
+- Omit files marked `(new)` in the plan — they don't exist yet and broken links are noise.
+
+### 5b. Flag decision tasks
+
+After the file links block, scan the upcoming session for any task with a `decision:` bullet. If any exist, surface them before asking for the go-ahead:
+
+> **Decisions needed this session:**
+> - 2.3: exponential vs. fixed backoff — need to agree on multiplier before coding
+
+Wait for the user to resolve each flagged decision (or explicitly defer it) before proceeding.
 
 ### 6. Confirm and start
 

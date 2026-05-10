@@ -70,7 +70,7 @@ Use `vscode_askQuestions` to confirm/fill gaps. Always cover:
 
 Use the [plan template](./references/plan-template.md). Follow:
 
-- [Task formatting rules](./references/task-format.md) — atomic `- [ ] N.N` tasks with the link-to-context pattern
+- [Task formatting rules](./references/task-format.md) — atomic `- [ ] N.N [S|M|L]` tasks with `Files:`, `decision:`, and the link-to-context pattern
 - [Phase rules](./references/phase-rules.md) — Phase 1 is **Discovery & test scaffolding**; the last phase is **Cleanup & docs**; every phase must end committable (tests pass, coverage doesn't regress, single-PR sized)
 - Mark dependencies as `depends on N.N` inline; readers infer parallelism
 - Every task with non-obvious context **must** link to its entry under *Additional task context*
@@ -119,19 +119,23 @@ See [phase-rules.md](./references/phase-rules.md) for the full checklist.
 
 ## Task Formatting Rules (summary)
 
-See [task-format.md](./references/task-format.md) for examples.
+See [task-format.md](./references/task-format.md) for the full spec and examples.
 
 ```
-- [ ] N.N Task title
+- [ ] N.N [S|M|L] Task title
   A brief paragraph or a few sentences explaining the task.
+  - Files: `workspace-root-relative/path/File.cs`, `workspace-root-relative/path/FileTests.cs`
+  - decision: <the choice to make, and why it's non-obvious> (omit if none)
   - Optional bullet list of points
   - depends on N.N (if applicable)
   - See [Additional context](#task-NN) (if non-trivial)
 ```
 
-- `N.N` — first number is the phase
-- Sub-tasks extend the series: `1.3.1`, `1.3.2`, ...
-- Tasks should be self-contained enough to execute, but not noisy. Push depth into *Additional task context* and link to it.
+- `[S/M/L]` size label on every task: S ≤ 30 min, M = 30 min–2 h, L > 2 h (consider splitting).
+- `Files:` lists every file the task reads or modifies using workspace-root-relative paths. New files get a `(new)` suffix. Powers the **Files in scope** links in pair-programming and delegation at phase kickoff.
+- `decision:` flags a non-obvious design choice — signals AI to stop and ask, signals pair-programming to discuss at handoff.
+- `N.N` — first number is the phase. Sub-tasks extend the series: `1.3.1`, `1.3.2`, ...
+- Push depth into *Additional task context* and link to it rather than bloating the task line.
 
 ## Document Skeleton
 

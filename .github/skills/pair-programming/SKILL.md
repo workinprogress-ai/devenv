@@ -79,22 +79,33 @@ Ask, if not provided:
 
 ### 5. Emit phase file links
 
-Before asking about roles, output a compact **Files in scope** block listing workspace-relative markdown links for every file the upcoming phase touches. Only include files confirmed to exist from the code exploration in step 3. Omit the block entirely in ad-hoc mode or if no files have been confirmed.
+Before asking about roles, output a compact **Files in scope** block. If the plan uses the `Files:` bullet convention, collect those paths for all tasks in the upcoming phase — no codebase exploration needed. Otherwise, use files confirmed from step 3 exploration. Omit the block entirely in ad-hoc mode or if no files have been identified.
 
 Format:
 
 > **Files in scope — Phase 1:**
-> [BulkSyncWorker.cs](src/Services/BulkSyncWorker.cs) · [IBulkSyncStep.cs](src/Abstractions/IBulkSyncStep.cs) · [BulkSyncWorkerTests.cs](tests/BulkSyncWorkerTests.cs)
+> [BulkSyncWorker.cs](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs) · [IBulkSyncStep.cs](repos/lib.cs.services.bulk-sync/src/IBulkSyncStep.cs) · [BulkSyncWorkerTests.cs](repos/lib.cs.services.bulk-sync/tests/BulkSyncWorkerTests.cs)
 
 Rules:
 - Paths must be relative to the **workspace root** (the top-level folder open in VS Code), not relative to a repo subdirectory. E.g. `repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs`, not `src/BulkSyncWorker.cs`. VS Code only makes links clickable when the full workspace-root-relative path is used.
 - One line, dot-separated. If there are more than ~8 files, group by subdirectory instead.
 - Repeat this block at every phase transition (not just session start).
-- If a file doesn't exist yet (to be created), omit it — links to non-existent files are noise.
+- Omit files marked `(new)` in the plan — they don't exist yet and broken links are noise.
 
-### 6. Decide roles
+### 6. Flag decision tasks at phase kickoff
+
+After the file links block and before asking about roles, scan the upcoming phase for any task with a `decision:` bullet. If any exist, surface them explicitly:
+
+> **Decisions needed before we start:**
+> - 2.3: exponential vs. fixed backoff — need to agree on multiplier before coding
+
+Don't proceed past role selection until the user has acknowledged each flagged decision (even if just "we'll decide when we get there").
+
+### 7. Decide roles
 
 Ask: *"Which role do you want first — implementer or reviewer? Or want to split the next batch?"* The AI may **suggest** a split based on task type ("I'll take the test scaffolding, you take the API design") but never starts work without an explicit go-ahead.
+
+When suggesting a split, use the `[S/M/L]` size labels if present: prefer giving the human the tasks with `decision:` bullets or `[L]` tasks, and AI taking the `[S]` mechanical ones.
 
 ## Task Handoff Protocol
 
