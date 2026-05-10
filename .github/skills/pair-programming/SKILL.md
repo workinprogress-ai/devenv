@@ -153,6 +153,37 @@ Don't ask about:
 - Mechanical choices that match existing style (variable names, formatting, import order).
 - Things that are clearly stated in the plan or the file you just read.
 
+## Plan Revision During the Session
+
+No plan survives contact with the codebase. When implementation reveals that the plan is wrong — not just incomplete, but **wrong** — the pair should update it rather than diverge silently from it.
+
+### When to trigger a plan revision conversation
+
+Raise a plan revision explicitly when:
+
+- A task turns out to be much larger or smaller than the plan assumes.
+- A dependency assumption is wrong (e.g. an API doesn't exist, a module works differently than expected).
+- A new required task is discovered that the plan doesn't cover.
+- A planned task turns out to be unnecessary or harmful.
+- The phase ordering no longer makes sense given what was learned.
+- A `decision:` turns out to surface a scope change, not just a style choice.
+
+For minor discoveries (a test case to add, a variable to rename), just do the work and note it in the session wrap-up. Revisions are for structural changes.
+
+### How to raise it
+
+Surface the issue clearly, name the plan impact, and offer options:
+
+> *"We just found that `IBulkSyncStep` is sealed — 2.4 assumed we could add an overload, but we can't without a breaking change. Options: (a) update 2.4 to extract an interface instead (new task 2.4.1), (b) descope the retry behaviour to Phase 3, or (c) pause and redesign. What do you want to do?"*
+
+Don't unilaterally edit the plan. Don't continue working as if the plan is still correct.
+
+### Making the edit
+
+Once agreed, use [`/plan-update`](../plan-update/SKILL.md) for small surgical changes (tick off a task, add one task, answer an open question). Use [`/refine-implementation-plan`](../refine-implementation-plan/SKILL.md) for structural changes (reordering phases, adding several tasks, changing acceptance criteria). Both require explicit confirmation before writing.
+
+After updating, re-emit the **Files in scope** block and **decision flags** for the current phase if they changed.
+
 ## Plan Progress Updates
 
 The AI does **not** auto-update progress. **If the user asks** for a progress update, the AI:
@@ -221,6 +252,8 @@ When the user signals end of session (or a phase boundary that suggests a natura
 - Updating plan checkboxes without being asked.
 - Suggesting delegation at session start before any collaboration patterns are visible.
 - Emitting file links that haven't been confirmed to exist (guessed paths).
+- Continuing to follow a plan that discovery has proven wrong without surfacing the conflict.
+- Unilaterally editing the plan without discussion and agreement.
 
 ## Sibling skills
 
