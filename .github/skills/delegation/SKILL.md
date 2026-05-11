@@ -180,6 +180,28 @@ A hotspot bullet looks like:
 - [BulkSyncWorker.cs:142](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142) — picked exponential backoff with jitter=0.3 without precedent; please sanity-check the multiplier
 ```
 
+## Plan Progress (Checkbox Updates)
+
+The AI owns checkbox updates in delegation — the user isn't driving the work, so they shouldn't have to maintain the plan manually.
+
+### Plan file (source of truth)
+
+Mark a task `- [x]` as soon as the user accepts the work for that task. Do not batch to end of session.
+
+Edit `- [ ]` → `- [x]` using the file edit tool. Confirm briefly: *"Ticked 2.1 and 2.2."*
+
+### GH issue body sync
+
+GitHub issue bodies are a single markdown blob — every checkbox update is a full overwrite. If the issue body is edited between syncs, the next write will silently clobber those changes.
+
+To avoid this, **sync the issue body only at phase boundaries** (not per-task):
+
+1. At the end of each phase, fetch the current issue body.
+2. Apply all checkboxes completed during that phase in one edit.
+3. Show the diff, wait for explicit confirmation, then run `issue-update <N> --body-file <path>`.
+
+Never sync mid-phase. If the session ends mid-phase, offer a sync for whatever tasks were completed.
+
 ## After the Summary
 
 Wait. The user reviews the hotspots and either:
@@ -194,7 +216,7 @@ Do **not** auto-proceed.
 Same protocol as pair-programming — see [issue-integration.md](../pair-programming/references/issue-integration.md). Differences for delegation:
 
 - **Auto-offer a status comment after each work session**, not just at session end. Show the draft, wait for "yes".
-- **Update plan checkboxes by default at end of each session**, after confirming the diff. Plan file → edit `- [ ]` → `- [x]`. Plan in issue body → use `issue-update <N> --body-file <path>`.
+- **Checkbox updates are handled per-task** as work is approved — see [Plan Progress](#plan-progress-checkbox-updates) above. Do not re-do them here unless some were missed.
 - All write commands (`issue-comment`, `issue-update`, `issue-create`) still require explicit confirmation.
 
 If an adjacent bug is discovered, offer both an `issue-comment` on the parent and a new `issue-create` for the bug.
