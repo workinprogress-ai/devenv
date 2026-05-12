@@ -152,7 +152,7 @@ Each skill should link to:
 - Its **alternatives** (e.g. `delegation` links to `pair-programming` for high-impact work).
 - Its **successors** where natural (e.g. a phase-complete skill linking to `open-pr`).
 
-Use relative paths: `[/pair-programming](../pair-programming/SKILL.md)`.
+Use relative paths: `[/devenv-pair-programming](../devenv-pair-programming/SKILL.md)`.
 
 Also add a one-liner near the top of each `SKILL.md`: "See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree."
 

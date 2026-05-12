@@ -10,13 +10,13 @@ A suite of 15 slash-command skills covering the full development lifecycle — f
 
 **Top skills:**
 
-- `/create-implementation-plan` — turn an issue or idea into a phased plan
-- `/pair-programming` — human + AI collaborate, human stays in control
-- `/delegation` — AI drives mechanical work, human reviews
-- `/spike` — investigate feasibility before planning
-- `/code-review` — AI reviews code you wrote
+- `/devenv-create-implementation-plan` — turn an issue or idea into a phased plan
+- `/devenv-pair-programming` — human + AI collaborate, human stays in control
+- `/devenv-delegation` — AI drives mechanical work, human reviews
+- `/devenv-spike` — investigate feasibility before planning
+- `/devenv-code-review` — AI reviews code you wrote
 
-**Not sure which to use?** Say `/skill-guru` and answer 1–3 questions.
+**Not sure which to use?** Say `/devenv-skill-guru` and answer 1–3 questions.
 
 ## 🚀 Quick Start
 

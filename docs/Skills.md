@@ -2,7 +2,7 @@
 
 A complete reference for the Copilot skill suite available in this workspace. Skills are invoked with a `/skill-name` slash command in Copilot Chat.
 
-**Not sure which skill to use?** Say `/skill-guru` and answer 1–3 questions.
+**Not sure which skill to use?** Say `/devenv-skill-guru` and answer 1–3 questions.
 
 ---
 
@@ -12,33 +12,33 @@ A complete reference for the Copilot skill suite available in this workspace. Sk
 What are you trying to do?
 │
 ├─ 🔍 Explore / think
-│   ├─ Thinking out loud, no artifact   →  /rubber-duck
-│   ├─ Investigate a question           →  /spike
-│   └─ Triage an incoming issue         →  /triage-issue
+│   ├─ Thinking out loud, no artifact   →  /devenv-rubber-duck
+│   ├─ Investigate a question           →  /devenv-spike
+│   └─ Triage an incoming issue         →  /devenv-triage-issue
 │
 ├─ � Define requirements
-│   └─ System needs functional definition before planning  →  /gather-requirements
+│   └─ System needs functional definition before planning  →  /devenv-gather-requirements
 │
 ├─ �📋 Plan
-│   ├─ Create from idea / issue         →  /create-implementation-plan
-│   ├─ Create from existing spec / RFC  →  /plan-from-spec
-│   ├─ Revise after scope change        →  /refine-implementation-plan
-│   ├─ Small surgical edit (tick / note)→  /plan-update
-│   └─ Check progress, read-only        →  /plan-status
+│   ├─ Create from idea / issue         →  /devenv-create-implementation-plan
+│   ├─ Create from existing spec / RFC  →  /devenv-plan-from-spec
+│   ├─ Revise after scope change        →  /devenv-refine-implementation-plan
+│   ├─ Small surgical edit (tick / note)→  /devenv-plan-update
+│   └─ Check progress, read-only        →  /devenv-plan-status
 │
 ├─ 🔨 Build
-│   ├─ No plan yet                      →  /create-implementation-plan first
-│   ├─ Plan exists, high-impact work    →  /pair-programming
-│   └─ Plan exists, mechanical work     →  /delegation
+│   ├─ No plan yet                      →  /devenv-create-implementation-plan first
+│   ├─ Plan exists, high-impact work    →  /devenv-pair-programming
+│   └─ Plan exists, mechanical work     →  /devenv-delegation
 │
 ├─ 🔎 Review / address feedback
-│   ├─ AI reviews code you wrote        →  /code-review
-│   ├─ You received PR review comments  →  /review-response
-│   └─ Quality gates before commit      →  /pre-commit
+│   ├─ AI reviews code you wrote        →  /devenv-code-review
+│   ├─ You received PR review comments  →  /devenv-review-response
+│   └─ Quality gates before commit      →  /devenv-pre-commit
 │
 └─ 🏁 Wrap up
-    ├─ Open a PR from finished phase     →  /open-pr
-    └─ Hand off the session             →  /session-handoff
+    ├─ Open a PR from finished phase     →  /devenv-open-pr
+    └─ Hand off the session             →  /devenv-session-handoff
 ```
 
 ---
@@ -47,74 +47,74 @@ What are you trying to do?
 
 These five are the backbone of the catalog. Start here if you're unsure.
 
-### `/gather-requirements`
+### `/devenv-gather-requirements`
 
 > **Before planning begins, when requirements are undefined.**
 
-Conducts a structured three-phase interview (vision → requirements → roadmap) and produces a `Requirements-<topic>-NNN.md`. Maintains a `session_memory.md` across sessions. The requirements document then feeds into `/plan-from-spec` or `/create-implementation-plan`.
+Conducts a structured three-phase interview (vision → requirements → roadmap) and produces a `Requirements-<topic>-NNN.md`. Maintains a `session_memory.md` across sessions. The requirements document then feeds into `/devenv-plan-from-spec` or `/devenv-create-implementation-plan`.
 
 **Use for:** new systems or features where what the system should do isn't yet defined  
-**Don't use for:** requirements already exist (→ `/plan-from-spec`), quick inline clarifications  
+**Don't use for:** requirements already exist (→ `/devenv-plan-from-spec`), quick inline clarifications  
 **Tool deps:** none
 
 ---
 
-### `/create-implementation-plan`
+### `/devenv-create-implementation-plan`
 
 > **Before any significant work begins.**
 
 Interviews the user, scans repo conventions, drafts phased atomic tasks, and writes an `Implementation_plan-*.md`. Offers to push the plan into the associated GitHub issue. The gateway to all build-phase skills.
 
 **Use for:** planning a user story, breaking down a GitHub issue, writing up work before starting  
-**Don't use for:** pure research (→ `/spike`), editing an existing plan (→ `/refine-implementation-plan`)  
+**Don't use for:** pure research (→ `/devenv-spike`), editing an existing plan (→ `/devenv-refine-implementation-plan`)  
 **Tool deps:** `issue-get`, `issue-update`
 
 ---
 
-### `/pair-programming`
+### `/devenv-pair-programming`
 
 > **Collaborative, human stays in control.**
 
 Loads the plan and runs an interactive task-by-task handoff: both parties take turns, the AI pushes back when warranted, asks before assuming. High-engagement, high-quality — slows down appropriately for risky or novel work.
 
 **Use for:** high-impact phases — public API changes, data shape changes, security, novel architecture  
-**Don't use for:** mechanical/rote work (→ `/delegation`), pure exploration (→ `/spike`)  
+**Don't use for:** mechanical/rote work (→ `/devenv-delegation`), pure exploration (→ `/devenv-spike`)  
 **Tool deps:** `issue-get`, `pr-get`, `pr-diff`, `issue-comment`
 
 ---
 
-### `/delegation`
+### `/devenv-delegation`
 
 > **AI drives mechanical work, human reviews.**
 
 Analyzes a plan, proposes work-session groupings, implements phase-by-phase, keeps the user engaged with brief pings and inline concern surfacing. Ends each session with a summary including review hotspots.
 
 **Use for:** refactors, renames, test scaffolding, cleanup, docs — mechanical, low-risk phases  
-**Don't use for:** high-impact work (→ `/pair-programming`), ad-hoc work without a plan  
+**Don't use for:** high-impact work (→ `/devenv-pair-programming`), ad-hoc work without a plan  
 **Tool deps:** `issue-get`, `issue-comment`
 
 ---
 
-### `/spike`
+### `/devenv-spike`
 
 > **When you don't know if something is feasible yet.**
 
 Investigates a question, builds a throwaway prototype if needed, and produces a structured `spike-NNN-<topic>.md` findings doc. Everything is explicitly marked NOT FOR PRODUCTION.
 
 **Use for:** feasibility questions, proofs-of-concept, technical investigations before planning  
-**Don't use for:** thinking out loud with no artifact (→ `/rubber-duck`), production code  
-**Tool deps:** none (reads codebase; writes only to `playground/spike-*/`)
+**Don't use for:** thinking out loud with no artifact (→ `/devenv-rubber-duck`), production code  
+**Tool deps:** none (reads codebase; writes only to `playground/devenv-spike-*/`)
 
 ---
 
-### `/code-review`
+### `/devenv-code-review`
 
 > **Close the loop after implementation.**
 
-The inverse of `/delegation` — you (or another agent) wrote the code, the AI reviews it. Produces structured feedback grouped by severity (Blocker / Concern / Nit / Praise) using the same hotspot format as `/delegation`.
+The inverse of `/devenv-delegation` — you (or another agent) wrote the code, the AI reviews it. Produces structured feedback grouped by severity (Blocker / Concern / Nit / Praise) using the same hotspot format as `/devenv-delegation`.
 
 **Use for:** reviewing a PR, reviewing a local diff, reviewing code from a feature branch  
-**Don't use for:** addressing comments on your own PR (→ `/review-response`)  
+**Don't use for:** addressing comments on your own PR (→ `/devenv-review-response`)  
 **Tool deps:** `pr-get`, `pr-diff`, `pr-comment`
 
 ---
@@ -125,43 +125,43 @@ The inverse of `/delegation` — you (or another agent) wrote the code, the AI r
 
 | Skill | Purpose | Argument |
 |---|---|---|
-| `/gather-requirements` | Three-phase requirements interview → requirements doc | System name or existing notes |
-| `/create-implementation-plan` | Create a plan via interview | Issue # or description |
-| `/plan-from-spec` | Create a plan from an existing spec/RFC/doc | File path, URL, or issue # |
-| `/refine-implementation-plan` | Revise a plan after scope changes | Plan file path or issue # |
-| `/plan-update` | Small surgical edit (tick box, add note) | Plan file path or issue # |
-| `/plan-status` | Progress report, read-only | Plan file path or issue # |
+| `/devenv-gather-requirements` | Three-phase requirements interview → requirements doc | System name or existing notes |
+| `/devenv-create-implementation-plan` | Create a plan via interview | Issue # or description |
+| `/devenv-plan-from-spec` | Create a plan from an existing spec/RFC/doc | File path, URL, or issue # |
+| `/devenv-refine-implementation-plan` | Revise a plan after scope changes | Plan file path or issue # |
+| `/devenv-plan-update` | Small surgical edit (tick box, add note) | Plan file path or issue # |
+| `/devenv-plan-status` | Progress report, read-only | Plan file path or issue # |
 
 ### Working modes
 
 | Skill | Purpose | Argument |
 |---|---|---|
-| `/pair-programming` | Collaborative build — human + AI both implement | Issue # or plan path |
-| `/delegation` | AI-driven build — human reviews | Issue # or plan path |
-| `/spike` | Exploratory investigation + findings doc | Question or issue # |
-| `/rubber-duck` | Think out loud — no artifacts | Problem description |
+| `/devenv-pair-programming` | Collaborative build — human + AI both implement | Issue # or plan path |
+| `/devenv-delegation` | AI-driven build — human reviews | Issue # or plan path |
+| `/devenv-spike` | Exploratory investigation + findings doc | Question or issue # |
+| `/devenv-rubber-duck` | Think out loud — no artifacts | Problem description |
 
 ### Workflow
 
 | Skill | Purpose | Argument |
 |---|---|---|
-| `/triage-issue` | Classify issue, suggest labels, propose ACs | Issue # or pasted text |
-| `/open-pr` | Draft + open a PR from a finished phase | Branch or plan path |
-| `/review-response` | Address PR review comments one at a time | PR # |
-| `/session-handoff` | Summarise session for the next contributor | Issue/PR # (optional) |
+| `/devenv-triage-issue` | Classify issue, suggest labels, propose ACs | Issue # or pasted text |
+| `/devenv-open-pr` | Draft + open a PR from a finished phase | Branch or plan path |
+| `/devenv-review-response` | Address PR review comments one at a time | PR # |
+| `/devenv-session-handoff` | Summarise session for the next contributor | Issue/PR # (optional) |
 
 ### Quality
 
 | Skill | Purpose | Argument |
 |---|---|---|
-| `/code-review` | AI reviews code you wrote | PR #, refs, or nothing |
-| `/pre-commit` | Lint/format/test before committing | `--all` or nothing |
+| `/devenv-code-review` | AI reviews code you wrote | PR #, refs, or nothing |
+| `/devenv-pre-commit` | Lint/format/test before committing | `--all` or nothing |
 
 ### Meta
 
 | Skill | Purpose | Argument |
 |---|---|---|
-| `/skill-guru` | Pick the right skill | Problem description (optional) |
+| `/devenv-skill-guru` | Pick the right skill | Problem description (optional) |
 
 ---
 
@@ -170,48 +170,48 @@ The inverse of `/delegation` — you (or another agent) wrote the code, the AI r
 ### From raw idea to merged PR
 
 ```text
-/gather-requirements
-  → /plan-from-spec              # or /create-implementation-plan per phase
-    → /pair-programming          # high-impact phases
-    → /delegation                # mechanical phases
-    → /pre-commit
-    → /open-pr
-      → /review-response
-        → /pre-commit
+/devenv-gather-requirements
+  → /devenv-plan-from-spec              # or /devenv-create-implementation-plan per phase
+    → /devenv-pair-programming          # high-impact phases
+    → /devenv-delegation                # mechanical phases
+    → /devenv-pre-commit
+    → /devenv-open-pr
+      → /devenv-review-response
+        → /devenv-pre-commit
 ```
 
 ### From issue to merged PR
 
 ```text
-/triage-issue 42
-  → /create-implementation-plan 42
-    → /pair-programming 42          # high-impact phases
-    → /delegation 42                # mechanical phases
-    → /pre-commit
-    → /open-pr
-      → /review-response 99
-        → /pre-commit
+/devenv-triage-issue 42
+  → /devenv-create-implementation-plan 42
+    → /devenv-pair-programming 42          # high-impact phases
+    → /devenv-delegation 42                # mechanical phases
+    → /devenv-pre-commit
+    → /devenv-open-pr
+      → /devenv-review-response 99
+        → /devenv-pre-commit
 ```
 
 ### Investigation → plan → build
 
 ```text
-/rubber-duck                        # think through the problem
-  → /spike                          # investigate feasibility
-    → /create-implementation-plan   # turn findings into a plan
-      → /delegation                 # implement
-        → /code-review              # review before opening PR
-          → /open-pr
+/devenv-rubber-duck                        # think through the problem
+  → /devenv-spike                          # investigate feasibility
+    → /devenv-create-implementation-plan   # turn findings into a plan
+      → /devenv-delegation                 # implement
+        → /devenv-code-review              # review before opening PR
+          → /devenv-open-pr
 ```
 
 ### Quick maintenance cycle
 
 ```text
-/plan-status Implementation_plan-5.md
-  → /plan-update                    # tick off completed tasks
-    → /delegation                   # run the next phase
-      → /pre-commit
-        → /session-handoff          # hand off to team
+/devenv-plan-status Implementation_plan-5.md
+  → /devenv-plan-update                    # tick off completed tasks
+    → /devenv-delegation                   # run the next phase
+      → /devenv-pre-commit
+        → /devenv-session-handoff          # hand off to team
 ```
 
 ---
@@ -220,14 +220,14 @@ The inverse of `/delegation` — you (or another agent) wrote the code, the AI r
 
 | Potential confusion | Clarification |
 |---|---|
-| `/create-implementation-plan` vs `/plan-from-spec` | Interview vs no-interview. Use `plan-from-spec` when the spec already has acceptance criteria. |
-| `/gather-requirements` vs `/create-implementation-plan` | Requirements describe *what* the system does (user perspective). Implementation plans describe *how* to build it (engineering tasks). One requirements phase may produce multiple implementation plans. |
-| `/refine-implementation-plan` vs `/plan-update` | Structural changes vs surgical edits. `/plan-update` refuses if you ask for >3 changes. |
-| `/pair-programming` vs `/delegation` | Human-in-the-loop vs AI-drives. Prefer `/pair-programming` when in doubt. |
-| `/code-review` vs `/review-response` | AI reviews your code vs you address a reviewer's comments. |
-| `/review-response` vs GitHub PR extension | One-at-a-time with per-comment choice vs batch fix-all. |
-| `/rubber-duck` vs `/spike` | No artifact vs produces a findings doc. |
-| `/session-handoff` vs `/plan-update` | Narrative summary vs structured task-state update. |
+| `/devenv-create-implementation-plan` vs `/devenv-plan-from-spec` | Interview vs no-interview. Use `plan-from-spec` when the spec already has acceptance criteria. |
+| `/devenv-gather-requirements` vs `/devenv-create-implementation-plan` | Requirements describe *what* the system does (user perspective). Implementation plans describe *how* to build it (engineering tasks). One requirements phase may produce multiple implementation plans. |
+| `/devenv-refine-implementation-plan` vs `/devenv-plan-update` | Structural changes vs surgical edits. `/devenv-plan-update` refuses if you ask for >3 changes. |
+| `/devenv-pair-programming` vs `/devenv-delegation` | Human-in-the-loop vs AI-drives. Prefer `/devenv-pair-programming` when in doubt. |
+| `/devenv-code-review` vs `/devenv-review-response` | AI reviews your code vs you address a reviewer's comments. |
+| `/devenv-review-response` vs GitHub PR extension | One-at-a-time with per-comment choice vs batch fix-all. |
+| `/devenv-rubber-duck` vs `/devenv-spike` | No artifact vs produces a findings doc. |
+| `/devenv-session-handoff` vs `/devenv-plan-update` | Narrative summary vs structured task-state update. |
 
 ---
 
