@@ -70,10 +70,12 @@ Use `vscode_askQuestions` to confirm/fill gaps. Always cover:
 
 Use the [plan template](./references/plan-template.md). Follow:
 
-- [Task formatting rules](./references/task-format.md) — atomic `- [ ] N.N [S|M|L]` tasks with `Files:`, `decision:`, and the link-to-context pattern
+- [Task formatting rules](./references/task-format.md) — atomic `- [ ] **N.N [S|M|L] Title**` tasks with descriptive sub-bullets, then `Files:` / `decision:` / `depends on` metadata, and an inline `(additional context)` link when needed
 - [Phase rules](./references/phase-rules.md) — Phase 1 is **Discovery & test scaffolding**; the last phase is **Cleanup & docs**; every phase must end committable (tests pass, coverage doesn't regress, single-PR sized)
+- Every phase header gets a `> blockquote` preamble describing the deliverable and committability
+- Reference Information uses a **table** of key files with a relevance column, plus a separate links sub-list
 - Mark dependencies as `depends on N.N` inline; readers infer parallelism
-- Every task with non-obvious context **must** link to its entry under *Additional task context*
+- Every task with non-obvious context **must** link to its entry under *Additional task context* using a descriptive anchor slug (`#task-NN--short-slug`)
 
 ### 6. Iterate until approved
 
@@ -122,20 +124,22 @@ See [phase-rules.md](./references/phase-rules.md) for the full checklist.
 See [task-format.md](./references/task-format.md) for the full spec and examples.
 
 ```
-- [ ] N.N [S|M|L] Task title
-  A brief paragraph or a few sentences explaining the task.
+- [ ] **N.N [S|M|L] Task title** ([additional context](#task-NN--short-slug))
+  - <Concrete sub-step or behavioural note>
+  - <Another sub-step — method signature, file to touch, edge case, etc.>
   - Files: `workspace-root-relative/path/File.cs`, `workspace-root-relative/path/FileTests.cs`
   - decision: <the choice to make, and why it's non-obvious> (omit if none)
-  - Optional bullet list of points
-  - depends on N.N (if applicable)
-  - See [Additional context](#task-NN) (if non-trivial)
+  - depends on N.N (omit if none)
 ```
 
+- **Bold task header** with size label and optional inline `(additional context)` link.
+- **Descriptive sub-bullets first, metadata last** — sub-bullets describe the work concretely (methods to add, behaviours, edge cases); `Files:` / `decision:` / `depends on` sit at the bottom of the bullet list.
 - `[S/M/L]` size label on every task: S ≤ 30 min, M = 30 min–2 h, L > 2 h (consider splitting).
 - `Files:` lists every file the task reads or modifies using workspace-root-relative paths. New files get a `(new)` suffix. Powers the **Files in scope** links in pair-programming and delegation at phase kickoff.
 - `decision:` flags a non-obvious design choice — signals AI to stop and ask, signals pair-programming to discuss at handoff.
+- Anchor slugs are descriptive: `#task-21--mockstore-implementation`, not `#task-2-1`.
 - `N.N` — first number is the phase. Sub-tasks extend the series: `1.3.1`, `1.3.2`, ...
-- Push depth into *Additional task context* and link to it rather than bloating the task line.
+- Push depth into *Additional task context* and link to it rather than bloating sub-bullets.
 
 ## Document Skeleton
 
@@ -146,16 +150,26 @@ Use the full template at [plan-template.md](./references/plan-template.md). Requ
 
 Brief one-paragraph context.
 
-## Task list
+## Task List
 
-## Contextual information
-### Problem context
-### Solution context
+### Phase 1 — Discovery & test scaffolding
+> Phase preamble blockquote: deliverable, safety, committability.
+
+### Phase 2 — ...
+> Phase preamble blockquote.
+
+## Contextual Information
+### Problem Context
+### Solution Context
 ### Forces
-### Additional considerations and notes
-### Additional task context
-### Reference information
+### Additional Considerations and Notes
+### Additional Task Context
+### Reference Information
+  - Key files table (with relevance column)
+  - Related links
 ```
+
+Every phase header is followed by a `> blockquote` preamble. Section headings use Title Case.
 
 ## Anti-patterns
 

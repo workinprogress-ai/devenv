@@ -1,6 +1,6 @@
 ---
 name: skill-guru
-description: Help the user pick the right Copilot skill by asking 1–3 clarifying questions about what they're trying to accomplish. USE WHEN the user says "which skill should I use", "what skill is right for this", "help me pick a skill", "I'm not sure what to use", "skill guru", or begins a task without knowing which skill applies. Asks about work stage (exploring / planning / building / reviewing / wrapping up), whether a plan already exists, and whether the work is high-impact. Returns a ranked recommendation with one-line rationale; if the goal spans multiple skills, returns the full chain. DO NOT USE FOR executing any of the recommended skills — just say /skill-name to invoke them directly. For general coding questions use the default agent.
+description: Help the user pick the right Copilot skill by asking 1–3 clarifying questions about what they're trying to accomplish. USE WHEN the user says "which skill should I use", "what skill is right for this", "help me pick a skill", "I'm not sure what to use", "skill guru", or begins a task without knowing which skill applies. Asks about work stage (exploring / defining requirements / planning / building / reviewing / wrapping up), whether a plan already exists, and whether the work is high-impact. Returns a ranked recommendation with one-line rationale; if the goal spans multiple skills, returns the full chain. DO NOT USE FOR executing any of the recommended skills — just say /skill-name to invoke them directly. For general coding questions use the default agent.
 argument-hint: Optional — describe what you're trying to do and the guru will ask follow-up questions
 ---
 
@@ -32,7 +32,8 @@ Ask only what you need. If the user's initial message already answers a question
 > "What are you trying to do right now?"
 >
 > - 🔍 Explore / think something through
-> - 📋 Create or update a plan
+> - � Define requirements for a system or feature
+> - �📋 Create or update a plan
 > - 🔨 Build / implement something
 > - 🔎 Review code or address PR feedback
 > - 🏁 Wrap up a session / open a PR

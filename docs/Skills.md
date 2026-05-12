@@ -16,7 +16,10 @@ What are you trying to do?
 │   ├─ Investigate a question           →  /spike
 │   └─ Triage an incoming issue         →  /triage-issue
 │
-├─ 📋 Plan
+├─ � Define requirements
+│   └─ System needs functional definition before planning  →  /gather-requirements
+│
+├─ �📋 Plan
 │   ├─ Create from idea / issue         →  /create-implementation-plan
 │   ├─ Create from existing spec / RFC  →  /plan-from-spec
 │   ├─ Revise after scope change        →  /refine-implementation-plan
@@ -43,6 +46,18 @@ What are you trying to do?
 ## Principle skills
 
 These five are the backbone of the catalog. Start here if you're unsure.
+
+### `/gather-requirements`
+
+> **Before planning begins, when requirements are undefined.**
+
+Conducts a structured three-phase interview (vision → requirements → roadmap) and produces a `Requirements-<topic>-NNN.md`. Maintains a `session_memory.md` across sessions. The requirements document then feeds into `/plan-from-spec` or `/create-implementation-plan`.
+
+**Use for:** new systems or features where what the system should do isn't yet defined  
+**Don't use for:** requirements already exist (→ `/plan-from-spec`), quick inline clarifications  
+**Tool deps:** none
+
+---
 
 ### `/create-implementation-plan`
 
@@ -110,6 +125,7 @@ The inverse of `/delegation` — you (or another agent) wrote the code, the AI r
 
 | Skill | Purpose | Argument |
 |---|---|---|
+| `/gather-requirements` | Three-phase requirements interview → requirements doc | System name or existing notes |
 | `/create-implementation-plan` | Create a plan via interview | Issue # or description |
 | `/plan-from-spec` | Create a plan from an existing spec/RFC/doc | File path, URL, or issue # |
 | `/refine-implementation-plan` | Revise a plan after scope changes | Plan file path or issue # |
@@ -150,6 +166,19 @@ The inverse of `/delegation` — you (or another agent) wrote the code, the AI r
 ---
 
 ## Workflow examples
+
+### From raw idea to merged PR
+
+```text
+/gather-requirements
+  → /plan-from-spec              # or /create-implementation-plan per phase
+    → /pair-programming          # high-impact phases
+    → /delegation                # mechanical phases
+    → /pre-commit
+    → /open-pr
+      → /review-response
+        → /pre-commit
+```
 
 ### From issue to merged PR
 
@@ -192,6 +221,7 @@ The inverse of `/delegation` — you (or another agent) wrote the code, the AI r
 | Potential confusion | Clarification |
 |---|---|
 | `/create-implementation-plan` vs `/plan-from-spec` | Interview vs no-interview. Use `plan-from-spec` when the spec already has acceptance criteria. |
+| `/gather-requirements` vs `/create-implementation-plan` | Requirements describe *what* the system does (user perspective). Implementation plans describe *how* to build it (engineering tasks). One requirements phase may produce multiple implementation plans. |
 | `/refine-implementation-plan` vs `/plan-update` | Structural changes vs surgical edits. `/plan-update` refuses if you ask for >3 changes. |
 | `/pair-programming` vs `/delegation` | Human-in-the-loop vs AI-drives. Prefer `/pair-programming` when in doubt. |
 | `/code-review` vs `/review-response` | AI reviews your code vs you address a reviewer's comments. |

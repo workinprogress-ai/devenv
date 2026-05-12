@@ -3,14 +3,18 @@
 ## Canonical format
 
 ```
-- [ ] N.N [S|M|L] Task title
-  A brief paragraph or a few sentences explaining the task.
-  - Optional bullet list of points
-  - Files: `workspace-root-relative/path/File.cs`, `workspace-root-relative/path/Other.cs`
-  - decision: <the choice to make, and why it's non-obvious> (only if a design decision must be resolved before or during the task)
+- [ ] **N.N [S|M|L] Task title** ([additional context](#task-NN--short-slug))
+  - <Concrete sub-step or behavioural note>
+  - <Another sub-step — method signature, file to touch, edge case, etc.>
+  - <As many descriptive bullets as needed to make the task scannable>
+  - Files: `workspace-root-relative/path/File.cs`, `workspace-root-relative/path/FileTests.cs`
+  - decision: <the choice to make, and why it's non-obvious> (only if applicable)
   - depends on N.N (only if applicable)
-  - See [Additional context](#task-N-N) (only if non-trivial)
 ```
+
+The task title is **bolded** and uses an em-dash separator for readability. Descriptive sub-bullets come **first** (they describe the work). Metadata bullets (`Files:`, `decision:`, `depends on`) come **last** so they're easy to find but don't drown the description.
+
+The `(additional context)` link is inline on the task header line, optional, and only present when there's a corresponding entry under *Additional task context*.
 
 ### Size labels `[S/M/L]`
 
@@ -23,6 +27,17 @@ Every task carries a size label immediately after the task number:
 | `[L]` | > 2 h — complex; consider splitting |
 
 Size is an estimate for pair-split planning, not a hard SLA. If a task turns out larger than `[S]`, record the surprise in the session summary.
+
+### Descriptive sub-bullets
+
+Use sub-bullets to make the task scannable without forcing the reader into *Additional task context*. Good sub-bullets are concrete and specific:
+
+- Names of methods, classes, files, or constants to add or modify
+- Specific behaviours, edge cases, or method signatures
+- Sub-steps in execution order
+- Test cases to cover
+
+Avoid vague sub-bullets like "implement the logic" or "add tests". If a sub-bullet would need its own paragraph, push that depth into *Additional task context* and link to it.
 
 ### `Files:` bullet
 
@@ -67,7 +82,7 @@ Each task should be:
 - **Implementable as a whole** — no "and then..." that hides a second deliverable.
 - **Verifiable** — the executor knows when it's done (passing test, file exists, command succeeds, etc.).
 
-If a task can't be described in 1–3 sentences plus a short bullet list, it probably needs to be split, or its detail belongs in *Additional task context*.
+If a task can't be described in a handful of sub-bullets, it probably needs to be split, or its detail belongs in *Additional task context*.
 
 ## Parallelism
 
@@ -77,50 +92,59 @@ If a task can't be described in 1–3 sentences plus a short bullet list, it pro
 
 ## Linking to additional context
 
-When a task needs more than a short paragraph, push the depth into the *Additional task context* section and link to it:
+When a task needs more than its sub-bullets can convey, push the depth into *Additional task context* and link to it from the task header:
 
 ```markdown
-- [ ] 2.2 Wire retry policy into BulkSyncWorker
-  Add the retry policy from 2.1 around the outbound HTTP call. Preserve existing
-  cancellation token behaviour.
+- [ ] **2.2 [M] Wire retry policy into BulkSyncWorker** ([additional context](#task-22--retry-policy-wiring))
+  - Wrap the outbound HTTP call with the policy from 2.1
+  - Preserve existing cancellation token behaviour
+  - Files: `repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs`
   - depends on 2.1
-  - See [Additional context](#task-2-2)
 ```
 
 …and in *Additional task context*:
 
 ```markdown
-#### <a id="task-2-2"></a>2.2 Wire retry policy into BulkSyncWorker
+#### <a id="task-22--retry-policy-wiring"></a>2.2 — Retry policy wiring
 
-Files: `repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs`.
 Edge cases: 429 vs 5xx; jittered backoff; honour `Retry-After` header.
 Tests to add: `BulkSyncWorkerRetryTests` covering each case.
 ```
+
+### Anchor slugs
+
+Use **descriptive** slugs that match the task topic, not just `task-N-N`:
+
+- ✅ `#task-21--mockstore-implementation`
+- ✅ `#task-32--managedservice-integration`
+- ❌ `#task-2-1` (works but is opaque when reading raw markdown)
+
+Pattern: `#task-NN--short-slug` where `NN` is the task number with the dot dropped (`2.1` → `21`) and the slug is 2–4 hyphenated lowercase words.
 
 ## Good vs. bad examples
 
 ### Good
 
 ```markdown
-- [ ] 1.2 [S] Add failing test for empty-payload bulk sync
-  Reproduce the bug: sending an empty payload currently throws
-  `NullReferenceException`. Test should assert the new expected behaviour
-  (no-op, returns success).
+- [ ] **1.2 [S] Add failing test for empty-payload bulk sync** ([additional context](#task-12--empty-payload-test))
+  - Reproduce the bug: empty payload currently throws `NullReferenceException`
+  - Assert new expected behaviour: no-op, returns success
   - Files: `repos/lib.cs.services.bulk-sync/tests/BulkSyncWorkerTests.cs`
-  - See [Additional context](#task-1-2)
 ```
 
-Why it's good: one deliverable, verifiable, sized, files listed, points to deeper context.
+Why it's good: bold title, sized, scannable sub-bullets describing concrete sub-steps, files listed, link to deeper context.
 
 ```markdown
-- [ ] 2.3 [M] Choose and implement retry backoff strategy
-  Wire the retry policy into BulkSyncWorker's outbound HTTP call.
-  - Files: `repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs`, `repos/lib.cs.services.bulk-sync/tests/BulkSyncWorkerRetryTests.cs`
+- [ ] **2.3 [M] Choose and implement retry backoff strategy**
+  - Wire the retry policy into `BulkSyncWorker`'s outbound HTTP call
+  - Add `IRetryPolicy` abstraction to allow injection in tests
+  - Honour existing cancellation token behaviour
+  - Files: `repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs`, `repos/lib.cs.services.bulk-sync/src/IRetryPolicy.cs` (new), `repos/lib.cs.services.bulk-sync/tests/BulkSyncWorkerRetryTests.cs`
   - decision: exponential vs. fixed backoff — need to agree on multiplier before coding
   - depends on 2.2
 ```
 
-Why it's good: flags the design choice explicitly so the AI stops and asks rather than guessing.
+Why it's good: sub-bullets describe the work concretely; `decision:` flags the design choice so the AI stops and asks rather than guessing.
 
 ### Bad
 
@@ -128,16 +152,16 @@ Why it's good: flags the design choice explicitly so the AI stops and asks rathe
 - [ ] 1.2 Fix bulk sync and clean up logging
 ```
 
-Why it's bad: two deliverables, no size, no files, no acceptance signal.
+Why it's bad: two deliverables, no size, no files, no sub-bullets, no acceptance signal.
 
 ### Bad
 
 ```markdown
-- [ ] 1.2 Add failing test for empty-payload bulk sync in
-  BulkSyncWorker.cs around line 142 where we call
-  `_httpClient.PostAsync(...)` — note that the existing test
-  `BulkSyncWorkerTests.PostsPayload` mocks the HTTP client
-  with Moq and uses a fixture defined in TestFixtures.cs ...
+- [ ] **1.2 [S] Add failing test**
+  - Add the test described in BulkSyncWorker.cs around line 142 where we call
+    `_httpClient.PostAsync(...)` — note that the existing test
+    `BulkSyncWorkerTests.PostsPayload` mocks the HTTP client with Moq and uses
+    a fixture defined in TestFixtures.cs which itself depends on...
 ```
 
-Why it's bad: noisy. All that detail belongs under *Additional task context*; the task line should stay scannable.
+Why it's bad: sub-bullets have turned into prose. All that detail belongs under *Additional task context*; sub-bullets should stay scannable.

@@ -18,6 +18,16 @@ Skills for thinking, investigating, and triaging — before any plan or code exi
 
 ---
 
+## Category: Requirements
+
+Skills for capturing and formalising what a system should do, before any implementation planning begins.
+
+| Skill | One-line purpose | USE WHEN triggers | NOT FOR |
+|---|---|---|---|
+| `/gather-requirements` | Structured three-phase interview to produce a user-oriented requirements doc | "gather requirements", "requirements document", "define the requirements for", "capture requirements", "what should the system do", "interview me for requirements" | requirements already exist → `/plan-from-spec` or `/create-implementation-plan`; quick inline feature clarification; code generation |
+
+---
+
 ## Category: Plan
 
 Skills for creating, updating, and inspecting implementation plans.
@@ -127,6 +137,25 @@ For in-flight work: check where things stand, progress the plan, ship.
 ```
 
 **Start here:** `/plan-status`
+
+---
+
+### Chain D — From raw idea to merged PR (full lifecycle)
+
+For new systems or features where requirements are undefined. Starts with requirements capture, then plans, implements, and ships.
+
+```
+/gather-requirements
+  → /plan-from-spec           (or /create-implementation-plan for each phase)
+    → /pair-programming       (high-impact phases)
+    → /delegation             (mechanical phases)
+    → /pre-commit
+    → /open-pr
+      → /review-response
+        → /pre-commit
+```
+
+**Start here:** `/gather-requirements`
 
 ---
 
