@@ -17,7 +17,7 @@ Take a fresh / untriaged GitHub issue and produce a structured triage recommenda
 - The reporter didn't include enough detail and you want a polite request for clarification.
 - You have a batch of untriaged issues to work through.
 
-If the work is clear and you just want to do it, use `/devenv-pair-programming` or `/devenv-delegation`. If the issue is a complete spec ready to plan, use `/devenv-create-implementation-plan` or `/devenv-plan-from-spec`. If feasibility is unknown, use `/devenv-spike`. For a plain summary, the default agent's `summarize-github-issue-pr-notification` skill is faster.
+If the work is clear and you just want to do it, use `/devenv-pair-programming` or `/devenv-delegation`. If the issue is a complete spec ready to plan, use `/devenv-create-implementation-plan` or `/devenv-plan-from-spec`. If the issue is a cross-component epic, use `/devenv-create-blueprint` + `/devenv-create-roadmap`. If feasibility is unknown, use `/devenv-spike`. For a plain summary, the default agent's `summarize-github-issue-pr-notification` skill is faster.
 
 ## Inputs
 
@@ -128,6 +128,7 @@ No per-action confirms. No partial-apply. The user either trusts the bundle or t
 ## Sibling skills
 
 - `/devenv-pair-programming`, `/devenv-delegation` — once triaged, to implement.
+- `/devenv-create-blueprint` + `/devenv-create-roadmap` — when the issue describes a cross-component epic.
 - `/devenv-create-implementation-plan`, `/devenv-plan-from-spec` — when the issue is complete and ready to plan.
 - `/devenv-spike` — when the issue's feasibility or approach is unknown (size = XL).
 - `summarize-github-issue-pr-notification` (default agent skill) — for plain summaries without triage.

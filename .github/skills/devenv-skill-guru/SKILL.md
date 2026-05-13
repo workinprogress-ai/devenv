@@ -1,6 +1,6 @@
 ---
 name: devenv-skill-guru
-description: Help the user pick the right Copilot skill by asking 1–3 clarifying questions about what they're trying to accomplish. USE WHEN the user says "which skill should I use", "what skill is right for this", "help me pick a skill", "I'm not sure what to use", "skill guru", or begins a task without knowing which skill applies. Asks about work stage (exploring / defining requirements / planning / building / reviewing / wrapping up), whether a plan already exists, and whether the work is high-impact. Returns a ranked recommendation with one-line rationale; if the goal spans multiple skills, returns the full chain. DO NOT USE FOR executing any of the recommended skills — just say /skill-name to invoke them directly. For general coding questions use the default agent.
+description: Help the user pick the right Copilot skill by asking 1–3 clarifying questions about what they're trying to accomplish. USE WHEN the user says "which skill should I use", "what skill is right for this", "help me pick a skill", "I'm not sure what to use", "skill guru", or begins a task without knowing which skill applies. Asks about work stage (exploring / defining requirements / architecting / planning / building / reviewing / wrapping up), whether a plan already exists, and whether the work is high-impact. Returns a ranked recommendation with one-line rationale; if the goal spans multiple skills, returns the full chain. DO NOT USE FOR executing any of the recommended skills — just say /skill-name to invoke them directly. For general coding questions use the default agent.
 argument-hint: Optional — describe what you're trying to do and the guru will ask follow-up questions
 ---
 
@@ -32,8 +32,9 @@ Ask only what you need. If the user's initial message already answers a question
 > "What are you trying to do right now?"
 >
 > - 🔍 Explore / think something through
-> - � Define requirements for a system or feature
-> - �📋 Create or update a plan
+> - 📝 Define requirements for a system or feature
+> - 🏛️ Architect a system / produce a blueprint or roadmap
+> - 📋 Create or update an implementation plan
 > - 🔨 Build / implement something
 > - 🔎 Review code or address PR feedback
 > - 🏁 Wrap up a session / open a PR
@@ -56,7 +57,7 @@ Ask only what you need. If the user's initial message already answers a question
 
 Use the registry to match the user's answers to a skill:
 
-1. **Match Q1 (work stage) to a registry category** — Explore, Plan, Build, Review, or Wrap-up.
+1. **Match Q1 (work stage) to a registry category** — Explore, Requirements, Architecture, Plan, Build, Review, or Wrap-up.
 2. **Within that category, match the sub-goal to a skill's trigger phrases.**
 3. **Check for a chain** — if the user's goal implies a multi-step workflow (e.g. "I want to implement this whole story", "from idea to PR"), look up the matching chain in the registry and recommend the full sequence.
 4. **Check for fork-added skills** — after the primary recommendation, scan the registry for any skills not present in the five standard categories. If any exist, surface them: "This workspace also has: `/custom-skill` — [one-line purpose]."

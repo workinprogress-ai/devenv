@@ -1112,6 +1112,47 @@ cs-open-coverage
 
 Tools for tracing, updating, and propagating NuGet package changes across C# repositories.
 
+### `repo-cache-update`
+
+Refreshes the local repository cache (shallow-clones or updates all organization repositories) and rebuilds the dependency index. Prints the cache directory path on stdout.
+
+**Usage:**
+
+```bash
+repo-cache-update [OPTIONS]
+```
+
+**Options:**
+
+- `--no-refresh`: Skip refreshing the repository cache (rebuild index only)
+- `-h, --help`: Show help and exit
+- `-v, --version`: Show version and exit
+
+**Output:** The absolute path to the cache directory (e.g. `$DEVENV_TOOLS/cache/repo_cache`).
+
+**Exit codes:**
+
+| Code | Meaning |
+|------|---------|
+| `0`  | Success — cache directory path printed on stdout |
+| `1`  | General error (missing credentials, clone failed, index build failed) |
+| `2`  | Partial failure — some repos failed to cache, index still built |
+
+**Examples:**
+
+```bash
+# Refresh everything and print the cache path
+repo-cache-update
+
+# Capture the path for use in another script
+CACHE=$(repo-cache-update)
+
+# Rebuild the index without re-cloning (cache already fresh)
+repo-cache-update --no-refresh
+```
+
+**Related:** `cs-dependencies-trace`, `cs-dependencies-update-wizard` (both use this cache internally via `--no-refresh`)
+
 ### `cs-dependencies-trace`
 
 Traces the reverse dependency tree for a C# repository — shows all repositories that depend on it, directly or transitively.

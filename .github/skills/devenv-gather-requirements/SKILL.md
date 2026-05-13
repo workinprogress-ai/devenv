@@ -1,6 +1,6 @@
 ---
 name: devenv-gather-requirements
-description: 'Conduct a structured three-phase requirements interview to produce a user-oriented requirements document. USE WHEN the user says "gather requirements", "write up requirements", "define the requirements for", "capture requirements", "what should the system do", "requirements document", "interview me for requirements", or hands off a system idea that needs functional definition before planning begins. Produces a Requirements-<topic>-NNN.md covering system vision, concrete acceptance-criteria-bearing requirements with IDs and dependency graph, and a requirements-level roadmap. Maintains a session_memory.md across sessions. DO NOT USE when requirements already exist (use /devenv-plan-from-spec or /devenv-create-implementation-plan), for quick feature clarifications that don''t warrant a formal document, or for code generation.'
+description: 'Conduct a structured three-phase requirements interview to produce a user-oriented requirements document. USE WHEN the user says "gather requirements", "write up requirements", "define the requirements for", "capture requirements", "what should the system do", "requirements document", "interview me for requirements", or hands off a system idea that needs functional definition before planning begins. Produces a Requirements-<topic>-NNN.md covering system vision, concrete acceptance-criteria-bearing requirements with IDs and dependency graph, and a requirements-level roadmap. Maintains a session_memory-requirements.md across sessions. DO NOT USE when requirements already exist (use /devenv-plan-from-spec or /devenv-create-implementation-plan), for quick feature clarifications that don''t warrant a formal document, or for code generation.'
 argument-hint: '[system name | path-to-existing-notes | GitHub issue number]'
 user-invocable: true
 ---
@@ -34,7 +34,7 @@ Do **not** use for:
 
 ## Session Continuity
 
-Requirements gathering can span multiple sessions. Maintain a `session_memory.md` file in the **target repo root** to preserve state across sessions.
+Requirements gathering can span multiple sessions. Maintain a `session_memory-requirements.md` file in the **target repo root** to preserve state across sessions.
 
 **At session start**: create it if it doesn't exist, or load and summarise it to the user if it does.
 
@@ -62,7 +62,7 @@ Produce a `Requirements-<topic>-NNN.md` file where:
 
 See [requirements-template.md](./references/requirements-template.md) for the full document structure.
 
-Do not write the file until Phase 3 is approved. During the session, work in chat and update `session_memory.md`.
+Do not write the file until Phase 3 is approved. During the session, work in chat and update `session_memory-requirements.md`.
 
 ## Process
 
@@ -257,7 +257,7 @@ The first phase should be the smallest coherent foundation. Identify the MVP sub
 >
 > When satisfied, tell me to write the output file."
 
-After approval, write the file per [Output File](#output-file) rules. Offer to delete `session_memory.md`.
+After approval, write the file per [Output File](#output-file) rules. Offer to delete `session_memory-requirements.md`.
 
 ---
 
@@ -307,13 +307,18 @@ After approval, write the file per [Output File](#output-file) rules. Offer to d
 - Skipping the completeness checklist.
 - Writing requirements without acceptance criteria.
 - Writing the output file before Phase 3 is approved.
-- Merging `session_memory.md` to the main branch.
+- Merging `session_memory-requirements.md` to the main branch.
 - Conflating a requirements roadmap (this skill's Phase 3) with an implementation plan.
 
 ## Sibling Skills
 
 This skill produces a requirements document that feeds directly into:
+- [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) — translate requirements into an architectural blueprint for epic-scale work
 - [`/devenv-plan-from-spec`](../devenv-plan-from-spec/SKILL.md) — generate a detailed implementation plan from a specific requirement or phase
 - [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) — interview-driven planning for a specific requirement or phase
+
+## Companion Tooling
+
+After approval, the workspace's `tools/planning-create-issues --markdown <Requirements-*.md>` tool can create GitHub issues directly from the document — phases become Epic issues, requirements become Feature issues, with parent-child links. Use `--dry-run` first to preview, or `--interactive` to pick subsets. This skill does **not** invoke that tool automatically — surface it to the user as an optional next step once the file is written.
 
 See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.

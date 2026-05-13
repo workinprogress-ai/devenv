@@ -25,6 +25,26 @@ If a PR already exists and you're responding to feedback, use `/devenv-review-re
 
 If the branch has no commits ahead of base, stop and tell the user — there's nothing to open.
 
+## Pre-flight: implementation plan files
+
+Before building the PR draft, check for `Implementation_plan*.md` files in the **repo root** (not subdirectories — plans are valid in planning repos):
+
+```
+ls Implementation_plan*.md 2>/dev/null
+```
+
+If any exist:
+
+1. **Warn the user.** These are working files; their content should live in the associated GitHub issue, not in the commit history.
+2. **Determine whether the plan is already in the issue.** If a parent issue is detectable (from branch name, plan body, etc.), fetch it via `tools/issue-get <N> --pretty` and check whether the plan content is there.
+3. **Offer to save it.** If the plan is not in the issue, offer to post it as a comment:
+   ```
+   tools/issue-comment <N> --body-file <plan-file>
+   ```
+4. **Require deletion.** Ask the user to delete the file(s) before the PR is opened. Do not call `pr-create-for-merge` until they confirm — the script will also refuse to run if a plan file is still present.
+
+The plan can still be *read* by this skill to build the PR draft (step 1 below). The file just must be gone by the time the PR is submitted.
+
 ## Sources
 
 Assemble the PR draft from, in order:
@@ -86,6 +106,7 @@ User can opt into draft mode explicitly ("open as draft", "draft PR"). If they d
 
 ## Flow
 
+0. **Pre-flight** — check for `Implementation_plan*.md` in the repo root per the section above. Read and use any found plan as a source, but do not proceed past step 4 until the user has deleted it.
 1. Detect branch, plan, parent issue, prior handoff.
 2. Build draft title and body.
 3. Show the full draft in chat.

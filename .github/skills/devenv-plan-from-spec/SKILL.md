@@ -16,6 +16,8 @@ Convert an existing spec — design doc, RFC, GitHub issue body, URL, or pasted 
 
 If the spec is vague or incomplete, redirect to `/devenv-create-implementation-plan` (which interviews the user to fill the gaps).
 
+If the spec is a `Blueprint-*.md`, prefer [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) first — it decomposes by component and creates per-step issues. Then use this skill (or `/devenv-create-implementation-plan`) on each roadmap step.
+
 ## Inputs
 
 The user provides exactly one of:
@@ -115,6 +117,7 @@ Brief summary: file path written, phase count, task count, count of inferred-vs-
 
 ## Sibling skills
 
+- `/devenv-create-roadmap` — if the spec is a Blueprint-*.md, use this first to decompose by component before writing per-step plans.
 - `/devenv-create-implementation-plan` — for vague or incomplete starting material; runs a full interview.
 - `/devenv-refine-implementation-plan` — for revising an existing plan after discovery.
 - `/devenv-plan-update` — for small surgical edits to an existing plan.

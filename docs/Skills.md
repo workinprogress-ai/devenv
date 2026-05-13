@@ -16,10 +16,16 @@ What are you trying to do?
 │   ├─ Investigate a question           →  /devenv-spike
 │   └─ Triage an incoming issue         →  /devenv-triage-issue
 │
-├─ � Define requirements
+├─ 📝 Define requirements
 │   └─ System needs functional definition before planning  →  /devenv-gather-requirements
 │
-├─ �📋 Plan
+├─ 🏛️  Architect a system
+│   ├─ Create architectural blueprint            →  /devenv-create-blueprint
+│   ├─ Revise existing blueprint                 →  /devenv-refine-blueprint
+│   ├─ Build delivery roadmap from blueprint     →  /devenv-create-roadmap
+│   └─ Sync roadmap state from issues / PRs      →  /devenv-update-roadmap
+│
+├─ 📋 Plan
 │   ├─ Create from idea / issue         →  /devenv-create-implementation-plan
 │   ├─ Create from existing spec / RFC  →  /devenv-plan-from-spec
 │   ├─ Revise after scope change        →  /devenv-refine-implementation-plan
@@ -45,17 +51,29 @@ What are you trying to do?
 
 ## Principle skills
 
-These five are the backbone of the catalog. Start here if you're unsure.
+These are the backbone of the catalog. Start here if you're unsure.
 
 ### `/devenv-gather-requirements`
 
 > **Before planning begins, when requirements are undefined.**
 
-Conducts a structured three-phase interview (vision → requirements → roadmap) and produces a `Requirements-<topic>-NNN.md`. Maintains a `session_memory.md` across sessions. The requirements document then feeds into `/devenv-plan-from-spec` or `/devenv-create-implementation-plan`.
+Conducts a structured three-phase interview (vision → requirements → roadmap) and produces a `Requirements-<topic>-NNN.md`. Maintains a `session_memory-requirements.md` across sessions. The requirements document then feeds into `/devenv-create-blueprint`, `/devenv-plan-from-spec`, or `/devenv-create-implementation-plan`.
 
 **Use for:** new systems or features where what the system should do isn't yet defined  
-**Don't use for:** requirements already exist (→ `/devenv-plan-from-spec`), quick inline clarifications  
+**Don't use for:** requirements already exist (→ `/devenv-create-blueprint` for epic-scale work, `/devenv-plan-from-spec` for single deliverables), quick inline clarifications  
 **Tool deps:** none
+
+---
+
+### `/devenv-create-blueprint`
+
+> **Architecture before planning, when the work spans multiple components.**
+
+Conducts a three-phase architectural interview (context → architecture → consequences) and produces a `Blueprint-<system>-NNN.md` covering domains, services, events, communication patterns, and per-component deltas. For brownfield work, surveys existing components via `repo-cache-update` before designing. Maintains `session_memory-blueprint.md` across sessions.
+
+**Use for:** epic-scale work touching multiple components; brownfield system extensions; greenfield system design  
+**Don't use for:** single-component work (→ `/devenv-create-implementation-plan`), low-level task breakdown (→ `/devenv-create-implementation-plan`), sequencing into milestones (→ `/devenv-create-roadmap`)  
+**Tool deps:** `repo-cache-update` (brownfield only)
 
 ---
 
@@ -126,6 +144,10 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 | Skill | Purpose | Argument |
 |---|---|---|
 | `/devenv-gather-requirements` | Three-phase requirements interview → requirements doc | System name or existing notes |
+| `/devenv-create-blueprint` | Architectural decomposition → blueprint doc | System name or path to requirements |
+| `/devenv-refine-blueprint` | Revise an existing blueprint, preserve decisions | Blueprint file path |
+| `/devenv-create-roadmap` | Phased delivery sequencing from a blueprint | Blueprint file path (+ optional requirements) |
+| `/devenv-update-roadmap` | Sync roadmap status from issues + PRs | Roadmap file path |
 | `/devenv-create-implementation-plan` | Create a plan via interview | Issue # or description |
 | `/devenv-plan-from-spec` | Create a plan from an existing spec/RFC/doc | File path, URL, or issue # |
 | `/devenv-refine-implementation-plan` | Revise a plan after scope changes | Plan file path or issue # |
@@ -180,6 +202,21 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
         → /devenv-pre-commit
 ```
 
+### Epic-scale: requirements → architecture → delivery
+
+```text
+/devenv-gather-requirements
+  → /devenv-create-blueprint            # architectural decomposition
+    → /devenv-create-roadmap            # phases + GitHub issues across component repos
+      → /devenv-create-implementation-plan   # per roadmap step, as work begins
+        → /devenv-pair-programming / /devenv-delegation
+          → /devenv-pre-commit → /devenv-open-pr → /devenv-review-response
+
+  Throughout delivery:
+    /devenv-update-roadmap               # sync status from issues + PRs
+    /devenv-refine-blueprint             # when architecture changes mid-flight
+```
+
 ### From issue to merged PR
 
 ```text
@@ -222,6 +259,10 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 |---|---|
 | `/devenv-create-implementation-plan` vs `/devenv-plan-from-spec` | Interview vs no-interview. Use `plan-from-spec` when the spec already has acceptance criteria. |
 | `/devenv-gather-requirements` vs `/devenv-create-implementation-plan` | Requirements describe *what* the system does (user perspective). Implementation plans describe *how* to build it (engineering tasks). One requirements phase may produce multiple implementation plans. |
+| `/devenv-create-blueprint` vs `/devenv-create-implementation-plan` | Blueprint is high-level architecture across multiple components (domains, services, events, deltas). Implementation plan is task-level for one deliverable. A blueprint typically spawns several implementation plans. |
+| `/devenv-create-blueprint` vs `/devenv-gather-requirements` | Requirements are user/functional perspective (*what*). Blueprint is technical/architectural perspective (*how* the system is structured). Both can exist for the same system. |
+| `/devenv-create-roadmap` vs `/devenv-create-implementation-plan` | Roadmap is component-level sequencing across the whole epic with GH issues per step. Implementation plan is task-level for one component/deliverable. Each roadmap step typically gets its own implementation plan. |
+| `/devenv-update-roadmap` vs `/devenv-refine-blueprint` | `update-roadmap` syncs status from issues (mechanical, frequent). `refine-blueprint` revises architectural decisions (rare, deliberate). |
 | `/devenv-refine-implementation-plan` vs `/devenv-plan-update` | Structural changes vs surgical edits. `/devenv-plan-update` refuses if you ask for >3 changes. |
 | `/devenv-pair-programming` vs `/devenv-delegation` | Human-in-the-loop vs AI-drives. Prefer `/devenv-pair-programming` when in doubt. |
 | `/devenv-code-review` vs `/devenv-review-response` | AI reviews your code vs you address a reviewer's comments. |

@@ -24,6 +24,7 @@ Do **not** use for:
 - Quick coding tasks where no plan file is desired
 - Pure research / Q&A
 - Editing an existing plan (edit the file in place)
+- Epic-scale work spanning multiple components — use [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) + [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) first; each roadmap step then gets its own implementation plan
 
 ## Inputs the Skill Collects
 
@@ -181,5 +182,11 @@ Every phase header is followed by a `> blockquote` preamble. Section headings us
 - Auto-running `issue-update` without explicit user confirmation
 
 ## Sibling skills
+
+- `/devenv-create-blueprint` + `/devenv-create-roadmap` — for epic-scale work across multiple components; each roadmap step eventually becomes an implementation plan.
+- `/devenv-plan-from-spec` — when the spec or issue body is already complete enough to skip the interview.
+- `/devenv-refine-implementation-plan` — to revise this plan after scope changes.
+- `/devenv-plan-update` — small surgical edits (tick boxes, add notes).
+- `/devenv-plan-status` — read-only progress report.
 
 See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.

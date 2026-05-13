@@ -141,6 +141,18 @@ fi
 cd "$REPO_DIR" 2>/dev/null || { echo "Failed to change directory to $REPO_DIR" >&2; exit 1; }
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "Directory $REPO_DIR is not a git repository." >&2; exit 1; }
 
+# Refuse to open a PR if implementation plan files are present in the repo root.
+# These are working files that belong in the GitHub issue, not in the commit history.
+mapfile -t PLAN_FILES < <(find . -maxdepth 1 -name 'Implementation_plan*.md' 2>/dev/null | sort)
+if [ ${#PLAN_FILES[@]} -gt 0 ]; then
+  echo "Error: Implementation plan file(s) found in the repo root:" >&2
+  for f in "${PLAN_FILES[@]}"; do
+    echo "  ${f#./}" >&2
+  done
+  echo "These are working files and must not be committed. Move the content to the associated GitHub issue, then delete the file(s) before opening a PR." >&2
+  exit 1
+fi
+
 if ! git diff-index --quiet HEAD --; then
   echo "There are uncommitted or staged changes." >&2
   exit 1

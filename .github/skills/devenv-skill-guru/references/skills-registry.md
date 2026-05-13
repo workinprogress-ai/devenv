@@ -28,6 +28,19 @@ Skills for capturing and formalising what a system should do, before any impleme
 
 ---
 
+## Category: Architecture
+
+Skills for architectural design and high-level delivery sequencing. Sit between requirements and implementation planning. A blueprint defines the architecture; a roadmap sequences delivery; together they bridge requirements and implementation plans.
+
+| Skill | One-line purpose | USE WHEN triggers | NOT FOR |
+|---|---|---|---|
+| `/devenv-create-blueprint` | Architectural decomposition into domains, services, events, and per-component deltas | "create a blueprint", "design this system", "architect this epic", "produce an architectural design", "blueprint this" | low-level task breakdown → `/devenv-create-implementation-plan`; sequencing into milestones → `/devenv-create-roadmap`; user-level requirements → `/devenv-gather-requirements` |
+| `/devenv-refine-blueprint` | Revise an existing blueprint, preserving every prior decision | "refine the blueprint", "update the blueprint", "revise the architecture", "the blueprint needs updating" | creating a new blueprint → `/devenv-create-blueprint`; ad-hoc one-line edits (just edit the file); roadmap updates → `/devenv-update-roadmap` |
+| `/devenv-create-roadmap` | Phased delivery sequencing from a blueprint, with optional GH issue creation | "create a roadmap", "plan delivery order", "build a roadmap from this blueprint", "lay out the delivery phases" | low-level task breakdown → `/devenv-create-implementation-plan`; syncing roadmap state from issues → `/devenv-update-roadmap`; before a blueprint exists → `/devenv-create-blueprint` |
+| `/devenv-update-roadmap` | Sync roadmap step status from linked issues and PRs; create missing issues | "update the roadmap", "sync the roadmap", "refresh roadmap status", "the roadmap is out of date" | creating a new roadmap → `/devenv-create-roadmap`; refining the underlying blueprint → `/devenv-refine-blueprint`; editing step descriptions (edit the file) |
+
+---
+
 ## Category: Plan
 
 Skills for creating, updating, and inspecting implementation plans.
@@ -156,6 +169,26 @@ For new systems or features where requirements are undefined. Starts with requir
 ```
 
 **Start here:** `/devenv-gather-requirements`
+
+---
+
+### Chain E — From requirements to delivery roadmap (architecture-driven)
+
+For epic-scale work where requirements need to translate into architecture and a sequenced delivery plan with GitHub issues. Each roadmap step then spawns its own implementation plan as work begins.
+
+```
+/devenv-gather-requirements
+  → /devenv-create-blueprint
+    → /devenv-create-roadmap         (creates GH issues across component repos)
+      → /devenv-create-implementation-plan   (per roadmap step, as work begins)
+        → (Chain A continues from here)
+
+  Throughout delivery:
+    /devenv-update-roadmap            (sync status from issues + PRs)
+    /devenv-refine-blueprint          (when architecture changes mid-flight)
+```
+
+**Start here:** `/devenv-gather-requirements` (or `/devenv-create-blueprint` if requirements already exist)
 
 ---
 

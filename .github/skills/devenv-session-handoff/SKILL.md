@@ -85,7 +85,7 @@ Flow:
 2. Draft the handoff to a temp file.
 3. Show the draft in chat for review.
 4. Confirm: "Post this as a comment on #<n>? (y/n)"
-5. On `y`: post via `tools/issue-comment <n> --body-file <draft>` (works for both issues and PRs in the gh CLI).
+5. On `y`: post via `tools/issue-comment <n> --body-file <draft>` for issues, or `tools/pr-comment <n> --body-file <draft>` for PRs.
 
 After posting (or instead, on `n`), **also offer**:
 
