@@ -17,12 +17,14 @@ What are you trying to do?
 │   └─ Triage an incoming issue         →  /devenv-triage-issue
 │
 ├─ 📝 Define requirements
-│   └─ System needs functional definition before planning  →  /devenv-gather-requirements
+│   ├─ System needs functional definition before planning  →  /devenv-gather-requirements
+│   └─ Revise an existing requirements doc                →  /devenv-refine-requirements
 │
 ├─ 🏛️  Architect a system
 │   ├─ Create architectural blueprint            →  /devenv-create-blueprint
 │   ├─ Revise existing blueprint                 →  /devenv-refine-blueprint
-│   ├─ Build delivery roadmap from blueprint     →  /devenv-create-roadmap
+│   ├─ Build delivery roadmap from blueprint and/or requirements   →  /devenv-create-roadmap
+│   ├─ Structurally revise roadmap (split, re-sequence) → /devenv-refine-roadmap
 │   └─ Sync roadmap state from issues / PRs      →  /devenv-update-roadmap
 │
 ├─ 📋 Plan
@@ -144,9 +146,11 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 | Skill | Purpose | Argument |
 |---|---|---|
 | `/devenv-gather-requirements` | Three-phase requirements interview → requirements doc | System name or existing notes |
+| `/devenv-refine-requirements` | Revise an existing requirements doc, preserve REQ-NNN IDs | Requirements file path |
 | `/devenv-create-blueprint` | Architectural decomposition → blueprint doc | System name or path to requirements |
 | `/devenv-refine-blueprint` | Revise an existing blueprint, preserve decisions | Blueprint file path |
-| `/devenv-create-roadmap` | Phased delivery sequencing from a blueprint | Blueprint file path (+ optional requirements) |
+| `/devenv-create-roadmap` | Phased delivery sequencing + GH issue creation | Blueprint and/or requirements file path (at least one) |
+| `/devenv-refine-roadmap` | Structurally revise a roadmap — split, re-sequence, add | Roadmap file path |
 | `/devenv-update-roadmap` | Sync roadmap status from issues + PRs | Roadmap file path |
 | `/devenv-create-implementation-plan` | Create a plan via interview | Issue # or description |
 | `/devenv-plan-from-spec` | Create a plan from an existing spec/RFC/doc | File path, URL, or issue # |
@@ -214,7 +218,20 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 
   Throughout delivery:
     /devenv-update-roadmap               # sync status from issues + PRs
+    /devenv-refine-roadmap               # structural changes — split steps, re-sequence
+    /devenv-refine-requirements          # when stakeholder priorities or scope shift
     /devenv-refine-blueprint             # when architecture changes mid-flight
+```
+
+### Smaller-scale: requirements → delivery (no blueprint needed)
+
+```text
+/devenv-gather-requirements
+  → /devenv-create-roadmap              # requirements-only mode: asks for component per step,
+                                        # then creates parent epic + child issues
+    → /devenv-create-implementation-plan   # per roadmap step
+      → /devenv-pair-programming / /devenv-delegation
+        → /devenv-pre-commit → /devenv-open-pr → /devenv-review-response
 ```
 
 ### From issue to merged PR
@@ -262,7 +279,11 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 | `/devenv-create-blueprint` vs `/devenv-create-implementation-plan` | Blueprint is high-level architecture across multiple components (domains, services, events, deltas). Implementation plan is task-level for one deliverable. A blueprint typically spawns several implementation plans. |
 | `/devenv-create-blueprint` vs `/devenv-gather-requirements` | Requirements are user/functional perspective (*what*). Blueprint is technical/architectural perspective (*how* the system is structured). Both can exist for the same system. |
 | `/devenv-create-roadmap` vs `/devenv-create-implementation-plan` | Roadmap is component-level sequencing across the whole epic with GH issues per step. Implementation plan is task-level for one component/deliverable. Each roadmap step typically gets its own implementation plan. |
+| `/devenv-update-roadmap` vs `/devenv-refine-roadmap` | `update-roadmap` syncs **status** from issues (mechanical, frequent). `refine-roadmap` revises **structure** — split steps, re-sequence phases, add or supersede steps (deliberate). |
+| `/devenv-refine-roadmap` vs `/devenv-refine-blueprint` | `refine-roadmap` adjusts delivery sequencing within the existing architecture. `refine-blueprint` changes the architecture itself. Architectural changes usually trigger a roadmap refine afterwards. |
 | `/devenv-update-roadmap` vs `/devenv-refine-blueprint` | `update-roadmap` syncs status from issues (mechanical, frequent). `refine-blueprint` revises architectural decisions (rare, deliberate). |
+| `/devenv-gather-requirements` Phase 3 vs `/devenv-create-roadmap` | Phase 3 produces stakeholder priority *groups* (`GROUP-NN`) — business sequencing intent only. `/devenv-create-roadmap` produces a real delivery roadmap (`PHASE-NN` / `STEP-NN`) with components, dependencies, and GH issues. The roadmap supersedes priority groups for execution. |
+| `/devenv-refine-requirements` vs `/devenv-gather-requirements` | Refine preserves existing REQ-NNN IDs and dependency links; gather creates from scratch. Use refine for anything except a brand-new requirements doc. |
 | `/devenv-refine-implementation-plan` vs `/devenv-plan-update` | Structural changes vs surgical edits. `/devenv-plan-update` refuses if you ask for >3 changes. |
 | `/devenv-pair-programming` vs `/devenv-delegation` | Human-in-the-loop vs AI-drives. Prefer `/devenv-pair-programming` when in doubt. |
 | `/devenv-code-review` vs `/devenv-review-response` | AI reviews your code vs you address a reviewer's comments. |

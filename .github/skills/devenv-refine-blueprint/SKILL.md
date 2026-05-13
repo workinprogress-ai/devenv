@@ -37,10 +37,35 @@ Use `vscode_askQuestions` to gather:
 - **What's wrong** — sections whose descriptions are now misleading
 - **What changed status** — services moving from `new` → `existing`, deltas now obsolete because the change shipped
 - **What's no longer relevant** — sections to mark as superseded (do NOT delete)
+- **New requirements docs** — "In a multi-epic project, has a new `Requirements-<epic>-NNN.md` been added that this blueprint should now cover? Or has an existing one been split or refined?"
+- **Source material** — "Are there meeting transcripts, email threads, design discussions, or other communications records behind these changes? If so, where are they?"
+
+If the user provides communications artifacts, summarise each one separately (prefer the `Explore` subagent, one invocation per artifact, in parallel where possible) with a prompt focused on architectural decisions, components/services mentioned, trade-offs raised, and open questions. Surface each summary back for confirmation, then use the approved summaries to drive the change list. Note the source in the revision-history entry (step 4) so the rationale can be re-traced.
+
+If the user points at a new (or refined) requirements doc, read it and summarise back the actors/scenarios/constraints/new requirements that this blueprint should now reflect. Cross-doc dependency edges from the requirements (`Depends on: AUTH-003 (Requirements-auth-001.md)`) may translate into new cross-service dependencies — surface these explicitly. If a separate sibling blueprint covers the upstream epic, reference it (`<see Blueprint-auth-001.md §3.2>`) rather than duplicating its content here.
 
 Do not assume. If the change has roadmap impact (component added/removed, ordering implication), surface it explicitly:
 
 > "This change adds a new component. The roadmap (`Roadmap-<system>-NNN.md`) likely needs an update too. Want me to flag this for `/devenv-update-roadmap`?"
+
+## Splitting an oversized blueprint
+
+If the single-file blueprint has grown past comfortable reading length (~1,500 lines, or §4 has more components than anyone can hold in their head), the user may ask to split it. Treat splitting as a special refinement:
+
+1. **Interview**: confirm the split boundary. Common patterns (offer these; let the user pick or override):
+   - **By section group** (default): `01-context.md`, `02-architecture.md`, `03-components.md`, `04-risks.md`
+   - **By domain within §3-§4** when there are several
+   - A hybrid when only one section is oversized
+2. **Create the subfolder** `docs/Architecture/Blueprint-<system>-NNN/` and move the part files into it. The original `Blueprint-<system>-NNN.md` is replaced by this folder — leave a stub file at the old path containing only a redirect (`> **Moved to [Blueprint-<system>-NNN/Index.md](Blueprint-<system>-NNN/Index.md) in revision YYYY-MM-DD**`) so existing links don't 404.
+3. **Preserve section numbering across files.** §3.2.5 stays §3.2.5 wherever it lives. Cross-file references use the form `<see 02-architecture.md §3.2.5>`.
+4. **Each part file gets its own `## Revision History`** scoped to that file's content. The shared root revision history moves to `Index.md`.
+5. **Create `Index.md`** in the new subfolder with the structure documented in [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) §*Index.md for multi-file artifacts*. Record the split as the first entry in its revision history.
+6. **Walk cross-blueprint references** and roadmap step `Blueprint sections:` lines to update them to the new file paths.
+7. Surface roadmap impact — the roadmap's `Blueprint sections:` references on each STEP-NN are now stale; suggest [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md) to refresh them.
+
+## Updating Index.md on plain refinements
+
+If the blueprint is already split (subfolder + `Index.md` exists) and a refinement adds, removes, or moves sections between files, **update `Index.md` in the same revision** so its section map and file table stay accurate. Add a one-line entry to the Index's revision history pointing back to the part file that changed.
 
 ### 3. Apply changes — preserve everything
 
@@ -80,7 +105,8 @@ Overwrite the file in place. The user can `git diff` to review and revert.
 
 After writing, list what may need follow-up:
 
-- **Roadmap impact**: new components → new roadmap steps → suggest [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md)
+- **Roadmap impact**: new components or removed deltas → structural roadmap changes → suggest [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md). For step-status drift only (issues closed, PRs merged), suggest [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md) instead.
+- **Requirements impact**: if architectural changes were driven by a requirements gap, suggest [`/devenv-refine-requirements`](../devenv-refine-requirements/SKILL.md)
 - **Implementation plan impact**: existing plans may now reference superseded sections → suggest [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) for affected plans
 
 ## Anti-patterns

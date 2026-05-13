@@ -1,6 +1,6 @@
 ---
 name: devenv-gather-requirements
-description: 'Conduct a structured three-phase requirements interview to produce a user-oriented requirements document. USE WHEN the user says "gather requirements", "write up requirements", "define the requirements for", "capture requirements", "what should the system do", "requirements document", "interview me for requirements", or hands off a system idea that needs functional definition before planning begins. Produces a Requirements-<topic>-NNN.md covering system vision, concrete acceptance-criteria-bearing requirements with IDs and dependency graph, and a requirements-level roadmap. Maintains a session_memory-requirements.md across sessions. DO NOT USE when requirements already exist (use /devenv-plan-from-spec or /devenv-create-implementation-plan), for quick feature clarifications that don''t warrant a formal document, or for code generation.'
+description: 'Conduct a structured three-phase requirements interview to produce a user-oriented requirements document. USE WHEN the user says "gather requirements", "write up requirements", "define the requirements for", "capture requirements", "what should the system do", "requirements document", "interview me for requirements", or hands off a system idea that needs functional definition before planning begins. Produces a Requirements-<topic>-NNN.md covering system vision, concrete acceptance-criteria-bearing requirements with IDs and dependency graph, and stakeholder priority groupings (not a delivery roadmap — use /devenv-create-roadmap for that). Maintains a session_memory-requirements.md across sessions. DO NOT USE when requirements already exist (use /devenv-plan-from-spec or /devenv-create-implementation-plan), for quick feature clarifications that don''t warrant a formal document, or for code generation.'
 argument-hint: '[system name | path-to-existing-notes | GitHub issue number]'
 user-invocable: true
 ---
@@ -64,6 +64,80 @@ See [requirements-template.md](./references/requirements-template.md) for the fu
 
 Do not write the file until Phase 3 is approved. During the session, work in chat and update `session_memory-requirements.md`.
 
+### Multi-document projects (one doc per epic)
+
+A single requirements doc is the right default. For large initiatives — multiple distinct epics, multiple stakeholder groups, or a system whose scope outgrows one document — split into one `Requirements-<epic>-NNN.md` per epic.
+
+**When to split:**
+- The vision section starts describing two largely independent capabilities
+- Different stakeholder groups own different parts and would prioritise them independently
+- The doc is heading past ~30 requirements or ~3 distinct functional areas
+- The user explicitly frames the work as "Epic 1", "Epic 2", etc.
+
+**Conventions when splitting:**
+- One `<topic>` per epic, e.g. `Requirements-orders-001.md`, `Requirements-fulfillment-001.md`, `Requirements-returns-001.md`
+- **Use category-prefix IDs unique per epic** (`ORD-NNN`, `FUL-NNN`, `RET-NNN`) so requirement IDs are globally unique across the project. Agree the prefix list with the user before writing any doc.
+- Each doc has its own `session_memory-requirements-<topic>.md` during gathering, allowing parallel work on different epics without state collision.
+- **Cross-document dependencies are explicit.** A requirement in one doc can declare a dependency on a requirement in another doc using the form:
+
+  ```
+  Depends on: AUTH-003 (Requirements-auth-001.md)
+  ```
+
+  In-doc dependencies stay bare (`Depends on: ORD-002`).
+- Each doc has its own `GROUP-NN` priority groups, scoped to that epic. There is no project-wide priority grouping at the requirements layer — cross-epic sequencing is the roadmap's job, see [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md).
+
+**Process for a multi-doc project:**
+1. In Phase 1, agree the epic split and the prefix-per-epic scheme up front, in chat. Record the split in each `session_memory-requirements-<topic>.md`.
+2. Run the full three-phase process per epic doc. The same skill invocation completes one doc at a time — do not interleave.
+3. When all epic docs are complete, hand them all to [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) in a single invocation — it accepts multiple requirements paths and produces one roadmap (one parent epic) spanning them.
+4. **Produce an `Index.md`** alongside the epic docs (see *Index.md for multi-file artifacts* below). The Index is the canonical entry point — link to it from blueprints, roadmaps, and parent epics, not to individual epic docs.
+
+### Index.md for multi-file artifacts
+
+Whenever a multi-doc project produces more than one `Requirements-<epic>-NNN.md`, produce an `Index.md` alongside them at `docs/Requirements/Index.md` (or wherever the docs live).
+
+Structure:
+
+```markdown
+# Requirements: <project name> — Index
+
+> Multi-document project. Each epic has its own requirements doc with its own ID prefix.
+> Use this index as the canonical entry point.
+
+## Epics
+
+| Doc | Prefix | Scope |
+|---|---|---|
+| [Requirements-orders-001.md](Requirements-orders-001.md) | `ORD-NNN` | Order placement, modification, cancellation |
+| [Requirements-fulfillment-001.md](Requirements-fulfillment-001.md) | `FUL-NNN` | Pick, pack, ship, track |
+| [Requirements-returns-001.md](Requirements-returns-001.md) | `RET-NNN` | Customer-initiated returns and refunds |
+
+## Cross-doc dependencies
+
+- `FUL-003` depends on `ORD-007` (Requirements-orders-001.md)
+- `RET-002` depends on `ORD-005` (Requirements-orders-001.md)
+- `RET-004` depends on `FUL-009` (Requirements-fulfillment-001.md)
+
+## Stakeholder priority across epics
+
+Each doc has its own `GROUP-NN` priority groups, scoped to that epic. Cross-epic sequencing is the roadmap's job (see [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md)). If stakeholders have an explicit cross-epic ordering preference, capture it here as plain prose:
+
+> Stakeholder priority: orders MVP → fulfillment MVP → returns MVP, then post-launch hardening across all three.
+
+## Revision history
+
+Each doc maintains its own `## Revision History`. Recent project-wide events:
+
+- 2026-05-13 — Added `Requirements-returns-001.md`
+- 2026-05-10 — Initial multi-doc structure (split from `Requirements-orders-001.md`)
+```
+
+Key rules:
+- The Index is **navigation, not content** — do not duplicate requirements text from the epic docs
+- Update the cross-doc dependencies section whenever a cross-doc `Depends on:` edge is added or removed
+- If the project started as a single doc and was later split, record the split as the first revision-history entry on the Index
+
 ## Process
 
 This is a three-phase process. **Stop at each checkpoint** and wait for explicit approval before proceeding.
@@ -79,6 +153,17 @@ This is a three-phase process. **Stop at each checkpoint** and wait for explicit
 **If the user provides existing documents** (product briefs, notes, diagrams):
 - Read them and summarise your understanding back to the human
 - Identify gaps and ambiguities, then ask targeted fill-in questions — don't re-interview from scratch
+
+**Ask about human communications.** Before starting cold, ask:
+
+> "Are there meeting transcripts, email threads, Slack/Teams exports, recordings, voice memos, or other communications records that contain relevant context? If so, where are they?"
+
+If the user provides any:
+
+1. **Summarise each one separately.** Prefer dispatching the `Explore` subagent (one invocation per artifact, in parallel where possible) with a prompt like *"Read FILE and produce a structured summary covering: stated goals, decisions reached, open questions, named actors, constraints mentioned, and any concrete behaviours described. Quote verbatim where wording matters."* This keeps the main conversation uncluttered.
+2. **Surface each summary back to the user** before extracting requirements. Ask: *"Does this summary match what you remember? Anything mischaracterised?"*
+3. **Extract requirements material from the approved summaries** — actors, scenarios, constraints, scope hints, explicit asks. Treat these as starting material, not as final requirements; the interview still validates them.
+4. **Cite the source.** When a requirement traces back to a communication, note it in `session_memory-requirements.md` (e.g. "REQ-007 derived from 2026-04-12 standup transcript"). Do not embed verbatim quotes from communications in the final requirements file unless the user wants them — references are typically enough.
 
 **Otherwise, start with:**
 1. "What problem does this system solve? Who has this problem today?"
@@ -133,7 +218,11 @@ Do not proceed until the human explicitly approves or provides corrections.
 
 #### Step 1: Agree on ID prefix scheme
 
-For smaller systems, `REQ-NNN` is sufficient. For larger systems with distinct functional areas, use category prefixes (e.g. `AUTH-001`, `ORD-003`). Ask the human which to use and agree on the prefix list before writing requirements.
+For smaller systems with a single requirements doc, `REQ-NNN` is sufficient.
+
+For larger systems with distinct functional areas in **one doc**, use category prefixes (e.g. `AUTH-001`, `ORD-003`).
+
+For **multi-document projects** (one doc per epic), the prefix scheme is mandatory — one prefix per epic doc, agreed up front in Phase 1 (see *Multi-document projects* in the Output File section). Do not start Phase 2 until the prefix list is recorded in `session_memory-requirements-<topic>.md`.
 
 #### Step 2: Derive requirements from the vision
 
@@ -205,55 +294,50 @@ Do not proceed until the human explicitly approves.
 
 ---
 
-### Phase 3: Requirements Roadmap
+### Phase 3: Priority Grouping
 
-**Goal:** Organise requirements into logical phases for a high-level implementation roadmap.
+**Goal:** Group requirements into stakeholder-priority buckets that capture business sequencing intent. This is **not a delivery roadmap** — it carries no architectural ordering, no component assignments, and no implementation sizing.
 
-> **Important distinction:** This is a *requirements-level* roadmap — phases are grouped by functional cohesion and business priority. It is **not** an implementation plan. A single requirement here may later spawn one or more detailed `Implementation_plan-*.md` files produced by [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) or [`/devenv-plan-from-spec`](../devenv-plan-from-spec/SKILL.md).
+> **Important boundary.** Phase 3 produces *priority groups* of requirements (e.g. "GROUP-01: MVP", "GROUP-02: Post-launch hardening"). These reflect the stakeholder's view of what must come first. Actual delivery sequencing — step-by-step, dependency-respecting, component-aware, with GitHub issues — is the job of [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md), which runs *after* a blueprint exists. Each requirement here may later span multiple roadmap steps and multiple `Implementation_plan-*.md` files.
 
 #### Step 1: Identify natural groupings
 
 Ask:
-- "Are there business priorities that should influence the order? (e.g. 'We need auth before anything else because of compliance')"
-- "Are there external deadlines certain features must hit?"
-- "Are there team constraints? (e.g. 'Only one person knows the payment system')"
+- "Are there business priorities that should drive sequencing? (e.g. 'We need auth before anything else because of compliance')"
+- "Are there external deadlines certain requirements must hit?"
+- "What's the minimum set that delivers usable value — the MVP?"
 
-Look for requirements that share dependencies, form a coherent demonstrable unit, or belong to the same functional area.
+Look for requirements that share a stakeholder-visible outcome or belong to a coherent business capability. Do **not** group by component, dependency depth, or technical layering — those are roadmap concerns.
 
-#### Step 2: Define phases
+#### Step 2: Define groups
 
-Use IDs `PHASE-01`, `PHASE-02`, etc. (zero-padded). For each phase:
-- Name and goal statement as a linkable heading
+Use IDs `GROUP-01`, `GROUP-02`, etc. (zero-padded). For each group:
+- Name and one-line stakeholder rationale, as a linkable heading
 - Requirements listed as markdown links to their definitions
-- Prerequisites as markdown links to prior phases
-- Size estimate (Small / Medium / Large)
-- Risks and open questions
+- Optional: priority label (`MVP` / `P1` / `P2` / `Later`)
 
-The first phase should be the smallest coherent foundation. Identify the MVP subset explicitly.
+The first group should be the MVP — the smallest set of requirements that delivers usable value. Identify it explicitly.
 
 #### Step 3: Validate
 
-- [ ] Every requirement appears in exactly one phase
-- [ ] No phase includes a requirement whose dependency is in a later phase
-- [ ] Each phase is demonstrable — at the end, something concrete works
-- [ ] Risks are identified per phase
+- [ ] Every requirement appears in exactly one group
+- [ ] No requirement's dependency sits in a later group (use the Phase 2 dependency graph to check)
+- [ ] The MVP group is genuinely minimal
 
-#### Step 4: Add roadmap guidance
+#### Step 4: Add stakeholder guidance
 
-- **Critical path:** which phases does everything else depend on?
-- **Parallelisable:** which phases or requirements can proceed simultaneously?
-- **MVP:** the minimum set of phases that delivers usable value
-- **Risk-first vs. value-first:** guidance for the team on sequencing strategy
+- **MVP rationale:** why these requirements form the minimum viable set
+- **Stakeholder priorities:** the business reasons behind the ordering
+- **Open priority questions:** trade-offs the stakeholder hasn't decided yet
 
 #### Phase 3 Checkpoint
 
-**STOP.** Present the roadmap. Say:
+**STOP.** Present the priority groups. Say:
 
-> "Here is the requirements roadmap. Please review:
-> - Does the phasing make sense for your team and timeline?
-> - Are there business priorities that should change the order?
-> - Are the scope estimates reasonable?
-> - Are the risks and open questions accurate?
+> "Here are the priority groupings. Please review:
+> - Does the prioritisation match stakeholder intent?
+> - Is the MVP set truly minimal and useful?
+> - Are there business priorities I've misread?
 >
 > When satisfied, tell me to write the output file."
 
@@ -276,9 +360,9 @@ After approval, write the file per [Output File](#output-file) rules. Offer to d
 - For every "the system does X," ask "what happens when X fails?"
 
 **During roadmap planning:**
-- The first phase should be the smallest coherent foundation, not everything.
-- Keep phases demonstrable — "at the end of this phase, we can show [specific thing]."
-- Flag risks early. Unproven tech or external dependencies deserve explicit phase-level notes.
+- The MVP group should be the smallest set that delivers usable value, not everything.
+- Keep groupings stakeholder-facing — if you're talking about components or dependencies, you've slipped into delivery sequencing (which is `/devenv-create-roadmap`'s job).
+- Flag priority trade-offs the stakeholder hasn't decided yet as open questions, not as decisions.
 
 ## Common Pitfalls
 
@@ -308,17 +392,24 @@ After approval, write the file per [Output File](#output-file) rules. Offer to d
 - Writing requirements without acceptance criteria.
 - Writing the output file before Phase 3 is approved.
 - Merging `session_memory-requirements.md` to the main branch.
-- Conflating a requirements roadmap (this skill's Phase 3) with an implementation plan.
+- Conflating priority groupings (this skill's Phase 3) with a delivery roadmap (`/devenv-create-roadmap`) or an implementation plan (`/devenv-create-implementation-plan`).
 
 ## Sibling Skills
 
 This skill produces a requirements document that feeds directly into:
+- [`/devenv-refine-requirements`](../devenv-refine-requirements/SKILL.md) — revise the document later when scope shifts or new communications arrive
 - [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) — translate requirements into an architectural blueprint for epic-scale work
-- [`/devenv-plan-from-spec`](../devenv-plan-from-spec/SKILL.md) — generate a detailed implementation plan from a specific requirement or phase
-- [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) — interview-driven planning for a specific requirement or phase
+- [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) — produce a real delivery roadmap (after a blueprint exists); supersedes Phase 3's priority groupings for execution purposes
+- [`/devenv-plan-from-spec`](../devenv-plan-from-spec/SKILL.md) — generate a detailed implementation plan from a specific requirement or group
+- [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) — interview-driven planning for a specific requirement or group
 
 ## Companion Tooling
 
-After approval, the workspace's `tools/planning-create-issues --markdown <Requirements-*.md>` tool can create GitHub issues directly from the document — phases become Epic issues, requirements become Feature issues, with parent-child links. Use `--dry-run` first to preview, or `--interactive` to pick subsets. This skill does **not** invoke that tool automatically — surface it to the user as an optional next step once the file is written.
+This skill produces the requirements document but **does not create GitHub issues**. To create issues from the approved doc, run [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md):
+
+- **Epic-scale work** — first run [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md), then `/devenv-create-roadmap` with both the blueprint and requirements as input. The roadmap creates the parent epic + per-step child issues across component repos.
+- **Smaller work that doesn't warrant a blueprint** — run `/devenv-create-roadmap` with just the requirements doc. It supports a requirements-only mode that asks for the target component per step and creates the issues from there.
+
+Going through `/devenv-create-roadmap` (rather than creating issues by hand) keeps the roadmap as the single source of truth for what's been issued, what's in flight, and what's left, and makes [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md) usable later.
 
 See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.

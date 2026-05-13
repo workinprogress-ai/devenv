@@ -71,3 +71,30 @@ This section is the single home for workspace-specific rules. Add new convention
 WorkInProgress (`workinprogress-ai`) library and service repos are cloned into the `repos/` folder of this workspace. When a task requires reading or editing one of these repos, look there first (e.g. `repos/lib.cs.services.bulk-sync/`).
 
 If the needed repo is not present in `repos/`, ask the user to clone it before proceeding — do not guess at paths or attempt to work without the source.
+
+### Prefer workspace tooling over raw CLIs
+
+The `tools/` folder contains workspace-specific wrappers around common CLIs (`gh`, `git`, `dotnet`, `kubectl`, MongoDB, etc.). **When a wrapper exists for what you need to do, use it — don't reach for the underlying CLI.**
+
+This applies even when the wrapper looks like a thin pass-through; wrappers encode workspace conventions (auth, repo targeting via `GITHUB_REPO=<org>/<repo>`, default flags, error handling) that bare CLI calls bypass.
+
+GitHub-related wrappers (non-exhaustive):
+
+| Need                                          | Use                                | Don't use                  |
+|-----------------------------------------------|------------------------------------|----------------------------|
+| Read an issue                                 | `tools/issue-get <N>`              | `gh issue view <N>`        |
+| List issues                                   | `tools/issue-list`                 | `gh issue list`            |
+| Create an issue                               | `tools/issue-create ...`           | `gh issue create`          |
+| Update an issue body / labels / state         | `tools/issue-update <N> ...`       | `gh issue edit`            |
+| Comment on an issue                           | `tools/issue-comment <N> ...`      | `gh issue comment`         |
+| Close an issue                                | `tools/issue-close <N>`            | `gh issue close`           |
+| Read a PR                                     | `tools/pr-get <N>`                 | `gh pr view`               |
+| Create a feature-branch PR                    | `tools/pr-create-for-merge`        | `gh pr create`             |
+| Comment on a PR                               | `tools/pr-comment <N> ...`         | `gh pr comment`            |
+| Read PR review threads                        | `tools/pr-threads-get <N>`         | `gh api ...graphql`        |
+| Reply to / resolve a review thread            | `tools/pr-thread-reply`, `tools/pr-thread-resolve` | `gh api ...`   |
+| Get the diff for a PR                         | `tools/pr-diff <N>`                | `gh pr diff`               |
+
+When no wrapper exists for what you need (e.g. inline review comments, adding reviewers, project boards beyond `tools/project-*`), falling back to `gh` is fine — mention that you're falling back and why, so the gap is visible.
+
+The same rule holds for `git` (prefer `tools/git-*` wrappers when one exists), `dotnet`/test wrappers, and any other category covered by `tools/`.

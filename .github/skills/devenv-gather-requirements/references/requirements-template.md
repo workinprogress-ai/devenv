@@ -2,6 +2,8 @@
 
 Copy this skeleton verbatim. All top-level sections are required — "None" or "N/A" is acceptable for sections that don't apply.
 
+For multi-document projects (one doc per epic), use one `<topic>` per epic and one ID prefix per doc (e.g. `ORD-NNN`, `FUL-NNN`). Cross-doc dependencies are written as `Depends on: AUTH-003 (Requirements-auth-001.md)` — in-doc dependencies stay bare (`Depends on: ORD-002`).
+
 ```markdown
 # [System Name] — Requirements Document
 
@@ -95,53 +97,38 @@ Copy this skeleton verbatim. All top-level sections are required — "None" or "
 
 ---
 
-## 3. Requirements Roadmap
+## 3. Priority Groups
 
-> This is a requirements-level roadmap — phases group requirements by functional cohesion and business priority. It is **not** an implementation plan. Each phase here may later spawn one or more detailed `Implementation_plan-*.md` files.
+> Stakeholder priority groupings — **not a delivery roadmap**. For component-level delivery sequencing with GitHub issues, run `/devenv-create-roadmap` after a blueprint exists. Each requirement here may later span multiple roadmap steps and multiple `Implementation_plan-*.md` files.
 
-### Roadmap Guidance
+### Stakeholder Guidance
 
-- **Critical path:** [Which phases everything else depends on]
-- **MVP:** [The minimum set of phases that delivers usable value]
-- **Parallelisable:** [Phases that can proceed simultaneously]
-- **Sequencing strategy:** [Risk-first vs. value-first — guidance for the team]
+- **MVP rationale:** [Why this set is the minimum that delivers usable value]
+- **Stakeholder priorities:** [Business reasons behind the ordering]
+- **Open priority questions:** [Trade-offs the stakeholder hasn't decided yet]
 
 ---
 
-### PHASE-01: [Name] — [Goal Statement]
+### GROUP-01: MVP — [Name]
 
-**Goal:** [What this phase delivers and why it comes first]
+**Stakeholder rationale:** [One line: why these requirements come first from the business perspective]
 
-**Requirements Included:**
+**Priority:** MVP
+
+**Requirements:**
 - [REQ-001: Title](#req-001-title)
 - [REQ-002: Title](#req-002-title)
 
-**Prerequisites:** None
-
-**Scope:** Small / Medium / Large
-
-**Rationale:** [Why these requirements are grouped together and why this phase comes first]
-
-**Risks / Open Questions:**
-- [Risk or question specific to this phase]
-
 ---
 
-### PHASE-02: [Name] — [Goal Statement]
+### GROUP-02: [Name]
 
-**Goal:** [What this phase delivers]
+**Stakeholder rationale:** [One line]
 
-**Requirements Included:**
+**Priority:** P1 / P2 / Later
+
+**Requirements:**
 - [REQ-003: Title](#req-003-title)
-
-**Prerequisites:** [PHASE-01](#phase-01-name--goal-statement)
-
-**Scope:** Small / Medium / Large
-
-**Rationale:** [...]
-
-**Risks / Open Questions:**
-- [...]
 
 ---
 

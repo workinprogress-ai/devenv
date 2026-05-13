@@ -1,7 +1,7 @@
 ---
 name: devenv-create-blueprint
 description: 'Conduct a structured architecture interview to produce a system blueprint — a high-level, architectural description of a system or change to a system. USE WHEN the user says "create a blueprint", "design this system", "architect this", "blueprint this epic", "produce an architectural design", or hands off a requirements doc / problem description that needs architectural decomposition before any planning can begin. Produces a Blueprint-<system>-NNN.md covering domains, services, events, communication patterns, and (for brownfield work) a per-component "what changes" delta. Maintains a session_memory-blueprint.md across sessions. DO NOT USE for low-level implementation planning (use /devenv-create-implementation-plan), for ordering work into milestones (use /devenv-create-roadmap once the blueprint exists), or for capturing user-level functional requirements (use /devenv-gather-requirements).'
-argument-hint: '[system name | path-to-requirements-doc | freeform problem description]'
+argument-hint: '[system name | one-or-more paths to Requirements-*.md | freeform problem description]'
 user-invocable: true
 ---
 
@@ -68,6 +68,102 @@ See [blueprint-template.md](./references/blueprint-template.md) for the full doc
 
 Do not write the file until Phase 3 is approved. During the session, work in chat and update `session_memory-blueprint.md`.
 
+### Splitting a large blueprint into multiple files
+
+A single-file blueprint is the right default. For very large systems — many components, deep architecture, or a blueprint that has grown past comfortable reading length — split into multiple files. Splitting a blueprint is by **section** (not by epic; that's the requirements layer's job).
+
+**When to split:**
+- The single-file blueprint is approaching ~1,500 lines
+- §4 Per-Component Changes contains so many components that no one can hold it in their head
+- Different audiences need different parts (architects read §3; per-team leads read their slice of §4)
+- The user explicitly asks to split it
+
+**Split layout:** the blueprint becomes a **subfolder** in place of the single file:
+
+```
+docs/Architecture/
+  Blueprint-orders-001/
+    Index.md
+    01-context.md         # §1 Context, §2 Domains
+    02-architecture.md    # §3 Architecture (services, events, operations)
+    03-components.md      # §4 Per-Component Changes
+    04-risks.md           # §5 Risks, §6 Open Questions
+```
+
+Common split boundaries (offer these to the user; let them pick or override):
+- **By section group** (default): `01-context.md`, `02-architecture.md`, `03-components.md`, `04-risks.md`
+- **By domain within §3-§4** when there are several: `02-architecture-orders.md`, `02-architecture-fulfillment.md`, `03-components-orders.md`, `03-components-fulfillment.md`
+- **A hybrid** when only one section is oversized
+
+**File naming inside the subfolder:** `NN-<section-slug>.md` so files sort in canonical order.
+
+**Section numbering is preserved across files.** A reader navigating from §3.2.5 to §4.1 follows the file boundary; the numbers themselves do not restart per file.
+
+**Cross-file references** use the form `<see 02-architecture.md §3.2.5>` rather than just `§3.2.5`, so a reader knows which file to open.
+
+**An `Index.md` is mandatory** when the blueprint is split. See *Index.md for multi-file artifacts* below.
+
+### Index.md for multi-file artifacts
+
+Whenever a planning artifact spans multiple files (split blueprint here; multi-doc requirements in [`/devenv-gather-requirements`](../devenv-gather-requirements/SKILL.md)), produce an `Index.md` alongside the files.
+
+For a split blueprint, write `docs/Architecture/Blueprint-<system>-NNN/Index.md` with this structure:
+
+```markdown
+# Blueprint: <system> — Index
+
+> Split blueprint. The full architectural design is spread across the files below.
+> All section numbers are continuous across files — use the section map to locate any §N reference.
+
+## Files
+
+| File | Sections | Purpose |
+|---|---|---|
+| [01-context.md](01-context.md) | §1, §2 | Problem, requirements basis, domains, system survey |
+| [02-architecture.md](02-architecture.md) | §3 | Services, events, operations, communication patterns |
+| [03-components.md](03-components.md) | §4 | Per-component changes (deltas) |
+| [04-risks.md](04-risks.md) | §5, §6 | Risks, open questions |
+
+## Section map
+
+- §1 Context → 01-context.md
+- §2 Domains → 01-context.md
+- §3 Architecture → 02-architecture.md
+  - §3.1 Services
+  - §3.2 Service dependencies
+  - §3.3 Operations
+  - §3.4 Events
+  - §3.5 Communication patterns
+- §4 Per-Component Changes → 03-components.md
+  - §4.1 service.commerce.inventory
+  - §4.2 service.commerce.fulfillment-orchestrator (new)
+  - …
+- §5 Risks → 04-risks.md
+- §6 Open Questions → 04-risks.md
+
+## Requirements basis
+
+- [Requirements-orders-001.md](../../Requirements/Requirements-orders-001.md) (`ORD-NNN`)
+- [Requirements-fulfillment-001.md](../../Requirements/Requirements-fulfillment-001.md) (`FUL-NNN`)
+
+## Sibling blueprints (cross-blueprint references)
+
+- None
+
+## Revision history
+
+Each file maintains its own `## Revision History` section. Most recent edits across the whole blueprint:
+
+- 2026-05-13 — Added §3.2.7 reservation TTL (see [02-architecture.md](02-architecture.md))
+- 2026-05-12 — Initial split from `Blueprint-orders-001.md`
+```
+
+Key rules for `Index.md`:
+- The Index is **navigation, not content** — do not duplicate prose from the part files
+- Update the section map whenever a section is added, split, or moved between files
+- If the blueprint started as a single file and was later split, record the split as the first revision-history entry
+- `Index.md` is the canonical entry point — link to it from roadmaps, parent epics, and other blueprints, never to a specific part file unless deep-linking to a section
+
 ## Process
 
 This is a three-phase process. **Stop at each checkpoint** and wait for explicit approval before proceeding.
@@ -85,8 +181,24 @@ Ask the user:
 1. "What's the problem this blueprint addresses? Is there a requirements document, GitHub issue, or written brief?"
 2. "Is this **greenfield** (new system from scratch) or **brownfield** (extending/changing an existing system)?"
 3. "What's the rough scope — a feature, a subsystem, or an epic spanning multiple services?"
+4. "Are there meeting transcripts, email threads, design discussions, voice memos, or other communications records that capture architectural context or decisions? If so, where are they?"
 
-If a `Requirements-*.md` exists, read it and summarise the key actors/scenarios/constraints back to the user before going further.
+If one or more `Requirements-*.md` files exist, read them and summarise the key actors/scenarios/constraints back to the user before going further.
+
+**Multiple requirements docs are supported.** A multi-epic project may produce one `Requirements-<epic>-NNN.md` per epic (see [`/devenv-gather-requirements`](../devenv-gather-requirements/SKILL.md) §*Multi-document projects*). When multiple docs are handed off:
+
+- Read all of them. Summarise each separately back to the user, then ask whether the blueprint should cover the whole project or only a subset of the epics.
+- One blueprint can span multiple requirements docs — it is not required to be one-blueprint-per-doc. The choice depends on whether the epics share enough architecture to warrant a unified design.
+- If the user wants separate blueprints per epic (or per cluster of epics), run this skill once per intended blueprint. Each invocation is a separate `Blueprint-<system>-NNN.md`. Cross-blueprint references use `<see Blueprint-<other-system>-NNN.md §X>` in the relevant section.
+- Cross-doc dependency edges in the requirements (`Depends on: AUTH-003 (Requirements-auth-001.md)`) translate naturally into cross-service dependencies in §3.2 / §3.5 of the blueprint(s).
+- The category prefix per requirements doc (e.g. `ORD-NNN`, `FUL-NNN`) becomes the natural way the blueprint references back to the requirements basis.
+
+If the user provides communications artifacts:
+
+1. **Summarise each one separately.** Prefer dispatching the `Explore` subagent (one invocation per artifact, in parallel where possible) with a prompt like *"Read FILE and produce a structured summary covering: architectural decisions discussed, components/services mentioned, integration points, QoS/constraint statements, trade-offs raised, and open architectural questions. Quote verbatim where wording matters."*
+2. **Surface each summary back to the user** for confirmation before incorporating it. Ask: *"Does this match what was discussed? Anything mischaracterised?"*
+3. **Use the approved summaries as input to Phase 2** — they often pre-answer domain boundaries, service ownership, sync/async choices, and constraint sources.
+4. **Record the source in `session_memory-blueprint.md`** (e.g. "§3.2.4 service boundary follows 2026-04-18 architecture sync") so the rationale can be re-traced. The blueprint itself doesn't need to embed the communications — references are enough.
 
 #### Step 2: Probe context
 
@@ -272,6 +384,7 @@ Once written, surface the next-step options to the user:
 - **Need to plan delivery order and create issues?** → [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md)
 - **Need detailed task-level plans for a component?** → [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) or [`/devenv-plan-from-spec`](../devenv-plan-from-spec/SKILL.md)
 - **Architecture changed mid-stream?** → [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md)
+- **Underlying requirements changed?** → [`/devenv-refine-requirements`](../devenv-refine-requirements/SKILL.md)
 
 ## Anti-patterns
 

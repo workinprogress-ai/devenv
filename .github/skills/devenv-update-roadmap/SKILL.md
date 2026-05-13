@@ -24,7 +24,7 @@ Do **not** use for:
 
 - Creating a new roadmap → [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md)
 - Refining the underlying blueprint → [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md)
-- Editing roadmap step descriptions or sequencing → edit the file directly, or re-run [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md)
+- Editing roadmap step descriptions or sequencing → [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md)
 
 ## Inputs
 
