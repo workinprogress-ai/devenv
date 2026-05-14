@@ -98,3 +98,25 @@ GitHub-related wrappers (non-exhaustive):
 When no wrapper exists for what you need (e.g. inline review comments, adding reviewers, project boards beyond `tools/project-*`), falling back to `gh` is fine — mention that you're falling back and why, so the gap is visible.
 
 The same rule holds for `git` (prefer `tools/git-*` wrappers when one exists), `dotnet`/test wrappers, and any other category covered by `tools/`.
+
+### Never run git operations that mutate repository state
+
+The AI **never** runs git commands that change repository state, branch state, or working-tree state. The user owns every commit, every branch switch, every push.
+
+**Forbidden** (no exceptions, no "since the tests passed", no "I'll just stash this"):
+
+- `git commit`, `git add`, `git rm`, `git mv`
+- `git push`, `git pull`, `git fetch`
+- `git checkout` / `git switch` / `git restore` (anything that changes the working tree or HEAD)
+- `git branch` (create, delete, rename)
+- `git merge`, `git rebase`, `git cherry-pick`, `git revert`
+- `git reset` (any mode)
+- `git stash` (push, pop, apply, drop)
+- `git tag`, `git notes`
+- Any flag that bypasses safety: `--no-verify`, `--force`, `-f`, `--hard`
+
+**Allowed:** read-only inspection — `git status`, `git log`, `git diff`, `git show`, `git rev-parse`, `git merge-base`, `git blame`, `git ls-files`, `git config --get`, etc.
+
+**Wrappers that internally mutate** (e.g. `tools/pr-create-for-merge` pushes the branch, `tools/git-update` pulls) **are allowed** — wrappers encode the safety. The rule prohibits *raw* git mutations, not wrapper invocations.
+
+If a task genuinely requires a mutation (e.g. "commit this and open a PR"), state the exact command(s) and ask the user to run them, or — when a wrapper exists — invoke the wrapper. Never invent a workaround that mutates state directly.
