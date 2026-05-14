@@ -9,38 +9,4 @@
         "titleBar.activeBackground": "#3D7A92",
         "titleBar.activeForeground": "#E8F2F7"
     },
-    "chat.tools.edits.autoApprove": {
-        "/tmp/**": true
-    },
-    "chat.tools.terminal.autoApprove": {
-        "git merge-base": true,
-        "git log": true,
-        "git diff": true,
-        "git rev-parse": true,
-        "git branch": true,
-        "git status": true,
-        "git show": true,
-        "git ls-files": true,
-        "git rev-list": true,
-        "git for-each-ref": true,
-        "git cat-file": true,
-        "git shortlog": true,
-        "git name-rev": true,
-        "git describe": true,
-        "git symbolic-ref": true,
-        "git diff-tree": true,
-        "git diff-index": true,
-        "git log -p": true,
-        "git log --stat": true,
-        "git log --name-only": true,
-        "git log --name-status": true,
-        "git log --oneline": true,
-        "git log --graph": true,
-        "tools/pr-threads-get": true,
-        "tools/issue-get": true,
-        "tools/issue-list": true,
-        "tools/pr-get": true,
-        "tools/pr-list": true,
-        "tools/pr-diff": true
-    }
 }

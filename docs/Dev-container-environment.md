@@ -40,7 +40,44 @@ The configuration for the dev container includes an instance of Docker running w
 
 ## Updating the dev environment
 
-The dev environment will check for updates to it's code.  This happens periodically.  If it finds an update has happened (a new commit has been pushed to `master` in the `devenv` repo) then it will warn the user when a command line is opened.  The user is given the option to pull the latest changes in `master`.  If the change was a major version change, then the user will also be warned they should rebuild the container.
+The dev environment will check for updates to its code. This happens periodically. If it finds an update has happened (a new commit has been pushed to `master` in the `devenv` repo) then it will warn the user when a command line is opened. The user is given the option to pull the latest changes in `master`.
+
+After pulling, the update script determines what action — if any — is required from the user. It does this by reading a `Devenv-Action` trailer from the body of every new commit. The highest-priority trailer across all pulled commits wins.
+
+### Devenv-Action commit trailer
+
+Every commit to this repository **must** include a `Devenv-Action` trailer in the commit body. This trailer tells the update script what the consumer needs to do after pulling the change. The commit hook will reject commits that omit it.
+
+Valid values, in ascending order of severity:
+
+| Trailer value | Meaning |
+|---------------|---------|
+| `nothing` | No action needed — the update is self-contained |
+| `restart` | The dev container must be restarted |
+| `bootstrap` | Re-run bootstrap (implies a restart) |
+| `recreate` | Rebuild / recreate the dev container (implies bootstrap + restart) |
+
+When multiple commits are pulled at once, the highest-ranked action across all of them is applied.
+
+**Format** — add the trailer as a standalone line at the end of the commit body, separated from the subject by a blank line:
+
+```text
+feat: add redis client tooling
+
+Adds a wrapper script and VS Code extension for the Redis client.
+
+Devenv-Action: nothing
+```
+
+```text
+fix: update devcontainer base image to bookworm
+
+The previous image reached end-of-life.
+
+Devenv-Action: recreate
+```
+
+Use the lowest action that is actually needed. `recreate` forces every user to rebuild their container — reserve it for changes to `devcontainer.json`, base image bumps, or new features. Use `nothing` for documentation, tooling scripts, or any change that takes effect without a container lifecycle event.
 
 ## Folder structure in the dev environment
 

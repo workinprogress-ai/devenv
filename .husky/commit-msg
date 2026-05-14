@@ -1,1 +1,34 @@
+
+# Enforce Devenv-Action trailer.
+# Every commit to this repo must declare what action consumers need to take
+# after pulling. Valid values: nothing | restart | bootstrap | recreate
+commit_file="$1"
+
+# WIP commits are exempt — they are temporary and never shipped.
+subject=$(head -1 "$commit_file")
+if [[ "$subject" == WIP:* ]]; then
+    exit 0
+fi
+
+valid_actions="nothing|restart|bootstrap|recreate"
+if ! grep -qiE "^Devenv-Action: ($valid_actions)$" "$commit_file"; then
+    echo ""
+    echo "error: Missing or invalid 'Devenv-Action' trailer."
+    echo ""
+    echo "  Every commit to this repository must include a Devenv-Action trailer"
+    echo "  in the commit body telling consumers what to do after pulling."
+    echo ""
+    echo "  Add one of the following lines to the end of your commit message:"
+    echo ""
+    echo "    Devenv-Action: nothing    (no action needed)"
+    echo "    Devenv-Action: restart    (restart the dev container)"
+    echo "    Devenv-Action: bootstrap  (re-run bootstrap, then restart)"
+    echo "    Devenv-Action: recreate   (rebuild/recreate the dev container)"
+    echo ""
+    echo "  Use the lowest action that is actually needed."
+    echo "  See docs/Dev-container-environment.md for guidance."
+    echo ""
+    exit 1
+fi
+
 npx --no-install commitlint --edit "$1"

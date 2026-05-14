@@ -421,6 +421,10 @@ devenv-vscode-fix-sockets() {
     fi
 }
 
+load-docker() {
+    "$DEVENV_ROOT/.devcontainer/load-docker.sh" "$@"
+}
+
 EOF
     chmod +x "$toolbox_root/.runtime/bash-functions.sh"
 }
