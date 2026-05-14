@@ -63,7 +63,7 @@ if [ "$LOCAL_HASH" == "$REMOTE_HASH" ]; then
 fi
 
 # Local is ahead of or has diverged from remote — don't offer to update.
-if [ "$REMOTE_HASH" != "$BASE_HASH" ]; then
+if [ "$LOCAL_HASH" != "$BASE_HASH" ]; then
     cd - > /dev/null || return
     exit 0
 fi
