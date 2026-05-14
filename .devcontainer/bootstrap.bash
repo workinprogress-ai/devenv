@@ -789,8 +789,14 @@ install_copilot_instructions() {
     local dest="$HOME/.copilot/copilot-instructions.md"
     if [ -f "$src" ]; then
         mkdir -p "$HOME/.copilot"
-        cp "$src" "$dest"
-        echo "Copilot instructions copied to $dest"
+        if [ -L "$dest" ]; then
+            echo "Copilot instructions already symlinked at $dest, skipping"
+        else
+            # Remove plain file (or broken symlink) before symlinking
+            rm -f "$dest"
+            ln -s "$src" "$dest"
+            echo "Copilot instructions symlinked: $dest → $src"
+        fi
     else
         echo "WARNING: .github/copilot-instructions.md not found, skipping"
     fi

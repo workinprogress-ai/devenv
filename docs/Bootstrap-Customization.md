@@ -57,7 +57,7 @@ The default bootstrap process executes these tasks in order:
 21. `configure_dotnet_tools` - Configure .NET tools
 22. `install_node_packages` - Install Node.js packages
 23. `configure_git` - Configure git globally
-24. `install_copilot_instructions` - Copy `.github/copilot-instructions.md` to `~/.copilot/copilot-instructions.md`
+24. `install_copilot_instructions` - Symlink `.github/copilot-instructions.md` to `~/.copilot/copilot-instructions.md`
 25. `ensure_directories_and_settings` - Create required directories
 26. `install_repo_dependencies` - Install devenv repo dependencies
 27. `configure_nuget_sources` - Configure NuGet sources

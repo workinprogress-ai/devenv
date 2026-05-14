@@ -14,9 +14,13 @@ If you've forked this repository for your organization, this guide explains what
 
 ## Copilot Instructions
 
-The file `.github/copilot-instructions.md` contains AI coding guidelines that apply to the repository in VS Code (GitHub Copilot reads this file automatically when it exists in the workspace). During bootstrap the file is also copied to `~/.copilot/copilot-instructions.md`, making the same instructions available as the user-level Copilot instructions file.
+The file `.github/copilot-instructions.md` contains AI coding guidelines that apply to the repository in VS Code (GitHub Copilot reads this file automatically when it exists in the workspace). During bootstrap, `~/.copilot/copilot-instructions.md` is **symlinked** to this file, making the same instructions available as the user-level Copilot instructions file.
 
-When forking this repository, update `.github/copilot-instructions.md` with your organization's preferred conventions, code style expectations, and any AI-specific guidance. The copy to `~/.copilot/` is handled automatically by the `install_copilot_instructions` bootstrap task — no additional setup is needed.
+When forking, you have two options:
+
+1. **Write your own instructions in-place** — update `.github/copilot-instructions.md` directly with your organization's conventions, code style, and AI guidance. Bootstrap will symlink it to `~/.copilot/copilot-instructions.md` automatically.
+
+2. **Symlink to a different file** — if you prefer to keep your Copilot instructions elsewhere (e.g. in a shared config repo or a different path), create `~/.copilot/copilot-instructions.md` as a symlink to that file before or after bootstrap runs. The `install_copilot_instructions` task will detect the existing symlink and leave it untouched, regardless of where it points.
 
 ## Copilot Skills
 
