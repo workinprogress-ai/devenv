@@ -127,6 +127,7 @@ Wait for explicit yes. Do not auto-create.
 ## Sibling skills
 
 - `/devenv-create-implementation-plan` — use spike findings as input to a real plan.
+- `/devenv-design-discussion` — when the question is "which approach?" not "is this feasible?" — reasoning, not prototyping.
 - `/devenv-refine-blueprint` — if the spike changes or invalidates an architectural decision, follow up here.
 - `/devenv-rubber-duck` — lighter-weight thinking-out-loud without artifacts.
 - `/devenv-pair-programming`, `/devenv-delegation` — for the actual implementation once the spike resolves.

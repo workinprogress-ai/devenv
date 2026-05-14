@@ -184,6 +184,7 @@ Every phase header is followed by a `> blockquote` preamble. Section headings us
 ## Sibling skills
 
 - `/devenv-create-blueprint` + `/devenv-create-roadmap` — for epic-scale work across multiple components; each roadmap step eventually becomes an implementation plan.
+- `/devenv-design-discussion` — when the right approach for this work isn't settled yet; weigh options before planning tasks.
 - `/devenv-plan-from-spec` — when the spec or issue body is already complete enough to skip the interview.
 - `/devenv-refine-implementation-plan` — to revise this plan after scope changes.
 - `/devenv-plan-update` — small surgical edits (tick boxes, add notes).

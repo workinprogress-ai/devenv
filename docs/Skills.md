@@ -14,6 +14,7 @@ What are you trying to do?
 ├─ 🔍 Explore / think
 │   ├─ Thinking out loud, no artifact   →  /devenv-rubber-duck
 │   ├─ Investigate a question           →  /devenv-spike
+│   ├─ Weigh design options (opinionated)→ /devenv-design-discussion
 │   └─ Triage an incoming issue         →  /devenv-triage-issue
 │
 ├─ 📝 Define requirements
@@ -166,6 +167,7 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 | `/devenv-delegation` | AI-driven build — human reviews | Issue # or plan path |
 | `/devenv-spike` | Exploratory investigation + findings doc | Question or issue # |
 | `/devenv-rubber-duck` | Think out loud — no artifacts | Problem description |
+| `/devenv-design-discussion` | Opinionated thinking partner for design/architecture choices; optional `Design-<topic>-NNN.md` | Design question or topic |
 
 ### Workflow
 
@@ -258,6 +260,18 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
           → /devenv-open-pr
 ```
 
+### Design exploration → formalisation
+
+```text
+/devenv-design-discussion                  # weigh approaches with opinions
+  → /devenv-create-blueprint               # if systemic, formalise architecture
+      → /devenv-create-roadmap → ...
+  → /devenv-create-implementation-plan     # if component-level, plan the work
+      → /devenv-pair-programming / /devenv-delegation
+```
+
+The skill also fits **after** a blueprint exists, when a specific design question surfaces during implementation — feed the recommendation back into `/devenv-refine-blueprint` or directly into the implementation plan.
+
 ### Quick maintenance cycle
 
 ```text
@@ -289,6 +303,9 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 | `/devenv-code-review` vs `/devenv-review-response` | AI reviews your code vs you address a reviewer's comments. |
 | `/devenv-review-response` vs GitHub PR extension | One-at-a-time with per-comment choice vs batch fix-all. |
 | `/devenv-rubber-duck` vs `/devenv-spike` | No artifact vs produces a findings doc. |
+| `/devenv-rubber-duck` vs `/devenv-design-discussion` | Rubber-duck has no opinions and produces no artifact. Design-discussion brings strong opinions, drives to a recommendation, and optionally produces a `Design-<topic>-NNN.md`. |
+| `/devenv-design-discussion` vs `/devenv-spike` | Design-discussion narrows options by reasoning. Spike answers feasibility questions that require running code. |
+| `/devenv-design-discussion` vs `/devenv-create-blueprint` | Design-discussion is exploratory and focused — picks between approaches. Blueprint is formal and broad — decomposes a chosen approach into domains, services, events, components. Design-discussion typically *precedes* a blueprint, or is invoked *after* one to settle a specific question. |
 | `/devenv-session-handoff` vs `/devenv-plan-update` | Narrative summary vs structured task-state update. |
 
 ---

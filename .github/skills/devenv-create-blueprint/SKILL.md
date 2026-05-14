@@ -385,6 +385,7 @@ Once written, surface the next-step options to the user:
 - **Need detailed task-level plans for a component?** → [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) or [`/devenv-plan-from-spec`](../devenv-plan-from-spec/SKILL.md)
 - **Architecture changed mid-stream?** → [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md)
 - **Underlying requirements changed?** → [`/devenv-refine-requirements`](../devenv-refine-requirements/SKILL.md)
+- **Specific design or coding-approach question surfaced during implementation?** → [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md)
 
 ## Anti-patterns
 

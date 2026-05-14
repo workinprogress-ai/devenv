@@ -72,6 +72,7 @@ When the user signals they're done — explicitly ("OK I think I've got it"), or
 
 ## Sibling skills
 
+- `/devenv-design-discussion` — when the user wants opinions and a recommendation, not just reflection.
 - `/devenv-spike` — when the question needs an experiment, not a conversation.
 - `/devenv-create-implementation-plan` — when the user gains clarity and wants to plan the work.
 - `/devenv-plan-from-spec` — when the conversation produced enough structure to draft from.

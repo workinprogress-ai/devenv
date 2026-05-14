@@ -108,6 +108,7 @@ After writing, list what may need follow-up:
 - **Roadmap impact**: new components or removed deltas → structural roadmap changes → suggest [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md). For step-status drift only (issues closed, PRs merged), suggest [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md) instead.
 - **Requirements impact**: if architectural changes were driven by a requirements gap, suggest [`/devenv-refine-requirements`](../devenv-refine-requirements/SKILL.md)
 - **Implementation plan impact**: existing plans may now reference superseded sections → suggest [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) for affected plans
+- **Unsettled approach** that triggered this refine: if a specific design question is still open, suggest [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md) to weigh options before further refinement
 
 ## Anti-patterns
 
