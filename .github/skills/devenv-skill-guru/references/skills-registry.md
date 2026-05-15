@@ -13,6 +13,7 @@ Skills for thinking, investigating, and triaging — before any plan or code exi
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 |---|---|---|---|
 | `/devenv-rubber-duck` | Think out loud — no artifact produced | "think out loud", "rubber duck", "I'm stuck and need to talk it through", "help me think through X" | when opinions and a recommendation are wanted → `/devenv-design-discussion`; when an artifact (findings doc, plan) is needed → `/devenv-spike` |
+| `/devenv-chat-with-code` | Conversational fact-finding session with one or more codebases — the code talks back | "chat with this code", "explain this repo", "how does X work", "walk me through the architecture", "what does this codebase do", "explain this service", "I want to understand this code" | writing or changing code → `/devenv-pair-programming` or `/devenv-delegation`; formal debt assessment → `/devenv-tech-debt-audit`; architecture design → `/devenv-create-blueprint` or `/devenv-design-discussion` |
 | `/devenv-design-discussion` | Opinionated thinking partner for design / architectural choices at any zoom level; optional `Design-<topic>-NNN.md` | "discuss the design", "weigh the options", "talk through the approach", "what's the right way to structure this", "discuss an architectural change" | fuzzy articulation with no opinions → `/devenv-rubber-duck`; feasibility prototyping → `/devenv-spike`; formal architectural decomposition → `/devenv-create-blueprint`; task breakdown → `/devenv-create-implementation-plan` |
 | `/devenv-spike` | Investigate a question and produce a structured findings doc | "spike on X", "investigate whether we can Y", "feasibility of Z", "throwaway prototype", "proof-of-concept" | writing production code → `/devenv-pair-programming`, lightweight thinking → `/devenv-rubber-duck`, opinionated approach comparison → `/devenv-design-discussion` |
 | `/devenv-triage-issue` | Classify an issue, suggest labels, check for duplicates | "triage this issue", "triage #123", "label and size this", "is this a duplicate" | implementing the issue → `/devenv-pair-programming`, turning it into a plan → `/devenv-create-implementation-plan` |
@@ -123,20 +124,21 @@ The full lifecycle: triage → plan → implement → quality check → ship →
 
 ---
 
-### Chain B — Investigation to shipped code
+### Chain B — Understand → investigate → shipped code
 
-For work where feasibility is unknown before planning begins.
+For work where understanding the codebase comes first, then feasibility, then implementation.
 
 ```
-/devenv-rubber-duck                 (think through the problem)
-  → /devenv-spike                   (investigate feasibility)
-    → /devenv-create-implementation-plan
-      → /devenv-delegation          (implement)
-        → /devenv-code-review       (review before opening PR)
-          → /devenv-open-pr
+/devenv-chat-with-code              (understand the codebase)
+  → /devenv-rubber-duck            (think through the problem)
+    → /devenv-spike                (investigate feasibility)
+      → /devenv-create-implementation-plan
+        → /devenv-delegation       (implement)
+          → /devenv-code-review   (review before opening PR)
+            → /devenv-open-pr
 ```
 
-**Start here:** `/devenv-rubber-duck` (or `/devenv-spike` if the problem is already clear)
+**Start here:** `/devenv-chat-with-code` (or `/devenv-spike` if the codebase is already understood)
 
 ---
 

@@ -13,6 +13,7 @@ What are you trying to do?
 │
 ├─ 🔍 Explore / think
 │   ├─ Thinking out loud, no artifact   →  /devenv-rubber-duck
+│   ├─ Understand a codebase via chat   →  /devenv-chat-with-code
 │   ├─ Investigate a question           →  /devenv-spike
 │   ├─ Weigh design options (opinionated)→ /devenv-design-discussion
 │   └─ Triage an incoming issue         →  /devenv-triage-issue
@@ -128,6 +129,18 @@ Investigates a question, builds a throwaway prototype if needed, and produces a 
 
 ---
 
+### `/devenv-chat-with-code`
+
+> **Conversational fact-finding with a codebase — the code talks back.**
+
+Orients against README, project structure, entry points, and test layout for one or more repos, then answers questions in the voice of the code itself — witty, slightly sarcastic, always cited to `file:line`. Caches orientation in session memory. Handles architecture, data flow, history/intent, dependency, cross-cutting, and runbook questions. Suggests transitioning to a sibling skill when conversation drifts toward planning or implementation.
+
+**Use for:** understanding an unfamiliar codebase; cross-repo questions; architecture, behaviour, data flow, dependency, and runbook questions  
+**Don't use for:** writing or changing code (→ `/devenv-pair-programming` or `/devenv-delegation`); formal debt findings (→ `/devenv-tech-debt-audit`); architecture design (→ `/devenv-create-blueprint` or `/devenv-design-discussion`)  
+**Tool deps:** none (reads codebase; writes only to session memory)
+
+---
+
 ### `/devenv-code-review`
 
 > **Close the loop after implementation.**
@@ -165,6 +178,7 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 |---|---|---|
 | `/devenv-pair-programming` | Collaborative build — human + AI both implement | Issue # or plan path |
 | `/devenv-delegation` | AI-driven build — human reviews | Issue # or plan path |
+| `/devenv-chat-with-code` | Conversational fact-finding with a codebase — the code talks back | Repo path(s), or nothing for current workspace |
 | `/devenv-spike` | Exploratory investigation + findings doc | Question or issue # |
 | `/devenv-rubber-duck` | Think out loud — no artifacts | Problem description |
 | `/devenv-design-discussion` | Opinionated thinking partner for design/architecture choices; optional `Design-<topic>-NNN.md` | Design question or topic |
@@ -249,15 +263,14 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
         → /devenv-pre-commit
 ```
 
-### Investigation → plan → build
+### Understand → plan → build
 
 ```text
-/devenv-rubber-duck                        # think through the problem
-  → /devenv-spike                          # investigate feasibility
-    → /devenv-create-implementation-plan   # turn findings into a plan
-      → /devenv-delegation                 # implement
-        → /devenv-code-review              # review before opening PR
-          → /devenv-open-pr
+/devenv-chat-with-code                                # understand the codebase
+  → /devenv-create-implementation-plan                # turn findings into a plan
+    → /devenv-delegation / /devenv-pair-programming   # implement
+      → /devenv-code-review                           # review before opening PR
+        → /devenv-open-pr
 ```
 
 ### Design exploration → formalisation
@@ -304,6 +317,9 @@ The skill also fits **after** a blueprint exists, when a specific design questio
 | `/devenv-review-response` vs GitHub PR extension | One-at-a-time with per-comment choice vs batch fix-all. |
 | `/devenv-rubber-duck` vs `/devenv-spike` | No artifact vs produces a findings doc. |
 | `/devenv-rubber-duck` vs `/devenv-design-discussion` | Rubber-duck has no opinions and produces no artifact. Design-discussion brings strong opinions, drives to a recommendation, and optionally produces a `Design-<topic>-NNN.md`. |
+| `/devenv-chat-with-code` vs `/devenv-rubber-duck` | Chat-with-code reads actual code and answers specific questions, cited to `file:line`. Rubber-duck is for thinking out loud about a problem without needing to look at code. |
+| `/devenv-chat-with-code` vs `/devenv-tech-debt-audit` | Chat-with-code is conversational Q&A — you ask, it answers. Tech-debt-audit is an unsupervised sweep that produces a structured findings document. |
+| `/devenv-chat-with-code` vs `/devenv-design-discussion` | Chat-with-code surfaces facts about existing code. Design-discussion weighs trade-offs and drives to a recommendation for what to build or change. |
 | `/devenv-design-discussion` vs `/devenv-spike` | Design-discussion narrows options by reasoning. Spike answers feasibility questions that require running code. |
 | `/devenv-design-discussion` vs `/devenv-create-blueprint` | Design-discussion is exploratory and focused — picks between approaches. Blueprint is formal and broad — decomposes a chosen approach into domains, services, events, components. Design-discussion typically *precedes* a blueprint, or is invoked *after* one to settle a specific question. |
 | `/devenv-session-handoff` vs `/devenv-plan-update` | Narrative summary vs structured task-state update. |
