@@ -51,6 +51,13 @@ script_folder=$(dirname "$script_path")
 cd "$script_folder" || exit 1
 devenv=$(dirname "$script_folder")
 
+# Uncommitted changes — refuse to update.
+if ! git diff --quiet || ! git diff --cached --quiet; then
+    echo "There are uncommitted changes in the devenv repo. Please commit or stash them before updating."
+    cd - > /dev/null || return
+    exit 1
+fi
+
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 LOCAL_HASH=$(git rev-parse "$CURRENT_BRANCH")
 REMOTE_HASH=$(git rev-parse "origin/$CURRENT_BRANCH" 2>/dev/null)

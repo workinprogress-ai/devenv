@@ -172,11 +172,13 @@ Don't ask about:
 
 ## Plan Revision During the Session
 
-No plan survives contact with the codebase. When implementation reveals that the plan is wrong — not just incomplete, but **wrong** — the pair should update it rather than diverge silently from it.
+No plan survives contact with the codebase. The plan is a **living document** — update it when reality diverges from it, always with the user's agreement.
 
 ### When to trigger a plan revision conversation
 
-Raise a plan revision explicitly when:
+Two sources of revision: **discovery** (AI or user finds something wrong) and **user divergence** (user goes off-plan during their turn).
+
+Raise a revision explicitly when:
 
 - A task turns out to be much larger or smaller than the plan assumes.
 - A dependency assumption is wrong (e.g. an API doesn't exist, a module works differently than expected).
@@ -184,22 +186,44 @@ Raise a plan revision explicitly when:
 - A planned task turns out to be unnecessary or harmful.
 - The phase ordering no longer makes sense given what was learned.
 - A `decision:` turns out to surface a scope change, not just a style choice.
+- **The user implements something during their turn that diverges from the plan** — don't silently absorb it; name the delta and offer to update the plan to reflect what was actually built.
 
 For minor discoveries (a test case to add, a variable to rename), just do the work and note it in the session wrap-up. Revisions are for structural changes.
 
 ### How to raise it
 
-Surface the issue clearly, name the plan impact, and offer options:
+Surface the issue clearly, name the plan impact, and offer options — whether the trigger is AI discovery or user divergence:
 
 > *"We just found that `IBulkSyncStep` is sealed — 2.4 assumed we could add an overload, but we can't without a breaking change. Options: (a) update 2.4 to extract an interface instead (new task 2.4.1), (b) descope the retry behaviour to Phase 3, or (c) pause and redesign. What do you want to do?"*
 
+> *"You've taken a different approach to 3.1 than the plan described — looks like you went with an event-driven pattern instead of the polling loop. Happy to update the plan to reflect that. Want me to draft the edit?"*
+
 Don't unilaterally edit the plan. Don't continue working as if the plan is still correct.
 
-### Making the edit
+### Scope: small vs structural
 
-Once agreed, use [`/devenv-plan-update`](../devenv-plan-update/SKILL.md) for small surgical changes (tick off a task, add one task, answer an open question). Use [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) for structural changes (reordering phases, adding several tasks, changing acceptance criteria). Both require explicit confirmation before writing.
+| Type | Examples | Action |
+|------|----------|--------|
+| **Small / surgical** | Add one task, answer an open question, tick a completed task, correct a file path | Inline edit — draft, show, confirm, write |
+| **Structural** | Reorder phases, add several tasks, change acceptance criteria, split or merge phases, reflect significant user divergence | Pause implementation — draft the full revised section, show it, confirm, write — then re-orient before continuing |
 
-After updating, re-emit the **Files in scope** block and **decision flags** for the current phase if they changed.
+For structural revisions, **stop implementation** until the plan is updated and both parties have re-oriented. Don't try to hold a restructured plan in working memory while also writing code.
+
+### Editing conventions (applied inline — no skill switch needed)
+
+These rules apply whenever the plan file is edited during this session:
+
+- **Never reflow task numbering.** New tasks append at the end of the affected phase with the next sequential number (e.g. if 2.3 is the last task, the new task is 2.4 — even if it logically belongs "between" 2.1 and 2.2).
+- **Never uncheck a completed task.** `[x]` is permanent. If a completed task needs revisiting, add a new follow-up task.
+- **Preserve all existing `[x]` checkboxes exactly.** When rewriting a section, copy existing checked state verbatim.
+- **Record every revision in a session changelog.** Append a brief entry to a `## Session changelog` section at the **end** of the plan file (create it if absent — distinct from any `## Revision history` block added by other tools at the top):
+  ```
+  - [date] <one-line summary of what changed and why>
+  ```
+  Add one entry per revision, in the order they occurred during the session.
+- **Draft → show → confirm → write.** Always show the proposed edit as a diff or inline block before writing. Wait for explicit *"yes"* before touching the file.
+
+After writing, re-emit the **Files in scope** block and **decision flags** for the current phase if they changed.
 
 ## Plan Progress Updates
 
@@ -272,6 +296,9 @@ When the user signals end of session (or a phase boundary that suggests a natura
 - Continuing to follow a plan that discovery has proven wrong without surfacing the conflict.
 - Unilaterally editing the plan without discussion and agreement.
 - Implementing when the user asked for an opinion or was thinking out loud.
+- Silently absorbing user divergence from the plan without naming the delta and offering to update.
+- Reflowing task numbering or unchecking completed tasks when editing the plan.
+- Continuing implementation during a structural revision before the updated plan is written and agreed.
 
 ## Sibling skills
 

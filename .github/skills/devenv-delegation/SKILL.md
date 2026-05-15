@@ -75,6 +75,8 @@ Present the ratings in a short table with one-line reasoning per phase.
 - If **all** in-scope phases are `better-as-pair`, recommend switching to `/devenv-pair-programming` entirely.
 - For `borderline`, state the concern and ask.
 
+> **Important — skill-switching requires a new invocation.** If the user agrees to switch to pair-programming for any phase, they must start a **new chat and invoke `/devenv-pair-programming`** (or type `/devenv-pair-programming` in the current chat to re-invoke it). Simply saying "switch" in this session does not load the pair-programming skill rules. Make this explicit in the recommendation.
+
 ### 4. Propose work-session split
 
 See [session-grouping.md](./references/session-grouping.md) for rules. AI proposes; user has final say.
@@ -139,7 +141,7 @@ Don't ask about: mechanical choices that match existing style.
 
 Don't wait for end of session. As soon as something looks wrong:
 
-> "Heads up — 2.3 is touching the public `IBulkSyncStep` contract. The plan called this 'mechanical' but it's actually a breaking change for consumers. Want me to stop and switch to pair mode for this task, or pause entirely so you can adjust the plan?"
+> "Heads up — 2.3 is touching the public `IBulkSyncStep` contract. The plan called this 'mechanical' but it's actually a breaking change for consumers. To get proper pair-programming behaviour, you'd need to start a new chat with `/devenv-pair-programming` — switching here won't load those rules. Want me to pause so you can do that, or shall we continue with the usual delegation safety checks?"
 
 ### Mid-session abort conditions
 
@@ -151,6 +153,8 @@ Stop the session and reconvene with the user when **any** of these happen:
 - Scope creep detected — work expanding beyond the plan.
 
 When aborting, summarize what was done so far in the same format as a normal session summary.
+
+> **Switching to pair-programming mid-session:** if the user wants to switch, tell them explicitly: *"To get the full pair-programming rules, please start a new chat and invoke `/devenv-pair-programming` — continuing in this session means the pair-programming skill isn't loaded and its rules won't apply."* Do not continue in delegation mode pretending to pair-program.
 
 ## End-of-Session Summary
 

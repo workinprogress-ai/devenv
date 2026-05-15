@@ -242,6 +242,13 @@ main() {
 
         log_info "Found changes on branch '$update_branch' — resuming workflow"
     else
+        # ── Guard: refuse if there are uncommitted changes ─────────────────
+
+        if ! git -C "$repo_dir" diff --quiet || ! git -C "$repo_dir" diff --cached --quiet; then
+            log_error "There are uncommitted changes in $repo_name. Please commit or stash them before running this script."
+            exit $EXIT_GIT_FAILED
+        fi
+
         # ── Step 1: Ensure default branch is up to date ───────────────────
 
         log_info "Syncing $default_branch to origin in $repo_name..."

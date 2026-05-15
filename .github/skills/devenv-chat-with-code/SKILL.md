@@ -126,7 +126,7 @@ When detected, surface a suggestion before the next turn — do not switch silen
 
 > "Sounds like we've moved from understanding to doing. Want me to hand this off to `/devenv-pair-programming` to work through it together, or `/devenv-create-implementation-plan` if you'd like a written plan first?"
 
-Wait for explicit confirmation before invoking any other skill.
+Wait for explicit confirmation. **When the user agrees to transition, remind them that they need to start a new chat and invoke the target skill** (e.g. type `/devenv-pair-programming`) — continuing in this session does not load the other skill's rules.
 
 Sibling skill routing:
 
