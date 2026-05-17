@@ -76,8 +76,8 @@ Skills for reviewing code and addressing feedback.
 
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 |---|---|---|---|
-| `/devenv-code-review` | AI reviews code you wrote — structured feedback by severity | "review this PR", "review my changes", "code review", "look over this branch", "review the diff" | addressing comments on your own PR → `/devenv-review-response`; general codebase Q&A |
-| `/devenv-review-response` | Walk through PR review comments one at a time with per-comment choices | "address PR comments", "work through the review feedback", "go through the PR comments with me", "respond to reviewer comments one at a time" | batch fix-all without review (use GitHub PR extension's `address-pr-comments`); opening a PR → `/devenv-open-pr` |
+| `/devenv-code-review` | AI reviews code you wrote — structured feedback by severity | "review this PR", "review my changes", "code review", "look over this branch", "review the diff" | addressing comments on your own PR → `/devenv-address-pr-comments`; general codebase Q&A |
+| `/devenv-address-pr-comments` | Work through PR review comments — grouped by type, split between AI and user, full control over code/replies/resolution | "address PR comments", "work through the review feedback", "go through the PR comments with me", "respond to reviewer comments" | batch fix-all without review (use GitHub PR extension's `address-pr-comments`); opening a PR → `/devenv-open-pr` |
 | `/devenv-pre-commit` | Run lint, format, type-check, and test as a final gate before committing | "run pre-commit checks", "lint and test before I commit", "is this ready to commit", "check my changes before commit" | opening a PR → `/devenv-open-pr`; code review → `/devenv-code-review` |
 
 ---
@@ -88,7 +88,7 @@ Skills for closing out a session or shipping work.
 
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 |---|---|---|---|
-| `/devenv-open-pr` | Draft and open a GitHub PR from a finished plan phase | "open a PR", "raise a PR", "create a PR", "open a pull request", "let's open a PR", "ship this phase", "wrap this branch into a PR" | responding to existing PR feedback → `/devenv-review-response`; wrapping up without a PR → `/devenv-session-handoff` |
+| `/devenv-open-pr` | Draft and open a GitHub PR from a finished plan phase | "open a PR", "raise a PR", "create a PR", "open a pull request", "let's open a PR", "ship this phase", "wrap this branch into a PR" | responding to existing PR feedback → `/devenv-address-pr-comments`; wrapping up without a PR → `/devenv-session-handoff` |
 | `/devenv-session-handoff` | Produce a structured handoff summary for the next contributor | "wrap up this session", "write a handoff", "session summary for the next person", "I'm tagging out" | updating plan task progress → `/devenv-plan-update`; drafting a PR → `/devenv-open-pr` |
 
 ---
@@ -116,7 +116,7 @@ The full lifecycle: triage → plan → implement → quality check → ship →
     → /devenv-delegation            (mechanical phases)
     → /devenv-pre-commit
     → /devenv-open-pr
-      → /devenv-review-response
+      → /devenv-address-pr-comments
         → /devenv-pre-commit
 ```
 
@@ -169,7 +169,7 @@ For new systems or features where requirements are undefined. Starts with requir
     → /devenv-delegation             (mechanical phases)
     → /devenv-pre-commit
     → /devenv-open-pr
-      → /devenv-review-response
+      → /devenv-address-pr-comments
         → /devenv-pre-commit
 ```
 

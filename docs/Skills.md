@@ -43,7 +43,7 @@ What are you trying to do?
 │
 ├─ 🔎 Review / address feedback
 │   ├─ AI reviews code you wrote        →  /devenv-code-review
-│   ├─ You received PR review comments  →  /devenv-review-response
+│   ├─ You received PR review comments  →  /devenv-address-pr-comments
 │   └─ Quality gates before commit      →  /devenv-pre-commit
 │
 └─ 🏁 Wrap up
@@ -149,7 +149,7 @@ Orients against README, project structure, entry points, and test layout for one
 The inverse of `/devenv-delegation` — you (or another agent) wrote the code, the AI reviews it. Produces structured feedback grouped by severity (Blocker / Concern / Nit / Praise) using the same hotspot format as `/devenv-delegation`.
 
 **Use for:** reviewing a PR, reviewing a local diff, reviewing code from a feature branch  
-**Don't use for:** addressing comments on your own PR (→ `/devenv-review-response`)  
+**Don't use for:** addressing comments on your own PR (→ `/devenv-address-pr-comments`)  
 **Tool deps:** `pr-get`, `pr-diff`, `pr-comment`
 
 ---
@@ -190,7 +190,7 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 |---|---|---|
 | `/devenv-triage-issue` | Classify issue, suggest labels, propose ACs | Issue # or pasted text |
 | `/devenv-open-pr` | Draft + open a PR from a finished phase | Branch or plan path |
-| `/devenv-review-response` | Address PR review comments one at a time | PR # |
+| `/devenv-address-pr-comments` | Address PR review comments — grouped by type, split between AI and user | PR # |
 | `/devenv-session-handoff` | Summarise session for the next contributor | Issue/PR # (optional) |
 
 ### Quality
@@ -219,7 +219,7 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
     → /devenv-delegation                # mechanical phases
     → /devenv-pre-commit
     → /devenv-open-pr
-      → /devenv-review-response
+      → /devenv-address-pr-comments
         → /devenv-pre-commit
 ```
 
@@ -231,7 +231,7 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
     → /devenv-create-roadmap            # phases + GitHub issues across component repos
       → /devenv-create-implementation-plan   # per roadmap step, as work begins
         → /devenv-pair-programming / /devenv-delegation
-          → /devenv-pre-commit → /devenv-open-pr → /devenv-review-response
+          → /devenv-pre-commit → /devenv-open-pr → /devenv-address-pr-comments
 
   Throughout delivery:
     /devenv-update-roadmap               # sync status from issues + PRs
@@ -248,7 +248,7 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
                                         # then creates parent epic + child issues
     → /devenv-create-implementation-plan   # per roadmap step
       → /devenv-pair-programming / /devenv-delegation
-        → /devenv-pre-commit → /devenv-open-pr → /devenv-review-response
+        → /devenv-pre-commit → /devenv-open-pr → /devenv-address-pr-comments
 ```
 
 ### From issue to merged PR
@@ -260,7 +260,7 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
     → /devenv-delegation 42                # mechanical phases
     → /devenv-pre-commit
     → /devenv-open-pr
-      → /devenv-review-response 99
+      → /devenv-address-pr-comments 99
         → /devenv-pre-commit
 ```
 
@@ -314,8 +314,8 @@ The skill also fits **after** a blueprint exists, when a specific design questio
 | `/devenv-refine-requirements` vs `/devenv-gather-requirements` | Refine preserves existing REQ-NNN IDs and dependency links; gather creates from scratch. Use refine for anything except a brand-new requirements doc. |
 | `/devenv-refine-implementation-plan` vs `/devenv-plan-update` | Structural changes vs surgical edits. `/devenv-plan-update` refuses if you ask for >3 changes. |
 | `/devenv-pair-programming` vs `/devenv-delegation` | Human-in-the-loop vs AI-drives. Prefer `/devenv-pair-programming` when in doubt. |
-| `/devenv-code-review` vs `/devenv-review-response` | AI reviews your code vs you address a reviewer's comments. |
-| `/devenv-review-response` vs GitHub PR extension | One-at-a-time with per-comment choice vs batch fix-all. |
+| `/devenv-code-review` vs `/devenv-address-pr-comments` | AI reviews your code vs you address a reviewer's comments. |
+| `/devenv-address-pr-comments` vs GitHub PR extension | Grouped split with per-thread control (replies, code, resolution) vs batch fix-all. |
 | `/devenv-rubber-duck` vs `/devenv-spike` | No artifact vs produces a findings doc. |
 | `/devenv-rubber-duck` vs `/devenv-design-discussion` | Rubber-duck has no opinions and produces no artifact. Design-discussion brings strong opinions, drives to a recommendation, and optionally produces a `Design-<topic>-NNN.md`. |
 | `/devenv-chat-with-code` vs `/devenv-rubber-duck` | Chat-with-code reads actual code and answers specific questions, cited to `file:line`. Rubber-duck is for thinking out loud about a problem without needing to look at code. |
