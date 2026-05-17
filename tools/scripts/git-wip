@@ -25,4 +25,5 @@ fi
 
 git commit -m "WIP: ${COMMIT_MSG_PARTS[*]}" -n
 git push
+git update-ref refs/wip/last HEAD
 

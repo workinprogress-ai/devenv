@@ -7,6 +7,8 @@ user-invocable: true
 
 # Refine Blueprint
 
+> **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
+
 Revise an existing blueprint based on new information — architectural decisions that changed, requirements that arrived after the original blueprint, or implementation discovery that exposed gaps. Preserve every prior decision; never silently rewrite history.
 
 ## When to Use

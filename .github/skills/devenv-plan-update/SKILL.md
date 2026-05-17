@@ -6,6 +6,8 @@ argument-hint: Path to an Implementation_plan-*.md OR a GitHub issue number, plu
 
 # Plan update
 
+> **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
+
 Apply small, surgical edits to an existing implementation plan without running a full revision interview. Sits between `/devenv-plan-status` (read-only) and `/devenv-refine-implementation-plan` (full restructure).
 
 ## When to use this skill

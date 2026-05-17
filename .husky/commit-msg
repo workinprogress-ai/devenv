@@ -1,4 +1,5 @@
 
+#!/bin/bash
 # Enforce Devenv-Action trailer.
 # Every commit to this repo must declare what action consumers need to take
 # after pulling. Valid values: nothing | restart | bootstrap | recreate

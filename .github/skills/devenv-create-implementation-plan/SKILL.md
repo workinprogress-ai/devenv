@@ -7,6 +7,8 @@ user-invocable: true
 
 # Create Implementation Plan
 
+> **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
+
 Produce a phased, atomic, committable plan that gives a human or another AI enough context to execute a user story or task collaboratively.
 
 ## When to Use

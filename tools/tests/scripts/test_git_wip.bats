@@ -59,6 +59,30 @@ teardown() {
   [[ "$output" == *"new_file.txt"* ]]
 }
 
+@test "git-wip sets refs/wip/last to HEAD after pushing" {
+  cd "$TEST_REPO"
+  echo "work" > work.txt
+  bash "$DEVENV_TOOLS/scripts/git-wip" "save" 2>/dev/null || true
+  wip_ref=$(git rev-parse refs/wip/last 2>/dev/null)
+  head_ref=$(git rev-parse HEAD)
+  [ "$wip_ref" = "$head_ref" ]
+}
+
+@test "git-wip overwrites refs/wip/last on subsequent calls" {
+  cd "$TEST_REPO"
+  echo "first" > first.txt
+  bash "$DEVENV_TOOLS/scripts/git-wip" "first" 2>/dev/null || true
+  first_ref=$(git rev-parse refs/wip/last)
+
+  echo "second" > second.txt
+  bash "$DEVENV_TOOLS/scripts/git-wip" "second" 2>/dev/null || true
+  second_ref=$(git rev-parse refs/wip/last)
+  head_ref=$(git rev-parse HEAD)
+
+  [ "$second_ref" = "$head_ref" ]
+  [ "$second_ref" != "$first_ref" ]
+}
+
 # ---------------------------------------------------------------------------
 # git-unwip
 # ---------------------------------------------------------------------------
@@ -121,4 +145,76 @@ teardown() {
   git reset --soft HEAD~1
   run bash "$DEVENV_TOOLS/scripts/git-unwip"
   [[ "$output" == *"not a WIP commit"* ]] || [ "$status" -eq 0 ]
+}
+
+# ---------------------------------------------------------------------------
+# git-wip-recover
+# ---------------------------------------------------------------------------
+
+@test "git-wip-recover script exists and is executable" {
+  [ -x "$DEVENV_TOOLS/scripts/git-wip-recover" ]
+}
+
+@test "git-wip-recover script has valid bash syntax" {
+  run bash -n "$DEVENV_TOOLS/scripts/git-wip-recover"
+  [ "$status" -eq 0 ]
+}
+
+@test "git-wip-recover fails gracefully when no ref exists" {
+  cd "$TEST_REPO"
+  run bash "$DEVENV_TOOLS/scripts/git-wip-recover" --show
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"no saved WIP commit"* ]]
+}
+
+@test "git-wip-recover --show prints saved WIP commit summary" {
+  cd "$TEST_REPO"
+  echo "recover-me" > recover.txt
+  bash "$DEVENV_TOOLS/scripts/git-wip" "recovery test" 2>/dev/null || true
+  run bash "$DEVENV_TOOLS/scripts/git-wip-recover" --show
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Saved WIP commit"* ]]
+  [[ "$output" == *"WIP: recovery test"* ]]
+}
+
+@test "git-wip-recover --branch creates a branch at the WIP commit" {
+  cd "$TEST_REPO"
+  echo "recover-branch" > recover2.txt
+  bash "$DEVENV_TOOLS/scripts/git-wip" "branch test" 2>/dev/null || true
+  wip_commit=$(git rev-parse refs/wip/last)
+  # unwip so HEAD moves away from the WIP commit
+  git checkout -q -b feature/recover-test
+  git push -q -u origin HEAD 2>/dev/null || true
+  bash "$DEVENV_TOOLS/scripts/git-unwip" 2>/dev/null || true
+  # now recover into a new branch
+  run bash "$DEVENV_TOOLS/scripts/git-wip-recover" --branch recovered-test
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"recovered-test"* ]]
+  recovered_tip=$(git rev-parse recovered-test)
+  [ "$recovered_tip" = "$wip_commit" ]
+}
+
+@test "git-wip-recover --branch uses default name when none supplied" {
+  cd "$TEST_REPO"
+  echo "default-name" > default.txt
+  bash "$DEVENV_TOOLS/scripts/git-wip" "default name test" 2>/dev/null || true
+  git checkout -q -b feature/default-name-test
+  git push -q -u origin HEAD 2>/dev/null || true
+  bash "$DEVENV_TOOLS/scripts/git-unwip" 2>/dev/null || true
+  run bash "$DEVENV_TOOLS/scripts/git-wip-recover" --branch
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"wip-recovered"* ]]
+}
+
+@test "git-wip-recover refs/wip/last survives git-unwip" {
+  cd "$TEST_REPO"
+  git checkout -q -b feature/survive-test
+  git push -q -u origin HEAD 2>/dev/null || true
+  echo "survive" > survive.txt
+  bash "$DEVENV_TOOLS/scripts/git-wip" "survive test" 2>/dev/null || true
+  wip_commit=$(git rev-parse refs/wip/last)
+  bash "$DEVENV_TOOLS/scripts/git-unwip" 2>/dev/null || true
+  # ref must still exist and point to the WIP commit
+  surviving_ref=$(git rev-parse refs/wip/last 2>/dev/null)
+  [ "$surviving_ref" = "$wip_commit" ]
 }

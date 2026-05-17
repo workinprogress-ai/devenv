@@ -212,18 +212,25 @@ The same as the `repo-get` command, but can be used as a Git subcommand.
 git repo <repository-name>
 ```
 
-### `git wip` / `git unwip`
+### `git wip` / `git unwip` / `git wip-recover`
 
 Work-in-progress commit management:
 
-- `git-wip`: Stages all changes, creates a `WIP: <message>` commit, and pushes it to the remote.
+- `git-wip`: Stages all changes, creates a `WIP: <message>` commit, pushes it to the remote, and records the commit in `refs/wip/last` for later recovery.
   - `--staged-only`: Skip `git add -A` and commit only what is already staged.
-- `git-unwip`: Soft-resets to the last non-WIP commit (restaging your changes) and safely force-pushes to clear the WIP commit from the remote.
+- `git-unwip`: Soft-resets to the last non-WIP commit (restaging your changes) and safely force-pushes to clear the WIP commit from the remote. Does **not** delete `refs/wip/last`, so the WIP commit remains recoverable.
+- `git-wip-recover`: Inspect or restore the most recently saved WIP commit from `refs/wip/last`.
 
 ```bash
 git wip "saving progress"
 git wip --staged-only "partial save"
 git unwip
+
+# After unwipping, recover if needed:
+git wip-recover            # interactive: show summary, prompt to restore
+git wip-recover --show     # print commit summary and diff stat
+git wip-recover --branch   # check out a new branch 'wip-recovered' at the WIP commit
+git wip-recover --branch my-branch  # check out as 'my-branch'
 ```
 
 **Safety guards in `git-unwip`:**
@@ -231,6 +238,10 @@ git unwip
 1. **Protected branches** — refuses to run on `main`, `master`, or `develop`.
 2. **Remote WIP check** — only force-pushes if the remote tip is itself a `WIP:` commit; skips the push otherwise.
 3. **`--force-with-lease`** — aborts if the remote has new commits that weren't present when you last fetched, preventing accidental overwrites.
+
+**Recovery with `refs/wip/last`:**
+
+Every `git-wip` call updates the `refs/wip/last` ref to point at the new WIP commit. Because this is a named ref (outside `refs/heads/`), git's garbage collector will not collect the commit — the WIP state is preserved indefinitely until the ref is next overwritten by another `git-wip`. `git-unwip` deliberately leaves the ref intact so you can always recover.
 
 **Global pre-commit hook:**
 
@@ -569,6 +580,249 @@ The `artifacts-list` script is built on the `artifact-operations.bash` library, 
 - `get_supported_package_types`: Get list of supported types
 
 These core functions can be sourced and used in other scripts for artifact-related operations. Output formatting functions are part of the `artifacts-list` script itself since they are specific to that script's display requirements.
+
+## GitHub Actions
+
+Tools for inspecting, triggering, monitoring, and downloading outputs of GitHub Actions workflow runs.
+
+### `actions-status`
+
+Reports the latest GitHub Actions workflow run status across all repos in the org, with optional filtering by repo name and run conclusion.
+
+**Usage:**
+
+```bash
+actions-status [OPTIONS]
+```
+
+**Options:**
+
+- `-r, --repo REGEX`: Filter repos by name (extended regex, e.g. `'lib\.cs\.'`)
+- `-s, --status STATUS`: Filter by conclusion: `success`, `failure`, `cancelled`, `skipped`
+- `-w, --workflow NAME`: Filter by exact workflow name
+- `--limit N`: Runs per repo to fetch (default: 1 — latest only)
+- `--json`: Output as compact JSON
+- `--pretty`: Output as pretty-printed JSON
+
+**Examples:**
+
+```bash
+# Show latest run status for all repos
+actions-status
+
+# Only repos matching a name pattern
+actions-status --repo 'lib\.cs\.'
+
+# Only failed runs
+actions-status --status failure
+
+# Filter by repo and workflow
+actions-status --repo 'services' --workflow CI
+
+# Pipe into jq for further processing
+actions-status --json | jq '.[] | select(.conclusion == "failure") | .url'
+```
+
+**Notes:**
+
+- Uses `GH_ORG` to enumerate repos (up to 1000). Set `GH_ORG` or use `GITHUB_REPO`.
+- Runs per-repo enumeration rather than the `/orgs/{org}/actions/runs` API to avoid requiring the `workflow` token scope.
+- With many repos this is sequential; for very large orgs it may be slow.
+
+---
+
+### `actions-list`
+
+Lists GitHub Actions workflow definitions (name, file, state) across org repositories. Shows what workflows *exist*, not their run history.
+
+**Usage:**
+
+```bash
+actions-list [OPTIONS]
+```
+
+**Options:**
+
+- `-r, --repo REGEX`: Filter repos by name (extended regex)
+- `--state STATE`: Workflow state: `active`, `disabled_manually`, `disabled_inactivity`, `all` (default: `active`)
+- `--json`: Output as compact JSON
+- `--pretty`: Output as pretty-printed JSON
+
+**Examples:**
+
+```bash
+# List all active workflows
+actions-list
+
+# Workflows for repos matching a pattern
+actions-list --repo 'lib\.cs\.services\.'
+
+# Include disabled workflows
+actions-list --state all
+
+# JSON output piped to jq
+actions-list --json | jq '.[] | select(.state != "active")'
+```
+
+---
+
+### `actions-run`
+
+Triggers a `workflow_dispatch` event on a GitHub repository and reports the resulting run URL.
+
+**Usage:**
+
+```bash
+actions-run WORKFLOW --repo OWNER/REPO [OPTIONS]
+```
+
+**Arguments:**
+
+- `WORKFLOW`: Workflow file name (e.g. `ci.yml`) or display name
+
+**Options:**
+
+- `--repo OWNER/REPO`: Repository to run the workflow in (required)
+- `--ref REF`: Branch or tag to run on (default: repo default branch)
+- `--input KEY=VALUE`: Workflow dispatch input (repeatable)
+
+**Examples:**
+
+```bash
+# Trigger CI on the default branch
+actions-run ci.yml --repo workinprogress-ai/my-service
+
+# Run on a specific branch
+actions-run ci.yml --repo workinprogress-ai/my-service --ref feature/my-branch
+
+# Pass workflow_dispatch inputs
+actions-run deploy.yml --repo workinprogress-ai/my-service \
+    --input environment=staging \
+    --input version=1.2.3
+```
+
+**Notes:**
+
+- `gh workflow run` does not return a run ID. The run URL is retrieved by polling `gh run list` after a ~2s delay — it may occasionally miss the run URL if the system is very busy.
+- The workflow must be configured with a `workflow_dispatch` trigger.
+
+---
+
+### `actions-rerun`
+
+Re-runs a GitHub Actions workflow run, with options to re-run only failed jobs or enable debug logging.
+
+**Usage:**
+
+```bash
+actions-rerun RUN_ID --repo OWNER/REPO [OPTIONS]
+```
+
+**Arguments:**
+
+- `RUN_ID`: The workflow run ID to re-run
+
+**Options:**
+
+- `--repo OWNER/REPO`: Repository containing the run (required)
+- `--failed`: Re-run only failed jobs (not the whole workflow)
+- `--debug`: Enable debug logging for the re-run
+
+**Examples:**
+
+```bash
+# Re-run the full workflow
+actions-rerun 12345678 --repo workinprogress-ai/my-service
+
+# Re-run only failed jobs
+actions-rerun 12345678 --repo workinprogress-ai/my-service --failed
+
+# Re-run with debug output enabled
+actions-rerun 12345678 --repo workinprogress-ai/my-service --debug
+```
+
+---
+
+### `actions-watch`
+
+Streams live output from a running GitHub Actions workflow run. If no `RUN_ID` is given, auto-detects the latest in-progress run in the repo.
+
+**Usage:**
+
+```bash
+actions-watch [RUN_ID] --repo OWNER/REPO [OPTIONS]
+```
+
+**Arguments:**
+
+- `RUN_ID`: Workflow run ID to watch (optional — auto-detects if omitted)
+
+**Options:**
+
+- `--repo OWNER/REPO`: Repository containing the run (required)
+- `--exit-status`: Exit non-zero if the watched run fails (useful in CI pipelines)
+
+**Examples:**
+
+```bash
+# Watch the latest in-progress run
+actions-watch --repo workinprogress-ai/my-service
+
+# Watch a specific run
+actions-watch 12345678 --repo workinprogress-ai/my-service
+
+# Exit with the run's exit code (for CI use)
+actions-watch 12345678 --repo workinprogress-ai/my-service --exit-status
+```
+
+---
+
+### `actions-artifacts`
+
+Lists or downloads artifacts from a completed GitHub Actions workflow run. Default mode is list (no files are downloaded).
+
+**Usage:**
+
+```bash
+actions-artifacts RUN_ID --repo OWNER/REPO [OPTIONS]
+```
+
+**Arguments:**
+
+- `RUN_ID`: Workflow run ID
+
+**Options:**
+
+- `--repo OWNER/REPO`: Repository containing the run (required)
+- `--json`: Output artifact list as compact JSON
+- `--pretty`: Output artifact list as pretty-printed JSON
+- `--download`: Download artifacts instead of just listing
+- `--name NAME`: Specific artifact name to download (use with `--download`)
+- `--dir DIR`: Download destination directory (default: `.`)
+
+**Examples:**
+
+```bash
+# List artifacts for a run
+actions-artifacts 12345678 --repo workinprogress-ai/my-service
+
+# List as JSON and pipe to jq
+actions-artifacts 12345678 --repo workinprogress-ai/my-service --json | jq '.[].name'
+
+# Download all artifacts
+actions-artifacts 12345678 --repo workinprogress-ai/my-service --download
+
+# Download a specific artifact to a directory
+actions-artifacts 12345678 --repo workinprogress-ai/my-service \
+    --download --name coverage-report --dir /tmp/artifacts
+```
+
+**Notes:**
+
+- List mode uses the GitHub REST API (`/actions/runs/{id}/artifacts`) to show metadata without downloading.
+- When downloading all artifacts (no `--name`), warns if total size exceeds 100 MiB.
+
+---
 
 ## GitHub Issues and Project Management
 

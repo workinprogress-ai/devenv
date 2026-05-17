@@ -97,11 +97,12 @@ Interviews the user, scans repo conventions, drafts phased atomic tasks, and wri
 
 > **Collaborative, human stays in control.**
 
-Loads the plan and runs an interactive task-by-task handoff: both parties take turns, the AI pushes back when warranted, asks before assuming. High-engagement, high-quality — slows down appropriately for risky or novel work.
+Loads the plan and runs an interactive driver/navigator handoff: both parties take turns driving (writing the code) and navigating (watching, asking questions, keeping the big picture in view). The navigator is active during the other person's turn — pre-reading ahead, looking things up, catching problems early. The AI pushes back when warranted, narrates its own reasoning as it works, and asks before assuming. High-engagement, high-quality — slows down appropriately for risky or novel work.
 
-**Use for:** high-impact phases — public API changes, data shape changes, security, novel architecture  
+**Use for:** high-impact phases — public API changes, data shape changes, security, novel architecture; also any work where you want to stay closely involved  
 **Don't use for:** mechanical/rote work (→ `/devenv-delegation`), pure exploration (→ `/devenv-spike`)  
-**Tool deps:** `issue-get`, `pr-get`, `pr-diff`, `issue-comment`
+**Tool deps:** `issue-get`, `pr-get`, `pr-diff`, `issue-comment`  
+**New to pair programming?** See [How pair programming works](#how-pair-programming-works) below.
 
 ---
 
@@ -323,6 +324,52 @@ The skill also fits **after** a blueprint exists, when a specific design questio
 | `/devenv-design-discussion` vs `/devenv-spike` | Design-discussion narrows options by reasoning. Spike answers feasibility questions that require running code. |
 | `/devenv-design-discussion` vs `/devenv-create-blueprint` | Design-discussion is exploratory and focused — picks between approaches. Blueprint is formal and broad — decomposes a chosen approach into domains, services, events, components. Design-discussion typically *precedes* a blueprint, or is invoked *after* one to settle a specific question. |
 | `/devenv-session-handoff` vs `/devenv-plan-update` | Narrative summary vs structured task-state update. |
+
+---
+
+## How pair programming works
+
+Pair programming is a collaborative coding technique where two people work together at the same workstation — one **drives** (writes the code) while the other **navigates** (watches, thinks ahead, catches problems, looks things up). Roles swap regularly.
+
+With `/devenv-pair-programming`, the AI fills one of those two roles at a time — driver or navigator — and you fill the other. Here's what to expect:
+
+### At the start of each phase
+
+The AI proposes how to divide the upcoming tasks, using the task list in the plan:
+
+> *"I'll take 2.1 and 2.3 — those are boilerplate. You take 2.2, that's where the real decision lives. Work for you?"*
+
+You can accept the split, swap tasks, or suggest a different division. Scope is agreed **before** either party starts — not negotiated mid-task.
+
+### While the AI is driving
+
+The AI narrates its thinking as it works, not just at the end:
+
+> *"Using exponential backoff here — there's a precedent in the HTTP client. The jitter multiplier isn't in the plan, I'll flag that."*
+
+This gives you a chance to catch problems early. When done, it hands back with a plain-language summary of what changed and flags anything it's uncertain about. You review the actual diff and approve (or push back) before it moves on.
+
+### While you are driving
+
+The AI doesn't just wait. It:
+
+- Pre-reads files for the next task so the handoff is fast
+- Answers questions, looks things up, sketches options on request
+- May interject once if there's something genuinely useful to flag mid-task
+
+When you hand back, the AI reviews the actual diff — not from memory — and gives a real review: what's good and why, what concerns it has and where the right pattern is in the codebase. If it finds a problem, it tells you and stops. **It does not fix your work without being asked.** You decide what happens next.
+
+### If you get stuck
+
+Just say so. The AI will offer to take over, talk you through it, or research the blocker while you keep going. No judgment.
+
+### Keeping the plan current
+
+If implementation reveals the plan is wrong (an API doesn't exist, a task is much bigger than expected, you went a different direction), the AI names what changed and proposes an edit to the plan. You confirm before anything is written. Plan edits happen inline — no need to switch to a different skill.
+
+### Swapping roles
+
+At any point you can say "I'll take this one" or "you take this one" and the AI adjusts. The split is a starting proposal, not a contract.
 
 ---
 

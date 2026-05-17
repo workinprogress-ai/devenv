@@ -6,6 +6,8 @@ argument-hint: File path, GitHub issue number, URL, or pasted spec text containi
 
 # Plan from spec
 
+> **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
+
 Convert an existing spec — design doc, RFC, GitHub issue body, URL, or pasted text — into an `Implementation_plan-*.md` without running the full discovery interview that `/devenv-create-implementation-plan` requires.
 
 ## When to use this skill

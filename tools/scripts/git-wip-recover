@@ -1,0 +1,84 @@
+#!/bin/bash
+# git-wip-recover - Inspect or restore a saved WIP commit from refs/wip/last
+#
+# refs/wip/last is written by git-wip after each push and is intentionally
+# NOT deleted by git-unwip, so the WIP commit remains reachable for recovery.
+
+readonly WIP_REF="refs/wip/last"
+
+_show_summary() {
+    local wip_commit="$1"
+    local wip_msg wip_date
+    wip_msg=$(git log -1 --format="%s" "$wip_commit")
+    wip_date=$(git log -1 --format="%cd" --date=format:"%Y-%m-%d %H:%M" "$wip_commit")
+    echo "Saved WIP commit: $wip_commit"
+    echo "  Message : $wip_msg"
+    echo "  Date    : $wip_date"
+    echo ""
+    git diff "${wip_commit}^" "$wip_commit" --stat 2>/dev/null || true
+}
+
+mode="${1:-}"
+
+# Handle modes that don't need the ref first
+case "$mode" in
+    -h|--help)
+        cat << 'EOF'
+Usage: git-wip-recover [--show | --branch [NAME]]
+
+Inspect or restore the most recently saved WIP commit.
+
+Options:
+  (no args)       Show a summary and prompt to restore interactively
+  --show          Print the saved WIP commit summary and diff stat
+  --branch [NAME] Check out a new branch at the WIP commit
+                  NAME defaults to 'wip-recovered'
+
+The saved ref (refs/wip/last) is updated by git-wip after each push and is
+NOT deleted by git-unwip, allowing short-term recovery after unwipping.
+EOF
+        exit 0
+        ;;
+    --show|--branch|"")
+        ;;
+    *)
+        echo "git-wip-recover: unknown option '$mode'. Use --help for usage." >&2
+        exit 1
+        ;;
+esac
+
+# Resolve the ref (required for all remaining modes)
+if ! git rev-parse --verify "$WIP_REF" >/dev/null 2>&1; then
+    echo "git-wip-recover: no saved WIP commit found ($WIP_REF does not exist)."
+    exit 1
+fi
+wip_commit=$(git rev-parse "$WIP_REF")
+
+case "$mode" in
+    --show)
+        _show_summary "$wip_commit"
+        ;;
+    --branch)
+        branch_name="${2:-wip-recovered}"
+        git checkout -b "$branch_name" "$wip_commit"
+        echo "git-wip-recover: checked out '$branch_name' at $wip_commit"
+        ;;
+    "")
+        _show_summary "$wip_commit"
+        echo ""
+        while true; do
+            read -r -p ">>> Restore to a branch? [y/n]: " answer
+            case "$answer" in
+                [Yy]*)
+                    read -r -p "    Branch name [wip-recovered]: " branch_name
+                    branch_name="${branch_name:-wip-recovered}"
+                    git checkout -b "$branch_name" "$wip_commit"
+                    echo "git-wip-recover: checked out '$branch_name' at $wip_commit"
+                    break
+                    ;;
+                [Nn]*) break ;;
+                *) echo "    Please answer y or n." ;;
+            esac
+        done
+        ;;
+esac

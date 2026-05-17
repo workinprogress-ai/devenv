@@ -7,6 +7,8 @@ user-invocable: true
 
 # Delegation
 
+> **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
+
 The AI implements; the human reviews. For work that is mechanical, rote, or low-impact enough that pair-programming ceremony would be overkill — but still warrants enough engagement that important decisions don't slip past the human.
 
 ## When to Use

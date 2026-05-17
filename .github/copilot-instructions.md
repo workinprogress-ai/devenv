@@ -94,6 +94,12 @@ GitHub-related wrappers (non-exhaustive):
 | Read PR review threads                        | `tools/pr-threads-get <N>`         | `gh api ...graphql`        |
 | Reply to / resolve a review thread            | `tools/pr-thread-reply`, `tools/pr-thread-resolve` | `gh api ...`   |
 | Get the diff for a PR                         | `tools/pr-diff <N>`                | `gh pr diff`               |
+| Org-wide Actions run status / filter by repo  | `tools/actions-status`             | `gh run list`              |
+| List workflow definitions across org          | `tools/actions-list`               | `gh workflow list`         |
+| Trigger a workflow_dispatch run               | `tools/actions-run`                | `gh workflow run`          |
+| Re-run a workflow run (or failed jobs only)   | `tools/actions-rerun`              | `gh run rerun`             |
+| Stream live logs from an in-progress run      | `tools/actions-watch`              | `gh run watch`             |
+| List / download artifacts from a run          | `tools/actions-artifacts`          | `gh run download`          |
 
 When no wrapper exists for what you need (e.g. inline review comments, adding reviewers, project boards beyond `tools/project-*`), falling back to `gh` is fine — mention that you're falling back and why, so the gap is visible.
 
