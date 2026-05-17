@@ -1,5 +1,4 @@
-
-#!/bin/bash
+#!/bin/sh
 # Enforce Devenv-Action trailer.
 # Every commit to this repo must declare what action consumers need to take
 # after pulling. Valid values: nothing | restart | bootstrap | recreate
@@ -7,9 +6,9 @@ commit_file="$1"
 
 # WIP commits are exempt — they are temporary and never shipped.
 subject=$(head -1 "$commit_file")
-if [[ "$subject" == WIP:* ]]; then
-    exit 0
-fi
+case "$subject" in
+    WIP:*) exit 0 ;;
+esac
 
 valid_actions="nothing|restart|bootstrap|recreate"
 if ! grep -qiE "^Devenv-Action: ($valid_actions)$" "$commit_file"; then

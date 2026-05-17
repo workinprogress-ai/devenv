@@ -105,6 +105,17 @@ When no wrapper exists for what you need (e.g. inline review comments, adding re
 
 The same rule holds for `git` (prefer `tools/git-*` wrappers when one exists), `dotnet`/test wrappers, and any other category covered by `tools/`.
 
+### Language policy
+
+**Conversation:** Follow the user's language. If the user writes in French, Spanish, Portuguese, or any other language, respond in that language throughout the conversation.
+
+**Written artefacts are always in English — no exceptions.** This covers:
+- Implementation plans, blueprints, roadmaps, requirements docs, spike results, design docs, session handoffs, and any other file written to disk.
+- GitHub issue bodies, titles, comments, and PR descriptions posted via tools.
+- Code comments, commit message bodies, and inline documentation.
+
+If the user gives instructions in another language for something that will be written to a file or posted to GitHub, produce the output in English. You may briefly acknowledge the instruction in their language before switching, but the artefact itself MUST be English.
+
 ### Never run git operations that mutate repository state
 
 The AI **never** runs git commands that change repository state, branch state, or working-tree state. The user owns every commit, every branch switch, every push.
