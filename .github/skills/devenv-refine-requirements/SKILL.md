@@ -58,6 +58,7 @@ Use `vscode_askQuestions` to gather:
 - **What's wrong** — sections whose descriptions or acceptance criteria are now misleading
 - **What's no longer relevant** — sections to mark as superseded (do NOT delete)
 - **What changed priority** — requirements moving between `GROUP-NN`s, or the MVP definition shifting
+- **Open questions** — "Are there open questions from the original gathering session that were deferred and can now be resolved? Are there new ambiguities or tensions this refinement introduces?"
 - **Source material** — "Are there meeting transcripts, email threads, recordings, voice memos, or other communications records behind these changes? If so, where are they?"
 
 If the user provides communications artifacts, summarise each one separately (prefer the `Explore` subagent, one invocation per artifact, in parallel where possible) with a prompt focused on stated goals, decisions reached, named actors, constraints mentioned, and concrete behaviours described. Surface each summary back for confirmation, then use the approved summaries to drive the change list. Note the source in the revision-history entry (step 4) so the rationale can be re-traced.
@@ -85,7 +86,29 @@ If the user provides communications artifacts, summarise each one separately (pr
 - **Never silently rewrite acceptance criteria.** Updated criteria keep the requirement's ID; the prior wording goes into a quoted "Previously" block beneath the new wording.
 - **Dependency links must stay valid.** If a requirement is superseded, walk every other requirement's `Dependencies:` line and update the link to point at the replacement (or remove the link with a note).
 - **Priority groupings can be re-ordered freely** — they are stakeholder priority, not delivery sequencing. New requirements need to be placed into a group. Moving a requirement between groups is allowed; record the move in revision history.
+### 4. Internal consistency review
 
+After applying all changes, scan the full updated requirement set for internal consistency. This step is especially important because refinements often introduce new tensions between new and existing requirements that weren't present in the original document.
+
+Check for:
+
+- **New contradictions introduced** — does any new or reworded requirement conflict with an existing one?
+- **Acceptance criteria conflicts** — two requirements' Given/When/Then clauses producing incompatible outcomes for the same actor/scenario.
+- **Dependency integrity gaps** — a new requirement depends on an existing one, but the existing requirement's acceptance criteria don't satisfy what the new one needs.
+- **Scope boundary violations** — new requirements that cross the in-scope/out-of-scope boundary.
+- **Supersession gaps** — a requirement was superseded but another requirement still depends on it without acknowledging the change.
+- **Ambiguous shared terms** — a new term introduced that is already used elsewhere with a different meaning.
+
+For each finding, produce a labelled block:
+
+```
+CONFLICT: REQ-004 vs REQ-019 (new)
+REQ-004: users may delete their account at any time.
+REQ-019 (new): audit log must record the actor for every state change indefinitely.
+Tension: hard-delete removes the actor reference needed by REQ-019.
+```
+
+For each finding offer: resolve inline (user clarifies, AI updates requirements), add to the revision's open questions, or accept as a documented trade-off. **Do not write the file while known contradictions remain unresolved.**
 ### 4. Record the revision
 
 Add a new entry to the top of `## Revision History` (create the section if missing, immediately after the document title):
@@ -102,11 +125,11 @@ Add a new entry to the top of `## Revision History` (create the section if missi
 
 Most recent revision goes on top.
 
-### 5. Write the result
+### 6. Write the result
 
 Overwrite the file in place. The user can `git diff` to review and revert.
 
-### 6. Surface downstream impacts
+### 7. Surface downstream impacts
 
 After writing, list what may need follow-up:
 
@@ -120,6 +143,8 @@ After writing, list what may need follow-up:
 - Reflowing IDs (breaks links from blueprints, roadmaps, plans, and issues)
 - Deleting requirements outright instead of marking them superseded or withdrawn
 - Rewriting the requirements doc from scratch — that's [`/devenv-gather-requirements`](../devenv-gather-requirements/SKILL.md), not refine
+- **Skipping the internal consistency review.** Refinements routinely introduce new tensions between new and old requirements — always check.
+- **Writing the file while known contradictions remain unresolved.** Every conflict finding must be resolved, accepted as a documented trade-off, or explicitly logged before writing.
 - Treating Phase 3 priority groups as a delivery roadmap (delivery sequencing belongs in [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md))
 - Forgetting to surface blueprint, roadmap, and plan impact after the edit
 

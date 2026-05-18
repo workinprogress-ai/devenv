@@ -41,10 +41,22 @@ Requirements gathering can span multiple sessions. Maintain a `session_memory-re
 Track:
 - Current phase and what has been completed
 - Key decisions the human made
-- Open questions not yet resolved
+- **Open questions log** — tracked as `Q-001`, `Q-002`, etc. (see format below)
 - Assumptions being treated as true
 - Gaps identified in the vision or requirements
 - Revision notes between cycles
+
+**Open questions log format** (record in `session_memory-requirements.md`):
+```
+Q-001  [open]       Should account deletion be hard-delete or soft-delete?
+                    Raised: Phase 1. Affects: REQ-003, REQ-011.
+Q-002  [resolved]   Must order history persist after account deletion?
+                    Resolution: anonymised retention — REQ-011 updated to clarify.
+Q-003  [deferred]   Is the 200ms search latency target p50 or p99?
+                    Affects: REQ-017. Deferred — pending performance benchmarks.
+```
+
+Status transitions: `open` → `brainstorming` (being actively discussed) → `resolved` (user decided; affected requirements updated). `open` → `deferred` (explicitly set aside; affected requirement annotated with the open question number). Never silently drop an open question — every `Q-NNN` must end up `resolved` or `deferred` before the final file is written.
 
 **At session end**: update it with the current state.
 
@@ -278,19 +290,54 @@ Before presenting to the human, verify:
 
 Then ask: "I've identified [N] requirements across [M] functional areas. Before I present them, is there anything you know is needed that we haven't discussed? What about [specific uncovered area]?"
 
+#### Step 6: Internal consistency review
+
+Before the Phase 2 checkpoint, scan all requirements for internal consistency. **This step is not optional.** Requirements that will be used to drive AI must be free of contradictions — ambiguities a human resolves from context will cause AI to produce unpredictable results.
+
+Check for:
+
+- **Direct contradictions** — REQ-A asserts something that REQ-B explicitly denies. Both cannot be true.
+- **Acceptance criteria conflicts** — two requirements' Given/When/Then clauses produce incompatible outcomes for the same actor/scenario combination.
+- **Scope boundary violations** — requirements that describe behaviour the scope section marks as out of scope.
+- **Ambiguous shared terms** — the same word used with different meanings in different requirements (e.g. "user" meaning customer in one place, admin in another). These are not contradictions but will cause AI misreading.
+- **Dependency integrity gaps** — REQ-A depends on REQ-B, but REQ-B's acceptance criteria do not actually satisfy what REQ-A needs from it.
+- **Implicit conflicts** — two requirements that don't directly contradict but together create an impossible or undesirable state.
+
+For each finding, produce a labelled finding block:
+
+```
+CONFLICT: REQ-004 vs REQ-011
+REQ-004: users may delete their account at any time.
+REQ-011: all orders must retain a customer reference for 7 years (compliance).
+Tension: hard-delete conflicts with the data-retention obligation.
+```
+
+For each finding, offer:
+- **Resolve inline** — user provides a clarification; AI updates the affected requirements immediately.
+- **Add to open questions log** as a new `Q-NNN` entry for brainstorming before the checkpoint.
+- **Accept as known trade-off** — explicitly document the tension and the chosen resolution in both requirements.
+
+**Do not present a requirement set with unresolved contradictions.** A document with known conflicts is not a useful artefact — not for humans, and especially not for AI.
+
 #### Phase 2 Checkpoint
 
-**STOP.** Present the full requirements list. Say:
+**STOP.** Present the full requirements list, then the consistency review findings (if any). Say:
 
-> "Here are the concrete requirements derived from the vision. Please review:
+> "Here are the concrete requirements derived from the vision.
+>
+> Consistency review: [N conflicts found / no conflicts found].
+> [List each finding with proposed resolution if applicable.]
+>
+> Please review:
 > - Are all requirements correct and clearly stated?
 > - Are the acceptance criteria specific enough to test against?
 > - Are the dependencies accurate?
 > - Is anything missing?
+> - Are you satisfied with how each conflict was resolved?
 >
 > Edit, add, remove, or reorder as needed. When satisfied, tell me to proceed to Phase 3."
 
-Do not proceed until the human explicitly approves.
+Do not proceed until the human explicitly approves. Do not proceed if any consistency finding remains unresolved.
 
 ---
 
@@ -389,6 +436,9 @@ After approval, write the file per [Output File](#output-file) rules. Offer to d
 - Proceeding past a phase checkpoint without explicit human approval.
 - Writing implementation details into requirements ("shall use PostgreSQL").
 - Skipping the completeness checklist.
+- **Skipping the internal consistency review.** It is not optional — especially when the output will drive AI.
+- **Leaving known contradictions unresolved in the output.** Every conflict finding must be resolved, accepted as a documented trade-off, or added to the open questions log before the file is written.
+- **Dropping open questions silently.** Every `Q-NNN` must end as `resolved` or `deferred` with a note.
 - Writing requirements without acceptance criteria.
 - Writing the output file before Phase 3 is approved.
 - Merging `session_memory-requirements.md` to the main branch.
@@ -411,5 +461,28 @@ This skill produces the requirements document but **does not create GitHub issue
 - **Smaller work that doesn't warrant a blueprint** — run `/devenv-create-roadmap` with just the requirements doc. It supports a requirements-only mode that asks for the target component per step and creates the issues from there.
 
 Going through `/devenv-create-roadmap` (rather than creating issues by hand) keeps the roadmap as the single source of truth for what's been issued, what's in flight, and what's left, and makes [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md) usable later.
+
+---
+
+## Brainstorming Open Questions
+
+At any point — during any phase, or when the user says "let's brainstorm Q-003" — enter brainstorming mode for a specific open question:
+
+1. **Restate** the question in full, with context: which requirements are affected, what the tension is, and why the decision matters.
+2. **Present 2–4 options** with trade-offs — not a recommendation unless the user asks for one.
+3. **Ask probing questions** to help the user reach a decision:
+   - "What's the dominant constraint here — UX, legal, or operational?"
+   - "Is there a stakeholder who owns this decision?"
+   - "Would option B still work if [edge case] occurs?"
+4. **When the user decides**: mark the question `resolved` in the open questions log, add a one-line resolution note, and update every affected requirement.
+5. **When the user defers**: mark it `deferred`, note the reason, and annotate each affected requirement with the open question number so the gap is visible in the output:
+
+   ```markdown
+   > ⚠️ Open question Q-003: latency target unit (p50 vs p99) not yet decided — see session notes.
+   ```
+
+6. **Never diagnose for the user.** Present options and trade-offs; let them decide. Avoid steering toward a specific answer unless asked.
+
+---
 
 See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.
