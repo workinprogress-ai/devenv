@@ -119,7 +119,9 @@ See [phase-rules.md](./references/phase-rules.md) for the full checklist.
 - **Phase 1 is always**: Discovery & test scaffolding
 - **Last phase is always**: Cleanup & docs
 - Each phase must be **atomic and committable**: tests pass, coverage does not regress, sized for a single PR
-- Throwaway scaffolding tests are **explicitly allowed** in early phases and may be removed later
+- Each phase's task list must include **test tasks alongside the code tasks** — do not defer all testing to a final phase
+- Tests written in early phases assert the **current state** (including stubs); they evolve as implementation lands — they are not discarded
+- Exception path: if a phase genuinely cannot satisfy the coverage rule without disproportionate cost, document why in the plan and restore coverage in the next phase. This is a last resort.
 - Tasks within a phase that have no `depends on` between them may be done in parallel
 
 ## Task Formatting Rules (summary)
@@ -186,6 +188,7 @@ Every phase header is followed by a `> blockquote` preamble. Section headings us
 ## Sibling skills
 
 - `/devenv-create-blueprint` + `/devenv-create-roadmap` — for epic-scale work across multiple components; each roadmap step eventually becomes an implementation plan.
+- `/devenv-create-technical-design` — when the component's internal design is unsettled; produce an `Architecture_and_implementation.md` before writing tasks.
 - `/devenv-design-discussion` — when the right approach for this work isn't settled yet; weigh options before planning tasks.
 - `/devenv-plan-from-spec` — when the spec or issue body is already complete enough to skip the interview.
 - `/devenv-refine-implementation-plan` — to revise this plan after scope changes.

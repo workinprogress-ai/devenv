@@ -69,7 +69,24 @@ If the single-file blueprint has grown past comfortable reading length (~1,500 l
 
 If the blueprint is already split (subfolder + `Index.md` exists) and a refinement adds, removes, or moves sections between files, **update `Index.md` in the same revision** so its section map and file table stay accurate. Add a one-line entry to the Index's revision history pointing back to the part file that changed.
 
-### 3. Apply changes — preserve everything
+### 3. Confirm the change plan
+
+**STOP.** Before touching the file, present a concise change plan and ask for confirmation:
+
+> "Here's what I plan to change:
+>
+> - **Add** §X.Y: `service.foo` (new component)
+> - **Reword** §3.2.1: updating the inventory delta to reflect TTL behaviour; prior wording will be preserved beneath
+> - **Supersede** §5.2 risk #3 (resolved by the reservation-cleaner)
+> - **Append** `ReservationExpired` event row to §3.4 table
+>
+> Anything I've misread, over-scoped, or missed?"
+
+Do not write anything until the user confirms. If the user adjusts scope, revise the plan and confirm again.
+
+---
+
+### 4. Apply changes — preserve everything
 
 **Hard rules:**
 
@@ -84,7 +101,7 @@ If the blueprint is already split (subfolder + `Index.md` exists) and a refineme
 - **New components are appended** to the end of `## 4. Per-Component Changes` with the next sub-number.
 - **Reworded sections** keep their number; the prior wording goes into a quoted "Previously" block beneath the new wording.
 
-### 4. Record the revision
+### 5. Record the revision
 
 Add a new entry to the top of `## Revision History`:
 
@@ -99,11 +116,11 @@ Add a new entry to the top of `## Revision History`:
 
 Most recent revision goes on top.
 
-### 5. Write the result
+### 6. Write the result
 
 Overwrite the file in place. The user can `git diff` to review and revert.
 
-### 6. Surface downstream impacts
+### 7. Surface downstream impacts
 
 After writing, list what may need follow-up:
 

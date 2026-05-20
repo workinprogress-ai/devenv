@@ -6,6 +6,16 @@ Single source of truth for the skill catalog. The `skill-guru` SKILL.md reads th
 
 ---
 
+## Category: Document
+
+Skills for producing written documentation of existing systems and components.
+
+| Skill | One-line purpose | USE WHEN triggers | NOT FOR |
+| --- | --- | --- | --- |
+| `/devenv-document` | Interview-driven documentation of an existing system, component, or cross-cutting concern — reads docs first, code second | "document this system", "write documentation for", "I need docs for", "create a context brief", "document this codebase", "document this component", "write up how this works", "we need documentation for" | conversational Q&A without a written output → `/devenv-chat-with-code`; formal architectural design → `/devenv-create-blueprint`; functional requirements → `/devenv-gather-requirements`; tech debt assessment → `/devenv-tech-debt-audit` |
+
+---
+
 ## Category: Explore
 
 Skills for thinking, investigating, and triaging — before any plan or code exists.
@@ -33,11 +43,13 @@ Skills for capturing and formalising what a system should do, before any impleme
 
 ## Category: Architecture
 
-Skills for architectural design and high-level delivery sequencing. Sit between requirements and implementation planning. A blueprint defines the architecture; a roadmap sequences delivery; together they bridge requirements and implementation plans.
+Skills for architectural design at all zoom levels — system (blueprint), component (technical design), and delivery sequencing (roadmap).
 
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 |---|---|---|---|
 | `/devenv-create-blueprint` | Architectural decomposition into domains, services, events, and per-component deltas | "create a blueprint", "design this system", "architect this epic", "produce an architectural design", "blueprint this" | low-level task breakdown → `/devenv-create-implementation-plan`; sequencing into milestones → `/devenv-create-roadmap`; user-level requirements → `/devenv-gather-requirements` |
+| `/devenv-create-technical-design` | Design a component's internals through structured brainstorming and decision-making, producing a living `docs/Architecture_and_implementation.md` | "design this component", "create a technical design for", "design this service", "we need an Architecture.md for", "design the internals of" | system-level architecture → `/devenv-create-blueprint`; documenting an already-built system without design decisions → `/devenv-document`; task-level planning → `/devenv-create-implementation-plan` |
+| `/devenv-refine-technical-design` | Update an existing `docs/Architecture_and_implementation.md` when the component evolves | "update the architecture doc", "refine the technical design", "the Architecture.md is out of date", "the design changed" | creating a technical design from scratch → `/devenv-create-technical-design`; system-level architectural changes → `/devenv-refine-blueprint` |
 | `/devenv-refine-blueprint` | Revise an existing blueprint, preserving every prior decision | "refine the blueprint", "update the blueprint", "revise the architecture", "the blueprint needs updating" | creating a new blueprint → `/devenv-create-blueprint`; ad-hoc one-line edits (just edit the file); structural roadmap changes → `/devenv-refine-roadmap`; status-only roadmap sync → `/devenv-update-roadmap` |
 | `/devenv-create-roadmap` | Phased delivery sequencing from a blueprint and/or requirements doc, with optional GH issue creation. Canonical entry point for bulk issue creation from a planning doc. | "create a roadmap", "plan delivery order", "build a roadmap from this blueprint", "build a roadmap from these requirements", "lay out the delivery phases" | low-level task breakdown → `/devenv-create-implementation-plan`; syncing roadmap state from issues → `/devenv-update-roadmap`; structural revisions → `/devenv-refine-roadmap`; nothing to plan from yet → `/devenv-gather-requirements` or `/devenv-create-blueprint` |
 | `/devenv-refine-roadmap` | Structurally revise an existing roadmap — split steps, re-sequence, add components | "refine the roadmap", "revise the roadmap", "split this step", "re-sequence the phases", "the roadmap structure needs updating" | status-only sync from issues/PRs → `/devenv-update-roadmap`; creating a new roadmap → `/devenv-create-roadmap`; revising the underlying blueprint → `/devenv-refine-blueprint` |
@@ -179,23 +191,57 @@ For new systems or features where requirements are undefined. Starts with requir
 
 ### Chain E — From requirements to delivery roadmap (architecture-driven)
 
-For epic-scale work where requirements need to translate into architecture and a sequenced delivery plan with GitHub issues. Each roadmap step then spawns its own implementation plan as work begins.
+For epic-scale work where requirements need to translate into architecture and a sequenced delivery plan with GitHub issues. Each roadmap step then spawns a technical design (for new components) and an implementation plan as work begins.
 
 ```
 /devenv-gather-requirements
   → /devenv-create-blueprint
     → /devenv-create-roadmap         (creates GH issues across component repos)
-      → /devenv-create-implementation-plan   (per roadmap step, as work begins)
-        → (Chain A continues from here)
+      → /devenv-create-technical-design  (per new component, before tasks are written)
+        → /devenv-create-implementation-plan   (per roadmap step, draws from technical design)
+          → (Chain A continues from here)
 
   Throughout delivery:
     /devenv-update-roadmap            (sync status from issues + PRs)
     /devenv-refine-roadmap            (structural changes — split steps, re-sequence)
     /devenv-refine-requirements       (when stakeholder priorities or scope shift)
     /devenv-refine-blueprint          (when architecture changes mid-flight)
+    /devenv-refine-technical-design   (when a component's internal design evolves)
 ```
 
 **Start here:** `/devenv-gather-requirements` (or `/devenv-create-blueprint` if requirements already exist)
+
+---
+
+### Chain G — Design a new component from a blueprint
+
+For building a single new component identified in a blueprint. The technical design bridges the system-level spec and the task list.
+
+```
+/devenv-create-blueprint             (or existing blueprint as input)
+  → /devenv-create-technical-design  (design internals: interface, structure, data model, errors)
+    → /devenv-create-implementation-plan   (task breakdown draws from Architecture_and_implementation.md)
+      → /devenv-pair-programming / /devenv-delegation
+        → /devenv-pre-commit → /devenv-open-pr
+          → /devenv-refine-technical-design  (if design evolved during implementation)
+```
+
+**Start here:** `/devenv-create-technical-design` (if blueprint already exists)
+
+---
+
+### Chain F — Document an existing system, then plan future work
+
+For legacy or underdocumented systems that need to be understood before any new work begins. Document first, then use the output to bootstrap planning.
+
+```
+/devenv-document                     (understand and write up the existing system)
+  → /devenv-create-blueprint         (if architecture changes are coming)
+  → /devenv-gather-requirements      (if functional requirements need to be defined)
+  → /devenv-create-implementation-plan   (if a specific deliverable is already defined)
+```
+
+**Start here:** `/devenv-document`
 
 ---
 

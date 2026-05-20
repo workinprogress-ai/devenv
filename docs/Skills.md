@@ -18,14 +18,17 @@ What are you trying to do?
 │   ├─ Weigh design options (opinionated)→ /devenv-design-discussion
 │   └─ Triage an incoming issue         →  /devenv-triage-issue
 │
+├─ 📄 Document
+│   └─ Write docs for an existing system, component, or cross-cutting concern  →  /devenv-document
+│
 ├─ 📝 Define requirements
 │   ├─ System needs functional definition before planning  →  /devenv-gather-requirements
 │   └─ Revise an existing requirements doc                →  /devenv-refine-requirements
 │
 ├─ 🏛️  Architect a system
 │   ├─ Create architectural blueprint            →  /devenv-create-blueprint
-│   ├─ Revise existing blueprint                 →  /devenv-refine-blueprint
-│   ├─ Build delivery roadmap from blueprint and/or requirements   →  /devenv-create-roadmap
+│   ├─ Revise existing blueprint                 →  /devenv-refine-blueprint│   ├─ Design a single component's internals     →  /devenv-create-technical-design
+│   ├─ Update a component's technical design     →  /devenv-refine-technical-design│   ├─ Build delivery roadmap from blueprint and/or requirements   →  /devenv-create-roadmap
 │   ├─ Structurally revise roadmap (split, re-sequence) → /devenv-refine-roadmap
 │   └─ Sync roadmap state from issues / PRs      →  /devenv-update-roadmap
 │
@@ -130,6 +133,18 @@ Investigates a question, builds a throwaway prototype if needed, and produces a 
 
 ---
 
+### `/devenv-document`
+
+> **Write documentation for an existing system, component, or cross-cutting concern.**
+
+Interviews the user to establish audience, output format, and scope before touching any files. Reads existing docs first (READMEs, design docs, ADRs, inline comments) and falls back to code only where docs are absent or insufficient — always surfacing the gap and recommending a depth level before reading deeper. Tracks open questions as Q-NNN items; resolves or defers all of them before writing. Proposes a session plan upfront for multi-component tasks. Maintains a `session_memory-document.md` for continuity across sessions.
+
+**Use for:** documenting a legacy codebase; writing an onboarding guide; creating AI context briefs for future sessions; cross-cutting documentation that spans multiple repos  
+**Don't use for:** conversational Q&A without a written output (→ `/devenv-chat-with-code`); formal architectural decomposition (→ `/devenv-create-blueprint`); tech debt assessment (→ `/devenv-tech-debt-audit`)  
+**Tool deps:** none
+
+---
+
 ### `/devenv-chat-with-code`
 
 > **Conversational fact-finding with a codebase — the code talks back.**
@@ -164,6 +179,8 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 | `/devenv-refine-requirements` | Revise an existing requirements doc, preserve REQ-NNN IDs | Requirements file path |
 | `/devenv-create-blueprint` | Architectural decomposition → blueprint doc | System name or path to requirements |
 | `/devenv-refine-blueprint` | Revise an existing blueprint, preserve decisions | Blueprint file path |
+| `/devenv-create-technical-design` | Design a component's internals → `docs/Architecture_and_implementation.md` | Component repo path or blueprint section |
+| `/devenv-refine-technical-design` | Update a component's technical design as it evolves | Component repo path or `Architecture_and_implementation.md` path |
 | `/devenv-create-roadmap` | Phased delivery sequencing + GH issue creation | Blueprint and/or requirements file path (at least one) |
 | `/devenv-refine-roadmap` | Structurally revise a roadmap — split, re-sequence, add | Roadmap file path |
 | `/devenv-update-roadmap` | Sync roadmap status from issues + PRs | Roadmap file path |
@@ -179,6 +196,7 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 |---|---|---|
 | `/devenv-pair-programming` | Collaborative build — human + AI both implement | Issue # or plan path |
 | `/devenv-delegation` | AI-driven build — human reviews | Issue # or plan path |
+| `/devenv-document` | Produce documentation for an existing system or component — audience, format, and scope set by interview | Repo path, component name, or description |
 | `/devenv-chat-with-code` | Conversational fact-finding with a codebase — the code talks back | Repo path(s), or nothing for current workspace |
 | `/devenv-spike` | Exploratory investigation + findings doc | Question or issue # |
 | `/devenv-rubber-duck` | Think out loud — no artifacts | Problem description |
@@ -321,6 +339,13 @@ The skill also fits **after** a blueprint exists, when a specific design questio
 | `/devenv-chat-with-code` vs `/devenv-rubber-duck` | Chat-with-code reads actual code and answers specific questions, cited to `file:line`. Rubber-duck is for thinking out loud about a problem without needing to look at code. |
 | `/devenv-chat-with-code` vs `/devenv-tech-debt-audit` | Chat-with-code is conversational Q&A — you ask, it answers. Tech-debt-audit is an unsupervised sweep that produces a structured findings document. |
 | `/devenv-chat-with-code` vs `/devenv-design-discussion` | Chat-with-code surfaces facts about existing code. Design-discussion weighs trade-offs and drives to a recommendation for what to build or change. |
+| `/devenv-create-technical-design` vs `/devenv-create-blueprint` | Blueprint designs the system (domains, services, events, topology). Technical design designs one component's internals (interface contract, layers, data model, error handling). Blueprint precedes technical design; technical design precedes implementation plan. |
+| `/devenv-create-technical-design` vs `/devenv-design-discussion` | Design-discussion weighs options and produces a focused recommendation. Technical design takes a settled approach and produces a formal spec (`Architecture_and_implementation.md`) with recorded decisions. Design-discussion naturally feeds into technical design. |
+| `/devenv-create-technical-design` vs `/devenv-document` | Technical design involves brainstorming and decision-making; it is prescriptive (how the component should be built). Document is descriptive (how it currently is), with no design decisions. |
+| `/devenv-refine-technical-design` vs `/devenv-refine-blueprint` | `refine-technical-design` updates one component's internal design doc. `refine-blueprint` changes the system-level architecture. A blueprint change may cascade into one or more technical design refinements. |
+| `/devenv-document` vs `/devenv-create-technical-design` | Document produces reference material for what already exists. Technical design produces a specification that guides what is about to be built (or rebuilt). |
+| `/devenv-document` vs `/devenv-create-blueprint` | Document describes an *existing* system as it is (reference, orientation, context). Blueprint *designs* how a system should be structured (architecture, new components, deltas). Use document to understand the present; use blueprint to plan the future. |
+| `/devenv-document` vs `/devenv-tech-debt-audit` | Document aims to produce useful reference material. Tech-debt-audit aims to surface problems and prioritise remediation. |
 | `/devenv-design-discussion` vs `/devenv-spike` | Design-discussion narrows options by reasoning. Spike answers feasibility questions that require running code. |
 | `/devenv-design-discussion` vs `/devenv-create-blueprint` | Design-discussion is exploratory and focused — picks between approaches. Blueprint is formal and broad — decomposes a chosen approach into domains, services, events, components. Design-discussion typically *precedes* a blueprint, or is invoked *after* one to settle a specific question. |
 | `/devenv-session-handoff` vs `/devenv-plan-update` | Narrative summary vs structured task-state update. |

@@ -193,7 +193,8 @@ Before writing anything down (or wrapping up conversation-only), check:
 **Then** offer next-step skills:
 - Approach needs a feasibility check first → [`/devenv-spike`](../devenv-spike/SKILL.md)
 - Discussion settled at the system level → [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
-- Discussion settled at the component level → [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md)
+- Discussion settled at the component level (design needs to be specified) → [`/devenv-create-technical-design`](../devenv-create-technical-design/SKILL.md)
+- Discussion settled at the component level (design is already clear, just need tasks) → [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md)
 - Discussion exposed that the user is actually just venting/articulating → [`/devenv-rubber-duck`](../devenv-rubber-duck/SKILL.md)
 - This is an in-flight refactor needing migration discipline → point at `repos/docs.engineering/docs/NOICE/Context_Library/Architectural_Change/Non_organic_intelligence_instructions.md` and suggest [`/devenv-delegation`](../devenv-delegation/SKILL.md) or [`/devenv-pair-programming`](../devenv-pair-programming/SKILL.md) for execution
 

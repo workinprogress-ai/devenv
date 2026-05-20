@@ -254,18 +254,27 @@ These rules apply whenever the plan file is edited during this session:
   - [date] <one-line summary of what changed and why>
   ```
   Add one entry per revision, in the order they occurred during the session.
-- **Draft → show → confirm → write.** Always show the proposed edit as a diff or inline block before writing. Wait for explicit *"yes"* before touching the file.
+- **Draft → show → confirm → write.** Always show the proposed edit as a diff or inline block before writing. Wait for confirmation before touching the file. When the user has already agreed to a revision (e.g. picked option (a) from a surfaced choice list), showing the draft is the final checkpoint — a casual *"ok"*, *"yes"*, or *"looks good"* is enough; don't ask again. **Exception:** simple checkbox completion ticks (`- [ ]` → `- [x]`) don't require a draft — just update and note it.
 
 After writing, re-emit the **Files in scope** block and **decision flags** for the current phase if they changed.
 
 ## Plan Progress Updates
 
-The AI does **not** auto-update progress. **If the user asks** for a progress update, the AI:
+### Checkbox updates
 
-- Updates the plan file (`- [ ]` → `- [x]`) for tasks that are reviewed-and-approved, **or**
-- Updates the GH issue's task list in the description via `issue-update <N> --body-file <updated-body>` (download current body first, edit, write back).
+As tasks complete (reviewed and approved by both parties), the AI updates the plan file immediately — no permission needed. Edit `- [ ]` → `- [x]` using the file edit tool and note it briefly: *"Ticked 3.1."* Do not batch to end of session.
 
-Always confirm the diff before writing.
+This is the only plan edit the AI makes without prior confirmation. Everything else — new tasks, structural changes, wording — follows the Draft → show → confirm → write convention above.
+
+### GH issue body sync
+
+If the plan was loaded from a GH issue (loaded via `issue-get`, or the plan body contains a GH issue number), sync the issue body at the end of each phase:
+
+1. Fetch the current issue body via `issue-get <N>`.
+2. Apply all checkboxes completed during that phase in one edit.
+3. Show the diff, confirm with the user, then run `issue-update <N> --body-file <path>`.
+
+Do not sync mid-phase — issue bodies are a full overwrite and may clobber concurrent edits. If the session ends mid-phase, offer to sync whatever tasks were completed.
 
 ## Documenting Discoveries (Issue Integration)
 
@@ -312,6 +321,27 @@ Never suggest this at the start of a session — the user chose pair-programming
 > *"The next few tasks are pretty mechanical — I can run with them solo if you want. Just say `/devenv-delegation` and I'll take it from here, or we keep pairing if you'd rather stay close."*
 
 Only offer once per session unless the user brings it up again. Never frame it as "you should do this differently" — it's a menu option, not a redirect.
+
+## Phase Completion Gate
+
+Before declaring a phase complete and moving to Session Wrap-Up, run the committability checklist from [phase-rules.md](../devenv-create-implementation-plan/references/phase-rules.md):
+
+- [ ] All tests pass
+- [ ] Coverage has not regressed vs. the start of the phase
+- [ ] Tests added this phase assert observable behaviour — not just execute code
+- [ ] No blocking TODOs
+
+If coverage has dropped, **it is a blocker** — the phase is not committable. Surface it explicitly:
+
+> *"Coverage dropped from 87% to 84% in this phase. We need to add tests for [X] before this phase is committable. Want me to take those, or will you?"*
+
+The exception path (lower coverage as documented last resort) must be explicitly agreed with the user and recorded in the plan before proceeding.
+
+The user can also override the rule for a phase by:
+
+- **Explicitly rejecting it** for this phase — their call, no further argument needed.
+- **Applying coverage exclusion** to the code in question using the appropriate language attribute (e.g. `[ExcludeFromCodeCoverage]` in C#, `/* istanbul ignore */` in TypeScript).
+- **Adding verbiage to the plan** that modifies or waives the rule for specific phases — if that's present, honour it without re-raising the blocker.
 
 ## Session Wrap-Up
 

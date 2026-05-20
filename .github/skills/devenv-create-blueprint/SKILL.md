@@ -1,6 +1,6 @@
 ---
 name: devenv-create-blueprint
-description: 'Conduct a structured architecture interview to produce a system blueprint — a high-level, architectural description of a system or change to a system. USE WHEN the user says "create a blueprint", "design this system", "architect this", "blueprint this epic", "produce an architectural design", or hands off a requirements doc / problem description that needs architectural decomposition before any planning can begin. Produces a Blueprint-<system>-NNN.md covering domains, services, events, communication patterns, and (for brownfield work) a per-component "what changes" delta. Maintains a session_memory-blueprint.md across sessions. DO NOT USE for low-level implementation planning (use /devenv-create-implementation-plan), for ordering work into milestones (use /devenv-create-roadmap once the blueprint exists), or for capturing user-level functional requirements (use /devenv-gather-requirements).'
+description: 'Conduct a structured architecture interview to produce a system blueprint — a high-level, architectural description of a system or change to a system. USE WHEN the user says "create a blueprint", "design this system", "architect this", "blueprint this epic", "produce an architectural design", or hands off a requirements doc / problem description that needs architectural decomposition before any planning can begin. Produces a Blueprint-<system>-NNN.md covering shared vocabulary, domains, bounded contexts (with ubiquitous language and aggregates), components (deployable units), domain and integration events, a Context Map of cross-BC relationships, and (for brownfield work) a per-component delta. Maintains a session_memory-blueprint.md across sessions. DO NOT USE for low-level implementation planning (use /devenv-create-implementation-plan), for ordering work into milestones (use /devenv-create-roadmap once the blueprint exists), or for capturing user-level functional requirements (use /devenv-gather-requirements).'
 argument-hint: '[system name | one-or-more paths to Requirements-*.md | freeform problem description]'
 user-invocable: true
 ---
@@ -68,7 +68,9 @@ Produce `Blueprint-<system>-NNN.md` where:
 
 See [blueprint-template.md](./references/blueprint-template.md) for the full document structure.
 
-Do not write the file until Phase 3 is approved. During the session, work in chat and update `session_memory-blueprint.md`.
+**Write the file early.** Write the initial draft at the start of Phase 2 — before domain and service decisions are made — and keep it updated as each Phase 2 step is completed. The user reviews markdown on disk, not chat output. Reviewing a file is easier than reading back through a conversation. The file is a working draft until Phase 3 is approved; mark it `Status: Draft` throughout and update it in place after each step.
+
+Update `session_memory-blueprint.md` to track decisions and open questions across sessions, but the blueprint file itself is the primary review surface from Phase 2 onward.
 
 ### Splitting a large blueprint into multiple files
 
@@ -248,91 +250,137 @@ Do not proceed without explicit approval.
 
 ### Phase 2: Architecture
 
-**Goal:** Decompose the system into domains, services, events, and communication patterns. For brownfield, capture the delta per component.
+**Goal:** Collaboratively decompose the system into shared vocabulary, domains, bounded contexts, components, operations, and events. For brownfield, capture the delta per component.
 
-Work through these in order, validating with the user at each substep. Don't try to nail everything in one pass — iterate.
+**Write the draft file now.** Before doing any architectural work, write `Blueprint-<system>-NNN.md` to disk using the template, with `Status: Draft`, and the context from Phase 1 filled into §1 and §2. All architectural sections are empty stubs. This gives the user a file to review against from this point forward. Announce the file path.
+
+Then work through the steps below. After completing each step, update the file on disk before moving to the next. The user should be reviewing the file, not the chat.
+
+**The collaborative rule:** At every decision point below, **propose options with trade-offs and ask the user to decide.** The user owns domain boundaries, bounded context definitions, and component decompositions — never impose these unilaterally. If one option is clearly stronger, say so and explain why — but still ask for confirmation before recording it.
 
 #### Step 1: Identify business capabilities
 
-What are the main things the system needs to do, in domain language? Group related capabilities. Identify dependencies between groups.
+From the requirements and context, list the main things the system needs to do in domain language. Group related capabilities.
 
-#### Step 2: Define domains
+Propose the groupings to the user:
+> *"I see these natural capability groups. Do these groupings make sense, or do you see them differently?"*
 
-For each domain:
-- **Purpose and scope** — what's in, what's out, why this is a natural boundary
-- **Key vocabulary** — concepts central to the domain (table: term + definition)
-- **Relationships** — how this domain depends on or interacts with others
+Do not move to Step 2 until the user confirms the capability map.
 
-Avoid technical layers like "persistence domain" or "API domain" — those aren't business domains.
+#### Step 2: Establish shared vocabulary
 
-#### Step 3: Identify services within domains
+Before drawing any boundaries, surface terms that matter at the system level — terms that should mean the same thing everywhere across the blueprint. These are concepts multiple parts of the system will reference.
 
-For each potential service:
-- **Name and purpose** — clear, business-focused
-- **Owns** — what data/aggregates it manages
-- **Operations** — what actions it performs
-- **Dependencies** — other services it calls
-- **Status** — `existing` / `new` / `extended`
+Propose an initial list based on the requirements and capability map:
+> *"Here are terms I think need a shared definition before we start drawing boundaries. Does this list feel right? Any to add, remove, or refine?"*
 
-**Service-boundary red flags**: services that always change together; long synchronous call chains (A → B → C); shared databases; thin wrappers around a library. Surface these and discuss.
+Record agreed terms in §3 of the blueprint file before proceeding.
 
-#### Step 4: Map domain operations and events
+#### Step 3: Define domains
 
-- **Operations** (TitleCase names like `CreateOrder`, `ProcessPayment`): which services participate, in what order, sync vs. async, success path and failure paths.
-- **Events**: significant state changes that other services react to. Table format:
+For each candidate domain, propose it with:
+- **Proposed boundary** — what's in, what's out
+- **Why this is a natural boundary** — one sentence
+- **Alternative** — what would change if this were split differently or merged with another domain
 
-  | Event | Emitted By | Consumed By | Purpose |
-  |---|---|---|---|
+Present all candidate domains together, then ask:
+> *"Do these domain boundaries make sense? Any that should be merged, split, or redrawn?"*
 
-#### Step 5: Decide communication patterns
+Avoid technical layers like "persistence domain" or "API domain" — those aren't business domains. Push back if the user proposes one.
 
-For each significant interaction: **synchronous or asynchronous?** Document the why.
+Update the file (§4.1 Domains skeleton) before proceeding.
+
+#### Step 4: Define Bounded Contexts within each domain
+
+A Bounded Context is a model boundary. Within it, all terms have a single precise meaning, and the domain model is internally consistent. A domain may contain one BC (simple case) or several (when distinct internal vocabularies, teams, or models exist within it).
+
+For each domain, propose candidate BCs with:
+- **The BC name and one-sentence purpose**
+- **Ubiquitous language** — terms specific to this BC, which may refine or specialise the global vocabulary from §3
+- **Aggregates** — named roots with their consistency boundary and key invariants
+- **Reason for a separate boundary** (if proposing more than one BC per domain)
+
+Ask the user to confirm or adjust before recording. Never impose BC definitions.
+
+Update the file (§4.1 BC entries) before proceeding.
+
+#### Step 5: Define components within each Bounded Context
+
+A component is a deployable unit — a runnable process, a service, an API gateway, a background worker, a batch processor, etc. In most cases a BC maps 1:1 to a component. One BC may contain multiple components when deployment or scaling reasons require it.
+
+For each BC, propose the component(s) with:
+- **Component name** (kebab-case, following the repo naming convention)
+- **Type** — `new | existing | extended`
+- **Purpose** — one sentence, business-focused
+- **Whether it has a public-facing API** — if yes, flag that an API Gateway is required for auth and permission enforcement
+- **Reason for multiple components** (if proposing more than one per BC)
+
+**Brownfield — existing and extended components:** Use the `Explore` subagent to read the target repo's `docs/` folder and produce a structured summary: current purpose, owned aggregates, public API, events emitted/consumed, known dependencies. Present the summary to the user and ask:
+> *"Does this accurately describe the current state? Anything I've misread or missed?"*
+Only record the brownfield delta after the user confirms the current-state description.
+
+Ask the user to confirm the component decomposition before recording.
+
+Update the file (§4.1 Component entries) before proceeding.
+
+#### Step 6: Map operations and events per component
+
+For each component, collaboratively define what it handles and what it emits.
+
+**Operations (commands handled):** For each significant flow, propose the sequence of components involved and the sync/async choice. Use this format:
+> *"`CreateOrder`: I'd suggest this flows: API Gateway → OrderService (owns the aggregate) → emits `OrderConfirmed` → FulfillmentService picks up async. Alternative: FulfillmentService is called sync before the order is committed, which guarantees consistency at the cost of coupling. Which do you prefer?"*
+
+**Domain Events** (internal to the BC — not a published contract): propose events as internal state transitions. Consumers are within the same BC.
+
+**Integration Events** (crossing BC boundaries — these are a published contract): flag their stability expectation explicitly. Breaking changes to integration events require versioning. Ask the user to confirm each event's classification (domain vs. integration) before recording it — this has implications for how stable and backwards-compatible it needs to be.
+
+Update the file (§4.1 operations/events under each component) before proceeding.
+
+#### Step 7: Build the Context Map
+
+For each cross-BC dependency identified in Steps 4–6, propose a relationship type and explain the implication:
+- **Customer/Supplier** — downstream depends on upstream; upstream should consider downstream's needs
+- **Conformist** — downstream blindly adopts upstream's model; no negotiation possible
+- **Anti-Corruption Layer (ACL)** — downstream wraps upstream's model via an explicit adapter; insulates from upstream changes
+- **Shared Kernel** — two BCs share a model subset; changes require mutual coordination
+- **Partnership** — two BCs coordinate tightly; must plan changes together
+
+Ask the user to confirm each relationship type — the type has direct implications for team autonomy, change management, and integration risk.
+
+Update the file (§4.2 Context Map) before proceeding.
+
+#### Step 8: Decide communication patterns
+
+For each significant cross-component interaction where the sync/async choice isn't yet captured in the operations above, propose with explicit trade-offs:
+> *"Between OrderService and PaymentService I'd propose async (event-driven) because payment latency is variable and we don't want order creation to wait on it. Trade-off: eventual consistency means an order can be confirmed before payment is verified — is that acceptable?"*
 
 - Sync: immediate response, consistency critical, cost is coupling
 - Async: eventual consistency acceptable, cost is complexity / ordering
 
-#### Step 6: Reference patterns (optional)
+Do not record the pattern without the user's agreement.
+
+Update the file (§4.3 Communication Patterns) before proceeding.
+
+#### Step 9: Reference patterns (optional)
 
 If a `Pattern_Library` exists in the workspace (typically `repos/docs.engineering/docs/Pattern_Library/`), reference relevant patterns by full GitHub URL so the blueprint stays portable. The library is **optional** — skip if not present or no patterns clearly apply. Do not invent patterns to feel architectural.
 
-#### Step 7 (brownfield only): Per-component "What Changes"
-
-For every existing component touched by this blueprint, write a delta entry:
-
-```markdown
-#### service.commerce.inventory
-
-**Current state**: Owns inventory levels per SKU. Synchronous read API. No events emitted.
-
-**Target state**: Same ownership; emits `InventoryReserved` and `InventoryReleased` events; new async reservation endpoint.
-
-**Changes**:
-- Add event publishing for reservations
-- Add `POST /reservations` endpoint
-- Add `Reservation` aggregate to data model
-```
-
-For new components, record:
-
-```markdown
-#### service.commerce.fulfillment-orchestrator (new)
-
-**Purpose**: Coordinates the fulfillment saga across inventory, payment, and shipping.
-**Owns**: Saga state.
-**Triggered by**: `OrderConfirmed` event.
-```
-
 #### Phase 2 Checkpoint
 
-**STOP.** Present the architecture draft. Say:
+**STOP.** The blueprint file on disk now contains the full architecture draft. Point the user to the file and say:
 
-> "Here's the architecture: domains, services, operations, events, and per-component deltas. Please review:
-> - Are the domain boundaries right?
-> - Are the service boundaries right? Any of the red flags above present?
-> - Are operations and events accurate?
-> - Are the per-component deltas complete and accurate?
+> "The draft blueprint is at `[file path]`. Please review it there — it's easier to read in markdown than in chat.
 >
-> When satisfied, tell me to proceed to Phase 3."
+> Check:
+> - Shared vocabulary (§3) — any missing or mischaracterised terms?
+> - Domain boundaries (§4.1) — do they feel right?
+> - Bounded context definitions — vocabulary and aggregates correct?
+> - Component decomposition — anything that should be merged, split, or renamed?
+> - Operations and events — anything missing or wrong? Domain vs. integration classification correct?
+> - Context Map (§4.2) — relationship types accurate?
+> - Per-component brownfield deltas — complete and accurate?
+>
+> When you're satisfied, tell me to proceed to Phase 3."
 
 Do not proceed without explicit approval.
 
@@ -357,25 +405,30 @@ Do not proceed without explicit approval.
 #### Step 3: Validation checklist
 
 - [ ] Problem and requirements basis are clearly stated
-- [ ] (Brownfield) Existing components surveyed and per-component delta is complete
-- [ ] Domains are well-defined and bounded
-- [ ] Services are loosely coupled and independently deployable
-- [ ] Operations are traced end-to-end through services
-- [ ] Events are identified for async communication
+- [ ] Shared vocabulary (§3) is defined — terms apply system-wide
+- [ ] Domains are well-defined and bounded; no technical layers masquerading as domains
+- [ ] Bounded contexts are clearly delimited with ubiquitous language and aggregates defined
+- [ ] (Brownfield) Existing components surveyed and current-state confirmed with user
+- [ ] Components are loosely coupled and independently deployable
+- [ ] Domain events vs. integration events are classified correctly
+- [ ] Operations are traced end-to-end through components
+- [ ] Context Map records cross-BC relationship types
 - [ ] Communication patterns (sync/async) are justified
+- [ ] Public-facing components are flagged as requiring an API Gateway
 - [ ] Consequences are documented (positive, negative, mitigations)
 - [ ] Patterns referenced (if any) link to full URLs
-- [ ] Vocabulary is clear and consistent
 - [ ] Assumptions and gaps are documented
 - [ ] Blueprint is at the right level (sketch, not specification)
 
 #### Phase 3 Checkpoint
 
-**STOP.** Present the full draft (vision + architecture + consequences). Say:
+**STOP.** The blueprint file has been updated with consequences, mitigations, and gaps. Update `Status: Draft` → `Status: Approved` only on explicit user sign-off. Say:
 
-> "Here's the complete blueprint. Please review the consequences, mitigations, and gaps. When satisfied, tell me to write the file."
+> "The blueprint is at `[file path]` and now includes consequences, risks, and open questions. Please give it a final read.
+>
+> When you're satisfied, say 'approved' and I'll mark it `Status: Approved`."
 
-Only after explicit approval, write `<target-repo>/docs/Architecture/Blueprint-<system>-NNN.md` (or the user-confirmed location).
+Do not mark it approved without explicit confirmation. The file is already on disk; no separate write step is needed.
 
 ---
 
@@ -391,10 +444,15 @@ Once written, surface the next-step options to the user:
 
 ## Anti-patterns
 
-- Writing the file before Phase 3 approval
+- Holding back the file until Phase 3 — write the draft at the start of Phase 2 and keep it updated
+- Making domain, bounded-context, or component decomposition decisions unilaterally — always propose with trade-offs and ask
 - Conflating blueprint with implementation plan (no per-task detail in a blueprint)
-- Skipping the brownfield survey and inventing components that may already exist
-- Inventing pattern references just to look architectural
 - Designing in technologies (`PostgreSQL`, `Kafka`) before designing in domains
+- Using technical layers as domain names ("persistence domain", "API domain")
+- Conflating domain events (internal) with integration events (published contract) — always clarify the classification
+- Forgetting to flag public-facing components as requiring an API Gateway
+- Skipping the brownfield survey and inventing component descriptions that may be wrong
+- Using the `Explore` subagent for brownfield repo docs without confirming the summary with the user before recording it
+- Inventing pattern references just to look architectural
 - Treating `repo-cache-update` output as authoritative without user confirmation of relevance
 - Forgetting to update `session_memory-blueprint.md` between sessions

@@ -63,9 +63,19 @@ For each surveyed component:
 
 ---
 
-## 3. Architecture
+## 3. Shared Vocabulary
 
-### 3.1 Domains
+Terms that apply across the whole system, regardless of domain. Established before domain boundaries are drawn.
+
+| Term | Definition |
+|---|---|
+| <Term> | <Definition> |
+
+---
+
+## 4. Architecture
+
+### 4.1 Domains
 
 #### Domain: <Domain Name>
 
@@ -73,99 +83,112 @@ For each surveyed component:
 - **In scope**: <what belongs here>
 - **Out of scope**: <what does NOT belong here, despite seeming related>
 - **Why a natural boundary**: <one or two sentences>
+- **Relationships to other domains**: <upstream/downstream, integrations>
 
-**Vocabulary**:
+##### Bounded Context: <BC Name>
+
+- **Purpose**: <one sentence — what model this BC owns>
+- **Team / ownership**: <who is responsible for this BC>
+
+**Ubiquitous language** (terms specific to this BC; may refine or specialise global terms from §3):
 
 | Term | Definition |
 |---|---|
-| <Term> | <Definition> |
+| <Term> | <BC-specific definition> |
 
-**Relationships**: <how this domain relates to others>
+**Aggregates**:
 
-### 3.2 Services
+| Aggregate Root | Consistency Boundary | Key Invariants |
+|---|---|---|
+| `<Name>` | <what stays consistent together> | <rules that must always hold> |
 
-For each service:
+###### Component: <component-name>  *(new | existing | extended)*
 
-#### service.<category>.<name>  *(existing | new | extended)*
+> A component is a deployable unit (service, API gateway, worker, batch processor, etc.).
+> Most commonly a Bounded Context maps 1:1 to a component.
+> One BC may contain multiple components (e.g. an API component + a background worker).
 
 - **Purpose**: <one sentence, business-focused>
-- **Owns**: <data / aggregates>
-- **Operations**: <key actions>
-- **Dependencies**: <other services it calls>
+- **Public API**: <endpoints, in brief — note: any public-facing exposure requires an API Gateway for auth and permission enforcement>
+- **Dependencies**: <other components it calls>
 
-### 3.3 Operations
+**Operations (commands handled)**:
 
-For each significant business operation:
-
-#### Operation: `CreateOrder`
-
-- **Trigger**: <user action / scheduled / event>
-- **Participants**: OrderService, InventoryService, PaymentService
-- **Flow**:
-  1. OrderService validates the request (sync)
-  2. OrderService calls InventoryService to reserve stock (sync)
-  3. OrderService calls PaymentService to charge (sync)
-  4. OrderService emits `OrderConfirmed` (async)
-- **Failure handling**: <compensation / retry / saga reference>
-- **Sync/async rationale**: <why this mix>
-
-### 3.4 Events
-
-| Event | Emitted By | Consumed By | Purpose |
+| Operation | Trigger | Flow Summary | Failure Handling |
 |---|---|---|---|
-| `OrderConfirmed` | OrderService | FulfillmentService, NotificationService | Triggers fulfillment and customer notification |
+| `CreateOrder` | User submits order | Validate → reserve stock → charge payment → emit `OrderConfirmed` | Compensate via saga if payment fails |
 
-### 3.5 Communication Patterns
+**Domain Events** (internal to this BC — not a published contract, consumers are within this BC):
 
-| Interaction | Sync / Async | Rationale |
+| Event | Trigger | Consumers within this BC |
 |---|---|---|
-| Order → Inventory (reserve) | Sync | Must confirm stock before charging |
-| Order → Fulfillment | Async | Decoupling; eventual consistency acceptable |
+| `OrderValidated` | Order passes validation | Payment handler |
 
-### 3.6 Patterns Applied
+**Integration Events** (cross-BC — these are a published contract; consumer BCs depend on their schema):
+
+| Event | Consumed By | Stability Expectation |
+|---|---|---|
+| `OrderConfirmed` | FulfillmentBC, NotificationBC | Stable — breaking changes require versioning |
+
+**Brownfield delta** (omit for new components):
+
+- **Current state**: <brief description of what exists today; reference §2 survey for detail>
+- **Target state**: <what it looks like after this blueprint is implemented>
+- **Changes**:
+  - <change 1>
+
+---
+
+### 4.2 Context Map
+
+Relationships between Bounded Contexts.
+
+| From | To | Relationship Type | Notes |
+|---|---|---|---|
+| `<BCName>` | `<BCName>` | Customer/Supplier | <brief rationale> |
+
+**Relationship type reference**:
+
+| Type | Meaning |
+|---|---|
+| Customer/Supplier | Downstream (Customer) depends on upstream (Supplier); Supplier considers Customer needs |
+| Conformist | Downstream blindly adopts upstream's model; no negotiation |
+| Anti-Corruption Layer (ACL) | Downstream wraps upstream's model via an explicit adapter; insulates from upstream changes |
+| Shared Kernel | Two BCs share a subset of the domain model; changes require mutual coordination |
+| Partnership | Two BCs coordinate tightly; must plan changes together |
+
+### 4.3 Communication Patterns
+
+For each significant cross-component interaction where the sync/async choice needs recording:
+
+| From | To | Sync / Async | Rationale |
+|---|---|---|---|
+| OrderService | InventoryService | Sync | Must confirm stock before charging |
+| OrderService | FulfillmentService | Async | Eventual consistency acceptable; decouples fulfillment latency |
+
+### 4.4 Patterns Applied
 
 > Reference patterns from the Pattern Library only when they clearly apply.
 > Use full GitHub URLs for portability.
 
-- **Saga** ([link]): manages the order → payment → fulfillment flow with compensations.
-- **Circuit Breaker** ([link]): protects calls into PaymentService.
+- **Saga** ([link]): <why/where applied>
+- **Anti-Corruption Layer** ([link]): <why/where applied>
 
 ---
 
-## 4. Per-Component Changes
+## 4. Consequences
 
-> For brownfield blueprints. For greenfield, replace with "N/A — greenfield".
-
-### 4.1 service.commerce.inventory  *(extended)*
-
-- **Current state**: Owns inventory levels per SKU. Synchronous read API. No events emitted.
-- **Target state**: Same ownership; emits `InventoryReserved` and `InventoryReleased`; new async reservation endpoint.
-- **Changes**:
-  - Add event publishing for reservations
-  - Add `POST /reservations` endpoint
-  - Add `Reservation` aggregate to data model
-
-### 4.2 service.commerce.fulfillment-orchestrator  *(new)*
-
-- **Purpose**: Coordinates the fulfillment saga across inventory, payment, and shipping.
-- **Owns**: Saga state.
-- **Triggered by**: `OrderConfirmed` event.
-
----
-
-## 5. Consequences
-
-### 5.1 Positive
+### 4.1 Positive
 
 1. <Improvement / force resolved>
 2. ...
 
-### 5.2 Negative
+### 4.2 Negative
 
 1. <Complexity / risk introduced>
 2. ...
 
-### 5.3 Mitigations
+### 4.3 Mitigations
 
 | Negative consequence | Mitigation |
 |---|---|
@@ -173,23 +196,23 @@ For each significant business operation:
 
 ---
 
-## 6. Assumptions and Gaps
+## 5. Assumptions and Gaps
 
-### 6.1 Assumptions
+### 5.1 Assumptions
 
 - <Things treated as true that may not be>
 
-### 6.2 Known Gaps
+### 5.2 Known Gaps
 
 - <Areas not yet designed in detail>
 
-### 6.3 Future Work
+### 5.3 Future Work
 
 - <Out of scope for this blueprint; deferred>
 
 ---
 
-## 7. References
+## 6. References
 
 - Requirements: <link>
 - Related blueprints: <links>

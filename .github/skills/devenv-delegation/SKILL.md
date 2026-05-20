@@ -158,6 +158,26 @@ When aborting, summarize what was done so far in the same format as a normal ses
 
 > **Switching to pair-programming mid-session:** if the user wants to switch, tell them explicitly: *"To get the full pair-programming rules, please start a new chat and invoke `/devenv-pair-programming` — continuing in this session means the pair-programming skill isn't loaded and its rules won't apply."* Do not continue in delegation mode pretending to pair-program.
 
+## Phase Completion Gate
+
+Before wrapping a phase and syncing the issue body, run the committability checklist from [phase-rules.md](../devenv-create-implementation-plan/references/phase-rules.md):
+
+- [ ] All tests pass
+- [ ] Coverage has not regressed vs. the start of the phase
+- [ ] Tests added this phase assert observable behaviour — not just execute code
+- [ ] No blocking TODOs
+
+If coverage has dropped, **stop** — add a hotspot entry and surface it to the user before proceeding:
+
+> *"Coverage dropped from 87% to 84% in this phase. I need to add tests for [X] before this phase is committable. Taking those now unless you'd prefer to handle them."*
+
+The exception path (documented last resort) must be explicitly surfaced and agreed before the phase is marked done.
+
+The user can override the rule for a phase by:
+- **Explicitly rejecting it** for this phase — their call, accept it and move on.
+- **Applying coverage exclusion** to the code in question using the appropriate language attribute (e.g. `[ExcludeFromCodeCoverage]` in C#, `/* istanbul ignore */` in TypeScript).
+- **Adding verbiage to the plan** that modifies or waives the rule for specific phases — if that's present, honour it without re-raising the blocker.
+
 ## End-of-Session Summary
 
 See [session-summary.md](./references/session-summary.md) for the full template. Required sections:
@@ -195,6 +215,10 @@ The AI owns checkbox updates in delegation — the user isn't driving the work, 
 Mark a task `- [x]` as soon as the user accepts the work for that task. Do not batch to end of session.
 
 Edit `- [ ]` → `- [x]` using the file edit tool. Confirm briefly: *"Ticked 2.1 and 2.2."*
+
+### Inconsistencies and plan gaps
+
+If, while updating the plan, anything surfaces that can't be resolved by a checkbox tick — a task description that doesn't match what was built, a missing task, an already-completed task that isn't in the plan, an assumption that no longer holds — **stop immediately and discuss with the user before continuing**. Do not silently add tasks, adjust descriptions, or reorder phases. These inconsistencies often signal a real plan gap or an undetected scope change that needs to be understood before work continues.
 
 ### GH issue body sync
 
