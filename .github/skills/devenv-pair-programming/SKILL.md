@@ -1,6 +1,6 @@
 ---
 name: devenv-pair-programming
-description: 'Collaborate with the user as a pair-programming partner on a user story, GitHub issue, or implementation plan. USE WHEN the user says "pair program", "let''s pair on this", "pair with me", "work on this issue with me", "implement this together", "let''s tackle this plan together", "work through this implementation plan", or hands off a GitHub issue with collaborative intent (not "just do it"). Loads the plan (from a file path or via `issue-get` for a GH issue), runs an interactive task-by-task handoff protocol where both parties take turns implementing and reviewing, asks before assuming, pushes back when warranted, and offers to document discoveries via `issue-comment` / `issue-create`. DO NOT USE for solo "do this for me" tasks, pure Q&A, or when the user wants the AI to drive the entire implementation without checkpoints.'
+description: 'Collaborate with the user as a pair-programming partner on a user story, GitHub issue, or implementation plan. USE WHEN the user says "pair program", "let''s pair on this", "pair with me", "work on this issue with me", "implement this together", "let''s tackle this plan together", "work through this implementation plan", or hands off a GitHub issue with collaborative intent (not "just do it"). Loads the plan (from a file path or via `tools/issue-get` for a GH issue), runs an interactive task-by-task handoff protocol where both parties take turns implementing and reviewing, asks before assuming, pushes back when warranted, and offers to document discoveries via `tools/issue-comment` / `tools/issue-create`. DO NOT USE for solo "do this for me" tasks, pure Q&A, or when the user wants the AI to drive the entire implementation without checkpoints.'
 argument-hint: '[issue-number | path-to-plan | "ad-hoc"]'
 user-invocable: true
 ---
@@ -61,7 +61,7 @@ Ask, if not provided:
 
 ### 2. Load the plan
 
-**If GH issue**: run `issue-get <N> --pretty` and parse JSON. Look for an implementation plan in `body`.
+**If GH issue**: run `tools/issue-get <N> --pretty` and parse JSON. Look for an implementation plan in `body`.
 
 **If plan file**: read it.
 
@@ -140,7 +140,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
    - What files changed and what changed in plain language
    - Reasoning for non-obvious choices
    - Specific scrutiny invitations: *"Especially look at line 142 — I picked a jitter multiplier without precedent in the codebase."*
-5. **Wait.** Do not start the next task until the user approves.
+5. **Wait.** Do not start the next task until the user approves. Any clear signal counts — *"looks good"*, *"ok"*, *"ship it"*, or a thumbs-up. If it's ambiguous, ask once: *"Good to move on?"*
 
 ### When the user is driving
 
@@ -150,7 +150,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
    - **Research open questions.** If a `decision:` item or unresolved question is coming up in your batch, gather the options and relevant codebase evidence now so the conversation doesn't stall mid-task.
    - **Flag anything genuinely useful.** One proactive interjection mid-task is fine: *"Quick heads-up while you're in there — `BulkSyncWorker` has a private `_retryCount` field that overlaps with what you're adding."* Don't pepper them with interruptions, and don't invent things to say just to look busy.
    - If there's truly nothing productive to do (rare — the backlog is always there), say so briefly rather than going silent: *"No obvious prep for 2.3 — it's straightforward once 2.2 lands. I'll review whenever you're ready."*
-3. **Review the actual diff.** Use `get_changed_files` and read the diff before responding. Don't review from memory.
+3. **Review the actual diff.** Use `get_changed_files` and read the diff before responding. If `get_changed_files` isn't available, read the relevant files directly. Don't review from memory.
 4. **Give a real review.** Provide:
    - Concrete observations — if something is well done, say what specifically makes it good
    - Concerns with a reason *and* where the right pattern is in the codebase: *"This swallows the exception — that'll make silent failures invisible. The existing http client in `HttpSyncClient.cs:87` uses log + rethrow, which is what we'd want here."*
@@ -189,6 +189,14 @@ Signals that the user wants discussion, not code:
 In these cases: share the opinion, explain the reasoning, ask a follow-up if needed. **Stop there.** Do not write code, edit files, or announce "Starting X" until the user explicitly directs implementation (e.g. "go ahead", "do it", "let's try that", or an unambiguous task assignment).
 
 If it's genuinely unclear whether the user wants discussion or action, ask: *"Want me to go ahead with that, or are we still thinking it through?"*
+
+### Navigation directives are not implementation directives
+
+**"Proceed to phase X"**, **"start phase X"**, **"move on"**, **"never mind, just proceed"** — these mean: run the phase transition protocol (file links → decision flags → task split negotiation). They are not authorization to implement the phase.
+
+The correct response to *"never mind, just proceed to phase 3"* is to emit the Phase 3 file links block, flag any decisions, and propose a task split. Then stop and wait. Do not begin coding.
+
+If the user abandons a pending action mid-flight (*"never mind"*) and gives a new directive, drop the abandoned action cleanly and do exactly what they asked — nothing more.
 
 ## No-Assumptions Rule
 
@@ -243,6 +251,41 @@ Don't unilaterally edit the plan. Don't continue working as if the plan is still
 
 For structural revisions, **stop implementation** until the plan is updated and both parties have re-oriented. Don't try to hold a restructured plan in working memory while also writing code.
 
+### When the user steps outside the plan
+
+Divergence exists on a spectrum. Read the situation carefully — when the intent is ambiguous, ask before assuming.
+
+**“In the flow” — semi-adhoc within a phase**
+
+The user is still working within the phase but has shifted into fluid implementation mode: implementing multiple tasks at once, skipping the handoff cadence, reshaping the approach as they go. The phase goals are intact; the task-level structure isn’t.
+
+When this happens:
+- Step back to navigator role. Review what’s being built, flag concerns, answer questions. Don’t interrupt the flow with procedural checkpoints.
+- When they pause or signal they’re done, assess what was built vs. what the phase planned. If the original tasks are now scrambled or misleading, offer to rewrite the phase:
+
+  > *“You’ve covered a lot of ground — the phase tasks are pretty scrambled now. Want me to rewrite this phase as what was done and what’s left? Then we can pick up normally.”*
+
+  Rewrite format: a **Done:** list (what was built) and a **Remaining:** list (what’s left in the phase). Brief — this is orientation, not documentation. Once confirmed, the normal paired procedure resumes immediately: same handoff protocol, same task splits, applied to the remaining tasks.
+
+**Complete abandonment — stepping outside the plan**
+
+The user signals they’re leaving the plan behind entirely. Two sub-cases:
+
+- **Temporary detour** — unrelated work came up (a bug, a quick experiment, a side task). Stay in the moment, help with what they’re doing. Don’t reference the plan. Wait for them to signal a return.
+- **Plan reconsideration** — the plan itself seems to be in question. Ask before doing anything:
+
+  > *“Are we setting the plan aside for now, or reconsidering it entirely? Just want to make sure I’m not tracking against something you’ve moved on from.”*
+
+In either case: in ad-hoc mode the AI does **not** reference or try to follow the plan. It follows the current conversation only. When the user returns to the plan (or asks to update it), re-read it, orient on current state, and run the phase kickoff from wherever things stand.
+
+**When the intent is unclear**
+
+If you can’t tell whether the user is temporarily off-plan, on a detour, or reconsidering the plan entirely — ask:
+
+> *“Are you still working within this plan, or have we stepped outside it for a bit?”*
+
+Don’t guess. Don’t silently stay in plan-tracking mode if the user has moved on, and don’t silently drop the plan if they’re just being fluid.
+
 ### Editing conventions (applied inline — no skill switch needed)
 
 These rules apply whenever the plan file is edited during this session:
@@ -269,9 +312,18 @@ This is the only plan edit the AI makes without prior confirmation. Everything e
 
 ### GH issue body sync
 
-If the plan was loaded from a GH issue (loaded via `issue-get`, or the plan body contains a GH issue number), sync the issue body at the end of each phase. **Do this proactively as part of declaring the phase complete — don't wait for the user to ask.**
+> **Tooling:** All GitHub operations use the workspace wrappers in `tools/` — **never invoke `gh` directly.** The wrappers handle auth, default flags, and workspace conventions that raw `gh` calls bypass.
+>
+> | Need | Use |
+> |------|-----|
+> | Read an issue | `tools/issue-get <N>` |
+> | Update issue body | `tools/issue-update <N> --body-file <path>` |
+> | Post a comment | `tools/issue-comment <N> --body-file <path>` |
+> | Create an issue | `tools/issue-create ...` |
 
-**Before syncing**, assess whether the phase deviated significantly from the plan — unplanned tasks were added, the approach changed, or the user redirected mid-phase. If so, offer to update the plan to reflect what was actually built before the sync goes out:
+If the plan was loaded from a GH issue (loaded via `tools/issue-get`, or the plan body contains a GH issue number), sync the issue body at the end of each phase. **Do this proactively as part of declaring the phase complete — don't wait for the user to ask.**
+
+**Before syncing**, assess whether the phase deviated significantly from the plan — unplanned tasks were added, the approach changed, or the user redirected mid-phase. If the phase plan was already rewritten during the session (e.g. via the "in the flow" divergence handling), skip this check — the plan is already accurate. Otherwise, if a meaningful gap exists, offer to update it before the sync goes out:
 
 > *"Before I sync the issue, this phase diverged a bit from the plan — we ended up [brief description]. Want me to update the plan to reflect that first? I can tick the original tasks and add a short 'Deviation' note, or rewrite the task descriptions if they're now misleading."*
 
@@ -279,9 +331,9 @@ Keep the update proportionate — a `## Deviation` subheading with a few lines, 
 
 Once the plan is accurate (or the user declines):
 
-1. Fetch the current issue body via `issue-get <N>`.
-2. Apply all checkboxes completed during that phase in one edit.
-3. Show the diff, confirm with the user, then run `issue-update <N> --body-file <path>`.
+1. Fetch the current issue body via `tools/issue-get <N>` — to check for concurrent edits, not as the edit target.
+2. Show the diff between the fetched issue body and the **local plan file** (which is the source of truth — it reflects all checkbox ticks and any structural changes made during the session).
+3. Confirm with the user, then run `tools/issue-update <N> --body-file <path>` to overwrite the issue body with the plan file.
 
 Do not sync mid-phase — issue bodies are a full overwrite and may clobber concurrent edits. If the session ends mid-phase, offer to sync whatever tasks were completed.
 
@@ -296,14 +348,14 @@ See [issue-integration.md](./references/issue-integration.md) for exact CLI invo
 - A new follow-up task / out-of-scope finding emerged.
 - A bug was discovered in adjacent code.
 
-**For adjacent bugs**, also offer to file a **new issue** via `issue-create` (run `issue-create --help` to compose the exact command for the situation).
+**For adjacent bugs**, also offer to file a **new issue** via `tools/issue-create` (run `tools/issue-create --help` to compose the exact command for the situation).
 
 **Confirmation flow**:
 
 1. Draft the comment / issue text.
 2. Show it in chat.
 3. Wait for explicit *"yes"*.
-4. Run `issue-comment <N> --body-file <path>` (or `--body` for a one-liner) / `issue-create ...`.
+4. Run `tools/issue-comment <N> --body-file <path>` (or `--body` for a one-liner) / `tools/issue-create ...`.
 
 ## Ad-Hoc Mode (no plan)
 
@@ -356,10 +408,11 @@ The user can also override the rule for a phase by:
 
 When the user signals end of session (or a phase boundary that suggests a natural break):
 
-1. Summarize what was done, what's left, current state of the plan.
-2. Note any deferred items / follow-ups.
-3. Offer to post a status comment on the issue (if applicable) — show the draft, wait for confirmation.
-4. Suggest a starting point for the next session.
+1. **If the session ends at a completed phase boundary**, verify the [Phase Completion Gate](#phase-completion-gate) was run for that phase. If it was skipped for any reason, run it now before proceeding.
+2. Summarize what was done, what’s left, current state of the plan.
+3. Note any deferred items / follow-ups.
+4. Offer to post a status comment on the issue (if applicable) — show the draft, wait for confirmation.
+5. Suggest a starting point for the next session.
 
 ## Anti-patterns
 
@@ -372,12 +425,14 @@ When the user signals end of session (or a phase boundary that suggests a natura
 - Raising a concern without saying where the right pattern is in the codebase (when one exists).
 - Silent assumptions on architectural or non-trivial choices.
 - Theatrical preamble.
-- Auto-running `issue-comment` / `issue-update` / `issue-create` without explicit confirmation.
+- Auto-running `tools/issue-comment` / `tools/issue-update` / `tools/issue-create` without explicit confirmation.
 - Pretending to know something instead of saying *"I don't know, let me look."*
-- Updating plan checkboxes without being asked.
+- Batching checkbox updates to the end of the session — tick each task the moment it’s approved, not later.
 - Suggesting delegation at session start before any collaboration patterns are visible.
 - Emitting file links that haven't been confirmed to exist.
 - Continuing to follow a plan that discovery has proven wrong without surfacing the conflict.
+- Invoking `gh` CLI directly for GitHub operations instead of the `tools/issue-*` wrappers.
+- Treating "proceed to phase X" or "never mind, just proceed" as authorization to implement the phase solo — it means run the phase kickoff (file links, decisions, task split), then wait.
 - Unilaterally editing the plan without discussion and agreement.
 - Implementing when the user asked for an opinion or was thinking out loud.
 - Silently absorbing user divergence from the plan without naming the delta and offering to update.
