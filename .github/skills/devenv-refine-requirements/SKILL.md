@@ -109,7 +109,24 @@ Tension: hard-delete removes the actor reference needed by REQ-019.
 ```
 
 For each finding offer: resolve inline (user clarifies, AI updates requirements), add to the revision's open questions, or accept as a documented trade-off. **Do not write the file while known contradictions remain unresolved.**
-### 4. Record the revision
+
+### 4b. Episode staleness check
+
+If an `Episodes-<topic>-NNN.md` companion file exists, check whether any changed requirements are illustrated in it:
+
+1. Read the episodes file.
+2. For each requirement that was added, reworded, or superseded in this refinement, check whether it appears in any episode's "Requirements illustrated" footer or inline links.
+3. Mark stale episodes with a notice at the top of that episode:
+
+   ```markdown
+   > ⚠️ **Stale** — requirements illustrated by this episode have changed since it was written. Review before relying on it. Affected: [REQ-014](#req-014), [REQ-019](#req-019)
+   ```
+
+4. Surface the stale episodes to the user:
+
+   > *"Episodes 2 and 4 illustrate requirements that changed in this refinement ([REQ-014](#req-014), [REQ-019](#req-019)). I've marked them stale. Would you like me to update them now, or batch that for a later session?"*
+
+**Rewriting episodes is a deliberate act, not automatic.** Episodes accumulate meaning and character over time; a hasty rewrite loses the voice. Batch episode updates until the requirements are stable enough to justify the effort — typically at the end of a refinement cycle, not mid-stream. When rewriting: keep the character names, places, and emotional tone from the original. Only change narrative elements that are now factually wrong given the revised requirements.
 
 Add a new entry to the top of `## Revision History` (create the section if missing, immediately after the document title):
 
@@ -136,7 +153,13 @@ After writing, list what may need follow-up:
 - **Blueprint impact**: a new requirement may require new components or revised deltas \u2192 suggest [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md)
 - **Roadmap impact**: a new requirement, or a moved priority group, may require new or re-sequenced roadmap steps \u2192 suggest [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md)
 - **Implementation plan impact**: existing plans may now reference superseded requirements \u2192 suggest [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) for affected plans
+### 8. Offer a stability audit
 
+If the user signals the requirements are approaching final form (incremental refinements, statements like "I think we're almost done", or a series of sessions producing diminishing structural changes), offer a stability audit:
+
+> *"This refinement looks incremental — we might be approaching a stable doc. Would you like to run a stability audit? It's a top-to-bottom scan, typically 1–4 rounds, that ends with an explicit stability declaration. Worth doing before this feeds into planning or implementation."*
+
+See the stability audit protocol in [`/devenv-gather-requirements` § Stability Audit](../devenv-gather-requirements/SKILL.md#stability-audit-final-convergence-review).
 ## Anti-patterns
 
 - Silently overwriting acceptance criteria
@@ -147,6 +170,8 @@ After writing, list what may need follow-up:
 - **Writing the file while known contradictions remain unresolved.** Every conflict finding must be resolved, accepted as a documented trade-off, or explicitly logged before writing.
 - Treating Phase 3 priority groups as a delivery roadmap (delivery sequencing belongs in [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md))
 - Forgetting to surface blueprint, roadmap, and plan impact after the edit
+- **Silently ignoring stale episodes** when requirements change — always check for a companion episodes file and mark stale episodes.
+- **Rewriting episodes mid-stream** before the requirements are stable — batch episode updates to the end of a refinement cycle.
 
 ## Sibling Skills
 

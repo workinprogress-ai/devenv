@@ -31,12 +31,15 @@ Do **not** use for:
 - **Completeness over speed.** Missing requirements cost far more to discover in implementation than to find here. Probe for gaps, edge cases, and the unhappy path.
 - **The human owns the vision.** You structure and challenge; the stakeholder decides what the system does.
 - **Iterate relentlessly.** Each phase refines understanding. Going back is expected, not a failure.
+- **Wide before narrow.** Move from general to specific. Phase 1 establishes the landscape; Phase 2 fills in the detail. If the user volunteers specifics before the vision is clear, park them in session memory and continue wide-to-narrow — premature detail distorts the shape of the whole.
 
 ## Session Continuity
 
 Requirements gathering can span multiple sessions. Maintain a `session_memory-requirements.md` file in the **target repo root** to preserve state across sessions.
 
 **At session start**: create it if it doesn't exist, or load and summarise it to the user if it does.
+
+**Parking early details:** If the user volunteers specific requirements, detailed acceptance criteria, or technical constraints before Phase 1 vision is established, record them in session memory under a `## Parked details` heading. Acknowledge briefly (*"Got it — I'll hold that for when we get to Phase 2"*) and continue the wide-to-narrow progression. Surface parked items when the relevant phase arrives.
 
 Track:
 - Current phase and what has been completed
@@ -197,9 +200,17 @@ Push beyond the obvious — ask about admin users, support staff, automated syst
 
 #### Step 3: Develop usage scenarios
 
-Create 3–5 concrete narrative walkthroughs showing how specific actors accomplish specific goals. Include decision points, variations, and what happens when things go wrong. Stay at the user experience level, not the implementation level.
+Scenarios are one of the most powerful tools in requirements gathering — they help stakeholders visualise the system in action and surface requirements that abstract descriptions miss. Aim for at least 3–5 concrete narrative walkthroughs; don't cap them artificially. The right number is however many it takes to cover the meaningful situations.
 
-After drafting each scenario, ask: "Does this match how you envision it? What did I get wrong or miss?"
+Each scenario should:
+- Follow a specific actor through a specific goal, step by step
+- Include decision points and branches ("if the order has already shipped…")
+- Cover the happy path *and* common failure modes
+- Stay at the **user experience level** — what happens, not how. No implementation details.
+
+After drafting each scenario, ask: *"Does this match how you envision it? What did I get wrong or miss?"*
+
+**Scenario → requirement backlinking (done in Phase 2):** Once Phase 2 requirements are written, come back to each scenario and add inline markdown links to the requirements it illustrates. Note in session memory that backlinking is pending for each scenario.
 
 #### Step 4: Establish scope and constraints
 
@@ -246,6 +257,8 @@ Work through the vision systematically:
 Validate as you derive: "I see [scenario] implies the system needs to [capability]. Is that right?"
 
 Ask explicitly: "Are there requirements that aren't implied by the scenarios but are still needed? What about administrative or operational requirements — monitoring, backup, user management?"
+
+**Backlink scenarios to requirements.** After requirements are drafted, update each Phase 1 scenario in §1.3 to link the requirements it illustrates. Add *(see [REQ-004](#req-004-title), [REQ-012](#req-012-title))* at natural sentence breaks within the scenario — or at the end of the scenario paragraph where several requirements apply together. These are markdown heading anchors and must match the actual heading IDs in the document.
 
 #### Step 3: Write individual requirements
 
@@ -388,7 +401,125 @@ The first group should be the MVP — the smallest set of requirements that deli
 >
 > When satisfied, tell me to write the output file."
 
-After approval, write the file per [Output File](#output-file) rules. Offer to delete `session_memory-requirements.md`.
+After approval, write the file per [Output File](#output-file) rules. Then offer to write Episodes and to run a Stability Audit before offering to delete `session_memory-requirements.md`.
+
+---
+
+## As-You-Go Health Checks
+
+Requirements documents are built incrementally — inconsistencies accumulate naturally. Trigger a **health check** whenever a meaningful volume of material has landed: approximately every 8–10 requirements discussed, at every phase checkpoint, or after any non-trivial revision. The user can also ask for one at any time.
+
+When the threshold is hit, state it:
+> *"We've covered a fair amount of ground. Running a quick consistency pass before we go further."*
+
+### Three-bucket handling
+
+| Bucket | Description | Action |
+|--------|-------------|--------|
+| **Mechanical** | Terminology inconsistencies, broken cross-references, a term used two ways | Fix silently and note: *"Corrected: 'user' was ambiguous in REQ-003 and REQ-007 — unified to 'customer'."* |
+| **Potential contradiction** | Two requirements that could conflict but might be reconcilable with a clarification | Surface with a proposed resolution and wait for confirmation before editing. |
+| **Genuine gap or ambiguity** | An unclear requirement, a missing constraint, an implicit assumption needing a decision | Add to the open questions log as `Q-NNN` and interview the user. |
+
+Health checks don't stop the session — scan, surface, resolve what can be resolved immediately, park the rest as `Q-NNN`, and continue.
+
+---
+
+## Requirement Episodes
+
+Episodes are a companion document — separate from the requirements file and designed to be *interesting*. Their purpose is to help anyone who reads the requirements (product owner, engineers, testers, stakeholders) emotionally internalise the system. A reader who has met Helen and watched her struggle with the current process will relate every dry requirement back to that experience.
+
+### When to write episodes
+
+Offer to write episodes at Phase 3 approval, once the requirements set is stable enough to tell coherent narratives:
+
+> *"We're at a good stopping point. Would you like me to write a companion Episodes document? These are narrative 'day in the life' pieces that bring the requirements to life — they help people connect the dry REQ-NNN statements to something memorable."*
+
+Do not write episodes earlier — they'll be stale before the interview is done.
+
+### What good episodes look like
+
+- **Specific names and places.** Real names for characters (Helen, Marcus, Priya), real-feeling places (Northgate Distribution Centre, the Bluebell Café), real-feeling company names (Foxton Logistics, Thornwood & Associates). No "User A" or "the company."
+- **Narrative arc.** Follow a character through a situation — a day, a task, a problem and its resolution.
+- **Emotionally engaging.** Characters think and feel. Helen is frustrated. Marcus is quietly proud of his workaround. Priya's relief when something finally works. Make the reader care.
+- **Funny where it fits.** Absurdist moments in mundane processes are the natural home of requirements humour — the system that fires four confirmation emails for a £3 purchase, the approval workflow that nominally requires the CEO's sign-off. Humour that illuminates a requirement is welcome. Forced humour that obscures the point is not. When in doubt, lean funny.
+- **Conversational.** Characters talk to each other. Dip into internal monologue. Dialogue is more vivid than narration.
+- **Showing, not telling.** Don't say "the system was easy to use." Show Helen completing the task in two minutes despite never having used it before.
+- **User perspective only.** Episodes describe what happens, never how. No databases, APIs, or implementation details.
+
+### What episodes are NOT for
+
+Edge cases and exception handling stay in REQ-NNN. Episodes can acknowledge that something went wrong, but they don't dwell on exception paths — that's what the requirements are for. Episodes also don't need to cover every requirement. They illustrate *clusters* of requirements in context. The goal is that a reader can think *"I see how REQ-019 relates to what happened to Marcus"* even if REQ-019 isn't called out explicitly in that episode.
+
+### REQ-NNN references
+
+Keep the episode text clean and narrative. Two reference mechanisms:
+
+1. **Inline markdown links** at natural sentence breaks where a requirement is directly illustrated — *(see [REQ-014](#req-014-title))* — not mid-sentence, not cluttering every line.
+2. **"Requirements illustrated" footer** at the end of each episode — a concise list of primarily illustrated requirements with markdown links.
+
+Footer format:
+```markdown
+---
+**Requirements illustrated:** [REQ-002](#req-002), [REQ-007](#req-007), [REQ-014](#req-014), [REQ-019](#req-019)
+```
+
+### Output file
+
+Episodes live in `Episodes-<topic>-NNN.md` in the same folder as the requirements doc. Structure:
+
+```markdown
+# [System Name] — Episodes
+
+> Companion to `Requirements-<topic>-NNN.md`. Episodes are not specifications — they illustrate requirements in context. See the requirements document for acceptance criteria and normative detail.
+
+## Episode 1: [Title]
+
+[Narrative — typically 300–600 words. Shorter is fine if the point lands.]
+
+---
+**Requirements illustrated:** [REQ-001](#req-001), [REQ-007](#req-007)
+
+---
+
+## Episode 2: [Title]
+
+[...]
+```
+
+### How many episodes
+
+Let scope drive the count. A single-epic doc covering 10–15 requirements might need 2–3 episodes. A large doc with 30+ requirements might need 5–7. The goal isn't exhaustive coverage — it's enough episodes that a reader can mentally map the full requirements set to at least one human situation they've encountered.
+
+---
+
+## Stability Audit (Final Convergence Review)
+
+When Phase 3 is approved and episodes are written (or the user signals the requirements are approaching final form), offer a stability audit:
+
+> *"Before we call this done — want to run a final convergence check? It's a full top-to-bottom scan for remaining inconsistencies. We keep going until a pass comes up clean. Typically 1–4 rounds."*
+
+### How it works
+
+Each round scans the complete requirements document:
+- Vision and scope for internal coherence
+- Requirement descriptions against their acceptance criteria
+- Cross-requirement dependencies for integrity
+- Priority groupings for consistency with the stated MVP rationale
+- Open questions log — anything still `open` must be resolved or explicitly deferred
+
+After each round, present a structured findings list: finding ID, affected requirement(s), issue type, severity (`blocking` / `minor` / `cosmetic`), and proposed resolution. Handle findings the same three-bucket way as the as-you-go health checks.
+
+### Exit criteria
+
+The audit is complete when:
+1. A round produces **no blocking findings** — only minor or cosmetic notes.
+2. The number of findings is visibly declining across rounds.
+
+After the final clean pass, declare stability explicitly:
+
+> *"The document passed this round with only [minor/cosmetic] notes. I believe it's stable. Here's what was addressed across the [N] review rounds: [brief summary]. Ready to mark this final and delete the session memory?"*
+
+Do not declare stability if blocking contradictions remain unresolved.
 
 ---
 
@@ -443,6 +574,10 @@ After approval, write the file per [Output File](#output-file) rules. Offer to d
 - Writing the output file before Phase 3 is approved.
 - Merging `session_memory-requirements.md` to the main branch.
 - Conflating priority groupings (this skill's Phase 3) with a delivery roadmap (`/devenv-create-roadmap`) or an implementation plan (`/devenv-create-implementation-plan`).
+- **Jumping to detailed requirements during Phase 1** because the user mentioned specifics — park the details, finish the vision first.
+- **Writing episodes before Phase 3 is approved** — they'll be stale before the ink is dry.
+- **Putting implementation details or exception-path coverage into episodes** — episodes illustrate happy and common paths only.
+- **Skipping health checks** when many requirements have accumulated. Contradictions don't self-report.
 
 ## Sibling Skills
 

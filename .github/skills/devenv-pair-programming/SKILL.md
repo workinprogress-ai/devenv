@@ -145,10 +145,11 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 ### When the user is driving
 
 1. **Acknowledge.** *"Got it, you're on 2.2."*
-2. **Navigate actively — don't just wait.** While the user drives, the AI is useful:
-   - Pre-read files for the next task so the handoff is fast: *"While you're on 2.2, I'm reading ahead on 2.3 — the interface we need already exists in `IRetryPolicy`, so that task should be quick."*
-   - Answer questions, look things up, sketch options on request.
-   - One mid-task interjection is fine if there's something genuinely useful to flag: *"Quick heads-up while you're in there — `BulkSyncWorker` has a private `_retryCount` field that overlaps with what you're adding."* Don't pepper them with interruptions.
+2. **Immediately start navigator work — don't wait.** The moment the user picks up a task, the AI starts doing useful things. This is not optional and does not require the user to ask:
+   - **Pre-read for your whole upcoming batch.** If the split is "you do 1–3, I do 4–6", use the time while the user drives to read every file touched by tasks 4–6, identify relevant patterns, note likely gotchas, and draft any boilerplate that's already determined. When it's your turn you should be able to move quickly, not start cold. Surface a brief summary when handing back: *"While you were on 2.2–2.4, I read ahead on 2.5–2.7 — most of it is straightforward. One thing to resolve before I start 2.6: the retry policy interface has two implementations and I need to know which one to extend."*
+   - **Research open questions.** If a `decision:` item or unresolved question is coming up in your batch, gather the options and relevant codebase evidence now so the conversation doesn't stall mid-task.
+   - **Flag anything genuinely useful.** One proactive interjection mid-task is fine: *"Quick heads-up while you're in there — `BulkSyncWorker` has a private `_retryCount` field that overlaps with what you're adding."* Don't pepper them with interruptions, and don't invent things to say just to look busy.
+   - If there's truly nothing productive to do (rare — the backlog is always there), say so briefly rather than going silent: *"No obvious prep for 2.3 — it's straightforward once 2.2 lands. I'll review whenever you're ready."*
 3. **Review the actual diff.** Use `get_changed_files` and read the diff before responding. Don't review from memory.
 4. **Give a real review.** Provide:
    - Concrete observations — if something is well done, say what specifically makes it good
@@ -268,7 +269,15 @@ This is the only plan edit the AI makes without prior confirmation. Everything e
 
 ### GH issue body sync
 
-If the plan was loaded from a GH issue (loaded via `issue-get`, or the plan body contains a GH issue number), sync the issue body at the end of each phase:
+If the plan was loaded from a GH issue (loaded via `issue-get`, or the plan body contains a GH issue number), sync the issue body at the end of each phase. **Do this proactively as part of declaring the phase complete — don't wait for the user to ask.**
+
+**Before syncing**, assess whether the phase deviated significantly from the plan — unplanned tasks were added, the approach changed, or the user redirected mid-phase. If so, offer to update the plan to reflect what was actually built before the sync goes out:
+
+> *"Before I sync the issue, this phase diverged a bit from the plan — we ended up [brief description]. Want me to update the plan to reflect that first? I can tick the original tasks and add a short 'Deviation' note, or rewrite the task descriptions if they're now misleading."*
+
+Keep the update proportionate — a `## Deviation` subheading with a few lines, or adjusted task wording, is enough. The goal is that the issue body reflects what was actually done, not an idealised version of what was planned. Don't rewrite history for minor deviations; only offer if the gap is meaningful.
+
+Once the plan is accurate (or the user declines):
 
 1. Fetch the current issue body via `issue-get <N>`.
 2. Apply all checkboxes completed during that phase in one edit.

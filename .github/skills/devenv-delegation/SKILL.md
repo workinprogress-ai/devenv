@@ -224,7 +224,7 @@ If, while updating the plan, anything surfaces that can't be resolved by a check
 
 GitHub issue bodies are a single markdown blob — every checkbox update is a full overwrite. If the issue body is edited between syncs, the next write will silently clobber those changes.
 
-To avoid this, **sync the issue body only at phase boundaries** (not per-task):
+To avoid this, **sync the issue body only at phase boundaries** (not per-task). **Do this proactively as part of closing each phase — don't wait for the user to ask.**
 
 1. At the end of each phase, fetch the current issue body.
 2. Apply all checkboxes completed during that phase in one edit.

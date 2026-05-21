@@ -135,4 +135,6 @@ For multi-document projects (one doc per epic), use one `<topic>` per epic and o
 ### Reference Information
 
 - [Link to GH issue, design doc, related PR, or external spec]
+
+> **Companion episodes file:** If an `Episodes-<topic>-NNN.md` exists in this folder, it contains narrative illustrations of these requirements. Episodes are not normative — they don't override acceptance criteria.
 ```
