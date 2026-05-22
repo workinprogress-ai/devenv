@@ -9,6 +9,7 @@
   - <As many descriptive bullets as needed to make the task scannable>
   - Files: `workspace-root-relative/path/File.cs`, `workspace-root-relative/path/FileTests.cs`
   - decision: <the choice to make, and why it's non-obvious> (only if applicable)
+  - owner: User | AI  (omit when either party can take it — that's the default)
   - depends on N.N (only if applicable)
 ```
 
@@ -66,6 +67,25 @@ Rules:
 - A task may have multiple `decision:` bullets.
 - Signals to the AI: stop and ask before making the choice silently.
 - Signals to pair-programming: this task should be human-led or discussed at handoff.
+
+### `owner:` bullet
+
+Add an `owner:` bullet when a task strongly belongs to one party:
+
+```
+- owner: User
+```
+
+| Value | Meaning |
+|---|---|
+| `User` | Must be driven by the human — involves design intent, domain judgment, or a decision only the user can make |
+| `AI` | Mechanical or boilerplate work the AI should take by default |
+| *(omit)* | Either party can take it — this is the default; no bullet needed |
+
+Rules:
+- Omit when either party can reasonably take the task.
+- `User` tasks are surfaced by pair-programming when proposing the task split; the AI will not unilaterally take them.
+- Pair-programming and delegation both respect this annotation when proposing splits.
 
 ## Numbering
 

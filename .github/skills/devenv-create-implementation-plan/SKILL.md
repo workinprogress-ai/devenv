@@ -134,14 +134,16 @@ See [task-format.md](./references/task-format.md) for the full spec and examples
   - <Another sub-step — method signature, file to touch, edge case, etc.>
   - Files: `workspace-root-relative/path/File.cs`, `workspace-root-relative/path/FileTests.cs`
   - decision: <the choice to make, and why it's non-obvious> (omit if none)
+  - owner: User | AI  (omit when either party can take it — default)
   - depends on N.N (omit if none)
 ```
 
 - **Bold task header** with size label and optional inline `(additional context)` link.
-- **Descriptive sub-bullets first, metadata last** — sub-bullets describe the work concretely (methods to add, behaviours, edge cases); `Files:` / `decision:` / `depends on` sit at the bottom of the bullet list.
+- **Descriptive sub-bullets first, metadata last** — sub-bullets describe the work concretely (methods to add, behaviours, edge cases); `Files:` / `decision:` / `owner:` / `depends on` sit at the bottom of the bullet list.
 - `[S/M/L]` size label on every task: S ≤ 30 min, M = 30 min–2 h, L > 2 h (consider splitting).
 - `Files:` lists every file the task reads or modifies using workspace-root-relative paths. New files get a `(new)` suffix. Powers the **Files in scope** links in pair-programming and delegation at phase kickoff.
 - `decision:` flags a non-obvious design choice — signals AI to stop and ask, signals pair-programming to discuss at handoff.
+- `owner: User` flags tasks the human must drive (design intent, domain judgment). `owner: AI` flags mechanical tasks the AI should take by default. Omit when either party can take it.
 - Anchor slugs are descriptive: `#task-21--mockstore-implementation`, not `#task-2-1`.
 - `N.N` — first number is the phase. Sub-tasks extend the series: `1.3.1`, `1.3.2`, ...
 - Push depth into *Additional task context* and link to it rather than bloating sub-bullets.
@@ -159,9 +161,13 @@ Brief one-paragraph context.
 
 ### Phase 1 — Discovery & test scaffolding
 > Phase preamble blockquote: deliverable, safety, committability.
+>
+> **Orientation:** What the relevant code currently does and why it falls short for this phase's goal. Ends with one specific thing to find first. *(Skip if already warm.)*
 
 ### Phase 2 — ...
 > Phase preamble blockquote.
+>
+> **Orientation:** ...
 
 ## Contextual Information
 ### Problem Context

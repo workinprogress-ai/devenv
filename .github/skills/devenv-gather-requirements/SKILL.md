@@ -441,10 +441,30 @@ Do not write episodes earlier — they'll be stale before the interview is done.
 - **Specific names and places.** Real names for characters (Helen, Marcus, Priya), real-feeling places (Northgate Distribution Centre, the Bluebell Café), real-feeling company names (Foxton Logistics, Thornwood & Associates). No "User A" or "the company."
 - **Narrative arc.** Follow a character through a situation — a day, a task, a problem and its resolution.
 - **Emotionally engaging.** Characters think and feel. Helen is frustrated. Marcus is quietly proud of his workaround. Priya's relief when something finally works. Make the reader care.
-- **Funny where it fits.** Absurdist moments in mundane processes are the natural home of requirements humour — the system that fires four confirmation emails for a £3 purchase, the approval workflow that nominally requires the CEO's sign-off. Humour that illuminates a requirement is welcome. Forced humour that obscures the point is not. When in doubt, lean funny.
 - **Conversational.** Characters talk to each other. Dip into internal monologue. Dialogue is more vivid than narration.
 - **Showing, not telling.** Don't say "the system was easy to use." Show Helen completing the task in two minutes despite never having used it before.
 - **User perspective only.** Episodes describe what happens, never how. No databases, APIs, or implementation details.
+
+### Voice and tone of episodes
+
+Episodes are the one place in the requirements process where the writing has a voice. The interview is neutral; the episodes are not.
+
+**Emotional engagement first.** Readers remember characters, not requirement IDs. Write so the reader feels Helen's frustration, Marcus's quiet satisfaction, Priya's small moment of triumph. Concrete specifics do this better than adjectives — show her sighing and opening a second browser tab, not "Helen found this frustrating."
+
+**Humor, sprinkled.** Aim for one or two genuinely funny moments per episode — not a punchline every paragraph. The richest seam is the absurdity already baked into the domain: the approval workflow that technically requires a VP's sign-off for a £4 expense, the confirmation email that arrives four minutes after the item has already shipped, the status field that says "Pending" for three days and then silently disappears. Point at this stuff deadpan and let the reader do the work.
+
+Outright jokes are allowed. Use them sparingly. A character's internal monologue is often the right place: *Marcus had requested this report every month for two years. Forty-three clicks. He'd counted.* That's a joke. It doesn't announce itself as one.
+
+**Tone calibration:**
+- Warm and observational, not satirical. The target is knowing recognition, not mockery of anyone's product or company.
+- Dry over broad. Understatement beats exclamation marks.
+- Vary the register. A frustrated character's section reads differently from a triumphant one. Use this.
+- Never funny at a character's expense in a mean way. Funny *with* Helen, not *at* her.
+
+**What to avoid:**
+- Humor that obscures what the requirement actually does — the joke has to serve the illustration, not replace it.
+- Forcing a funny moment when the scenario doesn't have one — a quiet, well-observed scene is better than a strained joke.
+- Starting every episode with the same structure. Vary the opening — in media res, a snippet of dialogue, an observation, a problem already in progress.
 
 ### What episodes are NOT for
 

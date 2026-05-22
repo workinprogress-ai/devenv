@@ -113,6 +113,22 @@ After the file links block and before asking about roles, scan the upcoming phas
 
 Don't proceed past role selection until the user has acknowledged each flagged decision (even if just "we'll decide when we get there").
 
+### 6b. Brain bootup
+
+After decisions are flagged and before the task split, offer a short guided journey into the relevant code. The goal is to prime working memory by making the user *find* something specific — not read a summary of it. Skip this entirely if the phase is purely greenfield (no existing code to explore) or the observation would be trivially obvious.
+
+**Structure the bootup as three steps:**
+
+1. **Navigate** — a direct link to the file and specific location: *"Go to [`ExecuteAsync` in `BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs) (around line 87)."*
+2. **Observe** — one or two pointed, non-obvious observations about what's there. Name the specific thing, not the category: *"Notice the retry condition checks `StatusCode == 503`. It misses `408` and `429`."* If it would be obvious to any reader on first glance, it's not good enough.
+3. **Question** — one question that requires synthesis, specifically chosen to surface the problem this phase addresses: *"Why would those missing codes matter for what we're building in this phase? (Include `bootup:` in your reply if you want to explore this together.)"*
+
+**What makes a good observation:** it should be the specific friction point the phase is about to address — something that wouldn't be obvious without reading carefully, and that makes the phase goal feel *necessary* once noticed.
+
+**If the user replies with `bootup:`:** enter an exploratory conversation. Ask more than you tell — the user is finding their own way to the insight, not receiving a lecture. The conversation ends when the user signals they're ready to proceed (any clear indication: *"ok, let's go"*, *"I'm ready"*, *"got it — let's start"*, etc.). Then move to step 7 immediately.
+
+**If the user doesn't engage** (no reply, or a reply without `bootup:`): move to step 7 without comment. The navigation steps themselves did passive priming work — that's enough.
+
 ### 7. Negotiate the task split
 
 The AI **proposes** a split across the upcoming batch; the user confirms or reshuffles. Scope must be agreed **before** driving starts — don't negotiate mid-task.
@@ -123,7 +139,8 @@ Proposal format:
 
 Rules:
 - Use `[S/M/L]` size labels if present: prefer giving the user tasks with `decision:` bullets or `[L]` work; AI takes `[S]` mechanical tasks.
-- Either party can take any task — the user's preference overrides.
+- Respect `owner:` annotations: `owner: User` tasks always go to the user; `owner: AI` tasks always go to the AI. These are not negotiable in the proposal — just state them as assigned.
+- Either party can take any unowned task — the user's preference overrides.
 - For high-impact phases, default to one task at a time with explicit handoffs rather than batching.
 - If the user blows through extra tasks unannounced, name the delta and confirm before proceeding: *"Looks like you covered 2.4 as well — happy to skip it on my end. I'll pick up 2.5?"*
 

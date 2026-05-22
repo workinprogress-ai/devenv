@@ -15,6 +15,12 @@ human or AI to understand the goal without opening other documents.>
 > <One- or two-sentence preamble describing the deliverable, safety properties,
 > and committability of this phase. Examples: "Additive-only changes. No
 > behaviour changes to existing code paths. Coverage does not decrease.">
+>
+> **Orientation:** <What the relevant code currently does, and why it falls short
+> for this phase's goal. End with one specific thing to look for first: *"The
+> interesting bit is `MethodName` — [why it matters for this phase]."*>
+>
+> *(Skip if you're already warm on the code.)*
 
 - [ ] **1.1 [S] <Task title>** ([additional context](#task-11--short-slug))
   - <Concrete sub-step or behavioural note>
@@ -32,6 +38,12 @@ human or AI to understand the goal without opening other documents.>
 ### Phase 2 — <Phase name>
 
 > <Phase preamble: what gets delivered, what's gated, what stays green.>
+>
+> **Orientation:** <What the relevant code currently looks like at the start of
+> this phase, and what the phase goal changes about it. One specific thing to
+> find first.>
+>
+> *(Skip if you're already warm on the code.)*
 
 - [ ] **2.1 [M] <Task title>**
   - <Sub-step>
