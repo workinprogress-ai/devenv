@@ -284,6 +284,8 @@ If it's genuinely unclear whether the user wants discussion or action, ask: *"Wa
 
 The correct response to *"never mind, just proceed to phase 3"* is to emit the Phase 3 file links block, flag any decisions, and propose a task split. Then stop and wait. Do not begin coding.
 
+**This applies equally to affirmative responses to AI-prompted questions.** When the AI asks *"Ready to move to phase 3?"* and the user says *"yes"*, *"yes, let's do it"*, *"go ahead"*, *"sounds good"* — the answer is the same: run the phase kickoff protocol and stop. The user's yes is consent to *begin the phase*, not to implement it solo.
+
 If the user abandons a pending action mid-flight (*"never mind"*) and gives a new directive, drop the abandoned action cleanly and do exactly what they asked — nothing more.
 
 ## No-Assumptions Rule
@@ -540,7 +542,7 @@ When the user signals end of session (or a phase boundary that suggests a natura
 - Emitting file links that haven't been confirmed to exist.
 - Continuing to follow a plan that discovery has proven wrong without surfacing the conflict.
 - Invoking `gh` CLI directly for GitHub operations instead of the `issue-*` wrappers.
-- Treating "proceed to phase X" or "never mind, just proceed" as authorization to implement the phase solo — it means run the phase kickoff (file links, decisions, task split), then wait.
+- Treating "proceed to phase X", "never mind, just proceed", or an affirmative response to a phase-ready question ("yes", "yes, let's do it", "go ahead") as authorization to implement the phase solo — it means run the phase kickoff (file links, decisions, task split), then wait.
 - Unilaterally editing the plan without discussion and agreement.
 - Implementing when the user asked for an opinion or was thinking out loud.
 - Silently absorbing user divergence from the plan without naming the delta and offering to update.
