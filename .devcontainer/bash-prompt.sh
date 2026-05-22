@@ -3,9 +3,21 @@
 # Capture the VS Code workspace start directory once per shell session.
 # The first shell sources this with $PWD = the workspace folder; subshells
 # inherit the already-exported value and the :- guard leaves it unchanged.
-export DEVENV_START_DIR="${DEVENV_START_DIR:-$PWD}"
 
 __bash_prompt() {
+    
+    # Clear a previously-captured bad value (e.g. set during shell startup when PWD was under /vscode).
+    if [[ "${DEVENV_START_DIR:-}" =~ ^/vscode(/|$) ]]; then
+        unset DEVENV_START_DIR
+    fi
+
+    # Set the start directory to the first non-/vscode PWD value seen, which should be the workspace folder 
+    # for the first shell and any non-/vscode folder for subsequent shells. This allows the prompt to react
+    # to the user leaving the workspace folder, which is a common source of confusion.
+    if [[ ! "$PWD" =~ ^/vscode(/|$) ]]; then
+        export DEVENV_START_DIR="${DEVENV_START_DIR:-$PWD}"
+    fi
+
     local userpart='`export XIT=$? \
         && if [[ -n "${DEVENV_START_DIR:-}" && "$PWD" != "${DEVENV_START_DIR}" && "$PWD" != "${DEVENV_START_DIR}/"* ]]; then \
              _UC="\[\033[0;33m\]"; \
