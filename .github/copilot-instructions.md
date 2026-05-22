@@ -137,3 +137,19 @@ The AI **never** runs git commands that change repository state, branch state, o
 **Wrappers that internally mutate** (e.g. `pr-create-for-merge` pushes the branch, `git-update` pulls) **are allowed** — wrappers encode the safety. The rule prohibits *raw* git mutations, not wrapper invocations.
 
 If a task genuinely requires a mutation (e.g. "commit this and open a PR"), state the exact command(s) and ask the user to run them, or — when a wrapper exists — invoke the wrapper. Never invent a workaround that mutates state directly.
+
+### Chat output formatting
+
+**Emoji signals.** Use these consistently across all chat output so users can scan responses at a glance:
+
+| Signal | Use when |
+|--------|----------|
+| `📁` | Opening a **Files in scope** block |
+| `🔶` | A **decision is required** before continuing |
+| `→` | AI is **starting** a task |
+| `✅` | Task **done**, gate passed, or approved |
+| `⚠️` | **Concern or heads-up** — notable but not a stopper |
+| `🛑` | **Blocker** — work stops here until resolved |
+| `🏁` | **Session or phase wrap-up** |
+
+**File and method references.** Whenever you mention a specific file, class, or method location in chat — hand-backs, reviews, concerns, hints, or brain bootup — use a clickable workspace-root-relative link: [`ExecuteAsync` in `BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L87). Never reference a file by bare name when you have (or can determine) a path and line number. If the exact line isn't known, link to the file without `#L`.

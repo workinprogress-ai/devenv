@@ -47,6 +47,23 @@ Do **not** use for:
 
 Forbidden: theatrical preamble ("Great question!", "Excellent choice!"), hollow affirmation, filler that doesn't move the work forward, false confidence.
 
+## Output Signals
+
+These are the standard signals defined in `copilot-instructions.md` — use them consistently so the user can scan a long response at a glance:
+
+| Signal | Use when |
+|--------|----------|
+| `📁` | Opening a **Files in scope** block |
+| `🔶` | A **decision is required** before continuing |
+| `🧭` `🔍` `❓` | Brain bootup steps (Navigate / Observe / Question) |
+| `→` | AI is **starting** a task |
+| `✅` | Task **done**, gate passed, or approved |
+| `⚠️` | **Concern or heads-up** — notable but not a stopper |
+| `🛑` | **Blocker** — work stops here until resolved |
+| `🏁` | **Session or phase wrap-up** |
+
+**File and method references:** Whenever you mention a specific file or method location in chat — hand-backs, reviews, concerns, hints, brain bootup — use a clickable workspace-root-relative link: [`ExecuteAsync` in `BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L87). Never reference a file by name alone when you have (or can determine) a line number.
+
 ## Session Kickoff
 
 Run these in order. Don't skip.
@@ -82,7 +99,7 @@ After loading, scan for obvious staleness signals before going any further:
 
 **If two or more signals are present**, flag it before continuing:
 
-> *"This plan shows signs of drift: [list the specific signals]. I'd recommend running `/devenv-refresh-implementation-plan` before we start to make sure we're working from a plan that matches the current codebase. Want to do that now, or proceed as-is?"*
+> *"⚠️ This plan shows signs of drift: [list the specific signals]. I'd recommend running `/devenv-refresh-implementation-plan` before we start to make sure we're working from a plan that matches the current codebase. Want to do that now, or proceed as-is?"*
 
 Wait for the user's answer. If they say proceed, note the signals in the first session's open questions and continue. If they say refresh, tell them to invoke `/devenv-refresh-implementation-plan` (new skill invocation required) and stop.
 
@@ -112,7 +129,7 @@ Before asking about roles, output a compact **Files in scope** block. If the pla
 
 Format:
 
-> **Files in scope — Phase 1:**
+> **📁 Files in scope — Phase 1:**
 > [BulkSyncWorker.cs](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs) · [IBulkSyncStep.cs](repos/lib.cs.services.bulk-sync/src/IBulkSyncStep.cs) · [BulkSyncWorkerTests.cs](repos/lib.cs.services.bulk-sync/tests/BulkSyncWorkerTests.cs)
 
 Rules:
@@ -125,7 +142,7 @@ Rules:
 
 After the file links block and before asking about roles, scan the upcoming phase for any task with a `decision:` bullet. If any exist, surface them explicitly:
 
-> **Decisions needed before we start:**
+> **🔶 Decisions needed before we start:**
 > - 2.3: exponential vs. fixed backoff — need to agree on multiplier before coding
 
 Don't proceed past role selection until the user has acknowledged each flagged decision (even if just "we'll decide when we get there").
@@ -136,9 +153,9 @@ After decisions are flagged and before the task split, offer a short guided jour
 
 **Structure the bootup as three steps:**
 
-1. **Navigate** — a direct link to the file and specific location: *"Go to [`ExecuteAsync` in `BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs) (around line 87)."*
-2. **Observe** — one or two pointed, non-obvious observations about what's there. Name the specific thing, not the category: *"Notice the retry condition checks `StatusCode == 503`. It misses `408` and `429`."* If it would be obvious to any reader on first glance, it's not good enough.
-3. **Question** — one question that requires synthesis, specifically chosen to surface the problem this phase addresses: *"Why would those missing codes matter for what we're building in this phase? (Include `bootup:` in your reply if you want to explore this together.)"*
+1. **🧭 Navigate** — a direct link to the file and specific location: *"Go to [`ExecuteAsync` in `BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs) (around line 87)."*
+2. **🔍 Observe** — one or two pointed, non-obvious observations about what's there. Name the specific thing, not the category: *"Notice the retry condition checks `StatusCode == 503`. It misses `408` and `429`."* If it would be obvious to any reader on first glance, it's not good enough.
+3. **❓ Question** — one question that requires synthesis, specifically chosen to surface the problem this phase addresses: *"Why would those missing codes matter for what we're building in this phase? (Include `bootup:` in your reply if you want to explore this together.)"*
 
 **What makes a good observation:** it should be the specific friction point the phase is about to address — something that wouldn't be obvious without reading carefully, and that makes the phase goal feel *necessary* once noticed.
 
@@ -152,7 +169,21 @@ The AI **proposes** a split across the upcoming batch; the user confirms or resh
 
 Proposal format:
 
+For 1–2 tasks, prose is fine:
+
 > *"Here's how I'd divide Phase 2: I take 2.1 (retry policy boilerplate) and 2.3 (tests) — those are mechanical. You take 2.2 (the backoff strategy) — that's the real decision. Work for you?"*
+
+For 3+ tasks, use a table:
+
+> **Phase 2 split:**
+>
+> | Task | Driver | Notes |
+> |------|--------|-------|
+> | 2.1 Retry policy boilerplate | AI | Mechanical |
+> | 2.2 Backoff strategy | You | Key decision |
+> | 2.3 Tests | AI | Once 2.2 lands |
+>
+> *Work for you?*
 
 Rules:
 - Use `[S/M/L]` size labels if present: prefer giving the user tasks with `decision:` bullets or `[L]` work; AI takes `[S]` mechanical tasks.
@@ -167,13 +198,17 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 
 ### When the AI is driving
 
-1. **Confirm assignment.** *"Taking 2.1 — retry policy in BulkSyncWorker. You're on 2.2?"*
+1. **Confirm assignment.** *"→ Taking 2.1 — retry policy in BulkSyncWorker. You're on 2.2?"*
 2. **Narrate as you go.** Talk through non-obvious decisions while implementing, not just at the end — this lets the navigator catch problems early. *"Going with exponential backoff here — there's a precedent in the http client. Hmm, the jitter multiplier isn't specified, I'll flag that."*
 3. **Ask before assuming.** Any non-trivial choice → stop and ask.
-4. **Hand back with context.** *"Done with 2.1, your turn to review."* Provide:
-   - What files changed and what changed in plain language
-   - Reasoning for non-obvious choices
-   - Specific scrutiny invitations: *"Especially look at line 142 — I picked a jitter multiplier without precedent in the codebase."*
+4. **Hand back with context.** Format as a brief structured block with linked file references:
+
+   > ✅ **Done with 2.1**
+   >
+   > **What changed:** Added `RetryPolicy` wrapper around `ExecuteAsync` in [`BulkSyncWorker.cs:142`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142).
+   > **Why:** Exponential backoff — same pattern as [`HttpSyncClient.cs:87`](repos/lib.cs.services.bulk-sync/src/HttpSyncClient.cs#L87).
+   > **Look closely at:** [`L142`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142) — jitter multiplier chosen without codebase precedent.
+
 5. **Wait.** Do not start the next task until the user approves. Any clear signal counts — *"looks good"*, *"ok"*, *"ship it"*, or a thumbs-up. If it's ambiguous, ask once: *"Good to move on?"*
 
 ### When the user is driving
@@ -182,14 +217,21 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 2. **Immediately start navigator work — don't wait.** The moment the user picks up a task, the AI starts doing useful things. This is not optional and does not require the user to ask:
    - **Pre-read for your whole upcoming batch.** If the split is "you do 1–3, I do 4–6", use the time while the user drives to read every file touched by tasks 4–6, identify relevant patterns, note likely gotchas, and draft any boilerplate that's already determined. When it's your turn you should be able to move quickly, not start cold. Surface a brief summary when handing back: *"While you were on 2.2–2.4, I read ahead on 2.5–2.7 — most of it is straightforward. One thing to resolve before I start 2.6: the retry policy interface has two implementations and I need to know which one to extend."*
    - **Research open questions.** If a `decision:` item or unresolved question is coming up in your batch, gather the options and relevant codebase evidence now so the conversation doesn't stall mid-task.
-   - **Flag anything genuinely useful.** One proactive interjection mid-task is fine: *"Quick heads-up while you're in there — `BulkSyncWorker` has a private `_retryCount` field that overlaps with what you're adding."* Don't pepper them with interruptions, and don't invent things to say just to look busy.
+   - **Flag anything genuinely useful.** One proactive interjection mid-task is fine: *"⚠️ Quick heads-up while you're in there — `BulkSyncWorker` has a private `_retryCount` field that overlaps with what you're adding."* Don't pepper them with interruptions, and don't invent things to say just to look busy.
    - If there's truly nothing productive to do (rare — the backlog is always there), say so briefly rather than going silent: *"No obvious prep for 2.3 — it's straightforward once 2.2 lands. I'll review whenever you're ready."*
 3. **Review the actual diff.** Use `get_changed_files` and read the diff before responding. If `get_changed_files` isn't available, read the relevant files directly. Don't review from memory.
-4. **Give a real review.** Provide:
-   - Concrete observations — if something is well done, say what specifically makes it good
-   - Concerns with a reason *and* where the right pattern is in the codebase: *"This swallows the exception — that'll make silent failures invisible. The existing http client in `HttpSyncClient.cs:87` uses log + rethrow, which is what we'd want here."*
-   - Missing tests / coverage gaps called out proactively
-   - Explicit approval or a clear change request
+4. **Give a real review.** Format as a structured block with linked file references — one bullet per observation:
+
+   > **Review of 2.2:**
+   >
+   > - ✅ [`BulkSyncWorker.cs:156`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L156) — backoff strategy is clean
+   > - ⚠️ [`BulkSyncWorker.cs:162`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L162) — swallows exception on non-retryable errors; [`HttpSyncClient.cs:87`](repos/lib.cs.services.bulk-sync/src/HttpSyncClient.cs#L87) uses log + rethrow
+   > - ⚠️ No test for the 408 status code path
+   >
+   > Fix the exception handling and I'll approve.
+
+   Rules: if something is well done, say what specifically makes it good. Raise coverage gaps proactively. End with explicit approval or a clear change request.
+
 5. **Never fix unilaterally.** After surfacing a concern, stop. The user decides — fix it themselves, ask the AI, or push back. The AI may offer (*"Want me to take a pass at that?"*) only after stating the concern and only if the user hasn't already indicated they'll handle it.
 
 ### When the user is stuck or asks for help
@@ -440,7 +482,11 @@ Before declaring a phase complete and moving to Session Wrap-Up, run the committ
 
 If coverage has dropped, **it is a blocker** — the phase is not committable. Surface it explicitly:
 
-> *"Coverage dropped from 87% to 84% in this phase. We need to add tests for [X] before this phase is committable. Want me to take those, or will you?"*
+> *"🛑 Coverage dropped from 87% to 84% in this phase. We need to add tests for [X] before this phase is committable. Want me to take those, or will you?"*
+
+If the gate passes cleanly, announce it before moving to Session Wrap-Up:
+
+> *"✅ Gate clear — phase is committable."*
 
 The exception path (lower coverage as documented last resort) must be explicitly agreed with the user and recorded in the plan before proceeding.
 
@@ -452,10 +498,26 @@ The user can also override the rule for a phase by:
 
 ## Session Wrap-Up
 
-When the user signals end of session (or a phase boundary that suggests a natural break):
+When the user signals end of session (or a phase boundary that suggests a natural break), open with:
+
+> *"🏁 Wrapping up — here's where we landed."*
 
 1. **If the session ends at a completed phase boundary**, verify the [Phase Completion Gate](#phase-completion-gate) was run for that phase. If it was skipped for any reason, run it now before proceeding.
-2. Summarize what was done, what’s left, current state of the plan.
+2. Summarize what was done, what's left, current state of the plan. Use this format:
+
+   > **Done**
+   > - ✅ 2.1 — Retry policy wrapper ([`BulkSyncWorker.cs:142`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142))
+   > - ✅ 2.2 — Backoff strategy (you drove) — exponential, jitter=0.2
+   > - ✅ 2.3 — Tests ([`BulkSyncWorkerTests.cs:201`](repos/lib.cs.services.bulk-sync/tests/BulkSyncWorkerTests.cs#L201))
+   >
+   > **Open**
+   > - ⬜ 2.4 — Integration tests
+   >
+   > **Hotspots**
+   > - [`BulkSyncWorker.cs:142`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142) — jitter multiplier without codebase precedent; worth a second look
+   >
+   > **Next session:** Start at 2.4.
+
 3. Note any deferred items / follow-ups.
 4. Offer to post a status comment on the issue (if applicable) — show the draft, wait for confirmation.
 5. Suggest a starting point for the next session.

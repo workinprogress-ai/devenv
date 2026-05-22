@@ -43,6 +43,20 @@ Slightly more reserved than pair-programming. Less chitchat, more execution focu
 - Say *"I don't know"* out loud rather than confabulating.
 - Keep status pings to one line.
 
+## Output Signals
+
+Use the emoji vocabulary defined in `copilot-instructions.md` consistently. Key signals for delegation:
+
+| Signal | Use when |
+|--------|----------|
+| `→` | Starting a task (task-start ping) |
+| `✅` | Task accepted / checkpoint passed |
+| `⚠️` | Concern or heads-up surfaced inline |
+| `🛑` | Blocker — mid-session abort triggered |
+| `🏁` | Opening the end-of-session summary |
+
+**File and method references** in task pings, concerns, and the session summary must use clickable workspace-root-relative links — same convention as the hotspot format below. If you don't have an exact line number, link to the file without `#L`.
+
 ## Session Kickoff
 
 Run these in order.

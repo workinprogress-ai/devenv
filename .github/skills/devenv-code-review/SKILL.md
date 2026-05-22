@@ -96,8 +96,10 @@ Output structure (markdown, in this order):
 Every finding is a single bullet in the format:
 
 ```
-- [file:line](path/file.ext#L42) — <one-line reason>
+- [file:line](workspace-root-relative-path#L42) — <one-line reason>
 ```
+
+Paths must be **workspace-root-relative** so VS Code renders them as clickable links — e.g. `repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs`, not just `BulkSyncWorker.cs`. Do not emit a path you haven't confirmed exists.
 
 For ranges: `[file.ext:42-58](path/file.ext#L42-L58)`. For multiple non-contiguous lines: separate bullets.
 
