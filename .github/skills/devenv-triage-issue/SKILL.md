@@ -23,11 +23,11 @@ If the work is clear and you just want to do it, use `/devenv-pair-programming` 
 
 Auto-detect:
 
-- **Single issue number** (`123` or `#123`) → fetch via `tools/issue-get <n>`.
+- **Single issue number** (`123` or `#123`) → fetch via `issue-get <n>`.
 - **Multiple issue numbers** (`123 124 125` or comma-separated) → fetch each, triage in turn, then a single batch confirmation at the end.
 - **Pasted issue text** → triage in place; skip duplicate-search step (no repo context).
 
-For issue inputs, use `tools/issue-get` for body + comments + existing labels, and `tools/issue-list` for candidate duplicate search (filter by label or state; for keyword-based duplicate detection use `tools/issue-list | jq` or scan titles manually).
+For issue inputs, use `issue-get` for body + comments + existing labels, and `issue-list` for candidate duplicate search (filter by label or state; for keyword-based duplicate detection use `issue-list | jq` or scan titles manually).
 
 ## Triage outputs (per issue)
 
@@ -78,7 +78,7 @@ If priority is genuinely unclear, say so and ask one targeted question — don't
 
 ### Duplicate search
 
-Run `tools/issue-list --state open | jq` and scan titles/bodies for 2-3 keywords from the issue. List candidates with one-line reason; do not auto-mark as duplicate without confirmation.
+Run `issue-list --state open | jq` and scan titles/bodies for 2-3 keywords from the issue. List candidates with one-line reason; do not auto-mark as duplicate without confirmation.
 
 ### Drafting clarifying comments
 
@@ -107,9 +107,9 @@ Apply all? (y/n)
 
 On `y`:
 
-- Labels: `tools/issue-update <n> --add-label "<label1>" --add-label "<label2>"` (repeatable)
-- Comment: `tools/issue-comment <n> --body-file <draft>`
-- Close as duplicate/invalid: `tools/issue-close <n>` then post a comment via `tools/issue-comment <n> --body "Closing as duplicate of #<other>"` (confirm each separately)
+- Labels: `issue-update <n> --add-label "<label1>" --add-label "<label2>"` (repeatable)
+- Comment: `issue-comment <n> --body-file <draft>`
+- Close as duplicate/invalid: `issue-close <n>` then post a comment via `issue-comment <n> --body "Closing as duplicate of #<other>"` (confirm each separately)
 
 On `n`: print the recommendations, do nothing, stop.
 

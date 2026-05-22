@@ -22,9 +22,9 @@ If the user wants the AI to *write* or refactor code, use `/devenv-pair-programm
 
 The user provides one of:
 
-- **A PR number** — e.g. `123`. Fetch via `tools/pr-get N --pretty` (title, body, base/head refs, author, labels, draft state). Fetch the diff via `tools/pr-diff N`.
-- **Two refs** — e.g. `--base master --head my-feature`. Use `tools/pr-diff --base BASE --head HEAD`.
-- **Nothing** — default mode: diff the current branch against the repository's default branch (`master` or `main`). Use `tools/pr-diff --base <default> --head HEAD`.
+- **A PR number** — e.g. `123`. Fetch via `pr-get N --pretty` (title, body, base/head refs, author, labels, draft state). Fetch the diff via `pr-diff N`.
+- **Two refs** — e.g. `--base master --head my-feature`. Use `pr-diff --base BASE --head HEAD`.
+- **Nothing** — default mode: diff the current branch against the repository's default branch (`master` or `main`). Use `pr-diff --base <default> --head HEAD`.
 
 **Auto-detection rule:** `^[0-9]+$` → PR number. Two refs given → ref-diff mode. No args → current-branch-vs-default mode (announce this so the user knows what's being reviewed).
 
@@ -109,11 +109,11 @@ Default: print the full review to chat. Do **not** post to GitHub yet.
 
 After printing, ask:
 
-> "Post this review as a PR comment on #123 via `tools/pr-comment 123 --body-file <temp-path>`?"
+> "Post this review as a PR comment on #123 via `pr-comment 123 --body-file <temp-path>`?"
 
 Use `vscode_askQuestions`. Wait for explicit yes. Do not auto-post.
 
-For inline review comments tied to specific lines, note that this skill produces a top-level conversation comment only (via `tools/pr-comment`). For inline threads, the user can use the GitHub web UI or `gh pr review` directly — there is no `tools/` wrapper for creating inline review comments.
+For inline review comments tied to specific lines, note that this skill produces a top-level conversation comment only (via `pr-comment`). For inline threads, the user can use the GitHub web UI or `gh pr review` directly — there is no `tools/` wrapper for creating inline review comments.
 
 ## Anti-patterns
 

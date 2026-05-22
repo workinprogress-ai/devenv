@@ -65,6 +65,17 @@ else
     fi
 fi
 
+# Filter out session memory files (e.g. session_memory-*.md, session_*memory*.md)
+FILTERED_FILES=()
+for f in "${FILES[@]}"; do
+    basename="${f##*/}"
+    if [[ "$basename" == session_* && "$basename" == *memory* ]]; then
+        continue
+    fi
+    FILTERED_FILES+=("$f")
+done
+FILES=("${FILTERED_FILES[@]}")
+
 if [ ${#FILES[@]} -eq 0 ]; then
     echo "No markdown files to lint."
     exit 0

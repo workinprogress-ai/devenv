@@ -179,7 +179,7 @@ Only on explicit approval, run the procedure in the next section.
 
 ## Issue Creation Procedure
 
-This step uses the existing `tools/issue-create` and `tools/issue-update` tooling. Do not invent new commands.
+This step uses the existing `issue-create` and `issue-update` tooling. Do not invent new commands.
 
 ### Step A — Create child issues
 
@@ -191,7 +191,7 @@ GITHUB_REPO=<org>/<component-repo> issue-create \
   --body-file <temp-body-file>
 ```
 
-> **Note:** `tools/issue-create` does not have a `--repo` flag. The repo is selected via the `GITHUB_REPO` env var (`owner/repo` form). If unset, the tool defaults to the current git repo.
+> **Note:** `issue-create` does not have a `--repo` flag. The repo is selected via the `GITHUB_REPO` env var (`owner/repo` form). If unset, the tool defaults to the current git repo.
 
 The body should reference back to the roadmap and blueprint:
 

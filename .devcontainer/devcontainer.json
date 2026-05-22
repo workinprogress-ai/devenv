@@ -108,6 +108,13 @@
 				"github.vscode-github-actions"
 			],
             "settings": {
+                "github.copilot.chat.additionalReadAccessPaths": [
+                    "/workspaces/devenv/repos",
+                    "/workspaces/devenv/playground",
+                    "/workspaces/devenv/.github",
+                    "/workspaces/devenv/tools",
+                    "/workspaces/devenv/docs"
+                ],
                 "chat.tools.edits.autoApprove": {
                     "/tmp/**": true,
                     "/workspaces/devenv/playground/**": true,

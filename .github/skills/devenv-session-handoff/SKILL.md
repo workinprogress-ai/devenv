@@ -80,12 +80,12 @@ Flow:
 1. Detect related issue/PR:
    - Check current branch name for `issue-NNN` / `NNN-` patterns.
    - Check `Implementation_plan*.md` for issue references.
-   - Check open PRs from current branch via `tools/pr-list --head <branch>`.
+   - Check open PRs from current branch via `pr-list --head <branch>`.
    - If none found, ask the user for an issue or PR number.
 2. Draft the handoff to a temp file.
 3. Show the draft in chat for review.
 4. Confirm: "Post this as a comment on #<n>? (y/n)"
-5. On `y`: post via `tools/issue-comment <n> --body-file <draft>` for issues, or `tools/pr-comment <n> --body-file <draft>` for PRs.
+5. On `y`: post via `issue-comment <n> --body-file <draft>` for issues, or `pr-comment <n> --body-file <draft>` for PRs.
 
 After posting (or instead, on `n`), **also offer**:
 

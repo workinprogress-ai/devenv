@@ -52,8 +52,8 @@ For a fast "fix everything" pass without per-comment choices, use the GitHub PR 
 
 ## Phase 0 — Load and classify
 
-1. Detect PR number: from argument, or `tools/pr-list --head <current-branch> --limit 1 | jq -r '.[0].number'`.
-2. Run `tools/pr-threads-get <N>` (unresolved only).
+1. Detect PR number: from argument, or `pr-list --head <current-branch> --limit 1 | jq -r '.[0].number'`.
+2. Run `pr-threads-get <N>` (unresolved only).
 3. If 0 threads: report "No unresolved review threads." and stop.
 4. Classify each thread into one of five groups:
 
@@ -183,7 +183,7 @@ Proposed reply: "Done — removed the extra blank line."
 Send? (s / edit / skip)
 ```
 
-On `edit`: user types their version. On `skip`: no reply posted. On `s`: post via `tools/pr-thread-reply <N> --comment-id <id> --body "<text>"`.
+On `edit`: user types their version. On `skip`: no reply posted. On `s`: post via `pr-thread-reply <N> --comment-id <id> --body "<text>"`.
 
 **For design/architecture threads:** After discussing in chat, offer:
 > "This looks complex enough to warrant a proper plan rather than an inline fix. Want me to open an implementation plan for this via `/devenv-create-implementation-plan`?"

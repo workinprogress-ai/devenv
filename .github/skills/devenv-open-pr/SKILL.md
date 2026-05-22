@@ -36,10 +36,10 @@ ls Implementation_plan*.md 2>/dev/null
 If any exist:
 
 1. **Warn the user.** These are working files; their content should live in the associated GitHub issue, not in the commit history.
-2. **Determine whether the plan is already in the issue.** If a parent issue is detectable (from branch name, plan body, etc.), fetch it via `tools/issue-get <N> --pretty` and check whether the plan content is there.
+2. **Determine whether the plan is already in the issue.** If a parent issue is detectable (from branch name, plan body, etc.), fetch it via `issue-get <N> --pretty` and check whether the plan content is there.
 3. **Offer to save it.** If the plan is not in the issue, offer to post it as a comment:
    ```
-   tools/issue-comment <N> --body-file <plan-file>
+   issue-comment <N> --body-file <plan-file>
    ```
 4. **Require deletion.** Ask the user to delete the file(s) before the PR is opened. Do not call `pr-create-for-merge` until they confirm — the script will also refuse to run if a plan file is still present.
 
@@ -51,7 +51,7 @@ Assemble the PR draft from, in order:
 
 1. **Active implementation plan** — `Implementation_plan*.md` at workspace root. Use phase name for title, completed `[x]` tasks for the changes list, `## Revision history` and decision blocks for rationale.
 2. **`git log --oneline <merge-base>..HEAD`** and **`git diff --stat`** — actual changes shipped, file scope.
-3. **Parent issue** — extract from plan body (`refs #N`, `closes #N`) or branch name (`issue-NNN-...`, `NNN-...`). If found, fetch via `tools/issue-get` for issue title (used in PR title context) and to confirm `Closes #N` is appropriate.
+3. **Parent issue** — extract from plan body (`refs #N`, `closes #N`) or branch name (`issue-NNN-...`, `NNN-...`). If found, fetch via `issue-get` for issue title (used in PR title context) and to confirm `Closes #N` is appropriate.
 4. **Session-handoff comment** — if one was posted on the parent issue/PR already, reuse its hotspots and decision sections rather than regenerating.
 5. **The user** — for anything missing: title clarification, testing notes, anything the artifacts don't show.
 
@@ -111,7 +111,7 @@ User can opt into draft mode explicitly ("open as draft", "draft PR"). If they d
 2. Build draft title and body.
 3. Show the full draft in chat.
 4. Ask for edits / confirmation: "Open this PR? (y/n/edit)"
-5. On `y`: invoke `tools/pr-create-for-merge "<title>" --issue <N> --body-file <draft>` (add `--draft` if requested; use `--no-issue` if no parent issue was found).
+5. On `y`: invoke `pr-create-for-merge "<title>" --issue <N> --body-file <draft>` (add `--draft` if requested; use `--no-issue` if no parent issue was found).
 6. On `edit`: incorporate the user's changes, re-show, re-confirm.
 7. On `n`: stop. Print the draft so the user can use it manually if they want.
 

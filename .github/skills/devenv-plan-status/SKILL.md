@@ -23,7 +23,7 @@ If there is no existing plan, stop and redirect to `/devenv-create-implementatio
 The user provides exactly one of:
 
 - **A file path** — e.g. `Implementation_plan-issue-42-001.md`.
-- **A GitHub issue number** — e.g. `42`. The plan body is read via `tools/issue-get N --pretty`.
+- **A GitHub issue number** — e.g. `42`. The plan body is read via `issue-get N --pretty`.
 
 **Auto-detection rule:** if the argument matches `^[0-9]+$`, treat as issue number; otherwise treat as a file path. If ambiguous, ask.
 
@@ -32,7 +32,7 @@ The user provides exactly one of:
 ### 1. Load the plan
 
 - File input: read the markdown file directly.
-- Issue input: `tools/issue-get N --pretty`, then extract the body field.
+- Issue input: `issue-get N --pretty`, then extract the body field.
 
 ### 2. Parse structure
 

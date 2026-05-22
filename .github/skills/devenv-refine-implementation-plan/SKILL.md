@@ -23,7 +23,7 @@ If there is no existing plan, stop and redirect to `/devenv-create-implementatio
 The user provides exactly one of:
 
 - **A file path** — e.g. `Implementation_plan-issue-42-001.md`, `repos/foo/Implementation_plan-003.md`. Treated as a literal markdown file to read and write back.
-- **A GitHub issue number** — e.g. `42`. The plan is read from the issue body via `tools/issue-get N --pretty`. After refinement, offer to push the updated body back via `tools/issue-update N --body-file <path>`.
+- **A GitHub issue number** — e.g. `42`. The plan is read from the issue body via `issue-get N --pretty`. After refinement, offer to push the updated body back via `issue-update N --body-file <path>`.
 
 **Auto-detection rule:** if the argument matches `^[0-9]+$`, treat as issue number; otherwise treat as a file path. If both could plausibly apply, ask the user which they meant.
 
@@ -80,7 +80,7 @@ Most recent revision goes on top. The very first entry (when the plan was first 
 ### 5. Write the result
 
 - For file input: overwrite the file in place. The user can `git diff` to review and revert if needed.
-- For issue input: write the refined plan to a temp file, then offer to push it: "Update issue #N body with the refined plan? (`tools/issue-update N --body-file <path>`)" Wait for explicit yes before running.
+- For issue input: write the refined plan to a temp file, then offer to push it: "Update issue #N body with the refined plan? (`issue-update N --body-file <path>`)" Wait for explicit yes before running.
 
 Do not require a separate approval step for the write itself — the user invoked the skill to refine the plan; trust that intent. Git is the safety net.
 

@@ -1,6 +1,6 @@
 ---
 name: devenv-pair-programming
-description: 'Collaborate with the user as a pair-programming partner on a user story, GitHub issue, or implementation plan. USE WHEN the user says "pair program", "let''s pair on this", "pair with me", "work on this issue with me", "implement this together", "let''s tackle this plan together", "work through this implementation plan", or hands off a GitHub issue with collaborative intent (not "just do it"). Loads the plan (from a file path or via `tools/issue-get` for a GH issue), runs an interactive task-by-task handoff protocol where both parties take turns implementing and reviewing, asks before assuming, pushes back when warranted, and offers to document discoveries via `tools/issue-comment` / `tools/issue-create`. DO NOT USE for solo "do this for me" tasks, pure Q&A, or when the user wants the AI to drive the entire implementation without checkpoints.'
+description: 'Collaborate with the user as a pair-programming partner on a user story, GitHub issue, or implementation plan. USE WHEN the user says "pair program", "let''s pair on this", "pair with me", "work on this issue with me", "implement this together", "let''s tackle this plan together", "work through this implementation plan", or hands off a GitHub issue with collaborative intent (not "just do it"). Loads the plan (from a file path or via `issue-get` for a GH issue), runs an interactive task-by-task handoff protocol where both parties take turns implementing and reviewing, asks before assuming, pushes back when warranted, and offers to document discoveries via `issue-comment` / `issue-create`. DO NOT USE for solo "do this for me" tasks, pure Q&A, or when the user wants the AI to drive the entire implementation without checkpoints.'
 argument-hint: '[issue-number | path-to-plan | "ad-hoc"]'
 user-invocable: true
 ---
@@ -61,7 +61,7 @@ Ask, if not provided:
 
 ### 2. Load the plan
 
-**If GH issue**: run `tools/issue-get <N> --pretty` and parse JSON. Look for an implementation plan in `body`.
+**If GH issue**: run `issue-get <N> --pretty` and parse JSON. Look for an implementation plan in `body`.
 
 **If plan file**: read it.
 
@@ -333,12 +333,12 @@ This is the only plan edit the AI makes without prior confirmation. Everything e
 >
 > | Need | Use |
 > |------|-----|
-> | Read an issue | `tools/issue-get <N>` |
-> | Update issue body | `tools/issue-update <N> --body-file <path>` |
-> | Post a comment | `tools/issue-comment <N> --body-file <path>` |
-> | Create an issue | `tools/issue-create ...` |
+> | Read an issue | `issue-get <N>` |
+> | Update issue body | `issue-update <N> --body-file <path>` |
+> | Post a comment | `issue-comment <N> --body-file <path>` |
+> | Create an issue | `issue-create ...` |
 
-If the plan was loaded from a GH issue (loaded via `tools/issue-get`, or the plan body contains a GH issue number), sync the issue body at the end of each phase. **Do this proactively as part of declaring the phase complete — don't wait for the user to ask.**
+If the plan was loaded from a GH issue (loaded via `issue-get`, or the plan body contains a GH issue number), sync the issue body at the end of each phase. **Do this proactively as part of declaring the phase complete — don't wait for the user to ask.**
 
 **Before syncing**, assess whether the phase deviated significantly from the plan — unplanned tasks were added, the approach changed, or the user redirected mid-phase. If the phase plan was already rewritten during the session (e.g. via the "in the flow" divergence handling), skip this check — the plan is already accurate. Otherwise, if a meaningful gap exists, offer to update it before the sync goes out:
 
@@ -348,9 +348,9 @@ Keep the update proportionate — a `## Deviation` subheading with a few lines, 
 
 Once the plan is accurate (or the user declines):
 
-1. Fetch the current issue body via `tools/issue-get <N>` — to check for concurrent edits, not as the edit target.
+1. Fetch the current issue body via `issue-get <N>` — to check for concurrent edits, not as the edit target.
 2. Show the diff between the fetched issue body and the **local plan file** (which is the source of truth — it reflects all checkbox ticks and any structural changes made during the session).
-3. Confirm with the user, then run `tools/issue-update <N> --body-file <path>` to overwrite the issue body with the plan file.
+3. Confirm with the user, then run `issue-update <N> --body-file <path>` to overwrite the issue body with the plan file.
 
 Do not sync mid-phase — issue bodies are a full overwrite and may clobber concurrent edits. If the session ends mid-phase, offer to sync whatever tasks were completed.
 
@@ -365,14 +365,14 @@ See [issue-integration.md](./references/issue-integration.md) for exact CLI invo
 - A new follow-up task / out-of-scope finding emerged.
 - A bug was discovered in adjacent code.
 
-**For adjacent bugs**, also offer to file a **new issue** via `tools/issue-create` (run `tools/issue-create --help` to compose the exact command for the situation).
+**For adjacent bugs**, also offer to file a **new issue** via `issue-create` (run `issue-create --help` to compose the exact command for the situation).
 
 **Confirmation flow**:
 
 1. Draft the comment / issue text.
 2. Show it in chat.
 3. Wait for explicit *"yes"*.
-4. Run `tools/issue-comment <N> --body-file <path>` (or `--body` for a one-liner) / `tools/issue-create ...`.
+4. Run `issue-comment <N> --body-file <path>` (or `--body` for a one-liner) / `issue-create ...`.
 
 ## Ad-Hoc Mode (no plan)
 
@@ -442,13 +442,13 @@ When the user signals end of session (or a phase boundary that suggests a natura
 - Raising a concern without saying where the right pattern is in the codebase (when one exists).
 - Silent assumptions on architectural or non-trivial choices.
 - Theatrical preamble.
-- Auto-running `tools/issue-comment` / `tools/issue-update` / `tools/issue-create` without explicit confirmation.
+- Auto-running `issue-comment` / `issue-update` / `issue-create` without explicit confirmation.
 - Pretending to know something instead of saying *"I don't know, let me look."*
 - Batching checkbox updates to the end of the session — tick each task the moment it’s approved, not later.
 - Suggesting delegation at session start before any collaboration patterns are visible.
 - Emitting file links that haven't been confirmed to exist.
 - Continuing to follow a plan that discovery has proven wrong without surfacing the conflict.
-- Invoking `gh` CLI directly for GitHub operations instead of the `tools/issue-*` wrappers.
+- Invoking `gh` CLI directly for GitHub operations instead of the `issue-*` wrappers.
 - Treating "proceed to phase X" or "never mind, just proceed" as authorization to implement the phase solo — it means run the phase kickoff (file links, decisions, task split), then wait.
 - Unilaterally editing the plan without discussion and agreement.
 - Implementing when the user asked for an opinion or was thinking out loud.

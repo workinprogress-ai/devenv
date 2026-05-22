@@ -74,7 +74,7 @@ If the needed repo is not present in `repos/`, ask the user to clone it before p
 
 ### Prefer workspace tooling over raw CLIs
 
-The `tools/` folder contains workspace-specific wrappers around common CLIs (`gh`, `git`, `dotnet`, `kubectl`, MongoDB, etc.). **When a wrapper exists for what you need to do, use it — don't reach for the underlying CLI.**
+The `tools/` folder contains workspace-specific wrappers around common CLIs (`gh`, `git`, `dotnet`, `kubectl`, MongoDB, etc.). All tools are on `PATH`, so invoke them by bare name (e.g. `issue-get`, `pr-diff`) from any working directory. **When a wrapper exists for what you need to do, use it — don't reach for the underlying CLI.**
 
 This applies even when the wrapper looks like a thin pass-through; wrappers encode workspace conventions (auth, repo targeting via `GITHUB_REPO=<org>/<repo>`, default flags, error handling) that bare CLI calls bypass.
 
@@ -82,28 +82,28 @@ GitHub-related wrappers (non-exhaustive):
 
 | Need                                          | Use                                | Don't use                  |
 |-----------------------------------------------|------------------------------------|----------------------------|
-| Read an issue                                 | `tools/issue-get <N>`              | `gh issue view <N>`        |
-| List issues                                   | `tools/issue-list`                 | `gh issue list`            |
-| Create an issue                               | `tools/issue-create ...`           | `gh issue create`          |
-| Update an issue body / labels / state         | `tools/issue-update <N> ...`       | `gh issue edit`            |
-| Comment on an issue                           | `tools/issue-comment <N> ...`      | `gh issue comment`         |
-| Close an issue                                | `tools/issue-close <N>`            | `gh issue close`           |
-| Read a PR                                     | `tools/pr-get <N>`                 | `gh pr view`               |
-| Create a feature-branch PR                    | `tools/pr-create-for-merge`        | `gh pr create`             |
-| Comment on a PR                               | `tools/pr-comment <N> ...`         | `gh pr comment`            |
-| Read PR review threads                        | `tools/pr-threads-get <N>`         | `gh api ...graphql`        |
-| Reply to / resolve a review thread            | `tools/pr-thread-reply`, `tools/pr-thread-resolve` | `gh api ...`   |
-| Get the diff for a PR                         | `tools/pr-diff <N>`                | `gh pr diff`               |
-| Org-wide Actions run status / filter by repo  | `tools/actions-status`             | `gh run list`              |
-| List workflow definitions across org          | `tools/actions-list`               | `gh workflow list`         |
-| Trigger a workflow_dispatch run               | `tools/actions-run`                | `gh workflow run`          |
-| Re-run a workflow run (or failed jobs only)   | `tools/actions-rerun`              | `gh run rerun`             |
-| Stream live logs from an in-progress run      | `tools/actions-watch`              | `gh run watch`             |
-| List / download artifacts from a run          | `tools/actions-artifacts`          | `gh run download`          |
+| Read an issue                                 | `issue-get <N>`              | `gh issue view <N>`        |
+| List issues                                   | `issue-list`                 | `gh issue list`            |
+| Create an issue                               | `issue-create ...`           | `gh issue create`          |
+| Update an issue body / labels / state         | `issue-update <N> ...`       | `gh issue edit`            |
+| Comment on an issue                           | `issue-comment <N> ...`      | `gh issue comment`         |
+| Close an issue                                | `issue-close <N>`            | `gh issue close`           |
+| Read a PR                                     | `pr-get <N>`                 | `gh pr view`               |
+| Create a feature-branch PR                    | `pr-create-for-merge`        | `gh pr create`             |
+| Comment on a PR                               | `pr-comment <N> ...`         | `gh pr comment`            |
+| Read PR review threads                        | `pr-threads-get <N>`         | `gh api ...graphql`        |
+| Reply to / resolve a review thread            | `pr-thread-reply`, `pr-thread-resolve` | `gh api ...`   |
+| Get the diff for a PR                         | `pr-diff <N>`                | `gh pr diff`               |
+| Org-wide Actions run status / filter by repo  | `actions-status`             | `gh run list`              |
+| List workflow definitions across org          | `actions-list`               | `gh workflow list`         |
+| Trigger a workflow_dispatch run               | `actions-run`                | `gh workflow run`          |
+| Re-run a workflow run (or failed jobs only)   | `actions-rerun`              | `gh run rerun`             |
+| Stream live logs from an in-progress run      | `actions-watch`              | `gh run watch`             |
+| List / download artifacts from a run          | `actions-artifacts`          | `gh run download`          |
 
-When no wrapper exists for what you need (e.g. inline review comments, adding reviewers, project boards beyond `tools/project-*`), falling back to `gh` is fine — mention that you're falling back and why, so the gap is visible.
+When no wrapper exists for what you need (e.g. inline review comments, adding reviewers, project boards beyond `project-*`), falling back to `gh` is fine — mention that you're falling back and why, so the gap is visible.
 
-The same rule holds for `git` (prefer `tools/git-*` wrappers when one exists), `dotnet`/test wrappers, and any other category covered by `tools/`.
+The same rule holds for `git` (prefer `git-*` wrappers when one exists), `dotnet`/test wrappers, and any other category covered by `tools/`.
 
 ### Language policy
 
@@ -134,6 +134,6 @@ The AI **never** runs git commands that change repository state, branch state, o
 
 **Allowed:** read-only inspection — `git status`, `git log`, `git diff`, `git show`, `git rev-parse`, `git merge-base`, `git blame`, `git ls-files`, `git config --get`, etc.
 
-**Wrappers that internally mutate** (e.g. `tools/pr-create-for-merge` pushes the branch, `tools/git-update` pulls) **are allowed** — wrappers encode the safety. The rule prohibits *raw* git mutations, not wrapper invocations.
+**Wrappers that internally mutate** (e.g. `pr-create-for-merge` pushes the branch, `git-update` pulls) **are allowed** — wrappers encode the safety. The rule prohibits *raw* git mutations, not wrapper invocations.
 
 If a task genuinely requires a mutation (e.g. "commit this and open a PR"), state the exact command(s) and ask the user to run them, or — when a wrapper exists — invoke the wrapper. Never invent a workaround that mutates state directly.

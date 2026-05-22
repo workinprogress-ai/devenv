@@ -24,7 +24,7 @@ If the user wants to reword tasks, restructure phases, cancel tasks, or make sev
 The user provides exactly one of:
 
 - **A file path** — e.g. `Implementation_plan-issue-42-001.md`.
-- **A GitHub issue number** — e.g. `42`. Plan body is read via `tools/issue-get N --pretty`.
+- **A GitHub issue number** — e.g. `42`. Plan body is read via `issue-get N --pretty`.
 
 Plus the specific edit(s) requested in the chat.
 
@@ -35,7 +35,7 @@ Plus the specific edit(s) requested in the chat.
 ### 1. Load the plan
 
 - File input: read the markdown file.
-- Issue input: `tools/issue-get N --pretty` and extract the body.
+- Issue input: `issue-get N --pretty` and extract the body.
 
 ### 2. Validate scope
 
@@ -98,7 +98,7 @@ If no revision history exists yet, create it (above the first phase, below the t
 
 - File input: overwrite in place. Git is the safety net; user can `git diff` to review.
 - Issue input: write the updated body to a temp file, then offer:
-  > "Update issue #N body via `tools/issue-update N --body-file <path>`?"
+  > "Update issue #N body via `issue-update N --body-file <path>`?"
   Wait for explicit yes. Do not auto-push.
 
 ### 7. Report

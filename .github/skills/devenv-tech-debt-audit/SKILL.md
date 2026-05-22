@@ -41,7 +41,7 @@ Auto-detect what the user provided:
 
 **If a GitHub issue number is given:**
 
-1. Run `tools/issue-get N --pretty` to fetch the issue body.
+1. Run `issue-get N --pretty` to fetch the issue body.
 2. Scan the body for guiding instructions: custom scope, dimension overrides, file exclusions, or specific concerns the requestor wants prioritized.
 3. Extract and apply those instructions throughout the audit (announce them to the user before starting).
 4. Set the output filename to `TECH_DEBT_AUDIT-N.md` where N is the issue number.
@@ -157,7 +157,7 @@ If a GitHub issue number was provided:
 1. After writing the audit file, draft a comment containing the **executive summary** and the relative path to the full audit file.
 2. Show the draft in chat.
 3. Ask: *"Post this summary to issue #NNN? (y/n)"*
-4. If yes, write the summary to a temp file and run `tools/issue-comment N --body-file <temp-file>`.
+4. If yes, write the summary to a temp file and run `issue-comment N --body-file <temp-file>`.
 5. Surface the issue URL from the tool output.
 
 Never post without explicit confirmation.
@@ -169,5 +169,5 @@ Never post without explicit confirmation.
 - **Do not leave the "looks bad but actually fine" section empty.** If empty, re-examine Phase 2.
 - **Do not stop on first tool failure.** If `dotnet test` fails to build, note it and continue with the remaining dimensions.
 - **Do not install tools globally.** Note missing tools and proceed.
-- **Do not call `gh` directly.** Use `tools/issue-comment`, `tools/issue-get`, etc.
+- **Do not call `gh` directly.** Use `issue-comment`, `issue-get`, etc.
 - **Do not post to GitHub without explicit "yes" confirmation.**

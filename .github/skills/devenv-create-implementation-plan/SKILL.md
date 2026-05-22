@@ -31,7 +31,7 @@ Do **not** use for:
 ## Inputs the Skill Collects
 
 1. **Source material** (one or more of):
-   - GitHub issue (number or URL) — fetch with `tools/issue-get N --pretty`
+   - GitHub issue (number or URL) — fetch with `issue-get N --pretty`
    - Pasted user story / requirements text
    - Linked design docs or files in `planning.*` repos
 2. **Related code** — read-only exploration via the `Explore` subagent

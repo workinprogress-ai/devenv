@@ -22,7 +22,7 @@ If the user wants production code, use `/devenv-pair-programming` or `/devenv-de
 The user provides one of:
 
 - **A free-form question / problem statement** — e.g. "can we use library X for our message bus?" or "what's the perf cost of serializing every event through Y?"
-- **A GitHub issue number** — e.g. `42`. Fetch the issue body via `tools/issue-get N --pretty`; the body describes the question.
+- **A GitHub issue number** — e.g. `42`. Fetch the issue body via `issue-get N --pretty`; the body describes the question.
 
 **Auto-detection rule:** `^[0-9]+$` → issue number; otherwise treat as free-form. Ambiguous → ask.
 
@@ -111,7 +111,7 @@ Inline summary: 3–5 bullets covering the question, the verdict, and the artifa
 
 Ask:
 
-> "Open a draft GitHub issue with these findings via `tools/issue-create --title '<title>' --body-file <doc-path>`?"
+> "Open a draft GitHub issue with these findings via `issue-create --title '<title>' --body-file <doc-path>`?"
 
 Wait for explicit yes. Do not auto-create.
 

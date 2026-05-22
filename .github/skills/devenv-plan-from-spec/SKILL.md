@@ -25,7 +25,7 @@ If the spec is a `Blueprint-*.md`, prefer [`/devenv-create-roadmap`](../devenv-c
 The user provides exactly one of:
 
 - **A file path** — e.g. `docs/design/feature-x.md`. Read directly.
-- **A GitHub issue number** — e.g. `42`. Fetch the body via `tools/issue-get N --pretty`.
+- **A GitHub issue number** — e.g. `42`. Fetch the body via `issue-get N --pretty`.
 - **A URL** — e.g. `https://example.com/rfc.html`. Fetch via `fetch_webpage`.
 - **Inline text** — pasted directly in the conversation.
 
@@ -101,7 +101,7 @@ Use the same template as `/devenv-create-implementation-plan`:
 
 If the source was a GitHub issue, after writing the file ask:
 
-> "Push the generated plan into issue #N's body via `tools/issue-update N --body-file <path>`?"
+> "Push the generated plan into issue #N's body via `issue-update N --body-file <path>`?"
 
 Wait for explicit yes. Do not auto-push.
 

@@ -216,7 +216,7 @@ If the user provides communications artifacts:
 When the project extends an existing system, you need to know what's already there.
 
 1. **Get the repo cache**: run `repo-cache-update`. This returns a path to a folder containing all organisation repos.
-2. **Read the taxonomy**: `tools/config/repo-types.yaml` defines the naming patterns for repo types (`service.*`, `lib.cs.*`, `app.web.*`, etc.). Use it to interpret repo names.
+2. **Read the taxonomy**: `/workspaces/devenv/tools/config/repo-types.yaml` defines the naming patterns for repo types (`service.*`, `lib.cs.*`, `app.web.*`, etc.). Use it to interpret repo names.
 3. **Propose a candidate list**: based on the problem description and the taxonomy, propose to the user a list of repos that look relevant. Example:
    > "Based on the problem mentioning order fulfillment and inventory, these repos look relevant:
    > - `service.commerce.order-management`
