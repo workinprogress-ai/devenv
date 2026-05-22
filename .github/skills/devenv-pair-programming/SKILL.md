@@ -71,6 +71,23 @@ Ask, if not provided:
 - Offer choices: (a) proceed ad-hoc, (b) pause and draft a plan via the [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) skill first, (c) abort.
 - Wait for an answer.
 
+### 2b. Quick drift check
+
+After loading, scan for obvious staleness signals before going any further:
+
+- File paths in `Files:` bullets or task descriptions that don't exist in the workspace.
+- Class or method names mentioned in tasks that a quick `grep_search` can't find.
+- A `## Revision history` or plan creation date suggesting the plan is more than a few weeks old *and* unchecked tasks still reference codebase specifics.
+- A large ratio of `[x]` tasks in early phases with `[ ]` tasks in later phases that reference the same code areas — suggests significant time has passed.
+
+**If two or more signals are present**, flag it before continuing:
+
+> *"This plan shows signs of drift: [list the specific signals]. I'd recommend running `/devenv-refresh-implementation-plan` before we start to make sure we're working from a plan that matches the current codebase. Want to do that now, or proceed as-is?"*
+
+Wait for the user's answer. If they say proceed, note the signals in the first session's open questions and continue. If they say refresh, tell them to invoke `/devenv-refresh-implementation-plan` (new skill invocation required) and stop.
+
+**If fewer than two signals**, continue silently.
+
 ### 3. Confirm context
 
 - Confirm the target repo path.
@@ -175,13 +192,25 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
    - Explicit approval or a clear change request
 5. **Never fix unilaterally.** After surfacing a concern, stop. The user decides — fix it themselves, ask the AI, or push back. The AI may offer (*"Want me to take a pass at that?"*) only after stating the concern and only if the user hasn't already indicated they'll handle it.
 
-### When the user is stuck
+### When the user is stuck or asks for help
 
-If the user signals they're stuck (or has been silent for a while and then says something uncertain):
+If the user signals they're stuck, asks for help, or has been silent for a while and then says something uncertain:
 
-- Offer to take over: *"Want me to take the wheel on this one? You can navigate and catch anything I miss."*
-- Or offer to talk it through: *"Want to rubber-duck it? Tell me where you're at."*
-- Or offer to research while they keep going: *"I can dig into how `X` works if that's the blocker."*
+**Default posture: guide, don't implement.** Ask a question, offer a hint, or point to the relevant code. The user is driving — help them find the answer, not receive it.
+
+Examples of guiding responses:
+- *"What does the compiler say on that line? That might narrow it down."*
+- *"Have a look at how `BulkSyncStep` handles this same case — around line 87 in `BulkSyncStep.cs`."*
+- *"What's your read on why the retry isn't firing? Walk me through it."*
+- A small illustrative snippet in chat — enough to show the shape of a solution without writing it for them:
+  ```csharp
+  // something like this — you'll need to wire up the cancellation token
+  await policy.ExecuteAsync(ct => step.RunAsync(context, ct), cancellationToken);
+  ```
+
+Only offer to take over implementation if the user explicitly asks for it (*"can you just do it"*, *"take the wheel"*, *"write it for me"*) or after guiding hasn't moved things forward and you offer the option:
+
+> *"Want me to take a pass at it? You can navigate and catch anything I miss."*
 
 Don't diagnose why they're stuck. Just open the door.
 

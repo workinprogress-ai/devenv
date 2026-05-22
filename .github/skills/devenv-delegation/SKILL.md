@@ -55,6 +55,23 @@ Ask if not provided: GH issue # or path to a plan markdown.
 - **Plan file**: read it.
 - **No plan or too thin**: refuse delegation. Redirect to `/devenv-create-implementation-plan` to draft one first.
 
+### 1b. Quick drift check
+
+After loading, scan for obvious staleness signals before going any further:
+
+- File paths in `Files:` bullets or task descriptions that don't exist in the workspace.
+- Class or method names mentioned in tasks that a quick `grep_search` can't find.
+- A `## Revision history` or plan creation date suggesting the plan is more than a few weeks old *and* unchecked tasks still reference codebase specifics.
+- A large ratio of `[x]` tasks in early phases with `[ ]` tasks in later phases that reference the same code areas — suggests significant time has passed.
+
+**If two or more signals are present**, flag it before continuing:
+
+> *"This plan shows signs of drift: [list the specific signals]. I'd recommend running `/devenv-refresh-implementation-plan` before we start to make sure we're working from a plan that matches the current codebase. Want to do that now, or proceed as-is?"*
+
+Wait for the user's answer. If they say proceed, note the signals in the session summary's open questions section and continue. If they say refresh, tell them to invoke `/devenv-refresh-implementation-plan` (new skill invocation required) and stop.
+
+**If fewer than two signals**, continue silently.
+
 ### 2. Confirm scope
 
 Ask: *"Delegating the entire plan, specific phases, or a task range?"* Wait for answer.
