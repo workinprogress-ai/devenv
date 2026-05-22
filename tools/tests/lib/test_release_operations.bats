@@ -193,3 +193,75 @@ setup() {
   source "${DEVENV_ROOT}/tools/lib/release-operations.bash"
   [[ -n "$_RELEASE_OPERATIONS_LOADED" ]]
 }
+
+# Test calculate_next_version
+_setup_git_repo() {
+  local dir
+  dir="$(mktemp -d)"
+  cd "$dir"
+  git init >/dev/null 2>&1
+  git config user.email "test@example.com"
+  git config user.name "Test User"
+  echo "init" > file.txt
+  git add file.txt
+  git commit -m "chore: initial" >/dev/null 2>&1
+  git tag v1.0.0 >/dev/null 2>&1
+}
+
+@test "calculate_next_version: single fix commit bumps patch" {
+  _setup_git_repo
+  source "${DEVENV_ROOT}/tools/lib/release-operations.bash"
+  echo "a" >> file.txt && git add file.txt && git commit -m "fix: bug fix" >/dev/null 2>&1
+  result=$(calculate_next_version "v1.0.0")
+  [[ "$result" == "1.0.1" ]]
+}
+
+@test "calculate_next_version: single feat commit bumps minor" {
+  _setup_git_repo
+  source "${DEVENV_ROOT}/tools/lib/release-operations.bash"
+  echo "a" >> file.txt && git add file.txt && git commit -m "feat: new feature" >/dev/null 2>&1
+  result=$(calculate_next_version "v1.0.0")
+  [[ "$result" == "1.1.0" ]]
+}
+
+@test "calculate_next_version: feat then fix yields minor bump" {
+  _setup_git_repo
+  source "${DEVENV_ROOT}/tools/lib/release-operations.bash"
+  echo "a" >> file.txt && git add file.txt && git commit -m "feat: new feature" >/dev/null 2>&1
+  echo "b" >> file.txt && git add file.txt && git commit -m "fix: bug fix" >/dev/null 2>&1
+  result=$(calculate_next_version "v1.0.0")
+  [[ "$result" == "1.1.0" ]]
+}
+
+@test "calculate_next_version: fix then feat yields minor bump" {
+  _setup_git_repo
+  source "${DEVENV_ROOT}/tools/lib/release-operations.bash"
+  echo "a" >> file.txt && git add file.txt && git commit -m "fix: bug fix" >/dev/null 2>&1
+  echo "b" >> file.txt && git add file.txt && git commit -m "feat: new feature" >/dev/null 2>&1
+  result=$(calculate_next_version "v1.0.0")
+  [[ "$result" == "1.1.0" ]]
+}
+
+@test "calculate_next_version: breaking commit bumps major" {
+  _setup_git_repo
+  source "${DEVENV_ROOT}/tools/lib/release-operations.bash"
+  echo "a" >> file.txt && git add file.txt && git commit -m "feat!: breaking change" >/dev/null 2>&1
+  result=$(calculate_next_version "v1.0.0")
+  [[ "$result" == "2.0.0" ]]
+}
+
+@test "calculate_next_version: feat then breaking yields major bump" {
+  _setup_git_repo
+  source "${DEVENV_ROOT}/tools/lib/release-operations.bash"
+  echo "a" >> file.txt && git add file.txt && git commit -m "feat: new feature" >/dev/null 2>&1
+  echo "b" >> file.txt && git add file.txt && git commit -m "feat!: breaking change" >/dev/null 2>&1
+  result=$(calculate_next_version "v1.0.0")
+  [[ "$result" == "2.0.0" ]]
+}
+
+@test "calculate_next_version: no commits returns base version" {
+  _setup_git_repo
+  source "${DEVENV_ROOT}/tools/lib/release-operations.bash"
+  result=$(calculate_next_version "v1.0.0")
+  [[ "$result" == "1.0.0" ]]
+}

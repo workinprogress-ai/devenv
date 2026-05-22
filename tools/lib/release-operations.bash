@@ -199,6 +199,9 @@ calculate_next_version() {
   
   # shellcheck disable=SC2034
   while IFS= read -r -d $'\x1E' commit_msg; do
+    # git --pretty=format: adds a '\n' separator between entries; strip it
+    commit_msg="${commit_msg#$'\n'}"
+
     # Check for breaking changes first
     if is_breaking_commit "$commit_msg"; then
       bump_major=1
