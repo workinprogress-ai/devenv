@@ -54,41 +54,7 @@ if [ -f "$HOME/.devenvrc" ]; then
   source "$HOME/.devenvrc"
 fi
 
-# Configure zsh prompt to match devenv bash prompt style
-autoload -Uz vcs_info
-precmd() { vcs_info }
-
-# Git prompt configuration with dirty indicator
-zstyle ':vcs_info:*' enable git
-zstyle ':vcs_info:*' check-for-changes true
-zstyle ':vcs_info:*' unstagedstr ' %F{yellow}✗%f'
-zstyle ':vcs_info:*' stagedstr ' %F{yellow}✗%f'
-zstyle ':vcs_info:git:*' formats '%F{cyan}(%F{red}%b%f%u%F{cyan})%f '
-zstyle ':vcs_info:git:*' actionformats '%F{cyan}(%F{red}%b%f%F{cyan}|%F{yellow}%a%f%u%F{cyan})%f '
-
-# Build prompt components
-_devenv_user_prompt() {
-  if [ -n "${GH_USER:-}" ]; then
-    echo "%F{green}@${GH_USER}%f "
-  else
-    echo "%F{green}%n%f "
-  fi
-}
-
-_devenv_path_prompt() {
-  local current_path="${PWD}"
-  local devenv_root="${DEVENV_ROOT:-}"
-  
-  if [[ -n "$devenv_root" && "$current_path" == "$devenv_root/repos/"* ]]; then
-    echo "%F{blue}...${current_path#$devenv_root/repos}%f"
-  else
-    echo "%F{blue}%~%f"
-  fi
-}
-
-# Set the prompt (with command substitution)
-setopt prompt_subst
-PROMPT='$(_devenv_user_prompt)$(_devenv_path_prompt) ${vcs_info_msg_0_}%# '
+# Prompt is set up by zsh-prompt.sh, sourced via ~/.devenvrc above.
 
 # Basic zsh completion
 autoload -U +X compinit

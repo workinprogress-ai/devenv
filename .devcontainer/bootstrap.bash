@@ -595,13 +595,15 @@ fi
 # Core devenv environment
 [ -f "${DEVENV_ROOT}/.runtime/env-vars.sh" ] && source "${DEVENV_ROOT}/.runtime/env-vars.sh"
 [ -f "${DEVENV_ROOT}/.runtime/bash-functions.sh" ] && source "${DEVENV_ROOT}/.runtime/bash-functions.sh"
+[ -f "${DEVENV_ROOT}/.devcontainer/sanity-check.sh" ] && source "${DEVENV_ROOT}/.devcontainer/sanity-check.sh"
+[ -f "${DEVENV_ROOT}/.devcontainer/tool-versions.bash" ] && source "${DEVENV_ROOT}/.devcontainer/tool-versions.bash"
 
-# Optional bash-only helpers
+# Shell-specific helpers
 if [ -n "${BASH_VERSION:-}" ]; then
-    [ -f "${DEVENV_ROOT}/.devcontainer/sanity-check.sh" ] && source "${DEVENV_ROOT}/.devcontainer/sanity-check.sh"
-    [ -f "${DEVENV_ROOT}/.devcontainer/tool-versions.sh" ] && source "${DEVENV_ROOT}/.devcontainer/tool-versions.sh"
     [ -f "${DEVENV_ROOT}/.devcontainer/bash-prompt.sh" ] && source "${DEVENV_ROOT}/.devcontainer/bash-prompt.sh"
     [ -f "${DEVENV_ROOT}/.devcontainer/bash_completion_custom" ] && source "${DEVENV_ROOT}/.devcontainer/bash_completion_custom"
+elif [ -n "${ZSH_VERSION:-}" ]; then
+    [ -f "${DEVENV_ROOT}/.devcontainer/zsh-prompt.sh" ] && source "${DEVENV_ROOT}/.devcontainer/zsh-prompt.sh"
 fi
 
 # SSH setup (works in both shells)

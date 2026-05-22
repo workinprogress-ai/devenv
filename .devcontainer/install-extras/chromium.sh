@@ -7,3 +7,8 @@ set -euo pipefail
 
 sudo apt-get update -y
 sudo apt-get install -y chromium
+
+if [[ -f "${HOME}/.fluxbox/menu" ]]; then
+    devenv-desktop-menu-add-folder "Applications"
+    devenv-desktop-menu-add-shortcut "Chromium" "chromium" "Applications"
+fi

@@ -1,5 +1,5 @@
 #!/bin/bash
-# tool-versions.sh - Standardized tool and version management for devenv
+# tool-versions.bash - Standardized tool and version management for devenv
 # Sources this file to ensure consistent tool versions across the environment
 # Version: 1.0.0
 # Author: WorkInProgress.ai

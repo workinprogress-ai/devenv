@@ -1592,6 +1592,82 @@ cs-dependencies-update-wizard --no-refresh
 
 **Related:** `cs-references-update-wizard` (single-repo workflow), `cs-dependencies-trace` (view the dependency tree without making changes)
 
+## Desktop Environment
+
+Tools for managing the Fluxbox desktop application menu inside the dev container's graphical environment. The desktop is accessible via VNC — see [Dev-container-environment.md](./Dev-container-environment.md) for connection details.
+
+### `devenv-desktop-menu-add-shortcut`
+
+Adds a shortcut (exec entry) to the Fluxbox desktop application menu. If a shortcut with the same label already exists the command exits silently (idempotent).
+
+**Usage:**
+
+```bash
+devenv-desktop-menu-add-shortcut <label> <command> [folder]
+```
+
+**Arguments:**
+
+- `<label>`: Display label shown in the menu
+- `<command>`: Shell command to run when the item is selected
+- `[folder]`: Optional — name of an existing folder to add the shortcut into. Create the folder first with `devenv-desktop-menu-add-folder`.
+
+**Examples:**
+
+```bash
+# Add a top-level shortcut
+devenv-desktop-menu-add-shortcut "MongoDB Compass" "mongodb-compass"
+
+# Add a shortcut inside an existing folder
+devenv-desktop-menu-add-shortcut "Compass" "mongodb-compass" "Databases"
+```
+
+**Notes:**
+
+- New shortcuts are placed immediately before the `[config]` or `[workspaces]` block (or the closing `[end]`) so Fluxbox built-in items remain at the bottom.
+- The `FLUXBOX_MENU` environment variable can override the menu file path (default: `~/.fluxbox/menu`).
+
+### `devenv-desktop-menu-add-folder`
+
+Adds a folder (submenu block) to the Fluxbox desktop application menu. If a folder with the same name already exists the command exits silently (idempotent).
+
+**Usage:**
+
+```bash
+devenv-desktop-menu-add-folder <folder-name> [parent-folder]
+```
+
+**Arguments:**
+
+- `<folder-name>`: Display name for the new folder
+- `[parent-folder]`: Optional — name of an existing folder to nest this one inside.
+
+**Examples:**
+
+```bash
+# Create a top-level folder
+devenv-desktop-menu-add-folder "Databases"
+
+# Create a nested folder
+devenv-desktop-menu-add-folder "MongoDB" "Databases"
+```
+
+**Notes:**
+
+- Like shortcuts, new folders are placed before `[config]`/`[workspaces]`/root `[end]`.
+- The folder must exist before shortcuts can be added into it.
+
+**Typical workflow:**
+
+```bash
+# 1. Create the folder
+devenv-desktop-menu-add-folder "Databases"
+
+# 2. Add shortcuts into it
+devenv-desktop-menu-add-shortcut "MongoDB Compass" "mongodb-compass" "Databases"
+devenv-desktop-menu-add-shortcut "pgAdmin" "pgadmin4" "Databases"
+```
+
 ## Networking and Utilities
 
 Tools for managing network connections and performing utility functions.
@@ -2009,6 +2085,94 @@ refresh_repo_cache
 refresh_repo_cache "^service\."
 ```
 
+### `desktop-menu.bash`
+
+Provides idempotent functions for managing the Fluxbox desktop application menu. Used by `devenv-desktop-menu-add-shortcut` and `devenv-desktop-menu-add-folder`, and can be sourced directly by install-extras scripts to add menu entries as part of tool installation.
+
+**Sourcing:**
+
+```bash
+source "$DEVENV_TOOLS/lib/desktop-menu.bash"
+```
+
+**Provided functions:**
+
+#### `desktop_menu_get_file`
+
+Returns the path to the Fluxbox menu file. Respects the `FLUXBOX_MENU` environment variable override; defaults to `~/.fluxbox/menu`.
+
+```bash
+menu_file="$(desktop_menu_get_file)"
+```
+
+#### `desktop_menu_shortcut_exists MENU_FILE LABEL`
+
+Returns `0` if an `[exec]` entry with the given label exists, `1` otherwise.
+
+```bash
+if desktop_menu_shortcut_exists "$menu_file" "MongoDB Compass"; then
+  echo "already present"
+fi
+```
+
+#### `desktop_menu_folder_exists MENU_FILE FOLDER_NAME`
+
+Returns `0` if a `[submenu]` entry with the given name exists, `1` otherwise.
+
+```bash
+if ! desktop_menu_folder_exists "$menu_file" "Databases"; then
+  desktop_menu_add_folder "$menu_file" "Databases"
+fi
+```
+
+#### `desktop_menu_add_shortcut MENU_FILE LABEL COMMAND [FOLDER]`
+
+Adds an `[exec]` entry to the menu. Silently skips if a shortcut with the same label already exists. Calls `die` if the menu file or a specified folder does not exist.
+
+| Argument | Description |
+|----------|-------------|
+| `MENU_FILE` | Path to the Fluxbox menu file |
+| `LABEL` | Display label shown in the menu |
+| `COMMAND` | Shell command to execute |
+| `FOLDER` | Optional — existing folder to place the shortcut in |
+
+#### `desktop_menu_add_folder MENU_FILE FOLDER_NAME [PARENT_FOLDER]`
+
+Adds a `[submenu]` / `[end]` block to the menu. Silently skips if a folder with the same name already exists. Calls `die` if the menu file or a specified parent does not exist.
+
+| Argument | Description |
+|----------|-------------|
+| `MENU_FILE` | Path to the Fluxbox menu file |
+| `FOLDER_NAME` | Display name for the new folder |
+| `PARENT_FOLDER` | Optional — existing folder to nest inside |
+
+**Example — install-extras script:**
+
+```bash
+source "$DEVENV_TOOLS/lib/desktop-menu.bash"
+
+menu_file="$(desktop_menu_get_file)"
+desktop_menu_add_folder   "$menu_file" "Databases"
+desktop_menu_add_shortcut "$menu_file" "MongoDB Compass" "mongodb-compass" "Databases"
+```
+
+**Menu format reference:**
+
+```text
+[begin] (  Application Menu  )
+    [exec] (Label) { command } <>
+    [submenu] (Folder Name) {}
+        [exec] (Label) { command } <>
+    [end]
+    [config]     (Configuration)
+    [workspaces] (Workspaces)
+[end]
+```
+
+**Environment variables:**
+
+- `FLUXBOX_MENU`: Override the default menu file path (`~/.fluxbox/menu`)
+
 ### `cs-dependency-graph.bash`
 
 Builds and queries a reverse dependency graph across all cached C# organization repositories. Scans `.csproj` files to map NuGet package production and consumption relationships between repos.
@@ -2134,6 +2298,11 @@ The following convenience aliases are available in the dev container:
 **NuGet:**
 
 - `cs-nuget-clear-local` / `cs-nuget-publish-local` - Local NuGet development
+
+**Desktop Environment:**
+
+- `devenv-desktop-menu-add-shortcut` - Add a shortcut to the Fluxbox desktop menu
+- `devenv-desktop-menu-add-folder` - Add a folder to the Fluxbox desktop menu
 
 **Utilities:**
 

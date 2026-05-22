@@ -121,6 +121,15 @@ lint_script() {
     
     ((total_files++)) || true
     
+    # Skip zsh scripts — ShellCheck does not support zsh
+    if head -n 1 "$script" | grep -q '^#!.*zsh'; then
+        if [ "${QUIET:-0}" -eq 0 ]; then
+            log_warning "Skipping: $relative_path (zsh script, not supported by shellcheck)"
+        fi
+        ((skipped_files++)) || true
+        return 0
+    fi
+
     # Skip if file doesn't have execute permission and doesn't start with shebang
     if [ ! -x "$script" ] && ! head -n 1 "$script" | grep -q '^#!.*sh'; then
         if [ "${QUIET:-0}" -eq 0 ]; then

@@ -1,8 +1,18 @@
 #!/bin/bash
 
+# Capture the VS Code workspace start directory once per shell session.
+# The first shell sources this with $PWD = the workspace folder; subshells
+# inherit the already-exported value and the :- guard leaves it unchanged.
+export DEVENV_START_DIR="${DEVENV_START_DIR:-$PWD}"
+
 __bash_prompt() {
     local userpart='`export XIT=$? \
-        && [ ! -z "${GH_USER:-}" ] && echo -n "\[\033[0;32m\]@${GH_USER:-} " || echo -n "\[\033[0;32m\]\u " \
+        && if [[ -n "${DEVENV_START_DIR:-}" && "$PWD" != "${DEVENV_START_DIR}" && "$PWD" != "${DEVENV_START_DIR}/"* ]]; then \
+             _UC="\[\033[0;33m\]"; \
+           else \
+             _UC="\[\033[0;32m\]"; \
+           fi \
+        && [ ! -z "${GH_USER:-}" ] && echo -n "${_UC}@${GH_USER:-} " || echo -n "${_UC}\u " \
         && [ "$XIT" -ne "0" ] && echo -n "\[\033[1;31m\]➜" || echo -n "\[\033[0m\]➜"`'
 
     local gitbranch='`\
