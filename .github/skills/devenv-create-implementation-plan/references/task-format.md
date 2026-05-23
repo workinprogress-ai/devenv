@@ -3,7 +3,7 @@
 ## Canonical format
 
 ```
-- [ ] **N.N [S|M|L] Task title** ([additional context](#task-NN--short-slug))
+- [ ] **N.N [S|M|L] Task title** <a id="t-NN"></a> ([additional context](#task-NN--short-slug))
   - <Concrete sub-step or behavioural note>
   - <Another sub-step — method signature, file to touch, edge case, etc.>
   - <As many descriptive bullets as needed to make the task scannable>
@@ -12,6 +12,8 @@
   - owner: User | AI  (omit when either party can take it — that's the default)
   - depends on N.N (only if applicable)
 ```
+
+The `<a id="t-NN"></a>` anchor (where `NN` is the task number with the dot dropped: `2.1` → `t-21`) is placed immediately after the task title and before the `(additional context)` link. It renders as nothing visible but creates the anchor target that the *Additional task context* section links back to. Only include it when the task has a corresponding `(additional context)` entry.
 
 The task title is **bolded** and uses an em-dash separator for readability. Descriptive sub-bullets come **first** (they describe the work). Metadata bullets (`Files:`, `decision:`, `depends on`) come **last** so they're easy to find but don't drown the description.
 
@@ -112,10 +114,10 @@ If a task can't be described in a handful of sub-bullets, it probably needs to b
 
 ## Linking to additional context
 
-When a task needs more than its sub-bullets can convey, push the depth into *Additional task context* and link to it from the task header:
+When a task needs more than its sub-bullets can convey, push the depth into *Additional task context* and link to it from the task header. Add a back-link on the context section heading so the reader can navigate back to the task in one click:
 
 ```markdown
-- [ ] **2.2 [M] Wire retry policy into BulkSyncWorker** ([additional context](#task-22--retry-policy-wiring))
+- [ ] **2.2 [M] Wire retry policy into BulkSyncWorker** <a id="t-22"></a> ([additional context](#task-22--retry-policy-wiring))
   - Wrap the outbound HTTP call with the policy from 2.1
   - Preserve existing cancellation token behaviour
   - Files: `repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs`
@@ -125,11 +127,13 @@ When a task needs more than its sub-bullets can convey, push the depth into *Add
 …and in *Additional task context*:
 
 ```markdown
-#### <a id="task-22--retry-policy-wiring"></a>2.2 — Retry policy wiring
+#### <a id="task-22--retry-policy-wiring"></a>2.2 — Retry policy wiring  [↩ task](#t-22)
 
 Edge cases: 429 vs 5xx; jittered backoff; honour `Retry-After` header.
 Tests to add: `BulkSyncWorkerRetryTests` covering each case.
 ```
+
+The `<a id="t-22"></a>` anchor on the task line is the back-link target. The `[↩ task](#t-22)` link at the end of the context heading navigates back. Both anchors must be present when additional context exists; neither is needed on tasks without context.
 
 ### Anchor slugs
 

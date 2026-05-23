@@ -11,18 +11,24 @@ __bash_prompt() {
         unset DEVENV_START_DIR
     fi
 
-    # Set the start directory to the first non-/vscode PWD value seen, which should be the workspace folder 
-    # for the first shell and any non-/vscode folder for subsequent shells. This allows the prompt to react
-    # to the user leaving the workspace folder, which is a common source of confusion.
-    if [[ ! "$PWD" =~ ^/vscode(/|$) ]]; then
-        export DEVENV_START_DIR="${DEVENV_START_DIR:-$PWD}"
+    # Set the start directory to the git root of the starting folder (or the folder itself if
+    # not inside a git repo). Using the git root ensures the variable always sits at a repo
+    # boundary even when the terminal opens deep inside a subtree.
+    if [[ ! "$PWD" =~ ^/vscode(/|$) && -z "${DEVENV_START_DIR:-}" ]]; then
+        _gsd=$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null)
+        export DEVENV_START_DIR="${_gsd:-$PWD}"
+        unset _gsd
     fi
 
     local userpart='`export XIT=$? \
-        && if [[ -n "${DEVENV_START_DIR:-}" && "$PWD" != "${DEVENV_START_DIR}" && "$PWD" != "${DEVENV_START_DIR}/"* ]]; then \
-             _UC="\[\033[0;33m\]"; \
-           else \
+        && if [[ "$PWD" =~ ^/home/vscode(/|$) ]]; then \
+             _UC="\[\033[0;38;5;153m\]"; \
+           elif [[ -n "${DEVENV_START_DIR:-}" && ( "$PWD" == "${DEVENV_START_DIR}" || "$PWD" == "${DEVENV_START_DIR}/"* ) && ( "${DEVENV_START_DIR}" != "/workspaces/devenv" || "$PWD" != "${DEVENV_START_DIR}/repos/"* ) ]]; then \
              _UC="\[\033[0;32m\]"; \
+           elif [[ "$PWD" =~ ^/workspaces/devenv(/|$) ]]; then \
+             _UC="\[\033[1;33m\]"; \
+           else \
+             _UC="\[\033[1;31m\]"; \
            fi \
         && [ ! -z "${GH_USER:-}" ] && echo -n "${_UC}@${GH_USER:-} " || echo -n "${_UC}\u " \
         && [ "$XIT" -ne "0" ] && echo -n "\[\033[1;31m\]➜" || echo -n "\[\033[0m\]➜"`'

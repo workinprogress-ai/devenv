@@ -152,4 +152,4 @@ If a task genuinely requires a mutation (e.g. "commit this and open a PR"), stat
 | `🛑` | **Blocker** — work stops here until resolved |
 | `🏁` | **Session or phase wrap-up** |
 
-**File and method references.** Whenever you mention a specific file, class, or method location in chat — hand-backs, reviews, concerns, hints, or brain bootup — use a clickable workspace-root-relative link: [`ExecuteAsync` in `BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L87). Never reference a file by bare name when you have (or can determine) a path and line number. If the exact line isn't known, link to the file without `#L`.
+**File and method references.** Whenever a specific class, method, or file is mentioned **anywhere in chat output** — task descriptions, phase announcements, hand-backs, reviews, concerns, hints, or brain bootup — use a clickable workspace-root-relative link: [`ExecuteAsync` in `BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L87). Never use backtick code formatting as a substitute for a link when the location is known. If the exact line isn't known, link to the file without `#L`.

@@ -55,7 +55,7 @@ Use the emoji vocabulary defined in `copilot-instructions.md` consistently. Key 
 | `🛑` | Blocker — mid-session abort triggered |
 | `🏁` | Opening the end-of-session summary |
 
-**File and method references** in task pings, concerns, and the session summary must use clickable workspace-root-relative links — same convention as the hotspot format below. If you don't have an exact line number, link to the file without `#L`.
+**File and method references:** Whenever a specific class, method, or file is mentioned **anywhere in chat output** — task announcements, concerns, session summaries, suitability analysis — use a clickable workspace-root-relative link. Never use backtick code formatting as a substitute for a link when the location is known. If the exact line isn't known, link to the file without `#L`. Same convention as the hotspot format below.
 
 ## Session Kickoff
 

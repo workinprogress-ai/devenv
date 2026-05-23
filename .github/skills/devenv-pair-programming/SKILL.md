@@ -62,7 +62,9 @@ These are the standard signals defined in `copilot-instructions.md` — use them
 | `🛑` | **Blocker** — work stops here until resolved |
 | `🏁` | **Session or phase wrap-up** |
 
-**File and method references:** Whenever you mention a specific file or method location in chat — hand-backs, reviews, concerns, hints, brain bootup — use a clickable workspace-root-relative link: [`ExecuteAsync` in `BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L87). Never reference a file by name alone when you have (or can determine) a line number.
+**File and method references:** Whenever a specific class, method, or file is mentioned **anywhere in chat output** — task descriptions, phase announcements, hand-backs, reviews, concerns, hints, brain bootup — use a clickable workspace-root-relative link: [`ExecuteAsync` in `BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L87). Never use backtick code formatting as a substitute for a link when the location is known. If the exact line isn't known, link to the file without `#L`.
+
+**Plan task references:** Whenever a task number (e.g. `3.1`, `4.2`) is mentioned in chat, link it to the plan file loaded at session start: [`3.1`](repos/path/to/Implementation_plan.md). Use the actual plan file path, not a placeholder. If the plan came from a GitHub issue, link to the issue instead.
 
 ## Session Kickoff
 
@@ -173,6 +175,10 @@ For 1–2 tasks, prose is fine:
 
 > *"Here's how I'd divide Phase 2: I take 2.1 (retry policy boilerplate) and 2.3 (tests) — those are mechanical. You take 2.2 (the backoff strategy) — that's the real decision. Work for you?"*
 
+When task descriptions reference specific classes or methods, link them — don't just use backtick code formatting:
+
+> 4.1 — [`OnTransactionAbort`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L42) / [`OnTransactionAbandon`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L58) hooks call [`DeletePendingEntries`](repos/lib.cs.services.bulk-sync/src/BulkSyncCapability.cs#L91) to clean up orphaned entries
+
 For 3+ tasks, use a table:
 
 > **Phase 2 split:**
@@ -186,6 +192,7 @@ For 3+ tasks, use a table:
 > *Work for you?*
 
 Rules:
+- **Never cross phase boundaries in a task split.** A split always contains tasks from the current phase only. If a task in a future phase appears relevant or blocking, don't pull it into the current split — note it and, if the coupling is strong enough to matter, offer a plan revision conversation: *"4.1 looks related — if you'd like to tackle it alongside 3.1, that might mean re-grouping them into the same phase. Want to do that now, or keep the phase structure as-is and revisit 4.1 when we get there?"*
 - Use `[S/M/L]` size labels if present: prefer giving the user tasks with `decision:` bullets or `[L]` work; AI takes `[S]` mechanical tasks.
 - Respect `owner:` annotations: `owner: User` tasks always go to the user; `owner: AI` tasks always go to the AI. These are not negotiable in the proposal — just state them as assigned.
 - Either party can take any unowned task — the user's preference overrides.
@@ -219,7 +226,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
    - **Research open questions.** If a `decision:` item or unresolved question is coming up in your batch, gather the options and relevant codebase evidence now so the conversation doesn't stall mid-task.
    - **Flag anything genuinely useful.** One proactive interjection mid-task is fine: *"⚠️ Quick heads-up while you're in there — `BulkSyncWorker` has a private `_retryCount` field that overlaps with what you're adding."* Don't pepper them with interruptions, and don't invent things to say just to look busy.
    - If there's truly nothing productive to do (rare — the backlog is always there), say so briefly rather than going silent: *"No obvious prep for 2.3 — it's straightforward once 2.2 lands. I'll review whenever you're ready."*
-3. **Review the actual diff.** Use `get_changed_files` and read the diff before responding. If `get_changed_files` isn't available, read the relevant files directly. Don't review from memory.
+3. **Review the actual diff.** Use `get_changed_files` and read the diff before responding. If `get_changed_files` isn't available, read the relevant files directly. **Never review from an in-context copy — re-read every file touched in the user's turn before saying anything about it.** See [Always Work From Current Files](#always-work-from-current-files).
 4. **Give a real review.** Format as a structured block with linked file references — one bullet per observation:
 
    > **Review of 2.2:**
@@ -287,6 +294,21 @@ The correct response to *"never mind, just proceed to phase 3"* is to emit the P
 **This applies equally to affirmative responses to AI-prompted questions.** When the AI asks *"Ready to move to phase 3?"* and the user says *"yes"*, *"yes, let's do it"*, *"go ahead"*, *"sounds good"* — the answer is the same: run the phase kickoff protocol and stop. The user's yes is consent to *begin the phase*, not to implement it solo.
 
 If the user abandons a pending action mid-flight (*"never mind"*) and gives a new directive, drop the abandoned action cleanly and do exactly what they asked — nothing more.
+
+## Always Work From Current Files
+
+The AI's in-context memory of a file's contents is a **cache**. That cache is invalidated the moment any edit is made — by the user, by the AI, or by any tool. After that point, the in-context copy must be treated as stale until re-read.
+
+**Before reviewing code or answering a question about the current state of any file, the AI must re-read it if any edits have occurred in the session.** This applies to:
+
+- Reviewing the user's completed turn
+- Answering "does this look right?", "is X done?", "why isn't Y working?"
+- Giving advice that depends on what a method, class, or file currently contains
+- Confirming that a previously recommended change was actually applied
+
+The rule: **if you wrote to the file or the user has been driving in it, re-read it before making any claim about its contents.** Do not say "I can see from earlier that..." when referring to a file that has been edited. Read it now.
+
+If for some reason the file cannot be read, say so explicitly: *"I'd want to re-read [`BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs) before answering — the in-context version may be stale."* Never answer as if the stale copy is current.
 
 ## No-Assumptions Rule
 
@@ -528,7 +550,11 @@ When the user signals end of session (or a phase boundary that suggests a natura
 
 - Starting a task before the task split is agreed.
 - Starting the next task before the previous one is approved.
+- Proposing a task split that crosses phase boundaries — if a future-phase task looks relevant, note it and offer a plan revision rather than collapsing the boundary.
+- Referencing plan task numbers (3.1, 4.2, etc.) without linking them to the plan file.
 - Reviewing the user's work from memory without reading the actual diff.
+- Answering questions about current code state ("is this done?", "why isn't X working?", advice) from an in-context copy that may be stale — re-read the file first if any edits have occurred.
+- Saying "I can see from earlier that..." about a file that has been edited since it was last read.
 - Rubber-stamping significant changes — "LGTM!" without substance. If something is good, say what makes it good.
 - Hollow affirmation: "Great work!", "Excellent approach!" without specifics.
 - Fixing the user's work without being asked — surface the concern, then wait.

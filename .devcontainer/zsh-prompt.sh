@@ -9,11 +9,13 @@ if [[ "${DEVENV_START_DIR:-}" =~ '^/vscode(/|$)' ]]; then
     unset DEVENV_START_DIR
 fi
 
-# Set the start directory to the first non-/vscode PWD value seen, which should be the workspace folder
-# for the first shell and any non-/vscode folder for subsequent shells. This allows the prompt to react
-# to the user leaving the workspace folder, which is a common source of confusion.
-if [[ ! "$PWD" =~ '^/vscode(/|$)' ]]; then
-    export DEVENV_START_DIR="${DEVENV_START_DIR:-$PWD}"
+# Set the start directory to the git root of the starting folder (or the folder itself if
+# not inside a git repo). Using the git root ensures the variable always sits at a repo
+# boundary even when the terminal opens deep inside a subtree.
+if [[ ! "$PWD" =~ '^/vscode(/|$)' && -z "${DEVENV_START_DIR:-}" ]]; then
+    _gsd=$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null)
+    export DEVENV_START_DIR="${_gsd:-$PWD}"
+    unset _gsd
 fi
 
 # vcs_info provides git branch display; add-zsh-hook lets multiple precmd
@@ -47,15 +49,26 @@ add-zsh-hook precmd __devenv_precmd
 # outside. Followed by the arrow: red on a non-zero exit, normal otherwise.
 _devenv_userpart() {
     local colour=green
-    if [[ -n "${DEVENV_START_DIR:-}" && \
-          "$PWD" != "${DEVENV_START_DIR}" && \
-          "$PWD" != "${DEVENV_START_DIR}/"* ]]; then
+    local bold=''
+    if [[ "$PWD" =~ '^/home/vscode(/|$)' ]]; then
+        colour=153
+        bold=''
+    elif [[ -n "${DEVENV_START_DIR:-}" && \
+            ( "$PWD" == "${DEVENV_START_DIR}" || "$PWD" == "${DEVENV_START_DIR}/"* ) && \
+            ( "${DEVENV_START_DIR}" != "/workspaces/devenv" || "$PWD" != "${DEVENV_START_DIR}/repos/"* ) ]]; then
+        colour=green
+        bold=''
+    elif [[ "$PWD" =~ '^/workspaces/devenv(/|$)' ]]; then
         colour=yellow
+        bold='%B'
+    else
+        colour=red
+        bold='%B'
     fi
     if [[ -n "${GH_USER:-}" ]]; then
-        echo -n "%F{$colour}@${GH_USER}%f"
+        echo -n "${bold}%F{$colour}@${GH_USER}%f%b"
     else
-        echo -n "%F{$colour}%n%f"
+        echo -n "${bold}%F{$colour}%n%f%b"
     fi
     if [[ $_DEVENV_LAST_EXIT -ne 0 ]]; then
         echo -n " %F{red}➜%f"
