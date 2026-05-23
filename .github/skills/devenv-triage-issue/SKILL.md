@@ -133,4 +133,4 @@ No per-action confirms. No partial-apply. The user either trusts the bundle or t
 - `/devenv-spike` — when the issue's feasibility or approach is unknown (size = XL).
 - `summarize-github-issue-pr-notification` (default agent skill) — for plain summaries without triage.
 
-See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

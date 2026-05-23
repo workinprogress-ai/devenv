@@ -201,4 +201,4 @@ Every phase header is followed by a `> blockquote` preamble. Section headings us
 - `/devenv-plan-update` — small surgical edits (tick boxes, add notes).
 - `/devenv-plan-status` — read-only progress report.
 
-See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

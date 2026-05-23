@@ -66,6 +66,7 @@ Skills for creating, updating, and inspecting implementation plans.
 | `/devenv-create-implementation-plan` | Interview the user and write a phased `Implementation_plan-*.md` | "create an implementation plan", "plan this story", "break this task into phases", "write up a plan for this" | when a spec already exists with ACs → `/devenv-plan-from-spec`; editing existing plan → `/devenv-refine-implementation-plan` |
 | `/devenv-plan-from-spec` | Generate a plan from an existing spec, RFC, design doc, or issue body | "turn this spec into a plan", "make a plan from this RFC", "plan from this design doc", "convert this issue into a plan" | vague/incomplete ideas (use `/devenv-create-implementation-plan` for the interview); revising existing plan → `/devenv-refine-implementation-plan` |
 | `/devenv-refine-implementation-plan` | Revise a plan after scope changes, new requirements, or discoveries | "refine the plan", "update the plan", "the plan needs updating", "rework the plan based on what we learned" | small surgical edits (tick a box, add a note) → `/devenv-plan-update`; creating a new plan → `/devenv-create-implementation-plan` |
+| `/devenv-refresh-implementation-plan` | Assess how stale an existing plan is, then route to the right remediation — light patch, structured revision, or guided rewrite | "refresh the plan", "is this plan still valid?", "how stale is this plan?", "bring this plan up to date", "freshen the plan", "the plan might be out of date" | when you already know exactly what needs updating → `/devenv-refine-implementation-plan`; read-only progress reporting → `/devenv-plan-status` |
 | `/devenv-plan-update` | Small surgical edit to an existing plan — tick a box, add a note | "mark 3.4 done", "tick off task 2.1", "add a note to task X", "record progress" | restructuring or reordering phases → `/devenv-refine-implementation-plan`; read-only progress check → `/devenv-plan-status` |
 | `/devenv-plan-status` | Report progress on a plan — read-only, no changes made | "what's the status of the plan", "how's the plan going", "where are we", "what's left on this plan" | modifying the plan → `/devenv-refine-implementation-plan` or `/devenv-plan-update` |
 
@@ -159,6 +160,8 @@ For work where understanding the codebase comes first, then feasibility, then im
 For in-flight work: check where things stand, progress the plan, ship.
 
 ```
+/devenv-refresh-implementation-plan  (if returning after a gap — is the plan still valid?)
+  ↓ (or skip if plan is fresh)
 /devenv-plan-status
   → /devenv-plan-update             (tick off completed tasks)
     → /devenv-delegation            (run the next phase)
@@ -166,7 +169,7 @@ For in-flight work: check where things stand, progress the plan, ship.
         → /devenv-session-handoff
 ```
 
-**Start here:** `/devenv-plan-status`
+**Start here:** `/devenv-refresh-implementation-plan` (if unsure) or `/devenv-plan-status` (if plan is known-current)
 
 ---
 

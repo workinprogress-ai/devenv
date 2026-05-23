@@ -146,3 +146,5 @@ Sibling skill routing:
 - **Do not switch skills without a "yes".** Suggest, don't act.
 - **Do not re-orient if a valid session cache exists.** Re-reading what's already known is noise.
 - **Do not use "I don't know. I am sad." prematurely.** It's the last resort after a genuine search, not a default for hard questions.
+
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

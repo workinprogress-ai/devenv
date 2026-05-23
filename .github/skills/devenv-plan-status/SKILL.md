@@ -6,8 +6,6 @@ argument-hint: Path to an Implementation_plan-*.md OR a GitHub issue number cont
 
 # Plan status
 
-> **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
-
 Report progress on an existing implementation plan without changing it. Read-only.
 
 ## When to use this skill
@@ -118,4 +116,4 @@ This skill is strictly read-only. It does not write to the plan, post issue comm
 - `/devenv-refine-implementation-plan` — for revising plans after discovery.
 - `/devenv-pair-programming` and `/devenv-delegation` — for executing plan tasks.
 
-See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

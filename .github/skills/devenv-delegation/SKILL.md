@@ -45,10 +45,12 @@ Slightly more reserved than pair-programming. Less chitchat, more execution focu
 
 ## Output Signals
 
-Use the emoji vocabulary defined in `copilot-instructions.md` consistently. Key signals for delegation:
+Use the emoji vocabulary defined in `copilot-instructions.md` consistently:
 
 | Signal | Use when |
 |--------|----------|
+| `📁` | Opening a **Files in scope** block |
+| `🔶` | A **decision is required** before continuing |
 | `→` | Starting a task (task-start ping) |
 | `✅` | Task accepted / checkpoint passed |
 | `⚠️` | Concern or heads-up surfaced inline |
@@ -127,7 +129,7 @@ Before asking for the go-ahead, output a compact **Files in scope** block. If th
 
 Format:
 
-> **Files in scope — Phase 2:**
+> **📁 Files in scope — Phase 2:**
 > [BulkSyncWorker.cs](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs) · [IBulkSyncStep.cs](repos/lib.cs.services.bulk-sync/src/IBulkSyncStep.cs) · [BulkSyncWorkerTests.cs](repos/lib.cs.services.bulk-sync/tests/BulkSyncWorkerTests.cs)
 
 Rules:
@@ -155,9 +157,9 @@ Wait for explicit go-ahead before starting the first session.
 
 Brief — one line. No full ceremony.
 
-> "Starting 2.1."
-> "2.1 done, moving to 2.2."
-> "2.2 done."
+> "→ Starting 2.1."
+> "✅ 2.1 done, moving to 2.2."
+> "✅ 2.2 done."
 
 ### No-assumptions rule (mid-task)
 
@@ -188,6 +190,20 @@ Stop the session and reconvene with the user when **any** of these happen:
 When aborting, summarize what was done so far in the same format as a normal session summary.
 
 > **Switching to pair-programming mid-session:** if the user wants to switch, tell them explicitly: *"To get the full pair-programming rules, please start a new chat and invoke `/devenv-pair-programming` — continuing in this session means the pair-programming skill isn't loaded and its rules won't apply."* Do not continue in delegation mode pretending to pair-program.
+
+## Always Work From Current Files
+
+The AI's in-context memory of a file's contents is a **cache**. That cache is invalidated the moment any edit is made — by the AI or any tool. After that point, the in-context copy must be treated as stale until re-read.
+
+**Before answering a question about the current state of any file, the AI must re-read it if any edits have occurred in the session.** This applies to:
+
+- Answering "is X done?", "did that change land?", "why isn't Y working?"
+- Giving advice that depends on what a method, class, or file currently contains
+- Confirming that a previously written change was actually applied
+
+The rule: **if you wrote to the file, re-read it before making any claim about its contents.** Do not say "I can see from earlier that..." when referring to a file that has been edited. Read it now.
+
+If for some reason the file cannot be read, say so explicitly: *"I'd want to re-read [`BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs) before answering — the in-context version may be stale."* Never answer as if the stale copy is current.
 
 ## Phase Completion Gate
 
@@ -296,4 +312,4 @@ If an adjacent bug is discovered, offer both an `issue-comment` on the parent an
 
 ## Sibling skills
 
-See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

@@ -6,6 +6,8 @@ argument-hint: Repo path (e.g. repos/lib.cs.services.bulk-sync), a GitHub issue 
 
 # Tech Debt Audit
 
+> **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
+
 A deliberate, opinionated audit of one or more repos that produces `TECH_DEBT_AUDIT.md` with file-cited findings, severity, effort estimates, and a required "looks bad but is actually fine" section.
 
 When invoked via `/devenv-tech-debt-audit`, follow the protocol below exactly.
@@ -23,7 +25,7 @@ Do **not** use for reviewing a single PR (use `/devenv-code-review`), for pair p
 ## Core Principles
 
 1. **Find what's actually wrong.** Not diplomatic. Not surface-only. Don't pattern-match to generic best practices without grounding in this specific repo. No sycophancy. No "overall the codebase is well-structured" filler.
-2. **Cite `file:line` for every concrete finding.** Vague claims like "the code generally..." don't count. Read code before judging it — a pattern that looks wrong in isolation may be load-bearing.
+2. **Cite `repos/<repo>/path/to/file.ext:LINE` for every concrete finding.** Vague claims like "the code generally..." don't count. Read code before judging it — a pattern that looks wrong in isolation may be load-bearing.
 3. **The "looks bad but is actually fine" section is required.** If it's empty, you didn't look hard enough. Forcing enumeration of considered-but-rejected findings is what separates a real audit from a checklist regurgitation.
 4. **Don't recommend rewrites.** Recommend specific, scoped changes.
 5. **Don't pad.** If a category has nothing material, write "Nothing material" and move on.
@@ -66,7 +68,7 @@ Write a 1–2 paragraph mental model of the architecture before proceeding. If y
 
 ## Phase 2: Audit across these dimensions
 
-Use `rg`, language-native tooling, and IDE-equivalent analysis to find concrete examples. Cite `path/to/file.ext:LINE` for every finding. Apply any dimension overrides or focus areas extracted from the issue body in Phase 1.
+Use `rg`, language-native tooling, and IDE-equivalent analysis to find concrete examples. Cite `repos/<repo>/path/to/file.ext:LINE` as a clickable workspace-root-relative link for every finding (e.g. `[repos/lib.cs.services.chassis/src/Foo.cs:42](repos/lib.cs.services.chassis/src/Foo.cs#L42)`). Apply any dimension overrides or focus areas extracted from the issue body in Phase 1.
 
 1. **Architectural decay** — circular deps, layering violations, god files (>500 LOC) and god functions, duplicated logic across 3+ sites where an abstraction should exist, abstractions that exist but nobody uses, dead code (unused exports/public types, unreachable branches, stale commented-out blocks).
 2. **Consistency rot** — multiple ways of doing the same thing (HTTP clients, error handling, logging, config loading, validation, date handling). Naming drift. Folder structure that no longer reflects what the code actually does.
@@ -98,7 +100,7 @@ Issue: #NNN  ← only if invoked with an issue number
 ## Findings
 | ID | Category | File:Line | Severity (Critical/High/Medium/Low) | Effort (S/M/L) | Description | Recommendation |
 |----|----------|-----------|--------------------------------------|----------------|-------------|----------------|
-| F001 | ... | src/Foo.cs:42 | Critical | L | ... | ... |
+| F001 | ... | [repos/path/src/Foo.cs:42](repos/path/src/Foo.cs#L42) | Critical | L | ... | ... |
 
 Aim for 30–80 findings. Padding past that is noise.
 
@@ -164,10 +166,12 @@ Never post without explicit confirmation.
 
 ## Anti-patterns
 
-- **Do not assert without a citation.** "The error handling is inconsistent" is not a finding; `src/Foo.cs:88 — catch (Exception) {}` is.
+- **Do not assert without a citation.** "The error handling is inconsistent" is not a finding; `repos/path/src/Foo.cs:88 — catch (Exception) {}` is.
 - **Do not recommend rewrites.** Recommend specific, scoped changes only.
 - **Do not leave the "looks bad but actually fine" section empty.** If empty, re-examine Phase 2.
 - **Do not stop on first tool failure.** If `dotnet test` fails to build, note it and continue with the remaining dimensions.
 - **Do not install tools globally.** Note missing tools and proceed.
 - **Do not call `gh` directly.** Use `issue-comment`, `issue-get`, etc.
 - **Do not post to GitHub without explicit "yes" confirmation.**
+
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

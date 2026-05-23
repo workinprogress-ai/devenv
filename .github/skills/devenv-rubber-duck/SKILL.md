@@ -78,4 +78,4 @@ When the user signals they're done — explicitly ("OK I think I've got it"), or
 - `/devenv-plan-from-spec` — when the conversation produced enough structure to draft from.
 - `/devenv-pair-programming`, `/devenv-delegation` — for the actual implementation once the thinking resolves.
 
-See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

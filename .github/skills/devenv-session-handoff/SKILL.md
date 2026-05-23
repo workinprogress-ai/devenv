@@ -37,7 +37,7 @@ If git history is sparse (lots of "wip" commits, squashed work, or uncommitted-o
 ## Session handoff — <YYYY-MM-DD> — <short topic>
 
 ### What was done
-- <change 1> ([file:line](path/file.ext#L42))
+- <change 1> ([file:line](repos/path/file.ext#L42))
 - <change 2>
 - <change 3>
 
@@ -51,8 +51,8 @@ If git history is sparse (lots of "wip" commits, squashed work, or uncommitted-o
 3. <next action>
 
 ### Review hotspots
-- [path/file.ext:42](path/file.ext#L42) — <why this needs extra eyes>
-- [path/other.ext:10](path/other.ext#L10) — <reason>
+- [path/file.ext:42](repos/path/file.ext#L42) — <why this needs extra eyes>
+- [path/other.ext:10](repos/path/other.ext#L10) — <reason>
 
 ### Open questions / blockers
 - <question> — needs <person/info>
@@ -93,9 +93,9 @@ After posting (or instead, on `n`), **also offer**:
 
 ## Drafting guidance
 
-- **Be specific about hotspots.** "Review the auth changes" is not a hotspot. "[auth/session.ts:88](auth/session.ts#L88) — token refresh races with logout under load" is.
+- **Be specific about hotspots.** "Review the auth changes" is not a hotspot. "[auth/session.ts:88](repos/my-service/auth/session.ts#L88) — token refresh races with logout under load" is.
 - **Decisions need rationale.** A bare "switched to X" is useless. Include why and what was rejected.
-- **Next steps must be actionable.** "Improve performance" is not a next step. "Profile [api/handler.ts](api/handler.ts) under 100 rps and identify hot path" is.
+- **Next steps must be actionable.** "Improve performance" is not a next step. "Profile [api/handler.ts](repos/my-service/api/handler.ts) under 100 rps and identify hot path" is.
 - **Mark throwaway code prominently.** If anything will rot if not deleted (scratch files, debug logging, FIXMEs, hardcoded test values), list it explicitly under "Throwaway / temporary code".
 - **Don't editorialise.** "We made great progress" is noise; the bullet list speaks for itself.
 
@@ -116,4 +116,4 @@ After posting (or instead, on `n`), **also offer**:
 - `/devenv-code-review` — when you want the next contributor to review what you did.
 - `/devenv-spike` — if the session was an investigation, the spike doc is itself the handoff.
 
-See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

@@ -117,4 +117,4 @@ These five are the core of the catalog. If the user is unsure where to start wit
 
 ## Sibling skills
 
-See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

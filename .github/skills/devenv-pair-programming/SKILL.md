@@ -55,7 +55,7 @@ These are the standard signals defined in `copilot-instructions.md` — use them
 |--------|----------|
 | `📁` | Opening a **Files in scope** block |
 | `🔶` | A **decision is required** before continuing |
-| `🧭` `🔍` `❓` | Brain bootup steps (Navigate / Observe / Question) |
+| `�` | **Brain bootup** — Navigate / Observe / Question steps (pair-programming only) |
 | `→` | AI is **starting** a task |
 | `✅` | Task **done**, gate passed, or approved |
 | `⚠️` | **Concern or heads-up** — notable but not a stopper |
@@ -127,7 +127,7 @@ Don't force this on someone who clearly knows what they're doing.
 
 ### 5. Emit phase file links
 
-Before asking about roles, output a compact **Files in scope** block. If the plan uses the `Files:` bullet convention, collect those paths for all tasks in the upcoming phase — no codebase exploration needed. Otherwise, use files confirmed from step 3 exploration. Omit the block entirely in ad-hoc mode or if no files have been identified.
+Before asking about roles, output a compact **Files in scope** block. If the plan uses the `Files:` bullet convention, collect those paths for all tasks in the upcoming phase — no codebase exploration needed. Otherwise, use files identified from plan tasks or prior codebase orientation. Omit the block entirely in ad-hoc mode or if no files have been identified.
 
 Format:
 
@@ -155,9 +155,9 @@ After decisions are flagged and before the task split, offer a short guided jour
 
 **Structure the bootup as three steps:**
 
-1. **🧭 Navigate** — a direct link to the file and specific location: *"Go to [`ExecuteAsync` in `BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs) (around line 87)."*
-2. **🔍 Observe** — one or two pointed, non-obvious observations about what's there. Name the specific thing, not the category: *"Notice the retry condition checks `StatusCode == 503`. It misses `408` and `429`."* If it would be obvious to any reader on first glance, it's not good enough.
-3. **❓ Question** — one question that requires synthesis, specifically chosen to surface the problem this phase addresses: *"Why would those missing codes matter for what we're building in this phase? (Include `bootup:` in your reply if you want to explore this together.)"*
+1. **� Navigate** — a direct link to the file and specific location: *"Go to [`ExecuteAsync` in `BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs) (around line 87)."*
+2. **🧠 Observe** — one or two pointed, non-obvious observations about what's there. Name the specific thing, not the category: *"Notice the retry condition checks `StatusCode == 503`. It misses `408` and `429`."* If it would be obvious to any reader on first glance, it's not good enough.
+3. **🧠 Question** — one question that requires synthesis, specifically chosen to surface the problem this phase addresses: *"Why would those missing codes matter for what we're building in this phase? (Include `bootup:` in your reply if you want to explore this together.)"*
 
 **What makes a good observation:** it should be the specific friction point the phase is about to address — something that wouldn't be obvious without reading carefully, and that makes the phase goal feel *necessary* once noticed.
 
@@ -292,6 +292,8 @@ If it's genuinely unclear whether the user wants discussion or action, ask: *"Wa
 The correct response to *"never mind, just proceed to phase 3"* is to emit the Phase 3 file links block, flag any decisions, and propose a task split. Then stop and wait. Do not begin coding.
 
 **This applies equally to affirmative responses to AI-prompted questions.** When the AI asks *"Ready to move to phase 3?"* and the user says *"yes"*, *"yes, let's do it"*, *"go ahead"*, *"sounds good"* — the answer is the same: run the phase kickoff protocol and stop. The user's yes is consent to *begin the phase*, not to implement it solo.
+
+> *Note: the same phrase (e.g. "go ahead") can serve as either an implementation directive or a navigation directive — context determines which rule applies. If the preceding AI message asked a navigation question ("Ready to move to phase 3?"), "go ahead" triggers the kickoff protocol. If the preceding message was a code discussion, "go ahead" triggers implementation.*
 
 If the user abandons a pending action mid-flight (*"never mind"*) and gives a new directive, drop the abandoned action cleanly and do exactly what they asked — nothing more.
 
@@ -578,4 +580,4 @@ When the user signals end of session (or a phase boundary that suggests a natura
 
 ## Sibling skills
 
-See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

@@ -149,3 +149,5 @@ Do **not** invent new commands. If a needed capability isn't in tooling, surface
 - Reformatting the roadmap (changing headings, reordering steps) — this skill only updates **Status** and **Issue** fields, plus appends a revision-history entry
 - Marking a step ✅ when the linked PR is open but the issue happens to be closed for an unrelated reason — always require closed via merge
 - Skipping the `blocked` / `paused` label override
+
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

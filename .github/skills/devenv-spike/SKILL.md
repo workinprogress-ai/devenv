@@ -6,6 +6,8 @@ argument-hint: A question / problem statement to investigate, OR a GitHub issue 
 
 # Spike
 
+> **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
+
 Run a focused, exploratory investigation of an open question. Output is a structured findings doc and (optionally) throwaway prototype code — never production code. The goal is to reduce uncertainty before committing to a real implementation plan.
 
 ## When to use this skill
@@ -132,4 +134,4 @@ Wait for explicit yes. Do not auto-create.
 - `/devenv-rubber-duck` — lighter-weight thinking-out-loud without artifacts.
 - `/devenv-pair-programming`, `/devenv-delegation` — for the actual implementation once the spike resolves.
 
-See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

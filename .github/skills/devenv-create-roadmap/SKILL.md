@@ -7,6 +7,8 @@ user-invocable: true
 
 # Create Roadmap
 
+> **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
+
 Take a blueprint, a requirements document, or both, and produce a **delivery roadmap** — a phased, high-level sequencing of work that respects dependencies and surfaces business priority. The roadmap is the link between intent (requirements / architecture) and execution: each step is the seed for one or more GitHub issues and (later) implementation plans.
 
 This skill is also the **canonical entry point for creating GitHub issues** from a requirements or blueprint document. Other skills that need bulk issue creation route through here.
@@ -273,3 +275,5 @@ After the roadmap is created and issues exist:
 - Creating issues outside the existing tooling (`issue-create`, `issue-update`)
 - Putting child issues in the planning repo (they belong in component repos)
 - Putting the parent epic in a component repo (it belongs in the planning repo)
+
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

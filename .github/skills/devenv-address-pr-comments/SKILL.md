@@ -279,4 +279,4 @@ Then:
 - `/devenv-session-handoff` — if you need to stop mid-review and hand off to the next session.
 - GitHub PR extension's `address-pr-comments` — for a fast batch-fix-all workflow without per-comment choices.
 
-See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

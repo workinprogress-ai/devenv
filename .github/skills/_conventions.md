@@ -63,6 +63,39 @@ Use these headings, in this order, omitting any that don't apply. Keep section t
 7. `## Anti-patterns` — what the skill must not do.
 8. Cross-links to sibling skills inline where natural (always relative paths).
 
+## Superseding content
+
+When a skill removes content it previously preserved (a requirement, roadmap step, plan task, or similar artifact), the rule is: **delete from the document; log in Revision History**. Do not leave tombstone blocks, strikethroughs, or "Superseded by" blockquotes in the live document body — they add noise and are confusing to the AI on the next load.
+
+Revision History entry format for a deletion:
+
+```
+- Removed <ID> (<one-line summary of what it was>) — <superseded by <new-ID> | withdrawn, <one-line reason>>[. Linked issue: <issue-link>]
+```
+
+Examples:
+
+```
+- Removed REQ-007 (Auth: minimum password length) — superseded by REQ-014
+- Removed STEP-12 (Load test baseline) — withdrawn, moved to separate performance track. Linked issue: #418.
+```
+
+Skills that follow this convention: `devenv-refine-requirements`, `devenv-refine-roadmap`, `devenv-refine-blueprint`, `devenv-refine-implementation-plan`.
+
+## Model check
+
+Add the following blockquote **immediately after the `# Skill Title` heading** (before the opening paragraph) for any skill that:
+
+- Runs a multi-turn interview, or
+- Produces a written artifact (plan, blueprint, requirements doc, roadmap, design doc, handoff), or
+- Drives iterative implementation (pair-programming, delegation).
+
+Omit it for lightweight utility skills that complete in a single turn: `pre-commit`, `open-pr`, `triage-issue`, `rubber-duck`, `skill-guru`, `session-handoff`, `update-roadmap`, `code-review`, `chat-with-code`, `plan-status`, `plan-update`.
+
+```markdown
+> **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
+```
+
 ## When to push content into `references/`
 
 Push to a reference file when **all** of:

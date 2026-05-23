@@ -1,12 +1,10 @@
 ---
 name: devenv-plan-update
-description: Make small, surgical edits to an existing Implementation_plan-*.md (or GitHub issue body containing a plan). USE WHEN the user says "mark 3.4 done", "tick off task 2.1", "answer that open question", "add a note to task X", "add one more task to phase 3", or wants to record progress without restructuring the plan. Auto-detects file path vs. issue number, requires a one-line confirm before each write, records every change in `## Revision history`, never silently unchecks a `[x]`, and never reflows numbering. Hard limit: refuses if more than ~3 changes are requested in one invocation, redirecting to `/devenv-refine-implementation-plan`. DO NOT USE for rewording existing tasks, restructuring or reordering phases, cancelling tasks, or any bulk additions — use `/devenv-refine-implementation-plan` instead. For read-only progress reports use `/devenv-plan-status`.
+description: Make small, surgical edits to an existing Implementation_plan-*.md (or GitHub issue body containing a plan). USE WHEN the user says "mark 3.4 done", "tick off task 2.1", "answer that open question", "add a note to task X", "add one more task to phase 3", or wants to record progress without restructuring the plan. Auto-detects file path vs. issue number, requires a one-line confirm before each write, records every change in `## Revision history`, never silently unchecks a `[x]`, and never reflows numbering. Hard limit: refuses if more than 3 changes are requested in one invocation, redirecting to `/devenv-refine-implementation-plan`. DO NOT USE for rewording existing tasks, restructuring or reordering phases, cancelling tasks, or any bulk additions — use `/devenv-refine-implementation-plan` instead. For read-only progress reports use `/devenv-plan-status`.
 argument-hint: Path to an Implementation_plan-*.md OR a GitHub issue number, plus the edit to make
 ---
 
 # Plan update
-
-> **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
 
 Apply small, surgical edits to an existing implementation plan without running a full revision interview. Sits between `/devenv-plan-status` (read-only) and `/devenv-refine-implementation-plan` (full restructure).
 
@@ -39,7 +37,7 @@ Plus the specific edit(s) requested in the chat.
 
 ### 2. Validate scope
 
-Count the requested operations. **Hard limit: ~3 per invocation.** If more, stop and recommend `/devenv-refine-implementation-plan`.
+Count the requested operations. **Hard limit: 3 per invocation.** If more, stop and recommend `/devenv-refine-implementation-plan`.
 
 For each operation, confirm it falls within the supported set:
 
@@ -110,7 +108,7 @@ One-line summary per change applied, plus the new task counts and overall progre
 - **Batching confirmations** — each edit gets its own y/n. The user must be able to say no to one without rejecting all.
 - **Silent edits while reading** — even a "small typo fix" while loading the plan is out of scope. Surface it; don't auto-fix.
 - **Skipping the revision history** — every persisted change goes in the log. No exceptions.
-- **Re-checking work via this skill** — if more than ~3 changes are needed, recommend `/devenv-refine-implementation-plan`. Don't grow the limit.
+- **Re-checking work via this skill** — if more than 3 changes are needed, recommend `/devenv-refine-implementation-plan`. Don't grow the limit.
 - **Auto-pushing to issue body** — writes to GitHub require explicit confirmation, every time.
 - **Unchecking a `[x]` from a prior revision** — refuse. Suggest adding a new task for the additional work instead.
 
@@ -121,4 +119,4 @@ One-line summary per change applied, plus the new task counts and overall progre
 - `/devenv-create-implementation-plan` — for brand-new plans.
 - `/devenv-plan-from-spec` — for generating a plan from an existing design doc.
 
-See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

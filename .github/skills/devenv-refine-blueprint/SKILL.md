@@ -38,7 +38,7 @@ Use `vscode_askQuestions` to gather:
 - **What's new** — components, operations, events, patterns to add
 - **What's wrong** — sections whose descriptions are now misleading
 - **What changed status** — services moving from `new` → `existing`, deltas now obsolete because the change shipped
-- **What's no longer relevant** — sections to mark as superseded (do NOT delete)
+- **What's no longer relevant** — sections to remove; deletion will be logged in Revision History with a note pointing to the replacement (or reason for withdrawal)
 - **New requirements docs** — "In a multi-epic project, has a new `Requirements-<epic>-NNN.md` been added that this blueprint should now cover? Or has an existing one been split or refined?"
 - **Source material** — "Are there meeting transcripts, email threads, design discussions, or other communications records behind these changes? If so, where are they?"
 
@@ -91,12 +91,11 @@ Do not write anything until the user confirms. If the user adjusts scope, revise
 **Hard rules:**
 
 - **Never reflow numbering.** Section `3.2.5` stays `3.2.5` for its lifetime. Append new entries with the next sequential number.
-- **Never silently delete a decision.** Superseded content is wrapped in a blockquote with a note pointing to the new section:
+- **Never silently delete a decision.** When a section is superseded or withdrawn, delete it from the document and record the removal in `## Revision History`:
 
-  ```markdown
-  > **Superseded by §3.2.7 in revision 2026-05-13**
-  >
-  > <original content>
+  ```
+  - Removed §5.2 risk #3 (TTL race condition) — superseded by §3.2.7 (reservation-cleaner mitigates this)
+  - Removed §4.3 component `service.old-notifier` — withdrawn, replaced by event-driven approach in §4.7
   ```
 - **New components are appended** to the end of `## 4. Per-Component Changes` with the next sub-number.
 - **Reworded sections** keep their number; the prior wording goes into a quoted "Previously" block beneath the new wording.
@@ -136,3 +135,5 @@ After writing, list what may need follow-up:
 - Deleting per-component delta entries when the change shipped — mark them `(shipped)` instead
 - Rewriting the blueprint from scratch — that's [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md), not refine
 - Forgetting to surface roadmap and plan impact after the edit
+
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

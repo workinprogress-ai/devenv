@@ -69,14 +69,14 @@ Scope: <N changed files in M project(s)>
 ### ❌ Failed
 
 #### lint (eslint)
-- [src/foo.ts:42](src/foo.ts#L42) — `'unused' is defined but never used`
-- [src/bar.ts:10](src/bar.ts#L10) — `Missing return type on function`
+- [src/foo.ts:42](repos/my-lib/src/foo.ts#L42) — `'unused' is defined but never used`
+- [src/bar.ts:10](repos/my-lib/src/bar.ts#L10) — `Missing return type on function`
 
   💡 Suggested fix: `pnpm eslint --fix src/foo.ts src/bar.ts`
   Apply auto-fix? (y/n)
 
 #### tests (pnpm test)
-- [tests/baz.test.ts:88](tests/baz.test.ts#L88) — `expected 3, got 2`
+- [tests/baz.test.ts:88](repos/my-lib/tests/baz.test.ts#L88) — `expected 3, got 2`
 
   No obvious auto-fix — review and update.
 ```
@@ -113,6 +113,6 @@ Per-tool sections only when there are failures. Skip the "Passed" section if eve
 - `/devenv-open-pr` — once checks pass and you've committed, open the PR.
 - `/devenv-code-review` — for human-style review feedback on the diff (separate from automated checks).
 - `/coverage-check` — for coverage regression detection (separate concern from pass/fail checks).
-- `/devenv-review-response` — if checks reveal issues that came from PR feedback.
+- `/devenv-address-pr-comments` — if checks reveal issues that came from PR feedback.
 
-See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

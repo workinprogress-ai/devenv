@@ -209,6 +209,7 @@ Before writing anything down (or wrapping up conversation-only), check:
 - **Vague recommendation** ("this one seems okay"). State a pick with reasoning.
 - **Hand-wavy mitigations.** "We'll monitor it" is not a mitigation.
 - **Forgetting the team.** A technically perfect solution the team can't maintain isn't a good solution.
+- **Writing code.** This is a discussion skill — not an implementation skill. If it's time to build, use [`/devenv-pair-programming`](../devenv-pair-programming/SKILL.md) or [`/devenv-delegation`](../devenv-delegation/SKILL.md).
 - **Producing a doc the user didn't ask for.** Conversation-only is the default.
 - **Confusing this skill with a blueprint.** Design discussion is focused and narrow. If it sprawled into domains/services/events/components, escalate to `/devenv-create-blueprint`.
 
@@ -221,4 +222,4 @@ Before writing anything down (or wrapping up conversation-only), check:
 - [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) — task breakdown for a chosen approach
 - [`/devenv-pair-programming`](../devenv-pair-programming/SKILL.md) / [`/devenv-delegation`](../devenv-delegation/SKILL.md) — when it's time to actually implement
 
-See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

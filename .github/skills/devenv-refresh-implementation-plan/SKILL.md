@@ -179,3 +179,5 @@ The plan's tasks are too stale to patch. Extract the intent, then re-plan.
 - **Renumbering existing tasks** — even during a significant revision, preserve all existing task numbers. Append; never reflow.
 - **Silently unchecking `[x]`** — if a completed task turns out to need redoing, add a new task rather than resetting the old one.
 - **Treating every small drift as intent-only** — the classification must match the actual evidence. Be conservative: only classify as intent-only when the task-level detail is genuinely unrecoverable.
+
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

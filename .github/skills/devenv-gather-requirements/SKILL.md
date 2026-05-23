@@ -7,6 +7,8 @@ user-invocable: true
 
 # Gather Requirements
 
+> **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
+
 Produce a user-oriented, functional requirements document through a structured interview. The output describes *what* the system does — not how it does it — at a level both humans and AI can use to drive planning and implementation.
 
 ## When to Use
@@ -640,4 +642,4 @@ At any point — during any phase, or when the user says "let's brainstorm Q-003
 
 ---
 
-See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

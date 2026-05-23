@@ -125,4 +125,4 @@ Brief summary: file path written, phase count, task count, count of inferred-vs-
 - `/devenv-plan-update` — for small surgical edits to an existing plan.
 - `/devenv-plan-status` — for read-only progress reports.
 
-See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

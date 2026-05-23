@@ -1,6 +1,6 @@
 ---
 name: devenv-code-review
-description: Review changed code and produce structured, actionable feedback. The inverse of `/devenv-delegation`: the human (or another agent) wrote the code, the AI reviews it. USE WHEN the user says "review this PR", "review my changes", "code review", "look over this branch", "review the diff", or hands off a PR / branch / local diff for assessment. Auto-detects input: a PR number → fetches via `pr-get` + `pr-diff`; two refs → diffs locally; nothing → defaults to current-branch-vs-default-branch. Produces a 1–2 sentence summary, then findings grouped by severity (Blocker / Concern / Nit / Praise) using the same hotspot bullet format as `/devenv-delegation`. Focuses only on what changed; flags missing tests; surfaces TODO/FIXME left in the diff. Default is print-to-chat; offers to post via `pr-comment` only with explicit confirmation. DO NOT USE for writing or refactoring code (use `/devenv-pair-programming` or `/devenv-delegation`), for resolving review comments on your own PR (use `/devenv-review-response`), or for general codebase Q&A.
+description: Review changed code and produce structured, actionable feedback. The inverse of `/devenv-delegation`: the human (or another agent) wrote the code, the AI reviews it. USE WHEN the user says "review this PR", "review my changes", "code review", "look over this branch", "review the diff", or hands off a PR / branch / local diff for assessment. Auto-detects input: a PR number → fetches via `pr-get` + `pr-diff`; two refs → diffs locally; nothing → defaults to current-branch-vs-default-branch. Produces a 1–2 sentence summary, then findings grouped by severity (Blocker / Concern / Nit / Praise) using the same hotspot bullet format as `/devenv-delegation`. Focuses only on what changed; flags missing tests; surfaces TODO/FIXME left in the diff. Default is print-to-chat; offers to post via `pr-comment` only with explicit confirmation. DO NOT USE for writing or refactoring code (use `/devenv-pair-programming` or `/devenv-delegation`), for resolving review comments on your own PR (use `/devenv-address-pr-comments`), or for general codebase Q&A.
 argument-hint: PR number, two refs (--base BASE --head HEAD), or nothing (defaults to current branch vs. default branch)
 ---
 
@@ -16,7 +16,7 @@ Review code changes and produce structured, actionable feedback. Inverse of `/de
 - Reviewing local work-in-progress before opening a PR.
 - Reviewing a branch's diff against the default branch as a self-check.
 
-If the user wants the AI to *write* or refactor code, use `/devenv-pair-programming` or `/devenv-delegation` instead. If the user wants to *respond to* review comments on their own PR, use `/devenv-review-response`.
+If the user wants the AI to *write* or refactor code, use `/devenv-pair-programming` or `/devenv-delegation` instead. If the user wants to *respond to* review comments on their own PR, use `/devenv-address-pr-comments`.
 
 ## Inputs
 
@@ -63,22 +63,22 @@ Output structure (markdown, in this order):
 ### Findings
 
 #### 🛑 Blocker
-- [path/file.ts:42](path/file.ts#L42) — <reason: correctness bug, security issue, breaking API change, missing critical test>
+- [repos/path/file.ts:42](repos/path/file.ts#L42) — <reason: correctness bug, security issue, breaking API change, missing critical test>
 
 #### ⚠️ Concern
-- [path/file.ts:88](path/file.ts#L88) — <reason: design issue, maintainability, performance, edge case not handled>
+- [repos/path/file.ts:88](repos/path/file.ts#L88) — <reason: design issue, maintainability, performance, edge case not handled>
 
 #### 💭 Nit
 - (Skip this section unless a nit materially affects readability or correctness.)
 
 #### ✅ Praise
-- [path/file.ts:120](path/file.ts#L120) — <what's done well: clear abstraction, good test coverage, helpful comment, simplification>
+- [repos/path/file.ts:120](repos/path/file.ts#L120) — <what's done well: clear abstraction, good test coverage, helpful comment, simplification>
 
 ### Missing tests
 - <List new behavior in the diff that lacks corresponding test coverage. Empty list = explicit "tests cover the new behavior".>
 
 ### TODO/FIXME left in the diff
-- [path/file.ts:55](path/file.ts#L55) — `// TODO: handle empty input`
+- [repos/path/file.ts:55](repos/path/file.ts#L55) — `// TODO: handle empty input`
 
 ### Questions for the author
 - <Open questions where the diff isn't self-explanatory: "Is the retry count of 3 intentional or arbitrary?" "Why does this prefer X over Y?">
@@ -131,6 +131,6 @@ For inline review comments tied to specific lines, note that this skill produces
 - `/devenv-delegation` — inverse: AI implements, human reviews. Same hotspot format.
 - `/devenv-pair-programming` — interactive collaboration with review checkpoints during the work.
 - `/devenv-pre-commit` — local-diff review before opening a PR (subset of this skill's no-args mode).
-- `/devenv-review-response` — for the PR author responding to review comments.
+- `/devenv-address-pr-comments` — for the PR author responding to review comments.
 
-See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

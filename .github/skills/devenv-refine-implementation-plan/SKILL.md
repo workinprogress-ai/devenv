@@ -43,7 +43,7 @@ Use `vscode_askQuestions` to gather:
 - **What's new** — new tasks to add, or themes for new tasks.
 - **What's wrong** — tasks whose descriptions are now misleading or whose scope changed.
 - **What's done outside the plan** — work completed that should be marked `[x]` retroactively.
-- **What's no longer relevant** — tasks to mark as cancelled (do NOT delete; strike through and annotate).
+- **What's no longer relevant** — tasks to remove; deletion will be logged in Revision History with the task number, a one-line summary, and the reason
 
 Do not assume. If the new requirements imply renumbering or reordering, flag it and ask before proceeding.
 
@@ -54,7 +54,7 @@ Do not assume. If the new requirements imply renumbering or reordering, flag it 
 - **Never reflow existing task numbers.** A task numbered `2.3` stays `2.3` for its entire lifetime.
 - **Never silently uncheck a `[x]`.** If a completed task's scope must change, leave it checked and add a new task for the additional work.
 - **New tasks are appended to the end of their phase** with the next sequential number (e.g. if Phase 2 ends at 2.7, the next new task is 2.8).
-- **Cancelled tasks** stay in place with the task line wrapped in `~~strikethrough~~` and an inline note (e.g. `~~- [ ] 2.4 Add foo~~ — cancelled in revision 2025-11-08; superseded by 2.9`).
+- **Cancelled tasks** are deleted from the plan and recorded in `## Revision history` with the task number, a one-line summary, and the reason (e.g. `Cancelled 4.3 (Add foo) — superseded by 2.9`).
 - **Reworded tasks** keep their number; the prior wording is recorded in the revision history.
 
 ### 4. Record the revision
@@ -107,4 +107,4 @@ Summarise inline:
 - `/devenv-plan-status` — for reporting progress without modifying the plan.
 - `/devenv-pair-programming` and `/devenv-delegation` — for actually executing the (refined) plan.
 
-See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

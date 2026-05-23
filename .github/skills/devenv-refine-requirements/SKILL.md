@@ -1,11 +1,13 @@
 ---
 name: devenv-refine-requirements
-description: 'Revise an existing Requirements-*.md after stakeholder priorities shift, new actors or scenarios surface, a spike invalidates an assumption, or implementation discovery exposes gaps. USE WHEN the user says "refine the requirements", "update the requirements", "revise the requirements doc", "the requirements need updating", or hands off a stale requirements doc that needs adjustments. Preserves all existing REQ-NNN IDs and dependency links, appends new requirements rather than reflowing, supersedes obsolete ones in place, and records every change in a Revision History section. DO NOT USE for creating a new requirements doc (use /devenv-gather-requirements), for ad-hoc one-line edits (just edit the file), or for revising the architectural blueprint (use /devenv-refine-blueprint).'
+description: 'Revise an existing Requirements-*.md after stakeholder priorities shift, new actors or scenarios surface, a spike invalidates an assumption, or implementation discovery exposes gaps. USE WHEN the user says "refine the requirements", "update the requirements", "revise the requirements doc", "the requirements need updating", or hands off a stale requirements doc that needs adjustments. Preserves all existing REQ-NNN IDs and dependency links, appends new requirements rather than reflowing, removes superseded requirements and logs each deletion in Revision History, and records every change in a Revision History section. DO NOT USE for creating a new requirements doc (use /devenv-gather-requirements), for ad-hoc one-line edits (just edit the file), or for revising the architectural blueprint (use /devenv-refine-blueprint).'
 argument-hint: 'Path to a Requirements-*.md file'
 user-invocable: true
 ---
 
 # Refine Requirements
+
+> **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
 
 Revise an existing requirements document based on new information — stakeholder priorities that shifted, new actors or scenarios that surfaced, a spike that invalidated an assumption, or implementation discovery that exposed gaps. Preserve every prior decision and ID; never silently rewrite history.
 
@@ -56,7 +58,7 @@ Use `vscode_askQuestions` to gather:
 
 - **What's new** — actors, scenarios, requirements, constraints, scope items to add
 - **What's wrong** — sections whose descriptions or acceptance criteria are now misleading
-- **What's no longer relevant** — sections to mark as superseded (do NOT delete)
+- **What's no longer relevant** — sections to remove; deletion will be logged in Revision History with the ID, a one-line summary, and the reason
 - **What changed priority** — requirements moving between `GROUP-NN`s, or the MVP definition shifting
 - **Open questions** — "Are there open questions from the original gathering session that were deferred and can now be resolved? Are there new ambiguities or tensions this refinement introduces?"
 - **Source material** — "Are there meeting transcripts, email threads, recordings, voice memos, or other communications records behind these changes? If so, where are they?"
@@ -68,21 +70,14 @@ If the user provides communications artifacts, summarise each one separately (pr
 **Hard rules:**
 
 - **Never reflow IDs.** `REQ-007` stays `REQ-007` for its lifetime. New requirements get the next sequential number per category prefix (e.g. `AUTH-008`, `ORD-014`).
-- **Never silently delete a requirement.** Superseded content is wrapped in a blockquote with a note pointing to the new content:
+- **Never silently delete a requirement.** When a requirement is superseded or withdrawn, delete it from the document and record the removal in `## Revision History`:
 
-  ```markdown
-  > **Superseded by REQ-014 in revision 2026-05-13**
-  >
-  > <original content>
+  ```
+  - Removed REQ-007 (Auth: minimum password length) — superseded by REQ-014 (updated complexity policy)
+  - Removed REQ-023 (SMS notifications) — withdrawn, out of scope for v1
   ```
 
-  Or, if the requirement is dropped without replacement:
-
-  ```markdown
-  > **Withdrawn in revision 2026-05-13** — <one-line reason>
-  >
-  > <original content>
-  ```
+  Then update every `Dependencies:` reference pointing at the removed ID.
 - **Never silently rewrite acceptance criteria.** Updated criteria keep the requirement's ID; the prior wording goes into a quoted "Previously" block beneath the new wording.
 - **Dependency links must stay valid.** If a requirement is superseded, walk every other requirement's `Dependencies:` line and update the link to point at the replacement (or remove the link with a note).
 - **Priority groupings can be re-ordered freely** — they are stakeholder priority, not delivery sequencing. New requirements need to be placed into a group. Moving a requirement between groups is allowed; record the move in revision history.
@@ -164,7 +159,7 @@ See the stability audit protocol in [`/devenv-gather-requirements` § Stability 
 
 - Silently overwriting acceptance criteria
 - Reflowing IDs (breaks links from blueprints, roadmaps, plans, and issues)
-- Deleting requirements outright instead of marking them superseded or withdrawn
+- Removing a requirement without logging its ID, prior-wording summary, and reason in Revision History
 - Rewriting the requirements doc from scratch — that's [`/devenv-gather-requirements`](../devenv-gather-requirements/SKILL.md), not refine
 - **Skipping the internal consistency review.** Refinements routinely introduce new tensions between new and old requirements — always check.
 - **Writing the file while known contradictions remain unresolved.** Every conflict finding must be resolved, accepted as a documented trade-off, or explicitly logged before writing.
@@ -181,4 +176,4 @@ See the stability audit protocol in [`/devenv-gather-requirements` § Stability 
 - [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md) — when changes affect delivery sequencing of an existing roadmap
 - [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) — when changes affect an in-flight implementation plan
 
-See the [Skills catalog](../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

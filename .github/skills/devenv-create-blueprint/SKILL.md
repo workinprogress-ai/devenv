@@ -456,3 +456,5 @@ Once written, surface the next-step options to the user:
 - Inventing pattern references just to look architectural
 - Treating `repo-cache-update` output as authoritative without user confirmation of relevance
 - Forgetting to update `session_memory-blueprint.md` between sessions
+
+See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
