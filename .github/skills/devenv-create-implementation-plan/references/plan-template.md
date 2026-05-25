@@ -8,6 +8,10 @@ Copy this skeleton verbatim and fill it in. All top-level headings are required,
 <One paragraph: what this plan accomplishes and why. Enough context for a fresh
 human or AI to understand the goal without opening other documents.>
 
+## Revision history
+
+### <date> — Initial plan created
+
 ## Task List
 
 ### Phase 1 — Discovery & test scaffolding

@@ -82,13 +82,29 @@ Use `vscode_askQuestions`. Wait for explicit approval before writing the file.
 
 ### 4. Generate the full plan
 
-Use the same template as `/devenv-create-implementation-plan`:
+Read and follow the plan template at [`../devenv-create-implementation-plan/references/plan-template.md`](../devenv-create-implementation-plan/references/plan-template.md). Use it verbatim as the structural skeleton.
 
-- Phase 1 is **always Discovery + test scaffolding** (write failing tests for each acceptance criterion).
+Two additional sections are added for spec-derived plans — insert them directly under the opening paragraph, before `## Revision history`:
+
+```markdown
+## Source spec
+
+<resolved spec location: file path, issue URL, fetched URL, or "inline text">
+
+## Acceptance criteria
+
+- [ ] <criterion 1> *(explicit)*
+- [ ] <criterion 2> *(inferred from goals)*
+```
+
+Mark each criterion as `*(explicit)*` (lifted verbatim from the spec) or `*(inferred)*` (deduced from goals / "must"/"should" statements). The user must be able to tell signal from inference.
+
+Beyond those two sections, follow all rules from `/devenv-create-implementation-plan`:
+
+- Phase 1 is **always Discovery + test scaffolding** (write failing tests for each acceptance criterion before any production code).
 - Last phase is **always Cleanup & docs**.
-- Tasks numbered `N.M` per phase. Each task: short imperative title, 1–2 sentence description, optional `depends on N.M` line.
-- Include a top-level `## Source spec` metadata block with the resolved spec location (file path, issue URL, fetched URL, or "inline text"), so the generated plan is traceable to its origin.
-- Include a `## Acceptance criteria` section listing each criterion (explicit and inferred, marked).
+- Tasks follow the **full format** — see [task-format.md](../devenv-create-implementation-plan/references/task-format.md): `- [ ] **N.M [S|M|L] Title** ([additional context](#anchor))` header; descriptive sub-bullets first; `Files:` / `decision:` / `owner:` / `depends on` metadata last. Every task gets an `[S|M|L]` size label. Do not generate title-only or abbreviated tasks.
+- Phase rules — see [phase-rules.md](../devenv-create-implementation-plan/references/phase-rules.md): each phase must end committable (tests pass, coverage does not regress, single-PR sized); tests appear alongside code tasks in each phase (not deferred to the end); every phase header gets a `> blockquote` preamble plus `> **Orientation:**` sub-blockquote.
 
 ### 5. Write the file
 
@@ -96,6 +112,12 @@ Use the same template as `/devenv-create-implementation-plan`:
   - Issue input → `Implementation_plan-issue-N-NNN.md` at the target repo root.
   - All other inputs → `Implementation_plan-NNN.md` at the target repo root (or workspace root if no clear target repo).
 - `NNN` is the next unused 3-digit suffix; never overwrite an existing file.
+- Include a `## Revision history` section directly under the plan title (above `## Task List`) with a single initial entry:
+  ```markdown
+  ## Revision history
+
+  ### <today's date> — Initial plan created
+  ```
 
 ### 6. Offer issue-body push (issue input only)
 

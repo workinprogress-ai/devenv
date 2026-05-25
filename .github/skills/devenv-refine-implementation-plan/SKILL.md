@@ -53,8 +53,8 @@ Do not assume. If the new requirements imply renumbering or reordering, flag it 
 
 - **Never reflow existing task numbers.** A task numbered `2.3` stays `2.3` for its entire lifetime.
 - **Never silently uncheck a `[x]`.** If a completed task's scope must change, leave it checked and add a new task for the additional work.
-- **New tasks are appended to the end of their phase** with the next sequential number (e.g. if Phase 2 ends at 2.7, the next new task is 2.8).
-- **Cancelled tasks** are deleted from the plan and recorded in `## Revision history` with the task number, a one-line summary, and the reason (e.g. `Cancelled 4.3 (Add foo) — superseded by 2.9`).
+- **New tasks are appended to the end of their phase** with the next sequential number (e.g. if Phase 2 ends at 2.7, the next new task is 2.8). New tasks must use the full task format: `- [ ] **N.M [S|M|L] Title**` header, descriptive sub-bullets first, then `Files:` / `decision:` / `owner:` / `depends on` metadata. Do not add skeletal or title-only tasks.
+- **Cancelled tasks** are kept in place, wrapped in `~~strikethrough~~` on the task header line and annotated with the reason inline (e.g. `~~- [ ] **4.3 [S] Add foo**~~ — cancelled: superseded by 2.9`), and recorded in `## Revision history` with the task number, a one-line summary, and the reason. Do **not** delete the task line — strikethrough preserves numbering continuity and makes the cancellation visible in-place (and parseable by `/devenv-plan-status`).
 - **Reworded tasks** keep their number; the prior wording is recorded in the revision history.
 
 ### 4. Record the revision

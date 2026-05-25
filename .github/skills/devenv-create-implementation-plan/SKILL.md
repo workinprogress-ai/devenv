@@ -96,7 +96,15 @@ In the target repo root:
 
 ### 8. Write the file
 
-Write the approved plan to `<target-repo>/<resolved-filename>.md`. Confirm the path back to the user.
+Write the approved plan to `<target-repo>/<resolved-filename>.md`. The plan must include a `## Revision history` section directly under the title (above `## Task List`) with a single initial entry:
+
+```markdown
+## Revision history
+
+### <today's date> — Initial plan created
+```
+
+Confirm the path back to the user.
 
 ### 9. Offer GitHub issue update (only if an issue is associated)
 
