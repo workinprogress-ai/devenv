@@ -74,36 +74,26 @@ If the needed repo is not present in `repos/`, ask the user to clone it before p
 
 ### Prefer workspace tooling over raw CLIs
 
-The `tools/` folder contains workspace-specific wrappers around common CLIs (`gh`, `git`, `dotnet`, `kubectl`, MongoDB, etc.). All tools are on `PATH`, so invoke them by bare name (e.g. `issue-get`, `pr-diff`) from any working directory. **When a wrapper exists for what you need to do, use it — don't reach for the underlying CLI.**
+The `tools/` folder contains workspace-specific wrappers around common CLIs (`gh`, `git`, `dotnet`, `kubectl`, MongoDB, etc.). All tools are on `PATH`, so invoke them by bare name from any working directory.
 
-This applies even when the wrapper looks like a thin pass-through; wrappers encode workspace conventions (auth, repo targeting via `GITHUB_REPO=<org>/<repo>`, default flags, error handling) that bare CLI calls bypass.
+**`GITHUB_REPO` is set in the environment** (`owner/repo` format). For standard issue and PR operations, using `gh` directly with `--repo "$GITHUB_REPO"` is natural and encouraged. Use the named wrappers below when they provide functionality that `gh` alone can't replicate:
 
-GitHub-related wrappers (non-exhaustive):
+| Wrapper | Why to prefer it over `gh` directly |
+|---|---|
+| `pr-create-for-merge` | Multi-step: pushes branch + creates PR with workspace defaults. Replaces `gh pr create`. |
+| `pr-threads-get <N>` | Uses GraphQL to preserve thread structure and filter by resolution status — REST API loses this. |
+| `pr-thread-reply <N> ...` | Replies to a specific review thread via the correct API endpoint. |
+| `pr-thread-resolve <N> ...` | Resolves a review thread by node ID. |
+| `actions-status` | Org-wide Actions run status across repos — not replicable with a single `gh run list`. |
+| `actions-list` | Lists workflow definitions across the org. |
+| `actions-run` | Triggers `workflow_dispatch` runs with workspace defaults. |
+| `actions-rerun` | Re-runs a workflow run or failed jobs only. |
+| `actions-watch` | Streams live logs from an in-progress run. |
+| `actions-artifacts` | Lists / downloads artifacts from a run. |
 
-| Need                                          | Use                                | Don't use                  |
-|-----------------------------------------------|------------------------------------|----------------------------|
-| Read an issue                                 | `issue-get <N>`              | `gh issue view <N>`        |
-| List issues                                   | `issue-list`                 | `gh issue list`            |
-| Create an issue                               | `issue-create ...`           | `gh issue create`          |
-| Update an issue body / labels / state         | `issue-update <N> ...`       | `gh issue edit`            |
-| Comment on an issue                           | `issue-comment <N> ...`      | `gh issue comment`         |
-| Close an issue                                | `issue-close <N>`            | `gh issue close`           |
-| Read a PR                                     | `pr-get <N>`                 | `gh pr view`               |
-| Create a feature-branch PR                    | `pr-create-for-merge`        | `gh pr create`             |
-| Comment on a PR                               | `pr-comment <N> ...`         | `gh pr comment`            |
-| Read PR review threads                        | `pr-threads-get <N>`         | `gh api ...graphql`        |
-| Reply to / resolve a review thread            | `pr-thread-reply`, `pr-thread-resolve` | `gh api ...`   |
-| Get the diff for a PR                         | `pr-diff <N>`                | `gh pr diff`               |
-| Org-wide Actions run status / filter by repo  | `actions-status`             | `gh run list`              |
-| List workflow definitions across org          | `actions-list`               | `gh workflow list`         |
-| Trigger a workflow_dispatch run               | `actions-run`                | `gh workflow run`          |
-| Re-run a workflow run (or failed jobs only)   | `actions-rerun`              | `gh run rerun`             |
-| Stream live logs from an in-progress run      | `actions-watch`              | `gh run watch`             |
-| List / download artifacts from a run          | `actions-artifacts`          | `gh run download`          |
+For everything else — reading/listing/creating/updating/commenting on issues and PRs, getting diffs, closing issues — use `gh` directly with `--repo "$GITHUB_REPO"`. The named wrappers (`issue-get`, `issue-list`, `issue-create`, `issue-update`, `issue-comment`, `issue-close`, `pr-get`, `pr-diff`, `pr-comment`) are available on PATH if you prefer them, but they are not required.
 
-When no wrapper exists for what you need (e.g. inline review comments, adding reviewers, project boards beyond `project-*`), falling back to `gh` is fine — mention that you're falling back and why, so the gap is visible.
-
-The same rule holds for `git` (prefer `git-*` wrappers when one exists), `dotnet`/test wrappers, and any other category covered by `tools/`.
+For `git`: prefer `git-*` wrappers when one exists for a non-trivial operation; for standard read-only inspection use `git log`, `git diff`, `git status` etc. directly. The same applies to `dotnet`/test wrappers.
 
 ### Language policy
 
@@ -118,7 +108,9 @@ If the user gives instructions in another language for something that will be wr
 
 ### Never run git operations that mutate repository state
 
-The AI **never** runs git commands that change repository state, branch state, or working-tree state. The user owns every commit, every branch switch, every push.
+**The AI never runs mutating git commands. No exceptions. Not even once.**
+
+If you find yourself about to type `git commit`, `git add`, `git push`, or any other mutating git command — stop. Print the exact command the user needs to run and ask them to run it. Never run it yourself.
 
 **Forbidden** (no exceptions, no "since the tests passed", no "I'll just stash this"):
 
@@ -132,11 +124,13 @@ The AI **never** runs git commands that change repository state, branch state, o
 - `git tag`, `git notes`
 - Any flag that bypasses safety: `--no-verify`, `--force`, `-f`, `--hard`
 
-**Allowed:** read-only inspection — `git status`, `git log`, `git diff`, `git show`, `git rev-parse`, `git merge-base`, `git blame`, `git ls-files`, `git config --get`, etc.
+**Allowed:** read-only inspection only — `git status`, `git log`, `git diff`, `git show`, `git rev-parse`, `git merge-base`, `git blame`, `git ls-files`, `git config --get`, etc.
 
-**Wrappers that internally mutate** (e.g. `pr-create-for-merge` pushes the branch, `git-update` pulls) **are allowed** — wrappers encode the safety. The rule prohibits *raw* git mutations, not wrapper invocations.
+**Wrappers that internally mutate** (e.g. `pr-create-for-merge` pushes the branch, `git-update` pulls) **are allowed** — wrappers encode the safety. The rule prohibits *raw* git mutations, not named workspace wrapper invocations.
 
-If a task genuinely requires a mutation (e.g. "commit this and open a PR"), state the exact command(s) and ask the user to run them, or — when a wrapper exists — invoke the wrapper. Never invent a workaround that mutates state directly.
+**Never use `mcp_gitkraken_*` tools.** The user does not use GitKraken. For git inspection use read-only git commands (`git log`, `git diff`, `git status`, etc.) or the workspace `tools/` wrappers. For file content use `read_file` or `grep_search`. No GitKraken tool — read-only or otherwise — should ever be invoked.
+
+If a task requires a raw mutation, show the user the exact command and ask them to run it. Never invent a workaround that mutates state directly.
 
 ### Chat output formatting
 

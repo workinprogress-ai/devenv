@@ -15,6 +15,7 @@ What are you trying to do?
 │   ├─ Thinking out loud, no artifact   →  /devenv-rubber-duck
 │   ├─ Understand a codebase via chat   →  /devenv-chat-with-code
 │   ├─ Investigate a question           →  /devenv-spike
+│   ├─ Investigate and fix a bug        →  /devenv-bug-fix
 │   ├─ Weigh design options (opinionated)→ /devenv-design-discussion
 │   └─ Triage an incoming issue         →  /devenv-triage-issue
 │
@@ -208,13 +209,14 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 |---|---|---|
 | `/devenv-triage-issue` | Classify issue, suggest labels, propose ACs | Issue # or pasted text |
 | `/devenv-open-pr` | Draft + open a PR from a finished phase | Branch or plan path |
-| `/devenv-address-pr-comments` | Address PR review comments — grouped by type, split between AI and user | PR # |
+| `/devenv-address-pr-comments` | Address PR review comments — auto-fixes clear threads, surfaces complex ones for direction | PR # |
 | `/devenv-session-handoff` | Summarise session for the next contributor | Issue/PR # (optional) |
 
 ### Quality
 
 | Skill | Purpose | Argument |
 |---|---|---|
+| `/devenv-bug-fix` | Investigate a bug, trace root cause, propose resolution — optionally fix immediately | Issue # or description |
 | `/devenv-code-review` | AI reviews code you wrote | PR #, refs, or nothing |
 | `/devenv-pre-commit` | Lint/format/test before committing | `--all` or nothing |
 
@@ -333,7 +335,7 @@ The skill also fits **after** a blueprint exists, when a specific design questio
 | `/devenv-refine-implementation-plan` vs `/devenv-plan-update` | Structural changes vs surgical edits. `/devenv-plan-update` refuses if you ask for >3 changes. |
 | `/devenv-pair-programming` vs `/devenv-delegation` | Human-in-the-loop vs AI-drives. Prefer `/devenv-pair-programming` when in doubt. |
 | `/devenv-code-review` vs `/devenv-address-pr-comments` | AI reviews your code vs you address a reviewer's comments. |
-| `/devenv-address-pr-comments` vs GitHub PR extension | Grouped split with per-thread control (replies, code, resolution) vs batch fix-all. |
+| `/devenv-address-pr-comments` vs GitHub PR extension | Auto-fixes clear threads + surfaces complex ones with recommendations vs batch fix-all with no per-thread direction. |
 | `/devenv-rubber-duck` vs `/devenv-spike` | No artifact vs produces a findings doc. |
 | `/devenv-rubber-duck` vs `/devenv-design-discussion` | Rubber-duck has no opinions and produces no artifact. Design-discussion brings strong opinions, drives to a recommendation, and optionally produces a `Design-<topic>-NNN.md`. |
 | `/devenv-chat-with-code` vs `/devenv-rubber-duck` | Chat-with-code reads actual code and answers specific questions, cited to `file:line`. Rubber-duck is for thinking out loud about a problem without needing to look at code. |
