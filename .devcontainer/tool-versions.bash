@@ -165,8 +165,10 @@ show_tool_versions() {
     echo "========================================="
 }
 
-# Export functions so they're available to sourcing scripts
-export -f verify_node_version
-export -f verify_pnpm_version
-export -f ensure_tool_versions
-export -f show_tool_versions
+# Export functions so they're available to sourcing scripts (bash only — zsh does not support export -f)
+if [[ -n "${BASH_VERSION:-}" ]]; then
+    export -f verify_node_version
+    export -f verify_pnpm_version
+    export -f ensure_tool_versions
+    export -f show_tool_versions
+fi

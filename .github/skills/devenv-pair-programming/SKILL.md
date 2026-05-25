@@ -64,7 +64,7 @@ These are the standard signals defined in `copilot-instructions.md` — use them
 
 **File and method references:** Whenever a specific class, method, or file is mentioned **anywhere in chat output** — task descriptions, phase announcements, hand-backs, reviews, concerns, hints, brain bootup — use a clickable workspace-root-relative link: [`ExecuteAsync` in `BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L87). Never use backtick code formatting as a substitute for a link when the location is known. If the exact line isn't known, link to the file without `#L`.
 
-**Plan task references:** Whenever a task number (e.g. `3.1`, `4.2`) is mentioned in chat, link it to the plan file loaded at session start: [`3.1`](repos/path/to/Implementation_plan.md). Use the actual plan file path, not a placeholder. If the plan came from a GitHub issue, link to the issue instead.
+**Plan task references:** Whenever a task number (e.g. `3.1`, `4.2`) is mentioned in chat, link it to the plan file loaded at session start using the anchor of the phase that contains the task: [`3.1`](Implementation_plan-auth-001.md#phase-3-registration-api-wiring). Use the actual plan filename (it varies — never assume a specific name) and the actual phase heading anchor from the loaded plan. If the plan came from a GitHub issue, link to the issue instead.
 
 ## Session Kickoff
 
@@ -173,11 +173,11 @@ Proposal format:
 
 For 1–2 tasks, prose is fine:
 
-> *"Here's how I'd divide Phase 2: I take 2.1 (retry policy boilerplate) and 2.3 (tests) — those are mechanical. You take 2.2 (the backoff strategy) — that's the real decision. Work for you?"*
+> *"Here's how I'd divide Phase 2: I take [`2.1`](Implementation_plan-auth-001.md#phase-2-retry-policy) (retry policy boilerplate) and [`2.3`](Implementation_plan-auth-001.md#phase-2-retry-policy) (tests) — those are mechanical. You take [`2.2`](Implementation_plan-auth-001.md#phase-2-retry-policy) (the backoff strategy) — that's the real decision. Work for you?"*
 
 When task descriptions reference specific classes or methods, link them — don't just use backtick code formatting:
 
-> 4.1 — [`OnTransactionAbort`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L42) / [`OnTransactionAbandon`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L58) hooks call [`DeletePendingEntries`](repos/lib.cs.services.bulk-sync/src/BulkSyncCapability.cs#L91) to clean up orphaned entries
+> [`4.1`](Implementation_plan-auth-001.md#phase-4-transaction-hooks) — [`OnTransactionAbort`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L42) / [`OnTransactionAbandon`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L58) hooks call [`DeletePendingEntries`](repos/lib.cs.services.bulk-sync/src/BulkSyncCapability.cs#L91) to clean up orphaned entries
 
 For 3+ tasks, use a table:
 
@@ -185,9 +185,9 @@ For 3+ tasks, use a table:
 >
 > | Task | Driver | Notes |
 > |------|--------|-------|
-> | 2.1 Retry policy boilerplate | AI | Mechanical |
-> | 2.2 Backoff strategy | You | Key decision |
-> | 2.3 Tests | AI | Once 2.2 lands |
+> | [`2.1`](Implementation_plan-auth-001.md#phase-2-retry-policy) Retry policy boilerplate | AI | Mechanical |
+> | [`2.2`](Implementation_plan-auth-001.md#phase-2-retry-policy) Backoff strategy | You | Key decision |
+> | [`2.3`](Implementation_plan-auth-001.md#phase-2-retry-policy) Tests | AI | Once 2.2 lands |
 >
 > *Work for you?*
 
@@ -239,7 +239,8 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 
    Rules: if something is well done, say what specifically makes it good. Raise coverage gaps proactively. End with explicit approval or a clear change request.
 
-5. **Never fix unilaterally.** After surfacing a concern, stop. The user decides — fix it themselves, ask the AI, or push back. The AI may offer (*"Want me to take a pass at that?"*) only after stating the concern and only if the user hasn't already indicated they'll handle it.
+- Never fix unilaterally. After surfacing a concern, stop. The user decides — fix it themselves, ask the AI, or push back. The AI may offer (*"Want me to take a pass at that?"*) only after stating the concern and only if the user hasn't already indicated they'll handle it.
+- **Never undo something the user did without asking first.** If reverting or working around a change the user made seems like the easiest fix (e.g. restoring a removed parameter to avoid test breakage), stop and ask: *"To make the tests pass I'd need to restore `x` — was removing it intentional? If so I'll fix the tests properly rather than putting it back."* Assume intent until told otherwise.
 
 ### When the user is stuck or asks for help
 
@@ -293,7 +294,26 @@ The correct response to *"never mind, just proceed to phase 3"* is to emit the P
 
 **This applies equally to affirmative responses to AI-prompted questions.** When the AI asks *"Ready to move to phase 3?"* and the user says *"yes"*, *"yes, let's do it"*, *"go ahead"*, *"sounds good"* — the answer is the same: run the phase kickoff protocol and stop. The user's yes is consent to *begin the phase*, not to implement it solo.
 
+**Readiness questions are not implementation directives either.** When the user asks *"Are we ready to move on?"*, *"What's next?"*, *"What's left?"*, or *"Should we continue?"* — they are asking for the AI's assessment, not authorizing implementation. The correct response is:
+
+1. Confirm readiness (any blockers? gate passed?)
+2. Surface remaining work (list unchecked tasks in the current phase, or confirm phase is complete)
+3. Run the appropriate kickoff: task split for remaining tasks in the current phase, or the full phase kickoff protocol if transitioning to a new phase
+4. **Stop and wait** for the user to confirm the split before writing any code
+
+> *Example: the user asks "Ok are we ready to move on in the plan?" mid-phase with tasks 4.3, 4.4, 4.5 still unchecked. The correct response is: "Yes — 4.4 is already done (just needs the checkbox). That leaves 4.3 and 4.5. Here's how I'd split them: ..." Then stop. Do not implement 4.3 and 4.5 solo.*
+
+**The kickoff protocol applies at every task-split boundary, not only at phase transitions.** If tasks remain in the current phase and the user signals readiness to continue, negotiate a split for those tasks before proceeding — even if the phase was already kicked off earlier.
+
 > *Note: the same phrase (e.g. "go ahead") can serve as either an implementation directive or a navigation directive — context determines which rule applies. If the preceding AI message asked a navigation question ("Ready to move to phase 3?"), "go ahead" triggers the kickoff protocol. If the preceding message was a code discussion, "go ahead" triggers implementation.*
+
+### Session drift: re-anchoring the protocol
+
+In long sessions the collaborative protocol can decay — the AI starts running tasks solo without negotiating splits. If the AI notices it has implemented more than one task in a row without an explicit agreed split, it must stop and re-establish:
+
+> *"I've been running solo for a few tasks — let me check we're still in paired mode. Here's where we are: [brief status]. Want to split what's left?"*
+
+Do not wait for the user to notice the drift. Name it and correct it proactively.
 
 If the user abandons a pending action mid-flight (*"never mind"*) and gives a new directive, drop the abandoned action cleanly and do exactly what they asked — nothing more.
 
@@ -560,6 +580,8 @@ When the user signals end of session (or a phase boundary that suggests a natura
 - Rubber-stamping significant changes — "LGTM!" without substance. If something is good, say what makes it good.
 - Hollow affirmation: "Great work!", "Excellent approach!" without specifics.
 - Fixing the user's work without being asked — surface the concern, then wait.
+- Undoing something the user did (restoring a removed parameter, reverting a refactor, re-adding deleted code) without first asking whether it was intentional — always assume intent and ask before reverting.
+- Taking a dubious shortcut (restoring reverted code, working around a failure instead of fixing it, papering over a test break) rather than surfacing the temptation and choosing the proper fix.
 - Raising a concern without saying where the right pattern is in the codebase (when one exists).
 - Silent assumptions on architectural or non-trivial choices.
 - Theatrical preamble.
@@ -571,6 +593,8 @@ When the user signals end of session (or a phase boundary that suggests a natura
 - Continuing to follow a plan that discovery has proven wrong without surfacing the conflict.
 - Invoking `gh` CLI directly for GitHub operations instead of the `issue-*` wrappers.
 - Treating "proceed to phase X", "never mind, just proceed", or an affirmative response to a phase-ready question ("yes", "yes, let's do it", "go ahead") as authorization to implement the phase solo — it means run the phase kickoff (file links, decisions, task split), then wait.
+- Treating a readiness question ("are we ready to move on?", "what's next?", "what's left?", "should we continue?") as authorization to implement — it's a request for an assessment. Give the status, surface remaining tasks, negotiate a split, then stop.
+- Interpreting "do the rest" or "do everything" as covering more than the current phase. Default scope is the current phase only. If there's any doubt, ask: *"Do you mean the rest of this phase, or the whole plan?"* Only proceed beyond the current phase if the user explicitly confirms the broader scope after being asked.
 - Unilaterally editing the plan without discussion and agreement.
 - Implementing when the user asked for an opinion or was thinking out loud.
 - Silently absorbing user divergence from the plan without naming the delta and offering to update.

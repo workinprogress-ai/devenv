@@ -138,6 +138,8 @@ Proposed action: remove blank line → resolve
 ─────────────────────────────────────────
 ```
 
+**Shortcut resolution:** If at any point the user says *"just mark complete"*, *"mark complete"*, or *"mark resolved"* — skip the action flow entirely for **the current thread only**. Do not propose a code change or draft a reply. Resolve that thread immediately via `pr-thread-resolve` and move to the next one. This covers cases where the user has already handled the thread in another session, intends to address it separately, or simply wants to close it without discussion. It is not a blanket instruction to resolve all remaining threads.
+
 **Deciding the action:** Before proposing anything, determine whether this thread needs:
 - A **code change** (nit, request-for-change)
 - A **reply** (question, pushback, complex explanation)
@@ -211,6 +213,7 @@ I'll wait. Type "done with [thread]" when you've finished one and want to move o
 ```
 
 When the user signals done with a thread:
+- If they say *"mark complete"*, *"mark resolved"*, or *"just mark complete"*: resolve immediately via `pr-thread-resolve` and move on — no further questions.
 - If code was changed: read the relevant lines and give a brief acknowledgement (not a full review unless asked).
 - If they want help drafting a reply: draft one, show it, let them edit.
 - Ask: "Resolve this one? (y / leave open)"

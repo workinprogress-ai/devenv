@@ -1,6 +1,6 @@
 ---
 name: devenv-gather-requirements
-description: 'Conduct a structured three-phase requirements interview to produce a user-oriented requirements document. USE WHEN the user says "gather requirements", "write up requirements", "define the requirements for", "capture requirements", "what should the system do", "requirements document", "interview me for requirements", or hands off a system idea that needs functional definition before planning begins. Produces a Requirements-<topic>-NNN.md covering system vision, concrete acceptance-criteria-bearing requirements with IDs and dependency graph, and stakeholder priority groupings (not a delivery roadmap — use /devenv-create-roadmap for that). Maintains a session_memory-requirements.md across sessions. DO NOT USE when requirements already exist (use /devenv-plan-from-spec or /devenv-create-implementation-plan), for quick feature clarifications that don''t warrant a formal document, or for code generation.'
+description: 'Conduct a structured three-phase requirements interview to produce a user-oriented requirements document. Also handles continuing requirements gathering on an existing Requirements-*.md — pass the file path as the argument to pick up where a previous session left off and integrate new input. USE WHEN the user says "gather requirements", "write up requirements", "define the requirements for", "capture requirements", "what should the system do", "requirements document", "interview me for requirements", "continue gathering requirements", "add more requirements", or hands off a system idea that needs functional definition before planning begins. Produces (or extends) a Requirements-<topic>-NNN.md covering system vision, concrete acceptance-criteria-bearing requirements with IDs and dependency graph, and stakeholder priority groupings (not a delivery roadmap — use /devenv-create-roadmap for that). Maintains a session_memory-requirements.md across sessions. DO NOT USE for correcting, rewording, or removing existing requirements (use /devenv-refine-requirements), for quick feature clarifications that don''t warrant a formal document, or for code generation.'
 argument-hint: '[system name | path-to-existing-notes | GitHub issue number]'
 user-invocable: true
 ---
@@ -18,11 +18,13 @@ Trigger phrases:
 - "gather requirements" / "requirements document" / "define the requirements"
 - "what should the system do?" / "write up requirements for X"
 - "interview me for requirements" / "help me capture requirements"
+- "continue gathering requirements" / "add more requirements" / "I have more input"
 - A system idea is handed off before any planning has begun
+- An existing Requirements-*.md is handed off to continue intake (pass the file path as the argument)
 
 Do **not** use for:
 
-- Requirements already exist → [`/devenv-plan-from-spec`](../devenv-plan-from-spec/SKILL.md) or [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md)
+- Correcting, rewording, or removing existing requirements → [`/devenv-refine-requirements`](../devenv-refine-requirements/SKILL.md)
 - Quick inline feature clarification — just ask the user directly
 - Code or implementation planning
 
@@ -158,6 +160,20 @@ Key rules:
 ## Process
 
 This is a three-phase process. **Stop at each checkpoint** and wait for explicit approval before proceeding.
+
+---
+
+### Continuation mode (existing doc)
+
+If the argument is a path to an existing `Requirements-*.md`, enter continuation mode rather than starting from scratch:
+
+1. **Load and read the doc.** Note the last-used requirement ID, the current priority groups, and any open or deferred `Q-NNN` questions.
+2. **Summarise the current state** back to the user in a brief block: vision in one sentence, number of existing requirements, any open/deferred questions.
+3. **Ask what new input to integrate.** Offer the same sources as Phase 1 (meeting notes, transcripts, Slack threads) — treat them exactly the same way. Then ask: *"What new requirements or areas do you want to add to this doc?"*
+4. **Run Phase 2 only** — assign new IDs continuing from the last existing one, probe for gaps in the new material, run the health check at each 8–10-requirement mark.
+5. **Skip Phase 1** unless the user signals the vision itself has changed, in which case update the vision section before proceeding with new requirements.
+6. **Phase 3 is a delta approval.** Present only the new and changed content for approval — do not re-present the whole doc. Once approved, write the changes back into the existing file: append new requirements, update priority groups, and add a `## Revision History` entry.
+7. **Maintain `session_memory-requirements.md`** exactly as in a fresh session — load it if it exists, update it at session end.
 
 ---
 

@@ -174,7 +174,11 @@ Don't ask about: mechanical choices that match existing style.
 
 ### Surfacing concerns inline
 
-Don't wait for end of session. As soon as something looks wrong:
+Don't wait for end of session. As soon as something looks wrong, surface it — including when a tempting shortcut would paper over a real problem. A shortcut is dubious when it avoids proper work rather than doing it: restoring a removed parameter to dodge test fixes, skipping a refactor the plan calls for, hardcoding a value instead of wiring it properly. When that impulse arises, name it and ask:
+
+> *"The path of least resistance here is to restore `x` to avoid fixing the tests — but that feels like the wrong call. Want me to fix the tests properly instead?"*
+
+The same rule applies to any non-obvious design choice made under time pressure.
 
 > "Heads up — 2.3 is touching the public `IBulkSyncStep` contract. The plan called this 'mechanical' but it's actually a breaking change for consumers. To get proper pair-programming behaviour, you'd need to start a new chat with `/devenv-pair-programming` — switching here won't load those rules. Want me to pause so you can do that, or shall we continue with the usual delegation safety checks?"
 
@@ -304,6 +308,7 @@ If an adjacent bug is discovered, offer both an `issue-comment` on the parent an
 - Skipping the suitability analysis.
 - Delegating high-impact work without flagging it.
 - Batching concerns to the end of the session instead of surfacing them inline.
+- Taking a dubious shortcut (restoring reverted code, skipping a required step, papering over a failure) without surfacing it and getting explicit approval.
 - A summary without **review hotspots**.
 - Auto-proceeding to the next session without user review.
 - Ceremony-heavy task announcements (this isn't pair-programming).

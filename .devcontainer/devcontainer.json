@@ -113,7 +113,8 @@
                     "/workspaces/devenv/playground",
                     "/workspaces/devenv/.github",
                     "/workspaces/devenv/tools",
-                    "/workspaces/devenv/docs"
+                    "/workspaces/devenv/docs",
+                    "/home/vscode"
                 ],
                 "chat.tools.edits.autoApprove": {
                     "/tmp/**": true,

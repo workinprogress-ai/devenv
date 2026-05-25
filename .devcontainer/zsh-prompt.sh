@@ -10,12 +10,20 @@ if [[ "${DEVENV_START_DIR:-}" =~ '^/vscode(/|$)' ]]; then
 fi
 
 # Set the start directory to the git root of the starting folder (or the folder itself if
-# not inside a git repo). Using the git root ensures the variable always sits at a repo
-# boundary even when the terminal opens deep inside a subtree.
+# not inside a git repo). Only anchors to the starting location when it is within the
+# workspace tree. If the terminal restored outside the workspace (e.g. /etc, /tmp), fall
+# back to DEVENV_ROOT so colour logic stays meaningful for the whole session rather than
+# being locked to a wrong root or going completely unanchored.
 if [[ ! "$PWD" =~ '^/vscode(/|$)' && -z "${DEVENV_START_DIR:-}" ]]; then
     _gsd=$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null)
-    export DEVENV_START_DIR="${_gsd:-$PWD}"
-    unset _gsd
+    _gsdc="${_gsd:-$PWD}"
+    _gsdr="${DEVENV_ROOT:-/workspaces/devenv}"
+    if [[ "$_gsdc" == "$_gsdr" || "$_gsdc" == "$_gsdr/"* ]]; then
+        export DEVENV_START_DIR="$_gsdc"
+    else
+        export DEVENV_START_DIR="$_gsdr"
+    fi
+    unset _gsd _gsdc _gsdr
 fi
 
 # vcs_info provides git branch display; add-zsh-hook lets multiple precmd
