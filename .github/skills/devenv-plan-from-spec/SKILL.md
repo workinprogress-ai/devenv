@@ -66,7 +66,7 @@ Before writing the full plan, present just the phase headings and a one-line sum
 Proposed phase outline for the plan:
 
 1. Phase 1 — Discovery & test scaffolding
-   Set up failing tests for each acceptance criterion before any production code.
+   Explore the codebase; stub out interfaces or methods the acceptance criteria will exercise; write tests that assert the **current observable behaviour** (stubs, throws, baseline state). Every test added in this phase must pass at the end of it — do not write tests that assert behaviour the code does not yet have.
 2. Phase 2 — Core data model
    ...
 3. Phase 3 — API surface
@@ -101,7 +101,7 @@ Mark each criterion as `*(explicit)*` (lifted verbatim from the spec) or `*(infe
 
 Beyond those two sections, follow all rules from `/devenv-create-implementation-plan`:
 
-- Phase 1 is **always Discovery + test scaffolding** (write failing tests for each acceptance criterion before any production code).
+- Phase 1 is **always Discovery + test scaffolding** (explore codebase; stub new interfaces; write tests that assert **current observable behaviour** — including stubs that throw as expected — all tests must pass at the end of Phase 1; do **not** write tests that assert behaviour not yet implemented).
 - Last phase is **always Cleanup & docs**.
 - Tasks follow the **full format** — see [task-format.md](../devenv-create-implementation-plan/references/task-format.md): `- [ ] **N.M [S|M|L] Title** ([additional context](#anchor))` header; descriptive sub-bullets first; `Files:` / `decision:` / `owner:` / `depends on` metadata last. Every task gets an `[S|M|L]` size label. Do not generate title-only or abbreviated tasks.
 - Phase rules — see [phase-rules.md](../devenv-create-implementation-plan/references/phase-rules.md): each phase must end committable (tests pass, coverage does not regress, single-PR sized); tests appear alongside code tasks in each phase (not deferred to the end); every phase header gets a `> blockquote` preamble plus `> **Orientation:**` sub-blockquote.

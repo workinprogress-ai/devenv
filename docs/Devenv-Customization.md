@@ -448,6 +448,86 @@ name=Mega Corp Development Environment
 status_workflow=Backlog,Ready,In Progress,In review,Testing,Done
 ```
 
+## Adding New Tools and Libraries
+
+This section explains the conventions for adding new scripts, bash libraries, and categories of tooling so that all contributions stay consistent and discoverable.
+
+### Adding a new bash library
+
+Libraries live in `tools/lib/` and are sourced by scripts at runtime via `$DEVENV_TOOLS/lib/<name>.bash`. Follow these conventions:
+
+1. **File name**: `tools/lib/<category>.bash` using lowercase hyphenated names, e.g. `markdown.bash`.
+2. **Guard against double-sourcing** at the top:
+
+   ```bash
+   if [ -n "${_MARKDOWN_LOADED:-}" ]; then return 0; fi
+   _MARKDOWN_LOADED=1
+   ```
+
+   Use `_<NAME_UPPERCASED>_LOADED` as the guard variable name.
+3. **Source dependencies explicitly** using the same guard pattern, loading from `$DEVENV_TOOLS/lib/`:
+
+   ```bash
+   if [ -z "${_ERROR_HANDLING_LOADED:-}" ] && [ -f "${DEVENV_TOOLS}/lib/error-handling.bash" ]; then
+       source "${DEVENV_TOOLS}/lib/error-handling.bash"
+   fi
+   ```
+
+4. **Function naming**: follow `snake_case` with clear verb prefixes (`get_`, `validate_`, `set_`, `find_`, etc.). For library functions, add a namespace prefix that matches the library name, e.g. `validate_plan_task_number`, `set_plan_task_complete`.
+5. **Document every public function** with a Usage/Arguments/Returns block comment.
+6. **Write tests** in `tools/tests/lib/test_<name>.bats`. Libraries are fully tested — every public function should have tests covering success paths, failure paths, and edge cases. Run with `bats tools/tests/lib/test_<name>.bats`.
+
+### Adding a new script
+
+Scripts live in `tools/scripts/<name>.sh` and are exposed via a symlink at `tools/<name>` (without the `.sh` extension).
+
+1. **Start from the template**: `tooling-create-script <name>` scaffolds the file from `tools/templates/script-template.sh`.
+2. **File location**: `tools/scripts/<group>-<action>.sh`, following the existing `group-action` naming pattern (e.g. `markdown-plan-complete-task.sh`).
+3. **Symlink**: create a relative symlink from `tools/` to the script:
+
+   ```bash
+   ln -s scripts/<name>.sh tools/<name>
+   ```
+
+4. **Standard structure** (in order):
+   - Shebang + header comment (name, version, description, requirements)
+   - `source "$DEVENV_TOOLS/lib/error-handling.bash"` and `source "$DEVENV_TOOLS/lib/versioning.bash"`
+   - `enable_strict_mode`
+   - `SCRIPT_VERSION` and `SCRIPT_NAME` constants
+   - `script_version` call
+   - Additional library sources
+   - Global variables
+   - `show_usage()` function with `--help` support
+   - `parse_args()` function
+   - Helper functions
+   - `main()` function called at the end
+5. **Always implement `--help` and `--version`** using the `show_usage` / `script_version` pattern from the template.
+6. **Tests**: test scripts according to their impact, complexity, and criticality. Script tests go in `tools/tests/scripts/`.
+
+### Adding a new tool category
+
+When adding a group of related tools (e.g. `markdown-*`), follow these steps:
+
+1. Create the bash library at `tools/lib/<category>.bash` following the conventions above.
+2. Create scripts in `tools/scripts/<category>-<action>.sh`.
+3. Create symlinks in `tools/` for each script.
+4. Write library tests in `tools/tests/lib/test_<category>.bats`.
+5. If any third-party packages are required (e.g. Python packages via `pip`, Node packages via `pnpm`), install them in `.devcontainer/bootstrap.bash` inside the appropriate `install_*` function so the dependency survives container rebuilds.
+6. Document the new tools in `docs/Additional-Tooling.md` under an appropriate section heading, following the existing format (usage, options, examples, features).
+
+### Third-party dependencies
+
+If a script requires an external tool not already present in the environment:
+
+- **OS packages** (`apt`): add to `install_os_packages_round1` or `install_os_packages_round2` in `.devcontainer/bootstrap.bash`.
+- **Node packages** (`npm`/`pnpm`): add to `install_node_packages` in `.devcontainer/bootstrap.bash`.
+- **Python packages** (`pip`): add an `install_python_packages` function (or extend an existing one) in `.devcontainer/bootstrap.bash` and call it from `main`.
+- **dotnet tools**: add alongside the existing `dotnet tool install` calls in `.devcontainer/bootstrap.bash`.
+
+Always check for the tool's presence before installing (see the `yq` install pattern for an example of idempotent install logic).
+
+---
+
 ## What You Should NOT Change (unless you want to maintain your fork)
 
 - Test infrastructure (unless enhancing it)

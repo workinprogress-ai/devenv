@@ -67,7 +67,11 @@ Run these in order.
 
 Ask if not provided: GH issue # or path to a plan markdown.
 
-- **GH issue**: `issue-get <N> --pretty`, parse JSON, look for plan in `body`.
+- **GH issue**:
+  1. First, check whether a local `Implementation_plan-issue-<N>-*.md` already exists in the target repo root. If it does, **use it** — it carries checkbox progress from prior sessions and is the source of truth. Skip to the drift check.
+  2. If no local file exists, fetch the plan body via `gh issue view <N> --json body --jq .body`. Confirm the body contains a plan (task list, phase structure).
+  3. Write the fetched body to the target repo root as `Implementation_plan-issue-<N>-001.md` (or the next available suffix — never overwrite an existing file).
+  4. **Work exclusively from the local file from this point on.** Checkbox updates go to the file; issue body syncs at phase boundaries push the file back to the issue.
 - **Plan file**: read it.
 - **No plan or too thin**: refuse delegation. Redirect to `/devenv-create-implementation-plan` to draft one first.
 
@@ -189,9 +193,22 @@ Stop the session and reconvene with the user when **any** of these happen:
 - More than ~3 blocking unknowns hit on a single task.
 - A task turns out to be high-impact mid-implementation → suggest switching to `/devenv-pair-programming` for that task, or pausing so the user can resolve.
 - Tests start failing in unexpected ways (not just the test you're working on).
+- A build or environment failure appears that is unrelated to the current changes — restore errors, version conflicts, missing dependencies in files not touched this session.
 - Scope creep detected — work expanding beyond the plan.
 
 When aborting, summarize what was done so far in the same format as a normal session summary.
+
+### Failure investigation is bounded by allowed tools
+
+When a build or test failure is encountered, **surface it immediately** — even if it appears pre-existing or unrelated to the current changes. Do not self-assign an investigation task that requires a prohibited operation.
+
+**Never use `git stash`, `git checkout`, `git reset`, or any mutating git command to isolate whether a failure pre-dates the current changes — not even to "just confirm before reporting."** The prohibition applies here exactly as everywhere else. The correct action is to surface the failure with the evidence already available: the error output, which files were changed this session, what commands were run.
+
+Example format:
+
+> *"🛑 Hit a build failure that appears pre-existing and unrelated to my changes: `NU1605` version conflict in `ChangeHistory.csproj` (I never touched this file). It cascades to the test build. Tasks 1.1–1.6 are complete but I can't verify the build with them in place until this is resolved. How would you like to handle it?"*
+
+The user decides how to investigate. The AI provides evidence; the human directs.
 
 > **Switching to pair-programming mid-session:** if the user wants to switch, tell them explicitly: *"To get the full pair-programming rules, please start a new chat and invoke `/devenv-pair-programming` — continuing in this session means the pair-programming skill isn't loaded and its rules won't apply."* Do not continue in delegation mode pretending to pair-program.
 
@@ -213,7 +230,7 @@ If for some reason the file cannot be read, say so explicitly: *"I'd want to re-
 
 Before wrapping a phase and syncing the issue body, run the committability checklist from [phase-rules.md](../devenv-create-implementation-plan/references/phase-rules.md):
 
-- [ ] All tests pass
+- [ ] All tests pass — including any tests written in the failing state (TDD) during this phase; the red-green cycle must close before this gate
 - [ ] Coverage has not regressed vs. the start of the phase
 - [ ] Tests added this phase assert observable behaviour — not just execute code
 - [ ] No blocking TODOs
@@ -263,9 +280,9 @@ The AI owns checkbox updates in delegation — the user isn't driving the work, 
 
 ### Plan file (source of truth)
 
-Mark a task `- [x]` as soon as the user accepts the work for that task. Do not batch to end of session.
+Mark a task complete as soon as the user accepts the work for that task. Do not batch to end of session.
 
-Edit `- [ ]` → `- [x]` using the file edit tool. Confirm briefly: *"Ticked 2.1 and 2.2."*
+Run `markdown-plan-complete-task <task_number> <plan_file>` to tick the checkbox. Confirm briefly: *"✅ Ticked 2.1."* To reopen a task: `markdown-plan-complete-task --uncomplete <task_number> <plan_file>`.
 
 ### Inconsistencies and plan gaps
 

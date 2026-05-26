@@ -15,7 +15,7 @@ Phases exist so that work can be **paused, reviewed, and shipped** at clean boun
    - Final check that coverage has not regressed across the whole plan.
 
 3. **Every phase must end committable.** A phase is committable only if all of the following are true at the end of it:
-   - All tests pass (existing + any added in this phase).
+   - All tests pass (existing + any added in this phase). **A phase may not end with intentionally failing tests.** If a test was written in the failing state first (TDD), the implementation that makes it pass must be in the same phase — the red-green cycle must close before the phase ends.
    - **Test coverage does not regress** vs. the start of the phase.
    - Tests added in this phase **assert observable behaviour** — a test that merely executes code without asserting anything does not count toward coverage.
    - The build is green.
@@ -29,7 +29,7 @@ Phases exist so that work can be **paused, reviewed, and shipped** at clean boun
    - **Explicit rejection** — the user directly says the rule doesn't apply to this phase.
    - **Coverage exclusion** — the user opts to mark code with the appropriate language attribute (e.g. `[ExcludeFromCodeCoverage]` in C#, `/* istanbul ignore */` in TypeScript) to legitimately exclude it from measurement.
 
-5. **Tests are written per-phase, not at the end.** Each phase's task list must include test tasks for what that phase introduces. Do not create a standalone "write tests" phase at the end — by then the code is hard to test and the discipline is already lost.
+5. **Tests are written per-phase, not at the end.** Each phase's task list must include test tasks for what that phase introduces. Do not create a standalone "write tests" phase at the end — by then the code is hard to test and the discipline is already lost. If using a TDD red-green approach within a task, the full cycle (write failing test → implement → test passes) must complete within the same phase — do not write a failing test for behaviour that will only be implemented in a later phase.
 
 ## Soft guidance
 
@@ -55,3 +55,4 @@ Phases exist so that work can be **paused, reviewed, and shipped** at clean boun
 - Phases that depend on **future** phases (cyclic) — re-order tasks until the dependency graph is a DAG flowing forward.
 - Skipping the coverage check because "it's just a refactor" — refactors are exactly when regressions sneak in.
 - Tests that hit lines without asserting anything — these inflate coverage numbers but catch nothing.
+- Writing failing tests for functionality to be implemented in a later phase — the TDD red-green cycle must complete within the same phase it starts. Tests written in Phase 1 must assert **current observable behaviour** (including "this stub throws as expected") and must pass at the end of Phase 1. Do not write a test that expects real behaviour the code does not yet have.

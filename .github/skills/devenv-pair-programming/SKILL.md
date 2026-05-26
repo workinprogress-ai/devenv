@@ -80,7 +80,12 @@ Ask, if not provided:
 
 ### 2. Load the plan
 
-**If GH issue**: run `issue-get <N> --pretty` and parse JSON. Look for an implementation plan in `body`.
+**If GH issue**:
+
+1. First, check whether a local `Implementation_plan-issue-<N>-*.md` already exists in the target repo root. If it does, **use it** — it carries checkbox progress from prior sessions and is the source of truth. Skip to the drift check.
+2. If no local file exists, fetch the plan body via `gh issue view <N> --json body --jq .body`. Confirm the body contains a plan (task list, phase structure). If not, warn and offer options (see below).
+3. Write the fetched body to the target repo root as `Implementation_plan-issue-<N>-001.md` (or the next available suffix — never overwrite an existing file).
+4. **From this point on, work exclusively from the local file.** Read checkboxes from it, tick tasks using `markdown-plan-complete-task` (see [Plan Progress Updates](#plan-progress-updates)), use it as the source of truth for issue body syncs at phase boundaries.
 
 **If plan file**: read it.
 
@@ -346,6 +351,20 @@ Don't ask about:
 - Mechanical choices that match existing style (variable names, formatting, import order).
 - Things that are clearly stated in the plan or the file you just read.
 
+## Environment and Infrastructure Blockers
+
+When a build or test failure is encountered during a session, **stop and surface it immediately** — even if it appears pre-existing or unrelated to current changes.
+
+**Never self-assign an investigation task that requires a prohibited operation.** The instinct to "confirm it's pre-existing before reporting" is understandable but wrong when confirmation would require `git stash`, `git checkout`, `git reset`, or any mutating git command. The prohibition applies here exactly as everywhere else.
+
+The correct action: surface the failure with the evidence already available — the error output, which files were changed this session, what commands produced the failure — and ask the user how to proceed.
+
+Example:
+
+> *"🛑 Hit a build failure that looks pre-existing and unrelated to my changes: `NU1605` version conflict in `ChangeHistory.csproj` — I never touched this file, and the conflict is between versions I haven't referenced. It cascades to the test build. My work on tasks 1.1–1.6 appears complete but I can't verify the build cleans until this is resolved. How would you like to handle it?"*
+
+The user decides how to investigate. Surface the evidence; don't chase it.
+
 ## Plan Revision During the Session
 
 No plan survives contact with the codebase. The plan is a **living document** — update it when reality diverges from it, always with the user's agreement.
@@ -440,22 +459,13 @@ After writing, re-emit the **Files in scope** block and **decision flags** for t
 
 ### Checkbox updates
 
-As tasks complete (reviewed and approved by both parties), the AI updates the plan file immediately — no permission needed. Edit `- [ ]` → `- [x]` using the file edit tool and note it briefly: *"Ticked 3.1."* Do not batch to end of session.
+As tasks complete (reviewed and approved by both parties), the AI updates the plan file immediately — no permission needed. Run `markdown-plan-complete-task <task_number> <plan_file>` to tick the checkbox and note it briefly: *"✅ Ticked 3.1."* Do not batch to end of session. To reopen a task: `markdown-plan-complete-task --uncomplete <task_number> <plan_file>`.
 
 This is the only plan edit the AI makes without prior confirmation. Everything else — new tasks, structural changes, wording — follows the Draft → show → confirm → write convention above.
 
 ### GH issue body sync
 
-> **Tooling:** All GitHub operations use the workspace wrappers in `tools/` — **never invoke `gh` directly.** The wrappers handle auth, default flags, and workspace conventions that raw `gh` calls bypass.
->
-> | Need | Use |
-> |------|-----|
-> | Read an issue | `issue-get <N>` |
-> | Update issue body | `issue-update <N> --body-file <path>` |
-> | Post a comment | `issue-comment <N> --body-file <path>` |
-> | Create an issue | `issue-create ...` |
-
-If the plan was loaded from a GH issue (loaded via `issue-get`, or the plan body contains a GH issue number), sync the issue body at the end of each phase. **Do this proactively as part of declaring the phase complete — don't wait for the user to ask.**
+If the plan was loaded from a GH issue (i.e. a local file was established from the issue body during Step 2), sync the issue body at the end of each phase. **Do this proactively as part of declaring the phase complete — don't wait for the user to ask.**
 
 **Before syncing**, assess whether the phase deviated significantly from the plan — unplanned tasks were added, the approach changed, or the user redirected mid-phase. If the phase plan was already rewritten during the session (e.g. via the "in the flow" divergence handling), skip this check — the plan is already accurate. Otherwise, if a meaningful gap exists, offer to update it before the sync goes out:
 
@@ -521,7 +531,7 @@ Only offer once per session unless the user brings it up again. Never frame it a
 
 Before declaring a phase complete and moving to Session Wrap-Up, run the committability checklist from [phase-rules.md](../devenv-create-implementation-plan/references/phase-rules.md):
 
-- [ ] All tests pass
+- [ ] All tests pass — including any tests written in the failing state (TDD) during this phase; the red-green cycle must close before this gate
 - [ ] Coverage has not regressed vs. the start of the phase
 - [ ] Tests added this phase assert observable behaviour — not just execute code
 - [ ] No blocking TODOs
