@@ -44,6 +44,7 @@ Use `vscode_askQuestions` to gather:
 - **What's wrong** — tasks whose descriptions are now misleading or whose scope changed.
 - **What's done outside the plan** — work completed that should be marked `[x]` retroactively.
 - **What's no longer relevant** — tasks to remove; deletion will be logged in Revision History with the task number, a one-line summary, and the reason
+- **Legacy code exposure** — if new tasks will introduce implementations that coexist with existing legacy code in the same files across multiple phases, flag the issue: the plan likely needs an early cleanup phase. See [phase-rules.md](../devenv-create-implementation-plan/references/phase-rules.md) for available patterns (demolition, hollow-out, rename suffix, branch by abstraction). Surface the viable options and a recommendation before writing new tasks; don't silently pick one.
 
 Do not assume. If the new requirements imply renumbering or reordering, flag it and ask before proceeding.
 

@@ -71,7 +71,7 @@ Ask if not provided: GH issue # or path to a plan markdown.
   1. First, check whether a local `Implementation_plan-issue-<N>-*.md` already exists in the target repo root. If it does, **use it** — it carries checkbox progress from prior sessions and is the source of truth. Skip to the drift check.
   2. If no local file exists, fetch the plan body via `gh issue view <N> --json body --jq .body`. Confirm the body contains a plan (task list, phase structure).
   3. Write the fetched body to the target repo root as `Implementation_plan-issue-<N>-001.md` (or the next available suffix — never overwrite an existing file).
-  4. **Work exclusively from the local file from this point on.** Checkbox updates go to the file; issue body syncs at phase boundaries push the file back to the issue.
+  4. **Work exclusively from the local file from this point on.** Record its workspace-relative path (e.g. `repos/lib.cs.services.bulk-sync/Implementation_plan-issue-42-001.md`) — this is the `<plan_file>` argument for every `markdown-plan-complete-task` call throughout the session. Always pass it explicitly; never rely on the tool's default directory search. Checkbox updates go to the file; issue body syncs at phase boundaries push the file back to the issue.
 - **Plan file**: read it.
 - **No plan or too thin**: refuse delegation. Redirect to `/devenv-create-implementation-plan` to draft one first.
 
@@ -204,7 +204,21 @@ When a build or test failure is encountered, **surface it immediately** — even
 
 **Never use `git stash`, `git checkout`, `git reset`, or any mutating git command to isolate whether a failure pre-dates the current changes — not even to "just confirm before reporting."** The prohibition applies here exactly as everywhere else. The correct action is to surface the failure with the evidence already available: the error output, which files were changed this session, what commands were run.
 
-Example format:
+**When read-only evidence is not enough.** If the AI genuinely needs information that would require a mutating git operation (e.g. a before/after baseline comparison to confirm whether failures are pre-existing), it must not run those commands itself. Instead:
+
+1. State the objective clearly — what question needs answering and why read-only tools can't answer it.
+2. Draft the exact sequence of commands the user should run.
+3. Ask the user to run them and report back.
+
+Example:
+
+> *"🔴 I want to confirm these 90 test failures are pre-existing and not introduced by my changes. To get a clean baseline, please run:*
+> *1. `git stash` — sets aside my current changes*
+> *2. `dotnet test --filter Category=DeferredCommit 2>&1 | tail -5` — records the pre-change failure count*
+> *3. `git stash pop` — restores my changes*
+> *How many failures did the baseline show?"*
+
+Example format for failure surfacing:
 
 > *"🛑 Hit a build failure that appears pre-existing and unrelated to my changes: `NU1605` version conflict in `ChangeHistory.csproj` (I never touched this file). It cascades to the test build. Tasks 1.1–1.6 are complete but I can't verify the build with them in place until this is resolved. How would you like to handle it?"*
 
@@ -282,7 +296,7 @@ The AI owns checkbox updates in delegation — the user isn't driving the work, 
 
 Mark a task complete as soon as the user accepts the work for that task. Do not batch to end of session.
 
-Run `markdown-plan-complete-task <task_number> <plan_file>` to tick the checkbox. Confirm briefly: *"✅ Ticked 2.1."* To reopen a task: `markdown-plan-complete-task --uncomplete <task_number> <plan_file>`.
+Run `markdown-plan-complete-task <task_number> <plan_file>` in a terminal, where `<plan_file>` is the workspace-relative path recorded at plan load. Confirm briefly: *"✅ Ticked 2.1."* To reopen a task: `markdown-plan-complete-task --uncomplete <task_number> <plan_file>` in a terminal.
 
 ### Inconsistencies and plan gaps
 

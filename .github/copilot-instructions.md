@@ -147,3 +147,29 @@ If a task requires a raw mutation, show the user the exact command and ask them 
 | `🏁` | **Session or phase wrap-up** |
 
 **File and method references.** Whenever a specific class, method, or file is mentioned **anywhere in chat output** — task descriptions, phase announcements, hand-backs, reviews, concerns, hints, or brain bootup — use a clickable workspace-root-relative link: [`ExecuteAsync` in `BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L87). Never use backtick code formatting as a substitute for a link when the location is known. If the exact line isn't known, link to the file without `#L`.
+
+### Temporary code comments (DEVENV markers)
+
+When writing temporary comments into code during implementation sessions — cross-references, navigator annotations, session-scoped TODOs — use the `DEVENV` marker format so they are unambiguously identifiable and removable.
+
+**Format:** Prepend with `DEVENV[<plan-key>]:` using the file's comment syntax.
+
+| Language | Example |
+|----------|---------|
+| C# / TypeScript / Go | `// DEVENV[Implementation_plan-issue-42-001]: wiring this in task 2.3` |
+| Python / Bash | `# DEVENV[Implementation_plan-issue-42-001]: temporary scaffold` |
+| SQL | `-- DEVENV[Implementation_plan-issue-42-001]: revisit when schema settles` |
+| HTML / XML | `<!-- DEVENV[Implementation_plan-issue-42-001]: placeholder -->` |
+
+`<plan-key>` is the plan filename stem without extension (e.g. `Implementation_plan-issue-42-001`), or a short label if there is no plan file.
+
+**Block markers** (annotating a section rather than a single line):
+```
+// DEVENV[plan-key]: begin — <why this block is temporary>
+...
+// DEVENV[plan-key]: end
+```
+
+**Grep to find all markers:** `grep -rn "DEVENV\[" .`
+
+**All DEVENV markers must be removed before the work ships.** If DEVENV markers were introduced during a plan, the Cleanup phase must include an explicit task to remove them all. Markers left in committed code are a defect.

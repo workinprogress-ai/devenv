@@ -130,6 +130,7 @@ See [phase-rules.md](./references/phase-rules.md) for the full checklist.
 - Each phase's task list must include **test tasks alongside the code tasks** — do not defer all testing to a final phase
 - Tests written in early phases assert the **current state** (including stubs); they evolve as implementation lands — they are not discarded
 - **TDD red-green cycles must close within the same phase** — if a test is written in the failing state first, the implementation that makes it pass must be in the same phase; do not write tests that assert behaviour not yet present in the codebase
+- When legacy and new code would be **mixed in the same files across multiple phases**, prefer a dedicated early **legacy cleanup phase** — see [phase-rules.md](./references/phase-rules.md) for patterns (demolition, hollow-out, rename suffix, branch by abstraction) and decision guidance; surface options when multiple are viable, choose the clear winner when one exists
 - Exception path: if a phase genuinely cannot satisfy the coverage rule without disproportionate cost, document why in the plan and restore coverage in the next phase. This is a last resort.
 - Tasks within a phase that have no `depends on` between them may be done in parallel
 

@@ -69,8 +69,9 @@ human or AI to understand the goal without opening other documents.>
 > phases, updates user-facing docs, and verifies coverage hasn't regressed.
 
 - [ ] **N.1 [S] Remove scaffolding tests no longer needed**
-- [ ] **N.2 [S] Update README / changelog / inline docs**
-- [ ] **N.3 [S] Verify coverage has not regressed**
+- [ ] **N.2 [S] Remove all DEVENV markers** *(if any were added during this plan — `grep -rn "DEVENV\[" .` must return zero results)*
+- [ ] **N.3 [S] Update README / changelog / inline docs**
+- [ ] **N.4 [S] Verify coverage has not regressed**
 
 ---
 

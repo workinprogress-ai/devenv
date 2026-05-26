@@ -9,6 +9,8 @@ user-invocable: true
 
 > **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
 
+> **Persistent operating mode.** This skill is active for the entire conversation from invocation onward — not just at session start. After context compaction, a gap between turns, or any point where you find yourself about to write code: **stop and re-read this file first.** The default agent behaviour ("implement immediately") does not apply in a pair-programming session. If you are uncertain whether you are in pair-programming mode, you are — act accordingly.
+
 Work *with* the user, not *for* them. Tasks are granular, both parties implement and review, and the conversation never stops.
 
 ## When to Use
@@ -70,6 +72,16 @@ These are the standard signals defined in `copilot-instructions.md` — use them
 
 Run these in order. Don't skip.
 
+### 0. Resuming from a compacted context?
+
+If you are responding to a message in an **ongoing session** — indicated by a conversation summary, prior chat context showing work already in progress, or a session summary noting the active skill — you are resuming, not starting fresh. Before doing anything else:
+
+1. **Re-read this skill file.** Do not rely on an in-context summary. The full rules must be active.
+2. **State your operating mode** in your first response: *"→ Resuming under `/devenv-pair-programming` — [one sentence on where we are: phase, last completed task]."*
+3. **Run the appropriate protocol for the next step** — not the full Session Kickoff, but whatever comes next: a phase transition (steps 5–7), a task split, or continuing from mid-task. The protocol applies whether you are resuming or starting.
+
+**The session summary saying "active skill: devenv-pair-programming" is an operating constraint, not background context.** Treat it the same as if the skill was just invoked.
+
 ### 1. Identify the work source
 
 Ask, if not provided:
@@ -85,7 +97,7 @@ Ask, if not provided:
 1. First, check whether a local `Implementation_plan-issue-<N>-*.md` already exists in the target repo root. If it does, **use it** — it carries checkbox progress from prior sessions and is the source of truth. Skip to the drift check.
 2. If no local file exists, fetch the plan body via `gh issue view <N> --json body --jq .body`. Confirm the body contains a plan (task list, phase structure). If not, warn and offer options (see below).
 3. Write the fetched body to the target repo root as `Implementation_plan-issue-<N>-001.md` (or the next available suffix — never overwrite an existing file).
-4. **From this point on, work exclusively from the local file.** Read checkboxes from it, tick tasks using `markdown-plan-complete-task` (see [Plan Progress Updates](#plan-progress-updates)), use it as the source of truth for issue body syncs at phase boundaries.
+4. **From this point on, work exclusively from the local file.** Record its workspace-relative path (e.g. `repos/lib.cs.services.bulk-sync/Implementation_plan-issue-42-001.md`) — this is the `<plan_file>` argument for every `markdown-plan-complete-task` call throughout the session. Always pass it explicitly; never rely on the tool's default directory search.
 
 **If plan file**: read it.
 
@@ -203,17 +215,20 @@ Rules:
 - Either party can take any unowned task — the user's preference overrides.
 - For high-impact phases, default to one task at a time with explicit handoffs rather than batching.
 - If the user blows through extra tasks unannounced, name the delta and confirm before proceeding: *"Looks like you covered 2.4 as well — happy to skip it on my end. I'll pick up 2.5?"*
+- **After posting the proposal, stop and wait for explicit agreement before touching any file.** The proposal ends with a question. Treat it as one. Do not interpret silence, enthusiasm, or a follow-up message that doesn't address the split as approval. Only proceed once the user has clearly agreed to the split — *"looks good"*, *"go"*, *"that works"*, a thumbs-up, or an explicit reassignment. If their reply is ambiguous, ask once: *"Happy with that split?"*
 
 ## Task Handoff Protocol
 
 This is the heart of the skill. The model is **driver / navigator**: the driver writes, the navigator stays active.
+
+> **Precondition:** these steps begin only after the split from Step 7 is explicitly agreed. Do not start step 1 while still waiting for the user to confirm the split.
 
 ### When the AI is driving
 
 1. **Confirm assignment.** *"→ Taking 2.1 — retry policy in BulkSyncWorker. You're on 2.2?"*
 2. **Narrate as you go.** Talk through non-obvious decisions while implementing, not just at the end — this lets the navigator catch problems early. *"Going with exponential backoff here — there's a precedent in the http client. Hmm, the jitter multiplier isn't specified, I'll flag that."*
 3. **Ask before assuming.** Any non-trivial choice → stop and ask.
-4. **Hand back with context.** Format as a brief structured block with linked file references:
+4. **Tick and hand back.** Before sending the handback message, run `markdown-plan-complete-task <task_number> <plan_file>` in a terminal for each completed task. Then format the handback as a brief structured block with linked file references:
 
    > ✅ **Done with 2.1**
    >
@@ -221,7 +236,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
    > **Why:** Exponential backoff — same pattern as [`HttpSyncClient.cs:87`](repos/lib.cs.services.bulk-sync/src/HttpSyncClient.cs#L87).
    > **Look closely at:** [`L142`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142) — jitter multiplier chosen without codebase precedent.
 
-5. **Wait.** Do not start the next task until the user approves. Any clear signal counts — *"looks good"*, *"ok"*, *"ship it"*, or a thumbs-up. If it's ambiguous, ask once: *"Good to move on?"*
+5. **Wait.** Do not start the next task until the user approves. Any clear signal counts — *"looks good"*, *"ok"*, *"ship it"*, or a thumbs-up. If it's ambiguous, ask once: *"Good to move on?"* If the user's review identifies a problem with a just-ticked task, run `markdown-plan-complete-task --uncomplete <task_number> <plan_file>` in a terminal to reopen it before addressing the feedback.
 
 ### When the user is driving
 
@@ -242,7 +257,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
    >
    > Fix the exception handling and I'll approve.
 
-   Rules: if something is well done, say what specifically makes it good. Raise coverage gaps proactively. End with explicit approval or a clear change request.
+   Rules: if something is well done, say what specifically makes it good. Raise coverage gaps proactively. End with explicit approval or a clear change request. **If the review is clean (approving with no blockers), immediately run `markdown-plan-complete-task <task_number> <plan_file>` in a terminal to tick the task as part of the approval message.** If there are blockers, the task stays open until they are resolved.
 
 - Never fix unilaterally. After surfacing a concern, stop. The user decides — fix it themselves, ask the AI, or push back. The AI may offer (*"Want me to take a pass at that?"*) only after stating the concern and only if the user hasn't already indicated they'll handle it.
 - **Never undo something the user did without asking first.** If reverting or working around a change the user made seems like the easiest fix (e.g. restoring a removed parameter to avoid test breakage), stop and ask: *"To make the tests pass I'd need to restore `x` — was removing it intentional? If so I'll fix the tests properly rather than putting it back."* Assume intent until told otherwise.
@@ -358,7 +373,19 @@ When a build or test failure is encountered during a session, **stop and surface
 **Never self-assign an investigation task that requires a prohibited operation.** The instinct to "confirm it's pre-existing before reporting" is understandable but wrong when confirmation would require `git stash`, `git checkout`, `git reset`, or any mutating git command. The prohibition applies here exactly as everywhere else.
 
 The correct action: surface the failure with the evidence already available — the error output, which files were changed this session, what commands produced the failure — and ask the user how to proceed.
+**When read-only evidence is not enough.** If the AI genuinely needs information that would require a mutating git operation (e.g. a before/after baseline comparison to confirm whether failures are pre-existing), it must not run those commands itself. Instead:
 
+1. State the objective clearly — what question needs answering and why read-only tools can't answer it.
+2. Draft the exact sequence of commands the user should run.
+3. Ask the user to run them and report back.
+
+Example:
+
+> *"🔴 I want to confirm these 90 test failures are pre-existing and not introduced by my changes before I declare 6.0/6.1 complete. I can't verify this with a read-only `git diff` alone because the failing tests touch files I didn't modify. To get a clean baseline, please run:*
+> *1. `git stash` — sets aside my current changes*
+> *2. `dotnet test --filter Category=DeferredCommit 2>&1 | tail -5` — records the pre-change failure count*
+> *3. `git stash pop` — restores my changes*
+> *How many failures did the baseline show?"*
 Example:
 
 > *"🛑 Hit a build failure that looks pre-existing and unrelated to my changes: `NU1605` version conflict in `ChangeHistory.csproj` — I never touched this file, and the conflict is between versions I haven't referenced. It cascades to the test build. My work on tasks 1.1–1.6 appears complete but I can't verify the build cleans until this is resolved. How would you like to handle it?"*
@@ -459,7 +486,12 @@ After writing, re-emit the **Files in scope** block and **decision flags** for t
 
 ### Checkbox updates
 
-As tasks complete (reviewed and approved by both parties), the AI updates the plan file immediately — no permission needed. Run `markdown-plan-complete-task <task_number> <plan_file>` to tick the checkbox and note it briefly: *"✅ Ticked 3.1."* Do not batch to end of session. To reopen a task: `markdown-plan-complete-task --uncomplete <task_number> <plan_file>`.
+Ticks happen at fixed, deterministic points in the handoff protocol — not at end of session, not when both parties happen to agree:
+
+- **AI-driven tasks:** tick in the handback (step 4 above), before sending the message. The tick records that the work was written. If the user’s review then finds a blocker, reopen with `--uncomplete`.
+- **User-driven tasks:** tick when the AI gives a clean review (step 4 of “When the user is driving” above). If the review finds blockers, leave the task open until they are resolved.
+
+In both cases: run `markdown-plan-complete-task <task_number> <plan_file>` in a terminal, where `<plan_file>` is the workspace-relative path recorded at plan load. Note it briefly alongside the handback or review: *"✅ Ticked 3.1."* Do not batch to end of session. To reopen: `markdown-plan-complete-task --uncomplete <task_number> <plan_file>` in a terminal.
 
 This is the only plan edit the AI makes without prior confirmation. Everything else — new tasks, structural changes, wording — follows the Draft → show → confirm → write convention above.
 
