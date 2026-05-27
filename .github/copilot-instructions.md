@@ -150,16 +150,30 @@ If a task requires a raw mutation, show the user the exact command and ask them 
 
 ### Temporary code comments (DEVENV markers)
 
-When writing temporary comments into code during implementation sessions — cross-references, navigator annotations, session-scoped TODOs — use the `DEVENV` marker format so they are unambiguously identifiable and removable.
+When writing temporary comments into code during implementation sessions, use the `DEVENV` marker format so they are unambiguously identifiable and removable. DEVENV markers serve two distinct purposes:
 
-**Format:** Prepend with `DEVENV[<plan-key>]:` using the file's comment syntax.
+- **Temporary scaffolding** — marks code that is deliberately incomplete or placeholder: a stub to be replaced, a workaround to be removed, a cross-reference or navigator annotation.
+- **Forward-looking guidance** — explains what a future task will do at or near this location; e.g. `// DEVENV: Phase 3 registers the real service here — stub returns empty list until then`. In pair-programming, these comments actively guide the user through the plan; in delegation, they help both parties understand where future changes land.
+
+**Keep comments descriptive, not structural.** Write what will happen (*"Phase 2 adds the retry wrapper here"*), not where in the plan it appears (*"see task 2.4"*). Descriptive comments survive plan renumbering; structural references go stale silently.
+
+**Scaffolding markers** — use `DEVENV[<plan-key>]:` for code that is deliberately incomplete or temporary:
 
 | Language | Example |
 |----------|---------|
-| C# / TypeScript / Go | `// DEVENV[Implementation_plan-issue-42-001]: wiring this in task 2.3` |
+| C# / TypeScript / Go | `// DEVENV[Implementation_plan-issue-42-001]: temporary stub` |
 | Python / Bash | `# DEVENV[Implementation_plan-issue-42-001]: temporary scaffold` |
 | SQL | `-- DEVENV[Implementation_plan-issue-42-001]: revisit when schema settles` |
 | HTML / XML | `<!-- DEVENV[Implementation_plan-issue-42-001]: placeholder -->` |
+
+**Forward-looking guidance** — use `TODO:(DEVENV[<plan-key>]):` when something *must* happen at this exact location in a future task. The `TODO:` prefix triggers IDE highlighting:
+
+| Language | Example |
+|----------|---------|
+| C# / TypeScript / Go | `// TODO:(DEVENV[Implementation_plan-issue-42-001]): Phase 3 registers the real service here` |
+| Python / Bash | `# TODO:(DEVENV[Implementation_plan-issue-42-001]): Phase 3 registers the real service here` |
+| SQL | `-- TODO:(DEVENV[Implementation_plan-issue-42-001]): Phase 3 wires in the query here` |
+| HTML / XML | `<!-- TODO:(DEVENV[Implementation_plan-issue-42-001]): Phase 3 wires in the template here -->` |
 
 `<plan-key>` is the plan filename stem without extension (e.g. `Implementation_plan-issue-42-001`), or a short label if there is no plan file.
 

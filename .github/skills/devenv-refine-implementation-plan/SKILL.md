@@ -1,6 +1,6 @@
 ---
 name: devenv-refine-implementation-plan
-description: Revise an existing Implementation_plan-*.md (or GitHub issue body containing a plan) after discovery work, scope changes, or new requirements. USE WHEN the user says "refine the plan", "update the plan", "revise the implementation plan", "the plan needs updating", "rework the plan based on what we learned", or hands off a stale plan that needs new tasks added or existing tasks adjusted. Auto-detects whether input is a file path or a GitHub issue number, preserves all existing `[x]` checkbox state, appends new tasks at the end of each affected phase (next sequential number — never reflows), records changes in a `## Revision history` section at the top of the file, and writes the result back in place. DO NOT USE for creating a brand-new plan from scratch (use `/devenv-create-implementation-plan`), for ad-hoc edits to a single task line (just edit the file directly), or for reporting plan progress without modifying it (use `/devenv-plan-status` once it exists).
+description: Revise an existing Implementation_plan-*.md (or GitHub issue body containing a plan) after discovery work, scope changes, or new requirements. USE WHEN the user says "refine the plan", "update the plan", "revise the implementation plan", "the plan needs updating", "rework the plan based on what we learned", or hands off a stale plan that needs new tasks added or existing tasks adjusted. Auto-detects whether input is a file path or a GitHub issue number, preserves all existing `[x]` checkbox state, appends new tasks to the end of each affected phase (next sequential number — never reflows), and creates new phases when the target phase is already fully complete. Records changes in a `## Revision history` section at the top of the file, and writes the result back in place. DO NOT USE for creating a brand-new plan from scratch (use `/devenv-create-implementation-plan`), for ad-hoc edits to a single task line (just edit the file directly), or for reporting plan progress without modifying it (use `/devenv-plan-status` once it exists).
 argument-hint: Path to an Implementation_plan-*.md OR a GitHub issue number containing a plan in the body
 ---
 
@@ -34,6 +34,7 @@ The user provides exactly one of:
 - Read the source (file or `issue-get` output).
 - Identify the phase headings (`### Phase N — Title`) and task lines (`- [ ]` / `- [x]`).
 - Note the highest existing task number per phase (e.g. Phase 2 has tasks up to 2.7 → next is 2.8).
+- **Assess completion state**: for each phase, note whether it is fully complete (all tasks `[x]`), partially complete, or untouched. Note the highest existing phase number — this is used if new phases need to be created.
 - Extract any existing `## Revision history` section so new entries can be prepended to it.
 
 ### 2. Interview the user about what changed
@@ -55,6 +56,13 @@ Do not assume. If the new requirements imply renumbering or reordering, flag it 
 - **Never reflow existing task numbers.** A task numbered `2.3` stays `2.3` for its entire lifetime.
 - **Never silently uncheck a `[x]`.** If a completed task's scope must change, leave it checked and add a new task for the additional work.
 - **New tasks are appended to the end of their phase** with the next sequential number (e.g. if Phase 2 ends at 2.7, the next new task is 2.8). New tasks must use the full task format: `- [ ] **N.M [S|M|L] Title**` header, descriptive sub-bullets first, then `Files:` / `decision:` / `owner:` / `depends on` metadata. Do not add skeletal or title-only tasks.
+- **When the target phase is fully complete (`[x]` on all its tasks), do not append to it.** Adding tasks to a complete phase misrepresents how the work progressed and resets progress markers. Instead, create one or more new phases numbered sequentially after the last existing phase (e.g. if the plan ends at Phase 4, new work goes in Phase 5, 6, etc.). This applies equally when the entire plan is complete — the canonical case is a plan that was finished and committed, then new downstream requirements surface that should have been part of the original scope.
+
+  New phases must follow the same phase rules as any other phase: each must be committable, cover its own tests, and the final new phase must include cleanup and docs tasks for the new scope. If the original Cleanup phase is already complete, add a new Cleanup phase for the new scope rather than reopening the original.
+
+  The first of the new phases must include an explicit task to **review the new scope and place forward guidance comments** (`TODO:(DEVENV[...])`) at anticipated touch points — the same role Phase 1 plays in a fresh plan. Example task: `- [ ] **5.1 [S] Review new scope and place forward guidance comments** — scan files affected by phases 5–6, add TODO:(DEVENV[...]) comments at integration points and stubs that later tasks will fill.`
+
+  Surface this to the user before writing: *"Phase 3 is fully complete — I'll add the new work in a new Phase 5 rather than appending to Phase 3. The existing Cleanup (Phase 4) is also done, so I'll add a new Phase 6 for cleanup of the new scope. Does that structure work for you?"*
 - **Cancelled tasks** are kept in place, wrapped in `~~strikethrough~~` on the task header line and annotated with the reason inline (e.g. `~~- [ ] **4.3 [S] Add foo**~~ — cancelled: superseded by 2.9`), and recorded in `## Revision history` with the task number, a one-line summary, and the reason. Do **not** delete the task line — strikethrough preserves numbering continuity and makes the cancellation visible in-place (and parseable by `/devenv-plan-status`).
 - **Reworded tasks** keep their number; the prior wording is recorded in the revision history.
 

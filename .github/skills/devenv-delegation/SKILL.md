@@ -240,6 +240,20 @@ The rule: **if you wrote to the file, re-read it before making any claim about i
 
 If for some reason the file cannot be read, say so explicitly: *"I'd want to re-read [`BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs) before answering — the in-context version may be stale."* Never answer as if the stale copy is current.
 
+## Forward Guidance Comments
+
+When the AI writes a stub or placeholder — any method, property, or class body that a later task will replace — add a forward DEVENV comment explaining what will replace it and approximately when:
+
+```csharp
+// DEVENV[Implementation_plan-issue-42-001]: Phase 3 replaces this stub with the real BulkSyncService — returns empty list until then.
+```
+
+Write what will happen (descriptive), not which task number does it (structural). Descriptive comments remain accurate when the plan is renumbered.
+
+**Implicit removal:** when a task replaces or fills the stub the comment describes, remove the comment as part of that same task. No separate cleanup step needed — the comment's purpose is fulfilled when the work lands.
+
+**Plan-revision audit:** when a scope change or plan revision is agreed mid-session, run `grep -rn "DEVENV\[" <repo-root>` and check whether any forward comments describe work that was cancelled, moved, or significantly changed. Update or remove affected comments before continuing.
+
 ## Phase Completion Gate
 
 Before wrapping a phase and syncing the issue body, run the committability checklist from [phase-rules.md](../devenv-create-implementation-plan/references/phase-rules.md):
@@ -248,6 +262,7 @@ Before wrapping a phase and syncing the issue body, run the committability check
 - [ ] Coverage has not regressed vs. the start of the phase
 - [ ] Tests added this phase assert observable behaviour — not just execute code
 - [ ] No blocking TODOs
+- [ ] No straggler forward DEVENV comments remain for work completed this phase — run `grep -rn "DEVENV\[" <repo-root>` to confirm and remove any found
 
 If coverage has dropped, **stop** — add a hotspot entry and surface it to the user before proceeding:
 

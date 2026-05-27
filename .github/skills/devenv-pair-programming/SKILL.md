@@ -124,6 +124,18 @@ Wait for the user's answer. If they say proceed, note the signals in the first s
 
 **If fewer than two signals**, continue silently.
 
+### 2c. Drop initial forward guidance comments
+
+After the drift check, do a single broad pass through the plan and the codebase. For any location that a future task will touch and where a comment would orient a reader, add a `DEVENV` forward comment. Focus on:
+
+- Stubs or placeholders the plan will replace
+- Integration points where new code will be wired in
+- Call sites or class members that will change in a later phase
+
+Use descriptive language, not task numbers: *"Phase 3 registers the real service here — stub returns empty list until then."* Announce what was placed, briefly: *"Dropped 4 forward guidance comments — [BulkSyncWorker.cs:142](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142), [ServiceRegistry.cs:58](repos/lib.cs.services.bulk-sync/src/ServiceRegistry.cs#L58)…"*
+
+Skip this step entirely when resuming a session mid-plan — forward comments from the initial kickoff may still be in place; don't duplicate them.
+
 ### 3. Confirm context
 
 - Confirm the target repo path.
@@ -182,6 +194,15 @@ After decisions are flagged and before the task split, offer a short guided jour
 
 **If the user doesn't engage** (no reply, or a reply without `bootup:`): move to step 7 without comment. The navigation steps themselves did passive priming work — that's enough.
 
+### 6c. Refresh forward comments for this phase
+
+Before the task split, do a targeted pass:
+
+1. **Remove** any forward DEVENV comments in the previous phase's files whose work was completed in that phase — grep those files and remove comments describing work that is now done.
+2. **Add** more detailed forward comments for this phase's specific tasks — at the exact call sites, class members, or integration points that this phase will modify. These are more targeted than the session-kickoff comments (which covered the whole plan); phase-start comments describe what happens *within the next few tasks*.
+
+Report briefly: *"Refreshed forward comments — removed 2 from Phase 1 scope, added 3 for Phase 2 tasks."* If nothing changed, skip the report.
+
 ### 7. Negotiate the task split
 
 The AI **proposes** a split across the upcoming batch; the user confirms or reshuffles. Scope must be agreed **before** driving starts — don't negotiate mid-task.
@@ -228,7 +249,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 1. **Confirm assignment.** *"→ Taking 2.1 — retry policy in BulkSyncWorker. You're on 2.2?"*
 2. **Narrate as you go.** Talk through non-obvious decisions while implementing, not just at the end — this lets the navigator catch problems early. *"Going with exponential backoff here — there's a precedent in the http client. Hmm, the jitter multiplier isn't specified, I'll flag that."*
 3. **Ask before assuming.** Any non-trivial choice → stop and ask.
-4. **Tick and hand back.** Before sending the handback message, run `markdown-plan-complete-task <task_number> <plan_file>` in a terminal for each completed task. Then format the handback as a brief structured block with linked file references:
+4. **Tick and hand back.** Before sending the handback message: first, scan the files you touched for any forward DEVENV comments whose work was just completed and remove them; then run `markdown-plan-complete-task <task_number> <plan_file>` in a terminal for each completed task. Then format the handback as a brief structured block with linked file references:
 
    > ✅ **Done with 2.1**
    >
@@ -257,7 +278,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
    >
    > Fix the exception handling and I'll approve.
 
-   Rules: if something is well done, say what specifically makes it good. Raise coverage gaps proactively. End with explicit approval or a clear change request. **If the review is clean (approving with no blockers), immediately run `markdown-plan-complete-task <task_number> <plan_file>` in a terminal to tick the task as part of the approval message.** If there are blockers, the task stays open until they are resolved.
+   Rules: if something is well done, say what specifically makes it good. Raise coverage gaps proactively. Scan the user's changed files for forward DEVENV comments their work has fulfilled — remove them as part of the review. End with explicit approval or a clear change request. **If the review is clean (approving with no blockers), immediately run `markdown-plan-complete-task <task_number> <plan_file>` in a terminal to tick the task as part of the approval message.** If there are blockers, the task stays open until they are resolved.
 
 - Never fix unilaterally. After surfacing a concern, stop. The user decides — fix it themselves, ask the AI, or push back. The AI may offer (*"Want me to take a pass at that?"*) only after stating the concern and only if the user hasn't already indicated they'll handle it.
 - **Never undo something the user did without asking first.** If reverting or working around a change the user made seems like the easiest fix (e.g. restoring a removed parameter to avoid test breakage), stop and ask: *"To make the tests pass I'd need to restore `x` — was removing it intentional? If so I'll fix the tests properly rather than putting it back."* Assume intent until told otherwise.
@@ -420,6 +441,15 @@ Surface the issue clearly, name the plan impact, and offer options — whether t
 
 > *"You've taken a different approach to 3.1 than the plan described — looks like you went with an event-driven pattern instead of the polling loop. Happy to update the plan to reflect that. Want me to draft the edit?"*
 
+**Where to place new tasks during a revision:** Never add new tasks to a phase that is already fully complete (all tasks `[x]`). Adding to a complete phase misrepresents how the work progressed. Instead:
+
+- If the new work naturally fits an existing phase that is still open (in progress or not yet started), add it there.
+- If no open phase fits, propose a new phase numbered after the last existing one. When the new phase represents significant new scope, its first task should be to review the new scope and place forward guidance comments — the same role Phase 1 plays in a fresh plan.
+
+When raising the revision, name the placement explicitly:
+
+> *"Phase 3 is fully done — I'd add this to Phase 4 (not yet started) since it fits naturally with the scheduler work there. If you'd prefer a standalone Phase 5, I can do that instead."*
+
 Don't unilaterally edit the plan. Don't continue working as if the plan is still correct.
 
 ### Scope: small vs structural
@@ -567,6 +597,7 @@ Before declaring a phase complete and moving to Session Wrap-Up, run the committ
 - [ ] Coverage has not regressed vs. the start of the phase
 - [ ] Tests added this phase assert observable behaviour — not just execute code
 - [ ] No blocking TODOs
+- [ ] No straggler forward DEVENV comments remain in files touched this phase for work already completed — run `grep -rn "DEVENV\[" <phase-files>` to check; remove any found
 
 If coverage has dropped, **it is a blocker** — the phase is not committable. Surface it explicitly:
 
