@@ -311,7 +311,7 @@ The AI owns checkbox updates in delegation — the user isn't driving the work, 
 
 Mark a task complete as soon as the user accepts the work for that task. Do not batch to end of session.
 
-Run `markdown-plan-complete-task <task_number> <plan_file>` in a terminal, where `<plan_file>` is the workspace-relative path recorded at plan load. Confirm briefly: *"✅ Ticked 2.1."* To reopen a task: `markdown-plan-complete-task --uncomplete <task_number> <plan_file>` in a terminal.
+Run `markdown-plan-complete-task <task_number> <plan_file>` in a terminal, where `<plan_file>` is the workspace-relative path recorded at plan load. Confirm briefly: *"✅ Ticked 2.1."* To reopen a task ticked in the current session: `markdown-plan-complete-task --uncomplete <task_number> <plan_file>` in a terminal. For tasks completed in a prior session, add a new task instead.
 
 ### Inconsistencies and plan gaps
 

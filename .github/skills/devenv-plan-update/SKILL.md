@@ -44,7 +44,7 @@ For each operation, confirm it falls within the supported set:
 | Operation | Supported here? |
 |---|---|
 | Mark task `[x]` | yes |
-| Mark task `[ ]` (undo) | only if it was just set in the most recent revision; otherwise refuse |
+| Mark task `[ ]` (undo) | only if it was ticked in this current session (e.g. ticked by mistake); for checkboxes from any prior session or revision, refuse and suggest adding a new task instead |
 | Answer/resolve an open question | yes |
 | Append a short note to a task line | yes |
 | Add one new task at the end of a phase | yes |
@@ -110,7 +110,7 @@ One-line summary per change applied, plus the new task counts and overall progre
 - **Skipping the revision history** — every persisted change goes in the log. No exceptions.
 - **Re-checking work via this skill** — if more than 3 changes are needed, recommend `/devenv-refine-implementation-plan`. Don't grow the limit.
 - **Auto-pushing to issue body** — writes to GitHub require explicit confirmation, every time.
-- **Unchecking a `[x]` from a prior revision** — refuse. Suggest adding a new task for the additional work instead.
+- **Unchecking a `[x]` from a prior session or revision** — refuse. Suggest adding a new task for the additional work instead. The only valid undo is a mistake made in the current invocation of this skill.
 
 ## Sibling skills
 

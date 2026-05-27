@@ -102,7 +102,7 @@ If a session-handoff comment exists on the parent issue, reuse its **Key decisio
 
 **Default: ready-for-review.** The skill assumes a plan-driven workflow where reaching this point means the work is done and reviewable.
 
-User can opt into draft mode explicitly ("open as draft", "draft PR"). If they do, pass the appropriate flag to `pr-create-for-review`.
+User can opt into draft mode explicitly ("open as draft", "draft PR"). If they do, pass the appropriate flag to `pr-create-for-merge`.
 
 ## Flow
 

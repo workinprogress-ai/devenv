@@ -501,7 +501,7 @@ Don’t guess. Don’t silently stay in plan-tracking mode if the user has moved
 These rules apply whenever the plan file is edited during this session:
 
 - **Never reflow task numbering.** New tasks append at the end of the affected phase with the next sequential number (e.g. if 2.3 is the last task, the new task is 2.4 — even if it logically belongs "between" 2.1 and 2.2).
-- **Never uncheck a completed task.** `[x]` is permanent. If a completed task needs revisiting, add a new follow-up task.
+- **Never uncheck a completed task from a prior session or phase.** `[x]` is permanent once the session moves on. If a completed task needs revisiting, add a new follow-up task. Exception: a task ticked within the *current handback cycle* (ticked moments ago and the user's immediate review found a blocker) may be reopened with `--uncomplete` before the session moves on.
 - **Preserve all existing `[x]` checkboxes exactly.** When rewriting a section, copy existing checked state verbatim.
 - **Record every revision in a session changelog.** Append a brief entry to a `## Session changelog` section at the **end** of the plan file (create it if absent — distinct from any `## Revision history` block added by other tools at the top):
   ```
@@ -521,7 +521,7 @@ Ticks happen at fixed, deterministic points in the handoff protocol — not at e
 - **AI-driven tasks:** tick in the handback (step 4 above), before sending the message. The tick records that the work was written. If the user’s review then finds a blocker, reopen with `--uncomplete`.
 - **User-driven tasks:** tick when the AI gives a clean review (step 4 of “When the user is driving” above). If the review finds blockers, leave the task open until they are resolved.
 
-In both cases: run `markdown-plan-complete-task <task_number> <plan_file>` in a terminal, where `<plan_file>` is the workspace-relative path recorded at plan load. Note it briefly alongside the handback or review: *"✅ Ticked 3.1."* Do not batch to end of session. To reopen: `markdown-plan-complete-task --uncomplete <task_number> <plan_file>` in a terminal.
+In both cases: run `markdown-plan-complete-task <task_number> <plan_file>` in a terminal, where `<plan_file>` is the workspace-relative path recorded at plan load. Note it briefly alongside the handback or review: *"✅ Ticked 3.1."* Do not batch to end of session. To reopen: `markdown-plan-complete-task --uncomplete <task_number> <plan_file>` in a terminal — only valid for tasks ticked in the current handback cycle; for anything from a prior session, add a new task instead.
 
 This is the only plan edit the AI makes without prior confirmation. Everything else — new tasks, structural changes, wording — follows the Draft → show → confirm → write convention above.
 

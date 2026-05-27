@@ -87,7 +87,7 @@ Will fix automatically (5):
   A  types.ts:8       "prefer `type` over `interface` here"
   C  session.ts:88    "token refresh races with logout"  ← localised fix
 
-Will surface for your direction (6):
+Will surface for your direction (7):
   B  parser.ts:55     "why is this parsed twice?"          [question]
   B  db.ts:12         "is this intentional or a bug?"      [question]
   B  cache.ts:99      "should this be async?"              [question]

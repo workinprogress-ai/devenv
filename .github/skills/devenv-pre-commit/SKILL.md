@@ -1,6 +1,6 @@
 ---
 name: devenv-pre-commit
-description: Run the project's lint, format, type-check, and test commands against changed files as the last sanity pass before the user commits. USE WHEN the user says "run pre-commit checks", "lint and test before I commit", "is this ready to commit", "check my changes before commit", or has finished editing and wants quality gates verified before `git commit`. Auto-detects project type (package.json / *.csproj / pyproject.toml / etc.), reads commands from README and package.json scripts, and uses devenv conventions (`pnpm test`, `dotnet test`). Scopes to changed files since merge-base by default. Runs all checks, reports all failures together with file:line, suggests fixes when obvious, and offers to apply tool auto-fixes with confirm. **Never runs `git commit`, `git add`, `--no-verify`, or any git-mutating command** — explicitly the last step before YOU commit. DO NOT USE FOR opening a PR (use `/devenv-open-pr`), code review (use `/devenv-code-review`), or coverage regression checks (use `/coverage-check`).
+description: Run the project's lint, format, type-check, and test commands against changed files as the last sanity pass before the user commits. USE WHEN the user says "run pre-commit checks", "lint and test before I commit", "is this ready to commit", "check my changes before commit", or has finished editing and wants quality gates verified before `git commit`. Auto-detects project type (package.json / *.csproj / pyproject.toml / etc.), reads commands from README and package.json scripts, and uses devenv conventions (`pnpm test`, `dotnet test`). Scopes to changed files since merge-base by default. Runs all checks, reports all failures together with file:line, suggests fixes when obvious, and offers to apply tool auto-fixes with confirm. **Never runs `git commit`, `git add`, `--no-verify`, or any git-mutating command** — explicitly the last step before YOU commit. DO NOT USE FOR opening a PR (use `/devenv-open-pr`), code review (use `/devenv-code-review`), or coverage regression checks.
 argument-hint: Optional — `--all` to run on whole project instead of changed files
 ---
 
@@ -16,7 +16,7 @@ This is the last step before *you* commit. The skill stops at "the checks passed
 - You want to know whether lint/format/tests are clean before opening a PR.
 - You want auto-fixes (formatter, lint --fix) applied to the changed files.
 
-If you want to open a PR, use `/devenv-open-pr` (which assumes the work is committable). For code review, use `/devenv-code-review`. For coverage regression, use `/coverage-check`.
+If you want to open a PR, use `/devenv-open-pr` (which assumes the work is committable). For code review, use `/devenv-code-review`.
 
 ## Detection
 
@@ -112,7 +112,6 @@ Per-tool sections only when there are failures. Skip the "Passed" section if eve
 
 - `/devenv-open-pr` — once checks pass and you've committed, open the PR.
 - `/devenv-code-review` — for human-style review feedback on the diff (separate from automated checks).
-- `/coverage-check` — for coverage regression detection (separate concern from pass/fail checks).
 - `/devenv-address-pr-comments` — if checks reveal issues that came from PR feedback.
 
 See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

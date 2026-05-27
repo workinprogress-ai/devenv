@@ -1,6 +1,6 @@
 # Tools Reference
 
-Quick reference for all CLI tools used by the skill suite. Skills invoke `tools/<name>` relative to the workspace root. Never call `gh` directly — always use these wrappers.
+Quick reference for all CLI tools used by the skill suite. Skills invoke `tools/<name>` relative to the workspace root. For standard issue and PR operations, `gh` directly with `--repo "$GITHUB_REPO"` is also fine — see `copilot-instructions.md`. Use the wrappers listed here when they provide functionality `gh` alone can't replicate (e.g. thread-aware PR operations, branch-push-plus-create, org-wide Actions queries).
 
 **Do NOT run `--help` on any tool at runtime.** This file contains all signatures — use it instead.
 
