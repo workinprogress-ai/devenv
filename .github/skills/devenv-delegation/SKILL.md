@@ -1,6 +1,6 @@
 ---
 name: devenv-delegation
-description: 'Drive implementation of a pre-existing plan with the AI doing the bulk of the work and the user reviewing. USE WHEN the user says "delegate this to you", "you take this", "run with this", "implement this plan", "work through this plan", or "do this for me" with a plan attached, AND the work is mechanical, rote, or low-impact (refactors, rename sweeps, test scaffolding, cleanup, docs). REQUIRES an existing implementation plan (file path or GH issue with a plan in the body). Analyzes plan suitability per phase, proposes work-session groupings (default: one phase per session), keeps user engaged via brief task-start pings and inline concern surfacing, and ends each session with a structured summary including review hotspots. SUGGESTS switching to `/devenv-pair-programming` for any high-impact phase. DO NOT USE for ad-hoc work, plans that don''t exist yet (use `/devenv-create-implementation-plan` first), or high-impact work like public API changes, data shape changes, security, or novel architecture (use `/devenv-pair-programming`).'
+description: 'Drive implementation of a pre-existing plan with the AI doing the bulk of the work and the user reviewing. USE WHEN the user says "delegate this to you", "you take this", "run with this", "implement this plan", "work through this plan", or "do this for me" with a plan attached, AND the work is mechanical, rote, or low-impact (refactors, rename sweeps, test scaffolding, cleanup, docs). REQUIRES an existing implementation plan (file path or GH issue with a plan in the body). Works phase by phase: runs a full phase semi-autonomously (stopping only for ambiguity, major decisions, or unexpected obstacles), then hands back with a structured phase completion summary including hotspots, decisions made, and any deviations noted. Expects a discussion window between phases — user may review, request changes, or ask for plan edits. SUGGESTS switching to `/devenv-pair-programming` for high-impact phases; respects the user''s decision either way. DO NOT USE for ad-hoc work, plans that don''t exist yet (use `/devenv-create-implementation-plan` first), or highly collaborative work where the user wants to drive (use `/devenv-pair-programming`).'
 argument-hint: '<issue-number | path-to-plan> [phase or task range]'
 user-invocable: true
 ---
@@ -88,7 +88,7 @@ After loading, scan for obvious staleness signals before going any further:
 
 > *"This plan shows signs of drift: [list the specific signals]. I'd recommend running `/devenv-refresh-implementation-plan` before we start to make sure we're working from a plan that matches the current codebase. Want to do that now, or proceed as-is?"*
 
-Wait for the user's answer. If they say proceed, note the signals in the session summary's open questions section and continue. If they say refresh, tell them to invoke `/devenv-refresh-implementation-plan` (new skill invocation required) and stop.
+Wait for the user's answer. If they say proceed, note the signals in the first phase's completion handback open questions section and continue. If they say refresh, tell them to invoke `/devenv-refresh-implementation-plan` (new skill invocation required) and stop.
 
 **If fewer than two signals**, continue silently.
 
@@ -110,26 +110,26 @@ Present the ratings in a short table with one-line reasoning per phase.
 
 **Decision rules**:
 
-- If **any** in-scope phase is `better-as-pair`, recommend running `/devenv-pair-programming` for **that phase only** and delegation for the rest.
-- If **all** in-scope phases are `better-as-pair`, recommend switching to `/devenv-pair-programming` entirely.
-- For `borderline`, state the concern and ask.
+- If any in-scope phase is `better-as-pair`, flag it clearly: explain the risk and recommend switching to `/devenv-pair-programming` for that phase. Then wait for the user's response. If the user wants to proceed with delegation anyway, accept it — note the concern in that phase's completion handback and proceed.
+- If **all** in-scope phases are `better-as-pair`, recommend switching to `/devenv-pair-programming` entirely. If the user declines and wants to continue with delegation, accept that and proceed.
+- For `borderline`, note the concern in the suitability table and proceed. Surface it again in that phase's completion handback so the user can assess it after reviewing the work.
 
-> **Important — skill-switching requires a new invocation.** If the user agrees to switch to pair-programming for any phase, they must start a **new chat and invoke `/devenv-pair-programming`** (or type `/devenv-pair-programming` in the current chat to re-invoke it). Simply saying "switch" in this session does not load the pair-programming skill rules. Make this explicit in the recommendation.
+> **Skill-switching requires a new invocation.** If the user agrees to switch to pair-programming for any phase, they must start a **new chat and invoke `/devenv-pair-programming`** (or type `/devenv-pair-programming` in the current chat to re-invoke it). Simply saying "switch" in this session does not load the pair-programming skill rules. Make this explicit in the recommendation.
 
-### 4. Propose work-session split
+### 4. Confirm phase scope
 
-See [session-grouping.md](./references/session-grouping.md) for rules. AI proposes; user has final say.
+Work proceeds one phase at a time. Confirm which phase to start with:
 
-Defaults:
+- Default: the first uncompleted phase in the plan.
+- If the user scoped delegation to specific phases, confirm the starting phase.
 
-- One phase per session.
-- Cap at ~6 tasks per session; if a phase is larger, propose a split.
-- **Isolate** any high-impact tasks into their own mini-session so review attention concentrates on them.
-- Multi-phase sessions allowed only when all phases are clearly low-impact (e.g. cleanup + docs).
+The AI runs a full phase and hands back at phase completion. No splitting phases into sub-segments by default — the only exception is a phase with an unusually large number of tasks (15+), where proposing two segments is reasonable.
 
-### 5. Emit session file links
+After each phase handback and user approval, the AI proceeds to the next in-scope phase unless the user redirects.
 
-Before asking for the go-ahead, output a compact **Files in scope** block. If the plan uses the `Files:` bullet convention, collect those paths for all tasks in the upcoming session — no codebase exploration needed. Otherwise, use files confirmed from exploration. Omit the block if no files have been identified.
+### 5. Emit phase file links
+
+Before asking for the go-ahead, output a compact **Files in scope** block. If the plan uses the `Files:` bullet convention, collect those paths for all tasks in the upcoming phase — no codebase exploration needed. Otherwise, use files confirmed from exploration. Omit the block if no files have been identified.
 
 Format:
 
@@ -139,14 +139,14 @@ Format:
 Rules:
 - Paths must be relative to the **workspace root** (the top-level folder open in VS Code), not relative to a repo subdirectory. E.g. `repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs`, not `src/BulkSyncWorker.cs`. VS Code only makes links clickable when the full workspace-root-relative path is used.
 - One line, dot-separated. If there are more than ~8 files, group by subdirectory instead.
-- Repeat at the start of every new session.
+- Repeat at the start of every new phase.
 - Omit files marked `(new)` in the plan — they don't exist yet and broken links are noise.
 
 ### 5b. Flag decision tasks
 
-After the file links block, scan the upcoming session for any task with a `decision:` bullet. If any exist, surface them before asking for the go-ahead:
+After the file links block, scan the upcoming phase for any task with a `decision:` bullet. If any exist, surface them before asking for the go-ahead:
 
-> **Decisions needed this session:**
+> **Decisions needed this phase:**
 > - 2.3: exponential vs. fixed backoff — need to agree on multiplier before coding
 
 Wait for the user to resolve each flagged decision (or explicitly defer it) before proceeding.
@@ -155,48 +155,55 @@ Wait for the user to resolve each flagged decision (or explicitly defer it) befo
 
 Wait for explicit go-ahead before starting the first session.
 
-## During a Work Session
+## During a Phase
 
-### Task announcements
+The AI runs through the phase's tasks without stopping for user review between each one. Task progress pings are brief indicators — not checkpoints.
 
-Brief — one line. No full ceremony.
+### Task progress pings
 
-> "→ Starting 2.1."
-> "✅ 2.1 done, moving to 2.2."
-> "✅ 2.2 done."
+One line per task. No response required.
 
-### No-assumptions rule (mid-task)
+> "→ 2.1 — adding retry wrapper."
+> "✅ 2.1 → 2.2."
+> "✅ 2.2 → 2.3."
 
-Stop and ask when hitting:
+If the user interjects mid-phase, stop and respond. Then continue from where things left off.
 
-- A non-trivial implementation choice not specified in the plan.
-- Ambiguous acceptance criteria.
-- Multiple existing patterns to choose from.
-- Anything that contradicts the plan.
+### Mid-phase stop triggers
 
-Don't ask about: mechanical choices that match existing style.
+Stop and surface to the user when hitting:
 
-### Surfacing concerns inline
+- A non-trivial implementation choice not specified in the plan where picking wrong would materially affect the phase outcome.
+- Ambiguous acceptance criteria with meaningfully different interpretations.
+- Multiple existing patterns where the choice is consequential and non-obvious.
+- Anything that contradicts the plan in a significant way.
+- An unexpected obstacle that may change scope or phase structure.
 
-Don't wait for end of session. As soon as something looks wrong, surface it — including when a tempting shortcut would paper over a real problem. A shortcut is dubious when it avoids proper work rather than doing it: restoring a removed parameter to dodge test fixes, skipping a refactor the plan calls for, hardcoding a value instead of wiring it properly. When that impulse arises, name it and ask:
+**Don't stop for:**
+- Mechanical choices that match existing style or have clear codebase precedent.
+- Minor decisions where the correct path is evident — handle them and note them in the phase completion handback instead.
+
+When stopping mid-phase, state what the situation is, why it's a trigger, and what options exist. Wait for direction before continuing.
+
+### Surfacing concerns
+
+**Blocking concerns (surface immediately):** anything that would derail the phase outcome if not addressed — same class as the mid-phase stop triggers above. A shortcut is dubious when it avoids proper work rather than doing it: restoring a removed parameter to dodge test fixes, skipping a refactor the plan calls for, hardcoding a value instead of wiring it properly. When that impulse arises, name it and ask:
 
 > *"The path of least resistance here is to restore `x` to avoid fixing the tests — but that feels like the wrong call. Want me to fix the tests properly instead?"*
 
-The same rule applies to any non-obvious design choice made under time pressure.
+**Non-blocking concerns (note for handback):** something the reviewer should know but that doesn't change what the AI does. Collect these and surface them in the phase completion handback. Don't fragment the flow with minor asides.
 
-> "Heads up — 2.3 is touching the public `IBulkSyncStep` contract. The plan called this 'mechanical' but it's actually a breaking change for consumers. To get proper pair-programming behaviour, you'd need to start a new chat with `/devenv-pair-programming` — switching here won't load those rules. Want me to pause so you can do that, or shall we continue with the usual delegation safety checks?"
+### Mid-phase abort conditions
 
-### Mid-session abort conditions
-
-Stop the session and reconvene with the user when **any** of these happen:
+Stop the phase and reconvene with the user when **any** of these happen:
 
 - More than ~3 blocking unknowns hit on a single task.
-- A task turns out to be high-impact mid-implementation → suggest switching to `/devenv-pair-programming` for that task, or pausing so the user can resolve.
-- Tests start failing in unexpected ways (not just the test you're working on).
-- A build or environment failure appears that is unrelated to the current changes — restore errors, version conflicts, missing dependencies in files not touched this session.
+- A task turns out to be high-impact mid-implementation — suggest switching to `/devenv-pair-programming` for the remainder, or pausing so the user can redirect.
+- Tests start failing in unexpected ways (not just the test currently being worked on).
+- A build or environment failure appears unrelated to the current changes — restore errors, version conflicts, missing dependencies in files not touched this phase.
 - Scope creep detected — work expanding beyond the plan.
 
-When aborting, summarize what was done so far in the same format as a normal session summary.
+When aborting, summarize what was completed so far in the same format as a phase completion handback.
 
 ### Failure investigation is bounded by allowed tools
 
@@ -242,17 +249,27 @@ If for some reason the file cannot be read, say so explicitly: *"I'd want to re-
 
 ## Forward Guidance Comments
 
-When the AI writes a stub or placeholder — any method, property, or class body that a later task will replace — add a forward DEVENV comment explaining what will replace it and approximately when:
+**Any comment that refers to the plan, a future phase, or work to be done later must use the DEVENV marker format.** Plain `// TODO:` comments, bare annotations, or any note that mentions the plan without the DEVENV marker are not acceptable — they are untrackable and won't be caught by the cleanup grep at the end of the plan.
 
+Two marker forms — use the right one for the situation:
+
+**Scaffolding marker** — for stubs, placeholders, or temporary code that a later task will replace:
 ```csharp
 // DEVENV[Implementation_plan-issue-42-001]: Phase 3 replaces this stub with the real BulkSyncService — returns empty list until then.
 ```
 
+**Forward-looking guidance** — for a location where a future task *must* make a change; the `TODO:` prefix triggers IDE highlighting:
+```csharp
+// TODO:(DEVENV[Implementation_plan-issue-42-001]): Phase 3 registers the real service here — wire in the concrete implementation.
+```
+
+The `<plan-key>` is the plan filename stem without extension (e.g. `Implementation_plan-issue-42-001`).
+
 Write what will happen (descriptive), not which task number does it (structural). Descriptive comments remain accurate when the plan is renumbered.
 
-**Implicit removal:** when a task replaces or fills the stub the comment describes, remove the comment as part of that same task. No separate cleanup step needed — the comment's purpose is fulfilled when the work lands.
+**Implicit removal:** when a task replaces or fills what the comment describes, remove the comment as part of that same task. No separate cleanup step needed — the comment's purpose is fulfilled when the work lands.
 
-**Plan-revision audit:** when a scope change or plan revision is agreed mid-session, run `grep -rn "DEVENV\[" <repo-root>` and check whether any forward comments describe work that was cancelled, moved, or significantly changed. Update or remove affected comments before continuing.
+**Plan-revision audit:** when a scope change or plan revision is agreed mid-phase, run `grep -rn "DEVENV\[" <repo-root>` and check whether any forward comments describe work that was cancelled, moved, or significantly changed. Update or remove affected comments before continuing.
 
 ## Phase Completion Gate
 
@@ -275,16 +292,16 @@ The user can override the rule for a phase by:
 - **Applying coverage exclusion** to the code in question using the appropriate language attribute (e.g. `[ExcludeFromCodeCoverage]` in C#, `/* istanbul ignore */` in TypeScript).
 - **Adding verbiage to the plan** that modifies or waives the rule for specific phases — if that's present, honour it without re-raising the blocker.
 
-## End-of-Session Summary
+## Phase Completion Handback
 
 See [session-summary.md](./references/session-summary.md) for the full template. Required sections:
 
 1. **What was done** — brief per-task bullet.
 2. **Files changed** — with workspace-relative links.
 3. **Review hotspots** — bullet list of code locations that need concentrated review, with `file:line` links and a one-line reason. See criteria below.
-4. **Decisions made** — non-obvious ones, with reasoning.
+4. **Decisions and deviations** — non-obvious decisions made, with reasoning. Include minor deviations from the plan that were handled without stopping, so the user can assess them. Major decisions that already caused a mid-phase stop need only a brief recap here.
 5. **Open questions / low-confidence areas** — things the AI was unsure about.
-6. **Suggested next session scope.**
+6. **Next phase** — state what the next phase is and ask if the user is ready to proceed. If this was the final phase, note that.
 
 ### Review hotspot criteria
 
@@ -309,9 +326,11 @@ The AI owns checkbox updates in delegation — the user isn't driving the work, 
 
 ### Plan file (source of truth)
 
-Mark a task complete as soon as the user accepts the work for that task. Do not batch to end of session.
+Mark a task complete as you finish it during the phase run — don't batch to end of phase. Fold the tick into the task progress ping:
 
-Run `markdown-plan-complete-task <task_number> <plan_file>` in a terminal, where `<plan_file>` is the workspace-relative path recorded at plan load. Confirm briefly: *"✅ Ticked 2.1."* To reopen a task ticked in the current session: `markdown-plan-complete-task --uncomplete <task_number> <plan_file>` in a terminal. For tasks completed in a prior session, add a new task instead.
+> "✅ 2.1 → 2.2."  *(tick 2.1, then continue — no separate announcement)*
+
+Run `markdown-plan-complete-task <task_number> <plan_file>` in a terminal, where `<plan_file>` is the workspace-relative path recorded at plan load. To reopen a task ticked in the current session: `markdown-plan-complete-task --uncomplete <task_number> <plan_file>` in a terminal. For tasks completed in a prior session, add a new task instead.
 
 ### Inconsistencies and plan gaps
 
@@ -329,21 +348,34 @@ To avoid this, **sync the issue body only at phase boundaries** (not per-task). 
 
 Never sync mid-phase. If the session ends mid-phase, offer a sync for whatever tasks were completed.
 
-## After the Summary
+## Between-Phase Discussion Window
 
-Wait. The user reviews the hotspots and either:
+After the phase completion handback, wait. Do **not** auto-proceed to the next phase.
 
-- Accepts → AI proceeds to the next session (or wraps up if last).
-- Pushes back → AI fixes per feedback, then re-summarizes.
+The user may accept the work, ask questions, push back, or request additional work. This is a natural discussion period — engage fully.
 
-Do **not** auto-proceed.
+### Responding to between-phase requests
+
+The same criteria apply here as in pair-programming's plan revision rules. The key distinction:
+
+**Minor extra work (just do it):** Can be completed without adding tasks to the plan, touches files already in scope for the phase just completed, and clearly fits within the spirit of what was done. Do it, then note it as an addendum to the handback: *"Also done: [brief description]."*
+
+**Larger work (offer to edit the plan):** Would require new plan tasks, touches files outside the current phase's scope, or represents scope expansion that future phases should know about. Surface it explicitly — name the impact, propose where it lands (existing future phase or new phase), get explicit agreement, then update the local plan file.
+
+For plan edits (whether to a future phase or a new phase), follow the same protocol as pair-programming's plan revision rules: state the change clearly, propose options, get agreement, update the file.
+
+### Proceeding to the next phase
+
+Once the discussion resolves and the user signals they're satisfied — *"continue"*, *"go ahead"*, *"looks good"*, or similar — run the next phase's kickoff (file links block, flag any pre-phase decisions) and proceed.
+
+If the session was scoped to a specific phase (not the whole plan), stop here and wrap up instead.
 
 ## Issue Integration
 
 Same protocol as pair-programming — see [issue-integration.md](../devenv-pair-programming/references/issue-integration.md). Differences for delegation:
 
-- **Auto-offer a status comment after each work session**, not just at session end. Show the draft, wait for "yes".
-- **Checkbox updates are handled per-task** as work is approved — see [Plan Progress](#plan-progress-checkbox-updates) above. Do not re-do them here unless some were missed.
+- **Auto-offer a status comment after each phase completion handback**. Show the draft, wait for "yes".
+- **Checkbox updates are handled per-task** during phase execution — see [Plan Progress](#plan-progress-checkbox-updates) above. Do not re-do them here unless some were missed.
 - All write commands (`issue-comment`, `issue-update`, `issue-create`) still require explicit confirmation.
 
 If an adjacent bug is discovered, offer both an `issue-comment` on the parent and a new `issue-create` for the bug.
@@ -352,12 +384,13 @@ If an adjacent bug is discovered, offer both an `issue-comment` on the parent an
 
 - Starting work without an explicit plan.
 - Skipping the suitability analysis.
-- Delegating high-impact work without flagging it.
-- Batching concerns to the end of the session instead of surfacing them inline.
-- Taking a dubious shortcut (restoring reverted code, skipping a required step, papering over a failure) without surfacing it and getting explicit approval.
-- A summary without **review hotspots**.
-- Auto-proceeding to the next session without user review.
-- Ceremony-heavy task announcements (this isn't pair-programming).
+- Flagging a high-impact phase and then ignoring the user's decision to proceed — accept it or escalate clearly, not both.
+- Stopping mid-phase for minor decisions that should be handled and noted in the handback.
+- Batching **blocking** concerns instead of surfacing them immediately mid-phase.
+- Taking a dubious shortcut (restoring reverted code, skipping a required step, papering over a failure) without noting it in the handback.
+- A phase handback without **review hotspots** when hotspot-worthy work was done.
+- Auto-proceeding to the next phase without user review and approval.
+- Treating between-phase requests as out-of-scope — minor work should just be done; larger work should be offered as a plan edit.
 - Silently expanding scope beyond what was delegated.
 - Emitting file links that haven't been confirmed to exist (guessed paths).
 

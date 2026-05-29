@@ -126,13 +126,22 @@ Wait for the user's answer. If they say proceed, note the signals in the first s
 
 ### 2c. Drop initial forward guidance comments
 
-After the drift check, do a single broad pass through the plan and the codebase. For any location that a future task will touch and where a comment would orient a reader, add a `DEVENV` forward comment. Focus on:
+After the drift check, do a single broad pass through the plan and the codebase. For any location that a future task will touch and where a comment would orient a reader, add a DEVENV forward comment. Focus on:
 
 - Stubs or placeholders the plan will replace
 - Integration points where new code will be wired in
 - Call sites or class members that will change in a later phase
 
-Use descriptive language, not task numbers: *"Phase 3 registers the real service here — stub returns empty list until then."* Announce what was placed, briefly: *"Dropped 4 forward guidance comments — [BulkSyncWorker.cs:142](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142), [ServiceRegistry.cs:58](repos/lib.cs.services.bulk-sync/src/ServiceRegistry.cs#L58)…"*
+**Any comment that refers to the plan, a future phase, or work to be done later must use the DEVENV marker format.** Plain `// TODO:` comments or bare notes that mention the plan without the marker are not acceptable — they won't be caught by the cleanup grep at the end of the plan.
+
+Two forms — use the right one:
+
+```csharp
+// DEVENV[plan-key]: Phase 3 replaces this stub — returns empty list until then.
+// TODO:(DEVENV[plan-key]): Phase 3 wires in the real service here.
+```
+
+`<plan-key>` is the plan filename stem without extension (e.g. `Implementation_plan-issue-42-001`). Use descriptive language, not task numbers: *"Phase 3 registers the real service here — stub returns empty list until then."* Announce what was placed, briefly: *"Dropped 4 forward guidance comments — [BulkSyncWorker.cs:142](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142), [ServiceRegistry.cs:58](repos/lib.cs.services.bulk-sync/src/ServiceRegistry.cs#L58)…"*
 
 Skip this step entirely when resuming a session mid-plan — forward comments from the initial kickoff may still be in place; don't duplicate them.
 
@@ -257,11 +266,20 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
    > **Why:** Exponential backoff — same pattern as [`HttpSyncClient.cs:87`](repos/lib.cs.services.bulk-sync/src/HttpSyncClient.cs#L87).
    > **Look closely at:** [`L142`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142) — jitter multiplier chosen without codebase precedent.
 
-5. **Wait.** Do not start the next task until the user approves. Any clear signal counts — *"looks good"*, *"ok"*, *"ship it"*, or a thumbs-up. If it's ambiguous, ask once: *"Good to move on?"* If the user's review identifies a problem with a just-ticked task, run `markdown-plan-complete-task --uncomplete <task_number> <plan_file>` in a terminal to reopen it before addressing the feedback.
+5. **Wait — and engage.** Do not start the next task until the user approves. This pause is a **discussion window**: the user may ask questions, push back on the approach, want to dig into the *Look closely at* item, or raise something they noticed in passing. Engage fully — answer questions, surface alternatives you considered but didn't mention in the handback, point to relevant context in the codebase. The goal is a real review conversation, not a rubber-stamp. Continue only when the user clearly signals they're done: *"looks good"*, *"ok"*, *"ship it"*, a thumbs-up, or an explicit move-on. If it's ambiguous, ask once: *"Good to move on?"* If the user's review identifies a problem with a just-ticked task, run `markdown-plan-complete-task --uncomplete <task_number> <plan_file>` in a terminal to reopen it before addressing the feedback.
 
 ### When the user is driving
 
 1. **Acknowledge.** *"Got it, you're on 2.2."*
+
+1b. **Answer orienting questions before the user starts.** If the user accepts a task and immediately asks how to approach it — *"where do I start?"*, *"what's the key thing here?"*, *"how would you tackle this?"* — answer before they begin implementing. Give a concise navigator briefing:
+   - The key file or location to start from (with a link)
+   - Any relevant pattern or precedent in the codebase to follow
+   - A suggested first move or entry point
+   - Any gotcha worth knowing upfront
+
+   This is navigator work, not implementation — don't write the code, but do give the map. Aim for enough orientation to send the user in confidently; don't make it a lecture. If the task description or brain bootup already covered it, a brief pointer is enough: *"Same shape as what we did in 1.3 — start at [`RetryPolicy.cs:42`](...)."*
+
 2. **Immediately start navigator work — don't wait.** The moment the user picks up a task, the AI starts doing useful things. This is not optional and does not require the user to ask:
    - **Pre-read for your whole upcoming batch.** If the split is "you do 1–3, I do 4–6", use the time while the user drives to read every file touched by tasks 4–6, identify relevant patterns, note likely gotchas, and draft any boilerplate that's already determined. When it's your turn you should be able to move quickly, not start cold. Surface a brief summary when handing back: *"While you were on 2.2–2.4, I read ahead on 2.5–2.7 — most of it is straightforward. One thing to resolve before I start 2.6: the retry policy interface has two implementations and I need to know which one to extend."*
    - **Research open questions.** If a `decision:` item or unresolved question is coming up in your batch, gather the options and relevant codebase evidence now so the conversation doesn't stall mid-task.
@@ -279,6 +297,8 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
    > Fix the exception handling and I'll approve.
 
    Rules: if something is well done, say what specifically makes it good. Raise coverage gaps proactively. Scan the user's changed files for forward DEVENV comments their work has fulfilled — remove them as part of the review. End with explicit approval or a clear change request. **If the review is clean (approving with no blockers), immediately run `markdown-plan-complete-task <task_number> <plan_file>` in a terminal to tick the task as part of the approval message.** If there are blockers, the task stays open until they are resolved.
+
+After posting the review, enter the same **discussion window** as after an AI handback. The user may want to explain their reasoning, push back on a finding, or explore one of the concerns further. Engage — don't skip past it to the next task.
 
 - Never fix unilaterally. After surfacing a concern, stop. The user decides — fix it themselves, ask the AI, or push back. The AI may offer (*"Want me to take a pass at that?"*) only after stating the concern and only if the user hasn't already indicated they'll handle it.
 - **Never undo something the user did without asking first.** If reverting or working around a change the user made seems like the easiest fix (e.g. restoring a removed parameter to avoid test breakage), stop and ask: *"To make the tests pass I'd need to restore `x` — was removing it intentional? If so I'll fix the tests properly rather than putting it back."* Assume intent until told otherwise.

@@ -122,6 +122,8 @@
                     "/workspaces/devenv/playground/**": true
                 },
                 "chat.tools.terminal.autoApprove": {
+                    "run-tests": true,
+                    "bash run-tests": true,
                     "git merge-base": true,
                     "git log": true,
                     "git diff": true,
