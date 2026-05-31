@@ -35,6 +35,20 @@ setup() {
 
 - [ ] **2.3 [L] Large task**
 EOF
+
+    # Create a separate fixture for acceptance-criteria tests so that
+    # count_plan_tasks totals on PLAN_FILE remain stable.
+    AC_PLAN_FILE="$TEST_TEMP_DIR/Requirements-test-001.md"
+    cat > "$AC_PLAN_FILE" << 'EOF'
+# Test Requirements
+
+## Acceptance Criteria
+
+- [ ] **AC-1** First criterion
+- [x] **AC-2** Already verified criterion
+- [ ] **AC-3** Third criterion *(inferred)* — *revised: some note*
+- [ ] **AC-1.1** Sub-criterion
+EOF
 }
 
 teardown() {
@@ -213,5 +227,177 @@ teardown() {
 
 @test "count_plan_tasks returns error for missing file" {
     run count_plan_tasks "/nonexistent/plan.md"
+    [ "$status" -ne 0 ]
+}
+
+# ============================================================================
+# validate_plan_ac_number
+# ============================================================================
+
+@test "validate_plan_ac_number accepts AC-N format" {
+    run validate_plan_ac_number "AC-3"
+    [ "$status" -eq 0 ]
+}
+
+@test "validate_plan_ac_number accepts AC-N.N format" {
+    run validate_plan_ac_number "AC-1.2"
+    [ "$status" -eq 0 ]
+}
+
+@test "validate_plan_ac_number accepts AC-N.N.N format" {
+    run validate_plan_ac_number "AC-1.2.3"
+    [ "$status" -eq 0 ]
+}
+
+@test "validate_plan_ac_number rejects plain number" {
+    run validate_plan_ac_number "3"
+    [ "$status" -ne 0 ]
+}
+
+@test "validate_plan_ac_number rejects task-style number" {
+    run validate_plan_ac_number "1.2"
+    [ "$status" -ne 0 ]
+}
+
+@test "validate_plan_ac_number rejects empty string" {
+    run validate_plan_ac_number ""
+    [ "$status" -ne 0 ]
+}
+
+@test "validate_plan_ac_number rejects non-numeric segment" {
+    run validate_plan_ac_number "AC-1.a"
+    [ "$status" -ne 0 ]
+}
+
+# ============================================================================
+# find_plan_ac_line
+# ============================================================================
+
+@test "find_plan_ac_line returns line number for existing AC" {
+    run find_plan_ac_line "$AC_PLAN_FILE" "AC-1"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ ^[0-9]+$ ]]
+}
+
+@test "find_plan_ac_line locates correct line for AC-3" {
+    local line
+    line=$(find_plan_ac_line "$AC_PLAN_FILE" "AC-3")
+    local content
+    content=$(sed -n "${line}p" "$AC_PLAN_FILE")
+    [[ "$content" =~ "AC-3" ]]
+}
+
+@test "find_plan_ac_line returns error for missing AC" {
+    run find_plan_ac_line "$AC_PLAN_FILE" "AC-99"
+    [ "$status" -ne 0 ]
+}
+
+@test "find_plan_ac_line returns error for missing file" {
+    run find_plan_ac_line "/nonexistent/file.md" "AC-1"
+    [ "$status" -ne 0 ]
+}
+
+@test "find_plan_ac_line handles dotted AC number" {
+    run find_plan_ac_line "$AC_PLAN_FILE" "AC-1.1"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ ^[0-9]+$ ]]
+}
+
+# ============================================================================
+# is_plan_ac_complete
+# ============================================================================
+
+@test "is_plan_ac_complete returns 0 for a verified criterion" {
+    run is_plan_ac_complete "$AC_PLAN_FILE" "AC-2"
+    [ "$status" -eq 0 ]
+}
+
+@test "is_plan_ac_complete returns 1 for an unverified criterion" {
+    run is_plan_ac_complete "$AC_PLAN_FILE" "AC-1"
+    [ "$status" -eq 1 ]
+}
+
+@test "is_plan_ac_complete returns non-zero on missing AC" {
+    run is_plan_ac_complete "$AC_PLAN_FILE" "AC-99"
+    [ "$status" -ne 0 ]
+}
+
+# ============================================================================
+# set_plan_ac_complete
+# ============================================================================
+
+@test "set_plan_ac_complete marks incomplete AC as complete" {
+    set_plan_ac_complete "$AC_PLAN_FILE" "AC-1" "complete"
+    run is_plan_ac_complete "$AC_PLAN_FILE" "AC-1"
+    [ "$status" -eq 0 ]
+}
+
+@test "set_plan_ac_complete is idempotent when already complete" {
+    set_plan_ac_complete "$AC_PLAN_FILE" "AC-2" "complete"
+    run is_plan_ac_complete "$AC_PLAN_FILE" "AC-2"
+    [ "$status" -eq 0 ]
+}
+
+@test "set_plan_ac_complete marks complete AC as incomplete" {
+    set_plan_ac_complete "$AC_PLAN_FILE" "AC-2" "incomplete"
+    run is_plan_ac_complete "$AC_PLAN_FILE" "AC-2"
+    [ "$status" -eq 1 ]
+}
+
+@test "set_plan_ac_complete is idempotent when already incomplete" {
+    set_plan_ac_complete "$AC_PLAN_FILE" "AC-1" "incomplete"
+    run is_plan_ac_complete "$AC_PLAN_FILE" "AC-1"
+    [ "$status" -eq 1 ]
+}
+
+@test "set_plan_ac_complete does not corrupt other criteria" {
+    set_plan_ac_complete "$AC_PLAN_FILE" "AC-1" "complete"
+    run is_plan_ac_complete "$AC_PLAN_FILE" "AC-3"
+    [ "$status" -eq 1 ]
+    run is_plan_ac_complete "$AC_PLAN_FILE" "AC-2"
+    [ "$status" -eq 0 ]
+}
+
+@test "set_plan_ac_complete works for dotted AC number" {
+    set_plan_ac_complete "$AC_PLAN_FILE" "AC-1.1" "complete"
+    run is_plan_ac_complete "$AC_PLAN_FILE" "AC-1.1"
+    [ "$status" -eq 0 ]
+}
+
+# ============================================================================
+# count_plan_acs
+# ============================================================================
+
+@test "count_plan_acs returns correct total" {
+    local counts total
+    counts=$(count_plan_acs "$AC_PLAN_FILE")
+    total="${counts##* }"
+    [ "$total" -eq 4 ]
+}
+
+@test "count_plan_acs returns correct completed count" {
+    local counts completed
+    counts=$(count_plan_acs "$AC_PLAN_FILE")
+    completed="${counts%% *}"
+    [ "$completed" -eq 1 ]
+}
+
+@test "count_plan_acs updates after completing a criterion" {
+    set_plan_ac_complete "$AC_PLAN_FILE" "AC-1" "complete"
+    local counts completed
+    counts=$(count_plan_acs "$AC_PLAN_FILE")
+    completed="${counts%% *}"
+    [ "$completed" -eq 2 ]
+}
+
+@test "count_plan_acs does not count regular task checkboxes" {
+    local counts total
+    counts=$(count_plan_acs "$PLAN_FILE")
+    total="${counts##* }"
+    [ "$total" -eq 0 ]
+}
+
+@test "count_plan_acs returns error for missing file" {
+    run count_plan_acs "/nonexistent/plan.md"
     [ "$status" -ne 0 ]
 }

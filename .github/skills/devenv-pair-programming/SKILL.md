@@ -97,7 +97,7 @@ Ask, if not provided:
 1. First, check whether a local `Implementation_plan-issue-<N>-*.md` already exists in the target repo root. If it does, **use it** — it carries checkbox progress from prior sessions and is the source of truth. Skip to the drift check.
 2. If no local file exists, fetch the plan body via `gh issue view <N> --json body --jq .body`. Confirm the body contains a plan (task list, phase structure). If not, warn and offer options (see below).
 3. Write the fetched body to the target repo root as `Implementation_plan-issue-<N>-001.md` (or the next available suffix — never overwrite an existing file).
-4. **From this point on, work exclusively from the local file.** Record its workspace-relative path (e.g. `repos/lib.cs.services.bulk-sync/Implementation_plan-issue-42-001.md`) — this is the `<plan_file>` argument for every `markdown-plan-complete-task` call throughout the session. Always pass it explicitly; never rely on the tool's default directory search.
+4. **From this point on, work exclusively from the local file.** Record its workspace-relative path (e.g. `repos/lib.cs.services.bulk-sync/Implementation_plan-issue-42-001.md`) — this is the `<plan_file>` for `markdown-plan-complete-task` calls throughout the session. Pass it explicitly when running from a directory other than the plan's own — the tool auto-detects `Implementation_plan-*.md` only in the current directory.
 
 **If plan file**: read it.
 
@@ -124,7 +124,22 @@ Wait for the user's answer. If they say proceed, note the signals in the first s
 
 **If fewer than two signals**, continue silently.
 
-### 2c. Drop initial forward guidance comments
+### 2d. Ensure acceptance criteria exist
+
+After the drift check, check whether the plan has a `## Acceptance criteria` section.
+
+**If missing:** infer ACs from the plan's goals, scope, and codebase context. Draft a candidate list with `**AC-N**` identifiers and `*(inferred)*` markers and present it to the user:
+
+> *"This plan has no acceptance criteria section. Here's what I inferred from the goals and scope:*
+>
+> *- [ ] **AC-1** The service processes batches without error under normal load *(inferred)**
+> *- [ ] **AC-2** Empty batches are handled gracefully and return a typed result *(inferred)**
+>
+> *Adjust or add to these, then I'll add the section to the plan file before we proceed."*
+
+Wait for explicit confirmation. Once confirmed, add the `## Acceptance criteria` section to the plan file and proceed. **Do not start Phase 1 without an accepted AC list.**
+
+**If present:** read the list and hold it in context — these are the criteria to track as phases progress.
 
 After the drift check, do a single broad pass through the plan and the codebase. For any location that a future task will touch and where a comment would orient a reader, add a DEVENV forward comment. Focus on:
 
@@ -142,6 +157,14 @@ Two forms — use the right one:
 ```
 
 `<plan-key>` is the plan filename stem without extension (e.g. `Implementation_plan-issue-42-001`). Use descriptive language, not task numbers: *"Phase 3 registers the real service here — stub returns empty list until then."* Announce what was placed, briefly: *"Dropped 4 forward guidance comments — [BulkSyncWorker.cs:142](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142), [ServiceRegistry.cs:58](repos/lib.cs.services.bulk-sync/src/ServiceRegistry.cs#L58)…"*
+
+**When a task will directly satisfy an acceptance criterion**, annotate the key implementation or test location with the AC reference so it can be found during the AC Review phase:
+
+```csharp
+// TODO:(DEVENV[plan-key]): [AC-2] This method must return a typed result — the try-chain depends on it.
+```
+
+Find all AC-annotated comments later with: `grep -rn "\[AC-" .`
 
 Skip this step entirely when resuming a session mid-plan — forward comments from the initial kickoff may still be in place; don't duplicate them.
 
@@ -258,15 +281,18 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 1. **Confirm assignment.** *"→ Taking 2.1 — retry policy in BulkSyncWorker. You're on 2.2?"*
 2. **Narrate as you go.** Talk through non-obvious decisions while implementing, not just at the end — this lets the navigator catch problems early. *"Going with exponential backoff here — there's a precedent in the http client. Hmm, the jitter multiplier isn't specified, I'll flag that."*
 3. **Ask before assuming.** Any non-trivial choice → stop and ask.
-4. **Tick and hand back.** Before sending the handback message: first, scan the files you touched for any forward DEVENV comments whose work was just completed and remove them; then run `markdown-plan-complete-task <task_number> <plan_file>` in a terminal for each completed task. Then format the handback as a brief structured block with linked file references:
+4. **Tick and hand back.** Before sending the handback message: first, scan the files you touched for any forward DEVENV comments whose work was just completed and remove them; then run `markdown-plan-complete-task <task_number>... [<plan_file>]` in a terminal — multiple task numbers can be passed in a single call (e.g. `markdown-plan-complete-task 2.1 2.2 <plan_file>`). Then format the handback as a brief structured block with linked file references:
 
    > ✅ **Done with 2.1**
    >
    > **What changed:** Added `RetryPolicy` wrapper around `ExecuteAsync` in [`BulkSyncWorker.cs:142`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142).
    > **Why:** Exponential backoff — same pattern as [`HttpSyncClient.cs:87`](repos/lib.cs.services.bulk-sync/src/HttpSyncClient.cs#L87).
    > **Look closely at:** [`L142`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142) — jitter multiplier chosen without codebase precedent.
+   > **ACs exercised:** AC-2 is now verifiable (test covers empty-batch path). *(Formal tick happens in AC Review before Cleanup.)*
 
-5. **Wait — and engage.** Do not start the next task until the user approves. This pause is a **discussion window**: the user may ask questions, push back on the approach, want to dig into the *Look closely at* item, or raise something they noticed in passing. Engage fully — answer questions, surface alternatives you considered but didn't mention in the handback, point to relevant context in the codebase. The goal is a real review conversation, not a rubber-stamp. Continue only when the user clearly signals they're done: *"looks good"*, *"ok"*, *"ship it"*, a thumbs-up, or an explicit move-on. If it's ambiguous, ask once: *"Good to move on?"* If the user's review identifies a problem with a just-ticked task, run `markdown-plan-complete-task --uncomplete <task_number> <plan_file>` in a terminal to reopen it before addressing the feedback.
+   Omit the **ACs exercised** line if this task doesn't directly address any AC.
+
+5. **Wait — and engage.** Do not start the next task until the user approves. This pause is a **discussion window**: the user may ask questions, push back on the approach, want to dig into the *Look closely at* item, or raise something they noticed in passing. Engage fully — answer questions, surface alternatives you considered but didn't mention in the handback, point to relevant context in the codebase. The goal is a real review conversation, not a rubber-stamp. Continue only when the user clearly signals they're done: *"looks good"*, *"ok"*, *"ship it"*, a thumbs-up, or an explicit move-on. If it's ambiguous, ask once: *"Good to move on?"* If the user's review identifies a problem with a just-ticked task, run `markdown-plan-complete-task --uncomplete <task_number>... [<plan_file>]` in a terminal to reopen it before addressing the feedback.
 
 ### When the user is driving
 
@@ -296,7 +322,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
    >
    > Fix the exception handling and I'll approve.
 
-   Rules: if something is well done, say what specifically makes it good. Raise coverage gaps proactively. Scan the user's changed files for forward DEVENV comments their work has fulfilled — remove them as part of the review. End with explicit approval or a clear change request. **If the review is clean (approving with no blockers), immediately run `markdown-plan-complete-task <task_number> <plan_file>` in a terminal to tick the task as part of the approval message.** If there are blockers, the task stays open until they are resolved.
+   Rules: if something is well done, say what specifically makes it good. Raise coverage gaps proactively. Scan the user's changed files for forward DEVENV comments their work has fulfilled — remove them as part of the review. End with explicit approval or a clear change request. **If the review is clean (approving with no blockers), immediately run `markdown-plan-complete-task <task_number> [<plan_file>]` in a terminal to tick the task as part of the approval message.** If there are blockers, the task stays open until they are resolved.
 
 After posting the review, enter the same **discussion window** as after an AI handback. The user may want to explain their reasoning, push back on a finding, or explore one of the concerns further. Engage — don't skip past it to the next task.
 
@@ -541,7 +567,7 @@ Ticks happen at fixed, deterministic points in the handoff protocol — not at e
 - **AI-driven tasks:** tick in the handback (step 4 above), before sending the message. The tick records that the work was written. If the user’s review then finds a blocker, reopen with `--uncomplete`.
 - **User-driven tasks:** tick when the AI gives a clean review (step 4 of “When the user is driving” above). If the review finds blockers, leave the task open until they are resolved.
 
-In both cases: run `markdown-plan-complete-task <task_number> <plan_file>` in a terminal, where `<plan_file>` is the workspace-relative path recorded at plan load. Note it briefly alongside the handback or review: *"✅ Ticked 3.1."* Do not batch to end of session. To reopen: `markdown-plan-complete-task --uncomplete <task_number> <plan_file>` in a terminal — only valid for tasks ticked in the current handback cycle; for anything from a prior session, add a new task instead.
+In both cases: run `markdown-plan-complete-task <task_number>... [<plan_file>]` in a terminal — multiple task numbers can be passed in a single call. The plan file is optional if run from the plan's directory; pass it explicitly otherwise. Note briefly alongside the handback or review: *"✅ Ticked 3.1."* Do not batch to end of session. To reopen: `markdown-plan-complete-task --uncomplete <task_number>... [<plan_file>]` in a terminal — only valid for tasks ticked in the current handback cycle; for anything from a prior session, add a new task instead.
 
 This is the only plan edit the AI makes without prior confirmation. Everything else — new tasks, structural changes, wording — follows the Draft → show → confirm → write convention above.
 
@@ -608,6 +634,20 @@ Never suggest this at the start of a session — the user chose pair-programming
 > *"The next few tasks are pretty mechanical — I can run with them solo if you want. Just say `/devenv-delegation` and I'll take it from here, or we keep pairing if you'd rather stay close."*
 
 Only offer once per session unless the user brings it up again. Never frame it as "you should do this differently" — it's a menu option, not a redirect.
+
+## AC Review Gate
+
+Run this gate after all implementation phases are complete and **before starting the Cleanup phase**. The AC Review must finish before the DEVENV cleanup grep runs — the `[AC-N]` DEVENV comments are removed together with other DEVENV markers in Cleanup.
+
+1. Scan for `[AC-N]` DEVENV comments in the codebase: `grep -rn "\[AC-" <repo-root>`
+2. For each hit, navigate to the code or test and assess whether the acceptance criterion is now objectively verifiable:
+   - **Objectively verifiable** (test passes, behaviour is observable by anyone looking at the code): run `markdown-plan-complete-ac AC-N [<plan_file>]` to tick it. State which AC was ticked and what evidence was used.
+   - **Requires human judgment** (usability, performance, business rule interpretation): present it to the user: *"AC-3 — [criterion text]: can you confirm this is satisfied?"* Tick it after they confirm.
+3. For any AC not yet exercised (no matching DEVENV comment found), surface it explicitly: *"AC-4 has no matching implementation comment — was it addressed? If not, it's a gap."* Let the user decide: tick it, defer it, or add a follow-up task.
+4. For any AC whose scope changed meaningfully during implementation, apply the deprecation / revision rules (see `/devenv-refine-implementation-plan`).
+5. All ACs must be either ticked `[x]` or explicitly deferred/deprecated before proceeding to Cleanup.
+
+Once all ACs are resolved, proceed to the Cleanup phase normally.
 
 ## Phase Completion Gate
 

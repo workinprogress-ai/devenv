@@ -30,7 +30,8 @@ Do **not** use for:
 - Documenting a component that already exists and is already designed → [`/devenv-document`](../devenv-document/SKILL.md)
 - Weighing implementation approaches without producing a formal spec → [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md)
 - Task-level implementation planning → [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md)
-- Updating an existing technical design → [`/devenv-refine-technical-design`](../devenv-refine-technical-design/SKILL.md)
+- Updating an existing technical design (small drift, gaps, resolved unknowns) → [`/devenv-refine-technical-design`](../devenv-refine-technical-design/SKILL.md)
+- Fundamentally rethinking an existing component's approach → [`/devenv-redesign-component`](../devenv-redesign-component/SKILL.md)
 
 ## Core Principles
 
@@ -218,6 +219,35 @@ Wait for the user to approve the structure. They may adjust sections or scope.
 
 If the file already exists (stub or prior version), show the user what will change and ask whether to update in place.
 
+After writing and confirming with the user, ask:
+
+> *"Want to file a GitHub issue to track this work? I'll add the design document as a comment and leave the description as a short placeholder so it can be picked up with `/devenv-plan-from-spec` or `/devenv-create-implementation-plan` later."*
+
+If yes:
+
+1. **Draft the issue title** — propose and ask the user to confirm or adjust:
+   - `Technical Design: <component name> — <YYYY-MM-DD>`
+
+2. **Draft the issue body** (placeholder — design goes in the comment):
+   ```
+   Technical design document is in the first comment below.
+
+   Next step: use `/devenv-create-implementation-plan` or
+   `/devenv-plan-from-spec <issue number>` to generate a task-level implementation plan.
+   Document file: `<workspace-relative path to docs/Architecture_and_implementation.md>`
+   ```
+
+3. **Show a preview** (title, body, and first ~15 lines of the comment content) and ask:
+   > *"Ready to create the issue and post the comment? (y/n)"*
+
+4. On confirmation:
+   - `issue-create --repo "$GITHUB_REPO" --title "<title>" --body "<body>"`
+   - Write the design document to a temp file
+   - `issue-comment <N> --body-file <temp-file>`
+   - Surface the issue URL.
+
+Never create an issue or post a comment without explicit "yes" confirmation.
+
 ---
 
 ## Output Format
@@ -304,7 +334,8 @@ If the file already exists (stub or prior version), show the user what will chan
 ## Sibling skills
 
 - [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) — system-level design; precedes this skill for new systems
-- [`/devenv-refine-technical-design`](../devenv-refine-technical-design/SKILL.md) — update this document as the component evolves
+- [`/devenv-refine-technical-design`](../devenv-refine-technical-design/SKILL.md) — update this document as the component evolves (small, surgical changes)
+- [`/devenv-redesign-component`](../devenv-redesign-component/SKILL.md) — when the current approach is no longer right and a full rethink is needed
 - [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md) — exploratory option-weighing before the design is settled
 - [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) — task breakdown that draws from this document
 - [`/devenv-document`](../devenv-document/SKILL.md) — documenting a component that already exists without design decisions

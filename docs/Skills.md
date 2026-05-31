@@ -29,6 +29,7 @@ What are you trying to do?
 ├─ 🏛️  Architect a system
 │   ├─ Create architectural blueprint            →  /devenv-create-blueprint
 │   ├─ Revise existing blueprint                 →  /devenv-refine-blueprint│   ├─ Design a single component's internals     →  /devenv-create-technical-design
+│   ├─ Redesign an existing component            →  /devenv-redesign-component
 │   ├─ Update a component's technical design     →  /devenv-refine-technical-design│   ├─ Build delivery roadmap from blueprint and/or requirements   →  /devenv-create-roadmap
 │   ├─ Structurally revise roadmap (split, re-sequence) → /devenv-refine-roadmap
 │   └─ Sync roadmap state from issues / PRs      →  /devenv-update-roadmap
@@ -181,6 +182,7 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 | `/devenv-create-blueprint` | Architectural decomposition → blueprint doc | System name or path to requirements |
 | `/devenv-refine-blueprint` | Revise an existing blueprint, preserve decisions | Blueprint file path |
 | `/devenv-create-technical-design` | Design a component's internals → `docs/Architecture_and_implementation.md` | Component repo path or blueprint section |
+| `/devenv-redesign-component` | Fundamental redesign of an existing component → updated `Architecture_and_implementation.md` + temporary `Redesign--NNN.md` for `devenv-plan-from-spec` | Component repo path or `Architecture_and_implementation.md` path |
 | `/devenv-refine-technical-design` | Update a component's technical design as it evolves | Component repo path or `Architecture_and_implementation.md` path |
 | `/devenv-create-roadmap` | Phased delivery sequencing + GH issue creation | Blueprint and/or requirements file path (at least one) |
 | `/devenv-refine-roadmap` | Structurally revise a roadmap — split, re-sequence, add | Roadmap file path |
@@ -219,6 +221,7 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 | `/devenv-bug-fix` | Investigate a bug, trace root cause, propose resolution — optionally fix immediately | Issue # or description |
 | `/devenv-code-review` | AI reviews code you wrote | PR #, refs, or nothing |
 | `/devenv-pre-commit` | Lint/format/test before committing | `--all` or nothing |
+| `/devenv-tech-debt-audit` | Opinionated codebase audit — file-cited findings, severity, effort; optional focus area; offers to create a GH issue after the audit | Repo path(s), optionally + focus area description; or GH issue # |
 
 ### Meta
 
@@ -344,6 +347,8 @@ The skill also fits **after** a blueprint exists, when a specific design questio
 | `/devenv-create-technical-design` vs `/devenv-create-blueprint` | Blueprint designs the system (domains, services, events, topology). Technical design designs one component's internals (interface contract, layers, data model, error handling). Blueprint precedes technical design; technical design precedes implementation plan. |
 | `/devenv-create-technical-design` vs `/devenv-design-discussion` | Design-discussion weighs options and produces a focused recommendation. Technical design takes a settled approach and produces a formal spec (`Architecture_and_implementation.md`) with recorded decisions. Design-discussion naturally feeds into technical design. |
 | `/devenv-create-technical-design` vs `/devenv-document` | Technical design involves brainstorming and decision-making; it is prescriptive (how the component should be built). Document is descriptive (how it currently is), with no design decisions. |
+| `/devenv-redesign-component` vs `/devenv-refine-technical-design` | Redesign is for "the fundamental approach is no longer right" — runs a full diagnosis and design session, produces two outputs (updated living doc + temporary redesign spec). Refine is lightweight and surgical — for design drift, gaps revealed by implementation, or resolved unknowns. If a refine session turns into a fundamental rethink, stop and switch to redesign. |
+| `/devenv-redesign-component` vs `/devenv-create-technical-design` | Create starts from nothing. Redesign starts from an existing design and explicitly distinguishes what stays from what changes. Redesign also produces a temporary `Redesign--NNN.md` spec document for `devenv-plan-from-spec`; create goes directly to the living doc. |
 | `/devenv-refine-technical-design` vs `/devenv-refine-blueprint` | `refine-technical-design` updates one component's internal design doc. `refine-blueprint` changes the system-level architecture. A blueprint change may cascade into one or more technical design refinements. |
 | `/devenv-document` vs `/devenv-create-technical-design` | Document produces reference material for what already exists. Technical design produces a specification that guides what is about to be built (or rebuilt). |
 | `/devenv-document` vs `/devenv-create-blueprint` | Document describes an *existing* system as it is (reference, orientation, context). Blueprint *designs* how a system should be structured (architecture, new components, deltas). Use document to understand the present; use blueprint to plan the future. |

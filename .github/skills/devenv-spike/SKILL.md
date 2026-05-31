@@ -109,13 +109,36 @@ Write `spike-NNN-<topic>.md` at the workspace root, where `NNN` is the next unus
 
 Inline summary: 3–5 bullets covering the question, the verdict, and the artifacts produced (doc path, prototype path).
 
-### 6. Optional: open a draft issue
+### 6. Optional: file a GitHub issue
 
-Ask:
+After writing the findings doc, ask:
 
-> "Open a draft GitHub issue with these findings via `issue-create --title '<title>' --body-file <doc-path>`?"
+> *"Want to file a GitHub issue to track this work? I'll add the spike findings as a comment and leave the description as a short placeholder so it can be picked up with `/devenv-plan-from-spec` later."*
 
-Wait for explicit yes. Do not auto-create.
+If yes:
+
+1. **Draft the issue title** — propose and ask the user to confirm or adjust:
+   - `Spike: <one-line topic> — <YYYY-MM-DD>`
+
+2. **Draft the issue body** (placeholder only — findings go in the comment):
+   ```
+   Spike findings are in the first comment below.
+
+   Next step: use `/devenv-plan-from-spec <issue number>` to generate an implementation plan from the findings.
+   Findings file: `<workspace-relative path to spike-NNN-<topic>.md>`
+   Prototype: `<path>` (if applicable)
+   ```
+
+3. **Show a preview** (title, body, and first ~15 lines of the comment content) and ask:
+   > *"Ready to create the issue and post the comment? (y/n)"*
+
+4. On confirmation:
+   - `issue-create --repo "$GITHUB_REPO" --title "<title>" --body "<body>"`
+   - Write the spike findings doc to a temp file
+   - `issue-comment <N> --body-file <temp-file>`
+   - Surface the issue URL.
+
+Never create an issue or post a comment without explicit "yes" confirmation.
 
 ## Anti-patterns
 

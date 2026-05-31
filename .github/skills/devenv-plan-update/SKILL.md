@@ -51,6 +51,7 @@ For each operation, confirm it falls within the supported set:
 | Reword an existing task | **no** — `/devenv-refine-implementation-plan` |
 | Restructure or reorder phases | **no** |
 | Cancel a task (strikethrough) | **no** — structural edit, use `/devenv-refine-implementation-plan` |
+| Modify acceptance criteria (AC-N) | **no** — any AC change (add, revise, or deprecate) routes to `/devenv-refine-implementation-plan` |
 | Bulk edits | **no** |
 
 ### 3. Confirm each operation

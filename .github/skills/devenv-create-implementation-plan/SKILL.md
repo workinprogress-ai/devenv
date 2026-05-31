@@ -62,7 +62,7 @@ Use the `Explore` subagent (or `search_subagent`) to find existing modules, test
 
 Use `vscode_askQuestions` to confirm/fill gaps. Always cover:
 
-- Acceptance criteria (how do we know it's done?)
+- Acceptance criteria — **infer these from the goals, scope, and codebase context rather than asking the user to define them directly.** Draft a candidate list and present it for the user to confirm or adjust. Mark each as `*(explicit)*` if it was stated directly in the input, or `*(inferred)*` if you deduced it from goals, "must"/"should" language, or domain context. The user is better positioned to recognise a good AC than to produce one from scratch.
 - Scope boundaries and explicit non-goals
 - Known risks / unknowns
 - Target repo path (confirm)
@@ -79,6 +79,7 @@ Use the [plan template](./references/plan-template.md). Follow:
 - Reference Information uses a **table** of key files with a relevance column, plus a separate links sub-list
 - Mark dependencies as `depends on N.N` inline; readers infer parallelism
 - Every task with non-obvious context **must** link to its entry under *Additional task context* using a descriptive anchor slug (`#task-NN--short-slug`)
+- Include a `## Acceptance criteria` section (from the template) directly after the opening paragraph, before `## Revision history`. Use the agreed format: `- [ ] **AC-N** criterion text *(explicit|inferred)*`. These are the criteria that will be formally reviewed and checked off in the Cleanup phase.
 
 ### 6. Iterate until approved
 

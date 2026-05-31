@@ -71,7 +71,7 @@ Ask if not provided: GH issue # or path to a plan markdown.
   1. First, check whether a local `Implementation_plan-issue-<N>-*.md` already exists in the target repo root. If it does, **use it** — it carries checkbox progress from prior sessions and is the source of truth. Skip to the drift check.
   2. If no local file exists, fetch the plan body via `gh issue view <N> --json body --jq .body`. Confirm the body contains a plan (task list, phase structure).
   3. Write the fetched body to the target repo root as `Implementation_plan-issue-<N>-001.md` (or the next available suffix — never overwrite an existing file).
-  4. **Work exclusively from the local file from this point on.** Record its workspace-relative path (e.g. `repos/lib.cs.services.bulk-sync/Implementation_plan-issue-42-001.md`) — this is the `<plan_file>` argument for every `markdown-plan-complete-task` call throughout the session. Always pass it explicitly; never rely on the tool's default directory search. Checkbox updates go to the file; issue body syncs at phase boundaries push the file back to the issue.
+  4. **Work exclusively from the local file from this point on.** Record its workspace-relative path (e.g. `repos/lib.cs.services.bulk-sync/Implementation_plan-issue-42-001.md`) — this is the `<plan_file>` for `markdown-plan-complete-task` calls throughout the session. Pass it explicitly when running from a directory other than the plan's own — the tool auto-detects `Implementation_plan-*.md` only in the current directory. Checkbox updates go to the file; issue body syncs at phase boundaries push the file back to the issue.
 - **Plan file**: read it.
 - **No plan or too thin**: refuse delegation. Redirect to `/devenv-create-implementation-plan` to draft one first.
 
@@ -91,6 +91,23 @@ After loading, scan for obvious staleness signals before going any further:
 Wait for the user's answer. If they say proceed, note the signals in the first phase's completion handback open questions section and continue. If they say refresh, tell them to invoke `/devenv-refresh-implementation-plan` (new skill invocation required) and stop.
 
 **If fewer than two signals**, continue silently.
+
+### 1c. Ensure acceptance criteria exist
+
+After the drift check, check whether the plan has a `## Acceptance criteria` section.
+
+**If missing:** infer ACs from the plan's goals, scope, and codebase context. Draft a candidate list with `**AC-N**` identifiers and `*(inferred)*` markers and present it to the user:
+
+> *"This plan has no acceptance criteria section. Here's what I inferred from the goals and scope:*
+>
+> *- [ ] **AC-1** The service processes batches without error under normal load *(inferred)**
+> *- [ ] **AC-2** Empty batches are handled gracefully and return a typed result *(inferred)**
+>
+> *Adjust or add to these, then I'll add the section to the plan file before we proceed."*
+
+Wait for explicit confirmation. Once confirmed, add the `## Acceptance criteria` section to the plan file and proceed. **Do not begin the first phase without an accepted AC list.**
+
+**If present:** read the list and hold it in context — these are the criteria to verify during the AC Review phase before Cleanup.
 
 ### 2. Confirm scope
 
@@ -267,9 +284,35 @@ The `<plan-key>` is the plan filename stem without extension (e.g. `Implementati
 
 Write what will happen (descriptive), not which task number does it (structural). Descriptive comments remain accurate when the plan is renumbered.
 
+**When a task will directly satisfy an acceptance criterion**, annotate the key implementation or test location with the AC reference so it can be found during the AC Review phase:
+
+```csharp
+// TODO:(DEVENV[Implementation_plan-issue-42-001]): [AC-2] This method must return a typed result — the try-chain depends on it.
+```
+
+Find all AC-annotated comments with: `grep -rn "\[AC-" .`
+
 **Implicit removal:** when a task replaces or fills what the comment describes, remove the comment as part of that same task. No separate cleanup step needed — the comment's purpose is fulfilled when the work lands.
 
 **Plan-revision audit:** when a scope change or plan revision is agreed mid-phase, run `grep -rn "DEVENV\[" <repo-root>` and check whether any forward comments describe work that was cancelled, moved, or significantly changed. Update or remove affected comments before continuing.
+
+## AC Review Gate
+
+Run this gate after all implementation phases are complete and **before starting the Cleanup phase**. The AC Review must finish before the DEVENV cleanup grep runs — the `[AC-N]` DEVENV comments are removed together with other DEVENV markers in Cleanup.
+
+1. Scan for `[AC-N]` DEVENV comments in the codebase: `grep -rn "\[AC-" <repo-root>`
+2. For each hit, navigate to the code or test and assess whether the acceptance criterion is now objectively verifiable:
+   - **Objectively verifiable** (test passes, behaviour is observable by anyone looking at the code): run `markdown-plan-complete-ac AC-N [<plan_file>]` to tick it. State which AC was ticked and what evidence was used.
+   - **Requires human judgment** (usability, performance, business rule interpretation): present it to the user: *"AC-3 — [criterion text]: can you confirm this is satisfied?"* Tick it after they confirm.
+3. For any AC not yet exercised (no matching DEVENV comment found), surface it explicitly: *"AC-4 has no matching implementation comment — was it addressed? If not, it's a gap."* Let the user decide: tick it, defer it, or add a follow-up task.
+4. For any AC whose scope changed meaningfully during implementation, surface it and apply the deprecation / revision rules (see `/devenv-refine-implementation-plan`).
+5. All ACs must be either ticked `[x]` or explicitly deferred/deprecated before proceeding to Cleanup.
+
+Once all ACs are resolved, surface the AC summary in the handback:
+
+> **AC Review complete:** AC-1 ✅, AC-2 ✅, AC-3 ✅ (human-confirmed), AC-4 deferred (out-of-scope for this plan — new issue filed).
+
+Proceed to the Cleanup phase.
 
 ## Phase Completion Gate
 
@@ -300,8 +343,9 @@ See [session-summary.md](./references/session-summary.md) for the full template.
 2. **Files changed** — with workspace-relative links.
 3. **Review hotspots** — bullet list of code locations that need concentrated review, with `file:line` links and a one-line reason. See criteria below.
 4. **Decisions and deviations** — non-obvious decisions made, with reasoning. Include minor deviations from the plan that were handled without stopping, so the user can assess them. Major decisions that already caused a mid-phase stop need only a brief recap here.
-5. **Open questions / low-confidence areas** — things the AI was unsure about.
-6. **Next phase** — state what the next phase is and ask if the user is ready to proceed. If this was the final phase, note that.
+5. **ACs exercised this phase** — for each acceptance criterion whose code or tests were directly addressed in this phase, note it: `AC-2 now verifiable (empty-batch test added)`. If none were exercised, omit this section. Formal AC ticking happens in the AC Review phase before Cleanup.
+6. **Open questions / low-confidence areas** — things the AI was unsure about.
+7. **Next phase** — state what the next phase is and ask if the user is ready to proceed. If this was the last implementation phase, note that the next step is the AC Review Gate before Cleanup.
 
 ### Review hotspot criteria
 
@@ -330,7 +374,7 @@ Mark a task complete as you finish it during the phase run — don't batch to en
 
 > "✅ 2.1 → 2.2."  *(tick 2.1, then continue — no separate announcement)*
 
-Run `markdown-plan-complete-task <task_number> <plan_file>` in a terminal, where `<plan_file>` is the workspace-relative path recorded at plan load. To reopen a task ticked in the current session: `markdown-plan-complete-task --uncomplete <task_number> <plan_file>` in a terminal. For tasks completed in a prior session, add a new task instead.
+Run `markdown-plan-complete-task <task_number>... [<plan_file>]` in a terminal — multiple task numbers can be passed in a single call (e.g. `markdown-plan-complete-task 2.1 2.2 2.3 <plan_file>`). The plan file is optional if run from the plan's directory; pass it explicitly otherwise. To reopen tasks ticked in the current session: `markdown-plan-complete-task --uncomplete <task_number>... [<plan_file>]` in a terminal. For tasks completed in a prior session, add a new task instead.
 
 ### Inconsistencies and plan gaps
 

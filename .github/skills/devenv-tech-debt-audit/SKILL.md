@@ -1,7 +1,7 @@
 ---
 name: devenv-tech-debt-audit
-description: Thorough, opinionated tech debt and architecture audit of one or more repos. Produces TECH_DEBT_AUDIT.md (or TECH_DEBT_AUDIT-NNN.md when linked to a GitHub issue) with file-cited findings, severity, effort estimates, and a required "looks bad but is actually fine" section. USE WHEN the user says "audit this repo", "tech debt audit", "codebase health check", "architecture review", "code quality assessment", "run a debt audit on", or hands off a repo path or GitHub issue number for audit. Reads the GitHub issue body for guiding instructions when an issue number is given, then posts the executive summary as a comment. Equally tuned for C#/.NET and TypeScript stacks. DO NOT USE FOR reviewing a single PR (use `/devenv-code-review`), general pair programming (use `/devenv-pair-programming`), or producing an implementation plan from findings (use `/devenv-create-implementation-plan` after the audit is complete).
-argument-hint: Repo path (e.g. repos/lib.cs.services.bulk-sync), a GitHub issue number, or multiple repo paths space-separated
+description: Thorough, opinionated tech debt and architecture audit of one or more repos, with optional focus on a specific functional area. Produces TECH_DEBT_AUDIT.md with file-cited findings, severity, effort estimates, and a required "looks bad but is actually fine" section. After writing the audit, offers to create a GitHub issue (findings in a comment; description is a placeholder for an implementation plan). USE WHEN the user says "audit this repo", "tech debt audit", "codebase health check", "architecture review", "code quality assessment", "run a debt audit on", or hands off a repo path or GitHub issue number for audit. Reads the GitHub issue body for guiding instructions when an issue number is given, then posts the executive summary as a comment. Equally tuned for C#/.NET and TypeScript stacks. DO NOT USE FOR reviewing a single PR (use `/devenv-code-review`), general pair programming (use `/devenv-pair-programming`), or producing an implementation plan from findings (use `/devenv-create-implementation-plan` after the audit is complete).
+argument-hint: Repo path(s) (e.g. repos/lib.cs.services.bulk-sync), a GitHub issue number, or repo path(s) followed by a quoted focus area description (e.g. repos/lib.cs.services.chassis "plugin pipeline and built-in plugins")
 ---
 
 # Tech Debt Audit
@@ -32,19 +32,31 @@ Do **not** use for reviewing a single PR (use `/devenv-code-review`), for pair p
 
 ## Input detection
 
-Auto-detect what the user provided:
+Auto-detect what the user provided by parsing the argument left-to-right:
 
-| Input looks like | Interpretation |
-|-----------------|----------------|
-| A bare integer (`^[0-9]+$`) | GitHub issue number |
-| A path starting with `repos/`, `./`, or `/` | Repo path(s) |
-| Multiple tokens | Multiple repo paths |
-| Nothing | Ask — do not guess |
+1. **Repo path(s)** — any token starting with `repos/`, `./`, or `/`. There may be more than one.
+2. **GitHub issue number** — a bare integer (`^[0-9]+$`). Mutually exclusive with repo paths at the top level (an issue can *contain* a path, but the argument itself is either an issue number or a path).
+3. **Focus area** — any remaining text after extracting paths (quoted or unquoted). A natural-language description of the functional area to concentrate on (e.g. `"plugin pipeline and built-in plugins"`, `"authentication and token refresh"`).
+4. **Nothing** — ask for the repo and whether there is a focus area. Do not guess.
+
+| Input example | Repo | Focus area |
+|---|---|---|
+| `repos/lib.cs.services.chassis` | chassis | none (full repo) |
+| `repos/lib.cs.services.chassis "plugin pipeline"` | chassis | "plugin pipeline" |
+| `repos/foo repos/bar` | foo + bar | none |
+| `42` | from issue body | from issue body |
+| *(nothing)* | ask | ask |
+
+**If a focus area is given**, announce it before starting:
+
+> *"🔍 Scoping audit to: plugin pipeline and built-in plugins. I'll read the full repo structure for context but concentrate findings on this area."*
+
+Focus area narrows Phase 1 orientation (concentrate git-log and LOC analysis on relevant files/modules) and Phase 2 depth. The mental model still covers the full system — the focus area determines where to spend investigation time.
 
 **If a GitHub issue number is given:**
 
 1. Run `issue-get N --pretty` to fetch the issue body.
-2. Scan the body for guiding instructions: custom scope, dimension overrides, file exclusions, or specific concerns the requestor wants prioritized.
+2. Scan the body for guiding instructions: custom scope, dimension overrides, file exclusions, or specific concerns the requestor wants prioritized. These act as a focus area.
 3. Extract and apply those instructions throughout the audit (announce them to the user before starting).
 4. Set the output filename to `TECH_DEBT_AUDIT-N.md` where N is the issue number.
 
@@ -53,18 +65,20 @@ Auto-detect what the user provided:
 - Single repo → `<repo-root>/TECH_DEBT_AUDIT[-NNN].md`
 - Multiple repos → `repos/TECH_DEBT_AUDIT[-NNN].md` (synthesized report across all targeted repos)
 
+**Output filename with focus area:** If a focus area was given (and no issue number), use `TECH_DEBT_AUDIT.md` — the focus area is noted in the document title, not the filename.
+
 ## Phase 1: Orient
 
 Do not skip this. Forming opinions before understanding the system produces bad audits.
 
 1. Read the README, project manifest (`*.csproj`, `*.sln`, `package.json`, `pyproject.toml`), and any architecture docs in `/docs` or `/adr`.
 2. Map the directory structure and identify the major modules / layers.
-3. Run `git log --oneline -200` and `git log --stat --since="6 months ago"` to see what's actually changing and where churn concentrates.
-4. Identify entry points, hot paths, and cold corners.
-5. List the top 20 largest files by line count, and the 20 files most frequently modified in the last 6 months. The intersection is where debt usually hides.
+3. Run `git log --oneline -200` and `git log --stat --since="6 months ago"` to see what's actually changing and where churn concentrates. **If a focus area is given**, filter to files relevant to it: `git log --oneline --stat --since="6 months ago" -- <relevant-paths>`.
+4. Identify entry points, hot paths, and cold corners. If a focus area is given, map how it connects to the rest of the system.
+5. List the top 20 largest files by line count, and the 20 files most frequently modified in the last 6 months. **If a focus area is given**, scope to files that the focus area depends on or that depend on it — churn in those files is where debt hides. Still note the top files outside the focus area if they are exceptional outliers.
 6. Publish a plan so the user can see progress through the phases (use the manage_todo_list tool or equivalent).
 
-Write a 1–2 paragraph mental model of the architecture before proceeding. If your model contradicts the README, flag it — that itself is a finding.
+Write a 1–2 paragraph mental model of the architecture before proceeding. If your model contradicts the README, flag it — that itself is a finding. If a focus area is given, close with a paragraph describing how it fits into the broader system.
 
 ## Phase 2: Audit across these dimensions
 
@@ -86,7 +100,9 @@ Write to the output file determined in the input detection step. Use this struct
 
 ```markdown
 # Tech Debt Audit — <repo name(s)>
+# Tech Debt Audit: <focus-area> — <repo name>  ← when a focus area was given
 Generated: <date>
+Focus: <focus-area>  ← only if a focus area was given
 Issue: #NNN  ← only if invoked with an issue number
 
 ## Executive summary
@@ -154,7 +170,11 @@ A different issue number always produces a new file — never update a file from
 
 ## GitHub integration
 
-If a GitHub issue number was provided:
+There are two distinct GitHub flows — do not mix them.
+
+### Flow A: Audit driven by an existing issue
+
+*Applies when the user provided a GitHub issue number as the argument.*
 
 1. After writing the audit file, draft a comment containing the **executive summary** and the relative path to the full audit file.
 2. Show the draft in chat.
@@ -162,7 +182,53 @@ If a GitHub issue number was provided:
 4. If yes, write the summary to a temp file and run `issue-comment N --body-file <temp-file>`.
 5. Surface the issue URL from the tool output.
 
-Never post without explicit confirmation.
+### Flow B: Create a new issue after the audit
+
+*Applies when the user provided a repo path (with or without a focus area), not an issue number.*
+
+After writing the audit file, ask:
+
+> *"Want to file a GitHub issue to track this work? I'll put the full audit in a comment and leave the description as a placeholder for an implementation plan."*
+
+If the user says yes:
+
+1. **Draft the issue title** — propose it and ask the user to confirm or adjust:
+   - With focus area: `Tech Debt Audit: <focus-area> — <repo-name> — <YYYY-MM-DD>`
+   - Without focus area: `Tech Debt Audit — <repo-name> — <YYYY-MM-DD>`
+
+2. **Draft the issue body** (this becomes the issue description, not the findings):
+   ```
+   Tech debt audit findings are in the first comment below.
+
+   Next step: create an implementation plan using `/devenv-create-implementation-plan`,
+   using the findings in the comment as the source spec.
+
+   Audit file: `<workspace-relative-path-to-TECH_DEBT_AUDIT.md>`
+   ```
+
+3. **Select comment content** — present the options and ask which sections to include:
+
+   > *"The full audit is NNN lines. What should go in the comment?"*
+   >
+   > a) Full audit (everything) — default
+   > b) Executive summary + Findings table + Top 5
+   > c) Executive summary + Top 5 + Quick wins only
+   > d) Executive summary only
+
+   Wait for the user's choice. Default to (a) if they just say "yes" or "go ahead".
+
+4. **Show a preview** of the full draft (title, body, and first ~20 lines of the comment content) and ask for final approval:
+
+   > *"Ready to create the issue and post the comment? (y/n)"*
+
+5. On confirmation:
+   a. Create the issue: `issue-create --repo "$GITHUB_REPO" --title "<title>" --body "<body>"`
+   b. Note the new issue number from the output.
+   c. Write the selected audit content to a temp file.
+   d. Post it as a comment: `issue-comment <N> --body-file <temp-file>`
+   e. Surface the issue URL.
+
+Never create an issue or post a comment without explicit "yes" confirmation.
 
 ## Anti-patterns
 
@@ -171,7 +237,9 @@ Never post without explicit confirmation.
 - **Do not leave the "looks bad but actually fine" section empty.** If empty, re-examine Phase 2.
 - **Do not stop on first tool failure.** If `dotnet test` fails to build, note it and continue with the remaining dimensions.
 - **Do not install tools globally.** Note missing tools and proceed.
-- **Do not call `gh` directly.** Use `issue-comment`, `issue-get`, etc.
-- **Do not post to GitHub without explicit "yes" confirmation.**
+- **Do not call `gh` directly.** Use `issue-comment`, `issue-get`, `issue-create`, etc.
+- **Do not post to GitHub or create issues without explicit "yes" confirmation.**
+- **Do not mix Flow A and Flow B.** If the argument was an issue number, use Flow A (post to existing issue). If it was a repo path, use Flow B (offer to create a new issue). Never create a new issue when the user provided an issue number.
+- **Do not audit the entire repo when a focus area was given and skip the focus entirely.** A focus area narrows depth, not breadth — still read the full architecture, but concentrate Phase 2 findings on the named area.
 
 See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.

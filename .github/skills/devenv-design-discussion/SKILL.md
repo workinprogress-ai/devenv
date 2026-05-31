@@ -92,6 +92,35 @@ Design discussions are intentionally **single-file** — focused, narrower than 
 
 See [design-doc-template.md](./references/design-doc-template.md) for structure.
 
+After writing the doc, also ask:
+
+> *"Want to file a GitHub issue to track this work? I'll add the design document as a comment and leave the description as a short placeholder so it can be picked up with `/devenv-plan-from-spec` later."*
+
+If yes:
+
+1. **Draft the issue title** — propose and ask the user to confirm or adjust:
+   - `Design: <topic> — <YYYY-MM-DD>`
+
+2. **Draft the issue body** (placeholder — design goes in the comment):
+   ```
+   Design document is in the first comment below.
+
+   Next step: use `/devenv-plan-from-spec <issue number>` to generate an implementation plan from the design,
+   or `/devenv-create-blueprint` if this discussion revealed system-level architectural work.
+   Document file: `<workspace-relative path to Design-<topic>-NNN.md>`
+   ```
+
+3. **Show a preview** (title, body, and first ~15 lines of the comment content) and ask:
+   > *"Ready to create the issue and post the comment? (y/n)"*
+
+4. On confirmation:
+   - `issue-create --repo "$GITHUB_REPO" --title "<title>" --body "<body>"`
+   - Write the design document to a temp file
+   - `issue-comment <N> --body-file <temp-file>`
+   - Surface the issue URL.
+
+Never create an issue or post a comment without explicit "yes" confirmation.
+
 ## Process
 
 This is conversational, not a strict pipeline — but there are checkpoints. **Don't skip ahead to options before the problem is concrete.** "We're talking about X" is not a problem statement; "X is breaking because Y and we're losing Z" is.

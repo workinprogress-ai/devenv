@@ -131,11 +131,12 @@ After writing, give the user a brief summary:
 - **Updating without recording the decision.** Every structural change to the document needs a Key Decisions entry. "The interface changed" is not a decision record.
 - **Trusting the user's description over the code.** When code exists, read it. Designs drift from implementation; the document should match reality.
 - **Silently removing deferred items.** If a Known Unknown is no longer relevant (e.g. the feature was cut), note the removal and why rather than deleting quietly.
-- **Scope creep into a full redesign.** If the changes are so extensive that most sections need rewriting, consider archiving the old document and running [`/devenv-create-technical-design`](../devenv-create-technical-design/SKILL.md) to produce a clean replacement.
+- **Scope creep into a full redesign.** If the changes are so extensive that the fundamental approach to one or more major areas is being reconsidered, stop and use [`/devenv-redesign-component`](../devenv-redesign-component/SKILL.md) instead. That skill runs a proper diagnosis, produces an updated living doc, and generates a temporary redesign spec for the implementer.
 
 ## Sibling skills
 
 - [`/devenv-create-technical-design`](../devenv-create-technical-design/SKILL.md) — create the document in the first place
+- [`/devenv-redesign-component`](../devenv-redesign-component/SKILL.md) — when the current approach is fundamentally wrong (not just drifted or incomplete)
 - [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) — if the system-level architecture changed, not just this component
 - [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) — update the task list when the design changed mid-implementation
 - [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md) — when the design change is not yet settled and options need to be weighed first

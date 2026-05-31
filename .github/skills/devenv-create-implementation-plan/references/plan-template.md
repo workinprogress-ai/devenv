@@ -8,6 +8,11 @@ Copy this skeleton verbatim and fill it in. All top-level headings are required,
 <One paragraph: what this plan accomplishes and why. Enough context for a fresh
 human or AI to understand the goal without opening other documents.>
 
+## Acceptance criteria
+
+- [ ] **AC-1** <criterion text — observable behaviour the system must exhibit when the work is done> *(explicit)*
+- [ ] **AC-2** <criterion text> *(inferred)*
+
 ## Revision history
 
 ### <date> — Initial plan created
@@ -69,9 +74,10 @@ human or AI to understand the goal without opening other documents.>
 > phases, updates user-facing docs, and verifies coverage hasn't regressed.
 
 - [ ] **N.1 [S] Remove scaffolding tests no longer needed**
-- [ ] **N.2 [S] Remove all DEVENV markers** *(if any were added during this plan — `grep -rn "DEVENV\[" .` must return zero results)*
-- [ ] **N.3 [S] Update README / changelog / inline docs**
-- [ ] **N.4 [S] Verify coverage has not regressed**
+- [ ] **N.2 [S] AC Review** — scan for `[AC-N]` DEVENV comments in code (`grep -rn "\[AC-" .`); for each acceptance criterion, verify against current code and tests; run `markdown-plan-complete-ac AC-N... [<plan_file>]` for each criterion that is objectively verifiable (test passes, behaviour observable); present any requiring human judgment for the user to confirm. **Must complete before the DEVENV cleanup task.**
+- [ ] **N.3 [S] Remove all DEVENV markers** *(if any were added during this plan — `grep -rn "DEVENV\[" .` must return zero results; run after AC Review so AC-reference comments are removed together)*
+- [ ] **N.4 [S] Update README / changelog / inline docs**
+- [ ] **N.5 [S] Verify coverage has not regressed**
 
 ---
 

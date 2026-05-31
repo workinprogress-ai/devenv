@@ -45,6 +45,7 @@ Use `vscode_askQuestions` to gather:
 - **What's wrong** — tasks whose descriptions are now misleading or whose scope changed.
 - **What's done outside the plan** — work completed that should be marked `[x]` retroactively.
 - **What's no longer relevant** — tasks to remove; deletion will be logged in Revision History with the task number, a one-line summary, and the reason
+- **Acceptance criteria changes** — whether any ACs need to be added, revised, or deprecated as a result of the scope change. Infer candidate changes from the new requirements and present them for the user to confirm rather than asking the user to define them from scratch. See AC rules in Step 3.
 - **Legacy code exposure** — if new tasks will introduce implementations that coexist with existing legacy code in the same files across multiple phases, flag the issue: the plan likely needs an early cleanup phase. See [phase-rules.md](../devenv-create-implementation-plan/references/phase-rules.md) for available patterns (demolition, hollow-out, rename suffix, branch by abstraction). Surface the viable options and a recommendation before writing new tasks; don't silently pick one.
 
 Do not assume. If the new requirements imply renumbering or reordering, flag it and ask before proceeding.
@@ -54,6 +55,7 @@ Do not assume. If the new requirements imply renumbering or reordering, flag it 
 **Hard rules:**
 
 - **Never reflow existing task numbers.** A task numbered `2.3` stays `2.3` for its entire lifetime.
+- **Never reflow existing AC-N identifiers.** An AC numbered `AC-3` stays `AC-3` for its entire lifetime — same principle as task numbers.
 - **Never silently uncheck a `[x]`.** If a completed task's scope must change, leave it checked and add a new task for the additional work.
 - **New tasks are appended to the end of their phase** with the next sequential number (e.g. if Phase 2 ends at 2.7, the next new task is 2.8). New tasks must use the full task format: `- [ ] **N.M [S|M|L] Title**` header, descriptive sub-bullets first, then `Files:` / `decision:` / `owner:` / `depends on` metadata. Do not add skeletal or title-only tasks.
 - **When the target phase is fully complete (`[x]` on all its tasks), do not append to it.** Adding tasks to a complete phase misrepresents how the work progressed and resets progress markers. Instead, create one or more new phases numbered sequentially after the last existing phase (e.g. if the plan ends at Phase 4, new work goes in Phase 5, 6, etc.). This applies equally when the entire plan is complete — the canonical case is a plan that was finished and committed, then new downstream requirements surface that should have been part of the original scope.
@@ -65,6 +67,16 @@ Do not assume. If the new requirements imply renumbering or reordering, flag it 
   Surface this to the user before writing: *"Phase 3 is fully complete — I'll add the new work in a new Phase 5 rather than appending to Phase 3. The existing Cleanup (Phase 4) is also done, so I'll add a new Phase 6 for cleanup of the new scope. Does that structure work for you?"*
 - **Cancelled tasks** are kept in place, wrapped in `~~strikethrough~~` on the task header line and annotated with the reason inline (e.g. `~~- [ ] **4.3 [S] Add foo**~~ — cancelled: superseded by 2.9`), and recorded in `## Revision history` with the task number, a one-line summary, and the reason. Do **not** delete the task line — strikethrough preserves numbering continuity and makes the cancellation visible in-place (and parseable by `/devenv-plan-status`).
 - **Reworded tasks** keep their number; the prior wording is recorded in the revision history.
+
+**Acceptance criteria changes:**
+
+- **New ACs**: infer from the new scope, mark `*(inferred)*`, append to the `## Acceptance criteria` section with the next `AC-N` number (e.g. if AC-4 is the last, the next is AC-5). Use the canonical format: `- [ ] **AC-N** criterion text *(inferred)*`.
+- **Minor revision** (clarification or wording improvement — same intent, same observable outcome): rewrite the criterion text in place and append a revision note: `- [ ] **AC-N** Revised text *(inferred)* — *revised: brief note*`. Record in Revision History.
+- **Significant change** (scope, acceptance conditions, or observable outcome changes meaningfully):
+  1. Remove the `- [ ]` checkbox, wrap the criterion in `~~strikethrough~~`, and append `*(superseded by AC-M)*`
+  2. Add a new criterion: `- [ ] **AC-M** replacement text *(inferred)*` (next available AC-N number)
+  3. Record both in Revision History.
+- **AC ticking is done by the execution skills** (pair-programming / delegation) during the AC Review phase — do not tick ACs here unless the user explicitly confirms a criterion is already met.
 
 ### 4. Record the revision
 
@@ -80,6 +92,9 @@ Add or update a `## Revision history` section directly under the plan's title (a
 - Reworded 4.1: previous wording assumed REST; clarified it's gRPC
 - Cancelled 4.3: superseded by 3.4
 - Marked 1.2 [x]: completed during exploration before plan was finalized
+- Added AC-5: inferred from new scope — service must handle empty batch gracefully
+- Revised AC-2: wording clarified (same intent)
+- Deprecated AC-3: superseded by AC-6 (scope narrowed by discovery)
 
 ### 2025-10-22 — Initial plan created
 ```
@@ -105,6 +120,7 @@ Summarise inline:
 ## Anti-patterns
 
 - **Renumbering existing tasks** — breaks every external reference (PR descriptions, commit messages, issue comments). Always append.
+- **Renumbering existing AC-N identifiers** — same principle. AC-3 stays AC-3; append new ACs at the next available number.
 - **Silently unchecking `[x]`** — discards user progress. If completed work needs to be redone, add a new task.
 - **Deleting cancelled tasks** — leaves a confusing gap in the numbering and erases history. Strike through and annotate instead.
 - **Skipping the revision history** — turns the file into a black box where readers can't tell what changed.
