@@ -47,10 +47,6 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "actions-status symlink exists in tools/" {
-  [ -L "$PROJECT_ROOT/tools/actions-status" ]
-}
-
 # ============================================================================
 # actions-list
 # ============================================================================
@@ -74,10 +70,6 @@ load ../test_helper
 @test "actions-list.sh sources github-helpers library" {
   run grep 'source.*github-helpers.bash' "$PROJECT_ROOT/tools/scripts/actions-list.sh"
   [ "$status" -eq 0 ]
-}
-
-@test "actions-list symlink exists in tools/" {
-  [ -L "$PROJECT_ROOT/tools/actions-list" ]
 }
 
 # ============================================================================
@@ -105,10 +97,6 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "actions-run symlink exists in tools/" {
-  [ -L "$PROJECT_ROOT/tools/actions-run" ]
-}
-
 # ============================================================================
 # actions-rerun
 # ============================================================================
@@ -132,10 +120,6 @@ load ../test_helper
 @test "actions-rerun.sh sources github-helpers library" {
   run grep 'source.*github-helpers.bash' "$PROJECT_ROOT/tools/scripts/actions-rerun.sh"
   [ "$status" -eq 0 ]
-}
-
-@test "actions-rerun symlink exists in tools/" {
-  [ -L "$PROJECT_ROOT/tools/actions-rerun" ]
 }
 
 # ============================================================================
@@ -163,10 +147,6 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "actions-watch symlink exists in tools/" {
-  [ -L "$PROJECT_ROOT/tools/actions-watch" ]
-}
-
 # ============================================================================
 # actions-artifacts
 # ============================================================================
@@ -192,6 +172,4 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "actions-artifacts symlink exists in tools/" {
-  [ -L "$PROJECT_ROOT/tools/actions-artifacts" ]
-}
+

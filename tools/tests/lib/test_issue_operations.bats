@@ -474,3 +474,218 @@ EOF
     [ "$status" -eq 0 ]
     [ "$output" = "type:Bug" ]
 }
+
+# ============================================================================
+# Issue Comment Operations tests
+# ============================================================================
+
+@test "issue-operations: validate_comment_id accepts a numeric ID" {
+    run bash -c "
+        source '$PROJECT_ROOT/tools/lib/issue-operations.bash'
+        validate_comment_id '12345678'
+    "
+    [ "$status" -eq 0 ]
+}
+
+@test "issue-operations: validate_comment_id rejects alphabetic string" {
+    run bash -c "
+        source '$PROJECT_ROOT/tools/lib/issue-operations.bash'
+        validate_comment_id 'abc'
+    "
+    [ "$status" -ne 0 ]
+    [[ "$output" =~ "Invalid comment ID" ]]
+}
+
+@test "issue-operations: validate_comment_id rejects empty string" {
+    run bash -c "
+        source '$PROJECT_ROOT/tools/lib/issue-operations.bash'
+        validate_comment_id ''
+    "
+    [ "$status" -ne 0 ]
+}
+
+@test "issue-operations: validate_comment_id rejects ID with letters mixed in" {
+    run bash -c "
+        source '$PROJECT_ROOT/tools/lib/issue-operations.bash'
+        validate_comment_id '123abc'
+    "
+    [ "$status" -ne 0 ]
+}
+
+@test "issue-operations: fetch_issue_comments returns raw JSON on success" {
+    gh() {
+        if [[ "$*" =~ "api" ]] && [[ "$*" =~ "issues/42/comments" ]]; then
+            echo '[{"id":1,"user":{"login":"alice"},"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","body":"hello","html_url":"https://github.com/x"}]'
+            return 0
+        fi
+        return 1
+    }
+    export -f gh
+    export GITHUB_REPO="test-org/test-repo"
+
+    run bash -c "
+        export -f gh
+        export GITHUB_REPO='test-org/test-repo'
+        source '$PROJECT_ROOT/tools/lib/issue-operations.bash'
+        fetch_issue_comments 42
+    "
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ '"id":1' ]]
+    [[ "$output" =~ "alice" ]]
+}
+
+@test "issue-operations: fetch_issue_comments returns error on API failure" {
+    gh() { return 1; }
+    export -f gh
+    export GITHUB_REPO="test-org/test-repo"
+
+    run bash -c "
+        export -f gh
+        export GITHUB_REPO='test-org/test-repo'
+        source '$PROJECT_ROOT/tools/lib/issue-operations.bash'
+        fetch_issue_comments 99
+    "
+    [ "$status" -ne 0 ]
+    [[ "$output" =~ "Failed to fetch comments" ]]
+}
+
+@test "issue-operations: format_issue_comments outputs one object per line by default" {
+    local raw='[{"id":10,"user":{"login":"bob"},"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","body":"short","html_url":"https://github.com/x"}]'
+
+    run bash -c "
+        source '$PROJECT_ROOT/tools/lib/issue-operations.bash'
+        format_issue_comments '$raw'
+    "
+    [ "$status" -eq 0 ]
+    # One line of compact JSON
+    [ "$(echo "$output" | wc -l)" -eq 1 ]
+    [[ "$output" =~ '"id":10' ]]
+    [[ "$output" =~ '"author":"bob"' ]]
+    [[ "$output" =~ '"bodyPreview":"short"' ]]
+}
+
+@test "issue-operations: format_issue_comments --pretty outputs indented JSON array" {
+    local raw='[{"id":10,"user":{"login":"bob"},"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","body":"short","html_url":"https://github.com/x"}]'
+
+    run bash -c "
+        source '$PROJECT_ROOT/tools/lib/issue-operations.bash'
+        format_issue_comments '$raw' --pretty
+    "
+    [ "$status" -eq 0 ]
+    # Pretty output spans multiple lines
+    [ "$(echo "$output" | wc -l)" -gt 1 ]
+    [[ "$output" =~ '"id": 10' ]]
+}
+
+@test "issue-operations: format_issue_comments truncates long body to 256 chars" {
+    local long_body
+    long_body=$(python3 -c "print('x' * 300)")
+    local raw="[{\"id\":1,\"user\":{\"login\":\"a\"},\"created_at\":\"2026-01-01T00:00:00Z\",\"updated_at\":\"2026-01-01T00:00:00Z\",\"body\":\"${long_body}\",\"html_url\":\"https://github.com/x\"}]"
+
+    run bash -c "
+        source '$PROJECT_ROOT/tools/lib/issue-operations.bash'
+        format_issue_comments '$raw'
+    "
+    [ "$status" -eq 0 ]
+    # bodyPreview should end with the ellipsis character (…)
+    [[ "$output" =~ "…" ]]
+}
+
+@test "issue-operations: format_issue_comments --full returns complete body" {
+    local long_body
+    long_body=$(python3 -c "print('y' * 300)")
+    local raw="[{\"id\":2,\"user\":{\"login\":\"a\"},\"created_at\":\"2026-01-01T00:00:00Z\",\"updated_at\":\"2026-01-01T00:00:00Z\",\"body\":\"${long_body}\",\"html_url\":\"https://github.com/x\"}]"
+
+    run bash -c "
+        source '$PROJECT_ROOT/tools/lib/issue-operations.bash'
+        format_issue_comments '$raw' --full
+    "
+    [ "$status" -eq 0 ]
+    # No ellipsis — body returned in full
+    [[ ! "$output" =~ "…" ]]
+    # Field name is 'body', not 'bodyPreview'
+    [[ "$output" =~ '"body"' ]]
+    [[ ! "$output" =~ 'bodyPreview' ]]
+}
+
+@test "issue-operations: format_issue_comments does not truncate short body" {
+    local raw='[{"id":1,"user":{"login":"a"},"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","body":"short body","html_url":"https://github.com/x"}]'
+
+    run bash -c "
+        source '$PROJECT_ROOT/tools/lib/issue-operations.bash'
+        format_issue_comments '$raw'
+    "
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ '"bodyPreview":"short body"' ]]
+    # No ellipsis for short body
+    [[ ! "$output" =~ "…" ]]
+}
+
+@test "issue-operations: check_issue_comment_exists returns 0 when comment found" {
+    gh() {
+        if [[ "$*" =~ "api" ]] && [[ "$*" =~ "issues/comments/99" ]]; then
+            return 0
+        fi
+        return 1
+    }
+    export -f gh
+    export GITHUB_REPO="test-org/test-repo"
+
+    run bash -c "
+        export -f gh
+        export GITHUB_REPO='test-org/test-repo'
+        source '$PROJECT_ROOT/tools/lib/issue-operations.bash'
+        check_issue_comment_exists 99
+    "
+    [ "$status" -eq 0 ]
+}
+
+@test "issue-operations: check_issue_comment_exists returns error when comment not found" {
+    gh() { return 1; }
+    export -f gh
+    export GITHUB_REPO="test-org/test-repo"
+
+    run bash -c "
+        export -f gh
+        export GITHUB_REPO='test-org/test-repo'
+        source '$PROJECT_ROOT/tools/lib/issue-operations.bash'
+        check_issue_comment_exists 404
+    "
+    [ "$status" -ne 0 ]
+    [[ "$output" =~ "not found" ]]
+}
+
+@test "issue-operations: update_issue_comment calls PATCH and returns 0 on success" {
+    local patch_called=0
+    gh() {
+        if [[ "$*" =~ "api" ]] && [[ "$*" =~ "issues/comments/77" ]] && [[ "$*" =~ "PATCH" ]]; then
+            return 0
+        fi
+        return 1
+    }
+    export -f gh
+    export GITHUB_REPO="test-org/test-repo"
+
+    run bash -c "
+        export -f gh
+        export GITHUB_REPO='test-org/test-repo'
+        source '$PROJECT_ROOT/tools/lib/issue-operations.bash'
+        update_issue_comment 77 'new body text'
+    "
+    [ "$status" -eq 0 ]
+}
+
+@test "issue-operations: update_issue_comment returns error on API failure" {
+    gh() { return 1; }
+    export -f gh
+    export GITHUB_REPO="test-org/test-repo"
+
+    run bash -c "
+        export -f gh
+        export GITHUB_REPO='test-org/test-repo'
+        source '$PROJECT_ROOT/tools/lib/issue-operations.bash'
+        update_issue_comment 77 'new body text'
+    "
+    [ "$status" -ne 0 ]
+    [[ "$output" =~ "Failed to update comment" ]]
+}

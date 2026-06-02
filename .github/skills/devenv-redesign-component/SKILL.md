@@ -1,6 +1,6 @@
 ---
 name: devenv-redesign-component
-description: 'Redesign an existing component when its current approach is no longer the best — runs a full design session using the existing Architecture_and_implementation.md as context, producing an updated living design doc AND a temporary Redesign--NNN.md that feeds into devenv-plan-from-spec. USE WHEN the user says "redesign this component", "the current approach isn''t working", "we need to rethink X", "the original design is no longer right", or "this component has evolved in the wrong direction". DO NOT USE FOR small design updates after implementation (use /devenv-refine-technical-design), a component with no design yet (use /devenv-create-technical-design), system-level architectural changes (use /devenv-refine-blueprint), or weighing options before committing to a direction (use /devenv-design-discussion).'
+description: 'Redesign an existing component when its current approach is no longer the best — runs a full design session using the existing Architecture_and_implementation.md as context, producing a temporary Redesign--NNN.md (decision record + target architecture) that feeds into devenv-plan-from-spec. Architecture_and_implementation.md is NOT updated during the redesign — it is updated in the implementation plan Cleanup phase once the work is done. USE WHEN the user says "redesign this component", "the current approach isn''t working", "we need to rethink X", "the original design is no longer right", or "this component has evolved in the wrong direction". DO NOT USE FOR small design updates after implementation (use /devenv-refine-technical-design), a component with no design yet (use /devenv-create-technical-design), system-level architectural changes (use /devenv-refine-blueprint), or weighing options before committing to a direction (use /devenv-design-discussion).'
 argument-hint: '[component repo path | Architecture_and_implementation.md path]'
 user-invocable: true
 ---
@@ -11,7 +11,11 @@ user-invocable: true
 
 See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
 
-Redesign the internals of a component when the original design approach is no longer the best — whether due to accumulated complexity, misplaced responsibility, performance problems, new requirements that the design cannot absorb, or simply a better understanding of the domain. This skill runs a full design session (like `devenv-create-technical-design`) but using the existing design as context, explicitly distinguishing what stays from what changes. It produces two outputs: an updated `docs/Architecture_and_implementation.md` (the permanent living doc) and a temporary `Redesign--NNN.md` that describes what needs to be built — the spec that feeds directly into [`/devenv-plan-from-spec`](../devenv-plan-from-spec/SKILL.md).
+Redesign the internals of a component when the original design approach is no longer the best — whether due to accumulated complexity, misplaced responsibility, performance problems, new requirements that the design cannot absorb, or simply a better understanding of the domain. This skill runs a full design session (like `devenv-create-technical-design`) but using the existing design as context, explicitly distinguishing what stays from what changes.
+
+It produces **one output**: a temporary `Redesign--NNN.md` containing the decision record and a `## Target architecture` section — the spec that feeds directly into [`/devenv-plan-from-spec`](../devenv-plan-from-spec/SKILL.md).
+
+**`docs/Architecture_and_implementation.md` is not updated during this skill.** It describes the current system and must stay accurate to the current code. Updating it to reflect a future state would mislead every AI session and engineer that reads it before implementation is complete — and if the work is deferred, the doc would be wrong indefinitely. The architecture doc is updated in the implementation plan's **Cleanup phase**, once the work is done, using the `## Target architecture` section of `Redesign--NNN.md` as the source.
 
 ## When to Use
 
@@ -37,7 +41,7 @@ Do **not** use for:
 1. **Interface contract first, always.** Even in a redesign, settle the new boundary before redesigning internals. A redesigned internal structure that contradicts the existing contract is a breaking change — that needs to be an explicit decision, not an accident.
 2. **Distinguish what changes from what stays.** Not everything is up for grabs. Identify the parts of the current design that are still correct and leave them alone. Only redesign what the diagnosis shows is broken or inadequate.
 3. **Record why the old approach no longer holds.** This is as important as recording the new decision. Future engineers and AI sessions need to understand the reasoning so they don't repeat the old pattern.
-4. **Two outputs, different lifetimes.** `Architecture_and_implementation.md` is the permanent living record — it should read as if the redesign is complete. `Redesign--NNN.md` is temporary — a spec document for the implementer. Delete it after the implementation plan is created.
+4. **One output, explicitly temporary.** `Redesign--NNN.md` contains the full decision record plus a `## Target architecture` section — what the architecture doc will say when the work is done. `Architecture_and_implementation.md` is not touched; it must remain accurate to the current code until implementation is complete. The architecture doc is updated in the Cleanup phase of the implementation plan, using the target architecture section as the source. Delete `Redesign--NNN.md` after that Cleanup task is done.
 5. **Push back on weak diagnoses.** "The code is messy" is not a redesign trigger. Require the user to articulate what the current approach gets wrong and why no incremental fix will do.
 6. **The redesign doc is not a plan.** It describes the scope and intent at a high level — enough for `devenv-plan-from-spec` to decompose into tasks. It does not list tasks, estimate effort, or prescribe implementation order.
 
@@ -191,65 +195,95 @@ Do not move to Phase 5 while critical design questions remain open.
 
 ---
 
-### Phase 5 — Draft Both Outputs
+### Phase 5 — Draft the Redesign Doc
 
-Before writing anything, show the user drafts of both outputs for approval.
-
-**Draft 1 — Changes to `Architecture_and_implementation.md`**
-
-Show a diff-style summary:
+Before writing anything, show the user a summary for approval:
 
 ```
-## Proposed changes to Architecture_and_implementation.md
+## Proposed Redesign--NNN.md coverage
 
-### Interface contract — Exposed surface
-- CHANGE: [what changes and why]
-- KEEP:   [what stays unchanged]
+### What changes
+- [Area]: [old approach] → [new approach] — [why old no longer holds]
+- ...
 
-### Internal structure
-- CHANGE: [what changes and why]
-- KEEP:   [what stays unchanged]
+### What stays the same
+- [Area]: [kept approach]
+- ...
 
-### Data model
-- CHANGE: [what changes and why]
+### Target architecture sketch
+- Interface contract: [key changes or "unchanged"]
+- Internal structure: [new shape in a sentence]
+- Data model: [key changes or "unchanged"]
 
-### Key decisions — new rows
-- Decision: [topic] | Old: [old choice] | New: [new choice] | Rationale: [why old no longer holds] | Trade-off: [what we accepted]
+### Acceptance criteria (proposed)
+- AC-1: ...
+- AC-2: ...
 ```
 
-**Draft 2 — `Redesign--NNN.md` structure**
-
-Show the proposed structure and ask the user to confirm scope and coverage before writing.
-
-Wait for explicit approval on both before proceeding to Phase 6.
+Ask the user to confirm scope and coverage — particularly the acceptance criteria and what's explicitly out of scope. Wait for explicit approval before proceeding to Phase 6.
 
 ---
 
 ### Phase 6 — Write
 
-**Output 1: `docs/Architecture_and_implementation.md`** (in-place update)
+Write `Redesign--NNN.md` to the workspace root (default) or component repo root — ask the user which, default workspace root so it is easy to pass to `devenv-plan-from-spec`. Use the [redesign doc format](#redesign-doc-format) below.
 
-- Set **Status** to `Under revision` while writing; set to `Stable` when done
-- Update **Last updated** date
-- Update only the sections agreed in Phase 4 — do not reformat or reword sections that are not changing
-- Add rows to **Key Decisions** for every structural change, including the old approach and why it no longer holds
-- Resolve or update **Known Unknowns** entries for any Q-NNN items addressed in this session
+**Do not modify `docs/Architecture_and_implementation.md`.** It stays as-is, accurate to the current code.
 
-**Output 2: `Redesign--NNN.md`** (new file)
-
-Write to the workspace root or the component repo root (ask the user which, default workspace root so it is easy to pass to `devenv-plan-from-spec`). Use the [redesign doc format](#redesign-doc-format) below. Mark it explicitly as temporary.
+If `docs/Architecture_and_implementation.md` has a **Status** field, set it to `Under revision` — this signals to readers that a redesign is in progress without changing any design content. Reset to `Stable` in the Cleanup phase.
 
 ---
 
 ### Phase 7 — Wrap-up
 
-After writing both files, give the user a brief summary:
+After writing the file, give the user a brief summary:
 
-- What sections of `Architecture_and_implementation.md` changed and what the key new decisions were
+- The key decisions made: what changes, what stays, and why the old approach no longer holds
 - Any Q-NNN items resolved or deferred
 - The path to `Redesign--NNN.md`
 - **Suggested next step:** run [`/devenv-plan-from-spec`](../devenv-plan-from-spec/SKILL.md) and pass `Redesign--NNN.md` as the input spec to generate a concrete implementation plan
-- **Reminder:** delete `Redesign--NNN.md` after the implementation plan is created — it is not living documentation
+- **Reminder about `Architecture_and_implementation.md`:** it has been marked `Under revision` but not changed. The implementation plan's Cleanup phase must include a task: *"Update `Architecture_and_implementation.md` using the `## Target architecture` section of `Redesign--NNN.md` as the source — use `/devenv-refine-technical-design` for this."*
+
+Then ask:
+
+> *"Want to track this in a GitHub issue? I can create a new one, or post the redesign doc to an existing issue number. The document will go in a comment; the description stays as a short placeholder for `/devenv-plan-from-spec`.'"*
+
+If yes:
+
+1. **New issue or existing?** If the user provides an issue number, skip to step 4.
+
+2. **Draft the issue title** — propose and ask the user to confirm or adjust:
+   - `Redesign: <component name> — <YYYY-MM-DD>`
+
+3. **Draft the issue body** (placeholder — redesign doc goes in the comment):
+   ```
+   Redesign document is in the first comment below.
+
+   Next step: run `/devenv-plan-from-spec <issue number>` to generate a concrete implementation plan from the redesign doc.
+   ```
+
+4. **Show a preview** (title + body for new issues; first ~15 lines of the document content for existing) and ask:
+   > *"Ready to post the redesign doc? (y/n)"*
+
+5. On confirmation:
+
+   **If creating a new issue:**
+   - `issue-create --repo "$GITHUB_REPO" --title "<title>" --body "<body>"`
+   - Note the new issue number.
+   - Write the redesign doc to a temp file.
+   - `issue-comment <N> --body-file <temp-file>`
+   - Surface the issue URL.
+
+   **If posting to an existing issue:**
+   - Write the redesign doc to a temp file.
+   - `issue-comment-list <N>` — scan for an existing redesign comment (a comment whose body begins with `# Redesign:`).
+   - If found: `issue-comment-update <COMMENT_ID> --body-file <temp-file>` (replaces the prior version).
+   - If not found: `issue-comment <N> --body-file <temp-file>` (adds a new comment).
+   - Surface the issue URL.
+
+   The GH issue comment is the canonical record. The local `Redesign--NNN.md` is a working copy.
+
+Never create an issue or post a comment without explicit "yes" confirmation.
 
 ---
 
@@ -258,11 +292,9 @@ After writing both files, give the user a brief summary:
 ```markdown
 # Redesign: [Component Name]
 
-> **TEMPORARY DOCUMENT** — This is the input spec for `/devenv-plan-from-spec`. Delete after the implementation plan is created and verified.
-
 **Component:** [component name]  
 **Repo:** [workspace-relative path]  
-**Architecture doc:** [link to Architecture_and_implementation.md]  
+**Architecture doc:** [link to Architecture_and_implementation.md] ← marked `Under revision`; do not use as reference for the new design — use `## Target architecture` below  
 **Date:** [date]  
 **Related issue:** [GH issue # if any, otherwise omit]
 
@@ -287,12 +319,6 @@ After writing both files, give the user a brief summary:
 
 ---
 
-## Affected areas (high level)
-
-[A module/layer-level description of what needs to change in the codebase. Not a file list — more like "the job scheduling layer needs to be replaced with X", "the data access layer needs a new abstraction for Y". Enough for devenv-plan-from-spec to generate tasks from.]
-
----
-
 ## What stays the same
 
 [Explicit list of what is NOT changing. This bounds the scope and prevents the implementation plan from drifting into territory that doesn't need to change.]
@@ -301,7 +327,43 @@ After writing both files, give the user a brief summary:
 
 ## Acceptance criteria
 
-[How we know the redesign is complete. Observable behaviour that must still work. New behaviour that must work. Specific tests or checks that will verify completion.]
+[How we know the redesign is complete. Observable behaviour that must still work. New behaviour that must work. Use `**AC-N**` identifiers.]
+
+- [ ] **AC-1** *(explicit | inferred)*
+- [ ] **AC-2** *(explicit | inferred)*
+
+---
+
+## Target architecture
+
+> This section describes what `Architecture_and_implementation.md` should say **after** implementation is complete.
+> Use this as the source when running `/devenv-refine-technical-design` in the Cleanup phase.
+
+### Overview
+[One sentence: what this component does and why it exists — post-redesign.]
+
+### Interface contract
+
+**Exposed surface:** [post-redesign exposed surfaces]
+
+**Dependencies:** [post-redesign consumed surfaces]
+
+### Internal structure
+[Post-redesign layering and key modules.]
+
+### Data model
+[Post-redesign owned state and key changes from today.]
+
+### Error handling
+[Post-redesign error strategy — only if it changes; otherwise "unchanged".]
+
+### Test strategy
+[Post-redesign test approach — only if it changes; otherwise "unchanged".]
+
+### Key decisions
+| Decision | Old choice | New choice | Rationale | Trade-off accepted |
+|---|---|---|---|---|
+| [topic] | [old] | [new] | [why old no longer holds] | [what we gave up] |
 ```
 
 ---
@@ -310,7 +372,8 @@ After writing both files, give the user a brief summary:
 
 - **Redesigning everything because "the code is messy."** Messy code is a refactoring task, not a redesign. A redesign means the fundamental approach to at least one major area is wrong. Require a precise diagnosis.
 - **Skipping the diagnosis.** Moving directly to "here's the new design" without articulating what the old design gets wrong means the same problems will resurface. The diagnosis is not optional.
-- **Leaving the `Redesign--NNN.md` in the repo permanently.** It is a temporary spec document, not living documentation. It becomes stale the moment implementation begins. Delete it after the implementation plan exists.
+- **Updating `Architecture_and_implementation.md` during the redesign session.** The doc describes the current system and must stay accurate to the current code until implementation is complete. If it describes a future state during a deferral period, it misleads every AI session and engineer that reads it. Leave it alone; set its Status to `Under revision` at most. Update it in the Cleanup phase.
+- **Leaving the `Redesign--NNN.md` in the repo permanently.** It is a working copy; the canonical record is the GH issue comment. The implementation plan generated by `devenv-plan-from-spec` includes a Cleanup phase task to update `Architecture_and_implementation.md` from the `## Target architecture` section. Once that task is complete, delete the local `Redesign--NNN.md` file. If no GH issue was created, delete it after the implementation plan exists.
 - **Writing the redesign doc at task-level.** It should describe intent and scope, not implementation steps. If it starts listing files to change or code to write, it has drifted into implementation plan territory — stop and use `devenv-plan-from-spec` instead.
 - **Reopening decisions that the diagnosis marked "keep."** Once the diagnosis is agreed, don't re-examine the kept areas. Scope creep in a redesign is costly.
 - **Conflating a redesign with a blueprint change.** If the redesign changes how the component fits into the system (its events, its contracts with other services, its position in the dependency graph), that may also require updating the system blueprint — flag it, but don't do it inline. Suggest [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) as a follow-on.

@@ -104,6 +104,9 @@ Beyond those two sections, follow all rules from `/devenv-create-implementation-
 
 - Phase 1 is **always Discovery + test scaffolding** (explore codebase; stub new interfaces; write tests that assert **current observable behaviour** — including stubs that throw as expected — all tests must pass at the end of Phase 1; do **not** write tests that assert behaviour not yet implemented).
 - Last phase is **always Cleanup & docs**.
+- **If the spec is a `Redesign--NNN.md`**, the Cleanup phase must include two additional tasks:
+  1. *"Update `docs/Architecture_and_implementation.md` using the `## Target architecture` section of `Redesign--NNN.md` as the source — run `/devenv-refine-technical-design` for this."*
+  2. *"Delete the local `Redesign--NNN.md` working copy. The canonical record is the GH issue comment (if one was posted); if no issue exists, the file may still be deleted once the architecture doc is updated."*
 - Tasks follow the **full format** — see [task-format.md](../devenv-create-implementation-plan/references/task-format.md): `- [ ] **N.M [S|M|L] Title** ([additional context](#anchor))` header; descriptive sub-bullets first; `Files:` / `decision:` / `owner:` / `depends on` metadata last. Every task gets an `[S|M|L]` size label. Do not generate title-only or abbreviated tasks.
 - Phase rules — see [phase-rules.md](../devenv-create-implementation-plan/references/phase-rules.md): each phase must end committable (tests pass, coverage does not regress, single-PR sized); tests appear alongside code tasks in each phase (not deferred to the end); every phase header gets a `> blockquote` preamble plus `> **Orientation:**` sub-blockquote.
 

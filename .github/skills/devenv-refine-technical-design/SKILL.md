@@ -131,7 +131,8 @@ After writing, give the user a brief summary:
 - **Updating without recording the decision.** Every structural change to the document needs a Key Decisions entry. "The interface changed" is not a decision record.
 - **Trusting the user's description over the code.** When code exists, read it. Designs drift from implementation; the document should match reality.
 - **Silently removing deferred items.** If a Known Unknown is no longer relevant (e.g. the feature was cut), note the removal and why rather than deleting quietly.
-- **Scope creep into a full redesign.** If the changes are so extensive that the fundamental approach to one or more major areas is being reconsidered, stop and use [`/devenv-redesign-component`](../devenv-redesign-component/SKILL.md) instead. That skill runs a proper diagnosis, produces an updated living doc, and generates a temporary redesign spec for the implementer.
+- **Scope creep into a full redesign.** If the changes are so extensive that the fundamental approach to one or more major areas is being reconsidered, stop and use [`/devenv-redesign-component`](../devenv-redesign-component/SKILL.md) instead. That skill runs a proper diagnosis, produces a `Redesign--NNN.md` with a `## Target architecture` section, and defers the architecture doc update to the Cleanup phase.
+- **Applying a `Redesign--NNN.md` target architecture before the implementation is complete.** `Architecture_and_implementation.md` must describe the current code at all times. If a `Redesign--NNN.md` exists but implementation hasn't started or is in progress, do not update the architecture doc yet — it would mislead every AI session and engineer that reads it. This skill should only be invoked for the redesign's Cleanup task, after the implementation work is done.
 
 ## Sibling skills
 

@@ -147,9 +147,11 @@
                     "git log --name-status": true,
                     "git log --oneline": true,
                     "git log --graph": true,
+                    "git remove": true,
                     "pr-threads-get": true,
                     "issue-get": true,
                     "issue-list": true,
+                    "issue-comment-list": true,
                     "pr-get": true,
                     "pr-list": true,
                     "pr-diff": true,
@@ -241,7 +243,8 @@
                     "docker images": true,
                     "docker logs": true,
                     "docker inspect": true,
-                    "docker version": true
+                    "docker version": true,
+                    "bats": true
                 }
             }
         }

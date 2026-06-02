@@ -179,7 +179,10 @@ There are two distinct GitHub flows — do not mix them.
 1. After writing the audit file, draft a comment containing the **executive summary** and the relative path to the full audit file.
 2. Show the draft in chat.
 3. Ask: *"Post this summary to issue #NNN? (y/n)"*
-4. If yes, write the summary to a temp file and run `issue-comment N --body-file <temp-file>`.
+4. If yes, write the summary to a temp file.
+   - `issue-comment-list <N>` — scan for an existing audit comment (a comment whose body begins with `# Tech Debt Audit`).
+   - If found: `issue-comment-update <COMMENT_ID> --body-file <temp-file>` (replaces the prior version).
+   - If not found: `issue-comment <N> --body-file <temp-file>` (adds a new comment).
 5. Surface the issue URL from the tool output.
 
 ### Flow B: Create a new issue after the audit
@@ -188,15 +191,17 @@ There are two distinct GitHub flows — do not mix them.
 
 After writing the audit file, ask:
 
-> *"Want to file a GitHub issue to track this work? I'll put the full audit in a comment and leave the description as a placeholder for an implementation plan."*
+> *"Want to track this in a GitHub issue? I can create a new one, or post the audit to an existing issue number. The full audit will go in a comment; the description stays as a placeholder for an implementation plan."*
 
 If the user says yes:
 
-1. **Draft the issue title** — propose it and ask the user to confirm or adjust:
+1. **New issue or existing?** If the user provides an issue number, skip to step 4 using the existing issue.
+
+2. **Draft the issue title** — propose it and ask the user to confirm or adjust:
    - With focus area: `Tech Debt Audit: <focus-area> — <repo-name> — <YYYY-MM-DD>`
    - Without focus area: `Tech Debt Audit — <repo-name> — <YYYY-MM-DD>`
 
-2. **Draft the issue body** (this becomes the issue description, not the findings):
+3. **Draft the issue body** (this becomes the issue description, not the findings):
    ```
    Tech debt audit findings are in the first comment below.
 
@@ -206,7 +211,7 @@ If the user says yes:
    Audit file: `<workspace-relative-path-to-TECH_DEBT_AUDIT.md>`
    ```
 
-3. **Select comment content** — present the options and ask which sections to include:
+4. **Select comment content** — present the options and ask which sections to include:
 
    > *"The full audit is NNN lines. What should go in the comment?"*
    >
@@ -217,16 +222,27 @@ If the user says yes:
 
    Wait for the user's choice. Default to (a) if they just say "yes" or "go ahead".
 
-4. **Show a preview** of the full draft (title, body, and first ~20 lines of the comment content) and ask for final approval:
+5. **Show a preview** of the full draft (title + body for new issues; first ~20 lines of the comment content for existing) and ask for final approval:
 
-   > *"Ready to create the issue and post the comment? (y/n)"*
+   > *"Ready to post the audit? (y/n)"*
 
-5. On confirmation:
+6. On confirmation:
+
+   **If creating a new issue:**
    a. Create the issue: `issue-create --repo "$GITHUB_REPO" --title "<title>" --body "<body>"`
    b. Note the new issue number from the output.
    c. Write the selected audit content to a temp file.
    d. Post it as a comment: `issue-comment <N> --body-file <temp-file>`
    e. Surface the issue URL.
+
+   **If posting to an existing issue:**
+   a. Write the selected audit content to a temp file.
+   b. `issue-comment-list <N>` — scan for an existing audit comment (a comment whose body begins with `# Tech Debt Audit`).
+   c. If found: `issue-comment-update <COMMENT_ID> --body-file <temp-file>` (replaces the prior version).
+   d. If not found: `issue-comment <N> --body-file <temp-file>` (adds a new comment).
+   e. Surface the issue URL.
+
+   The GH issue comment is the canonical record. The local audit file is a working copy.
 
 Never create an issue or post a comment without explicit "yes" confirmation.
 

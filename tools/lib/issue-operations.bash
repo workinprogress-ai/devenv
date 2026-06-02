@@ -716,6 +716,113 @@ set_issue_type() {
     fi
 }
 
+# ============================================================================
+# Issue Comment Operations
+# ============================================================================
+
+# Validate that a value is a positive integer (suitable as a comment ID)
+# Usage: validate_comment_id COMMENT_ID
+# Returns: 0 if valid; 1 with error message if not
+validate_comment_id() {
+    local id="$1"
+    if [[ ! "$id" =~ ^[0-9]+$ ]]; then
+        log_error "Invalid comment ID: $id — expected a positive integer"
+        return 1
+    fi
+}
+
+# Fetch all comments for an issue via the GitHub REST API
+# Usage: fetch_issue_comments ISSUE_NUMBER
+# Returns: Raw JSON array on stdout; exit 1 on API failure
+# Note: Requires GITHUB_REPO env var (owner/repo) to be set
+fetch_issue_comments() {
+    local issue_number="$1"
+    local raw
+    if ! raw=$(GH_REPO="${GITHUB_REPO:-}" gh api \
+            "repos/{owner}/{repo}/issues/${issue_number}/comments" \
+            --paginate 2>/dev/null); then
+        log_error "Failed to fetch comments for issue #$issue_number — does the issue exist?"
+        return 1
+    fi
+    echo "$raw"
+}
+
+# Format raw comments JSON into the standard comment shape
+# Usage: format_issue_comments RAW_JSON [--pretty] [--full]
+# Arguments:
+#   RAW_JSON   Raw JSON array from fetch_issue_comments
+#   --pretty   Output as a pretty-printed JSON array (default: one object per line)
+#   --full     Include complete body as "body" field instead of the 256-char "bodyPreview"
+# Returns: Formatted JSON on stdout
+format_issue_comments() {
+    local raw="$1"
+    local pretty=""
+    local full=""
+    shift
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --pretty) pretty=1 ;;
+            --full)   full=1 ;;
+        esac
+        shift
+    done
+
+    local body_field
+    if [ -n "$full" ]; then
+        body_field='body: .body'
+    else
+        body_field='bodyPreview: (.body | if length > 256 then .[0:256] + "…" else . end)'
+    fi
+
+    local transformed
+    transformed=$(echo "$raw" | jq '[.[] | {
+        id: .id,
+        author: .user.login,
+        createdAt: .created_at,
+        updatedAt: .updated_at,
+        '"$body_field"',
+        url: .html_url
+    }]')
+
+    if [ -n "$pretty" ]; then
+        echo "$transformed" | jq .
+    else
+        echo "$transformed" | jq -c '.[]'
+    fi
+}
+
+# Verify that a comment ID exists in the repository
+# Usage: check_issue_comment_exists COMMENT_ID
+# Returns: 0 if the comment exists; 1 with error message if not
+# Note: Requires GITHUB_REPO env var (owner/repo) to be set
+check_issue_comment_exists() {
+    local comment_id="$1"
+    if ! GH_REPO="${GITHUB_REPO:-}" gh api \
+            "repos/{owner}/{repo}/issues/comments/${comment_id}" \
+            --silent 2>/dev/null; then
+        log_error "Comment ID $comment_id not found — does it belong to this repository?"
+        return 1
+    fi
+}
+
+# Replace the body of an existing issue comment via the GitHub REST API
+# Usage: update_issue_comment COMMENT_ID BODY
+# Returns: 0 on success; 1 with error message on API failure
+# Note: Requires GITHUB_REPO env var (owner/repo) to be set
+update_issue_comment() {
+    local comment_id="$1"
+    local body="$2"
+    if ! GH_REPO="${GITHUB_REPO:-}" gh api \
+            "repos/{owner}/{repo}/issues/comments/${comment_id}" \
+            -X PATCH \
+            -f "body=${body}" \
+            --silent; then
+        log_error "Failed to update comment $comment_id"
+        return 1
+    fi
+}
+
 # Export functions
 export -f set_issue_type
 export -f build_issue_filters
@@ -732,3 +839,8 @@ export -f load_issue_types_from_config
 export -f build_type_menu
 export -f get_type_label_from_choice
 export -f get_all_type_labels
+export -f validate_comment_id
+export -f fetch_issue_comments
+export -f format_issue_comments
+export -f check_issue_comment_exists
+export -f update_issue_comment

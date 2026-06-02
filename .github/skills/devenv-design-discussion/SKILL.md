@@ -94,30 +94,47 @@ See [design-doc-template.md](./references/design-doc-template.md) for structure.
 
 After writing the doc, also ask:
 
-> *"Want to file a GitHub issue to track this work? I'll add the design document as a comment and leave the description as a short placeholder so it can be picked up with `/devenv-plan-from-spec` later."*
+> *"Want to track this in a GitHub issue? I can create a new one, or post the design to an existing issue number. The document will go in a comment; the description stays as a short placeholder for the next skill."*
 
 If yes:
 
-1. **Draft the issue title** — propose and ask the user to confirm or adjust:
+1. **New issue or existing?** Ask whether to create a new issue or use an existing one. If the user provides an issue number, skip to step 4.
+
+2. **Draft the issue title** — propose and ask the user to confirm or adjust:
    - `Design: <topic> — <YYYY-MM-DD>`
 
-2. **Draft the issue body** (placeholder — design goes in the comment):
+3. **Draft the issue body** (placeholder — design goes in the comment):
    ```
    Design document is in the first comment below.
 
-   Next step: use `/devenv-plan-from-spec <issue number>` to generate an implementation plan from the design,
-   or `/devenv-create-blueprint` if this discussion revealed system-level architectural work.
+   Next step depends on what the discussion settled:
+   - System-level architectural work → `/devenv-create-blueprint`
+   - Component design needs formal spec → `/devenv-create-technical-design`
+   - Design is settled and scope is narrow → `/devenv-plan-from-spec <issue number>`
+
    Document file: `<workspace-relative path to Design-<topic>-NNN.md>`
    ```
 
-3. **Show a preview** (title, body, and first ~15 lines of the comment content) and ask:
-   > *"Ready to create the issue and post the comment? (y/n)"*
+4. **Show a preview** (title + body for new issues; first ~15 lines of the document content for existing) and ask:
+   > *"Ready to post the design? (y/n)"*
 
-4. On confirmation:
+5. On confirmation:
+
+   **If creating a new issue:**
    - `issue-create --repo "$GITHUB_REPO" --title "<title>" --body "<body>"`
-   - Write the design document to a temp file
+   - Note the new issue number.
+   - Write the design document to a temp file.
    - `issue-comment <N> --body-file <temp-file>`
    - Surface the issue URL.
+
+   **If posting to an existing issue:**
+   - Write the design document to a temp file.
+   - `issue-comment-list <N>` — scan for an existing design comment (a comment whose body begins with the document's heading line).
+   - If found: `issue-comment-update <COMMENT_ID> --body-file <temp-file>` (replaces the prior version).
+   - If not found: `issue-comment <N> --body-file <temp-file>` (adds a new comment).
+   - Surface the issue URL.
+
+   The GH issue comment is the canonical record. The local file is a working copy and may be deleted once posted.
 
 Never create an issue or post a comment without explicit "yes" confirmation.
 
