@@ -20,20 +20,23 @@ Phases exist so that work can be **paused, reviewed, and shipped** at clean boun
    - Tests added in this phase **assert observable behaviour** — a test that merely executes code without asserting anything does not count toward coverage.
    - The build is green.
 
-4. **If a phase can't satisfy the committable rule without disproportionate cost, the exception path applies.** This is a last resort, not a routine escape:
-   - State explicitly in the plan why the rule can't be met for this phase.
-   - Accept a temporary coverage dip only when the cost of immediate testing genuinely outweighs the benefit (rare).
-   - The next phase must restore coverage to at least the pre-exception baseline.
+4. **Coverage escape hatch (last resort).** When satisfying the coverage rule would require genuinely disproportionate effort — not just effort, but effort that outweighs the benefit of the checkpoint — an escape hatch may be used. Two acceptable forms:
 
-   **The user can override the coverage rule** for a given phase in two ways:
-   - **Explicit rejection** — the user directly says the rule doesn't apply to this phase.
-   - **Coverage exclusion** — the user opts to mark code with the appropriate language attribute (e.g. `[ExcludeFromCodeCoverage]` in C#, `/* istanbul ignore */` in TypeScript) to legitimately exclude it from measurement.
+   **Form A — Exclusion annotation:** Mark the new code with the appropriate language attribute to legitimately exclude it from measurement. The reason must be stated in a comment adjacent to the annotation.
+   - C#: `[ExcludeFromCodeCoverage]`
+   - TypeScript/JS: `/* istanbul ignore */`
+
+   **Form B — Documented floor drop:** Accept a temporary coverage dip. The plan must explicitly document: the pre-dip baseline percentage, why immediate testing is not feasible, and which phase restores coverage (must be the next phase or the finalization phase — not "eventually").
+
+   **Either form requires a mandatory cleanup task.** The escape hatch is a debt instrument, not a waiver. A cleanup task must be added to the finalization phase at the moment the escape hatch is invoked. This task explicitly removes the exclusion annotation or confirms coverage is restored. The escape hatch is not closed until that task completes.
+
+   **Gating:** Escape hatch use must be declared before the phase is marked done — not retroactively justified. During pair-programming, the engineer decides and records it in the session changelog. During delegation, the AI makes a genuine effort to add the missing tests before surfacing the need; if coverage still can't be recovered after reasonable effort, the AI asks the user to choose a form before proceeding.
 
 5. **Tests are written per-phase, not at the end.** Each phase's task list must include test tasks for what that phase introduces. Do not create a standalone "write tests" phase at the end — by then the code is hard to test and the discipline is already lost. If using a TDD red-green approach within a task, the full cycle (write failing test → implement → test passes) must complete within the same phase — do not write a failing test for behaviour that will only be implemented in a later phase.
 
 ## Soft guidance
 
-- Aim for 2–6 phases for a typical story. Fewer = phases too big; more = tasks probably belong inside fewer phases.
+- **Phase sizing is deliverable-first, not size-first.** Each phase has a clear deliverable that is a value-add in its own right — something a reviewer can understand and assess without context from other phases. Size follows from the deliverable; no arbitrary upper or lower count rule applies. Scaffolding, endpoint stubs, a fully-implemented feature, documentation, edge-case tests — all of these are legitimate phase deliverables. A phase that contains only intermediate steps whose sole purpose is to keep the build green is a smell that the phase boundary is in the wrong place; merge it into the adjacent phase where the real deliverable lives.
 - Tasks within a phase that share no `depends on` may be parallelised by a pair.
 - Prefer ordering that lets the riskiest unknowns be tested earliest (Phase 1 / Phase 2).
 - Temporary scaffolding code (mocks, fakes, test doubles, temporary endpoints) is fine as long as Phase N (Cleanup) explicitly removes the scaffolding code. Tests themselves are not scaffolding; they stay.
@@ -99,10 +102,10 @@ When two or more patterns are viable, surface the options and a recommendation d
 ## Committability checklist (use at end of each phase)
 
 - [ ] All tests pass locally
-- [ ] Coverage report ≥ baseline taken at the start of the phase
+- [ ] Coverage report ≥ baseline taken at the start of the phase *(or escape hatch declared: annotation applied with reason comment, OR floor drop documented with recovery phase named, AND cleanup task added to finalization phase)*
 - [ ] Tests added this phase assert observable behaviour (not just execute code)
 - [ ] No TODOs left that block the next phase
-- [ ] Diff is small enough for one focused PR review
+- [ ] Phase delivered something of clear, standalone value (feature, scaffold, docs, tests) — not only intermediate steps to support a future phase
 - [ ] Any temporary scaffolding code added is either still needed, or scheduled for removal in a later phase's task list
 
 ## Anti-patterns
@@ -116,3 +119,5 @@ When two or more patterns are viable, surface the options and a recommendation d
 - Writing failing tests for functionality to be implemented in a later phase — the TDD red-green cycle must complete within the same phase it starts. Tests written in Phase 1 must assert **current observable behaviour** (including "this stub throws as expected") and must pass at the end of Phase 1. Do not write a test that expects real behaviour the code does not yet have.
 - DEVENV markers left in committed code — any `// DEVENV[...]` temporary comment introduced during the plan must be removed in the Cleanup phase. The Cleanup phase must include an explicit removal task if any markers were added. `grep -rn "DEVENV\[" .` must return zero results before the plan is complete.
 - Legacy and new implementations coexisting across multiple phases with no cleanup task — if `LegacyFooService` or a hollow-out stub is introduced, the Cleanup phase must have an explicit task to remove it.
+- Phases that consist entirely of intermediate steps (add-stub → implement → remove-stub, each as a separate phase) existing only to keep the build green — these are a sign the phase boundary is in the wrong place. Merge them into one deliverable phase. If keeping green between steps is genuinely difficult, use the escape hatch rather than creating hollow phases.
+- Coverage escape hatch used without a cleanup task in the finalization phase — an exclusion annotation or documented floor drop that has no corresponding cleanup task is an open debt with no scheduled repayment.

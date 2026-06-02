@@ -192,6 +192,8 @@ Don't force this on someone who clearly knows what they're doing.
 
 ### 5. Emit phase file links
 
+> **Phase transition is a momentum reset.** However the previous phase ended — AI driving solo through build fixes, rapid back-and-forth, a burst of refactors — none of that momentum carries forward. Every phase transition starts from step 5, cold. The fact that a plan has numbered tasks and explicit file targets does not change this; a prescriptive plan is a guide for the pair, not a script for solo execution. If you find yourself about to write code before the task split is agreed, stop: you are not in the right place.
+
 Before asking about roles, output a compact **Files in scope** block. If the plan uses the `Files:` bullet convention, collect those paths for all tasks in the upcoming phase — no codebase exploration needed. Otherwise, use files identified from plan tasks or prior codebase orientation. Omit the block entirely in ad-hoc mode or if no files have been identified.
 
 Format:
@@ -267,6 +269,7 @@ For 3+ tasks, use a table:
 
 Rules:
 - **Never cross phase boundaries in a task split.** A split always contains tasks from the current phase only. If a task in a future phase appears relevant or blocking, don't pull it into the current split — note it and, if the coupling is strong enough to matter, offer a plan revision conversation: *"4.1 looks related — if you'd like to tackle it alongside 3.1, that might mean re-grouping them into the same phase. Want to do that now, or keep the phase structure as-is and revisit 4.1 when we get there?"*
+- **Task split is at the task level only.** Sub-bullets under a task are navigator notes — context for whoever drives the task. They are not sub-tasks and are not split, negotiated, or tracked individually.
 - Use `[S/M/L]` size labels if present: prefer giving the user tasks with `decision:` bullets or `[L]` work; AI takes `[S]` mechanical tasks.
 - Respect `owner:` annotations: `owner: User` tasks always go to the user; `owner: AI` tasks always go to the AI. These are not negotiable in the proposal — just state them as assigned.
 - Either party can take any unowned task — the user's preference overrides.
@@ -379,9 +382,11 @@ If it's genuinely unclear whether the user wants discussion or action, ask: *"Wa
 
 ### Navigation directives are not implementation directives
 
-**"Proceed to phase X"**, **"start phase X"**, **"move on"**, **"never mind, just proceed"** — these mean: run the phase transition protocol (file links → decision flags → task split negotiation). They are not authorization to implement the phase.
+**"Proceed to phase X"**, **"start phase X"**, **"move on"**, **"never mind, just proceed"**, **"I think we're ready for phase X"**, **"we should do phase X next"**, **"let's do phase X"** — these all mean: run the phase transition protocol (file links → decision flags → task split negotiation). They are not authorization to implement the phase.
 
 The correct response to *"never mind, just proceed to phase 3"* is to emit the Phase 3 file links block, flag any decisions, and propose a task split. Then stop and wait. Do not begin coding.
+
+**This applies equally to readiness assertions.** *"I think we're ready for phase 4"* is an affirmation of readiness, not an execution directive. The correct response is to run the phase kickoff protocol (steps 5–7) — surface the file links, flag any decision tasks, propose a task split — then stop. Do not interpret momentum, enthusiasm, or a clear plan as license to begin implementing without a split.
 
 **This applies equally to affirmative responses to AI-prompted questions.** When the AI asks *"Ready to move to phase 3?"* and the user says *"yes"*, *"yes, let's do it"*, *"go ahead"*, *"sounds good"* — the answer is the same: run the phase kickoff protocol and stop. The user's yes is consent to *begin the phase*, not to implement it solo.
 
@@ -479,6 +484,7 @@ Raise a revision explicitly when:
 - A planned task turns out to be unnecessary or harmful.
 - The phase ordering no longer makes sense given what was learned.
 - A `decision:` turns out to surface a scope change, not just a style choice.
+- **A task in the current phase cannot be completed yet** — because a prerequisite is missing, a dependency isn't ready, or the conditions for the task don't yet exist. Stop work on that task, name the blocker clearly, and propose moving it to a later phase. Do not skip it silently or hold the phase open indefinitely waiting for it.
 - **The user implements something during their turn that diverges from the plan** — don't silently absorb it; name the delta and offer to update the plan to reflect what was actually built.
 
 For minor discoveries (a test case to add, a variable to rename), just do the work and note it in the session wrap-up. Revisions are for structural changes.
@@ -738,6 +744,13 @@ If coverage has dropped, **it is a blocker** — the phase is not committable. S
 
 > *"🛑 Coverage dropped from 87% to 84% in this phase. We need to add tests for [X] before this phase is committable. Want me to take those, or will you?"*
 
+**Coverage escape hatch:** if adding the missing tests is genuinely disproportionate (e.g. the code is untestable without structural changes, or the coverage gap is in code the next phase will replace), the engineer may invoke the escape hatch rather than block the phase:
+
+- **Form A** — apply `[ExcludeFromCodeCoverage]` or equivalent annotation. Add a reason comment adjacent to the annotation.
+- **Form B** — accept a documented floor drop. Note the baseline, the reason, and which phase restores it.
+
+Either form requires adding a cleanup task to the finalization phase **at that moment**. Note the bypass in the session changelog. The escape hatch is a debt instrument; the cleanup task is its repayment schedule.
+
 If the gate passes cleanly, announce it before moving to Session Wrap-Up:
 
 > *"✅ Gate clear — phase is committable."*
@@ -779,6 +792,7 @@ When the user signals end of session (or a phase boundary that suggests a natura
 ## Anti-patterns
 
 - Starting a task before the task split is agreed.
+- Using `manage_todo_list` or any structured task list before the task split is agreed — creating a structured breakdown before the split cements delegation mode in your own reasoning. The task split *is* the structured plan. There is nothing to organize before it's negotiated.
 - Starting the next task before the previous one is approved.
 - Proposing a task split that crosses phase boundaries — if a future-phase task looks relevant, note it and offer a plan revision rather than collapsing the boundary.
 - Referencing plan task numbers (3.1, 4.2, etc.) without linking them to the plan file.

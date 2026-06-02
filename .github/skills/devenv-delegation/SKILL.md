@@ -324,9 +324,21 @@ Before wrapping a phase and syncing the issue body, run the committability check
 - [ ] No blocking TODOs
 - [ ] No straggler forward DEVENV comments remain for work completed this phase — run `grep -rn "DEVENV\[" <repo-root>` to confirm and remove any found
 
-If coverage has dropped, **stop** — add a hotspot entry and surface it to the user before proceeding:
+If coverage has dropped:
 
-> *"Coverage dropped from 87% to 84% in this phase. I need to add tests for [X] before this phase is committable. Taking those now unless you'd prefer to handle them."*
+1. **Try first.** Before surfacing to the user, make a genuine effort to add the missing tests. If the gap is addressable with reasonable effort, close it without interrupting the flow.
+
+2. **Surface if unable.** If after reasonable effort coverage still hasn't recovered, surface it with context:
+
+   > *"Coverage dropped from 87% to 84%. I've added tests for X and Y but can't get Z covered without [reason — e.g. 'the method is internal and only exercised through integration', 'it requires a real external dependency']. Options: (a) I apply `[ExcludeFromCodeCoverage]` on that code with a reason comment, or (b) accept a documented floor drop and restore it in the finalization phase. Which do you prefer?"*
+
+   Wait for an explicit decision before proceeding.
+
+3. **If the user approves a bypass.** Apply the chosen form immediately:
+   - **Form A** (exclusion annotation): add the annotation + a reason comment adjacent to it.
+   - **Form B** (floor drop): add a note to the plan documenting the baseline, reason, and recovery phase.
+
+   Either way: add a cleanup task to the finalization phase **now**, and flag it as a hotspot in the phase completion handback.
 
 The exception path (documented last resort) must be explicitly surfaced and agreed before the phase is marked done.
 
@@ -405,6 +417,8 @@ The same criteria apply here as in pair-programming's plan revision rules. The k
 **Minor extra work (just do it):** Can be completed without adding tasks to the plan, touches files already in scope for the phase just completed, and clearly fits within the spirit of what was done. Do it, then note it as an addendum to the handback: *"Also done: [brief description]."*
 
 **Larger work (offer to edit the plan):** Would require new plan tasks, touches files outside the current phase's scope, or represents scope expansion that future phases should know about. Surface it explicitly — name the impact, propose where it lands (existing future phase or new phase), get explicit agreement, then update the local plan file.
+
+**Task deferral:** If during a phase a task cannot be completed — because a prerequisite is missing, a dependency isn't ready, or the conditions don't yet exist — stop work on that task, name the blocker explicitly, and propose moving it to a later phase. Do not skip it silently or leave the phase open indefinitely. Present the proposed destination and wait for user approval before editing the plan.
 
 For plan edits (whether to a future phase or a new phase), follow the same protocol as pair-programming's plan revision rules: state the change clearly, propose options, get agreement, update the file.
 
