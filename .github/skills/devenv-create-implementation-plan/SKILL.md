@@ -69,6 +69,17 @@ Use `vscode_askQuestions` to confirm/fill gaps. Always cover:
 - Any preferred phase breakdown or constraints
 - Whether throwaway scaffolding tests are expected
 
+Once the above is gathered, **draft the phase structure — names and one-line deliverable descriptions only — and discuss it before writing any task details.** Phase objectives should be agreed before the task list is written; tasks do not need to be discussed in detail. Present the phase outline like:
+
+> *"Here's how I'd divide this work:*
+> - *Phase 1 — Discovery & test scaffolding: read existing code, confirm assumptions, add tests for current behaviour*
+> - *Phase 2 — [Name]: [deliverable]*
+> - *Phase N — Cleanup & docs: remove scaffolding, update docs, verify coverage*
+>
+> *Does this structure make sense for what you're building? Any phases to merge, split, or reorder before I fill in the tasks?"*
+
+Wait for explicit approval of the phase structure before proceeding to draft tasks.
+
 ### 5. Draft the plan in chat
 
 Use the [plan template](./references/plan-template.md). Follow:
@@ -127,12 +138,13 @@ See [phase-rules.md](./references/phase-rules.md) for the full checklist.
 
 - **Phase 1 is always**: Discovery & test scaffolding
 - **Last phase is always**: Cleanup & docs
-- Each phase must be **atomic and committable**: tests pass, coverage does not regress, sized for a single PR
+- Each phase must be **atomic and committable**: tests pass, coverage does not regress, deliverable is clear and stands on its own
+- Each phase should have a **clear deliverable that is a value-add** — scaffolding, a set of stubbed endpoints, a fully-implemented feature, documentation, edge-case tests. Phases consisting only of intermediate steps to keep the build green belong merged into the phase whose deliverable they serve.
 - Each phase's task list must include **test tasks alongside the code tasks** — do not defer all testing to a final phase
 - Tests written in early phases assert the **current state** (including stubs); they evolve as implementation lands — they are not discarded
 - **TDD red-green cycles must close within the same phase** — if a test is written in the failing state first, the implementation that makes it pass must be in the same phase; do not write tests that assert behaviour not yet present in the codebase
 - When legacy and new code would be **mixed in the same files across multiple phases**, prefer a dedicated early **legacy cleanup phase** — see [phase-rules.md](./references/phase-rules.md) for patterns (demolition, hollow-out, rename suffix, branch by abstraction) and decision guidance; surface options when multiple are viable, choose the clear winner when one exists
-- Exception path: if a phase genuinely cannot satisfy the coverage rule without disproportionate cost, document why in the plan and restore coverage in the next phase. This is a last resort.
+- **Coverage escape hatch:** when a phase genuinely cannot satisfy the coverage rule without disproportionate cost, use Form A (exclusion annotation with reason comment) or Form B (documented floor drop with named recovery phase). Either form requires a cleanup task in the finalization phase. Flag likely escape hatch candidates during plan creation so the finalization phase cleanup list includes them from the start.
 - Tasks within a phase that have no `depends on` between them may be done in parallel
 
 ## Task Formatting Rules (summary)

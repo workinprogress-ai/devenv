@@ -33,12 +33,15 @@ Size is an estimate for pair-split planning, not a hard SLA. If a task turns out
 
 ### Descriptive sub-bullets
 
-Use sub-bullets to make the task scannable without forcing the reader into *Additional task context*. Good sub-bullets are concrete and specific:
+Sub-bullets are **navigator notes** — they tell the implementer what they need to know before and during the task, not what to do as a checklist. Good sub-bullets are concrete and specific:
 
 - Names of methods, classes, files, or constants to add or modify
-- Specific behaviours, edge cases, or method signatures
-- Sub-steps in execution order
-- Test cases to cover
+- Specific behaviours, edge cases, or method signatures to be aware of
+- Patterns or precedents in the codebase to follow
+- Test cases that must be covered
+- Gotchas or constraints that aren't obvious from the task title
+
+**Sub-bullets are not tracked sub-tasks.** The task is the atomic unit — either done or not. Sub-bullets are read before starting; they are not ticked off during execution. If you find yourself writing bullets that look like separate deliverables, those may belong as separate tasks or pushed into *Additional task context*.
 
 Avoid vague sub-bullets like "implement the logic" or "add tests". If a sub-bullet would need its own paragraph, push that depth into *Additional task context* and link to it.
 
