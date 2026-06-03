@@ -252,17 +252,7 @@ The user decides how to investigate. The AI provides evidence; the human directs
 
 ## Always Work From Current Files
 
-The AI's in-context memory of a file's contents is a **cache**. That cache is invalidated the moment any edit is made — by the AI or any tool. After that point, the in-context copy must be treated as stale until re-read.
-
-**Before answering a question about the current state of any file, the AI must re-read it if any edits have occurred in the session.** This applies to:
-
-- Answering "is X done?", "did that change land?", "why isn't Y working?"
-- Giving advice that depends on what a method, class, or file currently contains
-- Confirming that a previously written change was actually applied
-
-The rule: **if you wrote to the file, re-read it before making any claim about its contents.** Do not say "I can see from earlier that..." when referring to a file that has been edited. Read it now.
-
-If for some reason the file cannot be read, say so explicitly: *"I'd want to re-read [`BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs) before answering — the in-context version may be stale."* Never answer as if the stale copy is current.
+The AI's in-context view of a file is a **cache** — invalidated the moment any edit is made. Re-read a file before making any claim about its current contents if any edits have occurred this session. See [file-freshness.md](../devenv-pair-programming/references/file-freshness.md) for the full rule.
 
 ## Forward Guidance Comments
 
@@ -298,145 +288,26 @@ Find all AC-annotated comments with: `grep -rn "\[AC-" .`
 
 ## AC Review Gate
 
-Run this gate after all implementation phases are complete and **before starting the Cleanup phase**. The AC Review must finish before the DEVENV cleanup grep runs — the `[AC-N]` DEVENV comments are removed together with other DEVENV markers in Cleanup.
+Run after all implementation phases, before Cleanup. The `[AC-N]` DEVENV comments are removed in Cleanup — run the gate while they're still present.
 
-1. Scan for `[AC-N]` DEVENV comments in the codebase: `grep -rn "\[AC-" <repo-root>`
-2. For each hit, navigate to the code or test and assess whether the acceptance criterion is now objectively verifiable:
-   - **Objectively verifiable** (test passes, behaviour is observable by anyone looking at the code): run `markdown-plan-complete-ac AC-N [<plan_file>]` to tick it. State which AC was ticked and what evidence was used.
-   - **Requires human judgment** (usability, performance, business rule interpretation): present it to the user: *"AC-3 — [criterion text]: can you confirm this is satisfied?"* Tick it after they confirm.
-3. For any AC not yet exercised (no matching DEVENV comment found), surface it explicitly: *"AC-4 has no matching implementation comment — was it addressed? If not, it's a gap."* Let the user decide: tick it, defer it, or add a follow-up task.
-4. For any AC whose scope changed meaningfully during implementation, surface it and apply the deprecation / revision rules (see `/devenv-refine-implementation-plan`).
-5. All ACs must be either ticked `[x]` or explicitly deferred/deprecated before proceeding to Cleanup.
+- Scan: `grep -rn "\[AC-" <repo-root>`
+- **Objectively verifiable:** tick via `markdown-plan-complete-ac AC-N [<plan_file>]`; state the evidence.
+- **Requires judgment:** present to user and tick after confirmation.
+- **No matching comment:** surface it and let user decide (tick, defer, or new task).
 
-Once all ACs are resolved, surface the AC summary in the handback:
-
-> **AC Review complete:** AC-1 ✅, AC-2 ✅, AC-3 ✅ (human-confirmed), AC-4 deferred (out-of-scope for this plan — new issue filed).
-
-Proceed to the Cleanup phase.
+All ACs must be `[x]` or explicitly deferred/deprecated before Cleanup. See full protocol in [phase-gates.md](../devenv-pair-programming/references/phase-gates.md).
 
 ## Phase Completion Gate
 
-Before wrapping a phase and syncing the issue body, run the committability checklist from [phase-rules.md](../devenv-create-implementation-plan/references/phase-rules.md):
+Before declaring a phase complete and handing back, run the committability checklist (see [phase-gates.md](../devenv-pair-programming/references/phase-gates.md) for the full coverage-drop protocol):
 
-- [ ] All tests pass — including any tests written in the failing state (TDD) during this phase; the red-green cycle must close before this gate
-- [ ] Coverage has not regressed vs. the start of the phase
-- [ ] Tests added this phase assert observable behaviour — not just execute code
+- [ ] All tests pass (TDD red-green cycle closed)
+- [ ] Coverage has not regressed
+- [ ] New tests assert observable behavior
 - [ ] No blocking TODOs
-- [ ] No straggler forward DEVENV comments remain for work completed this phase — run `grep -rn "DEVENV\[" <repo-root>` to confirm and remove any found
+- [ ] No straggler DEVENV comments for completed work — `grep -rn "DEVENV\[" <phase-files>`
 
-If coverage has dropped:
-
-1. **Try first.** Before surfacing to the user, make a genuine effort to add the missing tests. If the gap is addressable with reasonable effort, close it without interrupting the flow.
-
-2. **Surface if unable.** If after reasonable effort coverage still hasn't recovered, surface it with context:
-
-   > *"Coverage dropped from 87% to 84%. I've added tests for X and Y but can't get Z covered without [reason — e.g. 'the method is internal and only exercised through integration', 'it requires a real external dependency']. Options: (a) I apply `[ExcludeFromCodeCoverage]` on that code with a reason comment, or (b) accept a documented floor drop and restore it in the finalization phase. Which do you prefer?"*
-
-   Wait for an explicit decision before proceeding.
-
-3. **If the user approves a bypass.** Apply the chosen form immediately:
-   - **Form A** (exclusion annotation): add the annotation + a reason comment adjacent to it.
-   - **Form B** (floor drop): add a note to the plan documenting the baseline, reason, and recovery phase.
-
-   Either way: add a cleanup task to the finalization phase **now**, and flag it as a hotspot in the phase completion handback.
-
-The exception path (documented last resort) must be explicitly surfaced and agreed before the phase is marked done.
-
-The user can override the rule for a phase by:
-- **Explicitly rejecting it** for this phase — their call, accept it and move on.
-- **Applying coverage exclusion** to the code in question using the appropriate language attribute (e.g. `[ExcludeFromCodeCoverage]` in C#, `/* istanbul ignore */` in TypeScript).
-- **Adding verbiage to the plan** that modifies or waives the rule for specific phases — if that's present, honour it without re-raising the blocker.
-
-## Phase Completion Handback
-
-See [session-summary.md](./references/session-summary.md) for the full template. Required sections:
-
-1. **What was done** — brief per-task bullet.
-2. **Files changed** — with workspace-relative links.
-3. **Review hotspots** — bullet list of code locations that need concentrated review, with `file:line` links and a one-line reason. See criteria below.
-4. **Decisions and deviations** — non-obvious decisions made, with reasoning. Include minor deviations from the plan that were handled without stopping, so the user can assess them. Major decisions that already caused a mid-phase stop need only a brief recap here.
-5. **ACs exercised this phase** — for each acceptance criterion whose code or tests were directly addressed in this phase, note it: `AC-2 now verifiable (empty-batch test added)`. If none were exercised, omit this section. Formal AC ticking happens in the AC Review phase before Cleanup.
-6. **Open questions / low-confidence areas** — things the AI was unsure about.
-7. **Next phase** — state what the next phase is and ask if the user is ready to proceed. If this was the last implementation phase, note that the next step is the AC Review Gate before Cleanup.
-
-### Review hotspot criteria
-
-Flag a location as a hotspot if **any** of these apply:
-
-- AI made a non-obvious choice.
-- Public API surface changed.
-- A test was loosened, skipped, or weakened.
-- New error handling / retry / fallback logic.
-- AI had low confidence.
-- External integration boundary touched (HTTP, DB, filesystem, IPC).
-
-A hotspot bullet looks like:
-
-```markdown
-- [BulkSyncWorker.cs:142](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142) — picked exponential backoff with jitter=0.3 without precedent; please sanity-check the multiplier
-```
-
-## Plan Progress (Checkbox Updates)
-
-The AI owns checkbox updates in delegation — the user isn't driving the work, so they shouldn't have to maintain the plan manually.
-
-### Plan file (source of truth)
-
-Mark a task complete as you finish it during the phase run — don't batch to end of phase. Fold the tick into the task progress ping:
-
-> "✅ 2.1 → 2.2."  *(tick 2.1, then continue — no separate announcement)*
-
-Run `markdown-plan-complete-task <task_number>... [<plan_file>]` in a terminal — multiple task numbers can be passed in a single call (e.g. `markdown-plan-complete-task 2.1 2.2 2.3 <plan_file>`). The plan file is optional if run from the plan's directory; pass it explicitly otherwise. To reopen tasks ticked in the current session: `markdown-plan-complete-task --uncomplete <task_number>... [<plan_file>]` in a terminal. For tasks completed in a prior session, add a new task instead.
-
-### Inconsistencies and plan gaps
-
-If, while updating the plan, anything surfaces that can't be resolved by a checkbox tick — a task description that doesn't match what was built, a missing task, an already-completed task that isn't in the plan, an assumption that no longer holds — **stop immediately and discuss with the user before continuing**. Do not silently add tasks, adjust descriptions, or reorder phases. These inconsistencies often signal a real plan gap or an undetected scope change that needs to be understood before work continues.
-
-### GH issue body sync
-
-GitHub issue bodies are a single markdown blob — every checkbox update is a full overwrite. If the issue body is edited between syncs, the next write will silently clobber those changes.
-
-To avoid this, **sync the issue body only at phase boundaries** (not per-task). **Do this proactively as part of closing each phase — don't wait for the user to ask.**
-
-1. At the end of each phase, fetch the current issue body.
-2. Apply all checkboxes completed during that phase in one edit.
-3. Show the diff, wait for explicit confirmation, then run `issue-update <N> --body-file <path>`.
-
-Never sync mid-phase. If the session ends mid-phase, offer a sync for whatever tasks were completed.
-
-## Between-Phase Discussion Window
-
-After the phase completion handback, wait. Do **not** auto-proceed to the next phase.
-
-The user may accept the work, ask questions, push back, or request additional work. This is a natural discussion period — engage fully.
-
-### Responding to between-phase requests
-
-The same criteria apply here as in pair-programming's plan revision rules. The key distinction:
-
-**Minor extra work (just do it):** Can be completed without adding tasks to the plan, touches files already in scope for the phase just completed, and clearly fits within the spirit of what was done. Do it, then note it as an addendum to the handback: *"Also done: [brief description]."*
-
-**Larger work (offer to edit the plan):** Would require new plan tasks, touches files outside the current phase's scope, or represents scope expansion that future phases should know about. Surface it explicitly — name the impact, propose where it lands (existing future phase or new phase), get explicit agreement, then update the local plan file.
-
-**Task deferral:** If during a phase a task cannot be completed — because a prerequisite is missing, a dependency isn't ready, or the conditions don't yet exist — stop work on that task, name the blocker explicitly, and propose moving it to a later phase. Do not skip it silently or leave the phase open indefinitely. Present the proposed destination and wait for user approval before editing the plan.
-
-For plan edits (whether to a future phase or a new phase), follow the same protocol as pair-programming's plan revision rules: state the change clearly, propose options, get agreement, update the file.
-
-### Proceeding to the next phase
-
-Once the discussion resolves and the user signals they're satisfied — *"continue"*, *"go ahead"*, *"looks good"*, or similar — run the next phase's kickoff (file links block, flag any pre-phase decisions) and proceed.
-
-If the session was scoped to a specific phase (not the whole plan), stop here and wrap up instead.
-
-## Issue Integration
-
-Same protocol as pair-programming — see [issue-integration.md](../devenv-pair-programming/references/issue-integration.md). Differences for delegation:
-
-- **Auto-offer a status comment after each phase completion handback**. Show the draft, wait for "yes".
-- **Checkbox updates are handled per-task** during phase execution — see [Plan Progress](#plan-progress-checkbox-updates) above. Do not re-do them here unless some were missed.
-- All write commands (`issue-comment`, `issue-update`, `issue-create`) still require explicit confirmation.
-
-If an adjacent bug is discovered, offer both an `issue-comment` on the parent and a new `issue-create` for the bug.
+Coverage drops are blockers. If the gate passes: *"✅ Gate clear — phase is committable."*
 
 ## Anti-patterns
 

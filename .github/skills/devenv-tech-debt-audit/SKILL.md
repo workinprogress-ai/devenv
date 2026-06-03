@@ -32,40 +32,21 @@ Do **not** use for reviewing a single PR (use `/devenv-code-review`), for pair p
 
 ## Input detection
 
-Auto-detect what the user provided by parsing the argument left-to-right:
-
-1. **Repo path(s)** — any token starting with `repos/`, `./`, or `/`. There may be more than one.
-2. **GitHub issue number** — a bare integer (`^[0-9]+$`). Mutually exclusive with repo paths at the top level (an issue can *contain* a path, but the argument itself is either an issue number or a path).
-3. **Focus area** — any remaining text after extracting paths (quoted or unquoted). A natural-language description of the functional area to concentrate on (e.g. `"plugin pipeline and built-in plugins"`, `"authentication and token refresh"`).
-4. **Nothing** — ask for the repo and whether there is a focus area. Do not guess.
+Auto-detect the argument left-to-right: **repo path(s)** (`repos/`, `./`, or `/`), **GitHub issue number** (bare integer — mutually exclusive with paths), **focus area** (remaining text). If nothing is provided, ask.
 
 | Input example | Repo | Focus area |
 |---|---|---|
-| `repos/lib.cs.services.chassis` | chassis | none (full repo) |
+| `repos/lib.cs.services.chassis` | chassis | none |
 | `repos/lib.cs.services.chassis "plugin pipeline"` | chassis | "plugin pipeline" |
 | `repos/foo repos/bar` | foo + bar | none |
 | `42` | from issue body | from issue body |
 | *(nothing)* | ask | ask |
 
-**If a focus area is given**, announce it before starting:
+If a focus area is given, announce it before starting and concentrate Phase 1/2 investigation on those files. The mental model still covers the full system.
 
-> *"🔍 Scoping audit to: plugin pipeline and built-in plugins. I'll read the full repo structure for context but concentrate findings on this area."*
+If a GitHub issue number is given: fetch the body with `issue-get N --pretty`, extract guiding instructions (scope, dimension overrides, file exclusions), announce them, and set the output filename to `TECH_DEBT_AUDIT-N.md`.
 
-Focus area narrows Phase 1 orientation (concentrate git-log and LOC analysis on relevant files/modules) and Phase 2 depth. The mental model still covers the full system — the focus area determines where to spend investigation time.
-
-**If a GitHub issue number is given:**
-
-1. Run `issue-get N --pretty` to fetch the issue body.
-2. Scan the body for guiding instructions: custom scope, dimension overrides, file exclusions, or specific concerns the requestor wants prioritized. These act as a focus area.
-3. Extract and apply those instructions throughout the audit (announce them to the user before starting).
-4. Set the output filename to `TECH_DEBT_AUDIT-N.md` where N is the issue number.
-
-**Output location:**
-
-- Single repo → `<repo-root>/TECH_DEBT_AUDIT[-NNN].md`
-- Multiple repos → `repos/TECH_DEBT_AUDIT[-NNN].md` (synthesized report across all targeted repos)
-
-**Output filename with focus area:** If a focus area was given (and no issue number), use `TECH_DEBT_AUDIT.md` — the focus area is noted in the document title, not the filename.
+**Output location:** single repo → `<repo-root>/TECH_DEBT_AUDIT[-NNN].md`; multiple repos → `repos/TECH_DEBT_AUDIT[-NNN].md`.
 
 ## Phase 1: Orient
 
@@ -170,79 +151,11 @@ A different issue number always produces a new file — never update a file from
 
 ## GitHub integration
 
-There are two distinct GitHub flows — do not mix them.
+Two flows — do not mix them.
 
-### Flow A: Audit driven by an existing issue
+**Flow A (audit driven by an existing issue):** After writing the audit file, draft a comment with the executive summary + relative path to the file. Show the draft and ask: *"Post this to issue #NNN? (y/n)"*. See [github-issue-creation.md](../devenv-pair-programming/references/github-issue-creation.md) for the post protocol.
 
-*Applies when the user provided a GitHub issue number as the argument.*
-
-1. After writing the audit file, draft a comment containing the **executive summary** and the relative path to the full audit file.
-2. Show the draft in chat.
-3. Ask: *"Post this summary to issue #NNN? (y/n)"*
-4. If yes, write the summary to a temp file.
-   - `issue-comment-list <N>` — scan for an existing audit comment (a comment whose body begins with `# Tech Debt Audit`).
-   - If found: `issue-comment-update <COMMENT_ID> --body-file <temp-file>` (replaces the prior version).
-   - If not found: `issue-comment <N> --body-file <temp-file>` (adds a new comment).
-5. Surface the issue URL from the tool output.
-
-### Flow B: Create a new issue after the audit
-
-*Applies when the user provided a repo path (with or without a focus area), not an issue number.*
-
-After writing the audit file, ask:
-
-> *"Want to track this in a GitHub issue? I can create a new one, or post the audit to an existing issue number. The full audit will go in a comment; the description stays as a placeholder for an implementation plan."*
-
-If the user says yes:
-
-1. **New issue or existing?** If the user provides an issue number, skip to step 4 using the existing issue.
-
-2. **Draft the issue title** — propose it and ask the user to confirm or adjust:
-   - With focus area: `Tech Debt Audit: <focus-area> — <repo-name> — <YYYY-MM-DD>`
-   - Without focus area: `Tech Debt Audit — <repo-name> — <YYYY-MM-DD>`
-
-3. **Draft the issue body** (this becomes the issue description, not the findings):
-   ```
-   Tech debt audit findings are in the first comment below.
-
-   Next step: create an implementation plan using `/devenv-create-implementation-plan`,
-   using the findings in the comment as the source spec.
-
-   Audit file: `<workspace-relative-path-to-TECH_DEBT_AUDIT.md>`
-   ```
-
-4. **Select comment content** — present the options and ask which sections to include:
-
-   > *"The full audit is NNN lines. What should go in the comment?"*
-   >
-   > a) Full audit (everything) — default
-   > b) Executive summary + Findings table + Top 5
-   > c) Executive summary + Top 5 + Quick wins only
-   > d) Executive summary only
-
-   Wait for the user's choice. Default to (a) if they just say "yes" or "go ahead".
-
-5. **Show a preview** of the full draft (title + body for new issues; first ~20 lines of the comment content for existing) and ask for final approval:
-
-   > *"Ready to post the audit? (y/n)"*
-
-6. On confirmation:
-
-   **If creating a new issue:**
-   a. Create the issue: `issue-create --repo "$GITHUB_REPO" --title "<title>" --body "<body>"`
-   b. Note the new issue number from the output.
-   c. Write the selected audit content to a temp file.
-   d. Post it as a comment: `issue-comment <N> --body-file <temp-file>`
-   e. Surface the issue URL.
-
-   **If posting to an existing issue:**
-   a. Write the selected audit content to a temp file.
-   b. `issue-comment-list <N>` — scan for an existing audit comment (a comment whose body begins with `# Tech Debt Audit`).
-   c. If found: `issue-comment-update <COMMENT_ID> --body-file <temp-file>` (replaces the prior version).
-   d. If not found: `issue-comment <N> --body-file <temp-file>` (adds a new comment).
-   e. Surface the issue URL.
-
-   The GH issue comment is the canonical record. The local audit file is a working copy.
+**Flow B (create new issue after audit):** After writing the audit, offer to track it in a GitHub issue. Issue title: `Tech Debt Audit: <focus-area> — <repo-name> — <YYYY-MM-DD>` (without focus area: `Tech Debt Audit — <repo-name> — <YYYY-MM-DD>`). Ask which content to put in the comment (full audit / executive summary + Top 5 / executive summary only). See [github-issue-creation.md](../devenv-pair-programming/references/github-issue-creation.md) for the 5-step protocol.
 
 Never create an issue or post a comment without explicit "yes" confirmation.
 

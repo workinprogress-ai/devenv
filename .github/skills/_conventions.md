@@ -189,6 +189,53 @@ Use relative paths: `[/devenv-pair-programming](../devenv-pair-programming/SKILL
 
 Also add a one-liner near the top of each `SKILL.md`: "See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree."
 
+## Open Questions Log (Q-NNN)
+
+Shared format for any skill that tracks open design or requirements questions across a session.
+
+```
+Q-NNN  [status]   Question text
+                  Raised: <Phase N / Step N>. Affects: [area, area].
+                  Resolution: <text once resolved> / Deferred: <reason>
+```
+
+Example:
+
+```
+Q-001  [open]        Should account deletion be hard-delete or soft-delete?
+                     Raised: Phase 1. Affects: REQ-003, REQ-011.
+Q-002  [resolved]    Must order history persist after account deletion?
+                     Resolution: anonymised retention — REQ-011 updated to clarify.
+Q-003  [deferred]    Is the 200ms search latency target p50 or p99?
+                     Affects: REQ-017. Deferred — pending performance benchmarks.
+```
+
+Status transitions: `open` → `brainstorming` (actively being discussed) → `resolved` (user decided; affected artifacts updated) or `deferred` (explicitly set aside; affected artifact annotated with the open question number).
+
+Never silently drop an open question — every `Q-NNN` must end up `resolved` or `deferred` before the final output is written.
+
+## Explore subagent dispatch
+
+When a skill needs to summarize one or more existing documents or repos, prefer dispatching the `Explore` subagent rather than reading inline. This keeps the main conversation uncluttered and allows parallel reads.
+
+**Standard pattern:**
+
+> Prefer dispatching the `Explore` subagent (one invocation per artifact, in parallel where possible) with a structured prompt:
+>
+> *"Read `<FILE>` and produce a structured summary covering: `<fields relevant to the skill>`. Quote verbatim where wording matters."*
+>
+> Surface the summary back to the user for confirmation before recording it in session memory or using it to drive decisions.
+
+**Fields by skill context:**
+
+| Context | Fields to request |
+|---|---|
+| Requirements docs / communications | Stated goals, decisions reached, open questions, named actors, constraints mentioned, concrete behaviors described |
+| Architecture / blueprint docs | Architectural decisions, components/services, integration points, QoS/constraint statements, trade-offs, open architectural questions |
+| Existing component (brownfield) | Current purpose, owned aggregates, public API, events emitted/consumed, known dependencies |
+
+**Key rule:** always confirm the summary with the user before using it to make decisions. Never silently record an Explore result as ground truth.
+
 ## Anti-patterns
 
 - **Vague description** that doesn't name trigger phrases — agent won't auto-load it.

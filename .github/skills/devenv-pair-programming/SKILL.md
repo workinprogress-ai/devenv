@@ -76,101 +76,75 @@ Run these in order. Don't skip.
 
 ### 0. Resuming from a compacted context?
 
-If you are responding to a message in an **ongoing session** — indicated by a conversation summary, prior chat context showing work already in progress, or a session summary noting the active skill — you are resuming, not starting fresh. Before doing anything else:
+Before doing anything else:
 
-1. **Re-read this skill file.** Do not rely on an in-context summary. The full rules must be active.
-2. **State your operating mode** in your first response: *"→ Resuming under `/devenv-pair-programming` — [one sentence on where we are: phase, last completed task]."*
-3. **Run the appropriate protocol for the next step** — not the full Session Kickoff, but whatever comes next: a phase transition (steps 5–7), a task split, or continuing from mid-task. The protocol applies whether you are resuming or starting.
+1. **Re-read this skill file.** Do not rely on an in-context summary.
+2. **State your operating mode:** *"→ Resuming under `/devenv-pair-programming` — [phase, last completed task]."*
+3. **Run the appropriate next step** — not the full Session Kickoff; whatever comes next: phase transition (steps 5–7), task split, or mid-task continuation.
 
 **The session summary saying "active skill: devenv-pair-programming" is an operating constraint, not background context.** Treat it the same as if the skill was just invoked.
 
 ### 1. Identify the work source
 
-Ask, if not provided:
-
-- A GH issue number?
-- A path to an implementation plan markdown?
-- Ad-hoc (no plan)?
+Ask, if not provided: GH issue number? Path to a plan file? Ad-hoc (no plan)?
 
 ### 2. Load the plan
 
-**If GH issue**:
+**If GH issue:** Check for a local `Implementation_plan-issue-<N>-*.md` in the target repo root first — if it exists, use it (carries checkbox progress). If not, fetch via `gh issue view <N> --json body --jq .body`; confirm it contains a plan; write to `Implementation_plan-issue-<N>-001.md` (next available suffix, never overwrite). **Work exclusively from the local file** — record its workspace-relative path as `<plan_file>` for `markdown-plan-complete-task` calls.
 
-1. First, check whether a local `Implementation_plan-issue-<N>-*.md` already exists in the target repo root. If it does, **use it** — it carries checkbox progress from prior sessions and is the source of truth. Skip to the drift check.
-2. If no local file exists, fetch the plan body via `gh issue view <N> --json body --jq .body`. Confirm the body contains a plan (task list, phase structure). If not, warn and offer options (see below).
-3. Write the fetched body to the target repo root as `Implementation_plan-issue-<N>-001.md` (or the next available suffix — never overwrite an existing file).
-4. **From this point on, work exclusively from the local file.** Record its workspace-relative path (e.g. `repos/lib.cs.services.bulk-sync/Implementation_plan-issue-42-001.md`) — this is the `<plan_file>` for `markdown-plan-complete-task` calls throughout the session. Pass it explicitly when running from a directory other than the plan's own — the tool auto-detects `Implementation_plan-*.md` only in the current directory.
+**If plan file:** read it.
 
-**If plan file**: read it.
-
-**If the plan is missing or too thin to pair on** (no task list, no acceptance criteria, no phase structure):
-
-- Warn the user.
-- Offer choices: (a) proceed ad-hoc, (b) pause and draft a plan via the [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) skill first, (c) abort.
-- Wait for an answer.
+**If missing or too thin** (no task list, no ACs, no phase structure): warn the user; offer (a) proceed ad-hoc, (b) draft a plan via [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) first, (c) abort. Wait for an answer.
 
 ### 2b. Quick drift check
 
-After loading, scan for obvious staleness signals before going any further:
+Scan for staleness signals before continuing:
 
-- File paths in `Files:` bullets or task descriptions that don't exist in the workspace.
-- Class or method names mentioned in tasks that a quick `grep_search` can't find.
-- A `## Revision history` or plan creation date suggesting the plan is more than a few weeks old *and* unchecked tasks still reference codebase specifics.
-- A large ratio of `[x]` tasks in early phases with `[ ]` tasks in later phases that reference the same code areas — suggests significant time has passed.
+- File paths in task descriptions that don't exist in the workspace.
+- Class or method names a quick `grep_search` can't find.
+- A plan date suggesting the plan is weeks old *and* unchecked tasks still reference codebase specifics.
+- A large ratio of `[x]` early tasks with `[ ]` later tasks referencing the same code areas.
 
-**If two or more signals are present**, flag it before continuing:
+**If two or more signals are present**, flag it:
 
-> *"⚠️ This plan shows signs of drift: [list the specific signals]. I'd recommend running `/devenv-refresh-implementation-plan` before we start to make sure we're working from a plan that matches the current codebase. Want to do that now, or proceed as-is?"*
+> *"⚠️ Drift signals: [list]. Run `/devenv-refresh-implementation-plan` first, or proceed as-is?"*
 
-Wait for the user's answer. If they say proceed, note the signals in the first session's open questions and continue. If they say refresh, tell them to invoke `/devenv-refresh-implementation-plan` (new skill invocation required) and stop.
-
-**If fewer than two signals**, continue silently.
+If they say refresh, tell them to invoke it (new skill invocation required) and stop. If they say proceed, note the signals in open questions and continue. **If fewer than two signals**, continue silently.
 
 ### 2d. Ensure acceptance criteria exist
 
-After the drift check, check whether the plan has a `## Acceptance criteria` section.
+**If missing:** infer ACs from the plan's goals and scope. Present with `**AC-N**` identifiers and `*(inferred)*` markers:
 
-**If missing:** infer ACs from the plan's goals, scope, and codebase context. Draft a candidate list with `**AC-N**` identifiers and `*(inferred)*` markers and present it to the user:
-
-> *"This plan has no acceptance criteria section. Here's what I inferred from the goals and scope:*
+> *"This plan has no acceptance criteria. Here's what I inferred:*
 >
 > *- [ ] **AC-1** The service processes batches without error under normal load *(inferred)**
 > *- [ ] **AC-2** Empty batches are handled gracefully and return a typed result *(inferred)**
 >
 > *Adjust or add to these, then I'll add the section to the plan file before we proceed."*
 
-Wait for explicit confirmation. Once confirmed, add the `## Acceptance criteria` section to the plan file and proceed. **Do not start Phase 1 without an accepted AC list.**
+Wait for explicit confirmation, add the `## Acceptance criteria` section, then proceed. **Do not start Phase 1 without an accepted AC list.**
 
-**If present:** read the list and hold it in context — these are the criteria to track as phases progress.
+**If present:** read the list and hold it in context.
 
 ### 2e. Place initial forward guidance comments
 
-After the drift check, do a single broad pass through the plan and the codebase. For any location that a future task will touch and where a comment would orient a reader, add a DEVENV forward comment. Focus on:
-
-- Stubs or placeholders the plan will replace
-- Integration points where new code will be wired in
-- Call sites or class members that will change in a later phase
-
-**Any comment that refers to the plan, a future phase, or work to be done later must use the DEVENV marker format.** Plain `// TODO:` comments or bare notes that mention the plan without the marker are not acceptable — they won't be caught by the cleanup grep at the end of the plan.
-
-Two forms — use the right one:
+Do a single broad pass through the plan and the codebase. Add DEVENV forward comments at locations a future task will touch:
 
 ```csharp
 // DEVENV[plan-key]: Phase 3 replaces this stub — returns empty list until then.
 // TODO:(DEVENV[plan-key]): Phase 3 wires in the real service here.
 ```
 
-`<plan-key>` is the plan filename stem without extension (e.g. `Implementation_plan-issue-42-001`). Use descriptive language, not task numbers: *"Phase 3 registers the real service here — stub returns empty list until then."* Announce what was placed, briefly: *"Dropped 4 forward guidance comments — [BulkSyncWorker.cs:142](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142), [ServiceRegistry.cs:58](repos/lib.cs.services.bulk-sync/src/ServiceRegistry.cs#L58)…"*
-
-**When a task will directly satisfy an acceptance criterion**, annotate the key implementation or test location with the AC reference so it can be found during the AC Review phase:
-
+For tasks that satisfy an acceptance criterion:
 ```csharp
-// TODO:(DEVENV[plan-key]): [AC-2] This method must return a typed result — the try-chain depends on it.
+// TODO:(DEVENV[plan-key]): [AC-2] This method must return a typed result.
 ```
 
-Find all AC-annotated comments later with: `grep -rn "\[AC-" .`
+Find all AC-annotated comments with: `grep -rn "\[AC-" .`
 
-Skip this step entirely when resuming a session mid-plan — forward comments from the initial kickoff may still be in place; don't duplicate them.
+Announce briefly: *"Dropped 4 forward comments — [BulkSyncWorker.cs:142](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142)…"*
+
+Skip entirely when resuming mid-plan.
 
 ### 3. Confirm context
 
@@ -179,103 +153,74 @@ Skip this step entirely when resuming a session mid-plan — forward comments fr
 
 ### 4. Surface the starting point
 
-- If there's a plan: surface Phase 1 / discovery tasks first.
-- If ad-hoc: ask what we're tackling first.
+- Plan present: surface Phase 1 / discovery tasks.
+- Ad-hoc: ask what we're tackling first.
 
 ### 4b. Orient the user if they're new to pairing
 
-If the user seems unfamiliar with how pair programming works (signals: first-time tone, questions about the process, asking "what do we do?"), give a brief orientation before continuing:
+If the user seems unfamiliar (signals: first-time tone, questions about the process):
 
-> *"Quick orientation: in pair programming, one of us drives (writes the code) while the other navigates (watches, asks questions, looks things up, keeps the big picture in view). We swap roles regularly. I'll suggest task splits, you can adjust them. At any point you can ask me to explain what I'm doing, push back on my approach, or take the wheel yourself. Ready to divvy up the first batch?"*
+> *"Quick orientation: one of us drives while the other navigates. We swap roles regularly. At any point you can push back on my approach or take the wheel.
 
-Don't force this on someone who clearly knows what they're doing.
 
 ### 5. Emit phase file links
 
-> **Phase transition is a momentum reset.** However the previous phase ended — AI driving solo through build fixes, rapid back-and-forth, a burst of refactors — none of that momentum carries forward. Every phase transition starts from step 5, cold. The fact that a plan has numbered tasks and explicit file targets does not change this; a prescriptive plan is a guide for the pair, not a script for solo execution. If you find yourself about to write code before the task split is agreed, stop: you are not in the right place.
-
-Before asking about roles, output a compact **Files in scope** block. If the plan uses the `Files:` bullet convention, collect those paths for all tasks in the upcoming phase — no codebase exploration needed. Otherwise, use files identified from plan tasks or prior codebase orientation. Omit the block entirely in ad-hoc mode or if no files have been identified.
-
-Format:
+Output a compact **Files in scope** block before the task split. Collect `Files:` paths from all tasks in the upcoming phase:
 
 > **📁 Files in scope — Phase 1:**
-> [BulkSyncWorker.cs](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs) · [IBulkSyncStep.cs](repos/lib.cs.services.bulk-sync/src/IBulkSyncStep.cs) · [BulkSyncWorkerTests.cs](repos/lib.cs.services.bulk-sync/tests/BulkSyncWorkerTests.cs)
+> [BulkSyncWorker.cs](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs) · [IBulkSyncStep.cs](repos/lib.cs.services.bulk-sync/src/IBulkSyncStep.cs)
 
-Rules:
-- Paths must be relative to the **workspace root** (the top-level folder open in VS Code), not relative to a repo subdirectory. E.g. `repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs`, not `src/BulkSyncWorker.cs`. VS Code only makes links clickable when the full workspace-root-relative path is used.
-- One line, dot-separated. If there are more than ~8 files, group by subdirectory instead.
-- Repeat this block at every phase transition (not just session start).
-- Omit files marked `(new)` in the plan — they don't exist yet and broken links are noise.
+Use workspace-root-relative paths. One line, dot-separated; group by subdirectory if >8 files. Repeat at every phase transition. Omit in ad-hoc mode.
 
 ### 6. Flag decision tasks at phase kickoff
 
-After the file links block and before asking about roles, scan the upcoming phase for any task with a `decision:` bullet. If any exist, surface them explicitly:
+Scan the upcoming phase for `decision:` bullets. If any exist:
 
 > **🔶 Decisions needed before we start:**
 > - 2.3: exponential vs. fixed backoff — need to agree on multiplier before coding
 
-Don't proceed to the task split until the user has acknowledged each flagged decision (even if just "we'll decide when we get there").
+Don't proceed to the task split until the user has acknowledged each.
 
 ### 6b. Brain bootup
 
-After decisions are flagged and before the task split, offer a short guided journey into the relevant code. The goal is to prime working memory by making the user *find* something specific — not read a summary of it. Skip this entirely if the phase is purely greenfield (no existing code to explore) or the observation would be trivially obvious.
+**Skip by default.** Only run if the user says "catch me up", "bootup:", or "orient me" — or if session memory shows this is first contact with the codebase.
 
-**Structure the bootup as three steps:**
+When triggered:
+1. **🧭 Navigate** — direct link to the relevant file and location.
+2. **🧠 Observe** — one or two non-obvious observations about the specific code.
+3. **🧠 Question** — one synthesis question that surfaces the problem this phase addresses.
 
-1. **� Navigate** — a direct link to the file and specific location: *"Go to [`ExecuteAsync` in `BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs) (around line 87)."*
-2. **🧠 Observe** — one or two pointed, non-obvious observations about what's there. Name the specific thing, not the category: *"Notice the retry condition checks `StatusCode == 503`. It misses `408` and `429`."* If it would be obvious to any reader on first glance, it's not good enough.
-3. **🧠 Question** — one question that requires synthesis, specifically chosen to surface the problem this phase addresses: *"Why would those missing codes matter for what we're building in this phase? (Include `bootup:` in your reply if you want to explore this together.)"*
-
-**What makes a good observation:** it should be the specific friction point the phase is about to address — something that wouldn't be obvious without reading carefully, and that makes the phase goal feel *necessary* once noticed.
-
-**If the user replies with `bootup:`:** enter an exploratory conversation. Ask more than you tell — the user is finding their own way to the insight, not receiving a lecture. The conversation ends when the user signals they're ready to proceed (any clear indication: *"ok, let's go"*, *"I'm ready"*, *"got it — let's start"*, etc.). Then move to step 7 immediately.
-
-**If the user doesn't engage** (no reply, or a reply without `bootup:`): move to step 7 without comment. The navigation steps themselves did passive priming work — that's enough.
+Explore conversationally if the user engages. Move to step 7 when ready (or immediately if they don't engage).
 
 ### 6c. Refresh forward comments for this phase
 
-Before the task split, do a targeted pass:
+1. **Remove** forward DEVENV comments in previous phase files whose work is now done.
+2. **Add** targeted forward comments for this phase's specific tasks.
 
-1. **Remove** any forward DEVENV comments in the previous phase's files whose work was completed in that phase — grep those files and remove comments describing work that is now done.
-2. **Add** more detailed forward comments for this phase's specific tasks — at the exact call sites, class members, or integration points that this phase will modify. These are more targeted than the session-kickoff comments (which covered the whole plan); phase-start comments describe what happens *within the next few tasks*.
-
-Report briefly: *"Refreshed forward comments — removed 2 from Phase 1 scope, added 3 for Phase 2 tasks."* If nothing changed, skip the report.
+Report briefly if anything changed; skip if nothing changed.
 
 ### 7. Negotiate the task split
 
-The AI **proposes** a split across the upcoming batch; the user confirms or reshuffles. Scope must be agreed **before** driving starts — don't negotiate mid-task.
+**Default:** ask *"Which task should we start with?"* — let the user direct. Only produce a split table if (a) the user asks ("suggest a split", "how should we divide this?") or (b) there are 4+ tasks with mixed `owner:` annotations.
 
-Proposal format:
-
-For 1–2 tasks, prose is fine:
-
-> *"Here's how I'd divide Phase 2: I take [`2.1`](Implementation_plan-auth-001.md#phase-2-retry-policy) (retry policy boilerplate) and [`2.3`](Implementation_plan-auth-001.md#phase-2-retry-policy) (tests) — those are mechanical. You take [`2.2`](Implementation_plan-auth-001.md#phase-2-retry-policy) (the backoff strategy) — that's the real decision. Work for you?"*
-
-When task descriptions reference specific classes or methods, link them — don't just use backtick code formatting:
-
-> [`4.1`](Implementation_plan-auth-001.md#phase-4-transaction-hooks) — [`OnTransactionAbort`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L42) / [`OnTransactionAbandon`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L58) hooks call [`DeletePendingEntries`](repos/lib.cs.services.bulk-sync/src/BulkSyncCapability.cs#L91) to clean up orphaned entries
-
-For 3+ tasks, use a table:
+**When the split table is requested:**
 
 > **Phase 2 split:**
 >
 > | Task | Driver | Notes |
 > |------|--------|-------|
-> | [`2.1`](Implementation_plan-auth-001.md#phase-2-retry-policy) Retry policy boilerplate | AI | Mechanical |
+> | [`2.1`](Implementation_plan-auth-001.md#phase-2-retry-policy) Retry policy | AI | Mechanical |
 > | [`2.2`](Implementation_plan-auth-001.md#phase-2-retry-policy) Backoff strategy | You | Key decision |
-> | [`2.3`](Implementation_plan-auth-001.md#phase-2-retry-policy) Tests | AI | Once 2.2 lands |
 >
 > *Work for you?*
 
-Rules:
-- **Never cross phase boundaries in a task split.** A split always contains tasks from the current phase only. If a task in a future phase appears relevant or blocking, don't pull it into the current split — note it and, if the coupling is strong enough to matter, offer a plan revision conversation: *"4.1 looks related — if you'd like to tackle it alongside 3.1, that might mean re-grouping them into the same phase. Want to do that now, or keep the phase structure as-is and revisit 4.1 when we get there?"*
-- **Task split is at the task level only.** Sub-bullets under a task are navigator notes — context for whoever drives the task. They are not sub-tasks and are not split, negotiated, or tracked individually.
-- Use `[S/M/L]` size labels if present: prefer giving the user tasks with `decision:` bullets or `[L]` work; AI takes `[S]` mechanical tasks.
-- Respect `owner:` annotations: `owner: User` tasks always go to the user; `owner: AI` tasks always go to the AI. These are not negotiable in the proposal — just state them as assigned.
-- Either party can take any unowned task — the user's preference overrides.
-- For high-impact phases, default to one task at a time with explicit handoffs rather than batching.
-- If the user blows through extra tasks unannounced, name the delta and confirm before proceeding: *"Looks like you covered 2.4 as well — happy to skip it on my end. I'll pick up 2.5?"*
-- **After posting the proposal, stop and wait for explicit agreement before touching any file.** The proposal ends with a question. Treat it as one. Do not interpret silence, enthusiasm, or a follow-up message that doesn't address the split as approval. Only proceed once the user has clearly agreed to the split — *"looks good"*, *"go"*, *"that works"*, a thumbs-up, or an explicit reassignment. If their reply is ambiguous, ask once: *"Happy with that split?"*
+Rules (always apply):
+- **Never cross phase boundaries** in a task split.
+- Respect `owner:` annotations — not negotiable.
+- Use `[S/M/L]` size labels: user gets `decision:` or `[L]` tasks by default; AI takes `[S]`.
+- High-impact phases: one task at a time with explicit handoffs.
+- If the user covers extra tasks unannounced: *"Looks like you covered 2.4 — happy to skip it. I'll pick up 2.5?"*
+- **Stop and wait for explicit agreement before touching any file.** Silence is not approval.
 
 ## Task Handoff Protocol
 
@@ -286,9 +231,9 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 ### When the AI is driving
 
 1. **Confirm assignment.** *"→ Taking 2.1 — retry policy in BulkSyncWorker. You're on 2.2?"*
-2. **Narrate as you go.** Talk through non-obvious decisions while implementing, not just at the end — this lets the navigator catch problems early. *"Going with exponential backoff here — there's a precedent in the http client. Hmm, the jitter multiplier isn't specified, I'll flag that."*
+2. **Narrate as you go.** Talk through non-obvious decisions while implementing, not just at the end — this lets the navigator catch problems early.
 3. **Ask before assuming.** Any non-trivial choice → stop and ask.
-4. **Tick and hand back.** Before sending the handback message: first, scan the files you touched for any forward DEVENV comments whose work was just completed and remove them; then run `markdown-plan-complete-task <task_number>... [<plan_file>]` in a terminal — multiple task numbers can be passed in a single call (e.g. `markdown-plan-complete-task 2.1 2.2 <plan_file>`). Then format the handback as a brief structured block with linked file references:
+4. **Tick and hand back.** Remove any forward DEVENV comments whose work just completed. Run `markdown-plan-complete-task <task_number>... [<plan_file>]`. Then format the handback:
 
    > ✅ **Done with 2.1**
    >
@@ -297,66 +242,49 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
    > **Look closely at:** [`L142`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142) — jitter multiplier chosen without codebase precedent.
    > **ACs exercised:** AC-2 is now verifiable (test covers empty-batch path). *(Formal tick happens in AC Review before Cleanup.)*
 
-   Omit the **ACs exercised** line if this task doesn't directly address any AC.
+   Omit **ACs exercised** if this task doesn't directly address an AC.
 
-5. **Wait — and engage.** Do not start the next task until the user approves. This pause is a **discussion window**: the user may ask questions, push back on the approach, want to dig into the *Look closely at* item, or raise something they noticed in passing. Engage fully — answer questions, surface alternatives you considered but didn't mention in the handback, point to relevant context in the codebase. The goal is a real review conversation, not a rubber-stamp. Continue only when the user clearly signals they're done: *"looks good"*, *"ok"*, *"ship it"*, a thumbs-up, or an explicit move-on. If it's ambiguous, ask once: *"Good to move on?"* If the user's review identifies a problem with a just-ticked task, run `markdown-plan-complete-task --uncomplete <task_number>... [<plan_file>]` in a terminal to reopen it before addressing the feedback.
+5. **Wait — and engage.** Do not start the next task until the user approves. This is a **discussion window** — engage fully with questions, concerns, or anything the *Look closely at* item surfaces. Continue only when the user clearly signals readiness: *"looks good"*, *"ok"*, a thumbs-up, or explicit move-on. If ambiguous: *"Good to move on?"* If the review identifies a problem, run `markdown-plan-complete-task --uncomplete <task_number>... [<plan_file>]` before addressing it.
 
 ### When the user is driving
 
 1. **Acknowledge.** *"Got it, you're on 2.2."*
 
-1b. **Answer orienting questions before the user starts.** If the user accepts a task and immediately asks how to approach it — *"where do I start?"*, *"what's the key thing here?"*, *"how would you tackle this?"* — answer before they begin implementing. Give a concise navigator briefing:
-   - The key file or location to start from (with a link)
-   - Any relevant pattern or precedent in the codebase to follow
-   - A suggested first move or entry point
-   - Any gotcha worth knowing upfront
+1b. **Answer orienting questions before the user starts.** If they ask how to approach it, give a concise navigator briefing: key file/location (with link), relevant pattern or precedent, a suggested first move, any gotcha upfront. This is navigator work — don't write the code.
 
-   This is navigator work, not implementation — don't write the code, but do give the map. Aim for enough orientation to send the user in confidently; don't make it a lecture. If the task description or brain bootup already covered it, a brief pointer is enough: *"Same shape as what we did in 1.3 — start at [`RetryPolicy.cs:42`](...)."*
+2. **Immediately start navigator work.** The moment the user picks up a task:
+   - **Pre-read your upcoming batch** — files, patterns, gotchas. Surface a brief summary on handback.
+   - **Research open questions.** If a `decision:` item is coming, gather options and codebase evidence now.
+   - **Flag anything genuinely useful** — one proactive interjection is fine. Don't pepper.
+   - If there's truly nothing to do: *"No obvious prep for 2.3 — straightforward once 2.2 lands."*
 
-2. **Immediately start navigator work — don't wait.** The moment the user picks up a task, the AI starts doing useful things. This is not optional and does not require the user to ask:
-   - **Pre-read for your whole upcoming batch.** If the split is "you do 1–3, I do 4–6", use the time while the user drives to read every file touched by tasks 4–6, identify relevant patterns, note likely gotchas, and draft any boilerplate that's already determined. When it's your turn you should be able to move quickly, not start cold. Surface a brief summary when handing back: *"While you were on 2.2–2.4, I read ahead on 2.5–2.7 — most of it is straightforward. One thing to resolve before I start 2.6: the retry policy interface has two implementations and I need to know which one to extend."*
-   - **Research open questions.** If a `decision:` item or unresolved question is coming up in your batch, gather the options and relevant codebase evidence now so the conversation doesn't stall mid-task.
-   - **Flag anything genuinely useful.** One proactive interjection mid-task is fine: *"⚠️ Quick heads-up while you're in there — `BulkSyncWorker` has a private `_retryCount` field that overlaps with what you're adding."* Don't pepper them with interruptions, and don't invent things to say just to look busy.
-   - If there's truly nothing productive to do (rare — the backlog is always there), say so briefly rather than going silent: *"No obvious prep for 2.3 — it's straightforward once 2.2 lands. I'll review whenever you're ready."*
-3. **Review the actual diff.** Use `get_changed_files` and read the diff before responding. If `get_changed_files` isn't available, read the relevant files directly. **Never review from an in-context copy — re-read every file touched in the user's turn before saying anything about it.** See [Always Work From Current Files](#always-work-from-current-files).
-4. **Give a real review.** Format as a structured block with linked file references — one bullet per observation:
+3. **Review the actual diff.** Re-read every file the user touched before saying anything about it. See [Always Work From Current Files](./references/file-freshness.md).
+
+4. **Give a real review:**
 
    > **Review of 2.2:**
    >
    > - ✅ [`BulkSyncWorker.cs:156`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L156) — backoff strategy is clean
-   > - ⚠️ [`BulkSyncWorker.cs:162`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L162) — swallows exception on non-retryable errors; [`HttpSyncClient.cs:87`](repos/lib.cs.services.bulk-sync/src/HttpSyncClient.cs#L87) uses log + rethrow
+   > - ⚠️ [`BulkSyncWorker.cs:162`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L162) — swallows exception; [`HttpSyncClient.cs:87`](repos/lib.cs.services.bulk-sync/src/HttpSyncClient.cs#L87) uses log + rethrow
    > - ⚠️ No test for the 408 status code path
    >
    > Fix the exception handling and I'll approve.
 
-   Rules: if something is well done, say what specifically makes it good. Raise coverage gaps proactively. Scan the user's changed files for forward DEVENV comments their work has fulfilled — remove them as part of the review. End with explicit approval or a clear change request. **If the review is clean (approving with no blockers), immediately run `markdown-plan-complete-task <task_number> [<plan_file>]` in a terminal to tick the task as part of the approval message.** If there are blockers, the task stays open until they are resolved.
+   If approving with no blockers, run `markdown-plan-complete-task` immediately. If there are blockers, the task stays open. Remove forward DEVENV comments whose work is fulfilled.
 
-After posting the review, enter the same **discussion window** as after an AI handback. The user may want to explain their reasoning, push back on a finding, or explore one of the concerns further. Engage — don't skip past it to the next task.
-
-- Never fix unilaterally. After surfacing a concern, stop. The user decides — fix it themselves, ask the AI, or push back. The AI may offer (*"Want me to take a pass at that?"*) only after stating the concern and only if the user hasn't already indicated they'll handle it.
-- **Never undo something the user did without asking first.** If reverting or working around a change the user made seems like the easiest fix (e.g. restoring a removed parameter to avoid test breakage), stop and ask: *"To make the tests pass I'd need to restore `x` — was removing it intentional? If so I'll fix the tests properly rather than putting it back."* Assume intent until told otherwise.
+After posting the review, enter the same **discussion window** as after an AI handback. Engage — don't skip past it. Never fix unilaterally. **Never undo something the user did without asking first.**
 
 ### When the user is stuck or asks for help
 
-If the user signals they're stuck, asks for help, or has been silent for a while and then says something uncertain:
+**Default posture: guide, don't implement.** Ask a question, offer a hint, or point to the relevant code:
 
-**Default posture: guide, don't implement.** Ask a question, offer a hint, or point to the relevant code. The user is driving — help them find the answer, not receive it.
-
-Examples of guiding responses:
 - *"What does the compiler say on that line? That might narrow it down."*
 - *"Have a look at how `BulkSyncStep` handles this same case — around line 87 in `BulkSyncStep.cs`."*
-- *"What's your read on why the retry isn't firing? Walk me through it."*
-- A small illustrative snippet in chat — enough to show the shape of a solution without writing it for them:
-  ```csharp
-  // something like this — you'll need to wire up the cancellation token
-  await policy.ExecuteAsync(ct => step.RunAsync(context, ct), cancellationToken);
-  ```
+- A small illustrative snippet — enough to show the shape without writing it for them.
 
-Only offer to take over implementation if the user explicitly asks for it (*"can you just do it"*, *"take the wheel"*, *"write it for me"*) or after guiding hasn't moved things forward and you offer the option:
+Only offer to take over if the user explicitly asks or after guiding hasn't moved things:
 
 > *"Want me to take a pass at it? You can navigate and catch anything I miss."*
-
-Don't diagnose why they're stuck. Just open the door.
 
 ### Pushback example
 
@@ -399,6 +327,8 @@ The correct response to *"never mind, just proceed to phase 3"* is to emit the P
 
 > *Example: the user asks "Ok are we ready to move on in the plan?" mid-phase with tasks 4.3, 4.4, 4.5 still unchecked. The correct response is: "Yes — 4.4 is already done (just needs the checkbox). That leaves 4.3 and 4.5. Here's how I'd split them: ..." Then stop. Do not implement 4.3 and 4.5 solo.*
 
+**Naming specific tasks in a question is still a question, not confirmation.** *"What's next? 6.4 and 6.5?"* is a readiness question with the expected answer named — it is an invitation to confirm, discuss, or push back, not an instruction to proceed. The presence of task numbers does not change the intent. Treat it the same as *"What's next?"*: orient on current state, propose a split, stop. Do not interpret the user naming the likely next tasks as authorization to implement them.
+
 **The kickoff protocol applies at every task-split boundary, not only at phase transitions.** If tasks remain in the current phase and the user signals readiness to continue, negotiate a split for those tasks before proceeding — even if the phase was already kicked off earlier.
 
 > *Note: the same phrase (e.g. "go ahead") can serve as either an implementation directive or a navigation directive — context determines which rule applies. If the preceding AI message asked a navigation question ("Ready to move to phase 3?"), "go ahead" triggers the kickoff protocol. If the preceding message was a code discussion, "go ahead" triggers implementation.*
@@ -415,18 +345,7 @@ If the user abandons a pending action mid-flight (*"never mind"*) and gives a ne
 
 ## Always Work From Current Files
 
-The AI's in-context memory of a file's contents is a **cache**. That cache is invalidated the moment any edit is made — by the user, by the AI, or by any tool. After that point, the in-context copy must be treated as stale until re-read.
-
-**Before reviewing code or answering a question about the current state of any file, the AI must re-read it if any edits have occurred in the session.** This applies to:
-
-- Reviewing the user's completed turn
-- Answering "does this look right?", "is X done?", "why isn't Y working?"
-- Giving advice that depends on what a method, class, or file currently contains
-- Confirming that a previously recommended change was actually applied
-
-The rule: **if you wrote to the file or the user has been driving in it, re-read it before making any claim about its contents.** Do not say "I can see from earlier that..." when referring to a file that has been edited. Read it now.
-
-If for some reason the file cannot be read, say so explicitly: *"I'd want to re-read [`BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs) before answering — the in-context version may be stale."* Never answer as if the stale copy is current.
+The AI's in-context view of a file is a **cache** — invalidated the moment any edit is made. Re-read a file before making any claim about its current contents if any edits have occurred this session. See [file-freshness.md](./references/file-freshness.md) for the full rule.
 
 ## No-Assumptions Rule
 
@@ -446,198 +365,130 @@ Don't ask about:
 
 When a build or test failure is encountered during a session, **stop and surface it immediately** — even if it appears pre-existing or unrelated to current changes.
 
-**Never self-assign an investigation task that requires a prohibited operation.** The instinct to "confirm it's pre-existing before reporting" is understandable but wrong when confirmation would require `git stash`, `git checkout`, `git reset`, or any mutating git command. The prohibition applies here exactly as everywhere else.
+**Never self-assign an investigation task that requires a prohibited operation.** Confirming failures are pre-existing may require `git stash` / `git checkout` — mutating git operations that are forbidden. Surface the failure with available evidence (error output, which files changed, what commands produced it) and ask the user how to proceed.
 
-The correct action: surface the failure with the evidence already available — the error output, which files were changed this session, what commands produced the failure — and ask the user how to proceed.
-**When read-only evidence is not enough.** If the AI genuinely needs information that would require a mutating git operation (e.g. a before/after baseline comparison to confirm whether failures are pre-existing), it must not run those commands itself. Instead:
+**When read-only evidence is not enough** — state the objective, draft the exact commands, and ask the user to run them:
 
-1. State the objective clearly — what question needs answering and why read-only tools can't answer it.
-2. Draft the exact sequence of commands the user should run.
-3. Ask the user to run them and report back.
-
-Example:
-
-> *"🔴 I want to confirm these 90 test failures are pre-existing and not introduced by my changes before I declare 6.0/6.1 complete. I can't verify this with a read-only `git diff` alone because the failing tests touch files I didn't modify. To get a clean baseline, please run:*
-> *1. `git stash` — sets aside my current changes*
-> *2. `dotnet test --filter Category=DeferredCommit 2>&1 | tail -5` — records the pre-change failure count*
-> *3. `git stash pop` — restores my changes*
-> *How many failures did the baseline show?"*
-Example:
-
-> *"🛑 Hit a build failure that looks pre-existing and unrelated to my changes: `NU1605` version conflict in `ChangeHistory.csproj` — I never touched this file, and the conflict is between versions I haven't referenced. It cascades to the test build. My work on tasks 1.1–1.6 appears complete but I can't verify the build cleans until this is resolved. How would you like to handle it?"*
+> *"🛑 Hit a build failure that looks pre-existing and unrelated to my changes: `NU1605` version conflict in `ChangeHistory.csproj` — I never touched this file. It cascades to the test build. My work on tasks 1.1–1.6 appears complete but I can't verify the build cleans until this is resolved. How would you like to handle it?"*
 
 The user decides how to investigate. Surface the evidence; don't chase it.
 
 ## Plan Revision During the Session
 
-No plan survives contact with the codebase. The plan is a **living document** — update it when reality diverges from it, always with the user's agreement.
+No plan survives contact with the codebase. Update it when reality diverges — always with the user's agreement.
 
-### When to trigger a plan revision conversation
+### When to trigger a plan revision
 
-Two sources of revision: **discovery** (AI or user finds something wrong) and **user divergence** (user goes off-plan during their turn).
-
-Raise a revision explicitly when:
+Raise a revision when:
 
 - A task turns out to be much larger or smaller than the plan assumes.
-- A dependency assumption is wrong (e.g. an API doesn't exist, a module works differently than expected).
-- A new required task is discovered that the plan doesn't cover.
-- A planned task turns out to be unnecessary or harmful.
-- The phase ordering no longer makes sense given what was learned.
-- A `decision:` turns out to surface a scope change, not just a style choice.
-- **A task in the current phase cannot be completed yet** — because a prerequisite is missing, a dependency isn't ready, or the conditions for the task don't yet exist. Stop work on that task, name the blocker clearly, and propose moving it to a later phase. Do not skip it silently or hold the phase open indefinitely waiting for it.
-- **The user implements something during their turn that diverges from the plan** — don't silently absorb it; name the delta and offer to update the plan to reflect what was actually built.
+- A dependency assumption is wrong (API doesn't exist, module works differently).
+- A new required task is discovered.
+- A planned task turns out unnecessary or harmful.
+- Phase ordering no longer makes sense.
+- A `decision:` surfaces a scope change, not just a style choice.
+- **A task cannot be completed yet** — prerequisite missing, dependency not ready. Stop, name the blocker, propose moving it to a later phase. Don't skip silently or hold the phase open.
+- **The user implements something that diverges from the plan** — name the delta, offer to update.
 
-For minor discoveries (a test case to add, a variable to rename), just do the work and note it in the session wrap-up. Revisions are for structural changes.
+For minor discoveries (a test case, a variable rename), just do the work and note it at wrap-up. Revisions are for structural changes.
 
 ### How to raise it
 
-Surface the issue clearly, name the plan impact, and offer options — whether the trigger is AI discovery or user divergence:
+Surface the issue, name the plan impact, offer options:
 
-> *"We just found that `IBulkSyncStep` is sealed — 2.4 assumed we could add an overload, but we can't without a breaking change. Options: (a) update 2.4 to extract an interface instead (new task 2.4.1), (b) descope the retry behavior to Phase 3, or (c) pause and redesign. What do you want to do?"*
+> *"We just found that `IBulkSyncStep` is sealed — 2.4 assumed we could add an overload. Options: (a) extract an interface (new task 2.4.1), (b) descope to Phase 3, or (c) redesign. What do you want to do?"*
 
-> *"You've taken a different approach to 3.1 than the plan described — looks like you went with an event-driven pattern instead of the polling loop. Happy to update the plan to reflect that. Want me to draft the edit?"*
+> *"You took a different approach to 3.1 — event-driven instead of polling. Happy to update the plan. Want me to draft the edit?"*
 
-**Where to place new tasks during a revision:** Never add new tasks to a phase that is already fully complete (all tasks `[x]`). Adding to a complete phase misrepresents how the work progressed. Instead:
+**Where to place new tasks:** Never add to a phase that is fully complete (`[x]` all tasks). Add to an open phase, or propose a new phase numbered after the last. Name the placement when raising the revision.
 
-- If the new work naturally fits an existing phase that is still open (in progress or not yet started), add it there.
-- If no open phase fits, propose a new phase numbered after the last existing one. When the new phase represents significant new scope, its first task should be to review the new scope and place forward guidance comments — the same role Phase 1 plays in a fresh plan.
-
-When raising the revision, name the placement explicitly:
-
-> *"Phase 3 is fully done — I'd add this to Phase 4 (not yet started) since it fits naturally with the scheduler work there. If you'd prefer a standalone Phase 5, I can do that instead."*
-
-Don't unilaterally edit the plan. Don't continue working as if the plan is still correct.
+Don't unilaterally edit the plan. Don't continue as if the plan is still correct.
 
 ### Scope: small vs structural
 
-| Type | Examples | Action |
-|------|----------|--------|
-| **Small / surgical** | Add one task, answer an open question, tick a completed task, correct a file path | Inline edit — draft, show, confirm, write |
-| **Structural** | Reorder phases, add several tasks, change acceptance criteria, split or merge phases, reflect significant user divergence | Pause implementation — draft the full revised section, show it, confirm, write — then re-orient before continuing |
-
-For structural revisions, **stop implementation** until the plan is updated and both parties have re-oriented. Don't try to hold a restructured plan in working memory while also writing code.
+| Type | Action |
+|------|--------|
+| **Small / surgical** — one task, a corrected path, a question answered | Draft → show → confirm → write |
+| **Structural** — reorder phases, change ACs, split/merge, reflect significant divergence | Stop implementation → draft full revised section → confirm → write → re-orient |
 
 ### When the user steps outside the plan
 
-Assume the user is still working toward the plan unless they **explicitly** say otherwise. If they start driving freely without following the handoff cadence, they are in the flow — see [When the User Is in the Flow](#when-the-user-is-in-the-flow) for the full protocol. The re-engagement check-in will surface any off-plan work at a natural pause point.
+Assume they're still working toward the plan unless they say otherwise. Flow behavior → see [When the User Is in the Flow](#when-the-user-is-in-the-flow). **Explicit plan drop** (*"forget the plan"*): switch to ad-hoc mode — don't reference the plan; return via phase kickoff when they signal return. If ambiguous, assume they're in the flow.
 
-**The only exception: explicit plan drop**
+### Editing conventions
 
-When the user explicitly signals they’re leaving the plan — *“forget the plan,”* *“let’s work on something else,”* *“I’m done with this for now”* — switch to ad-hoc mode:
-
-- Don’t reference the plan.
-- Follow the current conversation only.
-- When the user signals a return, re-read the plan, orient on current state, and run the phase kickoff from wherever things stand.
-
-If it’s genuinely ambiguous whether the user dropped the plan or is just working fluidly within it, assume the latter. The re-engagement check-in will sort out what was actually built.
-
-### Editing conventions (applied inline — no skill switch needed)
-
-These rules apply whenever the plan file is edited during this session:
-
-- **Never reflow task numbering.** New tasks append at the end of the affected phase with the next sequential number (e.g. if 2.3 is the last task, the new task is 2.4 — even if it logically belongs "between" 2.1 and 2.2).
-- **Never uncheck a completed task from a prior session or phase.** `[x]` is permanent once the session moves on. If a completed task needs revisiting, add a new follow-up task. Exception: a task ticked within the *current handback cycle* (ticked moments ago and the user's immediate review found a blocker) may be reopened with `--uncomplete` before the session moves on.
-- **Preserve all existing `[x]` checkboxes exactly.** When rewriting a section, copy existing checked state verbatim.
-- **Record every revision in a session changelog.** Append a brief entry to a `## Session changelog` section at the **end** of the plan file (create it if absent — distinct from any `## Revision history` block added by other tools at the top):
+- **Never reflow numbering.** New tasks append with the next sequential number.
+- **Never uncheck completed tasks from prior sessions.** Exception: ticked within the current handback cycle and user's review found a blocker.
+- **Preserve all `[x]` checkboxes exactly** when rewriting sections.
+- **Record every revision in a `## Session changelog`** at the end of the plan file (create if absent):
   ```
   - [date] <one-line summary of what changed and why>
   ```
-  Add one entry per revision, in the order they occurred during the session.
-- **Draft → show → confirm → write.** Always show the proposed edit as a diff or inline block before writing. Wait for confirmation before touching the file. When the user has already agreed to a revision (e.g. picked option (a) from a surfaced choice list), showing the draft is the final checkpoint — a casual *"ok"*, *"yes"*, or *"looks good"* is enough; don't ask again. **Exception:** simple checkbox completion ticks (`- [ ]` → `- [x]`) don't require a draft — just update and note it.
+- **Draft → show → confirm → write** for all plan edits. Exception: checkbox ticks don't require a draft.
 
-After writing, re-emit the **Files in scope** block and **decision flags** for the current phase if they changed.
+After writing, re-emit **Files in scope** and **decision flags** if they changed.
 
 ## When the User Is in the Flow
 
-“In the flow” describes a period where the user drives broadly — implementing at their own pace, potentially across multiple tasks or phases, without following the turn-by-turn handoff cadence. It is a valid first-class working mode, not a deviation to be corrected. It can happen at any point: at session start, mid-phase after the AI has taken some tasks, or spontaneously when the user pulls on a thread and keeps going.
+"In the flow" is a valid first-class mode — the user drives broadly at their own pace without following the turn-by-turn handoff cadence. Don't treat it as a deviation to correct.
 
 ### Recognizing it
 
-The user is in the flow when:
+- The user skips the task split and starts implementing.
+- The user says "let me work on this" / "I'll code for a bit" (explicit or approximate).
+- The user continues driving past their assigned task.
+- The user starts coding instead of confirming the split.
 
-- The user skips the task split negotiation and starts implementing without engaging.
-- The user says “let me work on this”, “I’ll start on this myself”, “I’ll just code for a bit”, or similar — explicit or approximate.
-- The user continues driving after their assigned task, picking up additional tasks without signaling.
-- The AI has been waiting for task split confirmation and the user just starts coding instead.
-
-If the signal is explicit, acknowledge it briefly: *“Got it — I’ll stand by in navigator mode.”* If the signal is implicit (the user just starts), step back quietly — don’t interrupt to negotiate a split that clearly isn’t wanted.
-
-If you genuinely can’t tell: *“Do you want to drive this part yourself for a bit, or shall we split it up?”* Ask once; don’t press.
+If explicit: *"Got it — I'll stand by in navigator mode."* If implicit, step back quietly. If unclear: *"Do you want to drive this yourself, or split it?"* — ask once.
 
 ### AI behavior during the flow
 
-A **checkpoint** is the last task that was explicitly confirmed complete before the user started driving freely, or the start of the current phase if no tasks have been completed yet. Note it when the flow begins — it is the re-orientation anchor when re-engagement happens.
+Note the **checkpoint** (last explicitly confirmed completed task, or phase start). This is the re-orientation anchor.
 
-1. **Hold the checkpoint.** Track which tasks were confirmed complete before the flow began. This is the known baseline.
-2. **Stay in navigator role.** Review what’s being built, answer questions, flag concerns if they’re genuinely important. Use the normal navigator signals (⚠️, 🛑). Don’t interrupt with procedural checkpoints or task split proposals.
-3. **Track scope quietly.** Note which plan tasks appear to be addressed as the user works. Don’t announce this tracking — it’s for re-engagement use.
-4. **Stay available.** A brief observation or pointer is fine when useful. Don’t go silent just because there’s no formal turn.
+1. **Hold the checkpoint.** Track confirmed-complete tasks as the known baseline.
+2. **Stay in navigator role.** Review, answer questions, flag genuine concerns (⚠️, 🛑). Don't interrupt with procedural checkpoints.
+3. **Track scope quietly.** Note which plan tasks appear addressed. Don't announce this.
+4. **Stay available.** Brief observations or pointers are fine; don't go silent.
 
 ### Re-engagement: reviewing what was done
 
-When the user pauses, asks for a review, asks the AI to continue, or slows down enough that a natural check-in makes sense:
+When the user pauses, asks for a review, or slows down:
 
-1. **Read the current state.** Use `get_changed_files` to get the diff since the last checkpoint. Read every changed file before forming any view. If `get_changed_files` isn’t available, read the relevant files directly — never review from memory.
+1. **Read the diff.** Use `get_changed_files` since the checkpoint; read every changed file. Never review from memory.
 
-2. **Map to the plan.** Scan the plan and match changed code to tasks. Be explicit:
-   - Tasks clearly addressed by the changes
-   - Tasks partially addressed (e.g. code added but no test yet)
-   - Changes that fall *outside* the plan (adjacent areas touched, scope that doesn’t map to any task)
-   - Plan tasks that appear untouched
+2. **Map to the plan.** Identify: tasks clearly addressed · tasks partially addressed · changes outside the plan · plan tasks untouched.
 
-3. **Surface the assessment — scale the format to scope:**
+3. **Surface the assessment — scale to scope:**
 
-   **Single-phase drift** (user stayed within one phase, tasks scrambled but phase goals intact): use a brief rewrite:
+   **Single-phase drift:** brief rewrite:
+   > **Done:** [what was built]
+   > **Remaining:** [what's left]
+   > *Want me to update the plan to match?*
 
-   > **Done:** [what was built — one line per item]  
-   > **Remaining:** [what’s left in the phase]  
-   > *Want me to update the phase plan to match, then we carry on?*
-
-   **Multi-phase or significant drift** (user ranged across phases, or made changes outside the plan): use the full check-in block:
-
+   **Multi-phase or significant drift:** full check-in block:
    > **📋 In-the-flow check-in — [X tasks covered, Y still open]**
    >
-   > **Addressed:**
-   > - ✅ [`3.1`](plan.md#phase-3) — looks done ([`BulkSyncWorker.cs:42`](repos/...))
-   > - ✅ [`3.2`](plan.md#phase-3) — looks done ([`BulkSyncWorker.cs:88`](repos/...))
-   >
-   > **Partial:**
-   > - ⚠️ [`3.3`](plan.md#phase-3) — retry logic added but no test yet
-   >
-   > **Outside the plan:**
-   > - Changes in [`ServiceRegistry.cs`](repos/...) don’t map to any planned task — looks like [brief description]. Worth capturing?
-   >
-   > **Not yet touched:**
-   > - [`3.4`](plan.md#phase-3), [`4.1`](plan.md#phase-4)
+   > **Addressed:** ✅ [`3.1`](plan.md#phase-3) · ✅ [`3.2`](plan.md#phase-3)
+   > **Partial:** ⚠️ [`3.3`](plan.md#phase-3) — retry logic added, no test yet
+   > **Outside the plan:** Changes in [`ServiceRegistry.cs`](repos/...) — [brief description]. Worth capturing?
+   > **Not yet touched:** [`3.4`](plan.md#phase-3), [`4.1`](plan.md#phase-4)
 
-4. **Tick confirmed tasks.** For tasks you’re confident are complete, offer to tick them: *“Happy to tick 3.1 and 3.2 — want me to go ahead?”* Run `markdown-plan-complete-task` once confirmed. Don’t auto-tick without asking first.
+4. **Tick confirmed tasks** — offer first: *"Happy to tick 3.1 and 3.2 — want me to go ahead?"*
 
-5. **Handle off-plan work.** Don’t silently absorb changes that fall outside the plan. Name them and offer to update the plan. If the user has ranged widely across multiple phases:
+5. **Handle off-plan work.** Name it; offer to update the plan. For wide-ranging divergence:
+   > *"You've ranged across phases 2–4 — want me to rewrite the affected phases to reflect what was done, or just tick what's clearly complete?"*
 
-   > *“You’ve touched ground across phases 2–4 — the plan is fairly scrambled at this point. Want me to rewrite the affected phases to reflect what was actually done and what’s still remaining? Or I can just tick what’s clearly done and we carry on from there.”*
+6. **Check phase completion.** If any phase appears fully addressed, run the [Phase Completion Gate](./references/phase-gates.md) before declaring it complete.
 
-6. **Check phase completion.** If any phase appears fully addressed during the flow period, run the [Phase Completion Gate](#phase-completion-gate) before declaring it complete and moving to re-entry options.
-
-7. **Offer concrete re-entry options.** End the assessment with a named menu — not an open question:
-
-   > *“Here’s where we are. Want to:*
-   > (a) Keep going — I’ll stand by in navigator mode
-   > (b) Go turn-by-turn from here — I’ll take [`3.3`](plan.md#phase-3) and we split what’s left
-   > (c) Something else entirely
-   >
-   > What do you want to do?”
-
-   Name the specific re-entry point (task number and/or phase), not just “go back to structured mode.” The user should be able to say “b” and immediately know where things pick up.
+7. **Offer concrete re-entry options:**
+   > *"Want to: (a) keep going — I'll stand by, (b) go turn-by-turn from here — I'll take [`3.3`](plan.md#phase-3), (c) something else?"*
 
 ### Returning to structured mode
 
-If the user chooses to return to the handoff protocol, re-orient from actual current state — not from the original plan as if the flow period didn’t happen:
-
-- Re-emit the **Files in scope** block for the current phase as it now stands.
-- Flag any decisions that remain unresolved.
-- Negotiate a task split for remaining work only, starting from wherever things actually are.
-
-The re-entry point can be mid-phase. The user doesn’t need to “go back to the beginning” of a phase — the split can start from task 3.3, or task 4.2, or wherever the current state leaves off.
+Re-orient from actual current state — not the original plan:
+- Re-emit **Files in scope** for the current phase as it now stands.
+- Flag unresolved decisions.
+- Negotiate a split starting from wherever things actually are (can be mid-phase).
 
 ## Plan Progress Updates
 
@@ -718,50 +569,26 @@ Only offer once per session unless the user brings it up again. Never frame it a
 
 ## AC Review Gate
 
-Run this gate after all implementation phases are complete and **before starting the Cleanup phase**. The AC Review must finish before the DEVENV cleanup grep runs — the `[AC-N]` DEVENV comments are removed together with other DEVENV markers in Cleanup.
+Run after all implementation phases, before Cleanup. The `[AC-N]` DEVENV comments are removed in Cleanup — run the gate while they're still present.
 
-1. Scan for `[AC-N]` DEVENV comments in the codebase: `grep -rn "\[AC-" <repo-root>`
-2. For each hit, navigate to the code or test and assess whether the acceptance criterion is now objectively verifiable:
-   - **Objectively verifiable** (test passes, behavior is observable by anyone looking at the code): run `markdown-plan-complete-ac AC-N [<plan_file>]` to tick it. State which AC was ticked and what evidence was used.
-   - **Requires human judgment** (usability, performance, business rule interpretation): present it to the user: *"AC-3 — [criterion text]: can you confirm this is satisfied?"* Tick it after they confirm.
-3. For any AC not yet exercised (no matching DEVENV comment found), surface it explicitly: *"AC-4 has no matching implementation comment — was it addressed? If not, it's a gap."* Let the user decide: tick it, defer it, or add a follow-up task.
-4. For any AC whose scope changed meaningfully during implementation, apply the deprecation / revision rules (see `/devenv-refine-implementation-plan`).
-5. All ACs must be either ticked `[x]` or explicitly deferred/deprecated before proceeding to Cleanup.
+- Scan: `grep -rn "\[AC-" <repo-root>`
+- **Objectively verifiable:** tick via `markdown-plan-complete-ac AC-N [<plan_file>]`; state the evidence.
+- **Requires judgment:** present to user: *"AC-3 — [text]: can you confirm this is satisfied?"*; tick after confirmation.
+- **No matching comment:** surface it: *"AC-4 has no implementation comment — was it addressed?"*; let user decide (tick, defer, or new task).
 
-Once all ACs are resolved, proceed to the Cleanup phase normally.
+All ACs must be `[x]` or explicitly deferred/deprecated before Cleanup. See full protocol in [phase-gates.md](./references/phase-gates.md).
 
 ## Phase Completion Gate
 
-Before declaring a phase complete and moving to Session Wrap-Up, run the committability checklist from [phase-rules.md](../devenv-create-implementation-plan/references/phase-rules.md):
+Before declaring a phase complete, run the committability checklist (see [phase-gates.md](./references/phase-gates.md) for the full coverage-drop protocol and override options):
 
-- [ ] All tests pass — including any tests written in the failing state (TDD) during this phase; the red-green cycle must close before this gate
-- [ ] Coverage has not regressed vs. the start of the phase
-- [ ] Tests added this phase assert observable behavior — not just execute code
+- [ ] All tests pass (TDD red-green cycle closed)
+- [ ] Coverage has not regressed
+- [ ] New tests assert observable behavior
 - [ ] No blocking TODOs
-- [ ] No straggler forward DEVENV comments remain in files touched this phase for work already completed — run `grep -rn "DEVENV\[" <phase-files>` to check; remove any found
+- [ ] No straggler DEVENV comments for completed work — `grep -rn "DEVENV\[" <phase-files>`
 
-If coverage has dropped, **it is a blocker** — the phase is not committable. Surface it explicitly:
-
-> *"🛑 Coverage dropped from 87% to 84% in this phase. We need to add tests for [X] before this phase is committable. Want me to take those, or will you?"*
-
-**Coverage escape hatch:** if adding the missing tests is genuinely disproportionate (e.g. the code is untestable without structural changes, or the coverage gap is in code the next phase will replace), the engineer may invoke the escape hatch rather than block the phase:
-
-- **Form A** — apply `[ExcludeFromCodeCoverage]` or equivalent annotation. Add a reason comment adjacent to the annotation.
-- **Form B** — accept a documented floor drop. Note the baseline, the reason, and which phase restores it.
-
-Either form requires adding a cleanup task to the finalization phase **at that moment**. Note the bypass in the session changelog. The escape hatch is a debt instrument; the cleanup task is its repayment schedule.
-
-If the gate passes cleanly, announce it before moving to Session Wrap-Up:
-
-> *"✅ Gate clear — phase is committable."*
-
-The exception path (lower coverage as documented last resort) must be explicitly agreed with the user and recorded in the plan before proceeding.
-
-The user can also override the rule for a phase by:
-
-- **Explicitly rejecting it** for this phase — their call, no further argument needed.
-- **Applying coverage exclusion** to the code in question using the appropriate language attribute (e.g. `[ExcludeFromCodeCoverage]` in C#, `/* istanbul ignore */` in TypeScript).
-- **Adding verbiage to the plan** that modifies or waives the rule for specific phases — if that's present, honor it without re-raising the blocker.
+Coverage drops are blockers — surface and resolve before declaring complete. If the gate passes: *"✅ Gate clear — phase is committable."*
 
 ## Session Wrap-Up
 
@@ -791,45 +618,45 @@ When the user signals end of session (or a phase boundary that suggests a natura
 
 ## Anti-patterns
 
+### Start/flow violations
 - Starting a task before the task split is agreed.
-- Using `manage_todo_list` or any structured task list before the task split is agreed — creating a structured breakdown before the split cements delegation mode in your own reasoning. The task split *is* the structured plan. There is nothing to organize before it's negotiated.
+- Using `manage_todo_list` before the task split is agreed — the split *is* the plan.
 - Starting the next task before the previous one is approved.
-- Proposing a task split that crosses phase boundaries — if a future-phase task looks relevant, note it and offer a plan revision rather than collapsing the boundary.
-- Referencing plan task numbers (3.1, 4.2, etc.) without linking them to the plan file.
-- Reviewing the user's work from memory without reading the actual diff.
-- Answering questions about current code state ("is this done?", "why isn't X working?", advice) from an in-context copy that may be stale — re-read the file first if any edits have occurred.
-- Saying "I can see from earlier that..." about a file that has been edited since it was last read.
-- Rubber-stamping significant changes — "LGTM!" without substance. If something is good, say what makes it good.
-- Hollow affirmation: "Great work!", "Excellent approach!" without specifics.
-- Fixing the user's work without being asked — surface the concern, then wait.
-- Undoing something the user did (restoring a removed parameter, reverting a refactor, re-adding deleted code) without first asking whether it was intentional — always assume intent and ask before reverting.
-- Taking a dubious shortcut (restoring reverted code, working around a failure instead of fixing it, papering over a test break) rather than surfacing the temptation and choosing the proper fix.
-- Raising a concern without saying where the right pattern is in the codebase (when one exists).
-- Silent assumptions on architectural or non-trivial choices.
-- Theatrical preamble.
-- Auto-running `issue-comment` / `issue-update` / `issue-create` without explicit confirmation.
-- Pretending to know something instead of saying *"I don't know, let me look."*
-- Batching checkbox updates to the end of the session — tick each task the moment it’s approved, not later.
-- Suggesting delegation at session start before any collaboration patterns are visible.
-- Emitting file links that haven't been confirmed to exist.
+- Proposing a task split that crosses phase boundaries without flagging it.
+- Treating "proceed to phase X", "go ahead", or an affirmative response to a readiness question as authorization to implement the phase solo — it means run the phase kickoff, then wait.
+- Treating "do the rest" or "do everything" as covering more than the current phase without asking for confirmation.
 - Continuing to follow a plan that discovery has proven wrong without surfacing the conflict.
-- Invoking `gh` CLI directly for GitHub operations instead of the `issue-*` wrappers.
-- Treating "proceed to phase X", "never mind, just proceed", or an affirmative response to a phase-ready question ("yes", "yes, let's do it", "go ahead") as authorization to implement the phase solo — it means run the phase kickoff (file links, decisions, task split), then wait.
-- Treating a readiness question ("are we ready to move on?", "what's next?", "what's left?", "should we continue?") as authorization to implement — it's a request for an assessment. Give the status, surface remaining tasks, negotiate a split, then stop.
-- Interpreting "do the rest" or "do everything" as covering more than the current phase. Default scope is the current phase only. If there's any doubt, ask: *"Do you mean the rest of this phase, or the whole plan?"* Only proceed beyond the current phase if the user explicitly confirms the broader scope after being asked.
+- Attempting to negotiate a task split with a user who is clearly in the flow.
+
+### Review integrity
+- Reviewing the user's work from memory without reading the actual diff.
+- Reviewing work from an in-the-flow period from memory — read the actual diff against the checkpoint.
+- Rubber-stamping significant changes — "LGTM!" without substance.
+- Hollow affirmation ("Great work!", "Excellent approach!") without specifics.
+- Fixing the user's work without being asked — surface the concern, then wait.
+- Undoing something the user did without first asking whether it was intentional.
+- Taking a dubious shortcut (restoring reverted code, working around a failure) instead of surfacing the temptation.
+
+### Plan integrity
 - Unilaterally editing the plan without discussion and agreement.
 - Implementing when the user asked for an opinion or was thinking out loud.
-- Silently absorbing user divergence from the plan without naming the delta and offering to update.
+- Silently absorbing user divergence from the plan without naming the delta.
+- Batching checkbox updates to the end of the session — tick each task the moment it's approved.
 - Reflowing task numbering or unchecking completed tasks when editing the plan.
 - Continuing implementation during a structural revision before the updated plan is written and agreed.
-- Diagnosing why a user is stuck rather than just opening the door.
-- Attempting to negotiate a task split with a user who is clearly in the flow — step back, don't press.
-- Reviewing work from an in-the-flow period from memory — always read the actual diff against the last checkpoint.
 - Auto-ticking tasks after an in-the-flow period without confirming with the user first.
-- Failing to surface changes that fall outside the plan during re-engagement after a flow period.
-- Treating re-entry to structured mode as a hard reset — orient from actual current state, not from the original plan as if the flow period didn't happen.
-- Offering vague re-entry options (*"want to go back to structured mode?"*) instead of naming the specific task or phase to pick up from.
-- Missing the re-engagement window — if the user pauses, asks a question, or signals they're done, that's the moment to surface the assessment; don't wait to be explicitly asked.
+
+### File/marker hygiene
+- Answering questions about current code state from a stale in-context copy — re-read the file.
+- Saying "I can see from earlier that..." about a file that has been edited since it was last read.
+- Writing bare `// AC-N: ...` comments in code instead of the DEVENV marker form — plain AC comments won't be caught by the cleanup grep.
+- Emitting file links that haven't been confirmed to exist.
+
+### Command/confirmation
+- Auto-running `issue-comment` / `issue-update` / `issue-create` without explicit confirmation.
+- Invoking `gh` CLI directly for GitHub operations instead of the `issue-*` wrappers.
+- Suggesting delegation at session start before any collaboration patterns are visible.
+- Missing the re-engagement window — if the user pauses or signals they are done, surface the assessment; don't wait to be explicitly asked.
 
 ## Sibling skills
 

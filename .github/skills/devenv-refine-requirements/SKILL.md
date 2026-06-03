@@ -30,15 +30,13 @@ For multi-document projects (one doc per epic), refine **one doc per invocation*
 
 If the doc has grown past ~30 requirements or now covers what feels like multiple epics, the user may ask to split it. Treat splitting as a special refinement:
 
-1. **Interview**: confirm the split boundary (which requirements move to which new doc), the new `<topic>` names, and the new prefix per resulting doc.
-2. **Create the new doc(s)** by copying the full source doc to each new path, then in each new doc:
-   - Mark the requirements that don't belong to that doc as `> **Moved to Requirements-<other-topic>-001.md in revision YYYY-MM-DD**` (preserving the original content beneath, same as supersession).
-   - **Re-prefix the requirements that stay** to the new prefix — e.g. `REQ-007` becomes `ORD-007`. Record the rename mapping in the revision history of the new doc.
-3. **Update the source doc** in place: every moved requirement becomes a `> **Moved to ...**` block, with the *new* ID in the move note so cross-references remain traceable.
-4. **Walk every cross-doc dependency edge** (in all related docs in the workspace) and update `Depends on:` lines to use the new IDs and new doc paths.
-5. Record the split in **every affected doc's** revision history. Note the split in `session_memory-requirements-<topic>.md` for each new doc.
-6. **Create or update `Index.md`** in the requirements folder — the multi-doc project now needs a navigation index. See [`/devenv-gather-requirements`](../devenv-gather-requirements/SKILL.md) §*Index.md for multi-file artifacts* for the structure. Record the split as a revision-history entry on the Index.
-7. Surface roadmap impact — if a roadmap already exists, suggest [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md) to incorporate the new doc structure (its STEP-NN → REQ-NNN backreferences will be stale).
+1. Interview: confirm split boundary, new `<topic>` names, new prefix per doc.
+2. Create new docs by copying source, then mark non-belonging requirements as `> **Moved to Requirements-<other-topic>-001.md in revision YYYY-MM-DD**` and re-prefix requirements that stay (e.g. `REQ-007` → `ORD-007`).
+3. Update source doc: every moved requirement becomes a `> **Moved to ...**` block with the new ID.
+4. Walk all cross-doc `Depends on:` lines and update to new IDs and doc paths.
+5. Record the split in every affected doc's revision history. Update session memory for each new doc.
+6. Create or update `Index.md`. See [`/devenv-gather-requirements`](../devenv-gather-requirements/SKILL.md) §*Index.md for multi-file artifacts*.
+7. If a roadmap exists, suggest [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md) for stale STEP-NN → REQ-NNN backreferences.
 
 ## Updating Index.md on plain refinements
 
@@ -70,14 +68,7 @@ If the user provides communications artifacts, summarise each one separately (pr
 **Hard rules:**
 
 - **Never reflow IDs.** `REQ-007` stays `REQ-007` for its lifetime. New requirements get the next sequential number per category prefix (e.g. `AUTH-008`, `ORD-014`).
-- **Never silently delete a requirement.** When a requirement is superseded or withdrawn, delete it from the document and record the removal in `## Revision History`:
-
-  ```
-  - Removed REQ-007 (Auth: minimum password length) — superseded by REQ-014 (updated complexity policy)
-  - Removed REQ-023 (SMS notifications) — withdrawn, out of scope for v1
-  ```
-
-  Then update every `Dependencies:` reference pointing at the removed ID.
+- **Never silently delete a requirement.** Record removals in `## Revision History` with ID, summary, and reason. Update every `Dependencies:` reference pointing at the removed ID.
 - **Never silently rewrite acceptance criteria.** Updated criteria keep the requirement's ID; the prior wording goes into a quoted "Previously" block beneath the new wording.
 - **Dependency links must stay valid.** If a requirement is superseded, walk every other requirement's `Dependencies:` line and update the link to point at the replacement (or remove the link with a note).
 - **Priority groupings can be re-ordered freely** — they are stakeholder priority, not delivery sequencing. New requirements need to be placed into a group. Moving a requirement between groups is allowed; record the move in revision history.
@@ -94,16 +85,7 @@ Check for:
 - **Supersession gaps** — a requirement was superseded but another requirement still depends on it without acknowledging the change.
 - **Ambiguous shared terms** — a new term introduced that is already used elsewhere with a different meaning.
 
-For each finding, produce a labelled block:
-
-```
-CONFLICT: REQ-004 vs REQ-019 (new)
-REQ-004: users may delete their account at any time.
-REQ-019 (new): audit log must record the actor for every state change indefinitely.
-Tension: hard-delete removes the actor reference needed by REQ-019.
-```
-
-For each finding offer: resolve inline (user clarifies, AI updates requirements), add to the revision's open questions, or accept as a documented trade-off. **Do not write the file while known contradictions remain unresolved.**
+For each finding, surface a labelled `CONFLICT: REQ-X vs REQ-Y` block naming the tension. For each, offer: resolve inline, add to open questions, or accept as documented trade-off. **Do not write the file while known contradictions remain unresolved.**
 
 ### 4b. Episode staleness check
 
@@ -121,7 +103,7 @@ If an `Episodes-<topic>-NNN.md` companion file exists, check whether any changed
 
    > *"Episodes 2 and 4 illustrate requirements that changed in this refinement ([REQ-014](#req-014), [REQ-019](#req-019)). I've marked them stale. Would you like me to update them now, or batch that for a later session?"*
 
-**Rewriting episodes is a deliberate act, not automatic.** Episodes accumulate meaning and character over time; a hasty rewrite loses the voice. Batch episode updates until the requirements are stable enough to justify the effort — typically at the end of a refinement cycle, not mid-stream. When rewriting: keep the character names, places, and emotional tone from the original. Only change narrative elements that are now factually wrong given the revised requirements.
+**Rewriting episodes is deliberate, not automatic.** Batch updates until requirements are stable. When rewriting: keep character names, places, and tone — only change what is now factually wrong.
 
 Add a new entry to the top of `## Revision History` (create the section if missing, immediately after the document title):
 

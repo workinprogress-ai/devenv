@@ -55,15 +55,7 @@ Track:
 - What the diagnosis concluded (what changes, what stays)
 - Key decisions already made
 
-**Open questions log format:**
-
-```
-Q-001 | open   | Should the new approach maintain backward-compat with the old event schema? | Affects: [Interface Contract, Data Model]
-Q-002 | resolved | Can the existing data model be migrated online? | Resolution: yes — additive columns only, no downtime required
-Q-003 | deferred | Multi-tenancy strategy | User: out of scope for this redesign
-```
-
-Status: `open` → `brainstorming` → `resolved` / `deferred`. Every Q-NNN must reach `resolved` or `deferred` before writing.
+Track open questions as `Q-NNN` items. See [Q-NNN format](../_conventions.md#open-questions-log-q-nnn) for the format block and status transitions. Every Q-NNN must reach `resolved` or `deferred` before writing.
 
 ---
 
@@ -98,20 +90,7 @@ Ask in one exchange (adjust based on what was already said in intake):
 
 After the user responds, reflect the problem back in a structured summary:
 
-```
-## Problem Statement
-
-**Symptoms:** [what the user observes going wrong]
-**Root cause hypothesis:** [why the current design produces this, if known]
-**Success criteria:** [what must be true after the redesign]
-**Constraints:** [hard limits the new design must respect]
-**Ruled out:** [incremental fixes that won't work and why]
-```
-
-Wait for the user to confirm or correct this summary before proceeding. This is the contract that Phase 2 will use as its evaluation criteria — it must be accurate.
-
----
-
+After the user responds, reflect the problem back as a **Problem Statement** (see [redesign-doc-template.md](./references/redesign-doc-template.md)) and confirm before proceeding to Phase 2.
 ### Phase 2 — Diagnosis
 
 This phase uses the Problem Statement from Phase 1 as its evaluation criteria.
@@ -197,32 +176,9 @@ Do not move to Phase 5 while critical design questions remain open.
 
 ### Phase 5 — Draft the Redesign Doc
 
-Before writing anything, show the user a summary for approval:
+Draft the redesign document in chat before writing to disk. The document covers: why this redesign is needed, what changes (per area), what stays the same, proposed acceptance criteria, and a target architecture sketch.
 
-```
-## Proposed Redesign--NNN.md coverage
-
-### What changes
-- [Area]: [old approach] → [new approach] — [why old no longer holds]
-- ...
-
-### What stays the same
-- [Area]: [kept approach]
-- ...
-
-### Target architecture sketch
-- Interface contract: [key changes or "unchanged"]
-- Internal structure: [new shape in a sentence]
-- Data model: [key changes or "unchanged"]
-
-### Acceptance criteria (proposed)
-- AC-1: ...
-- AC-2: ...
-```
-
-Ask the user to confirm scope and coverage — particularly the acceptance criteria and what's explicitly out of scope. Wait for explicit approval before proceeding to Phase 6.
-
----
+See [redesign-doc-template.md](./references/redesign-doc-template.md) for the full section format, required headings, and the `Redesign--NNN.md` content spec.
 
 ### Phase 6 — Write
 
@@ -236,135 +192,17 @@ If `docs/Architecture_and_implementation.md` has a **Status** field, set it to `
 
 ### Phase 7 — Wrap-up
 
-After writing the file, give the user a brief summary:
+Summarise: key decisions (what changes, what stays, why), any Q-NNN items resolved or deferred, path to `Redesign--NNN.md`, and the reminder that `Architecture_and_implementation.md` was marked `Under revision` — the Cleanup phase of the resulting plan must update it via `/devenv-refine-technical-design`.
 
-- The key decisions made: what changes, what stays, and why the old approach no longer holds
-- Any Q-NNN items resolved or deferred
-- The path to `Redesign--NNN.md`
-- **Suggested next step:** run [`/devenv-plan-from-spec`](../devenv-plan-from-spec/SKILL.md) and pass `Redesign--NNN.md` as the input spec to generate a concrete implementation plan
-- **Reminder about `Architecture_and_implementation.md`:** it has been marked `Under revision` but not changed. The implementation plan's Cleanup phase must include a task: *"Update `Architecture_and_implementation.md` using the `## Target architecture` section of `Redesign--NNN.md` as the source — use `/devenv-refine-technical-design` for this."*
+**Suggested next step:** run [`/devenv-plan-from-spec`](../devenv-plan-from-spec/SKILL.md) and pass `Redesign--NNN.md` as the input spec.
 
-Then ask:
-
-> *"Want to track this in a GitHub issue? I can create a new one, or post the redesign doc to an existing issue number. The document will go in a comment; the description stays as a short placeholder for `/devenv-plan-from-spec`.'"*
-
-If yes:
-
-1. **New issue or existing?** If the user provides an issue number, skip to step 4.
-
-2. **Draft the issue title** — propose and ask the user to confirm or adjust:
-   - `Redesign: <component name> — <YYYY-MM-DD>`
-
-3. **Draft the issue body** (placeholder — redesign doc goes in the comment):
-   ```
-   Redesign document is in the first comment below.
-
-   Next step: run `/devenv-plan-from-spec <issue number>` to generate a concrete implementation plan from the redesign doc.
-   ```
-
-4. **Show a preview** (title + body for new issues; first ~15 lines of the document content for existing) and ask:
-   > *"Ready to post the redesign doc? (y/n)"*
-
-5. On confirmation:
-
-   **If creating a new issue:**
-   - `issue-create --repo "$GITHUB_REPO" --title "<title>" --body "<body>"`
-   - Note the new issue number.
-   - Write the redesign doc to a temp file.
-   - `issue-comment <N> --body-file <temp-file>`
-   - Surface the issue URL.
-
-   **If posting to an existing issue:**
-   - Write the redesign doc to a temp file.
-   - `issue-comment-list <N>` — scan for an existing redesign comment (a comment whose body begins with `# Redesign:`).
-   - If found: `issue-comment-update <COMMENT_ID> --body-file <temp-file>` (replaces the prior version).
-   - If not found: `issue-comment <N> --body-file <temp-file>` (adds a new comment).
-   - Surface the issue URL.
-
-   The GH issue comment is the canonical record. The local `Redesign--NNN.md` is a working copy.
-
-Never create an issue or post a comment without explicit "yes" confirmation.
+**GitHub tracking (optional):** Offer to post the redesign doc to a GitHub issue. See [github-issue-creation.md](../devenv-pair-programming/references/github-issue-creation.md) for the 5-step protocol. Issue title: `Redesign: <component name> — <YYYY-MM-DD>`.
 
 ---
 
 ## Redesign Doc Format
 
-```markdown
-# Redesign: [Component Name]
-
-**Component:** [component name]  
-**Repo:** [workspace-relative path]  
-**Architecture doc:** [link to Architecture_and_implementation.md] ← marked `Under revision`; do not use as reference for the new design — use `## Target architecture` below  
-**Date:** [date]  
-**Related issue:** [GH issue # if any, otherwise omit]
-
----
-
-## Why this redesign
-
-[What the current approach gets wrong. Crisp and specific — 2–5 bullets. This is the "problem statement" that guided the design session.]
-
----
-
-## What changes
-
-[One subsection per area being redesigned. Skip areas that are keeping their current approach.]
-
-### [Area — e.g. Internal Structure]
-
-**Current approach:** [brief description of what the component currently does in this area]  
-**New approach:** [what it will do instead]  
-**Why the current approach no longer holds:** [concise rationale]  
-**Migration concern:** [any backward-compat, data migration, or cut-over consideration — omit if none]
-
----
-
-## What stays the same
-
-[Explicit list of what is NOT changing. This bounds the scope and prevents the implementation plan from drifting into territory that doesn't need to change.]
-
----
-
-## Acceptance criteria
-
-[How we know the redesign is complete. Observable behaviour that must still work. New behaviour that must work. Use `**AC-N**` identifiers.]
-
-- [ ] **AC-1** *(explicit | inferred)*
-- [ ] **AC-2** *(explicit | inferred)*
-
----
-
-## Target architecture
-
-> This section describes what `Architecture_and_implementation.md` should say **after** implementation is complete.
-> Use this as the source when running `/devenv-refine-technical-design` in the Cleanup phase.
-
-### Overview
-[One sentence: what this component does and why it exists — post-redesign.]
-
-### Interface contract
-
-**Exposed surface:** [post-redesign exposed surfaces]
-
-**Dependencies:** [post-redesign consumed surfaces]
-
-### Internal structure
-[Post-redesign layering and key modules.]
-
-### Data model
-[Post-redesign owned state and key changes from today.]
-
-### Error handling
-[Post-redesign error strategy — only if it changes; otherwise "unchanged".]
-
-### Test strategy
-[Post-redesign test approach — only if it changes; otherwise "unchanged".]
-
-### Key decisions
-| Decision | Old choice | New choice | Rationale | Trade-off accepted |
-|---|---|---|---|---|
-| [topic] | [old] | [new] | [why old no longer holds] | [what we gave up] |
-```
+See [redesign-doc-template.md](./references/redesign-doc-template.md) for the required headings and full document structure.
 
 ---
 
