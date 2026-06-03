@@ -138,18 +138,14 @@ See [phase-rules.md](./references/phase-rules.md) for the full checklist.
 
 - **Phase 1 is always**: Discovery & test scaffolding
 - **Last phase is always**: Cleanup & docs
-- Each phase must be **atomic and committable**: tests pass, coverage does not regress, deliverable is clear and stands on its own
-- Each phase should have a **clear deliverable that is a value-add** — scaffolding, a set of stubbed endpoints, a fully-implemented feature, documentation, edge-case tests. Phases consisting only of intermediate steps to keep the build green belong merged into the phase whose deliverable they serve.
-- Each phase's task list must include **test tasks alongside the code tasks** — do not defer all testing to a final phase
-- Tests written in early phases assert the **current state** (including stubs); they evolve as implementation lands — they are not discarded
-- **TDD red-green cycles must close within the same phase** — if a test is written in the failing state first, the implementation that makes it pass must be in the same phase; do not write tests that assert behaviour not yet present in the codebase
-- When legacy and new code would be **mixed in the same files across multiple phases**, prefer a dedicated early **legacy cleanup phase** — see [phase-rules.md](./references/phase-rules.md) for patterns (demolition, hollow-out, rename suffix, branch by abstraction) and decision guidance; surface options when multiple are viable, choose the clear winner when one exists
-- **Coverage escape hatch:** when a phase genuinely cannot satisfy the coverage rule without disproportionate cost, use Form A (exclusion annotation with reason comment) or Form B (documented floor drop with named recovery phase). Either form requires a cleanup task in the finalization phase. Flag likely escape hatch candidates during plan creation so the finalization phase cleanup list includes them from the start.
-- Tasks within a phase that have no `depends on` between them may be done in parallel
+- Each phase must be **atomic and committable**: tests pass, coverage does not regress, deliverable stands alone
+- Include test tasks alongside code tasks in every phase — do not defer all testing to a final phase
+- TDD red-green cycles must close within the same phase
+- When legacy and new code mix across phases, prefer a dedicated early legacy cleanup phase — see [phase-rules.md](./references/phase-rules.md) for patterns
+- **Coverage escape hatch** (Form A/B): see [phase-rules.md](./references/phase-rules.md); flag candidates at plan creation
+- Tasks with no `depends on` between them may be done in parallel
 
 ## Task Formatting Rules (summary)
-
-See [task-format.md](./references/task-format.md) for the full spec and examples.
 
 ```
 - [ ] **N.N [S|M|L] Task title** ([additional context](#task-NN--short-slug))
@@ -170,6 +166,8 @@ See [task-format.md](./references/task-format.md) for the full spec and examples
 - Anchor slugs are descriptive: `#task-21--mockstore-implementation`, not `#task-2-1`.
 - `N.N` — first number is the phase. Sub-tasks extend the series: `1.3.1`, `1.3.2`, ...
 - Push depth into *Additional task context* and link to it rather than bloating sub-bullets.
+
+See [task-format.md](./references/task-format.md) for the full spec and examples.
 
 ## Document Skeleton
 

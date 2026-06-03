@@ -74,99 +74,9 @@ Update `session_memory-blueprint.md` to track decisions and open questions acros
 
 ### Splitting a large blueprint into multiple files
 
-A single-file blueprint is the right default. For very large systems — many components, deep architecture, or a blueprint that has grown past comfortable reading length — split into multiple files. Splitting a blueprint is by **section** (not by epic; that's the requirements layer's job).
+For very large blueprints (approaching ~1,500 lines or many components in §4), split into a subfolder with one file per section group (e.g. `01-context.md`, `02-architecture.md`, `03-components.md`, `04-risks.md`). Section numbers are continuous across files; use `<see NN-slug.md §N>` for cross-file references. Produce an `Index.md` as the canonical entry point.
 
-**When to split:**
-- The single-file blueprint is approaching ~1,500 lines
-- §4 Per-Component Changes contains so many components that no one can hold it in their head
-- Different audiences need different parts (architects read §3; per-team leads read their slice of §4)
-- The user explicitly asks to split it
-
-**Split layout:** the blueprint becomes a **subfolder** in place of the single file:
-
-```
-docs/Architecture/
-  Blueprint-orders-001/
-    Index.md
-    01-context.md         # §1 Context, §2 Domains
-    02-architecture.md    # §3 Architecture (services, events, operations)
-    03-components.md      # §4 Per-Component Changes
-    04-risks.md           # §5 Risks, §6 Open Questions
-```
-
-Common split boundaries (offer these to the user; let them pick or override):
-- **By section group** (default): `01-context.md`, `02-architecture.md`, `03-components.md`, `04-risks.md`
-- **By domain within §3-§4** when there are several: `02-architecture-orders.md`, `02-architecture-fulfillment.md`, `03-components-orders.md`, `03-components-fulfillment.md`
-- **A hybrid** when only one section is oversized
-
-**File naming inside the subfolder:** `NN-<section-slug>.md` so files sort in canonical order.
-
-**Section numbering is preserved across files.** A reader navigating from §3.2.5 to §4.1 follows the file boundary; the numbers themselves do not restart per file.
-
-**Cross-file references** use the form `<see 02-architecture.md §3.2.5>` rather than just `§3.2.5`, so a reader knows which file to open.
-
-**An `Index.md` is mandatory** when the blueprint is split. See *Index.md for multi-file artifacts* below.
-
-### Index.md for multi-file artifacts
-
-Whenever a planning artifact spans multiple files (split blueprint here; multi-doc requirements in [`/devenv-gather-requirements`](../devenv-gather-requirements/SKILL.md)), produce an `Index.md` alongside the files.
-
-For a split blueprint, write `docs/Architecture/Blueprint-<system>-NNN/Index.md` with this structure:
-
-```markdown
-# Blueprint: <system> — Index
-
-> Split blueprint. The full architectural design is spread across the files below.
-> All section numbers are continuous across files — use the section map to locate any §N reference.
-
-## Files
-
-| File | Sections | Purpose |
-|---|---|---|
-| [01-context.md](01-context.md) | §1, §2 | Problem, requirements basis, domains, system survey |
-| [02-architecture.md](02-architecture.md) | §3 | Services, events, operations, communication patterns |
-| [03-components.md](03-components.md) | §4 | Per-component changes (deltas) |
-| [04-risks.md](04-risks.md) | §5, §6 | Risks, open questions |
-
-## Section map
-
-- §1 Context → 01-context.md
-- §2 Domains → 01-context.md
-- §3 Architecture → 02-architecture.md
-  - §3.1 Services
-  - §3.2 Service dependencies
-  - §3.3 Operations
-  - §3.4 Events
-  - §3.5 Communication patterns
-- §4 Per-Component Changes → 03-components.md
-  - §4.1 service.commerce.inventory
-  - §4.2 service.commerce.fulfillment-orchestrator (new)
-  - …
-- §5 Risks → 04-risks.md
-- §6 Open Questions → 04-risks.md
-
-## Requirements basis
-
-- [Requirements-orders-001.md](../../Requirements/Requirements-orders-001.md) (`ORD-NNN`)
-- [Requirements-fulfillment-001.md](../../Requirements/Requirements-fulfillment-001.md) (`FUL-NNN`)
-
-## Sibling blueprints (cross-blueprint references)
-
-- None
-
-## Revision history
-
-Each file maintains its own `## Revision History` section. Most recent edits across the whole blueprint:
-
-- 2026-05-13 — Added §3.2.7 reservation TTL (see [02-architecture.md](02-architecture.md))
-- 2026-05-12 — Initial split from `Blueprint-orders-001.md`
-```
-
-Key rules for `Index.md`:
-- The Index is **navigation, not content** — do not duplicate prose from the part files
-- Update the section map whenever a section is added, split, or moved between files
-- If the blueprint started as a single file and was later split, record the split as the first revision-history entry
-- `Index.md` is the canonical entry point — link to it from roadmaps, parent epics, and other blueprints, never to a specific part file unless deep-linking to a section
+For the Index.md template, see [multi-doc-projects.md](../devenv-gather-requirements/references/multi-doc-projects.md) (requirements-specific; the Index.md template structure applies to blueprints as well).
 
 ## Process
 
@@ -189,20 +99,9 @@ Ask the user:
 
 If one or more `Requirements-*.md` files exist, read them and summarise the key actors/scenarios/constraints back to the user before going further.
 
-**Multiple requirements docs are supported.** A multi-epic project may produce one `Requirements-<epic>-NNN.md` per epic (see [`/devenv-gather-requirements`](../devenv-gather-requirements/SKILL.md) §*Multi-document projects*). When multiple docs are handed off:
+**Multiple requirements docs are supported.** When multiple `Requirements-<epic>-NNN.md` files are handed off: read all of them; summarise each; ask whether the blueprint covers all epics or a subset. One blueprint can span multiple docs. Cross-doc dependency edges (`Depends on: AUTH-003 (Requirements-auth-001.md)`) translate directly to cross-service dependencies in §3.2/§3.5. Category prefixes (`ORD-NNN`, `FUL-NNN`) are the natural requirements-basis references in the blueprint.
 
-- Read all of them. Summarise each separately back to the user, then ask whether the blueprint should cover the whole project or only a subset of the epics.
-- One blueprint can span multiple requirements docs — it is not required to be one-blueprint-per-doc. The choice depends on whether the epics share enough architecture to warrant a unified design.
-- If the user wants separate blueprints per epic (or per cluster of epics), run this skill once per intended blueprint. Each invocation is a separate `Blueprint-<system>-NNN.md`. Cross-blueprint references use `<see Blueprint-<other-system>-NNN.md §X>` in the relevant section.
-- Cross-doc dependency edges in the requirements (`Depends on: AUTH-003 (Requirements-auth-001.md)`) translate naturally into cross-service dependencies in §3.2 / §3.5 of the blueprint(s).
-- The category prefix per requirements doc (e.g. `ORD-NNN`, `FUL-NNN`) becomes the natural way the blueprint references back to the requirements basis.
-
-If the user provides communications artifacts:
-
-1. **Summarise each one separately.** Prefer dispatching the `Explore` subagent (one invocation per artifact, in parallel where possible) with a prompt like *"Read FILE and produce a structured summary covering: architectural decisions discussed, components/services mentioned, integration points, QoS/constraint statements, trade-offs raised, and open architectural questions. Quote verbatim where wording matters."*
-2. **Surface each summary back to the user** for confirmation before incorporating it. Ask: *"Does this match what was discussed? Anything mischaracterised?"*
-3. **Use the approved summaries as input to Phase 2** — they often pre-answer domain boundaries, service ownership, sync/async choices, and constraint sources.
-4. **Record the source in `session_memory-blueprint.md`** (e.g. "§3.2.4 service boundary follows 2026-04-18 architecture sync") so the rationale can be re-traced. The blueprint itself doesn't need to embed the communications — references are enough.
+If the user provides communications artifacts (transcripts, design discussions, voice memos), dispatch the `Explore` subagent per artifact (see [Explore subagent dispatch](../_conventions.md#explore-subagent-dispatch)); surface each summary for validation before incorporating. Record the source in `session_memory-blueprint.md` so rationale can be re-traced.
 
 #### Step 2: Probe context
 
@@ -213,25 +112,12 @@ If the user provides communications artifacts:
 
 #### Step 3 (brownfield only): Survey the existing system
 
-When the project extends an existing system, you need to know what's already there.
+1. Run `repo-cache-update` to get the repo cache path.
+2. Read `/workspaces/devenv/tools/config/repo-types.yaml` for repo naming conventions (`service.*`, `lib.cs.*`, etc.).
+3. Propose a candidate repo list to the user; confirm before surveying.
+4. Survey only the confirmed list (read-only): purpose, public API, events emitted/consumed, key dependencies.
 
-1. **Get the repo cache**: run `repo-cache-update`. This returns a path to a folder containing all organisation repos.
-2. **Read the taxonomy**: `/workspaces/devenv/tools/config/repo-types.yaml` defines the naming patterns for repo types (`service.*`, `lib.cs.*`, `app.web.*`, etc.). Use it to interpret repo names.
-3. **Propose a candidate list**: based on the problem description and the taxonomy, propose to the user a list of repos that look relevant. Example:
-   > "Based on the problem mentioning order fulfillment and inventory, these repos look relevant:
-   > - `service.commerce.order-management`
-   > - `service.commerce.inventory`
-   > - `lib.cs.commerce.order-models`
-   > - `app.web.admin-portal`
-   >
-   > Should I survey these? Add or remove any?"
-4. **Survey only the confirmed list** (read-only). For each repo, capture:
-   - Purpose and primary responsibility
-   - Public API / events emitted / events consumed
-   - Key dependencies
-   - Anything that already does what the new feature needs
-
-For greenfield work, skip Step 3 entirely.
+Skip for greenfield.
 
 #### Phase 1 Checkpoint
 
@@ -286,9 +172,7 @@ For each candidate domain, propose it with:
 Present all candidate domains together, then ask:
 > *"Do these domain boundaries make sense? Any that should be merged, split, or redrawn?"*
 
-Avoid technical layers like "persistence domain" or "API domain" — those aren't business domains. Push back if the user proposes one.
-
-Update the file (§4.1 Domains skeleton) before proceeding.
+Avoid technical layers like "persistence domain" or "API domain" — those aren't business domains. Push back if the user proposes one. Update the file (§4.1 Domains skeleton) before proceeding.
 
 #### Step 4: Define Bounded Contexts within each domain
 
@@ -300,9 +184,7 @@ For each domain, propose candidate BCs with:
 - **Aggregates** — named roots with their consistency boundary and key invariants
 - **Reason for a separate boundary** (if proposing more than one BC per domain)
 
-Ask the user to confirm or adjust before recording. Never impose BC definitions.
-
-Update the file (§4.1 BC entries) before proceeding.
+Confirm with the user before recording; never impose BC definitions. Update the file (§4.1 BC entries) before proceeding.
 
 #### Step 5: Define components within each Bounded Context
 
@@ -315,11 +197,7 @@ For each BC, propose the component(s) with:
 - **Whether it has a public-facing API** — if yes, flag that an API Gateway is required for auth and permission enforcement
 - **Reason for multiple components** (if proposing more than one per BC)
 
-**Brownfield — existing and extended components:** Use the `Explore` subagent to read the target repo's `docs/` folder and produce a structured summary: current purpose, owned aggregates, public API, events emitted/consumed, known dependencies. Present the summary to the user and ask:
-> *"Does this accurately describe the current state? Anything I've misread or missed?"*
-Only record the brownfield delta after the user confirms the current-state description.
-
-Ask the user to confirm the component decomposition before recording.
+**Brownfield — existing and extended components:** Dispatch the `Explore` subagent to read the target repo's `docs/` folder and summarise: current purpose, owned aggregates, public API, events emitted/consumed, known dependencies (see [Explore subagent dispatch](../_conventions.md#explore-subagent-dispatch)). Present the summary for validation before recording the delta.
 
 Update the file (§4.1 Component entries) before proceeding.
 
@@ -327,12 +205,11 @@ Update the file (§4.1 Component entries) before proceeding.
 
 For each component, collaboratively define what it handles and what it emits.
 
-**Operations (commands handled):** For each significant flow, propose the sequence of components involved and the sync/async choice. Use this format:
-> *"`CreateOrder`: I'd suggest this flows: API Gateway → OrderService (owns the aggregate) → emits `OrderConfirmed` → FulfillmentService picks up async. Alternative: FulfillmentService is called sync before the order is committed, which guarantees consistency at the cost of coupling. Which do you prefer?"*
+**Operations (commands handled):** Propose the component sequence and sync/async choice for each significant flow; offer the main alternative with its trade-off.
 
-**Domain Events** (internal to the BC — not a published contract): propose events as internal state transitions. Consumers are within the same BC.
+**Domain Events** (internal to BC — not a published contract): internal state transitions; consumers within the same BC.
 
-**Integration Events** (crossing BC boundaries — these are a published contract): flag their stability expectation explicitly. Breaking changes to integration events require versioning. Ask the user to confirm each event's classification (domain vs. integration) before recording it — this has implications for how stable and backwards-compatible it needs to be.
+**Integration Events** (crossing BC boundaries — a published contract): flag stability expectation; confirm classification with user before recording — breaking changes require versioning.
 
 Update the file (§4.1 operations/events under each component) before proceeding.
 
@@ -345,9 +222,7 @@ For each cross-BC dependency identified in Steps 4–6, propose a relationship t
 - **Shared Kernel** — two BCs share a model subset; changes require mutual coordination
 - **Partnership** — two BCs coordinate tightly; must plan changes together
 
-Ask the user to confirm each relationship type — the type has direct implications for team autonomy, change management, and integration risk.
-
-Update the file (§4.2 Context Map) before proceeding.
+Confirm each relationship type with the user — the type has direct implications for team autonomy, change management, and integration risk. Update the file (§4.2 Context Map) before proceeding.
 
 #### Step 8: Decide communication patterns
 
@@ -357,9 +232,7 @@ For each significant cross-component interaction where the sync/async choice isn
 - Sync: immediate response, consistency critical, cost is coupling
 - Async: eventual consistency acceptable, cost is complexity / ordering
 
-Do not record the pattern without the user's agreement.
-
-Update the file (§4.3 Communication Patterns) before proceeding.
+Do not record the pattern without the user's agreement. Update the file (§4.3 Communication Patterns) before proceeding.
 
 #### Step 9: Reference patterns (optional)
 

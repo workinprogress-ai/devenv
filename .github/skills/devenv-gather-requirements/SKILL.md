@@ -53,17 +53,7 @@ Track:
 - Gaps identified in the vision or requirements
 - Revision notes between cycles
 
-**Open questions log format** (record in `session_memory-requirements.md`):
-```
-Q-001  [open]       Should account deletion be hard-delete or soft-delete?
-                    Raised: Phase 1. Affects: REQ-003, REQ-011.
-Q-002  [resolved]   Must order history persist after account deletion?
-                    Resolution: anonymised retention — REQ-011 updated to clarify.
-Q-003  [deferred]   Is the 200ms search latency target p50 or p99?
-                    Affects: REQ-017. Deferred — pending performance benchmarks.
-```
-
-Status transitions: `open` → `brainstorming` (being actively discussed) → `resolved` (user decided; affected requirements updated). `open` → `deferred` (explicitly set aside; affected requirement annotated with the open question number). Never silently drop an open question — every `Q-NNN` must end up `resolved` or `deferred` before the final file is written.
+Track open questions as `Q-001`, `Q-002`, etc. (see [Q-NNN format](../_conventions.md#open-questions-log-q-nnn) for the status-transition convention and format block). Every `Q-NNN` must end up `resolved` or `deferred` before the final file is written.
 
 **At session end**: update it with the current state.
 
@@ -85,77 +75,9 @@ Do not write the file until Phase 3 is approved. During the session, work in cha
 
 ### Multi-document projects (one doc per epic)
 
-A single requirements doc is the right default. For large initiatives — multiple distinct epics, multiple stakeholder groups, or a system whose scope outgrows one document — split into one `Requirements-<epic>-NNN.md` per epic.
+A single doc is the default. For large initiatives (multiple distinct epics, 30+ requirements, or distinct stakeholder groups), split into one `Requirements-<epic>-NNN.md` per epic with a category-prefix ID scheme (e.g. `ORD-NNN`). Produce an `Index.md` as the canonical entry point. Cross-doc dependencies use `Depends on: AUTH-003 (Requirements-auth-001.md)`.
 
-**When to split:**
-- The vision section starts describing two largely independent capabilities
-- Different stakeholder groups own different parts and would prioritise them independently
-- The doc is heading past ~30 requirements or ~3 distinct functional areas
-- The user explicitly frames the work as "Epic 1", "Epic 2", etc.
-
-**Conventions when splitting:**
-- One `<topic>` per epic, e.g. `Requirements-orders-001.md`, `Requirements-fulfillment-001.md`, `Requirements-returns-001.md`
-- **Use category-prefix IDs unique per epic** (`ORD-NNN`, `FUL-NNN`, `RET-NNN`) so requirement IDs are globally unique across the project. Agree the prefix list with the user before writing any doc.
-- Each doc has its own `session_memory-requirements-<topic>.md` during gathering, allowing parallel work on different epics without state collision.
-- **Cross-document dependencies are explicit.** A requirement in one doc can declare a dependency on a requirement in another doc using the form:
-
-  ```
-  Depends on: AUTH-003 (Requirements-auth-001.md)
-  ```
-
-  In-doc dependencies stay bare (`Depends on: ORD-002`).
-- Each doc has its own `GROUP-NN` priority groups, scoped to that epic. There is no project-wide priority grouping at the requirements layer — cross-epic sequencing is the roadmap's job, see [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md).
-
-**Process for a multi-doc project:**
-1. In Phase 1, agree the epic split and the prefix-per-epic scheme up front, in chat. Record the split in each `session_memory-requirements-<topic>.md`.
-2. Run the full three-phase process per epic doc. The same skill invocation completes one doc at a time — do not interleave.
-3. When all epic docs are complete, hand them all to [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) in a single invocation — it accepts multiple requirements paths and produces one roadmap (one parent epic) spanning them.
-4. **Produce an `Index.md`** alongside the epic docs (see *Index.md for multi-file artifacts* below). The Index is the canonical entry point — link to it from blueprints, roadmaps, and parent epics, not to individual epic docs.
-
-### Index.md for multi-file artifacts
-
-Whenever a multi-doc project produces more than one `Requirements-<epic>-NNN.md`, produce an `Index.md` alongside them at `docs/Requirements/Index.md` (or wherever the docs live).
-
-Structure:
-
-```markdown
-# Requirements: <project name> — Index
-
-> Multi-document project. Each epic has its own requirements doc with its own ID prefix.
-> Use this index as the canonical entry point.
-
-## Epics
-
-| Doc | Prefix | Scope |
-|---|---|---|
-| [Requirements-orders-001.md](Requirements-orders-001.md) | `ORD-NNN` | Order placement, modification, cancellation |
-| [Requirements-fulfillment-001.md](Requirements-fulfillment-001.md) | `FUL-NNN` | Pick, pack, ship, track |
-| [Requirements-returns-001.md](Requirements-returns-001.md) | `RET-NNN` | Customer-initiated returns and refunds |
-
-## Cross-doc dependencies
-
-- `FUL-003` depends on `ORD-007` (Requirements-orders-001.md)
-- `RET-002` depends on `ORD-005` (Requirements-orders-001.md)
-- `RET-004` depends on `FUL-009` (Requirements-fulfillment-001.md)
-
-## Stakeholder priority across epics
-
-Each doc has its own `GROUP-NN` priority groups, scoped to that epic. Cross-epic sequencing is the roadmap's job (see [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md)). If stakeholders have an explicit cross-epic ordering preference, capture it here as plain prose:
-
-> Stakeholder priority: orders MVP → fulfillment MVP → returns MVP, then post-launch hardening across all three.
-
-## Revision history
-
-Each doc maintains its own `## Revision History`. Recent project-wide events:
-
-- 2026-05-13 — Added `Requirements-returns-001.md`
-- 2026-05-10 — Initial multi-doc structure (split from `Requirements-orders-001.md`)
-```
-
-Key rules:
-- The Index is **navigation, not content** — do not duplicate requirements text from the epic docs
-- Update the cross-doc dependencies section whenever a cross-doc `Depends on:` edge is added or removed
-- If the project started as a single doc and was later split, record the split as the first revision-history entry on the Index
+See [multi-doc-projects.md](./references/multi-doc-projects.md) for the full conventions, splitting rules, and Index.md template.
 
 ## Process
 
@@ -187,28 +109,19 @@ If the argument is a path to an existing `Requirements-*.md`, enter continuation
 - Read them and summarise your understanding back to the human
 - Identify gaps and ambiguities, then ask targeted fill-in questions — don't re-interview from scratch
 
-**Ask about human communications.** Before starting cold, ask:
+**Ask about existing communications** (transcripts, email threads, recordings, etc.) before starting cold. Dispatch the `Explore` subagent per artifact to produce structured summaries (see [Explore subagent dispatch](../_conventions.md#explore-subagent-dispatch)); surface each summary for validation before extracting requirements material. Cite the source in `session_memory-requirements.md` for any requirement that traces back to a communication.
 
-> "Are there meeting transcripts, email threads, Slack/Teams exports, recordings, voice memos, or other communications records that contain relevant context? If so, where are they?"
-
-If the user provides any:
-
-1. **Summarise each one separately.** Prefer dispatching the `Explore` subagent (one invocation per artifact, in parallel where possible) with a prompt like *"Read FILE and produce a structured summary covering: stated goals, decisions reached, open questions, named actors, constraints mentioned, and any concrete behaviours described. Quote verbatim where wording matters."* This keeps the main conversation uncluttered.
-2. **Surface each summary back to the user** before extracting requirements. Ask: *"Does this summary match what you remember? Anything mischaracterised?"*
-3. **Extract requirements material from the approved summaries** — actors, scenarios, constraints, scope hints, explicit asks. Treat these as starting material, not as final requirements; the interview still validates them.
-4. **Cite the source.** When a requirement traces back to a communication, note it in `session_memory-requirements.md` (e.g. "REQ-007 derived from 2026-04-12 standup transcript"). Do not embed verbatim quotes from communications in the final requirements file unless the user wants them — references are typically enough.
-
-**Otherwise, start with:**
+**Start with:**
 1. "What problem does this system solve? Who has this problem today?"
-2. "What does success look like? If this system works perfectly, what's different?"
-3. "Who are the main actors — the people or systems that interact with this?"
-
-**Then probe deeper:**
-- "Walk me through a day in the life of [actor]. How do they interact with the system?"
-- "What's the most important thing the system does? If it only did one thing well, what would that be?"
-- "What's explicitly out of scope? What should this system NOT do?"
-- "Are there existing systems this replaces or integrates with?"
-- "What are the hard constraints? (regulatory, performance, security, budget, timeline)"
+2. "What does success look like?"
+3. "Who are the main actors — people or systems that interact with this?"
+4. "Walk me through a day in the life of [actor]."
+5. "What's the most important thing the system does?"
+6. "What's explicitly out of scope?"
+7. "Are there existing systems this replaces or integrates with?"
+8. "What are the hard constraints? (regulatory, performance, security, budget, timeline)"
+9. "Are there actors not yet mentioned — admin users, support staff, external partners, automated systems?"
+10. "What worries you most about this project?"
 
 #### Step 2: Identify actors and their goals
 
@@ -444,91 +357,9 @@ Health checks don't stop the session — scan, surface, resolve what can be reso
 
 ## Requirement Episodes
 
-Episodes are a companion document — separate from the requirements file and designed to be *interesting*. Their purpose is to help anyone who reads the requirements (product owner, engineers, testers, stakeholders) emotionally internalise the system. A reader who has met Helen and watched her struggle with the current process will relate every dry requirement back to that experience.
+Episodes are narrative walkthroughs of the system from a user's perspective — stories that illustrate how requirements combine in real use. Write them when the requirements alone feel abstract or when stakeholders need to see the system "in action" to validate completeness.
 
-### When to write episodes
-
-Offer to write episodes at Phase 3 approval, once the requirements set is stable enough to tell coherent narratives:
-
-> *"We're at a good stopping point. Would you like me to write a companion Episodes document? These are narrative 'day in the life' pieces that bring the requirements to life — they help people connect the dry REQ-NNN statements to something memorable."*
-
-Do not write episodes earlier — they'll be stale before the interview is done.
-
-### What good episodes look like
-
-- **Specific names and places.** Real names for characters (Helen, Marcus, Priya), real-feeling places (Northgate Distribution Centre, the Bluebell Café), real-feeling company names (Foxton Logistics, Thornwood & Associates). No "User A" or "the company."
-- **Narrative arc.** Follow a character through a situation — a day, a task, a problem and its resolution.
-- **Emotionally engaging.** Characters think and feel. Helen is frustrated. Marcus is quietly proud of his workaround. Priya's relief when something finally works. Make the reader care.
-- **Conversational.** Characters talk to each other. Dip into internal monologue. Dialogue is more vivid than narration.
-- **Showing, not telling.** Don't say "the system was easy to use." Show Helen completing the task in two minutes despite never having used it before.
-- **User perspective only.** Episodes describe what happens, never how. No databases, APIs, or implementation details.
-
-### Voice and tone of episodes
-
-Episodes are the one place in the requirements process where the writing has a voice. The interview is neutral; the episodes are not.
-
-**Emotional engagement first.** Readers remember characters, not requirement IDs. Write so the reader feels Helen's frustration, Marcus's quiet satisfaction, Priya's small moment of triumph. Concrete specifics do this better than adjectives — show her sighing and opening a second browser tab, not "Helen found this frustrating."
-
-**Humor, sprinkled.** Aim for one or two genuinely funny moments per episode — not a punchline every paragraph. The richest seam is the absurdity already baked into the domain: the approval workflow that technically requires a VP's sign-off for a £4 expense, the confirmation email that arrives four minutes after the item has already shipped, the status field that says "Pending" for three days and then silently disappears. Point at this stuff deadpan and let the reader do the work.
-
-Outright jokes are allowed. Use them sparingly. A character's internal monologue is often the right place: *Marcus had requested this report every month for two years. Forty-three clicks. He'd counted.* That's a joke. It doesn't announce itself as one.
-
-**Tone calibration:**
-- Warm and observational, not satirical. The target is knowing recognition, not mockery of anyone's product or company.
-- Dry over broad. Understatement beats exclamation marks.
-- Vary the register. A frustrated character's section reads differently from a triumphant one. Use this.
-- Never funny at a character's expense in a mean way. Funny *with* Helen, not *at* her.
-
-**What to avoid:**
-- Humor that obscures what the requirement actually does — the joke has to serve the illustration, not replace it.
-- Forcing a funny moment when the scenario doesn't have one — a quiet, well-observed scene is better than a strained joke.
-- Starting every episode with the same structure. Vary the opening — in media res, a snippet of dialogue, an observation, a problem already in progress.
-
-### What episodes are NOT for
-
-Edge cases and exception handling stay in REQ-NNN. Episodes can acknowledge that something went wrong, but they don't dwell on exception paths — that's what the requirements are for. Episodes also don't need to cover every requirement. They illustrate *clusters* of requirements in context. The goal is that a reader can think *"I see how REQ-019 relates to what happened to Marcus"* even if REQ-019 isn't called out explicitly in that episode.
-
-### REQ-NNN references
-
-Keep the episode text clean and narrative. Two reference mechanisms:
-
-1. **Inline markdown links** at natural sentence breaks where a requirement is directly illustrated — *(see [REQ-014](#req-014-title))* — not mid-sentence, not cluttering every line.
-2. **"Requirements illustrated" footer** at the end of each episode — a concise list of primarily illustrated requirements with markdown links.
-
-Footer format:
-```markdown
----
-**Requirements illustrated:** [REQ-002](#req-002), [REQ-007](#req-007), [REQ-014](#req-014), [REQ-019](#req-019)
-```
-
-### Output file
-
-Episodes live in `Episodes-<topic>-NNN.md` in the same folder as the requirements doc. Structure:
-
-```markdown
-# [System Name] — Episodes
-
-> Companion to `Requirements-<topic>-NNN.md`. Episodes are not specifications — they illustrate requirements in context. See the requirements document for acceptance criteria and normative detail.
-
-## Episode 1: [Title]
-
-[Narrative — typically 300–600 words. Shorter is fine if the point lands.]
-
----
-**Requirements illustrated:** [REQ-001](#req-001), [REQ-007](#req-007)
-
----
-
-## Episode 2: [Title]
-
-[...]
-```
-
-### How many episodes
-
-Let scope drive the count. A single-epic doc covering 10–15 requirements might need 2–3 episodes. A large doc with 30+ requirements might need 5–7. The goal isn't exhaustive coverage — it's enough episodes that a reader can mentally map the full requirements set to at least one human situation they've encountered.
-
----
+When to write, voice/tone guidance, REQ-NNN reference conventions, and the output file format: [episodes-guide.md](./references/episodes-guide.md).
 
 ## Stability Audit (Final Convergence Review)
 
