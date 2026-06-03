@@ -5,7 +5,6 @@
 **Success criteria:** [what must be true after the redesign]
 **Constraints:** [hard limits the new design must respect]
 **Ruled out:** [incremental fixes that won't work and why]
-```
 
 Wait for the user to confirm or correct this summary before proceeding. This is the contract that Phase 2 will use as its evaluation criteria — it must be accurate.
 

@@ -10,7 +10,6 @@
 7. Test strategy — unit / integration / contract split
 8. Key decisions — recorded with rationale
 9. Known unknowns — deferred Q-NNN items
-```
 
 Wait for the user to approve the structure. They may adjust sections or scope.
 

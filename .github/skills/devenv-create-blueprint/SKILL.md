@@ -76,7 +76,7 @@ Update `session_memory-blueprint.md` to track decisions and open questions acros
 
 For very large blueprints (approaching ~1,500 lines or many components in §4), split into a subfolder with one file per section group (e.g. `01-context.md`, `02-architecture.md`, `03-components.md`, `04-risks.md`). Section numbers are continuous across files; use `<see NN-slug.md §N>` for cross-file references. Produce an `Index.md` as the canonical entry point.
 
-See [multi-doc-projects.md](../devenv-gather-requirements/references/multi-doc-projects.md) for the full splitting conventions and Index.md template.
+For the Index.md template, see [multi-doc-projects.md](../devenv-gather-requirements/references/multi-doc-projects.md) (requirements-specific; the Index.md template structure applies to blueprints as well).
 
 ## Process
 

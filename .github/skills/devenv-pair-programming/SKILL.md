@@ -160,7 +160,7 @@ Skip entirely when resuming mid-plan.
 
 If the user seems unfamiliar (signals: first-time tone, questions about the process):
 
-> *"Quick orientation: one of us drives while the other navigates. We swap roles regularly. At any point you can push back on my approach or take the wheel.
+> *"Quick orientation: one of us drives while the other navigates. We swap roles regularly. At any point you can push back on my approach or take the wheel."*
 
 
 ### 5. Emit phase file links

@@ -1,6 +1,6 @@
 # GitHub Issue Creation Flow
 
-Shared five-step protocol for skills that optionally post a design document to a GitHub issue at the end of a session.
+Shared five-step protocol for skills that optionally post an output document to a GitHub issue at the end of a session.
 
 ## When to invoke
 
@@ -32,7 +32,7 @@ If the user says no, skip to session wrap-up.
 
    **If posting to an existing issue:**
    - Write the document to a temp file.
-   - `issue-comment-list <N>` — scan for an existing design comment (a comment whose body begins with `# Architecture and Implementation` or `# Redesign` as appropriate).
+   - `issue-comment-list <N>` — scan for an existing output-document comment (a comment whose body starts with the skill-specific heading — e.g. `# Architecture and Implementation`, `# Redesign`, `# Design:`, or `# Tech Debt Audit` — as listed in the variants below).
    - If found: `issue-comment-update <COMMENT_ID> --body-file <temp-file>` (replaces the prior version).
    - If not found: `issue-comment <N> --body-file <temp-file>` (adds a new comment).
    - Surface the issue URL.

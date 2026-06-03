@@ -109,7 +109,7 @@ If the argument is a path to an existing `Requirements-*.md`, enter continuation
 - Read them and summarise your understanding back to the human
 - Identify gaps and ambiguities, then ask targeted fill-in questions — don't re-interview from scratch
 
-**Ask about existing communications** (transcripts, email threads, recordings, etc.) before starting cold. Dispatch the `Explore` subagent per artifact to produce structured summaries (see [Explore subagent dispatch](_conventions.md#explore-subagent-dispatch)); surface each summary for validation before extracting requirements material. Cite the source in `session_memory-requirements.md` for any requirement that traces back to a communication.
+**Ask about existing communications** (transcripts, email threads, recordings, etc.) before starting cold. Dispatch the `Explore` subagent per artifact to produce structured summaries (see [Explore subagent dispatch](../_conventions.md#explore-subagent-dispatch)); surface each summary for validation before extracting requirements material. Cite the source in `session_memory-requirements.md` for any requirement that traces back to a communication.
 
 **Start with:**
 1. "What problem does this system solve? Who has this problem today?"
