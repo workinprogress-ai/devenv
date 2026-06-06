@@ -441,6 +441,28 @@ issue-comment ISSUE# --body-file FILE
 issue-comment ISSUE# --edit
 ```
 
+**`issue-artifact-upsert`** - Deterministically create/update an artifact comment by `doc_id`
+
+```bash
+issue-artifact-upsert --issue ISSUE# --doc-id DOC_ID [--body TEXT | --body-file FILE] [--dry-run]
+```
+
+Use this when posting skill artifacts (spike/redesign/design/blueprint/requirements/roadmap/plan) to an issue so re-runs update the same comment instead of creating duplicates.
+
+Key rules:
+
+- Comment body must include exact metadata line: `doc_id: <doc_id>`
+- Matching is line-exact and only within first 256 characters of existing comment bodies
+- If multiple comments match the same `doc_id`, the tool exits with a conflict and returns matching IDs
+
+**`issue-artifact-doc-id`** - Generate canonical `doc_id` values for artifact comments
+
+```bash
+issue-artifact-doc-id --issue ISSUE# --artifact-type TYPE [--slug TEXT | --source-file FILE] [--repo OWNER/REPO]
+```
+
+Use this to generate the exact `doc_id` value before composing the metadata block for `issue-artifact-upsert`.
+
 **`issue-close`** - Close or reopen issues
 
 ```bash

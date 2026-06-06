@@ -9,7 +9,7 @@ user-invocable: true
 
 > **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
 
-Produce a phased, atomic, committable plan that gives a human or another AI enough context to execute a user story or task collaboratively.
+Produce a phased, committable plan that gives a human or another AI enough context to execute a user story or task collaboratively. The plan is human-first: goals and orientation first, phase guidance second, detailed task tracking third.
 
 ## When to Use
 
@@ -86,11 +86,15 @@ Use the [plan template](./references/plan-template.md). Follow:
 
 - [Task formatting rules](./references/task-format.md) — atomic `- [ ] **N.N [S|M|L] Title**` tasks with descriptive sub-bullets, then `Files:` / `decision:` / `depends on` metadata, and an inline `(additional context)` link when needed
 - [Phase rules](./references/phase-rules.md) — Phase 1 is **Discovery & test scaffolding**; the last phase is **Cleanup & docs**; every phase must end committable (tests pass, coverage doesn't regress, single-PR sized)
-- Every phase header gets a `> blockquote` preamble describing the deliverable and committability
+- The plan must follow this section order: `## Goals and Acceptance Criteria`, `## Context and Orientation`, `## Phases`, `## Detailed Task List`, `## Reference Information`, `## Additional Task Context`, `## Revision History`
+- `## Goals and Acceptance Criteria` must include an end-state paragraph plus important scope boundaries before the AC checklist
+- `## Context and Orientation` must be useful on its own to a human who may never read the task list
+- `## Phases` is the human-facing phase summary section: each phase gets goal, end-state vision, suggested strategies, AC links, watch-outs / decisions, and deliverables
+- `## Detailed Task List` repeats the same phases with a short deliverable-summary blockquote and points back to the fuller phase context above
 - Reference Information uses a **table** of key files with a relevance column, plus a separate links sub-list
 - Mark dependencies as `depends on N.N` inline; readers infer parallelism
 - Every task with non-obvious context **must** link to its entry under *Additional task context* using a descriptive anchor slug (`#task-NN--short-slug`)
-- Include a `## Acceptance criteria` section (from the template) directly after the opening paragraph, before `## Revision history`. Use the agreed format: `- [ ] **AC-N** criterion text *(explicit|inferred)*`. These are the criteria that will be formally reviewed and checked off in the Cleanup phase.
+- Include the AC checklist in `## Goals and Acceptance Criteria` using the agreed format: `- [ ] **AC-N** criterion text *(explicit|inferred)*`. These are the criteria that will be formally reviewed and checked off in the Cleanup phase.
 
 ### 6. Iterate until approved
 
@@ -108,10 +112,10 @@ In the target repo root:
 
 ### 8. Write the file
 
-Write the approved plan to `<target-repo>/<resolved-filename>.md`. The plan must include a `## Revision history` section directly under the title (above `## Task List`) with a single initial entry:
+Write the approved plan to `<target-repo>/<resolved-filename>.md`. The plan must include a `## Revision History` section near the bottom of the file (after `## Additional Task Context`) with a single initial entry:
 
 ```markdown
-## Revision history
+## Revision History
 
 ### <today's date> — Initial plan created
 ```
@@ -178,30 +182,44 @@ Use the full template at [plan-template.md](./references/plan-template.md). Requ
 
 Brief one-paragraph context.
 
-## Task List
+## Goals and Acceptance Criteria
+
+End-state paragraph, why the work is being done, and scope boundaries.
+
+## Context and Orientation
+
+Human-oriented context loading section. Useful even if the reader stops here.
+
+## Phases
 
 ### Phase 1 — Discovery & test scaffolding
-> Phase preamble blockquote: deliverable, safety, committability.
->
-> **Orientation:** What the relevant code currently does and why it falls short for this phase's goal. Ends with one specific thing to find first. *(Skip if already warm.)*
+
+Goal, end-state vision, suggested strategies, AC links, watch-outs / decisions, deliverables.
 
 ### Phase 2 — ...
-> Phase preamble blockquote.
->
-> **Orientation:** ...
 
-## Contextual Information
-### Problem Context
-### Solution Context
-### Forces
-### Additional Considerations and Notes
-### Additional Task Context
-### Reference Information
+Same structure.
+
+## Detailed Task List
+
+### Phase 1 — Discovery & test scaffolding
+> Deliverable summary blockquote.
+>
+> See the matching entry in `## Phases` for the full orientation and watch-outs.
+
+### Phase 2 — ...
+> Deliverable summary blockquote.
+
+## Reference Information
   - Key files table (with relevance column)
   - Related links
+
+## Additional Task Context
+
+## Revision History
 ```
 
-Every phase header is followed by a `> blockquote` preamble. Section headings use Title Case.
+Every phase header in `## Detailed Task List` is followed by a short `> blockquote` deliverable summary. The fuller human-facing guidance lives in `## Phases`. Section headings use Title Case.
 
 ## Anti-patterns
 

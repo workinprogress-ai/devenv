@@ -1,6 +1,6 @@
 ---
 name: devenv-delegation
-description: 'Drive implementation of a pre-existing plan with the AI doing the bulk of the work and the user reviewing. USE WHEN the user says "delegate this to you", "you take this", "run with this", "implement this plan", "work through this plan", or "do this for me" with a plan attached, AND the work is mechanical, rote, or low-impact (refactors, rename sweeps, test scaffolding, cleanup, docs). REQUIRES an existing implementation plan (file path or GH issue with a plan in the body). Works phase by phase: runs a full phase semi-autonomously (stopping only for ambiguity, major decisions, or unexpected obstacles), then hands back with a structured phase completion summary including hotspots, decisions made, and any deviations noted. Expects a discussion window between phases — user may review, request changes, or ask for plan edits. SUGGESTS switching to `/devenv-pair-programming` for high-impact phases; respects the user''s decision either way. DO NOT USE for ad-hoc work, plans that don''t exist yet (use `/devenv-create-implementation-plan` first), or highly collaborative work where the user wants to drive (use `/devenv-pair-programming`).'
+description: 'Drive implementation of a pre-existing plan with the AI doing the bulk of the work and the user reviewing. USE WHEN the user says "delegate this to you", "you take this", "run with this", "implement this plan", "work through this plan", or "do this for me" with a plan attached, AND the work is mechanical, rote, or low-impact (refactors, rename sweeps, test scaffolding, cleanup, docs). REQUIRES an existing implementation plan (file path or GH issue with a plan in the body). Works phase by phase: uses the human-facing phase summaries as the review guide, treats the detailed task list as execution tracking, runs a full phase semi-autonomously (stopping only for ambiguity, major decisions, or unexpected obstacles), then hands back with a structured phase completion summary including hotspots, decisions made, and any deviations noted. Expects a discussion window between phases — user may review, request changes, or ask for plan edits. SUGGESTS switching to `/devenv-pair-programming` for high-impact phases; respects the user''s decision either way. DO NOT USE for ad-hoc work, plans that don''t exist yet (use `/devenv-create-implementation-plan` first), or highly collaborative work where the user wants to drive (use `/devenv-pair-programming`).'
 argument-hint: '<issue-number | path-to-plan> [phase or task range]'
 user-invocable: true
 ---
@@ -30,9 +30,10 @@ Do **not** use for:
 
 1. **Plan required.** No plan, no delegation. Refuse and redirect.
 2. **Engagement floor.** The human stays in the loop with brief task pings, inline concern surfacing, and a structured end-of-session summary with **review hotspots**.
-3. **No assumptions.** Same rule as pair-programming — ask before non-trivial choices, ambiguous acceptance criteria, multiple competing patterns, or anything contradicting the plan.
-4. **Suitability check first.** Some phases shouldn't be delegated. Say so.
-5. **Push back honestly.** Surface concerns, doubts, and unknowns as they arise — don't batch them to the end.
+3. **Phase-first review.** Use the goals, context, and phase summaries to explain what a phase is trying to achieve; use the detailed task list to track execution and keep progress current.
+4. **No assumptions.** Same rule as pair-programming — ask before non-trivial choices, ambiguous acceptance criteria, multiple competing patterns, or anything contradicting the plan.
+5. **Suitability check first.** Some phases shouldn't be delegated. Say so.
+6. **Push back honestly.** Surface concerns, doubts, and unknowns as they arise — don't batch them to the end.
 
 ## Personality
 
@@ -69,11 +70,11 @@ Ask if not provided: GH issue # or path to a plan markdown.
 
 - **GH issue**:
   1. First, check whether a local `Implementation_plan-issue-<N>-*.md` already exists in the target repo root. If it does, **use it** — it carries checkbox progress from prior sessions and is the source of truth. Skip to the drift check.
-  2. If no local file exists, fetch the plan body via `gh issue view <N> --json body --jq .body`. Confirm the body contains a plan (task list, phase structure).
+  2. If no local file exists, fetch the plan body via `gh issue view <N> --json body --jq .body`. Confirm the body contains a usable plan (goals/ACs, human-facing phase structure, and a detailed task list).
   3. Write the fetched body to the target repo root as `Implementation_plan-issue-<N>-001.md` (or the next available suffix — never overwrite an existing file).
   4. **Work exclusively from the local file from this point on.** Record its workspace-relative path (e.g. `repos/lib.cs.services.bulk-sync/Implementation_plan-issue-42-001.md`) — this is the `<plan_file>` for `markdown-plan-complete-task` calls throughout the session. Pass it explicitly when running from a directory other than the plan's own — the tool auto-detects `Implementation_plan-*.md` only in the current directory. Checkbox updates go to the file; issue body syncs at phase boundaries push the file back to the issue.
 - **Plan file**: read it.
-- **No plan or too thin**: refuse delegation. Redirect to `/devenv-create-implementation-plan` to draft one first.
+- **No plan or too thin**: refuse delegation. Redirect to `/devenv-create-implementation-plan` to draft one first, or `/devenv-refine-implementation-plan` if the plan exists but lacks the human-facing sections.
 
 ### 1b. Quick drift check
 
@@ -81,7 +82,7 @@ After loading, scan for obvious staleness signals before going any further:
 
 - File paths in `Files:` bullets or task descriptions that don't exist in the workspace.
 - Class or method names mentioned in tasks that a quick `grep_search` can't find.
-- A `## Revision history` or plan creation date suggesting the plan is more than a few weeks old *and* unchecked tasks still reference codebase specifics.
+- A `## Revision History` or plan creation date suggesting the plan is more than a few weeks old *and* unchecked tasks still reference codebase specifics.
 - A large ratio of `[x]` tasks in early phases with `[ ]` tasks in later phases that reference the same code areas — suggests significant time has passed.
 
 **If two or more signals are present**, flag it before continuing:
@@ -94,7 +95,7 @@ Wait for the user's answer. If they say proceed, note the signals in the first p
 
 ### 1c. Ensure acceptance criteria exist
 
-After the drift check, check whether the plan has a `## Acceptance criteria` section.
+After the drift check, check whether the plan has a `## Goals and Acceptance Criteria` section.
 
 **If missing:** infer ACs from the plan's goals, scope, and codebase context. Draft a candidate list with `**AC-N**` identifiers and `*(inferred)*` markers and present it to the user:
 
@@ -105,7 +106,7 @@ After the drift check, check whether the plan has a `## Acceptance criteria` sec
 >
 > *Adjust or add to these, then I'll add the section to the plan file before we proceed."*
 
-Wait for explicit confirmation. Once confirmed, add the `## Acceptance criteria` section to the plan file and proceed. **Do not begin the first phase without an accepted AC list.**
+Wait for explicit confirmation. Once confirmed, add the `## Goals and Acceptance Criteria` section to the plan file and proceed. **Do not begin the first phase without an accepted AC list.**
 
 **If present:** read the list and hold it in context — these are the criteria to verify during the AC Review phase before Cleanup.
 
@@ -148,6 +149,8 @@ After each phase handback and user approval, the AI proceeds to the next in-scop
 
 Before asking for the go-ahead, output a compact **Files in scope** block. If the plan uses the `Files:` bullet convention, collect those paths for all tasks in the upcoming phase — no codebase exploration needed. Otherwise, use files confirmed from exploration. Omit the block if no files have been identified.
 
+When introducing the phase, summarise the phase goal, intended end state, and any watch-outs from the `## Phases` section before dropping into task execution.
+
 Format:
 
 > **📁 Files in scope — Phase 2:**
@@ -174,7 +177,7 @@ Wait for explicit go-ahead before starting the first session.
 
 ## During a Phase
 
-The AI runs through the phase's tasks without stopping for user review between each one. Task progress pings are brief indicators — not checkpoints.
+The AI runs through the phase's tasks without stopping for user review between each one. Task progress pings are brief indicators — not checkpoints. It may keep the detailed task list current as reality diverges from the original wording, but must ask before major changes to phases, goals, or ACs.
 
 ### Task progress pings
 

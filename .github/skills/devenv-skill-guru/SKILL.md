@@ -1,6 +1,6 @@
 ---
 name: devenv-skill-guru
-description: Help the user pick the right Copilot skill by asking 1–3 clarifying questions about what they're trying to accomplish. USE WHEN the user says "which skill should I use", "what skill is right for this", "help me pick a skill", "I'm not sure what to use", "skill guru", or begins a task without knowing which skill applies. Asks about work stage (exploring / defining requirements / architecting / planning / building / reviewing / wrapping up), whether a plan already exists, and whether the work is high-impact. Returns a ranked recommendation with one-line rationale; if the goal spans multiple skills, returns the full chain. DO NOT USE FOR executing any of the recommended skills — just say /skill-name to invoke them directly. For general coding questions use the default agent.
+description: Help the user pick the right Copilot skill by asking 1–3 clarifying questions about what they're trying to accomplish. USE WHEN the user says "which skill should I use", "what skill is right for this", "help me pick a skill", "I'm not sure what to use", "skill guru", or begins a task without knowing which skill applies. Asks about work stage (exploring / defining requirements / architecting / planning / building / reviewing / wrapping up), then asks one stage-specific disambiguation question (for architecture: option-weighing vs new-component design vs existing-component refinement/redesign; for build: whether a plan exists and impact level). Returns a ranked recommendation with one-line rationale; if the goal spans multiple skills, returns the full chain. DO NOT USE FOR executing any of the recommended skills — just say /skill-name to invoke them directly. For general coding questions use the default agent.
 argument-hint: Optional — describe what you're trying to do and the guru will ask follow-up questions
 ---
 
@@ -19,6 +19,10 @@ Before asking anything, check whether the user's message unambiguously maps to e
 - "I want to open a PR" → `/devenv-open-pr`
 - "Run pre-commit checks" → `/devenv-pre-commit`
 - "Triage issue #42" → `/devenv-triage-issue`
+- "Add a feature to an existing component" → build/plan path, not architecture by default:
+   - no plan yet → `/devenv-create-implementation-plan`
+   - plan exists + high-impact → `/devenv-pair-programming`
+   - plan exists + mechanical → `/devenv-delegation`
 - "I want to go from raw idea to merged PR" → Chain A from the registry
 
 If unambiguous: give the recommendation directly with a one-line rationale. Skip Q1–Q3.
@@ -38,6 +42,21 @@ Ask only what you need. If the user's initial message already answers a question
 > - 🔨 Build / implement something
 > - 🔎 Review code or address PR feedback
 > - 🏁 Wrap up a session / open a PR
+
+**Q2 — Architecture intent disambiguation** (ask only if stage is "Architect"):
+
+> "Which design outcome do you want right now?"
+>
+> - Weigh options and get a recommendation first
+> - Design internals for a new component from scratch
+> - Update an existing component design doc to reflect changes
+> - Rethink an existing component because the current approach is wrong
+
+Routing for this answer:
+- Weigh options first → `/devenv-design-discussion`
+- New component from scratch → `/devenv-create-technical-design`
+- Update existing design doc → `/devenv-refine-technical-design`
+- Fundamental rethink of existing component → `/devenv-redesign-component`
 
 **Q2 — Plan exists?** (ask only if stage is "Build"):
 
@@ -59,8 +78,33 @@ Use the registry to match the user's answers to a skill:
 
 1. **Match Q1 (work stage) to a registry category** — Explore, Requirements, Architecture, Plan, Build, Review, or Wrap-up.
 2. **Within that category, match the sub-goal to a skill's trigger phrases.**
-3. **Check for a chain** — if the user's goal implies a multi-step workflow (e.g. "I want to implement this whole story", "from idea to PR"), look up the matching chain in the registry and recommend the full sequence.
-4. **Check for fork-added skills** — after the primary recommendation, scan the registry for any skills not present in the five standard categories. If any exist, surface them: "This workspace also has: `/custom-skill` — [one-line purpose]."
+3. **Apply stage-specific guardrails before finalizing:**
+   - Feature-delivery guardrail: when the ask is to add/implement a feature in an existing component, default to Plan/Build routing unless the user explicitly asks to weigh architecture options or produce/update a design artifact.
+   - Architecture guardrail: never route existing-component feature work to `/devenv-create-technical-design` unless the user explicitly wants a new from-scratch component design artifact.
+   - Architecture guardrail: if the user primarily wants alternatives/trade-offs/recommendation, route to `/devenv-design-discussion` first.
+   - Architecture guardrail: if the user says the current approach is wrong, route to `/devenv-redesign-component`, not refine.
+   - Build guardrail: do not route high-impact build phases to `/devenv-delegation`.
+4. **Check for a chain** — if the user's goal implies a multi-step workflow (e.g. "I want to implement this whole story", "from idea to PR"), look up the matching chain in the registry and recommend the full sequence.
+5. **Check for fork-added skills** — after the primary recommendation, scan the registry for any skills not present in the five standard categories. If any exist, surface them: "This workspace also has: `/custom-skill` — [one-line purpose]."
+
+## Ambiguity breaker for existing-component feature asks
+
+If the user's wording contains both "existing component" and "new feature", do not assume this is an architecture request.
+
+Ask one direct question:
+
+> "Are you trying to implement the feature now, or decide the architecture/design direction first?"
+
+Route as follows:
+- Implement now → Plan/Build path:
+   - No plan exists → `/devenv-create-implementation-plan`
+   - Plan exists + high-impact → `/devenv-pair-programming`
+   - Plan exists + mechanical → `/devenv-delegation`
+- Decide architecture/design direction first → architecture path:
+   - Weigh alternatives/trade-offs first → `/devenv-design-discussion`
+   - Update existing design doc to match chosen direction → `/devenv-refine-technical-design`
+   - Replace current approach because it is wrong → `/devenv-redesign-component`
+   - New component from scratch → `/devenv-create-technical-design`
 
 ## Output format
 
@@ -112,6 +156,8 @@ These five are the core of the catalog. If the user is unsure where to start wit
 - **Recommending `/devenv-delegation` for high-impact work** — escalate to `/devenv-pair-programming`.
 - **Recommending `/devenv-pair-programming` for pure exploration** — start with `/devenv-rubber-duck` or `/devenv-spike`.
 - **Recommending `/devenv-create-implementation-plan` when a plan already exists** — that's `/devenv-refine-implementation-plan` or `/devenv-plan-update`.
+- **Routing existing-component feature delivery to architecture by default** — default to Plan/Build (`/devenv-create-implementation-plan`, `/devenv-pair-programming`, `/devenv-delegation`) unless the user explicitly asks for architecture option-weighing or design-artifact work.
+- **Skipping the architecture disambiguation question** when stage is Architect and intent is not explicit.
 - **Recommending a single skill when the user described a multi-step goal** — check the registry chains first.
 - **Hard-coding skill knowledge** — always consult the registry; it may contain fork-added skills not listed here.
 

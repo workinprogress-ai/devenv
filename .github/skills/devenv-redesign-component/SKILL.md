@@ -43,7 +43,8 @@ Do **not** use for:
 3. **Record why the old approach no longer holds.** This is as important as recording the new decision. Future engineers and AI sessions need to understand the reasoning so they don't repeat the old pattern.
 4. **One output, explicitly temporary.** `Redesign--NNN.md` contains the full decision record plus a `## Target architecture` section — what the architecture doc will say when the work is done. `Architecture_and_implementation.md` is not touched; it must remain accurate to the current code until implementation is complete. The architecture doc is updated in the Cleanup phase of the implementation plan, using the target architecture section as the source. Delete `Redesign--NNN.md` after that Cleanup task is done.
 5. **Push back on weak diagnoses.** "The code is messy" is not a redesign trigger. Require the user to articulate what the current approach gets wrong and why no incremental fix will do.
-6. **The redesign doc is not a plan.** It describes the scope and intent at a high level — enough for `devenv-plan-from-spec` to decompose into tasks. It does not list tasks, estimate effort, or prescribe implementation order.
+6. **Classify workspace context first.** Determine whether this session is running in a planning repo, target component repo, or devenv multi-repo workspace before reading files or making path assumptions.
+7. **The redesign doc is not a plan.** It describes the scope and intent at a high level — enough for `devenv-plan-from-spec` to decompose into tasks. It does not list tasks, estimate effort, or prescribe implementation order.
 
 ## Session Memory
 
@@ -65,12 +66,19 @@ Track open questions as `Q-NNN` items. See [Q-NNN format](../_conventions.md#ope
 
 Ask in one conversational exchange:
 
-1. **What component is being redesigned?** Name, purpose, and which repo it lives in.
-2. **What is the concern in brief?** A single sentence is enough here — just enough to orient. The full problem exploration happens in Phase 1.
-3. **Is there a GH issue for this work?** Used as NNN in the `Redesign--NNN.md` filename.
-4. **Any hard constraints?** Backward compatibility requirements, stack constraints, timeline pressure, team decisions already made.
+1. **What workspace context are we in?** Planning repo, target component repo, or devenv multi-repo workspace.
+2. **What component is being redesigned?** Name, purpose, and which repo it lives in.
+3. **Confirm target repo path and current design doc path.** Identify the canonical `docs/Architecture_and_implementation.md` location before proceeding.
+4. **What is the concern in brief?** A single sentence is enough here — just enough to orient. The full problem exploration happens in Phase 1.
+5. **Is there a GH issue for this work?** Used as NNN in the `Redesign--NNN.md` filename.
+6. **What supporting inputs are available?** Accept either pasted text or markdown file paths (issue notes, incident notes, requirements, related blueprint section).
+7. **Any hard constraints?** Capture at least: backward compatibility, dependencies/libraries, infrastructure/runtime, security/compliance, performance/SLO, and timeline/process constraints.
+
+Before Phase 1, post a short intake summary (context classification, target repo/doc path, inputs, and constraints) and get explicit user confirmation.
 
 Load `docs/Architecture_and_implementation.md` from the component repo. If it does not exist, redirect to [`/devenv-create-technical-design`](../devenv-create-technical-design/SKILL.md) — a redesign requires an existing design as its starting point.
+
+If running from a planning repo or devenv multi-repo workspace, load the design doc from the confirmed target component repo path, not from the current working directory.
 
 Summarise the current design back to the user in 5–8 bullets covering: what the component does, its current interface contract (key exposed and consumed surfaces), its main structural approach, and any known unknowns or deferred items from the existing doc.
 

@@ -122,6 +122,34 @@ Any command that mutates external state — `issue-comment`, `issue-update`, `is
 
 If unsure, prefer `--dry-run` first.
 
+## Artifact Comment Identity Convention
+
+For skills that store output artifacts in GitHub issue comments (design docs, redesign docs, spikes, audits), use a stable document identity and upsert flow. Do not use heading-prefix or fuzzy matching.
+
+Required rules:
+
+1. Generate `doc_id` via tooling (do not hand-build strings):
+    - `issue-artifact-doc-id --issue <N> --artifact-type <artifact-type> --slug <artifact-slug>`
+    - Use `--source-file <path>` instead of `--slug` when file basename is the intended slug source.
+    - The generated format is `dv1:<owner-repo>:issue-<N>:<artifact-type>:<artifact-slug>`.
+2. Prefix the comment body with the metadata block at the top of the comment body:
+
+```markdown
+<!-- DEVENV_ARTIFACT_V1
+doc_id: dv1:<owner-repo>:issue-<N>:<artifact-type>:<artifact-slug>
+artifact_type: <artifact-type>
+issue_number: <N>
+source_file: <workspace-relative file path>
+updated_at_utc: <ISO-8601>
+-->
+```
+
+3. The `doc_id:` line must appear within the first 256 characters of the comment body.
+4. Post via `issue-artifact-upsert` (not manual `issue-comment-list` / `issue-comment-update` matching).
+5. If upsert reports duplicate `doc_id` conflict, stop and ask the user which comment ID is canonical before continuing.
+
+Skills should keep only artifact-specific mapping details locally (artifact type, slug source, source file) and reference this convention for common behavior.
+
 ## Tooling discipline
 
 - **Never call `gh` directly from a skill body or its references.** Always go through the repo's `issue-*` / `pr-*` / `project-*` wrappers in `tools/`.
@@ -235,6 +263,24 @@ When a skill needs to summarize one or more existing documents or repos, prefer 
 | Existing component (brownfield) | Current purpose, owned aggregates, public API, events emitted/consumed, known dependencies |
 
 **Key rule:** always confirm the summary with the user before using it to make decisions. Never silently record an Explore result as ground truth.
+
+## Design skill context classification
+
+For design-oriented skills (`devenv-create-technical-design`, `devenv-redesign-component`, and related refinements), begin by classifying execution context before reading files or proposing structure.
+
+Supported contexts:
+
+- **Planning repo context** — conversation happens in a planning repo; component code and docs are in another repo.
+- **Target repo context** — conversation happens in the component repo itself.
+- **Devenv multi-repo context** — conversation happens in the dev environment repo where multiple component repos may be present under `repos/`.
+
+Required behavior:
+
+1. Ask the user which context applies (or state inferred context and ask for confirmation).
+2. Resolve and confirm the component repo path and canonical design document path before survey work.
+3. Accept source inputs from either pasted text or markdown file paths (blueprint sections, requirements, notes).
+4. Capture constraints explicitly in these buckets: dependencies/libraries, infrastructure/runtime, security/compliance, performance/SLO, and timeline/process constraints.
+5. Post an intake summary and require explicit confirmation before moving into diagnosis or design phases.
 
 ## Anti-patterns
 

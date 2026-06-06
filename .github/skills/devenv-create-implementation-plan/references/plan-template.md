@@ -8,80 +8,17 @@ Copy this skeleton verbatim and fill it in. All top-level headings are required,
 <One paragraph: what this plan accomplishes and why. Enough context for a fresh
 human or AI to understand the goal without opening other documents.>
 
-## Acceptance criteria
+## Goals and Acceptance Criteria
+
+<A short end-state paragraph describing what the completed work should look
+like, why it matters, and the boundaries of the work. Include explicit scope
+boundaries or non-goals when they matter to understanding the shape of the
+solution.>
 
 - [ ] **AC-1** <criterion text — observable behaviour the system must exhibit when the work is done> *(explicit)*
 - [ ] **AC-2** <criterion text> *(inferred)*
 
-## Revision history
-
-### <date> — Initial plan created
-
-## Task List
-
-### Phase 1 — Discovery & test scaffolding
-
-> <One- or two-sentence preamble describing the deliverable, safety properties,
-> and committability of this phase. Examples: "Additive-only changes. No
-> behaviour changes to existing code paths. Coverage does not decrease.">
->
-> **Orientation:** <What the relevant code currently does, and why it falls short
-> for this phase's goal. End with one specific thing to look for first: *"The
-> interesting bit is `MethodName` — [why it matters for this phase]."*>
->
-> *(Skip if you're already warm on the code.)*
-
-- [ ] **1.1 [S] <Task title>** ([additional context](#task-11--short-slug))
-  - <Concrete sub-step or behavioural note>
-  - <Another sub-step>
-  - Files: `<workspace-root-relative/path/File.cs>`
-  - depends on <N.N> (omit if none)
-
-- [ ] **1.2 [M] <Task title>**
-  - <Sub-step>
-  - <Sub-step>
-  - Files: `<workspace-root-relative/path/File.cs>`, `<workspace-root-relative/path/FileTests.cs>`
-
----
-
-### Phase 2 — <Phase name>
-
-> <Phase preamble: what gets delivered, what's gated, what stays green.>
->
-> **Orientation:** <What the relevant code currently looks like at the start of
-> this phase, and what the phase goal changes about it. One specific thing to
-> find first.>
->
-> *(Skip if you're already warm on the code.)*
-
-- [ ] **2.1 [M] <Task title>**
-  - <Sub-step>
-  - <Sub-step>
-  - Files: `<workspace-root-relative/path/File.cs>`
-  - decision: <the choice to make, and why it's non-obvious> (omit if none)
-  - depends on 1.2
-
-- [ ] **2.2 [L] <Task title>** ([additional context](#task-22--short-slug))
-  - <Sub-step>
-  - <Sub-step>
-  - Files: `<workspace-root-relative/path/File.cs>`, `<workspace-root-relative/path/NewFile.cs>` (new)
-
----
-
-### Phase N — Cleanup & docs
-
-> Final cleanup and documentation. Removes throwaway scaffolding from earlier
-> phases, updates user-facing docs, and verifies coverage hasn't regressed.
-
-- [ ] **N.1 [S] Remove scaffolding tests no longer needed**
-- [ ] **N.2 [S] AC Review** — scan for `[AC-N]` DEVENV comments in code (`grep -rn "\[AC-" .`); for each acceptance criterion, verify against current code and tests; run `markdown-plan-complete-ac AC-N... [<plan_file>]` for each criterion that is objectively verifiable (test passes, behaviour observable); present any requiring human judgment for the user to confirm. **Must complete before the DEVENV cleanup task.**
-- [ ] **N.3 [S] Remove all DEVENV markers** *(if any were added during this plan — `grep -rn "DEVENV\[" .` must return zero results; run after AC Review so AC-reference comments are removed together)*
-- [ ] **N.4 [S] Update README / changelog / inline docs**
-- [ ] **N.5 [S] Verify coverage has not regressed**
-
----
-
-## Contextual Information
+## Context and Orientation
 
 ### Problem Context
 
@@ -105,9 +42,137 @@ capacity, etc.>
 ### Additional Considerations and Notes
 
 <Anything else worth knowing: known unknowns, follow-up work explicitly out of
-scope, related issues, risks and mitigations.>
+scope, related issues, risks and mitigations. This section should be useful even
+if the reader never looks at the task list.>
 
-### Additional Task Context
+## Phases
+
+### Phase 1 — Discovery & test scaffolding
+
+**Goal:** <What this phase is meant to establish.>
+
+**End State:** <What should be true when this phase is complete.>
+
+**Suggested Strategies:**
+
+- <How to approach the work without over-constraining the implementation order>
+- <Existing pattern to follow or first area to inspect>
+
+**Acceptance Criteria In Scope:**
+
+- [AC-1](#goals-and-acceptance-criteria)
+
+**Watch Outs / Decisions:**
+
+- <Non-obvious risk, tradeoff, or likely decision>
+
+**Deliverables:**
+
+- <Concrete thing that exists by the end of the phase>
+- <Another deliverable>
+
+---
+
+### Phase 2 — <Phase name>
+
+**Goal:** <What this phase is meant to establish.>
+
+**End State:** <What should be true when this phase is complete.>
+
+**Suggested Strategies:**
+
+- <Approach guidance>
+- <Where to start>
+
+**Acceptance Criteria In Scope:**
+
+- [AC-2](#goals-and-acceptance-criteria)
+
+**Watch Outs / Decisions:**
+
+- <Risk or decision>
+
+**Deliverables:**
+
+- <Deliverable>
+
+## Detailed Task List
+
+### Phase 1 — Discovery & test scaffolding
+
+> Deliverable summary: <One- or two-sentence summary of what this phase
+> delivers and why it is independently committable.>
+>
+> See [Phase 1](#phase-1--discovery--test-scaffolding) above for full context,
+> orientation, and likely decision points.
+
+- [ ] **1.1 [S] <Task title>** ([additional context](#task-11--short-slug))
+  - <Concrete sub-step or behavioural note>
+  - <Another sub-step>
+  - Files: `<workspace-root-relative/path/File.cs>`
+  - depends on <N.N> (omit if none)
+
+- [ ] **1.2 [M] <Task title>**
+  - <Sub-step>
+  - <Sub-step>
+  - Files: `<workspace-root-relative/path/File.cs>`, `<workspace-root-relative/path/FileTests.cs>`
+
+---
+
+### Phase 2 — <Phase name>
+
+> Deliverable summary: <What gets delivered, what stays green, and why the
+> phase can be reviewed or committed independently.>
+>
+> See [Phase 2](#phase-2---phase-name) above for the phase goal, end-state
+> vision, suggested strategies, AC coverage, and watch-outs.
+
+- [ ] **2.1 [M] <Task title>**
+  - <Sub-step>
+  - <Sub-step>
+  - Files: `<workspace-root-relative/path/File.cs>`
+  - decision: <the choice to make, and why it's non-obvious> (omit if none)
+  - depends on 1.2
+
+- [ ] **2.2 [L] <Task title>** ([additional context](#task-22--short-slug))
+  - <Sub-step>
+  - <Sub-step>
+  - Files: `<workspace-root-relative/path/File.cs>`, `<workspace-root-relative/path/NewFile.cs>` (new)
+
+---
+
+### Phase N — Cleanup & docs
+
+> Deliverable summary: Final cleanup and documentation. Removes throwaway
+> scaffolding from earlier phases, updates user-facing docs, and verifies
+> coverage hasn't regressed.
+>
+> See [Phase N](#phase-n--cleanup--docs) above for the cleanup goal, AC review
+> scope, and final deliverables.
+
+- [ ] **N.1 [S] Remove scaffolding tests no longer needed**
+- [ ] **N.2 [S] AC Review** — scan for `[AC-N]` DEVENV comments in code (`grep -rn "\[AC-" .`); for each acceptance criterion, verify against current code and tests; run `markdown-plan-complete-ac AC-N... [<plan_file>]` for each criterion that is objectively verifiable (test passes, behaviour observable); present any requiring human judgment for the user to confirm. **Must complete before the DEVENV cleanup task.**
+- [ ] **N.3 [S] Remove all DEVENV markers** *(if any were added during this plan — `grep -rn "DEVENV\[" .` must return zero results; run after AC Review so AC-reference comments are removed together)*
+- [ ] **N.4 [S] Update README / changelog / inline docs**
+- [ ] **N.5 [S] Verify coverage has not regressed**
+
+---
+
+## Reference Information
+
+**Key files to understand before implementing:**
+
+| File | Relevance |
+|---|---|
+| `<workspace-root-relative/path/File.cs>` | <Why this file matters; what to study; what pattern to follow.> |
+| `<workspace-root-relative/path/Other.cs>` | <Relevance.> |
+
+**Related links:**
+
+- <GH issue, design doc, related PR, external spec, etc.>
+- <Link>
+
+## Additional Task Context
 
 <Per-task deep dives. Anchor each entry with a descriptive slug so tasks above
 can link to it.>
@@ -122,29 +187,23 @@ enough to execute the task.>
 
 <Detailed context.>
 
-### Reference Information
+## Revision History
 
-**Key files to understand before implementing:**
-
-| File | Relevance |
-|---|---|
-| `<workspace-root-relative/path/File.cs>` | <Why this file matters; what to study; what pattern to follow.> |
-| `<workspace-root-relative/path/Other.cs>` | <Relevance.> |
-
-**Related links:**
-
-- <GH issue, design doc, related PR, external spec, etc.>
-- <Link>
+### <date> — Initial plan created
 ```
 
 ## Notes on filling it in
 
 - **Title** — name the outcome, not the activity. "Add bulk-sync retry policy" beats "Work on bulk-sync".
 - **Opening paragraph** — assume the reader has zero prior context.
-- **Phase preamble blockquotes** — every phase gets one. State the deliverable, what's gated/safe, and why the phase ends committable. This makes commit boundaries scannable.
+- **Goals and Acceptance Criteria** — this is the first section a human should be able to use to understand the intended end state and scope boundaries.
+- **Context and Orientation** — write this so it still helps a human who never reads past it.
+- **Phases** — this is the human-oriented breakdown. Give enough goal, end-state, strategy, AC coverage, and watch-out information for someone to start a phase without living in the task list.
+- **Detailed Task List blockquotes** — keep these short. They are there to summarise deliverables and point back to the richer phase context, not to carry the full orientation burden.
 - **Phase boundaries** — each phase must end committable. If a phase can't, split it.
 - **Task headers** — bold, with size label, optional inline `(additional context)` link.
 - **Sub-bullets first, metadata last** — descriptive sub-bullets describe the work; `Files:` / `decision:` / `depends on` come at the bottom of the bullet list.
 - **Anchor slugs** — use `#task-NN--short-slug` (descriptive), not `#task-N-N` (opaque). Match with `<a id="task-NN--short-slug"></a>` in *Additional task context*.
 - **Reference table** — prefer a "key files" table with a relevance column over a flat link list. Add a separate **Related links** sub-list for issues/docs/PRs.
-- **Section heading case** — Title Case for `## Task List`, `## Contextual Information`, etc.
+- **Revision History placement** — keep it near the bottom so the top of the plan stays oriented toward implementation and review.
+- **Section heading case** — Title Case for `## Detailed Task List`, `## Reference Information`, etc.

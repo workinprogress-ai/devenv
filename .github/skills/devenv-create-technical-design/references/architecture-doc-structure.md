@@ -38,7 +38,7 @@ If yes:
 
 3. **Draft the issue body** (placeholder — design goes in the comment):
    ```
-   Technical design document is in the first comment below.
+   Technical design document is in a comment identified by artifact doc_id.
 
    Next step: use `/devenv-create-implementation-plan` or
    `/devenv-plan-from-spec <issue number>` to generate a task-level implementation plan.
@@ -53,18 +53,24 @@ If yes:
    **If creating a new issue:**
    - `issue-create --repo "$GITHUB_REPO" --title "<title>" --body "<body>"`
    - Note the new issue number.
+   - Generate doc_id for this technical design artifact:
+     - `doc_id=$(issue-artifact-doc-id --issue <N> --artifact-type design --slug <component-slug>)`
+   - Apply the [Artifact Comment Identity Convention](../../_conventions.md#artifact-comment-identity-convention).
    - Write the design document to a temp file.
-   - `issue-comment <N> --body-file <temp-file>`
+   - `issue-artifact-upsert --issue <N> --doc-id "$doc_id" --body-file <temp-file>`
    - Surface the issue URL.
 
    **If posting to an existing issue:**
+   - Generate doc_id for this technical design artifact:
+     - `doc_id=$(issue-artifact-doc-id --issue <N> --artifact-type design --slug <component-slug>)`
+   - Apply the [Artifact Comment Identity Convention](../../_conventions.md#artifact-comment-identity-convention).
+
    - Write the design document to a temp file.
-   - `issue-comment-list <N>` — scan for an existing design comment (a comment whose body begins with `# Architecture and Implementation`).
-   - If found: `issue-comment-update <COMMENT_ID> --body-file <temp-file>` (replaces the prior version).
-   - If not found: `issue-comment <N> --body-file <temp-file>` (adds a new comment).
+   - `issue-artifact-upsert --issue <N> --doc-id "$doc_id" --body-file <temp-file>`
+   - If upsert reports a duplicate `doc_id` conflict, stop and ask the user which comment ID to keep as canonical.
    - Surface the issue URL.
 
-   The GH issue comment is the canonical record. The local `docs/Architecture_and_implementation.md` is the git-tracked working copy — both should be kept in sync.
+   The GH issue comment identified by `doc_id` is the canonical record. The local `docs/Architecture_and_implementation.md` is the git-tracked working copy — both should be kept in sync.
 
 Never create an issue or post a comment without explicit "yes" confirmation.
 

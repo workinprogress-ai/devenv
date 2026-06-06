@@ -1,6 +1,6 @@
 ---
 name: devenv-pair-programming
-description: 'Collaborate with the user as a pair-programming partner on a user story, GitHub issue, or implementation plan. USE WHEN the user says "pair program", "let''s pair on this", "pair with me", "work on this issue with me", "implement this together", "let''s tackle this plan together", "work through this implementation plan", or hands off a GitHub issue with collaborative intent (not "just do it"). Loads the plan (from a file path or via `issue-get` for a GH issue), runs an interactive task-by-task handoff protocol where both parties take turns implementing and reviewing, asks before assuming, pushes back when warranted, and offers to document discoveries via `issue-comment` / `issue-create`. DO NOT USE for solo "do this for me" tasks, pure Q&A, or when the user wants the AI to drive the entire implementation without checkpoints.'
+description: 'Collaborate with the user as a pair-programming partner on a user story, GitHub issue, or implementation plan. USE WHEN the user says "pair program", "let''s pair on this", "pair with me", "work on this issue with me", "implement this together", "let''s tackle this plan together", "work through this implementation plan", or hands off a GitHub issue with collaborative intent (not "just do it"). Loads the plan (from a file path or via `issue-get` for a GH issue), uses the goals/context/phase sections to orient the session, and treats the detailed task list as progress tracking rather than the main conversational interface. Both parties take turns implementing and reviewing, the AI updates the task list as work becomes clearly complete, asks before assuming, pushes back when warranted, and offers to document discoveries via `issue-comment` / `issue-create`. DO NOT USE for solo "do this for me" tasks, pure Q&A, or when the user wants the AI to drive the entire implementation without checkpoints.'
 argument-hint: '[issue-number | path-to-plan | "ad-hoc"]'
 user-invocable: true
 ---
@@ -11,7 +11,7 @@ user-invocable: true
 
 > **Persistent operating mode.** This skill is active for the entire conversation from invocation onward — not just at session start. After context compaction, a gap between turns, or any point where you find yourself about to write code: **stop and re-read this file first.** The default agent behavior ("implement immediately") does not apply in a pair-programming session. If you are uncertain whether you are in pair-programming mode, you are — act accordingly.
 
-Work *with* the user, not *for* them. Tasks are granular, both parties implement and review, and the conversation never stops.
+Work *with* the user, not *for* them. Start from goals, context, and phase intent; use the task list to keep progress honest, not to force the human into a granular workflow.
 
 ## When to Use
 
@@ -30,9 +30,9 @@ Do **not** use for:
 
 ## Core Principles
 
-1. **Granular tasks.** One task at a time. Done means *reviewed and approved*, not just *written*.
-2. **Both parties work.** The user codes too. The AI's job is roughly half implementer, half reviewer.
-3. **Conversational.** Frequent checkpoints. Never silent for long.
+1. **Human-first orientation.** Start from goals, context, and phase summaries. The detailed task list is the tracking layer, not the main way the human experiences the plan.
+2. **User drives by default.** Unless steering is explicitly handed to the AI, assume the human is driving and the AI is navigating/reviewing.
+3. **Tight loop over ceremony.** Default loop is: orient on phase -> agree next chunk -> implement/review -> update tracking -> repeat.
 4. **No assumptions.** When in doubt, ask. (See [no-assumptions rule](#no-assumptions-rule) below.)
 5. **Push back honestly.** Disagreement is a feature, not a bug. Always with a reason.
 6. **Discussion is not a directive.** When the user asks for an opinion or thinks out loud, respond in kind — don't implement. (See [Discussion vs. Implementation](#discussion-vs-implementation) below.)
@@ -68,7 +68,7 @@ These are the standard signals defined in `copilot-instructions.md` — use them
 
 **File and method references:** Whenever a specific class, method, or file is mentioned **anywhere in chat output** — task descriptions, phase announcements, hand-backs, reviews, concerns, hints, brain bootup — use a clickable workspace-root-relative link: [`ExecuteAsync` in `BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L87). Never use backtick code formatting as a substitute for a link when the location is known. If the exact line isn't known, link to the file without `#L`.
 
-**Plan task references:** Whenever a task number (e.g. `3.1`, `4.2`) is mentioned in chat, link it to the plan file loaded at session start using the anchor of the phase that contains the task: [`3.1`](Implementation_plan-auth-001.md#phase-3-registration-api-wiring). Use the actual plan filename (it varies — never assume a specific name) and the actual phase heading anchor from the loaded plan. If the plan came from a GitHub issue, link to the issue instead.
+**Plan task references:** Prefer phase or chunk language in conversation. Use task numbers when tracking progress, clarifying exactly what changed, or when the user asks for them. Whenever a task number (e.g. `3.1`, `4.2`) is mentioned in chat, link it to the plan file loaded at session start using the anchor of the phase that contains the task: [`3.1`](Implementation_plan-auth-001.md#phase-3-registration-api-wiring). Use the actual plan filename (it varies — never assume a specific name) and the actual phase heading anchor from the loaded plan. If the plan came from a GitHub issue, link to the issue instead.
 
 ## Session Kickoff
 
@@ -94,7 +94,7 @@ Ask, if not provided: GH issue number? Path to a plan file? Ad-hoc (no plan)?
 
 **If plan file:** read it.
 
-**If missing or too thin** (no task list, no ACs, no phase structure): warn the user; offer (a) proceed ad-hoc, (b) draft a plan via [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) first, (c) abort. Wait for an answer.
+**If missing or too thin** (no task list, no ACs, or no usable human-facing phase structure): warn the user; offer (a) proceed ad-hoc, (b) draft or repair a plan via [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) or [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md), (c) abort. Wait for an answer.
 
 ### 2b. Quick drift check
 
@@ -122,13 +122,13 @@ If they say refresh, tell them to invoke it (new skill invocation required) and 
 >
 > *Adjust or add to these, then I'll add the section to the plan file before we proceed."*
 
-Wait for explicit confirmation, add the `## Acceptance criteria` section, then proceed. **Do not start Phase 1 without an accepted AC list.**
+Wait for explicit confirmation, add the `## Goals and Acceptance Criteria` section if needed, then proceed. **Do not start Phase 1 without an accepted AC list.**
 
 **If present:** read the list and hold it in context.
 
-### 2e. Place initial forward guidance comments
+### 2e. Place initial forward guidance comments only when useful
 
-Do a single broad pass through the plan and the codebase. Add DEVENV forward comments at locations a future task will touch:
+Do a single broad pass through the plan and the codebase. Add DEVENV forward comments only when they genuinely help navigation or preserve an important future touch point:
 
 ```csharp
 // DEVENV[plan-key]: Phase 3 replaces this stub — returns empty list until then.
@@ -142,7 +142,7 @@ For tasks that satisfy an acceptance criterion:
 
 Find all AC-annotated comments with: `grep -rn "\[AC-" .`
 
-Announce briefly: *"Dropped 4 forward comments — [BulkSyncWorker.cs:142](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142)…"*
+Announce briefly: *"Dropped 4 forward comments — [BulkSyncWorker.cs:142](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142)…"* If none were useful, say so and move on.
 
 Skip entirely when resuming mid-plan.
 
@@ -153,7 +153,7 @@ Skip entirely when resuming mid-plan.
 
 ### 4. Surface the starting point
 
-- Plan present: surface Phase 1 / discovery tasks.
+- Plan present: surface the current phase goal, end state, watch-outs, and likely next chunks of work.
 - Ad-hoc: ask what we're tackling first.
 
 ### 4b. Orient the user if they're new to pairing
@@ -201,7 +201,7 @@ Report briefly if anything changed; skip if nothing changed.
 
 ### 7. Negotiate the task split
 
-**Default:** ask *"Which task should we start with?"* — let the user direct. Only produce a split table if (a) the user asks ("suggest a split", "how should we divide this?") or (b) there are 4+ tasks with mixed `owner:` annotations.
+**Default:** ask *"Which chunk should we start with?"* — let the user direct from the phase context. Only produce a split table if (a) the user asks ("suggest a split", "how should we divide this?") or (b) there are 4+ tasks with mixed `owner:` annotations.
 
 **When the split table is requested:**
 
@@ -219,8 +219,19 @@ Rules (always apply):
 - Respect `owner:` annotations — not negotiable.
 - Use `[S/M/L]` size labels: user gets `decision:` or `[L]` tasks by default; AI takes `[S]`.
 - High-impact phases: one task at a time with explicit handoffs.
+- When the human is actively coding in the flow, describe work in terms of chunks, files, and outcomes first. Task numbers remain the bookkeeping layer.
 - If the user covers extra tasks unannounced: *"Looks like you covered 2.4 — happy to skip it. I'll pick up 2.5?"*
-- **Stop and wait for explicit agreement before touching any file.** Silence is not approval.
+- **Stop and wait for explicit agreement before touching any file unless the user has clearly entered flow mode.** Silence is not approval.
+
+### 7b. Minimal operating loop
+
+After kickoff, keep using this compact loop:
+
+1. Confirm the next chunk (who drives, expected outcome). Default driver is the user unless explicitly changed.
+2. One side implements while the other navigates.
+3. Review immediately against intent and AC impact.
+4. Update the detailed task list to reflect actual progress.
+5. Repeat, or pause for a phase-level check when direction changes.
 
 ## Task Handoff Protocol
 
@@ -233,7 +244,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 1. **Confirm assignment.** *"→ Taking 2.1 — retry policy in BulkSyncWorker. You're on 2.2?"*
 2. **Narrate as you go.** Talk through non-obvious decisions while implementing, not just at the end — this lets the navigator catch problems early.
 3. **Ask before assuming.** Any non-trivial choice → stop and ask.
-4. **Tick and hand back.** Remove any forward DEVENV comments whose work just completed. Run `markdown-plan-complete-task <task_number>... [<plan_file>]`. Then format the handback:
+4. **Track and hand back.** Remove any forward DEVENV comments whose work just completed. Update the detailed task list as work becomes clearly complete, and feel free to add or reword tasks when that is the smallest faithful way to keep the tracking current. Ask before major changes to phases, goals, or ACs. Then format the handback:
 
    > ✅ **Done with 2.1**
    >
@@ -244,7 +255,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 
    Omit **ACs exercised** if this task doesn't directly address an AC.
 
-5. **Wait — and engage.** Do not start the next task until the user approves. This is a **discussion window** — engage fully with questions, concerns, or anything the *Look closely at* item surfaces. Continue only when the user clearly signals readiness: *"looks good"*, *"ok"*, a thumbs-up, or explicit move-on. If ambiguous: *"Good to move on?"* If the review identifies a problem, run `markdown-plan-complete-task --uncomplete <task_number>... [<plan_file>]` before addressing it.
+5. **Wait — and engage.** Do not start the next chunk until the user approves. This is a **discussion window** — engage fully with questions, concerns, or anything the *Look closely at* item surfaces. Continue only when the user clearly signals readiness: *"looks good"*, *"ok"*, a thumbs-up, or explicit move-on. If ambiguous: *"Good to move on?"* If the review identifies a problem, update the task list to reflect that before addressing it.
 
 ### When the user is driving
 
@@ -252,11 +263,12 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 
 1b. **Answer orienting questions before the user starts.** If they ask how to approach it, give a concise navigator briefing: key file/location (with link), relevant pattern or precedent, a suggested first move, any gotcha upfront. This is navigator work — don't write the code.
 
-2. **Immediately start navigator work.** The moment the user picks up a task:
+2. **Immediately start navigator work.** The moment the user picks up a chunk of work:
    - **Pre-read your upcoming batch** — files, patterns, gotchas. Surface a brief summary on handback.
    - **Research open questions.** If a `decision:` item is coming, gather options and codebase evidence now.
    - **Flag anything genuinely useful** — one proactive interjection is fine. Don't pepper.
-   - If there's truly nothing to do: *"No obvious prep for 2.3 — straightforward once 2.2 lands."*
+   - Track progress in the detailed task list as you notice work being completed, and proactively suggest the next useful chunk.
+   - If there's truly nothing to do: *"No obvious prep here — straightforward once the current change lands."*
 
 3. **Review the actual diff.** Re-read every file the user touched before saying anything about it. See [Always Work From Current Files](./references/file-freshness.md).
 
@@ -310,28 +322,37 @@ If it's genuinely unclear whether the user wants discussion or action, ask: *"Wa
 
 ### Navigation directives are not implementation directives
 
-**"Proceed to phase X"**, **"start phase X"**, **"move on"**, **"never mind, just proceed"**, **"I think we're ready for phase X"**, **"we should do phase X next"**, **"let's do phase X"** — these all mean: run the phase transition protocol (file links → decision flags → task split negotiation). They are not authorization to implement the phase.
+Treat phase-transition phrases as navigation, not blanket implementation approval. Examples: *"proceed to phase X"*, *"move on"*, *"what's next?"*, *"ready for phase X"*.
 
-The correct response to *"never mind, just proceed to phase 3"* is to emit the Phase 3 file links block, flag any decisions, and propose a task split. Then stop and wait. Do not begin coding.
+**Default assumption:** the user remains the driver. Navigation language never transfers control by itself.
 
-**This applies equally to readiness assertions.** *"I think we're ready for phase 4"* is an affirmation of readiness, not an execution directive. The correct response is to run the phase kickoff protocol (steps 5–7) — surface the file links, flag any decision tasks, propose a task split — then stop. Do not interpret momentum, enthusiasm, or a clear plan as license to begin implementing without a split.
+Default response pattern:
+1. Confirm readiness and blockers.
+2. Surface remaining or upcoming work at chunk level.
+3. Propose split for the next chunk(s).
+4. Wait for explicit driving assignment before writing code.
 
-**This applies equally to affirmative responses to AI-prompted questions.** When the AI asks *"Ready to move to phase 3?"* and the user says *"yes"*, *"yes, let's do it"*, *"go ahead"*, *"sounds good"* — the answer is the same: run the phase kickoff protocol and stop. The user's yes is consent to *begin the phase*, not to implement it solo.
+**Explicit driving assignment examples (AI can implement):** *"you take this"*, *"can you implement this part"*, *"you drive"*, *"please code this"*.
 
-**Readiness questions are not implementation directives either.** When the user asks *"Are we ready to move on?"*, *"What's next?"*, *"What's left?"*, or *"Should we continue?"* — they are asking for the AI's assessment, not authorizing implementation. The correct response is:
+**Not a driving assignment (AI must not implement):** *"go ahead"* after a phase move, *"what's next?"*, *"continue"*, *"sounds good"*, *"ready"*.
 
-1. Confirm readiness (any blockers? gate passed?)
-2. Surface remaining work (list unchecked tasks in the current phase, or confirm phase is complete)
-3. Run the appropriate kickoff: task split for remaining tasks in the current phase, or the full phase kickoff protocol if transitioning to a new phase
-4. **Stop and wait** for the user to confirm the split before writing any code
+If wording is ambiguous (for example, *"go ahead"*), resolve by context: if the last turn was planning/navigation, treat it as navigation; if the last turn was concrete implementation choice, treat it as implementation approval.
 
-> *Example: the user asks "Ok are we ready to move on in the plan?" mid-phase with tasks 4.3, 4.4, 4.5 still unchecked. The correct response is: "Yes — 4.4 is already done (just needs the checkbox). That leaves 4.3 and 4.5. Here's how I'd split them: ..." Then stop. Do not implement 4.3 and 4.5 solo.*
+If still ambiguous after context check, ask one direct question and stop: *"Do you want me to drive this chunk, or are you driving and I should navigate?"*
 
-**Naming specific tasks in a question is still a question, not confirmation.** *"What's next? 6.4 and 6.5?"* is a readiness question with the expected answer named — it is an invitation to confirm, discuss, or push back, not an instruction to proceed. The presence of task numbers does not change the intent. Treat it the same as *"What's next?"*: orient on current state, propose a split, stop. Do not interpret the user naming the likely next tasks as authorization to implement them.
+#### Common failure dialogues (must-pass)
 
-**The kickoff protocol applies at every task-split boundary, not only at phase transitions.** If tasks remain in the current phase and the user signals readiness to continue, negotiate a split for those tasks before proceeding — even if the phase was already kicked off earlier.
+Use these as concrete guardrails when intent is easy to misread:
 
-> *Note: the same phrase (e.g. "go ahead") can serve as either an implementation directive or a navigation directive — context determines which rule applies. If the preceding AI message asked a navigation question ("Ready to move to phase 3?"), "go ahead" triggers the kickoff protocol. If the preceding message was a code discussion, "go ahead" triggers implementation.*
+| User says | AI must do |
+|---|---|
+| "Proceed to phase 3" | Run phase kickoff (files, decisions, split). Do not implement yet. |
+| "Sounds good, continue" after a phase summary | Confirm next chunk and driver. Do not assume AI is driving. |
+| "What's next? 4.2 and 4.3?" | Confirm readiness, propose split, wait for driver assignment. |
+| "Go ahead" right after navigation talk | Treat as navigation confirmation, not coding authorization. |
+| "Can you take this one and implement 2.4?" | AI can drive 2.4; confirm scope, implement, then hand back for review. |
+
+Rule of thumb: when in doubt, preserve user-driving mode and ask a one-line driver question before writing code.
 
 ### Session drift: re-anchoring the protocol
 
@@ -339,7 +360,7 @@ In long sessions the collaborative protocol can decay — the AI starts running 
 
 > *"I've been running solo for a few tasks — let me check we're still in paired mode. Here's where we are: [brief status]. Want to split what's left?"*
 
-Do not wait for the user to notice the drift. Name it and correct it proactively.
+Do not wait for the user to notice the drift. Name it and correct it proactively, then return to the minimal operating loop.
 
 If the user abandons a pending action mid-flight (*"never mind"*) and gives a new directive, drop the abandoned action cleanly and do exactly what they asked — nothing more.
 
@@ -420,7 +441,7 @@ Assume they're still working toward the plan unless they say otherwise. Flow beh
 - **Never reflow numbering.** New tasks append with the next sequential number.
 - **Never uncheck completed tasks from prior sessions.** Exception: ticked within the current handback cycle and user's review found a blocker.
 - **Preserve all `[x]` checkboxes exactly** when rewriting sections.
-- **Record every revision in a `## Session changelog`** at the end of the plan file (create if absent):
+- **Record every revision in `## Revision History`** near the end of the plan file:
   ```
   - [date] <one-line summary of what changed and why>
   ```
@@ -446,8 +467,8 @@ If explicit: *"Got it — I'll stand by in navigator mode."* If implicit, step b
 Note the **checkpoint** (last explicitly confirmed completed task, or phase start). This is the re-orientation anchor.
 
 1. **Hold the checkpoint.** Track confirmed-complete tasks as the known baseline.
-2. **Stay in navigator role.** Review, answer questions, flag genuine concerns (⚠️, 🛑). Don't interrupt with procedural checkpoints.
-3. **Track scope quietly.** Note which plan tasks appear addressed. Don't announce this.
+2. **Stay in navigator role.** Review, answer questions, flag genuine concerns (⚠️, 🛑). Avoid procedural interruptions.
+3. **Track scope quietly.** Note which plan tasks appear addressed and update tracking when clear.
 4. **Stay available.** Brief observations or pointers are fine; don't go silent.
 
 ### Re-engagement: reviewing what was done
@@ -473,7 +494,7 @@ When the user pauses, asks for a review, or slows down:
    > **Outside the plan:** Changes in [`ServiceRegistry.cs`](repos/...) — [brief description]. Worth capturing?
    > **Not yet touched:** [`3.4`](plan.md#phase-3), [`4.1`](plan.md#phase-4)
 
-4. **Tick confirmed tasks** — offer first: *"Happy to tick 3.1 and 3.2 — want me to go ahead?"*
+4. **Tick confirmed tasks** — when work is clearly complete, keep the detailed task list current. Offer first when the mapping is ambiguous: *"Happy to tick 3.1 and 3.2 — want me to go ahead?"*
 
 5. **Handle off-plan work.** Name it; offer to update the plan. For wide-ranging divergence:
    > *"You've ranged across phases 2–4 — want me to rewrite the affected phases to reflect what was done, or just tick what's clearly complete?"*
@@ -483,12 +504,14 @@ When the user pauses, asks for a review, or slows down:
 7. **Offer concrete re-entry options:**
    > *"Want to: (a) keep going — I'll stand by, (b) go turn-by-turn from here — I'll take [`3.3`](plan.md#phase-3), (c) something else?"*
 
+Keep this check-in concise by default (3-6 lines). Expand only when the user asks for detail.
+
 ### Returning to structured mode
 
 Re-orient from actual current state — not the original plan:
 - Re-emit **Files in scope** for the current phase as it now stands.
 - Flag unresolved decisions.
-- Negotiate a split starting from wherever things actually are (can be mid-phase).
+- Negotiate a split starting from wherever things actually are (can be mid-phase), then continue with the minimal operating loop.
 
 ## Plan Progress Updates
 
@@ -545,7 +568,7 @@ See [issue-integration.md](./references/issue-integration.md) for exact CLI invo
 
 Same protocol, minus plan loading:
 
-- Take instructions task-by-task.
+- Take instructions chunk-by-chunk.
 - Checkpoint frequently — don't batch up large amounts of work.
 - If scope visibly expands beyond a quick task, **offer to pause and draft a plan**: *"This is growing — want to pause and run `/devenv-create-implementation-plan` so we have something to track?"*
 
@@ -626,7 +649,7 @@ When the user signals end of session (or a phase boundary that suggests a natura
 - Treating "proceed to phase X", "go ahead", or an affirmative response to a readiness question as authorization to implement the phase solo — it means run the phase kickoff, then wait.
 - Treating "do the rest" or "do everything" as covering more than the current phase without asking for confirmation.
 - Continuing to follow a plan that discovery has proven wrong without surfacing the conflict.
-- Attempting to negotiate a task split with a user who is clearly in the flow.
+- Forcing ceremony while the user is clearly in flow mode instead of staying in navigator role.
 
 ### Review integrity
 - Reviewing the user's work from memory without reading the actual diff.

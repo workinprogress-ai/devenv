@@ -823,6 +823,73 @@ update_issue_comment() {
     fi
 }
 
+# ============================================================================
+# Artifact doc_id Operations
+# ============================================================================
+
+# Normalize a value into a deterministic slug.
+# Usage: normalize_doc_id_slug "Some Value"
+# Returns: Lowercase kebab-case slug (a-z, 0-9, '-')
+normalize_doc_id_slug() {
+    local raw="${1:-}"
+    local slug
+
+    slug=$(echo "$raw" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//; s/-+/-/g')
+
+    if [ -z "$slug" ]; then
+        log_error "Slug cannot be empty after normalization"
+        return 1
+    fi
+
+    echo "$slug"
+}
+
+# Normalize owner/repo into owner-repo for doc_id format.
+# Usage: normalize_doc_id_repo "owner/repo"
+# Returns: owner-repo
+normalize_doc_id_repo() {
+    local repo="${1:-}"
+
+    if [[ ! "$repo" =~ ^[^/]+/[^/]+$ ]]; then
+        log_error "Invalid repository format: $repo (expected owner/repo)"
+        return 1
+    fi
+
+    echo "${repo//\//-}"
+}
+
+# Build deterministic artifact doc_id string.
+# Usage: generate_artifact_doc_id ISSUE_NUMBER ARTIFACT_TYPE SLUG OWNER_REPO
+# Returns: dv1:<owner-repo>:issue-<number>:<artifact_type>:<slug>
+generate_artifact_doc_id() {
+    local issue_number="${1:-}"
+    local artifact_type="${2:-}"
+    local slug="${3:-}"
+    local owner_repo="${4:-}"
+
+    if ! validate_issue_number "$issue_number"; then
+        return 1
+    fi
+
+    case "$artifact_type" in
+        spike|redesign|design|blueprint|requirements|roadmap|plan)
+            ;;
+        *)
+            log_error "Invalid artifact type: $artifact_type"
+            log_error "Allowed values: spike, redesign, design, blueprint, requirements, roadmap, plan"
+            return 1
+            ;;
+    esac
+
+    local normalized_slug
+    normalized_slug=$(normalize_doc_id_slug "$slug") || return 1
+
+    local normalized_repo
+    normalized_repo=$(normalize_doc_id_repo "$owner_repo") || return 1
+
+    echo "dv1:${normalized_repo}:issue-${issue_number}:${artifact_type}:${normalized_slug}"
+}
+
 # Export functions
 export -f set_issue_type
 export -f build_issue_filters
@@ -844,3 +911,6 @@ export -f fetch_issue_comments
 export -f format_issue_comments
 export -f check_issue_comment_exists
 export -f update_issue_comment
+export -f normalize_doc_id_slug
+export -f normalize_doc_id_repo
+export -f generate_artifact_doc_id

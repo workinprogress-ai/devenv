@@ -1,6 +1,6 @@
 ---
 name: devenv-code-review
-description: Review changed code and produce structured, actionable feedback. The inverse of `/devenv-delegation`: the human (or another agent) wrote the code, the AI reviews it. USE WHEN the user says "review this PR", "review my changes", "code review", "look over this branch", "review the diff", or hands off a PR / branch / local diff for assessment. Auto-detects input: a PR number → fetches via `pr-get` + `pr-diff`; two refs → diffs locally; nothing → defaults to current-branch-vs-default-branch. Produces a 1–2 sentence summary, then findings grouped by severity (Blocker / Concern / Nit / Praise) using the same hotspot bullet format as `/devenv-delegation`. Focuses only on what changed; flags missing tests; surfaces TODO/FIXME left in the diff. Default is print-to-chat; offers to post via `pr-comment` only with explicit confirmation. DO NOT USE for writing or refactoring code (use `/devenv-pair-programming` or `/devenv-delegation`), for resolving review comments on your own PR (use `/devenv-address-pr-comments`), or for general codebase Q&A.
+description: Review changed code and produce structured, actionable feedback. The inverse of `/devenv-delegation`: the human (or another agent) wrote the code, the AI reviews it. USE WHEN the user says "review this PR", "review my changes", "code review", "look over this branch", "review the diff", or hands off a PR / branch / local diff for assessment. Supports both existing PRs and pre-PR branch reviews. Auto-detects input: a PR number → fetches via `pr-get` + `pr-diff`; two refs → diffs locally; nothing → defaults to current-branch-vs-default-branch. Produces a 1–2 sentence summary, then findings grouped by severity (Blocker / Concern / Nit / Praise) using the same hotspot bullet format as `/devenv-delegation`. Focuses only on what changed; flags missing tests; surfaces TODO/FIXME left in the diff. Default is print-to-chat; offers to post via `pr-comment` only with explicit confirmation. DO NOT USE for writing or refactoring code (use `/devenv-pair-programming` or `/devenv-delegation`), for resolving review comments on your own PR (use `/devenv-address-pr-comments`), or for general codebase Q&A.
 argument-hint: PR number, two refs (--base BASE --head HEAD), or nothing (defaults to current branch vs. default branch)
 ---
 
@@ -14,6 +14,7 @@ Review code changes and produce structured, actionable feedback. Inverse of `/de
 
 - Reviewing a PR before approving / requesting changes.
 - Reviewing local work-in-progress before opening a PR.
+- Reviewing a branch that is about to become a PR (no GitHub PR required).
 - Reviewing a branch's diff against the default branch as a self-check.
 
 If the user wants the AI to *write* or refactor code, use `/devenv-pair-programming` or `/devenv-delegation` instead. If the user wants to *respond to* review comments on their own PR, use `/devenv-address-pr-comments`.
@@ -23,10 +24,10 @@ If the user wants the AI to *write* or refactor code, use `/devenv-pair-programm
 The user provides one of:
 
 - **A PR number** — e.g. `123`. Fetch via `pr-get N --pretty` (title, body, base/head refs, author, labels, draft state). Fetch the diff via `pr-diff N`.
-- **Two refs** — e.g. `--base master --head my-feature`. Use `pr-diff --base BASE --head HEAD`.
-- **Nothing** — default mode: diff the current branch against the repository's default branch (`master` or `main`). Use `pr-diff --base <default> --head HEAD`.
+- **Two refs** — e.g. `--base master --head my-feature`. Use `pr-diff --base BASE --head HEAD`. This is the preferred mode for pre-PR branch reviews.
+- **Nothing** — default mode: diff the current branch against the repository's default branch (`master` or `main`). Use `pr-diff --base <default> --head HEAD`. This is also a valid pre-PR review mode.
 
-**Auto-detection rule:** `^[0-9]+$` → PR number. Two refs given → ref-diff mode. No args → current-branch-vs-default mode (announce this so the user knows what's being reviewed).
+**Auto-detection rule:** `^[0-9]+$` → PR number. Two refs given → ref-diff mode. No args → current-branch-vs-default mode (announce this so the user knows what's being reviewed). Branch review mode does not call GitHub PR APIs.
 
 For the no-args mode: detect the default branch via `git symbolic-ref refs/remotes/origin/HEAD` (or fall back to `master` then `main`), and use the current branch as head.
 

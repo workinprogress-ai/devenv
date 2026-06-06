@@ -63,7 +63,6 @@
 				"ms-dotnettools.csdevkit",
 				"ms-vsliveshare.vsliveshare",
 				"ms-vscode-remote.remote-ssh",
-				"ms-dotnettools.vscode-dotnet-pack",
 				"ms-azuretools.vscode-docker",
 				
 				"rafistatar.addlocalnetreferences",
@@ -73,7 +72,6 @@
 				"streetsidesoftware.code-spell-checker",
 				"ms-vscode-remote.remote-containers",
 				"ms-vscode-remote.remote-ssh",
-				"ms-dotnettools.vscode-dotnet-pack",
 				"eamodio.gitlens",
 				"tintoy.msbuild-project-tools",
 				"quicktype.quicktype",

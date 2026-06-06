@@ -321,6 +321,33 @@ YML
     declare -f reopen_issue > /dev/null
 }
 
+# ============================================================================
+# doc_id generation tests
+# ============================================================================
+
+@test "normalize_doc_id_slug converts to kebab-case" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    result=$(normalize_doc_id_slug "Retry Strategy 2026")
+    [ "$result" = "retry-strategy-2026" ]
+}
+
+@test "normalize_doc_id_repo converts owner/repo to owner-repo" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    result=$(normalize_doc_id_repo "workinprogress-ai/devenv")
+    [ "$result" = "workinprogress-ai-devenv" ]
+}
+
+@test "generate_artifact_doc_id returns expected format" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    result=$(generate_artifact_doc_id "123" "spike" "retry strategy" "workinprogress-ai/devenv")
+    [ "$result" = "dv1:workinprogress-ai-devenv:issue-123:spike:retry-strategy" ]
+}
+
+@test "generate_artifact_doc_id rejects unknown artifact type" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    ! generate_artifact_doc_id "123" "unknown" "test" "workinprogress-ai/devenv"
+}
+
 @test "issue_exists accepts repo parameter" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
     declare -f issue_exists > /dev/null

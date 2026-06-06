@@ -1,6 +1,6 @@
 ---
 name: devenv-refine-implementation-plan
-description: Revise an existing Implementation_plan-*.md (or GitHub issue body containing a plan) after discovery work, scope changes, or new requirements. USE WHEN the user says "refine the plan", "update the plan", "revise the implementation plan", "the plan needs updating", "rework the plan based on what we learned", or hands off a stale plan that needs new tasks added or existing tasks adjusted. Auto-detects whether input is a file path or a GitHub issue number, preserves all existing `[x]` checkbox state, appends new tasks to the end of each affected phase (next sequential number — never reflows), and creates new phases when the target phase is already fully complete. Records changes in a `## Revision history` section at the top of the file, and writes the result back in place. DO NOT USE for creating a brand-new plan from scratch (use `/devenv-create-implementation-plan`), for ad-hoc edits to a single task line (just edit the file directly), or for reporting plan progress without modifying it (use `/devenv-plan-status`).
+description: Revise an existing Implementation_plan-*.md (or GitHub issue body containing a plan) after discovery work, scope changes, or new requirements. USE WHEN the user says "refine the plan", "update the plan", "revise the implementation plan", "the plan needs updating", "rework the plan based on what we learned", or hands off a stale plan that needs new tasks added or existing tasks adjusted. Auto-detects whether input is a file path or a GitHub issue number, preserves all existing `[x]` checkbox state, appends new tasks to the end of each affected phase (next sequential number — never reflows), and creates new phases when the target phase is already fully complete. Records changes in a `## Revision History` section near the bottom of the file, and writes the result back in place. DO NOT USE for creating a brand-new plan from scratch (use `/devenv-create-implementation-plan`), for ad-hoc edits to a single task line (just edit the file directly), or for reporting plan progress without modifying it (use `/devenv-plan-status`).
 argument-hint: Path to an Implementation_plan-*.md OR a GitHub issue number containing a plan in the body
 ---
 
@@ -35,7 +35,8 @@ The user provides exactly one of:
 - Identify the phase headings (`### Phase N — Title`) and task lines (`- [ ]` / `- [x]`).
 - Note the highest existing task number per phase (e.g. Phase 2 has tasks up to 2.7 → next is 2.8).
 - **Assess completion state**: for each phase, note whether it is fully complete (all tasks `[x]`), partially complete, or untouched. Note the highest existing phase number — this is used if new phases need to be created.
-- Extract any existing `## Revision history` section so new entries can be prepended to it.
+- Extract any existing `## Revision History` section so new entries can be prepended to it.
+- Preserve the high-level section order introduced by the current template: goals/AC first, context/orientation second, phases third, detailed task tracking later.
 
 ### 2. Interview the user about what changed
 
@@ -65,12 +66,13 @@ Do not assume. If the new requirements imply renumbering or reordering, flag it 
   The first of the new phases must include an explicit task to **review the new scope and place forward guidance comments** (`TODO:(DEVENV[...])`) at anticipated touch points — the same role Phase 1 plays in a fresh plan. Example task: `- [ ] **5.1 [S] Review new scope and place forward guidance comments** — scan files affected by phases 5–6, add TODO:(DEVENV[...]) comments at integration points and stubs that later tasks will fill.`
 
   Surface this to the user before writing: *"Phase 3 is fully complete — I'll add the new work in a new Phase 5 rather than appending to Phase 3. The existing Cleanup (Phase 4) is also done, so I'll add a new Phase 6 for cleanup of the new scope. Does that structure work for you?"*
-- **Cancelled tasks** are kept in place, wrapped in `~~strikethrough~~` on the task header line and annotated with the reason inline (e.g. `~~- [ ] **4.3 [S] Add foo**~~ — cancelled: superseded by 2.9`), and recorded in `## Revision history` with the task number, a one-line summary, and the reason. Do **not** delete the task line — strikethrough preserves numbering continuity and makes the cancellation visible in-place (and parseable by `/devenv-plan-status`).
-- **Reworded tasks** keep their number; the prior wording is recorded in the revision history.
+- **Prefer rewrite/addition over removal.** If the work still matters but the original task is misleading, keep the number and reword it, or add a follow-on task. Only strike through a task when the obsolete record is materially useful to preserve.
+- **Cancelled tasks** that truly should remain visible are kept in place, wrapped in `~~strikethrough~~` on the task header line and annotated with the reason inline (e.g. `~~- [ ] **4.3 [S] Add foo**~~ — cancelled: superseded by 2.9`), and recorded in `## Revision History` with the task number, a one-line summary, and the reason.
+- **Reworded tasks** keep their number; the prior wording is recorded in the Revision History.
 
 **Acceptance criteria changes:**
 
-- **New ACs**: infer from the new scope, mark `*(inferred)*`, append to the `## Acceptance criteria` section with the next `AC-N` number (e.g. if AC-4 is the last, the next is AC-5). Use the canonical format: `- [ ] **AC-N** criterion text *(inferred)*`.
+- **New ACs**: infer from the new scope, mark `*(inferred)*`, append to the `## Goals and Acceptance Criteria` section with the next `AC-N` number (e.g. if AC-4 is the last, the next is AC-5). Use the canonical format: `- [ ] **AC-N** criterion text *(inferred)*`.
 - **Minor revision** (clarification or wording improvement — same intent, same observable outcome): rewrite the criterion text in place and append a revision note: `- [ ] **AC-N** Revised text *(inferred)* — *revised: brief note*`. Record in Revision History.
 - **Significant change** (scope, acceptance conditions, or observable outcome changes meaningfully):
   1. Remove the `- [ ]` checkbox, wrap the criterion in `~~strikethrough~~`, and append `*(superseded by AC-M)*`
@@ -80,10 +82,10 @@ Do not assume. If the new requirements imply renumbering or reordering, flag it 
 
 ### 4. Record the revision
 
-Add or update a `## Revision history` section directly under the plan's title (above the first phase). Format:
+Add or update a `## Revision History` section near the bottom of the plan (after `## Additional Task Context`). Format:
 
 ```markdown
-## Revision history
+## Revision History
 
 ### 2025-11-08 — Discovery findings from Phase 1
 
@@ -123,7 +125,7 @@ Summarise inline:
 - **Renumbering existing AC-N identifiers** — same principle. AC-3 stays AC-3; append new ACs at the next available number.
 - **Silently unchecking `[x]`** — discards user progress. If completed work needs to be redone, add a new task.
 - **Deleting cancelled tasks** — leaves a confusing gap in the numbering and erases history. Strike through and annotate instead.
-- **Skipping the revision history** — turns the file into a black box where readers can't tell what changed.
+- **Skipping the Revision History** — turns the file into a black box where readers can't tell what changed.
 - **Assuming what changed** — always interview before editing. The user knows things you don't.
 
 ## Sibling skills

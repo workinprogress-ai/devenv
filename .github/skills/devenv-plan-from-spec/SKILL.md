@@ -85,17 +85,10 @@ Use `vscode_askQuestions`. Wait for explicit approval before writing the file.
 
 Read and follow the plan template at [`../devenv-create-implementation-plan/references/plan-template.md`](../devenv-create-implementation-plan/references/plan-template.md). Use it verbatim as the structural skeleton.
 
-Two additional sections are added for spec-derived plans — insert them directly under the opening paragraph, before `## Revision history`:
+For spec-derived plans, record the source spec inside `## Reference Information` rather than creating a separate top-level section. The human-first section order still applies.
 
 ```markdown
-## Source spec
-
-<resolved spec location: file path, issue URL, fetched URL, or "inline text">
-
-## Acceptance criteria
-
-- [ ] **AC-1** <criterion text — observable behaviour the system must exhibit when the work is done> *(explicit)*
-- [ ] **AC-2** <criterion text> *(inferred)*
+**Source spec:** <resolved spec location: file path, issue URL, fetched URL, or "inline text">
 ```
 
 Mark each criterion as `*(explicit)*` (lifted verbatim from the spec) or `*(inferred)*` (deduced from goals / "must"/"should" statements). The user must be able to tell signal from inference. Use `**AC-N**` bold identifiers on every criterion so they can be tracked with `markdown-plan-complete-ac`.
@@ -108,7 +101,7 @@ Beyond those two sections, follow all rules from `/devenv-create-implementation-
   1. *"Update `docs/Architecture_and_implementation.md` using the `## Target architecture` section of `Redesign--NNN.md` as the source — run `/devenv-refine-technical-design` for this."*
   2. *"Delete the local `Redesign--NNN.md` working copy. The canonical record is the GH issue comment (if one was posted); if no issue exists, the file may still be deleted once the architecture doc is updated."*
 - Tasks follow the **full format** — see [task-format.md](../devenv-create-implementation-plan/references/task-format.md): `- [ ] **N.M [S|M|L] Title** ([additional context](#anchor))` header; descriptive sub-bullets first; `Files:` / `decision:` / `owner:` / `depends on` metadata last. Every task gets an `[S|M|L]` size label. Do not generate title-only or abbreviated tasks.
-- Phase rules — see [phase-rules.md](../devenv-create-implementation-plan/references/phase-rules.md): each phase must end committable (tests pass, coverage does not regress, single-PR sized); tests appear alongside code tasks in each phase (not deferred to the end); every phase header gets a `> blockquote` preamble plus `> **Orientation:**` sub-blockquote.
+- Phase rules — see [phase-rules.md](../devenv-create-implementation-plan/references/phase-rules.md): each phase must end committable (tests pass, coverage does not regress, single-PR sized); tests appear alongside code tasks in each phase (not deferred to the end); the human-facing guidance lives in `## Phases`, while `## Detailed Task List` uses short deliverable-summary blockquotes that point back to the richer phase summaries.
 
 ### 5. Write the file
 
@@ -116,9 +109,9 @@ Beyond those two sections, follow all rules from `/devenv-create-implementation-
   - Issue input → `Implementation_plan-issue-N-NNN.md` at the target repo root.
   - All other inputs → `Implementation_plan-NNN.md` at the target repo root (or workspace root if no clear target repo).
 - `NNN` is the next unused 3-digit suffix; never overwrite an existing file.
-- Include a `## Revision history` section directly under the plan title (above `## Task List`) with a single initial entry:
+- Include a `## Revision History` section near the bottom of the plan (after `## Additional Task Context`) with a single initial entry:
   ```markdown
-  ## Revision history
+   ## Revision History
 
   ### <today's date> — Initial plan created
   ```

@@ -153,9 +153,9 @@ A different issue number always produces a new file — never update a file from
 
 Two flows — do not mix them.
 
-**Flow A (audit driven by an existing issue):** After writing the audit file, draft a comment with the executive summary + relative path to the file. Show the draft and ask: *"Post this to issue #NNN? (y/n)"*. See [github-issue-creation.md](../devenv-pair-programming/references/github-issue-creation.md) for the post protocol.
+**Flow A (audit driven by an existing issue):** After writing the audit file, draft a comment with the executive summary + relative path to the file. Show the draft and ask: *"Post this to issue #NNN? (y/n)"*. See [github-issue-creation.md](../devenv-pair-programming/references/github-issue-creation.md) for the post protocol (artifact `doc_id` metadata, `issue-artifact-upsert`, and `doc_id` line within first 256 characters).
 
-**Flow B (create new issue after audit):** After writing the audit, offer to track it in a GitHub issue. Issue title: `Tech Debt Audit: <focus-area> — <repo-name> — <YYYY-MM-DD>` (without focus area: `Tech Debt Audit — <repo-name> — <YYYY-MM-DD>`). Ask which content to put in the comment (full audit / executive summary + Top 5 / executive summary only). See [github-issue-creation.md](../devenv-pair-programming/references/github-issue-creation.md) for the 5-step protocol.
+**Flow B (create new issue after audit):** After writing the audit, offer to track it in a GitHub issue. Issue title: `Tech Debt Audit: <focus-area> — <repo-name> — <YYYY-MM-DD>` (without focus area: `Tech Debt Audit — <repo-name> — <YYYY-MM-DD>`). Ask which content to put in the comment (full audit / executive summary + Top 5 / executive summary only). See [github-issue-creation.md](../devenv-pair-programming/references/github-issue-creation.md) for the 5-step protocol (artifact `doc_id` metadata, `issue-artifact-upsert`, and `doc_id` line within first 256 characters).
 
 Never create an issue or post a comment without explicit "yes" confirmation.
 

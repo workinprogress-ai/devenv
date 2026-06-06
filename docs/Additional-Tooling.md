@@ -1028,6 +1028,111 @@ for issue in $(issue-select --multi); do
 done
 ```
 
+### `issue-artifact-upsert`
+
+Deterministically creates or updates a GitHub issue comment by stable `doc_id` metadata.
+
+```bash
+issue-artifact-upsert --issue ISSUE_NUMBER --doc-id DOC_ID [--body TEXT | --body-file FILE] [OPTIONS]
+```
+
+**Required Arguments:**
+
+- `--issue ISSUE_NUMBER`: Target issue number
+- `--doc-id DOC_ID`: Stable artifact document ID (for example: `dv1:owner/repo:issue-123:spike:topic`)
+
+**Comment Source (exactly one required):**
+
+- `--body TEXT`: Inline comment body
+- `--body-file FILE`: Read comment body from file
+
+**Options:**
+
+- `--repo OWNER/REPO`: Override target repository (defaults to `GITHUB_REPO`)
+- `--dry-run`: Resolve intended action without writing
+- `--verbose`: Enable verbose logs
+
+**Matching Rules:**
+
+- Matches exact metadata line only: `doc_id: <doc_id>`
+- Match is evaluated only within the first 256 characters of each existing comment body
+- No heading/title matching and no fuzzy matching
+
+**Behavior:**
+
+- 0 matches: creates a new comment
+- 1 match: updates that comment
+- 2+ matches: returns conflict and exits non-zero
+
+**Output JSON:**
+
+- Success: `{"action":"created|updated","issue_number":N,"comment_id":ID,"comment_url":"..."}`
+- Conflict: `{"action":"conflict","issue_number":N,"matches":[ID,...]}`
+
+**Exit Codes:**
+
+- `0`: success (created or updated)
+- `2`: invalid arguments
+- `3`: duplicate `doc_id` conflict
+- `4`: API/tool failure
+
+**Examples:**
+
+```bash
+# Create or update spike findings comment by doc_id
+issue-artifact-upsert \
+  --issue 123 \
+  --doc-id "dv1:workinprogress-ai/devenv:issue-123:spike:retry-strategy" \
+  --body-file spike-001-retry-strategy.md
+
+# Preview action without writing
+issue-artifact-upsert \
+  --issue 123 \
+  --doc-id "dv1:workinprogress-ai/devenv:issue-123:spike:retry-strategy" \
+  --body-file spike-001-retry-strategy.md \
+  --dry-run
+```
+
+### `issue-artifact-doc-id`
+
+Generates a deterministic artifact `doc_id` string for issue comment metadata.
+
+```bash
+issue-artifact-doc-id --issue ISSUE_NUMBER --artifact-type TYPE [--slug TEXT | --source-file FILE] [--repo OWNER/REPO]
+```
+
+**Required Arguments:**
+
+- `--issue ISSUE_NUMBER`: Target issue number
+- `--artifact-type TYPE`: One of `spike`, `redesign`, `design`, `blueprint`, `requirements`, `roadmap`, `plan`
+
+**Slug Source (exactly one required):**
+
+- `--slug TEXT`: Source text normalized to kebab-case
+- `--source-file FILE`: Uses file basename (without extension), then normalizes
+
+**Output Format:**
+
+- `dv1:<owner-repo>:issue-<number>:<artifact_type>:<slug>`
+
+**Examples:**
+
+```bash
+# From a free-text slug
+issue-artifact-doc-id \
+  --issue 123 \
+  --artifact-type spike \
+  --slug "Retry Strategy" \
+  --repo workinprogress-ai/devenv
+
+# From a source file name
+issue-artifact-doc-id \
+  --issue 77 \
+  --artifact-type redesign \
+  --source-file Redesign--003-Auth-Flow.md \
+  --repo workinprogress-ai/devenv
+```
+
 ### `issue-groom`
 
 Interactive issue grooming wizard for backlog management.

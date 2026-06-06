@@ -63,6 +63,31 @@ issue-comment 123 --body-file notes.md  # From file
 issue-comment 123 --edit                # Open $EDITOR
 ```
 
+### Upsert Artifact Comment (Stable `doc_id`)
+
+```bash
+issue-artifact-upsert --issue 123 \
+    --doc-id "dv1:owner/repo:issue-123:spike:topic" \
+    --body-file spike-001-topic.md
+
+issue-artifact-upsert --issue 123 \
+    --doc-id "dv1:owner/repo:issue-123:spike:topic" \
+    --body-file spike-001-topic.md --dry-run
+```
+
+**Rules:**
+
+- Body must contain exact line: `doc_id: <doc_id>`
+- Matching is exact and limited to first 256 characters
+- Exit `3` means duplicate `doc_id` conflict on the issue
+
+### Generate Artifact `doc_id`
+
+```bash
+issue-artifact-doc-id --issue 123 --artifact-type spike --slug "Retry Strategy"
+issue-artifact-doc-id --issue 123 --artifact-type redesign --source-file Redesign--003-Auth-Flow.md
+```
+
 ### Close/Reopen Issue
 
 ```bash

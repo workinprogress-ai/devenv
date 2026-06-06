@@ -124,7 +124,7 @@ If yes:
 
 3. **Draft the issue body** (placeholder only — findings go in the comment):
    ```
-   Spike findings are in the first comment below.
+   Spike findings are in a comment identified by artifact doc_id.
 
    Next step depends on the scope of work the spike revealed:
    - System-level architectural work → `/devenv-create-blueprint`
@@ -143,18 +143,24 @@ If yes:
    **If creating a new issue:**
    - `issue-create --repo "$GITHUB_REPO" --title "<title>" --body "<body>"`
    - Note the new issue number.
+   - Generate doc_id for this findings artifact:
+     - `doc_id=$(issue-artifact-doc-id --issue <N> --artifact-type spike --slug <topic-slug>)`
+   - Apply the [Artifact Comment Identity Convention](../_conventions.md#artifact-comment-identity-convention).
    - Write the findings doc to a temp file.
-   - `issue-comment <N> --body-file <temp-file>`
+   - `issue-artifact-upsert --issue <N> --doc-id "$doc_id" --body-file <temp-file>`
    - Surface the issue URL.
 
    **If posting to an existing issue:**
+   - Generate doc_id for this findings artifact:
+     - `doc_id=$(issue-artifact-doc-id --issue <N> --artifact-type spike --slug <topic-slug>)`
+   - Apply the [Artifact Comment Identity Convention](../_conventions.md#artifact-comment-identity-convention).
+
    - Write the findings doc to a temp file.
-   - `issue-comment-list <N>` — scan for an existing findings comment (a comment whose body begins with the findings doc's heading line).
-   - If found: `issue-comment-update <COMMENT_ID> --body-file <temp-file>` (replaces the prior version).
-   - If not found: `issue-comment <N> --body-file <temp-file>` (adds a new comment).
+   - `issue-artifact-upsert --issue <N> --doc-id "$doc_id" --body-file <temp-file>`
+   - If upsert reports a duplicate `doc_id` conflict, stop and ask the user which comment ID to keep as canonical.
    - Surface the issue URL.
 
-   The GH issue comment is the canonical record. The local file is a working copy and may be deleted once posted.
+   The GH issue comment identified by `doc_id` is the canonical record. The local file is a working copy and may be deleted once posted.
 
 Never create an issue or post a comment without explicit "yes" confirmation.
 

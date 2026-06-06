@@ -34,7 +34,7 @@ The user provides exactly one of:
 
 - Read the source (file or `issue-get` output).
 - Identify: phase headings, all task lines (`- [ ]` / `- [x]`), `Files:` bullets, any mentions of specific class names / method names / file paths.
-- Extract: last revision date from `## Revision history` (if present), or creation date from file metadata.
+- Extract: last revision date from `## Revision History` (if present), or creation date from file metadata.
 - Note: ratio of `[x]` vs `[ ]` tasks — a mostly-completed plan that still has unchecked tasks needs careful handling.
 
 ---
@@ -123,6 +123,7 @@ Apply patches directly and inline. No interview needed — the signals from Step
 - Update symbol names that were renamed.
 - Mark phantom tasks `[x]` with an inline note: `*(confirmed done — present in codebase at refresh)*`.
 - Add a brief note to any task whose description is now misleading.
+- Repair section headings or section placement only when needed to preserve the current human-first structure: `## Goals and Acceptance Criteria`, `## Context and Orientation`, `## Phases`, `## Detailed Task List`, `## Reference Information`, `## Additional Task Context`, `## Revision History`.
 
 Do **not**:
 - Rewrite task descriptions wholesale.
@@ -159,7 +160,7 @@ The plan's tasks are too stale to patch. Extract the intent, then re-plan.
 
 **Process:**
 
-1. **Extract intent** — for each phase, write a one-paragraph summary of *what it was trying to achieve* (the goal, not the tasks). Show these to the user:
+1. **Extract intent** — for each phase, write a one-paragraph summary of *what it was trying to achieve* (the goal, not the tasks). Reconstruct or preserve the human-facing `## Phases` section if it is missing or clearly stale. Show these to the user:
    ```
    Phase 1 intent: Set up the project structure and install dependencies.
    Phase 2 intent: Refactor the orchestration layer to support pluggable sync steps.

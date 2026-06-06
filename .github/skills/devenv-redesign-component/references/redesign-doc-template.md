@@ -155,7 +155,7 @@ If yes:
 
 3. **Draft the issue body** (placeholder — redesign doc goes in the comment):
    ```
-   Redesign document is in the first comment below.
+   Redesign document is in a comment identified by artifact doc_id.
 
    Next step: run `/devenv-plan-from-spec <issue number>` to generate a concrete implementation plan from the redesign doc.
    ```
@@ -168,18 +168,24 @@ If yes:
    **If creating a new issue:**
    - `issue-create --repo "$GITHUB_REPO" --title "<title>" --body "<body>"`
    - Note the new issue number.
+   - Generate doc_id for this redesign artifact:
+     - `doc_id=$(issue-artifact-doc-id --issue <N> --artifact-type redesign --slug <component-slug>)`
+   - Apply the [Artifact Comment Identity Convention](../../_conventions.md#artifact-comment-identity-convention).
    - Write the redesign doc to a temp file.
-   - `issue-comment <N> --body-file <temp-file>`
+   - `issue-artifact-upsert --issue <N> --doc-id "$doc_id" --body-file <temp-file>`
    - Surface the issue URL.
 
    **If posting to an existing issue:**
+   - Generate doc_id for this redesign artifact:
+     - `doc_id=$(issue-artifact-doc-id --issue <N> --artifact-type redesign --slug <component-slug>)`
+   - Apply the [Artifact Comment Identity Convention](../../_conventions.md#artifact-comment-identity-convention).
+
    - Write the redesign doc to a temp file.
-   - `issue-comment-list <N>` — scan for an existing redesign comment (a comment whose body begins with `# Redesign:`).
-   - If found: `issue-comment-update <COMMENT_ID> --body-file <temp-file>` (replaces the prior version).
-   - If not found: `issue-comment <N> --body-file <temp-file>` (adds a new comment).
+   - `issue-artifact-upsert --issue <N> --doc-id "$doc_id" --body-file <temp-file>`
+   - If upsert reports a duplicate `doc_id` conflict, stop and ask the user which comment ID to keep as canonical.
    - Surface the issue URL.
 
-   The GH issue comment is the canonical record. The local `Redesign--NNN.md` is a working copy.
+   The GH issue comment identified by `doc_id` is the canonical record. The local `Redesign--NNN.md` is a working copy.
 
 Never create an issue or post a comment without explicit "yes" confirmation.
 
