@@ -24,6 +24,7 @@ Before declaring a phase complete, run the committability checklist from [phase-
 - [ ] Coverage has not regressed vs. the start of the phase
 - [ ] Tests added this phase assert observable behavior — not just execute code
 - [ ] No blocking TODOs
+- [ ] No unresolved `[QUESTION]` items remain for this phase unless explicitly deferred or spun out to a follow-up issue
 - [ ] No straggler forward DEVENV comments remain in files touched this phase for work already completed — run `grep -rn "DEVENV\[" <phase-files>` to check; remove any found
 
 If coverage has dropped, **it is a blocker** — the phase is not committable. Use this three-step protocol:
@@ -44,7 +45,12 @@ If coverage has dropped, **it is a blocker** — the phase is not committable. U
 
 The exception path (documented last resort) must be explicitly surfaced and agreed with the user before the phase is marked done.
 
+If a phase-level or task-level `[QUESTION]` is still open, surface it the same way you would a blocker:
+
+> *"🛑 This phase still has an open plan question: [QUESTION] Should retry policy honor `Retry-After`? We need to answer it, defer it explicitly, or spin it out before calling the phase complete."*
+
 The user can also override the rule for a phase by:
+
 - **Explicitly rejecting it** for this phase — their call, no further argument needed.
 - **Applying coverage exclusion** to the code in question using the appropriate language attribute.
 - **Adding verbiage to the plan** that modifies or waives the rule for specific phases — if that's present, honor it without re-raising the blocker.

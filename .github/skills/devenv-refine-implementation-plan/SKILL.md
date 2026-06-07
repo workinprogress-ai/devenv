@@ -37,6 +37,7 @@ The user provides exactly one of:
 - **Assess completion state**: for each phase, note whether it is fully complete (all tasks `[x]`), partially complete, or untouched. Note the highest existing phase number — this is used if new phases need to be created.
 - Extract any existing `## Revision History` section so new entries can be prepended to it.
 - Preserve the high-level section order introduced by the current template: goals/AC first, context/orientation second, phases third, detailed task tracking later.
+- If `## Pending Questions` exists, preserve it and keep it immediately above `## Reference Information`.
 
 ### 2. Interview the user about what changed
 
@@ -47,6 +48,7 @@ Use `vscode_askQuestions` to gather:
 - **What's done outside the plan** — work completed that should be marked `[x]` retroactively.
 - **What's no longer relevant** — tasks to remove; deletion will be logged in Revision History with the task number, a one-line summary, and the reason
 - **Acceptance criteria changes** — whether any ACs need to be added, revised, or deprecated as a result of the scope change. Infer candidate changes from the new requirements and present them for the user to confirm rather than asking the user to define them from scratch. See AC rules in Step 3.
+- **Pending questions** — whether any unresolved questions should be added, answered, moved inline under a task/phase, or spun out into a follow-up issue.
 - **Legacy code exposure** — if new tasks will introduce implementations that coexist with existing legacy code in the same files across multiple phases, flag the issue: the plan likely needs an early cleanup phase. See [phase-rules.md](../devenv-create-implementation-plan/references/phase-rules.md) for available patterns (demolition, hollow-out, rename suffix, branch by abstraction). Surface the viable options and a recommendation before writing new tasks; don't silently pick one.
 
 Do not assume. If the new requirements imply renumbering or reordering, flag it and ask before proceeding.
@@ -69,6 +71,7 @@ Do not assume. If the new requirements imply renumbering or reordering, flag it 
 - **Prefer rewrite/addition over removal.** If the work still matters but the original task is misleading, keep the number and reword it, or add a follow-on task. Only strike through a task when the obsolete record is materially useful to preserve.
 - **Cancelled tasks** that truly should remain visible are kept in place, wrapped in `~~strikethrough~~` on the task header line and annotated with the reason inline (e.g. `~~- [ ] **4.3 [S] Add foo**~~ — cancelled: superseded by 2.9`), and recorded in `## Revision History` with the task number, a one-line summary, and the reason.
 - **Reworded tasks** keep their number; the prior wording is recorded in the Revision History.
+- **Pending questions**: task- or phase-specific questions live inline under the relevant task/phase as `[QUESTION] ...`; general plan-level questions live in `## Pending Questions` immediately above `## Reference Information`. Resolved minor questions may be folded directly into the plan and removed. Significant question resolutions should be recorded in `## Revision History`.
 
 **Acceptance criteria changes:**
 

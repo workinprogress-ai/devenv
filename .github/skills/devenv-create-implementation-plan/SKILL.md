@@ -89,7 +89,7 @@ Use the [plan template](./references/plan-template.md). Follow:
 
 - [Task formatting rules](./references/task-format.md) — atomic `- [ ] **N.N [S|M|L] Title**` tasks with descriptive sub-bullets, then `Files:` / `decision:` / `depends on` metadata, and an inline `(additional context)` link when needed
 - [Phase rules](./references/phase-rules.md) — Phase 1 is **Discovery & test scaffolding**; the last phase is **Cleanup & docs**; every phase must end committable (tests pass, coverage doesn't regress, single-PR sized)
-- The plan must follow this section order: `## Goals and Acceptance Criteria`, `## Context and Orientation`, `## Phases`, `## Detailed Task List`, `## Appendix` *(optional)*, `## Reference Information`, `## Additional Task Context`, `## Revision History`
+- The plan must follow this section order: `## Goals and Acceptance Criteria`, `## Context and Orientation`, `## Phases`, `## Detailed Task List`, `## Appendix` *(optional)*, `## Pending Questions` *(optional)*, `## Reference Information`, `## Additional Task Context`, `## Revision History`
 - `## Goals and Acceptance Criteria` must include an end-state paragraph plus important scope boundaries before the AC checklist
 - `## Context and Orientation` must be useful on its own to a human who may never read the task list
 - `## Context and Orientation` should be concise but substantive: each subsection should usually be 2-4 sentences with concrete repo-specific details (affected components, current behaviour, target behaviour, and constraints), not placeholder-style one-liners
@@ -97,6 +97,7 @@ Use the [plan template](./references/plan-template.md). Follow:
 - `## Phases` should carry practical execution guidance, not just labels: include at least 2 suggested strategies and at least 2 concrete deliverables per phase whenever the scope permits
 - `## Detailed Task List` repeats the same phases with a short deliverable-summary blockquote and points back to the fuller phase context above
 - `## Appendix` is optional supplemental content. Use it for deep pairing context only when complexity/risk is medium-high. Keep it bounded (roughly 10-25 lines) so it stays low-noise.
+- `## Pending Questions` is optional and sits immediately above `## Reference Information`. Use it only for unresolved plan-level questions that matter to execution; task- or phase-specific questions should be placed inline below the relevant task/phase using `[QUESTION] ...`
 - Reference Information uses a **table** of key files with a relevance column, plus a separate links sub-list
 - Mark dependencies as `depends on N.N` inline; readers infer parallelism
 - Every task with non-obvious context **must** link to its entry under *Additional task context* using a descriptive anchor slug (`#task-NN--short-slug`)
@@ -224,6 +225,10 @@ Same structure.
 
 Supplemental deep context for complex/high-risk plans.
 
+## Pending Questions *(optional)*
+
+- [QUESTION] <General plan or approach question that is still unresolved>
+
 ## Reference Information
   - Key files table (with relevance column)
   - Related links
@@ -233,7 +238,7 @@ Supplemental deep context for complex/high-risk plans.
 ## Revision History
 ```
 
-Every phase header in `## Detailed Task List` is followed by a short `> blockquote` deliverable summary. The fuller human-facing guidance lives in `## Phases`. If `## Appendix` is present, treat it as supplemental context and keep it intentionally brief. Section headings use Title Case.
+Every phase header in `## Detailed Task List` is followed by a short `> blockquote` deliverable summary. The fuller human-facing guidance lives in `## Phases`. If `## Appendix` is present, treat it as supplemental context and keep it intentionally brief. If `## Pending Questions` is present, keep it to genuinely unresolved execution questions rather than dumping notes. Section headings use Title Case.
 
 ## Anti-patterns
 

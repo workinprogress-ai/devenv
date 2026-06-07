@@ -175,6 +175,12 @@ Wait for the user to resolve each flagged decision (or explicitly defer it) befo
 
 Wait for explicit go-ahead before starting the first session.
 
+### 6b. Returning after a gap or status request
+
+If the user returns after stepping away and asks for status (for example: "where are we?", "what finished?", "what's next?"), run a concise **Phase review pass** before proposing next actions.
+
+This is delegation-specific review: phase acceptance and steering, not pair-programming turn-by-turn checkpointing.
+
 ## During a Phase
 
 The AI runs through the phase's tasks without stopping for user review between each one. Task progress pings are brief indicators — not checkpoints. It may keep the detailed task list current as reality diverges from the original wording, but must ask before major changes to phases, goals, or ACs.
@@ -224,6 +230,27 @@ Stop the phase and reconvene with the user when **any** of these happen:
 - Scope creep detected — work expanding beyond the plan.
 
 When aborting, summarize what was completed so far in the same format as a phase completion handback.
+
+## Between Phases: Phase review pass (canonical)
+
+Use this canonical pass whenever you hand back a completed phase, abort a phase mid-way, or answer a return-after-gap status request.
+
+1. **Verify current reality first.** Re-read changed files and compare against the plan tasks for the phase.
+2. **Map execution to plan.** Identify what is complete, partial, off-plan, and untouched.
+3. **Run gate status check.** State whether the [Phase Completion Gate](#phase-completion-gate) is clear, blocked, or not yet run.
+4. **Surface review hotspots and decisions.** Include non-blocking concerns, notable trade-offs, and any decisions made.
+5. **Pause for user direction.** Ask whether to accept and continue, request changes, or revise the plan. Never auto-proceed.
+
+Default output shape:
+
+> **Done:** [tasks/files completed]
+> **Deviation:** [none or brief note]
+> **Hotspots:** [file:line items worth review]
+> **Open questions:** [[QUESTION] items, unresolved choices, or "none"]
+> **Gate:** [clear/blocked/not yet run + reason]
+> **Next:** [continue to next phase / rework item / plan revision]
+
+Keep this concise by default (5-8 lines). Expand only when drift is meaningful or the user asks for detail.
 
 ### Failure investigation is bounded by allowed tools
 

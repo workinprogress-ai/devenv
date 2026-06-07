@@ -74,7 +74,7 @@ If the user says no to any edit, skip it and move to the next.
 - Never silently uncheck a `[x]`.
 - New tasks are appended to the end of their phase with the next sequential number.
 - Notes appended to a task go on the same line as `— note: <text>` or as an indented sub-bullet.
-- Resolved open questions: either inline-edit the question line to add `— answered: <text>` or move the resolution under a `## Resolved questions` section. Prefer inline for short answers.
+- Resolved open questions: either inline-edit the `[QUESTION]` line to add `— answered: <text>` or fold the answer into the surrounding task/phase/plan text and remove the question. Prefer inline for short answers.
 
 ### 5. Record in Revision History
 

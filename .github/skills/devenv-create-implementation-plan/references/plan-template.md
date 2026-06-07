@@ -1,6 +1,6 @@
 # Implementation Plan Template
 
-Copy this skeleton verbatim and fill it in. All top-level headings are required, except `## Appendix`, which is optional.
+Copy this skeleton verbatim and fill it in. All top-level headings are required, except `## Appendix` and `## Pending Questions`, which are optional.
 
 ```markdown
 # <Plan Title — short and specific>
@@ -189,6 +189,16 @@ Recommended contents:
 
 ---
 
+## Pending Questions *(optional)*
+
+Use only for unresolved plan-level questions that materially affect execution.
+Task- or phase-specific questions should live inline under the relevant task or
+phase as `[QUESTION] ...` bullets.
+
+- [QUESTION] <General plan or approach question that is still unresolved>
+
+---
+
 ## Reference Information
 
 **Key files to understand before implementing:**
@@ -234,6 +244,7 @@ enough to execute the task.>
 - **Phases** — this is the human-oriented breakdown. Give enough goal, end-state, strategy, AC coverage, and watch-out information for someone to start a phase without living in the task list. Prefer at least two concrete strategy bullets and two concrete deliverables per phase when scope allows.
 - **Detailed Task List blockquotes** — keep these short. They are there to summarise deliverables and point back to the richer phase context, not to carry the full orientation burden.
 - **Appendix** — optional. Use `## Appendix` only when deeper pairing context is needed; keep it tightly scoped so it does not create noise in normal plan reads.
+- **Pending Questions** — optional. Place it immediately above `## Reference Information`. Use it only for unresolved plan-level questions; keep task- and phase-local questions inline as `[QUESTION]` bullets where they belong.
 - **Phase boundaries** — each phase must end committable. If a phase can't, split it.
 - **Task headers** — bold, with size label, optional inline `(additional context)` link.
 - **Sub-bullets first, metadata last** — descriptive sub-bullets describe the work; `Files:` / `decision:` / `depends on` come at the bottom of the bullet list.

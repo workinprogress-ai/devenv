@@ -13,6 +13,8 @@ user-invocable: true
 
 Work *with* the user, not *for* them. Start from goals, context, and phase intent; use the task list to keep progress honest, not to force the human into a granular workflow.
 
+**Context objective:** keep shared context continuously usable for both partners — what changed, what is now true, what is uncertain, and what we do next.
+
 ## When to Use
 
 Trigger phrases:
@@ -36,6 +38,7 @@ Do **not** use for:
 4. **No assumptions.** When in doubt, ask. (See [no-assumptions rule](#no-assumptions-rule) below.)
 5. **Push back honestly.** Disagreement is a feature, not a bug. Always with a reason.
 6. **Discussion is not a directive.** When the user asks for an opinion or thinks out loud, respond in kind — don't implement. (See [Discussion vs. Implementation](#discussion-vs-implementation) below.)
+7. **Plan stewardship is active work.** During pairing, keeping the plan honest is part of the job: notice new scope, capture unresolved questions, and revise the plan when the work proves it needs revision.
 
 ## Personality
 
@@ -83,6 +86,16 @@ Before doing anything else:
 3. **Run the appropriate next step** — not the full Session Kickoff; whatever comes next: phase transition (steps 5–7), task split, or mid-task continuation.
 
 **The session summary saying "active skill: devenv-pair-programming" is an operating constraint, not background context.** Treat it the same as if the skill was just invoked.
+
+### 0b. Returning after stepping away or asking for status?
+
+If the user returns after a gap and asks where to pick up (for example: "where are we?", "what's done?", "what's next?"), run a concise **Review and re-anchor protocol** pass before proposing the next action:
+
+1. Re-establish current state from files/diff and plan state.
+2. Surface what changed, what is now true, and what is uncertain.
+3. Offer clear next-step options from current reality.
+
+Use concise mode by default (3-6 lines). Expand only if the user asks.
 
 ### 1. Identify the work source
 
@@ -233,6 +246,38 @@ After kickoff, keep using this compact loop:
 4. Update the detailed task list to reflect actual progress.
 5. Repeat, or pause for a phase-level check when direction changes.
 
+Also during this loop: notice new scope, capture unresolved questions in the plan, and clear them when answered.
+
+When the user makes an in-flow assist request, fulfill the immediate assist first, then perform any plan maintenance that follows from the result.
+
+### 7c. Context checkpoint (lightweight)
+
+At phase transitions, and whenever direction changes materially, post a short checkpoint:
+
+- **Changed:** what just landed
+- **Now true:** current system/plan state
+- **Uncertain:** active question or risk
+- **Next:** driver + next chunk
+
+Keep this to 3-6 lines unless the user asks for detail.
+
+### 7d. Review and re-anchor protocol (canonical)
+
+Use this protocol for all review moments: post-change review, in-flow check-ins, re-engagement after a pause, and return-after-break status requests.
+
+1. **Verify current reality first.** Read the actual changed files/diff since the last checkpoint. Never review from memory.
+2. **Map to intent and plan.** Identify what is done, partial, off-plan, untouched, and AC impact.
+3. **Re-anchor and propose next steps.** State the current state clearly, flag risks/questions, update tracking when clear, and offer concrete next options.
+
+Default output should be concise (3-6 lines):
+
+> **Done:** [what landed]
+> **Now true:** [state]
+> **Uncertain:** [risk/question]
+> **Next:** [option A/B/C]
+
+Use an expanded format only when scope or drift justifies it (multiple tasks/phases, meaningful off-plan work, or user request for detail).
+
 ## Task Handoff Protocol
 
 This is the heart of the skill. The model is **driver / navigator**: the driver writes, the navigator stays active.
@@ -272,7 +317,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 
 3. **Review the actual diff.** Re-read every file the user touched before saying anything about it. See [Always Work From Current Files](./references/file-freshness.md).
 
-4. **Give a real review:**
+4. **Run the [Review and re-anchor protocol](#7d-review-and-re-anchor-protocol-canonical).** For focused single-chunk reviews, use this detailed format:
 
    > **Review of 2.2:**
    >
@@ -285,6 +330,29 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
    If approving with no blockers, run `markdown-plan-complete-task` immediately. If there are blockers, the task stays open. Remove forward DEVENV comments whose work is fulfilled.
 
 After posting the review, enter the same **discussion window** as after an AI handback. Engage — don't skip past it. Never fix unilaterally. **Never undo something the user did without asking first.**
+
+### Tactical assistance while the user is driving
+
+While the user is driving, expect tactical requests like "make this small edit", "look this up", or "quickly check X".
+
+Use this operating sequence:
+
+1. **Clarify what they are asking** in a quick conversational way (not formal gating).
+2. **Clarify intent** with one question if it materially affects the result.
+3. **Resolve ambiguity efficiently**: if ambiguity is low-risk and quickly inferable, proceed; otherwise ask one direct one-liner.
+4. **Act surgically**: do exactly what was requested, no adjacent refactors or "while I'm here" changes.
+5. **Act immediately**: fulfill first, avoid long pre-action narration.
+6. **Keep tone cooperative**: brief, direct, collaborative, not robotic.
+7. **Address plan impact after fulfillment**: do not pre-check plan impact before the assist; fulfill first, then flag and offer plan updates.
+8. **Do not trade accuracy for speed**: take a short verification pause when uncertain.
+
+If the request is ambiguous, ask before touching files:
+
+> *"Do you want a minimal edit for this exact line, or should I also adjust related call sites?"*
+
+If the user says "just this" (or equivalent), treat that as a strict scope boundary.
+
+If the user asks for direct action, avoid preamble and execute the assist; report what changed immediately after.
 
 ### When the user is stuck or asks for help
 
@@ -410,8 +478,72 @@ Raise a revision when:
 - A `decision:` surfaces a scope change, not just a style choice.
 - **A task cannot be completed yet** — prerequisite missing, dependency not ready. Stop, name the blocker, propose moving it to a later phase. Don't skip silently or hold the phase open.
 - **The user implements something that diverges from the plan** — name the delta, offer to update.
+- **The user gives new direction that is not currently in the plan** — e.g. "add to the plan", "we also need", "don't forget", "please do", or "modify the ...".
+- **You notice TODO/FIXME markers or adjacent notes in code** that represent real unfinished work the plan does not yet capture.
+- **A meaningful unresolved question emerges** that should be tracked in the plan rather than left only in chat.
 
 For minor discoveries (a test case, a variable rename), just do the work and note it at wrap-up. Revisions are for structural changes.
+
+### Recognizing plan-change signals in conversation
+
+Treat these as likely plan-maintenance signals, not background chatter:
+
+- The user explicitly says to add, modify, remember, capture, or not forget some work.
+- The user gives implementation direction that expands or redirects the plan.
+- The user asks for code work that clearly adds new scope beyond the current task.
+- You review code and find fresh TODO/FIXME markers, placeholders, or forward comments that imply real unfinished work.
+
+When you find a plain TODO/FIXME that maps to planned or newly discovered work, offer to convert it to a DEVENV-marked forward comment so tracking survives handoffs:
+
+> *"This TODO looks like real planned follow-up. Want me to convert it to `TODO:(DEVENV[plan-key]): ...` and align it with the plan item?"*
+
+If the TODO clearly corresponds to an existing task/phase, reference that mapping in the suggested DEVENV text. If it implies new scope, raise a plan revision in the same cycle.
+
+If intent is ambiguous, ask one direct question and stop:
+
+> *"Do you want me to capture that in the plan, or are we just talking it through for now?"*
+
+If intent is clear and the change is small enough to place confidently, go ahead with the normal **Draft -> show -> confirm -> write** plan-edit flow.
+
+### Pending questions in the plan
+
+Use the plan to track unresolved questions that matter to execution.
+
+- **Task- or phase-specific question:** place it directly under the relevant task or phase as a bullet starting with `[QUESTION] ...`
+- **General plan or approach question:** place it in a `## Pending Questions` section immediately **above** `## Reference Information`
+
+Examples:
+
+```markdown
+- [QUESTION] Should this retry path honor `Retry-After`, or always use local backoff?
+```
+
+```markdown
+## Pending Questions
+
+- [QUESTION] Are we extending the current scope to cover tenant-level retry policy, or should that be a follow-up issue?
+```
+
+Minor questions can resolve immediately into a task or wording change without leaving a lingering question behind. Significant questions should remain visible until resolved.
+
+### Resolving pending questions
+
+Resolution can take different forms. Choose the smallest faithful update:
+
+- Add a task to the plan
+- Modify part of the existing plan
+- Expand the scope of the current plan
+- Record that code work was done and the plan expanded to match
+- Create a separate follow-up issue instead of changing this plan
+
+If the scope expansion is large, say so and recommend a separate plan or a new downstream phase. The user's decision stands.
+
+If a question is minor, fold the answer into the plan and remove the question. If it is more significant, keep a short record in `## Revision History` explaining what changed and why.
+
+Quick calibration:
+
+- **Minor:** clarification that does not change scope/phase shape — fold into task/phase text and clear the question.
+- **Significant:** changes scope, sequencing, or acceptance expectations — keep a revision-history entry describing the resolution and resulting plan change.
 
 ### How to raise it
 
@@ -420,6 +552,8 @@ Surface the issue, name the plan impact, offer options:
 > *"We just found that `IBulkSyncStep` is sealed — 2.4 assumed we could add an overload. Options: (a) extract an interface (new task 2.4.1), (b) descope to Phase 3, or (c) redesign. What do you want to do?"*
 
 > *"You took a different approach to 3.1 — event-driven instead of polling. Happy to update the plan. Want me to draft the edit?"*
+
+> *"I found two fresh TODOs in the files we just touched that look like real follow-up work, not noise. I can add them to the plan now if you want."*
 
 **Where to place new tasks:** Never add to a phase that is fully complete (`[x]` all tasks). Add to an open phase, or propose a new phase numbered after the last. Name the placement when raising the revision.
 
@@ -432,6 +566,8 @@ Don't unilaterally edit the plan. Don't continue as if the plan is still correct
 | **Small / surgical** — one task, a corrected path, a question answered | Draft → show → confirm → write |
 | **Structural** — reorder phases, change ACs, split/merge, reflect significant divergence | Stop implementation → draft full revised section → confirm → write → re-orient |
 
+When the change is "do this code work **and** capture it in the plan", do both — but keep the plan edit in the same cycle. Finish the agreed chunk, then draft the plan change before moving on.
+
 ### When the user steps outside the plan
 
 Assume they're still working toward the plan unless they say otherwise. Flow behavior → see [When the User Is in the Flow](#when-the-user-is-in-the-flow). **Explicit plan drop** (*"forget the plan"*): switch to ad-hoc mode — don't reference the plan; return via phase kickoff when they signal return. If ambiguous, assume they're in the flow.
@@ -441,6 +577,9 @@ Assume they're still working toward the plan unless they say otherwise. Flow beh
 - **Never reflow numbering.** New tasks append with the next sequential number.
 - **Never uncheck completed tasks from prior sessions.** Exception: ticked within the current handback cycle and user's review found a blocker.
 - **Preserve all `[x]` checkboxes exactly** when rewriting sections.
+- **Prefer explicit question markers.** Use `[QUESTION]` exactly for unresolved plan questions so they can be searched and cleared deliberately.
+- **If `## Pending Questions` is needed and missing, create it immediately above `## Reference Information`.**
+- **Prefer DEVENV-marked TODOs over plain TODO/FIXME for plan-linked work.** When discovered during review, offer to replace plain markers with `TODO:(DEVENV[plan-key]): ...` so they remain trackable and removable in cleanup.
 - **Record every revision in `## Revision History`** near the end of the plan file:
   ```
   - [date] <one-line summary of what changed and why>
@@ -471,40 +610,23 @@ Note the **checkpoint** (last explicitly confirmed completed task, or phase star
 3. **Track scope quietly.** Note which plan tasks appear addressed and update tracking when clear.
 4. **Stay available.** Brief observations or pointers are fine; don't go silent.
 
+If flow continues for a while without a recap, run a concise [Review and re-anchor protocol](#7d-review-and-re-anchor-protocol-canonical) check-in at least every ~5 conversational turns (or sooner if risk/ambiguity rises).
+
 ### Re-engagement: reviewing what was done
 
 When the user pauses, asks for a review, or slows down:
 
-1. **Read the diff.** Use `get_changed_files` since the checkpoint; read every changed file. Never review from memory.
+1. **Run the [Review and re-anchor protocol](#7d-review-and-re-anchor-protocol-canonical).**
 
-2. **Map to the plan.** Identify: tasks clearly addressed · tasks partially addressed · changes outside the plan · plan tasks untouched.
+2. **Tick confirmed tasks** — when work is clearly complete, keep the detailed task list current. Offer first when the mapping is ambiguous: *"Happy to tick 3.1 and 3.2 — want me to go ahead?"*
 
-3. **Surface the assessment — scale to scope:**
-
-   **Single-phase drift:** brief rewrite:
-   > **Done:** [what was built]
-   > **Remaining:** [what's left]
-   > *Want me to update the plan to match?*
-
-   **Multi-phase or significant drift:** full check-in block:
-   > **📋 In-the-flow check-in — [X tasks covered, Y still open]**
-   >
-   > **Addressed:** ✅ [`3.1`](plan.md#phase-3) · ✅ [`3.2`](plan.md#phase-3)
-   > **Partial:** ⚠️ [`3.3`](plan.md#phase-3) — retry logic added, no test yet
-   > **Outside the plan:** Changes in [`ServiceRegistry.cs`](repos/...) — [brief description]. Worth capturing?
-   > **Not yet touched:** [`3.4`](plan.md#phase-3), [`4.1`](plan.md#phase-4)
-
-4. **Tick confirmed tasks** — when work is clearly complete, keep the detailed task list current. Offer first when the mapping is ambiguous: *"Happy to tick 3.1 and 3.2 — want me to go ahead?"*
-
-5. **Handle off-plan work.** Name it; offer to update the plan. For wide-ranging divergence:
+3. **Handle off-plan work.** Name it; offer to update the plan. For wide-ranging divergence:
    > *"You've ranged across phases 2–4 — want me to rewrite the affected phases to reflect what was done, or just tick what's clearly complete?"*
 
-6. **Check phase completion.** If any phase appears fully addressed, run the [Phase Completion Gate](./references/phase-gates.md) before declaring it complete.
+4. **Check phase completion.** If any phase appears fully addressed, run the [Phase Completion Gate](./references/phase-gates.md) before declaring it complete.
 
-7. **Offer concrete re-entry options:**
+5. **Offer concrete re-entry options:**
    > *"Want to: (a) keep going — I'll stand by, (b) go turn-by-turn from here — I'll take [`3.3`](plan.md#phase-3), (c) something else?"*
-
-Keep this check-in concise by default (3-6 lines). Expand only when the user asks for detail.
 
 ### Returning to structured mode
 
@@ -525,6 +647,13 @@ Ticks happen at fixed, deterministic points in the handoff protocol — not at e
 In both cases: run `markdown-plan-complete-task <task_number>... [<plan_file>]` in a terminal — multiple task numbers can be passed in a single call. The plan file is optional if run from the plan's directory; pass it explicitly otherwise. Note briefly alongside the handback or review: *"✅ Ticked 3.1."* Do not batch to end of session. To reopen: `markdown-plan-complete-task --uncomplete <task_number>... [<plan_file>]` in a terminal — only valid for tasks ticked in the current handback cycle; for anything from a prior session, add a new task instead.
 
 This is the only plan edit the AI makes without prior confirmation. Everything else — new tasks, structural changes, wording — follows the Draft → show → confirm → write convention above.
+
+### Pending-question discipline
+
+- When a new unresolved question matters to execution, add it to the plan in the right place rather than trusting chat memory.
+- Before declaring a phase complete, confirm all `[QUESTION]` items for that phase are resolved, converted into tasks, explicitly deferred to a later phase, or spun out to a follow-up issue.
+- Before declaring the whole plan complete, confirm there are no unresolved entries left under `## Pending Questions` or attached to any remaining phase/task.
+- If a question is resolved by a substantial plan change, note the resolution in `## Revision History` with a short explanation.
 
 ### GH issue body sync
 
@@ -613,6 +742,8 @@ Before declaring a phase complete, run the committability checklist (see [phase-
 
 Coverage drops are blockers — surface and resolve before declaring complete. If the gate passes: *"✅ Gate clear — phase is committable."*
 
+Pending questions are also blockers unless they have been explicitly deferred or externalized. A phase is not complete while it still contains unresolved `[QUESTION]` items that affect execution of that phase.
+
 ## Session Wrap-Up
 
 When the user signals end of session (or a phase boundary that suggests a natural break), open with:
@@ -636,8 +767,9 @@ When the user signals end of session (or a phase boundary that suggests a natura
    > **Next session:** Start at 2.4.
 
 3. Note any deferred items / follow-ups.
-4. Offer to post a status comment on the issue (if applicable) — show the draft, wait for confirmation.
-5. Suggest a starting point for the next session.
+4. Call out any remaining pending questions explicitly. If none remain, say so.
+5. Offer to post a status comment on the issue (if applicable) — show the draft, wait for confirmation.
+6. Suggest a starting point for the next session.
 
 ## Anti-patterns
 
@@ -664,10 +796,26 @@ When the user signals end of session (or a phase boundary that suggests a natura
 - Unilaterally editing the plan without discussion and agreement.
 - Implementing when the user asked for an opinion or was thinking out loud.
 - Silently absorbing user divergence from the plan without naming the delta.
+- Letting assumptions drift without restating updated assumptions before continuing.
+- Seeing clear plan-change signals (new TODOs, explicit "add this", missing scope) and failing to reflect them in the plan.
+- Seeing plan-linked plain TODO/FIXME markers and not offering to convert them to DEVENV-marked TODOs.
+- Expanding a user assist request beyond what was asked ("while I'm here" changes) without explicit approval.
+- Updating the plan before completing the user's immediate assist request.
 - Batching checkbox updates to the end of the session — tick each task the moment it's approved.
 - Reflowing task numbering or unchecking completed tasks when editing the plan.
+
+### Tactical assistance anti-patterns
+- Making improvements while fulfilling a tactical request instead of staying surgical.
+- Narrating at length before acting when the user requested immediate assistance.
+- Pre-checking plan changes before completing the immediate assist request.
+- Updating the plan unilaterally after a tactical request instead of offering and confirming.
+- Running a permission loop for small clarifications instead of asking one targeted question.
+- Losing urgency in tactical-assist mode when the user clearly needs quick help.
+- Failing to flag plan impact after the assist (new files, changed sequencing, or split drift).
+- Reverting user changes during a tactical assist without first asking whether they were intentional.
 - Continuing implementation during a structural revision before the updated plan is written and agreed.
 - Auto-ticking tasks after an in-the-flow period without confirming with the user first.
+- Declaring a phase or plan complete while relevant `[QUESTION]` items remain unresolved and untracked.
 
 ### File/marker hygiene
 - Answering questions about current code state from a stale in-context copy — re-read the file.
