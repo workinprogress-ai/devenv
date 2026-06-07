@@ -31,7 +31,7 @@ Do **not** use for:
 ## Inputs the Skill Collects
 
 1. **Source material** (one or more of):
-   - GitHub issue (number or URL) — fetch with `issue-get N --pretty`
+  - GitHub issue (number or URL) — fetch with `issue-get N --pretty` and `issue-comment-list N --full`; use both the issue body and comments as source material
    - Pasted user story / requirements text
    - Linked design docs or files in `planning.*` repos
 2. **Related code** — read-only exploration via the `Explore` subagent
@@ -44,6 +44,7 @@ Do **not** use for:
 
 - Determine which repo the plan applies to (the plan file is written to **that** repo's root, not necessarily the current workspace root).
 - If a GH issue number/URL is provided, fetch it. Capture the issue number for later.
+- If a GH issue number/URL is provided, fetch the issue body and all comments. Treat comments as first-class source material; design docs often live there.
 - Capture any pasted story / linked docs.
 
 ### 2. Scan repo conventions (always)
@@ -72,11 +73,13 @@ Use `vscode_askQuestions` to confirm/fill gaps. Always cover:
 Once the above is gathered, **draft the phase structure — names and one-line deliverable descriptions only — and discuss it before writing any task details.** Phase objectives should be agreed before the task list is written; tasks do not need to be discussed in detail. Present the phase outline like:
 
 > *"Here's how I'd divide this work:*
-> - *Phase 1 — Discovery & test scaffolding: read existing code, confirm assumptions, add tests for current behaviour*
+> - *Phase 1 — Discovery & test scaffolding: read existing code, confirm assumptions, add/adjust tests that assert current observable behaviour (including stub/default behaviour where applicable), and end fully green*
 > - *Phase 2 — [Name]: [deliverable]*
 > - *Phase N — Cleanup & docs: remove scaffolding, update docs, verify coverage*
 >
 > *Does this structure make sense for what you're building? Any phases to merge, split, or reorder before I fill in the tasks?"*
+
+Do **not** propose Phase 1 as "add failing tests for new behaviour" or any equivalent wording. A phase proposal is invalid unless each phase is independently committable (tests pass, coverage does not regress, and the phase has a clear standalone deliverable).
 
 Wait for explicit approval of the phase structure before proceeding to draft tasks.
 
@@ -86,15 +89,20 @@ Use the [plan template](./references/plan-template.md). Follow:
 
 - [Task formatting rules](./references/task-format.md) — atomic `- [ ] **N.N [S|M|L] Title**` tasks with descriptive sub-bullets, then `Files:` / `decision:` / `depends on` metadata, and an inline `(additional context)` link when needed
 - [Phase rules](./references/phase-rules.md) — Phase 1 is **Discovery & test scaffolding**; the last phase is **Cleanup & docs**; every phase must end committable (tests pass, coverage doesn't regress, single-PR sized)
-- The plan must follow this section order: `## Goals and Acceptance Criteria`, `## Context and Orientation`, `## Phases`, `## Detailed Task List`, `## Reference Information`, `## Additional Task Context`, `## Revision History`
+- The plan must follow this section order: `## Goals and Acceptance Criteria`, `## Context and Orientation`, `## Phases`, `## Detailed Task List`, `## Appendix` *(optional)*, `## Reference Information`, `## Additional Task Context`, `## Revision History`
 - `## Goals and Acceptance Criteria` must include an end-state paragraph plus important scope boundaries before the AC checklist
 - `## Context and Orientation` must be useful on its own to a human who may never read the task list
+- `## Context and Orientation` should be concise but substantive: each subsection should usually be 2-4 sentences with concrete repo-specific details (affected components, current behaviour, target behaviour, and constraints), not placeholder-style one-liners
 - `## Phases` is the human-facing phase summary section: each phase gets goal, end-state vision, suggested strategies, AC links, watch-outs / decisions, and deliverables
+- `## Phases` should carry practical execution guidance, not just labels: include at least 2 suggested strategies and at least 2 concrete deliverables per phase whenever the scope permits
 - `## Detailed Task List` repeats the same phases with a short deliverable-summary blockquote and points back to the fuller phase context above
+- `## Appendix` is optional supplemental content. Use it for deep pairing context only when complexity/risk is medium-high. Keep it bounded (roughly 10-25 lines) so it stays low-noise.
 - Reference Information uses a **table** of key files with a relevance column, plus a separate links sub-list
 - Mark dependencies as `depends on N.N` inline; readers infer parallelism
 - Every task with non-obvious context **must** link to its entry under *Additional task context* using a descriptive anchor slug (`#task-NN--short-slug`)
-- Include the AC checklist in `## Goals and Acceptance Criteria` using the agreed format: `- [ ] **AC-N** criterion text *(explicit|inferred)*`. These are the criteria that will be formally reviewed and checked off in the Cleanup phase.
+- Include the AC checklist in `## Goals and Acceptance Criteria` using the agreed format: `- [ ] <a id="ac-N"></a>**AC-N** criterion text *(explicit|inferred)*`.
+- Every AC mention outside the checklist must be a link to the specific AC anchor (`[AC-N](#ac-N)`), not plain text.
+- These criteria are formally reviewed and checked off in the Cleanup phase.
 
 ### 6. Iterate until approved
 
@@ -210,6 +218,12 @@ Same structure.
 ### Phase 2 — ...
 > Deliverable summary blockquote.
 
+## Appendix *(optional)*
+
+### Deep Context for Pairing *(optional)*
+
+Supplemental deep context for complex/high-risk plans.
+
 ## Reference Information
   - Key files table (with relevance column)
   - Related links
@@ -219,7 +233,7 @@ Same structure.
 ## Revision History
 ```
 
-Every phase header in `## Detailed Task List` is followed by a short `> blockquote` deliverable summary. The fuller human-facing guidance lives in `## Phases`. Section headings use Title Case.
+Every phase header in `## Detailed Task List` is followed by a short `> blockquote` deliverable summary. The fuller human-facing guidance lives in `## Phases`. If `## Appendix` is present, treat it as supplemental context and keep it intentionally brief. Section headings use Title Case.
 
 ## Anti-patterns
 

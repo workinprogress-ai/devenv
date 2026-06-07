@@ -117,7 +117,7 @@ Any command that mutates external state — `issue-comment`, `issue-update`, `is
 1. **Draft** the payload (comment text, body, etc.).
 2. **Show** it in chat.
 3. **Ask** for explicit "yes" (one specific question, not "any objections?").
-4. **Run** the wrapper (never `gh` directly — see "Tooling discipline" below).
+4. **Run** the wrapper first. If wrappers are insufficient for the needed operation, use `gh` as a fallback and note why.
 5. **Surface** the result (issue/PR number, URL).
 
 If unsure, prefer `--dry-run` first.
@@ -152,15 +152,26 @@ Skills should keep only artifact-specific mapping details locally (artifact type
 
 ## Tooling discipline
 
-- **Never call `gh` directly from a skill body or its references.** Always go through the repo's `issue-*` / `pr-*` / `project-*` wrappers in `tools/`.
-- If a skill needs a capability the wrappers don't provide, add or extend the wrapper first; don't shortcut to `gh`.
+- **Prefer repo wrappers first.** Use the repo's `issue-*` / `pr-*` / `project-*` wrappers in `tools/` by default.
+- If a required operation is not supported by available wrappers, `gh` is allowed as a fallback. Say explicitly why fallback is needed.
 - `--help` is consistent across the wrappers — when in doubt, instruct the AI to read `--help` for the exact flag set.
 
 Wrapper inventory (as of authoring):
 
-- Issues: `issue-create`, `issue-list`, `issue-update` (incl. `--add-label`/`--remove-label`), `issue-close`, `issue-comment`, `issue-get`, `issue-groom`, `issue-select`
-- PRs: `pr-create-for-review`, `pr-create-for-merge`, `pr-complete-merge`, `pr-merge-pull-request`, `pr-cleanup-review-branches`, `pr-get-review-link`, `pr-get-merge-link` — plus added: `pr-get`, `pr-comment`, `pr-diff`, `pr-list`
+- Issues: `issue-create`, `issue-list`, `issue-update` (incl. `--add-label`/`--remove-label`), `issue-close`, `issue-comment`, `issue-comment-list`, `issue-comment-update`, `issue-get`, `issue-groom`, `issue-select`, `issue-artifact-doc-id`, `issue-artifact-upsert`
+- PRs: `pr-create-for-review`, `pr-create-for-merge`, `pr-complete-merge`, `pr-merge-pull-request`, `pr-cleanup-review-branches`, `pr-get-review-link`, `pr-get-merge-link` — plus added: `pr-get`, `pr-comment`, `pr-diff`, `pr-list`, `pr-threads-get`, `pr-thread-reply`, `pr-thread-resolve`
 - Projects: `project-add-issue`, `project-update-issue`
+
+## Shared boilerplate snippets
+
+For recurring policy text, use short references to shared snippets rather than repeating full prose in each skill.
+
+Recommended snippet references:
+
+- **Tool help policy**: "Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`_tools-reference.md`](../_tools-reference.md) instead of running ad-hoc `--help` during execution."
+- **Catalog pointer**: "See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree."
+
+When updating existing skills, prefer replacing duplicated boilerplate blocks with a brief reference line to keep token usage tight.
 
 ## Hotspot bullet format (shared)
 
@@ -287,7 +298,7 @@ Required behavior:
 - **Vague description** that doesn't name trigger phrases — agent won't auto-load it.
 - **Folder/name mismatch** — skill won't load.
 - **Monolithic `SKILL.md`** — push templates and cheatsheets into `references/`.
-- **Calling `gh` directly** instead of using the wrappers.
+- **Using `gh` when wrappers already support the operation** — wrappers are the default path.
 - **Auto-running write commands** without the confirmation flow.
 - **Cross-linking by absolute paths** or by skill *title* instead of `name`.
 - **Overlapping descriptions** between skills — the model picks one, and you don't get to choose which.

@@ -8,7 +8,7 @@ argument-hint: An issue number, list of issue numbers, or pasted issue text to t
 
 Take a fresh / untriaged GitHub issue and produce a structured triage recommendation: type, labels, priority, size, duplicate check, and (if needed) a drafted clarifying comment. Bundle all proposed writes into one confirmation before applying.
 
-> **Do NOT run `--help` on any tool.** All CLI signatures are pre-documented in [`../_tools-reference.md`](../_tools-reference.md) — read that file instead.
+> Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
 
 ## When to use this skill
 

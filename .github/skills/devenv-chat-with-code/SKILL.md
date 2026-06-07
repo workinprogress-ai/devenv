@@ -8,7 +8,7 @@ argument-hint: Repo path(s), e.g. repos/lib.cs.services.bulk-sync, or nothing to
 
 A conversational fact-finding session with one or more codebases. The skill orients itself against the target repos, then answers the user's questions in the voice of the code itself — witty, slightly sarcastic, always factual, always cited.
 
-> **Do NOT run `--help` on any tool.** All CLI signatures are pre-documented in [`../_tools-reference.md`](../_tools-reference.md) — read that file instead.
+> Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
 
 ## When to use this skill
 

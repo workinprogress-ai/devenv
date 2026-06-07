@@ -25,7 +25,7 @@ If the spec is a `Blueprint-*.md`, prefer [`/devenv-create-roadmap`](../devenv-c
 The user provides exactly one of:
 
 - **A file path** — e.g. `docs/design/feature-x.md`. Read directly.
-- **A GitHub issue number** — e.g. `42`. Fetch the body via `issue-get N --pretty`, then fetch all comments via `gh issue view N --comments --repo "$GITHUB_REPO"`. Use both as the spec: issue body first, then each comment in chronological order, separated by a `--- Comment by @login ---` marker. Later comments may refine or contradict earlier content — give them more weight.
+- **A GitHub issue number** — e.g. `42`. Fetch the body via `issue-get N`, then fetch all comments via `issue-comment-list N --full`. Use both as the spec: issue body first, then each comment in chronological order, separated by a `--- Comment by @login ---` marker. Later comments may refine or contradict earlier content — give them more weight.
 - **A URL** — e.g. `https://example.com/rfc.html`. Fetch via `fetch_webpage`.
 - **Inline text** — pasted directly in the conversation.
 
@@ -42,7 +42,7 @@ The user provides exactly one of:
 ### 1. Load the spec
 
 - Resolve the input per the rules above.
-- For **GitHub issue input**: fetch the body (`issue-get N --pretty`) **and** all comments (`gh issue view N --comments --repo "$GITHUB_REPO"`). Combine them as one spec — body first, each comment appended with a `--- Comment by @login ---` separator. Later comments often refine or supersede earlier content; weight accordingly.
+- For **GitHub issue input**: fetch the body (`issue-get N`) **and** all comments (`issue-comment-list N --full`). Combine them as one spec — body first, each comment appended with a `--- Comment by @login ---` separator. Later comments often refine or supersede earlier content; weight accordingly.
 - For URL input, prefer `fetch_webpage` with a query that pulls structure-relevant content (goals, requirements, acceptance criteria).
 - Strip obvious non-spec content (navigation, footers).
 

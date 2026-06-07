@@ -70,7 +70,7 @@ Ask if not provided: GH issue # or path to a plan markdown.
 
 - **GH issue**:
   1. First, check whether a local `Implementation_plan-issue-<N>-*.md` already exists in the target repo root. If it does, **use it** — it carries checkbox progress from prior sessions and is the source of truth. Skip to the drift check.
-  2. If no local file exists, fetch the plan body via `gh issue view <N> --json body --jq .body`. Confirm the body contains a usable plan (goals/ACs, human-facing phase structure, and a detailed task list).
+  2. If no local file exists, fetch the plan body via `issue-get <N> | jq -r '.body'`. Confirm the body contains a usable plan (goals/ACs, human-facing phase structure, and a detailed task list).
   3. Write the fetched body to the target repo root as `Implementation_plan-issue-<N>-001.md` (or the next available suffix — never overwrite an existing file).
   4. **Work exclusively from the local file from this point on.** Record its workspace-relative path (e.g. `repos/lib.cs.services.bulk-sync/Implementation_plan-issue-42-001.md`) — this is the `<plan_file>` for `markdown-plan-complete-task` calls throughout the session. Pass it explicitly when running from a directory other than the plan's own — the tool auto-detects `Implementation_plan-*.md` only in the current directory. Checkbox updates go to the file; issue body syncs at phase boundaries push the file back to the issue.
 - **Plan file**: read it.

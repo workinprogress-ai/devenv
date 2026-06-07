@@ -1,6 +1,6 @@
 ---
 name: devenv-tech-debt-audit
-description: Thorough, opinionated tech debt and architecture audit of one or more repos, with optional focus on a specific functional area. Produces TECH_DEBT_AUDIT.md with file-cited findings, severity, effort estimates, and a required "looks bad but is actually fine" section. After writing the audit, offers to create a GitHub issue (findings in a comment; description is a placeholder for an implementation plan). USE WHEN the user says "audit this repo", "tech debt audit", "codebase health check", "architecture review", "code quality assessment", "run a debt audit on", or hands off a repo path or GitHub issue number for audit. Reads the GitHub issue body for guiding instructions when an issue number is given, then posts the executive summary as a comment. Equally tuned for C#/.NET and TypeScript stacks. DO NOT USE FOR reviewing a single PR (use `/devenv-code-review`), general pair programming (use `/devenv-pair-programming`), or producing an implementation plan from findings (use `/devenv-create-implementation-plan` after the audit is complete).
+description: Thorough, opinionated tech debt, architecture, and correctness-risk audit of one or more repos, with optional focus on a specific functional area. Produces TECH_DEBT_AUDIT.md with file-cited findings, severity, effort estimates, a required "Top bug risks" section, and a required "looks bad but is actually fine" section. After writing the audit, offers to create a GitHub issue (findings in a comment; description is a placeholder for an implementation plan). USE WHEN the user says "audit this repo", "tech debt audit", "codebase health check", "architecture review", "code quality assessment", "run a debt audit on", or hands off a repo path or GitHub issue number for audit. Reads the GitHub issue body for guiding instructions when an issue number is given, then posts the executive summary as a comment. Equally tuned for C#/.NET and TypeScript stacks. DO NOT USE FOR reviewing a single PR (use `/devenv-code-review`), general pair programming (use `/devenv-pair-programming`), or producing an implementation plan from findings (use `/devenv-create-implementation-plan` after the audit is complete).
 argument-hint: Repo path(s) (e.g. repos/lib.cs.services.bulk-sync), a GitHub issue number, or repo path(s) followed by a quoted focus area description (e.g. repos/lib.cs.services.chassis "plugin pipeline and built-in plugins")
 ---
 
@@ -8,11 +8,11 @@ argument-hint: Repo path(s) (e.g. repos/lib.cs.services.bulk-sync), a GitHub iss
 
 > **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
 
-A deliberate, opinionated audit of one or more repos that produces `TECH_DEBT_AUDIT.md` with file-cited findings, severity, effort estimates, and a required "looks bad but is actually fine" section.
+A deliberate, opinionated audit of one or more repos that produces `TECH_DEBT_AUDIT.md` with file-cited findings, severity, effort estimates, and required sections for both top correctness/bug risks and "looks bad but is actually fine".
 
 When invoked via `/devenv-tech-debt-audit`, follow the protocol below exactly.
 
-> **Do NOT run `--help` on any tool.** All CLI signatures are pre-documented in [`../_tools-reference.md`](../_tools-reference.md) — read that file instead.
+> Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
 
 ## When to use this skill
 
@@ -73,7 +73,8 @@ Use `rg`, language-native tooling, and IDE-equivalent analysis to find concrete 
 6. **Performance & resource hygiene** — N+1 queries, sync work in async paths (C#: `.Result` / `.GetAwaiter().GetResult()` on hot paths; TypeScript: blocking I/O in async functions), uncleaned listeners or handles, unnecessary serialization.
 7. **Error handling & observability** — swallowed exceptions, blanket catches (C#: `catch (Exception)` with no logging; TypeScript: `catch (e) {}`), errors logged but not handled, inconsistent error shapes across modules, missing structured logs on critical paths.
 8. **Security hygiene** — hardcoded secrets, string-concat SQL, missing input validation at trust boundaries, permissive auth or CORS, weak crypto. Reference the OWASP Top 10.
-9. **Documentation drift** — README claims that don't match reality, comments that contradict adjacent code, public APIs without XML doc comments (C#) or JSDoc (TypeScript).
+9. **Correctness and runtime bug risks** — code paths likely to produce wrong behavior at runtime (off-by-one and boundary mistakes, null/undefined paths, stale cache/state transitions, timezone/date math mistakes, retry/idempotency bugs, race conditions, ordering assumptions, partial-failure handling gaps). Prioritize user-visible impact and blast radius.
+10. **Documentation drift** — README claims that don't match reality, comments that contradict adjacent code, public APIs without XML doc comments (C#) or JSDoc (TypeScript).
 
 ## Phase 3: Deliverable
 
@@ -104,6 +105,12 @@ Aim for 30–80 findings. Padding past that is noise.
 ## Top 5 — if you fix nothing else, fix these
 1. **F001 — <title>**: <concrete diff sketch or refactor outline, not vague advice>
 
+## Top bug risks
+- [ ] **F0XX** — <correctness/runtime bug risk and why it can fail in production>
+- [ ] **F0YY** — <risk>
+
+Pick 3-7 items from Findings that are primarily correctness/runtime bug risks. At least one must be Severity Critical or High if such findings exist.
+
 ## Quick wins
 - [ ] F042: <Low effort × Medium+ severity item>
 
@@ -113,6 +120,8 @@ Aim for 30–80 findings. Padding past that is noise.
 ## Open questions for the maintainer
 - <Things you couldn't tell were debt vs. intentional.>
 ```
+
+For each Critical/High item in **Top bug risks**, explicitly recommend follow-up via `/devenv-bug-fix` (or equivalent root-cause workflow) and include the finding ID in that recommendation.
 
 ## Stack-specific tooling
 
@@ -166,7 +175,7 @@ Never create an issue or post a comment without explicit "yes" confirmation.
 - **Do not leave the "looks bad but actually fine" section empty.** If empty, re-examine Phase 2.
 - **Do not stop on first tool failure.** If `dotnet test` fails to build, note it and continue with the remaining dimensions.
 - **Do not install tools globally.** Note missing tools and proceed.
-- **Do not call `gh` directly.** Use `issue-comment`, `issue-get`, `issue-create`, etc.
+- **Do not bypass wrappers when wrappers support the operation.** Use `issue-comment`, `issue-get`, `issue-create`, etc. Use `gh` only when wrappers are insufficient.
 - **Do not post to GitHub or create issues without explicit "yes" confirmation.**
 - **Do not mix Flow A and Flow B.** If the argument was an issue number, use Flow A (post to existing issue). If it was a repo path, use Flow B (offer to create a new issue). Never create a new issue when the user provided an issue number.
 - **Do not audit the entire repo when a focus area was given and skip the focus entirely.** A focus area narrows depth, not breadth — still read the full architecture, but concentrate Phase 2 findings on the named area.

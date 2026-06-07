@@ -1,6 +1,6 @@
 ---
 name: devenv-design-discussion
-description: 'Opinionated thinking-partner for working through design and architectural approaches at any zoom level — from systemic decomposition down to a single component''s internal shape. USE WHEN the user says "discuss the design", "talk through the approach", "weigh the options", "what''s the right way to structure this", "discuss an architectural change", or hands off a design question needing forces, options, and a recommendation before any blueprint or plan exists. Surfaces forces and trade-offs, narrows to 3–4 viable options, pushes back on weak reasoning, arrives at an explicit recommendation. Optionally produces a Design-<topic>-NNN.md. DO NOT USE FOR fuzzy articulation with no opinions (use /devenv-rubber-duck), feasibility prototyping (use /devenv-spike), formal architectural decomposition (use /devenv-create-blueprint), or task breakdown (use /devenv-create-implementation-plan).'
+description: 'Opinionated thinking-partner for working through design and architectural approaches at any zoom level — from systemic decomposition down to a single component''s internal shape. USE WHEN the user says "discuss the design", "talk through the approach", "weigh the options", "what''s the right way to structure this", "discuss an architectural change", or needs to decide the best approach for a new feature in an existing component before implementation planning. Surfaces forces and trade-offs, narrows to 3–4 viable options, pushes back on weak reasoning, arrives at an explicit recommendation. Optionally produces a Design-<topic>-NNN.md that can be posted to a GH issue and used as upstream input to implementation planning. DO NOT USE FOR fuzzy articulation with no opinions (use /devenv-rubber-duck), feasibility prototyping (use /devenv-spike), formal architectural decomposition (use /devenv-create-blueprint), or task breakdown when the approach is already chosen (use /devenv-create-implementation-plan).'
 argument-hint: A design question, architectural choice, or approach to weigh
 user-invocable: true
 ---
@@ -15,6 +15,7 @@ An interactive thinking partner with strong opinions about good design. The user
 - A blueprint already exists but a specific design or coding-approach question came up during implementation discovery.
 - The user is choosing between 2–4 ways to structure something and wants opinionated guidance.
 - An architectural change is being considered and the user wants to think through approaches and implications before committing to one.
+- A feature is being added to an existing component and the best approach is still unclear.
 
 If the user wants to articulate a fuzzy thought without opinions or pressure, use [`/devenv-rubber-duck`](../devenv-rubber-duck/SKILL.md). If the question is "is this feasible?" and needs throwaway code to answer, use [`/devenv-spike`](../devenv-spike/SKILL.md). If the design is already settled and you want to formalise it, use [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) (systemic) or [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) (component-level).
 
@@ -50,6 +51,8 @@ Senior staff engineer with strong opinions. Pushes back when warranted; defers w
 4. **Think long-term.** Decisions that work today may create problems tomorrow. Surface the 2-year view.
 5. **Think operationally.** Who runs this in production? What does the rollback look like? What does the alert page on at 3 a.m.?
 6. **Bring the human factor.** A technically perfect solution the team can't maintain is not a good solution.
+7. **Run turn-by-turn after context load.** Once initial context is established, drive the session as a discussion: short exchanges, one focused question or comparison at a time, then wait for the user's response before moving on.
+8. **Tend toward resolution.** Keep a running list of open questions, and as the discussion progresses, work toward resolving them instead of merely collecting them. Only leave a question open if the user explicitly wants it kept open.
 
 ## Session continuity
 
@@ -86,9 +89,21 @@ See [design-doc-template.md](./references/design-doc-template.md) for structure.
 
 After writing the doc, offer to track it in a GitHub issue. See [github-issue-creation.md](../devenv-pair-programming/references/github-issue-creation.md) for the 5-step protocol. Issue title format: `Design: <topic> — <YYYY-MM-DD>`.
 
+If posted to a GitHub issue, treat that issue comment as the canonical artifact. It can be the upstream input for [`/devenv-plan-from-spec`](../devenv-plan-from-spec/SKILL.md), or contextual input for [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md).
+
 ## Process
 
 This is conversational, not a strict pipeline — but there are checkpoints. **Don't skip ahead to options before the problem is concrete.** "We're talking about X" is not a problem statement; "X is breaking because Y and we're losing Z" is.
+
+### Conversation cadence (required)
+
+After initial context is loaded (problem, constraints, repo context), switch to a discussion rhythm:
+
+- Keep each turn short and focused (one key question, one comparison, or one recommendation slice).
+- Avoid long, multi-section dumps unless the user explicitly asks for a full summary.
+- Ask, then wait; incorporate the user's answer before advancing to the next decision.
+- Use mini-recaps between phases (1-3 bullets), not full rewrites of the whole conversation.
+- If the user wants freeform brainstorming, stay interactive and defer structured write-up until asked.
 
 ### Phase 1: Understand the problem
 
@@ -100,8 +115,11 @@ Ask in this order; skip what the user has already answered:
 4. **Constraints.** Timeline, team skills, infrastructure, backward compatibility, serialised formats (DB/messages), compliance.
 5. **Already-rejected options.** "What's off the table and why?" — this surfaces hidden constraints.
 6. **Existing context.** Does a blueprint or requirements doc exist? If so, read it before going further.
+7. **Repo context.** Is this scoped to one repo or multiple repos? Confirm where relevant context and constraints live.
 
 If anything is vague, **say so**. "That's not concrete enough — give me a scenario where this breaks today."
+
+Maintain a running list of open questions as they arise. Use the discussion to resolve them where possible instead of deferring them by default.
 
 ### Phase 2: Surface forces
 
@@ -161,6 +179,8 @@ Before writing anything down (or wrapping up conversation-only), check:
 - [ ] Assumptions that could invalidate the recommendation are named, with a sketch of how to check them
 - [ ] Follow-up work is identified — does this need a spike? a blueprint? a plan?
 
+Any open question not explicitly kept open by the user should be converted into a decision, recommendation, or concrete follow-up before wrap-up.
+
 ### Phase 6: Wrap up
 
 **Always** offer a closing summary back to the user as bullets — even if no doc is written:
@@ -171,9 +191,12 @@ Before writing anything down (or wrapping up conversation-only), check:
 - Approach needs a feasibility check first → [`/devenv-spike`](../devenv-spike/SKILL.md)
 - Discussion settled at the system level → [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
 - Discussion settled at the component level (design needs to be specified) → [`/devenv-create-technical-design`](../devenv-create-technical-design/SKILL.md)
+- Discussion settled at the component level and should become a reusable issue artifact for planning → [`/devenv-plan-from-spec`](../devenv-plan-from-spec/SKILL.md)
 - Discussion settled at the component level (design is already clear, just need tasks) → [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md)
 - Discussion exposed that the user is actually just venting/articulating → [`/devenv-rubber-duck`](../devenv-rubber-duck/SKILL.md)
 - This is an in-flight refactor needing migration discipline → share [references/architectural-change-guide.md](./references/architectural-change-guide.md) and suggest [`/devenv-delegation`](../devenv-delegation/SKILL.md) or [`/devenv-pair-programming`](../devenv-pair-programming/SKILL.md) for execution
+
+If the user explicitly wants an open question preserved, capture it under a `## Pending / Unresolved / Open` section in the write-up (or leave it in the conversation notes if no doc is written). Otherwise, do not retain a separate open-question list at wrap-up; resolve or narrow it during the discussion.
 
 **Then** ask whether to write the design doc (see Output document above).
 
@@ -188,6 +211,7 @@ Before writing anything down (or wrapping up conversation-only), check:
 - **Forgetting the team.** A technically perfect solution the team can't maintain isn't a good solution.
 - **Writing code.** This is a discussion skill — not an implementation skill. If it's time to build, use [`/devenv-pair-programming`](../devenv-pair-programming/SKILL.md) or [`/devenv-delegation`](../devenv-delegation/SKILL.md).
 - **Producing a doc the user didn't ask for.** Conversation-only is the default.
+- **Monologuing after context load.** Do not switch into long lecture mode; keep the exchange turn-by-turn.
 - **Confusing this skill with a blueprint.** Design discussion is focused and narrow. If it sprawled into domains/services/events/components, escalate to `/devenv-create-blueprint`.
 
 ## Sibling skills

@@ -108,6 +108,42 @@ load ../test_helper
   [ "$status" -ne 0 ]
 }
 
+@test "pr-threads-get.sh does not send string null cursor on first page" {
+  mkdir -p "$TEST_TEMP_DIR/bin"
+  export PATH="$TEST_TEMP_DIR/bin:$PATH"
+  export GITHUB_REPO="workinprogress-ai/example-repo"
+
+  cat > "$TEST_TEMP_DIR/bin/gh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "$1" = "auth" ] && [ "$2" = "status" ]; then
+  exit 0
+fi
+
+if [ "$1" = "api" ] && [ "$2" = "graphql" ]; then
+  # Regression guard: passing cursor="null" or cursor=null as a String
+  # causes empty thread results on some PRs.
+  if [[ "$*" == *"cursor=null"* ]] || [[ "$*" == *"cursor=\"null\""* ]]; then
+    echo '{"data":{"repository":{"pullRequest":{"reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]}}}}}'
+    exit 0
+  fi
+
+  echo '{"data":{"repository":{"pullRequest":{"reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"id":"thread-1","isResolved":false,"path":"src/a.cs","line":10,"startLine":10,"diffSide":"RIGHT","comments":{"nodes":[{"id":"node-1","databaseId":111,"author":{"login":"dev"},"body":"open thread","createdAt":"2026-06-06T00:00:00Z","url":"https://example.test/comment/111"}]}}]}}}}}'
+    exit 0
+fi
+
+echo "unexpected gh call: $*" >&2
+exit 1
+EOF
+  chmod +x "$TEST_TEMP_DIR/bin/gh"
+
+  run bash "$PROJECT_ROOT/tools/scripts/pr-threads-get.sh" 29 --devenv
+  [ "$status" -eq 0 ]
+  json_output=$(echo "$output" | tail -n 1)
+  [ "$(echo "$json_output" | jq 'length')" -eq 1 ]
+}
+
 # ============================================================================
 # pr-thread-reply tests (task 2.9)
 # ============================================================================

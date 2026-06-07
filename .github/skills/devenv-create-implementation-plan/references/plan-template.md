@@ -1,6 +1,6 @@
 # Implementation Plan Template
 
-Copy this skeleton verbatim and fill it in. All top-level headings are required, even if a section is intentionally short ("None" / "N/A" is acceptable).
+Copy this skeleton verbatim and fill it in. All top-level headings are required, except `## Appendix`, which is optional.
 
 ```markdown
 # <Plan Title — short and specific>
@@ -15,8 +15,8 @@ like, why it matters, and the boundaries of the work. Include explicit scope
 boundaries or non-goals when they matter to understanding the shape of the
 solution.>
 
-- [ ] **AC-1** <criterion text — observable behaviour the system must exhibit when the work is done> *(explicit)*
-- [ ] **AC-2** <criterion text> *(inferred)*
+- [ ] <a id="ac-1"></a>**AC-1** <criterion text — observable behaviour the system must exhibit when the work is done> *(explicit)*
+- [ ] <a id="ac-2"></a>**AC-2** <criterion text> *(inferred)*
 
 ## Context and Orientation
 
@@ -25,10 +25,16 @@ solution.>
 <What problem are we solving? Who is affected? What does success look like in
 business / user terms?>
 
+<Target depth: usually 2-4 sentences grounded in this repo's actual current
+behaviour and pain point. Avoid generic one-liners.>
+
 ### Solution Context
 
 <Chosen approach at a high level. Key design decisions and the reasoning. Any
 explicitly rejected alternatives and why.>
+
+<Target depth: usually 2-4 sentences naming concrete components, seams, or
+integration points to change.>
 
 ### Forces
 
@@ -45,6 +51,9 @@ capacity, etc.>
 scope, related issues, risks and mitigations. This section should be useful even
 if the reader never looks at the task list.>
 
+<Target depth: enough detail that a new contributor can start discovery from
+this section alone.>
+
 ## Phases
 
 ### Phase 1 — Discovery & test scaffolding
@@ -58,9 +67,11 @@ if the reader never looks at the task list.>
 - <How to approach the work without over-constraining the implementation order>
 - <Existing pattern to follow or first area to inspect>
 
+<Prefer at least two concrete strategy bullets per phase.>
+
 **Acceptance Criteria In Scope:**
 
-- [AC-1](#goals-and-acceptance-criteria)
+- [AC-1](#ac-1)
 
 **Watch Outs / Decisions:**
 
@@ -70,6 +81,8 @@ if the reader never looks at the task list.>
 
 - <Concrete thing that exists by the end of the phase>
 - <Another deliverable>
+
+<Prefer at least two concrete deliverables per phase when scope allows.>
 
 ---
 
@@ -86,7 +99,7 @@ if the reader never looks at the task list.>
 
 **Acceptance Criteria In Scope:**
 
-- [AC-2](#goals-and-acceptance-criteria)
+- [AC-2](#ac-2)
 
 **Watch Outs / Decisions:**
 
@@ -158,6 +171,24 @@ if the reader never looks at the task list.>
 
 ---
 
+## Appendix *(optional)*
+
+### Deep Context for Pairing *(optional)*
+
+Optional supplemental context for complex or high-risk plans. Keep this
+section concise (roughly 10-25 lines) so it remains an appendix, not a second
+plan.
+
+Recommended contents:
+
+- **System mental model:** 3-6 bullets describing key moving parts and control/data flow.
+- **Invariants and contracts:** non-negotiable behaviour boundaries.
+- **Decision log (short):** key choices and rejected alternatives with one-line reasons.
+- **Known unknowns:** assumptions to validate during implementation.
+- **Canonical references:** links to source files/issues/docs that answer likely pairing questions.
+
+---
+
 ## Reference Information
 
 **Key files to understand before implementing:**
@@ -197,9 +228,12 @@ enough to execute the task.>
 - **Title** — name the outcome, not the activity. "Add bulk-sync retry policy" beats "Work on bulk-sync".
 - **Opening paragraph** — assume the reader has zero prior context.
 - **Goals and Acceptance Criteria** — this is the first section a human should be able to use to understand the intended end state and scope boundaries.
+- **Acceptance criteria anchors** — define each AC with an explicit anchor (`<a id="ac-N"></a>`) and link to those anchors everywhere else (`[AC-N](#ac-N)`). Avoid plain-text references like "AC-2" without a link.
 - **Context and Orientation** — write this so it still helps a human who never reads past it.
-- **Phases** — this is the human-oriented breakdown. Give enough goal, end-state, strategy, AC coverage, and watch-out information for someone to start a phase without living in the task list.
+- **Context and Orientation** — write this so it still helps a human who never reads past it. Aim for concise depth (usually 2-4 sentences per subsection) and repo-specific details over generic phrasing.
+- **Phases** — this is the human-oriented breakdown. Give enough goal, end-state, strategy, AC coverage, and watch-out information for someone to start a phase without living in the task list. Prefer at least two concrete strategy bullets and two concrete deliverables per phase when scope allows.
 - **Detailed Task List blockquotes** — keep these short. They are there to summarise deliverables and point back to the richer phase context, not to carry the full orientation burden.
+- **Appendix** — optional. Use `## Appendix` only when deeper pairing context is needed; keep it tightly scoped so it does not create noise in normal plan reads.
 - **Phase boundaries** — each phase must end committable. If a phase can't, split it.
 - **Task headers** — bold, with size label, optional inline `(additional context)` link.
 - **Sub-bullets first, metadata last** — descriptive sub-bullets describe the work; `Files:` / `decision:` / `depends on` come at the bottom of the bullet list.

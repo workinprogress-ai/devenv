@@ -8,7 +8,7 @@ argument-hint: PR number, two refs (--base BASE --head HEAD), or nothing (defaul
 
 Review code changes and produce structured, actionable feedback. Inverse of `/devenv-delegation`: the human or another agent wrote the code; the AI reviews it.
 
-> **Do NOT run `--help` on any tool.** All CLI signatures are pre-documented in [`../_tools-reference.md`](../_tools-reference.md) — read that file instead.
+> Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
 
 ## When to use this skill
 

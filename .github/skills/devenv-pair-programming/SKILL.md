@@ -90,7 +90,7 @@ Ask, if not provided: GH issue number? Path to a plan file? Ad-hoc (no plan)?
 
 ### 2. Load the plan
 
-**If GH issue:** Check for a local `Implementation_plan-issue-<N>-*.md` in the target repo root first — if it exists, use it (carries checkbox progress). If not, fetch via `gh issue view <N> --json body --jq .body`; confirm it contains a plan; write to `Implementation_plan-issue-<N>-001.md` (next available suffix, never overwrite). **Work exclusively from the local file** — record its workspace-relative path as `<plan_file>` for `markdown-plan-complete-task` calls.
+**If GH issue:** Check for a local `Implementation_plan-issue-<N>-*.md` in the target repo root first — if it exists, use it (carries checkbox progress). If not, fetch via `issue-get <N> | jq -r '.body'`; confirm it contains a plan; write to `Implementation_plan-issue-<N>-001.md` (next available suffix, never overwrite). **Work exclusively from the local file** — record its workspace-relative path as `<plan_file>` for `markdown-plan-complete-task` calls.
 
 **If plan file:** read it.
 
@@ -677,7 +677,7 @@ When the user signals end of session (or a phase boundary that suggests a natura
 
 ### Command/confirmation
 - Auto-running `issue-comment` / `issue-update` / `issue-create` without explicit confirmation.
-- Invoking `gh` CLI directly for GitHub operations instead of the `issue-*` wrappers.
+- Using `gh` for operations already supported by `issue-*`/`pr-*` wrappers; use wrappers first and only fall back to `gh` when wrappers are insufficient.
 - Suggesting delegation at session start before any collaboration patterns are visible.
 - Missing the re-engagement window — if the user pauses or signals they are done, surface the assessment; don't wait to be explicitly asked.
 

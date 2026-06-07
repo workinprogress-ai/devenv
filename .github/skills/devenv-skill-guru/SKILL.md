@@ -19,13 +19,13 @@ Before asking anything, check whether the user's message unambiguously maps to e
 - "I want to open a PR" → `/devenv-open-pr`
 - "Run pre-commit checks" → `/devenv-pre-commit`
 - "Triage issue #42" → `/devenv-triage-issue`
-- "Add a feature to an existing component" → build/plan path, not architecture by default:
-   - no plan yet → `/devenv-create-implementation-plan`
-   - plan exists + high-impact → `/devenv-pair-programming`
-   - plan exists + mechanical → `/devenv-delegation`
 - "I want to go from raw idea to merged PR" → Chain A from the registry
 
 If unambiguous: give the recommendation directly with a one-line rationale. Skip Q1–Q3.
+
+Bug-routing shortcut:
+- If the user asks to hunt for bugs broadly, by class, or in a focus area/module (without a single known concrete bug to root-cause), route to `/devenv-tech-debt-audit`.
+- If the user has a specific known bug to diagnose/root-cause/fix, route to `/devenv-bug-fix`.
 
 ## Question protocol
 
@@ -79,17 +79,20 @@ Use the registry to match the user's answers to a skill:
 1. **Match Q1 (work stage) to a registry category** — Explore, Requirements, Architecture, Plan, Build, Review, or Wrap-up.
 2. **Within that category, match the sub-goal to a skill's trigger phrases.**
 3. **Apply stage-specific guardrails before finalizing:**
-   - Feature-delivery guardrail: when the ask is to add/implement a feature in an existing component, default to Plan/Build routing unless the user explicitly asks to weigh architecture options or produce/update a design artifact.
+   - Feature-discovery guardrail: when the ask is to add a feature in an existing component and the user is still deciding the best approach, route to `/devenv-design-discussion` first.
+   - Feature-delivery guardrail: when the ask is to add/implement a feature in an existing component and the approach is already chosen, route to Plan/Build.
    - Architecture guardrail: never route existing-component feature work to `/devenv-create-technical-design` unless the user explicitly wants a new from-scratch component design artifact.
    - Architecture guardrail: if the user primarily wants alternatives/trade-offs/recommendation, route to `/devenv-design-discussion` first.
    - Architecture guardrail: if the user says the current approach is wrong, route to `/devenv-redesign-component`, not refine.
    - Build guardrail: do not route high-impact build phases to `/devenv-delegation`.
+   - Bug-hunt guardrail: for broad/focused bug hunting (including "find race conditions", "hunt null bugs", "audit auth module for bugs"), route to `/devenv-tech-debt-audit`.
+   - Bug-investigation guardrail: for one known failing behavior/issue/incident, route to `/devenv-bug-fix`.
 4. **Check for a chain** — if the user's goal implies a multi-step workflow (e.g. "I want to implement this whole story", "from idea to PR"), look up the matching chain in the registry and recommend the full sequence.
 5. **Check for fork-added skills** — after the primary recommendation, scan the registry for any skills not present in the five standard categories. If any exist, surface them: "This workspace also has: `/custom-skill` — [one-line purpose]."
 
 ## Ambiguity breaker for existing-component feature asks
 
-If the user's wording contains both "existing component" and "new feature", do not assume this is an architecture request.
+If the user's wording contains both "existing component" and "new feature", do not assume this is purely build/delivery.
 
 Ask one direct question:
 
@@ -105,6 +108,8 @@ Route as follows:
    - Update existing design doc to match chosen direction → `/devenv-refine-technical-design`
    - Replace current approach because it is wrong → `/devenv-redesign-component`
    - New component from scratch → `/devenv-create-technical-design`
+
+If the user answers "not sure yet", treat it as "decide architecture/design direction first" and route to `/devenv-design-discussion`.
 
 ## Output format
 
@@ -155,6 +160,7 @@ These five are the core of the catalog. If the user is unsure where to start wit
 - **Asking more than 3 questions** — if you still can't decide after 3, give your best recommendation with a caveat.
 - **Recommending `/devenv-delegation` for high-impact work** — escalate to `/devenv-pair-programming`.
 - **Recommending `/devenv-pair-programming` for pure exploration** — start with `/devenv-rubber-duck` or `/devenv-spike`.
+- **Routing broad bug hunting to `/devenv-bug-fix`** — use `/devenv-tech-debt-audit`; reserve `/devenv-bug-fix` for a specific known bug.
 - **Recommending `/devenv-create-implementation-plan` when a plan already exists** — that's `/devenv-refine-implementation-plan` or `/devenv-plan-update`.
 - **Routing existing-component feature delivery to architecture by default** — default to Plan/Build (`/devenv-create-implementation-plan`, `/devenv-pair-programming`, `/devenv-delegation`) unless the user explicitly asks for architecture option-weighing or design-artifact work.
 - **Skipping the architecture disambiguation question** when stage is Architect and intent is not explicit.

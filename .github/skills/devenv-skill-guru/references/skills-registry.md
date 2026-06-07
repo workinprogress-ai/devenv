@@ -24,8 +24,9 @@ Skills for thinking, investigating, and triaging — before any plan or code exi
 |---|---|---|---|
 | `/devenv-rubber-duck` | Think out loud — no artifact produced | "think out loud", "rubber duck", "I'm stuck and need to talk it through", "help me think through X" | when opinions and a recommendation are wanted → `/devenv-design-discussion`; when an artifact (findings doc, plan) is needed → `/devenv-spike` |
 | `/devenv-chat-with-code` | Conversational fact-finding session with one or more codebases — the code talks back | "chat with this code", "explain this repo", "how does X work", "walk me through the architecture", "what does this codebase do", "explain this service", "I want to understand this code" | writing or changing code → `/devenv-pair-programming` or `/devenv-delegation`; formal debt assessment → `/devenv-tech-debt-audit`; architecture design → `/devenv-create-blueprint` or `/devenv-design-discussion` |
-| `/devenv-design-discussion` | Opinionated thinking partner for design / architectural choices at any zoom level; optional `Design-<topic>-NNN.md` | "discuss the design", "weigh the options", "talk through the approach", "what's the right way to structure this", "discuss an architectural change" | fuzzy articulation with no opinions → `/devenv-rubber-duck`; feasibility prototyping → `/devenv-spike`; formal architectural decomposition → `/devenv-create-blueprint`; task breakdown → `/devenv-create-implementation-plan` |
+| `/devenv-design-discussion` | Opinionated thinking partner for design / architectural choices at any zoom level; optional `Design-<topic>-NNN.md` | "discuss the design", "weigh the options", "talk through the approach", "what's the right way to structure this", "discuss an architectural change", "not sure the best approach for this new feature" | fuzzy articulation with no opinions → `/devenv-rubber-duck`; feasibility prototyping → `/devenv-spike`; formal architectural decomposition → `/devenv-create-blueprint`; task breakdown when approach is already chosen → `/devenv-create-implementation-plan` |
 | `/devenv-spike` | Investigate a question and produce a structured findings doc | "spike on X", "investigate whether we can Y", "feasibility of Z", "throwaway prototype", "proof-of-concept" | writing production code → `/devenv-pair-programming`, lightweight thinking → `/devenv-rubber-duck`, opinionated approach comparison → `/devenv-design-discussion` |
+| `/devenv-tech-debt-audit` | Opinionated codebase audit that surfaces tech debt and correctness/bug risks, optionally focused by module or bug class | "hunt for bugs", "find bug risks", "look for race conditions", "audit this area for bugs", "bug hunt in <module>", "scan for null/date/idempotency bugs" | single known bug root-cause/fix → `/devenv-bug-fix`; single PR review → `/devenv-code-review`; collaborative implementation → `/devenv-pair-programming` |
 | `/devenv-bug-fix` | Investigate a bug from a GH issue or description, trace root cause through the codebase, produce findings report with proposed fix — user then chooses: create a plan, fix now, or fix themselves | "fix this bug", "investigate this issue", "find the root cause", "why is X broken", "diagnose this", GH issue # with a bug report | feature work → `/devenv-create-implementation-plan`; general codebase Q&A → `/devenv-chat-with-code`; feasibility research → `/devenv-spike` |
 | `/devenv-triage-issue` | Classify an issue, suggest labels, check for duplicates | "triage this issue", "triage #123", "label and size this", "is this a duplicate" | implementing the issue → `/devenv-pair-programming`, turning it into a plan → `/devenv-create-implementation-plan` |
 
@@ -51,6 +52,7 @@ Skills for architectural design at all zoom levels — system (blueprint), compo
 | `/devenv-create-blueprint` | Architectural decomposition into domains, services, events, and per-component deltas | "create a blueprint", "design this system", "architect this epic", "produce an architectural design", "blueprint this" | low-level task breakdown → `/devenv-create-implementation-plan`; sequencing into milestones → `/devenv-create-roadmap`; user-level requirements → `/devenv-gather-requirements` |
 | `/devenv-create-technical-design` | Design a component's internals through structured brainstorming and decision-making, producing a living `docs/Architecture_and_implementation.md` | "design this component", "create a technical design for", "design this service", "we need an Architecture.md for", "design the internals of" | system-level architecture → `/devenv-create-blueprint`; documenting an already-built system without design decisions → `/devenv-document`; task-level planning → `/devenv-create-implementation-plan` |
 | `/devenv-refine-technical-design` | Update an existing `docs/Architecture_and_implementation.md` when the component evolves | "update the architecture doc", "refine the technical design", "the Architecture.md is out of date", "the design changed" | creating a technical design from scratch → `/devenv-create-technical-design`; system-level architectural changes → `/devenv-refine-blueprint` |
+| `/devenv-redesign-component` | Fundamentally rethink an existing component's approach; produce temporary `Redesign--NNN.md` target-architecture spec, then update `Architecture_and_implementation.md` in implementation cleanup | "redesign this component", "the current approach isn't working", "we need to rethink X", "the original design is no longer right" | small drift/gap updates → `/devenv-refine-technical-design`; no existing design doc → `/devenv-create-technical-design`; option-weighing before commitment → `/devenv-design-discussion` |
 | `/devenv-refine-blueprint` | Revise an existing blueprint, preserving every prior decision | "refine the blueprint", "update the blueprint", "revise the architecture", "the blueprint needs updating" | creating a new blueprint → `/devenv-create-blueprint`; ad-hoc one-line edits (just edit the file); structural roadmap changes → `/devenv-refine-roadmap`; status-only roadmap sync → `/devenv-update-roadmap` |
 | `/devenv-create-roadmap` | Phased delivery sequencing from a blueprint and/or requirements doc, with optional GH issue creation. Canonical entry point for bulk issue creation from a planning doc. | "create a roadmap", "plan delivery order", "build a roadmap from this blueprint", "build a roadmap from these requirements", "lay out the delivery phases" | low-level task breakdown → `/devenv-create-implementation-plan`; syncing roadmap state from issues → `/devenv-update-roadmap`; structural revisions → `/devenv-refine-roadmap`; nothing to plan from yet → `/devenv-gather-requirements` or `/devenv-create-blueprint` |
 | `/devenv-refine-roadmap` | Structurally revise an existing roadmap — split steps, re-sequence, add components | "refine the roadmap", "revise the roadmap", "split this step", "re-sequence the phases", "the roadmap structure needs updating" | status-only sync from issues/PRs → `/devenv-update-roadmap`; creating a new roadmap → `/devenv-create-roadmap`; revising the underlying blueprint → `/devenv-refine-blueprint` |
@@ -64,7 +66,7 @@ Skills for creating, updating, and inspecting implementation plans.
 
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 |---|---|---|---|
-| `/devenv-create-implementation-plan` | Interview the user and write a phased `Implementation_plan-*.md` | "create an implementation plan", "plan this story", "break this task into phases", "write up a plan for this" | when a spec already exists with ACs → `/devenv-plan-from-spec`; editing existing plan → `/devenv-refine-implementation-plan` |
+| `/devenv-create-implementation-plan` | Interview the user and write a phased `Implementation_plan-*.md`; loads issue body + comments when a GitHub issue is the source | "create an implementation plan", "plan this story", "break this task into phases", "write up a plan for this" | when a spec already exists with ACs → `/devenv-plan-from-spec`; editing existing plan → `/devenv-refine-implementation-plan` |
 | `/devenv-plan-from-spec` | Generate a plan from an existing spec, RFC, design doc, or issue body | "turn this spec into a plan", "make a plan from this RFC", "plan from this design doc", "convert this issue into a plan" | vague/incomplete ideas (use `/devenv-create-implementation-plan` for the interview); revising existing plan → `/devenv-refine-implementation-plan` |
 | `/devenv-refine-implementation-plan` | Revise a plan after scope changes, new requirements, or discoveries | "refine the plan", "update the plan", "the plan needs updating", "rework the plan based on what we learned" | small surgical edits (tick a box, add a note) → `/devenv-plan-update`; creating a new plan → `/devenv-create-implementation-plan` |
 | `/devenv-refresh-implementation-plan` | Assess how stale an existing plan is, then route to the right remediation — light patch, structured revision, or guided rewrite | "refresh the plan", "is this plan still valid?", "how stale is this plan?", "bring this plan up to date", "freshen the plan", "the plan might be out of date" | when you already know exactly what needs updating → `/devenv-refine-implementation-plan`; read-only progress reporting → `/devenv-plan-status` |
@@ -246,6 +248,22 @@ For legacy or underdocumented systems that need to be understood before any new 
 ```
 
 **Start here:** `/devenv-document`
+
+---
+
+### Chain H — Existing-component feature discovery to delivery
+
+For adding a feature to an existing component when the implementation approach is not yet clear. Start with design option-weighing, optionally capture the design as an issue artifact, then plan/implement only if needed.
+
+```
+/devenv-design-discussion
+  → /devenv-refine-technical-design      (optional: if the component design doc must be updated)
+  → /devenv-plan-from-spec               (optional: if the design doc/issue comment should drive plan generation)
+  → /devenv-create-implementation-plan   (optional: interview-driven planning instead of spec-driven)
+    → /devenv-pair-programming / /devenv-delegation
+```
+
+**Start here:** `/devenv-design-discussion`
 
 ---
 

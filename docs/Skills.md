@@ -28,9 +28,11 @@ What are you trying to do?
 │
 ├─ 🏛️  Architect a system
 │   ├─ Create architectural blueprint            →  /devenv-create-blueprint
-│   ├─ Revise existing blueprint                 →  /devenv-refine-blueprint│   ├─ Design a single component's internals     →  /devenv-create-technical-design
+│   ├─ Revise existing blueprint                 →  /devenv-refine-blueprint
+│   ├─ Design a single component's internals    →  /devenv-create-technical-design
 │   ├─ Redesign an existing component            →  /devenv-redesign-component
-│   ├─ Update a component's technical design     →  /devenv-refine-technical-design│   ├─ Build delivery roadmap from blueprint and/or requirements   →  /devenv-create-roadmap
+│   ├─ Update a component's technical design     →  /devenv-refine-technical-design
+│   ├─ Build delivery roadmap from blueprint and/or requirements  →  /devenv-create-roadmap
 │   ├─ Structurally revise roadmap (split, re-sequence) → /devenv-refine-roadmap
 │   └─ Sync roadmap state from issues / PRs      →  /devenv-update-roadmap
 │
@@ -182,7 +184,7 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 | `/devenv-create-blueprint` | Architectural decomposition → blueprint doc | System name or path to requirements |
 | `/devenv-refine-blueprint` | Revise an existing blueprint, preserve decisions | Blueprint file path |
 | `/devenv-create-technical-design` | Design a component's internals → `docs/Architecture_and_implementation.md` | Component repo path or blueprint section |
-| `/devenv-redesign-component` | Fundamental redesign of an existing component → updated `Architecture_and_implementation.md` + temporary `Redesign--NNN.md` for `devenv-plan-from-spec` | Component repo path or `Architecture_and_implementation.md` path |
+| `/devenv-redesign-component` | Fundamental redesign of an existing component → temporary `Redesign--NNN.md` (target architecture spec) used by `devenv-plan-from-spec`; `Architecture_and_implementation.md` is updated later in implementation cleanup | Component repo path or `Architecture_and_implementation.md` path |
 | `/devenv-refine-technical-design` | Update a component's technical design as it evolves | Component repo path or `Architecture_and_implementation.md` path |
 | `/devenv-create-roadmap` | Phased delivery sequencing + GH issue creation | Blueprint and/or requirements file path (at least one) |
 | `/devenv-refine-roadmap` | Structurally revise a roadmap — split, re-sequence, add | Roadmap file path |
@@ -221,7 +223,7 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 | `/devenv-bug-fix` | Investigate a bug, trace root cause, propose resolution — optionally fix immediately | Issue # or description |
 | `/devenv-code-review` | AI reviews code you wrote | PR #, refs, or nothing |
 | `/devenv-pre-commit` | Lint/format/test before committing | `--all` or nothing |
-| `/devenv-tech-debt-audit` | Opinionated codebase audit — file-cited findings, severity, effort; optional focus area; offers to create a GH issue after the audit | Repo path(s), optionally + focus area description; or GH issue # |
+| `/devenv-tech-debt-audit` | Opinionated codebase audit — file-cited findings across debt + correctness/bug risks, severity, effort; optional focus area; offers to create a GH issue after the audit | Repo path(s), optionally + focus area description; or GH issue # |
 
 ### Meta
 
@@ -309,6 +311,18 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 
 The skill also fits **after** a blueprint exists, when a specific design question surfaces during implementation — feed the recommendation back into `/devenv-refine-blueprint` or directly into the implementation plan.
 
+### Existing-component feature: discovery first, delivery second
+
+```text
+/devenv-design-discussion                  # when approach is unclear; weigh options/trade-offs
+  → /devenv-refine-technical-design        # optional: update component design doc for chosen direction
+  → /devenv-plan-from-spec                 # optional: if design doc/issue comment should drive plan generation
+  → /devenv-create-implementation-plan     # optional: if interview-driven planning is preferred
+    → /devenv-pair-programming / /devenv-delegation
+```
+
+Use this flow when adding a new feature to an existing component and you're still deciding the best approach. If the approach is already chosen, start directly at planning/build.
+
 ### Quick maintenance cycle
 
 ```text
@@ -347,7 +361,7 @@ The skill also fits **after** a blueprint exists, when a specific design questio
 | `/devenv-create-technical-design` vs `/devenv-create-blueprint` | Blueprint designs the system (domains, services, events, topology). Technical design designs one component's internals (interface contract, layers, data model, error handling). Blueprint precedes technical design; technical design precedes implementation plan. |
 | `/devenv-create-technical-design` vs `/devenv-design-discussion` | Design-discussion weighs options and produces a focused recommendation. Technical design takes a settled approach and produces a formal spec (`Architecture_and_implementation.md`) with recorded decisions. Design-discussion naturally feeds into technical design. |
 | `/devenv-create-technical-design` vs `/devenv-document` | Technical design involves brainstorming and decision-making; it is prescriptive (how the component should be built). Document is descriptive (how it currently is), with no design decisions. |
-| `/devenv-redesign-component` vs `/devenv-refine-technical-design` | Redesign is for "the fundamental approach is no longer right" — runs a full diagnosis and design session, produces two outputs (updated living doc + temporary redesign spec). Refine is lightweight and surgical — for design drift, gaps revealed by implementation, or resolved unknowns. If a refine session turns into a fundamental rethink, stop and switch to redesign. |
+| `/devenv-redesign-component` vs `/devenv-refine-technical-design` | Redesign is for "the fundamental approach is no longer right" — runs a full diagnosis and design session, produces a temporary redesign spec (`Redesign--NNN.md`), and defers `Architecture_and_implementation.md` updates to implementation cleanup. Refine is lightweight and surgical — for design drift, gaps revealed by implementation, or resolved unknowns. If a refine session turns into a fundamental rethink, stop and switch to redesign. |
 | `/devenv-redesign-component` vs `/devenv-create-technical-design` | Create starts from nothing. Redesign starts from an existing design and explicitly distinguishes what stays from what changes. Redesign also produces a temporary `Redesign--NNN.md` spec document for `devenv-plan-from-spec`; create goes directly to the living doc. |
 | `/devenv-refine-technical-design` vs `/devenv-refine-blueprint` | `refine-technical-design` updates one component's internal design doc. `refine-blueprint` changes the system-level architecture. A blueprint change may cascade into one or more technical design refinements. |
 | `/devenv-document` vs `/devenv-create-technical-design` | Document produces reference material for what already exists. Technical design produces a specification that guides what is about to be built (or rebuilt). |
@@ -355,6 +369,7 @@ The skill also fits **after** a blueprint exists, when a specific design questio
 | `/devenv-document` vs `/devenv-tech-debt-audit` | Document aims to produce useful reference material. Tech-debt-audit aims to surface problems and prioritise remediation. |
 | `/devenv-design-discussion` vs `/devenv-spike` | Design-discussion narrows options by reasoning. Spike answers feasibility questions that require running code. |
 | `/devenv-design-discussion` vs `/devenv-create-blueprint` | Design-discussion is exploratory and focused — picks between approaches. Blueprint is formal and broad — decomposes a chosen approach into domains, services, events, components. Design-discussion typically *precedes* a blueprint, or is invoked *after* one to settle a specific question. |
+| `/devenv-design-discussion` vs `/devenv-create-implementation-plan` | Use design-discussion when the approach is still unclear (option-weighing). Use create-implementation-plan when the approach is already chosen and you need executable tasks. For existing-component features, design-discussion can be upstream and may or may not lead to a plan. |
 | `/devenv-session-handoff` vs `/devenv-plan-update` | Narrative summary vs structured task-state update. |
 
 ---
