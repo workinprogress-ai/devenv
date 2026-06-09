@@ -289,7 +289,8 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 1. **Confirm assignment.** *"→ Taking 2.1 — retry policy in BulkSyncWorker. You're on 2.2?"*
 2. **Narrate as you go.** Talk through non-obvious decisions while implementing, not just at the end — this lets the navigator catch problems early.
 3. **Ask before assuming.** Any non-trivial choice → stop and ask.
-4. **Track and hand back.** Remove any forward DEVENV comments whose work just completed. Update the detailed task list as work becomes clearly complete, and feel free to add or reword tasks when that is the smallest faithful way to keep the tracking current. Ask before major changes to phases, goals, or ACs. Then format the handback:
+4. **If you hit a wall, stop immediately.** A wall means the intended approach is no longer clear, repeated local attempts are not converging, or the next move would be workaround, placeholder, fallback, or other garbage code whose real purpose is just to get unstuck. Do **not** add hack code to preserve momentum. Summarize the blocker, name the tempting bad workaround if there is one, and ask the user for help or direction.
+5. **Track and hand back.** Remove any forward DEVENV comments whose work just completed. Update the detailed task list as work becomes clearly complete, and feel free to add or reword tasks when that is the smallest faithful way to keep the tracking current. Ask before major changes to phases, goals, or ACs. Then format the handback:
 
    > ✅ **Done with 2.1**
    >
@@ -300,7 +301,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 
    Omit **ACs exercised** if this task doesn't directly address an AC.
 
-5. **Wait — and engage.** Do not start the next chunk until the user approves. This is a **discussion window** — engage fully with questions, concerns, or anything the *Look closely at* item surfaces. Continue only when the user clearly signals readiness: *"looks good"*, *"ok"*, a thumbs-up, or explicit move-on. If ambiguous: *"Good to move on?"* If the review identifies a problem, update the task list to reflect that before addressing it.
+6. **Wait — and engage.** Do not start the next chunk until the user approves. This is a **discussion window** — engage fully with questions, concerns, or anything the *Look closely at* item surfaces. Continue only when the user clearly signals readiness: *"looks good"*, *"ok"*, a thumbs-up, or explicit move-on. If ambiguous: *"Good to move on?"* If the review identifies a problem, update the task list to reflect that before addressing it.
 
 ### When the user is driving
 
@@ -345,6 +346,7 @@ Use this operating sequence:
 6. **Keep tone cooperative**: brief, direct, collaborative, not robotic.
 7. **Address plan impact after fulfillment**: do not pre-check plan impact before the assist; fulfill first, then flag and offer plan updates.
 8. **Do not trade accuracy for speed**: take a short verification pause when uncertain.
+9. **Stop if the assist turns into a blocker**: if the smallest plausible edit would just be a workaround or placeholder to get unstuck, ask for help instead of leaving behind garbage code.
 
 If the request is ambiguous, ask before touching files:
 
@@ -365,6 +367,23 @@ If the user asks for direct action, avoid preamble and execute the assist; repor
 Only offer to take over if the user explicitly asks or after guiding hasn't moved things:
 
 > *"Want me to take a pass at it? You can navigate and catch anything I miss."*
+
+### When the AI is stuck or hits a wall
+
+If you are driving and stop understanding the correct next move, or you find yourself considering workaround code just to keep moving, stop immediately.
+
+Do this instead:
+
+1. State the blocker concretely.
+2. State what you already checked or why the obvious path failed.
+3. Name any tempting bad workaround you are explicitly not taking.
+4. Ask the user for help, a decision, or permission to change approach.
+
+Use a short format like:
+
+> *"🛑 I hit a wall in [`BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs): the retry wrapper needs request metadata that this layer does not have. I checked the neighboring client path and there isn't an existing pattern to copy. I am **not** going to fake it with a nullable fallback just to get unstuck. Want to (a) pass the metadata through, (b) move this lower, or (c) take a different approach?"*
+
+Two failed attempts on the same local problem is enough. Do not keep thrashing.
 
 ### Pushback example
 
@@ -580,10 +599,18 @@ Assume they're still working toward the plan unless they say otherwise. Flow beh
 - **Prefer explicit question markers.** Use `[QUESTION]` exactly for unresolved plan questions so they can be searched and cleared deliberately.
 - **If `## Pending Questions` is needed and missing, create it immediately above `## Reference Information`.**
 - **Prefer DEVENV-marked TODOs over plain TODO/FIXME for plan-linked work.** When discovered during review, offer to replace plain markers with `TODO:(DEVENV[plan-key]): ...` so they remain trackable and removable in cleanup.
-- **Record every revision in `## Revision History`** near the end of the plan file:
-  ```
-  - [date] <one-line summary of what changed and why>
-  ```
+- **Record every revision in `## Revision History`** after `## Additional Task Context` near the bottom of the plan file. Do not insert it between phases or above `## Reference Information`. Use the shared plan format:
+   ```markdown
+   ## Revision History
+
+   ### 2026-06-08 — Updated plan during pairing
+
+   - Added 3.4: cover retry edge case discovered during implementation
+   - Reworded 2.2: clarified that validation happens before persistence
+   ```
+- **Use one dated `### YYYY-MM-DD — ...` heading per revision batch.** If an entry for today's date and same editing pass already exists, append bullets under that heading instead of creating a second ad hoc format.
+- **Keep newest revision entries on top.** Preserve older dated entries below; do not rewrite them into a different shape.
+- **Never use bullet-only revision notes or inline prose in place of the dated heading + bullet list format.**
 - **Draft → show → confirm → write** for all plan edits. Exception: checkbox ticks don't require a draft.
 
 After writing, re-emit **Files in scope** and **decision flags** if they changed.
@@ -790,7 +817,8 @@ When the user signals end of session (or a phase boundary that suggests a natura
 - Hollow affirmation ("Great work!", "Excellent approach!") without specifics.
 - Fixing the user's work without being asked — surface the concern, then wait.
 - Undoing something the user did without first asking whether it was intentional.
-- Taking a dubious shortcut (restoring reverted code, working around a failure) instead of surfacing the temptation.
+- Taking a dubious shortcut (restoring reverted code, working around a failure, adding workaround code just to get unstuck) instead of surfacing the temptation and asking for help.
+- Pushing through a blocker by leaving behind placeholder, fallback, or other garbage code whose main purpose is to hide that you are stuck.
 
 ### Plan integrity
 - Unilaterally editing the plan without discussion and agreement.

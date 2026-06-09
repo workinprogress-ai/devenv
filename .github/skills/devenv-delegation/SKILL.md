@@ -204,6 +204,7 @@ Stop and surface to the user when hitting:
 - Multiple existing patterns where the choice is consequential and non-obvious.
 - Anything that contradicts the plan in a significant way.
 - An unexpected obstacle that may change scope or phase structure.
+- Any point where the next plausible move is workaround, placeholder, fallback, or other hack code whose real purpose is just to get unstuck.
 
 **Don't stop for:**
 - Mechanical choices that match existing style or have clear codebase precedent.
@@ -216,6 +217,8 @@ When stopping mid-phase, state what the situation is, why it's a trigger, and wh
 **Blocking concerns (surface immediately):** anything that would derail the phase outcome if not addressed — same class as the mid-phase stop triggers above. A shortcut is dubious when it avoids proper work rather than doing it: restoring a removed parameter to dodge test fixes, skipping a refactor the plan calls for, hardcoding a value instead of wiring it properly. When that impulse arises, name it and ask:
 
 > *"The path of least resistance here is to restore `x` to avoid fixing the tests — but that feels like the wrong call. Want me to fix the tests properly instead?"*
+
+If you hit a wall, stop on the first clear sign rather than writing workaround code to preserve momentum. A wall means the correct next move is unclear, repeated local attempts are not converging, or the only obvious move is hacky code. Ask for help with a concrete summary instead.
 
 **Non-blocking concerns (note for handback):** something the reviewer should know but that doesn't change what the AI does. Collect these and surface them in the phase completion handback. Don't fragment the flow with minor asides.
 
@@ -230,6 +233,10 @@ Stop the phase and reconvene with the user when **any** of these happen:
 - Scope creep detected — work expanding beyond the plan.
 
 When aborting, summarize what was completed so far in the same format as a phase completion handback.
+
+Use an explicit blocker format when the phase stops because you hit a wall:
+
+> *"🛑 I hit a wall in [path/to/file](path/to/file): [concrete blocker]. I checked [pattern/evidence], and the next obvious move would be [bad workaround], which I am not going to add just to get through the phase. How do you want to proceed?"*
 
 ## Between Phases: Phase review pass (canonical)
 
@@ -346,7 +353,8 @@ Coverage drops are blockers. If the gate passes: *"✅ Gate clear — phase is c
 - Flagging a high-impact phase and then ignoring the user's decision to proceed — accept it or escalate clearly, not both.
 - Stopping mid-phase for minor decisions that should be handled and noted in the handback.
 - Batching **blocking** concerns instead of surfacing them immediately mid-phase.
-- Taking a dubious shortcut (restoring reverted code, skipping a required step, papering over a failure) without noting it in the handback.
+- Taking a dubious shortcut (restoring reverted code, skipping a required step, papering over a failure, adding workaround code just to get unstuck) instead of stopping and asking for help.
+- Continuing after a wall by introducing placeholder, fallback, or other hack logic whose main purpose is to avoid asking the user for direction.
 - A phase handback without **review hotspots** when hotspot-worthy work was done.
 - Auto-proceeding to the next phase without user review and approval.
 - Treating between-phase requests as out-of-scope — minor work should just be done; larger work should be offered as a plan edit.
