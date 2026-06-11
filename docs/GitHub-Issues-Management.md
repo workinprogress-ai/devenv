@@ -16,6 +16,8 @@ This guide covers the complete GitHub Issues workflow in Devenv, from issue crea
 
 The GitHub Issues workflow in Devenv replaces Azure DevOps work items with a GitHub-native approach:
 
+For the broader delivery methodology around requirements, blueprinting, grooming, implementation planning, and execution, see [Workflow Guide](./Workflow.md). This document focuses on how work is represented and tracked in GitHub once it enters issue/project flow.
+
 ```text
 Issue Types:
 ├── Epic (type:epic)

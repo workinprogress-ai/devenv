@@ -7,6 +7,7 @@ Complete documentation for the Devenv project organized by topic and use case.
 A suite of 15 slash-command skills covering the full development lifecycle — from issue triage through PR review:
 
 - **[Skills Catalog](./Skills.md)** — full reference with decision tree, workflow examples, and per-skill docs
+- **[Workflow Guide](./Workflow.md)** — end-to-end methodology guide with ASCII flowcharts and skill mapping notes
 
 **Top skills:**
 
@@ -113,6 +114,9 @@ Total: ~115 KB of comprehensive documentation
 
 **...understand how to track work**
 → [GitHub Issues Management](./GitHub-Issues-Management.md)
+
+**...understand how the Copilot skills fit together**
+→ [Workflow Guide](./Workflow.md) or [Skills Catalog](./Skills.md)
 
 **...quickly look up a command**
 → [GitHub Issues Quick Reference](./GitHub-Issues-Quick-Reference.md) or [Additional Tooling](./Additional-Tooling.md)

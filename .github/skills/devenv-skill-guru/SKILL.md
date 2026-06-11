@@ -82,8 +82,9 @@ Use the registry to match the user's answers to a skill:
    - Architecture guardrail: default component-level architecture intake to `/devenv-grooming` unless the user explicitly requests one specialized design skill.
    - Architecture guardrail: if the user primarily wants alternatives/trade-offs/recommendation, route to `/devenv-design-discussion` first.
    - Architecture guardrail: if the user says the current approach is wrong, route to `/devenv-grooming`, not refine.
+   - Architecture guardrail: if the user has one bounded plan blocker/question that needs deep option-weighing, route to `/devenv-design-discussion`; if the user describes accumulating questions, entangled decisions, or likely sweeping design changes, route to `/devenv-grooming`.
    - Build guardrail: do not route high-impact build phases to `/devenv-delegation`.
-   - Escalation guardrail: if the user is mid-execution and asks to return to planning, says they are blocked by unresolved decisions, or references escalation/handoff from pair/delegation, route to `/devenv-refine-implementation-plan`.
+   - Escalation guardrail: if the user is mid-execution with a small local plan adjustment, stay in execution; if they want to return to planning for broader plan surgery, route to `/devenv-refine-implementation-plan`; if they describe one large blocker/question, route to `/devenv-design-discussion`; if they describe accumulated architectural issues, route to `/devenv-grooming`.
    - Bug-hunt guardrail: for broad/focused bug hunting (including "find race conditions", "hunt null bugs", "audit auth module for bugs"), route to `/devenv-tech-debt-audit`.
    - Bug-investigation guardrail: for one known failing behavior/issue/incident, route to `/devenv-bug-fix`.
 4. **Check for a chain** — if the user's goal implies a multi-step workflow (e.g. "I want to implement this whole story", "from idea to PR"), look up the matching chain in the registry and recommend the full sequence.
@@ -111,20 +112,24 @@ If the user answers "not sure yet", treat it as "decide architecture/design dire
 
 ## Escalation routing shortcut
 
-If the user indicates they are in `/devenv-pair-programming` or `/devenv-delegation` and wants to send work back to planning (or says they are blocked on unresolved decisions that need plan changes), recommend:
+If the user indicates they are in `/devenv-pair-programming` or `/devenv-delegation`, route by problem size:
 
-`/devenv-refine-implementation-plan`
+- Small local question / task-scope change -> stay in the execution skill and update the plan there.
+- One large blocker / design question -> `/devenv-design-discussion`
+- Accumulated questions / architectural drift / likely sweeping redesign -> `/devenv-grooming`
+- Design settled and now tasks/phases need restructuring -> `/devenv-refine-implementation-plan`
 
-Why: it is the handoff receiver for escalation records captured in the plan's existing sections and `## Revision History`.
-
-If refine-plan classifies the issues as architectural, it will route onward to a design skill. The full escalation chain is:
+Representative escalation chains:
 
 ```
 /devenv-pair-programming or /devenv-delegation
-  → escalation handoff written to plan
-  → /devenv-refine-implementation-plan (triage)
-      → /devenv-design-discussion <plan>   (approach not settled)
-  → back to /devenv-refine-implementation-plan (once design resolved)
+   → /devenv-design-discussion <plan>        (single bounded blocker)
+   → /devenv-refine-implementation-plan      (apply bounded plan updates)
+   → back to execution skill
+
+/devenv-pair-programming or /devenv-delegation
+   → /devenv-grooming <plan>                 (accumulated design issues)
+   → /devenv-refine-implementation-plan      (apply broader plan updates)
   → back to execution skill
 ```
 

@@ -4,6 +4,8 @@ A complete reference for the Copilot skill suite available in this workspace. Sk
 
 **Not sure which skill to use?** Say `/devenv-skill-guru` and answer 1–3 questions.
 
+**Need the full workflow, not just the catalog?** See [Workflow Guide](../../../../docs/Workflow.md).
+
 ---
 
 ## Decision tree
@@ -181,7 +183,7 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 | `/devenv-refine-requirements` | Revise an existing requirements doc, preserve REQ-NNN IDs | Requirements file path |
 | `/devenv-create-blueprint` | Architectural decomposition → blueprint doc | System name or path to requirements |
 | `/devenv-refine-blueprint` | Revise an existing blueprint, preserve decisions | Blueprint file path |
-| `/devenv-grooming` | Consolidated component-level design intake and routing (discussion vs design update) | Problem statement, component path, design doc path, plan path, or issue # |
+| `/devenv-grooming` | Consolidated component-level design intake and routing; default return point for accumulated design issues in a plan | Problem statement, component path, design doc path, plan path, or issue # |
 | `/devenv-create-roadmap` | Phased delivery sequencing + GH issue creation | Blueprint and/or requirements file path (at least one) |
 | `/devenv-refine-roadmap` | Structurally revise a roadmap — split, re-sequence, add | Roadmap file path |
 | `/devenv-update-roadmap` | Sync roadmap status from issues + PRs | Roadmap file path |
@@ -201,7 +203,7 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 | `/devenv-chat-with-code` | Conversational fact-finding with a codebase — the code talks back | Repo path(s), or nothing for current workspace |
 | `/devenv-spike` | Exploratory investigation + findings doc | Question or issue # |
 | `/devenv-rubber-duck` | Think out loud — no artifacts | Problem description |
-| `/devenv-design-discussion` | Opinionated thinking partner for design/architecture choices; outputs `Solution_Proposal_<topic>-NNN.md` by default | Design question or topic |
+| `/devenv-design-discussion` | Opinionated thinking partner for design/architecture choices; best for one bounded blocker or design question; outputs `Solution_Proposal_<topic>-NNN.md` by default | Design question or topic |
 
 ### Workflow
 
@@ -231,48 +233,23 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 
 ## Workflow examples
 
-### From raw idea to merged PR
+For the complete version of these flows, see [Workflow Guide](../../../../docs/Workflow.md).
+
+### Default delivery flow
 
 ```text
 /devenv-gather-requirements
-  → /devenv-plan-from-spec              # or /devenv-create-implementation-plan per phase
-    → /devenv-pair-programming          # high-impact phases
-    → /devenv-delegation                # mechanical phases
-    → /devenv-pre-commit
-    → /devenv-open-pr
-      → /devenv-address-pr-comments
-        → /devenv-pre-commit
-```
-
-### Epic-scale: requirements → architecture → delivery
-
-```text
-/devenv-gather-requirements
-  → /devenv-create-blueprint            # architectural decomposition
-    → /devenv-create-roadmap            # phases + GitHub issues across component repos
-      → /devenv-create-implementation-plan   # per roadmap step, as work begins
+  → /devenv-create-blueprint
+    → /devenv-grooming
+      → /devenv-create-implementation-plan
         → /devenv-pair-programming / /devenv-delegation
-          → /devenv-pre-commit → /devenv-open-pr → /devenv-address-pr-comments
-
-  Throughout delivery:
-    /devenv-update-roadmap               # sync status from issues + PRs
-    /devenv-refine-roadmap               # structural changes — split steps, re-sequence
-    /devenv-refine-requirements          # when stakeholder priorities or scope shift
-    /devenv-refine-blueprint             # when architecture changes mid-flight
+          → /devenv-pre-commit
+            → /devenv-open-pr
+              → /devenv-address-pr-comments
+                → /devenv-pre-commit
 ```
 
-### Smaller-scale: requirements → delivery (no blueprint needed)
-
-```text
-/devenv-gather-requirements
-  → /devenv-create-roadmap              # requirements-only mode: asks for component per step,
-                                        # then creates parent epic + child issues
-    → /devenv-create-implementation-plan   # per roadmap step
-      → /devenv-pair-programming / /devenv-delegation
-        → /devenv-pre-commit → /devenv-open-pr → /devenv-address-pr-comments
-```
-
-### From issue to merged PR
+### Issue or task to delivery
 
 ```text
 /devenv-triage-issue 42
@@ -295,31 +272,60 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
         → /devenv-open-pr
 ```
 
-### Design exploration → formalisation
+### Plan problems during execution
 
 ```text
-/devenv-grooming                           # classify component-level design work
-  → /devenv-design-discussion              # weigh approaches with opinions
-  → /devenv-create-blueprint               # if systemic, formalise architecture
-      → /devenv-create-roadmap → ...
-  → /devenv-create-implementation-plan     # if component-level, plan the work
-      → /devenv-pair-programming / /devenv-delegation
+Execution skill
+  +--> small local problem
+  |      -> stay in execution and update the plan directly
+  |
+  +--> single large blocker/question
+  |      -> /devenv-design-discussion
+  |      -> /devenv-refine-implementation-plan
+  |      -> back to execution
+  |
+  +--> accumulated questions / architectural drift
+  |      -> /devenv-grooming
+  |      -> /devenv-refine-implementation-plan
+  |      -> back to execution
+  |
+  +--> upstream architecture artifact is wrong
+         -> /devenv-refine-blueprint
+         -> /devenv-grooming
+         -> /devenv-refine-implementation-plan
+         -> back to execution
 ```
-
-The skill also fits **after** a blueprint exists, when a specific design question surfaces during implementation — feed the recommendation back into `/devenv-refine-blueprint` or directly into the implementation plan.
 
 ### Existing-component feature: discovery first, delivery second
 
 ```text
-/devenv-grooming                           # classify: discussion vs refine vs redesign
-  → /devenv-design-discussion              # when approach is unclear; weigh options/trade-offs
-  → /devenv-grooming                       # optional: update component design doc for chosen direction
-  → /devenv-plan-from-spec                 # optional: if design doc/issue comment should drive plan generation
-  → /devenv-create-implementation-plan     # optional: if interview-driven planning is preferred
-    → /devenv-pair-programming / /devenv-delegation
+Existing-component feature request
+  +--> approach already chosen
+  |      -> /devenv-create-implementation-plan or /devenv-refine-implementation-plan
+  |      -> execution
+  |
+  +--> approach unclear
+         -> /devenv-grooming
+         -> /devenv-design-discussion (if one bounded blocker needs deeper option-weighing)
+         -> planning and execution
 ```
 
-Use this flow when adding a new feature to an existing component and you're still deciding the best approach. If the approach is already chosen, start directly at planning/build.
+### Upstream change cascade
+
+```text
+Requirements changed
+  -> /devenv-refine-requirements
+  -> /devenv-refine-blueprint or /devenv-create-blueprint
+  -> /devenv-grooming
+  -> /devenv-refine-implementation-plan
+  -> execution resumes
+
+Blueprint changed
+  -> /devenv-refine-blueprint
+  -> /devenv-grooming
+  -> /devenv-refine-implementation-plan
+  -> execution resumes
+```
 
 ### Quick maintenance cycle
 
@@ -340,7 +346,7 @@ Use this flow when adding a new feature to an existing component and you're stil
 | `/devenv-create-implementation-plan` vs `/devenv-plan-from-spec` | Interview vs no-interview. Use `plan-from-spec` when the spec already has acceptance criteria. |
 | `/devenv-gather-requirements` vs `/devenv-create-implementation-plan` | Requirements describe *what* the system does (user perspective). Implementation plans describe *how* to build it (engineering tasks). One requirements phase may produce multiple implementation plans. |
 | `/devenv-create-blueprint` vs `/devenv-create-implementation-plan` | Blueprint is high-level architecture across multiple components (domains, services, events, deltas). Implementation plan is task-level for one deliverable. A blueprint typically spawns several implementation plans. |
-| `/devenv-grooming` vs specialized component design skills | Use grooming when you are not sure whether the work is option-weighing or design update. It classifies and handles the architecture-doc delta for the current work, or routes to `/devenv-design-discussion` when options still need weighing. |
+| `/devenv-grooming` vs specialized component design skills | Use grooming when you are not sure whether the work is option-weighing or design update, or when plan problems are accumulating and may require broader reshaping. It routes to `/devenv-design-discussion` when the real need is one bounded design question. |
 | `/devenv-create-blueprint` vs `/devenv-gather-requirements` | Requirements are user/functional perspective (*what*). Blueprint is technical/architectural perspective (*how* the system is structured). Both can exist for the same system. |
 | `/devenv-create-roadmap` vs `/devenv-create-implementation-plan` | Roadmap is component-level sequencing across the whole epic with GH issues per step. Implementation plan is task-level for one component/deliverable. Each roadmap step typically gets its own implementation plan. |
 | `/devenv-update-roadmap` vs `/devenv-refine-roadmap` | `update-roadmap` syncs **status** from issues (mechanical, frequent). `refine-roadmap` revises **structure** — split steps, re-sequence phases, add or supersede steps (deliberate). |
@@ -361,7 +367,7 @@ Use this flow when adding a new feature to an existing component and you're stil
 | `/devenv-document` vs `/devenv-tech-debt-audit` | Document aims to produce useful reference material. Tech-debt-audit aims to surface problems and prioritise remediation. |
 | `/devenv-design-discussion` vs `/devenv-spike` | Design-discussion narrows options by reasoning. Spike answers feasibility questions that require running code. |
 | `/devenv-design-discussion` vs `/devenv-create-blueprint` | Design-discussion is exploratory and focused — picks between approaches. Blueprint is formal and broad — decomposes a chosen approach into domains, services, events, components. Design-discussion typically *precedes* a blueprint, or is invoked *after* one to settle a specific question. |
-| `/devenv-design-discussion` vs `/devenv-create-implementation-plan` | Use design-discussion when the approach is still unclear (option-weighing). Use create-implementation-plan when the approach is already chosen and you need executable tasks. For existing-component features, design-discussion can be upstream and may or may not lead to a plan. |
+| `/devenv-design-discussion` vs `/devenv-create-implementation-plan` | Use design-discussion when the approach is still unclear or one bounded blocker needs deeper option-weighing. Use create-implementation-plan when the approach is already chosen and you need executable tasks. |
 | `/devenv-session-handoff` vs `/devenv-plan-update` | Narrative summary vs structured task-state update. |
 
 ---

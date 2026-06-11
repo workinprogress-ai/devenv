@@ -1,6 +1,6 @@
 ---
 name: devenv-grooming
-description: Consolidate component-level design intake into a single grooming workflow that classifies work as option-weighing or design update, then handles the current design-doc delta for the work in flight. USE WHEN the user says "groom this work", "help me decide the right design path", "which component design workflow should we use", "this plan has architectural issues", or "we need to shape this feature before planning/building". Supports plan/issue/path input and uses plan architectural review when a plan is provided. DO NOT USE FOR system-level architecture decomposition (use /devenv-create-blueprint), pure implementation planning once design is settled (use /devenv-create-implementation-plan), or coding execution (use /devenv-pair-programming or /devenv-delegation).
+description: Consolidate component-level design intake into a single grooming workflow that classifies work as option-weighing or design update, then handles the current design-doc delta for the work in flight. Always works with a grooming document — creates one if it does not exist, or loads and updates an existing one. USE WHEN the user says "groom this work", "help me decide the right design path", "which component design workflow should we use", "this plan has architectural issues", "we need to shape this feature before planning/building", or returns an in-flight implementation plan with open architectural decisions. Recommends options and trade-offs but does not make final design decisions without explicit user confirmation. DO NOT USE FOR system-level architecture decomposition (use /devenv-create-blueprint), pure implementation planning once design is settled (use /devenv-refine-implementation-plan for existing plans or /devenv-create-implementation-plan for new work), or coding execution (use /devenv-pair-programming or /devenv-delegation).
 argument-hint: '[problem statement | component repo path | design doc path | implementation plan path | issue number]'
 user-invocable: true
 ---
@@ -13,12 +13,14 @@ Use this as the default intake for **component-level architecture and design dir
 
 ## Purpose
 
-Given a component-level change request (from user text, issue, or plan), quickly classify the work into one of two tracks:
+Grooming is the **design steward** for a piece of work. It always works with a **grooming document** — a single artifact that tracks design decisions (confirmed, pending, deferred), outstanding questions, and links to any implementation plans spawned from the work.
 
-1. **Option-weighing needed** -> [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md)
-2. **Design update needed for work in flight** -> stay in grooming and record the delta against the current architecture doc before planning or implementation continues.
+Given a component-level change request (from user text, issue, or returned plan), grooming either:
 
-When the request is already unambiguous, skip extra questions and route immediately.
+1. **Creates a new grooming document** and classifies the work into the right design track.
+2. **Loads an existing grooming document** and surgically updates only the affected parts.
+
+Grooming recommends options and trade-offs but never finalises a design decision without explicit user confirmation.
 
 ## When to Use
 
@@ -38,35 +40,58 @@ Do not use for:
 
 ## Intake flow
 
-### Phase 0: Confirm input type
+### Phase 0: Find or create the grooming document
 
-Accept one of:
+Before anything else, locate the grooming document for this work.
 
-- Problem statement
+**Step 1 — Accept input.** One of:
+
+- Problem statement or feature description
 - Component repo path
 - `Architecture_and_implementation.md` path
-- `Implementation_plan-*.md` path
+- `Implementation_plan-*.md` path (returned from implementation)
 - GitHub issue number
 
-If the input is a plan path or issue linked to a plan, run the [plan architectural review protocol](../common/references/plan-architectural-review.md) first and summarize a scoped architectural brief.
+**Step 2 — Search for an existing grooming document.** A grooming document may live:
 
-Before Phase 1, classify the component type:
+- On the same GH issue (as a comment or linked file)
+- In a `planning.*` repo (e.g. `docs/Grooming/Grooming-<topic>-NNN.md`)
+- In the component repo's `docs/` folder
+- Referenced from the implementation plan's `## Reference Information` section
+
+Ask the user if the location is not obvious:
+
+> "Is there an existing grooming document for this work? It may be in a planning repo, on a GH issue, or alongside the implementation plan."
+
+**Step 3 — Load or create.**
+
+- If an existing grooming document is found: load it, show a brief status summary (confirmed decisions, pending decisions, open questions, linked plans), and ask the user to confirm before proceeding.
+- If no grooming document exists: create a new one using [grooming-doc-template.md](./references/grooming-doc-template.md). Agree with the user on the location and filename (`Grooming-<topic>-NNN.md`) before writing.
+
+If the grooming document is stored in a GitHub issue comment, follow the shared [Artifact Comment Identity Convention](../_conventions.md#artifact-comment-identity-convention) with `artifact_type: grooming`:
+
+- Generate `doc_id` with `issue-artifact-doc-id --issue <N> --artifact-type grooming --slug <artifact-slug>`
+- Keep the `DEVENV_ARTIFACT_V1` header at the top of the artifact body (with `doc_id` in the first 256 characters)
+- Update via `issue-artifact-upsert` rather than manual comment matching
+
+**Step 4 — Classify component type** (needed for context loading):
 
 - Service
 - API gateway
 - Frontend application
 
-Then use [`component-context/index.md`](../common/references/component-context/index.md) to load only relevant component context when needed. For services, load only the necessary file(s): `01-Service-Architecture.md`, `02-Service-Implementation.md`, and/or `03-Service-Plugins.md`.
+Then use [`component-context/index.md`](../common/references/component-context/index.md) to load only relevant component context. For services, choose among `01-Service-Architecture.md`, `02-Service-Implementation.md`, and `03-Service-Plugins.md` as needed.
+
+**Step 5 — If input is a returned implementation plan:** run the [plan architectural review protocol](../common/references/plan-architectural-review.md) to produce a scoped architectural brief, then map its pending decisions back to the grooming document's `Pending` table before Phase 1.
 
 ### Phase 1: Classification interview (max 4 questions)
 
-Ask only what is missing:
+Ask only what is missing (the grooming document may already answer some of these):
 
 1. Is the approach still undecided, or already chosen?
 2. Is this a new component or an existing component?
 3. For existing components: are we patching drift/gaps, or replacing the core approach?
-4. Is there a current `docs/Architecture_and_implementation.md`?
-5. What component type are we grooming (service, API gateway, or frontend application)?
+4. Is the relevant `docs/Architecture_and_implementation.md` up to date?
 
 ### Phase 2: Route with rationale
 
@@ -88,10 +113,44 @@ If the user asks you to continue directly, continue in the selected track's styl
 
 ### Decision rules (explicit handoff)
 
+- **Precedence rule:** if an `Implementation_plan-*.md` is in-flight and the user's goal is to unblock active implementation, stay in `/devenv-grooming` by default and facilitate decision closure here.
 - Route to `/devenv-design-discussion` when two or more viable approaches are still live and the team needs an explicit recommendation.
+- Route to `/devenv-design-discussion` for a single large blocker/question when it needs deeper option-weighing, but the expected outcome is still a bounded plan change rather than a broader design reset.
 - Stay in grooming when the approach is already chosen and the work is to capture/update the architecture delta for in-flight implementation.
+- Stay in grooming when questions are accumulating, multiple decisions are entangled, or the current design may need sweeping revision, replacement, or upstream artifact changes.
 - Route to `/devenv-refine-implementation-plan` when architecture is settled and the remaining work is sequencing/scope edits in tasks.
-- If uncertain between grooming and design-discussion after Phase 1, ask one tie-breaker question: "Are we deciding between approaches, or documenting a chosen approach?"
+- If uncertain between grooming and design-discussion after Phase 1, ask one tie-breaker question: "Are we deciding between approaches broadly, or picking the fastest safe decision to unblock the current plan phase?"
+
+### In-flight decision facilitation loop
+
+When the input is an in-flight plan with pending architectural decisions, run a conversational loop one decision at a time:
+
+1. Surface the decision with source evidence (phase/task/decision marker in the plan).
+2. Present 2-3 viable options with trade-offs.
+3. Give a recommendation and why.
+4. Ask the user to choose (or explicitly defer).
+5. Record the confirmed/deferred outcome in the grooming document immediately.
+6. Repeat for the next unresolved decision.
+
+Do not batch-resolve all decisions in one monologue and do not proceed as if decisions are closed until the user confirms each one.
+
+### Surgical grooming document updates
+
+When iterating on a returned plan, update the grooming document **only in the affected parts**. Never rewrite unrelated decisions or questions.
+
+For each resolved decision:
+- Move the row from `Pending` → `Confirmed` with the chosen option, rationale, and date.
+- Leave all other `Pending` rows untouched.
+
+For each deferred decision:
+- Move the row from `Pending` → `Deferred` with a reason and a revisit trigger.
+
+For each resolved question:
+- Update its status to `[resolved]` with the resolution text inline.
+
+After updates, show the user a summary of what changed in the grooming document and confirm before writing.
+
+When all architecture/design decisions required for execution are confirmed, explicitly hand off plan/task updates to [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) instead of editing the implementation plan directly in grooming.
 
 ## Escalation compatibility
 
@@ -104,7 +163,7 @@ See [decision-resolution-protocol.md](../common/references/decision-resolution-p
 
 ## Output format
 
-Use this exact concise structure:
+**Routing recommendation** (when classifying and routing):
 
 ```text
 Recommended: `/skill-name`
@@ -118,6 +177,31 @@ Say `/skill-name` to start.
 
 Omit "Also consider" when unnecessary.
 
+**Grooming document status summary** (shown when a grooming doc is loaded):
+
+```text
+Grooming doc: <path or issue ref>
+Confirmed decisions: N
+Pending decisions: N  (<titles>)
+Open questions: N
+Linked plans: N
+```
+
+**Per-decision facilitation** (one at a time):
+
+```text
+Decision: <short decision title>
+Evidence: <where this appears in plan/issue>
+
+Options:
+- A: <trade-offs>
+- B: <trade-offs>
+(- C: <trade-offs>, optional)
+
+Recommendation: <A|B|C> because <reason>
+Your call: choose A/B(/C) or defer.
+```
+
 ## Anti-patterns
 
 - Running a full design session before classifying.
@@ -125,6 +209,11 @@ Omit "Also consider" when unnecessary.
 - Routing to grooming for an existing component that already has a healthy design doc.
 - Ignoring plan-provided context when a plan path/issue is supplied.
 - Suggesting implementation skills before architecture path is settled.
+- Treating recommendations as decisions without explicit user confirmation.
+- Dumping all pending decisions at once and moving on without interactive closure.
+- Skipping Phase 0 (grooming document lookup) and working without a grooming document.
+- Creating a new grooming document without first searching for an existing one.
+- Rewriting unrelated parts of the grooming document when doing a surgical update from a returned plan.
 
 ## Sibling skills
 

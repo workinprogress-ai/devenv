@@ -62,7 +62,7 @@ These are the standard signals defined in `copilot-instructions.md` — use them
 |--------|----------|
 | `📁` | Opening a **Files in scope** block |
 | `🔶` | A **decision is required** before continuing |
-| `�` | **Brain bootup** — Navigate / Observe / Question steps (pair-programming only) |
+| `🧠` | **Brain bootup** — Navigate / Observe / Question steps (pair-programming only) |
 | `→` | AI is **starting** a task |
 | `✅` | Task **done**, gate passed, or approved |
 | `⚠️` | **Concern or heads-up** — notable but not a stopper |

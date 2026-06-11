@@ -20,10 +20,15 @@ An interactive thinking partner with strong opinions about good design. The user
 
 If the user wants to articulate a fuzzy thought without opinions or pressure, use [`/devenv-rubber-duck`](../devenv-rubber-duck/SKILL.md). If the question is "is this feasible?" and needs throwaway code to answer, use [`/devenv-spike`](../devenv-spike/SKILL.md). If the design is already settled and you want to formalise it, use [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) (systemic) or [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) (component-level). If you are unsure which component-level design workflow fits (discussion vs design update), start with [`/devenv-grooming`](../devenv-grooming/SKILL.md).
 
+For in-flight implementation blockers, do not use `/devenv-design-discussion` as the default first hop; start with `/devenv-grooming` and escalate to design discussion only when broad option-weighing is explicitly needed.
+
 ### Decision rules (boundary with grooming)
 
 - Use `/devenv-design-discussion` when the approach is not chosen and the user needs option comparison plus a recommendation.
+- Use `/devenv-design-discussion` for a single bounded blocker/question from an in-flight plan when it needs deeper brainstorming or option-weighing than pair-programming/delegation should carry, and the result is expected to affect a limited slice of the plan.
+- If that supposedly bounded blocker turns out to expose broader design drift, stop the focused discussion and route back to `/devenv-grooming` instead of forcing a broad redesign through this skill.
 - Route to `/devenv-grooming` when the approach is already chosen and the remaining step is capturing/updating the in-flight architecture delta.
+- Route to `/devenv-grooming` when plan problems are accumulating, multiple design decisions are entangled, or the current design may need broader reshaping rather than a one-question answer.
 - Route to `/devenv-create-implementation-plan` or `/devenv-plan-from-spec` when architecture choice is settled and execution planning is the main need.
 - If the user provides a plan with architectural faults, run plan intake first, then continue only on unresolved approach decisions.
 
@@ -93,9 +98,20 @@ Solution proposals remain **single-file** by default. Supporting files (diagrams
 
 See [solution-proposal-template.md](./references/solution-proposal-template.md) for structure.
 
-After writing the doc, offer to track it in a GitHub issue. See [github-issue-creation.md](../devenv-pair-programming/references/github-issue-creation.md) for the 5-step protocol. Issue title format: `Solution Proposal: <topic> — <YYYY-MM-DD>`.
+The written file is the canonical artifact by default.
 
-If posted to a GitHub issue, treat that issue comment as the canonical artifact. It can be the upstream input for [`/devenv-plan-from-spec`](../devenv-plan-from-spec/SKILL.md), or contextual input for [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md).
+After writing the doc, offer publication as a separate GitHub issue comment when the user wants the proposal attached to planning flow, implementation context, or blocker history. Prefer posting to an existing relevant issue; create a new issue only when the user explicitly wants standalone tracking.
+
+If a written solution proposal is posted to a GitHub issue comment, follow the shared [Artifact Comment Identity Convention](../_conventions.md#artifact-comment-identity-convention) with `artifact_type: solution-proposal`.
+
+- Generate `doc_id` with `issue-artifact-doc-id --issue <N> --artifact-type solution-proposal --slug <topic-slug>`
+- Keep the `DEVENV_ARTIFACT_V1` header at the top of the posted body
+- Use `issue-artifact-upsert` only when republishing revisions of the same written proposal
+- For a distinct blocker-specific design discussion on the same issue, generate a new slug/doc_id and post it as a separate artifact comment rather than overwriting an earlier proposal
+
+If no written proposal is produced, no artifact identity or GitHub publication flow is required.
+
+If posted to a GitHub issue, treat the file as canonical and the issue comment as a published copy that downstream skills may read as context. It can be the upstream input for [`/devenv-plan-from-spec`](../devenv-plan-from-spec/SKILL.md), or contextual input for [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md).
 
 ## Process
 

@@ -24,7 +24,7 @@ Skills for thinking, investigating, and triaging — before any plan or code exi
 |---|---|---|---|
 | `/devenv-rubber-duck` | Think out loud — no artifact produced | "think out loud", "rubber duck", "I'm stuck and need to talk it through", "help me think through X" | when opinions and a recommendation are wanted → `/devenv-design-discussion`; when an artifact (findings doc, plan) is needed → `/devenv-spike` |
 | `/devenv-chat-with-code` | Conversational fact-finding session with one or more codebases — the code talks back | "chat with this code", "explain this repo", "how does X work", "walk me through the architecture", "what does this codebase do", "explain this service", "I want to understand this code" | writing or changing code → `/devenv-pair-programming` or `/devenv-delegation`; formal debt assessment → `/devenv-tech-debt-audit`; architecture design → `/devenv-create-blueprint` or `/devenv-design-discussion` |
-| `/devenv-design-discussion` | Opinionated thinking partner for design / architectural choices at any zoom level; outputs `Solution_Proposal_<topic>-NNN.md` by default | "discuss the design", "weigh the options", "talk through the approach", "what's the right way to structure this", "discuss an architectural change", "not sure the best approach for this new feature" | fuzzy articulation with no opinions → `/devenv-rubber-duck`; feasibility prototyping → `/devenv-spike`; formal architectural decomposition → `/devenv-create-blueprint`; task breakdown when approach is already chosen → `/devenv-create-implementation-plan` |
+| `/devenv-design-discussion` | Opinionated thinking partner for design / architectural choices at any zoom level; especially useful for one bounded blocker or design question; outputs `Solution_Proposal_<topic>-NNN.md` by default | "discuss the design", "weigh the options", "talk through the approach", "what's the right way to structure this", "discuss an architectural change", "single blocker in this plan needs brainstorming" | fuzzy articulation with no opinions → `/devenv-rubber-duck`; feasibility prototyping → `/devenv-spike`; formal architectural decomposition → `/devenv-create-blueprint`; task breakdown when approach is already chosen → `/devenv-create-implementation-plan` |
 | `/devenv-spike` | Investigate a question and produce a structured findings doc | "spike on X", "investigate whether we can Y", "feasibility of Z", "throwaway prototype", "proof-of-concept" | writing production code → `/devenv-pair-programming`, lightweight thinking → `/devenv-rubber-duck`, opinionated approach comparison → `/devenv-design-discussion` |
 | `/devenv-tech-debt-audit` | Opinionated codebase audit that surfaces tech debt and correctness/bug risks, optionally focused by module or bug class | "hunt for bugs", "find bug risks", "look for race conditions", "audit this area for bugs", "bug hunt in <module>", "scan for null/date/idempotency bugs" | single known bug root-cause/fix → `/devenv-bug-fix`; single PR review → `/devenv-code-review`; collaborative implementation → `/devenv-pair-programming` |
 | `/devenv-bug-fix` | Investigate a bug from a GH issue or description, trace root cause through the codebase, produce findings report with proposed fix — user then chooses: create a plan, fix now, or fix themselves | "fix this bug", "investigate this issue", "find the root cause", "why is X broken", "diagnose this", GH issue # with a bug report | feature work → `/devenv-create-implementation-plan`; general codebase Q&A → `/devenv-chat-with-code`; feasibility research → `/devenv-spike` |
@@ -50,7 +50,7 @@ Skills for architectural design at all zoom levels — system (blueprint), compo
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 |---|---|---|---|
 | `/devenv-create-blueprint` | Architectural decomposition into domains, services, events, and per-component deltas | "create a blueprint", "design this system", "architect this epic", "produce an architectural design", "blueprint this" | low-level task breakdown → `/devenv-create-implementation-plan`; sequencing into milestones → `/devenv-create-roadmap`; user-level requirements → `/devenv-gather-requirements` |
-| `/devenv-grooming` | Consolidated intake for component-level design work; classifies and routes to discussion or design update | "groom this", "help decide design path", "which component design workflow", "plan has architectural issues", "shape this feature before planning" | system-level architecture decomposition → `/devenv-create-blueprint`; pure task planning with no architecture decision → `/devenv-refine-implementation-plan`; coding execution → `/devenv-pair-programming` or `/devenv-delegation` |
+| `/devenv-grooming` | Consolidated intake for component-level design work; classifies and routes to discussion or design update, and is the default return point for accumulated plan design issues | "groom this", "help decide design path", "which component design workflow", "plan has architectural issues", "accumulated architectural issues in this plan", "shape this feature before planning" | system-level architecture decomposition → `/devenv-create-blueprint`; pure task planning with no architecture decision → `/devenv-refine-implementation-plan`; coding execution → `/devenv-pair-programming` or `/devenv-delegation` |
 | `/devenv-refine-blueprint` | Revise an existing blueprint, preserving every prior decision | "refine the blueprint", "update the blueprint", "revise the architecture", "the blueprint needs updating" | creating a new blueprint → `/devenv-create-blueprint`; ad-hoc one-line edits (just edit the file); structural roadmap changes → `/devenv-refine-roadmap`; status-only roadmap sync → `/devenv-update-roadmap` |
 | `/devenv-create-roadmap` | Phased delivery sequencing from a blueprint and/or requirements doc, with optional GH issue creation. Canonical entry point for bulk issue creation from a planning doc. | "create a roadmap", "plan delivery order", "build a roadmap from this blueprint", "build a roadmap from these requirements", "lay out the delivery phases" | low-level task breakdown → `/devenv-create-implementation-plan`; syncing roadmap state from issues → `/devenv-update-roadmap`; structural revisions → `/devenv-refine-roadmap`; nothing to plan from yet → `/devenv-gather-requirements` or `/devenv-create-blueprint` |
 | `/devenv-refine-roadmap` | Structurally revise an existing roadmap — split steps, re-sequence, add components | "refine the roadmap", "revise the roadmap", "split this step", "re-sequence the phases", "the roadmap structure needs updating" | status-only sync from issues/PRs → `/devenv-update-roadmap`; creating a new roadmap → `/devenv-create-roadmap`; revising the underlying blueprint → `/devenv-refine-blueprint` |
@@ -176,17 +176,19 @@ For in-flight work: check where things stand, progress the plan, ship.
 
 ### Chain D — From raw idea to merged PR (full lifecycle)
 
-For new systems or features where requirements are undefined. Starts with requirements capture, then plans, implements, and ships.
+For new systems or features where requirements are undefined. Default happy path: requirements, then blueprint, then component design, then executable plan, then delivery.
 
 ```
 /devenv-gather-requirements
-  → /devenv-plan-from-spec           (or /devenv-create-implementation-plan for each phase)
-    → /devenv-pair-programming       (high-impact phases)
-    → /devenv-delegation             (mechanical phases)
-    → /devenv-pre-commit
-    → /devenv-open-pr
-      → /devenv-address-pr-comments
+  → /devenv-create-blueprint
+    → /devenv-grooming
+      → /devenv-create-implementation-plan
+        → /devenv-pair-programming       (high-impact phases)
+        → /devenv-delegation             (mechanical phases)
         → /devenv-pre-commit
+        → /devenv-open-pr
+          → /devenv-address-pr-comments
+            → /devenv-pre-commit
 ```
 
 **Start here:** `/devenv-gather-requirements`
@@ -252,18 +254,40 @@ For legacy or underdocumented systems that need to be understood before any new 
 
 ### Chain H — Existing-component feature discovery to delivery
 
-For adding a feature to an existing component when the implementation approach is not yet clear. Start with design option-weighing, optionally capture the design as an issue artifact, then plan/implement only if needed.
+For adding a feature to an existing component when the implementation approach is not yet clear. Start with grooming; use design-discussion only when one bounded question needs deeper option-weighing; then flow back into plan updates and execution.
 
 ```
 /devenv-grooming
-  → /devenv-design-discussion
-  → /devenv-grooming                     (optional: if the component design doc must be updated)
-  → /devenv-plan-from-spec               (optional: if the design doc/issue comment should drive plan generation)
-  → /devenv-create-implementation-plan   (optional: interview-driven planning instead of spec-driven)
+  → /devenv-design-discussion            (only when one bounded blocker needs deeper option-weighing)
+  → /devenv-grooming                     (when the component design artifact needs updating)
+  → /devenv-create-implementation-plan or /devenv-refine-implementation-plan
     → /devenv-pair-programming / /devenv-delegation
 ```
 
 **Start here:** `/devenv-grooming`
+
+---
+
+### Chain I — Plan trouble during execution
+
+For work already in execution when the plan starts to hurt. Route by problem size rather than sending every problem back through the same step.
+
+```
+/devenv-pair-programming or /devenv-delegation
+  → stay in execution                     (small local problem / question)
+  → /devenv-design-discussion            (single bounded blocker)
+    → /devenv-refine-implementation-plan
+      → back to execution
+  → /devenv-grooming                     (accumulated questions / architectural drift)
+    → /devenv-refine-implementation-plan
+      → back to execution
+  → /devenv-refine-blueprint             (if grooming finds the real problem is upstream)
+    → /devenv-grooming
+      → /devenv-refine-implementation-plan
+        → back to execution
+```
+
+**Start here:** stay in the current execution skill unless it is clear that the problem is larger than a local plan update
 
 ---
 
