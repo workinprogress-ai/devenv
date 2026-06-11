@@ -108,7 +108,20 @@ Ask, if not provided: GH issue number? Path to a plan file? Ad-hoc (no plan)?
 
 **If plan file:** read it.
 
-**If missing or too thin** (no task list, no ACs, or no usable human-facing phase structure): warn the user; offer (a) proceed ad-hoc, (b) draft or repair a plan via [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) or [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md), (c) abort. Wait for an answer.
+**If missing or too thin** (no task list, no ACs, or no usable human-facing phase structure): offer to run a **collaborative inline breakdown** before execution rather than sending the user away to a separate skill invocation. See [Inline Plan Breakdown](#inline-plan-breakdown) below. Alternatively offer (a) proceed ad-hoc, (b) invoke [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) separately, (c) abort. Wait for an answer.
+
+### 2a. Inline Plan Breakdown
+
+Use this path when a plan is missing or too thin and the user wants to proceed within the same session.
+
+1. **Understand the goal.** Ask for a one-paragraph description if not already given. For a GH issue, read the body; treat its description as the starting brief.
+2. **Sketch phases collaboratively.** Propose 2–4 phases — name each with a goal and rough end state. Keep it conversational; one exchange per phase if needed.
+3. **Surface key decisions up front.** Ask: what is the riskiest or most uncertain part? What is already decided? Any constraints (timeline, API compatibility, team skills)?
+4. **Propose acceptance criteria.** Infer from the goal; present with `AC-N` identifiers and `*(inferred)*` markers. Confirm before writing.
+5. **Write the plan.** Once the user approves the sketch, write `Implementation_plan-issue-<N>-001.md` (or a named file agreed with the user) using the standard plan template conventions. Keep tasks concrete: each needs a size label `[S/M/L]`, a brief description, and a `Files:` bullet where known.
+6. **Transition to execution.** Load the new file as `<plan_file>` and continue from step 2b (drift check) onward.
+
+This is a pairing activity — sketch together, don't lecture. Propose, wait for response, adjust. The goal is a plan both parties trust before touching any files.
 
 ### 2b. Quick drift check
 
@@ -300,6 +313,53 @@ Default output should be concise (3-6 lines):
 > **Next:** [option A/B/C]
 
 Use an expanded format only when scope or drift justifies it (multiple tasks/phases, meaningful off-plan work, or user request for detail).
+
+## Task Decomposition
+
+When a task is `[L]` and either party recognises it spans multiple distinct concerns — before driving or assigning it — offer to decompose it inline.
+
+**Triggers:**
+- The AI is about to drive an `[L]` task and can identify at least two meaningfully separate sub-concerns.
+- The user signals the task feels too big (*"this one is huge"*, *"where do we even start"*, *"can we break this down?"*).
+- The task has a `decision:` item that would branch the remaining work significantly.
+
+**Never decompose silently.** Always propose and wait for explicit approval.
+
+**How to decompose:**
+
+1. Propose the sub-tasks in chat — one line each with a size label:
+
+   > *"3.1 is quite broad. I'd break it into:*
+   > *3.1.1 [S] — extract the interface*
+   > *3.1.2 [M] — implement the adapter*
+   > *3.1.3 [S] — wire tests*
+   > *OK to rewrite 3.1 like this?"*
+
+2. Wait for explicit agreement before touching the plan file.
+
+3. Once approved, rewrite the plan: convert the original `[L]` task into a **header line with no checkbox**, remove its detail bullets in favour of a one-sentence summary, then insert the sub-tasks immediately below it:
+
+   ```markdown
+   **3.1 [L] Original task title** — decomposed; see 3.1.1–3.1.3
+
+   - [ ] **3.1.1 [S] Extract the interface**
+     ...
+   - [ ] **3.1.2 [M] Implement the adapter**
+     ...
+   - [ ] **3.1.3 [S] Wire tests**
+     ...
+   ```
+
+4. Record the decomposition in `## Revision History`:
+   ```
+   - Decomposed 3.1 → 3.1.1, 3.1.2, 3.1.3 (task too broad to execute atomically)
+   ```
+
+5. Tick sub-tasks individually via `markdown-plan-complete-task 3.1.1`, `3.1.2`, etc. The `X.Y.Z` format is fully supported. The parent header (3.1) has no checkbox and is never ticked — it is complete when all its sub-tasks are.
+
+**Depth limit:** one level of decomposition only (`X.Y` → `X.Y.Z`). If a sub-task still feels too large, raise a plan revision rather than nesting further.
+
+---
 
 ## Task Handoff Protocol
 
