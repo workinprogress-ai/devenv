@@ -120,6 +120,20 @@ If the user indicates they are in `/devenv-pair-programming` or `/devenv-delegat
 
 Why: it is the handoff receiver for escalation records captured in the plan's existing sections and `## Revision History`.
 
+If refine-plan classifies the issues as architectural, it will route onward to a design skill. The full escalation chain is:
+
+```
+/devenv-pair-programming or /devenv-delegation
+  → escalation handoff written to plan
+  → /devenv-refine-implementation-plan (triage)
+    → /devenv-design-discussion <plan>   (approach not settled)
+    → /devenv-redesign-component <plan>  (approach fundamentally wrong)
+  → back to /devenv-refine-implementation-plan (once design resolved)
+  → back to execution skill
+```
+
+If the user provides a plan file/issue directly to a design skill (skipping refine-plan), both design skills can read the plan and orient themselves using the [plan architectural review protocol](../common/references/plan-architectural-review.md).
+
 ## Output format
 
 ### Single-skill recommendation

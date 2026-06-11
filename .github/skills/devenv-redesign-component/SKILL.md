@@ -27,6 +27,7 @@ Trigger phrases:
 - "the original design is no longer right"
 - "this component has evolved in the wrong direction"
 - A design discussion (`/devenv-design-discussion`) concluded that a fundamental approach change is needed
+- An implementation plan is provided with architectural fault points identified via the plan architectural review protocol (escalation handoff or direct user request)
 
 Do **not** use for:
 
@@ -61,6 +62,18 @@ Track open questions as `Q-NNN` items. See [Q-NNN format](../_conventions.md#ope
 ---
 
 ## Procedure
+
+### Phase 0a (conditional): Plan intake — load only when a plan is provided
+
+If the user provides an `Implementation_plan-*.md` file path or issue number alongside or instead of a component path:
+
+1. Load and follow the [plan architectural review protocol](../common/references/plan-architectural-review.md).
+2. Produce the scoped architectural brief.
+3. Present the brief and confirm with the user.
+4. Use the brief to pre-populate Phase 0 answers: the concern, constraints, and rejected alternatives are already in the plan. Skip re-asking what the plan answers.
+5. Identify the relevant component from the plan context and proceed to confirm the `Architecture_and_implementation.md` path before continuing.
+
+If no plan is provided, skip Phase 0a entirely.
 
 ### Phase 0 — Intake
 

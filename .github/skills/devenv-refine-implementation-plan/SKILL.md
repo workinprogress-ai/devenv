@@ -54,6 +54,10 @@ Use `vscode_askQuestions` to gather:
 - **Pending questions** — whether any unresolved questions should be added, answered, moved inline under a task/phase, or spun out into a follow-up issue.
 - **Decision points** — identify unresolved implementation decisions that could block phase execution; resolve them during refinement when possible.
 - **Escalation handoff closure** — if an escalation marker exists, confirm each recorded blocker/question and decide: resolve now, defer with explicit trigger, or re-scope tasks/phases.
+- **Architectural fault classification** — if blockers/questions are architectural rather than task-scope adjustments, load and follow the [plan architectural review protocol](../common/references/plan-architectural-review.md) to locate fault points and classify type. If architectural issues are confirmed, produce a scoped brief and recommend the appropriate design skill with the plan path as argument:
+  - Option-weighing / approach not settled → `/devenv-design-discussion <plan-path>`
+  - Current approach fundamentally wrong → `/devenv-redesign-component <plan-path>`
+  Do not continue plan refinement for architectural items until the design question is resolved.
 - **Legacy code exposure** — if new tasks will introduce implementations that coexist with existing legacy code in the same files across multiple phases, flag the issue: the plan likely needs an early cleanup phase. See [phase-rules.md](../devenv-create-implementation-plan/references/phase-rules.md) for available patterns (demolition, hollow-out, rename suffix, branch by abstraction). Surface the viable options and a recommendation before writing new tasks; don't silently pick one.
 
 Do not assume. If the new requirements imply renumbering or reordering, flag it and ask before proceeding.

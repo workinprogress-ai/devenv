@@ -1,7 +1,7 @@
 ---
 name: devenv-design-discussion
 description: 'Opinionated thinking-partner for working through design and architectural approaches at any zoom level — from systemic decomposition down to a single component''s internal shape. USE WHEN the user says "discuss the design", "talk through the approach", "weigh the options", "what''s the right way to structure this", "discuss an architectural change", or needs to decide the best approach for a new feature in an existing component before implementation planning. Surfaces forces and trade-offs, narrows to 3–4 viable options, pushes back on weak reasoning, arrives at an explicit recommendation. Optionally produces a Design-<topic>-NNN.md that can be posted to a GH issue and used as upstream input to implementation planning. DO NOT USE FOR fuzzy articulation with no opinions (use /devenv-rubber-duck), feasibility prototyping (use /devenv-spike), formal architectural decomposition (use /devenv-create-blueprint), or task breakdown when the approach is already chosen (use /devenv-create-implementation-plan).'
-argument-hint: A design question, architectural choice, or approach to weigh
+argument-hint: 'A design question, architectural choice, approach to weigh, or Implementation_plan-*.md / issue number to diagnose'
 user-invocable: true
 ---
 
@@ -16,6 +16,7 @@ An interactive thinking partner with strong opinions about good design. The user
 - The user is choosing between 2–4 ways to structure something and wants opinionated guidance.
 - An architectural change is being considered and the user wants to think through approaches and implications before committing to one.
 - A feature is being added to an existing component and the best approach is still unclear.
+- An implementation plan is provided (file path or issue number) and contains architectural fault points that need design reconsideration — either via an escalation handoff from pair/delegation or by direct user request.
 
 If the user wants to articulate a fuzzy thought without opinions or pressure, use [`/devenv-rubber-duck`](../devenv-rubber-duck/SKILL.md). If the question is "is this feasible?" and needs throwaway code to answer, use [`/devenv-spike`](../devenv-spike/SKILL.md). If the design is already settled and you want to formalise it, use [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) (systemic) or [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) (component-level).
 
@@ -105,9 +106,21 @@ After initial context is loaded (problem, constraints, repo context), switch to 
 - Use mini-recaps between phases (1-3 bullets), not full rewrites of the whole conversation.
 - If the user wants freeform brainstorming, stay interactive and defer structured write-up until asked.
 
+### Phase 0 (conditional): Plan intake — load only when a plan is provided
+
+If the argument is an `Implementation_plan-*.md` file path or a GitHub issue number, or if the user references a plan with phrases like "there is an architectural problem in this plan" or "look at this plan":
+
+1. Load and follow the [plan architectural review protocol](../common/references/plan-architectural-review.md).
+2. Produce the scoped architectural brief defined in that protocol.
+3. Present the brief to the user for confirmation.
+4. Once confirmed, **skip Phase 1 questions that are already answered by the brief** — the plan already contains the problem framing, constraints, and rejected alternatives.
+5. Open the session at the first genuinely unresolved question from the brief.
+
+If no plan is provided, skip Phase 0 entirely.
+
 ### Phase 1: Understand the problem
 
-Ask in this order; skip what the user has already answered:
+Ask in this order; skip what the user has already answered (and skip any already covered by the Phase 0 brief):
 
 1. **What is the specific problem?** Push past "we need a better X" to "X is failing at Y because Z."
 2. **Why now?** What changed — load, requirements, understanding, scope — that makes this decision urgent?
