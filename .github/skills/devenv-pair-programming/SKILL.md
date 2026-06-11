@@ -39,6 +39,7 @@ Do **not** use for:
 5. **Push back honestly.** Disagreement is a feature, not a bug. Always with a reason.
 6. **Discussion is not a directive.** When the user asks for an opinion or thinks out loud, respond in kind — don't implement. (See [Discussion vs. Implementation](#discussion-vs-implementation) below.)
 7. **Plan stewardship is active work.** During pairing, keeping the plan honest is part of the job: notice new scope, capture unresolved questions, and revise the plan when the work proves it needs revision.
+8. **No stealth "make-it-work" moves.** If the easiest path is a shim, adapter, compatibility extension, temporary bridge, or any workaround whose main purpose is to force tests/build to pass, stop and collaborate first. Such workarounds are prohibited unilaterally and only permitted with explicit user agreement. Follow the shared [workaround decision policy](../common/references/workaround-decision-policy.md).
 
 ## Personality
 
@@ -194,6 +195,28 @@ Scan the upcoming phase for `decision:` bullets. If any exist:
 
 Don't proceed to the task split until the user has acknowledged each.
 
+### 6a. AC checkoff at phase kickoff (required)
+
+Before starting work in any new phase, review the accepted AC list and check off any AC that is now clearly satisfied by work completed in previous phases.
+
+- If objectively verifiable, run `markdown-plan-complete-ac AC-N [<plan_file>]` and state the evidence.
+- If judgment is required, ask the user and check it off only after confirmation.
+- If still not met, leave it unchecked and call out what remains.
+
+Do this at every phase transition, not only at the end of the plan.
+
+### 6aa. Pending-question surfacing at phase kickoff (required)
+
+Before task split for a new phase, surface unresolved questions that matter to that phase so they are not lost:
+
+- Scan the phase for inline `[QUESTION] ...` items and `decision:` task metadata.
+- Scan `## Pending Questions` and include only items relevant to the upcoming phase.
+- Present a compact checklist with status (`resolved`, `needs answer now`, `deferred by user`).
+
+Do not proceed to implementation until the user has acknowledged each `needs answer now` item. If an item is intentionally deferred, state the deferral explicitly in chat and point to where it is tracked in the plan.
+
+Apply the shared [decision resolution protocol](../common/references/decision-resolution-protocol.md) for classification, option framing, and plan updates.
+
 ### 6b. Brain bootup
 
 **Skip by default.** Only run if the user says "catch me up", "bootup:", or "orient me" — or if session memory shows this is first contact with the codebase.
@@ -289,7 +312,11 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 1. **Confirm assignment.** *"→ Taking 2.1 — retry policy in BulkSyncWorker. You're on 2.2?"*
 2. **Narrate as you go.** Talk through non-obvious decisions while implementing, not just at the end — this lets the navigator catch problems early.
 3. **Ask before assuming.** Any non-trivial choice → stop and ask.
-4. **If you hit a wall, stop immediately.** A wall means the intended approach is no longer clear, repeated local attempts are not converging, or the next move would be workaround, placeholder, fallback, or other garbage code whose real purpose is just to get unstuck. Do **not** add hack code to preserve momentum. Summarize the blocker, name the tempting bad workaround if there is one, and ask the user for help or direction.
+4. **If you hit a wall, stop immediately.** A wall means the intended approach is no longer clear, repeated local attempts are not converging, or the next move would be workaround, placeholder, fallback, or other garbage code whose real purpose is just to get unstuck. Do **not** add hack code to preserve momentum.
+
+   Compatibility note (strict): test-only shims/adapters/extensions that recreate old APIs to bypass refactor fallout are treated as workaround code by default. They are prohibited unilaterally and only allowed with explicit user permission. First present: (a) root cause, (b) clean options, (c) risk/tradeoff, and ask for explicit approval. Follow [workaround decision policy](../common/references/workaround-decision-policy.md).
+
+   Summarize the blocker, name the tempting bad workaround if there is one, and ask the user for help or direction.
 5. **Track and hand back.** Remove any forward DEVENV comments whose work just completed. Update the detailed task list as work becomes clearly complete, and feel free to add or reword tasks when that is the smallest faithful way to keep the tracking current. Ask before major changes to phases, goals, or ACs. Then format the handback:
 
    > ✅ **Done with 2.1**
@@ -384,6 +411,26 @@ Use a short format like:
 > *"🛑 I hit a wall in [`BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs): the retry wrapper needs request metadata that this layer does not have. I checked the neighboring client path and there isn't an existing pattern to copy. I am **not** going to fake it with a nullable fallback just to get unstuck. Want to (a) pass the metadata through, (b) move this lower, or (c) take a different approach?"*
 
 Two failed attempts on the same local problem is enough. Do not keep thrashing.
+
+### Complexity Escalation (pair threshold)
+
+Pair programming can discuss architecture and approach, but it should still recognize when discussion has become plan-reconsideration territory.
+
+Use the pair threshold in the shared [decision resolution protocol](../common/references/decision-resolution-protocol.md): if complexity crosses that threshold, recommend plan reconsideration before further implementation.
+
+When triggered:
+
+1. Pause coding for the phase.
+2. Summarize what is known, unknown, and at risk.
+3. Ask for explicit confirmation to escalate now.
+4. If confirmed (or user-initiated), write an escalation handoff record into the plan using existing sections (phase Watch Outs / Decisions, task `decision:` metadata + inline `[QUESTION]`, plan-level `## Pending Questions` only when truly plan-level, and a dated `## Revision History` entry).
+   - The `## Revision History` entry must include the deterministic marker line: `[ESCALATION-HANDOFF] source=pair phase=<N> status=<needs-refine|user-deferred>`.
+5. Recommend `/devenv-refine-implementation-plan` when the plan no longer cleanly fits reality.
+6. Resume implementation only after explicit user direction.
+
+Use the required format and completeness checklist in [decision-resolution-protocol.md](../common/references/decision-resolution-protocol.md).
+
+If the user independently decides to return to planning, treat that as authoritative and run the same escalation handoff flow without applying the threshold gate.
 
 ### Pushback example
 
@@ -770,6 +817,8 @@ Before declaring a phase complete, run the committability checklist (see [phase-
 Coverage drops are blockers — surface and resolve before declaring complete. If the gate passes: *"✅ Gate clear — phase is committable."*
 
 Pending questions are also blockers unless they have been explicitly deferred or externalized. A phase is not complete while it still contains unresolved `[QUESTION]` items that affect execution of that phase.
+
+If this is the **final implementation phase**, no AC may remain unchecked. Before declaring final-phase completion, verify every AC is either `[x]` or explicitly deferred/deprecated. If any AC remains undone, the gate is blocked and final-phase completion cannot be declared.
 
 ## Session Wrap-Up
 

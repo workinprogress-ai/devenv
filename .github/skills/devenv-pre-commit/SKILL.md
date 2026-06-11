@@ -53,6 +53,17 @@ In order, but **run all of them and report all failures together** (don't stop o
 3. **Type-check** (e.g. `tsc --noEmit`, `pyright`, `dotnet build`)
 4. **Tests** (e.g. `pnpm test`, `dotnet test`)
 
+## Compatibility Layer Gate
+
+Before final sign-off, run a quick checklist for suspicious compatibility-layer changes introduced in this work:
+
+1. Search changed files for shim-like markers (`shim`, `compat`, `adapter`, `extension`, `legacy`, `bridge`).
+2. Identify any newly added test-only compatibility extensions or adapters that recreate old API shapes.
+3. If found, require explicit confirmation that the user approved this workaround path.
+4. If approval is not explicit, do not mark pre-commit as clear; report a blocker and ask whether to remove or revise the workaround.
+
+Use the shared [workaround decision policy](../common/references/workaround-decision-policy.md).
+
 For each check, capture exit code + stderr/stdout. After all are complete, present a single report.
 
 ## Report format
@@ -107,6 +118,7 @@ Per-tool sections only when there are failures. Skip the "Passed" section if eve
 - **Applying auto-fixes without confirm** — even "obviously safe" formatter fixes need confirmation; the user might be in the middle of staging.
 - **Suppressing failures** — don't filter out warnings the project considers errors. Report what the tool reported.
 - **Treating warnings as failures (or vice versa)** — match the project's strictness. If the project's CI fails on warnings, so should this skill.
+- **Clearing pre-commit with unapproved workaround shims** — compatibility bridges added only to force tests/build to pass require explicit user agreement.
 
 ## Sibling skills
 

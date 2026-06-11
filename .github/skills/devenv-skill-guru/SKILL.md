@@ -85,6 +85,7 @@ Use the registry to match the user's answers to a skill:
    - Architecture guardrail: if the user primarily wants alternatives/trade-offs/recommendation, route to `/devenv-design-discussion` first.
    - Architecture guardrail: if the user says the current approach is wrong, route to `/devenv-redesign-component`, not refine.
    - Build guardrail: do not route high-impact build phases to `/devenv-delegation`.
+   - Escalation guardrail: if the user is mid-execution and asks to return to planning, says they are blocked by unresolved decisions, or references escalation/handoff from pair/delegation, route to `/devenv-refine-implementation-plan`.
    - Bug-hunt guardrail: for broad/focused bug hunting (including "find race conditions", "hunt null bugs", "audit auth module for bugs"), route to `/devenv-tech-debt-audit`.
    - Bug-investigation guardrail: for one known failing behavior/issue/incident, route to `/devenv-bug-fix`.
 4. **Check for a chain** — if the user's goal implies a multi-step workflow (e.g. "I want to implement this whole story", "from idea to PR"), look up the matching chain in the registry and recommend the full sequence.
@@ -110,6 +111,14 @@ Route as follows:
    - New component from scratch → `/devenv-create-technical-design`
 
 If the user answers "not sure yet", treat it as "decide architecture/design direction first" and route to `/devenv-design-discussion`.
+
+## Escalation routing shortcut
+
+If the user indicates they are in `/devenv-pair-programming` or `/devenv-delegation` and wants to send work back to planning (or says they are blocked on unresolved decisions that need plan changes), recommend:
+
+`/devenv-refine-implementation-plan`
+
+Why: it is the handoff receiver for escalation records captured in the plan's existing sections and `## Revision History`.
 
 ## Output format
 

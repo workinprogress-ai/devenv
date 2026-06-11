@@ -1,6 +1,6 @@
 # Implementation Plan Template
 
-Copy this skeleton verbatim and fill it in. All top-level headings are required, except `## Appendix` and `## Pending Questions`, which are optional.
+Copy this skeleton verbatim and fill it in. All top-level headings are required, except `## Pending Questions`; `## Appendix` is optional for straightforward work and required for medium/high-complexity plans derived from upstream design artifacts.
 
 ```markdown
 # <Plan Title — short and specific>
@@ -76,6 +76,7 @@ this section alone.>
 **Watch Outs / Decisions:**
 
 - <Non-obvious risk, tradeoff, or likely decision>
+- [QUESTION] <Phase-level unresolved question that must be answered before related implementation can proceed>
 
 **Deliverables:**
 
@@ -145,6 +146,7 @@ this section alone.>
   - <Sub-step>
   - Files: `<workspace-root-relative/path/File.cs>`
   - decision: <the choice to make, and why it's non-obvious> (omit if none)
+  - [QUESTION] <Task-level unresolved implementation detail, if any>
   - depends on 1.2
 
 - [ ] **2.2 [L] <Task title>** ([additional context](#task-22--short-slug))
@@ -171,13 +173,38 @@ this section alone.>
 
 ---
 
-## Appendix *(optional)*
+## Appendix *(optional unless required by source complexity)*
 
 ### Deep Context for Pairing *(optional)*
 
 Optional supplemental context for complex or high-risk plans. Keep this
 section concise (roughly 10-25 lines) so it remains an appendix, not a second
 plan.
+
+Appendix is required when the plan is derived from an upstream design artifact
+(design doc, RFC, Blueprint, Redesign doc, or equivalent issue comment) and the
+implementation is medium/high complexity or risk. In that case, summarize the
+important design context directly in the appendix, do not rely on links alone.
+
+Complexity triggers (appendix required when source is design-derived and either condition holds):
+
+- Any **1** high-complexity trigger is true, or
+- Any **2** medium-complexity triggers are true.
+
+High-complexity triggers:
+
+- Cross-component or cross-repo coordination with ordering constraints.
+- Data model or contract changes that require migration/compatibility handling.
+- Security/compliance constraints materially shaping implementation.
+- Rollout/operational risk requiring staged deployment, fallback, or backfill strategy.
+
+Medium-complexity triggers:
+
+- Three or more phases with non-trivial dependencies.
+- Multiple external integrations or interface boundaries affected.
+- Significant legacy/new-code coexistence requiring transition strategy.
+- Performance/SLO constraints that influence architecture or sequencing.
+- More than one major design alternative rejected for explicit reasons.
 
 Recommended contents:
 
@@ -186,6 +213,9 @@ Recommended contents:
 - **Decision log (short):** key choices and rejected alternatives with one-line reasons.
 - **Known unknowns:** assumptions to validate during implementation.
 - **Canonical references:** links to source files/issues/docs that answer likely pairing questions.
+- **Upstream design summary (required when applicable):** key design decisions,
+  constraints/invariants, interface contracts, migration/rollout implications,
+  and explicitly rejected alternatives that shape implementation choices.
 
 ---
 
@@ -242,8 +272,12 @@ enough to execute the task.>
 - **Context and Orientation** — write this so it still helps a human who never reads past it.
 - **Context and Orientation** — write this so it still helps a human who never reads past it. Aim for concise depth (usually 2-4 sentences per subsection) and repo-specific details over generic phrasing.
 - **Phases** — this is the human-oriented breakdown. Give enough goal, end-state, strategy, AC coverage, and watch-out information for someone to start a phase without living in the task list. Prefer at least two concrete strategy bullets and two concrete deliverables per phase when scope allows.
+- **Decision placement** — unresolved execution decisions should appear in both places: phase-level under **Watch Outs / Decisions** and task-level as `decision:` metadata on the earliest affected task.
+- **Pending questions** — resolve as many as possible during planning. Keep unresolved items only for implementation-level details or explicit user-requested deferral.
+- **Question placement** — phase/task-specific unresolved questions stay inline as `[QUESTION] ...`; `## Pending Questions` is only for plan-level unresolved items.
 - **Detailed Task List blockquotes** — keep these short. They are there to summarise deliverables and point back to the richer phase context, not to carry the full orientation burden.
-- **Appendix** — optional. Use `## Appendix` only when deeper pairing context is needed; keep it tightly scoped so it does not create noise in normal plan reads.
+- **Appendix** — optional for straightforward work. Required for medium/high-complexity plans derived from upstream design artifacts; summarize the important design context directly (decisions, constraints, contracts, migration notes, rejected alternatives), then link references.
+- **Appendix complexity trigger** — treat appendix as required when design-derived work hits the threshold: any 1 high-complexity trigger or any 2 medium-complexity triggers.
 - **Pending Questions** — optional. Place it immediately above `## Reference Information`. Use it only for unresolved plan-level questions; keep task- and phase-local questions inline as `[QUESTION]` bullets where they belong.
 - **Phase boundaries** — each phase must end committable. If a phase can't, split it.
 - **Task headers** — bold, with size label, optional inline `(additional context)` link.

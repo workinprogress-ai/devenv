@@ -57,11 +57,20 @@ Assemble the PR draft from, in order:
 
 ## PR title
 
-Format: `<type>: <short description> (refs #N)` or `<type>: <short description> (closes #N)`.
+Format: `<type>(<scope>): <short description>` or `<type>: <short description>`.
 
-- `<type>` matches the project's commit convention if present (`feat`, `fix`, `chore`, `docs`, `refactor`, `test`). Default to `feat` for new functionality, `fix` for bug fixes, otherwise infer from plan phase name.
-- Keep under 72 chars. If the phase name is long, summarize.
-- `closes #N` only if the PR fully resolves the issue. Otherwise `refs #N`.
+- `<type>` must be a conventional-commit type and should match the actual work:
+   - `feat` for new user-facing capability or workflow
+   - `fix` for bug fixes or regressions
+   - `docs` for documentation-only changes
+   - `test` for test-only changes
+   - `refactor` for structural changes without behavior change
+   - `chore` for maintenance, tooling, or repository housekeeping
+   - `build` / `ci` / `perf` / `style` / `revert` when those are the dominant change
+- Use a scope only when it is obvious from the work and would make the title clearer; otherwise omit it.
+- Keep the title under 72 chars. If the phase name is long, summarize the outcome instead of copying it.
+- Do **not** put `refs #N` / `closes #N` in the title. Put issue links in the **Related** section of the body instead.
+- If the work is mixed and the dominant type is unclear, ask the user before showing the draft rather than guessing.
 
 Show the proposed title; the user can edit before submission.
 
@@ -93,6 +102,8 @@ Show the proposed title; the user can edit before submission.
 - Implementation plan: [Implementation_plan-X.md](Implementation_plan-X.md)
 - Session handoff: <link to comment, if any>
 ```
+
+Issue references belong in the body, not the title, so the squash commit title stays conventional-commit compliant.
 
 Sections with no content get omitted — don't pad.
 

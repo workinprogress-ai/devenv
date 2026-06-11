@@ -214,7 +214,7 @@ install_os_packages_round1() {
     sudo apt install -y \
         curl wget gnupg bash-completion iputils-ping uuid fzf gcc g++ make gh \
         xmlstarlet redis-tools cifs-utils xmlstarlet software-properties-common \
-        sshfs apt-transport-https ca-certificates bats shellcheck 
+        sshfs apt-transport-https ca-certificates bats shellcheck ripgrep 
 }
 
 # Add specialized package repositories (HashiCorp, Kubernetes)

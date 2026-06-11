@@ -293,7 +293,7 @@ pr-create-for-merge <title> --issue <number> [--base <branch>]
 
 **Required Options:**
 
-- `<title>`: PR title (should follow Conventional Commits format)
+- `<title>`: PR title (must follow Conventional Commits format; keep issue refs in the body, not the title)
 - `--issue <number>`: Issue number this PR addresses, OR use `--no-issue` if not associated with an issue
 
 **Optional Options:**
@@ -321,6 +321,7 @@ pr-create-for-merge "docs: update README" --issue 789 --draft --reviewer @john
 **Features:**
 
 - Validates Conventional Commits format for title
+- Requires issue references in the body instead of the title
 - Supports targeting any branch via `--base` option
 - Can add reviewers, assignees, and labels
 - Generates PR description from commits

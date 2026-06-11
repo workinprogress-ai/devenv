@@ -66,6 +66,7 @@ Use `vscode_askQuestions` to confirm/fill gaps. Always cover:
 - Acceptance criteria — **infer these from the goals, scope, and codebase context rather than asking the user to define them directly.** Draft a candidate list and present it for the user to confirm or adjust. Mark each as `*(explicit)*` if it was stated directly in the input, or `*(inferred)*` if you deduced it from goals, "must"/"should" language, or domain context. The user is better positioned to recognise a good AC than to produce one from scratch.
 - Scope boundaries and explicit non-goals
 - Known risks / unknowns
+- Decision points / pending questions — try to resolve as many as possible during planning. Leave questions pending only when they are implementation-level details or the user explicitly asks to defer.
 - Target repo path (confirm)
 - Any preferred phase breakdown or constraints
 - Whether throwaway scaffolding tests are expected
@@ -89,14 +90,24 @@ Use the [plan template](./references/plan-template.md). Follow:
 
 - [Task formatting rules](./references/task-format.md) — atomic `- [ ] **N.N [S|M|L] Title**` tasks with descriptive sub-bullets, then `Files:` / `decision:` / `depends on` metadata, and an inline `(additional context)` link when needed
 - [Phase rules](./references/phase-rules.md) — Phase 1 is **Discovery & test scaffolding**; the last phase is **Cleanup & docs**; every phase must end committable (tests pass, coverage doesn't regress, single-PR sized)
-- The plan must follow this section order: `## Goals and Acceptance Criteria`, `## Context and Orientation`, `## Phases`, `## Detailed Task List`, `## Appendix` *(optional)*, `## Pending Questions` *(optional)*, `## Reference Information`, `## Additional Task Context`, `## Revision History`
+- The plan must follow this section order: `## Goals and Acceptance Criteria`, `## Context and Orientation`, `## Phases`, `## Detailed Task List`, `## Appendix` *(optional unless required by source complexity)*, `## Pending Questions` *(optional)*, `## Reference Information`, `## Additional Task Context`, `## Revision History`
 - `## Goals and Acceptance Criteria` must include an end-state paragraph plus important scope boundaries before the AC checklist
 - `## Context and Orientation` must be useful on its own to a human who may never read the task list
 - `## Context and Orientation` should be concise but substantive: each subsection should usually be 2-4 sentences with concrete repo-specific details (affected components, current behaviour, target behaviour, and constraints), not placeholder-style one-liners
 - `## Phases` is the human-facing phase summary section: each phase gets goal, end-state vision, suggested strategies, AC links, watch-outs / decisions, and deliverables
+- Resolve pending questions as early as possible during plan creation. Unresolved items are allowed only for implementation-level details or explicit user deferral.
+- Every unresolved decision that can block execution must appear in both places:
+  - `## Phases` under the relevant phase's **Watch Outs / Decisions**
+  - `## Detailed Task List` as a task-level `decision:` metadata line on the earliest task where the decision matters
+- Pending-question placement is strict:
+  - phase/task-specific unresolved questions stay inline under the relevant phase/task as `[QUESTION] ...`
+  - only plan-level unresolved questions belong in `## Pending Questions`
 - `## Phases` should carry practical execution guidance, not just labels: include at least 2 suggested strategies and at least 2 concrete deliverables per phase whenever the scope permits
 - `## Detailed Task List` repeats the same phases with a short deliverable-summary blockquote and points back to the fuller phase context above
-- `## Appendix` is optional supplemental content. Use it for deep pairing context only when complexity/risk is medium-high. Keep it bounded (roughly 10-25 lines) so it stays low-noise.
+- `## Appendix` is optional only for straightforward work. It is **required** when the plan is derived from an upstream design artifact (design doc, RFC, Blueprint, Redesign doc, or equivalent issue comment) and the work is medium/high complexity or risk.
+- Use the explicit complexity triggers in [plan-template.md](./references/plan-template.md): appendix is required when design-derived work meets the threshold (any 1 high-complexity trigger, or any 2 medium-complexity triggers).
+- When required, the appendix must summarize the important upstream design context, not just link to it: key decisions, constraints/invariants, interface contracts, migration/rollout considerations, and any explicitly rejected alternatives that affect implementation sequencing.
+- Keep the appendix bounded (roughly 10-25 lines) so it stays focused and actionable.
 - `## Pending Questions` is optional and sits immediately above `## Reference Information`. Use it only for unresolved plan-level questions that matter to execution; task- or phase-specific questions should be placed inline below the relevant task/phase using `[QUESTION] ...`
 - Reference Information uses a **table** of key files with a relevance column, plus a separate links sub-list
 - Mark dependencies as `depends on N.N` inline; readers infer parallelism
@@ -137,7 +148,22 @@ Ask, verbatim:
 
 > Update issue #N description with this plan? (runs `issue-update N --body-file <path>`)
 
-Only after explicit confirmation, run:
+Only after explicit confirmation, run this preservation check first:
+
+- Fetch the current issue description/body.
+- If the existing body is significant, preserve it in a comment before replacing the body with the plan.
+- Use this significance rule:
+  - Significant when the current body is substantive narrative context (for example roughly 8 or more non-empty lines, or roughly 500+ characters), and not just a short placeholder.
+
+If significant, post a comment with this exact heading at the top:
+
+```markdown
+# Original Issue Description
+
+<original issue body>
+```
+
+Then run:
 
 ```bash
 issue-update <N> --body-file <path-to-plan>
@@ -219,11 +245,11 @@ Same structure.
 ### Phase 2 — ...
 > Deliverable summary blockquote.
 
-## Appendix *(optional)*
+## Appendix *(optional unless required by source complexity)*
 
 ### Deep Context for Pairing *(optional)*
 
-Supplemental deep context for complex/high-risk plans.
+Supplemental deep context for complex/high-risk plans. Required when significant upstream design context must be preserved for execution.
 
 ## Pending Questions *(optional)*
 
@@ -248,6 +274,7 @@ Every phase header in `## Detailed Task List` is followed by a short `> blockquo
 - Skipping the repo-conventions scan
 - Overwriting an existing `Implementation_plan*.md` (always use a numbered suffix)
 - Auto-running `issue-update` without explicit user confirmation
+- Replacing a significant existing issue description without first preserving it in a comment titled `# Original Issue Description`
 
 ## Sibling skills
 

@@ -34,6 +34,7 @@ Do **not** use for:
 4. **No assumptions.** Same rule as pair-programming — ask before non-trivial choices, ambiguous acceptance criteria, multiple competing patterns, or anything contradicting the plan.
 5. **Suitability check first.** Some phases shouldn't be delegated. Say so.
 6. **Push back honestly.** Surface concerns, doubts, and unknowns as they arise — don't batch them to the end.
+7. **No unilateral workaround shims.** If the next move is a shim, adapter, compatibility extension, or temporary bridge primarily intended to force tests/build to pass, stop and collaborate first. These are prohibited unilaterally and only permitted with explicit user agreement. Follow the shared [workaround decision policy](../common/references/workaround-decision-policy.md).
 
 ## Personality
 
@@ -169,7 +170,29 @@ After the file links block, scan the upcoming phase for any task with a `decisio
 > **Decisions needed this phase:**
 > - 2.3: exponential vs. fixed backoff — need to agree on multiplier before coding
 
-Wait for the user to resolve each flagged decision (or explicitly defer it) before proceeding.
+Wait for the user to resolve each flagged decision before proceeding to coding.
+
+### 5c. AC checkoff at phase kickoff (required)
+
+Before starting work in any new phase, review the accepted AC list and check off any AC that is already satisfied by completed phases.
+
+- If objectively verifiable, run `markdown-plan-complete-ac AC-N [<plan_file>]` and state the evidence.
+- If judgment is required, ask the user and check it off only after confirmation.
+- If still not met, leave it unchecked and call out what remains.
+
+Do this at every phase transition, not only in the final AC review.
+
+### 5d. Pending-question resolution gate (required before coding)
+
+Before coding starts in any phase, resolve pending questions relevant to that phase.
+
+- Scan the upcoming phase for inline `[QUESTION] ...` items and task `decision:` metadata.
+- Scan `## Pending Questions` and include only questions relevant to the upcoming phase.
+- Present each item and collect a concrete answer before coding begins.
+
+Do not start implementation tasks while phase-relevant questions remain unresolved. If the user explicitly wants to defer one, convert it into an explicit tracked decision point in the current phase (with `decision:` metadata on the earliest affected task) and reconfirm before proceeding.
+
+Use the shared [decision resolution protocol](../common/references/decision-resolution-protocol.md) for classification, option framing, and escalation.
 
 ### 6. Confirm and start
 
@@ -205,6 +228,7 @@ Stop and surface to the user when hitting:
 - Anything that contradicts the plan in a significant way.
 - An unexpected obstacle that may change scope or phase structure.
 - Any point where the next plausible move is workaround, placeholder, fallback, or other hack code whose real purpose is just to get unstuck.
+- Any point where adding a compatibility shim/adapter/extension would bypass intended migration work without explicit user permission.
 
 **Don't stop for:**
 - Mechanical choices that match existing style or have clear codebase precedent.
@@ -220,6 +244,8 @@ When stopping mid-phase, state what the situation is, why it's a trigger, and wh
 
 If you hit a wall, stop on the first clear sign rather than writing workaround code to preserve momentum. A wall means the correct next move is unclear, repeated local attempts are not converging, or the only obvious move is hacky code. Ask for help with a concrete summary instead.
 
+Compatibility note (strict): test-only shims/adapters/extensions that recreate old APIs to absorb refactor fallout are workaround code by default. Do not add them unilaterally. First present root cause, clean options, and risk/tradeoff, then request explicit permission. Follow [workaround decision policy](../common/references/workaround-decision-policy.md).
+
 **Non-blocking concerns (note for handback):** something the reviewer should know but that doesn't change what the AI does. Collect these and surface them in the phase completion handback. Don't fragment the flow with minor asides.
 
 ### Mid-phase abort conditions
@@ -231,6 +257,10 @@ Stop the phase and reconvene with the user when **any** of these happen:
 - Tests start failing in unexpected ways (not just the test currently being worked on).
 - A build or environment failure appears unrelated to the current changes — restore errors, version conflicts, missing dependencies in files not touched this phase.
 - Scope creep detected — work expanding beyond the plan.
+
+Also abort and escalate if the delegation threshold in the shared [decision resolution protocol](../common/references/decision-resolution-protocol.md) is crossed.
+
+When this condition is hit, confirm with the user before executing the escalation handoff: escalate now, defer, or continue with a bounded attempt.
 
 When aborting, summarize what was completed so far in the same format as a phase completion handback.
 
@@ -286,6 +316,20 @@ Example format for failure surfacing:
 The user decides how to investigate. The AI provides evidence; the human directs.
 
 > **Switching to pair-programming mid-session:** if the user wants to switch, tell them explicitly: *"To get the full pair-programming rules, please start a new chat and invoke `/devenv-pair-programming` — continuing in this session means the pair-programming skill isn't loaded and its rules won't apply."* Do not continue in delegation mode pretending to pair-program.
+
+When escalation indicates the plan itself is no longer reliable, recommend `/devenv-refine-implementation-plan` before continuing implementation.
+
+Before making that recommendation, write an escalation handoff record into the plan using existing sections:
+
+- phase-level Watch Outs / Decisions
+- task-level `decision:` metadata + inline `[QUESTION]` where relevant
+- plan-level `## Pending Questions` only for truly plan-level unresolved items
+- a dated `## Revision History` entry summarizing attempted paths, unresolved blockers, and recommended next step
+  - include marker line: `[ESCALATION-HANDOFF] source=delegation phase=<N> status=<needs-refine|user-deferred>`
+
+Follow the required structure and completeness checklist in [decision-resolution-protocol.md](../common/references/decision-resolution-protocol.md).
+
+If the user independently decides to return to planning, treat that as authoritative and run the same escalation handoff flow immediately (without requiring threshold proof).
 
 ## Always Work From Current Files
 
@@ -345,6 +389,8 @@ Before declaring a phase complete and handing back, run the committability check
 - [ ] No straggler DEVENV comments for completed work — `grep -rn "DEVENV\[" <phase-files>`
 
 Coverage drops are blockers. If the gate passes: *"✅ Gate clear — phase is committable."*
+
+If this is the **final implementation phase**, no AC may remain unchecked. Before declaring final-phase completion, verify every AC is either `[x]` or explicitly deferred/deprecated. If any AC remains undone, the gate is blocked and final-phase completion cannot be declared.
 
 ## Anti-patterns
 

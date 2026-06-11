@@ -55,6 +55,7 @@ Identify, where present:
 - **Non-goals** (what's explicitly out of scope)
 - **Acceptance criteria** (explicit "must", "should", numbered requirements, given/when/then blocks)
 - **Risks / open questions**
+- **Decision points** that must be answered before a phase can execute
 - **Dependencies on other work or systems**
 
 If acceptance criteria are not explicit, **infer** them from the goals and any "must"/"should" statements. Mark each inferred criterion clearly so the user knows it wasn't lifted verbatim.
@@ -97,6 +98,12 @@ Beyond those two sections, follow all rules from `/devenv-create-implementation-
 
 - Phase 1 is **always Discovery + test scaffolding** (explore codebase; stub new interfaces; write tests that assert **current observable behaviour** — including stubs that throw as expected — all tests must pass at the end of Phase 1; do **not** write tests that assert behaviour not yet implemented).
 - Last phase is **always Cleanup & docs**.
+- Resolve as many pending questions as possible while generating the plan. Keep unresolved items only for implementation-level details or explicit user-requested deferral.
+- Any unresolved decision that can block execution must be represented in both places:
+   - `## Phases` under the relevant phase's **Watch Outs / Decisions**
+   - `## Detailed Task List` as `decision:` metadata on the earliest affected task
+- Pending-question placement stays strict: phase/task-specific `[QUESTION] ...` inline under the relevant phase/task; `## Pending Questions` only for plan-level unresolved items.
+- For specs derived from upstream design artifacts (design docs, RFCs, Blueprints, Redesign docs, or equivalent detailed issue comments), include a `## Appendix` section whenever the work is medium/high complexity or risk. In that appendix, summarize the important upstream design context directly: key decisions, constraints/invariants, interface contracts, migration/rollout implications, and rejected alternatives that affect implementation choices.
 - **If the spec is a `Redesign--NNN.md`**, the Cleanup phase must include two additional tasks:
   1. *"Update `docs/Architecture_and_implementation.md` using the `## Target architecture` section of `Redesign--NNN.md` as the source — run `/devenv-refine-technical-design` for this."*
   2. *"Delete the local `Redesign--NNN.md` working copy. The canonical record is the GH issue comment (if one was posted); if no issue exists, the file may still be deleted once the architecture doc is updated."*
@@ -132,6 +139,7 @@ Brief summary: file path written, phase count, task count, count of inferred-vs-
 
 - **Skipping the phase-outline approval** — even with a complete spec, scope interpretation can drift. The outline gate is the user's chance to course-correct cheaply.
 - **Hiding inferred criteria** — if you guessed at acceptance criteria, label them. The user must be able to tell signal from inference.
+- **Omitting the appendix for complex design-derived work** — if the source spec carries substantial design rationale, summarize it in `## Appendix` rather than relying on links only.
 - **Overwriting existing plan files** — always pick the next numbered suffix.
 - **Auto-pushing to issue body** — same rule as elsewhere: writes to GitHub require explicit confirmation.
 - **Running a full discovery interview** — that's `/devenv-create-implementation-plan`'s job. This skill trusts the spec.
