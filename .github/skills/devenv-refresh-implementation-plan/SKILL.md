@@ -11,7 +11,7 @@ user-invocable: true
 
 An implementation plan written during grooming can age in three different ways. This skill figures out which one applies and takes the right action — rather than requiring the user to diagnose it themselves.
 
-## When to use this skill
+## When to Use
 
 - Returning to a plan after a significant gap (weeks, a sprint, multiple PRs landed in the meantime).
 - About to start delegation or pair-programming and suspecting the plan may be out of date.
@@ -181,4 +181,4 @@ The plan's tasks are too stale to patch. Extract the intent, then re-plan.
 - **Silently unchecking `[x]`** — if a completed task turns out to need redoing, add a new task rather than resetting the old one.
 - **Treating every small drift as intent-only** — the classification must match the actual evidence. Be conservative: only classify as intent-only when the task-level detail is genuinely unrecoverable.
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

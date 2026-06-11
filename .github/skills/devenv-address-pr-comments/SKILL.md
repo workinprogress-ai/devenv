@@ -32,7 +32,7 @@ A reply and a code change can go together, but neither implies the other. And re
 - Praise / informational → resolve if user confirms, leave open otherwise
 - Nit addressed → resolve after applying
 
-## When to use this skill
+## When to Use
 
 - A reviewer left inline comments and you want to address them efficiently, with the complex ones handled thoughtfully.
 - You want the clear stuff done automatically and the nuanced stuff surfaced for your input.
@@ -273,4 +273,4 @@ Never suggest `git commit` commands or run any git operations. Only suggest the 
 - `/devenv-session-handoff` — if you need to stop mid-review and hand off to the next session.
 - GitHub PR extension's `address-pr-comments` — for a fast batch-fix-all workflow without per-comment choices.
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

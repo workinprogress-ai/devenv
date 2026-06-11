@@ -8,7 +8,7 @@ argument-hint: Path to an Implementation_plan-*.md OR a GitHub issue number, plu
 
 Apply small, surgical edits to an existing implementation plan without running a full revision interview. Sits between `/devenv-plan-status` (read-only) and `/devenv-refine-implementation-plan` (full restructure).
 
-## When to use this skill
+## When to Use
 
 - Mark a task `[x]` (it's done).
 - Resolve / answer an open question recorded in the plan.
@@ -120,4 +120,4 @@ One-line summary per change applied, plus the new task counts and overall progre
 - `/devenv-create-implementation-plan` — for brand-new plans.
 - `/devenv-plan-from-spec` — for generating a plan from an existing design doc.
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

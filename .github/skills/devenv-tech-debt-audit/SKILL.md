@@ -14,7 +14,7 @@ When invoked via `/devenv-tech-debt-audit`, follow the protocol below exactly.
 
 > Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
 
-## When to use this skill
+## When to Use
 
 - Running a health check on a repo before a major refactor or new feature push.
 - Producing an audit artifact to anchor a tech debt discussion or planning session.
@@ -180,4 +180,4 @@ Never create an issue or post a comment without explicit "yes" confirmation.
 - **Do not mix Flow A and Flow B.** If the argument was an issue number, use Flow A (post to existing issue). If it was a repo path, use Flow B (offer to create a new issue). Never create a new issue when the user provided an issue number.
 - **Do not audit the entire repo when a focus area was given and skip the focus entirely.** A focus area narrows depth, not breadth — still read the full architecture, but concentrate Phase 2 findings on the named area.
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

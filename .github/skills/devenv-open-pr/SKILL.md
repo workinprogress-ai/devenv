@@ -10,7 +10,7 @@ Take a committable phase of work from a plan-driven workflow and open a GitHub P
 
 > Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
 
-## When to use this skill
+## When to Use
 
 - A phase of an implementation plan is complete and ready to ship.
 - The branch has commits, the work is reviewable, and you want a PR opened with a proper body.
@@ -147,4 +147,4 @@ After the PR is opened, print the PR URL and number.
 - `/create-pull-request` (GitHub extension) — for the richer reviewer-suggesting / label / project flow.
 - `/devenv-plan-update`, `/devenv-refine-implementation-plan` — if opening the PR reveals plan tasks to mark or add.
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

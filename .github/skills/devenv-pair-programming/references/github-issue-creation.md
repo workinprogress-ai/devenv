@@ -47,32 +47,31 @@ Never create an issue or post a comment without explicit "yes" confirmation.
 
 ## Skill-specific title and body variants
 
-### `devenv-create-technical-design`
+### `devenv-grooming`
 
-**Default title:** `Technical Design: <component name> — <YYYY-MM-DD>`
-
-**Issue body placeholder:**
-
-```
-Technical design document is in a comment identified by artifact doc_id.
-
-Next step: use `/devenv-create-implementation-plan` or
-`/devenv-plan-from-spec <issue number>` to generate a task-level implementation plan.
-Document file: `<workspace-relative path to docs/Architecture_and_implementation.md>`
-```
-
-### `devenv-redesign-component`
-
-**Default title:** `Redesign: <component name> — <YYYY-MM-DD>`
+**Default title:** `Design Grooming: <component name> — <YYYY-MM-DD>`
 
 **Issue body placeholder:**
 
 ```
-Redesign document is in a comment identified by artifact doc_id.
+Design grooming notes are in a comment identified by artifact doc_id.
 
-Next step: run `/devenv-plan-from-spec <issue number>` to generate a
-concrete implementation plan from the redesign doc.
-Document file: `<workspace-relative path to Redesign--NNN.md>`
+Next step: use `/devenv-design-discussion`, `/devenv-grooming`, or
+`/devenv-create-implementation-plan` as appropriate.
+Document file: `<workspace-relative path to the relevant design or planning artifact>`
+```
+
+### `devenv-grooming`
+
+**Default title:** `Design Grooming: <component name> — <YYYY-MM-DD>`
+
+**Issue body placeholder:**
+
+```
+Grooming notes are in a comment identified by artifact doc_id.
+
+Next step: continue with `/devenv-design-discussion` or `/devenv-create-implementation-plan` as appropriate.
+Document file: `<workspace-relative path to the relevant design artifact>`
 ```
 
 ### `devenv-design-discussion`

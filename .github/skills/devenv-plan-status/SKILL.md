@@ -8,7 +8,7 @@ argument-hint: Path to an Implementation_plan-*.md OR a GitHub issue number cont
 
 Report progress on an existing implementation plan without changing it. Read-only.
 
-## When to use this skill
+## When to Use
 
 - The user wants to know "how's the plan going" or "what's left to do".
 - A plan has been in flight for a while and someone needs a snapshot.
@@ -116,4 +116,4 @@ This skill is strictly read-only. It does not write to the plan, post issue comm
 - `/devenv-refine-implementation-plan` — for revising plans after discovery.
 - `/devenv-pair-programming` and `/devenv-delegation` — for executing plan tasks.
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

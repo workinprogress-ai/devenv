@@ -908,4 +908,4 @@ When the user signals end of session (or a phase boundary that suggests a natura
 
 ## Sibling skills
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

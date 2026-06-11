@@ -142,4 +142,4 @@ After writing, list what may need follow-up:
 - [`/devenv-refine-requirements`](../devenv-refine-requirements/SKILL.md) — when stakeholder priorities or requirements changed
 - [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) — for plans tied to affected steps
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

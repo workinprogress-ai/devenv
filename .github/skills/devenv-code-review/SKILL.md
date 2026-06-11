@@ -10,7 +10,7 @@ Review code changes and produce structured, actionable feedback. Inverse of `/de
 
 > Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
 
-## When to use this skill
+## When to Use
 
 - Reviewing a PR before approving / requesting changes.
 - Reviewing local work-in-progress before opening a PR.
@@ -134,4 +134,4 @@ For inline review comments tied to specific lines, note that this skill produces
 - `/devenv-pre-commit` — local-diff review before opening a PR (subset of this skill's no-args mode).
 - `/devenv-address-pr-comments` — for the PR author responding to review comments.
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

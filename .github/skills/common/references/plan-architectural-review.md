@@ -1,6 +1,6 @@
 # Plan Architectural Review Protocol
 
-Load this protocol on-demand when a design skill (design-discussion, redesign-component) is given an implementation plan file or issue as input, or when refine-implementation-plan detects architectural issues in an escalation handoff.
+Load this protocol on-demand when a design skill (design-discussion, grooming) is given an implementation plan file or issue as input, or when refine-implementation-plan detects architectural issues in an escalation handoff.
 
 **Purpose:** read the plan as a diagnostic artifact — locate the architectural fault points, classify the nature of the problem, and orient a design session from the evidence in the plan rather than re-interviewing from scratch.
 

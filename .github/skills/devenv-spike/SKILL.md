@@ -10,7 +10,7 @@ argument-hint: A question / problem statement to investigate, OR a GitHub issue 
 
 Run a focused, exploratory investigation of an open question. Output is a structured findings doc and (optionally) throwaway prototype code — never production code. The goal is to reduce uncertainty before committing to a real implementation plan.
 
-## When to use this skill
+## When to Use
 
 - The user wants to know whether something is feasible before committing to it.
 - The right approach is unclear and needs to be discovered, not designed up front.
@@ -128,7 +128,7 @@ If yes:
 
    Next step depends on the scope of work the spike revealed:
    - System-level architectural work → `/devenv-create-blueprint`
-   - Component design needed before tasks can be written → `/devenv-create-technical-design`
+   - Component design direction needed before tasks can be written → `/devenv-grooming`
    - Narrow, well-scoped implementation (spike answered the key unknowns) → `/devenv-plan-from-spec <issue number>`
 
    Findings file: `<workspace-relative path to spike-NNN-<topic>.md>`
@@ -181,4 +181,4 @@ Never create an issue or post a comment without explicit "yes" confirmation.
 - `/devenv-rubber-duck` — lighter-weight thinking-out-loud without artifacts.
 - `/devenv-pair-programming`, `/devenv-delegation` — for the actual implementation once the spike resolves.
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

@@ -10,7 +10,7 @@ A structured note for whoever picks up the work next — including future-you. C
 
 > Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
 
-## When to use this skill
+## When to Use
 
 - Ending a working session mid-task and someone else will continue.
 - Pausing your own work for a while and want to leave breadcrumbs for future-you.
@@ -116,4 +116,4 @@ After posting (or instead, on `n`), **also offer**:
 - `/devenv-code-review` — when you want the next contributor to review what you did.
 - `/devenv-spike` — if the session was an investigation, the spike doc is itself the handoff.
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

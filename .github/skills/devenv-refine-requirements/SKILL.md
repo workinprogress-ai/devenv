@@ -158,4 +158,4 @@ See the stability audit protocol in [`/devenv-gather-requirements` § Stability 
 - [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md) — when changes affect delivery sequencing of an existing roadmap
 - [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) — when changes affect an in-flight implementation plan
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

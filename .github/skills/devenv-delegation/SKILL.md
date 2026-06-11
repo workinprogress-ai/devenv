@@ -409,4 +409,4 @@ If this is the **final implementation phase**, no AC may remain unchecked. Befor
 
 ## Sibling skills
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

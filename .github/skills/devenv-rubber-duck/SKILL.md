@@ -8,7 +8,7 @@ argument-hint: A half-formed problem, idea, or decision to think through togethe
 
 A thinking-partner mode. The user has a fuzzy problem; the AI's job is to help them articulate it by asking good questions, mirroring back what they say, and lightly surfacing angles they haven't considered. No artifacts, no code, no decisions on the user's behalf.  Occasionally adds a duck joke for levity or duck references.
 
-## When to use this skill
+## When to Use
 
 - The user is stuck on a design choice and wants to talk it through.
 - A problem is fuzzy and not yet ready to plan or implement.
@@ -78,4 +78,4 @@ When the user signals they're done — explicitly ("OK I think I've got it"), or
 - `/devenv-plan-from-spec` — when the conversation produced enough structure to draft from.
 - `/devenv-pair-programming`, `/devenv-delegation` — for the actual implementation once the thinking resolves.
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

@@ -10,7 +10,7 @@ argument-hint: Path to an Implementation_plan-*.md OR a GitHub issue number cont
 
 Take an existing implementation plan and revise it based on new information — discovery work, scope changes, fresh requirements, or lessons from initial implementation. Preserve all existing progress; never silently undo work.
 
-## When to use this skill
+## When to Use
 
 - The user has an `Implementation_plan-*.md` (or a GitHub issue with a plan in its body) that needs new tasks added, existing tasks reworded, or scope adjusted.
 - A previous `/devenv-create-implementation-plan` run is now out of date.
@@ -56,7 +56,7 @@ Use `vscode_askQuestions` to gather:
 - **Escalation handoff closure** — if an escalation marker exists, confirm each recorded blocker/question and decide: resolve now, defer with explicit trigger, or re-scope tasks/phases.
 - **Architectural fault classification** — if blockers/questions are architectural rather than task-scope adjustments, load and follow the [plan architectural review protocol](../common/references/plan-architectural-review.md) to locate fault points and classify type. If architectural issues are confirmed, produce a scoped brief and recommend the appropriate design skill with the plan path as argument:
   - Option-weighing / approach not settled → `/devenv-design-discussion <plan-path>`
-  - Current approach fundamentally wrong → `/devenv-redesign-component <plan-path>`
+  - Current approach needs reclassification → `/devenv-grooming <plan-path>`
   Do not continue plan refinement for architectural items until the design question is resolved.
 - **Legacy code exposure** — if new tasks will introduce implementations that coexist with existing legacy code in the same files across multiple phases, flag the issue: the plan likely needs an early cleanup phase. See [phase-rules.md](../devenv-create-implementation-plan/references/phase-rules.md) for available patterns (demolition, hollow-out, rename suffix, branch by abstraction). Surface the viable options and a recommendation before writing new tasks; don't silently pick one.
 
@@ -151,4 +151,4 @@ Summarise inline:
 - `/devenv-plan-status` — for reporting progress without modifying the plan.
 - `/devenv-pair-programming` and `/devenv-delegation` — for actually executing the (refined) plan.
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

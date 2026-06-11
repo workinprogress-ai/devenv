@@ -10,7 +10,7 @@ Take a fresh / untriaged GitHub issue and produce a structured triage recommenda
 
 > Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
 
-## When to use this skill
+## When to Use
 
 - A new issue lands and needs labels, priority, and sizing.
 - You suspect an issue may be a duplicate of an existing one.
@@ -133,4 +133,4 @@ No per-action confirms. No partial-apply. The user either trusts the bundle or t
 - `/devenv-spike` — when the issue's feasibility or approach is unknown (size = XL).
 - `summarize-github-issue-pr-notification` (default agent skill) — for plain summaries without triage.
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

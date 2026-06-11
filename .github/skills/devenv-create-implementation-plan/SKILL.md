@@ -55,6 +55,22 @@ Read, in this order, if present:
 - `<target-repo>/AGENTS.md`
 - Any `planning.*` repo in the workspace that may contain related context
 
+### 2.1 Classify component type and load context only when needed
+
+Before exploring code, classify the target as one of:
+
+- Service
+- API gateway
+- Frontend application
+
+Use [`component-context/index.md`](../common/references/component-context/index.md) to select context. For service work, load only the relevant service file(s) needed for current planning decisions:
+
+- `01-Service-Architecture.md`
+- `02-Service-Implementation.md`
+- `03-Service-Plugins.md`
+
+If API gateway/frontend context is not yet present, continue using general repository and plan conventions and note that specialized context is pending.
+
 ### 3. Explore related code (read-only)
 
 Use the `Explore` subagent (or `search_subagent`) to find existing modules, tests, and patterns the plan must respect. Do not edit anything in this step.
@@ -279,11 +295,11 @@ Every phase header in `## Detailed Task List` is followed by a short `> blockquo
 ## Sibling skills
 
 - `/devenv-create-blueprint` + `/devenv-create-roadmap` — for epic-scale work across multiple components; each roadmap step eventually becomes an implementation plan.
-- `/devenv-create-technical-design` — when the component's internal design is unsettled; produce an `Architecture_and_implementation.md` before writing tasks.
+- `/devenv-grooming` — when the component's internal design direction is unsettled; classify it before writing tasks.
 - `/devenv-design-discussion` — when the right approach for this work isn't settled yet; weigh options before planning tasks.
 - `/devenv-plan-from-spec` — when the spec or issue body is already complete enough to skip the interview.
 - `/devenv-refine-implementation-plan` — to revise this plan after scope changes.
 - `/devenv-plan-update` — small surgical edits (tick boxes, add notes).
 - `/devenv-plan-status` — read-only progress report.
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

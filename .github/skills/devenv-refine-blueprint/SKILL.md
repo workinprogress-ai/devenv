@@ -136,4 +136,4 @@ After writing, list what may need follow-up:
 - Rewriting the blueprint from scratch — that's [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md), not refine
 - Forgetting to surface roadmap and plan impact after the edit
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

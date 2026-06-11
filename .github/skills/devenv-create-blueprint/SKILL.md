@@ -110,6 +110,14 @@ If the user provides communications artifacts (transcripts, design discussions, 
 - "What external systems does this integrate with?"
 - "Where is consistency critical? Where is eventual consistency acceptable?"
 
+Classify the primary component type(s) in scope before surveying architecture details:
+
+- Service
+- API gateway
+- Frontend application
+
+Use [`component-context/index.md`](../common/references/component-context/index.md) to load only relevant context for the current blueprint decisions. For service-heavy work, select only the needed service context files (`01-Service-Architecture.md`, `02-Service-Implementation.md`, `03-Service-Plugins.md`). If API gateway/frontend context is not yet available, proceed with general architecture rules and record that specialized context is pending.
+
 #### Step 3 (brownfield only): Survey the existing system
 
 1. Run `repo-cache-update` to get the repo cache path.
@@ -236,7 +244,7 @@ Do not record the pattern without the user's agreement. Update the file (§4.3 C
 
 #### Step 9: Reference patterns (optional)
 
-If a `Pattern_Library` exists in the workspace (typically `repos/docs.engineering/docs/Pattern_Library/`), reference relevant patterns by full GitHub URL so the blueprint stays portable. The library is **optional** — skip if not present or no patterns clearly apply. Do not invent patterns to feel architectural.
+If a `Pattern_Library` exists in the workspace, reference relevant patterns by full GitHub URL so the blueprint stays portable. The library is **optional** — skip if not present or no patterns clearly apply. Do not invent patterns to feel architectural.
 
 #### Phase 2 Checkpoint
 
@@ -330,4 +338,4 @@ Once written, surface the next-step options to the user:
 - Treating `repo-cache-update` output as authoritative without user confirmation of relevance
 - Forgetting to update `session_memory-blueprint.md` between sessions
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

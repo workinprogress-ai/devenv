@@ -489,4 +489,4 @@ At any point — during any phase, or when the user says "let's brainstorm Q-003
 
 ---
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

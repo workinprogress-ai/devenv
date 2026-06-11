@@ -276,4 +276,4 @@ After the roadmap is created and issues exist:
 - Putting child issues in the planning repo (they belong in component repos)
 - Putting the parent epic in a component repo (it belongs in the planning repo)
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

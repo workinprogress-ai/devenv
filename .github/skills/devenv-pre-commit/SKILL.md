@@ -10,7 +10,7 @@ Run the project's quality gates (lint, format, type-check, tests) against change
 
 This is the last step before *you* commit. The skill stops at "the checks passed" or "here's what's broken" — it never runs `git commit`, `git add`, `--no-verify`, or any other git-mutating command.
 
-## When to use this skill
+## When to Use
 
 - You've finished editing and want to verify quality gates before committing.
 - You want to know whether lint/format/tests are clean before opening a PR.
@@ -126,4 +126,4 @@ Per-tool sections only when there are failures. Skip the "Passed" section if eve
 - `/devenv-code-review` — for human-style review feedback on the diff (separate from automated checks).
 - `/devenv-address-pr-comments` — if checks reveal issues that came from PR feedback.
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

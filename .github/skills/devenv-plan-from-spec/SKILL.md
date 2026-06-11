@@ -10,7 +10,7 @@ argument-hint: File path, GitHub issue number, URL, or pasted spec text containi
 
 Convert an existing spec — design doc, RFC, GitHub issue body, URL, or pasted text — into an `Implementation_plan-*.md` without running the full discovery interview that `/devenv-create-implementation-plan` requires.
 
-## When to use this skill
+## When to Use
 
 - A spec already exists and is reasonably complete (goals stated, scope clear).
 - The user wants a plan derived from that spec, not from a brainstorm.
@@ -104,9 +104,9 @@ Beyond those two sections, follow all rules from `/devenv-create-implementation-
    - `## Detailed Task List` as `decision:` metadata on the earliest affected task
 - Pending-question placement stays strict: phase/task-specific `[QUESTION] ...` inline under the relevant phase/task; `## Pending Questions` only for plan-level unresolved items.
 - For specs derived from upstream design artifacts (design docs, RFCs, Blueprints, Redesign docs, or equivalent detailed issue comments), include a `## Appendix` section whenever the work is medium/high complexity or risk. In that appendix, summarize the important upstream design context directly: key decisions, constraints/invariants, interface contracts, migration/rollout implications, and rejected alternatives that affect implementation choices.
-- **If the spec is a `Redesign--NNN.md`**, the Cleanup phase must include two additional tasks:
-  1. *"Update `docs/Architecture_and_implementation.md` using the `## Target architecture` section of `Redesign--NNN.md` as the source — run `/devenv-refine-technical-design` for this."*
-  2. *"Delete the local `Redesign--NNN.md` working copy. The canonical record is the GH issue comment (if one was posted); if no issue exists, the file may still be deleted once the architecture doc is updated."*
+- **If the spec is a `Solution_Proposal_*.md` (or equivalent design-decision artifact)**, the Cleanup phase must include two additional tasks:
+   1. *"Update `docs/Architecture_and_implementation.md` using the selected option and recommendation as the source — use `/devenv-grooming` to capture the design delta for in-flight work."*
+   2. *"Delete the local temporary design artifact working copy once the architecture doc is updated (unless the file itself is the intended canonical artifact)."*
 - Tasks follow the **full format** — see [task-format.md](../devenv-create-implementation-plan/references/task-format.md): `- [ ] **N.M [S|M|L] Title** ([additional context](#anchor))` header; descriptive sub-bullets first; `Files:` / `decision:` / `owner:` / `depends on` metadata last. Every task gets an `[S|M|L]` size label. Do not generate title-only or abbreviated tasks.
 - Phase rules — see [phase-rules.md](../devenv-create-implementation-plan/references/phase-rules.md): each phase must end committable (tests pass, coverage does not regress, single-PR sized); tests appear alongside code tasks in each phase (not deferred to the end); the human-facing guidance lives in `## Phases`, while `## Detailed Task List` uses short deliverable-summary blockquotes that point back to the richer phase summaries.
 
@@ -152,4 +152,4 @@ Brief summary: file path written, phase count, task count, count of inferred-vs-
 - `/devenv-plan-update` — for small surgical edits to an existing plan.
 - `/devenv-plan-status` — for read-only progress reports.
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

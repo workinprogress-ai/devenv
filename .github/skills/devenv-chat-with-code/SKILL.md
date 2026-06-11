@@ -10,7 +10,7 @@ A conversational fact-finding session with one or more codebases. The skill orie
 
 > Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
 
-## When to use this skill
+## When to Use
 
 - You've landed in an unfamiliar codebase and want to have a conversation rather than read files alone.
 - You want to understand architecture, data flow, dependencies, or intent before deciding what to build or change.
@@ -147,4 +147,4 @@ Sibling skill routing:
 - **Do not re-orient if a valid session cache exists.** Re-reading what's already known is noise.
 - **Do not use "I don't know. I am sad." prematurely.** It's the last resort after a genuine search, not a default for hard questions.
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

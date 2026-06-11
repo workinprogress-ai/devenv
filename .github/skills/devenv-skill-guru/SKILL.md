@@ -1,6 +1,6 @@
 ---
 name: devenv-skill-guru
-description: Help the user pick the right Copilot skill by asking 1–3 clarifying questions about what they're trying to accomplish. USE WHEN the user says "which skill should I use", "what skill is right for this", "help me pick a skill", "I'm not sure what to use", "skill guru", or begins a task without knowing which skill applies. Asks about work stage (exploring / defining requirements / architecting / planning / building / reviewing / wrapping up), then asks one stage-specific disambiguation question (for architecture: option-weighing vs new-component design vs existing-component refinement/redesign; for build: whether a plan exists and impact level). Returns a ranked recommendation with one-line rationale; if the goal spans multiple skills, returns the full chain. DO NOT USE FOR executing any of the recommended skills — just say /skill-name to invoke them directly. For general coding questions use the default agent.
+description: Help the user pick the right Copilot skill by asking 1–3 clarifying questions about what they're trying to accomplish. USE WHEN the user says "which skill should I use", "what skill is right for this", "help me pick a skill", "I'm not sure what to use", "skill guru", or begins a task without knowing which skill applies. Asks about work stage (exploring / defining requirements / architecting / planning / building / reviewing / wrapping up), then asks one stage-specific disambiguation question (for architecture: option-weighing vs component-level grooming vs system-level architecture; for build: whether a plan exists and impact level). Returns a ranked recommendation with one-line rationale; if the goal spans multiple skills, returns the full chain. DO NOT USE FOR executing any of the recommended skills — just say /skill-name to invoke them directly. For general coding questions use the default agent.
 argument-hint: Optional — describe what you're trying to do and the guru will ask follow-up questions
 ---
 
@@ -45,18 +45,16 @@ Ask only what you need. If the user's initial message already answers a question
 
 **Q2 — Architecture intent disambiguation** (ask only if stage is "Architect"):
 
-> "Which design outcome do you want right now?"
+> "Which architecture outcome do you want right now?"
 >
 > - Weigh options and get a recommendation first
-> - Design internals for a new component from scratch
-> - Update an existing component design doc to reflect changes
-> - Rethink an existing component because the current approach is wrong
+> - Groom component-level design direction (new vs refine vs redesign)
+> - Produce system-level architecture (blueprint/roadmap)
 
 Routing for this answer:
 - Weigh options first → `/devenv-design-discussion`
-- New component from scratch → `/devenv-create-technical-design`
-- Update existing design doc → `/devenv-refine-technical-design`
-- Fundamental rethink of existing component → `/devenv-redesign-component`
+- Component-level design direction → `/devenv-grooming`
+- System-level architecture → `/devenv-create-blueprint` (or `/devenv-create-roadmap` if architecture already exists)
 
 **Q2 — Plan exists?** (ask only if stage is "Build"):
 
@@ -81,9 +79,9 @@ Use the registry to match the user's answers to a skill:
 3. **Apply stage-specific guardrails before finalizing:**
    - Feature-discovery guardrail: when the ask is to add a feature in an existing component and the user is still deciding the best approach, route to `/devenv-design-discussion` first.
    - Feature-delivery guardrail: when the ask is to add/implement a feature in an existing component and the approach is already chosen, route to Plan/Build.
-   - Architecture guardrail: never route existing-component feature work to `/devenv-create-technical-design` unless the user explicitly wants a new from-scratch component design artifact.
+   - Architecture guardrail: default component-level architecture intake to `/devenv-grooming` unless the user explicitly requests one specialized design skill.
    - Architecture guardrail: if the user primarily wants alternatives/trade-offs/recommendation, route to `/devenv-design-discussion` first.
-   - Architecture guardrail: if the user says the current approach is wrong, route to `/devenv-redesign-component`, not refine.
+   - Architecture guardrail: if the user says the current approach is wrong, route to `/devenv-grooming`, not refine.
    - Build guardrail: do not route high-impact build phases to `/devenv-delegation`.
    - Escalation guardrail: if the user is mid-execution and asks to return to planning, says they are blocked by unresolved decisions, or references escalation/handoff from pair/delegation, route to `/devenv-refine-implementation-plan`.
    - Bug-hunt guardrail: for broad/focused bug hunting (including "find race conditions", "hunt null bugs", "audit auth module for bugs"), route to `/devenv-tech-debt-audit`.
@@ -106,9 +104,8 @@ Route as follows:
    - Plan exists + mechanical → `/devenv-delegation`
 - Decide architecture/design direction first → architecture path:
    - Weigh alternatives/trade-offs first → `/devenv-design-discussion`
-   - Update existing design doc to match chosen direction → `/devenv-refine-technical-design`
-   - Replace current approach because it is wrong → `/devenv-redesign-component`
-   - New component from scratch → `/devenv-create-technical-design`
+   - Route component-level design intake and classification → `/devenv-grooming`
+   - Use specialized design skills directly only when explicitly requested
 
 If the user answers "not sure yet", treat it as "decide architecture/design direction first" and route to `/devenv-design-discussion`.
 
@@ -126,13 +123,14 @@ If refine-plan classifies the issues as architectural, it will route onward to a
 /devenv-pair-programming or /devenv-delegation
   → escalation handoff written to plan
   → /devenv-refine-implementation-plan (triage)
-    → /devenv-design-discussion <plan>   (approach not settled)
-    → /devenv-redesign-component <plan>  (approach fundamentally wrong)
+      → /devenv-design-discussion <plan>   (approach not settled)
   → back to /devenv-refine-implementation-plan (once design resolved)
   → back to execution skill
 ```
 
-If the user provides a plan file/issue directly to a design skill (skipping refine-plan), both design skills can read the plan and orient themselves using the [plan architectural review protocol](../common/references/plan-architectural-review.md).
+If the user provides a plan file/issue directly to a design skill (skipping refine-plan), the design skills can read the plan and orient themselves using the [plan architectural review protocol](../common/references/plan-architectural-review.md).
+
+If the user is unsure which design skill applies for a component-level change, recommend `/devenv-grooming` first.
 
 ## Output format
 
@@ -186,10 +184,11 @@ These five are the core of the catalog. If the user is unsure where to start wit
 - **Routing broad bug hunting to `/devenv-bug-fix`** — use `/devenv-tech-debt-audit`; reserve `/devenv-bug-fix` for a specific known bug.
 - **Recommending `/devenv-create-implementation-plan` when a plan already exists** — that's `/devenv-refine-implementation-plan` or `/devenv-plan-update`.
 - **Routing existing-component feature delivery to architecture by default** — default to Plan/Build (`/devenv-create-implementation-plan`, `/devenv-pair-programming`, `/devenv-delegation`) unless the user explicitly asks for architecture option-weighing or design-artifact work.
+- **Skipping `/devenv-grooming` for ambiguous component design intake** — use grooming as the default classifier unless the user requested a specific design skill.
 - **Skipping the architecture disambiguation question** when stage is Architect and intent is not explicit.
 - **Recommending a single skill when the user described a multi-step goal** — check the registry chains first.
 - **Hard-coding skill knowledge** — always consult the registry; it may contain fork-added skills not listed here.
 
 ## Sibling skills
 
-See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree.
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

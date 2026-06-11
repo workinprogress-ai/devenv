@@ -169,7 +169,7 @@ For recurring policy text, use short references to shared snippets rather than r
 Recommended snippet references:
 
 - **Tool help policy**: "Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`_tools-reference.md`](../_tools-reference.md) instead of running ad-hoc `--help` during execution."
-- **Catalog pointer**: "See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree."
+- **Catalog pointer**: "See the [Skills catalog](./common/references/skills-catalog.md) for the full list and decision tree."
 
 When updating existing skills, prefer replacing duplicated boilerplate blocks with a brief reference line to keep token usage tight.
 
@@ -226,7 +226,7 @@ Each skill should link to:
 
 Use relative paths: `[/devenv-pair-programming](../devenv-pair-programming/SKILL.md)`.
 
-Also add a one-liner near the top of each `SKILL.md`: "See the [Skills catalog](../../../docs/Skills.md) for the full list and decision tree."
+Also add a one-liner near the top of each `SKILL.md`: "See the [Skills catalog](./common/references/skills-catalog.md) for the full list and decision tree."
 
 ## Open Questions Log (Q-NNN)
 
@@ -277,7 +277,7 @@ When a skill needs to summarize one or more existing documents or repos, prefer 
 
 ## Design skill context classification
 
-For design-oriented skills (`devenv-create-technical-design`, `devenv-redesign-component`, and related refinements), begin by classifying execution context before reading files or proposing structure.
+For design-oriented skills (`devenv-grooming` and related refinements), begin by classifying execution context before reading files or proposing structure.
 
 Supported contexts:
 
@@ -292,6 +292,25 @@ Required behavior:
 3. Accept source inputs from either pasted text or markdown file paths (blueprint sections, requirements, notes).
 4. Capture constraints explicitly in these buckets: dependencies/libraries, infrastructure/runtime, security/compliance, performance/SLO, and timeline/process constraints.
 5. Post an intake summary and require explicit confirmation before moving into diagnosis or design phases.
+
+## Component context loading
+
+When a skill needs component-specific implementation or architecture guidance, use the shared index at:
+
+- [`common/references/component-context/index.md`](./common/references/component-context/index.md)
+
+Supported component types:
+
+- Service
+- API gateway
+- Frontend application
+
+Required behavior:
+
+1. Classify component type before loading component-context files.
+2. Load only the files needed for the current decision (for services, choose among architecture, implementation, and plugins as needed).
+3. Do not load all component-context files by default.
+4. If context for the selected component type is not yet available, continue with general skill rules and explicitly note that specialized context is pending.
 
 ## Anti-patterns
 
