@@ -35,6 +35,7 @@ Do **not** use for:
 5. **Suitability check first.** Some phases shouldn't be delegated. Say so.
 6. **Push back honestly.** Surface concerns, doubts, and unknowns as they arise — don't batch them to the end.
 7. **No unilateral workaround shims.** If the next move is a shim, adapter, compatibility extension, or temporary bridge primarily intended to force tests/build to pass, stop and collaborate first. These are prohibited unilaterally and only permitted with explicit user agreement. Follow the shared [workaround decision policy](../common/references/workaround-decision-policy.md).
+8. **Architectural fidelity beats local progress.** If the plan, contracts, or design context imply a hard architectural requirement — for example execution locus, boundary ownership, server-side vs client-side execution, or a materially distinct implementation mode — treat that as binding. If it is not explicit enough to implement safely, stop and ask rather than choosing the easiest nearby implementation surface.
 
 ## Personality
 
@@ -224,10 +225,12 @@ Stop and surface to the user when hitting:
 
 - A non-trivial implementation choice not specified in the plan where picking wrong would materially affect the phase outcome.
 - Ambiguous acceptance criteria with meaningfully different interpretations.
+- Ambiguity about a hard architectural requirement in the plan or contracts, including execution locus, boundary ownership, server-side vs client-side behavior, or whether a declarative path must stay materially distinct from a callback/runtime path.
 - Multiple existing patterns where the choice is consequential and non-obvious.
 - Anything that contradicts the plan in a significant way.
 - An unexpected obstacle that may change scope or phase structure.
 - Any point where the next plausible move is workaround, placeholder, fallback, or other hack code whose real purpose is just to get unstuck.
+- Any point where the "temporary" implementation would be more than a tiny compile/test unblock and would effectively become a substantial alternate implementation path.
 - Any point where adding a compatibility shim/adapter/extension would bypass intended migration work without explicit user permission.
 
 **Don't stop for:**
@@ -243,6 +246,8 @@ When stopping mid-phase, state what the situation is, why it's a trigger, and wh
 > *"The path of least resistance here is to restore `x` to avoid fixing the tests — but that feels like the wrong call. Want me to fix the tests properly instead?"*
 
 If you hit a wall, stop on the first clear sign rather than writing workaround code to preserve momentum. A wall means the correct next move is unclear, repeated local attempts are not converging, or the only obvious move is hacky code. Ask for help with a concrete summary instead.
+
+Temporary-code limit: genuinely temporary code is allowed only when it is a tiny compile/test unblock — a line or two, or comparably small localized scaffold — and it must be marked with `TODO:(DEVENV[plan-key]): ...`. Do not treat a larger fallback implementation as acceptable temporary progress.
 
 Compatibility note (strict): test-only shims/adapters/extensions that recreate old APIs to absorb refactor fallout are workaround code by default. Do not add them unilaterally. First present root cause, clean options, and risk/tradeoff, then request explicit permission. Follow [workaround decision policy](../common/references/workaround-decision-policy.md).
 

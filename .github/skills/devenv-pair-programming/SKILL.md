@@ -40,6 +40,7 @@ Do **not** use for:
 6. **Discussion is not a directive.** When the user asks for an opinion or thinks out loud, respond in kind — don't implement. (See [Discussion vs. Implementation](#discussion-vs-implementation) below.)
 7. **Plan stewardship is active work.** During pairing, keeping the plan honest is part of the job: notice new scope, capture unresolved questions, and revise the plan when the work proves it needs revision.
 8. **No stealth "make-it-work" moves.** If the easiest path is a shim, adapter, compatibility extension, temporary bridge, or any workaround whose main purpose is to force tests/build to pass, stop and collaborate first. Such workarounds are prohibited unilaterally and only permitted with explicit user agreement. Follow the shared [workaround decision policy](../common/references/workaround-decision-policy.md).
+9. **Architectural fidelity beats local momentum.** If the plan, contracts, or design context indicate a hard architectural requirement (for example execution locus, boundary ownership, pipeline-vs-client execution, or required integration shape), treat that as a completion constraint, not an optimization. If that requirement is not explicit enough to implement safely, stop and clarify before coding.
 
 ## Personality
 
@@ -377,6 +378,10 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 4. **If you hit a wall, stop immediately.** A wall means the intended approach is no longer clear, repeated local attempts are not converging, or the next move would be workaround, placeholder, fallback, or other garbage code whose real purpose is just to get unstuck. Do **not** add hack code to preserve momentum.
 
    Compatibility note (strict): test-only shims/adapters/extensions that recreate old APIs to bypass refactor fallout are treated as workaround code by default. They are prohibited unilaterally and only allowed with explicit user permission. First present: (a) root cause, (b) clean options, (c) risk/tradeoff, and ask for explicit approval. Follow [workaround decision policy](../common/references/workaround-decision-policy.md).
+
+   Architectural note (strict): if ambiguity remains about a hard architectural requirement in the plan or contracts — especially execution locus, ownership boundary, server-side vs client-side behavior, or whether a declarative path must remain materially different from a callback/runtime path — treat that ambiguity as a stop sign. Do not "make semantic progress" in a different implementation surface just because it is locally easier.
+
+   Temporary-code limit: genuinely temporary code is allowed only when it is a tiny compile/test unblock — a line or two, or comparably small localized scaffold — and it must be marked with `TODO:(DEVENV[plan-key]): ...`. A substantial temporary implementation, fallback execution path, or alternate architecture is not allowed as a stopgap; stop and ask instead.
 
    Summarize the blocker, name the tempting bad workaround if there is one, and ask the user for help or direction.
 5. **Track and hand back.** Remove any forward DEVENV comments whose work just completed. Update the detailed task list as work becomes clearly complete, and feel free to add or reword tasks when that is the smallest faithful way to keep the tracking current. Ask before major changes to phases, goals, or ACs. Then format the handback:
