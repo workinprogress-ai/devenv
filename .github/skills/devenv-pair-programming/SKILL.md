@@ -495,6 +495,8 @@ When triggered:
 5. Recommend `/devenv-refine-implementation-plan` when the plan no longer cleanly fits reality.
 6. Resume implementation only after explicit user direction.
 
+Escalation routing here is advisory. Present the recommended route and rationale, then follow the user's decision.
+
 Use the required format and completeness checklist in [decision-resolution-protocol.md](../common/references/decision-resolution-protocol.md).
 
 If the user independently decides to return to planning, treat that as authoritative and run the same escalation handoff flow without applying the threshold gate.
@@ -507,6 +509,8 @@ When the pair is actively discussing architecture or modifying plan structure (n
 - Keep it bounded to at most two passes per current plan/recommendation state.
 - Keep output focused on assumptions, boundary integrity, failure modes, and sequencing risk.
 - If pressure-test findings indicate broad multi-decision drift, pause execution and route through `/devenv-grooming` before resuming implementation.
+
+Pressure-test routing is advisory. Present the recommended route and rationale, then follow the user's decision.
 
 ### Pushback example
 
@@ -712,7 +716,7 @@ When the change is "do this code work **and** capture it in the plan", do both �
 
 ### When the user steps outside the plan
 
-Assume they're still working toward the plan unless they say otherwise. Flow behavior → see [When the User Is in the Flow](#when-the-user-is-in-the-flow). **Explicit plan drop** (*"forget the plan"*): switch to ad-hoc mode — don't reference the plan; return via phase kickoff when they signal return. If ambiguous, assume they're in the flow.
+Assume they're still working toward the plan unless they say otherwise. Flow behavior → see [When the User Is in the Flow](#when-the-user-is-in-the-flow). **Explicit plan drop** (*"forget the plan"*): switch to ad-hoc mode — don't reference the plan; return via phase kickoff when they signal return. If ambiguous, ask once whether they want flow-mode driving or structured split mode.
 
 ### Editing conventions
 
@@ -972,7 +976,7 @@ When the user signals end of session (or a phase boundary that suggests a natura
 - Failing to flag plan impact after the assist (new files, changed sequencing, or split drift).
 - Reverting user changes during a tactical assist without first asking whether they were intentional.
 - Continuing implementation during a structural revision before the updated plan is written and agreed.
-- Auto-ticking tasks after an in-the-flow period without confirming with the user first.
+- Auto-ticking tasks after an in-the-flow period when completion evidence is unclear or task-to-change mapping is ambiguous.
 - Declaring a phase or plan complete while relevant `[QUESTION]` items remain unresolved and untracked.
 
 ### File/marker hygiene
