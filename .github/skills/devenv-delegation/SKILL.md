@@ -339,6 +339,8 @@ The AI's in-context view of a file is a **cache** — invalidated the moment any
 
 **Any comment that refers to the plan, a future phase, or work to be done later must use the DEVENV marker format.** Plain `// TODO:` comments, bare annotations, or any note that mentions the plan without the DEVENV marker are not acceptable — they are untrackable and won't be caught by the cleanup grep at the end of the plan.
 
+Do not add permanent code comments that reference plan phases, task numbers, or decision records. Those references are permitted only for clearly temporary guidance using `DEVENV[...]` or `TODO:(DEVENV[...])` markers, and they must be removed when fulfilled.
+
 Two marker forms — use the right one for the situation:
 
 **Scaffolding marker** — for stubs, placeholders, or temporary code that a later task will replace:

@@ -157,6 +157,8 @@ Wait for explicit confirmation, add the `## Goals and Acceptance Criteria` secti
 
 Do a single broad pass through the plan and the codebase. Add DEVENV forward comments only when they genuinely help navigation or preserve an important future touch point:
 
+Do not add normal code comments that reference plan phases, task numbers, or decisions. If a comment must reference future planned work, it must be clearly temporary and use `DEVENV[...]` or `TODO:(DEVENV[...])` format.
+
 ```csharp
 // DEVENV[plan-key]: Phase 3 replaces this stub — returns empty list until then.
 // TODO:(DEVENV[plan-key]): Phase 3 wires in the real service here.
@@ -700,12 +702,17 @@ Assume they're still working toward the plan unless they say otherwise. Flow beh
 
 ### Editing conventions
 
-- **Never reflow numbering.** New tasks append with the next sequential number.
+- **When inserting into the middle of a task series, renumber from the insertion point onward.**
+   - Example: if Phase 3 has `3.1`, `3.2`, `3.3`, `3.4` and a new task must land between `3.1` and `3.2`, the result must be `3.1`, `3.2`, `3.3`, `3.4`, `3.5` with all downstream tasks shifted.
+   - Do not use suffixes like `3.2a` or `3.2b`.
+   - After renumbering, update all in-plan references that mention task IDs, including `depends on`, `decision:` metadata, inline `[QUESTION]` references, phase notes, and any revision-history entry that points to affected task numbers.
 - **Never uncheck completed tasks from prior sessions.** Exception: ticked within the current handback cycle and user's review found a blocker.
 - **Preserve all `[x]` checkboxes exactly** when rewriting sections.
 - **Prefer explicit question markers.** Use `[QUESTION]` exactly for unresolved plan questions so they can be searched and cleared deliberately.
 - **If `## Pending Questions` is needed and missing, create it immediately above `## Reference Information`.**
 - **Prefer DEVENV-marked TODOs over plain TODO/FIXME for plan-linked work.** When discovered during review, offer to replace plain markers with `TODO:(DEVENV[plan-key]): ...` so they remain trackable and removable in cleanup.
+- **If temporary code is introduced to keep the build/test loop moving**, add a `TODO:(DEVENV[plan-key]): ...` marker at the exact code location describing what real implementation will replace it and when. Also ensure the plan contains a corresponding follow-up task so the temporary code is not lost.
+- **Never leave permanent code comments that reference plan phases, task IDs, or decisions.** Those references are allowed only in clearly temporary `DEVENV[...]` / `TODO:(DEVENV[...])` markers and must be removed when the temporary condition is resolved.
 - **Record every revision in `## Revision History`** after `## Additional Task Context` near the bottom of the plan file. Do not insert it between phases or above `## Reference Information`. Use the shared plan format:
    ```markdown
    ## Revision History

@@ -69,13 +69,15 @@ Proposed phase outline for the plan:
 
 1. Phase 1 — Discovery & test scaffolding
    Explore the codebase; stub out interfaces or methods the acceptance criteria will exercise; write tests that assert the **current observable behaviour** (stubs, throws, baseline state). Every test added in this phase must pass at the end of it — do not write tests that assert behaviour the code does not yet have.
-2. Phase 2 — Core data model
+2. Phase 2 — Contracts & boundaries
+   Define or tighten the interfaces, request/response shapes, message schemas, extension points, or other contracts that the later implementation phases will build against. If temporary coverage exclusions are unavoidable at this stage, they must be explicitly tracked with DEVENV TODO markers and later cleanup tasks.
+3. Phase 3 — Core data model
    ...
-3. Phase 3 — API surface
+4. Phase 4 — API surface
    ...
-4. Phase 4 — Integration & wiring
+5. Phase 5 — Integration & wiring
    ...
-5. Phase 5 — Cleanup & docs
+6. Phase 6 — Cleanup & docs
 
 OK to proceed with full task breakdown? (yes / adjust phases / cancel)
 ```
@@ -97,6 +99,7 @@ Mark each criterion as `*(explicit)*` (lifted verbatim from the spec) or `*(infe
 Beyond those two sections, follow all rules from `/devenv-create-implementation-plan`:
 
 - Phase 1 is **always Discovery + test scaffolding** (explore codebase; stub new interfaces; write tests that assert **current observable behaviour** — including stubs that throw as expected — all tests must pass at the end of Phase 1; do **not** write tests that assert behaviour not yet implemented).
+- Bias toward an early **Contracts & boundaries** phase before broad implementation begins whenever the work introduces or changes important interfaces, schema shapes, extension seams, or persistence boundaries.
 - Last phase is **always Cleanup & docs**.
 - Resolve as many pending questions as possible while generating the plan. Keep unresolved items only for implementation-level details or explicit user-requested deferral.
 - Any unresolved decision that can block execution must be represented in both places:
@@ -104,6 +107,7 @@ Beyond those two sections, follow all rules from `/devenv-create-implementation-
    - `## Detailed Task List` as `decision:` metadata on the earliest affected task
 - Pending-question placement stays strict: phase/task-specific `[QUESTION] ...` inline under the relevant phase/task; `## Pending Questions` only for plan-level unresolved items.
 - For specs derived from upstream design artifacts (design docs, RFCs, Blueprints, Redesign docs, or equivalent detailed issue comments), include a `## Appendix` section whenever the work is medium/high complexity or risk. In that appendix, summarize the important upstream design context directly: key decisions, constraints/invariants, interface contracts, migration/rollout implications, and rejected alternatives that affect implementation choices.
+- If early contract-definition phases use temporary coverage-exclusion attributes or mechanisms because the concrete implementation lands later, add explicit cleanup/removal tasks in a later phase and require `TODO:(DEVENV[plan-key]): ...` markers at the affected code locations.
 - **If the spec is a `Solution_Proposal_*.md` (or equivalent design-decision artifact)**, the Cleanup phase must include two additional tasks:
    1. *"Update `docs/Architecture_and_implementation.md` using the selected option and recommendation as the source — use `/devenv-grooming` to capture the design delta for in-flight work."*
    2. *"Delete the local temporary design artifact working copy once the architecture doc is updated (unless the file itself is the intended canonical artifact)."*

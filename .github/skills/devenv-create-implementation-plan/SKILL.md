@@ -91,12 +91,15 @@ Once the above is gathered, **draft the phase structure — names and one-line d
 
 > *"Here's how I'd divide this work:*
 > - *Phase 1 — Discovery & test scaffolding: read existing code, confirm assumptions, add/adjust tests that assert current observable behaviour (including stub/default behaviour where applicable), and end fully green*
-> - *Phase 2 — [Name]: [deliverable]*
+> - *Phase 2 — Contracts & boundaries: define or tighten interfaces, request/response shapes, message schemas, extension points, or other contracts that later phases implement against; use temporary coverage exclusions only when unavoidable and always pair them with DEVENV TODOs*
+> - *Phase 3 — [Name]: [deliverable]*
 > - *Phase N — Cleanup & docs: remove scaffolding, update docs, verify coverage*
 >
 > *Does this structure make sense for what you're building? Any phases to merge, split, or reorder before I fill in the tasks?"*
 
 Do **not** propose Phase 1 as "add failing tests for new behaviour" or any equivalent wording. A phase proposal is invalid unless each phase is independently committable (tests pass, coverage does not regress, and the phase has a clear standalone deliverable).
+
+Bias toward defining important contracts early, before broad implementation begins. For medium/large work, initial phases should usually lock down the core interfaces, API shapes, message contracts, plugin seams, or persistence boundaries that the rest of the plan depends on. This improves shared understanding and exposes design problems earlier.
 
 Wait for explicit approval of the phase structure before proceeding to draft tasks.
 
@@ -106,12 +109,14 @@ Use the [plan template](./references/plan-template.md). Follow:
 
 - [Task formatting rules](./references/task-format.md) — atomic `- [ ] **N.N [S|M|L] Title**` tasks with descriptive sub-bullets, then `Files:` / `decision:` / `depends on` metadata, and an inline `(additional context)` link when needed
 - [Phase rules](./references/phase-rules.md) — Phase 1 is **Discovery & test scaffolding**; the last phase is **Cleanup & docs**; every phase must end committable (tests pass, coverage doesn't regress, single-PR sized)
+- Where the work introduces or changes important boundaries, add an early **Contracts & boundaries** phase (usually Phase 2, sometimes merged into late Phase 1 for smaller work) before broad implementation starts
 - The plan must follow this section order: `## Goals and Acceptance Criteria`, `## Context and Orientation`, `## Phases`, `## Detailed Task List`, `## Appendix` *(optional unless required by source complexity)*, `## Pending Questions` *(optional)*, `## Reference Information`, `## Additional Task Context`, `## Revision History`
 - `## Goals and Acceptance Criteria` must include an end-state paragraph plus important scope boundaries before the AC checklist
 - `## Context and Orientation` must be useful on its own to a human who may never read the task list
 - `## Context and Orientation` should be concise but substantive: each subsection should usually be 2-4 sentences with concrete repo-specific details (affected components, current behaviour, target behaviour, and constraints), not placeholder-style one-liners
 - `## Phases` is the human-facing phase summary section: each phase gets goal, end-state vision, suggested strategies, AC links, watch-outs / decisions, and deliverables
 - Resolve pending questions as early as possible during plan creation. Unresolved items are allowed only for implementation-level details or explicit user deferral.
+- When contract-first phases temporarily reduce meaningful coverage (for example because interfaces, schema holders, or placeholder adapters land before their implementations), the plan may use temporary coverage-exclusion mechanisms only when truly necessary. If it does, include explicit cleanup/removal tasks in a later phase and require `TODO:(DEVENV[plan-key]): ...` markers at the code locations that need real implementation or coverage restoration.
 - Every unresolved decision that can block execution must appear in both places:
   - `## Phases` under the relevant phase's **Watch Outs / Decisions**
   - `## Detailed Task List` as a task-level `decision:` metadata line on the earliest task where the decision matters
