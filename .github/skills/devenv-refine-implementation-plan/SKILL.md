@@ -62,6 +62,14 @@ Use `vscode_askQuestions` to gather:
 
 Do not assume. If the new requirements imply renumbering or reordering, flag it and ask before proceeding.
 
+### 2a. Optional pressure-test pass (user-gated)
+
+Before applying edits, offer an optional pressure-test pass using [pressure-test-protocol.md](../common/references/pressure-test-protocol.md) when scope changes have architectural or sequencing risk.
+
+- Never run automatically; proceed only after explicit user consent.
+- Keep it bounded to at most two passes per current plan state.
+- Use findings to decide whether to continue local refinement, route a bounded blocker to [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md), or route broader drift to [`/devenv-grooming`](../devenv-grooming/SKILL.md).
+
 ### 3. Apply changes — preserve everything
 
 **Hard rules:**

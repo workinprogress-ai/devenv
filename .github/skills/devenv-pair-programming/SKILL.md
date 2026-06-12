@@ -499,6 +499,15 @@ Use the required format and completeness checklist in [decision-resolution-proto
 
 If the user independently decides to return to planning, treat that as authoritative and run the same escalation handoff flow without applying the threshold gate.
 
+### Optional pressure-test pass (discussion/plan-mod mode only)
+
+When the pair is actively discussing architecture or modifying plan structure (not coding a concrete chunk), offer an optional pressure-test pass via [pressure-test-protocol.md](../common/references/pressure-test-protocol.md).
+
+- Never auto-run; ask and wait for explicit consent.
+- Keep it bounded to at most two passes per current plan/recommendation state.
+- Keep output focused on assumptions, boundary integrity, failure modes, and sequencing risk.
+- If pressure-test findings indicate broad multi-decision drift, pause execution and route through `/devenv-grooming` before resuming implementation.
+
 ### Pushback example
 
 > User: "Let's just catch and swallow the exception, it's only a sync job."

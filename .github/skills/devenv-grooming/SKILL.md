@@ -121,6 +121,14 @@ If the user asks you to continue directly, continue in the selected track's styl
 - Route to `/devenv-refine-implementation-plan` when architecture is settled and the remaining work is sequencing/scope edits in tasks.
 - If uncertain between grooming and design-discussion after Phase 1, ask one tie-breaker question: "Are we deciding between approaches broadly, or picking the fastest safe decision to unblock the current plan phase?"
 
+### Optional pressure-test pass (user-gated)
+
+Before final routing or decision closure on medium/high-impact design choices, offer an optional pressure-test pass using [pressure-test-protocol.md](../common/references/pressure-test-protocol.md).
+
+- Never run automatically; ask and wait for explicit consent.
+- Keep it bounded (max two passes per current grooming-doc state).
+- Use findings to either close decisions safely in grooming, route one bounded blocker to `/devenv-design-discussion`, or route broader drift to upstream design reshaping.
+
 ### In-flight decision facilitation loop
 
 When the input is an in-flight plan with pending architectural decisions, run a conversational loop one decision at a time:

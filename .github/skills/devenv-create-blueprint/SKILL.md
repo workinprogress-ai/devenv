@@ -140,6 +140,15 @@ Skip for greenfield.
 
 Do not proceed without explicit approval.
 
+#### Optional pressure-test pass (user-gated)
+
+After Phase 2 is approved and before finalizing consequences in Phase 3, offer an optional pressure-test pass using [pressure-test-protocol.md](../common/references/pressure-test-protocol.md).
+
+- Use it to challenge boundary choices, integration/event contracts, and sequencing assumptions while edits are still cheap.
+- Never run automatically; wait for explicit user consent.
+- Keep it bounded to at most two passes for the current draft state.
+- If findings indicate upstream architecture mismatch, pause and route to [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) before continuing.
+
 ---
 
 ### Phase 2: Architecture

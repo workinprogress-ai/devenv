@@ -103,6 +103,15 @@ Bias toward defining important contracts early, before broad implementation begi
 
 Wait for explicit approval of the phase structure before proceeding to draft tasks.
 
+### 4a. Optional pressure-test pass (user-gated)
+
+After phase-structure approval and before drafting detailed tasks, offer an optional pressure-test pass using [pressure-test-protocol.md](../common/references/pressure-test-protocol.md).
+
+- Use this when the plan has high-impact contract decisions, brittle sequencing, or unresolved high-blast-radius assumptions.
+- Never run automatically; proceed only on explicit user consent.
+- Keep it bounded to at most two passes per draft state.
+- If findings expose broader architecture drift instead of plan-local fixes, route to [`/devenv-grooming`](../devenv-grooming/SKILL.md) before continuing this skill.
+
 ### 5. Draft the plan in chat
 
 Use the [plan template](./references/plan-template.md). Follow:

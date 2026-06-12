@@ -84,6 +84,15 @@ OK to proceed with full task breakdown? (yes / adjust phases / cancel)
 
 Use `vscode_askQuestions`. Wait for explicit approval before writing the file.
 
+### 3a. Optional pressure-test pass (user-gated)
+
+After the phase-outline gate and before generating the full task breakdown, offer an optional pressure-test pass using [pressure-test-protocol.md](../common/references/pressure-test-protocol.md).
+
+- Use it when the source spec carries high-risk assumptions, contract ambiguity, or sequencing fragility.
+- Never run automatically; proceed only with explicit user consent.
+- Keep it bounded to at most two passes per artifact state.
+- If the pass reveals broad architecture drift, pause plan generation and route to [`/devenv-grooming`](../devenv-grooming/SKILL.md) or [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md) as appropriate.
+
 ### 4. Generate the full plan
 
 Read and follow the plan template at [`../devenv-create-implementation-plan/references/plan-template.md`](../devenv-create-implementation-plan/references/plan-template.md). Use it verbatim as the structural skeleton.

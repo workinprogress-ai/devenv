@@ -211,6 +211,14 @@ If the user disagrees, push back once, hear them out, then defer:
 
 > "I still think B, but A is defensible. If you go A, here are the three risks to name in the doc and the contingency I'd recommend if any of them materialise: ..."
 
+### Phase 4a (optional): Pressure-test the recommendation
+
+Before moving to final validation/wrap, offer an optional pressure-test pass using [pressure-test-protocol.md](../common/references/pressure-test-protocol.md).
+
+- Keep this light and bounded (max two passes per recommendation state).
+- Never run automatically; require explicit user consent.
+- If a supposedly bounded question expands into broader drift, stop and route to [`/devenv-grooming`](../devenv-grooming/SKILL.md).
+
 ### Phase 5: Validate
 
 Before writing anything down (or wrapping up only when explicitly requested), check:
