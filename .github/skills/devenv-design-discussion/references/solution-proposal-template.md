@@ -111,4 +111,6 @@ Suggested next steps:
 | Date | Change | Author |
 |---|---|---|
 | YYYY-MM-DD | Initial draft | <name> |
+
+Keep revision history material-only. If a review pass changes several small points, batch them into one row with a concise summary rather than one row per tweak.
 ```

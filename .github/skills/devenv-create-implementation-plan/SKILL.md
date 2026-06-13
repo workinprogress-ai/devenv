@@ -138,6 +138,7 @@ Use the [plan template](./references/plan-template.md). Follow:
 - Use the explicit complexity triggers in [plan-template.md](./references/plan-template.md): appendix is required when design-derived work meets the threshold (any 1 high-complexity trigger, or any 2 medium-complexity triggers).
 - When required, the appendix must summarize the important upstream design context, not just link to it: key decisions, constraints/invariants, interface contracts, migration/rollout considerations, and any explicitly rejected alternatives that affect implementation sequencing.
 - Keep the appendix bounded (roughly 10-25 lines) so it stays focused and actionable.
+- If the same rationale already appears in `## Phases`, `## Detailed Task List`, or `## Reference Information`, do not repeat it in the appendix; link instead.
 - `## Pending Questions` is optional and sits immediately above `## Reference Information`. Use it only for unresolved plan-level questions that matter to execution; task- or phase-specific questions should be placed inline below the relevant task/phase using `[QUESTION] ...`
 - Reference Information uses a **table** of key files with a relevance column, plus a separate links sub-list
 - Mark dependencies as `depends on N.N` inline; readers infer parallelism
@@ -235,6 +236,7 @@ See [phase-rules.md](./references/phase-rules.md) for the full checklist.
 - Anchor slugs are descriptive: `#task-21--mockstore-implementation`, not `#task-2-1`.
 - `N.N` — first number is the phase. Sub-tasks extend the series: `1.3.1`, `1.3.2`, ...
 - Push depth into *Additional task context* and link to it rather than bloating sub-bullets.
+- If a sub-bullet would need its own paragraph, move that content into *Additional task context* instead of expanding the task header.
 
 See [task-format.md](./references/task-format.md) for the full spec and examples.
 

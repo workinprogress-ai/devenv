@@ -78,7 +78,8 @@ If the user says no to any edit, skip it and move to the next.
 
 ### 5. Record in Revision History
 
-Add (or extend) the `## Revision History` section with today's date and one bullet per change:
+Add (or extend) the `## Revision History` section with today's date and one bullet per material change or batch of related minor edits:
+Keep the entry concise and avoid separate bullets for low-value tweaks when they came from the same request.
 
 ```markdown
 ## Revision History
@@ -108,7 +109,7 @@ One-line summary per change applied, plus the new task counts and overall progre
 
 - **Batching confirmations** — each edit gets its own y/n. The user must be able to say no to one without rejecting all.
 - **Silent edits while reading** — even a "small typo fix" while loading the plan is out of scope. Surface it; don't auto-fix.
-- **Skipping the Revision History** — every persisted change goes in the log. No exceptions.
+- **Skipping the Revision History** — every material persisted change goes in the log. Batch small related edits into one concise entry instead of one bullet per tweak.
 - **Re-checking work via this skill** — if more than 3 changes are needed, recommend `/devenv-refine-implementation-plan`. Don't grow the limit.
 - **Auto-pushing to issue body** — writes to GitHub require explicit confirmation, every time.
 - **Unchecking a `[x]` from a prior session or revision** — refuse. Suggest adding a new task for the additional work instead. The only valid undo is a mistake made in the current invocation of this skill.

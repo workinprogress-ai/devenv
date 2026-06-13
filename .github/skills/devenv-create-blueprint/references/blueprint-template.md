@@ -7,7 +7,8 @@ Copy this skeleton verbatim and fill it in. All top-level headings are required,
 
 <One paragraph: what this blueprint addresses and why. Reference the source
 Requirements document, GitHub issue, or brief if applicable. State whether
-this is greenfield or brownfield.>
+this is greenfield or brownfield. Keep it short and avoid repeating details
+that will already appear in later sections.>
 
 **Status**: Draft | Approved | Superseded
 **Source requirements**: <link to Requirements-*.md or issue, if any>
@@ -16,6 +17,8 @@ this is greenfield or brownfield.>
 ## Revision History
 
 ### YYYY-MM-DD — Initial blueprint
+
+Keep revision entries material and concise. If several small edits come from the same review pass, record them as one short entry instead of one line per tweak.
 
 ---
 
@@ -47,6 +50,7 @@ this is greenfield or brownfield.>
 ## 2. Existing System Survey
 
 > Brownfield only. For greenfield blueprints, replace this section with "N/A — greenfield".
+> Keep each survey concise and link to deeper source material rather than restating it.
 
 For each surveyed component:
 

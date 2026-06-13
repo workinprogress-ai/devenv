@@ -82,6 +82,13 @@ Examples:
 
 Skills that follow this convention: `devenv-refine-requirements`, `devenv-refine-roadmap`, `devenv-refine-blueprint`, `devenv-refine-implementation-plan`.
 
+## Artifact brevity rules
+
+- **Log only material changes.** Revision History is for meaningful scope, ordering, decision, or dependency changes. Skip entries for wording polish, checkbox ticks, and other mechanical churn.
+- **Batch related edits.** If one pass makes several small changes of the same kind, record them as one concise revision bullet instead of one bullet per tweak.
+- **Keep one home for detail.** If a fact already lives in a phase summary, appendix, or task context, do not restate it in Revision History unless the change itself is what matters.
+- **Keep appendices bounded.** Appendix sections should be short, source-backed, and only include context not already captured in the main body. Push repetitive rationale into links or upstream artifacts.
+
 ## Model check
 
 Add the following blockquote **immediately after the `# Skill Title` heading** (before the opening paragraph) for any skill that:

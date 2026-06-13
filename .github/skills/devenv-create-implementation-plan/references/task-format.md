@@ -23,11 +23,9 @@ The `(additional context)` link is inline on the task header line, optional, and
 
 Every task carries a size label immediately after the task number:
 
-| Label | Meaning |
-|---|---|
-| `[S]` | ≤ 30 min — mechanical, clear scope, no judgment calls |
-| `[M]` | 30 min – 2 h — some judgment, a few moving parts |
-| `[L]` | > 2 h — complex; consider splitting |
+- `[S]` — ≤ 30 min, mechanical, clear scope, no judgment calls
+- `[M]` — 30 min – 2 h, some judgment, a few moving parts
+- `[L]` — > 2 h, complex; consider splitting
 
 Size is an estimate for pair-split planning, not a hard SLA. If a task turns out larger than `[S]`, record the surprise in the session summary.
 
@@ -45,6 +43,8 @@ Sub-bullets are **navigator notes** — they tell the implementer what they need
 
 Avoid vague sub-bullets like "implement the logic" or "add tests". If a sub-bullet would need its own paragraph, push that depth into *Additional task context* and link to it.
 
+If the same detail is already captured in the phase summary, appendix, or reference information, keep the sub-bullet short and link instead of repeating it.
+
 ### `Files:` bullet
 
 List every file the task **reads or modifies** (including test files), using paths relative to the **workspace root** (the top-level folder open in VS Code). Example:
@@ -54,6 +54,7 @@ List every file the task **reads or modifies** (including test files), using pat
 ```
 
 Rules:
+
 - Workspace-root-relative only — never `src/...` or absolute paths.
 - Include test files. Omit files the task merely reads without changing.
 - New files that don't exist yet are listed with a `(new)` suffix: `` `repos/.../IRetryPolicy.cs` (new) ``.
@@ -68,6 +69,7 @@ Add a `decision:` bullet when a task requires a non-obvious design choice that s
 ```
 
 Rules:
+
 - One sentence describing the choice and why it's non-obvious.
 - A task may have multiple `decision:` bullets.
 - Signals to the AI: stop and ask before making the choice silently.
@@ -81,13 +83,12 @@ Add an `owner:` bullet when a task strongly belongs to one party:
 - owner: User
 ```
 
-| Value | Meaning |
-|---|---|
-| `User` | Must be driven by the human — involves design intent, domain judgment, or a decision only the user can make |
-| `AI` | Mechanical or boilerplate work the AI should take by default |
-| *(omit)* | Either party can take it — this is the default; no bullet needed |
+- `User` — must be driven by the human; involves design intent, domain judgment, or a decision only the user can make
+- `AI` — mechanical or boilerplate work the AI should take by default
+- *(omit)* — either party can take it; this is the default and no bullet is needed
 
 Rules:
+
 - Omit when either party can reasonably take the task.
 - `User` tasks are surfaced by pair-programming when proposing the task split; the AI will not unilaterally take them.
 - Pair-programming and delegation both respect this annotation when proposing splits.

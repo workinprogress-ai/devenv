@@ -185,6 +185,7 @@ Appendix is required when the plan is derived from an upstream design artifact
 (design doc, RFC, Blueprint, Redesign doc, or equivalent issue comment) and the
 implementation is medium/high complexity or risk. In that case, summarize the
 important design context directly in the appendix, do not rely on links alone.
+If the same context already appears elsewhere in the plan, do not repeat it here — link back instead.
 
 Complexity triggers (appendix required when source is design-derived and either condition holds):
 
@@ -285,4 +286,5 @@ enough to execute the task.>
 - **Anchor slugs** — use `#task-NN--short-slug` (descriptive), not `#task-N-N` (opaque). Match with `<a id="task-NN--short-slug"></a>` in *Additional task context*.
 - **Reference table** — prefer a "key files" table with a relevance column over a flat link list. Add a separate **Related links** sub-list for issues/docs/PRs.
 - **Revision History placement** — keep it near the bottom so the top of the plan stays oriented toward implementation and review.
+- **Revision History content** — log only material changes. Batch related small edits from the same pass into one concise bullet instead of one bullet per tweak.
 - **Section heading case** — Title Case for `## Detailed Task List`, `## Reference Information`, etc.

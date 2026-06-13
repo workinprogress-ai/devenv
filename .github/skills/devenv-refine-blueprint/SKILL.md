@@ -39,6 +39,7 @@ Use `vscode_askQuestions` to gather:
 - **What's wrong** — sections whose descriptions are now misleading
 - **What changed status** — services moving from `new` → `existing`, deltas now obsolete because the change shipped
 - **What's no longer relevant** — sections to remove; deletion will be logged in Revision History with a note pointing to the replacement (or reason for withdrawal)
+- **Revision history** — record only material blueprint changes; batch small related edits from the same pass into one concise entry.
 - **New requirements docs** — "In a multi-epic project, has a new `Requirements-<epic>-NNN.md` been added that this blueprint should now cover? Or has an existing one been split or refined?"
 - **Source material** — "Are there meeting transcripts, email threads, design discussions, or other communications records behind these changes? If so, where are they?"
 
@@ -102,7 +103,7 @@ Do not write anything until the user confirms. If the user adjusts scope, revise
 
 ### 5. Record the revision
 
-Add a new entry to the top of `## Revision History`:
+Add a new entry to the top of `## Revision History`. Keep it concise and material-only:
 
 ```markdown
 ### 2026-05-13 — Added inventory reservation TTL
