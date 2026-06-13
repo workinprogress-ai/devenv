@@ -49,7 +49,7 @@ What are you trying to do?
 │   └─ Plan exists, mechanical work     →  /devenv-delegation
 │
 ├─ 🔎 Review / address feedback
-│   ├─ AI reviews code you wrote        →  /devenv-code-review
+│   ├─ Review your changes              →  /devenv-code-review
 │   ├─ You received PR review comments  →  /devenv-address-pr-comments
 │   └─ Quality gates before commit      →  /devenv-pre-commit
 │
@@ -115,7 +115,7 @@ Loads the plan and runs an interactive driver/navigator handoff: both parties ta
 
 ### `/devenv-delegation`
 
-> **AI drives mechanical work, human reviews.**
+> **Delegated execution support for mechanical work, with user review and ownership.**
 
 Analyzes a plan, proposes work-session groupings, implements phase-by-phase, keeps the user engaged with brief pings and inline concern surfacing. Ends each session with a summary including review hotspots.
 
@@ -165,7 +165,7 @@ Orients against README, project structure, entry points, and test layout for one
 
 > **Close the loop after implementation.**
 
-The inverse of `/devenv-delegation` — you (or another agent) wrote the code, the AI reviews it. Produces structured feedback grouped by severity (Blocker / Concern / Nit / Praise) using the same hotspot format as `/devenv-delegation`.
+The inverse of `/devenv-delegation` — this skill provides review assistance for your changes. Produces structured feedback grouped by severity (Blocker / Concern / Nit / Praise) using the same hotspot format as `/devenv-delegation`.
 
 **Use for:** reviewing a PR, reviewing a local diff, reviewing code from a feature branch  
 **Don't use for:** addressing comments on your own PR (→ `/devenv-address-pr-comments`)  
@@ -178,17 +178,17 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 ### Plan lifecycle
 
 | Skill | Purpose | Argument |
-|---|---|---|
+| --- | --- | --- |
 | `/devenv-gather-requirements` | Three-phase requirements interview → requirements doc | System name or existing notes |
 | `/devenv-refine-requirements` | Revise an existing requirements doc, preserve REQ-NNN IDs | Requirements file path |
 | `/devenv-create-blueprint` | Architectural decomposition → blueprint doc | System name or path to requirements |
 | `/devenv-refine-blueprint` | Revise an existing blueprint, preserve decisions | Blueprint file path |
-| `/devenv-grooming` | Consolidated component-level design intake and routing; default return point for accumulated design issues in a plan | Problem statement, component path, design doc path, plan path, or issue # |
+| `/devenv-grooming` | Consolidated component-level design intake and routing; produces a Feature/Fix/Task issue attack plan by repo with independently shippable slices; default return point for accumulated design issues in a plan | Problem statement, component path, design doc path, plan path, or issue # |
 | `/devenv-create-roadmap` | Phased delivery sequencing + GH issue creation | Blueprint and/or requirements file path (at least one) |
 | `/devenv-refine-roadmap` | Structurally revise a roadmap — split, re-sequence, add | Roadmap file path |
 | `/devenv-update-roadmap` | Sync roadmap status from issues + PRs | Roadmap file path |
-| `/devenv-create-implementation-plan` | Create a plan via interview | Issue # or description |
-| `/devenv-plan-from-spec` | Create a plan from an existing spec/RFC/doc | File path, URL, or issue # |
+| `/devenv-create-implementation-plan` | Create a plan via interview; supports direct-plan mode and treats side-stream artifacts as additional (non-directing) context | Issue # or description |
+| `/devenv-plan-from-spec` | Create a plan from an existing spec/RFC/doc; supports direct-plan mode and treats side-stream artifacts as additional (non-directing) context | File path, URL, or issue # |
 | `/devenv-refine-implementation-plan` | Revise a plan after scope changes | Plan file path or issue # |
 | `/devenv-plan-update` | Small surgical edit (tick box, add note) | Plan file path or issue # |
 | `/devenv-plan-status` | Progress report, read-only | Plan file path or issue # |
@@ -196,9 +196,9 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 ### Working modes
 
 | Skill | Purpose | Argument |
-|---|---|---|
+| --- | --- | --- |
 | `/devenv-pair-programming` | Collaborative build — human + AI both implement, while keeping the plan current as scope/questions emerge | Issue # or plan path |
-| `/devenv-delegation` | AI-driven build — human reviews | Issue # or plan path |
+| `/devenv-delegation` | Delegated build support — assistant-led execution with user review and ownership | Issue # or plan path |
 | `/devenv-document` | Produce documentation for an existing system or component — audience, format, and scope set by interview | Repo path, component name, or description |
 | `/devenv-chat-with-code` | Conversational fact-finding with a codebase — the code talks back | Repo path(s), or nothing for current workspace |
 | `/devenv-spike` | Exploratory investigation + findings doc | Question or issue # |
@@ -208,7 +208,7 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 ### Workflow
 
 | Skill | Purpose | Argument |
-|---|---|---|
+| --- | --- | --- |
 | `/devenv-triage-issue` | Classify issue, suggest labels, propose ACs | Issue # or pasted text |
 | `/devenv-open-pr` | Draft + open a PR from a finished phase | Branch or plan path |
 | `/devenv-address-pr-comments` | Address PR review comments — auto-fixes clear threads, surfaces complex ones for direction | PR # |
@@ -217,16 +217,16 @@ The inverse of `/devenv-delegation` — you (or another agent) wrote the code, t
 ### Quality
 
 | Skill | Purpose | Argument |
-|---|---|---|
+| --- | --- | --- |
 | `/devenv-bug-fix` | Investigate a bug, trace root cause, propose resolution — optionally fix immediately | Issue # or description |
-| `/devenv-code-review` | AI reviews code you wrote | PR #, refs, or nothing |
+| `/devenv-code-review` | Review assistance for your changes | PR #, refs, or nothing |
 | `/devenv-pre-commit` | Lint/format/test before committing | `--all` or nothing |
 | `/devenv-tech-debt-audit` | Opinionated codebase audit — file-cited findings across debt + correctness/bug risks, severity, effort; optional focus area; offers to create a GH issue after the audit | Repo path(s), optionally + focus area description; or GH issue # |
 
 ### Meta
 
 | Skill | Purpose | Argument |
-|---|---|---|
+| --- | --- | --- |
 | `/devenv-skill-guru` | Pick the right skill | Problem description (optional) |
 
 ---
@@ -310,6 +310,31 @@ Existing-component feature request
          -> planning and execution
 ```
 
+### Design/spike artifact to delivery
+
+```text
+/devenv-design-discussion or /devenv-spike
+  -> /devenv-grooming                        # capture design delta + issue attack plan
+  -> /devenv-create-implementation-plan
+     or /devenv-plan-from-spec              # one selected issue slice
+  -> execution
+```
+
+Direct-plan exception:
+
+- If the user explicitly chooses to skip grooming and provides sufficient context, start planning directly.
+- Side-stream artifacts (design/spike/copied/unclassified inputs) may be present with or without grooming and are informational, not scope-directing.
+- If a grooming artifact exists, grooming remains the directing source for scope and slice boundaries.
+
+### Plan too large during creation
+
+```text
+/devenv-create-implementation-plan or /devenv-plan-from-spec
+  -> scope/risk too large for one issue?
+     -> yes: /devenv-grooming (redivide into Feature/Fix/Task issues)
+     -> then: create focused plan for one selected issue slice
+```
+
 ### Upstream change cascade
 
 ```text
@@ -342,7 +367,7 @@ Blueprint changed
 ## Skill coexistence notes
 
 | Potential confusion | Clarification |
-|---|---|
+| --- | --- |
 | `/devenv-create-implementation-plan` vs `/devenv-plan-from-spec` | Interview vs no-interview. Use `plan-from-spec` when the spec already has acceptance criteria. |
 | `/devenv-gather-requirements` vs `/devenv-create-implementation-plan` | Requirements describe *what* the system does (user perspective). Implementation plans describe *how* to build it (engineering tasks). One requirements phase may produce multiple implementation plans. |
 | `/devenv-create-blueprint` vs `/devenv-create-implementation-plan` | Blueprint is high-level architecture across multiple components (domains, services, events, deltas). Implementation plan is task-level for one deliverable. A blueprint typically spawns several implementation plans. |
@@ -356,7 +381,7 @@ Blueprint changed
 | `/devenv-refine-requirements` vs `/devenv-gather-requirements` | Refine preserves existing REQ-NNN IDs and dependency links; gather creates from scratch. Use refine for anything except a brand-new requirements doc. |
 | `/devenv-refine-implementation-plan` vs `/devenv-plan-update` | Structural changes vs surgical edits. `/devenv-plan-update` refuses if you ask for >3 changes. |
 | `/devenv-pair-programming` vs `/devenv-delegation` | Human-in-the-loop vs AI-drives. Prefer `/devenv-pair-programming` when in doubt. |
-| `/devenv-code-review` vs `/devenv-address-pr-comments` | AI reviews your code vs you address a reviewer's comments. |
+| `/devenv-code-review` vs `/devenv-address-pr-comments` | Review assistance for your changes vs you address a reviewer's comments. |
 | `/devenv-address-pr-comments` vs GitHub PR extension | Auto-fixes clear threads + surfaces complex ones with recommendations vs batch fix-all with no per-thread direction. |
 | `/devenv-rubber-duck` vs `/devenv-spike` | No artifact vs produces a findings doc. |
 | `/devenv-rubber-duck` vs `/devenv-design-discussion` | Rubber-duck has no opinions and produces no artifact. Design-discussion brings strong opinions, drives to a recommendation, and outputs a `Solution_Proposal_<topic>-NNN.md` by default. |

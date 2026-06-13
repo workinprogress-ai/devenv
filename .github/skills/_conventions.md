@@ -129,31 +129,35 @@ Any command that mutates external state — `issue-comment`, `issue-update`, `is
 
 If unsure, prefer `--dry-run` first.
 
-## Artifact Comment Identity Convention
+## Artifact Identity Convention
 
-For skills that store output artifacts in GitHub issue comments (design docs, redesign docs, spikes, audits), use a stable document identity and upsert flow. Do not use heading-prefix or fuzzy matching.
+For skills that produce persisted artifacts (local markdown files or GitHub issue comments), use a stable deterministic document identity. Do not use heading-prefix or fuzzy matching.
 
 Required rules:
 
-1. Generate `doc_id` via tooling (do not hand-build strings):
-    - `issue-artifact-doc-id --issue <N> --artifact-type <artifact-type> --slug <artifact-slug>`
-    - Use `--source-file <path>` instead of `--slug` when file basename is the intended slug source.
-    - The generated format is `dv1:<owner-repo>:issue-<N>:<artifact-type>:<artifact-slug>`.
-2. Prefix the comment body with the metadata block at the top of the comment body:
+1. Every persisted artifact must include the metadata block at the top of the artifact body:
 
 ```markdown
 <!-- DEVENV_ARTIFACT_V1
-doc_id: dv1:<owner-repo>:issue-<N>:<artifact-type>:<artifact-slug>
+doc_id: <deterministic doc id>
 artifact_type: <artifact-type>
-issue_number: <N>
+artifact_scope: issue-comment | local-file
+issue_number: <N | none>
 source_file: <workspace-relative file path>
 updated_at_utc: <ISO-8601>
 -->
 ```
 
-3. The `doc_id:` line must appear within the first 256 characters of the comment body.
-4. Post via `issue-artifact-upsert` (not manual `issue-comment-list` / `issue-comment-update` matching).
-5. If upsert reports duplicate `doc_id` conflict, stop and ask the user which comment ID is canonical before continuing.
+2. `doc_id` must be deterministic for the same artifact identity and must appear within the first 256 characters.
+3. For issue-comment artifacts, generate `doc_id` via tooling (do not hand-build):
+    - `issue-artifact-doc-id --issue <N> --artifact-type <artifact-type> --slug <artifact-slug>`
+    - Use `--source-file <path>` instead of `--slug` when file basename is the intended slug source.
+    - Generated format: `dv1:<owner-repo>:issue-<N>:<artifact-type>:<artifact-slug>`.
+4. For local-file artifacts (no issue comment target), use this deterministic format:
+    - `dv1:<owner-repo>:local:<artifact-type>:<artifact-slug>`
+    - `<artifact-slug>` should be derived from the artifact filename stem.
+5. For issue-comment publication, post via `issue-artifact-upsert` (not manual `issue-comment-list` / `issue-comment-update` matching).
+6. If upsert reports duplicate `doc_id` conflict, stop and ask the user which comment ID is canonical before continuing.
 
 Skills should keep only artifact-specific mapping details locally (artifact type, slug source, source file) and reference this convention for common behavior.
 
@@ -223,6 +227,16 @@ Don't ask about:
 - Mechanical choices that match existing style (variable names, formatting, import order).
 - Things clearly stated in material the AI just read.
 
+## Authorship and accountability (shared)
+
+Work product ownership is always with the user.
+
+- Do not claim, imply, or phrase that the AI "owns" authored output.
+- Do not attribute responsibility to the AI for shipped changes.
+- Use assistant-role wording (for example: "assistant-led execution", "review assistance", "delegated implementation support") instead of ownership wording.
+- If a task uses `owner: AI` / `owner: User` metadata, treat it as execution lead only for session flow. It does not change authorship or accountability.
+- When summarizing results, phrase outcomes as user-owned deliverables with assistant support.
+
 ## Sibling cross-link rule
 
 Each skill should link to:
@@ -275,7 +289,7 @@ When a skill needs to summarize one or more existing documents or repos, prefer 
 **Fields by skill context:**
 
 | Context | Fields to request |
-|---|---|
+| --- | --- |
 | Requirements docs / communications | Stated goals, decisions reached, open questions, named actors, constraints mentioned, concrete behaviors described |
 | Architecture / blueprint docs | Architectural decisions, components/services, integration points, QoS/constraint statements, trade-offs, open architectural questions |
 | Existing component (brownfield) | Current purpose, owned aggregates, public API, events emitted/consumed, known dependencies |

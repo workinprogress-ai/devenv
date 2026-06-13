@@ -80,11 +80,16 @@ Use the registry to match the user's answers to a skill:
    - Feature-discovery guardrail: when the ask is to add a feature in an existing component and the user is still deciding the best approach, route to `/devenv-design-discussion` first.
    - Feature-delivery guardrail: when the ask is to add/implement a feature in an existing component and the approach is already chosen, route to Plan/Build.
    - Architecture guardrail: default component-level architecture intake to `/devenv-grooming` unless the user explicitly requests one specialized design skill.
+   - Upstream-artifact guardrail: if the user wants to plan from a design-discussion or spike artifact and no grooming artifact exists yet, route to `/devenv-grooming` first unless the user explicitly asks to bypass grooming.
+   - Direct-plan exception guardrail: if the user explicitly wants to create a plan without grooming (for example thin-air context, mixed pasted notes, or unclassified artifacts), route to `/devenv-create-implementation-plan` (or `/devenv-plan-from-spec` when a concrete spec exists).
+   - Source-precedence guardrail: when a grooming artifact exists, treat grooming as the directing source of scope/slice boundaries over side-stream artifacts.
+   - Side-stream-input guardrail: side-stream artifacts may appear with or without grooming; treat them as additional informational inputs, never as scope-directing sources.
    - Architecture guardrail: if the user primarily wants alternatives/trade-offs/recommendation, route to `/devenv-design-discussion` first.
    - Architecture guardrail: if the user says the current approach is wrong, route to `/devenv-grooming`, not refine.
    - Architecture guardrail: if the user has one bounded plan blocker/question that needs deep option-weighing, route to `/devenv-design-discussion`; if the user describes accumulating questions, entangled decisions, or likely sweeping design changes, route to `/devenv-grooming`.
    - Build guardrail: do not route high-impact build phases to `/devenv-delegation`.
    - Escalation guardrail: if the user is mid-execution with a small local plan adjustment, stay in execution; if they want to return to planning for broader plan surgery, route to `/devenv-refine-implementation-plan`; if they describe one large blocker/question, route to `/devenv-design-discussion`; if they describe accumulated architectural issues, route to `/devenv-grooming`.
+   - Plan-size guardrail: if the user says plan creation is too large/risky for one issue, route to `/devenv-grooming` for Feature/Fix/Task redivision, then back to `/devenv-create-implementation-plan` or `/devenv-plan-from-spec` for one selected slice.
    - Bug-hunt guardrail: for broad/focused bug hunting (including "find race conditions", "hunt null bugs", "audit auth module for bugs"), route to `/devenv-tech-debt-audit`.
    - Bug-investigation guardrail: for one known failing behavior/issue/incident, route to `/devenv-bug-fix`.
 4. **Check for a chain** — if the user's goal implies a multi-step workflow (e.g. "I want to implement this whole story", "from idea to PR"), look up the matching chain in the registry and recommend the full sequence.
@@ -176,7 +181,7 @@ These five are the core of the catalog. If the user is unsure where to start wit
 
 1. **`/devenv-create-implementation-plan`** — before any significant work begins
 2. **`/devenv-pair-programming`** — collaborative, human stays in control
-3. **`/devenv-delegation`** — AI drives mechanical work, human reviews
+3. **`/devenv-delegation`** — delegated execution support for mechanical work, user reviews and owns outcomes
 4. **`/devenv-spike`** — when you don't know if something is feasible yet
 5. **`/devenv-code-review`** — close the loop after implementation
 
@@ -190,6 +195,9 @@ These five are the core of the catalog. If the user is unsure where to start wit
 - **Recommending `/devenv-create-implementation-plan` when a plan already exists** — that's `/devenv-refine-implementation-plan` or `/devenv-plan-update`.
 - **Routing existing-component feature delivery to architecture by default** — default to Plan/Build (`/devenv-create-implementation-plan`, `/devenv-pair-programming`, `/devenv-delegation`) unless the user explicitly asks for architecture option-weighing or design-artifact work.
 - **Skipping `/devenv-grooming` for ambiguous component design intake** — use grooming as the default classifier unless the user requested a specific design skill.
+- **Skipping `/devenv-grooming` when planning directly from design/spike artifacts without coordination context** — route through grooming first unless the user explicitly opts out.
+- **Treating side-stream artifacts as scope-directing** — whether grooming exists or not, use them as additional informational inputs only; when grooming exists it directs scope, otherwise confirm boundaries in plan interview/approval gates.
+- **Ignoring plan-size escalation signals** — when one plan is too large/risky, route to grooming for issue redivision before continuing planning.
 - **Skipping the architecture disambiguation question** when stage is Architect and intent is not explicit.
 - **Recommending a single skill when the user described a multi-step goal** — check the registry chains first.
 - **Hard-coding skill knowledge** — always consult the registry; it may contain fork-added skills not listed here.

@@ -1,12 +1,12 @@
 ---
 name: devenv-code-review
-description: Review changed code and produce structured, actionable feedback. The inverse of `/devenv-delegation`: the human (or another agent) wrote the code, the AI reviews it. USE WHEN the user says "review this PR", "review my changes", "code review", "look over this branch", "review the diff", or hands off a PR / branch / local diff for assessment. Supports both existing PRs and pre-PR branch reviews. Auto-detects input: a PR number → fetches via `pr-get` + `pr-diff`; two refs → diffs locally; nothing → defaults to current-branch-vs-default-branch. Produces a 1–2 sentence summary, then findings grouped by severity (Blocker / Concern / Nit / Praise) using the same hotspot bullet format as `/devenv-delegation`. Focuses only on what changed; flags missing tests; surfaces TODO/FIXME left in the diff. Default is print-to-chat; offers to post via `pr-comment` only with explicit confirmation. DO NOT USE for writing or refactoring code (use `/devenv-pair-programming` or `/devenv-delegation`), for resolving review comments on your own PR (use `/devenv-address-pr-comments`), or for general codebase Q&A.
+description: Review changed code and produce structured, actionable feedback. Inverse of `/devenv-delegation`: this skill provides review assistance for user-owned changes. USE WHEN the user says "review this PR", "review my changes", "code review", "look over this branch", "review the diff", or hands off a PR / branch / local diff for assessment. Supports both existing PRs and pre-PR branch reviews. Auto-detects input: a PR number → fetches via `pr-get` + `pr-diff`; two refs → diffs locally; nothing → defaults to current-branch-vs-default-branch. Produces a 1–2 sentence summary, then findings grouped by severity (Blocker / Concern / Nit / Praise) using the same hotspot bullet format as `/devenv-delegation`. Focuses only on what changed; flags missing tests; surfaces TODO/FIXME left in the diff. Default is print-to-chat; offers to post via `pr-comment` only with explicit confirmation. DO NOT USE for writing or refactoring code (use `/devenv-pair-programming` or `/devenv-delegation`), for resolving review comments on your own PR (use `/devenv-address-pr-comments`), or for general codebase Q&A.
 argument-hint: PR number, two refs (--base BASE --head HEAD), or nothing (defaults to current branch vs. default branch)
 ---
 
 # Code review
 
-Review code changes and produce structured, actionable feedback. Inverse of `/devenv-delegation`: the human or another agent wrote the code; the AI reviews it.
+Review code changes and produce structured, actionable feedback for work. Inverse of `/devenv-delegation`: this skill provides review assistance.
 
 > Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
 

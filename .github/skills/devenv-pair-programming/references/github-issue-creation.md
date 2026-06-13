@@ -28,7 +28,7 @@ If the user says no, skip to session wrap-up.
    - Note the new issue number.
    - Generate doc_id using tooling:
      - `doc_id=$(issue-artifact-doc-id --issue <N> --artifact-type <artifact-type> --slug <artifact-slug>)`
-   - Apply the [Artifact Comment Identity Convention](../../_conventions.md#artifact-comment-identity-convention).
+   - Apply the [Artifact Identity Convention](../../_conventions.md#artifact-identity-convention).
    - Write the document to a temp file.
    - `issue-artifact-upsert --issue <N> --doc-id "$doc_id" --body-file <temp-file>`
    - Surface the issue URL.
@@ -36,7 +36,7 @@ If the user says no, skip to session wrap-up.
    **If posting to an existing issue:**
    - Generate doc_id using tooling:
      - `doc_id=$(issue-artifact-doc-id --issue <N> --artifact-type <artifact-type> --slug <artifact-slug>)`
-   - Apply the [Artifact Comment Identity Convention](../../_conventions.md#artifact-comment-identity-convention).
+   - Apply the [Artifact Identity Convention](../../_conventions.md#artifact-identity-convention).
 
    - Write the document to a temp file.
    - `issue-artifact-upsert --issue <N> --doc-id "$doc_id" --body-file <temp-file>`

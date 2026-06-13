@@ -3,6 +3,15 @@
 Copy this skeleton verbatim and fill it in. All top-level headings are required, except `## Pending Questions`; `## Appendix` is optional for straightforward work and required for medium/high-complexity plans derived from upstream design artifacts.
 
 ```markdown
+<!-- DEVENV_ARTIFACT_V1
+doc_id: dv1:<owner-repo>:local:implementation-plan:<artifact-slug>
+artifact_type: implementation-plan
+artifact_scope: local-file
+issue_number: <N | none>
+source_file: <workspace-relative file path>
+updated_at_utc: <ISO-8601>
+-->
+
 # <Plan Title — short and specific>
 
 <One paragraph: what this plan accomplishes and why. Enough context for a fresh
@@ -244,6 +253,17 @@ phase as `[QUESTION] ...` bullets.
 - <GH issue, design doc, related PR, external spec, etc.>
 - <Link>
 
+**Upstream artifacts (if any):**
+
+- <Grooming artifact link>
+- <Design discussion / spike / blueprint / roadmap artifact link>
+
+**Coordination context (optional when this plan is one slice of a larger groomed attack plan):**
+
+- Parent grooming issue/artifact: <link>
+- Slice issue type: <Feature|Fix|Task>
+- Slice independent production target: <one-line statement>
+
 ## Additional Task Context
 
 <Per-task deep dives. Anchor each entry with a descriptive slug so tasks above
@@ -285,6 +305,8 @@ enough to execute the task.>
 - **Sub-bullets first, metadata last** — descriptive sub-bullets describe the work; `Files:` / `decision:` / `depends on` come at the bottom of the bullet list.
 - **Anchor slugs** — use `#task-NN--short-slug` (descriptive), not `#task-N-N` (opaque). Match with `<a id="task-NN--short-slug"></a>` in *Additional task context*.
 - **Reference table** — prefer a "key files" table with a relevance column over a flat link list. Add a separate **Related links** sub-list for issues/docs/PRs.
+- **Upstream artifacts** — when a grooming/design/spike/blueprint/roadmap artifact exists, include explicit links in the `Upstream artifacts` block.
+- **Coordination context** — when this plan is one slice of a larger groomed issue attack plan, fill the coordination fields (parent grooming artifact, slice type, independent target statement).
 - **Revision History placement** — keep it near the bottom so the top of the plan stays oriented toward implementation and review.
 - **Revision History content** — log only material changes. Batch related small edits from the same pass into one concise bullet instead of one bullet per tweak.
 - **Section heading case** — Title Case for `## Detailed Task List`, `## Reference Information`, etc.

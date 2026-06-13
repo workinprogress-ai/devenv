@@ -6,6 +6,17 @@ The workflow stands on its own regardless of who is doing the work: a human engi
 
 Use this guide when you want the end-to-end methodology rather than a tool catalog.
 
+## Principles
+
+- **Top-down delivery** — start with the highest-level artifact that makes sense for the work, then flow downward through the stack of increasingly specific artifacts.
+- **Execution mode by risk and collaboration needs** — choose the right execution mode (collaborative vs delegated) based on the work's impact, novelty, and need for human involvement
+- **Responsibility and Accountability** — the **engineer** is **always** the **responsible** party for the work, even when AI-assisted; the AI provides support but does not own outcomes.  "The AI did it" is not an acceptable explanation for a shipped change.  
+- **Organic comprehension** - Take the danger of comprehension deficit seriously.  Understand what you are doing and be able to explain it. Do not treat the AI as a black box or a magic wand.  If you don't understand something, ask questions, seek clarification, and do not proceed until you have a clear mental model.
+- **AI is a tool, not a teammate** — use the AI for what it's good at (drafting, summarizing, suggesting) but do not treat it as a human collaborator with agency or ownership. Always maintain human control and oversight.
+- **Do the hard thing** - resist the temptation to skip steps or take shortcuts.  If you don't understand something, work at it until you do.  Choose to do work you are tempted to delegate when there is a good reason to do so. 
+- **Think deeply** - don't just ask "what should I do?" but also "why am I doing this? What is the goal? What are the trade-offs? What could go wrong? What would a good outcome look like?"  What patterns can be applied? 
+- **Move slow to move fast** - take the time to do things right, especially in the early stages of understanding and planning.  This will pay off in faster execution and better outcomes later on.
+
 ## Core idea
 
 The workflow moves downward through a stack of increasingly specific artifacts:
@@ -24,8 +35,8 @@ Each layer answers a different question:
 
 - Requirements: what should the system do?
 - Blueprint: how should the system be structured at the system level?
-- Grooming: what is the current component-level design direction or design delta?
-- Implementation plan: what are the executable phases and tasks?
+- Grooming: what is the component-level design direction, and what is the issue attack plan (Feature/Fix/Task by repo, independently shippable slices)?
+- Implementation plan: what are the executable phases and tasks for one selected issue slice?
 - Execution: build and validate the work.
 
 The important rule is that you do not skip to a lower layer when the uncertainty still belongs to an upper layer.
@@ -36,24 +47,24 @@ This is the normal happy path.
 
 ```text
 Raw idea / request
-  |
-  v
+   |
+   v
 Requirements
-  |
-  v
+   |
+   v
 Blueprint
-  |
-  v
+   |
+   v
 Grooming
-  |
-  v
+   |
+   v
 Implementation plan
-  |
-  +--> Execution: collaborative / high-impact mode
-  |
-  +--> Execution: delegated / mechanical mode
-          |
-          v
+   |
+   +--> Execution: collaborative / high-impact mode
+   |
+   +--> Execution: delegated / mechanical mode
+           |
+           v
       Review / merge / follow-up feedback
 ```
 
@@ -97,6 +108,84 @@ Review / merge / follow-up feedback
 
 Read this as tool support layered onto the workflow, not as a replacement for the workflow itself.
 
+## Alternative delivery flows
+
+There are a few variations on the default flow that are still valid but less common. Some examples:
+
+### A design discussion is needed to resolve one bounded blocker during grooming
+
+```text
+[ upstream steps ] 
+       |
+       v
+   Blueprint
+       |
+       v
+**Design discussion**
+       |
+       v
+   Grooming
+       |
+       v
+[ downstream steps ]
+```
+
+Or ...
+
+```text
+                      [ upstream steps ] 
+                              |
+                              v
+**Design discussion(s)** -> Blueprint
+                              |
+                              v
+**Design discussion(s)** -> Grooming
+                              |
+                              v
+                      [ downstream steps ]
+```
+
+### One or more spikes are needed to understand something that will go into grooming
+
+```text
+            [ upstream steps ]
+                   |
+                   v
+                Blueprint
+                    |
+                    v
+**Spike(s)** -> Grooming
+                    |
+                    v
+            [ downstream steps ]
+```
+
+### A bug or isolated feature directly leads grooming
+
+Optionally with or without a spike or design discussion:
+
+```text
+**Spike(s)** -> Grooming
+                    |
+                    v
+            [ downstream steps ]
+```
+
+### A bug or _small_ feature directly leads to a plan
+
+Optionally with or without a spike or design discussion:
+
+```text
+**Spike(s)** -> Implementation plan
+                    |
+                    v
+            [ Implementation ]
+```
+
+### Working without a plan
+
+In cases of _very small_ and very well understood work, it's possible to execute directly without a plan.  This should be done with caution.  A plan helps both the implementation and also to later understand the work that was done.
+
 ## Choose the execution mode
 
 Once a plan exists, execution branches by risk and collaboration needs.
@@ -119,6 +208,10 @@ Methodologically:
 - Use delegated execution when the work is mostly mechanical and review can happen at larger checkpoints.
 
 In Devenv, that usually maps to `/devenv-pair-programming` vs `/devenv-delegation`.
+
+Planning guardrail:
+
+- If implementation-plan creation discovers scope/risk too large for one issue, route back to grooming for redivision into smaller independently shippable issues, then resume planning on one selected slice.
 
 Supporting view with skill selection:
 
@@ -317,6 +410,36 @@ Existing-component feature request
 ```
 
 In Devenv, that usually maps to grooming first, with design-discussion used only when the real need is one focused design question.
+
+## Upstream artifact routing
+
+Design-discussion and spike artifacts should normally flow through grooming before implementation planning.
+
+```text
+Design discussion or spike artifact
+  -> Grooming (capture design delta + produce issue attack plan)
+  -> Implementation plan for one selected issue slice
+  -> Execution
+```
+
+For straightforward cases, grooming can be brief and mostly copy key context from the upstream artifact.
+
+Direct-plan exception:
+
+- A user may intentionally create an implementation plan with no grooming artifact (for example from thin-air context, mixed pasted text, or unclassified artifacts).
+- Side-stream inputs may be provided whether or not grooming exists; they provide additional information but do not direct plan scope.
+- When a grooming artifact exists, grooming is the directing source for scope, slice boundaries, and plan-coordination context.
+
+## Multi-repo vs single-repo placement
+
+```text
+Is work one repo and small/medium?
+  |
+  +-- yes --> one issue may hold both grooming + implementation plan
+  |
+  +-- no  --> grooming should live at epic/planning issue level
+             and coordinate multiple implementation-plan issues
+```
 
 Supporting view with skill mapping:
 

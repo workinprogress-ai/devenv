@@ -28,6 +28,10 @@ Do **not** use for:
 - Editing an existing plan (edit the file in place)
 - Epic-scale work spanning multiple components — use [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) + [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) first; each roadmap step then gets its own implementation plan
 
+If the primary upstream artifact is a design-discussion or spike output and there is no grooming artifact yet, route through [`/devenv-grooming`](../devenv-grooming/SKILL.md) first (unless the user explicitly asks to bypass grooming).
+
+Exception: direct-plan mode is valid when the user intentionally wants to create a plan without grooming (for example from thin-air context, mixed pasted notes, or unclassified artifacts). In this mode, the skill disambiguates from user input and available sources.
+
 ## Inputs the Skill Collects
 
 1. **Source material** (one or more of):
@@ -37,6 +41,12 @@ Do **not** use for:
 2. **Related code** — read-only exploration via the `Explore` subagent
 3. **Repo conventions** — `.github/copilot-instructions.md`, `AGENTS.md`, and any `planning.*` repo in the workspace
 4. **Acceptance criteria, scope boundaries, non-goals, risks** — gathered via interview
+
+Source precedence rule:
+
+- Side-stream artifacts (design discussion docs, spike output, copied text, issue comments, and other upstream artifacts) may be present with or without grooming. They are additional informational inputs and do not direct plan scope.
+- If a grooming artifact exists for this work, it is the directing source for plan scope, slice boundaries, and coordination context.
+- If no grooming artifact exists, the plan skill disambiguates scope from user-provided context and confirmation gates, using side-stream artifacts as supporting evidence.
 
 ## Procedure
 
@@ -112,6 +122,49 @@ After phase-structure approval and before drafting detailed tasks, offer an opti
 - Keep it bounded to at most two passes per draft state.
 - If findings expose broader architecture drift instead of plan-local fixes, route to [`/devenv-grooming`](../devenv-grooming/SKILL.md) before continuing this skill.
 
+### 4b. Scale/risk redivision gate
+
+Before drafting detailed tasks, check whether the proposed plan is too large or risky for a single implementation issue.
+
+Re-division signals:
+
+- Multiple repos/components are required before any value can ship.
+- The work does not split into independently deliverable production slices.
+- Phase count or dependency density suggests high coordination risk.
+- The user states uncertainty and high implementation risk for one combined plan.
+
+If triggered, propose redivision through grooming and provide a copyable markdown handoff block the user can paste into `/devenv-grooming`:
+
+```markdown
+## Grooming Redivision Request
+
+Current planning context indicates this should be split into multiple independently deliverable issues.
+
+- Source issue/plan: <issue number or plan path>
+- Target area: <component/repo scope>
+- Why split: <risk/size/dependency summary>
+
+Suggested split axes:
+- Repo/component boundaries
+- Feature vs Fix vs Task issue type
+- Independent production deliverables
+
+Please produce a grooming attack plan with proposed issues including:
+- issue type (Feature/Fix/Task)
+- repo
+- size (S/M/L)
+- independent production target statement
+- expected implementation-plan artifact per issue
+
+After grooming updates the upstream artifact, return with:
+- grooming artifact location
+- selected issue slice to plan now
+```
+
+After grooming returns an updated upstream artifact, use it to reshape this plan into a smaller, focused implementation plan for one selected issue slice.
+
+Do not continue detailed task generation while redivision is unresolved.
+
 ### 5. Draft the plan in chat
 
 Use the [plan template](./references/plan-template.md). Follow:
@@ -141,6 +194,8 @@ Use the [plan template](./references/plan-template.md). Follow:
 - If the same rationale already appears in `## Phases`, `## Detailed Task List`, or `## Reference Information`, do not repeat it in the appendix; link instead.
 - `## Pending Questions` is optional and sits immediately above `## Reference Information`. Use it only for unresolved plan-level questions that matter to execution; task- or phase-specific questions should be placed inline below the relevant task/phase using `[QUESTION] ...`
 - Reference Information uses a **table** of key files with a relevance column, plus a separate links sub-list
+- If upstream artifacts exist (grooming doc, design discussion, spike, blueprint, roadmap issue), link them explicitly in `## Reference Information`.
+- If upstream artifacts exist (grooming doc, design discussion, spike, blueprint, roadmap issue), link them explicitly in `## Reference Information` and include the parent grooming artifact when this plan is one slice of a larger issue attack plan.
 - Mark dependencies as `depends on N.N` inline; readers infer parallelism
 - Every task with non-obvious context **must** link to its entry under *Additional task context* using a descriptive anchor slug (`#task-NN--short-slug`)
 - Include the AC checklist in `## Goals and Acceptance Criteria` using the agreed format: `- [ ] <a id="ac-N"></a>**AC-N** criterion text *(explicit|inferred)*`.

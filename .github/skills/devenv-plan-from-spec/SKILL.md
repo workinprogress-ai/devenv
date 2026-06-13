@@ -20,6 +20,10 @@ If the spec is vague or incomplete, redirect to `/devenv-create-implementation-p
 
 If the spec is a `Blueprint-*.md`, prefer [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) first — it decomposes by component and creates per-step issues. Then use this skill (or `/devenv-create-implementation-plan`) on each roadmap step.
 
+If the spec is primarily a design-discussion or spike artifact and no grooming artifact exists yet, route through [`/devenv-grooming`](../devenv-grooming/SKILL.md) first unless the user explicitly asks to bypass grooming.
+
+Exception: direct-plan mode is valid when the user intentionally wants a plan without grooming and provides sufficient context directly (including mixed/unclassified artifacts). In this mode, artifacts are used to inform disambiguation rather than to direct scope.
+
 ## Inputs
 
 The user provides exactly one of:
@@ -36,6 +40,12 @@ The user provides exactly one of:
 - File exists at the given path → file
 - Multiple lines of prose with no other match → inline text
 - Ambiguous → ask which the user meant.
+
+Source precedence rule:
+
+- Side-stream artifacts (provided spec, auxiliary docs, copied context, issue comments) may be present with or without grooming. They are additional informational inputs and do not direct scope.
+- If a grooming artifact exists, it is the directing source for scope and slice boundaries.
+- If no grooming artifact exists, the planning skill resolves ambiguity from combined context and user confirmation gates, using side-stream artifacts as supporting evidence.
 
 ## Workflow
 
@@ -93,11 +103,43 @@ After the phase-outline gate and before generating the full task breakdown, offe
 - Keep it bounded to at most two passes per artifact state.
 - If the pass reveals broad architecture drift, pause plan generation and route to [`/devenv-grooming`](../devenv-grooming/SKILL.md) or [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md) as appropriate.
 
+### 3b. Scale/risk redivision gate
+
+Before generating the full task breakdown, evaluate whether this should remain one implementation-plan issue.
+
+If the scope is too large or risky (multi-repo coupling, no independent production slices, high dependency density), pause and propose redivision via grooming.
+
+Provide this copyable handoff block:
+
+```markdown
+## Grooming Redivision Request
+
+The current spec appears too large/risky for one implementation-plan issue.
+
+- Source spec: <path/url/issue>
+- Current target scope: <repo/component>
+- Why split: <risk + dependency summary>
+
+Please produce a grooming attack plan as Feature/Fix/Task issues, each with:
+- repo
+- size (S/M/L)
+- independent production target
+- expected implementation-plan artifact per issue
+
+Return with the selected issue slice and grooming artifact link so plan generation can continue on that focused slice.
+```
+
+When the updated grooming artifact is provided, continue this skill for the selected slice only.
+
+Do not continue full-plan generation while redivision is unresolved.
+
 ### 4. Generate the full plan
 
 Read and follow the plan template at [`../devenv-create-implementation-plan/references/plan-template.md`](../devenv-create-implementation-plan/references/plan-template.md). Use it verbatim as the structural skeleton.
 
 For spec-derived plans, record the source spec inside `## Reference Information` rather than creating a separate top-level section. The human-first section order still applies.
+
+If upstream artifacts exist (grooming doc, design discussion, spike, blueprint, roadmap issue), add explicit links to them in `## Reference Information`, including the parent grooming artifact when the plan is one slice of a larger issue attack plan.
 
 ```markdown
 **Source spec:** <resolved spec location: file path, issue URL, fetched URL, or "inline text">
@@ -156,6 +198,7 @@ Brief summary: file path written, phase count, task count, count of inferred-vs-
 - **Overwriting existing plan files** — always pick the next numbered suffix.
 - **Auto-pushing to issue body** — same rule as elsewhere: writes to GitHub require explicit confirmation.
 - **Running a full discovery interview** — that's `/devenv-create-implementation-plan`'s job. This skill trusts the spec.
+- **Generating one oversized plan after a triggered redivision gate** — pause and route through grooming first.
 
 ## Sibling skills
 

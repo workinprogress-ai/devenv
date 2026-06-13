@@ -5,6 +5,15 @@ Use this template when capturing outputs from design discussion. The goal is a d
 ---
 
 ```markdown
+<!-- DEVENV_ARTIFACT_V1
+doc_id: dv1:<owner-repo>:local:solution-proposal:<artifact-slug>
+artifact_type: solution-proposal
+artifact_scope: local-file
+issue_number: <N | none>
+source_file: <workspace-relative file path>
+updated_at_utc: <ISO-8601>
+-->
+
 # Solution Proposal: <Topic in Title Case>
 
 > **Status:** Draft | Recommended | Approved | Superseded

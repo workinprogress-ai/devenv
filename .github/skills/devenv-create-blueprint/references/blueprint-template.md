@@ -3,6 +3,15 @@
 Copy this skeleton verbatim and fill it in. All top-level headings are required, even if a section is intentionally short ("None" / "N/A" is acceptable).
 
 ```markdown
+<!-- DEVENV_ARTIFACT_V1
+doc_id: dv1:<owner-repo>:local:blueprint:<artifact-slug>
+artifact_type: blueprint
+artifact_scope: local-file
+issue_number: <N | none>
+source_file: <workspace-relative file path>
+updated_at_utc: <ISO-8601>
+-->
+
 # Blueprint: <System Name>
 
 <One paragraph: what this blueprint addresses and why. Reference the source

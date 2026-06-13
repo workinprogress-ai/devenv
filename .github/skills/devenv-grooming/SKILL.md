@@ -1,6 +1,6 @@
 ---
 name: devenv-grooming
-description: Consolidate component-level design intake into a single grooming workflow that classifies work as option-weighing or design update, then handles the current design-doc delta for the work in flight. Always works with a grooming document — creates one if it does not exist, or loads and updates an existing one. USE WHEN the user says "groom this work", "help me decide the right design path", "which component design workflow should we use", "this plan has architectural issues", "we need to shape this feature before planning/building", or returns an in-flight implementation plan with open architectural decisions. Recommends options and trade-offs but does not make final design decisions without explicit user confirmation. DO NOT USE FOR system-level architecture decomposition (use /devenv-create-blueprint), pure implementation planning once design is settled (use /devenv-refine-implementation-plan for existing plans or /devenv-create-implementation-plan for new work), or coding execution (use /devenv-pair-programming or /devenv-delegation).
+description: Consolidate component-level design intake into a single grooming workflow that classifies work as option-weighing or design update, manages the current design-doc delta, and produces an issue attack plan (Feature/Fix/Task) grouped by repo and independent production deliverables. Always works with a grooming document — creates one if it does not exist, or loads and updates an existing one. USE WHEN the user says "groom this work", "help me decide the right design path", "which component design workflow should we use", "this plan has architectural issues", "we need to shape this feature before planning/building", or returns an in-flight implementation plan with open architectural decisions. Recommends options and trade-offs but does not make final design decisions without explicit user confirmation. DO NOT USE FOR system-level architecture decomposition (use /devenv-create-blueprint), pure implementation planning once design is settled (use /devenv-refine-implementation-plan for existing plans or /devenv-create-implementation-plan for new work), or coding execution (use /devenv-pair-programming or /devenv-delegation).
 argument-hint: '[problem statement | component repo path | design doc path | implementation plan path | issue number]'
 user-invocable: true
 ---
@@ -14,6 +14,14 @@ Use this as the default intake for **component-level architecture and design dir
 ## Purpose
 
 Grooming is the **design steward** for a piece of work. It always works with a **grooming document** — a single artifact that tracks design decisions (confirmed, pending, deferred), outstanding questions, and links to any implementation plans spawned from the work.
+
+Grooming also produces a **suggested issue attack plan** as a set of GitHub issues classified as **Feature**, **Fix**, or **Task**. Each suggested issue must:
+
+- map to one repo/component,
+- include a size signal (`S|M|L`), and
+- represent a fully deliverable production target that can ship independently.
+
+Each suggested issue is expected to have its own implementation plan.
 
 Given a component-level change request (from user text, issue, or returned plan), grooming either:
 
@@ -68,10 +76,14 @@ Ask the user if the location is not obvious:
 - If an existing grooming document is found: load it, show a brief status summary (confirmed decisions, pending decisions, open questions, linked plans), and ask the user to confirm before proceeding.
 - If no grooming document exists: create a new one using [grooming-doc-template.md](./references/grooming-doc-template.md). Agree with the user on the location and filename (`Grooming-<topic>-NNN.md`) before writing.
 
-If the grooming document is stored in a GitHub issue comment, follow the shared [Artifact Comment Identity Convention](../_conventions.md#artifact-comment-identity-convention) with `artifact_type: grooming`:
+For every grooming artifact (local file or issue comment), follow the shared [Artifact Identity Convention](../_conventions.md#artifact-identity-convention) with `artifact_type: grooming`.
+
+- Always keep the `DEVENV_ARTIFACT_V1` header at the top of the artifact body (with `doc_id` in the first 256 characters).
+- For local files, generate deterministic `doc_id` as `dv1:<owner-repo>:local:grooming:<artifact-slug>`.
+
+If the grooming document is stored in a GitHub issue comment:
 
 - Generate `doc_id` with `issue-artifact-doc-id --issue <N> --artifact-type grooming --slug <artifact-slug>`
-- Keep the `DEVENV_ARTIFACT_V1` header at the top of the artifact body (with `doc_id` in the first 256 characters)
 - Update via `issue-artifact-upsert` rather than manual comment matching
 
 **Step 4 — Classify component type** (needed for context loading):
@@ -110,6 +122,30 @@ If the user asks you to continue directly, continue in the selected track's styl
 - If existing design doc mostly stands and only sections changed -> stay in grooming and produce the doc delta for the current work.
 - If this is really task-level reprioritization with no architecture shift -> route back to `/devenv-refine-implementation-plan`.
 - If the session needs a formal component design artifact, keep working in grooming until the design boundary is explicit and ready to write down.
+
+### Issue attack plan construction rules
+
+When grooming is active, propose a deliverable issue attack plan in issue-sized slices:
+
+- Use **Feature** for net-new user/business capability.
+- Use **Fix** for defect/risk remediation.
+- Use **Task** for enabling or operational work that does not stand as user-facing capability.
+- Split by repo/component and independent production deliverability.
+- Avoid bundles that require multiple repos to be completed before anything can ship.
+
+Placement guidance:
+
+- **Single repo + small/medium scope:** one issue can be enough; grooming and implementation plan may live on the same GitHub issue.
+- **Multiple repos/components or multiple production deliverables:** grooming should live at epic level (typically in a planning repo issue) and coordinate multiple downstream implementation-plan issues.
+
+The grooming document is the coordination artifact across those implementation plans.
+
+### Upstream artifact intake policy
+
+Design-discussion and spike artifacts should normally flow through grooming before implementation planning.
+
+- For straightforward cases, grooming may be brief: capture key decisions/constraints from the upstream artifact, generate the issue attack plan, and then hand off to implementation-plan generation.
+- Do not route design-discussion/spike output directly to implementation planning unless the user explicitly asks to bypass grooming.
 
 ### Decision rules (explicit handoff)
 
@@ -193,6 +229,24 @@ Confirmed decisions: N
 Pending decisions: N  (<titles>)
 Open questions: N
 Linked plans: N
+```
+
+**Suggested attack plan** (required when scope is being shaped):
+
+```text
+Suggested issue attack plan:
+
+1. [Feature] <title>
+	Repo: <repo>
+	Size: <S|M|L>
+	Independent production target: yes/no (if no, split further)
+	Planned implementation artifact: <issue + Implementation_plan-...>
+
+2. [Fix] <title>
+	Repo: <repo>
+	Size: <S|M|L>
+	Independent production target: yes/no
+	Planned implementation artifact: <issue + Implementation_plan-...>
 ```
 
 **Per-decision facilitation** (one at a time):

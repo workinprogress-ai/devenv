@@ -102,7 +102,7 @@ The written file is the canonical artifact by default.
 
 After writing the doc, offer publication as a separate GitHub issue comment when the user wants the proposal attached to planning flow, implementation context, or blocker history. Prefer posting to an existing relevant issue; create a new issue only when the user explicitly wants standalone tracking.
 
-If a written solution proposal is posted to a GitHub issue comment, follow the shared [Artifact Comment Identity Convention](../_conventions.md#artifact-comment-identity-convention) with `artifact_type: solution-proposal`.
+If a written solution proposal is posted to a GitHub issue comment, follow the shared [Artifact Identity Convention](../_conventions.md#artifact-identity-convention) with `artifact_type: solution-proposal`.
 
 - Generate `doc_id` with `issue-artifact-doc-id --issue <N> --artifact-type solution-proposal --slug <topic-slug>`
 - Keep the `DEVENV_ARTIFACT_V1` header at the top of the posted body

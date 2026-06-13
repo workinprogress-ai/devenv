@@ -3,6 +3,15 @@
 Copy this skeleton verbatim and fill it in. All top-level headings are required.
 
 ```markdown
+<!-- DEVENV_ARTIFACT_V1
+doc_id: dv1:<owner-repo>:local:roadmap:<artifact-slug>
+artifact_type: roadmap
+artifact_scope: local-file
+issue_number: <N | none>
+source_file: <workspace-relative file path>
+updated_at_utc: <ISO-8601>
+-->
+
 # Roadmap: <System Name>
 
 <One paragraph: what this roadmap delivers, and which blueprint it executes.>

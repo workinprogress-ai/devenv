@@ -13,9 +13,9 @@ A suite of 15 slash-command skills covering the full development lifecycle — f
 
 - `/devenv-create-implementation-plan` — turn an issue or idea into a phased plan
 - `/devenv-pair-programming` — human + AI collaborate, human stays in control
-- `/devenv-delegation` — AI drives mechanical work, human reviews
+- `/devenv-delegation` — delegated execution support for mechanical work, user reviews and owns outcomes
 - `/devenv-spike` — investigate feasibility before planning
-- `/devenv-code-review` — AI reviews code you wrote
+- `/devenv-code-review` — review assistance for your changes
 
 **Not sure which to use?** Say `/devenv-skill-guru` and answer 1–3 questions.
 

@@ -145,7 +145,7 @@ If yes:
    - Note the new issue number.
    - Generate doc_id for this findings artifact:
      - `doc_id=$(issue-artifact-doc-id --issue <N> --artifact-type spike --slug <topic-slug>)`
-   - Apply the [Artifact Comment Identity Convention](../_conventions.md#artifact-comment-identity-convention).
+   - Apply the [Artifact Identity Convention](../_conventions.md#artifact-identity-convention).
    - Write the findings doc to a temp file.
    - `issue-artifact-upsert --issue <N> --doc-id "$doc_id" --body-file <temp-file>`
    - Surface the issue URL.
@@ -153,7 +153,7 @@ If yes:
    **If posting to an existing issue:**
    - Generate doc_id for this findings artifact:
      - `doc_id=$(issue-artifact-doc-id --issue <N> --artifact-type spike --slug <topic-slug>)`
-   - Apply the [Artifact Comment Identity Convention](../_conventions.md#artifact-comment-identity-convention).
+   - Apply the [Artifact Identity Convention](../_conventions.md#artifact-identity-convention).
 
    - Write the findings doc to a temp file.
    - `issue-artifact-upsert --issue <N> --doc-id "$doc_id" --body-file <temp-file>`

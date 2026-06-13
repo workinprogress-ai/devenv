@@ -1,6 +1,6 @@
 ---
 name: devenv-delegation
-description: 'Drive implementation of a pre-existing plan with the AI doing the bulk of the work and the user reviewing. USE WHEN the user says "delegate this to you", "you take this", "run with this", "implement this plan", "work through this plan", or "do this for me" with a plan attached, AND the work is mechanical, rote, or low-impact (refactors, rename sweeps, test scaffolding, cleanup, docs). REQUIRES an existing implementation plan (file path or GH issue with a plan in the body). Works phase by phase: uses the human-facing phase summaries as the review guide, treats the detailed task list as execution tracking, runs a full phase semi-autonomously (stopping only for ambiguity, major decisions, or unexpected obstacles), then hands back with a structured phase completion summary including hotspots, decisions made, and any deviations noted. Expects a discussion window between phases — user may review, request changes, or ask for plan edits. SUGGESTS switching to `/devenv-pair-programming` for high-impact phases; respects the user''s decision either way. DO NOT USE for ad-hoc work, plans that don''t exist yet (use `/devenv-create-implementation-plan` first), or highly collaborative work where the user wants to drive (use `/devenv-pair-programming`).'
+description: 'Drive implementation of a pre-existing plan with assistant-led execution and user review. USE WHEN the user says "delegate this to you", "you take this", "run with this", "implement this plan", "work through this plan", or "do this for me" with a plan attached, AND the work is mechanical, rote, or low-impact (refactors, rename sweeps, test scaffolding, cleanup, docs). REQUIRES an existing implementation plan (file path or GH issue with a plan in the body). Works phase by phase: uses the human-facing phase summaries as the review guide, treats the detailed task list as execution tracking, runs a full phase semi-autonomously (stopping only for ambiguity, major decisions, or unexpected obstacles), then hands back with a structured phase completion summary including hotspots, decisions made, and any deviations noted. Expects a discussion window between phases — user may review, request changes, or ask for plan edits. SUGGESTS switching to `/devenv-pair-programming` for high-impact phases; respects the user''s decision either way. DO NOT USE for ad-hoc work, plans that don''t exist yet (use `/devenv-create-implementation-plan` first), or highly collaborative work where the user wants to drive (use `/devenv-pair-programming`).'
 argument-hint: '<issue-number | path-to-plan> [phase or task range]'
 user-invocable: true
 ---
@@ -9,7 +9,7 @@ user-invocable: true
 
 > **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
 
-The AI implements; the human reviews. For work that is mechanical, rote, or low-impact enough that pair-programming ceremony would be overkill — but still warrants enough engagement that important decisions don't slip past the human.
+This skill supports delegated execution while the user stays accountable for outcomes and reviews. Use it for work that is mechanical, rote, or low-impact enough that pair-programming ceremony would be overkill — but still warrants enough engagement that important decisions don't slip past the human.
 
 ## When to Use
 
@@ -18,7 +18,7 @@ Trigger phrases:
 - "delegate this to you" / "you take this" / "run with this"
 - "implement this plan" / "work through this plan"
 - "do this for me" — when a plan is attached
-- A plan + intent for AI to drive (not collaborate)
+- A plan + intent for assistant-led execution (not collaborative turn-taking)
 
 Do **not** use for:
 
