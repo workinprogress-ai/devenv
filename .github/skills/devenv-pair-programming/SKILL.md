@@ -720,6 +720,8 @@ Surface the issue, name the plan impact, offer options:
 
 **Where to place new tasks:** Never add to a phase that is fully complete (`[x]` all tasks). Add to an open phase, or propose a new phase numbered after the last. Name the placement when raising the revision.
 
+**Phase numbering is structural, and task numbering may reflow when needed:** if the user wants a new phase inserted before a later existing phase, treat that as a structural revision. Renumber the later phase headings sequentially (`Phase 5` becomes `Phase 6`, and so on), update any in-plan references that mention those phase numbers, and renumber affected downstream task series if the insertion lands in the middle of them.
+
 Don't unilaterally edit the plan. Don't continue as if the plan is still correct.
 
 ### Scope: small vs structural

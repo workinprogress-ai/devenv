@@ -76,11 +76,13 @@ Before applying edits, offer an optional pressure-test pass using [pressure-test
 
 **Hard rules:**
 
-- **Never reflow existing task numbers.** A task numbered `2.3` stays `2.3` for its entire lifetime.
+- **Never reflow existing task numbers** unless a structural revision inserts work in the middle of an existing task series. In that case, renumber the downstream task series and update all in-plan references that point at those task IDs.
 - **Never reflow existing AC-N identifiers.** An AC numbered `AC-3` stays `AC-3` for its entire lifetime — same principle as task numbers.
 - **Never silently uncheck a `[x]`.** If a completed task's scope must change, leave it checked and add a new task for the additional work.
 - **New tasks are appended to the end of their phase** with the next sequential number (e.g. if Phase 2 ends at 2.7, the next new task is 2.8). New tasks must use the full task format: `- [ ] **N.M [S|M|L] Title**` header, descriptive sub-bullets first, then `Files:` / `decision:` / `owner:` / `depends on` metadata. Do not add skeletal or title-only tasks.
 - **When the target phase is fully complete (`[x]` on all its tasks), do not append to it.** Adding tasks to a complete phase misrepresents how the work progressed and resets progress markers. Instead, create one or more new phases numbered sequentially after the last existing phase (e.g. if the plan ends at Phase 4, new work goes in Phase 5, 6, etc.). This applies equally when the entire plan is complete — the canonical case is a plan that was finished and committed, then new downstream requirements surface that should have been part of the original scope.
+
+  **Phase numbering is structural, and task numbering may reflow when needed.** If the user explicitly wants the new phase inserted before a later existing phase, treat that as a structural revision: renumber the downstream phase headings sequentially, update any in-plan references that mention those phase numbers, and renumber any affected downstream task series when the insertion lands in the middle of them.
 
   New phases must follow the same phase rules as any other phase: each must be committable, cover its own tests, and the final new phase must include cleanup and docs tasks for the new scope. If the original Cleanup phase is already complete, add a new Cleanup phase for the new scope rather than reopening the original.
 
