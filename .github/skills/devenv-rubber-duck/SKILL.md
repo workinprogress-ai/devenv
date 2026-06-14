@@ -6,6 +6,8 @@ argument-hint: A half-formed problem, idea, or decision to think through togethe
 
 # Rubber duck
 
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
+
 A thinking-partner mode. The user has a fuzzy problem; the AI's job is to help them articulate it by asking good questions, mirroring back what they say, and lightly surfacing angles they haven't considered. No artifacts, no code, no decisions on the user's behalf.  Occasionally adds a duck joke for levity or duck references.
 
 ## When to Use

@@ -228,6 +228,7 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 | Skill | Purpose | Argument |
 |---|---|---|
 | `/devenv-skill-guru` | Pick the right skill | Problem description (optional) |
+| `/devenv-skill-maintenance` | Correct and synchronize the custom skill system (skills, guru routing, registry, and related docs) while preserving workflow principles | Skill problems to fix, plus optional target skill names, file paths, or diagnostic output |
 
 ---
 

@@ -10,6 +10,8 @@ Take a fresh / untriaged GitHub issue and produce a structured triage recommenda
 
 > Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
 
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
+
 ## When to Use
 
 - A new issue lands and needs labels, priority, and sizing.

@@ -7,6 +7,8 @@ user-invocable: true
 
 # Devenv Grooming
 
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
+
 Use this as the default intake for **component-level architecture and design direction** when the right next step is not obvious.
 
 `/devenv-grooming` standardizes how we choose among the remaining design paths.

@@ -6,6 +6,8 @@ argument-hint: Optional — describe what you're trying to do and the guru will 
 
 # Skill guru
 
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
+
 You are the front door for the Copilot skill catalog. Your job is to ask at most 3 targeted questions, then recommend the right skill — or a full skill chain if the user's goal spans multiple steps.
 
 **The full catalog lives in [`references/skills-registry.md`](references/skills-registry.md).** Always consult it: it contains every skill, its trigger phrases, its NOT FOR conditions, and the named chains. This file is the single place a fork maintainer edits to add custom skills — so if a skill appears in the registry but not in this document's examples, surface it anyway.
@@ -19,6 +21,7 @@ Before asking anything, check whether the user's message unambiguously maps to e
 - "I want to open a PR" → `/devenv-open-pr`
 - "Run pre-commit checks" → `/devenv-pre-commit`
 - "Triage issue #42" → `/devenv-triage-issue`
+- "Fix problems in our custom skills" → `/devenv-skill-maintenance`
 - "I want to go from raw idea to merged PR" → Chain A from the registry
 
 If unambiguous: give the recommendation directly with a one-line rationale. Skip Q1–Q3.
@@ -77,6 +80,7 @@ Use the registry to match the user's answers to a skill:
 1. **Match Q1 (work stage) to a registry category** — Explore, Requirements, Architecture, Plan, Build, Review, or Wrap-up.
 2. **Within that category, match the sub-goal to a skill's trigger phrases.**
 3. **Apply stage-specific guardrails before finalizing:**
+   - Meta-maintenance guardrail: when the user asks to fix skill definitions, align skill docs/registry/catalog, or provides diagnostics from other skills for customization improvements, route to `/devenv-skill-maintenance`.
    - Feature-discovery guardrail: when the ask is to add a feature in an existing component and the user is still deciding the best approach, route to `/devenv-design-discussion` first.
    - Feature-delivery guardrail: when the ask is to add/implement a feature in an existing component and the approach is already chosen, route to Plan/Build.
    - Architecture guardrail: default component-level architecture intake to `/devenv-grooming` unless the user explicitly requests one specialized design skill.
@@ -201,6 +205,7 @@ These five are the core of the catalog. If the user is unsure where to start wit
 - **Skipping the architecture disambiguation question** when stage is Architect and intent is not explicit.
 - **Recommending a single skill when the user described a multi-step goal** — check the registry chains first.
 - **Hard-coding skill knowledge** — always consult the registry; it may contain fork-added skills not listed here.
+- **Routing skill-system diagnostics to product-code skills** — use `/devenv-skill-maintenance` when the task is to repair the custom skill ecosystem.
 
 ## Sibling skills
 

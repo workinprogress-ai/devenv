@@ -9,6 +9,8 @@ user-invocable: true
 
 > **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
 
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
+
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.
 
 Produce a documentation artefact for an existing system or component. The output format, audience, and depth are determined through an upfront interview. This skill reads existing documentation as its primary source, falls back to code only where docs are absent or insufficient, and maintains a session log so large multi-component documentation tasks can span multiple sessions.

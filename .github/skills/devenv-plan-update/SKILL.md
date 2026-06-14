@@ -6,6 +6,8 @@ argument-hint: Path to an Implementation_plan-*.md OR a GitHub issue number, plu
 
 # Plan update
 
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
+
 Apply small, surgical edits to an existing implementation plan without running a full revision interview. Sits between `/devenv-plan-status` (read-only) and `/devenv-refine-implementation-plan` (full restructure).
 
 ## When to Use

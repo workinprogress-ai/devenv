@@ -6,6 +6,8 @@ argument-hint: Optional — `--all` to run on whole project instead of changed f
 
 # Pre-commit
 
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
+
 Run the project's quality gates (lint, format, type-check, tests) against changed files. Report all failures together. **Never commits.**
 
 This is the last step before *you* commit. The skill stops at "the checks passed" or "here's what's broken" — it never runs `git commit`, `git add`, `--no-verify`, or any other git-mutating command.

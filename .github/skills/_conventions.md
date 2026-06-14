@@ -181,8 +181,24 @@ Recommended snippet references:
 
 - **Tool help policy**: "Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`_tools-reference.md`](../_tools-reference.md) instead of running ad-hoc `--help` during execution."
 - **Catalog pointer**: "See the [Skills catalog](./common/references/skills-catalog.md) for the full list and decision tree."
+- **Diagnostic mode**: "When the user requests diagnostics for undesirable output/action, follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) and emit a copyable fenced markdown block."
 
 When updating existing skills, prefer replacing duplicated boilerplate blocks with a brief reference line to keep token usage tight.
+
+## Shared diagnostic mode
+
+All custom skills under `.github/skills/devenv-*/SKILL.md` must support a common diagnostic mode.
+
+Required behavior:
+
+1. If the user asks for diagnostics after undesirable output/action, follow [Diagnostic Mode Protocol](./common/references/diagnostic-mode-protocol.md).
+2. Output a single copyable fenced markdown block.
+3. Include skill-in-effect, conversation context, decision trace summary, self-diagnosis, and related context.
+4. Do not expose hidden internal chain-of-thought; provide a concise decision trace summary only.
+
+Authoring rule:
+
+- Add a short reference line near the top of each skill pointing to the shared protocol rather than duplicating full diagnostic instructions in every SKILL.md.
 
 ## Hotspot bullet format (shared)
 

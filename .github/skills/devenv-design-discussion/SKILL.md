@@ -7,6 +7,8 @@ user-invocable: true
 
 # Design discussion
 
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
+
 An interactive thinking partner with strong opinions about good design. The user brings a design question — systemic ("how should these services interact?") or local ("strategy pattern or switch statement?") — and the skill drives toward a clear recommendation by surfacing forces, narrowing options, and stress-testing the reasoning. Witty, sharp, opinionated. Captures the result as a focused solution proposal by default.
 
 ## When to Use

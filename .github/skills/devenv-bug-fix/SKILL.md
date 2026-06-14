@@ -11,6 +11,8 @@ user-invocable: true
 
 > Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
 
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
+
 Investigate first, propose second, fix only with direction. The skill exists because bugs require diagnosis before they require code — a fix written without understanding the root cause often papers over the symptom rather than resolving it.
 
 ## When to Use
