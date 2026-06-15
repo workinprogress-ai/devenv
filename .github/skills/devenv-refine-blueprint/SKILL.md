@@ -13,6 +13,8 @@ user-invocable: true
 
 Revise an existing blueprint based on new information — architectural decisions that changed, requirements that arrived after the original blueprint, or implementation discovery that exposed gaps. Preserve every prior decision; never silently rewrite history.
 
+Write the blueprint body as the current target architecture. Keep historical change narrative out of main sections and record it in `## Revision History` only.
+
 ## When to Use
 
 - The user has a `Blueprint-*.md` that needs new components, revised deltas, new operations/events, or scope adjustments
@@ -79,7 +81,7 @@ If the blueprint is already split (subfolder + `Index.md` exists) and a refineme
 > "Here's what I plan to change:
 >
 > - **Add** §X.Y: `service.foo` (new component)
-> - **Reword** §3.2.1: updating the inventory delta to reflect TTL behaviour; prior wording will be preserved beneath
+> - **Reword** §3.2.1: updating the inventory delta to reflect TTL behaviour
 > - **Supersede** §5.2 risk #3 (resolved by the reservation-cleaner)
 > - **Append** `ReservationExpired` event row to §3.4 table
 >
@@ -101,7 +103,7 @@ Do not write anything until the user confirms. If the user adjusts scope, revise
   - Removed §4.3 component `service.old-notifier` — withdrawn, replaced by event-driven approach in §4.7
   ```
 - **New components are appended** to the end of `## 4. Per-Component Changes` with the next sub-number.
-- **Reworded sections** keep their number; the prior wording goes into a quoted "Previously" block beneath the new wording.
+- **Reworded sections** keep their number; record the prior wording summary in `## Revision History` rather than embedding prior-state narrative in the section body.
 
 ### 5. Record the revision
 
@@ -114,6 +116,7 @@ Add a new entry to the top of `## Revision History`. Keep it concise and materia
 - Added §3.4 row: `ReservationExpired` event
 - Reworded §4.1 to reflect TTL behaviour; previous wording preserved beneath
 - Superseded §5.2 risk #3 (mitigated by reservation-cleaner)
+- Reworded §3.2.1 for TTL behaviour (prior wording summary recorded here)
 ```
 
 Most recent revision goes on top.
@@ -138,5 +141,6 @@ After writing, list what may need follow-up:
 - Deleting per-component delta entries when the change shipped — mark them `(shipped)` instead
 - Rewriting the blueprint from scratch — that's [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md), not refine
 - Forgetting to surface roadmap and plan impact after the edit
+- Writing prior-state narrative in main blueprint sections instead of `## Revision History`
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

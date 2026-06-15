@@ -62,13 +62,15 @@ Q-001  [open]      ...
 
 Freeform: constraints, key insights, rejected directions, operational concerns.
 
+Write this section as the current target state. Do not include prior-state narrative here; place historical change notes in `## Revision History`.
+
 ## Related implementation plans
 
 | Plan file | Repo | Phases | Status |
 | --------- | ---- | ------ | ------ |
 |           |      |        |        |
 
-## Change log
+## Revision History
 
 | Date       | Change  | Reason |
 | ---------- | ------- | ------ |

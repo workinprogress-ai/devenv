@@ -1,6 +1,6 @@
 ---
 name: devenv-grooming
-description: Consolidate component-level design intake into a single grooming workflow that classifies work as option-weighing or design update, manages the current design-doc delta, and produces an issue attack plan (Feature/Fix/Task) grouped by repo and independent production deliverables. Always works with a grooming document — creates one if it does not exist, or loads and updates an existing one. USE WHEN the user says "groom this work", "help me decide the right design path", "which component design workflow should we use", "this plan has architectural issues", "we need to shape this feature before planning/building", or returns an in-flight implementation plan with open architectural decisions. Recommends options and trade-offs but does not make final design decisions without explicit user confirmation. DO NOT USE FOR system-level architecture decomposition (use /devenv-create-blueprint), pure implementation planning once design is settled (use /devenv-refine-implementation-plan for existing plans or /devenv-create-implementation-plan for new work), or coding execution (use /devenv-pair-programming or /devenv-delegation).
+description: Consolidate component-level design intake into a single grooming workflow that classifies work as option-weighing or design update, maintains the current design target state, and produces an issue attack plan (Feature/Fix/Task) grouped by repo and independent production deliverables. Always works with a grooming document — creates one if it does not exist, or loads and updates an existing one. USE WHEN the user says "groom this work", "help me decide the right design path", "which component design workflow should we use", "this plan has architectural issues", "we need to shape this feature before planning/building", or returns an in-flight implementation plan with open architectural decisions. Recommends options and trade-offs but does not make final design decisions without explicit user confirmation. DO NOT USE FOR system-level architecture decomposition (use /devenv-create-blueprint), pure implementation planning once design is settled (use /devenv-refine-implementation-plan for existing plans or /devenv-create-implementation-plan for new work), or coding execution (use /devenv-pair-programming or /devenv-delegation).
 argument-hint: '[problem statement | component repo path | design doc path | implementation plan path | issue number]'
 user-invocable: true
 ---
@@ -29,6 +29,8 @@ Given a component-level change request (from user text, issue, or returned plan)
 
 1. **Creates a new grooming document** and classifies the work into the right design track.
 2. **Loads an existing grooming document** and surgically updates only the affected parts.
+
+When regrooming, keep the document body focused on the current target design. Do not narrate prior states in main sections (for example, "previously" or "before" phrasing). Historical notes belong only in `## Revision History`.
 
 Grooming recommends options and trade-offs but never finalises a design decision without explicit user confirmation.
 
@@ -198,6 +200,12 @@ After updates, show the user a summary of what changed in the grooming document 
 
 When all architecture/design decisions required for execution are confirmed, explicitly hand off plan/task updates to [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) instead of editing the implementation plan directly in grooming.
 
+### Current-target writing rule (required)
+
+- Keep `## Design decisions`, `## Outstanding questions`, and `## Design notes` written as the current target state.
+- Do not include narrative comparisons to prior designs in those sections.
+- If a change from an earlier design must be recorded, put it in `## Revision History` only.
+
 ## Escalation compatibility
 
 This skill is escalation-aware:
@@ -278,6 +286,7 @@ Your call: choose A/B(/C) or defer.
 - Skipping Phase 0 (grooming document lookup) and working without a grooming document.
 - Creating a new grooming document without first searching for an existing one.
 - Rewriting unrelated parts of the grooming document when doing a surgical update from a returned plan.
+- Writing "previously/before" design narrative in main document sections instead of `## Revision History`.
 
 ## Sibling skills
 

@@ -13,6 +13,8 @@ user-invocable: true
 
 Revise the **structure** of an existing roadmap based on new information — the blueprint changed, a step needs splitting, a new component landed, or phases need re-sequencing. Preserve every prior step ID and issue link; never silently rewrite history.
 
+Write roadmap phases and steps as the current target delivery structure. Keep historical change narrative out of phase/step body content and record it in `## Revision History`.
+
 This is the structural counterpart to [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md), which only syncs status from issues/PRs.
 
 ## When to Use
@@ -135,6 +137,7 @@ After writing, list what may need follow-up:
 - Changing status markers as part of structural revision — use `/devenv-update-roadmap` for that
 - Rewriting the roadmap from scratch — that's [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md), not refine
 - Forgetting to update the parent epic's task list when issues are added or superseded
+- Writing prior-state narrative in phase/step body content instead of `## Revision History`
 
 ## Sibling Skills
 

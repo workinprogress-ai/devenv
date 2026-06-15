@@ -13,6 +13,8 @@ user-invocable: true
 
 Revise an existing requirements document based on new information — stakeholder priorities that shifted, new actors or scenarios that surfaced, a spike that invalidated an assumption, or implementation discovery that exposed gaps. Preserve every prior decision and ID; never silently rewrite history.
 
+Write requirements body sections as the current target behaviour and constraints. Keep historical change narrative out of requirement bodies and record it in `## Revision History`.
+
 ## When to Use
 
 - The user has a `Requirements-*.md` that needs new requirements, revised acceptance criteria, new actors/scenarios, scope adjustments, or re-grouped priorities
@@ -71,7 +73,7 @@ If the user provides communications artifacts, summarise each one separately (pr
 
 - **Never reflow IDs.** `REQ-007` stays `REQ-007` for its lifetime. New requirements get the next sequential number per category prefix (e.g. `AUTH-008`, `ORD-014`).
 - **Never silently delete a requirement.** Record removals in `## Revision History` with ID, summary, and reason. Update every `Dependencies:` reference pointing at the removed ID.
-- **Never silently rewrite acceptance criteria.** Updated criteria keep the requirement's ID; the prior wording goes into a quoted "Previously" block beneath the new wording.
+- **Never silently rewrite acceptance criteria.** Updated criteria keep the requirement's ID; record the prior wording summary in `## Revision History` instead of embedding prior-state narrative in the requirement body.
 - **Dependency links must stay valid.** If a requirement is superseded, walk every other requirement's `Dependencies:` line and update the link to point at the replacement (or remove the link with a note).
 - **Priority groupings can be re-ordered freely** — they are stakeholder priority, not delivery sequencing. New requirements need to be placed into a group. Moving a requirement between groups is allowed; record the move in revision history.
 ### 4. Internal consistency review
@@ -145,6 +147,7 @@ See the stability audit protocol in [`/devenv-gather-requirements` § Stability 
 - Reflowing IDs (breaks links from blueprints, roadmaps, plans, and issues)
 - Removing a requirement without logging its ID, prior-wording summary, and reason in Revision History
 - Rewriting the requirements doc from scratch — that's [`/devenv-gather-requirements`](../devenv-gather-requirements/SKILL.md), not refine
+- Writing prior-state narrative in requirement bodies instead of `## Revision History`
 - **Skipping the internal consistency review.** Refinements routinely introduce new tensions between new and old requirements — always check.
 - **Writing the file while known contradictions remain unresolved.** Every conflict finding must be resolved, accepted as a documented trade-off, or explicitly logged before writing.
 - Treating Phase 3 priority groups as a delivery roadmap (delivery sequencing belongs in [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md))

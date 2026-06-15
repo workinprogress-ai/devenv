@@ -1,6 +1,6 @@
 ---
 name: devenv-refine-implementation-plan
-description: Revise an existing Implementation_plan-*.md (or GitHub issue body containing a plan) after discovery work, scope changes, or new requirements. USE WHEN the user says "refine the plan", "update the plan", "revise the implementation plan", "the plan needs updating", "rework the plan based on what we learned", or hands off a stale plan that needs new tasks added or existing tasks adjusted. Auto-detects whether input is a file path or a GitHub issue number, preserves all existing `[x]` checkbox state, appends new tasks to the end of each affected phase (next sequential number — never reflows), and creates new phases when the target phase is already fully complete. Records changes in a `## Revision History` section near the bottom of the file, and writes the result back in place. DO NOT USE for creating a brand-new plan from scratch (use `/devenv-create-implementation-plan`), for ad-hoc edits to a single task line (just edit the file directly), or for reporting plan progress without modifying it (use `/devenv-plan-status`).
+description: Revise an existing Implementation_plan-*.md (or GitHub issue body containing a plan) after discovery work, scope changes, or new requirements. USE WHEN the user says "refine the plan", "update the plan", "revise the implementation plan", "the plan needs updating", "rework the plan based on what we learned", or hands off a stale plan that needs new tasks added or existing tasks adjusted. Auto-detects whether input is a file path or a GitHub issue number, preserves all existing `[x]` checkbox state, appends new tasks to the end of each affected phase by default, supports downstream task reflow when structural insertion requires it, and creates new phases when the target phase is already fully complete. Records changes in a `## Revision History` section near the bottom of the file, and writes the result back in place. DO NOT USE for creating a brand-new plan from scratch (use `/devenv-create-implementation-plan`), for ad-hoc edits to a single task line (just edit the file directly), or for reporting plan progress without modifying it (use `/devenv-plan-status`).
 argument-hint: Path to an Implementation_plan-*.md OR a GitHub issue number containing a plan in the body
 ---
 
@@ -76,6 +76,7 @@ Before applying edits, offer an optional pressure-test pass using [pressure-test
 
 **Hard rules:**
 
+- **Main plan content must describe the current target state only.** Keep historical narration (for example, "previously" or "before") out of `## Context and Orientation`, `## Phases`, and `## Detailed Task List`. Put historical deltas in `## Revision History`.
 - **Never reflow existing task numbers** unless a structural revision inserts work in the middle of an existing task series. In that case, renumber the downstream task series and update all in-plan references that point at those task IDs.
 - **Never reflow existing AC-N identifiers.** An AC numbered `AC-3` stays `AC-3` for its entire lifetime — same principle as task numbers.
 - **Never silently uncheck a `[x]`.** If a completed task's scope must change, leave it checked and add a new task for the additional work.
@@ -153,11 +154,12 @@ Summarise inline:
 
 ## Anti-patterns
 
-- **Renumbering existing tasks** — breaks every external reference (PR descriptions, commit messages, issue comments). Always append.
+- **Renumbering existing tasks without structural need** — avoid gratuitous renumbering. Reflow only when a structural insertion requires it, and update all affected references.
 - **Renumbering existing AC-N identifiers** — same principle. AC-3 stays AC-3; append new ACs at the next available number.
 - **Silently unchecking `[x]`** — discards user progress. If completed work needs to be redone, add a new task.
 - **Deleting cancelled tasks** — leaves a confusing gap in the numbering and erases history. Strike through and annotate instead.
 - **Skipping the Revision History** — turns the file into a black box where readers can't tell what changed.
+- **Writing prior-state narrative in plan body** — keep historical notes in `## Revision History`; the main plan should read as the current target.
 - **Assuming what changed** — always interview before editing. The user knows things you don't.
 
 ## Sibling skills
