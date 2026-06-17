@@ -64,6 +64,30 @@ Use the emoji vocabulary defined in `copilot-instructions.md` consistently:
 
 **File and method references:** Whenever a specific class, method, or file is mentioned **anywhere in chat output** — task announcements, concerns, session summaries, suitability analysis — use a clickable workspace-root-relative link. Never use backtick code formatting as a substitute for a link when the location is known. If the exact line isn't known, link to the file without `#L`. Same convention as the hotspot format below.
 
+## Handling Unexpected Bug Discoveries
+
+When execution uncovers a bug that was not already documented in the plan's known issues or task descriptions, **stop immediately**. Do not code around it or encode it in tests. Classify the scope and respond:
+
+1. **In-scope in the current task** — This bug is in code covered by the current task.
+   - Write a specification test that asserts target (correct) behavior (will fail now).
+   - Fix the bug.
+
+2. **In-scope in the plan** — The bug is in a component/area this plan covers, but is not part of this task's scope.
+   - Write a specification test that asserts target (correct) behavior (will fail now).
+   - Mark with `[ignore]` (C#) or equivalent skip annotation.
+   - Add a `// TODO:(DEVENV[plan-key]): Fix in Phase N` comment.
+   - Update the plan with a new task to address it in the applicable phase.
+   - Inform the user: show the test, explain why you stopped.
+
+3. **Out-of-scope, not in plan** — The bug is in unrelated code or a different epic.
+   - Do NOT write tests, do NOT code around it.
+   - Inform the user: describe the bug, suggest creating a GitHub issue, ask for direction.
+
+4. **User-indicated documentation only** — Only if the user explicitly says "just document it."
+   - Add a code comment with context; do not write tests or attempt fixes.
+
+**Core rule: Stop, explain, ask. Never silently encode a bug.**
+
 ## Session Kickoff
 
 Run these in order.

@@ -196,6 +196,21 @@ Required behavior:
 3. Include skill-in-effect, conversation context, decision trace summary, self-diagnosis, and related context.
 4. Do not expose hidden internal chain-of-thought; provide a concise decision trace summary only.
 
+Authoring rule: Add the blockquote immediately after the title (before the opening paragraph) for the listed skills only.
+
+## Shared bug discovery protocol
+
+All execution skills — those that write code, run tests, or modify the codebase — must follow a mandatory bug discovery protocol:
+
+**When an unexpected bug is encountered:** a bug not already listed in the plan's known issues or task descriptions must trigger an immediate stop, not be silently encoded in tests or worked around in code.
+
+The protocol applies to skills:
+- `devenv-delegation` — specifies full four-case classification and response per case.
+- `devenv-pair-programming` — specifies full four-case classification and response per case.
+- Other execution skills (future skills or `devenv-spike` prototype work) — must ask for user direction instead of proceeding unilaterally.
+
+**Minimal behavior for non-delegating skills:** Stop, describe the discovery, and ask: *"This looks like a [brief defect description]. Out of scope for our current work. Create a GitHub issue, document in code, or ignore?"*
+
 Authoring rule:
 
 - Add a short reference line near the top of each skill pointing to the shared protocol rather than duplicating full diagnostic instructions in every SKILL.md.

@@ -92,6 +92,30 @@ These are the standard signals defined in `copilot-instructions.md` — use them
 
 **Plan task references:** Prefer phase or chunk language in conversation. Use task numbers when tracking progress, clarifying exactly what changed, or when the user asks for them. Whenever a task number (e.g. `3.1`, `4.2`) is mentioned in chat, link it to the plan file loaded at session start using the anchor of the phase that contains the task: [`3.1`](Implementation_plan-auth-001.md#phase-3-registration-api-wiring). Use the actual plan filename (it varies — never assume a specific name) and the actual phase heading anchor from the loaded plan. If the plan came from a GitHub issue, link to the issue instead.
 
+## Handling Unexpected Bug Discoveries
+
+When execution uncovers a bug that was not already documented in the plan's known issues or task descriptions, **stop immediately**. Do not code around it or encode it in tests. Classify the scope and respond:
+
+1. **In-scope in the current task** — This bug is in code covered by the current task.
+   - Write a specification test that asserts target (correct) behavior (will fail now).
+   - Fix the bug.
+
+2. **In-scope in the plan** — The bug is in a component/area this plan covers, but is not part of this task's scope.
+   - Write a specification test that asserts target (correct) behavior (will fail now).
+   - Mark with `[ignore]` (C#) or equivalent skip annotation.
+   - Add a `// TODO:(DEVENV[plan-key]): Fix in Phase N` comment.
+   - Update the plan with a new task to address it in the applicable phase.
+   - Inform the user: show the test, explain why you stopped.
+
+3. **Out-of-scope, not in plan** — The bug is in unrelated code or a different epic.
+   - Do NOT write tests, do NOT code around it.
+   - Inform the user: describe the bug, suggest creating a GitHub issue, ask for direction.
+
+4. **User-indicated documentation only** — Only if the user explicitly says "just document it."
+   - Add a code comment with context; do not write tests or attempt fixes.
+
+**Core rule: Stop, explain, ask. Never silently encode a bug.**
+
 ## Session Kickoff
 
 Run these in order. Don't skip.
