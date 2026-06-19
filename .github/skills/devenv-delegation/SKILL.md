@@ -1,6 +1,6 @@
 ---
 name: devenv-delegation
-description: 'Drive implementation of a pre-existing plan with assistant-led execution and user review. USE WHEN the user says "delegate this to you", "you take this", "run with this", "implement this plan", "work through this plan", or "do this for me" with a plan attached, AND the work is mechanical, rote, or low-impact (refactors, rename sweeps, test scaffolding, cleanup, docs). REQUIRES an existing implementation plan (file path or GH issue with a plan in the body). Works phase by phase: uses the human-facing phase summaries as the review guide, treats the detailed task list as execution tracking, runs a full phase semi-autonomously (stopping only for ambiguity, major decisions, or unexpected obstacles), then hands back with a structured phase completion summary including hotspots, decisions made, and any deviations noted. Expects a discussion window between phases — user may review, request changes, or ask for plan edits. SUGGESTS switching to `/devenv-pair-programming` for high-impact phases; respects the user''s decision either way. DO NOT USE for ad-hoc work, plans that don''t exist yet (use `/devenv-create-implementation-plan` first), or highly collaborative work where the user wants to drive (use `/devenv-pair-programming`).'
+description: 'Drive implementation of a pre-existing plan with assistant-led execution and user review. USE WHEN the user says "delegate this to you", "you take this", "run with this", "implement this plan", "work through this plan", or "do this for me" with a plan attached, AND the work is mechanical, rote, or low-impact (refactors, rename sweeps, test scaffolding, cleanup, docs). REQUIRES an existing implementation plan (file path or GH issue with a plan in the body). Works phase by phase: uses acceptance criteria and human-facing phase summaries as the review guide, refreshes and confirms the phase task list as the current-state execution ledger, runs a full phase semi-autonomously (stopping only for ambiguity, major decisions, or unexpected obstacles), then hands back with a structured phase completion summary including hotspots, decisions made, and any deviations noted. Expects a discussion window between phases — user may review, request changes, or ask for plan edits. SUGGESTS switching to `/devenv-pair-programming` for high-impact phases; respects the user''s decision either way. DO NOT USE for ad-hoc work, plans that don''t exist yet (use `/devenv-create-implementation-plan` first), or highly collaborative work where the user wants to drive (use `/devenv-pair-programming`).'
 argument-hint: '<issue-number | path-to-plan> [phase or task range]'
 user-invocable: true
 ---
@@ -32,12 +32,13 @@ Do **not** use for:
 
 1. **Plan required.** No plan, no delegation. Refuse and redirect.
 2. **Engagement floor.** The human stays in the loop with brief task pings, inline concern surfacing, and a structured end-of-session summary with **review hotspots**.
-3. **Phase-first review.** Use the goals, context, and phase summaries to explain what a phase is trying to achieve; use the detailed task list to track execution and keep progress current.
-4. **No assumptions.** Same rule as pair-programming — ask before non-trivial choices, ambiguous acceptance criteria, multiple competing patterns, or anything contradicting the plan.
-5. **Suitability check first.** Some phases shouldn't be delegated. Say so.
-6. **Push back honestly.** Surface concerns, doubts, and unknowns as they arise — don't batch them to the end.
-7. **No unilateral workaround shims.** If the next move is a shim, adapter, compatibility extension, or temporary bridge primarily intended to force tests/build to pass, stop and collaborate first. These are prohibited unilaterally and only permitted with explicit user agreement. Follow the shared [workaround decision policy](../common/references/workaround-decision-policy.md).
-8. **Architectural fidelity beats local progress.** If the plan, contracts, or design context imply a hard architectural requirement — for example execution locus, boundary ownership, server-side vs client-side execution, or a materially distinct implementation mode — treat that as binding. If it is not explicit enough to implement safely, stop and ask rather than choosing the easiest nearby implementation surface.
+3. **Phase-first, AC-first review.** Use acceptance criteria plus goals, context, and phase summaries as the source of truth; the phase task list is the authoritative current-state execution ledger.
+4. **Runtime micro-planning = task-list refresh.** At phase start, refresh and confirm the current phase task list, then execute from it. Do not run a parallel shadow checklist.
+5. **No assumptions.** Same rule as pair-programming — ask before non-trivial choices, ambiguous acceptance criteria, multiple competing patterns, or anything contradicting the plan.
+6. **Suitability check first.** Some phases shouldn't be delegated. Say so.
+7. **Push back honestly.** Surface concerns, doubts, and unknowns as they arise — don't batch them to the end.
+8. **No unilateral workaround shims.** If the next move is a shim, adapter, compatibility extension, or temporary bridge primarily intended to force tests/build to pass, stop and collaborate first. These are prohibited unilaterally and only permitted with explicit user agreement. Follow the shared [workaround decision policy](../common/references/workaround-decision-policy.md).
+9. **Architectural fidelity beats local progress.** If the plan, contracts, or design context imply a hard architectural requirement — for example execution locus, boundary ownership, server-side vs client-side execution, or a materially distinct implementation mode — treat that as binding. If it is not explicit enough to implement safely, stop and ask rather than choosing the easiest nearby implementation surface.
 
 ## Personality
 
@@ -221,6 +222,19 @@ Do not start implementation tasks while phase-relevant questions remain unresolv
 
 Use the shared [decision resolution protocol](../common/references/decision-resolution-protocol.md) for classification, option framing, and escalation.
 
+### 5e. Refresh and confirm phase task list (required)
+
+Before coding starts, refresh the current phase task list against reality using this phase's AC impact, phase summary, and concrete file targets.
+
+- Preserve valid tasks.
+- Tighten vague tasks into concise step entries.
+- Remove or strike obsolete tasks with a short reason.
+- Add newly required unchecked tasks in the current phase (or add a new phase only if necessary).
+- Keep the phase list concise (typically 3-7 active tasks) and phase-local.
+- Ask for a quick confirm before starting implementation.
+
+This refreshed phase task list is the execution ledger and must stay current throughout the phase.
+
 ### 6. Confirm and start
 
 Wait for explicit go-ahead before starting the first session.
@@ -231,9 +245,20 @@ If the user returns after stepping away and asks for status (for example: "where
 
 This is delegation-specific review: phase acceptance and steering, not pair-programming turn-by-turn checkpointing.
 
+### Phase-close cleanup pass
+
+When a phase is ready to close, do one final cleanup sweep before marking it complete:
+
+1. Re-read the phase's changed files and compare them with the phase tasks and ACs.
+2. Tick off tasks that are clearly complete and remove or strike tasks that are now obsolete.
+3. If an important task appears to be left undone, stop and surface it to the user with the concrete choice: complete it now, defer it, or add it as a new task / phase.
+4. Only when the ledger matches reality should the phase be considered closed and eligible for the phase-completion gate.
+
+The phase task list must always reflect what was actually done and what remains to be done now; phase close is the last chance to repair drift before the phase is marked complete.
+
 ## During a Phase
 
-The AI runs through the phase's tasks without stopping for user review between each one. Task progress pings are brief indicators — not checkpoints. It may keep the detailed task list current as reality diverges from the original wording, but must ask before major changes to phases, goals, or ACs.
+The AI runs through the phase's tasks without stopping for user review between each one. Task progress pings are brief indicators — not checkpoints. It should execute from the refreshed phase task list and AC intent, and keep that task list current in-place (tick completed work, remove obsolete tasks, add newly required tasks). Ask before major changes to phases, goals, or ACs.
 
 ### Task progress pings
 

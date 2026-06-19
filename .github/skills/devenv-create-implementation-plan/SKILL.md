@@ -171,7 +171,7 @@ Do not continue detailed task generation while redivision is unresolved.
 
 Use the [plan template](./references/plan-template.md). Follow:
 
-- [Task formatting rules](./references/task-format.md) — atomic `- [ ] **N.N [S|M|L] Title**` tasks with descriptive sub-bullets, then `Files:` / `decision:` / `depends on` metadata, and an inline `(additional context)` link when needed
+- [Task formatting rules](./references/task-format.md) — atomic `- [ ] **N.N [S|M|L] Title**` tasks written as concise step entries; keep optional metadata (`Files:` / `decision:` / `depends on`) and move deep detail to `(additional context)` when needed
 - [Phase rules](./references/phase-rules.md) — Phase 1 is **Discovery & test scaffolding**; the last phase is **Cleanup & docs**; every phase must end committable (tests pass, coverage doesn't regress, single-PR sized)
 - Where the work introduces or changes important boundaries, add an early **Contracts & boundaries** phase (usually Phase 2, sometimes merged into late Phase 1 for smaller work) before broad implementation starts
 - The plan must follow this section order: `## Goals and Acceptance Criteria`, `## Context and Orientation`, `## Phases`, `## Detailed Task List`, `## Appendix` *(optional unless required by source complexity)*, `## Pending Questions` *(optional)*, `## Reference Information`, `## Additional Task Context`, `## Revision History`
@@ -188,7 +188,7 @@ Use the [plan template](./references/plan-template.md). Follow:
   - phase/task-specific unresolved questions stay inline under the relevant phase/task as `[QUESTION] ...`
   - only plan-level unresolved questions belong in `## Pending Questions`
 - `## Phases` should carry practical execution guidance, not just labels: include at least 2 suggested strategies and at least 2 concrete deliverables per phase whenever the scope permits
-- `## Detailed Task List` repeats the same phases with a short deliverable-summary blockquote and points back to the fuller phase context above
+- `## Detailed Task List` repeats the same phases with a short deliverable-summary blockquote and a condensed 3-6 step sequence per phase, pointing back to the fuller phase context above
 - `## Appendix` is optional only for straightforward work. It is **required** when the plan is derived from an upstream design artifact (design doc, RFC, Blueprint, Redesign doc, or equivalent issue comment) and the work is medium/high complexity or risk.
 - Use the explicit complexity triggers in [plan-template.md](./references/plan-template.md): appendix is required when design-derived work meets the threshold (any 1 high-complexity trigger, or any 2 medium-complexity triggers).
 - When required, the appendix must summarize the important upstream design context, not just link to it: key decisions, constraints/invariants, interface contracts, migration/rollout considerations, and any explicitly rejected alternatives that affect implementation sequencing.
@@ -276,8 +276,6 @@ See [phase-rules.md](./references/phase-rules.md) for the full checklist.
 
 ```
 - [ ] **N.N [S|M|L] Task title** ([additional context](#task-NN--short-slug))
-  - <Concrete sub-step or behavioural note>
-  - <Another sub-step — method signature, file to touch, edge case, etc.>
   - Files: `workspace-root-relative/path/File.cs`, `workspace-root-relative/path/FileTests.cs`
   - decision: <the choice to make, and why it's non-obvious> (omit if none)
   - owner: User | AI  (omit when either party can take it — default)
@@ -285,7 +283,7 @@ See [phase-rules.md](./references/phase-rules.md) for the full checklist.
 ```
 
 - **Bold task header** with size label and optional inline `(additional context)` link.
-- **Descriptive sub-bullets first, metadata last** — sub-bullets describe the work concretely (methods to add, behaviours, edge cases); `Files:` / `decision:` / `owner:` / `depends on` sit at the bottom of the bullet list.
+- **Concise step entries, metadata optional** — each task line should read as a concrete step. Add `Files:` / `decision:` / `owner:` / `depends on` only when it meaningfully improves execution clarity.
 - `[S/M/L]` size label on every task: S ≤ 30 min, M = 30 min–2 h, L > 2 h (consider splitting).
 - `Files:` lists every file the task reads or modifies using workspace-root-relative paths. New files get a `(new)` suffix. Powers the **Files in scope** links in pair-programming and delegation at phase kickoff.
 - `decision:` flags a non-obvious design choice — signals AI to stop and ask, signals pair-programming to discuss at handoff.
@@ -353,7 +351,7 @@ Supplemental deep context for complex/high-risk plans. Required when significant
 ## Revision History
 ```
 
-Every phase header in `## Detailed Task List` is followed by a short `> blockquote` deliverable summary. The fuller human-facing guidance lives in `## Phases`. If `## Appendix` is present, treat it as supplemental context and keep it intentionally brief. If `## Pending Questions` is present, keep it to genuinely unresolved execution questions rather than dumping notes. Section headings use Title Case.
+Every phase header in `## Detailed Task List` is followed by a short `> blockquote` deliverable summary and a condensed step list (typically 3-6 tasks). The fuller human-facing guidance lives in `## Phases`. If `## Appendix` is present, treat it as supplemental context and keep it intentionally brief. If `## Pending Questions` is present, keep it to genuinely unresolved execution questions rather than dumping notes. Section headings use Title Case.
 
 ## Anti-patterns
 

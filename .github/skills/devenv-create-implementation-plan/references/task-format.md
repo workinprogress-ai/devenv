@@ -4,9 +4,6 @@
 
 ```
 - [ ] **N.N [S|M|L] Task title** <a id="t-NN"></a> ([additional context](#task-NN--short-slug))
-  - <Concrete sub-step or behavioural note>
-  - <Another sub-step — method signature, file to touch, edge case, etc.>
-  - <As many descriptive bullets as needed to make the task scannable>
   - Files: `workspace-root-relative/path/File.cs`, `workspace-root-relative/path/FileTests.cs`
   - decision: <the choice to make, and why it's non-obvious> (only if applicable)
   - owner: User | AI  (omit when either party can take it — that's the default)
@@ -15,7 +12,7 @@
 
 The `<a id="t-NN"></a>` anchor (where `NN` is the task number with the dot dropped: `2.1` → `t-21`) is placed immediately after the task title and before the `(additional context)` link. It renders as nothing visible but creates the anchor target that the *Additional task context* section links back to. Only include it when the task has a corresponding `(additional context)` entry.
 
-The task title is **bolded** and uses an em-dash separator for readability. Descriptive sub-bullets come **first** (they describe the work). Metadata bullets (`Files:`, `decision:`, `depends on`) come **last** so they're easy to find but don't drown the description.
+The task title is **bolded** and is the primary execution step. Keep task lines concise and concrete. Include `Files:` by default for execution-facing plans. Use `decision:` and `depends on` only when they materially improve execution clarity.
 
 The `(additional context)` link is inline on the task header line, optional, and only present when there's a corresponding entry under *Additional task context*.
 
@@ -29,21 +26,16 @@ Every task carries a size label immediately after the task number:
 
 Size is an estimate for pair-split planning, not a hard SLA. If a task turns out larger than `[S]`, record the surprise in the session summary.
 
-### Descriptive sub-bullets
+### Condensed step style
 
-Sub-bullets are **navigator notes** — they tell the implementer what they need to know before and during the task, not what to do as a checklist. Good sub-bullets are concrete and specific:
+Task lists should be compact and current-state friendly:
 
-- Names of methods, classes, files, or constants to add or modify
-- Specific behaviours, edge cases, or method signatures to be aware of
-- Patterns or precedents in the codebase to follow
-- Test cases that must be covered
-- Gotchas or constraints that aren't obvious from the task title
+- Prefer 3-6 tasks per phase.
+- Each task line should read like one concrete execution step.
+- Include `Files:` by default; add other metadata only when needed for handoff clarity.
+- Move depth into *Additional task context* instead of expanding task bullets.
 
-**Sub-bullets are not tracked sub-tasks.** The task is the atomic unit — either done or not. Sub-bullets are read before starting; they are not ticked off during execution. If you find yourself writing bullets that look like separate deliverables, those may belong as separate tasks or pushed into *Additional task context*.
-
-Avoid vague sub-bullets like "implement the logic" or "add tests". If a sub-bullet would need its own paragraph, push that depth into *Additional task context* and link to it.
-
-If the same detail is already captured in the phase summary, appendix, or reference information, keep the sub-bullet short and link instead of repeating it.
+If a task description needs multiple implementation bullets to be understandable, split it into separate tasks or move the extra detail into linked additional context.
 
 ### `Files:` bullet
 
@@ -108,7 +100,7 @@ Each task should be:
 - **Implementable as a whole** — no "and then..." that hides a second deliverable.
 - **Verifiable** — the executor knows when it's done (passing test, file exists, command succeeds, etc.).
 
-If a task can't be described in a handful of sub-bullets, it probably needs to be split, or its detail belongs in *Additional task context*.
+If a task can't be expressed as one concise step line, it probably needs to be split, or its detail belongs in *Additional task context*.
 
 ## Parallelism
 
@@ -118,12 +110,10 @@ If a task can't be described in a handful of sub-bullets, it probably needs to b
 
 ## Linking to additional context
 
-When a task needs more than its sub-bullets can convey, push the depth into *Additional task context* and link to it from the task header. Add a back-link on the context section heading so the reader can navigate back to the task in one click:
+When a task needs more detail than a concise step line can carry, push that depth into *Additional task context* and link to it from the task header. Add a back-link on the context section heading so the reader can navigate back to the task in one click:
 
 ```markdown
 - [ ] **2.2 [M] Wire retry policy into BulkSyncWorker** <a id="t-22"></a> ([additional context](#task-22--retry-policy-wiring))
-  - Wrap the outbound HTTP call with the policy from 2.1
-  - Preserve existing cancellation token behaviour
   - Files: `repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs`
   - depends on 2.1
 ```
@@ -155,24 +145,19 @@ Pattern: `#task-NN--short-slug` where `NN` is the task number with the dot dropp
 
 ```markdown
 - [ ] **1.2 [S] Add failing test for empty-payload bulk sync** ([additional context](#task-12--empty-payload-test))
-  - Reproduce the bug: empty payload currently throws `NullReferenceException`
-  - Assert new expected behaviour: no-op, returns success
   - Files: `repos/lib.cs.services.bulk-sync/tests/BulkSyncWorkerTests.cs`
 ```
 
-Why it's good: bold title, sized, scannable sub-bullets describing concrete sub-steps, files listed, link to deeper context.
+Why it's good: bold title, sized, concrete step, files listed, link to deeper context.
 
 ```markdown
 - [ ] **2.3 [M] Choose and implement retry backoff strategy**
-  - Wire the retry policy into `BulkSyncWorker`'s outbound HTTP call
-  - Add `IRetryPolicy` abstraction to allow injection in tests
-  - Honour existing cancellation token behaviour
   - Files: `repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs`, `repos/lib.cs.services.bulk-sync/src/IRetryPolicy.cs` (new), `repos/lib.cs.services.bulk-sync/tests/BulkSyncWorkerRetryTests.cs`
   - decision: exponential vs. fixed backoff — need to agree on multiplier before coding
   - depends on 2.2
 ```
 
-Why it's good: sub-bullets describe the work concretely; `decision:` flags the design choice so the AI stops and asks rather than guessing.
+Why it's good: the task line is concrete, and `decision:` flags the design choice so the AI stops and asks rather than guessing.
 
 ### Bad
 
@@ -180,16 +165,12 @@ Why it's good: sub-bullets describe the work concretely; `decision:` flags the d
 - [ ] 1.2 Fix bulk sync and clean up logging
 ```
 
-Why it's bad: two deliverables, no size, no files, no sub-bullets, no acceptance signal.
+Why it's bad: two deliverables, no size, no files, and no acceptance signal.
 
 ### Bad
 
 ```markdown
-- [ ] **1.2 [S] Add failing test**
-  - Add the test described in BulkSyncWorker.cs around line 142 where we call
-    `_httpClient.PostAsync(...)` — note that the existing test
-    `BulkSyncWorkerTests.PostsPayload` mocks the HTTP client with Moq and uses
-    a fixture defined in TestFixtures.cs which itself depends on...
+- [ ] **1.2 [S] Add failing test and refactor sync pipeline and update docs and fix retry edge cases**
 ```
 
-Why it's bad: sub-bullets have turned into prose. All that detail belongs under *Additional task context*; sub-bullets should stay scannable.
+Why it's bad: multiple deliverables collapsed into one noisy line; split this into separate concise tasks.

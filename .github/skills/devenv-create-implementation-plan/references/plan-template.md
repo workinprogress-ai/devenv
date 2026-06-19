@@ -130,14 +130,10 @@ this section alone.>
 > orientation, and likely decision points.
 
 - [ ] **1.1 [S] <Task title>** ([additional context](#task-11--short-slug))
-  - <Concrete sub-step or behavioural note>
-  - <Another sub-step>
   - Files: `<workspace-root-relative/path/File.cs>`
   - depends on <N.N> (omit if none)
 
 - [ ] **1.2 [M] <Task title>**
-  - <Sub-step>
-  - <Sub-step>
   - Files: `<workspace-root-relative/path/File.cs>`, `<workspace-root-relative/path/FileTests.cs>`
 
 ---
@@ -151,16 +147,12 @@ this section alone.>
 > vision, suggested strategies, AC coverage, and watch-outs.
 
 - [ ] **2.1 [M] <Task title>**
-  - <Sub-step>
-  - <Sub-step>
   - Files: `<workspace-root-relative/path/File.cs>`
   - decision: <the choice to make, and why it's non-obvious> (omit if none)
   - [QUESTION] <Task-level unresolved implementation detail, if any>
   - depends on 1.2
 
 - [ ] **2.2 [L] <Task title>** ([additional context](#task-22--short-slug))
-  - <Sub-step>
-  - <Sub-step>
   - Files: `<workspace-root-relative/path/File.cs>`, `<workspace-root-relative/path/NewFile.cs>` (new)
 
 ---
@@ -290,19 +282,19 @@ enough to execute the task.>
 - **Opening paragraph** — assume the reader has zero prior context.
 - **Goals and Acceptance Criteria** — this is the first section a human should be able to use to understand the intended end state and scope boundaries.
 - **Acceptance criteria anchors** — define each AC with an explicit anchor (`<a id="ac-N"></a>`) and link to those anchors everywhere else (`[AC-N](#ac-N)`). Avoid plain-text references like "AC-2" without a link.
-- **Context and Orientation** — write this so it still helps a human who never reads past it.
 - **Context and Orientation** — write this so it still helps a human who never reads past it. Aim for concise depth (usually 2-4 sentences per subsection) and repo-specific details over generic phrasing.
 - **Phases** — this is the human-oriented breakdown. Give enough goal, end-state, strategy, AC coverage, and watch-out information for someone to start a phase without living in the task list. Prefer at least two concrete strategy bullets and two concrete deliverables per phase when scope allows.
 - **Decision placement** — unresolved execution decisions should appear in both places: phase-level under **Watch Outs / Decisions** and task-level as `decision:` metadata on the earliest affected task.
 - **Pending questions** — resolve as many as possible during planning. Keep unresolved items only for implementation-level details or explicit user-requested deferral.
 - **Question placement** — phase/task-specific unresolved questions stay inline as `[QUESTION] ...`; `## Pending Questions` is only for plan-level unresolved items.
 - **Detailed Task List blockquotes** — keep these short. They are there to summarise deliverables and point back to the richer phase context, not to carry the full orientation burden.
+- **Detailed Task List size** — prefer a condensed list (typically 3-6 tasks per phase). If a phase needs more, split the phase or push depth into `## Additional Task Context`.
 - **Appendix** — optional for straightforward work. Required for medium/high-complexity plans derived from upstream design artifacts; summarize the important design context directly (decisions, constraints, contracts, migration notes, rejected alternatives), then link references.
 - **Appendix complexity trigger** — treat appendix as required when design-derived work hits the threshold: any 1 high-complexity trigger or any 2 medium-complexity triggers.
 - **Pending Questions** — optional. Place it immediately above `## Reference Information`. Use it only for unresolved plan-level questions; keep task- and phase-local questions inline as `[QUESTION]` bullets where they belong.
 - **Phase boundaries** — each phase must end committable. If a phase can't, split it.
 - **Task headers** — bold, with size label, optional inline `(additional context)` link.
-- **Sub-bullets first, metadata last** — descriptive sub-bullets describe the work; `Files:` / `decision:` / `depends on` come at the bottom of the bullet list.
+- **Step-first tasks** — each task line should be a concrete step. Include `Files:` for execution-facing plans by default; include `decision:` and `depends on` only when needed. Move deep rationale to `## Additional Task Context`.
 - **Anchor slugs** — use `#task-NN--short-slug` (descriptive), not `#task-N-N` (opaque). Match with `<a id="task-NN--short-slug"></a>` in *Additional task context*.
 - **Reference table** — prefer a "key files" table with a relevance column over a flat link list. Add a separate **Related links** sub-list for issues/docs/PRs.
 - **Upstream artifacts** — when a grooming/design/spike/blueprint/roadmap artifact exists, include explicit links in the `Upstream artifacts` block.

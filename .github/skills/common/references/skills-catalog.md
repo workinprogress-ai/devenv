@@ -117,7 +117,7 @@ Loads the plan and runs an interactive driver/navigator handoff: both parties ta
 
 > **Delegated execution support for mechanical work, with user review and ownership.**
 
-Analyzes a plan, proposes work-session groupings, implements phase-by-phase, keeps the user engaged with brief pings and inline concern surfacing. Ends each session with a summary including review hotspots.
+Analyzes a plan, refreshes and confirms the current phase task list as the execution ledger, implements phase-by-phase, keeps the user engaged with brief pings and inline concern surfacing, and maintains task state in place (tick done, remove obsolete, add required). At phase close, it ticks completed tasks and does a final cleanup sweep so the ledger reflects reality before completion. Ends each session with a summary including review hotspots.
 
 **Use for:** refactors, renames, test scaffolding, cleanup, docs — mechanical, low-risk phases  
 **Don't use for:** high-impact work (→ `/devenv-pair-programming`), ad-hoc work without a plan  

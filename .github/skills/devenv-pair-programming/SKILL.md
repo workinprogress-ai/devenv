@@ -1,6 +1,6 @@
 ---
 name: devenv-pair-programming
-description: 'Collaborate with the user as a pair-programming partner on a user story, GitHub issue, or implementation plan. USE WHEN the user says "pair program", "let''s pair on this", "pair with me", "work on this issue with me", "implement this together", "let''s tackle this plan together", "work through this implementation plan", or hands off a GitHub issue with collaborative intent (not "just do it"). Loads the plan (from a file path or via `issue-get` for a GH issue), uses the goals/context/phase sections to orient the session, and treats the detailed task list as progress tracking rather than the main conversational interface. Both parties take turns implementing and reviewing, the AI updates the task list as work becomes clearly complete, asks before assuming, pushes back when warranted, and offers to document discoveries via `issue-comment` / `issue-create`. DO NOT USE for solo "do this for me" tasks, pure Q&A, or when the user wants the AI to drive the entire implementation without checkpoints.'
+description: 'Collaborate with the user as a pair-programming partner on a user story, GitHub issue, or implementation plan. USE WHEN the user says "pair program", "let''s pair on this", "pair with me", "work on this issue with me", "implement this together", "let''s tackle this plan together", "work through this implementation plan", or hands off a GitHub issue with collaborative intent (not "just do it"). Loads the plan (from a file path or via `issue-get` for a GH issue), uses the goals/context/phase sections to orient the session, and treats acceptance criteria plus phase goals as the source of truth while keeping a condensed task list as the authoritative current-state ledger. Both parties take turns implementing and reviewing, the AI keeps AC/phase progress and task state current, asks before assuming, pushes back when warranted, and offers to document discoveries via `issue-comment` / `issue-create`. DO NOT USE for solo "do this for me" tasks, pure Q&A, or when the user wants the AI to drive the entire implementation without checkpoints.'
 argument-hint: '[issue-number | path-to-plan | "ad-hoc"]'
 user-invocable: true
 ---
@@ -13,7 +13,7 @@ user-invocable: true
 
 > **Persistent operating mode.** This skill is active for the entire conversation from invocation onward — not just at session start. After context compaction, a gap between turns, or any point where you find yourself about to write code: **stop and re-read this file first.** The default agent behavior ("implement immediately") does not apply in a pair-programming session. If you are uncertain whether you are in pair-programming mode, you are — act accordingly.
 
-Work *with* the user, not *for* them. Start from goals, context, and phase intent; use the task list to keep progress honest, not to force the human into a granular workflow.
+Work *with* the user, not *for* them. Start from goals, context, phase intent, and acceptance criteria; keep the task list condensed but authoritative so it always reflects done work and immediate next work.
 
 **Context objective:** keep shared context continuously usable for both partners — what changed, what is now true, what is uncertain, and what we do next.
 
@@ -34,7 +34,7 @@ Do **not** use for:
 
 ## Core Principles
 
-1. **Human-first orientation.** Start from goals, context, and phase summaries. The detailed task list is the tracking layer, not the main way the human experiences the plan.
+1. **Human-first orientation.** Start from goals, context, phase summaries, and acceptance criteria. Keep the task list concise and phase-scoped, while ensuring it always reflects current reality.
 2. **User drives by default.** Unless steering is explicitly handed to the AI, assume the human is driving and the AI is navigating/reviewing.
 3. **Tight loop over ceremony.** Default loop is: orient on phase -> agree next chunk -> implement/review -> update tracking -> repeat.
 4. **No assumptions.** When in doubt, ask. (See [no-assumptions rule](#no-assumptions-rule) below.)
@@ -323,7 +323,7 @@ After kickoff, keep using this compact loop:
 1. Confirm the next chunk (who drives, expected outcome). Default driver is the user unless explicitly changed.
 2. One side implements while the other navigates.
 3. Review immediately against intent and AC impact.
-4. Update the detailed task list to reflect actual progress.
+4. Update AC/phase progress and keep task checkboxes/task entries current.
 5. Repeat, or pause for a phase-level check when direction changes.
 
 Also during this loop: notice new scope, capture unresolved questions in the plan, and clear them when answered.
@@ -425,7 +425,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
    Temporary-code limit: genuinely temporary code is allowed only when it is a tiny compile/test unblock — a line or two, or comparably small localized scaffold — and it must be marked with `TODO:(DEVENV[plan-key]): ...`. A substantial temporary implementation, fallback execution path, or alternate architecture is not allowed as a stopgap; stop and ask instead.
 
    Summarize the blocker, name the tempting bad workaround if there is one, and ask the user for help or direction.
-5. **Track and hand back.** Remove any forward DEVENV comments whose work just completed. Update the detailed task list as work becomes clearly complete, and feel free to add or reword tasks when that is the smallest faithful way to keep the tracking current. Ask before major changes to phases, goals, or ACs. Then format the handback:
+5. **Track and hand back.** Remove any forward DEVENV comments whose work just completed. Keep AC and phase status current first; update detailed task bullets only when needed to clarify what changed. Ask before major changes to phases, goals, or ACs. Then format the handback:
 
    > ✅ **Done with 2.1**
    >
@@ -448,7 +448,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
    - **Pre-read your upcoming batch** — files, patterns, gotchas. Surface a brief summary on handback.
    - **Research open questions.** If a `decision:` item is coming, gather options and codebase evidence now.
    - **Flag anything genuinely useful** — one proactive interjection is fine. Don't pepper.
-   - Track progress in the detailed task list as you notice work being completed, and proactively suggest the next useful chunk.
+   - Track AC and phase progress as you notice work being completed, and proactively suggest the next useful chunk.
    - If there's truly nothing to do: *"No obvious prep here — straightforward once the current change lands."*
 
 3. **Review the actual diff.** Re-read every file the user touched before saying anything about it. See [Always Work From Current Files](./references/file-freshness.md).
@@ -466,6 +466,17 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
    If approving with no blockers, run `markdown-plan-complete-task` immediately. If there are blockers, the task stays open. Remove forward DEVENV comments whose work is fulfilled.
 
 After posting the review, enter the same **discussion window** as after an AI handback. Engage — don't skip past it. Never fix unilaterally. **Never undo something the user did without asking first.**
+
+### Phase-close cleanup pass
+
+When a phase is ready to close, do one final review sweep before marking it complete:
+
+1. Re-read the phase's changed files and compare them with the phase tasks and ACs.
+2. Remove, strike, or add task entries so the phase task list accurately reflects real work progress at close.
+3. If an important task appears to be left undone, stop and surface it to the user with the concrete choice: complete it now, defer it, or add it as a new task / phase.
+4. Only when the ledger matches reality should the phase be considered closed and eligible for the phase-completion gate.
+
+The phase task list must always reflect what was actually done and what remains to be done now; phase close is the last chance to repair drift before the phase is marked complete.
 
 ### Tactical assistance while the user is driving
 
@@ -774,7 +785,7 @@ Assume they're still working toward the plan unless they say otherwise. Flow beh
 - **Prefer DEVENV-marked TODOs over plain TODO/FIXME for plan-linked work.** When discovered during review, offer to replace plain markers with `TODO:(DEVENV[plan-key]): ...` so they remain trackable and removable in cleanup.
 - **If temporary code is introduced to keep the build/test loop moving**, add a `TODO:(DEVENV[plan-key]): ...` marker at the exact code location describing what real implementation will replace it and when. Also ensure the plan contains a corresponding follow-up task so the temporary code is not lost.
 - **Never leave permanent code comments that reference plan phases, task IDs, or decisions.** Those references are allowed only in clearly temporary `DEVENV[...]` / `TODO:(DEVENV[...])` markers and must be removed when the temporary condition is resolved.
-- **Record every revision in `## Revision History`** after `## Additional Task Context` near the bottom of the plan file. Do not insert it between phases or above `## Reference Information`. Use the shared plan format:
+- **Record `## Revision History` only for material plan changes** after `## Additional Task Context` near the bottom of the plan file. Do not insert it between phases or above `## Reference Information`. Material changes include phase restructuring, acceptance-criteria changes, major sequencing/approach changes, and broad task re-slicing. Routine checkbox ticks, minor wording polish, and small in-phase task add/remove operations do not require revision-history entries.
    ```markdown
    ## Revision History
 
@@ -783,7 +794,7 @@ Assume they're still working toward the plan unless they say otherwise. Flow beh
    - Added 3.4: cover retry edge case discovered during implementation
    - Reworded 2.2: clarified that validation happens before persistence
    ```
-- **Use one dated `### YYYY-MM-DD — ...` heading per revision batch.** If an entry for today's date and same editing pass already exists, append bullets under that heading instead of creating a second ad hoc format.
+- **Use one dated `### YYYY-MM-DD — ...` heading per material revision batch.** If an entry for today's date and same editing pass already exists, append bullets under that heading instead of creating a second ad hoc format.
 - **Keep newest revision entries on top.** Preserve older dated entries below; do not rewrite them into a different shape.
 - **Never use bullet-only revision notes or inline prose in place of the dated heading + bullet list format.**
 - **Draft → show → confirm → write** for all plan edits. Exception: checkbox ticks don't require a draft.
@@ -820,7 +831,7 @@ When the user pauses, asks for a review, or slows down:
 
 1. **Run the [Review and re-anchor protocol](#7d-review-and-re-anchor-protocol-canonical).**
 
-2. **Tick confirmed tasks** — when work is clearly complete, keep the detailed task list current. Offer first when the mapping is ambiguous: *"Happy to tick 3.1 and 3.2 — want me to go ahead?"*
+2. **Maintain current-state tasks** — when work is clearly complete, tick tasks immediately; when tasks are obsolete, remove or strike them with a concise reason; when new work is discovered, add concise unchecked tasks in the right phase (or a new phase if needed). Offer first when the mapping is ambiguous: *"Happy to tick 3.1 and 3.2 and replace 3.3 with a narrower follow-up — want me to do that now?"*
 
 3. **Handle off-plan work.** Name it; offer to update the plan. For wide-ranging divergence:
    > *"You've ranged across phases 2–4 — want me to rewrite the affected phases to reflect what was done, or just tick what's clearly complete?"*
@@ -839,6 +850,13 @@ Re-orient from actual current state — not the original plan:
 
 ## Plan Progress Updates
 
+The task list is a live ledger. At all times it must reflect current state:
+
+- `[x]` tasks = done and reviewed.
+- `[ ]` tasks = still needed now.
+- Deprecated tasks = removed or struck with a short reason.
+- Newly discovered required work = added as new unchecked tasks in the correct phase (or a new phase when needed).
+
 ### Checkbox updates
 
 Ticks happen at fixed, deterministic points in the handoff protocol — not at end of session, not when both parties happen to agree:
@@ -855,7 +873,7 @@ This is the only plan edit the AI makes without prior confirmation. Everything e
 - When a new unresolved question matters to execution, add it to the plan in the right place rather than trusting chat memory.
 - Before declaring a phase complete, confirm all `[QUESTION]` items for that phase are resolved, converted into tasks, explicitly deferred to a later phase, or spun out to a follow-up issue.
 - Before declaring the whole plan complete, confirm there are no unresolved entries left under `## Pending Questions` or attached to any remaining phase/task.
-- If a question is resolved by a substantial plan change, note the resolution in `## Revision History` with a short explanation.
+- If a question is resolved by a material plan change, note the resolution in `## Revision History` with a short explanation.
 
 ### GH issue body sync
 
