@@ -804,6 +804,7 @@ sync_copilot_knowledge() {
     local repo_url="${COPILOT_KNOWLEDGE_REPO:-}"
     local subpath="${COPILOT_KNOWLEDGE_SUBPATH:-}"
     local knowledge_repo_dir="$toolbox_root/copilot/knowledge"
+    local auth
     local header
     local default_branch
 
@@ -813,7 +814,7 @@ sync_copilot_knowledge() {
     fi
 
     if [ -z "${GH_TOKEN:-}" ]; then
-        echo "WARNING: GH_TOKEN is not set; skipping Copilot knowledge sync"
+        echo "WARNING: GH_TOKEN is not set; skipping Copilot knowledge sync (load_setup_credentials must run first)"
         return 0
     fi
 
@@ -823,7 +824,8 @@ sync_copilot_knowledge() {
         subpath="."
     fi
 
-    header="AUTHORIZATION: bearer $GH_TOKEN"
+    auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+    header="AUTHORIZATION: basic $auth"
 
     if [ -d "$knowledge_repo_dir/.git" ]; then
         git -C "$knowledge_repo_dir" remote set-url origin "$repo_url"

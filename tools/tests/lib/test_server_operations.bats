@@ -1,7 +1,13 @@
 #!/usr/bin/env bats
 
+load ../test_helper
+
 setup() {
-  load ../test_helper
+  test_helper_setup
+}
+
+teardown() {
+  test_helper_teardown
 }
 
 # Test SMB operations

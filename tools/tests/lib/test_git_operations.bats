@@ -7,9 +7,8 @@ load ../test_helper
 
 # Setup: Source the library and dependencies
 setup() {
-    export TEST_TEMP_DIR="$(mktemp -d)"
+    test_helper_setup
     export TEST_CONFIG_FILE="$TEST_TEMP_DIR/test.config"
-    export PROJECT_ROOT="$DEVENV_ROOT"
     
     source "$DEVENV_ROOT/tools/lib/error-handling.bash"
     source "$DEVENV_ROOT/tools/lib/validation.bash"
@@ -30,9 +29,7 @@ setup() {
 
 teardown() {
     rm -rf "$TEST_REPO"
-    if [ -d "$TEST_TEMP_DIR" ]; then
-        rm -rf "$TEST_TEMP_DIR"
-    fi
+    test_helper_teardown
 }
 
 ################################################################################

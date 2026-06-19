@@ -222,6 +222,17 @@ EOF
   [ "$status" -eq 0 ]
 }
 
+@test "load_setup_credentials runs before sync_copilot_knowledge" {
+  run bash -c "
+    tasks=\$(grep -A55 'local default_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+    creds_line=\$(echo \"\$tasks\" | grep -n 'load_setup_credentials' | cut -d: -f1)
+    sync_line=\$(echo \"\$tasks\" | grep -n 'sync_copilot_knowledge' | cut -d: -f1)
+    [ \"\$sync_line\" -gt \"\$creds_line\" ] && echo 'ordered_correctly' || echo 'wrong_order'
+  "
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "ordered_correctly" ]]
+}
+
 @test "install_copilot_instructions symlinks file when source exists" {
   local src_dir="$TEST_TEMP_DIR/copilot"
   local dest_dir="$TEST_TEMP_DIR/home/.copilot"
