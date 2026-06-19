@@ -17,7 +17,7 @@
 
 ```bash
 cd /workspaces/devenv
-grep -l "Diagnostic Mode Protocol" .github/skills/devenv-*/SKILL.md | wc -l
+grep -l "Diagnostic Mode Protocol" copilot/skills/devenv-*/SKILL.md | wc -l
 # Output: 31
 ```
 

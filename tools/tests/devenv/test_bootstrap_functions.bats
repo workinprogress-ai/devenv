@@ -201,6 +201,11 @@ EOF
   [ "$status" -eq 0 ]
 }
 
+@test "bootstrap.bash defines sync_copilot_knowledge function" {
+  run grep "^sync_copilot_knowledge()" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
 @test "install_copilot_instructions copies to ~/.copilot/copilot-instructions.md" {
   run grep "copilot-instructions.md" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
   [ "$status" -eq 0 ]
@@ -208,12 +213,17 @@ EOF
 }
 
 @test "install_copilot_instructions is included in default task list" {
-  run bash -c "grep -A50 'local default_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep 'install_copilot_instructions'"
+  run bash -c "grep -A55 'local default_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep 'install_copilot_instructions'"
   [ "$status" -eq 0 ]
 }
 
-@test "install_copilot_instructions copies file when source exists" {
-  local src_dir="$TEST_TEMP_DIR/.github"
+@test "sync_copilot_knowledge is included in default task list" {
+  run bash -c "grep -A55 'local default_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep 'sync_copilot_knowledge'"
+  [ "$status" -eq 0 ]
+}
+
+@test "install_copilot_instructions symlinks file when source exists" {
+  local src_dir="$TEST_TEMP_DIR/copilot"
   local dest_dir="$TEST_TEMP_DIR/home/.copilot"
   mkdir -p "$src_dir"
   echo "# test instructions" > "$src_dir/copilot-instructions.md"
@@ -222,12 +232,13 @@ EOF
 #!/bin/bash
 toolbox_root="$TEST_TEMP_DIR"
 HOME="$TEST_TEMP_DIR/home"
-src="\$toolbox_root/.github/copilot-instructions.md"
+src="\$toolbox_root/copilot/copilot-instructions.md"
 dest="\$HOME/.copilot/copilot-instructions.md"
 if [ -f "\$src" ]; then
   mkdir -p "\$HOME/.copilot"
-  cp "\$src" "\$dest"
-  echo "copied"
+  rm -f "\$dest"
+  ln -s "\$src" "\$dest"
+  echo "symlinked"
 else
   echo "skipped"
 fi
@@ -235,8 +246,8 @@ EOF
   chmod +x "$TEST_TEMP_DIR/test_install_copilot.sh"
   run "$TEST_TEMP_DIR/test_install_copilot.sh"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "copied" ]]
-  [ -f "$dest_dir/copilot-instructions.md" ]
+  [[ "$output" =~ "symlinked" ]]
+  [ -L "$dest_dir/copilot-instructions.md" ]
 }
 
 @test "install_copilot_instructions skips gracefully when source missing" {
@@ -244,7 +255,7 @@ EOF
 #!/bin/bash
 toolbox_root="$TEST_TEMP_DIR/no-such-dir"
 HOME="$TEST_TEMP_DIR/home2"
-src="\$toolbox_root/.github/copilot-instructions.md"
+src="\$toolbox_root/copilot/copilot-instructions.md"
 dest="\$HOME/.copilot/copilot-instructions.md"
 if [ -f "\$src" ]; then
   mkdir -p "\$HOME/.copilot"
@@ -260,17 +271,17 @@ EOF
   [[ "$output" =~ "skipped" ]]
 }
 
-@test "install_copilot_instructions creates skills symlink to .github/skills" {
+@test "install_copilot_instructions creates skills symlink to copilot/skills" {
   local toolbox="$TEST_TEMP_DIR/toolbox_skills"
   local home_dir="$TEST_TEMP_DIR/home_skills"
-  mkdir -p "$toolbox/.github/skills/spike"
+  mkdir -p "$toolbox/copilot/skills/spike"
   mkdir -p "$home_dir/.copilot"
 
   cat > "$TEST_TEMP_DIR/test_skills_symlink.sh" << EOF
 #!/bin/bash
 toolbox_root="$toolbox"
 HOME="$home_dir"
-skills_src="\$toolbox_root/.github/skills"
+skills_src="\$toolbox_root/copilot/skills"
 skills_link="\$HOME/.copilot/skills"
 if [ -d "\$skills_src" ]; then
   mkdir -p "\$HOME/.copilot"
@@ -286,13 +297,13 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" =~ "symlinked" ]]
   [ -L "$home_dir/.copilot/skills" ]
-  [ "$(readlink "$home_dir/.copilot/skills")" = "$toolbox/.github/skills" ]
+  [ "$(readlink "$home_dir/.copilot/skills")" = "$toolbox/copilot/skills" ]
 }
 
 @test "install_copilot_instructions skills symlink is idempotent" {
   local toolbox="$TEST_TEMP_DIR/toolbox_skills2"
   local home_dir="$TEST_TEMP_DIR/home_skills2"
-  mkdir -p "$toolbox/.github/skills"
+  mkdir -p "$toolbox/copilot/skills"
   mkdir -p "$home_dir/.copilot"
   # Pre-create a stale symlink
   ln -s /tmp/stale "$home_dir/.copilot/skills"
@@ -301,7 +312,7 @@ EOF
 #!/bin/bash
 toolbox_root="$toolbox"
 HOME="$home_dir"
-skills_src="\$toolbox_root/.github/skills"
+skills_src="\$toolbox_root/copilot/skills"
 skills_link="\$HOME/.copilot/skills"
 if [ -d "\$skills_src" ]; then
   mkdir -p "\$HOME/.copilot"
@@ -314,20 +325,20 @@ EOF
   run "$TEST_TEMP_DIR/test_skills_symlink_idem.sh"
   [ "$status" -eq 0 ]
   [ -L "$home_dir/.copilot/skills" ]
-  [ "$(readlink "$home_dir/.copilot/skills")" = "$toolbox/.github/skills" ]
+  [ "$(readlink "$home_dir/.copilot/skills")" = "$toolbox/copilot/skills" ]
 }
 
-@test "install_copilot_instructions skips skills symlink when .github/skills missing" {
+@test "install_copilot_instructions skips skills symlink when copilot/skills missing" {
   local toolbox="$TEST_TEMP_DIR/toolbox_noskills"
   local home_dir="$TEST_TEMP_DIR/home_noskills"
-  mkdir -p "$toolbox/.github"
+  mkdir -p "$toolbox/copilot"
   # no skills dir
 
   cat > "$TEST_TEMP_DIR/test_skills_missing.sh" << EOF
 #!/bin/bash
 toolbox_root="$toolbox"
 HOME="$home_dir"
-skills_src="\$toolbox_root/.github/skills"
+skills_src="\$toolbox_root/copilot/skills"
 skills_link="\$HOME/.copilot/skills"
 if [ -d "\$skills_src" ]; then
   mkdir -p "\$HOME/.copilot"

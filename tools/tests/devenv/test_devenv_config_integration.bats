@@ -21,6 +21,10 @@ feed_url=https://nuget.pkg.github.com/${GH_ORG}/index.json
 [workflows]
 status_workflow=TBD,Ready,In Progress,Done
 issue_types=story,bug
+
+[copilot]
+knowledge_repo=https://github.com/example/docs.copilot-knowledge.git
+knowledge_subpath=copilot-knowledge/
 EOF
 }
 
@@ -29,7 +33,7 @@ EOF
 }
 
 @test "devenv.config: contains required sections" {
-    run grep -E '^\[organization\]|^\[nuget\]|^\[workflows\]' "$PROJECT_ROOT/devenv.config"
+    run grep -E '^\[organization\]|^\[nuget\]|^\[workflows\]|^\[copilot\]' "$PROJECT_ROOT/devenv.config"
     [ "$status" -eq 0 ]
 }
 
@@ -49,6 +53,11 @@ EOF
     [[ "$output" =~ Backlog ]]
     [[ "$output" =~ Ready ]]
     [[ "$output" =~ Done ]]
+}
+
+@test "devenv.config: copilot section has required knowledge keys" {
+    run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $PROJECT_ROOT/devenv.config && config_validate_required copilot knowledge_repo knowledge_subpath"
+    [ "$status" -eq 0 ]
 }
 
 @test "issues-config.yml: has issue types defined" {

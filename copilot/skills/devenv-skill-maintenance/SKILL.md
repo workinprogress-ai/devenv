@@ -11,10 +11,10 @@ Use this skill to repair the workspace's custom skill system in a controlled way
 
 ## What to inspect first
 
-1. Read the current custom skills under `.github/skills/`.
+1. Read the current custom skills under `copilot/skills/`.
 2. Read `docs/Skills.md` so the catalog and the actual skills stay aligned.
-3. Read `.github/skills/devenv-skill-guru/references/skills-registry.md` because it is the routing source of truth.
-4. Read `.github/skills/devenv-skill-guru/SKILL.md` and `.github/skills/common/references/skills-catalog.md` when routing behavior or discovery language may be affected.
+3. Read `copilot/skills/devenv-skill-guru/references/skills-registry.md` because it is the routing source of truth.
+4. Read `copilot/skills/devenv-skill-guru/SKILL.md` and `copilot/skills/common/references/skills-catalog.md` when routing behavior or discovery language may be affected.
 5. Read `docs/Workflow.md` and treat its Principles section as core constraints.
 6. Read any repo-local guidance that affects skill authoring or routing.
 7. Confirm which files are actually in scope before changing anything.
@@ -56,9 +56,9 @@ If a reported problem does not fit one of these categories, stop and ask for cla
 6. Update linked governance docs as needed in the same change:
 	- `docs/Skills.md` for user-facing catalog alignment.
 	- `docs/Workflow.md` only when principles, flow semantics, or methodology wording are affected.
-	- `.github/skills/devenv-skill-guru/references/skills-registry.md` when discoverability/routing metadata changes.
-	- `.github/skills/devenv-skill-guru/SKILL.md` when routing logic or shortcut examples must change.
-	- `.github/skills/common/references/skills-catalog.md` when shared catalog wording must stay in sync.
+	- `copilot/skills/devenv-skill-guru/references/skills-registry.md` when discoverability/routing metadata changes.
+	- `copilot/skills/devenv-skill-guru/SKILL.md` when routing logic or shortcut examples must change.
+	- `copilot/skills/common/references/skills-catalog.md` when shared catalog wording must stay in sync.
 7. Do not refactor unrelated skills or rewrite healthy guidance just to make docs look nicer.
 
 ## Standard bulk-edit patterns
@@ -68,8 +68,8 @@ When a fix must apply to many skills, document the pattern explicitly and use a 
 - **Add a shared protocol reference** (e.g., adding diagnostic mode to all skills)
   - Rule: "Add a `> Diagnostic mode: <reference>` blockquote below the skill's main title or immediately after an existing Tool help policy reference blockquote."
   - Pattern: one-liner reference pointing to a shared protocol file.
-  - Affected files: all `devenv-*/SKILL.md` under `.github/skills/`.
-  - How to verify: `grep -r "Diagnostic Mode Protocol" .github/skills/devenv-*/SKILL.md` should have no empty results after the edit.
+  - Affected files: all `devenv-*/SKILL.md` under `copilot/skills/`.
+  - How to verify: `grep -r "Diagnostic Mode Protocol" copilot/skills/devenv-*/SKILL.md` should have no empty results after the edit.
 
 - **Update a shared reference file or registry**
   - Pattern: surgically edit the one canonical file.

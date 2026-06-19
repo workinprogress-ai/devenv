@@ -96,6 +96,16 @@ load_config() {
         fi
         export GH_ORG
     fi
+
+    # Optional Copilot knowledge repo settings.
+    # knowledge_repo: if set, the repo is cloned/pulled into copilot/knowledge during bootstrap and update.
+    # knowledge_subpath: subfolder inside the repo to link to ~/.copilot/knowledge.
+    #   If empty or omitted, the entire repo root is linked.
+    COPILOT_KNOWLEDGE_REPO=$(config_read_value "copilot" "knowledge_repo" "")
+    COPILOT_KNOWLEDGE_SUBPATH=$(config_read_value "copilot" "knowledge_subpath" "")
+
+    export COPILOT_KNOWLEDGE_REPO
+    export COPILOT_KNOWLEDGE_SUBPATH
 }
 
 # Detect CPU architecture (ARM vs x86)
@@ -362,6 +372,7 @@ devenv-update() {
     current_dir=$(pwd)
     cd "$DEVENV_ROOT" || return
     git-update
+    "$DEVENV_ROOT/.devcontainer/bootstrap.sh" initialize_paths load_config load_setup_credentials sync_copilot_knowledge
     cd "$current_dir" || return
     "$DEVENV_ROOT/.devcontainer/check-update-devenv-repo.sh"
 }
@@ -785,13 +796,74 @@ configure_git() {
     add_git_safe_directory "$toolbox_root"
 }
 
+# Clone or update configured Copilot knowledge repo and link ~/.copilot/knowledge
+sync_copilot_knowledge() {
+    echo "# Sync Copilot knowledge"
+    echo "#############################################"
+
+    local repo_url="${COPILOT_KNOWLEDGE_REPO:-}"
+    local subpath="${COPILOT_KNOWLEDGE_SUBPATH:-}"
+    local knowledge_repo_dir="$toolbox_root/copilot/knowledge"
+    local header
+    local default_branch
+
+    if [ -z "$repo_url" ]; then
+        echo "No [copilot] knowledge_repo configured; skipping knowledge sync"
+        return 0
+    fi
+
+    if [ -z "${GH_TOKEN:-}" ]; then
+        echo "WARNING: GH_TOKEN is not set; skipping Copilot knowledge sync"
+        return 0
+    fi
+
+    subpath="${subpath#./}"
+    subpath="${subpath%/}"
+    if [ -z "$subpath" ]; then
+        subpath="."
+    fi
+
+    header="AUTHORIZATION: bearer $GH_TOKEN"
+
+    if [ -d "$knowledge_repo_dir/.git" ]; then
+        git -C "$knowledge_repo_dir" remote set-url origin "$repo_url"
+        git -C "$knowledge_repo_dir" -c http.extraheader="$header" fetch --prune origin
+        default_branch=$(git -C "$knowledge_repo_dir" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')
+        if [ -z "$default_branch" ]; then
+            default_branch=$(git -C "$knowledge_repo_dir" rev-parse --abbrev-ref HEAD)
+        fi
+        git -C "$knowledge_repo_dir" checkout "$default_branch" >/dev/null 2>&1 || true
+        git -C "$knowledge_repo_dir" -c http.extraheader="$header" pull --ff-only origin "$default_branch"
+    else
+        if [ -d "$knowledge_repo_dir" ] && [ -n "$(ls -A "$knowledge_repo_dir" 2>/dev/null)" ]; then
+            local backup_dir
+            backup_dir="$toolbox_root/copilot/knowledge.pre-sync-backup.$(date +%Y%m%d%H%M%S)"
+            mv "$knowledge_repo_dir" "$backup_dir"
+            echo "Existing non-git knowledge folder moved to $backup_dir"
+        fi
+        rm -rf "$knowledge_repo_dir"
+        git -c http.extraheader="$header" clone "$repo_url" "$knowledge_repo_dir"
+    fi
+
+    local knowledge_source="$knowledge_repo_dir/$subpath"
+    if [ ! -d "$knowledge_source" ]; then
+        echo "ERROR: Copilot knowledge subpath not found: $knowledge_source"
+        return 1
+    fi
+
+    mkdir -p "$HOME/.copilot"
+    rm -rf "$HOME/.copilot/knowledge"
+    ln -s "$knowledge_source" "$HOME/.copilot/knowledge"
+    echo "Copilot knowledge symlinked: $HOME/.copilot/knowledge → $knowledge_source"
+}
+
 # Copy Copilot instructions to ~/.copilot/copilot-instructions.md
-# and symlink ~/.copilot/skills → <devenv>/.github/skills so that
+# and symlink ~/.copilot/skills → <devenv>/copilot/skills so that
 # Copilot's default user-home skills path picks them up in every workspace.
 install_copilot_instructions() {
     echo "# Install Copilot instructions"
     echo "#############################################"
-    local src="$toolbox_root/.github/copilot-instructions.md"
+    local src="$toolbox_root/copilot/copilot-instructions.md"
     local dest="$HOME/.copilot/copilot-instructions.md"
     if [ -f "$src" ]; then
         mkdir -p "$HOME/.copilot"
@@ -804,12 +876,12 @@ install_copilot_instructions() {
             echo "Copilot instructions symlinked: $dest → $src"
         fi
     else
-        echo "WARNING: .github/copilot-instructions.md not found, skipping"
+        echo "WARNING: copilot/copilot-instructions.md not found, skipping"
     fi
 
     # Symlink ~/.copilot/skills → devenv's skills folder so skills are
     # available in every VS Code window regardless of which repo is open.
-    local skills_src="$toolbox_root/.github/skills"
+    local skills_src="$toolbox_root/copilot/skills"
     local skills_link="$HOME/.copilot/skills"
     if [ -d "$skills_src" ]; then
         mkdir -p "$HOME/.copilot"
@@ -818,8 +890,9 @@ install_copilot_instructions() {
         ln -s "$skills_src" "$skills_link"
         echo "Copilot skills symlinked: $skills_link → $skills_src"
     else
-        echo "WARNING: .github/skills not found, skipping skills symlink"
+        echo "WARNING: copilot/skills not found, skipping skills symlink"
     fi
+
 }
 
 # Ensure required directories exist and configure system settings
@@ -972,6 +1045,7 @@ run_tasks() {
         install_node_packages
         configure_git
         install_copilot_instructions
+        sync_copilot_knowledge
         ensure_directories_and_settings
         install_repo_dependencies
         configure_nuget_sources

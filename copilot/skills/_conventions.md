@@ -1,13 +1,13 @@
 # Skill Conventions
 
-Single source of truth for the shape of skills under `.github/skills/`. New skills must consult this file before being authored. Maintained alongside the existing skills (`create-implementation-plan`, `pair-programming`, `delegation`); patterns here are extracted from those.
+Single source of truth for the shape of skills under `copilot/skills/`. New skills must consult this file before being authored. Maintained alongside the existing skills (`create-implementation-plan`, `pair-programming`, `delegation`); patterns here are extracted from those.
 
 > This file is **not** itself a skill. The leading underscore keeps it sorted above the actual skill folders and makes that visually obvious.
 
 ## File layout
 
 ```
-.github/skills/<skill-name>/
+copilot/skills/<skill-name>/
 ├── SKILL.md           # required; `name` field must match folder name
 └── references/        # optional; one level deep only
     └── *.md
@@ -187,7 +187,7 @@ When updating existing skills, prefer replacing duplicated boilerplate blocks wi
 
 ## Shared diagnostic mode
 
-All custom skills under `.github/skills/devenv-*/SKILL.md` must support a common diagnostic mode.
+All custom skills under `copilot/skills/devenv-*/SKILL.md` must support a common diagnostic mode.
 
 Required behavior:
 
@@ -205,6 +205,7 @@ All execution skills — those that write code, run tests, or modify the codebas
 **When an unexpected bug is encountered:** a bug not already listed in the plan's known issues or task descriptions must trigger an immediate stop, not be silently encoded in tests or worked around in code.
 
 The protocol applies to skills:
+
 - `devenv-delegation` — specifies full four-case classification and response per case.
 - `devenv-pair-programming` — specifies full four-case classification and response per case.
 - Other execution skills (future skills or `devenv-spike` prototype work) — must ask for user direction instead of proceeding unilaterally.
@@ -349,7 +350,7 @@ Required behavior:
 
 When a skill needs component-specific implementation or architecture guidance, use the shared index at:
 
-- [`common/references/component-context/index.md`](./common/references/component-context/index.md)
+- [`knowledge/component-context/index.md`](../knowledge/component-context/index.md)
 
 Supported component types:
 

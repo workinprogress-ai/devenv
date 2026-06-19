@@ -60,14 +60,14 @@ Add **after the first blockquote** (before "When to Use" or main introduction):
 1. Locate the skill's SKILL.md file
 2. Find the existing blockquote(s) at the top (Model check, Tool help policy, or similar)
 3. Insert the standard diagnostic blockquote immediately after the last blockquote
-4. Run verification: `grep "Diagnostic Mode Protocol" .github/skills/devenv-<skill>/SKILL.md`
+4. Run verification: `grep "Diagnostic Mode Protocol" copilot/skills/devenv-<skill>/SKILL.md`
 
 ### Bulk Verification Command
 
 After applying all edits:
 ```bash
 cd /workspaces/devenv
-grep -l "Diagnostic Mode Protocol" .github/skills/devenv-*/SKILL.md | wc -l
+grep -l "Diagnostic Mode Protocol" copilot/skills/devenv-*/SKILL.md | wc -l
 # Should output: 31 (5 done + 26 remaining)
 ```
 

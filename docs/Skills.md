@@ -446,8 +446,8 @@ At any point you can say "I'll take this one" or "you take this one" and the AI 
 
 ## How to author a new skill
 
-1. Read [`.github/skills/_conventions.md`](../.github/skills/_conventions.md) — frontmatter template, description structure, section ordering, reference-file criteria, confirmation flow.
-2. Create `.github/skills/<name>/SKILL.md` (folder name must match `name:` frontmatter).
+1. Read [`copilot/skills/_conventions.md`](../copilot/skills/_conventions.md) — frontmatter template, description structure, section ordering, reference-file criteria, confirmation flow.
+2. Create `copilot/skills/<name>/SKILL.md` (folder name must match `name:` frontmatter).
 3. Keep `description:` ≤ 1024 chars — verify with `awk '/^description:/ {gsub(/^description: */,""); print length}' SKILL.md`.
 4. Include explicit **USE WHEN** and **DO NOT USE FOR** phrases in the description.
 5. Add a "Sibling skills" section at the bottom with a link back to this catalog.

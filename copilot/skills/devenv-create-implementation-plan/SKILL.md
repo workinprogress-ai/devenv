@@ -41,7 +41,7 @@ Exception: direct-plan mode is valid when the user intentionally wants to create
    - Pasted user story / requirements text
    - Linked design docs or files in `planning.*` repos
 2. **Related code** — read-only exploration via the `Explore` subagent
-3. **Repo conventions** — `.github/copilot-instructions.md`, `AGENTS.md`, and any `planning.*` repo in the workspace
+3. **Repo conventions** — `copilot/copilot-instructions.md`, `AGENTS.md`, and any `planning.*` repo in the workspace
 4. **Acceptance criteria, scope boundaries, non-goals, risks** — gathered via interview
 
 Source precedence rule:
@@ -63,7 +63,7 @@ Source precedence rule:
 
 Read, in this order, if present:
 
-- `<target-repo>/.github/copilot-instructions.md`
+- `<target-repo>/copilot/copilot-instructions.md`
 - `<target-repo>/AGENTS.md`
 - Any `planning.*` repo in the workspace that may contain related context
 
@@ -75,7 +75,7 @@ Before exploring code, classify the target as one of:
 - API gateway
 - Frontend application
 
-Use [`component-context/index.md`](../common/references/component-context/index.md) to select context. For service work, load only the relevant service file(s) needed for current planning decisions:
+Use [`component-context/index.md`](../../knowledge/component-context/index.md) to select context. For service work, load only the relevant service file(s) needed for current planning decisions:
 
 - `01-Service-Architecture.md`
 - `02-Service-Implementation.md`
