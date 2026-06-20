@@ -21,4 +21,4 @@ PNPM_VERSION=${PNPM_VERSION:-10.32.1}
 NODE_VERSION=${NODE_VERSION:-20}
 
 # Run bootstrap tasks (all default tasks or specific tasks passed as arguments)
-run_tasks "$@"
+run_bootstrap_tasks "$@"

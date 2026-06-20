@@ -7,7 +7,7 @@
 #
 # Usage:
 #   source /path/to/bootstrap.bash
-#   run_tasks init_bootstrap_run_time initialize_paths ...
+#   run_bootstrap_tasks init_bootstrap_run_time initialize_paths ...
 #
 # Or call functions individually:
 #   initialize_paths
@@ -27,6 +27,7 @@ on_error() {
 # NPM helper that filters out TLS warnings
 call_npm() {
     npm "$@" 2>&1 | grep -v 'NODE_TLS_REJECT_UNAUTHORIZED is set to 0'
+    return "${PIPESTATUS[0]}"
 }
 
 # Add NuGet source if it doesn't already exist
@@ -172,7 +173,11 @@ reset_bashrc_to_original() {
     if [ ! -f ~/.bashrc.original ]; then
         cp ~/.bashrc ~/.bashrc.original
     fi
-    cp ~/.bashrc.original ~/.bashrc
+    # Reset .bashrc to the captured original by default.
+    # Set PRESERVE_BASHRC=1 to skip the reset and keep any direct edits.
+    if [ "${PRESERVE_BASHRC:-0}" != "1" ]; then
+        cp ~/.bashrc.original ~/.bashrc
+    fi
 }
 
 # Install yq (mikefarah version) for YAML processing
@@ -368,13 +373,130 @@ repos() {
 }
 
 devenv-update() {
-    local current_dir
+    local current_dir pre_update_hash post_update_hash action best_pri trailer_action pri
+    local restart_now recreate_choice run_bootstrap_now
     current_dir=$(pwd)
     cd "$DEVENV_ROOT" || return
-    git-update
-    "$DEVENV_ROOT/.devcontainer/bootstrap.sh" initialize_paths load_config load_setup_credentials sync_copilot_knowledge
+    pre_update_hash=$(git rev-parse HEAD 2>/dev/null)
+
+    if ! git-update; then
+        cd "$current_dir" || return
+        return 1
+    fi
+
+    "$DEVENV_ROOT/.devcontainer/bootstrap.sh" run_update_tasks
+    post_update_hash=$(git rev-parse HEAD 2>/dev/null)
+
+    action="nothing"
+    best_pri=0
+    if [ -n "$pre_update_hash" ] && [ -n "$post_update_hash" ] && [ "$pre_update_hash" != "$post_update_hash" ]; then
+        while IFS= read -r trailer_action; do
+            [ -z "$trailer_action" ] && continue
+            case "$trailer_action" in
+                recreate)  pri=3 ;;
+                bootstrap) pri=2 ;;
+                restart)   pri=1 ;;
+                nothing)   pri=0 ;;
+                *)         pri=-1 ;;
+            esac
+            if [ "$pri" -gt "$best_pri" ]; then
+                action="$trailer_action"
+                best_pri="$pri"
+            fi
+        done < <(git log "${pre_update_hash}..${post_update_hash}" --format='%(trailers:key=Devenv-Action,valueonly)' 2>/dev/null \
+                 | tr '[:upper:]' '[:lower:]' \
+                 | grep -v '^$')
+    fi
+
+    case "$action" in
+        recreate)
+            echo "Post-update action: recreate container"
+            echo "Choose an option:"
+            echo "  1) Recreate container now (recommended)"
+            echo "  2) Restart container now"
+            echo "  3) Skip"
+            read -rp "Enter choice (1/2/3): " recreate_choice
+            case "$recreate_choice" in
+                1)
+                    echo "Run 'Dev Containers: Rebuild Container' in VS Code to recreate the container."
+                    ;;
+                2)
+                    read -rp "Do you want to restart the dev container now? (y/n): " restart_now
+                    case "$restart_now" in
+                        [Yy]*)
+                            if command -v docker >/dev/null 2>&1; then
+                                echo "Restarting dev container now..."
+                                nohup bash -c 'sleep 1; docker restart "$(hostname)"' >/dev/null 2>&1 &
+                            else
+                                echo "Docker CLI not found. Run: docker restart \"\$(hostname)\""
+                            fi
+                            ;;
+                        *)
+                            echo "Skipping restart. Run: docker restart \"\$(hostname)\""
+                            ;;
+                    esac
+                    ;;
+                *)
+                    echo "Skipping recreate/restart."
+                    ;;
+            esac
+            ;;
+        bootstrap)
+            echo "Post-update action: run bootstrap and restart container"
+            read -rp "Do you want to run bootstrap now? (y/n): " run_bootstrap_now
+            case "$run_bootstrap_now" in
+                [Yy]*)
+                    if "$DEVENV_ROOT/.devcontainer/bootstrap.sh"; then
+                        echo "Bootstrap completed successfully."
+                        echo "Recommendation: restart the dev container to apply bootstrap changes."
+                        read -rp "Do you want to restart the dev container now? (y/n): " restart_now
+                        case "$restart_now" in
+                            [Yy]*)
+                                if command -v docker >/dev/null 2>&1; then
+                                    echo "Restarting dev container now..."
+                                    nohup bash -c 'sleep 1; docker restart "$(hostname)"' >/dev/null 2>&1 &
+                                else
+                                    echo "Docker CLI not found. Run: docker restart \"\$(hostname)\""
+                                fi
+                                ;;
+                            *)
+                                echo "Skipping restart. Run: docker restart \"\$(hostname)\""
+                                ;;
+                        esac
+                    else
+                        echo "Bootstrap failed. Please run $DEVENV_ROOT/.devcontainer/bootstrap.sh manually."
+                        cd "$current_dir" || return
+                        return 1
+                    fi
+                    ;;
+                *)
+                    echo "Skipping bootstrap. Run $DEVENV_ROOT/.devcontainer/bootstrap.sh when ready."
+                    ;;
+            esac
+            ;;
+        restart)
+            echo "Post-update action: restart container"
+            read -rp "Do you want to restart the dev container now? (y/n): " restart_now
+            case "$restart_now" in
+                [Yy]*)
+                    if command -v docker >/dev/null 2>&1; then
+                        echo "Restarting dev container now..."
+                        nohup bash -c 'sleep 1; docker restart "$(hostname)"' >/dev/null 2>&1 &
+                    else
+                        echo "Docker CLI not found. Run: docker restart \"\$(hostname)\""
+                    fi
+                    ;;
+                *)
+                    echo "Skipping restart. Run: docker restart \"\$(hostname)\""
+                    ;;
+            esac
+            ;;
+        nothing|*)
+            echo "Post-update action: nothing"
+            ;;
+    esac
+
     cd "$current_dir" || return
-    "$DEVENV_ROOT/.devcontainer/check-update-devenv-repo.sh"
 }
 
 key-update-tailscale() {
@@ -1030,9 +1152,16 @@ finish_message() {
     echo "Please restart the container to complete the setup."
 }
 
-# Execute a list of tasks in order
-# Usage: run_tasks [task1 task2 ...] or run_tasks (for default tasks)
-run_tasks() {
+# ── Task runners ──────────────────────────────────────────────────────────────
+# IMPORTANT: run_bootstrap_tasks and run_update_tasks share most tasks.
+# When adding, removing, or reordering tasks, update BOTH lists.
+# run_bootstrap_tasks = fresh container install (destructive resets + cleanup allowed)
+# run_update_tasks    = convergent rerun (no destructive resets, no cleanup)
+
+# Fresh-install task runner. Runs the full bootstrap sequence including
+# destructive steps (bashrc reset, cleanup) appropriate for a new container.
+# Usage: run_bootstrap_tasks [task1 task2 ...] or run_bootstrap_tasks (for default tasks)
+run_bootstrap_tasks() {
     local tasks=("$@")
     local default_tasks=(
         initialize_paths
@@ -1082,6 +1211,59 @@ run_tasks() {
             exit 1
         fi
         echo "Running task: $task"
-        "$task"
+        if ! "$task"; then
+            echo "Task failed: $task"
+            exit 1
+        fi
+    done
+}
+
+# Convergent-update task runner. Re-runs the full bootstrap except destructive
+# steps (no bashrc reset, no cleanup, no init_bootstrap_run_time).
+# IMPORTANT: When adding tasks to run_bootstrap_tasks, add them here too (unless destructive).
+run_update_tasks() {
+    local update_tasks=(
+        initialize_paths
+        detect_architecture
+        ensure_home_is_set
+        ensure_bash_is_default_shell
+        load_version_info
+        load_config
+        prepare_install_directories
+        install_yq
+        install_os_packages_round1
+        add_specialized_repositories
+        install_os_packages_round2
+        install_dotnet
+        download_container_scripts
+        load_setup_credentials
+        write_bash_functions_file
+        generate_env_vars_file
+        create_tool_symlinks
+        write_devenvrc
+        append_bashrc
+        install_or_configure_nvm
+        configure_dotnet_tools
+        install_node_packages
+        configure_git
+        install_copilot_instructions
+        sync_copilot_knowledge
+        ensure_directories_and_settings
+        install_repo_dependencies
+        configure_nuget_sources
+        configure_user_npmrc
+        run_custom_bootstrap_if_present
+        record_bootstrap_run_time
+    )
+    for task in "${update_tasks[@]}"; do
+        if ! declare -f "$task" >/dev/null; then
+            echo "Unknown task: $task"
+            exit 1
+        fi
+        echo "Running task: $task"
+        if ! "$task"; then
+            echo "Task failed: $task"
+            exit 1
+        fi
     done
 }

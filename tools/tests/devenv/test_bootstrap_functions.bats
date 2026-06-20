@@ -21,12 +21,17 @@ load ../test_helper
 }
 
 @test "bootstrap.bash declares key functions" {
-  run grep -E "^(initialize_paths|detect_architecture|ensure_home_is_set|ensure_bash_is_default_shell|install_yq|load_version_info|run_tasks)\(\)" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  run grep -E "^(initialize_paths|detect_architecture|ensure_home_is_set|ensure_bash_is_default_shell|install_yq|load_version_info|run_bootstrap_tasks)\(\)" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
   [ "$status" -eq 0 ]
 }
 
 @test "bootstrap.bash defines on_error function" {
   run grep "^on_error()" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "call_npm returns npm exit status from pipeline" {
+  run grep 'return "\${PIPESTATUS\[0\]}"' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
   [ "$status" -eq 0 ]
 }
 
@@ -99,6 +104,14 @@ EOF
   [ "$status" -eq 0 ]
 }
 
+@test "reset_bashrc_to_original preserves user bashrc unless forced" {
+  run bash -c "
+    grep -q 'PRESERVE_BASHRC:-0' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
+    grep -q 'cp ~/.bashrc.original ~/.bashrc' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
+  "
+  [ "$status" -eq 0 ]
+}
+
 @test "run_tasks executes only requested safe task" {
   run "$PROJECT_ROOT/.devcontainer/bootstrap.sh" initialize_paths
   [ "$status" -eq 0 ]
@@ -110,6 +123,11 @@ EOF
   run "$PROJECT_ROOT/.devcontainer/bootstrap.sh" this_task_does_not_exist
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Unknown task" ]]
+}
+
+@test "run_tasks reports failed task and exits" {
+  run grep 'Task failed: \$task' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
 }
 
 
@@ -266,6 +284,58 @@ EOF
 
 @test "sync_copilot_knowledge stores pre-sync backups under runtime path" {
   run grep '\.runtime/copilot-knowledge-backups/pre-sync\.' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "devenv-update parses Devenv-Action trailers from pulled commit range" {
+  run grep -E 'git log "\$\{pre_update_hash\}\.\.\$\{post_update_hash\}" --format=.*Devenv-Action' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "devenv-update always prints a post-update action recommendation" {
+  run grep 'Post-update action: nothing' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "devenv-update uses safe full convergence bootstrap profile" {
+  run bash -c "
+    grep -q 'run_update_tasks()' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
+    grep -q 'run_update_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
+  "
+  [ "$status" -eq 0 ]
+}
+
+@test "devenv-update offers to run bootstrap when bootstrap action is recommended" {
+  run grep 'Do you want to run bootstrap now? (y/n):' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "devenv-update includes explicit bootstrap follow-up paths" {
+  run bash -c "
+    grep -q 'Bootstrap completed successfully\.' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
+    grep -q 'Recommendation: restart the dev container to apply bootstrap changes\.' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
+    grep -q 'Skipping bootstrap\. Run .*bootstrap\.sh when ready\.' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
+  "
+  [ "$status" -eq 0 ]
+}
+
+@test "devenv-update restart action prompts for full container restart" {
+  run grep 'Do you want to restart the dev container now? (y/n):' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "devenv-update uses docker restart hostname for container restart" {
+  run grep 'docker restart "$(hostname)"' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "devenv-update recreate action offers recreate restart skip options" {
+  run bash -c "
+    grep -q 'Choose an option:' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
+    grep -q '1) Recreate container now (recommended)' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
+    grep -q '2) Restart container now' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
+    grep -q '3) Skip' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
+  "
   [ "$status" -eq 0 ]
 }
 
