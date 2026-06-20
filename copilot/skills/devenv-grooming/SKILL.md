@@ -34,6 +34,8 @@ When regrooming, keep the document body focused on the current target design. Do
 
 Grooming recommends options and trade-offs but never finalises a design decision without explicit user confirmation.
 
+The grooming document is mandatory, not implied. Conversational design iteration never substitutes for the written artifact.
+
 ## When to Use
 
 Use when the user says things like:
@@ -79,6 +81,8 @@ Ask the user if the location is not obvious:
 
 - If an existing grooming document is found: load it, show a brief status summary (confirmed decisions, pending decisions, open questions, linked plans), and ask the user to confirm before proceeding.
 - If no grooming document exists: create a new one using [grooming-doc-template.md](./references/grooming-doc-template.md). Agree with the user on the location and filename (`Grooming-<topic>-NNN.md`) before writing.
+
+Do not continue to Phase 1 until the grooming document exists either on disk or as an issue artifact. If the session started conversationally and no artifact exists yet, stop and create it before continuing.
 
 For every grooming artifact (local file or issue comment), follow the shared [Artifact Identity Convention](../_conventions.md#artifact-identity-convention) with `artifact_type: grooming`.
 
@@ -161,6 +165,22 @@ Design-discussion and spike artifacts should normally flow through grooming befo
 - Route to `/devenv-refine-implementation-plan` when architecture is settled and the remaining work is sequencing/scope edits in tasks.
 - If uncertain between grooming and design-discussion after Phase 1, ask one tie-breaker question: "Are we deciding between approaches broadly, or picking the fastest safe decision to unblock the current plan phase?"
 
+### Artifact gate before any implementation handoff
+
+Before routing onward to implementation planning or execution, verify all of the following:
+
+- A grooming document already exists on disk or as an issue artifact.
+- The current design decisions are recorded in that document's `Confirmed`, `Pending`, or `Deferred` tables.
+- Any decisions discussed in the current session have been written into the document before proposing the next skill.
+
+If any of those checks fail, write or update the grooming document first. Never treat conversational design iteration as a substitute for the written artifact.
+
+When the user signals closure with ambiguous phrases like "let's do it", "let's write it", or "go ahead":
+
+- In an active grooming session, default "it" to the grooming artifact, not production code.
+- If the user's intent is still unclear, ask: "Do you want me to write/update the grooming document now, or are you asking to hand off to implementation work?"
+- Do not create code, project files, or implementation scaffolding from grooming unless the user explicitly asks to leave grooming and start the next skill.
+
 ### Optional pressure-test pass (user-gated)
 
 Before final routing or decision closure on medium/high-impact design choices, offer an optional pressure-test pass using [pressure-test-protocol.md](../common/references/pressure-test-protocol.md).
@@ -181,6 +201,7 @@ When the input is an in-flight plan with pending architectural decisions, run a 
 6. Repeat for the next unresolved decision.
 
 Do not batch-resolve all decisions in one monologue and do not proceed as if decisions are closed until the user confirms each one.
+If no grooming document exists yet, create it before recording the first confirmed or deferred outcome.
 
 ### Surgical grooming document updates
 
@@ -199,6 +220,7 @@ For each resolved question:
 After updates, show the user a summary of what changed in the grooming document and confirm before writing.
 
 When all architecture/design decisions required for execution are confirmed, explicitly hand off plan/task updates to [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) instead of editing the implementation plan directly in grooming.
+Do not hand off until the grooming document on disk or on the issue reflects those confirmed decisions.
 
 ### Current-target writing rule (required)
 

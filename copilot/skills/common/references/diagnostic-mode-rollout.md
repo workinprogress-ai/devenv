@@ -13,7 +13,7 @@
 Add immediately **after existing blockquotes** (Model check or Tool help policy):
 
 ```markdown
-> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copiable fenced markdown code block for `/devenv-skill-maintenance`.
 ```
 
 ## Remaining 25 Skills

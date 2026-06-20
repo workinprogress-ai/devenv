@@ -183,7 +183,7 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 | `/devenv-refine-requirements` | Revise an existing requirements doc, preserve REQ-NNN IDs | Requirements file path |
 | `/devenv-create-blueprint` | Architectural decomposition → blueprint doc | System name or path to requirements |
 | `/devenv-refine-blueprint` | Revise an existing blueprint, preserve decisions | Blueprint file path |
-| `/devenv-grooming` | Consolidated component-level design intake and routing; produces a Feature/Fix/Task issue attack plan by repo with independently shippable slices; default return point for accumulated design issues in a plan | Problem statement, component path, design doc path, plan path, or issue # |
+| `/devenv-grooming` | Consolidated component-level design intake and routing; always creates or updates the grooming document before handoff, then produces a Feature/Fix/Task issue attack plan by repo with independently shippable slices; default return point for accumulated design issues in a plan | Problem statement, component path, design doc path, plan path, or issue # |
 | `/devenv-create-roadmap` | Phased delivery sequencing + GH issue creation | Blueprint and/or requirements file path (at least one) |
 | `/devenv-refine-roadmap` | Structurally revise a roadmap — split, re-sequence, add | Roadmap file path |
 | `/devenv-update-roadmap` | Sync roadmap status from issues + PRs | Roadmap file path |

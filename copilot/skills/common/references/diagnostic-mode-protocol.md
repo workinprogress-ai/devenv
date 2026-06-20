@@ -1,6 +1,6 @@
 # Diagnostic Mode Protocol
 
-Shared protocol for capturing a skill erratum in a copyable format that can be fed into `/devenv-skill-maintenance`.
+Shared protocol for capturing a skill erratum in a copiable markdown code block that can be fed into `/devenv-skill-maintenance`.
 
 Use this protocol when the user indicates undesirable output or an undesirable/misaligned action from a skill, for example:
 
@@ -12,7 +12,11 @@ Use this protocol when the user indicates undesirable output or an undesirable/m
 
 When diagnostic mode is requested, produce a **single fenced markdown code block** (language tag: `markdown`) that the user can copy as-is.
 
+This is mandatory. The diagnostic response itself must be inside the fence, not described or paraphrased outside it.
+
 Do not add explanatory prose before or after the block unless the user explicitly asks.
+
+The block must start with <code>```markdown</code> and end with <code>```</code>.
 
 ## Required contents
 
@@ -23,6 +27,8 @@ The diagnostic block must include all sections below:
 3. Decision trace summary that led to the erratum.
 4. AI self-diagnosis of why that behavior occurred.
 5. Other potentially relevant context.
+
+If any section has no useful data, include the section anyway and write `none`.
 
 ## Reasoning safety rule
 
@@ -68,3 +74,4 @@ Do **not** expose hidden internal chain-of-thought. Provide a concise, user-faci
 - Cite concrete files/sections when known.
 - Name assumptions explicitly.
 - Keep it concise but sufficient for `/devenv-skill-maintenance` to act.
+- Return only the fenced markdown block unless the user explicitly asks for commentary.

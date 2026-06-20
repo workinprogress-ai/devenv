@@ -10,7 +10,7 @@ When to add diagnostic mode to a skill:
 Add this **blockquote immediately below the skill's main title** (before the opening paragraph):
 
 ```markdown
-> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copiable fenced markdown code block for `/devenv-skill-maintenance`.
 ```
 
 ## Implementation checklist
@@ -18,7 +18,7 @@ Add this **blockquote immediately below the skill's main title** (before the ope
 1. ✅ Add the blockquote to your skill's SKILL.md body (below `# <Skill Title>`).
 2. ✅ Link to [diagnostic-mode-protocol.md](./diagnostic-mode-protocol.md).
 3. ✅ When the user requests diagnostics, follow the protocol exactly.
-4. ✅ Emit a single fenced markdown block; do not add prose before/after unless explicitly asked.
+4. ✅ Emit a single fenced `markdown` code block; do not add prose before/after unless explicitly asked.
 
 ## Wording variant (if space is tight)
 
@@ -28,7 +28,7 @@ Add this **blockquote immediately below the skill's main title** (before the ope
 
 ## What the output looks like
 
-The user will receive a fenced markdown code block they can copy and paste directly into an issue or to `/devenv-skill-maintenance`:
+The user will receive a fenced `markdown` code block they can copy and paste directly into an issue or to `/devenv-skill-maintenance`:
 
 ```markdown
 ## Skill Diagnostic Report (DEVENV)
