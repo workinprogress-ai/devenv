@@ -191,7 +191,7 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 | `/devenv-gather-requirements` | Three-phase requirements interview → requirements doc | System name or existing notes |
 | `/devenv-refine-requirements` | Revise an existing requirements doc, preserve REQ-NNN IDs | Requirements file path |
 | `/devenv-create-blueprint` | Architectural decomposition → blueprint doc | System name or path to requirements |
-| `/devenv-refine-blueprint` | Revise an existing blueprint, preserve decisions | Blueprint file path |
+| `/devenv-refine-blueprint` | Revise an existing blueprint when architecture direction is known; escalate non-surgical redesigns | Blueprint file path |
 | `/devenv-grooming` | Consolidated component-level design intake and routing; produces a Feature/Fix/Task issue attack plan by repo with independently shippable slices; default return point for accumulated design issues in a plan | Problem statement, component path, design doc path, plan path, or issue # |
 | `/devenv-create-roadmap` | Phased delivery sequencing + GH issue creation | Blueprint and/or requirements file path (at least one) |
 | `/devenv-refine-roadmap` | Structurally revise a roadmap — split, re-sequence, add | Roadmap file path |
@@ -383,6 +383,7 @@ Blueprint changed
 | `/devenv-create-blueprint` vs `/devenv-create-implementation-plan` | Blueprint is high-level architecture across multiple components (domains, services, events, deltas). Implementation plan is task-level for one deliverable. A blueprint typically spawns several implementation plans. |
 | `/devenv-grooming` vs specialized component design skills | Use grooming when you are not sure whether the work is option-weighing or design update, or when plan problems are accumulating and may require broader reshaping. It routes to `/devenv-design-discussion` when the real need is one bounded design question. |
 | `/devenv-create-blueprint` vs `/devenv-gather-requirements` | Requirements are user/functional perspective (*what*). Blueprint is technical/architectural perspective (*how* the system is structured). Both can exist for the same system. |
+| `/devenv-refine-blueprint` vs `/devenv-create-blueprint` | **Refine** is for applying known architecture changes to an existing blueprint. **Create** is for non-surgical/foundational redesign where architecture is being re-derived. |
 | `/devenv-create-roadmap` vs `/devenv-create-implementation-plan` | Roadmap is component-level sequencing across the whole epic with GH issues per step. Implementation plan is task-level for one component/deliverable. Each roadmap step typically gets its own implementation plan. |
 | `/devenv-update-roadmap` vs `/devenv-refine-roadmap` | `update-roadmap` syncs **status** from issues (mechanical, frequent). `refine-roadmap` revises **structure** — split steps, re-sequence phases, add or supersede steps (deliberate). |
 | `/devenv-refine-roadmap` vs `/devenv-refine-blueprint` | `refine-roadmap` adjusts delivery sequencing within the existing architecture. `refine-blueprint` changes the architecture itself. Architectural changes usually trigger a roadmap refine afterwards. |

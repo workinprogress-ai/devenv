@@ -1,6 +1,6 @@
 ---
 name: devenv-refine-blueprint
-description: 'Revise an existing Blueprint-*.md after architecture decisions change, new requirements arrive, or implementation discovery exposes gaps. USE WHEN the user says "refine the blueprint", "update the blueprint", "revise the architecture", "the blueprint needs updating", or hands off a stale blueprint that needs adjustments. Preserves all existing structure and decisions, appends new content rather than reflowing, records every change in a Revision History section, and writes the result back in place. DO NOT USE for creating a new blueprint (use /devenv-create-blueprint), for ad-hoc edits to a single line (just edit the file), or for updating a roadmap (use /devenv-update-roadmap).'
+description: 'Revise an existing Blueprint-*.md after architecture decisions change, new requirements arrive, or implementation discovery exposes gaps. USE WHEN the user says "refine the blueprint", "update the blueprint", "revise the architecture", "the blueprint needs updating", or hands off a stale blueprint that needs adjustments. Preserves all existing structure and decisions, appends new content rather than reflowing, records every change in a Revision History section, and writes the result back in place. If refinement intake reveals a non-surgical change (broad re-architecture, unresolved option-weighing, or major uncertain ripple effects), stop and route to /devenv-design-discussion (bounded choice) or /devenv-create-blueprint (foundational redesign). DO NOT USE for creating a new blueprint (use /devenv-create-blueprint), for broad architecture brainstorming without a settled direction (use /devenv-design-discussion), for ad-hoc edits to a single line (just edit the file), or for updating a roadmap (use /devenv-update-roadmap).'
 argument-hint: 'Path to a Blueprint-*.md file'
 user-invocable: true
 ---
@@ -21,6 +21,10 @@ Write the blueprint body as the current target architecture. Keep historical cha
 - A previous `/devenv-create-blueprint` run is now out of date
 - Implementation work surfaced architectural facts the blueprint didn't anticipate
 
+Use this skill when the user already knows the intended architecture change direction and wants that change applied safely.
+
+If the user is still deciding between architecture options, route to [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md). If the foundational architecture itself is being re-derived, route to [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) and treat the existing blueprint as input context.
+
 If no blueprint exists, stop and redirect to [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md).
 
 ## Inputs
@@ -28,6 +32,28 @@ If no blueprint exists, stop and redirect to [`/devenv-create-blueprint`](../dev
 The user provides a file path — e.g. `docs/Architecture/Blueprint-orders-001.md`.
 
 ## Workflow
+
+### 0. Surgical-vs-non-surgical triage
+
+Before interviewing for edits, classify the requested change.
+
+Treat as **non-surgical** when any of these is true:
+
+- The user signals broad rethink language: "re-architect", "start over", "redesign this whole area", "let's rethink the architecture"
+- The requested change spans many sections with unclear final direction
+- Multiple architecture options are still unresolved and require trade-off discussion before edits are known
+- Ripple effects across domains/components/integration events are likely large and uncertain
+
+If non-surgical:
+
+1. Stop direct edit flow.
+2. Explain why: this is discovery/decision work, not direct refinement.
+3. Route based on scope:
+  - **Bounded option-weighing** for a specific design choice → [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md)
+  - **Foundational redesign** across the blueprint → [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
+4. Offer one explicit confirmation gate: continue anyway with direct edits, or switch now.
+
+If surgical, continue with the workflow below.
 
 ### 1. Load and parse
 
@@ -140,6 +166,7 @@ After writing, list what may need follow-up:
 - Reflowing numbers (breaks links from roadmaps and plans)
 - Deleting per-component delta entries when the change shipped — mark them `(shipped)` instead
 - Rewriting the blueprint from scratch — that's [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md), not refine
+- Forcing non-surgical architecture discovery through this skill instead of escalating to [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md) or [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
 - Forgetting to surface roadmap and plan impact after the edit
 - Writing prior-state narrative in main blueprint sections instead of `## Revision History`
 
