@@ -301,7 +301,7 @@ EOF
   run bash -c "
     grep -q 'pull_copilot_knowledge_on_container_start' '$PROJECT_ROOT/tools/lib/copilot-knowledge.bash' &&
     grep -q 'pull --ff-only origin' '$PROJECT_ROOT/tools/lib/copilot-knowledge.bash' &&
-    grep -q ') >/dev/null 2>&1 &' '$PROJECT_ROOT/tools/lib/copilot-knowledge.bash'
+    grep -q 'nohup env REPO_DIR=' '$PROJECT_ROOT/tools/lib/copilot-knowledge.bash'
   "
   [ "$status" -eq 0 ]
 }
