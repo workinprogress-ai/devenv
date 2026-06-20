@@ -350,7 +350,7 @@ Required behavior:
 
 When a skill needs component-specific implementation or architecture guidance, use the shared index at:
 
-- [`knowledge/component-context/index.md`](../knowledge/component-context/index.md)
+- [`knowledge/component-context/index.md`](/home/vscode/.copilot/knowledge/component-context/index.md)
 
 Supported component types:
 

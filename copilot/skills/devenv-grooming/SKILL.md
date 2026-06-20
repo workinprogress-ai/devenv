@@ -96,7 +96,7 @@ If the grooming document is stored in a GitHub issue comment:
 - API gateway
 - Frontend application
 
-Then use [`component-context/index.md`](../../knowledge/component-context/index.md) to load only relevant component context. For services, choose among `01-Service-Architecture.md`, `02-Service-Implementation.md`, and `03-Service-Plugins.md` as needed.
+Then use [`component-context/index.md`](/home/vscode/.copilot/knowledge/component-context/index.md) to load only relevant component context. For services, choose among `01-Service-Architecture.md`, `02-Service-Implementation.md`, and `03-Service-Plugins.md` as needed.
 
 **Step 5 — If input is a returned implementation plan:** run the [plan architectural review protocol](../common/references/plan-architectural-review.md) to produce a scoped architectural brief, then map its pending decisions back to the grooming document's `Pending` table before Phase 1.
 
