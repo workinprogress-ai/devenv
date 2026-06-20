@@ -38,8 +38,8 @@ Skills for capturing and formalising what a system should do, before any impleme
 
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 | --- | --- | --- | --- |
-| `/devenv-gather-requirements` | Structured three-phase interview to produce a user-oriented requirements doc | "gather requirements", "requirements document", "define the requirements for", "capture requirements", "what should the system do", "interview me for requirements" | requirements already exist → `/devenv-plan-from-spec` or `/devenv-create-implementation-plan`; quick inline feature clarification; code generation |
-| `/devenv-refine-requirements` | Revise an existing requirements doc, preserving every prior REQ-NNN ID | "refine the requirements", "update the requirements", "the requirements need updating", "revise the requirements doc" | creating a new requirements doc → `/devenv-gather-requirements`; ad-hoc one-line edits (just edit the file); revising the blueprint → `/devenv-refine-blueprint` |
+| `/devenv-gather-requirements` | Structured interview to produce a requirements doc OR brainstorm changes to an existing doc (pass file path) | "gather requirements", "requirements document", "define the requirements for", "I have a new idea", "brainstorm this change", "what if we...", "interview me for requirements", pass an existing Requirements-*.md file path | quick inline feature clarification; code generation; applying known changes to an existing doc → `/devenv-refine-requirements` |
+| `/devenv-refine-requirements` | Revise an existing requirements doc when you already know what to change (apply known changes directly) | "refine the requirements", "update the requirements", "the requirements need updating" | creating a new requirements doc → `/devenv-gather-requirements`; brainstorming changes to an existing doc → `/devenv-gather-requirements` (pass file path); ad-hoc one-line edits (just edit the file); revising the blueprint → `/devenv-refine-blueprint` |
 
 ---
 

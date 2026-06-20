@@ -1,6 +1,6 @@
 ---
 name: devenv-refine-requirements
-description: 'Revise an existing Requirements-*.md after stakeholder priorities shift, new actors or scenarios surface, a spike invalidates an assumption, or implementation discovery exposes gaps. USE WHEN the user says "refine the requirements", "update the requirements", "revise the requirements doc", "the requirements need updating", or hands off a stale requirements doc that needs adjustments. Preserves all existing REQ-NNN IDs and dependency links, appends new requirements rather than reflowing, removes superseded requirements and logs each deletion in Revision History, and records every change in a Revision History section. DO NOT USE for creating a new requirements doc (use /devenv-gather-requirements), for ad-hoc one-line edits (just edit the file), or for revising the architectural blueprint (use /devenv-refine-blueprint).'
+description: 'Revise an existing Requirements-*.md after stakeholder priorities shift, new actors or scenarios surface, a spike invalidates an assumption, or implementation discovery exposes gaps. USE WHEN the user says "refine the requirements", "update the requirements", "revise the requirements doc", "the requirements need updating", or hands off a stale requirements doc that needs adjustments. Preserves all existing REQ-NNN IDs and dependency links, appends new requirements rather than reflowing, removes superseded requirements and logs each deletion in Revision History, and records every change in a Revision History section. If refinement intake reveals a non-surgical change (broad rethink, major ripple effects, unresolved option-weighing), stop and recommend /devenv-gather-requirements continuation mode with the same file path. DO NOT USE for creating a new requirements doc (use /devenv-gather-requirements), for brainstorming broad changes to an existing requirements doc (use /devenv-gather-requirements continuation mode), for ad-hoc one-line edits (just edit the file), or for revising the architectural blueprint (use /devenv-refine-blueprint).'
 argument-hint: 'Path to a Requirements-*.md file'
 user-invocable: true
 ---
@@ -21,6 +21,10 @@ Write requirements body sections as the current target behaviour and constraints
 - A previous `/devenv-gather-requirements` run is now out of date
 - A spike, blueprint, or implementation discovery surfaced requirements facts the doc didn't anticipate
 - New human communications (transcripts, emails, meeting notes) arrived after the original interview
+
+Use this skill when the user already knows the intended change direction and wants that change applied safely.
+
+If the user is still exploring options or rethinking the shape of the requirement set, route to [`/devenv-gather-requirements`](../devenv-gather-requirements/SKILL.md) in continuation mode (pass the existing requirements file path).
 
 If no requirements doc exists, stop and redirect to [`/devenv-gather-requirements`](../devenv-gather-requirements/SKILL.md).
 
@@ -47,6 +51,26 @@ If the doc has grown past ~30 requirements or now covers what feels like multipl
 If the project already has an `Index.md` (multi-doc project) and a refinement adds, removes, or supersedes a cross-doc dependency edge, **update `Index.md` in the same revision** so its cross-doc dependency section stays accurate. Add a one-line entry to the Index's revision history pointing back to the doc that changed.
 
 ## Workflow
+
+### 0. Surgical-vs-non-surgical triage
+
+Before interviewing for edits, quickly classify the requested change.
+
+Treat as **non-surgical** when any of these is true:
+
+- The user signals broad rethink language: "rethink", "redesign", "what if we changed direction", "let's brainstorm"
+- The change appears to affect multiple sections at once (vision + requirements + priority groups) with unclear final direction
+- The request introduces multiple tensions that need option-weighing before edits are known
+- The likely impact is wide and uncertain (many dependencies/IDs likely affected, but replacement decisions are not yet settled)
+
+If non-surgical:
+
+1. Stop direct edit flow.
+2. Explain why: this is discovery/brainstorming, not direct refinement.
+3. Recommend [`/devenv-gather-requirements`](../devenv-gather-requirements/SKILL.md) continuation mode with the same file path.
+4. Offer one explicit confirmation gate: continue anyway with direct edits, or switch to gather now.
+
+If surgical, continue with the workflow below.
 
 ### 1. Load and parse
 
@@ -147,6 +171,7 @@ See the stability audit protocol in [`/devenv-gather-requirements` § Stability 
 - Reflowing IDs (breaks links from blueprints, roadmaps, plans, and issues)
 - Removing a requirement without logging its ID, prior-wording summary, and reason in Revision History
 - Rewriting the requirements doc from scratch — that's [`/devenv-gather-requirements`](../devenv-gather-requirements/SKILL.md), not refine
+- Forcing non-surgical, brainstorm-heavy changes through this skill instead of escalating to [`/devenv-gather-requirements`](../devenv-gather-requirements/SKILL.md) continuation mode
 - Writing prior-state narrative in requirement bodies instead of `## Revision History`
 - **Skipping the internal consistency review.** Refinements routinely introduce new tensions between new and old requirements — always check.
 - **Writing the file while known contradictions remain unresolved.** Every conflict finding must be resolved, accepted as a documented trade-off, or explicitly logged before writing.
@@ -157,7 +182,7 @@ See the stability audit protocol in [`/devenv-gather-requirements` § Stability 
 
 ## Sibling Skills
 
-- [`/devenv-gather-requirements`](../devenv-gather-requirements/SKILL.md) — to create a new requirements doc from scratch
+- [`/devenv-gather-requirements`](../devenv-gather-requirements/SKILL.md) — to create a new requirements doc from scratch, or to brainstorm broad/non-surgical changes in continuation mode
 - [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) — to create a roadmap (and GitHub issues) from the refined requirements; supports a requirements-only mode when no blueprint exists
 - [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) — when changes have architectural implications
 - [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md) — when changes affect delivery sequencing of an existing roadmap

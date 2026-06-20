@@ -1,6 +1,6 @@
 ---
 name: devenv-gather-requirements
-description: 'Conduct a structured three-phase requirements interview to produce a user-oriented requirements document. Also handles continuing requirements gathering on an existing Requirements-*.md — pass the file path as the argument to pick up where a previous session left off and integrate new input. USE WHEN the user says "gather requirements", "write up requirements", "define the requirements for", "capture requirements", "what should the system do", "requirements document", "interview me for requirements", "continue gathering requirements", "add more requirements", or hands off a system idea that needs functional definition before planning begins. Produces (or extends) a Requirements-<topic>-NNN.md covering system vision, concrete acceptance-criteria-bearing requirements with IDs and dependency graph, and stakeholder priority groupings (not a delivery roadmap — use /devenv-create-roadmap for that). Maintains a session_memory-requirements.md across sessions. DO NOT USE for correcting, rewording, or removing existing requirements (use /devenv-refine-requirements), for quick feature clarifications that don''t warrant a formal document, or for code generation.'
+description: 'Conduct a structured three-phase requirements interview to produce a user-oriented requirements document. Also handles brainstorming and refinement on an existing Requirements-*.md — pass the file path to pick up where a previous session left off, explore new ideas, and integrate new input. USE WHEN the user says "gather requirements", "write up requirements", "define the requirements for", "continue gathering requirements", "add more requirements", "I have a new idea", "brainstorm this change", "what if we...", or hands off a system idea that needs functional definition before planning begins. Produces (or extends) a Requirements-<topic>-NNN.md covering system vision, concrete acceptance-criteria-bearing requirements with IDs and dependency graph, and stakeholder priority groupings (not a delivery roadmap — use /devenv-create-roadmap for that). Maintains a session_memory-requirements.md across sessions. DO NOT USE for correcting, rewording, or removing existing requirements when you already know what should change (use /devenv-refine-requirements instead), for quick feature clarifications that don''t warrant a formal document, or for code generation.'
 argument-hint: '[system name | path-to-existing-notes | GitHub issue number]'
 user-invocable: true
 ---
@@ -15,19 +15,33 @@ Produce a user-oriented, functional requirements document through a structured i
 
 ## When to Use
 
+### Gathering from scratch
+
 Trigger phrases:
-
-- "gather requirements" / "requirements document" / "define the requirements"
-- "what should the system do?" / "write up requirements for X"
+- "gather requirements" / "requirements document" / "define the requirements for X"
+- "what should the system do?" / "write up requirements"
 - "interview me for requirements" / "help me capture requirements"
-- "continue gathering requirements" / "add more requirements" / "I have more input"
 - A system idea is handed off before any planning has begun
-- An existing Requirements-*.md is handed off to continue intake (pass the file path as the argument)
 
-Do **not** use for:
+### Continuing: brainstorming and exploring changes to existing doc
 
-- Correcting, rewording, or removing existing requirements → [`/devenv-refine-requirements`](../devenv-refine-requirements/SKILL.md)
-- Quick inline feature clarification — just ask the user directly
+If you have an existing `Requirements-*.md` and want to explore new ideas, brainstorm implications, or integrate new input **before committing changes**, pass the file path as the argument. This mode treats the session as mid-gathering — a natural continuation where new thoughts have emerged. You'll:
+- Brainstorm implications: "What would change if we added this? What would break?"
+- Explore ripple effects across the existing requirement set
+- Run consistency checks against the existing doc
+- Integrate new requirements or revise existing ones
+
+Trigger phrases (continuation mode):
+- "I have a new idea for this" (with existing doc path)
+- "brainstorm this change" (with existing doc path)
+- "what if we..., and here's where I want to explore" (with existing doc path)
+- "I have more requirements" (with existing doc path)
+- Pass file path argument without other context
+
+### Do NOT use for
+
+- Correcting, rewording, or removing specific requirements when you already know what should change → [`/devenv-refine-requirements`](../devenv-refine-requirements/SKILL.md) (apply known changes directly)
+- Quick inline feature clarification — just ask directly
 - Code or implementation planning
 
 ## Philosophy
@@ -41,19 +55,27 @@ Do **not** use for:
 
 ## Session Continuity
 
-Requirements gathering can span multiple sessions. Maintain a `session_memory-requirements.md` file in the **target repo root** to preserve state across sessions.
+Requirements gathering can span multiple sessions, and brainstorming conversations benefit from continuity. Maintain a `session_memory-requirements.md` file in the **target repo root** to preserve state across sessions.
 
 **At session start**: create it if it doesn't exist, or load and summarise it to the user if it does.
 
+**For brainstorming sessions (continuation mode):** The session memory becomes especially valuable. Record:
+- The new idea or concern that prompted the brainstorming
+- Implications being explored ("REQ-003 assumes X, but new idea means X is no longer true")
+- Trade-offs and tensions surfaced
+- Tentative directions the user is leaning toward
+- What's still unresolved or uncertain
+
 **Parking early details:** If the user volunteers specific requirements, detailed acceptance criteria, or technical constraints before Phase 1 vision is established, record them in session memory under a `## Parked details` heading. Acknowledge briefly (*"Got it — I'll hold that for when we get to Phase 2"*) and continue the wide-to-narrow progression. Surface parked items when the relevant phase arrives.
 
-Track:
+Track (all sessions):
 - Current phase and what has been completed
 - Key decisions the human made
 - **Open questions log** — tracked as `Q-001`, `Q-002`, etc. (see format below)
 - Assumptions being treated as true
 - Gaps identified in the vision or requirements
 - Revision notes between cycles
+- For brainstorming: implications being explored and tentative directions
 
 Track open questions as `Q-001`, `Q-002`, etc. (see [Q-NNN format](../_conventions.md#open-questions-log-q-nnn) for the status-transition convention and format block). Every `Q-NNN` must end up `resolved` or `deferred` before the final file is written.
 
@@ -83,21 +105,47 @@ See [multi-doc-projects.md](./references/multi-doc-projects.md) for the full con
 
 ## Process
 
-This is a three-phase process. **Stop at each checkpoint** and wait for explicit approval before proceeding.
+This is a three-phase process for fresh requirements gathering. **Stop at each checkpoint** and wait for explicit approval before proceeding.
 
----
+### Continuation mode (existing doc): brainstorming-first
 
-### Continuation mode (existing doc)
+If the argument is a path to an existing `Requirements-*.md`, enter **continuation mode** — a natural mid-gathering brainstorm where new ideas have emerged.
 
-If the argument is a path to an existing `Requirements-*.md`, enter continuation mode rather than starting from scratch:
+**Session arc:**
 
-1. **Load and read the doc.** Note the last-used requirement ID, the current priority groups, and any open or deferred `Q-NNN` questions.
-2. **Summarise the current state** back to the user in a brief block: vision in one sentence, number of existing requirements, any open/deferred questions.
-3. **Ask what new input to integrate.** Offer the same sources as Phase 1 (meeting notes, transcripts, Slack threads) — treat them exactly the same way. Then ask: *"What new requirements or areas do you want to add to this doc?"*
-4. **Run Phase 2 only** — assign new IDs continuing from the last existing one, probe for gaps in the new material, run the health check at each 8–10-requirement mark.
-5. **Skip Phase 1** unless the user signals the vision itself has changed, in which case update the vision section before proceeding with new requirements.
-6. **Phase 3 is a delta approval.** Present only the new and changed content for approval — do not re-present the whole doc. Once approved, write the changes back into the existing file: append new requirements, update priority groups, and add a `## Revision History` entry.
-7. **Maintain `session_memory-requirements.md`** exactly as in a fresh session — load it if it exists, update it at session end.
+1. **Load and read the doc.** Note the last-used requirement ID, the current priority groups, current vision, and any open or deferred `Q-NNN` questions. Store the full current state in session memory for comparison at session end.
+
+2. **Summarise the current state** back to the user in a brief block: vision in one sentence, number of existing requirements, any open/deferred questions. Confirm you've loaded it correctly.
+
+3. **Establish the brainstorm frame.** Say: *"What's the new idea or thought you want to explore? I'll work through the implications, ripple effects, and tensions against what's already documented, and we'll decide what changes together."*
+
+4. **Run the brainstorm.** As the user describes the new thought:
+   - Ask probing questions about implications: *"Would that affect REQ-004 and REQ-012? How would [actor] experience that?"*
+   - Explicitly surface ripple effects: *"If we do that, REQ-008's assumption about [X] breaks. What would that mean?"*
+   - Identify tensions early and call them out: *"That conflicts with [vision section / REQ-XXX / GROUP-YY]. How do you want to resolve that?"*
+   - Use the existing priority groups as context: *"This would change the MVP group — are you thinking it should stay in MVP or move to GROUP-02?"*
+   - Check whether the vision itself needs to shift, not just individual requirements
+
+5. **Explore implications systematically.** Don't jump straight to "what new requirements do we need": first work through the tension and see what actually changes. This often surfaces:
+   - Requirements that become impossible or need revision
+   - Dependencies that now loop or conflict
+   - Priority groupings that need reshuffling
+   - Vision gaps or shifts
+
+6. **Update as you go** (in session memory, not the file). Track:
+   - What the new idea is and why it emerged
+   - Implications discovered
+   - Which existing requirements are affected
+   - What's still unclear or debated
+
+7. **Once the direction is clear,** ask: *"Are you ready to lock in these changes, or do you want to brainstorm more?"* (You may need multiple loops.)
+
+8. **When ready to commit:** present a delta — only the changed and new content. Ask for approval. Once approved:
+   - Update the existing file: revise affected requirements, append new ones (with IDs continuing from the last), update vision if needed, reshuffle priority groups if needed
+   - Add a `## Revision History` entry explaining what changed and why
+   - Update or clear session memory based on whether more sessions are planned
+
+9. **Maintain `session_memory-requirements.md`** — load it if it exists, update it at session end with the new brainstorm state.
 
 ---
 
@@ -470,9 +518,13 @@ Going through `/devenv-create-roadmap` (rather than creating issues by hand) kee
 
 ---
 
-## Brainstorming Open Questions
+## Brainstorming Modes
 
-At any point — during any phase, or when the user says "let's brainstorm Q-003" — enter brainstorming mode for a specific open question:
+Brainstorming can happen in three contexts: during **continuation-mode sessions** (above), during **open-question exploration**, or ad-hoc whenever tension or ambiguity surfaces. All three use the same principles:
+
+### Brainstorming a specific open question (Q-NNN)
+
+At any point — during any phase, during continuation mode, or when the user says "let's brainstorm Q-003" — enter focused brainstorming for a specific question:
 
 1. **Restate** the question in full, with context: which requirements are affected, what the tension is, and why the decision matters.
 2. **Present 2–4 options** with trade-offs — not a recommendation unless the user asks for one.
@@ -488,6 +540,10 @@ At any point — during any phase, or when the user says "let's brainstorm Q-003
    ```
 
 6. **Never diagnose for the user.** Present options and trade-offs; let them decide. Avoid steering toward a specific answer unless asked.
+
+### Brainstorming during continuation mode
+
+When a new idea arrives in an existing doc (see *Continuation mode* above), the brainstorm is **implication-first**: work through ripple effects and tensions before deciding what to change. The same principles apply — surface options and trade-offs, surface unresolved questions as `Q-NNN` entries, let the user decide. The difference is the framing: you're exploring *how a change cascades*, not *which option to pick*.
 
 ---
 

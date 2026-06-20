@@ -66,12 +66,21 @@ These are the backbone of the catalog. Start here if you're unsure.
 
 ### `/devenv-gather-requirements`
 
-> **Before planning begins, when requirements are undefined.**
+> **Before planning begins, when requirements are undefined. Also when brainstorming changes to existing requirements.**
 
-Conducts a structured three-phase interview (vision → requirements → roadmap) and produces a `Requirements-<topic>-NNN.md`. Maintains a `session_memory-requirements.md` across sessions. The requirements document then feeds into `/devenv-create-blueprint`, `/devenv-plan-from-spec`, or `/devenv-create-implementation-plan`.
+Conducts a structured three-phase interview (vision → requirements → roadmap) and produces a `Requirements-<topic>-NNN.md`. Can also continue a previous gathering session: pass an existing `Requirements-*.md` file path to brainstorm new ideas, explore implications, and integrate new input **before committing changes**. Maintains a `session_memory-requirements.md` across sessions. The requirements document then feeds into `/devenv-create-blueprint`, `/devenv-plan-from-spec`, or `/devenv-create-implementation-plan`.
 
-**Use for:** new systems or features where what the system should do isn't yet defined  
-**Don't use for:** requirements already exist (→ `/devenv-create-blueprint` for epic-scale work, `/devenv-plan-from-spec` for single deliverables), quick inline clarifications  
+**Use for:**
+
+- New systems or features where what the system should do isn't yet defined
+- Brainstorming and exploring changes to an existing requirements doc (pass the file path; explore implications first, then decide what to change)
+
+**Don't use for:**
+
+- Applying known changes to a requirements doc when you already know what should change → `/devenv-refine-requirements`
+- Requirements already exist and you just want to plan/architect → `/devenv-create-blueprint`, `/devenv-plan-from-spec`
+- Quick inline clarifications (just ask directly)
+
 **Tool deps:** none
 
 ---
@@ -379,7 +388,7 @@ Blueprint changed
 | `/devenv-refine-roadmap` vs `/devenv-refine-blueprint` | `refine-roadmap` adjusts delivery sequencing within the existing architecture. `refine-blueprint` changes the architecture itself. Architectural changes usually trigger a roadmap refine afterwards. |
 | `/devenv-update-roadmap` vs `/devenv-refine-blueprint` | `update-roadmap` syncs status from issues (mechanical, frequent). `refine-blueprint` revises architectural decisions (rare, deliberate). |
 | `/devenv-gather-requirements` Phase 3 vs `/devenv-create-roadmap` | Phase 3 produces stakeholder priority *groups* (`GROUP-NN`) — business sequencing intent only. `/devenv-create-roadmap` produces a real delivery roadmap (`PHASE-NN` / `STEP-NN`) with components, dependencies, and GH issues. The roadmap supersedes priority groups for execution. |
-| `/devenv-refine-requirements` vs `/devenv-gather-requirements` | Refine preserves existing REQ-NNN IDs and dependency links; gather creates from scratch. Use refine for anything except a brand-new requirements doc. |
+| `/devenv-refine-requirements` vs `/devenv-gather-requirements` | **Refine** is for applying known changes (you already know what to update; apply them directly). **Gather** is for brainstorming-first (you have an idea but need to explore implications and decide together what to change). You can pass an existing doc to gather to enter brainstorm mode. |
 | `/devenv-refine-implementation-plan` vs `/devenv-plan-update` | Structural changes vs surgical edits. `/devenv-plan-update` refuses if you ask for >3 changes. |
 | `/devenv-pair-programming` vs `/devenv-delegation` | Human-in-the-loop vs AI-drives. Prefer `/devenv-pair-programming` when in doubt. |
 | `/devenv-code-review` vs `/devenv-address-pr-comments` | Review assistance for your changes vs you address a reviewer's comments. |
