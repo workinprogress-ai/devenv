@@ -11,7 +11,10 @@ sudo sysctl fs.inotify.max_user_instances=524288 &>/dev/null
 grep -q '^nameserver 8\.8\.8\.8' /etc/resolv.conf || echo 'nameserver 8.8.8.8' | sudo tee -a /etc/resolv.conf > /dev/null
 
 source $toolbox_root/.runtime/env-vars.sh
+source "$toolbox_root/tools/lib/copilot-knowledge.bash"
 #source $toolbox_root/.devcontainer/load-ssh.sh
+pull_copilot_knowledge_on_container_start "$toolbox_root"
+
 nohup $toolbox_root/.devcontainer/load-docker.sh &>/dev/null &
 nohup $toolbox_root/.devcontainer/background-check-devenv-updates.sh > /dev/null 2>&1 &
 

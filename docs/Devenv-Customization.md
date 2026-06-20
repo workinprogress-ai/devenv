@@ -188,6 +188,7 @@ Behavior:
 - During bootstrap, devenv clones or pulls `knowledge_repo` into `copilot/knowledge` using your configured `GH_TOKEN`.
 - It then symlinks `~/.copilot/knowledge` to `copilot/knowledge/<knowledge_subpath>`.
 - During `devenv-update`, devenv refreshes that repo and updates the symlink target automatically.
+- On container start, devenv runs a non-blocking pull for `copilot/knowledge` (when it is a git repo) via `pull_copilot_knowledge_on_container_start` in `tools/lib/copilot-knowledge.bash`.
 
 ### [bootstrap]
 
@@ -473,6 +474,8 @@ This section explains the conventions for adding new scripts, bash libraries, an
 ### Adding a new bash library
 
 Libraries live in `tools/lib/` and are sourced by scripts at runtime via `$DEVENV_TOOLS/lib/<name>.bash`. Follow these conventions:
+
+For the current shared-library catalog, see [Additional Tooling](./Additional-Tooling.md#shared-bash-libraries).
 
 1. **File name**: `tools/lib/<category>.bash` using lowercase hyphenated names, e.g. `markdown.bash`.
 2. **Guard against double-sourcing** at the top:

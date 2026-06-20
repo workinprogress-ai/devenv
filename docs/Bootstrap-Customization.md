@@ -18,7 +18,7 @@ This design allows anyone forking this repository to:
 1. **`.devcontainer/bootstrap.bash`** - Bootstrap function library
    - Contains all bootstrap functions
    - Can be sourced independently
-   - Provides `run_tasks()` function for executing bootstrap steps
+   - Provides `run_bootstrap_tasks()` for full bootstrap and `run_update_tasks()` for convergent reruns
 
 2. **`.devcontainer/bootstrap.sh`** - Main bootstrap entry point
    - Sources `bootstrap.bash`
@@ -41,7 +41,7 @@ The default bootstrap process executes these tasks in order:
 5. `load_version_info` - Load version from git tags
 6. `load_config` - Load and validate devenv.config
 7. `prepare_install_directories` - Create installation directories
-8. `reset_bashrc_to_original` - Reset bashrc to clean state
+8. `reset_bashrc_to_original` - Reset bashrc to clean state (set `PRESERVE_BASHRC=1` to keep direct edits)
 9. `install_os_packages_round1` - Install base OS packages
 10. `add_specialized_repositories` - Add HashiCorp, Kubernetes repos
 11. `install_os_packages_round2` - Install specialized packages
@@ -67,6 +67,15 @@ The default bootstrap process executes these tasks in order:
 31. `cleanup_packages` - Clean up apt packages
 32. `record_bootstrap_run_time` - Record completion time
 33. `finish_message` - Display completion message
+
+## Update Bootstrap Flow
+
+The convergent update runner executes `run_update_tasks` (used by `devenv-update`) and intentionally excludes destructive steps used for fresh installs.
+
+- Included: package/tool/config reconciliation, Copilot sync, custom bootstrap hooks
+- Excluded: `init_bootstrap_run_time`, `reset_bashrc_to_original`, `cleanup_packages`, `finish_message`
+
+Important: when adding/reordering tasks in `run_bootstrap_tasks`, update `run_update_tasks` too unless the task is intentionally destructive.
 
 ## Customization Options
 
@@ -120,7 +129,7 @@ Create your own bootstrap script that runs only specific tasks:
 source "$(dirname "${BASH_SOURCE[0]}")/bootstrap.bash"
 
 # Run only essential tasks
-run_tasks \
+run_bootstrap_tasks \
     initialize_paths \
     load_config \
     install_os_packages_round1 \
@@ -149,7 +158,7 @@ configure_git() {
 }
 
 # Run all tasks (including overridden one)
-run_tasks
+run_bootstrap_tasks
 ```
 
 ### Option 4: Add Custom Tasks
@@ -174,7 +183,7 @@ configure_my_services() {
 }
 
 # Run default tasks plus custom ones
-run_tasks \
+run_bootstrap_tasks \
     init_bootstrap_run_time \
     initialize_paths \
     load_config \
@@ -209,7 +218,7 @@ else
     )
 fi
 
-run_tasks "${TASKS[@]}"
+run_bootstrap_tasks "${TASKS[@]}"
 ```
 
 ## Available Bootstrap Functions
@@ -235,7 +244,7 @@ run_tasks "${TASKS[@]}"
 
 ### Configuration Functions
 
-- `reset_bashrc_to_original` - Reset .bashrc to original state
+- `reset_bashrc_to_original` - Reset .bashrc to original state (set `PRESERVE_BASHRC=1` to preserve direct edits)
 - `load_setup_credentials` - Load credentials from .setup/
 - `write_bash_functions_file` - Create shell functions file
 - `generate_env_vars_file` - Generate environment variables
@@ -246,6 +255,7 @@ run_tasks "${TASKS[@]}"
 - `configure_git` - Configure git settings
 - `install_copilot_instructions` - Symlink `copilot/copilot-instructions.md` to `~/.copilot/copilot-instructions.md` (skipped silently if source file absent)
 - `sync_copilot_knowledge` - Clone/pull configured Copilot knowledge repo to `copilot/knowledge` and link `~/.copilot/knowledge`
+- `pull_copilot_knowledge_on_container_start` - Non-blocking knowledge repo pull on container start (`tools/lib/copilot-knowledge.bash`), no-op when `copilot/knowledge` is not a git repo
 - `configure_nuget_sources` - Configure NuGet package sources
 - `configure_user_npmrc` - Configure npm registry authentication
 - `ensure_directories_and_settings` - Create directories and system settings
@@ -264,7 +274,8 @@ run_tasks "${TASKS[@]}"
 - `record_bootstrap_run_time` - Record completion time
 - `run_custom_bootstrap_if_present` - Run org-custom-bootstrap.sh and user-custom-bootstrap.sh if they exist
 - `finish_message` - Display completion message
-- `run_tasks` - Execute a list of bootstrap tasks
+- `run_bootstrap_tasks` - Execute a full bootstrap task list (fresh-install flow)
+- `run_update_tasks` - Execute convergent update task list (used by `devenv-update`)
 
 ## Testing Custom Bootstrap
 
@@ -310,7 +321,7 @@ Users can then add personal customizations using:
 
 source "$(dirname "${BASH_SOURCE[0]}")/bootstrap.bash"
 
-run_tasks \
+run_bootstrap_tasks \
     initialize_paths \
     load_config \
     configure_git \
@@ -328,7 +339,7 @@ run_tasks \
 source "$(dirname "${BASH_SOURCE[0]}")/bootstrap.bash"
 
 # Skip interactive tools, focus on build dependencies
-run_tasks \
+run_bootstrap_tasks \
     initialize_paths \
     load_config \
     install_dotnet \
@@ -356,7 +367,7 @@ configure_compliance() {
 }
 
 # Run full bootstrap with enterprise additions
-run_tasks \
+run_bootstrap_tasks \
     initialize_paths \
     load_config \
     install_os_packages_round1 \
@@ -388,7 +399,7 @@ Create custom bootstrap without that task:
 source bootstrap.bash
 
 # Copy default tasks, remove the problematic one
-run_tasks \
+run_bootstrap_tasks \
     init_bootstrap_run_time \
     initialize_paths \
     # ... (skip problematic task) ...
@@ -408,7 +419,7 @@ problematic_function() {
 }
 
 # Run all tasks (using overridden version)
-run_tasks
+run_bootstrap_tasks
 ```
 
 ## See Also

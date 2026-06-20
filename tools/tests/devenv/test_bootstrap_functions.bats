@@ -287,6 +287,33 @@ EOF
   [ "$status" -eq 0 ]
 }
 
+@test "write_devenvrc includes startup knowledge pull hook" {
+  run grep '^pull_copilot_knowledge_on_container_start()' "$PROJECT_ROOT/tools/lib/copilot-knowledge.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "startup knowledge pull runs only when copilot knowledge is a git repo" {
+  run grep '\[ -d "\$repo_dir/\.git" \] || return 0' "$PROJECT_ROOT/tools/lib/copilot-knowledge.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "startup knowledge pull is non-blocking background pull" {
+  run bash -c "
+    grep -q 'pull_copilot_knowledge_on_container_start' '$PROJECT_ROOT/tools/lib/copilot-knowledge.bash' &&
+    grep -q 'pull --ff-only origin' '$PROJECT_ROOT/tools/lib/copilot-knowledge.bash' &&
+    grep -q ') >/dev/null 2>&1 &' '$PROJECT_ROOT/tools/lib/copilot-knowledge.bash'
+  "
+  [ "$status" -eq 0 ]
+}
+
+@test "startup.sh sources copilot knowledge library and calls pull function" {
+  run bash -c "
+    grep -q 'source \"\$toolbox_root/tools/lib/copilot-knowledge.bash\"' '$PROJECT_ROOT/.devcontainer/startup.sh' &&
+    grep -q 'pull_copilot_knowledge_on_container_start \"\$toolbox_root\"' '$PROJECT_ROOT/.devcontainer/startup.sh'
+  "
+  [ "$status" -eq 0 ]
+}
+
 @test "devenv-update parses Devenv-Action trailers from pulled commit range" {
   run grep -E 'git log "\$\{pre_update_hash\}\.\.\$\{post_update_hash\}" --format=.*Devenv-Action' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
   [ "$status" -eq 0 ]
