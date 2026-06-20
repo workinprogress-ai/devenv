@@ -206,6 +206,40 @@ EOF
   [ "$status" -eq 0 ]
 }
 
+@test "bootstrap.bash defines normalize_copilot_knowledge_subpath helper" {
+  run grep "^normalize_copilot_knowledge_subpath()" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "normalize_copilot_knowledge_subpath defaults empty to repo root" {
+  run bash -c "source '$PROJECT_ROOT/.devcontainer/bootstrap.bash'; normalize_copilot_knowledge_subpath ''"
+  [ "$status" -eq 0 ]
+  [ "$output" = "." ]
+}
+
+@test "normalize_copilot_knowledge_subpath trims leading ./ and trailing /" {
+  run bash -c "source '$PROJECT_ROOT/.devcontainer/bootstrap.bash'; normalize_copilot_knowledge_subpath './copilot-knowledge/'"
+  [ "$status" -eq 0 ]
+  [ "$output" = "copilot-knowledge" ]
+}
+
+@test "bootstrap.bash defines build_github_basic_auth_header helper" {
+  run grep "^build_github_basic_auth_header()" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "build_github_basic_auth_header uses x-access-token basic auth payload" {
+  run bash -c "
+    source '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
+    h=\$(build_github_basic_auth_header 'ghp_testtoken')
+    echo \"\$h\" | grep -q '^AUTHORIZATION: basic '
+    enc=\$(echo \"\$h\" | cut -d' ' -f3)
+    dec=\$(printf '%s' \"\$enc\" | base64 -d)
+    [ \"\$dec\" = 'x-access-token:ghp_testtoken' ]
+  "
+  [ "$status" -eq 0 ]
+}
+
 @test "install_copilot_instructions copies to ~/.copilot/copilot-instructions.md" {
   run grep "copilot-instructions.md" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
   [ "$status" -eq 0 ]
@@ -219,6 +253,19 @@ EOF
 
 @test "sync_copilot_knowledge is included in default task list" {
   run bash -c "grep -A55 'local default_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep 'sync_copilot_knowledge'"
+  [ "$status" -eq 0 ]
+}
+
+@test "sync_copilot_knowledge uses helper functions for subpath and auth header" {
+  run bash -c "
+    grep -q 'subpath=\$(normalize_copilot_knowledge_subpath \"\$subpath\")' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
+    grep -q 'header=\$(build_github_basic_auth_header \"\$GH_TOKEN\")' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
+  "
+  [ "$status" -eq 0 ]
+}
+
+@test "sync_copilot_knowledge stores pre-sync backups under runtime path" {
+  run grep '\.runtime/copilot-knowledge-backups/pre-sync\.' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
   [ "$status" -eq 0 ]
 }
 

@@ -796,6 +796,25 @@ configure_git() {
     add_git_safe_directory "$toolbox_root"
 }
 
+# Normalize configured knowledge subpath; empty values resolve to repo root.
+normalize_copilot_knowledge_subpath() {
+    local subpath="$1"
+    subpath="${subpath#./}"
+    subpath="${subpath%/}"
+    if [ -z "$subpath" ]; then
+        subpath="."
+    fi
+    echo "$subpath"
+}
+
+# Build GitHub-compatible basic auth header for git HTTPS operations.
+build_github_basic_auth_header() {
+    local token="$1"
+    local auth
+    auth=$(printf 'x-access-token:%s' "$token" | base64 -w0)
+    echo "AUTHORIZATION: basic $auth"
+}
+
 # Clone or update configured Copilot knowledge repo and link ~/.copilot/knowledge
 sync_copilot_knowledge() {
     echo "# Sync Copilot knowledge"
@@ -804,7 +823,6 @@ sync_copilot_knowledge() {
     local repo_url="${COPILOT_KNOWLEDGE_REPO:-}"
     local subpath="${COPILOT_KNOWLEDGE_SUBPATH:-}"
     local knowledge_repo_dir="$toolbox_root/copilot/knowledge"
-    local auth
     local header
     local default_branch
 
@@ -818,14 +836,9 @@ sync_copilot_knowledge() {
         return 0
     fi
 
-    subpath="${subpath#./}"
-    subpath="${subpath%/}"
-    if [ -z "$subpath" ]; then
-        subpath="."
-    fi
+    subpath=$(normalize_copilot_knowledge_subpath "$subpath")
 
-    auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
-    header="AUTHORIZATION: basic $auth"
+    header=$(build_github_basic_auth_header "$GH_TOKEN")
 
     if [ -d "$knowledge_repo_dir/.git" ]; then
         git -C "$knowledge_repo_dir" remote set-url origin "$repo_url"
@@ -839,7 +852,8 @@ sync_copilot_knowledge() {
     else
         if [ -d "$knowledge_repo_dir" ] && [ -n "$(ls -A "$knowledge_repo_dir" 2>/dev/null)" ]; then
             local backup_dir
-            backup_dir="$toolbox_root/copilot/knowledge.pre-sync-backup.$(date +%Y%m%d%H%M%S)"
+            mkdir -p "$toolbox_root/.runtime/copilot-knowledge-backups"
+            backup_dir="$toolbox_root/.runtime/copilot-knowledge-backups/pre-sync.$(date +%Y%m%d%H%M%S)"
             mv "$knowledge_repo_dir" "$backup_dir"
             echo "Existing non-git knowledge folder moved to $backup_dir"
         fi
