@@ -198,6 +198,29 @@ Required behavior:
 
 Authoring rule: Add the blockquote immediately after the title (before the opening paragraph) for the listed skills only.
 
+## Shared artifact output packaging
+
+When a skill is asked to produce an artifact-like report and the user does not specify a format, default to a copy-first packaging style.
+
+Applies to outputs such as:
+
+- diagnostic reports
+- postmortems
+- incident reports
+- findings reports
+- handoff blocks intended for another skill, issue, PR, or tracker
+
+Required default behavior:
+
+1. Emit a single fenced `markdown` code block when the output is likely to be pasted elsewhere.
+2. Put the full artifact inside the block; do not wrap it in explanatory prose unless explicitly requested.
+3. Prefer exact copy/paste fidelity over rendered readability.
+4. If the right packaging is genuinely unclear, ask one short format question before producing the artifact.
+
+Authoring rule:
+
+- Skills that define report or handoff outputs should either specify this packaging locally or reference the shared [Diagnostic Mode Protocol](./common/references/diagnostic-mode-protocol.md) when that protocol is the intended artifact shape.
+
 ## Shared bug discovery protocol
 
 All execution skills — those that write code, run tests, or modify the codebase — must follow a mandatory bug discovery protocol:

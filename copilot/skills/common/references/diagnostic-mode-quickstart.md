@@ -17,8 +17,9 @@ Add this **blockquote immediately below the skill's main title** (before the ope
 
 1. ✅ Add the blockquote to your skill's SKILL.md body (below `# <Skill Title>`).
 2. ✅ Link to [diagnostic-mode-protocol.md](./diagnostic-mode-protocol.md).
-3. ✅ When the user requests diagnostics, follow the protocol exactly.
+3. ✅ When the user requests diagnostics, or asks for a diagnostic/postmortem/findings report artifact without a format, follow the protocol exactly.
 4. ✅ Emit a single fenced `markdown` code block; do not add prose before/after unless explicitly asked.
+5. ✅ Default to copy/paste fidelity over rendered readability for artifact-style report output.
 
 ## Wording variant (if space is tight)
 

@@ -8,9 +8,13 @@ Use this protocol when the user indicates undesirable output or an undesirable/m
 - "that output was wrong, give me diagnostics"
 - "capture why the skill did this"
 
+Also use this output contract by default when the user asks for a diagnostic report, postmortem, incident report, or findings artifact and does not specify a format. In those cases, optimize for copy/paste transferability first.
+
 ## Output contract
 
 When diagnostic mode is requested, produce a **single fenced markdown code block** (language tag: `markdown`) that the user can copy as-is.
+
+If the user asks for the report artifact without specifying a format, assume this copyable fenced block is the desired default.
 
 This is mandatory. The diagnostic response itself must be inside the fence, not described or paraphrased outside it.
 
@@ -74,4 +78,10 @@ Do **not** expose hidden internal chain-of-thought. Provide a concise, user-faci
 - Cite concrete files/sections when known.
 - Name assumptions explicitly.
 - Keep it concise but sufficient for `/devenv-skill-maintenance` to act.
+- Prefer transferability over rendered readability when the user asked for a report artifact.
 - Return only the fenced markdown block unless the user explicitly asks for commentary.
+
+## Pre-send validation
+
+- Did I provide it as a single fenced `markdown` code block?
+- Is it self-contained and ready to copy?
