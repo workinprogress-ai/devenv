@@ -7,7 +7,7 @@
 #
 # Usage:
 #   source /path/to/bootstrap.bash
-#   run_tasks init_bootstrap_run_time initialize_paths ...
+#   run_bootstrap_tasks init_bootstrap_run_time initialize_paths ...
 #
 # Or call functions individually:
 #   initialize_paths
@@ -27,6 +27,7 @@ on_error() {
 # NPM helper that filters out TLS warnings
 call_npm() {
     npm "$@" 2>&1 | grep -v 'NODE_TLS_REJECT_UNAUTHORIZED is set to 0'
+    return "${PIPESTATUS[0]}"
 }
 
 # Add NuGet source if it doesn't already exist
@@ -96,6 +97,16 @@ load_config() {
         fi
         export GH_ORG
     fi
+
+    # Optional Copilot knowledge repo settings.
+    # knowledge_repo: if set, the repo is cloned/pulled into copilot/knowledge during bootstrap and update.
+    # knowledge_subpath: subfolder inside the repo to link to ~/.copilot/knowledge.
+    #   If empty or omitted, the entire repo root is linked.
+    COPILOT_KNOWLEDGE_REPO=$(config_read_value "copilot" "knowledge_repo" "")
+    COPILOT_KNOWLEDGE_SUBPATH=$(config_read_value "copilot" "knowledge_subpath" "")
+
+    export COPILOT_KNOWLEDGE_REPO
+    export COPILOT_KNOWLEDGE_SUBPATH
 }
 
 # Detect CPU architecture (ARM vs x86)
@@ -162,7 +173,11 @@ reset_bashrc_to_original() {
     if [ ! -f ~/.bashrc.original ]; then
         cp ~/.bashrc ~/.bashrc.original
     fi
-    cp ~/.bashrc.original ~/.bashrc
+    # Reset .bashrc to the captured original by default.
+    # Set PRESERVE_BASHRC=1 to skip the reset and keep any direct edits.
+    if [ "${PRESERVE_BASHRC:-0}" != "1" ]; then
+        cp ~/.bashrc.original ~/.bashrc
+    fi
 }
 
 # Install yq (mikefarah version) for YAML processing
@@ -358,12 +373,130 @@ repos() {
 }
 
 devenv-update() {
-    local current_dir
+    local current_dir pre_update_hash post_update_hash action best_pri trailer_action pri
+    local restart_now recreate_choice run_bootstrap_now
     current_dir=$(pwd)
     cd "$DEVENV_ROOT" || return
-    git-update
+    pre_update_hash=$(git rev-parse HEAD 2>/dev/null)
+
+    if ! git-update; then
+        cd "$current_dir" || return
+        return 1
+    fi
+
+    "$DEVENV_ROOT/.devcontainer/bootstrap.sh" run_update_tasks
+    post_update_hash=$(git rev-parse HEAD 2>/dev/null)
+
+    action="nothing"
+    best_pri=0
+    if [ -n "$pre_update_hash" ] && [ -n "$post_update_hash" ] && [ "$pre_update_hash" != "$post_update_hash" ]; then
+        while IFS= read -r trailer_action; do
+            [ -z "$trailer_action" ] && continue
+            case "$trailer_action" in
+                recreate)  pri=3 ;;
+                bootstrap) pri=2 ;;
+                restart)   pri=1 ;;
+                nothing)   pri=0 ;;
+                *)         pri=-1 ;;
+            esac
+            if [ "$pri" -gt "$best_pri" ]; then
+                action="$trailer_action"
+                best_pri="$pri"
+            fi
+        done < <(git log "${pre_update_hash}..${post_update_hash}" --format='%(trailers:key=Devenv-Action,valueonly)' 2>/dev/null \
+                 | tr '[:upper:]' '[:lower:]' \
+                 | grep -v '^$')
+    fi
+
+    case "$action" in
+        recreate)
+            echo "Post-update action: recreate container"
+            echo "Choose an option:"
+            echo "  1) Recreate container now (recommended)"
+            echo "  2) Restart container now"
+            echo "  3) Skip"
+            read -rp "Enter choice (1/2/3): " recreate_choice
+            case "$recreate_choice" in
+                1)
+                    echo "Run 'Dev Containers: Rebuild Container' in VS Code to recreate the container."
+                    ;;
+                2)
+                    read -rp "Do you want to restart the dev container now? (y/n): " restart_now
+                    case "$restart_now" in
+                        [Yy]*)
+                            if command -v docker >/dev/null 2>&1; then
+                                echo "Restarting dev container now..."
+                                nohup bash -c 'sleep 1; docker restart "$(hostname)"' >/dev/null 2>&1 &
+                            else
+                                echo "Docker CLI not found. Run: docker restart \"\$(hostname)\""
+                            fi
+                            ;;
+                        *)
+                            echo "Skipping restart. Run: docker restart \"\$(hostname)\""
+                            ;;
+                    esac
+                    ;;
+                *)
+                    echo "Skipping recreate/restart."
+                    ;;
+            esac
+            ;;
+        bootstrap)
+            echo "Post-update action: run bootstrap and restart container"
+            read -rp "Do you want to run bootstrap now? (y/n): " run_bootstrap_now
+            case "$run_bootstrap_now" in
+                [Yy]*)
+                    if "$DEVENV_ROOT/.devcontainer/bootstrap.sh"; then
+                        echo "Bootstrap completed successfully."
+                        echo "Recommendation: restart the dev container to apply bootstrap changes."
+                        read -rp "Do you want to restart the dev container now? (y/n): " restart_now
+                        case "$restart_now" in
+                            [Yy]*)
+                                if command -v docker >/dev/null 2>&1; then
+                                    echo "Restarting dev container now..."
+                                    nohup bash -c 'sleep 1; docker restart "$(hostname)"' >/dev/null 2>&1 &
+                                else
+                                    echo "Docker CLI not found. Run: docker restart \"\$(hostname)\""
+                                fi
+                                ;;
+                            *)
+                                echo "Skipping restart. Run: docker restart \"\$(hostname)\""
+                                ;;
+                        esac
+                    else
+                        echo "Bootstrap failed. Please run $DEVENV_ROOT/.devcontainer/bootstrap.sh manually."
+                        cd "$current_dir" || return
+                        return 1
+                    fi
+                    ;;
+                *)
+                    echo "Skipping bootstrap. Run $DEVENV_ROOT/.devcontainer/bootstrap.sh when ready."
+                    ;;
+            esac
+            ;;
+        restart)
+            echo "Post-update action: restart container"
+            read -rp "Do you want to restart the dev container now? (y/n): " restart_now
+            case "$restart_now" in
+                [Yy]*)
+                    if command -v docker >/dev/null 2>&1; then
+                        echo "Restarting dev container now..."
+                        nohup bash -c 'sleep 1; docker restart "$(hostname)"' >/dev/null 2>&1 &
+                    else
+                        echo "Docker CLI not found. Run: docker restart \"\$(hostname)\""
+                    fi
+                    ;;
+                *)
+                    echo "Skipping restart. Run: docker restart \"\$(hostname)\""
+                    ;;
+            esac
+            ;;
+        nothing|*)
+            echo "Post-update action: nothing"
+            ;;
+    esac
+
     cd "$current_dir" || return
-    "$DEVENV_ROOT/.devcontainer/check-update-devenv-repo.sh"
 }
 
 key-update-tailscale() {
@@ -785,13 +918,90 @@ configure_git() {
     add_git_safe_directory "$toolbox_root"
 }
 
+# Normalize configured knowledge subpath; empty values resolve to repo root.
+normalize_copilot_knowledge_subpath() {
+    local subpath="$1"
+    subpath="${subpath#./}"
+    subpath="${subpath%/}"
+    if [ -z "$subpath" ]; then
+        subpath="."
+    fi
+    echo "$subpath"
+}
+
+# Build GitHub-compatible basic auth header for git HTTPS operations.
+build_github_basic_auth_header() {
+    local token="$1"
+    local auth
+    auth=$(printf 'x-access-token:%s' "$token" | base64 -w0)
+    echo "AUTHORIZATION: basic $auth"
+}
+
+# Clone or update configured Copilot knowledge repo and link ~/.copilot/knowledge
+sync_copilot_knowledge() {
+    echo "# Sync Copilot knowledge"
+    echo "#############################################"
+
+    local repo_url="${COPILOT_KNOWLEDGE_REPO:-}"
+    local subpath="${COPILOT_KNOWLEDGE_SUBPATH:-}"
+    local knowledge_repo_dir="$toolbox_root/copilot/knowledge"
+    local header
+    local default_branch
+
+    if [ -z "$repo_url" ]; then
+        echo "No [copilot] knowledge_repo configured; skipping knowledge sync"
+        return 0
+    fi
+
+    if [ -z "${GH_TOKEN:-}" ]; then
+        echo "WARNING: GH_TOKEN is not set; skipping Copilot knowledge sync (load_setup_credentials must run first)"
+        return 0
+    fi
+
+    subpath=$(normalize_copilot_knowledge_subpath "$subpath")
+
+    header=$(build_github_basic_auth_header "$GH_TOKEN")
+
+    if [ -d "$knowledge_repo_dir/.git" ]; then
+        git -C "$knowledge_repo_dir" remote set-url origin "$repo_url"
+        git -C "$knowledge_repo_dir" -c http.extraheader="$header" fetch --prune origin
+        default_branch=$(git -C "$knowledge_repo_dir" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')
+        if [ -z "$default_branch" ]; then
+            default_branch=$(git -C "$knowledge_repo_dir" rev-parse --abbrev-ref HEAD)
+        fi
+        git -C "$knowledge_repo_dir" checkout "$default_branch" >/dev/null 2>&1 || true
+        git -C "$knowledge_repo_dir" -c http.extraheader="$header" pull --ff-only origin "$default_branch"
+    else
+        if [ -d "$knowledge_repo_dir" ] && [ -n "$(ls -A "$knowledge_repo_dir" 2>/dev/null)" ]; then
+            local backup_dir
+            mkdir -p "$toolbox_root/.runtime/copilot-knowledge-backups"
+            backup_dir="$toolbox_root/.runtime/copilot-knowledge-backups/pre-sync.$(date +%Y%m%d%H%M%S)"
+            mv "$knowledge_repo_dir" "$backup_dir"
+            echo "Existing non-git knowledge folder moved to $backup_dir"
+        fi
+        rm -rf "$knowledge_repo_dir"
+        git -c http.extraheader="$header" clone "$repo_url" "$knowledge_repo_dir"
+    fi
+
+    local knowledge_source="$knowledge_repo_dir/$subpath"
+    if [ ! -d "$knowledge_source" ]; then
+        echo "ERROR: Copilot knowledge subpath not found: $knowledge_source"
+        return 1
+    fi
+
+    mkdir -p "$HOME/.copilot"
+    rm -rf "$HOME/.copilot/knowledge"
+    ln -s "$knowledge_source" "$HOME/.copilot/knowledge"
+    echo "Copilot knowledge symlinked: $HOME/.copilot/knowledge → $knowledge_source"
+}
+
 # Copy Copilot instructions to ~/.copilot/copilot-instructions.md
-# and symlink ~/.copilot/skills → <devenv>/.github/skills so that
+# and symlink ~/.copilot/skills → <devenv>/copilot/skills so that
 # Copilot's default user-home skills path picks them up in every workspace.
 install_copilot_instructions() {
     echo "# Install Copilot instructions"
     echo "#############################################"
-    local src="$toolbox_root/.github/copilot-instructions.md"
+    local src="$toolbox_root/copilot/copilot-instructions.md"
     local dest="$HOME/.copilot/copilot-instructions.md"
     if [ -f "$src" ]; then
         mkdir -p "$HOME/.copilot"
@@ -804,12 +1014,12 @@ install_copilot_instructions() {
             echo "Copilot instructions symlinked: $dest → $src"
         fi
     else
-        echo "WARNING: .github/copilot-instructions.md not found, skipping"
+        echo "WARNING: copilot/copilot-instructions.md not found, skipping"
     fi
 
     # Symlink ~/.copilot/skills → devenv's skills folder so skills are
     # available in every VS Code window regardless of which repo is open.
-    local skills_src="$toolbox_root/.github/skills"
+    local skills_src="$toolbox_root/copilot/skills"
     local skills_link="$HOME/.copilot/skills"
     if [ -d "$skills_src" ]; then
         mkdir -p "$HOME/.copilot"
@@ -818,8 +1028,9 @@ install_copilot_instructions() {
         ln -s "$skills_src" "$skills_link"
         echo "Copilot skills symlinked: $skills_link → $skills_src"
     else
-        echo "WARNING: .github/skills not found, skipping skills symlink"
+        echo "WARNING: copilot/skills not found, skipping skills symlink"
     fi
+
 }
 
 # Ensure required directories exist and configure system settings
@@ -941,9 +1152,16 @@ finish_message() {
     echo "Please restart the container to complete the setup."
 }
 
-# Execute a list of tasks in order
-# Usage: run_tasks [task1 task2 ...] or run_tasks (for default tasks)
-run_tasks() {
+# ── Task runners ──────────────────────────────────────────────────────────────
+# IMPORTANT: run_bootstrap_tasks and run_update_tasks share most tasks.
+# When adding, removing, or reordering tasks, update BOTH lists.
+# run_bootstrap_tasks = fresh container install (destructive resets + cleanup allowed)
+# run_update_tasks    = convergent rerun (no destructive resets, no cleanup)
+
+# Fresh-install task runner. Runs the full bootstrap sequence including
+# destructive steps (bashrc reset, cleanup) appropriate for a new container.
+# Usage: run_bootstrap_tasks [task1 task2 ...] or run_bootstrap_tasks (for default tasks)
+run_bootstrap_tasks() {
     local tasks=("$@")
     local default_tasks=(
         initialize_paths
@@ -972,6 +1190,7 @@ run_tasks() {
         install_node_packages
         configure_git
         install_copilot_instructions
+        sync_copilot_knowledge
         ensure_directories_and_settings
         install_repo_dependencies
         configure_nuget_sources
@@ -992,6 +1211,59 @@ run_tasks() {
             exit 1
         fi
         echo "Running task: $task"
-        "$task"
+        if ! "$task"; then
+            echo "Task failed: $task"
+            exit 1
+        fi
+    done
+}
+
+# Convergent-update task runner. Re-runs the full bootstrap except destructive
+# steps (no bashrc reset, no cleanup, no init_bootstrap_run_time).
+# IMPORTANT: When adding tasks to run_bootstrap_tasks, add them here too (unless destructive).
+run_update_tasks() {
+    local update_tasks=(
+        initialize_paths
+        detect_architecture
+        ensure_home_is_set
+        ensure_bash_is_default_shell
+        load_version_info
+        load_config
+        prepare_install_directories
+        install_yq
+        install_os_packages_round1
+        add_specialized_repositories
+        install_os_packages_round2
+        install_dotnet
+        download_container_scripts
+        load_setup_credentials
+        write_bash_functions_file
+        generate_env_vars_file
+        create_tool_symlinks
+        write_devenvrc
+        append_bashrc
+        install_or_configure_nvm
+        configure_dotnet_tools
+        install_node_packages
+        configure_git
+        install_copilot_instructions
+        sync_copilot_knowledge
+        ensure_directories_and_settings
+        install_repo_dependencies
+        configure_nuget_sources
+        configure_user_npmrc
+        run_custom_bootstrap_if_present
+        record_bootstrap_run_time
+    )
+    for task in "${update_tasks[@]}"; do
+        if ! declare -f "$task" >/dev/null; then
+            echo "Unknown task: $task"
+            exit 1
+        fi
+        echo "Running task: $task"
+        if ! "$task"; then
+            echo "Task failed: $task"
+            exit 1
+        fi
     done
 }

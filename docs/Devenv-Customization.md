@@ -5,8 +5,9 @@ If you've forked this repository for your organization, this guide explains what
 ## Quick Checklist
 
 - ✅ Update `devenv.config` for org identity, container name, workflows, and bootstrap defaults
-- ✅ (Optional) Update `.github/copilot-instructions.md` with organization-specific AI coding guidelines
-- ✅ (Optional) Add custom Copilot skills to `.github/skills/` for domain-specific workflows
+- ✅ (Optional) Update `copilot/copilot-instructions.md` with organization-specific AI coding guidelines
+- ✅ (Optional) Add custom Copilot skills to `copilot/skills/` for domain-specific workflows
+- ✅ (Optional) Configure shared Copilot knowledge sync in `devenv.config` (`[copilot]` section)
 - ✅ (Optional) Create `org-custom-bootstrap.sh` and `org-custom-startup.sh` for organization-wide customizations
 - ✅ (If you use repo creation tooling) Update `tools/config/repo-types.yaml` for naming, templates, branch protection, and post-creation scripts
 - ✅ (If you use issue creation tooling) Update `tools/config/issues-config.yml` with your organization's issue types and GitHub issue type IDs
@@ -14,28 +15,28 @@ If you've forked this repository for your organization, this guide explains what
 
 ## Copilot Instructions
 
-The file `.github/copilot-instructions.md` contains AI coding guidelines that apply to the repository in VS Code (GitHub Copilot reads this file automatically when it exists in the workspace). During bootstrap, `~/.copilot/copilot-instructions.md` is **symlinked** to this file, making the same instructions available as the user-level Copilot instructions file.
+The file `copilot/copilot-instructions.md` contains AI coding guidelines that apply to the repository in VS Code (GitHub Copilot reads this file automatically when it exists in the workspace). During bootstrap, `~/.copilot/copilot-instructions.md` is **symlinked** to this file, making the same instructions available as the user-level Copilot instructions file.
 
 When forking, you have two options:
 
-1. **Write your own instructions in-place** — update `.github/copilot-instructions.md` directly with your organization's conventions, code style, and AI guidance. Bootstrap will symlink it to `~/.copilot/copilot-instructions.md` automatically.
+1. **Write your own instructions in-place** — update `copilot/copilot-instructions.md` directly with your organization's conventions, code style, and AI guidance. Bootstrap will symlink it to `~/.copilot/copilot-instructions.md` automatically.
 
 2. **Symlink to a different file** — if you prefer to keep your Copilot instructions elsewhere (e.g. in a shared config repo or a different path), create `~/.copilot/copilot-instructions.md` as a symlink to that file before or after bootstrap runs. The `install_copilot_instructions` task will detect the existing symlink and leave it untouched, regardless of where it points.
 
 ## Copilot Skills
 
-This repository ships with a suite of 15 slash-command skills that cover the full development lifecycle — from issue triage through PR review. They live in `.github/skills/` and are invoked with `/skill-name` in Copilot Chat.
+This repository ships with a suite of 15 slash-command skills that cover the full development lifecycle — from issue triage through PR review. They live in `copilot/skills/` and are invoked with `/skill-name` in Copilot Chat.
 
 See [docs/Skills.md](./Skills.md) for the full catalog and decision tree.
 
 ### Adding a custom skill
 
-1. **Read the conventions** — `.github/skills/_conventions.md` defines the required file layout, frontmatter fields, description rules (including the 1024-char limit), section ordering, and confirmation-flow patterns.
+1. **Read the conventions** — `copilot/skills/_conventions.md` defines the required file layout, frontmatter fields, description rules (including the 1024-char limit), section ordering, and confirmation-flow patterns.
 
 2. **Create the skill folder and SKILL.md**:
 
    ```text
-   .github/skills/<your-skill-name>/
+   copilot/skills/<your-skill-name>/
    └── SKILL.md
    ```
 
@@ -44,10 +45,10 @@ See [docs/Skills.md](./Skills.md) for the full catalog and decision tree.
 3. **Write the description carefully** — it is the only signal Copilot uses to decide whether to auto-load the skill. Include explicit `USE WHEN` and `DO NOT USE FOR` clauses with the exact phrases users will say. Verify the length:
 
    ```bash
-   awk '/^description:/ {gsub(/^description: */,""); print length}' .github/skills/<name>/SKILL.md
+   awk '/^description:/ {gsub(/^description: */,""); print length}' copilot/skills/<name>/SKILL.md
    ```
 
-4. **Register the skill for `/devenv-skill-guru` discoverability** — append a row to the appropriate category table in `.github/skills/devenv-skill-guru/references/skills-registry.md`. This is the single file the `skill-guru` routing skill reads; without an entry here, the skill won't be surfaced when users ask "which skill should I use".
+4. **Register the skill for `/devenv-skill-guru` discoverability** — append a row to the appropriate category table in `copilot/skills/devenv-skill-guru/references/skills-registry.md`. This is the single file the `skill-guru` routing skill reads; without an entry here, the skill won't be surfaced when users ask "which skill should I use".
 
    Each row needs: skill name (with `/`), one-line purpose, 2–4 USE WHEN trigger phrases, and a NOT FOR clause.
 
@@ -60,7 +61,7 @@ See [docs/Skills.md](./Skills.md) for the full catalog and decision tree.
 If your skill needs reusable artifacts (templates, cheatsheets, phrasing tables), put them in a `references/` subfolder:
 
 ```text
-.github/skills/<your-skill-name>/
+copilot/skills/<your-skill-name>/
 ├── SKILL.md
 └── references/
     └── my-template.md
@@ -170,6 +171,24 @@ status_workflow=Backlog,Ready,In Progress,In review,Done
 ```
 
 - **status_workflow**: Your issue flow, ordered
+
+### [copilot]
+
+```ini
+[copilot]
+knowledge_repo=https://github.com/workinprogress-ai/docs.copilot-knowledge.git
+knowledge_subpath=copilot-knowledge/
+```
+
+- **knowledge_repo**: Git repository URL for shared Copilot knowledge assets.
+- **knowledge_subpath**: Folder inside that repository that should be linked to `~/.copilot/knowledge`.
+
+Behavior:
+
+- During bootstrap, devenv clones or pulls `knowledge_repo` into `copilot/knowledge` using your configured `GH_TOKEN`.
+- It then symlinks `~/.copilot/knowledge` to `copilot/knowledge/<knowledge_subpath>`.
+- During `devenv-update`, devenv refreshes that repo and updates the symlink target automatically.
+- On container start, devenv runs a non-blocking pull for `copilot/knowledge` (when it is a git repo) via `pull_copilot_knowledge_on_container_start` in `tools/lib/copilot-knowledge.bash`.
 
 ### [bootstrap]
 
@@ -455,6 +474,8 @@ This section explains the conventions for adding new scripts, bash libraries, an
 ### Adding a new bash library
 
 Libraries live in `tools/lib/` and are sourced by scripts at runtime via `$DEVENV_TOOLS/lib/<name>.bash`. Follow these conventions:
+
+For the current shared-library catalog, see [Additional Tooling](./Additional-Tooling.md#shared-bash-libraries).
 
 1. **File name**: `tools/lib/<category>.bash` using lowercase hyphenated names, e.g. `markdown.bash`.
 2. **Guard against double-sourcing** at the top:

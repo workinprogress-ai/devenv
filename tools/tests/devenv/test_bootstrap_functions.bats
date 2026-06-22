@@ -21,12 +21,17 @@ load ../test_helper
 }
 
 @test "bootstrap.bash declares key functions" {
-  run grep -E "^(initialize_paths|detect_architecture|ensure_home_is_set|ensure_bash_is_default_shell|install_yq|load_version_info|run_tasks)\(\)" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  run grep -E "^(initialize_paths|detect_architecture|ensure_home_is_set|ensure_bash_is_default_shell|install_yq|load_version_info|run_bootstrap_tasks)\(\)" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
   [ "$status" -eq 0 ]
 }
 
 @test "bootstrap.bash defines on_error function" {
   run grep "^on_error()" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "call_npm returns npm exit status from pipeline" {
+  run grep 'return "\${PIPESTATUS\[0\]}"' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
   [ "$status" -eq 0 ]
 }
 
@@ -99,6 +104,14 @@ EOF
   [ "$status" -eq 0 ]
 }
 
+@test "reset_bashrc_to_original preserves user bashrc unless forced" {
+  run bash -c "
+    grep -q 'PRESERVE_BASHRC:-0' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
+    grep -q 'cp ~/.bashrc.original ~/.bashrc' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
+  "
+  [ "$status" -eq 0 ]
+}
+
 @test "run_tasks executes only requested safe task" {
   run "$PROJECT_ROOT/.devcontainer/bootstrap.sh" initialize_paths
   [ "$status" -eq 0 ]
@@ -110,6 +123,11 @@ EOF
   run "$PROJECT_ROOT/.devcontainer/bootstrap.sh" this_task_does_not_exist
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Unknown task" ]]
+}
+
+@test "run_tasks reports failed task and exits" {
+  run grep 'Task failed: \$task' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
 }
 
 
@@ -201,6 +219,45 @@ EOF
   [ "$status" -eq 0 ]
 }
 
+@test "bootstrap.bash defines sync_copilot_knowledge function" {
+  run grep "^sync_copilot_knowledge()" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "bootstrap.bash defines normalize_copilot_knowledge_subpath helper" {
+  run grep "^normalize_copilot_knowledge_subpath()" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "normalize_copilot_knowledge_subpath defaults empty to repo root" {
+  run bash -c "source '$PROJECT_ROOT/.devcontainer/bootstrap.bash'; normalize_copilot_knowledge_subpath ''"
+  [ "$status" -eq 0 ]
+  [ "$output" = "." ]
+}
+
+@test "normalize_copilot_knowledge_subpath trims leading ./ and trailing /" {
+  run bash -c "source '$PROJECT_ROOT/.devcontainer/bootstrap.bash'; normalize_copilot_knowledge_subpath './copilot-knowledge/'"
+  [ "$status" -eq 0 ]
+  [ "$output" = "copilot-knowledge" ]
+}
+
+@test "bootstrap.bash defines build_github_basic_auth_header helper" {
+  run grep "^build_github_basic_auth_header()" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "build_github_basic_auth_header uses x-access-token basic auth payload" {
+  run bash -c "
+    source '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
+    h=\$(build_github_basic_auth_header 'ghp_testtoken')
+    echo \"\$h\" | grep -q '^AUTHORIZATION: basic '
+    enc=\$(echo \"\$h\" | cut -d' ' -f3)
+    dec=\$(printf '%s' \"\$enc\" | base64 -d)
+    [ \"\$dec\" = 'x-access-token:ghp_testtoken' ]
+  "
+  [ "$status" -eq 0 ]
+}
+
 @test "install_copilot_instructions copies to ~/.copilot/copilot-instructions.md" {
   run grep "copilot-instructions.md" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
   [ "$status" -eq 0 ]
@@ -208,12 +265,120 @@ EOF
 }
 
 @test "install_copilot_instructions is included in default task list" {
-  run bash -c "grep -A50 'local default_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep 'install_copilot_instructions'"
+  run bash -c "grep -A55 'local default_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep 'install_copilot_instructions'"
   [ "$status" -eq 0 ]
 }
 
-@test "install_copilot_instructions copies file when source exists" {
-  local src_dir="$TEST_TEMP_DIR/.github"
+@test "sync_copilot_knowledge is included in default task list" {
+  run bash -c "grep -A55 'local default_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep 'sync_copilot_knowledge'"
+  [ "$status" -eq 0 ]
+}
+
+@test "sync_copilot_knowledge uses helper functions for subpath and auth header" {
+  run bash -c "
+    grep -q 'subpath=\$(normalize_copilot_knowledge_subpath \"\$subpath\")' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
+    grep -q 'header=\$(build_github_basic_auth_header \"\$GH_TOKEN\")' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
+  "
+  [ "$status" -eq 0 ]
+}
+
+@test "sync_copilot_knowledge stores pre-sync backups under runtime path" {
+  run grep '\.runtime/copilot-knowledge-backups/pre-sync\.' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "write_devenvrc includes startup knowledge pull hook" {
+  run grep '^pull_copilot_knowledge_on_container_start()' "$PROJECT_ROOT/tools/lib/copilot-knowledge.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "startup knowledge pull runs only when copilot knowledge is a git repo" {
+  run grep '\[ -d "\$repo_dir/\.git" \] || return 0' "$PROJECT_ROOT/tools/lib/copilot-knowledge.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "startup knowledge pull is non-blocking background pull" {
+  run bash -c "
+    grep -q 'pull_copilot_knowledge_on_container_start' '$PROJECT_ROOT/tools/lib/copilot-knowledge.bash' &&
+    grep -q 'pull --ff-only origin' '$PROJECT_ROOT/tools/lib/copilot-knowledge.bash' &&
+    grep -q 'nohup env REPO_DIR=' '$PROJECT_ROOT/tools/lib/copilot-knowledge.bash'
+  "
+  [ "$status" -eq 0 ]
+}
+
+@test "startup.sh sources copilot knowledge library and calls pull function" {
+  run bash -c "
+    grep -q 'source \"\$toolbox_root/tools/lib/copilot-knowledge.bash\"' '$PROJECT_ROOT/.devcontainer/startup.sh' &&
+    grep -q 'pull_copilot_knowledge_on_container_start \"\$toolbox_root\"' '$PROJECT_ROOT/.devcontainer/startup.sh'
+  "
+  [ "$status" -eq 0 ]
+}
+
+@test "devenv-update parses Devenv-Action trailers from pulled commit range" {
+  run grep -E 'git log "\$\{pre_update_hash\}\.\.\$\{post_update_hash\}" --format=.*Devenv-Action' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "devenv-update always prints a post-update action recommendation" {
+  run grep 'Post-update action: nothing' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "devenv-update uses safe full convergence bootstrap profile" {
+  run bash -c "
+    grep -q 'run_update_tasks()' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
+    grep -q 'run_update_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
+  "
+  [ "$status" -eq 0 ]
+}
+
+@test "devenv-update offers to run bootstrap when bootstrap action is recommended" {
+  run grep 'Do you want to run bootstrap now? (y/n):' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "devenv-update includes explicit bootstrap follow-up paths" {
+  run bash -c "
+    grep -q 'Bootstrap completed successfully\.' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
+    grep -q 'Recommendation: restart the dev container to apply bootstrap changes\.' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
+    grep -q 'Skipping bootstrap\. Run .*bootstrap\.sh when ready\.' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
+  "
+  [ "$status" -eq 0 ]
+}
+
+@test "devenv-update restart action prompts for full container restart" {
+  run grep 'Do you want to restart the dev container now? (y/n):' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "devenv-update uses docker restart hostname for container restart" {
+  run grep 'docker restart "$(hostname)"' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "devenv-update recreate action offers recreate restart skip options" {
+  run bash -c "
+    grep -q 'Choose an option:' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
+    grep -q '1) Recreate container now (recommended)' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
+    grep -q '2) Restart container now' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
+    grep -q '3) Skip' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
+  "
+  [ "$status" -eq 0 ]
+}
+
+@test "load_setup_credentials runs before sync_copilot_knowledge" {
+  run bash -c "
+    tasks=\$(grep -A55 'local default_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+    creds_line=\$(echo \"\$tasks\" | grep -n 'load_setup_credentials' | cut -d: -f1)
+    sync_line=\$(echo \"\$tasks\" | grep -n 'sync_copilot_knowledge' | cut -d: -f1)
+    [ \"\$sync_line\" -gt \"\$creds_line\" ] && echo 'ordered_correctly' || echo 'wrong_order'
+  "
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "ordered_correctly" ]]
+}
+
+@test "install_copilot_instructions symlinks file when source exists" {
+  local src_dir="$TEST_TEMP_DIR/copilot"
   local dest_dir="$TEST_TEMP_DIR/home/.copilot"
   mkdir -p "$src_dir"
   echo "# test instructions" > "$src_dir/copilot-instructions.md"
@@ -222,12 +387,13 @@ EOF
 #!/bin/bash
 toolbox_root="$TEST_TEMP_DIR"
 HOME="$TEST_TEMP_DIR/home"
-src="\$toolbox_root/.github/copilot-instructions.md"
+src="\$toolbox_root/copilot/copilot-instructions.md"
 dest="\$HOME/.copilot/copilot-instructions.md"
 if [ -f "\$src" ]; then
   mkdir -p "\$HOME/.copilot"
-  cp "\$src" "\$dest"
-  echo "copied"
+  rm -f "\$dest"
+  ln -s "\$src" "\$dest"
+  echo "symlinked"
 else
   echo "skipped"
 fi
@@ -235,8 +401,8 @@ EOF
   chmod +x "$TEST_TEMP_DIR/test_install_copilot.sh"
   run "$TEST_TEMP_DIR/test_install_copilot.sh"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "copied" ]]
-  [ -f "$dest_dir/copilot-instructions.md" ]
+  [[ "$output" =~ "symlinked" ]]
+  [ -L "$dest_dir/copilot-instructions.md" ]
 }
 
 @test "install_copilot_instructions skips gracefully when source missing" {
@@ -244,7 +410,7 @@ EOF
 #!/bin/bash
 toolbox_root="$TEST_TEMP_DIR/no-such-dir"
 HOME="$TEST_TEMP_DIR/home2"
-src="\$toolbox_root/.github/copilot-instructions.md"
+src="\$toolbox_root/copilot/copilot-instructions.md"
 dest="\$HOME/.copilot/copilot-instructions.md"
 if [ -f "\$src" ]; then
   mkdir -p "\$HOME/.copilot"
@@ -260,17 +426,17 @@ EOF
   [[ "$output" =~ "skipped" ]]
 }
 
-@test "install_copilot_instructions creates skills symlink to .github/skills" {
+@test "install_copilot_instructions creates skills symlink to copilot/skills" {
   local toolbox="$TEST_TEMP_DIR/toolbox_skills"
   local home_dir="$TEST_TEMP_DIR/home_skills"
-  mkdir -p "$toolbox/.github/skills/spike"
+  mkdir -p "$toolbox/copilot/skills/spike"
   mkdir -p "$home_dir/.copilot"
 
   cat > "$TEST_TEMP_DIR/test_skills_symlink.sh" << EOF
 #!/bin/bash
 toolbox_root="$toolbox"
 HOME="$home_dir"
-skills_src="\$toolbox_root/.github/skills"
+skills_src="\$toolbox_root/copilot/skills"
 skills_link="\$HOME/.copilot/skills"
 if [ -d "\$skills_src" ]; then
   mkdir -p "\$HOME/.copilot"
@@ -286,13 +452,13 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" =~ "symlinked" ]]
   [ -L "$home_dir/.copilot/skills" ]
-  [ "$(readlink "$home_dir/.copilot/skills")" = "$toolbox/.github/skills" ]
+  [ "$(readlink "$home_dir/.copilot/skills")" = "$toolbox/copilot/skills" ]
 }
 
 @test "install_copilot_instructions skills symlink is idempotent" {
   local toolbox="$TEST_TEMP_DIR/toolbox_skills2"
   local home_dir="$TEST_TEMP_DIR/home_skills2"
-  mkdir -p "$toolbox/.github/skills"
+  mkdir -p "$toolbox/copilot/skills"
   mkdir -p "$home_dir/.copilot"
   # Pre-create a stale symlink
   ln -s /tmp/stale "$home_dir/.copilot/skills"
@@ -301,7 +467,7 @@ EOF
 #!/bin/bash
 toolbox_root="$toolbox"
 HOME="$home_dir"
-skills_src="\$toolbox_root/.github/skills"
+skills_src="\$toolbox_root/copilot/skills"
 skills_link="\$HOME/.copilot/skills"
 if [ -d "\$skills_src" ]; then
   mkdir -p "\$HOME/.copilot"
@@ -314,20 +480,20 @@ EOF
   run "$TEST_TEMP_DIR/test_skills_symlink_idem.sh"
   [ "$status" -eq 0 ]
   [ -L "$home_dir/.copilot/skills" ]
-  [ "$(readlink "$home_dir/.copilot/skills")" = "$toolbox/.github/skills" ]
+  [ "$(readlink "$home_dir/.copilot/skills")" = "$toolbox/copilot/skills" ]
 }
 
-@test "install_copilot_instructions skips skills symlink when .github/skills missing" {
+@test "install_copilot_instructions skips skills symlink when copilot/skills missing" {
   local toolbox="$TEST_TEMP_DIR/toolbox_noskills"
   local home_dir="$TEST_TEMP_DIR/home_noskills"
-  mkdir -p "$toolbox/.github"
+  mkdir -p "$toolbox/copilot"
   # no skills dir
 
   cat > "$TEST_TEMP_DIR/test_skills_missing.sh" << EOF
 #!/bin/bash
 toolbox_root="$toolbox"
 HOME="$home_dir"
-skills_src="\$toolbox_root/.github/skills"
+skills_src="\$toolbox_root/copilot/skills"
 skills_link="\$HOME/.copilot/skills"
 if [ -d "\$skills_src" ]; then
   mkdir -p "\$HOME/.copilot"

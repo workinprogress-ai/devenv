@@ -1,6 +1,23 @@
 # Additional Tooling
 
-This document provides comprehensive documentation for all additional tooling available in the development environment. These tools are located in the `scripts/` folder and are automatically added to the `PATH` when the development environment is set up.
+This document provides comprehensive documentation for all additional tooling available in the development environment. These tools are located in the `tools/scripts/` folder and are automatically added to the `PATH` when the development environment is set up.
+
+## Shared Bash Libraries
+
+Shared bash libraries live in `tools/lib/` and are sourced by scripts at runtime. These libraries are not directly executed from `PATH`, but they provide reusable functions used by bootstrap/startup and tooling scripts.
+
+### `copilot-knowledge.bash`
+
+Provides shared Copilot knowledge sync helpers.
+
+Public functions:
+
+- `build_github_basic_auth_header <token>`
+  - Builds a GitHub-compatible `http.extraheader` value using `x-access-token` basic auth.
+- `pull_copilot_knowledge_on_container_start <toolbox_root>`
+  - Runs a non-blocking background `git fetch/pull` for `<toolbox_root>/copilot/knowledge`.
+  - No-op when `copilot/knowledge` is not an initialized git repository.
+  - Used by `.devcontainer/startup.sh` so each container start refreshes Copilot knowledge when available.
 
 ## Repository Management
 

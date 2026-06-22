@@ -28,6 +28,9 @@ playground/
 playground/*
 .installs/
 .installs/*
+# Copilot knowledge is synced from an external repo during bootstrap/update
+copilot/knowledge/
+copilot/knowledge/*
 # Ignore symlinks in tools/ but keep subdirectories
 tools/*
 tools/custom/

@@ -13,8 +13,9 @@ Use this guide when you want the end-to-end methodology rather than a tool catal
 - **Responsibility and Accountability** — the **engineer** is **always** the **responsible** party for the work, even when AI-assisted; the AI provides support but does not own outcomes.  "The AI did it" is not an acceptable explanation for a shipped change.  
 - **Organic comprehension** - Take the danger of comprehension deficit seriously.  Understand what you are doing and be able to explain it. Do not treat the AI as a black box or a magic wand.  If you don't understand something, ask questions, seek clarification, and do not proceed until you have a clear mental model.
 - **AI is a tool, not a teammate** — use the AI for what it's good at (drafting, summarizing, suggesting) but do not treat it as a human collaborator with agency or ownership. Always maintain human control and oversight.
-- **Do the hard thing** - resist the temptation to skip steps or take shortcuts.  If you don't understand something, work at it until you do.  Choose to do work you are tempted to delegate when there is a good reason to do so. 
-- **Think deeply** - don't just ask "what should I do?" but also "why am I doing this? What is the goal? What are the trade-offs? What could go wrong? What would a good outcome look like?"  What patterns can be applied? 
+- **Decision gates are hard stops** — when execution raises a decision that must be resolved before continuing, no mutating action happens until the engineer explicitly approves the path. Silence or generic "go ahead" navigation is not approval.
+- **Do the hard thing** - resist the temptation to skip steps or take shortcuts.  If you don't understand something, work at it until you do.  Choose to do work you are tempted to delegate when there is a good reason to do so.
+- **Think deeply** - don't just ask "what should I do?" but also "why am I doing this? What is the goal? What are the trade-offs? What could go wrong? What would a good outcome look like?"  What patterns can be applied?
 - **Move slow to move fast** - take the time to do things right, especially in the early stages of understanding and planning.  This will pay off in faster execution and better outcomes later on.
 
 ## Core idea
