@@ -104,7 +104,7 @@ Interviews the user, scans repo conventions, drafts phased atomic tasks, and wri
 
 > **Collaborative, human stays in control.**
 
-Loads the plan and runs an interactive driver/navigator handoff: both parties take turns driving (writing the code) and navigating (watching, asking questions, keeping the big picture in view). The navigator is active during the other person's turn — pre-reading ahead, looking things up, catching problems early. The AI also acts as plan steward during execution: it keeps progress honest, captures newly discovered scope or unresolved questions back into the plan, and raises plan revisions when the work proves the plan needs to change. The AI pushes back when warranted, narrates its own reasoning as it works, and asks before assuming. High-engagement, high-quality — slows down appropriately for risky or novel work.
+Loads the plan and runs an interactive driver/navigator handoff: both parties take turns driving (writing the code) and navigating (watching, asking questions, keeping the big picture in view). The navigator is active during the other person's turn — pre-reading ahead, looking things up, catching problems early. The AI also acts as plan steward during execution: it keeps progress honest, captures newly discovered scope or unresolved questions back into the plan, and raises plan revisions when the work proves the plan needs to change. The AI pushes back when warranted, narrates its own reasoning as it works, and asks before assuming. If it raises a decision gate, it must stop before any mutating action until the user explicitly approves the path. High-engagement, high-quality — slows down appropriately for risky or novel work.
 
 **Use for:** high-impact phases — public API changes, data shape changes, security, novel architecture; also any work where you want to stay closely involved  
 **Don't use for:** mechanical/rote work (→ `/devenv-delegation`), pure exploration (→ `/devenv-spike`)  
@@ -118,6 +118,8 @@ Loads the plan and runs an interactive driver/navigator handoff: both parties ta
 > **Delegated execution support for mechanical work, with user review and ownership.**
 
 Analyzes a plan, refreshes and confirms the current phase task list as the execution ledger, implements phase-by-phase, keeps the user engaged with brief pings and inline concern surfacing, and maintains task state in place (tick done, remove obsolete, add required). At phase close, it ticks completed tasks and does a final cleanup sweep so the ledger reflects reality before completion. Ends each session with a summary including review hotspots.
+
+If it raises a decision gate, it must stop before any mutating action until the user explicitly approves the path.
 
 **Use for:** refactors, renames, test scaffolding, cleanup, docs — mechanical, low-risk phases  
 **Don't use for:** high-impact work (→ `/devenv-pair-programming`), ad-hoc work without a plan  

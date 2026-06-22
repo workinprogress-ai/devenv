@@ -8,6 +8,25 @@ Use this protocol when unresolved plan decisions or pending questions block exec
 - Keep decision handling explicit, traceable, and phase-scoped.
 - Escalate to plan reconsideration when complexity exceeds mode limits.
 
+## Hard Gate Rule
+
+When a skill emits a `🔶` decision prompt or otherwise says a decision is required before continuing, treat that as a hard execution stop, not a suggestion.
+
+- Stop immediately after presenting the decision.
+- Ask for an explicit user choice or approval.
+- Perform no mutating action until that approval is received.
+- Treat silence, topic changes, or generic navigation phrases as not approved.
+
+Mutating actions include any file edit, plan write, issue/comment write, terminal command that changes workspace state, or other write-capable tool invocation.
+
+Before any mutating action while a decision is open, run this check:
+
+- Is there an unresolved decision gate?
+- Did the user explicitly approve a path?
+- Is the intended action mutating?
+- If mutating, does the approval cover this exact scope?
+- If any answer is no, stop and ask one direct question.
+
 ## Classification
 
 Classify each unresolved item before discussion:
@@ -25,6 +44,7 @@ Classify each unresolved item before discussion:
 2. Present 2-3 concrete options with tradeoffs.
 3. Recommend one option and why.
 4. Ask for explicit user choice.
+5. Do not perform any mutating action until that choice is explicit and scope-matched.
 5. Record the result in the plan:
    - Phase-level under Watch Outs / Decisions.
    - Task-level as decision metadata on the earliest affected task.
@@ -91,7 +111,7 @@ When escalating back to planning, record unresolved decisions/questions thorough
      - what remains unresolved,
      - why execution paused,
      - recommended next step.
-    - Include a deterministic marker line at the top of the entry for downstream skills:
+   - Include a deterministic marker line at the top of the entry for downstream skills:
        - `[ESCALATION-HANDOFF] source=<pair|delegation> phase=<N> status=<needs-refine|user-deferred>`
 
 Minimum completeness for escalation handoff:

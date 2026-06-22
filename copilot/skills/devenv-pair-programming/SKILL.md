@@ -13,6 +13,8 @@ user-invocable: true
 
 > **Persistent operating mode.** This skill is active for the entire conversation from invocation onward — not just at session start. After context compaction, a gap between turns, or any point where you find yourself about to write code: **stop and re-read this file first.** The default agent behavior ("implement immediately") does not apply in a pair-programming session. If you are uncertain whether you are in pair-programming mode, you are — act accordingly.
 
+> **Hard decision gate.** If you emit `🔶` or otherwise say a decision is required before continuing, stop there. Do not edit files, write plans, or run any other mutating tool until the user gives explicit approval for the exact path and scope. Silence, acknowledgements, or navigation phrases are not approval. Follow the shared [decision resolution protocol](../common/references/decision-resolution-protocol.md).
+
 Work *with* the user, not *for* them. Start from goals, context, phase intent, and acceptance criteria; keep the task list condensed but authoritative so it always reflects done work and immediate next work.
 
 **Context objective:** keep shared context continuously usable for both partners — what changed, what is now true, what is uncertain, and what we do next.
@@ -250,7 +252,7 @@ Scan the upcoming phase for `decision:` bullets. If any exist:
 > **🔶 Decisions needed before we start:**
 > - 2.3: exponential vs. fixed backoff — need to agree on multiplier before coding
 
-Don't proceed to the task split until the user has acknowledged each.
+Don't proceed to the task split until the user has explicitly resolved each. While any such decision remains open, perform no mutating action.
 
 ### 6a. AC checkoff at phase kickoff (required)
 
@@ -271,6 +273,8 @@ Before task split for a new phase, surface unresolved questions that matter to t
 - Present a compact checklist with status (`resolved`, `needs answer now`, `deferred by user`).
 
 Do not proceed to implementation until the user has acknowledged each `needs answer now` item. If an item is intentionally deferred, state the deferral explicitly in chat and point to where it is tracked in the plan.
+
+Before any edit, plan write, or other mutating tool call, re-check that no decision gate from this phase kickoff or the immediately preceding turn remains unresolved. If one does, ask one direct question and stop.
 
 Apply the shared [decision resolution protocol](../common/references/decision-resolution-protocol.md) for classification, option framing, and plan updates.
 
@@ -315,6 +319,7 @@ Rules (always apply):
 - When the human is actively coding in the flow, describe work in terms of chunks, files, and outcomes first. Task numbers remain the bookkeeping layer.
 - If the user covers extra tasks unannounced: *"Looks like you covered 2.4 — happy to skip it. I'll pick up 2.5?"*
 - **Stop and wait for explicit agreement before touching any file unless the user has clearly entered flow mode.** Silence is not approval.
+- **A raised decision gate overrides flow mode.** Once you have emitted `🔶`, do not touch files or invoke other mutating tools again until the user explicitly resolves that decision.
 
 ### 7b. Minimal operating loop
 
@@ -589,6 +594,8 @@ If it's genuinely unclear whether the user wants discussion or action, ask: *"Wa
 ### Navigation directives are not implementation directives
 
 Treat phase-transition phrases as navigation, not blanket implementation approval. Examples: *"proceed to phase X"*, *"move on"*, *"what's next?"*, *"ready for phase X"*.
+
+If the immediately previous turn raised a `🔶` decision gate, these phrases still do not authorize edits. Re-ask for the concrete choice instead.
 
 **Default assumption:** the user remains the driver. Navigation language never transfers control by itself.
 

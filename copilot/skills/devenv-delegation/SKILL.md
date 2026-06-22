@@ -11,6 +11,8 @@ user-invocable: true
 
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
 
+> **Hard decision gate.** If you emit `🔶` or otherwise say a decision is required before continuing, stop there. Do not edit files, write plans, or run any other mutating tool until the user gives explicit approval for the exact path and scope. Silence, acknowledgements, or navigation phrases are not approval. Follow the shared [decision resolution protocol](../common/references/decision-resolution-protocol.md).
+
 This skill supports delegated execution while the user stays accountable for outcomes and reviews. Use it for work that is mechanical, rote, or low-impact enough that pair-programming ceremony would be overkill — but still warrants enough engagement that important decisions don't slip past the human.
 
 ## When to Use
@@ -198,7 +200,7 @@ After the file links block, scan the upcoming phase for any task with a `decisio
 > **Decisions needed this phase:**
 > - 2.3: exponential vs. fixed backoff — need to agree on multiplier before coding
 
-Wait for the user to resolve each flagged decision before proceeding to coding.
+Wait for the user to explicitly resolve each flagged decision before proceeding to coding. While any such decision remains open, perform no mutating action.
 
 ### 5c. AC checkoff at phase kickoff (required)
 
@@ -220,6 +222,8 @@ Before coding starts in any phase, resolve pending questions relevant to that ph
 
 Do not start implementation tasks while phase-relevant questions remain unresolved. If the user explicitly wants to defer one, convert it into an explicit tracked decision point in the current phase (with `decision:` metadata on the earliest affected task) and reconfirm before proceeding.
 
+Before any edit, plan write, or other mutating tool call, re-check that no decision gate from this phase kickoff or the immediately preceding turn remains unresolved. If one does, ask one direct question and stop.
+
 Use the shared [decision resolution protocol](../common/references/decision-resolution-protocol.md) for classification, option framing, and escalation.
 
 ### 5e. Refresh and confirm phase task list (required)
@@ -238,6 +242,8 @@ This refreshed phase task list is the execution ledger and must stay current thr
 ### 6. Confirm and start
 
 Wait for explicit go-ahead before starting the first session.
+
+If the immediately previous turn raised a `🔶` decision gate, a generic "go ahead" or navigation reply is not enough unless it clearly chooses one of the presented options or otherwise approves a specific path.
 
 ### 6b. Returning after a gap or status request
 
@@ -289,6 +295,8 @@ Stop and surface to the user when hitting:
 - Minor decisions where the correct path is evident — handle them and note them in the phase completion handback instead.
 
 When stopping mid-phase, state what the situation is, why it's a trigger, and what options exist. Wait for direction before continuing.
+
+If this stop includes a `🔶` decision gate, direction must be explicit and scope-matched before any further mutating action.
 
 ### Surfacing concerns
 

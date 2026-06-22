@@ -79,8 +79,8 @@ Skills for implementing work from a plan.
 
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 | --- | --- | --- | --- |
-| `/devenv-pair-programming` | Collaborative implementation — human and AI take turns, human stays in control | "pair program", "let's pair on this", "work on this issue with me", "implement this together" | solo "do this for me" tasks → `/devenv-delegation`; pure exploration → `/devenv-spike` |
-| `/devenv-delegation` | Delegated implementation support — assistant-led execution with user review, using phase task-list refresh as the execution ledger | "delegate this to you", "you take this", "run with this", "implement this plan", "do this for me" | high-impact phases (public API, data shape, security, novel architecture) → `/devenv-pair-programming`; work without a plan → create one first |
+| `/devenv-pair-programming` | Collaborative implementation — human and AI take turns, human stays in control, and raised decision gates block all mutating actions until explicitly resolved | "pair program", "let's pair on this", "work on this issue with me", "implement this together" | solo "do this for me" tasks → `/devenv-delegation`; pure exploration → `/devenv-spike` |
+| `/devenv-delegation` | Delegated implementation support — assistant-led execution with user review, using phase task-list refresh as the execution ledger, and stopping on raised decision gates before any mutating action resumes | "delegate this to you", "you take this", "run with this", "implement this plan", "do this for me" | high-impact phases (public API, data shape, security, novel architecture) → `/devenv-pair-programming`; work without a plan → create one first |
 
 ---
 
