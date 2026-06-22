@@ -1,6 +1,6 @@
 # Additional Tooling
 
-This document provides comprehensive documentation for all additional tooling available in the development environment. These tools are located in the `scripts/` folder and are automatically added to the `PATH` when the development environment is set up.
+This document provides comprehensive documentation for all additional tooling available in the development environment. These tools are located in the `tools/scripts/` folder and are automatically added to the `PATH` when the development environment is set up.
 
 ## Shared Bash Libraries
 

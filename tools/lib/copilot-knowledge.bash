@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Guard against multiple sourcing.
+if [ -n "${_COPILOT_KNOWLEDGE_LOADED:-}" ]; then
+    return 0
+fi
+readonly _COPILOT_KNOWLEDGE_LOADED=1
+
 # Build GitHub-compatible basic auth header for git HTTPS operations.
 build_github_basic_auth_header() {
     local token="$1"
@@ -17,8 +23,9 @@ pull_copilot_knowledge_on_container_start() {
 
     [ -d "$repo_dir/.git" ] || return 0
 
-    branch=$(git -C "$repo_dir" symbolic-ref --short HEAD 2>/dev/null)
-    [ -n "$branch" ] || branch="master"
+    branch=$(git -C "$repo_dir" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')
+    [ -n "$branch" ] || branch=$(git -C "$repo_dir" symbolic-ref --short HEAD 2>/dev/null)
+    [ -n "$branch" ] || branch="main"
 
     if [ -n "${GH_TOKEN:-}" ]; then
         local header
