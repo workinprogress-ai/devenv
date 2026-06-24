@@ -41,6 +41,7 @@ Classify each reported issue before editing:
 - Catalog discoverability problems, such as missing rows or wrong descriptions.
 - Template drift, such as frontmatter or structure that no longer matches the workspace standard.
 - Workflow misalignment, where skill behavior conflicts with principles in `docs/Workflow.md`.
+- Attribution policy violations, where skills or docs attribute authorship/revision ownership to AI or specific models instead of the user/engineer.
 - Ecosystem coherence problems, where skills overlap, conflict, or become unaware of each other.
 - Diagnostic findings from other skills, where pasted output reveals routing failures, stale links, or contradictions.
 
@@ -84,6 +85,7 @@ A repair is complete only when all of these are true:
 - Any catalog or registry entry that points to the skill is accurate.
 - Skill-guru can correctly route users to the maintained skill behavior.
 - The skill no longer contains the reported contradiction or stale reference.
+- Attribution language is compliant: artifacts and revision-history guidance attribute to the current user/engineer (or team context), never to AI/model actors.
 - Complementary boundaries with related skills remain explicit.
 - Changes do not violate workflow principles in `docs/Workflow.md`.
 - Any obvious follow-up risk is called out explicitly.
