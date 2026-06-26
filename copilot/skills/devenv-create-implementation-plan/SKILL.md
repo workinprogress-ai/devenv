@@ -75,7 +75,7 @@ Before exploring code, classify the target as one of:
 - API gateway
 - Frontend application
 
-Use [`component-context/index.md`](/home/vscode/.copilot/knowledge/component-context/index.md) to select context. For service work, load only the relevant service file(s) needed for current planning decisions:
+Use the `component-context/index.md` file from the configured Copilot knowledge location. Resolve that location from `devenv.config` `[copilot]` (`knowledge_repo`, `knowledge_subpath`) before loading context. For service work, load only the relevant service file(s) needed for current planning decisions:
 
 - `01-Service-Architecture.md`
 - `02-Service-Implementation.md`

@@ -118,7 +118,7 @@ Classify the primary component type(s) in scope before surveying architecture de
 - API gateway
 - Frontend application
 
-Use [`component-context/index.md`](/home/vscode/.copilot/knowledge/component-context/index.md) to load only relevant context for the current blueprint decisions. For service-heavy work, select only the needed service context files (`01-Service-Architecture.md`, `02-Service-Implementation.md`, `03-Service-Plugins.md`). If API gateway/frontend context is not yet available, proceed with general architecture rules and record that specialized context is pending.
+Use the `component-context/index.md` file from the configured Copilot knowledge location. Resolve that location from `devenv.config` `[copilot]` (`knowledge_repo`, `knowledge_subpath`) before loading context. For service-heavy work, select only the needed service context files (`01-Service-Architecture.md`, `02-Service-Implementation.md`, `03-Service-Plugins.md`). If API gateway/frontend context is not yet available, proceed with general architecture rules and record that specialized context is pending.
 
 #### Step 3 (brownfield only): Survey the existing system
 

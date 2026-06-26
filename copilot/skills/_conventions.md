@@ -172,8 +172,7 @@ Skills should keep only artifact-specific mapping details locally (artifact type
 When exploring WorkInProgress code, prefer local source under `repos/` before any package decompilation or metadata-only inspection.
 
 - Treat `repos/` as the default home for cloned WorkInProgress libraries, services, and related packages.
-- For service work, check `repos/lib.cs.services.common` and `repos/lib.cs.services.chassis` first for framework abstractions and runtime behavior.
-- Related service packages commonly follow the pattern `repos/lib.cs.services.*`.
+- For service-specific framework/source discovery rules, follow the service architecture knowledge file from configured Copilot knowledge (`component-context/01-Service-Architecture.md`).
 - More generally, assume WorkInProgress packages may exist under `repos/` unless proven otherwise.
 - If the needed repo is not present under `repos/`, ask the user to clone it rather than decompiling a NuGet package as the primary exploration path.
 - Use decompilation only as a fallback when source is genuinely unavailable and note that limitation explicitly.
@@ -387,7 +386,7 @@ Required behavior:
 
 When a skill needs component-specific implementation or architecture guidance, use the shared index at:
 
-- [`knowledge/component-context/index.md`](/home/vscode/.copilot/knowledge/component-context/index.md)
+- `component-context/index.md` from configured Copilot knowledge location (read `devenv.config` `[copilot]` keys `knowledge_repo` and `knowledge_subpath`).
 
 Supported component types:
 
