@@ -167,6 +167,17 @@ Skills should keep only artifact-specific mapping details locally (artifact type
 - If a required operation is not supported by available wrappers, `gh` is allowed as a fallback. Say explicitly why fallback is needed.
 - `--help` is consistent across the wrappers — when in doubt, instruct the AI to read `--help` for the exact flag set.
 
+## Workspace source discovery
+
+When exploring WorkInProgress code, prefer local source under `repos/` before any package decompilation or metadata-only inspection.
+
+- Treat `repos/` as the default home for cloned WorkInProgress libraries, services, and related packages.
+- For service work, check `repos/lib.cs.services.common` and `repos/lib.cs.services.chassis` first for framework abstractions and runtime behavior.
+- Related service packages commonly follow the pattern `repos/lib.cs.services.*`.
+- More generally, assume WorkInProgress packages may exist under `repos/` unless proven otherwise.
+- If the needed repo is not present under `repos/`, ask the user to clone it rather than decompiling a NuGet package as the primary exploration path.
+- Use decompilation only as a fallback when source is genuinely unavailable and note that limitation explicitly.
+
 Wrapper inventory (as of authoring):
 
 - Issues: `issue-create`, `issue-list`, `issue-update` (incl. `--add-label`/`--remove-label`), `issue-close`, `issue-comment`, `issue-comment-list`, `issue-comment-update`, `issue-get`, `issue-groom`, `issue-select`, `issue-artifact-doc-id`, `issue-artifact-upsert`
