@@ -11,9 +11,9 @@
 		"SSH_AUTH_SOCK": "/ssh-agent"
     },
 
-	"mounts": [
-		"source=${localEnv:SSH_AUTH_SOCK},target=/ssh-agent,type=bind"
-	],
+	// "mounts": [
+	// 	"source=${localEnv:SSH_AUTH_SOCK},target=/ssh-agent,type=bind"
+	// ],
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	"forwardPorts": [6090],

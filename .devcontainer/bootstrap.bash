@@ -288,7 +288,6 @@ download_container_scripts() {
     echo "#############################################"
     wget -O "$HOME/.git-completion.bash" https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash
     chmod +x "$HOME/.git-completion.bash"
-    chmod +x "$toolbox_root"/scripts/*
 }
 
 # Load credentials from .setup directory
@@ -752,7 +751,9 @@ __fix_vscode_ipc_sockets() {
     listening=$(ss -lxH 2>/dev/null | awk '{print $NF}')
     for sock in /tmp/vscode-ipc-*.sock; do
         [[ -S "$sock" ]] || continue
-        grep -qF "$sock" <<< "$listening" || continue
+        if [[ -n "$listening" ]]; then
+            grep -qF "$sock" <<< "$listening" || continue
+        fi
         [[ -z "$newest_cli_socket" || "$sock" -nt "$newest_cli_socket" ]] && newest_cli_socket="$sock"
     done
     if [[ -n "$newest_cli_socket" ]]; then
@@ -778,8 +779,10 @@ __fix_vscode_ipc_sockets() {
     fi
 }
 
-# Run the fix on shell startup
-__fix_vscode_ipc_sockets
+# Run the fix on shell startup (defensive: avoid startup errors if function is unavailable)
+if typeset -f __fix_vscode_ipc_sockets >/dev/null 2>&1; then
+    __fix_vscode_ipc_sockets
+fi
 
 # VS Code CLI wrapper - ensures we always use the newest *listening* socket even in long-running terminals
 code() {
