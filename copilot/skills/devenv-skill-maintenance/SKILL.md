@@ -11,6 +11,11 @@ Use this skill to repair the workspace's custom skill system in a controlled way
 
 ## What to inspect first
 
+Location conventions for this skill:
+
+- Copilot knowledge source of truth location must be read from `devenv.config` under `[copilot]` (use `knowledge_repo` and `knowledge_subpath`) before making knowledge edits.
+- Skills, conventions, and custom-skill governance in this workspace are maintained under `copilot/`.
+
 1. Read the current custom skills under `copilot/skills/`.
 2. Read `docs/Skills.md` so the catalog and the actual skills stay aligned.
 3. Read `copilot/skills/devenv-skill-guru/references/skills-registry.md` because it is the routing source of truth.

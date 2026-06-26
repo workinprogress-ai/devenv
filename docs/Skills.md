@@ -190,9 +190,9 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 |---|---|---|
 | `/devenv-gather-requirements` | Three-phase requirements interview → requirements doc | System name or existing notes |
 | `/devenv-refine-requirements` | Revise an existing requirements doc, preserve REQ-NNN IDs | Requirements file path |
-| `/devenv-create-blueprint` | Architectural decomposition → blueprint doc | System name or path to requirements |
-| `/devenv-refine-blueprint` | Revise an existing blueprint when architecture direction is known; escalate non-surgical redesigns | Blueprint file path |
-| `/devenv-grooming` | Consolidated component-level design intake and routing; always creates or updates the grooming document before handoff, then produces a Feature/Fix/Task issue attack plan by repo with independently shippable slices; default return point for accumulated design issues in a plan | Problem statement, component path, design doc path, plan path, or issue # |
+| `/devenv-create-blueprint` | Architectural decomposition into a durable structured `Blueprint-*.md` artifact | System name or path to requirements |
+| `/devenv-refine-blueprint` | Revise an existing durable `Blueprint-*.md` when architecture direction is known; preserve structure and revision history, escalate non-surgical redesigns | Blueprint file path |
+| `/devenv-grooming` | Consolidated component-level design intake and routing; always creates or updates a durable structured `Grooming-*.md` artifact before handoff, then produces a Feature/Fix/Task issue attack plan by repo with independently shippable slices; default return point for accumulated design issues in a plan | Problem statement, component path, design doc path, plan path, or issue # |
 | `/devenv-create-roadmap` | Phased delivery sequencing + GH issue creation | Blueprint and/or requirements file path (at least one) |
 | `/devenv-refine-roadmap` | Structurally revise a roadmap — split, re-sequence, add | Roadmap file path |
 | `/devenv-update-roadmap` | Sync roadmap status from issues + PRs | Roadmap file path |
@@ -212,7 +212,7 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 | `/devenv-chat-with-code` | Conversational fact-finding with a codebase — the code talks back | Repo path(s), or nothing for current workspace |
 | `/devenv-spike` | Exploratory investigation + findings doc | Question or issue # |
 | `/devenv-rubber-duck` | Think out loud — no artifacts | Problem description |
-| `/devenv-design-discussion` | Opinionated thinking partner for design/architecture choices; best for one bounded blocker or design question; outputs `Solution_Proposal_<topic>-NNN.md` by default | Design question or topic |
+| `/devenv-design-discussion` | Opinionated, conversation-first thinking partner for design/architecture choices; best for one bounded blocker or design question; writes `Solution_Proposal_<topic>-NNN.md` only on request (as context-rich input to technical design) | Design question or topic |
 
 ### Workflow
 
@@ -395,7 +395,7 @@ Blueprint changed
 | `/devenv-code-review` vs `/devenv-address-pr-comments` | Review assistance for your changes vs you address a reviewer's comments. |
 | `/devenv-address-pr-comments` vs GitHub PR extension | Auto-fixes clear threads + surfaces complex ones with recommendations vs batch fix-all with no per-thread direction. |
 | `/devenv-rubber-duck` vs `/devenv-spike` | No artifact vs produces a findings doc. |
-| `/devenv-rubber-duck` vs `/devenv-design-discussion` | Rubber-duck has no opinions and produces no artifact. Design-discussion brings strong opinions, drives to a recommendation, and outputs a `Solution_Proposal_<topic>-NNN.md` by default. |
+| `/devenv-rubber-duck` vs `/devenv-design-discussion` | Rubber-duck has no opinions and produces no artifact. Design-discussion brings strong opinions and drives to a recommendation in conversational mode; it writes a `Solution_Proposal_<topic>-NNN.md` only when asked. |
 | `/devenv-chat-with-code` vs `/devenv-rubber-duck` | Chat-with-code reads actual code and answers specific questions, cited to `file:line`. Rubber-duck is for thinking out loud about a problem without needing to look at code. |
 | `/devenv-chat-with-code` vs `/devenv-tech-debt-audit` | Chat-with-code is conversational Q&A — you ask, it answers. Tech-debt-audit is an unsupervised sweep that produces a structured findings document. |
 | `/devenv-chat-with-code` vs `/devenv-design-discussion` | Chat-with-code surfaces facts about existing code. Design-discussion weighs trade-offs and drives to a recommendation for what to build or change. |

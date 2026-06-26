@@ -41,3 +41,4 @@ tools/custom/
 !tools/config
 !tools/templates
 !tools/git-hooks/
+DS_Store

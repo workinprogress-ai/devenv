@@ -1,6 +1,8 @@
 # Solution_Proposal_<topic>-NNN.md template
 
-Use this template when capturing outputs from design discussion. The goal is a decision-ready proposal that can be consumed by engineers, architects, and management.
+Use this template when capturing outputs from design discussion. The goal is a conversation-derived, decision-ready proposal that records the final state and can be consumed by engineers, architects, and management.
+
+This is a one-time artifact. Do not include a revision-history section.
 
 ---
 
@@ -16,7 +18,7 @@ updated_at_utc: <ISO-8601>
 
 # Solution Proposal: <Topic in Title Case>
 
-> **Status:** Draft | Recommended | Approved | Superseded
+> **Status:** Recommended | Approved
 > **Date:** YYYY-MM-DD
 > **Authors:** <names / handles>
 > **Audience:** Engineering, Architecture, Management
@@ -47,9 +49,9 @@ Document the tensions that make this decision non-trivial.
 - **Force A vs. Force B** - explanation
 - **Force C vs. Force D** - explanation
 
-## 4. Options considered
+## 4. Alternatives considered (brief)
 
-Aim for 2-4 viable options.
+Capture alternatives briefly for context. Keep emphasis on why the final option(s) were selected.
 
 ### Option A: <name>
 
@@ -80,7 +82,16 @@ Aim for 2-4 viable options.
 
 (same structure)
 
-## 5. Comparison table
+## 5. Decision summary
+
+**Selected option(s):** <Option name(s)>
+
+**Why this final state:**
+- <force/constraint tie-in>
+- <operational/team rationale>
+- <risk and mitigation summary>
+
+## 6. Comparison table (optional)
 
 | Dimension | Option A | Option B | Option C |
 |---|---|---|---|
@@ -92,7 +103,7 @@ Aim for 2-4 viable options.
 | Risk level | ... | ... | ... |
 | 2-year regret risk | ... | ... | ... |
 
-## 6. Recommendation and rationale
+## 7. Recommendation and rationale
 
 **Pick:** Option <X>
 
@@ -100,12 +111,12 @@ Aim for 2-4 viable options.
 
 **If a different option is chosen:** capture accepted risks and contingency actions.
 
-## 7. Assumptions and dependencies
+## 8. Assumptions and dependencies
 
 - **Assumption 1** - validation approach
 - **Dependency 1** - owner and timing
 
-## 8. Follow-up work
+## 9. Follow-up work
 
 - [ ] Follow-up item
 - [ ] Follow-up item
@@ -115,11 +126,12 @@ Suggested next steps:
 - Systemic architecture update needed -> /devenv-create-blueprint or /devenv-refine-blueprint
 - Approach settled and implementation planning needed -> /devenv-plan-from-spec or /devenv-create-implementation-plan
 
-## Revision history
+## Appendix (optional): Technical design handoff context
 
-| Date | Change | Author |
-|---|---|---|
-| YYYY-MM-DD | Initial draft | <name> |
+Use this appendix only when helpful for downstream formal technical design work.
 
-Keep revision history material-only. If a review pass changes several small points, batch them into one row with a concise summary rather than one row per tweak.
+- Additional constraints discovered during discussion
+- Context that shaped the final decision
+- Edge cases, assumptions to validate, and implementation cautions
+- References another AI/human should read before drafting blueprint/grooming artifacts
 ```
