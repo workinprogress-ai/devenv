@@ -206,11 +206,20 @@ Wait for the user to explicitly resolve each flagged decision before proceeding 
 
 Before starting work in any new phase, review the accepted AC list and check off any AC that is already satisfied by completed phases.
 
-- If objectively verifiable, run `markdown-plan-complete-ac AC-N [<plan_file>]` and state the evidence.
-- If judgment is required, ask the user and check it off only after confirmation.
-- If still not met, leave it unchecked and call out what remains.
+**Verification rules:**
 
-Do this at every phase transition, not only in the final AC review.
+- If objectively verifiable by the AI: cite specific evidence before marking complete.
+  - Tests: file path + test name/line, or specific test output demonstrating the AC.
+  - Implementation: specific files that implement the AC requirement.
+  - Example: ✅ **AC-2** (Empty batches handled gracefully): `BulkSyncWorker_Tests.cs:EmptyBatchReturnsTypedResult` + implementation in [`BulkSyncWorker.cs:142-157`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142)
+
+- If verification requires user judgment (e.g., performance meets SLA, UX is intuitive): ask the user explicitly and check it off only after their confirmation. Do not assume.
+
+- If the AC cannot be verified by the AI (e.g., "system must be deployable in production" or "team adoption is smooth"): explicitly flag it to the user and do NOT check it off. State what would need to be verified and by whom.
+
+- If an AC is still not met: leave it unchecked and call out what remains.
+
+Do this at every phase transition, not only in the final AC review. Never silently check off an AC without cited evidence or explicit user confirmation.
 
 ### 5d. Pending-question resolution gate (required before coding)
 

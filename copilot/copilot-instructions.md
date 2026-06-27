@@ -58,11 +58,26 @@ The test: Every changed line should trace directly to the user's request.
 - If you don't know: say *"I don't know"* and offer to look it up. Never confabulate.
 - Low-confidence code should be flagged as such — don't let the user discover it after they've reviewed and approved.
 
+## 6. Skill Execution & Regrounding
+
+**In long conversations, skill context can fade. Restore it instantly on demand.**
+
+If the user says any variant of "reground", "reload the skill", "refocus", "get back on track", or asks you to re-anchor to the current skill:
+
+1. **Immediately** read or re-read the active skill's SKILL.md file in full.
+2. Identify the skill name from the SKILL.md filename.
+3. State: *"Regrounding to `/[skill-name]`. [1-sentence summary of skill purpose]"*
+4. Surface the key guardrails, decision gates, or phase logic that apply to the current work.
+5. **Tell a one-liner AI joke** as a signal that regrounding happened (e.g., "Why did the AI go to therapy? It had too many layers to unpack." or "I used to be lost in context, but then I found my purpose... and it was in a SKILL.md.").
+6. Proceed with that skill's guidance as the primary source of truth for the next turn.
+
+**This is not an apology.** Regrounding is a normal reset valve during long sessions. Use it cleanly and move forward. The joke signals to the user that the reset happened and brings the context back in focus.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
 
-## 6. Workspace Conventions
+## 7. Workspace Conventions
 
 This section is the single home for workspace-specific rules. Add new conventions here rather than scattering them across skills.
 
@@ -149,6 +164,8 @@ If a task requires a raw mutation, show the user the exact command and ask them 
 **File and method references.** Whenever a specific class, method, or file is mentioned **anywhere in chat output** — task descriptions, phase announcements, hand-backs, reviews, concerns, hints, or brain bootup — use a clickable workspace-root-relative link: [`ExecuteAsync` in `BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L87). Never use backtick code formatting as a substitute for a link when the location is known. If the exact line isn't known, link to the file without `#L`.
 
 ### Temporary code comments (DEVENV markers)
+
+When writing temporary comments into code during implementation sessions, use the `DEVENV` marker format so they are unambiguously identifiable and removable. DEVENV markers serve two distinct purposes:
 
 When writing temporary comments into code during implementation sessions, use the `DEVENV` marker format so they are unambiguously identifiable and removable. DEVENV markers serve two distinct purposes:
 
