@@ -5,18 +5,18 @@
         "workinprogress"
     ],
     "workbench.colorCustomizations": {
-        "activityBar.background": "#b7dfee",
-        "activityBar.foreground": "#deedf5",
-        "activityBar.activeBackground": "#81cbe8",
-        "titleBar.activeBackground": "#3D7A92",
-        "titleBar.activeForeground": "#F9FBFC",
-        "titleBar.inactiveBackground": "#1C303A",
-        "titleBar.inactiveForeground": "#F9FBFC",
-        "statusBar.background": "#1C303A",
-        "statusBar.foreground": "#F9FBFC",
-        "statusBar.debuggingBackground": "#1C303A",
-        "statusBar.debuggingForeground": "#F9FBFC",
-        "statusBar.noFolderBackground": "#1C303A",
-        "statusBar.noFolderForeground": "#F9FBFC"
+        "activityBar.background": "#0F2A38",
+        "activityBar.foreground": "#EAF3F8",
+        "activityBar.activeBackground": "#2E6E8A",
+        "titleBar.activeBackground": "#163A4D",
+        "titleBar.activeForeground": "#F4FAFD",
+        "titleBar.inactiveBackground": "#0E2430",
+        "titleBar.inactiveForeground": "#C8D9E2",
+        "statusBar.background": "#102A37",
+        "statusBar.foreground": "#F2F8FC",
+        "statusBar.debuggingBackground": "#1D4E63",
+        "statusBar.debuggingForeground": "#F6FBFE",
+        "statusBar.noFolderBackground": "#0E2430",
+        "statusBar.noFolderForeground": "#D4E2EA"
     },
 }
