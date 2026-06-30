@@ -234,11 +234,8 @@ validate_plan_ac_number() {
     return 1
 }
 
-# Build the regex pattern used to locate an acceptance-criteria checkbox line.
-# Matches lines like:
-#
-#   - [ ] **AC-3** Some criterion text *(inferred)*
-#   - [x] **AC-1.2** Done criterion
+# Build the regex pattern used to locate a specific acceptance-criteria
+# checkbox line.
 #
 # Usage:
 #   _plan_ac_pattern AC_NUMBER
@@ -247,7 +244,17 @@ validate_plan_ac_number() {
 _plan_ac_pattern() {
     local ac_number="${1:?ac_number required}"
     local escaped="${ac_number//./\\.}"
-    printf '^[[:space:]]*- \[[ x]\][[:space:]]+\*\*%s\*\*' "$escaped"
+    printf '^[[:space:]]*- \[[ x]\][[:space:]]+.*\*\*%s\*\*' "$escaped"
+}
+
+# Build the regex pattern used to count any acceptance-criteria checkbox line.
+#
+# Usage:
+#   _plan_ac_checkbox_pattern
+#
+# Output (stdout): the grep-compatible extended regex pattern
+_plan_ac_checkbox_pattern() {
+    printf '^[[:space:]]*- \[[ x]\][[:space:]]+.*\*\*AC-[0-9]+(\.[0-9]+)*\*\*'
 }
 
 # Find the line number of an acceptance-criteria checkbox in a plan file.
@@ -381,8 +388,11 @@ count_plan_acs() {
     fi
 
     local total completed
-    total=$(grep -cE '^[[:space:]]*- \[[ x]\][[:space:]]+\*\*AC-' "$plan_file" || true)
-    completed=$(grep -cE '^[[:space:]]*- \[x\][[:space:]]+\*\*AC-' "$plan_file" || true)
+    local pattern
+    pattern="$(_plan_ac_checkbox_pattern)"
+
+    total=$(grep -cE "$pattern" "$plan_file" || true)
+    completed=$(grep -cE '^[[:space:]]*- \[x\][[:space:]]+.*\*\*AC-[0-9]+(\.[0-9]+)*\*\*' "$plan_file" || true)
 
     printf '%s %s\n' "$completed" "$total"
 }

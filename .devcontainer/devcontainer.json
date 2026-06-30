@@ -24,12 +24,15 @@
 			}
 	},
 
-	"runArgs": [
+    "runArgs": [
+        "--memory=${localEnv:DEVCONT_MEM:8g}",
+        "--memory-swap=${localEnv:DEVCONT_SWAP:4g}",
+        "--cpus=${localEnv:DEVCONT_CPUS:4}"
 		// Parameters needed for ZeroTier
 		// "--cap-add=NET_ADMIN",
 		// "--cap-add=SYS_ADMIN",
 		// "--device=/dev/net/tun"
-	],
+        ],
 	
     "remoteUser": "vscode",
 	"postStartCommand": "/bin/bash .devcontainer/container-start.sh",

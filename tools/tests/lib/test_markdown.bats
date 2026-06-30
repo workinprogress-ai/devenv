@@ -303,6 +303,32 @@ teardown() {
     [[ "$output" =~ ^[0-9]+$ ]]
 }
 
+@test "find_plan_ac_line handles AC lines with trailing anchors" {
+    local anchored_plan="$TEST_TEMP_DIR/Requirements-anchored-trailing.md"
+    cat > "$anchored_plan" << 'EOF'
+# Demo
+
+- [ ] **AC-1** Example criterion text. <a id="ac-1"></a>
+EOF
+
+    run find_plan_ac_line "$anchored_plan" "AC-1"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ ^[0-9]+$ ]]
+}
+
+@test "find_plan_ac_line handles AC lines with leading anchors" {
+    local anchored_plan="$TEST_TEMP_DIR/Requirements-anchored-leading.md"
+    cat > "$anchored_plan" << 'EOF'
+# Demo
+
+- [ ] <a id="ac-1"></a>**AC-1** Example criterion text.
+EOF
+
+    run find_plan_ac_line "$anchored_plan" "AC-1"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ ^[0-9]+$ ]]
+}
+
 # ============================================================================
 # is_plan_ac_complete
 # ============================================================================
@@ -362,6 +388,36 @@ teardown() {
     set_plan_ac_complete "$AC_PLAN_FILE" "AC-1.1" "complete"
     run is_plan_ac_complete "$AC_PLAN_FILE" "AC-1.1"
     [ "$status" -eq 0 ]
+}
+
+@test "set_plan_ac_complete works for trailing-anchor AC lines" {
+    local anchored_plan="$TEST_TEMP_DIR/Requirements-anchored-trailing-update.md"
+    cat > "$anchored_plan" << 'EOF'
+# Demo
+
+- [ ] **AC-1** Example criterion text. <a id="ac-1"></a>
+EOF
+
+    set_plan_ac_complete "$anchored_plan" "AC-1" "complete"
+    run is_plan_ac_complete "$anchored_plan" "AC-1"
+    [ "$status" -eq 0 ]
+}
+
+@test "count_plan_acs counts AC lines with anchors in either position" {
+    local anchored_plan="$TEST_TEMP_DIR/Requirements-anchored-count.md"
+    cat > "$anchored_plan" << 'EOF'
+# Demo
+
+- [ ] <a id="ac-1"></a>**AC-1** Example criterion text.
+- [x] **AC-2** Example criterion text. <a id="ac-2"></a>
+EOF
+
+    local counts completed total
+    counts=$(count_plan_acs "$anchored_plan")
+    completed="${counts%% *}"
+    total="${counts##* }"
+    [ "$completed" -eq 1 ]
+    [ "$total" -eq 2 ]
 }
 
 # ============================================================================
