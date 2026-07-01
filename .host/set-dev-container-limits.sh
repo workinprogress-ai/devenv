@@ -21,7 +21,8 @@ esac
 if [ "$#" -ne 3 ]; then
     echo "Error: Missing parameters."
     echo "Usage: $0 <memory> <swap> <cpus>"
-    echo "Example: $0 16g 4g 8"
+    echo "Example: $0 16g 20g 8"
+    echo "Note that the swap file must be _bigger_ than the memory limit.  The recommendation is to set swap about 4G larger than the memory limit."
     exit 1
 fi
 

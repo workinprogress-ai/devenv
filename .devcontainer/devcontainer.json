@@ -7,8 +7,8 @@
 	"image": "mcr.microsoft.com/devcontainers/base:bookworm",
     "remoteEnv": {
         //"NODE_TLS_REJECT_UNAUTHORIZED": "0",
-		"DEVCONTAINER": "true",
-		"SSH_AUTH_SOCK": "/ssh-agent"
+		"DEVCONTAINER": "true"
+		//"SSH_AUTH_SOCK": "/ssh-agent"
     },
 
 	// "mounts": [
@@ -26,7 +26,7 @@
 
     "runArgs": [
         "--memory=${localEnv:DEVCONT_MEM:8g}",
-        "--memory-swap=${localEnv:DEVCONT_SWAP:4g}",
+        "--memory-swap=${localEnv:DEVCONT_SWAP:12g}",
         "--cpus=${localEnv:DEVCONT_CPUS:4}"
 		// Parameters needed for ZeroTier
 		// "--cap-add=NET_ADMIN",
