@@ -202,9 +202,11 @@ All custom skills under `copilot/skills/devenv-*/SKILL.md` must support a common
 Required behavior:
 
 1. If the user asks for diagnostics after undesirable output/action, follow [Diagnostic Mode Protocol](./common/references/diagnostic-mode-protocol.md).
-2. Output a single copiable fenced markdown code block.
-3. Include skill-in-effect, conversation context, decision trace summary, self-diagnosis, and related context.
-4. Do not expose hidden internal chain-of-thought; provide a concise decision trace summary only.
+2. Treat plain-language requests such as "give me a diagnostic report" as direct triggers for diagnostic mode, even without the exact phrase "enter diagnostic mode".
+3. In execution skills, diagnostic requests short-circuit implementation flow: do not apply fixes first; emit the diagnostic artifact first.
+4. Output a single copiable fenced markdown code block.
+5. Include skill-in-effect, conversation context, decision trace summary, self-diagnosis, and related context.
+6. Do not expose hidden internal chain-of-thought; provide a concise decision trace summary only.
 
 Authoring rule: Add the blockquote immediately after the title (before the opening paragraph) for the listed skills only.
 
