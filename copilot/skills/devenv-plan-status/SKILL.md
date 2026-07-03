@@ -69,7 +69,7 @@ Default output is markdown to chat. Format:
 
 ### Next actionable (5)
 - 3.2 Create plan-status skill
-- 3.3 Create plan-from-spec skill
+- 3.3 Fold spec-derived planning into create-implementation-plan
 - 4.1 Create code-review skill
 - ...
 

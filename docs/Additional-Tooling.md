@@ -2439,7 +2439,7 @@ The following convenience aliases are available in the dev container:
 
 Tools for working with markdown documents, specifically implementation plans
 produced through the planning workflow (for example via
-`devenv-create-implementation-plan` and `devenv-plan-from-spec`).
+`devenv-create-implementation-plan`).
 
 ### `markdown-plan-complete-task`
 

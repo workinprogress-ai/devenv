@@ -83,7 +83,7 @@ Document file: `<workspace-relative path to the relevant design artifact>`
 ```
 Design discussion document is in a comment identified by artifact doc_id.
 
-Next step: use `/devenv-create-implementation-plan` or `/devenv-plan-from-spec`
+Next step: use `/devenv-create-implementation-plan`
 to move from design to implementation.
 ```
 

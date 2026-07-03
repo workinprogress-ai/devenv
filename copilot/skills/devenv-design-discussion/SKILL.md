@@ -31,7 +31,7 @@ For in-flight implementation blockers, do not use `/devenv-design-discussion` as
 - If that supposedly bounded blocker turns out to expose broader design drift, stop the focused discussion and route back to `/devenv-grooming` instead of forcing a broad redesign through this skill.
 - Route to `/devenv-grooming` when the approach is already chosen and the remaining step is capturing/updating the in-flight architecture delta.
 - Route to `/devenv-grooming` when plan problems are accumulating, multiple design decisions are entangled, or the current design may need broader reshaping rather than a one-question answer.
-- Route to `/devenv-create-implementation-plan` or `/devenv-plan-from-spec` when architecture choice is settled and execution planning is the main need.
+- Route to `/devenv-create-implementation-plan` when architecture choice is settled and execution planning is the main need.
 - If the user provides a plan with architectural faults, run plan intake first, then continue only on unresolved approach decisions.
 
 ## What this skill does
@@ -139,7 +139,7 @@ If a written solution proposal is posted to a GitHub issue comment, follow the s
 
 If no written proposal is produced, no artifact identity or GitHub publication flow is required.
 
-If posted to a GitHub issue, treat the file as canonical and the issue comment as a published copy that downstream skills may read as context. It can be the upstream input for [`/devenv-plan-from-spec`](../devenv-plan-from-spec/SKILL.md), or contextual input for [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md).
+If posted to a GitHub issue, treat the file as canonical and the issue comment as a published copy that downstream skills may read as context. It can be upstream input for [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md).
 
 ## Process
 
@@ -271,7 +271,7 @@ Any open question not explicitly kept open by the user should be converted into 
 - Approach needs a feasibility check first → [`/devenv-spike`](../devenv-spike/SKILL.md)
 - Discussion settled at the system level → [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
 - Discussion settled at the component level (design needs to be specified) → [`/devenv-grooming`](../devenv-grooming/SKILL.md)
-- Discussion settled at the component level and should become a reusable issue artifact for planning → [`/devenv-plan-from-spec`](../devenv-plan-from-spec/SKILL.md)
+- Discussion settled at the component level and should become a reusable issue artifact for planning → [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md)
 - Discussion settled at the component level (design is already clear, just need tasks) → [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md)
 - Discussion exposed that the user is actually just venting/articulating → [`/devenv-rubber-duck`](../devenv-rubber-duck/SKILL.md)
 - This is an in-flight refactor needing migration discipline → share [references/architectural-change-guide.md](./references/architectural-change-guide.md) and suggest [`/devenv-delegation`](../devenv-delegation/SKILL.md) or [`/devenv-pair-programming`](../devenv-pair-programming/SKILL.md) for execution

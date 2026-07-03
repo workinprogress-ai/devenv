@@ -121,6 +121,6 @@ One-line summary per change applied, plus the new task counts and overall progre
 - `/devenv-plan-status` — read-only progress reports.
 - `/devenv-refine-implementation-plan` — for rewording, restructuring, or bulk changes.
 - `/devenv-create-implementation-plan` — for brand-new plans.
-- `/devenv-plan-from-spec` — for generating a plan from an existing design doc.
+- `/devenv-create-implementation-plan` — for generating a plan from an existing design doc or complete spec.
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

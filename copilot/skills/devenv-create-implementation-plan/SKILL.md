@@ -1,6 +1,6 @@
 ---
 name: devenv-create-implementation-plan
-description: 'Create a structured Implementation_plan.md for a user story, task, or GitHub issue so a human + AI pair can execute it together. USE WHEN the user says "create an implementation plan", "plan this story", "break this task into phases", "break down this work", "write up a plan for this", or hands off a GitHub issue / user story to be implemented. Interviews the user, scans repo conventions, drafts phased atomic tasks, gets explicit approval, writes the file to the target repo root with a numbered suffix, and offers to push the plan into the associated GitHub issue. DO NOT USE for ad-hoc coding tasks where no plan file is wanted, for pure research/Q&A, or for editing an existing plan (just edit the file directly).'
+description: 'Create a structured Implementation_plan.md for a user story, task, GitHub issue, or complete spec/RFC/design doc so a human + AI pair can execute it together. USE WHEN the user says "create an implementation plan", "plan this story", "break this task into phases", "break down this work", "write up a plan for this", "plan from this spec", or hands off a GitHub issue / user story / complete spec to be implemented. Interviews the user when needed, scans repo conventions, drafts phased atomic tasks, gets explicit approval, writes the file to the target repo root with a numbered suffix, and offers to push the plan into the associated GitHub issue. DO NOT USE for ad-hoc coding tasks where no plan file is wanted, for pure research/Q&A, or for editing an existing plan (just edit the file directly).'
 argument-hint: '[issue-number | path-to-story | freeform description]'
 user-invocable: true
 ---
@@ -20,8 +20,9 @@ Trigger phrases:
 - "create an implementation plan" / "write an implementation plan"
 - "plan this story" / "plan out this work"
 - "break this task into phases" / "break down this work"
+- "plan from this spec" / "convert this issue into a plan"
 - A GitHub issue URL or number is handed off with intent to implement
-- A pasted user story / requirements blob with intent to implement
+- A pasted user story / requirements blob / complete spec with intent to implement
 
 Do **not** use for:
 
@@ -32,13 +33,14 @@ Do **not** use for:
 
 If the primary upstream artifact is a design-discussion or spike output and there is no grooming artifact yet, route through [`/devenv-grooming`](../devenv-grooming/SKILL.md) first (unless the user explicitly asks to bypass grooming).
 
-Exception: direct-plan mode is valid when the user intentionally wants to create a plan without grooming (for example from thin-air context, mixed pasted notes, or unclassified artifacts). In this mode, the skill disambiguates from user input and available sources.
+Exception: direct-plan mode is valid when the user intentionally wants to create a plan without grooming (for example from thin-air context, mixed pasted notes, unclassified artifacts, or a complete spec/RFC/design doc). In this mode, the skill disambiguates from user input and available sources.
 
 ## Inputs the Skill Collects
 
 1. **Source material** (one or more of):
   - GitHub issue (number or URL) — fetch with `issue-get N --pretty` and `issue-comment-list N --full`; use both the issue body and comments as source material
-   - Pasted user story / requirements text
+  - Pasted user story / requirements text
+  - Complete spec / RFC / design doc / issue body
    - Linked design docs or files in `planning.*` repos
 2. **Related code** — read-only exploration via the `Explore` subagent
 3. **Repo conventions** — `copilot/copilot-instructions.md`, `AGENTS.md`, and any `planning.*` repo in the workspace
@@ -368,9 +370,10 @@ Every phase header in `## Detailed Task List` is followed by a short `> blockquo
 - `/devenv-create-blueprint` + `/devenv-create-roadmap` — for epic-scale work across multiple components; each roadmap step eventually becomes an implementation plan.
 - `/devenv-grooming` — when the component's internal design direction is unsettled; classify it before writing tasks.
 - `/devenv-design-discussion` — when the right approach for this work isn't settled yet; weigh options before planning tasks.
-- `/devenv-plan-from-spec` — when the spec or issue body is already complete enough to skip the interview.
 - `/devenv-refine-implementation-plan` — to revise this plan after scope changes.
 - `/devenv-plan-update` — small surgical edits (tick boxes, add notes).
 - `/devenv-plan-status` — read-only progress report.
+
+Spec-derived planning is handled by this skill in direct-plan mode.
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

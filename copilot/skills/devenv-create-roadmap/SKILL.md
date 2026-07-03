@@ -265,7 +265,7 @@ Write the file back. Confirm the path and issue counts to the user.
 After the roadmap is created and issues exist:
 
 - **Track delivery progress**: [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md) syncs roadmap step status from issue/PR state.
-- **Implement a step**: [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) or [`/devenv-plan-from-spec`](../devenv-plan-from-spec/SKILL.md) on the issue produces task-level detail.
+- **Implement a step**: [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) on the issue produces task-level detail.
 - **Architecture changed**: [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) → then re-run this skill to add new steps.
 
 ## Anti-patterns

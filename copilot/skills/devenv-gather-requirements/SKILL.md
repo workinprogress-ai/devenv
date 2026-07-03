@@ -504,8 +504,7 @@ This skill produces a requirements document that feeds directly into:
 - [`/devenv-refine-requirements`](../devenv-refine-requirements/SKILL.md) — revise the document later when scope shifts or new communications arrive
 - [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) — translate requirements into an architectural blueprint for epic-scale work
 - [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) — produce a real delivery roadmap (after a blueprint exists); supersedes Phase 3's priority groupings for execution purposes
-- [`/devenv-plan-from-spec`](../devenv-plan-from-spec/SKILL.md) — generate a detailed implementation plan from a specific requirement or group
-- [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) — interview-driven planning for a specific requirement or group
+- [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) — interview-driven planning for a specific requirement or group, or a complete spec/RFC
 
 ## Companion Tooling
 

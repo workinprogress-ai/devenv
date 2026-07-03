@@ -56,7 +56,7 @@ When the user signals they're done — explicitly ("OK I think I've got it"), or
    ```
 
 2. **Suggest a next-step skill** if one fits naturally:
-   - The user has clarity and a path forward → `/devenv-create-implementation-plan` or `/devenv-plan-from-spec`.
+   - The user has clarity and a path forward → `/devenv-create-implementation-plan`.
    - The user has an unverified assumption that blocks progress → `/devenv-spike`.
    - The user has a small concrete change in mind → just go do it (no skill needed).
    - The user is still fuzzy → stay in this mode or stop.
@@ -77,7 +77,7 @@ When the user signals they're done — explicitly ("OK I think I've got it"), or
 - `/devenv-design-discussion` — when the user wants opinions and a recommendation, not just reflection.
 - `/devenv-spike` — when the question needs an experiment, not a conversation.
 - `/devenv-create-implementation-plan` — when the user gains clarity and wants to plan the work.
-- `/devenv-plan-from-spec` — when the conversation produced enough structure to draft from.
+- `/devenv-create-implementation-plan` — when the conversation produced enough structure to draft from.
 - `/devenv-pair-programming`, `/devenv-delegation` — for the actual implementation once the thinking resolves.
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

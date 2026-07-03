@@ -37,8 +37,7 @@ What are you trying to do?
 │   └─ Sync roadmap state from issues / PRs      →  /devenv-update-roadmap
 │
 ├─ 📋 Plan
-│   ├─ Create from idea / issue         →  /devenv-create-implementation-plan
-│   ├─ Create from existing spec / RFC  →  /devenv-plan-from-spec
+│   ├─ Create from idea / issue or complete spec / RFC  →  /devenv-create-implementation-plan
 │   ├─ Revise after scope change        →  /devenv-refine-implementation-plan
 │   ├─ Small surgical edit (tick / note)→  /devenv-plan-update
 │   └─ Check progress, read-only        →  /devenv-plan-status
@@ -68,10 +67,10 @@ These are the backbone of the catalog. Start here if you're unsure.
 
 > **Before planning begins, when requirements are undefined.**
 
-Conducts a structured three-phase interview (vision → requirements → roadmap) and produces a `Requirements-<topic>-NNN.md`. Maintains a `session_memory-requirements.md` across sessions. The requirements document then feeds into `/devenv-create-blueprint`, `/devenv-plan-from-spec`, or `/devenv-create-implementation-plan`.
+Conducts a structured three-phase interview (vision → requirements → roadmap) and produces a `Requirements-<topic>-NNN.md`. Maintains a `session_memory-requirements.md` across sessions. The requirements document then feeds into `/devenv-create-blueprint` or `/devenv-create-implementation-plan`.
 
-**Use for:** new systems or features where what the system should do isn't yet defined  
-**Don't use for:** requirements already exist (→ `/devenv-create-blueprint` for epic-scale work, `/devenv-plan-from-spec` for single deliverables), quick inline clarifications  
+**Use for:** new systems or features where what the system should do isn't yet defined
+**Don't use for:** requirements already exist (→ `/devenv-create-blueprint` for epic-scale work, `/devenv-create-implementation-plan` for single deliverables), quick inline clarifications
 **Tool deps:** none
 
 ---
@@ -190,7 +189,6 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 | `/devenv-refine-roadmap` | Structurally revise a roadmap — split, re-sequence, add | Roadmap file path |
 | `/devenv-update-roadmap` | Sync roadmap status from issues + PRs | Roadmap file path |
 | `/devenv-create-implementation-plan` | Create a plan via interview; supports direct-plan mode and treats side-stream artifacts as additional (non-directing) context | Issue # or description |
-| `/devenv-plan-from-spec` | Create a plan from an existing spec/RFC/doc; supports direct-plan mode and treats side-stream artifacts as additional (non-directing) context | File path, URL, or issue # |
 | `/devenv-refine-implementation-plan` | Revise a plan after scope changes | Plan file path or issue # |
 | `/devenv-plan-update` | Small surgical edit (tick box, add note) | Plan file path or issue # |
 | `/devenv-plan-status` | Progress report, read-only | Plan file path or issue # |
@@ -319,7 +317,7 @@ Existing-component feature request
 /devenv-design-discussion or /devenv-spike
   -> /devenv-grooming                        # capture design delta + issue attack plan
   -> /devenv-create-implementation-plan
-     or /devenv-plan-from-spec              # one selected issue slice
+    or /devenv-create-implementation-plan  # one selected issue slice
   -> execution
 ```
 
@@ -332,7 +330,7 @@ Direct-plan exception:
 ### Plan too large during creation
 
 ```text
-/devenv-create-implementation-plan or /devenv-plan-from-spec
+/devenv-create-implementation-plan
   -> scope/risk too large for one issue?
      -> yes: /devenv-grooming (redivide into Feature/Fix/Task issues)
      -> then: create focused plan for one selected issue slice
@@ -371,7 +369,7 @@ Blueprint changed
 
 | Potential confusion | Clarification |
 | --- | --- |
-| `/devenv-create-implementation-plan` vs `/devenv-plan-from-spec` | Interview vs no-interview. Use `plan-from-spec` when the spec already has acceptance criteria. |
+| `/devenv-create-implementation-plan` | Interview-driven planning, with direct-plan mode for complete specs/RFCs/issues. |
 | `/devenv-gather-requirements` vs `/devenv-create-implementation-plan` | Requirements describe *what* the system does (user perspective). Implementation plans describe *how* to build it (engineering tasks). One requirements phase may produce multiple implementation plans. |
 | `/devenv-create-blueprint` vs `/devenv-create-implementation-plan` | Blueprint is high-level architecture across multiple components (domains, services, events, deltas). Implementation plan is task-level for one deliverable. A blueprint typically spawns several implementation plans. |
 | `/devenv-grooming` vs specialized component design skills | Use grooming when you are not sure whether the work is option-weighing or design update, or when plan problems are accumulating and may require broader reshaping. It routes to `/devenv-design-discussion` when the real need is one bounded design question. |

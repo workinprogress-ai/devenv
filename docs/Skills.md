@@ -37,8 +37,7 @@ What are you trying to do?
 │   └─ Sync roadmap state from issues / PRs      →  /devenv-update-roadmap
 │
 ├─ 📋 Plan
-│   ├─ Create from idea / issue         →  /devenv-create-implementation-plan
-│   ├─ Create from existing spec / RFC  →  /devenv-plan-from-spec
+│   ├─ Create from idea / issue or complete spec / RFC  →  /devenv-create-implementation-plan
 │   ├─ Revise after scope change        →  /devenv-refine-implementation-plan
 │   ├─ Small surgical edit (tick / note)→  /devenv-plan-update
 │   └─ Check progress, read-only        →  /devenv-plan-status
@@ -68,7 +67,7 @@ These are the backbone of the catalog. Start here if you're unsure.
 
 > **Before planning begins, when requirements are undefined. Also when brainstorming changes to existing requirements.**
 
-Conducts a structured three-phase interview (vision → requirements → roadmap) and produces a `Requirements-<topic>-NNN.md`. Can also continue a previous gathering session: pass an existing `Requirements-*.md` file path to brainstorm new ideas, explore implications, and integrate new input **before committing changes**. Maintains a `session_memory-requirements.md` across sessions. The requirements document then feeds into `/devenv-create-blueprint`, `/devenv-plan-from-spec`, or `/devenv-create-implementation-plan`.
+Conducts a structured three-phase interview (vision → requirements → roadmap) and produces a `Requirements-<topic>-NNN.md`. Can also continue a previous gathering session: pass an existing `Requirements-*.md` file path to brainstorm new ideas, explore implications, and integrate new input **before committing changes**. Maintains a `session_memory-requirements.md` across sessions. The requirements document then feeds into `/devenv-create-blueprint` or `/devenv-create-implementation-plan`.
 
 **Use for:**
 
@@ -78,7 +77,7 @@ Conducts a structured three-phase interview (vision → requirements → roadmap
 **Don't use for:**
 
 - Applying known changes to a requirements doc when you already know what should change → `/devenv-refine-requirements`
-- Requirements already exist and you just want to plan/architect → `/devenv-create-blueprint`, `/devenv-plan-from-spec`
+- Requirements already exist and you just want to plan/architect → `/devenv-create-blueprint`, `/devenv-create-implementation-plan`
 - Quick inline clarifications (just ask directly)
 
 **Tool deps:** none
@@ -196,8 +195,7 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 | `/devenv-create-roadmap` | Phased delivery sequencing + GH issue creation | Blueprint and/or requirements file path (at least one) |
 | `/devenv-refine-roadmap` | Structurally revise a roadmap — split, re-sequence, add | Roadmap file path |
 | `/devenv-update-roadmap` | Sync roadmap status from issues + PRs | Roadmap file path |
-| `/devenv-create-implementation-plan` | Create a plan via interview | Issue # or description |
-| `/devenv-plan-from-spec` | Create a plan from an existing spec/RFC/doc | File path, URL, or issue # |
+| `/devenv-create-implementation-plan` | Create a plan via interview or from a complete spec/RFC/doc | Issue #, description, or complete spec |
 | `/devenv-refine-implementation-plan` | Revise a plan after scope changes | Plan file path or issue # |
 | `/devenv-plan-update` | Small surgical edit (tick box, add note) | Plan file path or issue # |
 | `/devenv-plan-status` | Progress report, read-only | Plan file path or issue # |

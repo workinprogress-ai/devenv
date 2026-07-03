@@ -64,8 +64,7 @@ Skills for creating, updating, and inspecting implementation plans.
 
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 | --- | --- | --- | --- |
-| `/devenv-create-implementation-plan` | Interview the user and write a phased `Implementation_plan-*.md`; loads issue body + comments when a GitHub issue is the source; triggers grooming redivision when scope is too large/risky; supports direct-plan mode and treats side-stream artifacts as additional (non-directing) context | "create an implementation plan", "plan this story", "break this task into phases", "write up a plan for this" | when a spec already exists with ACs → `/devenv-plan-from-spec`; editing existing plan → `/devenv-refine-implementation-plan` |
-| `/devenv-plan-from-spec` | Generate a plan from an existing spec, RFC, design doc, or issue body; triggers grooming redivision when scope is too large/risky; supports direct-plan mode and treats side-stream artifacts as additional (non-directing) context | "turn this spec into a plan", "make a plan from this RFC", "plan from this design doc", "convert this issue into a plan" | vague/incomplete ideas (use `/devenv-create-implementation-plan` for the interview); revising existing plan → `/devenv-refine-implementation-plan` |
+| `/devenv-create-implementation-plan` | Interview the user and write a phased `Implementation_plan-*.md`; loads issue body + comments when a GitHub issue is the source; triggers grooming redivision when scope is too large/risky; supports direct-plan mode for complete specs/RFCs/design docs and treats side-stream artifacts as additional (non-directing) context | "create an implementation plan", "plan this story", "break this task into phases", "write up a plan for this", "plan from this spec", "convert this issue into a plan" | vague/incomplete ideas (use `/devenv-create-implementation-plan` for the interview); revising existing plan → `/devenv-refine-implementation-plan` |
 | `/devenv-refine-implementation-plan` | Revise a plan after scope changes, new requirements, or discoveries | "refine the plan", "update the plan", "the plan needs updating", "rework the plan based on what we learned" | small surgical edits (tick a box, add a note) → `/devenv-plan-update`; creating a new plan → `/devenv-create-implementation-plan` |
 | `/devenv-refresh-implementation-plan` | Assess how stale an existing plan is, then route to the right remediation — light patch, structured revision, or guided rewrite | "refresh the plan", "is this plan still valid?", "how stale is this plan?", "bring this plan up to date", "freshen the plan", "the plan might be out of date" | when you already know exactly what needs updating → `/devenv-refine-implementation-plan`; read-only progress reporting → `/devenv-plan-status` |
 | `/devenv-plan-update` | Small surgical edit to an existing plan — tick a box, add a note | "mark 3.4 done", "tick off task 2.1", "add a note to task X", "record progress" | restructuring or reordering phases → `/devenv-refine-implementation-plan`; read-only progress check → `/devenv-plan-status` |
@@ -276,7 +275,7 @@ For work that starts from a design-discussion or spike artifact, route through g
 ```
 /devenv-design-discussion or /devenv-spike
   → /devenv-grooming                     (capture design delta + issue attack plan)
-    → /devenv-create-implementation-plan or /devenv-plan-from-spec   (one selected issue slice)
+    → /devenv-create-implementation-plan   (one selected issue slice)
       → /devenv-pair-programming / /devenv-delegation
 ```
 
@@ -284,7 +283,7 @@ For work that starts from a design-discussion or spike artifact, route through g
 
 Direct-plan exception:
 
-- If the user explicitly chooses to skip grooming and provides sufficient context, start with `/devenv-create-implementation-plan` or `/devenv-plan-from-spec`.
+- If the user explicitly chooses to skip grooming and provides sufficient context, start with `/devenv-create-implementation-plan`.
 - Side-stream artifacts may be provided whether or not grooming exists; they inform planning but do not direct scope.
 - If a grooming artifact exists, grooming remains the directing source for scope/slice boundaries.
 

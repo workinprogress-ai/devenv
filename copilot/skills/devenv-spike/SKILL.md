@@ -115,7 +115,7 @@ Inline summary: 3–5 bullets covering the question, the verdict, and the artifa
 
 After writing the findings doc, ask:
 
-> *"Want to track this in a GitHub issue? I can create a new one, or post the findings to an existing issue number. The findings doc will go in a comment; the description stays as a short placeholder for `/devenv-plan-from-spec`."*
+> *"Want to track this in a GitHub issue? I can create a new one, or post the findings to an existing issue number. The findings doc will go in a comment; the description stays as a short placeholder for `/devenv-create-implementation-plan`."*
 
 If yes:
 
@@ -131,7 +131,7 @@ If yes:
    Next step depends on the scope of work the spike revealed:
    - System-level architectural work → `/devenv-create-blueprint`
    - Component design direction needed before tasks can be written → `/devenv-grooming`
-   - Narrow, well-scoped implementation (spike answered the key unknowns) → `/devenv-plan-from-spec <issue number>`
+   - Narrow, well-scoped implementation (spike answered the key unknowns) → `/devenv-create-implementation-plan <issue number>`
 
    Findings file: `<workspace-relative path to spike-NNN-<topic>.md>`
    Prototype: `<path>` (if applicable)

@@ -1,6 +1,6 @@
 ---
 name: devenv-triage-issue
-description: Triage one or more GitHub issues — classify type (bug/feature/question), suggest labels, priority, size (S/M/L), check for duplicates, and draft a clarifying comment when the issue is incomplete. USE WHEN the user says "triage this issue", "triage #123", "label and size this", "is this a duplicate", "draft a response asking for repro steps", or hands off a fresh untriaged issue / batch / pasted issue text. Auto-detects input: issue number(s) → fetched via `issue-get`; pasted text → triaged in place. Produces a structured recommendation block per issue, then bundles all proposed writes (labels, comment, close-as-duplicate) into a single y/n confirm before applying via `issue-update` / `issue-comment` / `issue-close`. DO NOT USE FOR implementing the issue (use `/devenv-pair-programming` or `/devenv-delegation`), turning it into a plan (use `/devenv-create-implementation-plan` or `/devenv-plan-from-spec`), investigating feasibility (use `/devenv-spike`), or plain summaries (use the default agent / `summarize-github-issue-pr-notification`).
+description: Triage one or more GitHub issues — classify type (bug/feature/question), suggest labels, priority, size (S/M/L), check for duplicates, and draft a clarifying comment when the issue is incomplete. USE WHEN the user says "triage this issue", "triage #123", "label and size this", "is this a duplicate", "draft a response asking for repro steps", or hands off a fresh untriaged issue / batch / pasted issue text. Auto-detects input: issue number(s) → fetched via `issue-get`; pasted text → triaged in place. Produces a structured recommendation block per issue, then bundles all proposed writes (labels, comment, close-as-duplicate) into a single y/n confirm before applying via `issue-update` / `issue-comment` / `issue-close`. DO NOT USE FOR implementing the issue (use `/devenv-pair-programming` or `/devenv-delegation`), turning it into a plan (use `/devenv-create-implementation-plan`), investigating feasibility (use `/devenv-spike`), or plain summaries (use the default agent / `summarize-github-issue-pr-notification`).
 argument-hint: An issue number, list of issue numbers, or pasted issue text to triage
 ---
 
@@ -19,7 +19,7 @@ Take a fresh / untriaged GitHub issue and produce a structured triage recommenda
 - The reporter didn't include enough detail and you want a polite request for clarification.
 - You have a batch of untriaged issues to work through.
 
-If the work is clear and you just want to do it, use `/devenv-pair-programming` or `/devenv-delegation`. If the issue is a complete spec ready to plan, use `/devenv-create-implementation-plan` or `/devenv-plan-from-spec`. If the issue is a cross-component epic, use `/devenv-create-blueprint` + `/devenv-create-roadmap`. If feasibility is unknown, use `/devenv-spike`. For a plain summary, the default agent's `summarize-github-issue-pr-notification` skill is faster.
+If the work is clear and you just want to do it, use `/devenv-pair-programming` or `/devenv-delegation`. If the issue is a complete spec ready to plan, use `/devenv-create-implementation-plan`. If the issue is a cross-component epic, use `/devenv-create-blueprint` + `/devenv-create-roadmap`. If feasibility is unknown, use `/devenv-spike`. For a plain summary, the default agent's `summarize-github-issue-pr-notification` skill is faster.
 
 ## Inputs
 
@@ -131,7 +131,7 @@ No per-action confirms. No partial-apply. The user either trusts the bundle or t
 
 - `/devenv-pair-programming`, `/devenv-delegation` — once triaged, to implement.
 - `/devenv-create-blueprint` + `/devenv-create-roadmap` — when the issue describes a cross-component epic.
-- `/devenv-create-implementation-plan`, `/devenv-plan-from-spec` — when the issue is complete and ready to plan.
+- `/devenv-create-implementation-plan` — when the issue is complete and ready to plan.
 - `/devenv-spike` — when the issue's feasibility or approach is unknown (size = XL).
 - `summarize-github-issue-pr-notification` (default agent skill) — for plain summaries without triage.
 

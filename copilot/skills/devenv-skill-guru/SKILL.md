@@ -85,7 +85,7 @@ Use the registry to match the user's answers to a skill:
    - Feature-delivery guardrail: when the ask is to add/implement a feature in an existing component and the approach is already chosen, route to Plan/Build.
    - Architecture guardrail: default component-level architecture intake to `/devenv-grooming` unless the user explicitly requests one specialized design skill.
    - Upstream-artifact guardrail: if the user wants to plan from a design-discussion or spike artifact and no grooming artifact exists yet, route to `/devenv-grooming` first unless the user explicitly asks to bypass grooming.
-   - Direct-plan exception guardrail: if the user explicitly wants to create a plan without grooming (for example thin-air context, mixed pasted notes, or unclassified artifacts), route to `/devenv-create-implementation-plan` (or `/devenv-plan-from-spec` when a concrete spec exists).
+   - Direct-plan exception guardrail: if the user explicitly wants to create a plan without grooming (for example thin-air context, mixed pasted notes, unclassified artifacts, or a concrete spec), route to `/devenv-create-implementation-plan`.
    - Source-precedence guardrail: when a grooming artifact exists, treat grooming as the directing source of scope/slice boundaries over side-stream artifacts.
    - Side-stream-input guardrail: side-stream artifacts may appear with or without grooming; treat them as additional informational inputs, never as scope-directing sources.
    - Architecture guardrail: if the user primarily wants alternatives/trade-offs/recommendation, route to `/devenv-design-discussion` first.
@@ -93,7 +93,7 @@ Use the registry to match the user's answers to a skill:
    - Architecture guardrail: if the user has one bounded plan blocker/question that needs deep option-weighing, route to `/devenv-design-discussion`; if the user describes accumulating questions, entangled decisions, or likely sweeping design changes, route to `/devenv-grooming`.
    - Build guardrail: do not route high-impact build phases to `/devenv-delegation`.
    - Escalation guardrail: if the user is mid-execution with a small local plan adjustment, stay in execution; if they want to return to planning for broader plan surgery, route to `/devenv-refine-implementation-plan`; if they describe one large blocker/question, route to `/devenv-design-discussion`; if they describe accumulated architectural issues, route to `/devenv-grooming`.
-   - Plan-size guardrail: if the user says plan creation is too large/risky for one issue, route to `/devenv-grooming` for Feature/Fix/Task redivision, then back to `/devenv-create-implementation-plan` or `/devenv-plan-from-spec` for one selected slice.
+   - Plan-size guardrail: if the user says plan creation is too large/risky for one issue, route to `/devenv-grooming` for Feature/Fix/Task redivision, then back to `/devenv-create-implementation-plan` for one selected slice.
    - Bug-hunt guardrail: for broad/focused bug hunting (including "find race conditions", "hunt null bugs", "audit auth module for bugs"), route to `/devenv-tech-debt-audit`.
    - Bug-investigation guardrail: for one known failing behavior/issue/incident, route to `/devenv-bug-fix`.
 4. **Check for a chain** — if the user's goal implies a multi-step workflow (e.g. "I want to implement this whole story", "from idea to PR"), look up the matching chain in the registry and recommend the full sequence.
