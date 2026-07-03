@@ -116,7 +116,7 @@ With the go-ahead, apply all threads in the "fix automatically" list. This is a 
 For each thread in order:
 1. Read the relevant file section.
 2. Apply the change.
-3. Mark resolved via `pr-thread-resolve`.
+3. Mark resolved via `pr-thread-resolve <THREAD_ID>` using the GraphQL node ID from `pr-threads-get`.
 4. Log it (one line): `✅ format.ts:12 — removed blank line → resolved`
 
 After all automatic threads are done, show a compact batch summary:
@@ -163,7 +163,7 @@ How do you want to handle this? (reply / fix / both / skip / mark complete)
 ─────────────────────────────────────────
 ```
 
-**Shortcut resolution:** If the user says *"just mark complete"*, *"mark complete"*, or *"mark resolved"* — for **the current thread only** — skip the action flow: resolve immediately via `pr-thread-resolve` and move to the next thread. This covers threads the user has handled elsewhere or wants to close without discussion. It is not a blanket instruction for all remaining threads.
+**Shortcut resolution:** If the user says *"just mark complete"*, *"mark complete"*, or *"mark resolved"* — for **the current thread only** — skip the action flow: resolve immediately via `pr-thread-resolve <THREAD_ID>` and move to the next thread. This covers threads the user has handled elsewhere or wants to close without discussion. It is not a blanket instruction for all remaining threads.
 
 **Handling each surfaced thread based on user direction:**
 
