@@ -280,6 +280,15 @@ The phase task list must always reflect what was actually done and what remains 
 
 The AI runs through the phase's tasks without stopping for user review between each one. Task progress pings are brief indicators — not checkpoints. It should execute from the refreshed phase task list and AC intent, and keep that task list current in-place (tick completed work, remove obsolete tasks, add newly required tasks). Ask before major changes to phases, goals, or ACs.
 
+### Per-task decision gate (required)
+
+Before starting each task, re-check whether that specific task has unresolved `decision:` metadata or unresolved inline `[QUESTION]` items that affect implementation shape.
+
+- If yes: stop and ask the user to choose before coding that task.
+- If no: proceed normally.
+
+This per-task gate is mandatory even after phase kickoff decisions were reviewed. Do not assume prior "go-ahead" applies to unresolved task-level decisions.
+
 ### Task progress pings
 
 One line per task. No response required.

@@ -448,6 +448,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 ### When the AI is driving
 
 1. **Confirm assignment.** *"→ Taking 2.1 — retry policy in BulkSyncWorker. You're on 2.2?"*
+1a. **Re-check task-level decision gates before coding.** If the assigned task includes unresolved `decision:` metadata (or an unresolved inline `[QUESTION]` that affects implementation shape), stop and ask the user to choose before editing files. Do not start implementation for that task until the decision is explicitly resolved.
 2. **Narrate as you go.** Talk through non-obvious decisions while implementing, not just at the end — this lets the navigator catch problems early.
 3. **Ask before assuming.** Any non-trivial choice → stop and ask.
 4. **If you hit a wall, stop immediately.** A wall means the intended approach is no longer clear, repeated local attempts are not converging, or the next move would be workaround, placeholder, fallback, or other garbage code whose real purpose is just to get unstuck. Do **not** add hack code to preserve momentum.
