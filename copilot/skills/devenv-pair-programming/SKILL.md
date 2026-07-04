@@ -763,6 +763,7 @@ Resolution can take different forms. Choose the smallest faithful update:
 If the scope expansion is large, say so and recommend a separate plan or a new downstream phase. The user's decision stands.
 
 If a question is minor, fold the answer into the plan and remove the question. If it is more significant, keep a short record in `## Revision History` explaining what changed and why.
+A status-only update (task checkbox tick, AC checkbox tick, wording-only completion note) is not significant by itself and must not create a revision-history entry.
 
 Quick calibration:
 
@@ -811,7 +812,7 @@ Assume they're still working toward the plan unless they say otherwise. Flow beh
 - **Prefer DEVENV-marked TODOs over plain TODO/FIXME for plan-linked work.** When discovered during review, offer to replace plain markers with `TODO:(DEVENV[plan-key]): ...` so they remain trackable and removable in cleanup.
 - **If temporary code is introduced to keep the build/test loop moving**, add a `TODO:(DEVENV[plan-key]): ...` marker at the exact code location describing what real implementation will replace it and when. Also ensure the plan contains a corresponding follow-up task so the temporary code is not lost.
 - **Never leave permanent code comments that reference plan phases, task IDs, or decisions.** Those references are allowed only in clearly temporary `DEVENV[...]` / `TODO:(DEVENV[...])` markers and must be removed when the temporary condition is resolved.
-- **Record `## Revision History` only for material plan changes** after `## Additional Task Context` near the bottom of the plan file. Do not insert it between phases or above `## Reference Information`. Material changes include phase restructuring, acceptance-criteria changes, major sequencing/approach changes, and broad task re-slicing. Routine checkbox ticks, minor wording polish, and small in-phase task add/remove operations do not require revision-history entries.
+- **Record `## Revision History` only for material plan changes** after `## Additional Task Context` near the bottom of the plan file. Do not insert it between phases or above `## Reference Information`. Material changes include phase restructuring, acceptance-criteria changes, major sequencing/approach changes, broad task re-slicing, or important implementation discoveries that changed plan scope/assumptions. Routine checkbox ticks, AC checkoffs, minor wording polish, and small in-phase task add/remove operations do not require revision-history entries unless they capture such a discovery.
    ```markdown
    ## Revision History
 
@@ -930,7 +931,7 @@ See [issue-integration.md](./references/issue-integration.md) for exact CLI invo
 - A new follow-up task / out-of-scope finding emerged.
 - A bug was discovered in adjacent code.
 
-**For adjacent bugs**, also offer to file a **new issue** via `issue-create` (run `issue-create --help` to compose the exact command for the situation).
+**For adjacent bugs**, also offer to file a **new issue** via `issue-create` (use [../_tools-reference.md](../_tools-reference.md) to compose the exact command for the situation).
 
 **Confirmation flow**:
 

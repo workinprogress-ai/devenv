@@ -165,7 +165,7 @@ Skills should keep only artifact-specific mapping details locally (artifact type
 
 - **Prefer repo wrappers first.** Use the repo's `issue-*` / `pr-*` / `project-*` wrappers in `tools/` by default.
 - If a required operation is not supported by available wrappers, `gh` is allowed as a fallback. Say explicitly why fallback is needed.
-- `--help` is consistent across the wrappers — when in doubt, instruct the AI to read `--help` for the exact flag set.
+- Wrapper signatures are standardized in [`_tools-reference.md`](./_tools-reference.md) — when in doubt, instruct the AI to consult that file instead of running ad-hoc `--help` during execution.
 
 ## Workspace source discovery
 
