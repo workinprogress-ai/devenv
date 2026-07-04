@@ -192,6 +192,16 @@ Scan for staleness signals before continuing:
 
 If they say refresh, tell them to invoke it (new skill invocation required) and stop. If they say proceed, note the signals in open questions and continue. **If fewer than two signals**, continue silently.
 
+### 2c. Upstream decision re-anchor (required when upstream artifacts are linked)
+
+If the loaded plan references a grooming artifact or other upstream design artifact in `## Reference Information`, run a quick carry-forward check before coding:
+
+- Re-read the plan's `## Phases` watch-outs, task `decision:` metadata, `## Pending Questions`, and `## Appendix`.
+- Re-read the linked grooming/design artifact decision summary (at minimum confirmed + pending + deferred items).
+- Verify each high-impact upstream point is represented in the plan or explicitly out-of-scope.
+
+If a high-impact point is missing or contradictory, stop and surface a decision gate before implementation. Recommend `/devenv-refine-implementation-plan` (or `/devenv-grooming` if architecture is still unsettled) to repair the handoff first.
+
 ### 2d. Ensure acceptance criteria exist
 
 **If missing:** infer ACs from the plan's goals and scope. Present with `**AC-N**` identifiers and `*(inferred)*` markers:

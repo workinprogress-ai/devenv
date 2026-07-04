@@ -175,6 +175,16 @@ Before routing onward to implementation planning or execution, verify all of the
 
 If any of those checks fail, write or update the grooming document first. Never treat conversational design iteration as a substitute for the written artifact.
 
+### Decision carry-forward review (required)
+
+Before final handoff to implementation planning or execution, run a short carry-forward review in chat:
+
+- List the important points from this grooming pass (confirmed decisions, deferred decisions, non-negotiable constraints, explicit non-goals, and any rejected option that still matters to safe implementation).
+- For each point, show where it is recorded in the grooming document (`Confirmed`, `Pending`, `Deferred`, or question status).
+- For each point, state the expected downstream destination (`plan phase watch-outs`, `task-level decision metadata`, `appendix constraint`, `pending question`, or `intentionally excluded` with reason).
+
+Ask explicitly: "Any important point missing before we hand off?" Do not hand off until this review is shown and the user confirms or amends it.
+
 When the user signals closure with ambiguous phrases like "let's do it", "let's write it", or "go ahead":
 
 - In an active grooming session, default "it" to the grooming artifact, not production code.

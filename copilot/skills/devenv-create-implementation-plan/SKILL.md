@@ -210,6 +210,16 @@ Use the [plan template](./references/plan-template.md). Follow:
 
 Show the draft in chat. Revise based on feedback. **Do not write the file yet.**
 
+### 6a. Decision carry-forward verification (required)
+
+Before final approval and file write, run a carry-forward check in chat so important upstream points cannot silently drop.
+
+- Build a compact checklist from upstream inputs (especially grooming `Confirmed`/`Pending`/`Deferred` decisions when present, plus critical constraints/non-goals from issue text, comments, specs, or design docs).
+- For each point, map it to its location in the draft plan: phase `Watch Outs / Decisions`, task-level `decision:` metadata, `## Pending Questions`, `## Appendix`, or explicit non-goal/scope text.
+- If a point is intentionally not carried into the plan, mark it `excluded` and include a one-line reason.
+
+If any high-impact point has no destination, update the draft before asking for final approval. Ask explicitly: "Any missing important point before I write the file?"
+
 ### 7. Resolve target filename (numbered suffix, always)
 
 In the target repo root:
