@@ -92,7 +92,11 @@ For every grooming artifact (local file or issue comment), follow the shared [Ar
 If the grooming document is stored in a GitHub issue comment:
 
 - Generate `doc_id` with `issue-artifact-doc-id --issue <N> --artifact-type grooming --slug <artifact-slug>`
+- Materialize the current comment artifact to a local working copy first (repo-local file or temp file, per user choice when not obvious). Edit that local working copy during the session.
 - Update via `issue-artifact-upsert` rather than manual comment matching
+- Republish the finalized local working copy back to the original issue comment location only after the grooming changes for this effort are settled.
+
+Follow the shared [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md).
 
 **Step 4 — Classify component type** (needed for context loading):
 
@@ -227,10 +231,48 @@ For each deferred decision:
 For each resolved question:
 - Update its status to `[resolved]` with the resolution text inline.
 
+For each semantic decision or question clarification, treat the change as one decision package and reconcile all parts before closing:
+- update the decision row (`Confirmed`/`Pending`/`Deferred` as appropriate),
+- update the matching question entry/state, and
+- add/update one revision-history reason describing the semantic delta.
+
+Run a parity check across decision row and matching question text for:
+- lifecycle lane coverage,
+- ownership boundary,
+- failure mode, and
+- scope exclusions/non-goals.
+
+If any parity item is missing, do not mark the question or decision as complete.
+
 After updates, show the user a summary of what changed in the grooming document and confirm before writing.
+Record one revision-history entry for the overall grooming update effort when the artifact is finalized; do not add a separate revision entry for each intermediate local iteration.
+
+If the grooming artifact changed concurrently during iteration, perform one final section-level reread of `Confirmed` and `Outstanding questions` before finalizing, then rerun the decision-package parity check.
 
 When all architecture/design decisions required for execution are confirmed, explicitly hand off plan/task updates to [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) instead of editing the implementation plan directly in grooming.
 Do not hand off until the grooming document on disk or on the issue reflects those confirmed decisions.
+When the input was a returned or in-flight implementation plan, make this next-step handoff explicit: point to the plan path/issue, note that the grooming artifact was updated, and instruct the next skill to carry confirmed/deferred decisions into the plan's execution surfaces.
+
+### Session change summary handoff (required on request)
+
+During regrooming/refinement sessions, keep a compact ledger of net document changes so you can emit a downstream handoff summary on request.
+
+When the user asks for a session summary to pass into plan refinement, output a copy-ready markdown block that includes:
+
+- scope edited in this session (artifact path/issue, sections touched),
+- decision movements (`Pending -> Confirmed`, `Pending -> Deferred`, `Confirmed -> revised`),
+- question movements (`open -> resolved`, `resolved -> revised`, still open),
+- semantic deltas captured (lane semantics, ownership boundary, failure mode, scope exclusions),
+- explicit non-goals or exclusions added/changed,
+- revision-history entry text added for this effort,
+- downstream mapping for `/devenv-refine-implementation-plan` (`Watch Outs / Decisions`, task `decision:` metadata, `## Pending Questions`, `## Appendix`),
+- unresolved items and recommended first refinement targets.
+
+Summary rules:
+
+- report net effect only (not intermediate drafts),
+- include unchanged/high-risk items only when they materially affect safe refinement,
+- if no substantive changes were made, state that explicitly.
 
 ### Current-target writing rule (required)
 
@@ -304,6 +346,40 @@ Options:
 
 Recommendation: <A|B|C> because <reason>
 Your call: choose A/B(/C) or defer.
+```
+
+**Session change summary handoff** (on request, for plan refinement):
+
+```markdown
+## Grooming Session Change Summary
+
+- Source artifact: <path or issue ref>
+- Session type: regrooming | refinement
+- Sections touched: <Confirmed | Pending | Deferred | Outstanding questions | Revision History>
+
+### Decision changes
+- <ID/title>: Pending -> Confirmed | Pending -> Deferred | Confirmed -> revised
+	- Why: <one-line rationale>
+	- Semantic delta: <lane semantics | ownership boundary | failure mode | scope exclusions>
+
+### Question changes
+- <Q-ID/title>: open -> resolved | resolved -> revised | still open
+	- Resolution/remaining blocker: <one line>
+
+### Non-goals and exclusions
+- <what was added/changed>
+
+### Revision history entry (this effort)
+- <exact bullet text or concise equivalent>
+
+### Carry-forward mapping for `/devenv-refine-implementation-plan`
+- Watch Outs / Decisions: <items>
+- Task-level `decision:` metadata: <items>
+- `## Pending Questions`: <items>
+- `## Appendix`: <items>
+
+### Remaining unresolved items
+- <item> -> recommended first refinement target: <phase/task/section>
 ```
 
 ## Anti-patterns

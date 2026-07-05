@@ -113,6 +113,7 @@ Interviews the user, scans repo conventions, drafts phased atomic tasks, and wri
 > **Collaborative, human stays in control.**
 
 Loads the plan and runs an interactive driver/navigator handoff: both parties take turns driving (writing the code) and navigating (watching, asking questions, keeping the big picture in view). The navigator is active during the other person's turn — pre-reading ahead, looking things up, catching problems early. The AI also acts as plan steward during execution: it keeps progress honest, captures newly discovered scope or unresolved questions back into the plan, and raises plan revisions when the work proves the plan needs to change. The AI pushes back when warranted, narrates its own reasoning as it works, and asks before assuming. If it raises a decision gate, it must stop before any mutating action until the user explicitly approves the path. High-engagement, high-quality — slows down appropriately for risky or novel work.
+Question-shaped prompts default to discussion/analysis mode; implementation starts only after explicit user direction.
 
 **Use for:** high-impact phases — public API changes, data shape changes, security, novel architecture; also any work where you want to stay closely involved  
 **Don't use for:** mechanical/rote work (→ `/devenv-delegation`), pure exploration (→ `/devenv-spike`)  
@@ -204,7 +205,7 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 
 | Skill | Purpose | Argument |
 |---|---|---|
-| `/devenv-pair-programming` | Collaborative build — human + AI both implement, while keeping the plan current as scope/questions emerge | Issue # or plan path |
+| `/devenv-pair-programming` | Collaborative build — human + AI both implement, while keeping the plan current as scope/questions emerge; question-shaped prompts default to analysis until explicit implementation direction | Issue # or plan path |
 | `/devenv-delegation` | Delegated build support — assistant-led execution with user review and ownership | Issue # or plan path |
 | `/devenv-document` | Produce documentation for an existing system or component — audience, format, and scope set by interview | Repo path, component name, or description |
 | `/devenv-chat-with-code` | Conversational fact-finding with a codebase — the code talks back | Repo path(s), or nothing for current workspace |

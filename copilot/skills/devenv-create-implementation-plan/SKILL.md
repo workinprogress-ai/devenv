@@ -220,6 +220,33 @@ Before final approval and file write, run a carry-forward check in chat so impor
 
 If any high-impact point has no destination, update the draft before asking for final approval. Ask explicitly: "Any missing important point before I write the file?"
 
+### 6b. Decision-package parity check (required for semantic decisions)
+
+Before file write, run a decision-package parity check for each semantic decision/question touched during planning.
+
+For each decision package, verify all three are present and aligned:
+
+- decision source text in the plan (for example, phase `Watch Outs / Decisions` and task-level `decision:` metadata as applicable),
+- matched question state/text (`[QUESTION] ...` inline or `## Pending Questions`), and
+- revision-history reason describing the semantic delta when the plan changed during this effort.
+
+Parity dimensions to verify between decision and question text:
+
+- lifecycle lane coverage,
+- ownership boundary,
+- failure mode expectations, and
+- scope exclusions/non-goals.
+
+If any parity dimension is missing, do not proceed to file write.
+
+Asymmetric-update blocker:
+
+- if semantic wording is updated only on one side (decision or question), keep the draft in progress and reconcile before approval.
+
+Concurrent-edit rule:
+
+- if upstream source text changed during iteration (issue comments/spec/grooming artifact updates), reread touched decision/question sections and rerun parity before final write.
+
 ### 7. Resolve target filename (numbered suffix, always)
 
 In the target repo root:
@@ -302,6 +329,7 @@ See [phase-rules.md](./references/phase-rules.md) for the full checklist.
 - `owner: User` flags tasks the human must drive (design intent, domain judgment). `owner: AI` flags mechanical tasks the AI should take by default. Omit when either party can take it.
 - Anchor slugs are descriptive: `#task-21--mockstore-implementation`, not `#task-2-1`.
 - `N.N` — first number is the phase. Sub-tasks extend the series: `1.3.1`, `1.3.2`, ...
+- Task numbering is numeric-only. Do not use alphabetic suffixes like `1.3a`; use numeric subtasks (`1.3.1`) or structural renumbering.
 - Push depth into *Additional task context* and link to it rather than bloating sub-bullets.
 - If a sub-bullet would need its own paragraph, move that content into *Additional task context* instead of expanding the task header.
 

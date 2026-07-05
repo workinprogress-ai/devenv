@@ -89,6 +89,69 @@ Skills that follow this convention: `devenv-refine-requirements`, `devenv-refine
 - **Keep one home for detail.** If a fact already lives in a phase summary, appendix, or task context, do not restate it in Revision History unless the change itself is what matters.
 - **Keep appendices bounded.** Appendix sections should be short, source-backed, and only include context not already captured in the main body. Push repetitive rationale into links or upstream artifacts.
 
+## Issue-backed artifact edit protocol
+
+When a skill must modify an artifact that already lives in a GitHub issue body or issue comment, use one common workflow:
+
+1. **Pull to a local working copy first.** Materialize the current issue-backed artifact to a local file before editing. The local file may live in the target repo or in a temp folder — ask the user which they want when it is not already obvious from the skill flow.
+2. **Edit locally until stable.** All iterations, drafts, and intermediate rewrites happen against the local working copy, not directly against the issue body/comment.
+3. **Republish back to the original location.** Once the artifact is ready, push the local working copy back to the original issue body or issue comment using the appropriate wrapper/tooling.
+
+Working-copy rule:
+
+- During the session, the pulled local file is the source of truth.
+- The GitHub issue body/comment is the publication target, not the live editing surface.
+
+Revision-history rule for issue-backed artifacts:
+
+- Record one revision-history entry per user-visible refinement effort, not one entry per intermediate iteration.
+- Intermediate drafting passes while converging on the final local working copy do not each get their own revision entry.
+
+Authoring rule:
+
+- Skills that support issue-backed artifact edits should reference this protocol rather than inventing their own pull/edit/push flow.
+
+## Decision-package parity gate
+
+For semantic updates that resolve or clarify a design/plan question, treat the edit as one decision package and require parity before reporting completion.
+
+Decision package minimums:
+
+1. **Decision source** updated (for example, confirmed-decision row).
+2. **Matched question state** updated (resolved-question text or pending-question status/details).
+3. **Revision-history reason** updated with the semantic delta.
+
+Required parity checks before completion:
+
+- Lifecycle lane coverage is mirrored between decision and question text.
+- Ownership boundary is mirrored between decision and question text.
+- Failure mode expectations are mirrored between decision and question text.
+- Scope exclusions/non-goals are mirrored between decision and question text.
+
+Blocker rule:
+
+- If a semantic change updates only one side (decision or question), do not mark complete. Keep status in progress until the package is reconciled.
+
+Concurrent-edit rule:
+
+- If the artifact changed during iteration, rerun a final section-level read of the relevant decision/question sections and repeat the parity checks before closing.
+
+## Interrogative intent gate for execution skills
+
+Execution-oriented skills must not treat question-shaped prompts as implementation directives by default.
+
+Required behavior before mutating actions:
+
+1. Classify the latest user turn as discussion/question, explicit implementation directive, or ambiguous.
+2. If discussion/question intent (for example: "can we", "should we", "is this feasible", "what do you think"), provide analysis/options only and do not mutate.
+3. If ambiguous, ask one direct clarification question and stop.
+4. Only explicit implementation directives authorize mutation.
+
+Re-arming rule:
+
+- After a discussion/question turn, generic acknowledgements/navigation phrases ("continue", "go ahead", "sounds good", "what's next") do not by themselves authorize mutation.
+- Require an explicit implementation directive for the concrete chunk before proceeding.
+
 ## Model check
 
 Add the following blockquote **immediately after the `# Skill Title` heading** (before the opening paragraph) for any skill that:

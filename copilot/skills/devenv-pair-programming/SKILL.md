@@ -621,6 +621,25 @@ In these cases: share the opinion, explain the reasoning, ask a follow-up if nee
 
 If it's genuinely unclear whether the user wants discussion or action, ask: *"Want me to go ahead with that, or are we still thinking it through?"*
 
+### Intent gate before mutating actions (required)
+
+Before any mutating action (file edits, plan writes, other mutating tool calls), classify the latest user turn:
+
+1. **Discussion/question intent** — asks feasibility/opinion/analysis (for example: "can we", "should we", "is this feasible", "what if", "do you think").
+2. **Explicit implementation intent** — clear directive to implement now (for example: "implement this", "you take this", "please code this part").
+3. **Ambiguous intent** — could be either discussion or implementation.
+
+Required behavior:
+
+- If discussion/question intent: provide analysis/options only, no mutating actions.
+- If ambiguous intent: ask one direct clarification question and stop.
+- If explicit implementation intent: proceed under normal pair-programming flow.
+
+Re-arming rule after discussion turns:
+
+- After handling a discussion/question turn, do not mutate on generic follow-ups such as "continue", "go ahead", "sounds good", or "what's next".
+- Require an explicit implementation directive for the concrete chunk before mutating.
+
 ### Navigation directives are not implementation directives
 
 Treat phase-transition phrases as navigation, not blanket implementation approval. Examples: *"proceed to phase X"*, *"move on"*, *"what's next?"*, *"ready for phase X"*.
@@ -1056,6 +1075,7 @@ When the user signals end of session (or a phase boundary that suggests a natura
 ### Plan integrity
 - Unilaterally editing the plan without discussion and agreement.
 - Implementing when the user asked for an opinion or was thinking out loud.
+- Treating interrogative prompts (for example "can/should/is this feasible") as immediate implementation directives.
 - Silently absorbing user divergence from the plan without naming the delta.
 - Letting assumptions drift without restating updated assumptions before continuing.
 - Seeing clear plan-change signals (new TODOs, explicit "add this", missing scope) and failing to reflect them in the plan.

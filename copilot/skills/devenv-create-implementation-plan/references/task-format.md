@@ -90,6 +90,7 @@ Rules:
 - First number = phase. `1.x` = Phase 1, `2.x` = Phase 2, ...
 - Second number = task within the phase, starting at 1.
 - Sub-tasks extend the series: `1.3.1`, `1.3.2`, `1.3.3`.
+- Task numbering is numeric-only. Do not use alphabetic suffixes such as `1.3a` or `2.4b`.
 - Numbering is stable unless a structural revision inserts work in the middle of an existing task series. In that case, renumber downstream tasks from the insertion point onward and update in-plan references; otherwise, prefer inserting with a sub-number instead (e.g. add `1.3.4` rather than reflowing `1.4`).
 
 ## Atomicity

@@ -30,12 +30,14 @@ Plus the specific edit(s) requested in the chat.
 
 **Auto-detection rule:** `^[0-9]+$` → issue number; otherwise file path. Ambiguous → ask.
 
+For issue-backed plan edits, follow the shared [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md).
+
 ## Workflow
 
 ### 1. Load the plan
 
 - File input: read the markdown file.
-- Issue input: `issue-get N --pretty` and extract the body.
+- Issue input: `issue-get N --pretty`, extract the body, and materialize it to a local working copy before editing (repo-local file or temp file, depending on user choice when not already implied).
 
 ### 2. Validate scope
 
@@ -96,10 +98,12 @@ Keep the entry concise and avoid separate bullets for low-value tweaks when they
 
 If no Revision History exists yet, create it after `## Additional Task Context` so the human-facing reading flow stays intact.
 
+If multiple local draft passes are needed to converge on the requested small edit set, record one revision-history entry for the final applied update effort, not one per draft pass.
+
 ### 6. Write
 
 - File input: overwrite in place. Git is the safety net; user can `git diff` to review.
-- Issue input: write the updated body to a temp file, then offer:
+- Issue input: update the local working copy first, then offer to publish that local file back to the issue body:
   > "Update issue #N body via `issue-update N --body-file <path>`?"
   Wait for explicit yes. Do not auto-push.
 

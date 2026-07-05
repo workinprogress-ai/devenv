@@ -29,11 +29,16 @@ The user provides exactly one of:
 
 **Auto-detection rule:** if the argument matches `^[0-9]+$`, treat as issue number; otherwise treat as a file path. If both could plausibly apply, ask the user which they meant.
 
+**Upstream design source rule:** if the plan links a grooming artifact (or the user provides one), load it and treat it as the directing source for design decisions, constraints, deferred items, and non-goals. The implementation plan remains the execution artifact, but grooming is authoritative for design intent when present.
+
+For issue-backed plan refinement, follow the shared [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md).
+
 ## Workflow
 
 ### 1. Load and parse the existing plan
 
 - Read the source (file or `issue-get` output).
+- If the source is an issue body, materialize it to a local working copy before editing (repo-local file or temp file, depending on user choice when not already implied). Use that local working copy for all iterations in this refinement effort.
 - Identify the phase headings (`### Phase N — Title`) and task lines (`- [ ]` / `- [x]`).
 - Note the highest existing task number per phase (e.g. Phase 2 has tasks up to 2.7 → next is 2.8).
 - **Assess completion state**: for each phase, note whether it is fully complete (all tasks `[x]`), partially complete, or untouched. Note the highest existing phase number — this is used if new phases need to be created.
@@ -42,6 +47,8 @@ The user provides exactly one of:
 - If a marker is present, treat that as high-priority refinement context: parse its linked unresolved decisions/questions first and use it to drive interview focus.
 - Preserve the high-level section order introduced by the current template: goals/AC first, context/orientation second, phases third, detailed task tracking later.
 - If `## Pending Questions` exists, preserve it and keep it immediately above `## Reference Information`.
+- If `## Reference Information` links a grooming artifact, load it before interviewing. For issue-backed plans, also check issue comments/source context for a linked grooming artifact when the body references one indirectly.
+- Treat an in-flight partially executed plan as a normal refinement case, not an exception: preserve completed work, update only the necessary downstream design/sequence/task surfaces, and avoid rewriting already-validated earlier phases unless the user explicitly asks.
 
 ### 2. Interview the user about what changed
 
@@ -53,6 +60,7 @@ Use `vscode_askQuestions` to gather:
 - **What's no longer relevant** — tasks to remove; deletion will be logged in Revision History with the task number, a one-line summary, and the reason
 - **Acceptance criteria changes** — whether any ACs need to be added, revised, or deprecated as a result of the scope change. Infer candidate changes from the new requirements and present them for the user to confirm rather than asking the user to define them from scratch. See AC rules in Step 3.
 - **Upstream design changes** — whether a design doc/RFC/Blueprint/Redesign decision changed and should be reflected in `## Appendix`.
+- **Grooming carry-forward** — if a grooming artifact is present, confirm which `Confirmed` / `Deferred` / still-relevant `Pending` items must now be represented in the plan's phase watch-outs, task `decision:` metadata, `## Pending Questions`, appendix, or explicit scope boundaries.
 - **Pending questions** — whether any unresolved questions should be added, answered, moved inline under a task/phase, or spun out into a follow-up issue.
 - **Decision points** — identify unresolved implementation decisions that could block phase execution; resolve them during refinement when possible.
 - **Escalation handoff closure** — if an escalation marker exists, confirm each recorded blocker/question and decide: resolve now, defer with explicit trigger, or re-scope tasks/phases.
@@ -79,10 +87,16 @@ Before applying edits, offer an optional pressure-test pass using [pressure-test
 - **Main plan content must describe the current target state only.** Every section except `## Revision History` must read as if refinement never happened — as a clean, current description of what the plan is trying to achieve and how. This means:
   - No dated announcements such as *"Scope was expanded on 2026-06-23 to include…"* anywhere outside `## Revision History`.
   - No before/after narration, phrases like "previously", "originally", "as of this revision", or inline change summaries.
+  - No refinement-process narration in plan body sections, including phrases like "in this refinement", "during refinement", "as part of this update", or "we changed this from".
+  - Rewrite affected content directly to present-state truth; do not annotate material sections with update-era wording.
   - `## Context and Orientation` describes the current scope and motivation only — it is not a changelog and must not grow stale sentences about prior revisions.
   - When scope expands, update the orientation text in place to reflect the new scope; record what changed and when in `## Revision History`.
   - Do not attribute edits to AI or model names in plan body text (for example: "AI updated", "Copilot added", "GPT revised").
 - **Never reflow existing task numbers** unless a structural revision inserts work in the middle of an existing task series. In that case, renumber the downstream task series and update all in-plan references that point at those task IDs.
+- **Task IDs are numeric only.** Do not use alphabetic suffixes such as `7.1a` or `2.4b`.
+- **Insertion options are constrained to numeric forms.** When inserting between existing tasks, either:
+  - reflow downstream numbering and update all affected references, or
+  - add numeric hierarchical subtasks (for example `7.1.1`, `7.1.2`) when preserving surrounding numbering is preferable.
 - **Never reflow existing AC-N identifiers.** An AC numbered `AC-3` stays `AC-3` for its entire lifetime — same principle as task numbers.
 - **Never silently uncheck a `[x]`.** If a completed task's scope must change, leave it checked and add a new task for the additional work.
 - **New tasks are appended to the end of their phase** with the next sequential number (e.g. if Phase 2 ends at 2.7, the next new task is 2.8). New tasks must use the full task format: `- [ ] **N.M [S|M|L] Title**` header, descriptive sub-bullets first, then `Files:` / `decision:` / `owner:` / `depends on` metadata. Do not add skeletal or title-only tasks.
@@ -104,6 +118,17 @@ Before applying edits, offer an optional pressure-test pass using [pressure-test
 - **Decision/pending-question placement:** unresolved decisions that matter to execution must be represented in both places:
   - the relevant phase under **Watch Outs / Decisions**
   - the earliest affected task as `decision:` metadata in `## Detailed Task List`
+- **Decision-package parity for semantic updates is required.** When resolving or clarifying a semantic decision/question, update all three together:
+  - decision source text,
+  - matching question text/state, and
+  - one revision-history reason naming the semantic delta.
+- **Decision/question parity check is mandatory before completion.** Verify decision and question text mirror each other for:
+  - lifecycle lane coverage,
+  - ownership boundary,
+  - failure mode expectations, and
+  - scope exclusions/non-goals.
+- **Asymmetric semantic updates are a hard blocker.** If only decision or question text was updated for a semantic change, keep refinement in progress and reconcile before reporting done.
+- **Grooming-to-plan carry-forward is required when grooming exists.** For every still-relevant confirmed/deferred design point in the grooming artifact, either carry it into the plan (phase watch-outs, task `decision:` metadata, appendix, pending question, or scope/non-goal text) or explicitly decide it is out-of-scope and record that rationale in `## Revision History`.
 - **Resolution expectation during refinement:** resolve as many open questions as possible before writing. Leave questions pending only for implementation-level details or explicit user-requested deferral.
 - **Appendix maintenance for complex design-derived work:** if the refined plan is based on substantial upstream design context, ensure `## Appendix` exists and is current. It must summarize key design decisions, constraints/invariants, interface contracts, migration/rollout implications, and rejected alternatives that materially affect task ordering or scope.
 - **Temporary coverage exclusion discipline:** if a newly added contract-first phase uses temporary coverage-exclusion attributes or mechanisms because implementations arrive later, add explicit cleanup/removal tasks and require `TODO:(DEVENV[plan-key]): ...` markers at the affected code locations so coverage restoration is not lost.
@@ -117,6 +142,38 @@ Before applying edits, offer an optional pressure-test pass using [pressure-test
   2. Add a new criterion: `- [ ] **AC-M** replacement text *(inferred)*` (next available AC-N number)
   3. Record both in Revision History.
 - **AC ticking is done by the execution skills** (pair-programming / delegation) during the AC Review phase — do not tick ACs here unless the user explicitly confirms a criterion is already met.
+
+### 3a. Material-change completeness reconciliation (required)
+
+When a refinement materially alters the plan, run a completeness reconciliation before recording revisions and writing.
+
+Treat the change as material when any of these are true:
+
+- scope or acceptance conditions changed,
+- task structure changed in an affected phase (insertions/reflow/splits/merges),
+- decision outcomes changed for work previously marked complete,
+- phase ordering or phase boundaries changed.
+
+Task completeness review (affected phases only):
+
+1. Review every task currently marked `[x]` in affected areas against the updated scope/decisions.
+2. Prefer adding follow-on tasks for new work; do not reopen completed tasks unless unavoidable.
+3. If reopening is unavoidable, explicitly state why in `## Revision History` and keep the reopen scoped to the smallest affected task.
+4. Review unchecked tasks that may now be satisfied by completed work; mark `[x]` only with explicit user confirmation.
+
+AC completeness review:
+
+1. Recheck all affected acceptance criteria for status drift after the material change.
+2. Classify each affected AC as `still met`, `no longer met`, `superseded`, or `pending verification`.
+3. Do not tick AC checkboxes in refinement unless the user explicitly confirms the criterion is already met.
+4. If an AC is superseded, keep identifier stability (no renumbering), apply the existing supersede pattern, and record the change in `## Revision History`.
+
+Before final write, summarize this reconciliation in chat:
+
+- tasks kept closed,
+- tasks reopened (if any, with rationale),
+- new follow-on tasks added instead of reopening,
+- ACs confirmed unchanged vs ACs requiring future closure.
 
 ### 4. Record the revision
 
@@ -143,10 +200,16 @@ Most recent revision goes on top. The very first entry (when the plan was first 
 
 Attribution rule for this section: revision bullets describe the change, rationale, and resulting scope. Do not attribute entries to AI, Copilot, or specific models. If actor attribution is required, attribute to the current user/engineer or team context.
 
+Intermediate local draft iterations during the same refinement effort do not each get their own revision-history entry; record the net result once for the whole effort.
+
+Before writing, run a short carry-forward verification in chat: list the important grooming decisions/constraints, show where each now lives in the refined plan, and ask whether any important point is still missing.
+
+Also run a decision-package parity check for every semantic decision/question touched in this refinement. If the file changed concurrently during iteration, reread the touched decision/question sections and rerun parity before final write.
+
 ### 5. Write the result
 
 - For file input: overwrite the file in place. The user can `git diff` to review and revert if needed.
-- For issue input: write the refined plan to a temp file, then offer to push it: "Update issue #N body with the refined plan? (`issue-update N --body-file <path>`)" Wait for explicit yes before running.
+- For issue input: write and refine against the local working copy first, then offer to push that same local file back to the issue body: "Update issue #N body with the refined plan? (`issue-update N --body-file <path>` )" Wait for explicit yes before running.
 
 Do not require a separate approval step for the write itself — the user invoked the skill to refine the plan; trust that intent. Git is the safety net.
 
@@ -162,11 +225,13 @@ Summarise inline:
 ## Anti-patterns
 
 - **Renumbering existing tasks without structural need** — avoid gratuitous renumbering. Reflow only when a structural insertion requires it, and update all affected references.
+- **Using alphabetic task suffixes** — invalid (for example `7.1a`). Use numeric hierarchical subtasks (`7.1.1`) or reflow numbering.
 - **Renumbering existing AC-N identifiers** — same principle. AC-3 stays AC-3; append new ACs at the next available number.
 - **Silently unchecking `[x]`** — discards user progress. If completed work needs to be redone, add a new task.
 - **Deleting cancelled tasks** — leaves a confusing gap in the numbering and erases history. Strike through and annotate instead.
 - **Skipping the Revision History** — turns the file into a black box where readers can't tell what changed.
 - **Writing prior-state narrative in plan body** — keep all historical notes in `## Revision History`. This includes dated scope-change announcements (e.g. *"Scope was expanded on DATE to include…"*), before/after narration, and inline revision summaries. The main plan must read as the current target state, as if no revisions had ever occurred.
+- **Writing refinement-era wording in plan body** — phrases such as "in this refinement" or "during this update" are not allowed outside `## Revision History`.
 - **AI/model attribution in artifact text** — do not write lines like "updated by AI", "generated by Copilot", or "revised by <model>" in plan sections or revision history.
 - **Assuming what changed** — always interview before editing. The user knows things you don't.
 
