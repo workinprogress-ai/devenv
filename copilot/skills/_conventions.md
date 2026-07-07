@@ -302,6 +302,12 @@ All execution skills — those that write code, run tests, or modify the codebas
 
 **When an unexpected bug is encountered:** a bug not already listed in the plan's known issues or task descriptions must trigger an immediate stop, not be silently encoded in tests or worked around in code.
 
+Test-integrity requirement (all execution skills):
+
+- Do not remove, loosen, skip, or narrow failing behavior assertions to hide a real product defect or to recover a green run.
+- Keep behavior assertions that reveal the defect, add a focused reproduction test when useful, then fix implementation.
+- Temporary test adjustments are allowed only with explicit user approval, a `TODO:(DEVENV[plan-key]): ...` marker, and a concrete restoration task tracked immediately.
+
 The protocol applies to skills:
 
 - `devenv-delegation` — specifies full four-case classification and response per case.

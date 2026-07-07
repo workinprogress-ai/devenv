@@ -76,6 +76,12 @@ Use the emoji vocabulary defined in `copilot-instructions.md` consistently:
 
 When execution uncovers a bug that was not already documented in the plan's known issues or task descriptions, **stop immediately**. Do not code around it or encode it in tests. Classify the scope and respond:
 
+**Test integrity guardrail (required):** never remove, loosen, skip, or narrow failing behavior assertions just to recover a green run.
+
+- Do not delete/relax roundtrip assertions or replace behavior coverage with narrower checks (for example, deserialize-only) when the failing assertion indicates a real product defect.
+- Keep the failing behavior assertion as the defect signal, add a focused reproduction test if useful, then fix implementation.
+- If the user explicitly requests a temporary test adjustment, mark it as temporary (`TODO:(DEVENV[plan-key]): ...`), define immediate restoration criteria, and add an explicit near-term plan task to restore full behavior coverage.
+
 1. **In-scope in the current task** — This bug is in code covered by the current task.
    - Write a specification test that asserts target (correct) behavior (will fail now).
    - Fix the bug.
@@ -94,7 +100,7 @@ When execution uncovers a bug that was not already documented in the plan's know
 4. **User-indicated documentation only** — Only if the user explicitly says "just document it."
    - Add a code comment with context; do not write tests or attempt fixes.
 
-**Core rule: Stop, explain, ask. Never silently encode a bug.**
+**Core rule: Stop, explain, ask. Never silently encode or mask a bug.**
 
 ## Session Kickoff
 
@@ -490,6 +496,7 @@ If this is the **final implementation phase**, no AC may remain unchecked. Befor
 - Batching **blocking** concerns instead of surfacing them immediately mid-phase.
 - Taking a dubious shortcut (restoring reverted code, skipping a required step, papering over a failure, adding workaround code just to get unstuck) instead of stopping and asking for help.
 - Continuing after a wall by introducing placeholder, fallback, or other hack logic whose main purpose is to avoid asking the user for direction.
+- Weakening/removing failing behavior assertions to get green status instead of fixing the defect.
 - A phase handback without **review hotspots** when hotspot-worthy work was done.
 - Auto-proceeding to the next phase without user review and approval.
 - Treating between-phase requests as out-of-scope — minor work should just be done; larger work should be offered as a plan edit.

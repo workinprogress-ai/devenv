@@ -108,6 +108,12 @@ These are the standard signals defined in `copilot-instructions.md` — use them
 
 When execution uncovers a bug that was not already documented in the plan's known issues or task descriptions, **stop immediately**. Do not code around it or encode it in tests. Classify the scope and respond:
 
+**Test integrity guardrail (required):** never remove, loosen, or bypass a failing behavior assertion just to make the suite pass.
+
+- Do not delete/relax roundtrip assertions or narrow a behavior test's scope (for example, replacing roundtrip validation with deserialize-only checks) when the failure indicates a real product defect.
+- Keep the failing behavior assertion in place as the defect signal, add a focused reproduction test if needed, then fix implementation.
+- If the user explicitly requests a temporary test adjustment, mark it as temporary (`TODO:(DEVENV[plan-key]): ...`), define immediate restoration criteria, and add an explicit near-term plan task to restore full behavior coverage.
+
 1. **In-scope in the current task** — This bug is in code covered by the current task.
    - Write a specification test that asserts target (correct) behavior (will fail now).
    - Fix the bug.
@@ -126,7 +132,7 @@ When execution uncovers a bug that was not already documented in the plan's know
 4. **User-indicated documentation only** — Only if the user explicitly says "just document it."
    - Add a code comment with context; do not write tests or attempt fixes.
 
-**Core rule: Stop, explain, ask. Never silently encode a bug.**
+**Core rule: Stop, explain, ask. Never silently encode or mask a bug.**
 
 ## Session Kickoff
 
@@ -1071,6 +1077,7 @@ When the user signals end of session (or a phase boundary that suggests a natura
 - Undoing something the user did without first asking whether it was intentional.
 - Taking a dubious shortcut (restoring reverted code, working around a failure, adding workaround code just to get unstuck) instead of surfacing the temptation and asking for help.
 - Pushing through a blocker by leaving behind placeholder, fallback, or other garbage code whose main purpose is to hide that you are stuck.
+- Weakening/removing failing behavior assertions to recover green status instead of fixing the defect.
 
 ### Plan integrity
 - Unilaterally editing the plan without discussion and agreement.
