@@ -152,6 +152,21 @@ Re-arming rule:
 - After a discussion/question turn, generic acknowledgements/navigation phrases ("continue", "go ahead", "sounds good", "what's next") do not by themselves authorize mutation.
 - Require an explicit implementation directive for the concrete chunk before proceeding.
 
+## Reground identity gate
+
+When a user asks to reground/reload/refocus, execution skills must preserve current skill identity.
+
+Required behavior:
+
+1. Treat active-skill provenance as authoritative (session state or explicit active-skill marker).
+2. Reground only to that exact skill; do not pick a different skill from heuristics about phase/task language.
+3. Only switch skills when the user explicitly names the target skill.
+4. If provenance is uncertain, ask one direct confirmation question before loading any skill file.
+
+Hard rule:
+
+- Never change skill identity during reground.
+
 ## Model check
 
 Add the following blockquote **immediately after the `# Skill Title` heading** (before the opening paragraph) for any skill that:

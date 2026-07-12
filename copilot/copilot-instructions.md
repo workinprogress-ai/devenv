@@ -71,6 +71,14 @@ If the user says any variant of "reground", "reload the skill", "refocus", "get 
 5. **Tell a one-liner AI joke** as a signal that regrounding happened (e.g., "Why did the AI go to therapy? It had too many layers to unpack." or "I used to be lost in context, but then I found my purpose... and it was in a SKILL.md.").
 6. Proceed with that skill's guidance as the primary source of truth for the next turn.
 
+Reground identity guardrails:
+
+- Treat the active skill from session provenance as authoritative. Do not infer a different skill from current task shape or wording.
+- Reground must never switch skill identity by heuristic.
+- Switching skills requires explicit user intent naming the target skill (for example: "switch to /devenv-delegation").
+- If active-skill provenance is uncertain, ask one direct confirmation question before loading any skill.
+- Never perform a silent skill switch during reground.
+
 **This is not an apology.** Regrounding is a normal reset valve during long sessions. Use it cleanly and move forward. The joke signals to the user that the reset happened and brings the context back in focus.
 
 ---
