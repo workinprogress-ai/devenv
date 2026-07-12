@@ -270,6 +270,7 @@ Required behavior:
 4. Output a single copiable fenced markdown code block.
 5. Include skill-in-effect, conversation context, decision trace summary, self-diagnosis, and related context.
 6. Do not expose hidden internal chain-of-thought; provide a concise decision trace summary only.
+7. Apply a pre-send format compliance gate: if the response is not exactly one fenced `markdown` block with no surrounding prose, fix packaging before sending.
 
 Authoring rule: Add the blockquote immediately after the title (before the opening paragraph) for the listed skills only.
 
@@ -291,6 +292,7 @@ Required default behavior:
 2. Put the full artifact inside the block; do not wrap it in explanatory prose unless explicitly requested.
 3. Prefer exact copy/paste fidelity over rendered readability.
 4. If the right packaging is genuinely unclear, ask one short format question before producing the artifact.
+5. Run a final packaging check: one fenced block, correct language tag, no extra text outside the block unless explicitly requested.
 
 Authoring rule:
 
@@ -319,6 +321,21 @@ The protocol applies to skills:
 Authoring rule:
 
 - Add a short reference line near the top of each skill pointing to the shared protocol rather than duplicating full diagnostic instructions in every SKILL.md.
+
+## Cleanup completion protocol (shared)
+
+For cleanup tasks (especially temporary scaffold/escape-hatch removal), completion must be validated semantically, not by marker grep alone.
+
+Required gates before marking cleanup complete:
+
+1. **Intent gate**: confirm the task target is the artifact itself (file/class/test/scaffold), not only marker strings.
+2. **Evidence gate**: require at least one artifact-level diff showing removal or migration of the temporary artifact.
+3. **Closure parity gate**: do not close the task when revision-note scope is narrower than task scope (for example marker removal noted, scaffold artifact still present).
+
+Validation guidance:
+
+- Marker removal is necessary but never sufficient when the task calls for artifact cleanup.
+- If temporary artifact remains, keep task open and record the remaining work explicitly.
 
 ## Hotspot bullet format (shared)
 

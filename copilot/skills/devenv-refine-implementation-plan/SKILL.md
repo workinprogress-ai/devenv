@@ -161,6 +161,12 @@ Task completeness review (affected phases only):
 3. If reopening is unavoidable, explicitly state why in `## Revision History` and keep the reopen scoped to the smallest affected task.
 4. Review unchecked tasks that may now be satisfied by completed work; mark `[x]` only with explicit user confirmation.
 
+Cleanup-task reconciliation (when affected tasks are cleanup/scaffold-removal tasks):
+
+1. Confirm artifact-level cleanup occurred (temporary file/class/test removed or migrated), not just marker-text removal.
+2. Require at least one artifact-level diff reference before marking cleanup tasks `[x]`.
+3. If revision-history wording is narrower than task scope (for example marker removal logged while scaffold artifact remains), keep the task open and record remaining artifact work.
+
 AC completeness review:
 
 1. Recheck all affected acceptance criteria for status drift after the material change.

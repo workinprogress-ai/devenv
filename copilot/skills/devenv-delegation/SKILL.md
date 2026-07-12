@@ -11,7 +11,7 @@ user-invocable: true
 
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
 
-> **Diagnostic-report override:** If the user asks for a diagnostic report, postmortem, incident report, or findings artifact about undesirable behavior, treat that as an immediate diagnostic-mode request even if they do not say "enter diagnostic mode". Do not implement fixes first. Emit the protocol-defined diagnostic artifact format first.
+> **Diagnostic-report override:** If the user asks for a diagnostic report, postmortem, incident report, or findings artifact about undesirable behavior, treat that as an immediate diagnostic-mode request even if they do not say "enter diagnostic mode". Do not implement fixes first. Emit exactly one copyable fenced `markdown` code block (no surrounding prose) using the protocol-defined diagnostic artifact format.
 
 > **Hard decision gate.** If you emit `🔶` or otherwise say a decision is required before continuing, stop there. Do not edit files, write plans, or run any other mutating tool until the user gives explicit approval for the exact path and scope. Silence, acknowledgements, or navigation phrases are not approval. Follow the shared [decision resolution protocol](../common/references/decision-resolution-protocol.md).
 
@@ -280,6 +280,14 @@ When a phase is ready to close, do one final cleanup sweep before marking it com
 3. If an important task appears to be left undone, stop and surface it to the user with the concrete choice: complete it now, defer it, or add it as a new task / phase.
 4. Only when the ledger matches reality should the phase be considered closed and eligible for the phase-completion gate.
 
+For cleanup tasks involving temporary scaffolding/escape-hatch artifacts, run these extra gates before closure:
+
+1. **Intent gate**: confirm the task target is artifact cleanup (file/class/test/scaffold removal or migration), not only marker text removal.
+2. **Evidence gate**: require at least one artifact-level diff showing the temporary artifact was removed or migrated.
+3. **Closure parity gate**: if revision-note scope is narrower than task scope (for example marker removal noted but scaffold artifact remains), keep the task open.
+
+Marker removal alone is insufficient for artifact-cleanup tasks.
+
 The phase task list must always reflect what was actually done and what remains to be done now; phase close is the last chance to repair drift before the phase is marked complete.
 
 ## During a Phase
@@ -502,6 +510,7 @@ If this is the **final implementation phase**, no AC may remain unchecked. Befor
 - Treating between-phase requests as out-of-scope — minor work should just be done; larger work should be offered as a plan edit.
 - Silently expanding scope beyond what was delegated.
 - Emitting file links that haven't been confirmed to exist (guessed paths).
+- Closing cleanup tasks after marker-only removal while temporary scaffold artifacts still exist.
 
 ## Sibling skills
 

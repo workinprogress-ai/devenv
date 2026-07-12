@@ -20,6 +20,8 @@ This is mandatory. The diagnostic response itself must be inside the fence, not 
 
 Do not add explanatory prose before or after the block unless the user explicitly asks.
 
+Packaging is strict: emit exactly one fenced `markdown` block and no surrounding commentary by default.
+
 The block must start with <code>```markdown</code> and end with <code>```</code>.
 
 ## Required contents
@@ -85,3 +87,5 @@ Do **not** expose hidden internal chain-of-thought. Provide a concise, user-faci
 
 - Did I provide it as a single fenced `markdown` code block?
 - Is it self-contained and ready to copy?
+- Is there any text outside the fenced block? If yes, remove it unless explicitly requested.
+- If format is ambiguous, did I choose fenced markdown (copy-safe default) rather than prose?
