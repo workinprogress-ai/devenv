@@ -104,7 +104,7 @@ Use `vscode_askQuestions` to confirm/fill gaps. Always cover:
 Once the above is gathered, **draft the phase structure — names and one-line deliverable descriptions only — and discuss it before writing any task details.** Phase objectives should be agreed before the task list is written; tasks do not need to be discussed in detail. Present the phase outline like:
 
 > *"Here's how I'd divide this work:*
-> - *Phase 1 — Discovery & test scaffolding: read existing code, confirm assumptions, add/adjust tests that assert current observable behaviour (including stub/default behaviour where applicable), and end fully green*
+> - *Phase 1 — Discovery & test scaffolding: read existing code, inspect existing coverage, add/adjust tests only where needed to lock current observable behaviour (including stub/default behaviour where applicable), and end fully green*
 > - *Phase 2 — Contracts & boundaries: define or tighten interfaces, request/response shapes, message schemas, extension points, or other contracts that later phases implement against; use temporary coverage exclusions only when unavoidable and always pair them with DEVENV TODOs*
 > - *Phase 3 — [Name]: [deliverable]*
 > - *Phase N — Cleanup & docs: remove scaffolding, update docs, verify coverage*
@@ -124,6 +124,7 @@ After phase-structure approval and before drafting detailed tasks, offer an opti
 - Use this when the plan has high-impact contract decisions, brittle sequencing, or unresolved high-blast-radius assumptions.
 - Never run automatically; proceed only on explicit user consent.
 - Keep it bounded to at most two passes per draft state.
+- If the pass exposes risks that should be revisited during execution, translate them into explicit pressure-test tasks or checkpoints in the plan at the cheapest useful phase boundary.
 - If findings expose broader architecture drift instead of plan-local fixes, route to [`/devenv-grooming`](../devenv-grooming/SKILL.md) before continuing this skill.
 
 ### 4b. Scale/risk redivision gate
@@ -173,35 +174,39 @@ Do not continue detailed task generation while redivision is unresolved.
 
 Use the [plan template](./references/plan-template.md). Follow:
 
-- [Task formatting rules](./references/task-format.md) — atomic `- [ ] **N.N [S|M|L] Title**` tasks written as concise step entries; keep optional metadata (`Files:` / `decision:` / `depends on`) and move deep detail to `(additional context)` when needed
+- [Task formatting rules](./references/task-format.md) — atomic `- [ ] **N.N [S|M|L] Title**` tasks written as concise step entries; keep optional metadata (`Files:` / `decision:` / `depends on`) and keep deeper context directly under each task
 - [Phase rules](./references/phase-rules.md) — Phase 1 is **Discovery & test scaffolding**; the last phase is **Cleanup & docs**; every phase must end committable (tests pass, coverage doesn't regress, single-PR sized)
 - Where the work introduces or changes important boundaries, add an early **Contracts & boundaries** phase (usually Phase 2, sometimes merged into late Phase 1 for smaller work) before broad implementation starts
-- The plan must follow this section order: `## Goals and Acceptance Criteria`, `## Context and Orientation`, `## Phases`, `## Detailed Task List`, `## Appendix` *(optional unless required by source complexity)*, `## Pending Questions` *(optional)*, `## Reference Information`, `## Additional Task Context`, `## Revision History`
+- The plan must follow this section order: `## Goals and Acceptance Criteria`, `## Context and Orientation`, `## Phase TOC`, `## Phases`, `## Appendix` *(optional unless required by source complexity)*, `## Pending Questions` *(optional)*, `## Reference Information`, `## Revision History`
 - `## Goals and Acceptance Criteria` must include an end-state paragraph plus important scope boundaries before the AC checklist
 - `## Context and Orientation` must be useful on its own to a human who may never read the task list
 - `## Context and Orientation` should be concise but substantive: each subsection should usually be 2-4 sentences with concrete repo-specific details (affected components, current behaviour, target behaviour, and constraints), not placeholder-style one-liners
-- `## Phases` is the human-facing phase summary section: each phase gets goal, end-state vision, suggested strategies, AC links, watch-outs / decisions, and deliverables
+- `## Phase TOC` must appear immediately before `## Phases` and provide short anchor links for quick navigation across phases
+- `## Phases` is the human-facing execution section: each phase gets goal, end-state vision, suggested strategies, AC links, watch-outs / decisions, deliverables, and its task list
 - Resolve pending questions as early as possible during plan creation. Unresolved items are allowed only for implementation-level details or explicit user deferral.
 - When contract-first phases temporarily reduce meaningful coverage (for example because interfaces, schema holders, or placeholder adapters land before their implementations), the plan may use temporary coverage-exclusion mechanisms only when truly necessary. If it does, include explicit cleanup/removal tasks in a later phase and require `TODO:(DEVENV[plan-key]): ...` markers at the code locations that need real implementation or coverage restoration.
 - Every unresolved decision that can block execution must appear in both places:
   - `## Phases` under the relevant phase's **Watch Outs / Decisions**
-  - `## Detailed Task List` as a task-level `decision:` metadata line on the earliest task where the decision matters
+  - the phase task list as a task-level `decision:` metadata line on the earliest task where the decision matters
 - Pending-question placement is strict:
   - phase/task-specific unresolved questions stay inline under the relevant phase/task as `[QUESTION] ...`
   - only plan-level unresolved questions belong in `## Pending Questions`
 - `## Phases` should carry practical execution guidance, not just labels: include at least 2 suggested strategies and at least 2 concrete deliverables per phase whenever the scope permits
-- `## Detailed Task List` repeats the same phases with a short deliverable-summary blockquote and a condensed 3-6 step sequence per phase, pointing back to the fuller phase context above
+- Include a condensed 3-6 step task list directly in each phase so users can read intent and execution details together
+- For discovery-oriented Phase 1 tasks, prefer `owner: AI` when the work is read-only or mechanical; reserve `owner: User` for domain judgment, policy choices, or business-intent decisions
+- Add explicit pressure-test tasks or checkpoints when high-risk assumptions, boundaries, failure modes, rollout paths, or sequencing hazards should be challenged before later phases make them expensive to change
 - `## Appendix` is optional only for straightforward work. It is **required** when the plan is derived from an upstream design artifact (design doc, RFC, Blueprint, Redesign doc, or equivalent issue comment) and the work is medium/high complexity or risk.
 - Use the explicit complexity triggers in [plan-template.md](./references/plan-template.md): appendix is required when design-derived work meets the threshold (any 1 high-complexity trigger, or any 2 medium-complexity triggers).
 - When required, the appendix must summarize the important upstream design context, not just link to it: key decisions, constraints/invariants, interface contracts, migration/rollout considerations, and any explicitly rejected alternatives that affect implementation sequencing.
 - Keep the appendix bounded (roughly 10-25 lines) so it stays focused and actionable.
-- If the same rationale already appears in `## Phases`, `## Detailed Task List`, or `## Reference Information`, do not repeat it in the appendix; link instead.
+- If the same rationale already appears in `## Phases` or `## Reference Information`, do not repeat it in the appendix; link instead.
 - `## Pending Questions` is optional and sits immediately above `## Reference Information`. Use it only for unresolved plan-level questions that matter to execution; task- or phase-specific questions should be placed inline below the relevant task/phase using `[QUESTION] ...`
 - Reference Information uses a **table** of key files with a relevance column, plus a separate links sub-list
 - If upstream artifacts exist (grooming doc, design discussion, spike, blueprint, roadmap issue), link them explicitly in `## Reference Information`.
 - If upstream artifacts exist (grooming doc, design discussion, spike, blueprint, roadmap issue), link them explicitly in `## Reference Information` and include the parent grooming artifact when this plan is one slice of a larger issue attack plan.
 - Mark dependencies as `depends on N.N` inline; readers infer parallelism
-- Every task with non-obvious context **must** link to its entry under *Additional task context* using a descriptive anchor slug (`#task-NN--short-slug`)
+- Every task with non-obvious context should include an `Additional context:` bullet directly under the task
+- If Phase 1 discovery causes plan changes, make those edits only when they materially improve or alter the plan. Do not add wording that merely says discovery "confirmed" or "completed" what the plan already encoded.
 - Include the AC checklist in `## Goals and Acceptance Criteria` using the agreed format: `- [ ] <a id="ac-N"></a>**AC-N** criterion text *(explicit|inferred)*`.
 - Every AC mention outside the checklist must be a link to the specific AC anchor (`[AC-N](#ac-N)`), not plain text.
 - These criteria are formally reviewed and checked off in the Cleanup phase.
@@ -259,7 +264,7 @@ In the target repo root:
 
 ### 8. Write the file
 
-Write the approved plan to `<target-repo>/<resolved-filename>.md`. The plan must include a `## Revision History` section near the bottom of the file (after `## Additional Task Context`) with a single initial entry:
+Write the approved plan to `<target-repo>/<resolved-filename>.md`. The plan must include a `## Revision History` section near the bottom of the file (after `## Reference Information`) with a single initial entry:
 
 ```markdown
 ## Revision History
@@ -314,24 +319,24 @@ See [phase-rules.md](./references/phase-rules.md) for the full checklist.
 ## Task Formatting Rules (summary)
 
 ```
-- [ ] **N.N [S|M|L] Task title** ([additional context](#task-NN--short-slug))
+- [ ] **N.N [S|M|L] Task title**
   - Files: `workspace-root-relative/path/File.cs`, `workspace-root-relative/path/FileTests.cs`
   - decision: <the choice to make, and why it's non-obvious> (omit if none)
   - owner: User | AI  (omit when either party can take it — default)
   - depends on N.N (omit if none)
+  - Additional context: <task-specific nuance, edge case, or execution note>
 ```
 
-- **Bold task header** with size label and optional inline `(additional context)` link.
+- **Bold task header** with size label.
 - **Concise step entries, metadata optional** — each task line should read as a concrete step. Add `Files:` / `decision:` / `owner:` / `depends on` only when it meaningfully improves execution clarity.
 - `[S/M/L]` size label on every task: S ≤ 30 min, M = 30 min–2 h, L > 2 h (consider splitting).
 - `Files:` lists every file the task reads or modifies using workspace-root-relative paths. New files get a `(new)` suffix. Powers the **Files in scope** links in pair-programming and delegation at phase kickoff.
 - `decision:` flags a non-obvious design choice — signals AI to stop and ask, signals pair-programming to discuss at handoff.
 - `owner: User` flags tasks the human must drive (design intent, domain judgment). `owner: AI` flags mechanical tasks the AI should take by default. Omit when either party can take it.
-- Anchor slugs are descriptive: `#task-21--mockstore-implementation`, not `#task-2-1`.
+- Discovery-heavy Phase 1 tasks are often good `owner: AI` candidates when they are read-only, coverage-inventory, or seam-mapping work.
 - `N.N` — first number is the phase. Sub-tasks extend the series: `1.3.1`, `1.3.2`, ...
 - Task numbering is numeric-only. Do not use alphabetic suffixes like `1.3a`; use numeric subtasks (`1.3.1`) or structural renumbering.
-- Push depth into *Additional task context* and link to it rather than bloating sub-bullets.
-- If a sub-bullet would need its own paragraph, move that content into *Additional task context* instead of expanding the task header.
+- Keep additional detail under `Additional context:` bullets directly under the task rather than moving it to a separate section.
 
 See [task-format.md](./references/task-format.md) for the full spec and examples.
 
@@ -352,25 +357,25 @@ End-state paragraph, why the work is being done, and scope boundaries.
 
 Human-oriented context loading section. Useful even if the reader stops here.
 
+## Phase TOC
+
+Short navigable links to each phase.
+
 ## Phases
 
 ### Phase 1 — Discovery & test scaffolding
 
 Goal, end-state vision, suggested strategies, AC links, watch-outs / decisions, deliverables.
 
+**Tasks:**
+
+- [ ] **1.1 [S|M|L] ...**
+  - Files: `...`
+  - Additional context: `...`
+
 ### Phase 2 — ...
 
 Same structure.
-
-## Detailed Task List
-
-### Phase 1 — Discovery & test scaffolding
-> Deliverable summary blockquote.
->
-> See the matching entry in `## Phases` for the full orientation and watch-outs.
-
-### Phase 2 — ...
-> Deliverable summary blockquote.
 
 ## Appendix *(optional unless required by source complexity)*
 
@@ -386,18 +391,16 @@ Supplemental deep context for complex/high-risk plans. Required when significant
   - Key files table (with relevance column)
   - Related links
 
-## Additional Task Context
-
 ## Revision History
 ```
 
-Every phase header in `## Detailed Task List` is followed by a short `> blockquote` deliverable summary and a condensed step list (typically 3-6 tasks). The fuller human-facing guidance lives in `## Phases`. If `## Appendix` is present, treat it as supplemental context and keep it intentionally brief. If `## Pending Questions` is present, keep it to genuinely unresolved execution questions rather than dumping notes. Section headings use Title Case.
+Every phase in `## Phases` should include both human-facing guidance and a condensed step list (typically 3-6 tasks). If `## Appendix` is present, treat it as supplemental context and keep it intentionally brief. If `## Pending Questions` is present, keep it to genuinely unresolved execution questions rather than dumping notes. Section headings use Title Case.
 
 ## Anti-patterns
 
 - Writing the file **before** the user approves the draft
 - Vague tasks ("Implement the feature") with no acceptance signal
-- Overloading task lines with context instead of linking to *Additional task context*
+- Splitting task context into a separate catch-all section that forces readers to jump around
 - Skipping the repo-conventions scan
 - Overwriting an existing `Implementation_plan*.md` (always use a numbered suffix)
 - Auto-running `issue-update` without explicit user confirmation

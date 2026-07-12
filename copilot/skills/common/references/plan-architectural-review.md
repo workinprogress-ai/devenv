@@ -23,13 +23,13 @@ Do not load for general design questions with no plan artifact involved.
 Read these plan sections in order. Each has a specific diagnostic role:
 
 | Section | What to extract |
-|---|---|
+| --- | --- |
 | `## Goals and Acceptance Criteria` | Stated intent, observable end state. Mismatches between intent and phase structure are a signal. |
 | `## Context and Orientation → Solution Context` | The architectural approach chosen. Note if it feels inconsistent with the forces described. |
 | `## Context and Orientation → Forces` | Constraints that shaped the approach. Check whether later phases violate a stated force. |
 | `## Phases → Watch Outs / Decisions` | Unresolved or risky architectural choices flagged per-phase. These are primary fault candidates. |
-| `## Detailed Task List → decision:` metadata | Task-level architectural choices deferred at planning time. Cluster these by phase. |
-| `## Detailed Task List → [QUESTION]` | Unresolved task-level design questions. Note which phase they block. |
+| `## Phases → Tasks → decision:` metadata | Task-level architectural choices deferred at planning time. Cluster these by phase. |
+| `## Phases → Tasks → [QUESTION]` | Unresolved task-level design questions. Note which phase they block. |
 | `## Pending Questions` | Plan-level unresolved questions. These often represent architectural unknowns the planner parked. |
 | `## Appendix → Decision log` | Rejected alternatives and why. Useful for checking whether a "rejected" path is actually what's needed. |
 | `## Revision History → [ESCALATION-HANDOFF]` | If present, parse the recorded blocker, options considered, and recommended next step. Treat this as the primary fault summary. |
@@ -41,6 +41,7 @@ Read these plan sections in order. Each has a specific diagnostic role:
 After reading, produce a fault candidate list:
 
 For each candidate, note:
+
 - **Location** — phase number and task number (or plan section) where the fault manifests.
 - **Signal** — what in the plan text indicates a problem (unresolved `decision:`, contradictory forces, escalation marker, Watch Out item, architectural assumption that downstream phases already invalidate).
 - **Fault type** (see classification below).
@@ -50,7 +51,7 @@ For each candidate, note:
 ## Step 3 — Classify the fault type
 
 | Type | Indicators |
-|---|---|
+| --- | --- |
 | **Wrong strategy** | Chosen approach in Solution Context is fundamentally unsuited to the stated forces or ACs. Downstream phases accumulate workarounds as a result. |
 | **Missing constraint** | A force or constraint that clearly applies was not captured, causing phases to make incompatible decisions. |
 | **Broken boundary** | Two phases or components cross a responsibility boundary that was implicit in the design; this creates coupling problems in the task list. |
@@ -107,7 +108,7 @@ The design skill's normal session flow then resumes from the first open question
 Use this matrix after producing the Architectural Brief to select the next skill deterministically:
 
 | Stage / intent | Default route | Escalate to | Why |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Pre-plan architecture ambiguity | `/devenv-design-discussion` | `/devenv-grooming` | Broad option-weighing and recommendation is primary. |
 | In-flight implementation unblock (plan partially executed) | `/devenv-grooming` | `/devenv-design-discussion` only for one bounded blocker that needs deeper option-weighing than the execution skills can support | Preserve execution continuity; close decisions at the blocker boundary first. |
 | Post-decision task sequencing/scope updates | `/devenv-refine-implementation-plan` | `/devenv-grooming` if new architecture drift appears | Architecture is settled; update tasks safely. |

@@ -3,18 +3,17 @@
 ## Canonical format
 
 ```
-- [ ] **N.N [S|M|L] Task title** <a id="t-NN"></a> ([additional context](#task-NN--short-slug))
+- [ ] **N.N [S|M|L] Task title**
   - Files: `workspace-root-relative/path/File.cs`, `workspace-root-relative/path/FileTests.cs`
   - decision: <the choice to make, and why it's non-obvious> (only if applicable)
   - owner: User | AI  (omit when either party can take it — that's the default)
   - depends on N.N (only if applicable)
+  - Additional context: <task-specific nuance, edge case, or execution note>
 ```
-
-The `<a id="t-NN"></a>` anchor (where `NN` is the task number with the dot dropped: `2.1` → `t-21`) is placed immediately after the task title and before the `(additional context)` link. It renders as nothing visible but creates the anchor target that the *Additional task context* section links back to. Only include it when the task has a corresponding `(additional context)` entry.
 
 The task title is **bolded** and is the primary execution step. Keep task lines concise and concrete. Include `Files:` by default for execution-facing plans. Use `decision:` and `depends on` only when they materially improve execution clarity.
 
-The `(additional context)` link is inline on the task header line, optional, and only present when there's a corresponding entry under *Additional task context*.
+`Additional context:` lives directly under the task it describes. Keep it short and practical so readers do not need to jump to another section to understand the task.
 
 ### Size labels `[S/M/L]`
 
@@ -33,7 +32,7 @@ Task lists should be compact and current-state friendly:
 - Prefer 3-6 tasks per phase.
 - Each task line should read like one concrete execution step.
 - Include `Files:` by default; add other metadata only when needed for handoff clarity.
-- Move depth into *Additional task context* instead of expanding task bullets.
+- Keep any extra detail under `Additional context:` for that task instead of creating separate context sections.
 
 If a task description needs multiple implementation bullets to be understandable, split it into separate tasks or move the extra detail into linked additional context.
 
@@ -82,6 +81,7 @@ Add an `owner:` bullet when a task strongly belongs to one party:
 Rules:
 
 - Omit when either party can reasonably take the task.
+- Discovery-oriented Phase 1 tasks usually default to `AI` when they are read-only or mechanical (coverage inventory, seam tracing, fixture setup). Do not force `AI` when domain judgment is required.
 - `User` tasks are surfaced by pair-programming when proposing the task split; the AI will not unilaterally take them.
 - Pair-programming and delegation both respect this annotation when proposing splits.
 
@@ -101,7 +101,7 @@ Each task should be:
 - **Implementable as a whole** — no "and then..." that hides a second deliverable.
 - **Verifiable** — the executor knows when it's done (passing test, file exists, command succeeds, etc.).
 
-If a task can't be expressed as one concise step line, it probably needs to be split, or its detail belongs in *Additional task context*.
+If a task can't be expressed as one concise step line, it probably needs to be split, or its detail belongs in `Additional context:` under that task.
 
 ## Parallelism
 
@@ -109,47 +109,30 @@ If a task can't be expressed as one concise step line, it probably needs to be s
 - Mark blockers as `depends on N.N`.
 - Anything in the same phase without a `depends on` between them may be done in parallel.
 
-## Linking to additional context
+## Writing additional context
 
-When a task needs more detail than a concise step line can carry, push that depth into *Additional task context* and link to it from the task header. Add a back-link on the context section heading so the reader can navigate back to the task in one click:
+When a task needs more detail than a concise step line can carry, place that depth directly under the task with `Additional context:`:
 
 ```markdown
-- [ ] **2.2 [M] Wire retry policy into BulkSyncWorker** <a id="t-22"></a> ([additional context](#task-22--retry-policy-wiring))
+- [ ] **2.2 [M] Wire retry policy into BulkSyncWorker**
   - Files: `repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs`
   - depends on 2.1
+  - Additional context:
+    - Edge cases: 429 vs 5xx; jittered backoff; honor `Retry-After` header.
+    - Tests to add: `BulkSyncWorkerRetryTests` covering each case.
 ```
-
-…and in *Additional task context*:
-
-```markdown
-#### <a id="task-22--retry-policy-wiring"></a>2.2 — Retry policy wiring  [↩ task](#t-22)
-
-Edge cases: 429 vs 5xx; jittered backoff; honour `Retry-After` header.
-Tests to add: `BulkSyncWorkerRetryTests` covering each case.
-```
-
-The `<a id="t-22"></a>` anchor on the task line is the back-link target. The `[↩ task](#t-22)` link at the end of the context heading navigates back. Both anchors must be present when additional context exists; neither is needed on tasks without context.
-
-### Anchor slugs
-
-Use **descriptive** slugs that match the task topic, not just `task-N-N`:
-
-- ✅ `#task-21--mockstore-implementation`
-- ✅ `#task-32--managedservice-integration`
-- ❌ `#task-2-1` (works but is opaque when reading raw markdown)
-
-Pattern: `#task-NN--short-slug` where `NN` is the task number with the dot dropped (`2.1` → `21`) and the slug is 2–4 hyphenated lowercase words.
 
 ## Good vs. bad examples
 
 ### Good
 
 ```markdown
-- [ ] **1.2 [S] Add failing test for empty-payload bulk sync** ([additional context](#task-12--empty-payload-test))
+- [ ] **1.2 [S] Add empty-payload behavior-locking test if existing coverage is insufficient**
   - Files: `repos/lib.cs.services.bulk-sync/tests/BulkSyncWorkerTests.cs`
+  - Additional context: Validate behavior for both empty arrays and null payloads.
 ```
 
-Why it's good: bold title, sized, concrete step, files listed, link to deeper context.
+Why it's good: bold title, sized, concrete step, files listed, and task context directly under the task.
 
 ```markdown
 - [ ] **2.3 [M] Choose and implement retry backoff strategy**

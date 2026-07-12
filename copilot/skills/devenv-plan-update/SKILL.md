@@ -96,7 +96,7 @@ Keep the entry concise and avoid separate bullets for low-value tweaks when they
 ### 2025-10-22 — Initial plan created
 ```
 
-If no Revision History exists yet, create it after `## Additional Task Context` so the human-facing reading flow stays intact.
+If no Revision History exists yet, create it after `## Reference Information` so the human-facing reading flow stays intact.
 
 If multiple local draft passes are needed to converge on the requested small edit set, record one revision-history entry for the final applied update effort, not one per draft pass.
 

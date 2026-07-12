@@ -99,7 +99,7 @@ When escalating back to planning, record unresolved decisions/questions thorough
 
 1. Relevant phase in `## Phases`
    - Add or update entries under **Watch Outs / Decisions** for each blocking decision.
-2. Relevant task in `## Detailed Task List`
+2. Relevant task under the corresponding phase `**Tasks:**` list in `## Phases`
    - Add `decision:` metadata on the earliest affected task.
    - Add inline `[QUESTION] ...` when the unresolved item is task/phase-specific.
 3. `## Pending Questions`

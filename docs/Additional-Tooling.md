@@ -19,6 +19,34 @@ Public functions:
   - No-op when `copilot/knowledge` is not an initialized git repository.
   - Used by `.devcontainer/startup.sh` so each container start refreshes Copilot knowledge when available.
 
+## Diagnostics
+
+### `devenv-memory-watch`
+
+Samples container memory over time, persists the history in the repository, and writes a compact `current-culprits.tsv` summary for the latest analysis.
+
+**Usage:**
+
+```bash
+devenv-memory-watch [OPTIONS]
+```
+
+**Options:**
+
+- `--interval-minutes N`: Sample every `N` minutes. Default: `10`
+- `--top N`: Show the top `N` culprits in the report. Default: `10`
+- `--state-dir PATH`: Persist samples in `PATH`. Default: `<repo>/.debug/devenv-memory-watch`
+- `--max-processes N`: Cap the number of processes captured per sample. Default: `250`
+- `--reset`: Clear previous history before starting
+- `--once`: Capture one sample, print the report, and exit
+
+**Notes:**
+
+- The script is restartable because it appends samples to disk instead of keeping state only in memory.
+- It is intended for long-running OOM investigations where you want to compare usage over hours, not minutes.
+- The report prints a short console summary and writes a `current-culprits.tsv` file with the current ranking, memory growth, and timestamps.
+- Console output stays brief by default; the persisted TSV files still retain the full process signatures.
+
 ## Repository Management
 
 Tools for managing repositories, cloning, updating, and working with multiple repositories.

@@ -466,7 +466,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
    Temporary-code limit: genuinely temporary code is allowed only when it is a tiny compile/test unblock — a line or two, or comparably small localized scaffold — and it must be marked with `TODO:(DEVENV[plan-key]): ...`. A substantial temporary implementation, fallback execution path, or alternate architecture is not allowed as a stopgap; stop and ask instead.
 
    Summarize the blocker, name the tempting bad workaround if there is one, and ask the user for help or direction.
-5. **Track and hand back.** Remove any forward DEVENV comments whose work just completed. Keep AC and phase status current first; update detailed task bullets only when needed to clarify what changed. Ask before major changes to phases, goals, or ACs. Then format the handback:
+5. **Track and hand back.** Remove any forward DEVENV comments whose work just completed. Keep AC and phase status current first; update plan/task text only when it materially improves or changes the plan. Do not edit the plan just to say discovery or implementation "confirmed" wording that was already accurate. Ask before major changes to phases, goals, or ACs. Then format the handback:
 
    > ✅ **Done with 2.1**
    >
@@ -514,8 +514,9 @@ When a phase is ready to close, do one final review sweep before marking it comp
 
 1. Re-read the phase's changed files and compare them with the phase tasks and ACs.
 2. Remove, strike, or add task entries so the phase task list accurately reflects real work progress at close.
-3. If an important task appears to be left undone, stop and surface it to the user with the concrete choice: complete it now, defer it, or add it as a new task / phase.
-4. Only when the ledger matches reality should the phase be considered closed and eligible for the phase-completion gate.
+3. If Phase 1 discovery exposed high-blast-radius assumptions, boundary risks, failure modes, or sequencing hazards, add explicit pressure-test tasks/checkpoints to the current or next appropriate phase instead of leaving that risk only in narration.
+4. If an important task appears to be left undone, stop and surface it to the user with the concrete choice: complete it now, defer it, or add it as a new task / phase.
+5. Only when the ledger matches reality should the phase be considered closed and eligible for the phase-completion gate.
 
 For cleanup tasks involving temporary scaffolding/escape-hatch artifacts, run these extra gates before closure:
 
@@ -610,6 +611,7 @@ When the pair is actively discussing architecture or modifying plan structure (n
 - Keep it bounded to at most two passes per current plan/recommendation state.
 - Keep output focused on assumptions, boundary integrity, failure modes, and sequencing risk.
 - If pressure-test findings indicate broad multi-decision drift, pause execution and route through `/devenv-grooming` before resuming implementation.
+- If discovery during execution shows that a later bounded challenge pass is needed, add an explicit pressure-test task/checkpoint to the plan at the appropriate phase boundary.
 
 Pressure-test routing is advisory. Present the recommended route and rationale, then follow the user's decision.
 
@@ -856,7 +858,7 @@ Assume they're still working toward the plan unless they say otherwise. Flow beh
 - **Prefer DEVENV-marked TODOs over plain TODO/FIXME for plan-linked work.** When discovered during review, offer to replace plain markers with `TODO:(DEVENV[plan-key]): ...` so they remain trackable and removable in cleanup.
 - **If temporary code is introduced to keep the build/test loop moving**, add a `TODO:(DEVENV[plan-key]): ...` marker at the exact code location describing what real implementation will replace it and when. Also ensure the plan contains a corresponding follow-up task so the temporary code is not lost.
 - **Never leave permanent code comments that reference plan phases, task IDs, or decisions.** Those references are allowed only in clearly temporary `DEVENV[...]` / `TODO:(DEVENV[...])` markers and must be removed when the temporary condition is resolved.
-- **Record `## Revision History` only for material plan changes** after `## Additional Task Context` near the bottom of the plan file. Do not insert it between phases or above `## Reference Information`. Material changes include phase restructuring, acceptance-criteria changes, major sequencing/approach changes, broad task re-slicing, or important implementation discoveries that changed plan scope/assumptions. Routine checkbox ticks, AC checkoffs, minor wording polish, and small in-phase task add/remove operations do not require revision-history entries unless they capture such a discovery.
+- **Record `## Revision History` only for material plan changes** after `## Reference Information` near the bottom of the plan file. Do not insert it between phases or above `## Reference Information`. Material changes include phase restructuring, acceptance-criteria changes, major sequencing/approach changes, broad task re-slicing, or important implementation discoveries that changed plan scope/assumptions. Routine checkbox ticks, AC checkoffs, minor wording polish, and small in-phase task add/remove operations do not require revision-history entries unless they capture such a discovery.
    ```markdown
    ## Revision History
 

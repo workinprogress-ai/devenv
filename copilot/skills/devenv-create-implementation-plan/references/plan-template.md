@@ -63,6 +63,14 @@ if the reader never looks at the task list.>
 <Target depth: enough detail that a new contributor can start discovery from
 this section alone.>
 
+## Phase TOC
+
+<Keep this short and navigable so readers can jump directly to active work.>
+
+- [Phase 1 - Discovery & test scaffolding](#phase-1---discovery--test-scaffolding)
+- [Phase 2 - <Phase name>](#phase-2---phase-name)
+- [Phase N - Cleanup & docs](#phase-n---cleanup--docs)
+
 ## Phases
 
 ### Phase 1 — Discovery & test scaffolding
@@ -94,6 +102,24 @@ this section alone.>
 
 <Prefer at least two concrete deliverables per phase when scope allows.>
 
+**Tasks:**
+
+- [ ] **1.1 [S] <Task title>**
+  - Files: `<workspace-root-relative/path/File.cs>`
+  - owner: AI
+  - depends on <N.N> (omit if none)
+  - Additional context: <Task-specific nuance, edge case, or execution note. Keep this directly under the task.>
+
+- [ ] **1.2 [M] <Task title>**
+  - Files: `<workspace-root-relative/path/File.cs>`, `<workspace-root-relative/path/FileTests.cs>`
+  - Additional context:
+    - <Test strategy or validation detail; if existing coverage already locks the behavior, say so and do not add more tests>
+    - <Known caveat or implementation note>
+
+- [ ] **1.3 [S] Add pressure-test checkpoint if discovery surfaces high-risk assumptions**
+  - owner: AI
+  - Additional context: <Only include when discovery finds boundary, sequencing, failure-mode, or rollout risks that should be challenged before later phases commit to them.>
+
 ---
 
 ### Phase 2 — <Phase name>
@@ -119,52 +145,50 @@ this section alone.>
 
 - <Deliverable>
 
-## Detailed Task List
-
-### Phase 1 — Discovery & test scaffolding
-
-> Deliverable summary: <One- or two-sentence summary of what this phase
-> delivers and why it is independently committable.>
->
-> See [Phase 1](#phase-1--discovery--test-scaffolding) above for full context,
-> orientation, and likely decision points.
-
-- [ ] **1.1 [S] <Task title>** ([additional context](#task-11--short-slug))
-  - Files: `<workspace-root-relative/path/File.cs>`
-  - depends on <N.N> (omit if none)
-
-- [ ] **1.2 [M] <Task title>**
-  - Files: `<workspace-root-relative/path/File.cs>`, `<workspace-root-relative/path/FileTests.cs>`
-
----
-
-### Phase 2 — <Phase name>
-
-> Deliverable summary: <What gets delivered, what stays green, and why the
-> phase can be reviewed or committed independently.>
->
-> See [Phase 2](#phase-2---phase-name) above for the phase goal, end-state
-> vision, suggested strategies, AC coverage, and watch-outs.
+**Tasks:**
 
 - [ ] **2.1 [M] <Task title>**
   - Files: `<workspace-root-relative/path/File.cs>`
   - decision: <the choice to make, and why it's non-obvious> (omit if none)
   - [QUESTION] <Task-level unresolved implementation detail, if any>
   - depends on 1.2
+  - Additional context: <Task-specific detail that should live with the task, not in a separate section.>
 
-- [ ] **2.2 [L] <Task title>** ([additional context](#task-22--short-slug))
+- [ ] **2.2 [L] <Task title>**
   - Files: `<workspace-root-relative/path/File.cs>`, `<workspace-root-relative/path/NewFile.cs>` (new)
+  - Additional context:
+    - <Edge case>
+    - <Integration detail>
 
 ---
 
 ### Phase N — Cleanup & docs
 
-> Deliverable summary: Final cleanup and documentation. Removes throwaway
-> scaffolding from earlier phases, updates user-facing docs, and verifies
-> coverage hasn't regressed.
->
-> See [Phase N](#phase-n--cleanup--docs) above for the cleanup goal, AC review
-> scope, and final deliverables.
+**Goal:** Final cleanup and documentation for the implemented scope.
+
+**End State:** Throwaway scaffolding is removed, docs are updated, and coverage remains stable.
+
+**Suggested Strategies:**
+
+- Complete AC verification before removing DEVENV markers.
+- Keep cleanup scoped to artifacts introduced by this plan.
+
+**Acceptance Criteria In Scope:**
+
+- [AC-1](#ac-1)
+- [AC-2](#ac-2)
+
+**Watch Outs / Decisions:**
+
+- Ensure AC verification happens before removing evidence comments or temporary markers.
+
+**Deliverables:**
+
+- Final AC verification outcomes are recorded.
+- DEVENV markers introduced by this plan are removed.
+- User-facing docs and inline docs are updated.
+
+**Tasks:**
 
 - [ ] **N.1 [S] Remove scaffolding tests no longer needed**
 - [ ] **N.2 [S] AC Review** — scan for `[AC-N]` DEVENV comments in code (`grep -rn "\[AC-" .`); for each acceptance criterion, verify against current code and tests; run `markdown-plan-complete-ac AC-N... [<plan_file>]` for each criterion that is objectively verifiable (test passes, behaviour observable); present any requiring human judgment for the user to confirm. **Must complete before the DEVENV cleanup task.**
@@ -256,21 +280,6 @@ phase as `[QUESTION] ...` bullets.
 - Slice issue type: <Feature|Fix|Task>
 - Slice independent production target: <one-line statement>
 
-## Additional Task Context
-
-<Per-task deep dives. Anchor each entry with a descriptive slug so tasks above
-can link to it.>
-
-#### <a id="task-11--short-slug"></a>1.1 — <Task topic>
-
-<Detailed context: file paths, code references, edge cases, test ideas, links
-to related code or docs. A future AI loading just this section should have
-enough to execute the task.>
-
-#### <a id="task-22--short-slug"></a>2.2 — <Task topic>
-
-<Detailed context.>
-
 ## Revision History
 
 ### <date> — Initial plan created
@@ -283,22 +292,21 @@ enough to execute the task.>
 - **Goals and Acceptance Criteria** — this is the first section a human should be able to use to understand the intended end state and scope boundaries.
 - **Acceptance criteria anchors** — define each AC with an explicit anchor (`<a id="ac-N"></a>`) and link to those anchors everywhere else (`[AC-N](#ac-N)`). Avoid plain-text references like "AC-2" without a link.
 - **Context and Orientation** — write this so it still helps a human who never reads past it. Aim for concise depth (usually 2-4 sentences per subsection) and repo-specific details over generic phrasing.
-- **Phases** — this is the human-oriented breakdown. Give enough goal, end-state, strategy, AC coverage, and watch-out information for someone to start a phase without living in the task list. Prefer at least two concrete strategy bullets and two concrete deliverables per phase when scope allows.
+- **Phase TOC** — keep it concise and place it directly before `## Phases` so users can jump between phases quickly.
+- **Phases** — this is the human-oriented breakdown and execution surface. Include tasks directly under each phase so readers do not need to jump to a separate task-list section. Prefer at least two concrete strategy bullets and two concrete deliverables per phase when scope allows.
 - **Decision placement** — unresolved execution decisions should appear in both places: phase-level under **Watch Outs / Decisions** and task-level as `decision:` metadata on the earliest affected task.
 - **Pending questions** — resolve as many as possible during planning. Keep unresolved items only for implementation-level details or explicit user-requested deferral.
 - **Question placement** — phase/task-specific unresolved questions stay inline as `[QUESTION] ...`; `## Pending Questions` is only for plan-level unresolved items.
-- **Detailed Task List blockquotes** — keep these short. They are there to summarise deliverables and point back to the richer phase context, not to carry the full orientation burden.
-- **Detailed Task List size** — prefer a condensed list (typically 3-6 tasks per phase). If a phase needs more, split the phase or push depth into `## Additional Task Context`.
+- **Tasks per phase** — prefer a condensed list (typically 3-6 tasks per phase). If a phase needs more, split the phase or keep task context concise.
 - **Appendix** — optional for straightforward work. Required for medium/high-complexity plans derived from upstream design artifacts; summarize the important design context directly (decisions, constraints, contracts, migration notes, rejected alternatives), then link references.
 - **Appendix complexity trigger** — treat appendix as required when design-derived work hits the threshold: any 1 high-complexity trigger or any 2 medium-complexity triggers.
 - **Pending Questions** — optional. Place it immediately above `## Reference Information`. Use it only for unresolved plan-level questions; keep task- and phase-local questions inline as `[QUESTION]` bullets where they belong.
 - **Phase boundaries** — each phase must end committable. If a phase can't, split it.
 - **Task headers** — bold, with size label, optional inline `(additional context)` link.
-- **Step-first tasks** — each task line should be a concrete step. Include `Files:` for execution-facing plans by default; include `decision:` and `depends on` only when needed. Move deep rationale to `## Additional Task Context`.
-- **Anchor slugs** — use `#task-NN--short-slug` (descriptive), not `#task-N-N` (opaque). Match with `<a id="task-NN--short-slug"></a>` in *Additional task context*.
+- **Step-first tasks** — each task line should be a concrete step. Include `Files:` for execution-facing plans by default; include `decision:` and `depends on` only when needed. Keep additional context directly under each task.
 - **Reference table** — prefer a "key files" table with a relevance column over a flat link list. Add a separate **Related links** sub-list for issues/docs/PRs.
 - **Upstream artifacts** — when a grooming/design/spike/blueprint/roadmap artifact exists, include explicit links in the `Upstream artifacts` block.
 - **Coordination context** — when this plan is one slice of a larger groomed issue attack plan, fill the coordination fields (parent grooming artifact, slice type, independent target statement).
 - **Revision History placement** — keep it near the bottom so the top of the plan stays oriented toward implementation and review.
 - **Revision History content** — log only material changes. Batch related small edits from the same pass into one concise bullet instead of one bullet per tweak.
-- **Section heading case** — Title Case for `## Detailed Task List`, `## Reference Information`, etc.
+- **Section heading case** — Title Case for `## Phase TOC`, `## Phases`, `## Reference Information`, etc.

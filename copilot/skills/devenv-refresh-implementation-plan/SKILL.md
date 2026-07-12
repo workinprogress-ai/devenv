@@ -41,6 +41,45 @@ The user provides exactly one of:
 
 ---
 
+## Step 1a — Format conformance gate (required)
+
+Before running staleness analysis, check whether the plan matches the current implementation-plan shape:
+
+- `## Goals and Acceptance Criteria`
+- `## Context and Orientation`
+- `## Phase TOC`
+- `## Phases` with tasks embedded under each phase (via `**Tasks:**` and task checkboxes)
+- `## Reference Information`
+- `## Revision History`
+
+Legacy-format signals include:
+
+- `## Detailed Task List` section exists.
+- `## Additional Task Context` section exists.
+- `## Phase TOC` is missing.
+- Phase sections have no embedded tasks while tasks exist elsewhere.
+
+If any legacy-format signal is present, do not silently continue. Offer a format normalization pass first:
+
+> *"This plan looks like a legacy format. I can reorganize it to the current structure (phase TOC + tasks and task context co-located under each phase) before I run the staleness assessment. Do you want me to normalize format first? (recommended: yes)"*
+
+If the user says **yes**:
+
+1. Reorganize structure only (no semantic edits):
+   - move each phase's tasks under that phase,
+   - move per-task context under the corresponding task,
+   - add `## Phase TOC` with phase anchors,
+   - keep Appendix, Pending Questions, and Reference Information in place,
+   - keep all checkbox states and task/AC numbering unchanged.
+2. Record one Revision History entry noting format normalization only.
+3. Continue with Step 2 staleness assessment on the normalized plan.
+
+If the user says **no**:
+
+- Continue with Step 2 against the existing structure, but include a `⚠️ format drift present` note in the staleness report and re-offer normalization at the end of the refresh.
+
+---
+
 ## Step 2 — Staleness assessment
 
 This step is the core of the skill. Work through each signal category below. For each signal found, note it — you'll use them in the classification.
@@ -94,6 +133,7 @@ Synthesise the signals from Step 2 into a staleness classification. Present it a
 - ⚠️  Git log: 8 commits to `SyncEngine.cs` since plan was written — significant rework
 - ⚠️  Task 2.3 ("extract orchestration from DocumentSyncOrchestrator") appears already done
 - ✅  Tasks 1.x all [x] — Phase 1 is complete and still looks accurate
+- ⚠️  Format drift present (legacy plan structure)
 
 **Summary:** The plan's Phase 1 is clean. Phase 2 has a broken class reference and one phantom task. Phase 3+ are speculative given the SyncEngine rework.
 ```
@@ -123,9 +163,9 @@ Apply patches directly and inline. No interview needed — the signals from Step
 **Permitted patch operations:**
 - Update file paths that moved (update `Files:` bullets and task description text).
 - Update symbol names that were renamed.
-- Mark phantom tasks `[x]` with an inline note: `*(confirmed done — present in codebase at refresh)*`.
+- Mark phantom tasks `[x]` only when the work is already implemented in the codebase. If a note is needed, prefer factual wording such as `*(already implemented in codebase at refresh)*`.
 - Add a brief note to any task whose description is now misleading.
-- Repair section headings or section placement only when needed to preserve the current human-first structure: `## Goals and Acceptance Criteria`, `## Context and Orientation`, `## Phases`, `## Detailed Task List`, `## Reference Information`, `## Additional Task Context`, `## Revision History`.
+- Repair section headings or section placement only when needed to preserve the current human-first structure: `## Goals and Acceptance Criteria`, `## Context and Orientation`, `## Phase TOC`, `## Phases`, `## Reference Information`, `## Revision History`.
 
 Do **not**:
 - Rewrite task descriptions wholesale.
@@ -134,7 +174,7 @@ Do **not**:
 
 After applying patches, record a revision history entry and write the plan back. Brief summary to the user:
 
-> *"3 patches applied: updated 2 file paths, marked 2.3 [x] as confirmed done, noted the SyncEngine rename in task 3.1. Plan is now current."*
+> *"3 patches applied: updated 2 file paths, marked 2.3 [x] because the work is already implemented, noted the SyncEngine rename in task 3.1. Plan is now current."*
 
 Offer to proceed directly to delegation or pair-programming if that's what the user was about to do.
 
@@ -177,6 +217,8 @@ The plan's tasks are too stale to patch. Extract the intent, then re-plan.
 
 ## Anti-patterns
 
+- **Silently ignoring legacy format drift** — if the plan is in old structure, explicitly offer normalization before staleness classification.
+- **Bundling format normalization with semantic rewrites without saying so** — format-only reorganization must be explicit and preserve task/AC numbering and checkbox state.
 - **Assuming the classification without showing signals** — always show the evidence; the user may have context that overrides it.
 - **Patching an intent-only plan** — don't apply light patches to a plan that needs a rewrite; you'd be fixing symptoms while the structure is wrong.
 - **Renumbering existing tasks** — even during a significant revision, preserve all existing task numbers. Append; never reflow.

@@ -5,7 +5,9 @@ Phases exist so that work can be **paused, reviewed, and shipped** at clean boun
 ## Hard rules
 
 1. **Phase 1 is always: Discovery & test scaffolding.**
-   - Read code, confirm assumptions, write tests for the current state of the code.
+   - Read code, inspect existing coverage, and add or adjust tests only when needed to lock the current state of the code.
+   - If existing tests already lock the relevant observable behaviour adequately, do not add more tests just because it is Phase 1.
+   - If discovery exposes high-blast-radius assumptions, boundary risks, failure modes, or brittle sequencing, add explicit pressure-test tasks or checkpoints at the earliest useful phase boundary.
    - Stubs (`throw new NotImplementedException()`, default returns, etc.) are valid — write tests that assert the **current observable behaviour**, including that a stub throws as expected. These tests are **not discarded** when implementation lands; they evolve to assert real behaviour.
    - Catching problems early is the goal. Code written with immediate test coverage tends to be better architected.
 
@@ -39,7 +41,9 @@ Phases exist so that work can be **paused, reviewed, and shipped** at clean boun
 - **Phase sizing is deliverable-first, not size-first.** Each phase has a clear deliverable that is a value-add in its own right — something a reviewer can understand and assess without context from other phases. Size follows from the deliverable; no arbitrary upper or lower count rule applies. Scaffolding, endpoint stubs, a fully-implemented feature, documentation, edge-case tests — all of these are legitimate phase deliverables. A phase that contains only intermediate steps whose sole purpose is to keep the build green is a smell that the phase boundary is in the wrong place; merge it into the adjacent phase where the real deliverable lives.
 - Tasks within a phase that share no `depends on` may be parallelised by a pair.
 - Prefer ordering that lets the riskiest unknowns be tested earliest (Phase 1 / Phase 2).
+- When a bounded challenge pass would materially reduce later risk, represent it explicitly in the plan as a pressure-test task/checkpoint instead of leaving it implicit in prose.
 - Temporary scaffolding code (mocks, fakes, test doubles, temporary endpoints) is fine as long as Phase N (Cleanup) explicitly removes the scaffolding code. Tests themselves are not scaffolding; they stay.
+- Discovery-oriented Phase 1 work is often a good `owner: AI` default when it is read-only, seam-mapping, or coverage-inventory work. Switch to `owner: User` only when the task requires domain or product judgment.
 
 ## Legacy cleanup strategies
 
@@ -53,7 +57,7 @@ The default approach is surgical: leave legacy code in place and incrementally i
 
 ### Available patterns
 
-**Pattern 1 — Demolition (delete code and its tests together)**
+#### Pattern 1 — Demolition (delete code and its tests together)
 
 Delete the legacy implementation and its dedicated tests in one phase. Nothing hangs around.
 
@@ -61,7 +65,7 @@ Delete the legacy implementation and its dedicated tests in one phase. Nothing h
 - **Coverage**: maintained — the deleted lines and their tests are removed together; nothing is left uncovered.
 - **Best when**: the legacy code is self-contained (a class, a service, a namespace) and callers can be updated in the same phase or do not yet exist.
 
-**Pattern 2 — Hollow-out (keep surface, replace internals with a deliberate stub)**
+#### Pattern 2 — Hollow-out (keep surface, replace internals with a deliberate stub)
 
 Preserve method/class signatures; replace bodies with `throw new NotImplementedException()` or a safe default return.
 
@@ -69,7 +73,7 @@ Preserve method/class signatures; replace bodies with `throw new NotImplementedE
 - Use `return default` (or an empty/identity value) when callers must not throw during the transition, but update tests to assert the stub's behaviour explicitly, not the old behaviour.
 - **Best when**: the API surface must stay intact for callers that cannot be changed yet.
 
-**Pattern 3 — Rename-then-replace (legacy suffix)**
+#### Pattern 3 — Rename-then-replace (legacy suffix)
 
 Rename `FooService` → `LegacyFooService` in one phase. Build the new clean `FooService` alongside it. Migrate callers in a later phase. Remove `LegacyFooService` in Cleanup.
 
@@ -77,7 +81,7 @@ Rename `FooService` → `LegacyFooService` in one phase. Build the new clean `Fo
 - Both implementations are fully functional and covered throughout the plan.
 - **Best when**: callers are numerous or migration spans multiple phases.
 
-**Pattern 4 — Branch by abstraction**
+#### Pattern 4 — Branch by abstraction
 
 Extract an interface over the legacy code; both legacy and new implementations implement it; calling code depends on the interface. Swap the wiring in a later phase.
 
@@ -87,7 +91,7 @@ Extract an interface over the legacy code; both legacy and new implementations i
 ### Decision guidance
 
 | Situation | Pattern |
-|---|---|
+| --- | --- |
 | Legacy code is self-contained and callers can update in the same phase | **1 — demolition** |
 | API surface must stay; callers can't change yet | **2 — hollow-out** |
 | Callers are numerous; migration spans multiple phases | **3 — rename suffix** |
@@ -96,6 +100,7 @@ Extract an interface over the legacy code; both legacy and new implementations i
 When two or more patterns are viable, surface the options and a recommendation during the planning interview — don't silently pick one. When one pattern clearly wins (isolated code, no external callers), use it without presenting alternatives.
 
 **Whichever pattern is used:**
+
 - The Cleanup phase must include an explicit task to remove all transitional scaffolding — stubs, `LegacyFoo` classes, transitional interfaces.
 - No phase may end with tests failing due to stub behaviour — stubs and their corresponding test updates go in the same phase.
 
@@ -118,6 +123,7 @@ When two or more patterns are viable, surface the options and a recommendation d
 - Tests that hit lines without asserting anything — these inflate coverage numbers but catch nothing.
 - Writing failing tests for functionality to be implemented in a later phase — the TDD red-green cycle must complete within the same phase it starts. Tests written in Phase 1 must assert **current observable behaviour** (including "this stub throws as expected") and must pass at the end of Phase 1. Do not write a test that expects real behaviour the code does not yet have.
 - Proposing a phase outline where Phase 1 is described as "add failing coverage for new behaviour" (or equivalent) — phase proposals must describe committable deliverables, not deferred red-state work.
+- Adding Phase 1 tests by default when existing coverage already locks the relevant current behaviour — this creates noise without improving the plan.
 - DEVENV markers left in committed code — any `// DEVENV[...]` temporary comment introduced during the plan must be removed in the Cleanup phase. The Cleanup phase must include an explicit removal task if any markers were added. `grep -rn "DEVENV\[" .` must return zero results before the plan is complete.
 - Legacy and new implementations coexisting across multiple phases with no cleanup task — if `LegacyFooService` or a hollow-out stub is introduced, the Cleanup phase must have an explicit task to remove it.
 - Phases that consist entirely of intermediate steps (add-stub → implement → remove-stub, each as a separate phase) existing only to keep the build green — these are a sign the phase boundary is in the wrong place. Merge them into one deliverable phase. If keeping green between steps is genuinely difficult, use the escape hatch rather than creating hollow phases.
