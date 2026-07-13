@@ -15,6 +15,7 @@ Phases exist so that work can be **paused, reviewed, and shipped** at clean boun
    - Remove any temporary scaffolding code (not tests — tests evolve, not disappear).
    - Update README / changelog / inline docs.
    - Final check that coverage has not regressed across the whole plan.
+   - The final task in this phase must be an explicit acceptance-criteria review/check-off task.
 
 3. **Every phase must end committable.** A phase is committable only if all of the following are true at the end of it:
    - All tests pass (existing + any added in this phase). **A phase may not end with intentionally failing tests.** If a test was written in the failing state first (TDD), the implementation that makes it pass must be in the same phase — the red-green cycle must close before the phase ends.

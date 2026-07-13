@@ -209,7 +209,7 @@ Use the [plan template](./references/plan-template.md). Follow:
 - If Phase 1 discovery causes plan changes, make those edits only when they materially improve or alter the plan. Do not add wording that merely says discovery "confirmed" or "completed" what the plan already encoded.
 - Include the AC checklist in `## Goals and Acceptance Criteria` using the agreed format: `- [ ] <a id="ac-N"></a>**AC-N** criterion text *(explicit|inferred)*`.
 - Every AC mention outside the checklist must be a link to the specific AC anchor (`[AC-N](#ac-N)`), not plain text.
-- These criteria are formally reviewed and checked off in the Cleanup phase.
+- These criteria are formally reviewed and checked off as the final task in the Cleanup phase.
 
 ### 6. Iterate until approved
 

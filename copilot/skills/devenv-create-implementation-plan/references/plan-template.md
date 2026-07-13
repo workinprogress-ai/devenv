@@ -191,10 +191,10 @@ this section alone.>
 **Tasks:**
 
 - [ ] **N.1 [S] Remove scaffolding tests no longer needed**
-- [ ] **N.2 [S] AC Review** — scan for `[AC-N]` DEVENV comments in code (`grep -rn "\[AC-" .`); for each acceptance criterion, verify against current code and tests; run `markdown-plan-complete-ac AC-N... [<plan_file>]` for each criterion that is objectively verifiable (test passes, behaviour observable); present any requiring human judgment for the user to confirm. **Must complete before the DEVENV cleanup task.**
-- [ ] **N.3 [S] Remove all DEVENV markers** *(if any were added during this plan — `grep -rn "DEVENV\[" .` must return zero results; run after AC Review so AC-reference comments are removed together)*
-- [ ] **N.4 [S] Update README / changelog / inline docs**
-- [ ] **N.5 [S] Verify coverage has not regressed**
+- [ ] **N.2 [S] Remove all DEVENV markers** *(if any were added during this plan — `grep -rn "DEVENV\[" .` must return zero results)*
+- [ ] **N.3 [S] Update README / changelog / inline docs**
+- [ ] **N.4 [S] Verify coverage has not regressed**
+- [ ] **N.5 [S] Final AC Review and check-off** — scan for `[AC-N]` DEVENV comments in code (`grep -rn "\[AC-" .`); for each acceptance criterion, verify against current code and tests; run `markdown-plan-complete-ac AC-N... [<plan_file>]` for each criterion that is objectively verifiable (test passes, behaviour observable); present any requiring human judgment for the user to confirm. **This is the final task in the plan.**
 
 ---
 
