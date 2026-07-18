@@ -296,7 +296,7 @@ write_current_culprits_tsv() {
 
 	{
 		printf 'rank\tlabel\tcurrent\tdelta\tpeak\tsamples\tfirst_sample\tlast_sample\tfirst_seen\tlast_seen\tsignature\n'
-		while IFS=$'\t' read -r delta current peak baseline hits first_sample last_sample first_time last_time signature; do
+		while IFS=$'\t' read -r delta current peak _ hits first_sample last_sample first_time last_time signature; do
 			printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
 				"$rank" \
 				"$(compact_signature "$signature")" \

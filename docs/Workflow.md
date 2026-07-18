@@ -42,6 +42,12 @@ Each layer answers a different question:
 - Implementation plan: what are the executable phases and tasks for one selected issue slice?
 - Execution: build and validate the work.
 
+Durable issue-backed artifact note:
+
+- Grooming artifacts and implementation plans may be persisted as deterministic GitHub issue comment artifacts rather than issue-body text.
+- When an issue holds multiple implementation plans, each plan is a separate artifact selected by `doc_id`.
+- The issue description remains general context; it is not the canonical storage location for implementation plans.
+
 The important rule is that you do not skip to a lower layer when the uncertainty still belongs to an upper layer.
 
 ## Default delivery flow
@@ -432,17 +438,25 @@ Direct-plan exception:
 - A user may intentionally create an implementation plan with no grooming artifact (for example from thin-air context, mixed pasted text, or unclassified artifacts).
 - Side-stream inputs may be provided whether or not grooming exists; they provide additional information but do not direct plan scope.
 - When a grooming artifact exists, grooming is the directing source for scope, slice boundaries, and plan-coordination context.
+- When implementation plans are stored on a GitHub issue, one issue may hold more than one plan artifact. In that case, each plan is selected and updated by `doc_id`, not by replacing the issue body.
 
 ## Multi-repo vs single-repo placement
 
 ```text
 Is work one repo and small/medium?
   |
-  +-- yes --> one issue may hold both grooming + implementation plan
+  +-- yes --> one issue may hold grooming + one or more implementation-plan artifacts
   |
   +-- no  --> grooming should live at epic/planning issue level
              and coordinate multiple implementation-plan issues
 ```
+
+Practical artifact placement rules:
+
+- A single issue may legitimately hold both the grooming artifact and multiple implementation-plan artifacts.
+- Each implementation plan artifact should correspond to one selected issue slice or execution track.
+- Multiple plans on the same issue are safe only when selection/update uses deterministic `doc_id` targeting.
+- If the work spans multiple repos or independent deliverables, prefer separate implementation-plan issues instead of overloading one issue with unrelated plans.
 
 Supporting view with skill mapping:
 

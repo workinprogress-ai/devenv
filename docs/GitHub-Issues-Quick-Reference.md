@@ -67,11 +67,9 @@ issue-comment 123 --edit                # Open $EDITOR
 
 ```bash
 issue-artifact-upsert --issue 123 \
-    --doc-id "dv1:owner/repo:issue-123:spike:topic" \
     --body-file spike-001-topic.md
 
 issue-artifact-upsert --issue 123 \
-    --doc-id "dv1:owner/repo:issue-123:spike:topic" \
     --body-file spike-001-topic.md --dry-run
 ```
 
@@ -86,6 +84,28 @@ issue-artifact-upsert --issue 123 \
 ```bash
 issue-artifact-doc-id --issue 123 --artifact-type spike --slug "Retry Strategy"
 issue-artifact-doc-id --issue 123 --artifact-type redesign --source-file Redesign--003-Auth-Flow.md
+issue-artifact-doc-id --issue 123 --artifact-type implementation-plan --source-file Implementation_plan-issue-123-001.md
+```
+
+### Get One Artifact Comment
+
+```bash
+issue-artifact-get --issue 123 \
+    --doc-id "dv1:workinprogress-ai-devenv:issue-123:implementation-plan:implementation-plan-issue-123-001" \
+    --full --pretty
+```
+
+### List Artifact Comments
+
+```bash
+issue-artifact-list --issue 123 --artifact-type implementation-plan --pretty
+```
+
+### Select One Artifact
+
+```bash
+issue-artifact-select --issue 123 --artifact-type implementation-plan --latest --format doc-id
+issue-artifact-select --issue 123 --doc-id "$DOC_ID" --format url
 ```
 
 ### Close/Reopen Issue
@@ -123,13 +143,13 @@ issue-create --title "Story" --type story --parent 123
 ### Add Issue to Project
 
 ```bash
-project-add "Q1 2026" 123
+project-add-issue "Q1 2026" 123
 ```
 
 ### Update Issue Status in Project
 
 ```bash
-project-update "Q1 2026" 123 --status "Ready"
+project-update-issue "Q1 2026" 123 --status "Ready"
 ```
 
 ## Status Workflow
@@ -143,12 +163,12 @@ TBD → To Groom → Ready → Implementing → Review → Merged → Staging �
 ### Set Status
 
 ```bash
-project-update "Project" 123 --status "Ready"
-project-update "Project" 123 --status "Implementing"
-project-update "Project" 123 --status "Review"
-project-update "Project" 123 --status "Merged"
-project-update "Project" 123 --status "Staging"
-project-update "Project" 123 --status "Production"
+project-update-issue "Project" 123 --status "Ready"
+project-update-issue "Project" 123 --status "Implementing"
+project-update-issue "Project" 123 --status "Review"
+project-update-issue "Project" 123 --status "Merged"
+project-update-issue "Project" 123 --status "Staging"
+project-update-issue "Project" 123 --status "Production"
 ```
 
 ## Sprint Management
@@ -189,15 +209,15 @@ issue-groom
 ```bash
 issue-groom
 issue-update 123 --milestone "Sprint 6"
-project-add "Q1 2026" 123
-project-update "Q1 2026" 123 --status "Ready"
+project-add-issue "Q1 2026" 123
+project-update-issue "Q1 2026" 123 --status "Ready"
 ```
 
 ### Start Development
 
 ```bash
 gh issue edit 123 --add-assignee "@me"
-project-update "Q1 2026" 123 --status "Implementing"
+project-update-issue "Q1 2026" 123 --status "Implementing"
 git checkout -b feature/my-feature
 ```
 
@@ -205,20 +225,20 @@ git checkout -b feature/my-feature
 
 ```bash
 pr-create-for-merge
-project-update "Q1 2026" 123 --status "Review"
+project-update-issue "Q1 2026" 123 --status "Review"
 ```
 
 ### Merge & Deploy
 
 ```bash
 # After PR approval/merge
-project-update "Q1 2026" 123 --status "Merged"
+project-update-issue "Q1 2026" 123 --status "Merged"
 
 # After staging validation
-project-update "Q1 2026" 123 --status "Staging"
+project-update-issue "Q1 2026" 123 --status "Staging"
 
 # Deploy to production
-project-update "Q1 2026" 123 --status "Production"
+project-update-issue "Q1 2026" 123 --status "Production"
 # Issue auto-closes
 ```
 
@@ -266,15 +286,15 @@ issue-list --type story --milestone "Sprint 5" --assignee none
 
 ✅ Solution: Issue auto-closes when Status field set to "Production" in project
 
-- Must be in project first: `project-add "Project" 123`
-- Then set status: `project-update "Project" 123 --status "Production"`
+- Must be in project first: `project-add-issue "Project" 123`
+- Then set status: `project-update-issue "Project" 123 --status "Production"`
 
 ### Can't Find Issue in Interactive Selection
 
 ✅ Solution: Increase limit or adjust filters
 
 ```bash
-issue-select --state all --limit 100
+issue-list --state all --limit 100
 ```
 
 ### Task Checkboxes Not Updating
@@ -290,7 +310,7 @@ issue-update 123 --body-file full-issue.md
 ✅ Solution: Use project custom fields or labels
 
 ```bash
-project-update "Project" 123 --field "CustomField=Value"
+project-update-issue "Project" 123 --field "CustomField=Value"
 # Or use labels: --add-label "estimate:8" --add-label "component:auth"
 ```
 
@@ -305,8 +325,8 @@ issue-update    # Update issue
 issue-close     # Close issue
 issue-select    # Interactive picker
 issue-groom     # Grooming wizard
-project-add     # Add to project
-project-update  # Update project fields
+project-add-issue     # Add to project
+project-update-issue  # Update project fields
 ```
 
 Use `alias` in shell to see all available aliases.
@@ -326,8 +346,8 @@ issue-update --help
 issue-close --help
 issue-select --help
 issue-groom --help
-project-add --help
-project-update --help
+project-add-issue --help
+project-update-issue --help
 ```
 
 ## See Full Documentation

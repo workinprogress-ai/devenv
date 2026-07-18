@@ -90,6 +90,118 @@ issue-comment 42 --body-file handoff.md
 
 ---
 
+### issue-comment-list
+
+List comments on an issue with comment IDs.
+
+```
+issue-comment-list ISSUE_NUMBER [--pretty] [--full]
+```
+
+Key flags:
+
+- `--pretty` — pretty-print JSON array output
+- `--full` — return full comment bodies instead of previews
+
+Examples:
+
+```bash
+issue-comment-list 42 --pretty
+issue-comment-list 42 --full | jq -r '.[0].id'
+```
+
+---
+
+### issue-comment-update
+
+Replace an existing issue comment by comment ID.
+
+```
+issue-comment-update COMMENT_ID (--body TEXT | --body-file FILE) [--dry-run]
+```
+
+Examples:
+
+```bash
+issue-comment-update 123456789 --body-file updated-artifact.md
+```
+
+---
+
+### issue-artifact-upsert
+
+Create or update an issue-comment artifact. Automatically extracts `doc_id` from the artifact body header (first 256 characters).
+
+```
+issue-artifact-upsert --issue N (--body TEXT | --body-file FILE) [--repo OWNER/REPO] [--dry-run]
+```
+
+The artifact file/body must include `doc_id: <value>` line in the first 256 characters.
+
+Examples:
+
+```bash
+issue-artifact-upsert --issue 42 --body-file Implementation_plan-issue-42-001.md
+```
+
+---
+
+### issue-artifact-get
+
+Retrieve a single issue-comment artifact by `doc_id`.
+
+```
+issue-artifact-get --issue N --doc-id ID [--full] [--pretty] [--repo OWNER/REPO]
+```
+
+Examples:
+
+```bash
+issue-artifact-get --issue 42 --doc-id "$DOC_ID" --pretty
+```
+
+---
+
+### issue-artifact-list
+
+List issue-comment artifacts discovered from DEVENV metadata headers.
+
+```
+issue-artifact-list --issue N [--artifact-type TYPE] [--full] [--pretty] [--repo OWNER/REPO]
+```
+
+Examples:
+
+```bash
+issue-artifact-list --issue 42 --artifact-type implementation-plan --pretty
+```
+
+---
+
+### issue-artifact-select
+
+Resolve exactly one issue artifact for downstream work.
+
+```
+issue-artifact-select --issue N [--artifact-type TYPE] [--doc-id ID] [--latest] [--format json|doc-id|comment-id|url] [--pretty] [--repo OWNER/REPO]
+```
+
+Selection rules:
+
+- `--doc-id` selects a specific artifact deterministically.
+- Without `--doc-id`: selects automatically only when one match exists.
+- `--latest` breaks ties by most recent update when multiple matches exist.
+- Without `--latest`, multiple matches return an ambiguity payload and non-zero exit.
+
+Examples:
+
+```bash
+issue-artifact-select --issue 42 --artifact-type implementation-plan --latest --format doc-id
+issue-artifact-select --issue 42 --doc-id "$DOC_ID" --format url
+```
+
+---
+
 ### issue-update
 
 Update fields on an existing issue.
@@ -163,6 +275,50 @@ Examples:
 ```bash
 issue-close 42 --comment "Duplicate of #10" --reason "not planned"
 issue-close reopen 42 --comment "Revisiting this."
+```
+
+---
+
+### issue-select
+
+Interactive GitHub issue selection using `fzf`.
+
+```
+issue-select [--state STATE] [--type TYPE] [--milestone NAME] [--label LABEL] [--multi] [--format number|url|json]
+```
+
+Key flags:
+
+- `--state STATE` — `open`, `closed`, or `all` (default: `open`)
+- `--type TYPE` — `epic`, `story`, or `bug`
+- `--milestone NAME` — filter by milestone
+- `--label LABEL` — filter by label
+- `--multi` — enable multi-select mode
+- `--format` — `number` (default), `url`, or `json`
+
+Examples:
+
+```bash
+issue-select --type story
+issue-select --multi --milestone "Sprint 5"
+```
+
+---
+
+### issue-groom
+
+Interactive issue grooming wizard for backlog management.
+
+```
+issue-groom [--project NAME] [--milestone NAME]
+```
+
+Examples:
+
+```bash
+issue-groom
+issue-groom --project "Q1 2026"
+issue-groom --milestone "Sprint 5"
 ```
 
 ---
@@ -374,4 +530,211 @@ pr-thread-resolve PRRT_kwDOAbc123
 
 # Resolve all unresolved threads on PR 99
 pr-threads-get 99 | jq -r '.[].id' | xargs -I{} pr-thread-resolve {}
+```
+
+---
+
+### pr-create-for-review
+
+Create a draft `REVIEW:` pull request comparing two commits.
+
+```
+pr-create-for-review <PR_DESCRIPTION> [REPO_DIR] [FROM_COMMIT] [TO_COMMIT]
+```
+
+If `FROM_COMMIT` and `TO_COMMIT` are omitted, the tool launches an `fzf` picker against the repo's version tags.
+
+Examples:
+
+```bash
+pr-create-for-review "compare release candidates" . v1.2.0 v1.3.0
+pr-create-for-review "review latest changes"
+```
+
+---
+
+### pr-complete-merge
+
+Complete an existing PR from the current branch to the target branch using a Conventional Commits merge message.
+
+```
+pr-complete-merge [--force] <ISSUE_ID | --select | --no-issue-id> "<CommitMessage>" [REPO_DIR]
+```
+
+Examples:
+
+```bash
+pr-complete-merge 42 "feat(api): add user endpoint"
+pr-complete-merge --select "fix(auth): token refresh"
+pr-complete-merge --force --no-issue-id "chore: merge branch cleanup"
+```
+
+---
+
+### pr-merge-pull-request
+
+Merge an open pull request from the current branch.
+
+```
+pr-merge-pull-request [commit-message] [--issue NUMBER] [--method squash|merge|rebase] [--base BRANCH] [--repo-dir PATH] [--branch NAME] [--force]
+```
+
+Examples:
+
+```bash
+pr-merge-pull-request
+pr-merge-pull-request "feat(api): add user endpoint" --issue 42
+pr-merge-pull-request --method merge --base develop
+```
+
+---
+
+### pr-cleanup-review-branches
+
+Delete remote `review/*` branches older than the configured threshold.
+
+```
+pr-cleanup-review-branches [REPO_DIR] [DAYS_OLD]
+```
+
+Examples:
+
+```bash
+pr-cleanup-review-branches
+pr-cleanup-review-branches /path/to/repo 14
+```
+
+---
+
+### pr-get-review-link
+
+Get the GitHub URL for an open `REVIEW:` pull request in a repository.
+
+```
+pr-get-review-link [REPO_DIR]
+```
+
+Examples:
+
+```bash
+pr-get-review-link
+pr-get-review-link /path/to/repo
+```
+
+---
+
+### pr-get-merge-link
+
+Get the GitHub URL for the current branch's open pull request.
+
+```
+pr-get-merge-link [REPO_DIR]
+```
+
+Examples:
+
+```bash
+pr-get-merge-link
+pr-get-merge-link /path/to/repo
+```
+
+---
+
+## Project tools
+
+### project-add-issue
+
+Add one or more issues to a GitHub Project (v2).
+
+```
+project-add-issue PROJECT_NAME ISSUE_NUMBER... [--field NAME=VALUE] [--dry-run]
+```
+
+Key flags:
+
+- `--field NAME=VALUE` — set project field values; repeatable
+
+Examples:
+
+```bash
+project-add-issue "Q1 2026" 123
+project-add-issue "Sprint 5" 123 124 --field "Status=Ready"
+```
+
+---
+
+### project-update-issue
+
+Update project-specific field values for an issue in a GitHub Project (v2).
+
+```
+project-update-issue PROJECT_NAME ISSUE_NUMBER [--status STATUS] [--field NAME=VALUE] [--list-fields] [--dry-run]
+```
+
+Key flags:
+
+- `--status STATUS` — set workflow status
+- `--field NAME=VALUE` — set custom field values; repeatable
+- `--list-fields` — list available fields in the project
+
+Examples:
+
+```bash
+project-update-issue "Q1 2026" 123 --status "Ready"
+project-update-issue "Sprint 5" 123 --field "Priority=High"
+```
+
+---
+
+## Repo and markdown tools
+
+### repo-cache-update
+
+Refresh the C# repository cache and dependency index, then print the cache directory path on stdout.
+
+```
+repo-cache-update [--no-refresh]
+```
+
+Examples:
+
+```bash
+repo-cache-update
+repo-cache-update --no-refresh
+```
+
+---
+
+### markdown-plan-complete-task
+
+Mark one or more implementation-plan task checkboxes complete or incomplete.
+
+```
+markdown-plan-complete-task [--uncomplete] TASK_NUMBER... [PLAN_FILE]
+```
+
+Examples:
+
+```bash
+markdown-plan-complete-task 2.3
+markdown-plan-complete-task 1.1 1.2 /path/to/Implementation_plan-001.md
+markdown-plan-complete-task --uncomplete 2.3 2.4
+```
+
+---
+
+### markdown-plan-complete-ac
+
+Mark one or more acceptance-criteria checkboxes complete or incomplete.
+
+```
+markdown-plan-complete-ac [--uncomplete] AC_NUMBER... [FILE]
+```
+
+Examples:
+
+```bash
+markdown-plan-complete-ac AC-3
+markdown-plan-complete-ac AC-1 AC-2 /path/to/Implementation_plan-001.md
+markdown-plan-complete-ac --uncomplete AC-3 AC-4
 ```

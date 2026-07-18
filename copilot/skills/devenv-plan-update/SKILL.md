@@ -1,12 +1,12 @@
 ---
 name: devenv-plan-update
-description: Make small, surgical edits to an existing Implementation_plan-*.md (or GitHub issue body containing a plan). USE WHEN the user says "mark 3.4 done", "tick off task 2.1", "answer that open question", "add a note to task X", "add one more task to phase 3", or wants to record progress without restructuring the plan. Auto-detects file path vs. issue number, requires a one-line confirm before each write, records every change in `## Revision History`, never silently unchecks a `[x]`, and never reflows numbering. Hard limit: refuses if more than 3 changes are requested in one invocation, redirecting to `/devenv-refine-implementation-plan`. DO NOT USE for rewording existing tasks, restructuring or reordering phases, cancelling tasks, or any bulk additions — use `/devenv-refine-implementation-plan` instead. For read-only progress reports use `/devenv-plan-status`.
-argument-hint: Path to an Implementation_plan-*.md OR a GitHub issue number, plus the edit to make
+description: Make small, surgical edits to an existing Implementation_plan-*.md (or GitHub issue implementation-plan artifact). USE WHEN the user says "mark 3.4 done", "tick off task 2.1", "answer that open question", "add a note to task X", "add one more task to phase 3", or wants to record progress without restructuring the plan. Auto-detects file path vs. issue number, requires a one-line confirm before each write, records every change in `## Revision History`, never silently unchecks a `[x]`, and never reflows numbering. Hard limit: refuses if more than 3 changes are requested in one invocation, redirecting to `/devenv-refine-implementation-plan`. DO NOT USE for rewording existing tasks, restructuring or reordering phases, cancelling tasks, or any bulk additions — use `/devenv-refine-implementation-plan` instead. For read-only progress reports use `/devenv-plan-status`.
+argument-hint: Path to an Implementation_plan-*.md OR github-issue-number[:doc_id], plus the edit to make
 ---
 
 # Plan update
 
-> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
 Apply small, surgical edits to an existing implementation plan without running a full revision interview. Sits between `/devenv-plan-status` (read-only) and `/devenv-refine-implementation-plan` (full restructure).
 
@@ -24,7 +24,13 @@ If the user wants to reword tasks, restructure phases, cancel tasks, or make sev
 The user provides exactly one of:
 
 - **A file path** — e.g. `Implementation_plan-issue-42-001.md`.
-- **A GitHub issue number** — e.g. `42`. Plan body is read via `issue-get N --pretty`.
+- **A GitHub issue number** — e.g. `42` or `42:<doc_id>`. Resolve one implementation-plan artifact (`issue-artifact-select`) and read via `issue-artifact-get`.
+
+Issue artifact selection rules:
+
+- If `<doc_id>` is provided, use that exact artifact.
+- If no `<doc_id>` is provided and exactly one `implementation-plan` artifact exists, use it.
+- If multiple artifacts exist, list candidates via `issue-artifact-list --issue <N> --artifact-type implementation-plan --pretty` and ask the user which `doc_id` to update.
 
 Plus the specific edit(s) requested in the chat.
 
@@ -37,7 +43,7 @@ For issue-backed plan edits, follow the shared [issue-backed artifact edit proto
 ### 1. Load the plan
 
 - File input: read the markdown file.
-- Issue input: `issue-get N --pretty`, extract the body, and materialize it to a local working copy before editing (repo-local file or temp file, depending on user choice when not already implied).
+- Issue input: resolve one artifact (`issue-artifact-select`), fetch body via `issue-artifact-get --full`, and materialize it to a local working copy before editing (repo-local file or temp file, depending on user choice when not already implied).
 
 ### 2. Validate scope
 
@@ -103,9 +109,11 @@ If multiple local draft passes are needed to converge on the requested small edi
 ### 6. Write
 
 - File input: overwrite in place. Git is the safety net; user can `git diff` to review.
-- Issue input: update the local working copy first, then offer to publish that local file back to the issue body:
-  > "Update issue #N body via `issue-update N --body-file <path>`?"
+- Issue input: update the local working copy first, then offer to publish that local file back to the same issue artifact comment:
+  > "Update issue #N implementation-plan artifact via `issue-artifact-upsert --issue N --body-file <path>`?"
   Wait for explicit yes. Do not auto-push.
+
+When this publish path is established (issue number, `doc_id`, local file), execute it directly after confirmation. Do not add ad-hoc `--help`, `command -v`, or default dry-run checks unless a real ambiguity or command failure appears.
 
 ### 7. Report
 
@@ -117,8 +125,9 @@ One-line summary per change applied, plus the new task counts and overall progre
 - **Silent edits while reading** — even a "small typo fix" while loading the plan is out of scope. Surface it; don't auto-fix.
 - **Skipping the Revision History** — every material persisted change goes in the log. Batch small related edits into one concise entry instead of one bullet per tweak.
 - **Re-checking work via this skill** — if more than 3 changes are needed, recommend `/devenv-refine-implementation-plan`. Don't grow the limit.
-- **Auto-pushing to issue body** — writes to GitHub require explicit confirmation, every time.
+- **Auto-pushing to issue artifact comments** — writes to GitHub require explicit confirmation, every time.
 - **Unchecking a `[x]` from a prior session or revision** — refuse. Suggest adding a new task for the additional work instead. The only valid undo is a mistake made in the current invocation of this skill.
+- **Over-checking known publish commands** — once issue, `doc_id`, and file are known, do not run ad-hoc `--help` / `command -v` preflights before the confirmed upsert.
 
 ## Sibling skills
 

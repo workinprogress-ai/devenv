@@ -1,6 +1,6 @@
 # Diagnostic Mode Protocol
 
-Shared protocol for capturing a skill erratum in a copiable markdown code block that can be fed into `/devenv-skill-maintenance`.
+Shared protocol for capturing a skill erratum in `DIAGNOSTIC_REPORT.md` at the active project root so it can be used by `/devenv-skill-maintenance`.
 
 Use this protocol when the user indicates undesirable output or an undesirable/misaligned action from a skill, for example:
 
@@ -8,25 +8,23 @@ Use this protocol when the user indicates undesirable output or an undesirable/m
 - "that output was wrong, give me diagnostics"
 - "capture why the skill did this"
 
-Also use this output contract by default when the user asks for a diagnostic report, postmortem, incident report, or findings artifact and does not specify a format. In those cases, optimize for copy/paste transferability first.
+Also use this output contract by default when the user asks for a diagnostic report, postmortem, incident report, or findings artifact and does not specify a format.
 
 ## Output contract
 
-When diagnostic mode is requested, produce a **single fenced markdown code block** (language tag: `markdown`) that the user can copy as-is.
+When diagnostic mode is requested, write the diagnostic report to:
 
-If the user asks for the report artifact without specifying a format, assume this copyable fenced block is the desired default.
+- `DIAGNOSTIC_REPORT.md` in the active project root.
 
-This is mandatory. The diagnostic response itself must be inside the fence, not described or paraphrased outside it.
+Active project root means the repository currently being worked on for the request. If no narrower target repo is active, use the workspace root.
 
-Do not add explanatory prose before or after the block unless the user explicitly asks.
+This is mandatory for diagnostic requests unless the user explicitly asks for a different path/filename.
 
-Packaging is strict: emit exactly one fenced `markdown` block and no surrounding commentary by default.
-
-The block must start with <code>```markdown</code> and end with <code>```</code>.
+Do not emit the full diagnostic body in chat by default. After writing the file, return a brief confirmation with the path.
 
 ## Required contents
 
-The diagnostic block must include all sections below:
+The diagnostic file must include all sections below:
 
 1. Skill in effect at the time (or `none`).
 2. Recent conversation leading to the erratum.
@@ -40,7 +38,7 @@ If any section has no useful data, include the section anyway and write `none`.
 
 Do **not** expose hidden internal chain-of-thought. Provide a concise, user-facing **decision trace summary**: inputs considered, assumptions made, key branch points, and why the chosen path looked reasonable at the time.
 
-## Markdown template
+## Markdown template (file contents)
 
 ```markdown
 ## Skill Diagnostic Report (DEVENV)
@@ -80,12 +78,12 @@ Do **not** expose hidden internal chain-of-thought. Provide a concise, user-faci
 - Cite concrete files/sections when known.
 - Name assumptions explicitly.
 - Keep it concise but sufficient for `/devenv-skill-maintenance` to act.
-- Prefer transferability over rendered readability when the user asked for a report artifact.
-- Return only the fenced markdown block unless the user explicitly asks for commentary.
+- Prefer transferability and actionable specificity over narrative formatting.
+- Keep the file self-contained so `/devenv-skill-maintenance` can act without extra context.
 
 ## Pre-send validation
 
-- Did I provide it as a single fenced `markdown` code block?
-- Is it self-contained and ready to copy?
-- Is there any text outside the fenced block? If yes, remove it unless explicitly requested.
-- If format is ambiguous, did I choose fenced markdown (copy-safe default) rather than prose?
+- Did I write `DIAGNOSTIC_REPORT.md` to the active project root?
+- Does the file include every required section, with `none` where data is unavailable?
+- Is the file self-contained for `/devenv-skill-maintenance`?
+- Did I avoid outputting the full diagnostic body in chat by default?

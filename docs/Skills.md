@@ -104,7 +104,7 @@ Interviews the user, scans repo conventions, drafts phased atomic tasks, and wri
 
 **Use for:** planning a user story, breaking down a GitHub issue, writing up work before starting  
 **Don't use for:** pure research (→ `/devenv-spike`), editing an existing plan (→ `/devenv-refine-implementation-plan`)  
-**Tool deps:** `issue-get`, `issue-update`
+**Tool deps:** `issue-get`, `issue-artifact-doc-id`, `issue-artifact-upsert`
 
 ---
 
@@ -117,7 +117,7 @@ Question-shaped prompts default to discussion/analysis mode; implementation star
 
 **Use for:** high-impact phases — public API changes, data shape changes, security, novel architecture; also any work where you want to stay closely involved  
 **Don't use for:** mechanical/rote work (→ `/devenv-delegation`), pure exploration (→ `/devenv-spike`)  
-**Tool deps:** `issue-get`, `pr-get`, `pr-diff`, `issue-comment`  
+**Tool deps:** `issue-get`, `issue-artifact-select`, `issue-artifact-get`, `issue-artifact-upsert`, `pr-get`, `pr-diff`, `issue-comment`  
 **New to pair programming?** See [How pair programming works](#how-pair-programming-works) below.
 
 ---
@@ -130,7 +130,7 @@ Analyzes a plan, proposes work-session groupings, implements phase-by-phase, kee
 
 **Use for:** refactors, renames, test scaffolding, cleanup, docs — mechanical, low-risk phases  
 **Don't use for:** high-impact work (→ `/devenv-pair-programming`), ad-hoc work without a plan  
-**Tool deps:** `issue-get`, `issue-comment`
+**Tool deps:** `issue-get`, `issue-artifact-select`, `issue-artifact-get`, `issue-artifact-upsert`, `issue-comment`
 
 ---
 
@@ -160,13 +160,13 @@ Interviews the user to establish audience, output format, and scope before touch
 
 ### `/devenv-chat-with-code`
 
-> **Conversational fact-finding with a codebase — the code talks back.**
+> **Conversational fact-finding with source code or markdown-first repos — the repo talks back.**
 
-Orients against README, project structure, entry points, and test layout for one or more repos, then answers questions in the voice of the code itself — witty, slightly sarcastic, always cited to `file:line`. Caches orientation in session memory. Handles architecture, data flow, history/intent, dependency, cross-cutting, and runbook questions. Suggests transitioning to a sibling skill when conversation drifts toward planning or implementation.
+Orients against README, project structure, runtime entry points or primary documents, and test/evidence layout for one or more repos, then answers questions in the voice of the repo itself — witty, slightly sarcastic, always cited to `file:line`. Caches orientation in session memory. Handles architecture, data flow, history/intent, dependency, cross-cutting, runbook, and docs-interrogation questions (requirements, blueprints, plans).
 
-**Use for:** understanding an unfamiliar codebase; cross-repo questions; architecture, behaviour, data flow, dependency, and runbook questions  
-**Don't use for:** writing or changing code (→ `/devenv-pair-programming` or `/devenv-delegation`); formal debt findings (→ `/devenv-tech-debt-audit`); architecture design (→ `/devenv-create-blueprint` or `/devenv-design-discussion`)  
-**Tool deps:** none (reads codebase; writes only to session memory)
+**Use for:** understanding an unfamiliar codebase or markdown-first planning/docs repo; cross-repo questions; architecture, behaviour, data flow, dependency, runbook, and requirements/blueprint interrogation  
+**Don't use for:** writing or changing files (→ `/devenv-pair-programming` or `/devenv-delegation`); formal debt findings (→ `/devenv-tech-debt-audit`); architecture design (→ `/devenv-create-blueprint` or `/devenv-design-discussion`)  
+**Tool deps:** none (read-only repo interrogation; writes only to session memory)
 
 ---
 
@@ -208,7 +208,7 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 | `/devenv-pair-programming` | Collaborative build — human + AI both implement, while keeping the plan current as scope/questions emerge; question-shaped prompts default to analysis until explicit implementation direction | Issue # or plan path |
 | `/devenv-delegation` | Delegated build support — assistant-led execution with user review and ownership | Issue # or plan path |
 | `/devenv-document` | Produce documentation for an existing system or component — audience, format, and scope set by interview | Repo path, component name, or description |
-| `/devenv-chat-with-code` | Conversational fact-finding with a codebase — the code talks back | Repo path(s), or nothing for current workspace |
+| `/devenv-chat-with-code` | Conversational fact-finding with source code or markdown-first repos — the repo talks back | Repo path(s), or nothing for current workspace |
 | `/devenv-spike` | Exploratory investigation + findings doc | Question or issue # |
 | `/devenv-rubber-duck` | Think out loud — no artifacts | Problem description |
 | `/devenv-design-discussion` | Opinionated, conversation-first thinking partner for design/architecture choices; best for one bounded blocker or design question; writes `Solution_Proposal_<topic>-NNN.md` only on request (as context-rich input to technical design) | Design question or topic |

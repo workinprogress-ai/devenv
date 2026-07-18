@@ -205,7 +205,8 @@ Any command that mutates external state — `issue-comment`, `issue-update`, `is
 4. **Run** the wrapper first. If wrappers are insufficient for the needed operation, use `gh` as a fallback and note why.
 5. **Surface** the result (issue/PR number, URL).
 
-If unsure, prefer `--dry-run` first.
+If the command shape or target is genuinely uncertain, prefer `--dry-run` first.
+Do not re-check tool existence, run ad-hoc `--help`, or insert a default `--dry-run` once the correct wrapper, target artifact, and payload are already established.
 
 ## Artifact Identity Convention
 
@@ -227,14 +228,13 @@ updated_at_utc: <ISO-8601>
 ```
 
 2. `doc_id` must be deterministic for the same artifact identity and must appear within the first 256 characters.
-3. For issue-comment artifacts, generate `doc_id` via tooling (do not hand-build):
-    - `issue-artifact-doc-id --issue <N> --artifact-type <artifact-type> --slug <artifact-slug>`
-    - Use `--source-file <path>` instead of `--slug` when file basename is the intended slug source.
-    - Generated format: `dv1:<owner-repo>:issue-<N>:<artifact-type>:<artifact-slug>`.
-4. For local-file artifacts (no issue comment target), use this deterministic format:
+3. For issue-comment artifacts, include `doc_id: <value>` in the file header. The value should follow this deterministic format:
+    - `dv1:<owner-repo>:issue-<N>:<artifact-type>:<artifact-slug>`
+    - `<artifact-slug>` should be derived from the artifact filename stem or topic, kept stable across updates for the same artifact.
+4. For local-file artifacts (no issue comment target), use this deterministic format in file header:
     - `dv1:<owner-repo>:local:<artifact-type>:<artifact-slug>`
     - `<artifact-slug>` should be derived from the artifact filename stem.
-5. For issue-comment publication, post via `issue-artifact-upsert` (not manual `issue-comment-list` / `issue-comment-update` matching).
+5. For issue-comment publication, post via `issue-artifact-upsert` (not manual `issue-comment-list` / `issue-comment-update` matching). Tool automatically extracts `doc_id` from file header.
 6. If upsert reports duplicate `doc_id` conflict, stop and ask the user which comment ID is canonical before continuing.
 
 Skills should keep only artifact-specific mapping details locally (artifact type, slug source, source file) and reference this convention for common behavior.
@@ -244,6 +244,19 @@ Skills should keep only artifact-specific mapping details locally (artifact type
 - **Prefer repo wrappers first.** Use the repo's `issue-*` / `pr-*` / `project-*` wrappers in `tools/` by default.
 - If a required operation is not supported by available wrappers, `gh` is allowed as a fallback. Say explicitly why fallback is needed.
 - Wrapper signatures are standardized in [`_tools-reference.md`](./_tools-reference.md) — when in doubt, instruct the AI to consult that file instead of running ad-hoc `--help` during execution.
+
+### Working-directory guard (required)
+
+Before running any repo-scoped command (wrappers, `gh`, build/test, or scripts), ensure the terminal is in the correct target repo root.
+
+Required behavior:
+
+1. Identify the target repo root for the current step.
+2. Change to that directory explicitly before running the command block.
+3. If running commands across multiple repos, isolate each block with explicit directory transitions (for example `pushd`/`popd`).
+4. Do not rely on inherited terminal state from prior commands.
+
+If the correct repo root is ambiguous, ask one direct clarification question before executing mutating or stateful commands.
 
 ## Workspace source discovery
 
@@ -257,9 +270,21 @@ When exploring WorkInProgress code, prefer local source under `repos/` before an
 
 Wrapper inventory (as of authoring):
 
-- Issues: `issue-create`, `issue-list`, `issue-update` (incl. `--add-label`/`--remove-label`), `issue-close`, `issue-comment`, `issue-comment-list`, `issue-comment-update`, `issue-get`, `issue-groom`, `issue-select`, `issue-artifact-doc-id`, `issue-artifact-upsert`
+- Issues: `issue-create`, `issue-list`, `issue-update` (incl. `--add-label`/`--remove-label`), `issue-close`, `issue-comment`, `issue-comment-list`, `issue-comment-update`, `issue-get`, `issue-groom`, `issue-select`, `issue-artifact-get`, `issue-artifact-list`, `issue-artifact-select`, `issue-artifact-upsert`
 - PRs: `pr-create-for-review`, `pr-create-for-merge`, `pr-complete-merge`, `pr-merge-pull-request`, `pr-cleanup-review-branches`, `pr-get-review-link`, `pr-get-merge-link` — plus added: `pr-get`, `pr-comment`, `pr-diff`, `pr-list`, `pr-threads-get`, `pr-thread-reply`, `pr-thread-resolve`
 - Projects: `project-add-issue`, `project-update-issue`
+
+## Skill-facing wrapper maintenance checklist
+
+Whenever a wrapper is added, renamed, or its call pattern changes, update all of these in the same effort:
+
+1. The script usage/help text in `tools/scripts/<name>.sh`
+2. The shared skill-facing reference in [`_tools-reference.md`](./_tools-reference.md)
+3. Any shared wrapper inventory in this file
+4. Any skill docs or shared references that show concrete invocation examples
+5. Repo docs that expose the tool to users when applicable (`docs/Additional-Tooling.md`, issue/project docs, quick references)
+
+Do not leave a wrapper usable only via runtime `--help`. If a skill is expected to call it, its stable invocation pattern must exist in [`_tools-reference.md`](./_tools-reference.md).
 
 ## Shared boilerplate snippets
 
@@ -269,7 +294,7 @@ Recommended snippet references:
 
 - **Tool help policy**: "Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`_tools-reference.md`](../_tools-reference.md) instead of running ad-hoc `--help` during execution."
 - **Catalog pointer**: "See the [Skills catalog](./common/references/skills-catalog.md) for the full list and decision tree."
-- **Diagnostic mode**: "When the user requests diagnostics for undesirable output/action, follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) and emit a copiable fenced markdown code block."
+- **Diagnostic mode**: "When the user requests diagnostics for undesirable output/action, follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) and write `DIAGNOSTIC_REPORT.md` at the active project root."
 
 When updating existing skills, prefer replacing duplicated boilerplate blocks with a brief reference line to keep token usage tight.
 
@@ -282,10 +307,10 @@ Required behavior:
 1. If the user asks for diagnostics after undesirable output/action, follow [Diagnostic Mode Protocol](./common/references/diagnostic-mode-protocol.md).
 2. Treat plain-language requests such as "give me a diagnostic report" as direct triggers for diagnostic mode, even without the exact phrase "enter diagnostic mode".
 3. In execution skills, diagnostic requests short-circuit implementation flow: do not apply fixes first; emit the diagnostic artifact first.
-4. Output a single copiable fenced markdown code block.
+4. Write `DIAGNOSTIC_REPORT.md` at the active project root unless the user explicitly requests a different path/filename.
 5. Include skill-in-effect, conversation context, decision trace summary, self-diagnosis, and related context.
 6. Do not expose hidden internal chain-of-thought; provide a concise decision trace summary only.
-7. Apply a pre-send format compliance gate: if the response is not exactly one fenced `markdown` block with no surrounding prose, fix packaging before sending.
+7. Confirm in chat where the file was written; do not dump the full diagnostic body in chat unless the user asks.
 
 Authoring rule: Add the blockquote immediately after the title (before the opening paragraph) for the listed skills only.
 
@@ -295,11 +320,12 @@ When a skill is asked to produce an artifact-like report and the user does not s
 
 Applies to outputs such as:
 
-- diagnostic reports
 - postmortems
 - incident reports
 - findings reports
 - handoff blocks intended for another skill, issue, PR, or tracker
+
+Diagnostic reports are handled by the shared [Diagnostic Mode Protocol](./common/references/diagnostic-mode-protocol.md) and should be written to `DIAGNOSTIC_REPORT.md` at the active project root by default.
 
 Required default behavior:
 

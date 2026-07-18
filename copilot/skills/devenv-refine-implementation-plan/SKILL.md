@@ -1,20 +1,20 @@
 ---
 name: devenv-refine-implementation-plan
-description: Revise an existing Implementation_plan-*.md (or GitHub issue body containing a plan) after discovery work, scope changes, or new requirements. USE WHEN the user says "refine the plan", "update the plan", "revise the implementation plan", "the plan needs updating", "rework the plan based on what we learned", or hands off a stale plan that needs new tasks added or existing tasks adjusted. Auto-detects whether input is a file path or a GitHub issue number, preserves all existing `[x]` checkbox state, appends new tasks to the end of each affected phase by default, supports downstream task reflow when structural insertion requires it, and creates new phases when the target phase is already fully complete. Records changes in a `## Revision History` section near the bottom of the file, and writes the result back in place. DO NOT USE for creating a brand-new plan from scratch (use `/devenv-create-implementation-plan`), for ad-hoc edits to a single task line (just edit the file directly), or for reporting plan progress without modifying it (use `/devenv-plan-status`).
-argument-hint: Path to an Implementation_plan-*.md OR a GitHub issue number containing a plan in the body
+description: Revise an existing Implementation_plan-*.md (or GitHub issue containing an implementation-plan artifact comment) after discovery work, scope changes, or new requirements. USE WHEN the user says "refine the plan", "update the plan", "revise the implementation plan", "the plan needs updating", "rework the plan based on what we learned", or hands off a stale plan that needs new tasks added or existing tasks adjusted. Auto-detects whether input is a file path or a GitHub issue number, preserves all existing `[x]` checkbox state, appends new tasks to the end of each affected phase by default, supports downstream task reflow when structural insertion requires it, and creates new phases when the target phase is already fully complete. Records changes in a `## Revision History` section near the bottom of the file, and writes the result back in place. DO NOT USE for creating a brand-new plan from scratch (use `/devenv-create-implementation-plan`), for ad-hoc edits to a single task line (just edit the file directly), or for reporting plan progress without modifying it (use `/devenv-plan-status`).
+argument-hint: Path to an Implementation_plan-*.md OR github-issue-number[:doc_id] containing implementation-plan artifacts
 ---
 
 # Refine implementation plan
 
 > **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
 
-> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
 Take an existing implementation plan and revise it based on new information — discovery work, scope changes, fresh requirements, or lessons from initial implementation. Preserve all existing progress; never silently undo work.
 
 ## When to Use
 
-- The user has an `Implementation_plan-*.md` (or a GitHub issue with a plan in its body) that needs new tasks added, existing tasks reworded, or scope adjusted.
+- The user has an `Implementation_plan-*.md` (or a GitHub issue with an implementation-plan artifact comment) that needs new tasks added, existing tasks reworded, or scope adjusted.
 - A previous `/devenv-create-implementation-plan` run is now out of date.
 - Discovery during Phase 1 revealed sub-tasks that didn't exist when the plan was written.
 
@@ -25,7 +25,13 @@ If there is no existing plan, stop and redirect to `/devenv-create-implementatio
 The user provides exactly one of:
 
 - **A file path** — e.g. `Implementation_plan-issue-42-001.md`, `repos/foo/Implementation_plan-003.md`. Treated as a literal markdown file to read and write back.
-- **A GitHub issue number** — e.g. `42`. The plan is read from the issue body via `issue-get N --pretty`. After refinement, offer to push the updated body back via `issue-update N --body-file <path>`.
+- **A GitHub issue number** — e.g. `42` or `42:<doc_id>`. Resolve one implementation-plan artifact (`issue-artifact-select`) and read it via `issue-artifact-get`. After refinement, offer to push updates back to the same artifact via `issue-artifact-upsert`.
+
+Issue artifact selection rules:
+
+- If `<doc_id>` is provided, use that exact artifact.
+- If no `<doc_id>` is provided and exactly one `implementation-plan` artifact exists, use it.
+- If multiple artifacts exist, list candidates via `issue-artifact-list --issue <N> --artifact-type implementation-plan --pretty` and ask the user which `doc_id` to refine.
 
 **Auto-detection rule:** if the argument matches `^[0-9]+$`, treat as issue number; otherwise treat as a file path. If both could plausibly apply, ask the user which they meant.
 
@@ -37,8 +43,8 @@ For issue-backed plan refinement, follow the shared [issue-backed artifact edit 
 
 ### 1. Load and parse the existing plan
 
-- Read the source (file or `issue-get` output).
-- If the source is an issue body, materialize it to a local working copy before editing (repo-local file or temp file, depending on user choice when not already implied). Use that local working copy for all iterations in this refinement effort.
+- Read the source (file or `issue-artifact-get` output).
+- If the source is an issue artifact, materialize it to a local working copy before editing (repo-local file or temp file, depending on user choice when not already implied). Use that local working copy for all iterations in this refinement effort, and keep its `doc_id` in context for republish.
 - Identify the phase headings (`### Phase N — Title`) and task lines (`- [ ]` / `- [x]`).
 - Note the highest existing task number per phase (e.g. Phase 2 has tasks up to 2.7 → next is 2.8).
 - **Assess completion state**: for each phase, note whether it is fully complete (all tasks `[x]`), partially complete, or untouched. Note the highest existing phase number — this is used if new phases need to be created.
@@ -216,7 +222,9 @@ Also run a decision-package parity check for every semantic decision/question to
 ### 5. Write the result
 
 - For file input: overwrite the file in place. The user can `git diff` to review and revert if needed.
-- For issue input: write and refine against the local working copy first, then offer to push that same local file back to the issue body: "Update issue #N body with the refined plan? (`issue-update N --body-file <path>` )" Wait for explicit yes before running.
+- For issue input: write and refine against the local working copy first, then offer to push that same local file back to the same issue artifact comment: "Update issue #N implementation-plan artifact with the refined plan? (`issue-artifact-upsert --issue N --body-file <path>` )" Wait for explicit yes before running.
+
+For this publish step, once issue number and local working copy are established, run the known `issue-artifact-upsert` path directly. Do not add ad-hoc `--help`, `command -v`, or routine dry-run checks unless a real ambiguity or command failure appears.
 
 Do not require a separate approval step for the write itself — the user invoked the skill to refine the plan; trust that intent. Git is the safety net.
 
@@ -227,7 +235,7 @@ Summarise inline:
 - How many tasks were added / reworded / marked done / cancelled
 - Which phases were affected
 - The new total task count
-- (For issue input) whether the issue body was updated
+- (For issue input) whether the issue artifact comment was updated
 
 ## Anti-patterns
 
@@ -242,6 +250,7 @@ Summarise inline:
 - **Adding discovery-only confirmation edits** — if exploration merely confirmed the plan was already right, leave the plan unchanged.
 - **AI/model attribution in artifact text** — do not write lines like "updated by AI", "generated by Copilot", or "revised by <model>" in plan sections or revision history.
 - **Assuming what changed** — always interview before editing. The user knows things you don't.
+- **Over-checking the artifact publish step** — once issue, `doc_id`, and file are known, do not run ad-hoc `--help` / `command -v` preflights instead of executing the known upsert command.
 
 ## Sibling skills
 

@@ -256,23 +256,23 @@ issue-update 124 --milestone "Sprint 6"
 issue-update 125 --milestone "Sprint 6"
 
 # 4. Add issues to project
-project-add "Q1 2026" 123 124 125
+project-add-issue "Q1 2026" 123 124 125
 
 # 5. Set status to Ready
-project-update "Q1 2026" 123 --status "Ready"
-project-update "Q1 2026" 124 --status "Ready"
-project-update "Q1 2026" 125 --status "Ready"
+project-update-issue "Q1 2026" 123 --status "Ready"
+project-update-issue "Q1 2026" 124 --status "Ready"
+project-update-issue "Q1 2026" 125 --status "Ready"
 ```
 
 ### Development Workflow
 
 ```bash
 # 1. Select an issue to work on
-issue_num=$(issue-select --milestone "Sprint 6" --status "Ready")
+issue_num=$(issue-select --milestone "Sprint 6")
 
 # 2. Start implementing
 gh issue edit $issue_num --add-assignee "@me"
-project-update "Q1 2026" $issue_num --status "Implementing"
+project-update-issue "Q1 2026" $issue_num --status "Implementing"
 
 # 3. Create branch and make changes
 git checkout -b feature/my-feature
@@ -281,18 +281,18 @@ git checkout -b feature/my-feature
 pr-create-for-merge
 
 # 5. Update status to Review
-project-update "Q1 2026" $issue_num --status "Review"
+project-update-issue "Q1 2026" $issue_num --status "Review"
 
 # 6. After PR approved and merged, update status
-project-update "Q1 2026" $issue_num --status "Merged"
+project-update-issue "Q1 2026" $issue_num --status "Merged"
 
 # 7. Deploy to staging
 # (via your deployment process)
-project-update "Q1 2026" $issue_num --status "Staging"
+project-update-issue "Q1 2026" $issue_num --status "Staging"
 
 # 8. After staging validation, deploy to production
 # (via your deployment process)
-project-update "Q1 2026" $issue_num --status "Production"
+project-update-issue "Q1 2026" $issue_num --status "Production"
 
 # 9. Issue automatically closes when moved to Production
 ```
@@ -316,8 +316,8 @@ issue-groom
 #    - Mark as Ready when complete
 
 # 4. After grooming, move to project
-project-add "Q1 2026" 42 43 44 45
-project-update "Q1 2026" 42 --status "To Groom"
+project-add-issue "Q1 2026" 42 43 44 45
+project-update-issue "Q1 2026" 42 --status "To Groom"
 ```
 
 ### Finding and Filtering Issues
@@ -446,7 +446,7 @@ issue-comment ISSUE# --edit
 **`issue-artifact-upsert`** - Deterministically create/update an artifact comment by `doc_id`
 
 ```bash
-issue-artifact-upsert --issue ISSUE# --doc-id DOC_ID [--body TEXT | --body-file FILE] [--dry-run]
+issue-artifact-upsert --issue ISSUE# [--body TEXT | --body-file FILE] [--dry-run]
 ```
 
 Use this when posting skill artifacts (spike/redesign/design/blueprint/requirements/roadmap/plan) to an issue so re-runs update the same comment instead of creating duplicates.
@@ -465,6 +465,32 @@ issue-artifact-doc-id --issue ISSUE# --artifact-type TYPE [--slug TEXT | --sourc
 
 Use this to generate the exact `doc_id` value before composing the metadata block for `issue-artifact-upsert`.
 
+For implementation plans stored as issue artifacts, prefer `--artifact-type implementation-plan` with `--source-file Implementation_plan-...md` so the same plan file always resolves to the same artifact comment.
+
+**`issue-artifact-get`** - Retrieve one artifact comment by exact `doc_id`
+
+```bash
+issue-artifact-get --issue ISSUE# --doc-id DOC_ID [--full] [--pretty]
+```
+
+Use this to materialize the current artifact body before local edits.
+
+**`issue-artifact-list`** - List artifact comments discovered from metadata headers
+
+```bash
+issue-artifact-list --issue ISSUE# [--artifact-type TYPE] [--full] [--pretty]
+```
+
+Use this when an issue may contain multiple persisted artifacts of the same type.
+
+**`issue-artifact-select`** - Resolve exactly one artifact for downstream work
+
+```bash
+issue-artifact-select --issue ISSUE# [--artifact-type TYPE] [--doc-id DOC_ID] [--latest] [--format json|doc-id|comment-id|url]
+```
+
+Use this before plan refresh/refine/status/update flows so one issue can safely hold multiple implementation plans.
+
 **`issue-close`** - Close or reopen issues
 
 ```bash
@@ -480,17 +506,17 @@ issue-select [--type TYPE] [--milestone NAME] [--multi] \
 
 ### Project Management
 
-**`project-add`** - Add issues to projects
+**`project-add-issue`** - Add issues to projects
 
 ```bash
-project-add PROJECT_NAME ISSUE# [ISSUE#] ... \
+project-add-issue PROJECT_NAME ISSUE# [ISSUE#] ... \
     [--field NAME=VALUE]
 ```
 
-**`project-update`** - Update project fields
+**`project-update-issue`** - Update project fields
 
 ```bash
-project-update PROJECT_NAME ISSUE# [--status STATUS] \
+project-update-issue PROJECT_NAME ISSUE# [--status STATUS] \
     [--field NAME=VALUE] [--list-fields]
 ```
 
@@ -544,11 +570,11 @@ issue-create --title "PayPal Integration" --type story \
 # Returns: https://github.com/owner/repo/issues/102
 
 # 3. Add to project
-project-add "Q1 2026" 100 101 102
+project-add-issue "Q1 2026" 100 101 102
 
 # 4. Set statuses
-project-update "Q1 2026" 100 --status "To Groom"
-project-update "Q1 2026" 101 --status "Ready"
+project-update-issue "Q1 2026" 100 --status "To Groom"
+project-update-issue "Q1 2026" 101 --status "Ready"
 ```
 
 ### Example 2: Development Workflow
@@ -557,7 +583,7 @@ project-update "Q1 2026" 101 --status "Ready"
 # 1. Start work on an issue
 issue_num=101
 gh issue edit $issue_num --add-assignee "@me"
-project-update "Q1 2026" $issue_num --status "Implementing"
+project-update-issue "Q1 2026" $issue_num --status "Implementing"
 
 # 2. Create branch and work
 git checkout -b feature/stripe-integration
@@ -568,17 +594,17 @@ create-merge-pr
 # This creates PR and moves to Review
 
 # 4. Update status in project
-project-update "Q1 2026" $issue_num --status "Review"
+project-update-issue "Q1 2026" $issue_num --status "Review"
 
 # 5. After PR approval and merge
-project-update "Q1 2026" $issue_num --status "Merged"
+project-update-issue "Q1 2026" $issue_num --status "Merged"
 
 # 6. After QA/staging validation
-project-update "Q1 2026" $issue_num --status "Staging"
+project-update-issue "Q1 2026" $issue_num --status "Staging"
 
 # 7. Deploy to production
 # Run your deployment process
-project-update "Q1 2026" $issue_num --status "Production"
+project-update-issue "Q1 2026" $issue_num --status "Production"
 
 # 8. Issue closes automatically
 # You can verify:
@@ -612,7 +638,7 @@ Charge fails with generic error" \
 
 # 2. Start work
 gh issue edit 150 --add-assignee "@me"
-project-update "Q1 2026" 150 --status "Implementing"
+project-update-issue "Q1 2026" 150 --status "Implementing"
 
 # 3. Work on fix and create PR
 git checkout -b bugfix/stripe-paypal-support
@@ -620,16 +646,16 @@ git checkout -b bugfix/stripe-paypal-support
 pr-create-for-merge
 
 # 4. Update status
-project-update "Q1 2026" 150 --status "Review"
+project-update-issue "Q1 2026" 150 --status "Review"
 
 # 5. After merge
-project-update "Q1 2026" 150 --status "Merged"
+project-update-issue "Q1 2026" 150 --status "Merged"
 
 # 6. After staging
-project-update "Q1 2026" 150 --status "Staging"
+project-update-issue "Q1 2026" 150 --status "Staging"
 
 # 7. Deploy to production
-project-update "Q1 2026" 150 --status "Production"
+project-update-issue "Q1 2026" 150 --status "Production"
 # Bug automatically closes
 ```
 

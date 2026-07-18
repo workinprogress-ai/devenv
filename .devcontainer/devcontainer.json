@@ -110,7 +110,9 @@
 			],
             "settings": {
                 "github.copilot.chat.additionalReadAccessPaths": [
+                    "/workspaces/devenv",
                     "/workspaces/devenv/repos",
+                    "/workspaces/devenv/copilot/knowledge",
                     "/workspaces/devenv/playground",
                     "/workspaces/devenv/.github",
                     "/workspaces/devenv/tools",

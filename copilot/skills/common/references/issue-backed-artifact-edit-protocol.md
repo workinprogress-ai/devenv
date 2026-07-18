@@ -1,6 +1,6 @@
 # Issue-backed artifact edit protocol
 
-Use this protocol whenever a skill must modify an artifact that already lives in a GitHub issue body or issue comment.
+Use this protocol whenever a skill must modify an artifact that already lives in a GitHub issue comment (or a legacy issue body artifact being migrated).
 
 ## Goal
 
@@ -14,6 +14,7 @@ Keep GitHub issue artifacts editable, reviewable, and stable by treating GitHub 
      - in the target repo, when that artifact naturally belongs there, or
      - in a temp folder, when no repo-local file should be created.
    - If the location is not already implied by the skill, ask the user which they want.
+   - If the issue may contain more than one artifact of the same type, resolve the canonical one first with `issue-artifact-select` or `issue-artifact-list`, then load it with `issue-artifact-get`.
 
 2. **Edit the local working copy**
    - Do all refinement, iteration, and draft convergence locally.
@@ -21,8 +22,10 @@ Keep GitHub issue artifacts editable, reviewable, and stable by treating GitHub 
    - Treat the local working copy as the session source of truth.
 
 3. **Republish to the original location**
-   - After the artifact is ready, push the local working copy back to the original issue body or issue comment.
-   - Use the repo wrappers / artifact tooling when available (`issue-update`, `issue-artifact-upsert`, etc.).
+   - After the artifact is ready, push the local working copy back to the original issue comment artifact.
+   - Use deterministic artifact tooling (`issue-artifact-get`, `issue-artifact-list`, `issue-artifact-select`, `issue-artifact-upsert`) instead of ad-hoc comment matching.
+   - Do not use `mcp_gitkraken_*` tools for artifact publication, and do not use generic `issue-comment` as the write path for a persisted artifact.
+   - Once the correct `doc_id`, local working copy, and target issue are already established, publish directly with `issue-artifact-upsert`; do not add routine tool-existence checks, ad-hoc `--help`, or a default dry-run unless a real ambiguity or failure appears.
 
 ## Revision history
 
@@ -59,6 +62,6 @@ If the artifact changed concurrently during iteration, run one final section-lev
 
 ## Typical applications
 
-- Implementation plan stored in a GitHub issue body
+- Implementation plan stored in a GitHub issue comment artifact
 - Grooming/design artifact stored in a GitHub issue comment
 - Any other persisted markdown artifact republished into an issue thread

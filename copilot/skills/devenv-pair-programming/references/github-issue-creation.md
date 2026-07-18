@@ -23,23 +23,21 @@ If the user says no, skip to session wrap-up.
 
 5. On confirmation:
 
+    - If the issue may already host one or more artifacts of the same type, resolve the canonical artifact first with `issue-artifact-select` or `issue-artifact-list`, then load it with `issue-artifact-get` before regenerating or republishing.
+
    **If creating a new issue:**
    - `issue-create --repo "$GITHUB_REPO" --title "<title>" --body "<body>"`
    - Note the new issue number.
-   - Generate doc_id using tooling:
-     - `doc_id=$(issue-artifact-doc-id --issue <N> --artifact-type <artifact-type> --slug <artifact-slug>)`
-   - Apply the [Artifact Identity Convention](../../_conventions.md#artifact-identity-convention).
+   - Apply the [Artifact Identity Convention](../../_conventions.md#artifact-identity-convention) — ensure file has `doc_id: <value>` in first 256 characters.
    - Write the document to a temp file.
-   - `issue-artifact-upsert --issue <N> --doc-id "$doc_id" --body-file <temp-file>`
+   - `issue-artifact-upsert --issue <N> --body-file <temp-file>`
    - Surface the issue URL.
 
    **If posting to an existing issue:**
-   - Generate doc_id using tooling:
-     - `doc_id=$(issue-artifact-doc-id --issue <N> --artifact-type <artifact-type> --slug <artifact-slug>)`
-   - Apply the [Artifact Identity Convention](../../_conventions.md#artifact-identity-convention).
-
+   - If the issue may already host one or more artifacts of the same type, resolve the canonical artifact first with `issue-artifact-select` or `issue-artifact-list`, then load it with `issue-artifact-get` before republishing.
+   - Apply the [Artifact Identity Convention](../../_conventions.md#artifact-identity-convention) — ensure file has `doc_id: <value>` in first 256 characters.
    - Write the document to a temp file.
-   - `issue-artifact-upsert --issue <N> --doc-id "$doc_id" --body-file <temp-file>`
+   - `issue-artifact-upsert --issue <N> --body-file <temp-file>`
    - If upsert reports a duplicate `doc_id` conflict, stop and ask the user which comment ID to keep as canonical.
    - Surface the issue URL.
 

@@ -1,7 +1,7 @@
 ---
 name: devenv-create-implementation-plan
-description: 'Create a structured Implementation_plan.md for a user story, task, GitHub issue, or complete spec/RFC/design doc so a human + AI pair can execute it together. USE WHEN the user says "create an implementation plan", "plan this story", "break this task into phases", "break down this work", "write up a plan for this", "plan from this spec", or hands off a GitHub issue / user story / complete spec to be implemented. Interviews the user when needed, scans repo conventions, drafts phased atomic tasks, gets explicit approval, writes the file to the target repo root with a numbered suffix, and offers to push the plan into the associated GitHub issue. DO NOT USE for ad-hoc coding tasks where no plan file is wanted, for pure research/Q&A, or for editing an existing plan (just edit the file directly).'
-argument-hint: '[issue-number | path-to-story | freeform description]'
+description: 'Create a structured Implementation_plan.md for a user story, task, GitHub issue, or complete spec/RFC/design doc so a human + AI pair can execute it together. USE WHEN the user says "create an implementation plan", "plan this story", "break this task into phases", "break down this work", "write up a plan for this", "plan from this spec", or hands off a GitHub issue / user story / complete spec to be implemented. Interviews the user when needed, scans repo conventions, drafts phased atomic tasks, gets explicit approval, writes the file to the target repo root with a numbered suffix, and offers to publish the plan as a GitHub issue artifact comment. DO NOT USE for ad-hoc coding tasks where no plan file is wanted, for pure research/Q&A, or for editing an existing plan (just edit the file directly).'
+argument-hint: '[issue-number[:doc_id] | path-to-story | freeform description]'
 user-invocable: true
 ---
 
@@ -9,7 +9,7 @@ user-invocable: true
 
 > **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
 
-> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
 Produce a phased, committable plan that gives a human or another AI enough context to execute a user story or task collaboratively. The plan is human-first: goals and orientation first, phase guidance second, detailed task tracking third.
 
@@ -274,34 +274,35 @@ Write the approved plan to `<target-repo>/<resolved-filename>.md`. The plan must
 
 Confirm the path back to the user.
 
-### 9. Offer GitHub issue update (only if an issue is associated)
+### 9. Offer GitHub issue artifact publication (only if an issue is associated)
 
 Ask, verbatim:
 
-> Update issue #N description with this plan? (runs `issue-update N --body-file <path>`)
+> Publish this plan to issue #N as an implementation-plan artifact comment?
 
-Only after explicit confirmation, run this preservation check first:
+Only after explicit confirmation:
 
-- Fetch the current issue description/body.
-- If the existing body is significant, preserve it in a comment before replacing the body with the plan.
-- Use this significance rule:
-  - Significant when the current body is substantive narrative context (for example roughly 8 or more non-empty lines, or roughly 500+ characters), and not just a short placeholder.
-
-If significant, post a comment with this exact heading at the top:
-
-```markdown
-# Original Issue Description
-
-<original issue body>
-```
-
-Then run:
+1. Verify the plan file has `DEVENV_ARTIFACT_V1` header with `doc_id: <value>` in first 256 characters.
+2. Upsert the artifact comment:
 
 ```bash
-issue-update <N> --body-file <path-to-plan>
+issue-artifact-upsert --issue <N> --body-file <path-to-plan>
 ```
 
-Run from the target repo's working directory. If it fails, surface the error; do not retry blindly.
+The tool automatically extracts `doc_id` from the file header and creates or updates the comment accordingly.
+
+3. If upsert reports duplicate `doc_id` conflict, stop and ask the user which comment ID is canonical before continuing.
+
+Execution posture for this step:
+
+- Once issue number and plan file path are established, treat this as an execution step, not a syntax-discovery step.
+- Use `--dry-run` only if there is a real ambiguity or command failure, not as a default preflight.
+
+Notes:
+
+- This supports multiple implementation plans on the same issue by using one `doc_id` per plan file/slug.
+- For an existing plan file with a header `doc_id`, preserve identity by reusing that value instead of regenerating.
+- Do not replace the issue description/body with the plan.
 
 ## Phase Rules (summary)
 
@@ -405,6 +406,7 @@ Every phase in `## Phases` should include both human-facing guidance and a conde
 - Overwriting an existing `Implementation_plan*.md` (always use a numbered suffix)
 - Auto-running `issue-update` without explicit user confirmation
 - Replacing a significant existing issue description without first preserving it in a comment titled `# Original Issue Description`
+- Running ad-hoc `--help` or `command -v` during issue-artifact publication when the command path is already specified
 
 ## Sibling skills
 

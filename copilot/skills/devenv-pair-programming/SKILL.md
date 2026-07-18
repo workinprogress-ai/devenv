@@ -1,7 +1,7 @@
 ---
 name: devenv-pair-programming
-description: 'Collaborate with the user as a pair-programming partner on a user story, GitHub issue, or implementation plan. USE WHEN the user says "pair program", "let''s pair on this", "pair with me", "work on this issue with me", "implement this together", "let''s tackle this plan together", "work through this implementation plan", or hands off a GitHub issue with collaborative intent (not "just do it"). Loads the plan (from a file path or via `issue-get` for a GH issue), uses the goals/context/phase sections to orient the session, and treats acceptance criteria plus phase goals as the source of truth while keeping a condensed task list as the authoritative current-state ledger. Both parties take turns implementing and reviewing, the AI keeps AC/phase progress and task state current, asks before assuming, pushes back when warranted, and offers to document discoveries via `issue-comment` / `issue-create`. DO NOT USE for solo "do this for me" tasks, pure Q&A, or when the user wants the AI to drive the entire implementation without checkpoints.'
-argument-hint: '[issue-number | path-to-plan | "ad-hoc"]'
+description: 'Collaborate with the user as a pair-programming partner on a user story, GitHub issue, or implementation plan. USE WHEN the user says "pair program", "let''s pair on this", "pair with me", "work on this issue with me", "implement this together", "let''s tackle this plan together", "work through this implementation plan", or hands off a GitHub issue with collaborative intent (not "just do it"). Loads the plan (from a file path or a GitHub issue artifact comment), uses the goals/context/phase sections to orient the session, and treats acceptance criteria plus phase goals as the source of truth while keeping a condensed task list as the authoritative current-state ledger. Both parties take turns implementing and reviewing, the AI keeps AC/phase progress and task state current, asks before assuming, pushes back when warranted, and offers to document discoveries via `issue-comment` / `issue-create`. DO NOT USE for solo "do this for me" tasks, pure Q&A, or when the user wants the AI to drive the entire implementation without checkpoints.'
+argument-hint: '[issue-number[:doc_id] | path-to-plan | "ad-hoc"]'
 user-invocable: true
 ---
 
@@ -9,9 +9,9 @@ user-invocable: true
 
 > **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
 
-> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
-> **Diagnostic-report override:** If the user asks for a diagnostic report, postmortem, incident report, or findings artifact about undesirable behavior, treat that as an immediate diagnostic-mode request even if they do not say "enter diagnostic mode". Do not implement fixes first. Emit exactly one copyable fenced `markdown` code block (no surrounding prose) using the protocol-defined diagnostic artifact format.
+> **Diagnostic-report override:** If the user asks for a diagnostic report, postmortem, incident report, or findings artifact about undesirable behavior, treat that as an immediate diagnostic-mode request even if they do not say "enter diagnostic mode". Do not implement fixes first. Write `DIAGNOSTIC_REPORT.md` at the active project root using the protocol-defined diagnostic artifact format.
 
 > **Persistent operating mode.** This skill is active for the entire conversation from invocation onward — not just at session start. After context compaction, a gap between turns, or any point where you find yourself about to write code: **stop and re-read this file first.** The default agent behavior ("implement immediately") does not apply in a pair-programming session. If you are uncertain whether you are in pair-programming mode, you are — act accordingly.
 
@@ -164,9 +164,37 @@ Ask, if not provided: GH issue number? Path to a plan file? Ad-hoc (no plan)?
 
 ### 2. Load the plan
 
-**If GH issue:** Check for a local `Implementation_plan-issue-<N>-*.md` in the target repo root first — if it exists, use it (carries checkbox progress). If not, fetch via `issue-get <N> | jq -r '.body'`; confirm it contains a plan; write to `Implementation_plan-issue-<N>-001.md` (next available suffix, never overwrite). **Work exclusively from the local file** — record its workspace-relative path as `<plan_file>` for `markdown-plan-complete-task` calls.
+**If GH issue:** resolve a single implementation-plan artifact comment first.
+
+1. Check for a local `Implementation_plan-issue-<N>-*.md` in the target repo root first — if one exists and the user wants that exact working copy, use it.
+2. Otherwise resolve artifact identity:
+   - If the user provided `doc_id`, use `issue-artifact-select --issue <N> --doc-id <DOC_ID>`.
+   - If not, try `issue-artifact-select --issue <N> --artifact-type implementation-plan`.
+   - If ambiguous, list candidates via `issue-artifact-list --issue <N> --artifact-type implementation-plan --pretty` and ask the user which `doc_id` to use.
+3. Fetch the selected artifact via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --full` and materialize to `Implementation_plan-issue-<N>-001.md` (next available suffix, never overwrite).
+4. **Work exclusively from the local file** — record its workspace-relative path as `<plan_file>` for `markdown-plan-complete-task` calls. Keep the selected `<DOC_ID>` in session context; all issue publication updates must target the same artifact comment.
+5. Record the target repo root in session context and run all repo-scoped tooling from that directory for the rest of the session segment.
 
 **If plan file:** read it.
+
+If a plan file is used, determine whether there is an associated GH issue for artifact sync:
+
+1. If the user provided an issue number, use it.
+2. Else, if filename matches `Implementation_plan-issue-<N>-*.md`, infer `<N>`.
+3. If an issue number is known, resolve the artifact identity for sync:
+   - If the plan header has non-empty `doc_id`, use that as the target identity.
+   - Otherwise run `issue-artifact-select --issue <N> --artifact-type implementation-plan`; if ambiguous, list candidates and ask the user to choose `doc_id`.
+4. Record associated `<N>` and `<DOC_ID>` in session context for subsequent sync steps.
+
+For either GH-issue or plan-file entry paths, explicitly set terminal working directory to the target repo root before any wrapper/CLI/tool command block.
+
+When associated `<N>` + `<DOC_ID>` are known, run a **one-time artifact freshness check at session start** (not at each phase end):
+
+1. Fetch current artifact body once via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --full`.
+2. Compare fetched body with local `<plan_file>`.
+3. If materially different, reconcile before starting execution (ask user whether to adopt remote, keep local, or merge).
+
+During the same session, assume this working copy is authoritative unless the user indicates external edits occurred.
 
 **If missing or too thin** (no task list, no ACs, or no usable human-facing phase structure): offer to run a **collaborative inline breakdown** before execution rather than sending the user away to a separate skill invocation. See [Inline Plan Breakdown](#inline-plan-breakdown) below. Alternatively offer (a) proceed ad-hoc, (b) invoke [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) separately, (c) abort. Wait for an answer.
 
@@ -948,27 +976,33 @@ This is the only plan edit the AI makes without prior confirmation. Everything e
 - Before declaring the whole plan complete, confirm there are no unresolved entries left under `## Pending Questions` or attached to any remaining phase/task.
 - If a question is resolved by a material plan change, note the resolution in `## Revision History` with a short explanation.
 
-### GH issue body sync
+### GH issue artifact sync
 
-If the plan was loaded from a GH issue (i.e. a local file was established from the issue body during Step 2), sync the issue body at the end of each phase. **Do this proactively as part of declaring the phase complete — don't wait for the user to ask.**
+If there is an **associated GH issue + implementation-plan artifact identity** (`<N>` + `<DOC_ID>` in session context), and you apply a **material/structural plan revision** during the session (phase/task restructuring, AC changes, major sequencing changes, or significant divergence rewrite), sync that artifact comment **immediately after the revision write is confirmed**. Do not wait for phase end in this case.
+
+For this immediate revision sync:
+
+1. Confirm with the user.
+2. Run `issue-artifact-upsert --issue <N> --body-file <path>`.
+
+If there is an associated GH issue + implementation-plan artifact identity (`<N>` + `<DOC_ID>`), sync that artifact comment at the end of each phase. **Do this proactively as part of declaring the phase complete — don't wait for the user to ask.**
 
 **Before syncing**, assess whether the phase deviated significantly from the plan — unplanned tasks were added, the approach changed, or the user redirected mid-phase. If the phase plan was already rewritten during the session (e.g. via the "in the flow" divergence handling), skip this check — the plan is already accurate. Otherwise, if a meaningful gap exists, offer to update it before the sync goes out:
 
 > *"Before I sync the issue, this phase diverged a bit from the plan — we ended up [brief description]. Want me to update the plan to reflect that first? I can tick the original tasks and add a short 'Deviation' note, or rewrite the task descriptions if they're now misleading."*
 
-Keep the update proportionate — a `## Deviation` subheading with a few lines, or adjusted task wording, is enough. The goal is that the issue body reflects what was actually done, not an idealised version of what was planned. Don't rewrite history for minor deviations; only offer if the gap is meaningful.
+Keep the update proportionate — a `## Deviation` subheading with a few lines, or adjusted task wording, is enough. The goal is that the issue artifact reflects what was actually done, not an idealised version of what was planned. Don't rewrite history for minor deviations; only offer if the gap is meaningful.
 
 Once the plan is accurate (or the user declines):
 
-1. Fetch the current issue body via `issue-get <N>` — to check for concurrent edits, not as the edit target.
-2. Show the diff between the fetched issue body and the **local plan file** (which is the source of truth — it reflects all checkbox ticks and any structural changes made during the session).
-3. Confirm with the user, then run `issue-update <N> --body-file <path>` to overwrite the issue body with the plan file.
+1. Confirm with the user.
+2. Run `issue-artifact-upsert --issue <N> --body-file <path>` to update the same artifact comment. Tool automatically extracts `doc_id` from the file header.
 
-Do not sync mid-phase — issue bodies are a full overwrite and may clobber concurrent edits. If the session ends mid-phase, offer to sync whatever tasks were completed.
+Do not sync mid-phase **except** for the immediate sync required after a material/structural plan revision. If the session ends mid-phase, offer to sync whatever tasks were completed.
 
 ## Documenting Discoveries (Issue Integration)
 
-See [issue-integration.md](./references/issue-integration.md) for exact CLI invocations.
+See the shared [Issue Artifact Integration](../common/references/issue-artifact-integration.md) reference for exact CLI invocations.
 
 **Offer** (don't auto-run) to document when:
 

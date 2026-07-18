@@ -1074,23 +1074,58 @@ for issue in $(issue-select --multi); do
 done
 ```
 
+### `issue-comment-list`
+
+Lists comments on an issue and returns comment IDs for scripting and follow-up updates.
+
+```bash
+issue-comment-list ISSUE_NUMBER [--pretty] [--full]
+```
+
+**Options:**
+
+- `--pretty`: Pretty-print JSON output
+- `--full`: Return complete comment bodies instead of previews
+
+**Examples:**
+
+```bash
+issue-comment-list 42 --pretty
+issue-comment-list 42 --full | jq -r '.[0].id'
+```
+
+### `issue-comment-update`
+
+Replaces an existing issue comment by numeric comment ID.
+
+```bash
+issue-comment-update COMMENT_ID (--body TEXT | --body-file FILE) [--dry-run]
+```
+
+**Examples:**
+
+```bash
+issue-comment-update 123456789 --body-file updated-artifact.md
+```
+
 ### `issue-artifact-upsert`
 
 Deterministically creates or updates a GitHub issue comment by stable `doc_id` metadata.
 
 ```bash
-issue-artifact-upsert --issue ISSUE_NUMBER --doc-id DOC_ID [--body TEXT | --body-file FILE] [OPTIONS]
+issue-artifact-upsert --issue ISSUE_NUMBER [--body TEXT | --body-file FILE] [OPTIONS]
 ```
 
 **Required Arguments:**
 
 - `--issue ISSUE_NUMBER`: Target issue number
-- `--doc-id DOC_ID`: Stable artifact document ID (for example: `dv1:owner/repo:issue-123:spike:topic`)
 
 **Comment Source (exactly one required):**
 
 - `--body TEXT`: Inline comment body
 - `--body-file FILE`: Read comment body from file
+
+`doc_id` is extracted from the exact metadata line `doc_id: <doc_id>` in the first 256 characters of the provided body.
 
 **Options:**
 
@@ -1128,13 +1163,11 @@ issue-artifact-upsert --issue ISSUE_NUMBER --doc-id DOC_ID [--body TEXT | --body
 # Create or update spike findings comment by doc_id
 issue-artifact-upsert \
   --issue 123 \
-  --doc-id "dv1:workinprogress-ai/devenv:issue-123:spike:retry-strategy" \
   --body-file spike-001-retry-strategy.md
 
 # Preview action without writing
 issue-artifact-upsert \
   --issue 123 \
-  --doc-id "dv1:workinprogress-ai/devenv:issue-123:spike:retry-strategy" \
   --body-file spike-001-retry-strategy.md \
   --dry-run
 ```
@@ -1150,7 +1183,7 @@ issue-artifact-doc-id --issue ISSUE_NUMBER --artifact-type TYPE [--slug TEXT | -
 **Required Arguments:**
 
 - `--issue ISSUE_NUMBER`: Target issue number
-- `--artifact-type TYPE`: One of `spike`, `redesign`, `design`, `blueprint`, `requirements`, `roadmap`, `plan`
+- `--artifact-type TYPE`: One of `spike`, `redesign`, `design`, `blueprint`, `requirements`, `roadmap`, `plan`, `implementation-plan`
 
 **Slug Source (exactly one required):**
 
@@ -1177,6 +1210,104 @@ issue-artifact-doc-id \
   --artifact-type redesign \
   --source-file Redesign--003-Auth-Flow.md \
   --repo workinprogress-ai/devenv
+
+# For an implementation plan artifact comment
+issue-artifact-doc-id \
+  --issue 42 \
+  --artifact-type implementation-plan \
+  --source-file Implementation_plan-issue-42-001.md \
+  --repo workinprogress-ai/devenv
+```
+
+### `issue-artifact-get`
+
+Retrieves a single GitHub issue comment artifact by deterministic `doc_id`.
+
+```bash
+issue-artifact-get --issue ISSUE_NUMBER --doc-id DOC_ID [--full] [--pretty] [OPTIONS]
+```
+
+**Required Arguments:**
+
+- `--issue ISSUE_NUMBER`: Target issue number
+- `--doc-id DOC_ID`: Exact artifact document ID to resolve
+
+**Options:**
+
+- `--full`: Return the complete comment body in `body`
+- `--pretty`: Pretty-print JSON output
+- `--repo OWNER/REPO`: Override target repository
+- `--verbose`: Enable verbose logs
+
+**Behavior:**
+
+- 1 match: returns the artifact metadata and body
+- 0 matches: exits non-zero
+- 2+ matches: returns conflict payload and exits non-zero
+
+**Examples:**
+
+```bash
+issue-artifact-get \
+  --issue 42 \
+  --doc-id "dv1:workinprogress-ai-devenv:issue-42:implementation-plan:implementation-plan-issue-42-001" \
+  --full --pretty
+```
+
+### `issue-artifact-list`
+
+Lists deterministic artifacts discovered in issue comments from their metadata headers.
+
+```bash
+issue-artifact-list --issue ISSUE_NUMBER [--artifact-type TYPE] [--full] [--pretty] [OPTIONS]
+```
+
+**Options:**
+
+- `--artifact-type TYPE`: Filter results by artifact type
+- `--full`: Return complete comment bodies instead of previews
+- `--pretty`: Pretty-print JSON array output
+- `--repo OWNER/REPO`: Override target repository
+
+**Examples:**
+
+```bash
+# List all implementation-plan artifacts on an issue
+issue-artifact-list --issue 42 --artifact-type implementation-plan --pretty
+```
+
+### `issue-artifact-select`
+
+Resolves exactly one issue artifact for downstream workflows.
+
+```bash
+issue-artifact-select --issue ISSUE_NUMBER [--artifact-type TYPE] [--doc-id DOC_ID] [--latest] [--format FORMAT] [OPTIONS]
+```
+
+**Selection Rules:**
+
+- If `--doc-id` is supplied, that exact artifact is selected
+- If exactly one artifact matches, it is selected automatically
+- If multiple artifacts match and `--latest` is supplied, the most recently updated artifact is selected
+- Otherwise the command returns an ambiguity payload and exits non-zero
+
+**Formats:**
+
+- `json` (default)
+- `doc-id`
+- `comment-id`
+- `url`
+
+**Examples:**
+
+```bash
+# Select the latest implementation plan for an issue
+issue-artifact-select --issue 42 --artifact-type implementation-plan --latest --format doc-id
+
+# Select one exact artifact by doc_id
+issue-artifact-select --issue 42 \
+  --doc-id "dv1:workinprogress-ai-devenv:issue-42:implementation-plan:implementation-plan-issue-42-001" \
+  --format url
 ```
 
 ### `issue-groom`
@@ -1208,12 +1339,12 @@ issue-groom [OPTIONS]
 - **To Groom**: Ready for grooming session
 - **Ready**: Groomed and ready for implementation
 
-### `project-add`
+### `project-add-issue`
 
 Adds issues to GitHub Projects (v2).
 
 ```bash
-project-add PROJECT_NAME ISSUE_NUMBER... [OPTIONS]
+project-add-issue PROJECT_NAME ISSUE_NUMBER... [OPTIONS]
 ```
 
 **Options:**
@@ -1224,23 +1355,23 @@ project-add PROJECT_NAME ISSUE_NUMBER... [OPTIONS]
 
 ```bash
 # Add issue to project
-project-add "Q1 2026" 123
+project-add-issue "Q1 2026" 123
 
 # Add multiple issues
-project-add "Sprint 5" 123 124 125
+project-add-issue "Sprint 5" 123 124 125
 
 # Add with field values
-project-add "Q1 2026" 123 --field "Status=Ready" --field "Priority=High"
+project-add-issue "Q1 2026" 123 --field "Status=Ready" --field "Priority=High"
 ```
 
 **Note:** The issue must exist before adding to a project.
 
-### `project-update`
+### `project-update-issue`
 
 Updates issue field values in GitHub Projects (v2).
 
 ```bash
-project-update PROJECT_NAME ISSUE_NUMBER [OPTIONS]
+project-update-issue PROJECT_NAME ISSUE_NUMBER [OPTIONS]
 ```
 
 **Options:**
@@ -1264,15 +1395,15 @@ project-update PROJECT_NAME ISSUE_NUMBER [OPTIONS]
 
 ```bash
 # Move issue to Ready
-project-update "Q1 2026" 123 --status "Ready"
+project-update-issue "Q1 2026" 123 --status "Ready"
 
 # Track progress through workflow
-project-update "Sprint 5" 123 --status "Implementing"
-project-update "Sprint 5" 123 --status "Review"
-project-update "Sprint 5" 123 --status "Merged"
+project-update-issue "Sprint 5" 123 --status "Implementing"
+project-update-issue "Sprint 5" 123 --status "Review"
+project-update-issue "Sprint 5" 123 --status "Merged"
 
 # Set custom fields
-project-update "Q1 2026" 123 --field "Priority=High"
+project-update-issue "Q1 2026" 123 --field "Priority=High"
 ```
 
 **Note:** Project field updates currently provide instructions for manual updates or require GraphQL API implementation.
@@ -2427,8 +2558,8 @@ The following convenience aliases are available in the dev container:
 
 **Project Management:**
 
-- `project-add` - Add issues to projects
-- `project-update` - Update issue fields in projects
+- `project-add-issue` - Add issues to projects
+- `project-update-issue` - Update issue fields in projects
 
 **Development Tools:**
 

@@ -54,8 +54,8 @@ Complete workflow for managing GitHub Issues, Projects, and Sprints:
 - `pr-get` / `pr-list` - Fetch PR data as JSON
 - `pr-comment` - Add comment to a PR
 - `pr-diff` - Get unified diff for PR or local refs
-- `project-add` - Add issues to projects
-- `project-update` - Update project fields
+- `project-add-issue` - Add issues to projects
+- `project-update-issue` - Update project fields
 
 ## 🛠️ Tools & Scripts
 

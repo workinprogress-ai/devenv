@@ -18,7 +18,6 @@ readonly SCRIPT_NAME
 script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Deterministically upsert a GitHub issue comment by doc_id"
 
 ISSUE_NUMBER=""
-DOC_ID=""
 COMMENT_BODY=""
 COMMENT_FILE=""
 REPO_OVERRIDE=""
@@ -33,11 +32,10 @@ Create or update a GitHub issue comment by stable doc_id marker.
 
 Required Inputs:
     --issue, --issue-number N     Issue number
-    --doc-id ID                   Stable document ID to match (exact metadata line)
 
 Comment Source (exactly one required):
     -b, --body TEXT               Comment body text
-    -f, --body-file FILE          Read comment body from file
+    -f, --body-file FILE          Read comment body from file (doc_id extracted from DEVENV_ARTIFACT_V1 header)
 
 Options:
     -n, --dry-run                 Resolve intended action without writing
@@ -47,11 +45,12 @@ Options:
     -v, --version                 Show version and exit
 
 Behavior:
-    1) Read all comments for issue number
-    2) Match exact line "doc_id: <doc_id>" in first 256 characters only
-    3) 1 match   -> update comment
-    4) 0 matches -> create comment
-    5) >1 match  -> conflict (exit 3)
+    1) Read comment body from --body or --body-file
+    2) Extract doc_id from "doc_id: <ID>" line in first 256 characters
+    3) Search all issue comments for matching doc_id in first 256 characters
+    4) 1 match   -> update comment
+    5) 0 matches -> create new comment
+    6) >1 match  -> conflict (exit 3)
 
 Output JSON:
     Success: {"action":"created|updated","issue_number":N,"comment_id":ID,"comment_url":"..."}
@@ -64,8 +63,8 @@ Exit Codes:
     4 API/tool failure
 
 Examples:
-    $SCRIPT_NAME --issue 42 --doc-id "dv1:org/repo:issue-42:spike:cache" --body-file spike.md
-    $SCRIPT_NAME --issue-number 42 --doc-id "dv1:org/repo:issue-42:spike:cache" --body "..." --dry-run
+    $SCRIPT_NAME --issue 42 --body-file artifact.md
+    $SCRIPT_NAME --issue-number 56 --body "doc_id: dv1:...\n..." --dry-run
 EOF
     exit 0
 }
@@ -146,11 +145,6 @@ main() {
                 ISSUE_NUMBER="${2:-}"
                 shift 2
                 ;;
-            --doc-id|--doc_id)
-                require_option_value "$1" "${2:-}"
-                DOC_ID="${2:-}"
-                shift 2
-                ;;
             -b|--body)
                 require_option_value "$1" "${2:-}"
                 COMMENT_BODY="${2:-}"
@@ -180,14 +174,6 @@ main() {
         exit 2
     fi
 
-    if [ -z "$DOC_ID" ]; then
-        invalid_args "doc_id is required (--doc-id)"
-    fi
-
-    if [[ "$DOC_ID" == *$'\n'* ]]; then
-        invalid_args "doc_id must be a single line"
-    fi
-
     local sources=0
     [ -n "$COMMENT_BODY" ] && sources=$((sources + 1))
     [ -n "$COMMENT_FILE" ] && sources=$((sources + 1))
@@ -212,15 +198,23 @@ main() {
     local body
     body="$(load_comment_body)"
 
-    local expected_doc_line="doc_id: $DOC_ID"
-    if ! printf '%s\n' "$body" | grep -Fxq "$expected_doc_line"; then
-        invalid_args "Comment body must include exact metadata line: $expected_doc_line"
-    fi
-
+    # Extract doc_id from body header (first 256 chars)
     local body_prefix
     body_prefix="${body:0:256}"
+    local doc_id
+    doc_id=$(printf '%s\n' "$body_prefix" | grep -oP '^doc_id: \K.*' | head -1)
+    if [ -z "$doc_id" ]; then
+        invalid_args "Comment body must include 'doc_id: <value>' in first 256 characters"
+    fi
+    log_verbose "Extracted doc_id from body: $doc_id"
+
+    if [[ "$doc_id" == *$'\n'* ]]; then
+        invalid_args "doc_id must be a single line"
+    fi
+
+    local expected_doc_line="doc_id: $doc_id"
     if ! printf '%s\n' "$body_prefix" | grep -Fxq "$expected_doc_line"; then
-        invalid_args "doc_id metadata line must appear within the first 256 characters of the body"
+        invalid_args "doc_id metadata line must appear within first 256 characters"
     fi
 
     log_verbose "Fetching comments for issue #$ISSUE_NUMBER"

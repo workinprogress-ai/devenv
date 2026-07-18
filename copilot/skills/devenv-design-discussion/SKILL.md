@@ -7,7 +7,7 @@ user-invocable: true
 
 # Design discussion
 
-> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
 An interactive thinking partner with strong opinions about good design. The user brings a design question — systemic ("how should these services interact?") or local ("strategy pattern or switch statement?") — and the skill drives toward a clear recommendation by surfacing forces, narrowing options, stress-testing the reasoning, and asking hard follow-up questions. Witty, sharp, opinionated, and conversation-first. Encourage creative ideas, then pressure-test them against operational reality and accepted engineering standards. Produce a focused solution proposal only when the user explicitly asks for a written artifact.
 
@@ -132,10 +132,11 @@ After writing the doc, offer publication as a separate GitHub issue comment when
 
 If a written solution proposal is posted to a GitHub issue comment, follow the shared [Artifact Identity Convention](../_conventions.md#artifact-identity-convention) with `artifact_type: solution-proposal`.
 
-- Generate `doc_id` with `issue-artifact-doc-id --issue <N> --artifact-type solution-proposal --slug <topic-slug>`
-- Keep the `DEVENV_ARTIFACT_V1` header at the top of the posted body
-- Use `issue-artifact-upsert` only when republishing revisions of the same written proposal
-- For a distinct blocker-specific design discussion on the same issue, generate a new slug/doc_id and post it as a separate artifact comment rather than overwriting an earlier proposal
+- Ensure the proposal file has `DEVENV_ARTIFACT_V1` header with `doc_id: <value>` in first 256 characters
+- If the issue may already contain one or more solution-proposal artifacts, resolve the canonical artifact first with `issue-artifact-select` or `issue-artifact-list`, then read it with `issue-artifact-get` before republishing.
+- Use `issue-artifact-upsert --issue <N> --body-file <path>` to publish; tool extracts doc_id from file
+- Use the same doc_id when republishing revisions of the same written proposal
+- For a distinct blocker-specific design discussion on the same issue, use a new doc_id in the file header and post it as a separate artifact comment rather than overwriting an earlier proposal
 
 If no written proposal is produced, no artifact identity or GitHub publication flow is required.
 

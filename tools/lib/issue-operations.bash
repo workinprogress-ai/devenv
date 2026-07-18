@@ -872,11 +872,11 @@ generate_artifact_doc_id() {
     fi
 
     case "$artifact_type" in
-        spike|redesign|design|blueprint|requirements|roadmap|plan)
+        spike|redesign|design|blueprint|requirements|roadmap|plan|implementation-plan)
             ;;
         *)
             log_error "Invalid artifact type: $artifact_type"
-            log_error "Allowed values: spike, redesign, design, blueprint, requirements, roadmap, plan"
+            log_error "Allowed values: spike, redesign, design, blueprint, requirements, roadmap, plan, implementation-plan"
             return 1
             ;;
     esac

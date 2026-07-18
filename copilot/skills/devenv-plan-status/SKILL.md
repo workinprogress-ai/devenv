@@ -1,12 +1,12 @@
 ---
 name: devenv-plan-status
-description: Report progress on an existing Implementation_plan-*.md or GitHub issue containing a plan, without modifying it. USE WHEN the user says "what's the status of the plan", "how's the plan going", "where are we on this plan", "report on plan progress", "plan status", "what's left on this plan", or hands off a plan and asks for a progress check. Auto-detects whether input is a file path or a GitHub issue number, computes overall and per-phase completion percentages, lists blocked tasks (whose `depends on` references aren't yet `[x]`), surfaces next actionable tasks, reports time since last update, and extracts any open questions or TODOs embedded in the plan body. DO NOT USE for modifying the plan (use `/devenv-refine-implementation-plan`), for creating a new plan (use `/devenv-create-implementation-plan`), or for executing tasks from the plan (use `/devenv-pair-programming` or `/devenv-delegation`). Read-only.
-argument-hint: Path to an Implementation_plan-*.md OR a GitHub issue number containing a plan in the body
+description: Report progress on an existing Implementation_plan-*.md or GitHub issue containing implementation-plan artifacts, without modifying it. USE WHEN the user says "what's the status of the plan", "how's the plan going", "where are we on this plan", "report on plan progress", "plan status", "what's left on this plan", or hands off a plan and asks for a progress check. Auto-detects whether input is a file path or a GitHub issue number, computes overall and per-phase completion percentages, lists blocked tasks (whose `depends on` references aren't yet `[x]`), surfaces next actionable tasks, reports time since last update, and extracts any open questions or TODOs embedded in the plan body. DO NOT USE for modifying the plan (use `/devenv-refine-implementation-plan`), for creating a new plan (use `/devenv-create-implementation-plan`), or for executing tasks from the plan (use `/devenv-pair-programming` or `/devenv-delegation`). Read-only.
+argument-hint: Path to an Implementation_plan-*.md OR github-issue-number[:doc_id] containing implementation-plan artifacts
 ---
 
 # Plan status
 
-> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
 Report progress on an existing implementation plan without changing it. Read-only.
 
@@ -23,7 +23,13 @@ If there is no existing plan, stop and redirect to `/devenv-create-implementatio
 The user provides exactly one of:
 
 - **A file path** — e.g. `Implementation_plan-issue-42-001.md`.
-- **A GitHub issue number** — e.g. `42`. The plan body is read via `issue-get N --pretty`.
+- **A GitHub issue number** — e.g. `42` or `42:<doc_id>`. Resolve one implementation-plan artifact (`issue-artifact-select`) and read via `issue-artifact-get`.
+
+Issue artifact selection rules:
+
+- If `<doc_id>` is provided, use that exact artifact.
+- If no `<doc_id>` is provided and exactly one `implementation-plan` artifact exists, use it.
+- If multiple artifacts exist, list candidates via `issue-artifact-list --issue <N> --artifact-type implementation-plan --pretty` and ask the user which `doc_id` to inspect.
 
 **Auto-detection rule:** if the argument matches `^[0-9]+$`, treat as issue number; otherwise treat as a file path. If ambiguous, ask.
 
@@ -32,7 +38,7 @@ The user provides exactly one of:
 ### 1. Load the plan
 
 - File input: read the markdown file directly.
-- Issue input: `issue-get N --pretty`, then extract the body field.
+- Issue input: resolve one artifact (`issue-artifact-select`), then read it via `issue-artifact-get --full`.
 
 ### 2. Parse structure
 
@@ -103,7 +109,7 @@ If `--json` flag is used, emit a single JSON object with the same data structure
 
 ### 5. Do not modify
 
-This skill is strictly read-only. It does not write to the plan, post issue comments, or update the issue body. If the user asks for changes, redirect to `/devenv-refine-implementation-plan`.
+This skill is strictly read-only. It does not write to the plan, post issue comments, or upsert issue artifacts. If the user asks for changes, redirect to `/devenv-refine-implementation-plan`.
 
 ## Anti-patterns
 

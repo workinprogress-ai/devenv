@@ -8,7 +8,7 @@ argument-hint: A question / problem statement to investigate, OR a GitHub issue 
 
 > **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
 
-> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
 Run a focused, exploratory investigation of an open question. Output is a structured findings doc and (optionally) throwaway prototype code — never production code. The goal is to reduce uncertainty before committing to a real implementation plan.
 
@@ -145,20 +145,16 @@ If yes:
    **If creating a new issue:**
    - `issue-create --repo "$GITHUB_REPO" --title "<title>" --body "<body>"`
    - Note the new issue number.
-   - Generate doc_id for this findings artifact:
-     - `doc_id=$(issue-artifact-doc-id --issue <N> --artifact-type spike --slug <topic-slug>)`
    - Apply the [Artifact Identity Convention](../_conventions.md#artifact-identity-convention).
-   - Write the findings doc to a temp file.
-   - `issue-artifact-upsert --issue <N> --doc-id "$doc_id" --body-file <temp-file>`
+   - Write the findings doc to a temp file with `doc_id: <value>` in first 256 characters.
+   - `issue-artifact-upsert --issue <N> --body-file <temp-file>`
    - Surface the issue URL.
 
    **If posting to an existing issue:**
-   - Generate doc_id for this findings artifact:
-     - `doc_id=$(issue-artifact-doc-id --issue <N> --artifact-type spike --slug <topic-slug>)`
    - Apply the [Artifact Identity Convention](../_conventions.md#artifact-identity-convention).
-
-   - Write the findings doc to a temp file.
-   - `issue-artifact-upsert --issue <N> --doc-id "$doc_id" --body-file <temp-file>`
+    - If the issue may already contain one or more spike artifacts, resolve the canonical artifact first with `issue-artifact-select` or `issue-artifact-list`, then read it with `issue-artifact-get` before republishing.
+   - Write the findings doc to a temp file with `doc_id: <value>` in first 256 characters.
+   - `issue-artifact-upsert --issue <N> --body-file <temp-file>`
    - If upsert reports a duplicate `doc_id` conflict, stop and ask the user which comment ID to keep as canonical.
    - Surface the issue URL.
 

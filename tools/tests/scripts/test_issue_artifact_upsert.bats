@@ -99,7 +99,6 @@ teardown() {
 
   run "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
     --issue 42 \
-    --doc-id "dv1:org/repo:issue-42:spike:test" \
     --body $'<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:org/repo:issue-42:spike:test\n-->'
 
   [ "$status" -eq 0 ]
@@ -118,7 +117,6 @@ teardown() {
 
   run "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
     --issue 42 \
-    --doc-id "dv1:org/repo:issue-42:spike:test" \
     --body $'<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:org/repo:issue-42:spike:test\n-->'
 
   [ "$status" -eq 0 ]
@@ -134,7 +132,6 @@ teardown() {
 
   run "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
     --issue 42 \
-    --doc-id "dv1:org/repo:issue-42:spike:test" \
     --body $'doc_id: dv1:org/repo:issue-42:spike:test'
 
   [ "$status" -eq 3 ]
@@ -149,7 +146,6 @@ teardown() {
 
   run "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
     --issue 42 \
-    --doc-id "dv1:org/repo:issue-42:spike:test" \
     --body $'doc_id: dv1:org/repo:issue-42:spike:test'
 
   [ "$status" -eq 0 ]
@@ -167,7 +163,6 @@ teardown() {
 
   run "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
     --issue 42 \
-    --doc-id "dv1:org/repo:issue-42:spike:test" \
     --body $'doc_id: dv1:org/repo:issue-42:spike:test'
 
   [ "$status" -eq 0 ]
@@ -179,7 +174,6 @@ teardown() {
 
   run "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
     --issue 42 \
-    --doc-id "dv1:org/repo:issue-42:spike:test" \
     --body $'doc_id: dv1:org/repo:issue-42:spike:test' \
     --dry-run
 

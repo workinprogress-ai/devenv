@@ -50,12 +50,22 @@ Classify each reported issue before editing:
 - Ecosystem coherence problems, where skills overlap, conflict, or become unaware of each other.
 - Diagnostic findings from other skills, where pasted output reveals routing failures, stale links, or contradictions.
 
+Diagnostic intake sources accepted by this skill:
+
+- Pasted diagnostic content directly in chat.
+- A user-provided file path containing the diagnostic report (including `DIAGNOSTIC_REPORT.md`).
+
+When a file path is provided, read that file first and treat it as the primary diagnostic input unless the user says otherwise.
+
 If a reported problem does not fit one of these categories, stop and ask for clarification instead of guessing.
 
 ## Repair process
 
 1. Restate the problem set in one short summary.
-2. Parse any pasted diagnostic output and map each finding to one or more concrete files.
+2. Parse diagnostic input and map each finding to one or more concrete files.
+  - If diagnostics are pasted in chat, parse the pasted content.
+  - If the user provides a file path, read that file and parse its contents.
+  - If both are provided, use the file as canonical and treat pasted content as supplemental unless the user says otherwise.
 3. Decide whether the fix is local to one skill or affects multiple skills plus shared routing/docs. For bulk edits across many skills (e.g., adding a new standard reference, updating a shared protocol), use a systematic batch operation rather than many individual edits.
 4. Make the smallest patch that resolves the reported problems. If the pattern affects many skills (> 3), write a batch script or clearly documented find-replace rule; surface the pattern to the user for validation before applying.
 5. Keep wording consistent with existing skill language and current workspace conventions.
@@ -103,7 +113,7 @@ When the fixes are done, summarize:
 - What problems were fixed.
 - Which skill files changed.
 - Which governance docs were updated (`docs/Skills.md`, `docs/Workflow.md`, registry, guru, shared catalog).
-- How pasted diagnostics (if any) were interpreted and resolved.
+- How diagnostics were interpreted and resolved (pasted chat content, file path input, or both).
 - Any remaining ambiguity the user should resolve before the skill is considered final.
 
 If the user has more issues to fix, continue with the next smallest repair rather than widening scope.

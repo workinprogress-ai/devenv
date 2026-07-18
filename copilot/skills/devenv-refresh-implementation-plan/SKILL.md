@@ -1,7 +1,7 @@
 ---
 name: devenv-refresh-implementation-plan
 description: 'Assess how stale an existing implementation plan is, then take the right remediation action — light patch, structured revision, or guided rewrite. USE WHEN the user says "refresh the plan", "is this plan still valid?", "how stale is this plan?", "bring this plan up to date", "freshen the plan", "the plan might be out of date", or when returning to a plan after a significant time gap. Runs a staleness assessment against the current codebase, classifies drift as slight / significant / intent-only, and routes to the appropriate fix. DO NOT USE when you already know exactly what needs updating (use `/devenv-refine-implementation-plan` instead), or for read-only progress reporting (use `/devenv-plan-status`).'
-argument-hint: '<path-to-Implementation_plan-*.md | github-issue-number>'
+argument-hint: '<path-to-Implementation_plan-*.md | github-issue-number[:doc_id]>'
 user-invocable: true
 ---
 
@@ -9,7 +9,7 @@ user-invocable: true
 
 > **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
 
-> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
 An implementation plan written during grooming can age in three different ways. This skill figures out which one applies and takes the right action — rather than requiring the user to diagnose it themselves.
 
@@ -26,7 +26,13 @@ If the plan is already known to be current and the user has specific changes in 
 The user provides exactly one of:
 
 - **A file path** — e.g. `Implementation_plan-issue-42-001.md`. Read and (if changes are made) written back.
-- **A GitHub issue number** — e.g. `42`. Plan body fetched via `issue-get N --pretty`.
+- **A GitHub issue number** — e.g. `42` or `42:<doc_id>`. Plan fetched from an `implementation-plan` issue artifact comment (resolve with `issue-artifact-select`, fetch with `issue-artifact-get`).
+
+Issue artifact selection rules:
+
+- If `<doc_id>` is provided, use that exact artifact.
+- If no `<doc_id>` is provided and exactly one `implementation-plan` artifact exists, use it.
+- If multiple artifacts exist, list candidates via `issue-artifact-list --issue <N> --artifact-type implementation-plan --pretty` and ask the user which `doc_id` to refresh.
 
 **Auto-detection rule:** if the argument matches `^[0-9]+$`, treat as issue number; otherwise treat as a file path.
 
@@ -34,7 +40,7 @@ The user provides exactly one of:
 
 ## Step 1 — Load the plan
 
-- Read the source (file or `issue-get` output).
+- Read the source (file or issue artifact output via `issue-artifact-get`).
 - Identify: phase headings, all task lines (`- [ ]` / `- [x]`), `Files:` bullets, any mentions of specific class names / method names / file paths.
 - Extract: last revision date from `## Revision History` (if present), or creation date from file metadata.
 - Note: ratio of `[x]` vs `[ ]` tasks — a mostly-completed plan that still has unchecked tasks needs careful handling.

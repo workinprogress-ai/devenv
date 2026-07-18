@@ -1,7 +1,7 @@
 ---
 name: devenv-delegation
 description: 'Drive implementation of a pre-existing plan with assistant-led execution and user review. USE WHEN the user says "delegate this to you", "you take this", "run with this", "implement this plan", "work through this plan", or "do this for me" with a plan attached, AND the work is mechanical, rote, or low-impact (refactors, rename sweeps, test scaffolding, cleanup, docs). REQUIRES an existing implementation plan (file path or GH issue with a plan in the body). Works phase by phase: uses acceptance criteria and human-facing phase summaries as the review guide, refreshes and confirms the phase task list as the current-state execution ledger, runs a full phase semi-autonomously (stopping only for ambiguity, major decisions, or unexpected obstacles), then hands back with a structured phase completion summary including hotspots, decisions made, and any deviations noted. Expects a discussion window between phases — user may review, request changes, or ask for plan edits. SUGGESTS switching to `/devenv-pair-programming` for high-impact phases; respects the user''s decision either way. DO NOT USE for ad-hoc work, plans that don''t exist yet (use `/devenv-create-implementation-plan` first), or highly collaborative work where the user wants to drive (use `/devenv-pair-programming`).'
-argument-hint: '<issue-number | path-to-plan> [phase or task range]'
+argument-hint: '<issue-number[:doc_id] | path-to-plan> [phase or task range]'
 user-invocable: true
 ---
 
@@ -9,9 +9,9 @@ user-invocable: true
 
 > **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
 
-> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
-> **Diagnostic-report override:** If the user asks for a diagnostic report, postmortem, incident report, or findings artifact about undesirable behavior, treat that as an immediate diagnostic-mode request even if they do not say "enter diagnostic mode". Do not implement fixes first. Emit exactly one copyable fenced `markdown` code block (no surrounding prose) using the protocol-defined diagnostic artifact format.
+> **Diagnostic-report override:** If the user asks for a diagnostic report, postmortem, incident report, or findings artifact about undesirable behavior, treat that as an immediate diagnostic-mode request even if they do not say "enter diagnostic mode". Do not implement fixes first. Write `DIAGNOSTIC_REPORT.md` at the active project root using the protocol-defined diagnostic artifact format.
 
 > **Hard decision gate.** If you emit `🔶` or otherwise say a decision is required before continuing, stop there. Do not edit files, write plans, or run any other mutating tool until the user gives explicit approval for the exact path and scope. Silence, acknowledgements, or navigation phrases are not approval. Follow the shared [decision resolution protocol](../common/references/decision-resolution-protocol.md).
 
@@ -112,10 +112,24 @@ Ask if not provided: GH issue # or path to a plan markdown.
 
 - **GH issue**:
   1. First, check whether a local `Implementation_plan-issue-<N>-*.md` already exists in the target repo root. If it does, **use it** — it carries checkbox progress from prior sessions and is the source of truth. Skip to the drift check.
-   2. If no local file exists, fetch the plan body via `issue-get <N> | jq -r '.body'`. Confirm the body contains a usable plan (goals/ACs, human-facing phase structure, and tasks embedded under each phase).
-  3. Write the fetched body to the target repo root as `Implementation_plan-issue-<N>-001.md` (or the next available suffix — never overwrite an existing file).
-  4. **Work exclusively from the local file from this point on.** Record its workspace-relative path (e.g. `repos/lib.cs.services.bulk-sync/Implementation_plan-issue-42-001.md`) — this is the `<plan_file>` for `markdown-plan-complete-task` calls throughout the session. Pass it explicitly when running from a directory other than the plan's own — the tool auto-detects `Implementation_plan-*.md` only in the current directory. Checkbox updates go to the file; issue body syncs at phase boundaries push the file back to the issue.
-- **Plan file**: read it.
+   2. If no local file exists, resolve one implementation-plan artifact comment for this issue:
+      - If user provided `doc_id`, use `issue-artifact-select --issue <N> --doc-id <DOC_ID>`.
+      - Otherwise use `issue-artifact-select --issue <N> --artifact-type implementation-plan`; if ambiguous, list candidates with `issue-artifact-list --issue <N> --artifact-type implementation-plan --pretty` and ask the user which `doc_id` to use.
+  3. Fetch the selected artifact via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --full`, then write it to the target repo root as `Implementation_plan-issue-<N>-001.md` (or the next available suffix — never overwrite an existing file).
+  4. **Work exclusively from the local file from this point on.** Record its workspace-relative path (e.g. `repos/lib.cs.services.bulk-sync/Implementation_plan-issue-42-001.md`) — this is the `<plan_file>` for `markdown-plan-complete-task` calls throughout the session. Pass it explicitly when running from a directory other than the plan's own — the tool auto-detects `Implementation_plan-*.md` only in the current directory. Checkbox updates go to the file; issue artifact syncs at phase boundaries upsert the same `doc_id` back to the issue.
+- **Plan file**: read it. Then determine whether there is an associated GH issue for artifact sync:
+   1. If the user provided an issue number, use it.
+   2. Else, if filename matches `Implementation_plan-issue-<N>-*.md`, infer `<N>`.
+   3. If an issue number is known, resolve artifact identity for sync:
+       - If the plan header has non-empty `doc_id`, use that value.
+       - Otherwise run `issue-artifact-select --issue <N> --artifact-type implementation-plan`; if ambiguous, list candidates and ask the user to choose `doc_id`.
+   4. Record associated `<N>` and `<DOC_ID>` in session context.
+- For either GH-issue or plan-file entry paths, record the target repo root in session context and run all repo-scoped tooling from that directory before each command block.
+- If associated `<N>` + `<DOC_ID>` are known, run a **one-time artifact freshness check at session start** (not at each phase end):
+   1. Fetch current artifact body once via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --full`.
+   2. Compare fetched body with local `<plan_file>`.
+   3. If materially different, reconcile before execution (ask user whether to adopt remote, keep local, or merge).
+   4. During the same session, treat the local working copy as authoritative unless the user indicates external edits occurred.
 - **No plan or too thin**: refuse delegation. Redirect to `/devenv-create-implementation-plan` to draft one first, or `/devenv-refine-implementation-plan` if the plan exists but lacks the human-facing sections.
 
 ### 1b. Quick drift check
@@ -389,6 +403,22 @@ Default output shape:
 > **Next:** [continue to next phase / rework item / plan revision]
 
 Keep this concise by default (5-8 lines). Expand only when drift is meaningful or the user asks for detail.
+
+### GH issue artifact sync
+
+If there is an **associated GH issue + implementation-plan artifact identity** (`<N>` + `<DOC_ID>` in session context), sync that artifact comment with `issue-artifact-upsert` using the local plan file as source of truth.
+
+Required sync points:
+
+1. **End of each completed phase (proactive):** run sync as part of the phase-complete handback flow; do not wait for the user to ask.
+2. **Immediately after material/structural plan revisions (mid-phase exception):** if a confirmed plan edit changes phase/task structure, acceptance criteria, sequencing, or reflects significant divergence, sync right after the plan write is confirmed.
+
+Sync procedure (both cases):
+
+1. Confirm with the user.
+2. Run `issue-artifact-upsert --issue <N> --body-file <path>`.
+
+Do not perform routine mid-phase syncs beyond the required material-revision exception above. If the session ends mid-phase, offer to sync the completed updates.
 
 ### Failure investigation is bounded by allowed tools
 

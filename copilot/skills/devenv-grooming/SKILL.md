@@ -7,7 +7,7 @@ user-invocable: true
 
 # Devenv Grooming
 
-> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to emit a copyable diagnostic block for `/devenv-skill-maintenance`.
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
 Use this as the default intake for **component-level architecture and design direction** when the right next step is not obvious.
 
@@ -91,9 +91,10 @@ For every grooming artifact (local file or issue comment), follow the shared [Ar
 
 If the grooming document is stored in a GitHub issue comment:
 
-- Generate `doc_id` with `issue-artifact-doc-id --issue <N> --artifact-type grooming --slug <artifact-slug>`
 - Materialize the current comment artifact to a local working copy first (repo-local file or temp file, per user choice when not obvious). Edit that local working copy during the session.
-- Update via `issue-artifact-upsert` rather than manual comment matching
+- Ensure the file includes `DEVENV_ARTIFACT_V1` header with `doc_id: <value>` in first 256 characters
+- Republish with `issue-artifact-upsert --issue <N> --body-file <path>` only. Do not use `mcp_gitkraken_*` tools or generic `issue-comment` tooling for the persisted grooming artifact.
+- Tool automatically extracts doc_id from the file header; do not pass `--doc-id` parameter
 - Republish the finalized local working copy back to the original issue comment location only after the grooming changes for this effort are settled.
 
 Follow the shared [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md).
