@@ -30,8 +30,8 @@ Usage: $SCRIPT_NAME [OPTIONS]
 
 Create or update a GitHub issue comment by stable doc_id marker.
 
-Required Inputs:
-    --issue, --issue-number N     Issue number
+Issue Target:
+    --issue, --issue-number N     Issue number override (optional if body contains issue_number metadata or a doc_id with issue-<N>)
 
 Comment Source (exactly one required):
     -b, --body TEXT               Comment body text
@@ -46,11 +46,12 @@ Options:
 
 Behavior:
     1) Read comment body from --body or --body-file
-    2) Extract doc_id from "doc_id: <ID>" line in first 256 characters
-    3) Search all issue comments for matching doc_id in first 256 characters
-    4) 1 match   -> update comment
-    5) 0 matches -> create new comment
-    6) >1 match  -> conflict (exit 3)
+    2) Resolve issue number from --issue, "issue_number: <N>" in the body header, or a doc_id containing issue-<N>
+    3) Extract doc_id from "doc_id: <ID>" line in first 256 characters
+    4) Search all issue comments for matching doc_id in first 256 characters
+    5) 1 match   -> update comment
+    6) 0 matches -> create new comment
+    7) >1 match  -> conflict (exit 3)
 
 Output JSON:
     Success: {"action":"created|updated","issue_number":N,"comment_id":ID,"comment_url":"..."}
@@ -63,6 +64,7 @@ Exit Codes:
     4 API/tool failure
 
 Examples:
+    $SCRIPT_NAME --body-file artifact.md
     $SCRIPT_NAME --issue 42 --body-file artifact.md
     $SCRIPT_NAME --issue-number 56 --body "doc_id: dv1:...\n..." --dry-run
 EOF
@@ -104,6 +106,23 @@ load_comment_body() {
     fi
 
     echo "$COMMENT_BODY"
+}
+
+infer_issue_number_from_doc_id() {
+    local doc_id="$1"
+    local inferred=""
+
+    if [ -n "$doc_id" ]; then
+        inferred=$(printf '%s
+' "$doc_id" | sed -nE 's/.*issue[-_:]([0-9]+).*/\1/p' | head -1)
+    fi
+
+    if [ -n "$inferred" ] && validate_issue_number "$inferred"; then
+        echo "$inferred"
+        return 0
+    fi
+
+    return 1
 }
 
 main() {
@@ -166,14 +185,6 @@ main() {
         esac
     done
 
-    if [ -z "$ISSUE_NUMBER" ]; then
-        invalid_args "issue_number is required (--issue or --issue-number)"
-    fi
-
-    if ! validate_issue_number "$ISSUE_NUMBER"; then
-        exit 2
-    fi
-
     local sources=0
     [ -n "$COMMENT_BODY" ] && sources=$((sources + 1))
     [ -n "$COMMENT_FILE" ] && sources=$((sources + 1))
@@ -198,11 +209,56 @@ main() {
     local body
     body="$(load_comment_body)"
 
-    # Extract doc_id from body header (first 256 chars)
+    # Extract header metadata from body prefix (first 256 chars)
     local body_prefix
     body_prefix="${body:0:256}"
+
+    local header_issue_number=""
+    header_issue_number=$(printf '%s\n' "$body_prefix" | sed -n 's/^issue_number:[[:space:]]*//p' | head -1)
+
+    if [ -n "$header_issue_number" ]; then
+        if [ "$header_issue_number" = "none" ]; then
+            header_issue_number=""
+        elif ! validate_issue_number "$header_issue_number"; then
+            exit 2
+        fi
+    fi
+
+    if [ -n "$ISSUE_NUMBER" ] && ! validate_issue_number "$ISSUE_NUMBER"; then
+        exit 2
+    fi
+
     local doc_id
-    doc_id=$(printf '%s\n' "$body_prefix" | grep -oP '^doc_id: \K.*' | head -1)
+    doc_id=$(printf '%s\n' "$body_prefix" | sed -n 's/^doc_id:[[:space:]]*//p' | head -1)
+    local inferred_issue_number=""
+
+    if [ -n "$doc_id" ]; then
+        if inferred_issue_number=$(infer_issue_number_from_doc_id "$doc_id"); then
+            log_verbose "Resolved issue number from doc_id: $inferred_issue_number"
+        fi
+    fi
+
+    if [ -z "$ISSUE_NUMBER" ] && [ -n "$header_issue_number" ]; then
+        ISSUE_NUMBER="$header_issue_number"
+        log_verbose "Resolved issue number from body header: $ISSUE_NUMBER"
+    fi
+
+    if [ -z "$ISSUE_NUMBER" ] && [ -n "$inferred_issue_number" ]; then
+        ISSUE_NUMBER="$inferred_issue_number"
+    fi
+
+    if [ -n "$ISSUE_NUMBER" ] && [ -n "$header_issue_number" ] && [ "$ISSUE_NUMBER" != "$header_issue_number" ]; then
+        invalid_args "Issue number mismatch: --issue $ISSUE_NUMBER does not match body metadata issue_number: $header_issue_number"
+    fi
+
+    if [ -n "$ISSUE_NUMBER" ] && [ -n "$inferred_issue_number" ] && [ "$ISSUE_NUMBER" != "$inferred_issue_number" ]; then
+        invalid_args "Issue number mismatch: --issue $ISSUE_NUMBER does not match doc_id issue-<N>: $inferred_issue_number"
+    fi
+
+    if [ -z "$ISSUE_NUMBER" ]; then
+        invalid_args "issue_number is required via --issue, body metadata line 'issue_number: <N>', or a doc_id containing issue-<N>"
+    fi
+
     if [ -z "$doc_id" ]; then
         invalid_args "Comment body must include 'doc_id: <value>' in first 256 characters"
     fi

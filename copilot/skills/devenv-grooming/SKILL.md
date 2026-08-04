@@ -80,7 +80,10 @@ Ask the user if the location is not obvious:
 **Step 3 — Load or create.**
 
 - If an existing grooming document is found: load it, show a brief status summary (confirmed decisions, pending decisions, open questions, linked plans), and ask the user to confirm before proceeding.
-- If no grooming document exists: create a new one using [grooming-doc-template.md](./references/grooming-doc-template.md). Agree with the user on the location and filename (`Grooming-<topic>-NNN.md`) before writing.
+- If no grooming document exists: create a new one using [grooming-doc-template.md](./references/grooming-doc-template.md).
+- Default location for a new local grooming document is the root of the active repo (temporary working location until persisted to a GitHub issue artifact).
+- Default filename is `Grooming-<topic>-NNN.md`.
+- If the user wants a non-default location or filename, ask and follow their preference.
 
 Do not continue to Phase 1 until the grooming document exists either on disk or as an issue artifact. If the session started conversationally and no artifact exists yet, stop and create it before continuing.
 
@@ -152,6 +155,32 @@ Placement guidance:
 - **Multiple repos/components or multiple production deliverables:** grooming should live at epic level (typically in a planning repo issue) and coordinate multiple downstream implementation-plan issues.
 
 The grooming document is the coordination artifact across those implementation plans.
+
+Planned implementation artifact column policy:
+
+- In `Planned implementation plan issue/artifact`, default each row to `TBD` while shaping scope.
+- Replace `TBD` only after a concrete issue/artifact exists.
+- If the user asks grooming to create child issues, create them with `issue-create`, then write the created issue number into this column (for example, `#123`).
+
+When creating child issues from grooming (user-gated):
+
+- Run `issue-create` once per approved attack-plan row.
+- Prefer `issue-create-batch` when creating 3+ child issues in one pass:
+	- fast mode first: repeat `--issue "Title|type=..."`, then add `--create` after preview.
+	- use `--file <manifest>` only when per-row fields are too heterogeneous for fast mode.
+- Do not generate ad-hoc shell orchestration (for example helper functions, inline mini-frameworks, or procedural wrappers) when direct `issue-create`/`issue-create-batch` calls are sufficient.
+- Use workspace issue wrappers for this flow (`issue-create`, `issue-create-batch`). Do not execute raw `gh issue create` commands in grooming child-issue creation.
+- Do not inspect wrapper source (for example `command -v issue-create` followed by `sed/cat` on the script path) during normal child-issue creation.
+- Exception: if wrapper execution fails unexpectedly, perform minimal diagnostics to unblock the run, then resume wrapper-based execution.
+- Use deterministic, non-interactive invocation (no template/editor prompts):
+	- `issue-create --title "<title>" --type "<type>" --body-file <path> --no-template`
+	- add optional flags as needed (`--parent`, `--label`, `--assignee`, `--milestone`, `--project`, `--blocked-by`).
+- Type value source is explicit:
+	- if the grooming row already has an approved issue type, pass that exact value to `--type`.
+	- if type is not approved yet, read allowed types from `tools/config/issues-config.yml` (or `ISSUES_CONFIG` override when set), present the allowed list, and ask the user to choose one before running `issue-create`.
+- Do not run `issue-create --help` or `gh issue create --help` during child-issue creation flow. If command shape guidance is needed, use this section and `copilot/skills/_tools-reference.md` as the source of truth and proceed with the deterministic forms above.
+- Extract the created issue number from command output and update the matching attack-plan row.
+- Keep `TBD` for any row not created in the current session.
 
 ### Upstream artifact intake policy
 
@@ -325,13 +354,13 @@ Suggested issue attack plan:
 	Repo: <repo>
 	Size: <S|M|L>
 	Independent production target: yes/no (if no, split further)
-	Planned implementation artifact: <issue + Implementation_plan-...>
+	Planned implementation plan issue/artifact: TBD (or #<issue-number> after creation)
 
 2. [Fix] <title>
 	Repo: <repo>
 	Size: <S|M|L>
 	Independent production target: yes/no
-	Planned implementation artifact: <issue + Implementation_plan-...>
+	Planned implementation plan issue/artifact: TBD (or #<issue-number> after creation)
 ```
 
 **Per-decision facilitation** (one at a time):

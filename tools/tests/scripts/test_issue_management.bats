@@ -16,6 +16,25 @@ load ../test_helper
   [[ "$output" =~ "Usage:" ]]
 }
 
+@test "issue-create-batch.sh has valid bash syntax" {
+  run bash -n "$PROJECT_ROOT/tools/scripts/issue-create-batch.sh"
+  [ "$status" -eq 0 ]
+}
+
+@test "issue-create-batch.sh has --help flag" {
+  run bash "$PROJECT_ROOT/tools/scripts/issue-create-batch.sh" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Usage:" ]]
+}
+
+@test "issue-create-batch.sh help documents fast mode and preview/create" {
+  run bash "$PROJECT_ROOT/tools/scripts/issue-create-batch.sh" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "--issue" ]]
+  [[ "$output" =~ "--create" ]]
+  [[ "$output" =~ "--file" ]]
+}
+
 @test "issue-list.sh has valid bash syntax" {
   run bash -n "$PROJECT_ROOT/tools/scripts/issue-list.sh"
   [ "$status" -eq 0 ]
@@ -111,14 +130,14 @@ load ../test_helper
 }
 
 @test "all issue scripts have version information" {
-  for script in issue-create.sh issue-list.sh issue-update.sh issue-close.sh issue-select.sh issue-groom.sh; do
+  for script in issue-create.sh issue-create-batch.sh issue-list.sh issue-update.sh issue-close.sh issue-select.sh issue-groom.sh; do
     run grep "SCRIPT_VERSION=" "$PROJECT_ROOT/tools/scripts/$script"
     [ "$status" -eq 0 ]
   done
 }
 
 @test "all issue scripts source versioning library" {
-  for script in issue-create.sh issue-list.sh issue-update.sh issue-close.sh issue-select.sh issue-groom.sh; do
+  for script in issue-create.sh issue-create-batch.sh issue-list.sh issue-update.sh issue-close.sh issue-select.sh issue-groom.sh; do
     run grep 'source.*versioning.bash' "$PROJECT_ROOT/tools/scripts/$script"
     [ "$status" -eq 0 ]
   done

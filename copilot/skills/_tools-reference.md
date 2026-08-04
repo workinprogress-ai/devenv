@@ -233,6 +233,10 @@ issue-update 42 --state closed
 
 Create a new issue, optionally from a template.
 
+Wrapper policy:
+
+- Prefer this wrapper over raw `gh issue create` for workspace issue creation flows.
+
 ```
 issue-create [--title TITLE] [--body TEXT | --body-file FILE] [--type TYPE]
              [--label LABEL] [--assignee USER] [--milestone NAME] [--project NAME]
@@ -252,6 +256,58 @@ Examples:
 issue-create --title "Add OAuth" --type Feature --no-template --no-interactive \
   --body-file spike-findings.md
 issue-create --parent 10 --type Task --title "Write unit tests"
+```
+
+---
+
+### issue-create-batch
+
+Create multiple issues in one pass using preview-first, deterministic, non-interactive creation.
+
+Wrapper policy:
+
+- Prefer this wrapper over raw `gh issue create` loops for workspace batch issue creation flows.
+
+```
+issue-create-batch --issue "TITLE" [--issue "TITLE|key=value|..."] [--create] [defaults...]
+issue-create-batch --file MANIFEST [--create] [defaults...] [--continue-on-error]
+```
+
+Key flags:
+
+- `--issue` — fast mode; repeatable entry format: `Title|type=Feature|parent=123|labels=a,b`
+- `--file` — advanced mode; YAML/JSON manifest with top-level `issues` array
+- `--create` — execute creation (default is preview)
+- `--type`, `--parent`, `--label`, `--assignee`, `--blocked-by`, `--milestone`, `--project`, `--body`, `--body-file` — shared defaults for rows/items
+- `--dry-run` — explicit preview alias
+- `--continue-on-error` — keep processing after a failed row
+
+Rules:
+
+- Use exactly one input mode: `--issue` entries or `--file`.
+- Each issue must resolve a type from per-item `type` or default `--type`.
+
+Manifest row fields:
+
+- required: `title` (`type` may come from defaults)
+- optional: `body` or `body_file`, `labels[]`, `assignees[]`, `milestone`, `project`, `parent`, `blocked_by[]`
+
+Examples:
+
+```bash
+issue-create-batch \
+  --issue "Immutable commit graph|type=Feature|size=L" \
+  --issue "Ops hardening|type=Task|labels=ops" \
+  --parent 1
+
+issue-create-batch \
+  --issue "Immutable commit graph|type=Feature" \
+  --issue "Ops hardening|type=Task" \
+  --parent 1 \
+  --create
+
+issue-create-batch --file child-issues.yaml --parent 1 --create
+issue-create-batch --file child-issues.yaml --dry-run
 ```
 
 ---

@@ -26,6 +26,41 @@ issue-create --title "Story" --type story --parent 123
 issue-create --devenv --title "Internal issue" --type bug
 ```
 
+### Create Issues in Batch
+
+```bash
+# Fast mode (preview by default)
+issue-create-batch \
+    --issue "Immutable commit graph and refs|type=Feature|size=L" \
+    --issue "Drift checks and rebuild tooling|type=Task|labels=ops" \
+    --parent 1
+
+# Execute creation (otherwise preview only)
+issue-create-batch \
+    --issue "Immutable commit graph and refs|type=Feature" \
+    --issue "Drift checks and rebuild tooling|type=Task" \
+    --parent 1 \
+    --create
+
+# Manifest mode (advanced)
+issue-create-batch --file child-issues.yaml --create
+
+# Apply a default parent to manifest rows missing parent
+issue-create-batch --file child-issues.yaml --parent 1
+
+# Preview commands only (explicit alias)
+issue-create-batch --file child-issues.yaml --dry-run
+```
+
+Fast mode entry format:
+
+- `"Title|type=Feature|parent=123|labels=a,b|assignees=@me|blocked_by=42,55|milestone=Sprint 5|project=Q3 2026|size=M|target=scope text|body=...|body_file=..."`
+
+Manifest rows support:
+
+- required: `title`, `type`
+- optional: `body` or `body_file`, `labels[]`, `assignees[]`, `milestone`, `project`, `parent`, `blocked_by[]`
+
 ### List Issues
 
 ```bash
@@ -66,7 +101,7 @@ issue-comment 123 --edit                # Open $EDITOR
 ### Upsert Artifact Comment (Stable `doc_id`)
 
 ```bash
-issue-artifact-upsert --issue 123 \
+issue-artifact-upsert \
     --body-file spike-001-topic.md
 
 issue-artifact-upsert --issue 123 \
@@ -76,6 +111,8 @@ issue-artifact-upsert --issue 123 \
 **Rules:**
 
 - Body must contain exact line: `doc_id: <doc_id>`
+- `--issue` is optional when body metadata includes `issue_number: <N>`
+- If both are provided, `--issue` and body `issue_number` must match
 - Matching is exact and limited to first 256 characters
 - Exit `3` means duplicate `doc_id` conflict on the issue
 

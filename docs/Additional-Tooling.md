@@ -221,6 +221,38 @@ Outputs the GitHub web URL for the current repository.
 repo-get-web-url
 ```
 
+## GitHub Issues
+
+### `issue-create-batch`
+
+Creates multiple GitHub issues from a YAML/JSON manifest using deterministic, non-interactive issue creation.
+
+**Usage:**
+
+```bash
+issue-create-batch --file MANIFEST [--parent ISSUE_NUM] [--dry-run] [--continue-on-error]
+```
+
+**Options:**
+
+- `--file FILE`: Manifest path (required), with top-level `issues` array
+- `--parent ISSUE_NUM`: Default parent issue for rows that omit `parent`
+- `--dry-run`: Print create commands without creating issues
+- `--continue-on-error`: Keep processing rows after failures
+
+**Manifest row fields:**
+
+- Required: `title`, `type`
+- Optional: `body` or `body_file`, `labels[]`, `assignees[]`, `milestone`, `project`, `parent`, `blocked_by[]`
+
+**Examples:**
+
+```bash
+issue-create-batch --file child-issues.yaml
+issue-create-batch --file child-issues.yaml --parent 1
+issue-create-batch --file child-issues.yaml --dry-run
+```
+
 ## Git Extensions
 
 Enhanced Git commands that extend basic Git functionality with additional features.
@@ -1113,12 +1145,12 @@ issue-comment-update 123456789 --body-file updated-artifact.md
 Deterministically creates or updates a GitHub issue comment by stable `doc_id` metadata.
 
 ```bash
-issue-artifact-upsert --issue ISSUE_NUMBER [--body TEXT | --body-file FILE] [OPTIONS]
+issue-artifact-upsert [--issue ISSUE_NUMBER] [--body TEXT | --body-file FILE] [OPTIONS]
 ```
 
-**Required Arguments:**
+**Issue Target:**
 
-- `--issue ISSUE_NUMBER`: Target issue number
+- `--issue ISSUE_NUMBER`: Optional issue number override
 
 **Comment Source (exactly one required):**
 
@@ -1126,6 +1158,13 @@ issue-artifact-upsert --issue ISSUE_NUMBER [--body TEXT | --body-file FILE] [OPT
 - `--body-file FILE`: Read comment body from file
 
 `doc_id` is extracted from the exact metadata line `doc_id: <doc_id>` in the first 256 characters of the provided body.
+
+Issue number is resolved in this order:
+
+1. `--issue ISSUE_NUMBER` when provided
+2. `issue_number: <N>` metadata line in the body header (first 256 characters)
+
+If neither source provides an issue number, the command fails with invalid arguments. If both sources are present but differ, the command also fails.
 
 **Options:**
 
@@ -1162,7 +1201,6 @@ issue-artifact-upsert --issue ISSUE_NUMBER [--body TEXT | --body-file FILE] [OPT
 ```bash
 # Create or update spike findings comment by doc_id
 issue-artifact-upsert \
-  --issue 123 \
   --body-file spike-001-retry-strategy.md
 
 # Preview action without writing

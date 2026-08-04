@@ -169,6 +169,17 @@ teardown() {
   [ "$(echo "$output" | jq -r '.action')" = "created" ]
 }
 
+@test "issue number is inferred from doc_id when no explicit issue metadata is present" {
+  export MOCK_COMMENTS_JSON='[]'
+
+  run "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+    --body $'<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:org/repo:issue-42:spike:test\n-->'
+
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq -r '.action')" = "created" ]
+  [ "$(echo "$output" | jq -r '.issue_number')" = "42" ]
+}
+
 @test "dry-run shows intended action without write" {
   export MOCK_COMMENTS_JSON='[]'
 

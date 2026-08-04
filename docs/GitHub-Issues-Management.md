@@ -402,6 +402,33 @@ issue-create --title "Title" [--type epic|story|bug] [--parent ISSUE#] \
 - `--no-template`: Bypass template selection entirely
 - `--no-interactive`: Use template without editor (for scripts/automation)
 
+**`issue-create-batch`** - Create multiple issues in one command (preview-first)
+
+```bash
+# Fast mode (repeat --issue entries). Preview by default.
+issue-create-batch \
+    --issue "Feature A|type=Feature|size=L" \
+    --issue "Ops hardening|type=Task|labels=ops" \
+    --parent 123
+
+# Create issues (otherwise preview only)
+issue-create-batch \
+    --issue "Feature A|type=Feature" \
+    --issue "Ops hardening|type=Task" \
+    --parent 123 \
+    --create
+
+# Manifest mode (advanced)
+issue-create-batch --file child-issues.yaml --create
+```
+
+Rules:
+
+- Use exactly one input mode: `--issue` entries or `--file` manifest.
+- Default mode is preview. Use `--create` to execute.
+- Shared defaults can be supplied with `--type`, `--parent`, `--label`, `--assignee`, `--blocked-by`, `--milestone`, `--project`, `--body`, `--body-file`.
+- Per-item fields in fast mode use pipe-delimited `key=value` pairs after the title.
+
 **`issue-list`** - List and filter issues
 
 ```bash
@@ -446,7 +473,7 @@ issue-comment ISSUE# --edit
 **`issue-artifact-upsert`** - Deterministically create/update an artifact comment by `doc_id`
 
 ```bash
-issue-artifact-upsert --issue ISSUE# [--body TEXT | --body-file FILE] [--dry-run]
+issue-artifact-upsert [--issue ISSUE#] [--body TEXT | --body-file FILE] [--dry-run]
 ```
 
 Use this when posting skill artifacts (spike/redesign/design/blueprint/requirements/roadmap/plan) to an issue so re-runs update the same comment instead of creating duplicates.
@@ -454,6 +481,8 @@ Use this when posting skill artifacts (spike/redesign/design/blueprint/requireme
 Key rules:
 
 - Comment body must include exact metadata line: `doc_id: <doc_id>`
+- Issue is resolved from `--issue` when provided, otherwise from `issue_number: <N>` metadata in the body header
+- If both `--issue` and body `issue_number` are present, they must match
 - Matching is line-exact and only within first 256 characters of existing comment bodies
 - If multiple comments match the same `doc_id`, the tool exits with a conflict and returns matching IDs
 

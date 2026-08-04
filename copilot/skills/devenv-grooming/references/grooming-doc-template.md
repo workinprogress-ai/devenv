@@ -25,7 +25,7 @@ Each row should be independently deliverable to production.
 
 | Issue type       | Proposed title | Repo | Size (S/M/L) | Independent production target | Planned implementation plan issue/artifact |
 | ---------------- | -------------- | ---- | ------------ | ----------------------------- | ------------------------------------------ |
-| Feature/Fix/Task |                |      |              | yes/no                        |                                            |
+| Feature/Fix/Task |                |      |              | yes/no                        | TBD                                        |
 
 If any row cannot state `yes` for independent production target, split that row into smaller issues until each row is independently deliverable.
 
