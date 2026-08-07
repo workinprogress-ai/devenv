@@ -111,6 +111,10 @@
             "settings": {
                 "github.copilot.chat.additionalReadAccessPaths": [
                     "/workspaces/devenv",
+                    "/workspaces/devenv/tmp",
+                    "/workspaces/devenv/copilot",
+                    "/workspaces/devenv/copilot/knowledge",
+                    "/workspaces/devenv/copilot/skills",
                     "/workspaces/devenv/devenv.config",
                     "/workspaces/devenv/repos",
                     "/workspaces/devenv/copilot/knowledge",
@@ -123,7 +127,9 @@
                 ],
                 "chat.tools.edits.autoApprove": {
                     "/tmp/**": true,
-                    "/workspaces/devenv/playground/**": true
+                    "/workspaces/devenv/playground/**": true,
+                    "/workspaces/devenv/tmp/**": true,
+                    "/workspaces/devenv/.debug/**": true
                 },
                 "chat.tools.terminal.autoApprove": {
                     "run-tests": true,

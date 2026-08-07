@@ -46,7 +46,7 @@ Issue artifact selection rules:
 - **Tasks**: lines matching `^- \[( |x)\] N\.M(\.K)?` — capture number, checkbox state, summary line.
 - **Cancelled tasks**: lines wrapped in `~~strikethrough~~` — track separately, exclude from completion math.
 - **Dependencies**: indented `- depends on N.M, N.M2` lines under each task.
-- **Last update**: most recent date in `## Revision history` section if present; otherwise file mtime (file mode) or `updatedAt` from the issue (issue mode).
+- **Last update**: file mtime (file mode) or `updatedAt` from the issue artifact/source (issue mode).
 - **Open questions**: lines starting with `> Q:`, `**Open question:**`, `TODO:`, or under a `## Open questions` section if present.
 
 ### 3. Compute progress
@@ -64,7 +64,7 @@ Default output is markdown to chat. Format:
 ## Plan status — <plan title or "Implementation_plan-NNN.md">
 
 **Source**: `path/to/plan.md` (or `issue #42`)
-**Last updated**: 2025-11-08 (12 days ago) — from revision history
+**Last updated**: 2025-11-08 (12 days ago) — from file or issue metadata
 **Overall progress**: 14 / 22 tasks (64%) — 1 cancelled
 
 ### By phase

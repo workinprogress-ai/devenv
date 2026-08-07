@@ -1,6 +1,6 @@
 ---
 name: devenv-refine-implementation-plan
-description: Revise an existing Implementation_plan-*.md (or GitHub issue containing an implementation-plan artifact comment) after discovery work, scope changes, or new requirements. USE WHEN the user says "refine the plan", "update the plan", "revise the implementation plan", "the plan needs updating", "rework the plan based on what we learned", or hands off a stale plan that needs new tasks added or existing tasks adjusted. Auto-detects whether input is a file path or a GitHub issue number, preserves all existing `[x]` checkbox state, appends new tasks to the end of each affected phase by default, supports downstream task reflow when structural insertion requires it, and creates new phases when the target phase is already fully complete. Records changes in a `## Revision History` section near the bottom of the file, and writes the result back in place. DO NOT USE for creating a brand-new plan from scratch (use `/devenv-create-implementation-plan`), for ad-hoc edits to a single task line (just edit the file directly), or for reporting plan progress without modifying it (use `/devenv-plan-status`).
+description: Revise an existing Implementation_plan-*.md (or GitHub issue containing an implementation-plan artifact comment) after discovery work, scope changes, or new requirements. USE WHEN the user says "refine the plan", "update the plan", "revise the implementation plan", "the plan needs updating", "rework the plan based on what we learned", or hands off a stale plan that needs new tasks added or existing tasks adjusted. Auto-detects whether input is a file path or a GitHub issue number, preserves all existing `[x]` checkbox state, appends new tasks to the end of each affected phase by default, supports downstream task reflow when structural insertion requires it, and creates new phases when the target phase is already fully complete. Keeps the plan aligned to current reality and writes the result back in place. DO NOT USE for creating a brand-new plan from scratch (use `/devenv-create-implementation-plan`), for ad-hoc edits to a single task line (just edit the file directly), or for reporting plan progress without modifying it (use `/devenv-plan-status`).
 argument-hint: Path to an Implementation_plan-*.md OR github-issue-number[:doc_id] containing implementation-plan artifacts
 ---
 
@@ -48,9 +48,7 @@ For issue-backed plan refinement, follow the shared [issue-backed artifact edit 
 - Identify the phase headings (`### Phase N — Title`) and task lines (`- [ ]` / `- [x]`).
 - Note the highest existing task number per phase (e.g. Phase 2 has tasks up to 2.7 → next is 2.8).
 - **Assess completion state**: for each phase, note whether it is fully complete (all tasks `[x]`), partially complete, or untouched. Note the highest existing phase number — this is used if new phases need to be created.
-- Extract any existing `## Revision History` section so new entries can be prepended to it.
-- Detect escalation handoff markers in `## Revision History` entries: `[ESCALATION-HANDOFF] source=<...> phase=<...> status=<...>`.
-- If a marker is present, treat that as high-priority refinement context: parse its linked unresolved decisions/questions first and use it to drive interview focus.
+- If a marker-style escalation record exists in plan decisions or pending questions, treat it as high-priority refinement context and resolve it first.
 - Preserve the high-level section order introduced by the current template: goals/AC first, context/orientation second, phases third, detailed task tracking later.
 - If `## Pending Questions` exists, preserve it and keep it immediately above `## Reference Information`.
 - If `## Reference Information` links a grooming artifact, load it before interviewing. For issue-backed plans, also check issue comments/source context for a linked grooming artifact when the body references one indirectly.
@@ -63,13 +61,13 @@ Use `vscode_askQuestions` to gather:
 - **What's new** — new tasks to add, or themes for new tasks.
 - **What's wrong** — tasks whose descriptions are now misleading or whose scope changed.
 - **What's done outside the plan** — work completed that should be marked `[x]` retroactively.
-- **What's no longer relevant** — tasks to remove; deletion will be logged in Revision History with the task number, a one-line summary, and the reason
+- **What's no longer relevant** — tasks to remove, strike, or replace while preserving clear current-state intent
 - **Acceptance criteria changes** — whether any ACs need to be added, revised, or deprecated as a result of the scope change. Infer candidate changes from the new requirements and present them for the user to confirm rather than asking the user to define them from scratch. See AC rules in Step 3.
 - **Upstream design changes** — whether a design doc/RFC/Blueprint/Redesign decision changed and should be reflected in `## Appendix`.
 - **Grooming carry-forward** — if a grooming artifact is present, confirm which `Confirmed` / `Deferred` / still-relevant `Pending` items must now be represented in the plan's phase watch-outs, task `decision:` metadata, `## Pending Questions`, appendix, or explicit scope boundaries.
 - **Pending questions** — whether any unresolved questions should be added, answered, moved inline under a task/phase, or spun out into a follow-up issue.
 - **Decision points** — identify unresolved implementation decisions that could block phase execution; resolve them during refinement when possible.
-- **Escalation handoff closure** — if an escalation marker exists, confirm each recorded blocker/question and decide: resolve now, defer with explicit trigger, or re-scope tasks/phases.
+- **Escalation handoff closure** — if unresolved blockers/questions are captured in plan decisions or pending questions, confirm each one and decide: resolve now, defer with explicit trigger, or re-scope tasks/phases.
 - **Architectural fault classification** — if blockers/questions are architectural rather than task-scope adjustments, load and follow the [plan architectural review protocol](../common/references/plan-architectural-review.md) to locate fault points and classify type. If architectural issues are confirmed, produce a scoped brief and recommend the appropriate design skill with the plan path as argument:
   - Option-weighing / approach not settled → `/devenv-design-discussion <plan-path>`
   - Current approach needs reclassification → `/devenv-grooming <plan-path>`
@@ -90,13 +88,13 @@ Before applying edits, offer an optional pressure-test pass using [pressure-test
 
 **Hard rules:**
 
-- **Main plan content must describe the current target state only.** Every section except `## Revision History` must read as if refinement never happened — as a clean, current description of what the plan is trying to achieve and how. This means:
-  - No dated announcements such as *"Scope was expanded on 2026-06-23 to include…"* anywhere outside `## Revision History`.
+- **Main plan content must describe the current target state only.** Every section must read as a clean, current description of what the plan is trying to achieve and how. This means:
+  - No dated announcements such as *"Scope was expanded on 2026-06-23 to include…"* in plan body sections.
   - No before/after narration, phrases like "previously", "originally", "as of this revision", or inline change summaries.
   - No refinement-process narration in plan body sections, including phrases like "in this refinement", "during refinement", "as part of this update", or "we changed this from".
   - Rewrite affected content directly to present-state truth; do not annotate material sections with update-era wording.
   - `## Context and Orientation` describes the current scope and motivation only — it is not a changelog and must not grow stale sentences about prior revisions.
-  - When scope expands, update the orientation text in place to reflect the new scope; record what changed and when in `## Revision History`.
+  - When scope expands, update the orientation text in place to reflect the new scope.
   - Do not attribute edits to AI or model names in plan body text (for example: "AI updated", "Copilot added", "GPT revised").
   - If discovery merely validates wording the plan already had, do not edit the plan just to add "confirmed", "completed", or similar narration.
 - **Never reflow existing task numbers** unless a structural revision inserts work in the middle of an existing task series. In that case, renumber the downstream task series and update all in-plan references that point at those task IDs.
@@ -119,23 +117,22 @@ Before applying edits, offer an optional pressure-test pass using [pressure-test
 
   Surface this to the user before writing: *"Phase 3 is fully complete — I'll add the new work in a new Phase 5 rather than appending to Phase 3. The existing Cleanup (Phase 4) is also done, so I'll add a new Phase 6 for cleanup of the new scope. Does that structure work for you?"*
 - **Prefer rewrite/addition over removal.** If the work still matters but the original task is misleading, keep the number and reword it, or add a follow-on task. Only strike through a task when the obsolete record is materially useful to preserve.
-- **Cancelled tasks** that truly should remain visible are kept in place, wrapped in `~~strikethrough~~` on the task header line and annotated with the reason inline (e.g. `~~- [ ] **4.3 [S] Add foo**~~ — cancelled: superseded by 2.9`), and recorded in `## Revision History` with the task number, a one-line summary, and the reason.
-- **Reworded tasks** keep their number; the prior wording is recorded in the Revision History.
-- **Pending questions**: task- or phase-specific questions live inline under the relevant task/phase as `[QUESTION] ...`; general plan-level questions live in `## Pending Questions` immediately above `## Reference Information`. Resolved minor questions may be folded directly into the plan and removed. Significant question resolutions should be recorded in `## Revision History`.
+- **Cancelled tasks** that truly should remain visible are kept in place, wrapped in `~~strikethrough~~` on the task header line and annotated with the reason inline (e.g. `~~- [ ] **4.3 [S] Add foo**~~ — cancelled: superseded by 2.9`).
+- **Reworded tasks** keep their number and reflect the latest agreed intent.
+- **Pending questions**: task- or phase-specific questions live inline under the relevant task/phase as `[QUESTION] ...`; general plan-level questions live in `## Pending Questions` immediately above `## Reference Information`. Resolved minor questions may be folded directly into the plan and removed.
 - **Decision/pending-question placement:** unresolved decisions that matter to execution must be represented in both places:
   - the relevant phase under **Watch Outs / Decisions**
   - the earliest affected task as `decision:` metadata under the same phase's `**Tasks:**` list
-- **Decision-package parity for semantic updates is required.** When resolving or clarifying a semantic decision/question, update all three together:
+- **Decision-package parity for semantic updates is required.** When resolving or clarifying a semantic decision/question, update both together:
   - decision source text,
-  - matching question text/state, and
-  - one revision-history reason naming the semantic delta.
+  - matching question text/state.
 - **Decision/question parity check is mandatory before completion.** Verify decision and question text mirror each other for:
   - lifecycle lane coverage,
   - ownership boundary,
   - failure mode expectations, and
   - scope exclusions/non-goals.
 - **Asymmetric semantic updates are a hard blocker.** If only decision or question text was updated for a semantic change, keep refinement in progress and reconcile before reporting done.
-- **Grooming-to-plan carry-forward is required when grooming exists.** For every still-relevant confirmed/deferred design point in the grooming artifact, either carry it into the plan (phase watch-outs, task `decision:` metadata, appendix, pending question, or scope/non-goal text) or explicitly decide it is out-of-scope and record that rationale in `## Revision History`.
+- **Grooming-to-plan carry-forward is required when grooming exists.** For every still-relevant confirmed/deferred design point in the grooming artifact, either carry it into the plan (phase watch-outs, task `decision:` metadata, appendix, pending question, or scope/non-goal text) or explicitly decide it is out-of-scope and keep that rationale in current decision/question text.
 - **Resolution expectation during refinement:** resolve as many open questions as possible before writing. Leave questions pending only for implementation-level details or explicit user-requested deferral.
 - **Appendix maintenance for complex design-derived work:** if the refined plan is based on substantial upstream design context, ensure `## Appendix` exists and is current. It must summarize key design decisions, constraints/invariants, interface contracts, migration/rollout implications, and rejected alternatives that materially affect task ordering or scope.
 - **Temporary coverage exclusion discipline:** if a newly added contract-first phase uses temporary coverage-exclusion attributes or mechanisms because implementations arrive later, add explicit cleanup/removal tasks and require `TODO:(DEVENV[plan-key]): ...` markers at the affected code locations so coverage restoration is not lost.
@@ -143,11 +140,10 @@ Before applying edits, offer an optional pressure-test pass using [pressure-test
 **Acceptance criteria changes:**
 
 - **New ACs**: infer from the new scope, mark `*(inferred)*`, append to the `## Goals and Acceptance Criteria` section with the next `AC-N` number (e.g. if AC-4 is the last, the next is AC-5). Use the canonical format: `- [ ] **AC-N** criterion text *(inferred)*`.
-- **Minor revision** (clarification or wording improvement — same intent, same observable outcome): rewrite the criterion text in place and append a revision note: `- [ ] **AC-N** Revised text *(inferred)* — *revised: brief note*`. Record in Revision History.
+- **Minor revision** (clarification or wording improvement — same intent, same observable outcome): rewrite the criterion text in place and keep only the latest wording.
 - **Significant change** (scope, acceptance conditions, or observable outcome changes meaningfully):
   1. Remove the `- [ ]` checkbox, wrap the criterion in `~~strikethrough~~`, and append `*(superseded by AC-M)*`
   2. Add a new criterion: `- [ ] **AC-M** replacement text *(inferred)*` (next available AC-N number)
-  3. Record both in Revision History.
 - **AC ticking is done by the execution skills** (pair-programming / delegation) during the AC Review phase — do not tick ACs here unless the user explicitly confirms a criterion is already met.
 
 ### 3a. Material-change completeness reconciliation (required)
@@ -165,21 +161,21 @@ Task completeness review (affected phases only):
 
 1. Review every task currently marked `[x]` in affected areas against the updated scope/decisions.
 2. Prefer adding follow-on tasks for new work; do not reopen completed tasks unless unavoidable.
-3. If reopening is unavoidable, explicitly state why in `## Revision History` and keep the reopen scoped to the smallest affected task.
+3. If reopening is unavoidable, explicitly state why in the refinement summary and keep the reopen scoped to the smallest affected task.
 4. Review unchecked tasks that may now be satisfied by completed work; mark `[x]` only with explicit user confirmation.
 
 Cleanup-task reconciliation (when affected tasks are cleanup/scaffold-removal tasks):
 
 1. Confirm artifact-level cleanup occurred (temporary file/class/test removed or migrated), not just marker-text removal.
 2. Require at least one artifact-level diff reference before marking cleanup tasks `[x]`.
-3. If revision-history wording is narrower than task scope (for example marker removal logged while scaffold artifact remains), keep the task open and record remaining artifact work.
+3. If a completion note is narrower than task scope (for example marker removal noted while scaffold artifact remains), keep the task open and record remaining artifact work in the task context.
 
 AC completeness review:
 
 1. Recheck all affected acceptance criteria for status drift after the material change.
 2. Classify each affected AC as `still met`, `no longer met`, `superseded`, or `pending verification`.
 3. Do not tick AC checkboxes in refinement unless the user explicitly confirms the criterion is already met.
-4. If an AC is superseded, keep identifier stability (no renumbering), apply the existing supersede pattern, and record the change in `## Revision History`.
+4. If an AC is superseded, keep identifier stability (no renumbering) and apply the existing supersede pattern.
 
 Before final write, summarize this reconciliation in chat:
 
@@ -188,32 +184,9 @@ Before final write, summarize this reconciliation in chat:
 - new follow-on tasks added instead of reopening,
 - ACs confirmed unchanged vs ACs requiring future closure.
 
-### 4. Record the revision
+### 4. Reconcile and write current-state plan
 
-Add or update a `## Revision History` section near the bottom of the plan (after `## Reference Information`). Format:
-
-```markdown
-## Revision History
-
-### 2025-11-08 — Plan refinement
-
-- Added 2.8: integration test harness for X (discovered during 1.3)
-- Added 3.4: handle Y edge case (raised by user feedback)
-- Reworded 4.1: previous wording assumed REST; clarified it's gRPC
-- Cancelled 4.3: superseded by 3.4
-- Marked 1.2 [x]
-- Added AC-5: inferred from new scope — service must handle empty batch gracefully
-- Revised AC-2: wording clarified (same intent)
-- Deprecated AC-3: superseded by AC-6 (scope narrowed by discovery)
-
-### 2025-10-22 — Initial plan created
-```
-
-Most recent revision goes on top. The very first entry (when the plan was first written) may simply read "Initial plan created".
-
-Attribution rule for this section: revision bullets describe the change, rationale, and resulting scope. Do not attribute entries to AI, Copilot, or specific models. If actor attribution is required, attribute to the current user/engineer or team context.
-
-Intermediate local draft iterations during the same refinement effort do not each get their own revision-history entry; record the net result once for the whole effort.
+Implementation plans are current-state artifacts in this workspace. Do not add or update changelog sections while refining.
 
 Before writing, run a short carry-forward verification in chat: list the important grooming decisions/constraints, show where each now lives in the refined plan, and ask whether any important point is still missing.
 
@@ -244,9 +217,9 @@ Summarise inline:
 - **Renumbering existing AC-N identifiers** — same principle. AC-3 stays AC-3; append new ACs at the next available number.
 - **Silently unchecking `[x]`** — discards user progress. If completed work needs to be redone, add a new task.
 - **Deleting cancelled tasks** — leaves a confusing gap in the numbering and erases history. Strike through and annotate instead.
-- **Skipping the Revision History** — turns the file into a black box where readers can't tell what changed.
-- **Writing prior-state narrative in plan body** — keep all historical notes in `## Revision History`. This includes dated scope-change announcements (e.g. *"Scope was expanded on DATE to include…"*), before/after narration, and inline revision summaries. The main plan must read as the current target state, as if no revisions had ever occurred.
-- **Writing refinement-era wording in plan body** — phrases such as "in this refinement" or "during this update" are not allowed outside `## Revision History`.
+- **Writing plan changelog entries** — implementation plans are current-state artifacts; do not append revision-history logs during refinement.
+- **Writing prior-state narrative in plan body** — keep the plan focused on current target state only.
+- **Writing refinement-era wording in plan body** — phrases such as "in this refinement" or "during this update" are not allowed in plan content.
 - **Adding discovery-only confirmation edits** — if exploration merely confirmed the plan was already right, leave the plan unchanged.
 - **AI/model attribution in artifact text** — do not write lines like "updated by AI", "generated by Copilot", or "revised by <model>" in plan sections or revision history.
 - **Assuming what changed** — always interview before editing. The user knows things you don't.

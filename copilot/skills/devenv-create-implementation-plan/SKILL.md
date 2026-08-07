@@ -177,7 +177,7 @@ Use the [plan template](./references/plan-template.md). Follow:
 - [Task formatting rules](./references/task-format.md) — atomic `- [ ] **N.N [S|M|L] Title**` tasks written as concise step entries; keep optional metadata (`Files:` / `decision:` / `depends on`) and keep deeper context directly under each task
 - [Phase rules](./references/phase-rules.md) — Phase 1 is **Discovery & test scaffolding**; the last phase is **Cleanup & docs**; every phase must end committable (tests pass, coverage doesn't regress, single-PR sized)
 - Where the work introduces or changes important boundaries, add an early **Contracts & boundaries** phase (usually Phase 2, sometimes merged into late Phase 1 for smaller work) before broad implementation starts
-- The plan must follow this section order: `## Goals and Acceptance Criteria`, `## Context and Orientation`, `## Phase TOC`, `## Phases`, `## Appendix` *(optional unless required by source complexity)*, `## Pending Questions` *(optional)*, `## Reference Information`, `## Revision History`
+- The plan must follow this section order: `## Goals and Acceptance Criteria`, `## Context and Orientation`, `## Phase TOC`, `## Phases`, `## Appendix` *(optional unless required by source complexity)*, `## Pending Questions` *(optional)*, `## Reference Information`
 - `## Goals and Acceptance Criteria` must include an end-state paragraph plus important scope boundaries before the AC checklist
 - `## Context and Orientation` must be useful on its own to a human who may never read the task list
 - `## Context and Orientation` should be concise but substantive: each subsection should usually be 2-4 sentences with concrete repo-specific details (affected components, current behaviour, target behaviour, and constraints), not placeholder-style one-liners
@@ -229,11 +229,10 @@ If any high-impact point has no destination, update the draft before asking for 
 
 Before file write, run a decision-package parity check for each semantic decision/question touched during planning.
 
-For each decision package, verify all three are present and aligned:
+For each decision package, verify both are present and aligned:
 
-- decision source text in the plan (for example, phase `Watch Outs / Decisions` and task-level `decision:` metadata as applicable),
-- matched question state/text (`[QUESTION] ...` inline or `## Pending Questions`), and
-- revision-history reason describing the semantic delta when the plan changed during this effort.
+- decision source text in the plan (for example, phase `Watch Outs / Decisions` and task-level `decision:` metadata as applicable), and
+- matched question state/text (`[QUESTION] ...` inline or `## Pending Questions`).
 
 Parity dimensions to verify between decision and question text:
 
@@ -264,13 +263,9 @@ In the target repo root:
 
 ### 8. Write the file
 
-Write the approved plan to `<target-repo>/<resolved-filename>.md`. The plan must include a `## Revision History` section near the bottom of the file (after `## Reference Information`) with a single initial entry:
+Write the approved plan to `<target-repo>/<resolved-filename>.md`.
 
-```markdown
-## Revision History
-
-### <today's date> — Initial plan created
-```
+Implementation-plan policy: do not create, append, or normalize `## Revision History` in the plan. If an existing plan already contains that section, leave it unchanged unless the user explicitly asks to edit it.
 
 Confirm the path back to the user.
 
@@ -391,8 +386,6 @@ Supplemental deep context for complex/high-risk plans. Required when significant
 ## Reference Information
   - Key files table (with relevance column)
   - Related links
-
-## Revision History
 ```
 
 Every phase in `## Phases` should include both human-facing guidance and a condensed step list (typically 3-6 tasks). If `## Appendix` is present, treat it as supplemental context and keep it intentionally brief. If `## Pending Questions` is present, keep it to genuinely unresolved execution questions rather than dumping notes. Section headings use Title Case.

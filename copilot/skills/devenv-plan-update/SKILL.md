@@ -1,6 +1,6 @@
 ---
 name: devenv-plan-update
-description: Make small, surgical edits to an existing Implementation_plan-*.md (or GitHub issue implementation-plan artifact). USE WHEN the user says "mark 3.4 done", "tick off task 2.1", "answer that open question", "add a note to task X", "add one more task to phase 3", or wants to record progress without restructuring the plan. Auto-detects file path vs. issue number, requires a one-line confirm before each write, records every change in `## Revision History`, never silently unchecks a `[x]`, and never reflows numbering. Hard limit: refuses if more than 3 changes are requested in one invocation, redirecting to `/devenv-refine-implementation-plan`. DO NOT USE for rewording existing tasks, restructuring or reordering phases, cancelling tasks, or any bulk additions — use `/devenv-refine-implementation-plan` instead. For read-only progress reports use `/devenv-plan-status`.
+description: Make small, surgical edits to an existing Implementation_plan-*.md (or GitHub issue implementation-plan artifact). USE WHEN the user says "mark 3.4 done", "tick off task 2.1", "answer that open question", "add a note to task X", "add one more task to phase 3", or wants to record progress without restructuring the plan. Auto-detects file path vs. issue number, requires a one-line confirm before each write, never silently unchecks a `[x]`, and never reflows numbering. Hard limit: refuses if more than 3 changes are requested in one invocation, redirecting to `/devenv-refine-implementation-plan`. DO NOT USE for rewording existing tasks, restructuring or reordering phases, cancelling tasks, or any bulk additions — use `/devenv-refine-implementation-plan` instead. For read-only progress reports use `/devenv-plan-status`.
 argument-hint: Path to an Implementation_plan-*.md OR github-issue-number[:doc_id], plus the edit to make
 ---
 
@@ -86,25 +86,11 @@ If the user says no to any edit, skip it and move to the next.
 - Notes appended to a task go on the same line as `— note: <text>` or as an indented sub-bullet.
 - Resolved open questions: either inline-edit the `[QUESTION]` line to add `— answered: <text>` or fold the answer into the surrounding task/phase/plan text and remove the question. Prefer inline for short answers.
 
-### 5. Record in Revision History
+### 5. Keep the plan as current-state truth
 
-Add (or extend) the `## Revision History` section with today's date and one bullet per material change or batch of related minor edits:
-Keep the entry concise and avoid separate bullets for low-value tweaks when they came from the same request.
+Do not add or update changelog-style history in implementation plans. Apply the requested edits directly so the plan reflects current reality.
 
-```markdown
-## Revision History
-
-### 2026-05-08 — Progress update
-- Marked 3.4 [x]
-- Added 3.5: Add JSON output flag
-- Answered open question: "Should plan-update support undo?" — answered: yes, only for the most recent revision
-
-### 2025-10-22 — Initial plan created
-```
-
-If no Revision History exists yet, create it after `## Reference Information` so the human-facing reading flow stays intact.
-
-If multiple local draft passes are needed to converge on the requested small edit set, record one revision-history entry for the final applied update effort, not one per draft pass.
+If a `## Revision History` section already exists from prior workflow versions, leave it untouched unless the user explicitly asks to edit it.
 
 ### 6. Write
 
@@ -123,7 +109,7 @@ One-line summary per change applied, plus the new task counts and overall progre
 
 - **Batching confirmations** — each edit gets its own y/n. The user must be able to say no to one without rejecting all.
 - **Silent edits while reading** — even a "small typo fix" while loading the plan is out of scope. Surface it; don't auto-fix.
-- **Skipping the Revision History** — every material persisted change goes in the log. Batch small related edits into one concise entry instead of one bullet per tweak.
+- **Writing a plan changelog** — implementation plans in this workspace are current-state documents; do not append revision-history entries during normal updates.
 - **Re-checking work via this skill** — if more than 3 changes are needed, recommend `/devenv-refine-implementation-plan`. Don't grow the limit.
 - **Auto-pushing to issue artifact comments** — writes to GitHub require explicit confirmation, every time.
 - **Unchecking a `[x]` from a prior session or revision** — refuse. Suggest adding a new task for the additional work instead. The only valid undo is a mistake made in the current invocation of this skill.

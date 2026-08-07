@@ -462,10 +462,7 @@ When a task is `[L]` and either party recognises it spans multiple distinct conc
      ...
    ```
 
-4. Record the decomposition in `## Revision History`:
-   ```
-   - Decomposed 3.1 → 3.1.1, 3.1.2, 3.1.3 (task too broad to execute atomically)
-   ```
+4. Keep decomposition context in current phase/task notes if needed; do not write changelog entries in implementation plans.
 
 5. Tick sub-tasks individually via `markdown-plan-complete-task 3.1.1`, `3.1.2`, etc. The `X.Y.Z` format is fully supported. The parent header (3.1) has no checkbox and is never ticked — it is complete when all its sub-tasks are.
 
@@ -620,8 +617,7 @@ When triggered:
 1. Pause coding for the phase.
 2. Summarize what is known, unknown, and at risk.
 3. Ask for explicit confirmation to escalate now.
-4. If confirmed (or user-initiated), write an escalation handoff record into the plan using existing sections (phase Watch Outs / Decisions, task `decision:` metadata + inline `[QUESTION]`, plan-level `## Pending Questions` only when truly plan-level, and a dated `## Revision History` entry).
-   - The `## Revision History` entry must include the deterministic marker line: `[ESCALATION-HANDOFF] source=pair phase=<N> status=<needs-refine|user-deferred>`.
+4. If confirmed (or user-initiated), write an escalation handoff record into the plan using existing sections (phase Watch Outs / Decisions, task `decision:` metadata + inline `[QUESTION]`, plan-level `## Pending Questions` only when truly plan-level).
 5. Recommend `/devenv-refine-implementation-plan` when the plan no longer cleanly fits reality.
 6. Resume implementation only after explicit user direction.
 
@@ -836,13 +832,12 @@ Resolution can take different forms. Choose the smallest faithful update:
 
 If the scope expansion is large, say so and recommend a separate plan or a new downstream phase. The user's decision stands.
 
-If a question is minor, fold the answer into the plan and remove the question. If it is more significant, keep a short record in `## Revision History` explaining what changed and why.
-A status-only update (task checkbox tick, AC checkbox tick, wording-only completion note) is not significant by itself and must not create a revision-history entry.
+If a question is minor, fold the answer into the plan and remove the question. If it is more significant, ensure the resulting scope/decision changes are reflected directly in the current plan sections.
 
 Quick calibration:
 
 - **Minor:** clarification that does not change scope/phase shape — fold into task/phase text and clear the question.
-- **Significant:** changes scope, sequencing, or acceptance expectations — keep a revision-history entry describing the resolution and resulting plan change.
+- **Significant:** changes scope, sequencing, or acceptance expectations — reflect the resolution directly in the plan's current phase/task/decision sections.
 
 ### How to raise it
 
@@ -878,7 +873,7 @@ Assume they're still working toward the plan unless they say otherwise. Flow beh
 - **When inserting into the middle of a task series, renumber from the insertion point onward.**
    - Example: if Phase 3 has `3.1`, `3.2`, `3.3`, `3.4` and a new task must land between `3.1` and `3.2`, the result must be `3.1`, `3.2`, `3.3`, `3.4`, `3.5` with all downstream tasks shifted.
    - Do not use suffixes like `3.2a` or `3.2b`.
-   - After renumbering, update all in-plan references that mention task IDs, including `depends on`, `decision:` metadata, inline `[QUESTION]` references, phase notes, and any revision-history entry that points to affected task numbers.
+   - After renumbering, update all in-plan references that mention task IDs, including `depends on`, `decision:` metadata, inline `[QUESTION]` references, and phase notes.
 - **Never uncheck completed tasks from prior sessions.** Exception: ticked within the current handback cycle and user's review found a blocker.
 - **Preserve all `[x]` checkboxes exactly** when rewriting sections.
 - **Prefer explicit question markers.** Use `[QUESTION]` exactly for unresolved plan questions so they can be searched and cleared deliberately.
@@ -886,18 +881,7 @@ Assume they're still working toward the plan unless they say otherwise. Flow beh
 - **Prefer DEVENV-marked TODOs over plain TODO/FIXME for plan-linked work.** When discovered during review, offer to replace plain markers with `TODO:(DEVENV[plan-key]): ...` so they remain trackable and removable in cleanup.
 - **If temporary code is introduced to keep the build/test loop moving**, add a `TODO:(DEVENV[plan-key]): ...` marker at the exact code location describing what real implementation will replace it and when. Also ensure the plan contains a corresponding follow-up task so the temporary code is not lost.
 - **Never leave permanent code comments that reference plan phases, task IDs, or decisions.** Those references are allowed only in clearly temporary `DEVENV[...]` / `TODO:(DEVENV[...])` markers and must be removed when the temporary condition is resolved.
-- **Record `## Revision History` only for material plan changes** after `## Reference Information` near the bottom of the plan file. Do not insert it between phases or above `## Reference Information`. Material changes include phase restructuring, acceptance-criteria changes, major sequencing/approach changes, broad task re-slicing, or important implementation discoveries that changed plan scope/assumptions. Routine checkbox ticks, AC checkoffs, minor wording polish, and small in-phase task add/remove operations do not require revision-history entries unless they capture such a discovery.
-   ```markdown
-   ## Revision History
-
-   ### 2026-06-08 — Updated plan during pairing
-
-   - Added 3.4: cover retry edge case discovered during implementation
-   - Reworded 2.2: clarified that validation happens before persistence
-   ```
-- **Use one dated `### YYYY-MM-DD — ...` heading per material revision batch.** If an entry for today's date and same editing pass already exists, append bullets under that heading instead of creating a second ad hoc format.
-- **Keep newest revision entries on top.** Preserve older dated entries below; do not rewrite them into a different shape.
-- **Never use bullet-only revision notes or inline prose in place of the dated heading + bullet list format.**
+- **Do not write implementation-plan changelog sections.** Keep plan updates directly in current sections (phases, tasks, decisions, pending questions, ACs).
 - **Draft → show → confirm → write** for all plan edits. Exception: checkbox ticks don't require a draft.
 
 After writing, re-emit **Files in scope** and **decision flags** if they changed.
@@ -974,7 +958,7 @@ This is the only plan edit the AI makes without prior confirmation. Everything e
 - When a new unresolved question matters to execution, add it to the plan in the right place rather than trusting chat memory.
 - Before declaring a phase complete, confirm all `[QUESTION]` items for that phase are resolved, converted into tasks, explicitly deferred to a later phase, or spun out to a follow-up issue.
 - Before declaring the whole plan complete, confirm there are no unresolved entries left under `## Pending Questions` or attached to any remaining phase/task.
-- If a question is resolved by a material plan change, note the resolution in `## Revision History` with a short explanation.
+- If a question is resolved by a material plan change, reflect the resolution in current phase/task/decision text.
 
 ### GH issue artifact sync
 

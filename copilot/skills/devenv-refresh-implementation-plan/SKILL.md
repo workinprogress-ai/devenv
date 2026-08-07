@@ -42,7 +42,7 @@ Issue artifact selection rules:
 
 - Read the source (file or issue artifact output via `issue-artifact-get`).
 - Identify: phase headings, all task lines (`- [ ]` / `- [x]`), `Files:` bullets, any mentions of specific class names / method names / file paths.
-- Extract: last revision date from `## Revision History` (if present), or creation date from file metadata.
+- Extract: last update date from file metadata (or issue artifact/source metadata in issue mode).
 - Note: ratio of `[x]` vs `[ ]` tasks — a mostly-completed plan that still has unchecked tasks needs careful handling.
 
 ---
@@ -56,7 +56,6 @@ Before running staleness analysis, check whether the plan matches the current im
 - `## Phase TOC`
 - `## Phases` with tasks embedded under each phase (via `**Tasks:**` and task checkboxes)
 - `## Reference Information`
-- `## Revision History`
 
 Legacy-format signals include:
 
@@ -77,7 +76,7 @@ If the user says **yes**:
    - add `## Phase TOC` with phase anchors,
    - keep Appendix, Pending Questions, and Reference Information in place,
    - keep all checkbox states and task/AC numbering unchanged.
-2. Record one Revision History entry noting format normalization only.
+2. Do not add or modify changelog sections during normalization; keep the work structural only.
 3. Continue with Step 2 staleness assessment on the normalized plan.
 
 If the user says **no**:
@@ -106,9 +105,9 @@ Collect class names, interface names, and key method names mentioned in the plan
 
 ### 2c. Git log scan (if available)
 
-Run `git log --oneline --since="<last-revision-date or 90 days ago>"` on the relevant repo(s). Look for commits that touch the same areas as the plan's in-scope tasks. Summarise: have there been significant changes to the files in scope?
+Run `git log --oneline --since="<last-update-date or 90 days ago>"` on the relevant repo(s). Look for commits that touch the same areas as the plan's in-scope tasks. Summarise: have there been significant changes to the files in scope?
 
-If the plan has no revision date, use 90 days as the lookback window.
+If the plan has no reliable metadata date, use 90 days as the lookback window.
 
 ### 2d. Dependency / assumption scan
 
@@ -171,14 +170,14 @@ Apply patches directly and inline. No interview needed — the signals from Step
 - Update symbol names that were renamed.
 - Mark phantom tasks `[x]` only when the work is already implemented in the codebase. If a note is needed, prefer factual wording such as `*(already implemented in codebase at refresh)*`.
 - Add a brief note to any task whose description is now misleading.
-- Repair section headings or section placement only when needed to preserve the current human-first structure: `## Goals and Acceptance Criteria`, `## Context and Orientation`, `## Phase TOC`, `## Phases`, `## Reference Information`, `## Revision History`.
+- Repair section headings or section placement only when needed to preserve the current human-first structure: `## Goals and Acceptance Criteria`, `## Context and Orientation`, `## Phase TOC`, `## Phases`, `## Reference Information`.
 
 Do **not**:
 - Rewrite task descriptions wholesale.
 - Change phase structure or add new phases.
 - Renumber existing tasks.
 
-After applying patches, record a revision history entry and write the plan back. Brief summary to the user:
+After applying patches, write the plan back. Brief summary to the user:
 
 > *"3 patches applied: updated 2 file paths, marked 2.3 [x] because the work is already implemented, noted the SyncEngine rename in task 3.1. Plan is now current."*
 
@@ -199,7 +198,7 @@ Run a structured revision. This follows the same rules as `/devenv-refine-implem
    - Mark 2.3 [x] (phantom task — already done)
    ```
 2. Ask: *"Anything to add, adjust, or remove from this list before I apply it?"*
-3. Wait for reply, then apply the confirmed change set following all rules from `/devenv-refine-implementation-plan` (no renumbering, no unchecking `[x]`, append-only for new tasks, revision history entry).
+3. Wait for reply, then apply the confirmed change set following all rules from `/devenv-refine-implementation-plan` (no renumbering, no unchecking `[x]`, append-only for new tasks).
 4. Write back and summarise.
 
 ### If intent-only

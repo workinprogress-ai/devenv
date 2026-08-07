@@ -91,7 +91,7 @@ Conducts a three-phase architectural interview (context → architecture → con
 
 > **Before any significant work begins.**
 
-Interviews the user, scans repo conventions, drafts phased atomic tasks, and writes an `Implementation_plan-*.md`. Offers to push the plan into the associated GitHub issue. The gateway to all build-phase skills.
+Interviews the user, scans repo conventions, drafts phased atomic tasks, and writes an `Implementation_plan-*.md`. The plan is a current-state execution artifact that follows the engineer's real work rather than a contract the engineer must obey. Offers to push the plan into the associated GitHub issue. The gateway to all build-phase skills.
 
 **Use for:** planning a user story, breaking down a GitHub issue, writing up work before starting  
 **Don't use for:** pure research (→ `/devenv-spike`), editing an existing plan (→ `/devenv-refine-implementation-plan`)  
@@ -103,7 +103,7 @@ Interviews the user, scans repo conventions, drafts phased atomic tasks, and wri
 
 > **Collaborative, human stays in control.**
 
-Loads the plan and runs an interactive driver/navigator handoff: both parties take turns driving (writing the code) and navigating (watching, asking questions, keeping the big picture in view). The navigator is active during the other person's turn — pre-reading ahead, looking things up, catching problems early. The AI also acts as plan steward during execution: it keeps progress honest, captures newly discovered scope or unresolved questions back into the plan, and raises plan revisions when the work proves the plan needs to change. The AI pushes back when warranted, narrates its own reasoning as it works, and asks before assuming. If it raises a decision gate, it must stop before any mutating action until the user explicitly approves the path. It must not introduce workaround shims/wrappers/hacks to recover build or test failures without explicit user approval of that exact workaround. High-engagement, high-quality — slows down appropriately for risky or novel work.
+Loads the plan and runs an interactive driver/navigator handoff: both parties take turns driving (writing the code) and navigating (watching, asking questions, keeping the big picture in view). The navigator is active during the other person's turn — pre-reading ahead, looking things up, catching problems early. The AI also acts as plan steward during execution: it keeps progress honest and reconciles the plan to the engineer's real work, including off-plan discoveries or intentional deviations. The AI pushes back when warranted, narrates its own reasoning as it works, and asks before assuming. If it raises a decision gate, it must stop before any mutating action until the user explicitly approves the path. It must not introduce workaround shims/wrappers/hacks to recover build or test failures without explicit user approval of that exact workaround. High-engagement, high-quality — slows down appropriately for risky or novel work.
 
 **Use for:** high-impact phases — public API changes, data shape changes, security, novel architecture; also any work where you want to stay closely involved  
 **Don't use for:** mechanical/rote work (→ `/devenv-delegation`), pure exploration (→ `/devenv-spike`)  
@@ -188,17 +188,17 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 | `/devenv-create-roadmap` | Phased delivery sequencing + GH issue creation | Blueprint and/or requirements file path (at least one) |
 | `/devenv-refine-roadmap` | Structurally revise a roadmap — split, re-sequence, add | Roadmap file path |
 | `/devenv-update-roadmap` | Sync roadmap status from issues + PRs | Roadmap file path |
-| `/devenv-create-implementation-plan` | Create a plan via interview; supports direct-plan mode and treats side-stream artifacts as additional (non-directing) context | Issue # or description |
-| `/devenv-refine-implementation-plan` | Revise a plan after scope changes | Plan file path or issue # |
-| `/devenv-plan-update` | Small surgical edit (tick box, add note) | Plan file path or issue # |
-| `/devenv-plan-status` | Progress report, read-only | Plan file path or issue # |
+| `/devenv-create-implementation-plan` | Create a current-state execution plan via interview; supports direct-plan mode and treats side-stream artifacts as additional (non-directing) context | Issue # or description |
+| `/devenv-refine-implementation-plan` | Reconcile a plan to new reality after scope changes, discoveries, or user-driven deviations | Plan file path or issue # |
+| `/devenv-plan-update` | Small surgical edit to keep a plan aligned to current reality (tick box, add note) | Plan file path or issue # |
+| `/devenv-plan-status` | Progress report from the plan's current state, read-only | Plan file path or issue # |
 
 ### Working modes
 
 | Skill | Purpose | Argument |
 | --- | --- | --- |
-| `/devenv-pair-programming` | Collaborative build — human + AI both implement, while keeping the plan current as scope/questions emerge | Issue # or plan path |
-| `/devenv-delegation` | Delegated build support — assistant-led execution with user review and ownership | Issue # or plan path |
+| `/devenv-pair-programming` | Collaborative build — the engineer drives, and the AI keeps the plan aligned to actual work as scope/questions emerge | Issue # or plan path |
+| `/devenv-delegation` | Delegated build support — assistant-led execution with user review and ownership, while keeping the plan aligned to actual work | Issue # or plan path |
 | `/devenv-document` | Produce documentation for an existing system or component — audience, format, and scope set by interview | Repo path, component name, or description |
 | `/devenv-chat-with-code` | Conversational fact-finding with source code or markdown-first repos — the repo talks back | Repo path(s), or nothing for current workspace |
 | `/devenv-spike` | Exploratory investigation + findings doc | Question or issue # |
@@ -436,7 +436,7 @@ Just say so. The AI will offer to take over, talk you through it, or research th
 
 ### Keeping the plan current
 
-If implementation reveals the plan is wrong (an API doesn't exist, a task is much bigger than expected, you went a different direction), the AI names what changed and proposes an edit to the plan. You confirm before anything is written. Plan edits happen inline — no need to switch to a different skill.
+If implementation reveals the plan is wrong, incomplete, or simply no longer matches what you decided to do (an API doesn't exist, a task is much bigger than expected, you went a different direction), the AI names what changed and proposes an edit to the plan. You confirm before anything is written whenever intent is unclear. The engineer drives; the plan follows reality. Plan edits happen inline — no need to switch to a different skill.
 
 ### Swapping roles
 

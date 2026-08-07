@@ -138,7 +138,7 @@ After loading, scan for obvious staleness signals before going any further:
 
 - File paths in `Files:` bullets or task descriptions that don't exist in the workspace.
 - Class or method names mentioned in tasks that a quick `grep_search` can't find.
-- A `## Revision History` or plan creation date suggesting the plan is more than a few weeks old *and* unchecked tasks still reference codebase specifics.
+- File/issue metadata indicating the plan has not been updated in a while *and* unchecked tasks still reference codebase specifics.
 - A large ratio of `[x]` tasks in early phases with `[ ]` tasks in later phases that reference the same code areas — suggests significant time has passed.
 
 **If two or more signals are present**, flag it before continuing:
@@ -455,8 +455,7 @@ Before making that recommendation, write an escalation handoff record into the p
 - phase-level Watch Outs / Decisions
 - task-level `decision:` metadata + inline `[QUESTION]` where relevant
 - plan-level `## Pending Questions` only for truly plan-level unresolved items
-- a dated `## Revision History` entry summarizing attempted paths, unresolved blockers, and recommended next step
-  - include marker line: `[ESCALATION-HANDOFF] source=delegation phase=<N> status=<needs-refine|user-deferred>`
+- a concise current-state escalation note in the relevant phase/task/question sections summarizing attempted paths, unresolved blockers, and recommended next step
 
 Follow the required structure and completeness checklist in [decision-resolution-protocol.md](../common/references/decision-resolution-protocol.md).
 
