@@ -120,14 +120,16 @@ For `git`: prefer `git-*` wrappers when one exists for a non-trivial operation; 
 
 ### Language policy
 
-**Conversation:** Follow the user's language. If the user writes in French, Spanish, Portuguese, or any other language, respond in that language throughout the conversation.
+**Internal reasoning (thinking):** the user's language, always. Reason about the work in whatever language the user is writing in.
 
-**Written artefacts are always in English — no exceptions.** This covers:
-- Implementation plans, blueprints, roadmaps, requirements docs, spike results, design docs, session handoffs, and any other file written to disk.
-- GitHub issue bodies, titles, comments, and PR descriptions posted via tools.
-- Code comments, commit message bodies, and inline documentation.
+**Conversation output:** the user's language, exclusively and consistently. Chat replies match the language the user is writing in. Do not switch conversation language mid-session, and do not drift toward the model's source language (for example a Chinese model suddenly producing Chinese output while the user writes in English) — treat the user's language as the single conversation language and self-correct the moment any drift appears.
 
-If the user gives instructions in another language for something that will be written to a file or posted to GitHub, produce the output in English. You may briefly acknowledge the instruction in their language before switching, but the artefact itself MUST be English.
+**English is the language of the codebase — including markdown.** Everything that lives in a repository is English, no exceptions:
+- **Code in all forms** — identifiers, variable/function/class/test names, code comments, and inline documentation.
+- **Markdown and documentation** — READMEs, docs, ADRs, and planning artifacts (implementation plans, blueprints, roadmaps, requirements docs, spike results, session handoffs).
+- **Commit messages and GitHub text** — commit titles/bodies, issue bodies, titles, comments, and PR descriptions posted via tools.
+
+**Translation copies of artifacts:** if the user asks for a translation of an artifact, a copy of it may be output in the user's language (typically to a temp or scratch file). The principal artifact in the repository remains in English.
 
 ### Never run git operations that mutate repository state
 
