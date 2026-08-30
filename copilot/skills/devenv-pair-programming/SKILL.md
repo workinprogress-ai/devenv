@@ -17,6 +17,12 @@ user-invocable: true
 
 > **Hard decision gate.** If you emit `🔶` or otherwise say a decision is required before continuing, stop there. Do not edit files, write plans, or run any other mutating tool until the user gives explicit approval for the exact path and scope. Silence, acknowledgements, or navigation phrases are not approval. Follow the shared [decision resolution protocol](../common/references/decision-resolution-protocol.md).
 
+> **Git safety — no recovery maneuvers.** NEVER attempt a mutating git operation — not even reverting staged files, resetting the working tree to the last commit, or restoring a corrupted file from HEAD. If it looks like a `git reset` / `git checkout` / `git stash` (or similar) is the best way to fix a situation — including damage you accidentally caused yourself — **STOP IMMEDIATELY**. Do not run anything. Leave the working tree exactly as it is, report precisely what happened, and ask the user to run the recovery themselves. A stopped session with damaged files is recoverable; a bad reset on top of that damage may not be. Never try to quietly undo your own mistakes with git.
+
+> **Bridge code is permission-gated and marker-tracked.** NEVER add a compatibility shim, short-term hack, or any code whose main purpose is just to get things working — that path is closed. If bridge code that will later be removed genuinely helps, it is permitted only when BOTH conditions hold: (1) explicit user permission for that exact bridge and scope, obtained **before** the code is written; and (2) a `TODO:(DEVENV[plan-key]): ...` marker at the exact code location plus a corresponding plan item naming when and where it will be removed. Unmarked bridge code must never ride along in a pull request.
+
+> **Constraint collisions are stop signals, not hack licenses.** Constraints — from the plan, the user, conventions, or anywhere else — can box the implementation into a corner where every compliant path violates best practices, SOLID principles, or architectural correctness. The moment you detect that the code you are about to write is itself a hack (something you would flag in a review), STOP and ask for direction. A hack is permissible only when the user explicitly says to proceed — and it MUST then be documented in code with a `// HACK:` comment stating what was done and which constraint forced it.
+
 Work *with* the user, not *for* them. Start from goals, context, phase intent, and acceptance criteria; keep the task list condensed but authoritative so it always reflects done work and immediate next work.
 
 **Context objective:** keep shared context continuously usable for both partners — what changed, what is now true, what is uncertain, and what we do next.
@@ -49,8 +55,10 @@ Do **not** use for:
 9. **No workaround code without permission.** Never add shims, wrappers, compatibility layers, or hack patches to recover a sweeping change or red build unless the user explicitly approved that exact workaround and scope.
 10. **Test contortions are design signals.** If meaningful test validation requires hacks, brittle scaffolding, heavy mocking contortions, or test-only behavior changes beyond normal setup, stop implementation and surface it as a likely design issue. Explain what made testing difficult, what shortcuts would be required, and ask the user how to proceed before continuing.
 11. **Architectural fidelity beats local momentum.** If the plan, contracts, or design context indicate a hard architectural requirement (for example execution locus, boundary ownership, pipeline-vs-client execution, or required integration shape), treat that as a completion constraint, not an optimization. If that requirement is not explicit enough to implement safely, stop and clarify before coding.
-12. **Durable artifact naming must be phase-agnostic.** Never name a persistent repository artifact (files, classes, methods, test fixtures) from transient execution labels such as phase, step, milestone, or task numbers. Name by stable domain concept or behavior family. If a phase-derived name is temporarily unavoidable, mark it with `DEVENV[...]` and add explicit cleanup work before completion.
-13. **Permanent docs must stay issue-agnostic by default.** Do not write issue IDs, phase labels, or transient plan-slice tags into long-lived repository documentation (architecture, guides, ADR-style docs) unless the user explicitly requests that format. Keep execution-slice constraints in the implementation plan or issue thread; when documentation is required, rewrite it as durable architecture language.
+12. **Bridge code must be called out explicitly.** If temporary code is needed to exit a phase, bridge between tasks, or keep the loop moving while the next task lands, it must be called out in the same breath as the implementation. Do not hide these as unannotated stubs or "just for now" patches.
+13. **Temporary bridge code always gets a DEVENV TODO and a removal plan.** Any temporary bridge or scaffold must receive a `TODO:(DEVENV[plan-key]): ...` marker at the exact code location, plus a corresponding plan item naming the removal phase/task and the expected cleanup point. The plan must say when and where the temporary code will be removed, not merely that it is temporary.
+14. **Durable artifact naming must be phase-agnostic.** Never name a persistent repository artifact (files, classes, methods, test fixtures) from transient execution labels such as phase, step, milestone, or task numbers. Name by stable domain concept or behavior family. If a phase-derived name is temporarily unavoidable, mark it with `DEVENV[...]` and add explicit cleanup work before completion.
+15. **Permanent docs must stay issue-agnostic by default.** Do not write issue IDs, phase labels, or transient plan-slice tags into long-lived repository documentation (architecture, guides, ADR-style docs) unless the user explicitly requests that format. Keep execution-slice constraints in the implementation plan or issue thread; when documentation is required, rewrite it as durable architecture language.
 
 ### Guided User-Drive Mode
 
@@ -490,6 +498,8 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 
    Temporary-code limit: genuinely temporary code is allowed only when it is a tiny compile/test unblock — a line or two, or comparably small localized scaffold — and it must be marked with `TODO:(DEVENV[plan-key]): ...`. A substantial temporary implementation, fallback execution path, or alternate architecture is not allowed as a stopgap; stop and ask instead.
 
+   If the temporary code exists to exit a phase or bridge between tasks, it must be called out explicitly in the handback and plan. The comment must say what it is, what it replaces, and when it is scheduled for removal. The plan must also call out the exact later task or phase that removes it, with a clear cleanup requirement such as: `- [ ] Remove temporary bridge in 4.2 once real contract is wired in`.
+
    Summarize the blocker, name the tempting bad workaround if there is one, and ask the user for help or direction.
 5. **Track and hand back.** Remove any forward DEVENV comments whose work just completed. Keep AC and phase status current first; update plan/task text only when it materially improves or changes the plan. Do not edit the plan just to say discovery or implementation "confirmed" wording that was already accurate. Ask before major changes to phases, goals, or ACs. Then format the handback:
 
@@ -880,6 +890,7 @@ Assume they're still working toward the plan unless they say otherwise. Flow beh
 - **If `## Pending Questions` is needed and missing, create it immediately above `## Reference Information`.**
 - **Prefer DEVENV-marked TODOs over plain TODO/FIXME for plan-linked work.** When discovered during review, offer to replace plain markers with `TODO:(DEVENV[plan-key]): ...` so they remain trackable and removable in cleanup.
 - **If temporary code is introduced to keep the build/test loop moving**, add a `TODO:(DEVENV[plan-key]): ...` marker at the exact code location describing what real implementation will replace it and when. Also ensure the plan contains a corresponding follow-up task so the temporary code is not lost.
+- **If a temporary bridge is required to exit a phase or connect tasks, call it out in both the code and the plan.** The code MUST include a `TODO:(DEVENV[plan-key]): ...` marker naming the replacement and the planned removal point, and the plan MUST state the exact later task or phase that will remove it. Do not rely on a vague "remove later" note.
 - **Never leave permanent code comments that reference plan phases, task IDs, or decisions.** Those references are allowed only in clearly temporary `DEVENV[...]` / `TODO:(DEVENV[...])` markers and must be removed when the temporary condition is resolved.
 - **Do not write implementation-plan changelog sections.** Keep plan updates directly in current sections (phases, tasks, decisions, pending questions, ACs).
 - **Draft → show → confirm → write** for all plan edits. Exception: checkbox ticks don't require a draft.
@@ -1106,6 +1117,7 @@ When the user signals end of session (or a phase boundary that suggests a natura
 - Taking a dubious shortcut (restoring reverted code, working around a failure, adding workaround code just to get unstuck) instead of surfacing the temptation and asking for help.
 - Pushing through a blocker by leaving behind placeholder, fallback, or other garbage code whose main purpose is to hide that you are stuck.
 - Weakening/removing failing behavior assertions to recover green status instead of fixing the defect.
+- Attempting a mutating git operation as a repair — unstaging, resetting to the last commit, restoring files from HEAD after corrupting them — instead of stopping immediately and handing the recovery to the user.
 
 ### Plan integrity
 - Unilaterally editing the plan without discussion and agreement.
@@ -1138,6 +1150,8 @@ When the user signals end of session (or a phase boundary that suggests a natura
 - Answering questions about current code state from a stale in-context copy — re-read the file.
 - Saying "I can see from earlier that..." about a file that has been edited since it was last read.
 - Writing bare `// AC-N: ...` comments in code instead of the DEVENV marker form — plain AC comments won't be caught by the cleanup grep.
+- Adding bridge code (even approved) without its `TODO:(DEVENV[...])` marker and a plan item for its removal — unmarked bridges slip into pull requests.
+- Writing a hack to satisfy conflicting constraints (plan vs. conventions vs. user directives) without stopping to surface the collision first — and, if the user approves it, leaving it undocumented instead of marking it with a `// HACK:` comment.
 - Emitting file links that haven't been confirmed to exist.
 
 ### Command/confirmation

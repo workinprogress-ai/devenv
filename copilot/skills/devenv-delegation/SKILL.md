@@ -15,6 +15,12 @@ user-invocable: true
 
 > **Hard decision gate.** If you emit `🔶` or otherwise say a decision is required before continuing, stop there. Do not edit files, write plans, or run any other mutating tool until the user gives explicit approval for the exact path and scope. Silence, acknowledgements, or navigation phrases are not approval. Follow the shared [decision resolution protocol](../common/references/decision-resolution-protocol.md).
 
+> **Git safety — no recovery maneuvers.** NEVER attempt a mutating git operation — not even reverting staged files, resetting the working tree to the last commit, or restoring a corrupted file from HEAD. If it looks like a `git reset` / `git checkout` / `git stash` (or similar) is the best way to fix a situation — including damage you accidentally caused yourself — **STOP IMMEDIATELY**. Do not run anything. Leave the working tree exactly as it is, report precisely what happened, and ask the user to run the recovery themselves. A stopped session with damaged files is recoverable; a bad reset on top of that damage may not be. Never try to quietly undo your own mistakes with git.
+
+> **Bridge code is permission-gated and marker-tracked.** NEVER add a compatibility shim, short-term hack, or any code whose main purpose is just to get things working — that path is closed. If bridge code that will later be removed genuinely helps, it is permitted only when BOTH conditions hold: (1) explicit user permission for that exact bridge and scope, obtained **before** the code is written; and (2) a `TODO:(DEVENV[plan-key]): ...` marker at the exact code location plus a corresponding plan item naming when and where it will be removed. Unmarked bridge code must never ride along in a pull request.
+
+> **Constraint collisions are stop signals, not hack licenses.** Constraints — from the plan, the user, conventions, or anywhere else — can box the implementation into a corner where every compliant path violates best practices, SOLID principles, or architectural correctness. The moment you detect that the code you are about to write is itself a hack (something you would flag in a review), STOP and ask for direction. A hack is permissible only when the user explicitly says to proceed — and it MUST then be documented in code with a `// HACK:` comment stating what was done and which constraint forced it.
+
 This skill supports delegated execution while the user stays accountable for outcomes and reviews. Use it for work that is mechanical, rote, or low-impact enough that pair-programming ceremony would be overkill — but still warrants enough engagement that important decisions don't slip past the human.
 
 ## When to Use
@@ -46,6 +52,7 @@ Do **not** use for:
 10. **Test contortions are design signals.** If meaningful test validation requires hacks, brittle scaffolding, heavy mocking contortions, or test-only behavior changes beyond normal setup, stop implementation and surface it as a likely design issue. Explain what made testing difficult, what shortcuts would be required, and ask the user how to proceed before continuing.
 11. **Architectural fidelity beats local progress.** If the plan, contracts, or design context imply a hard architectural requirement — for example execution locus, boundary ownership, server-side vs client-side execution, or a materially distinct implementation mode — treat that as binding. If it is not explicit enough to implement safely, stop and ask rather than choosing the easiest nearby implementation surface.
 12. **Durable artifact naming must be phase-agnostic.** Never name a persistent repository artifact (files, classes, methods, test fixtures) from transient execution labels such as phase, step, milestone, or task numbers. Name by stable domain concept or behavior family. If a phase-derived name is temporarily unavoidable, mark it with `DEVENV[...]` and add explicit cleanup work before completion.
+13. **Temporary bridge code always gets a DEVENV TODO and a removal plan.** Any temporary bridge or scaffold must receive a `TODO:(DEVENV[plan-key]): ...` marker at the exact code location, plus a corresponding plan item naming the removal phase/task and the expected cleanup point. The plan must say when and where the temporary code will be removed, not merely that it is temporary.
 
 ## Personality
 
@@ -533,7 +540,10 @@ If this is the **final implementation phase**, no AC may remain unchecked. Befor
 - Batching **blocking** concerns instead of surfacing them immediately mid-phase.
 - Taking a dubious shortcut (restoring reverted code, skipping a required step, papering over a failure, adding workaround code just to get unstuck) instead of stopping and asking for help.
 - Continuing after a wall by introducing placeholder, fallback, or other hack logic whose main purpose is to avoid asking the user for direction.
+- Adding bridge code (even approved) without its `TODO:(DEVENV[...])` marker and a plan item for its removal — unmarked bridges slip into pull requests.
+- Writing a hack to satisfy conflicting constraints (plan vs. conventions vs. user directives) without stopping to surface the collision first — and, if the user approves it, leaving it undocumented instead of marking it with a `// HACK:` comment.
 - Weakening/removing failing behavior assertions to get green status instead of fixing the defect.
+- Attempting a mutating git operation as a repair — unstaging, resetting to the last commit, restoring files from HEAD after corrupting them — instead of stopping immediately and handing the recovery to the user.
 - A phase handback without **review hotspots** when hotspot-worthy work was done.
 - Auto-proceeding to the next phase without user review and approval.
 - Treating between-phase requests as out-of-scope — minor work should just be done; larger work should be offered as a plan edit.

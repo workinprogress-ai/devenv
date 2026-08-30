@@ -124,6 +124,18 @@ teardown() {
   [ "$(echo "$output" | jq -r '.comment_id')" = "333" ]
 }
 
+@test "indented metadata header creates comment" {
+  export MOCK_COMMENTS_JSON='[]'
+
+  run "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+    --issue 42 \
+    --body $'<!-- DEVENV_ARTIFACT_V1\n doc_id: dv1:org/repo:issue-42:spike:test\n artifact_type: spike\n-->'
+
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq -r '.action')" = "created" ]
+  [ "$(echo "$output" | jq -r '.comment_id')" = "9001" ]
+}
+
 @test "two existing doc_id matches returns conflict with IDs" {
   export MOCK_COMMENTS_JSON='[
     {"id": 101, "html_url": "https://example.test/issues/42#issuecomment-101", "body": "doc_id: dv1:org/repo:issue-42:spike:test"},

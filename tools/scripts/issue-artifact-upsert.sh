@@ -214,7 +214,7 @@ main() {
     body_prefix="${body:0:256}"
 
     local header_issue_number=""
-    header_issue_number=$(printf '%s\n' "$body_prefix" | sed -n 's/^issue_number:[[:space:]]*//p' | head -1)
+    header_issue_number=$(printf '%s\n' "$body_prefix" | sed -n 's/^[[:space:]]*issue_number:[[:space:]]*//p' | head -1)
 
     if [ -n "$header_issue_number" ]; then
         if [ "$header_issue_number" = "none" ]; then
@@ -229,7 +229,7 @@ main() {
     fi
 
     local doc_id
-    doc_id=$(printf '%s\n' "$body_prefix" | sed -n 's/^doc_id:[[:space:]]*//p' | head -1)
+    doc_id=$(printf '%s\n' "$body_prefix" | sed -n 's/^[[:space:]]*doc_id:[[:space:]]*//p' | head -1)
     local inferred_issue_number=""
 
     if [ -n "$doc_id" ]; then
@@ -268,8 +268,7 @@ main() {
         invalid_args "doc_id must be a single line"
     fi
 
-    local expected_doc_line="doc_id: $doc_id"
-    if ! printf '%s\n' "$body_prefix" | grep -Fxq "$expected_doc_line"; then
+    if ! printf '%s\n' "$body_prefix" | sed -n 's/^[[:space:]]*doc_id:[[:space:]]*//p' | grep -Fxq "$doc_id"; then
         invalid_args "doc_id metadata line must appear within first 256 characters"
     fi
 
@@ -280,9 +279,12 @@ main() {
     fi
 
     local matches
-    if ! matches=$(echo "$comments_raw" | jq --arg line "$expected_doc_line" '
+        if ! matches=$(echo "$comments_raw" | jq --arg doc_id "$doc_id" '
         [ .[]
-          | select(((.body // "")[0:256] | split("\n") | any(. == $line)))
+                    | select(((.body // "")[0:256] | split("\n")
+                            | any((select(test("^[[:space:]]*doc_id:[[:space:]]*"))
+                                        | sub("^[[:space:]]*doc_id:[[:space:]]*"; "")
+                                        | sub("[[:space:]]+$"; "")) == $doc_id)))
           | {id: .id, url: .html_url}
         ]
     ' 2>/dev/null); then

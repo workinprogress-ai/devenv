@@ -42,3 +42,5 @@ tools/custom/
 !tools/templates
 !tools/git-hooks/
 DS_Store
+
+.prompts/

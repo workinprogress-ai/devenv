@@ -30,6 +30,10 @@ Then ask for explicit permission for that exact workaround and scope.
 
 If permission is not explicit, do not add workaround code.
 
+## Marker Requirement
+
+Approved workaround or bridge code must carry a `TODO:(DEVENV[plan-key]): ...` marker at the exact source location, plus a corresponding plan item naming the removal task and cleanup point. The marker is what keeps the bridge visible to cleanup checks — unmarked bridge code must never be committed into a pull request.
+
 ## Documentation Requirement
 
 If the user approves workaround code, document it in the handback:
@@ -38,6 +42,14 @@ If the user approves workaround code, document it in the handback:
 - Why it was approved.
 - Exit criteria and removal plan.
 - Risks that remain.
+
+## Constraint Collisions
+
+Constraints can come from several sources at once — the plan, the user, conventions, external requirements — and can box the implementation into a corner where every compliant path is a hack: a violation of best practices, SOLID principles, or architectural correctness.
+
+That collision is a stop signal, not a hack license. The AI must detect that the code it is about to write is itself a hack (something it would flag in a review) and stop to surface the conflicting constraints rather than silently picking the hack.
+
+A hack is permissible only when the user explicitly says to proceed, and it must then be documented in code with a `// HACK:` comment stating what was done and which constraint forced it.
 
 ## Rejection Triggers
 
