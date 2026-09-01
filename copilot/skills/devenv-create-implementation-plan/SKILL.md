@@ -57,8 +57,7 @@ Source precedence rule:
 ### 1. Identify inputs and target repo
 
 - Determine which repo the plan applies to (the plan file is written to **that** repo's root, not necessarily the current workspace root).
-- If a GH issue number/URL is provided, fetch it. Capture the issue number for later.
-- If a GH issue number/URL is provided, fetch the issue body and all comments. Treat comments as first-class source material; design docs often live there.
+- If a GH issue number/URL is provided, fetch the issue body and all comments. Treat comments as first-class source material; design docs often live there. Capture the issue number for later.
 - Capture any pasted story / linked docs.
 
 ### 2. Scan repo conventions (always)
@@ -202,7 +201,6 @@ Use the [plan template](./references/plan-template.md). Follow:
 - If the same rationale already appears in `## Phases` or `## Reference Information`, do not repeat it in the appendix; link instead.
 - `## Pending Questions` is optional and sits immediately above `## Reference Information`. Use it only for unresolved plan-level questions that matter to execution; task- or phase-specific questions should be placed inline below the relevant task/phase using `[QUESTION] ...`
 - Reference Information uses a **table** of key files with a relevance column, plus a separate links sub-list
-- If upstream artifacts exist (grooming doc, design discussion, spike, blueprint, roadmap issue), link them explicitly in `## Reference Information`.
 - If upstream artifacts exist (grooming doc, design discussion, spike, blueprint, roadmap issue), link them explicitly in `## Reference Information` and include the parent grooming artifact when this plan is one slice of a larger issue attack plan.
 - Mark dependencies as `depends on N.N` inline; readers infer parallelism
 - Every task with non-obvious context should include an `Additional context:` bullet directly under the task

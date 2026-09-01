@@ -279,10 +279,6 @@ phase as `[QUESTION] ...` bullets.
 - Parent grooming issue/artifact: <link>
 - Slice issue type: <Feature|Fix|Task>
 - Slice independent production target: <one-line statement>
-
-## Revision History
-
-### <date> — Initial plan created
 ```
 
 ## Notes on filling it in
@@ -307,6 +303,5 @@ phase as `[QUESTION] ...` bullets.
 - **Reference table** — prefer a "key files" table with a relevance column over a flat link list. Add a separate **Related links** sub-list for issues/docs/PRs.
 - **Upstream artifacts** — when a grooming/design/spike/blueprint/roadmap artifact exists, include explicit links in the `Upstream artifacts` block.
 - **Coordination context** — when this plan is one slice of a larger groomed issue attack plan, fill the coordination fields (parent grooming artifact, slice type, independent target statement).
-- **Revision History placement** — keep it near the bottom so the top of the plan stays oriented toward implementation and review.
-- **Revision History content** — log only material changes. Batch related small edits from the same pass into one concise bullet instead of one bullet per tweak.
+- **No Revision History section** — plans are living documents describing current state; revision history is never created at plan time. If a later refine-family pass adds one, it records deletions there, not in section prose.
 - **Section heading case** — Title Case for `## Phase TOC`, `## Phases`, `## Reference Information`, etc.

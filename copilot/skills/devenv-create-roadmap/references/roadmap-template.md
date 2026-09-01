@@ -78,7 +78,7 @@ capability-slice, or hybrid. Include the rationale.>
 **Status**: ⬜ Not started
 **Issue**: <populated after issue creation>
 **Component**: `service.commerce.inventory` (extended)
-**Blueprint sections**: [§4.1](<link>), [§3.2.3](<link>)
+**Blueprint sections**: [§4.1](<link>), [§4.2](<link>)
 **Depends on**: None
 
 <One paragraph: what this step delivers at a component level. No task-level detail.>
@@ -90,7 +90,7 @@ capability-slice, or hybrid. Include the rationale.>
 **Status**: ⬜ Not started
 **Issue**: <populated after issue creation>
 **Component**: `service.commerce.inventory` (extended)
-**Blueprint sections**: [§3.4](<link>)
+**Blueprint sections**: [§4.1](<link>)
 **Depends on**: [STEP-01](#step-01-extend-inventory-with-reservation-api)
 
 <One paragraph.>
@@ -102,7 +102,7 @@ capability-slice, or hybrid. Include the rationale.>
 **Status**: ⬜ Not started
 **Issue**: <populated after issue creation>
 **Component**: `service.commerce.fulfillment-orchestrator` (new)
-**Blueprint sections**: [§4.2](<link>), [§3.3 CreateOrder](<link>)
+**Blueprint sections**: [§4.2](<link>), [§4.1 CreateOrder](<link>)
 **Depends on**: [STEP-01](#step-01-extend-inventory-with-reservation-api), [STEP-02](#step-02-add-reservation-events)
 
 <One paragraph.>

@@ -101,7 +101,7 @@ Ask the user:
 
 If one or more `Requirements-*.md` files exist, read them and summarise the key actors/scenarios/constraints back to the user before going further.
 
-**Multiple requirements docs are supported.** When multiple `Requirements-<epic>-NNN.md` files are handed off: read all of them; summarise each; ask whether the blueprint covers all epics or a subset. One blueprint can span multiple docs. Cross-doc dependency edges (`Depends on: AUTH-003 (Requirements-auth-001.md)`) translate directly to cross-service dependencies in §3.2/§3.5. Category prefixes (`ORD-NNN`, `FUL-NNN`) are the natural requirements-basis references in the blueprint.
+**Multiple requirements docs are supported.** When multiple `Requirements-<epic>-NNN.md` files are handed off: read all of them; summarise each; ask whether the blueprint covers all epics or a subset. One blueprint can span multiple docs. Cross-doc dependency edges (`Depends on: AUTH-003 (Requirements-auth-001.md)`) translate directly to cross-service dependencies in §4.2 (Context Map). Category prefixes (`ORD-NNN`, `FUL-NNN`) are the natural requirements-basis references in the blueprint.
 
 If the user provides communications artifacts (transcripts, design discussions, voice memos), dispatch the `Explore` subagent per artifact (see [Explore subagent dispatch](../_conventions.md#explore-subagent-dispatch)); surface each summary for validation before incorporating. Record the source in `session_memory-blueprint.md` so rationale can be re-traced.
 

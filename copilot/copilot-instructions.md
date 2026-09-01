@@ -170,6 +170,8 @@ If a task requires a raw mutation, show the user the exact command and ask them 
 | `⚠️` | **Concern or heads-up** — notable but not a stopper |
 | `🛑` | **Blocker** — work stops here until resolved |
 | `🏁` | **Session or phase wrap-up** |
+| `🧠` | **Brain bootup** — orientation summary (Navigate / Observe / Question steps) |
+| `📋` | **In-the-flow check-in** — re-engagement assessment after a flow period |
 
 **File and method references.** Whenever a specific class, method, or file is mentioned **anywhere in chat output** — task descriptions, phase announcements, hand-backs, reviews, concerns, hints, or brain bootup — use a clickable workspace-root-relative link: [`ExecuteAsync` in `BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L87). Never use backtick code formatting as a substitute for a link when the location is known. If the exact line isn't known, link to the file without `#L`.
 

@@ -123,7 +123,7 @@ Pick 3-7 items from Findings that are primarily correctness/runtime bug risks. A
 - <Things you couldn't tell were debt vs. intentional.>
 ```
 
-For each Critical/High item in **Top bug risks**, explicitly recommend follow-up via `/devenv-bug-fix` (or equivalent root-cause workflow) and include the finding ID in that recommendation.
+For each Critical/High item in **Top bug risks**, explicitly recommend follow-up via `/devenv-bug-hunter` to verify the bug exists and deliver a verdict (audit risks are suspected, not confirmed) — then `/devenv-bug-fix` on a FOUND verdict, using the hunter's RED repro as the starting artifact. Include the finding ID in that recommendation.
 
 ## Stack-specific tooling
 

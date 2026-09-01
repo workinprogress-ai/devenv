@@ -17,7 +17,7 @@ A thinking-partner mode. The user has a fuzzy problem; the AI's job is to help t
 - The user wants to validate their reasoning by hearing it reflected back.
 - A decision involves trade-offs and the user wants help surfacing them.
 
-If the user wants code, use `/devenv-pair-programming` or `/devenv-delegation`. If the user wants written output (a plan, a findings doc, a review), use the appropriate skill for that. If the question is factual ("how does X work in this codebase?"), the default agent is faster; for unknowns that need an experiment, use `/devenv-spike`.
+If the user wants code, use `/devenv-pair-programming`, or `/devenv-delegation` for a commissioned autonomous run. If the user wants written output (a plan, a findings doc, a review), use the appropriate skill for that. If the question is factual ("how does X work in this codebase?"), the default agent is faster; for unknowns that need an experiment, use `/devenv-spike`.
 
 ## What this skill does
 
@@ -76,8 +76,7 @@ When the user signals they're done — explicitly ("OK I think I've got it"), or
 
 - `/devenv-design-discussion` — when the user wants opinions and a recommendation, not just reflection.
 - `/devenv-spike` — when the question needs an experiment, not a conversation.
-- `/devenv-create-implementation-plan` — when the user gains clarity and wants to plan the work.
-- `/devenv-create-implementation-plan` — when the conversation produced enough structure to draft from.
-- `/devenv-pair-programming`, `/devenv-delegation` — for the actual implementation once the thinking resolves.
+- `/devenv-create-implementation-plan` — when the user gains clarity or the conversation produced enough structure to draft from.
+- `/devenv-pair-programming`, `/devenv-delegation` (when the work is mechanical and the user wants an autonomous run) — for the actual implementation once the thinking resolves.
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

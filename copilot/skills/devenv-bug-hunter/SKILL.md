@@ -19,7 +19,9 @@ user-invocable: true
 
 > **Scope fence.** Read and explore freely across `repos/` — the hunt may wander into related repos in pursuit. But change code ONLY in the agreed target repo(s). Expanding the change-scope requires explicit user permission, raised as a `🔶` decision gate.
 
-Verify whether a bug exists. Not "find something to justify the hunt" — determine the truth of a specific suspicion, with evidence, and stop when the truth is known.## When to Use
+Verify whether a bug exists. Not "find something to justify the hunt" — determine the truth of a specific suspicion, with evidence, and stop when the truth is known.
+
+## When to Use
 
 Trigger phrases:
 

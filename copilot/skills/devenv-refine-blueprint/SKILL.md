@@ -89,7 +89,7 @@ If the single-file blueprint has grown past comfortable reading length (~1,500 l
    - **By section group** (default): `01-context.md`, `02-architecture.md`, `03-components.md`, `04-risks.md`
    - **By domain within §3-§4** when there are several
    - A hybrid when only one section is oversized
-2. **Create the subfolder** `docs/Architecture/Blueprint-<system>-NNN/` and move the part files into it. The original `Blueprint-<system>-NNN.md` is replaced by this folder — leave a stub file at the old path containing only a redirect (`> **Moved to [Blueprint-<system>-NNN/Index.md](Blueprint-<system>-NNN/Index.md) in revision YYYY-MM-DD**`) so existing links don't 404.
+2. **Create the subfolder** `docs/Architecture/Blueprint-<system>-NNN/` and move the part files into it. The original `Blueprint-<system>-NNN.md` is replaced by this folder — leave a stub file at the old path containing only a redirect (`> **Moved to [Blueprint-<system>-NNN/Index.md](Blueprint-<system>-NNN/Index.md)** — see that file's revision history for when`) so existing links don't 404.
 3. **Preserve section numbering across files.** §3.2.5 stays §3.2.5 wherever it lives. Cross-file references use the form `<see 02-architecture.md §3.2.5>`.
 4. **Each part file gets its own `## Revision History`** scoped to that file's content. The shared root revision history moves to `Index.md`.
 5. **Create `Index.md`** in the new subfolder with the structure documented in [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) §*Index.md for multi-file artifacts*. Record the split as the first entry in its revision history.
@@ -109,7 +109,7 @@ If the blueprint is already split (subfolder + `Index.md` exists) and a refineme
 > - **Add** §X.Y: `service.foo` (new component)
 > - **Reword** §3.2.1: updating the inventory delta to reflect TTL behaviour
 > - **Supersede** §5.2 risk #3 (resolved by the reservation-cleaner)
-> - **Append** `ReservationExpired` event row to §3.4 table
+> - **Append** `ReservationExpired` event row to §4.1 component entry
 >
 > Anything I've misread, over-scoped, or missed?"
 

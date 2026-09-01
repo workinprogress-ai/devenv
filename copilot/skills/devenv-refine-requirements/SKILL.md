@@ -39,8 +39,8 @@ For multi-document projects (one doc per epic), refine **one doc per invocation*
 If the doc has grown past ~30 requirements or now covers what feels like multiple epics, the user may ask to split it. Treat splitting as a special refinement:
 
 1. Interview: confirm split boundary, new `<topic>` names, new prefix per doc.
-2. Create new docs by copying source, then mark non-belonging requirements as `> **Moved to Requirements-<other-topic>-001.md in revision YYYY-MM-DD**` and re-prefix requirements that stay (e.g. `REQ-007` → `ORD-007`).
-3. Update source doc: every moved requirement becomes a `> **Moved to ...**` block with the new ID.
+2. Create new docs by copying source, then **delete** non-belonging requirements from the source doc and re-prefix requirements that stay (e.g. `REQ-007` → `ORD-007`). The move is recorded in each doc's revision history, not as inline tombstones.
+3. Update the source doc accordingly: moved requirements are simply gone (revision-history entry `Removed REQ-NNN (<summary>) — moved to <doc>`); no `Moved to ...` blockquotes in the live body.
 4. Walk all cross-doc `Depends on:` lines and update to new IDs and doc paths.
 5. Record the split in every affected doc's revision history. Update session memory for each new doc.
 6. Create or update `Index.md`. See [`/devenv-gather-requirements`](../devenv-gather-requirements/SKILL.md) §*Index.md for multi-file artifacts*.

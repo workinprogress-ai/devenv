@@ -246,7 +246,7 @@ Never suggest `git commit` commands or run any git operations. Only suggest the 
 - **When in doubt about whether a thread is "clear", surface it.** False positives in the surfaced list are cheap; unintended changes are not.
 - **`quit` at any prompt** exits cleanly and shows the partial summary.
 - **Uncommitted local edits:** before applying any code change, warn if affected files have dirty state.
-- **`--dry-run` propagates** — all `pr-thread-reply` and `pr-thread-resolve` calls use `--dry-run`.
+- **`--dry-run` propagates** — if the skill was invoked with `--dry-run`, all `pr-thread-reply` and `pr-thread-resolve` calls use `--dry-run`; without that flag, confirmed actions post for real per the Phase 2/3 flows.
 
 ---
 

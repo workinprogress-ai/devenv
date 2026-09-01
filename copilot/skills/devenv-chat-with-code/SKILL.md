@@ -1,6 +1,6 @@
 ---
 name: devenv-chat-with-code
-description: Conversational fact-finding session with one or more repositories — source code or markdown-first docs (requirements, blueprints, roadmaps, plans) — the code/docs talk back. USE WHEN the user says "chat with this code", "explain this repo", "how does X work", "walk me through the architecture", "what does this codebase do", "explain this service", "I want to understand this code", or wants to explore a codebase through natural conversation. Orients against README, project structure, entry points or primary documents, and test/layout signals, then answers as if the repo itself is speaking. Handles single or multi-repo questions; caches orientation in session memory. Suggests transitioning to a sibling skill when conversation drifts toward planning or implementation. DO NOT USE FOR writing or changing files (use /devenv-pair-programming or /devenv-delegation), formal debt assessment (use /devenv-tech-debt-audit), or architecture design (use /devenv-create-blueprint or /devenv-design-discussion).
+description: Conversational fact-finding session with one or more repositories — source code or markdown-first docs (requirements, blueprints, roadmaps, plans) — the code/docs talk back. USE WHEN the user says "chat with this code", "explain this repo", "how does X work", "walk me through the architecture", "what does this codebase do", "explain this service", "I want to understand this code", or wants to explore a codebase through natural conversation. Orients against README, project structure, entry points or primary documents, and test/layout signals, then answers as if the repo itself is speaking. Handles single or multi-repo questions; caches orientation in session memory. Suggests transitioning to a sibling skill when conversation drifts toward planning or implementation. DO NOT USE FOR writing or changing files (use /devenv-pair-programming, or /devenv-delegation for a commissioned autonomous mechanical run), formal debt assessment (use /devenv-tech-debt-audit), or architecture design (use /devenv-create-blueprint or /devenv-design-discussion).
 argument-hint: Repo path(s), e.g. repos/lib.cs.services.bulk-sync, or nothing to use the current workspace
 ---
 
@@ -19,7 +19,7 @@ A conversational fact-finding session with one or more repositories, including s
 - You want to understand architecture, data flow, dependencies, or intent before deciding what to build or change.
 - You're asking cross-cutting questions that span multiple repos.
 
-Do **not** use this skill to write or modify files — it is read-only by design. Hand off to `/devenv-pair-programming` or `/devenv-delegation` for implementation. For formal debt findings, use `/devenv-tech-debt-audit`. For design trade-off discussions, use `/devenv-design-discussion`.
+Do **not** use this skill to write or modify **repository** files — it is read-only by design. Session memory under `/memories/session/` (orientation summaries) is permitted; it is session state, not repository content. Hand off to `/devenv-pair-programming` (collaborative) or `/devenv-delegation` (commissioned autonomous mechanical run) for implementation. For formal debt findings, use `/devenv-tech-debt-audit`. For design trade-off discussions, use `/devenv-design-discussion`.
 
 ## Core Principles
 
@@ -28,7 +28,7 @@ Do **not** use this skill to write or modify files — it is read-only by design
 3. **Cite everything concrete.** Every specific claim — a class name, a method, a config value, a flow — links to `file:line`. Uncited claims about code are opinions.
 4. **Honest confidence levels.** Try → ask one clarifying question if needed → answer with inline uncertainty flags → "I don't know. I am sad." for genuine ignorance.
 5. **Never switch skills without confirmation.** Detect drift toward planning/implementation and suggest a transition, but wait for a "yes".
-6. **Read-only always.** Never create, edit, or delete files while using this skill, even for markdown/docs-only repositories.
+6. **Read-only always** (repository files). Never create, edit, or delete repository files while using this skill, even for markdown/docs-only repositories. The one exception is session memory under `/memories/session/` — orientation summaries there are session state, not repository content.
 
 ## Personality
 

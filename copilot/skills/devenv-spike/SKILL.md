@@ -19,7 +19,7 @@ Run a focused, exploratory investigation of an open question. Output is a struct
 - A `/devenv-create-implementation-plan` invocation would stall on too many unknowns.
 - A question can be answered faster by trying it than by reasoning about it.
 
-If the user wants production code, use `/devenv-pair-programming` or `/devenv-delegation`. If the user wants to think out loud without producing artifacts, use `/devenv-rubber-duck`.
+If the user wants production code, use `/devenv-pair-programming` (collaborative) or `/devenv-delegation` (commissioned autonomous mechanical run). If the user wants to think out loud without producing artifacts, use `/devenv-rubber-duck`.
 
 ## Inputs
 
@@ -158,7 +158,7 @@ If yes:
    - If upsert reports a duplicate `doc_id` conflict, stop and ask the user which comment ID to keep as canonical.
    - Surface the issue URL.
 
-   The GH issue comment identified by `doc_id` is the canonical record. The local file is a working copy and may be deleted once posted.
+   The local spike file is the canonical record; the GH issue comment identified by `doc_id` is a published copy kept in sync via upsert. (Same file-canonical rule as `/devenv-design-discussion` per [issue-artifact-integration](../../common/references/issue-artifact-integration.md).)
 
 Never create an issue or post a comment without explicit "yes" confirmation.
 
@@ -177,6 +177,6 @@ Never create an issue or post a comment without explicit "yes" confirmation.
 - `/devenv-design-discussion` — when the question is "which approach?" not "is this feasible?" — reasoning, not prototyping.
 - `/devenv-refine-blueprint` — if the spike changes or invalidates an architectural decision, follow up here.
 - `/devenv-rubber-duck` — lighter-weight thinking-out-loud without artifacts.
-- `/devenv-pair-programming`, `/devenv-delegation` — for the actual implementation once the spike resolves.
+- `/devenv-pair-programming`, `/devenv-delegation` (commissioned autonomous mechanical run) — for the actual implementation once the spike resolves.
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

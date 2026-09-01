@@ -189,19 +189,19 @@ For each significant cross-component interaction where the sync/async choice nee
 
 ---
 
-## 4. Consequences
+## 5. Consequences
 
-### 4.1 Positive
+### 5.1 Positive
 
 1. <Improvement / force resolved>
 2. ...
 
-### 4.2 Negative
+### 5.2 Negative
 
 1. <Complexity / risk introduced>
 2. ...
 
-### 4.3 Mitigations
+### 5.3 Mitigations
 
 | Negative consequence | Mitigation |
 |---|---|
@@ -209,23 +209,23 @@ For each significant cross-component interaction where the sync/async choice nee
 
 ---
 
-## 5. Assumptions and Gaps
+## 6. Assumptions and Gaps
 
-### 5.1 Assumptions
+### 6.1 Assumptions
 
 - <Things treated as true that may not be>
 
-### 5.2 Known Gaps
+### 6.2 Known Gaps
 
 - <Areas not yet designed in detail>
 
-### 5.3 Future Work
+### 6.3 Future Work
 
 - <Out of scope for this blueprint; deferred>
 
 ---
 
-## 6. References
+## 7. References
 
 - Requirements: <link>
 - Related blueprints: <links>

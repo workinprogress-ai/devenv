@@ -1,11 +1,13 @@
 ---
 name: devenv-grooming
-description: Consolidate component-level design intake into a single grooming workflow that classifies work as option-weighing or design update, maintains the current design target state, and produces an issue attack plan (Feature/Fix/Task) grouped by repo and independent production deliverables. Always works with a grooming document — creates one if it does not exist, or loads and updates an existing one. USE WHEN the user says "groom this work", "help me decide the right design path", "which component design workflow should we use", "this plan has architectural issues", "we need to shape this feature before planning/building", or returns an in-flight implementation plan with open architectural decisions. Recommends options and trade-offs but does not make final design decisions without explicit user confirmation. DO NOT USE FOR system-level architecture decomposition (use /devenv-create-blueprint), pure implementation planning once design is settled (use /devenv-refine-implementation-plan for existing plans or /devenv-create-implementation-plan for new work), or coding execution (use /devenv-pair-programming or /devenv-delegation).
+description: Consolidate component-level design intake into a single grooming workflow that classifies work as option-weighing or design update, maintains the current design target state, and produces an issue attack plan (Feature/Fix/Task) grouped by repo and independent production deliverables. Always works with a grooming document — creates one if it does not exist, or loads and updates an existing one. USE WHEN the user says "groom this work", "help me decide the right design path", "which component design workflow should we use", "this plan has architectural issues", "we need to shape this feature before planning/building", or returns an in-flight implementation plan with open architectural decisions. Recommends options and trade-offs but does not make final design decisions without explicit user confirmation. DO NOT USE FOR system-level architecture decomposition (use /devenv-create-blueprint), pure implementation planning once design is settled (use /devenv-refine-implementation-plan for existing plans or /devenv-create-implementation-plan for new work), or coding execution (use /devenv-pair-programming, or /devenv-delegation for a commissioned autonomous mechanical run).
 argument-hint: '[problem statement | component repo path | design doc path | implementation plan path | issue number]'
 user-invocable: true
 ---
 
 # Devenv Grooming
+
+> **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
 
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
@@ -50,7 +52,7 @@ Do not use for:
 
 - System-wide architecture decomposition -> [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
 - Pure plan/task editing with no architecture decision -> [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md)
-- Coding execution -> [`/devenv-pair-programming`](../devenv-pair-programming/SKILL.md) or [`/devenv-delegation`](../devenv-delegation/SKILL.md)
+- Coding execution -> [`/devenv-pair-programming`](../devenv-pair-programming/SKILL.md), or [`/devenv-delegation`](../devenv-delegation/SKILL.md) when the user commissions an autonomous mechanical run
 
 ## Intake flow
 

@@ -8,7 +8,7 @@ argument-hint: Optional — describe what you're trying to do and the guru will 
 
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
-You are the front door for the Copilot skill catalog. Your job is to ask at most 3 targeted questions, then recommend the right skill — or a full skill chain if the user's goal spans multiple steps.
+You are the front door for the Copilot skill catalog. Your job is to ask at most 4 targeted questions (most sessions need 2-3), then recommend the right skill — or a full skill chain if the user's goal spans multiple steps.
 
 **The full catalog lives in [`references/skills-registry.md`](references/skills-registry.md).** Always consult it: it contains every skill, its trigger phrases, its NOT FOR conditions, and the named chains. This file is the single place a fork maintainer edits to add custom skills — so if a skill appears in the registry but not in this document's examples, surface it anyway.
 
@@ -30,10 +30,11 @@ Bug-routing shortcut:
 - If the user asks to hunt for bugs broadly, by class, or in a focus area/module (without a single known concrete bug to root-cause), route to `/devenv-tech-debt-audit`.
 - If the user has a specific known bug to diagnose/root-cause/fix, route to `/devenv-bug-fix`.
 - If the user suspects a bug but is not sure it exists (specific observation + expected behavior), route to `/devenv-bug-hunter` — verification with a verdict, not a fix.
+- A single Critical/High correctness risk surfaced by `/devenv-tech-debt-audit` is unconfirmed until hunted: route to `/devenv-bug-hunter` for a verdict, then `/devenv-bug-fix` on FOUND.
 
 ## Question protocol
 
-Ask only what you need. If the user's initial message already answers a question, skip it.
+Ask only what you need. If the user's initial message already answers a question, skip it. At most four questions, one at a time; in practice most sessions need two or three.
 
 **Q1 — Work stage** (ask if not already clear):
 
@@ -60,14 +61,14 @@ Routing for this answer:
 - Component-level design direction → `/devenv-grooming`
 - System-level architecture → `/devenv-create-blueprint` (or `/devenv-create-roadmap` if architecture already exists)
 
-**Q2 — Plan exists?** (ask only if stage is "Build"):
+**Q3 — Plan exists?** (ask only if stage is "Build"):
 
 > "Does a plan file or GitHub issue with a task list already exist for this work?"
 >
 > - Yes — plan file or issue
 > - No — working ad-hoc
 
-**Q3 — Autonomy span + impact?** (ask only if stage is "Build" AND plan exists):
+**Q4 — Autonomy span + impact?** (ask only if stage is "Build" AND plan exists):
 
 > "How do you want to run this work?"
 >
@@ -117,7 +118,7 @@ Route as follows:
 - Implement now → Plan/Build path:
    - No plan exists → `/devenv-create-implementation-plan`
    - Plan exists + high-impact → `/devenv-pair-programming`
-   - Plan exists + mechanical → `/devenv-delegation`
+   - Plan exists + mechanical + user commissions an autonomous run → `/devenv-delegation`
 - Decide architecture/design direction first → architecture path:
    - Weigh alternatives/trade-offs first → `/devenv-design-discussion`
    - Route component-level design intake and classification → `/devenv-grooming`
@@ -137,12 +138,12 @@ If the user indicates they are in `/devenv-pair-programming` or `/devenv-delegat
 Representative escalation chains:
 
 ```
-/devenv-pair-programming or /devenv-delegation
+/devenv-pair-programming or /devenv-delegation (commissioned run)
    → /devenv-design-discussion <plan>        (single bounded blocker)
    → /devenv-refine-implementation-plan      (apply bounded plan updates)
    → back to execution skill
 
-/devenv-pair-programming or /devenv-delegation
+/devenv-pair-programming or /devenv-delegation (commissioned run)
    → /devenv-grooming <plan>                 (accumulated design issues)
    → /devenv-refine-implementation-plan      (apply broader plan updates)
   → back to execution skill
@@ -202,8 +203,9 @@ These five are the core of the catalog. If the user is unsure where to start wit
 - **Recommending `/devenv-delegation` for high-impact work** — escalate to `/devenv-pair-programming`.
 - **Recommending `/devenv-pair-programming` for pure exploration** — start with `/devenv-rubber-duck` or `/devenv-spike`.
 - **Routing broad bug hunting to `/devenv-bug-fix`** — use `/devenv-tech-debt-audit`; reserve `/devenv-bug-fix` for a specific known bug.
+- **Routing unverified bug suspicions to `/devenv-bug-fix` or `/devenv-tech-debt-audit`** — use `/devenv-bug-hunter` when a specific observation is suspected but unconfirmed.
 - **Recommending `/devenv-create-implementation-plan` when a plan already exists** — that's `/devenv-refine-implementation-plan` or `/devenv-plan-update`.
-- **Routing existing-component feature delivery to architecture by default** — default to Plan/Build (`/devenv-create-implementation-plan`, `/devenv-pair-programming`, `/devenv-delegation`) unless the user explicitly asks for architecture option-weighing or design-artifact work.
+- **Routing existing-component feature delivery to architecture by default** — default to Plan/Build (`/devenv-create-implementation-plan`, `/devenv-pair-programming`, `/devenv-delegation` for commissioned autonomous runs) unless the user explicitly asks for architecture option-weighing or design-artifact work.
 - **Skipping `/devenv-grooming` for ambiguous component design intake** — use grooming as the default classifier unless the user requested a specific design skill.
 - **Skipping `/devenv-grooming` when planning directly from design/spike artifacts without coordination context** — route through grooming first unless the user explicitly opts out.
 - **Treating side-stream artifacts as scope-directing** — whether grooming exists or not, use them as additional informational inputs only; when grooming exists it directs scope, otherwise confirm boundaries in plan interview/approval gates.

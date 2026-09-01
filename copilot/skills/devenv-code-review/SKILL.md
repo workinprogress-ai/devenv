@@ -19,7 +19,7 @@ Review code changes and produce structured, actionable feedback for work. Invers
 - Reviewing a branch that is about to become a PR (no GitHub PR required).
 - Reviewing a branch's diff against the default branch as a self-check.
 
-If the user wants the AI to *write* or refactor code, use `/devenv-pair-programming` or `/devenv-delegation` instead. If the user wants to *respond to* review comments on their own PR, use `/devenv-address-pr-comments`.
+If the user wants the AI to *write* or refactor code, use `/devenv-pair-programming`, or `/devenv-delegation` for a commissioned autonomous run, instead. If the user wants to *respond to* review comments on their own PR, use `/devenv-address-pr-comments`.
 
 ## Inputs
 
@@ -130,7 +130,7 @@ For inline review comments tied to specific lines, note that this skill produces
 - **Fabricating praise** — don't manufacture a "Praise" entry to soften critical feedback. Skip the section if there's nothing specific to call out.
 - **Auto-posting** — every push to GitHub requires explicit confirmation.
 - **Reviewing without reading** — skim-based reviews produce vague findings. If the diff is too large to read carefully, narrow the scope or refuse.
-- **Mixing review with rewrite** — this skill produces feedback. It does not modify the code under review. If the user wants fixes, switch to `/devenv-pair-programming` or `/devenv-delegation` after the review.
+- **Mixing review with rewrite** — this skill produces feedback. It does not modify the code under review. If the user wants fixes, switch to `/devenv-pair-programming` or `/devenv-delegation` (commissioned autonomous run) after the review.
 
 ## Sibling skills
 

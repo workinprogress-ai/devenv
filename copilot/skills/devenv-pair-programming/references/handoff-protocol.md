@@ -47,7 +47,7 @@ The session is always in one of these states. Make the state visible.
 
 ### Reviewing the diff
 
-First: actually run `get_changed_files` and read the diff. Then respond with structure:
+First: actually obtain the changed-file list (e.g. `git diff --name-only` against the checkpoint/ref the user indicates) and read the diff. Then respond with structure:
 
 > "Reviewed your 2.2.
 >

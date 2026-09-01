@@ -1,6 +1,6 @@
 ---
 name: devenv-skill-maintenance
-description: 'Workspace-scoped maintenance skill for correcting problems in the current custom skill system. Use when the user wants to fix, update, or clean up SKILL.md files, routing docs, or registry/catalog artifacts after identifying broken routing, stale references, contradictory guidance, missing guardrails, template drift, or diagnostic findings from other skills.'
+description: 'Workspace-scoped maintenance skill for correcting problems in the current custom skill system. USE WHEN the user wants to fix, update, or clean up SKILL.md files, routing docs, or registry/catalog artifacts after identifying broken routing, stale references, contradictory guidance, missing guardrails, template drift, or diagnostic findings from other skills. DO NOT USE for authoring a brand-new skill from scratch (follow copilot/skills/_conventions.md directly) or for non-skill workspace work.'
 argument-hint: 'A list of skill problems to fix, plus optional target skill names or file paths'
 user-invocable: true
 ---

@@ -159,7 +159,7 @@ Interviews the user to establish audience, output format, and scope before touch
 Orients against README, project structure, runtime entry points or primary documents, and test/evidence layout for one or more repos, then answers questions in the voice of the repo itself — witty, slightly sarcastic, always cited to `file:line`. Caches orientation in session memory. Handles architecture, data flow, history/intent, dependency, cross-cutting, runbook, and docs-interrogation questions (requirements, blueprints, plans). Suggests transitioning to a sibling skill when conversation drifts toward planning or implementation.
 
 **Use for:** understanding an unfamiliar codebase or markdown-first planning/docs repo; cross-repo questions; architecture, behaviour, data flow, dependency, runbook, and requirements/blueprint interrogation  
-**Don't use for:** writing or changing files (→ `/devenv-pair-programming` or `/devenv-delegation`); formal debt findings (→ `/devenv-tech-debt-audit`); architecture design (→ `/devenv-create-blueprint` or `/devenv-design-discussion`)  
+**Don't use for:** writing or changing files (→ `/devenv-pair-programming`, or → `/devenv-delegation` for a commissioned autonomous run); formal debt findings (→ `/devenv-tech-debt-audit`); architecture design (→ `/devenv-create-blueprint` or `/devenv-design-discussion`)  
 **Tool deps:** none (read-only repo interrogation; writes only to session memory)
 
 ---

@@ -82,8 +82,8 @@ See [roadmap-template.md](./references/roadmap-template.md) for the document str
 ### 1. Load and parse the inputs
 
 **If a blueprint is provided**, read it and extract:
-- Per-component delta entries (from §4 *Per-Component Changes*) — every entry becomes a candidate step
-- Service dependencies (from §3.2 / §3.5)
+- Per-component delta entries (from §4 *Architecture* component entries) — every entry becomes a candidate step
+- Service dependencies (from §4.2 Context Map; also §4.3 Communication Patterns)
 - Operations and the services they participate in
 
 **If a requirements doc is provided**, read it and extract:
@@ -102,7 +102,7 @@ See [roadmap-template.md](./references/roadmap-template.md) for the document str
 ```
 Step: Extend service.commerce.inventory with reservation API
 Component: service.commerce.inventory
-Blueprint sections: §4.1, §3.2.3, §3.4 (ReservationCreated event)
+Blueprint sections: §4.1, §4.1 (ReservationCreated integration event)
 Depends on: <blueprint-derived service deps>
 ```
 
@@ -111,7 +111,7 @@ For each new component, draft a step:
 ```
 Step: Build service.commerce.fulfillment-orchestrator
 Component: service.commerce.fulfillment-orchestrator (new)
-Blueprint sections: §4.2, §3.3 (CreateOrder operation)
+Blueprint sections: §4.2, §4.1 (CreateOrder operation)
 Depends on: service.commerce.inventory reservation API, service.commerce.payment events
 ```
 

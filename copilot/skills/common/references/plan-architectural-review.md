@@ -123,7 +123,7 @@ When a partially executed plan develops problems, use this triage before routing
 
 1. **Small local problem or question** — execution skill handles it directly and updates the plan in place.
    - Examples: one task needs rewording, one follow-up task is needed, one local decision can be closed with brief user discussion.
-   - Route: stay in `/devenv-pair-programming` or `/devenv-delegation`; if architecture is already settled, update the plan directly.
+   - Route: stay in `/devenv-pair-programming` or `/devenv-delegation` (commissioned run); if architecture is already settled, update the plan directly.
 
 2. **Accumulated questions or broader architectural drift** — return to `/devenv-grooming`.
    - Signals: multiple open decisions, interdependent blockers across phases, signs the current design needs broader reshaping, or the plan may need sweeping revision/replacement.

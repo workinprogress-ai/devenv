@@ -47,7 +47,7 @@ Issue artifact selection rules:
 - **Cancelled tasks**: lines wrapped in `~~strikethrough~~` — track separately, exclude from completion math.
 - **Dependencies**: indented `- depends on N.M, N.M2` lines under each task.
 - **Last update**: file mtime (file mode) or `updatedAt` from the issue artifact/source (issue mode).
-- **Open questions**: lines starting with `> Q:`, `**Open question:**`, `TODO:`, or under a `## Open questions` section if present.
+- **Open questions**: lines starting with `[QUESTION]`, `> Q:`, `**Open question:**`, `TODO:`, or under a `## Pending Questions` / `## Open questions` section if present.
 
 ### 3. Compute progress
 

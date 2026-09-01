@@ -39,7 +39,7 @@ The `description` is the **only** signal the model uses to decide whether to aut
 1. **Open with one sentence** that names what the skill does.
 2. **Include a `USE WHEN` clause** with the exact trigger phrases users will say (in quotes).
 3. **Include a `DO NOT USE FOR` clause** that names sibling skills it should defer to.
-4. Stay under 1024 characters total.
+4. Stay under 1500 characters total; brevity is still preferred — trim toward 1000 when possible.
 5. Do not use markdown formatting in the description — it's plain text.
 
 Template:

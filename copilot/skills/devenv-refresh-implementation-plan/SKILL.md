@@ -168,7 +168,7 @@ Apply patches directly and inline. No interview needed — the signals from Step
 **Permitted patch operations:**
 - Update file paths that moved (update `Files:` bullets and task description text).
 - Update symbol names that were renamed.
-- Mark phantom tasks `[x]` only when the work is already implemented in the codebase. If a note is needed, prefer factual wording such as `*(already implemented in codebase at refresh)*`.
+- Mark phantom tasks `[x]` only when the work is already implemented in the codebase — state the evidence in chat, not in the plan. Do not add process-era annotations to task text.
 - Add a brief note to any task whose description is now misleading.
 - Repair section headings or section placement only when needed to preserve the current human-first structure: `## Goals and Acceptance Criteria`, `## Context and Orientation`, `## Phase TOC`, `## Phases`, `## Reference Information`.
 
@@ -216,7 +216,7 @@ The plan's tasks are too stale to patch. Extract the intent, then re-plan.
 2. Ask: *"Does this capture the intent correctly, or has any of it changed?"* Adjust based on answer.
 3. Ask: *"Do you want me to run a full re-plan now using these as goals, or just save the intent summary so you can run `/devenv-create-implementation-plan` when you're ready?"*
 4. **If re-planning now**: proceed as `/devenv-create-implementation-plan` would, but skip the free-form goals interview (you already have them from the intent extraction). Interview the user only for the repo/tech context questions. Write a new `Implementation_plan-*.md` with a fresh suffix, preserving the old plan file as-is (archive reference).
-5. **If saving for later**: write the intent summary as a `## Preserved intent` section appended to the bottom of the existing plan, with a note at the top: *"⚠️ This plan is marked intent-only as of [date] — tasks are stale; see Preserved intent section for goals."*
+5. **If saving for later**: write the intent summary as a `## Preserved intent` section appended to the bottom of the existing plan, and update the plan's status line to `Status: intent-only — tasks are stale; see Preserved intent for goals.` (current-state status; no date marker).
 
 ---
 

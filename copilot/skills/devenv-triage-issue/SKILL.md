@@ -19,7 +19,7 @@ Take a fresh / untriaged GitHub issue and produce a structured triage recommenda
 - The reporter didn't include enough detail and you want a polite request for clarification.
 - You have a batch of untriaged issues to work through.
 
-If the work is clear and you just want to do it, use `/devenv-pair-programming` or `/devenv-delegation`. If the issue is a complete spec ready to plan, use `/devenv-create-implementation-plan`. If the issue is a cross-component epic, use `/devenv-create-blueprint` + `/devenv-create-roadmap`. If feasibility is unknown, use `/devenv-spike`. For a plain summary, the default agent's `summarize-github-issue-pr-notification` skill is faster.
+If the work is clear and you just want to do it, use `/devenv-pair-programming`, or `/devenv-delegation` for a commissioned autonomous run. If the issue is a complete spec ready to plan, use `/devenv-create-implementation-plan`. If the issue is a cross-component epic, use `/devenv-create-blueprint` + `/devenv-create-roadmap`. If feasibility is unknown, use `/devenv-spike`. For a plain summary, the default agent's `summarize-github-issue-pr-notification` skill is faster.
 
 ## Inputs
 
@@ -111,7 +111,7 @@ On `y`:
 
 - Labels: `issue-update <n> --add-label "<label1>" --add-label "<label2>"` (repeatable)
 - Comment: `issue-comment <n> --body-file <draft>`
-- Close as duplicate/invalid: `issue-close <n>` then post a comment via `issue-comment <n> --body "Closing as duplicate of #<other>"` (confirm each separately)
+- Close as duplicate/invalid: `issue-close <n>` then post a comment via `issue-comment <n> --body "Closing as duplicate of #<other>"` (both run as one bundled apply like the rest — surface them clearly in the recommendation so the user can veto the bundle)
 
 On `n`: print the recommendations, do nothing, stop.
 
@@ -124,7 +124,7 @@ No per-action confirms. No partial-apply. The user either trusts the bundle or t
 - **Drafting a clarifying comment when the issue is already complete** — skip the section, don't generate filler.
 - **Guessing priority without reasoning** — if priority depends on info you don't have, ask one question, don't pick at random.
 - **Marking duplicates without checking** — list candidates with reasons; let the user confirm the close.
-- **Triaging the issue AND fixing it in the same run** — triage produces recommendations only. To implement, switch to `/devenv-pair-programming` or `/devenv-delegation`.
+- **Triaging the issue AND fixing it in the same run** — triage produces recommendations only. To implement, switch to `/devenv-pair-programming` or `/devenv-delegation` (commissioned autonomous run).
 - **Over-explaining classifications** — one-line reasoning per field. Long justifications are noise.
 
 ## Sibling skills

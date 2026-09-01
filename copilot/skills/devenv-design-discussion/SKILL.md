@@ -48,10 +48,10 @@ For in-flight implementation blockers, do not use `/devenv-design-discussion` as
 
 ## What this skill does NOT do
 
-- **No code.** Even if the user asks "what would this look like?", offer a tiny illustrative snippet inline at most. For real implementation switch to [`/devenv-pair-programming`](../devenv-pair-programming/SKILL.md) or [`/devenv-delegation`](../devenv-delegation/SKILL.md).
+- **No code.** Even if the user asks "what would this look like?", offer a tiny illustrative snippet inline at most. For real implementation switch to [`/devenv-pair-programming`](../devenv-pair-programming/SKILL.md) or [`/devenv-delegation`](../devenv-delegation/SKILL.md) for a commissioned autonomous run.
 - **No formal architecture artifact.** This skill produces a focused single-file solution proposal — not a blueprint with domains/services/events/per-component deltas.
 - **No prototyping.** If a question genuinely can't be answered without trying something, escalate to [`/devenv-spike`](../devenv-spike/SKILL.md).
-- **No `AI_Progress.md` migration tracking.** That's a separate concern (in-flight refactor execution) handled by [`/devenv-delegation`](../devenv-delegation/SKILL.md) or [`/devenv-pair-programming`](../devenv-pair-programming/SKILL.md).
+- **No `AI_Progress.md` migration tracking.** That's a separate concern (in-flight refactor execution) handled by [`/devenv-pair-programming`](../devenv-pair-programming/SKILL.md), or [`/devenv-delegation`](../devenv-delegation/SKILL.md) when the user commissions an autonomous mechanical run.
 
 ## Personality
 
@@ -275,7 +275,7 @@ Any open question not explicitly kept open by the user should be converted into 
 - Discussion settled at the component level and should become a reusable issue artifact for planning → [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md)
 - Discussion settled at the component level (design is already clear, just need tasks) → [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md)
 - Discussion exposed that the user is actually just venting/articulating → [`/devenv-rubber-duck`](../devenv-rubber-duck/SKILL.md)
-- This is an in-flight refactor needing migration discipline → share [references/architectural-change-guide.md](./references/architectural-change-guide.md) and suggest [`/devenv-delegation`](../devenv-delegation/SKILL.md) or [`/devenv-pair-programming`](../devenv-pair-programming/SKILL.md) for execution
+- This is an in-flight refactor needing migration discipline → share [references/architectural-change-guide.md](./references/architectural-change-guide.md) and suggest [`/devenv-pair-programming`](../devenv-pair-programming/SKILL.md), or [`/devenv-delegation`](../devenv-delegation/SKILL.md) when the user commissions an autonomous mechanical run, for execution
 
 If the user explicitly wants an open question preserved, capture it under a `## Pending / Unresolved / Open` section in the write-up (or leave it in the conversation notes if no doc is written). Otherwise, do not retain a separate open-question list at wrap-up; resolve or narrow it during the discussion.
 
@@ -290,7 +290,7 @@ If the user explicitly wants an open question preserved, capture it under a `## 
 - **Vague recommendation** ("this one seems okay"). State a pick with reasoning.
 - **Hand-wavy mitigations.** "We'll monitor it" is not a mitigation.
 - **Forgetting the team.** A technically perfect solution the team can't maintain isn't a good solution.
-- **Writing code.** This is a discussion skill — not an implementation skill. If it's time to build, use [`/devenv-pair-programming`](../devenv-pair-programming/SKILL.md) or [`/devenv-delegation`](../devenv-delegation/SKILL.md).
+- **Writing code.** This is a discussion skill — not an implementation skill. If it's time to build, use [`/devenv-pair-programming`](../devenv-pair-programming/SKILL.md) or [`/devenv-delegation`](../devenv-delegation/SKILL.md) for a commissioned autonomous run.
 - **Writing a solution proposal without user request.** Keep default mode conversational and brainstorming-oriented.
 - **Monologuing after context load.** Do not switch into long lecture mode; keep the exchange turn-by-turn.
 - **Confusing this skill with a blueprint.** Design discussion is focused and narrow. If it sprawled into domains/services/events/components, escalate to `/devenv-create-blueprint`.
