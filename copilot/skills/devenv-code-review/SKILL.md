@@ -83,6 +83,9 @@ Output structure (markdown, in this order):
 ### TODO/FIXME left in the diff
 - [repos/path/file.ts:55](repos/path/file.ts#L55) — `// TODO: handle empty input`
 
+### Ephemeral-artifact references in added comments
+- [repos/path/file.ts:60](repos/path/file.ts#L60) — comment cites finding IDs / plan task numbers / audit filenames: that vocabulary belongs in the plan, audit, or commit messages — not durable code. Default Concern: strip the tag, keep the invariant prose.
+
 ### Questions for the author
 - <Open questions where the diff isn't self-explanatory: "Is the retry count of 3 intentional or arbitrary?" "Why does this prefer X over Y?">
 ````

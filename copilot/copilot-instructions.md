@@ -214,3 +214,12 @@ When writing temporary comments into code during implementation sessions, use th
 **Grep to find all markers:** `grep -rn "DEVENV\[" .`
 
 **All DEVENV markers must be removed before the work ships.** If DEVENV markers were introduced during a plan, the Cleanup phase must include an explicit task to remove them all. Markers left in committed code are a defect.
+
+**Never reference ephemeral workflow artifacts in durable code comments.** Finding IDs (`F006`), plan task numbers (`2.3`), audit filenames (`TECH_DEBT_AUDIT.md`), plan filenames, decision dates, and similar workflow vocabulary belong in the artifacts whose job is history — the plan, the audit document, commit messages, PR descriptions — never in source files. A durable code comment states the invariant itself, readable without any external document:
+
+```csharp
+// BAD:  // F006 (2026-08-31): legacy OpBulkUpsert fallback removed per gate decision — string _id is guaranteed.
+// GOOD: // _id is guaranteed to be a string by the ingest layer; no legacy fallback path is required.
+```
+
+This is a sibling rule to the DEVENV remove-before-ship rule above, covering the distinct class of **permanent unmarked** provenance comments: DEVENV markers are tracked temporaries (removed on schedule); ephemeral references in unmarked comments are untracked permanents (never valid in shipped code).
