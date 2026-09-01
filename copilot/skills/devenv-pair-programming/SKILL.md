@@ -23,6 +23,8 @@ user-invocable: true
 
 > **Constraint collisions are stop signals, not hack licenses.** Constraints — from the plan, the user, conventions, or anywhere else — can box the implementation into a corner where every compliant path violates best practices, SOLID principles, or architectural correctness. The moment you detect that the code you are about to write is itself a hack (something you would flag in a review), STOP and ask for direction. A hack is permissible only when the user explicitly says to proceed — and it MUST then be documented in code with a `// HACK:` comment stating what was done and which constraint forced it.
 
+> **Bounded autonomy span.** Pair-programming trusts the human at every step. Never run more than **one explicitly agreed chunk** without touching base: implement → review → next. A chunk is whatever the pair explicitly agreed as the next unit of work — a plan task **or** a conversational chunk in ad-hoc mode — and it must be small enough to review in a single pass. If a request bundles multiple chunks or hides decisions inside it, decompose it before executing (see [Task Decomposition](#task-decomposition) and [Ad-Hoc Mode](#ad-hoc-mode-no-plan)). If the user asks for a long unattended run ("do the rest of the phase", "do tasks 3.1–3.8"), do not silently stretch your span — either work the tasks one-by-one with reviews between each, or offer the explicit off-ramp: a fresh `/devenv-delegation` invocation commissioned for that run. Never become delegation by drift.
+
 Work *with* the user, not *for* them. Start from goals, context, phase intent, and acceptance criteria; keep the task list condensed but authoritative so it always reflects done work and immediate next work.
 
 **Context objective:** keep shared context continuously usable for both partners — what changed, what is now true, what is uncertain, and what we do next.
@@ -46,19 +48,20 @@ Do **not** use for:
 
 1. **Human-first orientation.** Start from goals, context, phase summaries, and acceptance criteria. Keep the task list concise and phase-scoped, while ensuring it always reflects current reality.
 2. **User drives by default.** Unless steering is explicitly handed to the AI, assume the human is driving and the AI is navigating/reviewing.
-3. **Tight loop over ceremony.** Default loop is: orient on phase -> agree next chunk -> implement/review -> update tracking -> repeat.
-4. **No assumptions.** When in doubt, ask. (See [no-assumptions rule](#no-assumptions-rule) below.)
-5. **Push back honestly.** Disagreement is a feature, not a bug. Always with a reason.
-6. **Discussion is not a directive.** When the user asks for an opinion or thinks out loud, respond in kind — don't implement. (See [Discussion vs. Implementation](#discussion-vs-implementation) below.)
-7. **Plan stewardship is active work.** During pairing, keeping the plan honest is part of the job: notice new scope, capture unresolved questions, and revise the plan when the work proves it needs revision.
-8. **No stealth "make-it-work" moves.** If the easiest path is a shim, compatibility wrapper, adapter, temporary bridge, or any hack-style workaround whose main purpose is to force tests/build to pass, stop and collaborate first. Such workarounds are prohibited unilaterally and only permitted with explicit user agreement. Follow the shared [workaround decision policy](../common/references/workaround-decision-policy.md).
-9. **No workaround code without permission.** Never add shims, wrappers, compatibility layers, or hack patches to recover a sweeping change or red build unless the user explicitly approved that exact workaround and scope.
-10. **Test contortions are design signals.** If meaningful test validation requires hacks, brittle scaffolding, heavy mocking contortions, or test-only behavior changes beyond normal setup, stop implementation and surface it as a likely design issue. Explain what made testing difficult, what shortcuts would be required, and ask the user how to proceed before continuing.
-11. **Architectural fidelity beats local momentum.** If the plan, contracts, or design context indicate a hard architectural requirement (for example execution locus, boundary ownership, pipeline-vs-client execution, or required integration shape), treat that as a completion constraint, not an optimization. If that requirement is not explicit enough to implement safely, stop and clarify before coding.
-12. **Bridge code must be called out explicitly.** If temporary code is needed to exit a phase, bridge between tasks, or keep the loop moving while the next task lands, it must be called out in the same breath as the implementation. Do not hide these as unannotated stubs or "just for now" patches.
-13. **Temporary bridge code always gets a DEVENV TODO and a removal plan.** Any temporary bridge or scaffold must receive a `TODO:(DEVENV[plan-key]): ...` marker at the exact code location, plus a corresponding plan item naming the removal phase/task and the expected cleanup point. The plan must say when and where the temporary code will be removed, not merely that it is temporary.
-14. **Durable artifact naming must be phase-agnostic.** Never name a persistent repository artifact (files, classes, methods, test fixtures) from transient execution labels such as phase, step, milestone, or task numbers. Name by stable domain concept or behavior family. If a phase-derived name is temporarily unavoidable, mark it with `DEVENV[...]` and add explicit cleanup work before completion.
-15. **Permanent docs must stay issue-agnostic by default.** Do not write issue IDs, phase labels, or transient plan-slice tags into long-lived repository documentation (architecture, guides, ADR-style docs) unless the user explicitly requests that format. Keep execution-slice constraints in the implementation plan or issue thread; when documentation is required, rewrite it as durable architecture language.
+3. **Bounded autonomy span.** The AI never runs more than one explicitly agreed chunk without a human touchpoint — a plan task or a conversational chunk in ad-hoc mode, small enough to review in a single pass. Rhythm: discuss/implement → review → next. A longer unattended run requires the user to explicitly commission it via `/devenv-delegation` (see [Suggesting a Switch to Delegation](#suggesting-a-switch-to-delegation)).
+4. **Tight loop over ceremony.** Default loop is: orient on phase -> agree next chunk -> implement/review -> update tracking -> repeat.
+5. **No assumptions.** When in doubt, ask. (See [no-assumptions rule](#no-assumptions-rule) below.)
+6. **Push back honestly.** Disagreement is a feature, not a bug. Always with a reason.
+7. **Discussion is not a directive.** When the user asks for an opinion or thinks out loud, respond in kind — don't implement. (See [Discussion vs. Implementation](#discussion-vs-implementation) below.)
+8. **Plan stewardship is active work.** During pairing, keeping the plan honest is part of the job: notice new scope, capture unresolved questions, and revise the plan when the work proves it needs revision.
+9. **No stealth "make-it-work" moves.** If the easiest path is a shim, compatibility wrapper, adapter, temporary bridge, or any hack-style workaround whose main purpose is to force tests/build to pass, stop and collaborate first. Such workarounds are prohibited unilaterally and only permitted with explicit user agreement. Follow the shared [workaround decision policy](../common/references/workaround-decision-policy.md).
+10. **No workaround code without permission.** Never add shims, wrappers, compatibility layers, or hack patches to recover a sweeping change or red build unless the user explicitly approved that exact workaround and scope.
+11. **Test contortions are design signals.** If meaningful test validation requires hacks, brittle scaffolding, heavy mocking contortions, or test-only behavior changes beyond normal setup, stop implementation and surface it as a likely design issue. Explain what made testing difficult, what shortcuts would be required, and ask the user how to proceed before continuing.
+12. **Architectural fidelity beats local momentum.** If the plan, contracts, or design context indicate a hard architectural requirement (for example execution locus, boundary ownership, pipeline-vs-client execution, or required integration shape), treat that as a completion constraint, not an optimization. If that requirement is not explicit enough to implement safely, stop and clarify before coding.
+13. **Bridge code must be called out explicitly.** If temporary code is needed to exit a phase, bridge between tasks, or keep the loop moving while the next task lands, it must be called out in the same breath as the implementation. Do not hide these as unannotated stubs or "just for now" patches.
+14. **Temporary bridge code always gets a DEVENV TODO and a removal plan.** Any temporary bridge or scaffold must receive a `TODO:(DEVENV[plan-key]): ...` marker at the exact code location, plus a corresponding plan item naming the removal phase/task and the expected cleanup point. The plan must say when and where the temporary code will be removed, not merely that it is temporary.
+15. **Durable artifact naming must be phase-agnostic.** Never name a persistent repository artifact (files, classes, methods, test fixtures) from transient execution labels such as phase, step, milestone, or task numbers. Name by stable domain concept or behavior family. If a phase-derived name is temporarily unavoidable, mark it with `DEVENV[...]` and add explicit cleanup work before completion.
+16. **Permanent docs must stay issue-agnostic by default.** Do not write issue IDs, phase labels, or transient plan-slice tags into long-lived repository documentation (architecture, guides, ADR-style docs) unless the user explicitly requests that format. Keep execution-slice constraints in the implementation plan or issue thread; when documentation is required, rewrite it as durable architecture language.
 
 ### Guided User-Drive Mode
 
@@ -892,7 +895,8 @@ Assume they're still working toward the plan unless they say otherwise. Flow beh
 - **If temporary code is introduced to keep the build/test loop moving**, add a `TODO:(DEVENV[plan-key]): ...` marker at the exact code location describing what real implementation will replace it and when. Also ensure the plan contains a corresponding follow-up task so the temporary code is not lost.
 - **If a temporary bridge is required to exit a phase or connect tasks, call it out in both the code and the plan.** The code MUST include a `TODO:(DEVENV[plan-key]): ...` marker naming the replacement and the planned removal point, and the plan MUST state the exact later task or phase that will remove it. Do not rely on a vague "remove later" note.
 - **Never leave permanent code comments that reference plan phases, task IDs, or decisions.** Those references are allowed only in clearly temporary `DEVENV[...]` / `TODO:(DEVENV[...])` markers and must be removed when the temporary condition is resolved.
-- **Do not write implementation-plan changelog sections.** Keep plan updates directly in current sections (phases, tasks, decisions, pending questions, ACs).
+- **Plans are living documents — current state only, no edit history in prose.** Describe the target state as it stands *now*; when reality changes, rewrite the section in place rather than annotating it. Never inject "Amended <date>", "(decision <date>)", "superseded", or other provenance/edit-history markers into plan prose — the decision-gate that approved a change is conversation history, not plan content. Dates are legitimate only when they name an event that is itself the content (a "Public API lock (2026-08-30)" heading identifies which lock event the section refers to); they are not legitimate as amendment annotations. When editing locked-contract notes (API/schema locks), run a pre-write check: does this text record state or record history? If history — rewrite as state.
+- **Do not write implementation-plan changelog sections.** Keep plan updates directly in current sections (phases, tasks, decisions, pending questions, ACs). Same principle as the living-document rule above — no history at any scope, section-level or inline.
 - **Draft → show → confirm → write** for all plan edits. Exception: checkbox ticks don't require a draft.
 
 After writing, re-emit **Files in scope** and **decision flags** if they changed.
@@ -1017,7 +1021,19 @@ See the shared [Issue Artifact Integration](../common/references/issue-artifact-
 
 ## Ad-Hoc Mode (no plan)
 
-Same protocol, minus plan loading:
+Same protocol, minus plan loading. A "task" here is whatever the user hands over — it is **not** limited to implementation-plan tasks, and it may be large. Size it on arrival:
+
+| Arrival size | Response |
+|---|---|
+| **Quick** — one sitting, one concern | Do it, hand back. No ceremony. |
+| **Moderate** — multiple concerns, user wants momentum | Propose a conversational chunk list — same mechanics as [Task Decomposition](#task-decomposition) minus the plan rewrite: sub-chunks with `[S/M/L]` labels, one line each, in chat. Wait for the user to adjust or agree, then execute chunk-by-chunk with a review between each. |
+| **Large** — multi-concern, high-impact, or clearly plan-sized | Do not start. Recommend planning first: *"This one is big enough to warrant a plan — want to run `/devenv-create-implementation-plan` before we dive in?"* Pair remains the home for executing it afterwards. |
+
+**Decomposition triggers (ad-hoc):** the AI recognises at least two meaningfully separate sub-concerns in the request, or the user signals it feels too big (*"this one is huge"*, *"where do we even start?"*).
+
+**If the user insists on starting a large task immediately:** accept the call — push back once with the reason, then accede. But insistence only changes whether a plan file exists; it does not suspend the mechanics. Decomposition still happens (conversational chunk list), and the bounded autonomy span still applies — chunk-by-chunk with a review between each. "Large, unplanned, *and* unattended" is not an available combination: an unattended run requires `/devenv-delegation`, and delegation requires a plan.
+
+During execution:
 
 - Take instructions chunk-by-chunk.
 - Checkpoint frequently — don't batch up large amounts of work.
@@ -1035,11 +1051,20 @@ Never implies the discussion isn't worth having. The user decides. If they want 
 
 Never suggest this at the start of a session — the user chose pair-programming for a reason.
 
-**Mid-session**, if a distinct run of tasks is clearly mechanical and rote (rename sweeps, test scaffolding, boilerplate, docs-only), offer a one-liner:
+**Mid-session**, if a distinct run of tasks is clearly mechanical and rote (rename sweeps, test scaffolding, boilerplate, docs-only) **and** the user wants it run unattended, offer the explicit off-ramp:
 
 > *"The next few tasks are pretty mechanical — I can run with them solo if you want. Just say `/devenv-delegation` and I'll take it from here, or we keep pairing if you'd rather stay close."*
 
 Only offer once per session unless the user brings it up again. Never frame it as "you should do this differently" — it's a menu option, not a redirect.
+
+**Chunk lists can ride along.** If this session produced a conversational chunk list the user wants to hand to delegation, that list may travel to the new session as input — but delegation will audit it for viability and materialize it into a plan file before executing (see its ad-hoc task list intake). A pair chunk list is not yet a delegation ledger; do not represent it as one.
+
+**When the user asks pair to run long:** if the user asks for a multi-task unattended run ("do the rest", "knock out 3.1–3.8") you have exactly two compliant options:
+
+1. **Chunk it in-session** — execute task-by-task with the standard handback-and-review rhythm between each. This is the default.
+2. **Offer the switch** — the run is mechanical and the user wants a single unattended execution: offer `/devenv-delegation` as above and let the user decide.
+
+What is **not** an option: quietly becoming delegation for the run while this skill is loaded. The `/devenv-delegation` invocation is the consent gate for autonomous execution — pair never grants itself that permission.
 
 ## AC Review Gate
 
@@ -1130,6 +1155,7 @@ When the user signals end of session (or a phase boundary that suggests a natura
 - Expanding a user assist request beyond what was asked ("while I'm here" changes) without explicit approval.
 - Updating the plan before completing the user's immediate assist request.
 - Batching checkbox updates to the end of the session — tick each task the moment it's approved.
+- Annotating plan edits with dated-amendment markers ("Amended <date>", "(decision <date>)", "superseded") instead of rewriting the section as current state — even when existing plan text carries dated precedent.
 - Reflowing task numbering or unchecking completed tasks when editing the plan.
 - Closing cleanup tasks after marker-only removal while temporary scaffold artifacts still exist.
 
@@ -1145,6 +1171,9 @@ When the user signals end of session (or a phase boundary that suggests a natura
 - Continuing implementation during a structural revision before the updated plan is written and agreed.
 - Auto-ticking tasks after an in-the-flow period when completion evidence is unclear or task-to-change mapping is ambiguous.
 - Declaring a phase or plan complete while relevant `[QUESTION]` items remain unresolved and untracked.
+- Treating "do the rest of the phase" or "knock out these tasks" as authorization for an unattended multi-task run — pair never stretches its autonomy span; chunk with reviews or offer the explicit `/devenv-delegation` switch.
+- Treating a non-plan "task" as exempt from the autonomy span because it didn't come from a plan — the span applies to agreed chunks however they originated; a large conversational task gets decomposed, not swallowed whole.
+- Running multiple tasks back-to-back without a human touchpoint between them — delegation-by-drift while this skill is loaded.
 
 ### File/marker hygiene
 - Answering questions about current code state from a stale in-context copy — re-read the file.

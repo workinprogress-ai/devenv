@@ -1,7 +1,7 @@
 ---
 name: devenv-delegation
-description: 'Drive implementation of a pre-existing plan with assistant-led execution and user review. USE WHEN the user says "delegate this to you", "you take this", "run with this", "implement this plan", "work through this plan", or "do this for me" with a plan attached, AND the work is mechanical, rote, or low-impact (refactors, rename sweeps, test scaffolding, cleanup, docs). REQUIRES an existing implementation plan (file path or GH issue with a plan in the body). Works phase by phase: uses acceptance criteria and human-facing phase summaries as the review guide, refreshes and confirms the phase task list as the current-state execution ledger, runs a full phase semi-autonomously (stopping only for ambiguity, major decisions, or unexpected obstacles), then hands back with a structured phase completion summary including hotspots, decisions made, and any deviations noted. Expects a discussion window between phases — user may review, request changes, or ask for plan edits. SUGGESTS switching to `/devenv-pair-programming` for high-impact phases; respects the user''s decision either way. DO NOT USE for ad-hoc work, plans that don''t exist yet (use `/devenv-create-implementation-plan` first), or highly collaborative work where the user wants to drive (use `/devenv-pair-programming`).'
-argument-hint: '<issue-number[:doc_id] | path-to-plan> [phase or task range]'
+description: 'Drive implementation of a pre-existing plan with assistant-led execution and user review. USE WHEN the user says "delegate this to you", "you take this", "run with this", "implement this plan", "work through this plan", or "do this for me" with a plan attached, AND the work is mechanical, rote, or low-impact (refactors, rename sweeps, test scaffolding, cleanup, docs). REQUIRES a persistent, validated ledger — normally an implementation plan (file path or GH issue with a plan in the body); an ad-hoc decomposed task list is acceptable as input only via a viability audit and materialization into a plan file at kickoff, never as a bare in-context list. Works phase by phase: uses acceptance criteria and human-facing phase summaries as the review guide, refreshes and confirms the phase task list as the current-state execution ledger, runs a full phase semi-autonomously (stopping only for ambiguity, major decisions, or unexpected obstacles), then hands back with a structured phase completion summary including hotspots, decisions made, and any deviations noted. Expects a discussion window between phases — user may review, request changes, or ask for plan edits. SUGGESTS switching to `/devenv-pair-programming` for high-impact phases; respects the user''s decision either way. DO NOT USE for ad-hoc work without a plan or decomposed list (use `/devenv-create-implementation-plan` first), or highly collaborative work where the user wants to drive (use `/devenv-pair-programming`).'
+argument-hint: '<issue-number[:doc_id] | path-to-plan | ad-hoc task list> [phase or task range]'
 user-invocable: true
 ---
 
@@ -21,7 +21,11 @@ user-invocable: true
 
 > **Constraint collisions are stop signals, not hack licenses.** Constraints — from the plan, the user, conventions, or anywhere else — can box the implementation into a corner where every compliant path violates best practices, SOLID principles, or architectural correctness. The moment you detect that the code you are about to write is itself a hack (something you would flag in a review), STOP and ask for direction. A hack is permissible only when the user explicitly says to proceed — and it MUST then be documented in code with a `// HACK:` comment stating what was done and which constraint forced it.
 
+> **Commissioned by invocation only.** Delegation is a commissioned autonomous run — entered exclusively via an explicit `/devenv-delegation` invocation (or the user clearly commissioning a run: "delegate this", "you take this plan"). It cannot be slid into from another session: unattended execution is legitimate only under this skill's rules, which the invocation loaded. The invocation is the trust boundary: it is the explicit act of changing what is trusted — from trusting the human at every step (pair) to trusting the plan plus phase gates (delegation).
+
 This skill supports delegated execution while the user stays accountable for outcomes and reviews. Use it for work that is mechanical, rote, or low-impact enough that pair-programming ceremony would be overkill — but still warrants enough engagement that important decisions don't slip past the human.
+
+The plan is a **living record**: it starts life as a *theoretical* way to get the work done and should end life as *the way it actually got done*. Updating the plan to match reality is part of the job, not optional bookkeeping — the same plan-stewardship duty pair-programming carries. In prose, that means **current-state writing**: rewrite sections in place to describe the target as it stands now, and never inject "Amended <date>", "(decision <date>)", "superseded", or other dated-amendment markers into plan text. Dates are legitimate only when they name an event that is itself the content (a lock heading identifying which lock event the section refers to); they are not legitimate as edit annotations. History belongs in the phase handback (`Challenges`, `Deviation`), not in the plan.
 
 ## When to Use
 
@@ -31,6 +35,7 @@ Trigger phrases:
 - "implement this plan" / "work through this plan"
 - "do this for me" — when a plan is attached
 - A plan + intent for assistant-led execution (not collaborative turn-taking)
+- An ad-hoc decomposed task list (pasted in, or carried over from a pair-programming session) + intent for an autonomous run — acceptable via the [ad-hoc intake gate](#ad-hoc-task-list-intake), never as a bare in-context list
 
 Do **not** use for:
 
@@ -40,11 +45,11 @@ Do **not** use for:
 
 ## Core Principles
 
-1. **Plan required.** No plan, no delegation. Refuse and redirect.
+1. **Plan required.** No plan, no delegation. Refuse and redirect. The requirement is for a **persistent, validated ledger** — normally an `Implementation_plan-*.md` from the planning skills, but an ad-hoc task list is acceptable **input** if it passes the ad-hoc intake gate (see [Ad-Hoc Task List Intake](#ad-hoc-task-list-intake)) and gets materialized into a plan file first. An in-context list (pasted or carried from a pair-programming session) is never the ledger itself.
 2. **Engagement floor.** The human stays in the loop with brief task pings, inline concern surfacing, and a structured end-of-session summary with **review hotspots**.
 3. **Phase-first, AC-first review.** Use acceptance criteria plus goals, context, and phase summaries as the source of truth; the phase task list is the authoritative current-state execution ledger.
 4. **Runtime micro-planning = task-list refresh.** At phase start, refresh and confirm the current phase task list, then execute from it. Do not run a parallel shadow checklist.
-5. **No assumptions.** Same rule as pair-programming — ask before non-trivial choices, ambiguous acceptance criteria, multiple competing patterns, or anything contradicting the plan.
+5. **No assumptions.** Ask before non-trivial choices, ambiguous acceptance criteria, multiple competing patterns, or anything contradicting the plan.
 6. **Suitability check first.** Some phases shouldn't be delegated. Say so.
 7. **Push back honestly.** Surface concerns, doubts, and unknowns as they arise — don't batch them to the end.
 8. **No unilateral workaround shims.** If the next move is a shim, compatibility wrapper, adapter, temporary bridge, or other hack-style workaround primarily intended to force tests/build to pass, stop and collaborate first. These are prohibited unilaterally and only permitted with explicit user agreement. Follow the shared [workaround decision policy](../common/references/workaround-decision-policy.md).
@@ -176,6 +181,21 @@ Wait for explicit confirmation. Once confirmed, add the `## Goals and Acceptance
 ### 2. Confirm scope
 
 Ask: *"Delegating the entire plan, specific phases, or a task range?"* Wait for answer.
+
+### 2a. Ad-Hoc Task List Intake
+
+When handed an ad-hoc decomposed task list — pasted into chat or carried over from a pair-programming session — treat it as **input, never as the ledger**. An in-context list cannot be refreshed, ticked, drift-checked, or survive context compaction; delegation's machinery requires a persistent plan file. Run this gate in order:
+
+1. **Suitability first, as always.** Rate the *work* well-suited / borderline / better-as-pair below. Ad-hoc provenance changes nothing — high-impact is high-impact.
+2. **Viability audit** of the list itself. It passes only if **every** condition holds:
+   - **Bounded** — each task is single-concern and pass/fail-able without judgment calls. A monolith wrapped as one line fails.
+   - **Decision-free** — no unresolved choices hiding inside tasks. Pair chunk lists legitimately defer decisions because a human reviews between chunks; an autonomous run has no such net.
+   - **Verifiable** — each task has a completion signal: a test, a build, or an observable outcome.
+   - **Unsmuggled impact** — nothing public-API, data-shape, or security-flavored dressed in mechanical wording.
+3. **Materialize on pass.** Write the list into a minimal plan file (goal line, checkboxed tasks, acceptance = task completion conditions + tests pass), name the file, and get explicit user approval of it before executing.
+4. **Route on fail.** If any audit condition fails, refuse the list and recommend `/devenv-create-implementation-plan` — audit failure is itself evidence the work needs real planning, not transcription.
+
+A pair-programming conversational chunk list is an agreement about conversation cadence; a delegation ledger is a commissioning document for autonomy. The audit + materialization step is where that difference gets checked — explicitly, not by assumption.
 
 ### 3. Suitability analysis
 
@@ -336,6 +356,8 @@ If the user interjects mid-phase, stop and respond. Then continue from where thi
 
 ### Mid-phase stop triggers
 
+**Supervision bias:** delegation runs with materially less supervision than pair-programming. A decision a pair session would catch at the next touchpoint can compound here across an entire unattended run. When torn between proceeding and stopping, **stop** — a false stop costs one exchange; a bad assumption baked into an autonomous run costs a phase rework and review trust. Be paranoid about assumptions: if the plan's intent is readable two ways and the choice is consequential, that is ambiguity, not momentum.
+
 Stop and surface to the user when hitting:
 
 - A non-trivial implementation choice not specified in the plan where picking wrong would materially affect the phase outcome.
@@ -370,6 +392,8 @@ Compatibility note (strict): test-only shims/adapters/extensions that recreate o
 
 **Non-blocking concerns (note for handback):** something the reviewer should know but that doesn't change what the AI does. Collect these and surface them in the phase completion handback. Don't fragment the flow with minor asides.
 
+**Challenges worked through (signal at handback — required):** situations that arose mid-task and were resolved *without* a stop — an assumption that held only after adjustment, an unexpected code structure absorbed into the approach, a near-equal choice made between competing options. Proceeding past such a challenge is fine when no stop trigger applies, but it must never be silently absorbed: record it as it happens and surface it in the phase completion handback so the user can veto with full information. The handback must make "nothing to report" explicit — an empty **Challenges** line is itself a signal.
+
 ### Mid-phase abort conditions
 
 Stop the phase and reconvene with the user when **any** of these happen:
@@ -397,13 +421,14 @@ Use this canonical pass whenever you hand back a completed phase, abort a phase 
 1. **Verify current reality first.** Re-read changed files and compare against the plan tasks for the phase.
 2. **Map execution to plan.** Identify what is complete, partial, off-plan, and untouched.
 3. **Run gate status check.** State whether the [Phase Completion Gate](#phase-completion-gate) is clear, blocked, or not yet run.
-4. **Surface review hotspots and decisions.** Include non-blocking concerns, notable trade-offs, and any decisions made.
+4. **Surface review hotspots, decisions, and challenges.** Include non-blocking concerns, notable trade-offs, decisions made, and challenges that were worked through without a stop.
 5. **Pause for user direction.** Ask whether to accept and continue, request changes, or revise the plan. Never auto-proceed.
 
 Default output shape:
 
 > **Done:** [tasks/files completed]
 > **Deviation:** [none or brief note]
+> **Challenges:** [encountered-and-worked-through items, or "none"]
 > **Hotspots:** [file:line items worth review]
 > **Open questions:** [[QUESTION] items, unresolved choices, or "none"]
 > **Gate:** [clear/blocked/not yet run + reason]
@@ -542,6 +567,10 @@ If this is the **final implementation phase**, no AC may remain unchecked. Befor
 - Continuing after a wall by introducing placeholder, fallback, or other hack logic whose main purpose is to avoid asking the user for direction.
 - Adding bridge code (even approved) without its `TODO:(DEVENV[...])` marker and a plan item for its removal — unmarked bridges slip into pull requests.
 - Writing a hack to satisfy conflicting constraints (plan vs. conventions vs. user directives) without stopping to surface the collision first — and, if the user approves it, leaving it undocumented instead of marking it with a `// HACK:` comment.
+- Treating unattended execution as legitimate without an explicit `/devenv-delegation` commission — this skill's rules apply only because the user invoked it; they do not transfer to sessions running under other skills.
+- Accepting an in-context task list (pasted or carried from pair) as the execution ledger directly — ad-hoc lists are input only and must pass the viability audit and be materialized into a plan file before any execution.
+- Injecting dated-amendment markers ("Amended <date>", "(decision <date>)") into plan prose instead of rewriting sections as current state — even when existing plan text carries dated precedent; history belongs in the handback.
+- Silently absorbing a challenge that was worked through — proceeding past it is acceptable when no stop trigger applies, but the handback must say what happened; an explicitly empty **Challenges** line is required, not an omitted one.
 - Weakening/removing failing behavior assertions to get green status instead of fixing the defect.
 - Attempting a mutating git operation as a repair — unstaging, resetting to the last commit, restoring files from HEAD after corrupting them — instead of stopping immediately and handing the recovery to the user.
 - A phase handback without **review hotspots** when hotspot-worthy work was done.

@@ -44,8 +44,9 @@ What are you trying to do?
 │
 ├─ 🔨 Build
 │   ├─ No plan yet                      →  /devenv-create-implementation-plan first
-│   ├─ Plan exists, high-impact work    →  /devenv-pair-programming
-│   └─ Plan exists, mechanical work     →  /devenv-delegation
+│   ├─ High-impact work (any size)      →  /devenv-pair-programming
+│   ├─ Mechanical, task-by-task collaboration →  /devenv-pair-programming
+│   └─ Long mechanical run, commissioned autonomous execution →  /devenv-delegation
 │
 ├─ 🔎 Review / address feedback
 │   ├─ Review your changes              →  /devenv-code-review
@@ -110,13 +111,13 @@ Interviews the user, scans repo conventions, drafts phased atomic tasks, and wri
 
 ### `/devenv-pair-programming`
 
-> **Collaborative, human stays in control.**
+> **Collaborative with bounded autonomy span: one task or small chunk per human touchpoint.**
 
-Loads the plan and runs an interactive driver/navigator handoff: both parties take turns driving (writing the code) and navigating (watching, asking questions, keeping the big picture in view). The navigator is active during the other person's turn — pre-reading ahead, looking things up, catching problems early. The AI also acts as plan steward during execution: it keeps progress honest and reconciles the plan to the engineer's real work, including off-plan discoveries or intentional deviations. The AI pushes back when warranted, narrates its own reasoning as it works, and asks before assuming. If it raises a decision gate, it must stop before any mutating action until the user explicitly approves the path. High-engagement, high-quality — slows down appropriately for risky or novel work.
+Loads the plan and runs an interactive driver/navigator handoff: both parties take turns driving (writing the code) and navigating (watching, asking questions, keeping the big picture in view). The AI never runs more than one task or small agreed chunk without coming back for review — ask it for a long unattended run and it will either keep chunking with reviews or tell you to invoke `/devenv-delegation` explicitly. The navigator is active during the other person's turn — pre-reading ahead, looking things up, catching problems early. The AI also acts as plan steward during execution: it keeps progress honest and reconciles the plan to the engineer's real work, including off-plan discoveries or intentional deviations. The AI pushes back when warranted, narrates its own reasoning as it works, and asks before assuming. If it raises a decision gate, it must stop before any mutating action until the user explicitly approves the path. High-engagement, high-quality — slows down appropriately for risky or novel work.
 Question-shaped prompts default to discussion/analysis mode; implementation starts only after explicit user direction.
 
-**Use for:** high-impact phases — public API changes, data shape changes, security, novel architecture; also any work where you want to stay closely involved  
-**Don't use for:** mechanical/rote work (→ `/devenv-delegation`), pure exploration (→ `/devenv-spike`)  
+**Use for:** high-impact phases — public API changes, data shape changes, security, novel architecture (any size); also any work where you want to stay closely involved, task by task  
+**Don't use for:** long unattended runs of mechanical work (→ `/devenv-delegation`, invoked explicitly), pure exploration (→ `/devenv-spike`)  
 **Tool deps:** `issue-get`, `issue-artifact-select`, `issue-artifact-get`, `issue-artifact-upsert`, `pr-get`, `pr-diff`, `issue-comment`  
 **New to pair programming?** See [How pair programming works](#how-pair-programming-works) below.
 
@@ -124,9 +125,9 @@ Question-shaped prompts default to discussion/analysis mode; implementation star
 
 ### `/devenv-delegation`
 
-> **Delegated execution support for mechanical work, with user review and ownership.**
+> **Commissioned autonomous run for mechanical work, with user review and ownership.**
 
-Analyzes a plan, proposes work-session groupings, implements phase-by-phase, keeps the user engaged with brief pings and inline concern surfacing, and stops on explicit decision gates before any mutating action resumes. Ends each session with a summary including review hotspots.
+Analyzes a plan, proposes work-session groupings, implements phase-by-phase, keeps the user engaged with brief pings and inline concern surfacing, and stops on explicit decision gates before any mutating action resumes. Ends each session with a summary including review hotspots. Entered only by explicit `/devenv-delegation` invocation — the explicit act of commissioning an autonomous run — never by drifting out of a pair-programming session.
 
 **Use for:** refactors, renames, test scaffolding, cleanup, docs — mechanical, low-risk phases  
 **Don't use for:** high-impact work (→ `/devenv-pair-programming`), ad-hoc work without a plan  
@@ -205,8 +206,8 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 
 | Skill | Purpose | Argument |
 |---|---|---|
-| `/devenv-pair-programming` | Collaborative build — the engineer drives, and the AI keeps the plan aligned to actual work as scope/questions emerge; question-shaped prompts default to analysis until explicit implementation direction | Issue # or plan path |
-| `/devenv-delegation` | Delegated build support — assistant-led execution with user review and ownership, while keeping the plan aligned to actual work | Issue # or plan path |
+| `/devenv-pair-programming` | Collaborative build with bounded autonomy span — the engineer stays in control and reviews every task or small chunk; the AI keeps the plan aligned to actual work as scope/questions emerge; question-shaped prompts default to analysis until explicit implementation direction | Issue # or plan path |
+| `/devenv-delegation` | Commissioned autonomous build run — entered only by explicit invocation; assistant-led execution with user review and ownership, phase by phase, while keeping the plan aligned to actual work | Issue # or plan path |
 | `/devenv-document` | Produce documentation for an existing system or component — audience, format, and scope set by interview | Repo path, component name, or description |
 | `/devenv-chat-with-code` | Conversational fact-finding with source code or markdown-first repos — the repo talks back | Repo path(s), or nothing for current workspace |
 | `/devenv-spike` | Exploratory investigation + findings doc | Question or issue # |
@@ -390,7 +391,7 @@ Blueprint changed
 | `/devenv-gather-requirements` Phase 3 vs `/devenv-create-roadmap` | Phase 3 produces stakeholder priority *groups* (`GROUP-NN`) — business sequencing intent only. `/devenv-create-roadmap` produces a real delivery roadmap (`PHASE-NN` / `STEP-NN`) with components, dependencies, and GH issues. The roadmap supersedes priority groups for execution. |
 | `/devenv-refine-requirements` vs `/devenv-gather-requirements` | **Refine** is for applying known changes (you already know what to update; apply them directly). **Gather** is for brainstorming-first (you have an idea but need to explore implications and decide together what to change). You can pass an existing doc to gather to enter brainstorm mode. |
 | `/devenv-refine-implementation-plan` vs `/devenv-plan-update` | Structural changes vs surgical edits. `/devenv-plan-update` refuses if you ask for >3 changes. |
-| `/devenv-pair-programming` vs `/devenv-delegation` | Human-in-the-loop vs AI-drives. Prefer `/devenv-pair-programming` when in doubt. |
+| `/devenv-pair-programming` vs `/devenv-delegation` | Autonomy span. Pair = one task/small chunk per human touchpoint and the only home for high-impact work. Delegation = a commissioned phase-scale autonomous run, mechanical work only, explicit invocation required. Prefer `/devenv-pair-programming` when in doubt. |
 | `/devenv-code-review` vs `/devenv-address-pr-comments` | Review assistance for your changes vs you address a reviewer's comments. |
 | `/devenv-address-pr-comments` vs GitHub PR extension | Auto-fixes clear threads + surfaces complex ones with recommendations vs batch fix-all with no per-thread direction. |
 | `/devenv-rubber-duck` vs `/devenv-spike` | No artifact vs produces a findings doc. |

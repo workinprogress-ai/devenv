@@ -1,6 +1,6 @@
 ---
 name: devenv-skill-guru
-description: Help the user pick the right Copilot skill by asking 1–3 clarifying questions about what they're trying to accomplish. USE WHEN the user says "which skill should I use", "what skill is right for this", "help me pick a skill", "I'm not sure what to use", "skill guru", or begins a task without knowing which skill applies. Asks about work stage (exploring / defining requirements / architecting / planning / building / reviewing / wrapping up), then asks one stage-specific disambiguation question (for architecture: option-weighing vs component-level grooming vs system-level architecture; for build: whether a plan exists and impact level). Returns a ranked recommendation with one-line rationale; if the goal spans multiple skills, returns the full chain. DO NOT USE FOR executing any of the recommended skills — just say /skill-name to invoke them directly. For general coding questions use the default agent.
+description: Help the user pick the right Copilot skill by asking 1–3 clarifying questions about what they're trying to accomplish. USE WHEN the user says "which skill should I use", "what skill is right for this", "help me pick a skill", "I'm not sure what to use", "skill guru", or begins a task without knowing which skill applies. Asks about work stage (exploring / defining requirements / architecting / planning / building / reviewing / wrapping up), then asks one stage-specific disambiguation question (for architecture: option-weighing vs component-level grooming vs system-level architecture; for build: whether a plan exists and autonomy span). Returns a ranked recommendation with one-line rationale; if the goal spans multiple skills, returns the full chain. DO NOT USE FOR executing any of the recommended skills — just say /skill-name to invoke them directly. For general coding questions use the default agent.
 argument-hint: Optional — describe what you're trying to do and the guru will ask follow-up questions
 ---
 
@@ -66,12 +66,16 @@ Routing for this answer:
 > - Yes — plan file or issue
 > - No — working ad-hoc
 
-**Q3 — Impact level?** (ask only if stage is "Build" AND plan exists):
+**Q3 — Autonomy span + impact?** (ask only if stage is "Build" AND plan exists):
 
-> "How would you describe the work in this phase?"
+> "How do you want to run this work?"
 >
-> - High-impact — touches public APIs, data shape, security, or novel architecture
-> - Mechanical — refactors, renames, test scaffolding, cleanup, docs
+> - Task-by-task with me reviewing each chunk — high-impact work (public APIs, data shape, security, novel architecture) belongs here regardless
+> - A longer mechanical run the AI executes autonomously, phase by phase
+
+Routing for this answer:
+- Task-by-task / high-impact → `/devenv-pair-programming`
+- Commissioned autonomous mechanical run → `/devenv-delegation` (note: it must be explicitly invoked; never route casual "do it" requests there when the user is actively collaborating)
 
 ## Decision logic
 
@@ -92,6 +96,7 @@ Use the registry to match the user's answers to a skill:
    - Architecture guardrail: if the user says the current approach is wrong, route to `/devenv-grooming`, not refine.
    - Architecture guardrail: if the user has one bounded plan blocker/question that needs deep option-weighing, route to `/devenv-design-discussion`; if the user describes accumulating questions, entangled decisions, or likely sweeping design changes, route to `/devenv-grooming`.
    - Build guardrail: do not route high-impact build phases to `/devenv-delegation`.
+   - Build guardrail: delegation requires an explicit user commission for an autonomous run — if the user is actively collaborating task-by-task, route to `/devenv-pair-programming` even when the work is mechanical.
    - Escalation guardrail: if the user is mid-execution with a small local plan adjustment, stay in execution; if they want to return to planning for broader plan surgery, route to `/devenv-refine-implementation-plan`; if they describe one large blocker/question, route to `/devenv-design-discussion`; if they describe accumulated architectural issues, route to `/devenv-grooming`.
    - Plan-size guardrail: if the user says plan creation is too large/risky for one issue, route to `/devenv-grooming` for Feature/Fix/Task redivision, then back to `/devenv-create-implementation-plan` for one selected slice.
    - Bug-hunt guardrail: for broad/focused bug hunting (including "find race conditions", "hunt null bugs", "audit auth module for bugs"), route to `/devenv-tech-debt-audit`.
@@ -184,8 +189,8 @@ Use the chain definitions in the registry verbatim. Don't invent new chains.
 These five are the core of the catalog. If the user is unsure where to start with a non-trivial piece of work, nudge toward them:
 
 1. **`/devenv-create-implementation-plan`** — before any significant work begins
-2. **`/devenv-pair-programming`** — collaborative, human stays in control
-3. **`/devenv-delegation`** — delegated execution support for mechanical work, user reviews and owns outcomes
+2. **`/devenv-pair-programming`** — collaborative with bounded autonomy span, one task or small chunk per human touchpoint; the human stays in control
+3. **`/devenv-delegation`** — commissioned autonomous run for mechanical work, entered by explicit invocation; user reviews and owns outcomes
 4. **`/devenv-spike`** — when you don't know if something is feasible yet
 5. **`/devenv-code-review`** — close the loop after implementation
 
