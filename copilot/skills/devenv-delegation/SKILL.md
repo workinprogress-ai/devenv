@@ -11,6 +11,8 @@ user-invocable: true
 
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
+> Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
+
 > **Diagnostic-report override:** If the user asks for a diagnostic report, postmortem, incident report, or findings artifact about undesirable behavior, treat that as an immediate diagnostic-mode request even if they do not say "enter diagnostic mode". Do not implement fixes first. Write `DIAGNOSTIC_REPORT.md` at the active project root using the protocol-defined diagnostic artifact format.
 
 > **Hard decision gate.** If you emit `🔶` or otherwise say a decision is required before continuing, stop there. Do not edit files, write plans, or run any other mutating tool until the user gives explicit approval for the exact path and scope. Silence, acknowledgements, or navigation phrases are not approval. Follow the shared [decision resolution protocol](../common/references/decision-resolution-protocol.md).
@@ -495,66 +497,19 @@ If the user independently decides to return to planning, treat that as authorita
 
 ## Always Work From Current Files
 
-The AI's in-context view of a file is a **cache** — invalidated the moment any edit is made. Re-read a file before making any claim about its current contents if any edits have occurred this session. See [file-freshness.md](../devenv-pair-programming/references/file-freshness.md) for the full rule.
+The AI's in-context view of a file is a **cache** — invalidated the moment any edit is made. Re-read a file before making any claim about its current contents if any edits have occurred this session. See the shared [file-freshness rule](../common/references/file-freshness.md) for the full protocol.
 
 ## Forward Guidance Comments
 
-**Any comment that refers to the plan, a future phase, or work to be done later must use the DEVENV marker format.** Plain `// TODO:` comments, bare annotations, or any note that mentions the plan without the DEVENV marker are not acceptable — they are untrackable and won't be caught by the cleanup grep at the end of the plan.
-
-Do not add permanent code comments that reference plan phases, task numbers, or decision records. Those references are permitted only for clearly temporary guidance using `DEVENV[...]` or `TODO:(DEVENV[...])` markers, and they must be removed when fulfilled.
-
-Two marker forms — use the right one for the situation:
-
-**Scaffolding marker** — for stubs, placeholders, or temporary code that a later task will replace:
-```csharp
-// DEVENV[Implementation_plan-issue-42-001]: Phase 3 replaces this stub with the real BulkSyncService — returns empty list until then.
-```
-
-**Forward-looking guidance** — for a location where a future task *must* make a change; the `TODO:` prefix triggers IDE highlighting:
-```csharp
-// TODO:(DEVENV[Implementation_plan-issue-42-001]): Phase 3 registers the real service here — wire in the concrete implementation.
-```
-
-The `<plan-key>` is the plan filename stem without extension (e.g. `Implementation_plan-issue-42-001`).
-
-Write what will happen (descriptive), not which task number does it (structural). Descriptive comments remain accurate when the plan is renumbered.
-
-**When a task will directly satisfy an acceptance criterion**, annotate the key implementation or test location with the AC reference so it can be found during the AC Review phase:
-
-```csharp
-// TODO:(DEVENV[Implementation_plan-issue-42-001]): [AC-2] This method must return a typed result — the try-chain depends on it.
-```
-
-Find all AC-annotated comments with: `grep -rn "\[AC-" .`
-
-**Implicit removal:** when a task replaces or fills what the comment describes, remove the comment as part of that same task. No separate cleanup step needed — the comment's purpose is fulfilled when the work lands.
-
-**Plan-revision audit:** when a scope change or plan revision is agreed mid-phase, run `grep -rn "DEVENV\[" <repo-root>` and check whether any forward comments describe work that was cancelled, moved, or significantly changed. Update or remove affected comments before continuing.
+Follow pair-programming's canonical [Forward Guidance Comments](../devenv-pair-programming/SKILL.md#forward-guidance-comments) protocol — it applies identically here. Essentials: any comment referencing the plan or future work must use `DEVENV[...]` or `TODO:(DEVENV[...]): ...` markers (never plain TODO/FIXME, never permanent plan-referencing comments); annotate AC-satisfying code with `[AC-N]`; remove markers when their work lands; after any mid-phase plan revision, run the DEVENV forward-comment audit. Marker-form examples and the `<plan-key>` rule are in the canonical section.
 
 ## AC Review Gate
 
-Run after all implementation phases, before Cleanup. The `[AC-N]` DEVENV comments are removed in Cleanup — run the gate while they're still present.
-
-- Scan: `grep -rn "\[AC-" <repo-root>`
-- **Objectively verifiable:** tick via `markdown-plan-complete-ac AC-N [<plan_file>]`; state the evidence.
-- **Requires judgment:** present to user and tick after confirmation.
-- **No matching comment:** surface it and let user decide (tick, defer, or new task).
-
-All ACs must be `[x]` or explicitly deferred/deprecated before Cleanup. See full protocol in [phase-gates.md](../devenv-pair-programming/references/phase-gates.md).
+Run after all implementation phases, before Cleanup, exactly as defined in pair-programming's canonical [AC Review Gate](../devenv-pair-programming/SKILL.md#ac-review-gate): scan `[AC-` comments, tick objectively-verifiable ACs with cited evidence, present judgment ACs to the user, and surface ACs with no matching comment. All ACs must be `[x]` or explicitly deferred/deprecated before Cleanup. Full protocol: [phase-gates.md](../devenv-pair-programming/references/phase-gates.md).
 
 ## Phase Completion Gate
 
-Before declaring a phase complete and handing back, run the committability checklist (see [phase-gates.md](../devenv-pair-programming/references/phase-gates.md) for the full coverage-drop protocol):
-
-- [ ] All tests pass (TDD red-green cycle closed)
-- [ ] Coverage has not regressed
-- [ ] New tests assert observable behavior
-- [ ] No blocking TODOs
-- [ ] No straggler DEVENV comments for completed work — `grep -rn "DEVENV\[" <phase-files>`
-
-Coverage drops are blockers. If the gate passes: *"✅ Gate clear — phase is committable."*
-
-If this is the **final implementation phase**, no AC may remain unchecked. Before declaring final-phase completion, verify every AC is either `[x]` or explicitly deferred/deprecated. If any AC remains undone, the gate is blocked and final-phase completion cannot be declared.
+Before declaring a phase complete and handing back, run the committability checklist as defined in pair-programming's canonical [Phase Completion Gate](../devenv-pair-programming/SKILL.md#phase-completion-gate): all tests pass, coverage not regressed, new tests assert observable behavior, no blocking TODOs, no straggler `DEVENV[` comments for completed work. Coverage drops are blockers. In the final implementation phase, no AC may remain unchecked — every AC `[x]` or explicitly deferred/deprecated. Full coverage-drop protocol and override options: [phase-gates.md](../devenv-pair-programming/references/phase-gates.md).
 
 ## Anti-patterns
 

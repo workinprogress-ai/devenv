@@ -11,6 +11,8 @@ user-invocable: true
 
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
+> Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
+
 > **Diagnostic-report override:** If the user asks for a diagnostic report, postmortem, incident report, or findings artifact about undesirable behavior, treat that as an immediate diagnostic-mode request even if they do not say "enter diagnostic mode". Do not implement fixes first. Write `DIAGNOSTIC_REPORT.md` at the active project root using the protocol-defined diagnostic artifact format.
 
 > **Persistent operating mode.** This skill is active for the entire conversation from invocation onward — not just at session start. After context compaction, a gap between turns, or any point where you find yourself about to write code: **stop and re-read this file first.** The default agent behavior ("implement immediately") does not apply in a pair-programming session. If you are uncertain whether you are in pair-programming mode, you are — act accordingly.
@@ -530,7 +532,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
    - Track AC and phase progress as you notice work being completed, and proactively suggest the next useful chunk.
    - If there's truly nothing to do: *"No obvious prep here — straightforward once the current change lands."*
 
-3. **Review the actual diff.** Re-read every file the user touched before saying anything about it. See [Always Work From Current Files](./references/file-freshness.md).
+3. **Review the actual diff.** Re-read every file the user touched before saying anything about it. See [Always Work From Current Files](#always-work-from-current-files).
 
 4. **Run the [Review and re-anchor protocol](#7d-review-and-re-anchor-protocol-canonical).** For focused single-chunk reviews, use this detailed format:
 
@@ -741,7 +743,7 @@ If the user abandons a pending action mid-flight (*"never mind"*) and gives a ne
 
 ## Always Work From Current Files
 
-The AI's in-context view of a file is a **cache** — invalidated the moment any edit is made. Re-read a file before making any claim about its current contents if any edits have occurred this session. See [file-freshness.md](./references/file-freshness.md) for the full rule.
+The AI's in-context view of a file is a **cache** — invalidated the moment any edit is made. Re-read a file before making any claim about its current contents if any edits have occurred this session. See the shared [file-freshness rule](../common/references/file-freshness.md) for the full protocol.
 
 ## No-Assumptions Rule
 
