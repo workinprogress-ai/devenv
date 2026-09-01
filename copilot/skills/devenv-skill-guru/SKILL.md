@@ -29,6 +29,7 @@ If unambiguous: give the recommendation directly with a one-line rationale. Skip
 Bug-routing shortcut:
 - If the user asks to hunt for bugs broadly, by class, or in a focus area/module (without a single known concrete bug to root-cause), route to `/devenv-tech-debt-audit`.
 - If the user has a specific known bug to diagnose/root-cause/fix, route to `/devenv-bug-fix`.
+- If the user suspects a bug but is not sure it exists (specific observation + expected behavior), route to `/devenv-bug-hunter` — verification with a verdict, not a fix.
 
 ## Question protocol
 

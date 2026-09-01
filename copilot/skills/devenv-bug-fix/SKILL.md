@@ -15,6 +15,10 @@ user-invocable: true
 
 Investigate first, propose second, fix only with direction. The skill exists because bugs require diagnosis before they require code — a fix written without understanding the root cause often papers over the symptom rather than resolving it.
 
+**Entry posture: the bug is known to exist.** This skill fixes bugs whose existence is established — a reported failure, a GH issue, an observed defect. Determining whether a suspected bug exists at all is a different job: that is [`/devenv-bug-hunter`](../devenv-bug-hunter/SKILL.md)'s. If existence is the open question, stop and redirect.
+
+**Investigation powers are read-oriented and limited.** Phase 1 traces code to find the root cause of a KNOWN bug — it reads, follows call chains, and checks history. It does not inject probes, add instrumentation, write discriminating tests against a hypothesis, or execute repro harnesses; those aggressive measures belong to the hunter. If diagnosis stalls because read-only tracing hits its limit, the right move is a hunter handoff with the current trace as input — not escalating into runtime instrumentation here.
+
 ## When to Use
 
 Trigger phrases:
@@ -29,6 +33,7 @@ Do **not** use for:
 - General codebase Q&A → use [`/devenv-chat-with-code`](../devenv-chat-with-code/SKILL.md)
 - Feasibility research → use [`/devenv-spike`](../devenv-spike/SKILL.md)
 - Known cause, just needs a plan → use [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) directly
+- An unconfirmed suspicion — "is this a bug?" → use [`/devenv-bug-hunter`](../devenv-bug-hunter/SKILL.md); verification with a verdict is its job, not this skill's
 
 ## Output Signals
 
@@ -48,6 +53,7 @@ Do **not** use for:
 
 Accept one of:
 
+- **A bug-hunter report** (`bug-hunt-*.md`, typically FOUND) → treat it as the findings input: the oracle is already formalized and a RED repro test may already exist — skip the "does a bug exist" question and go straight to root-cause confirmation and fix planning.
 - **GH issue number** → `issue-get <N> --pretty`, read `body` and `comments`. Extract: reported symptoms, affected area, reproduction steps, any stack traces or error messages.
 - **Free-text description** → use as-is. Ask the user for any reproduction steps or error output they have before proceeding.
 

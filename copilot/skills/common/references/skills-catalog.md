@@ -17,6 +17,7 @@ What are you trying to do?
 │   ├─ Thinking out loud, no artifact   →  /devenv-rubber-duck
 │   ├─ Understand a codebase via chat   →  /devenv-chat-with-code
 │   ├─ Investigate a question           →  /devenv-spike
+│   ├─ Verify a suspected bug (aggressive) →  /devenv-bug-hunter
 │   ├─ Investigate and fix a bug        →  /devenv-bug-fix
 │   ├─ Weigh design options (opinionated)→ /devenv-design-discussion
 │   └─ Triage an incoming issue         →  /devenv-triage-issue

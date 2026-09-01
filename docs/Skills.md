@@ -17,6 +17,7 @@ What are you trying to do?
 │   ├─ Thinking out loud, no artifact   →  /devenv-rubber-duck
 │   ├─ Understand a codebase via chat   →  /devenv-chat-with-code
 │   ├─ Investigate a question           →  /devenv-spike
+│   ├─ Verify a suspected bug (aggressive) →  /devenv-bug-hunter
 │   ├─ Investigate and fix a bug        →  /devenv-bug-fix
 │   ├─ Weigh design options (opinionated)→ /devenv-design-discussion
 │   └─ Triage an incoming issue         →  /devenv-triage-issue
@@ -227,6 +228,7 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 
 | Skill | Purpose | Argument |
 |---|---|---|
+| `/devenv-bug-hunter` | Aggressive verification of a suspected bug — oracle-based hypothesis hunt with discriminating tests; FOUND / NOT-FOUND / INCONCLUSIVE verdict + report | Observation, expectation, target repo |
 | `/devenv-bug-fix` | Investigate a bug, trace root cause, propose resolution — optionally fix immediately | Issue # or description |
 | `/devenv-code-review` | Review assistance for your changes | PR #, refs, or nothing |
 | `/devenv-pre-commit` | Lint/format/test before committing | `--all` or nothing |
