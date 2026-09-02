@@ -19,6 +19,8 @@ Use this as the default intake for **component-level architecture and design dir
 
 Grooming is the **design steward** for a piece of work. It always works with a **grooming document** — a single artifact that tracks design decisions (confirmed, pending, deferred), outstanding questions, and links to any implementation plans spawned from the work.
 
+> **Issue operations during grooming: wrappers only.** Creating or batch-creating child issues uses `issue-create` / `issue-create-batch` — never raw `gh issue create`. Full rules in the child-issue creation section.
+
 Grooming also produces a **suggested issue attack plan** as a set of GitHub issues classified as **Feature**, **Fix**, or **Task**. Each suggested issue must:
 
 - map to one repo/component,
@@ -427,6 +429,7 @@ Your call: choose A/B(/C) or defer.
 - Creating a new grooming document without first searching for an existing one.
 - Rewriting unrelated parts of the grooming document when doing a surgical update from a returned plan.
 - Writing "previously/before" design narrative in main document sections instead of `## Revision History`.
+- Creating child issues via raw `gh issue create` — grooming child-issue creation uses `issue-create` / `issue-create-batch` only, every time, regardless of what earlier session phases did. Raw `gh` in this flow loses native type and parent-linkage enrichment.
 
 ## Sibling skills
 

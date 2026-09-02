@@ -116,6 +116,8 @@ The `tools/` folder contains workspace-specific wrappers around common CLIs (`gh
 
 For everything else — reading/listing/creating/updating/commenting on issues and PRs, getting diffs, closing issues — use `gh` directly with `--repo "$GITHUB_REPO"`. The named wrappers (`issue-get`, `issue-list`, `issue-create`, `issue-update`, `issue-comment`, `issue-close`, `pr-get`, `pr-diff`, `pr-comment`) are available on PATH if you prefer them, but they are not required.
 
+**Skill-mandated wrappers always override this default.** When an active skill explicitly names a wrapper for an operation (for example grooming's `issue-create` mandate for child-issue creation), that wrapper is required — the "natural and encouraged" default above applies only where no skill rule is more specific. At skill boundaries, re-check the newly active skill's tool mandates before the first mutating operation; do not carry issue-operation habits across skill transitions.
+
 For `git`: prefer `git-*` wrappers when one exists for a non-trivial operation; for standard read-only inspection use `git log`, `git diff`, `git status` etc. directly. The same applies to `dotnet`/test wrappers.
 
 ### Language policy
