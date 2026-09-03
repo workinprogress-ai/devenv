@@ -504,3 +504,27 @@ load ../test_helper
   "
   [ "$status" -eq 0 ]
 }
+
+@test "get_repo_owner: does not pass -R with basename to gh" {
+  create_mock_git_repo "$TEST_TEMP_DIR/owner-repo"
+  cd "$TEST_TEMP_DIR/owner-repo" || exit 1
+
+  gh() {
+    for arg in "$@"; do
+      [[ "$arg" == "-R" ]] && return 1
+    done
+    echo "test-org"
+    return 0
+  }
+  export -f gh
+
+  run bash -c "
+    export -f gh
+    unset GH_ORG
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    get_repo_owner
+  "
+  cd "$ORIGINAL_PWD" || true
+  [ "$status" -eq 0 ]
+  [ "$output" = "test-org" ]
+}

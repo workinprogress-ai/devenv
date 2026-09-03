@@ -94,7 +94,9 @@ log_verbose() {
 # Verify issue exists
 verify_issue() {
     local issue_num="$1"
-    issue_exists --repo "$(get_repo_spec)" "$issue_num" 2>/dev/null || {
+    local repo_spec
+    read -ra repo_spec <<< "$(get_repo_spec)"
+    issue_exists --repo "${repo_spec[1]:-}" "$issue_num" 2>/dev/null || {
         log_error "Issue #$issue_num not found"
         return 1
     }
@@ -115,7 +117,7 @@ close_issue_local() {
     fi
     
     log_verbose "Closing issue #$issue_num"
-    close_issue --repo "${repo_spec[*]}" --reason "$REASON" --comment "$COMMENT" "$issue_num"
+    close_issue --repo "${repo_spec[1]:-}" --reason "$REASON" --comment "$COMMENT" "$issue_num"
 }
 
 # Reopen an issue (wrapper around library function with dry-run support)
@@ -132,7 +134,7 @@ reopen_issue_local() {
     fi
     
     log_verbose "Reopening issue #$issue_num"
-    reopen_issue --repo "${repo_spec[*]}" --comment "$COMMENT" "$issue_num"
+    reopen_issue --repo "${repo_spec[1]:-}" --comment "$COMMENT" "$issue_num"
 }
 
 # Process all issues

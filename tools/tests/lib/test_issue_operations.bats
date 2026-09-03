@@ -716,3 +716,101 @@ EOF
     [ "$status" -ne 0 ]
     [[ "$output" =~ "Failed to update comment" ]]
 }
+
+# ============================================================================
+# gh argument construction tests (recording gh mock)
+# ============================================================================
+
+create_recording_gh_mock() {
+    mkdir -p "$TEST_TEMP_DIR/bin"
+    export PATH="$TEST_TEMP_DIR/bin:$PATH"
+    export GH_CALL_LOG="$TEST_TEMP_DIR/gh-calls.log"
+    : > "$GH_CALL_LOG"
+    cat > "$TEST_TEMP_DIR/bin/gh" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$@" >> "${GH_CALL_LOG:-/dev/null}"
+exit 0
+EOF
+    chmod +x "$TEST_TEMP_DIR/bin/gh"
+}
+
+@test "issue_exists passes -R and repo as separate gh arguments" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    create_recording_gh_mock
+    run issue_exists --repo test-org/test-repo 123
+    [ "$status" -eq 0 ]
+    grep -qx -- "-R" "$GH_CALL_LOG"
+    grep -qx -- "test-org/test-repo" "$GH_CALL_LOG"
+}
+
+@test "close_issue passes -R and repo as separate gh arguments" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    create_recording_gh_mock
+    run close_issue --repo test-org/test-repo 123
+    [ "$status" -eq 0 ]
+    grep -qx -- "-R" "$GH_CALL_LOG"
+    grep -qx -- "test-org/test-repo" "$GH_CALL_LOG"
+}
+
+@test "reopen_issue passes -R and repo as separate gh arguments" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    create_recording_gh_mock
+    run reopen_issue --repo test-org/test-repo 123
+    [ "$status" -eq 0 ]
+    grep -qx -- "-R" "$GH_CALL_LOG"
+    grep -qx -- "test-org/test-repo" "$GH_CALL_LOG"
+}
+
+@test "close_issue does not pass flags unsupported by gh issue close" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    create_recording_gh_mock
+    run close_issue --repo test-org/test-repo 123
+    [ "$status" -eq 0 ]
+    ! grep -qx -- "--state" "$GH_CALL_LOG"
+    ! grep -qx -- "closed" "$GH_CALL_LOG"
+}
+
+@test "list_issues_formatted passes -R and repo as separate gh arguments" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    create_recording_gh_mock
+    run list_issues_formatted --repo test-org/test-repo
+    [ "$status" -eq 0 ]
+    grep -qx -- "-R" "$GH_CALL_LOG"
+    grep -qx -- "test-org/test-repo" "$GH_CALL_LOG"
+}
+
+@test "get_issues_for_selection passes -R and repo as separate gh arguments" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    create_recording_gh_mock
+    run get_issues_for_selection --repo test-org/test-repo
+    [ "$status" -eq 0 ]
+    grep -qx -- "-R" "$GH_CALL_LOG"
+    grep -qx -- "test-org/test-repo" "$GH_CALL_LOG"
+}
+
+@test "find_pr_by_branch passes -R and repo as separate gh arguments" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    create_recording_gh_mock
+    run find_pr_by_branch --repo test-org/test-repo feature/x
+    [ "$status" -eq 0 ]
+    grep -qx -- "-R" "$GH_CALL_LOG"
+    grep -qx -- "test-org/test-repo" "$GH_CALL_LOG"
+}
+
+@test "find_pr_by_search passes -R and repo as separate gh arguments" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    create_recording_gh_mock
+    run find_pr_by_search --repo test-org/test-repo "REVIEW:"
+    [ "$status" -eq 0 ]
+    grep -qx -- "-R" "$GH_CALL_LOG"
+    grep -qx -- "test-org/test-repo" "$GH_CALL_LOG"
+}
+
+@test "create_pr passes -R and repo as separate gh arguments" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    create_recording_gh_mock
+    run create_pr --repo test-org/test-repo --title T --head h --base b
+    [ "$status" -eq 0 ]
+    grep -qx -- "-R" "$GH_CALL_LOG"
+    grep -qx -- "test-org/test-repo" "$GH_CALL_LOG"
+}

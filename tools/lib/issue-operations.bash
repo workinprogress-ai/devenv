@@ -156,7 +156,7 @@ list_issues_formatted() {
     
     # Add repository if specified
     if [ -n "$repo" ]; then
-        gh_args+=("$repo")
+        gh_args+=(-R "$repo")
     fi
 
     # Build filters
@@ -234,7 +234,7 @@ get_issues_for_selection() {
     
     # Add repository if specified
     if [ -n "$repo" ]; then
-        gh_args+=("$repo")
+        gh_args+=(-R "$repo")
     fi
 
     # Add filters
@@ -294,7 +294,7 @@ find_pr_by_branch() {
     fi
 
     local gh_args=(--state "$state" --head "$branch" --json url --jq '.[0].url')
-    [ -n "$repo" ] && gh_args+=("$repo")
+    [ -n "$repo" ] && gh_args+=(-R "$repo")
     
     gh pr list "${gh_args[@]}" 2>/dev/null || echo ""
 }
@@ -338,7 +338,7 @@ find_pr_by_search() {
     local gh_args=(--state "$state" --search "$search")
     # shellcheck disable=SC2054  # gh CLI uses comma-separated fields
     gh_args+=(--json title,url,number)
-    [ -n "$repo" ] && gh_args+=("$repo")
+    [ -n "$repo" ] && gh_args+=(-R "$repo")
     
     gh pr list "${gh_args[@]}" 2>/dev/null || echo "[]"
 }
@@ -396,7 +396,7 @@ create_pr() {
         esac
     done
 
-    [ -n "$repo" ] && gh_args+=("$repo")
+    [ -n "$repo" ] && gh_args+=(-R "$repo")
     [ -n "$title" ] && gh_args+=(--title "$title")
     [ -n "$body" ] && gh_args+=(--body "$body")
     [ "$draft" -eq 1 ] && gh_args+=(--draft)
@@ -453,8 +453,8 @@ close_issue() {
     fi
 
     for issue_num in "${issue_numbers[@]}"; do
-        local gh_args=(--state closed)
-        [ -n "$repo" ] && gh_args+=("$repo")
+        local gh_args=()
+        [ -n "$repo" ] && gh_args+=(-R "$repo")
         [ -n "$reason" ] && gh_args+=(--reason "$reason")
         [ -n "$comment" ] && gh_args+=(--comment "$comment")
         
@@ -499,8 +499,8 @@ reopen_issue() {
     fi
 
     for issue_num in "${issue_numbers[@]}"; do
-        local gh_args=(--state open)
-        [ -n "$repo" ] && gh_args+=("$repo")
+        local gh_args=()
+        [ -n "$repo" ] && gh_args+=(-R "$repo")
         [ -n "$comment" ] && gh_args+=(--comment "$comment")
         
         gh issue reopen "$issue_num" "${gh_args[@]}" || return 1
@@ -562,7 +562,7 @@ issue_exists() {
     validate_issue_number "$issue" || return 1
 
     local gh_args=(--json number)
-    [ -n "$repo" ] && gh_args+=("$repo")
+    [ -n "$repo" ] && gh_args+=(-R "$repo")
     
     if gh issue view "$issue" "${gh_args[@]}" &>/dev/null; then
         return 0

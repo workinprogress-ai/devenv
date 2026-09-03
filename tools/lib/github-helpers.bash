@@ -77,14 +77,9 @@ get_repo_owner() {
     if [ -n "${GH_ORG:-}" ]; then
         echo "$GH_ORG"
     else
-        local repo_spec=""
-        local repo_name
-        repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
-        if [ -n "$repo_name" ]; then
-            repo_spec="-R $repo_name"
-        fi
-        # shellcheck disable=SC2086
-        gh repo view $repo_spec --json owner -q .owner.login
+        # No -R flag: gh repo view resolves the repository from the current
+        # directory's git remote. A basename-only -R spec is rejected by gh.
+        gh repo view --json owner -q .owner.login
     fi
 }
 

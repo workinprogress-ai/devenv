@@ -142,3 +142,28 @@ load ../test_helper
     [ "$status" -eq 0 ]
   done
 }
+
+create_gh_mock_for_issue_close() {
+  mkdir -p "$TEST_TEMP_DIR/bin"
+  export PATH="$TEST_TEMP_DIR/bin:$PATH"
+  export GH_CALL_LOG="$TEST_TEMP_DIR/gh-calls.log"
+  : > "$GH_CALL_LOG"
+  cat > "$TEST_TEMP_DIR/bin/gh" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$@" >> "${GH_CALL_LOG:-/dev/null}"
+exit 0
+EOF
+  chmod +x "$TEST_TEMP_DIR/bin/gh"
+}
+
+@test "issue-close.sh resolves repo from cwd git repo with GH_ORG set" {
+  create_gh_mock_for_issue_close
+  create_mock_git_repo "$TEST_TEMP_DIR/test-repo"
+  cd "$TEST_TEMP_DIR/test-repo"
+  GH_ORG=test-org run bash "$PROJECT_ROOT/tools/scripts/issue-close.sh" 5
+  cd "$ORIGINAL_PWD"
+  [ "$status" -eq 0 ]
+  # verify and close must both target the cwd-derived repo via -R, split correctly
+  [ "$(grep -cx -- "-R" "$GH_CALL_LOG")" -ge 2 ]
+  [ "$(grep -cx -- "test-org/test-repo" "$GH_CALL_LOG")" -ge 2 ]
+}
