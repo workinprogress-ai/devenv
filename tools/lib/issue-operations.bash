@@ -25,15 +25,34 @@ fi
 # Usage: build_issue_filters [--state STATE] [--type TYPE] [--labels LABEL...] [--assignee USER] [--milestone NAME] [--limit NUM]
 # Arguments:
 #   --state STATE         Filter by state (open, closed, all) - default: open
-#   --type TYPE           Filter by type (epic, story, bug)
+#   --type TYPE           Filter by native issue type (Bug, Feature, Task, Epic; legacy aliases accepted)
 #   --labels LABEL        Add label filter (can be multiple)
 #   --assignee USER       Filter by assignee
 #   --milestone NAME      Filter by milestone
 #   --limit NUM           Limit results - default: 100
 # Returns: Filter arguments as space-separated string
 # Example:
-#   filters=$(build_issue_filters --state closed --type bug --limit 50)
+#   filters=$(build_issue_filters --state closed --type Bug --limit 50)
 #   gh issue list ${filters}
+# Normalize an issue type value to the canonical native spelling.
+# Accepts canonical names (Bug, Feature, Task, Epic; case-insensitive) and
+# legacy aliases (story->Task). Returns the canonical name on stdout, or
+# fails with an error listing valid values.
+# Usage: normalize_issue_type TYPE
+normalize_issue_type() {
+    local input="$1"
+    case "$(echo "$input" | tr '[:upper:]' '[:lower:]')" in
+        bug)     echo "Bug" ;;
+        feature) echo "Feature" ;;
+        task|story) echo "Task" ;;
+        epic)    echo "Epic" ;;
+        *)
+            log_error "Invalid issue type: $input (must be Bug, Feature, Task, or Epic)"
+            return 1
+            ;;
+    esac
+}
+
 build_issue_filters() {
     local filters=()
     local state="open"
@@ -78,17 +97,11 @@ build_issue_filters() {
     # State filter
     filters+=(--state "$state")
 
-    # Type filter (via label)
+    # Type filter (native GitHub issue type; legacy lowercase aliases accepted)
     if [ -n "$type" ]; then
-        case "$type" in
-            epic|story|bug)
-                filters+=(--label "type:$type")
-                ;;
-            *)
-                log_error "Invalid issue type: $type (must be epic, story, or bug)"
-                return 1
-                ;;
-        esac
+        local normalized
+        normalized=$(normalize_issue_type "$type") || return 1
+        filters+=(--type "$normalized")
     fi
 
     # Label filters
@@ -116,12 +129,12 @@ build_issue_filters() {
 # Usage: list_issues_formatted [--state STATE] [--type TYPE] [--format FORMAT] [--repo REPO]
 # Arguments:
 #   --state STATE         Filter by state (open, closed, all)
-#   --type TYPE           Filter by type (epic, story, bug)
+#   --type TYPE           Filter by native issue type (Bug, Feature, Task, Epic; legacy aliases accepted)
 #   --format FORMAT       Output format (table, json, simple) - default: table
 #   --repo REPO           Repository (owner/repo)
 # Returns: Formatted list of issues
 # Example:
-#   list_issues_formatted --state closed --type bug --format simple
+#   list_issues_formatted --state closed --type Bug --format simple
 list_issues_formatted() {
     local state="open"
     local type=""
@@ -191,7 +204,7 @@ list_issues_formatted() {
 # Usage: get_issues_for_selection [--state STATE] [--type TYPE] [--labels LABEL...] [--repo REPO]
 # Arguments:
 #   --state STATE         Filter by state
-#   --type TYPE           Filter by type
+#   --type TYPE           Filter by native issue type (Bug, Feature, Task, Epic; legacy aliases accepted)
 #   --labels LABEL        Add label filter (can be multiple)
 #   --repo REPO           Repository (owner/repo)
 # Returns: Tab-separated issue list (number, title, labels)
@@ -241,7 +254,9 @@ get_issues_for_selection() {
     gh_args+=(--state "$state")
     
     if [ -n "$type" ]; then
-        gh_args+=(--label "type:$type")
+        local normalized
+        normalized=$(normalize_issue_type "$type") || return 1
+        gh_args+=(--type "$normalized")
     fi
     
     for label in "${labels[@]}"; do

@@ -19,13 +19,13 @@ The GitHub Issues workflow in Devenv replaces Azure DevOps work items with a Git
 For the broader delivery methodology around requirements, blueprinting, grooming, implementation planning, and execution, see [Workflow Guide](./Workflow.md). This document focuses on how work is represented and tracked in GitHub once it enters issue/project flow.
 
 ```text
-Issue Types:
-├── Epic (type:epic)
-│   └── Story (type:story, linked to epic)
-│       └── Tasks (checkboxes in story body)
-│   └── Bug (type:bug, linked to epic)
+Issue Types (GitHub native issue types):
+├── Epic
+│   └── Task (linked to epic)
+│       └── Tasks (checkboxes in task body)
+│   └── Bug (linked to epic)
 │       └── Tasks (checkboxes in bug body)
-└── Standalone Bug (type:bug, unlinked)
+└── Standalone Bug (unlinked)
 
 Milestones: Sprint tracking (Sprint 1, Sprint 2, etc.)
 
@@ -34,33 +34,33 @@ Projects: Long-term efforts with Status workflow (TBD → Production)
 
 ## Issue Types and Hierarchy
 
-### Epic (type:epic)
+### Epic
 
-**Purpose**: Represents a phase or major feature encompassing multiple stories/bugs.
+**Purpose**: Represents a phase or major feature encompassing multiple tasks/bugs.
 
 **Characteristics:**
 
-- Label: `type:epic`
+- Native issue type: `Epic`
 - No parent issue
-- Can have multiple child stories/bugs
+- Can have multiple child tasks/bugs
 - Usually assigned to a project for long-term tracking
 - May span multiple sprints
 
 **Creation:**
 
 ```bash
-issue-create --title "User Authentication System" --type epic \
+issue-create --title "User Authentication System" --type Epic \
     --body "Complete authentication system with OAuth2, SSO, and MFA support" \
     --project "Q1 2026"
 ```
 
-### Story (type:story)
+### Task
 
 **Purpose**: A specific deliverable that implements part of an epic or feature.
 
 **Characteristics:**
 
-- Label: `type:story`
+- Native issue type: `Task`
 - Has a parent epic (using "Part of #123" reference)
 - Contains implementation tasks as checkboxes
 - Assigned to a milestone (sprint)
@@ -69,7 +69,7 @@ issue-create --title "User Authentication System" --type epic \
 **Creation:**
 
 ```bash
-issue-create --title "Implement OAuth2 Provider Integration" --type story \
+issue-create --title "Implement OAuth2 Provider Integration" --type Task \
     --parent 42 \
     --body "## Acceptance Criteria
 - [ ] OAuth2 provider client configured
@@ -86,13 +86,13 @@ issue-create --title "Implement OAuth2 Provider Integration" --type story \
     --label "priority:high"
 ```
 
-### Bug (type:bug)
+### Bug
 
 **Purpose**: Represents a defect or issue that needs fixing.
 
 **Characteristics:**
 
-- Label: `type:bug`
+- Native issue type: `Bug`
 - Can be standalone or linked to an epic
 - Contains reproduction steps and fix tasks
 - Assigned to a milestone if part of sprint
@@ -102,7 +102,7 @@ issue-create --title "Implement OAuth2 Provider Integration" --type story \
 
 ```bash
 # Standalone bug
-issue-create --title "Login fails with special characters in password" --type bug \
+issue-create --title "Login fails with special characters in password" --type Bug \
     --body "## Steps to Reproduce
 1. Create account with special chars: !@#$%^&*()
 2. Try to login with that password
@@ -116,7 +116,7 @@ Login succeeds
     --milestone "Sprint 5"
 
 # Bug linked to epic
-issue-create --title "OAuth2 token not refreshing on expiration" --type bug \
+issue-create --title "OAuth2 token not refreshing on expiration" --type Bug \
     --parent 42 \
     --label "priority:critical"
 ```
@@ -146,7 +146,7 @@ Update task progress:
 
 ```bash
 # Edit the issue to update checkboxes
-issue-update 123 --body-file updated-story.md
+issue-update 123 --body-file updated-task.md
 ```
 
 ## Status Workflow
@@ -327,7 +327,7 @@ project-update-issue "Q1 2026" 42 --status "To Groom"
 issue-list
 
 # Open bugs only
-issue-list --type bug
+issue-list --type Bug
 
 # Issues in current sprint
 issue-list --milestone "Sprint 5"
@@ -339,13 +339,13 @@ issue-list --assignee none --label "priority:high"
 issue-list --assignee "@me"
 
 # Closed bugs in Sprint 5
-issue-list --type bug --state closed --milestone "Sprint 5"
+issue-list --type Bug --state closed --milestone "Sprint 5"
 
 # Get JSON for scripting
 issue-list --format json --limit 100
 
 # Open in web browser
-issue-list --type story --web
+issue-list --type Task --web
 ```
 
 ## Script Reference
@@ -363,7 +363,7 @@ The issue management scripts include built-in safety checks to prevent accidenta
 **Example Override:**
 
 ```bash
-issue-create --devenv --title "Internal issue" --type bug
+issue-create --devenv --title "Internal issue" --type Bug
 ```
 
 This safety mechanism ensures your team's issue management tools consistently target the right repositories.
@@ -388,7 +388,7 @@ issue-create --title "Title" --no-template [--body TEXT]
 issue-create --title "Title" --template FILE --no-interactive
 
 # Full example with all options
-issue-create --title "Title" [--type epic|story|bug] [--parent ISSUE#] \
+issue-create --title "Title" [--type Bug|Task|Feature|Epic] [--parent ISSUE#] \
     [--template FILE] [--no-template] [--no-interactive] [--devenv] \
     [--body TEXT] [--milestone SPRINT] [--project NAME] \
     [--assignee USER] [--label LABEL]
@@ -432,7 +432,7 @@ Rules:
 **`issue-list`** - List and filter issues
 
 ```bash
-issue-list [--state open|closed|all] [--type epic|story|bug] \
+issue-list [--state open|closed|all] [--type Bug|Task|Feature|Epic] \
     [--milestone NAME] [--assignee USER] [--label LABEL] \
     [--format table|json|simple] [--limit N]
 ```
@@ -559,11 +559,11 @@ issue-groom [--project NAME] [--milestone NAME]
 
 ## Examples
 
-### Example 1: Complete Epic with Stories
+### Example 1: Complete Epic with Tasks
 
 ```bash
 # 1. Create epic
-issue-create --title "Payment Processing System" --type epic \
+issue-create --title "Payment Processing System" --type Epic \
     --body "Complete rewrite of payment processing with:
 - Multiple payment provider support
 - Webhook handling
@@ -572,8 +572,8 @@ issue-create --title "Payment Processing System" --type epic \
     --project "Q1 2026"
 # Returns: https://github.com/owner/repo/issues/100
 
-# 2. Create stories for epic
-issue-create --title "Stripe Integration" --type story \
+# 2. Create tasks for epic
+issue-create --title "Stripe Integration" --type Task \
     --parent 100 \
     --body "## Acceptance Criteria
 - Stripe account configured in staging and production
@@ -591,7 +591,7 @@ issue-create --title "Stripe Integration" --type story \
     --label "priority:high"
 # Returns: https://github.com/owner/repo/issues/101
 
-issue-create --title "PayPal Integration" --type story \
+issue-create --title "PayPal Integration" --type Task \
     --parent 100 \
     --body "..." \
     --milestone "Sprint 6" \
@@ -619,8 +619,8 @@ git checkout -b feature/stripe-integration
 # ... make changes, commit ...
 
 # 3. Create PR when ready
-create-merge-pr
-# This creates PR and moves to Review
+pr-create-for-merge "feat: stripe integration" --issue 101
+# This creates the PR for the current branch
 
 # 4. Update status in project
 project-update-issue "Q1 2026" $issue_num --status "Review"
@@ -646,7 +646,7 @@ gh issue view 101
 ```bash
 # 1. Create bug
 issue-create --title "Stripe charge fails with PayPal accounts" \
-    --type bug \
+    --type Bug \
     --parent 100 \
     --body "## Steps to Reproduce
 1. Create account with PayPal

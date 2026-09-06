@@ -51,7 +51,7 @@ issue-list [--state open|closed|all] [--type TYPE] [--label LABEL] [--assignee U
 Key flags:
 
 - `-s, --state` — `open` (default), `closed`, `all`
-- `-t, --type` — `epic`, `story`, `bug`
+- `-t, --type` — native issue type: `Bug`, `Feature`, `Task`, `Epic` (case-insensitive; same vocabulary as `issue-create`; legacy lowercase aliases `epic`/`story`/`bug` still accepted, `story` → `Task`)
 - `-l, --label` — repeatable
 - `-a, --assignee` — use `none` for unassigned, `@me` for self
 - `-f, --format` — `table` (default), `json`, `simple`
@@ -61,7 +61,7 @@ Examples:
 
 ```bash
 issue-list --format json | jq -r '.[] | "\(.number) \(.title)"'
-issue-list --type bug --assignee @me
+issue-list --type Bug --assignee @me
 issue-list --state all --label "priority:high"
 ```
 
@@ -95,13 +95,14 @@ issue-comment 42 --body-file handoff.md
 List comments on an issue with comment IDs.
 
 ```
-issue-comment-list ISSUE_NUMBER [--pretty] [--full]
+issue-comment-list ISSUE_NUMBER [--pretty] [--full] [--repo OWNER/REPO]
 ```
 
 Key flags:
 
 - `--pretty` — pretty-print JSON array output
 - `--full` — return full comment bodies instead of previews
+- `--repo OWNER/REPO` — override the target repository
 
 Examples:
 
@@ -117,8 +118,12 @@ issue-comment-list 42 --full | jq -r '.[0].id'
 Replace an existing issue comment by comment ID.
 
 ```
-issue-comment-update COMMENT_ID (--body TEXT | --body-file FILE) [--dry-run]
+issue-comment-update COMMENT_ID (--body TEXT | --body-file FILE) [--repo OWNER/REPO] [--dry-run]
 ```
+
+Key flags:
+
+- `--repo OWNER/REPO` — override the target repository
 
 Examples:
 
@@ -236,6 +241,7 @@ Create a new issue, optionally from a template.
 Wrapper policy:
 
 - Prefer this wrapper over raw `gh issue create` for workspace issue creation flows.
+- No `--repo` flag exists. The target repo is selected via the `GITHUB_REPO` env var (`owner/repo`); unset, it falls back to `GH_ORG` + current repo name, then to the current repo.
 
 ```
 issue-create [--title TITLE] [--body TEXT | --body-file FILE] [--type TYPE]
@@ -246,9 +252,17 @@ issue-create [--title TITLE] [--body TEXT | --body-file FILE] [--type TYPE]
 
 Key flags:
 
-- `--no-template --no-interactive` — non-interactive creation (requires `--title`)
-- `--parent` — links as child of an epic
-- `--blocked-by` — repeatable
+- `--type TYPE` — GitHub native issue type; **required for deterministic runs** (validated against `tools/config/issues-config.yml`: Bug, Feature, Task, Epic). Without it the tool prompts via `fzf`.
+- `--no-template --no-interactive` — non-interactive creation (`--no-interactive` requires `--title`; pair with `--type` to avoid the `fzf` prompt)
+- `--parent ISSUE_NUM` — links as child of an epic
+- `--blocked-by ISSUE_NUM` — repeatable
+
+Deterministic call shape (no editor, no fzf, no template):
+
+```bash
+GITHUB_REPO=<org>/<repo> issue-create --title "<title>" --type "<type>" \
+  --body-file <path> --no-template
+```
 
 Examples:
 
@@ -345,8 +359,8 @@ issue-select [--state STATE] [--type TYPE] [--milestone NAME] [--label LABEL] [-
 
 Key flags:
 
-- `--state STATE` — `open`, `closed`, or `all` (default: `open`)
-- `--type TYPE` — `epic`, `story`, or `bug`
+- `-s, --state STATE` — `open`, `closed`, or `all` (default: `open`)
+- `-t, --type TYPE` — native issue type: `Bug`, `Feature`, `Task`, `Epic` (case-insensitive; legacy lowercase aliases `epic`/`story`/`bug` still accepted, `story` → `Task`)
 - `--milestone NAME` — filter by milestone
 - `--label LABEL` — filter by label
 - `--multi` — enable multi-select mode
@@ -355,7 +369,7 @@ Key flags:
 Examples:
 
 ```bash
-issue-select --type story
+issue-select --type Task
 issue-select --multi --milestone "Sprint 5"
 ```
 
@@ -490,6 +504,7 @@ Key flags:
 - `--no-issue` — explicitly no associated issue
 - `--base BRANCH` — target branch (default: repo default branch)
 - `--branch BRANCH` — source branch (default: current branch)
+- `--repo-dir PATH` — repository directory (default: current)
 - `--body TEXT` — PR body as inline text
 - `--body-file FILE` — read PR body from a file (preferred for multi-section bodies)
 - `--draft` — open as draft

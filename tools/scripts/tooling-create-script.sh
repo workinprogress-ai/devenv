@@ -6,6 +6,7 @@
 set -euo pipefail
 
 readonly TEMPLATE_FILE="$DEVENV_TOOLS/templates/script-template.sh"
+PROJECT_ROOT="${PROJECT_ROOT:-$DEVENV_ROOT}"
 
 show_usage() {
     cat << EOF

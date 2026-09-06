@@ -270,7 +270,7 @@ When exploring WorkInProgress code, prefer local source under `repos/` before an
 
 Wrapper inventory (as of authoring):
 
-- Issues: `issue-create`, `issue-list`, `issue-update` (incl. `--add-label`/`--remove-label`), `issue-close`, `issue-comment`, `issue-comment-list`, `issue-comment-update`, `issue-get`, `issue-groom`, `issue-select`, `issue-artifact-get`, `issue-artifact-list`, `issue-artifact-select`, `issue-artifact-upsert`
+- Issues: `issue-create`, `issue-create-batch`, `issue-list`, `issue-update` (incl. `--add-label`/`--remove-label`), `issue-close`, `issue-comment`, `issue-comment-list`, `issue-comment-update`, `issue-get`, `issue-groom`, `issue-select`, `issue-artifact-doc-id`, `issue-artifact-get`, `issue-artifact-list`, `issue-artifact-select`, `issue-artifact-upsert`
 - PRs: `pr-create-for-review`, `pr-create-for-merge`, `pr-complete-merge`, `pr-merge-pull-request`, `pr-cleanup-review-branches`, `pr-get-review-link`, `pr-get-merge-link` — plus added: `pr-get`, `pr-comment`, `pr-diff`, `pr-list`, `pr-threads-get`, `pr-thread-reply`, `pr-thread-resolve`
 - Projects: `project-add-issue`, `project-update-issue`
 

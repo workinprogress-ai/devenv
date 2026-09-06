@@ -94,7 +94,7 @@ Examples:
 
     # Template without editor (automation - title required)
     $SCRIPT_NAME --title "OAuth2 Integration" --type Feature \\
-        --template .github/ISSUE_TEMPLATE/story_template.md --no-interactive
+        --template .github/ISSUE_TEMPLATE/feature_request.md --no-interactive
 
     # Create without template
     $SCRIPT_NAME --title "Quick bug" --type Bug --no-template \\

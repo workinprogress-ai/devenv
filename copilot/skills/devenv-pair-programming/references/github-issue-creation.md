@@ -26,7 +26,8 @@ If the user says no, skip to session wrap-up.
     - If the issue may already host one or more artifacts of the same type, resolve the canonical artifact first with `issue-artifact-select` or `issue-artifact-list`, then load it with `issue-artifact-get` before regenerating or republishing.
 
    **If creating a new issue:**
-   - `issue-create --repo "$GITHUB_REPO" --title "<title>" --body "<body>"`
+   - `GITHUB_REPO=<owner>/<repo> issue-create --title "<title>" --type "<type>" --body "<body>" --no-template`
+   - `issue-create` has no `--repo` flag; the target repo is selected via the `GITHUB_REPO` env var. `--type` is required for non-interactive creation — pick from `tools/config/issues-config.yml` (Bug, Feature, Task, Epic); ask the user if the type is not obvious.
    - Note the new issue number.
    - Apply the [Artifact Identity Convention](../../_conventions.md#artifact-identity-convention) — ensure file has `doc_id: <value>` in first 256 characters.
    - Write the document to a temp file.

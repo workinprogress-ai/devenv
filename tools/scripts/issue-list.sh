@@ -11,6 +11,8 @@ set -euo pipefail
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/git-operations.bash"
+source "$DEVENV_TOOLS/lib/issue-operations.bash"
 source "$DEVENV_TOOLS/lib/fzf-selection.bash"
 
 readonly SCRIPT_VERSION="1.0.0"
@@ -48,7 +50,8 @@ Options:
 
 Filters:
     -s, --state STATE           Filter by state: open, closed, or all (default: open)
-    -t, --type TYPE             Filter by type: epic, story, or bug
+    -t, --type TYPE             Filter by native issue type: Bug, Feature, Task, or Epic
+                                (case-insensitive; legacy lowercase aliases accepted)
     -l, --label LABEL           Filter by label (can be specified multiple times)
     -a, --assignee USER         Filter by assignee (use "none" for unassigned)
     -m, --milestone NAME        Filter by milestone (use "none" for no milestone)
@@ -69,22 +72,22 @@ Examples:
     $SCRIPT_NAME
 
     # List all bugs in "Sprint 5" milestone
-    $SCRIPT_NAME --type bug --milestone "Sprint 5"
+    $SCRIPT_NAME --type Bug --milestone "Sprint 5"
 
     # List all epics (open and closed)
-    $SCRIPT_NAME --type epic --state all
+    $SCRIPT_NAME --type Epic --state all
 
     # List issues assigned to me
     $SCRIPT_NAME --assignee @me
 
     # List unassigned high-priority bugs
-    $SCRIPT_NAME --type bug --assignee none --label "priority:high"
+    $SCRIPT_NAME --type Bug --assignee none --label "priority:high"
 
     # List issues in JSON format for scripting
     $SCRIPT_NAME --format json --limit 100
 
     # Open issue list in browser
-    $SCRIPT_NAME --type story --milestone "Sprint 5" --web
+    $SCRIPT_NAME --type Task --milestone "Sprint 5" --web
 
 EOF
     exit 0

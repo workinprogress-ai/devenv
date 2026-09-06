@@ -143,7 +143,8 @@ If yes:
 5. On confirmation:
 
    **If creating a new issue:**
-   - `issue-create --repo "$GITHUB_REPO" --title "<title>" --body "<body>"`
+   - `GITHUB_REPO=<owner>/<repo> issue-create --title "<title>" --type "<type>" --body "<body>" --no-template`
+   - `issue-create` has no `--repo` flag; the target repo is selected via the `GITHUB_REPO` env var. `--type` is required for non-interactive creation — pick from `tools/config/issues-config.yml` (Bug, Feature, Task, Epic); for spike findings this is normally `Task` unless the user says otherwise.
    - Note the new issue number.
    - Apply the [Artifact Identity Convention](../_conventions.md#artifact-identity-convention).
    - Write the findings doc to a temp file with `doc_id: <value>` in first 256 characters.

@@ -183,7 +183,7 @@ Only on explicit approval, run the procedure in the next section.
 
 ## Issue Creation Procedure
 
-This step uses the existing `issue-create` and `issue-update` tooling. Do not invent new commands.
+This step uses the existing `issue-create` and `issue-update` tooling. Do not invent new commands. This mandate applies to **any** issue creation performed under this skill, including user-negotiated variants of the tracking model (e.g., a single tracking issue with embedded phase/step checkboxes instead of an epic + per-repo child issues). Only the issue structure is negotiable; the tooling is not.
 
 ### Step A — Create child issues
 
@@ -192,10 +192,12 @@ For each roadmap step where the component repo is known:
 ```bash
 GITHUB_REPO=<org>/<component-repo> issue-create \
   --title "<step title>" \
-  --body-file <temp-body-file>
+  --type "<type>" \
+  --body-file <temp-body-file> \
+  --no-template
 ```
 
-> **Note:** `issue-create` does not have a `--repo` flag. The repo is selected via the `GITHUB_REPO` env var (`owner/repo` form). If unset, the tool defaults to the current git repo.
+> **Note:** `issue-create` does not have a `--repo` flag. The repo is selected via the `GITHUB_REPO` env var (`owner/repo` form). If unset, the tool falls back to `GH_ORG` + current repo name, then to the current git repo. `--type` is required for non-interactive creation — valid values come from `tools/config/issues-config.yml` (Bug, Feature, Task, Epic); roadmap step issues are normally `Task` and the parent epic is `Epic`, unless the user approves otherwise.
 
 The body should reference back to the roadmap and blueprint:
 
@@ -240,7 +242,7 @@ In the planning repo, create one epic issue containing a markdown task list of e
 ...
 ```
 
-Use `GITHUB_REPO=<planning-repo> issue-create --title "Epic: <system> roadmap" --body-file <temp-body-file>`.
+Use `GITHUB_REPO=<planning-repo> issue-create --title "Epic: <system> roadmap" --type "Epic" --body-file <temp-body-file> --no-template`.
 
 ### Step C — Update the roadmap file with issue links
 

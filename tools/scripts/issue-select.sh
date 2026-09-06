@@ -10,6 +10,7 @@ set -euo pipefail
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
 source "$DEVENV_TOOLS/lib/fzf-selection.bash"
+source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"
 
 readonly SCRIPT_VERSION="1.0.0"
@@ -46,7 +47,8 @@ Options:
 
 Filters:
     -s, --state STATE           Filter by state: open, closed, or all (default: open)
-    -t, --type TYPE             Filter by type: epic, story, or bug
+    -t, --type TYPE             Filter by native issue type: Bug, Feature, Task, or Epic
+                                (case-insensitive; legacy lowercase aliases accepted)
     -m, --milestone NAME        Filter by milestone
     -l, --label LABEL           Filter by label
 
@@ -67,7 +69,7 @@ Examples:
     $SCRIPT_NAME
 
     # Select from bugs only
-    $SCRIPT_NAME --type bug
+    $SCRIPT_NAME --type Bug
 
     # Select from current sprint
     $SCRIPT_NAME --milestone "Sprint 5"
@@ -76,7 +78,7 @@ Examples:
     $SCRIPT_NAME --multi
 
     # Use in other scripts
-    issue_num=\$($SCRIPT_NAME --type story)
+    issue_num=\$($SCRIPT_NAME --type Task)
     gh issue view "\$issue_num"
 
     # Assign multiple issues

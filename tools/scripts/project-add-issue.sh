@@ -10,6 +10,8 @@ set -euo pipefail
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/git-operations.bash"
+source "$DEVENV_TOOLS/lib/validation.bash"
 source "$DEVENV_TOOLS/lib/fzf-selection.bash"
 
 readonly SCRIPT_VERSION="1.0.0"
@@ -239,7 +241,7 @@ main() {
                 ;;
             *)
                 # Assume it's an issue number using library validation
-                if validate_numeric "$1" && [ "$1" -gt 0 ]; then
+                if validate_positive_integer "$1"; then
                     ISSUE_NUMBERS+=("$1")
                     shift
                 else

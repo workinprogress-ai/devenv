@@ -11,7 +11,7 @@ Fast lookup for common GitHub Issues commands and workflows.
 issue-create --title "Title"
 
 # With specific template
-issue-create --title "Title" --template tools/templates/story.md
+issue-create --title "Title" --template .github/ISSUE_TEMPLATE/feature_request.md
 
 # Without template
 issue-create --title "Title" --no-template
@@ -20,10 +20,10 @@ issue-create --title "Title" --no-template
 issue-create --title "Title" --template FILE --no-interactive
 
 # With type and parent
-issue-create --title "Story" --type story --parent 123
+issue-create --title "Task" --type Task --parent 123
 
 # Override repo safety check (for devenv repo)
-issue-create --devenv --title "Internal issue" --type bug
+issue-create --devenv --title "Internal issue" --type Bug
 ```
 
 ### Create Issues in Batch
@@ -65,7 +65,7 @@ Manifest rows support:
 
 ```bash
 issue-list                              # All open
-issue-list --type bug                   # Bugs only
+issue-list --type Bug                   # Bugs only
 issue-list --milestone "Sprint 5"       # In sprint
 issue-list --assignee "@me"             # Assigned to me
 issue-list --state closed               # Closed issues
@@ -158,7 +158,7 @@ issue-close 123 --comment "Fixed"       # With comment
 ```bash
 issue-select                            # Pick one
 issue-select --multi                    # Pick many
-issue-select --type story               # Filter by type
+issue-select --type Task               # Filter by type
 ```
 
 ## Issue Hierarchy
@@ -172,7 +172,7 @@ issue-select --type story               # Filter by type
 ### Create with Parent
 
 ```bash
-issue-create --title "Story" --type story --parent 123
+issue-create --title "Task" --type Task --parent 123
 ```
 
 ## Project Commands
@@ -284,7 +284,7 @@ project-update-issue "Q1 2026" 123 --status "Production"
 | Command | Filters By |
 |---------|-----------|
 | `--state open\|closed\|all` | Issue state |
-| `--type epic\|story\|bug` | Issue type |
+| `--type Bug\|Task\|Feature\|Epic` | Native issue type |
 | `--milestone NAME` | Sprint/milestone |
 | `--assignee USER\|none\|@me` | Assignee |
 | `--label LABEL` | Label(s) |
@@ -293,16 +293,16 @@ project-update-issue "Q1 2026" 123 --status "Production"
 ### Combine Filters
 
 ```bash
-issue-list --type story --milestone "Sprint 5" --assignee none
+issue-list --type Task --milestone "Sprint 5" --assignee none
 ```
 
 ## Label Conventions
 
 ### Type Labels
 
-- `type:epic` - Phase or major feature
-- `type:story` - Deliverable
-- `type:bug` - Defect
+- `Epic` — Phase or major feature (native type)
+- `Task` — Deliverable (native type; replaces legacy "story")
+- `Bug` — Defect (native type)
 
 ### Priority Labels
 

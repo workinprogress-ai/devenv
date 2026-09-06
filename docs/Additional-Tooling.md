@@ -919,7 +919,7 @@ issue-create --title "Issue title" [OPTIONS]
 - `--title TITLE`: Issue title (required)
 - `--body TEXT`: Issue body/description
 - `--body-file FILE`: Read body from markdown file
-- `--type TYPE`: Issue type (epic, story, or bug) - adds `type:TYPE` label
+- `--type TYPE`: Native issue type (Bug, Feature, Task, Epic) - sets the GitHub-native type field
 - `--label LABEL`: Add additional labels (repeatable)
 - `--assignee USER`: Assign to user (repeatable)
 - `--milestone NAME`: Assign to milestone/sprint
@@ -943,22 +943,22 @@ By default, `issue-create` discovers templates in `.github/ISSUE_TEMPLATE/` and 
 
 ```bash
 # Interactive mode (select template with fzf, edit in $EDITOR)
-issue-create --title "Login button not working" --type bug
+issue-create --title "Login button not working" --type Bug
 
 # Use specific template without interactive selection
-issue-create --title "User Authentication" --type epic \
-    --template .github/ISSUE_TEMPLATE/epic_template.md
+issue-create --title "User Authentication" --type Feature \
+    --template .github/ISSUE_TEMPLATE/feature_request.md
 
 # Use template without opening editor (for automation)
-issue-create --title "OAuth2 Integration" --type story \
-    --template .github/ISSUE_TEMPLATE/story_template.md --no-interactive
+issue-create --title "OAuth2 Integration" --type Task \
+    --template .github/ISSUE_TEMPLATE/Blank.md --no-interactive
 
 # Create without any template
-issue-create --title "Quick bug" --type bug --no-template \
+issue-create --title "Quick bug" --type Bug --no-template \
     --body "Something is broken"
 
-# Create story under an epic with template
-issue-create --title "OAuth2 Integration" --type story \
+# Create task under an epic with template
+issue-create --title "OAuth2 Integration" --type Task \
     --parent 123 --project "Q1 2026" --milestone "Sprint 5"
 ```
 
@@ -969,7 +969,7 @@ By default, `issue-create` prevents accidental creation of issues in the devenv 
 If you need to create an issue in devenv, pass the `--devenv` flag:
 
 ```bash
-issue-create --devenv --title "Internal issue" --type bug
+issue-create --devenv --title "Internal issue" --type Bug
 ```
 
 ### `issue-list`
@@ -983,7 +983,7 @@ issue-list [OPTIONS]
 **Options:**
 
 - `--state STATE`: Filter by state (open, closed, all) - default: open
-- `--type TYPE`: Filter by type (epic, story, bug)
+- `--type TYPE`: Filter by native issue type (Bug, Feature, Task, Epic)
 - `--label LABEL`: Filter by label (repeatable)
 - `--assignee USER`: Filter by assignee (use "none" for unassigned)
 - `--milestone NAME`: Filter by milestone
@@ -995,7 +995,7 @@ issue-list [OPTIONS]
 
 ```bash
 # List all open bugs
-issue-list --type bug
+issue-list --type Bug
 
 # List issues in current sprint
 issue-list --milestone "Sprint 5"
@@ -1098,7 +1098,7 @@ issue-select [OPTIONS]
 
 ```bash
 # Select an issue interactively
-issue_num=$(issue-select --type story)
+issue_num=$(issue-select --type Task)
 
 # Multi-select to bulk assign
 for issue in $(issue-select --multi); do

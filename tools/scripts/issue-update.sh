@@ -90,7 +90,7 @@ Examples:
     $SCRIPT_NAME 123 --state closed
 
     # Combined update
-    $SCRIPT_NAME 123 --add-label "type:bug" --add-assignee "@me" \\
+    $SCRIPT_NAME 123 --add-label "priority:high" --add-assignee "@me" \
         --milestone "Sprint 5" --title "Updated title"
 
 EOF

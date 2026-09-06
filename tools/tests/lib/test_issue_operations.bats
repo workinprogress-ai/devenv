@@ -63,22 +63,28 @@ EOF
     [[ "$result" =~ --state ]] && [[ "$result" =~ closed ]]
 }
 
-@test "build_issue_filters with type epic" {
+@test "build_issue_filters with type Epic" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    result=$(build_issue_filters --type epic)
-    [[ "$result" =~ --label ]] && [[ "$result" =~ "type:epic" ]]
+    result=$(build_issue_filters --type Epic)
+    [[ "$result" =~ --type ]] && [[ "$result" =~ "Epic" ]]
 }
 
-@test "build_issue_filters with type story" {
+@test "build_issue_filters with type Feature" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    result=$(build_issue_filters --type Feature)
+    [[ "$result" =~ --type ]] && [[ "$result" =~ "Feature" ]]
+}
+
+@test "build_issue_filters with legacy alias story maps to Task" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
     result=$(build_issue_filters --type story)
-    [[ "$result" =~ --label ]] && [[ "$result" =~ "type:story" ]]
+    [[ "$result" =~ --type ]] && [[ "$result" =~ "Task" ]]
 }
 
-@test "build_issue_filters with type bug" {
+@test "build_issue_filters with legacy alias bug maps to Bug" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
     result=$(build_issue_filters --type bug)
-    [[ "$result" =~ --label ]] && [[ "$result" =~ "type:bug" ]]
+    [[ "$result" =~ --type ]] && [[ "$result" =~ "Bug" ]]
 }
 
 @test "build_issue_filters with invalid type" {
@@ -118,8 +124,8 @@ EOF
 
 @test "build_issue_filters with all options" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    result=$(build_issue_filters --state closed --type bug --labels urgent --assignee alice --milestone v1.0 --limit 25)
-    [[ "$result" =~ closed ]] && [[ "$result" =~ bug ]] && [[ "$result" =~ urgent ]] && [[ "$result" =~ alice ]] && [[ "$result" =~ v1.0 ]] && [[ "$result" =~ 25 ]]
+    result=$(build_issue_filters --state closed --type Bug --labels urgent --assignee alice --milestone v1.0 --limit 25)
+    [[ "$result" =~ closed ]] && [[ "$result" =~ "Bug" ]] && [[ "$result" =~ urgent ]] && [[ "$result" =~ alice ]] && [[ "$result" =~ v1.0 ]] && [[ "$result" =~ 25 ]]
 }
 
 # ============================================================================
