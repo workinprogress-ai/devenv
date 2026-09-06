@@ -1119,8 +1119,9 @@ When the user signals end of session (or a phase boundary that suggests a natura
 
 3. Note any deferred items / follow-ups.
 4. Call out any remaining pending questions explicitly. If none remain, say so.
-5. Offer to post a status comment on the issue (if applicable) — show the draft, wait for confirmation.
-6. Suggest a starting point for the next session.
+5. **If this was the final phase (plan fully executed):** verify the plan file records everything actually done — every approved deviation and added task, in current-state prose — then tell the user the plan is now the as-built record and, if an issue artifact identity exists, offer to sync it with `issue-artifact-upsert` (show what changed since the last sync; wait for confirmation).
+6. Offer to post a status comment on the issue (if applicable) — show the draft, wait for confirmation.
+7. Suggest a starting point for the next session.
 
 ## Anti-patterns
 

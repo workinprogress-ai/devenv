@@ -239,6 +239,15 @@ updated_at_utc: <ISO-8601>
 
 Skills should keep only artifact-specific mapping details locally (artifact type, slug source, source file) and reference this convention for common behavior.
 
+## Ephemeral markdown files (`tmpN.md`)
+
+Not every markdown a skill writes is a persisted artifact. When the user asks for a temporary markdown file, or the use case is clearly ephemeral — content that exists only to convey information for immediate use (a bug description to paste into an issue, a feature request for a backing library, a scratch summary) — write it to `tmpN.md` in the **repo root** of the active repository, where `N` is an incrementing number.
+
+- Check existing `tmp*.md` files in the repo root first and use the next free number. Do not overwrite an existing tmp markdown unless it is clearly safe to do so.
+- These files are routinely deleted or modified by the user between sessions — never assume you know what a `tmpN.md` contains; re-read it before any overwrite or reuse.
+- Ephemeral files are not persisted artifacts: no `DEVENV_ARTIFACT_V1` header, no `doc_id`, and they are not republished via `issue-artifact-upsert`.
+- Boundary with the Artifact Identity Convention: if the content will outlive the immediate exchange (plans, grooming documents, spike findings, roadmaps, session handoffs), it is a persisted artifact and follows that convention instead. When classification is ambiguous, ask the user one direct question.
+
 ## Tooling discipline
 
 - **Prefer repo wrappers first.** Use the repo's `issue-*` / `pr-*` / `project-*` wrappers in `tools/` by default.

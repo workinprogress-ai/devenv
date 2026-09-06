@@ -226,4 +226,13 @@ When writing temporary comments into code during implementation sessions, use th
 // GOOD: // _id is guaranteed to be a string by the ingest layer; no legacy fallback path is required.
 ```
 
+### Ephemeral markdown files (`tmpN.md`)
+
+When the user asks to write markdown to a temporary file, or asks for markdown whose use case is clearly ephemeral — content that exists only to convey information for immediate use (a bug description to paste into an issue, a feature request for a backing library, a scratch summary) — write it to `tmpN.md` in the **repo root** of the active repository, where `N` is an incrementing number.
+
+- Check existing `tmp*.md` files in the repo root first and use the next free number. Do not overwrite an existing tmp markdown unless it is clearly safe to do so.
+- These files are routinely deleted or modified by the user between sessions — never assume you know what a `tmpN.md` contains; re-read it before any overwrite or reuse.
+- Ephemeral files are not persisted artifacts: no `DEVENV_ARTIFACT_V1` header, no `doc_id`.
+- This rule covers only clearly ephemeral content. Durable artifacts (implementation plans, grooming documents, spike findings, roadmaps) follow their own skill conventions.
+
 This is a sibling rule to the DEVENV remove-before-ship rule above, covering the distinct class of **permanent unmarked** provenance comments: DEVENV markers are tracked temporaries (removed on schedule); ephemeral references in unmarked comments are untracked permanents (never valid in shipped code).

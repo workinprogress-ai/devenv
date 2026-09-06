@@ -208,6 +208,7 @@ These five are the core of the catalog. If the user is unsure where to start wit
 - **Routing existing-component feature delivery to architecture by default** — default to Plan/Build (`/devenv-create-implementation-plan`, `/devenv-pair-programming`, `/devenv-delegation` for commissioned autonomous runs) unless the user explicitly asks for architecture option-weighing or design-artifact work.
 - **Skipping `/devenv-grooming` for ambiguous component design intake** — use grooming as the default classifier unless the user requested a specific design skill.
 - **Skipping `/devenv-grooming` when planning directly from design/spike artifacts without coordination context** — route through grooming first unless the user explicitly opts out.
+- **Routing a completed plan to plan-refinement skills** — when the user hands over a *completed* implementation plan to sync design records with what was actually built, that's `/devenv-grooming` (as-built reconciliation), not `/devenv-refine-implementation-plan` (which restructures an in-flight plan).
 - **Treating side-stream artifacts as scope-directing** — whether grooming exists or not, use them as additional informational inputs only; when grooming exists it directs scope, otherwise confirm boundaries in plan interview/approval gates.
 - **Ignoring plan-size escalation signals** — when one plan is too large/risky, route to grooming for issue redivision before continuing planning.
 - **Skipping the architecture disambiguation question** when stage is Architect and intent is not explicit.

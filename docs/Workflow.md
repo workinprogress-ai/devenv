@@ -12,6 +12,7 @@ Use this guide when you want the end-to-end methodology rather than a tool catal
 - **Execution mode by risk and collaboration needs** — choose the right execution mode (collaborative vs delegated) based on the work's impact, novelty, and need for human involvement
 - **Responsibility and Accountability** — the **engineer** is **always** the **responsible** party for the work, even when AI-assisted; the AI provides support but does not own outcomes.  "The AI did it" is not an acceptable explanation for a shipped change.  
 - **Implementation plans follow the engineer** — implementation plans are current-state execution artifacts, not prescriptive contracts. The engineer drives; the plan is continuously reconciled to what actually happened. When reality diverges from the plan, update the plan (with confirmation whenever intent is ambiguous) so it reflects truth rather than forcing behavior.
+- **A plan starts theoretical and ends as-built** — at creation a plan is the *theoretical* way to implement; during and after execution it is kept current so that at completion it records the *actual* way the work was *really* implemented. A completed plan is therefore a trustworthy as-built record for upstream artifacts (grooming documents, blueprints) to reconcile against.
 - **Attribution is human-only** — artifact authorship and revision entries attribute work to the current user/engineer (or team/repo context), never to the AI or a specific model. Historical notes describe changes, not model actors.
 - **Organic comprehension** - Take the danger of comprehension deficit seriously.  Understand what you are doing and be able to explain it. Do not treat the AI as a black box or a magic wand.  If you don't understand something, ask questions, seek clarification, and do not proceed until you have a clear mental model.
 - **AI is a tool, not a teammate** — use the AI for what it's good at (drafting, summarizing, suggesting) but do not treat it as a human collaborator with agency or ownership. Always maintain human control and oversight.
@@ -181,7 +182,7 @@ Optionally with or without a spike or design discussion:
             [ downstream steps ]
 ```
 
-### A bug or _small_ feature directly leads to a plan
+### A bug or *small* feature directly leads to a plan
 
 Optionally with or without a spike or design discussion:
 
@@ -194,7 +195,7 @@ Optionally with or without a spike or design discussion:
 
 ### Working without a plan
 
-In cases of _very small_ and very well understood work, it's possible to execute directly without a plan.  This should be done with caution.  A plan helps both the implementation and also to later understand the work that was done.
+In cases of *very small* and very well understood work, it's possible to execute directly without a plan.  This should be done with caution.  A plan helps both the implementation and also to later understand the work that was done.
 
 ## Choose the execution mode
 
@@ -488,6 +489,8 @@ The core artifacts are:
 - Solution proposal: focused answer to one design question; canonical as a file, optionally published elsewhere for context
 
 Do not treat these as interchangeable. Each exists to answer a different question.
+
+Ephemeral markdown (bug descriptions to paste into an issue, feature requests for a backing library, scratch summaries that exist only for immediate use) is **not** a workflow artifact. Write it to `tmpN.md` in the active repo root (incrementing `N`, next free number; never assume an existing tmp file's contents). These files are expected to be deleted quickly and carry no artifact metadata.
 
 ## How to use this guide with the tooling
 

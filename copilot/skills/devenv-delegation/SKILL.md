@@ -378,6 +378,8 @@ Stop and surface to the user when hitting:
 
 When stopping mid-phase, state what the situation is, why it's a trigger, and what options exist. Wait for direction before continuing.
 
+**Recording approved deviations in the plan:** if the user's direction approves a deviation from the plan — a different approach, a scope change, a structural change — update the plan file to record it in the same exchange, using current-state writing. The plan must not keep describing the superseded path while execution follows a new one; that gap is exactly how a plan stops being the as-built record. Minor decisions that did not trigger a stop stay in the phase handback (`Deviation`/`Challenges`) and do not require a plan edit.
+
 If this stop includes a `🔶` decision gate, direction must be explicit and scope-matched before any further mutating action.
 
 ### Surfacing concerns
@@ -456,6 +458,12 @@ Sync procedure (both cases):
 
 Do not perform routine mid-phase syncs beyond the required material-revision exception above. If the session ends mid-phase, offer to sync the completed updates.
 
+**End-of-engagement closeout (required):** when the final in-scope phase is accepted, the plan file is now the as-built record. Before handing back:
+
+1. **Verify plan currency.** Confirm every approved deviation, structural change, and added task from the run is reflected in the plan file — not just in phase handbacks. If anything is missing, write it in now (current-state prose).
+2. **Flag the revised plan to the user.** State that the plan was updated during execution and now records the actual implementation.
+3. **Offer the upsert.** If an associated GH issue artifact identity exists (`<N>` + `<DOC_ID>`), offer to sync the final as-built plan with `issue-artifact-upsert --issue <N> --body-file <path>` — the last phase sync ran at that phase's handback and may not include closeout corrections. Follow the same confirm-then-run procedure as above; never upsert without explicit approval.
+
 ### Failure investigation is bounded by allowed tools
 
 When a build or test failure is encountered, **surface it immediately** — even if it appears pre-existing or unrelated to the current changes. Do not self-assign an investigation task that requires a prohibited operation.
@@ -528,6 +536,8 @@ Before declaring a phase complete and handing back, run the committability check
 - Accepting an in-context task list (pasted or carried from pair) as the execution ledger directly — ad-hoc lists are input only and must pass the viability audit and be materialized into a plan file before any execution.
 - Injecting dated-amendment markers ("Amended <date>", "(decision <date>)") into plan prose instead of rewriting sections as current state — even when existing plan text carries dated precedent; history belongs in the handback.
 - Silently absorbing a challenge that was worked through — proceeding past it is acceptable when no stop trigger applies, but the handback must say what happened; an explicitly empty **Challenges** line is required, not an omitted one.
+- Accepting a user-approved deviation verbally but never writing it into the plan — approval without a plan write leaves the plan describing a superseded path, breaking the as-built record.
+- Ending the engagement with plan updates unflagged and the final as-built plan unsynced — closeout must verify plan currency, tell the user the plan changed, and offer the upsert.
 - Weakening/removing failing behavior assertions to get green status instead of fixing the defect.
 - Attempting a mutating git operation as a repair — unstaging, resetting to the last commit, restoring files from HEAD after corrupting them — instead of stopping immediately and handing the recovery to the user.
 - A phase handback without **review hotspots** when hotspot-worthy work was done.

@@ -1,6 +1,6 @@
 ---
 name: devenv-grooming
-description: Consolidate component-level design intake into a single grooming workflow that classifies work as option-weighing or design update, maintains the current design target state, and produces an issue attack plan (Feature/Fix/Task) grouped by repo and independent production deliverables. Always works with a grooming document — creates one if it does not exist, or loads and updates an existing one. USE WHEN the user says "groom this work", "help me decide the right design path", "which component design workflow should we use", "this plan has architectural issues", "we need to shape this feature before planning/building", or returns an in-flight implementation plan with open architectural decisions. Recommends options and trade-offs but does not make final design decisions without explicit user confirmation. DO NOT USE FOR system-level architecture decomposition (use /devenv-create-blueprint), pure implementation planning once design is settled (use /devenv-refine-implementation-plan for existing plans or /devenv-create-implementation-plan for new work), or coding execution (use /devenv-pair-programming, or /devenv-delegation for a commissioned autonomous mechanical run).
+description: Consolidate component-level design intake into a single grooming workflow that classifies work as option-weighing or design update, maintains the current design target state, and produces an issue attack plan (Feature/Fix/Task) grouped by repo and independent production deliverables. Always works with a grooming document — creates one if it does not exist, or loads and updates an existing one. USE WHEN the user says "groom this work", "help me decide the right design path", "which component design workflow should we use", "this plan has architectural issues", "we need to shape this feature before planning/building", returns an in-flight implementation plan with open architectural decisions, or hands off a **completed** implementation plan so material as-built deviations can be reconciled back into the grooming document. Recommends options and trade-offs but does not make final design decisions without explicit user confirmation. DO NOT USE FOR system-level architecture decomposition (use /devenv-create-blueprint), pure implementation planning once design is settled (use /devenv-refine-implementation-plan for existing plans or /devenv-create-implementation-plan for new work), or coding execution (use /devenv-pair-programming, or /devenv-delegation for a commissioned autonomous mechanical run).
 argument-hint: '[problem statement | component repo path | design doc path | implementation plan path | issue number]'
 user-invocable: true
 ---
@@ -73,13 +73,11 @@ Before anything else, locate the grooming document for this work.
 **Step 2 — Search for an existing grooming document.** A grooming document may live:
 
 - On the same GH issue (as a comment or linked file)
-- In a `planning.*` repo (e.g. `docs/Grooming/Grooming-<topic>-NNN.md`)
-- In the component repo's `docs/` folder
-- Referenced from the implementation plan's `## Reference Information` section
+- In the root of the repository.  Note that grooming documents are only written to disk while being actively edited, reviewed, or while related work is going on.  The intended source of truth is the GH issue.
 
 Ask the user if the location is not obvious:
 
-> "Is there an existing grooming document for this work? It may be in a planning repo, on a GH issue, or alongside the implementation plan."
+> "Is there an existing grooming document for this work? It may be on a GH issue, or as a `Grooming-*.md` file in the repo root (a working copy from active related work)."
 
 **Step 3 — Load or create.**
 
@@ -114,7 +112,10 @@ Follow the shared [issue-backed artifact edit protocol](../common/references/iss
 
 Then use the `component-context/index.md` file from the configured Copilot knowledge location. Resolve that location from `devenv.config` `[copilot]` (`knowledge_repo`, `knowledge_subpath`) before loading context. For services, choose among `01-Service-Architecture.md`, `02-Service-Implementation.md`, and `03-Service-Plugins.md` as needed.
 
-**Step 5 — If input is a returned implementation plan:** run the [plan architectural review protocol](../common/references/plan-architectural-review.md) to produce a scoped architectural brief, then map its pending decisions back to the grooming document's `Pending` table before Phase 1.
+**Step 5 — If input is a returned implementation plan:** determine which kind it is:
+
+- **In-flight plan (phases/tasks still open, architectural decisions pending):** run the [plan architectural review protocol](../common/references/plan-architectural-review.md) to produce a scoped architectural brief, then map its pending decisions back to the grooming document's `Pending` table before Phase 1.
+- **Completed plan (all phases done; the plan is now an as-built record):** run the [as-built reconciliation protocol](#as-built-reconciliation-from-a-completed-plan) below to backport material deviations into the grooming document.
 
 ### Phase 1: Classification interview (max 4 questions)
 
@@ -192,6 +193,19 @@ Design-discussion and spike artifacts should normally flow through grooming befo
 
 - For straightforward cases, grooming may be brief: capture key decisions/constraints from the upstream artifact, generate the issue attack plan, and then hand off to implementation-plan generation.
 - Do not route design-discussion/spike output directly to implementation planning unless the user explicitly asks to bypass grooming.
+
+### As-built reconciliation from a completed plan
+
+A completed implementation plan is an as-built record (see the *plan starts theoretical and ends as-built* principle in [Workflow](../../../docs/Workflow.md)). When a completed plan is handed to grooming, reconcile the grooming document against what was *actually* built:
+
+1. **Determine completion.** All phases complete, no open `[QUESTION]` markers. If the plan is actually in-flight, use the plan architectural review path in Phase 0 Step 5 instead.
+2. **Diff against the grooming document.** Compare the grooming document's confirmed decisions and architecture deltas against the plan's recorded decisions (`decision:` metadata), deviation notes, and the actual outcome each phase describes.
+3. **Apply the materiality bar.** Backport only differences that would make the grooming document *inaccurate* if left unchanged — a confirmed decision that was implemented differently, a component/dependency that changed, a scope boundary that moved, an approach that was replaced mid-execution. Do **not** backport minor or inconsequential differences (task reordering, naming, refactors internal to a component, updated wording).
+4. **Present the delta before writing.** Show the user each proposed grooming-document change with its as-built justification and let them confirm. Materiality is the user's call when ambiguous — surface the borderline cases rather than deciding silently.
+5. **Update surgically.** Apply confirmed changes with the [surgical grooming document updates](#surgical-grooming-document-updates) rules — rewrite the affected decision/delta entries in place as current-state truth; do not append change logs or provenance annotations.
+6. **Record the linkage.** Ensure the grooming document's planned-implementation column points at the completed plan's issue/artifact so the as-built relationship is traceable.
+
+This flow updates the grooming document only; it does not modify the completed plan. If the plan itself failed to record a material deviation, flag that to the user — plan currency is the responsibility of the execution skill that drove it.
 
 ### Decision rules (explicit handoff)
 
@@ -428,6 +442,8 @@ Your call: choose A/B(/C) or defer.
 - Skipping Phase 0 (grooming document lookup) and working without a grooming document.
 - Creating a new grooming document without first searching for an existing one.
 - Rewriting unrelated parts of the grooming document when doing a surgical update from a returned plan.
+- Backporting minor or inconsequential differences from a completed plan into the grooming document — the materiality bar exists so the grooming document tracks design truth, not implementation noise.
+- Treating a completed plan as a fault to diagnose — as-built reconciliation is not plan architectural review; a completed plan is evidence of what was built, not a problem to fix.
 - Writing "previously/before" design narrative in main document sections instead of `## Revision History`.
 - Creating child issues via raw `gh issue create` — grooming child-issue creation uses `issue-create` / `issue-create-batch` only, every time, regardless of what earlier session phases did. Raw `gh` in this flow loses native type and parent-linkage enrichment.
 
