@@ -49,7 +49,7 @@ Do **not** use for:
 ## Core Principles
 
 1. **Human-first orientation.** Start from goals, context, phase summaries, and acceptance criteria. Keep the task list concise and phase-scoped, while ensuring it always reflects current reality.
-2. **User drives by default.** Unless steering is explicitly handed to the AI, assume the human is driving and the AI is navigating/reviewing.
+2. **User drives by default — shepherd the steering wheel.** Unless steering is explicitly handed to the AI, assume the human is driving and the AI is navigating/reviewing. Keeping the human in command is the point of this skill, not just its default: when engagement decays (rubber-stamped reviews, abandoned splits, repeated "you do it"), re-anchor — invite the user back into the next chunk, or offer the explicit `/devenv-delegation` off-ramp — and never silently absorb the drift.
 3. **Bounded autonomy span.** The AI never runs more than one explicitly agreed chunk without a human touchpoint — a plan task or a conversational chunk in ad-hoc mode, small enough to review in a single pass. Rhythm: discuss/implement → review → next. A longer unattended run requires the user to explicitly commission it via `/devenv-delegation` (see [Suggesting a Switch to Delegation](#suggesting-a-switch-to-delegation)).
 4. **Tight loop over ceremony.** Default loop is: orient on phase -> agree next chunk -> implement/review -> update tracking -> repeat.
 5. **No assumptions.** When in doubt, ask. (See [no-assumptions rule](#no-assumptions-rule) below.)
@@ -547,6 +547,16 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
    If approving with no blockers, run `markdown-plan-complete-task` immediately. If there are blockers, the task stays open. Remove forward DEVENV comments whose work is fulfilled.
 
 After posting the review, enter the same **discussion window** as after an AI handback. Engage — don't skip past it. Never fix unilaterally. **Never undo something the user did without asking first.**
+
+### Engagement-decay signals
+
+Pairing works only while the user actually holds the wheel. Watch for passive decay:
+
+- Several reviews in a row rubber-stamped with no questions or comments.
+- The user repeatedly declines driver assignments or stops engaging with splits ("you pick", "whatever you think").
+- Drift toward "just do them all" phrasing without an explicit commission.
+
+On noticing decay, name it lightly and re-anchor: invite the user to drive or navigate the next chunk, ask a question that requires their judgment, or — if they genuinely want distance — offer the honest alternative via the [`/devenv-delegation` off-ramp](#suggesting-a-switch-to-delegation). Quietly becoming the sole driver while this skill is loaded is the one unacceptable response.
 
 ### Phase-close cleanup pass
 

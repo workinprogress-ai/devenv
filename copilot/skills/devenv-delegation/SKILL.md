@@ -1,6 +1,6 @@
 ---
 name: devenv-delegation
-description: 'Drive implementation of a pre-existing plan with assistant-led execution and user review. USE WHEN the user says "delegate this to you", "you take this", "run with this", "implement this plan", "work through this plan", or "do this for me" with a plan attached, AND the work is mechanical, rote, or low-impact (refactors, rename sweeps, test scaffolding, cleanup, docs). REQUIRES a persistent, validated ledger — normally an implementation plan (file path or GH issue with a plan in the body); an ad-hoc decomposed task list is acceptable as input only via a viability audit and materialization into a plan file at kickoff, never as a bare in-context list. Works phase by phase: uses acceptance criteria and human-facing phase summaries as the review guide, refreshes and confirms the phase task list as the current-state execution ledger, runs a full phase semi-autonomously (stopping only for ambiguity, major decisions, or unexpected obstacles), then hands back with a structured phase completion summary including hotspots, decisions made, and any deviations noted. Expects a discussion window between phases — user may review, request changes, or ask for plan edits. SUGGESTS switching to `/devenv-pair-programming` for high-impact phases; respects the user''s decision either way. DO NOT USE for ad-hoc work without a plan or decomposed list (use `/devenv-create-implementation-plan` first), or highly collaborative work where the user wants to drive (use `/devenv-pair-programming`).'
+description: 'Drive implementation of a pre-existing plan with assistant-led execution and user review. USE WHEN the user says "delegate this to you", "you take this", "run with this", "implement this plan", "work through this plan", or "do this for me" with a plan attached, AND the work is mechanical, rote, or low-impact (refactors, rename sweeps, test scaffolding, cleanup, docs). REQUIRES a persistent, validated ledger — normally an implementation plan (file path or GH issue with a plan in the body); an ad-hoc decomposed task list is acceptable as input only via a viability audit and materialization into a plan file at kickoff, never as a bare in-context list. Works phase by phase: uses acceptance criteria and human-facing phase summaries as the review guide, refreshes and confirms the phase task list as the current-state execution ledger, runs a full phase semi-autonomously (stopping only for ambiguity, major decisions, or unexpected obstacles), then hands back with a structured phase completion summary including hotspots, decisions made, and any deviations noted. Phase-boundary policy is set at commissioning: gate mode (default — stop and hand back at every boundary) or checkpoint mode (run the full boundary protocol but continue unless the boundary evaluation — deviations, risk shifts, blocked gates, contract changes — says the user should see it; forced-stop triggers apply regardless). The handback window is pair-like: questions, discussion, and small fixing work until execution resumes at explicit direction. SUGGESTS switching to `/devenv-pair-programming` for high-impact phases; respects the user''s decision either way. DO NOT USE for ad-hoc work without a plan or decomposed list (use `/devenv-create-implementation-plan` first), or highly collaborative work where the user wants to drive (use `/devenv-pair-programming`).'
 argument-hint: '<issue-number[:doc_id] | path-to-plan | ad-hoc task list> [phase or task range]'
 user-invocable: true
 ---
@@ -48,7 +48,7 @@ Do **not** use for:
 ## Core Principles
 
 1. **Plan required.** No plan, no delegation. Refuse and redirect. The requirement is for a **persistent, validated ledger** — normally an `Implementation_plan-*.md` from the planning skills, but an ad-hoc task list is acceptable **input** if it passes the ad-hoc intake gate (see [Ad-Hoc Task List Intake](#ad-hoc-task-list-intake)) and gets materialized into a plan file first. An in-context list (pasted or carried from a pair-programming session) is never the ledger itself.
-2. **Engagement floor.** The human stays in the loop with brief task pings, inline concern surfacing, and a structured end-of-session summary with **review hotspots**.
+2. **Engagement floor — the AI is the principal driver.** The human stays in the loop with brief task pings, inline concern surfacing, and a structured end-of-session summary with **review hotspots**. This is the mirror image of pair-programming's user-drives default: here the AI drives and the user supervises from the handback gates — phase completions, mid-phase stops, and aborts are all handback points. Handbacks exist to make that supervision cheap — surface hotspots, deviations, and decisions so a supervisor can review without re-reading the whole diff.
 3. **Phase-first, AC-first review.** Use acceptance criteria plus goals, context, and phase summaries as the source of truth; the phase task list is the authoritative current-state execution ledger.
 4. **Runtime micro-planning = task-list refresh.** At phase start, refresh and confirm the current phase task list, then execute from it. Do not run a parallel shadow checklist.
 5. **No assumptions.** Ask before non-trivial choices, ambiguous acceptance criteria, multiple competing patterns, or anything contradicting the plan.
@@ -308,6 +308,14 @@ Wait for explicit go-ahead before starting the first session.
 
 If the immediately previous turn raised a `🔶` decision gate, a generic "go ahead" or navigation reply is not enough unless it clearly chooses one of the presented options or otherwise approves a specific path.
 
+**Phase-boundary policy (set at commissioning, required when more than one phase is in scope):** ask the user to choose the boundary mode before the first phase starts —
+
+> *"How should phase boundaries behave for this run?
+> - **Gate mode** (default): I stop at every phase boundary and hand back for your review before continuing.
+> - **Checkpoint mode**: I run the full boundary protocol (gates, ledger reconciliation, plan sync, report) but continue into the next phase without waiting, unless the boundary evaluation says something needs your eyes. You can interject on any report — the pair-like window applies in both directions."*
+
+The mode is part of the commission — never self-granted or escalated mid-run. In checkpoint mode, the boundary evaluation (below) is conservative; when torn between continuing and handing back, **hand back**. The user may switch modes at any handback; that is a downgrade in trust that needs no justification.
+
 ### 6b. Returning after a gap or status request
 
 If the user returns after stepping away and asks for status (for example: "where are we?", "what finished?", "what's next?"), run a concise **Phase review pass** before proposing next actions.
@@ -440,6 +448,30 @@ Default output shape:
 
 Keep this concise by default (5-8 lines). Expand only when drift is meaningful or the user asks for detail.
 
+### The handback window is pair-like
+
+Whenever control returns to the user — a completed phase, a mid-phase stop trigger (ambiguity, decision, obstacle, risk), an abort, or a return after a gap — the interaction temporarily resembles pair-programming: answer questions about what was done and why, discuss concerns and trade-offs, and handle small fixing work directly (the user is watching — this is supervised minor work, not scope expansion). Larger changes become plan edits via the handback's `Next` options. Do not restart autonomous execution on silence or the absence of further questions — execution resumes only at explicit direction: a new phase kickoff, or continuation of the current phase from where it stopped. Mid-window decision gates follow the same hard-stop rules as mid-phase ones.
+
+### Phase-boundary evaluation (checkpoint mode)
+
+A phase boundary always runs its mechanical work regardless of mode: the [Phase Completion Gate](#phase-completion-gate), ledger reconciliation, phase-close cleanup pass, plan sync, and a report. The only variable is whether the report **waits** for the user. In checkpoint mode, after the mechanical work, evaluate:
+
+- Did anything **deviate** from the plan, or get decided without clear codebase precedent?
+- Is the **next phase different in character or risk** (new contracts/public surfaces, new repos, different failure modes) than the one just finished?
+- Is the gate **fully clear** — no deferred items, no open `[QUESTION]`s bleeding into the next phase?
+- Did the plan **change** during the phase (added tasks, reworded scope)?
+
+Any yes — or any doubt — hands back to the user with the report before continuing. When in doubt, the [supervision bias](#mid-phase-stop-triggers) applies to this evaluation itself: a false handback costs one exchange; a bad continue compounds silently across the phases that follow.
+
+**Forced stops regardless of mode:**
+
+- A recorded deviation from the plan in the completed phase.
+- A judgment call made without codebase precedent.
+- A blocked or not-yet-run gate.
+- Contract, schema, or public-surface changes landed or upcoming in the next phase.
+- A phase flagged `better-as-pair` at kickoff.
+- The **first** phase boundary of the engagement (calibration point: confirm the run's character before extending trust).
+
 ### GH issue artifact sync
 
 If there is an **associated GH issue + implementation-plan artifact identity** (`<N>` + `<DOC_ID>` in session context), sync that artifact comment with `issue-artifact-upsert` using the local plan file as source of truth.
@@ -542,6 +574,8 @@ Before declaring a phase complete and handing back, run the committability check
 - Attempting a mutating git operation as a repair — unstaging, resetting to the last commit, restoring files from HEAD after corrupting them — instead of stopping immediately and handing the recovery to the user.
 - A phase handback without **review hotspots** when hotspot-worthy work was done.
 - Auto-proceeding to the next phase without user review and approval.
+- Self-granting checkpoint mode or escalating boundary autonomy mid-run — the boundary policy is set at commissioning and changed only by the user, at a handback.
+- Treating checkpoint mode as license to skip the boundary's mechanical work — gates, ledger reconciliation, and the report run in every mode; only the wait is conditional.
 - Treating between-phase requests as out-of-scope — minor work should just be done; larger work should be offered as a plan edit.
 - Silently expanding scope beyond what was delegated.
 - Emitting file links that haven't been confirmed to exist (guessed paths).
