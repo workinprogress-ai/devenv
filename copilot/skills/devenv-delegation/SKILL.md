@@ -157,9 +157,9 @@ After loading, scan for obvious staleness signals before going any further:
 
 **If two or more signals are present**, flag it before continuing:
 
-> *"This plan shows signs of drift: [list the specific signals]. I'd recommend running `/devenv-refresh-implementation-plan` before we start to make sure we're working from a plan that matches the current codebase. Want to do that now, or proceed as-is?"*
+> *"This plan shows signs of drift: [list the specific signals]. I'd recommend running `/devenv-refine-implementation-plan` (assessment mode) before we start to make sure we're working from a plan that matches the current codebase. Want to do that now, or proceed as-is?"*
 
-Wait for the user's answer. If they say proceed, note the signals in the first phase's completion handback open questions section and continue. If they say refresh, tell them to invoke `/devenv-refresh-implementation-plan` (new skill invocation required) and stop.
+Wait for the user's answer. If they say proceed, note the signals in the first phase's completion handback open questions section and continue. If they say refresh, tell them to invoke `/devenv-refine-implementation-plan` in assessment mode (new skill invocation required) and stop.
 
 **If fewer than two signals**, continue silently.
 

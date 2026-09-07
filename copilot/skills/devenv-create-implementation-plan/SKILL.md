@@ -405,8 +405,7 @@ Every phase in `## Phases` should include both human-facing guidance and a conde
 - `/devenv-grooming` — when the component's internal design direction is unsettled; classify it before writing tasks.
 - `/devenv-design-discussion` — when the right approach for this work isn't settled yet; weigh options before planning tasks.
 - `/devenv-refine-implementation-plan` — to revise this plan after scope changes.
-- `/devenv-plan-update` — small surgical edits (tick boxes, add notes).
-- `/devenv-plan-status` — read-only progress report.
+- `/devenv-refine-implementation-plan` — align an existing plan with reality: surgical edits (tick boxes, add notes), structured revision, or staleness assessment.
 
 Spec-derived planning is handled by this skill in direct-plan mode.
 

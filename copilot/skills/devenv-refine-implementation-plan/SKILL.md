@@ -1,7 +1,7 @@
 ---
 name: devenv-refine-implementation-plan
-description: Revise an existing Implementation_plan-*.md (or GitHub issue containing an implementation-plan artifact comment) after discovery work, scope changes, or new requirements. USE WHEN the user says "refine the plan", "update the plan", "revise the implementation plan", "the plan needs updating", "rework the plan based on what we learned", or hands off a stale plan that needs new tasks added or existing tasks adjusted. Auto-detects whether input is a file path or a GitHub issue number, preserves all existing `[x]` checkbox state, appends new tasks to the end of each affected phase by default, supports downstream task reflow when structural insertion requires it, and creates new phases when the target phase is already fully complete. Keeps the plan aligned to current reality and writes the result back in place. DO NOT USE for creating a brand-new plan from scratch (use `/devenv-create-implementation-plan`), for ad-hoc edits to a single task line (just edit the file directly), or for reporting plan progress without modifying it (use `/devenv-plan-status`).
-argument-hint: Path to an Implementation_plan-*.md OR github-issue-number[:doc_id] containing implementation-plan artifacts
+description: Align an existing Implementation_plan-*.md (or GitHub issue containing an implementation-plan artifact comment) with reality — one skill entered from three starting points. Surgical mode for small known edits ("mark 3.4 done", "tick off task 2.1", "add a note to task X", "answer that open question", "add one more task to phase 3" — max 3 edits, per-edit confirm). Revision mode for known broader changes ("refine the plan", "update the plan", "rework the plan based on what we learned", tasks reworded, scope adjusted). Assessment mode when staleness is unknown ("refresh the plan", "is this plan still valid?", "the plan might be out of date", returning after a gap) — runs a staleness assessment against the current codebase and routes internally. Auto-detects file path vs GitHub issue number, preserves all existing `[x]` checkbox state, appends new tasks by default, supports task reflow for structural insertion, and creates new phases when the target phase is fully complete. DO NOT USE for creating a brand-new plan from scratch (use `/devenv-create-implementation-plan`) or for executing the plan (use `/devenv-pair-programming` or `/devenv-delegation`).
+argument-hint: Path to an Implementation_plan-*.md OR github-issue-number[:doc_id], plus what changed (or nothing for assessment)
 ---
 
 # Refine implementation plan
@@ -10,13 +10,30 @@ argument-hint: Path to an Implementation_plan-*.md OR github-issue-number[:doc_i
 
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
-Take an existing implementation plan and revise it based on new information — discovery work, scope changes, fresh requirements, or lessons from initial implementation. Preserve all existing progress; never silently undo work.
+Take an existing implementation plan and align it with reality. The user's starting point differs — sometimes they know the exact small edit, sometimes they know the area that changed, sometimes they only suspect drift. This is one verb with three intake modes, not three skills. Preserve all existing progress; never silently undo work.
+
+## Intake: classify the mode
+
+After loading the plan (see Inputs), classify the invocation into one of three modes:
+
+| Mode | User's state | Typical phrases |
+|---|---|---|
+| **Surgical** | Knows the exact small change(s) | "mark 3.4 done", "tick off task 2.1", "add a note to task X", "answer that open question" |
+| **Revision** | Knows what area changed; needs structured rework | "refine the plan", "rework the plan after what we learned", "scope changed, update the plan" |
+| **Assessment** | Does not know whether the plan is still valid | "refresh the plan", "is this plan still valid?", "the plan might be out of date", returning after a gap |
+
+Classification rules:
+
+- **≤3 discrete edits, each matching the surgical operation set (below) → surgical mode.** More than 3, or any operation outside the set → revision mode.
+- **Explicit staleness/validity language, or a drift-signal handoff from delegation/pair-programming → assessment mode.**
+- **Ambiguous between revision and assessment → ask one question:** "Do you already know what changed, or should I assess the plan against the codebase first?"
+- A session may move between modes (assessment finds drift → revision applies it; revision reveals a quick tick → surgical). Mode sets the *entry* flow, not a permanent lane.
 
 ## When to Use
 
-- The user has an `Implementation_plan-*.md` (or a GitHub issue with an implementation-plan artifact comment) that needs new tasks added, existing tasks reworded, or scope adjusted.
-- A previous `/devenv-create-implementation-plan` run is now out of date.
-- Discovery during Phase 1 revealed sub-tasks that didn't exist when the plan was written.
+- The user has an `Implementation_plan-*.md` (or a GitHub issue with an implementation-plan artifact comment) that needs small surgical edits, broader revision, or staleness assessment — in any combination.
+- A previous `/devenv-create-implementation-plan` run needs alignment with what actually happened.
+- Execution (pair-programming / delegation) surfaced drift signals and suggested an assessment.
 
 If there is no existing plan, stop and redirect to `/devenv-create-implementation-plan`.
 
@@ -41,6 +58,41 @@ For issue-backed plan refinement, follow the shared [issue-backed artifact edit 
 
 ## Workflow
 
+### 0. Mode dispatch
+
+Apply the intake classification above. Then:
+
+- **Surgical mode** → run the [surgical edit protocol](#surgical-edit-protocol), then jump to Step 5 (write) and Step 6 (report).
+- **Assessment mode** → run the [staleness assessment protocol](./references/staleness-assessment.md); its outcome routes internally: slightly stale → surgical patching; significantly stale → findings-driven revision (Steps 1–4 with the findings replacing the open-ended interview); intent-only → intent extraction → `/devenv-create-implementation-plan`.
+- **Revision mode** → continue with Steps 1–6 below.
+
+### Surgical edit protocol
+
+Small, surgical edits without a revision interview.
+
+**Hard limit: 3 operations per invocation.** If more are requested, or any operation falls outside the supported set, switch to revision mode (continue with Steps 1–6).
+
+| Operation | Supported in surgical mode? |
+|---|---|
+| Mark task `[x]` | yes |
+| Mark task `[ ]` (undo) | only if it was ticked in the current session (e.g. by mistake); prior-session checkboxes refuse — suggest adding a new task instead |
+| Answer/resolve an open question | yes |
+| Append a short note to a task line | yes |
+| Add one new task at the end of a phase | yes |
+| Reword an existing task | no — revision mode |
+| Restructure or reorder phases | no — revision mode |
+| Cancel a task (strikethrough) | no — revision mode |
+| Modify acceptance criteria (AC-N) | no — revision mode |
+
+For each edit, show a one-line preview and ask for explicit confirmation (one y/n per edit — never batch):
+
+> "Mark task **3.4 Create X** as done? (y/n)"
+> "Append note to **2.7**: 'fix landed in commit abc123'? (y/n)"
+
+If the user declines any edit, skip it and continue. Notes append to the task line as `— note: <text>` or an indented sub-bullet. Resolved questions: inline-edit the `[QUESTION]` line with `— answered: <text>`, or fold the answer into surrounding text and remove the question (prefer inline for short answers).
+
+Then apply the shared hard rules (Step 3), write (Step 5), and report (Step 6) with per-change one-liners plus new task counts.
+
 ### 1. Load and parse the existing plan
 
 - Read the source (file or `issue-artifact-get` output).
@@ -54,9 +106,9 @@ For issue-backed plan refinement, follow the shared [issue-backed artifact edit 
 - If `## Reference Information` links a grooming artifact, load it before interviewing. For issue-backed plans, also check issue comments/source context for a linked grooming artifact when the body references one indirectly.
 - Treat an in-flight partially executed plan as a normal refinement case, not an exception: preserve completed work, update only the necessary downstream design/sequence/task surfaces, and avoid rewriting already-validated earlier phases unless the user explicitly asks.
 
-### 2. Interview the user about what changed
+### 2. Interview the user about what changed (revision mode)
 
-Use `vscode_askQuestions` to gather:
+In revision mode, use `vscode_askQuestions` to gather:
 
 - **What's new** — new tasks to add, or themes for new tasks.
 - **What's wrong** — tasks whose descriptions are now misleading or whose scope changed.
@@ -222,13 +274,15 @@ Summarise inline:
 - **Writing refinement-era wording in plan body** — phrases such as "in this refinement" or "during this update" are not allowed in plan content.
 - **Adding discovery-only confirmation edits** — if exploration merely confirmed the plan was already right, leave the plan unchanged.
 - **AI/model attribution in artifact text** — do not write lines like "updated by AI", "generated by Copilot", or "revised by <model>" in plan sections or revision history.
-- **Assuming what changed** — always interview before editing. The user knows things you don't.
+- **Assuming what changed** — always interview before editing in revision mode. The user knows things you don't.
+- **Batching surgical confirmations** — each surgical edit gets its own y/n; the user must be able to decline one without rejecting all.
+- **Growing the surgical limit** — more than 3 edits means revision mode; don't stretch surgical mode to avoid the interview.
+- **Patching an intent-only plan** — if the assessment classified the plan intent-only, do not apply light patches; extract intent and re-plan.
 - **Over-checking the artifact publish step** — once issue, `doc_id`, and file are known, do not run ad-hoc `--help` / `command -v` preflights instead of executing the known upsert command.
 
 ## Sibling skills
 
-- `/devenv-create-implementation-plan` — for brand-new plans from scratch.
-- `/devenv-plan-status` — for reporting progress without modifying the plan.
-- `/devenv-pair-programming` and `/devenv-delegation` — for actually executing the (refined) plan.
+- `/devenv-create-implementation-plan` — for brand-new plans from scratch (also the re-plan target when assessment classifies a plan intent-only).
+- `/devenv-pair-programming` and `/devenv-delegation` — for actually executing the (refined) plan. Both surface drift signals that route back here (assessment mode).
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

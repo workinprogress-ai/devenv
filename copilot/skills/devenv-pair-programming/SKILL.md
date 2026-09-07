@@ -235,7 +235,7 @@ Scan for staleness signals before continuing:
 
 **If two or more signals are present**, flag it:
 
-> *"⚠️ Drift signals: [list]. Run `/devenv-refresh-implementation-plan` first, or proceed as-is?"*
+> *"⚠️ Drift signals: [list]. Run `/devenv-refine-implementation-plan` (assessment mode) first, or proceed as-is?"*
 
 If they say refresh, tell them to invoke it (new skill invocation required) and stop. If they say proceed, note the signals in open questions and continue. **If fewer than two signals**, continue silently.
 

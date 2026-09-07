@@ -204,7 +204,7 @@ These five are the core of the catalog. If the user is unsure where to start wit
 - **Recommending `/devenv-pair-programming` for pure exploration** — start with `/devenv-rubber-duck` or `/devenv-spike`.
 - **Routing broad bug hunting to `/devenv-bug-fix`** — use `/devenv-tech-debt-audit`; reserve `/devenv-bug-fix` for a specific known bug.
 - **Routing unverified bug suspicions to `/devenv-bug-fix` or `/devenv-tech-debt-audit`** — use `/devenv-bug-hunter` when a specific observation is suspected but unconfirmed.
-- **Recommending `/devenv-create-implementation-plan` when a plan already exists** — that's `/devenv-refine-implementation-plan` or `/devenv-plan-update`.
+- **Recommending `/devenv-create-implementation-plan` when a plan already exists** — that's `/devenv-refine-implementation-plan` (surgical mode for small edits, revision mode for rework, assessment mode when staleness is unknown).
 - **Routing existing-component feature delivery to architecture by default** — default to Plan/Build (`/devenv-create-implementation-plan`, `/devenv-pair-programming`, `/devenv-delegation` for commissioned autonomous runs) unless the user explicitly asks for architecture option-weighing or design-artifact work.
 - **Skipping `/devenv-grooming` for ambiguous component design intake** — use grooming as the default classifier unless the user requested a specific design skill.
 - **Skipping `/devenv-grooming` when planning directly from design/spike artifacts without coordination context** — route through grooming first unless the user explicitly opts out.

@@ -39,9 +39,7 @@ What are you trying to do?
 │
 ├─ 📋 Plan
 │   ├─ Create from idea / issue or complete spec / RFC  →  /devenv-create-implementation-plan
-│   ├─ Revise after scope change        →  /devenv-refine-implementation-plan
-│   ├─ Small surgical edit (tick / note)→  /devenv-plan-update
-│   └─ Check progress, read-only        →  /devenv-plan-status
+│   └─ Align existing plan with reality (surgical edit / revision / staleness assessment)  →  /devenv-refine-implementation-plan
 │
 ├─ 🔨 Build
 │   ├─ No plan yet                      →  /devenv-create-implementation-plan first
@@ -191,9 +189,7 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 | `/devenv-refine-roadmap` | Structurally revise a roadmap — split, re-sequence, add | Roadmap file path |
 | `/devenv-update-roadmap` | Sync roadmap status from issues + PRs | Roadmap file path |
 | `/devenv-create-implementation-plan` | Create a current-state execution plan via interview; supports direct-plan mode and treats side-stream artifacts as additional (non-directing) context | Issue # or description |
-| `/devenv-refine-implementation-plan` | Reconcile a plan to new reality after scope changes, discoveries, or user-driven deviations | Plan file path or issue # |
-| `/devenv-plan-update` | Small surgical edit to keep a plan aligned to current reality (tick box, add note) | Plan file path or issue # |
-| `/devenv-plan-status` | Progress report from the plan's current state, read-only | Plan file path or issue # |
+| `/devenv-refine-implementation-plan` | Align a plan with reality from any starting point — surgical edits, structured revision, or staleness assessment with internal routing | Plan file path or issue # |
 
 ### Working modes
 
@@ -358,11 +354,12 @@ Blueprint changed
 ### Quick maintenance cycle
 
 ```text
-/devenv-plan-status Implementation_plan-5.md
-  → /devenv-plan-update                    # tick off completed tasks
-    → /devenv-delegation                   # run the next phase
-      → /devenv-pre-commit
-        → /devenv-session-handoff          # hand off to team
+/devenv-refine-implementation-plan Implementation_plan-5.md
+                                        # assessment mode (returning after a gap)
+                                        # or surgical mode (tick off completed tasks)
+  → /devenv-delegation                   # run the next phase
+    → /devenv-pre-commit
+      → /devenv-session-handoff          # hand off to team
 ```
 
 ---
@@ -382,7 +379,7 @@ Blueprint changed
 | `/devenv-update-roadmap` vs `/devenv-refine-blueprint` | `update-roadmap` syncs status from issues (mechanical, frequent). `refine-blueprint` revises architectural decisions (rare, deliberate). |
 | `/devenv-gather-requirements` Phase 3 vs `/devenv-create-roadmap` | Phase 3 produces stakeholder priority *groups* (`GROUP-NN`) — business sequencing intent only. `/devenv-create-roadmap` produces a real delivery roadmap (`PHASE-NN` / `STEP-NN`) with components, dependencies, and GH issues. The roadmap supersedes priority groups for execution. |
 | `/devenv-refine-requirements` vs `/devenv-gather-requirements` | Refine preserves existing REQ-NNN IDs and dependency links; gather creates from scratch. Use refine for anything except a brand-new requirements doc. |
-| `/devenv-refine-implementation-plan` vs `/devenv-plan-update` | Structural changes vs surgical edits. `/devenv-plan-update` refuses if you ask for >3 changes. |
+| `/devenv-refine-implementation-plan` surgical mode vs revision mode | Same skill, two depths. Surgical: ≤3 known small edits, per-edit confirm, no interview. Revision: scope/structure changes or >3 edits, full interview. Assessment mode first when staleness is unknown. |
 | `/devenv-pair-programming` vs `/devenv-delegation` | Autonomy span. Pair = one task/small chunk per human touchpoint and the only home for high-impact work. Delegation = a commissioned phase-scale autonomous run, mechanical work only, explicit invocation required. Prefer `/devenv-pair-programming` when in doubt. |
 | `/devenv-code-review` vs `/devenv-address-pr-comments` | Review assistance for your changes vs you address a reviewer's comments. |
 | `/devenv-address-pr-comments` vs GitHub PR extension | Auto-fixes clear threads + surfaces complex ones with recommendations vs batch fix-all with no per-thread direction. |
@@ -396,7 +393,7 @@ Blueprint changed
 | `/devenv-design-discussion` vs `/devenv-spike` | Design-discussion narrows options by reasoning. Spike answers feasibility questions that require running code. |
 | `/devenv-design-discussion` vs `/devenv-create-blueprint` | Design-discussion is exploratory and focused — picks between approaches. Blueprint is formal and broad — decomposes a chosen approach into domains, services, events, components. Design-discussion typically *precedes* a blueprint, or is invoked *after* one to settle a specific question. |
 | `/devenv-design-discussion` vs `/devenv-create-implementation-plan` | Use design-discussion when the approach is still unclear or one bounded blocker needs deeper option-weighing. Use create-implementation-plan when the approach is already chosen and you need executable tasks. |
-| `/devenv-session-handoff` vs `/devenv-plan-update` | Narrative summary vs structured task-state update. |
+| `/devenv-session-handoff` vs `/devenv-refine-implementation-plan` surgical mode | Narrative summary vs structured task-state update. |
 
 ---
 

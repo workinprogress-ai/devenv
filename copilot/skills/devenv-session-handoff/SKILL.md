@@ -1,6 +1,6 @@
 ---
 name: devenv-session-handoff
-description: Produce a structured session handoff for the next contributor — work done, key decisions, next steps, review hotspots, open questions, and any throwaway/temporary code. USE WHEN the user says "wrap up this session", "write a handoff", "session summary for the next person", "I'm tagging out — leave a note for whoever picks this up", "summarise what we did and what's left", or ends a working session that someone else (or future-them) will resume. Auto-derives content from `git log` + `git diff` since branch divergence, current uncommitted changes, any active implementation plan, and session memory; fills gaps by asking the user. Default output is a comment posted on a related issue or PR (with confirm); also offers to update the associated plan via `/devenv-plan-update` or `/devenv-refine-implementation-plan`. DO NOT USE FOR updating an active plan with task progress (use `/devenv-plan-update`), drafting a fresh PR description (use `/create-pull-request`), requesting code review (use `/devenv-code-review`), or personal summaries with no audience.
+description: Produce a structured session handoff for the next contributor — work done, key decisions, next steps, review hotspots, open questions, and any throwaway/temporary code. USE WHEN the user says "wrap up this session", "write a handoff", "session summary for the next person", "I'm tagging out — leave a note for whoever picks this up", "summarise what we did and what's left", or ends a working session that someone else (or future-them) will resume. Auto-derives content from `git log` + `git diff` since branch divergence, current uncommitted changes, any active implementation plan, and session memory; fills gaps by asking the user. Default output is a comment posted on a related issue or PR (with confirm); also offers to update the associated plan via `/devenv-refine-implementation-plan`. DO NOT USE FOR updating an active plan with task progress (use `/devenv-refine-implementation-plan` surgical mode), drafting a fresh PR description (use `/create-pull-request`), requesting code review (use `/devenv-code-review`), or personal summaries with no audience.
 argument-hint: Optional — issue/PR number to post the handoff on; otherwise the skill will ask
 ---
 
@@ -18,7 +18,7 @@ A structured note for whoever picks up the work next — including future-you. C
 - Pausing your own work for a while and want to leave breadcrumbs for future-you.
 - Closing out a spike or investigation where the artifact isn't a plan or PR but the context still needs to live somewhere.
 
-If a plan already tracks the work, `/devenv-plan-update` (small status changes) or `/devenv-refine-implementation-plan` (new tasks discovered) is usually the better home. If a PR is the natural endpoint, `/devenv-open-pr` includes a similar summary in the description. For a code-review request specifically, use `/devenv-code-review`.
+If a plan already tracks the work, `/devenv-refine-implementation-plan` (surgical mode for small status changes, revision mode for newly discovered tasks) is usually the better home. If a PR is the natural endpoint, `/devenv-open-pr` includes a similar summary in the description. For a code-review request specifically, use `/devenv-code-review`.
 
 ## Sources
 
@@ -91,7 +91,7 @@ Flow:
 
 After posting (or instead, on `n`), **also offer**:
 
-- "Update [Implementation_plan-X.md](Implementation_plan-X.md) with progress? (y/n)" — hands off to `/devenv-plan-update` or `/devenv-refine-implementation-plan`.
+- "Update [Implementation_plan-X.md](Implementation_plan-X.md) with progress? (y/n)" — hands off to `/devenv-refine-implementation-plan` (surgical mode for ticks/notes, revision mode for structural changes).
 
 ## Drafting guidance
 
@@ -113,7 +113,7 @@ After posting (or instead, on `n`), **also offer**:
 
 ## Sibling skills
 
-- `/devenv-plan-update`, `/devenv-refine-implementation-plan` — when the active plan needs updating (often invoked right after a handoff).
+- "Update [Implementation_plan-X.md](Implementation_plan-X.md) with progress? (y/n)" — hands off to `/devenv-refine-implementation-plan` (surgical mode for ticks/notes, revision mode for structural changes).
 - `/devenv-open-pr` — when the natural endpoint is a PR rather than a comment; the PR description includes a handoff-style summary.
 - `/devenv-code-review` — when you want the next contributor to review what you did.
 - `/devenv-spike` — if the session was an investigation, the spike doc is itself the handoff.

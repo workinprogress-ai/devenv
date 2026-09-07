@@ -66,10 +66,7 @@ Skills for creating, updating, and inspecting implementation plans.
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 | --- | --- | --- | --- |
 | `/devenv-create-implementation-plan` | Interview the user and write a phased current-state `Implementation_plan-*.md`; loads issue body + comments when a GitHub issue is the source; triggers grooming redivision when scope is too large/risky; supports direct-plan mode for complete specs/RFCs/design docs and treats side-stream artifacts as additional (non-directing) context | "create an implementation plan", "plan this story", "break this task into phases", "write up a plan for this", "plan from this spec", "convert this issue into a plan" | vague/incomplete ideas → `/devenv-gather-requirements` first; revising existing plan → `/devenv-refine-implementation-plan` |
-| `/devenv-refine-implementation-plan` | Reconcile a plan to new reality after scope changes, new requirements, discoveries, or user-driven deviations | "refine the plan", "update the plan", "the plan needs updating", "rework the plan based on what we learned" | small surgical edits (tick a box, add a note) → `/devenv-plan-update`; creating a new plan → `/devenv-create-implementation-plan` |
-| `/devenv-refresh-implementation-plan` | Assess how stale an existing plan is, then route to the right remediation so the plan matches current reality — light patch, structured revision, or guided rewrite | "refresh the plan", "is this plan still valid?", "how stale is this plan?", "bring this plan up to date", "freshen the plan", "the plan might be out of date" | when you already know exactly what needs updating → `/devenv-refine-implementation-plan`; read-only progress reporting → `/devenv-plan-status` |
-| `/devenv-plan-update` | Small surgical edit to keep an existing plan aligned to current reality — tick a box, add a note | "mark 3.4 done", "tick off task 2.1", "add a note to task X", "record progress" | restructuring or reordering phases → `/devenv-refine-implementation-plan`; read-only progress check → `/devenv-plan-status` |
-| `/devenv-plan-status` | Report progress from a plan's current state — read-only, no changes made | "what's the status of the plan", "how's the plan going", "where are we", "what's left on this plan" | modifying the plan → `/devenv-refine-implementation-plan` or `/devenv-plan-update` |
+| `/devenv-refine-implementation-plan` | Align a plan with reality from any starting point — surgical edits (tick a box, add a note; max 3), structured revision after scope changes/discoveries/deviations, or staleness assessment with internal routing (slight/significant/intent-only) | "refine the plan", "update the plan", "mark 3.4 done", "tick off task 2.1", "refresh the plan", "is this plan still valid?", "the plan might be out of date" | creating a new plan → `/devenv-create-implementation-plan`; executing the plan → `/devenv-pair-programming` / `/devenv-delegation` |
 
 ---
 
@@ -103,7 +100,7 @@ Skills for closing out a session or shipping work.
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 | --- | --- | --- | --- |
 | `/devenv-open-pr` | Draft and open a GitHub PR from a finished plan phase | "open a PR", "raise a PR", "create a PR", "open a pull request", "let's open a PR", "ship this phase", "wrap this branch into a PR" | responding to existing PR feedback → `/devenv-address-pr-comments`; wrapping up without a PR → `/devenv-session-handoff` |
-| `/devenv-session-handoff` | Produce a structured handoff summary for the next contributor | "wrap up this session", "write a handoff", "session summary for the next person", "I'm tagging out" | updating plan task progress → `/devenv-plan-update`; drafting a PR → `/devenv-open-pr` |
+| `/devenv-session-handoff` | Produce a structured handoff summary for the next contributor | "wrap up this session", "write a handoff", "session summary for the next person", "I'm tagging out" | updating plan task progress → `/devenv-refine-implementation-plan` (surgical mode); drafting a PR → `/devenv-open-pr` |
 
 ---
 
@@ -162,16 +159,14 @@ For work where understanding the codebase comes first, then feasibility, then im
 For in-flight work: check where things stand, progress the plan, ship.
 
 ```
-/devenv-refresh-implementation-plan  (if returning after a gap — is the plan still valid?)
-  ↓ (or skip if plan is fresh)
-/devenv-plan-status
-  → /devenv-plan-update             (tick off completed tasks)
-    → /devenv-delegation            (commissioned; run the next mechanical phase)
-      → /devenv-pre-commit
-        → /devenv-session-handoff
+/devenv-refine-implementation-plan    (returning after a gap → assessment mode;
+  ↓ (or surgical mode to tick off)      known edits → surgical mode)
+/devenv-delegation                    (commissioned; run the next mechanical phase)
+  → /devenv-pre-commit
+    → /devenv-session-handoff
 ```
 
-**Start here:** `/devenv-refresh-implementation-plan` (if unsure) or `/devenv-plan-status` (if plan is known-current)
+**Start here:** `/devenv-refine-implementation-plan` (assessment mode if unsure, surgical mode for quick ticks)
 
 ---
 

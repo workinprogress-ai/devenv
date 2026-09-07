@@ -147,6 +147,6 @@ After the PR is opened, print the PR URL and number.
 - `/devenv-session-handoff` — wrap-up that doesn't (yet) open a PR; often runs before this skill.
 - `/devenv-code-review` — if you want review feedback without opening a PR.
 - `/create-pull-request` (GitHub extension) — for the richer reviewer-suggesting / label / project flow.
-- `/devenv-plan-update`, `/devenv-refine-implementation-plan` — if opening the PR reveals plan tasks to mark or add.
+- `/devenv-refine-implementation-plan` — if opening the PR reveals plan tasks to mark or add (surgical mode), or broader drift (assessment mode).
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.
