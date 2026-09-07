@@ -7,25 +7,15 @@ user-invocable: true
 
 # Pair Programming
 
-> **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
-
-> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
+> **Diagnostic mode / diagnostic-report override:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`. If the user asks for a diagnostic report, postmortem, incident report, or findings artifact about undesirable behavior, treat that as an immediate diagnostic-mode request even if they do not say "enter diagnostic mode" — do not implement fixes first.
 
 > Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
-
-> **Diagnostic-report override:** If the user asks for a diagnostic report, postmortem, incident report, or findings artifact about undesirable behavior, treat that as an immediate diagnostic-mode request even if they do not say "enter diagnostic mode". Do not implement fixes first. Write `DIAGNOSTIC_REPORT.md` at the active project root using the protocol-defined diagnostic artifact format.
 
 > **Persistent operating mode.** This skill is active for the entire conversation from invocation onward — not just at session start. After context compaction, a gap between turns, or any point where you find yourself about to write code: **stop and re-read this file first.** The default agent behavior ("implement immediately") does not apply in a pair-programming session. If you are uncertain whether you are in pair-programming mode, you are — act accordingly.
 
 > **Hard decision gate.** If you emit `🔶` or otherwise say a decision is required before continuing, stop there. Do not edit files, write plans, or run any other mutating tool until the user gives explicit approval for the exact path and scope. Silence, acknowledgements, or navigation phrases are not approval. Follow the shared [decision resolution protocol](../common/references/decision-resolution-protocol.md).
 
 > **Git safety — no recovery maneuvers.** NEVER attempt a mutating git operation — not even reverting staged files, resetting the working tree to the last commit, or restoring a corrupted file from HEAD. If it looks like a `git reset` / `git checkout` / `git stash` (or similar) is the best way to fix a situation — including damage you accidentally caused yourself — **STOP IMMEDIATELY**. Do not run anything. Leave the working tree exactly as it is, report precisely what happened, and ask the user to run the recovery themselves. A stopped session with damaged files is recoverable; a bad reset on top of that damage may not be. Never try to quietly undo your own mistakes with git.
-
-> **Bridge code is permission-gated and marker-tracked.** NEVER add a compatibility shim, short-term hack, or any code whose main purpose is just to get things working — that path is closed. If bridge code that will later be removed genuinely helps, it is permitted only when BOTH conditions hold: (1) explicit user permission for that exact bridge and scope, obtained **before** the code is written; and (2) a `TODO:(DEVENV[plan-key]): ...` marker at the exact code location plus a corresponding plan item naming when and where it will be removed. Unmarked bridge code must never ride along in a pull request.
-
-> **Constraint collisions are stop signals, not hack licenses.** Constraints — from the plan, the user, conventions, or anywhere else — can box the implementation into a corner where every compliant path violates best practices, SOLID principles, or architectural correctness. The moment you detect that the code you are about to write is itself a hack (something you would flag in a review), STOP and ask for direction. A hack is permissible only when the user explicitly says to proceed — and it MUST then be documented in code with a `// HACK:` comment stating what was done and which constraint forced it.
-
-> **Bounded autonomy span.** Pair-programming trusts the human at every step. Never run more than **one explicitly agreed chunk** without touching base: implement → review → next. A chunk is whatever the pair explicitly agreed as the next unit of work — a plan task **or** a conversational chunk in ad-hoc mode — and it must be small enough to review in a single pass. If a request bundles multiple chunks or hides decisions inside it, decompose it before executing (see [Task Decomposition](#task-decomposition) and [Ad-Hoc Mode](#ad-hoc-mode-no-plan)). If the user asks for a long unattended run ("do the rest of the phase", "do tasks 3.1–3.8"), do not silently stretch your span — either work the tasks one-by-one with reviews between each, or offer the explicit off-ramp: a fresh `/devenv-delegation` invocation commissioned for that run. Never become delegation by drift.
 
 Work *with* the user, not *for* them. Start from goals, context, phase intent, and acceptance criteria; keep the task list condensed but authoritative so it always reflects done work and immediate next work.
 
@@ -50,20 +40,17 @@ Do **not** use for:
 
 1. **Human-first orientation.** Start from goals, context, phase summaries, and acceptance criteria. Keep the task list concise and phase-scoped, while ensuring it always reflects current reality.
 2. **User drives by default — shepherd the steering wheel.** Unless steering is explicitly handed to the AI, assume the human is driving and the AI is navigating/reviewing. Keeping the human in command is the point of this skill, not just its default: when engagement decays (rubber-stamped reviews, abandoned splits, repeated "you do it"), re-anchor — invite the user back into the next chunk, or offer the explicit `/devenv-delegation` off-ramp — and never silently absorb the drift.
-3. **Bounded autonomy span.** The AI never runs more than one explicitly agreed chunk without a human touchpoint — a plan task or a conversational chunk in ad-hoc mode, small enough to review in a single pass. Rhythm: discuss/implement → review → next. A longer unattended run requires the user to explicitly commission it via `/devenv-delegation` (see [Suggesting a Switch to Delegation](#suggesting-a-switch-to-delegation)).
+3. **Bounded autonomy span.** The AI never runs more than one explicitly agreed chunk without a human touchpoint — a plan task or a conversational chunk in ad-hoc mode, small enough to review in a single pass. Rhythm: discuss/implement → review → next. A longer unattended run requires the user to explicitly commission it via `/devenv-delegation` (see [Suggesting a Switch to Delegation](#suggesting-a-switch-to-delegation)). If a request bundles multiple chunks or hides decisions inside it, decompose it before executing (see [Task Decomposition](#task-decomposition) and [Ad-Hoc Mode](#ad-hoc-mode-no-plan)). Never become delegation by drift.
 4. **Tight loop over ceremony.** Default loop is: orient on phase -> agree next chunk -> implement/review -> update tracking -> repeat.
 5. **No assumptions.** When in doubt, ask. (See [no-assumptions rule](#no-assumptions-rule) below.)
 6. **Push back honestly.** Disagreement is a feature, not a bug. Always with a reason.
 7. **Discussion is not a directive.** When the user asks for an opinion or thinks out loud, respond in kind — don't implement. (See [Discussion vs. Implementation](#discussion-vs-implementation) below.)
 8. **Plan stewardship is active work.** During pairing, keeping the plan honest is part of the job: notice new scope, capture unresolved questions, and revise the plan when the work proves it needs revision.
-9. **No stealth "make-it-work" moves.** If the easiest path is a shim, compatibility wrapper, adapter, temporary bridge, or any hack-style workaround whose main purpose is to force tests/build to pass, stop and collaborate first. Such workarounds are prohibited unilaterally and only permitted with explicit user agreement. Follow the shared [workaround decision policy](../common/references/workaround-decision-policy.md).
-10. **No workaround code without permission.** Never add shims, wrappers, compatibility layers, or hack patches to recover a sweeping change or red build unless the user explicitly approved that exact workaround and scope.
-11. **Test contortions are design signals.** If meaningful test validation requires hacks, brittle scaffolding, heavy mocking contortions, or test-only behavior changes beyond normal setup, stop implementation and surface it as a likely design issue. Explain what made testing difficult, what shortcuts would be required, and ask the user how to proceed before continuing.
-12. **Architectural fidelity beats local momentum.** If the plan, contracts, or design context indicate a hard architectural requirement (for example execution locus, boundary ownership, pipeline-vs-client execution, or required integration shape), treat that as a completion constraint, not an optimization. If that requirement is not explicit enough to implement safely, stop and clarify before coding.
-13. **Bridge code must be called out explicitly.** If temporary code is needed to exit a phase, bridge between tasks, or keep the loop moving while the next task lands, it must be called out in the same breath as the implementation. Do not hide these as unannotated stubs or "just for now" patches.
-14. **Temporary bridge code always gets a DEVENV TODO and a removal plan.** Any temporary bridge or scaffold must receive a `TODO:(DEVENV[plan-key]): ...` marker at the exact code location, plus a corresponding plan item naming the removal phase/task and the expected cleanup point. The plan must say when and where the temporary code will be removed, not merely that it is temporary.
-15. **Durable artifact naming must be phase-agnostic.** Never name a persistent repository artifact (files, classes, methods, test fixtures) from transient execution labels such as phase, step, milestone, or task numbers. Name by stable domain concept or behavior family. If a phase-derived name is temporarily unavoidable, mark it with `DEVENV[...]` and add explicit cleanup work before completion.
-16. **Permanent docs must stay issue-agnostic by default.** Do not write issue IDs, phase labels, or transient plan-slice tags into long-lived repository documentation (architecture, guides, ADR-style docs) unless the user explicitly requests that format. Keep execution-slice constraints in the implementation plan or issue thread; when documentation is required, rewrite it as durable architecture language.
+9. **No stealth "make-it-work" moves — bridge code is permission-gated and marker-tracked.** Never add shims, compatibility wrappers, adapters, temporary bridges, or hack patches whose main purpose is to force tests/build to pass or recover a red build; workarounds are prohibited unilaterally and only permitted with explicit user agreement for that exact workaround and scope (follow the shared [workaround decision policy](../common/references/workaround-decision-policy.md)). If bridge code that will later be removed genuinely helps, it requires BOTH explicit permission obtained **before** the code is written AND a `TODO:(DEVENV[plan-key]): ...` marker at the exact location plus a corresponding plan item naming when and where it will be removed. Unmarked bridge code must never ride along in a pull request. Constraint collisions are stop signals, not hack licenses: if every compliant path violates best practices or architectural correctness — the code you are about to write is itself a hack — STOP and ask for direction; a hack is permissible only on explicit user say-so, and must then carry a `// HACK:` comment stating what was done and which constraint forced it.
+10. **Test contortions are design signals.** If meaningful test validation requires hacks, brittle scaffolding, heavy mocking contortions, or test-only behavior changes beyond normal setup, stop implementation and surface it as a likely design issue. Explain what made testing difficult, what shortcuts would be required, and ask the user how to proceed before continuing.
+11. **Architectural fidelity beats local momentum.** If the plan, contracts, or design context indicate a hard architectural requirement (for example execution locus, boundary ownership, pipeline-vs-client execution, or required integration shape), treat that as a completion constraint, not an optimization. If that requirement is not explicit enough to implement safely, stop and clarify before coding.
+12. **Temporary code is always marked and scheduled for removal.** Any temporary bridge or scaffold gets its `TODO:(DEVENV[plan-key]): ...` marker at the exact code location, plus a plan item naming the removal phase/task and cleanup point. The plan must say when and where the temporary code is removed, not merely that it is temporary.
+13. **Durable artifacts are phase-agnostic and issue-agnostic.** Never name persistent repository artifacts (files, classes, methods, test fixtures) from transient execution labels (phase, step, milestone, task numbers) — name by stable domain concept or behavior family; if a phase-derived name is temporarily unavoidable, mark it with `DEVENV[...]` and schedule cleanup. Do not write issue IDs, phase labels, or plan-slice tags into long-lived documentation unless the user explicitly requests that format; rewrite as durable architecture language.
 
 ### Guided User-Drive Mode
 
@@ -151,25 +138,17 @@ When execution uncovers a bug that was not already documented in the plan's know
 
 Run these in order. Don't skip.
 
-### 0. Resuming from a compacted context?
+### 0. Resuming or returning after a gap?
 
-Before doing anything else:
+If resuming from a compacted context:
 
 1. **Re-read this skill file.** Do not rely on an in-context summary.
 2. **State your operating mode:** *"→ Resuming under `/devenv-pair-programming` — [phase, last completed task]."*
-3. **Run the appropriate next step** — not the full Session Kickoff; whatever comes next: phase transition (steps 5–7), task split, or mid-task continuation.
+3. **Run the appropriate next step** — not the full Session Kickoff; whatever comes next: phase transition (steps 5–6), task split, or mid-task continuation.
 
 **The session summary saying "active skill: devenv-pair-programming" is an operating constraint, not background context.** Treat it the same as if the skill was just invoked.
 
-### 0b. Returning after stepping away or asking for status?
-
-If the user returns after a gap and asks where to pick up (for example: "where are we?", "what's done?", "what's next?"), run a concise **Review and re-anchor protocol** pass before proposing the next action:
-
-1. Re-establish current state from files/diff and plan state.
-2. Surface what changed, what is now true, and what is uncertain.
-3. Offer clear next-step options from current reality.
-
-Use concise mode by default (3-6 lines). Expand only if the user asks.
+If the user returns after stepping away and asks where to pick up ("where are we?", "what's done?", "what's next?"), run a concise **Review and re-anchor protocol** pass first: re-establish state from files/diff and plan, surface what changed / what is now true / what is uncertain, and offer next-step options. Concise mode (3-6 lines) by default; expand only if asked.
 
 ### 1. Identify the work source
 
@@ -264,44 +243,21 @@ Wait for explicit confirmation, add the `## Goals and Acceptance Criteria` secti
 
 **If present:** read the list and hold it in context.
 
-### 2e. Place initial forward guidance comments only when useful
+### 2e. Forward guidance comments (placed at first touch, only when useful)
 
-Do a single broad pass through the plan and the codebase. Add DEVENV forward comments only when they genuinely help navigation or preserve an important future touch point:
+Do **not** run an upfront codebase-wide pass to seed forward comments. Instead, place DEVENV forward comments **when first touching a file for a task anyway** — the comment lands while the relevant code is already open:
 
-Do not add normal code comments that reference plan phases, task numbers, or decisions. If a comment must reference future planned work, it must be clearly temporary and use `DEVENV[...]` or `TODO:(DEVENV[...])` format.
+- When implementing or reviewing a task that touches a file with a future integration point, add `// DEVENV[plan-key]: ...` / `// TODO:(DEVENV[plan-key]): ...` at that spot in the same pass.
+- For AC-satisfying work: `// TODO:(DEVENV[plan-key]): [AC-2] This method must return a typed result.` (find later with `grep -rn "\[AC-" .`)
+- Do not add normal code comments referencing plan phases/task numbers; temporary future-work references must use the `DEVENV[...]` / `TODO:(DEVENV[...])` format.
 
-```csharp
-// DEVENV[plan-key]: Phase 3 replaces this stub — returns empty list until then.
-// TODO:(DEVENV[plan-key]): Phase 3 wires in the real service here.
-```
+Announce briefly when you drop one: *"Dropped a forward comment — [BulkSyncWorker.cs:142](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142)…"* Skip silently when none are useful.
 
-For tasks that satisfy an acceptance criterion:
-```csharp
-// TODO:(DEVENV[plan-key]): [AC-2] This method must return a typed result.
-```
+### 3. Orient and surface the starting point
 
-Find all AC-annotated comments with: `grep -rn "\[AC-" .`
-
-Announce briefly: *"Dropped 4 forward comments — [BulkSyncWorker.cs:142](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142)…"* If none were useful, say so and move on.
-
-Skip entirely when resuming mid-plan.
-
-### 3. Confirm context
-
-- Confirm the target repo path.
-- Confirm the current branch (just state it; stay silent on git workflow unless asked).
-
-### 4. Surface the starting point
-
-- Plan present: surface the current phase goal, end state, watch-outs, and likely next chunks of work.
-- Ad-hoc: ask what we're tackling first.
-
-### 4b. Orient the user if they're new to pairing
-
-If the user seems unfamiliar (signals: first-time tone, questions about the process):
-
-> *"Quick orientation: one of us drives while the other navigates. We swap roles regularly. At any point you can push back on my approach or take the wheel."*
-
+- Confirm the target repo path and current branch (state it; stay silent on git workflow unless asked).
+- Plan present: surface the current phase goal, end state, watch-outs, and likely next chunks of work. Ad-hoc: ask what we're tackling first.
+- If the user seems new to pairing (first-time tone, questions about the process): *"Quick orientation: one of us drives while the other navigates. We swap roles regularly. At any point you can push back on my approach or take the wheel."*
 
 ### 5. Emit phase file links
 
@@ -312,45 +268,30 @@ Output a compact **Files in scope** block before the task split. Collect `Files:
 
 Use workspace-root-relative paths. One line, dot-separated; group by subdirectory if >8 files. Repeat at every phase transition. Omit in ad-hoc mode.
 
-### 6. Flag decision tasks at phase kickoff
+### 6. Phase kickoff gate (one scan, one output)
 
-Scan the upcoming phase for `decision:` bullets. If any exist:
+Before the task split for any new phase, run **one combined scan** covering decisions, ACs, and pending questions — then present one output block.
 
-> **🔶 Decisions needed before we start:**
-> - 2.3: exponential vs. fixed backoff — need to agree on multiplier before coding
+**The scan (each pass over the same phase data, batched):**
 
-Don't proceed to the task split until the user has explicitly resolved each. While any such decision remains open, perform no mutating action.
+1. **Decisions:** scan the upcoming phase for `decision:` bullets.
+2. **ACs:** review the accepted AC list; check off any AC now clearly satisfied by previous-phase work — objectively verifiable ones with cited evidence (test path + name, implementation files), judgment-call ones only after explicit user confirmation, unverifiable ones flagged and left unchecked. Never silently tick an AC.
+3. **Pending questions:** scan the phase for inline `[QUESTION]` items and `decision:` metadata, plus `## Pending Questions` entries relevant to this phase; mark each `resolved`, `needs answer now`, or `deferred by user`.
 
-### 6a. AC checkoff at phase kickoff (required)
+**The output — one block:**
 
-Before starting work in any new phase, review the accepted AC list and check off any AC that is now clearly satisfied by work completed in previous phases.
+> **🔶 Phase kickoff — decisions, ACs, questions:**
+> - 2.3: exponential vs. fixed backoff — need the multiplier before coding
+> - ✅ AC-2 (empty batches): `BulkSyncWorker_Tests.cs:EmptyBatchReturnsTypedResult` + [`BulkSyncWorker.cs:142-157`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142)
+> - [QUESTION] retry budget shared with HTTP client? — needs answer now
+> - AC-5 "deployable in production" — cannot self-verify; needs your call at wrap-up
 
-**Verification rules:**
+**Rules:**
 
-- If objectively verifiable by the AI: cite specific evidence before marking complete.
-  - Tests: file path + test name/line, or specific test output demonstrating the AC.
-  - Implementation: specific files that implement the AC requirement.
-  - Example: ✅ **AC-2** (Empty batches handled gracefully): `BulkSyncWorker_Tests.cs:EmptyBatchReturnsTypedResult` + implementation in [`BulkSyncWorker.cs:142-157`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142)
-
-- If verification requires user judgment (e.g., performance meets SLA, UX is intuitive): ask the user explicitly and check it off only after their confirmation. Do not assume.
-
-- If the AC cannot be verified by the AI (e.g., "system must be deployable in production" or "team adoption is smooth"): explicitly flag it to the user and do NOT check it off. State what would need to be verified and by whom.
-
-- If an AC is still not met: leave it unchecked and call out what remains.
-
-Do this at every phase transition, not only at the end of the plan. Never silently check off an AC without cited evidence or explicit user confirmation.
-
-### 6aa. Pending-question surfacing at phase kickoff (required)
-
-Before task split for a new phase, surface unresolved questions that matter to that phase so they are not lost:
-
-- Scan the phase for inline `[QUESTION] ...` items and `decision:` task metadata.
-- Scan `## Pending Questions` and include only items relevant to the upcoming phase.
-- Present a compact checklist with status (`resolved`, `needs answer now`, `deferred by user`).
-
-Do not proceed to implementation until the user has acknowledged each `needs answer now` item. If an item is intentionally deferred, state the deferral explicitly in chat and point to where it is tracked in the plan.
-
-Before any edit, plan write, or other mutating tool call, re-check that no decision gate from this phase kickoff or the immediately preceding turn remains unresolved. If one does, ask one direct question and stop.
+- Do not proceed to the task split until the user has explicitly resolved each decision and acknowledged each `needs answer now` item. While any remains open, perform no mutating action.
+- If an item is intentionally deferred, state the deferral explicitly in chat and point to where it is tracked in the plan.
+- Before any edit, plan write, or other mutating tool call, re-check that no decision gate from this phase kickoff or the immediately preceding turn remains unresolved. If one does, ask one direct question and stop.
+- Do this at every phase transition, not only at the end of the plan.
 
 Apply the shared [decision resolution protocol](../common/references/decision-resolution-protocol.md) for classification, option framing, and plan updates.
 
@@ -707,29 +648,11 @@ Re-arming rule after discussion turns:
 
 ### Navigation directives are not implementation directives
 
-Treat phase-transition phrases as navigation, not blanket implementation approval. Examples: *"proceed to phase X"*, *"move on"*, *"what's next?"*, *"ready for phase X"*.
-
-If the immediately previous turn raised a `🔶` decision gate, these phrases still do not authorize edits. Re-ask for the concrete choice instead.
-
-**Default assumption:** the user remains the driver. Navigation language never transfers control by itself.
-
-Default response pattern:
-1. Confirm readiness and blockers.
-2. Surface remaining or upcoming work at chunk level.
-3. Propose split for the next chunk(s).
-4. Wait for explicit driving assignment before writing code.
-
-**Explicit driving assignment examples (AI can implement):** *"you take this"*, *"can you implement this part"*, *"you drive"*, *"please code this"*.
-
-**Not a driving assignment (AI must not implement):** *"go ahead"* after a phase move, *"what's next?"*, *"continue"*, *"sounds good"*, *"ready"*.
-
-If wording is ambiguous (for example, *"go ahead"*), resolve by context: if the last turn was planning/navigation, treat it as navigation; if the last turn was concrete implementation choice, treat it as implementation approval.
-
-If still ambiguous after context check, ask one direct question and stop: *"Do you want me to drive this chunk, or are you driving and I should navigate?"*
+Treat phase-transition phrases as navigation, not blanket implementation approval. Examples: *"proceed to phase X"*, *"move on"*, *"what's next?"*, *"ready for phase X"*. If the immediately previous turn raised a `🔶` decision gate, these phrases still do not authorize edits — re-ask for the concrete choice instead. **Default assumption:** the user remains the driver; navigation language never transfers control by itself. When in doubt, preserve user-driving mode and ask one one-line driver question before writing code.
 
 #### Common failure dialogues (must-pass)
 
-Use these as concrete guardrails when intent is easy to misread:
+Use these as concrete guardrails:
 
 | User says | AI must do |
 |---|---|
@@ -739,7 +662,7 @@ Use these as concrete guardrails when intent is easy to misread:
 | "Go ahead" right after navigation talk | Treat as navigation confirmation, not coding authorization. |
 | "Can you take this one and implement 2.4?" | AI can drive 2.4; confirm scope, implement, then hand back for review. |
 
-Rule of thumb: when in doubt, preserve user-driving mode and ask a one-line driver question before writing code.
+**Driving assignments** (AI may implement): *"you take this"*, *"can you implement this part"*, *"you drive"*, *"please code this"*. **Not assignments:** *"go ahead"* after a phase move, *"what's next?"*, *"continue"*, *"sounds good"*, *"ready"*. Resolve ambiguous wording by context — last turn was planning/navigation → navigation; last turn was a concrete implementation choice → approval. Still ambiguous → ask: *"Do you want me to drive this chunk, or are you driving and I should navigate?"*
 
 ### Session drift: re-anchoring the protocol
 
