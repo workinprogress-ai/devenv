@@ -1,6 +1,6 @@
 ---
 name: devenv-spike
-description: Run an exploratory investigation of a question, build a throwaway prototype if needed, and produce a structured findings + recommendation doc. USE WHEN the user says "spike on X", "investigate whether we can Y", "explore the feasibility of Z", "throwaway prototype for Q", "do a quick proof-of-concept", or hands off an open question that needs research before any plan exists. Auto-detects input: a free-form question, or a GitHub issue number whose body describes the question. Produces a markdown doc (`spike-NNN-<topic>.md`) at the workspace root, an explicitly throwaway prototype under `playground/devenv-spike-<topic>-<date>/` if code was needed, and a chat summary. Optionally offers to open a draft issue with the findings. All artifacts are clearly marked "NOT FOR PRODUCTION". DO NOT USE for writing production code (use `/devenv-pair-programming` or `/devenv-delegation`), for lightweight thinking-out-loud without artifacts (use `/devenv-rubber-duck`), or for executing an approved plan (use `/devenv-pair-programming` or `/devenv-delegation`).
+description: Run an exploratory investigation of a question, build a throwaway prototype if needed, and produce a structured findings + recommendation doc. Empowered like the bug hunter: may create code to prove something, modify target-repo code, and run destructive-class experiments — with just-in-time user permission and a clear recovery route (user-run git reset). USE WHEN the user says "spike on X", "investigate whether we can Y", "explore the feasibility of Z", "throwaway prototype for Q", "do a quick proof-of-concept", or hands off an open question that needs research before any plan exists. Auto-detects input: a free-form question, or a GitHub issue number whose body describes the question. Produces a markdown doc (`spike-NNN-<topic>.md`) at the workspace root, an explicitly throwaway prototype under `playground/devenv-spike-<topic>-<date>/` if code was needed, and a chat summary. Optionally offers to open a draft issue with the findings. All artifacts are clearly marked "NOT FOR PRODUCTION". DO NOT USE for writing production code (use `/devenv-pair-programming` or `/devenv-delegation`), for lightweight thinking-out-loud without artifacts (use `/devenv-rubber-duck`), for executing an approved plan (use `/devenv-pair-programming` or `/devenv-delegation`), or for verifying a specific suspected bug (use `/devenv-bug-hunter`).
 argument-hint: A question / problem statement to investigate, OR a GitHub issue number containing the question
 ---
 
@@ -9,6 +9,12 @@ argument-hint: A question / problem statement to investigate, OR a GitHub issue 
 > **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
 
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
+
+> **Aggressive-measures gate.** The spike is empowered like the bug hunter: some questions can only be answered by doing — creating code to prove something works, modifying target-repo code, deleting code to test what breaks, or running destructive-class experiments. The default lane is read-only plus a `playground/` prototype; anything beyond that (in-repo edits, behavior-altering changes, deletions, environment mutation) requires **just-in-time consent**: if the needed aggression level is visible at planning, ask then; otherwise ask the moment it emerges in investigation. Before any destructive-class action, announce the category and get a go-ahead — including the warning that afterward the user should be prepared to `git reset` the affected repo. The spike NEVER runs mutating git commands itself; restore is always the user's hands. Every temporary in-repo modification carries `TODO:(DEVENV[spike]): ...` markers so nothing empowered blends into permanent code unnoticed.
+
+> **Recovery-route rule.** No aggressive measure without a clear recovery path stated *before* the action: what will be touched, and how it comes back (usually user-run `git reset`, plus any non-git state — spun-up containers, generated files — with their teardown). If recovery cannot be described, the measure is not taken; reframe the experiment inside `playground/` instead.
+
+> **Scope fence.** Read and explore freely across `repos/` — the investigation may wander in pursuit of the answer. But modify code ONLY in the agreed target repo(s), and only with the consent flow above. Expanding the change-scope requires explicit user permission, raised as a `🔶` decision gate.
 
 Run a focused, exploratory investigation of an open question. Output is a structured findings doc and (optionally) throwaway prototype code — never production code. The goal is to reduce uncertainty before committing to a real implementation plan.
 
@@ -66,8 +72,13 @@ Do the work:
   may have shortcuts, and is **not** intended to be merged or maintained.
   ```
 
+- **In-repo experiments (empowered lane):** when the question can only be answered by touching real code — patching a call path, swapping a dependency version, deleting a module to see what breaks, instrumenting a hot path — propose the specific edit, its aggression class, and the recovery route first:
+  > *"To answer this, I need to [specific modification] in `repos/<target>`. That's a behavior-altering edit — afterward you'd `git reset` this repo (your hands, not mine). I'll mark it `TODO:(DEVENV[spike]): ...`. Proceed?"*
+  On approval: make the minimal change, mark it, run the experiment, capture results. Never widen beyond what was approved.
 - Run experiments. Capture commands, outputs, and observations as you go (you'll need them for the findings doc).
 - If the spike grows beyond rough exploration, stop and recommend `/devenv-create-implementation-plan` instead.
+
+**Before closeout, decide modified-code fate:** if in-repo edits were made, ask the user what survives — keep (cherry-pick into a real branch/plan), discard (dies with the user's `git reset`), or promote (becomes the seed of an implementation plan). Flag anything worth salvaging BEFORE the reset; once the user resets, uncommitted experiments are gone.
 
 ### 4. Write the findings doc
 
@@ -165,7 +176,10 @@ Never create an issue or post a comment without explicit "yes" confirmation.
 
 ## Anti-patterns
 
-- **Drifting into production code** — spikes are throwaway. If the prototype is becoming clean and complete, stop and write a plan with `/devenv-create-implementation-plan`. Resist the urge to "just polish it a bit".
+- **Drifting into production code** — spikes are throwaway. If the prototype is becoming clean and complete, stop and write a plan with `/devenv-create-implementation-plan`. Resist the urge to "just polish it a bit". (Empowered in-repo experiments are not production code — they are marked, consented, and reset away.)
+- **Unannounced aggression** — modifying target-repo code, deleting anything, or mutating environments without the consent gate and a stated recovery route. Powerful but announced, always.
+- **Unmarked in-repo edits** — empowered changes without `TODO:(DEVENV[spike]): ...` markers can slip into a commit; the marker keeps the reset clean and intentional.
+- **Running the reset yourself** — the spike never runs mutating git commands. Recovery is the user's hands, every time.
 - **Hiding the throwaway-ness** — every artifact must carry the "NOT FOR PRODUCTION" header. No exceptions.
 - **Skipping the framing step** — an unframed spike sprawls. Restate the question in one sentence before starting.
 - **Burying findings in chat** — always write the doc. Chat is ephemeral; the doc is the deliverable.

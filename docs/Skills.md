@@ -207,7 +207,7 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 | `/devenv-delegation` | Commissioned autonomous build run — entered only by explicit invocation; assistant-led execution with user review and ownership, phase by phase, while keeping the plan aligned to actual work | Issue # or plan path |
 | `/devenv-document` | Produce documentation for an existing system or component — audience, format, and scope set by interview | Repo path, component name, or description |
 | `/devenv-chat-with-code` | Conversational fact-finding with source code or markdown-first repos — the repo talks back | Repo path(s), or nothing for current workspace |
-| `/devenv-spike` | Exploratory investigation + findings doc | Question or issue # |
+| `/devenv-spike` | Exploratory investigation + findings doc; empowered like the bug hunter (consented in-repo experiments with recovery route) | Question or issue # |
 | `/devenv-rubber-duck` | Think out loud — no artifacts | Problem description |
 | `/devenv-design-discussion` | Opinionated, conversation-first thinking partner for design/architecture choices; best for one bounded blocker or design question; writes `Solution_Proposal_<topic>-NNN.md` only on request (as context-rich input to technical design) | Design question or topic |
 
