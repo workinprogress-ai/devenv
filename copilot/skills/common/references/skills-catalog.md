@@ -17,8 +17,7 @@ What are you trying to do?
 │   ├─ Thinking out loud, no artifact   →  /devenv-rubber-duck
 │   ├─ Understand a codebase via chat   →  /devenv-chat-with-code
 │   ├─ Investigate a question           →  /devenv-spike
-│   ├─ Verify a suspected bug (aggressive) →  /devenv-bug-hunter
-│   ├─ Investigate and fix a bug        →  /devenv-bug-fix
+│   ├─ Verify / diagnose / fix a bug  →  /devenv-bug-hunter
 │   ├─ Weigh design options (opinionated)→ /devenv-design-discussion
 │   └─ Triage an incoming issue         →  /devenv-triage-issue
 │
@@ -216,7 +215,7 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 
 | Skill | Purpose | Argument |
 | --- | --- | --- |
-| `/devenv-bug-fix` | Investigate a bug, trace root cause, propose resolution — optionally fix immediately | Issue # or description |
+| `/devenv-bug-hunter` | End-to-end bug skill — verify (aggressive hypothesis hunt, verdict) / diagnose (root-cause trace) / fix (test-first, confirmed changes) | Observation+expectation, bug description, issue #, or hunt report |
 | `/devenv-code-review` | Review assistance for your changes | PR #, refs, or nothing |
 | `/devenv-pre-commit` | Lint/format/test before committing | `--all` or nothing |
 | `/devenv-tech-debt-audit` | Opinionated codebase audit — file-cited findings across debt + correctness/bug risks, severity, effort; optional focus area; offers to create a GH issue after the audit | Repo path(s), optionally + focus area description; or GH issue # |

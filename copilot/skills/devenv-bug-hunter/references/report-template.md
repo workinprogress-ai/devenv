@@ -52,7 +52,7 @@ Written to the target repo root as `bug-hunt-<topic>.md` (numbered `bug-hunt-NNN
 
 <Verdict-dependent:>
 
-- FOUND: preserve the repro test before any restore, then run `/devenv-bug-fix` with this report. The repro is its starting artifact.
+- FOUND: preserve the repro test before any restore, then continue with `/devenv-bug-hunter` diagnose + fix modes using this report. The repro is the starting artifact.
 - NOT-FOUND: conditions under which the suspicion would become real; what to watch for.
 - INCONCLUSIVE: what evidence or access a follow-up hunt would need.
 

@@ -28,9 +28,9 @@ If unambiguous: give the recommendation directly with a one-line rationale. Skip
 
 Bug-routing shortcut:
 - If the user asks to hunt for bugs broadly, by class, or in a focus area/module (without a single known concrete bug to root-cause), route to `/devenv-tech-debt-audit`.
-- If the user has a specific known bug to diagnose/root-cause/fix, route to `/devenv-bug-fix`.
+- If the user has a specific known bug to diagnose/root-cause/fix, route to `/devenv-bug-hunter` (diagnose mode).
 - If the user suspects a bug but is not sure it exists (specific observation + expected behavior), route to `/devenv-bug-hunter` — verification with a verdict, not a fix.
-- A single Critical/High correctness risk surfaced by `/devenv-tech-debt-audit` is unconfirmed until hunted: route to `/devenv-bug-hunter` for a verdict, then `/devenv-bug-fix` on FOUND.
+- A single Critical/High correctness risk surfaced by `/devenv-tech-debt-audit` is unconfirmed until hunted: route to `/devenv-bug-hunter` (verify mode) for a verdict; on FOUND the same skill continues to diagnose and fix.
 
 ## Question protocol
 
@@ -102,7 +102,7 @@ Use the registry to match the user's answers to a skill:
    - Escalation guardrail: if the user is mid-execution with a small local plan adjustment, stay in execution; if they want to return to planning for broader plan surgery, route to `/devenv-refine-implementation-plan`; if they describe one large blocker/question, route to `/devenv-design-discussion`; if they describe accumulated architectural issues, route to `/devenv-grooming`.
    - Plan-size guardrail: if the user says plan creation is too large/risky for one issue, route to `/devenv-grooming` for Feature/Fix/Task redivision, then back to `/devenv-create-implementation-plan` for one selected slice.
    - Bug-hunt guardrail: for broad/focused bug hunting (including "find race conditions", "hunt null bugs", "audit auth module for bugs"), route to `/devenv-tech-debt-audit`.
-   - Bug-investigation guardrail: for one known failing behavior/issue/incident, route to `/devenv-bug-fix`.
+   - Bug-investigation guardrail: for one known failing behavior/issue/incident, route to `/devenv-bug-hunter` (diagnose mode).
 4. **Check for a chain** — if the user's goal implies a multi-step workflow (e.g. "I want to implement this whole story", "from idea to PR"), look up the matching chain in the registry and recommend the full sequence.
 5. **Check for fork-added skills** — after the primary recommendation, scan the registry for any skills not present in the five standard categories. If any exist, surface them: "This workspace also has: `/custom-skill` — [one-line purpose]."
 
@@ -202,8 +202,8 @@ These five are the core of the catalog. If the user is unsure where to start wit
 - **Asking more than 3 questions** — if you still can't decide after 3, give your best recommendation with a caveat.
 - **Recommending `/devenv-delegation` for high-impact work** — escalate to `/devenv-pair-programming`.
 - **Recommending `/devenv-pair-programming` for pure exploration** — start with `/devenv-rubber-duck` or `/devenv-spike`.
-- **Routing broad bug hunting to `/devenv-bug-fix`** — use `/devenv-tech-debt-audit`; reserve `/devenv-bug-fix` for a specific known bug.
-- **Routing unverified bug suspicions to `/devenv-bug-fix` or `/devenv-tech-debt-audit`** — use `/devenv-bug-hunter` when a specific observation is suspected but unconfirmed.
+- **Routing broad bug hunting to `/devenv-bug-hunter`** — use `/devenv-tech-debt-audit`; reserve the hunter for one specific suspected or known bug.
+- **Routing unverified bug suspicions to `/devenv-tech-debt-audit`** — use `/devenv-bug-hunter` verify mode when a specific observation is suspected but unconfirmed.
 - **Recommending `/devenv-create-implementation-plan` when a plan already exists** — that's `/devenv-refine-implementation-plan` (surgical mode for small edits, revision mode for rework, assessment mode when staleness is unknown).
 - **Routing existing-component feature delivery to architecture by default** — default to Plan/Build (`/devenv-create-implementation-plan`, `/devenv-pair-programming`, `/devenv-delegation` for commissioned autonomous runs) unless the user explicitly asks for architecture option-weighing or design-artifact work.
 - **Skipping `/devenv-grooming` for ambiguous component design intake** — use grooming as the default classifier unless the user requested a specific design skill.
