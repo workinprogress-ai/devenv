@@ -4,11 +4,11 @@ Copy this skeleton verbatim and fill it in. All top-level headings are required.
 
 ```markdown
 <!-- DEVENV_ARTIFACT_V1
-doc_id: dv1:<owner-repo>:local:roadmap:<artifact-slug>
+doc_id: dv1:<owner-repo>:<epic-number>:roadmap:<system>-<NNN>
 artifact_type: roadmap
-artifact_scope: local-file
-issue_number: <N | none>
-source_file: <workspace-relative file path>
+artifact_scope: issue-artifact
+issue_number: <epic-number>
+source_file: none (GitHub artifact; scratch copy is session-only)
 updated_at_utc: <ISO-8601>
 -->
 
@@ -19,13 +19,8 @@ updated_at_utc: <ISO-8601>
 **Status**: Draft | Active | Completed | Superseded
 **Blueprint**: [Blueprint-<system>-NNN.md](<link>)
 **Source specifications** (optional): [Specifications-<topic>-NNN.md](<link>)
-**Parent epic**: <populated after issue creation: e.g. `planning.development.main#89`>
-
-## Revision History
-
-### YYYY-MM-DD — Initial roadmap
-
----
+**Epic**: this issue (`#<epic-number>`) — the roadmap is an artifact comment here; the epic body holds the child-issue task list
+**Decision log**: <link to docs/Decisions/ — ADRs hold the why; this roadmap holds target state only>
 
 ## Status Legend
 

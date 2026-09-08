@@ -143,8 +143,8 @@ If the argument is a path to an existing `Specifications-*.md`, enter **continua
 7. **Once the direction is clear,** ask: *"Are you ready to lock in these changes, or do you want to brainstorm more?"* (You may need multiple loops.)
 
 8. **When ready to commit:** present a delta — only the changed and new content. Ask for approval. Once approved:
-   - Update the existing file: revise affected specification items, append new ones (with IDs continuing from the last), update vision if needed, reshuffle priority groups if needed
-   - Add a `## Revision History` entry explaining what changed and why
+   - Update the existing file: revise affected specification items, append new ones (with IDs continuing from the last), update vision if needed, reshuffle priority groups if needed. The document is target state — rewrite in place, never append change narrative.
+   - For significant changes (a future implementer would ask why), write an ADR per the shared [ADR template](../common/references/adr-template.md) into `docs/Decisions/`
    - Update or clear session memory based on whether more sessions are planned
 
 9. **Maintain `session_memory-specifications.md`** — load it if it exists, update it at session end with the new brainstorm state.

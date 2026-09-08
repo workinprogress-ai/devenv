@@ -65,28 +65,21 @@ Use these headings, in this order, omitting any that don't apply. Keep section t
 
 ## Superseding content
 
-When a skill removes content it previously preserved (a specification item, roadmap step, plan task, or similar artifact), the rule is: **delete from the document; log in Revision History**. Do not leave tombstone blocks, strikethroughs, or "Superseded by" blockquotes in the live document body — they add noise and are confusing to the AI on the next load.
+When a skill removes content it previously preserved (a specification item, roadmap step, plan task, or similar artifact), the rule is: **delete from the document clean**. Do not leave tombstone blocks, strikethroughs, or "Superseded by" blockquotes in the live document body — they add noise and are confusing to the AI on the next load.
 
-Revision History entry format for a deletion:
+History lives in its dedicated homes (the three-home rule):
 
-```
-- Removed <ID> (<one-line summary of what it was>) — <superseded by <new-ID> | withdrawn, <one-line reason>>[. Linked issue: <issue-link>]
-```
+- **Living documents** (specifications, blueprints, roadmaps) — target state only. Superseded content is deleted clean; IDs never reflow, so gaps in numbering are expected and harmless.
+- **ADRs** (`docs/Decisions/ADR-NNN-<slug>.md`) — the *why* for every significant supersession. If a future implementer would ask why content was removed, write an ADR naming the removed item and its replacement; otherwise delete silently. See [adr-template.md](./common/references/adr-template.md).
+- **Git** — the *when*: what the removed content said and exactly when it disappeared.
 
-Examples:
-
-```
-- Removed SPEC-007 (Auth: minimum password length) — superseded by SPEC-014
-- Removed STEP-12 (Load test baseline) — withdrawn, moved to separate performance track. Linked issue: #418.
-```
-
-Skills that follow this convention: `devenv-refine-specifications`, `devenv-refine-roadmap`, `devenv-refine-blueprint`, `devenv-refine-implementation-plan`.
+Skills that follow this convention: `devenv-refine-specifications`, `devenv-refine-roadmap`, `devenv-refine-blueprint`, `devenv-refine-implementation-plan`. Grooming documents are the exception: they keep their own `## Revision History` convention.
 
 ## Artifact brevity rules
 
-- **Log only material changes.** Revision History is for meaningful scope, ordering, decision, or dependency changes. Skip entries for wording polish, checkbox ticks, and other mechanical churn.
-- **Batch related edits.** If one pass makes several small changes of the same kind, record them as one concise revision bullet instead of one bullet per tweak.
-- **Keep one home for detail.** If a fact already lives in a phase summary, appendix, or task context, do not restate it in Revision History unless the change itself is what matters.
+- **Log only material decisions.** ADRs are for significant decisions a future implementer would ask about. Skip ADRs for wording polish, checkbox ticks, and other mechanical churn — git records those.
+- **Batch related edits.** If one pass makes several small changes of the same kind, cover them in one ADR instead of one ADR per tweak.
+- **Keep one home for detail.** If a fact already lives in a phase summary, appendix, or task context, do not restate it in an ADR unless the decision itself is what matters.
 - **Keep appendices bounded.** Appendix sections should be short, source-backed, and only include context not already captured in the main body. Push repetitive rationale into links or upstream artifacts.
 
 ## Issue-backed artifact edit protocol
@@ -441,7 +434,7 @@ Work product ownership is always with the user.
 - Use assistant-role wording (for example: "assistant-led execution", "review assistance", "delegated implementation support") instead of ownership wording.
 - If a task uses `owner: AI` / `owner: User` metadata, treat it as execution lead only for session flow. It does not change authorship or accountability.
 - When summarizing results, phrase outcomes as user-owned deliverables with assistant support.
-- In `## Revision History`, record what changed and why, but avoid AI/model actor labels; if attribution is needed, attribute to the user/engineer or team.
+- When recording decisions in ADRs, avoid AI/model actor labels; if attribution is needed, attribute to the user/engineer or team.
 
 ## Sibling cross-link rule
 

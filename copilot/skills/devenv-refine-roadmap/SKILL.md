@@ -1,7 +1,7 @@
 ---
 name: devenv-refine-roadmap
-description: 'Revise an existing Roadmap-*.md after the underlying blueprint changes, a step gets split or merged, a new component lands, or phases need re-sequencing. USE WHEN the user says "refine the roadmap", "revise the roadmap", "the roadmap structure needs updating", "split this step", "re-sequence the phases", or hands off a roadmap whose structure (not just status) needs changes. Preserves all existing STEP-NN IDs and issue links, appends new steps rather than reflowing, removes obsolete steps and logs each deletion in Revision History, and records every change in a Revision History section. DO NOT USE for syncing step status from issues/PRs (use /devenv-update-roadmap), for creating a new roadmap (use /devenv-create-roadmap), or for revising the underlying blueprint (use /devenv-refine-blueprint).'
-argument-hint: 'Path to a Roadmap-*.md file'
+description: 'Revise an existing roadmap artifact (doc_id-addressed comment on its parent epic) after the underlying blueprint changes, a step gets split or merged, a new component lands, or phases need re-sequencing. USE WHEN the user says "refine the roadmap", "revise the roadmap", "the roadmap structure needs updating", "split this step", "re-sequence the phases", or hands off a roadmap whose structure (not just status) needs changes. Pulls the artifact to a session scratch copy, preserves all existing STEP-NN IDs and issue links, appends new steps rather than reflowing, deletes superseded steps clean (the why lives in ADRs), and republishes via issue-artifact-upsert. Roadmaps are downstream of specs/blueprint and upstream of grooming — they receive changes, they are never the entry point for changes. DO NOT USE for syncing step status from issues/PRs (use /devenv-update-roadmap), for creating a new roadmap (use /devenv-create-roadmap), or for revising the underlying blueprint (use /devenv-refine-blueprint).'
+argument-hint: '<epic-number[:doc_id]> — the roadmap artifact to refine, plus what changed'
 user-invocable: true
 ---
 
@@ -11,15 +11,17 @@ user-invocable: true
 
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
-Revise the **structure** of an existing roadmap based on new information — the blueprint changed, a step needs splitting, a new component landed, or phases need re-sequencing. Preserve every prior step ID and issue link; never silently rewrite history.
+Revise the **structure** of an existing roadmap artifact after new information — the blueprint changed, a step needs splitting, a new component landed, or phases need re-sequencing. Preserve every prior step ID and issue link; supersede structure deliberately.
 
-Write roadmap phases and steps as the current target delivery structure. Keep historical change narrative out of phase/step body content and record it in `## Revision History`.
+Roadmaps are GitHub artifacts (doc_id-addressed comments on their parent epic), not files in source control. Refinement pulls the artifact to a session scratch copy, edits there, and republishes. For the shared pull/edit/publish mechanics see [issue-artifact-integration.md](../common/references/issue-artifact-integration.md).
+
+Write roadmap phases and steps as the current target delivery structure. Keep historical change narrative out of the document entirely — the document is target state, period. Rationale for significant changes lives in ADRs (`docs/Decisions/`, see the shared [ADR template](../common/references/adr-template.md)); git (of the planning repo) and the issue's edit history record when. Roadmaps are downstream of specifications/blueprint and upstream of grooming: they receive changes from both directions, but changes never *enter* the workflow through a roadmap — use the refine skills and the upstream-impact queue for that.
 
 This is the structural counterpart to [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md), which only syncs status from issues/PRs.
 
 ## When to Use
 
-- The user has a `Roadmap-*.md` whose **structure** needs changes — new steps, split steps, re-sequenced phases, dropped steps
+- The user has a roadmap artifact (on its parent epic) whose **structure** needs changes — new steps, split steps, re-sequenced phases, dropped steps
 - A previous [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) added or removed a component
 - Implementation discovery showed a step was bigger than expected and needs to be split
 - A phase needs reordering because dependencies were misjudged
@@ -28,14 +30,15 @@ If only step **status** is out of date (issues closed, PRs merged), use [`/deven
 
 ## Inputs
 
-The user provides a file path — e.g. `docs/Roadmap/Roadmap-orders-001.md`.
+The user provides an epic number (optionally `:<doc_id>` when the epic holds more than one roadmap artifact) — e.g. `89` or `89:dv1:workinprogress-ai/planning.development.main:89:roadmap:orders-001`.
+
+Resolution: `issue-artifact-select --issue <N> --artifact-type roadmap [--doc-id <DOC_ID> | --latest]` → `issue-artifact-get --issue <N> --doc-id <DOC_ID> --full | jq -r '.body' > /tmp/roadmap-refine.md` (session scratch copy).
 
 ## Workflow
 
 ### 1. Load and parse
 
-- Read the file. Identify all phases (`### PHASE-NN: ...`) and steps (`### STEP-NN: ...`).
-- Note the existing Revision History entries.
+- Pull the artifact to a session scratch copy (see Inputs). Read it. Identify all phases (`### PHASE-NN: ...`) and steps (`### STEP-NN: ...`).
 - Note every step's existing **Issue** link, **Component**, **Blueprint section** references, and **Depends on** edges.
 
 ### 2. Interview the user about what changed
@@ -45,12 +48,12 @@ Use `vscode_askQuestions` to gather:
 - **What's new** — steps, phases, or components to add (often driven by blueprint changes, or by a new specifications doc landing in a multi-epic project)
 - **What needs splitting** — steps that grew too large during implementation
 - **What's wrong** — dependency edges that turned out to be inaccurate, phase boundaries that no longer make sense
-- **What's obsolete** — steps that are no longer needed; delete from doc and log in Revision History with the ID, a one-line summary, and the reason
+- **What's obsolete** — steps that are no longer needed; delete clean (the why, if significant, goes in an ADR)
 - **What needs re-sequencing** — steps moving between phases for dependency or priority reasons
 - **New specifications docs** — "Has a new `Specifications-<epic>-NNN.md` been added to the project that this roadmap should now cover?"
 - **Source material** — "Are there meeting transcripts, design discussions, or other communications records behind these changes? If so, where are they?"
 
-If the user provides communications artifacts, summarise each one separately (prefer the `Explore` subagent, one invocation per artifact, in parallel where possible) with a prompt focused on architectural decisions, component changes, sequencing decisions, and trade-offs raised. Surface each summary back for confirmation, then drive the change list from the approved summaries. Note the source in the revision-history entry (step 4).
+If the user provides communications artifacts, summarise each one separately (prefer the `Explore` subagent, one invocation per artifact, in parallel where possible) with a prompt focused on architectural decisions, component changes, sequencing decisions, and trade-offs raised. Surface each summary back for confirmation, then drive the change list from the approved summaries. Cite the source in the ADR when one is written so the rationale can be re-traced.
 
 ### 2a. Incorporating a new specifications doc
 
@@ -60,52 +63,32 @@ When a multi-epic project grows a new `Specifications-<epic>-NNN.md` after the r
 2. Draft a new candidate step per new specification item, asking the user for the target component (same procedure as `/devenv-create-roadmap` specifications-only mode).
 3. **Append** the new steps with the next sequential `STEP-NN` IDs across the whole roadmap — do **not** renumber existing steps. Place each in the appropriate `PHASE-NN`, creating new phases at the end if the new epic deserves its own phases.
 4. Resolve cross-doc dependency edges into step-level `Depends on:` edges.
-5. Record the incorporation as a single revision-history entry citing the new doc path.
-6. In step 5, offer to create issues for the new steps and update the parent epic's task list.
+5. If the incorporation is significant (a future implementer would ask why these phases exist), write an ADR citing the new doc path.
+6. Offer to create issues for the new steps and update the parent epic's task list.
 
 ### 3. Apply changes — preserve everything
 
 **Hard rules:**
 
-- **Never reflow IDs.** `STEP-07` stays `STEP-07` for its lifetime. New steps get the next sequential number across the whole roadmap (not per-phase — step IDs are globally unique). Same for `PHASE-NN`.
-- **Never silently delete a step.** When a step is superseded or withdrawn, delete it from the document and record the removal in `## Revision History`:
-
-  ```
-  - Removed STEP-07 (Deploy auth microservice) — superseded by STEP-15 and STEP-16 (split: deploy + configure now separate components). Linked issue: #412.
-  - Removed STEP-12 (Load test baseline) — withdrawn, moved to separate performance track
-  ```
-
-  If the deleted step had a linked issue, note it in the history entry (see step 5 for issue-handling guidance).
-- **Never silently change an issue link.** If a step is split, note the original issue in the Revision History entry for the deleted step; new steps get new issues (offer to create them — see step 5).
-- **Splitting a step**: copy the original content into both new steps as a starting point, edit each, then delete the original and record the deletion in Revision History.
-- **Moving a step between phases**: keep the same `STEP-NN` ID; record the move in revision history. Do **not** renumber.
+- **Never reflow IDs.** `STEP-07` stays `STEP-07` for its lifetime. New steps get the next sequential number across the whole roadmap (not per-phase — step IDs are globally unique). Same for `PHASE-NN`. Gaps from deleted steps are expected and harmless.
+- **Superseded steps are deleted clean** — no strikethrough, no tombstone text in the body. If the supersession is significant (a future implementer would ask why), write an ADR naming the step and its replacement; otherwise delete silently. Update every `Depends on:` edge pointing at the removed step.
+- **Never silently change an issue link.** If a step is split, surface the original issue; new steps get new issues (offer to create them — see step 5).
+- **Splitting a step**: copy the original content into both new steps as a starting point, edit each, then delete the original clean.
+- **Moving a step between phases**: keep the same `STEP-NN` ID; do **not** renumber.
 - **Dependency edges must stay valid.** Walk every step's `Depends on:` line and update links to reflect supersession or moves.
-- **Status markers** (\u2705 / \U0001f7e1 / \u2b1c / \u23f8 / \u274c) on existing steps are preserved as-is — do not change them. Use [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md) to re-sync status after structural edits.
+- **Status markers** on existing steps are preserved as-is — do not change them. Use [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md) to re-sync status after structural edits.
 
-### 4. Record the revision
+### 4. Record significant decisions as ADRs
 
-Add a new entry to the top of `## Revision History` (create the section if missing, immediately after the document title):
-
-```markdown
-### 2026-05-13 — Split inventory work; added orchestrator step
-
-- Added STEP-15: Build reservation TTL cleanup
-- Added STEP-16: Wire orchestrator to reservation events
-- Superseded STEP-07 (split into STEP-15 + STEP-16)
-- Moved STEP-09 from PHASE-02 to PHASE-03 (depends on orchestrator now)
-- Withdrew STEP-12 (no longer needed after blueprint refinement)
-- Source: Blueprint-orders-001.md revision 2026-05-12
-```
-
-Most recent revision goes on top.
+For any change where a future implementer would ask *why* (a superseded step, a phase re-sequencing driven by misjudged dependencies, an incorporation of a new specifications doc), write an ADR using the shared [ADR template](../common/references/adr-template.md) into `docs/Decisions/`. Trivial edits need no ADR — git records them. The roadmap itself never carries change history.
 
 ### 5. Offer to create issues for new steps
 
 For every new step added in this revision, ask:
 
 > "Create GitHub issues for the new steps?
-> - STEP-15 \u2192 workinprogress-ai/service.commerce.inventory
-> - STEP-16 \u2192 workinprogress-ai/service.commerce.fulfillment-orchestrator
+> - STEP-15 → workinprogress-ai/service.commerce.inventory
+> - STEP-16 → workinprogress-ai/service.commerce.fulfillment-orchestrator
 >
 > Proceed? (Y / N / Choose subset)"
 
@@ -114,30 +97,32 @@ If yes, follow the same `GITHUB_REPO=<org>/<repo> issue-create` procedure docume
 For deleted steps with linked issues, do **not** auto-close them — surface a list and let the user decide:
 
 > "These deleted steps still have open linked issues. Close them? Comment first?
-> - STEP-07 \u2192 #412 (superseded by STEP-15, STEP-16)
-> - STEP-12 \u2192 #418 (withdrawn)"
+> - STEP-07 → #412 (superseded by STEP-15, STEP-16)
+> - STEP-12 → #418 (withdrawn)"
 
 ### 6. Write the result
 
-Overwrite the file in place. The user can `git diff` to review and revert.
+Republish the scratch copy to the same artifact: `issue-artifact-upsert --issue <epic-number> --body-file <scratch-path>`. The user can review via the issue's comment edit history and re-edit if needed.
 
 ### 7. Surface downstream impacts
 
 After writing, list what may need follow-up:
 
-- **Status sync**: structural edits don't refresh issue/PR status \u2192 suggest [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md)
-- **Implementation plan impact**: plans tied to superseded or split steps may need updating \u2192 suggest [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) for affected plans
-- **Blueprint drift**: if the structural change reveals a deeper architectural issue, suggest [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md)
+- **Status sync**: structural edits don't refresh issue/PR status → suggest [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md)
+- **Implementation plan impact**: plans tied to superseded or split steps may need updating → suggest [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) for affected plans
+- **Blueprint drift**: if the structural change reveals a deeper architectural issue, file an **upstream-impact issue** (`issue-create --type Task --label upstream-impact --no-template` in the planning repo — `GITHUB_REPO` is already set) describing what changed, why it matters, and the affected blueprint sections — then also suggest [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) directly if the user wants to cascade now
 
 ## Anti-patterns
 
-- Deleting steps without recording the deletion (ID, summary, reason, linked issue if any) in Revision History
+- Keeping superseded steps as strikethrough or tombstone text — delete them clean; an ADR holds the why when it matters
 - Reflowing `STEP-NN` or `PHASE-NN` IDs (breaks links from issues, plans, and the parent epic)
 - Closing linked issues automatically when superseding a step — always ask
 - Changing status markers as part of structural revision — use `/devenv-update-roadmap` for that
 - Rewriting the roadmap from scratch — that's [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md), not refine
 - Forgetting to update the parent epic's task list when issues are added or superseded
-- Writing prior-state narrative in phase/step body content instead of `## Revision History`
+- Writing prior-state narrative in phase/step body content — the document is target state; ADRs and the issue's edit history hold the rest
+- Committing the scratch copy to source control — roadmaps are GitHub artifacts only
+- Treating the roadmap as an entry point for upstream changes — route those through the refine skills and the upstream-impact queue
 
 ## Sibling Skills
 

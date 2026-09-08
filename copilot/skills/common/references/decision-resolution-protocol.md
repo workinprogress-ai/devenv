@@ -103,8 +103,6 @@ When escalating back to planning, record unresolved decisions/questions thorough
    - Add `decision:` metadata on the earliest affected task.
    - Add inline `[QUESTION] ...` when the unresolved item is task/phase-specific.
 3. `## Pending Questions`
-   - Use only for genuinely plan-level unresolved questions.
-4. `## Revision History`
    - Add a dated escalation entry with:
      - what was attempted,
      - options considered,
@@ -113,6 +111,7 @@ When escalating back to planning, record unresolved decisions/questions thorough
      - recommended next step.
    - Include a deterministic marker line at the top of the entry for downstream skills:
        - `[ESCALATION-HANDOFF] source=<pair|delegation> phase=<N> status=<needs-refine|user-deferred>`
+   - Use only for genuinely plan-level unresolved escalations; task/phase-specific blockers stay inline under their task.
 
 Minimum completeness for escalation handoff:
 
@@ -122,7 +121,7 @@ Minimum completeness for escalation handoff:
 - Missing information/assumption
 - Owner and trigger for next revisit
 
-Suggested `## Revision History` entry shape:
+Suggested escalation entry shape (in `## Pending Questions`):
 
 ```markdown
 ### <date> — Escalation handoff from <pair|delegation> (Phase <N>)

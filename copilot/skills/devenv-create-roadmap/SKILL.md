@@ -1,6 +1,6 @@
 ---
 name: devenv-create-roadmap
-description: 'Produce a delivery roadmap from a blueprint, a specifications doc, or both, then optionally create the corresponding parent epic and child issues across component repos. USE WHEN the user says "create a roadmap", "plan delivery order", "build a roadmap from this blueprint", "build a roadmap from these specifications", "lay out the delivery phases", or hands off a blueprint or specifications doc that needs sequencing into deliverable phases. Produces a Roadmap-<system>-NNN.md with PHASE-NN groupings of high-level STEP-NN entries and dependency arrows. After approval, offers to create a parent epic in the planning repo with a markdown task list of child issues in component repos. DO NOT USE for low-level task breakdown (use /devenv-create-implementation-plan), for syncing roadmap state to issue state (use /devenv-update-roadmap), or for structurally revising an existing roadmap (use /devenv-refine-roadmap).'
+description: 'Produce a delivery roadmap from a blueprint, a specifications doc, or both, publishing it as an artifact comment on a parent epic in the planning repo, then optionally creating child issues across component repos. USE WHEN the user says "create a roadmap", "plan delivery order", "build a roadmap from this blueprint", "build a roadmap from these specifications", "lay out the delivery phases", or hands off a blueprint or specifications doc that needs sequencing into deliverable phases. Produces a Roadmap-<system>-NNN artifact (doc_id-addressed comment on the epic) with PHASE-NN groupings of high-level STEP-NN entries and dependency arrows; the epic body holds a markdown task list of child issues. Roadmaps are GitHub artifacts, not source-controlled files — no long-lived local copy is kept. DO NOT USE for low-level task breakdown (use /devenv-create-implementation-plan), for syncing roadmap state to issue state (use /devenv-update-roadmap), or for structurally revising an existing roadmap (use /devenv-refine-roadmap).'
 argument-hint: 'Path to a Blueprint-*.md and/or a Specifications-*.md (at least one required)'
 user-invocable: true
 ---
@@ -65,15 +65,17 @@ If neither input is supplied, stop and redirect: specifications-first → `/deve
 
 Use `session_memory-roadmap.md` in the **target repo root** following the same protocol as [`/devenv-write-specifications`](../devenv-write-specifications/SKILL.md). The filename suffix lets it coexist with `session_memory-blueprint.md` and `session_memory-specifications.md`.
 
-## Output File
+## Output Artifact
 
-Produce `Roadmap-<system>-NNN.md` where:
+Produce a `Roadmap-<system>-NNN` artifact where:
 - `<system>` matches the blueprint's system name
 - `NNN` is a zero-padded numeric suffix
 
-**Location:**
-- If the target repo name starts with `planning.` → write to `docs/Roadmap/` (create the folder if needed)
-- Otherwise → ask the user where to put it
+**Roadmaps are GitHub artifacts, not files in source control.** The roadmap lives as a `doc_id`-addressed artifact comment on the parent epic in the planning repo (same pattern as implementation-plan artifacts; see [issue-artifact-integration.md](../common/references/issue-artifact-integration.md)). The epic body is a short placeholder plus the task list of child issues; the roadmap content is in the artifact comment.
+
+During the session, work on a local scratch copy (e.g. `/tmp/roadmap-<system>-NNN.md`). The scratch copy is session working state only — it is not committed and not kept after the roadmap is published. The published artifact comment is the single source of truth.
+
+A roadmap is downstream of the specifications and blueprint, and upstream of grooming: it is affected by changes arriving from upstream (spec/blueprint refinement) or pushed back from downstream (execution discoveries), but it is never itself an entry point for changes — those enter through the refine skills and the upstream-impact queue, never by editing a roadmap.
 
 See [roadmap-template.md](./references/roadmap-template.md) for the document structure.
 
@@ -162,20 +164,24 @@ Use [roadmap-template.md](./references/roadmap-template.md). Each step gets:
 
 ### 6. Iterate until approved
 
-Show the draft. Revise. **Do not write the file yet.**
+Show the draft. Revise. **Do not publish yet.**
 
-### 7. Write the roadmap file
+### 7. Create the parent epic and publish the roadmap artifact
 
-Once approved, write `<target-repo>/docs/Roadmap/Roadmap-<system>-NNN.md` (or user-confirmed location).
+Once approved:
 
-### 8. Offer to create GitHub issues
+1. Create the parent epic in the planning repo (`GITHUB_REPO=<org>/<planning-repo> issue-create --title "Epic: <system> roadmap" --type "Epic" --no-template`) with a placeholder body (title, blueprint link, note that the roadmap artifact follows in a comment).
+2. Publish the roadmap as an artifact comment on the epic: write the scratch copy with the `DEVENV_ARTIFACT_V1` header (doc_id `dv1:<owner>/<planning-repo>:<epic-number>:roadmap:<system>-<NNN>`, `artifact_scope: issue-artifact`, `issue_number: <epic-number>`) and run `issue-artifact-upsert --issue <epic-number> --body-file <scratch-path>`.
+3. Note the epic number and artifact `doc_id` — every later roadmap skill (refine/update) addresses the roadmap by `doc_id`.
+
+### 8. Offer to create child issues
 
 Ask, verbatim:
 
-> "Create the parent epic in the planning repo and child issues in the affected component repos? This will:
-> - Create one parent epic in `<planning-repo>` with a markdown task list of all child issues
+> "Create child issues in the affected component repos? This will:
 > - Create one child issue per roadmap step in the appropriate component repo
-> - Link each roadmap step in the file to its issue
+> - Link each roadmap step in the artifact to its issue
+> - Update the epic task list
 >
 > Proceed? (Y / N / Choose subset)"
 
@@ -199,16 +205,16 @@ GITHUB_REPO=<org>/<component-repo> issue-create \
 
 > **Note:** `issue-create` does not have a `--repo` flag. The repo is selected via the `GITHUB_REPO` env var (`owner/repo` form). If unset, the tool falls back to `GH_ORG` + current repo name, then to the current git repo. `--type` is required for non-interactive creation — valid values come from `tools/config/issues-config.yml` (Bug, Feature, Task, Epic); roadmap step issues are normally `Task` and the parent epic is `Epic`, unless the user approves otherwise.
 
-The body should reference back to the roadmap and blueprint:
+The body should reference back to the roadmap artifact and blueprint:
 
 ```markdown
-**Roadmap step**: [STEP-NN](<link to roadmap step heading on GitHub>)
+**Roadmap step**: STEP-NN on epic `<org>/<planning-repo>#<epic-number>` (roadmap artifact `<doc_id>`)
 **Blueprint section**: [§N.N](<link to blueprint section on GitHub>)
 
 <one-paragraph description of the step from the roadmap>
 
 ---
-*This issue was created from `<roadmap filename>`. Updates to that file may sync state via `/devenv-update-roadmap`.*
+*This issue was created from roadmap artifact `<doc_id>` on the parent epic. Updates to the roadmap may sync state via `/devenv-update-roadmap`.*
 ```
 
 Capture the resulting issue number. Show the user a running list:
@@ -219,14 +225,14 @@ Capture the resulting issue number. Show the user a running list:
 ...
 ```
 
-### Step B — Create the parent epic
+### Step B — Regenerate the epic task list
 
-In the planning repo, create one epic issue containing a markdown task list of every child issue:
+The epic body carries the placeholder plus a markdown task list of every child issue (regenerated as steps gain issues):
 
 ```markdown
 # Epic: <System Name> Roadmap
 
-**Roadmap file**: [Roadmap-<system>-NNN.md](<link>)
+**Roadmap artifact**: `<doc_id>` on this issue (comment)
 **Blueprint**: [Blueprint-<system>-NNN.md](<link>)
 
 ## Phases
@@ -242,11 +248,11 @@ In the planning repo, create one epic issue containing a markdown task list of e
 ...
 ```
 
-Use `GITHUB_REPO=<planning-repo> issue-create --title "Epic: <system> roadmap" --type "Epic" --body-file <temp-body-file> --no-template`.
+Update via `GITHUB_REPO=<planning-repo> issue-update <epic-number> --body-file <temp-body-file>`.
 
-### Step C — Update the roadmap file with issue links
+### Step C — Update the roadmap artifact with issue links
 
-For each step in the roadmap file, append the issue link to the step heading and set status to `⬜ Not started`:
+For each step in the scratch copy, append the issue link to the step heading and set status to `⬜ Not started`:
 
 ```markdown
 ### STEP-01: Extend inventory with reservation API
@@ -254,13 +260,7 @@ For each step in the roadmap file, append the issue link to the step heading and
 **Status**: ⬜ Not started
 ```
 
-Also add the parent epic reference at the top:
-
-```markdown
-**Parent epic**: [planning.development.main#89](<link>)
-```
-
-Write the file back. Confirm the path and issue counts to the user.
+Then republish: `issue-artifact-upsert --issue <epic-number> --body-file <scratch-path>`. Confirm the epic number, `doc_id`, and issue counts to the user.
 
 ## What Happens Next
 
@@ -272,12 +272,15 @@ After the roadmap is created and issues exist:
 
 ## Anti-patterns
 
-- Writing the roadmap file before user approval
+- Publishing the roadmap artifact before user approval
+- Writing the roadmap into the repo as a source-controlled file (e.g. under `docs/Roadmap/`) — roadmaps are GitHub artifacts on the epic, not files in source control
+- Committing the scratch copy or treating it as durable after publish
 - Auto-creating issues without explicit confirmation
 - Re-numbering steps when adding new ones (always append with next sequential number)
 - Treating dependency-order as the only valid sequencing — surface the capability-slice alternative
-- Creating issues outside the existing tooling (`issue-create`, `issue-update`)
+- Creating issues outside the existing tooling (`issue-create`, `issue-update`, `issue-artifact-upsert`)
 - Putting child issues in the planning repo (they belong in component repos)
 - Putting the parent epic in a component repo (it belongs in the planning repo)
+- Editing a roadmap as the entry point for an upstream change — upstream changes enter through the refine skills and the upstream-impact queue, never by editing a roadmap first
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

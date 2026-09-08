@@ -495,6 +495,7 @@ Do not perform routine mid-phase syncs beyond the required material-revision exc
 1. **Verify plan currency.** Confirm every approved deviation, structural change, and added task from the run is reflected in the plan file — not just in phase handbacks. If anything is missing, write it in now (current-state prose).
 2. **Flag the revised plan to the user.** State that the plan was updated during execution and now records the actual implementation.
 3. **Offer the upsert.** If an associated GH issue artifact identity exists (`<N>` + `<DOC_ID>`), offer to sync the final as-built plan with `issue-artifact-upsert --issue <N> --body-file <path>` — the last phase sync ran at that phase's handback and may not include closeout corrections. Follow the same confirm-then-run procedure as above; never upsert without explicit approval.
+4. **File upstream-impact issues for architectural deviations.** When execution deviated from the plan in ways that indicate the upstream design artifacts are wrong (a blueprint component boundary didn't survive contact with the codebase, a specification item proved unmeasurable or wrong), file an **upstream-impact issue** in the planning repo: `GITHUB_REPO=<org>/<planning-repo> issue-create --type Task --label upstream-impact --no-template`, body covering what was discovered, why it matters, and the affected upstream sections. The refine skills consume this queue in cascade mode. Ask the user before filing.
 
 ### Failure investigation is bounded by allowed tools
 
@@ -570,6 +571,7 @@ Before declaring a phase complete and handing back, run the committability check
 - Silently absorbing a challenge that was worked through — proceeding past it is acceptable when no stop trigger applies, but the handback must say what happened; an explicitly empty **Challenges** line is required, not an omitted one.
 - Accepting a user-approved deviation verbally but never writing it into the plan — approval without a plan write leaves the plan describing a superseded path, breaking the as-built record.
 - Ending the engagement with plan updates unflagged and the final as-built plan unsynced — closeout must verify plan currency, tell the user the plan changed, and offer the upsert.
+- Ending the engagement with architectural deviations unreported upstream — closeout files (or offers to file) upstream-impact issues so the specs/blueprint queue stays fed.
 - Weakening/removing failing behavior assertions to get green status instead of fixing the defect.
 - Attempting a mutating git operation as a repair — unstaging, resetting to the last commit, restoring files from HEAD after corrupting them — instead of stopping immediately and handing the recovery to the user.
 - A phase handback without **review hotspots** when hotspot-worthy work was done.

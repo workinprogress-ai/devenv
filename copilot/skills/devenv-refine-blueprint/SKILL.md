@@ -1,6 +1,6 @@
 ---
 name: devenv-refine-blueprint
-description: 'Revise an existing Blueprint-*.md after architecture decisions change, new specifications arrive, or implementation discovery exposes gaps. USE WHEN the user says "refine the blueprint", "update the blueprint", "revise the architecture", "the blueprint needs updating", or hands off a stale blueprint that needs adjustments. Preserves all existing structure and decisions, appends new content rather than reflowing, records every change in a Revision History section, and writes the result back in place. If refinement intake reveals a non-surgical change (broad re-architecture, unresolved option-weighing, or major uncertain ripple effects), stop and route to /devenv-design-discussion (bounded choice) or /devenv-create-blueprint (foundational redesign). DO NOT USE for creating a new blueprint (use /devenv-create-blueprint), for broad architecture brainstorming without a settled direction (use /devenv-design-discussion), for ad-hoc edits to a single line (just edit the file), or for updating a roadmap (use /devenv-update-roadmap).'
+description: 'Revise an existing Blueprint-*.md after architecture decisions change, new specifications arrive, or implementation discovery exposes gaps. USE WHEN the user says "refine the blueprint", "update the blueprint", "revise the architecture", "the blueprint needs updating", hands off a stale blueprint, hands off upstream-impact issue number(s) or asks to work the upstream-impact queue, or a change spans specifications and blueprint (cascade mode — one session edits both). Preserves section numbering and cross-references, appends rather than reflows, deletes superseded structure clean (the why lives in ADRs; the document carries target state only). If intake reveals a non-surgical change (broad re-architecture, unresolved option-weighing, major uncertain ripple effects), stop and route to /devenv-design-discussion or /devenv-create-blueprint. DO NOT USE for creating a new blueprint (use /devenv-create-blueprint), broad brainstorming without a settled direction (use /devenv-design-discussion), ad-hoc edits to a single line (just edit the file), or updating a roadmap (use /devenv-update-roadmap).'
 argument-hint: 'Path to a Blueprint-*.md file'
 user-invocable: true
 ---
@@ -11,9 +11,9 @@ user-invocable: true
 
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
-Revise an existing blueprint based on new information — architectural decisions that changed, specifications that arrived after the original blueprint, or implementation discovery that exposed gaps. Preserve every prior decision; never silently rewrite history.
+Revise an existing blueprint based on new information — architectural decisions that changed, specifications that arrived after the original blueprint, or implementation discovery that exposed gaps. Preserve section numbering and cross-references; supersede structure deliberately.
 
-Write the blueprint body as the current target architecture. Keep historical change narrative out of main sections and record it in `## Revision History` only.
+Write the blueprint body as the current target architecture. Keep historical change narrative out of the document entirely — the document is target state, period. Rationale for significant changes lives in ADRs (`docs/Decisions/`, see the shared [ADR template](../common/references/adr-template.md)); git records when. If a legacy `## Revision History` section exists from an older workflow version, migrate its still-relevant entries into ADRs and delete the section.
 
 ## When to Use
 
@@ -29,7 +29,15 @@ If no blueprint exists, stop and redirect to [`/devenv-create-blueprint`](../dev
 
 ## Inputs
 
-The user provides a file path — e.g. `docs/Architecture/Blueprint-orders-001.md`.
+The user provides one of:
+
+- **A file path** — e.g. `docs/Architecture/Blueprint-orders-001.md`.
+- **Upstream-impact issue number(s)** — work orders from the queue (grooming, execution closeouts, spikes, plan refinement file these). Load via `issue-get <N> --pretty`; the body carries what changed, why, and affected sections. Follow the [cross-artifact cascade protocol](../common/references/cross-artifact-cascade.md)'s issue-intake loop.
+- **The upstream-impact queue** — "work the queue" / no specific issue: `issue-list --label upstream-impact`, present, let the architect pick all/some, then loop per issue.
+
+Plus optionally the file path when an issue references a specific blueprint. At intake, run **span detection** (cascade protocol): if the change alters both what the system does and how it is shaped, enter **cascade mode** — this session drives both the specifications and the blueprint edits under the shared protocol, with ADRs recording significant decisions. Either refine skill can drive; entry choice only picks the home document.
+
+Also offer queue consumption on any entry: "N open upstream-impact issues in this repo — fold them into this session?"
 
 ## Workflow
 
@@ -58,7 +66,6 @@ If surgical, continue with the workflow below.
 ### 1. Load and parse
 
 - Read the file. Identify all top-level numbered sections (`## 1. Context`, `## 3. Architecture`, etc.).
-- Note the existing Revision History entries.
 - Note services already listed (with their `(existing | new | extended)` status) and per-component delta entries.
 
 ### 2. Interview the user about what changed
@@ -68,18 +75,17 @@ Use `vscode_askQuestions` to gather:
 - **What's new** — components, operations, events, patterns to add
 - **What's wrong** — sections whose descriptions are now misleading
 - **What changed status** — services moving from `new` → `existing`, deltas now obsolete because the change shipped
-- **What's no longer relevant** — sections to remove; deletion will be logged in Revision History with a note pointing to the replacement (or reason for withdrawal)
-- **Revision history** — record only material blueprint changes; batch small related edits from the same pass into one concise entry.
+- **What's no longer relevant** — sections to delete clean (the why, if significant, goes in an ADR)
 - **New specifications docs** — "In a multi-epic project, has a new `Specifications-<epic>-NNN.md` been added that this blueprint should now cover? Or has an existing one been split or refined?"
 - **Source material** — "Are there meeting transcripts, email threads, design discussions, or other communications records behind these changes? If so, where are they?"
 
-If the user provides communications artifacts, summarise each one separately (prefer the `Explore` subagent, one invocation per artifact, in parallel where possible) with a prompt focused on architectural decisions, components/services mentioned, trade-offs raised, and open questions. Surface each summary back for confirmation, then use the approved summaries to drive the change list. Note the source in the revision-history entry (step 4) so the rationale can be re-traced.
+If the user provides communications artifacts, summarise each one separately (prefer the `Explore` subagent, one invocation per artifact, in parallel where possible) with a prompt focused on architectural decisions, components/services mentioned, trade-offs raised, and open questions. Surface each summary back for confirmation, then use the approved summaries to drive the change list. Cite the source in the ADR when one is written so the rationale can be re-traced.
 
 If the user points at a new (or refined) specifications doc, read it and summarise back the actors/scenarios/constraints/new specification items that this blueprint should now reflect. Cross-doc dependency edges from the specifications (`Depends on: AUTH-003 (Specifications-auth-001.md)`) may translate into new cross-service dependencies — surface these explicitly. If a separate sibling blueprint covers the upstream epic, reference it (`<see Blueprint-auth-001.md §3.2>`) rather than duplicating its content here.
 
 Do not assume. If the change has roadmap impact (component added/removed, ordering implication), surface it explicitly:
 
-> "This change adds a new component. The roadmap (`Roadmap-<system>-NNN.md`) likely needs an update too. Want me to flag this for `/devenv-update-roadmap`?"
+> "This change adds a new component. The roadmap artifact on the epic likely needs an update too. Want me to flag this for `/devenv-refine-roadmap` (structural) or `/devenv-update-roadmap` (status only)?"
 
 ## Splitting an oversized blueprint
 
@@ -89,16 +95,16 @@ If the single-file blueprint has grown past comfortable reading length (~1,500 l
    - **By section group** (default): `01-context.md`, `02-architecture.md`, `03-components.md`, `04-risks.md`
    - **By domain within §3-§4** when there are several
    - A hybrid when only one section is oversized
-2. **Create the subfolder** `docs/Architecture/Blueprint-<system>-NNN/` and move the part files into it. The original `Blueprint-<system>-NNN.md` is replaced by this folder — leave a stub file at the old path containing only a redirect (`> **Moved to [Blueprint-<system>-NNN/Index.md](Blueprint-<system>-NNN/Index.md)** — see that file's revision history for when`) so existing links don't 404.
+2. **Create the subfolder** `docs/Architecture/Blueprint-<system>-NNN/` and move the part files into it. The original `Blueprint-<system>-NNN.md` is replaced by this folder — leave a stub file at the old path containing only a redirect (`> **Moved to [Blueprint-<system>-NNN/Index.md](Blueprint-<system>-NNN/Index.md)**`) so existing links don't 404.
 3. **Preserve section numbering across files.** §3.2.5 stays §3.2.5 wherever it lives. Cross-file references use the form `<see 02-architecture.md §3.2.5>`.
-4. **Each part file gets its own `## Revision History`** scoped to that file's content. The shared root revision history moves to `Index.md`.
-5. **Create `Index.md`** in the new subfolder with the structure documented in [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) §*Index.md for multi-file artifacts*. Record the split as the first entry in its revision history.
+4. **The decision log line in each part file's header** points at `docs/Decisions/`; ADRs are system-wide, not per-part-file.
+5. **Create `Index.md`** in the new subfolder with the structure documented in [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) §*Index.md for multi-file artifacts*.
 6. **Walk cross-blueprint references** and roadmap step `Blueprint sections:` lines to update them to the new file paths.
 7. Surface roadmap impact — the roadmap's `Blueprint sections:` references on each STEP-NN are now stale; suggest [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md) to refresh them.
 
 ## Updating Index.md on plain refinements
 
-If the blueprint is already split (subfolder + `Index.md` exists) and a refinement adds, removes, or moves sections between files, **update `Index.md` in the same revision** so its section map and file table stay accurate. Add a one-line entry to the Index's revision history pointing back to the part file that changed.
+If the blueprint is already split (subfolder + `Index.md` exists) and a refinement adds, removes, or moves sections between files, **update `Index.md` in the same pass** so its section map and file table stay accurate.
 
 ### 3. Confirm the change plan
 
@@ -121,35 +127,18 @@ Do not write anything until the user confirms. If the user adjusts scope, revise
 
 **Hard rules:**
 
-- **Never reflow numbering.** Section `3.2.5` stays `3.2.5` for its lifetime. Append new entries with the next sequential number.
-- **Never silently delete a decision.** When a section is superseded or withdrawn, delete it from the document and record the removal in `## Revision History`:
-
-  ```
-  - Removed §5.2 risk #3 (TTL race condition) — superseded by §3.2.7 (reservation-cleaner mitigates this)
-  - Removed §4.3 component `service.old-notifier` — withdrawn, replaced by event-driven approach in §4.7
-  ```
+- **Never reflow numbering.** Section `3.2.5` stays `3.2.5` for its lifetime. Append new entries with the next sequential number. Gaps from deleted sections are expected and harmless.
+- **Superseded sections are deleted clean** — no tombstone text, no "replaced by" blockquotes in the body. If the supersession is significant (a future implementer would ask why), write an ADR naming the section and its replacement; otherwise delete silently.
 - **New components are appended** to the end of `## 4. Per-Component Changes` with the next sub-number.
-- **Reworded sections** keep their number; record the prior wording summary in `## Revision History` rather than embedding prior-state narrative in the section body.
+- **Reworded sections** keep their number and are rewritten in place as current truth. Prior wording lives in git history and, when significant, an ADR.
 
-### 5. Record the revision
-
-Add a new entry to the top of `## Revision History`. Keep it concise and material-only:
-
-```markdown
-### 2026-05-13 — Added inventory reservation TTL
-
-- Added §3.2.7: `service.commerce.reservation-cleaner` (new)
-- Added §3.4 row: `ReservationExpired` event
-- Reworded §4.1 to reflect TTL behaviour; previous wording preserved beneath
-- Superseded §5.2 risk #3 (mitigated by reservation-cleaner)
-- Reworded §3.2.1 for TTL behaviour (prior wording summary recorded here)
-```
-
-Most recent revision goes on top.
-
-### 6. Write the result
+### 5. Write the result
 
 Overwrite the file in place. The user can `git diff` to review and revert.
+
+### 6. Record significant decisions as ADRs
+
+For any change where a future implementer would ask *why* (a superseded component or section, a structural pattern swap, a split, a cascade decision), write an ADR using the shared [ADR template](../common/references/adr-template.md) into `docs/Decisions/`. Trivial edits need no ADR — git records them. The blueprint itself never carries change history.
 
 ### 7. Surface downstream impacts
 
@@ -168,6 +157,6 @@ After writing, list what may need follow-up:
 - Rewriting the blueprint from scratch — that's [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md), not refine
 - Forcing non-surgical architecture discovery through this skill instead of escalating to [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md) or [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
 - Forgetting to surface roadmap and plan impact after the edit
-- Writing prior-state narrative in main blueprint sections instead of `## Revision History`
+- Keeping superseded sections as tombstone text — delete them clean; an ADR holds the why when it matters
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

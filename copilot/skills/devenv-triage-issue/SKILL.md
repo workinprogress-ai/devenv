@@ -1,12 +1,17 @@
 ---
 name: devenv-triage-issue
-description: Triage one or more GitHub issues — classify type (bug/feature/question), suggest labels, priority, size (S/M/L), check for duplicates, and draft a clarifying comment when the issue is incomplete. USE WHEN the user says "triage this issue", "triage #123", "label and size this", "is this a duplicate", "draft a response asking for repro steps", or hands off a fresh untriaged issue / batch / pasted issue text. Auto-detects input: issue number(s) → fetched via `issue-get`; pasted text → triaged in place. Produces a structured recommendation block per issue, then bundles all proposed writes (labels, comment, close-as-duplicate) into a single y/n confirm before applying via `issue-update` / `issue-comment` / `issue-close`. DO NOT USE FOR implementing the issue (use `/devenv-pair-programming` or `/devenv-delegation`), turning it into a plan (use `/devenv-create-implementation-plan`), investigating feasibility (use `/devenv-spike`), or plain summaries (use the default agent / `summarize-github-issue-pr-notification`).
+description: Triage GitHub issues on two layers — workflow routing (which skill should handle it: bug → /devenv-bug-hunter, ready-to-plan → /devenv-create-implementation-plan, design-unclear → /devenv-grooming, one bounded question → /devenv-design-discussion, cross-component epic → /devenv-create-blueprint + /devenv-create-roadmap, unknown feasibility → /devenv-spike, debt assessment → /devenv-tech-debt-audit, docs gap → /devenv-document, missing functional definition → /devenv-write-specifications, upstream-impact label → refine skills) and GitHub metadata (type, labels, priority, size, duplicates, clarifying comment). USE WHEN the user says "triage this issue", "what should handle this issue", "route this issue", "triage #123", "label and size this", "is this a duplicate", or hands off a fresh untriaged issue / batch / pasted issue text. Auto-detects input: issue number(s) → fetched via `issue-get`; pasted text → triaged in place. Bundles all proposed writes into a single y/n confirm before applying. DO NOT USE FOR implementing the issue (skills routed to take over) or plain summaries (use the default agent / `summarize-github-issue-pr-notification`).
 argument-hint: An issue number, list of issue numbers, or pasted issue text to triage
 ---
 
 # Triage issue
 
-Take a fresh / untriaged GitHub issue and produce a structured triage recommendation: type, labels, priority, size, duplicate check, and (if needed) a drafted clarifying comment. Bundle all proposed writes into one confirmation before applying.
+Take a fresh / untriaged GitHub issue and produce a structured triage recommendation in two layers:
+
+1. **Workflow routing** — where does this issue sit in the delivery workflow, and which skill should pick it up?
+2. **GitHub metadata** — type, labels, priority, size, duplicate check, and (if needed) a drafted clarifying comment.
+
+Bundle all proposed writes into one confirmation before applying.
 
 > Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
 
@@ -14,12 +19,13 @@ Take a fresh / untriaged GitHub issue and produce a structured triage recommenda
 
 ## When to Use
 
+- A new issue lands and needs routing: which skill handles it?
 - A new issue lands and needs labels, priority, and sizing.
 - You suspect an issue may be a duplicate of an existing one.
 - The reporter didn't include enough detail and you want a polite request for clarification.
 - You have a batch of untriaged issues to work through.
 
-If the work is clear and you just want to do it, use `/devenv-pair-programming`, or `/devenv-delegation` for a commissioned autonomous run. If the issue is a complete spec ready to plan, use `/devenv-create-implementation-plan`. If the issue is a cross-component epic, use `/devenv-create-blueprint` + `/devenv-create-roadmap`. If feasibility is unknown, use `/devenv-spike`. For a plain summary, the default agent's `summarize-github-issue-pr-notification` skill is faster.
+This skill recommends; it does not execute. The routing line always ends with "Say `/skill-name` to start" — the user invokes the routed skill.
 
 ## Inputs
 
@@ -38,6 +44,7 @@ Produce a block like this for each issue:
 ```markdown
 ### Issue #123 — <title>
 
+**Workflow route:** <skill> — <one-line why>
 **Type:** bug | feature | question | docs | chore
 **Priority:** P0 (critical) | P1 (high) | P2 (normal) | P3 (low)
   Reasoning: <one line>
@@ -53,6 +60,30 @@ Produce a block like this for each issue:
 ```
 
 Keep reasoning brief — one line each. The point is auditable suggestions, not essays.
+
+### Workflow routing (the first layer)
+
+Classify the issue against the delivery workflow and route. Read the body for signals, then pick exactly one primary route:
+
+| Issue shape | Route | Why |
+|---|---|---|
+| Describes broken behavior, suspected or confirmed | `/devenv-bug-hunter` | The bug pipeline: verify (existence uncertain) → diagnose (existence established, root cause unknown) → fix — one invocation carries the whole pipeline |
+| Single-component work, approach already chosen, issue is complete | `/devenv-create-implementation-plan` | Ready to plan: phases and tasks |
+| Single-component work, approach unclear | `/devenv-grooming` | Component-level design direction must settle before tasks can be written |
+| One focused design question / blocker | `/devenv-design-discussion` | Bounded option-weighing, not full planning |
+| Cross-component epic (spans services/repos) | `/devenv-create-blueprint` then `/devenv-create-roadmap` | Needs architectural decomposition, then sequencing into an epic + roadmap artifact |
+| Feasibility or approach unknown, needs research | `/devenv-spike` | Throwaway investigation before any planning makes sense |
+| Codebase health / debt / architecture assessment | `/devenv-tech-debt-audit` | Audit produces findings + issue creation, not implementation |
+| Documentation gap for an existing system | `/devenv-document` | Interview-driven docs, docs-first code-second |
+| User-level functional definition missing (what should the system do?) | `/devenv-write-specifications` | Specifications interview before any architecture or planning |
+| Just asks how to do something | answer + close, or link docs | Not every issue needs a skill |
+
+Routing rules:
+
+- **Check for upstream-impact issues first.** If the issue carries the `upstream-impact` label, it belongs to the refine queue: route to `/devenv-refine-specifications` or `/devenv-refine-blueprint` (issue intake, cascade mode) — do not route it to execution skills.
+- **Ambiguity between two routes → ask one question**, don't guess. "Is the approach here already decided, or does it need design work first?"
+- **Multiple skills needed → give the chain**, in order (e.g. blueprint → roadmap → per-slice plan).
+- **The route ends the triage, it doesn't start the work** — always end with "Say `/skill-name` to start."
 
 ### Type classification
 
@@ -120,19 +151,29 @@ No per-action confirms. No partial-apply. The user either trusts the bundle or t
 ## Anti-patterns
 
 - **Auto-applying writes without confirm** — every label, comment, and close requires the bundle confirmation.
+- **Routing to an execution skill for an upstream-impact issue** — `upstream-impact`-labelled issues route to the refine skills (issue intake), never to implementation.
+- **Routing and executing in the same run** — triage recommends a route; the user invokes the routed skill. Don't drift into implementation.
+- **Routing every issue to a heavy skill** — questions get answers, small chores get direct execution. Not everything needs a workflow artifact.
 - **Padding with low-confidence labels** — only suggest labels that exist in the repo and are clearly applicable.
 - **Drafting a clarifying comment when the issue is already complete** — skip the section, don't generate filler.
 - **Guessing priority without reasoning** — if priority depends on info you don't have, ask one question, don't pick at random.
 - **Marking duplicates without checking** — list candidates with reasons; let the user confirm the close.
-- **Triaging the issue AND fixing it in the same run** — triage produces recommendations only. To implement, switch to `/devenv-pair-programming` or `/devenv-delegation` (commissioned autonomous run).
+- **Triaging the issue AND fixing it in the same run** — triage produces recommendations only. To implement, switch to the routed skill.
 - **Over-explaining classifications** — one-line reasoning per field. Long justifications are noise.
 
 ## Sibling skills
 
-- `/devenv-pair-programming`, `/devenv-delegation` — once triaged, to implement.
-- `/devenv-create-blueprint` + `/devenv-create-roadmap` — when the issue describes a cross-component epic.
-- `/devenv-create-implementation-plan` — when the issue is complete and ready to plan.
-- `/devenv-spike` — when the issue's feasibility or approach is unknown (size = XL).
-- `summarize-github-issue-pr-notification` (default agent skill) — for plain summaries without triage.
+The routing table's destinations are the siblings — every skill it can route to:
+
+- `/devenv-bug-hunter` — the bug pipeline (verify / diagnose / fix).
+- `/devenv-create-implementation-plan` — complete single-component issues ready to plan.
+- `/devenv-grooming` — component design direction before planning.
+- `/devenv-design-discussion` — one bounded design question.
+- `/devenv-create-blueprint` + `/devenv-create-roadmap` — cross-component epics (roadmap lands as an artifact on the epic).
+- `/devenv-refine-specifications` / `/devenv-refine-blueprint` — upstream-impact queue consumption (cascade mode).
+- `/devenv-spike` — unknown feasibility or approach.
+- `/devenv-tech-debt-audit` — codebase health assessment.
+- `/devenv-document` — documentation gaps.
+- `/devenv-write-specifications` — missing functional definition.
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

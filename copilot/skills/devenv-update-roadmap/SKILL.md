@@ -1,7 +1,7 @@
 ---
 name: devenv-update-roadmap
-description: 'Sync a Roadmap-*.md file with the current state of its linked GitHub issues and PRs, optionally creating issues for steps that don''t yet have them. USE WHEN the user says "update the roadmap", "sync the roadmap", "refresh roadmap status", "update roadmap state from issues", or "the roadmap is out of date". Maps issue/PR state to step status (closed → ✅, open + linked PR → 🟡, open no PR → ⬜, blocking label → ⏸️) and writes the updated file back. Also detects steps without issues and offers to create them. DO NOT USE for creating a new roadmap (use /devenv-create-roadmap), for refining the underlying blueprint (use /devenv-refine-blueprint), or for editing roadmap step descriptions (edit the file directly).'
-argument-hint: 'Path to a Roadmap-*.md file'
+description: 'Sync a roadmap artifact (doc_id-addressed comment on its parent epic) with the current state of its linked GitHub issues and PRs, optionally creating issues for steps that don''t yet have them. USE WHEN the user says "update the roadmap", "sync the roadmap", "refresh roadmap status", "update roadmap state from issues", or "the roadmap is out of date". Maps issue/PR state to step status (closed → ✅, open + linked PR → 🟡, open no PR → ⬜, blocking label → ⏸️), updates the epic task list, and republishes the artifact. Also detects steps without issues and offers to create them. DO NOT USE for creating a new roadmap (use /devenv-create-roadmap), for refining the underlying blueprint (use /devenv-refine-blueprint), or for structural roadmap edits (use /devenv-refine-roadmap).'
+argument-hint: '<epic-number[:doc_id]> — the roadmap artifact to sync'
 user-invocable: true
 ---
 
@@ -11,9 +11,9 @@ user-invocable: true
 
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
-Reconcile a roadmap file with reality: read every linked issue and PR, recompute each step's status, and write the updated roadmap back. Optionally create issues for steps that don't have them yet.
+Reconcile a roadmap artifact with reality: read every linked issue and PR, recompute each step's status, update the epic task list, and republish the artifact. Optionally create issues for steps that don't have them yet.
 
-This skill makes the roadmap a *current state of the work* document, not just a planning artifact.
+This skill keeps the roadmap a *current state of the work* document, not just a planning artifact. Roadmaps are GitHub artifacts (doc_id-addressed comments on their parent epic) — no local file is kept.
 
 ## When to Use
 
@@ -32,7 +32,9 @@ Do **not** use for:
 
 ## Inputs
 
-The user provides a file path — e.g. `docs/Roadmap/Roadmap-orders-001.md`.
+The user provides an epic number (optionally `:<doc_id>` when the epic holds more than one roadmap artifact) — e.g. `89`.
+
+Resolution: `issue-artifact-select --issue <N> --artifact-type roadmap [--latest]` → `issue-artifact-get` to a session scratch copy.
 
 ## Status Mapping
 
@@ -50,7 +52,7 @@ The `blocked` / `paused` rule overrides the PR rule.
 
 ### 1. Load and parse the roadmap
 
-- Read the file.
+- Pull the artifact to a session scratch copy (see Inputs).
 - For each `### STEP-NN: ...` heading, extract the existing **Issue** field. Skip the step if the field is empty or contains a placeholder — it'll be handled in step 4.
 
 ### 2. Fetch issue and PR state
@@ -105,17 +107,9 @@ After computing both diffs (status changes + missing issues), surface them to th
 
 ### 5. Write status updates
 
-On approval, update the **Status** line of each affected step in the roadmap file. Append a brief revision-history entry at the top:
+On approval, update the **Status** line of each affected step in the scratch copy — no revision-history entry; the issue comment's edit history records when the sync happened.
 
-```markdown
-### 2026-05-13 — Status sync
-
-- STEP-01: ⬜ → 🟡 (PR #145)
-- STEP-02: ⬜ → ✅
-- STEP-04: ⬜ → ⏸️ (blocked label)
-```
-
-Also update the parent epic in the planning repo: re-run `issue-update <epic-number> --body-file <path>` with the regenerated task list, where `[ ]` becomes `[x]` for completed steps. Show the diff before applying.
+Also update the parent epic body: re-run `issue-update <epic-number> --body-file <path>` with the regenerated task list, where `[ ]` becomes `[x]` for completed steps. Show the diff before applying. Then republish the roadmap artifact: `issue-artifact-upsert --issue <epic-number> --body-file <scratch-path>`.
 
 ### 6. (Optional) Create missing issues
 
@@ -130,8 +124,8 @@ Output a short summary:
 ```
 ✔ Updated 4 step statuses
 ✔ Created 2 new issues (STEP-05, STEP-06)
-✔ Synced parent epic planning.development.main#89
-✔ Wrote docs/Roadmap/Roadmap-orders-001.md
+✔ Synced parent epic task list
+✔ Republished roadmap artifact <doc_id> on <org>/<planning-repo>#<epic-number>
 ```
 
 ## Tooling
@@ -142,6 +136,7 @@ Uses existing tooling only:
 - `pr-list` / `pr-get` — fetch PR state when needed
 - `GITHUB_REPO=<org>/<repo> issue-create --title <title> --body-file <path>` — create missing issues (no `--repo` flag; use the env var)
 - `issue-update <N> --body-file <path>` — update parent epic body
+- `issue-artifact-select` / `issue-artifact-get` / `issue-artifact-upsert` — pull and republish the roadmap artifact
 
 Do **not** invent new commands. If a needed capability isn't in tooling, surface it to the user as a tooling gap and stop.
 
@@ -149,8 +144,9 @@ Do **not** invent new commands. If a needed capability isn't in tooling, surface
 
 - Writing status changes without showing the diff first
 - Creating issues without explicit user approval
-- Updating the parent epic body silently — always show the diff
-- Reformatting the roadmap (changing headings, reordering steps) — this skill only updates **Status** and **Issue** fields, plus appends a revision-history entry
+- Updating the parent epic body or republishing the artifact silently — always show the diff
+- Reformatting the roadmap (changing headings, reordering steps) — this skill only updates **Status** and **Issue** fields
+- Appending revision-history entries — the issue comment's edit history records when; the artifact carries target state only
 - Marking a step ✅ when the linked PR is open but the issue happens to be closed for an unrelated reason — always require closed via merge
 - Skipping the `blocked` / `paused` label override
 

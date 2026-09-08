@@ -322,6 +322,12 @@ Do not proceed without explicit approval.
 
 Do not mark it approved without explicit confirmation. The file is already on disk; no separate write step is needed.
 
+### Phase 3 closeout: seed ADRs
+
+On approval, seed the project's decision log. For every major decision made during the interview where a future implementer would ask *why* (patterns chosen, boundaries drawn, sync-vs-async calls, buy-vs-build, decomposition strategy), write an ADR into `docs/Decisions/` using the shared [ADR template](../common/references/adr-template.md), numbered from `ADR-0001` (e.g. `ADR-0001-use-postgres-for-event-store.md`). Use the ADR's *Cross-artifact impact* field to name the blueprint sections the decision shaped.
+
+This is the seeding pass only — small in number (typically 3–7 ADRs for the decisions that genuinely shaped the architecture, not one per section). Later changes to those decisions go through [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md), which supersedes ADRs rather than editing them.
+
 ---
 
 ## After the Blueprint Exists

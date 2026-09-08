@@ -188,13 +188,13 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 | Skill | Purpose | Argument |
 |---|---|---|
 | `/devenv-write-specifications` | Three-phase specifications interview → specifications doc | System name or existing notes |
-| `/devenv-refine-specifications` | Revise an existing specifications doc, preserve SPEC-NNN IDs | Specifications file path |
+| `/devenv-refine-specifications` | Revise an existing specifications doc, preserve SPEC-NNN IDs; cascade mode co-edits blueprint | Specifications file path or upstream-impact issue number(s) |
 | `/devenv-create-blueprint` | Architectural decomposition into a durable structured `Blueprint-*.md` artifact | System name or path to specifications |
-| `/devenv-refine-blueprint` | Revise an existing durable `Blueprint-*.md` when architecture direction is known; preserve structure and revision history, escalate non-surgical redesigns | Blueprint file path |
+| `/devenv-refine-blueprint` | Revise an existing durable `Blueprint-*.md` when architecture direction is known; preserve structure and numbering, escalate non-surgical redesigns; cascade mode co-edits specifications | Blueprint file path or upstream-impact issue number(s) |
 | `/devenv-grooming` | Consolidated component-level design intake and routing; always creates or updates a durable structured `Grooming-*.md` artifact before handoff, then produces a Feature/Fix/Task issue attack plan by repo with independently shippable slices; default return point for accumulated design issues in a plan; reconciles material as-built deviations from a completed plan back into the grooming document | Problem statement, component path, design doc path, plan path (in-flight or completed), or issue # |
-| `/devenv-create-roadmap` | Phased delivery sequencing + GH issue creation | Blueprint and/or specifications file path (at least one) |
-| `/devenv-refine-roadmap` | Structurally revise a roadmap — split, re-sequence, add | Roadmap file path |
-| `/devenv-update-roadmap` | Sync roadmap status from issues + PRs | Roadmap file path |
+| `/devenv-create-roadmap` | Phased delivery sequencing published as a roadmap artifact on a parent epic + GH issue creation | Blueprint and/or specifications file path (at least one) |
+| `/devenv-refine-roadmap` | Structurally revise a roadmap artifact — split, re-sequence, add; superseded steps deleted clean | Epic number (optionally `:doc_id`) |
+| `/devenv-update-roadmap` | Sync roadmap status from issues + PRs; republish artifact + epic task list | Epic number (optionally `:doc_id`) |
 | `/devenv-create-implementation-plan` | Create a current-state execution plan via interview or from a complete spec/RFC/doc | Issue #, description, or complete spec |
 | `/devenv-refine-implementation-plan` | Align a plan with reality from any starting point — surgical edits, structured revision, or staleness assessment with internal routing | Plan file path or issue # |
 
@@ -214,7 +214,7 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 
 | Skill | Purpose | Argument |
 |---|---|---|
-| `/devenv-triage-issue` | Classify issue, suggest labels, propose ACs | Issue # or pasted text |
+| `/devenv-triage-issue` | Route an issue to the right skill + classify, label, size | Issue # or pasted text |
 | `/devenv-open-pr` | Draft + open a PR from a finished phase | Branch or plan path |
 | `/devenv-address-pr-comments` | Address PR review comments — auto-fixes clear threads, surfaces complex ones for direction | PR # |
 | `/devenv-session-handoff` | Summarise session for the next contributor | Issue/PR # (optional) |
@@ -343,16 +343,20 @@ Direct-plan exception:
 ### Upstream change cascade
 
 ```text
-Specifications changed
-  -> /devenv-refine-specifications
-  -> /devenv-refine-blueprint or /devenv-create-blueprint
-  -> /devenv-grooming
-  -> /devenv-refine-implementation-plan
-  -> execution resumes
+Specifications and/or blueprint changed (initiated change)
+  -> /devenv-refine-specifications or /devenv-refine-blueprint
+     (cascade mode: one session edits both; ADRs record significant decisions)
+  -> downstream artifacts pick the change up via their own
+     staleness checks — not edited from the cascade session
 
-Blueprint changed
-  -> /devenv-refine-blueprint
-  -> /devenv-grooming
+Upstream found wrong during execution / grooming / spike
+  -> any discoverer skill files an upstream-impact issue
+     (label: upstream-impact) in the planning repo
+  -> /devenv-refine-specifications or /devenv-refine-blueprint
+     (issue intake -> cascade mode -> reply + close issue)
+
+Component design changed
+  -> /devenv-grooming or /devenv-design-discussion
   -> /devenv-refine-implementation-plan
   -> execution resumes
 ```

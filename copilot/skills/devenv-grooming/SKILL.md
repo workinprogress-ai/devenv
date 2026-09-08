@@ -227,6 +227,8 @@ Before routing onward to implementation planning or execution, verify all of the
 
 If any of those checks fail, write or update the grooming document first. Never treat conversational design iteration as a substitute for the written artifact.
 
+**Upstream-impact discovery:** when the session concludes that the root cause of a design problem lives above the plan — a specification item is wrong or missing, or the blueprint's structure no longer matches what implementation needs — file an **upstream-impact issue** in the planning repo: `GITHUB_REPO=<org>/<planning-repo> issue-create --type Task --label upstream-impact --no-template` with a body covering what changed/was discovered, why it matters, and the affected upstream sections. Do not edit the specifications/blueprint from grooming; the refine skills consume this queue in cascade mode. Grooming discovers; refinement executes.
+
 ### Decision carry-forward review (required)
 
 Before final handoff to implementation planning or execution, run a short carry-forward review in chat:

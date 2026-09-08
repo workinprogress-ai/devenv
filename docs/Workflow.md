@@ -13,6 +13,7 @@ Use this guide when you want the end-to-end methodology rather than a tool catal
 - **Responsibility and Accountability** — the **engineer** is **always** the **responsible** party for the work, even when AI-assisted; the AI provides support but does not own outcomes.  "The AI did it" is not an acceptable explanation for a shipped change.  
 - **Implementation plans follow the engineer** — implementation plans are current-state execution artifacts, not prescriptive contracts. The engineer drives; the plan is continuously reconciled to what actually happened. When reality diverges from the plan, update the plan (with confirmation whenever intent is ambiguous) so it reflects truth rather than forcing behavior.
 - **A plan starts theoretical and ends as-built** — at creation a plan is the *theoretical* way to implement; during and after execution it is kept current so that at completion it records the *actual* way the work was *really* implemented. A completed plan is therefore a trustworthy as-built record for upstream artifacts (grooming documents, blueprints) to reconcile against.
+- **Three homes for three questions** — living documents (specifications, blueprints, roadmaps) carry the target state (*what it is*), ADRs carry the rationale (*why*), git and issue-edit history carry the chronology (*when*). No artifact carries another home's content.
 - **Attribution is human-only** — artifact authorship and revision entries attribute work to the current user/engineer (or team/repo context), never to the AI or a specific model. Historical notes describe changes, not model actors.
 - **Organic comprehension** - Take the danger of comprehension deficit seriously.  Understand what you are doing and be able to explain it. Do not treat the AI as a black box or a magic wand.  If you don't understand something, ask questions, seek clarification, and do not proceed until you have a clear mental model.
 - **AI is a tool, not a teammate** — use the AI for what it's good at (drafting, summarizing, suggesting) but do not treat it as a human collaborator with agency or ownership. Always maintain human control and oversight.
@@ -266,7 +267,8 @@ Execution discovers a problem
   |
   +-- Upstream architecture artifact is wrong
          |
-         +--> Go back up to blueprint-level work
+         +--> File an upstream-impact issue in the planning repo
+         +--> Refine specs/blueprint in cascade mode (refine skill)
          +--> Then flow back down through grooming and plan refresh
 ```
 
@@ -281,7 +283,7 @@ In Devenv, the usual mapping is:
 - Small local issue -> stay in `/devenv-pair-programming` or `/devenv-delegation`
 - Focused design discussion -> `/devenv-design-discussion`, then `/devenv-refine-implementation-plan`
 - Broader reshaping -> `/devenv-grooming`, then `/devenv-refine-implementation-plan`
-- Upstream architecture change -> `/devenv-refine-blueprint`, then grooming and plan refresh
+- Upstream architecture change -> file an upstream-impact issue, then `/devenv-refine-blueprint` (or `/devenv-refine-specifications`) in cascade mode, then grooming and plan refresh
 
 Supporting view with skill mapping:
 
@@ -305,7 +307,8 @@ Problem discovered in the plan or design
   |      -> back to execution
   |
   +-- Upstream architecture artifact is wrong
-         -> /devenv-refine-blueprint
+         -> file an upstream-impact issue (any skill can discover)
+         -> /devenv-refine-blueprint or /devenv-refine-specifications (cascade mode)
          -> /devenv-grooming
          -> /devenv-refine-implementation-plan
          -> back to execution
@@ -350,21 +353,21 @@ Supporting view with skill pivot:
 
 ## Upstream changes cascade downstream
 
-Changes can flow back upward, but once an upstream artifact changes, downstream artifacts must be revisited.
+Changes can flow back upward, but once an upstream artifact changes, downstream artifacts must be revisited. There are two distinct coupling tiers:
+
+- **Tier 1 — specifications ↔ blueprint (symmetric).** These are two views of one system truth: specifications say *what* the system does, the blueprint says *how* it is shaped. A real decision often lands in both at once. They are co-maintained **in one session** (cascade mode): whichever refine skill is entered from drives the edits to both documents under the [cross-artifact cascade protocol](../copilot/skills/common/references/cross-artifact-cascade.md), with significant decisions recorded as ADRs.
+- **Tier 2 — grooming ↔ plans (directional).** Downstream artifacts are revisited by their own skills at their own pace, driven by staleness checks — not edited from the cascade session.
 
 ```text
-Specifications changed
-  -> refine specifications
-  -> update blueprint if needed
-  -> revisit grooming
-  -> refresh implementation plan
-  -> resume execution
+Specifications and/or blueprint changed (initiated change)
+  -> refine in cascade mode (one session, both documents)
+  -> downstream artifacts are NOT edited here;
+     they pick the change up via staleness checks at their next start
 
-Blueprint changed
-  -> refine blueprint
-  -> revisit grooming
-  -> refresh implementation plan
-  -> resume execution
+Discovered change (execution/grooming/spike finds upstream is wrong)
+  -> file an upstream-impact issue (label: upstream-impact) in the planning repo
+  -> refine skills consume the queue in cascade mode
+  -> reply + close the issue from the refine session
 
 Component design changed
   -> grooming or focused design discussion
@@ -372,23 +375,24 @@ Component design changed
   -> resume execution
 ```
 
-The key idea is that downstream artifacts are not independent. If the upstream design changed materially, the plan should be refreshed rather than quietly carried forward.
+The key idea is that downstream artifacts are not independent, but the cascade does not reach into them. If the upstream design changed materially, the plan should be refreshed (its own skill, its own session) rather than quietly carried forward.
+
+**Discoverer/executor separation.** Many skills can *discover* that an upstream artifact is wrong (grooming at its artifact gate, execution skills at closeout, spikes, plan refinement); none of them edit specifications or blueprints directly. They file `upstream-impact` issues in the planning repo instead. Only the refine skills — `/devenv-refine-specifications` and `/devenv-refine-blueprint`, in cascade mode — execute those changes and drain the queue. This keeps repo access, change approval, and session scope in one place.
 
 Supporting view with common skill mapping:
 
 ```text
 Specifications changed
-  -> /devenv-refine-specifications
-  -> /devenv-refine-blueprint or /devenv-create-blueprint
-  -> /devenv-grooming
-  -> /devenv-refine-implementation-plan
-  -> execution
+  -> /devenv-refine-specifications (cascade mode covers blueprint edits too;
+     enter /devenv-refine-blueprint instead when blueprint is the natural home)
 
 Blueprint changed
-  -> /devenv-refine-blueprint
-  -> /devenv-grooming
-  -> /devenv-refine-implementation-plan
-  -> execution
+  -> /devenv-refine-blueprint (cascade mode covers specifications edits too)
+
+Upstream found wrong during execution/grooming/spike
+  -> file upstream-impact issue (any discoverer skill)
+  -> /devenv-refine-specifications or /devenv-refine-blueprint
+     (issue intake -> cascade mode -> reply + close issue)
 
 Component design changed
   -> /devenv-grooming or /devenv-design-discussion
@@ -396,7 +400,86 @@ Component design changed
   -> execution
 ```
 
-## Existing-component feature workflow
+## Workflow diagrams
+
+Mermaid renderings of the flows described above. The ASCII diagrams elsewhere in this document remain the normative workflow-first/supporting-view forms; these diagrams are a visual companion.
+
+### Normal delivery flow
+
+The happy path from raw idea to merged work:
+
+```mermaid
+flowchart TD
+    A[Raw idea / request] --> B[Specifications]
+    B --> C[Blueprint]
+    C --> R[Roadmap artifact on epic]
+    R --> D[Grooming]
+    D --> E[Implementation plan]
+    E --> F{{"Execution mode"}}
+    F -->|high-impact / collaborative| G[Pair programming]
+    F -->|mechanical, commissioned| H[Delegation]
+    G --> I[Review / merge]
+    H --> I
+```
+
+### Normal document flow
+
+How the living documents relate at rest — what feeds what, and where the homes are:
+
+```mermaid
+flowchart LR
+    SPEC[Specifications<br/>what the system does] <-->|"cascade mode<br/>one session edits both"| BP[Blueprint<br/>how the system is shaped]
+    BP -->|"sequences delivery"| RM[Roadmap artifact<br/>on parent epic]
+    SPEC --> RM
+    RM -->|"issue slices"| GR[Grooming<br/>component-level design]
+    GR --> PLAN[Implementation plan<br/>phases and tasks]
+    ADR[(ADRs<br/>the why)] -.-> SPEC
+    ADR -.-> BP
+    ADR -.-> RM
+```
+
+Specifications and blueprints are co-maintained in cascade mode; the roadmap artifact is downstream of both and upstream of grooming; ADRs record significant decisions across all three.
+
+### Backporting changes (upstream cascade)
+
+When execution discovers the upstream design is wrong — discovered change flows up through the queue, then back down:
+
+```mermaid
+flowchart TD
+    EX[Execution / grooming / spike<br/>discovers upstream is wrong] --> FILE[File upstream-impact issue<br/>label: upstream-impact]
+    FILE --> QUEUE[(Upstream-impact queue<br/>planning repo)]
+    QUEUE --> REF["Refine session<br/>/devenv-refine-specifications or /devenv-refine-blueprint<br/>issue intake, cascade mode"]
+    REF -->|reply + close| QUEUE
+    REF -->|ADRs record the why| ADR[(docs/Decisions)]
+    REF -.->|"downstream picks up via<br/>staleness checks, not edited here"| DOWN[Grooming / plans / roadmap artifact]
+```
+
+The discoverer/executor split: any skill can *discover* and file; only the refine skills *execute* and drain the queue. Downstream artifacts refresh themselves at their next start.
+
+### Exceptional flows
+
+Problem-size routing during execution, and the pivot rule:
+
+```mermaid
+flowchart TD
+    P[Problem discovered during execution] --> S{{"How big is it?"}}
+    S -->|"small, local"| FIX[Resolve locally<br/>update plan in place]
+    FIX --> C1[Continue execution]
+    S -->|"one bounded blocker"| DD[Design discussion]
+    DD --> PIVOT{{"Stays bounded?"}}
+    PIVOT -->|yes| U1[Update plan] --> C1
+    PIVOT -->|"no — broader drift"| GR2[Grooming] --> U2[Refresh plan] --> C1
+    S -->|"accumulated questions<br/>architectural drift"| GR2
+    S -->|"upstream artifact is wrong"| UI[File upstream-impact issue] --> RS[Refine specs/blueprint<br/>cascade mode] --> GR2
+```
+
+Working without a plan (small, low-risk work only):
+
+```mermaid
+flowchart LR
+    T[Small task, low risk] --> ADHOC[Direct execution<br/>with discipline] --> V[Review / merge]
+    T -->|"anything larger"| STOP[Stop — plan first] --> CP[Create implementation plan]
+```
 
 For a new feature in an existing component, the path depends on whether the approach is already known.
 
@@ -490,7 +573,17 @@ The core artifacts are:
 
 Do not treat these as interchangeable. Each exists to answer a different question.
 
-**Specifications are living documents.** A specifications doc is not a point-in-time snapshot signed off and archived — it is the system's current functional truth, expected to evolve as understanding deepens and implementation reveals gaps. When reality changes, the specifications are refined to match (current-state prose, stable IDs, history in `## Revision History`); a specifications document that no longer matches reality is a defect in the document. The other planning artifacts share this living quality — blueprints via `/devenv-refine-blueprint`, plans via the as-built principle — but specifications carry it most directly: they are kept true, not gathered once.
+**Specifications are living documents.** A specifications doc is not a point-in-time snapshot signed off and archived — it is the system's current functional truth, expected to evolve as understanding deepens and implementation reveals gaps. When reality changes, the specifications are refined to match (current-state prose, stable IDs, superseded items deleted clean); a specifications document that no longer matches reality is a defect in the document. The other planning artifacts share this living quality — blueprints via `/devenv-refine-blueprint`, plans via the as-built principle — but specifications carry it most directly: they are kept true, not gathered once.
+
+**Living documents carry target state only (the three-home rule).** Specifications, blueprints, and roadmaps are living documents: each describes what the system *is*, never what changed. History has two dedicated homes, and only those homes:
+
+1. **Living documents** — target state. No change logs, no Revision History sections, no strikethrough, no tombstones. Superseded content is **deleted clean**; IDs never reflow, so gaps in numbering are expected and harmless.
+2. **ADRs** (`docs/Decisions/ADR-NNN-<slug>.md`) — the *why*. Every significant decision (one a future implementer would ask about) gets an Architecture Decision Record: context, decision, alternatives, consequences. ADRs are append-mostly; superseding an ADR writes a new one, it does not edit the old.
+3. **Git** — the *when*. Who changed what, when. That is what it is for. (For GitHub-artifact roadmaps, the issue comment's edit history plays this role.)
+
+Grooming documents and implementation plans are not in this tier — grooming keeps its own revision-history convention, and plans are current-state execution artifacts with their own rules.
+
+**Roadmaps are GitHub artifacts, not source-controlled files.** A roadmap lives as a doc_id-addressed artifact comment on its parent epic in the planning repo (same pattern as implementation-plan artifacts); no long-lived local copy is kept and nothing is committed. The roadmap is downstream of the specifications and blueprint, and upstream of grooming: it receives changes arriving from upstream (spec/blueprint refinement) or pushed back from downstream (execution discoveries), but it is never itself an entry point for changes — changes enter through the refine skills and the upstream-impact queue.
 
 Ephemeral markdown (bug descriptions to paste into an issue, feature requests for a backing library, scratch summaries that exist only for immediate use) is **not** a workflow artifact. Write it to `tmpN.md` in the active repo root (incrementing `N`, next free number; never assume an existing tmp file's contents). These files are expected to be deleted quickly and carry no artifact metadata.
 

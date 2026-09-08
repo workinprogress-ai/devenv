@@ -174,6 +174,8 @@ If yes:
 
 Never create an issue or post a comment without explicit "yes" confirmation.
 
+**Upstream-impact discovery:** if the investigation concludes that a specification or blueprint assumption is invalidated (not just a task-level unknown resolved), say so in the findings and offer to file an **upstream-impact issue** in the planning repo instead of (or alongside) the findings issue above: `GITHUB_REPO=<org>/<planning-repo> issue-create --type Task --label upstream-impact --no-template`, body covering what was invalidated, why, and the affected upstream sections. The refine skills consume this queue in cascade mode.
+
 ## Anti-patterns
 
 - **Drifting into production code** — spikes are throwaway. If the prototype is becoming clean and complete, stop and write a plan with `/devenv-create-implementation-plan`. Resist the urge to "just polish it a bit". (Empowered in-repo experiments are not production code — they are marked, consented, and reset away.)

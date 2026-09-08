@@ -69,7 +69,7 @@ For each repo that needs fresh orientation:
 1. Read the README (any name: `README.md`, `README`, `readme.md`).
 2. Map the top-level directory structure. Identify major modules/layers and whether this is source-first, docs-first, or hybrid.
 3. If source-first or hybrid, find key runtime entry points: `Program.cs`, `Startup.cs`, `index.ts`, `main.ts`, `app.ts`, `__main__.py`, `main.go`, etc.
-4. If docs-first, find primary document entry points and structure anchors: `README.md`, `Specifications-*.md`, `Blueprint-*.md`, `Roadmap-*.md`, `Implementation_plan-*.md`, `docs/`, `adr/`, and any glossary/decision logs.
+4. If docs-first, find primary document entry points and structure anchors: `README.md`, `Specifications-*.md`, `Blueprint-*.md`, `Implementation_plan-*.md`, `docs/`, `adr/`, and any glossary/decision logs. (Roadmaps are GitHub artifacts on epics, not files — find them via the planning repo's epic issues when relevant.)
 5. Note test/evidence layout when present: test frameworks, validation scripts, traceability sections, acceptance criteria, or decision records.
 6. Scan `docs/` and `adr/` (if present) for any architectural decision records or design notes.
 

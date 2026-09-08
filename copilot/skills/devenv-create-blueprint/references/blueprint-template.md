@@ -22,12 +22,7 @@ that will already appear in later sections.>
 **Status**: Draft | Approved | Superseded
 **Source specifications**: <link to Specifications-*.md or issue, if any>
 **Type**: Greenfield | Brownfield
-
-## Revision History
-
-### YYYY-MM-DD — Initial blueprint
-
-Keep revision entries material and concise. If several small edits come from the same review pass, record them as one short entry instead of one line per tweak.
+**Decision log**: <link to docs/Decisions/ — ADRs hold the why; this blueprint holds target state only>
 
 ---
 

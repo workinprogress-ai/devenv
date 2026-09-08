@@ -11,7 +11,7 @@ Load this protocol on-demand when a design skill (design-discussion, grooming) i
 Load this file explicitly when:
 
 - A plan file path or issue number is passed as input to a design skill.
-- An `[ESCALATION-HANDOFF]` marker is detected in `## Revision History`.
+- An `[ESCALATION-HANDOFF]` marker is detected in `## Pending Questions`.
 - The user says something like "look at this plan", "the design is wrong", "there is an architectural problem in this plan", or "the plan needs rethinking" while referencing a plan artifact.
 
 Do not load for general design questions with no plan artifact involved.
@@ -32,7 +32,7 @@ Read these plan sections in order. Each has a specific diagnostic role:
 | `## Phases → Tasks → [QUESTION]` | Unresolved task-level design questions. Note which phase they block. |
 | `## Pending Questions` | Plan-level unresolved questions. These often represent architectural unknowns the planner parked. |
 | `## Appendix → Decision log` | Rejected alternatives and why. Useful for checking whether a "rejected" path is actually what's needed. |
-| `## Revision History → [ESCALATION-HANDOFF]` | If present, parse the recorded blocker, options considered, and recommended next step. Treat this as the primary fault summary. |
+| `## Pending Questions → [ESCALATION-HANDOFF]` | If present, parse the recorded blocker, options considered, and recommended next step. Treat this as the primary fault summary. |
 
 ---
 

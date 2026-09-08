@@ -1,6 +1,6 @@
 ---
 name: devenv-refine-specifications
-description: 'Revise an existing Specifications-*.md after stakeholder priorities shift, new actors or scenarios surface, a spike invalidates an assumption, or implementation discovery exposes gaps. USE WHEN the user says "refine the specifications", "update the specifications", "revise the specifications doc", "the specifications need updating", or hands off a stale specifications doc that needs adjustments. Preserves all existing SPEC-NNN IDs and dependency links, appends new specifications rather than reflowing, removes superseded specification items and logs each deletion in Revision History, and records every change in a Revision History section. If refinement intake reveals a non-surgical change (broad rethink, major ripple effects, unresolved option-weighing), stop and recommend /devenv-write-specifications continuation mode with the same file path. DO NOT USE for creating a new specifications doc (use /devenv-write-specifications), for brainstorming broad changes to an existing specifications doc (use /devenv-write-specifications continuation mode), for ad-hoc one-line edits (just edit the file), or for revising the architectural blueprint (use /devenv-refine-blueprint).'
+description: 'Revise an existing Specifications-*.md after stakeholder priorities shift, new actors or scenarios surface, a spike invalidates an assumption, or implementation discovery exposes gaps. USE WHEN the user says "refine/update the specifications", "the specifications need updating", hands off a stale specifications doc, hands off upstream-impact issue number(s) or asks to work the upstream-impact queue, or a change spans specifications and blueprint (cascade mode — one session edits both). Preserves SPEC-NNN IDs and dependency links, appends rather than reflows, deletes superseded items clean (the why lives in ADRs; the document carries target state only). If intake reveals a non-surgical change, stop and recommend /devenv-write-specifications continuation mode. DO NOT USE for creating a specifications doc (use /devenv-write-specifications), brainstorming broad changes (use /devenv-write-specifications continuation mode), ad-hoc one-line edits (just edit the file), or blueprint-only revision (use /devenv-refine-blueprint — cascade mode here covers changes spanning both).'
 argument-hint: 'Path to a Specifications-*.md file'
 user-invocable: true
 ---
@@ -15,7 +15,7 @@ Revise an existing specifications document based on new information — stakehol
 
 **This skill is how specifications stay living.** Specifications are not point-in-time artifacts gathered once and frozen — they are the system's current functional truth, kept accurate as reality moves. Refinement is the normal, expected maintenance path for that truth: when the world changes, the specifications change with it (surgically, with IDs stable and history recorded), so downstream artifacts — blueprints, roadmaps, plans — can trust what they read. A specifications document that no longer matches reality is a defect in the document, not a footnote.
 
-Write specification items body sections as the current target behaviour and constraints. Keep historical change narrative out of specification item bodies and record it in `## Revision History`.
+Write specification items body sections as the current target behaviour and constraints. Keep historical change narrative out of the document entirely — the document is target state, period. Rationale for significant changes lives in ADRs (`docs/Decisions/`, see the shared [ADR template](../common/references/adr-template.md)); git records when. If a legacy `## Revision History` section exists from an older workflow version, migrate its still-relevant entries into ADRs and delete the section.
 
 ## When to Use
 
@@ -32,25 +32,33 @@ If no specifications doc exists, stop and redirect to [`/devenv-write-specificat
 
 ## Inputs
 
-The user provides a file path — e.g. `docs/Specification Items/Specifications-orders-001.md`.
+The user provides one of:
 
-For multi-document projects (one doc per epic), refine **one doc per invocation**. If a change spans multiple epics, the user should run this skill once per affected doc, in any order — cross-doc dependency edges are updated by the doc that declared them.
+- **A file path** — e.g. `docs/Specifications/Specifications-orders-001.md`.
+- **Upstream-impact issue number(s)** — work orders from the queue (grooming, execution closeouts, spikes, plan refinement file these). Load via `issue-get <N> --pretty`; the body carries what changed, why, and affected sections. Follow the [cross-artifact cascade protocol](../common/references/cross-artifact-cascade.md)'s issue-intake loop.
+- **The upstream-impact queue** — "work the queue" / no specific issue: `issue-list --label upstream-impact`, present, let the architect pick all/some, then loop per issue.
+
+Plus optionally the file path when an issue references a specific doc. At intake, run **span detection** (cascade protocol): if the change alters both what the system does and how it is shaped, enter **cascade mode** — this session drives both the specifications and the blueprint edits under the shared protocol, with ADRs recording significant decisions. Either refine skill can drive; entry choice only picks the home document.
+
+Also offer queue consumption on any entry: "N open upstream-impact issues in this repo — fold them into this session?"
+
+For multi-document projects (one doc per epic), refine **one doc per invocation** for doc-scoped changes. Cascade mode supersedes this when the change spans artifacts (a cross-epic cascade runs once against all affected docs).
 
 ## Splitting an oversized specifications doc
 
 If the doc has grown past ~30 specification items or now covers what feels like multiple epics, the user may ask to split it. Treat splitting as a special refinement:
 
 1. Interview: confirm split boundary, new `<topic>` names, new prefix per doc.
-2. Create new docs by copying source, then **delete** non-belonging specification items from the source doc and re-prefix specification items that stay (e.g. `SPEC-007` → `ORD-007`). The move is recorded in each doc's revision history, not as inline tombstones.
-3. Update the source doc accordingly: moved specification items are simply gone (revision-history entry `Removed SPEC-NNN (<summary>) — moved to <doc>`); no `Moved to ...` blockquotes in the live body.
+2. Create new docs by copying source, then **delete** non-belonging specification items from the source doc and re-prefix specification items that stay (e.g. `SPEC-007` → `ORD-007`). No inline tombstones.
+3. Update the source doc accordingly: moved specification items are simply gone; the split rationale goes in an ADR if significant.
 4. Walk all cross-doc `Depends on:` lines and update to new IDs and doc paths.
-5. Record the split in every affected doc's revision history. Update session memory for each new doc.
+5. Update session memory for each new doc.
 6. Create or update `Index.md`. See [`/devenv-write-specifications`](../devenv-write-specifications/SKILL.md) §*Index.md for multi-file artifacts*.
 7. If a roadmap exists, suggest [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md) for stale STEP-NN → SPEC-NNN backreferences.
 
 ## Updating Index.md on plain refinements
 
-If the project already has an `Index.md` (multi-doc project) and a refinement adds, removes, or supersedes a cross-doc dependency edge, **update `Index.md` in the same revision** so its cross-doc dependency section stays accurate. Add a one-line entry to the Index's revision history pointing back to the doc that changed.
+If the project already has an `Index.md` (multi-doc project) and a refinement adds, removes, or supersedes a cross-doc dependency edge, **update `Index.md` in the same pass** so its cross-doc dependency section stays accurate.
 
 ## Workflow
 
@@ -77,7 +85,6 @@ If surgical, continue with the workflow below.
 ### 1. Load and parse
 
 - Read the file. Identify all top-level numbered sections (`## 1. Vision`, `## 2. Specification Items`, `## 3. Priority Groups`, etc.).
-- Note the existing Revision History entries.
 - Note all `SPEC-NNN` IDs (with their category prefix scheme), the dependency edges between them, and the existing `GROUP-NN` priority assignments.
 
 ### 2. Interview the user about what changed
@@ -86,7 +93,7 @@ Use `vscode_askQuestions` to gather:
 
 - **What's new** — actors, scenarios, specification items, constraints, scope items to add
 - **What's wrong** — sections whose descriptions or acceptance criteria are now misleading
-- **What's no longer relevant** — sections to remove; deletion will be logged in Revision History with the ID, a one-line summary, and the reason
+- **What's no longer relevant** — sections to delete clean (IDs never reflow; the why, if significant, goes in an ADR)
 - **What changed priority** — specification items moving between `GROUP-NN`s, or the MVP definition shifting
 - **Open questions** — "Are there open questions from the original gathering session that were deferred and can now be resolved? Are there new ambiguities or tensions this refinement introduces?"
 - **Source material** — "Are there meeting transcripts, email threads, recordings, voice memos, or other communications records behind these changes? If so, where are they?"
@@ -97,11 +104,11 @@ If the user provides communications artifacts, summarise each one separately (pr
 
 **Hard rules:**
 
-- **Never reflow IDs.** `SPEC-007` stays `SPEC-007` for its lifetime. New specification items get the next sequential number per category prefix (e.g. `AUTH-008`, `ORD-014`).
-- **Never silently delete a specification item.** Record removals in `## Revision History` with ID, summary, and reason. Update every `Dependencies:` reference pointing at the removed ID.
-- **Never silently rewrite acceptance criteria.** Updated criteria keep the specification item's ID; record the prior wording summary in `## Revision History` instead of embedding prior-state narrative in the specification item body.
-- **Dependency links must stay valid.** If a specification item is superseded, walk every other specification item's `Dependencies:` line and update the link to point at the replacement (or remove the link with a note).
-- **Priority groupings can be re-ordered freely** — they are stakeholder priority, not delivery sequencing. New specification items need to be placed into a group. Moving a specification item between groups is allowed; record the move in revision history.
+- **Never reflow IDs.** `SPEC-007` stays `SPEC-007` for its lifetime. New specification items get the next sequential number per category prefix (e.g. `AUTH-008`, `ORD-014`). Gaps from deleted items are expected and harmless.
+- **Superseded specification items are deleted clean** — no strikethrough, no tombstone text. If the supersession is significant (a future implementer would ask why), write an ADR; otherwise delete silently. Update every `Dependencies:` reference pointing at the removed ID.
+- **Rewrite acceptance criteria in place as current truth.** Updated criteria keep the specification item's ID; the document never carries prior-state narrative. Prior wording lives in git history and, when significant, an ADR.
+- **Dependency links must stay valid.** If a specification item is superseded, walk every other specification item's `Dependencies:` line and update the link to point at the replacement (or remove the link).
+- **Priority groupings can be re-ordered freely** — they are stakeholder priority, not delivery sequencing. New specification items need to be placed into a group.
 ### 4. Internal consistency review
 
 After applying all changes, scan the full updated specification set for internal consistency. This step is especially important because refinements often introduce new tensions between new and existing specifications that weren't present in the original document.
@@ -135,31 +142,21 @@ If an `Episodes-<topic>-NNN.md` companion file exists, check whether any changed
 
 **Rewriting episodes is deliberate, not automatic.** Batch updates until specification items are stable. When rewriting: keep character names, places, and tone — only change what is now factually wrong.
 
-Add a new entry to the top of `## Revision History` (create the section if missing, immediately after the document title):
-
-```markdown
-### 2026-05-13 — Added refund flow
-
-- Added §2.3 SPEC-014: Customer-initiated refund
-- Reworded SPEC-007 acceptance criteria to cover partial refunds; previous wording preserved beneath
-- Superseded SPEC-009 (subsumed by SPEC-014)
-- Moved SPEC-011 from GROUP-02 to GROUP-01 (now MVP per 2026-05-12 stakeholder review)
-- Source: 2026-05-12 stakeholder review transcript
-```
-
-Most recent revision goes on top.
-
-### 6. Write the result
+### 5. Write the result
 
 Overwrite the file in place. The user can `git diff` to review and revert.
+
+### 6. Record significant decisions as ADRs
+
+For any change where a future implementer would ask *why* (supersession of a specification item, a priority flip driven by stakeholder review, a split, a cascade decision), write an ADR using the shared [ADR template](../common/references/adr-template.md) into `docs/Decisions/`. Trivial edits need no ADR — git records them. The specifications doc itself never carries change history.
 
 ### 7. Surface downstream impacts
 
 After writing, list what may need follow-up:
 
-- **Blueprint impact**: a new specification item may require new components or revised deltas \u2192 suggest [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md)
-- **Roadmap impact**: a new specification item, or a moved priority group, may require new or re-sequenced roadmap steps \u2192 suggest [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md)
-- **Implementation plan impact**: existing plans may now reference superseded specification items \u2192 suggest [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) for affected plans
+- **Blueprint impact**: a new specification item may require new components or revised deltas → suggest [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md)
+- **Roadmap impact**: a new specification item, or a moved priority group, may require new or re-sequenced roadmap steps → suggest [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md)
+- **Implementation plan impact**: existing plans may now reference superseded specification items → suggest [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) for affected plans
 ### 8. Offer a stability audit
 
 If the user signals the specifications are approaching final form (incremental refinements, statements like "I think we're almost done", or a series of sessions producing diminishing structural changes), offer a stability audit:
@@ -171,10 +168,10 @@ See the stability audit protocol in [`/devenv-write-specifications` § Stability
 
 - Silently overwriting acceptance criteria
 - Reflowing IDs (breaks links from blueprints, roadmaps, plans, and issues)
-- Removing a specification item without logging its ID, prior-wording summary, and reason in Revision History
+- Keeping superseded specification items as strikethrough or tombstone text — delete them clean; an ADR holds the why when it matters
 - Rewriting the specifications doc from scratch — that's [`/devenv-write-specifications`](../devenv-write-specifications/SKILL.md), not refine
 - Forcing non-surgical, brainstorm-heavy changes through this skill instead of escalating to [`/devenv-write-specifications`](../devenv-write-specifications/SKILL.md) continuation mode
-- Writing prior-state narrative in specification item bodies instead of `## Revision History`
+- Writing prior-state narrative in specification item bodies — the document is target state; prior wording lives in git history and ADRs
 - **Skipping the internal consistency review.** Refinements routinely introduce new tensions between new and old specification items — always check.
 - **Writing the file while known contradictions remain unresolved.** Every conflict finding must be resolved, accepted as a documented trade-off, or explicitly logged before writing.
 - Treating Phase 3 priority groups as a delivery roadmap (delivery sequencing belongs in [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md))

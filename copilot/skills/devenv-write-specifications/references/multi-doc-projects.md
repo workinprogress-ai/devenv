@@ -61,7 +61,7 @@ Each doc has its own `GROUP-NN` priority groups, scoped to that epic. Cross-epic
 
 ## Revision history
 
-Each doc maintains its own `## Revision History`. Recent project-wide events:
+Each doc maintains its own `## Revision History` if one exists from an older workflow version; new passes do not add entries — significant changes go to ADRs (`docs/Decisions/`). Recent project-wide events:
 
 - 2026-05-13 — Added `Specifications-returns-001.md`
 - 2026-05-10 — Initial multi-doc structure (split from `Specifications-orders-001.md`)
@@ -70,5 +70,5 @@ Each doc maintains its own `## Revision History`. Recent project-wide events:
 Key rules:
 - The Index is **navigation, not content** — do not duplicate specification items text from the epic docs
 - Update the cross-doc dependencies section whenever a cross-doc `Depends on:` edge is added or removed
-- If the project started as a single doc and was later split, record the split as the first revision-history entry on the Index
+- If the project started as a single doc and was later split, record the split rationale in an ADR
 

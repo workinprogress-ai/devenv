@@ -63,7 +63,7 @@ For issue-backed plan refinement, follow the shared [issue-backed artifact edit 
 Apply the intake classification above. Then:
 
 - **Surgical mode** → run the [surgical edit protocol](#surgical-edit-protocol), then jump to Step 5 (write) and Step 6 (report).
-- **Assessment mode** → run the [staleness assessment protocol](./references/staleness-assessment.md); its outcome routes internally: slightly stale → surgical patching; significantly stale → findings-driven revision (Steps 1–4 with the findings replacing the open-ended interview); intent-only → intent extraction → `/devenv-create-implementation-plan`.
+- **Assessment mode** → run the [staleness assessment protocol](./references/staleness-assessment.md); its outcome routes internally: slightly stale → surgical patching; significantly stale → findings-driven revision (Steps 1–4 with the findings replacing the open-ended interview); intent-only → intent extraction → `/devenv-create-implementation-plan`. Assessment also glances at the upstream-impact queue (`issue-list --label upstream-impact` in the planning repo): open issues naming this plan's scope are drift signals that feed the assessment.
 - **Revision mode** → continue with Steps 1–6 below.
 
 ### Surgical edit protocol
@@ -81,7 +81,7 @@ Small, surgical edits without a revision interview.
 | Add one new task at the end of a phase | yes |
 | Reword an existing task | no — revision mode |
 | Restructure or reorder phases | no — revision mode |
-| Cancel a task (strikethrough) | no — revision mode |
+| Cancel a task (delete clean) | no — revision mode |
 | Modify acceptance criteria (AC-N) | no — revision mode |
 
 For each edit, show a one-line preview and ask for explicit confirmation (one y/n per edit — never batch):
@@ -113,7 +113,7 @@ In revision mode, use `vscode_askQuestions` to gather:
 - **What's new** — new tasks to add, or themes for new tasks.
 - **What's wrong** — tasks whose descriptions are now misleading or whose scope changed.
 - **What's done outside the plan** — work completed that should be marked `[x]` retroactively.
-- **What's no longer relevant** — tasks to remove, strike, or replace while preserving clear current-state intent
+- **What's no longer relevant** — tasks to delete clean or replace (the plan carries current target state only)
 - **Acceptance criteria changes** — whether any ACs need to be added, revised, or deprecated as a result of the scope change. Infer candidate changes from the new specifications and present them for the user to confirm rather than asking the user to define them from scratch. See AC rules in Step 3.
 - **Upstream design changes** — whether a design doc/RFC/Blueprint/Redesign decision changed and should be reflected in `## Appendix`.
 - **Grooming carry-forward** — if a grooming artifact is present, confirm which `Confirmed` / `Deferred` / still-relevant `Pending` items must now be represented in the plan's phase watch-outs, task `decision:` metadata, `## Pending Questions`, appendix, or explicit scope boundaries.
@@ -123,6 +123,9 @@ In revision mode, use `vscode_askQuestions` to gather:
 - **Architectural fault classification** — if blockers/questions are architectural rather than task-scope adjustments, load and follow the [plan architectural review protocol](../common/references/plan-architectural-review.md) to locate fault points and classify type. If architectural issues are confirmed, produce a scoped brief and recommend the appropriate design skill with the plan path as argument:
   - Option-weighing / approach not settled → `/devenv-design-discussion <plan-path>`
   - Current approach needs reclassification → `/devenv-grooming <plan-path>`
+
+  **File an upstream-impact issue** for confirmed architectural findings that originate above the plan (specification or blueprint level): `issue-create --type Task --label upstream-impact --no-template` in the planning repo (`GITHUB_REPO` is already set), body covering what changed/was discovered, why it matters, and the affected upstream sections. This puts the finding on the queue that `/devenv-refine-specifications` and `/devenv-refine-blueprint` consume in cascade mode.
+
   Do not continue plan refinement for architectural items until the design question is resolved.
 - **Legacy code exposure** — if new tasks will introduce implementations that coexist with existing legacy code in the same files across multiple phases, flag the issue: the plan likely needs an early cleanup phase. See [phase-rules.md](../devenv-create-implementation-plan/references/phase-rules.md) for available patterns (demolition, hollow-out, rename suffix, branch by abstraction). Surface the viable options and a recommendation before writing new tasks; don't silently pick one.
 
@@ -168,8 +171,8 @@ Before applying edits, offer an optional pressure-test pass using [pressure-test
   The first of the new phases must include an explicit task to **review the new scope and place forward guidance comments** (`TODO:(DEVENV[...])`) at anticipated touch points — the same role Phase 1 plays in a fresh plan. Example task: `- [ ] **5.1 [S] Review new scope and place forward guidance comments** — scan files affected by phases 5–6, add TODO:(DEVENV[...]) comments at integration points and stubs that later tasks will fill.`
 
   Surface this to the user before writing: *"Phase 3 is fully complete — I'll add the new work in a new Phase 5 rather than appending to Phase 3. The existing Cleanup (Phase 4) is also done, so I'll add a new Phase 6 for cleanup of the new scope. Does that structure work for you?"*
-- **Prefer rewrite/addition over removal.** If the work still matters but the original task is misleading, keep the number and reword it, or add a follow-on task. Only strike through a task when the obsolete record is materially useful to preserve.
-- **Cancelled tasks** that truly should remain visible are kept in place, wrapped in `~~strikethrough~~` on the task header line and annotated with the reason inline (e.g. `~~- [ ] **4.3 [S] Add foo**~~ — cancelled: superseded by 2.9`).
+- **Prefer rewrite/addition over removal.** If the work still matters but the original task is misleading, keep the number and reword it, or add a follow-on task.
+- **Cancelled tasks are deleted clean** — remove the task line entirely, no strikethrough, no tombstone annotation. Gaps in task numbering are expected and harmless; git history and (for significant supersessions) an ADR hold the why. Update any `depends on` references pointing at the removed task.
 - **Reworded tasks** keep their number and reflect the latest agreed intent.
 - **Pending questions**: task- or phase-specific questions live inline under the relevant task/phase as `[QUESTION] ...`; general plan-level questions live in `## Pending Questions` immediately above `## Reference Information`. Resolved minor questions may be folded directly into the plan and removed.
 - **Decision/pending-question placement:** unresolved decisions that matter to execution must be represented in both places:
@@ -194,8 +197,9 @@ Before applying edits, offer an optional pressure-test pass using [pressure-test
 - **New ACs**: infer from the new scope, mark `*(inferred)*`, append to the `## Goals and Acceptance Criteria` section with the next `AC-N` number (e.g. if AC-4 is the last, the next is AC-5). Use the canonical format: `- [ ] **AC-N** criterion text *(inferred)*`.
 - **Minor revision** (clarification or wording improvement — same intent, same observable outcome): rewrite the criterion text in place and keep only the latest wording.
 - **Significant change** (scope, acceptance conditions, or observable outcome changes meaningfully):
-  1. Remove the `- [ ]` checkbox, wrap the criterion in `~~strikethrough~~`, and append `*(superseded by AC-M)*`
+  1. Delete the old criterion entirely — no strikethrough, no tombstone
   2. Add a new criterion: `- [ ] **AC-M** replacement text *(inferred)*` (next available AC-N number)
+  3. If the supersession is significant (a future implementer would ask why), write an ADR; the plan never carries prior-state narrative
 - **AC ticking is done by the execution skills** (pair-programming / delegation) during the AC Review phase — do not tick ACs here unless the user explicitly confirms a criterion is already met.
 
 ### 3a. Material-change completeness reconciliation (required)
@@ -227,7 +231,7 @@ AC completeness review:
 1. Recheck all affected acceptance criteria for status drift after the material change.
 2. Classify each affected AC as `still met`, `no longer met`, `superseded`, or `pending verification`.
 3. Do not tick AC checkboxes in refinement unless the user explicitly confirms the criterion is already met.
-4. If an AC is superseded, keep identifier stability (no renumbering) and apply the existing supersede pattern.
+4. If an AC is superseded, keep identifier stability (no renumbering) and delete the superseded criterion clean per the AC rules in Step 3.
 
 Before final write, summarize this reconciliation in chat:
 
@@ -268,7 +272,7 @@ Summarise inline:
 - **Using alphabetic task suffixes** — invalid (for example `7.1a`). Use numeric hierarchical subtasks (`7.1.1`) or reflow numbering.
 - **Renumbering existing AC-N identifiers** — same principle. AC-3 stays AC-3; append new ACs at the next available number.
 - **Silently unchecking `[x]`** — discards user progress. If completed work needs to be redone, add a new task.
-- **Deleting cancelled tasks** — leaves a confusing gap in the numbering and erases history. Strike through and annotate instead.
+- **Keeping cancelled tasks as strikethrough or tombstone text** — the plan is current-state only; delete cancelled tasks clean. Git history holds what was there; an ADR holds the why when it matters.
 - **Writing plan changelog entries** — implementation plans are current-state artifacts; do not append revision-history logs during refinement.
 - **Writing prior-state narrative in plan body** — keep the plan focused on current target state only.
 - **Writing refinement-era wording in plan body** — phrases such as "in this refinement" or "during this update" are not allowed in plan content.

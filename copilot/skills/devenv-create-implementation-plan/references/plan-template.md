@@ -303,5 +303,5 @@ phase as `[QUESTION] ...` bullets.
 - **Reference table** — prefer a "key files" table with a relevance column over a flat link list. Add a separate **Related links** sub-list for issues/docs/PRs.
 - **Upstream artifacts** — when a grooming/design/spike/blueprint/roadmap artifact exists, include explicit links in the `Upstream artifacts` block.
 - **Coordination context** — when this plan is one slice of a larger groomed issue attack plan, fill the coordination fields (parent grooming artifact, slice type, independent target statement).
-- **No Revision History section** — plans are living documents describing current state; revision history is never created at plan time. If a later refine-family pass adds one, it records deletions there, not in section prose.
+- **No Revision History section** — plans are living documents describing current state; revision history is never created. Superseded tasks and criteria are deleted clean (git and, when significant, ADRs hold the why).
 - **Section heading case** — Title Case for `## Phase TOC`, `## Phases`, `## Reference Information`, etc.

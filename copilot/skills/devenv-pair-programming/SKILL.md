@@ -1053,8 +1053,9 @@ When the user signals end of session (or a phase boundary that suggests a natura
 3. Note any deferred items / follow-ups.
 4. Call out any remaining pending questions explicitly. If none remain, say so.
 5. **If this was the final phase (plan fully executed):** verify the plan file records everything actually done — every approved deviation and added task, in current-state prose — then tell the user the plan is now the as-built record and, if an issue artifact identity exists, offer to sync it with `issue-artifact-upsert` (show what changed since the last sync; wait for confirmation).
-6. Offer to post a status comment on the issue (if applicable) — show the draft, wait for confirmation.
-7. Suggest a starting point for the next session.
+6. **Architectural deviations discovered during execution:** if the session revealed that an upstream design artifact is wrong (a blueprint boundary didn't survive contact with the codebase, a specification item proved unmeasurable), offer to file an **upstream-impact issue** in the planning repo: `GITHUB_REPO=<org>/<planning-repo> issue-create --type Task --label upstream-impact --no-template`, body covering what was discovered, why it matters, and the affected upstream sections. The refine skills consume this queue in cascade mode.
+7. Offer to post a status comment on the issue (if applicable) — show the draft, wait for confirmation.
+8. Suggest a starting point for the next session.
 
 ## Anti-patterns
 
