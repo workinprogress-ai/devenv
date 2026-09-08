@@ -1,7 +1,7 @@
 ---
 name: devenv-create-roadmap
-description: 'Produce a delivery roadmap from a blueprint, a requirements doc, or both, then optionally create the corresponding parent epic and child issues across component repos. USE WHEN the user says "create a roadmap", "plan delivery order", "build a roadmap from this blueprint", "build a roadmap from these requirements", "lay out the delivery phases", or hands off a blueprint or requirements doc that needs sequencing into deliverable phases. Produces a Roadmap-<system>-NNN.md with PHASE-NN groupings of high-level STEP-NN entries and dependency arrows. After approval, offers to create a parent epic in the planning repo with a markdown task list of child issues in component repos. DO NOT USE for low-level task breakdown (use /devenv-create-implementation-plan), for syncing roadmap state to issue state (use /devenv-update-roadmap), or for structurally revising an existing roadmap (use /devenv-refine-roadmap).'
-argument-hint: 'Path to a Blueprint-*.md and/or a Requirements-*.md (at least one required)'
+description: 'Produce a delivery roadmap from a blueprint, a specifications doc, or both, then optionally create the corresponding parent epic and child issues across component repos. USE WHEN the user says "create a roadmap", "plan delivery order", "build a roadmap from this blueprint", "build a roadmap from these specifications", "lay out the delivery phases", or hands off a blueprint or specifications doc that needs sequencing into deliverable phases. Produces a Roadmap-<system>-NNN.md with PHASE-NN groupings of high-level STEP-NN entries and dependency arrows. After approval, offers to create a parent epic in the planning repo with a markdown task list of child issues in component repos. DO NOT USE for low-level task breakdown (use /devenv-create-implementation-plan), for syncing roadmap state to issue state (use /devenv-update-roadmap), or for structurally revising an existing roadmap (use /devenv-refine-roadmap).'
+argument-hint: 'Path to a Blueprint-*.md and/or a Specifications-*.md (at least one required)'
 user-invocable: true
 ---
 
@@ -11,25 +11,25 @@ user-invocable: true
 
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
-Take a blueprint, a requirements document, or both, and produce a **delivery roadmap** — a phased, high-level sequencing of work that respects dependencies and surfaces business priority. The roadmap is the link between intent (requirements / architecture) and execution: each step is the seed for one or more GitHub issues and (later) implementation plans.
+Take a blueprint, a specifications document, or both, and produce a **delivery roadmap** — a phased, high-level sequencing of work that respects dependencies and surfaces business priority. The roadmap is the link between intent (specifications / architecture) and execution: each step is the seed for one or more GitHub issues and (later) implementation plans.
 
-This skill is also the **canonical entry point for creating GitHub issues** from a requirements or blueprint document. Other skills that need bulk issue creation route through here.
+This skill is also the **canonical entry point for creating GitHub issues** from a specifications or blueprint document. Other skills that need bulk issue creation route through here.
 
 ## When to Use
 
 Trigger phrases:
 
-- "create a roadmap" / "build a roadmap from this blueprint" / "build a roadmap from these requirements"
+- "create a roadmap" / "build a roadmap from this blueprint" / "build a roadmap from these specifications"
 - "plan delivery order" / "lay out the delivery phases"
 - "sequence this work into phases"
-- A blueprint and/or a requirements doc exists and the user is ready to plan delivery (and probably create issues)
+- A blueprint and/or a specifications doc exists and the user is ready to plan delivery (and probably create issues)
 
 Do **not** use for:
 
 - Low-level task breakdown → [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md)
 - Syncing roadmap state from existing issues → [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md)
 - Structurally revising an existing roadmap (split steps, re-sequence, add new components) → [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md)
-- Creating a brand-new requirements doc → [`/devenv-gather-requirements`](../devenv-gather-requirements/SKILL.md) first
+- Creating a brand-new specifications doc → [`/devenv-write-specifications`](../devenv-write-specifications/SKILL.md) first
 - Creating a brand-new blueprint → [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) first (when the work warrants architectural design)
 
 ## Philosophy
@@ -45,25 +45,25 @@ Do **not** use for:
 The user provides at least one of:
 
 - Path to a `Blueprint-*.md` (single-file) **or** `Blueprint-<system>-NNN/Index.md` (split blueprint — the Index is followed to all part files)
-- One or more paths to `Requirements-*.md` files (e.g. `docs/Requirements/Requirements-orders-001.md docs/Requirements/Requirements-fulfillment-001.md`), **or** a single `docs/Requirements/Index.md` which is followed to all listed epic docs
+- One or more paths to `Specifications-*.md` files (e.g. `docs/Specifications/Specifications-orders-001.md docs/Specifications/Specifications-fulfillment-001.md`), **or** a single `docs/Specifications/Index.md` which is followed to all listed epic docs
 
-**Multiple requirements docs** are supported for multi-epic projects (one requirements doc per epic). One invocation → one roadmap → one parent epic in the planning repo, spanning all input docs. Cross-doc dependency edges declared in the requirements (`Depends on: AUTH-003 (Requirements-auth-001.md)`) are honoured when ordering steps.
+**Multiple specifications docs** are supported for multi-epic projects (one specifications doc per epic). One invocation → one roadmap → one parent epic in the planning repo, spanning all input docs. Cross-doc dependency edges declared in the specifications (`Depends on: AUTH-003 (Specifications-auth-001.md)`) are honoured when ordering steps.
 
-**`Index.md` as input.** When a project's requirements or blueprint is multi-file, prefer handing the corresponding `Index.md` over enumerating part files — the index is the canonical entry point and ensures nothing is missed. The skill follows the index's file table to read every constituent doc.
+**`Index.md` as input.** When a project's specifications or blueprint is multi-file, prefer handing the corresponding `Index.md` over enumerating part files — the index is the canonical entry point and ensures nothing is missed. The skill follows the index's file table to read every constituent doc.
 
 Three input modes are supported:
 
 | Mode | When to use | Step source | Component field |
 |---|---|---|---|
-| **Blueprint + Requirements** | Epic-scale work — architecture exists and stakeholder priority must inform sequencing | Per-component deltas (§4 of blueprint); priority groups (§3 of each requirements doc) inform phase ordering | From blueprint |
+| **Blueprint + Specifications** | Epic-scale work — architecture exists and stakeholder priority must inform sequencing | Per-component deltas (§4 of blueprint); priority groups (§3 of each specifications doc) inform phase ordering | From blueprint |
 | **Blueprint only** | Architecture exists but stakeholder priority isn't a major factor | Per-component deltas (§4 of blueprint) | From blueprint |
-| **Requirements only** (single or multiple docs) | Smaller work that doesn't warrant a blueprint, but still needs delivery sequencing and GitHub issues | Each `REQ-NNN` (or category-prefixed ID) becomes a candidate step; priority groups (`GROUP-NN`) inform phase ordering | **Asked from the user per step** — there is no blueprint to derive it from |
+| **Specifications only** (single or multiple docs) | Smaller work that doesn't warrant a blueprint, but still needs delivery sequencing and GitHub issues | Each `SPEC-NNN` (or category-prefixed ID) becomes a candidate step; priority groups (`GROUP-NN`) inform phase ordering | **Asked from the user per step** — there is no blueprint to derive it from |
 
-If neither input is supplied, stop and redirect: requirements-first → `/devenv-gather-requirements`; architecture-first → `/devenv-create-blueprint`.
+If neither input is supplied, stop and redirect: specifications-first → `/devenv-write-specifications`; architecture-first → `/devenv-create-blueprint`.
 
 ## Session Continuity
 
-Use `session_memory-roadmap.md` in the **target repo root** following the same protocol as [`/devenv-gather-requirements`](../devenv-gather-requirements/SKILL.md). The filename suffix lets it coexist with `session_memory-blueprint.md` and `session_memory-requirements.md`.
+Use `session_memory-roadmap.md` in the **target repo root** following the same protocol as [`/devenv-write-specifications`](../devenv-write-specifications/SKILL.md). The filename suffix lets it coexist with `session_memory-blueprint.md` and `session_memory-specifications.md`.
 
 ## Output File
 
@@ -86,14 +86,14 @@ See [roadmap-template.md](./references/roadmap-template.md) for the document str
 - Service dependencies (from §4.2 Context Map; also §4.3 Communication Patterns)
 - Operations and the services they participate in
 
-**If a requirements doc is provided**, read it and extract:
-- Every `REQ-NNN` and its `Dependencies:` line (including cross-doc edges of the form `AUTH-003 (Requirements-auth-001.md)`)
+**If a specifications doc is provided**, read it and extract:
+- Every `SPEC-NNN` and its `Dependencies:` line (including cross-doc edges of the form `AUTH-003 (Specifications-auth-001.md)`)
 - Priority groups (`GROUP-NN`) — used to inform phase ordering and the MVP boundary
-- For requirements-only mode, each requirement becomes a candidate step (with the component field deferred to user input in step 2)
+- For specifications-only mode, each specification item becomes a candidate step (with the component field deferred to user input in step 2)
 
-**If multiple requirements docs are provided**, parse each one in turn. Build a single unified candidate-step list keyed by requirement ID (which is globally unique because of per-epic prefixes). Cross-doc `Depends on:` edges become normal step-level dependency edges in the roadmap. Priority groups from different docs do **not** merge — surface them in the phase-grouping interview (step 4) so the user can decide whether one epic's MVP runs before another's.
+**If multiple specifications docs are provided**, parse each one in turn. Build a single unified candidate-step list keyed by specification ID (which is globally unique because of per-epic prefixes). Cross-doc `Depends on:` edges become normal step-level dependency edges in the roadmap. Priority groups from different docs do **not** merge — surface them in the phase-grouping interview (step 4) so the user can decide whether one epic's MVP runs before another's.
 
-**If both are provided**, the blueprint drives candidate steps and the component field; the requirements doc informs phase ordering and surfaces user-visible priorities.
+**If both are provided**, the blueprint drives candidate steps and the component field; the specifications doc informs phase ordering and surfaces user-visible priorities.
 
 ### 2. Identify candidate steps
 
@@ -115,16 +115,16 @@ Blueprint sections: §4.2, §4.1 (CreateOrder operation)
 Depends on: service.commerce.inventory reservation API, service.commerce.payment events
 ```
 
-**Requirements-only** (no blueprint): for each `REQ-NNN`, draft a candidate step:
+**Specifications-only** (no blueprint): for each `SPEC-NNN`, draft a candidate step:
 
 ```
 Step: <REQ title>
-Requirement: REQ-NNN
+Specification: SPEC-NNN
 Component: <ASK USER — which repo will this land in?>
-Depends on: <REQ-NNN dependencies, mapped to step IDs>
+Depends on: <SPEC-NNN dependencies, mapped to step IDs>
 ```
 
-When running in requirements-only mode, batch the component questions: present the full step list to the user once and ask them to fill in the component column for all steps in one pass, rather than asking one-at-a-time.
+When running in specifications-only mode, batch the component questions: present the full step list to the user once and ask them to fill in the component column for all steps in one pass, rather than asking one-at-a-time.
 
 ### 3. Build the dependency graph
 

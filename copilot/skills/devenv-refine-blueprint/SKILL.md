@@ -1,6 +1,6 @@
 ---
 name: devenv-refine-blueprint
-description: 'Revise an existing Blueprint-*.md after architecture decisions change, new requirements arrive, or implementation discovery exposes gaps. USE WHEN the user says "refine the blueprint", "update the blueprint", "revise the architecture", "the blueprint needs updating", or hands off a stale blueprint that needs adjustments. Preserves all existing structure and decisions, appends new content rather than reflowing, records every change in a Revision History section, and writes the result back in place. If refinement intake reveals a non-surgical change (broad re-architecture, unresolved option-weighing, or major uncertain ripple effects), stop and route to /devenv-design-discussion (bounded choice) or /devenv-create-blueprint (foundational redesign). DO NOT USE for creating a new blueprint (use /devenv-create-blueprint), for broad architecture brainstorming without a settled direction (use /devenv-design-discussion), for ad-hoc edits to a single line (just edit the file), or for updating a roadmap (use /devenv-update-roadmap).'
+description: 'Revise an existing Blueprint-*.md after architecture decisions change, new specifications arrive, or implementation discovery exposes gaps. USE WHEN the user says "refine the blueprint", "update the blueprint", "revise the architecture", "the blueprint needs updating", or hands off a stale blueprint that needs adjustments. Preserves all existing structure and decisions, appends new content rather than reflowing, records every change in a Revision History section, and writes the result back in place. If refinement intake reveals a non-surgical change (broad re-architecture, unresolved option-weighing, or major uncertain ripple effects), stop and route to /devenv-design-discussion (bounded choice) or /devenv-create-blueprint (foundational redesign). DO NOT USE for creating a new blueprint (use /devenv-create-blueprint), for broad architecture brainstorming without a settled direction (use /devenv-design-discussion), for ad-hoc edits to a single line (just edit the file), or for updating a roadmap (use /devenv-update-roadmap).'
 argument-hint: 'Path to a Blueprint-*.md file'
 user-invocable: true
 ---
@@ -11,7 +11,7 @@ user-invocable: true
 
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
-Revise an existing blueprint based on new information — architectural decisions that changed, requirements that arrived after the original blueprint, or implementation discovery that exposed gaps. Preserve every prior decision; never silently rewrite history.
+Revise an existing blueprint based on new information — architectural decisions that changed, specifications that arrived after the original blueprint, or implementation discovery that exposed gaps. Preserve every prior decision; never silently rewrite history.
 
 Write the blueprint body as the current target architecture. Keep historical change narrative out of main sections and record it in `## Revision History` only.
 
@@ -70,12 +70,12 @@ Use `vscode_askQuestions` to gather:
 - **What changed status** — services moving from `new` → `existing`, deltas now obsolete because the change shipped
 - **What's no longer relevant** — sections to remove; deletion will be logged in Revision History with a note pointing to the replacement (or reason for withdrawal)
 - **Revision history** — record only material blueprint changes; batch small related edits from the same pass into one concise entry.
-- **New requirements docs** — "In a multi-epic project, has a new `Requirements-<epic>-NNN.md` been added that this blueprint should now cover? Or has an existing one been split or refined?"
+- **New specifications docs** — "In a multi-epic project, has a new `Specifications-<epic>-NNN.md` been added that this blueprint should now cover? Or has an existing one been split or refined?"
 - **Source material** — "Are there meeting transcripts, email threads, design discussions, or other communications records behind these changes? If so, where are they?"
 
 If the user provides communications artifacts, summarise each one separately (prefer the `Explore` subagent, one invocation per artifact, in parallel where possible) with a prompt focused on architectural decisions, components/services mentioned, trade-offs raised, and open questions. Surface each summary back for confirmation, then use the approved summaries to drive the change list. Note the source in the revision-history entry (step 4) so the rationale can be re-traced.
 
-If the user points at a new (or refined) requirements doc, read it and summarise back the actors/scenarios/constraints/new requirements that this blueprint should now reflect. Cross-doc dependency edges from the requirements (`Depends on: AUTH-003 (Requirements-auth-001.md)`) may translate into new cross-service dependencies — surface these explicitly. If a separate sibling blueprint covers the upstream epic, reference it (`<see Blueprint-auth-001.md §3.2>`) rather than duplicating its content here.
+If the user points at a new (or refined) specifications doc, read it and summarise back the actors/scenarios/constraints/new specification items that this blueprint should now reflect. Cross-doc dependency edges from the specifications (`Depends on: AUTH-003 (Specifications-auth-001.md)`) may translate into new cross-service dependencies — surface these explicitly. If a separate sibling blueprint covers the upstream epic, reference it (`<see Blueprint-auth-001.md §3.2>`) rather than duplicating its content here.
 
 Do not assume. If the change has roadmap impact (component added/removed, ordering implication), surface it explicitly:
 
@@ -156,7 +156,7 @@ Overwrite the file in place. The user can `git diff` to review and revert.
 After writing, list what may need follow-up:
 
 - **Roadmap impact**: new components or removed deltas → structural roadmap changes → suggest [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md). For step-status drift only (issues closed, PRs merged), suggest [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md) instead.
-- **Requirements impact**: if architectural changes were driven by a requirements gap, suggest [`/devenv-refine-requirements`](../devenv-refine-requirements/SKILL.md)
+- **Specifications impact**: if architectural changes were driven by a specifications gap, suggest [`/devenv-refine-specifications`](../devenv-refine-specifications/SKILL.md)
 - **Implementation plan impact**: existing plans may now reference superseded sections → suggest [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) for affected plans
 - **Unsettled approach** that triggered this refine: if a specific design question is still open, suggest [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md) to weigh options before further refinement
 

@@ -356,7 +356,7 @@ Note: Replace the `id` values with your actual organization's issue type IDs fro
 
 ### Planning Type Mapping
 
-The `planning` section in `issues-config.yml` maps concepts from a requirements document to GitHub issue types. This is used when creating issues from a requirements document to determine which issue type to assign for each level of the document hierarchy.
+The `planning` section in `issues-config.yml` maps concepts from a specifications document to GitHub issue types. This is used when creating issues from a specifications document to determine which issue type to assign for each level of the document hierarchy.
 
 ```yaml
 planning:
@@ -366,7 +366,7 @@ planning:
     tasks: Task
 ```
 
-Each key under `type_mapping` corresponds to a concept in a requirements document:
+Each key under `type_mapping` corresponds to a concept in a specifications document:
 
 - **phases**: High-level project phases, mapped to an issue type (default: `Epic`)
 - **features**: Feature-level items, mapped to an issue type (default: `Feature`)
@@ -511,7 +511,7 @@ Scripts live in `tools/scripts/<name>.sh` and are exposed via a symlink at `tool
    ```
 
 4. **Standard structure** (in order):
-   - Shebang + header comment (name, version, description, requirements)
+   - Shebang + header comment (name, version, description, specifications)
    - `source "$DEVENV_TOOLS/lib/error-handling.bash"` and `source "$DEVENV_TOOLS/lib/versioning.bash"`
    - `enable_strict_mode`
    - `SCRIPT_VERSION` and `SCRIPT_NAME` constants

@@ -84,7 +84,7 @@ Run `issue-list --state open | jq` and scan titles/bodies for 2-3 keywords from 
 
 ### Drafting clarifying comments
 
-Only when the issue is genuinely incomplete (missing repro, ambiguous requirements, no acceptance criteria for a feature). Draft should be:
+Only when the issue is genuinely incomplete (missing repro, ambiguous specifications, no acceptance criteria for a feature). Draft should be:
 
 - Short (3-6 lines).
 - Friendly, not interrogative.

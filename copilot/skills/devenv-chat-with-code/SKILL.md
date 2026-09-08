@@ -1,12 +1,12 @@
 ---
 name: devenv-chat-with-code
-description: Conversational fact-finding session with one or more repositories — source code or markdown-first docs (requirements, blueprints, roadmaps, plans) — the code/docs talk back. USE WHEN the user says "chat with this code", "explain this repo", "how does X work", "walk me through the architecture", "what does this codebase do", "explain this service", "I want to understand this code", or wants to explore a codebase through natural conversation. Orients against README, project structure, entry points or primary documents, and test/layout signals, then answers as if the repo itself is speaking. Handles single or multi-repo questions; caches orientation in session memory. Suggests transitioning to a sibling skill when conversation drifts toward planning or implementation. DO NOT USE FOR writing or changing files (use /devenv-pair-programming, or /devenv-delegation for a commissioned autonomous mechanical run), formal debt assessment (use /devenv-tech-debt-audit), or architecture design (use /devenv-create-blueprint or /devenv-design-discussion).
+description: Conversational fact-finding session with one or more repositories — source code or markdown-first docs (specifications, blueprints, roadmaps, plans) — the code/docs talk back. USE WHEN the user says "chat with this code", "explain this repo", "how does X work", "walk me through the architecture", "what does this codebase do", "explain this service", "I want to understand this code", or wants to explore a codebase through natural conversation. Orients against README, project structure, entry points or primary documents, and test/layout signals, then answers as if the repo itself is speaking. Handles single or multi-repo questions; caches orientation in session memory. Suggests transitioning to a sibling skill when conversation drifts toward planning or implementation. DO NOT USE FOR writing or changing files (use /devenv-pair-programming, or /devenv-delegation for a commissioned autonomous mechanical run), formal debt assessment (use /devenv-tech-debt-audit), or architecture design (use /devenv-create-blueprint or /devenv-design-discussion).
 argument-hint: Repo path(s), e.g. repos/lib.cs.services.bulk-sync, or nothing to use the current workspace
 ---
 
 # Chat with Code
 
-A conversational fact-finding session with one or more repositories, including source-code repos and markdown-first repos (requirements, blueprints, and similar docs). The skill orients itself against the target repos, then answers the user's questions in the voice of the repo itself — witty, slightly sarcastic, always factual, always cited.
+A conversational fact-finding session with one or more repositories, including source-code repos and markdown-first repos (specifications, blueprints, and similar docs). The skill orients itself against the target repos, then answers the user's questions in the voice of the repo itself — witty, slightly sarcastic, always factual, always cited.
 
 > Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
 
@@ -15,7 +15,7 @@ A conversational fact-finding session with one or more repositories, including s
 ## When to Use
 
 - You've landed in an unfamiliar codebase and want to have a conversation rather than read files alone.
-- You're exploring a markdown-first repo (for example requirements, blueprints, plans, ADR-heavy docs) and want the same conversational interrogation style.
+- You're exploring a markdown-first repo (for example specifications, blueprints, plans, ADR-heavy docs) and want the same conversational interrogation style.
 - You want to understand architecture, data flow, dependencies, or intent before deciding what to build or change.
 - You're asking cross-cutting questions that span multiple repos.
 
@@ -69,7 +69,7 @@ For each repo that needs fresh orientation:
 1. Read the README (any name: `README.md`, `README`, `readme.md`).
 2. Map the top-level directory structure. Identify major modules/layers and whether this is source-first, docs-first, or hybrid.
 3. If source-first or hybrid, find key runtime entry points: `Program.cs`, `Startup.cs`, `index.ts`, `main.ts`, `app.ts`, `__main__.py`, `main.go`, etc.
-4. If docs-first, find primary document entry points and structure anchors: `README.md`, `Requirements-*.md`, `Blueprint-*.md`, `Roadmap-*.md`, `Implementation_plan-*.md`, `docs/`, `adr/`, and any glossary/decision logs.
+4. If docs-first, find primary document entry points and structure anchors: `README.md`, `Specifications-*.md`, `Blueprint-*.md`, `Roadmap-*.md`, `Implementation_plan-*.md`, `docs/`, `adr/`, and any glossary/decision logs.
 5. Note test/evidence layout when present: test frameworks, validation scripts, traceability sections, acceptance criteria, or decision records.
 6. Scan `docs/` and `adr/` (if present) for any architectural decision records or design notes.
 
@@ -118,7 +118,7 @@ If you're describing a flow across multiple files, link each step.
 
 **Cross-cutting** — Orient each relevant repo if not already done. Trace the feature across repo boundaries, linking each side of the boundary.
 
-**Docs interrogation (requirements/blueprints/plans)** — Treat the markdown as the system of record. Trace requirement IDs, decision points, and dependencies across documents; answer with explicit citations to headings and lines. Call out contradictions, gaps, and unresolved TODO/open-question sections as facts, not edits.
+**Docs interrogation (specifications/blueprints/plans)** — Treat the markdown as the system of record. Trace specification item IDs, decision points, and dependencies across documents; answer with explicit citations to headings and lines. Call out contradictions, gaps, and unresolved TODO/open-question sections as facts, not edits.
 
 **Runbook** — Read the README's run/test/debug sections. Check for `Makefile`, `scripts/`, `Taskfile`, devcontainer scripts, or `launch.json`. Describe how to run it, what dependencies need to be up, and how to run the tests.
 

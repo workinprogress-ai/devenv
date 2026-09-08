@@ -173,11 +173,11 @@ If no plan is provided, skip Phase 0 entirely.
 Ask in this order; skip what the user has already answered (and skip any already covered by the Phase 0 brief):
 
 1. **What is the specific problem?** Push past "we need a better X" to "X is failing at Y because Z."
-2. **Why now?** What changed — load, requirements, understanding, scope — that makes this decision urgent?
+2. **Why now?** What changed — load, specifications, understanding, scope — that makes this decision urgent?
 3. **Who has to live with the result?** Same team, other team, ops, customers?
 4. **Constraints.** Timeline, team skills, infrastructure, backward compatibility, serialised formats (DB/messages), compliance.
 5. **Already-rejected options.** "What's off the table and why?" — this surfaces hidden constraints.
-6. **Existing context.** Does a blueprint or requirements doc exist? If so, read it before going further.
+6. **Existing context.** Does a blueprint or specifications doc exist? If so, read it before going further.
 7. **Repo context.** Is this scoped to one repo or multiple repos? Confirm where relevant context and constraints live.
 
 If the discussion is component-specific, classify the component type before moving to Phase 2:

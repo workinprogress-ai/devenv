@@ -2,7 +2,7 @@
 # markdown-plan-complete-ac.sh - Mark one or more acceptance criteria as complete or incomplete
 # Version: 1.0.0
 # Description: Toggles the checkbox state of one or more acceptance-criteria
-#              items in a markdown requirements or plan document.  AC items
+#              items in a markdown specifications or plan document.  AC items
 #              are identified by their dotted number, e.g. "AC-3" or "AC-1.2".
 # Requirements: Bash 4.0+, awk, grep, sed
 
@@ -39,7 +39,7 @@ Usage: $SCRIPT_NAME [OPTIONS] AC_NUMBER... [FILE]
 Mark one or more acceptance-criteria checkboxes as complete or incomplete.
 
 AC items are identified by their number, e.g. "AC-3" or "AC-1.2", as they
-appear in requirements or plan documents.
+appear in specifications or plan documents.
 
 Positional arguments are classified automatically: any argument matching the
 AC-N / AC-N.N / AC-N.N.N pattern is treated as an AC number; anything else is
@@ -58,7 +58,7 @@ Options:
     --uncomplete        Mark the criteria as incomplete ([ ]) instead of complete ([x])
 
 Examples:
-    # Mark AC-3 complete in the auto-detected requirements file
+    # Mark AC-3 complete in the auto-detected specifications file
     $SCRIPT_NAME AC-3
 
     # Mark several criteria complete at once

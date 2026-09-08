@@ -51,7 +51,7 @@ Ask for and document:
 Document in AI_Progress.md:
 
 - Why did the current design seem right originally?
-- What changed (requirements, scale, understanding) that made it problematic?
+- What changed (specifications, scale, understanding) that made it problematic?
 - What symptoms reveal the problem? (boilerplate, null-checks, confusion, bugs)
 
 ### Phase A: Design the Target State

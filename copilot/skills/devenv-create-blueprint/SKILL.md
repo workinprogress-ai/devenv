@@ -1,7 +1,7 @@
 ---
 name: devenv-create-blueprint
-description: 'Conduct a structured architecture interview to produce a system blueprint — a high-level, architectural description of a system or change to a system. USE WHEN the user says "create a blueprint", "design this system", "architect this", "blueprint this epic", "produce an architectural design", or hands off a requirements doc / problem description that needs architectural decomposition before any planning can begin. Produces a Blueprint-<system>-NNN.md covering shared vocabulary, domains, bounded contexts (with ubiquitous language and aggregates), components (deployable units), domain and integration events, a Context Map of cross-BC relationships, and (for brownfield work) a per-component delta. Maintains a session_memory-blueprint.md across sessions. DO NOT USE for low-level implementation planning (use /devenv-create-implementation-plan), for ordering work into milestones (use /devenv-create-roadmap once the blueprint exists), or for capturing user-level functional requirements (use /devenv-gather-requirements).'
-argument-hint: '[system name | one-or-more paths to Requirements-*.md | freeform problem description]'
+description: 'Conduct a structured architecture interview to produce a system blueprint — a high-level, architectural description of a system or change to a system. USE WHEN the user says "create a blueprint", "design this system", "architect this", "blueprint this epic", "produce an architectural design", or hands off a specifications doc / problem description that needs architectural decomposition before any planning can begin. Produces a Blueprint-<system>-NNN.md covering shared vocabulary, domains, bounded contexts (with ubiquitous language and aggregates), components (deployable units), domain and integration events, a Context Map of cross-BC relationships, and (for brownfield work) a per-component delta. Maintains a session_memory-blueprint.md across sessions. DO NOT USE for low-level implementation planning (use /devenv-create-implementation-plan), for ordering work into milestones (use /devenv-create-roadmap once the blueprint exists), or for capturing user-level functional specifications (use /devenv-write-specifications).'
+argument-hint: '[system name | one-or-more paths to Specifications-*.md | freeform problem description]'
 user-invocable: true
 ---
 
@@ -19,14 +19,14 @@ Trigger phrases:
 
 - "create a blueprint" / "blueprint this" / "design this system"
 - "architect this epic" / "produce an architectural design"
-- A `Requirements-*.md` is handed off and needs translation into architecture
+- A `Specifications-*.md` is handed off and needs translation into architecture
 - A new system, subsystem, or major change is being scoped
 
 Do **not** use for:
 
 - Low-level task breakdown → [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md)
 - Ordering work into milestones / creating issues → [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md)
-- User-level functional requirements → [`/devenv-gather-requirements`](../devenv-gather-requirements/SKILL.md)
+- User-level functional specifications → [`/devenv-write-specifications`](../devenv-write-specifications/SKILL.md)
 - Editing an existing blueprint → [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md)
 
 ## Philosophy
@@ -43,7 +43,7 @@ Do **not** use for:
 
 Blueprint creation typically spans multiple sessions. Maintain a `session_memory-blueprint.md` file in the **target repo root** to preserve state across sessions.
 
-The filename includes the skill suffix (`-blueprint`) so it can coexist with other in-progress skills (e.g. `session_memory-requirements.md` from a concurrent requirements interview).
+The filename includes the skill suffix (`-blueprint`) so it can coexist with other in-progress skills (e.g. `session_memory-specifications.md` from a concurrent specifications interview).
 
 **At session start**: create it if it doesn't exist; load and summarise it to the user if it does.
 
@@ -78,7 +78,7 @@ Update `session_memory-blueprint.md` to track decisions and open questions acros
 
 For very large blueprints (approaching ~1,500 lines or many components in §4), split into a subfolder with one file per section group (e.g. `01-context.md`, `02-architecture.md`, `03-components.md`, `04-risks.md`). Section numbers are continuous across files; use `<see NN-slug.md §N>` for cross-file references. Produce an `Index.md` as the canonical entry point.
 
-For the Index.md template, see [multi-doc-projects.md](../devenv-gather-requirements/references/multi-doc-projects.md) (requirements-specific; the Index.md template structure applies to blueprints as well).
+For the Index.md template, see [multi-doc-projects.md](../devenv-write-specifications/references/multi-doc-projects.md) (specifications-specific; the Index.md template structure applies to blueprints as well).
 
 ## Process
 
@@ -88,20 +88,20 @@ This is a three-phase process. **Stop at each checkpoint** and wait for explicit
 
 ### Phase 1: Context & System Survey
 
-**Goal:** Establish what problem the blueprint addresses, gather the requirements basis, and (for brownfield) survey the existing system landscape.
+**Goal:** Establish what problem the blueprint addresses, gather the specifications basis, and (for brownfield) survey the existing system landscape.
 
 #### Step 1: Identify inputs
 
 Ask the user:
 
-1. "What's the problem this blueprint addresses? Is there a requirements document, GitHub issue, or written brief?"
+1. "What's the problem this blueprint addresses? Is there a specifications document, GitHub issue, or written brief?"
 2. "Is this **greenfield** (new system from scratch) or **brownfield** (extending/changing an existing system)?"
 3. "What's the rough scope — a feature, a subsystem, or an epic spanning multiple services?"
 4. "Are there meeting transcripts, email threads, design discussions, voice memos, or other communications records that capture architectural context or decisions? If so, where are they?"
 
-If one or more `Requirements-*.md` files exist, read them and summarise the key actors/scenarios/constraints back to the user before going further.
+If one or more `Specifications-*.md` files exist, read them and summarise the key actors/scenarios/constraints back to the user before going further.
 
-**Multiple requirements docs are supported.** When multiple `Requirements-<epic>-NNN.md` files are handed off: read all of them; summarise each; ask whether the blueprint covers all epics or a subset. One blueprint can span multiple docs. Cross-doc dependency edges (`Depends on: AUTH-003 (Requirements-auth-001.md)`) translate directly to cross-service dependencies in §4.2 (Context Map). Category prefixes (`ORD-NNN`, `FUL-NNN`) are the natural requirements-basis references in the blueprint.
+**Multiple specifications docs are supported.** When multiple `Specifications-<epic>-NNN.md` files are handed off: read all of them; summarise each; ask whether the blueprint covers all epics or a subset. One blueprint can span multiple docs. Cross-doc dependency edges (`Depends on: AUTH-003 (Specifications-auth-001.md)`) translate directly to cross-service dependencies in §4.2 (Context Map). Category prefixes (`ORD-NNN`, `FUL-NNN`) are the natural specifications-basis references in the blueprint.
 
 If the user provides communications artifacts (transcripts, design discussions, voice memos), dispatch the `Explore` subagent per artifact (see [Explore subagent dispatch](../_conventions.md#explore-subagent-dispatch)); surface each summary for validation before incorporating. Record the source in `session_memory-blueprint.md` so rationale can be re-traced.
 
@@ -133,7 +133,7 @@ Skip for greenfield.
 
 **STOP.** Present the context summary. Say:
 
-> "Here's what I understand about the problem, requirements basis, and existing landscape. Please review:
+> "Here's what I understand about the problem, specifications basis, and existing landscape. Please review:
 > - Is the problem framing correct?
 > - Are the QoS / constraints accurately captured?
 > - (Brownfield) Are the surveyed components correct? Any I missed or shouldn't have included?
@@ -165,7 +165,7 @@ Then work through the steps below. After completing each step, update the file o
 
 #### Step 1: Identify business capabilities
 
-From the requirements and context, list the main things the system needs to do in domain language. Group related capabilities.
+From the specifications and context, list the main things the system needs to do in domain language. Group related capabilities.
 
 Propose the groupings to the user:
 > *"I see these natural capability groups. Do these groupings make sense, or do you see them differently?"*
@@ -176,7 +176,7 @@ Do not move to Step 2 until the user confirms the capability map.
 
 Before drawing any boundaries, surface terms that matter at the system level — terms that should mean the same thing everywhere across the blueprint. These are concepts multiple parts of the system will reference.
 
-Propose an initial list based on the requirements and capability map:
+Propose an initial list based on the specifications and capability map:
 > *"Here are terms I think need a shared definition before we start drawing boundaries. Does this list feel right? Any to add, remove, or refine?"*
 
 Record agreed terms in §3 of the blueprint file before proceeding.
@@ -296,7 +296,7 @@ Do not proceed without explicit approval.
 
 #### Step 3: Validation checklist
 
-- [ ] Problem and requirements basis are clearly stated
+- [ ] Problem and specifications basis are clearly stated
 - [ ] Shared vocabulary (§3) is defined — terms apply system-wide
 - [ ] Domains are well-defined and bounded; no technical layers masquerading as domains
 - [ ] Bounded contexts are clearly delimited with ubiquitous language and aggregates defined
@@ -331,7 +331,7 @@ Once written, surface the next-step options to the user:
 - **Need to plan delivery order and create issues?** → [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md)
 - **Need detailed task-level plans for a component?** → [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md)
 - **Architecture changed mid-stream?** → [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md)
-- **Underlying requirements changed?** → [`/devenv-refine-requirements`](../devenv-refine-requirements/SKILL.md)
+- **Underlying specifications changed?** → [`/devenv-refine-specifications`](../devenv-refine-specifications/SKILL.md)
 - **Specific design or coding-approach question surfaced during implementation?** → [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md)
 
 ## Anti-patterns

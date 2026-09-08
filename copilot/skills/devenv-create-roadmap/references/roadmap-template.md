@@ -18,7 +18,7 @@ updated_at_utc: <ISO-8601>
 
 **Status**: Draft | Active | Completed | Superseded
 **Blueprint**: [Blueprint-<system>-NNN.md](<link>)
-**Source requirements** (optional): [Requirements-<topic>-NNN.md](<link>)
+**Source specifications** (optional): [Specifications-<topic>-NNN.md](<link>)
 **Parent epic**: <populated after issue creation: e.g. `planning.development.main#89`>
 
 ## Revision History

@@ -48,7 +48,7 @@ integration points to change.>
 ### Forces
 
 <Bulleted list of constraints and pressures shaping the plan: existing
-architecture, deadlines, performance requirements, compatibility, team
+architecture, deadlines, performance specifications, compatibility, team
 capacity, etc.>
 
 - **<Force 1>**: <description>

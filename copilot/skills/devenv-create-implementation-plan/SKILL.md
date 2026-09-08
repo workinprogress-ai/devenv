@@ -22,7 +22,7 @@ Trigger phrases:
 - "break this task into phases" / "break down this work"
 - "plan from this spec" / "convert this issue into a plan"
 - A GitHub issue URL or number is handed off with intent to implement
-- A pasted user story / requirements blob / complete spec with intent to implement
+- A pasted user story / specifications blob / complete spec with intent to implement
 
 Do **not** use for:
 
@@ -39,7 +39,7 @@ Exception: direct-plan mode is valid when the user intentionally wants to create
 
 1. **Source material** (one or more of):
   - GitHub issue (number or URL) — fetch with `issue-get N --pretty` and `issue-comment-list N --full`; use both the issue body and comments as source material
-  - Pasted user story / requirements text
+  - Pasted user story / specifications text
   - Complete spec / RFC / design doc / issue body
    - Linked design docs or files in `planning.*` repos
 2. **Related code** — read-only exploration via the `Explore` subagent

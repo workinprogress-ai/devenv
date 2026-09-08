@@ -16,7 +16,7 @@ This guide covers the complete GitHub Issues workflow in Devenv, from issue crea
 
 The GitHub Issues workflow in Devenv replaces Azure DevOps work items with a GitHub-native approach:
 
-For the broader delivery methodology around requirements, blueprinting, grooming, implementation planning, and execution, see [Workflow Guide](./Workflow.md). This document focuses on how work is represented and tracked in GitHub once it enters issue/project flow.
+For the broader delivery methodology around specifications, blueprinting, grooming, implementation planning, and execution, see [Workflow Guide](./Workflow.md). This document focuses on how work is represented and tracked in GitHub once it enters issue/project flow.
 
 ```text
 Issue Types (GitHub native issue types):
@@ -172,7 +172,7 @@ Issues in GitHub Projects use a Status field with 8 states:
 **Actions during grooming:**
 
 - Add acceptance criteria
-- Clarify requirements
+- Clarify specifications
 - Break down into tasks
 - Add type label
 - Set priority level
@@ -476,7 +476,7 @@ issue-comment ISSUE# --edit
 issue-artifact-upsert [--issue ISSUE#] [--body TEXT | --body-file FILE] [--dry-run]
 ```
 
-Use this when posting skill artifacts (spike/redesign/design/blueprint/requirements/roadmap/plan) to an issue so re-runs update the same comment instead of creating duplicates.
+Use this when posting skill artifacts (spike/redesign/design/blueprint/specifications/roadmap/plan) to an issue so re-runs update the same comment instead of creating duplicates.
 
 Key rules:
 

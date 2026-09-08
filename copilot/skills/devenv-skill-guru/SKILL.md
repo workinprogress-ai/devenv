@@ -1,6 +1,6 @@
 ---
 name: devenv-skill-guru
-description: Help the user pick the right Copilot skill by asking 1–3 clarifying questions about what they're trying to accomplish. USE WHEN the user says "which skill should I use", "what skill is right for this", "help me pick a skill", "I'm not sure what to use", "skill guru", or begins a task without knowing which skill applies. Asks about work stage (exploring / defining requirements / architecting / planning / building / reviewing / wrapping up), then asks one stage-specific disambiguation question (for architecture: option-weighing vs component-level grooming vs system-level architecture; for build: whether a plan exists and autonomy span). Returns a ranked recommendation with one-line rationale; if the goal spans multiple skills, returns the full chain. DO NOT USE FOR executing any of the recommended skills — just say /skill-name to invoke them directly. For general coding questions use the default agent.
+description: Help the user pick the right Copilot skill by asking 1–3 clarifying questions about what they're trying to accomplish. USE WHEN the user says "which skill should I use", "what skill is right for this", "help me pick a skill", "I'm not sure what to use", "skill guru", or begins a task without knowing which skill applies. Asks about work stage (exploring / defining specifications / architecting / planning / building / reviewing / wrapping up), then asks one stage-specific disambiguation question (for architecture: option-weighing vs component-level grooming vs system-level architecture; for build: whether a plan exists and autonomy span). Returns a ranked recommendation with one-line rationale; if the goal spans multiple skills, returns the full chain. DO NOT USE FOR executing any of the recommended skills — just say /skill-name to invoke them directly. For general coding questions use the default agent.
 argument-hint: Optional — describe what you're trying to do and the guru will ask follow-up questions
 ---
 
@@ -41,7 +41,7 @@ Ask only what you need. If the user's initial message already answers a question
 > "What are you trying to do right now?"
 >
 > - 🔍 Explore / think something through
-> - 📝 Define requirements for a system or feature
+> - 📝 Define specifications for a system or feature
 > - 🏛️ Architect a system / produce a blueprint or roadmap
 > - 📋 Create or update an implementation plan
 > - 🔨 Build / implement something
@@ -83,7 +83,7 @@ Routing for this answer:
 
 Use the registry to match the user's answers to a skill:
 
-1. **Match Q1 (work stage) to a registry category** — Explore, Requirements, Architecture, Plan, Build, Review, or Wrap-up.
+1. **Match Q1 (work stage) to a registry category** — Explore, Specifications, Architecture, Plan, Build, Review, or Wrap-up.
 2. **Within that category, match the sub-goal to a skill's trigger phrases.**
 3. **Apply stage-specific guardrails before finalizing:**
    - Meta-maintenance guardrail: when the user asks to fix skill definitions, align skill docs/registry/catalog, or provides diagnostics from other skills for customization improvements, route to `/devenv-skill-maintenance`.

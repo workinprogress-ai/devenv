@@ -24,15 +24,15 @@ What are you trying to do?
 ├─ 📄 Document
 │   └─ Write docs for an existing system, component, or cross-cutting concern  →  /devenv-document
 │
-├─ 📝 Define requirements
-│   ├─ System needs functional definition before planning  →  /devenv-gather-requirements
-│   └─ Revise an existing requirements doc                →  /devenv-refine-requirements
+├─ 📝 Define specifications
+│   ├─ System needs functional definition before planning  →  /devenv-write-specifications
+│   └─ Revise an existing specifications doc                →  /devenv-refine-specifications
 │
 ├─ 🏛️  Architect a system
 │   ├─ Create architectural blueprint            →  /devenv-create-blueprint
 │   ├─ Revise existing blueprint                 →  /devenv-refine-blueprint
 │   ├─ Groom component-level design direction    →  /devenv-grooming
-│   ├─ Build delivery roadmap from blueprint and/or requirements  →  /devenv-create-roadmap
+│   ├─ Build delivery roadmap from blueprint and/or specifications  →  /devenv-create-roadmap
 │   ├─ Structurally revise roadmap (split, re-sequence) → /devenv-refine-roadmap
 │   └─ Sync roadmap state from issues / PRs      →  /devenv-update-roadmap
 │
@@ -62,14 +62,14 @@ What are you trying to do?
 
 These are the backbone of the catalog. Start here if you're unsure.
 
-### `/devenv-gather-requirements`
+### `/devenv-write-specifications`
 
-> **Before planning begins, when requirements are undefined.**
+> **Before planning begins, when specifications are undefined.**
 
-Conducts a structured three-phase interview (vision → requirements → roadmap) and produces a `Requirements-<topic>-NNN.md`. Maintains a `session_memory-requirements.md` across sessions. The requirements document then feeds into `/devenv-create-blueprint` or `/devenv-create-implementation-plan`.
+Conducts a structured three-phase interview (vision → specifications → roadmap) and produces a `Specifications-<topic>-NNN.md`. Maintains a `session_memory-specifications.md` across sessions. The specifications document then feeds into `/devenv-create-blueprint` or `/devenv-create-implementation-plan`.
 
 **Use for:** new systems or features where what the system should do isn't yet defined
-**Don't use for:** requirements already exist (→ `/devenv-create-blueprint` for epic-scale work, `/devenv-create-implementation-plan` for single deliverables), quick inline clarifications
+**Don't use for:** specifications already exist (→ `/devenv-create-blueprint` for epic-scale work, `/devenv-create-implementation-plan` for single deliverables), quick inline clarifications
 **Tool deps:** none
 
 ---
@@ -153,9 +153,9 @@ Interviews the user to establish audience, output format, and scope before touch
 
 > **Conversational fact-finding with source code or markdown-first repos — the repo talks back.**
 
-Orients against README, project structure, runtime entry points or primary documents, and test/evidence layout for one or more repos, then answers questions in the voice of the repo itself — witty, slightly sarcastic, always cited to `file:line`. Caches orientation in session memory. Handles architecture, data flow, history/intent, dependency, cross-cutting, runbook, and docs-interrogation questions (requirements, blueprints, plans). Suggests transitioning to a sibling skill when conversation drifts toward planning or implementation.
+Orients against README, project structure, runtime entry points or primary documents, and test/evidence layout for one or more repos, then answers questions in the voice of the repo itself — witty, slightly sarcastic, always cited to `file:line`. Caches orientation in session memory. Handles architecture, data flow, history/intent, dependency, cross-cutting, runbook, and docs-interrogation questions (specifications, blueprints, plans). Suggests transitioning to a sibling skill when conversation drifts toward planning or implementation.
 
-**Use for:** understanding an unfamiliar codebase or markdown-first planning/docs repo; cross-repo questions; architecture, behaviour, data flow, dependency, runbook, and requirements/blueprint interrogation  
+**Use for:** understanding an unfamiliar codebase or markdown-first planning/docs repo; cross-repo questions; architecture, behaviour, data flow, dependency, runbook, and specifications/blueprint interrogation  
 **Don't use for:** writing or changing files (→ `/devenv-pair-programming`, or → `/devenv-delegation` for a commissioned autonomous run); formal debt findings (→ `/devenv-tech-debt-audit`); architecture design (→ `/devenv-create-blueprint` or `/devenv-design-discussion`)  
 **Tool deps:** none (read-only repo interrogation; writes only to session memory)
 
@@ -179,12 +179,12 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 
 | Skill | Purpose | Argument |
 | --- | --- | --- |
-| `/devenv-gather-requirements` | Three-phase requirements interview → requirements doc | System name or existing notes |
-| `/devenv-refine-requirements` | Revise an existing requirements doc, preserve REQ-NNN IDs | Requirements file path |
-| `/devenv-create-blueprint` | Architectural decomposition into a durable structured `Blueprint-*.md` artifact | System name or path to requirements |
+| `/devenv-write-specifications` | Three-phase specifications interview → specifications doc | System name or existing notes |
+| `/devenv-refine-specifications` | Revise an existing specifications doc, preserve SPEC-NNN IDs | Specifications file path |
+| `/devenv-create-blueprint` | Architectural decomposition into a durable structured `Blueprint-*.md` artifact | System name or path to specifications |
 | `/devenv-refine-blueprint` | Revise an existing durable `Blueprint-*.md` while preserving decisions and revision history | Blueprint file path |
 | `/devenv-grooming` | Consolidated component-level design intake and routing; always creates or updates a durable structured `Grooming-*.md` artifact before handoff, then produces a Feature/Fix/Task issue attack plan by repo with independently shippable slices; default return point for accumulated design issues in a plan; reconciles material as-built deviations from a completed plan back into the grooming document | Problem statement, component path, design doc path, plan path (in-flight or completed), or issue # |
-| `/devenv-create-roadmap` | Phased delivery sequencing + GH issue creation | Blueprint and/or requirements file path (at least one) |
+| `/devenv-create-roadmap` | Phased delivery sequencing + GH issue creation | Blueprint and/or specifications file path (at least one) |
 | `/devenv-refine-roadmap` | Structurally revise a roadmap — split, re-sequence, add | Roadmap file path |
 | `/devenv-update-roadmap` | Sync roadmap status from issues + PRs | Roadmap file path |
 | `/devenv-create-implementation-plan` | Create a current-state execution plan via interview; supports direct-plan mode and treats side-stream artifacts as additional (non-directing) context | Issue # or description |
@@ -236,7 +236,7 @@ For the complete version of these flows, see [Workflow Guide](../../../../docs/W
 ### Default delivery flow
 
 ```text
-/devenv-gather-requirements
+/devenv-write-specifications
   → /devenv-create-blueprint
     → /devenv-grooming
       → /devenv-create-implementation-plan
@@ -336,8 +336,8 @@ Direct-plan exception:
 ### Upstream change cascade
 
 ```text
-Requirements changed
-  -> /devenv-refine-requirements
+Specifications changed
+  -> /devenv-refine-specifications
   -> /devenv-refine-blueprint or /devenv-create-blueprint
   -> /devenv-grooming
   -> /devenv-refine-implementation-plan
@@ -368,16 +368,16 @@ Blueprint changed
 | Potential confusion | Clarification |
 | --- | --- |
 | `/devenv-create-implementation-plan` | Interview-driven planning, with direct-plan mode for complete specs/RFCs/issues. |
-| `/devenv-gather-requirements` vs `/devenv-create-implementation-plan` | Requirements describe *what* the system does (user perspective). Implementation plans describe *how* to build it (engineering tasks). One requirements phase may produce multiple implementation plans. |
+| `/devenv-write-specifications` vs `/devenv-create-implementation-plan` | Specifications describe *what* the system does (user perspective). Implementation plans describe *how* to build it (engineering tasks). One specifications phase may produce multiple implementation plans. |
 | `/devenv-create-blueprint` vs `/devenv-create-implementation-plan` | Blueprint is high-level architecture across multiple components (domains, services, events, deltas). Implementation plan is task-level for one deliverable. A blueprint typically spawns several implementation plans. |
 | `/devenv-grooming` vs specialized component design skills | Use grooming when you are not sure whether the work is option-weighing or design update, or when plan problems are accumulating and may require broader reshaping. It routes to `/devenv-design-discussion` when the real need is one bounded design question. |
-| `/devenv-create-blueprint` vs `/devenv-gather-requirements` | Requirements are user/functional perspective (*what*). Blueprint is technical/architectural perspective (*how* the system is structured). Both can exist for the same system. |
+| `/devenv-create-blueprint` vs `/devenv-write-specifications` | Specifications are user/functional perspective (*what*). Blueprint is technical/architectural perspective (*how* the system is structured). Both can exist for the same system. |
 | `/devenv-create-roadmap` vs `/devenv-create-implementation-plan` | Roadmap is component-level sequencing across the whole epic with GH issues per step. Implementation plan is task-level for one component/deliverable. Each roadmap step typically gets its own implementation plan. |
 | `/devenv-update-roadmap` vs `/devenv-refine-roadmap` | `update-roadmap` syncs **status** from issues (mechanical, frequent). `refine-roadmap` revises **structure** — split steps, re-sequence phases, add or supersede steps (deliberate). |
 | `/devenv-refine-roadmap` vs `/devenv-refine-blueprint` | `refine-roadmap` adjusts delivery sequencing within the existing architecture. `refine-blueprint` changes the architecture itself. Architectural changes usually trigger a roadmap refine afterwards. |
 | `/devenv-update-roadmap` vs `/devenv-refine-blueprint` | `update-roadmap` syncs status from issues (mechanical, frequent). `refine-blueprint` revises architectural decisions (rare, deliberate). |
-| `/devenv-gather-requirements` Phase 3 vs `/devenv-create-roadmap` | Phase 3 produces stakeholder priority *groups* (`GROUP-NN`) — business sequencing intent only. `/devenv-create-roadmap` produces a real delivery roadmap (`PHASE-NN` / `STEP-NN`) with components, dependencies, and GH issues. The roadmap supersedes priority groups for execution. |
-| `/devenv-refine-requirements` vs `/devenv-gather-requirements` | Refine preserves existing REQ-NNN IDs and dependency links; gather creates from scratch. Use refine for anything except a brand-new requirements doc. |
+| `/devenv-write-specifications` Phase 3 vs `/devenv-create-roadmap` | Phase 3 produces stakeholder priority *groups* (`GROUP-NN`) — business sequencing intent only. `/devenv-create-roadmap` produces a real delivery roadmap (`PHASE-NN` / `STEP-NN`) with components, dependencies, and GH issues. The roadmap supersedes priority groups for execution. |
+| `/devenv-refine-specifications` vs `/devenv-write-specifications` | Refine preserves existing SPEC-NNN IDs and dependency links; gather creates from scratch. Use refine for anything except a brand-new specifications doc. |
 | `/devenv-refine-implementation-plan` surgical mode vs revision mode | Same skill, two depths. Surgical: ≤3 known small edits, per-edit confirm, no interview. Revision: scope/structure changes or >3 edits, full interview. Assessment mode first when staleness is unknown. |
 | `/devenv-pair-programming` vs `/devenv-delegation` | Autonomy span. Pair = one task/small chunk per human touchpoint and the only home for high-impact work. Delegation = a commissioned phase-scale autonomous run, mechanical work only, explicit invocation required. Prefer `/devenv-pair-programming` when in doubt. |
 | `/devenv-code-review` vs `/devenv-address-pr-comments` | Review assistance for your changes vs you address a reviewer's comments. |

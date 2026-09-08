@@ -12,7 +12,7 @@ Skills for producing written documentation of existing systems and components.
 
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 | --- | --- | --- | --- |
-| `/devenv-document` | Interview-driven documentation of an existing system, component, or cross-cutting concern — reads docs first, code second | "document this system", "write documentation for", "I need docs for", "create a context brief", "document this codebase", "document this component", "write up how this works", "we need documentation for" | conversational Q&A without a written output → `/devenv-chat-with-code`; formal architectural design → `/devenv-create-blueprint`; functional requirements → `/devenv-gather-requirements`; tech debt assessment → `/devenv-tech-debt-audit` |
+| `/devenv-document` | Interview-driven documentation of an existing system, component, or cross-cutting concern — reads docs first, code second | "document this system", "write documentation for", "I need docs for", "create a context brief", "document this codebase", "document this component", "write up how this works", "we need documentation for" | conversational Q&A without a written output → `/devenv-chat-with-code`; formal architectural design → `/devenv-create-blueprint`; functional specifications → `/devenv-write-specifications`; tech debt assessment → `/devenv-tech-debt-audit` |
 
 ---
 
@@ -23,7 +23,7 @@ Skills for thinking, investigating, and triaging — before any plan or code exi
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 | --- | --- | --- | --- |
 | `/devenv-rubber-duck` | Think out loud — no artifact produced | "think out loud", "rubber duck", "I'm stuck and need to talk it through", "help me think through X" | when opinions and a recommendation are wanted → `/devenv-design-discussion`; when an artifact (findings doc, plan) is needed → `/devenv-spike` |
-| `/devenv-chat-with-code` | Conversational fact-finding session with source code or markdown-first repos (requirements, blueprints, plans) — the repo talks back | "chat with this code", "explain this repo", "how does X work", "walk me through the architecture", "what does this codebase do", "explain this service", "I want to understand this code", "interrogate this requirements doc", "walk this blueprint with me" | writing or changing files → `/devenv-pair-programming`, or `/devenv-delegation` for a commissioned autonomous mechanical run; formal debt assessment → `/devenv-tech-debt-audit`; architecture design → `/devenv-create-blueprint` or `/devenv-design-discussion` |
+| `/devenv-chat-with-code` | Conversational fact-finding session with source code or markdown-first repos (specifications, blueprints, plans) — the repo talks back | "chat with this code", "explain this repo", "how does X work", "walk me through the architecture", "what does this codebase do", "explain this service", "I want to understand this code", "interrogate this specifications doc", "walk this blueprint with me" | writing or changing files → `/devenv-pair-programming`, or `/devenv-delegation` for a commissioned autonomous mechanical run; formal debt assessment → `/devenv-tech-debt-audit`; architecture design → `/devenv-create-blueprint` or `/devenv-design-discussion` |
 | `/devenv-design-discussion` | Opinionated, conversation-first thinking partner for design / architectural choices at any zoom level; especially useful for one bounded blocker or design question; writes `Solution_Proposal_<topic>-NNN.md` only when asked (context for downstream technical design) | "discuss the design", "weigh the options", "talk through the approach", "what's the right way to structure this", "discuss an architectural change", "single blocker in this plan needs brainstorming" | fuzzy articulation with no opinions → `/devenv-rubber-duck`; feasibility prototyping → `/devenv-spike`; formal architectural decomposition → `/devenv-create-blueprint`; task breakdown when approach is already chosen → `/devenv-create-implementation-plan` |
 | `/devenv-spike` | Investigate a question and produce a structured findings doc; empowered like the bug hunter — may modify target-repo code and run destructive-class experiments with just-in-time consent and a stated recovery route | "spike on X", "investigate whether we can Y", "feasibility of Z", "throwaway prototype", "proof-of-concept" | writing production code → `/devenv-pair-programming`, lightweight thinking → `/devenv-rubber-duck`, opinionated approach comparison → `/devenv-design-discussion`, verifying a specific suspected bug → `/devenv-bug-hunter` |
 | `/devenv-tech-debt-audit` | Opinionated codebase audit that surfaces tech debt and correctness/bug risks, optionally focused by module or bug class | "hunt for bugs", "find bug risks", "look for race conditions", "audit this area for bugs", "bug hunt in <module>", "scan for null/date/idempotency bugs" | single known or suspected bug (verify / diagnose / fix) → `/devenv-bug-hunter`; single PR review → `/devenv-code-review`; collaborative implementation → `/devenv-pair-programming` |
@@ -32,14 +32,14 @@ Skills for thinking, investigating, and triaging — before any plan or code exi
 
 ---
 
-## Category: Requirements
+## Category: Specifications
 
 Skills for capturing and formalising what a system should do, before any implementation planning begins.
 
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 | --- | --- | --- | --- |
-| `/devenv-gather-requirements` | Structured interview to produce a requirements doc OR brainstorm changes to an existing doc (pass file path) | "gather requirements", "requirements document", "define the requirements for", "I have a new idea", "brainstorm this change", "what if we...", "interview me for requirements", pass an existing Requirements-*.md file path | quick inline feature clarification; code generation; applying known changes to an existing doc → `/devenv-refine-requirements` |
-| `/devenv-refine-requirements` | Revise an existing requirements doc when you already know what to change (apply known changes directly) | "refine the requirements", "update the requirements", "the requirements need updating" | creating a new requirements doc → `/devenv-gather-requirements`; brainstorming changes to an existing doc → `/devenv-gather-requirements` (pass file path); ad-hoc one-line edits (just edit the file); revising the blueprint → `/devenv-refine-blueprint` |
+| `/devenv-write-specifications` | Structured interview to produce a specifications doc OR brainstorm changes to an existing doc (pass file path) | "write specifications", "specifications document", "define the specifications for", "I have a new idea", "brainstorm this change", "what if we...", "interview me for specifications", pass an existing Specifications-*.md file path | quick inline feature clarification; code generation; applying known changes to an existing doc → `/devenv-refine-specifications` |
+| `/devenv-refine-specifications` | Revise an existing specifications doc when you already know what to change (apply known changes directly) | "refine the specifications", "update the specifications", "the specifications need updating" | creating a new specifications doc → `/devenv-write-specifications`; brainstorming changes to an existing doc → `/devenv-write-specifications` (pass file path); ad-hoc one-line edits (just edit the file); revising the blueprint → `/devenv-refine-blueprint` |
 
 ---
 
@@ -49,10 +49,10 @@ Skills for architectural design at all zoom levels — system (blueprint), compo
 
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 | --- | --- | --- | --- |
-| `/devenv-create-blueprint` | Architectural decomposition into domains, services, events, and per-component deltas, written as a durable structured `Blueprint-*.md` artifact | "create a blueprint", "design this system", "architect this epic", "produce an architectural design", "blueprint this" | low-level task breakdown → `/devenv-create-implementation-plan`; sequencing into milestones → `/devenv-create-roadmap`; user-level requirements → `/devenv-gather-requirements` |
+| `/devenv-create-blueprint` | Architectural decomposition into domains, services, events, and per-component deltas, written as a durable structured `Blueprint-*.md` artifact | "create a blueprint", "design this system", "architect this epic", "produce an architectural design", "blueprint this" | low-level task breakdown → `/devenv-create-implementation-plan`; sequencing into milestones → `/devenv-create-roadmap`; user-level specifications → `/devenv-write-specifications` |
 | `/devenv-grooming` | Consolidated intake for component-level design work; creates or updates a durable structured `Grooming-*.md` artifact, records confirmed/pending/deferred decisions, and produces a Feature/Fix/Task issue attack plan by repo with independently shippable slices before any implementation handoff; also reconciles material as-built deviations from a completed implementation plan back into the grooming document | "groom this", "help decide design path", "which component design workflow", "plan has architectural issues", "accumulated architectural issues in this plan", "shape this feature before planning", "sync grooming with the completed plan", "backport what was actually built" | system-level architecture decomposition → `/devenv-create-blueprint`; pure task planning with no architecture decision → `/devenv-refine-implementation-plan`; coding execution → `/devenv-pair-programming` (or `/devenv-delegation` when the user commissions an autonomous mechanical run) |
 | `/devenv-refine-blueprint` | Revise an existing durable `Blueprint-*.md` when architecture change direction is known, preserving structure and revision history | "refine the blueprint", "update the blueprint", "revise the architecture", "the blueprint needs updating" | broad non-surgical architecture rethink → `/devenv-create-blueprint`; unresolved option-weighing before edits are known → `/devenv-design-discussion`; ad-hoc one-line edits (just edit the file); structural roadmap changes → `/devenv-refine-roadmap`; status-only roadmap sync → `/devenv-update-roadmap` |
-| `/devenv-create-roadmap` | Phased delivery sequencing from a blueprint and/or requirements doc, with optional GH issue creation. Canonical entry point for bulk issue creation from a planning doc. | "create a roadmap", "plan delivery order", "build a roadmap from this blueprint", "build a roadmap from these requirements", "lay out the delivery phases" | low-level task breakdown → `/devenv-create-implementation-plan`; syncing roadmap state from issues → `/devenv-update-roadmap`; structural revisions → `/devenv-refine-roadmap`; nothing to plan from yet → `/devenv-gather-requirements` or `/devenv-create-blueprint` |
+| `/devenv-create-roadmap` | Phased delivery sequencing from a blueprint and/or specifications doc, with optional GH issue creation. Canonical entry point for bulk issue creation from a planning doc. | "create a roadmap", "plan delivery order", "build a roadmap from this blueprint", "build a roadmap from these specifications", "lay out the delivery phases" | low-level task breakdown → `/devenv-create-implementation-plan`; syncing roadmap state from issues → `/devenv-update-roadmap`; structural revisions → `/devenv-refine-roadmap`; nothing to plan from yet → `/devenv-write-specifications` or `/devenv-create-blueprint` |
 | `/devenv-refine-roadmap` | Structurally revise an existing roadmap — split steps, re-sequence, add components | "refine the roadmap", "revise the roadmap", "split this step", "re-sequence the phases", "the roadmap structure needs updating" | status-only sync from issues/PRs → `/devenv-update-roadmap`; creating a new roadmap → `/devenv-create-roadmap`; revising the underlying blueprint → `/devenv-refine-blueprint` |
 | `/devenv-update-roadmap` | Sync roadmap step status from linked issues and PRs; create missing issues | "update the roadmap", "sync the roadmap", "refresh roadmap status", "the roadmap is out of date" | creating a new roadmap → `/devenv-create-roadmap`; structural revisions (split, re-sequence, add steps) → `/devenv-refine-roadmap`; refining the underlying blueprint → `/devenv-refine-blueprint` |
 
@@ -64,7 +64,7 @@ Skills for creating, updating, and inspecting implementation plans.
 
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 | --- | --- | --- | --- |
-| `/devenv-create-implementation-plan` | Interview the user and write a phased current-state `Implementation_plan-*.md`; loads issue body + comments when a GitHub issue is the source; triggers grooming redivision when scope is too large/risky; supports direct-plan mode for complete specs/RFCs/design docs and treats side-stream artifacts as additional (non-directing) context | "create an implementation plan", "plan this story", "break this task into phases", "write up a plan for this", "plan from this spec", "convert this issue into a plan" | vague/incomplete ideas → `/devenv-gather-requirements` first; revising existing plan → `/devenv-refine-implementation-plan` |
+| `/devenv-create-implementation-plan` | Interview the user and write a phased current-state `Implementation_plan-*.md`; loads issue body + comments when a GitHub issue is the source; triggers grooming redivision when scope is too large/risky; supports direct-plan mode for complete specs/RFCs/design docs and treats side-stream artifacts as additional (non-directing) context | "create an implementation plan", "plan this story", "break this task into phases", "write up a plan for this", "plan from this spec", "convert this issue into a plan" | vague/incomplete ideas → `/devenv-write-specifications` first; revising existing plan → `/devenv-refine-implementation-plan` |
 | `/devenv-refine-implementation-plan` | Align a plan with reality from any starting point — surgical edits (tick a box, add a note; max 3), structured revision after scope changes/discoveries/deviations, or staleness assessment with internal routing (slight/significant/intent-only) | "refine the plan", "update the plan", "mark 3.4 done", "tick off task 2.1", "refresh the plan", "is this plan still valid?", "the plan might be out of date" | creating a new plan → `/devenv-create-implementation-plan`; executing the plan → `/devenv-pair-programming` / `/devenv-delegation` |
 
 ---
@@ -171,10 +171,10 @@ For in-flight work: check where things stand, progress the plan, ship.
 
 ### Chain D — From raw idea to merged PR (full lifecycle)
 
-For new systems or features where requirements are undefined. Default happy path: requirements, then blueprint, then component design, then executable plan, then delivery.
+For new systems or features where specifications are undefined. Default happy path: specifications, then blueprint, then component design, then executable plan, then delivery.
 
 ```
-/devenv-gather-requirements
+/devenv-write-specifications
   → /devenv-create-blueprint
     → /devenv-grooming
       → /devenv-create-implementation-plan
@@ -186,16 +186,16 @@ For new systems or features where requirements are undefined. Default happy path
             → /devenv-pre-commit
 ```
 
-**Start here:** `/devenv-gather-requirements`
+**Start here:** `/devenv-write-specifications`
 
 ---
 
-### Chain E — From requirements to delivery roadmap (architecture-driven)
+### Chain E — From specifications to delivery roadmap (architecture-driven)
 
-For epic-scale work where requirements need to translate into architecture and a sequenced delivery plan with GitHub issues. Each roadmap step then spawns a technical design (for new components) and an implementation plan as work begins.
+For epic-scale work where specifications need to translate into architecture and a sequenced delivery plan with GitHub issues. Each roadmap step then spawns a technical design (for new components) and an implementation plan as work begins.
 
 ```
-/devenv-gather-requirements
+/devenv-write-specifications
   → /devenv-create-blueprint
     → /devenv-create-roadmap         (creates GH issues across component repos)
       → /devenv-grooming             (classify component-level design work before tasks are written)
@@ -206,12 +206,12 @@ For epic-scale work where requirements need to translate into architecture and a
   Throughout delivery:
     /devenv-update-roadmap            (sync status from issues + PRs)
     /devenv-refine-roadmap            (structural changes — split steps, re-sequence)
-    /devenv-refine-requirements       (when stakeholder priorities or scope shift)
+    /devenv-refine-specifications       (when stakeholder priorities or scope shift)
     /devenv-refine-blueprint          (when architecture changes mid-flight)
     /devenv-grooming                  (when a component's internal design needs a delta for in-flight work)
 ```
 
-**Start here:** `/devenv-gather-requirements` (or `/devenv-create-blueprint` if requirements already exist)
+**Start here:** `/devenv-write-specifications` (or `/devenv-create-blueprint` if specifications already exist)
 
 ---
 
@@ -239,7 +239,7 @@ For legacy or underdocumented systems that need to be understood before any new 
 ```
 /devenv-document                     (understand and write up the existing system)
   → /devenv-create-blueprint         (if architecture changes are coming)
-  → /devenv-gather-requirements      (if functional requirements need to be defined)
+  → /devenv-write-specifications      (if functional specifications need to be defined)
   → /devenv-create-implementation-plan   (if a specific deliverable is already defined)
 ```
 

@@ -22,7 +22,7 @@ All bash functions MUST use **snake_case** naming convention for consistency and
 | `set_` | Assign a value | `config_set()` |
 | `check_` | Verify condition (returns 0/1) | `check_bash_version()` |
 | `validate_` | Check input validity | `validate_positive_integer()` |
-| `require_` | Assert requirement or fail | `require_command()` |
+| `require_` | Assert specification item or fail | `require_command()` |
 | `is_` | Boolean check | `is_strict_mode_enabled()` |
 | `has_` | Check for existence | `config_has()` |
 | `add_` | Add an item | `add_git_safe_directory()` |

@@ -361,7 +361,7 @@ install_security_tools() {
 }
 
 configure_compliance() {
-    echo "# Configuring compliance requirements"
+    echo "# Configuring compliance specifications"
     git config --global commit.gpgsign true
     # Additional compliance setup
 }

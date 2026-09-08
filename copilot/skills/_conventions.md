@@ -65,7 +65,7 @@ Use these headings, in this order, omitting any that don't apply. Keep section t
 
 ## Superseding content
 
-When a skill removes content it previously preserved (a requirement, roadmap step, plan task, or similar artifact), the rule is: **delete from the document; log in Revision History**. Do not leave tombstone blocks, strikethroughs, or "Superseded by" blockquotes in the live document body — they add noise and are confusing to the AI on the next load.
+When a skill removes content it previously preserved (a specification item, roadmap step, plan task, or similar artifact), the rule is: **delete from the document; log in Revision History**. Do not leave tombstone blocks, strikethroughs, or "Superseded by" blockquotes in the live document body — they add noise and are confusing to the AI on the next load.
 
 Revision History entry format for a deletion:
 
@@ -76,11 +76,11 @@ Revision History entry format for a deletion:
 Examples:
 
 ```
-- Removed REQ-007 (Auth: minimum password length) — superseded by REQ-014
+- Removed SPEC-007 (Auth: minimum password length) — superseded by SPEC-014
 - Removed STEP-12 (Load test baseline) — withdrawn, moved to separate performance track. Linked issue: #418.
 ```
 
-Skills that follow this convention: `devenv-refine-requirements`, `devenv-refine-roadmap`, `devenv-refine-blueprint`, `devenv-refine-implementation-plan`.
+Skills that follow this convention: `devenv-refine-specifications`, `devenv-refine-roadmap`, `devenv-refine-blueprint`, `devenv-refine-implementation-plan`.
 
 ## Artifact brevity rules
 
@@ -172,7 +172,7 @@ Hard rule:
 Add the following blockquote **immediately after the `# Skill Title` heading** (before the opening paragraph) for any skill that:
 
 - Runs a multi-turn interview, or
-- Produces a written artifact (plan, blueprint, requirements doc, roadmap, design doc, handoff), or
+- Produces a written artifact (plan, blueprint, specifications doc, roadmap, design doc, handoff), or
 - Drives iterative implementation (pair-programming, delegation).
 
 Omit it for lightweight utility skills that complete in a single turn: `pre-commit`, `open-pr`, `triage-issue`, `rubber-duck`, `skill-guru`, `session-handoff`, `update-roadmap`, `code-review`, `chat-with-code`, `plan-status`, `plan-update`.
@@ -354,7 +354,7 @@ All execution skills — those that write code, run tests, or modify the codebas
 
 **When an unexpected bug is encountered:** a bug not already listed in the plan's known issues or task descriptions must trigger an immediate stop, not be silently encoded in tests or worked around in code.
 
-Test-integrity requirement (all execution skills):
+Test-integrity specification item (all execution skills):
 
 - Do not remove, loosen, skip, or narrow failing behavior assertions to hide a real product defect or to recover a green run.
 - Keep behavior assertions that reveal the defect, add a focused reproduction test when useful, then fix implementation.
@@ -457,7 +457,7 @@ Also add a one-liner near the top of each `SKILL.md`: "See the [Skills catalog](
 
 ## Open Questions Log (Q-NNN)
 
-Shared format for any skill that tracks open design or requirements questions across a session.
+Shared format for any skill that tracks open design or specifications questions across a session.
 
 ```
 Q-NNN  [status]   Question text
@@ -469,11 +469,11 @@ Example:
 
 ```
 Q-001  [open]        Should account deletion be hard-delete or soft-delete?
-                     Raised: Phase 1. Affects: REQ-003, REQ-011.
+                     Raised: Phase 1. Affects: SPEC-003, SPEC-011.
 Q-002  [resolved]    Must order history persist after account deletion?
-                     Resolution: anonymised retention — REQ-011 updated to clarify.
+                     Resolution: anonymised retention — SPEC-011 updated to clarify.
 Q-003  [deferred]    Is the 200ms search latency target p50 or p99?
-                     Affects: REQ-017. Deferred — pending performance benchmarks.
+                     Affects: SPEC-017. Deferred — pending performance benchmarks.
 ```
 
 Status transitions: `open` → `brainstorming` (actively being discussed) → `resolved` (user decided; affected artifacts updated) or `deferred` (explicitly set aside; affected artifact annotated with the open question number).
@@ -496,7 +496,7 @@ When a skill needs to summarize one or more existing documents or repos, prefer 
 
 | Context | Fields to request |
 | --- | --- |
-| Requirements docs / communications | Stated goals, decisions reached, open questions, named actors, constraints mentioned, concrete behaviors described |
+| Specifications docs / communications | Stated goals, decisions reached, open questions, named actors, constraints mentioned, concrete behaviors described |
 | Architecture / blueprint docs | Architectural decisions, components/services, integration points, QoS/constraint statements, trade-offs, open architectural questions |
 | Existing component (brownfield) | Current purpose, owned aggregates, public API, events emitted/consumed, known dependencies |
 
@@ -516,7 +516,7 @@ Required behavior:
 
 1. Ask the user which context applies (or state inferred context and ask for confirmation).
 2. Resolve and confirm the component repo path and canonical design document path before survey work.
-3. Accept source inputs from either pasted text or markdown file paths (blueprint sections, requirements, notes).
+3. Accept source inputs from either pasted text or markdown file paths (blueprint sections, specifications, notes).
 4. Capture constraints explicitly in these buckets: dependencies/libraries, infrastructure/runtime, security/compliance, performance/SLO, and timeline/process constraints.
 5. Post an intake summary and require explicit confirmation before moving into diagnosis or design phases.
 

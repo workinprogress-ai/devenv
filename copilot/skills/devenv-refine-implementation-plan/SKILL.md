@@ -114,7 +114,7 @@ In revision mode, use `vscode_askQuestions` to gather:
 - **What's wrong** — tasks whose descriptions are now misleading or whose scope changed.
 - **What's done outside the plan** — work completed that should be marked `[x]` retroactively.
 - **What's no longer relevant** — tasks to remove, strike, or replace while preserving clear current-state intent
-- **Acceptance criteria changes** — whether any ACs need to be added, revised, or deprecated as a result of the scope change. Infer candidate changes from the new requirements and present them for the user to confirm rather than asking the user to define them from scratch. See AC rules in Step 3.
+- **Acceptance criteria changes** — whether any ACs need to be added, revised, or deprecated as a result of the scope change. Infer candidate changes from the new specifications and present them for the user to confirm rather than asking the user to define them from scratch. See AC rules in Step 3.
 - **Upstream design changes** — whether a design doc/RFC/Blueprint/Redesign decision changed and should be reflected in `## Appendix`.
 - **Grooming carry-forward** — if a grooming artifact is present, confirm which `Confirmed` / `Deferred` / still-relevant `Pending` items must now be represented in the plan's phase watch-outs, task `decision:` metadata, `## Pending Questions`, appendix, or explicit scope boundaries.
 - **Pending questions** — whether any unresolved questions should be added, answered, moved inline under a task/phase, or spun out into a follow-up issue.
@@ -126,7 +126,7 @@ In revision mode, use `vscode_askQuestions` to gather:
   Do not continue plan refinement for architectural items until the design question is resolved.
 - **Legacy code exposure** — if new tasks will introduce implementations that coexist with existing legacy code in the same files across multiple phases, flag the issue: the plan likely needs an early cleanup phase. See [phase-rules.md](../devenv-create-implementation-plan/references/phase-rules.md) for available patterns (demolition, hollow-out, rename suffix, branch by abstraction). Surface the viable options and a recommendation before writing new tasks; don't silently pick one.
 
-Do not assume. If the new requirements imply renumbering or reordering, flag it and ask before proceeding.
+Do not assume. If the new specifications imply renumbering or reordering, flag it and ask before proceeding.
 
 ### 2a. Optional pressure-test pass (user-gated)
 
@@ -157,7 +157,7 @@ Before applying edits, offer an optional pressure-test pass using [pressure-test
 - **Never reflow existing AC-N identifiers.** An AC numbered `AC-3` stays `AC-3` for its entire lifetime — same principle as task numbers.
 - **Never silently uncheck a `[x]`.** If a completed task's scope must change, leave it checked and add a new task for the additional work.
 - **New tasks are appended to the end of their phase** with the next sequential number (e.g. if Phase 2 ends at 2.7, the next new task is 2.8). New tasks must use the full task format: `- [ ] **N.M [S|M|L] Title**` header, descriptive sub-bullets first, then `Files:` / `decision:` / `owner:` / `depends on` metadata. Do not add skeletal or title-only tasks.
-- **When the target phase is fully complete (`[x]` on all its tasks), do not append to it.** Adding tasks to a complete phase misrepresents how the work progressed and resets progress markers. Instead, create one or more new phases numbered sequentially after the last existing phase (e.g. if the plan ends at Phase 4, new work goes in Phase 5, 6, etc.). This applies equally when the entire plan is complete — the canonical case is a plan that was finished and committed, then new downstream requirements surface that should have been part of the original scope.
+- **When the target phase is fully complete (`[x]` on all its tasks), do not append to it.** Adding tasks to a complete phase misrepresents how the work progressed and resets progress markers. Instead, create one or more new phases numbered sequentially after the last existing phase (e.g. if the plan ends at Phase 4, new work goes in Phase 5, 6, etc.). This applies equally when the entire plan is complete — the canonical case is a plan that was finished and committed, then new downstream specifications surface that should have been part of the original scope.
 
   **Phase numbering is structural, and task numbering may reflow when needed.** If the user explicitly wants the new phase inserted before a later existing phase, treat that as a structural revision: renumber the downstream phase headings sequentially, update any in-plan references that mention those phase numbers, and renumber any affected downstream task series when the insertion lands in the middle of them.
 

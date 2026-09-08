@@ -657,7 +657,7 @@ The `artifacts-list` script is built on the `artifact-operations.bash` library, 
 - `is_supported_package_type`: Validate package type support
 - `get_supported_package_types`: Get list of supported types
 
-These core functions can be sourced and used in other scripts for artifact-related operations. Output formatting functions are part of the `artifacts-list` script itself since they are specific to that script's display requirements.
+These core functions can be sourced and used in other scripts for artifact-related operations. Output formatting functions are part of the `artifacts-list` script itself since they are specific to that script's display specifications.
 
 ## GitHub Actions
 
@@ -1221,7 +1221,7 @@ issue-artifact-doc-id --issue ISSUE_NUMBER --artifact-type TYPE [--slug TEXT | -
 **Required Arguments:**
 
 - `--issue ISSUE_NUMBER`: Target issue number
-- `--artifact-type TYPE`: One of `spike`, `redesign`, `design`, `blueprint`, `requirements`, `roadmap`, `plan`, `implementation-plan`
+- `--artifact-type TYPE`: One of `spike`, `redesign`, `design`, `blueprint`, `specifications`, `roadmap`, `plan`, `implementation-plan`
 
 **Slug Source (exactly one required):**
 
@@ -2265,7 +2265,7 @@ Internal utility scripts located in `tools/scripts/` that are not exposed on the
 
 ### `repo-update-config.sh`
 
-Applies or updates GitHub repository configuration to an existing cloned repository. This is useful when configuration could not be applied during initial repository creation due to account limitations (e.g., GitHub Pro requirement for private repos) or if the configuration has changed and needs to be reapplied.
+Applies or updates GitHub repository configuration to an existing cloned repository. This is useful when configuration could not be applied during initial repository creation due to account limitations (e.g., GitHub Pro specification item for private repos) or if the configuration has changed and needs to be reapplied.
 
 **Usage:**
 
@@ -2698,7 +2698,7 @@ markdown-plan-complete-task --uncomplete 2.3 2.4
 
 Marks one or more acceptance-criteria checkboxes as complete (`[x]`) or
 incomplete (`[ ]`). AC items are identified by their number, e.g. `AC-3` or
-`AC-1.2`, as they appear in requirements or plan documents.
+`AC-1.2`, as they appear in specifications or plan documents.
 
 **Usage:**
 
@@ -2709,7 +2709,7 @@ markdown-plan-complete-ac [OPTIONS] AC_NUMBER... [FILE]
 **Arguments:**
 
 - `AC_NUMBER...`: One or more AC numbers to update (`AC-N`, `AC-N.N`, `AC-N.N.N`).
-- `FILE`: Path to the markdown file. Defaults to the first `Requirements-*.md`
+- `FILE`: Path to the markdown file. Defaults to the first `Specifications-*.md`
   found in the current directory; if none exists, the first
   `Implementation_plan-*.md` is tried. As with `markdown-plan-complete-task`,
   the file may appear anywhere among the arguments.
@@ -2722,14 +2722,14 @@ markdown-plan-complete-ac [OPTIONS] AC_NUMBER... [FILE]
 **Examples:**
 
 ```bash
-# Mark AC-3 complete in the auto-detected requirements file
+# Mark AC-3 complete in the auto-detected specifications file
 markdown-plan-complete-ac AC-3
 
 # Mark several criteria complete at once
 markdown-plan-complete-ac AC-1 AC-2 AC-3
 
 # Mark criteria complete in a specific file
-markdown-plan-complete-ac AC-1 AC-2 /path/to/Requirements-001.md
+markdown-plan-complete-ac AC-1 AC-2 /path/to/Specifications-001.md
 
 # Undo — mark criteria as incomplete
 markdown-plan-complete-ac --uncomplete AC-3 AC-4

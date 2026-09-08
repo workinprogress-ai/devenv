@@ -128,7 +128,7 @@ For `git`: prefer `git-*` wrappers when one exists for a non-trivial operation; 
 
 **English is the language of the codebase — including markdown.** Everything that lives in a repository is English, no exceptions:
 - **Code in all forms** — identifiers, variable/function/class/test names, code comments, and inline documentation.
-- **Markdown and documentation** — READMEs, docs, ADRs, and planning artifacts (implementation plans, blueprints, roadmaps, requirements docs, spike results, session handoffs).
+- **Markdown and documentation** — READMEs, docs, ADRs, and planning artifacts (implementation plans, blueprints, roadmaps, specifications docs, spike results, session handoffs).
 - **Commit messages and GitHub text** — commit titles/bodies, issue bodies, titles, comments, and PR descriptions posted via tools.
 
 **Translation copies of artifacts:** if the user asks for a translation of an artifact, a copy of it may be output in the user's language (typically to a temp or scratch file). The principal artifact in the repository remains in English.

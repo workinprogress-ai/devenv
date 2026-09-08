@@ -22,7 +22,7 @@ updated_at_utc: <ISO-8601>
 > **Date:** YYYY-MM-DD
 > **Authors:** <names / handles>
 > **Audience:** Engineering, Architecture, Management
-> **Related:** <Blueprint-*.md, Requirements-*.md, issues, prior decisions>
+> **Related:** <Blueprint-*.md, Specifications-*.md, issues, prior decisions>
 
 ## 1. Executive summary
 

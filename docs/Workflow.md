@@ -28,7 +28,7 @@ The workflow moves downward through a stack of increasingly specific artifacts:
 
 ```text
 Idea / request
-  -> Requirements
+  -> Specifications
   -> Blueprint
   -> Grooming
   -> Implementation plan
@@ -38,7 +38,7 @@ Idea / request
 
 Each layer answers a different question:
 
-- Requirements: what should the system do?
+- Specifications: what should the system do?
 - Blueprint: how should the system be structured at the system level?
 - Grooming: what is the component-level design direction, and what is the issue attack plan (Feature/Fix/Task by repo, independently shippable slices)?
 - Implementation plan: what are the executable phases and tasks for one selected issue slice?
@@ -60,7 +60,7 @@ This is the normal happy path.
 Raw idea / request
    |
    v
-Requirements
+Specifications
    |
    v
 Blueprint
@@ -81,7 +81,7 @@ Implementation plan
 
 In Devenv, the usual skill mapping is:
 
-- Requirements -> `/devenv-gather-requirements`
+- Specifications -> `/devenv-write-specifications`
 - Blueprint -> `/devenv-create-blueprint`
 - Grooming -> `/devenv-grooming`
 - Implementation plan -> `/devenv-create-implementation-plan`
@@ -95,8 +95,8 @@ Supporting view: the same happy path with Devenv skill support looks like this:
 Raw idea / request
   |
   v
-Requirements
-  |   supported by: /devenv-gather-requirements
+Specifications
+  |   supported by: /devenv-write-specifications
   v
 Blueprint
   |   supported by: /devenv-create-blueprint
@@ -353,8 +353,8 @@ Supporting view with skill pivot:
 Changes can flow back upward, but once an upstream artifact changes, downstream artifacts must be revisited.
 
 ```text
-Requirements changed
-  -> refine requirements
+Specifications changed
+  -> refine specifications
   -> update blueprint if needed
   -> revisit grooming
   -> refresh implementation plan
@@ -377,8 +377,8 @@ The key idea is that downstream artifacts are not independent. If the upstream d
 Supporting view with common skill mapping:
 
 ```text
-Requirements changed
-  -> /devenv-refine-requirements
+Specifications changed
+  -> /devenv-refine-specifications
   -> /devenv-refine-blueprint or /devenv-create-blueprint
   -> /devenv-grooming
   -> /devenv-refine-implementation-plan
@@ -482,13 +482,15 @@ Existing-component feature request
 
 The core artifacts are:
 
-- Requirements doc: functional intent
+- Specifications doc: functional intent
 - Blueprint: system architecture
 - Grooming artifact: component-level design decisions and deltas
 - Implementation plan: executable phases and tasks
 - Solution proposal: focused answer to one design question; canonical as a file, optionally published elsewhere for context
 
 Do not treat these as interchangeable. Each exists to answer a different question.
+
+**Specifications are living documents.** A specifications doc is not a point-in-time snapshot signed off and archived — it is the system's current functional truth, expected to evolve as understanding deepens and implementation reveals gaps. When reality changes, the specifications are refined to match (current-state prose, stable IDs, history in `## Revision History`); a specifications document that no longer matches reality is a defect in the document. The other planning artifacts share this living quality — blueprints via `/devenv-refine-blueprint`, plans via the as-built principle — but specifications carry it most directly: they are kept true, not gathered once.
 
 Ephemeral markdown (bug descriptions to paste into an issue, feature requests for a backing library, scratch summaries that exist only for immediate use) is **not** a workflow artifact. Write it to `tmpN.md` in the active repo root (incrementing `N`, next free number; never assume an existing tmp file's contents). These files are expected to be deleted quickly and carry no artifact metadata.
 

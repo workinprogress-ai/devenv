@@ -42,22 +42,22 @@ The user provides a file path — e.g. `docs/Roadmap/Roadmap-orders-001.md`.
 
 Use `vscode_askQuestions` to gather:
 
-- **What's new** — steps, phases, or components to add (often driven by blueprint changes, or by a new requirements doc landing in a multi-epic project)
+- **What's new** — steps, phases, or components to add (often driven by blueprint changes, or by a new specifications doc landing in a multi-epic project)
 - **What needs splitting** — steps that grew too large during implementation
 - **What's wrong** — dependency edges that turned out to be inaccurate, phase boundaries that no longer make sense
 - **What's obsolete** — steps that are no longer needed; delete from doc and log in Revision History with the ID, a one-line summary, and the reason
 - **What needs re-sequencing** — steps moving between phases for dependency or priority reasons
-- **New requirements docs** — "Has a new `Requirements-<epic>-NNN.md` been added to the project that this roadmap should now cover?"
+- **New specifications docs** — "Has a new `Specifications-<epic>-NNN.md` been added to the project that this roadmap should now cover?"
 - **Source material** — "Are there meeting transcripts, design discussions, or other communications records behind these changes? If so, where are they?"
 
 If the user provides communications artifacts, summarise each one separately (prefer the `Explore` subagent, one invocation per artifact, in parallel where possible) with a prompt focused on architectural decisions, component changes, sequencing decisions, and trade-offs raised. Surface each summary back for confirmation, then drive the change list from the approved summaries. Note the source in the revision-history entry (step 4).
 
-### 2a. Incorporating a new requirements doc
+### 2a. Incorporating a new specifications doc
 
-When a multi-epic project grows a new `Requirements-<epic>-NNN.md` after the roadmap was first built:
+When a multi-epic project grows a new `Specifications-<epic>-NNN.md` after the roadmap was first built:
 
-1. Read the new doc; extract every requirement and its `Dependencies:` (including cross-doc edges back into the existing requirements).
-2. Draft a new candidate step per new requirement, asking the user for the target component (same procedure as `/devenv-create-roadmap` requirements-only mode).
+1. Read the new doc; extract every specification item and its `Dependencies:` (including cross-doc edges back into the existing specifications).
+2. Draft a new candidate step per new specification item, asking the user for the target component (same procedure as `/devenv-create-roadmap` specifications-only mode).
 3. **Append** the new steps with the next sequential `STEP-NN` IDs across the whole roadmap — do **not** renumber existing steps. Place each in the appropriate `PHASE-NN`, creating new phases at the end if the new epic deserves its own phases.
 4. Resolve cross-doc dependency edges into step-level `Depends on:` edges.
 5. Record the incorporation as a single revision-history entry citing the new doc path.
@@ -144,7 +144,7 @@ After writing, list what may need follow-up:
 - [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) — to create a new roadmap from scratch
 - [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md) — to sync step status from issues/PRs after structural edits
 - [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) — when the underlying architecture needs changing too
-- [`/devenv-refine-requirements`](../devenv-refine-requirements/SKILL.md) — when stakeholder priorities or requirements changed
+- [`/devenv-refine-specifications`](../devenv-refine-specifications/SKILL.md) — when stakeholder priorities or specifications changed
 - [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) — for plans tied to affected steps
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

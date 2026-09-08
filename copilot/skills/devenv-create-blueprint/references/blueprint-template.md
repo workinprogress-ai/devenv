@@ -15,12 +15,12 @@ updated_at_utc: <ISO-8601>
 # Blueprint: <System Name>
 
 <One paragraph: what this blueprint addresses and why. Reference the source
-Requirements document, GitHub issue, or brief if applicable. State whether
+Specifications document, GitHub issue, or brief if applicable. State whether
 this is greenfield or brownfield. Keep it short and avoid repeating details
 that will already appear in later sections.>
 
 **Status**: Draft | Approved | Superseded
-**Source requirements**: <link to Requirements-*.md or issue, if any>
+**Source specifications**: <link to Specifications-*.md or issue, if any>
 **Type**: Greenfield | Brownfield
 
 ## Revision History
@@ -227,7 +227,7 @@ For each significant cross-component interaction where the sync/async choice nee
 
 ## 7. References
 
-- Requirements: <link>
+- Specifications: <link>
 - Related blueprints: <links>
 - Pattern Library entries: <full URLs>
 - External specs / RFCs: <links>
