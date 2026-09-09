@@ -25,7 +25,6 @@ grep -l "Diagnostic Mode Protocol" copilot/skills/devenv-*/SKILL.md | wc -l
 ## Placement Rules Used
 
 - After Tool help policy blockquote, when present
-- Else after Model check blockquote, when present
 - Else directly below the H1 title
 
 This preserves each skill's structure while keeping the protocol discoverable.

@@ -160,20 +160,6 @@ Hard rule:
 
 - Never change skill identity during reground.
 
-## Model check
-
-Add the following blockquote **immediately after the `# Skill Title` heading** (before the opening paragraph) for any skill that:
-
-- Runs a multi-turn interview, or
-- Produces a written artifact (plan, blueprint, specifications doc, roadmap, design doc, handoff), or
-- Drives iterative implementation (pair-programming, delegation).
-
-Omit it for lightweight utility skills that complete in a single turn: `pre-commit`, `open-pr`, `triage-issue`, `rubber-duck`, `skill-guru`, `session-handoff`, `update-roadmap`, `code-review`, `chat-with-code`, `plan-status`, `plan-update`.
-
-```markdown
-> **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
-```
-
 ## When to push content into `references/`
 
 Push to a reference file when **all** of:

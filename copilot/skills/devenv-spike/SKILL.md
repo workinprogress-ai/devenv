@@ -6,8 +6,6 @@ argument-hint: A question / problem statement to investigate, OR a GitHub issue 
 
 # Spike
 
-> **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
-
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
 > **Aggressive-measures gate.** The spike is empowered like the bug hunter: some questions can only be answered by doing — creating code to prove something works, modifying target-repo code, deleting code to test what breaks, or running destructive-class experiments. The default lane is read-only plus a `playground/` prototype; anything beyond that (in-repo edits, behavior-altering changes, deletions, environment mutation) requires **just-in-time consent**: if the needed aggression level is visible at planning, ask then; otherwise ask the moment it emerges in investigation. Before any destructive-class action, announce the category and get a go-ahead — including the warning that afterward the user should be prepared to `git reset` the affected repo. The spike NEVER runs mutating git commands itself; restore is always the user's hands. Every temporary in-repo modification carries `TODO:(DEVENV[spike]): ...` markers so nothing empowered blends into permanent code unnoticed.

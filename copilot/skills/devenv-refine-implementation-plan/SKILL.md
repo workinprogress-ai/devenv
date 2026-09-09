@@ -6,8 +6,6 @@ argument-hint: Path to an Implementation_plan-*.md OR github-issue-number[:doc_i
 
 # Refine implementation plan
 
-> **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
-
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
 Take an existing implementation plan and align it with reality. The user's starting point differs — sometimes they know the exact small edit, sometimes they know the area that changed, sometimes they only suspect drift. This is one verb with three intake modes, not three skills. Preserve all existing progress; never silently undo work.

@@ -6,8 +6,6 @@ argument-hint: Repo path(s) (e.g. repos/lib.cs.services.bulk-sync), a GitHub iss
 
 # Tech Debt Audit
 
-> **Model check:** This skill is optimized for Claude Sonnet or Claude Opus. If you are running as a different model, warn the user before proceeding: *"⚠️ This skill is optimized for Claude Sonnet or Claude Opus. You are currently on [your model name] — consider switching before we begin."*
-
 A deliberate, opinionated audit of one or more repos that produces `TECH_DEBT_AUDIT.md` with file-cited findings, severity, effort estimates, and required sections for both top correctness/bug risks and "looks bad but is actually fine".
 
 When invoked via `/devenv-tech-debt-audit`, follow the protocol below exactly.
