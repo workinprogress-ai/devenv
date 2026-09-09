@@ -78,11 +78,13 @@ Classify the issue against the delivery workflow and route. Read the body for si
 | Codebase health / debt / architecture assessment | `/devenv-tech-debt-audit` | Audit produces findings + issue creation, not implementation |
 | Documentation gap for an existing system | `/devenv-document` | Interview-driven docs, docs-first code-second |
 | User-level functional definition missing (what should the system do?) | `/devenv-write-specifications` | Specifications interview before any architecture or planning |
+| Asks for a change to an existing blueprint or specifications doc (from users, stakeholders, or any non-queue source) | `/devenv-refine-specifications` or `/devenv-refine-blueprint` | Direction is already known and surgical; label `upstream-impact` so it joins the queue |
 | Just asks how to do something | answer + close, or link docs | Not every issue needs a skill |
 
 Routing rules:
 
 - **Check for upstream-impact issues first.** If the issue carries the `upstream-impact` label, it belongs to the refine queue: route to `/devenv-refine-specifications` or `/devenv-refine-blueprint` (issue intake, cascade mode) — do not route it to execution skills.
+- **Label design-doc change requests into the queue.** When the issue body asks for a change to an existing blueprint/specifications doc but lacks the label (user- or stakeholder-filed), add `upstream-impact` as part of triage so the refine skills and the queue listing see it.
 - **Ambiguity between two routes → ask one question**, don't guess. "Is the approach here already decided, or does it need design work first?"
 - **Multiple skills needed → give the chain**, in order (e.g. blueprint → roadmap → per-slice plan).
 - **The route ends the triage, it doesn't start the work** — always end with "Say `/skill-name` to start."

@@ -238,7 +238,7 @@ These five are the core of the catalog. If the user is unsure where to start wit
 - **Hard-coding skill knowledge** — always consult the registry; it may contain fork-added skills not listed here.
 - **Routing skill-system diagnostics to product-code skills** — use `/devenv-skill-maintenance` when the task is to repair the custom skill ecosystem.
 - **Recommending separate sessions for a specs+blueprint change** — when a change spans both living documents, either refine skill handles it in cascade mode (one session edits both); don't route to two sequential skill invocations.
-- **Routing upstream-impact queue work to non-refine skills** — "work the upstream-impact queue" or handing off upstream-impact issue numbers routes to `/devenv-refine-specifications` or `/devenv-refine-blueprint` (issue intake), not to grooming or plan skills.
+- **Routing design-doc change work to non-refine skills** — "work the upstream-impact queue", handing off upstream-impact issue numbers, or handing off any issue whose body asks for a change to the blueprint/specifications routes to `/devenv-refine-specifications` or `/devenv-refine-blueprint` (issue intake, any source), not to grooming or plan skills.
 
 ## Sibling skills
 

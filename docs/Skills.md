@@ -188,9 +188,9 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 | Skill | Purpose | Argument |
 |---|---|---|
 | `/devenv-write-specifications` | Three-phase specifications interview → specifications doc | System name or existing notes |
-| `/devenv-refine-specifications` | Revise an existing specifications doc, preserve SPEC-NNN IDs; cascade mode co-edits blueprint | Specifications file path or upstream-impact issue number(s) |
+| `/devenv-refine-specifications` | Revise an existing specifications doc, preserve SPEC-NNN IDs; cascade mode co-edits blueprint | Specifications file path or issue number(s) (any source) |
 | `/devenv-create-blueprint` | Architectural decomposition into a durable structured `Blueprint-*.md` artifact | System name or path to specifications |
-| `/devenv-refine-blueprint` | Revise an existing durable `Blueprint-*.md` when architecture direction is known; preserve structure and numbering, escalate non-surgical redesigns; cascade mode co-edits specifications | Blueprint file path or upstream-impact issue number(s) |
+| `/devenv-refine-blueprint` | Revise an existing durable `Blueprint-*.md` when architecture direction is known; preserve structure and numbering, escalate non-surgical redesigns; cascade mode co-edits specifications | Blueprint file path or issue number(s) (any source) |
 | `/devenv-grooming` | Consolidated component-level design intake and routing; always creates or updates a durable structured `Grooming-*.md` artifact before handoff, then produces a Feature/Fix/Task issue attack plan by repo with independently shippable slices; default return point for accumulated design issues in a plan; reconciles material as-built deviations from a completed plan back into the grooming document | Problem statement, component path, design doc path, plan path (in-flight or completed), or issue # |
 | `/devenv-create-roadmap` | Phased delivery sequencing published as a roadmap artifact on a parent epic + GH issue creation | Blueprint and/or specifications file path (at least one) |
 | `/devenv-refine-roadmap` | Structurally revise a roadmap artifact — split, re-sequence, add; superseded steps deleted clean | Epic number (optionally `:doc_id`) |
