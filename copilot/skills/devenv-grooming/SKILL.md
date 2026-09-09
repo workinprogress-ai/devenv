@@ -90,7 +90,7 @@ Do not continue to Phase 1 until the grooming document exists either on disk or 
 For every grooming artifact (local file or issue comment), follow the shared [Artifact Identity Convention](../_conventions.md#artifact-identity-convention) with `artifact_type: grooming`.
 
 - Always keep the `DEVENV_ARTIFACT_V1` header at the top of the artifact body (with `doc_id` in the first 256 characters).
-- For local files, generate deterministic `doc_id` via `issue-artifact-doc-id --artifact-type grooming --source-file <file>` with `dv1:<owner-repo>:local:grooming:<artifact-slug>` semantics (the tool computes the slug from the filename stem).
+- For local files (no issue target yet), set the `doc_id` by hand following the convention's local-file form — `dv1:<owner-repo>:local:grooming:<artifact-slug>`, slug derived from the filename stem — and stamp it into the header via `artifact-header <file> --set doc_id=<value>`. Once the grooming document is persisted to a GitHub issue, derive its issue-bound `doc_id` deterministically instead: `issue-artifact-doc-id --issue <N> --artifact-type grooming --source-file <file>`.
 
 If the grooming document is stored in a GitHub issue comment:
 

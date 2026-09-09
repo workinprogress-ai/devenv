@@ -4,9 +4,9 @@ Copy this skeleton verbatim and fill it in. All top-level headings are required.
 
 ```markdown
 <!-- DEVENV_ARTIFACT_V1
-doc_id: dv1:<owner-repo>:<epic-number>:roadmap:<system>-<NNN>
+doc_id: dv1:<owner-repo>:issue-<epic-number>:roadmap:<system>-<NNN>
 artifact_type: roadmap
-artifact_scope: issue-artifact
+artifact_scope: issue-comment
 issue_number: <epic-number>
 source_file: none (GitHub artifact; scratch copy is session-only)
 updated_at_utc: <ISO-8601>
@@ -28,9 +28,9 @@ updated_at_utc: <ISO-8601>
 |---|---|
 | ⬜ | Not started — issue open, no linked PR |
 | 🟡 | In progress — issue open with at least one linked PR |
-| ✅ | Done — issue closed |
-| ⏸️ | Paused / blocked — issue open, blocking label or comment |
-| ❌ | Cancelled — issue closed without merge, or marked superseded |
+| ✅ | Done — issue closed via merge |
+| ⏸️ | Paused / blocked — issue open with a `blocked` or `paused` label |
+| ❌ | Cancelled — issue closed without merge |
 
 ---
 
@@ -111,5 +111,5 @@ capability-slice, or hybrid. Include the rationale.>
 ## Notes
 
 - This roadmap is updated by the `/devenv-update-roadmap` skill — step status is synced from linked issues and PRs.
-- Adding a new step requires running `/devenv-create-roadmap` again with the updated blueprint, or editing the file directly with full understanding of the dependency graph.
+- Structural changes (adding, splitting, re-sequencing, or removing steps) go through `/devenv-refine-roadmap` — STEP-NN IDs are preserved, new steps are appended with the next sequential ID, and superseded steps are deleted clean.
 ```

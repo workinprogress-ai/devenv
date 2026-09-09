@@ -11,7 +11,7 @@ user-invocable: true
 
 Revise the **structure** of an existing roadmap artifact after new information — the blueprint changed, a step needs splitting, a new component landed, or phases need re-sequencing. Preserve every prior step ID and issue link; supersede structure deliberately.
 
-Roadmaps are GitHub artifacts (doc_id-addressed comments on their parent epic), not files in source control. Refinement pulls the artifact to a session scratch copy, edits there, and republishes. For the shared pull/edit/publish mechanics see [issue-artifact-integration.md](../common/references/issue-artifact-integration.md).
+Roadmaps are GitHub artifacts (doc_id-addressed comments on their parent epic), not files in source control. Refinement pulls the artifact to a session scratch copy, edits there, and republishes. For the shared pull/edit/publish mechanics see [issue-artifact-integration.md](../common/references/issue-artifact-integration.md) and the [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md).
 
 Write roadmap phases and steps as the current target delivery structure. Keep historical change narrative out of the document entirely — the document is target state, period. Rationale for significant changes lives in ADRs (`docs/Decisions/`, see the shared [ADR template](../common/references/adr-template.md)); git (of the planning repo) and the issue's edit history record when. Roadmaps are downstream of specifications/blueprint and upstream of grooming: they receive changes from both directions, but changes never *enter* the workflow through a roadmap — use the refine skills and the upstream-impact queue for that.
 
@@ -28,7 +28,7 @@ If only step **status** is out of date (issues closed, PRs merged), use [`/deven
 
 ## Inputs
 
-The user provides an epic number (optionally `:<doc_id>` when the epic holds more than one roadmap artifact) — e.g. `89` or `89:dv1:workinprogress-ai/planning.development.main:89:roadmap:orders-001`.
+The user provides an epic number (optionally `:<doc_id>` when the epic holds more than one roadmap artifact) — e.g. `89` or `89:dv1:workinprogress-ai-planning.development.main:issue-89:roadmap:orders-001`.
 
 Resolution: `issue-artifact-select --issue <N> --artifact-type roadmap [--doc-id <DOC_ID> | --latest]` → `issue-artifact-get --issue <N> --doc-id <DOC_ID> --write-body /tmp/roadmap-refine.md` (session scratch copy).
 

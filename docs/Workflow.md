@@ -412,8 +412,9 @@ The happy path from raw idea to merged work:
 flowchart TD
     A[Raw idea / request] --> B[Specifications]
     B --> C[Blueprint]
-    C --> R[Roadmap artifact on epic]
-    R --> D[Grooming]
+    C --> D[Grooming]
+    C -.->|"larger multi-component effort"| R[Roadmap artifact on epic]
+    R -.-> D
     D --> E[Implementation plan]
     E --> F{{"Execution mode"}}
     F -->|high-impact / collaborative| G[Pair programming]
@@ -429,16 +430,17 @@ How the living documents relate at rest — what feeds what, and where the homes
 ```mermaid
 flowchart LR
     SPEC[Specifications<br/>what the system does] <-->|"cascade mode<br/>one session edits both"| BP[Blueprint<br/>how the system is shaped]
-    BP -->|"sequences delivery"| RM[Roadmap artifact<br/>on parent epic]
-    SPEC --> RM
-    RM -->|"issue slices"| GR[Grooming<br/>component-level design]
+    BP --> GR[Grooming<br/>component-level design]
+    BP -.->|"optional: larger efforts"| RM[Roadmap artifact<br/>on parent epic]
+    SPEC -.-> RM
+    RM -.->|"issue slices"| GR
     GR --> PLAN[Implementation plan<br/>phases and tasks]
     ADR[(ADRs<br/>the why)] -.-> SPEC
     ADR -.-> BP
     ADR -.-> RM
 ```
 
-Specifications and blueprints are co-maintained in cascade mode; the roadmap artifact is downstream of both and upstream of grooming; ADRs record significant decisions across all three.
+Specifications and blueprints are co-maintained in cascade mode; grooming draws directly from them. A roadmap artifact is **optional** — added only when a larger effort needs delivery coordination across multiple components, usually associated with an epic; when present it is downstream of specifications/blueprint and upstream of grooming. ADRs record significant decisions across all three.
 
 ### Backporting changes (upstream cascade)
 
@@ -583,7 +585,7 @@ Do not treat these as interchangeable. Each exists to answer a different questio
 
 Grooming documents and implementation plans are not in this tier — grooming keeps its own revision-history convention, and plans are current-state execution artifacts with their own rules.
 
-**Roadmaps are GitHub artifacts, not source-controlled files.** A roadmap lives as a doc_id-addressed artifact comment on its parent epic in the planning repo (same pattern as implementation-plan artifacts); no long-lived local copy is kept and nothing is committed. The roadmap is downstream of the specifications and blueprint, and upstream of grooming: it receives changes arriving from upstream (spec/blueprint refinement) or pushed back from downstream (execution discoveries), but it is never itself an entry point for changes — changes enter through the refine skills and the upstream-impact queue.
+**Roadmaps are optional coordination documents, hosted as GitHub artifacts.** A roadmap is added only when a larger effort needs delivery coordination across multiple components — usually associated with an epic — and lives as a doc_id-addressed artifact comment on that parent epic in the planning repo (same pattern as implementation-plan artifacts); no long-lived local copy is kept and nothing is committed. When one exists it is a **change-bound artifact**: maintained while the change is in flight (structural edits via `/devenv-refine-roadmap`, status sync via `/devenv-update-roadmap`), and done when the change ships and the parent epic closes — unlike specifications, which are perpetual living documents. The roadmap is downstream of the specifications and blueprint, and upstream of grooming: it receives changes arriving from upstream (spec/blueprint refinement) or pushed back from downstream (execution discoveries), but it is never itself an entry point for changes — changes enter through the refine skills and the upstream-impact queue.
 
 Ephemeral markdown (bug descriptions to paste into an issue, feature requests for a backing library, scratch summaries that exist only for immediate use) is **not** a workflow artifact. Write it to `tmpN.md` in the active repo root (incrementing `N`, next free number; never assume an existing tmp file's contents). These files are expected to be deleted quickly and carry no artifact metadata.
 

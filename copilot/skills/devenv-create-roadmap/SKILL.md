@@ -71,9 +71,11 @@ Produce a `Roadmap-<system>-NNN` artifact where:
 
 **Roadmaps are GitHub artifacts, not files in source control.** The roadmap lives as a `doc_id`-addressed artifact comment on the parent epic in the planning repo (same pattern as implementation-plan artifacts; see [issue-artifact-integration.md](../common/references/issue-artifact-integration.md)). The epic body is a short placeholder plus the task list of child issues; the roadmap content is in the artifact comment.
 
-During the session, work on a local scratch copy (e.g. `/tmp/roadmap-<system>-NNN.md`). The scratch copy is session working state only — it is not committed and not kept after the roadmap is published. The published artifact comment is the single source of truth.
+During the session, work on a local scratch copy (e.g. `/tmp/roadmap-<system>-NNN.md`). The scratch copy is session working state only — it is not committed and not kept after the roadmap is published. The published artifact comment is the single source of truth. Pull/edit/republish mechanics follow the shared [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md).
 
 A roadmap is downstream of the specifications and blueprint, and upstream of grooming: it is affected by changes arriving from upstream (spec/blueprint refinement) or pushed back from downstream (execution discoveries), but it is never itself an entry point for changes — those enter through the refine skills and the upstream-impact queue, never by editing a roadmap.
+
+A roadmap is **optional**: added only when a larger effort needs delivery coordination across multiple components — usually associated with an epic — maintained while the change is in flight, and done when the change ships and the parent epic closes. It is a **change-bound artifact**.
 
 See [roadmap-template.md](./references/roadmap-template.md) for the document structure.
 
@@ -169,7 +171,7 @@ Show the draft. Revise. **Do not publish yet.**
 Once approved:
 
 1. Create the parent epic in the planning repo (`GITHUB_REPO=<org>/<planning-repo> issue-create --title "Epic: <system> roadmap" --type "Epic" --no-template`) with a placeholder body (title, blueprint link, note that the roadmap artifact follows in a comment).
-2. Publish the roadmap as an artifact comment on the epic: write the scratch copy with the `DEVENV_ARTIFACT_V1` header (doc_id `dv1:<owner>/<planning-repo>:<epic-number>:roadmap:<system>-<NNN>`, `artifact_scope: issue-artifact`, `issue_number: <epic-number>`) and run `issue-artifact-upsert --issue <epic-number> --body-file <scratch-path>`.
+2. Publish the roadmap as an artifact comment on the epic: follow the shared [Artifact Identity Convention](../_conventions.md#artifact-identity-convention) with `artifact_type: roadmap` and `artifact_scope: issue-comment`. Resolve the deterministic `doc_id` with `issue-artifact-doc-id --issue <epic-number> --artifact-type roadmap --slug <system>-<NNN>` (form `dv1:<owner-repo>:issue-<epic-number>:roadmap:<system>-<NNN>`), stamp it into the scratch copy's `DEVENV_ARTIFACT_V1` header via `artifact-header <scratch-path> --set doc_id=<value>`, and run `issue-artifact-upsert --issue <epic-number> --body-file <scratch-path>`.
 3. Note the epic number and artifact `doc_id` — every later roadmap skill (refine/update) addresses the roadmap by `doc_id`.
 
 ### 8. Offer to create child issues

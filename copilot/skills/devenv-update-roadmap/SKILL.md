@@ -11,7 +11,7 @@ user-invocable: true
 
 Reconcile a roadmap artifact with reality: read every linked issue and PR, recompute each step's status, update the epic task list, and republish the artifact. Optionally create issues for steps that don't have them yet.
 
-This skill keeps the roadmap a *current state of the work* document, not just a planning artifact. Roadmaps are GitHub artifacts (doc_id-addressed comments on their parent epic) — no local file is kept.
+This skill keeps the roadmap a *current state of the work* document, not just a planning artifact. Roadmaps are GitHub artifacts (doc_id-addressed comments on their parent epic) — no local file is kept. Pull/edit/republish mechanics follow the shared [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md).
 
 ## When to Use
 

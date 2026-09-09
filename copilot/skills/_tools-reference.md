@@ -283,7 +283,7 @@ issue-artifact-doc-id --issue N --artifact-type TYPE (--slug TEXT | --source-fil
 Key flags:
 
 - `--issue N` — issue number (required)
-- `--artifact-type TYPE` — one of: `spike`, `redesign`, `design`, `blueprint`, `specifications`, `roadmap`, `plan`, `implementation-plan`
+- `--artifact-type TYPE` — one of: `spike`, `redesign`, `design`, `blueprint`, `requirements`, `specifications`, `grooming`, `roadmap`, `plan`, `implementation-plan`, `solution-proposal`
 - `--slug TEXT` — slug source text (normalized to kebab-case), or `--source-file FILE` — basename without extension
 
 Output: `dv1:<owner-repo>:issue-<N>:<type>:<slug>` on stdout.

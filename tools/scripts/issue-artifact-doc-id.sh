@@ -33,7 +33,8 @@ Generate a deterministic doc_id in this format:
 Required Inputs:
   --issue N                    Issue number
   --artifact-type TYPE         One of: spike, redesign, design, blueprint,
-                               specifications, roadmap, plan, implementation-plan
+                               requirements, specifications, grooming, roadmap,
+                               plan, implementation-plan, solution-proposal
 
 Slug Source (exactly one required):
   --slug TEXT                  Slug source text (normalized to kebab-case)
