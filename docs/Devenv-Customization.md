@@ -307,12 +307,11 @@ Each entry needs:
 
 ### Getting Your Organization's Issue Type IDs
 
-Get the IDs from your GitHub organization using the CLI:
+Get the IDs from your GitHub organization using the workspace wrapper (one-time setup inspection — day-to-day issue operations always go through the `issue-*` tools):
 
 ```bash
-gh api graphql -f query="query { organization(login: \"$GH_ORG\") { issueTypes(first: 100) { edges { node { id name } }
- } } }" | jq .
- ```
+org-issue-types --format json
+```
 
 ### Syncing with GitHub Organization Settings
 
@@ -426,7 +425,7 @@ service:
 **To create a ruleset JSON:**
 
 1. Configure a ruleset manually in GitHub UI
-2. Export it via API: `gh api repos/OWNER/REPO/rulesets/ID`
+2. Export it via the workspace wrapper: `ruleset-export <RULESET_ID> --output <file>` (list IDs first with `ruleset-export`)
 3. Save to `tools/config/your-ruleset.json`
 4. Replace hardcoded values with tokens (`{{repo_name}}`, `{{owner}}`, etc.)
 5. Reference the filename in `rulesetConfigFile` property

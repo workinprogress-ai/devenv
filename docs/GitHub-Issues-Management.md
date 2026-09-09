@@ -271,7 +271,7 @@ project-update-issue "Q1 2026" 125 --status "Ready"
 issue_num=$(issue-select --milestone "Sprint 6")
 
 # 2. Start implementing
-gh issue edit $issue_num --add-assignee "@me"
+issue-update $issue_num --add-assignee "@me"
 project-update-issue "Q1 2026" $issue_num --status "Implementing"
 
 # 3. Create branch and make changes
@@ -611,7 +611,7 @@ project-update-issue "Q1 2026" 101 --status "Ready"
 ```bash
 # 1. Start work on an issue
 issue_num=101
-gh issue edit $issue_num --add-assignee "@me"
+issue-update $issue_num --add-assignee "@me"
 project-update-issue "Q1 2026" $issue_num --status "Implementing"
 
 # 2. Create branch and work
@@ -637,7 +637,7 @@ project-update-issue "Q1 2026" $issue_num --status "Production"
 
 # 8. Issue closes automatically
 # You can verify:
-gh issue view 101
+issue-get 101 --pretty
 # State: Closed
 ```
 
@@ -666,7 +666,7 @@ Charge fails with generic error" \
 # Returns: https://github.com/owner/repo/issues/150
 
 # 2. Start work
-gh issue edit 150 --add-assignee "@me"
+issue-update 150 --add-assignee "@me"
 project-update-issue "Q1 2026" 150 --status "Implementing"
 
 # 3. Work on fix and create PR

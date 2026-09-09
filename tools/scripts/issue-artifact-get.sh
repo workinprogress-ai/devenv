@@ -164,14 +164,15 @@ main() {
         GITHUB_REPO="$REPO_OVERRIDE"
     fi
 
-    local repo_args=()
+    # gh api accepts no -R/--repo flag; the {owner}/{repo} templates resolve
+    # from gh's native GH_REPO env var (set when GITHUB_REPO is provided).
     if [ -n "${GITHUB_REPO:-}" ]; then
-        repo_args=(-R "$GITHUB_REPO")
+        export GH_REPO="$GITHUB_REPO"
     fi
 
     local comments_raw
     log_verbose "Fetching comments for issue #$ISSUE_NUMBER"
-    if ! comments_raw=$(gh api "${repo_args[@]}" "repos/{owner}/{repo}/issues/${ISSUE_NUMBER}/comments" --paginate 2>/dev/null); then
+    if ! comments_raw=$(gh api "repos/{owner}/{repo}/issues/${ISSUE_NUMBER}/comments" --paginate 2>/dev/null); then
         api_failure "Failed to fetch comments for issue #$ISSUE_NUMBER"
     fi
 

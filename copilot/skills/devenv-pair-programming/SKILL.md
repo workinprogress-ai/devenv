@@ -1122,7 +1122,7 @@ When the user signals end of session (or a phase boundary that suggests a natura
 
 ### Command/confirmation
 - Auto-running `issue-comment` / `issue-update` / `issue-create` without explicit confirmation.
-- Using `gh` for operations already supported by `issue-*`/`pr-*` wrappers; use wrappers first and only fall back to `gh` when wrappers are insufficient.
+- Using `gh` for any GitHub operation — every domain has wrappers (`issue-*`, `pr-*`, `project-*`, `actions-*`, inspection tools); uncovered operations are surfaced as tooling gaps, never run via `gh`.
 - Suggesting delegation at session start before any collaboration patterns are visible.
 - Missing the re-engagement window — if the user pauses or signals they are done, surface the assessment; don't wait to be explicitly asked.
 

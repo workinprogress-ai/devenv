@@ -97,26 +97,25 @@ If the needed repo is not present in `repos/`, ask the user to clone it before p
 
 ### Prefer workspace tooling over raw CLIs
 
-The `tools/` folder contains workspace-specific wrappers around common CLIs (`gh`, `git`, `dotnet`, `kubectl`, MongoDB, etc.). All tools are on `PATH`, so invoke them by bare name from any working directory.
+The `tools/` folder contains workspace-specific wrappers around common CLIs (`gh`, `git`, `dotnet`, `kubectl`, MongoDB, etc.) — they are the workspace's abstraction layer over those backends. All tools are on `PATH`, so invoke them by bare name from any working directory.
 
-**`GITHUB_REPO` is set in the environment** (`owner/repo` format). For standard issue and PR operations, using `gh` directly with `--repo "$GITHUB_REPO"` is natural and encouraged. Use the named wrappers below when they provide functionality that `gh` alone can't replicate:
+**`GITHUB_REPO` is set in the environment** (`owner/repo` format).
 
-| Wrapper | Why to prefer it over `gh` directly |
-|---|---|
-| `pr-create-for-merge` | Multi-step: pushes branch + creates PR with workspace defaults. Replaces `gh pr create`. |
-| `pr-threads-get <N>` | Uses GraphQL to preserve thread structure and filter by resolution status — REST API loses this. |
-| `pr-thread-reply <N> ...` | Replies to a specific review thread via the correct API endpoint. |
-| `pr-thread-resolve <N> ...` | Resolves a review thread by node ID. |
-| `actions-status` | Org-wide Actions run status across repos — not replicable with a single `gh run list`. |
-| `actions-list` | Lists workflow definitions across the org. |
-| `actions-run` | Triggers `workflow_dispatch` runs with workspace defaults. |
-| `actions-rerun` | Re-runs a workflow run or failed jobs only. |
-| `actions-watch` | Streams live logs from an in-progress run. |
-| `actions-artifacts` | Lists / downloads artifacts from a run. |
+**Issue management goes through the `issue-*` tools exclusively — reads and writes.** `issue-get`, `issue-list`, `issue-select`, `issue-search`, `issue-create`, `issue-create-batch`, `issue-update` (incl. native `--type`), `issue-comment`, `issue-comment-list`, `issue-comment-update`, `issue-close`, `issue-groom`, `issue-label-list`, `issue-label-create`, and the `issue-artifact-*` suite are the workspace's abstraction layer over issue management; the backing CLI is an implementation detail that may change. Never run raw `gh issue ...` (or `gh api .../issues/...`) for any issue operation — reading, listing, creating, updating, commenting, or closing — regardless of whether a skill is active. The wrappers also enforce workspace conventions (native types from `tools/config/issues-config.yml`, templates, labels, close reasons) that raw `gh` silently skips.
 
-For everything else — reading/listing/creating/updating/commenting on issues and PRs, getting diffs, closing issues — use `gh` directly with `--repo "$GITHUB_REPO"`. The named wrappers (`issue-get`, `issue-list`, `issue-create`, `issue-update`, `issue-comment`, `issue-close`, `pr-get`, `pr-diff`, `pr-comment`) are available on PATH if you prefer them, but they are not required.
+Tool coverage by domain:
 
-**Skill-mandated wrappers always override this default.** When an active skill explicitly names a wrapper for an operation (for example grooming's `issue-create` mandate for child-issue creation), that wrapper is required — the "natural and encouraged" default above applies only where no skill rule is more specific. At skill boundaries, re-check the newly active skill's tool mandates before the first mutating operation; do not carry issue-operation habits across skill transitions. The same re-check applies when the plan shape changes mid-skill (e.g., a user-negotiated tracking or output variant): only the artifact structure is negotiable, never a mandated tool.
+- **Issue management — `issue-*` tools exclusively** (see the rule above): reads, writes, search, artifacts, grooming.
+- **PR operations — `pr-*` wrappers**: `pr-get`, `pr-list`, `pr-diff`, `pr-comment`, `pr-review-comment`, `pr-threads-get`, `pr-thread-reply`, `pr-thread-resolve`, `pr-create-for-merge`, `pr-create-for-review`, `pr-complete-merge`, `pr-merge-pull-request`, `pr-cleanup-review-branches`, `pr-get-review-link`, `pr-get-merge-link`. Use them for every PR operation they cover.
+- **Project boards — `project-*` wrappers**: `project-add-issue`, `project-update-issue`.
+- **GitHub Actions — `actions-*` wrappers**: status, list, run, rerun, watch, artifacts.
+- **Repository inspection — `release-list`, `ruleset-export`, `org-issue-types`, `artifacts-list`**: releases, rulesets, org issue types, GitHub Packages.
+
+Full invocation signatures for every wrapper live in [`copilot/skills/_tools-reference.md`](copilot/skills/_tools-reference.md) — the complete invocation reference; never `--help` at runtime.
+
+**The AI never runs the `gh` CLI directly — no exceptions.** All GitHub operations go through the workspace wrappers; the wrapper layer is the workspace's abstraction over GitHub and the backing CLI is an implementation detail that may change. If an operation is not covered by any wrapper, do not fall back to `gh` — surface it to the user as a tooling gap and let them decide (run it themselves, or commission a new wrapper). Using `gh` direct for something a wrapper plausibly should cover is a tooling-gap signal, not a preference.
+
+**Issue tooling is unconditional.** The issue-tools rule above applies everywhere — inside skills, outside skills, quick ops, ad-hoc requests mid-session. There is no "gh-direct default" for issues for a skill mandate to override; the mandate runs in the other direction only: a skill may *add* requirements (e.g. grooming's `--no-template` determinism), never relax the wrapper rule.
 
 For `git`: prefer `git-*` wrappers when one exists for a non-trivial operation; for standard read-only inspection use `git log`, `git diff`, `git status` etc. directly. The same applies to `dotnet`/test wrappers.
 

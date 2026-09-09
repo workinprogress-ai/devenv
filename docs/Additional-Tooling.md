@@ -143,7 +143,7 @@ Each type can specify a GitHub repository ruleset JSON file:
 
 - `rulesetConfigFile`: Filename in `tools/config/` (e.g., `ruleset-default.json`)
 - Set to `null` or blank to skip ruleset application
-- JSON file is a GitHub ruleset export (from `gh api repos/OWNER/REPO/rulesets/ID`)
+- JSON file is a GitHub ruleset export (from `ruleset-export <ID> --output <file>`)
 - Supports token replacement:
   - `{{repo_name}}` - Repository name
   - `{{owner}}` - Organization/owner
@@ -154,7 +154,7 @@ Each type can specify a GitHub repository ruleset JSON file:
 **Creating custom ruleset JSON:**
 
 1. Configure ruleset in GitHub UI for a test repo
-2. Export: `gh api repos/YOUR_ORG/TEST_REPO/rulesets/RULESET_ID`
+2. Export: `ruleset-export <RULESET_ID> --output <file>`
 3. Save to `tools/config/my-ruleset.json`
 4. Replace hardcoded values with tokens
 5. Reference in type config: `rulesetConfigFile: my-ruleset.json`
@@ -343,7 +343,7 @@ git update
 
 ## Pull Request Management
 
-Tools for creating, managing, and working with pull requests on GitHub using the `gh` CLI.
+Tools for creating, managing, and working with pull requests on GitHub. The wrappers are the workspace abstraction over the backing `gh` CLI.
 
 ### `pr-create-for-review`
 
@@ -452,8 +452,7 @@ pr-get 123 | jq -r '.labels[].name'     # Extract labels
 
 ### `pr-comment`
 
-Adds a top-level conversation comment to a pull request. For inline review
-comments, use `gh pr review` directly or the GitHub web UI.
+Adds a top-level conversation comment to a pull request. For inline review comments tied to specific lines, use `pr-review-comment` (creates a new thread) and `pr-thread-reply` (replies in an existing thread).
 
 ```bash
 pr-comment PR# (--body TEXT | --body-file FILE | --edit) [--dry-run]
@@ -1007,6 +1006,35 @@ issue-list --assignee none --label "priority:high"
 issue-list --format json --limit 100
 ```
 
+### `issue-search`
+
+Keyword search across issue titles and bodies. Any-keyword, case-insensitive substring matching; results ranked by distinct-term hit count with matched terms annotated. Complements `issue-list` (structured filtering) — use it for duplicate detection and queue scavenging.
+
+```bash
+issue-search [OPTIONS] TERM [TERM...]
+```
+
+**Options:**
+
+- `--state STATE`: Search scope (all, open, closed) - default: all
+- `--type TYPE` / `--label LABEL` / `--assignee USER` / `--milestone NAME`: scope filters applied before search
+- `--format FORMAT`: Output format (table, json, simple)
+- `--limit N`: Results shown (default: 30)
+- `--fetch-limit N`: Issues fetched for searching (default: 200; raise for large repos)
+
+**Examples:**
+
+```bash
+# Duplicate check before filing a bug
+issue-search --state all --type Bug login failed
+
+# Find issues mentioning a concept
+issue-search reservation TTL
+
+# JSON output with matched terms per issue
+issue-search --format json identity
+```
+
 ### `issue-update`
 
 Updates issue fields (title, body, labels, assignees, milestone, state).
@@ -1102,7 +1130,7 @@ issue_num=$(issue-select --type Task)
 
 # Multi-select to bulk assign
 for issue in $(issue-select --multi); do
-    gh issue edit "$issue" --add-assignee "@me"
+    issue-update "$issue" --add-assignee "@me"
 done
 ```
 
@@ -1582,7 +1610,8 @@ editor /tmp/notes.txt
 # Used automatically by git
 git commit --allow-empty  # Opens in VS Code, waits until tab closes
 
-# Used automatically by gh CLI
+# Editor-fallback mechanism demonstrated via gh (inside this workspace,
+# issue operations go through `issue-create` — never raw `gh issue`)
 gh issue create --body ''  # Opens in VS Code, waits until tab closes
 
 # Configure fallback
@@ -2589,6 +2618,7 @@ The following convenience aliases are available in the dev container:
 
 - `issue-create` - Create new issue
 - `issue-list` - List/filter issues
+- `issue-search` - Keyword search across titles and bodies
 - `issue-update` - Update issue fields
 - `issue-close` - Close or reopen issues
 - `issue-select` - Interactive issue selection with fzf

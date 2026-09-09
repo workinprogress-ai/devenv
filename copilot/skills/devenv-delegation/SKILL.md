@@ -486,7 +486,7 @@ Sync procedure (both cases):
 1. Confirm with the user.
 2. Run `issue-artifact-upsert --issue <N> --body-file <path>`.
 
-**Pre-mutation tool check (all GitHub operations, not just sync):** before creating or editing GitHub issues, check whether the active flow or skill names a workspace wrapper for that operation — if one is named, that wrapper is required, regardless of what earlier session phases did or how successfully raw `gh` was used before. Precedent from earlier in a session does not override the active skill's tool mandates; skill boundaries reset behavioral defaults.
+**Pre-mutation tool check (all GitHub operations, not just sync):** all GitHub operations go through the workspace wrappers — `issue-*` exclusively for issue operations, `pr-*` / `project-*` / `actions-*` / inspection wrappers for the rest. There is no `gh` path for anything; an uncovered operation is surfaced as a tooling gap for the user to resolve. Precedent from earlier in a session does not override this; skill boundaries reset behavioral defaults.
 
 Do not perform routine mid-phase syncs beyond the required material-revision exception above. If the session ends mid-phase, offer to sync the completed updates.
 

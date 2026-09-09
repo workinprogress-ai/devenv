@@ -1,8 +1,10 @@
 # Tools Reference
 
-Quick reference for all CLI tools used by the skill suite. Skills invoke `tools/<name>` relative to the workspace root. For standard issue and PR operations, `gh` directly with `--repo "$GITHUB_REPO"` is also fine — see `copilot-instructions.md`. Use the wrappers listed here when they provide functionality `gh` alone can't replicate (e.g. thread-aware PR operations, branch-push-plus-create, org-wide Actions queries).
+Quick reference for all CLI tools used by the skill suite. Skills invoke `tools/<name>` relative to the workspace root.
 
-**Do NOT run `--help` on any tool at runtime.** This file contains all signatures — use it instead.
+**This file is the complete invocation reference — do not run `--help` on any tool at runtime.** Every tool a skill is expected to call has its stable invocation pattern here; when a skill needs a command shape, it quotes it inline or cites this file.
+
+**The AI never runs the `gh` CLI directly — for any GitHub domain.** Issue management uses the `issue-*` tools exclusively (reads and writes); PR, project, Actions, and repository-inspection operations use their wrappers (`pr-*`, `project-*`, `actions-*`, `release-list`, `ruleset-export`, `org-issue-types`, `artifacts-list`). If an operation is not covered by any wrapper, surface it to the user as a tooling gap — `gh` is not a fallback. The wrappers are the workspace's abstraction layer over GitHub; the backing CLI is an implementation detail that may change.
 
 **Common flags available on all tools (not repeated per-entry):**
 
@@ -63,6 +65,33 @@ Examples:
 issue-list --format json | jq -r '.[] | "\(.number) \(.title)"'
 issue-list --type Bug --assignee @me
 issue-list --state all --label "priority:high"
+```
+
+---
+
+### issue-search
+
+Keyword search across issue titles and bodies — any-keyword, case-insensitive, substring match; results ranked by distinct-term hit count with the matched terms annotated per issue. Complements `issue-list` (structured filtering) with fuzzy duplicate detection and queue scavenging.
+
+```
+issue-search [OPTIONS] TERM [TERM...]
+```
+
+Key flags:
+
+- `-s, --state` — `all` (default), `open`, `closed`
+- `-t, --type` / `-l, --label` / `-a, --assignee` / `-m, --milestone` — scope filters applied before search
+- `-f, --format` — `table` (default), `json`, `simple`
+- `-n, --limit` — results shown (default 30); `--fetch-limit` — issues fetched for searching (default 200; raise for large repos)
+
+Matching is substring-based (`ascii_downcase` + `contains`), so regex metacharacters in terms (`.`, `[`, `]`, …) match literally. An issue matches if ANY term appears in its title or body; ranking favors issues matching more distinct terms.
+
+Examples:
+
+```bash
+issue-search session timeout
+issue-search --state all --type Bug login failed   # duplicate check
+issue-search --format json reservation TTL
 ```
 
 ---
@@ -149,6 +178,22 @@ Examples:
 issue-artifact-upsert --issue 42 --body-file Implementation_plan-issue-42-001.md
 ```
 
+### issue-artifact-doc-id
+
+Generate a deterministic doc_id for an issue-comment artifact (see the Artifact Identity Convention in `_conventions.md`).
+
+```
+issue-artifact-doc-id --issue N --artifact-type TYPE (--slug TEXT | --source-file FILE)
+```
+
+Key flags:
+
+- `--issue N` — issue number (required)
+- `--artifact-type TYPE` — one of: `spike`, `redesign`, `design`, `blueprint`, `specifications`, `roadmap`, `plan`, `implementation-plan`
+- `--slug TEXT` — slug source text (normalized to kebab-case), or `--source-file FILE` — basename without extension
+
+Output: `dv1:<owner-repo>:issue-<N>:<type>:<slug>` on stdout.
+
 ---
 
 ### issue-artifact-get
@@ -213,6 +258,7 @@ Update fields on an existing issue.
 
 ```
 issue-update ISSUE_NUMBER [--title TITLE] [--body TEXT] [--body-file FILE]
+             [--type TYPE] [--remove-type]
              [--add-label LABEL] [--remove-label LABEL]
              [--add-assignee USER] [--remove-assignee USER]
              [--milestone NAME] [--state open|closed]
@@ -240,7 +286,7 @@ Create a new issue, optionally from a template.
 
 Wrapper policy:
 
-- Prefer this wrapper over raw `gh issue create` for workspace issue creation flows.
+- This wrapper is the **required** path for all issue creation in workspace repos — never raw `gh issue create` (enforces native types, templates, labels; repo selection stays behind the abstraction).
 - No `--repo` flag exists. The target repo is selected via the `GITHUB_REPO` env var (`owner/repo`); unset, it falls back to `GH_ORG` + current repo name, then to the current repo.
 
 ```
@@ -280,7 +326,7 @@ Create multiple issues in one pass using preview-first, deterministic, non-inter
 
 Wrapper policy:
 
-- Prefer this wrapper over raw `gh issue create` loops for workspace batch issue creation flows.
+- This wrapper is the **required** path for batch issue creation — never raw `gh issue create` loops.
 
 ```
 issue-create-batch --issue "TITLE" [--issue "TITLE|key=value|..."] [--create] [defaults...]
@@ -323,6 +369,29 @@ issue-create-batch \
 issue-create-batch --file child-issues.yaml --parent 1 --create
 issue-create-batch --file child-issues.yaml --dry-run
 ```
+
+---
+
+### issue-label-list
+
+List a repository's available issue labels (name, description, color). Read-only — use before suggesting labels so only existing ones are proposed.
+
+```
+issue-label-list [--format table|json|simple] [--search TERM]
+```
+
+Example: `issue-label-list --search priority --format simple`
+
+### issue-label-create
+
+Create (or idempotently ensure) an issue label. `--seed` creates the standard triage vocabulary from `tools/config/labels-config.yml`; existing labels are skipped unless `--update`.
+
+```
+issue-label-create NAME [--color HEX] [--description TEXT] [--update]
+issue-label-create --seed
+```
+
+Example: `issue-label-create --seed` (bootstrap a new repo's labels)
 
 ---
 
@@ -530,6 +599,29 @@ pr-create-for-merge "feat: add OAuth login" --issue 42 \
 ```
 
 > **Note:** `pr-create-for-review` is a *different* tool — it creates "REVIEW:" diff PRs between two commits for version comparison. Do not use it for standard feature PRs.
+
+---
+
+### pr-review-comment
+
+Create an inline review comment on a PR — starts a NEW review thread tied to a specific file and line (GraphQL `addPullRequestReviewThread`). Complements `pr-comment` (top-level conversation) and `pr-thread-reply` (reply inside an existing thread).
+
+```
+pr-review-comment PR_NUMBER --file PATH --line N (--body TEXT | --body-file FILE) [--side RIGHT|LEFT] [--dry-run]
+```
+
+Key flags:
+
+- `-f, --file PATH` — repo-relative path as shown in the diff (required)
+- `-l, --line N` — line number on the chosen side (required)
+- `-s, --side` — `RIGHT` (new content, default) or `LEFT` (original)
+- `-n, --dry-run` — show what would be posted
+
+Example:
+
+```bash
+pr-review-comment 123 --file src/Service.cs --line 42 --body "Null check missing"
+```
 
 ---
 
@@ -758,6 +850,113 @@ project-update-issue "Sprint 5" 123 --field "Priority=High"
 ---
 
 ## Repo and markdown tools
+
+## GitHub Actions tools
+
+Org-wide GitHub Actions operations — views `gh` alone can't replicate in one call.
+
+### actions-status
+
+Report workflow run status across the org (latest run per repo; uses `GH_ORG`).
+
+```
+actions-status [OPTIONS]
+```
+
+Key flags: `-r, --repo REGEX` (filter repos by name), `-s, --status STATUS` (`success`/`failure`/`cancelled`/`skipped`), `--json`/`--pretty`.
+
+### actions-list
+
+List workflow definitions across the org.
+
+```
+actions-list [OPTIONS]
+```
+
+Key flags: `-r, --repo REGEX`, `--state STATE` (`active`, `disabled_manually`, …), `--json`/`--pretty`.
+
+### actions-run
+
+Trigger a `workflow_dispatch` run.
+
+```
+actions-run WORKFLOW --repo OWNER/REPO [--ref REF] [--input KEY=VALUE...]
+```
+
+Key flags: `--repo OWNER/REPO` (required), `--ref REF` (default: repo default branch), `--input KEY=VALUE` (repeatable). Note: `gh workflow run` returns no run ID; the tool polls `gh run list` (~2s) to surface the run URL.
+
+### actions-rerun
+
+Re-run a workflow run, or its failed jobs only.
+
+```
+actions-rerun RUN_ID --repo OWNER/REPO [--failed]
+```
+
+Key flags: `--repo OWNER/REPO` (required), `--failed` (failed jobs only).
+
+### actions-watch
+
+Stream live logs from an in-progress run.
+
+```
+actions-watch [RUN_ID] --repo OWNER/REPO [--exit-status]
+```
+
+Key flags: `--repo OWNER/REPO` (required), `--exit-status` (exit non-zero if the watched run fails).
+
+### actions-artifacts
+
+List or download artifacts from a run.
+
+```
+actions-artifacts RUN_ID --repo OWNER/REPO [--download [--name NAME] [--dir DIR]] [--json|--pretty]
+```
+
+Key flags: `--repo OWNER/REPO` (required), `--download` (download instead of list; `--name`/`--dir` qualify it).
+
+---
+
+## Repository inspection tools
+
+### release-list
+
+List GitHub releases for the target repository (tag, name, published date, prerelease/draft flags). Read-only. Note: repos that use plain git tags without GitHub Releases return empty.
+
+```
+release-list [--format table|json|simple] [--limit N]
+```
+
+Example: `release-list --format json --limit 5`
+
+### ruleset-export
+
+Export a repository ruleset as JSON (branch-protection backup/inspection). With no ID, lists the repo's rulesets (`id  name  enforcement`). Read-only.
+
+```
+ruleset-export [RULESET_ID] [--output FILE]
+```
+
+Examples:
+
+```bash
+ruleset-export                      # list this repo's rulesets
+ruleset-export 8612 --output b.json # export one to a file
+```
+
+### org-issue-types
+
+List the GitHub organization's configured issue types (name + node ID) via GraphQL — mirrors `tools/config/issues-config.yml`. Read-only.
+
+```
+org-issue-types [--format table|json|simple]
+```
+
+Org resolution: `GH_ORG`, else the owner part of `GITHUB_REPO`.
+
+Example: `org-issue-types --format json`
+
+---
 
 ### repo-cache-update
 

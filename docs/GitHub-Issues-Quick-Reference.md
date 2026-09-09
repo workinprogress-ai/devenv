@@ -69,6 +69,8 @@ issue-list --type Bug                   # Bugs only
 issue-list --milestone "Sprint 5"       # In sprint
 issue-list --assignee "@me"             # Assigned to me
 issue-list --state closed               # Closed issues
+issue-search login failed               # Keyword search titles+bodies
+issue-search --state all --type Bug "session timeout"  # Duplicate check
 ```
 
 ### Update Issue
@@ -253,7 +255,7 @@ project-update-issue "Q1 2026" 123 --status "Ready"
 ### Start Development
 
 ```bash
-gh issue edit 123 --add-assignee "@me"
+issue-update 123 --add-assignee "@me"
 project-update-issue "Q1 2026" 123 --status "Implementing"
 git checkout -b feature/my-feature
 ```

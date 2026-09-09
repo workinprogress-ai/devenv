@@ -195,7 +195,7 @@ Any command that mutates external state — `issue-comment`, `issue-update`, `is
 1. **Draft** the payload (comment text, body, etc.).
 2. **Show** it in chat.
 3. **Ask** for explicit "yes" (one specific question, not "any objections?").
-4. **Run** the wrapper first. If wrappers are insufficient for the needed operation, use `gh` as a fallback and note why.
+4. **Run** the wrapper. Every GitHub operation has a wrapper path (copilot-instructions §7 coverage map); if an operation is not covered, surface it as a tooling gap for the user to resolve — never fall back to `gh`.
 5. **Surface** the result (issue/PR number, URL).
 
 If the command shape or target is genuinely uncertain, prefer `--dry-run` first.
@@ -243,9 +243,8 @@ Not every markdown a skill writes is a persisted artifact. When the user asks fo
 
 ## Tooling discipline
 
-- **Prefer repo wrappers first.** Use the repo's `issue-*` / `pr-*` / `project-*` wrappers in `tools/` by default.
-- If a required operation is not supported by available wrappers, `gh` is allowed as a fallback. Say explicitly why fallback is needed.
-- Wrapper signatures are standardized in [`_tools-reference.md`](./_tools-reference.md) — when in doubt, instruct the AI to consult that file instead of running ad-hoc `--help` during execution.
+- **The AI never runs `gh` directly — for any GitHub domain.** Issue operations: `issue-*` tools exclusively (unconditional, reads and writes). PR, project, Actions, and repository-inspection operations: their wrappers. If an operation is not covered by any wrapper, surface it as a tooling gap and let the user decide — `gh` is not a fallback.
+- Wrapper signatures are standardized in [`_tools-reference.md`](./_tools-reference.md) — it is the complete invocation reference; consult it instead of running ad-hoc `--help` during execution.
 
 ### Working-directory guard (required)
 
@@ -537,7 +536,7 @@ Required behavior:
 - **Vague description** that doesn't name trigger phrases — agent won't auto-load it.
 - **Folder/name mismatch** — skill won't load.
 - **Monolithic `SKILL.md`** — push templates and cheatsheets into `references/`.
-- **Using `gh` when wrappers already support the operation** — wrappers are the default path.
+- **Running `gh` directly for any GitHub operation** — wrappers are the only path for every GitHub domain; uncovered operations are surfaced as tooling gaps, not run via `gh`.
 - **Auto-running write commands** without the confirmation flow.
 - **Cross-linking by absolute paths** or by skill *title* instead of `name`.
 - **Overlapping descriptions** between skills — the model picks one, and you don't get to choose which.

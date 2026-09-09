@@ -1,0 +1,51 @@
+# Standard issue-label vocabulary for WorkInProgress repos.
+#
+# Consumed by `issue-label-create --seed` to bootstrap the triage label set
+# in a repository. Idempotent: existing labels are skipped.
+#
+# Fields per label:
+#   name        (required)  Label name
+#   color       (optional)  6-digit hex, no '#'
+#   description (optional)  Shown in GitHub label pickers
+
+labels:
+  # Triage workflow
+  - name: needs-triage
+    color: "ededed"
+    description: "Newly filed, not yet routed"
+  - name: needs-grooming
+    color: "d4c5f9"
+    description: "Routed to grooming before planning"
+
+  # Upstream-impact queue (consumed by the refine skills in cascade mode)
+  - name: upstream-impact
+    color: "f9d0c4"
+    description: "Discovered upstream (specs/blueprint) change — refine skills consume this queue"
+
+  # Priority (align with triage-issue's P0–P3)
+  - name: priority/P0
+    color: "b60205"
+    description: "Critical — production broken, data loss, security, blocking"
+  - name: priority/P1
+    color: "d93f0b"
+    description: "High — major user impact, no workaround, strategic"
+  - name: priority/P2
+    color: "fbca04"
+    description: "Normal — user impact with workaround, scheduled"
+  - name: priority/P3
+    color: "0e8a16"
+    description: "Low — nice to have, polish"
+
+  # Size (align with triage-issue's S/M/L/XL)
+  - name: size/S
+    color: "c2e0c6"
+    description: "Under a day, single file, well understood"
+  - name: size/M
+    color: "bfd4f2"
+    description: "1–3 days, a few files, mostly clear"
+  - name: size/L
+    color: "bfdadc"
+    description: "Multi-day, several modules"
+  - name: size/XL
+    color: "e99695"
+    description: "Uncertain — spike before planning"

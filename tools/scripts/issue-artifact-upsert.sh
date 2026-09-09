@@ -201,9 +201,10 @@ main() {
         GITHUB_REPO="$REPO_OVERRIDE"
     fi
 
-    local repo_args=()
+    # gh api accepts no -R/--repo flag; the {owner}/{repo} templates resolve
+    # from gh's native GH_REPO env var (set when GITHUB_REPO is provided).
     if [ -n "${GITHUB_REPO:-}" ]; then
-        repo_args=(-R "$GITHUB_REPO")
+        export GH_REPO="$GITHUB_REPO"
     fi
 
     local body
@@ -274,7 +275,7 @@ main() {
 
     log_verbose "Fetching comments for issue #$ISSUE_NUMBER"
     local comments_raw
-    if ! comments_raw=$(gh api "${repo_args[@]}" "repos/{owner}/{repo}/issues/${ISSUE_NUMBER}/comments" --paginate 2>/dev/null); then
+    if ! comments_raw=$(gh api "repos/{owner}/{repo}/issues/${ISSUE_NUMBER}/comments" --paginate 2>/dev/null); then
         api_failure "Failed to fetch comments for issue #$ISSUE_NUMBER"
     fi
 
@@ -323,7 +324,7 @@ main() {
 
         log_verbose "Updating comment ID $comment_id"
         local updated
-        if ! updated=$(gh api "${repo_args[@]}" \
+        if ! updated=$(gh api \
             "repos/{owner}/{repo}/issues/comments/${comment_id}" \
             -X PATCH \
             -f "body=${body}" 2>/dev/null); then
@@ -354,7 +355,7 @@ main() {
 
     log_verbose "Creating new comment on issue #$ISSUE_NUMBER"
     local created
-    if ! created=$(gh api "${repo_args[@]}" \
+    if ! created=$(gh api \
         "repos/{owner}/{repo}/issues/${ISSUE_NUMBER}/comments" \
         -X POST \
         -f "body=${body}" 2>/dev/null); then

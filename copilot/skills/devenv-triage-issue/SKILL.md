@@ -35,7 +35,7 @@ Auto-detect:
 - **Multiple issue numbers** (`123 124 125` or comma-separated) → fetch each, triage in turn, then a single batch confirmation at the end.
 - **Pasted issue text** → triage in place; skip duplicate-search step (no repo context).
 
-For issue inputs, use `issue-get` for body + comments + existing labels, and `issue-list` for candidate duplicate search (filter by label or state; for keyword-based duplicate detection use `issue-list | jq` or scan titles manually).
+For issue inputs, use `issue-get` for body + comments + existing labels, and `issue-search` for candidate duplicate detection (keyword search across titles and bodies, ranked by hit count).
 
 ## Triage outputs (per issue)
 
@@ -93,6 +93,8 @@ Routing rules:
 - **docs** — gaps or errors in documentation.
 - **chore** — refactor, dependency bump, internal cleanup; no user-visible change.
 
+The native GitHub type is written via `issue-update <N> --type <Bug|Feature|Task|Epic>` (map the classification above onto the native vocabulary; legacy aliases accepted).
+
 ### Priority heuristics
 
 - **P0** — production broken, data loss, security, blocking the team.
@@ -111,7 +113,11 @@ If priority is genuinely unclear, say so and ask one targeted question — don't
 
 ### Duplicate search
 
-Run `issue-list --state open | jq` and scan titles/bodies for 2-3 keywords from the issue. List candidates with one-line reason; do not auto-mark as duplicate without confirmation.
+Run `issue-search --state all <2-3 keywords from the issue>` — it searches titles and bodies, matches any keyword case-insensitively, and ranks by hit count. List candidates with one-line reason from the matched terms; do not auto-mark as duplicate without confirmation.
+
+### Label vocabulary
+
+Before suggesting labels, read the repo's existing set: `issue-label-list --format simple` — suggest only labels that exist. If the standard triage vocabulary (`priority/P0–P3`, `size/S–XL`, `upstream-impact`, `needs-triage`, `needs-grooming`) is missing, offer to bootstrap it: `issue-label-create --seed` (idempotent; from `tools/config/labels-config.yml`). Never guess at labels — an unverified `--add-label` either fails or auto-creates junk.
 
 ### Drafting clarifying comments
 

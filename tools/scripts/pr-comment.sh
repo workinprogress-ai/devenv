@@ -40,8 +40,9 @@ show_usage() {
 Usage: $SCRIPT_NAME PR_NUMBER [OPTIONS]
 
 Add a top-level conversation comment to a GitHub pull request.
-For inline review comments tied to a specific line, use \`gh pr review\` directly
-or the GitHub web UI; this script handles conversation comments only.
+For inline review comments tied to a specific line, use pr-review-comment
+(new thread) or pr-thread-reply (existing thread); this script handles
+conversation comments only.
 
 Arguments:
     PR_NUMBER                   PR number to comment on

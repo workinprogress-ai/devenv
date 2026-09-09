@@ -121,7 +121,7 @@ After printing, ask:
 
 Use `vscode_askQuestions`. Wait for explicit yes. Do not auto-post.
 
-For inline review comments tied to specific lines, note that this skill produces a top-level conversation comment only (via `pr-comment`). For inline threads, the user can use the GitHub web UI or `gh pr review` directly — there is no `tools/` wrapper for creating inline review comments.
+For inline review comments tied to specific lines, this skill produces a top-level conversation comment only (via `pr-comment`). Inline threads are created via `pr-review-comment PR --file PATH --line N --body TEXT`, read via `pr-threads-get`, and replied to via `pr-thread-reply`.
 
 ## Anti-patterns
 

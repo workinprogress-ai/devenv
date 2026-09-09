@@ -23,6 +23,8 @@ readonly SCRIPT_NAME
 
 ISSUE_NUMBER=""
 NEW_TITLE=""
+NEW_TYPE=""
+REMOVE_TYPE=0
 NEW_BODY=""
 NEW_BODY_FILE=""
 ADD_LABELS=()
@@ -59,6 +61,9 @@ Updates:
     -t, --title TITLE           Update issue title
     -b, --body TEXT             Update issue body/description
     -f, --body-file FILE        Read new body from file (markdown)
+    --type TYPE                Set native issue type: Bug, Feature, Task, or Epic
+                               (case-insensitive; legacy aliases accepted)
+    --remove-type               Remove the issue type
     --add-label LABEL           Add label (can be specified multiple times)
     --remove-label LABEL        Remove label (can be specified multiple times)
     --add-assignee USER         Add assignee (can be specified multiple times)
@@ -73,6 +78,9 @@ Environment Variables:
 Examples:
     # Update issue title
     $SCRIPT_NAME 123 --title "New title"
+
+    # Set the native issue type (triage classification)
+    $SCRIPT_NAME 123 --type Bug
 
     # Add labels and assignee
     $SCRIPT_NAME 123 --add-label "priority:high" --add-assignee "john"
@@ -125,6 +133,19 @@ update_issue() {
         gh_args+=(--title "$NEW_TITLE")
         has_updates=1
         log_verbose "Will update title to: $NEW_TITLE"
+    fi
+    
+    # Native issue type update (normalized through the shared vocabulary)
+    if [ "$REMOVE_TYPE" -eq 1 ]; then
+        gh_args+=(--remove-type)
+        has_updates=1
+        log_verbose "Will remove issue type"
+    elif [ -n "$NEW_TYPE" ]; then
+        local normalized_type
+        normalized_type=$(normalize_issue_type "$NEW_TYPE") || exit 1
+        gh_args+=(--type "$normalized_type")
+        has_updates=1
+        log_verbose "Will set issue type to: $normalized_type"
     fi
     
     # Body update
@@ -297,6 +318,14 @@ main() {
             -t|--title)
                 NEW_TITLE="$2"
                 shift 2
+                ;;
+            --type)
+                NEW_TYPE="$2"
+                shift 2
+                ;;
+            --remove-type)
+                REMOVE_TYPE=1
+                shift
                 ;;
             -b|--body)
                 NEW_BODY="$2"
