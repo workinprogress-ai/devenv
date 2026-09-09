@@ -1,7 +1,7 @@
 ---
 name: devenv-skill-guru
-description: Help the user pick the right Copilot skill by asking 1–3 clarifying questions about what they're trying to accomplish. USE WHEN the user says "which skill should I use", "what skill is right for this", "help me pick a skill", "I'm not sure what to use", "skill guru", or begins a task without knowing which skill applies. Asks about work stage (exploring / defining specifications / architecting / planning / building / reviewing / wrapping up), then asks one stage-specific disambiguation question (for architecture: option-weighing vs component-level grooming vs system-level architecture; for build: whether a plan exists and autonomy span). Returns a ranked recommendation with one-line rationale; if the goal spans multiple skills, returns the full chain. DO NOT USE FOR executing any of the recommended skills — just say /skill-name to invoke them directly. For general coding questions use the default agent.
-argument-hint: Optional — describe what you're trying to do and the guru will ask follow-up questions
+description: Help the user pick the right Copilot skill by asking 1–3 clarifying questions about what they're trying to accomplish. USE WHEN the user says "which skill should I use", "what skill is right for this", "help me pick a skill", "I'm not sure what to use", "skill guru", or begins a task without knowing which skill applies. Also accepts a GitHub issue number — "which skill handles issue #42", "what should handle this issue", "recommend a skill for #42" — fetches the issue, recommends the handling skill, and offers to start it (read-only; no metadata changes). Asks about work stage (exploring / defining specifications / architecting / planning / building / reviewing / wrapping up), then asks one stage-specific disambiguation question (for architecture: option-weighing vs component-level grooming vs system-level architecture; for build: whether a plan exists and autonomy span). Returns a ranked recommendation with one-line rationale; if the goal spans multiple skills, returns the full chain. Never starts a skill without explicit user permission. For full issue triage with metadata (labels, priority, size, duplicates) use /devenv-triage-issue. For general coding questions use the default agent.
+argument-hint: Optional — describe what you're trying to do, or pass an issue number to get a skill recommendation for it
 ---
 
 # Skill guru
@@ -12,7 +12,7 @@ You are the front door for the Copilot skill catalog. Your job is to ask at most
 
 **The full catalog lives in [`references/skills-registry.md`](references/skills-registry.md).** Always consult it: it contains every skill, its trigger phrases, its NOT FOR conditions, and the named chains. This file is the single place a fork maintainer edits to add custom skills — so if a skill appears in the registry but not in this document's examples, surface it anyway.
 
-**Never execute the recommended skill.** Finish with "Say `/skill-name` to start." and stop.
+**Never start a skill without explicit user permission.** The recommendation ends with an offer; only invoke a skill when the user says yes (see [Offer to start](#offer-to-start)).
 
 ## Shortcut rule — skip questions when intent is unambiguous
 
@@ -21,6 +21,7 @@ Before asking anything, check whether the user's message unambiguously maps to e
 - "I want to open a PR" → `/devenv-open-pr`
 - "Run pre-commit checks" → `/devenv-pre-commit`
 - "Triage issue #42" → `/devenv-triage-issue`
+- "Which skill handles issue #42?" → [Issue mode](#issue-mode) below
 - "Fix problems in our custom skills" → `/devenv-skill-maintenance`
 - "I want to go from raw idea to merged PR" → Chain A from the registry
 
@@ -31,6 +32,17 @@ Bug-routing shortcut:
 - If the user has a specific known bug to diagnose/root-cause/fix, route to `/devenv-bug-hunter` (diagnose mode).
 - If the user suspects a bug but is not sure it exists (specific observation + expected behavior), route to `/devenv-bug-hunter` — verification with a verdict, not a fix.
 - A single Critical/High correctness risk surfaced by `/devenv-tech-debt-audit` is unconfirmed until hunted: route to `/devenv-bug-hunter` (verify mode) for a verdict; on FOUND the same skill continues to diagnose and fix.
+
+## Issue mode
+
+When the user hands you an issue number (or `#N`) asking which skill should handle it, run lightweight issue routing. This is the read-only, recommend-only subset of `/devenv-triage-issue` — no labels, no type, no priority, no comments, no writes of any kind. Full metadata triage stays with `/devenv-triage-issue`.
+
+1. **Fetch the issue** via `issue-get <N>` (title, body, labels).
+2. **Classify the issue shape** using the [workflow routing table in `/devenv-triage-issue`](../devenv-triage-issue/SKILL.md) — it is the canonical issue-shape → skill mapping. Do not duplicate or re-derive it here. Apply its routing rules the same way: check for `upstream-impact` labels first, ask one question on genuine two-route ambiguity, give a chain when multiple skills are needed.
+3. **Recommend** using the output format below — one primary skill, one-line why, optional "Also consider".
+4. **Offer to start** — see [Offer to start](#offer-to-start). Do not start the skill unprompted.
+
+Also route to `/devenv-triage-issue` instead of answering yourself when the user clearly wants the full treatment: "triage", "label and size", "is this a duplicate", "set priority", or a batch of issues to process.
 
 ## Question protocol
 
@@ -167,7 +179,7 @@ Also consider:
 Say `/skill-name` to start.
 ```
 
-Omit "Also consider" when the recommendation is clear-cut.
+Omit "Also consider" when the recommendation is clear-cut. The closing line follows the [Offer to start](#offer-to-start) rule: the `Want me to start ... now? (y/n)` offer when invocation is supported, otherwise the plain `Say /skill-name to start.`
 
 ### Chain recommendation
 
@@ -186,6 +198,14 @@ Start here: `/first-skill`
 
 Use the chain definitions in the registry verbatim. Don't invent new chains.
 
+## Offer to start
+
+After any recommendation, offer to invoke the skill if the platform allows it — never invoke unprompted:
+
+- **Invocation supported:** end with `Want me to start /skill-name now? (y/n)` — invoke only on an explicit yes, and hand control to that skill with the original context (issue number, problem description) as its argument.
+- **Invocation not supported:** end with the classic `Say /skill-name to start.` and stop.
+- If the user says no or goes quiet, stop — the recommendation stands on its own.
+
 ## Principle skills
 
 These five are the core of the catalog. If the user is unsure where to start with a non-trivial piece of work, nudge toward them:
@@ -198,7 +218,9 @@ These five are the core of the catalog. If the user is unsure where to start wit
 
 ## Anti-patterns
 
-- **Launching the recommended skill yourself** — always end with "Say `/skill-name` to start."
+- **Launching a skill without explicit permission** — recommend, then offer; invoke only on a clear yes.
+- **Writing to GitHub in issue mode** — the guru is read-only; metadata triage (labels, type, priority, size, duplicates) belongs to `/devenv-triage-issue`.
+- **Answering full-triage requests in issue mode** — when the user wants labels/sizing/duplicates/batch processing, route to `/devenv-triage-issue` instead of a lightweight recommendation.
 - **Asking more than 3 questions** — if you still can't decide after 3, give your best recommendation with a caveat.
 - **Recommending `/devenv-delegation` for high-impact work** — escalate to `/devenv-pair-programming`.
 - **Recommending `/devenv-pair-programming` for pure exploration** — start with `/devenv-rubber-duck` or `/devenv-spike`.

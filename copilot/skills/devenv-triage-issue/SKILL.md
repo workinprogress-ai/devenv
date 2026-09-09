@@ -27,6 +27,8 @@ Bundle all proposed writes into one confirmation before applying.
 
 This skill recommends; it does not execute. The routing line always ends with "Say `/skill-name` to start" — the user invokes the routed skill.
 
+> **Boundary:** `/devenv-skill-guru` (issue mode) covers the lightweight end of this — read-only fetch + which-skill-handles-this recommendation, no metadata. If the user only wants a quick routing answer, either skill works; anything involving labels, type, priority, size, duplicates, or batch processing belongs here.
+
 ## Inputs
 
 Auto-detect:
