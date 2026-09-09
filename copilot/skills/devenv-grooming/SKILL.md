@@ -212,7 +212,8 @@ This flow updates the grooming document only; it does not modify the completed p
 - Route to `/devenv-design-discussion` for a single large blocker/question when it needs deeper option-weighing, but the expected outcome is still a bounded plan change rather than a broader design reset.
 - Stay in grooming when the approach is already chosen and the work is to capture/update the architecture delta for in-flight implementation.
 - Stay in grooming when questions are accumulating, multiple decisions are entangled, or the current design may need sweeping revision, replacement, or upstream artifact changes.
-- Route to `/devenv-refine-implementation-plan` when architecture is settled and the remaining work is sequencing/scope edits in tasks.
+- Route to `/devenv-refine-implementation-plan` when architecture is settled, an implementation plan **already exists** for the groomed scope, and the remaining work is sequencing/scope edits in its tasks.
+- Route to `/devenv-create-implementation-plan` when architecture is settled and **no plan exists yet** for the groomed scope — plan generation from a grooming artifact always starts at create, not refine. If the attack plan has multiple rows, create the child issues first so each slice gets its own plan.
 - If uncertain between grooming and design-discussion after Phase 1, ask one tie-breaker question: "Are we deciding between approaches broadly, or picking the fastest safe decision to unblock the current plan phase?"
 
 ### Artifact gate before any implementation handoff
@@ -297,9 +298,12 @@ Record one revision-history entry for the overall grooming update effort when th
 
 If the grooming artifact changed concurrently during iteration, perform one final section-level reread of `Confirmed` and `Outstanding questions` before finalizing, then rerun the decision-package parity check.
 
-When all architecture/design decisions required for execution are confirmed, explicitly hand off plan/task updates to [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) instead of editing the implementation plan directly in grooming.
-Do not hand off until the grooming document on disk or on the issue reflects those confirmed decisions.
-When the input was a returned or in-flight implementation plan, make this next-step handoff explicit: point to the plan path/issue, note that the grooming artifact was updated, and instruct the next skill to carry confirmed/deferred decisions into the plan's execution surfaces.
+When all architecture/design decisions required for execution are confirmed, explicitly hand off to the downstream plan skill instead of editing an implementation plan directly in grooming. Select the successor by artifact state (see the [successor selection gate](../_conventions.md#successor-selection-gate)):
+
+- **No implementation plan exists yet for the groomed scope** → [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md). This is the default after initial grooming of new scope. If the attack plan has multiple rows, create the child issues first, then plan one slice at a time.
+- **An in-flight plan exists and needs its decisions/tasks updated** → [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md). When the input was a returned or in-flight implementation plan, make this handoff explicit: point to the plan path/issue, note that the grooming artifact was updated, and instruct the next skill to carry confirmed/deferred decisions into the plan's execution surfaces.
+
+Do not hand off until the grooming document on disk or on the issue reflects those confirmed decisions. Never select the successor from naming familiarity — check whether the plan artifact exists first.
 
 ### Session change summary handoff (required on request)
 
@@ -313,7 +317,7 @@ When the user asks for a session summary to pass into plan refinement, output a 
 - semantic deltas captured (lane semantics, ownership boundary, failure mode, scope exclusions),
 - explicit non-goals or exclusions added/changed,
 - revision-history entry text added for this effort,
-- downstream mapping for `/devenv-refine-implementation-plan` (`Watch Outs / Decisions`, task `decision:` metadata, `## Pending Questions`, `## Appendix`),
+- downstream mapping for the plan skill (`/devenv-refine-implementation-plan` for an existing plan, `/devenv-create-implementation-plan` when no plan exists yet) (`Watch Outs / Decisions`, task `decision:` metadata, `## Pending Questions`, `## Appendix`),
 - unresolved items and recommended first refinement targets.
 
 Summary rules:
@@ -420,7 +424,8 @@ Your call: choose A/B(/C) or defer.
 ### Revision history entry (this effort)
 - <exact bullet text or concise equivalent>
 
-### Carry-forward mapping for `/devenv-refine-implementation-plan`
+### Carry-forward mapping for the downstream plan skill
+(Use `/devenv-refine-implementation-plan` when a plan already exists; `/devenv-create-implementation-plan` when none does — the same mapping feeds both.)
 - Watch Outs / Decisions: <items>
 - Task-level `decision:` metadata: <items>
 - `## Pending Questions`: <items>
@@ -438,6 +443,7 @@ Your call: choose A/B(/C) or defer.
 - Ignoring plan-provided context when a plan path/issue is supplied.
 - Suggesting implementation skills before architecture path is settled.
 - Treating recommendations as decisions without explicit user confirmation.
+- Recommending `/devenv-refine-implementation-plan` when no plan exists for the groomed scope — plan generation from a fresh grooming artifact starts at `/devenv-create-implementation-plan`; refine is only for aligning an already-existing plan.
 - Dumping all pending decisions at once and moving on without interactive closure.
 - Skipping Phase 0 (grooming document lookup) and working without a grooming document.
 - Creating a new grooming document without first searching for an existing one.
@@ -450,6 +456,7 @@ Your call: choose A/B(/C) or defer.
 ## Sibling skills
 
 - [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md)
-- [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md)
+- [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) — downstream when no plan exists for the groomed scope
+- [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) — downstream when an in-flight plan exists
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

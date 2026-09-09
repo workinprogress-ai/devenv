@@ -160,6 +160,17 @@ Hard rule:
 
 - Never change skill identity during reground.
 
+## Successor selection gate
+
+Any skill that recommends or names a successor skill at handoff must select it from artifact state, not from vocabulary familiarity.
+
+Required behavior at the handoff decision point:
+
+1. Check whether the successor's target artifact already exists (implementation plan file or plan artifact on the issue, blueprint file, specifications doc, grooming doc, etc.).
+2. No artifact yet → route to the **create** skill (`/devenv-create-implementation-plan`, `/devenv-create-blueprint`, ...).
+3. Artifact exists and needs alignment → route to the **refine** skill (`/devenv-refine-implementation-plan`, ...).
+4. Naming frequency of successor skills inside the current skill's prose is not evidence — never let it override the state check.
+
 ## When to push content into `references/`
 
 Push to a reference file when **all** of:

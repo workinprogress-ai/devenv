@@ -402,8 +402,7 @@ Every phase in `## Phases` should include both human-facing guidance and a conde
 - `/devenv-create-blueprint` + `/devenv-create-roadmap` — for epic-scale work across multiple components; each roadmap step eventually becomes an implementation plan.
 - `/devenv-grooming` — when the component's internal design direction is unsettled; classify it before writing tasks.
 - `/devenv-design-discussion` — when the right approach for this work isn't settled yet; weigh options before planning tasks.
-- `/devenv-refine-implementation-plan` — to revise this plan after scope changes.
-- `/devenv-refine-implementation-plan` — align an existing plan with reality: surgical edits (tick boxes, add notes), structured revision, or staleness assessment.
+- `/devenv-refine-implementation-plan` — align this plan with reality later: surgical edits (tick boxes, add notes), structured revision after scope changes, or staleness assessment.
 
 Spec-derived planning is handled by this skill in direct-plan mode.
 
