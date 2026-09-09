@@ -116,7 +116,7 @@ Solution proposal expectations:
 
 Write `Solution_Proposal_<topic>-NNN.md` where:
 - `<topic>` is a short snake_case name agreed with the user (e.g. `event_routing`, `actor_model_split`, `retry_strategy`)
-- `NNN` is a zero-padded numeric suffix so multiple proposals for the same topic can coexist
+- `NNN` is a zero-padded numeric suffix (resolve via `next-id --pattern 'Solution_Proposal_<topic>-{N}.md'`) so multiple proposals for the same topic can coexist
 
 **Location:**
 - If the user provides a target directory, write there.

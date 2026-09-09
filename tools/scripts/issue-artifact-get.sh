@@ -1,6 +1,6 @@
 #!/bin/bash
 # issue-artifact-get.sh - Retrieve a deterministic issue-comment artifact by doc_id
-# Version: 1.0.0
+# Version: 1.1.0
 # Description: Fetches exactly one issue comment artifact matched by doc_id metadata line.
 # Requirements: Bash 4.0+, gh CLI, jq
 
@@ -11,7 +11,7 @@ source "$DEVENV_TOOLS/lib/versioning.bash"
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"
 
-readonly SCRIPT_VERSION="1.0.0"
+readonly SCRIPT_VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
 script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Retrieve an issue artifact comment by deterministic doc_id"
@@ -21,6 +21,7 @@ DOC_ID=""
 REPO_OVERRIDE=""
 OUTPUT_FORMAT="json"   # json | pretty
 FULL_BODY=0
+WRITE_BODY_PATH=""
 VERBOSE=0
 
 show_usage() {
@@ -35,6 +36,9 @@ Required Inputs:
 
 Options:
     --full                        Return full body as "body" (default: bodyPreview only)
+    --write-body PATH             Write the raw unescaped markdown body to PATH and
+                                  report it as "bodyFile" in the output (works with
+                                  or without --full)
     --pretty                      Pretty-print JSON output
     --repo OWNER/REPO             Repository override (defaults to GITHUB_REPO)
     -V, --verbose                 Enable verbose logs
@@ -47,12 +51,24 @@ Output:
       "doc_id": "dv1:...",
       "comment_id": 123456,
       "artifact_type": "implementation-plan",
+      "header": {
+        "doc_id": "dv1:...",
+        "artifact_type": "implementation-plan",
+        "artifact_scope": "issue-comment",
+        "issue_number": "42",
+        "source_file": "...",
+        "updated_at_utc": "..."
+      },
       "author": "octocat",
       "createdAt": "...",
       "updatedAt": "...",
       "url": "...",
-      "bodyPreview": "..." | "body": "..."
+      "bodyPreview": "..." | "body": "...",
+      "bodyFile": "..." (only with --write-body)
     }
+
+    "header" contains the parsed DEVENV_ARTIFACT_V1 metadata block (keys present
+    only when found in the artifact; "issue_number" is a string, "none" when unset).
 
 Exit Codes:
     0 success
@@ -123,6 +139,11 @@ main() {
                 FULL_BODY=1
                 shift
                 ;;
+            --write-body)
+                require_option_value "$1" "${2:-}"
+                WRITE_BODY_PATH="${2:-}"
+                shift 2
+                ;;
             --pretty)
                 OUTPUT_FORMAT="pretty"
                 shift
@@ -180,14 +201,20 @@ main() {
     if ! artifact_matches=$(echo "$comments_raw" | jq --arg doc_id "$DOC_ID" '
         [ .[]
           | . as $c
-          | (($c.body // "")[0:256] | split("\n")) as $meta
+          | (($c.body // "")[0:1024] | split("\n")) as $meta
           | ($meta | map(select(startswith("doc_id: ")) | sub("^doc_id: "; "")) | .[0] // "") as $found_doc_id
           | select($found_doc_id == $doc_id)
+          | ($meta
+             | map(select(test("^(doc_id|artifact_type|artifact_scope|issue_number|source_file|updated_at_utc): ")))
+             | map(capture("^(?<k>(doc_id|artifact_type|artifact_scope|issue_number|source_file|updated_at_utc)): ?(?<v>.*)$"))
+             | reduce .[] as $kv ({}; . + {($kv.k): $kv.v})
+            ) as $header
           | {
               issue_number: ($c.issue_url | capture(".*/issues/(?<n>[0-9]+)$").n | tonumber),
               doc_id: $found_doc_id,
               comment_id: $c.id,
               artifact_type: (($meta | map(select(startswith("artifact_type: ")) | sub("^artifact_type: "; "")) | .[0]) // null),
+              header: $header,
               author: ($c.user.login // null),
               createdAt: $c.created_at,
               updatedAt: $c.updated_at,
@@ -219,11 +246,28 @@ main() {
         exit 3
     fi
 
+    if [ -n "$WRITE_BODY_PATH" ]; then
+        local body_dir
+        body_dir="$(dirname "$WRITE_BODY_PATH")"
+        if [ ! -d "$body_dir" ]; then
+            log_error "Directory does not exist: $body_dir"
+            exit 2
+        fi
+        if ! echo "$artifact_matches" | jq -r '.[0].body' > "$WRITE_BODY_PATH"; then
+            api_failure "Failed to write body to $WRITE_BODY_PATH"
+        fi
+        log_verbose "Body written to $WRITE_BODY_PATH"
+    fi
+
     local result
     if [ "$FULL_BODY" -eq 1 ]; then
         result=$(echo "$artifact_matches" | jq '.[0] | del(.bodyPreview)')
     else
         result=$(echo "$artifact_matches" | jq '.[0] | del(.body)')
+    fi
+
+    if [ -n "$WRITE_BODY_PATH" ]; then
+        result=$(echo "$result" | jq --arg body_file "$WRITE_BODY_PATH" '. + {bodyFile: $body_file}')
     fi
 
     if [ "$OUTPUT_FORMAT" = "pretty" ]; then

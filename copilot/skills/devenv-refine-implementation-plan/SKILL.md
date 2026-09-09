@@ -72,8 +72,8 @@ Small, surgical edits without a revision interview.
 
 | Operation | Supported in surgical mode? |
 |---|---|
-| Mark task `[x]` | yes |
-| Mark task `[ ]` (undo) | only if it was ticked in the current session (e.g. by mistake); prior-session checkboxes refuse — suggest adding a new task instead |
+| Mark task `[x]` | yes — apply via `markdown-plan-complete-task <id> <plan_file>` (deterministic; never retype the line) |
+| Mark task `[ ]` (undo) | via `markdown-plan-complete-task <id> <plan_file> --uncomplete`; only if it was ticked in the current session (e.g. by mistake); prior-session checkboxes refuse — suggest adding a new task instead |
 | Answer/resolve an open question | yes |
 | Append a short note to a task line | yes |
 | Add one new task at the end of a phase | yes |
@@ -93,11 +93,12 @@ Then apply the shared hard rules (Step 3), write (Step 5), and report (Step 6) w
 
 ### 1. Load and parse the existing plan
 
-- Read the source (file or `issue-artifact-get` output).
+- Read the source (file or `issue-artifact-get --write-body` output).
+- Run `plan-parse <plan_file> --structure` for the authoritative phase/task inventory; `--census` for per-phase completion; `--anchors` for the file-path existence scan.
 - If the source is an issue artifact, materialize it to a local working copy before editing (repo-local file or temp file, depending on user choice when not already implied). Use that local working copy for all iterations in this refinement effort, and keep its `doc_id` in context for republish.
-- Identify the phase headings (`### Phase N — Title`) and task lines (`- [ ]` / `- [x]`).
-- Note the highest existing task number per phase (e.g. Phase 2 has tasks up to 2.7 → next is 2.8).
-- **Assess completion state**: for each phase, note whether it is fully complete (all tasks `[x]`), partially complete, or untouched. Note the highest existing phase number — this is used if new phases need to be created.
+- Run `plan-parse <plan_file> --structure` for the authoritative view: phase headings, task lines, IDs, and completion state in one JSON — do not hand-scan headings or checkboxes. Use `--census` when you only need per-phase completion counts.
+- The highest task number per phase and highest phase number come from the `plan-parse` output (max `id` / max `number`) — no manual arithmetic.
+- **Assess completion state**: `plan-parse --census` gives per-phase done/open counts directly.
 - If a marker-style escalation record exists in plan decisions or pending questions, treat it as high-priority refinement context and resolve it first.
 - Preserve the high-level section order introduced by the current template: goals/AC first, context/orientation second, phases third, detailed task tracking later.
 - If `## Pending Questions` exists, preserve it and keep it immediately above `## Reference Information`.

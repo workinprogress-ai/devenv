@@ -17,17 +17,107 @@ Quick reference for all CLI tools used by the skill suite. Skills invoke `tools/
 
 ## Issue tools
 
+### next-id
+
+Resolve the next free numeric identifier deterministically — filename suffixes and in-document ID sequences.
+
+```
+next-id --pattern 'Implementation_plan-issue-42-{N}.md' [--dir DIR] [--width W] [--filename]
+next-id --file DOC.md --prefix 'SPEC-' [--full]
+```
+
+Filename mode scans a directory for the pattern's `{N}` digit run and prints the next free number (or full filename with `--filename`). In-doc mode scans a document for `PREFIX-NNN` tokens and prints the next number (or `PREFIX-NNN` with `--full`). Use for every "next available suffix" / "next sequential ID" need — never hand-count.
+
+Examples:
+
+```bash
+next-id --pattern 'spike-{N}-*' --width 3          # 004
+next-id --pattern 'Blueprint-orders-{N}.md' --filename
+next-id --file Specifications-orders-001.md --prefix 'SPEC-' --full   # SPEC-015
+```
+
+### artifact-header
+
+Parse, verify, and stamp `DEVENV_ARTIFACT_V1` headers in local artifact files.
+
+```
+artifact-header FILE [--field KEY] [--stamp] [--set KEY=VALUE]
+```
+
+Without options prints the parsed header as JSON (`{"found": true, "header": {...}}`; exit 1 when no header block exists). `--field KEY` prints one raw value. `--stamp` rewrites `updated_at_utc` to now. `--set` sets/replaces one key. Use instead of hand-parsing or hand-editing metadata blocks in local files.
+
+Examples:
+
+```bash
+artifact-header Implementation_plan-issue-42-001.md --field doc_id
+artifact-header Grooming-orders-001.md --stamp
+```
+
+### devenv-marker-check
+
+Deterministic DEVENV-marker and AC-comment scanning (replaces hand-run grep sweeps).
+
+```
+devenv-marker-check [PATH...] [--ac] [--marker REGEX] [--require]
+```
+
+Gate mode (default): exit 1 when any `DEVENV[` marker remains. `--ac` lists `[AC-N]` comments for the AC review gate (always exit 0). `--marker` scans a custom pattern (e.g. `DEVENV\\[bug-hunt\\]`). `--require` inverts the gate — pass only when at least one match exists.
+
+Examples:
+
+```bash
+devenv-marker-check .                       # cleanup gate
+devenv-marker-check --ac repos/my-service   # AC review finder
+devenv-marker-check --marker 'DEVENV\\[bug-hunt\\]' repos/my-service
+```
+
+### plan-parse
+
+Deterministic implementation-plan structure parsing.
+
+```
+plan-parse PLAN_FILE [--structure] [--census] [--anchors]
+```
+
+`--structure` (default): phases with tasks and completion state plus the AC checklist as JSON. `--census`: per-phase done/open counts. `--anchors`: file paths mentioned in the plan with existence flags (staleness scans). Use instead of hand-scanning headings, checkboxes, or `Files:` bullets.
+
+Examples:
+
+```bash
+plan-parse Implementation_plan-issue-42-001.md --census
+plan-parse Implementation_plan-issue-42-001.md --structure | jq '.phases[] | select(.number=="2")'
+plan-parse Implementation_plan-issue-42-001.md --anchors | jq '.anchors[] | select(.exists==false)'
+```
+
+### spec-dependency-check
+
+Validate `Specifications-*.md` dependency graphs and ID anchors.
+
+```
+spec-dependency-check FILE [FILE...]
+```
+
+Checks unknown dependency references, dependency cycles (incl. transitive), group-order violations, and broken SPEC-ID links. Multiple files = cross-doc edges (informational). Output JSON `{errors, warnings, edges, ok}`; exit 1 on errors.
+
+Examples:
+
+```bash
+spec-dependency-check Specifications-orders-001.md
+spec-dependency-check Specifications-orders-001.md Specifications-auth-001.md
+```
+
 ### issue-get
 
 Retrieve a single issue as structured JSON.
 
 ```
-issue-get ISSUE_NUMBER [--pretty]
+issue-get ISSUE_NUMBER [--pretty] [--format FIELD]
 ```
 
 Key flags:
 
 - `--pretty` — human-readable indented JSON
+- `--format FIELD` — print one field as raw text (`title`, `body`, `state`, `url`, `number`, `author`; `labels` joins label names with commas) — replaces `jq -r` pipelines
 
 Output fields: `number`, `title`, `body`, `state`, `labels[]`, `assignees[]`, `milestone`, `author`, `createdAt`, `updatedAt`, `url`, `comments`
 
@@ -35,8 +125,8 @@ Examples:
 
 ```bash
 issue-get 42 --pretty
-issue-get 42 | jq -r '.title'
-issue-get 42 | jq -r '.labels[].name'
+issue-get 42 --format title
+issue-get 42 --format body > /tmp/issue-body.md
 ```
 
 ---
@@ -164,11 +254,15 @@ issue-comment-update 123456789 --body-file updated-artifact.md
 
 ### issue-artifact-upsert
 
-Create or update an issue-comment artifact. Automatically extracts `doc_id` from the artifact body header (first 256 characters).
+Create or update an issue-comment artifact. Automatically extracts `doc_id` from the artifact body header (first 256 characters) and **stamps `updated_at_utc` to the current UTC time** inside the `DEVENV_ARTIFACT_V1` block before publishing.
 
 ```
-issue-artifact-upsert --issue N (--body TEXT | --body-file FILE) [--repo OWNER/REPO] [--dry-run]
+issue-artifact-upsert --issue N (--body TEXT | --body-file FILE) [--repo OWNER/REPO] [--dry-run] [--no-stamp]
 ```
+
+Key flags:
+
+- `--no-stamp` — publish byte-exact without rewriting `updated_at_utc`
 
 The artifact file/body must include `doc_id: <value>` line in the first 256 characters.
 
@@ -198,16 +292,19 @@ Output: `dv1:<owner-repo>:issue-<N>:<type>:<slug>` on stdout.
 
 ### issue-artifact-get
 
-Retrieve a single issue-comment artifact by `doc_id`.
+Retrieve a single issue-comment artifact by `doc_id`. Output includes a `header` object with the parsed `DEVENV_ARTIFACT_V1` metadata (`doc_id`, `artifact_type`, `artifact_scope`, `issue_number`, `source_file`, `updated_at_utc` — keys present only when found in the artifact).
 
 ```
-issue-artifact-get --issue N --doc-id ID [--full] [--pretty] [--repo OWNER/REPO]
+issue-artifact-get --issue N --doc-id ID [--full] [--write-body PATH] [--pretty] [--repo OWNER/REPO]
 ```
+
+`--write-body PATH` writes the raw unescaped markdown body to a file and reports it as `bodyFile` — prefer this over `--full` + manual JSON unescaping whenever the body will be diffed, edited, or materialized (freshness checks, pull-edit-publish).
 
 Examples:
 
 ```bash
 issue-artifact-get --issue 42 --doc-id "$DOC_ID" --pretty
+issue-artifact-get --issue 42 --doc-id "$DOC_ID" --write-body /tmp/artifact.md
 ```
 
 ---

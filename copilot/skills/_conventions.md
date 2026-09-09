@@ -204,7 +204,7 @@ For skills that produce persisted artifacts (local markdown files or GitHub issu
 
 Required rules:
 
-1. Every persisted artifact must include the metadata block at the top of the artifact body:
+1. Every persisted artifact must include the metadata block at the top of the artifact body (compose with `artifact-header <file> --set key=value` where a header is being assembled or repaired; `issue-artifact-upsert` stamps `updated_at_utc` automatically on publish):
 
 ```markdown
 <!-- DEVENV_ARTIFACT_V1
@@ -217,7 +217,7 @@ updated_at_utc: <ISO-8601>
 -->
 ```
 
-2. `doc_id` must be deterministic for the same artifact identity and must appear within the first 256 characters.
+2. `doc_id` must be deterministic for the same artifact identity and must appear within the first 256 characters. Read `doc_id` (or any header key) from existing files via `artifact-header <file> --field <key>`; read/verify the whole header via `artifact-header <file>`; bump `updated_at_utc` via `artifact-header <file> --stamp` — never hand-parse or hand-edit the metadata block.
 3. For issue-comment artifacts, include `doc_id: <value>` in the file header. The value should follow this deterministic format:
     - `dv1:<owner-repo>:issue-<N>:<artifact-type>:<artifact-slug>`
     - `<artifact-slug>` should be derived from the artifact filename stem or topic, kept stable across updates for the same artifact.

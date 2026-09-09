@@ -163,7 +163,7 @@ Ask, if not provided: GH issue number? Path to a plan file? Ad-hoc (no plan)?
    - If the user provided `doc_id`, use `issue-artifact-select --issue <N> --doc-id <DOC_ID>`.
    - If not, try `issue-artifact-select --issue <N> --artifact-type implementation-plan`.
    - If ambiguous, list candidates via `issue-artifact-list --issue <N> --artifact-type implementation-plan --pretty` and ask the user which `doc_id` to use.
-3. Fetch the selected artifact via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --full` and materialize to `Implementation_plan-issue-<N>-001.md` (next available suffix, never overwrite).
+3. Fetch the selected artifact via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --write-body $(next-id --pattern 'Implementation_plan-issue-<N>-{N}.md' --dir <repo-root> --filename)` (next free suffix, never overwrite) — the tool writes the raw markdown directly; use the `header` field in its output for metadata checks.
 4. **Work exclusively from the local file** — record its workspace-relative path as `<plan_file>` for `markdown-plan-complete-task` calls. Keep the selected `<DOC_ID>` in session context; all issue publication updates must target the same artifact comment.
 5. Record the target repo root in session context and run all repo-scoped tooling from that directory for the rest of the session segment.
 
@@ -174,7 +174,7 @@ If a plan file is used, determine whether there is an associated GH issue for ar
 1. If the user provided an issue number, use it.
 2. Else, if filename matches `Implementation_plan-issue-<N>-*.md`, infer `<N>`.
 3. If an issue number is known, resolve the artifact identity for sync:
-   - If the plan header has non-empty `doc_id`, use that as the target identity.
+   - If the plan header has non-empty `doc_id`, use that as the target identity — read it via `artifact-header <plan_file> --field doc_id` (never hand-parse the header).
    - Otherwise run `issue-artifact-select --issue <N> --artifact-type implementation-plan`; if ambiguous, list candidates and ask the user to choose `doc_id`.
 4. Record associated `<N>` and `<DOC_ID>` in session context for subsequent sync steps.
 
@@ -182,8 +182,8 @@ For either GH-issue or plan-file entry paths, explicitly set terminal working di
 
 When associated `<N>` + `<DOC_ID>` are known, run a **one-time artifact freshness check at session start** (not at each phase end):
 
-1. Fetch current artifact body once via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --full`.
-2. Compare fetched body with local `<plan_file>`.
+1. Fetch the current artifact once via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --write-body /tmp/artifact-fresh.md`.
+2. Compare with the local `<plan_file>` via `diff /tmp/artifact-fresh.md <plan_file>` — identical output means fresh; any difference is drift to review (the `header.updated_at_utc` field in the tool output shows when the remote was last republished).
 3. If materially different, reconcile before starting execution (ask user whether to adopt remote, keep local, or merge).
 
 During the same session, assume this working copy is authoritative unless the user indicates external edits occurred.
@@ -1020,7 +1020,7 @@ Before declaring a phase complete, run the committability checklist (see [phase-
 - [ ] Coverage has not regressed
 - [ ] New tests assert observable behavior
 - [ ] No blocking TODOs
-- [ ] No straggler DEVENV comments for completed work — `grep -rn "DEVENV\[" <phase-files>`
+- [ ] No straggler DEVENV comments for completed work — `devenv-marker-check <phase-files>`
 
 Coverage drops are blockers — surface and resolve before declaring complete. If the gate passes: *"✅ Gate clear — phase is committable."*
 

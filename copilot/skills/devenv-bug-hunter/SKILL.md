@@ -171,7 +171,7 @@ On NOT-FOUND / INCONCLUSIVE, the engagement ends: the report is the deliverable,
 ### Phase V5 — Cleanup (after any verdict, before continuation)
 
 1. **Decide test fate first.** Any tests worth keeping permanent? User decides before restore (`🔶`): keep (commit-worthy) / temporary (dies with the reset) / promote to the repo's suite now.
-2. **Remove instrumentation by deletion.** `grep -rn "DEVENV\[bug-hunt\]" <target-repo>` must come back empty. Deletion is always safe; git is never the cleanup tool.
+2. **Remove instrumentation by deletion.** `devenv-marker-check --marker 'DEVENV\[bug-hunt\]' <target-repo>` must pass (zero matches). Deletion is always safe; git is never the cleanup tool.
 3. **Offer the reset path.** If code was modified: *"If you want the shortest path back to clean, inspect the diff, salvage anything you care about, then run `git reset --hard` — your hands, not mine. I got what I came for."*
 
 ---

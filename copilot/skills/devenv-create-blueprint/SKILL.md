@@ -60,7 +60,7 @@ Track:
 
 Produce `Blueprint-<system>-NNN.md` where:
 - `<system>` is a short kebab-case name agreed with the user (e.g. `order-fulfillment`, `auth-revamp`)
-- `NNN` is a zero-padded numeric suffix (`001`, `002`, …) so multiple blueprints for the same system can coexist
+- `NNN` is a zero-padded numeric suffix (`001`, `002`, …; resolve via `next-id --pattern 'Blueprint-<system>-{N}.md' --width 3`) so multiple blueprints for the same system can coexist
 
 **Location:**
 - If the target repo name starts with `planning.` → write to `docs/Architecture/` (create the folder if needed)

@@ -83,7 +83,7 @@ If surgical, continue with the workflow below.
 ### 1. Load and parse
 
 - Read the file. Identify all top-level numbered sections (`## 1. Vision`, `## 2. Specification Items`, `## 3. Priority Groups`, etc.).
-- Note all `SPEC-NNN` IDs (with their category prefix scheme), the dependency edges between them, and the existing `GROUP-NN` priority assignments.
+- Run `spec-dependency-check <doc>` for the authoritative inventory: `SPEC-NNN` IDs (with their category prefix scheme), the dependency edges between them, and `GROUP-NN` group-order violations — no hand-walking of `Dependencies:` lines.
 
 ### 2. Interview the user about what changed
 
@@ -102,14 +102,14 @@ If the user provides communications artifacts, summarise each one separately (pr
 
 **Hard rules:**
 
-- **Never reflow IDs.** `SPEC-007` stays `SPEC-007` for its lifetime. New specification items get the next sequential number per category prefix (e.g. `AUTH-008`, `ORD-014`). Gaps from deleted items are expected and harmless.
+- **Never reflow IDs.** `SPEC-007` stays `SPEC-007` for its lifetime. New specification items get the next sequential number per category prefix (e.g. `AUTH-008`, `ORD-014`) — resolve via `next-id --file <doc> --prefix '<PREFIX>-' --full`. Gaps from deleted items are expected and harmless.
 - **Superseded specification items are deleted clean** — no strikethrough, no tombstone text. If the supersession is significant (a future implementer would ask why), write an ADR; otherwise delete silently. Update every `Dependencies:` reference pointing at the removed ID.
 - **Rewrite acceptance criteria in place as current truth.** Updated criteria keep the specification item's ID; the document never carries prior-state narrative. Prior wording lives in git history and, when significant, an ADR.
-- **Dependency links must stay valid.** If a specification item is superseded, walk every other specification item's `Dependencies:` line and update the link to point at the replacement (or remove the link).
+- **Dependency links must stay valid.** If a specification item is superseded, walk every other specification item's `Dependencies:` line and update the link to point at the replacement (or remove the link). Verify with `spec-dependency-check <doc>` after the edit — it flags unknown references and cycles deterministically.
 - **Priority groupings can be re-ordered freely** — they are stakeholder priority, not delivery sequencing. New specification items need to be placed into a group.
 ### 4. Internal consistency review
 
-After applying all changes, scan the full updated specification set for internal consistency. This step is especially important because refinements often introduce new tensions between new and existing specifications that weren't present in the original document.
+After applying all changes, run `spec-dependency-check <doc>` for the deterministic layer (unknown references, dependency cycles, group-order violations, broken SPEC-ID links), then scan the full updated specification set for semantic consistency. This step is especially important because refinements often introduce new tensions between new and existing specifications that weren't present in the original document.
 
 Check for:
 

@@ -87,7 +87,7 @@ Track open questions as `Q-001`, `Q-002`, etc. (see [Q-NNN format](../_conventio
 
 Produce a `Specifications-<topic>-NNN.md` file where:
 - `<topic>` is a short kebab-case name agreed with the user (e.g. `search`, `user-management`, `billing`)
-- `NNN` is a zero-padded numeric suffix (`001`, `002`, …) so multiple documents for the same topic can coexist
+- `NNN` is a zero-padded numeric suffix (`001`, `002`, …; resolve via `next-id --pattern 'Specifications-<topic>-{N}.md' --width 3`) so multiple documents for the same topic can coexist
 
 **Location:**
 - If the target repo name starts with `planning.` → write to `docs/Specifications/` (create the folder if needed)
@@ -113,7 +113,7 @@ If the argument is a path to an existing `Specifications-*.md`, enter **continua
 
 **Session arc:**
 
-1. **Load and read the doc.** Note the last-used specification ID, the current priority groups, current vision, and any open or deferred `Q-NNN` questions. Store the full current state in session memory for comparison at session end.
+1. **Load and read the doc.** Run `spec-dependency-check <doc>` to get the current dependency graph baseline (unknown refs, cycles, group-order violations). Note the last-used specification ID (`next-id --file <doc> --prefix 'SPEC-'`), the current priority groups, current vision, and any open or deferred `Q-NNN` questions. Store the full current state in session memory for comparison at session end.
 
 2. **Summarise the current state** back to the user in a brief block: vision in one sentence, number of existing specifications, any open/deferred questions. Confirm you've loaded it correctly.
 

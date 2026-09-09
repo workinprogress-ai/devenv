@@ -1,6 +1,6 @@
 #!/bin/bash
 # issue-get.sh - Retrieve GitHub issue details as structured JSON
-# Version: 1.0.0
+# Version: 1.1.0
 # Description: Fetches a single issue's data as JSON for scripting and automation
 # Requirements: Bash 4.0+, gh CLI, jq
 # Author: WorkInProgress.ai
@@ -14,7 +14,7 @@ source "$DEVENV_TOOLS/lib/github-helpers.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"
 
-readonly SCRIPT_VERSION="1.0.0"
+readonly SCRIPT_VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
 script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Retrieve GitHub issue details as structured JSON"
@@ -25,6 +25,7 @@ script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Retrieve GitHub issue details a
 
 ISSUE_NUMBER=""
 OUTPUT_FORMAT="json"   # json | pretty
+FORMAT_FIELD=""
 VERBOSE=0
 ALLOW_DEVENV_REPO=0
 
@@ -49,6 +50,8 @@ Options:
     -v, --version               Show version information and exit
     -V, --verbose               Enable verbose output
     --pretty                    Pretty-print JSON output (default: compact)
+    --format FIELD              Print one field as raw text (title, body, state,
+                                url, number, author) — replaces jq -r pipelines
     --devenv                    Safety override to read issues in devenv repo
 
 Environment Variables:
@@ -76,14 +79,17 @@ Examples:
     # Pretty-printed
     $SCRIPT_NAME 123 --pretty
 
-    # Extract a single field with jq
-    $SCRIPT_NAME 123 | jq -r '.title'
+    # Extract a single field
+    $SCRIPT_NAME 123 --format title
 
-    # Get label names
-    $SCRIPT_NAME 123 | jq -r '.labels[].name'
+    # Get the issue body as markdown
+    $SCRIPT_NAME 123 --format body
+
+    # Label names (comma-joined)
+    $SCRIPT_NAME 123 --format labels
 
     # Pipe into another script
-    $SCRIPT_NAME 123 | jq -r '.state'
+    $SCRIPT_NAME 123 --format state
 
 EOF
     exit 0
@@ -108,6 +114,18 @@ get_issue() {
             --json "$DEFAULT_FIELDS" 2>/dev/null); then
         log_error "Issue #$ISSUE_NUMBER not found"
         exit 1
+    fi
+
+    if [ -n "$FORMAT_FIELD" ]; then
+        case "$FORMAT_FIELD" in
+            labels)
+                echo "$json" | jq -r '[.labels[].name] | join(",")'
+                ;;
+            *)
+                echo "$json" | jq -r --arg f "$FORMAT_FIELD" '.[$f] // empty'
+                ;;
+        esac
+        return
     fi
 
     if [ "$OUTPUT_FORMAT" = "pretty" ]; then
@@ -151,6 +169,10 @@ main() {
             --pretty)
                 OUTPUT_FORMAT="pretty"
                 shift
+                ;;
+            --format)
+                FORMAT_FIELD="$2"
+                shift 2
                 ;;
             --devenv)
                 # shellcheck disable=SC2034  # Used by check_target_repo

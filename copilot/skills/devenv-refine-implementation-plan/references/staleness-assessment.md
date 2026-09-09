@@ -35,7 +35,7 @@ Work through each category; note every signal for classification.
 
 ### 2a. File anchor check
 
-Collect every file path mentioned explicitly in the plan (`Files:` bullets, task descriptions, `path/to/File.cs`-style references). For each: check whether it exists at that path; if not, look for moves (similar names via `file_search`). Flag: **exists** / **moved to X** / **gone**.
+Collect every file path via `plan-parse <plan> --anchors` — it lists each path with an `exists` flag. For any `"exists": false` entry, look for moves (similar names via `file_search`). Flag: **exists** / **moved to X** / **gone**.
 
 ### 2b. Symbol anchor check
 

@@ -30,7 +30,7 @@ If only step **status** is out of date (issues closed, PRs merged), use [`/deven
 
 The user provides an epic number (optionally `:<doc_id>` when the epic holds more than one roadmap artifact) — e.g. `89` or `89:dv1:workinprogress-ai/planning.development.main:89:roadmap:orders-001`.
 
-Resolution: `issue-artifact-select --issue <N> --artifact-type roadmap [--doc-id <DOC_ID> | --latest]` → `issue-artifact-get --issue <N> --doc-id <DOC_ID> --full | jq -r '.body' > /tmp/roadmap-refine.md` (session scratch copy).
+Resolution: `issue-artifact-select --issue <N> --artifact-type roadmap [--doc-id <DOC_ID> | --latest]` → `issue-artifact-get --issue <N> --doc-id <DOC_ID> --write-body /tmp/roadmap-refine.md` (session scratch copy).
 
 ## Workflow
 

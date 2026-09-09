@@ -1,6 +1,6 @@
 #!/bin/bash
 # issue-artifact-upsert.sh - Deterministically create/update an issue comment by doc_id
-# Version: 1.0.0
+# Version: 1.1.0
 # Description: Upserts an issue comment by matching the exact metadata line
 #              "doc_id: <doc_id>" within the first 256 characters.
 # Requirements: Bash 4.0+, gh CLI, jq
@@ -12,7 +12,7 @@ source "$DEVENV_TOOLS/lib/versioning.bash"
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"
 
-readonly SCRIPT_VERSION="1.0.0"
+readonly SCRIPT_VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
 script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Deterministically upsert a GitHub issue comment by doc_id"
@@ -22,6 +22,7 @@ COMMENT_BODY=""
 COMMENT_FILE=""
 REPO_OVERRIDE=""
 DRY_RUN=0
+NO_STAMP=0
 VERBOSE=0
 
 show_usage() {
@@ -39,6 +40,7 @@ Comment Source (exactly one required):
 
 Options:
     -n, --dry-run                 Resolve intended action without writing
+    --no-stamp                    Do not rewrite updated_at_utc (byte-exact republish)
     --repo OWNER/REPO             Repository override (defaults to GITHUB_REPO)
     -V, --verbose                 Enable verbose logs
     -h, --help                    Show this help and exit
@@ -46,7 +48,9 @@ Options:
 
 Behavior:
     1) Read comment body from --body or --body-file
-    2) Resolve issue number from --issue, "issue_number: <N>" in the body header, or a doc_id containing issue-<N>
+    2) Stamp updated_at_utc to the current UTC time inside the DEVENV_ARTIFACT_V1
+       block (unless --no-stamp; no-op when the block has no such line)
+    3) Resolve issue number from --issue, "issue_number: <N>" in the body header, or a doc_id containing issue-<N>
     3) Extract doc_id from "doc_id: <ID>" line in first 256 characters
     4) Search all issue comments for matching doc_id in first 256 characters
     5) 1 match   -> update comment
@@ -159,6 +163,10 @@ main() {
                 DRY_RUN=1
                 shift
                 ;;
+            --no-stamp)
+                NO_STAMP=1
+                shift
+                ;;
             --issue|--issue-number|--issue_number)
                 require_option_value "$1" "${2:-}"
                 ISSUE_NUMBER="${2:-}"
@@ -209,6 +217,35 @@ main() {
 
     local body
     body="$(load_comment_body)"
+
+    # Deterministic timestamp stamping: rewrite updated_at_utc inside the
+    # DEVENV_ARTIFACT_V1 block before publishing (skip with --no-stamp).
+    if [ "$NO_STAMP" -eq 0 ]; then
+        local now_utc
+        now_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        local stamped
+        stamped=$(printf '%s\n' "$body" | awk -v ts="$now_utc" '
+            BEGIN { inblock = 0; stamped = 0 }
+            /DEVENV_ARTIFACT_V1/ { inblock = 1; print; next }
+            inblock && /^-->/ {
+                if (!stamped) print "updated_at_utc: " ts
+                print; inblock = 0; next
+            }
+            inblock && /^[[:space:]]*updated_at_utc[[:space:]]*:/ {
+                line = $0
+                indent = line
+                sub(/[^[:space:]].*$/, "", indent)
+                print indent "updated_at_utc: " ts
+                stamped = 1
+                next
+            }
+            { print }
+        ')
+        if [ -n "$stamped" ]; then
+            body="$stamped"
+            log_verbose "Stamped updated_at_utc: $now_utc"
+        fi
+    fi
 
     # Extract header metadata from body prefix (first 256 chars)
     local body_prefix

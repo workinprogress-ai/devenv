@@ -4,7 +4,7 @@
 
 Run this gate after all implementation phases are complete and **before starting the Cleanup phase**. The AC Review must finish before the DEVENV cleanup grep runs — the `[AC-N]` DEVENV comments are removed together with other DEVENV markers in Cleanup.
 
-1. Scan for `[AC-N]` DEVENV comments in the codebase: `grep -rn "\[AC-" <repo-root>`
+1. Scan for `[AC-N]` DEVENV comments in the codebase: `devenv-marker-check --ac <repo-root>`
 2. For each hit, navigate to the code or test and assess whether the acceptance criterion is now objectively verifiable:
    - **Objectively verifiable** (test passes, behavior is observable by anyone looking at the code): run `markdown-plan-complete-ac AC-N [<plan_file>]` to tick it. State which AC was ticked and what evidence was used.
    - **Requires human judgment** (usability, performance, business rule interpretation): present it to the user: *"AC-3 — [criterion text]: can you confirm this is satisfied?"* Tick it after they confirm.
@@ -25,7 +25,7 @@ Before declaring a phase complete, run the committability checklist from [phase-
 - [ ] Tests added this phase assert observable behavior — not just execute code
 - [ ] No blocking TODOs
 - [ ] No unresolved `[QUESTION]` items remain for this phase unless explicitly deferred or spun out to a follow-up issue
-- [ ] No straggler forward DEVENV comments remain in files touched this phase for work already completed — run `grep -rn "DEVENV\[" <phase-files>` to check; remove any found
+- [ ] No straggler forward DEVENV comments remain in files touched this phase for work already completed — run `devenv-marker-check <phase-files>` to check; remove any found
 
 If coverage has dropped, **it is a blocker** — the phase is not committable. Use this three-step protocol:
 

@@ -127,19 +127,19 @@ Ask if not provided: GH issue # or path to a plan markdown.
    2. If no local file exists, resolve one implementation-plan artifact comment for this issue:
       - If user provided `doc_id`, use `issue-artifact-select --issue <N> --doc-id <DOC_ID>`.
       - Otherwise use `issue-artifact-select --issue <N> --artifact-type implementation-plan`; if ambiguous, list candidates with `issue-artifact-list --issue <N> --artifact-type implementation-plan --pretty` and ask the user which `doc_id` to use.
-  3. Fetch the selected artifact via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --full`, then write it to the target repo root as `Implementation_plan-issue-<N>-001.md` (or the next available suffix — never overwrite an existing file).
+  3. Fetch the selected artifact via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --write-body $(next-id --pattern 'Implementation_plan-issue-<N>-{N}.md' --dir <repo-root> --filename)` — the tool writes the raw markdown to the next free suffix (never overwrites an existing file).
   4. **Work exclusively from the local file from this point on.** Record its workspace-relative path (e.g. `repos/lib.cs.services.bulk-sync/Implementation_plan-issue-42-001.md`) — this is the `<plan_file>` for `markdown-plan-complete-task` calls throughout the session. Pass it explicitly when running from a directory other than the plan's own — the tool auto-detects `Implementation_plan-*.md` only in the current directory. Checkbox updates go to the file; issue artifact syncs at phase boundaries upsert the same `doc_id` back to the issue.
 - **Plan file**: read it. Then determine whether there is an associated GH issue for artifact sync:
    1. If the user provided an issue number, use it.
    2. Else, if filename matches `Implementation_plan-issue-<N>-*.md`, infer `<N>`.
    3. If an issue number is known, resolve artifact identity for sync:
-       - If the plan header has non-empty `doc_id`, use that value.
+       - If the plan header has non-empty `doc_id`, use that value — read it via `artifact-header <plan_file> --field doc_id` (never hand-parse the header).
        - Otherwise run `issue-artifact-select --issue <N> --artifact-type implementation-plan`; if ambiguous, list candidates and ask the user to choose `doc_id`.
    4. Record associated `<N>` and `<DOC_ID>` in session context.
 - For either GH-issue or plan-file entry paths, record the target repo root in session context and run all repo-scoped tooling from that directory before each command block.
 - If associated `<N>` + `<DOC_ID>` are known, run a **one-time artifact freshness check at session start** (not at each phase end):
-   1. Fetch current artifact body once via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --full`.
-   2. Compare fetched body with local `<plan_file>`.
+   1. Fetch the current artifact once via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --write-body /tmp/artifact-fresh.md`.
+   2. Compare with the local `<plan_file>` via `diff /tmp/artifact-fresh.md <plan_file>` — identical output means fresh; any difference is drift to review.
    3. If materially different, reconcile before execution (ask user whether to adopt remote, keep local, or merge).
    4. During the same session, treat the local working copy as authoritative unless the user indicates external edits occurred.
 - **No plan or too thin**: refuse delegation. Redirect to `/devenv-create-implementation-plan` to draft one first, or `/devenv-refine-implementation-plan` if the plan exists but lacks the human-facing sections.

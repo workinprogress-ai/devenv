@@ -253,7 +253,7 @@ In the target repo root:
 
 - If a GH issue is associated → base name `Implementation_plan-issue-<N>`
 - Otherwise → base name `Implementation_plan`
-- Find the next available zero-padded numeric suffix (`-001`, `-002`, ...) so nothing is overwritten:
+- Find the next available zero-padded numeric suffix (`-001`, `-002`, ...) via `next-id --pattern 'Implementation_plan-issue-<N>-{N}.md'` (deterministic; never overwrites):
   - `Implementation_plan-issue-15-001.md`, `Implementation_plan-issue-15-002.md`, ...
   - `Implementation_plan-001.md`, `Implementation_plan-002.md`, ...
 

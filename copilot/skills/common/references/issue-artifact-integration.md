@@ -46,7 +46,8 @@ Use issue artifact comments for durable markdown persistence.
 issue-artifact-select --issue <N> --artifact-type <TYPE> --latest --format doc-id
 
 # 2. Pull the current artifact to a local working copy
-issue-artifact-get --issue <N> --doc-id <DOC_ID> --full | jq -r '.body' > /tmp/artifact.md
+#    --write-body materializes the raw markdown directly (no jq unescaping step)
+issue-artifact-get --issue <N> --doc-id <DOC_ID> --write-body /tmp/artifact.md
 
 # 3. Edit the local working copy and show diff/summary in chat
 

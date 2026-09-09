@@ -80,7 +80,7 @@ Do the work:
 
 ### 4. Write the findings doc
 
-Write `spike-NNN-<topic>.md` at the workspace root, where `NNN` is the next unused 3-digit suffix (never overwrite an existing spike doc). Structure:
+Write `spike-NNN-<topic>.md` at the workspace root, where `NNN` comes from `next-id --pattern 'spike-{N}-*' --width 3` (never overwrites an existing spike doc). Structure:
 
 ```markdown
 # ⚠️ SPIKE — NOT FOR PRODUCTION
