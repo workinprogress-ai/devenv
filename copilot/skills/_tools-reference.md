@@ -10,8 +10,8 @@ Quick reference for all CLI tools used by the skill suite. Skills invoke `tools/
 
 - `-n, --dry-run` — show what would happen without executing
 - `-V, --verbose` — enable debug output
-- `--devenv` — safety override to run against the devenv repo itself
-- `GITHUB_REPO` env var — override repo (`owner/repo`); defaults to current repo
+- `--devenv` — safety override to run against the devenv repo itself; **reserved for work that is genuinely about the devenv repo** — never as a shortcut past the devenv-repo refusal. When a wrapper refuses because the cwd is the devenv repo, target the actual project repo instead (see the [repo-targeting guard](./_conventions.md#repo-targeting-guard-required-for-issueartifact-calls))
+- `GITHUB_REPO` env var — override repo (`owner/repo`); **resolution order: `GITHUB_REPO`, else `GH_ORG` + current directory's repo name, else current repo — the terminal location silently decides the target when the env var is unset.** Prefix issue/artifact calls with `GITHUB_REPO=<owner>/<repo>` whenever the target is anything other than the cwd's repo
 
 ---
 
@@ -44,12 +44,14 @@ Parse, verify, and stamp `DEVENV_ARTIFACT_V1` headers in local artifact files.
 artifact-header FILE [--field KEY] [--stamp] [--set KEY=VALUE]
 ```
 
-Without options prints the parsed header as JSON (`{"found": true, "header": {...}}`; exit 1 when no header block exists). `--field KEY` prints one raw value. `--stamp` rewrites `updated_at_utc` to now. `--set` sets/replaces one key. Use instead of hand-parsing or hand-editing metadata blocks in local files.
+Without options prints the parsed header as JSON (`{"found": true, "header": {...}}`; exit 1 when no header block exists). `--field KEY` prints one raw value. `--stamp` rewrites `updated_at_utc` to now. `--set` sets/replaces one key (any key — including `planning_repo`, the planning-repo back-link for governed work; see the [repo-targeting guard](./_conventions.md#repo-targeting-guard-required-for-issueartifact-calls)). Use instead of hand-parsing or hand-editing metadata blocks in local files.
 
 Examples:
 
 ```bash
 artifact-header Plan-issue-42-001.md --field doc_id
+artifact-header Plan-issue-42-001.md --field planning_repo
+artifact-header Grooming-orders-001.md --set planning_repo=workinprogress-ai/planning.development.main
 artifact-header Grooming-orders-001.md --stamp
 ```
 
@@ -76,15 +78,17 @@ devenv-marker-check --marker 'DEVENV\\[bug-hunt\\]' repos/my-service
 Deterministic plan structure parsing.
 
 ```
-plan-parse PLAN_FILE [--structure] [--census] [--anchors]
+plan-parse PLAN_FILE [--structure] [--census] [--anchors] [--summary] [--lint [--require-header]]
 ```
 
-`--structure` (default): phases with tasks and completion state plus the AC checklist as JSON. `--census`: per-phase done/open counts. `--anchors`: file paths mentioned in the plan with existence flags (staleness scans). Use instead of hand-scanning headings, checkboxes, or `Files:` bullets.
+`--structure` (default): phases with tasks and completion state plus the AC checklist as JSON. `--census`: per-phase done/open counts. `--anchors`: file paths mentioned in the plan with existence flags (staleness scans). `--summary`: single-object progress summary — `{plan_file, doc_id, issue_number, planning_repo (header routing fields; null when absent), phases_total, phases_complete, current_phase, tasks_done/open/total, pct_tasks, weighted{done,total,pct}, sized_tasks, open_questions, unchecked_acs}`; size weights S=1 M=2 L=4, missing size counts as M. `--lint`: structural lint — `{errors, warnings, checks, ok}`, exit 1 on errors; checks no-phases, alphabetic task suffixes (`2.1a`), duplicate ids, `## Revision History` presence; warns on empty phases, missing size tokens, numbering gaps. `--lint --require-header`: additionally validates the `DEVENV_ARTIFACT_V1` header (presence, `doc_id` format + first-256 placement, `artifact_type: plan`, `planning_repo` owner/repo form) — **the gate to run before any plan-artifact `issue-artifact-upsert`** (errors block; only explicit user acceptance of a documented deviation bypasses). Use instead of hand-scanning headings, checkboxes, or `Files:` bullets — and instead of hand-counting progress (the `Progress:` snapshot line derives from `--summary`/`--census`).
 
 Examples:
 
 ```bash
 plan-parse Plan-issue-42-001.md --census
+plan-parse Plan-issue-42-001.md --summary | jq '{issue_number, planning_repo, pct_tasks}'
+plan-parse Plan-issue-42-001.md --lint --require-header
 plan-parse Plan-issue-42-001.md --structure | jq '.phases[] | select(.number=="2")'
 plan-parse Plan-issue-42-001.md --anchors | jq '.anchors[] | select(.exists==false)'
 ```
@@ -1068,6 +1072,29 @@ Examples:
 ```bash
 repo-cache-update
 repo-cache-update --no-refresh
+```
+
+---
+
+### repo-cache-deepen
+
+Fetch-only deepening of one cached repository for branch-level git signals (progress reporting). Never checks out — the cache working copy stays on the default branch; branches land as remote refs (`refs/remotes/origin/<b>`). Idempotent and additive; safe to re-run. `repo-cache-update` does not undo deepening (fetch/deepen are additive by nature), though its `gc --prune=all` may drop unreachable objects.
+
+```
+repo-cache-deepen --repo <name> [--depth N] [--branch <b>]...
+```
+
+Key flags:
+
+- `--repo <name>` — repository name in the cache (required)
+- `--depth N` — deepen history by N commits via `git fetch --deepen=<N>` (default 200)
+- `--branch <b>` — repeatable; fetch branch into `refs/remotes/origin/<b>` (forced ref update)
+
+Examples:
+
+```bash
+repo-cache-deepen --repo lib.cs.common.essentials
+repo-cache-deepen --repo service.reqord.identity --depth 500 --branch issue-42-query-progress
 ```
 
 ---

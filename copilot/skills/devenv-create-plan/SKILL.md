@@ -275,7 +275,8 @@ Ask, verbatim:
 Only after explicit confirmation:
 
 1. Verify the plan file has `DEVENV_ARTIFACT_V1` header with `doc_id: <value>` in first 256 characters.
-2. Upsert the artifact comment:
+2. Run the pre-upsert lint gate: `plan-parse <path-to-plan> --lint --require-header` — errors block the upsert until fixed (the user may explicitly accept publishing with errors as a documented deviation; never silently). Warnings surface for awareness.
+3. Upsert the artifact comment:
 
 ```bash
 issue-artifact-upsert --issue <N> --body-file <path-to-plan>
@@ -295,6 +296,7 @@ Notes:
 - This supports multiple plans on the same issue by using one `doc_id` per plan file/slug.
 - For an existing plan file with a header `doc_id`, preserve identity by reusing that value instead of regenerating.
 - Do not replace the issue description/body with the plan.
+- **Planning-repo stamping:** when the plan descends from a governed hierarchy (roadmap step, grooming attack-plan row, epic child), stamp `planning_repo: <owner>/<planning-repo>` in the header — inherited from the grooming doc / roadmap / epic linkage, or resolved via the [planning-repo resolution chain](../../_conventions.md#repo-targeting-guard-required-for-issueartifact-calls) — so every later session (execution, refinement, progress reporting) routes epic/artifact calls to the right repo without re-deriving it. Omit the key (or `none`) for standalone ungoverned work.
 
 ## Phase Rules (summary)
 

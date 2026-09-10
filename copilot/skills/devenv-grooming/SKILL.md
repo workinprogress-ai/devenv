@@ -174,6 +174,8 @@ Placement guidance:
 
 The grooming document is the coordination artifact across those plans.
 
+**Planning-repo back-link (multi-project workspace):** planning repos are project-dependent — never assume a fixed one. When the grooming doc lives at epic level, stamp its `DEVENV_ARTIFACT_V1` header with `planning_repo: <owner>/<planning-repo>` (`artifact-header <file> --set planning_repo=<owner>/<repo>`), and record the same value in each component-repo child issue's body (a one-line `Planning repo: <owner>/<repo>` in the issue context) so downstream plan sessions can route epic/artifact calls without guessing. Follow the [planning-repo resolution chain](../_conventions.md#repo-targeting-guard-required-for-issueartifact-calls) when the governing repo is not yet known.
+
 Planned implementation artifact column policy:
 
 - In `Planned plan issue/artifact`, default each row to `TBD` while shaping scope.

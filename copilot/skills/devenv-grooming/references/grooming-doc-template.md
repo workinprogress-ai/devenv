@@ -3,6 +3,7 @@ doc_id: <dv1:<owner-repo>:issue-<N>:grooming:<artifact-slug> | dv1:<owner-repo>:
 artifact_type: grooming
 artifact_scope: issue-comment | local-file
 issue_number: <N | none>
+planning_repo: <owner>/<planning-repo | none>
 source_file: <workspace-relative file path>
 updated_at_utc: <ISO-8601>
 -->

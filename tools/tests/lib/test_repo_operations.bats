@@ -295,6 +295,97 @@ repo3'
 }
 
 # ============================================================================
+# is_devenv_repo (canonical predicate) Tests
+# ============================================================================
+
+@test "git-operations: is_devenv_repo returns true in devenv (marker + name)" {
+    run bash -c "
+        cd '$PROJECT_ROOT'
+        source '$PROJECT_ROOT/tools/lib/git-operations.bash'
+        is_devenv_repo
+    "
+    [ "$status" -eq 0 ]
+}
+
+@test "git-operations: is_devenv_repo detects renamed clone via marker file" {
+    local t
+    t=$(mktemp -d)
+    mkdir -p "$t/renamed-clone/.devcontainer"
+    touch "$t/renamed-clone/.devcontainer/bootstrap.sh"
+    git -C "$t/renamed-clone" init -q
+    run bash -c "
+        cd '$t/renamed-clone'
+        source '$PROJECT_ROOT/tools/lib/git-operations.bash'
+        is_devenv_repo
+    "
+    [ "$status" -eq 0 ]
+    rm -rf "$t"
+}
+
+@test "git-operations: is_devenv_repo detects devenv-named repo without marker" {
+    local t
+    t=$(mktemp -d)
+    mkdir -p "$t/devenv"
+    git -C "$t/devenv" init -q
+    run bash -c "
+        cd '$t/devenv'
+        source '$PROJECT_ROOT/tools/lib/git-operations.bash'
+        is_devenv_repo
+    "
+    [ "$status" -eq 0 ]
+    rm -rf "$t"
+}
+
+@test "git-operations: is_devenv_repo returns false in ordinary repo" {
+    local t
+    t=$(mktemp -d)
+    mkdir -p "$t/some-service"
+    git -C "$t/some-service" init -q
+    run bash -c "
+        cd '$t/some-service'
+        source '$PROJECT_ROOT/tools/lib/git-operations.bash'
+        is_devenv_repo
+    "
+    [ "$status" -ne 0 ]
+    rm -rf "$t"
+}
+
+@test "git-operations: is_devenv_repo returns false outside any git repo" {
+    local t
+    t=$(mktemp -d)
+    run bash -c "
+        cd '$t'
+        source '$PROJECT_ROOT/tools/lib/git-operations.bash'
+        is_devenv_repo
+    "
+    [ "$status" -ne 0 ]
+    rm -rf "$t"
+}
+
+@test "git-operations: is_devenv_repository wrapper delegates to canonical predicate" {
+    # wrapper and canonical predicate agree inside devenv
+    run bash -c "
+        cd '$PROJECT_ROOT'
+        source '$PROJECT_ROOT/tools/lib/repo-operations.bash'
+        is_devenv_repository && is_devenv_repo
+    "
+    [ "$status" -eq 0 ]
+    # and agree outside it
+    local t
+    t=$(mktemp -d)
+    mkdir -p "$t/ordinary"
+    git -C "$t/ordinary" init -q
+    run bash -c "
+        cd '$t/ordinary'
+        source '$PROJECT_ROOT/tools/lib/repo-operations.bash'
+        is_devenv_repository || is_devenv_repo || true
+        ! is_devenv_repository && ! is_devenv_repo
+    "
+    [ "$status" -eq 0 ]
+    rm -rf "$t"
+}
+
+# ============================================================================
 # get_or_create_repos_directory Tests
 # ============================================================================
 

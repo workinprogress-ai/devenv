@@ -8,6 +8,7 @@ A suite of 15 slash-command skills covering the full development lifecycle — f
 
 - **[Skills Catalog](./Skills.md)** — full reference with decision tree, workflow examples, and per-skill docs
 - **[Workflow Guide](./Workflow.md)** — end-to-end methodology guide with ASCII flowcharts and skill mapping notes
+- **[Progress Reporting](./Progress-Reporting.md)** — how progress is derived from plans/issues/git, the `Progress:` snapshot line, and `/devenv-query-progress`
 
 **Top skills:**
 

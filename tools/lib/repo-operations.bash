@@ -12,6 +12,13 @@ if [ -n "${_REPO_OPERATIONS_LOADED:-}" ]; then
 fi
 readonly _REPO_OPERATIONS_LOADED=1
 
+# Canonical devenv-repo test lives in git-operations.bash; source it so the
+# is_devenv_repository compatibility wrapper can delegate.
+if [ -z "${_GIT_OPERATIONS_LOADED:-}" ] && [ -f "${DEVENV_TOOLS}/lib/git-operations.bash" ]; then
+    # shellcheck source=git-operations.bash
+    source "${DEVENV_TOOLS}/lib/git-operations.bash"
+fi
+
 # ============================================================================
 # Repository Discovery and Listing
 # ============================================================================
@@ -330,8 +337,9 @@ get_current_repository_name() {
 
 # Check if current directory is the devenv repository
 #
-# Determines if the current working directory is within the devenv repository.
-# Useful for scripts that need to behave differently when in devenv vs. a cloned repo.
+# Compatibility wrapper: delegates to is_devenv_repo (git-operations.bash),
+# the canonical devenv-repo test (marker file OR repo name). Kept under this
+# name for existing callers; new code should call is_devenv_repo directly.
 #
 # Usage:
 #   if is_devenv_repository; then
@@ -341,16 +349,8 @@ get_current_repository_name() {
 # Returns:
 #   0 if in devenv repository, 1 if not
 #
-# Examples:
-#   if is_devenv_repository; then
-#       echo "Cannot run this in devenv"
-#       exit 1
-#   fi
-#
 is_devenv_repository() {
-    local repo_name
-    repo_name=$(get_current_repository_name 2>/dev/null) || return 1
-    [ "$repo_name" = "devenv" ]
+    is_devenv_repo
 }
 
 # ============================================================================

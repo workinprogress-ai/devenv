@@ -63,6 +63,20 @@ Use these headings, in this order, omitting any that don't apply. Keep section t
 7. `## Anti-patterns` — what the skill must not do.
 8. Cross-links to sibling skills inline where natural (always relative paths).
 
+## Progress tracking (derived view)
+
+Progress is **computed, never stored**. Ground truth lives in task checkboxes, issue state, linked PRs, labels, and git. A stored percentage is a cache with no invalidation discipline; a parallel progress-report artifact duplicates ground truth and becomes curated noise. Reporting skills derive their numbers at query time (`plan-parse --summary` / `--census`), and executor skills never hand-count.
+
+- **Canonical roll-up chain is issue → plans (direct + descendants).** A parent issue's plan set is its direct plans plus all descendant issues' plans (via `--parent` linkage). Roadmap step status is a separate derived view over issues — never combine the two aggregates (double-counting guard).
+- **The only durable progress narrative is the `Progress:` snapshot line** that pair-programming and delegation append to the existing wrap-up status comment:
+
+  ```
+  Progress: <done>/<total> tasks (<pct>%), phase <n> of <N> — <YYYY-MM-DD>
+  ```
+
+  Values come from `plan-parse --census` (or `--summary`) at draft time — never hand-counted. The ISO date suffix makes snapshot ordering body-derivable. The line rides in the existing confirm-then-post comment flow; no new ceremony.
+- **Reporting honesty:** report plan **coverage** (plans existing / plans needed) before any percentage for unstarted scope — never report 0% for unstarted children; always show phase position alongside a percentage; surface issue/plan state drift as a risk callout — read-only consumers never reconcile it. Raw task counts come first; size-weighted percentages are a secondary lens.
+
 ## Superseding content
 
 When a skill removes content it previously preserved (a specification item, roadmap step, plan task, or similar artifact), the rule is: **delete from the document clean**. Do not leave tombstone blocks, strikethroughs, or "Superseded by" blockquotes in the live document body — they add noise and are confusing to the AI on the next load.
@@ -209,6 +223,8 @@ Any command that mutates external state — `issue-comment`, `issue-update`, `is
 If the command shape or target is genuinely uncertain, prefer `--dry-run` first.
 Do not re-check tool existence, run ad-hoc `--help`, or insert a default `--dry-run` once the correct wrapper, target artifact, and payload are already established.
 
+**Plan-artifact pre-upsert lint gate (required):** before any `issue-artifact-upsert` of a **plan** artifact, run `plan-parse <plan-file> --lint --require-header`. Lint errors block the upsert until fixed; the user may explicitly accept publishing a plan with lint errors as a documented deviation, but never silently. Warnings surface for awareness without blocking. Non-plan artifact types (roadmaps, grooming docs) do not run the plan lint — their structural rules differ.
+
 ## Artifact Identity Convention
 
 For skills that produce persisted artifacts (local markdown files or GitHub issue comments), use a stable deterministic document identity. Do not use heading-prefix or fuzzy matching.
@@ -237,6 +253,15 @@ updated_at_utc: <ISO-8601>
     - `<artifact-slug>` should be derived from the artifact filename stem.
 5. For issue-comment publication, post via `issue-artifact-upsert` (not manual `issue-comment-list` / `issue-comment-update` matching). Tool automatically extracts `doc_id` from file header.
 6. If upsert reports duplicate `doc_id` conflict, stop and ask the user which comment ID is canonical before continuing.
+7. **Planning-repo key (optional, for work governed by a planning repo).** The workspace has multiple planning repos — one per project — so artifacts that participate in a governed hierarchy (epics, roadmaps, grooming documents, and plans/grooming slices created from them) carry the back-link in their header:
+
+    ```
+    planning_repo: <owner>/<planning-repo>
+    ```
+
+    - Stamp it when the artifact is created from a known planning context (roadmap step → plan, grooming attack-plan row → slice plan, epic → grooming) or when a session first resolves the planning repo for an existing artifact that lacks the key (`artifact-header <file> --set planning_repo=<owner>/<repo>`).
+    - Issue-backed artifacts whose `doc_id` already targets the planning repo (`dv1:<owner-planning-repo>:issue-<N>:...`) are self-locating — the key is for the **cross-repo** case: an artifact living in (or targeting) a component repo whose epic/grooming/roadmap lives elsewhere.
+    - The key is a routing hint, never an override: it tells issue/artifact calls where the parent hierarchy lives; it does not change the artifact's own repo (which `doc_id` already encodes).
 
 Skills should keep only artifact-specific mapping details locally (artifact type, slug source, source file) and reference this convention for common behavior.
 
@@ -253,7 +278,23 @@ Not every markdown a skill writes is a persisted artifact. When the user asks fo
 
 - **The AI never runs `gh` directly — for any GitHub domain.** Issue operations: `issue-*` tools exclusively (unconditional, reads and writes). PR, project, Actions, and repository-inspection operations: their wrappers. If an operation is not covered by any wrapper, surface it as a tooling gap and let the user decide — `gh` is not a fallback.
 - Wrapper signatures are standardized in [`_tools-reference.md`](./_tools-reference.md) — it is the complete invocation reference; consult it instead of running ad-hoc `--help` during execution.
+### Repo-targeting guard (required for issue/artifact calls)
 
+Issue and artifact wrappers resolve their target repo from the environment — `GITHUB_REPO` if set, else `GH_ORG` + current directory's repo name. That means **the terminal's location silently decides which repo a call hits**, and a session running from the workspace root or the devenv repo itself will aim every call at the wrong repo.
+
+Required behavior before any `issue-*` / `pr-*` / `project-*` / artifact call:
+
+1. **Resolve the target repo for the call** from the work's context: the issue's repo (from user input, plan/branch references, or the `repos/` folder the work lives in), the planning repo for epics/roadmaps/upstream-impact issues, or the component repo for plan/PR work. When multiple repos are in play, resolve each call's target individually.
+2. **Planning-repo resolution chain** (there are many planning repos — one per project; never assume a fixed one). Resolve in order, stopping at the first hit:
+   1. The active artifact's `DEVENV_ARTIFACT_V1` header: `planning_repo: <owner>/<repo>` (see the [Artifact Identity Convention](#artifact-identity-convention)).
+   2. The linked upstream artifact (grooming doc, roadmap, epic): its `doc_id` repo segment (`dv1:<owner-repo>:...`) or its own `planning_repo` key.
+   3. The `repos/` folder the work lives in: a cloned `planning.*` repo among the work's linked repos — confirm with the user when more than one candidate matches.
+   4. Ask the user which planning repo governs the work — then stamp it on the active artifact (`artifact-header --set planning_repo=...`) so it is never re-derived.
+3. **State it, then set it**: prefix the call with the env var — `GITHUB_REPO=<owner>/<repo> issue-get <N>` — or `cd` into the target repo root first (the [working-directory guard](#working-directory-guard-required)). Do not rely on inherited terminal state or an env var set for a previous, different target.
+4. **The devenv-repo refusal is a routing signal, not an obstacle.** When a wrapper errors with "the current repository appears to be the devenv repository", the fix is to target the actual project repo — **never** to add `--devenv`. That flag is reserved for work that is genuinely about the devenv repo itself (its skills, tooling, docs); using it to push through the safety check aims the call at the devenv repo and away from the real target.
+5. If the target repo cannot be resolved confidently, ask one direct clarification question before running the call.
+
+Anti-pattern: running `issue-*` from the workspace root with no `GITHUB_REPO`, then "fixing" the refusal with `--devenv` — the call now queries the wrong repo and the answer is silently misleading (issue not found, empty artifact lists).
 ### Working-directory guard (required)
 
 Before running any repo-scoped command (wrappers, `gh`, build/test, or scripts), ensure the terminal is in the correct target repo root.

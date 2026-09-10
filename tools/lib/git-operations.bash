@@ -457,9 +457,32 @@ add_git_safe_directory() {
     fi
 }
 
+# Check if the current directory is inside the devenv repository (canonical test)
+#
+# Single source of truth for devenv-repo detection. Matches on EITHER:
+#   - the marker file .devcontainer/bootstrap.sh at the git root, OR
+#   - the git root directory being named "devenv"
+# Either signal alone counts — the marker survives renames, the name survives
+# partial checkouts — so all devenv-repo tests agree instead of diverging
+# per call site.
+#
+# Usage:
+#   if is_devenv_repo; then
+#       echo "In devenv repo"
+#   fi
+#
+# Returns:
+#   0 if inside the devenv repository, 1 otherwise (including not-in-git)
+#
+is_devenv_repo() {
+    local git_root
+    git_root=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
+    [ -f "$git_root/.devcontainer/bootstrap.sh" ] || [ "$(basename "$git_root")" = "devenv" ]
+}
+
 # Check if we're in the devenv repo and validate permissions
 # Uses the global variable ALLOW_DEVENV_REPO (should be set by calling script)
-# Detects devenv repo by presence of .devcontainer/bootstrap.sh
+# Detection delegates to is_devenv_repo (canonical test)
 # Args: none (uses $ALLOW_DEVENV_REPO global)
 check_target_repo() {
     local git_root
@@ -467,16 +490,19 @@ check_target_repo() {
         log_error "Not in a git repository"
         exit 1
     }
-    
-    # Check if we're in the devenv repo by looking for the bootstrap script
-    if [ -f "$git_root/.devcontainer/bootstrap.sh" ]; then
-        if [ "${ALLOW_DEVENV_REPO:-0}" -eq 0 ]; then
-            log_error "The current repository appears to be the devenv repository itself"
-            log_info "Operations should be performed in target project repositories, not in devenv"
-            log_info "To override this safety check, pass the --devenv flag"
-            exit 1
-        else
-            log_warn "Performing operation in devenv repository (safety override enabled)"
+
+    # Canonical devenv-repo test — same predicate everywhere
+    if is_devenv_repo; then
+        if [ -z "${GITHUB_REPO:-}" ]; then
+            if [ "${ALLOW_DEVENV_REPO:-0}" -eq 0 ]; then
+                log_error "The current repository appears to be the devenv repository itself"
+                log_info "Operations should be performed in target project repositories, not in devenv"
+                log_info "To target a project repo, prefix the command with GITHUB_REPO=<owner>/<repo>"
+                log_info "To override this safety check (devenv-repo work only), pass the --devenv flag"
+                exit 1
+            else
+                log_warn "Performing operation in devenv repository (safety override enabled)"
+            fi
         fi
     fi
 }

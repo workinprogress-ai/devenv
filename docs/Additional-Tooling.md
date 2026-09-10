@@ -1754,7 +1754,49 @@ CACHE=$(repo-cache-update)
 repo-cache-update --no-refresh
 ```
 
-**Related:** `cs-dependencies-trace`, `cs-dependencies-update-wizard` (both use this cache internally via `--no-refresh`)
+**Related:** `cs-dependencies-trace`, `cs-dependencies-update-wizard` (both use this cache internally via `--no-refresh`), `repo-cache-deepen`
+
+### `repo-cache-deepen`
+
+Fetch-only deepening of one cached repository: extends the shallow-clone depth and/or fetches additional branches as remote refs (`refs/remotes/origin/<branch>`). Never checks out — the cache working copy stays on the default branch. Used for branch-level git progress signals (see [Progress Reporting](./Progress-Reporting.md)).
+
+**Usage:**
+
+```bash
+repo-cache-deepen --repo <name> [--depth N] [--branch <b>]...
+```
+
+**Options:**
+
+- `--repo <name>`: Repository name in the cache (required)
+- `--depth N`: Deepen history by N commits via `git fetch --deepen=<N>`. Default: `200`
+- `--branch <b>`: Fetch branch `<b>` into `refs/remotes/origin/<b>` (repeatable)
+- `-h, --help`: Show help and exit
+- `-v, --version`: Show version and exit
+
+**Notes:**
+
+- Idempotent and additive: safe to re-run; deepening accumulates.
+- Re-running `repo-cache-update` does not undo deepening (`git fetch`/`--deepen` never truncate history the repo already has), though its `gc --prune=all` pass may drop unreachable objects — deepened branches remain reachable via their remote refs and survive.
+
+**Exit codes:**
+
+| Code | Meaning |
+|------|---------|
+| `0`  | Success |
+| `1`  | Error (unknown repo, fetch failure) |
+| `3`  | Invalid arguments |
+
+**Examples:**
+
+```bash
+# Deepen one repo's history to the default depth
+repo-cache-deepen --repo lib.cs.services.bulk-sync
+
+# Deepen to 500 commits and fetch two feature branches
+repo-cache-deepen --repo service.reqord.identity --depth 500 \
+    --branch issue-42-query-progress --branch issue-57-audit
+```
 
 ### `cs-dependencies-trace`
 

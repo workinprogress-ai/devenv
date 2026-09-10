@@ -172,6 +172,7 @@ Before applying edits, offer an optional pressure-test pass using [pressure-test
   Surface this to the user before writing: *"Phase 3 is fully complete — I'll add the new work in a new Phase 5 rather than appending to Phase 3. The existing Cleanup (Phase 4) is also done, so I'll add a new Phase 6 for cleanup of the new scope. Does that structure work for you?"*
 - **Prefer rewrite/addition over removal.** If the work still matters but the original task is misleading, keep the number and reword it, or add a follow-on task.
 - **Cancelled tasks are deleted clean** — remove the task line entirely, no strikethrough, no tombstone annotation. Gaps in task numbering are expected and harmless; git history and (for significant supersessions) an ADR hold the why. Update any `depends on` references pointing at the removed task.
+- **Material scope expansions may warrant an ADR** naming what grew and why (opt-in per the existing materiality bar — same judgment as any significant supersession). Progress reporting later cites that ADR as the narrative when a detected scope delta needs explanation; without it, expansions are just totals that grew.
 - **Reworded tasks** keep their number and reflect the latest agreed intent.
 - **Pending questions**: task- or phase-specific questions live inline under the relevant task/phase as `[QUESTION] ...`; general plan-level questions live in `## Pending Questions` immediately above `## Reference Information`. Resolved minor questions may be folded directly into the plan and removed.
 - **Decision/pending-question placement:** unresolved decisions that matter to execution must be represented in both places:
@@ -250,7 +251,7 @@ Also run a decision-package parity check for every semantic decision/question to
 ### 5. Write the result
 
 - For file input: overwrite the file in place. The user can `git diff` to review and revert if needed.
-- For issue input: write and refine against the local working copy first, then offer to push that same local file back to the same issue artifact comment: "Update issue #N plan artifact with the refined plan? (`issue-artifact-upsert --issue N --body-file <path>` )" Wait for explicit yes before running.
+- For issue input: write and refine against the local working copy first, then offer to push that same local file back to the same issue artifact comment: "Update issue #N plan artifact with the refined plan? (`issue-artifact-upsert --issue N --body-file <path>` )" Wait for explicit yes before running. Before the upsert, run the pre-upsert lint gate: `plan-parse <path> --lint --require-header` — errors block until fixed (explicit user acceptance of a documented deviation is the only bypass); warnings surface for awareness.
 
 For this publish step, once issue number and local working copy are established, run the known `issue-artifact-upsert` path directly. Do not add ad-hoc `--help`, `command -v`, or routine dry-run checks unless a real ambiguity or command failure appears.
 

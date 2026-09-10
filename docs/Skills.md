@@ -38,7 +38,8 @@ What are you trying to do?
 │
 ├─ 📋 Plan
 │   ├─ Create from idea / issue or complete spec / RFC (any multi-step objective: code default; docs, mechanical, runbooks)  →  /devenv-create-plan
-│   └─ Align existing plan with reality (surgical edit / revision / staleness assessment)  →  /devenv-refine-plan
+│   ├─ Align existing plan with reality (surgical edit / revision / staleness assessment)  →  /devenv-refine-plan
+│   └─ Query progress on work (read-only roll-ups across plans/issues)  →  /devenv-query-progress
 │
 ├─ 🔨 Build
 │   ├─ No plan yet                      →  /devenv-create-plan first
@@ -181,6 +182,18 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 
 ---
 
+### `/devenv-query-progress`
+
+> **Read-only answers to "how is the work going?" across plans, issues, and roadmaps.**
+
+Derives progress at query time from ground truth — task checkboxes, issue state, linked PRs, labels, git — via `plan-parse --summary`. Rolls up the issue tree (direct + descendant plans), reports coverage before percentage for unstarted scope, surfaces drift and risk callouts (personalized by assigned engineer), trends `Progress:` snapshot lines from wrap-up comments, and enriches with git-derived signals (unmerged branch commits, phantom progress, landed-but-unticked) from the repo cache. Strictly read-only: no plan edits, no issue writes, no roadmap syncs; the only write is an explicitly-confirmed report posting. Full doctrine in [Progress Reporting](./Progress-Reporting.md).
+
+**Use for:** "how is X going?", cross-plan/cross-issue status roll-ups, "what's blocking the epic?", "are we on track?"  
+**Don't use for:** updating anything (executor skills, `/devenv-refine-plan`); syncing roadmap status (→ `/devenv-update-roadmap`); session summaries (→ `/devenv-session-handoff`)  
+**Tool deps:** `plan-parse`, `issue-get`, `issue-list`, `issue-search`, `issue-comment-list`, `issue-artifact-list`, `repo-cache-deepen` (offered, never implicit), read-only git
+
+---
+
 ## All skills — quick reference
 
 ### Plan lifecycle
@@ -197,6 +210,7 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 | `/devenv-update-roadmap` | Sync roadmap status from issues + PRs; republish artifact + epic task list | Epic number (optionally `:doc_id`) |
 | `/devenv-create-plan` | Create a current-state execution plan via interview or from a complete spec/RFC/doc | Issue #, description, or complete spec |
 | `/devenv-refine-plan` | Align a plan with reality from any starting point — surgical edits, structured revision, or staleness assessment with internal routing | Plan file path or issue # |
+| `/devenv-query-progress` | Read-only progress reporting across plans, issues, and roadmaps — derived metrics, issue-tree roll-ups, risk callouts, trends; never writes | Issue #, plan path, epic #, or freeform question |
 
 ### Working modes
 
@@ -404,6 +418,9 @@ Component design changed
 | `/devenv-design-discussion` vs `/devenv-create-blueprint` | Design-discussion is exploratory and focused — picks between approaches. Blueprint is formal and broad — decomposes a chosen approach into domains, services, events, components. Design-discussion typically *precedes* a blueprint, or is invoked *after* one to settle a specific question. |
 | `/devenv-design-discussion` vs `/devenv-create-plan` | Use design-discussion when the approach is still unclear or one bounded blocker needs deeper option-weighing. Use create-plan when the approach is already chosen and you need executable tasks. |
 | `/devenv-session-handoff` vs `/devenv-refine-plan` surgical mode | Narrative summary vs structured task-state update. |
+| `/devenv-query-progress` vs `/devenv-update-roadmap` | Read vs write. Query-progress **reports** derived status (no side effects); update-roadmap **syncs** roadmap step status from issues and republishes the artifact. |
+| `/devenv-query-progress` vs `/devenv-session-handoff` | Live progress vs session wrap. Query-progress answers "how far along is this?" at query time; session-handoff writes a narrative handoff for the next contributor. |
+| `/devenv-query-progress` vs `/devenv-refine-plan` | Report vs edit. Query-progress surfaces drift with both readings; refine-plan is where the plan gets fixed. |
 
 ---
 

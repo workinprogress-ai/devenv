@@ -369,6 +369,8 @@ Keep this to 3-6 lines unless the user asks for detail.
 
 Use this protocol for all review moments: post-change review, in-flow check-ins, re-engagement after a pause, and return-after-break status requests.
 
+These reviews answer status **for the current session and plan only** — cross-plan or cross-issue roll-up questions ("how is the epic going?", "what's the progress on the audit work across issues?") route to `/devenv-query-progress` (read-only derived reporting; see [Sibling skills](#sibling-skills)).
+
 1. **Verify current reality first.** Read the actual changed files/diff since the last checkpoint. Never review from memory.
 2. **Map to intent and plan.** Identify what is done, partial, off-plan, untouched, and AC impact.
 3. **Re-anchor and propose next steps.** State the current state clearly, flag risks/questions, update tracking when clear, and offer concrete next options.
@@ -923,7 +925,8 @@ If there is an **associated GH issue + plan artifact identity** (`<N>` + `<DOC_I
 For this immediate revision sync:
 
 1. Confirm with the user.
-2. Run `issue-artifact-upsert --issue <N> --body-file <path>`.
+2. Run the pre-upsert lint gate: `plan-parse <path> --lint --require-header` — errors block the sync until fixed; only an explicit user acceptance of a documented deviation bypasses.
+3. Run `issue-artifact-upsert --issue <N> --body-file <path>`.
 
 If there is an associated GH issue + plan artifact identity (`<N>` + `<DOC_ID>`), sync that artifact comment at the end of each phase. **Do this proactively as part of declaring the phase complete — don't wait for the user to ask.**
 
@@ -936,9 +939,18 @@ Keep the update proportionate — a `## Deviation` subheading with a few lines, 
 Once the plan is accurate (or the user declines):
 
 1. Confirm with the user.
-2. Run `issue-artifact-upsert --issue <N> --body-file <path>` to update the same artifact comment. Tool automatically extracts `doc_id` from the file header.
+2. Run the pre-upsert lint gate: `plan-parse <path> --lint --require-header` — errors block the sync until fixed (explicit user acceptance of a documented deviation is the only bypass); warnings surface for awareness.
+3. Run `issue-artifact-upsert --issue <N> --body-file <path>` to update the same artifact comment. Tool automatically extracts `doc_id` from the file header.
 
 Do not sync mid-phase **except** for the immediate sync required after a material/structural plan revision. If the session ends mid-phase, offer to sync whatever tasks were completed.
+
+**Progress snapshot line (at every offered status comment):** whenever a status comment on the issue is drafted (Session Wrap-Up step 8 below, or any confirm-then-post status comment), include one stable, greppable line at the end of the draft:
+
+```
+Progress: <done>/<total> tasks (<pct>%), phase <n> of <N> — <YYYY-MM-DD>
+```
+
+Values come from `plan-parse <plan_file> --census` at draft time — never hand-counted. The ISO date suffix makes snapshot ordering body-derivable. The line rides in the existing confirm-then-post flow; no new gate. Purpose: durable trend anchors for `/devenv-query-progress`, and human-scannable state in the issue thread.
 
 ## Documenting Discoveries (Issue Integration)
 
@@ -1061,7 +1073,7 @@ When the user signals end of session (or a phase boundary that suggests a natura
 5. **If this was the final phase (plan fully executed):** verify the plan file records everything actually done — every approved deviation and added task, in current-state prose — then tell the user the plan is now the as-built record and, if an issue artifact identity exists, offer to sync it with `issue-artifact-upsert` (show what changed since the last sync; wait for confirmation).
 6. **Architectural deviations discovered during execution:** if the session revealed that an upstream design artifact is wrong (a blueprint boundary didn't survive contact with the codebase, a specification item proved unmeasurable), offer to file an **upstream-impact issue** in the planning repo: `GITHUB_REPO=<org>/<planning-repo> issue-create --type Task --label upstream-impact --no-template`, body covering what was discovered, why it matters, and the affected upstream sections. The refine skills consume this queue in cascade mode.
 7. **Offer knowledge distillation.** Following the shared [knowledge distillation protocol](../common/references/knowledge-distillation-protocol.md): scan the session for organization-specific implementation lessons (where things are wired in this org's repos, idioms of its libraries, enforced conventions — not procedural workflow rules), summarize the candidates in chat with their proposed target files, and let the user approve before anything is written to `repos/docs.copilot-knowledge`. The user reviews and commits. A user may also call out a specific point to add mid-session or at wrap-up — same procedure, no extra mining.
-8. Offer to post a status comment on the issue (if applicable) — show the draft, wait for confirmation.
+8. Offer to post a status comment on the issue (if applicable) — show the draft, wait for confirmation. When a plan file backs the work, the draft ends with the `Progress:` snapshot line (see [GH issue artifact sync](#gh-issue-artifact-sync)): `Progress: <done>/<total> tasks (<pct>%), phase <n> of <N> — <YYYY-MM-DD>`, values from `plan-parse --census`, never hand-counted.
 9. Suggest a starting point for the next session.
 
 ## Anti-patterns

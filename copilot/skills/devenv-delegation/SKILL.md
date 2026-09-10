@@ -318,7 +318,7 @@ The mode is part of the commission — never self-granted or escalated mid-run. 
 
 If the user returns after stepping away and asks for status (for example: "where are we?", "what finished?", "what's next?"), run a concise **Phase review pass** before proposing next actions.
 
-This is delegation-specific review: phase acceptance and steering, not pair-programming turn-by-turn checkpointing.
+This is delegation-specific review: phase acceptance and steering, not pair-programming turn-by-turn checkpointing. It answers status **for the current run only** — cross-plan or cross-issue roll-up questions ("how is the epic going?", "what's the progress across these issues?") route to `/devenv-query-progress` (read-only derived reporting; see [Sibling skills](#sibling-skills)).
 
 ### Phase-close cleanup pass
 
@@ -484,11 +484,20 @@ Required sync points:
 Sync procedure (both cases):
 
 1. Confirm with the user.
-2. Run `issue-artifact-upsert --issue <N> --body-file <path>`.
+2. Run the pre-upsert lint gate: `plan-parse <path> --lint --require-header` — errors block the sync until fixed (explicit user acceptance of a documented deviation is the only bypass); warnings surface for awareness.
+3. Run `issue-artifact-upsert --issue <N> --body-file <path>`.
 
 **Pre-mutation tool check (all GitHub operations, not just sync):** all GitHub operations go through the workspace wrappers — `issue-*` exclusively for issue operations, `pr-*` / `project-*` / `actions-*` / inspection wrappers for the rest. There is no `gh` path for anything; an uncovered operation is surfaced as a tooling gap for the user to resolve. Precedent from earlier in a session does not override this; skill boundaries reset behavioral defaults.
 
 Do not perform routine mid-phase syncs beyond the required material-revision exception above. If the session ends mid-phase, offer to sync the completed updates.
+
+**Progress snapshot line (at every offered status comment):** whenever a status comment on the issue is drafted (phase handbacks that include one, return-after-gap status responses that get posted, or the end-of-engagement closeout below), include one stable, greppable line at the end of the draft:
+
+```
+Progress: <done>/<total> tasks (<pct>%), phase <n> of <N> — <YYYY-MM-DD>
+```
+
+Values come from `plan-parse <plan_file> --census` at draft time — never hand-counted. The ISO date suffix makes snapshot ordering body-derivable. The line rides in the existing confirm-then-post flow; no new gate. Purpose: durable trend anchors for `/devenv-query-progress`, and human-scannable state in the issue thread.
 
 **End-of-engagement closeout (required):** when the final in-scope phase is accepted, the plan file is now the as-built record. Before handing back:
 

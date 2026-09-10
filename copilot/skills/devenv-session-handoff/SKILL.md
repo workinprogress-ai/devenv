@@ -114,6 +114,7 @@ After posting (or instead, on `n`), **also offer**:
 ## Sibling skills
 
 - "Update [Plan-X.md](Plan-X.md) with progress? (y/n)" — hands off to `/devenv-refine-plan` (surgical mode for ticks/notes, revision mode for structural changes).
+- `/devenv-query-progress` — for live progress questions ("how far along is this?"). That skill derives read-only progress from plans/issues at query time; this skill writes a narrative handoff for the next contributor — handoff context, not a progress report.
 - `/devenv-open-pr` — when the natural endpoint is a PR rather than a comment; the PR description includes a handoff-style summary.
 - `/devenv-code-review` — when you want the next contributor to review what you did.
 - `/devenv-spike` — if the session was an investigation, the spike doc is itself the handoff.
