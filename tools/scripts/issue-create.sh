@@ -393,9 +393,16 @@ create_issue() {
     local repo_name
     repo_name=$(gh repo view --json name -q .name)
     
-    if ! set_issue_type "$issue_number" "$repo_owner" "$repo_name" "$ISSUE_TYPE"; then
-        # Issue was created but type setting failed - this is not fatal, just warn
-        log_warn "Issue created but type could not be set"
+    # Any requested enrichment that fails to apply is reported loudly and
+    # fails the command: callers must be able to detect that a requested
+    # attribute was dropped. The issue URL is still printed to stdout so
+    # callers can parse it either way.
+    local enrich_failed=0
+    
+    if [ -n "$ISSUE_TYPE" ] && ! set_issue_type "$issue_number" "$repo_owner" "$repo_name" "$ISSUE_TYPE"; then
+        log_error "Issue created but type could not be set"
+        log_error "Remediation: issue-update ${issue_number} --type ${ISSUE_TYPE}"
+        enrich_failed=1
     fi
     
     # Add to project if specified
@@ -414,21 +421,25 @@ create_issue() {
         if ! [[ "$project_number" =~ ^[0-9]+$ ]]; then
             project_number=$(gh project list --owner "$owner" --format json --jq ".projects[] | select(.title == \"$ISSUE_PROJECT\") | .number" 2>/dev/null | head -1)
             if [ -z "$project_number" ]; then
-                log_warn "Could not find project: $ISSUE_PROJECT"
-                echo "$issue_url"
-                return 0
+                log_error "Issue created but could not be added to project: project '$ISSUE_PROJECT' not found"
+                log_error "Remediation: verify the project name, then add the issue manually"
+                enrich_failed=1
+            else
+                log_verbose "Resolved project '$ISSUE_PROJECT' to number $project_number"
             fi
-            log_verbose "Resolved project '$ISSUE_PROJECT' to number $project_number"
         fi
         
-        if gh project item-add "$project_number" --owner "$owner" --url "$issue_url" &> /dev/null; then
+        if [ -n "$project_number" ] && gh project item-add "$project_number" --owner "$owner" --url "$issue_url" &> /dev/null; then
             log_info "Added to project: $ISSUE_PROJECT"
-        else
-            log_warn "Could not add to project: $ISSUE_PROJECT (project may not exist or you may lack permissions)"
+        elif [ -n "$project_number" ]; then
+            log_error "Issue created but could not be added to project: $ISSUE_PROJECT (project may not exist or you may lack permissions)"
+            log_error "Remediation: verify project name and permissions, then add the issue manually"
+            enrich_failed=1
         fi
     fi
     
     echo "$issue_url"
+    return "$enrich_failed"
 }
 
 # ============================================================================

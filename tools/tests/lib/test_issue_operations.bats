@@ -250,12 +250,14 @@ create_mock_gh_for_set_issue_type() {
         export PATH="$TEST_TEMP_DIR/bin:$PATH"
         cat > "$TEST_TEMP_DIR/bin/gh" <<'EOF'
 #!/usr/bin/env bash
-if [ "$1" = "api" ] && [ "$2" = "graphql" ]; then
-    args="${*:3}"
-    if echo "$args" | grep -q 'repository(owner:'; then
-        echo '{"data":{"repository":{"issue":{"id":"MDU6SXNzdWUxMjM0NTY="}}}}'
+if [ "$1" = "api" ] && [[ "$2" == repos/* ]]; then
+    if echo "$*" | grep -q -- '--jq .node_id'; then
+        echo 'MDU6SXNzdWUxMjM0NTY='
         exit 0
     fi
+fi
+if [ "$1" = "api" ] && [ "$2" = "graphql" ]; then
+    args="${*:3}"
     if echo "$args" | grep -q 'mutation'; then
         echo '{"data":{"updateIssue":{"issue":{"issueType":{"name":"Bug"}}}}}'
         exit 0

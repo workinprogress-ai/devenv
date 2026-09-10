@@ -695,12 +695,21 @@ set_issue_type() {
         return 1
     fi
 
-    # Get the issue ID from issue number
-    local issue_id
-    issue_id=$(gh api graphql -f query='query { repository(owner: "'$repo_owner'", name: "'$repo_name'") { issue(number: '$issue_number') { id } } }' 2>/dev/null | jq -r '.data.repository.issue.id')
+    # Resolve the issue's node ID via REST (the same service that created the
+    # issue) — a GraphQL lookup here can hit index lag right after creation.
+    # Retry with backoff: sub-second to a couple of seconds of lag is typical.
+    local issue_id=""
+    local attempt
+    for attempt in 1 2 3; do
+        issue_id=$(gh api "repos/${repo_owner}/${repo_name}/issues/${issue_number}" --jq '.node_id' 2>/dev/null)
+        if [ -n "$issue_id" ] && [ "$issue_id" != "null" ]; then
+            break
+        fi
+        [ "$attempt" -lt 3 ] && sleep 2
+    done
 
     if [ -z "$issue_id" ] || [ "$issue_id" = "null" ]; then
-        echo "ERROR: Could not find issue #$issue_number" >&2
+        echo "ERROR: Could not find issue #$issue_number (after $attempt attempts)" >&2
         return 1
     fi
 
