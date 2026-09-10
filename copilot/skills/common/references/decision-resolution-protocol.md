@@ -38,6 +38,21 @@ Classify each unresolved item before discussion:
 3. Plan-invalidating conflict
    - Changes acceptance criteria, phase boundaries, sequencing, or architecture assumptions enough that the plan is no longer reliable.
 
+## Query-eligible gates
+
+A decision gate may be presented as a structured query (`vscode_askQuestions`) instead of prose-and-wait, per the shared [direct query style](../../_conventions.md#direct-query-style-questions-and-selections), when **all** of these hold:
+
+1. **Classification partition:** the item is an immediate unblock decision or a deferred implementation detail. Plan-invalidating conflicts and escalations are always prose — the pause is the point.
+2. **Scope-in-label:** the exact approval scope fits in the option label itself (e.g. *"Apply fix B to `AuthController.cs` only — no other files"*). If the scope needs surrounding prose to bind, it is not query-eligible.
+3. **Bounded options:** the choice set is fixed and enumerable (2–4 options); no open-ended trade-off weighing is expected before the choice.
+4. **No `recommended` flag** on approval-carrying options — recommendations belong in the preceding chat, not the selection UI.
+
+Tool-behavior rules that keep the protocol intact:
+
+- A dismissed, skipped, or unanswered query is **not** approval — same as silence in prose. Mutation still requires a returned, scope-matching selection (or an explicit prose approval).
+- The selection must explicitly name its scope; freeform answers that approve must be parsed against the scope rule above — ambiguous approval is not approval.
+- When in doubt, fall back to prose-and-wait. The query is a presentation form, not an approval shortcut.
+
 ## Resolution Loop
 
 1. Restate the decision in one sentence.
