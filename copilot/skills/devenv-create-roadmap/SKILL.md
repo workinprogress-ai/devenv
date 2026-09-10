@@ -183,7 +183,7 @@ Ask, verbatim:
 > - Link each roadmap step in the artifact to its issue
 > - Update the epic task list
 >
-> Proceed? (Y / N / Choose subset)"
+> Proceed? (Y / N / Choose subset)" — ask via the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections): present *yes, create all / choose a subset / no* as selectable options with freeform input.
 
 Only on explicit approval, run the procedure in the next section.
 

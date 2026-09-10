@@ -135,6 +135,21 @@ Respond with:
 
 If the user asks you to continue directly, continue in the selected track's style and constraints.
 
+### Value-scrutiny of inherited decisions
+
+When the input includes an upstream design artifact (blueprint, specifications, RFC, design discussion) and the approach is already chosen, its decisions enter as **claims to scrutinize, not a stack of settled truth**. Before moving artifact-derived decisions into `Confirmed`:
+
+1. **Scan** each inherited decision for mechanism-with-a-claimed-benefit shapes — cryptographic/integrity features, performance machinery, abstraction layers — anything whose *consumer* is not this service's callers.
+2. **Ask the two questions** (chat, one line each, no ceremony):
+   - *Who consumes this mechanism's output, and where?*
+   - *If we removed it entirely, what observable behavior would change?*
+3. **Route by answer:**
+   - Concrete in-scope consumer exists → confirm as-is.
+   - No consumer / output never read → surface to the user as a challenge candidate with a one-paragraph rationale, offering: remove now / slim to the minimal honest version / keep with explicit justification. A user decision, never a silent drop.
+   - Uncertain → record as an open question (Q-NNN) in the grooming document; the implementation plan's Phase 1 discovery answers it.
+
+This pass is a checklist item, not a redesign loop — a few minutes per artifact at most. If it starts arguing with the whole blueprint, that is the existing escalation to `/devenv-design-discussion` (or an upstream-impact issue when the artifact itself is wrong), not this gate.
+
 ## Routing guardrails
 
 - If the user primarily needs alternatives/trade-offs -> route to `/devenv-design-discussion`.
@@ -211,6 +226,7 @@ This flow updates the grooming document only; it does not modify the completed p
 - Route to `/devenv-design-discussion` when two or more viable approaches are still live and the team needs an explicit recommendation.
 - Route to `/devenv-design-discussion` for a single large blocker/question when it needs deeper option-weighing, but the expected outcome is still a bounded plan change rather than a broader design reset.
 - Stay in grooming when the approach is already chosen and the work is to capture/update the architecture delta for in-flight implementation.
+- When the approach comes from an upstream artifact, run the [value-scrutiny pass](#value-scrutiny-of-inherited-decisions) on its inherited decisions before confirming them — "already chosen" upstream does not exempt a decision from the who-consumes-this question.
 - Stay in grooming when questions are accumulating, multiple decisions are entangled, or the current design may need sweeping revision, replacement, or upstream artifact changes.
 - Route to `/devenv-refine-implementation-plan` when architecture is settled, an implementation plan **already exists** for the groomed scope, and the remaining work is sequencing/scope edits in its tasks.
 - Route to `/devenv-create-implementation-plan` when architecture is settled and **no plan exists yet** for the groomed scope — plan generation from a grooming artifact always starts at create, not refine. If the attack plan has multiple rows, create the child issues first so each slice gets its own plan.
@@ -450,6 +466,7 @@ Your call: choose A/B(/C) or defer.
 - Rewriting unrelated parts of the grooming document when doing a surgical update from a returned plan.
 - Backporting minor or inconsequential differences from a completed plan into the grooming document — the materiality bar exists so the grooming document tracks design truth, not implementation noise.
 - Treating a completed plan as a fault to diagnose — as-built reconciliation is not plan architectural review; a completed plan is evidence of what was built, not a problem to fix.
+- Confirming inherited complexity without scrutiny — moving artifact-derived mechanisms (hashes, caches, abstractions) into `Confirmed` without asking who consumes their output and what removal would change.
 - Writing "previously/before" design narrative in main document sections instead of `## Revision History`.
 - Creating child issues via raw `gh issue create` — grooming child-issue creation uses `issue-create` / `issue-create-batch` only, every time, regardless of what earlier session phases did. Raw `gh` in this flow loses native type and parent-linkage enrichment.
 

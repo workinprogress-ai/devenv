@@ -566,6 +566,8 @@ Do this instead:
 3. Name any tempting bad workaround you are explicitly not taking.
 4. Ask the user for help, a decision, or permission to change approach.
 
+**Interview style for simple queries.** If the blocker is resolvable with a short series of one or more direct questions — simpler, bounded queries unlikely to need much back-and-forth — prefer the structured interview (`vscode_askQuestions`) over outputting prose and waiting for a typed response. State the blocker briefly first (steps 1–3), then ask. Reserve prose-and-wait for walls that genuinely need discussion; the interview is for answers, not conversations. (Shared rule: [direct query style](../_conventions.md#direct-query-style-questions-and-selections).)
+
 Use a short format like:
 
 > *"🛑 I hit a wall in [`BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs): the retry wrapper needs request metadata that this layer does not have. I checked the neighboring client path and there isn't an existing pattern to copy. I am **not** going to fake it with a nullable fallback just to get unstuck. Want to (a) pass the metadata through, (b) move this lower, or (c) take a different approach?"*
@@ -790,6 +792,8 @@ Quick calibration:
 ### How to raise it
 
 Surface the issue, name the plan impact, offer options:
+
+**Interview style for simple queries.** If the point is resolvable with a short series of one or more direct questions — simpler, bounded queries unlikely to need much back-and-forth — prefer the structured interview (`vscode_askQuestions`) over prose-and-wait. Name the issue and its plan impact briefly first, then ask. Reserve the prose options format (below) for cases that need trade-offs talked through. (Shared rule: [direct query style](../_conventions.md#direct-query-style-questions-and-selections).)
 
 > *"We just found that `IBulkSyncStep` is sealed — 2.4 assumed we could add an overload. Options: (a) extract an interface (new task 2.4.1), (b) descope to Phase 3, or (c) redesign. What do you want to do?"*
 
@@ -1054,8 +1058,9 @@ When the user signals end of session (or a phase boundary that suggests a natura
 4. Call out any remaining pending questions explicitly. If none remain, say so.
 5. **If this was the final phase (plan fully executed):** verify the plan file records everything actually done — every approved deviation and added task, in current-state prose — then tell the user the plan is now the as-built record and, if an issue artifact identity exists, offer to sync it with `issue-artifact-upsert` (show what changed since the last sync; wait for confirmation).
 6. **Architectural deviations discovered during execution:** if the session revealed that an upstream design artifact is wrong (a blueprint boundary didn't survive contact with the codebase, a specification item proved unmeasurable), offer to file an **upstream-impact issue** in the planning repo: `GITHUB_REPO=<org>/<planning-repo> issue-create --type Task --label upstream-impact --no-template`, body covering what was discovered, why it matters, and the affected upstream sections. The refine skills consume this queue in cascade mode.
-7. Offer to post a status comment on the issue (if applicable) — show the draft, wait for confirmation.
-8. Suggest a starting point for the next session.
+7. **Offer knowledge distillation.** Following the shared [knowledge distillation protocol](../common/references/knowledge-distillation-protocol.md): scan the session for organization-specific implementation lessons (where things are wired in this org's repos, idioms of its libraries, enforced conventions — not procedural workflow rules), summarize the candidates in chat with their proposed target files, and let the user approve before anything is written to `repos/docs.copilot-knowledge`. The user reviews and commits. A user may also call out a specific point to add mid-session or at wrap-up — same procedure, no extra mining.
+8. Offer to post a status comment on the issue (if applicable) — show the draft, wait for confirmation.
+9. Suggest a starting point for the next session.
 
 ## Anti-patterns
 
@@ -1122,6 +1127,8 @@ When the user signals end of session (or a phase boundary that suggests a natura
 
 ### Command/confirmation
 - Auto-running `issue-comment` / `issue-update` / `issue-create` without explicit confirmation.
+- Writing to `repos/docs.copilot-knowledge` without explicit user approval of the specific additions — knowledge suggestions are surfaced in chat first; the user reviews and commits (see the [knowledge distillation protocol](../common/references/knowledge-distillation-protocol.md)).
+- Mining the conversation for extra knowledge candidates after the user explicitly called out a specific point to add — use their point alone.
 - Using `gh` for any GitHub operation — every domain has wrappers (`issue-*`, `pr-*`, `project-*`, `actions-*`, inspection tools); uncovered operations are surfaced as tooling gaps, never run via `gh`.
 - Suggesting delegation at session start before any collaboration patterns are visible.
 - Missing the re-engagement window — if the user pauses or signals they are done, surface the assessment; don't wait to be explicitly asked.

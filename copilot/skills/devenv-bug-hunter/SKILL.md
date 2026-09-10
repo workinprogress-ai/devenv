@@ -256,7 +256,7 @@ What would you like to do next?
   C) I'll fix it myself             — I'll stop here; you have everything you need
 ```
 
-Wait for the choice. Do not proceed without one.
+Wait for the choice. Do not proceed without one. Per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections), present A/B/C as a structured query with freeform input allowed.
 
 - **Path A** → hand off to `/devenv-create-implementation-plan`; the findings report is complete plan input (paste it). Draft a one-paragraph plan-input summary on request.
 - **Path B** → Phase F2.

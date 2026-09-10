@@ -41,6 +41,7 @@ Classify each unresolved item before discussion:
 ## Resolution Loop
 
 1. Restate the decision in one sentence.
+   - If the decision installs or inherits a mechanism (integrity feature, performance machinery, abstraction layer), include: who consumes its output, and what observable behavior changes if it is removed?
 2. Present 2-3 concrete options with tradeoffs.
 3. Recommend one option and why.
 4. Ask for explicit user choice.

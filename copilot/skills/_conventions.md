@@ -145,6 +145,15 @@ Re-arming rule:
 - After a discussion/question turn, generic acknowledgements/navigation phrases ("continue", "go ahead", "sounds good", "what's next") do not by themselves authorize mutation.
 - Require an explicit implementation directive for the concrete chunk before proceeding.
 
+## Direct query style (questions and selections)
+
+When a skill's flow needs user input, prefer **direct structured queries** (`vscode_askQuestions`) over outputting prose and waiting for a typed response — for both shapes:
+
+- **Simple questions:** a short series of one or more direct, bounded queries unlikely to need much back-and-forth.
+- **List selections:** any ask where the user picks from a bounded option set (Y/N, Y/N/choose-subset, A/B/C menus, apply/skip/both/neither). Present the options as selectable choices with freeform input allowed; state the necessary context in chat first so the choices are self-explanatory.
+
+Boundary: the structured query is for **answers and selections, not conversations**. Prose-and-wait remains correct for open-ended discussion, trade-off weighing, and flows that deliberately accept free-form adjustment — pair the structured query with freeform input rather than forcing choices there. Hard `🔶` decision gates still follow the decision-resolution protocol; the query tool is a presentation form, not an approval shortcut.
+
 ## Reground identity gate
 
 When a user asks to reground/reload/refocus, execution skills must preserve current skill identity.

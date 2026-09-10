@@ -384,6 +384,8 @@ Stop and surface to the user when hitting:
 
 When stopping mid-phase, state what the situation is, why it's a trigger, and what options exist. Wait for direction before continuing.
 
+**Interview style for simple queries.** If the stop is resolvable with a short series of one or more direct questions — simpler, bounded queries unlikely to need much back-and-forth — prefer the structured interview (`vscode_askQuestions`) over outputting prose and waiting for a typed response. Present the situation briefly first so the questions have context, then ask. Reserve prose-and-wait for stops that genuinely need discussion (trade-offs to talk through, walls needing explanation); the interview is for answers, not conversations. (Shared rule: [direct query style](../_conventions.md#direct-query-style-questions-and-selections).)
+
 **Recording approved deviations in the plan:** if the user's direction approves a deviation from the plan — a different approach, a scope change, a structural change — update the plan file to record it in the same exchange, using current-state writing. The plan must not keep describing the superseded path while execution follows a new one; that gap is exactly how a plan stops being the as-built record. Minor decisions that did not trigger a stop stay in the phase handback (`Deviation`/`Challenges`) and do not require a plan edit.
 
 If this stop includes a `🔶` decision gate, direction must be explicit and scope-matched before any further mutating action.
@@ -494,6 +496,7 @@ Do not perform routine mid-phase syncs beyond the required material-revision exc
 2. **Flag the revised plan to the user.** State that the plan was updated during execution and now records the actual implementation.
 3. **Offer the upsert.** If an associated GH issue artifact identity exists (`<N>` + `<DOC_ID>`), offer to sync the final as-built plan with `issue-artifact-upsert --issue <N> --body-file <path>` — the last phase sync ran at that phase's handback and may not include closeout corrections. Follow the same confirm-then-run procedure as above; never upsert without explicit approval.
 4. **File upstream-impact issues for architectural deviations.** When execution deviated from the plan in ways that indicate the upstream design artifacts are wrong (a blueprint component boundary didn't survive contact with the codebase, a specification item proved unmeasurable or wrong), file an **upstream-impact issue** in the planning repo: `GITHUB_REPO=<org>/<planning-repo> issue-create --type Task --label upstream-impact --no-template`, body covering what was discovered, why it matters, and the affected upstream sections. The refine skills consume this queue in cascade mode. Ask the user before filing.
+5. **Offer knowledge distillation.** Following the shared [knowledge distillation protocol](../common/references/knowledge-distillation-protocol.md): scan the session for organization-specific implementation lessons (where things are wired in this org's repos, idioms of its libraries, enforced conventions — not procedural workflow rules), summarize the candidates in chat with their proposed target files, and let the user approve before anything is written to `repos/docs.copilot-knowledge`. The user reviews and commits. A user may also call out a specific point to add mid-session or at closeout — same procedure, no extra mining.
 
 ### Failure investigation is bounded by allowed tools
 
@@ -570,6 +573,8 @@ Before declaring a phase complete and handing back, run the committability check
 - Accepting a user-approved deviation verbally but never writing it into the plan — approval without a plan write leaves the plan describing a superseded path, breaking the as-built record.
 - Ending the engagement with plan updates unflagged and the final as-built plan unsynced — closeout must verify plan currency, tell the user the plan changed, and offer the upsert.
 - Ending the engagement with architectural deviations unreported upstream — closeout files (or offers to file) upstream-impact issues so the specs/blueprint queue stays fed.
+- Writing to `repos/docs.copilot-knowledge` without explicit user approval of the specific additions — knowledge suggestions are surfaced in chat first; the user reviews and commits (see the [knowledge distillation protocol](../common/references/knowledge-distillation-protocol.md)).
+- Mining the conversation for extra knowledge candidates after the user explicitly called out a specific point to add — use their point alone.
 - Weakening/removing failing behavior assertions to get green status instead of fixing the defect.
 - Attempting a mutating git operation as a repair — unstaging, resetting to the last commit, restoring files from HEAD after corrupting them — instead of stopping immediately and handing the recovery to the user.
 - A phase handback without **review hotspots** when hotspot-worthy work was done.

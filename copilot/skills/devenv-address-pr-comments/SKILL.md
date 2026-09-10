@@ -100,7 +100,7 @@ Will surface for your direction (7):
 Any threads you'd like to handle yourself, or should I go ahead?
 ```
 
-Accept free-form adjustments: "I'll take the nits", "skip the design comment", "do all of them". Echo any changes back, then wait for a go-ahead.
+Accept free-form adjustments: "I'll take the nits", "skip the design comment", "do all of them". Echo any changes back, then wait for a go-ahead. Per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections), present this closing ask as a structured query (`vscode_askQuestions`) — e.g. *go ahead as shown / I'll handle some myself / adjust the plan* — with freeform input allowed for adjustment phrasing.
 
 If any Group D threads exist, proactively note:
 > "The design thread on api.ts:120 may be too complex to resolve inline. Once we've discussed it, I can offer to open an implementation plan."

@@ -101,7 +101,7 @@ After computing both diffs (status changes + missing issues), surface them to th
 > Missing issues:
 > - STEP-05, STEP-06
 >
-> Apply status changes? Create issues for missing steps? Both? Neither?"
+> "Apply status changes? Create issues for missing steps? Both? Neither?" — ask via the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections): present the four combinations as selectable options with freeform input.
 
 ### 5. Write status updates
 

@@ -88,7 +88,7 @@ For every new step added in this revision, ask:
 > - STEP-15 → workinprogress-ai/service.commerce.inventory
 > - STEP-16 → workinprogress-ai/service.commerce.fulfillment-orchestrator
 >
-> Proceed? (Y / N / Choose subset)"
+> Proceed? (Y / N / Choose subset)" — ask via the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections): present *yes, create all / choose a subset / no* as selectable options with freeform input.
 
 If yes, follow the same `GITHUB_REPO=<org>/<repo> issue-create` procedure documented in [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) Step A. Update the parent epic in the planning repo to add the new issues to its task list.
 
