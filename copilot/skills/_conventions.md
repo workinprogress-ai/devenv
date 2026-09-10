@@ -163,6 +163,8 @@ Re-arming rule:
 
 When a skill's flow needs user input, prefer **direct structured queries** (`vscode_askQuestions`) over outputting prose and waiting for a typed response — for both shapes:
 
+**Scope:** this rule applies at *every* asking point — kickoff, commissioning, scope confirmation, mid-phase stops, handback options, wrap-up offers — not only mid-phase stops. A prose question template embedded in a skill demonstrates the *content* of the ask (options, meanings); it does not override this format rule. When embedding a prose question template in a skill, annotate it with "present via the structured interview when the query is bounded" so the template cannot shadow this rule.
+
 - **Simple questions:** a short series of one or more direct, bounded queries unlikely to need much back-and-forth.
 - **List selections:** any ask where the user picks from a bounded option set (Y/N, Y/N/choose-subset, A/B/C menus, apply/skip/both/neither). Present the options as selectable choices with freeform input allowed; state the necessary context in chat first so the choices are self-explanatory.
 

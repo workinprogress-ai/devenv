@@ -180,7 +180,7 @@ Wait for explicit confirmation. Once confirmed, add the `## Goals and Acceptance
 
 ### 2. Confirm scope
 
-Ask: *"Delegating the entire plan, specific phases, or a task range?"* Wait for answer.
+Ask: *"Delegating the entire plan, specific phases, or a task range?"* — a bounded query: present via the structured interview per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections) (options: entire plan / phase range / task range, freeform for specifics), not prose-and-wait.
 
 ### 2a. Ad-Hoc Task List Intake
 
@@ -306,7 +306,7 @@ Wait for explicit go-ahead before starting the first session.
 
 If the immediately previous turn raised a `🔶` decision gate, a generic "go ahead" or navigation reply is not enough unless it clearly chooses one of the presented options or otherwise approves a specific path.
 
-**Phase-boundary policy (set at commissioning, required when more than one phase is in scope):** ask the user to choose the boundary mode before the first phase starts —
+**Phase-boundary policy (set at commissioning, required when more than one phase is in scope):** ask the user to choose the boundary mode before the first phase starts — present via the structured interview per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections); the blockquote below defines the *content* of the two options (import into the interview as option labels + descriptions):
 
 > *"How should phase boundaries behave for this run?
 > - **Gate mode** (default): I stop at every phase boundary and hand back for your review before continuing.
