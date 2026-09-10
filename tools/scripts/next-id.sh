@@ -29,7 +29,7 @@ Usage: $SCRIPT_NAME [OPTIONS]
 Resolve the next free numeric identifier deterministically. Two modes:
 
 Filename mode (one of --pattern):
-    next-id --pattern 'Implementation_plan-issue-42-{N}.md' [--dir DIR] [--width W] [--filename]
+    next-id --pattern 'Plan-issue-42-{N}.md' [--dir DIR] [--width W] [--filename]
     Scans DIR for files matching the pattern with {N} as a digit run,
     finds the highest existing number, prints the next one.
 

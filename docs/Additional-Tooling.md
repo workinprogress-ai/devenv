@@ -1249,7 +1249,7 @@ issue-artifact-doc-id --issue ISSUE_NUMBER --artifact-type TYPE [--slug TEXT | -
 **Required Arguments:**
 
 - `--issue ISSUE_NUMBER`: Target issue number
-- `--artifact-type TYPE`: One of `spike`, `redesign`, `design`, `blueprint`, `specifications`, `roadmap`, `plan`, `implementation-plan`
+- `--artifact-type TYPE`: One of `spike`, `redesign`, `design`, `blueprint`, `specifications`, `roadmap`, `plan` (`implementation-plan` accepted as legacy alias for pre-rename artifacts)
 
 **Slug Source (exactly one required):**
 
@@ -1277,11 +1277,11 @@ issue-artifact-doc-id \
   --source-file Redesign--003-Auth-Flow.md \
   --repo workinprogress-ai/devenv
 
-# For an implementation plan artifact comment
+# For a plan artifact comment
 issue-artifact-doc-id \
   --issue 42 \
-  --artifact-type implementation-plan \
-  --source-file Implementation_plan-issue-42-001.md \
+  --artifact-type plan \
+  --source-file Plan-issue-42-001.md \
   --repo workinprogress-ai/devenv
 ```
 
@@ -1316,7 +1316,7 @@ issue-artifact-get --issue ISSUE_NUMBER --doc-id DOC_ID [--full] [--pretty] [OPT
 ```bash
 issue-artifact-get \
   --issue 42 \
-  --doc-id "dv1:workinprogress-ai-devenv:issue-42:implementation-plan:implementation-plan-issue-42-001" \
+  --doc-id "dv1:workinprogress-ai-devenv:issue-42:plan:plan-issue-42-001" \
   --full --pretty
 ```
 
@@ -1338,8 +1338,8 @@ issue-artifact-list --issue ISSUE_NUMBER [--artifact-type TYPE] [--full] [--pret
 **Examples:**
 
 ```bash
-# List all implementation-plan artifacts on an issue
-issue-artifact-list --issue 42 --artifact-type implementation-plan --pretty
+# List all plan artifacts on an issue
+issue-artifact-list --issue 42 --artifact-type plan --pretty
 ```
 
 ### `issue-artifact-select`
@@ -1367,12 +1367,12 @@ issue-artifact-select --issue ISSUE_NUMBER [--artifact-type TYPE] [--doc-id DOC_
 **Examples:**
 
 ```bash
-# Select the latest implementation plan for an issue
-issue-artifact-select --issue 42 --artifact-type implementation-plan --latest --format doc-id
+# Select the latest plan for an issue
+issue-artifact-select --issue 42 --artifact-type plan --latest --format doc-id
 
 # Select one exact artifact by doc_id
 issue-artifact-select --issue 42 \
-  --doc-id "dv1:workinprogress-ai-devenv:issue-42:implementation-plan:implementation-plan-issue-42-001" \
+  --doc-id "dv1:workinprogress-ai-devenv:issue-42:plan:plan-issue-42-001" \
   --format url
 ```
 
@@ -2662,15 +2662,15 @@ The following convenience aliases are available in the dev container:
 - `key-update-do` - Update Digital Ocean API token
 - `devenv-vscode-fix-sockets` - Fix stale VS Code IPC sockets (see [Troubleshooting](./Dev-container-environment.md#troubleshooting))
 
-## Markdown and Implementation Plan Tools
+## Markdown and Plan Tools
 
-Tools for working with markdown documents, specifically implementation plans
+Tools for working with markdown documents, specifically plans
 produced through the planning workflow (for example via
-`devenv-create-implementation-plan`).
+`devenv-create-plan`).
 
 ### `markdown-plan-complete-task`
 
-Marks one or more task checkboxes in an implementation plan as complete (`[x]`)
+Marks one or more task checkboxes in a plan as complete (`[x]`)
 or incomplete (`[ ]`). Tasks are identified by their dotted number as they
 appear in the plan (e.g. `2.3` or `1.4.2`).
 
@@ -2685,7 +2685,7 @@ markdown-plan-complete-task [OPTIONS] TASK_NUMBER... [PLAN_FILE]
 - `TASK_NUMBER...`: One or more dotted task numbers to update (`X.Y` or `X.Y.Z`).
   Multiple task numbers can be supplied in a single invocation.
 - `PLAN_FILE`: Path to the markdown plan file. Defaults to the first
-  `Implementation_plan-*.md` file found in the current directory.
+  `Plan-*.md` file found in the current directory.
   Positional arguments are classified automatically: anything matching the
   `X.Y` / `X.Y.Z` pattern is treated as a task number; everything else is
   treated as the plan file. The plan file may appear anywhere in the argument
@@ -2706,7 +2706,7 @@ markdown-plan-complete-task 2.3
 markdown-plan-complete-task 1.1 1.2 1.3
 
 # Mark tasks complete in a specific plan file (file can appear anywhere)
-markdown-plan-complete-task 1.1 1.2 /path/to/Implementation_plan-001.md
+markdown-plan-complete-task 1.1 1.2 /path/to/Plan-001.md
 
 # Undo — mark tasks as incomplete
 markdown-plan-complete-task --uncomplete 2.3 2.4
@@ -2741,7 +2741,7 @@ markdown-plan-complete-ac [OPTIONS] AC_NUMBER... [FILE]
 - `AC_NUMBER...`: One or more AC numbers to update (`AC-N`, `AC-N.N`, `AC-N.N.N`).
 - `FILE`: Path to the markdown file. Defaults to the first `Specifications-*.md`
   found in the current directory; if none exists, the first
-  `Implementation_plan-*.md` is tried. As with `markdown-plan-complete-task`,
+  `Plan-*.md` is tried. As with `markdown-plan-complete-task`,
   the file may appear anywhere among the arguments.
 
 **Options:**

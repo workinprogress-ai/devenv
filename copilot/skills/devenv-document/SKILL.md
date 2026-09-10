@@ -1,6 +1,6 @@
 ---
 name: devenv-document
-description: 'Document an existing system, component, or cross-cutting concern by reading existing docs first and code second. USE WHEN the user says "document this system", "write documentation for", "I need docs for", "create a context brief", "document this codebase", "document this component", "write up how this works", "we need documentation for", or hands off a legacy or underdocumented codebase that needs to be described before AI or humans can work with it effectively. Interviews the user upfront to establish audience, output format, and scope; proposes a session plan before any investigation begins; tracks open questions in a Q-NNN log. DO NOT USE FOR implementation plans (use /devenv-create-implementation-plan), architectural design (use /devenv-create-blueprint), specifications authoring (use /devenv-write-specifications), or conversational Q&A without a written output (use /devenv-chat-with-code).'
+description: 'Document an existing system, component, or cross-cutting concern by reading existing docs first and code second. USE WHEN the user says "document this system", "write documentation for", "I need docs for", "create a context brief", "document this codebase", "document this component", "write up how this works", "we need documentation for", or hands off a legacy or underdocumented codebase that needs to be described before AI or humans can work with it effectively. Interviews the user upfront to establish audience, output format, and scope; proposes a session plan before any investigation begins; tracks open questions in a Q-NNN log. DO NOT USE FOR plans (use /devenv-create-plan), architectural design (use /devenv-create-blueprint), specifications authoring (use /devenv-write-specifications), or conversational Q&A without a written output (use /devenv-chat-with-code).'
 argument-hint: '[repo path | component name | "what to document"]'
 user-invocable: true
 ---
@@ -30,7 +30,7 @@ Do **not** use for:
 - Conversational fact-finding without a written output → [`/devenv-chat-with-code`](../devenv-chat-with-code/SKILL.md)
 - Formal architectural decomposition → [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
 - Authoring functional specifications → [`/devenv-write-specifications`](../devenv-write-specifications/SKILL.md)
-- Writing an implementation plan → [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md)
+- Writing a plan → [`/devenv-create-plan`](../devenv-create-plan/SKILL.md)
 - Tech debt assessment → [`/devenv-tech-debt-audit`](../devenv-tech-debt-audit/SKILL.md)
 
 ## Core Principles

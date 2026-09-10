@@ -24,17 +24,17 @@ Skills for thinking, investigating, and triaging — before any plan or code exi
 | --- | --- | --- | --- |
 | `/devenv-rubber-duck` | Think out loud — no artifact produced | "think out loud", "rubber duck", "I'm stuck and need to talk it through", "help me think through X" | when opinions and a recommendation are wanted → `/devenv-design-discussion`; when an artifact (findings doc, plan) is needed → `/devenv-spike` |
 | `/devenv-chat-with-code` | Conversational fact-finding session with source code or markdown-first repos (specifications, blueprints, plans) — the repo talks back | "chat with this code", "explain this repo", "how does X work", "walk me through the architecture", "what does this codebase do", "explain this service", "I want to understand this code", "interrogate this specifications doc", "walk this blueprint with me" | writing or changing files → `/devenv-pair-programming`, or `/devenv-delegation` for a commissioned autonomous mechanical run; formal debt assessment → `/devenv-tech-debt-audit`; architecture design → `/devenv-create-blueprint` or `/devenv-design-discussion` |
-| `/devenv-design-discussion` | Opinionated, conversation-first thinking partner for design / architectural choices at any zoom level; especially useful for one bounded blocker or design question; writes `Solution_Proposal_<topic>-NNN.md` only when asked (context for downstream technical design) | "discuss the design", "weigh the options", "talk through the approach", "what's the right way to structure this", "discuss an architectural change", "single blocker in this plan needs brainstorming" | fuzzy articulation with no opinions → `/devenv-rubber-duck`; feasibility prototyping → `/devenv-spike`; formal architectural decomposition → `/devenv-create-blueprint`; task breakdown when approach is already chosen → `/devenv-create-implementation-plan` |
+| `/devenv-design-discussion` | Opinionated, conversation-first thinking partner for design / architectural choices at any zoom level; especially useful for one bounded blocker or design question; writes `Solution_Proposal_<topic>-NNN.md` only when asked (context for downstream technical design) | "discuss the design", "weigh the options", "talk through the approach", "what's the right way to structure this", "discuss an architectural change", "single blocker in this plan needs brainstorming" | fuzzy articulation with no opinions → `/devenv-rubber-duck`; feasibility prototyping → `/devenv-spike`; formal architectural decomposition → `/devenv-create-blueprint`; task breakdown when approach is already chosen → `/devenv-create-plan` |
 | `/devenv-spike` | Investigate a question and produce a structured findings doc; empowered like the bug hunter — may modify target-repo code and run destructive-class experiments with just-in-time consent and a stated recovery route | "spike on X", "investigate whether we can Y", "feasibility of Z", "throwaway prototype", "proof-of-concept" | writing production code → `/devenv-pair-programming`, lightweight thinking → `/devenv-rubber-duck`, opinionated approach comparison → `/devenv-design-discussion`, verifying a specific suspected bug → `/devenv-bug-hunter` |
 | `/devenv-tech-debt-audit` | Opinionated codebase audit that surfaces tech debt and correctness/bug risks, optionally focused by module or bug class | "hunt for bugs", "find bug risks", "look for race conditions", "audit this area for bugs", "bug hunt in <module>", "scan for null/date/idempotency bugs" | single known or suspected bug (verify / diagnose / fix) → `/devenv-bug-hunter`; single PR review → `/devenv-code-review`; collaborative implementation → `/devenv-pair-programming` |
-| `/devenv-bug-hunter` | End-to-end bug skill, three entry modes: verify (aggressive hypothesis hunt — oracle, discriminating tests/instrumentation, FOUND / NOT-FOUND / INCONCLUSIVE verdict), diagnose (read-only call-chain trace to root cause for an established bug, findings report with confidence + fix sequence), fix (test-first, per-change confirm, never commits; user picks plan / fix-now / self-fix). One invocation carries verify→diagnose→fix | "is this a bug?", "I keep seeing X but expected Y", "go hunting", "fix this bug", "find the root cause", "why is X broken", "diagnose this", GH issue # with a bug | broad suspicion-less survey → `/devenv-tech-debt-audit`; feature work → `/devenv-create-implementation-plan`; general code Q&A → `/devenv-chat-with-code`; feasibility research → `/devenv-spike` |
+| `/devenv-bug-hunter` | End-to-end bug skill, three entry modes: verify (aggressive hypothesis hunt — oracle, discriminating tests/instrumentation, FOUND / NOT-FOUND / INCONCLUSIVE verdict), diagnose (read-only call-chain trace to root cause for an established bug, findings report with confidence + fix sequence), fix (test-first, per-change confirm, never commits; user picks plan / fix-now / self-fix). One invocation carries verify→diagnose→fix | "is this a bug?", "I keep seeing X but expected Y", "go hunting", "fix this bug", "find the root cause", "why is X broken", "diagnose this", GH issue # with a bug | broad suspicion-less survey → `/devenv-tech-debt-audit`; feature work → `/devenv-create-plan`; general code Q&A → `/devenv-chat-with-code`; feasibility research → `/devenv-spike` |
 | `/devenv-triage-issue` | Triage an issue on two layers — workflow routing (which skill should handle it: bug / plan / groom / blueprint+roadmap / spike / audit / docs / specifications / refine-queue) and GitHub metadata (labels, priority, size, duplicates, clarifying comment) | "triage this issue", "what should handle this issue", "route this issue", "triage #123", "label and size this", "is this a duplicate" | implementing the routed work → the routed skill; plain summaries → default agent |
 
 ---
 
 ## Category: Specifications
 
-Skills for capturing and formalising what a system should do, before any implementation planning begins.
+Skills for capturing and formalising what a system should do, before any planning begins.
 
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 | --- | --- | --- | --- |
@@ -49,10 +49,10 @@ Skills for architectural design at all zoom levels — system (blueprint), compo
 
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 | --- | --- | --- | --- |
-| `/devenv-create-blueprint` | Architectural decomposition into domains, services, events, and per-component deltas, written as a durable structured `Blueprint-*.md` artifact | "create a blueprint", "design this system", "architect this epic", "produce an architectural design", "blueprint this" | low-level task breakdown → `/devenv-create-implementation-plan`; sequencing into milestones → `/devenv-create-roadmap`; user-level specifications → `/devenv-write-specifications` |
-| `/devenv-grooming` | Consolidated intake for component-level design work; creates or updates a durable structured `Grooming-*.md` artifact, records confirmed/pending/deferred decisions, and produces a Feature/Fix/Task issue attack plan by repo with independently shippable slices before any implementation handoff; also reconciles material as-built deviations from a completed implementation plan back into the grooming document | "groom this", "help decide design path", "which component design workflow", "plan has architectural issues", "accumulated architectural issues in this plan", "shape this feature before planning", "sync grooming with the completed plan", "backport what was actually built" | system-level architecture decomposition → `/devenv-create-blueprint`; pure task planning with no architecture decision → `/devenv-refine-implementation-plan`; coding execution → `/devenv-pair-programming` (or `/devenv-delegation` when the user commissions an autonomous mechanical run) |
+| `/devenv-create-blueprint` | Architectural decomposition into domains, services, events, and per-component deltas, written as a durable structured `Blueprint-*.md` artifact | "create a blueprint", "design this system", "architect this epic", "produce an architectural design", "blueprint this" | low-level task breakdown → `/devenv-create-plan`; sequencing into milestones → `/devenv-create-roadmap`; user-level specifications → `/devenv-write-specifications` |
+| `/devenv-grooming` | Consolidated intake for component-level design work; creates or updates a durable structured `Grooming-*.md` artifact, records confirmed/pending/deferred decisions, and produces a Feature/Fix/Task issue attack plan by repo with independently shippable slices before any implementation handoff; also reconciles material as-built deviations from a completed plan back into the grooming document | "groom this", "help decide design path", "which component design workflow", "plan has architectural issues", "accumulated architectural issues in this plan", "shape this feature before planning", "sync grooming with the completed plan", "backport what was actually built" | system-level architecture decomposition → `/devenv-create-blueprint`; pure task planning with no architecture decision → `/devenv-refine-plan`; coding execution → `/devenv-pair-programming` (or `/devenv-delegation` when the user commissions an autonomous mechanical run) |
 | `/devenv-refine-blueprint` | Revise an existing durable `Blueprint-*.md` when architecture change direction is known, preserving structure and numbering; cascade mode co-edits the specifications in the same session; consumes issues from any source (upstream-impact work orders or user/stakeholder-filed change requests) | "refine the blueprint", "update the blueprint", "revise the architecture", "the blueprint needs updating", "work the upstream-impact queue", issue # describing a needed blueprint change, change spans both specs and blueprint | broad non-surgical architecture rethink → `/devenv-create-blueprint`; unresolved option-weighing before edits are known → `/devenv-design-discussion`; ad-hoc one-line edits (just edit the file); structural roadmap changes → `/devenv-refine-roadmap`; status-only roadmap sync → `/devenv-update-roadmap` |
-| `/devenv-create-roadmap` | Phased delivery sequencing from a blueprint and/or specifications doc, published as a roadmap artifact on a parent epic in the planning repo, with optional GH issue creation. Canonical entry point for bulk issue creation from a planning doc. | "create a roadmap", "plan delivery order", "build a roadmap from this blueprint", "build a roadmap from these specifications", "lay out the delivery phases" | low-level task breakdown → `/devenv-create-implementation-plan`; syncing roadmap state from issues → `/devenv-update-roadmap`; structural revisions → `/devenv-refine-roadmap`; nothing to plan from yet → `/devenv-write-specifications` or `/devenv-create-blueprint` |
+| `/devenv-create-roadmap` | Phased delivery sequencing from a blueprint and/or specifications doc, published as a roadmap artifact on a parent epic in the planning repo, with optional GH issue creation. Canonical entry point for bulk issue creation from a planning doc. | "create a roadmap", "plan delivery order", "build a roadmap from this blueprint", "build a roadmap from these specifications", "lay out the delivery phases" | low-level task breakdown → `/devenv-create-plan`; syncing roadmap state from issues → `/devenv-update-roadmap`; structural revisions → `/devenv-refine-roadmap`; nothing to plan from yet → `/devenv-write-specifications` or `/devenv-create-blueprint` |
 | `/devenv-refine-roadmap` | Structurally revise an existing roadmap artifact (on its parent epic) — split steps, re-sequence, add components; superseded steps deleted clean | "refine the roadmap", "revise the roadmap", "split this step", "re-sequence the phases", "the roadmap structure needs updating" | status-only sync from issues/PRs → `/devenv-update-roadmap`; creating a new roadmap → `/devenv-create-roadmap`; revising the underlying blueprint → `/devenv-refine-blueprint` |
 | `/devenv-update-roadmap` | Sync roadmap artifact step status from linked issues and PRs; create missing issues; update epic task list | "update the roadmap", "sync the roadmap", "refresh roadmap status", "the roadmap is out of date" | creating a new roadmap → `/devenv-create-roadmap`; structural revisions (split, re-sequence, add steps) → `/devenv-refine-roadmap`; refining the underlying blueprint → `/devenv-refine-blueprint` |
 
@@ -60,12 +60,12 @@ Skills for architectural design at all zoom levels — system (blueprint), compo
 
 ## Category: Plan
 
-Skills for creating, updating, and inspecting implementation plans.
+Skills for creating, updating, and inspecting plans.
 
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 | --- | --- | --- | --- |
-| `/devenv-create-implementation-plan` | Interview the user and write a phased current-state `Implementation_plan-*.md` for any multi-step objective — code (default), docs, mechanical file work, runbooks, mixed work — with a plan-declared verification approach; loads issue body + comments when a GitHub issue is the source; triggers grooming redivision when scope is too large/risky; supports direct-plan mode for complete specs/RFCs/design docs and treats side-stream artifacts as additional (non-directing) context | "create an implementation plan", "plan this story", "break this task into phases", "write up a plan for this", "plan from this spec", "convert this issue into a plan", "plan a docs overhaul or mechanical multi-repo update" | vague/incomplete ideas → `/devenv-write-specifications` first; revising existing plan → `/devenv-refine-implementation-plan` |
-| `/devenv-refine-implementation-plan` | Align a plan with reality from any starting point — surgical edits (tick a box, add a note; max 3), structured revision after scope changes/discoveries/deviations, or staleness assessment with internal routing (slight/significant/intent-only) | "refine the plan", "update the plan", "mark 3.4 done", "tick off task 2.1", "refresh the plan", "is this plan still valid?", "the plan might be out of date" | creating a new plan → `/devenv-create-implementation-plan`; executing the plan → `/devenv-pair-programming` / `/devenv-delegation` |
+| `/devenv-create-plan` | Interview the user and write a phased current-state `Plan-*.md` for any multi-step objective — code (default), docs, mechanical file work, runbooks, mixed work — with a plan-declared verification approach; loads issue body + comments when a GitHub issue is the source; triggers grooming redivision when scope is too large/risky; supports direct-plan mode for complete specs/RFCs/design docs and treats side-stream artifacts as additional (non-directing) context | "create a plan", "plan this story", "break this task into phases", "write up a plan for this", "plan from this spec", "convert this issue into a plan", "plan a docs overhaul or mechanical multi-repo update" | vague/incomplete ideas → `/devenv-write-specifications` first; revising existing plan → `/devenv-refine-plan` |
+| `/devenv-refine-plan` | Align a plan with reality from any starting point — surgical edits (tick a box, add a note; max 3), structured revision after scope changes/discoveries/deviations, or staleness assessment with internal routing (slight/significant/intent-only) | "refine the plan", "update the plan", "mark 3.4 done", "tick off task 2.1", "refresh the plan", "is this plan still valid?", "the plan might be out of date" | creating a new plan → `/devenv-create-plan`; executing the plan → `/devenv-pair-programming` / `/devenv-delegation` |
 
 ---
 
@@ -99,7 +99,7 @@ Skills for closing out a session or shipping work.
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 | --- | --- | --- | --- |
 | `/devenv-open-pr` | Draft and open a GitHub PR from a finished plan phase | "open a PR", "raise a PR", "create a PR", "open a pull request", "let's open a PR", "ship this phase", "wrap this branch into a PR" | responding to existing PR feedback → `/devenv-address-pr-comments`; wrapping up without a PR → `/devenv-session-handoff` |
-| `/devenv-session-handoff` | Produce a structured handoff summary for the next contributor | "wrap up this session", "write a handoff", "session summary for the next person", "I'm tagging out" | updating plan task progress → `/devenv-refine-implementation-plan` (surgical mode); drafting a PR → `/devenv-open-pr` |
+| `/devenv-session-handoff` | Produce a structured handoff summary for the next contributor | "wrap up this session", "write a handoff", "session summary for the next person", "I'm tagging out" | updating plan task progress → `/devenv-refine-plan` (surgical mode); drafting a PR → `/devenv-open-pr` |
 
 ---
 
@@ -122,7 +122,7 @@ The full lifecycle: triage → plan → implement → quality check → ship →
 
 ```
 /devenv-triage-issue
-  → /devenv-create-implementation-plan
+  → /devenv-create-plan
     → /devenv-pair-programming      (high-impact phases)
     → /devenv-delegation            (commissioned autonomous mechanical run)
     → /devenv-pre-commit
@@ -131,7 +131,7 @@ The full lifecycle: triage → plan → implement → quality check → ship →
         → /devenv-pre-commit
 ```
 
-**Start here:** `/devenv-triage-issue` (or `/devenv-create-implementation-plan` if already triaged)
+**Start here:** `/devenv-triage-issue` (or `/devenv-create-plan` if already triaged)
 
 ---
 
@@ -143,7 +143,7 @@ For work where understanding the codebase comes first, then feasibility, then im
 /devenv-chat-with-code              (understand the codebase)
   → /devenv-rubber-duck            (think through the problem)
     → /devenv-spike                (investigate feasibility)
-      → /devenv-create-implementation-plan
+      → /devenv-create-plan
         → /devenv-delegation       (commissioned autonomous mechanical run)
           → /devenv-code-review   (review before opening PR)
             → /devenv-open-pr
@@ -158,14 +158,14 @@ For work where understanding the codebase comes first, then feasibility, then im
 For in-flight work: check where things stand, progress the plan, ship.
 
 ```
-/devenv-refine-implementation-plan    (returning after a gap → assessment mode;
+/devenv-refine-plan    (returning after a gap → assessment mode;
   ↓ (or surgical mode to tick off)      known edits → surgical mode)
 /devenv-delegation                    (commissioned; run the next mechanical phase)
   → /devenv-pre-commit
     → /devenv-session-handoff
 ```
 
-**Start here:** `/devenv-refine-implementation-plan` (assessment mode if unsure, surgical mode for quick ticks)
+**Start here:** `/devenv-refine-plan` (assessment mode if unsure, surgical mode for quick ticks)
 
 ---
 
@@ -177,7 +177,7 @@ For new systems or features where specifications are undefined. Default happy pa
 /devenv-write-specifications
   → /devenv-create-blueprint
     → /devenv-grooming
-      → /devenv-create-implementation-plan
+      → /devenv-create-plan
         → /devenv-pair-programming       (high-impact phases)
         → /devenv-delegation             (commissioned autonomous mechanical run)
         → /devenv-pre-commit
@@ -192,7 +192,7 @@ For new systems or features where specifications are undefined. Default happy pa
 
 ### Chain E — From specifications to delivery roadmap (architecture-driven)
 
-For epic-scale work where specifications need to translate into architecture and a sequenced delivery plan with GitHub issues. Each roadmap step then spawns a technical design (for new components) and an implementation plan as work begins.
+For epic-scale work where specifications need to translate into architecture and a sequenced delivery plan with GitHub issues. Each roadmap step then spawns a technical design (for new components) and a plan as work begins.
 
 ```
 /devenv-write-specifications
@@ -200,7 +200,7 @@ For epic-scale work where specifications need to translate into architecture and
     → /devenv-create-roadmap         (creates GH issues across component repos)
       → /devenv-grooming             (classify component-level design work before tasks are written)
         → /devenv-design-discussion  (if approaches need weighing)
-          → /devenv-create-implementation-plan   (per roadmap step, draws from the current design delta)
+          → /devenv-create-plan   (per roadmap step, draws from the current design delta)
             → (Chain A continues from here)
 
   Throughout delivery:
@@ -223,7 +223,7 @@ For building a single new component identified in a blueprint. The grooming step
 /devenv-create-blueprint             (or existing blueprint as input)
   → /devenv-grooming                   (confirm whether component-level design work is needed)
     → /devenv-design-discussion        (if approaches need weighing)
-      → /devenv-create-implementation-plan   (task breakdown draws from the current design)
+      → /devenv-create-plan   (task breakdown draws from the current design)
         → /devenv-pair-programming / /devenv-delegation (commissioned autonomous mechanical run)
           → /devenv-pre-commit → /devenv-open-pr
 ```
@@ -240,7 +240,7 @@ For legacy or underdocumented systems that need to be understood before any new 
 /devenv-document                     (understand and write up the existing system)
   → /devenv-create-blueprint         (if architecture changes are coming)
   → /devenv-write-specifications      (if functional specifications need to be defined)
-  → /devenv-create-implementation-plan   (if a specific deliverable is already defined)
+  → /devenv-create-plan   (if a specific deliverable is already defined)
 ```
 
 **Start here:** `/devenv-document`
@@ -255,7 +255,7 @@ For adding a feature to an existing component when the implementation approach i
 /devenv-grooming
   → /devenv-design-discussion            (only when one bounded blocker needs deeper option-weighing)
   → /devenv-grooming                     (when the component design artifact needs updating)
-  → /devenv-create-implementation-plan or /devenv-refine-implementation-plan
+  → /devenv-create-plan or /devenv-refine-plan
     → /devenv-pair-programming / /devenv-delegation (commissioned autonomous mechanical run)
 ```
 
@@ -270,7 +270,7 @@ For work that starts from a design-discussion or spike artifact, route through g
 ```
 /devenv-design-discussion or /devenv-spike
   → /devenv-grooming                     (capture design delta + issue attack plan)
-    → /devenv-create-implementation-plan   (one selected issue slice)
+    → /devenv-create-plan   (one selected issue slice)
       → /devenv-pair-programming / /devenv-delegation (commissioned autonomous mechanical run)
 ```
 
@@ -278,7 +278,7 @@ For work that starts from a design-discussion or spike artifact, route through g
 
 Direct-plan exception:
 
-- If the user explicitly chooses to skip grooming and provides sufficient context, start with `/devenv-create-implementation-plan`.
+- If the user explicitly chooses to skip grooming and provides sufficient context, start with `/devenv-create-plan`.
 - Side-stream artifacts may be provided whether or not grooming exists; they inform planning but do not direct scope.
 - If a grooming artifact exists, grooming remains the directing source for scope/slice boundaries.
 
@@ -292,14 +292,14 @@ For work already in execution when the plan starts to hurt. Route by problem siz
 /devenv-pair-programming or /devenv-delegation (commissioned autonomous mechanical run for either)
   → stay in execution                     (small local problem / question)
   → /devenv-design-discussion            (single bounded blocker)
-    → /devenv-refine-implementation-plan
+    → /devenv-refine-plan
       → back to execution
   → /devenv-grooming                     (accumulated questions / architectural drift)
-    → /devenv-refine-implementation-plan
+    → /devenv-refine-plan
       → back to execution
   → /devenv-refine-blueprint             (if grooming finds the real problem is upstream)
     → /devenv-grooming
-      → /devenv-refine-implementation-plan
+      → /devenv-refine-plan
         → back to execution
 ```
 

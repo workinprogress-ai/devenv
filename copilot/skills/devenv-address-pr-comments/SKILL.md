@@ -15,7 +15,7 @@ Load PR review threads, auto-fix what's clear, surface everything else for direc
 
 ## The mental model
 
-PR comments are not tasks in an implementation plan. They are messages from another human and each one is fundamentally different in nature:
+PR comments are not tasks in a plan. They are messages from another human and each one is fundamentally different in nature:
 
 - Some want a **code change** where the right fix is obvious.
 - Some are **questions** — the reviewer wants to understand something, and may want to keep the conversation going.
@@ -103,7 +103,7 @@ Any threads you'd like to handle yourself, or should I go ahead?
 Accept free-form adjustments: "I'll take the nits", "skip the design comment", "do all of them". Echo any changes back, then wait for a go-ahead. Per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections), present this closing ask as a structured query (`vscode_askQuestions`) — e.g. *go ahead as shown / I'll handle some myself / adjust the plan* — with freeform input allowed for adjustment phrasing.
 
 If any Group D threads exist, proactively note:
-> "The design thread on api.ts:120 may be too complex to resolve inline. Once we've discussed it, I can offer to open an implementation plan."
+> "The design thread on api.ts:120 may be too complex to resolve inline. Once we've discussed it, I can offer to open a plan."
 
 ---
 
@@ -170,7 +170,7 @@ How do you want to handle this? (reply / fix / both / skip / mark complete)
 - **`both`** — apply the fix, draft a reply explaining what was done, show both for approval, then apply and mark resolved.
 - **`skip`** — note it in the summary as not yet addressed; leave open.
 - **Praise / informational** — draft an optional acknowledgement reply (show it), then: `Resolve this one? (y / leave open)`.
-- **Design / architecture (D)** — after discussing, offer: *"This looks complex enough to warrant a proper plan. Want me to open an implementation plan via `/devenv-create-implementation-plan`?"* If yes, capture the context and hand off. Leave unresolved; note in summary.
+- **Design / architecture (D)** — after discussing, offer: *"This looks complex enough to warrant a proper plan. Want me to open a plan via `/devenv-create-plan`?"* If yes, capture the context and hand off. Leave unresolved; note in summary.
 
 **Drafting replies:** Always show the draft before posting:
 
@@ -200,7 +200,7 @@ Done — 11 threads
 Then:
 - If any code was changed → "Run `/devenv-pre-commit` before pushing."
 - If threads left open → list each with a one-line reminder of what's pending.
-- If an implementation plan was offered → remind the user to follow up with `/devenv-create-implementation-plan`.
+- If a plan was offered → remind the user to follow up with `/devenv-create-plan`.
 - Offer a **commit suggestion** (see below).
 
 ### Commit suggestion
@@ -257,7 +257,7 @@ Never suggest `git commit` commands or run any git operations. Only suggest the 
 - **Resolving a question thread after answering it** — leave it open; the reviewer may respond.
 - **Resolving a pushback thread** — if you pushed back, the reviewer hasn't agreed yet. Leave it open.
 - **Posting a reply without showing the draft** — the user edits every reply before it goes out.
-- **Trying to inline-fix a design/architecture comment** — offer an implementation plan instead.
+- **Trying to inline-fix a design/architecture comment** — offer a plan instead.
 - **Using unified diff format** — always show before/after code blocks, not `+`/`-` lines.
 - **Continuing past a failed tool call** — surface the error, ask whether to retry or leave open.
 - **Suggesting a single commit when changes are of mixed significance** — significant fixes deserve their own commit.
@@ -269,7 +269,7 @@ Never suggest `git commit` commands or run any git operations. Only suggest the 
 - `/devenv-code-review` — you do the reviewing; this skill is for addressing feedback you've received.
 - `/devenv-open-pr` — for opening the PR before review starts.
 - `/devenv-pre-commit` — run quality gates after making changes in response to comments.
-- `/devenv-create-implementation-plan` — for design/architecture threads too complex to resolve inline.
+- `/devenv-create-plan` — for design/architecture threads too complex to resolve inline.
 - `/devenv-session-handoff` — if you need to stop mid-review and hand off to the next session.
 - GitHub PR extension's `address-pr-comments` — for a fast batch-fix-all workflow without per-comment choices.
 

@@ -14,7 +14,7 @@ Take a committable phase of work from a plan-driven workflow and open a GitHub P
 
 ## When to Use
 
-- A phase of an implementation plan is complete and ready to ship.
+- A phase of a plan is complete and ready to ship.
 - The branch has commits, the work is reviewable, and you want a PR opened with a proper body.
 - You want the PR description auto-built from the plan + git history rather than typed by hand.
 
@@ -23,16 +23,16 @@ If a PR already exists and you're responding to feedback, use `/devenv-address-p
 ## Prerequisites
 
 - Branch exists, has at least one commit, and is pushed (or `pr-create-for-merge` will fail).
-- An implementation plan (`Implementation_plan*.md`) is present, OR the user provides title/context to compensate.
+- An plan (`Plan-*.md`) is present, OR the user provides title/context to compensate.
 
 If the branch has no commits ahead of base, stop and tell the user — there's nothing to open.
 
-## Pre-flight: implementation plan files
+## Pre-flight: plan files
 
-Before building the PR draft, check for `Implementation_plan*.md` files in the **repo root** (not subdirectories — plans are valid in planning repos):
+Before building the PR draft, check for `Plan-*.md` files in the **repo root** (not subdirectories — plans are valid in planning repos):
 
 ```
-ls Implementation_plan*.md 2>/dev/null
+ls Plan-*.md 2>/dev/null
 ```
 
 If any exist:
@@ -51,7 +51,7 @@ The plan can still be *read* by this skill to build the PR draft (step 1 below).
 
 Assemble the PR draft from, in order:
 
-1. **Active implementation plan** — `Implementation_plan*.md` in the target **repo** root (not the devenv workspace root). Use phase name for title, completed `[x]` tasks for the changes list, decision blocks for rationale.
+1. **Active plan** — `Plan-*.md` in the target **repo** root (not the devenv workspace root). Use phase name for title, completed `[x]` tasks for the changes list, decision blocks for rationale.
 2. **`git log --oneline <merge-base>..HEAD`** and **`git diff --stat`** — actual changes shipped, file scope.
 3. **Parent issue** — extract from plan body (`refs #N`, `closes #N`) or branch name (`issue-NNN-...`, `NNN-...`). If found, fetch via `issue-get` for issue title (used in PR title context) and to confirm `Closes #N` is appropriate.
 4. **Session-handoff comment** — if one was posted on the parent issue/PR already, reuse its hotspots and decision sections rather than regenerating.
@@ -101,7 +101,7 @@ Show the proposed title; the user can edit before submission.
 
 ## Related
 - Closes #N    <!-- or "Refs #N" -->
-- Implementation plan: [Implementation_plan-X.md](Implementation_plan-X.md)
+- Plan: [Plan-X.md](Plan-X.md)
 - Session handoff: <link to comment, if any>
 ```
 
@@ -119,7 +119,7 @@ User can opt into draft mode explicitly ("open as draft", "draft PR"). If they d
 
 ## Flow
 
-0. **Pre-flight** — check for `Implementation_plan*.md` in the repo root per the section above. Read and use any found plan as a source, but do not proceed past step 4 until the user has deleted it.
+0. **Pre-flight** — check for `Plan-*.md` in the repo root per the section above. Read and use any found plan as a source, but do not proceed past step 4 until the user has deleted it.
 1. Detect branch, plan, parent issue, prior handoff.
 2. Build draft title and body.
 3. Show the full draft in chat.
@@ -147,6 +147,6 @@ After the PR is opened, print the PR URL and number.
 - `/devenv-session-handoff` — wrap-up that doesn't (yet) open a PR; often runs before this skill.
 - `/devenv-code-review` — if you want review feedback without opening a PR.
 - `/create-pull-request` (GitHub extension) — for the richer reviewer-suggesting / label / project flow.
-- `/devenv-refine-implementation-plan` — if opening the PR reveals plan tasks to mark or add (surgical mode), or broader drift (assessment mode).
+- `/devenv-refine-plan` — if opening the PR reveals plan tasks to mark or add (surgical mode), or broader drift (assessment mode).
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

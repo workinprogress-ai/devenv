@@ -1,11 +1,11 @@
 ---
-name: devenv-create-implementation-plan
-description: 'Create a structured Implementation_plan.md for a user story, task, GitHub issue, complete spec/RFC/design doc, or any multi-step objective planned for later execution (code — the default — docs, mechanical file work, runbooks, mixed work). USE WHEN the user says "create an implementation plan", "plan this story", "break this task into phases", "break down this work", "write up a plan for this", "plan from this spec", "convert this issue into a plan", or hands off a GitHub issue / user story / complete spec to be implemented. Interviews the user when needed, scans repo conventions, drafts phased atomic tasks with a plan-declared verification approach, gets explicit approval, writes the file to the target repo root with a numbered suffix, and offers to publish the plan as a GitHub issue artifact comment. DO NOT USE for ad-hoc coding tasks where no plan file is wanted, for pure research/Q&A, or for editing an existing plan (just edit the file directly).'
+name: devenv-create-plan
+description: 'Create a structured Plan.md for a user story, task, GitHub issue, complete spec/RFC/design doc, or any multi-step objective planned for later execution (code — the default — docs, mechanical file work, runbooks, mixed work). USE WHEN the user says "create a plan", "plan this story", "break this task into phases", "break down this work", "write up a plan for this", "plan from this spec", "convert this issue into a plan", or hands off a GitHub issue / user story / complete spec to be implemented. Interviews the user when needed, scans repo conventions, drafts phased atomic tasks with a plan-declared verification approach, gets explicit approval, writes the file to the target repo root with a numbered suffix, and offers to publish the plan as a GitHub issue artifact comment. DO NOT USE for ad-hoc coding tasks where no plan file is wanted, for pure research/Q&A, or for editing an existing plan (just edit the file directly).'
 argument-hint: '[issue-number[:doc_id] | path-to-story | freeform description]'
 user-invocable: true
 ---
 
-# Create Implementation Plan
+# Create Plan
 
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
@@ -15,7 +15,7 @@ Produce a phased, committable plan that gives a human or another AI enough conte
 
 Trigger phrases:
 
-- "create an implementation plan" / "write an implementation plan"
+- "create a plan" / "write a plan"
 - "plan this story" / "plan out this work"
 - "break this task into phases" / "break down this work"
 - "plan from this spec" / "convert this issue into a plan"
@@ -27,7 +27,7 @@ Do **not** use for:
 - Quick coding tasks where no plan file is desired
 - Pure research / Q&A
 - Editing an existing plan (edit the file in place)
-- Epic-scale work spanning multiple components — use [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) + [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) first; each roadmap step then gets its own implementation plan
+- Epic-scale work spanning multiple components — use [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) + [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) first; each roadmap step then gets its own plan
 
 If the primary upstream artifact is a design-discussion or spike output and there is no grooming artifact yet, route through [`/devenv-grooming`](../devenv-grooming/SKILL.md) first (unless the user explicitly asks to bypass grooming).
 
@@ -157,14 +157,14 @@ Please produce a grooming attack plan with proposed issues including:
 - repo
 - size (S/M/L)
 - independent production target statement
-- expected implementation-plan artifact per issue
+- expected plan artifact per issue
 
 After grooming updates the upstream artifact, return with:
 - grooming artifact location
 - selected issue slice to plan now
 ```
 
-After grooming returns an updated upstream artifact, use it to reshape this plan into a smaller, focused implementation plan for one selected issue slice.
+After grooming returns an updated upstream artifact, use it to reshape this plan into a smaller, focused plan for one selected issue slice.
 
 Do not continue detailed task generation while redivision is unresolved.
 
@@ -252,17 +252,17 @@ Concurrent-edit rule:
 
 In the target repo root:
 
-- If a GH issue is associated → base name `Implementation_plan-issue-<N>`
-- Otherwise → base name `Implementation_plan`
-- Find the next available zero-padded numeric suffix (`-001`, `-002`, ...) via `next-id --pattern 'Implementation_plan-issue-<N>-{N}.md'` (deterministic; never overwrites):
-  - `Implementation_plan-issue-15-001.md`, `Implementation_plan-issue-15-002.md`, ...
-  - `Implementation_plan-001.md`, `Implementation_plan-002.md`, ...
+- If a GH issue is associated → base name `Plan-issue-<N>`
+- Otherwise → base name `Plan`
+- Find the next available zero-padded numeric suffix (`-001`, `-002`, ...) via `next-id --pattern 'Plan-issue-<N>-{N}.md'` (deterministic; never overwrites):
+  - `Plan-issue-15-001.md`, `Plan-issue-15-002.md`, ...
+  - `Plan-001.md`, `Plan-002.md`, ...
 
 ### 8. Write the file
 
 Write the approved plan to `<target-repo>/<resolved-filename>.md`.
 
-Implementation-plan policy: do not create, append, or normalize `## Revision History` in the plan. If an existing plan already contains that section, leave it unchanged unless the user explicitly asks to edit it.
+Revision policy: do not create, append, or normalize `## Revision History` in the plan. If an existing plan already contains that section, leave it unchanged unless the user explicitly asks to edit it.
 
 Confirm the path back to the user.
 
@@ -270,7 +270,7 @@ Confirm the path back to the user.
 
 Ask, verbatim:
 
-> Publish this plan to issue #N as an implementation-plan artifact comment?
+> Publish this plan to issue #N as a plan artifact comment?
 
 Only after explicit confirmation:
 
@@ -292,7 +292,7 @@ Execution posture for this step:
 
 Notes:
 
-- This supports multiple implementation plans on the same issue by using one `doc_id` per plan file/slug.
+- This supports multiple plans on the same issue by using one `doc_id` per plan file/slug.
 - For an existing plan file with a header `doc_id`, preserve identity by reusing that value instead of regenerating.
 - Do not replace the issue description/body with the plan.
 
@@ -393,17 +393,17 @@ Every phase in `## Phases` should include both human-facing guidance and a conde
 - Vague tasks ("Implement the feature") with no acceptance signal
 - Splitting task context into a separate catch-all section that forces readers to jump around
 - Skipping the repo-conventions scan
-- Overwriting an existing `Implementation_plan*.md` (always use a numbered suffix)
+- Overwriting an existing `Plan-*.md` (always use a numbered suffix)
 - Auto-running `issue-update` without explicit user confirmation
 - Replacing a significant existing issue description without first preserving it in a comment titled `# Original Issue Description`
 - Running ad-hoc `--help` or `command -v` during issue-artifact publication when the command path is already specified
 
 ## Sibling skills
 
-- `/devenv-create-blueprint` + `/devenv-create-roadmap` — for epic-scale work across multiple components; each roadmap step eventually becomes an implementation plan.
+- `/devenv-create-blueprint` + `/devenv-create-roadmap` — for epic-scale work across multiple components; each roadmap step eventually becomes a plan.
 - `/devenv-grooming` — when the component's internal design direction is unsettled; classify it before writing tasks.
 - `/devenv-design-discussion` — when the right approach for this work isn't settled yet; weigh options before planning tasks.
-- `/devenv-refine-implementation-plan` — align this plan with reality later: surgical edits (tick boxes, add notes), structured revision after scope changes, or staleness assessment.
+- `/devenv-refine-plan` — align this plan with reality later: surgical edits (tick boxes, add notes), structured revision after scope changes, or staleness assessment.
 
 Spec-derived planning is handled by this skill in direct-plan mode.
 

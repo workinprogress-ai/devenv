@@ -22,7 +22,7 @@ Quick reference for all CLI tools used by the skill suite. Skills invoke `tools/
 Resolve the next free numeric identifier deterministically — filename suffixes and in-document ID sequences.
 
 ```
-next-id --pattern 'Implementation_plan-issue-42-{N}.md' [--dir DIR] [--width W] [--filename]
+next-id --pattern 'Plan-issue-42-{N}.md' [--dir DIR] [--width W] [--filename]
 next-id --file DOC.md --prefix 'SPEC-' [--full]
 ```
 
@@ -49,7 +49,7 @@ Without options prints the parsed header as JSON (`{"found": true, "header": {..
 Examples:
 
 ```bash
-artifact-header Implementation_plan-issue-42-001.md --field doc_id
+artifact-header Plan-issue-42-001.md --field doc_id
 artifact-header Grooming-orders-001.md --stamp
 ```
 
@@ -73,7 +73,7 @@ devenv-marker-check --marker 'DEVENV\\[bug-hunt\\]' repos/my-service
 
 ### plan-parse
 
-Deterministic implementation-plan structure parsing.
+Deterministic plan structure parsing.
 
 ```
 plan-parse PLAN_FILE [--structure] [--census] [--anchors]
@@ -84,9 +84,9 @@ plan-parse PLAN_FILE [--structure] [--census] [--anchors]
 Examples:
 
 ```bash
-plan-parse Implementation_plan-issue-42-001.md --census
-plan-parse Implementation_plan-issue-42-001.md --structure | jq '.phases[] | select(.number=="2")'
-plan-parse Implementation_plan-issue-42-001.md --anchors | jq '.anchors[] | select(.exists==false)'
+plan-parse Plan-issue-42-001.md --census
+plan-parse Plan-issue-42-001.md --structure | jq '.phases[] | select(.number=="2")'
+plan-parse Plan-issue-42-001.md --anchors | jq '.anchors[] | select(.exists==false)'
 ```
 
 ### spec-dependency-check
@@ -269,7 +269,7 @@ The artifact file/body must include `doc_id: <value>` line in the first 256 char
 Examples:
 
 ```bash
-issue-artifact-upsert --issue 42 --body-file Implementation_plan-issue-42-001.md
+issue-artifact-upsert --issue 42 --body-file Plan-issue-42-001.md
 ```
 
 ### issue-artifact-doc-id
@@ -283,7 +283,7 @@ issue-artifact-doc-id --issue N --artifact-type TYPE (--slug TEXT | --source-fil
 Key flags:
 
 - `--issue N` — issue number (required)
-- `--artifact-type TYPE` — one of: `spike`, `redesign`, `design`, `blueprint`, `requirements`, `specifications`, `grooming`, `roadmap`, `plan`, `implementation-plan`, `solution-proposal`
+- `--artifact-type TYPE` — one of: `spike`, `redesign`, `design`, `blueprint`, `requirements`, `specifications`, `grooming`, `roadmap`, `plan` (current for plans); `implementation-plan` (accepted as legacy alias for pre-rename artifacts), `solution-proposal`
 - `--slug TEXT` — slug source text (normalized to kebab-case), or `--source-file FILE` — basename without extension
 
 Output: `dv1:<owner-repo>:issue-<N>:<type>:<slug>` on stdout.
@@ -320,7 +320,7 @@ issue-artifact-list --issue N [--artifact-type TYPE] [--full] [--pretty] [--repo
 Examples:
 
 ```bash
-issue-artifact-list --issue 42 --artifact-type implementation-plan --pretty
+issue-artifact-list --issue 42 --artifact-type plan --pretty
 ```
 
 ---
@@ -343,7 +343,7 @@ Selection rules:
 Examples:
 
 ```bash
-issue-artifact-select --issue 42 --artifact-type implementation-plan --latest --format doc-id
+issue-artifact-select --issue 42 --artifact-type plan --latest --format doc-id
 issue-artifact-select --issue 42 --doc-id "$DOC_ID" --format url
 ```
 
@@ -1074,7 +1074,7 @@ repo-cache-update --no-refresh
 
 ### markdown-plan-complete-task
 
-Mark one or more implementation-plan task checkboxes complete or incomplete.
+Mark one or more plan task checkboxes complete or incomplete.
 
 ```
 markdown-plan-complete-task [--uncomplete] TASK_NUMBER... [PLAN_FILE]
@@ -1084,7 +1084,7 @@ Examples:
 
 ```bash
 markdown-plan-complete-task 2.3
-markdown-plan-complete-task 1.1 1.2 /path/to/Implementation_plan-001.md
+markdown-plan-complete-task 1.1 1.2 /path/to/Plan-001.md
 markdown-plan-complete-task --uncomplete 2.3 2.4
 ```
 
@@ -1102,6 +1102,6 @@ Examples:
 
 ```bash
 markdown-plan-complete-ac AC-3
-markdown-plan-complete-ac AC-1 AC-2 /path/to/Implementation_plan-001.md
+markdown-plan-complete-ac AC-1 AC-2 /path/to/Plan-001.md
 markdown-plan-complete-ac --uncomplete AC-3 AC-4
 ```

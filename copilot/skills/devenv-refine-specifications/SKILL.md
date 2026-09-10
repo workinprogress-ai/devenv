@@ -154,7 +154,7 @@ After writing, list what may need follow-up:
 
 - **Blueprint impact**: a new specification item may require new components or revised deltas → suggest [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md)
 - **Roadmap impact**: a new specification item, or a moved priority group, may require new or re-sequenced roadmap steps → suggest [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md)
-- **Implementation plan impact**: existing plans may now reference superseded specification items → suggest [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) for affected plans
+- **Plan impact**: existing plans may now reference superseded specification items → suggest [`/devenv-refine-plan`](../devenv-refine-plan/SKILL.md) for affected plans
 ### 8. Offer a stability audit
 
 If the user signals the specifications are approaching final form (incremental refinements, statements like "I think we're almost done", or a series of sessions producing diminishing structural changes), offer a stability audit:
@@ -183,6 +183,6 @@ See the stability audit protocol in [`/devenv-write-specifications` § Stability
 - [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) — to create a roadmap (and GitHub issues) from the refined specification items; supports a specification items-only mode when no blueprint exists
 - [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) — when changes have architectural implications
 - [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md) — when changes affect delivery sequencing of an existing roadmap
-- [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) — when changes affect an in-flight implementation plan
+- [`/devenv-refine-plan`](../devenv-refine-plan/SKILL.md) — when changes affect an in-flight plan
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

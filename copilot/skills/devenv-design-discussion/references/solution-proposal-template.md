@@ -124,7 +124,7 @@ Capture alternatives briefly for context. Keep emphasis on why the final option(
 Suggested next steps:
 - Feasibility uncertainty remains -> /devenv-spike
 - Systemic architecture update needed -> /devenv-create-blueprint or /devenv-refine-blueprint
-- Approach settled and implementation planning needed -> /devenv-create-implementation-plan
+- Approach settled and planning needed -> /devenv-create-plan
 
 ## Appendix (optional): Technical design handoff context
 

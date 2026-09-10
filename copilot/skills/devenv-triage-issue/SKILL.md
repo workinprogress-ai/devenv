@@ -1,6 +1,6 @@
 ---
 name: devenv-triage-issue
-description: Triage GitHub issues on two layers — workflow routing (which skill should handle it: bug → /devenv-bug-hunter, ready-to-plan → /devenv-create-implementation-plan, design-unclear → /devenv-grooming, one bounded question → /devenv-design-discussion, cross-component epic → /devenv-create-blueprint + /devenv-create-roadmap, unknown feasibility → /devenv-spike, debt assessment → /devenv-tech-debt-audit, docs gap → /devenv-document, missing functional definition → /devenv-write-specifications, upstream-impact label → refine skills) and GitHub metadata (type, labels, priority, size, duplicates, clarifying comment). USE WHEN the user says "triage this issue", "what should handle this issue", "route this issue", "triage #123", "label and size this", "is this a duplicate", or hands off a fresh untriaged issue / batch / pasted issue text. Auto-detects input: issue number(s) → fetched via `issue-get`; pasted text → triaged in place. Bundles all proposed writes into a single y/n confirm before applying. DO NOT USE FOR implementing the issue (skills routed to take over) or plain summaries (use the default agent / `summarize-github-issue-pr-notification`).
+description: Triage GitHub issues on two layers — workflow routing (which skill should handle it: bug → /devenv-bug-hunter, ready-to-plan → /devenv-create-plan, design-unclear → /devenv-grooming, one bounded question → /devenv-design-discussion, cross-component epic → /devenv-create-blueprint + /devenv-create-roadmap, unknown feasibility → /devenv-spike, debt assessment → /devenv-tech-debt-audit, docs gap → /devenv-document, missing functional definition → /devenv-write-specifications, upstream-impact label → refine skills) and GitHub metadata (type, labels, priority, size, duplicates, clarifying comment). USE WHEN the user says "triage this issue", "what should handle this issue", "route this issue", "triage #123", "label and size this", "is this a duplicate", or hands off a fresh untriaged issue / batch / pasted issue text. Auto-detects input: issue number(s) → fetched via `issue-get`; pasted text → triaged in place. Bundles all proposed writes into a single y/n confirm before applying. DO NOT USE FOR implementing the issue (skills routed to take over) or plain summaries (use the default agent / `summarize-github-issue-pr-notification`).
 argument-hint: An issue number, list of issue numbers, or pasted issue text to triage
 ---
 
@@ -70,7 +70,7 @@ Classify the issue against the delivery workflow and route. Read the body for si
 | Issue shape | Route | Why |
 |---|---|---|
 | Describes broken behavior, suspected or confirmed | `/devenv-bug-hunter` | The bug pipeline: verify (existence uncertain) → diagnose (existence established, root cause unknown) → fix — one invocation carries the whole pipeline |
-| Single-component work, approach already chosen, issue is complete | `/devenv-create-implementation-plan` | Ready to plan: phases and tasks |
+| Single-component work, approach already chosen, issue is complete | `/devenv-create-plan` | Ready to plan: phases and tasks |
 | Single-component work, approach unclear | `/devenv-grooming` | Component-level design direction must settle before tasks can be written |
 | One focused design question / blocker | `/devenv-design-discussion` | Bounded option-weighing, not full planning |
 | Cross-component epic (spans services/repos) | `/devenv-create-blueprint` then `/devenv-create-roadmap` | Needs architectural decomposition, then sequencing into an epic + roadmap artifact |
@@ -176,7 +176,7 @@ No per-action confirms. No partial-apply. The user either trusts the bundle or t
 The routing table's destinations are the siblings — every skill it can route to:
 
 - `/devenv-bug-hunter` — the bug pipeline (verify / diagnose / fix).
-- `/devenv-create-implementation-plan` — complete single-component issues ready to plan.
+- `/devenv-create-plan` — complete single-component issues ready to plan.
 - `/devenv-grooming` — component design direction before planning.
 - `/devenv-design-discussion` — one bounded design question.
 - `/devenv-create-blueprint` + `/devenv-create-roadmap` — cross-component epics (roadmap lands as an artifact on the epic).

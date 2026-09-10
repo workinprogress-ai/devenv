@@ -69,7 +69,7 @@ For each repo that needs fresh orientation:
 1. Read the README (any name: `README.md`, `README`, `readme.md`).
 2. Map the top-level directory structure. Identify major modules/layers and whether this is source-first, docs-first, or hybrid.
 3. If source-first or hybrid, find key runtime entry points: `Program.cs`, `Startup.cs`, `index.ts`, `main.ts`, `app.ts`, `__main__.py`, `main.go`, etc.
-4. If docs-first, find primary document entry points and structure anchors: `README.md`, `Specifications-*.md`, `Blueprint-*.md`, `Implementation_plan-*.md`, `docs/`, `adr/`, and any glossary/decision logs. (Roadmaps are GitHub artifacts on epics, not files — find them via the planning repo's epic issues when relevant.)
+4. If docs-first, find primary document entry points and structure anchors: `README.md`, `Specifications-*.md`, `Blueprint-*.md`, `Plan-*.md`, `docs/`, `adr/`, and any glossary/decision logs. (Roadmaps are GitHub artifacts on epics, not files — find them via the planning repo's epic issues when relevant.)
 5. Note test/evidence layout when present: test frameworks, validation scripts, traceability sections, acceptance criteria, or decision records.
 6. Scan `docs/` and `adr/` (if present) for any architectural decision records or design notes.
 
@@ -132,7 +132,7 @@ After each answer, evaluate whether the conversation has shifted from *understan
 
 When detected, surface a suggestion before the next turn — do not switch silently:
 
-> "Sounds like we've moved from understanding to doing. Want me to hand this off to `/devenv-pair-programming` to work through it together, or `/devenv-create-implementation-plan` if you'd like a written plan first?"
+> "Sounds like we've moved from understanding to doing. Want me to hand this off to `/devenv-pair-programming` to work through it together, or `/devenv-create-plan` if you'd like a written plan first?"
 
 Wait for explicit confirmation. **When the user agrees to transition, remind them that they need to start a new chat and invoke the target skill** (e.g. type `/devenv-pair-programming`) — continuing in this session does not load the other skill's rules.
 
@@ -143,7 +143,7 @@ Sibling skill routing:
 | Intent detected | Suggest |
 |----------------|---------|
 | Collaborative implementation | `/devenv-pair-programming` |
-| Written plan needed | `/devenv-create-implementation-plan` |
+| Written plan needed | `/devenv-create-plan` |
 | Design trade-off discussion | `/devenv-design-discussion` |
 | Formal debt findings | `/devenv-tech-debt-audit` |
 | Architecture decomposition | `/devenv-create-blueprint` |

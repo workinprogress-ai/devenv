@@ -94,7 +94,7 @@ When escalation is triggered:
 1. Pause coding for that phase.
 2. Summarize what is known, unknown, and at risk.
 3. Recommend either:
-   - plan reconsideration via /devenv-refine-implementation-plan, or
+   - plan reconsideration via /devenv-refine-plan, or
    - mode switch (delegation to pair programming) if collaboration depth is now required.
 4. Ask for explicit user confirmation before escalating: proceed now, defer, or continue with a bounded attempt.
 5. Resume only after user direction is explicit.
@@ -105,7 +105,7 @@ If the user asks to return to planning directly, treat that as authoritative eve
 
 - Acknowledge the user decision.
 - Run the escalation handoff record steps.
-- Recommend `/devenv-refine-implementation-plan` as the default planning path unless the user requests a different one.
+- Recommend `/devenv-refine-plan` as the default planning path unless the user requests a different one.
 
 Do not require threshold justification when escalation is user-initiated.
 
@@ -147,6 +147,6 @@ Suggested escalation entry shape (in `## Pending Questions`):
 - Blocker now: <why execution cannot proceed safely>
 - Options considered: <A/B/C with brief tradeoffs>
 - Missing info/assumption: <what is unknown>
-- Recommended next step: `/devenv-refine-implementation-plan` (or user-chosen alternative)
+- Recommended next step: `/devenv-refine-plan` (or user-chosen alternative)
 - Revisit trigger/owner: <trigger and owner>
 ```

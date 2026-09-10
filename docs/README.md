@@ -11,7 +11,7 @@ A suite of 15 slash-command skills covering the full development lifecycle — f
 
 **Top skills:**
 
-- `/devenv-create-implementation-plan` — turn an issue or idea into a phased plan
+- `/devenv-create-plan` — turn an issue or idea into a phased plan
 - `/devenv-pair-programming` — human + AI collaborate, human stays in control
 - `/devenv-delegation` — delegated execution support for mechanical work, user reviews and owns outcomes
 - `/devenv-spike` — investigate feasibility before planning

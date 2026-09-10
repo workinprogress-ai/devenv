@@ -1,8 +1,8 @@
 #!/bin/bash
-# plan-parse.sh - Deterministic implementation-plan structure parsing
+# plan-parse.sh - Deterministic plan structure parsing
 # Version: 1.0.0
 # Description: Extracts phases, tasks, completion state, and file-path anchors
-#              from Implementation_plan-*.md as JSON — replaces model-side
+#              from Plan-*.md (or legacy Implementation_plan-*.md) as JSON — replaces model-side
 #              heading/checkbox/Files-bullet harvesting and staleness scans.
 # Requirements: Bash 4.0+, jq, grep
 
@@ -14,7 +14,7 @@ source "$DEVENV_TOOLS/lib/versioning.bash"
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Parse implementation-plan structure into JSON"
+script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Parse plan structure into JSON"
 
 FILE=""
 MODE="structure"   # structure | anchors | census
@@ -23,7 +23,7 @@ show_usage() {
     cat << EOF
 Usage: $SCRIPT_NAME FILE [OPTIONS]
 
-Parse an Implementation_plan-*.md deterministically.
+Parse a Plan-*.md (or legacy Implementation_plan-*.md) deterministically.
 
 Modes:
     --structure  (default) Phases with tasks and completion state:

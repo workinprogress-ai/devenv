@@ -1,6 +1,6 @@
 # Skill Conventions
 
-Single source of truth for the shape of skills under `copilot/skills/`. New skills must consult this file before being authored. Maintained alongside the existing skills (`create-implementation-plan`, `pair-programming`, `delegation`); patterns here are extracted from those.
+Single source of truth for the shape of skills under `copilot/skills/`. New skills must consult this file before being authored. Maintained alongside the existing skills (`devenv-create-plan`, `devenv-pair-programming`, `devenv-delegation`); patterns here are extracted from those.
 
 > This file is **not** itself a skill. The leading underscore keeps it sorted above the actual skill folders and makes that visually obvious.
 
@@ -73,7 +73,7 @@ History lives in its dedicated homes (the three-home rule):
 - **ADRs** (`docs/Decisions/ADR-NNN-<slug>.md`) — the *why* for every significant supersession. If a future implementer would ask why content was removed, write an ADR naming the removed item and its replacement; otherwise delete silently. See [adr-template.md](./common/references/adr-template.md).
 - **Git** — the *when*: what the removed content said and exactly when it disappeared.
 
-Skills that follow this convention: `devenv-refine-specifications`, `devenv-refine-roadmap`, `devenv-refine-blueprint`, `devenv-refine-implementation-plan`. Grooming documents are the exception: they keep their own `## Revision History` convention.
+Skills that follow this convention: `devenv-refine-specifications`, `devenv-refine-roadmap`, `devenv-refine-blueprint`, `devenv-refine-plan`. Grooming documents are the exception: they keep their own `## Revision History` convention.
 
 ## Artifact brevity rules
 
@@ -175,9 +175,9 @@ Any skill that recommends or names a successor skill at handoff must select it f
 
 Required behavior at the handoff decision point:
 
-1. Check whether the successor's target artifact already exists (implementation plan file or plan artifact on the issue, blueprint file, specifications doc, grooming doc, etc.).
-2. No artifact yet → route to the **create** skill (`/devenv-create-implementation-plan`, `/devenv-create-blueprint`, ...).
-3. Artifact exists and needs alignment → route to the **refine** skill (`/devenv-refine-implementation-plan`, ...).
+1. Check whether the successor's target artifact already exists (plan file or plan artifact on the issue, blueprint file, specifications doc, grooming doc, etc.).
+2. No artifact yet → route to the **create** skill (`/devenv-create-plan`, `/devenv-create-blueprint`, ...).
+3. Artifact exists and needs alignment → route to the **refine** skill (`/devenv-refine-plan`, ...).
 4. Naming frequency of successor skills inside the current skill's prose is not evidence — never let it override the state check.
 
 ## When to push content into `references/`
@@ -445,7 +445,7 @@ Work product ownership is always with the user.
 
 Each skill should link to:
 
-- Its **predecessors** in the workflow (e.g. `pair-programming` links to `create-implementation-plan`).
+- Its **predecessors** in the workflow (e.g. `pair-programming` links to `create-plan`).
 - Its **alternatives** (e.g. `delegation` links to `pair-programming` for high-impact work).
 - Its **successors** where natural (e.g. a phase-complete skill linking to `open-pr`).
 

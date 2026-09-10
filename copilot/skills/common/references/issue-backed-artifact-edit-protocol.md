@@ -62,6 +62,6 @@ If the artifact changed concurrently during iteration, run one final section-lev
 
 ## Typical applications
 
-- Implementation plan stored in a GitHub issue comment artifact
+- Plan stored in a GitHub issue comment artifact
 - Grooming/design artifact stored in a GitHub issue comment
 - Any other persisted markdown artifact republished into an issue thread

@@ -49,7 +49,7 @@ Optional:
 Examples:
   $SCRIPT_NAME --issue 123 --artifact-type spike --slug "retry strategy"
   $SCRIPT_NAME --issue 123 --artifact-type redesign --source-file Redesign--001.md
-    $SCRIPT_NAME --issue 123 --artifact-type implementation-plan --slug "implementation-plan-issue-123-001" --repo workinprogress-ai/devenv
+  $SCRIPT_NAME --issue 123 --artifact-type plan --slug "Plan-issue-123-001" --repo workinprogress-ai/devenv
 EOF
     exit 0
 }

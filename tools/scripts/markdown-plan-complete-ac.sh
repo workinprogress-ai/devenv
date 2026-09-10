@@ -45,7 +45,7 @@ Positional arguments are classified automatically: any argument matching the
 AC-N / AC-N.N / AC-N.N.N pattern is treated as an AC number; anything else is
 treated as the file path.  At most one file may be given.  If no file is given,
 the first Requirements-*.md found in the current directory is used; if none
-exists, the first Implementation_plan-*.md is tried.
+exists, the first Plan-*.md (or legacy Implementation_plan-*.md) is tried.
 
 Arguments:
     AC_NUMBER...    One or more AC numbers to update (AC-N, AC-N.N, AC-N.N.N)
@@ -148,7 +148,7 @@ parse_args() {
 # ============================================================================
 
 # Resolve the file: use the explicit argument if given, otherwise auto-detect.
-# Looks for Requirements-*.md first, then Implementation_plan-*.md.
+# looks for Requirements-*.md first, then Plan-*.md (or legacy Implementation_plan-*.md).
 resolve_plan_file() {
     if [ -n "$PLAN_FILE" ]; then
         if [ ! -f "$PLAN_FILE" ]; then
@@ -162,11 +162,11 @@ resolve_plan_file() {
     found=$(find . -maxdepth 1 -name 'Requirements-*.md' | sort | head -1)
 
     if [ -z "$found" ]; then
-        found=$(find . -maxdepth 1 -name 'Implementation_plan-*.md' | sort | head -1)
+        found=$(find . -maxdepth 1 \( -name 'Plan-*.md' -o -name 'Implementation_plan-*.md' \) | sort | head -1)
     fi
 
     if [ -z "$found" ]; then
-        log_error "No Requirements-*.md or Implementation_plan-*.md file found in the current directory."
+        log_error "No Requirements-*.md, Plan-*.md, or legacy Implementation_plan-*.md file found in the current directory."
         log_info "Specify the file explicitly as one of the arguments."
         exit "$EXIT_NOT_FOUND"
     fi

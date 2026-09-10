@@ -1,6 +1,6 @@
 ---
 name: devenv-pair-programming
-description: 'Collaborate with the user as a pair-programming partner on a user story, GitHub issue, or implementation plan. USE WHEN the user says "pair program", "let''s pair on this", "pair with me", "work on this issue with me", "implement this together", "let''s tackle this plan together", "work through this implementation plan", or hands off a GitHub issue with collaborative intent (not "just do it"). Loads the plan (from a file path or a GitHub issue artifact comment), uses the goals/context/phase sections to orient the session, and treats acceptance criteria plus phase goals as the source of truth while keeping a condensed task list as the authoritative current-state ledger. Both parties take turns implementing and reviewing, the AI keeps AC/phase progress and task state current, asks before assuming, pushes back when warranted, and offers to document discoveries via `issue-comment` / `issue-create`. DO NOT USE for solo "do this for me" tasks, pure Q&A, or when the user wants the AI to drive the entire implementation without checkpoints.'
+description: 'Collaborate with the user as a pair-programming partner on a user story, GitHub issue, or plan. USE WHEN the user says "pair program", "let''s pair on this", "pair with me", "work on this issue with me", "implement this together", "let''s tackle this plan together", "work through this plan", or hands off a GitHub issue with collaborative intent (not "just do it"). Loads the plan (from a file path or a GitHub issue artifact comment), uses the goals/context/phase sections to orient the session, and treats acceptance criteria plus phase goals as the source of truth while keeping a condensed task list as the authoritative current-state ledger. Both parties take turns implementing and reviewing, the AI keeps AC/phase progress and task state current, asks before assuming, pushes back when warranted, and offers to document discoveries via `issue-comment` / `issue-create`. DO NOT USE for solo "do this for me" tasks, pure Q&A, or when the user wants the AI to drive the entire implementation without checkpoints.'
 argument-hint: '[issue-number[:doc_id] | path-to-plan | "ad-hoc"]'
 user-invocable: true
 ---
@@ -27,7 +27,7 @@ Trigger phrases:
 
 - "pair program" / "let's pair on this" / "pair with me"
 - "work on this issue with me" / "implement this together"
-- "let's tackle this plan together" / "work through this implementation plan"
+- "let's tackle this plan together" / "work through this plan"
 - A GH issue or plan is handed off **with collaborative intent** (not "just do it")
 
 Pairing applies to any plan regardless of its declared verification — code work is the norm, but docs overhauls, mechanical file operations, runbooks, and mixed plans pair the same way: the collaboration model is independent of the work's language.
@@ -104,7 +104,7 @@ These are the standard signals defined in `copilot-instructions.md` — use them
 
 **File and method references:** Whenever a specific class, method, or file is mentioned **anywhere in chat output** — task descriptions, phase announcements, hand-backs, reviews, concerns, hints, brain bootup — use a clickable workspace-root-relative link: [`ExecuteAsync` in `BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L87). Never use backtick code formatting as a substitute for a link when the location is known. If the exact line isn't known, link to the file without `#L`.
 
-**Plan task references:** Prefer phase or chunk language in conversation. Use task numbers when tracking progress, clarifying exactly what changed, or when the user asks for them. Whenever a task number (e.g. `3.1`, `4.2`) is mentioned in chat, link it to the plan file loaded at session start using the anchor of the phase that contains the task: [`3.1`](Implementation_plan-auth-001.md#phase-3-registration-api-wiring). Use the actual plan filename (it varies — never assume a specific name) and the actual phase heading anchor from the loaded plan. If the plan came from a GitHub issue, link to the issue instead.
+**Plan task references:** Prefer phase or chunk language in conversation. Use task numbers when tracking progress, clarifying exactly what changed, or when the user asks for them. Whenever a task number (e.g. `3.1`, `4.2`) is mentioned in chat, link it to the plan file loaded at session start using the anchor of the phase that contains the task: [`3.1`](Plan-auth-001.md#phase-3-registration-api-wiring). Use the actual plan filename (it varies — never assume a specific name) and the actual phase heading anchor from the loaded plan. If the plan came from a GitHub issue, link to the issue instead.
 
 ## Handling Unexpected Bug Discoveries
 
@@ -158,14 +158,14 @@ Ask, if not provided: GH issue number? Path to a plan file? Ad-hoc (no plan)?
 
 ### 2. Load the plan
 
-**If GH issue:** resolve a single implementation-plan artifact comment first.
+**If GH issue:** resolve a single plan artifact comment (legacy artifacts are typed implementation-plan) first.
 
-1. Check for a local `Implementation_plan-issue-<N>-*.md` in the target repo root first — if one exists and the user wants that exact working copy, use it.
+1. Check for a local `Plan-issue-<N>-*.md` in the target repo root first — if one exists and the user wants that exact working copy, use it.
 2. Otherwise resolve artifact identity:
    - If the user provided `doc_id`, use `issue-artifact-select --issue <N> --doc-id <DOC_ID>`.
-   - If not, try `issue-artifact-select --issue <N> --artifact-type implementation-plan`.
-   - If ambiguous, list candidates via `issue-artifact-list --issue <N> --artifact-type implementation-plan --pretty` and ask the user which `doc_id` to use.
-3. Fetch the selected artifact via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --write-body $(next-id --pattern 'Implementation_plan-issue-<N>-{N}.md' --dir <repo-root> --filename)` (next free suffix, never overwrite) — the tool writes the raw markdown directly; use the `header` field in its output for metadata checks.
+   - If not, try `issue-artifact-select --issue <N> --artifact-type plan`.
+   - If ambiguous, list candidates via `issue-artifact-list --issue <N> --artifact-type plan --pretty` and ask the user which `doc_id` to use.
+3. Fetch the selected artifact via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --write-body $(next-id --pattern 'Plan-issue-<N>-{N}.md' --dir <repo-root> --filename)` (next free suffix, never overwrite) — the tool writes the raw markdown directly; use the `header` field in its output for metadata checks.
 4. **Work exclusively from the local file** — record its workspace-relative path as `<plan_file>` for `markdown-plan-complete-task` calls. Keep the selected `<DOC_ID>` in session context; all issue publication updates must target the same artifact comment.
 5. Record the target repo root in session context and run all repo-scoped tooling from that directory for the rest of the session segment.
 
@@ -174,10 +174,10 @@ Ask, if not provided: GH issue number? Path to a plan file? Ad-hoc (no plan)?
 If a plan file is used, determine whether there is an associated GH issue for artifact sync:
 
 1. If the user provided an issue number, use it.
-2. Else, if filename matches `Implementation_plan-issue-<N>-*.md`, infer `<N>`.
+2. Else, if filename matches `Plan-issue-<N>-*.md`, infer `<N>`.
 3. If an issue number is known, resolve the artifact identity for sync:
    - If the plan header has non-empty `doc_id`, use that as the target identity — read it via `artifact-header <plan_file> --field doc_id` (never hand-parse the header).
-   - Otherwise run `issue-artifact-select --issue <N> --artifact-type implementation-plan`; if ambiguous, list candidates and ask the user to choose `doc_id`.
+   - Otherwise run `issue-artifact-select --issue <N> --artifact-type plan`; if ambiguous, list candidates and ask the user to choose `doc_id`.
 4. Record associated `<N>` and `<DOC_ID>` in session context for subsequent sync steps.
 
 For either GH-issue or plan-file entry paths, explicitly set terminal working directory to the target repo root before any wrapper/CLI/tool command block.
@@ -190,7 +190,7 @@ When associated `<N>` + `<DOC_ID>` are known, run a **one-time artifact freshnes
 
 During the same session, assume this working copy is authoritative unless the user indicates external edits occurred.
 
-**If missing or too thin** (no task list, no ACs, or no usable human-facing phase structure): offer to run a **collaborative inline breakdown** before execution rather than sending the user away to a separate skill invocation. See [Inline Plan Breakdown](#inline-plan-breakdown) below. Alternatively offer (a) proceed ad-hoc, (b) invoke [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) separately, (c) abort. Wait for an answer.
+**If missing or too thin** (no task list, no ACs, or no usable human-facing phase structure): offer to run a **collaborative inline breakdown** before execution rather than sending the user away to a separate skill invocation. See [Inline Plan Breakdown](#inline-plan-breakdown) below. Alternatively offer (a) proceed ad-hoc, (b) invoke [`/devenv-create-plan`](../devenv-create-plan/SKILL.md) separately, (c) abort. Wait for an answer.
 
 ### 2a. Inline Plan Breakdown
 
@@ -200,7 +200,7 @@ Use this path when a plan is missing or too thin and the user wants to proceed w
 2. **Sketch phases collaboratively.** Propose 2–4 phases — name each with a goal and rough end state. Keep it conversational; one exchange per phase if needed.
 3. **Surface key decisions up front.** Ask: what is the riskiest or most uncertain part? What is already decided? Any constraints (timeline, API compatibility, team skills)?
 4. **Propose acceptance criteria.** Infer from the goal; present with `AC-N` identifiers and `*(inferred)*` markers. Confirm before writing.
-5. **Write the plan.** Once the user approves the sketch, write `Implementation_plan-issue-<N>-001.md` (or a named file agreed with the user) using the standard plan template conventions. Keep tasks concrete: each needs a size label `[S/M/L]`, a brief description, and a `Files:` bullet where known.
+5. **Write the plan.** Once the user approves the sketch, write `Plan-issue-<N>-001.md` (or a named file agreed with the user) using the standard plan template conventions. Keep tasks concrete: each needs a size label `[S/M/L]`, a brief description, and a `Files:` bullet where known.
 6. **Transition to execution.** Load the new file as `<plan_file>` and continue from step 2b (drift check) onward.
 
 This is a pairing activity — sketch together, don't lecture. Propose, wait for response, adjust. The goal is a plan both parties trust before touching any files.
@@ -216,7 +216,7 @@ Scan for staleness signals before continuing:
 
 **If two or more signals are present**, flag it:
 
-> *"⚠️ Drift signals: [list]. Run `/devenv-refine-implementation-plan` (assessment mode) first, or proceed as-is?"*
+> *"⚠️ Drift signals: [list]. Run `/devenv-refine-plan` (assessment mode) first, or proceed as-is?"*
 
 If they say refresh, tell them to invoke it (new skill invocation required) and stop. If they say proceed, note the signals in open questions and continue. **If fewer than two signals**, continue silently.
 
@@ -228,7 +228,7 @@ If the loaded plan references a grooming artifact or other upstream design artif
 - Re-read the linked grooming/design artifact decision summary (at minimum confirmed + pending + deferred items).
 - Verify each high-impact upstream point is represented in the plan or explicitly out-of-scope.
 
-If a high-impact point is missing or contradictory, stop and surface a decision gate before implementation. Recommend `/devenv-refine-implementation-plan` (or `/devenv-grooming` if architecture is still unsettled) to repair the handoff first.
+If a high-impact point is missing or contradictory, stop and surface a decision gate before implementation. Recommend `/devenv-refine-plan` (or `/devenv-grooming` if architecture is still unsettled) to repair the handoff first.
 
 ### 2d. Ensure acceptance criteria exist
 
@@ -325,8 +325,8 @@ Report briefly if anything changed; skip if nothing changed.
 >
 > | Task | Driver | Notes |
 > |------|--------|-------|
-> | [`2.1`](Implementation_plan-auth-001.md#phase-2-retry-policy) Retry policy | AI | Mechanical |
-> | [`2.2`](Implementation_plan-auth-001.md#phase-2-retry-policy) Backoff strategy | You | Key decision |
+> | [`2.1`](Plan-auth-001.md#phase-2-retry-policy) Retry policy | AI | Mechanical |
+> | [`2.2`](Plan-auth-001.md#phase-2-retry-policy) Backoff strategy | You | Key decision |
 >
 > *Work for you?*
 
@@ -418,7 +418,7 @@ When a task is `[L]` and either party recognises it spans multiple distinct conc
      ...
    ```
 
-4. Keep decomposition context in current phase/task notes if needed; do not write changelog entries in implementation plans.
+4. Keep decomposition context in current phase/task notes if needed; do not write changelog entries in plans.
 
 5. Tick sub-tasks individually via `markdown-plan-complete-task 3.1.1`, `3.1.2`, etc. The `X.Y.Z` format is fully supported. The parent header (3.1) has no checkbox and is never ticked — it is complete when all its sub-tasks are.
 
@@ -588,7 +588,7 @@ When triggered:
 2. Summarize what is known, unknown, and at risk.
 3. Ask for explicit confirmation to escalate now.
 4. If confirmed (or user-initiated), write an escalation handoff record into the plan using existing sections (phase Watch Outs / Decisions, task `decision:` metadata + inline `[QUESTION]`, plan-level `## Pending Questions` only when truly plan-level).
-5. Recommend `/devenv-refine-implementation-plan` when the plan no longer cleanly fits reality.
+5. Recommend `/devenv-refine-plan` when the plan no longer cleanly fits reality.
 6. Resume implementation only after explicit user direction.
 
 Escalation routing here is advisory. Present the recommended route and rationale, then follow the user's decision.
@@ -837,7 +837,7 @@ Assume they're still working toward the plan unless they say otherwise. Flow beh
 - **If a temporary bridge is required to exit a phase or connect tasks, call it out in both the code and the plan.** The code MUST include a `TODO:(DEVENV[plan-key]): ...` marker naming the replacement and the planned removal point, and the plan MUST state the exact later task or phase that will remove it. Do not rely on a vague "remove later" note.
 - **Never leave permanent code comments that reference plan phases, task IDs, or decisions.** Those references are allowed only in clearly temporary `DEVENV[...]` / `TODO:(DEVENV[...])` markers and must be removed when the temporary condition is resolved.
 - **Plans are living documents — current state only, no edit history in prose.** Describe the target state as it stands *now*; when reality changes, rewrite the section in place rather than annotating it. Never inject "Amended <date>", "(decision <date>)", "superseded", or other provenance/edit-history markers into plan prose — the decision-gate that approved a change is conversation history, not plan content. Dates are legitimate only when they name an event that is itself the content (a "Public API lock (2026-08-30)" heading identifies which lock event the section refers to); they are not legitimate as amendment annotations. When editing locked-contract notes (API/schema locks), run a pre-write check: does this text record state or record history? If history — rewrite as state.
-- **Do not write implementation-plan changelog sections.** Keep plan updates directly in current sections (phases, tasks, decisions, pending questions, ACs). Same principle as the living-document rule above — no history at any scope, section-level or inline.
+- **Do not write plan changelog sections.** Keep plan updates directly in current sections (phases, tasks, decisions, pending questions, ACs). Same principle as the living-document rule above — no history at any scope, section-level or inline.
 - **Draft → show → confirm → write** for all plan edits. Exception: checkbox ticks don't require a draft.
 
 After writing, re-emit **Files in scope** and **decision flags** if they changed.
@@ -918,14 +918,14 @@ This is the only plan edit the AI makes without prior confirmation. Everything e
 
 ### GH issue artifact sync
 
-If there is an **associated GH issue + implementation-plan artifact identity** (`<N>` + `<DOC_ID>` in session context), and you apply a **material/structural plan revision** during the session (phase/task restructuring, AC changes, major sequencing changes, or significant divergence rewrite), sync that artifact comment **immediately after the revision write is confirmed**. Do not wait for phase end in this case.
+If there is an **associated GH issue + plan artifact identity** (`<N>` + `<DOC_ID>` in session context), and you apply a **material/structural plan revision** during the session (phase/task restructuring, AC changes, major sequencing changes, or significant divergence rewrite), sync that artifact comment **immediately after the revision write is confirmed**. Do not wait for phase end in this case.
 
 For this immediate revision sync:
 
 1. Confirm with the user.
 2. Run `issue-artifact-upsert --issue <N> --body-file <path>`.
 
-If there is an associated GH issue + implementation-plan artifact identity (`<N>` + `<DOC_ID>`), sync that artifact comment at the end of each phase. **Do this proactively as part of declaring the phase complete — don't wait for the user to ask.**
+If there is an associated GH issue + plan artifact identity (`<N>` + `<DOC_ID>`), sync that artifact comment at the end of each phase. **Do this proactively as part of declaring the phase complete — don't wait for the user to ask.**
 
 **Before syncing**, assess whether the phase deviated significantly from the plan — unplanned tasks were added, the approach changed, or the user redirected mid-phase. If the phase plan was already rewritten during the session (e.g. via the "in the flow" divergence handling), skip this check — the plan is already accurate. Otherwise, if a meaningful gap exists, offer to update it before the sync goes out:
 
@@ -962,13 +962,13 @@ See the shared [Issue Artifact Integration](../common/references/issue-artifact-
 
 ## Ad-Hoc Mode (no plan)
 
-Same protocol, minus plan loading. A "task" here is whatever the user hands over — it is **not** limited to implementation-plan tasks, and it may be large. Size it on arrival:
+Same protocol, minus plan loading. A "task" here is whatever the user hands over — it is **not** limited to plan tasks, and it may be large. Size it on arrival:
 
 | Arrival size | Response |
 |---|---|
 | **Quick** — one sitting, one concern | Do it, hand back. No ceremony. |
 | **Moderate** — multiple concerns, user wants momentum | Propose a conversational chunk list — same mechanics as [Task Decomposition](#task-decomposition) minus the plan rewrite: sub-chunks with `[S/M/L]` labels, one line each, in chat. Wait for the user to adjust or agree, then execute chunk-by-chunk with a review between each. |
-| **Large** — multi-concern, high-impact, or clearly plan-sized | Do not start. Recommend planning first: *"This one is big enough to warrant a plan — want to run `/devenv-create-implementation-plan` before we dive in?"* Pair remains the home for executing it afterwards. |
+| **Large** — multi-concern, high-impact, or clearly plan-sized | Do not start. Recommend planning first: *"This one is big enough to warrant a plan — want to run `/devenv-create-plan` before we dive in?"* Pair remains the home for executing it afterwards. |
 
 **Decomposition triggers (ad-hoc):** the AI recognises at least two meaningfully separate sub-concerns in the request, or the user signals it feels too big (*"this one is huge"*, *"where do we even start?"*).
 
@@ -978,7 +978,7 @@ During execution:
 
 - Take instructions chunk-by-chunk.
 - Checkpoint frequently — don't batch up large amounts of work.
-- If scope visibly expands beyond a quick task, **offer to pause and draft a plan**: *"This is growing — want to pause and run `/devenv-create-implementation-plan` so we have something to track?"*
+- If scope visibly expands beyond a quick task, **offer to pause and draft a plan**: *"This is growing — want to pause and run `/devenv-create-plan` so we have something to track?"*
 
 ## Rabbit Hole Detection
 

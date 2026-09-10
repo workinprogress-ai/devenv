@@ -1,6 +1,6 @@
 # Pressure-Test Pass Protocol
 
-Load this protocol when a design or planning workflow needs a bounded challenge pass before committing to a recommendation, architecture delta, or implementation plan edits.
+Load this protocol when a design or planning workflow needs a bounded challenge pass before committing to a recommendation, architecture delta, or plan edits.
 
 **Purpose:** find high-impact failure modes early by stress-testing assumptions, interfaces, sequencing, and execution boundaries while changes are still cheap.
 

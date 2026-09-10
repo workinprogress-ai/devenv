@@ -1,12 +1,12 @@
 # Staleness Assessment Protocol
 
-Used by `/devenv-refine-implementation-plan` in **assessment mode**, when the user does not already know what changed — typically after returning to a plan following a significant gap (weeks, a sprint, multiple landed PRs), or when delegation/pair-programming kickoff surfaced drift signals.
+Used by `/devenv-refine-plan` in **assessment mode**, when the user does not already know what changed — typically after returning to a plan following a significant gap (weeks, a sprint, multiple landed PRs), or when delegation/pair-programming kickoff surfaced drift signals.
 
 The assessment answers one question: *how far has the codebase drifted from what the plan assumes?* — and routes to the right in-skill remediation.
 
 ## Step 1 — Format conformance gate (required first)
 
-Before staleness analysis, check whether the plan matches the current implementation-plan shape:
+Before staleness analysis, check whether the plan matches the current plan shape:
 
 - `## Goals and Acceptance Criteria`
 - `## Context and Orientation`
@@ -115,8 +115,8 @@ Run the full refinement flow (revision interview, hard rules, completeness recon
 ### Intent-only → extract intent, then re-plan
 
 1. **Extract intent** — one paragraph per phase describing *what it was trying to achieve* (the goal, not the tasks). Reconstruct or preserve the human-facing `## Phases` section if missing or clearly stale. Show the user; ask *"Does this capture the intent correctly, or has any of it changed?"*
-2. Ask: *"Do you want me to run a full re-plan now using these as goals, or just save the intent summary so you can run `/devenv-create-implementation-plan` when you're ready?"*
-3. **Re-planning now**: hand off to `/devenv-create-implementation-plan` with the extracted intents as goals (skip its free-form goals interview; interview only for repo/tech context). Write a new `Implementation_plan-*.md` with a fresh suffix, preserving the old plan file as-is.
+2. Ask: *"Do you want me to run a full re-plan now using these as goals, or just save the intent summary so you can run `/devenv-create-plan` when you're ready?"*
+3. **Re-planning now**: hand off to `/devenv-create-plan` with the extracted intents as goals (skip its free-form goals interview; interview only for repo/tech context). Write a new `Plan-*.md` with a fresh suffix, preserving the old plan file as-is.
 4. **Saving for later**: write the intent summary as a `## Preserved intent` section appended to the bottom of the existing plan, and update the status line to `Status: intent-only — tasks are stale; see Preserved intent for goals.` (current-state status; no date marker).
 
 ## Rules

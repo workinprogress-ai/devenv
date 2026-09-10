@@ -11,7 +11,7 @@ Use this guide when you want the end-to-end methodology rather than a tool catal
 - **Top-down delivery** — start with the highest-level artifact that makes sense for the work, then flow downward through the stack of increasingly specific artifacts.
 - **Execution mode by risk and collaboration needs** — choose the right execution mode (collaborative vs delegated) based on the work's impact, novelty, and need for human involvement
 - **Responsibility and Accountability** — the **engineer** is **always** the **responsible** party for the work, even when AI-assisted; the AI provides support but does not own outcomes.  "The AI did it" is not an acceptable explanation for a shipped change.  
-- **Implementation plans follow the engineer** — implementation plans are current-state execution artifacts, not prescriptive contracts. The engineer drives; the plan is continuously reconciled to what actually happened. When reality diverges from the plan, update the plan (with confirmation whenever intent is ambiguous) so it reflects truth rather than forcing behavior.
+- **Plans follow the engineer** — plans are current-state execution artifacts, not prescriptive contracts. The engineer drives; the plan is continuously reconciled to what actually happened. When reality diverges from the plan, update the plan (with confirmation whenever intent is ambiguous) so it reflects truth rather than forcing behavior.
 - **A plan starts theoretical and ends as-built** — at creation a plan is the *theoretical* way to implement; during and after execution it is kept current so that at completion it records the *actual* way the work was *really* implemented. A completed plan is therefore a trustworthy as-built record for upstream artifacts (grooming documents, blueprints) to reconcile against.
 - **Three homes for three questions** — living documents (specifications, blueprints, roadmaps) carry the target state (*what it is*), ADRs carry the rationale (*why*), git and issue-edit history carry the chronology (*when*). No artifact carries another home's content.
 - **Attribution is human-only** — artifact authorship and revision entries attribute work to the current user/engineer (or team/repo context), never to the AI or a specific model. Historical notes describe changes, not model actors.
@@ -32,7 +32,7 @@ Idea / request
   -> Specifications
   -> Blueprint
   -> Grooming
-  -> Implementation plan
+  -> Plan
   -> Execution
   -> Review / merge
 ```
@@ -42,14 +42,14 @@ Each layer answers a different question:
 - Specifications: what should the system do?
 - Blueprint: how should the system be structured at the system level?
 - Grooming: what is the component-level design direction, and what is the issue attack plan (Feature/Fix/Task by repo, independently shippable slices)?
-- Implementation plan: what are the executable phases and tasks for one selected issue slice?
+- Plan: what are the executable phases and tasks for one selected issue slice?
 - Execution: build and validate the work.
 
 Durable issue-backed artifact note:
 
-- Grooming artifacts and implementation plans may be persisted as deterministic GitHub issue comment artifacts rather than issue-body text.
-- When an issue holds multiple implementation plans, each plan is a separate artifact selected by `doc_id`.
-- The issue description remains general context; it is not the canonical storage location for implementation plans.
+- Grooming artifacts and plans may be persisted as deterministic GitHub issue comment artifacts rather than issue-body text.
+- When an issue holds multiple plans, each plan is a separate artifact selected by `doc_id`.
+- The issue description remains general context; it is not the canonical storage location for plans.
 
 The important rule is that you do not skip to a lower layer when the uncertainty still belongs to an upper layer.
 
@@ -70,7 +70,7 @@ Blueprint
 Grooming
    |
    v
-Implementation plan
+Plan
    |
    +--> Execution: collaborative / high-impact mode
    |
@@ -85,7 +85,7 @@ In Devenv, the usual skill mapping is:
 - Specifications -> `/devenv-write-specifications`
 - Blueprint -> `/devenv-create-blueprint`
 - Grooming -> `/devenv-grooming`
-- Implementation plan -> `/devenv-create-implementation-plan`
+- Plan -> `/devenv-create-plan`
 - Collaborative execution -> `/devenv-pair-programming`
 - Delegated execution -> `/devenv-delegation`
 - Review / merge -> `/devenv-pre-commit`, `/devenv-open-pr`, `/devenv-address-pr-comments`
@@ -105,8 +105,8 @@ Blueprint
 Grooming
   |   supported by: /devenv-grooming
   v
-Implementation plan
-  |   supported by: /devenv-create-implementation-plan
+Plan
+  |   supported by: /devenv-create-plan
   v
 Execution
   |   supported by: /devenv-pair-programming
@@ -188,7 +188,7 @@ Optionally with or without a spike or design discussion:
 Optionally with or without a spike or design discussion:
 
 ```text
-**Spike(s)** -> Implementation plan
+**Spike(s)** -> Plan
                     |
                     v
             [ Implementation ]
@@ -203,7 +203,7 @@ In cases of *very small* and very well understood work, it's possible to execute
 Once a plan exists, execution branches by risk and collaboration needs.
 
 ```text
-Implementation plan exists?
+Plan exists?
   |
   +-- no  --> Create or refine the plan first
   |
@@ -223,14 +223,14 @@ In Devenv, that usually maps to `/devenv-pair-programming` vs `/devenv-delegatio
 
 Planning guardrail:
 
-- If implementation-plan creation discovers scope/risk too large for one issue, route back to grooming for redivision into smaller independently shippable issues, then resume planning on one selected slice.
+- If plan creation discovers scope/risk too large for one issue, route back to grooming for redivision into smaller independently shippable issues, then resume planning on one selected slice.
 
 Supporting view with skill selection:
 
 ```text
-Implementation plan exists?
+Plan exists?
   |
-  +-- no  --> /devenv-create-implementation-plan
+  +-- no  --> /devenv-create-plan
   |
   +-- yes --> Is the work high-impact, novel, or strongly collaborative?
                 |
@@ -276,13 +276,13 @@ Rule of thumb:
 
 - One bounded blocker that should change only a limited slice of the plan: use a focused design discussion.
 - Multiple entangled questions, broader design drift, or likely sweeping plan redesign: return to grooming.
-- If architecture is already settled and only tasks/phases need to change: refresh the implementation plan.
+- If architecture is already settled and only tasks/phases need to change: refresh the plan.
 
 In Devenv, the usual mapping is:
 
 - Small local issue -> stay in `/devenv-pair-programming` or `/devenv-delegation`
-- Focused design discussion -> `/devenv-design-discussion`, then `/devenv-refine-implementation-plan`
-- Broader reshaping -> `/devenv-grooming`, then `/devenv-refine-implementation-plan`
+- Focused design discussion -> `/devenv-design-discussion`, then `/devenv-refine-plan`
+- Broader reshaping -> `/devenv-grooming`, then `/devenv-refine-plan`
 - Upstream architecture change -> file an upstream-impact issue, then `/devenv-refine-blueprint` (or `/devenv-refine-specifications`) in cascade mode, then grooming and plan refresh
 
 Supporting view with skill mapping:
@@ -298,19 +298,19 @@ Problem discovered in the plan or design
   |
   +-- Single large blocker / design question
   |      -> /devenv-design-discussion
-  |      -> /devenv-refine-implementation-plan
+  |      -> /devenv-refine-plan
   |      -> back to execution
   |
   +-- Accumulated questions / architectural drift
   |      -> /devenv-grooming
-  |      -> /devenv-refine-implementation-plan
+  |      -> /devenv-refine-plan
   |      -> back to execution
   |
   +-- Upstream architecture artifact is wrong
          -> file an upstream-impact issue (any skill can discover)
          -> /devenv-refine-blueprint or /devenv-refine-specifications (cascade mode)
          -> /devenv-grooming
-         -> /devenv-refine-implementation-plan
+         -> /devenv-refine-plan
          -> back to execution
 ```
 
@@ -342,12 +342,12 @@ Supporting view with skill pivot:
 /devenv-design-discussion starts on a bounded blocker
   |
   +-- stays bounded
-  |      -> /devenv-refine-implementation-plan
+  |      -> /devenv-refine-plan
   |      -> resume execution
   |
   +-- reveals broader design drift
          -> /devenv-grooming
-         -> /devenv-refine-implementation-plan
+         -> /devenv-refine-plan
          -> resume execution
 ```
 
@@ -371,7 +371,7 @@ Discovered change (execution/grooming/spike finds upstream is wrong)
 
 Component design changed
   -> grooming or focused design discussion
-  -> refresh implementation plan
+  -> refresh plan
   -> resume execution
 ```
 
@@ -396,7 +396,7 @@ Upstream found wrong during execution/grooming/spike
 
 Component design changed
   -> /devenv-grooming or /devenv-design-discussion
-  -> /devenv-refine-implementation-plan
+  -> /devenv-refine-plan
   -> execution
 ```
 
@@ -415,7 +415,7 @@ flowchart TD
     C --> D[Grooming]
     C -.->|"larger multi-component effort"| R[Roadmap artifact on epic]
     R -.-> D
-    D --> E[Implementation plan]
+    D --> E[Plan]
     E --> F{{"Execution mode"}}
     F -->|high-impact / collaborative| G[Pair programming]
     F -->|mechanical, commissioned| H[Delegation]
@@ -434,7 +434,7 @@ flowchart LR
     BP -.->|"optional: larger efforts"| RM[Roadmap artifact<br/>on parent epic]
     SPEC -.-> RM
     RM -.->|"issue slices"| GR
-    GR --> PLAN[Implementation plan<br/>phases and tasks]
+    GR --> PLAN[Plan<br/>phases and tasks]
     ADR[(ADRs<br/>the why)] -.-> SPEC
     ADR -.-> BP
     ADR -.-> RM
@@ -480,7 +480,7 @@ Working without a plan (small, low-risk work only):
 ```mermaid
 flowchart LR
     T[Small task, low risk] --> ADHOC[Direct execution<br/>with discipline] --> V[Review / merge]
-    T -->|"anything larger"| STOP[Stop — plan first] --> CP[Create implementation plan]
+    T -->|"anything larger"| STOP[Stop — plan first] --> CP[Create plan]
 ```
 
 For a new feature in an existing component, the path depends on whether the approach is already known.
@@ -490,7 +490,7 @@ Existing-component feature request
   |
   +-- Approach already chosen
   |      |
-  |      +--> Create or refresh the implementation plan
+  |      +--> Create or refresh the plan
   |      +--> Execute
   |
   +-- Approach unclear
@@ -509,12 +509,12 @@ In Devenv, that usually maps to grooming first, with design-discussion used only
 
 ## Upstream artifact routing
 
-Design-discussion and spike artifacts should normally flow through grooming before implementation planning.
+Design-discussion and spike artifacts should normally flow through grooming before planning.
 
 ```text
 Design discussion or spike artifact
   -> Grooming (capture design delta + produce issue attack plan)
-  -> Implementation plan for one selected issue slice
+  -> Plan for one selected issue slice
   -> Execution
 ```
 
@@ -522,28 +522,28 @@ For straightforward cases, grooming can be brief and mostly copy key context fro
 
 Direct-plan exception:
 
-- A user may intentionally create an implementation plan with no grooming artifact (for example from thin-air context, mixed pasted text, or unclassified artifacts).
+- A user may intentionally create a plan with no grooming artifact (for example from thin-air context, mixed pasted text, or unclassified artifacts).
 - Side-stream inputs may be provided whether or not grooming exists; they provide additional information but do not direct plan scope.
 - When a grooming artifact exists, grooming is the directing source for scope, slice boundaries, and plan-coordination context.
-- When implementation plans are stored on a GitHub issue, one issue may hold more than one plan artifact. In that case, each plan is selected and updated by `doc_id`, not by replacing the issue body.
+- When plans are stored on a GitHub issue, one issue may hold more than one plan artifact. In that case, each plan is selected and updated by `doc_id`, not by replacing the issue body.
 
 ## Multi-repo vs single-repo placement
 
 ```text
 Is work one repo and small/medium?
   |
-  +-- yes --> one issue may hold grooming + one or more implementation-plan artifacts
+  +-- yes --> one issue may hold grooming + one or more plan artifacts
   |
   +-- no  --> grooming should live at epic/planning issue level
-             and coordinate multiple implementation-plan issues
+             and coordinate multiple plan issues
 ```
 
 Practical artifact placement rules:
 
-- A single issue may legitimately hold both the grooming artifact and multiple implementation-plan artifacts.
-- Each implementation plan artifact should correspond to one selected issue slice or execution track.
+- A single issue may legitimately hold both the grooming artifact and multiple plan artifacts.
+- Each plan artifact should correspond to one selected issue slice or execution track.
 - Multiple plans on the same issue are safe only when selection/update uses deterministic `doc_id` targeting.
-- If the work spans multiple repos or independent deliverables, prefer separate implementation-plan issues instead of overloading one issue with unrelated plans.
+- If the work spans multiple repos or independent deliverables, prefer separate plan issues instead of overloading one issue with unrelated plans.
 
 Supporting view with skill mapping:
 
@@ -551,15 +551,15 @@ Supporting view with skill mapping:
 Existing-component feature request
   |
   +-- Approach already chosen
-  |      -> /devenv-create-implementation-plan
-  |         or /devenv-refine-implementation-plan
+  |      -> /devenv-create-plan
+  |         or /devenv-refine-plan
   |      -> /devenv-pair-programming or /devenv-delegation
   |
   +-- Approach unclear
       -> /devenv-grooming
       -> /devenv-design-discussion   (only for one bounded blocker)
-      -> /devenv-create-implementation-plan
-        or /devenv-refine-implementation-plan
+      -> /devenv-create-plan
+        or /devenv-refine-plan
       -> /devenv-pair-programming or /devenv-delegation
 ```
 
@@ -570,7 +570,7 @@ The core artifacts are:
 - Specifications doc: functional intent
 - Blueprint: system architecture
 - Grooming artifact: component-level design decisions and deltas
-- Implementation plan: executable phases and tasks
+- Plan: executable phases and tasks
 - Solution proposal: focused answer to one design question; canonical as a file, optionally published elsewhere for context
 
 Do not treat these as interchangeable. Each exists to answer a different question.
@@ -583,9 +583,9 @@ Do not treat these as interchangeable. Each exists to answer a different questio
 2. **ADRs** (`docs/Decisions/ADR-NNN-<slug>.md`) — the *why*. Every significant decision (one a future implementer would ask about) gets an Architecture Decision Record: context, decision, alternatives, consequences. ADRs are append-mostly; superseding an ADR writes a new one, it does not edit the old.
 3. **Git** — the *when*. Who changed what, when. That is what it is for. (For GitHub-artifact roadmaps, the issue comment's edit history plays this role.)
 
-Grooming documents and implementation plans are not in this tier — grooming keeps its own revision-history convention, and plans are current-state execution artifacts with their own rules.
+Grooming documents and plans are not in this tier — grooming keeps its own revision-history convention, and plans are current-state execution artifacts with their own rules.
 
-**Roadmaps are optional coordination documents, hosted as GitHub artifacts.** A roadmap is added only when a larger effort needs delivery coordination across multiple components — usually associated with an epic — and lives as a doc_id-addressed artifact comment on that parent epic in the planning repo (same pattern as implementation-plan artifacts); no long-lived local copy is kept and nothing is committed. When one exists it is a **change-bound artifact**: maintained while the change is in flight (structural edits via `/devenv-refine-roadmap`, status sync via `/devenv-update-roadmap`), and done when the change ships and the parent epic closes — unlike specifications, which are perpetual living documents. The roadmap is downstream of the specifications and blueprint, and upstream of grooming: it receives changes arriving from upstream (spec/blueprint refinement) or pushed back from downstream (execution discoveries), but it is never itself an entry point for changes — changes enter through the refine skills and the upstream-impact queue.
+**Roadmaps are optional coordination documents, hosted as GitHub artifacts.** A roadmap is added only when a larger effort needs delivery coordination across multiple components — usually associated with an epic — and lives as a doc_id-addressed artifact comment on that parent epic in the planning repo (same pattern as plan artifacts); no long-lived local copy is kept and nothing is committed. When one exists it is a **change-bound artifact**: maintained while the change is in flight (structural edits via `/devenv-refine-roadmap`, status sync via `/devenv-update-roadmap`), and done when the change ships and the parent epic closes — unlike specifications, which are perpetual living documents. The roadmap is downstream of the specifications and blueprint, and upstream of grooming: it receives changes arriving from upstream (spec/blueprint refinement) or pushed back from downstream (execution discoveries), but it is never itself an entry point for changes — changes enter through the refine skills and the upstream-impact queue.
 
 Ephemeral markdown (bug descriptions to paste into an issue, feature requests for a backing library, scratch summaries that exist only for immediate use) is **not** a workflow artifact. Write it to `tmpN.md` in the active repo root (incrementing `N`, next free number; never assume an existing tmp file's contents). These files are expected to be deleted quickly and carry no artifact metadata.
 

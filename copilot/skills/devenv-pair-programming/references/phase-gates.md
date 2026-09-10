@@ -9,7 +9,7 @@ Run this gate after all implementation phases are complete and **before starting
    - **Objectively verifiable** (test passes, behavior is observable by anyone looking at the code): run `markdown-plan-complete-ac AC-N [<plan_file>]` to tick it. State which AC was ticked and what evidence was used.
    - **Requires human judgment** (usability, performance, business rule interpretation): present it to the user: *"AC-3 — [criterion text]: can you confirm this is satisfied?"* Tick it after they confirm.
 3. For any AC not yet exercised (no matching DEVENV comment found), surface it explicitly: *"AC-4 has no matching implementation comment — was it addressed? If not, it's a gap."* Let the user decide: tick it, defer it, or add a follow-up task.
-4. For any AC whose scope changed meaningfully during implementation, apply the deprecation / revision rules (see `/devenv-refine-implementation-plan`).
+4. For any AC whose scope changed meaningfully during implementation, apply the deprecation / revision rules (see `/devenv-refine-plan`).
 5. All ACs must be either ticked `[x]` or explicitly deferred/deprecated before proceeding to Cleanup.
 
 Once all ACs are resolved, surface the AC summary in the handback (delegation mode) or proceed to Cleanup (pair-programming mode):
@@ -18,7 +18,7 @@ Once all ACs are resolved, surface the AC summary in the handback (delegation mo
 
 ## Phase Completion Gate
 
-Before declaring a phase complete, run the committability checklist from [phase-rules.md](../../devenv-create-implementation-plan/references/phase-rules.md). The checklist below is the **code preset** — it applies when the plan's `**Verification**` declaration is `code` or absent (legacy plans). For non-code declarations, run the plan's declared gates instead; the test/coverage items do not apply:
+Before declaring a phase complete, run the committability checklist from [phase-rules.md](../../devenv-create-plan/references/phase-rules.md). The checklist below is the **code preset** — it applies when the plan's `**Verification**` declaration is `code` or absent (legacy plans). For non-code declarations, run the plan's declared gates instead; the test/coverage items do not apply:
 
 - [ ] All tests pass — including any tests written in the failing state (TDD) during this phase; the red-green cycle must close before this gate
 - [ ] Coverage has not regressed vs. the start of the phase

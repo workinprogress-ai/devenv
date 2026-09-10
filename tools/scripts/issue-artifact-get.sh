@@ -50,10 +50,10 @@ Output:
       "issue_number": 42,
       "doc_id": "dv1:...",
       "comment_id": 123456,
-      "artifact_type": "implementation-plan",
+      "artifact_type": "plan",
       "header": {
         "doc_id": "dv1:...",
-        "artifact_type": "implementation-plan",
+        "artifact_type": "plan",
         "artifact_scope": "issue-comment",
         "issue_number": "42",
         "source_file": "...",

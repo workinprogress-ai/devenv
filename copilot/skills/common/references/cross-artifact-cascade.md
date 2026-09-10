@@ -5,7 +5,7 @@ Loaded by `/devenv-refine-specifications` and `/devenv-refine-blueprint` in casc
 ## Scope
 
 - **In scope:** symmetric co-maintenance of `Specifications-*.md` and `Blueprint-*.md` (planning-repo living documents) in one session, with decision recording in ADRs.
-- **Out of scope:** downstream propagation to grooming documents and implementation plans (handled by freshness-based staleness checks at plan-start and grooming-start), and non-surgical re-architectures (route to `/devenv-design-discussion` or `/devenv-create-blueprint` per the refine skills' existing rules).
+- **Out of scope:** downstream propagation to grooming documents and plans (handled by freshness-based staleness checks at plan-start and grooming-start), and non-surgical re-architectures (route to `/devenv-design-discussion` or `/devenv-create-blueprint` per the refine skills' existing rules).
 
 ## The three-home rule
 

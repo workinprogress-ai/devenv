@@ -123,27 +123,27 @@ issue-artifact-upsert --issue 123 \
 ```bash
 issue-artifact-doc-id --issue 123 --artifact-type spike --slug "Retry Strategy"
 issue-artifact-doc-id --issue 123 --artifact-type redesign --source-file Redesign--003-Auth-Flow.md
-issue-artifact-doc-id --issue 123 --artifact-type implementation-plan --source-file Implementation_plan-issue-123-001.md
+issue-artifact-doc-id --issue 123 --artifact-type plan --source-file Plan-issue-123-001.md
 ```
 
 ### Get One Artifact Comment
 
 ```bash
 issue-artifact-get --issue 123 \
-    --doc-id "dv1:workinprogress-ai-devenv:issue-123:implementation-plan:implementation-plan-issue-123-001" \
+    --doc-id "dv1:workinprogress-ai-devenv:issue-123:plan:plan-issue-123-001" \
     --full --pretty
 ```
 
 ### List Artifact Comments
 
 ```bash
-issue-artifact-list --issue 123 --artifact-type implementation-plan --pretty
+issue-artifact-list --issue 123 --artifact-type plan --pretty
 ```
 
 ### Select One Artifact
 
 ```bash
-issue-artifact-select --issue 123 --artifact-type implementation-plan --latest --format doc-id
+issue-artifact-select --issue 123 --artifact-type plan --latest --format doc-id
 issue-artifact-select --issue 123 --doc-id "$DOC_ID" --format url
 ```
 

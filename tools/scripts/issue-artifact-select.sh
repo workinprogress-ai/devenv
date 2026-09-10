@@ -35,7 +35,7 @@ Required Inputs:
     --issue, --issue-number N     Issue number
 
 Optional Filters:
-    --artifact-type TYPE          Filter by artifact type (for example: implementation-plan)
+    --artifact-type TYPE          Filter by artifact type (for example: plan; legacy implementation-plan also accepted)
     --doc-id ID                   Select a specific artifact by doc_id
     --latest                      If multiple matches, select the most recently updated
 
@@ -54,8 +54,8 @@ Selection rules:
     4) Else return an ambiguity error with candidate artifacts.
 
 Examples:
-    $SCRIPT_NAME --issue 42 --artifact-type implementation-plan --latest --format doc-id
-    $SCRIPT_NAME --issue 42 --doc-id "dv1:workinprogress-ai-devenv:issue-42:implementation-plan:implementation-plan-issue-42-001" --format url
+    $SCRIPT_NAME --issue 42 --artifact-type plan --latest --format doc-id
+    $SCRIPT_NAME --issue 42 --doc-id "dv1:workinprogress-ai-devenv:issue-42:plan:implementation-plan-issue-42-001" --format url
 EOF
     exit 0
 }

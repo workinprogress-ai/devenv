@@ -15,7 +15,7 @@ issue-get <N> | jq -r '.title'
 issue-get <N> | jq -r '.labels[].name'
 ```
 
-Use the issue body as source context, not as the storage location for implementation plans or other durable issue-backed artifacts unless a skill explicitly says otherwise.
+Use the issue body as source context, not as the storage location for plans or other durable issue-backed artifacts unless a skill explicitly says otherwise.
 
 ## Selecting one artifact
 

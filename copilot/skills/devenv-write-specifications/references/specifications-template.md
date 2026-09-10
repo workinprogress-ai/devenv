@@ -108,7 +108,7 @@ updated_at_utc: <ISO-8601>
 
 ## 3. Priority Groups
 
-> Stakeholder priority groupings — **not a delivery roadmap**. For component-level delivery sequencing with GitHub issues, run `/devenv-create-roadmap` after a blueprint exists. Each specification item here may later span multiple roadmap steps and multiple `Implementation_plan-*.md` files.
+> Stakeholder priority groupings — **not a delivery roadmap**. For component-level delivery sequencing with GitHub issues, run `/devenv-create-roadmap` after a blueprint exists. Each specification item here may later span multiple roadmap steps and multiple `Plan-*.md` files.
 
 ### Stakeholder Guidance
 

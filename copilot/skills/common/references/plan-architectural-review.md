@@ -1,6 +1,6 @@
 # Plan Architectural Review Protocol
 
-Load this protocol on-demand when a design skill (design-discussion, grooming) is given an implementation plan file or issue as input, or when refine-implementation-plan detects architectural issues in an escalation handoff.
+Load this protocol on-demand when a design skill (design-discussion, grooming) is given a plan file or issue as input, or when refine-plan detects architectural issues in an escalation handoff.
 
 **Purpose:** read the plan as a diagnostic artifact — locate the architectural fault points, classify the nature of the problem, and orient a design session from the evidence in the plan rather than re-interviewing from scratch.
 
@@ -111,7 +111,7 @@ Use this matrix after producing the Architectural Brief to select the next skill
 | --- | --- | --- | --- |
 | Pre-plan architecture ambiguity | `/devenv-design-discussion` | `/devenv-grooming` | Broad option-weighing and recommendation is primary. |
 | In-flight implementation unblock (plan partially executed) | `/devenv-grooming` | `/devenv-design-discussion` only for one bounded blocker that needs deeper option-weighing than the execution skills can support | Preserve execution continuity; close decisions at the blocker boundary first. |
-| Post-decision task sequencing/scope updates | `/devenv-refine-implementation-plan` | `/devenv-grooming` if new architecture drift appears | Architecture is settled; update tasks safely. |
+| Post-decision task sequencing/scope updates | `/devenv-refine-plan` | `/devenv-grooming` if new architecture drift appears | Architecture is settled; update tasks safely. |
 
 Tie-breaker prompt when uncertain:
 
@@ -127,11 +127,11 @@ When a partially executed plan develops problems, use this triage before routing
 
 2. **Accumulated questions or broader architectural drift** — return to `/devenv-grooming`.
    - Signals: multiple open decisions, interdependent blockers across phases, signs the current design needs broader reshaping, or the plan may need sweeping revision/replacement.
-   - Route: `/devenv-grooming` first, then `/devenv-refine-implementation-plan` once design decisions are re-settled.
+   - Route: `/devenv-grooming` first, then `/devenv-refine-plan` once design decisions are re-settled.
 
 3. **Single large blocker / question** — use `/devenv-design-discussion`.
    - Signals: one bounded design question needs deeper brainstorming or option-weighing, but the outcome is expected to change a limited slice of the plan rather than re-baseline the whole design.
-   - Route: `/devenv-design-discussion`, then back to `/devenv-refine-implementation-plan` for task updates.
+   - Route: `/devenv-design-discussion`, then back to `/devenv-refine-plan` for task updates.
    - If the discussion reveals that the blocker is not actually bounded and instead exposes broader design drift, pivot immediately to `/devenv-grooming` before refreshing the plan.
 
 4. **Upstream architecture artifact is wrong** — go upstream before returning downstream.

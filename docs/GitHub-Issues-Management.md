@@ -16,7 +16,7 @@ This guide covers the complete GitHub Issues workflow in Devenv, from issue crea
 
 The GitHub Issues workflow in Devenv replaces Azure DevOps work items with a GitHub-native approach:
 
-For the broader delivery methodology around specifications, blueprinting, grooming, implementation planning, and execution, see [Workflow Guide](./Workflow.md). This document focuses on how work is represented and tracked in GitHub once it enters issue/project flow.
+For the broader delivery methodology around specifications, blueprinting, grooming, planning, and execution, see [Workflow Guide](./Workflow.md). This document focuses on how work is represented and tracked in GitHub once it enters issue/project flow.
 
 ```text
 Issue Types (GitHub native issue types):
@@ -494,7 +494,7 @@ issue-artifact-doc-id --issue ISSUE# --artifact-type TYPE [--slug TEXT | --sourc
 
 Use this to generate the exact `doc_id` value before composing the metadata block for `issue-artifact-upsert`.
 
-For implementation plans stored as issue artifacts, prefer `--artifact-type implementation-plan` with `--source-file Implementation_plan-...md` so the same plan file always resolves to the same artifact comment.
+For plans stored as issue artifacts, prefer `--artifact-type plan` (`implementation-plan` remains valid as a legacy alias for pre-rename artifacts) `--source-file Plan-...md` so the same plan file always resolves to the same artifact comment.
 
 **`issue-artifact-get`** - Retrieve one artifact comment by exact `doc_id`
 
@@ -518,7 +518,7 @@ Use this when an issue may contain multiple persisted artifacts of the same type
 issue-artifact-select --issue ISSUE# [--artifact-type TYPE] [--doc-id DOC_ID] [--latest] [--format json|doc-id|comment-id|url]
 ```
 
-Use this before plan refresh/refine/status/update flows so one issue can safely hold multiple implementation plans.
+Use this before plan refresh/refine/status/update flows so one issue can safely hold multiple plans.
 
 **`issue-close`** - Close or reopen issues
 

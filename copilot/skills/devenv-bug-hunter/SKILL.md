@@ -1,6 +1,6 @@
 ---
 name: devenv-bug-hunter
-description: 'End-to-end bug skill with three entry modes. Verify mode: determine with evidence whether a suspected bug exists — formalizes the oracle, enumerates hypotheses, eliminates them with aggressive runtime measures (discriminating tests, instrumentation, consented code modification), delivers FOUND / NOT-FOUND / INCONCLUSIVE. Diagnose mode: for a bug whose existence is established (GH issue, reported failure) — traces the call chain read-only to the root cause, emits a findings report with confidence level, resolutions, and failing-test-first fix sequence. Fix mode: applies the fix (test-first, per-change confirm, never commits) after the user chooses a path. One invocation carries the whole pipeline: a FOUND verdict flows into diagnosis and fix without re-invocation; the fix lane stays invisible until a verdict/root cause is on the table. USE WHEN the user says "is this a bug?", "I keep seeing X but expected Y", "unleash the bug hunter", "go hunting", "fix this bug", "investigate this issue", "find the root cause", "why is X broken", "diagnose this", or hands off a GH issue number with a bug report. DO NOT USE for feature work (use /devenv-create-implementation-plan), broad suspicion-less bug surveys (use /devenv-tech-debt-audit), general code exploration (use /devenv-chat-with-code), or feasibility research (use /devenv-spike).'
+description: 'End-to-end bug skill with three entry modes. Verify mode: determine with evidence whether a suspected bug exists — formalizes the oracle, enumerates hypotheses, eliminates them with aggressive runtime measures (discriminating tests, instrumentation, consented code modification), delivers FOUND / NOT-FOUND / INCONCLUSIVE. Diagnose mode: for a bug whose existence is established (GH issue, reported failure) — traces the call chain read-only to the root cause, emits a findings report with confidence level, resolutions, and failing-test-first fix sequence. Fix mode: applies the fix (test-first, per-change confirm, never commits) after the user chooses a path. One invocation carries the whole pipeline: a FOUND verdict flows into diagnosis and fix without re-invocation; the fix lane stays invisible until a verdict/root cause is on the table. USE WHEN the user says "is this a bug?", "I keep seeing X but expected Y", "unleash the bug hunter", "go hunting", "fix this bug", "investigate this issue", "find the root cause", "why is X broken", "diagnose this", or hands off a GH issue number with a bug report. DO NOT USE for feature work (use /devenv-create-plan), broad suspicion-less bug surveys (use /devenv-tech-debt-audit), general code exploration (use /devenv-chat-with-code), or feasibility research (use /devenv-spike).'
 argument-hint: '<observation + expectation | bug description | issue-number | bug-hunt-report path>'
 user-invocable: true
 ---
@@ -54,11 +54,11 @@ Trigger phrases (by mode — see intake table):
 
 Do **not** use for:
 
-- Feature work → `/devenv-create-implementation-plan`
+- Feature work → `/devenv-create-plan`
 - Broad, suspicion-less surveys of bug risk → `/devenv-tech-debt-audit`
 - General codebase Q&A → `/devenv-chat-with-code`
 - Feasibility research → `/devenv-spike`
-- Known cause, needs a full plan → `/devenv-create-implementation-plan` directly
+- Known cause, needs a full plan → `/devenv-create-plan` directly
 
 ## Personality (verify mode; stays out of all written artifacts)
 
@@ -249,7 +249,7 @@ After the findings report (and any GH issue comment), present:
 ```
 What would you like to do next?
 
-  A) Create an implementation plan  — for effort that's medium or larger, or
+  A) Create a plan  — for effort that's medium or larger, or
                                       if you want a reviewable plan first
   B) Fix it now                     — AI applies the fix (failing test first,
                                       then the change, then docs if needed)
@@ -258,7 +258,7 @@ What would you like to do next?
 
 Wait for the choice. Do not proceed without one. Per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections), present A/B/C as a structured query with freeform input allowed.
 
-- **Path A** → hand off to `/devenv-create-implementation-plan`; the findings report is complete plan input (paste it). Draft a one-paragraph plan-input summary on request.
+- **Path A** → hand off to `/devenv-create-plan`; the findings report is complete plan input (paste it). Draft a one-paragraph plan-input summary on request.
 - **Path B** → Phase F2.
 - **Path C** → confirm the user has root cause, recommended fix, and failing test; stop.
 
@@ -271,7 +271,7 @@ Wait for the choice. Do not proceed without one. Per the shared [direct query st
 
 **Scope-growth stop:** if the fix turns out wider than the findings suggested:
 
-> "🔶 This is wider than the findings indicated — [explain]. Continuing would touch [X files / change Y behaviour]. Want to proceed, or would you prefer an implementation plan instead?"
+> "🔶 This is wider than the findings indicated — [explain]. Continuing would touch [X files / change Y behavior]. Want to proceed, or would you prefer a plan instead?"
 
 ---
 
@@ -301,5 +301,5 @@ Wait for the choice. Do not proceed without one. Per the shared [direct query st
 
 - [`/devenv-tech-debt-audit`](../devenv-tech-debt-audit/SKILL.md) — suspicion-less surveys; the hunter is the opposite: one target, all firepower.
 - [`/devenv-spike`](../devenv-spike/SKILL.md) — feasibility questions, not bug verification.
-- `/devenv-create-implementation-plan` — Path A handoff when a fix warrants a full plan.
+- `/devenv-create-plan` — Path A handoff when a fix warrants a full plan.
 - `/devenv-pre-commit` — run quality gates after applying a fix.

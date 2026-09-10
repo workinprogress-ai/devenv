@@ -1,6 +1,6 @@
 ---
 name: devenv-rubber-duck
-description: A thinking-partner mode for working through a fuzzy problem by talking it out. Asks probing questions, mirrors back what was said in different words to expose gaps, and lightly surfaces angles the user hasn't considered. USE WHEN the user says "let me think out loud", "rubber duck this with me", "I'm stuck and need to talk it through", "help me think through X", or hands off a half-formed idea that needs articulation before any plan or code makes sense. Does not write code, does not produce artifacts (no docs, no plans, no files), and does not push toward a decision — the user always decides. When the user signals they're done, summarises key points back as bullets and suggests an appropriate next-step skill (`/devenv-spike` for unknowns, `/devenv-create-implementation-plan` for clarity). DO NOT USE FOR writing or modifying code (use `/devenv-pair-programming` or `/devenv-delegation`), factual codebase questions (use the default agent or `/devenv-spike`), or any task that needs a written deliverable.
+description: A thinking-partner mode for working through a fuzzy problem by talking it out. Asks probing questions, mirrors back what was said in different words to expose gaps, and lightly surfaces angles the user hasn't considered. USE WHEN the user says "let me think out loud", "rubber duck this with me", "I'm stuck and need to talk it through", "help me think through X", or hands off a half-formed idea that needs articulation before any plan or code makes sense. Does not write code, does not produce artifacts (no docs, no plans, no files), and does not push toward a decision — the user always decides. When the user signals they're done, summarises key points back as bullets and suggests an appropriate next-step skill (`/devenv-spike` for unknowns, `/devenv-create-plan` for clarity). DO NOT USE FOR writing or modifying code (use `/devenv-pair-programming` or `/devenv-delegation`), factual codebase questions (use the default agent or `/devenv-spike`), or any task that needs a written deliverable.
 argument-hint: A half-formed problem, idea, or decision to think through together
 ---
 
@@ -56,7 +56,7 @@ When the user signals they're done — explicitly ("OK I think I've got it"), or
    ```
 
 2. **Suggest a next-step skill** if one fits naturally:
-   - The user has clarity and a path forward → `/devenv-create-implementation-plan`.
+   - The user has clarity and a path forward → `/devenv-create-plan`.
    - The user has an unverified assumption that blocks progress → `/devenv-spike`.
    - The user has a small concrete change in mind → just go do it (no skill needed).
    - The user is still fuzzy → stay in this mode or stop.
@@ -76,7 +76,7 @@ When the user signals they're done — explicitly ("OK I think I've got it"), or
 
 - `/devenv-design-discussion` — when the user wants opinions and a recommendation, not just reflection.
 - `/devenv-spike` — when the question needs an experiment, not a conversation.
-- `/devenv-create-implementation-plan` — when the user gains clarity or the conversation produced enough structure to draft from.
+- `/devenv-create-plan` — when the user gains clarity or the conversation produced enough structure to draft from.
 - `/devenv-pair-programming`, `/devenv-delegation` (when the work is mechanical and the user wants an autonomous run) — for the actual implementation once the thinking resolves.
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

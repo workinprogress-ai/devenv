@@ -1,7 +1,7 @@
 ---
 name: devenv-design-discussion
-description: 'Opinionated thinking-partner for working through design and architectural approaches at any zoom level — from systemic decomposition down to a single component''s internal shape. USE WHEN the user says "discuss the design", "talk through the approach", "weigh the options", "what''s the right way to structure this", "discuss an architectural change", or needs to decide the best approach for a new feature in an existing component before implementation planning. Surfaces forces and trade-offs, narrows to 3–4 viable options, asks probing questions, pushes back on weak reasoning, and arrives at an explicit recommendation. It encourages creative exploration while grounding decisions in best practice and accepted standards. If the user asks for a written artifact, this skill can produce at most a Solution_Proposal_<topic>-NNN.md (context-rich input for downstream technical design), not a formal architecture document. DO NOT USE FOR fuzzy articulation with no opinions (use /devenv-rubber-duck), feasibility prototyping (use /devenv-spike), formal architectural decomposition (use /devenv-create-blueprint), or task breakdown when the approach is already chosen (use /devenv-create-implementation-plan).'
-argument-hint: 'A design question, architectural choice, approach to weigh, or Implementation_plan-*.md / issue number to diagnose'
+description: 'Opinionated thinking-partner for working through design and architectural approaches at any zoom level — from systemic decomposition down to a single component''s internal shape. USE WHEN the user says "discuss the design", "talk through the approach", "weigh the options", "what''s the right way to structure this", "discuss an architectural change", or needs to decide the best approach for a new feature in an existing component before planning. Surfaces forces and trade-offs, narrows to 3–4 viable options, asks probing questions, pushes back on weak reasoning, and arrives at an explicit recommendation. It encourages creative exploration while grounding decisions in best practice and accepted standards. If the user asks for a written artifact, this skill can produce at most a Solution_Proposal_<topic>-NNN.md (context-rich input for downstream technical design), not a formal architecture document. DO NOT USE FOR fuzzy articulation with no opinions (use /devenv-rubber-duck), feasibility prototyping (use /devenv-spike), formal architectural decomposition (use /devenv-create-blueprint), or task breakdown when the approach is already chosen (use /devenv-create-plan).'
+argument-hint: 'A design question, architectural choice, approach to weigh, or Plan-*.md / issue number to diagnose'
 user-invocable: true
 ---
 
@@ -18,9 +18,9 @@ An interactive thinking partner with strong opinions about good design. The user
 - The user is choosing between 2–4 ways to structure something and wants opinionated guidance.
 - An architectural change is being considered and the user wants to think through approaches and implications before committing to one.
 - A feature is being added to an existing component and the best approach is still unclear.
-- An implementation plan is provided (file path or issue number) and contains architectural fault points that need design reconsideration — either via an escalation handoff from pair/delegation or by direct user request.
+- An plan is provided (file path or issue number) and contains architectural fault points that need design reconsideration — either via an escalation handoff from pair/delegation or by direct user request.
 
-If the user wants to articulate a fuzzy thought without opinions or pressure, use [`/devenv-rubber-duck`](../devenv-rubber-duck/SKILL.md). If the question is "is this feasible?" and needs throwaway code to answer, use [`/devenv-spike`](../devenv-spike/SKILL.md). If the design is already settled and you want to formalise it, use [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) (systemic) or [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) (component-level). If you are unsure which component-level design workflow fits (discussion vs design update), start with [`/devenv-grooming`](../devenv-grooming/SKILL.md).
+If the user wants to articulate a fuzzy thought without opinions or pressure, use [`/devenv-rubber-duck`](../devenv-rubber-duck/SKILL.md). If the question is "is this feasible?" and needs throwaway code to answer, use [`/devenv-spike`](../devenv-spike/SKILL.md). If the design is already settled and you want to formalise it, use [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) (systemic) or [`/devenv-create-plan`](../devenv-create-plan/SKILL.md) (component-level). If you are unsure which component-level design workflow fits (discussion vs design update), start with [`/devenv-grooming`](../devenv-grooming/SKILL.md).
 
 For in-flight implementation blockers, do not use `/devenv-design-discussion` as the default first hop; start with `/devenv-grooming` and escalate to design discussion only when broad option-weighing is explicitly needed.
 
@@ -31,7 +31,7 @@ For in-flight implementation blockers, do not use `/devenv-design-discussion` as
 - If that supposedly bounded blocker turns out to expose broader design drift, stop the focused discussion and route back to `/devenv-grooming` instead of forcing a broad redesign through this skill.
 - Route to `/devenv-grooming` when the approach is already chosen and the remaining step is capturing/updating the in-flight architecture delta.
 - Route to `/devenv-grooming` when plan problems are accumulating, multiple design decisions are entangled, or the current design may need broader reshaping rather than a one-question answer.
-- Route to `/devenv-create-implementation-plan` when architecture choice is settled and execution planning is the main need.
+- Route to `/devenv-create-plan` when architecture choice is settled and execution planning is the main need.
 - If the user provides a plan with architectural faults, run plan intake first, then continue only on unresolved approach decisions.
 
 ## What this skill does
@@ -140,7 +140,7 @@ If a written solution proposal is posted to a GitHub issue comment, follow the s
 
 If no written proposal is produced, no artifact identity or GitHub publication flow is required.
 
-If posted to a GitHub issue, treat the file as canonical and the issue comment as a published copy that downstream skills may read as context. It can be upstream input for [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md).
+If posted to a GitHub issue, treat the file as canonical and the issue comment as a published copy that downstream skills may read as context. It can be upstream input for [`/devenv-create-plan`](../devenv-create-plan/SKILL.md).
 
 ## Process
 
@@ -158,7 +158,7 @@ After initial context is loaded (problem, constraints, repo context), switch to 
 
 ### Phase 0 (conditional): Plan intake — load only when a plan is provided
 
-If the argument is an `Implementation_plan-*.md` file path or a GitHub issue number, or if the user references a plan with phrases like "there is an architectural problem in this plan" or "look at this plan":
+If the argument is an `Plan-*.md` file path or a GitHub issue number, or if the user references a plan with phrases like "there is an architectural problem in this plan" or "look at this plan":
 
 1. Load and follow the [plan architectural review protocol](../common/references/plan-architectural-review.md).
 2. Produce the scoped architectural brief defined in that protocol.
@@ -272,8 +272,8 @@ Any open question not explicitly kept open by the user should be converted into 
 - Approach needs a feasibility check first → [`/devenv-spike`](../devenv-spike/SKILL.md)
 - Discussion settled at the system level → [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
 - Discussion settled at the component level (design needs to be specified) → [`/devenv-grooming`](../devenv-grooming/SKILL.md)
-- Discussion settled at the component level and should become a reusable issue artifact for planning → [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md)
-- Discussion settled at the component level (design is already clear, just need tasks) → [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md)
+- Discussion settled at the component level and should become a reusable issue artifact for planning → [`/devenv-create-plan`](../devenv-create-plan/SKILL.md)
+- Discussion settled at the component level (design is already clear, just need tasks) → [`/devenv-create-plan`](../devenv-create-plan/SKILL.md)
 - Discussion exposed that the user is actually just venting/articulating → [`/devenv-rubber-duck`](../devenv-rubber-duck/SKILL.md)
 - This is an in-flight refactor needing migration discipline → share [references/architectural-change-guide.md](./references/architectural-change-guide.md) and suggest [`/devenv-pair-programming`](../devenv-pair-programming/SKILL.md), or [`/devenv-delegation`](../devenv-delegation/SKILL.md) when the user commissions an autonomous mechanical run, for execution
 
@@ -302,7 +302,7 @@ If the user explicitly wants an open question preserved, capture it under a `## 
 - [`/devenv-grooming`](../devenv-grooming/SKILL.md) — default intake when component-level design path is unclear
 - [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) — formal architectural decomposition once the design is settled
 - [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) — when this discussion revealed a blueprint needs updating
-- [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) — task breakdown for a chosen approach
+- [`/devenv-create-plan`](../devenv-create-plan/SKILL.md) — task breakdown for a chosen approach
 - [`/devenv-pair-programming`](../devenv-pair-programming/SKILL.md) / [`/devenv-delegation`](../devenv-delegation/SKILL.md) — when it's time to actually implement
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

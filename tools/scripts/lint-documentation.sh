@@ -66,7 +66,7 @@ else
 fi
 
 # Filter out session memory files (e.g. session_memory-*.md, session_*memory*.md)
-# and implementation plan files (Implementation_plan-*.md) which contain
+# and plan files (Plan-*.md or legacy Implementation_plan-*.md) which contain
 # free-form AI-generated content that does not conform to doc lint rules.
 FILTERED_FILES=()
 for f in "${FILES[@]}"; do
@@ -74,7 +74,7 @@ for f in "${FILES[@]}"; do
     if [[ "$basename" == session_* && "$basename" == *memory* ]]; then
         continue
     fi
-    if [[ "$basename" == Implementation_plan-*.md ]]; then
+    if [[ "$basename" == Plan-*.md || "$basename" == Implementation_plan-*.md ]]; then
         continue
     fi
     FILTERED_FILES+=("$f")

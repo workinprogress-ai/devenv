@@ -33,7 +33,7 @@ Required Inputs:
     --issue, --issue-number N     Issue number
 
 Optional Filters:
-    --artifact-type TYPE          Filter by artifact type (for example: implementation-plan)
+    --artifact-type TYPE          Filter by artifact type (for example: plan; legacy implementation-plan also accepted)
 
 Options:
     --full                        Return full body as "body" (default: bodyPreview only)
@@ -49,8 +49,8 @@ Output:
         "issue_number": 42,
         "comment_id": 123456,
         "doc_id": "dv1:...",
-        "artifact_type": "implementation-plan",
-        "source_file": "repos/foo/Implementation_plan-issue-42-001.md",
+        "artifact_type": "plan",
+        "source_file": "repos/foo/Plan-issue-42-001.md",
         "title": "Plan title",
         "updatedAt": "...",
         "url": "...",

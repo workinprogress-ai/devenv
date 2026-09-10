@@ -1,7 +1,7 @@
 ---
 name: devenv-grooming
-description: Consolidate component-level design intake into a single grooming workflow that classifies work as option-weighing or design update, maintains the current design target state, and produces an issue attack plan (Feature/Fix/Task) grouped by repo and independent production deliverables. Always works with a grooming document — creates one if it does not exist, or loads and updates an existing one. USE WHEN the user says "groom this work", "help me decide the right design path", "which component design workflow should we use", "this plan has architectural issues", "we need to shape this feature before planning/building", returns an in-flight implementation plan with open architectural decisions, or hands off a **completed** implementation plan so material as-built deviations can be reconciled back into the grooming document. Recommends options and trade-offs but does not make final design decisions without explicit user confirmation. DO NOT USE FOR system-level architecture decomposition (use /devenv-create-blueprint), pure implementation planning once design is settled (use /devenv-refine-implementation-plan for existing plans or /devenv-create-implementation-plan for new work), or coding execution (use /devenv-pair-programming, or /devenv-delegation for a commissioned autonomous mechanical run).
-argument-hint: '[problem statement | component repo path | design doc path | implementation plan path | issue number]'
+description: Consolidate component-level design intake into a single grooming workflow that classifies work as option-weighing or design update, maintains the current design target state, and produces an issue attack plan (Feature/Fix/Task) grouped by repo and independent production deliverables. Always works with a grooming document — creates one if it does not exist, or loads and updates an existing one. USE WHEN the user says "groom this work", "help me decide the right design path", "which component design workflow should we use", "this plan has architectural issues", "we need to shape this feature before planning/building", returns an in-flight plan with open architectural decisions, or hands off a **completed** plan so material as-built deviations can be reconciled back into the grooming document. Recommends options and trade-offs but does not make final design decisions without explicit user confirmation. DO NOT USE FOR system-level architecture decomposition (use /devenv-create-blueprint), pure planning once design is settled (use /devenv-refine-plan for existing plans or /devenv-create-plan for new work), or coding execution (use /devenv-pair-programming, or /devenv-delegation for a commissioned autonomous mechanical run).
+argument-hint: '[problem statement | component repo path | design doc path | plan path | issue number]'
 user-invocable: true
 ---
 
@@ -15,7 +15,7 @@ Use this as the default intake for **component-level architecture and design dir
 
 ## Purpose
 
-Grooming is the **design steward** for a piece of work. It always works with a **grooming document** — a single artifact that tracks design decisions (confirmed, pending, deferred), outstanding questions, and links to any implementation plans spawned from the work.
+Grooming is the **design steward** for a piece of work. It always works with a **grooming document** — a single artifact that tracks design decisions (confirmed, pending, deferred), outstanding questions, and links to any plans spawned from the work.
 
 > **Issue operations during grooming: wrappers only.** Creating or batch-creating child issues uses `issue-create` / `issue-create-batch` — never raw `gh issue create`. Full rules in the child-issue creation section.
 
@@ -25,7 +25,7 @@ Grooming also produces a **suggested issue attack plan** as a set of GitHub issu
 - include a size signal (`S|M|L`), and
 - represent a fully deliverable production target that can ship independently.
 
-Each suggested issue is expected to have its own implementation plan.
+Each suggested issue is expected to have its own plan.
 
 Given a component-level change request (from user text, issue, or returned plan), grooming either:
 
@@ -45,13 +45,13 @@ Use when the user says things like:
 - "Let's groom this before we implement"
 - "I need to decide if this is redesign vs refinement"
 - "Which design workflow should I run?"
-- "This implementation plan has architectural faults"
+- "This plan has architectural faults"
 - "We changed scope and need to reassess design direction"
 
 Do not use for:
 
 - System-wide architecture decomposition -> [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
-- Pure plan/task editing with no architecture decision -> [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md)
+- Pure plan/task editing with no architecture decision -> [`/devenv-refine-plan`](../devenv-refine-plan/SKILL.md)
 - Coding execution -> [`/devenv-pair-programming`](../devenv-pair-programming/SKILL.md), or [`/devenv-delegation`](../devenv-delegation/SKILL.md) when the user commissions an autonomous mechanical run
 
 ## Intake flow
@@ -65,7 +65,7 @@ Before anything else, locate the grooming document for this work.
 - Problem statement or feature description
 - Component repo path
 - `Architecture_and_implementation.md` path
-- `Implementation_plan-*.md` path (returned from implementation)
+- `Plan-*.md` path (returned from implementation)
 - GitHub issue number
 
 **Step 2 — Search for an existing grooming document.** A grooming document may live:
@@ -110,7 +110,7 @@ Follow the shared [issue-backed artifact edit protocol](../common/references/iss
 
 Then use the `component-context/index.md` file from the configured Copilot knowledge location. Resolve that location from `devenv.config` `[copilot]` (`knowledge_repo`, `knowledge_subpath`) before loading context. For services, choose among `01-Service-Architecture.md`, `02-Service-Implementation.md`, and `03-Service-Plugins.md` as needed.
 
-**Step 5 — If input is a returned implementation plan:** determine which kind it is:
+**Step 5 — If input is a returned plan:** determine which kind it is:
 
 - **In-flight plan (phases/tasks still open, architectural decisions pending):** run the [plan architectural review protocol](../common/references/plan-architectural-review.md) to produce a scoped architectural brief, then map its pending decisions back to the grooming document's `Pending` table before Phase 1.
 - **Completed plan (all phases done; the plan is now an as-built record):** run the [as-built reconciliation protocol](#as-built-reconciliation-from-a-completed-plan) below to backport material deviations into the grooming document.
@@ -146,7 +146,7 @@ When the input includes an upstream design artifact (blueprint, specifications, 
 3. **Route by answer:**
    - Concrete in-scope consumer exists → confirm as-is.
    - No consumer / output never read → surface to the user as a challenge candidate with a one-paragraph rationale, offering: remove now / slim to the minimal honest version / keep with explicit justification. A user decision, never a silent drop.
-   - Uncertain → record as an open question (Q-NNN) in the grooming document; the implementation plan's Phase 1 discovery answers it.
+   - Uncertain → record as an open question (Q-NNN) in the grooming document; the plan's Phase 1 discovery answers it.
 
 This pass is a checklist item, not a redesign loop — a few minutes per artifact at most. If it starts arguing with the whole blueprint, that is the existing escalation to `/devenv-design-discussion` (or an upstream-impact issue when the artifact itself is wrong), not this gate.
 
@@ -154,7 +154,7 @@ This pass is a checklist item, not a redesign loop — a few minutes per artifac
 
 - If the user primarily needs alternatives/trade-offs -> route to `/devenv-design-discussion`.
 - If existing design doc mostly stands and only sections changed -> stay in grooming and produce the doc delta for the current work.
-- If this is really task-level reprioritization with no architecture shift -> route back to `/devenv-refine-implementation-plan`.
+- If this is really task-level reprioritization with no architecture shift -> route back to `/devenv-refine-plan`.
 - If the session needs a formal component design artifact, keep working in grooming until the design boundary is explicit and ready to write down.
 
 ### Issue attack plan construction rules
@@ -169,14 +169,14 @@ When grooming is active, propose a deliverable issue attack plan in issue-sized 
 
 Placement guidance:
 
-- **Single repo + small/medium scope:** one issue can be enough; grooming and implementation plan may live on the same GitHub issue.
-- **Multiple repos/components or multiple production deliverables:** grooming should live at epic level (typically in a planning repo issue) and coordinate multiple downstream implementation-plan issues.
+- **Single repo + small/medium scope:** one issue can be enough; grooming and plan may live on the same GitHub issue.
+- **Multiple repos/components or multiple production deliverables:** grooming should live at epic level (typically in a planning repo issue) and coordinate multiple downstream plan issues.
 
-The grooming document is the coordination artifact across those implementation plans.
+The grooming document is the coordination artifact across those plans.
 
 Planned implementation artifact column policy:
 
-- In `Planned implementation plan issue/artifact`, default each row to `TBD` while shaping scope.
+- In `Planned plan issue/artifact`, default each row to `TBD` while shaping scope.
 - Replace `TBD` only after a concrete issue/artifact exists.
 - If the user asks grooming to create child issues, create them with `issue-create`, then write the created issue number into this column (for example, `#123`).
 
@@ -202,14 +202,14 @@ When creating child issues from grooming (user-gated):
 
 ### Upstream artifact intake policy
 
-Design-discussion and spike artifacts should normally flow through grooming before implementation planning.
+Design-discussion and spike artifacts should normally flow through grooming before planning.
 
-- For straightforward cases, grooming may be brief: capture key decisions/constraints from the upstream artifact, generate the issue attack plan, and then hand off to implementation-plan generation.
-- Do not route design-discussion/spike output directly to implementation planning unless the user explicitly asks to bypass grooming.
+- For straightforward cases, grooming may be brief: capture key decisions/constraints from the upstream artifact, generate the issue attack plan, and then hand off to plan generation.
+- Do not route design-discussion/spike output directly to planning unless the user explicitly asks to bypass grooming.
 
 ### As-built reconciliation from a completed plan
 
-A completed implementation plan is an as-built record (see the *plan starts theoretical and ends as-built* principle in [Workflow](../../../docs/Workflow.md)). When a completed plan is handed to grooming, reconcile the grooming document against what was *actually* built:
+A completed plan is an as-built record (see the *plan starts theoretical and ends as-built* principle in [Workflow](../../../docs/Workflow.md)). When a completed plan is handed to grooming, reconcile the grooming document against what was *actually* built:
 
 1. **Determine completion.** All phases complete, no open `[QUESTION]` markers. If the plan is actually in-flight, use the plan architectural review path in Phase 0 Step 5 instead.
 2. **Diff against the grooming document.** Compare the grooming document's confirmed decisions and architecture deltas against the plan's recorded decisions (`decision:` metadata), deviation notes, and the actual outcome each phase describes.
@@ -222,19 +222,19 @@ This flow updates the grooming document only; it does not modify the completed p
 
 ### Decision rules (explicit handoff)
 
-- **Precedence rule:** if an `Implementation_plan-*.md` is in-flight and the user's goal is to unblock active implementation, stay in `/devenv-grooming` by default and facilitate decision closure here.
+- **Precedence rule:** if an `Plan-*.md` is in-flight and the user's goal is to unblock active implementation, stay in `/devenv-grooming` by default and facilitate decision closure here.
 - Route to `/devenv-design-discussion` when two or more viable approaches are still live and the team needs an explicit recommendation.
 - Route to `/devenv-design-discussion` for a single large blocker/question when it needs deeper option-weighing, but the expected outcome is still a bounded plan change rather than a broader design reset.
 - Stay in grooming when the approach is already chosen and the work is to capture/update the architecture delta for in-flight implementation.
 - When the approach comes from an upstream artifact, run the [value-scrutiny pass](#value-scrutiny-of-inherited-decisions) on its inherited decisions before confirming them — "already chosen" upstream does not exempt a decision from the who-consumes-this question.
 - Stay in grooming when questions are accumulating, multiple decisions are entangled, or the current design may need sweeping revision, replacement, or upstream artifact changes.
-- Route to `/devenv-refine-implementation-plan` when architecture is settled, an implementation plan **already exists** for the groomed scope, and the remaining work is sequencing/scope edits in its tasks.
-- Route to `/devenv-create-implementation-plan` when architecture is settled and **no plan exists yet** for the groomed scope — plan generation from a grooming artifact always starts at create, not refine. If the attack plan has multiple rows, create the child issues first so each slice gets its own plan.
+- Route to `/devenv-refine-plan` when architecture is settled, a plan **already exists** for the groomed scope, and the remaining work is sequencing/scope edits in its tasks.
+- Route to `/devenv-create-plan` when architecture is settled and **no plan exists yet** for the groomed scope — plan generation from a grooming artifact always starts at create, not refine. If the attack plan has multiple rows, create the child issues first so each slice gets its own plan.
 - If uncertain between grooming and design-discussion after Phase 1, ask one tie-breaker question: "Are we deciding between approaches broadly, or picking the fastest safe decision to unblock the current plan phase?"
 
 ### Artifact gate before any implementation handoff
 
-Before routing onward to implementation planning or execution, verify all of the following:
+Before routing onward to planning or execution, verify all of the following:
 
 - A grooming document already exists on disk or as an issue artifact.
 - The current design decisions are recorded in that document's `Confirmed`, `Pending`, or `Deferred` tables.
@@ -246,7 +246,7 @@ If any of those checks fail, write or update the grooming document first. Never 
 
 ### Decision carry-forward review (required)
 
-Before final handoff to implementation planning or execution, run a short carry-forward review in chat:
+Before final handoff to planning or execution, run a short carry-forward review in chat:
 
 - List the important points from this grooming pass (confirmed decisions, deferred decisions, non-negotiable constraints, explicit non-goals, and any rejected option that still matters to safe implementation).
 - For each point, show where it is recorded in the grooming document (`Confirmed`, `Pending`, `Deferred`, or question status).
@@ -314,10 +314,10 @@ Record one revision-history entry for the overall grooming update effort when th
 
 If the grooming artifact changed concurrently during iteration, perform one final section-level reread of `Confirmed` and `Outstanding questions` before finalizing, then rerun the decision-package parity check.
 
-When all architecture/design decisions required for execution are confirmed, explicitly hand off to the downstream plan skill instead of editing an implementation plan directly in grooming. Select the successor by artifact state (see the [successor selection gate](../_conventions.md#successor-selection-gate)):
+When all architecture/design decisions required for execution are confirmed, explicitly hand off to the downstream plan skill instead of editing a plan directly in grooming. Select the successor by artifact state (see the [successor selection gate](../_conventions.md#successor-selection-gate)):
 
-- **No implementation plan exists yet for the groomed scope** → [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md). This is the default after initial grooming of new scope. If the attack plan has multiple rows, create the child issues first, then plan one slice at a time.
-- **An in-flight plan exists and needs its decisions/tasks updated** → [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md). When the input was a returned or in-flight implementation plan, make this handoff explicit: point to the plan path/issue, note that the grooming artifact was updated, and instruct the next skill to carry confirmed/deferred decisions into the plan's execution surfaces.
+- **No plan exists yet for the groomed scope** → [`/devenv-create-plan`](../devenv-create-plan/SKILL.md). This is the default after initial grooming of new scope. If the attack plan has multiple rows, create the child issues first, then plan one slice at a time.
+- **An in-flight plan exists and needs its decisions/tasks updated** → [`/devenv-refine-plan`](../devenv-refine-plan/SKILL.md). When the input was a returned or in-flight plan, make this handoff explicit: point to the plan path/issue, note that the grooming artifact was updated, and instruct the next skill to carry confirmed/deferred decisions into the plan's execution surfaces.
 
 Do not hand off until the grooming document on disk or on the issue reflects those confirmed decisions. Never select the successor from naming familiarity — check whether the plan artifact exists first.
 
@@ -333,7 +333,7 @@ When the user asks for a session summary to pass into plan refinement, output a 
 - semantic deltas captured (lane semantics, ownership boundary, failure mode, scope exclusions),
 - explicit non-goals or exclusions added/changed,
 - revision-history entry text added for this effort,
-- downstream mapping for the plan skill (`/devenv-refine-implementation-plan` for an existing plan, `/devenv-create-implementation-plan` when no plan exists yet) (`Watch Outs / Decisions`, task `decision:` metadata, `## Pending Questions`, `## Appendix`),
+- downstream mapping for the plan skill (`/devenv-refine-plan` for an existing plan, `/devenv-create-plan` when no plan exists yet) (`Watch Outs / Decisions`, task `decision:` metadata, `## Pending Questions`, `## Appendix`),
 - unresolved items and recommended first refinement targets.
 
 Summary rules:
@@ -392,13 +392,13 @@ Suggested issue attack plan:
 	Repo: <repo>
 	Size: <S|M|L>
 	Independent production target: yes/no (if no, split further)
-	Planned implementation plan issue/artifact: TBD (or #<issue-number> after creation)
+	Planned plan issue/artifact: TBD (or #<issue-number> after creation)
 
 2. [Fix] <title>
 	Repo: <repo>
 	Size: <S|M|L>
 	Independent production target: yes/no
-	Planned implementation plan issue/artifact: TBD (or #<issue-number> after creation)
+	Planned plan issue/artifact: TBD (or #<issue-number> after creation)
 ```
 
 **Per-decision facilitation** (one at a time):
@@ -441,7 +441,7 @@ Your call: choose A/B(/C) or defer.
 - <exact bullet text or concise equivalent>
 
 ### Carry-forward mapping for the downstream plan skill
-(Use `/devenv-refine-implementation-plan` when a plan already exists; `/devenv-create-implementation-plan` when none does — the same mapping feeds both.)
+(Use `/devenv-refine-plan` when a plan already exists; `/devenv-create-plan` when none does — the same mapping feeds both.)
 - Watch Outs / Decisions: <items>
 - Task-level `decision:` metadata: <items>
 - `## Pending Questions`: <items>
@@ -459,7 +459,7 @@ Your call: choose A/B(/C) or defer.
 - Ignoring plan-provided context when a plan path/issue is supplied.
 - Suggesting implementation skills before architecture path is settled.
 - Treating recommendations as decisions without explicit user confirmation.
-- Recommending `/devenv-refine-implementation-plan` when no plan exists for the groomed scope — plan generation from a fresh grooming artifact starts at `/devenv-create-implementation-plan`; refine is only for aligning an already-existing plan.
+- Recommending `/devenv-refine-plan` when no plan exists for the groomed scope — plan generation from a fresh grooming artifact starts at `/devenv-create-plan`; refine is only for aligning an already-existing plan.
 - Dumping all pending decisions at once and moving on without interactive closure.
 - Skipping Phase 0 (grooming document lookup) and working without a grooming document.
 - Creating a new grooming document without first searching for an existing one.
@@ -473,7 +473,7 @@ Your call: choose A/B(/C) or defer.
 ## Sibling skills
 
 - [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md)
-- [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) — downstream when no plan exists for the groomed scope
-- [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) — downstream when an in-flight plan exists
+- [`/devenv-create-plan`](../devenv-create-plan/SKILL.md) — downstream when no plan exists for the groomed scope
+- [`/devenv-refine-plan`](../devenv-refine-plan/SKILL.md) — downstream when an in-flight plan exists
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

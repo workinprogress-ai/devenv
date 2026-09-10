@@ -23,7 +23,7 @@ updated_at_utc: <ISO-8601>
 
 Each row should be independently deliverable to production.
 
-| Issue type       | Proposed title | Repo | Size (S/M/L) | Independent production target | Planned implementation plan issue/artifact |
+| Issue type       | Proposed title | Repo | Size (S/M/L) | Independent production target | Planned plan issue/artifact |
 | ---------------- | -------------- | ---- | ------------ | ----------------------------- | ------------------------------------------ |
 | Feature/Fix/Task |                |      |              | yes/no                        | TBD                                        |
 
@@ -64,7 +64,7 @@ Freeform: constraints, key insights, rejected directions, operational concerns.
 
 Write this section as the current target state. Do not include prior-state narrative here; place historical change notes in `## Revision History`.
 
-## Related implementation plans
+## Related plans
 
 | Plan file | Repo | Phases | Status |
 | --------- | ---- | ------ | ------ |

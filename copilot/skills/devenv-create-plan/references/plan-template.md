@@ -1,11 +1,11 @@
-# Implementation Plan Template
+# Plan Template
 
 Copy this skeleton verbatim and fill it in. All top-level headings are required, except `## Pending Questions`; `## Appendix` is optional for straightforward work and required for medium/high-complexity plans derived from upstream design artifacts.
 
 ```markdown
 <!-- DEVENV_ARTIFACT_V1
-doc_id: dv1:<owner-repo>:local:implementation-plan:<artifact-slug>
-artifact_type: implementation-plan
+doc_id: dv1:<owner-repo>:local:plan:<artifact-slug>
+artifact_type: plan
 artifact_scope: local-file
 issue_number: <N | none>
 source_file: <workspace-relative file path>

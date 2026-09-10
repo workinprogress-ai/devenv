@@ -14,13 +14,13 @@ argument-hint: A question / problem statement to investigate, OR a GitHub issue 
 
 > **Scope fence.** Read and explore freely across `repos/` — the investigation may wander in pursuit of the answer. But modify code ONLY in the agreed target repo(s), and only with the consent flow above. Expanding the change-scope requires explicit user permission, raised as a `🔶` decision gate.
 
-Run a focused, exploratory investigation of an open question. Output is a structured findings doc and (optionally) throwaway prototype code — never production code. The goal is to reduce uncertainty before committing to a real implementation plan.
+Run a focused, exploratory investigation of an open question. Output is a structured findings doc and (optionally) throwaway prototype code — never production code. The goal is to reduce uncertainty before committing to a real plan.
 
 ## When to Use
 
 - The user wants to know whether something is feasible before committing to it.
 - The right approach is unclear and needs to be discovered, not designed up front.
-- A `/devenv-create-implementation-plan` invocation would stall on too many unknowns.
+- A `/devenv-create-plan` invocation would stall on too many unknowns.
 - A question can be answered faster by trying it than by reasoning about it.
 
 If the user wants production code, use `/devenv-pair-programming` (collaborative) or `/devenv-delegation` (commissioned autonomous mechanical run). If the user wants to think out loud without producing artifacts, use `/devenv-rubber-duck`.
@@ -74,9 +74,9 @@ Do the work:
   > *"To answer this, I need to [specific modification] in `repos/<target>`. That's a behavior-altering edit — afterward you'd `git reset` this repo (your hands, not mine). I'll mark it `TODO:(DEVENV[spike]): ...`. Proceed?"*
   On approval: make the minimal change, mark it, run the experiment, capture results. Never widen beyond what was approved.
 - Run experiments. Capture commands, outputs, and observations as you go (you'll need them for the findings doc).
-- If the spike grows beyond rough exploration, stop and recommend `/devenv-create-implementation-plan` instead.
+- If the spike grows beyond rough exploration, stop and recommend `/devenv-create-plan` instead.
 
-**Before closeout, decide modified-code fate:** if in-repo edits were made, ask the user what survives — keep (cherry-pick into a real branch/plan), discard (dies with the user's `git reset`), or promote (becomes the seed of an implementation plan). Flag anything worth salvaging BEFORE the reset; once the user resets, uncommitted experiments are gone.
+**Before closeout, decide modified-code fate:** if in-repo edits were made, ask the user what survives — keep (cherry-pick into a real branch/plan), discard (dies with the user's `git reset`), or promote (becomes the seed of a plan). Flag anything worth salvaging BEFORE the reset; once the user resets, uncommitted experiments are gone.
 
 ### 4. Write the findings doc
 
@@ -113,7 +113,7 @@ Write `spike-NNN-<topic>.md` at the workspace root, where `NNN` comes from `next
 
 ## Open questions
 
-<Anything the spike surfaced but didn't answer. These are inputs to the next spike or to `/devenv-create-implementation-plan`.>
+<Anything the spike surfaced but didn't answer. These are inputs to the next spike or to `/devenv-create-plan`.>
 ```
 
 ### 5. Summarise to chat
@@ -124,7 +124,7 @@ Inline summary: 3–5 bullets covering the question, the verdict, and the artifa
 
 After writing the findings doc, ask:
 
-> *"Want to track this in a GitHub issue? I can create a new one, or post the findings to an existing issue number. The findings doc will go in a comment; the description stays as a short placeholder for `/devenv-create-implementation-plan`."*
+> *"Want to track this in a GitHub issue? I can create a new one, or post the findings to an existing issue number. The findings doc will go in a comment; the description stays as a short placeholder for `/devenv-create-plan`."*
 
 If yes:
 
@@ -140,7 +140,7 @@ If yes:
    Next step depends on the scope of work the spike revealed:
    - System-level architectural work → `/devenv-create-blueprint`
    - Component design direction needed before tasks can be written → `/devenv-grooming`
-   - Narrow, well-scoped implementation (spike answered the key unknowns) → `/devenv-create-implementation-plan <issue number>`
+   - Narrow, well-scoped implementation (spike answered the key unknowns) → `/devenv-create-plan <issue number>`
 
    Findings file: `<workspace-relative path to spike-NNN-<topic>.md>`
    Prototype: `<path>` (if applicable)
@@ -176,7 +176,7 @@ Never create an issue or post a comment without explicit "yes" confirmation.
 
 ## Anti-patterns
 
-- **Drifting into production code** — spikes are throwaway. If the prototype is becoming clean and complete, stop and write a plan with `/devenv-create-implementation-plan`. Resist the urge to "just polish it a bit". (Empowered in-repo experiments are not production code — they are marked, consented, and reset away.)
+- **Drifting into production code** — spikes are throwaway. If the prototype is becoming clean and complete, stop and write a plan with `/devenv-create-plan`. Resist the urge to "just polish it a bit". (Empowered in-repo experiments are not production code — they are marked, consented, and reset away.)
 - **Unannounced aggression** — modifying target-repo code, deleting anything, or mutating environments without the consent gate and a stated recovery route. Powerful but announced, always.
 - **Treating a declined measure as a dead end** — disapproval reroutes the investigation (deeper reading, `playground/` prototype, different experiment); only exhausted alternates stop it, and any aggressive alternate re-enters the gate.
 - **Unmarked in-repo edits** — empowered changes without `TODO:(DEVENV[spike]): ...` markers can slip into a commit; the marker keeps the reset clean and intentional.
@@ -189,7 +189,7 @@ Never create an issue or post a comment without explicit "yes" confirmation.
 
 ## Sibling skills
 
-- `/devenv-create-implementation-plan` — use spike findings as input to a real plan.
+- `/devenv-create-plan` — use spike findings as input to a real plan.
 - `/devenv-design-discussion` — when the question is "which approach?" not "is this feasible?" — reasoning, not prototyping.
 - `/devenv-refine-blueprint` — if the spike changes or invalidates an architectural decision, follow up here.
 - `/devenv-rubber-duck` — lighter-weight thinking-out-loud without artifacts.

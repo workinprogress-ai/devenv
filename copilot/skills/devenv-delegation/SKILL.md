@@ -1,6 +1,6 @@
 ---
 name: devenv-delegation
-description: 'Drive implementation of a pre-existing plan with assistant-led execution and user review. USE WHEN the user says "delegate this to you", "you take this", "run with this", "implement this plan", "work through this plan", or "do this for me" with a plan attached, AND the work is mechanical, rote, or low-impact (refactors, rename sweeps, test scaffolding, cleanup, docs). REQUIRES a persistent, validated ledger — normally an implementation plan (file path or GH issue with a plan in the body); an ad-hoc decomposed task list is acceptable as input only via a viability audit and materialization into a plan file at kickoff, never as a bare in-context list. Works phase by phase: uses acceptance criteria and human-facing phase summaries as the review guide, refreshes and confirms the phase task list as the current-state execution ledger, runs a full phase semi-autonomously (stopping only for ambiguity, major decisions, or unexpected obstacles), then hands back with a structured phase completion summary including hotspots, decisions made, and any deviations noted. Phase-boundary policy is set at commissioning: gate mode (default — stop and hand back at every boundary) or checkpoint mode (run the full boundary protocol but continue unless the boundary evaluation — deviations, risk shifts, blocked gates, contract changes — says the user should see it; forced-stop triggers apply regardless). The handback window is pair-like: questions, discussion, and small fixing work until execution resumes at explicit direction. SUGGESTS switching to `/devenv-pair-programming` for high-impact phases; respects the user''s decision either way. DO NOT USE for ad-hoc work without a plan or decomposed list (use `/devenv-create-implementation-plan` first), or highly collaborative work where the user wants to drive (use `/devenv-pair-programming`).'
+description: 'Drive implementation of a pre-existing plan with assistant-led execution and user review. USE WHEN the user says "delegate this to you", "you take this", "run with this", "implement this plan", "work through this plan", or "do this for me" with a plan attached, AND the work is mechanical, rote, or low-impact (refactors, rename sweeps, test scaffolding, cleanup, docs). REQUIRES a persistent, validated ledger — normally a plan (file path or GH issue with a plan in the body); an ad-hoc decomposed task list is acceptable as input only via a viability audit and materialization into a plan file at kickoff, never as a bare in-context list. Works phase by phase: uses acceptance criteria and human-facing phase summaries as the review guide, refreshes and confirms the phase task list as the current-state execution ledger, runs a full phase semi-autonomously (stopping only for ambiguity, major decisions, or unexpected obstacles), then hands back with a structured phase completion summary including hotspots, decisions made, and any deviations noted. Phase-boundary policy is set at commissioning: gate mode (default — stop and hand back at every boundary) or checkpoint mode (run the full boundary protocol but continue unless the boundary evaluation — deviations, risk shifts, blocked gates, contract changes — says the user should see it; forced-stop triggers apply regardless). The handback window is pair-like: questions, discussion, and small fixing work until execution resumes at explicit direction. SUGGESTS switching to `/devenv-pair-programming` for high-impact phases; respects the user''s decision either way. DO NOT USE for ad-hoc work without a plan or decomposed list (use `/devenv-create-plan` first), or highly collaborative work where the user wants to drive (use `/devenv-pair-programming`).'
 argument-hint: '<issue-number[:doc_id] | path-to-plan | ad-hoc task list> [phase or task range]'
 user-invocable: true
 ---
@@ -39,13 +39,13 @@ Trigger phrases:
 
 Do **not** use for:
 
-- Work without an existing plan → use [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) first.
+- Work without an existing plan → use [`/devenv-create-plan`](../devenv-create-plan/SKILL.md) first.
 - High-impact / collaborative work → use [`/devenv-pair-programming`](../devenv-pair-programming/SKILL.md).
 - Ad-hoc requests with no structure.
 
 ## Core Principles
 
-1. **Plan required.** No plan, no delegation. Refuse and redirect. The requirement is for a **persistent, validated ledger** — normally an `Implementation_plan-*.md` from the planning skills, but an ad-hoc task list is acceptable **input** if it passes the ad-hoc intake gate (see [Ad-Hoc Task List Intake](#ad-hoc-task-list-intake)) and gets materialized into a plan file first. An in-context list (pasted or carried from a pair-programming session) is never the ledger itself.
+1. **Plan required.** No plan, no delegation. Refuse and redirect. The requirement is for a **persistent, validated ledger** — normally an `Plan-*.md` from the planning skills, but an ad-hoc task list is acceptable **input** if it passes the ad-hoc intake gate (see [Ad-Hoc Task List Intake](#ad-hoc-task-list-intake)) and gets materialized into a plan file first. An in-context list (pasted or carried from a pair-programming session) is never the ledger itself.
 2. **Engagement floor — the AI is the principal driver.** The human stays in the loop with brief task pings, inline concern surfacing, and a structured end-of-session summary with **review hotspots**. This is the mirror image of pair-programming's user-drives default: here the AI drives and the user supervises from the handback gates — phase completions, mid-phase stops, and aborts are all handback points. Handbacks exist to make that supervision cheap — surface hotspots, deviations, and decisions so a supervisor can review without re-reading the whole diff.
 3. **Phase-first, AC-first review.** Use acceptance criteria plus goals, context, and phase summaries as the source of truth; the phase task list is the authoritative current-state execution ledger.
 4. **Runtime micro-planning = task-list refresh.** At phase start, refresh and confirm the current phase task list, then execute from it. Do not run a parallel shadow checklist.
@@ -123,18 +123,18 @@ Run these in order.
 Ask if not provided: GH issue # or path to a plan markdown.
 
 - **GH issue**:
-  1. First, check whether a local `Implementation_plan-issue-<N>-*.md` already exists in the target repo root. If it does, **use it** — it carries checkbox progress from prior sessions and is the source of truth. Skip to the drift check.
-   2. If no local file exists, resolve one implementation-plan artifact comment for this issue:
+  1. First, check whether a local `Plan-issue-<N>-*.md` already exists in the target repo root. If it does, **use it** — it carries checkbox progress from prior sessions and is the source of truth. Skip to the drift check.
+   2. If no local file exists, resolve one plan artifact comment (legacy artifacts are typed implementation-plan) for this issue:
       - If user provided `doc_id`, use `issue-artifact-select --issue <N> --doc-id <DOC_ID>`.
-      - Otherwise use `issue-artifact-select --issue <N> --artifact-type implementation-plan`; if ambiguous, list candidates with `issue-artifact-list --issue <N> --artifact-type implementation-plan --pretty` and ask the user which `doc_id` to use.
-  3. Fetch the selected artifact via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --write-body $(next-id --pattern 'Implementation_plan-issue-<N>-{N}.md' --dir <repo-root> --filename)` — the tool writes the raw markdown to the next free suffix (never overwrites an existing file).
-  4. **Work exclusively from the local file from this point on.** Record its workspace-relative path (e.g. `repos/lib.cs.services.bulk-sync/Implementation_plan-issue-42-001.md`) — this is the `<plan_file>` for `markdown-plan-complete-task` calls throughout the session. Pass it explicitly when running from a directory other than the plan's own — the tool auto-detects `Implementation_plan-*.md` only in the current directory. Checkbox updates go to the file; issue artifact syncs at phase boundaries upsert the same `doc_id` back to the issue.
+      - Otherwise use `issue-artifact-select --issue <N> --artifact-type plan`; if ambiguous, list candidates with `issue-artifact-list --issue <N> --artifact-type plan --pretty` and ask the user which `doc_id` to use.
+  3. Fetch the selected artifact via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --write-body $(next-id --pattern 'Plan-issue-<N>-{N}.md' --dir <repo-root> --filename)` — the tool writes the raw markdown to the next free suffix (never overwrites an existing file).
+  4. **Work exclusively from the local file from this point on.** Record its workspace-relative path (e.g. `repos/lib.cs.services.bulk-sync/Plan-issue-42-001.md`) — this is the `<plan_file>` for `markdown-plan-complete-task` calls throughout the session. Pass it explicitly when running from a directory other than the plan's own — the tool auto-detects `Plan-*.md` only in the current directory. Checkbox updates go to the file; issue artifact syncs at phase boundaries upsert the same `doc_id` back to the issue.
 - **Plan file**: read it. Then determine whether there is an associated GH issue for artifact sync:
    1. If the user provided an issue number, use it.
-   2. Else, if filename matches `Implementation_plan-issue-<N>-*.md`, infer `<N>`.
+   2. Else, if filename matches `Plan-issue-<N>-*.md`, infer `<N>`.
    3. If an issue number is known, resolve artifact identity for sync:
        - If the plan header has non-empty `doc_id`, use that value — read it via `artifact-header <plan_file> --field doc_id` (never hand-parse the header).
-       - Otherwise run `issue-artifact-select --issue <N> --artifact-type implementation-plan`; if ambiguous, list candidates and ask the user to choose `doc_id`.
+       - Otherwise run `issue-artifact-select --issue <N> --artifact-type plan`; if ambiguous, list candidates and ask the user to choose `doc_id`.
    4. Record associated `<N>` and `<DOC_ID>` in session context.
 - For either GH-issue or plan-file entry paths, record the target repo root in session context and run all repo-scoped tooling from that directory before each command block.
 - If associated `<N>` + `<DOC_ID>` are known, run a **one-time artifact freshness check at session start** (not at each phase end):
@@ -142,7 +142,7 @@ Ask if not provided: GH issue # or path to a plan markdown.
    2. Compare with the local `<plan_file>` via `diff /tmp/artifact-fresh.md <plan_file>` — identical output means fresh; any difference is drift to review.
    3. If materially different, reconcile before execution (ask user whether to adopt remote, keep local, or merge).
    4. During the same session, treat the local working copy as authoritative unless the user indicates external edits occurred.
-- **No plan or too thin**: refuse delegation. Redirect to `/devenv-create-implementation-plan` to draft one first, or `/devenv-refine-implementation-plan` if the plan exists but lacks the human-facing sections.
+- **No plan or too thin**: refuse delegation. Redirect to `/devenv-create-plan` to draft one first, or `/devenv-refine-plan` if the plan exists but lacks the human-facing sections.
 
 ### 1b. Quick drift check
 
@@ -155,9 +155,9 @@ After loading, scan for obvious staleness signals before going any further:
 
 **If two or more signals are present**, flag it before continuing:
 
-> *"This plan shows signs of drift: [list the specific signals]. I'd recommend running `/devenv-refine-implementation-plan` (assessment mode) before we start to make sure we're working from a plan that matches the current codebase. Want to do that now, or proceed as-is?"*
+> *"This plan shows signs of drift: [list the specific signals]. I'd recommend running `/devenv-refine-plan` (assessment mode) before we start to make sure we're working from a plan that matches the current codebase. Want to do that now, or proceed as-is?"*
 
-Wait for the user's answer. If they say proceed, note the signals in the first phase's completion handback open questions section and continue. If they say refresh, tell them to invoke `/devenv-refine-implementation-plan` in assessment mode (new skill invocation required) and stop.
+Wait for the user's answer. If they say proceed, note the signals in the first phase's completion handback open questions section and continue. If they say refresh, tell them to invoke `/devenv-refine-plan` in assessment mode (new skill invocation required) and stop.
 
 **If fewer than two signals**, continue silently.
 
@@ -193,7 +193,7 @@ When handed an ad-hoc decomposed task list — pasted into chat or carried over 
    - **Verifiable** — each task has a completion signal: a test, a build, or an observable outcome.
    - **Unsmuggled impact** — nothing public-API, data-shape, or security-flavored dressed in mechanical wording.
 3. **Materialize on pass.** Write the list into a minimal plan file (goal line, checkboxed tasks, acceptance = task completion conditions + tests pass), name the file, and get explicit user approval of it before executing.
-4. **Route on fail.** If any audit condition fails, refuse the list and recommend `/devenv-create-implementation-plan` — audit failure is itself evidence the work needs real planning, not transcription.
+4. **Route on fail.** If any audit condition fails, refuse the list and recommend `/devenv-create-plan` — audit failure is itself evidence the work needs real planning, not transcription.
 
 A pair-programming conversational chunk list is an agreement about conversation cadence; a delegation ledger is a commissioning document for autonomy. The audit + materialization step is where that difference gets checked — explicitly, not by assumption.
 
@@ -474,7 +474,7 @@ Any yes — or any doubt — hands back to the user with the report before conti
 
 ### GH issue artifact sync
 
-If there is an **associated GH issue + implementation-plan artifact identity** (`<N>` + `<DOC_ID>` in session context), sync that artifact comment with `issue-artifact-upsert` using the local plan file as source of truth.
+If there is an **associated GH issue + plan artifact identity** (`<N>` + `<DOC_ID>` in session context), sync that artifact comment with `issue-artifact-upsert` using the local plan file as source of truth.
 
 Required sync points:
 
@@ -526,7 +526,7 @@ The user decides how to investigate. The AI provides evidence; the human directs
 
 > **Switching to pair-programming mid-session:** if the user wants to switch, tell them explicitly: *"To get the full pair-programming rules, please start a new chat and invoke `/devenv-pair-programming` — continuing in this session means the pair-programming skill isn't loaded and its rules won't apply."* Do not continue in delegation mode pretending to pair-program.
 
-When escalation indicates the plan itself is no longer reliable, recommend `/devenv-refine-implementation-plan` before continuing implementation.
+When escalation indicates the plan itself is no longer reliable, recommend `/devenv-refine-plan` before continuing implementation.
 
 Before making that recommendation, write an escalation handoff record into the plan using existing sections:
 

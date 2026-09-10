@@ -56,7 +56,7 @@ Never create an issue or post a comment without explicit "yes" confirmation.
 Design grooming notes are in a comment identified by artifact doc_id.
 
 Next step: use `/devenv-design-discussion`, `/devenv-grooming`, or
-`/devenv-create-implementation-plan` as appropriate.
+`/devenv-create-plan` as appropriate.
 Document file: `<workspace-relative path to the relevant design or planning artifact>`
 ```
 
@@ -69,7 +69,7 @@ Document file: `<workspace-relative path to the relevant design or planning arti
 ```
 Grooming notes are in a comment identified by artifact doc_id.
 
-Next step: continue with `/devenv-design-discussion` or `/devenv-create-implementation-plan` as appropriate.
+Next step: continue with `/devenv-design-discussion` or `/devenv-create-plan` as appropriate.
 Document file: `<workspace-relative path to the relevant design artifact>`
 ```
 
@@ -82,7 +82,7 @@ Document file: `<workspace-relative path to the relevant design artifact>`
 ```
 Design discussion document is in a comment identified by artifact doc_id.
 
-Next step: use `/devenv-create-implementation-plan`
+Next step: use `/devenv-create-plan`
 to move from design to implementation.
 ```
 
@@ -98,7 +98,7 @@ Without focus area: `Tech Debt Audit — <repo-name> — <YYYY-MM-DD>`
 Tech debt audit findings are in a comment identified by artifact doc_id.
 
 Document file: `<workspace-relative path to TECH_DEBT_AUDIT.md>`
-Next step: create an implementation plan from the Top Findings section.
+Next step: create a plan from the Top Findings section.
 ```
 
 **Artifact mapping for doc_id metadata:**

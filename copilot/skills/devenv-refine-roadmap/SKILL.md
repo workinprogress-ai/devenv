@@ -107,7 +107,7 @@ Republish the scratch copy to the same artifact: `issue-artifact-upsert --issue 
 After writing, list what may need follow-up:
 
 - **Status sync**: structural edits don't refresh issue/PR status → suggest [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md)
-- **Implementation plan impact**: plans tied to superseded or split steps may need updating → suggest [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) for affected plans
+- **Plan impact**: plans tied to superseded or split steps may need updating → suggest [`/devenv-refine-plan`](../devenv-refine-plan/SKILL.md) for affected plans
 - **Blueprint drift**: if the structural change reveals a deeper architectural issue, file an **upstream-impact issue** (`issue-create --type Task --label upstream-impact --no-template` in the planning repo — `GITHUB_REPO` is already set) describing what changed, why it matters, and the affected blueprint sections — then also suggest [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) directly if the user wants to cascade now
 
 ## Anti-patterns
@@ -128,6 +128,6 @@ After writing, list what may need follow-up:
 - [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md) — to sync step status from issues/PRs after structural edits
 - [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) — when the underlying architecture needs changing too
 - [`/devenv-refine-specifications`](../devenv-refine-specifications/SKILL.md) — when stakeholder priorities or specifications changed
-- [`/devenv-refine-implementation-plan`](../devenv-refine-implementation-plan/SKILL.md) — for plans tied to affected steps
+- [`/devenv-refine-plan`](../devenv-refine-plan/SKILL.md) — for plans tied to affected steps
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

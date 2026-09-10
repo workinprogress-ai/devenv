@@ -1,6 +1,6 @@
 ---
 name: devenv-create-roadmap
-description: 'Produce a delivery roadmap from a blueprint, a specifications doc, or both, publishing it as an artifact comment on a parent epic in the planning repo, then optionally creating child issues across component repos. USE WHEN the user says "create a roadmap", "plan delivery order", "build a roadmap from this blueprint", "build a roadmap from these specifications", "lay out the delivery phases", or hands off a blueprint or specifications doc that needs sequencing into deliverable phases. Produces a Roadmap-<system>-NNN artifact (doc_id-addressed comment on the epic) with PHASE-NN groupings of high-level STEP-NN entries and dependency arrows; the epic body holds a markdown task list of child issues. Roadmaps are GitHub artifacts, not source-controlled files — no long-lived local copy is kept. DO NOT USE for low-level task breakdown (use /devenv-create-implementation-plan), for syncing roadmap state to issue state (use /devenv-update-roadmap), or for structurally revising an existing roadmap (use /devenv-refine-roadmap).'
+description: 'Produce a delivery roadmap from a blueprint, a specifications doc, or both, publishing it as an artifact comment on a parent epic in the planning repo, then optionally creating child issues across component repos. USE WHEN the user says "create a roadmap", "plan delivery order", "build a roadmap from this blueprint", "build a roadmap from these specifications", "lay out the delivery phases", or hands off a blueprint or specifications doc that needs sequencing into deliverable phases. Produces a Roadmap-<system>-NNN artifact (doc_id-addressed comment on the epic) with PHASE-NN groupings of high-level STEP-NN entries and dependency arrows; the epic body holds a markdown task list of child issues. Roadmaps are GitHub artifacts, not source-controlled files — no long-lived local copy is kept. DO NOT USE for low-level task breakdown (use /devenv-create-plan), for syncing roadmap state to issue state (use /devenv-update-roadmap), or for structurally revising an existing roadmap (use /devenv-refine-roadmap).'
 argument-hint: 'Path to a Blueprint-*.md and/or a Specifications-*.md (at least one required)'
 user-invocable: true
 ---
@@ -9,7 +9,7 @@ user-invocable: true
 
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
-Take a blueprint, a specifications document, or both, and produce a **delivery roadmap** — a phased, high-level sequencing of work that respects dependencies and surfaces business priority. The roadmap is the link between intent (specifications / architecture) and execution: each step is the seed for one or more GitHub issues and (later) implementation plans.
+Take a blueprint, a specifications document, or both, and produce a **delivery roadmap** — a phased, high-level sequencing of work that respects dependencies and surfaces business priority. The roadmap is the link between intent (specifications / architecture) and execution: each step is the seed for one or more GitHub issues and (later) plans.
 
 This skill is also the **canonical entry point for creating GitHub issues** from a specifications or blueprint document. Other skills that need bulk issue creation route through here.
 
@@ -24,7 +24,7 @@ Trigger phrases:
 
 Do **not** use for:
 
-- Low-level task breakdown → [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md)
+- Low-level task breakdown → [`/devenv-create-plan`](../devenv-create-plan/SKILL.md)
 - Syncing roadmap state from existing issues → [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md)
 - Structurally revising an existing roadmap (split steps, re-sequence, add new components) → [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md)
 - Creating a brand-new specifications doc → [`/devenv-write-specifications`](../devenv-write-specifications/SKILL.md) first
@@ -69,7 +69,7 @@ Produce a `Roadmap-<system>-NNN` artifact where:
 - `<system>` matches the blueprint's system name
 - `NNN` is a zero-padded numeric suffix
 
-**Roadmaps are GitHub artifacts, not files in source control.** The roadmap lives as a `doc_id`-addressed artifact comment on the parent epic in the planning repo (same pattern as implementation-plan artifacts; see [issue-artifact-integration.md](../common/references/issue-artifact-integration.md)). The epic body is a short placeholder plus the task list of child issues; the roadmap content is in the artifact comment.
+**Roadmaps are GitHub artifacts, not files in source control.** The roadmap lives as a `doc_id`-addressed artifact comment on the parent epic in the planning repo (same pattern as plan artifacts; see [issue-artifact-integration.md](../common/references/issue-artifact-integration.md)). The epic body is a short placeholder plus the task list of child issues; the roadmap content is in the artifact comment.
 
 During the session, work on a local scratch copy (e.g. `/tmp/roadmap-<system>-NNN.md`). The scratch copy is session working state only — it is not committed and not kept after the roadmap is published. The published artifact comment is the single source of truth. Pull/edit/republish mechanics follow the shared [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md).
 
@@ -267,7 +267,7 @@ Then republish: `issue-artifact-upsert --issue <epic-number> --body-file <scratc
 After the roadmap is created and issues exist:
 
 - **Track delivery progress**: [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md) syncs roadmap step status from issue/PR state.
-- **Implement a step**: [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) on the issue produces task-level detail.
+- **Implement a step**: [`/devenv-create-plan`](../devenv-create-plan/SKILL.md) on the issue produces task-level detail.
 - **Architecture changed**: [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) → then re-run this skill to add new steps.
 
 ## Anti-patterns

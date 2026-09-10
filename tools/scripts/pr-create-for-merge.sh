@@ -143,7 +143,7 @@ git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "Directory $REPO_D
 
 # Refuse to open a PR if implementation plan files are present in the repo root.
 # These are working files that belong in the GitHub issue, not in the commit history.
-mapfile -t PLAN_FILES < <(find . -maxdepth 1 -name 'Implementation_plan*.md' 2>/dev/null | sort)
+mapfile -t PLAN_FILES < <(find . -maxdepth 1 \( -name 'Plan-*.md' -o -name 'Implementation_plan-*.md' \) 2>/dev/null | sort)
 if [ ${#PLAN_FILES[@]} -gt 0 ]; then
   echo "Error: Implementation plan file(s) found in the repo root:" >&2
   for f in "${PLAN_FILES[@]}"; do

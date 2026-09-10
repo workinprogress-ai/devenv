@@ -42,7 +42,7 @@ Trigger phrases (continuation mode):
 
 - Correcting, rewording, or removing specific specification items when you already know what should change → [`/devenv-refine-specifications`](../devenv-refine-specifications/SKILL.md) (apply known changes directly)
 - Quick inline feature clarification — just ask directly
-- Code or implementation planning
+- Code or planning
 
 ## Philosophy
 
@@ -339,7 +339,7 @@ Do not proceed until the human explicitly approves. Do not proceed if any consis
 
 **Goal:** Group specification items into stakeholder-priority buckets that capture business sequencing intent. This is **not a delivery roadmap** — it carries no architectural ordering, no component assignments, and no implementation sizing.
 
-> **Important boundary.** Phase 3 produces *priority groups* of specification items (e.g. "GROUP-01: MVP", "GROUP-02: Post-launch hardening"). These reflect the stakeholder's view of what must come first. Actual delivery sequencing — step-by-step, dependency-respecting, component-aware, with GitHub issues — is the job of [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md), which runs *after* a blueprint exists. Each specification item here may later span multiple roadmap steps and multiple `Implementation_plan-*.md` files.
+> **Important boundary.** Phase 3 produces *priority groups* of specification items (e.g. "GROUP-01: MVP", "GROUP-02: Post-launch hardening"). These reflect the stakeholder's view of what must come first. Actual delivery sequencing — step-by-step, dependency-respecting, component-aware, with GitHub issues — is the job of [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md), which runs *after* a blueprint exists. Each specification item here may later span multiple roadmap steps and multiple `Plan-*.md` files.
 
 #### Step 1: Identify natural groupings
 
@@ -492,7 +492,7 @@ Do not declare stability if blocking contradictions remain unresolved.
 - Writing specification items without acceptance criteria.
 - Writing the output file before Phase 3 is approved.
 - Merging `session_memory-specifications.md` to the main branch.
-- Conflating priority groupings (this skill's Phase 3) with a delivery roadmap (`/devenv-create-roadmap`) or an implementation plan (`/devenv-create-implementation-plan`).
+- Conflating priority groupings (this skill's Phase 3) with a delivery roadmap (`/devenv-create-roadmap`) or a plan (`/devenv-create-plan`).
 - **Jumping to detailed specification items during Phase 1** because the user mentioned specifics — park the details, finish the vision first.
 - **Writing episodes before Phase 3 is approved** — they'll be stale before the ink is dry.
 - **Putting implementation details or exception-path coverage into episodes** — episodes illustrate happy and common paths only.
@@ -504,7 +504,7 @@ This skill produces a specifications document that feeds directly into:
 - [`/devenv-refine-specifications`](../devenv-refine-specifications/SKILL.md) — revise the document later when scope shifts or new communications arrive
 - [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) — translate specification items into an architectural blueprint for epic-scale work
 - [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) — produce a real delivery roadmap (after a blueprint exists); supersedes Phase 3's priority groupings for execution purposes
-- [`/devenv-create-implementation-plan`](../devenv-create-implementation-plan/SKILL.md) — interview-driven planning for a specific specification item or group, or a complete spec/RFC
+- [`/devenv-create-plan`](../devenv-create-plan/SKILL.md) — interview-driven planning for a specific specification item or group, or a complete spec/RFC
 
 ## Companion Tooling
 

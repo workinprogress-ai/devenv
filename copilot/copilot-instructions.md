@@ -127,7 +127,7 @@ For `git`: prefer `git-*` wrappers when one exists for a non-trivial operation; 
 
 **English is the language of the codebase — including markdown.** Everything that lives in a repository is English, no exceptions:
 - **Code in all forms** — identifiers, variable/function/class/test names, code comments, and inline documentation.
-- **Markdown and documentation** — READMEs, docs, ADRs, and planning artifacts (implementation plans, blueprints, roadmaps, specifications docs, spike results, session handoffs).
+- **Markdown and documentation** — READMEs, docs, ADRs, and planning artifacts (plans, blueprints, roadmaps, specifications docs, spike results, session handoffs).
 - **Commit messages and GitHub text** — commit titles/bodies, issue bodies, titles, comments, and PR descriptions posted via tools.
 
 **Translation copies of artifacts:** if the user asks for a translation of an artifact, a copy of it may be output in the user's language (typically to a temp or scratch file). The principal artifact in the repository remains in English.
@@ -232,6 +232,6 @@ When the user asks to write markdown to a temporary file, or asks for markdown w
 - Check existing `tmp*.md` files in the repo root first and use the next free number. Do not overwrite an existing tmp markdown unless it is clearly safe to do so.
 - These files are routinely deleted or modified by the user between sessions — never assume you know what a `tmpN.md` contains; re-read it before any overwrite or reuse.
 - Ephemeral files are not persisted artifacts: no `DEVENV_ARTIFACT_V1` header, no `doc_id`.
-- This rule covers only clearly ephemeral content. Durable artifacts (implementation plans, grooming documents, spike findings, roadmaps) follow their own skill conventions.
+- This rule covers only clearly ephemeral content. Durable artifacts (plans, grooming documents, spike findings, roadmaps) follow their own skill conventions.
 
 This is a sibling rule to the DEVENV remove-before-ship rule above, covering the distinct class of **permanent unmarked** provenance comments: DEVENV markers are tracked temporaries (removed on schedule); ephemeral references in unmarked comments are untracked permanents (never valid in shipped code).

@@ -1,6 +1,6 @@
 ---
 name: devenv-tech-debt-audit
-description: Thorough, opinionated tech debt, architecture, and correctness-risk audit of one or more repos, with optional focus on a specific functional area. Produces TECH_DEBT_AUDIT.md with file-cited findings, severity, effort estimates, a required "Top bug risks" section, and a required "looks bad but is actually fine" section. After writing the audit, offers to create a GitHub issue (findings in a comment; description is a placeholder for an implementation plan). USE WHEN the user says "audit this repo", "tech debt audit", "codebase health check", "architecture review", "code quality assessment", "run a debt audit on", or hands off a repo path or GitHub issue number for audit. Reads the GitHub issue body for guiding instructions when an issue number is given, then posts the executive summary as a comment. Equally tuned for C#/.NET and TypeScript stacks. DO NOT USE FOR reviewing a single PR (use `/devenv-code-review`), general pair programming (use `/devenv-pair-programming`), or producing an implementation plan from findings (use `/devenv-create-implementation-plan` after the audit is complete).
+description: Thorough, opinionated tech debt, architecture, and correctness-risk audit of one or more repos, with optional focus on a specific functional area. Produces TECH_DEBT_AUDIT.md with file-cited findings, severity, effort estimates, a required "Top bug risks" section, and a required "looks bad but is actually fine" section. After writing the audit, offers to create a GitHub issue (findings in a comment; description is a placeholder for a plan). USE WHEN the user says "audit this repo", "tech debt audit", "codebase health check", "architecture review", "code quality assessment", "run a debt audit on", or hands off a repo path or GitHub issue number for audit. Reads the GitHub issue body for guiding instructions when an issue number is given, then posts the executive summary as a comment. Equally tuned for C#/.NET and TypeScript stacks. DO NOT USE FOR reviewing a single PR (use `/devenv-code-review`), general pair programming (use `/devenv-pair-programming`), or producing a plan from findings (use `/devenv-create-plan` after the audit is complete).
 argument-hint: Repo path(s) (e.g. repos/lib.cs.services.bulk-sync), a GitHub issue number, or repo path(s) followed by a quoted focus area description (e.g. repos/lib.cs.services.chassis "plugin pipeline and built-in plugins")
 ---
 
@@ -20,7 +20,7 @@ When invoked via `/devenv-tech-debt-audit`, follow the protocol below exactly.
 - Producing an audit artifact to anchor a tech debt discussion or planning session.
 - Following up on a GitHub issue that requests an audit with specific scope or dimension instructions.
 
-Do **not** use for reviewing a single PR (use `/devenv-code-review`), for pair programming on specific tasks (use `/devenv-pair-programming`), or for breaking down findings into actionable tasks (use `/devenv-create-implementation-plan` once the audit is in hand).
+Do **not** use for reviewing a single PR (use `/devenv-code-review`), for pair programming on specific tasks (use `/devenv-pair-programming`), or for breaking down findings into actionable tasks (use `/devenv-create-plan` once the audit is in hand).
 
 ## Core Principles
 
