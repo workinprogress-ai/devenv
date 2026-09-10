@@ -1,7 +1,7 @@
 ---
 name: devenv-address-pr-comments
-description: 'Address PR review feedback with AI handling clear threads automatically and surfacing the complex ones for direction. USE WHEN the user says "address PR comments", "work through the review feedback", "go through the PR comments with me", "respond to reviewer comments", "let''s address this PR review together", "fix the nits", or wants any guided workflow for PR review feedback. Loads threads, classifies them, auto-fixes the clear ones (nits, obvious requests-for-change) with a single consent gate, then surfaces questions, informational/praise, and high-impact threads one by one with a recommendation. Offers a conventional commit suggestion at the end — never commits. DO NOT USE FOR opening a PR (use `/devenv-open-pr`), doing the code review yourself (use `/devenv-code-review`), or responding to CI failures.'
-argument-hint: PR number (auto-detected from current branch if omitted)
+description: 'Address PR review feedback with AI handling clear threads automatically and surfacing the complex ones for direction. USE WHEN the user says "address PR comments", "work through the review feedback", "go through the PR comments with me", "respond to reviewer comments", "let''s address this PR review together", "fix the nits", or wants any guided workflow for PR review feedback — from a live PR (PR number) or a markdown document holding captured review feedback (e.g. a saved /devenv-code-review report). Loads threads, classifies them, auto-fixes the clear ones (nits, obvious requests-for-change) with a single consent gate, then surfaces questions, informational/praise, and high-impact threads one by one with a recommendation. Offers a conventional commit suggestion at the end — never commits. DO NOT USE FOR opening a PR (use `/devenv-open-pr`), doing the code review yourself (use `/devenv-code-review`), or responding to CI failures.'
+argument-hint: PR number | path-to-review-markdown (PR auto-detected from current branch if omitted)
 user-invocable: true
 ---
 
@@ -36,22 +36,30 @@ A reply and a code change can go together, but neither implies the other. And re
 
 - A reviewer left inline comments and you want to address them efficiently, with the complex ones handled thoughtfully.
 - You want the clear stuff done automatically and the nuanced stuff surfaced for your input.
+- Review feedback exists only as a markdown document — a saved `/devenv-code-review` report or manually captured comments — and you want the same guided workflow on it.
 
 For code review you do yourself, use `/devenv-code-review`. For CI failures, fix them directly — this skill is for reviewer comments.
 
 ## Prerequisites
 
-- A PR exists with unresolved review threads.
-- The branch is checked out (for code changes to apply cleanly).
+- **PR mode:** a PR exists with unresolved review threads, and the branch is checked out (for code changes to apply cleanly).
+- **Document mode:** the feedback document names real files (with paths or `file:line` links) on the same branch you have checked out. No PR, threads, or replies exist in this mode — only code changes.
 
 ---
 
 ## Phase 0 — Load and classify
 
-1. Detect PR number: from argument, or `pr-list --head <current-branch> --limit 1 | jq -r '.[0].number'`.
-2. Run `pr-threads-get <N>` (unresolved only).
-3. If 0 threads: report "No unresolved review threads." and stop.
-4. Classify each thread:
+**Input auto-detection:** `^[0-9]+$` → PR number. An existing `.md` file path → document mode. Otherwise → PR auto-detection from the current branch. When the argument is a number that is also a file (`42` vs `42.md`), the file wins only if it exists as given; state which mode you resolved to before proceeding.
+
+1. **PR mode:** detect PR number (from argument, or `pr-list --head <current-branch> --limit 1 | jq -r '.[0].number'`), run `pr-threads-get <N>` (unresolved only), and if 0 threads report "No unresolved review threads." and stop.
+
+   **Document mode:** read the feedback document and convert it to the same thread model:
+   - Parse findings from the document's sections. A saved `/devenv-code-review` report maps directly: 🛑 Blocker → C-complex (blockers need direction), ⚠️ Concern → C-complex, 💭 Nit → A, ✅ Praise → E, "Questions for the author" → B, "Missing tests" → C-clear when the gap is localized (add the test) else C-complex, "TODO/FIXME left in the diff" → C-clear.
+   - An unstructured document (pasted comments, bullets): treat each bullet/comment block as one thread; classify with the table below.
+   - Extract `file:line` from links or text; a finding without a locatable file is `?` (needs clarification) — never guess the target.
+   - There are no thread IDs, replies, or resolution in this mode — the only actions are code changes and the final summary. State this up front: "Document mode: I'll apply fixes and summarize; there are no threads to reply to or resolve."
+
+2. Classify each thread:
 
 | Group | Classification | Signal |
 |---|---|---|
@@ -114,8 +122,8 @@ With the go-ahead, apply all threads in the "fix automatically" list. This is a 
 For each thread in order:
 1. Read the relevant file section.
 2. Apply the change.
-3. Mark resolved via `pr-thread-resolve <THREAD_ID>` using the GraphQL node ID from `pr-threads-get`.
-4. Log it (one line): `✅ format.ts:12 — removed blank line → resolved`
+3. **PR mode only:** mark resolved via `pr-thread-resolve <THREAD_ID>` using the GraphQL node ID from `pr-threads-get`. **Document mode:** skip this step — nothing to resolve.
+4. Log it (one line): `✅ format.ts:12 — removed blank line → resolved` (PR mode) / `✅ format.ts:12 — removed blank line` (document mode)
 
 After all automatic threads are done, show a compact batch summary:
 
@@ -199,7 +207,7 @@ Done — 11 threads
 
 Then:
 - If any code was changed → "Run `/devenv-pre-commit` before pushing."
-- If threads left open → list each with a one-line reminder of what's pending.
+- **PR mode:** if threads are left open → list each with a one-line reminder of what's pending. **Document mode:** list findings not addressed with what remains instead (there is no open/closed state).
 - If a plan was offered → remind the user to follow up with `/devenv-create-plan`.
 - Offer a **commit suggestion** (see below).
 
@@ -244,7 +252,8 @@ Never suggest `git commit` commands or run any git operations. Only suggest the 
 - **When in doubt about whether a thread is "clear", surface it.** False positives in the surfaced list are cheap; unintended changes are not.
 - **`quit` at any prompt** exits cleanly and shows the partial summary.
 - **Uncommitted local edits:** before applying any code change, warn if affected files have dirty state.
-- **`--dry-run` propagates** — if the skill was invoked with `--dry-run`, all `pr-thread-reply` and `pr-thread-resolve` calls use `--dry-run`; without that flag, confirmed actions post for real per the Phase 2/3 flows.
+- **Document mode has no threads to resolve or reply to.** Never call `pr-thread-resolve` / `pr-thread-reply` for findings that came from a document — resolution state lives on GitHub review threads, which the document is a snapshot of, not a handle to. The workflow is: classify → fix/direct → summarize. If the document came from a real PR and the user later wants the matching threads resolved, that is a separate PR-mode pass.
+- **`--dry-run` propagates** — if the skill was invoked with `--dry-run`, all `pr-thread-reply` and `pr-thread-resolve` calls use `--dry-run`; without that flag, confirmed actions post for real per the Phase 2/3 flows. In document mode `--dry-run` means no files are edited — show the would-be changes only.
 
 ---
 

@@ -210,7 +210,7 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 | --- | --- | --- |
 | `/devenv-triage-issue` | Route an issue to the right skill + classify, label, size | Issue # or pasted text |
 | `/devenv-open-pr` | Draft + open a PR from a finished phase | Branch or plan path |
-| `/devenv-address-pr-comments` | Address PR review comments — auto-fixes clear threads, surfaces complex ones for direction | PR # |
+| `/devenv-address-pr-comments` | Address PR review comments — auto-fixes clear threads, surfaces complex ones for direction | PR # or path to review markdown |
 | `/devenv-session-handoff` | Summarise session for the next contributor | Issue/PR # (optional) |
 
 ### Quality

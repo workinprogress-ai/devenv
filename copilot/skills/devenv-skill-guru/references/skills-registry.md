@@ -88,7 +88,7 @@ Skills for reviewing code and addressing feedback.
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 | --- | --- | --- | --- |
 | `/devenv-code-review` | Review assistance for your changes — structured feedback by severity | "review this PR", "review my changes", "code review", "look over this branch", "review the diff" | addressing comments on your own PR → `/devenv-address-pr-comments`; general codebase Q&A |
-| `/devenv-address-pr-comments` | Work through PR review comments — grouped by type, split between AI and user, full control over code/replies/resolution | "address PR comments", "work through the review feedback", "go through the PR comments with me", "respond to reviewer comments" | batch fix-all without review (use GitHub PR extension's `address-pr-comments`); opening a PR → `/devenv-open-pr` |
+| `/devenv-address-pr-comments` | Work through PR review comments — grouped by type, split between AI and user, full control over code/replies/resolution; accepts a live PR or a markdown document of captured feedback (e.g. a saved review report) | "address PR comments", "work through the review feedback", "go through the PR comments with me", "respond to reviewer comments" | batch fix-all without review (use GitHub PR extension's `address-pr-comments`); opening a PR → `/devenv-open-pr` |
 | `/devenv-pre-commit` | Run lint, format, type-check, and test as a final gate before committing | "run pre-commit checks", "lint and test before I commit", "is this ready to commit", "check my changes before commit" | opening a PR → `/devenv-open-pr`; code review → `/devenv-code-review` |
 
 ---
