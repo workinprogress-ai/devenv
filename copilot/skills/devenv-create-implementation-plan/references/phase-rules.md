@@ -2,14 +2,24 @@
 
 Phases exist so that work can be **paused, reviewed, and shipped** at clean boundaries. Every phase is a candidate commit / PR.
 
+## Verification declaration
+
+Every plan carries a **verification declaration** — set at planning time and approved with the phase outline — stating how its phases prove committable. The **code preset is the default** and its rules below apply verbatim to code work. Non-code objectives (docs overhauls, mechanical file operations, runbooks, mixed work) declare a different instrument, subject to a minimum bar: **deterministic, observable, and runnable at phase end**. A declaration that cannot be run as a check does not qualify. All safety rails (decision gates, git prohibitions, handbacks, marker hygiene) are independent of the declaration and never relax.
+
+**Precedence rule:** the plan's declaration wins everywhere. When the declaration is not `code`, the test/coverage/build items in these rules and in executor gates **do not apply** — run the declared gates instead. A plan with no `**Verification**` line (all legacy plans) is treated as `code`.
+
+Typical non-code declarations: docs — lint + link-check + consistency pass against a stated source of truth; mechanical file work — script exit 0, input/output counts match, spot-check diff shown in handback; ops/runbook — each stage's own checks (expected command outputs, expected states) plus a stated rollback path.
+
 ## Hard rules
 
-1. **Phase 1 is always: Discovery & test scaffolding.**
+1. **Phase 1 is always: Baseline establishment** — understand and verify what exists before changing it. For code work (the default declaration) this is **Discovery & test scaffolding**:
    - Read code, inspect existing coverage, and add or adjust tests only when needed to lock the current state of the code.
    - If existing tests already lock the relevant observable behaviour adequately, do not add more tests just because it is Phase 1.
    - If discovery exposes high-blast-radius assumptions, boundary risks, failure modes, or brittle sequencing, add explicit pressure-test tasks or checkpoints at the earliest useful phase boundary.
    - Stubs (`throw new NotImplementedException()`, default returns, etc.) are valid — write tests that assert the **current observable behaviour**, including that a stub throws as expected. These tests are **not discarded** when implementation lands; they evolve to assert real behaviour.
    - Catching problems early is the goal. Code written with immediate test coverage tends to be better architected.
+   - For non-code declarations, the baseline instrument follows the declaration: inventory + stale-spot survey (docs), dry-run over a sample (mechanical file work), environment/precondition verification (ops).
+   - When there is genuinely nothing to baseline (fully known steps), fold discovery into the first delivery phase as its opening tasks — stated in that phase's goal, never silently skipped.
 
 2. **The last phase is always: Cleanup & docs.**
    - Remove any temporary scaffolding code (not tests — tests evolve, not disappear).
@@ -17,7 +27,7 @@ Phases exist so that work can be **paused, reviewed, and shipped** at clean boun
    - Final check that coverage has not regressed across the whole plan.
    - The final task in this phase must be an explicit acceptance-criteria review/check-off task.
 
-3. **Every phase must end committable.** A phase is committable only if all of the following are true at the end of it:
+3. **Every phase must end committable.** A phase is committable only if the plan's declared verification gates pass at the end of it. For code-declared plans (the default) those gates are:
    - All tests pass (existing + any added in this phase). **A phase may not end with intentionally failing tests.** If a test was written in the failing state first (TDD), the implementation that makes it pass must be in the same phase — the red-green cycle must close before the phase ends.
    - **Test coverage does not regress** vs. the start of the phase.
    - Tests added in this phase **assert observable behaviour** — a test that merely executes code without asserting anything does not count toward coverage.
@@ -35,7 +45,7 @@ Phases exist so that work can be **paused, reviewed, and shipped** at clean boun
 
    **Gating:** Escape hatch use must be declared before the phase is marked done — not retroactively justified. During pair-programming, the engineer decides and records it in the session changelog. During delegation, the AI makes a genuine effort to add the missing tests before surfacing the need; if coverage still can't be recovered after reasonable effort, the AI asks the user to choose a form before proceeding.
 
-5. **Tests are written per-phase, not at the end.** Each phase's task list must include test tasks for what that phase introduces. Do not create a standalone "write tests" phase at the end — by then the code is hard to test and the discipline is already lost. If using a TDD red-green approach within a task, the full cycle (write failing test → implement → test passes) must complete within the same phase — do not write a failing test for behaviour that will only be implemented in a later phase.
+5. **Tests are written per-phase, not at the end** (code declaration; non-code declarations distribute their own checks per-phase the same way). Each phase's task list must include test tasks for what that phase introduces. Do not create a standalone "write tests" phase at the end — by then the code is hard to test and the discipline is already lost. If using a TDD red-green approach within a task, the full cycle (write failing test → implement → test passes) must complete within the same phase — do not write a failing test for behaviour that will only be implemented in a later phase.
 
 ## Soft guidance
 

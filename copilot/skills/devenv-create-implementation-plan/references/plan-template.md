@@ -17,6 +17,11 @@ updated_at_utc: <ISO-8601>
 <One paragraph: what this plan accomplishes and why. Enough context for a fresh
 human or AI to understand the goal without opening other documents.>
 
+**Verification**: <code (default — tests pass, coverage ≥ baseline, build green) |
+docs | mechanical file work | ops-runbook | custom — how phases in this plan prove
+committable; see phase-rules.md. Must be deterministic, observable, runnable at
+phase end.>
+
 ## Goals and Acceptance Criteria
 
 <A short end-state paragraph describing what the completed work should look
@@ -24,7 +29,7 @@ like, why it matters, and the boundaries of the work. Include explicit scope
 boundaries or non-goals when they matter to understanding the shape of the
 solution.>
 
-- [ ] <a id="ac-1"></a>**AC-1** <criterion text — observable behaviour the system must exhibit when the work is done> *(explicit)*
+- [ ] <a id="ac-1"></a>**AC-1** <criterion text — observable outcome the work must exhibit when it is done (behavior, document state, file state, command result)> *(explicit)*
 - [ ] <a id="ac-2"></a>**AC-2** <criterion text> *(inferred)*
 
 ## Context and Orientation
@@ -67,13 +72,13 @@ this section alone.>
 
 <Keep this short and navigable so readers can jump directly to active work.>
 
-- [Phase 1 - Discovery & test scaffolding](#phase-1---discovery--test-scaffolding)
+- [Phase 1 - Baseline establishment (Discovery & test scaffolding for code)](#phase-1---baseline-establishment-discovery--test-scaffolding-for-code)
 - [Phase 2 - <Phase name>](#phase-2---phase-name)
 - [Phase N - Cleanup & docs](#phase-n---cleanup--docs)
 
 ## Phases
 
-### Phase 1 — Discovery & test scaffolding
+### Phase 1 — Baseline establishment (Discovery & test scaffolding for code)
 
 **Goal:** <What this phase is meant to establish.>
 

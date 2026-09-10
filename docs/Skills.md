@@ -37,7 +37,7 @@ What are you trying to do?
 │   └─ Sync roadmap state from issues / PRs      →  /devenv-update-roadmap
 │
 ├─ 📋 Plan
-│   ├─ Create from idea / issue or complete spec / RFC  →  /devenv-create-implementation-plan
+│   ├─ Create from idea / issue or complete spec / RFC (any multi-step objective: code default; docs, mechanical, runbooks)  →  /devenv-create-implementation-plan
 │   └─ Align existing plan with reality (surgical edit / revision / staleness assessment)  →  /devenv-refine-implementation-plan
 │
 ├─ 🔨 Build
@@ -99,9 +99,9 @@ Conducts a three-phase architectural interview (context → architecture → con
 
 > **Before any significant work begins.**
 
-Interviews the user, scans repo conventions, drafts phased atomic tasks, and writes an `Implementation_plan-*.md`. The plan is a current-state execution artifact that follows the engineer's real work rather than a contract the engineer must obey. Offers to push the plan into the associated GitHub issue. The gateway to all build-phase skills.
+Interviews the user, scans repo conventions, drafts phased atomic tasks, and writes an `Implementation_plan-*.md`. Works for any multi-step objective — code (the default), docs overhauls, mechanical file work, runbooks, mixed work — via a **plan-declared verification approach** (code plans keep the full test/coverage gates verbatim; non-code plans declare deterministic, observable checks). The plan is a current-state execution artifact that follows the engineer's real work rather than a contract the engineer must obey. Offers to push the plan into the associated GitHub issue. The gateway to all build-phase skills.
 
-**Use for:** planning a user story, breaking down a GitHub issue, writing up work before starting  
+**Use for:** planning a user story, breaking down a GitHub issue, writing up work before starting — coding or non-coding multi-step objectives alike  
 **Don't use for:** pure research (→ `/devenv-spike`), editing an existing plan (→ `/devenv-refine-implementation-plan`)  
 **Tool deps:** `issue-get`, `issue-artifact-doc-id`, `issue-artifact-upsert`
 

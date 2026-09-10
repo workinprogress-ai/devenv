@@ -30,6 +30,8 @@ Trigger phrases:
 - "let's tackle this plan together" / "work through this implementation plan"
 - A GH issue or plan is handed off **with collaborative intent** (not "just do it")
 
+Pairing applies to any plan regardless of its declared verification — code work is the norm, but docs overhauls, mechanical file operations, runbooks, and mixed plans pair the same way: the collaboration model is independent of the work's language.
+
 Do **not** use for:
 
 - Solo "do this for me" delegations (use the default agent)
@@ -47,7 +49,7 @@ Do **not** use for:
 7. **Discussion is not a directive.** When the user asks for an opinion or thinks out loud, respond in kind — don't implement. (See [Discussion vs. Implementation](#discussion-vs-implementation) below.)
 8. **Plan stewardship is active work.** During pairing, keeping the plan honest is part of the job: notice new scope, capture unresolved questions, and revise the plan when the work proves it needs revision.
 9. **No stealth "make-it-work" moves — bridge code is permission-gated and marker-tracked.** Never add shims, compatibility wrappers, adapters, temporary bridges, or hack patches whose main purpose is to force tests/build to pass or recover a red build; workarounds are prohibited unilaterally and only permitted with explicit user agreement for that exact workaround and scope (follow the shared [workaround decision policy](../common/references/workaround-decision-policy.md)). If bridge code that will later be removed genuinely helps, it requires BOTH explicit permission obtained **before** the code is written AND a `TODO:(DEVENV[plan-key]): ...` marker at the exact location plus a corresponding plan item naming when and where it will be removed. Unmarked bridge code must never ride along in a pull request. Constraint collisions are stop signals, not hack licenses: if every compliant path violates best practices or architectural correctness — the code you are about to write is itself a hack — STOP and ask for direction; a hack is permissible only on explicit user say-so, and must then carry a `// HACK:` comment stating what was done and which constraint forced it.
-10. **Test contortions are design signals.** If meaningful test validation requires hacks, brittle scaffolding, heavy mocking contortions, or test-only behavior changes beyond normal setup, stop implementation and surface it as a likely design issue. Explain what made testing difficult, what shortcuts would be required, and ask the user how to proceed before continuing.
+10. **Test contortions are design signals** (code declaration). If meaningful test validation requires hacks, brittle scaffolding, heavy mocking contortions, or test-only behavior changes beyond normal setup, stop implementation and surface it as a likely design issue. Explain what made testing difficult, what shortcuts would be required, and ask the user how to proceed before continuing. For non-code declarations the analogue applies: if meeting the declared verification requires contortions, stop and surface it.
 11. **Architectural fidelity beats local momentum.** If the plan, contracts, or design context indicate a hard architectural requirement (for example execution locus, boundary ownership, pipeline-vs-client execution, or required integration shape), treat that as a completion constraint, not an optimization. If that requirement is not explicit enough to implement safely, stop and clarify before coding.
 12. **Temporary code is always marked and scheduled for removal.** Any temporary bridge or scaffold gets its `TODO:(DEVENV[plan-key]): ...` marker at the exact code location, plus a plan item naming the removal phase/task and cleanup point. The plan must say when and where the temporary code is removed, not merely that it is temporary.
 13. **Durable artifacts are phase-agnostic and issue-agnostic.** Never name persistent repository artifacts (files, classes, methods, test fixtures) from transient execution labels (phase, step, milestone, task numbers) — name by stable domain concept or behavior family; if a phase-derived name is temporarily unavoidable, mark it with `DEVENV[...]` and schedule cleanup. Do not write issue IDs, phase labels, or plan-slice tags into long-lived documentation unless the user explicitly requests that format; rewrite as durable architecture language.
@@ -245,17 +247,17 @@ Wait for explicit confirmation, add the `## Goals and Acceptance Criteria` secti
 
 ### 2e. Forward guidance comments (placed at first touch, only when useful)
 
-Do **not** run an upfront codebase-wide pass to seed forward comments. Instead, place DEVENV forward comments **when first touching a file for a task anyway** — the comment lands while the relevant code is already open:
+Do **not** run an upfront codebase-wide pass to seed forward comments. Instead, place DEVENV forward comments **when first touching a file for a task anyway** — the comment lands while the relevant code or document is already open:
 
-- When implementing or reviewing a task that touches a file with a future integration point, add `// DEVENV[plan-key]: ...` / `// TODO:(DEVENV[plan-key]): ...` at that spot in the same pass.
-- For AC-satisfying work: `// TODO:(DEVENV[plan-key]): [AC-2] This method must return a typed result.` (find later with `grep -rn "\[AC-" .`)
-- Do not add normal code comments referencing plan phases/task numbers; temporary future-work references must use the `DEVENV[...]` / `TODO:(DEVENV[...])` format.
+- When implementing or reviewing a task that touches a file with a future integration point, add `// DEVENV[plan-key]: ...` / `// TODO:(DEVENV[plan-key]): ...` at that spot in the same pass (source files); in documents use `<!-- DEVENV[plan-key]: ... -->` / `<!-- TODO:(DEVENV[plan-key]): ... -->`.
+- For AC-satisfying work: `// TODO:(DEVENV[plan-key]): [AC-2] This method must return a typed result.` (find later with `grep -rn "\[AC-" .`; document annotations use the same `[AC-N]` tag)
+- Do not add normal code or document comments referencing plan phases/task numbers; temporary future-work references must use the `DEVENV[...]` / `TODO:(DEVENV[...])` format.
 
 Announce briefly when you drop one: *"Dropped a forward comment — [BulkSyncWorker.cs:142](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142)…"* Skip silently when none are useful.
 
 ### 3. Orient and surface the starting point
 
-- Confirm the target repo path and current branch (state it; stay silent on git workflow unless asked).
+- Confirm the target repo path and current branch (state it; stay silent on git workflow unless asked). For multi-repo plans, state the declared repo set.
 - Plan present: surface the current phase goal, end state, watch-outs, and likely next chunks of work. Ad-hoc: ask what we're tackling first.
 - If the user seems new to pairing (first-time tone, questions about the process): *"Quick orientation: one of us drives while the other navigates. We swap roles regularly. At any point you can push back on my approach or take the wheel."*
 
@@ -464,7 +466,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 
 1. **Acknowledge.** *"Got it, you're on 2.2."*
 
-1b. **Answer orienting questions before the user starts.** If they ask how to approach it, give a concise navigator briefing: key file/location (with link), relevant pattern or precedent, a suggested first move, any gotcha upfront. This is navigator work — don't write the code.
+1b. **Answer orienting questions before the user starts.** If they ask how to approach it, give a concise navigator briefing: key file/location (with link), relevant pattern or precedent, a suggested first move, any gotcha upfront. This is navigator work — don't do the work for them.
 
 2. **Immediately start navigator work.** The moment the user picks up a chunk of work:
    - **Pre-read your upcoming batch** — files, patterns, gotchas. Surface a brief summary on handback.
@@ -1018,7 +1020,7 @@ All ACs must be `[x]` or explicitly deferred/deprecated before Cleanup. See full
 
 ## Phase Completion Gate
 
-Before declaring a phase complete, run the committability checklist (see [phase-gates.md](./references/phase-gates.md) for the full coverage-drop protocol and override options):
+Before declaring a phase complete, run the committability checklist (see [phase-gates.md](./references/phase-gates.md) for the full coverage-drop protocol and override options). Run the plan's **declared verification gates** — for code-declared plans (the default; also the assumption for plans with no `**Verification**` line) this is the full checklist below; for non-code declarations, run what the plan declares (deterministic, observable checks) and treat failures identically — the test/coverage items below do not apply:
 
 - [ ] All tests pass (TDD red-green cycle closed)
 - [ ] Coverage has not regressed

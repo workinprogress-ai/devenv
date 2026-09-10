@@ -1,6 +1,6 @@
 ---
 name: devenv-create-implementation-plan
-description: 'Create a structured Implementation_plan.md for a user story, task, GitHub issue, or complete spec/RFC/design doc so a human + AI pair can execute it together. USE WHEN the user says "create an implementation plan", "plan this story", "break this task into phases", "break down this work", "write up a plan for this", "plan from this spec", or hands off a GitHub issue / user story / complete spec to be implemented. Interviews the user when needed, scans repo conventions, drafts phased atomic tasks, gets explicit approval, writes the file to the target repo root with a numbered suffix, and offers to publish the plan as a GitHub issue artifact comment. DO NOT USE for ad-hoc coding tasks where no plan file is wanted, for pure research/Q&A, or for editing an existing plan (just edit the file directly).'
+description: 'Create a structured Implementation_plan.md for a user story, task, GitHub issue, complete spec/RFC/design doc, or any multi-step objective planned for later execution (code — the default — docs, mechanical file work, runbooks, mixed work). USE WHEN the user says "create an implementation plan", "plan this story", "break this task into phases", "break down this work", "write up a plan for this", "plan from this spec", "convert this issue into a plan", or hands off a GitHub issue / user story / complete spec to be implemented. Interviews the user when needed, scans repo conventions, drafts phased atomic tasks with a plan-declared verification approach, gets explicit approval, writes the file to the target repo root with a numbered suffix, and offers to publish the plan as a GitHub issue artifact comment. DO NOT USE for ad-hoc coding tasks where no plan file is wanted, for pure research/Q&A, or for editing an existing plan (just edit the file directly).'
 argument-hint: '[issue-number[:doc_id] | path-to-story | freeform description]'
 user-invocable: true
 ---
@@ -54,9 +54,10 @@ Source precedence rule:
 
 ### 1. Identify inputs and target repo
 
-- Determine which repo the plan applies to (the plan file is written to **that** repo's root, not necessarily the current workspace root).
+- Determine which repo the plan applies to (the plan file is written to **that** repo's root, not necessarily the current workspace root). For mechanical cross-repo objectives (updating many repos with new files plus follow-ups), the plan declares its target repo set up front — that set becomes the agreed change-scope for execution; feature delivery spanning multiple components still routes through blueprint/roadmap first.
 - If a GH issue number/URL is provided, fetch the issue body and all comments. Treat comments as first-class source material; design docs often live there. Capture the issue number for later.
 - Capture any pasted story / linked docs.
+- Classify the objective type: **code** (default), **docs**, **mechanical file work**, **ops/runbook**, or **mixed**. This drives the verification declaration (step 4).
 
 ### 2. Scan repo conventions (always)
 
@@ -94,21 +95,21 @@ Use `vscode_askQuestions` to confirm/fill gaps. Always cover:
 - Scope boundaries and explicit non-goals
 - Known risks / unknowns
 - Decision points / pending questions — try to resolve as many as possible during planning. Leave questions pending only when they are implementation-level details or the user explicitly asks to defer.
-- Target repo path (confirm)
+- Target repo path (confirm; for multi-repo mechanical objectives confirm the declared repo set)
 - Any preferred phase breakdown or constraints
-- Whether throwaway scaffolding tests are expected
+- Whether throwaway scaffolding tests are expected (code declaration; for non-code declarations, what temporary scaffolding — if any — is acceptable)
 
-Once the above is gathered, **draft the phase structure — names and one-line deliverable descriptions only — and discuss it before writing any task details.** Phase objectives should be agreed before the task list is written; tasks do not need to be discussed in detail. Present the phase outline like:
+Once the above is gathered, **draft the phase structure — names and one-line deliverable descriptions only — plus the verification declaration, and discuss both before writing any task details.** Phase objectives and the verification approach should be agreed before the task list is written; tasks do not need to be discussed in detail. Present the phase outline like:
 
 > *"Here's how I'd divide this work:*
 > - *Phase 1 — Discovery & test scaffolding: read existing code, inspect existing coverage, add/adjust tests only where needed to lock current observable behaviour (including stub/default behaviour where applicable), and end fully green*
 > - *Phase 2 — Contracts & boundaries: define or tighten interfaces, request/response shapes, message schemas, extension points, or other contracts that later phases implement against; use temporary coverage exclusions only when unavoidable and always pair them with DEVENV TODOs*
 > - *Phase 3 — [Name]: [deliverable]*
-> - *Phase N — Cleanup & docs: remove scaffolding, update docs, verify coverage*
->
+> - *Phase N — Cleanup & docs: remove scaffolding, update docs, verify coverage*>
+> *Verification: code (default) — tests pass, coverage ≥ baseline, build green. For non-code objectives, propose the instrument here (docs: lint + link-check + consistency pass; mechanical: script exit 0 + counts + spot-check diff; runbook: per-stage checks + rollback path) — it must be deterministic, observable, runnable at phase end.*>
 > *Does this structure make sense for what you're building? Any phases to merge, split, or reorder before I fill in the tasks?"*
 
-Do **not** propose Phase 1 as "add failing tests for new behaviour" or any equivalent wording. A phase proposal is invalid unless each phase is independently committable (tests pass, coverage does not regress, and the phase has a clear standalone deliverable).
+Do **not** propose Phase 1 as "add failing tests for new behaviour" or any equivalent wording. A phase proposal is invalid unless each phase is independently committable — its declared verification gates pass and the phase has a clear standalone deliverable (for code plans: tests pass, coverage does not regress).
 
 Bias toward defining important contracts early, before broad implementation begins. For medium/large work, initial phases should usually lock down the core interfaces, API shapes, message contracts, plugin seams, or persistence boundaries that the rest of the plan depends on. This improves shared understanding and exposes design problems earlier.
 
@@ -299,11 +300,11 @@ Notes:
 
 See [phase-rules.md](./references/phase-rules.md) for the full checklist.
 
-- **Phase 1 is always**: Discovery & test scaffolding
+- **Phase 1 is always**: Baseline establishment — for code plans (default) this is Discovery & test scaffolding; other declarations use their own baseline instrument
 - **Last phase is always**: Cleanup & docs
-- Each phase must be **atomic and committable**: tests pass, coverage does not regress, deliverable stands alone
-- Include test tasks alongside code tasks in every phase — do not defer all testing to a final phase
-- TDD red-green cycles must close within the same phase
+- Each phase must be **atomic and committable**: the plan's declared verification gates pass, deliverable stands alone (code default: tests pass, coverage does not regress)
+- Include verification tasks alongside work tasks in every phase (code default: test tasks with code tasks) — never defer all verification to a final phase
+- TDD red-green cycles must close within the same phase (code declaration)
 - When legacy and new code mix across phases, prefer a dedicated early legacy cleanup phase — see [phase-rules.md](./references/phase-rules.md) for patterns
 - **Coverage escape hatch** (Form A/B): see [phase-rules.md](./references/phase-rules.md); flag candidates at plan creation
 - Tasks with no `depends on` between them may be done in parallel
@@ -355,7 +356,7 @@ Short navigable links to each phase.
 
 ## Phases
 
-### Phase 1 — Discovery & test scaffolding
+### Phase 1 — Baseline establishment (code default: Discovery & test scaffolding)
 
 Goal, end-state vision, suggested strategies, AC links, watch-outs / decisions, deliverables.
 

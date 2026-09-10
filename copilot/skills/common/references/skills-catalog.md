@@ -187,7 +187,7 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 | `/devenv-create-roadmap` | Phased delivery sequencing published as a roadmap artifact on a parent epic + GH issue creation | Blueprint and/or specifications file path (at least one) |
 | `/devenv-refine-roadmap` | Structurally revise a roadmap artifact — split, re-sequence, add; superseded steps deleted clean | Epic number (optionally `:doc_id`) |
 | `/devenv-update-roadmap` | Sync roadmap status from issues + PRs; republish artifact + epic task list | Epic number (optionally `:doc_id`) |
-| `/devenv-create-implementation-plan` | Create a current-state execution plan via interview; supports direct-plan mode and treats side-stream artifacts as additional (non-directing) context | Issue # or description |
+| `/devenv-create-implementation-plan` | Create a current-state execution plan via interview; any multi-step objective (code default; docs, mechanical file work, runbooks via a plan-declared verification approach); supports direct-plan mode and treats side-stream artifacts as additional (non-directing) context | Issue # or description |
 | `/devenv-refine-implementation-plan` | Align a plan with reality from any starting point — surgical edits, structured revision, or staleness assessment with internal routing | Plan file path or issue # |
 
 ### Working modes

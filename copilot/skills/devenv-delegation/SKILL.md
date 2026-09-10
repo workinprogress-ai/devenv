@@ -199,11 +199,11 @@ A pair-programming conversational chunk list is an agreement about conversation 
 
 ### 3. Suitability analysis
 
-For the in-scope phases, rate each phase as one of:
+For the in-scope phases, rate each phase as one of. Suitability is judged against the work's nature, not its language: mechanical file operations, runbook stages, and document work delegate as well as code does.
 
 | Rating | Criteria |
 |---|---|
-| **well-suited** | Mechanical refactors, rename sweeps, test scaffolding, cleanup, docs, boilerplate generation |
+| **well-suited** | Mechanical refactors, rename sweeps, test scaffolding, cleanup, docs, boilerplate generation — and any mechanically-executable non-code work: file operations, runbook stages with explicit checks, scriptable transforms |
 | **borderline** | Mixed — some mechanical, some judgment calls. Surface reasoning; let user decide. |
 | **better-as-pair** | High-impact / public API changes / data shape changes / security / novel architecture / non-trivial concurrency |
 
@@ -250,7 +250,7 @@ Rules:
 After the file links block, scan the upcoming phase for any task with a `decision:` bullet. If any exist, surface them before asking for the go-ahead:
 
 > **Decisions needed this phase:**
-> - 2.3: exponential vs. fixed backoff — need to agree on multiplier before coding
+> - 2.3: exponential vs. fixed backoff — need to agree on multiplier before starting
 
 Wait for the user to explicitly resolve each flagged decision before proceeding to coding. While any such decision remains open, perform no mutating action.
 
@@ -273,13 +273,13 @@ Before starting work in any new phase, review the accepted AC list and check off
 
 Do this at every phase transition, not only in the final AC review. Never silently check off an AC without cited evidence or explicit user confirmation.
 
-### 5d. Pending-question resolution gate (required before coding)
+### 5d. Pending-question resolution gate (required before execution)
 
-Before coding starts in any phase, resolve pending questions relevant to that phase.
+Before execution starts in any phase, resolve pending questions relevant to that phase.
 
 - Scan the upcoming phase for inline `[QUESTION] ...` items and task `decision:` metadata.
 - Scan `## Pending Questions` and include only questions relevant to the upcoming phase.
-- Present each item and collect a concrete answer before coding begins.
+- Present each item and collect a concrete answer before execution begins.
 
 Do not start implementation tasks while phase-relevant questions remain unresolved. If the user explicitly wants to defer one, convert it into an explicit tracked decision point in the current phase (with `decision:` metadata on the earliest affected task) and reconfirm before proceeding.
 
@@ -289,7 +289,7 @@ Use the shared [decision resolution protocol](../common/references/decision-reso
 
 ### 5e. Refresh and confirm phase task list (required)
 
-Before coding starts, refresh the current phase task list against reality using this phase's AC impact, phase summary, and concrete file targets.
+Before execution starts, refresh the current phase task list against reality using this phase's AC impact, phase summary, and concrete file targets.
 
 - Preserve valid tasks.
 - Tighten vague tasks into concise step entries.
@@ -347,7 +347,7 @@ The AI runs through the phase's tasks without stopping for user review between e
 
 Before starting each task, re-check whether that specific task has unresolved `decision:` metadata or unresolved inline `[QUESTION]` items that affect implementation shape.
 
-- If yes: stop and ask the user to choose before coding that task.
+- If yes: stop and ask the user to choose before starting that task.
 - If no: proceed normally.
 
 This per-task gate is mandatory even after phase kickoff decisions were reviewed. Do not assume prior "go-ahead" applies to unresolved task-level decisions.
@@ -398,7 +398,7 @@ If this stop includes a `🔶` decision gate, direction must be explicit and sco
 
 If you hit a wall, stop on the first clear sign rather than writing workaround code to preserve momentum. A wall means the correct next move is unclear, repeated local attempts are not converging, or the only obvious move is hacky code. Ask for help with a concrete summary instead.
 
-Temporary-code limit: genuinely temporary code is allowed only when it is a tiny compile/test unblock — a line or two, or comparably small localized scaffold — and it must be marked with `TODO:(DEVENV[plan-key]): ...`. Do not treat a larger fallback implementation as acceptable temporary progress.
+Temporary-work limit: genuinely temporary work is allowed only when it is a tiny unblock the declared verification gates can still verify — a line or two, or comparably small localized scaffold — and it must be marked with `TODO:(DEVENV[plan-key]): ...`. Do not treat a larger fallback implementation as acceptable temporary progress.
 
 Compatibility note (strict): test-only shims/adapters/extensions that recreate old APIs to absorb refactor fallout are workaround code by default. Do not add them unilaterally. First present root cause, clean options, and risk/tradeoff, then request explicit permission. Follow [workaround decision policy](../common/references/workaround-decision-policy.md).
 
@@ -545,7 +545,7 @@ The AI's in-context view of a file is a **cache** — invalidated the moment any
 
 ## Forward Guidance Comments
 
-Follow pair-programming's canonical [Forward Guidance Comments](../devenv-pair-programming/SKILL.md#forward-guidance-comments) protocol — it applies identically here. Essentials: any comment referencing the plan or future work must use `DEVENV[...]` or `TODO:(DEVENV[...]): ...` markers (never plain TODO/FIXME, never permanent plan-referencing comments); annotate AC-satisfying code with `[AC-N]`; remove markers when their work lands; after any mid-phase plan revision, run the DEVENV forward-comment audit. Marker-form examples and the `<plan-key>` rule are in the canonical section.
+Follow pair-programming's canonical [Forward Guidance Comments](../devenv-pair-programming/SKILL.md#forward-guidance-comments) protocol — it applies identically here. Essentials: any comment referencing the plan or future work must use `DEVENV[...]` or `TODO:(DEVENV[...]): ...` markers (never plain TODO/FIXME, never permanent plan-referencing comments) — code comments in source files, `<!-- ... -->` annotations in documents; annotate AC-satisfying work with `[AC-N]`; remove markers when their work lands; after any mid-phase plan revision, run the DEVENV forward-comment audit. Marker-form examples and the `<plan-key>` rule are in the canonical section.
 
 ## AC Review Gate
 
@@ -553,7 +553,7 @@ Run after all implementation phases, before Cleanup, exactly as defined in pair-
 
 ## Phase Completion Gate
 
-Before declaring a phase complete and handing back, run the committability checklist as defined in pair-programming's canonical [Phase Completion Gate](../devenv-pair-programming/SKILL.md#phase-completion-gate): all tests pass, coverage not regressed, new tests assert observable behavior, no blocking TODOs, no straggler `DEVENV[` comments for completed work. Coverage drops are blockers. In the final implementation phase, no AC may remain unchecked — every AC `[x]` or explicitly deferred/deprecated. Full coverage-drop protocol and override options: [phase-gates.md](../devenv-pair-programming/references/phase-gates.md).
+Before declaring a phase complete and handing back, run the committability checklist as defined in pair-programming's canonical [Phase Completion Gate](../devenv-pair-programming/SKILL.md#phase-completion-gate): run the plan's **declared verification gates** — for code-declared plans (the default; also the assumption for plans with no `**Verification**` line) that is all tests pass, coverage not regressed, new tests assert observable behavior, no blocking TODOs, no straggler `DEVENV[` comments for completed work; for non-code declarations, run what the plan declares instead (the test/coverage items do not apply) and treat failures identically. Coverage drops are blockers. In the final implementation phase, no AC may remain unchecked — every AC `[x]` or explicitly deferred/deprecated. Full coverage-drop protocol and override options: [phase-gates.md](../devenv-pair-programming/references/phase-gates.md).
 
 ## Anti-patterns
 

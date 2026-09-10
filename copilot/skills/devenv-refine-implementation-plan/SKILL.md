@@ -163,7 +163,7 @@ Before applying edits, offer an optional pressure-test pass using [pressure-test
 
   **Phase numbering is structural, and task numbering may reflow when needed.** If the user explicitly wants the new phase inserted before a later existing phase, treat that as a structural revision: renumber the downstream phase headings sequentially, update any in-plan references that mention those phase numbers, and renumber any affected downstream task series when the insertion lands in the middle of them.
 
-  New phases must follow the same phase rules as any other phase: each must be committable, cover its own tests, and the final new phase must include cleanup and docs tasks for the new scope. If the original Cleanup phase is already complete, add a new Cleanup phase for the new scope rather than reopening the original.
+  New phases must follow the same phase rules as any other phase under the plan's **verification declaration** (code default: each phase committable with its own tests; final new phase includes cleanup and docs for the new scope). If the refinement changes the objective's nature (e.g. a code plan gains a docs phase), the verification declaration itself is a revision-mode edit requiring explicit user approval — surgical mode cannot change it.
 
   When the new scope introduces or changes important boundaries, add an early phase for defining or tightening contracts before broad implementation starts. This usually means interfaces, API/request/response shapes, message schemas, extension points, or persistence boundaries land before the phases that fully implement them.
 
