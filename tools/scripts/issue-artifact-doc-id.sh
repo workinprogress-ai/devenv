@@ -1,6 +1,6 @@
 #!/bin/bash
 # issue-artifact-doc-id.sh - Generate deterministic artifact doc_id values
-# Version: 1.0.0
+# Version: 1.1.0
 # Description: Builds stable doc_id strings for issue artifact comments.
 # Requirements: Bash 4.0+
 
@@ -11,7 +11,7 @@ source "$DEVENV_TOOLS/lib/versioning.bash"
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"
 
-readonly SCRIPT_VERSION="1.0.0"
+readonly SCRIPT_VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
 script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Generate deterministic artifact doc_id values"
@@ -28,7 +28,7 @@ show_usage() {
 Usage: $SCRIPT_NAME [OPTIONS]
 
 Generate a deterministic doc_id in this format:
-  dv1:<owner-repo>:issue-<number>:<artifact_type>:<slug>
+  dv1:<owner>/<repo>:issue-<number>:<artifact_type>:<slug>
 
 Required Inputs:
   --issue N                    Issue number

@@ -18,7 +18,7 @@ load ../test_helper
     --repo workinprogress-ai/devenv
 
   [ "$status" -eq 0 ]
-  [ "$output" = "dv1:workinprogress-ai-devenv:issue-123:spike:retry-strategy" ]
+  [ "$output" = "dv1:workinprogress-ai/devenv:issue-123:spike:retry-strategy" ]
 }
 
 @test "issue-artifact-doc-id.sh generates expected doc_id from source file" {
@@ -29,7 +29,21 @@ load ../test_helper
     --repo workinprogress-ai/devenv
 
   [ "$status" -eq 0 ]
-  [ "$output" = "dv1:workinprogress-ai-devenv:issue-77:redesign:redesign-003-auth-flow" ]
+  [ "$output" = "dv1:workinprogress-ai/devenv:issue-77:redesign:redesign-003-auth-flow" ]
+}
+
+@test "issue-artifact-doc-id.sh output matches the plan-parse lint format" {
+  # Regression guard: generated doc_id must satisfy the exact regex
+  # plan-parse --lint --require-header enforces, so a freshly derived
+  # doc_id passes the upsert gate without manual edits.
+  run "$PROJECT_ROOT/tools/scripts/issue-artifact-doc-id.sh" \
+    --issue 91 \
+    --artifact-type plan \
+    --slug plan-issue-91-001 \
+    --repo workinprogress-ai/lib.cs.backing.document-data
+
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ ^dv1:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+:(issue-[0-9]+|local):[a-z-]+:[A-Za-z0-9_.-]+$ ]]
 }
 
 @test "issue-artifact-doc-id.sh fails when both slug and source-file are passed" {

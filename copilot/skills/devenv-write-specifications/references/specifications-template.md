@@ -6,7 +6,7 @@ For multi-document projects (one doc per epic), use one `<topic>` per epic and o
 
 ```markdown
 <!-- DEVENV_ARTIFACT_V1
-doc_id: dv1:<owner-repo>:local:specifications:<artifact-slug>
+doc_id: dv1:<owner>/<repo>:local:specifications:<artifact-slug>
 artifact_type: specifications
 artifact_scope: local-file
 issue_number: <N | none>

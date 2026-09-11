@@ -8,7 +8,7 @@ This is a one-time artifact. Do not include a revision-history section.
 
 ```markdown
 <!-- DEVENV_ARTIFACT_V1
-doc_id: dv1:<owner-repo>:local:solution-proposal:<artifact-slug>
+doc_id: dv1:<owner>/<repo>:local:solution-proposal:<artifact-slug>
 artifact_type: solution-proposal
 artifact_scope: local-file
 issue_number: <N | none>

@@ -290,7 +290,7 @@ Key flags:
 - `--artifact-type TYPE` — one of: `spike`, `redesign`, `design`, `blueprint`, `requirements`, `specifications`, `grooming`, `roadmap`, `plan` (current for plans); `implementation-plan` (accepted as legacy alias for pre-rename artifacts), `solution-proposal`
 - `--slug TEXT` — slug source text (normalized to kebab-case), or `--source-file FILE` — basename without extension
 
-Output: `dv1:<owner-repo>:issue-<N>:<type>:<slug>` on stdout.
+Output: `dv1:<owner>/<repo>:issue-<N>:<type>:<slug>` on stdout.
 
 ---
 

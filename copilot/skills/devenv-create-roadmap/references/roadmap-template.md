@@ -4,7 +4,7 @@ Copy this skeleton verbatim and fill it in. All top-level headings are required.
 
 ```markdown
 <!-- DEVENV_ARTIFACT_V1
-doc_id: dv1:<owner-repo>:issue-<epic-number>:roadmap:<system>-<NNN>
+doc_id: dv1:<owner>/<repo>:issue-<epic-number>:roadmap:<system>-<NNN>
 artifact_type: roadmap
 artifact_scope: issue-comment
 issue_number: <epic-number>

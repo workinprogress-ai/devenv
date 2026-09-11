@@ -339,16 +339,27 @@ YML
     [ "$result" = "retry-strategy-2026" ]
 }
 
-@test "normalize_doc_id_repo converts owner/repo to owner-repo" {
+@test "normalize_doc_id_repo validates and preserves owner/repo slash" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
     result=$(normalize_doc_id_repo "workinprogress-ai/devenv")
-    [ "$result" = "workinprogress-ai-devenv" ]
+    [ "$result" = "workinprogress-ai/devenv" ]
+}
+
+@test "normalize_doc_id_repo accepts repo names with dots and hyphens" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    result=$(normalize_doc_id_repo "workinprogress-ai/lib.cs.backing.document-data")
+    [ "$result" = "workinprogress-ai/lib.cs.backing.document-data" ]
+}
+
+@test "normalize_doc_id_repo rejects input without a slash" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    ! normalize_doc_id_repo "owner-repo"
 }
 
 @test "generate_artifact_doc_id returns expected format" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
     result=$(generate_artifact_doc_id "123" "spike" "retry strategy" "workinprogress-ai/devenv")
-    [ "$result" = "dv1:workinprogress-ai-devenv:issue-123:spike:retry-strategy" ]
+    [ "$result" = "dv1:workinprogress-ai/devenv:issue-123:spike:retry-strategy" ]
 }
 
 @test "generate_artifact_doc_id rejects unknown artifact type" {

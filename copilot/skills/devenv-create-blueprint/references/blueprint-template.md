@@ -4,7 +4,7 @@ Copy this skeleton verbatim and fill it in. All top-level headings are required,
 
 ```markdown
 <!-- DEVENV_ARTIFACT_V1
-doc_id: dv1:<owner-repo>:local:blueprint:<artifact-slug>
+doc_id: dv1:<owner>/<repo>:local:blueprint:<artifact-slug>
 artifact_type: blueprint
 artifact_scope: local-file
 issue_number: <N | none>

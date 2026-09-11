@@ -248,21 +248,22 @@ updated_at_utc: <ISO-8601>
 
 2. `doc_id` must be deterministic for the same artifact identity and must appear within the first 256 characters. Read `doc_id` (or any header key) from existing files via `artifact-header <file> --field <key>`; read/verify the whole header via `artifact-header <file>`; bump `updated_at_utc` via `artifact-header <file> --stamp` — never hand-parse or hand-edit the metadata block.
 3. For issue-comment artifacts, include `doc_id: <value>` in the file header. The value should follow this deterministic format:
-    - `dv1:<owner-repo>:issue-<N>:<artifact-type>:<artifact-slug>`
+    - `dv1:<owner>/<repo>:issue-<N>:<artifact-type>:<artifact-slug>`
     - `<artifact-slug>` should be derived from the artifact filename stem or topic, kept stable across updates for the same artifact.
 4. For local-file artifacts (no issue comment target), use this deterministic format in file header:
-    - `dv1:<owner-repo>:local:<artifact-type>:<artifact-slug>`
+    - `dv1:<owner>/<repo>:local:<artifact-type>:<artifact-slug>`
     - `<artifact-slug>` should be derived from the artifact filename stem.
-5. For issue-comment publication, post via `issue-artifact-upsert` (not manual `issue-comment-list` / `issue-comment-update` matching). Tool automatically extracts `doc_id` from file header.
-6. If upsert reports duplicate `doc_id` conflict, stop and ask the user which comment ID is canonical before continuing.
-7. **Planning-repo key (optional, for work governed by a planning repo).** The workspace has multiple planning repos — one per project — so artifacts that participate in a governed hierarchy (epics, roadmaps, grooming documents, and plans/grooming slices created from them) carry the back-link in their header:
+5. **Legacy dashed keys.** Artifacts published before 2026-09-11 may carry dashed-form doc_ids (`dv1:<owner-repo>:...`). They remain valid — `issue-artifact-upsert`/`get`/`select` treat doc_id as an opaque exact-string key — but never generate new doc_ids in that form; `issue-artifact-doc-id` emits the slash form only.
+6. For issue-comment publication, post via `issue-artifact-upsert` (not manual `issue-comment-list` / `issue-comment-update` matching). Tool automatically extracts `doc_id` from file header.
+7. If upsert reports duplicate `doc_id` conflict, stop and ask the user which comment ID is canonical before continuing.
+8. **Planning-repo key (optional, for work governed by a planning repo).** The workspace has multiple planning repos — one per project — so artifacts that participate in a governed hierarchy (epics, roadmaps, grooming documents, and plans/grooming slices created from them) carry the back-link in their header:
 
     ```
     planning_repo: <owner>/<planning-repo>
     ```
 
     - Stamp it when the artifact is created from a known planning context (roadmap step → plan, grooming attack-plan row → slice plan, epic → grooming) or when a session first resolves the planning repo for an existing artifact that lacks the key (`artifact-header <file> --set planning_repo=<owner>/<repo>`).
-    - Issue-backed artifacts whose `doc_id` already targets the planning repo (`dv1:<owner-planning-repo>:issue-<N>:...`) are self-locating — the key is for the **cross-repo** case: an artifact living in (or targeting) a component repo whose epic/grooming/roadmap lives elsewhere.
+    - Issue-backed artifacts whose `doc_id` already targets the planning repo (`dv1:<owner>/<planning-repo>:issue-<N>:...`) are self-locating — the key is for the **cross-repo** case: an artifact living in (or targeting) a component repo whose epic/grooming/roadmap lives elsewhere.
     - The key is a routing hint, never an override: it tells issue/artifact calls where the parent hierarchy lives; it does not change the artifact's own repo (which `doc_id` already encodes).
 
 Skills should keep only artifact-specific mapping details locally (artifact type, slug source, source file) and reference this convention for common behavior.
@@ -289,7 +290,7 @@ Required behavior before any `issue-*` / `pr-*` / `project-*` / artifact call:
 1. **Resolve the target repo for the call** from the work's context: the issue's repo (from user input, plan/branch references, or the `repos/` folder the work lives in), the planning repo for epics/roadmaps/upstream-impact issues, or the component repo for plan/PR work. When multiple repos are in play, resolve each call's target individually.
 2. **Planning-repo resolution chain** (there are many planning repos — one per project; never assume a fixed one). Resolve in order, stopping at the first hit:
    1. The active artifact's `DEVENV_ARTIFACT_V1` header: `planning_repo: <owner>/<repo>` (see the [Artifact Identity Convention](#artifact-identity-convention)).
-   2. The linked upstream artifact (grooming doc, roadmap, epic): its `doc_id` repo segment (`dv1:<owner-repo>:...`) or its own `planning_repo` key.
+   2. The linked upstream artifact (grooming doc, roadmap, epic): its `doc_id` repo segment (`dv1:<owner>/<repo>:...`) or its own `planning_repo` key.
    3. The `repos/` folder the work lives in: a cloned `planning.*` repo among the work's linked repos — confirm with the user when more than one candidate matches.
    4. Ask the user which planning repo governs the work — then stamp it on the active artifact (`artifact-header --set planning_repo=...`) so it is never re-derived.
 3. **State it, then set it**: prefix the call with the env var — `GITHUB_REPO=<owner>/<repo> issue-get <N>` — or `cd` into the target repo root first (the [working-directory guard](#working-directory-guard-required)). Do not rely on inherited terminal state or an env var set for a previous, different target.

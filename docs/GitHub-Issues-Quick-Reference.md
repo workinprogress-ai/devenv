@@ -130,7 +130,7 @@ issue-artifact-doc-id --issue 123 --artifact-type plan --source-file Plan-issue-
 
 ```bash
 issue-artifact-get --issue 123 \
-    --doc-id "dv1:workinprogress-ai-devenv:issue-123:plan:plan-issue-123-001" \
+    --doc-id "dv1:workinprogress-ai/devenv:issue-123:plan:plan-issue-123-001" \
     --full --pretty
 ```
 

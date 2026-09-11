@@ -1258,7 +1258,7 @@ issue-artifact-doc-id --issue ISSUE_NUMBER --artifact-type TYPE [--slug TEXT | -
 
 **Output Format:**
 
-- `dv1:<owner-repo>:issue-<number>:<artifact_type>:<slug>`
+- `dv1:<owner>/<repo>:issue-<number>:<artifact_type>:<slug>`
 
 **Examples:**
 
@@ -1316,7 +1316,7 @@ issue-artifact-get --issue ISSUE_NUMBER --doc-id DOC_ID [--full] [--pretty] [OPT
 ```bash
 issue-artifact-get \
   --issue 42 \
-  --doc-id "dv1:workinprogress-ai-devenv:issue-42:plan:plan-issue-42-001" \
+  --doc-id "dv1:workinprogress-ai/devenv:issue-42:plan:plan-issue-42-001" \
   --full --pretty
 ```
 
@@ -1372,7 +1372,7 @@ issue-artifact-select --issue 42 --artifact-type plan --latest --format doc-id
 
 # Select one exact artifact by doc_id
 issue-artifact-select --issue 42 \
-  --doc-id "dv1:workinprogress-ai-devenv:issue-42:plan:plan-issue-42-001" \
+  --doc-id "dv1:workinprogress-ai/devenv:issue-42:plan:plan-issue-42-001" \
   --format url
 ```
 

@@ -868,23 +868,23 @@ normalize_doc_id_slug() {
     echo "$slug"
 }
 
-# Normalize owner/repo into owner-repo for doc_id format.
+# Validate owner/repo shape for doc_id format, preserving the slash.
 # Usage: normalize_doc_id_repo "owner/repo"
-# Returns: owner-repo
+# Returns: owner/repo (unchanged; slash is part of the enforced doc_id format)
 normalize_doc_id_repo() {
     local repo="${1:-}"
 
-    if [[ ! "$repo" =~ ^[^/]+/[^/]+$ ]]; then
+    if [[ ! "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
         log_error "Invalid repository format: $repo (expected owner/repo)"
         return 1
     fi
 
-    echo "${repo//\//-}"
+    echo "$repo"
 }
 
 # Build deterministic artifact doc_id string.
 # Usage: generate_artifact_doc_id ISSUE_NUMBER ARTIFACT_TYPE SLUG OWNER_REPO
-# Returns: dv1:<owner-repo>:issue-<number>:<artifact_type>:<slug>
+# Returns: dv1:<owner>/<repo>:issue-<number>:<artifact_type>:<slug>
 generate_artifact_doc_id() {
     local issue_number="${1:-}"
     local artifact_type="${2:-}"

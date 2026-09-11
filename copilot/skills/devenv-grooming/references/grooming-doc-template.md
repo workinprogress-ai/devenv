@@ -1,5 +1,5 @@
 <!-- DEVENV_ARTIFACT_V1
-doc_id: <dv1:<owner-repo>:issue-<N>:grooming:<artifact-slug> | dv1:<owner-repo>:local:grooming:<artifact-slug>>
+doc_id: <dv1:<owner>/<repo>:issue-<N>:grooming:<artifact-slug> | dv1:<owner>/<repo>:local:grooming:<artifact-slug>>
 artifact_type: grooming
 artifact_scope: issue-comment | local-file
 issue_number: <N | none>
