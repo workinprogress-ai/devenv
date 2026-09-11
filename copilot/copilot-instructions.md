@@ -227,9 +227,9 @@ When writing temporary comments into code during implementation sessions, use th
 
 ### Ephemeral markdown files (`tmpN.md`)
 
-When the user asks to write markdown to a temporary file, or asks for markdown whose use case is clearly ephemeral — content that exists only to convey information for immediate use (a bug description to paste into an issue, a feature request for a backing library, a scratch summary) — write it to `tmpN.md` in the **repo root** of the active repository, where `N` is an incrementing number.
+When the user asks to write markdown to a temporary file, or asks for markdown whose use case is clearly ephemeral — content that exists only to convey information for immediate use (a bug description to paste into an issue, a feature request for a backing library, a scratch summary) — write it to `.local-artifacts/tmpN.md` in the **root of the active repository**, where `N` is an incrementing number. `.local-artifacts/` is the standard folder for all local, never-committed markdown (working copies of issue artifacts, session memory, ephemeral scratch — see the conventions in `copilot/skills/_conventions.md`); it must be gitignored in every repo.
 
-- Check existing `tmp*.md` files in the repo root first and use the next free number. Do not overwrite an existing tmp markdown unless it is clearly safe to do so.
+- Check existing `tmp*.md` files in `.local-artifacts/` first and use the next free number. Do not overwrite an existing tmp markdown unless it is clearly safe to do so.
 - These files are routinely deleted or modified by the user between sessions — never assume you know what a `tmpN.md` contains; re-read it before any overwrite or reuse.
 - Ephemeral files are not persisted artifacts: no `DEVENV_ARTIFACT_V1` header, no `doc_id`.
 - This rule covers only clearly ephemeral content. Durable artifacts (plans, grooming documents, spike findings, roadmaps) follow their own skill conventions.

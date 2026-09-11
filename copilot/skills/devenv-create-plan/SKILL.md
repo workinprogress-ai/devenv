@@ -1,6 +1,6 @@
 ---
 name: devenv-create-plan
-description: 'Create a structured Plan.md for a user story, task, GitHub issue, complete spec/RFC/design doc, or any multi-step objective planned for later execution (code — the default — docs, mechanical file work, runbooks, mixed work). USE WHEN the user says "create a plan", "plan this story", "break this task into phases", "break down this work", "write up a plan for this", "plan from this spec", "convert this issue into a plan", or hands off a GitHub issue / user story / complete spec to be implemented. Interviews the user when needed, scans repo conventions, drafts phased atomic tasks with a plan-declared verification approach, gets explicit approval, writes the file to the target repo root with a numbered suffix, and offers to publish the plan as a GitHub issue artifact comment. DO NOT USE for ad-hoc coding tasks where no plan file is wanted, for pure research/Q&A, or for editing an existing plan (just edit the file directly).'
+description: 'Create a structured Plan.md for a user story, task, GitHub issue, complete spec/RFC/design doc, or any multi-step objective planned for later execution (code — the default — docs, mechanical file work, runbooks, mixed work). USE WHEN the user says "create a plan", "plan this story", "break this task into phases", "break down this work", "write up a plan for this", "plan from this spec", "convert this issue into a plan", or hands off a GitHub issue / user story / complete spec to be implemented. Interviews the user when needed, scans repo conventions, drafts phased atomic tasks with a plan-declared verification approach, gets explicit approval, writes the file to the target repo's gitignored `.local-artifacts/` folder with a numbered suffix, and offers to publish the plan as a GitHub issue artifact comment. DO NOT USE for ad-hoc coding tasks where no plan file is wanted, for pure research/Q&A, or for editing an existing plan (just edit the file directly).'
 argument-hint: '[issue-number[:doc_id] | path-to-story | freeform description]'
 user-invocable: true
 ---
@@ -54,7 +54,7 @@ Source precedence rule:
 
 ### 1. Identify inputs and target repo
 
-- Determine which repo the plan applies to (the plan file is written to **that** repo's root, not necessarily the current workspace root). For mechanical cross-repo objectives (updating many repos with new files plus follow-ups), the plan declares its target repo set up front — that set becomes the agreed change-scope for execution; feature delivery spanning multiple components still routes through blueprint/roadmap first.
+- Determine which repo the plan applies to (the plan file is written to **that** repo's `.local-artifacts/` folder, not necessarily the current workspace root). For mechanical cross-repo objectives (updating many repos with new files plus follow-ups), the plan declares its target repo set up front — that set becomes the agreed change-scope for execution; feature delivery spanning multiple components still routes through blueprint/roadmap first.
 - If a GH issue number/URL is provided, fetch the issue body and all comments. Treat comments as first-class source material; design docs often live there. Capture the issue number for later.
 - Capture any pasted story / linked docs.
 - Classify the objective type: **code** (default), **docs**, **mechanical file work**, **ops/runbook**, or **mixed**. This drives the verification declaration (step 4).
@@ -250,17 +250,17 @@ Concurrent-edit rule:
 
 ### 7. Resolve target filename (numbered suffix, always)
 
-In the target repo root:
+In the target repo's `.local-artifacts/` (the [standard local markdown folder](../../_conventions.md#standard-local-markdown-folder-local-artifacts); create it if missing):
 
 - If a GH issue is associated → base name `Plan-issue-<N>`
 - Otherwise → base name `Plan`
-- Find the next available zero-padded numeric suffix (`-001`, `-002`, ...) via `next-id --pattern 'Plan-issue-<N>-{N}.md'` (deterministic; never overwrites):
-  - `Plan-issue-15-001.md`, `Plan-issue-15-002.md`, ...
-  - `Plan-001.md`, `Plan-002.md`, ...
+- Find the next available zero-padded numeric suffix (`-001`, `-002`, ...) via `next-id --pattern 'Plan-issue-<N>-{N}.md' --dir <repo-root>/.local-artifacts` (deterministic; never overwrites):
+  - `.local-artifacts/Plan-issue-15-001.md`, `.local-artifacts/Plan-issue-15-002.md`, ...
+  - `.local-artifacts/Plan-001.md`, `.local-artifacts/Plan-002.md`, ...
 
 ### 8. Write the file
 
-Write the approved plan to `<target-repo>/<resolved-filename>.md`.
+Write the approved plan to `<target-repo>/.local-artifacts/<resolved-filename>.md`.
 
 Revision policy: do not create, append, or normalize `## Revision History` in the plan. If an existing plan already contains that section, leave it unchanged unless the user explicitly asks to edit it.
 
@@ -285,6 +285,7 @@ issue-artifact-upsert --issue <N> --body-file <path-to-plan>
 The tool automatically extracts `doc_id` from the file header and creates or updates the comment accordingly.
 
 3. If upsert reports duplicate `doc_id` conflict, stop and ask the user which comment ID is canonical before continuing.
+4. **Offer to retire the local file** (y/n) — after publication the issue artifact is the sole source of truth; see the [issue-backed artifact edit protocol](../../common/references/issue-backed-artifact-edit-protocol.md). Never auto-delete; if the user keeps it, note that `/devenv-open-pr` requires working copies gone before opening a PR.
 
 Execution posture for this step:
 

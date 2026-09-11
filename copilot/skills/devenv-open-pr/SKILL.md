@@ -29,10 +29,10 @@ If the branch has no commits ahead of base, stop and tell the user — there's n
 
 ## Pre-flight: plan files
 
-Before building the PR draft, check for `Plan-*.md` files in the **repo root** (not subdirectories — plans are valid in planning repos):
+Before building the PR draft, check for `Plan-*.md` files under `.local-artifacts/` (the [standard local markdown folder](../../_conventions.md#standard-local-markdown-folder-local-artifacts)) of the target repo (not subdirectories — plans are valid in planning repos):
 
 ```
-ls Plan-*.md 2>/dev/null
+ls .local-artifacts/Plan-*.md 2>/dev/null
 ```
 
 If any exist:
@@ -51,7 +51,7 @@ The plan can still be *read* by this skill to build the PR draft (step 1 below).
 
 Assemble the PR draft from, in order:
 
-1. **Active plan** — `Plan-*.md` in the target **repo** root (not the devenv workspace root). Use phase name for title, completed `[x]` tasks for the changes list, decision blocks for rationale.
+1. **Active plan** — `Plan-*.md` under the target repo's `.local-artifacts/` (not the devenv workspace root). Use phase name for title, completed `[x]` tasks for the changes list, decision blocks for rationale.
 2. **`git log --oneline <merge-base>..HEAD`** and **`git diff --stat`** — actual changes shipped, file scope.
 3. **Parent issue** — extract from plan body (`refs #N`, `closes #N`) or branch name (`issue-NNN-...`, `NNN-...`). If found, fetch via `issue-get` for issue title (used in PR title context) and to confirm `Closes #N` is appropriate.
 4. **Session-handoff comment** — if one was posted on the parent issue/PR already, reuse its hotspots and decision sections rather than regenerating.
@@ -119,7 +119,7 @@ User can opt into draft mode explicitly ("open as draft", "draft PR"). If they d
 
 ## Flow
 
-0. **Pre-flight** — check for `Plan-*.md` in the repo root per the section above. Read and use any found plan as a source, but do not proceed past step 4 until the user has deleted it.
+0. **Pre-flight** — check for `Plan-*.md` under `.local-artifacts/` per the section above. Read and use any found plan as a source, but do not proceed past step 4 until the user has deleted it.
 1. Detect branch, plan, parent issue, prior handoff.
 2. Build draft title and body.
 3. Show the full draft in chat.

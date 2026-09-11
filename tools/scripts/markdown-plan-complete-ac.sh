@@ -148,7 +148,8 @@ parse_args() {
 # ============================================================================
 
 # Resolve the file: use the explicit argument if given, otherwise auto-detect.
-# looks for Requirements-*.md first, then Plan-*.md (or legacy Implementation_plan-*.md).
+# looks for Requirements-*.md first, then Plan-*.md (or legacy Implementation_plan-*.md),
+# each in the current directory and then in .local-artifacts/.
 resolve_plan_file() {
     if [ -n "$PLAN_FILE" ]; then
         if [ ! -f "$PLAN_FILE" ]; then
@@ -158,15 +159,24 @@ resolve_plan_file() {
         return
     fi
 
+    local search_dirs=("." )
+    [ -d .local-artifacts ] && search_dirs+=(".local-artifacts")
+
     local found
-    found=$(find . -maxdepth 1 -name 'Requirements-*.md' | sort | head -1)
+    for dir in "${search_dirs[@]}"; do
+        found=$(find "$dir" -maxdepth 1 -name 'Requirements-*.md' | sort | head -1)
+        [ -n "$found" ] && break
+    done
 
     if [ -z "$found" ]; then
-        found=$(find . -maxdepth 1 \( -name 'Plan-*.md' -o -name 'Implementation_plan-*.md' \) | sort | head -1)
+        for dir in "${search_dirs[@]}"; do
+            found=$(find "$dir" -maxdepth 1 \( -name 'Plan-*.md' -o -name 'Implementation_plan-*.md' \) | sort | head -1)
+            [ -n "$found" ] && break
+        done
     fi
 
     if [ -z "$found" ]; then
-        log_error "No Requirements-*.md, Plan-*.md, or legacy Implementation_plan-*.md file found in the current directory."
+        log_error "No Requirements-*.md, Plan-*.md, or legacy Implementation_plan-*.md file found in the current directory or .local-artifacts/."
         log_info "Specify the file explicitly as one of the arguments."
         exit "$EXIT_NOT_FOUND"
     fi

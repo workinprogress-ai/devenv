@@ -160,12 +160,12 @@ Ask, if not provided: GH issue number? Path to a plan file? Ad-hoc (no plan)?
 
 **If GH issue:** resolve a single plan artifact comment (legacy artifacts are typed implementation-plan) first.
 
-1. Check for a local `Plan-issue-<N>-*.md` in the target repo root first — if one exists and the user wants that exact working copy, use it.
+1. Check for a local `Plan-issue-<N>-*.md` under the target repo's `.local-artifacts/` first — if one exists and the user wants that exact working copy, use it.
 2. Otherwise resolve artifact identity:
    - If the user provided `doc_id`, use `issue-artifact-select --issue <N> --doc-id <DOC_ID>`.
    - If not, try `issue-artifact-select --issue <N> --artifact-type plan`.
    - If ambiguous, list candidates via `issue-artifact-list --issue <N> --artifact-type plan --pretty` and ask the user which `doc_id` to use.
-3. Fetch the selected artifact via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --write-body $(next-id --pattern 'Plan-issue-<N>-{N}.md' --dir <repo-root> --filename)` (next free suffix, never overwrite) — the tool writes the raw markdown directly; use the `header` field in its output for metadata checks.
+3. Fetch the selected artifact via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --write-body $(next-id --pattern 'Plan-issue-<N>-{N}.md' --dir <repo-root>/.local-artifacts --filename)` (next free suffix, never overwrite) — the tool writes the raw markdown directly; use the `header` field in its output for metadata checks.
 4. **Work exclusively from the local file** — record its workspace-relative path as `<plan_file>` for `markdown-plan-complete-task` calls. Keep the selected `<DOC_ID>` in session context; all issue publication updates must target the same artifact comment.
 5. Record the target repo root in session context and run all repo-scoped tooling from that directory for the rest of the session segment.
 
@@ -1074,7 +1074,8 @@ When the user signals end of session (or a phase boundary that suggests a natura
 6. **Architectural deviations discovered during execution:** if the session revealed that an upstream design artifact is wrong (a blueprint boundary didn't survive contact with the codebase, a specification item proved unmeasurable), offer to file an **upstream-impact issue** in the planning repo: `GITHUB_REPO=<org>/<planning-repo> issue-create --type Task --label upstream-impact --no-template`, body covering what was discovered, why it matters, and the affected upstream sections. The refine skills consume this queue in cascade mode.
 7. **Offer knowledge distillation.** Following the shared [knowledge distillation protocol](../common/references/knowledge-distillation-protocol.md): scan the session for organization-specific implementation lessons (where things are wired in this org's repos, idioms of its libraries, enforced conventions — not procedural workflow rules), summarize the candidates in chat with their proposed target files, and let the user approve before anything is written to `repos/docs.copilot-knowledge`. The user reviews and commits. A user may also call out a specific point to add mid-session or at wrap-up — same procedure, no extra mining.
 8. Offer to post a status comment on the issue (if applicable) — show the draft, wait for confirmation. When a plan file backs the work, the draft ends with the `Progress:` snapshot line (see [GH issue artifact sync](#gh-issue-artifact-sync)): `Progress: <done>/<total> tasks (<pct>%), phase <n> of <N> — <YYYY-MM-DD>`, values from `plan-parse --census`, never hand-counted.
-9. Suggest a starting point for the next session.
+9. **Offer to retire local working copies** (y/n, never auto-delete): when the plan (or any other issue artifact used this session) was synced via `issue-artifact-upsert` and the session's work on it is done, list `.local-artifacts/` files whose issue copy is current and offer deletion. If the user keeps them (work continues next session), leave them in `.local-artifacts/` — `/devenv-open-pr` still requires them gone before opening a PR.
+10. Suggest a starting point for the next session.
 
 ## Anti-patterns
 

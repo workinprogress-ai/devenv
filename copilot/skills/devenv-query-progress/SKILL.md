@@ -107,7 +107,7 @@ Apply when relevant to the question; all git access read-only:
 
 - **First answer compact (chat):** headline % + phase position, coverage when relevant, one-line recent progress, risk callouts, offered zoom-ins. Never dump the full report unprompted.
 - **Zoom-ins are conversational:** drill a phase (task list rendered in chat first — referenced-material rule), a single plan, recent commits touching the plan's `Files:` (`git log --oneline -10 <file>`), or "what remains".
-- **Reports on request:** markdown to `tmpN.md` (ephemeral, repo root, next free number — see [ephemeral markdown conventions](../_conventions.md#ephemeral-markdown-files-tmpnmd)), or posted as an issue comment with explicit confirmation. Multi-issue reports: one section per issue, same metrics block, each section headed with its assigned engineer (or "unassigned").
+- **Reports on request:** markdown to `.local-artifacts/tmpN.md` (ephemeral, next free number — see [ephemeral markdown conventions](../_conventions.md#ephemeral-markdown-files-tmpnmd)), or posted as an issue comment with explicit confirmation. Multi-issue reports: one section per issue, same metrics block, each section headed with its assigned engineer (or "unassigned").
 - Follows the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections) (referenced-material rule included) for structured asks.
 
 ## Anti-patterns

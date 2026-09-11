@@ -91,7 +91,7 @@ Conducts a three-phase architectural interview (context → architecture → con
 
 > **Before any significant work begins.**
 
-Interviews the user, scans repo conventions, drafts phased atomic tasks, and writes an `Plan-*.md`. The plan is a current-state execution artifact that follows the engineer's real work rather than a contract the engineer must obey. Offers to push the plan into the associated GitHub issue. The gateway to all build-phase skills.
+Interviews the user, scans repo conventions, drafts phased atomic tasks, and writes a `Plan-*.md` under the repo's `.local-artifacts/` folder (gitignored standard home for local working markdown). The plan is a current-state execution artifact that follows the engineer's real work rather than a contract the engineer must obey. Offers to push the plan into the associated GitHub issue. The gateway to all build-phase skills.
 
 **Use for:** planning a user story, breaking down a GitHub issue, writing up work before starting  
 **Don't use for:** pure research (→ `/devenv-spike`), editing an existing plan (→ `/devenv-refine-plan`)  

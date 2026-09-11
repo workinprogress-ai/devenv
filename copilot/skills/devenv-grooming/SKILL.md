@@ -71,17 +71,17 @@ Before anything else, locate the grooming document for this work.
 **Step 2 — Search for an existing grooming document.** A grooming document may live:
 
 - On the same GH issue (as a comment or linked file)
-- In the root of the repository.  Note that grooming documents are only written to disk while being actively edited, reviewed, or while related work is going on.  The intended source of truth is the GH issue.
+- Under `.local-artifacts/` in the repository (the standard local markdown folder). Grooming documents are only written to disk while being actively edited, reviewed, or while related work is going on; the intended source of truth is the GH issue.
 
 Ask the user if the location is not obvious:
 
-> "Is there an existing grooming document for this work? It may be on a GH issue, or as a `Grooming-*.md` file in the repo root (a working copy from active related work)."
+> "Is there an existing grooming document for this work? It may be on a GH issue, or as a `Grooming-*.md` file under `.local-artifacts/` in the repo (a working copy from active related work)."
 
 **Step 3 — Load or create.**
 
 - If an existing grooming document is found: load it, show a brief status summary (confirmed decisions, pending decisions, open questions, linked plans), and ask the user to confirm before proceeding.
 - If no grooming document exists: create a new one using [grooming-doc-template.md](./references/grooming-doc-template.md).
-- Default location for a new local grooming document is the root of the active repo (temporary working location until persisted to a GitHub issue artifact).
+- Default location for a new local grooming document is `.local-artifacts/` in the active repo (the [standard local markdown folder](../../_conventions.md#standard-local-markdown-folder-local-artifacts) — temporary working location until persisted to a GitHub issue artifact).
 - Default filename is `Grooming-<topic>-NNN.md`.
 - If the user wants a non-default location or filename, ask and follow their preference.
 

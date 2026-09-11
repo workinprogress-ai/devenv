@@ -48,7 +48,7 @@ More patient and thorough than a typical investigation. Comfortable saying "I do
 
 ## Session Continuity
 
-Documentation tasks often span multiple sessions. Maintain a `session_memory-document.md` file in the **target repo root** (or workspace root for multi-repo tasks) to preserve state across sessions.
+Documentation tasks often span multiple sessions. Maintain a `session_memory-document.md` file in the target repo's `.local-artifacts/` folder (workspace root's `.local-artifacts/` for multi-repo tasks) — see the [standard local markdown folder](../../_conventions.md#standard-local-markdown-folder-local-artifacts).
 
 **At session start:** create it if it doesn't exist, or load and summarise it to the user if it does.
 

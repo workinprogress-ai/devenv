@@ -61,7 +61,7 @@ If neither input is supplied, stop and redirect: specifications-first → `/deve
 
 ## Session Continuity
 
-Use `session_memory-roadmap.md` in the **target repo root** following the same protocol as [`/devenv-write-specifications`](../devenv-write-specifications/SKILL.md). The filename suffix lets it coexist with `session_memory-blueprint.md` and `session_memory-specifications.md`.
+Use `session_memory-roadmap.md` in the target repo's `.local-artifacts/` folder (see the [standard local markdown folder](../../_conventions.md#standard-local-markdown-folder-local-artifacts)) following the same protocol as [`/devenv-write-specifications`](../devenv-write-specifications/SKILL.md). The filename suffix lets it coexist with `session_memory-blueprint.md` and `session_memory-specifications.md`.
 
 ## Output Artifact
 

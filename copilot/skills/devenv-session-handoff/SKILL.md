@@ -27,7 +27,7 @@ The skill assembles the handoff from multiple sources, in order of preference:
 1. **`git log --oneline <merge-base>..HEAD`** — commits made this session.
 2. **`git diff <merge-base>..HEAD --stat`** — files changed, scope.
 3. **`git status`** — uncommitted / WIP state.
-4. **Active plan** (if any `Plan-*.md` exists at workspace root) — completed and remaining tasks.
+4. **Active plan** (if any `Plan-*.md` exists under the target repo's `.local-artifacts/`) — completed and remaining tasks.
 5. **Session memory** (`/memories/session/`) — any in-progress notes.
 6. **The user** — anything the artifacts can't tell you (rationale, dead-ends explored, things deliberately deferred).
 
@@ -92,6 +92,7 @@ Flow:
 After posting (or instead, on `n`), **also offer**:
 
 - "Update [Plan-X.md](Plan-X.md) with progress? (y/n)" — hands off to `/devenv-refine-plan` (surgical mode for ticks/notes, revision mode for structural changes).
+- **Retire stale local working copies** (y/n, never auto-delete): list `.local-artifacts/` files whose issue-hosted artifact is current (published and not stale vs. the session's edits) and offer to delete them — the issue copy is the source of truth once published. Keep anything the work still depends on and say so.
 
 ## Drafting guidance
 

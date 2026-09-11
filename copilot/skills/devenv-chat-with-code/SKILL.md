@@ -136,7 +136,7 @@ When detected, surface a suggestion before the next turn — do not switch silen
 
 Wait for explicit confirmation. **When the user agrees to transition, remind them that they need to start a new chat and invoke the target skill** (e.g. type `/devenv-pair-programming`) — continuing in this session does not load the other skill's rules.
 
-**Mutating side-requests mid-session** (e.g. "write that to a tmp file", "create the issue from that draft"): this skill is read-only for repository content, but user-directed side actions are fine when they follow workspace rules — ephemeral markdown goes to `tmpN.md` in the active repo root, and **any issue operation (read or write) uses the `issue-*` tools, never raw `gh`** — see the issue-tooling rule in copilot-instructions §7. The absence of a skill-level tool mandate here never relaxes that workspace rule.
+**Mutating side-requests mid-session** (e.g. "write that to a tmp file", "create the issue from that draft"): this skill is read-only for repository content, but user-directed side actions are fine when they follow workspace rules — ephemeral markdown goes to `.local-artifacts/tmpN.md` in the active repo (see the [standard local markdown folder](../../_conventions.md#standard-local-markdown-folder-local-artifacts)), and **any issue operation (read or write) uses the `issue-*` tools, never raw `gh`** — see the issue-tooling rule in copilot-instructions §7. The absence of a skill-level tool mandate here never relaxes that workspace rule.
 
 Sibling skill routing:
 

@@ -86,7 +86,7 @@ Senior staff engineer with strong opinions. Pushes back when warranted; defers w
 
 ## Session continuity
 
-Maintain `session_memory-design.md` in the **target repo root** for sessions that span more than one sitting. Same protocol as the other planning skills.
+Maintain `session_memory-design.md` in the target repo's `.local-artifacts/` folder (see the [standard local markdown folder](../../_conventions.md#standard-local-markdown-folder-local-artifacts)) for sessions that span more than one sitting. Same protocol as the other planning skills.
 
 Track:
 - Problem framing as it firms up

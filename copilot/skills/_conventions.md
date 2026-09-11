@@ -96,18 +96,37 @@ Skills that follow this convention: `devenv-refine-specifications`, `devenv-refi
 - **Keep one home for detail.** If a fact already lives in a phase summary, appendix, or task context, do not restate it in an ADR unless the decision itself is what matters.
 - **Keep appendices bounded.** Appendix sections should be short, source-backed, and only include context not already captured in the main body. Push repetitive rationale into links or upstream artifacts.
 
+## Standard local markdown folder (`.local-artifacts/`)
+
+All local markdown that is NOT a shipped repo file lives in `.local-artifacts/` at the root of the target repo — never in the repo root. The folder is gitignored in every repo (see `.gitignore` templates). The folder holds three families:
+
+| Family | Examples | Source of truth after the session |
+|---|---|---|
+| **Working copies of issue-published artifacts** | `Plan-issue-<N>-*.md`, `Grooming-*.md`, roadmap/spec scratch copies pulled via `issue-artifact-get --write-body` | The GitHub issue artifact — the local file is disposable once published |
+| **Session memory** | `session_memory-*.md` (all planning-skill suffixes) | None — never published; retired when the skill's work completes |
+| **Ephemeral markdown** | `tmpN.md` scratch files | None — consume-and-forget |
+
+Rules:
+
+- **One glob.** Working-copy probes check `<repo>/.local-artifacts/` (e.g. `.local-artifacts/Plan-issue-42-*.md`), not the repo root.
+- **One ignore.** `.local-artifacts/` is committed to no repo; every repo's `.gitignore` (including all `template.*` repos) carries the entry.
+- **Offer-to-retire at wrap-up.** When an artifact is republished to its issue (`issue-artifact-upsert`) or a skill session that owns local files ends, list the stale `.local-artifacts/` files and offer deletion (y/n) — never auto-delete. After publication the issue copy is authoritative; see the [issue-backed artifact edit protocol](#issue-backed-artifact-edit-protocol).
+- **Out of scope:** deliverable-style docs that are the skill's own product — spike docs (`spike-NNN-*.md`, workspace root), bug-hunt reports (`bug-hunt-*.md`, repo root), technical-debt audits (`TECH_DEBT_AUDIT.md`), and specs/blueprints written into planning repos (`docs/Specifications/` etc.). Those stay where their skills place them; cleanup sweeps must not touch them.
+
 ## Issue-backed artifact edit protocol
 
 When a skill must modify an artifact that already lives in a GitHub issue body or issue comment, use one common workflow:
 
-1. **Pull to a local working copy first.** Materialize the current issue-backed artifact to a local file before editing. The local file may live in the target repo or in a temp folder — ask the user which they want when it is not already obvious from the skill flow.
+1. **Pull to a local working copy first.** Materialize the current issue-backed artifact to a local file under `.local-artifacts/` (see the [standard local markdown folder](#standard-local-markdown-folder-local-artifacts)) before editing. A temp folder is acceptable only when the user explicitly asks for one.
 2. **Edit locally until stable.** All iterations, drafts, and intermediate rewrites happen against the local working copy, not directly against the issue body/comment.
 3. **Republish back to the original location.** Once the artifact is ready, push the local working copy back to the original issue body or issue comment using the appropriate wrapper/tooling.
+4. **Offer to retire the working copy.** After publication the issue-hosted artifact is again the sole source of truth; offer (y/n) to delete the local working copy. Never auto-delete.
 
 Working-copy rule:
 
 - During the session, the pulled local file is the source of truth.
 - The GitHub issue body/comment is the publication target, not the live editing surface.
+- After publication, the local working copy is disposable; skills must name which copy is authoritative whenever both still exist.
 
 Revision-history rule for issue-backed artifacts:
 
@@ -270,9 +289,9 @@ Skills should keep only artifact-specific mapping details locally (artifact type
 
 ## Ephemeral markdown files (`tmpN.md`)
 
-Not every markdown a skill writes is a persisted artifact. When the user asks for a temporary markdown file, or the use case is clearly ephemeral — content that exists only to convey information for immediate use (a bug description to paste into an issue, a feature request for a backing library, a scratch summary) — write it to `tmpN.md` in the **repo root** of the active repository, where `N` is an incrementing number.
+Not every markdown a skill writes is a persisted artifact. When the user asks for a temporary markdown file, or the use case is clearly ephemeral — content that exists only to convey information for immediate use (a bug description to paste into an issue, a feature request for a backing library, a scratch summary) — write it to `.local-artifacts/tmpN.md` in the active repository (see the [standard local markdown folder](#standard-local-markdown-folder-local-artifacts)), where `N` is an incrementing number.
 
-- Check existing `tmp*.md` files in the repo root first and use the next free number. Do not overwrite an existing tmp markdown unless it is clearly safe to do so.
+- Check existing `tmp*.md` files in `.local-artifacts/` first and use the next free number. Do not overwrite an existing tmp markdown unless it is clearly safe to do so.
 - These files are routinely deleted or modified by the user between sessions — never assume you know what a `tmpN.md` contains; re-read it before any overwrite or reuse.
 - Ephemeral files are not persisted artifacts: no `DEVENV_ARTIFACT_V1` header, no `doc_id`, and they are not republished via `issue-artifact-upsert`.
 - Boundary with the Artifact Identity Convention: if the content will outlive the immediate exchange (plans, grooming documents, spike findings, roadmaps, session handoffs), it is a persisted artifact and follows that convention instead. When classification is ambiguous, ask the user one direct question.

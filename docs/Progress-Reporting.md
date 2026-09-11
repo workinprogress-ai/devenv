@@ -70,7 +70,7 @@ Read-only progress reporting across plans, grooming issues, and roadmaps.
 
 **Zoom-ins:** drill a phase, a single plan, recent commits touching the plan's `Files:`, or "what remains" — all rendered in chat first.
 
-**Report modes:** ephemeral markdown (`tmpN.md` in the repo root) or a posted issue comment with explicit confirmation. Multi-issue reports: one section per issue, headed with its assigned engineer.
+**Report modes:** ephemeral markdown (`.local-artifacts/tmpN.md` in the repo) or a posted issue comment with explicit confirmation. Multi-issue reports: one section per issue, headed with its assigned engineer.
 
 **Read-only guarantee:** no plan edits, no issue writes, no roadmap syncs, no labels; git access is `log`/`show`/`branch -r` only, against the repo cache or read-only against working repos. When the repo cache is too shallow to answer branch-level questions, the skill says so and offers `repo-cache-deepen` for the user to run (or confirms before running it) — it never deepens implicitly.
 
