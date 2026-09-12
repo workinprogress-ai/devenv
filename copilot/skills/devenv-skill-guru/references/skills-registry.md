@@ -109,7 +109,7 @@ Skills for closing out a session or shipping work.
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 | --- | --- | --- | --- |
 | `/devenv-skill-guru` | Ask 1–3 questions and recommend the right skill; also accepts an issue number for a read-only which-skill-handles-this recommendation and offers to start it | "which skill should I use", "help me pick a skill", "I'm not sure what to use", "skill guru", "which skill handles issue #42", "recommend a skill for this issue" | starting any skill without explicit permission; issue metadata triage (labels, type, priority, size, duplicates) → `/devenv-triage-issue` |
-| `/devenv-skill-maintenance` | Maintain and correct the custom skill system while keeping docs, registry, and routing artifacts in sync | "fix this skill", "update SKILL.md", "repair the skills catalog", "sync skill docs", "correct skill routing", "here is diagnostic output from another skill" | general coding tasks unrelated to customization; feature implementation in product code; runtime bug diagnosis unrelated to skill docs |
+| `/devenv-skill-maintenance` | Maintain and correct the custom skill system while keeping docs, registry, and routing artifacts in sync | "fix this skill", "update SKILL.md", "repair the skills catalog", "sync skill docs", "correct skill routing", "here is diagnostic output from another skill", "act on this IMPROVEMENT_REPORT", "file this finding as an issue", "fix devenv issue N" | general coding tasks unrelated to customization; feature implementation in product code; runtime bug diagnosis unrelated to skill docs |
 
 ---
 

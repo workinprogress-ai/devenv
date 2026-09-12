@@ -9,6 +9,8 @@ user-invocable: true
 
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
+> **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
+
 Revise an existing blueprint based on new information — architectural decisions that changed, specifications that arrived after the original blueprint, or implementation discovery that exposed gaps. Preserve section numbering and cross-references; supersede structure deliberately.
 
 Write the blueprint body as the current target architecture. Keep historical change narrative out of the document entirely — the document is target state, period. Rationale for significant changes lives in ADRs (`docs/Decisions/`, see the shared [ADR template](../common/references/adr-template.md)); git records when. If a legacy `## Revision History` section exists from an older workflow version, migrate its still-relevant entries into ADRs and delete the section.

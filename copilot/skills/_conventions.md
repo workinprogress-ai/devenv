@@ -182,7 +182,7 @@ Re-arming rule:
 
 When a skill's flow needs user input, prefer **direct structured queries** (`vscode_askQuestions`) over outputting prose and waiting for a typed response — for both shapes:
 
-**Scope:** this rule applies at *every* asking point — kickoff, commissioning, scope confirmation, mid-phase stops, handback options, wrap-up offers — not only mid-phase stops. A prose question template embedded in a skill demonstrates the *content* of the ask (options, meanings); it does not override this format rule. When embedding a prose question template in a skill, annotate it with "present via the structured interview when the query is bounded" so the template cannot shadow this rule.
+**Scope:** this rule applies at *every* asking point — kickoff, commissioning, scope confirmation, mid-phase stops, handback options — not only mid-phase stops. A prose question template embedded in a skill demonstrates the *content* of the ask (options, meanings); it does not override this format rule. When embedding a prose question template in a skill, annotate it with "present via the structured interview when the query is bounded" so the template cannot shadow this rule.
 
 - **Simple questions:** a short series of one or more direct, bounded queries unlikely to need much back-and-forth.
 - **List selections:** any ask where the user picks from a bounded option set (Y/N, Y/N/choose-subset, A/B/C menus, apply/skip/both/neither). Present the options as selectable choices with freeform input allowed; state the necessary context in chat first so the choices are self-explanatory.
@@ -367,6 +367,7 @@ Recommended snippet references:
 - **Tool help policy**: "Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`_tools-reference.md`](../_tools-reference.md) instead of running ad-hoc `--help` during execution."
 - **Catalog pointer**: "See the [Skills catalog](./common/references/skills-catalog.md) for the full list and decision tree."
 - **Diagnostic mode**: "When the user requests diagnostics for undesirable output/action, follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) and write `DIAGNOSTIC_REPORT.md` at the active project root."
+- **Skill feedback**: "When the user asks how a skill could be improved with no defect alleged, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) and write `IMPROVEMENT_REPORT.md` at the active project root. Zero findings is a valid result."
 
 When updating existing skills, prefer replacing duplicated boilerplate blocks with a brief reference line to keep token usage tight.
 
@@ -386,6 +387,21 @@ Required behavior:
 
 Authoring rule: Add the blockquote immediately after the title (before the opening paragraph) for the listed skills only.
 
+## Shared skill feedback
+
+All custom skills under `copilot/skills/devenv-*/SKILL.md` must also support skill feedback capture, the sibling of diagnostic mode. Diagnostic mode captures errata (something undesirable happened); skill feedback captures evidence-backed improvement observations when nothing is broken.
+
+Required behavior:
+
+1. If the user asks how the skill could be improved with no defect alleged, follow [Skill Feedback Protocol](./common/references/skill-feedback-protocol.md).
+2. Never short-circuit implementation flow for feedback capture — it runs at a natural pause, on explicit request only. Never offer unprompted.
+3. Apply the protocol's evidence bar: every candidate cites a concrete observed interaction moment; zero findings is valid and expected; never pad a report to satisfy the request.
+4. Write `IMPROVEMENT_REPORT.md` at the active project root unless the user explicitly requests a different path/filename.
+5. Do not expose hidden internal chain-of-thought; describe observations in user-facing terms.
+6. Confirm in chat where the file was written; do not dump the full report body in chat unless the user asks.
+
+Authoring rule: Add the skill-feedback blockquote immediately below the diagnostic-mode blockquote.
+
 ## Shared artifact output packaging
 
 When a skill is asked to produce an artifact-like report and the user does not specify a format, default to a copy-first packaging style.
@@ -397,7 +413,7 @@ Applies to outputs such as:
 - findings reports
 - handoff blocks intended for another skill, issue, PR, or tracker
 
-Diagnostic reports are handled by the shared [Diagnostic Mode Protocol](./common/references/diagnostic-mode-protocol.md) and should be written to `DIAGNOSTIC_REPORT.md` at the active project root by default.
+Diagnostic reports are handled by the shared [Diagnostic Mode Protocol](./common/references/diagnostic-mode-protocol.md) and should be written to `DIAGNOSTIC_REPORT.md` at the active project root by default. Improvement feedback reports are handled by the shared [Skill Feedback Protocol](./common/references/skill-feedback-protocol.md) and should be written to `IMPROVEMENT_REPORT.md` at the active project root by default.
 
 Required default behavior:
 

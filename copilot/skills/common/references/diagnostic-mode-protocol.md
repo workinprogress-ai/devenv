@@ -10,6 +10,8 @@ Use this protocol when the user indicates undesirable output or an undesirable/m
 
 Also use this output contract by default when the user asks for a diagnostic report, postmortem, incident report, or findings artifact and does not specify a format.
 
+This is the sibling of the [Skill Feedback Protocol](skill-feedback-protocol.md). Diagnostic mode captures **errata** — something undesirable happened and must be captured for repair. If nothing is wrong and the user asks how the skill could be improved, use the Skill Feedback Protocol instead.
+
 ## Output contract
 
 When diagnostic mode is requested, write the diagnostic report to:
@@ -72,6 +74,12 @@ Do **not** expose hidden internal chain-of-thought. Provide a concise, user-faci
 - additional_data_needed: <what would most improve confidence>
 ```
 
+## Evidence honesty (non-negotiable)
+
+- **A request to diagnose is not an obligation to find a defect.** If examination shows the behavior was actually correct or the evidence is too weak to support a root cause, say exactly that. Never invent an erratum, root cause, or maintenance target to satisfy the request.
+- **Every claim traces to something concrete** — a quoted user turn, a cited file/section, an observed action. No speculative narratives presented as findings.
+- **Uncertainty is stated as uncertainty.** Where the root cause is genuinely unknown, the self-diagnosis section says so and lists what evidence would resolve it. `Suggested Maintenance Targets` may legitimately be `none`.
+
 ## Quality bar
 
 - Specific over generic.
@@ -85,5 +93,6 @@ Do **not** expose hidden internal chain-of-thought. Provide a concise, user-faci
 
 - Did I write `DIAGNOSTIC_REPORT.md` to the active project root?
 - Does the file include every required section, with `none` where data is unavailable?
+- If no real erratum or only weak evidence emerged, did I say exactly that instead of inventing findings?
 - Is the file self-contained for `/devenv-skill-maintenance`?
 - Did I avoid outputting the full diagnostic body in chat by default?

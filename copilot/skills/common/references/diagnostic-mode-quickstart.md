@@ -13,6 +13,16 @@ Add this **blockquote immediately below the skill's main title** (before the ope
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 ```
 
+## Skill feedback one-liner (sibling blockquote)
+
+Add this **blockquote immediately below the diagnostic-mode blockquote**:
+
+```markdown
+> **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
+```
+
+The two blockquotes are siblings with different semantics: diagnostic mode is for errata (undesirable output/action) and short-circuits flow; skill feedback is for evidence-backed improvement observations, never invents findings, never short-circuits, and never offers unprompted.
+
 ## Implementation checklist
 
 1. ✅ Add the blockquote to your skill's SKILL.md body (below `# <Skill Title>`).

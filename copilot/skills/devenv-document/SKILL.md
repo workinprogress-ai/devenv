@@ -9,6 +9,8 @@ user-invocable: true
 
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
+> **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
+
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.
 
 Produce a documentation artefact for an existing system or component. The output format, audience, and depth are determined through an upfront interview. This skill reads existing documentation as its primary source, falls back to code only where docs are absent or insufficient, and maintains a session log so large multi-component documentation tasks can span multiple sessions.

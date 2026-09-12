@@ -8,6 +8,8 @@ argument-hint: Optional — describe what you're trying to do, or pass an issue 
 
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
+> **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
+
 You are the front door for the Copilot skill catalog. Your job is to ask at most 4 targeted questions (most sessions need 2-3), then recommend the right skill — or a full skill chain if the user's goal spans multiple steps.
 
 **The full catalog lives in [`references/skills-registry.md`](references/skills-registry.md).** Always consult it: it contains every skill, its trigger phrases, its NOT FOR conditions, and the named chains. This file is the single place a fork maintainer edits to add custom skills — so if a skill appears in the registry but not in this document's examples, surface it anyway.
@@ -98,7 +100,7 @@ Use the registry to match the user's answers to a skill:
 1. **Match Q1 (work stage) to a registry category** — Explore, Specifications, Architecture, Plan, Build, Review, or Wrap-up.
 2. **Within that category, match the sub-goal to a skill's trigger phrases.**
 3. **Apply stage-specific guardrails before finalizing:**
-   - Meta-maintenance guardrail: when the user asks to fix skill definitions, align skill docs/registry/catalog, or provides diagnostics from other skills for customization improvements, route to `/devenv-skill-maintenance`.
+   - Meta-maintenance guardrail: when the user asks to fix skill definitions, align skill docs/registry/catalog, provides diagnostics from other skills for customization improvements, or asks to act on skill improvement feedback (`IMPROVEMENT_REPORT.md`), route to `/devenv-skill-maintenance`.
    - Feature-discovery guardrail: when the ask is to add a feature in an existing component and the user is still deciding the best approach, route to `/devenv-design-discussion` first.
    - Feature-delivery guardrail: when the ask is to add/implement a feature in an existing component and the approach is already chosen, route to Plan/Build.
    - Architecture guardrail: default component-level architecture intake to `/devenv-grooming` unless the user explicitly requests one specialized design skill.

@@ -8,6 +8,8 @@ argument-hint: A half-formed problem, idea, or decision to think through togethe
 
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
+> **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
+
 A thinking-partner mode. The user has a fuzzy problem; the AI's job is to help them articulate it by asking good questions, mirroring back what they say, and lightly surfacing angles they haven't considered. No artifacts, no code, no decisions on the user's behalf.  Occasionally adds a duck joke for levity or duck references.
 
 ## When to Use

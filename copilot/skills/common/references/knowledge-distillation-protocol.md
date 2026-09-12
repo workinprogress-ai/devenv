@@ -1,6 +1,6 @@
 # Knowledge Distillation Protocol
 
-Shared protocol for `/devenv-pair-programming` and `/devenv-delegation` (any execution skill may adopt it): capture organization-specific implementation lessons into the copilot knowledge repo at wrap-up/closeout, or when the user explicitly calls out a point to add.
+Shared protocol for capturing organization-specific implementation lessons into the copilot knowledge repo — any skill may follow it on explicit request; `/devenv-pair-programming` and `/devenv-delegation` carry its explicit closeout wiring: capture when the user explicitly asks to distill the session or calls out a point to add. Never offer distillation unprompted — proactive offers are deferred to the offer-gating design tracked in the devenv repo.
 
 ## The knowledge bar
 
@@ -34,7 +34,7 @@ Placement within the knowledge files:
 - Follow the target file's existing bullet style and granularity.
 - Create a new file/section only when nothing fits, and update that folder's `index.md` in the same change so the load policy stays accurate.
 
-## Detection pattern (wrap-up/closeout mining)
+## Detection pattern (session mining — runs on explicit request only)
 
 Scan the session for moments where organization-specific truth was learned:
 
@@ -48,7 +48,7 @@ Each candidate must pass the knowledge bar above. Expect few — most sessions y
 ## Procedure (both modes)
 
 1. **Collect candidates.**
-   - *Wrap-up/closeout mode:* mine the session per the detection pattern.
+   - *Session-mining mode (explicit request only):* the user asks to distill this session; mine the session per the detection pattern.
    - *Explicit-callout mode:* the user names the point (mid-session or at wrap-up); use it as the sole candidate — do not mine the conversation for more.
 2. **Present a summary in chat:** each candidate as a one-line bullet plus its proposed target file/section. State that the user reviews and approves before anything is written, and that the user commits the knowledge repo.
 3. **On approval (subset or edited):** apply the additions to the knowledge files, matching existing style.

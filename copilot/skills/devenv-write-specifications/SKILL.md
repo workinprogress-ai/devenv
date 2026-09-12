@@ -9,6 +9,8 @@ user-invocable: true
 
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
+> **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
+
 Produce a user-oriented, functional specifications document through a structured interview. The output describes *what* the system does — not how it does it — at a level both humans and AI can use to drive planning and implementation.
 
 > **Specifications are living documents.** A specifications document is not a point-in-time snapshot that gets signed off and archived — it is the system's current functional truth, expected to evolve as understanding deepens, stakeholders shift, and implementation reveals gaps. Write it current-state: sections describe the system as it should be *now*, not a history of how the document changed. Change arrives through refinement (`/devenv-refine-specifications`) or continuation sessions (pass the file path back to this skill), never through stale accumulation. The word "requirements" was retired deliberately — it evoked a frozen artifact gathered once; specifications are kept true.

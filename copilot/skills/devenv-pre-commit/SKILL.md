@@ -8,6 +8,8 @@ argument-hint: Optional — `--all` to run on whole project instead of changed f
 
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 
+> **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
+
 Run the project's quality gates (lint, format, type-check, tests) against changed files. Report all failures together. **Never commits.**
 
 This is the last step before *you* commit. The skill stops at "the checks passed" or "here's what's broken" — it never runs `git commit`, `git add`, `--no-verify`, or any other git-mutating command.
@@ -102,6 +104,29 @@ Per-tool sections only when there are failures. Skip the "Passed" section if eve
 - **Apply** only with confirm. One confirm per tool (not per file).
 - **Re-run that tool only** after applying, to verify the fix didn't introduce new issues.
 - Never apply test fixes automatically (no test code is auto-fixable in a meaningful way).
+
+## Commit message suggestion
+
+When all checks pass, close the report with a suggested commit message in conventional-commits format, per the workspace `commitlint.config.js` (`@commitlint/config-conventional`; types: `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style`, `test`). Derive the type from the dominant change (docs-only → `docs`, tooling fix → `fix`, new capability → `feat`).
+
+- **Subject:** `type(optional-scope): subject` — imperative mood, ≤ 72 chars, no trailing period.
+- **Body:** a few `-` bullets with the specifics of what changed. Omit the body only for trivial single-concern changes.  Keep the bullet points high level.
+- **Mixed changes:** suggest split commits — one fenced block each, in order.
+- **Any check failing:** do not suggest a commit message; failures get fixed first, then re-run.
+
+Present it as a single fenced `bash` block containing the full command, so the user can paste and hit enter:
+
+```bash
+git commit -m "$(cat <<'EOF'
+feat(skills): add skill feedback protocol and evidence gates
+
+- add shared skill-feedback-protocol.md writing IMPROVEMENT_REPORT.md
+- add commit message suggestion section to pre-commit skill
+EOF
+)"
+```
+
+The skill never runs this command — suggesting it for the user to run is exactly the boundary in "What this skill never does".
 
 ## What this skill never does
 
