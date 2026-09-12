@@ -60,10 +60,10 @@ artifact-header Grooming-orders-001.md --stamp
 Deterministic DEVENV-marker and AC-comment scanning (replaces hand-run grep sweeps).
 
 ```
-devenv-marker-check [PATH...] [--ac] [--marker REGEX] [--require]
+devenv-marker-check [PATH...] [--ac] [--todo-report] [--marker REGEX] [--require]
 ```
 
-Gate mode (default): exit 1 when any `DEVENV[` marker remains. `--ac` lists `[AC-N]` comments for the AC review gate (always exit 0). `--marker` scans a custom pattern (e.g. `DEVENV\\[bug-hunt\\]`). `--require` inverts the gate — pass only when at least one match exists.
+Gate mode (default): exit 1 when any `DEVENV[` marker remains. `--ac` lists `[AC-N]` comments for the AC review gate (always exit 0). `--todo-report` lists scoped `TODO(DEVENV[` markers with file:line:match and warns about any missing a discharge condition — supports the kickoff Scoped-TODO discovery rule (always exit 0). `--marker` scans a custom pattern (e.g. `DEVENV\\[bug-hunt\\]`). `--require` inverts the gate — pass only when at least one match exists. `--ac` and `--todo-report` are mutually exclusive.
 
 Examples:
 

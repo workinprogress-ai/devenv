@@ -1,9 +1,11 @@
 #!/bin/bash
 # devenv-marker-check.sh - Deterministic DEVENV-marker and AC-comment scanning
-# Version: 1.0.0
+# Version: 1.1.0
 # Description: Replaces hand-run grep sweeps: verify no DEVENV[ scaffolding
 #              markers remain (gate mode), list [AC-N] comments for review
-#              (finder mode), or check custom markers with --require inversion.
+#              (finder mode), list scoped TODO(DEVENV markers with their
+#              discharge conditions (--todo-report), or check custom markers
+#              with --require inversion.
 # Requirements: Bash 4.0+, grep
 
 set -euo pipefail
@@ -11,13 +13,14 @@ set -euo pipefail
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
 
-readonly SCRIPT_VERSION="1.0.0"
+readonly SCRIPT_VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
 script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Scan for DEVENV markers and AC comments"
 
 MARKER='DEVENV\['
 AC_MODE=0
+TODO_REPORT=0
 REQUIRE=0
 PATHS=()
 
@@ -27,13 +30,19 @@ Usage: $SCRIPT_NAME [PATH...] [OPTIONS]
 
 Deterministic marker scanning for DEVENV workflows.
 
-Default (gate mode): fail (exit 1) when any DEVENV[ scaffolding marker
-remains under the scanned paths; print each hit as file:line:match.
+Default (gate mode): fail (exit 1) when any FIXME(DEVENV[ or
+TODO(DEVENV[ marker remains under the scanned paths; print each hit
+as file:line:match.
 
 Options:
     --ac                         Finder mode: list [AC-N] DEVENV comments with
                                  file:line:match; exit 0 regardless (the AC
                                  review gate assesses them, this only finds them)
+    --todo-report                Finder mode: list scoped TODO(DEVENV[ markers
+                                 with file:line:match and flag any missing a
+                                 discharge condition ("remove when ...");
+                                 exit 0 regardless. Supports the kickoff
+                                 Scoped-TODO discovery rule.
     --marker REGEX               Custom marker regex (default 'DEVENV\['), e.g.
                                  'DEVENV\[bug-hunt\]' for bug-hunter sweeps
     --require                    Invert the gate: succeed only when at least one
@@ -71,6 +80,7 @@ main() {
                 ;;
             -V|--verbose) shift ;;
             --ac) AC_MODE=1; shift ;;
+            --todo-report) TODO_REPORT=1; shift ;;
             --marker)
                 [ -z "${2:-}" ] && invalid_args "Missing value for --marker"
                 MARKER="$2"; shift 2 ;;
@@ -89,9 +99,15 @@ main() {
         fi
     done
 
+    if [ "$AC_MODE" -eq 1 ] && [ "$TODO_REPORT" -eq 1 ]; then
+        invalid_args "--ac and --todo-report are mutually exclusive"
+    fi
+
     local regex hits=0
     if [ "$AC_MODE" -eq 1 ]; then
         regex='\[AC-[0-9]+'
+    elif [ "$TODO_REPORT" -eq 1 ]; then
+        regex='TODO\(DEVENV\['
     else
         regex="$MARKER"
     fi
@@ -109,6 +125,19 @@ main() {
     if [ "$AC_MODE" -eq 1 ]; then
         if [ "$hits" -eq 0 ]; then
             echo "No AC comments found under: ${PATHS[*]}"
+        fi
+        exit 0
+    fi
+
+    if [ "$TODO_REPORT" -eq 1 ]; then
+        if [ "$hits" -eq 0 ]; then
+            echo "No scoped TODO(DEVENV markers found under: ${PATHS[*]}"
+            exit 0
+        fi
+        local missing
+        missing=$(echo "$result" | grep -cv "remove when" || true)
+        if [ "$missing" -gt 0 ]; then
+            log_warn "$missing of $hits scoped TODO(s) missing a discharge condition ('remove when ...') — condition-less TODOs are defects per the marker spec; resolve with the user"
         fi
         exit 0
     fi

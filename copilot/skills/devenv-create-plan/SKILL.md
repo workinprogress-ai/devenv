@@ -184,7 +184,7 @@ Use the [plan template](./references/plan-template.md). Follow:
 - `## Phase TOC` must appear immediately before `## Phases` and provide short anchor links for quick navigation across phases
 - `## Phases` is the human-facing execution section: each phase gets goal, end-state vision, suggested strategies, AC links, watch-outs / decisions, deliverables, and its task list
 - Resolve pending questions as early as possible during plan creation. Unresolved items are allowed only for implementation-level details or explicit user deferral.
-- When contract-first phases temporarily reduce meaningful coverage (for example because interfaces, schema holders, or placeholder adapters land before their implementations), the plan may use temporary coverage-exclusion mechanisms only when truly necessary. If it does, include explicit cleanup/removal tasks in a later phase and require `TODO:(DEVENV[plan-key]): ...` markers at the code locations that need real implementation or coverage restoration.
+- When contract-first phases temporarily reduce meaningful coverage (for example because interfaces, schema holders, or placeholder adapters land before their implementations), the plan may use temporary coverage-exclusion mechanisms only when truly necessary. If it does, include explicit cleanup/removal tasks in a later phase and require `FIXME(DEVENV[plan-key]): ...` markers at the code locations that need real implementation or coverage restoration.
 - Every unresolved decision that can block execution must appear in both places:
   - `## Phases` under the relevant phase's **Watch Outs / Decisions**
   - the phase task list as a task-level `decision:` metadata line on the earliest task where the decision matters

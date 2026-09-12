@@ -178,45 +178,35 @@ If a task requires a raw mutation, show the user the exact command and ask them 
 
 ### Temporary code comments (DEVENV markers)
 
-When writing temporary comments into code during implementation sessions, use the `DEVENV` marker format so they are unambiguously identifiable and removable. DEVENV markers serve two distinct purposes:
+When writing temporary comments into code during implementation sessions, use the `DEVENV` marker format so they are unambiguously identifiable and removable. The marker form is chosen by **scope** — one objective question: *does this obligation discharge when this plan's PR merges?*
 
-When writing temporary comments into code during implementation sessions, use the `DEVENV` marker format so they are unambiguously identifiable and removable. DEVENV markers serve two distinct purposes:
+**Plan-bounded markers** — use `FIXME(DEVENV[<plan-key>]):` when the obligation discharges with this plan. The work is temporary within the plan's lifetime: a stub a later task replaces, a bridge a cleanup task removes, an AC annotation awaiting verification. FIXME is a merge-blocker: these must be gone from the PR (removed, or converted to the TODO form with a discharge condition) before the work ships.
 
-- **Temporary scaffolding** — marks code that is deliberately incomplete or placeholder: a stub to be replaced, a workaround to be removed, a cross-reference or navigator annotation.
-- **Forward-looking guidance** — explains what a future task will do at or near this location; e.g. `// DEVENV: Phase 3 registers the real service here — stub returns empty list until then`. In pair-programming, these comments actively guide the user through the plan; in delegation, they help both parties understand where future changes land.
+| Language | Example |
+|----------|---------|
+| C# / TypeScript / Go | `// FIXME(DEVENV[Implementation_plan-issue-42-001]): temporary stub — replaced by task 3.2` |
+| Python / Bash | `# FIXME(DEVENV[Implementation_plan-issue-42-001]): temporary scaffold — removed in cleanup` |
+| SQL | `-- FIXME(DEVENV[Implementation_plan-issue-42-001]): revisit when schema settles` |
+| HTML / XML | `<!-- FIXME(DEVENV[Implementation_plan-issue-42-001]): placeholder -->` |
+
+**Cross-plan markers** — use `TODO(DEVENV[<plan-key>]): <what> — remove when <condition>` when the obligation is deliberately longer-lived than this plan. TODOs are agent-to-agent messages: they survive the PR and later sessions must honor them. Every TODO must state its **discharge condition** so a future session can evaluate it and eventually delete it; a TODO without a condition is a defect. TODOs are never merge-blockers.
+
+| Language | Example |
+|----------|---------|
+| C# / TypeScript / Go | `// TODO(DEVENV[Implementation_plan-issue-42-001]): swap in the real provider once #40 lands — remove when #40 is merged` |
+| Python / Bash | `# TODO(DEVENV[Implementation_plan-issue-42-001]): replace scratch harness with CI job — remove when the pipeline exists` |
+| SQL | `-- TODO(DEVENV[Implementation_plan-issue-42-001]): drop shim column after v2 migration — remove when v2 rollout completes` |
+| HTML / XML | `<!-- TODO(DEVENV[Implementation_plan-issue-42-001]): remove banner after launch — remove when launch week ends -->` |
+
+**Discovery rule (what makes TODOs real).** At kickoff or orientation in any execution session, run `devenv-marker-check --todo-report` over the working scope (or grep `TODO(DEVENV` where the tool is unavailable) and surface existing hits as session constraints — a TODO in a file this plan touches is a prior session's message; honor it or explicitly resolve it with the user. Plain `TODO:`/`FIXME:` comments (without the DEVENV key) remain governed by the ordinary human convention: TODO is sanctioned long-range intent, FIXME means resolve before merge.
 
 **Keep comments descriptive, not structural.** Write what will happen (*"Phase 2 adds the retry wrapper here"*), not where in the plan it appears (*"see task 2.4"*). Descriptive comments survive plan renumbering; structural references go stale silently.
 
-**Scaffolding markers** — use `DEVENV[<plan-key>]:` for code that is deliberately incomplete or temporary:
+`<plan-key>` is the plan filename stem without extension (e.g. `Implementation_plan-issue-42-001`), or a short label if there is no plan file. The key is mandatory in both forms.
 
-| Language | Example |
-|----------|---------|
-| C# / TypeScript / Go | `// DEVENV[Implementation_plan-issue-42-001]: temporary stub` |
-| Python / Bash | `# DEVENV[Implementation_plan-issue-42-001]: temporary scaffold` |
-| SQL | `-- DEVENV[Implementation_plan-issue-42-001]: revisit when schema settles` |
-| HTML / XML | `<!-- DEVENV[Implementation_plan-issue-42-001]: placeholder -->` |
+**Grep to find all markers:** `grep -rnE "(FIXME|TODO)\(DEVENV\[" .`
 
-**Forward-looking guidance** — use `TODO:(DEVENV[<plan-key>]):` when something *must* happen at this exact location in a future task. The `TODO:` prefix triggers IDE highlighting:
-
-| Language | Example |
-|----------|---------|
-| C# / TypeScript / Go | `// TODO:(DEVENV[Implementation_plan-issue-42-001]): Phase 3 registers the real service here` |
-| Python / Bash | `# TODO:(DEVENV[Implementation_plan-issue-42-001]): Phase 3 registers the real service here` |
-| SQL | `-- TODO:(DEVENV[Implementation_plan-issue-42-001]): Phase 3 wires in the query here` |
-| HTML / XML | `<!-- TODO:(DEVENV[Implementation_plan-issue-42-001]): Phase 3 wires in the template here -->` |
-
-`<plan-key>` is the plan filename stem without extension (e.g. `Implementation_plan-issue-42-001`), or a short label if there is no plan file.
-
-**Block markers** (annotating a section rather than a single line):
-```
-// DEVENV[plan-key]: begin — <why this block is temporary>
-...
-// DEVENV[plan-key]: end
-```
-
-**Grep to find all markers:** `grep -rn "DEVENV\[" .`
-
-**All DEVENV markers must be removed before the work ships.** If DEVENV markers were introduced during a plan, the Cleanup phase must include an explicit task to remove them all. Markers left in committed code are a defect.
+**All plan-bounded FIXME markers must be removed before the work ships.** If a plan introduced FIXME markers, its Cleanup phase must include an explicit task to remove them all (or convert justified survivors to the TODO form with a discharge condition). A FIXME marker left in merged code is a defect; a TODO left without a satisfying its condition is a defect.
 
 **Never reference ephemeral workflow artifacts in durable code comments.** Finding IDs (`F006`), plan task numbers (`2.3`), audit filenames (`TECH_DEBT_AUDIT.md`), plan filenames, decision dates, and similar workflow vocabulary belong in the artifacts whose job is history — the plan, the audit document, commit messages, PR descriptions — never in source files. A durable code comment states the invariant itself, readable without any external document:
 

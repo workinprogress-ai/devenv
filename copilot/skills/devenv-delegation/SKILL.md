@@ -19,7 +19,7 @@ user-invocable: true
 
 > **Git safety — no recovery maneuvers.** NEVER attempt a mutating git operation — not even reverting staged files, resetting the working tree to the last commit, or restoring a corrupted file from HEAD. If it looks like a `git reset` / `git checkout` / `git stash` (or similar) is the best way to fix a situation — including damage you accidentally caused yourself — **STOP IMMEDIATELY**. Do not run anything. Leave the working tree exactly as it is, report precisely what happened, and ask the user to run the recovery themselves. A stopped session with damaged files is recoverable; a bad reset on top of that damage may not be. Never try to quietly undo your own mistakes with git.
 
-> **Bridge code is permission-gated and marker-tracked.** NEVER add a compatibility shim, short-term hack, or any code whose main purpose is just to get things working — that path is closed. If bridge code that will later be removed genuinely helps, it is permitted only when BOTH conditions hold: (1) explicit user permission for that exact bridge and scope, obtained **before** the code is written; and (2) a `TODO:(DEVENV[plan-key]): ...` marker at the exact code location plus a corresponding plan item naming when and where it will be removed. Unmarked bridge code must never ride along in a pull request.
+> **Bridge code is permission-gated and marker-tracked.** NEVER add a compatibility shim, short-term hack, or any code whose main purpose is just to get things working — that path is closed. If bridge code that will later be removed genuinely helps, it is permitted only when BOTH conditions hold: (1) explicit user permission for that exact bridge and scope, obtained **before** the code is written; and (2) a `FIXME(DEVENV[plan-key]): ...` marker at the exact code location plus a corresponding plan item naming when and where it will be removed. Unmarked bridge code must never ride along in a pull request.
 
 > **Constraint collisions are stop signals, not hack licenses.** Constraints — from the plan, the user, conventions, or anywhere else — can box the implementation into a corner where every compliant path violates best practices, SOLID principles, or architectural correctness. The moment you detect that the code you are about to write is itself a hack (something you would flag in a review), STOP and ask for direction. A hack is permissible only when the user explicitly says to proceed — and it MUST then be documented in code with a `// HACK:` comment stating what was done and which constraint forced it.
 
@@ -60,7 +60,7 @@ Do **not** use for:
 10. **Test contortions are design signals.** If meaningful test validation requires hacks, brittle scaffolding, heavy mocking contortions, or test-only behavior changes beyond normal setup, stop implementation and surface it as a likely design issue. Explain what made testing difficult, what shortcuts would be required, and ask the user how to proceed before continuing.
 11. **Architectural fidelity beats local progress.** If the plan, contracts, or design context imply a hard architectural requirement — for example execution locus, boundary ownership, server-side vs client-side execution, or a materially distinct implementation mode — treat that as binding. If it is not explicit enough to implement safely, stop and ask rather than choosing the easiest nearby implementation surface.
 12. **Durable artifact naming must be phase-agnostic.** Never name a persistent repository artifact (files, classes, methods, test fixtures) from transient execution labels such as phase, step, milestone, or task numbers. Name by stable domain concept or behavior family. If a phase-derived name is temporarily unavoidable, mark it with `DEVENV[...]` and add explicit cleanup work before completion.
-13. **Temporary bridge code always gets a DEVENV TODO and a removal plan.** Any temporary bridge or scaffold must receive a `TODO:(DEVENV[plan-key]): ...` marker at the exact code location, plus a corresponding plan item naming the removal phase/task and the expected cleanup point. The plan must say when and where the temporary code will be removed, not merely that it is temporary.
+13. **Temporary bridge code always gets a DEVENV TODO and a removal plan.** Any temporary bridge or scaffold must receive a `FIXME(DEVENV[plan-key]): ...` marker at the exact code location, plus a corresponding plan item naming the removal phase/task and the expected cleanup point. The plan must say when and where the temporary code will be removed, not merely that it is temporary.
 
 ## Personality
 
@@ -95,7 +95,7 @@ When execution uncovers a bug that was not already documented in the plan's know
 
 - Do not delete/relax roundtrip assertions or replace behavior coverage with narrower checks (for example, deserialize-only) when the failing assertion indicates a real product defect.
 - Keep the failing behavior assertion as the defect signal, add a focused reproduction test if useful, then fix implementation.
-- If the user explicitly requests a temporary test adjustment, mark it as temporary (`TODO:(DEVENV[plan-key]): ...`), define immediate restoration criteria, and add an explicit near-term plan task to restore full behavior coverage.
+- If the user explicitly requests a temporary test adjustment, mark it as temporary (`FIXME(DEVENV[plan-key]): ...`), define immediate restoration criteria, and add an explicit near-term plan task to restore full behavior coverage.
 
 1. **In-scope in the current task** — This bug is in code covered by the current task.
    - Write a specification test that asserts target (correct) behavior (will fail now).
@@ -104,7 +104,7 @@ When execution uncovers a bug that was not already documented in the plan's know
 2. **In-scope in the plan** — The bug is in a component/area this plan covers, but is not part of this task's scope.
    - Write a specification test that asserts target (correct) behavior (will fail now).
    - Mark with `[ignore]` (C#) or equivalent skip annotation.
-   - Add a `// TODO:(DEVENV[plan-key]): Fix in Phase N` comment.
+   - Add a `// FIXME(DEVENV[plan-key]): Fix in Phase N` comment.
    - Update the plan with a new task to address it in the applicable phase.
    - Inform the user: show the test, explain why you stopped.
 
@@ -120,6 +120,10 @@ When execution uncovers a bug that was not already documented in the plan's know
 ## Session Kickoff
 
 Run these in order.
+
+### 0. Scoped-TODO discovery (required)
+
+Run `devenv-marker-check --todo-report <working-scope>` (target repo, plan-affected paths; see [`_tools-reference.md`](../_tools-reference.md)). Every reported TODO is a prior session's cross-plan message: surface each as a session constraint in chat (file + condition), and honor it or explicitly resolve it with the user before the affected file is touched. A TODO whose condition is already satisfied is removed in the same pass; a TODO flagged as missing its discharge condition is resolved with the user in the same pass.
 
 ### 1. Load the plan
 
@@ -401,7 +405,7 @@ If this stop includes a `🔶` decision gate, direction must be explicit and sco
 
 If you hit a wall, stop on the first clear sign rather than writing workaround code to preserve momentum. A wall means the correct next move is unclear, repeated local attempts are not converging, or the only obvious move is hacky code. Ask for help with a concrete summary instead.
 
-Temporary-work limit: genuinely temporary work is allowed only when it is a tiny unblock the declared verification gates can still verify — a line or two, or comparably small localized scaffold — and it must be marked with `TODO:(DEVENV[plan-key]): ...`. Do not treat a larger fallback implementation as acceptable temporary progress.
+Temporary-work limit: genuinely temporary work is allowed only when it is a tiny unblock the declared verification gates can still verify — a line or two, or comparably small localized scaffold — and it must be marked with `FIXME(DEVENV[plan-key]): ...`. Do not treat a larger fallback implementation as acceptable temporary progress.
 
 Compatibility note (strict): test-only shims/adapters/extensions that recreate old APIs to absorb refactor fallout are workaround code by default. Do not add them unilaterally. First present root cause, clean options, and risk/tradeoff, then request explicit permission. Follow [workaround decision policy](../common/references/workaround-decision-policy.md).
 
@@ -557,7 +561,7 @@ The AI's in-context view of a file is a **cache** — invalidated the moment any
 
 ## Forward Guidance Comments
 
-Follow pair-programming's canonical [Forward Guidance Comments](../devenv-pair-programming/SKILL.md#forward-guidance-comments) protocol — it applies identically here. Essentials: any comment referencing the plan or future work must use `DEVENV[...]` or `TODO:(DEVENV[...]): ...` markers (never plain TODO/FIXME, never permanent plan-referencing comments) — code comments in source files, `<!-- ... -->` annotations in documents; annotate AC-satisfying work with `[AC-N]`; remove markers when their work lands; after any mid-phase plan revision, run the DEVENV forward-comment audit. Marker-form examples and the `<plan-key>` rule are in the canonical section.
+Follow pair-programming's canonical [Forward Guidance Comments](../devenv-pair-programming/SKILL.md#forward-guidance-comments) protocol — it applies identically here. Essentials: any comment referencing the plan or future work must use `FIXME(DEVENV[...]): ...` (plan-bounded, merge-blocking) or `TODO(DEVENV[...]): ... — remove when <condition>` (cross-plan, sanctioned to ship) markers (never plain TODO/FIXME, never permanent plan-referencing comments) — code comments in source files, `<!-- ... -->` annotations in documents; annotate AC-satisfying work with `[AC-N]`; at kickoff, run `devenv-marker-check --todo-report` in the working scope and surface existing hits as session constraints; remove FIXME markers when their work lands; after any mid-phase plan revision, run the DEVENV forward-comment audit. Marker-form examples and the `<plan-key>` rule are in the canonical section.
 
 ## AC Review Gate
 
@@ -565,7 +569,7 @@ Run after all implementation phases, before Cleanup, exactly as defined in pair-
 
 ## Phase Completion Gate
 
-Before declaring a phase complete and handing back, run the committability checklist as defined in pair-programming's canonical [Phase Completion Gate](../devenv-pair-programming/SKILL.md#phase-completion-gate): run the plan's **declared verification gates** — for code-declared plans (the default; also the assumption for plans with no `**Verification**` line) that is all tests pass, coverage not regressed, new tests assert observable behavior, no blocking TODOs, no straggler `DEVENV[` comments for completed work; for non-code declarations, run what the plan declares instead (the test/coverage items do not apply) and treat failures identically. Coverage drops are blockers. In the final implementation phase, no AC may remain unchecked — every AC `[x]` or explicitly deferred/deprecated. Full coverage-drop protocol and override options: [phase-gates.md](../devenv-pair-programming/references/phase-gates.md).
+Before declaring a phase complete and handing back, run the committability checklist as defined in pair-programming's canonical [Phase Completion Gate](../devenv-pair-programming/SKILL.md#phase-completion-gate): run the plan's **declared verification gates** — for code-declared plans (the default; also the assumption for plans with no `**Verification**` line) that is all tests pass, coverage not regressed, new tests assert observable behavior, no blocking TODOs, no remaining `FIXME(DEVENV[...])` markers and no condition-less `TODO(DEVENV[...])` markers; for non-code declarations, run what the plan declares instead (the test/coverage items do not apply) and treat failures identically. Coverage drops are blockers. In the final implementation phase, no AC may remain unchecked — every AC `[x]` or explicitly deferred/deprecated. Full coverage-drop protocol and override options: [phase-gates.md](../devenv-pair-programming/references/phase-gates.md).
 
 ## Anti-patterns
 
@@ -576,7 +580,7 @@ Before declaring a phase complete and handing back, run the committability check
 - Batching **blocking** concerns instead of surfacing them immediately mid-phase.
 - Taking a dubious shortcut (restoring reverted code, skipping a required step, papering over a failure, adding workaround code just to get unstuck) instead of stopping and asking for help.
 - Continuing after a wall by introducing placeholder, fallback, or other hack logic whose main purpose is to avoid asking the user for direction.
-- Adding bridge code (even approved) without its `TODO:(DEVENV[...])` marker and a plan item for its removal — unmarked bridges slip into pull requests.
+- Adding bridge code (even approved) without its `FIXME(DEVENV[...])` marker and a plan item for its removal — unmarked bridges slip into pull requests.
 - Writing a hack to satisfy conflicting constraints (plan vs. conventions vs. user directives) without stopping to surface the collision first — and, if the user approves it, leaving it undocumented instead of marking it with a `// HACK:` comment.
 - Treating unattended execution as legitimate without an explicit `/devenv-delegation` commission — this skill's rules apply only because the user invoked it; they do not transfer to sessions running under other skills.
 - Accepting an in-context task list (pasted or carried from pair) as the execution ledger directly — ad-hoc lists are input only and must pass the viability audit and be materialized into a plan file before any execution.
