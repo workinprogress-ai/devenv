@@ -1,6 +1,6 @@
 ---
 name: devenv-code-review
-description: Review changed code and produce structured, actionable feedback. Inverse of `/devenv-delegation`: this skill provides review assistance for user-owned changes. USE WHEN the user says "review this PR", "review my changes", "code review", "look over this branch", "review the diff", or hands off a PR / branch / local diff for assessment. Supports both existing PRs and pre-PR branch reviews. Auto-detects input: a PR number → fetches via `pr-get` + `pr-diff`; two refs → diffs locally; nothing → defaults to current-branch-vs-default-branch. Produces a 1–2 sentence summary, then findings grouped by severity (Blocker / Concern / Nit / Praise) using the same hotspot bullet format as `/devenv-delegation`. Focuses only on what changed; flags missing tests; surfaces TODO/FIXME left in the diff. Default is print-to-chat; offers to post via `pr-comment` only with explicit confirmation. DO NOT USE for writing or refactoring code (use `/devenv-pair-programming` or `/devenv-delegation`), for resolving review comments on your own PR (use `/devenv-address-pr-comments`), or for general codebase Q&A.
+description: Review changed code and produce structured, actionable feedback. Inverse of `/devenv-delegation`: this skill provides review assistance for user-owned changes. USE WHEN the user says "review this PR", "review my changes", "code review", "look over this branch", "review the diff", or hands off a PR / branch / local diff for assessment. Supports both existing PRs and pre-PR branch reviews. Auto-detects input: a PR number → fetches via `pr-get` + `pr-diff`; two refs → diffs locally; nothing → defaults to current-branch-vs-default-branch. Produces a 1–2 sentence summary, then findings grouped by severity (Blocker / Concern / Nit / Praise) using the same hotspot bullet format as `/devenv-delegation`. Saves the review to a gitignored tmpN file the user edits to select findings, then posts each kept finding as an inline PR review thread on its exact line via `pr-review-comment` (summary comment optional). Focuses only on what changed; flags missing tests; surfaces TODO/FIXME left in the diff. DO NOT USE for writing or refactoring code (use `/devenv-pair-programming` or `/devenv-delegation`), for responding to review comments on your own PR (use `/devenv-address-pr-comments`), or for general codebase Q&A.
 argument-hint: PR number, two refs (--base BASE --head HEAD), or nothing (defaults to current branch vs. default branch)
 ---
 
@@ -67,24 +67,29 @@ Output structure (markdown, in this order):
 
 #### 🛑 Blocker
 - [repos/path/file.ts:42](repos/path/file.ts#L42) — <reason: correctness bug, security issue, breaking API change, missing critical test>
+  <!-- @post: file=path/file.ts line=42 side=RIGHT -->
 
 #### ⚠️ Concern
 - [repos/path/file.ts:88](repos/path/file.ts#L88) — <reason: design issue, maintainability, performance, edge case not handled>
+  <!-- @post: file=path/file.ts line=88 side=RIGHT -->
 
 #### 💭 Nit
 - (Skip this section unless a nit materially affects readability or correctness.)
 
 #### ✅ Praise
 - [repos/path/file.ts:120](repos/path/file.ts#L120) — <what's done well: clear abstraction, good test coverage, helpful comment, simplification>
+  <!-- @post: file=path/file.ts line=120 side=RIGHT -->
 
 ### Missing tests
 - <List new behavior in the diff that lacks corresponding test coverage. Empty list = explicit "tests cover the new behavior".>
 
 ### TODO/FIXME left in the diff
 - [repos/path/file.ts:55](repos/path/file.ts#L55) — `// TODO: handle empty input`
+  <!-- @post: file=path/file.ts line=55 side=RIGHT -->
 
 ### Ephemeral-artifact references in added comments
 - [repos/path/file.ts:60](repos/path/file.ts#L60) — comment cites finding IDs / plan task numbers / audit filenames: that vocabulary belongs in the plan, audit, or commit messages — not durable code. Default Concern: strip the tag, keep the invariant prose.
+  <!-- @post: file=path/file.ts line=60 side=RIGHT -->
 
 ### Questions for the author
 - <Open questions where the diff isn't self-explanatory: "Is the retry count of 3 intentional or arbitrary?" "Why does this prefer X over Y?">
@@ -97,40 +102,59 @@ Output structure (markdown, in this order):
 - **Nit**: only include if it materially affects readability or correctness. Skip pure style preferences.
 - **Praise**: call out genuinely good work. Skip if there's nothing specific to praise — don't fabricate.
 
-### 5. Hotspot format
+### 5. Hotspot format and `@post` markers
 
 Every finding is a single bullet in the format:
 
 ```
 - [file:line](workspace-root-relative-path#L42) — <one-line reason>
+  <!-- @post: file=<repo-relative-path> line=42 side=RIGHT -->
 ```
 
 Paths must be **workspace-root-relative** so VS Code renders them as clickable links — e.g. `repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs`, not just `BulkSyncWorker.cs`. Do not emit a path you haven't confirmed exists.
 
+The indented `@post` HTML comment under the bullet is the machine-readable posting target — invisible when the markdown renders. Rules:
+
+- `file=` is **repo-relative** (as shown in the PR diff — this is what `pr-review-comment --file` expects); it usually differs from the workspace-root display link above it.
+- `side=` is `RIGHT` (default — new content) or `LEFT` (original content).
+- **Postable sections** (get markers): Blocker, Concern, Nit, Praise, TODO/FIXME, Ephemeral-artifact findings. **Summary-only sections** (no markers): Summary, Missing tests, Questions for the author — these are not single-line findings and ride in the top-level summary comment instead.
+- One marker per bullet, directly under it. Multi-line findings: use the first line; note the range in prose.
+- The user controls posting purely by editing the file: deleting a finding (or its marker) skips it; adding a marker to a new bullet posts it. Deleted findings' markers are simply absent at parse time.
+
 For ranges: `[file.ext:42-58](path/file.ext#L42-L58)`. For multiple non-contiguous lines: separate bullets.
 
-### 6. Print to chat
+### 6. Write the review to a file
 
-Default: print the full review to chat. Do **not** post to GitHub yet.
+Write the full review to `.local-artifacts/tmpN.md` in the target repo (next free number — see the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts); this is the session's working copy). Also print the full review to chat. Do **not** post to GitHub yet — the user edits the file first (see step 7).
 
-### 7. Offer to post (PR mode only)
+### 7. Offer to post (PR mode only) — user edits the file, then per-line posting
 
-After printing, ask:
+After writing the file, tell the user:
 
-> "Post this review as a PR comment on #123 via `pr-comment 123 --body-file <temp-path>`?"
+> "Review saved to [.local-artifacts/tmpN.md](<workspace-relative-path>). **Edit it to control what gets posted** — delete any finding you don't want posted, add or reword others. Each finding with an `@post` marker becomes one inline PR thread pinned to that file and line. Then tell me to post."
 
-Use `vscode_askQuestions`. Wait for explicit yes. Do not auto-post.
+When the user says post:
 
-For inline review comments tied to specific lines, this skill produces a top-level conversation comment only (via `pr-comment`). Inline threads are created via `pr-review-comment PR --file PATH --line N --body TEXT`, read via `pr-threads-get`, and replied to via `pr-thread-reply`.
+1. Re-read the saved file (the edited version is the source of truth — never post from memory or from what was printed to chat).
+2. Parse remaining `@post:` markers; strip the marker comments from all bodies.
+3. For each marker: `pr-review-comment <PR> --file <repo-relative-path> --line <N> --body-file <extracted-body>` — one standalone inline thread per finding, each with its own thread URL in the output. Re-confirm with the user before the batch if the count exceeds ~8, or use `--dry-run` on any finding whose path/line looks stale relative to the current diff.
+4. **Summary comment is the user's discretion:** if the file still contains a top-level Summary section, offer to post it via `pr-comment <PR> --body-file` (extracted, minus findings — the inline threads carry those); if the user deleted it, skip. Same confirm-first rule.
+5. Report back the list of posted thread URLs (and summary-comment URL if posted). Failures are surfaced individually — one failed thread does not abort the batch; ask whether to retry.
+6. Offer to retire the file (y/n) per the standard local-markdown retirement rule — the PR now carries the findings.
+
+**Inline posting requires PR mode.** Review threads attach to a PR diff; branch-diff mode (two refs / no-args) can only offer the top-level summary comment via `pr-comment`. The `@post` markers are still written in branch mode — they activate if the branch later becomes a PR and the review is re-run.
+
+Tooling: inline threads are created via `pr-review-comment PR --file PATH --line N --body TEXT|--body-file FILE [--side RIGHT|LEFT]` (standalone — no pending review object needed), read via `pr-threads-get`, replied to via `pr-thread-reply`.
 
 ## Anti-patterns
 
 - **Reviewing unchanged code** — out of scope. Stick to the diff. If unchanged context reveals a problem, mention it in the summary, not as a hotspot finding.
 - **Padding with nits** — empty `Nit` section is better than 20 bullets about formatting. Skip the section entirely if nothing material.
 - **Fabricating praise** — don't manufacture a "Praise" entry to soften critical feedback. Skip the section if there's nothing specific to call out.
-- **Auto-posting** — every push to GitHub requires explicit confirmation.
+- **Auto-posting** — every push to GitHub requires explicit confirmation, and the post always comes from the user-edited file, never from what was printed to chat earlier.
 - **Reviewing without reading** — skim-based reviews produce vague findings. If the diff is too large to read carefully, narrow the scope or refuse.
 - **Mixing review with rewrite** — this skill produces feedback. It does not modify the code under review. If the user wants fixes, switch to `/devenv-pair-programming` or `/devenv-delegation` (commissioned autonomous run) after the review.
+- **Posting without re-reading the file** — if the user said they edited the review file, parsing from a cached earlier read posts deleted findings or misses their rewording. Always re-read at post time.
 
 ## Sibling skills
 
