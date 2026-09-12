@@ -394,13 +394,13 @@ Wrapper policy:
 issue-create [--title TITLE] [--body TEXT | --body-file FILE] [--type TYPE]
              [--label LABEL] [--assignee USER] [--milestone NAME] [--project NAME]
              [--parent ISSUE_NUM] [--blocked-by ISSUE_NUM]
-             [--template FILE] [--no-template] [--no-interactive]
+             [--template FILE] [--select-template] [--no-template] [--no-interactive]
 ```
 
 Key flags:
 
 - `--type TYPE` — GitHub native issue type; **required for deterministic runs** (validated against `tools/config/issues-config.yml`: Bug, Feature, Task, Epic). Without it the tool prompts via `fzf`.
-- `--no-template --no-interactive` — non-interactive creation (`--no-interactive` requires `--title`; pair with `--type` to avoid the `fzf` prompt)
+- **No template by default** — the issue is created with the body you supply; template selection is opt-in via `--template FILE` (fixed template) or `--select-template` (interactive fzf over `.github/ISSUE_TEMPLATE/`). `--no-template` is still accepted as a no-op (legacy scripted calls).
 - `--parent ISSUE_NUM` — links as child of an epic
 - `--blocked-by ISSUE_NUM` — repeatable
 
@@ -408,14 +408,14 @@ Deterministic call shape (no editor, no fzf, no template):
 
 ```bash
 GITHUB_REPO=<org>/<repo> issue-create --title "<title>" --type "<type>" \
-  --body-file <path> --no-template
+  --body-file <path>
 ```
 
 Examples:
 
 ```bash
-issue-create --title "Add OAuth" --type Feature --no-template --no-interactive \
-  --body-file spike-findings.md
+issue-create --title "Add OAuth" --type Feature \
+  --body-file spike-findings.md --no-interactive
 issue-create --parent 10 --type Task --title "Write unit tests"
 ```
 

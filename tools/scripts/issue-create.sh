@@ -34,7 +34,8 @@ ISSUE_PROJECT=""
 PARENT_ISSUE=""
 BLOCKED_BY_ISSUES=()
 TEMPLATE_FILE=""
-USE_TEMPLATE=1  # Default to using templates
+SELECT_TEMPLATE=0
+USE_TEMPLATE=0  # Default to no template (opt in with --template or --select-template); --no-template accepted as a no-op for backward compatibility
 USE_EDITOR=1    # Default to opening editor
 ALLOW_DEVENV_REPO=0  # Prevent running against devenv repo by default
 DRY_RUN=0
@@ -71,9 +72,10 @@ Optional:
     -p, --project NAME          Add to project (name or number)
     --parent ISSUE_NUM          Link to parent issue (for stories/bugs under epics)
     --blocked-by ISSUE_NUM      Mark as blocked by prerequisite issue (repeatable)
-    --template FILE             Use specific template file (opens in editor)
-    --no-template               Skip template selection and don't use any template
-    --no-interactive            Use template without opening editor (requires --template)
+    --template FILE             Opt in to a specific template file (opens in editor; without it, no template is used)
+    --select-template           Opt in to interactive template selection (fzf over .github/ISSUE_TEMPLATE/)
+    --no-template               Accepted no-op — issues are created without a template by default
+    --no-interactive            Skip the editor (requires --title; template body used as-is when a template is selected)
 
 Environment Variables:
     GITHUB_REPO                 Repository in format owner/repo (default: current repo)
@@ -173,6 +175,15 @@ select_template_with_fzf() {
     
     if [ -z "$templates" ]; then
         log_warn "No templates found in .github/ISSUE_TEMPLATE/"
+        return 1
+    fi
+    
+    # Refuse to launch fzf without an interactive terminal — otherwise the
+    # picker blocks forever on a read that can never be answered (AI
+    # invocations, piped output, CI). Fail fast with guidance instead.
+    if [ ! -t 0 ] || [ ! -t 2 ]; then
+        log_error "--select-template requires an interactive terminal (no TTY detected)."
+        log_info "Use --template FILE to pick a template directly, or drop the flag to create without a template."
         return 1
     fi
     
@@ -533,7 +544,16 @@ main() {
                 USE_TEMPLATE=1
                 shift 2
                 ;;
+            --select-template)
+                # Interactive template selection (fzf) — opt in to picking from
+                # .github/ISSUE_TEMPLATE/ when you want a template but not a fixed one.
+                USE_TEMPLATE=1
+                SELECT_TEMPLATE=1
+                shift
+                ;;
             --no-template)
+                # Backward-compatible no-op: templates are now opt-in (--template). Kept so
+                # existing scripted calls and skill documentation keep working.
                 USE_TEMPLATE=0
                 shift
                 ;;
@@ -591,6 +611,13 @@ main() {
         if [ -n "$TEMPLATE_FILE" ]; then
             # Explicit template specified
             template_to_use="$TEMPLATE_FILE"
+        elif [ "$SELECT_TEMPLATE" -eq 1 ]; then
+            # Interactive selection from available templates (fzf)
+            template_to_use=$(select_template_with_fzf)
+            if [ -z "$template_to_use" ]; then
+                # User cancelled or no templates available
+                USE_TEMPLATE=0
+            fi
         else
             # Let user select with fzf (or show error if no templates/fzf)
             template_to_use=$(select_template_with_fzf)
