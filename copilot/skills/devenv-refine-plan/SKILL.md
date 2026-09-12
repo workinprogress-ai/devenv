@@ -95,7 +95,7 @@ Then apply the shared hard rules (Step 3), write (Step 5), and report (Step 6) w
 
 - Read the source (file or `issue-artifact-get --write-body` output).
 - Run `plan-parse <plan_file> --structure` for the authoritative phase/task inventory; `--census` for per-phase completion; `--anchors` for the file-path existence scan.
-- If the source is an issue artifact, materialize it to a local working copy before editing (repo-local file or temp file, depending on user choice when not already implied). Use that local working copy for all iterations in this refinement effort, and keep its `doc_id` in context for republish.
+- If the source is an issue artifact, materialize it to a local working copy under `.local-artifacts/` before editing (temp folder only on explicit user request). Use that local working copy for all iterations in this refinement effort, and keep its `doc_id` in context for republish.
 - Run `plan-parse <plan_file> --structure` for the authoritative view: phase headings, task lines, IDs, and completion state in one JSON — do not hand-scan headings or checkboxes. Use `--census` when you only need per-phase completion counts.
 - The highest task number per phase and highest phase number come from the `plan-parse` output (max `id` / max `number`) — no manual arithmetic.
 - **Assess completion state**: `plan-parse --census` gives per-phase done/open counts directly.

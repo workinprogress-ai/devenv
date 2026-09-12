@@ -44,8 +44,9 @@ appear in specifications or plan documents.
 Positional arguments are classified automatically: any argument matching the
 AC-N / AC-N.N / AC-N.N.N pattern is treated as an AC number; anything else is
 treated as the file path.  At most one file may be given.  If no file is given,
-the first Requirements-*.md found in the current directory is used; if none
-exists, the first Plan-*.md (or legacy Implementation_plan-*.md) is tried.
+the first Plan-*.md (or legacy Implementation_plan-*.md) found in .local-artifacts/
+and then the current directory is used.  Other files (e.g. Specifications) can
+be updated only by naming them explicitly.
 
 Arguments:
     AC_NUMBER...    One or more AC numbers to update (AC-N, AC-N.N, AC-N.N.N)
@@ -58,8 +59,8 @@ Options:
     --uncomplete        Mark the criteria as incomplete ([ ]) instead of complete ([x])
 
 Examples:
-    # Mark AC-3 complete in the auto-detected specifications file
-    $SCRIPT_NAME AC-3
+    # Mark AC-N complete in a specific file (e.g. a Specifications doc named explicitly)
+    $SCRIPT_NAME AC-1 path/to/Specifications-billing-001.md
 
     # Mark several criteria complete at once
     $SCRIPT_NAME AC-1 AC-2 AC-3
@@ -148,8 +149,10 @@ parse_args() {
 # ============================================================================
 
 # Resolve the file: use the explicit argument if given, otherwise auto-detect.
-# looks for Requirements-*.md first, then Plan-*.md (or legacy Implementation_plan-*.md),
-# each in the current directory and then in .local-artifacts/.
+# Plans are the only artifact with checkable AC checkboxes: look for Plan-*.md
+# (or legacy Implementation_plan-*.md) in .local-artifacts/, then the current
+# directory. Other files (e.g. Specifications) are usable only when the user
+# names them explicitly.
 resolve_plan_file() {
     if [ -n "$PLAN_FILE" ]; then
         if [ ! -f "$PLAN_FILE" ]; then
@@ -159,24 +162,17 @@ resolve_plan_file() {
         return
     fi
 
-    local search_dirs=("." )
-    [ -d .local-artifacts ] && search_dirs+=(".local-artifacts")
+    local search_dirs=(".local-artifacts" ".")
 
     local found
     for dir in "${search_dirs[@]}"; do
-        found=$(find "$dir" -maxdepth 1 -name 'Requirements-*.md' | sort | head -1)
+        [ -d "$dir" ] || continue
+        found=$(find "$dir" -maxdepth 1 \( -name 'Plan-*.md' -o -name 'Implementation_plan-*.md' \) | sort | head -1)
         [ -n "$found" ] && break
     done
 
     if [ -z "$found" ]; then
-        for dir in "${search_dirs[@]}"; do
-            found=$(find "$dir" -maxdepth 1 \( -name 'Plan-*.md' -o -name 'Implementation_plan-*.md' \) | sort | head -1)
-            [ -n "$found" ] && break
-        done
-    fi
-
-    if [ -z "$found" ]; then
-        log_error "No Requirements-*.md, Plan-*.md, or legacy Implementation_plan-*.md file found in the current directory or .local-artifacts/."
+        log_error "No Plan-*.md (or legacy Implementation_plan-*.md) file found in .local-artifacts/ or the current directory."
         log_info "Specify the file explicitly as one of the arguments."
         exit "$EXIT_NOT_FOUND"
     fi

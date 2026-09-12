@@ -1107,6 +1107,8 @@ Mark one or more plan task checkboxes complete or incomplete.
 markdown-plan-complete-task [--uncomplete] TASK_NUMBER... [PLAN_FILE]
 ```
 
+When `PLAN_FILE` is omitted, auto-detects the first `Plan-*.md` (or legacy `Implementation_plan-*.md`) in the current directory, then in `.local-artifacts/`.
+
 Examples:
 
 ```bash
@@ -1124,6 +1126,8 @@ Mark one or more acceptance-criteria checkboxes complete or incomplete.
 ```
 markdown-plan-complete-ac [--uncomplete] AC_NUMBER... [FILE]
 ```
+
+When `FILE` is omitted, auto-detects the first `Plan-*.md` (or legacy `Implementation_plan-*.md`) in `.local-artifacts/`, then the current directory. Other files (e.g. `Specifications-*.md`) are updated only when named explicitly.
 
 Examples:
 

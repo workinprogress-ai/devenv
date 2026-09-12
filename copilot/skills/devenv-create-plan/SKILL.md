@@ -250,7 +250,7 @@ Concurrent-edit rule:
 
 ### 7. Resolve target filename (numbered suffix, always)
 
-In the target repo's `.local-artifacts/` (the [standard local markdown folder](../../_conventions.md#standard-local-markdown-folder-local-artifacts); create it if missing):
+In the target repo's `.local-artifacts/` (the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts); create it if missing):
 
 - If a GH issue is associated → base name `Plan-issue-<N>`
 - Otherwise → base name `Plan`
@@ -285,7 +285,7 @@ issue-artifact-upsert --issue <N> --body-file <path-to-plan>
 The tool automatically extracts `doc_id` from the file header and creates or updates the comment accordingly.
 
 3. If upsert reports duplicate `doc_id` conflict, stop and ask the user which comment ID is canonical before continuing.
-4. **Offer to retire the local file** (y/n) — after publication the issue artifact is the sole source of truth; see the [issue-backed artifact edit protocol](../../common/references/issue-backed-artifact-edit-protocol.md). Never auto-delete; if the user keeps it, note that `/devenv-open-pr` requires working copies gone before opening a PR.
+4. **Offer to retire the local file** (y/n) — after publication the issue artifact is the sole source of truth; see the [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md). Never auto-delete; if the user keeps it, note that `/devenv-open-pr` requires working copies gone before opening a PR.
 
 Execution posture for this step:
 
@@ -297,7 +297,7 @@ Notes:
 - This supports multiple plans on the same issue by using one `doc_id` per plan file/slug.
 - For an existing plan file with a header `doc_id`, preserve identity by reusing that value instead of regenerating.
 - Do not replace the issue description/body with the plan.
-- **Planning-repo stamping:** when the plan descends from a governed hierarchy (roadmap step, grooming attack-plan row, epic child), stamp `planning_repo: <owner>/<planning-repo>` in the header — inherited from the grooming doc / roadmap / epic linkage, or resolved via the [planning-repo resolution chain](../../_conventions.md#repo-targeting-guard-required-for-issueartifact-calls) — so every later session (execution, refinement, progress reporting) routes epic/artifact calls to the right repo without re-deriving it. Omit the key (or `none`) for standalone ungoverned work.
+- **Planning-repo stamping:** when the plan descends from a governed hierarchy (roadmap step, grooming attack-plan row, epic child), stamp `planning_repo: <owner>/<planning-repo>` in the header — inherited from the grooming doc / roadmap / epic linkage, or resolved via the [planning-repo resolution chain](../_conventions.md#repo-targeting-guard-required-for-issueartifact-calls) — so every later session (execution, refinement, progress reporting) routes epic/artifact calls to the right repo without re-deriving it. Omit the key (or `none`) for standalone ungoverned work.
 
 ## Phase Rules (summary)
 

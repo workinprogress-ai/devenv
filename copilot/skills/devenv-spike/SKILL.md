@@ -156,19 +156,19 @@ If yes:
    - `issue-create` has no `--repo` flag; the target repo is selected via the `GITHUB_REPO` env var. `--type` is required for non-interactive creation — pick from `tools/config/issues-config.yml` (Bug, Feature, Task, Epic); for spike findings this is normally `Task` unless the user says otherwise.
    - Note the new issue number.
    - Apply the [Artifact Identity Convention](../_conventions.md#artifact-identity-convention).
-   - Write the findings doc to a temp file with `doc_id: <value>` in first 256 characters.
-   - `issue-artifact-upsert --issue <N> --body-file <temp-file>`
+   - Write the findings doc to `.local-artifacts/tmpN.md` (next free number) with `doc_id: <value>` in first 256 characters.
+   - `issue-artifact-upsert --issue <N> --body-file <that-file>`
    - Surface the issue URL.
 
    **If posting to an existing issue:**
    - Apply the [Artifact Identity Convention](../_conventions.md#artifact-identity-convention).
     - If the issue may already contain one or more spike artifacts, resolve the canonical artifact first with `issue-artifact-select` or `issue-artifact-list`, then read it with `issue-artifact-get` before republishing.
-   - Write the findings doc to a temp file with `doc_id: <value>` in first 256 characters.
-   - `issue-artifact-upsert --issue <N> --body-file <temp-file>`
+   - Write the findings doc to `.local-artifacts/tmpN.md` (next free number) with `doc_id: <value>` in first 256 characters.
+   - `issue-artifact-upsert --issue <N> --body-file <that-file>`
    - If upsert reports a duplicate `doc_id` conflict, stop and ask the user which comment ID to keep as canonical.
    - Surface the issue URL.
 
-   The local spike file is the canonical record; the GH issue comment identified by `doc_id` is a published copy kept in sync via upsert. (Same file-canonical rule as `/devenv-design-discussion` per [issue-artifact-integration](../../common/references/issue-artifact-integration.md).)
+   The local spike file is the canonical record; the GH issue comment identified by `doc_id` is a published copy kept in sync via upsert. (Same file-canonical rule as `/devenv-design-discussion` per [issue-artifact-integration](../common/references/issue-artifact-integration.md).)
 
 Never create an issue or post a comment without explicit "yes" confirmation.
 

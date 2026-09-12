@@ -10,7 +10,7 @@ When to add diagnostic mode to a skill:
 Add this **blockquote immediately below the skill's main title** (before the opening paragraph):
 
 ```markdown
-> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
 ```
 
 ## Implementation checklist
@@ -24,7 +24,7 @@ Add this **blockquote immediately below the skill's main title** (before the ope
 ## Wording variant (if space is tight)
 
 ```markdown
-> Diagnostic mode: Say "enter diagnostic mode" for troubleshooting assistance (see [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md)).
+> Diagnostic mode: Say "enter diagnostic mode" for troubleshooting assistance (see [Diagnostic Mode Protocol](diagnostic-mode-protocol.md)).
 ```
 
 ## What the output looks like

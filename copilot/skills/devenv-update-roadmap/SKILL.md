@@ -33,7 +33,7 @@ Do **not** use for:
 
 The user provides an epic number (optionally `:<doc_id>` when the epic holds more than one roadmap artifact) — e.g. `89`.
 
-Resolution: `issue-artifact-select --issue <N> --artifact-type roadmap [--latest]` → `issue-artifact-get --write-body /tmp/roadmap-session.md` (session scratch copy).
+Resolution: `issue-artifact-select --issue <N> --artifact-type roadmap [--latest]` → `mkdir -p <repo-root>/.local-artifacts && issue-artifact-get --write-body <repo-root>/.local-artifacts/roadmap-session.md` (session scratch copy under the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)).
 
 ## Status Mapping
 

@@ -81,7 +81,7 @@ Ask the user if the location is not obvious:
 
 - If an existing grooming document is found: load it, show a brief status summary (confirmed decisions, pending decisions, open questions, linked plans), and ask the user to confirm before proceeding.
 - If no grooming document exists: create a new one using [grooming-doc-template.md](./references/grooming-doc-template.md).
-- Default location for a new local grooming document is `.local-artifacts/` in the active repo (the [standard local markdown folder](../../_conventions.md#standard-local-markdown-folder-local-artifacts) — temporary working location until persisted to a GitHub issue artifact).
+- Default location for a new local grooming document is `.local-artifacts/` in the active repo (the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts) — temporary working location until persisted to a GitHub issue artifact).
 - Default filename is `Grooming-<topic>-NNN.md`.
 - If the user wants a non-default location or filename, ask and follow their preference.
 
@@ -94,7 +94,7 @@ For every grooming artifact (local file or issue comment), follow the shared [Ar
 
 If the grooming document is stored in a GitHub issue comment:
 
-- Materialize the current comment artifact to a local working copy first (repo-local file or temp file, per user choice when not obvious). Edit that local working copy during the session.
+- Materialize the current comment artifact to a local working copy under `.local-artifacts/` (temp folder only on explicit user request). Edit that local working copy during the session.
 - Ensure the file includes `DEVENV_ARTIFACT_V1` header with `doc_id: <value>` in first 256 characters
 - Republish with `issue-artifact-upsert --issue <N> --body-file <path>` only. Do not use `mcp_gitkraken_*` tools or generic `issue-comment` tooling for the persisted grooming artifact.
 - Tool automatically extracts doc_id from the file header; do not pass `--doc-id` parameter
@@ -211,7 +211,7 @@ Design-discussion and spike artifacts should normally flow through grooming befo
 
 ### As-built reconciliation from a completed plan
 
-A completed plan is an as-built record (see the *plan starts theoretical and ends as-built* principle in [Workflow](../../../docs/Workflow.md)). When a completed plan is handed to grooming, reconcile the grooming document against what was *actually* built:
+A completed plan is an as-built record (see the *plan starts theoretical and ends as-built* principle in [Workflow](../_shared/docs/Workflow.md)). When a completed plan is handed to grooming, reconcile the grooming document against what was *actually* built:
 
 1. **Determine completion.** All phases complete, no open `[QUESTION]` markers. If the plan is actually in-flight, use the plan architectural review path in Phase 0 Step 5 instead.
 2. **Diff against the grooming document.** Compare the grooming document's confirmed decisions and architecture deltas against the plan's recorded decisions (`decision:` metadata), deviation notes, and the actual outcome each phase describes.

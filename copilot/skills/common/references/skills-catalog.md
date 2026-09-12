@@ -4,7 +4,7 @@ A complete reference for the Copilot skill suite available in this workspace. Sk
 
 **Not sure which skill to use?** Say `/devenv-skill-guru` and answer 1–3 questions.
 
-**Need the full workflow, not just the catalog?** See [Workflow Guide](../../../../docs/Workflow.md).
+**Need the full workflow, not just the catalog?** See [Workflow Guide](../../_shared/docs/Workflow.md).
 
 ---
 
@@ -233,7 +233,7 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 
 ## Workflow examples
 
-For the complete version of these flows, see [Workflow Guide](../../../../docs/Workflow.md).
+For the complete version of these flows, see [Workflow Guide](../../_shared/docs/Workflow.md).
 
 ### Default delivery flow
 
@@ -450,7 +450,7 @@ At any point you can say "I'll take this one" or "you take this one" and the AI 
 
 ## How to author a new skill
 
-1. Read [`copilot/skills/_conventions.md`](../copilot/skills/_conventions.md) — frontmatter template, description structure, section ordering, reference-file criteria, confirmation flow.
+1. Read [`copilot/skills/_conventions.md`](../../_conventions.md) — frontmatter template, description structure, section ordering, reference-file criteria, confirmation flow.
 2. Create `copilot/skills/<name>/SKILL.md` (folder name must match `name:` frontmatter).
 3. Keep `description:` ≤ 1024 chars — verify with `awk '/^description:/ {gsub(/^description: */,""); print length}' SKILL.md`.
 4. Include explicit **USE WHEN** and **DO NOT USE FOR** phrases in the description.

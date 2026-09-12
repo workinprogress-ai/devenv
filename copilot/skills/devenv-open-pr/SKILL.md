@@ -29,7 +29,7 @@ If the branch has no commits ahead of base, stop and tell the user — there's n
 
 ## Pre-flight: plan files
 
-Before building the PR draft, check for `Plan-*.md` files under `.local-artifacts/` (the [standard local markdown folder](../../_conventions.md#standard-local-markdown-folder-local-artifacts)) of the target repo (not subdirectories — plans are valid in planning repos):
+Before building the PR draft, check for `Plan-*.md` files under `.local-artifacts/` (the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)) of the target repo (not subdirectories — plans are valid in planning repos):
 
 ```
 ls .local-artifacts/Plan-*.md 2>/dev/null

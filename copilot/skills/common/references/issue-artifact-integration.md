@@ -47,15 +47,16 @@ issue-artifact-select --issue <N> --artifact-type <TYPE> --latest --format doc-i
 
 # 2. Pull the current artifact to a local working copy
 #    --write-body materializes the raw markdown directly (no jq unescaping step)
-issue-artifact-get --issue <N> --doc-id <DOC_ID> --write-body /tmp/artifact.md
+mkdir -p <repo-root>/.local-artifacts   # once per repo, if not present
+issue-artifact-get --issue <N> --doc-id <DOC_ID> --write-body <repo-root>/.local-artifacts/<artifact>.md
 
 # 3. Edit the local working copy and show diff/summary in chat
 
 # 4. Publish back to the same comment
-issue-artifact-upsert --issue <N> --body-file /tmp/artifact.md
+issue-artifact-upsert --issue <N> --body-file <repo-root>/.local-artifacts/<artifact>.md
 ```
 
-If the user wants the working copy stored in-repo rather than `/tmp`, write it there first and keep that file as the source of truth during the session.
+If the user explicitly asks for a temp-folder working copy instead, `/tmp` is acceptable — but `.local-artifacts/` is the default (see the [standard local markdown folder](../../_conventions.md#standard-local-markdown-folder-local-artifacts)).
 
 When the local working copy is already the session source of truth, the minimal correct write path is `issue-artifact-upsert`. The tool automatically extracts `doc_id` from the file header. Use `issue-artifact-list` or `issue-artifact-select` only to resolve real ambiguity, not as a mandatory preflight before every save.
 
@@ -106,4 +107,4 @@ issue-create \
 - **Surface the result** after running (issue number, comment URL, artifact `doc_id`, or conflict payload).
 - **Do not rely on manual comment matching** when deterministic artifact tooling exists.
 - **If duplicate `doc_id` conflict is reported, stop and ask the user which comment ID is canonical.**
-- **Do not run `command -v` or ad-hoc `--help` as a publication preflight** when the wrapper and stable invocation are already documented in [`../_tools-reference.md`](../_tools-reference.md) and the workflow has already been established in the current session.
+- **Do not run `command -v` or ad-hoc `--help` as a publication preflight** when the wrapper and stable invocation are already documented in [`../_tools-reference.md`](../../_tools-reference.md) and the workflow has already been established in the current session.

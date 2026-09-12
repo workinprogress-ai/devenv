@@ -19,12 +19,12 @@ A single specifications doc is the right default. For large initiatives — mult
   ```
 
   In-doc dependencies stay bare (`Depends on: ORD-002`).
-- Each doc has its own `GROUP-NN` priority groups, scoped to that epic. There is no project-wide priority grouping at the specifications layer — cross-epic sequencing is the roadmap's job, see [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md).
+- Each doc has its own `GROUP-NN` priority groups, scoped to that epic. There is no project-wide priority grouping at the specifications layer — cross-epic sequencing is the roadmap's job, see [`/devenv-create-roadmap`](../../devenv-create-roadmap/SKILL.md).
 
 **Process for a multi-doc project:**
 1. In Phase 1, agree the epic split and the prefix-per-epic scheme up front, in chat. Record the split in each `session_memory-specifications-<topic>.md`.
 2. Run the full three-phase process per epic doc. The same skill invocation completes one doc at a time — do not interleave.
-3. When all epic docs are complete, hand them all to [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) in a single invocation — it accepts multiple specification items paths and produces one roadmap (one parent epic) spanning them.
+3. When all epic docs are complete, hand them all to [`/devenv-create-roadmap`](../../devenv-create-roadmap/SKILL.md) in a single invocation — it accepts multiple specification items paths and produces one roadmap (one parent epic) spanning them.
 4. **Produce an `Index.md`** alongside the epic docs (see *Index.md for multi-file artifacts* below). The Index is the canonical entry point — link to it from blueprints, roadmaps, and parent epics, not to individual epic docs.
 
 ### Index.md for multi-file artifacts
@@ -55,7 +55,7 @@ Structure:
 
 ## Stakeholder priority across epics
 
-Each doc has its own `GROUP-NN` priority groups, scoped to that epic. Cross-epic sequencing is the roadmap's job (see [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md)). If stakeholders have an explicit cross-epic ordering preference, capture it here as plain prose:
+Each doc has its own `GROUP-NN` priority groups, scoped to that epic. Cross-epic sequencing is the roadmap's job (see [`/devenv-create-roadmap`](../../devenv-create-roadmap/SKILL.md)). If stakeholders have an explicit cross-epic ordering preference, capture it here as plain prose:
 
 > Stakeholder priority: orders MVP → fulfillment MVP → returns MVP, then post-launch hardening across all three.
 

@@ -61,7 +61,7 @@ If neither input is supplied, stop and redirect: specifications-first → `/deve
 
 ## Session Continuity
 
-Use `session_memory-roadmap.md` in the target repo's `.local-artifacts/` folder (see the [standard local markdown folder](../../_conventions.md#standard-local-markdown-folder-local-artifacts)) following the same protocol as [`/devenv-write-specifications`](../devenv-write-specifications/SKILL.md). The filename suffix lets it coexist with `session_memory-blueprint.md` and `session_memory-specifications.md`.
+Use `session_memory-roadmap.md` in the target repo's `.local-artifacts/` folder (see the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)) following the same protocol as [`/devenv-write-specifications`](../devenv-write-specifications/SKILL.md). The filename suffix lets it coexist with `session_memory-blueprint.md` and `session_memory-specifications.md`.
 
 ## Output Artifact
 
@@ -71,7 +71,7 @@ Produce a `Roadmap-<system>-NNN` artifact where:
 
 **Roadmaps are GitHub artifacts, not files in source control.** The roadmap lives as a `doc_id`-addressed artifact comment on the parent epic in the planning repo (same pattern as plan artifacts; see [issue-artifact-integration.md](../common/references/issue-artifact-integration.md)). The epic body is a short placeholder plus the task list of child issues; the roadmap content is in the artifact comment.
 
-During the session, work on a local scratch copy (e.g. `/tmp/roadmap-<system>-NNN.md`). The scratch copy is session working state only — it is not committed and not kept after the roadmap is published. The published artifact comment is the single source of truth. Pull/edit/republish mechanics follow the shared [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md).
+During the session, work on a local scratch copy under the target planning repo's `.local-artifacts/` (e.g. `.local-artifacts/roadmap-<system>-NNN.md`; the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)). The scratch copy is session working state only — it is not committed and not kept after the roadmap is published. The published artifact comment is the single source of truth. Pull/edit/republish mechanics follow the shared [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md).
 
 A roadmap is downstream of the specifications and blueprint, and upstream of grooming: it is affected by changes arriving from upstream (spec/blueprint refinement) or pushed back from downstream (execution discoveries), but it is never itself an entry point for changes — those enter through the refine skills and the upstream-impact queue, never by editing a roadmap.
 

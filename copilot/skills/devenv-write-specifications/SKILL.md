@@ -55,7 +55,7 @@ Trigger phrases (continuation mode):
 
 ## Session Continuity
 
-Specifications authoring can span multiple sessions, and brainstorming conversations benefit from continuity. Maintain a `session_memory-specifications.md` file in the target repo's `.local-artifacts/` folder (the [standard local markdown folder](../../_conventions.md#standard-local-markdown-folder-local-artifacts)).
+Specifications authoring can span multiple sessions, and brainstorming conversations benefit from continuity. Maintain a `session_memory-specifications.md` file in the target repo's `.local-artifacts/` folder (the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)).
 
 **At session start**: create it if it doesn't exist, or load and summarise it to the user if it does.
 

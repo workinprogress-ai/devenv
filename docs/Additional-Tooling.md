@@ -2727,7 +2727,7 @@ markdown-plan-complete-task [OPTIONS] TASK_NUMBER... [PLAN_FILE]
 - `TASK_NUMBER...`: One or more dotted task numbers to update (`X.Y` or `X.Y.Z`).
   Multiple task numbers can be supplied in a single invocation.
 - `PLAN_FILE`: Path to the markdown plan file. Defaults to the first
-  `Plan-*.md` file found in the current directory.
+  `Plan-*.md` file found in the current directory, then in `.local-artifacts/`.
   Positional arguments are classified automatically: anything matching the
   `X.Y` / `X.Y.Z` pattern is treated as a task number; everything else is
   treated as the plan file. The plan file may appear anywhere in the argument
@@ -2781,9 +2781,11 @@ markdown-plan-complete-ac [OPTIONS] AC_NUMBER... [FILE]
 **Arguments:**
 
 - `AC_NUMBER...`: One or more AC numbers to update (`AC-N`, `AC-N.N`, `AC-N.N.N`).
-- `FILE`: Path to the markdown file. Defaults to the first `Specifications-*.md`
-  found in the current directory; if none exists, the first
-  `Plan-*.md` is tried. As with `markdown-plan-complete-task`,
+- `FILE`: Path to the markdown file. Defaults to the first `Plan-*.md`
+  (or legacy `Implementation_plan-*.md`) found in `.local-artifacts/`, then in
+  the current directory — plans are the only artifact with checkable ACs.
+  Other files (e.g. `Specifications-*.md`) are updated only when named
+  explicitly. As with `markdown-plan-complete-task`,
   the file may appear anywhere among the arguments.
 
 **Options:**

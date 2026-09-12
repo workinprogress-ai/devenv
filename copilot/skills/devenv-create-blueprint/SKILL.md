@@ -39,7 +39,7 @@ Do **not** use for:
 
 ## Session Continuity
 
-Blueprint creation typically spans multiple sessions. Maintain a `session_memory-blueprint.md` file in the target repo's `.local-artifacts/` folder (see the [standard local markdown folder](../../_conventions.md#standard-local-markdown-folder-local-artifacts)).
+Blueprint creation typically spans multiple sessions. Maintain a `session_memory-blueprint.md` file in the target repo's `.local-artifacts/` folder (see the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)).
 
 The filename includes the skill suffix (`-blueprint`) so it can coexist with other in-progress skills (e.g. `session_memory-specifications.md` from a concurrent specifications interview).
 

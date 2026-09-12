@@ -84,7 +84,7 @@ Flow:
    - Check `Plan-*.md` for issue references.
    - Check open PRs from current branch via `pr-list --head <branch>`.
    - If none found, ask the user for an issue or PR number.
-2. Draft the handoff to a temp file.
+2. Draft the handoff to `.local-artifacts/tmpN.md` (next free number; never overwrite an existing tmp file).
 3. Show the draft in chat for review.
 4. Confirm: "Post this as a comment on #<n>? (y/n)"
 5. On `y`: post via `issue-comment <n> --body-file <draft>` for issues, or `pr-comment <n> --body-file <draft>` for PRs.

@@ -165,7 +165,7 @@ Ask, if not provided: GH issue number? Path to a plan file? Ad-hoc (no plan)?
    - If the user provided `doc_id`, use `issue-artifact-select --issue <N> --doc-id <DOC_ID>`.
    - If not, try `issue-artifact-select --issue <N> --artifact-type plan`.
    - If ambiguous, list candidates via `issue-artifact-list --issue <N> --artifact-type plan --pretty` and ask the user which `doc_id` to use.
-3. Fetch the selected artifact via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --write-body $(next-id --pattern 'Plan-issue-<N>-{N}.md' --dir <repo-root>/.local-artifacts --filename)` (next free suffix, never overwrite) — the tool writes the raw markdown directly; use the `header` field in its output for metadata checks.
+3. `mkdir -p <repo-root>/.local-artifacts` (if not already present), then fetch the selected artifact via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --write-body $(next-id --pattern 'Plan-issue-<N>-{N}.md' --dir <repo-root>/.local-artifacts --filename)` (next free suffix, never overwrite) — the tool writes the raw markdown directly; use the `header` field in its output for metadata checks.
 4. **Work exclusively from the local file** — record its workspace-relative path as `<plan_file>` for `markdown-plan-complete-task` calls. Keep the selected `<DOC_ID>` in session context; all issue publication updates must target the same artifact comment.
 5. Record the target repo root in session context and run all repo-scoped tooling from that directory for the rest of the session segment.
 

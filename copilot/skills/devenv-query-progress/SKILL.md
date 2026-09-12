@@ -64,7 +64,7 @@ Issue and artifact calls inherit their repo from the environment (`GITHUB_REPO`,
 
 - **Direct plans** on the issue: `issue-artifact-list --issue N --artifact-type plan`, plus legacy `implementation-plan` artifacts.
 - **Descendant issues' plans**: find children via issue-tree linkage (`--parent` metadata / task-list references), collect their plan artifacts the same way.
-- **Local plans**: `Plan-*.md` / `Implementation_plan-*.md` files in linked repos count when discoverable; note which are local-only (no issue narrative / snapshot history available).
+- **Local plans**: `Plan-*.md` / `Implementation_plan-*.md` working copies in linked repos (`.local-artifacts/` first, repo root as pre-folder fallback) count when discoverable; note which are local-only (no issue narrative / snapshot history available).
 - **Linkage audit (always):** the roll-up output names how children were detected, and surfaces open issues that reference the scope but lack parent links — "2 unlinked issues reference this scope — include?" Missing linkage under-reports progress and must never fail silently.
 - **Attribution derivation:** assignees come from the issues themselves (`issue-get` returns `assignees[]`) — collect per issue in the tree; issues with no assignee record as unassigned (and become ownership-gap callouts when they carry open work).
 

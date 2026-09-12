@@ -86,7 +86,7 @@ Senior staff engineer with strong opinions. Pushes back when warranted; defers w
 
 ## Session continuity
 
-Maintain `session_memory-design.md` in the target repo's `.local-artifacts/` folder (see the [standard local markdown folder](../../_conventions.md#standard-local-markdown-folder-local-artifacts)) for sessions that span more than one sitting. Same protocol as the other planning skills.
+Maintain `session_memory-design.md` in the target repo's `.local-artifacts/` folder (see the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)) for sessions that span more than one sitting. Same protocol as the other planning skills.
 
 Track:
 - Problem framing as it firms up
@@ -119,8 +119,8 @@ Write `Solution_Proposal_<topic>-NNN.md` where:
 - `NNN` is a zero-padded numeric suffix (resolve via `next-id --pattern 'Solution_Proposal_<topic>-{N}.md'`) so multiple proposals for the same topic can coexist
 
 **Location:**
+- Default: the target repo's `.local-artifacts/` folder (the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts); create it if missing).
 - If the user provides a target directory, write there.
-- Otherwise ask once and proceed.
 
 Solution proposals remain **single-file** by default. Supporting files (diagrams, spreadsheets, PoC notes) are optional and only added when the user asks.
 
@@ -128,7 +128,7 @@ See [solution-proposal-template.md](./references/solution-proposal-template.md) 
 
 When written, the file is the canonical artifact for this discussion.
 
-After writing the doc, offer publication as a separate GitHub issue comment when the user wants the proposal attached to planning flow, implementation context, or blocker history. Prefer posting to an existing relevant issue; create a new issue only when the user explicitly wants standalone tracking.
+After writing the doc, offer publication as a separate GitHub issue comment when the user wants the proposal attached to planning flow, implementation context, or blocker history. Prefer posting to an existing relevant issue; create a new issue only when the user explicitly wants standalone tracking. When publication is accepted, also offer to move or delete the local file per the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts) retirement rule — the issue copy becomes the source of truth.
 
 If a written solution proposal is posted to a GitHub issue comment, follow the shared [Artifact Identity Convention](../_conventions.md#artifact-identity-convention) with `artifact_type: solution-proposal`.
 

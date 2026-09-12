@@ -30,15 +30,15 @@ If the user says no, skip to session wrap-up.
    - `issue-create` has no `--repo` flag; the target repo is selected via the `GITHUB_REPO` env var. `--type` is required for non-interactive creation — pick from `tools/config/issues-config.yml` (Bug, Feature, Task, Epic); ask the user if the type is not obvious.
    - Note the new issue number.
    - Apply the [Artifact Identity Convention](../../_conventions.md#artifact-identity-convention) — ensure file has `doc_id: <value>` in first 256 characters.
-   - Write the document to a temp file.
-   - `issue-artifact-upsert --issue <N> --body-file <temp-file>`
+   - Write the document to `.local-artifacts/tmpN.md` (next free number).
+   - `issue-artifact-upsert --issue <N> --body-file <that-file>`
    - Surface the issue URL.
 
    **If posting to an existing issue:**
-   - If the issue may already host one or more artifacts of the same type, resolve the canonical artifact first with `issue-artifact-select` or `issue-artifact-list`, then load it with `issue-artifact-get` before republishing.
+   - If the issue may already host one or more artifacts of the same type, resolve the canonical artifact first with `issue-artifact-select` or `issue-artifact-list`, then load it with `issue-artifact-get` before regenerating or republishing.
    - Apply the [Artifact Identity Convention](../../_conventions.md#artifact-identity-convention) — ensure file has `doc_id: <value>` in first 256 characters.
-   - Write the document to a temp file.
-   - `issue-artifact-upsert --issue <N> --body-file <temp-file>`
+   - Write the document to `.local-artifacts/tmpN.md` (next free number).
+   - `issue-artifact-upsert --issue <N> --body-file <that-file>`
    - If upsert reports a duplicate `doc_id` conflict, stop and ask the user which comment ID to keep as canonical.
    - Surface the issue URL.
 
