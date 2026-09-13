@@ -4,6 +4,11 @@ bats_require_minimum_version 1.5.0
 
 load ../test_helper
 
+# Resolve relative to this test file's directory rather than $DEVENV_TOOLS so
+# the suite works even when the runner does not export DEVENV_TOOLS
+# (BATS_TEST_DIRNAME = tools/tests/scripts).
+SCRIPT_PATH="${BATS_TEST_DIRNAME}/../../scripts/devenv-memory-watch.sh"
+
 setup() {
   test_helper_setup
   # Resolve after test_helper_setup has exported DEVENV_TOOLS — a load-time

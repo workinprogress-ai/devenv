@@ -1844,6 +1844,58 @@ cs-dependencies-trace
 cs-dependencies-trace --by-repo | grep '^0:'
 ```
 
+### `cs-references-update`
+
+Updates NuGet package references for every `.csproj` under a directory using `dotnet outdated --upgrade`. Also retargets the .NET framework and C# language version on request — the framework/language rewrite runs first, gates on `dotnet restore`, and only then are packages upgraded against the new target.
+
+**Usage:**
+
+```bash
+cs-references-update [REPO_DIR] [OPTIONS]
+```
+
+**Arguments:**
+
+- `REPO_DIR`: Directory tree to update. Defaults to the current directory.
+
+**Options:**
+
+- `--framework TFM`: Rewrite `<TargetFramework>` (and every entry of `<TargetFrameworks>` lists) to `TFM` (e.g. `net10.0`) in all non-`obj/`/`bin/` csproj files before updating packages. A `dotnet restore` gate runs between the rewrite and the package upgrade — if restore fails (invalid TFM, or packages with no assets for the new target), the script exits `10` without touching package versions.
+- `--lang-version VER`: Set `<LangVersion>` to `VER` (e.g. `14.0`) in every csproj — updates existing tags and adds the tag where absent. Mutually exclusive with `--lang-default`.
+- `--lang-default`: Remove existing `<LangVersion>` tags (never adds) so the TFM's default language version applies implicitly. Mutually exclusive with `--lang-version`.
+- `-h, --help`: Show help and exit
+
+**LangVersion rules:**
+
+- `--lang-version` given: the explicit version wins; tags are updated or added.
+- `--framework` alone: existing `<LangVersion>` tags are rewritten to the TFM's default language version (`net8.0` → `12.0`, `net9.0` → `13.0`, `net10.0` → `14.0`). An unmapped TFM combined with tags present in the tree is an argument error naming the supported TFMs — pass `--lang-version` or `--lang-default` explicitly instead.
+- `--lang-default` given: tags are removed; the default applies silently.
+
+**Exit codes:**
+
+| Code | Meaning |
+|------|--------------------|
+| `0` | Success |
+| `2` | Invalid arguments (bad flag values, conflicting flags, unmapped TFM with LangVersion tags present) |
+| `3` | Target directory not found |
+| `10` | `dotnet restore` failed after a rewrite |
+
+**Examples:**
+
+```bash
+# Plain package update (unchanged legacy behavior)
+cs-references-update ~/repos/lib.cs.common.essentials
+
+# Retarget the whole repo to .NET 10, bumping pinned LangVersion tags to 14.0
+cs-references-update ~/repos/lib.cs.common.essentials --framework net10.0
+
+# Retarget with an explicit language version
+cs-references-update ~/repos/lib.cs.common.essentials --framework net10.0 --lang-version 13.0
+
+# Drop LangVersion pins so the TFM default applies
+cs-references-update ~/repos/lib.cs.common.essentials --lang-default
+```
+
 ### `cs-references-update-wizard`
 
 Runs the full NuGet dependency-update workflow for a **single** repository interactively. Useful for updating one repository without walking the entire dependency tree.
@@ -1862,6 +1914,10 @@ cs-references-update-wizard [OPTIONS] [REPO_DIR]
 
 - `--branch NAME`: Branch to create for the update (default: `auto-update-references`)
 - `--dry-run`: Show what would happen without making any changes
+- `--continue`: Resume a previously started update. Expects the update branch to exist with staged or unstaged changes. Skips branch creation and dependency update steps. Framework/language flags are ignored in this mode (the update already happened).
+- `--framework TFM`: Retarget every csproj to `TFM` (e.g. `net10.0`) before updating packages. Passed through to `cs-references-update` (see its section above for LangVersion interaction). A framework change is always treated as a breaking update: the PR is titled `major: update references and target framework` and the bump report includes the framework change (e.g. `net8.0 → net10.0 (FRAMEWORK)`).
+- `--lang-version VER`: Set `<LangVersion>` to `VER` (e.g. `14.0`) in every csproj.
+- `--lang-default`: Remove `<LangVersion>` tags so the TFM default applies.
 - `-h, --help`: Show help and exit
 - `-v, --version`: Show version and exit
 
@@ -1931,6 +1987,9 @@ cs-dependencies-update-wizard [OPTIONS] --global [N]
 - `--global [N]`: Global mode — update all C# repos in topological order, optionally starting from generation `N`
 - `--no-refresh`: Skip refreshing the repository cache
 - `--dry-run`: Show what would be updated without making any changes
+- `--framework TFM`: Retarget every csproj to `TFM` (e.g. `net10.0`) before updating packages. Forwarded to `cs-references-update-wizard` (and through it to `cs-references-update`) for every processed repo. A framework change produces a `major:` PR per repo.
+- `--lang-version VER`: Set `<LangVersion>` to `VER` (e.g. `14.0`) in every csproj.
+- `--lang-default`: Remove `<LangVersion>` tags so the TFM default applies.
 - `-h, --help`: Show help and exit
 - `-v, --version`: Show version and exit
 

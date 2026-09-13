@@ -3,8 +3,10 @@
 
 set -euo pipefail
 
-# Set DEVENV_TOOLS if not already set (for local runs)
-DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/tools}"
+# Set and export DEVENV_TOOLS if not already set (for local runs). Child bats
+# processes read it from the environment; without export, a CI-like invocation
+# (`env -u DEVENV_TOOLS ...`) leaves them with it unset.
+export DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/tools}"
 
 TESTS_DIR="$DEVENV_TOOLS/tests"
 

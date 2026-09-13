@@ -76,6 +76,10 @@ Options:
     --dry-run       Show what would be updated without making any changes
     --auto          Skip the per-generation confirmation prompt (process all
     --auto-generations  generations automatically). Alias: --auto
+    --framework TFM Retarget every csproj to TFM (e.g. net10.0) before updating
+                    packages. Framework change forces a major (breaking) PR.
+    --lang-version VER  Set <LangVersion> to VER (e.g. 14.0) in every csproj.
+    --lang-default  Remove <LangVersion> tags so the TFM default applies.
 
 Workflow (single-target):
     For each depth level (0 = direct dependents, 1 = transitive, ...):
@@ -178,6 +182,9 @@ main() {
     local global_mode=0
     local global_start_gen=0
     local auto_generations=0
+    local framework=""
+    local lang_version=""
+    local lang_default=0
 
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -190,6 +197,20 @@ main() {
                 ;;
             --no-refresh)
                 skip_refresh=1
+                shift
+                ;;
+            --framework)
+                [[ $# -ge 2 && -n "${2:-}" ]] || die "--framework requires a value (e.g. net10.0)" "$EXIT_INVALID_ARGUMENT"
+                framework="$2"
+                shift 2
+                ;;
+            --lang-version)
+                [[ $# -ge 2 && -n "${2:-}" ]] || die "--lang-version requires a value (e.g. 14.0)" "$EXIT_INVALID_ARGUMENT"
+                lang_version="$2"
+                shift 2
+                ;;
+            --lang-default)
+                lang_default=1
                 shift
                 ;;
             --dry-run)
@@ -460,7 +481,11 @@ main() {
             # ── Delegate per-repo workflow to cs-references-update-wizard ──
 
             local wizard_rc=0
-            "$SINGLE_REPO_WIZARD" --branch "$UPDATE_BRANCH" "$repo_dir" || wizard_rc=$?
+            local wizard_args=(--branch "$UPDATE_BRANCH")
+            [ -n "$framework" ] && wizard_args+=(--framework "$framework")
+            [ -n "$lang_version" ] && wizard_args+=(--lang-version "$lang_version")
+            [ "$lang_default" -eq 1 ] && wizard_args+=(--lang-default)
+            "$SINGLE_REPO_WIZARD" "${wizard_args[@]}" "$repo_dir" || wizard_rc=$?
 
             if [ "$wizard_rc" -eq 10 ]; then
                 # Exit 10 means nothing changed after running cs-references-update
@@ -483,7 +508,7 @@ main() {
                     fi
                     # choice 0 = retry
                     wizard_rc=0
-                    "$SINGLE_REPO_WIZARD" --branch "$UPDATE_BRANCH" "$repo_dir" || wizard_rc=$?
+                    "$SINGLE_REPO_WIZARD" "${wizard_args[@]}" "$repo_dir" || wizard_rc=$?
                     if [ "$wizard_rc" -eq 0 ] || [ "$wizard_rc" -eq 10 ]; then
                         wizard_rc=0
                         break

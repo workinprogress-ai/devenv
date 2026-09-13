@@ -72,6 +72,14 @@ Options:
     --continue          Resume a previously started update. Expects the update
                         branch to exist with staged or unstaged changes. Skips
                         branch creation and dependency update steps.
+    --framework TFM     Retarget every csproj to TFM (e.g. net10.0) before
+                        updating packages. Forced to a major (breaking) update.
+    --lang-version VER  Set <LangVersion> to VER (e.g. 14.0) in every csproj.
+    --lang-default      Remove <LangVersion> tags so the TFM default applies.
+
+Framework/language flags are ignored in --continue mode (the update already
+happened). A framework change always produces a 'major:' PR titled
+'major: update references and target framework'.
 
 Exit codes:
     0    Repo was updated (PR created and merged)
@@ -114,15 +122,24 @@ prompt_yes_no() {
     done
 }
 
-# Snapshot PackageReference versions from non-test csproj files
+# Snapshot PackageReference versions from non-test csproj files, plus the
+# target-framework declaration used for framework-change detection
 # Usage: snapshot_versions REPO_DIR
-# Output: sorted lines of "PACKAGE_NAME VERSION" from src/ csprojs
+# Output: sorted lines of "PACKAGE_NAME VERSION" from src/ csprojs, followed by
+#         a single "__TFM__ <framework>" line per distinct TFM found
 snapshot_versions() {
     local repo_dir="$1"
     find "$repo_dir" -path "*/src/*.csproj" \
         ! -path "*/test/*" ! -path "*/tests/*" \
         -exec grep -ohP 'PackageReference Include="[^"]+" Version="[^"]+"' {} \; 2>/dev/null \
         | sed -E 's/PackageReference Include="([^"]+)" Version="([^"]+)"/\1 \2/' \
+        | sort -u
+    find "$repo_dir" -path "*/src/*.csproj" \
+        ! -path "*/test/*" ! -path "*/tests/*" \
+        -exec grep -ohP '<TargetFrameworks?>[^<]+</TargetFrameworks?>' {} \; 2>/dev/null \
+        | sed -E 's/<TargetFrameworks?>([^<]+)<\/TargetFrameworks?>/\1/' \
+        | tr ';' '\n' \
+        | sed 's/^/__TFM__ /' \
         | sort -u
 }
 
@@ -161,6 +178,10 @@ main() {
     local update_branch="$DEFAULT_UPDATE_BRANCH"
     local dry_run=0
     local continue_mode=0
+    local framework=""
+    local lang_version=""
+    local lang_default=0
+    local has_framework_change=0
 
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -174,6 +195,20 @@ main() {
             --branch)
                 update_branch="$2"
                 shift 2
+                ;;
+            --framework)
+                [[ $# -ge 2 && -n "${2:-}" ]] || die "--framework requires a value (e.g. net10.0)" "$EXIT_INVALID_ARGUMENT"
+                framework="$2"
+                shift 2
+                ;;
+            --lang-version)
+                [[ $# -ge 2 && -n "${2:-}" ]] || die "--lang-version requires a value (e.g. 14.0)" "$EXIT_INVALID_ARGUMENT"
+                lang_version="$2"
+                shift 2
+                ;;
+            --lang-default)
+                lang_default=1
+                shift
                 ;;
             --dry-run)
                 dry_run=1
@@ -285,8 +320,16 @@ main() {
 
         # ── Step 4: Run dependency update ─────────────────────────────────
 
+        # Forward framework/language flags to cs-references-update. Mutually
+        # exclusive flags were validated by cs-references-update itself on the
+        # last run; here we pass through whatever was requested.
+        local update_args=()
+        [ -n "$framework" ] && update_args+=(--framework "$framework")
+        [ -n "$lang_version" ] && update_args+=(--lang-version "$lang_version")
+        [ "$lang_default" -eq 1 ] && update_args+=(--lang-default)
+
         log_info "Updating NuGet references in $repo_name..."
-        if ! cs-references-update "$repo_dir" 2>&1; then
+        if ! cs-references-update "$repo_dir" "${update_args[@]}" 2>&1; then
             log_error "cs-references-update failed for $repo_name"
             rm -f "$before_file" "$after_file"
             git -C "$repo_dir" checkout -f "$default_branch" 2>/dev/null || true
@@ -300,8 +343,19 @@ main() {
 
         local major_bumps
         major_bumps=$(detect_major_bumps "$before_file" "$after_file" 2>&1) && has_breaking=1
-        rm -f "$before_file" "$after_file"
 
+        # Framework change: any __TFM__ line present after but not before
+        # (a strict superset — retargets add the new TFM and remove the old).
+        # `|| true` guards strict-mode pipefail: no TFM lines is a normal state.
+        local tfm_before tfm_after
+        tfm_before=$(grep '^__TFM__ ' "$before_file" 2>/dev/null | sort -u || true)
+        tfm_after=$(grep '^__TFM__ ' "$after_file" 2>/dev/null | sort -u || true)
+        rm -f "$before_file" "$after_file"
+        if [ -n "$tfm_after" ] && [ "$tfm_after" != "$tfm_before" ]; then
+            has_framework_change=1
+            major_bumps="$major_bumps
+  $(echo "$tfm_before" | head -1 | awk '{print $2}') → $(echo "$tfm_after" | head -1 | awk '{print $2}') (FRAMEWORK)"
+        fi
         if [ "$has_breaking" -eq 1 ]; then
             log_warn "Major version bumps detected in non-test code:"
             echo "$major_bumps"
@@ -320,12 +374,18 @@ main() {
     # ── Step 6: Determine change level ────────────────────────────────────
 
     local change_level="patch"
-    if [ "$has_breaking" -eq 1 ]; then
+    if [ "$has_framework_change" -eq 1 ]; then
+        log_warn "Framework change detected in $repo_name — forcing major update."
+        change_level="major"
+    elif [ "$has_breaking" -eq 1 ]; then
         log_warn "Breaking changes were detected in $repo_name (major version bumps)."
         change_level="major"
     fi
 
     local pr_title="${change_level}: update references"
+    if [ "$has_framework_change" -eq 1 ]; then
+        pr_title="${change_level}: update references and target framework"
+    fi
 
     # ── Step 6: Run tests ────────────────────────────────────
     if [ -f "$repo_dir/run-tests" ]; then

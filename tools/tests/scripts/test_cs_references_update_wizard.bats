@@ -55,6 +55,13 @@ exit 0
 EOF
     chmod +x "$TEST_TEMP_DIR/bin/pr-merge-pull-request"
 
+    # Mock pr-complete-merge (end of the wizard's happy path)
+    cat > "$TEST_TEMP_DIR/bin/pr-complete-merge" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+    chmod +x "$TEST_TEMP_DIR/bin/pr-complete-merge"
+
     cd "$REPO_DIR"
 }
 
@@ -237,4 +244,122 @@ EOF
 
     [ "$status" -ne 0 ]
     [[ ! "$output" =~ "MAJOR" ]]
+}
+
+# ── Framework / language flags (Phase 2) ──────────────────────────────────
+
+@test "cs-references-update-wizard.sh forwards --framework to cs-references-update" {
+    cat > "$TEST_TEMP_DIR/bin/cs-references-update" <<'EOF'
+#!/usr/bin/env bash
+echo "ARGS: $*" > "${CAPTURE_FILE:?}"
+exit 0
+EOF
+    run env CAPTURE_FILE="$TEST_TEMP_DIR/captured.args" \
+        "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --framework net10.0 "$REPO_DIR"
+    [ "$status" -eq 10 ]  # mock changes nothing → no-op exit, but flags were forwarded
+    grep -q -- "--framework net10.0" "$TEST_TEMP_DIR/captured.args"
+}
+
+@test "cs-references-update-wizard.sh forwards --lang-version and --lang-default" {
+    cat > "$TEST_TEMP_DIR/bin/cs-references-update" <<'EOF'
+#!/usr/bin/env bash
+echo "ARGS: $*" > "${CAPTURE_FILE:?}"
+exit 0
+EOF
+    run env CAPTURE_FILE="$TEST_TEMP_DIR/captured.args" \
+        "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --lang-version 14.0 "$REPO_DIR"
+    [ "$status" -eq 10 ]
+    grep -q -- "--lang-version 14.0" "$TEST_TEMP_DIR/captured.args"
+
+    run env CAPTURE_FILE="$TEST_TEMP_DIR/captured2.args" \
+        "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --lang-default "$REPO_DIR"
+    [ "$status" -eq 10 ]
+    grep -q -- "--lang-default" "$TEST_TEMP_DIR/captured2.args"
+}
+
+@test "cs-references-update-wizard.sh shows framework flags in usage" {
+    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --help
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "--framework" ]]
+    [[ "$output" =~ "--lang-version" ]]
+    [[ "$output" =~ "--lang-default" ]]
+}
+
+@test "snapshot_versions captures TFM lines from src csprojs" {
+    sed -i 's|<ItemGroup>|<PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup>\n  <ItemGroup>|' "$REPO_DIR/src/MyLib.csproj"
+    source "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh"
+    result=$(snapshot_versions "$REPO_DIR")
+    [[ "$result" =~ "__TFM__ net8.0" ]]
+}
+
+@test "wizard forces major + framework PR title when TFM changes" {
+    # Mock cs-references-update to retarget the csproj TFM (like the real one does)
+    cat > "$TEST_TEMP_DIR/bin/cs-references-update" <<'EOF'
+#!/usr/bin/env bash
+repo_dir="${1:-$PWD}"
+find "$repo_dir/src" -name '*.csproj' -exec sed -i 's|net8.0|net10.0|g; s|<LangVersion>12.0</LangVersion>|<LangVersion>14.0</LangVersion>|' {} +
+exit 0
+EOF
+    # csproj needs a TFM + package so snapshot diff catches both
+    sed -i 's|<ItemGroup>|<PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup>\n  <ItemGroup>|' "$REPO_DIR/src/MyLib.csproj"
+    git -C "$REPO_DIR" add -A && git -C "$REPO_DIR" commit -q -m "add TFM"
+    # The wizard resets to origin/master at start — move the remote ref so the
+    # TFM baseline survives the reset.
+    git -C "$REPO_DIR" update-ref refs/remotes/origin/master HEAD
+
+    # Real pr-create-for-merge wrapper is mocked in setup; capture the title
+    cat > "$TEST_TEMP_DIR/bin/pr-create-for-merge" <<'EOF'
+#!/usr/bin/env bash
+echo "TITLE: $*" >> "${CAPTURE_FILE:?}"
+echo "https://github.com/test-org/test-repo/pull/1"
+EOF
+
+    local real_git
+    real_git="$(command -v git)"
+    cat > "$TEST_TEMP_DIR/bin/git" <<EOF
+#!/usr/bin/env bash
+if [[ "\$*" =~ "push" ]]; then
+    exit 0
+fi
+exec "$real_git" "\$@"
+EOF
+    chmod +x "$TEST_TEMP_DIR/bin/git"
+
+    # No run-tests script → tests skipped
+    run env CAPTURE_FILE="$TEST_TEMP_DIR/pr.args" \
+        "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --framework net10.0 "$REPO_DIR"
+    [ "$status" -eq 0 ]
+    grep -q "major: update references and target framework" "$TEST_TEMP_DIR/pr.args"
+    rm -f "$TEST_TEMP_DIR/bin/git"
+}
+
+@test "wizard keeps plain title when no TFM change" {
+    cat > "$TEST_TEMP_DIR/bin/cs-references-update" <<'EOF'
+#!/usr/bin/env bash
+repo_dir="${1:-$PWD}"
+sed -i 's/Version="1\.0\.0"/Version="1.1.0"/' "$repo_dir/src/MyLib.csproj" 2>/dev/null || true
+exit 0
+EOF
+    cat > "$TEST_TEMP_DIR/bin/pr-create-for-merge" <<'EOF'
+#!/usr/bin/env bash
+echo "TITLE: $*" >> "${CAPTURE_FILE:?}"
+echo "https://github.com/test-org/test-repo/pull/1"
+EOF
+    local real_git
+    real_git="$(command -v git)"
+    cat > "$TEST_TEMP_DIR/bin/git" <<EOF
+#!/usr/bin/env bash
+if [[ "\$*" =~ "push" ]]; then
+    exit 0
+fi
+exec "$real_git" "\$@"
+EOF
+    chmod +x "$TEST_TEMP_DIR/bin/git"
+
+    run env CAPTURE_FILE="$TEST_TEMP_DIR/pr.args" \
+        "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" "$REPO_DIR"
+    [ "$status" -eq 0 ]
+    grep -q "patch: update references" "$TEST_TEMP_DIR/pr.args"
+    ! grep -q "and target framework" "$TEST_TEMP_DIR/pr.args"
+    rm -f "$TEST_TEMP_DIR/bin/git"
 }

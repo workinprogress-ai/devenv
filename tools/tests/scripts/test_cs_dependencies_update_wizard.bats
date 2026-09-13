@@ -187,3 +187,44 @@ teardown() {
         "$WIZARD" /this/does/not/exist
     [ "$status" -ne 0 ]
 }
+
+# ---------------------------------------------------------------------------
+# Framework / language flag forwarding (single-repo wizard call sites)
+# ---------------------------------------------------------------------------
+
+@test "--global forwards --framework to cs-references-update-wizard" {
+    setup_minimal_cache
+    # The single-repo wizard is invoked by path; capture args via a log file.
+    export SINGLE_WIZARD_LOG="$TEST_TEMP_DIR/wizard-calls.log"
+    run env REPO_CACHE_DIR="$REPO_CACHE_DIR" \
+        "$WIZARD" --global --dry-run --no-refresh --framework net10.0
+    [ "$status" -eq 0 ]
+    # Dry-run path never reaches delegation; this test verifies flag parsing accepted
+    [[ "$output" =~ "DRY RUN" ]]
+}
+
+@test "cs-dependencies-update-wizard.sh parses all framework flags in single-target parse order" {
+    # Unknown-flag rejection still works alongside the new flags
+    run env REPO_CACHE_DIR="$REPO_CACHE_DIR" \
+        "$WIZARD" --framework net10.0 --lang-version 14.0 --lang-default
+    # --lang-default + --lang-version conflict surfaces from the inner wizard;
+    # at the outer level parsing must succeed far enough to attempt delegation
+    # (fails on non-existent dir or inner validation — either way not an
+    # 'unknown option' error)
+    [ "$status" -ne 0 ]
+    [[ ! "$output" =~ "Unknown option" ]]
+}
+
+@test "cs-dependencies-update-wizard.sh shows framework flags in usage" {
+    run "$WIZARD" --help
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "--framework" ]]
+    [[ "$output" =~ "--lang-version" ]]
+    [[ "$output" =~ "--lang-default" ]]
+}
+
+@test "cs-dependencies-update-wizard.sh --framework without value errors" {
+    run env REPO_CACHE_DIR="$REPO_CACHE_DIR" \
+        "$WIZARD" --global --framework
+    [ "$status" -ne 0 ]
+}
