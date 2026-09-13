@@ -110,7 +110,7 @@ Rules:
 
 - **One glob.** Working-copy probes check `<repo>/.local-artifacts/` (e.g. `.local-artifacts/Plan-issue-42-*.md`), not the repo root.
 - **One ignore.** `.local-artifacts/` is committed to no repo; every repo's `.gitignore` (including all `template.*` repos) carries the entry.
-- **Offer-to-retire at wrap-up.** When an artifact is republished to its issue (`issue-artifact-upsert`) or a skill session that owns local files ends, list the stale `.local-artifacts/` files and offer deletion (y/n) — never auto-delete. After publication the issue copy is authoritative; see the [issue-backed artifact edit protocol](#issue-backed-artifact-edit-protocol).
+- **Offer-to-retire at wrap-up.** When an artifact is republished to its issue (`issue-artifact-upsert`) or a skill session that owns local files ends, list the stale `.local-artifacts/` files and offer deletion (y/n) — never auto-delete. Use [`artifact-clean`](../_tools-reference.md#artifact-clean) for the sweep: it groups files into the families below, drops `tmpN.md` without confirmation, and confirms everything else. After publication the issue copy is authoritative; see the [issue-backed artifact edit protocol](#issue-backed-artifact-edit-protocol).
 - **Out of scope:** deliverable-style docs that are the skill's own product — spike docs (`spike-NNN-*.md`, workspace root), bug-hunt reports (`bug-hunt-*.md`, repo root), technical-debt audits (`TECH_DEBT_AUDIT.md`), and specs/blueprints written into planning repos (`docs/Specifications/` etc.). Those stay where their skills place them; cleanup sweeps must not touch them.
 
 ## Issue-backed artifact edit protocol

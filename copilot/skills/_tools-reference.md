@@ -17,6 +17,25 @@ Quick reference for all CLI tools used by the skill suite. Skills invoke `tools/
 
 ## Issue tools
 
+### artifact-clean
+
+Clean up `.local-artifacts/` folders by artifact family (ephemeral tmpN.md, session memory, issue-artifact working copies, other).
+
+```
+artifact-clean [PATH...] [--tmp | --session | --working | --all] [-y] [-l]
+```
+
+With no family flags and a TTY, runs interactively (family-by-family selection). `--tmp` deletes `tmpN.md` scratch files without confirmation; every other family requires `-y` or an interactive confirm — never silently deletes. `-l` lists what would be cleaned and deletes nothing. Without a TTY and without flags, degrades to list-only. Use this for every offer-to-retire / cleanup sweep instead of hand-run `rm` lists.
+
+Examples:
+
+```bash
+artifact-clean                       # interactive on the nearest .local-artifacts
+artifact-clean --tmp                 # drop scratch files, no prompts
+artifact-clean repos/foo --working -y   # clear a repo's working copies
+artifact-clean -l                    # inventory only
+```
+
 ### next-id
 
 Resolve the next free numeric identifier deterministically — filename suffixes and in-document ID sequences.
