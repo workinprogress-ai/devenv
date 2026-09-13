@@ -24,13 +24,19 @@ updated_at_utc: <ISO-8601>
 
 ## Status Legend
 
-| Symbol | Meaning |
-|---|---|
-| ⬜ | Not started — issue open, no linked PR |
-| 🟡 | In progress — issue open with at least one linked PR |
-| ✅ | Done — issue closed via merge |
-| ⏸️ | Paused / blocked — issue open with a `blocked` or `paused` label |
-| ❌ | Cancelled — issue closed without merge |
+Step status derives from the **set of linked issues and their plan progress** (precedence order, first match wins):
+
+| Symbol | Meaning | Condition |
+|---|---|---|
+| ✅ | Done — all linked issues closed via merge | precedence 1 |
+| ⏸️ | Paused / blocked — any linked issue carries a `blocked` or `paused` label | precedence 2 |
+| 🟡 | In progress — any linked issue is open with a linked PR **or** plan progress > 0 | precedence 3 |
+| ⬜ | Not started — linked issues open, no PR, no plan progress | precedence 4 |
+| ❌ | Cancelled — linked issue(s) closed without merge (all of them) | precedence 5 |
+
+When plan data exists for a step, the status line carries a progress annotation
+— e.g. `🟡 In progress — 12/20 tasks (60%)` — rewritten on every
+`/devenv-update-roadmap` run so it cannot rot.
 
 ---
 
@@ -71,7 +77,7 @@ capability-slice, or hybrid. Include the rationale.>
 ### STEP-01: Extend inventory with reservation API
 
 **Status**: ⬜ Not started
-**Issue**: <populated after issue creation>
+**Issues**: <populated after issue creation — one per line, canonical `org/repo#N` form; a step may link multiple issues>
 **Component**: `service.commerce.inventory` (extended)
 **Blueprint sections**: [§4.1](<link>), [§4.2](<link>)
 **Depends on**: None
@@ -83,7 +89,7 @@ capability-slice, or hybrid. Include the rationale.>
 ### STEP-02: Add reservation events
 
 **Status**: ⬜ Not started
-**Issue**: <populated after issue creation>
+**Issues**: <populated after issue creation>
 **Component**: `service.commerce.inventory` (extended)
 **Blueprint sections**: [§4.1](<link>)
 **Depends on**: [STEP-01](#step-01-extend-inventory-with-reservation-api)
@@ -95,7 +101,7 @@ capability-slice, or hybrid. Include the rationale.>
 ### STEP-03: Build fulfillment orchestrator
 
 **Status**: ⬜ Not started
-**Issue**: <populated after issue creation>
+**Issues**: <populated after issue creation>
 **Component**: `service.commerce.fulfillment-orchestrator` (new)
 **Blueprint sections**: [§4.2](<link>), [§4.1 CreateOrder](<link>)
 **Depends on**: [STEP-01](#step-01-extend-inventory-with-reservation-api), [STEP-02](#step-02-add-reservation-events)
@@ -110,6 +116,7 @@ capability-slice, or hybrid. Include the rationale.>
 
 ## Notes
 
-- This roadmap is updated by the `/devenv-update-roadmap` skill — step status is synced from linked issues and PRs.
-- Structural changes (adding, splitting, re-sequencing, or removing steps) go through `/devenv-refine-roadmap` — STEP-NN IDs are preserved, new steps are appended with the next sequential ID, and superseded steps are deleted clean.
+- This roadmap is updated by the `/devenv-update-roadmap` skill — step status and progress annotations are derived from linked issues, PRs, and plan artifacts. **Issue links use canonical `org/repo#N` form**; each linked issue carries a `STEP-NN` backlink in its body.
+- Structural changes (adding, splitting, re-sequencing, or removing steps) go through `/devenv-refine-roadmap` — STEP-NN IDs are preserved, new steps are appended with the next sequential ID, merged steps inherit the most advanced status, split children start ⬜ with a note, and superseded steps are deleted clean.
+- The parent epic's task list is a **projection** of this roadmap's statuses — it is regenerated on every update; hand-edits there are not durable.
 ```

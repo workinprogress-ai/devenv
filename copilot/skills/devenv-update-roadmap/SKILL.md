@@ -37,24 +37,45 @@ The user provides an epic number (optionally `:<doc_id>` when the epic holds mor
 
 Resolution: `issue-artifact-select --issue <N> --artifact-type roadmap [--latest]` → `mkdir -p <repo-root>/.local-artifacts && issue-artifact-get --write-body <repo-root>/.local-artifacts/roadmap-session.md` (session scratch copy under the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)).
 
-## Status Mapping
+## Status Mapping (precedence — first match wins, per STEP)
 
-| Issue state | Linked PR? | Status |
+A STEP may link **one or more issues** (canonical `org/repo#N`, one per line under
+`Issues:`). Evaluate the set:
+
+| Precedence | Condition across the STEP's linked issues | Status |
 |---|---|---|
-| Closed (merged) | — | ✅ Done |
-| Closed (not merged) | — | ❌ Cancelled |
-| Open | At least one open PR linked | 🟡 In progress |
-| Open | No linked PR | ⬜ Not started |
-| Open | Has `blocked` label or `paused` label | ⏸️ Paused |
+| 1 | All closed via merge | ✅ Done |
+| 2 | Any has a `blocked` or `paused` label | ⏸️ Paused |
+| 3 | Any open **and** (has a linked PR **or** its plan artifact reports progress > 0) | 🟡 In progress |
+| 4 | All open, no PRs, no plan progress | ⬜ Not started |
+| 5 | All closed without merge | ❌ Cancelled |
 
-The `blocked` / `paused` rule overrides the PR rule.
+**Plan progress annotation.** When a linked issue has a plan artifact
+(`issue-artifact-select --issue N --artifact-type plan`), run `plan-parse` on it
+and append the annotation to the status line:
+
+```
+**Status**: 🟡 In progress — 12/20 tasks (60%)
+```
+
+The annotation is rewritten on every run so it cannot rot. Cross-check the
+step's real progress with `/devenv-query-progress` when its plan summary and the
+issue state disagree.
+
+**Status precedence summary** (enforced by tooling; the first match wins):
+closed-merge → done; blocked → paused; open + PR/plan-activity → in-progress;
+otherwise → not-started; all-closed-unmerged → cancelled.
 
 ## Workflow
 
 ### 1. Load and parse the roadmap
 
 - Pull the artifact to a session scratch copy (see Inputs).
-- For each `### STEP-NN: ...` heading, extract the existing **Issue** field. Skip the step if the field is empty or contains a placeholder — it'll be handled in step 4.
+- Run `roadmap-parse <scratch-copy>` to get per-step JSON (issues, status,
+  dependencies). For each `### STEP-NN: ...` heading, read the **Issues** field.
+  Skip the step if it is empty or contains a placeholder — it'll be handled in
+  step 4. Normalize any legacy bare `#N` refs and `Issue:` (singular) fields to
+  canonical `org/repo#N` lines as you touch them.
 
 ### 2. Fetch issue and PR state
 
@@ -110,13 +131,17 @@ After computing both diffs (status changes + missing issues), surface them to th
 
 On approval, update the **Status** line of each affected step in the scratch copy — no revision-history entry; the issue comment's edit history records when the sync happened.
 
-Also update the parent epic body: re-run `issue-update <epic-number> --body-file <path>` with the regenerated task list, where `[ ]` becomes `[x]` for completed steps. Show the diff before applying. Then republish the roadmap artifact: `issue-artifact-upsert --issue <epic-number> --body-file <scratch-path>`.
+Also update the parent epic body: re-run `issue-update <epic-number> --body-file <path>` with the regenerated task list, where `[ ]` becomes `[x]` for completed steps. Show the diff before applying. Then republish the roadmap artifact: `issue-artifact-upsert --issue <epic-number> --body-file <scratch-path>`. Before each republish, verify the working copy: all `### STEP-NN` headers present, step count unchanged from the published version, and anchor links resolve. When the roadmap uses a single tracking issue with an embedded checkbox ticker instead of an epic + child issues, the ticker body is the surface this step updates — artifact and ticker change in one pass.
 
 ### 6. (Optional) Create missing issues
 
 For steps without issues, follow the **Issue Creation Procedure** from [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md): one issue per step in the appropriate component repo, with body referencing the roadmap step and blueprint sections. Then update the step's **Issue** field in the roadmap file.
 
-After issue creation, also update the parent epic to include the new entries in its task list.
+After issue creation, also update the parent epic to include the new entries in its task list, and add a `STEP-NN` backlink to each created issue's body (greppable in both directions).
+
+**Linking existing-but-unlinked issues.** A step's issues may already exist but be missing from the roadmap (created outside the flow). When step 4 flags them, search for candidates (`issue-search` by step component/title keywords), present matches in a summary table, and ask the user to confirm each link before writing it. Never link silently. After linking, add the `STEP-NN` backlink to the issue body via `issue-comment` or `issue-update` (with approval).
+
+**Epic task list is a projection.** The parent epic's task list is regenerated from roadmap statuses on every sync — `[ ]`/`[x]` there is derived state, not hand-maintained content. Hand-edits to it are not durable by design; step-structure changes belong in `/devenv-refine-roadmap`, not in the epic body.
 
 ### 7. Summarise
 

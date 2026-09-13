@@ -38,6 +38,7 @@ Do **not** use for:
 - **Use patterns, but don't over-pattern.** Reference patterns where they apply; don't apply patterns just to look architectural.
 - **Sketch, don't specify.** A blueprint guides implementation; it isn't a 100-page spec.
 - **Brownfield is the default.** Most blueprints describe a *delta* — what changes in an existing system, not a clean greenfield design.
+- **Blueprints describe committed state or concrete target state, not ideas.** The blueprint is the technical description of the system — current and committed target state. Unsettled future concepts belong in the tracker as issues labeled `future-idea`, never as blueprint sections.
 
 ## Session Continuity
 

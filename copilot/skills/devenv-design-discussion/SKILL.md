@@ -274,7 +274,8 @@ Any open question not explicitly kept open by the user should be converted into 
 
 **Then** offer next-step skills:
 - Approach needs a feasibility check first → [`/devenv-spike`](../devenv-spike/SKILL.md)
-- Discussion settled at the system level → [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
+- Discussion settled at the system level (no blueprint yet) → [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
+- Settled systemic decisions against an existing blueprint → [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) — apply the deltas; in-session application is legitimate when this session entered from a refine/refine-adjacent context
 - Discussion settled at the component level (design needs to be specified) → [`/devenv-grooming`](../devenv-grooming/SKILL.md)
 - Discussion settled at the component level and should become a reusable issue artifact for planning → [`/devenv-create-plan`](../devenv-create-plan/SKILL.md)
 - Discussion settled at the component level (design is already clear, just need tasks) → [`/devenv-create-plan`](../devenv-create-plan/SKILL.md)
@@ -297,7 +298,7 @@ If the user explicitly wants an open question preserved, capture it under a `## 
 - **Writing code.** This is a discussion skill — not an implementation skill. If it's time to build, use [`/devenv-pair-programming`](../devenv-pair-programming/SKILL.md) or [`/devenv-delegation`](../devenv-delegation/SKILL.md) for a commissioned autonomous run.
 - **Writing a solution proposal without user request.** Keep default mode conversational and brainstorming-oriented.
 - **Monologuing after context load.** Do not switch into long lecture mode; keep the exchange turn-by-turn.
-- **Confusing this skill with a blueprint.** Design discussion is focused and narrow. If it sprawled into domains/services/events/components, escalate to `/devenv-create-blueprint`.
+- **Confusing this skill with a blueprint.** Design discussion is focused and narrow. If it sprawled into domains/services/events/components, the exit depends on what settled: greenfield decomposition → [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md); settled systemic decisions against an existing blueprint → apply the deltas via [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) rather than re-deriving the blueprint from scratch.
 
 ## Sibling skills
 

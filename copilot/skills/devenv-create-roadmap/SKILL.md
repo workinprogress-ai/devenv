@@ -193,6 +193,8 @@ Only on explicit approval, run the procedure in the next section.
 
 This step uses the existing `issue-create` and `issue-update` tooling. Do not invent new commands. This mandate applies to **any** issue creation performed under this skill, including user-negotiated variants of the tracking model (e.g., a single tracking issue with embedded phase/step checkboxes instead of an epic + per-repo child issues). Only the issue structure is negotiable; the tooling is not.
 
+**Embedded-task variant.** When the tracking model is a single issue with an embedded checkbox ticker in its body, the ticker and the roadmap artifact are two surfaces of one roadmap. Every roadmap change updates both in the same pass — artifact via `issue-artifact-upsert`, ticker via `issue-update --body-file` — so they never diverge. Before each republish, verify the working copy: all `### STEP-NN` headers present, step count unchanged from the published version, and anchor links resolve.
+
 ### Step A — Create child issues
 
 For each roadmap step where the component repo is known:

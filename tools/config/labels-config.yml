@@ -22,6 +22,11 @@ labels:
     color: "f9d0c4"
     description: "Discovered upstream (specs/blueprint) change — refine skills consume this queue"
 
+  # Idea parking lot
+  - name: future-idea
+    color: "c5def5"
+    description: "Uncommitted future concept — parked in the tracker, never in blueprints/specs"
+
   # Priority (align with triage-issue's P0–P3)
   - name: priority/P0
     color: "b60205"

@@ -158,5 +158,6 @@ After writing, list what may need follow-up:
 - Forcing non-surgical architecture discovery through this skill instead of escalating to [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md) or [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
 - Forgetting to surface roadmap and plan impact after the edit
 - Keeping superseded sections as tombstone text — delete them clean; an ADR holds the why when it matters
+- Parking future ideas in the blueprint — the blueprint is a technical description of the system; uncommitted concepts belong in the tracker as issues labeled `future-idea`
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

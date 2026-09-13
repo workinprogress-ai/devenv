@@ -60,6 +60,7 @@ Issue and artifact calls inherit their repo from the environment (`GITHUB_REPO`,
 - **Issue number** → tree walk (below).
 - **Plan path** → direct: `plan-parse --summary` on it, plus the linked issue (if any) for state/enrichment.
 - **Epic number (+ optional `:doc_id`)** → dual view: issue→plans roll-up **and** roadmap artifact status (via `issue-artifact-select` / `issue-artifact-get` on the epic), reported side by side, never summed.
+- **Drift detection (epic view, built in):** compare each roadmap step's status against the reality of its linked issues/plans (plan `%` > 0 with roadmap ⬜, issues closed with roadmap 🟡, etc.). Report mismatches explicitly as drift, ending with: *"→ `/devenv-update-roadmap` to reconcile."*
 - **Freeform question** → resolve to a candidate issue/plan set (`issue-search`, `issue-list`), then confirm with the user via the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections): one question, options listed.
 
 ### 2. Assemble the plan set (roll-up)
