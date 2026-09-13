@@ -10,7 +10,7 @@ argument-hint: A question / problem statement to investigate, OR a GitHub issue 
 
 > **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 
-> **Aggressive-measures gate.** The spike is empowered like the bug hunter: some questions can only be answered by doing — creating code to prove something works, modifying target-repo code, deleting code to test what breaks, or running destructive-class experiments. The default lane is read-only plus a `playground/` prototype; anything beyond that (in-repo edits, behavior-altering changes, deletions, environment mutation) requires **just-in-time consent**: if the needed aggression level is visible at planning, ask then; otherwise ask the moment it emerges in investigation. Every consent request outlines **what** will be done and **why** it is needed, so the user can approve or disapprove on the merits. Before any destructive-class action, announce the category and get a go-ahead — including the warning that afterward the user should be prepared to `git reset` the affected repo. **Disapproval rejects the measure, not the investigation:** continue via alternate routes — deeper reading, a `playground/`-scoped prototype, a different experiment design. An alternate that is itself aggressive passes through this same gate (outline, consent) before use; only when alternate routes are exhausted does the spike report the question as unanswerable as scoped. The spike NEVER runs mutating git commands itself; restore is always the user's hands. Every temporary in-repo modification carries `TODO:(DEVENV[spike]): ...` markers so nothing empowered blends into permanent code unnoticed.
+> **Aggressive-measures gate.** The spike is empowered like the bug hunter: some questions can only be answered by doing — creating code to prove something works, modifying target-repo code, deleting code to test what breaks, or running destructive-class experiments. The default lane is read-only plus a `playground/` prototype; anything beyond that (in-repo edits, behavior-altering changes, deletions, environment mutation) requires **just-in-time consent**: if the needed aggression level is visible at planning, ask then; otherwise ask the moment it emerges in investigation. Every consent request outlines **what** will be done and **why** it is needed, so the user can approve or disapprove on the merits. Before any destructive-class action, announce the category and get a go-ahead — including the warning that afterward the user should be prepared to `git reset` the affected repo. **Disapproval rejects the measure, not the investigation:** continue via alternate routes — deeper reading, a `playground/`-scoped prototype, a different experiment design. An alternate that is itself aggressive passes through this same gate (outline, consent) before use; only when alternate routes are exhausted does the spike report the question as unanswerable as scoped. The spike NEVER runs mutating git commands itself; restore is always the user's hands. Every temporary in-repo modification carries `FIXME(DEVENV[spike]): ...` markers so nothing empowered blends into permanent code unnoticed.
 
 > **Recovery-route rule.** No aggressive measure without a clear recovery path stated *before* the action: what will be touched, and how it comes back (usually user-run `git reset`, plus any non-git state — spun-up containers, generated files — with their teardown). If recovery cannot be described, the measure is not taken; reframe the experiment inside `playground/` instead.
 
@@ -39,6 +39,8 @@ The user provides one of:
 ## Workflow
 
 ### 1. Frame the question
+
+Before any in-repo inspection or modification, run `devenv-marker-check --todo-report <target-scope>`. Every reported TODO is a prior session's cross-plan message: surface it in chat and honor its condition — or explicitly resolve it with the user — before that file is touched.
 
 Restate the question in one sentence. Confirm with the user before investigating:
 
@@ -73,7 +75,7 @@ Do the work:
   ```
 
 - **In-repo experiments (empowered lane):** when the question can only be answered by touching real code — patching a call path, swapping a dependency version, deleting a module to see what breaks, instrumenting a hot path — propose the specific edit, why it is needed, its aggression class, and the recovery route first:
-  > *"To answer this, I need to [specific modification] in `repos/<target>`. That's a behavior-altering edit — afterward you'd `git reset` this repo (your hands, not mine). I'll mark it `TODO:(DEVENV[spike]): ...`. Proceed?"*
+  > *"To answer this, I need to [specific modification] in `repos/<target>`. That's a behavior-altering edit — afterward you'd `git reset` this repo (your hands, not mine). I'll mark it `FIXME(DEVENV[spike]): ...`. Proceed?"*
   On approval: make the minimal change, mark it, run the experiment, capture results. Never widen beyond what was approved.
 - Run experiments. Capture commands, outputs, and observations as you go (you'll need them for the findings doc).
 - If the spike grows beyond rough exploration, stop and recommend `/devenv-create-plan` instead.
@@ -181,7 +183,7 @@ Never create an issue or post a comment without explicit "yes" confirmation.
 - **Drifting into production code** — spikes are throwaway. If the prototype is becoming clean and complete, stop and write a plan with `/devenv-create-plan`. Resist the urge to "just polish it a bit". (Empowered in-repo experiments are not production code — they are marked, consented, and reset away.)
 - **Unannounced aggression** — modifying target-repo code, deleting anything, or mutating environments without the consent gate and a stated recovery route. Powerful but announced, always.
 - **Treating a declined measure as a dead end** — disapproval reroutes the investigation (deeper reading, `playground/` prototype, different experiment); only exhausted alternates stop it, and any aggressive alternate re-enters the gate.
-- **Unmarked in-repo edits** — empowered changes without `TODO:(DEVENV[spike]): ...` markers can slip into a commit; the marker keeps the reset clean and intentional.
+- **Unmarked in-repo edits** — empowered changes without `FIXME(DEVENV[spike]): ...` markers can slip into a commit; the marker keeps the reset clean and intentional.
 - **Running the reset yourself** — the spike never runs mutating git commands. Recovery is the user's hands, every time.
 - **Hiding the throwaway-ness** — every artifact must carry the "NOT FOR PRODUCTION" header. No exceptions.
 - **Skipping the framing step** — an unframed spike sprawls. Restate the question in one sentence before starting.

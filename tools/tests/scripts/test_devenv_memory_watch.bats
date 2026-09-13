@@ -4,7 +4,12 @@ bats_require_minimum_version 1.5.0
 
 load ../test_helper
 
-SCRIPT_PATH="$DEVENV_TOOLS/scripts/devenv-memory-watch.sh"
+setup() {
+  test_helper_setup
+  # Resolve after test_helper_setup has exported DEVENV_TOOLS — a load-time
+  # assignment here captured an empty env on CI and broke every test.
+  SCRIPT_PATH="$DEVENV_TOOLS/scripts/devenv-memory-watch.sh"
+}
 
 @test "devenv-memory-watch.sh exists" {
   [ -f "$SCRIPT_PATH" ]

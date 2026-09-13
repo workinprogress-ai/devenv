@@ -169,7 +169,7 @@ Before applying edits, offer an optional pressure-test pass using [pressure-test
 
   When the new scope introduces or changes important boundaries, add an early phase for defining or tightening contracts before broad implementation starts. This usually means interfaces, API/request/response shapes, message schemas, extension points, or persistence boundaries land before the phases that fully implement them.
 
-  The first of the new phases must include an explicit task to **review the new scope and place forward guidance comments** (`TODO:(DEVENV[...])`) at anticipated touch points — the same role Phase 1 plays in a fresh plan. Example task: `- [ ] **5.1 [S] Review new scope and place forward guidance comments** — scan files affected by phases 5–6, add TODO:(DEVENV[...]) comments at integration points and stubs that later tasks will fill.`
+  The first of the new phases must include an explicit task to **review the new scope and place forward guidance comments** (`FIXME(DEVENV[...])`) at anticipated touch points — the same role Phase 1 plays in a fresh plan. Example task: `- [ ] **5.1 [S] Review new scope and place forward guidance comments** — scan files affected by phases 5–6, add FIXME(DEVENV[...]) comments at integration points and stubs that later tasks will fill.`
 
   Surface this to the user before writing: *"Phase 3 is fully complete — I'll add the new work in a new Phase 5 rather than appending to Phase 3. The existing Cleanup (Phase 4) is also done, so I'll add a new Phase 6 for cleanup of the new scope. Does that structure work for you?"*
 - **Prefer rewrite/addition over removal.** If the work still matters but the original task is misleading, keep the number and reword it, or add a follow-on task.
@@ -192,7 +192,7 @@ Before applying edits, offer an optional pressure-test pass using [pressure-test
 - **Grooming-to-plan carry-forward is required when grooming exists.** For every still-relevant confirmed/deferred design point in the grooming artifact, either carry it into the plan (phase watch-outs, task `decision:` metadata, appendix, pending question, or scope/non-goal text) or explicitly decide it is out-of-scope and keep that rationale in current decision/question text.
 - **Resolution expectation during refinement:** resolve as many open questions as possible before writing. Leave questions pending only for implementation-level details or explicit user-requested deferral.
 - **Appendix maintenance for complex design-derived work:** if the refined plan is based on substantial upstream design context, ensure `## Appendix` exists and is current. It must summarize key design decisions, constraints/invariants, interface contracts, migration/rollout implications, and rejected alternatives that materially affect task ordering or scope.
-- **Temporary coverage exclusion discipline:** if a newly added contract-first phase uses temporary coverage-exclusion attributes or mechanisms because implementations arrive later, add explicit cleanup/removal tasks and require `TODO:(DEVENV[plan-key]): ...` markers at the affected code locations so coverage restoration is not lost.
+- **Temporary coverage exclusion discipline:** if a newly added contract-first phase uses temporary coverage-exclusion attributes or mechanisms because implementations arrive later, add explicit cleanup/removal tasks and require `FIXME(DEVENV[plan-key]): ...` markers at the affected code locations so coverage restoration is not lost.
 
 **Acceptance criteria changes:**
 

@@ -437,7 +437,7 @@ Test-integrity specification item (all execution skills):
 
 - Do not remove, loosen, skip, or narrow failing behavior assertions to hide a real product defect or to recover a green run.
 - Keep behavior assertions that reveal the defect, add a focused reproduction test when useful, then fix implementation.
-- Temporary test adjustments are allowed only with explicit user approval, a `TODO:(DEVENV[plan-key]): ...` marker, and a concrete restoration task tracked immediately.
+- Temporary test adjustments are allowed only with explicit user approval, a `FIXME(DEVENV[plan-key]): ...` marker, and a concrete restoration task tracked immediately.
 
 The protocol applies to skills:
 

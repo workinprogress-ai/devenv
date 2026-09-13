@@ -65,7 +65,8 @@ EOF
 @test "plan-parse --summary computes raw percentage" {
     run bash "$DEVENV_TOOLS/scripts/plan-parse.sh" "$PLAN_FILE" --summary
     [ "$status" -eq 0 ]
-    [ "$(echo "$output" | jq -r '.pct_tasks')" = "50" ]
+    # numeric equality: jq <=1.6 prints 50.0 as "50", jq 1.7+ preserves "50.0"
+    [ "$(echo "$output" | jq '.pct_tasks == 50')" = "true" ]
 }
 
 @test "plan-parse --summary applies size weights S=1 M=2 L=4" {
@@ -159,7 +160,7 @@ EOF
     run bash "$DEVENV_TOOLS/scripts/plan-parse.sh" "$PLAN_DIR/Plan-empty.md" --summary
     [ "$status" -eq 0 ]
     [ "$(echo "$output" | jq -r '.tasks_total')" = "0" ]
-    [ "$(echo "$output" | jq -r '.pct_tasks')" = "0" ]
+    [ "$(echo "$output" | jq '.pct_tasks == 0')" = "true" ]
 }
 
 # ---------------------------------------------------------------------------

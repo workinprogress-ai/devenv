@@ -32,7 +32,7 @@ If permission is not explicit, do not add workaround code.
 
 ## Marker Specification item
 
-Approved workaround or bridge code must carry a `TODO:(DEVENV[plan-key]): ...` marker at the exact source location, plus a corresponding plan item naming the removal task and cleanup point. The marker is what keeps the bridge visible to cleanup checks — unmarked bridge code must never be committed into a pull request.
+Approved workaround or bridge code must carry a `FIXME(DEVENV[plan-key]): ...` marker at the exact source location, plus a corresponding plan item naming the removal task and cleanup point. The marker is what keeps the bridge visible to cleanup checks — unmarked bridge code must never be committed into a pull request.
 
 ## Documentation Specification item
 
