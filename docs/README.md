@@ -9,6 +9,7 @@ A suite of 15 slash-command skills covering the full development lifecycle — f
 - **[Skills Catalog](./Skills.md)** — full reference with decision tree, workflow examples, and per-skill docs
 - **[Workflow Guide](./Workflow.md)** — end-to-end methodology guide with ASCII flowcharts and skill mapping notes
 - **[Progress Reporting](./Progress-Reporting.md)** — how progress is derived from plans/issues/git, the `Progress:` snapshot line, and `/devenv-query-progress`
+- **[Knowledge & Engineering Patterns](./Knowledge-and-Engineering-Patterns.md)** — how skills consult copilot knowledge and the configurable engineering-standards repo
 
 **Top skills:**
 
@@ -118,6 +119,9 @@ Total: ~115 KB of comprehensive documentation
 
 **...understand how the Copilot skills fit together**
 → [Workflow Guide](./Workflow.md) or [Skills Catalog](./Skills.md)
+
+**...configure the knowledge and engineering-standards sources skills use**
+→ [Knowledge & Engineering Patterns](./Knowledge-and-Engineering-Patterns.md) and [Devenv Customization](./Devenv-Customization.md)
 
 **...quickly look up a command**
 → [GitHub Issues Quick Reference](./GitHub-Issues-Quick-Reference.md) or [Additional Tooling](./Additional-Tooling.md)

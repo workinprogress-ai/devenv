@@ -348,6 +348,8 @@ The phase task list must always reflect what was actually done and what remains 
 
 ## During a Phase
 
+**External knowledge is an execution input (apply the [Knowledge & Engineering-Pattern Lookup Protocol](../common/references/knowledge-lookup-protocol.md) — apply intensity):** copilot knowledge directly shapes how tasks are implemented (wiring, idioms, conventions); consult it when a task touches unfamiliar org specifics, and cite what shaped non-obvious choices in the handback. Engineering patterns apply as needed.
+
 The AI runs through the phase's tasks without stopping for user review between each one. Task progress pings are brief indicators — not checkpoints. It should execute from the refreshed phase task list and AC intent, and keep that task list current in-place (tick completed work, remove obsolete tasks, add newly required tasks). If Phase 1 discovery exposes high-blast-radius assumptions, boundary risks, failure modes, or sequencing hazards, add explicit pressure-test tasks/checkpoints to the current or next appropriate phase. Do not add no-op plan edits that merely say discovery or execution "confirmed" text that was already accurate. Ask before major changes to phases, goals, or ACs.
 
 ### Per-task decision gate (required)

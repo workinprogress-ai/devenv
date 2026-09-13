@@ -658,6 +658,40 @@ The `artifacts-list` script is built on the `artifact-operations.bash` library, 
 
 These core functions can be sourced and used in other scripts for artifact-related operations. Output formatting functions are part of the `artifacts-list` script itself since they are specific to that script's display specifications.
 
+### `artifact-header`
+
+Reads or patches the `DEVENV_ARTIFACT_V1` metadata header of a local issue-backed
+artifact (plan, grooming doc, roadmap, specifications working copy).
+
+**Usage:**
+
+```bash
+artifact-header <FILE> --field <doc_id|issue_number|planning_repo>
+artifact-header <FILE> --set issue_number=42 --set doc_id=Plan-issue-42-001
+```
+
+**Options:**
+
+- `--field <name>`: Print one header field's value
+- `--set key=value`: Set one or more header fields (patches in place)
+
+Never hand-parse the header — use this tool so format changes stay encapsulated.
+
+### `artifact-clean`
+
+Clean up `.local-artifacts/` folders by artifact family (ephemeral `tmpN.md`,
+session memory, issue-artifact working copies, other). Interactive by default;
+`--tmp` deletes scratch files without confirmation while every other family
+requires `-y` or an interactive confirm. `-l` lists per family and deletes
+nothing. See the [local artifacts convention](../copilot/skills/_conventions.md)
+for the family definitions.
+
+**Usage:**
+
+```bash
+artifact-clean [PATH...] [--tmp | --session | --working | --all] [-y] [-l]
+```
+
 ## GitHub Actions
 
 Tools for inspecting, triggering, monitoring, and downloading outputs of GitHub Actions workflow runs.
@@ -2883,6 +2917,79 @@ markdown-plan-complete-ac --uncomplete AC-3 AC-4
   criterion could not be updated.
 - Relies on `tools/lib/markdown.bash` for all checkbox manipulation logic.
 
+### `plan-parse`
+
+Parse and validate plan files (JSON output). Modes: `--summary` (task counts,
+weighted progress percentage, AC/question tallies), `--census` (per-phase task
+counts), `--anchors` (forward-comment anchor file list), `--lint` (structural
+validation), and `--require-header` (artifact header must be present and
+well-formed).
+
+**Usage:**
+
+```bash
+plan-parse <PLAN_FILE> --summary | --census | --anchors | --lint [--require-header]
+```
+
+**Notes:**
+
+- `--summary` output includes `tasks_done/open/total`, `pct_tasks`, and
+  `weighted` progress; the `Progress:` snapshot line uses these values.
+- `--lint` errors block issue-artifact upserts until fixed.
+- Progress values are computed from the file, never hand-counted.
+
+### `devenv-marker-check`
+
+Deterministic DEVENV-marker and AC-comment scanning for cleanup gates and
+discovery sweeps. Gate mode fails when plan-bounded `FIXME(DEVENV[...])`
+markers remain (cross-plan `TODO(DEVENV[...])` markers are sanctioned to ship);
+`--todo-report` lists scoped TODOs and warns about missing discharge
+conditions; `--all` audits every marker form.
+
+**Usage:**
+
+```bash
+devenv-marker-check [PATH...] [--all] [--ac] [--todo-report] [--marker REGEX] [--require]
+```
+
+See the DEVENV marker spec in `copilot/copilot-instructions.md` for the marker
+taxonomy.
+
+### `next-id`
+
+Resolve the next free numeric identifier for filenames (`Plan-issue-42-{N}.md`
+suffixes) and in-document ID sequences (`SPEC-NNN` tokens).
+
+**Usage:**
+
+```bash
+next-id --pattern 'Plan-issue-42-{N}.md' [--dir DIR] [--width W] [--filename]
+next-id --file DOC.md --prefix 'SPEC-' [--full]
+```
+
+### `config-read`
+
+Read one value from `devenv.config` by section and key (env-expanded, with an
+optional default). Gives skills and scripts a deterministic way to read
+org-configurable settings.
+
+**Usage:**
+
+```bash
+config-read SECTION KEY [DEFAULT] [--config FILE]
+```
+
+**Examples:**
+
+```bash
+config-read copilot engineering_repo     # e.g. docs.engineering
+config-read copilot knowledge_repo
+config-read workflows status_workflow
+```
+
+See [Knowledge & Engineering Patterns](./Knowledge-and-Engineering-Patterns.md)
+for the `engineering_repo` setting.
+
 ---
 
 ## Usage Notes
@@ -2890,7 +2997,7 @@ markdown-plan-complete-ac --uncomplete AC-3 AC-4
 - Most tools require proper environment variables to be set (e.g., `GH_USER`, `GH_TOKEN`)
 - GitHub operations prefer SSH but fall back to HTTPS with token authentication
 - Tools automatically handle error conditions and provide helpful error messages
-- Scripts follow consistent naming conventions (prefix-based: `repo-`, `pr-`, `git-`)
+- Scripts follow consistent naming conventions (prefix-based: `repo-`, `pr-`, `git-`, `issue-`, `artifact-`, `actions-`)
 - Many tools are designed to work within the development container environment
 
 ## Environment Variables

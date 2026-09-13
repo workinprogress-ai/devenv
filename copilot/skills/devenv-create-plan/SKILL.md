@@ -54,6 +54,8 @@ Source precedence rule:
 
 ## Procedure
 
+**External knowledge lookup (apply the [Knowledge & Engineering-Pattern Lookup Protocol](../common/references/knowledge-lookup-protocol.md) — consult intensity):** while drafting phases and tasks, consult copilot knowledge (org implementation specifics) and the engineering-patterns repo (`config-read copilot engineering_repo`) so plans declare which patterns and practices each phase applies, citing sources.
+
 ### 1. Identify inputs and target repo
 
 - Determine which repo the plan applies to (the plan file is written to **that** repo's `.local-artifacts/` folder, not necessarily the current workspace root). For mechanical cross-repo objectives (updating many repos with new files plus follow-ups), the plan declares its target repo set up front — that set becomes the agreed change-scope for execution; feature delivery spanning multiple components still routes through blueprint/roadmap first.

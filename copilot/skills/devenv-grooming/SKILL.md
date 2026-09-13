@@ -206,6 +206,8 @@ When creating child issues from grooming (user-gated):
 
 ### Upstream artifact intake policy
 
+**External knowledge lookup (apply the [Knowledge & Engineering-Pattern Lookup Protocol](../common/references/knowledge-lookup-protocol.md) — consult intensity):** when constructing the grooming document and issue attack plan, consult copilot knowledge (org implementation specifics) and the engineering-patterns repo (`config-read copilot engineering_repo`) so the plan names the patterns to use and practices to apply, citing their sources.
+
 Design-discussion and spike artifacts should normally flow through grooming before planning.
 
 - For straightforward cases, grooming may be brief: capture key decisions/constraints from the upstream artifact, generate the issue attack plan, and then hand off to plan generation.

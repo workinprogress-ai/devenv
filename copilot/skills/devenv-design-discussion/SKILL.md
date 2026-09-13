@@ -250,6 +250,7 @@ Before moving to final validation/wrap, offer an optional pressure-test pass usi
 - Never run automatically; require explicit user consent.
 - The pass's dispositions are recommendations: `accept`/`defer` calls require user confirmation via the protocol's disposition gate — never self-approved.
 - If a supposedly bounded question expands into broader drift, stop and route to [`/devenv-grooming`](../devenv-grooming/SKILL.md).
+- When weighing options, apply the [Knowledge & Engineering-Pattern Lookup Protocol](../common/references/knowledge-lookup-protocol.md) (consult intensity): engineering standards and org specifics are legitimate forces on option trade-offs — cite what shapes the recommendation.
 
 ### Phase 5: Validate
 

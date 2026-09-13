@@ -178,10 +178,12 @@ status_workflow=Backlog,Ready,In Progress,In review,Done
 [copilot]
 knowledge_repo=https://github.com/workinprogress-ai/docs.copilot-knowledge.git
 knowledge_subpath=copilot-knowledge/
+engineering_repo=docs.engineering
 ```
 
 - **knowledge_repo**: Git repository URL for shared Copilot knowledge assets.
 - **knowledge_subpath**: Folder inside that repository that should be linked to `~/.copilot/knowledge`.
+- **engineering_repo**: Name of the repository holding engineering standards, patterns, and best practices (resolved as a sibling clone under `repos/`). Skills read it via `config-read copilot engineering_repo` — forks may point it at their own standards repo without editing any skill. See [Knowledge & Engineering Patterns](./Knowledge-and-Engineering-Patterns.md).
 
 Behavior:
 
