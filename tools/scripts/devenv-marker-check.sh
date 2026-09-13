@@ -1,11 +1,11 @@
 #!/bin/bash
 # devenv-marker-check.sh - Deterministic DEVENV-marker and AC-comment scanning
-# Version: 1.1.0
-# Description: Replaces hand-run grep sweeps: verify no DEVENV[ scaffolding
-#              markers remain (gate mode), list [AC-N] comments for review
-#              (finder mode), list scoped TODO(DEVENV markers with their
-#              discharge conditions (--todo-report), or check custom markers
-#              with --require inversion.
+# Version: 1.2.0
+# Description: Replaces hand-run grep sweeps: verify no plan-bounded
+#              FIXME(DEVENV[ markers remain (gate mode), list [AC-N] comments
+#              (finder mode), list scoped TODO(DEVENV markers with discharge
+#              conditions (--todo-report), audit all markers (--all), or check
+#              custom markers with --require inversion.
 # Requirements: Bash 4.0+, grep
 
 set -euo pipefail
@@ -13,7 +13,7 @@ set -euo pipefail
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
 
-readonly SCRIPT_VERSION="1.1.0"
+readonly SCRIPT_VERSION="1.2.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
 script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Scan for DEVENV markers and AC comments"
@@ -21,6 +21,7 @@ script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Scan for DEVENV markers and AC 
 MARKER='DEVENV\['
 AC_MODE=0
 TODO_REPORT=0
+ALL_MARKERS=0
 REQUIRE=0
 PATHS=()
 
@@ -30,19 +31,26 @@ Usage: $SCRIPT_NAME [PATH...] [OPTIONS]
 
 Deterministic marker scanning for DEVENV workflows.
 
-Default (gate mode): fail (exit 1) when any FIXME(DEVENV[ or
-TODO(DEVENV[ marker remains under the scanned paths; print each hit
-as file:line:match.
+Default (gate mode): fail (exit 1) when any plan-bounded FIXME(DEVENV[
+marker remains under the scanned paths — cross-plan TODO(DEVENV[ markers
+are sanctioned to ship and do not block. Print each hit as
+file:line:match.
 
 Options:
+    --all                        Audit mode: report ALL DEVENV markers
+                                 (FIXME, TODO, and bare/malformed legacy
+                                 forms) instead of FIXME-only; same exit
+                                 semantics as the gate.
     --ac                         Finder mode: list [AC-N] DEVENV comments with
                                  file:line:match; exit 0 regardless (the AC
                                  review gate assesses them, this only finds them)
     --todo-report                Finder mode: list scoped TODO(DEVENV[ markers
-                                 with file:line:match and flag any missing a
-                                 discharge condition ("remove when ...");
-                                 exit 0 regardless. Supports the kickoff
-                                 Scoped-TODO discovery rule.
+                                 with file:line:match and flag any that are
+                                 missing a discharge condition ("remove when
+                                 ..."); exit 0 regardless. Also surfaces
+                                 malformed TODO(DEVENV) entries lacking a plan
+                                 key. Supports the kickoff Scoped-TODO
+                                 discovery rule.
     --marker REGEX               Custom marker regex (default 'DEVENV\['), e.g.
                                  'DEVENV\[bug-hunt\]' for bug-hunter sweeps
     --require                    Invert the gate: succeed only when at least one
@@ -81,6 +89,7 @@ main() {
             -V|--verbose) shift ;;
             --ac) AC_MODE=1; shift ;;
             --todo-report) TODO_REPORT=1; shift ;;
+            --all) ALL_MARKERS=1; shift ;;
             --marker)
                 [ -z "${2:-}" ] && invalid_args "Missing value for --marker"
                 MARKER="$2"; shift 2 ;;
@@ -102,14 +111,23 @@ main() {
     if [ "$AC_MODE" -eq 1 ] && [ "$TODO_REPORT" -eq 1 ]; then
         invalid_args "--ac and --todo-report are mutually exclusive"
     fi
+    if [ "$ALL_MARKERS" -eq 1 ] && { [ "$AC_MODE" -eq 1 ] || [ "$TODO_REPORT" -eq 1 ]; }; then
+        invalid_args "--all is a gate-mode option; it cannot be combined with --ac or --todo-report"
+    fi
 
     local regex hits=0
     if [ "$AC_MODE" -eq 1 ]; then
         regex='\[AC-[0-9]+'
     elif [ "$TODO_REPORT" -eq 1 ]; then
-        regex='TODO\(DEVENV\['
+        # surface scoped TODOs AND malformed legacy TODO(DEVENV) (no key) so
+        # off-spec forms cannot hide from the discovery rule
+        regex='TODO\(DEVENV'
+    elif [ "$ALL_MARKERS" -eq 1 ]; then
+        regex='(FIXME|TODO)\(DEVENV|DEVENV\['
     else
-        regex="$MARKER"
+        # PR-blocking gate: plan-bounded FIXME markers only — cross-plan
+        # TODO(DEVENV markers are sanctioned to ship and must not block
+        regex='FIXME\(DEVENV'
     fi
 
     local result
@@ -134,8 +152,12 @@ main() {
             echo "No scoped TODO(DEVENV markers found under: ${PATHS[*]}"
             exit 0
         fi
-        local missing
-        missing=$(echo "$result" | grep -cv "remove when" || true)
+        local missing malformed
+        missing=$(echo "$result" | grep -cv 'remove when .\{1,\}' || true)
+        malformed=$(echo "$result" | grep -cv 'TODO(DEVENV\[' || true)
+        if [ "$malformed" -gt 0 ]; then
+            log_warn "$malformed malformed TODO(DEVENV) entry(ies) without a plan key found — plan keys are mandatory; fix or convert"
+        fi
         if [ "$missing" -gt 0 ]; then
             log_warn "$missing of $hits scoped TODO(s) missing a discharge condition ('remove when ...') — condition-less TODOs are defects per the marker spec; resolve with the user"
         fi
@@ -151,10 +173,14 @@ main() {
     fi
 
     if [ "$hits" -gt 0 ]; then
-        log_error "$hits DEVENV marker(s) found — remove them before completion"
+        log_error "$hits plan-bounded FIXME(DEVENV marker(s) found — remove or convert them before completion"
         exit 1
     fi
-    echo "Clean: no markers matching '$MARKER' under: ${PATHS[*]}"
+    if [ "$ALL_MARKERS" -eq 1 ]; then
+        echo "Clean: no DEVENV markers of any form under: ${PATHS[*]}"
+    else
+        echo "Clean: no FIXME(DEVENV markers under: ${PATHS[*]} (use --all to audit TODO/legacy forms)"
+    fi
     exit 0
 }
 

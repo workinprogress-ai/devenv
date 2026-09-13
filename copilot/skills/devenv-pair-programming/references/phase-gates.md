@@ -25,7 +25,7 @@ Before declaring a phase complete, run the committability checklist from [phase-
 - [ ] Tests added this phase assert observable behavior — not just execute code
 - [ ] No blocking TODOs
 - [ ] No unresolved `[QUESTION]` items remain for this phase unless explicitly deferred or spun out to a follow-up issue
-- [ ] No straggler forward DEVENV comments remain in files touched this phase for work already completed — run `devenv-marker-check <phase-files>` to check; remove any found
+- [ ] No straggler forward DEVENV comments remain in files touched this phase for work already completed — run `devenv-marker-check <phase-files>` to check (fails only on plan-bounded `FIXME(DEVENV[...])`; condition-bearing `TODO(DEVENV[...])` markers that deliberately survive the phase are acceptable and must be surfaced in the handback); remove any FIXME found
 
 If coverage has dropped, **it is a blocker** — the phase is not committable. Use this three-step protocol:
 

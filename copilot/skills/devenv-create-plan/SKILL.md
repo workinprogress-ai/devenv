@@ -105,7 +105,7 @@ Once the above is gathered, **draft the phase structure — names and one-line d
 
 > *"Here's how I'd divide this work:*
 > - *Phase 1 — Discovery & test scaffolding: read existing code, inspect existing coverage, add/adjust tests only where needed to lock current observable behaviour (including stub/default behaviour where applicable), and end fully green*
-> - *Phase 2 — Contracts & boundaries: define or tighten interfaces, request/response shapes, message schemas, extension points, or other contracts that later phases implement against; use temporary coverage exclusions only when unavoidable and always pair them with DEVENV TODOs*
+> - *Phase 2 — Contracts & boundaries: define or tighten interfaces, request/response shapes, message schemas, extension points, or other contracts that later phases implement against; use temporary coverage exclusions only when unavoidable and always pair them with FIXME(DEVENV[plan-key]) markers*
 > - *Phase 3 — [Name]: [deliverable]*
 > - *Phase N — Cleanup & docs: remove scaffolding, update docs, verify coverage*>
 > *Verification: code (default) — tests pass, coverage ≥ baseline, build green. For non-code objectives, propose the instrument here (docs: lint + link-check + consistency pass; mechanical: script exit 0 + counts + spot-check diff; runbook: per-stage checks + rollback path) — it must be deterministic, observable, runnable at phase end.*>
@@ -184,6 +184,7 @@ Use the [plan template](./references/plan-template.md). Follow:
 - `## Phase TOC` must appear immediately before `## Phases` and provide short anchor links for quick navigation across phases
 - `## Phases` is the human-facing execution section: each phase gets goal, end-state vision, suggested strategies, AC links, watch-outs / decisions, deliverables, and its task list
 - Resolve pending questions as early as possible during plan creation. Unresolved items are allowed only for implementation-level details or explicit user deferral.
+- Once the target repository is known, run `devenv-marker-check --todo-report <repo>` during the convention scan and surface any scoped TODO(DEVENV[...] markers with their discharge conditions in the plan's orientation/context section — execution will be required to honor them.
 - When contract-first phases temporarily reduce meaningful coverage (for example because interfaces, schema holders, or placeholder adapters land before their implementations), the plan may use temporary coverage-exclusion mechanisms only when truly necessary. If it does, include explicit cleanup/removal tasks in a later phase and require `FIXME(DEVENV[plan-key]): ...` markers at the code locations that need real implementation or coverage restoration.
 - Every unresolved decision that can block execution must appear in both places:
   - `## Phases` under the relevant phase's **Watch Outs / Decisions**

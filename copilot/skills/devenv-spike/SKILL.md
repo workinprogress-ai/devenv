@@ -40,6 +40,8 @@ The user provides one of:
 
 ### 1. Frame the question
 
+Before any in-repo inspection or modification, run `devenv-marker-check --todo-report <target-scope>`. Every reported TODO is a prior session's cross-plan message: surface it in chat and honor its condition — or explicitly resolve it with the user — before that file is touched.
+
 Restate the question in one sentence. Confirm with the user before investigating:
 
 > "I'll investigate: **<one-sentence framing>**. Anything to add or narrow before I start?"

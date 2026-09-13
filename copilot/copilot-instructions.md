@@ -204,9 +204,9 @@ When writing temporary comments into code during implementation sessions, use th
 
 `<plan-key>` is the plan filename stem without extension (e.g. `Implementation_plan-issue-42-001`), or a short label if there is no plan file. The key is mandatory in both forms.
 
-**Grep to find all markers:** `grep -rnE "(FIXME|TODO)\(DEVENV\[" .`
+**Grep to find all markers (including legacy bare forms):** `grep -rn "DEVENV\\[" .` — or run the tool in audit mode: `devenv-marker-check --all .`
 
-**All plan-bounded FIXME markers must be removed before the work ships.** If a plan introduced FIXME markers, its Cleanup phase must include an explicit task to remove them all (or convert justified survivors to the TODO form with a discharge condition). A FIXME marker left in merged code is a defect; a TODO left without a satisfying its condition is a defect.
+**All plan-bounded FIXME markers must be removed before the work ships.** If a plan introduced FIXME markers, its Cleanup phase must include an explicit task to remove them all (or convert justified survivors to the TODO form with a discharge condition). A FIXME marker left in merged code is a defect; a TODO whose condition is not satisfied is also a defect.
 
 **Never reference ephemeral workflow artifacts in durable code comments.** Finding IDs (`F006`), plan task numbers (`2.3`), audit filenames (`TECH_DEBT_AUDIT.md`), plan filenames, decision dates, and similar workflow vocabulary belong in the artifacts whose job is history — the plan, the audit document, commit messages, PR descriptions — never in source files. A durable code comment states the invariant itself, readable without any external document:
 

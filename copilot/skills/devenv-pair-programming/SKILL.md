@@ -54,7 +54,7 @@ Do **not** use for:
 10. **Test contortions are design signals** (code declaration). If meaningful test validation requires hacks, brittle scaffolding, heavy mocking contortions, or test-only behavior changes beyond normal setup, stop implementation and surface it as a likely design issue. Explain what made testing difficult, what shortcuts would be required, and ask the user how to proceed before continuing. For non-code declarations the analogue applies: if meeting the declared verification requires contortions, stop and surface it.
 11. **Architectural fidelity beats local momentum.** If the plan, contracts, or design context indicate a hard architectural requirement (for example execution locus, boundary ownership, pipeline-vs-client execution, or required integration shape), treat that as a completion constraint, not an optimization. If that requirement is not explicit enough to implement safely, stop and clarify before coding.
 12. **Temporary code is always marked and scheduled for removal.** Any temporary bridge or scaffold gets its `FIXME(DEVENV[plan-key]): ...` marker at the exact code location, plus a plan item naming the removal phase/task and cleanup point. The plan must say when and where the temporary code is removed, not merely that it is temporary.
-13. **Durable artifacts are phase-agnostic and issue-agnostic.** Never name persistent repository artifacts (files, classes, methods, test fixtures) from transient execution labels (phase, step, milestone, task numbers) — name by stable domain concept or behavior family; if a phase-derived name is temporarily unavoidable, mark it with `DEVENV[...]` and schedule cleanup. Do not write issue IDs, phase labels, or plan-slice tags into long-lived documentation unless the user explicitly requests that format; rewrite as durable architecture language.
+13. **Durable artifacts are phase-agnostic and issue-agnostic.** Never name persistent repository artifacts (files, classes, methods, test fixtures) from transient execution labels (phase, step, milestone, task numbers) — name by stable domain concept or behavior family; if a phase-derived name is temporarily unavoidable, mark it with `FIXME(DEVENV[plan-key])` and schedule cleanup. Do not write issue IDs, phase labels, or plan-slice tags into long-lived documentation unless the user explicitly requests that format; rewrite as durable architecture language.
 
 ### Guided User-Drive Mode
 
@@ -1045,7 +1045,7 @@ Before declaring a phase complete, run the committability checklist (see [phase-
 - [ ] Coverage has not regressed
 - [ ] New tests assert observable behavior
 - [ ] No blocking TODOs
-- [ ] No straggler DEVENV comments for completed work — `devenv-marker-check <phase-files>`
+- [ ] No straggler plan-bounded DEVENV markers for completed work — `devenv-marker-check <phase-files>` fails only on FIXME(DEVENV[...]); condition-bearing `TODO(DEVENV[...])` markers that deliberately survive the phase are acceptable and must be surfaced in the handback
 
 Coverage drops are blockers — surface and resolve before declaring complete. If the gate passes: *"✅ Gate clear — phase is committable."*
 
