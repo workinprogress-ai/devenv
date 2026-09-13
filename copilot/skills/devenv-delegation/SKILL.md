@@ -7,13 +7,13 @@ user-invocable: true
 
 # Delegation
 
-> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`.
 
 > Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
 
-> **Diagnostic-report override:** If the user asks for a diagnostic report, postmortem, incident report, or findings artifact about undesirable behavior, treat that as an immediate diagnostic-mode request even if they do not say "enter diagnostic mode". Do not implement fixes first. Write `DIAGNOSTIC_REPORT.md` at the active project root using the protocol-defined diagnostic artifact format.
+> **Diagnostic-report override:** If the user asks for a diagnostic report, postmortem, incident report, or findings artifact about undesirable behavior, treat that as an immediate diagnostic-mode request even if they do not say "enter diagnostic mode". Do not implement fixes first. Write `DIAGNOSTIC_REPORT.md` under `.local-artifacts/` at the active project root using the protocol-defined diagnostic artifact format.
 
-> **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
+> **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 
 > **Hard decision gate.** If you emit `🔶` or otherwise say a decision is required before continuing, stop there. Do not edit files, write plans, or run any other mutating tool until the user gives explicit approval for the exact path and scope. Silence, acknowledgements, or navigation phrases are not approval. Follow the shared [decision resolution protocol](../common/references/decision-resolution-protocol.md) — including its [query-eligible gates](../common/references/decision-resolution-protocol.md#query-eligible-gates) rules when presenting a bounded gate as a structured query.
 
@@ -441,7 +441,7 @@ Use this canonical pass whenever you hand back a completed phase, abort a phase 
 2. **Map execution to plan.** Identify what is complete, partial, off-plan, and untouched.
 3. **Run gate status check.** State whether the [Phase Completion Gate](#phase-completion-gate) is clear, blocked, or not yet run.
 4. **Surface review hotspots, decisions, and challenges.** Include non-blocking concerns, notable trade-offs, decisions made, and challenges that were worked through without a stop.
-5. **Pause for user direction — close with a structured query.** Present the prose report first (the default output shape below — the user must be able to read hotspots, deviations, and challenges before deciding), then ask whether to accept and continue, request changes, or revise the plan via the structured interview per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections) (options: approve and continue / request changes / revise plan; freeform allowed for specifics). Never auto-proceed; a gate-mode or checkpoint-mode handback always waits for an explicit choice.
+5. **Close the boundary — the wait is mode-conditional.** Present the prose report first (the default output shape below — the user must be able to read hotspots, deviations, and challenges). What happens next depends on the boundary mode: **Gate mode** asks whether to accept and continue, request changes, or revise the plan via the structured interview per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections) (options: approve and continue / request changes / revise plan; freeform allowed for specifics), and waits for an explicit choice. **Checkpoint mode** does not ask — it states that the boundary evaluation passed and execution is continuing into the next phase (the report is an interjectable notice, not a question), then proceeds, unless a forced-stop condition or a negative boundary-evaluation criterion applies. Structured approval queries at phase handbacks belong to gate mode and mid-phase stops, never to a passed checkpoint boundary.
 
 Default output shape:
 
@@ -457,7 +457,7 @@ Keep this concise by default (5-8 lines). Expand only when drift is meaningful o
 
 ### The handback window is pair-like
 
-Whenever control returns to the user — a completed phase, a mid-phase stop trigger (ambiguity, decision, obstacle, risk), an abort, or a return after a gap — the interaction temporarily resembles pair-programming: answer questions about what was done and why, discuss concerns and trade-offs, and handle small fixing work directly (the user is watching — this is supervised minor work, not scope expansion). Larger changes become plan edits via the handback's `Next` options. Do not restart autonomous execution on silence or the absence of further questions — execution resumes only at explicit direction: a new phase kickoff, or continuation of the current phase from where it stopped. Mid-window decision gates follow the same hard-stop rules as mid-phase ones.
+Whenever control returns to the user — a gate-mode phase boundary, a mid-phase stop trigger (ambiguity, decision, obstacle, risk), an abort, a forced-stop checkpoint boundary, or a return after a gap — the interaction temporarily resembles pair-programming: answer questions about what was done and why, discuss concerns and trade-offs, and handle small fixing work directly (the user is watching — this is supervised minor work, not scope expansion). Larger changes become plan edits via the handback's `Next` options. In checkpoint mode, a boundary whose evaluation passed does not open this window mid-run: the report is posted as notice and execution continues (the user can interject on it at any time). Do not restart autonomous execution on silence or the absence of further questions — after a genuine handback, execution resumes only at explicit direction: a new phase kickoff, or continuation of the current phase from where it stopped. Mid-window decision gates follow the same hard-stop rules as mid-phase ones.
 
 ### Phase-boundary evaluation (checkpoint mode)
 
@@ -468,7 +468,7 @@ A phase boundary always runs its mechanical work regardless of mode: the [Phase 
 - Is the gate **fully clear** — no deferred items, no open `[QUESTION]`s bleeding into the next phase?
 - Did the plan **change** during the phase (added tasks, reworded scope)?
 
-Any yes — or any doubt — hands back to the user with the report before continuing. When in doubt, the [supervision bias](#mid-phase-stop-triggers) applies to this evaluation itself: a false handback costs one exchange; a bad continue compounds silently across the phases that follow.
+Any yes hands back to the user with the report before continuing. When a criterion genuinely applies but its severity is unclear, the [supervision bias](#mid-phase-stop-triggers) applies to this evaluation itself: a false handback costs one exchange; a bad continue compounds silently across the phases that follow. With **all four criteria negative**, checkpoint mode's default action is **continue** — state the pass and proceed with the report as notice. Doubt must be tied to a concrete criterion above; the absence of an explicit all-clear signal is not doubt, and only the forced-stop list below justifies waiting when the criteria are all negative.
 
 **Forced stops regardless of mode:**
 
@@ -594,7 +594,7 @@ Before declaring a phase complete and handing back, run the committability check
 - Weakening/removing failing behavior assertions to get green status instead of fixing the defect.
 - Attempting a mutating git operation as a repair — unstaging, resetting to the last commit, restoring files from HEAD after corrupting them — instead of stopping immediately and handing the recovery to the user.
 - A phase handback without **review hotspots** when hotspot-worthy work was done.
-- Auto-proceeding to the next phase without user review and approval.
+- Auto-proceeding past a gate-mode boundary without user review and approval — or, the mirror defect: stopping and asking for approval at a checkpoint-mode boundary whose evaluation passed, silently reverting the user's commissioned trust grant to gate behavior.
 - Self-granting checkpoint mode or escalating boundary autonomy mid-run — the boundary policy is set at commissioning and changed only by the user, at a handback.
 - Treating checkpoint mode as license to skip the boundary's mechanical work — gates, ledger reconciliation, and the report run in every mode; only the wait is conditional.
 - Treating between-phase requests as out-of-scope — minor work should just be done; larger work should be offered as a plan edit.

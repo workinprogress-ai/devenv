@@ -366,8 +366,8 @@ Recommended snippet references:
 
 - **Tool help policy**: "Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`_tools-reference.md`](../_tools-reference.md) instead of running ad-hoc `--help` during execution."
 - **Catalog pointer**: "See the [Skills catalog](./common/references/skills-catalog.md) for the full list and decision tree."
-- **Diagnostic mode**: "When the user requests diagnostics for undesirable output/action, follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) and write `DIAGNOSTIC_REPORT.md` at the active project root."
-- **Skill feedback**: "When the user asks how a skill could be improved with no defect alleged, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) and write `IMPROVEMENT_REPORT.md` at the active project root. Zero findings is a valid result."
+- **Diagnostic mode**: "When the user requests diagnostics for undesirable output/action, follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) and write `DIAGNOSTIC_REPORT.md` under `.local-artifacts/` at the active project root."
+- **Skill feedback**: "When the user asks how a skill could be improved with no defect alleged, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) and write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root. Zero findings is a valid result."
 
 When updating existing skills, prefer replacing duplicated boilerplate blocks with a brief reference line to keep token usage tight.
 
@@ -380,7 +380,7 @@ Required behavior:
 1. If the user asks for diagnostics after undesirable output/action, follow [Diagnostic Mode Protocol](./common/references/diagnostic-mode-protocol.md).
 2. Treat plain-language requests such as "give me a diagnostic report" as direct triggers for diagnostic mode, even without the exact phrase "enter diagnostic mode".
 3. In execution skills, diagnostic requests short-circuit implementation flow: do not apply fixes first; emit the diagnostic artifact first.
-4. Write `DIAGNOSTIC_REPORT.md` at the active project root unless the user explicitly requests a different path/filename.
+4. Write `DIAGNOSTIC_REPORT.md` under `.local-artifacts/` at the active project root (the [standard local markdown folder](#standard-local-markdown-folder-local-artifacts)) unless the user explicitly requests a different path/filename.
 5. Include skill-in-effect, conversation context, decision trace summary, self-diagnosis, and related context.
 6. Do not expose hidden internal chain-of-thought; provide a concise decision trace summary only.
 7. Confirm in chat where the file was written; do not dump the full diagnostic body in chat unless the user asks.
@@ -396,7 +396,7 @@ Required behavior:
 1. If the user asks how the skill could be improved with no defect alleged, follow [Skill Feedback Protocol](./common/references/skill-feedback-protocol.md).
 2. Never short-circuit implementation flow for feedback capture — it runs at a natural pause, on explicit request only. Never offer unprompted.
 3. Apply the protocol's evidence bar: every candidate cites a concrete observed interaction moment; zero findings is valid and expected; never pad a report to satisfy the request.
-4. Write `IMPROVEMENT_REPORT.md` at the active project root unless the user explicitly requests a different path/filename.
+4. Write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root (the standard local markdown folder) unless the user explicitly requests a different path/filename.
 5. Do not expose hidden internal chain-of-thought; describe observations in user-facing terms.
 6. Confirm in chat where the file was written; do not dump the full report body in chat unless the user asks.
 
@@ -413,7 +413,7 @@ Applies to outputs such as:
 - findings reports
 - handoff blocks intended for another skill, issue, PR, or tracker
 
-Diagnostic reports are handled by the shared [Diagnostic Mode Protocol](./common/references/diagnostic-mode-protocol.md) and should be written to `DIAGNOSTIC_REPORT.md` at the active project root by default. Improvement feedback reports are handled by the shared [Skill Feedback Protocol](./common/references/skill-feedback-protocol.md) and should be written to `IMPROVEMENT_REPORT.md` at the active project root by default.
+Diagnostic reports are handled by the shared [Diagnostic Mode Protocol](./common/references/diagnostic-mode-protocol.md) and should be written under `.local-artifacts/` at the active project root by default. Improvement feedback reports are handled by the shared [Skill Feedback Protocol](./common/references/skill-feedback-protocol.md) and should be written under `.local-artifacts/` at the active project root by default.
 
 Required default behavior:
 

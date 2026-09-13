@@ -7,9 +7,9 @@ user-invocable: true
 
 # Pair Programming
 
-> **Diagnostic mode / diagnostic-report override:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`. If the user asks for a diagnostic report, postmortem, incident report, or findings artifact about undesirable behavior, treat that as an immediate diagnostic-mode request even if they do not say "enter diagnostic mode" — do not implement fixes first.
+> **Diagnostic mode / diagnostic-report override:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. If the user asks for a diagnostic report, postmortem, incident report, or findings artifact about undesirable behavior, treat that as an immediate diagnostic-mode request even if they do not say "enter diagnostic mode" — do not implement fixes first.
 
-> **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
+> **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 
 > Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
 

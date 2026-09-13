@@ -1,6 +1,6 @@
 # Diagnostic Mode Protocol
 
-Shared protocol for capturing a skill erratum in `DIAGNOSTIC_REPORT.md` at the active project root so it can be used by `/devenv-skill-maintenance`.
+Shared protocol for capturing a skill erratum in `DIAGNOSTIC_REPORT.md` under `.local-artifacts/` at the active project root so it can be used by `/devenv-skill-maintenance`.
 
 Use this protocol when the user indicates undesirable output or an undesirable/misaligned action from a skill, for example:
 
@@ -16,7 +16,7 @@ This is the sibling of the [Skill Feedback Protocol](skill-feedback-protocol.md)
 
 When diagnostic mode is requested, write the diagnostic report to:
 
-- `DIAGNOSTIC_REPORT.md` in the active project root.
+- `DIAGNOSTIC_REPORT.md` under `.local-artifacts/` at the active project root (e.g. `<repo-root>/.local-artifacts/DIAGNOSTIC_REPORT.md`) — the [standard local markdown folder](../../_conventions.md#standard-local-markdown-folder-local-artifacts). Create the folder if it does not exist.
 
 Active project root means the repository currently being worked on for the request. If no narrower target repo is active, use the workspace root.
 
@@ -91,7 +91,7 @@ Do **not** expose hidden internal chain-of-thought. Provide a concise, user-faci
 
 ## Pre-send validation
 
-- Did I write `DIAGNOSTIC_REPORT.md` to the active project root?
+- Did I write `DIAGNOSTIC_REPORT.md` under `.local-artifacts/` at the active project root?
 - Does the file include every required section, with `none` where data is unavailable?
 - If no real erratum or only weak evidence emerged, did I say exactly that instead of inventing findings?
 - Is the file self-contained for `/devenv-skill-maintenance`?

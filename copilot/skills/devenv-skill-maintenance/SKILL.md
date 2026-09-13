@@ -55,7 +55,7 @@ Intake sources accepted by this skill:
 
 - Pasted diagnostic content directly in chat.
 - A user-provided file path containing the diagnostic report (including `DIAGNOSTIC_REPORT.md`).
-- An `IMPROVEMENT_REPORT.md` at the active project root (see the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md)) or pasted improvement observations.
+- An `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root (see the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md)) or pasted improvement observations.
 - One or more devenv repo issues describing skill-system problems (fetched with `issue-get`; found with `issue-list`/`issue-search`).
 
 When a file path is provided, read that file first and treat it as the primary diagnostic input unless the user says otherwise.

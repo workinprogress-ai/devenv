@@ -10,7 +10,7 @@ When to add diagnostic mode to a skill:
 Add this **blockquote immediately below the skill's main title** (before the opening paragraph):
 
 ```markdown
-> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` at the active project root for `/devenv-skill-maintenance`.
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`.
 ```
 
 ## Skill feedback one-liner (sibling blockquote)
@@ -18,7 +18,7 @@ Add this **blockquote immediately below the skill's main title** (before the ope
 Add this **blockquote immediately below the diagnostic-mode blockquote**:
 
 ```markdown
-> **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
+> **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 ```
 
 The two blockquotes are siblings with different semantics: diagnostic mode is for errata (undesirable output/action) and short-circuits flow; skill feedback is for evidence-backed improvement observations, never invents findings, never short-circuits, and never offers unprompted.
@@ -28,7 +28,7 @@ The two blockquotes are siblings with different semantics: diagnostic mode is fo
 1. ✅ Add the blockquote to your skill's SKILL.md body (below `# <Skill Title>`).
 2. ✅ Link to [diagnostic-mode-protocol.md](./diagnostic-mode-protocol.md).
 3. ✅ When the user requests diagnostics, or asks for a diagnostic/postmortem/findings report artifact without a format, follow the protocol exactly.
-4. ✅ Write `DIAGNOSTIC_REPORT.md` to the active project root unless the user asks for a different path/filename.
+4. ✅ Write `DIAGNOSTIC_REPORT.md` under `.local-artifacts/` at the active project root unless the user asks for a different path/filename.
 5. ✅ Confirm the output path in chat; do not dump the full report body in chat unless explicitly asked.
 
 ## Wording variant (if space is tight)
@@ -41,6 +41,6 @@ The two blockquotes are siblings with different semantics: diagnostic mode is fo
 
 The skill writes a self-contained report file at:
 
-- `DIAGNOSTIC_REPORT.md` (active project root)
+- `DIAGNOSTIC_REPORT.md` (`.local-artifacts/` at the active project root)
 
 The chat response should be a short confirmation with the file path.

@@ -55,8 +55,9 @@ For each pass, produce a concise report:
    - What breaks first, observability gaps, rollback/migration concerns.
 4. **Sequencing and dependency stress**
    - Ordering hazards, hidden prerequisites, critical-path fragility.
-5. **Disposition per finding**
+5. **Disposition per finding** — recommendations, not decisions.
    - `accept now`, `mitigate now`, `defer with trigger`, or `route upstream`.
+   - The pass proposes these; the user disposes of them (see the disposition gate below).
 
 Keep the output scoped to the current artifact and current delivery horizon.
 
@@ -90,3 +91,18 @@ If there are zero blocker/high findings, say so explicitly.
 - **Upstream architecture mismatch:** update/refine blueprint first, then cascade down.
 
 When pressure-test findings change tasking or decisions, update the active artifact immediately (plan, grooming doc, or proposal) and record the change in its normal revision/history section.
+
+## Disposition gate (required)
+
+Dispositions are the analyst's recommendations — never self-approved decisions. Before the pass concludes:
+
+1. **Present a summary decision table** of every finding whose suggested action is `accept now` or `defer with trigger` (finding, severity, suggested action, one-line rationale).
+2. **Ask the user to confirm or veto**, via `vscode_askQuestions` where available (one ask covering the table; item-by-item follow-up for any the user disputes, until the user's call prevails on each).
+3. Only after confirmation are those dispositions recorded as decided; a vetoed item gets the user's chosen action instead.
+
+Two dispositions may proceed without the gate:
+
+- **`mitigate now` on blocker findings** — blockers are already stop-conditions under the protocol's use constraints.
+- **`route upstream`** — routing changes no local decision; it hands the finding to the appropriate upstream workflow.
+
+An `accept` or `defer` recorded without the gate is an erratum of the same class as any other unilateral decision. (If the user has pre-ordered the exact action for a specific finding, that order stands as the decision — cite it in the table.)

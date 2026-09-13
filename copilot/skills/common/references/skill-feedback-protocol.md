@@ -1,6 +1,6 @@
 # Skill Feedback Protocol
 
-Shared protocol for capturing evidence-backed improvement observations about the workspace's custom skill system in `IMPROVEMENT_REPORT.md` at the active project root so they can be used by `/devenv-skill-maintenance`.
+Shared protocol for capturing evidence-backed improvement observations about the workspace's custom skill system in `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root so they can be used by `/devenv-skill-maintenance`.
 
 Use this protocol when the user asks how a skill could be improved with no defect alleged, for example:
 
@@ -41,7 +41,7 @@ Each candidate must pass the evidence bar above. Expect few or zero.
 
 When skill feedback is requested, write the report to:
 
-- `IMPROVEMENT_REPORT.md` in the active project root.
+- `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root (e.g. `<repo-root>/.local-artifacts/IMPROVEMENT_REPORT.md`) — the [standard local markdown folder](../../_conventions.md#standard-local-markdown-folder-local-artifacts). Create the folder if it does not exist.
 
 Active project root means the repository currently being worked on for the request. If no narrower target repo is active, use the workspace root.
 
@@ -95,7 +95,7 @@ If `finding_count` is `0`, replace the Candidate Improvements section with a sho
 
 ## Pre-send validation
 
-- Did I write `IMPROVEMENT_REPORT.md` to the active project root?
+- Did I write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root?
 - Does every finding cite a specific observed moment, with observed/inferred marked and honest confidence?
 - If there are no evidence-backed findings, does the report say exactly that?
 - Did I record rejected weak candidates rather than silently promoting or dropping them?
