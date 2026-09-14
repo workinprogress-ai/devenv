@@ -1,6 +1,6 @@
 ---
 name: devenv-design-discussion
-description: 'Opinionated thinking-partner for working through design and architectural approaches at any zoom level — from systemic decomposition down to a single component''s internal shape. USE WHEN the user says "discuss the design", "talk through the approach", "weigh the options", "what''s the right way to structure this", "discuss an architectural change", or needs to decide the best approach for a new feature in an existing component before planning. Surfaces forces and trade-offs, narrows to 3–4 viable options, asks probing questions, pushes back on weak reasoning, and arrives at an explicit recommendation. It encourages creative exploration while grounding decisions in best practice and accepted standards. If the user asks for a written artifact, this skill can produce at most a Solution_Proposal_<topic>-NNN.md (context-rich input for downstream technical design), not a formal architecture document. DO NOT USE FOR fuzzy articulation with no opinions (use /devenv-rubber-duck), feasibility prototyping (use /devenv-spike), formal architectural decomposition (use /devenv-create-blueprint), or task breakdown when the approach is already chosen (use /devenv-create-plan).'
+description: 'Opinionated thinking-partner for working through design and architectural approaches at any zoom level — from systemic decomposition down to a single component''s internal shape. USE WHEN the user says "discuss the design", "talk through the approach", "weigh the options", "what''s the right way to structure this", "discuss an architectural change", or needs to decide the best approach for a new feature in an existing component before planning. Surfaces forces and trade-offs, narrows to 3–4 viable options, asks probing questions, pushes back on weak reasoning, and arrives at an explicit recommendation. It encourages creative exploration while grounding decisions in best practice and accepted standards. If the user asks for a written artifact, this skill produces a Solution_Proposal_<topic>-NNN.md (context-rich input for downstream technical design), not a formal architecture document. When a discussion yields a generalizable discovery, it may also draft a pattern candidate (knowledge repo candidates area) or a knowledge addition, following the shared extraction protocol, and it is the only skill empowered to prepare changes to the engineering patterns repo (new entries and edits, surfaced as user-approved PRs). DO NOT USE FOR fuzzy articulation with no opinions (use /devenv-rubber-duck), feasibility prototyping (use /devenv-spike), formal architectural decomposition (use /devenv-create-blueprint), or task breakdown when the approach is already chosen (use /devenv-create-plan). Also vets pattern-proposal issues from the engineering patterns repo: runs a full design discussion on the proposal and, when accepted, prepares the entry as a user-merge PR.'
 argument-hint: 'A design question, architectural choice, approach to weigh, or Plan-*.md / issue number to diagnose'
 user-invocable: true
 ---
@@ -21,6 +21,7 @@ An interactive thinking partner with strong opinions about good design. The user
 - An architectural change is being considered and the user wants to think through approaches and implications before committing to one.
 - A feature is being added to an existing component and the best approach is still unclear.
 - An plan is provided (file path or issue number) and contains architectural fault points that need design reconsideration — either via an escalation handoff from pair/delegation or by direct user request.
+- A pattern-proposal issue is handed over (issue number in the engineering patterns repo) for vetting — see **Vetting a pattern-proposal issue** below.
 
 If the user wants to articulate a fuzzy thought without opinions or pressure, use [`/devenv-rubber-duck`](../devenv-rubber-duck/SKILL.md). If the question is "is this feasible?" and needs throwaway code to answer, use [`/devenv-spike`](../devenv-spike/SKILL.md). If the design is already settled and you want to formalise it, use [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) (systemic) or [`/devenv-create-plan`](../devenv-create-plan/SKILL.md) (component-level). If you are unsure which component-level design workflow fits (discussion vs design update), start with [`/devenv-grooming`](../devenv-grooming/SKILL.md).
 
@@ -46,7 +47,7 @@ For in-flight implementation blockers, do not use `/devenv-design-discussion` as
 - **Promotes creative options** — invites novel combinations and reframes, then validates them against reliability, operability, maintainability, and established patterns.
 - **Anchors recommendations in standards.** Prefers proven best practices and accepted solutions unless there is a clear, context-specific reason to diverge.
 - **States a recommendation** with reasoning. Doesn't leave the user to guess which option it prefers.
-- **Writes on request** a `Solution_Proposal_<topic>-NNN.md` that captures the final recommendation and enough context to feed formal technical design work.
+- **Writes on request** a `Solution_Proposal_<topic>-NNN.md` that captures the final recommendation and enough context to feed formal technical design work; when a discussion yields a generalizable discovery, may instead draft a pattern candidate or knowledge addition (see Knowledge extraction under Phase 6).
 
 ## What this skill does NOT do
 
@@ -101,11 +102,23 @@ Track:
 
 **When the discussion concludes** (with or without a written doc): offer to delete `session_memory-design.md`. Do not merge to main.
 
-## Output document (optional, user-requested)
+## Preparing engineering-repo changes (patterns, practices, standards)
+
+This skill is the **only** skill empowered to prepare changes to the engineering patterns repo — whether vetting a pattern-proposal issue, applying a settled session discovery, or correcting an existing entry. Whatever the source, the change is prepared as a **full design discussion** — not a pass/fail checklist. Preparing means taking the suggestion and turning it, together with the user, into *real* content:
+
+1. **Load the context.** For a proposal issue: `issue-get <N>` from the engineering repo (repo name via `config-read copilot engineering_repo`). For a session discovery or an existing-entry fix: read the relevant entry from the repo clone.
+2. **Interrogate it with full weight.** Apply the skill's normal powers: is the problem context bounded and real? What are the forces, stated and hidden? What alternatives exist in this category — and if none can be named, is it actually a practice? When does each alternative win? Where does it break? Bring opinions, push back, surface trade-offs — the same conversation the skill would run for any design choice, with the proposal as one of the options under examination. If the discussion is short, the proposal was probably already a pattern; if it is long, this is where it becomes one.
+3. **Resolve scope and shape.** Confirm the classifier (pattern vs practice vs org-specific knowledge — route non-patterns per the [knowledge extraction protocol](../common/references/knowledge-extraction-protocol.md)), the name, and the entry's fit with the repo's existing content (overlap with an existing entry is a merge/rename conversation, not a silent duplicate).
+4. **Produce the artifact on acceptance.** Flesh the settled content into the extraction protocol's entry shape, then prepare the change in the engineering repo clone on a new branch and open a PR via `pr-create-for-merge`, showing the diff for approval before creating the PR. The user reviews and merges — the merge is the ratification. For proposal issues, link the PR from the issue (`issue-comment`) so the trail is followable.
+5. **On rejection or reclassification** of a proposal issue, record the reasoning as a comment on the issue and let the user decide whether to close it.
+
+This covers new entries, edits to existing entries, reorganizations the user asks for, and corrections discovered during vetting — the user sees every diff and merges every change; GitHub's permission model enforces the rest.
+
+## Output artifacts (optional, user-requested)
 
 This skill is conversation-first. Produce a **Solution Proposal** artifact only when the user asks for a written document.
 
-If a document is requested, this skill can produce at most one artifact type: `Solution_Proposal_<topic>-NNN.md`.
+The default written artifact is `Solution_Proposal_<topic>-NNN.md`. Two extraction outputs are also sanctioned — when the user specifically targets them, or when the discussion's generalization becomes apparent (see Knowledge extraction under Phase 6): a **pattern candidate** (knowledge repo `candidates/patterns/`, or — at the user's discretion — a drafted entry filed as an issue to the engineering patterns repo) and a **knowledge addition** (copilot knowledge, routed by the extraction protocol's classifier). These never displace the proposal as the default; at most one proposal per session.
 
 Solution proposal expectations:
 
@@ -285,6 +298,8 @@ Any open question not explicitly kept open by the user should be converted into 
 If the user explicitly wants an open question preserved, capture it under a `## Pending / Unresolved / Open` section in the write-up (or leave it in the conversation notes if no doc is written). Otherwise, do not retain a separate open-question list at wrap-up; resolve or narrow it during the discussion.
 
 **Then** offer to write a solution proposal document (see Output document above) if the user wants an artifact.
+
+**Knowledge extraction (targeted, or apparent generalization).** Design discussions are where pattern-shaped knowledge surfaces — solutions weighed against forces and alternatives. Extraction runs when the user explicitly targets a pattern or knowledge capture, or when it becomes apparent mid-discussion that a settled solution is more general than the problem at hand. In the apparent case, surface it once per candidate, in flight, as a one-line offer carrying the candidate ("this looks pattern-shaped — want it drafted as a candidate, or prepared for the patterns repo?"); no wrap-up capture menus. Run the shared [knowledge extraction protocol](../common/references/knowledge-extraction-protocol.md): classify each discovery and route it — org-specific → distillation protocol (direct knowledge-repo write with approval); practice or pattern → prepared as a change to the engineering repo (branch → approved diff → PR; this skill is the only one with that power), or staged in the knowledge repo's `candidates/` area when it is still undecided. Present candidates in chat and write nothing without approval.
 
 ## Anti-patterns
 

@@ -202,7 +202,7 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 | `/devenv-chat-with-code` | Conversational fact-finding with source code or markdown-first repos — the repo talks back | Repo path(s), or nothing for current workspace |
 | `/devenv-spike` | Exploratory investigation + findings doc; empowered like the bug hunter (consented in-repo experiments with recovery route) | Question or issue # |
 | `/devenv-rubber-duck` | Think out loud — no artifacts | Problem description |
-| `/devenv-design-discussion` | Opinionated, conversation-first thinking partner for design/architecture choices; best for one bounded blocker or design question; writes `Solution_Proposal_<topic>-NNN.md` only on request (as context-rich input to technical design) | Design question or topic |
+| `/devenv-design-discussion` | Opinionated, conversation-first thinking partner for design/architecture choices; best for one bounded blocker or design question; writes `Solution_Proposal_<topic>-NNN.md` only on request (as context-rich input to technical design); may draft pattern candidates / knowledge additions when targeted or when a generalization becomes apparent; the only skill that prepares engineering-repo changes as user-merge PRs | Design question or topic |
 
 ### Workflow
 

@@ -26,6 +26,8 @@ Copilot knowledge holds **organization-specific implementation specifics** — h
 
 Rule of thumb: *would a competent engineer new to this organization benefit, and is it specific to this organization's practices or libraries?* Both, or it doesn't go in.
 
+**Emerging general knowledge (practices, engineering patterns) is a different lane.** Session discoveries that are general rather than org-specific — best practices, usage patterns, pattern-shaped solutions with forces and alternatives — do not go into the main body (rejected by the bar above) and are never proposed for direct write into the engineering repo. They are captured as *candidates* under the [Knowledge Extraction Protocol](knowledge-extraction-protocol.md), staged in the knowledge repo's `candidates/` area, and graduate to the engineering repo later via the user's issue/PR.
+
 ## Where knowledge lives
 
 The knowledge repo is configured in `devenv.config` under `[copilot]` (`knowledge_repo`, `knowledge_subpath`); in this workspace that resolves to `repos/docs.copilot-knowledge`, content under `copilot-knowledge/` (e.g. `component-context/`). If the repo is not present under `repos/`, do not guess at another location — surface the gap and ask the user to clone it.

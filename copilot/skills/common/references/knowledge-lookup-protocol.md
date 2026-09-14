@@ -4,8 +4,10 @@ Shared protocol for the **read side** of the two external-knowledge sources that
 
 Two sources exist:
 
-1. **Copilot knowledge** (`~/.copilot/knowledge`) — organization-specific implementation specifics: where things are wired, library idioms, enforced conventions. What this org *does*.
+1. **Copilot knowledge** (`~/.copilot/knowledge`) — organization-specific implementation specifics: where things are wired, library idioms, enforced conventions. What this org *does*. Its `candidates/` area additionally holds emerging general knowledge (practices, patterns) not yet ratified — see below.
 2. **Engineering patterns repo** (`repos/<engineering_repo>`) — org standards, best practices, coding standards, and guidelines. What this org *requires*. The repo name is devenv-configurable — read it with `config-read copilot engineering_repo` (default `docs.engineering`); never hard-code the name.
+
+**Candidate entries (`candidates/` area of copilot knowledge).** Entries under `candidates/` carry `Status: candidate` — they are emerging general practices/patterns captured from sessions and *not yet ratified* into the engineering repo. Read them **consult-with-skepticism**: they may inform a design the way an experienced colleague's opinion would, but never treat them as org standard, never cite them as a requirement, and weigh them against the engineering repo's ratified content when both touch the same decision. Their write side is the [Knowledge Extraction Protocol](knowledge-extraction-protocol.md); graduation into the engineering repo happens only via the user's issue/PR to that repo.
 
 ## Per-skill lookup intensity
 
@@ -19,6 +21,8 @@ Two sources exist:
 | `/devenv-delegation` | **Apply** — same as pair; the run must implement per org specifics | As needed | While implementing |
 
 ("Apply" means the knowledge directly shapes code being written; "consult" means it informs documents and decisions.)
+
+**Candidates modifier (applies to every consult/apply above).** When a lookup touches the knowledge repo's `candidates/` area, entries there are read **consult-with-skepticism** regardless of the cell's verb — see the candidate-entries paragraph under *Two sources exist* above. A candidate never carries the authority of the main body or the engineering repo.
 
 ## Procedure
 

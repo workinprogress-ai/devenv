@@ -38,6 +38,8 @@ When regrooming, keep the document body focused on the current target design. Do
 
 Grooming recommends options and trade-offs but never finalises a design decision without explicit user confirmation.
 
+**Resolution is the default.** Grooming assumes the user wants every open question and pending decision resolved — in this session wherever possible. A question or decision is deferred only when the user explicitly indicates it, and every deferral records a reason and a revisit trigger.
+
 The grooming document is mandatory, not implied. Conversational design iteration never substitutes for the written artifact.
 
 ## When to Use
@@ -148,7 +150,7 @@ When the input includes an upstream design artifact (blueprint, specifications, 
 3. **Route by answer:**
    - Concrete in-scope consumer exists → confirm as-is.
    - No consumer / output never read → surface to the user as a challenge candidate with a one-paragraph rationale, offering: remove now / slim to the minimal honest version / keep with explicit justification. A user decision, never a silent drop.
-   - Uncertain → record as an open question (Q-NNN) in the grooming document; the plan's Phase 1 discovery answers it.
+   - Uncertain → record as an open question (Q-NNN) in the grooming document, then work to resolve it in this session (ask the user, or investigate the code). Hand it to the plan's Phase 1 discovery only when the user explicitly defers it or it is genuinely implementation-level detail.
 
 This pass is a checklist item, not a redesign loop — a few minutes per artifact at most. If it starts arguing with the whole blueprint, that is the existing escalation to `/devenv-design-discussion` (or an upstream-impact issue when the artifact itself is wrong), not this gate.
 
@@ -454,6 +456,7 @@ Your call: choose A/B(/C) or defer.
 - `## Appendix`: <items>
 
 ### Remaining unresolved items
+(Expected to be empty or near-empty — an item remains unresolved only by the user's explicit deferral, with reason and revisit trigger recorded.)
 - <item> -> recommended first refinement target: <phase/task/section>
 ```
 
@@ -467,6 +470,7 @@ Your call: choose A/B(/C) or defer.
 - Treating recommendations as decisions without explicit user confirmation.
 - Recommending `/devenv-refine-plan` when no plan exists for the groomed scope — plan generation from a fresh grooming artifact starts at `/devenv-create-plan`; refine is only for aligning an already-existing plan.
 - Dumping all pending decisions at once and moving on without interactive closure.
+- Ending a grooming pass with open questions or pending decisions the user was never asked to resolve — resolution is the default; deferral happens only when the user explicitly indicates it.
 - Skipping Phase 0 (grooming document lookup) and working without a grooming document.
 - Creating a new grooming document without first searching for an existing one.
 - Rewriting unrelated parts of the grooming document when doing a surgical update from a returned plan.

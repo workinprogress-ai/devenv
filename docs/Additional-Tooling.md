@@ -2988,7 +2988,11 @@ config-read workflows status_workflow
 ```
 
 See [Knowledge & Engineering Patterns](./Knowledge-and-Engineering-Patterns.md)
-for the `engineering_repo` setting.
+for the `engineering_repo` setting. The knowledge repo also carries a
+`candidates/` area — emerging general practices and patterns captured via the
+[knowledge extraction protocol](../copilot/skills/common/references/knowledge-extraction-protocol.md);
+they are read with skepticism and graduate to the engineering repo only via
+issue/PR.
 
 ---
 
