@@ -29,6 +29,8 @@ Grooming also produces a **suggested issue attack plan** as a set of GitHub issu
 
 Each suggested issue is expected to have its own plan.
 
+**Epic is orchestration, not size.** Classify a suggested issue as **Epic** only when it is long-lived and coordinates work across multiple repos or multiple independently-delivered efforts — an epic orchestrates, it does not deliver. A large single-repo deliverable with several steps is a **Feature** with a plan, not an epic; when in doubt, prefer Feature.
+
 Given a component-level change request (from user text, issue, or returned plan), grooming either:
 
 1. **Creates a new grooming document** and classifies the work into the right design track.

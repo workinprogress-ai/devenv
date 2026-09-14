@@ -418,7 +418,7 @@ issue-create [--title TITLE] [--body TEXT | --body-file FILE] [--type TYPE]
 
 Key flags:
 
-- `--type TYPE` — GitHub native issue type; **required for deterministic runs** (validated against `tools/config/issues-config.yml`: Bug, Feature, Task, Epic). Without it the tool prompts via `fzf`.
+- `--type TYPE` — GitHub native issue type; **required for deterministic runs** (validated against `tools/config/issues-config.yml`: Bug, Feature, Task, Epic). Without it the tool prompts via `fzf`. Type semantics: Epic is reserved for long-lived orchestration issues coordinating multiple repos/efforts — single deliverables are Feature or Task.
 - **No template by default** — the issue is created with the body you supply; template selection is opt-in via `--template FILE` (fixed template) or `--select-template` (interactive fzf over `.github/ISSUE_TEMPLATE/`). `--no-template` is still accepted as a no-op (legacy scripted calls).
 - `--parent ISSUE_NUM` — links as child of an epic
 - `--blocked-by ISSUE_NUM` — repeatable

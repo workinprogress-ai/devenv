@@ -197,7 +197,7 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 | Skill | Purpose | Argument |
 | --- | --- | --- |
 | `/devenv-pair-programming` | Collaborative build — the engineer drives, and the AI keeps the plan aligned to actual work as scope/questions emerge | Issue # or plan path |
-| `/devenv-delegation` | Delegated build support — assistant-led execution with user review and ownership, while keeping the plan aligned to actual work | Issue # or plan path |
+| `/devenv-delegation` | Delegated build support — assistant-led execution with user review and ownership, while keeping the plan aligned to actual work; accepts a bare GH issue by materializing a small plan first (issue intake gate) | Issue # or plan path |
 | `/devenv-document` | Produce documentation for an existing system or component — audience, format, and scope set by interview | Repo path, component name, or description |
 | `/devenv-chat-with-code` | Conversational fact-finding with source code or markdown-first repos — the repo talks back | Repo path(s), or nothing for current workspace |
 | `/devenv-spike` | Exploratory investigation + findings doc; empowered like the bug hunter (consented in-repo experiments with recovery route) | Question or issue # |

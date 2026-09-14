@@ -101,6 +101,8 @@ Routing rules:
 
 The native GitHub type is written via `issue-update <N> --type <Bug|Feature|Task|Epic>` (map the classification above onto the native vocabulary; legacy aliases accepted).
 
+**Epic is orchestration, not size.** Reserve the native `Epic` type for issues that are long-lived and coordinate work across multiple repos or multiple independently-delivered efforts. A large single-repo deliverable — even one with many steps or a multi-phase plan — is a **Feature**. Epics orchestrate; features deliver. When a classification is between Feature and Epic, choose Feature.
+
 ### Priority heuristics
 
 - **P0** — production broken, data loss, security, blocking the team.

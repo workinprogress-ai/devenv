@@ -19,7 +19,7 @@ types:
     id: "IT_kwDOCk-E0c4BWVJI"
 
   - name: Epic
-    description: "A large body of work that can be broken down into smaller tasks"
+    description: "Long-lived orchestration issue coordinating work across multiple repos or efforts — not for single deliverables (use Feature)"
     id: "IT_kwDOCk-E0c4B4VUz"
 
 # Planning Configuration

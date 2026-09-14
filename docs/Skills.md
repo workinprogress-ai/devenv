@@ -126,7 +126,7 @@ Question-shaped prompts default to discussion/analysis mode; implementation star
 
 > **Commissioned autonomous run for mechanical work, with user review and ownership.**
 
-Analyzes a plan, proposes work-session groupings, implements phase-by-phase, keeps the user engaged with brief pings and inline concern surfacing, and stops on explicit decision gates before any mutating action resumes. Ends each session with a summary including review hotspots. Entered only by explicit `/devenv-delegation` invocation — the explicit act of commissioning an autonomous run — never by drifting out of a pair-programming session.
+Analyzes a plan, proposes work-session groupings, implements phase-by-phase, keeps the user engaged with brief pings and inline concern surfacing, and stops on explicit decision gates before any mutating action resumes. Ends each session with a summary including review hotspots. Entered only by explicit `/devenv-delegation` invocation — the explicit act of commissioning an autonomous run — never by drifting out of a pair-programming session. Accepts a bare GH issue by materializing a small plan first (issue intake gate).
 
 **Use for:** refactors, renames, test scaffolding, cleanup, docs — mechanical, low-risk phases  
 **Don't use for:** high-impact work (→ `/devenv-pair-programming`), ad-hoc work without a plan  

@@ -369,7 +369,7 @@ planning:
 
 Each key under `type_mapping` corresponds to a concept in a specifications document:
 
-- **phases**: High-level project phases, mapped to an issue type (default: `Epic`)
+- **phases**: High-level project phases, mapped to an issue type (default: `Epic`). Note the workspace convention: Epic means a long-lived orchestration issue coordinating multiple repos/efforts — for single-repo deliverable phases, map `phases` to `Feature` instead.
 - **features**: Feature-level items, mapped to an issue type (default: `Feature`)
 - **tasks**: Individual work items, mapped to an issue type (default: `Task`)
 
