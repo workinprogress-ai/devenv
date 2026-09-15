@@ -384,6 +384,12 @@ Stop and surface to the user when hitting:
 - Multiple existing patterns where the choice is consequential and non-obvious.
 - Anything that contradicts the plan in a significant way.
 - An unexpected obstacle that may change scope or phase structure.
+- **Foreign working-tree changes.** Working-tree edits outside the run's own tra
+cked changes — the run's files are presumed exclusively its own while the user i
+s away, so fresh foreign edits (especially near the plan's `Files:` sets) risk c
+lobbering concurrent user work. Pause and surface; checkpoint mode defers the s
+urface to the next boundary unless the changes collide with files the run has al
+ready edited.
 - Any point where the next plausible move is workaround, placeholder, fallback, or other hack code whose real purpose is just to get unstuck.
 - Any point where the "temporary" implementation would be more than a tiny compile/test unblock and would effectively become a substantial alternate implementation path.
 - Any point where adding a compatibility shim/adapter/extension would bypass intended migration work without explicit user permission.
@@ -453,6 +459,8 @@ Default output shape:
 > **Challenges:** [encountered-and-worked-through items, or "none"]
 > **Hotspots:** [file:line items worth review]
 > **Open questions:** [[QUESTION] items, unresolved choices, or "none"]
+> **Working-tree provenance:** [files the run changed vs foreign/pre-existing ed
+its observed — one line; "all changes are the run's" when nothing foreign]
 > **Gate:** [clear/blocked/not yet run + reason]
 > **Next:** [continue to next phase / rework item / plan revision]
 

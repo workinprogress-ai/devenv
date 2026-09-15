@@ -691,6 +691,26 @@ If the user abandons a pending action mid-flight (*"never mind"*) and gives a ne
 
 The AI's in-context view of a file is a **cache** — invalidated the moment any edit is made. Re-read a file before making any claim about its current contents if any edits have occurred this session. See the shared [file-freshness rule](../common/references/file-freshness.md) for the full protocol.
 
+## Shared working tree (concurrent user edits)
+
+The working tree is **shared state**: the user may be editing between or during turns, and that is normal pair behavior, not a disruption. Doctrine:
+
+- **Provenance scan.** At the start of each working turn (and before editing any file not already touched this session), classify working-tree changes three ways: **ours** (the session's own edits), **user territory** (in the user's declared parallel area — see Parallel mode below; leave alone, review only when asked or landed), or **unexpected** (outside both — surface in one line: what it is, which task it might belong to). Never treat a user's fresh edit as noise to overwrite.
+- **Never clobber.** User uncommitted edits are a colleague's in-flight work. Re-read before editing any file the user just touched; overlapping intent surfaces as a coordination moment ("we both touched `X` — want me to rebase my chunk on yours?"), never a silent overwrite or a git-based fixup.
+- **Review duty extends to fresh user edits.** "Review the actual diff" applies to every file the user touched — whether handed over as a driver swap or edited concurrently.
+
+### Parallel mode (user-declared)
+
+Exists only when the user declares it — "I'll take the tests, you take the client code", "you do 2.2, I'll be refactoring the operations class". The skill never infers it from uncommitted files alone. On declaration:
+
+1. **Record territories.** Negotiate and hold the split in session context as *user territory* / *AI territory*. Two shapes, both first-class: **task-based** (territories = the tasks' `Files:` sets — boundaries come from the plan) or **area-based** ("you fix helper tests, I'm in the operations class" — territories are the files/classes/directories the user named). If the declared territories overlap, surface the conflict and redraw before either side starts.
+2. **Respect territories.** The AI edits only its territory. Navigator duties in user territory stay **read-only unless invited** — uninvited edits or review verdicts on half-done work are noise. Territory-internal user edits are normal operation, not signals.
+3. **Collision = misstep → renegotiate.** Either side editing into the other's territory is a misstep by someone: surface it immediately, stop touching that file, and renegotiate the boundary (redrawing territories mid-stream is normal). Never merge around a collision silently.
+4. **Sync before done-claims.** A task isn't done in parallel mode until verified against the other side's landed work: pull their diff, re-run the shared verification, then claim. The ledger stays task-granular even under area-based splits — territories govern who edits what; the plan's tasks still record what's done.
+5. **Scale limit.** Parallel mode splits the current phase's work (2–3 tasks at most). More than that is the [`/devenv-delegation`](../devenv-delegation/SKILL.md) conversation, not a bigger parallel split.
+
+Handbacks under parallel mode (or after concurrent user edits) add one provenance line: which working-tree changes are the session's and which are the user's/pre-existing.
+
 ## No-Assumptions Rule
 
 Ask before:
