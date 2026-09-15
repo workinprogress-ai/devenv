@@ -186,7 +186,7 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 
 > **Read-only answers to "how is the work going?" across plans, issues, and roadmaps.**
 
-Derives progress at query time from ground truth — task checkboxes, issue state, linked PRs, labels, git — via `plan-parse --summary`. Rolls up the issue tree (direct + descendant plans), reports coverage before percentage for unstarted scope, surfaces drift and risk callouts (personalized by assigned engineer), trends `Progress:` snapshot lines from wrap-up comments, and enriches with git-derived signals (unmerged branch commits, phantom progress, landed-but-unticked) from the repo cache. Strictly read-only: no plan edits, no issue writes, no roadmap syncs; the only write is an explicitly-confirmed report posting. Full doctrine in [Progress Reporting](./Progress-Reporting.md).
+Derives progress at query time from ground truth — task checkboxes, issue state, linked PRs, labels, git — via `plan-parse --summary`. Rolls up the issue tree (direct + descendant plans), reports coverage before percentage for unstarted scope, surfaces drift and risk callouts (personalized by assigned engineer), trends `Progress:` snapshot lines from wrap-up comments, and enriches with git-derived signals (unmerged branch commits, phantom progress, landed-but-unticked) from the repo cache. Strictly read-only: no plan edits, no issue writes, no roadmap syncs; the only write is an explicitly-confirmed report posting. **Report mode:** "report on issues N, M, …" / plural issues / `--report` compiles one markdown report to `.local-artifacts/` (fixed-shape per-issue sections; an epic in scope expands to a roll-up + per-child sections). Full doctrine in [Progress Reporting](./Progress-Reporting.md).
 
 **Use for:** "how is X going?", cross-plan/cross-issue status roll-ups, "what's blocking the epic?", "are we on track?"  
 **Don't use for:** updating anything (executor skills, `/devenv-refine-plan`); syncing roadmap status (→ `/devenv-update-roadmap`); session summaries (→ `/devenv-session-handoff`)  
@@ -210,7 +210,7 @@ Derives progress at query time from ground truth — task checkboxes, issue stat
 | `/devenv-update-roadmap` | Sync roadmap status from issues + PRs; republish artifact + epic task list | Epic number (optionally `:doc_id`) |
 | `/devenv-create-plan` | Create a current-state execution plan via interview or from a complete spec/RFC/doc | Issue #, description, or complete spec |
 | `/devenv-refine-plan` | Align a plan with reality from any starting point — surgical edits, structured revision, or staleness assessment with internal routing | Plan file path or issue # |
-| `/devenv-query-progress` | Read-only progress reporting across plans, issues, and roadmaps — derived metrics, issue-tree roll-ups, risk callouts, trends; never writes | Issue #, plan path, epic #, or freeform question |
+| `/devenv-query-progress` | Read-only progress reporting across plans, issues, and roadmaps — derived metrics, issue-tree roll-ups, risk callouts, trends; report mode compiles multi-issue markdown reports (epic scope expands to children); never writes | Issue #, plan path, epic #, issue list + `--report`, or freeform question |
 
 ### Working modes
 

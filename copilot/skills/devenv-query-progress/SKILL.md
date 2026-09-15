@@ -1,7 +1,7 @@
 ---
 name: devenv-query-progress
 description: 'Read-only progress reporting across plans, grooming issues, and roadmaps. USE WHEN the user says "how is X going?", "what''s the progress on issue N / this plan?", "what''s left on the audit work?", "are we on track?", "what''s blocking the epic?", or asks for any cross-plan / cross-issue status roll-up. Derives progress from task checkboxes + issue state via `plan-parse --summary`; rolls up the issue tree; reports risk callouts and trends; drills down conversationally; writes ephemeral or posted-on-request reports. DO NOT USE for updating anything (progress is read-only; tick tasks in the executor skills or /devenv-refine-plan), for syncing roadmap status (→ /devenv-update-roadmap), for plan revision (→ /devenv-refine-plan), or for session summaries (→ /devenv-session-handoff).'
-argument-hint: '<issue-number | plan-path | epic-number[:doc_id] | freeform question>'
+argument-hint: '<issue-number | plan-path | epic-number[:doc_id] | issue-list --report | freeform question>'
 user-invocable: true
 ---
 
@@ -29,6 +29,7 @@ Trigger phrases:
 - "what's left on the audit work?"
 - "are we on track?"
 - "what's blocking the epic?"
+- "report on issues 1, 5, 9" / plural issue numbers passed in one ask → report mode (see Report mode below)
 - Any cross-plan / cross-issue status roll-up request
 
 Do **not** use for:
@@ -110,7 +111,20 @@ Apply when relevant to the question; all git access read-only:
 
 - **First answer compact (chat):** headline % + phase position, coverage when relevant, one-line recent progress, risk callouts, offered zoom-ins. Never dump the full report unprompted.
 - **Zoom-ins are conversational:** drill a phase (task list rendered in chat first — referenced-material rule), a single plan, recent commits touching the plan's `Files:` (`git log --oneline -10 <file>`), or "what remains".
-- **Reports on request:** markdown to `.local-artifacts/tmpN.md` (ephemeral, next free number — see [ephemeral markdown conventions](../_conventions.md#ephemeral-markdown-files-tmpnmd)), or posted as an issue comment with explicit confirmation. Multi-issue reports: one section per issue, same metrics block, each section headed with its assigned engineer (or "unassigned").
+- **Reports on request:** markdown to `.local-artifacts/tmpN.md` (ephemeral, next free number — see [ephemeral markdown conventions](../_conventions.md#ephemeral-markdown-files-tmpnmd)), or posted as an issue comment with explicit confirmation.
+
+### Report mode
+
+Explicit trigger only — one of: the `report` keyword ("report on issues 1, 5, 9"), plural issue numbers in a single ask, or `--report` in the argument list. **Scope is orthogonal to mode:** an epic number answers *what to investigate*, never *how to present* — an epic without report intent gets today's conversational dual view unchanged; an epic inside a report scope expands as below.
+
+Investigate each issue in the scope and compile one markdown report:
+
+1. **Front matter:** generation timestamp and the resolved scope (issue numbers with their repos), so the reader knows what ground truth the report reflects. All numbers are recomputed at generation time (derived-view principle — nothing stored).
+2. **Per-issue section, fixed shape:** assigned engineer (or "unassigned") → status line (open/closed, labels, linked plan/PR) → progress block from `plan-parse --summary --census` (raw counts headline, phase position; coverage framing when no plan exists) → what's-left summary → risk callouts and drift with both readings → open questions.
+3. **Epic scope expansion:** when an epic is in scope, compile an epic-level roll-up section first (dual view: plans roll-up + roadmap step statuses — never summed), then one section per child issue, children resolved via the epic task list or the roadmap artifact's issue links (both tracking models).
+4. **Output:** `.local-artifacts/tmpN.md` by default (ephemeral family, no named artifact — a report with lasting value is a user promotion decision, not a default). Posting to an issue requires explicit confirmation; a multi-issue report has no natural host issue, so posting defaults to off.
+
+Read-only guarantees are unchanged — report mode adds no write surface.
 - Follows the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections) (referenced-material rule included) for structured asks.
 
 ## Anti-patterns
