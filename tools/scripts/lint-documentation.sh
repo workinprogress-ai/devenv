@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
+source "$DEVENV_TOOLS/lib/error-handling.bash"
 # Automatic markdown linting fixer
 # This script automatically fixes common markdown linting issues
 
 set -euo pipefail
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 if [[ -z "${DEVENV_ROOT:-}" ]]; then
     echo "Error: DEVENV_ROOT is not set. Please run this script from within a Devenv environment." >&2

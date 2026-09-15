@@ -19,6 +19,9 @@ export EXIT_PERMISSION_DENIED=5
 export EXIT_TIMEOUT=124
 export EXIT_COMMAND_NOT_FOUND=127
 export EXIT_INVALID_EXIT=128
+export EXIT_CONFLICT=3
+export EXIT_API_FAILURE=4
+export EXIT_AMBIGUOUS=5
 
 # Track if strict mode is enabled
 ERROR_HANDLING_STRICT_MODE_ENABLED=0
@@ -400,4 +403,114 @@ safe_remove() {
     # Perform removal
     log_debug "Removing: $path"
     rm -rf "$path"
+}
+
+# ============================================================================
+# Script argument helpers (promoted from the per-script copy-paste tier)
+# ============================================================================
+
+# invalid_args MESSAGE
+#   Standard invalid-arguments handler: logs MESSAGE as an error, prints the
+#   usage hint, and exits 2 (EXIT_MISUSE). Exits — does not return.
+#   Canonical exit-code contract: 2 = invalid arguments.
+invalid_args() {
+    log_error "$1"
+    echo "Use --help for usage information"
+    exit "$EXIT_MISUSE"
+}
+
+# require_option_value OPTION_NAME VALUE
+#   Validates that VALUE is non-empty; exits 2 via invalid_args otherwise.
+#   Callers must pass "${2:-}" (never a raw "$2") so a missing value reaches
+#   this helper as an empty string instead of crashing on set -u.
+require_option_value() {
+    local option_name="$1"
+    local value="${2:-}"
+    if [ -z "$value" ]; then
+        invalid_args "Missing value for $option_name"
+    fi
+}
+
+# api_failure MESSAGE
+#   API/tool failure handler: logs MESSAGE and exits 4 (EXIT_API_FAILURE).
+api_failure() {
+    log_error "$1"
+    exit 4
+}
+
+# handle_global_flag ARG
+#   Handles the suite-wide global flags (-h|--help, -v|--version) inside an
+#   option-parse loop. Returns 1 when ARG is not a global flag so the loop's
+#   remaining arms run; exits otherwise (show_usage / version are provided
+#   by the caller via SHOW_USAGE_FN and SCRIPT_VERSION).
+#   Usage:
+#     if handle_global_flag "$1"; then shift; continue; fi
+#   Requires: show_usage() defined and SCRIPT_VERSION set by the caller.
+handle_global_flag() {
+    case "${1:-}" in
+        -h|--help)
+            if declare -F show_usage > /dev/null; then show_usage; fi
+            exit 0
+            ;;
+        -v|--version)
+            echo "${SCRIPT_VERSION:-unknown}"
+            exit 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# log_verbose [ARGS...]
+#   Prints ARGS via log_info when the caller's VERBOSE flag is 1 (VERBOSE
+#   defaults to 0). Silent otherwise. The caller owns the VERBOSE global.
+log_verbose() {
+    if [ "${VERBOSE:-0}" -eq 1 ]; then
+        log_info "$@"
+    fi
+}
+
+# log_verbose_stderr [ARGS...]
+#   Same gating as log_verbose but always writes to stderr — for scripts
+#   whose stdout stream is consumed by other tools (e.g. TUI/list scripts).
+log_verbose_stderr() {
+    if [ "${VERBOSE:-0}" -eq 1 ]; then
+        log_info "$@" >&2
+    fi
+}
+
+# create_temp_file VAR_NAME [PREFIX]
+#   Creates a unique temp file (mktemp) and registers it for automatic
+#   cleanup at script exit via the shared cleanup trap. Sets VAR_NAME (in
+#   the caller's scope) to the file path. Nothing is printed to stdout —
+#   printing would move the trap registration into a subshell where it
+#   dies with the subshell (the same stdout-vs-global channel trap that
+#   body-source F001 hit). Prefix defaults to "devenv-temp".
+#   Usage: create_temp_file TMPFILE my-prefix
+create_temp_file() {
+    local var_name="$1"
+    local prefix="${2:-devenv-temp}"
+    local tmpfile
+    tmpfile=$(mktemp "${TMPDIR:-/tmp}/${prefix}.XXXXXX")
+    printf -v "$var_name" '%s' "$tmpfile"
+    register_cleanup "rm -f $(printf '%q' "$tmpfile")"
+}
+
+# register_cleanup COMMAND
+#   Appends COMMAND to the cleanup chain executed when the script exits
+#   (success or failure). Commands run in reverse registration order.
+#   Uses the caller's EXIT trap slot; multiple registrations accumulate.
+register_cleanup() {
+    local cmd="$1"
+    local existing=""
+    # trap -p EXIT emits:  trap -- '<escaped command>' EXIT
+    # Extract the single-quoted command; embedded quotes are escaped by bash
+    # as '\'' sequences, which round-trip safely when re-passed to trap.
+    existing=$(trap -p EXIT | sed -n "s/^trap -- '\(.*\)' EXIT\$/\1/p")
+    if [ -n "$existing" ]; then
+        trap -- "${cmd}; ${existing}" EXIT
+    else
+        trap -- "${cmd}" EXIT
+    fi
 }

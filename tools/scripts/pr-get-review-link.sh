@@ -1,4 +1,7 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+source "$DEVENV_TOOLS/lib/error-handling.bash"
 
 ################################################################################
 # pr-get-review-link.sh
@@ -47,9 +50,9 @@ esac
 
 
 REPO_DIR="${1:-$(pwd)}"
-cd "$REPO_DIR" || { echo "Invalid repository folder: $REPO_DIR" >&2; exit 1; }
+cd "$REPO_DIR" || { echo "Invalid repository folder: $REPO_DIR" >&2; exit "$EXIT_GENERAL_ERROR"; }
 
-git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "Directory $REPO_DIR is not a git repository." >&2; exit 1; }
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "Directory $REPO_DIR is not a git repository." >&2; exit "$EXIT_GENERAL_ERROR"; }
 
 # Get repo spec
 read -ra repo_spec <<< "$(get_repo_spec)"
@@ -63,7 +66,7 @@ fi
 
 if [ -z "$pr_url" ]; then
   echo "No open review PRs found." >&2
-  exit 1
+  exit $EXIT_API_FAILURE
 fi
 
 echo "$pr_url"

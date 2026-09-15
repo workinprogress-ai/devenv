@@ -1,4 +1,7 @@
 #!/bin/bash
+set -euo pipefail
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # roadmap-parse.sh - Parse a roadmap artifact into per-step truth JSON
 # Version: 1.0.0
 # Description: Given a roadmap markdown file (the doc_id-addressed artifact
@@ -52,12 +55,6 @@ Exit codes:
     1 invalid arguments / unreadable roadmap
 EOF
     exit 0
-}
-
-invalid_args() {
-    log_error "$1"
-    echo "Use --help for usage information"
-    exit 1
 }
 
 # ---------------------------------------------------------------------------

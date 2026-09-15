@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # artifact-clean.sh - Clean up `.local-artifacts/` folders by artifact family
 # Version: 1.0.0
 # Description: Interactive (default) or flag-driven cleanup of local artifact
@@ -79,12 +81,6 @@ Examples:
     $SCRIPT_NAME --all -y             # full sweep, no prompts
 EOF
     exit 0
-}
-
-invalid_args() {
-    log_error "$1"
-    echo "Use --help for usage information"
-    exit 1
 }
 
 # Walk up from $PWD to the nearest directory containing the artifact folder.

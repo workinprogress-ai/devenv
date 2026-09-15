@@ -1,4 +1,7 @@
 #!/bin/bash
+set -euo pipefail
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # cs-references-update-wizard.sh - Update NuGet dependencies in a single repository
 # Version: 1.0.0
 # Description: Runs the full dependency-update workflow for one repository:
@@ -210,7 +213,7 @@ main() {
                 lang_default=1
                 shift
                 ;;
-            --dry-run)
+            -n|--dry-run)
                 dry_run=1
                 shift
                 ;;
@@ -314,8 +317,8 @@ main() {
         # ── Step 3: Snapshot versions before update ───────────────────────
 
         local before_file after_file
-        before_file=$(mktemp)
-        after_file=$(mktemp)
+        create_temp_file before_file cs-ref-wizard
+        create_temp_file after_file cs-ref-wizard
         snapshot_versions "$repo_dir" > "$before_file"
 
         # ── Step 4: Run dependency update ─────────────────────────────────

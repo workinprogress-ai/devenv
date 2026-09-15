@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 # Add custom startup commands to .devcontainer/user-custom-startup.sh
 # These commands will be executed after the container starts

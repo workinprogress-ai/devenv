@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # artifact-header.sh - Parse, verify, and stamp DEVENV_ARTIFACT_V1 headers in local files
 # Version: 1.0.0
 # Description: Deterministic replacement for hand-parsing artifact metadata blocks:
@@ -10,6 +12,7 @@ set -euo pipefail
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
+source "$DEVENV_TOOLS/lib/artifact-header.bash"
 
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
@@ -51,33 +54,6 @@ Exit Codes:
     4 I/O failure
 EOF
     exit 0
-}
-
-invalid_args() {
-    log_error "$1"
-    echo "Use --help for usage information"
-    exit 2
-}
-
-# Parse the header block from stdin-ish text; echoes JSON {key:value,...} or empty
-parse_header_json() {
-    local body="$1"
-    local prefix
-    prefix="${body:0:1024}"
-    if ! printf '%s\n' "$prefix" | grep -q 'DEVENV_ARTIFACT_V1'; then
-        return 1
-    fi
-    printf '%s\n' "$prefix" \
-        | awk '/DEVENV_ARTIFACT_V1/{inblock=1;next} inblock&&/^-->/{exit} inblock&&/^[[:space:]]*[A-Za-z_]+[[:space:]]*:/{
-            line=$0
-            sub(/^[[:space:]]+/,"",line)
-            key=line; sub(/:.*/,"",key)
-            val=line; sub(/^[^:]*:[[:space:]]*/,"",val)
-            gsub(/"/,"\\\"",val)
-            print "\"" key "\":\"" val "\""
-        }' \
-        | paste -sd, - \
-        | sed 's/^/{/; s/$/}/'
 }
 
 main() {

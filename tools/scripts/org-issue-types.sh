@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # org-issue-types.sh - List the GitHub organization's issue types
 # Version: 1.0.0
 # Description: Queries the organization's configured issue types (ID + name)
@@ -9,6 +11,7 @@
 # Last Modified: 2026-09-08
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
@@ -25,6 +28,7 @@ script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "List the GitHub organization's 
 # ============================================================================
 
 OUTPUT_FORMAT="table"
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 
 # ============================================================================
@@ -58,12 +62,6 @@ Examples:
 
 EOF
     exit 0
-}
-
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
 }
 
 resolve_org() {
@@ -123,7 +121,11 @@ main() {
         case "$1" in
             -h|--help)    show_usage ;;
             -v|--version) echo "$SCRIPT_VERSION"; exit 0 ;;
-            -V|--verbose) VERBOSE=1; shift ;;
+            -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
+                VERBOSE=1
+                shift
+                ;;
             # (no --devenv flag: org-level query, no target-repo ambiguity)
             -f|--format)  OUTPUT_FORMAT="$2"; shift 2 ;;
             *)

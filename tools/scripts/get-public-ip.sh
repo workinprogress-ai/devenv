@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
+source "$DEVENV_TOOLS/lib/error-handling.bash"
 # Retrieve the public IP with resilient fallbacks
 
 set -euo pipefail
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 providers=(
 	"https://ipinfo.io/ip"

@@ -916,6 +916,8 @@ Ticks happen at fixed, deterministic points in the handoff protocol — not at e
 - **AI-driven tasks:** tick in the handback (step 4 above), before sending the message. The tick records that the work was written. If the user’s review then finds a blocker, reopen with `--uncomplete`.
 - **User-driven tasks:** tick when the AI gives a clean review (step 4 of “When the user is driving” above). If the review finds blockers, leave the task open until they are resolved.
 
+**Tick-then-stop.** A user-issued hard stop does not defer ticks: work completed and verified before the stop gets ticked before the turn ends, and pending plan deltas are written or explicitly listed — see the shared [stop protocol](../_conventions.md#stop-protocol-shared). The duty survives skill switches: an incoming execution skill owes the protocol's pending actions as first business.
+
 In both cases: run `markdown-plan-complete-task <task_number>... [<plan_file>]` in a terminal — multiple task numbers can be passed in a single call. The plan file is optional if run from the plan's directory; pass it explicitly otherwise. Note briefly alongside the handback or review: *"✅ Ticked 3.1."* Do not batch to end of session. To reopen: `markdown-plan-complete-task --uncomplete <task_number>... [<plan_file>]` in a terminal — only valid for tasks ticked in the current handback cycle; for anything from a prior session, add a new task instead.
 
 This is the only plan edit the AI makes without prior confirmation. Everything else — new tasks, structural changes, wording — follows the Draft → show → confirm → write convention above.

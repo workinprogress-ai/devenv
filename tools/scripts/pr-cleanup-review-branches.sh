@@ -1,4 +1,7 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+source "$DEVENV_TOOLS/lib/error-handling.bash"
 
 ################################################################################
 # pr-cleanup-review-branches.sh
@@ -46,7 +49,7 @@ esac
 
 explode() {
   echo "Error: $1" >&2
-  exit 1
+  exit "$EXIT_GENERAL_ERROR"
 }
 
 REPO_DIR="${1:-$(pwd)}"

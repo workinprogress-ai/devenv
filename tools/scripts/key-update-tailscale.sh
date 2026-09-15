@@ -4,6 +4,8 @@
 # Usage: update-tailscale.sh
 
 set -euo pipefail
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 # Source error handling library
 source "$DEVENV_TOOLS/lib/error-handling.bash"

@@ -48,7 +48,7 @@ If a focus area is given, announce it before starting and concentrate Phase 1/2 
 
 If a GitHub issue number is given: fetch the body with `issue-get N --pretty`, extract guiding instructions (scope, dimension overrides, file exclusions), announce them, and set the output filename to `TECH_DEBT_AUDIT-N.md`.
 
-**Output location:** single repo → `<repo-root>/TECH_DEBT_AUDIT[-NNN].md`; multiple repos → `repos/TECH_DEBT_AUDIT[-NNN].md`.
+**Output location:** the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts) — single repo → `<repo-root>/.local-artifacts/TECH_DEBT_AUDIT[-NNN].md`; multiple repos → `<workspace>/.local-artifacts/TECH_DEBT_AUDIT[-NNN].md`.
 
 ## Phase 1: Orient
 

@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # issue-create.sh - Create a new GitHub issue with labels, assignees, and project assignment
 # Version: 1.0.0
 # Description: Creates GitHub issues with GitHub native type field (Bug/Feature/Task),
@@ -8,15 +10,17 @@
 # Last Modified: 2026-01-01
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/fzf-selection.bash"
 source "$DEVENV_TOOLS/lib/issues-config.bash"
+source "$DEVENV_TOOLS/lib/body-source.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"
 
-readonly SCRIPT_VERSION="1.0.0"
+readonly SCRIPT_VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
 
@@ -39,6 +43,7 @@ USE_TEMPLATE=0  # Default to no template (opt in with --template or --select-tem
 USE_EDITOR=1    # Default to opening editor
 ALLOW_DEVENV_REPO=0  # Prevent running against devenv repo by default
 DRY_RUN=0
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 TEMP_FILE=""
 GITHUB_ORG=""  # Will be populated from repo owner
@@ -64,7 +69,8 @@ Optional Flags:
 Optional:
     -t, --title TITLE           Issue title (required only with --no-interactive)
     -b, --body TEXT             Issue body/description
-    -f, --body-file FILE        Read issue body from file (markdown)
+    -f, --body-file FILE        Read issue body from file (markdown; '-' reads
+                                stdin; piped stdin with no flag is auto-read)
     --type TYPE                 Issue type: a type from issues-config.yml
     -l, --label LABEL           Add label (can be specified multiple times)
     -a, --assignee USER         Assign to user (can be specified multiple times)
@@ -113,12 +119,6 @@ Examples:
 
 EOF
     exit 0
-}
-
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
 }
 
 # Cleanup temporary files on exit
@@ -282,13 +282,13 @@ check_dependencies() {
     if ! command -v gh &> /dev/null; then
         log_error "GitHub CLI (gh) is not installed or not in PATH"
         log_info "Install from: https://cli.github.com/"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 
     if ! gh auth status &> /dev/null; then
         log_error "Not authenticated with GitHub CLI"
         log_info "Run: gh auth login"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 }
 
@@ -475,6 +475,12 @@ main() {
     done
     
     # Ensure GitHub CLI authentication
+    # Global flags before auth/validation: --help must work without
+    # a valid GitHub session or any positional args.
+    if handle_global_flag "${1:-}"; then
+        exit 0
+    fi
+
     ensure_gh_login
     
     # Continue parsing other arguments
@@ -488,6 +494,7 @@ main() {
                 exit 0
                 ;;
             -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
                 VERBOSE=1
                 shift
                 ;;
@@ -500,15 +507,31 @@ main() {
                 shift 2
                 ;;
             -b|--body)
+                if [ -n "$ISSUE_BODY" ]; then
+                    log_error "Only one of --body or --body-file may be specified"
+                    exit "$EXIT_GENERAL_ERROR"
+                fi
                 ISSUE_BODY="$2"
                 shift 2
                 ;;
             -f|--body-file)
-                if [ ! -f "$2" ]; then
-                    log_error "Body file not found: $2"
-                    exit 1
+                if [ -n "$ISSUE_BODY" ]; then
+                    log_error "Only one of --body or --body-file may be specified"
+                    exit "$EXIT_GENERAL_ERROR"
                 fi
-                ISSUE_BODY=$(cat "$2")
+                if [ "$2" = "-" ]; then
+                    if body_source_stdin_is_tty; then
+                        log_error "--body-file - requires piped stdin (refusing to read the terminal)"
+                        exit "$EXIT_GENERAL_ERROR"
+                    fi
+                    ISSUE_BODY=$(cat)
+                else
+                    if [ ! -f "$2" ]; then
+                        log_error "Body file not found: $2"
+                        exit $EXIT_API_FAILURE
+                    fi
+                    ISSUE_BODY=$(cat "$2")
+                fi
                 shift 2
                 ;;
             --type)
@@ -569,7 +592,7 @@ main() {
             *)
                 log_error "Unknown option: $1"
                 echo "Use --help for usage information"
-                exit 1
+                exit $EXIT_MISUSE
                 ;;
         esac
     done
@@ -579,7 +602,7 @@ main() {
     # In interactive mode, title can come from template
     if [ "$USE_EDITOR" -eq 0 ] && [ -z "$ISSUE_TITLE" ]; then
         log_error "Issue title is required when using --no-interactive (use --title)"
-        exit 1
+        exit $EXIT_MISUSE
     fi
     
     # Check dependencies
@@ -591,18 +614,33 @@ main() {
     # Select and validate issue type (required)
     if ! select_issue_type; then
         log_error "Issue type selection failed"
-        exit 1
+        exit $EXIT_MISUSE
     fi
     
     # Use library function to validate (validate_issue_type is from issues-config.bash)
     local config_path
-    config_path=$(load_issues_config) || exit 1
+    config_path=$(load_issues_config) || exit "$EXIT_GENERAL_ERROR"
     
     if ! validate_issue_type "$ISSUE_TYPE" "$config_path"; then
         log_info "Valid types: $(get_issue_types_array)"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
     
+    # Piped stdin capture (shared body-source contract): capture BEFORE any
+    # template/editor work so a piped body is never silently dropped or eaten
+    # by the editor. Precedence is --body/--body-file > template > stdin: the
+    # captured value is used only when nothing else produced a body. Empty
+    # stdin is NOT an error here — an interactive template session legitimately
+    # has no pipe — so capture into a holding var and validate at use time.
+    PIPED_STDIN_BODY=""
+    if [ -z "$ISSUE_BODY" ] && ! body_source_stdin_is_tty; then
+        local stdin_probe
+        if stdin_probe=$(body_source_capture_stdin); then
+            PIPED_STDIN_BODY="$stdin_probe"
+            log_verbose "Piped stdin captured as body candidate"
+        fi
+    fi
+
     # Handle template workflow
     if [ "$USE_TEMPLATE" -eq 1 ]; then
         local template_to_use
@@ -635,7 +673,20 @@ main() {
     else
         log_verbose "Template usage disabled (--no-template)"
     fi
-    
+
+    # Body precedence: --body/--body-file > template/editor > piped stdin.
+    # The captured stdin body is used only when nothing else produced one;
+    # an empty captured body is a hard error (silence hides caller bugs).
+    if [ -z "$ISSUE_BODY" ] && [ -n "$PIPED_STDIN_BODY" ]; then
+        if [ -z "$(printf '%s' "$PIPED_STDIN_BODY" | tr -d '[:space:]')" ]; then
+            log_error "Refusing empty piped stdin body"
+            echo "Use --help for usage information"
+            exit $EXIT_MISUSE
+        fi
+        ISSUE_BODY="$PIPED_STDIN_BODY"
+        log_verbose "No body flag and no template body; issue body from piped stdin"
+    fi
+
     # Create the issue
     create_issue
 }

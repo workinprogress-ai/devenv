@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # pr-review-comment.sh - Create an inline review comment on a PR (new thread)
 # Version: 1.0.0
 # Description: Posts an inline review comment tied to a specific file and line
@@ -10,6 +12,7 @@
 # Last Modified: 2026-09-08
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
@@ -32,6 +35,7 @@ SIDE="RIGHT"
 COMMENT_BODY=""
 COMMENT_FILE=""
 DRY_RUN=0
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 ALLOW_DEVENV_REPO=0
 
@@ -84,12 +88,6 @@ EOF
     exit 0
 }
 
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
-}
-
 validate_pr_number() {
     local pr="$1"
     if [ -z "$pr" ]; then
@@ -110,7 +108,7 @@ get_head_sha() {
     local sha
     if ! sha=$(gh pr view "${repo_spec[@]}" "$PR_NUMBER" --json headRefOid -q .headRefOid 2>/dev/null); then
         log_error "Failed to fetch PR #$PR_NUMBER head SHA"
-        exit 1
+        exit $EXIT_API_FAILURE
     fi
     echo "$sha"
 }
@@ -127,11 +125,11 @@ get_repo_node_id() {
     local node_id
     if ! node_id=$(gh api graphql -f query="query { repository(owner: \"${owner_repo%%/*}\", name: \"${owner_repo##*/}\") { id } }" 2>/dev/null | jq -r '.data.repository.id'); then
         log_error "Failed to resolve repository node ID for $owner_repo"
-        exit 1
+        exit $EXIT_API_FAILURE
     fi
     if [ -z "$node_id" ] || [ "$node_id" = "null" ]; then
         log_error "Failed to resolve repository node ID for $owner_repo"
-        exit 1
+        exit $EXIT_API_FAILURE
     fi
     echo "$node_id"
 }
@@ -147,7 +145,7 @@ post_inline_comment() {
 
     if [ -z "$(echo "$COMMENT_BODY" | tr -d '[:space:]')" ]; then
         log_error "Comment body is empty — aborting"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 
     if [ "$DRY_RUN" -eq 1 ]; then
@@ -192,7 +190,7 @@ post_inline_comment() {
         -f repo="$repo_node_id" 2>&1); then
         log_error "Failed to post inline review comment on PR #$PR_NUMBER"
         echo "$result"
-        exit 1
+        exit $EXIT_API_FAILURE
     fi
 
     local thread_url
@@ -201,12 +199,12 @@ post_inline_comment() {
     errors=$(echo "$result" | jq -r '.errors[0].message // empty')
     if [ -n "$errors" ]; then
         log_error "GraphQL error: $errors"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
     if [ -z "$thread_url" ]; then
         log_error "Failed to post inline review comment (no thread URL returned)"
         echo "$result"
-        exit 1
+        exit $EXIT_API_FAILURE
     fi
 
     log_info "Inline review comment posted: $thread_url"
@@ -220,17 +218,19 @@ main() {
     if [ $# -eq 0 ]; then
         log_error "PR number is required"
         echo "Use --help for usage information"
-        exit 1
+        exit $EXIT_MISUSE
     fi
 
-    case "$1" in
-        -h|--help)    show_usage ;;
-        -v|--version) echo "$SCRIPT_VERSION"; exit 0 ;;
-    esac
+    # Global flags handled before PR-number validation (--help must work
+    # even though the first positional is a PR number).
+    if handle_global_flag "$1"; then
+        exit 0
+    fi
 
-    PR_NUMBER="$1"
-    validate_pr_number "$PR_NUMBER" || exit 1
-    shift
+    if [ $# -gt 0 ] && [[ "$1" =~ ^[0-9]+$ ]]; then
+        PR_NUMBER="$1"
+        shift
+    fi
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -247,6 +247,7 @@ main() {
             -n|--dry-run)
                 DRY_RUN=1; shift ;;
             -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
                 VERBOSE=1; shift ;;
             --devenv)
                 # shellcheck disable=SC2034  # Used by check_target_repo
@@ -256,9 +257,15 @@ main() {
             -v|--version)
                 echo "$SCRIPT_VERSION"; exit 0 ;;
             *)
-                log_error "Unknown option: $1"
+                # Accept the PR number as a positional in any position.
+                if [ -z "$PR_NUMBER" ] && [[ "$1" =~ ^[0-9]+$ ]]; then
+                    PR_NUMBER="$1"
+                    shift
+                    continue
+                fi
+                log_error "Unknown option or unexpected argument: $1"
                 echo "Use --help for usage information"
-                exit 1
+                exit $EXIT_MISUSE
                 ;;
         esac
     done
@@ -266,27 +273,29 @@ main() {
     # Validate required inputs (before any network/auth dependency)
     if [ -z "$FILE_PATH" ]; then
         log_error "--file is required (repo-relative path as shown in the diff)"
-        exit 1
+        exit $EXIT_MISUSE
     fi
     if [ -z "$LINE_NUMBER" ]; then
         log_error "--line is required"
-        exit 1
+        exit $EXIT_MISUSE
     fi
     if ! [[ "$LINE_NUMBER" =~ ^[0-9]+$ ]]; then
         log_error "Invalid line number: $LINE_NUMBER (must be numeric)"
-        exit 1
+        exit $EXIT_MISUSE
     fi
     case "$SIDE" in
         RIGHT|LEFT) ;;
         *)
             log_error "Invalid side: $SIDE (must be RIGHT or LEFT)"
-            exit 1
+            exit $EXIT_MISUSE
             ;;
     esac
     if [ -z "$COMMENT_BODY" ] && [ -z "$COMMENT_FILE" ]; then
         log_error "One of --body or --body-file is required"
-        exit 1
+        exit $EXIT_MISUSE
     fi
+
+    validate_pr_number "$PR_NUMBER" || exit $EXIT_MISUSE
 
     ensure_gh_login
     check_dependencies

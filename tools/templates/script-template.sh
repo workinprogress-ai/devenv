@@ -50,9 +50,17 @@ source "$DEVENV_TOOLS/lib/retry.bash"
 # shellcheck source=../lib/git-config.bash
 # source "$DEVENV_TOOLS/lib/git-config.bash"
 
-# Optional: source github-helpers.bash if working with GitHub
+# Optional: source github-helpers.bash + git-operations.bash if working with
+# GitHub (resolve_target_repo hard-requires git-operations for the safety gate)
 # shellcheck source=../lib/github-helpers.bash
 # source "$DEVENV_TOOLS/lib/github-helpers.bash"
+# shellcheck source=../lib/git-operations.bash
+# source "$DEVENV_TOOLS/lib/git-operations.bash"
+
+# Optional: body-source.bash for tools that accept markdown/text bodies
+# (never bare-cat stdin; see docs/Tooling-Standards.md)
+# shellcheck source=../lib/body-source.bash
+# source "$DEVENV_TOOLS/lib/body-source.bash"
 
 # ============================================================================
 # Global Variables (avoid if possible, prefer function parameters)
@@ -103,10 +111,13 @@ Examples:
 
 Exit Codes:
     0   Success
-    1   General error
-    2   Invalid arguments
-    3   Missing dependencies
-    4   Operation failed
+    1   General error                    ($EXIT_GENERAL_ERROR)
+    2   Invalid arguments / bad usage    ($EXIT_MISUSE)
+    3   Conflict / ambiguous match       ($EXIT_CONFLICT)
+    4   Not found / API failure          ($EXIT_API_FAILURE)
+
+Always exit via the named constants from error-handling.bash — never bare
+numbers. See docs/Tooling-Standards.md.
 
 For more information, see the documentation at:
     $DEVENV_ROOT/docs/
@@ -205,9 +216,10 @@ validate_arguments() {
     local arg1="${1:-}"
     local arg2="${2:-}"
     
-    # Use die() from error-handling.bash for cleaner error handling
+    # invalid_args() (error-handling.bash) is the standard for usage errors:
+    # logs, prints the usage hint, and exits 2 ($EXIT_MISUSE).
     if [ -z "$arg1" ]; then
-        die "First argument is required" "$EXIT_INVALID_ARGUMENT"
+        invalid_args "First argument is required"
     fi
     
     # For integer validation, use validate_positive_integer from error-handling.bash
@@ -283,6 +295,12 @@ perform_operation() {
 # ============================================================================
 
 main() {
+    # Global flags FIRST: --help/--version must work without dependencies,
+    # auth, or positional arguments (docs/Tooling-Standards.md).
+    if handle_global_flag "${1:-}"; then
+        exit 0
+    fi
+
     # Parse command line arguments
     local arg1=""
     local arg2=""
@@ -297,6 +315,8 @@ main() {
                 echo "$SCRIPT_NAME version $SCRIPT_VERSION"
                 exit 0
                 ;;
+            # NOTE: prefer handle_global_flag "${1:-}" at the TOP of main()
+            # (before auth/validation) so --help works without dependencies.
             -V|--verbose)
                 VERBOSE=1
                 shift

@@ -1,4 +1,8 @@
 #!/bin/bash
+set -euo pipefail
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+source "$DEVENV_TOOLS/lib/error-handling.bash"
 # backup.sh: Back up each non-built-in MongoDB database individually from a MongoDB cluster.
 # Usage: ./backup.sh "<connection_string>" "/path/to/backup_directory"
 

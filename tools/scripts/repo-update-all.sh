@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/repo-operations.bash"
 
 # Update all repositories under ./repos using the GitHub-focused repo-get.sh

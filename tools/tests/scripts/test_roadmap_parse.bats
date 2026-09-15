@@ -84,7 +84,7 @@ teardown() { rm -rf "$WORK_DIR"; }
   [[ "$(echo "$step1" | jq -r '.status')" == *"In progress"* ]]
 }
 
-@test "missing roadmap file exits 1" {
+@test "missing roadmap file exits 2 (canonical invalid-args contract)" {
   run bash "$SCRIPT" "$WORK_DIR/nope.md"
-  [ "$status" -eq 1 ]
+  [ "$status" -eq 2 ]
 }

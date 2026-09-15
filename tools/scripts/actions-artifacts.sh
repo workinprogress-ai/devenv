@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # actions-artifacts.sh - List or download artifacts from a GitHub Actions run
 # Version: 1.0.0
 # Description: Lists artifact metadata (name, size, ID) for a completed
@@ -8,6 +10,7 @@
 # Last Modified: 2026-05-16
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
@@ -28,6 +31,7 @@ DOWNLOAD=0
 ARTIFACT_NAME=""
 DEST_DIR="."
 OUTPUT_FORMAT="table"  # table | json | pretty
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 
 # Warn before downloading more than 100 MiB at once without --name
@@ -74,12 +78,6 @@ Examples:
 
 EOF
     exit 0
-}
-
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
 }
 
 # Splits OWNER/REPO into two words: owner repo
@@ -173,18 +171,26 @@ download_artifacts() {
 # ============================================================================
 
 main() {
-    case "${1:-}" in
-        -h|--help)    show_usage ;;
-        -v|--version) echo "$SCRIPT_VERSION"; exit 0 ;;
-    esac
+
+
+    # Global flags before auth: --help/--version must work without a
+    # valid GitHub session.
+    if handle_global_flag "${1:-}"; then
+        exit 0
+    fi
 
     ensure_gh_login
+
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -h|--help)    show_usage ;;
             -v|--version) echo "$SCRIPT_VERSION"; exit 0 ;;
-            -V|--verbose) VERBOSE=1; shift ;;
+            -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
+                VERBOSE=1
+                shift
+                ;;
             --repo)
                 REPO="$2"; shift 2 ;;
             --json)

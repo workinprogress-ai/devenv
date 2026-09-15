@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # issue-search.sh - Keyword search across GitHub issue titles and bodies
 # Version: 1.0.0
 # Description: Client-side any-keyword, case-insensitive search over title and
@@ -9,6 +11,7 @@
 # Last Modified: 2026-09-08
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
@@ -32,6 +35,7 @@ FILTER_MILESTONE=""
 OUTPUT_FORMAT="table"
 LIMIT=30
 FETCH_LIMIT=200
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 ALLOW_DEVENV_REPO=0
 
@@ -93,12 +97,6 @@ EOF
     exit 0
 }
 
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
-}
-
 # Escape a term for safe use in a jq regex (output is a jq STRING, not source).
 # Retained for callers/tests; the search itself no longer uses regex — see
 # search_issues (ascii_downcase + contains: substring match, no escaping).
@@ -118,7 +116,7 @@ search_issues() {
     gh_args+=("${repo_spec[@]}")
 
     local filter_string
-    filter_string=$(build_issue_filters --state "$FILTER_STATE" --type "$FILTER_TYPE" --limit "$FETCH_LIMIT") || exit 1
+    filter_string=$(build_issue_filters --state "$FILTER_STATE" --type "$FILTER_TYPE" --limit "$FETCH_LIMIT") || exit "$EXIT_GENERAL_ERROR"
     read -ra filter_args <<< "$filter_string"
     gh_args+=("${filter_args[@]}")
 
@@ -173,7 +171,7 @@ render_results() {
             ;;
         *)
             log_error "Invalid format: $OUTPUT_FORMAT (must be table, json, or simple)"
-            exit 1
+            exit $EXIT_MISUSE
             ;;
     esac
 }
@@ -194,6 +192,7 @@ main() {
                 exit 0
                 ;;
             -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
                 VERBOSE=1
                 shift
                 ;;
@@ -244,7 +243,7 @@ main() {
             -*)
                 log_error "Unknown option: $1"
                 echo "Use --help for usage information"
-                exit 1
+                exit $EXIT_MISUSE
                 ;;
             *)
                 SEARCH_TERMS+=("$1")
@@ -257,7 +256,7 @@ main() {
     if [ ${#SEARCH_TERMS[@]} -eq 0 ]; then
         log_error "At least one search term is required"
         echo "Use --help for usage information"
-        exit 1
+        exit $EXIT_MISUSE
     fi
 
     # Check dependencies
@@ -267,6 +266,12 @@ main() {
     check_target_repo
 
     # Ensure GitHub CLI authentication
+    # Global flags before auth/validation: --help must work without
+    # a valid GitHub session or any positional args.
+    if handle_global_flag "${1:-}"; then
+        exit 0
+    fi
+
     ensure_gh_login
 
     # Run the search and render

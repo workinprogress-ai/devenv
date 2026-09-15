@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # pr-get.sh - Retrieve GitHub PR details as structured JSON
 # Version: 1.0.0
 # Description: Fetches a single PR's data as JSON for scripting and automation
@@ -7,6 +9,7 @@
 # Last Modified: 2026-05-08
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
@@ -24,6 +27,7 @@ script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Retrieve GitHub PR details as s
 
 PR_NUMBER=""
 OUTPUT_FORMAT="json"   # json | pretty
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 ALLOW_DEVENV_REPO=0
 
@@ -96,12 +100,6 @@ EOF
     exit 0
 }
 
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
-}
-
 # Validate PR number is a positive integer
 validate_pr_number() {
     local pr="$1"
@@ -127,7 +125,7 @@ get_pr() {
     if ! json=$(gh pr view "${repo_spec[@]}" "$PR_NUMBER" \
             --json "$DEFAULT_FIELDS" 2>/dev/null); then
         log_error "PR #$PR_NUMBER not found"
-        exit 1
+        exit $EXIT_API_FAILURE
     fi
 
     if [ "$OUTPUT_FORMAT" = "pretty" ]; then
@@ -145,13 +143,15 @@ main() {
     if [ $# -eq 0 ]; then
         log_error "PR number is required"
         echo "Use --help for usage information"
-        exit 1
+        exit $EXIT_MISUSE
     fi
 
-    case "$1" in
-        -h|--help)    show_usage ;;
-        -v|--version) echo "$SCRIPT_VERSION"; exit 0 ;;
-    esac
+
+    # Global flags before auth/validation: --help must work without
+    # a valid GitHub session or any positional args.
+    if handle_global_flag "${1:-}"; then
+        exit 0
+    fi
 
     ensure_gh_login
 
@@ -165,6 +165,7 @@ main() {
                 exit 0
                 ;;
             -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
                 VERBOSE=1
                 shift
                 ;;
@@ -180,18 +181,18 @@ main() {
             -*)
                 log_error "Unknown option: $1"
                 echo "Use --help for usage information"
-                exit 1
+                exit $EXIT_MISUSE
                 ;;
             *)
                 if [ -z "$PR_NUMBER" ]; then
                     if ! validate_pr_number "$1"; then
-                        exit 1
+                        exit "$EXIT_MISUSE"
                     fi
                     PR_NUMBER="$1"
                 else
                     log_error "Unexpected argument: $1"
                     echo "Use --help for usage information"
-                    exit 1
+                    exit $EXIT_MISUSE
                 fi
                 shift
                 ;;
@@ -201,7 +202,7 @@ main() {
     if [ -z "$PR_NUMBER" ]; then
         log_error "PR number is required"
         echo "Use --help for usage information"
-        exit 1
+        exit $EXIT_MISUSE
     fi
 
     check_target_repo

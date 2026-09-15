@@ -82,9 +82,9 @@ teardown() {
   [[ "$output" == *"[ephemeral] would clean 2"* ]]
 }
 
-@test "unknown option exits 1" {
+@test "unknown option exits 2 (canonical invalid-args contract)" {
   run bash "$SCRIPT" --bogus "$WORK_DIR/repo" < /dev/null
-  [ "$status" -eq 1 ]
+  [ "$status" -eq 2 ]
 }
 
 @test "--version prints version" {

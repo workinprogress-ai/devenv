@@ -86,6 +86,27 @@ load ../test_helper
   done
 }
 
+# ---------------------------------------------------------------------------
+# Characterization test (tooling plan Phase 1) — pins issue-comment's current
+# no-source error so Phase 4 body-source conversion is a provable delta.
+# ---------------------------------------------------------------------------
+
+@test "characterization: issue-comment fails when no comment source is provided" {
+  # Stub gh so ensure_gh_login passes and source validation is reached.
+  mkdir -p "$TEST_TEMP_DIR/bin"
+  cat > "$TEST_TEMP_DIR/bin/gh" <<'STUB'
+#!/usr/bin/env bash
+exit 0
+STUB
+  chmod +x "$TEST_TEMP_DIR/bin/gh"
+  # Stdin under bats may be a TTY (interactive: "A comment source is
+  # required") or closed/piped (auto-stdin path: "Refusing empty stdin
+  # body") — both are valid no-source failures with exit 2.
+  PATH="$TEST_TEMP_DIR/bin:$PATH" run bash "$PROJECT_ROOT/tools/scripts/issue-comment.sh" 42
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"A comment source is required"* || "$output" == *"Refusing empty stdin body"* ]]
+}
+
 @test "issue scripts call shared check_dependencies" {
   for script in issue-create.sh issue-list.sh issue-update.sh issue-close.sh issue-select.sh; do
     run grep "check_dependencies" "$PROJECT_ROOT/tools/scripts/$script"

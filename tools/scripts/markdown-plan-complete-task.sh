@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+set -euo pipefail
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 # markdown-plan-complete-task.sh - Mark one or more tasks in an implementation plan as complete or incomplete
 # Version: 1.1.0
 # Description: Toggles the checkbox state of one or more tasks in a markdown
@@ -26,6 +30,7 @@ source "$DEVENV_TOOLS/lib/markdown.bash"
 PLAN_FILE=""
 TASK_NUMBERS=()
 UNCOMPLETE=0
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 
 # ============================================================================
@@ -96,6 +101,7 @@ parse_args() {
                 exit 0
                 ;;
             -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
                 VERBOSE=1
                 shift
                 ;;

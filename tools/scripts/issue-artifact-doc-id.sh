@@ -1,10 +1,13 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # issue-artifact-doc-id.sh - Generate deterministic artifact doc_id values
 # Version: 1.1.0
 # Description: Builds stable doc_id strings for issue artifact comments.
 # Requirements: Bash 4.0+
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
@@ -21,6 +24,7 @@ ARTIFACT_TYPE=""
 SLUG=""
 SOURCE_FILE=""
 REPO_OVERRIDE=""
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 
 show_usage() {
@@ -54,26 +58,6 @@ EOF
     exit 0
 }
 
-invalid_args() {
-    log_error "$1"
-    echo "Use --help for usage information"
-    exit 2
-}
-
-require_option_value() {
-    local option_name="$1"
-    local value="${2:-}"
-    if [ -z "$value" ]; then
-        invalid_args "Missing value for $option_name"
-    fi
-}
-
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
-}
-
 resolve_owner_repo() {
     if [ -n "$REPO_OVERRIDE" ]; then
         echo "$REPO_OVERRIDE"
@@ -105,15 +89,6 @@ main() {
         invalid_args "Required arguments are missing"
     fi
 
-    case "${1:-}" in
-        -h|--help)
-            show_usage
-            ;;
-        -v|--version)
-            echo "$SCRIPT_VERSION"
-            exit 0
-            ;;
-    esac
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -125,6 +100,7 @@ main() {
                 exit 0
                 ;;
             -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
                 VERBOSE=1
                 shift
                 ;;
@@ -194,7 +170,7 @@ main() {
     log_verbose "Using repository: $owner_repo"
 
     local doc_id
-    doc_id=$(generate_artifact_doc_id "$ISSUE_NUMBER" "$ARTIFACT_TYPE" "$SLUG" "$owner_repo") || exit 2
+    doc_id=$(generate_artifact_doc_id "$ISSUE_NUMBER" "$ARTIFACT_TYPE" "$SLUG" "$owner_repo") || exit "$EXIT_MISUSE"
 
     echo "$doc_id"
 }

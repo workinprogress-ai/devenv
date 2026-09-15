@@ -340,3 +340,37 @@ EOF
     [ "$status" -eq 2 ]
     [[ "$output" == *"only valid together with --lint"* ]]
 }
+
+# ---------------------------------------------------------------------------
+# Characterization tests (tooling plan Phase 1) — pin current behavior so
+# Phase 3 changes are provable deltas. Flipped, not deleted.
+# ---------------------------------------------------------------------------
+
+@test "characterization flipped: --lint --require-header accepts planning_repo 'none' (tooling plan Phase 3)" {
+    # fixture body already provides phases/tasks; only the header is inserted
+    sed -i '1i <!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:test-org/test-repo:issue-42:plan:test-slug\nartifact_type: plan\nplanning_repo: none\n-->' "$PLAN_FILE"
+    run bash "$DEVENV_TOOLS/scripts/plan-parse.sh" "$PLAN_FILE" --lint --require-header
+    [ "$status" -eq 0 ]
+    [ "$(echo "$output" | jq -r '.ok')" = "true" ]
+}
+
+@test "plan-parse --summary normalizes planning_repo 'none' to null" {
+    sed -i '1i <!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:test-org/test-repo:issue-42:plan:test-slug\nartifact_type: plan\nissue_number: 42\nplanning_repo: none\n-->\n\n# P\n\n## Phase 1 — A\n\n- [ ] **1.1 [S] t**\n' "$PLAN_FILE"
+    run bash "$DEVENV_TOOLS/scripts/plan-parse.sh" "$PLAN_FILE" --summary
+    [ "$status" -eq 0 ]
+    [ "$(echo "$output" | jq -r '.planning_repo')" = "null" ]
+}
+
+@test "plan-parse --lint --require-header still rejects malformed planning_repo" {
+    sed -i '1i <!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:test-org/test-repo:issue-42:plan:test-slug\nartifact_type: plan\nplanning_repo: not-a-repo\n-->\n\n# P\n\n## Phase 1 — A\n\n- [ ] **1.1 [S] t**\n' "$PLAN_FILE"
+    run bash "$DEVENV_TOOLS/scripts/plan-parse.sh" "$PLAN_FILE" --lint --require-header
+    [ "$status" -eq 1 ]
+    echo "$output" | jq -e '.errors[] | select(test("owner/repo form"))' > /dev/null
+}
+
+@test "characterization: --summary emits planning_repo as JSON string when present" {
+    sed -i '1i <!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:test-org/test-repo:issue-42:plan:test-slug\nartifact_type: plan\nissue_number: 42\nplanning_repo: test-org/planning.main\n-->\n\n# P\n\n## Phase 1 — A\n\n- [ ] **1.1 [S] t**\n' "$PLAN_FILE"
+    run bash "$DEVENV_TOOLS/scripts/plan-parse.sh" "$PLAN_FILE" --summary
+    [ "$status" -eq 0 ]
+    [ "$(echo "$output" | jq -r '.planning_repo')" = "test-org/planning.main" ]
+}

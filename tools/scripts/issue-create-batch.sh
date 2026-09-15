@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # issue-create-batch.sh - Create multiple GitHub issues in one command
 # Version: 1.1.0
 # Description: Preview-first batch creation using repeated --issue entries or a manifest file
@@ -7,6 +9,7 @@
 # Last Modified: 2026-07-19
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
 
@@ -27,6 +30,7 @@ DEFAULT_LABELS=()
 DEFAULT_ASSIGNEES=()
 DEFAULT_BLOCKED_BY=()
 CONTINUE_ON_ERROR=0
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 TEMP_DIR=""
 
@@ -133,12 +137,6 @@ EOF
     exit 0
 }
 
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
-}
-
 cleanup() {
     if [ -n "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then
         rm -rf "$TEMP_DIR"
@@ -149,29 +147,29 @@ trap cleanup EXIT
 check_dependencies() {
     if ! command -v yq >/dev/null 2>&1; then
         log_error "yq is required but not installed"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 
     if ! command -v issue-create >/dev/null 2>&1; then
         log_error "issue-create is required but not found in PATH"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 }
 
 validate_inputs() {
     if [ -n "$MANIFEST_FILE" ] && [ "${#ISSUE_ENTRIES[@]}" -gt 0 ]; then
         log_error "Use either --file or --issue, not both"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 
     if [ -z "$MANIFEST_FILE" ] && [ "${#ISSUE_ENTRIES[@]}" -eq 0 ]; then
         log_error "Provide input via --issue (repeatable) or --file"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 
     if [ -n "$DEFAULT_BODY_FILE" ] && [ ! -f "$DEFAULT_BODY_FILE" ]; then
         log_error "Default body file not found: $DEFAULT_BODY_FILE"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 }
 
@@ -182,23 +180,23 @@ validate_manifest() {
 
     if [ ! -f "$MANIFEST_FILE" ]; then
         log_error "Manifest file not found: $MANIFEST_FILE"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 
     local count
     count=$(yq eval '.issues | length' "$MANIFEST_FILE" 2>/dev/null) || {
         log_error "Invalid manifest format: expected top-level 'issues' array"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     }
 
     if [ "$count" = "0" ]; then
         log_error "Manifest has no issues to create"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 
     if ! [[ "$count" =~ ^[0-9]+$ ]]; then
         log_error "Invalid issues count in manifest"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 }
 
@@ -648,6 +646,7 @@ main() {
                 exit 0
                 ;;
             -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
                 VERBOSE=1
                 shift
                 ;;
@@ -710,7 +709,7 @@ main() {
             *)
                 log_error "Unknown option: $1"
                 echo "Use --help for usage information"
-                exit 1
+                exit "$EXIT_GENERAL_ERROR"
                 ;;
         esac
     done

@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # pr-threads-get.sh - Fetch review threads (inline comments) for a GitHub PR
 # Version: 1.0.0
 # Description: Returns structured JSON of review threads, preserving thread relationships
@@ -7,6 +9,7 @@
 # Last Modified: 2026-05-08
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
@@ -25,6 +28,7 @@ script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Fetch review threads (inline co
 PR_NUMBER=""
 OUTPUT_FORMAT="json"   # json | pretty
 UNRESOLVED_ONLY=1
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 ALLOW_DEVENV_REPO=0
 
@@ -93,12 +97,6 @@ EOF
     exit 0
 }
 
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
-}
-
 validate_pr_number() {
     local pr="$1"
     if [ -z "$pr" ]; then
@@ -130,7 +128,7 @@ fetch_threads() {
             repo_name="${BASH_REMATCH[2]}"
         else
             log_error "Cannot determine repository owner/name. Set GITHUB_REPO or run inside a git repo with a GitHub remote."
-            exit 1
+            exit "$EXIT_GENERAL_ERROR"
         fi
     fi
 
@@ -187,7 +185,7 @@ query($owner: String!, $repo: String!, $pr: Int!, $cursor: String) {
 
         if [ -z "$response" ]; then
             log_error "GraphQL query returned empty response"
-            exit 1
+            exit "$EXIT_GENERAL_ERROR"
         fi
 
         # Check for errors in the response
@@ -195,7 +193,7 @@ query($owner: String!, $repo: String!, $pr: Int!, $cursor: String) {
         errors=$(echo "$response" | jq -r '.errors // empty' 2>/dev/null || echo "")
         if [ -n "$errors" ]; then
             log_error "GraphQL error: $errors"
-            exit 1
+            exit "$EXIT_GENERAL_ERROR"
         fi
 
         local page_threads
@@ -243,13 +241,15 @@ main() {
     if [ $# -eq 0 ]; then
         log_error "PR number is required"
         echo "Use --help for usage information"
-        exit 1
+        exit $EXIT_MISUSE
     fi
 
-    case "$1" in
-        -h|--help)    show_usage ;;
-        -v|--version) echo "$SCRIPT_VERSION"; exit 0 ;;
-    esac
+
+    # Global flags before auth/validation: --help must work without
+    # a valid GitHub session or any positional args.
+    if handle_global_flag "${1:-}"; then
+        exit 0
+    fi
 
     ensure_gh_login
 
@@ -263,6 +263,7 @@ main() {
                 exit 0
                 ;;
             -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
                 VERBOSE=1
                 shift
                 ;;
@@ -281,7 +282,7 @@ main() {
             -*)
                 log_error "Unknown option: $1"
                 echo "Use --help for usage information"
-                exit 1
+                exit $EXIT_MISUSE
                 ;;
             *)
                 if [ -z "$PR_NUMBER" ]; then
@@ -289,7 +290,7 @@ main() {
                 else
                     log_error "Unexpected argument: $1"
                     echo "Use --help for usage information"
-                    exit 1
+                    exit $EXIT_MISUSE
                 fi
                 shift
                 ;;
@@ -299,7 +300,7 @@ main() {
     if [ -z "$PR_NUMBER" ]; then
         log_error "PR number is required"
         echo "Use --help for usage information"
-        exit 1
+        exit $EXIT_MISUSE
     fi
 
     validate_pr_number "$PR_NUMBER"

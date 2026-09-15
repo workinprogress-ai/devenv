@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # issue-comment-update.sh - Replace the body of an existing GitHub issue comment
 # Version: 1.0.0
 # Description: Updates a comment identified by its numeric ID (as returned by
@@ -6,14 +8,16 @@
 # Requirements: Bash 4.0+, gh CLI, jq
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"
+source "$DEVENV_TOOLS/lib/body-source.bash"
 
-readonly SCRIPT_VERSION="1.0.0"
+readonly SCRIPT_VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
 script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Replace the body of an existing GitHub issue comment"
@@ -26,6 +30,7 @@ COMMENT_ID=""
 COMMENT_BODY=""
 COMMENT_FILE=""
 DRY_RUN=0
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 ALLOW_DEVENV_REPO=0
 
@@ -56,7 +61,8 @@ Options:
 
 Comment Source (one required):
     -b, --body TEXT             New comment text (inline)
-    -f, --body-file FILE        Read new comment body from file (markdown)
+    -f, --body-file FILE        Read new comment body from file (markdown; '-'
+                                reads stdin; piped stdin with no flag is auto-read)
 
 Environment Variables:
     GITHUB_REPO                 Repository in format owner/repo (default: current repo)
@@ -78,23 +84,29 @@ EOF
     exit 0
 }
 
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
-}
-
 # Validate that the comment exists.  Exits on 404.
 validate_comment_exists() {
     log_verbose "Checking comment $COMMENT_ID exists"
-    check_issue_comment_exists "$COMMENT_ID" || exit 1
+    check_issue_comment_exists "$COMMENT_ID" || exit "$EXIT_GENERAL_ERROR"
 }
 
 # Replace the comment body
 update_comment() {
     local body
     if [ -n "$COMMENT_FILE" ]; then
-        body=$(cat "$COMMENT_FILE")
+        if [ "$COMMENT_FILE" = "-" ]; then
+            if body_source_stdin_is_tty; then
+                log_error "--body-file - requires piped stdin (refusing to read the terminal)"
+                exit "$EXIT_GENERAL_ERROR"
+            fi
+            body=$(cat)
+            if [ -z "$(printf '%s' "$body" | tr -d '[:space:]')" ]; then
+                log_error "Refusing empty stdin body (pipe content or use --body/--body-file)"
+                exit "$EXIT_GENERAL_ERROR"
+            fi
+        else
+            body=$(cat "$COMMENT_FILE")
+        fi
     else
         body="$COMMENT_BODY"
     fi
@@ -108,7 +120,7 @@ update_comment() {
     log_verbose "Updating comment $COMMENT_ID"
 
     if ! update_issue_comment "$COMMENT_ID" "$body"; then
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 
     log_info "Comment $COMMENT_ID updated"
@@ -122,13 +134,15 @@ main() {
     if [ $# -eq 0 ]; then
         log_error "Comment ID is required"
         echo "Use --help for usage information"
-        exit 1
+        exit $EXIT_MISUSE
     fi
 
-    case "$1" in
-        -h|--help)    show_usage ;;
-        -v|--version) echo "$SCRIPT_VERSION"; exit 0 ;;
-    esac
+
+    # Global flags before auth/validation: --help must work without
+    # a valid GitHub session or any positional args.
+    if handle_global_flag "${1:-}"; then
+        exit 0
+    fi
 
     ensure_gh_login
 
@@ -142,6 +156,7 @@ main() {
                 exit 0
                 ;;
             -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
                 VERBOSE=1
                 shift
                 ;;
@@ -150,15 +165,20 @@ main() {
                 shift
                 ;;
             -b|--body)
+                require_option_value "-b" "${2:-}"
                 COMMENT_BODY="$2"
                 shift 2
                 ;;
             -f|--body-file)
-                if [ ! -f "$2" ]; then
+                require_option_value "-f" "${2:-}"
+                if [ "$2" = "-" ]; then
+                    COMMENT_FILE="-"
+                elif [ ! -f "$2" ]; then
                     log_error "File not found: $2"
-                    exit 1
+                    exit $EXIT_API_FAILURE
+                else
+                    COMMENT_FILE="$2"
                 fi
-                COMMENT_FILE="$2"
                 shift 2
                 ;;
             --devenv)
@@ -174,18 +194,18 @@ main() {
             -*)
                 log_error "Unknown option: $1"
                 echo "Use --help for usage information"
-                exit 1
+                exit $EXIT_MISUSE
                 ;;
             *)
                 if [ -z "$COMMENT_ID" ]; then
                     if ! validate_comment_id "$1"; then
-                        exit 1
+                        exit "$EXIT_GENERAL_ERROR"
                     fi
                     COMMENT_ID="$1"
                 else
                     log_error "Unexpected argument: $1"
                     echo "Use --help for usage information"
-                    exit 1
+                    exit $EXIT_MISUSE
                 fi
                 shift
                 ;;
@@ -195,23 +215,35 @@ main() {
     if [ -z "$COMMENT_ID" ]; then
         log_error "Comment ID is required"
         echo "Use --help for usage information"
-        exit 1
+        exit $EXIT_MISUSE
     fi
 
     local sources=0
     [ -n "$COMMENT_BODY" ] && sources=$((sources + 1))
     [ -n "$COMMENT_FILE" ] && sources=$((sources + 1))
 
-    if [ "$sources" -eq 0 ]; then
-        log_error "A comment source is required: --body or --body-file"
-        echo "Use --help for usage information"
-        exit 1
-    fi
-
     if [ "$sources" -gt 1 ]; then
         log_error "Only one of --body or --body-file may be specified"
         echo "Use --help for usage information"
-        exit 1
+        exit $EXIT_MISUSE
+    fi
+
+    if [ "$sources" -eq 0 ]; then
+        # No explicit source: piped stdin auto-reads (shared body-source
+        # contract); empty/closed stdin is a hard error.
+        if ! body_source_stdin_is_tty; then
+            local resolved
+            if ! resolved=$(body_source_resolve ""); then
+                echo "Use --help for usage information"
+                exit $EXIT_MISUSE
+            fi
+            COMMENT_BODY="$resolved"
+            log_verbose "No source flag; body read from piped stdin"
+        else
+            log_error "A comment source is required: --body or --body-file"
+            echo "Use --help for usage information"
+            exit $EXIT_MISUSE
+        fi
     fi
 
     check_target_repo

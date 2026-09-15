@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # issue-label-create.sh - Create (or idempotently ensure) an issue label
 # Version: 1.0.0
 # Description: Creates a GitHub issue label with name, color, description.
@@ -10,6 +12,7 @@
 # Last Modified: 2026-09-08
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
@@ -32,6 +35,7 @@ LABEL_DESCRIPTION=""
 SEED=0
 UPDATE=0
 DRY_RUN=0
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 ALLOW_DEVENV_REPO=0
 
@@ -80,12 +84,6 @@ Examples:
 
 EOF
     exit 0
-}
-
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
 }
 
 # Ensure a single label exists (create, or skip/update per flags).
@@ -140,14 +138,14 @@ seed_from_config() {
     local config="${DEVENV_TOOLS}/config/labels-config.yml"
     if [ ! -f "$config" ]; then
         log_error "Seed config not found: $config"
-        exit 1
+        exit $EXIT_API_FAILURE
     fi
 
     local count
     count=$(yq '.labels | length' "$config")
     if [ "$count" = "0" ] || [ -z "$count" ] || [ "$count" = "null" ]; then
         log_error "No labels defined in $config"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 
     log_info "Seeding $count labels from $(basename "$config")"
@@ -156,7 +154,7 @@ seed_from_config() {
         name=$(yq ".labels[$i].name" "$config")
         color=$(yq ".labels[$i].color // \"\"" "$config")
         description=$(yq ".labels[$i].description // \"\"" "$config")
-        ensure_label "$name" "$color" "$description" || exit 1
+        ensure_label "$name" "$color" "$description" || exit "$EXIT_GENERAL_ERROR"
     done
     log_info "Seed complete"
 }
@@ -170,7 +168,11 @@ main() {
         case "$1" in
             -h|--help)          show_usage ;;
             -v|--version)       echo "$SCRIPT_VERSION"; exit 0 ;;
-            -V|--verbose)       VERBOSE=1; shift ;;
+            -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
+                VERBOSE=1
+                shift
+                ;;
             -n|--dry-run)       DRY_RUN=1; shift ;;
             -c|--color)         LABEL_COLOR="$2"; shift 2 ;;
             -d|--description)   LABEL_DESCRIPTION="$2"; shift 2 ;;
@@ -186,7 +188,7 @@ main() {
                 else
                     log_error "Unknown option: $1"
                     echo "Use --help for usage information"
-                    exit 1
+                    exit $EXIT_MISUSE
                 fi
                 ;;
         esac
@@ -195,15 +197,21 @@ main() {
     # Validate inputs (before any network dependency)
     if [ "$SEED" -eq 0 ] && [ -z "$LABEL_NAME" ]; then
         log_error "Label NAME is required (or use --seed)"
-        exit 1
+        exit $EXIT_MISUSE
     fi
     if [ -n "$LABEL_COLOR" ] && ! [[ "$LABEL_COLOR" =~ ^[0-9a-fA-F]{6}$ ]]; then
         log_error "Invalid color: $LABEL_COLOR (must be 6-digit hex, no '#')"
-        exit 1
+        exit $EXIT_MISUSE
     fi
 
     check_dependencies
     check_target_repo
+    # Global flags before auth/validation: --help must work without
+    # a valid GitHub session or any positional args.
+    if handle_global_flag "${1:-}"; then
+        exit 0
+    fi
+
     ensure_gh_login
 
     if [ "$SEED" -eq 1 ]; then

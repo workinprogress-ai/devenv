@@ -113,6 +113,8 @@ Once the above is gathered, **draft the phase structure — names and one-line d
 > *Verification: code (default) — tests pass, coverage ≥ baseline, build green. For non-code objectives, propose the instrument here (docs: lint + link-check + consistency pass; mechanical: script exit 0 + counts + spot-check diff; runbook: per-stage checks + rollback path) — it must be deterministic, observable, runnable at phase end.*>
 > *Does this structure make sense for what you're building? Any phases to merge, split, or reorder before I fill in the tasks?"*
 
+Present the final confirmation question via the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections): the outline itself (phases + verification line) goes in chat as referenced material, then the choice — structure approved as-is / merge-split-or-reorder (freeform: name the changes) / split Phase N into sub-steps — via `vscode_askQuestions`. Prose follow-up remains open for reshaping the structure conversationally before deciding.
+
 Do **not** propose Phase 1 as "add failing tests for new behaviour" or any equivalent wording. A phase proposal is invalid unless each phase is independently committable — its declared verification gates pass and the phase has a clear standalone deliverable (for code plans: tests pass, coverage does not regress).
 
 Bias toward defining important contracts early, before broad implementation begins. For medium/large work, initial phases should usually lock down the core interfaces, API shapes, message contracts, plugin seams, or persistence boundaries that the rest of the plan depends on. This improves shared understanding and exposes design problems earlier.

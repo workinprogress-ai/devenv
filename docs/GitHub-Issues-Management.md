@@ -467,16 +467,19 @@ issue-get 123 | jq -r '.labels[].name'
 ```bash
 issue-comment ISSUE# --body TEXT
 issue-comment ISSUE# --body-file FILE
+cat notes.md | issue-comment ISSUE#      # piped stdin
 issue-comment ISSUE# --edit
 ```
 
 **`issue-artifact-upsert`** - Deterministically create/update an artifact comment by `doc_id`
 
 ```bash
-issue-artifact-upsert [--issue ISSUE#] [--body TEXT | --body-file FILE] [--dry-run]
+issue-artifact-upsert [--issue ISSUE#] [--body TEXT | --body-file FILE | piped stdin | interactive] [--all] [--dry-run]
 ```
 
 Use this when posting skill artifacts (spike/redesign/design/blueprint/specifications/roadmap/plan) to an issue so re-runs update the same comment instead of creating duplicates.
+
+Body source: `--body`, `--body-file` (use `-` for stdin), piped stdin with no flag, or — interactively — an fzf picker over `.local-artifacts/*.md` (`tmp*.md` excluded unless `--all`).
 
 Key rules:
 

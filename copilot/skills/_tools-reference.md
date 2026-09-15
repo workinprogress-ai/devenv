@@ -15,6 +15,18 @@ Quick reference for all CLI tools used by the skill suite. Skills invoke `tools/
 
 ---
 
+## Markdown body input (shared contract)
+
+Tools that ingest a markdown body (`issue-artifact-upsert`, `issue-comment`, `issue-comment-update`, `issue-create`, `issue-update`, `pr-comment`, `pr-thread-reply`) share one source-resolution contract, implemented in `tools/lib/body-source.bash`:
+
+- **Source flags:** `--body TEXT` or `--body-file FILE` — exactly one. Giving both is an error.
+- **stdin via `-`:** `--body-file -` reads the body from stdin (decision: a literal file named `-` is unreachable through this flag; use `--body` for such content).
+- **Auto-stdin:** when no source flag is given and stdin is **not** a TTY (piped/redirected), the body is read from stdin automatically. Empty, whitespace-only, or closed stdin is a hard error ("refusing empty stdin body") — never a silent no-op and never a hang.
+- **Interactive fallback:** when no source flag is given and stdin **is** a TTY, tools with an interactive picker (currently `issue-artifact-upsert` over `.local-artifacts/`) present it; tools without one error with "a body source is required" — never a hang.
+- **Never pipe nothing:** `tool < /dev/null` on an interactive tool yields the same as `--body ""`-class errors — deterministic, no blocking.
+
+Per-tool entries below reference this section instead of restating the semantics.
+
 ## Issue tools
 
 ### artifact-clean
@@ -100,7 +112,7 @@ Deterministic plan structure parsing.
 plan-parse PLAN_FILE [--structure] [--census] [--anchors] [--summary] [--lint [--require-header]]
 ```
 
-`--structure` (default): phases with tasks and completion state plus the AC checklist as JSON. `--census`: per-phase done/open counts. `--anchors`: file paths mentioned in the plan with existence flags (staleness scans). `--summary`: single-object progress summary — `{plan_file, doc_id, issue_number, planning_repo (header routing fields; null when absent), phases_total, phases_complete, current_phase, tasks_done/open/total, pct_tasks, weighted{done,total,pct}, sized_tasks, open_questions, unchecked_acs}`; size weights S=1 M=2 L=4, missing size counts as M. `--lint`: structural lint — `{errors, warnings, checks, ok}`, exit 1 on errors; checks no-phases, alphabetic task suffixes (`2.1a`), duplicate ids, `## Revision History` presence; warns on empty phases, missing size tokens, numbering gaps. `--lint --require-header`: additionally validates the `DEVENV_ARTIFACT_V1` header (presence, `doc_id` format + first-256 placement, `artifact_type: plan`, `planning_repo` owner/repo form) — **the gate to run before any plan-artifact `issue-artifact-upsert`** (errors block; only explicit user acceptance of a documented deviation bypasses). Use instead of hand-scanning headings, checkboxes, or `Files:` bullets — and instead of hand-counting progress (the `Progress:` snapshot line derives from `--summary`/`--census`).
+`--structure` (default): phases with tasks and completion state plus the AC checklist as JSON. `--census`: per-phase done/open counts. `--anchors`: file paths mentioned in the plan with existence flags (staleness scans). `--summary`: single-object progress summary — `{plan_file, doc_id, issue_number, planning_repo (header routing fields; null when absent or none), phases_total, phases_complete, current_phase, tasks_done/open/total, pct_tasks, weighted{done,total,pct}, sized_tasks, open_questions, unchecked_acs}`; size weights S=1 M=2 L=4, missing size counts as M. `--lint`: structural lint — `{errors, warnings, checks, ok}`, exit 1 on errors; checks no-phases, alphabetic task suffixes (`2.1a`), duplicate ids, `## Revision History` presence; warns on empty phases, missing size tokens, numbering gaps. `--lint --require-header`: additionally validates the `DEVENV_ARTIFACT_V1` header (presence, `doc_id` format + first-256 placement, `artifact_type: plan`, `planning_repo` owner/repo form or `none` — the sanctioned ungoverned-work sentinel) — **the gate to run before any plan-artifact `issue-artifact-upsert`** (errors block; only explicit user acceptance of a documented deviation bypasses). Use instead of hand-scanning headings, checkboxes, or `Files:` bullets — and instead of hand-counting progress (the `Progress:` snapshot line derives from `--summary`/`--census`).
 
 Examples:
 
@@ -211,7 +223,7 @@ issue-search --format json reservation TTL
 
 ### issue-comment
 
-Add a comment to an issue (also works on PRs via issue number).
+Add a comment to an issue (also works on PRs via issue number). Body source per the [markdown body input](#markdown-body-input-shared-contract) contract.
 
 ```
 issue-comment ISSUE_NUMBER (--body TEXT | --body-file FILE | --edit)
@@ -257,7 +269,7 @@ issue-comment-list 42 --full | jq -r '.[0].id'
 
 ### issue-comment-update
 
-Replace an existing issue comment by comment ID.
+Replace an existing issue comment by comment ID. Body source per the [markdown body input](#markdown-body-input-shared-contract) contract.
 
 ```
 issue-comment-update COMMENT_ID (--body TEXT | --body-file FILE) [--repo OWNER/REPO] [--dry-run]
@@ -280,12 +292,15 @@ issue-comment-update 123456789 --body-file updated-artifact.md
 Create or update an issue-comment artifact. Automatically extracts `doc_id` from the artifact body header (first 256 characters) and **stamps `updated_at_utc` to the current UTC time** inside the `DEVENV_ARTIFACT_V1` block before publishing.
 
 ```
-issue-artifact-upsert --issue N (--body TEXT | --body-file FILE) [--repo OWNER/REPO] [--dry-run] [--no-stamp]
+issue-artifact-upsert [--issue N] (--body TEXT | --body-file FILE | piped stdin | interactive) [--all] [--repo OWNER/REPO] [--dry-run] [--no-stamp]
 ```
+
+Body source (per the [markdown body input](#markdown-body-input-shared-contract) contract): `--body TEXT`, `--body-file FILE` (use `-` for stdin), piped stdin with no flag, or — when stdin is a TTY and no flag is given — an **interactive fzf picker over `.local-artifacts/*.md`** resolved from the git repo root (`tmp*.md` excluded unless `--all`; empty directory errors).
 
 Key flags:
 
 - `--no-stamp` — publish byte-exact without rewriting `updated_at_utc`
+- `--all` — interactive list includes `tmp*.md` (ephemeral files are excluded by default)
 
 The artifact file/body must include `doc_id: <value>` line in the first 256 characters.
 
@@ -374,7 +389,7 @@ issue-artifact-select --issue 42 --doc-id "$DOC_ID" --format url
 
 ### issue-update
 
-Update fields on an existing issue.
+Update fields on an existing issue. Body source per the [markdown body input](#markdown-body-input-shared-contract) contract (piped stdin becomes the new body when no other update is given).
 
 ```
 issue-update ISSUE_NUMBER [--title TITLE] [--body TEXT] [--body-file FILE]
@@ -402,7 +417,7 @@ issue-update 42 --state closed
 
 ### issue-create
 
-Create a new issue, optionally from a template.
+Create a new issue, optionally from a template. Body source per the [markdown body input](#markdown-body-input-shared-contract) contract (auto-stdin applies with `--no-interactive` when no body was given).
 
 Wrapper policy:
 
@@ -655,7 +670,7 @@ pr-diff --base master --head my-feature-branch
 
 ### pr-comment
 
-Add a top-level conversation comment to a PR (not an inline review comment).
+Add a top-level conversation comment to a PR (not an inline review comment). Body source per the [markdown body input](#markdown-body-input-shared-contract) contract.
 
 ```
 pr-comment PR_NUMBER (--body TEXT | --body-file FILE | --edit)
@@ -777,7 +792,7 @@ pr-threads-get 99 | jq -r '.[0].comments[0].body'
 
 ### pr-thread-reply
 
-Reply to an existing inline review comment.
+Reply to an existing inline review comment. Body source per the [markdown body input](#markdown-body-input-shared-contract) contract.
 
 ```
 pr-thread-reply PR_NUMBER --comment-id COMMENT_ID (--body TEXT | --body-file FILE | --edit)

@@ -413,6 +413,8 @@ Suggested issue attack plan:
 
 **Per-decision facilitation** (one at a time):
 
+The template below demonstrates the *content* of a facilitation turn. Present it per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections): the Decision/Evidence/trade-off narrative goes in chat; the bounded choice itself (options + recommendation) is presented via the structured interview (`vscode_askQuestions`) — options as selectable choices with their trade-offs as descriptions, the recommended one flagged, freeform input allowed for re-grounding or non-enumerable answers. The one-decision-at-a-time rhythm is unchanged.
+
 ```text
 Decision: <short decision title>
 Evidence: <where this appears in plan/issue>

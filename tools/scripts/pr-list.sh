@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # pr-list.sh - List GitHub pull requests with filters
 # Version: 1.0.0
 # Description: Lists pull requests as JSON for scripting and automation
@@ -7,6 +9,7 @@
 # Last Modified: 2026-05-08
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
@@ -29,6 +32,7 @@ BASE_BRANCH=""
 HEAD_BRANCH=""
 LIMIT="30"
 OUTPUT_FORMAT="json"   # json | pretty | table
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 ALLOW_DEVENV_REPO=0
 
@@ -86,12 +90,6 @@ EOF
     exit 0
 }
 
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
-}
-
 # Fetch and output the PR list
 list_prs() {
     local repo_spec
@@ -111,7 +109,7 @@ list_prs() {
     if [ "$OUTPUT_FORMAT" = "table" ]; then
         if ! gh pr list "${gh_args[@]}"; then
             log_error "Failed to list PRs"
-            exit 1
+            exit $EXIT_API_FAILURE
         fi
         return 0
     fi
@@ -119,7 +117,7 @@ list_prs() {
     local json
     if ! json=$(gh pr list "${gh_args[@]}" --json "$DEFAULT_FIELDS" 2>/dev/null); then
         log_error "Failed to list PRs"
-        exit 1
+        exit $EXIT_API_FAILURE
     fi
 
     if [ "$OUTPUT_FORMAT" = "pretty" ]; then
@@ -134,12 +132,16 @@ list_prs() {
 # ============================================================================
 
 main() {
-    case "${1:-}" in
-        -h|--help)    show_usage ;;
-        -v|--version) echo "$SCRIPT_VERSION"; exit 0 ;;
-    esac
+
+
+    # Global flags before auth: --help/--version must work without a
+    # valid GitHub session.
+    if handle_global_flag "${1:-}"; then
+        exit 0
+    fi
 
     ensure_gh_login
+
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -151,6 +153,7 @@ main() {
                 exit 0
                 ;;
             -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
                 VERBOSE=1
                 shift
                 ;;
@@ -185,7 +188,7 @@ main() {
             --limit)
                 if ! [[ "$2" =~ ^[0-9]+$ ]]; then
                     log_error "Invalid limit: $2 (must be numeric)"
-                    exit 1
+                    exit $EXIT_MISUSE
                 fi
                 LIMIT="$2"
                 shift 2
@@ -198,12 +201,12 @@ main() {
             -*)
                 log_error "Unknown option: $1"
                 echo "Use --help for usage information"
-                exit 1
+                exit $EXIT_MISUSE
                 ;;
             *)
                 log_error "Unexpected argument: $1"
                 echo "Use --help for usage information"
-                exit 1
+                exit $EXIT_MISUSE
                 ;;
         esac
     done
@@ -213,7 +216,7 @@ main() {
         open|closed|merged|all) ;;
         *)
             log_error "Invalid state: $STATE (must be open, closed, merged, or all)"
-            exit 1
+            exit $EXIT_MISUSE
             ;;
     esac
 

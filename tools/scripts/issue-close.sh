@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # issue-close.sh - Close or reopen GitHub issues
 # Version: 1.0.0
 # Description: Close or reopen issues with optional comment and reason
@@ -7,6 +9,7 @@
 # Last Modified: 2026-01-01
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
@@ -28,6 +31,7 @@ ACTION="close"
 COMMENT=""
 REASON=""
 DRY_RUN=0
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 ALLOW_DEVENV_REPO=0
 
@@ -83,12 +87,6 @@ Examples:
 
 EOF
     exit 0
-}
-
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
 }
 
 # Verify issue exists
@@ -175,7 +173,7 @@ main() {
     if [ $# -eq 0 ]; then
         log_error "At least one issue number is required"
         echo "Use --help for usage information"
-        exit 1
+        exit $EXIT_MISUSE
     fi
     
     # Check for help/version first
@@ -190,6 +188,12 @@ main() {
     esac
     
     # Ensure GitHub CLI authentication
+    # Global flags before auth/validation: --help must work without
+    # a valid GitHub session or any positional args.
+    if handle_global_flag "${1:-}"; then
+        exit 0
+    fi
+
     ensure_gh_login
     
     # Check if first arg is an action
@@ -208,6 +212,7 @@ main() {
                 exit 0
                 ;;
             -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
                 VERBOSE=1
                 shift
                 ;;
@@ -228,7 +233,7 @@ main() {
                 selected_issues=$("$PROJECT_TOOLS/issue-select" --state "$state_filter" --multi)
                 if [ -z "$selected_issues" ]; then
                     log_error "No issue selected"
-                    exit 1
+                    exit "$EXIT_GENERAL_ERROR"
                 fi
                 
                 # Read selected issues into array
@@ -259,7 +264,7 @@ main() {
                 else
                     log_error "Unknown option or invalid issue number: $1"
                     echo "Use --help for usage information"
-                    exit 1
+                    exit $EXIT_MISUSE
                 fi
                 ;;
         esac
@@ -268,13 +273,13 @@ main() {
     # Validate required arguments
     if [ ${#ISSUE_NUMBERS[@]} -eq 0 ]; then
         log_error "At least one issue number is required"
-        exit 1
+        exit $EXIT_MISUSE
     fi
     
     # Validate reason only applies to close
     if [ -n "$REASON" ] && [ "$ACTION" != "close" ]; then
         log_error "--reason can only be used with close action"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
     
     # Check dependencies
@@ -285,7 +290,7 @@ main() {
     
     # Process the issues
     if ! process_issues; then
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 }
 

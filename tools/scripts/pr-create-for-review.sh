@@ -1,4 +1,7 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+source "$DEVENV_TOOLS/lib/error-handling.bash"
 
 ################################################################################
 # pr-create-for-review.sh
@@ -68,7 +71,7 @@ explode() {
     delete_branch "$SOURCE_BRANCH" origin &>/dev/null || true
   fi
   cd - &>/dev/null || true
-  exit 1
+  exit "$EXIT_GENERAL_ERROR"
 }
 
 random_name() { uuidgen | cut -c1-8; }
@@ -96,7 +99,7 @@ select_commit() {
 PR_DESCRIPTION="${1:-}"
 if [ -z "$PR_DESCRIPTION" ]; then
   echo "Usage: $(basename "$0") <PR_DESCRIPTION> [REPO_DIR] [FROM_COMMIT] [TO_COMMIT]" >&2
-  exit 1
+  exit $EXIT_MISUSE
 fi
 
 REPO_DIR="${2:-$(pwd)}"

@@ -162,7 +162,7 @@ One of three verdicts, each a valid ending:
 
 "Pretty sure" is a lead strength, not a verdict. There is deliberately no LIKELY verdict.
 
-Write the report to the target repo root as `bug-hunt-<topic>.md` (numbered when multiples accumulate) — offer first, show draft, wait for confirmation. Use the [report template](./references/report-template.md). Neutral voice in the file.
+Write the report to the target repo's `.local-artifacts/` folder (the [standard local markdown folder](../../_conventions.md#standard-local-markdown-folder-local-artifacts)) as `bug-hunt-<topic>.md` (numbered when multiples accumulate) — offer first, show draft, wait for confirmation. Use the [report template](./references/report-template.md). Neutral voice in the file.
 
 **Verdict challenge.** The user may challenge a NOT-FOUND verdict ONCE. Rework the oracle from their new observations and run a second pass. A second NOT-FOUND stands; re-challenging requires new evidence, not insistence. A **strong-lead INCONCLUSIVE** upgrades differently: if the user can supply the missing discriminator, run that specific check first.
 

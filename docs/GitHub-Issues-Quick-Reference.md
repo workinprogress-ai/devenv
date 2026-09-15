@@ -108,6 +108,9 @@ issue-artifact-upsert \
 
 issue-artifact-upsert --issue 123 \
     --body-file spike-001-topic.md --dry-run
+
+cat spike-001-topic.md | issue-artifact-upsert --issue 123   # piped stdin
+issue-artifact-upsert                                        # interactive picker over .local-artifacts/
 ```
 
 **Rules:**

@@ -2,6 +2,8 @@
 # Wrapper to run Terraform plan with sensible defaults and DigitalOcean token wiring
 
 set -euo pipefail
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 # shellcheck source=lib/error-handling.bash
 source "$DEVENV_TOOLS/lib/error-handling.bash"

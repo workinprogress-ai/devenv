@@ -1,4 +1,7 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+source "$DEVENV_TOOLS/lib/error-handling.bash"
 # create-script.sh - Create a new script from template
 # Version: 1.0.0
 # Description: Creates a new shell script from the standard template

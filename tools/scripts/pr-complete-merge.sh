@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 # Name: pr-complete-merge.sh
 # Purpose: Complete an existing PR from the current branch -> target branch,
@@ -15,7 +17,7 @@ source "$DEVENV_TOOLS/lib/issue-operations.bash"
 
 
 
-explode() { echo "Error: $1" >&2; exit 1; }
+explode() { echo "Error: $1" >&2; exit "$EXIT_GENERAL_ERROR"; }
 
 TARGET_BRANCH="master"
 FORCE="false"
@@ -36,7 +38,7 @@ REPO_DIR="${3:-$(pwd)}"
 
 if [ -z "${ISSUE_ID:-}" ] || [ -z "${COMMIT_MESSAGE_RAW:-}" ]; then
   echo "Usage: pr-complete-merge.sh [--force] <ISSUE_ID | --select | --no-issue-id> \"<CommitMessage>\" [REPO_DIR]" >&2
-  exit 1
+  exit $EXIT_MISUSE
 fi
 
 # Resolve --select

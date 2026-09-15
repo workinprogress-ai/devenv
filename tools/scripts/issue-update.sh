@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # issue-update.sh - Update GitHub issue fields
 # Version: 1.0.0
 # Description: Update issue title, body, labels, assignees, milestone, and state
@@ -7,13 +9,15 @@
 # Last Modified: 2026-01-01
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"
+source "$DEVENV_TOOLS/lib/body-source.bash"
 
-readonly SCRIPT_VERSION="1.0.0"
+readonly SCRIPT_VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
 
@@ -34,6 +38,7 @@ REMOVE_ASSIGNEES=()
 NEW_MILESTONE=""
 NEW_STATE=""
 DRY_RUN=0
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 ALLOW_DEVENV_REPO=0
 
@@ -60,7 +65,8 @@ Options:
 Updates:
     -t, --title TITLE           Update issue title
     -b, --body TEXT             Update issue body/description
-    -f, --body-file FILE        Read new body from file (markdown)
+    -f, --body-file FILE        Read new body from file (markdown; '-' reads
+                                stdin; piped stdin with no other update is auto-read)
     --type TYPE                Set native issue type: Bug, Feature, Task, or Epic
                                (case-insensitive; legacy aliases accepted)
     --remove-type               Remove the issue type
@@ -105,12 +111,6 @@ EOF
     exit 0
 }
 
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
-}
-
 # Verify issue exists
 verify_issue() {
     local issue_num="$1"
@@ -119,7 +119,7 @@ verify_issue() {
     
     if ! gh issue view "${repo_spec[@]}" "$issue_num" &> /dev/null; then
         log_error "Issue #$issue_num not found"
-        exit 1
+        exit $EXIT_API_FAILURE
     fi
 }
 
@@ -142,7 +142,7 @@ update_issue() {
         log_verbose "Will remove issue type"
     elif [ -n "$NEW_TYPE" ]; then
         local normalized_type
-        normalized_type=$(normalize_issue_type "$NEW_TYPE") || exit 1
+        normalized_type=$(normalize_issue_type "$NEW_TYPE") || exit "$EXIT_GENERAL_ERROR"
         gh_args+=(--type "$normalized_type")
         has_updates=1
         log_verbose "Will set issue type to: $normalized_type"
@@ -154,7 +154,21 @@ update_issue() {
         has_updates=1
         log_verbose "Will update body"
     elif [ -n "$NEW_BODY_FILE" ]; then
-        gh_args+=(--body-file "$NEW_BODY_FILE")
+        if [ "$NEW_BODY_FILE" = "-" ]; then
+            if body_source_stdin_is_tty; then
+                log_error "--body-file - requires piped stdin (refusing to read the terminal)"
+                exit "$EXIT_GENERAL_ERROR"
+            fi
+            local stdin_body
+            stdin_body=$(cat)
+            if [ -z "$stdin_body" ]; then
+                log_error "Refusing empty stdin body (pipe content or use --body/--body-file)"
+                exit "$EXIT_GENERAL_ERROR"
+            fi
+            gh_args+=(--body "$stdin_body")
+        else
+            gh_args+=(--body-file "$NEW_BODY_FILE")
+        fi
         has_updates=1
         log_verbose "Will update body from file: $NEW_BODY_FILE"
     fi
@@ -196,9 +210,22 @@ update_issue() {
     
     # Check if any updates were specified
     if [ "$has_updates" -eq 0 ] && [ -z "$NEW_STATE" ]; then
-        log_error "No updates specified"
-        echo "Use --help for usage information"
-        exit 1
+        # Nothing given: piped stdin auto-reads as the new body (shared
+        # body-source contract); empty/closed stdin is a hard error.
+        if ! body_source_stdin_is_tty; then
+            local resolved
+            if ! resolved=$(body_source_resolve ""); then
+                echo "Use --help for usage information"
+                exit $EXIT_MISUSE
+            fi
+            gh_args+=(--body "$resolved")
+            has_updates=1
+            log_verbose "No body flag; new body read from piped stdin"
+        else
+            log_error "No updates specified"
+            echo "Use --help for usage information"
+            exit $EXIT_MISUSE
+        fi
     fi
     
     # Execute updates via gh issue edit
@@ -251,7 +278,7 @@ update_issue() {
                 ;;
             *)
                 log_error "Invalid state: $NEW_STATE (must be open or closed)"
-                exit 1
+                exit $EXIT_MISUSE
                 ;;
         esac
     fi
@@ -266,7 +293,7 @@ main() {
     if [ $# -eq 0 ]; then
         log_error "Issue number is required"
         echo "Use --help for usage information"
-        exit 1
+        exit $EXIT_MISUSE
     fi
     
     # Check for help/version first
@@ -281,6 +308,12 @@ main() {
     esac
     
     # Ensure GitHub CLI authentication
+    # Global flags before auth/validation: --help must work without
+    # a valid GitHub session or any positional args.
+    if handle_global_flag "${1:-}"; then
+        exit 0
+    fi
+
     ensure_gh_login
     
     # First argument should be issue number (unless it's a flag)
@@ -303,11 +336,12 @@ main() {
                 ISSUE_NUMBER=$("$PROJECT_TOOLS/issue-select.sh" --state all)
                 if [ -z "$ISSUE_NUMBER" ]; then
                     log_error "No issue selected"
-                    exit 1
+                    exit "$EXIT_GENERAL_ERROR"
                 fi
                 shift
                 ;;
             -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
                 VERBOSE=1
                 shift
                 ;;
@@ -316,10 +350,12 @@ main() {
                 shift
                 ;;
             -t|--title)
+                require_option_value "-t" "${2:-}"
                 NEW_TITLE="$2"
                 shift 2
                 ;;
             --type)
+                require_option_value "--type)" "$2"
                 NEW_TYPE="$2"
                 shift 2
                 ;;
@@ -328,15 +364,20 @@ main() {
                 shift
                 ;;
             -b|--body)
+                require_option_value "-b" "${2:-}"
                 NEW_BODY="$2"
                 shift 2
                 ;;
             -f|--body-file)
-                if [ ! -f "$2" ]; then
+                require_option_value "-f" "${2:-}"
+                if [ "$2" = "-" ]; then
+                    NEW_BODY_FILE="-"
+                elif [ ! -f "$2" ]; then
                     log_error "Body file not found: $2"
-                    exit 1
+                    exit $EXIT_API_FAILURE
+                else
+                    NEW_BODY_FILE="$2"
                 fi
-                NEW_BODY_FILE="$2"
                 shift 2
                 ;;
             --add-label)
@@ -356,10 +397,12 @@ main() {
                 shift 2
                 ;;
             -m|--milestone)
+                require_option_value "-m" "${2:-}"
                 NEW_MILESTONE="$2"
                 shift 2
                 ;;
             -s|--state)
+                require_option_value "-s" "${2:-}"
                 NEW_STATE="$2"
                 shift 2
                 ;;
@@ -376,7 +419,7 @@ main() {
                 else
                     log_error "Unknown option: $1"
                     echo "Use --help for usage information"
-                    exit 1
+                    exit $EXIT_MISUSE
                 fi
                 ;;
         esac
@@ -385,7 +428,7 @@ main() {
     # Validate required arguments
     if [ -z "$ISSUE_NUMBER" ]; then
         log_error "Issue number is required"
-        exit 1
+        exit $EXIT_MISUSE
     fi
     
     # Check dependencies

@@ -375,3 +375,60 @@ ensure_label() {
         gh label create "$label" "${repo_spec[@]}" --color "ededed" --description "Automated process" 2>/dev/null || true
     fi
 }
+
+# resolve_target_repo [REPO_OVERRIDE]
+#
+# Single repo-resolution entry point. Resolution order:
+#   1. REPO_OVERRIDE argument (maps a --repo flag)
+#   2. GITHUB_REPO environment variable
+#   3. GH_ORG + current git repo basename
+# Then applies the devenv-repo safety gate (check_target_repo semantics:
+# refuses to operate on the devenv repo itself unless ALLOW_DEVENV_REPO=1
+# or GITHUB_REPO explicitly targets it).
+#
+# On success: exports GH_REPO=<owner>/<repo> and prints the resolved
+# "owner/repo". On refusal: exits (gate behavior). Callers that pass the
+# result to `gh -R` can use the printed value directly.
+resolve_target_repo() {
+    local repo_override="${1:-}"
+    local repo=""
+
+    if [ -n "$repo_override" ]; then
+        repo="$repo_override"
+    elif [ -n "${GITHUB_REPO:-}" ]; then
+        repo="$GITHUB_REPO"
+    elif [ -n "${GH_ORG:-}" ]; then
+        local repo_name
+        repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
+        if [ -n "$repo_name" ]; then
+            repo="${GH_ORG}/${repo_name}"
+        fi
+    fi
+
+    if [ -z "$repo" ]; then
+        log_error "Unable to resolve target repository"
+        log_info "Prefix the command with GITHUB_REPO=<owner>/<repo> or run from within the target repo"
+        exit 1
+    fi
+
+    # Safety gate: reuse check_target_repo semantics by pointing the env at
+    # the resolved repo for the duration of the check. The gate lives in
+    # git-operations.bash — a caller that has not sourced it is a caller that
+    # would silently bypass the devenv-repo protection, so that is a hard
+    # error, never a warning.
+    if ! declare -F check_target_repo > /dev/null; then
+        log_error "resolve_target_repo requires git-operations.bash (safety gate); source it before calling"
+        exit 1
+    fi
+    local saved_github_repo="${GITHUB_REPO:-}"
+    GITHUB_REPO="$repo"
+    check_target_repo
+    if [ -n "$saved_github_repo" ]; then
+        GITHUB_REPO="$saved_github_repo"
+    else
+        unset GITHUB_REPO
+    fi
+
+    export GH_REPO="$repo"
+    printf '%s\n' "$repo"
+}

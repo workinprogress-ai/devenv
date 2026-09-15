@@ -1,10 +1,13 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # issue-artifact-select.sh - Resolve a single issue artifact from issue comments
 # Version: 1.0.0
 # Description: Selects exactly one artifact by doc_id, latest update, or single-match rule.
 # Requirements: Bash 4.0+, jq, issue-artifact-list wrapper on PATH
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
@@ -23,6 +26,7 @@ SELECT_LATEST=0
 REPO_OVERRIDE=""
 OUTPUT_FORMAT="json"   # json | doc-id | comment-id | url
 PRETTY=0
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 
 show_usage() {
@@ -60,40 +64,17 @@ EOF
     exit 0
 }
 
-invalid_args() {
-    log_error "$1"
-    echo "Use --help for usage information"
-    exit 2
-}
-
-require_option_value() {
-    local option_name="$1"
-    local value="${2:-}"
-    if [ -z "$value" ]; then
-        invalid_args "Missing value for $option_name"
-    fi
-}
-
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
-}
-
 main() {
     if [ $# -eq 0 ]; then
         invalid_args "Required arguments are missing"
     fi
 
-    case "${1:-}" in
-        -h|--help)
-            show_usage
-            ;;
-        -v|--version)
-            echo "$SCRIPT_VERSION"
-            exit 0
-            ;;
-    esac
+
+    # Global flags before auth/validation: --help must work without
+    # a valid GitHub session or any positional args.
+    if handle_global_flag "${1:-}"; then
+        exit 0
+    fi
 
     ensure_gh_login
 
@@ -107,6 +88,7 @@ main() {
                 exit 0
                 ;;
             -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
                 VERBOSE=1
                 shift
                 ;;
@@ -154,7 +136,7 @@ main() {
     fi
 
     if ! validate_issue_number "$ISSUE_NUMBER"; then
-        exit 2
+        exit "$EXIT_MISUSE"
     fi
 
     case "$OUTPUT_FORMAT" in
@@ -177,7 +159,7 @@ main() {
     local artifacts
     if ! artifacts=$(issue-artifact-list "${list_args[@]}"); then
         log_error "Failed to list artifacts"
-        exit 4
+        exit "$EXIT_AMBIGUOUS"
     fi
 
     local selected
@@ -187,11 +169,11 @@ main() {
         doc_count=$(echo "$selected" | jq 'length')
         if [ "$doc_count" -eq 0 ]; then
             log_error "No artifact found for doc_id: $DOC_ID"
-            exit 1
+            exit "$EXIT_GENERAL_ERROR"
         fi
         if [ "$doc_count" -gt 1 ]; then
             jq -n --arg action "conflict" --argjson issue_number "$ISSUE_NUMBER" --arg doc_id "$DOC_ID" --argjson matches "$(echo "$selected" | jq '[.[].comment_id]')" '{action:$action, issue_number:$issue_number, doc_id:$doc_id, matches:$matches}'
-            exit 3
+            exit "$EXIT_CONFLICT"
         fi
         selected=$(echo "$selected" | jq '.[0]')
     else
@@ -199,7 +181,7 @@ main() {
         count=$(echo "$artifacts" | jq 'length')
         if [ "$count" -eq 0 ]; then
             log_error "No artifacts matched the requested filters"
-            exit 1
+            exit "$EXIT_GENERAL_ERROR"
         fi
         if [ "$count" -eq 1 ]; then
             selected=$(echo "$artifacts" | jq '.[0]')

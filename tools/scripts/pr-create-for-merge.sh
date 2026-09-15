@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 ################################################################################
 # pr-create-for-merge.sh
@@ -54,7 +56,7 @@ usage() {
   echo "  --reviewer <handle>  Add a reviewer (can be repeated)" >&2
   echo "  --assignee <handle>  Add an assignee (default: @me)" >&2
   echo "  --label <name>       Add a label (can be repeated)" >&2
-  exit 1
+  exit "$EXIT_GENERAL_ERROR"
 }
 
 PR_TITLE=""
@@ -108,7 +110,7 @@ PR_TITLE="${1:-}"
 
 # Read body from file if --body-file was given
 if [ -n "$BODY_FILE" ]; then
-  [ -f "$BODY_FILE" ] || { echo "Error: body file not found: $BODY_FILE" >&2; exit 1; }
+  [ -f "$BODY_FILE" ] || { echo "Error: body file not found: $BODY_FILE" >&2; exit "$EXIT_GENERAL_ERROR"; }
   PR_BODY="$(cat "$BODY_FILE")"
 fi
 
@@ -121,25 +123,25 @@ fi
 
 if [ -n "$ISSUE_NUMBER" ] && [ "$NO_ISSUE" = "true" ]; then
   echo "Error: Cannot specify both --issue and --no-issue." >&2
-  exit 1
+  exit "$EXIT_GENERAL_ERROR"
 fi
 
 if [ -n "$ISSUE_NUMBER" ]; then
   # Validate issue number using library function
   if ! validate_issue_number "$ISSUE_NUMBER"; then
     echo "Error: Issue number must be numeric and positive." >&2
-    exit 1
+    exit $EXIT_MISUSE
   fi
 fi
 
 CC_REGEX='^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert|merge|patch|minor|major)(\([^)]+\))?(!)?: .+'
 if ! [[ "$PR_TITLE" =~ $CC_REGEX ]]; then
   echo "Error: PR title must follow Conventional Commits (e.g., feat(api): add feature)." >&2
-  exit 1
+  exit "$EXIT_GENERAL_ERROR"
 fi
 
-cd "$REPO_DIR" 2>/dev/null || { echo "Failed to change directory to $REPO_DIR" >&2; exit 1; }
-git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "Directory $REPO_DIR is not a git repository." >&2; exit 1; }
+cd "$REPO_DIR" 2>/dev/null || { echo "Failed to change directory to $REPO_DIR" >&2; exit "$EXIT_GENERAL_ERROR"; }
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "Directory $REPO_DIR is not a git repository." >&2; exit "$EXIT_GENERAL_ERROR"; }
 
 # Refuse to open a PR if implementation plan files are present in the repo root
 # or in .local-artifacts/ (the standard home for plan working copies).
@@ -151,18 +153,18 @@ if [ ${#PLAN_FILES[@]} -gt 0 ]; then
     echo "  ${f#./}" >&2
   done
   echo "These are working files and must not be committed. Move the content to the associated GitHub issue, then delete the file(s) before opening a PR." >&2
-  exit 1
+  exit "$EXIT_GENERAL_ERROR"
 fi
 
 if ! git diff-index --quiet HEAD --; then
   echo "There are uncommitted or staged changes." >&2
-  exit 1
+  exit "$EXIT_GENERAL_ERROR"
 fi
 
 CURRENT_BRANCH=${SOURCE_BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 if [[ "$CURRENT_BRANCH" == "review/"* ]]; then
   echo "This script cannot be run on a review/* branch." >&2
-  exit 1
+  exit "$EXIT_GENERAL_ERROR"
 fi
 
 if [ -z "$TARGET_BRANCH" ]; then
@@ -171,11 +173,11 @@ if [ -z "$TARGET_BRANCH" ]; then
 fi
 if ! git show-ref --quiet "refs/remotes/origin/$TARGET_BRANCH"; then
   echo "Target branch origin/$TARGET_BRANCH not found." >&2
-  exit 1
+  exit $EXIT_API_FAILURE
 fi
 if [ "$CURRENT_BRANCH" = "$TARGET_BRANCH" ]; then
   echo "Current branch matches target ($TARGET_BRANCH); switch to a feature branch first." >&2
-  exit 1
+  exit "$EXIT_GENERAL_ERROR"
 fi
 
 # Get repo spec

@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # actions-watch.sh - Follow a GitHub Actions workflow run's live logs
 # Version: 1.0.0
 # Description: Streams live output from a running GitHub Actions workflow run.
@@ -8,6 +10,7 @@
 # Last Modified: 2026-05-16
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
@@ -25,6 +28,7 @@ script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Follow a GitHub Actions workflo
 RUN_ID=""      # optional — auto-detects latest in-progress if omitted
 REPO=""        # owner/repo (required)
 EXIT_STATUS=0  # set to 1 to exit non-zero if the run fails
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 
 # ============================================================================
@@ -63,12 +67,6 @@ EOF
     exit 0
 }
 
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
-}
-
 watch_run() {
     local run_id="$RUN_ID"
 
@@ -102,18 +100,26 @@ watch_run() {
 # ============================================================================
 
 main() {
-    case "${1:-}" in
-        -h|--help)    show_usage ;;
-        -v|--version) echo "$SCRIPT_VERSION"; exit 0 ;;
-    esac
+
+
+    # Global flags before auth: --help/--version must work without a
+    # valid GitHub session.
+    if handle_global_flag "${1:-}"; then
+        exit 0
+    fi
 
     ensure_gh_login
+
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -h|--help)    show_usage ;;
             -v|--version) echo "$SCRIPT_VERSION"; exit 0 ;;
-            -V|--verbose) VERBOSE=1; shift ;;
+            -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
+                VERBOSE=1
+                shift
+                ;;
             --repo)
                 REPO="$2"; shift 2 ;;
             --exit-status)

@@ -1,12 +1,16 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # issue-artifact-list.sh - List issue-comment artifacts with metadata extracted from headers
 # Version: 1.0.0
 # Description: Lists deterministic artifacts published to issue comments.
 # Requirements: Bash 4.0+, gh CLI, jq
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
+source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"
@@ -21,6 +25,7 @@ ARTIFACT_TYPE=""
 REPO_OVERRIDE=""
 OUTPUT_FORMAT="json"   # json | pretty
 FULL_BODY=0
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 
 show_usage() {
@@ -66,45 +71,17 @@ EOF
     exit 0
 }
 
-invalid_args() {
-    log_error "$1"
-    echo "Use --help for usage information"
-    exit 2
-}
-
-require_option_value() {
-    local option_name="$1"
-    local value="${2:-}"
-    if [ -z "$value" ]; then
-        invalid_args "Missing value for $option_name"
-    fi
-}
-
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
-}
-
-api_failure() {
-    log_error "$1"
-    exit 4
-}
-
 main() {
     if [ $# -eq 0 ]; then
         invalid_args "Required arguments are missing"
     fi
 
-    case "${1:-}" in
-        -h|--help)
-            show_usage
-            ;;
-        -v|--version)
-            echo "$SCRIPT_VERSION"
-            exit 0
-            ;;
-    esac
+
+    # Global flags before auth/validation: --help must work without
+    # a valid GitHub session or any positional args.
+    if handle_global_flag "${1:-}"; then
+        exit 0
+    fi
 
     ensure_gh_login
 
@@ -118,6 +95,7 @@ main() {
                 exit 0
                 ;;
             -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
                 VERBOSE=1
                 shift
                 ;;
@@ -155,18 +133,12 @@ main() {
     fi
 
     if ! validate_issue_number "$ISSUE_NUMBER"; then
-        exit 2
+        exit "$EXIT_MISUSE"
     fi
 
-    if [ -n "$REPO_OVERRIDE" ]; then
-        GITHUB_REPO="$REPO_OVERRIDE"
-    fi
-
-    # gh api accepts no -R/--repo flag; the {owner}/{repo} templates resolve
-    # from gh's native GH_REPO env var (set when GITHUB_REPO is provided).
-    if [ -n "${GITHUB_REPO:-}" ]; then
-        export GH_REPO="$GITHUB_REPO"
-    fi
+    # Single repo-resolution entry point (override > GITHUB_REPO > cwd),
+    # devenv-repo safety gate included; exports GH_REPO for gh api templates.
+    resolve_target_repo "$REPO_OVERRIDE" > /dev/null
 
     local comments_raw
     log_verbose "Fetching comments for issue #$ISSUE_NUMBER"

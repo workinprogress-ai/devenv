@@ -12,17 +12,17 @@ readonly _GIT_OPERATIONS_LOADED=1
 
 # Source dependencies
 # shellcheck disable=SC1091
-if [ -f "$DEVENV_ROOT/tools/lib/error-handling.bash" ]; then
+if [ -f "${DEVENV_ROOT:-}/tools/lib/error-handling.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/error-handling.bash"
 fi
 
 # shellcheck disable=SC1091
-if [ -f "$DEVENV_ROOT/tools/lib/github-helpers.bash" ]; then
+if [ -f "${DEVENV_ROOT:-}/tools/lib/github-helpers.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
 fi
 
 # shellcheck disable=SC1091
-if [ -f "$DEVENV_ROOT/tools/lib/validation.bash" ]; then
+if [ -f "${DEVENV_ROOT:-}/tools/lib/validation.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/validation.bash"
 fi
 

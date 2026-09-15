@@ -97,7 +97,7 @@ teardown() {
 @test "no existing doc_id match creates comment" {
   export MOCK_COMMENTS_JSON='[]'
 
-  run "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
     --issue 42 \
     --body $'<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:org/repo:issue-42:spike:test\n-->'
 
@@ -115,7 +115,7 @@ teardown() {
     }
   ]'
 
-  run "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
     --issue 42 \
     --body $'<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:org/repo:issue-42:spike:test\n-->'
 
@@ -127,7 +127,7 @@ teardown() {
 @test "indented metadata header creates comment" {
   export MOCK_COMMENTS_JSON='[]'
 
-  run "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
     --issue 42 \
     --body $'<!-- DEVENV_ARTIFACT_V1\n doc_id: dv1:org/repo:issue-42:spike:test\n artifact_type: spike\n-->'
 
@@ -142,7 +142,7 @@ teardown() {
     {"id": 202, "html_url": "https://example.test/issues/42#issuecomment-202", "body": "doc_id: dv1:org/repo:issue-42:spike:test"}
   ]'
 
-  run "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
     --issue 42 \
     --body $'doc_id: dv1:org/repo:issue-42:spike:test'
 
@@ -156,7 +156,7 @@ teardown() {
     {"id": 300, "html_url": "https://example.test/issues/42#issuecomment-300", "body": "doc_id: dv1:org/repo:issue-42:spike:other"}
   ]'
 
-  run "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
     --issue 42 \
     --body $'doc_id: dv1:org/repo:issue-42:spike:test'
 
@@ -173,7 +173,7 @@ teardown() {
     }
   ]'
 
-  run "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
     --issue 42 \
     --body $'doc_id: dv1:org/repo:issue-42:spike:test'
 
@@ -184,7 +184,7 @@ teardown() {
 @test "issue number is inferred from doc_id when no explicit issue metadata is present" {
   export MOCK_COMMENTS_JSON='[]'
 
-  run "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
     --body $'<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:org/repo:issue-42:spike:test\n-->'
 
   [ "$status" -eq 0 ]
@@ -195,7 +195,7 @@ teardown() {
 @test "dry-run shows intended action without write" {
   export MOCK_COMMENTS_JSON='[]'
 
-  run "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
     --issue 42 \
     --body $'doc_id: dv1:org/repo:issue-42:spike:test' \
     --dry-run
@@ -203,4 +203,84 @@ teardown() {
   [ "$status" -eq 0 ]
   [ "$(echo "$output" | jq -r '.action')" = "created" ]
   [ "$(echo "$output" | jq -r 'has("comment_id")')" = "false" ]
+}
+
+# ---------------------------------------------------------------------------
+# Characterization tests (tooling plan Phase 1) — pin current behavior so
+# Phase 2+ body-source changes are provable deltas. Flipped, not deleted.
+# ---------------------------------------------------------------------------
+
+@test "characterization: upsert fails with exit 2 when no comment source is provided" {
+  export MOCK_COMMENTS_JSON='[]'
+
+  # stdin is isolated from the bats TTY: with no source flag and non-TTY
+  # stdin the tool auto-reads, gets EOF, and errors on the empty body.
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" --issue 42
+
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"Refusing empty stdin body"* ]]
+}
+
+@test "characterization: upsert --body-file reads body from file (dry-run)" {
+  export MOCK_COMMENTS_JSON='[]'
+  printf '<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:org/repo:issue-42:plan:filetest\nartifact_type: plan\nissue_number: 42\n-->\n\nbody text\n' > "$TEST_TEMP_DIR/body.md"
+
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+    --issue 42 \
+    --body-file "$TEST_TEMP_DIR/body.md" \
+    --dry-run
+
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq -r '.action')" = "created" ]
+}
+
+@test "characterization: upsert with both --body and --body-file exits 2" {
+  export MOCK_COMMENTS_JSON='[]'
+  printf 'doc_id: dv1:org/repo:issue-42:spike:test\n' > "$TEST_TEMP_DIR/body.md"
+
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+    --issue 42 \
+    --body $'doc_id: dv1:org/repo:issue-42:spike:test' \
+    --body-file "$TEST_TEMP_DIR/body.md"
+
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"Only one of"* ]]
+}
+
+# ---------------------------------------------------------------------------
+# Tech-debt plan F002 lock: the create path must emit comment_id and exit 0.
+# ---------------------------------------------------------------------------
+
+@test "create path emits comment_id and exits 0 (F002 lock)" {
+  mkdir -p "$TEST_TEMP_DIR/bin"
+  cat > "$TEST_TEMP_DIR/bin/gh" <<'GH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = "auth" ]; then exit 0; fi
+if [ "${1:-}" != "api" ]; then exit 0; fi
+shift
+method="GET"
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -X) method="$2"; shift 2 ;;
+    -f|--raw-field) shift 2 ;;
+    --paginate) shift ;;
+    repos/*) endpoint="$1"; shift ;;
+    *) shift ;;
+  esac
+done
+if [ "$method" = "GET" ]; then printf '[]'; exit 0; fi
+printf '{"id": 777, "html_url": "https://example.test/issues/42#issuecomment-777"}'
+exit 0
+GH
+  chmod +x "$TEST_TEMP_DIR/bin/gh"
+
+  run env -u GITHUB_REPO -u GH_REPO PATH="$TEST_TEMP_DIR/bin:$PATH" \
+    bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+    --issue 42 \
+    --body $'doc_id: dv1:org/repo:issue-42:plan:createlock\nartifact_type: plan\nissue_number: 42'
+
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq -r '.action')" = "created" ]
+  [ "$(echo "$output" | jq -r '.comment_id')" = "777" ]
 }

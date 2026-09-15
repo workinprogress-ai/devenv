@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # issue-groom.sh - Interactive issue grooming and workflow management
 # Version: 1.0.0
 # Description: Interactive wizard for grooming issues through TBD → To Groom → Ready workflow
@@ -7,6 +9,7 @@
 # Last Modified: 2026-01-01
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
@@ -24,6 +27,7 @@ readonly SCRIPT_NAME
 
 PROJECT_NAME=""
 MILESTONE=""
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 ALLOW_DEVENV_REPO=0
 ISSUE_TYPES=()
@@ -92,12 +96,6 @@ EOF
     exit 0
 }
 
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
-}
-
 # Get issues that need grooming - uses library function
 get_grooming_issues() {
     log_info "Fetching issues for grooming..."
@@ -161,11 +159,11 @@ groom_issue() {
             3)
                 # Open editor for body
                 local tmpfile
-                tmpfile=$(mktemp)
+                create_temp_file tmpfile issue-groom
                 gh issue view "${repo_spec[@]}" "$issue_num" --json body -q .body > "$tmpfile"
                 "${EDITOR:-nano}" "$tmpfile"
                 gh issue edit "${repo_spec[@]}" "$issue_num" --body-file "$tmpfile"
-                rm "$tmpfile"
+                log_info "Updated description"
                 log_info "Updated description"
                 ;;
             4)
@@ -343,6 +341,12 @@ main() {
     done
     
     # Ensure GitHub CLI authentication
+    # Global flags before auth/validation: --help must work without
+    # a valid GitHub session or any positional args.
+    if handle_global_flag "${1:-}"; then
+        exit 0
+    fi
+
     ensure_gh_login
     
     # Continue parsing other arguments
@@ -356,6 +360,7 @@ main() {
                 exit 0
                 ;;
             -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
                 VERBOSE=1
                 shift
                 ;;
@@ -377,7 +382,7 @@ main() {
             *)
                 log_error "Unknown option: $1"
                 echo "Use --help for usage information"
-                exit 1
+                exit $EXIT_MISUSE
                 ;;
         esac
     done

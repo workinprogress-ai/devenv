@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # pr-thread-resolve.sh - Mark a PR review thread as resolved
 # Version: 1.0.0
 # Description: Resolves an unresolved review thread using the GitHub GraphQL API
@@ -7,6 +9,7 @@
 # Last Modified: 2026-05-08
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
@@ -24,6 +27,7 @@ script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Mark a PR review thread as reso
 
 THREAD_ID=""
 DRY_RUN=0
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 ALLOW_DEVENV_REPO=0
 
@@ -70,12 +74,6 @@ EOF
     exit 0
 }
 
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
-}
-
 resolve_thread() {
     if [ "$DRY_RUN" -eq 1 ]; then
         log_info "[DRY RUN] Would resolve review thread: $THREAD_ID"
@@ -100,14 +98,14 @@ mutation($threadId: ID!) {
         -f threadId="$THREAD_ID" \
         2>&1) || {
         log_error "Failed to resolve thread: $response"
-        exit 1
+        exit $EXIT_API_FAILURE
     }
 
     local errors
     errors=$(echo "$response" | jq -r '.errors // empty' 2>/dev/null || echo "")
     if [ -n "$errors" ]; then
         log_error "GraphQL error resolving thread: $errors"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 
     local is_resolved
@@ -117,7 +115,7 @@ mutation($threadId: ID!) {
         log_info "Thread resolved: $THREAD_ID"
     else
         log_error "Thread may not have resolved correctly (isResolved=$is_resolved)"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 }
 
@@ -129,13 +127,15 @@ main() {
     if [ $# -eq 0 ]; then
         log_error "THREAD_ID is required"
         echo "Use --help for usage information"
-        exit 1
+        exit $EXIT_MISUSE
     fi
 
-    case "$1" in
-        -h|--help)    show_usage ;;
-        -v|--version) echo "$SCRIPT_VERSION"; exit 0 ;;
-    esac
+
+    # Global flags before auth/validation: --help must work without
+    # a valid GitHub session or any positional args.
+    if handle_global_flag "${1:-}"; then
+        exit 0
+    fi
 
     ensure_gh_login
 
@@ -143,13 +143,17 @@ main() {
         case "$1" in
             -h|--help)    show_usage ;;
             -v|--version) echo "$SCRIPT_VERSION"; exit 0 ;;
-            -V|--verbose) VERBOSE=1; shift ;;
+            -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
+                VERBOSE=1
+                shift
+                ;;
             -n|--dry-run) DRY_RUN=1; shift ;;
             --devenv)     ALLOW_DEVENV_REPO=1; shift ;;
             -*)
                 log_error "Unknown option: $1"
                 echo "Use --help for usage information"
-                exit 1
+                exit $EXIT_MISUSE
                 ;;
             *)
                 if [ -z "$THREAD_ID" ]; then
@@ -157,7 +161,7 @@ main() {
                 else
                     log_error "Unexpected argument: $1"
                     echo "Use --help for usage information"
-                    exit 1
+                    exit $EXIT_MISUSE
                 fi
                 shift
                 ;;
@@ -167,7 +171,7 @@ main() {
     if [ -z "$THREAD_ID" ]; then
         log_error "THREAD_ID is required"
         echo "Use --help for usage information"
-        exit 1
+        exit $EXIT_MISUSE
     fi
 
     # Thread IDs are globally unique node IDs — no repo context needed for resolve

@@ -461,7 +461,7 @@ pr-comment PR# (--body TEXT | --body-file FILE | --edit) [--dry-run]
 **Comment sources** (exactly one required):
 
 - `--body TEXT`: Inline comment text
-- `--body-file FILE`: Read comment from a markdown file
+- `--body-file FILE`: Read comment from a markdown file (`-` reads stdin; piped stdin with no flag is auto-read)
 - `--edit`: Open `$EDITOR` to compose
 
 ### `pr-diff`
@@ -951,7 +951,7 @@ issue-create --title "Issue title" [OPTIONS]
 
 - `--title TITLE`: Issue title (required)
 - `--body TEXT`: Issue body/description
-- `--body-file FILE`: Read body from markdown file
+- `--body-file FILE`: Read body from markdown file (`-` reads stdin)
 - `--type TYPE`: Native issue type (Bug, Feature, Task, Epic) - sets the GitHub-native type field
 - `--label LABEL`: Add additional labels (repeatable)
 - `--assignee USER`: Assign to user (repeatable)
@@ -1081,7 +1081,7 @@ issue-update ISSUE_NUMBER [OPTIONS]
 
 - `--title TITLE`: Update title
 - `--body TEXT`: Update body
-- `--body-file FILE`: Read new body from file
+- `--body-file FILE`: Read new body from file (`-` reads stdin; piped stdin with no other update is auto-read)
 - `--add-label LABEL`: Add label (repeatable)
 - `--remove-label LABEL`: Remove label (repeatable)
 - `--add-assignee USER`: Add assignee (repeatable)
@@ -1207,17 +1207,19 @@ issue-comment-update 123456789 --body-file updated-artifact.md
 Deterministically creates or updates a GitHub issue comment by stable `doc_id` metadata.
 
 ```bash
-issue-artifact-upsert [--issue ISSUE_NUMBER] [--body TEXT | --body-file FILE] [OPTIONS]
+issue-artifact-upsert [--issue ISSUE_NUMBER] [--body TEXT | --body-file FILE | piped stdin | interactive] [OPTIONS]
 ```
 
 **Issue Target:**
 
 - `--issue ISSUE_NUMBER`: Optional issue number override
 
-**Comment Source (exactly one required):**
+**Comment Source (exactly one required unless stdin is piped or a TTY):**
 
 - `--body TEXT`: Inline comment body
-- `--body-file FILE`: Read comment body from file
+- `--body-file FILE`: Read comment body from file (`-` reads stdin)
+- Piped stdin with no source flag: body read from stdin automatically
+- No source flag with a TTY: interactive fzf picker over `.local-artifacts/*.md` (requires fzf; `--all` includes `tmp*.md`)
 
 `doc_id` is extracted from the exact metadata line `doc_id: <doc_id>` in the first 256 characters of the provided body.
 

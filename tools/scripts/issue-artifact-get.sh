@@ -1,12 +1,16 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # issue-artifact-get.sh - Retrieve a deterministic issue-comment artifact by doc_id
 # Version: 1.1.0
 # Description: Fetches exactly one issue comment artifact matched by doc_id metadata line.
 # Requirements: Bash 4.0+, gh CLI, jq
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
+source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"
@@ -22,6 +26,7 @@ REPO_OVERRIDE=""
 OUTPUT_FORMAT="json"   # json | pretty
 FULL_BODY=0
 WRITE_BODY_PATH=""
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 
 show_usage() {
@@ -80,45 +85,17 @@ EOF
     exit 0
 }
 
-invalid_args() {
-    log_error "$1"
-    echo "Use --help for usage information"
-    exit 2
-}
-
-require_option_value() {
-    local option_name="$1"
-    local value="${2:-}"
-    if [ -z "$value" ]; then
-        invalid_args "Missing value for $option_name"
-    fi
-}
-
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
-}
-
-api_failure() {
-    log_error "$1"
-    exit 4
-}
-
 main() {
     if [ $# -eq 0 ]; then
         invalid_args "Required arguments are missing"
     fi
 
-    case "${1:-}" in
-        -h|--help)
-            show_usage
-            ;;
-        -v|--version)
-            echo "$SCRIPT_VERSION"
-            exit 0
-            ;;
-    esac
+
+    # Global flags before auth/validation: --help must work without
+    # a valid GitHub session or any positional args.
+    if handle_global_flag "${1:-}"; then
+        exit 0
+    fi
 
     ensure_gh_login
 
@@ -132,6 +109,7 @@ main() {
                 exit 0
                 ;;
             -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
                 VERBOSE=1
                 shift
                 ;;
@@ -174,22 +152,16 @@ main() {
     fi
 
     if ! validate_issue_number "$ISSUE_NUMBER"; then
-        exit 2
+        exit "$EXIT_MISUSE"
     fi
 
     if [ -z "$DOC_ID" ]; then
         invalid_args "doc_id is required (--doc-id)"
     fi
 
-    if [ -n "$REPO_OVERRIDE" ]; then
-        GITHUB_REPO="$REPO_OVERRIDE"
-    fi
-
-    # gh api accepts no -R/--repo flag; the {owner}/{repo} templates resolve
-    # from gh's native GH_REPO env var (set when GITHUB_REPO is provided).
-    if [ -n "${GITHUB_REPO:-}" ]; then
-        export GH_REPO="$GITHUB_REPO"
-    fi
+    # Single repo-resolution entry point (override > GITHUB_REPO > cwd),
+    # devenv-repo safety gate included; exports GH_REPO for gh api templates.
+    resolve_target_repo "$REPO_OVERRIDE" > /dev/null
 
     local comments_raw
     log_verbose "Fetching comments for issue #$ISSUE_NUMBER"
@@ -231,7 +203,7 @@ main() {
 
     if [ "$match_count" -eq 0 ]; then
         log_error "No artifact comment found for doc_id: $DOC_ID"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 
     if [ "$match_count" -gt 1 ]; then
@@ -243,7 +215,7 @@ main() {
             --arg doc_id "$DOC_ID" \
             --argjson matches "$conflict_ids" \
             '{action: $action, issue_number: $issue_number, doc_id: $doc_id, matches: $matches}'
-        exit 3
+        exit "$EXIT_CONFLICT"
     fi
 
     if [ -n "$WRITE_BODY_PATH" ]; then
@@ -251,7 +223,7 @@ main() {
         body_dir="$(dirname "$WRITE_BODY_PATH")"
         if [ ! -d "$body_dir" ]; then
             log_error "Directory does not exist: $body_dir"
-            exit 2
+            exit "$EXIT_MISUSE"
         fi
         if ! echo "$artifact_matches" | jq -r '.[0].body' > "$WRITE_BODY_PATH"; then
             api_failure "Failed to write body to $WRITE_BODY_PATH"

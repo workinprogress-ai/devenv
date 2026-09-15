@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 ################################################################################
 # repo-bump-version.sh
@@ -23,12 +24,17 @@
 #
 ################################################################################
 
+# Self-derive the tools root when DEVENV_TOOLS is not set in the environment
+# (the symlink path through tools/ is repo-root/tools/scripts/<name>, so the
+# tools dir is two levels up from this script).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/tools}"
+
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/release-operations.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 
 script_folder="${DEVENV_TOOLS:-.}/scripts"
-repos_dir="$DEVENV_ROOT/repos"
+repos_dir="${DEVENV_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/repos"
 
 # Function to display usage
 usage() {
@@ -44,11 +50,11 @@ Arguments:
 Examples:
   $0 patch repo1 repo2 repo3
   
-  $0 minor << EOF
+  $0 minor <<HEREDOC
   service-auth0
   service-user
   service-payment
-EOF
+HEREDOC
 
 Process:
   Ensures each repo is up-to-date, switches to master, checks for custom
@@ -58,10 +64,10 @@ EOF
 }
 
 # Validate change type parameter
-if [ -z "$1" ]; then
+if [ -z "${1:-}" ]; then
     log_error "Missing required argument: change-type"
     usage
-    exit "$EXIT_INVALID_ARGUMENT"
+    exit "$EXIT_MISUSE"
 fi
 
 CHANGE_TYPE="$1"
@@ -71,7 +77,7 @@ shift
 if [[ ! "$CHANGE_TYPE" =~ ^(patch|minor|major)$ ]]; then
     log_error "Invalid change-type: '$CHANGE_TYPE'. Must be 'patch', 'minor', or 'major'."
     usage
-    exit "$EXIT_INVALID_ARGUMENT"
+    exit "$EXIT_MISUSE"
 fi
 
 # Collect repository names from arguments or stdin
@@ -93,7 +99,7 @@ fi
 if [ ${#REPOS[@]} -eq 0 ]; then
     log_error "No repositories provided"
     usage
-    exit "$EXIT_INVALID_ARGUMENT"
+    exit "$EXIT_MISUSE"
 fi
 
 log_info "Processing ${#REPOS[@]} repository/repositories with change type: $CHANGE_TYPE"

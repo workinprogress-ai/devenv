@@ -58,7 +58,7 @@ issue-artifact-upsert --issue <N> --body-file <repo-root>/.local-artifacts/<arti
 
 If the user explicitly asks for a temp-folder working copy instead, `/tmp` is acceptable — but `.local-artifacts/` is the default (see the [standard local markdown folder](../../_conventions.md#standard-local-markdown-folder-local-artifacts)).
 
-When the local working copy is already the session source of truth, the minimal correct write path is `issue-artifact-upsert`. The tool automatically extracts `doc_id` from the file header. Use `issue-artifact-list` or `issue-artifact-select` only to resolve real ambiguity, not as a mandatory preflight before every save.
+When the local working copy is already the session source of truth, the minimal correct write path is `issue-artifact-upsert`. The tool automatically extracts `doc_id` from the file header. Piped stdin also works (`cat artifact.md | issue-artifact-upsert --issue <N>`), as does `--body-file -`; interactively, the tool offers an fzf picker over `.local-artifacts/` when invoked with no source flag. Use `issue-artifact-list` or `issue-artifact-select` only to resolve real ambiguity, not as a mandatory preflight before every save.
 
 ## Creating a new artifact identity
 

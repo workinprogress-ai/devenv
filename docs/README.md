@@ -72,6 +72,12 @@ Complete workflow for managing GitHub Issues, Projects, and Sprints:
 
 **Devenv-specific conventions (still in this repo):**
 
+- **[Tooling Standards](./Tooling-Standards.md)**
+  - How to write tools for the `tools/` suite
+  - Required skeleton, library catalog, exit-code contract
+  - Argument parsing, stdin/body handling, repo targeting
+  - Testing requirements and common pitfalls
+
 - **[Function Naming Conventions](./Function-Naming-Conventions.md)** (5.7 KB)
   - Bash function naming rules
   - Verb prefixes and patterns
@@ -137,6 +143,9 @@ Total: ~115 KB of comprehensive documentation
 
 **...name bash functions correctly**
 → [Function Naming Conventions](./Function-Naming-Conventions.md)
+
+**...write a new tool for the tools/ suite**
+→ [Tooling Standards](./Tooling-Standards.md)
 
 **...access remote services**
 → [Port Forwarding](./Port-forwarding.md)

@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # plan-parse.sh - Deterministic plan structure parsing
 # Version: 1.2.0
 # Description: Extracts phases, tasks, completion state, and file-path anchors
@@ -64,12 +66,6 @@ Exit Codes:
     2 invalid arguments
 EOF
     exit 0
-}
-
-invalid_args() {
-    log_error "$1"
-    echo "Use --help for usage information"
-    exit 2
 }
 
 # Lint a plan: parse + structural invariants. JSON report {errors, warnings,
@@ -210,7 +206,7 @@ lint_plan() {
             if [ "$h_type" != "null" ] && [ "$h_type" != "plan" ]; then
                 errors+=("artifact_type is '$h_type' — expected 'plan' for a plan artifact")
             fi
-            if [ "$h_planning" != "null" ] && ! printf '%s' "$h_planning" | grep -qE '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'; then
+            if [ "$h_planning" != "null" ] && [ "$h_planning" != "none" ] && ! printf '%s' "$h_planning" | grep -qE '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'; then
                 errors+=("planning_repo '$h_planning' is not in owner/repo form — a malformed value misroutes issue/artifact calls silently")
             fi
         fi
@@ -402,11 +398,16 @@ main() {
         local open_questions
         open_questions=$(grep -c '\[QUESTION\]' "$FILE" || true)
 
-        # Header routing fields (null when absent) — escaped for JSON embedding
+        # Header routing fields (null when absent) — escaped for JSON embedding.
+        # planning_repo "none" (the sanctioned ungoverned sentinel) normalizes
+        # to JSON null, same as absence.
         local h_doc_id h_issue h_planning
         h_doc_id=$(header_field doc_id | jq -R .)
         h_issue=$(header_field issue_number | jq -R .)
         h_planning=$(header_field planning_repo | jq -R .)
+        if [ "$h_planning" = '"none"' ]; then
+            h_planning="null"
+        fi
 
         echo "$parsed" | awk -F'\t' -v plan_file="$(basename "$FILE")" -v open_questions="$open_questions" \
             -v h_doc_id="$h_doc_id" -v h_issue="$h_issue" -v h_planning="$h_planning" '

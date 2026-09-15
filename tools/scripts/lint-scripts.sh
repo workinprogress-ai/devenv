@@ -1,4 +1,7 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+source "$DEVENV_TOOLS/lib/error-handling.bash"
 # lint-scripts.sh - Run shellcheck on all shell scripts in the project
 # Version: 1.0.0
 # Description: Validates all .sh files with shellcheck and generates a report
@@ -82,13 +85,7 @@ log_success() {
     fi
 }
 
-log_warning() {
-    echo -e "${YELLOW}⚠${NC} $*" >&2
-}
-
-log_error() {
-    echo -e "${RED}✗${NC} $*" >&2
-}
+# log_warn / log_error come from error-handling.bash
 
 check_dependencies() {
     if ! command -v shellcheck &> /dev/null; then
@@ -124,7 +121,7 @@ lint_script() {
     # Skip zsh scripts — ShellCheck does not support zsh
     if head -n 1 "$script" | grep -q '^#!.*zsh'; then
         if [ "${QUIET:-0}" -eq 0 ]; then
-            log_warning "Skipping: $relative_path (zsh script, not supported by shellcheck)"
+            log_warn "Skipping: $relative_path (zsh script, not supported by shellcheck)"
         fi
         ((skipped_files++)) || true
         return 0
@@ -133,7 +130,7 @@ lint_script() {
     # Skip if file doesn't have execute permission and doesn't start with shebang
     if [ ! -x "$script" ] && ! head -n 1 "$script" | grep -q '^#!.*sh'; then
         if [ "${QUIET:-0}" -eq 0 ]; then
-            log_warning "Skipping: $relative_path (not executable, no shebang)"
+            log_warn "Skipping: $relative_path (not executable, no shebang)"
         fi
         ((skipped_files++)) || true
         return 0
@@ -260,7 +257,7 @@ main() {
     scripts=$(find_shell_scripts "$search_dir")
     
     if [ -z "$scripts" ]; then
-        log_warning "No shell scripts found"
+        log_warn "No shell scripts found"
         exit 0
     fi
     

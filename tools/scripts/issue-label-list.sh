@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # issue-label-list.sh - List a repository's available issue labels
 # Version: 1.0.0
 # Description: Lists the repo's label vocabulary (name, description, color) so
@@ -10,6 +12,7 @@
 # Last Modified: 2026-09-08
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
@@ -28,6 +31,7 @@ script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "List a repository's available i
 
 OUTPUT_FORMAT="table"
 SEARCH_TERM=""
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 ALLOW_DEVENV_REPO=0
 
@@ -69,12 +73,6 @@ EOF
     exit 0
 }
 
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
-}
-
 list_labels() {
     local repo_spec
     read -ra repo_spec <<< "$(get_repo_spec)"
@@ -83,7 +81,7 @@ list_labels() {
     log_verbose "Fetching labels"
     if ! raw=$(gh label list "${repo_spec[@]}" --limit 200 --json name,description,color 2>/dev/null); then
         log_error "Failed to list labels"
-        exit 1
+        exit $EXIT_API_FAILURE
     fi
 
     if [ -n "$SEARCH_TERM" ]; then
@@ -103,7 +101,7 @@ list_labels() {
             ;;
         *)
             log_error "Invalid format: $OUTPUT_FORMAT (must be table, json, or simple)"
-            exit 1
+            exit $EXIT_MISUSE
             ;;
     esac
 }
@@ -117,7 +115,11 @@ main() {
         case "$1" in
             -h|--help)    show_usage ;;
             -v|--version) echo "$SCRIPT_VERSION"; exit 0 ;;
-            -V|--verbose) VERBOSE=1; shift ;;
+            -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
+                VERBOSE=1
+                shift
+                ;;
             -f|--format)  OUTPUT_FORMAT="$2"; shift 2 ;;
             -s|--search)  SEARCH_TERM="$2"; shift 2 ;;
             --devenv)
@@ -126,13 +128,19 @@ main() {
             *)
                 log_error "Unknown option: $1"
                 echo "Use --help for usage information"
-                exit 1
+                exit $EXIT_MISUSE
                 ;;
         esac
     done
 
     check_dependencies
     check_target_repo
+    # Global flags before auth/validation: --help must work without
+    # a valid GitHub session or any positional args.
+    if handle_global_flag "${1:-}"; then
+        exit 0
+    fi
+
     ensure_gh_login
 
     list_labels

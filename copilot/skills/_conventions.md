@@ -111,7 +111,7 @@ Rules:
 - **One glob.** Working-copy probes check `<repo>/.local-artifacts/` (e.g. `.local-artifacts/Plan-issue-42-*.md`), not the repo root.
 - **One ignore.** `.local-artifacts/` is committed to no repo; every repo's `.gitignore` (including all `template.*` repos) carries the entry.
 - **Offer-to-retire at wrap-up.** When an artifact is republished to its issue (`issue-artifact-upsert`) or a skill session that owns local files ends, list the stale `.local-artifacts/` files and offer deletion (y/n) — never auto-delete. Use [`artifact-clean`](../_tools-reference.md#artifact-clean) for the sweep: it groups files into the families below, drops `tmpN.md` without confirmation, and confirms everything else. After publication the issue copy is authoritative; see the [issue-backed artifact edit protocol](#issue-backed-artifact-edit-protocol).
-- **Out of scope:** deliverable-style docs that are the skill's own product — spike docs (`spike-NNN-*.md`, workspace root), bug-hunt reports (`bug-hunt-*.md`, repo root), technical-debt audits (`TECH_DEBT_AUDIT.md`), and specs/blueprints written into planning repos (`docs/Specifications/` etc.). Those stay where their skills place them; cleanup sweeps must not touch them.
+- **Out of scope:** deliverable-style docs that are the skill's own product — spike docs (`spike-NNN-*.md`), bug-hunt reports (`bug-hunt-*.md`), and technical-debt audits (`TECH_DEBT_AUDIT*.md`) live in `.local-artifacts/` with everything else but are retained deliverables, not cleanup fodder; specs/blueprints written into planning repos (`docs/Specifications/` etc.) are shipped files. Cleanup sweeps must not touch any of these.
 
 ## Issue-backed artifact edit protocol
 
@@ -284,6 +284,7 @@ updated_at_utc: <ISO-8601>
     - Stamp it when the artifact is created from a known planning context (roadmap step → plan, grooming attack-plan row → slice plan, epic → grooming) or when a session first resolves the planning repo for an existing artifact that lacks the key (`artifact-header <file> --set planning_repo=<owner>/<repo>`).
     - Issue-backed artifacts whose `doc_id` already targets the planning repo (`dv1:<owner>/<planning-repo>:issue-<N>:...`) are self-locating — the key is for the **cross-repo** case: an artifact living in (or targeting) a component repo whose epic/grooming/roadmap lives elsewhere.
     - The key is a routing hint, never an override: it tells issue/artifact calls where the parent hierarchy lives; it does not change the artifact's own repo (which `doc_id` already encodes).
+    - `planning_repo: none` is the sanctioned value for standalone ungoverned work: `plan-parse --lint --require-header` accepts it, and `plan-parse --summary` normalizes it to JSON `null` (same as absence). Equivalent to omitting the key; use whichever reads better in the artifact.
 
 Skills should keep only artifact-specific mapping details locally (artifact type, slug source, source file) and reference this convention for common behavior.
 
@@ -465,6 +466,16 @@ Validation guidance:
 
 - Marker removal is necessary but never sufficient when the task calls for artifact cleanup.
 - If temporary artifact remains, keep task open and record the remaining work explicitly.
+
+## Stop protocol (shared)
+
+Applies to every execution skill (`delegation`, `pair-programming`) when the user issues a hard stop — "stop here", "let's work together", any instruction to end the working turn before a phase boundary. A stop instruction ends *execution*; it never suspends plan-stewardship duties. Before (or as part of) honoring the stop:
+
+1. **Tick done work** — every task completed and verified since the last tick gets ticked (`markdown-plan-complete-task`) before the turn ends. Verification = the task's own completion signal (build/tests), not a later review.
+2. **Write pending plan deltas** — approved deviations and contract/surface changes made this turn are recorded in the plan in the same exchange (current-state writing); anything genuinely still undecided is listed to the user as explicitly pending, never silently dropped.
+3. **Sync at boundaries** — if the stop lands on a phase or task boundary (or material revisions just landed), run the `issue-artifact-upsert` sync per the skill's sync points. Mid-phase stops with nothing material: note the pending sync in the handback instead.
+
+Stewardship survives skill switches: if the stop is followed by loading a different execution skill, the incoming session inherits this protocol's already-or-still-owed actions as first business.
 
 ## Hotspot bullet format (shared)
 

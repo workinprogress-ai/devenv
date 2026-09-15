@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 ################################################################################
 # pr-merge-pull-request.sh
@@ -90,7 +92,7 @@ Examples:
   pr-merge-pull-request --method merge
   pr-merge-pull-request --force
 EOF
-    exit 1
+    exit "$EXIT_GENERAL_ERROR"
 }
 
 COMMIT_MESSAGE=""
@@ -129,7 +131,7 @@ COMMIT_MESSAGE="${1:-}"
 if [ -n "$ISSUE_NUMBER" ]; then
     if ! validate_issue_number "$ISSUE_NUMBER"; then
         log_error "Issue number must be numeric and positive."
-        exit 1
+        exit $EXIT_MISUSE
     fi
 fi
 
@@ -138,13 +140,13 @@ case "$MERGE_METHOD" in
     squash|merge|rebase) ;;
     *)
         log_error "Invalid merge method: $MERGE_METHOD (must be squash, merge, or rebase)"
-        exit 1
+        exit $EXIT_MISUSE
         ;;
 esac
 
 # Validate git context
 if ! validate_git_context "$REPO_DIR" "main|master|review/*"; then
-    exit 1
+    exit "$EXIT_GENERAL_ERROR"
 fi
 
 CURRENT_BRANCH=${SOURCE_BRANCH:-$(get_current_branch)}
@@ -157,7 +159,7 @@ fi
 
 if ! git show-ref --quiet "refs/remotes/origin/$TARGET_BRANCH"; then
     log_error "Target branch origin/$TARGET_BRANCH not found."
-    exit 1
+    exit $EXIT_API_FAILURE
 fi
 
 # Get repo spec for gh commands
@@ -168,7 +170,7 @@ log_info "Looking for an open PR from '$CURRENT_BRANCH' -> '$TARGET_BRANCH'..."
 PR_ID=$(find_pr_by_branches "$CURRENT_BRANCH" "$TARGET_BRANCH" "${repo_spec[*]}") || true
 if [ -z "$PR_ID" ]; then
     log_error "No open PR found from '$CURRENT_BRANCH' to '$TARGET_BRANCH'."
-    exit 1
+    exit $EXIT_API_FAILURE
 fi
 
 # If no commit message provided, use the PR title
@@ -176,12 +178,12 @@ if [ -z "$COMMIT_MESSAGE" ]; then
     PR_DETAILS=$(get_pr_details "$PR_ID" "${repo_spec[*]}") || true
     if [ -z "$PR_DETAILS" ]; then
         log_error "Failed to fetch PR details for #$PR_ID."
-        exit 1
+        exit $EXIT_API_FAILURE
     fi
     COMMIT_MESSAGE=$(echo "$PR_DETAILS" | jq -r '.title // ""')
     if [ -z "$COMMIT_MESSAGE" ]; then
         log_error "PR #$PR_ID has no title."
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
     log_info "Using PR title as commit message: $COMMIT_MESSAGE"
 fi
@@ -194,7 +196,7 @@ COMMIT_BODY="$(printf "%s" "$COMMIT_MESSAGE" | tail -n +2 || true)"
 if ! validate_conventional_commits "$COMMIT_TITLE"; then
     log_error "Commit message must follow Conventional Commits on the first line."
     log_error "Got: '$COMMIT_TITLE'"
-    exit 1
+    exit "$EXIT_GENERAL_ERROR"
 fi
 
 # Check if PR is a draft
@@ -203,7 +205,7 @@ if is_pr_draft "$PR_ID" "${repo_spec[*]}"; then
         log_warn "PR #$PR_ID is a draft. Proceeding due to --force."
     else
         log_error "PR #$PR_ID is a draft. Convert it to open before merging, or use --force."
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 fi
 
@@ -212,7 +214,7 @@ if [ -n "$ISSUE_NUMBER" ]; then
     DESC_ISSUE_ID=$(extract_issue_from_pr "$PR_ID" "${repo_spec[*]}") || true
     if [ -n "$DESC_ISSUE_ID" ] && [ "$ISSUE_NUMBER" != "$DESC_ISSUE_ID" ]; then
         log_error "PR #$PR_ID references issue #$DESC_ISSUE_ID but --issue $ISSUE_NUMBER was provided."
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 fi
 
@@ -222,7 +224,7 @@ MERGE_COMMIT_MESSAGE=$(build_merge_commit_message "$COMMIT_TITLE" "$COMMIT_BODY"
 # Merge the PR
 if ! merge_pr "$PR_ID" "$MERGE_COMMIT_MESSAGE" "$MERGE_METHOD" "${repo_spec[*]}" "$FORCE"; then
     log_error "Failed to merge PR #$PR_ID. Check for merge conflicts or branch protection rules."
-    exit 1
+    exit $EXIT_API_FAILURE
 fi
 
 # Build PR URL for output

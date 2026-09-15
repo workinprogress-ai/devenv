@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # pr-diff.sh - Fetch a PR or branch diff as text
 # Version: 1.0.0
 # Description: Outputs a unified diff for a given PR number, or between two refs
@@ -7,6 +9,7 @@
 # Last Modified: 2026-05-08
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
@@ -26,6 +29,7 @@ PR_NUMBER=""
 BASE_REF=""
 HEAD_REF=""
 NAME_ONLY=0
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 ALLOW_DEVENV_REPO=0
 
@@ -75,12 +79,6 @@ EOF
     exit 0
 }
 
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
-}
-
 # Validate PR number is a positive integer
 validate_pr_number() {
     local pr="$1"
@@ -105,12 +103,12 @@ diff_pr() {
     if [ "$NAME_ONLY" -eq 1 ]; then
         if ! gh pr diff "${repo_spec[@]}" "$PR_NUMBER" --name-only 2>/dev/null; then
             log_error "Failed to fetch diff for PR #$PR_NUMBER"
-            exit 1
+            exit $EXIT_API_FAILURE
         fi
     else
         if ! gh pr diff "${repo_spec[@]}" "$PR_NUMBER" 2>/dev/null; then
             log_error "Failed to fetch diff for PR #$PR_NUMBER"
-            exit 1
+            exit $EXIT_API_FAILURE
         fi
     fi
 }
@@ -121,11 +119,11 @@ diff_refs() {
 
     if ! git rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then
         log_error "Base ref not found: $BASE_REF"
-        exit 1
+        exit $EXIT_API_FAILURE
     fi
     if ! git rev-parse --verify "$HEAD_REF" >/dev/null 2>&1; then
         log_error "Head ref not found: $HEAD_REF"
-        exit 1
+        exit $EXIT_API_FAILURE
     fi
 
     if [ "$NAME_ONLY" -eq 1 ]; then
@@ -143,13 +141,9 @@ main() {
     if [ $# -eq 0 ]; then
         log_error "PR number or --base/--head pair is required"
         echo "Use --help for usage information"
-        exit 1
+        exit $EXIT_MISUSE
     fi
 
-    case "$1" in
-        -h|--help)    show_usage ;;
-        -v|--version) echo "$SCRIPT_VERSION"; exit 0 ;;
-    esac
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -161,6 +155,7 @@ main() {
                 exit 0
                 ;;
             -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
                 VERBOSE=1
                 shift
                 ;;
@@ -184,18 +179,18 @@ main() {
             -*)
                 log_error "Unknown option: $1"
                 echo "Use --help for usage information"
-                exit 1
+                exit $EXIT_MISUSE
                 ;;
             *)
                 if [ -z "$PR_NUMBER" ]; then
                     if ! validate_pr_number "$1"; then
-                        exit 1
+                        exit "$EXIT_MISUSE"
                     fi
                     PR_NUMBER="$1"
                 else
                     log_error "Unexpected argument: $1"
                     echo "Use --help for usage information"
-                    exit 1
+                    exit $EXIT_MISUSE
                 fi
                 shift
                 ;;
@@ -210,18 +205,18 @@ main() {
 
     if [ "$pr_mode" -eq 1 ] && [ "$ref_mode" -eq 1 ]; then
         log_error "Use either PR_NUMBER or --base/--head, not both"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 
     if [ "$pr_mode" -eq 0 ] && [ "$ref_mode" -eq 0 ]; then
         log_error "PR number or --base/--head pair is required"
-        exit 1
+        exit $EXIT_MISUSE
     fi
 
     if [ "$ref_mode" -eq 1 ]; then
         if [ -z "$BASE_REF" ] || [ -z "$HEAD_REF" ]; then
             log_error "Both --base and --head are required in ref mode"
-            exit 1
+            exit $EXIT_MISUSE
         fi
         diff_refs
     else

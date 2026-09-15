@@ -1,4 +1,7 @@
 #!/bin/bash
+set -euo pipefail
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # cs-dependencies-update-wizard.sh - Interactive wizard to update dependents after a package release
 # Version: 1.1.0
 # Description: Walks the reverse dependency tree of a target repo level by level,
@@ -213,7 +216,7 @@ main() {
                 lang_default=1
                 shift
                 ;;
-            --dry-run)
+            -n|--dry-run)
                 dry_run=1
                 shift
                 ;;

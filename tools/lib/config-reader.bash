@@ -51,10 +51,12 @@ config_read_value() {
     fi
     
     # Expand environment variables
-    # Supports ${VAR_NAME} syntax
-    value=$(echo "$value" | sed 's/\${GH_ORG}/'"${GH_ORG:-}"'/g')
-    value=$(echo "$value" | sed 's/\${GH_USER}/'"${GH_USER:-}"'/g')
-    value=$(echo "$value" | sed 's/\${GH_TOKEN}/'"${GH_TOKEN:-}"'/g')
+    # Supports ${VAR_NAME} syntax. Parameter expansion (not sed) so values
+    # containing "/" or "&" cannot break the substitution and secret values
+    # never transit a process argument.
+    value="${value//\$\{GH_ORG\}/${GH_ORG:-}}"
+    value="${value//\$\{GH_USER\}/${GH_USER:-}}"
+    value="${value//\$\{GH_TOKEN\}/${GH_TOKEN:-}}"
     
     echo "$value"
     return 0

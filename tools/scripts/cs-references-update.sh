@@ -1,4 +1,8 @@
 #!/bin/bash
+set -euo pipefail
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+source "$DEVENV_TOOLS/lib/error-handling.bash"
 # cs-references-update.sh - Update NuGet dependencies in a repository tree
 # Version: 2.0.0
 # Description: For every .csproj under the target directory, optionally rewrites
@@ -189,22 +193,21 @@ sed_escape_replacement() {
 # csproj. Only called when --framework was passed.
 rewrite_tfm() {
     local csproj="$1"
-    local tmp
-    tmp=$(mktemp)
+    create_temp_file tmp cs-ref-update
+    # shellcheck disable=SC2154  # tmp assigned by create_temp_file (printf -v)
     sed -E "s|<TargetFrameworks?>([^<]*)</TargetFrameworks?>|$(sed_escape_replacement "<TargetFramework>$framework</TargetFramework>")|g" "$csproj" > "$tmp"
+    # shellcheck disable=SC2154  # tmp assigned by create_temp_file (printf -v)
     if ! cmp -s "$csproj" "$tmp"; then
         cp "$tmp" "$csproj"
         rewrote_anything=1
         echo "  $csproj: TargetFramework -> $framework"
     fi
-    rm -f "$tmp"
 }
 
 # Rewrite <LangVersion> per the active mode (explicit / tfm-map / remove).
 rewrite_lang() {
     local csproj="$1"
-    local tmp
-    tmp=$(mktemp)
+    create_temp_file tmp cs-ref-update
 
     if [ "$lang_mode" = "remove" ]; then
         sed -E '/^[[:space:]]*<LangVersion>[^<]*<\/LangVersion>[[:space:]]*$/d' "$csproj" > "$tmp"
@@ -227,7 +230,6 @@ rewrite_lang() {
             *)       echo "  $csproj: LangVersion -> $lang_version" ;;
         esac
     fi
-    rm -f "$tmp"
 }
 
 if [ -n "$framework" ] || [ "$lang_mode" != "none" ]; then

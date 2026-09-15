@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # issue-comment-list.sh - List all comments on a GitHub issue with their IDs
 # Version: 1.0.0
 # Description: Returns each comment's numeric ID, author, timestamps, URL, and
@@ -6,6 +8,7 @@
 # Requirements: Bash 4.0+, gh CLI, jq
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
@@ -25,6 +28,7 @@ script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "List all comments on a GitHub i
 ISSUE_NUMBER=""
 OUTPUT_FORMAT="lines"   # lines (one JSON object per line) | pretty (JSON array)
 FULL_BODY=0
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 ALLOW_DEVENV_REPO=0
 
@@ -82,18 +86,12 @@ EOF
     exit 0
 }
 
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
-}
-
 # Fetch comments and emit them
 list_comments() {
     log_verbose "Fetching comments for issue #$ISSUE_NUMBER"
 
     local raw
-    raw=$(fetch_issue_comments "$ISSUE_NUMBER") || exit 1
+    raw=$(fetch_issue_comments "$ISSUE_NUMBER") || exit "$EXIT_GENERAL_ERROR"
 
     local fmt_args=()
     [ "$OUTPUT_FORMAT" = "pretty" ] && fmt_args+=(--pretty)
@@ -110,13 +108,15 @@ main() {
     if [ $# -eq 0 ]; then
         log_error "Issue number is required"
         echo "Use --help for usage information"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 
-    case "$1" in
-        -h|--help)    show_usage ;;
-        -v|--version) echo "$SCRIPT_VERSION"; exit 0 ;;
-    esac
+
+    # Global flags before auth/validation: --help must work without
+    # a valid GitHub session or any positional args.
+    if handle_global_flag "${1:-}"; then
+        exit 0
+    fi
 
     ensure_gh_login
 
@@ -130,6 +130,7 @@ main() {
                 exit 0
                 ;;
             -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
                 VERBOSE=1
                 shift
                 ;;
@@ -154,19 +155,19 @@ main() {
             -*)
                 log_error "Unknown option: $1"
                 echo "Use --help for usage information"
-                exit 1
+                exit "$EXIT_GENERAL_ERROR"
                 ;;
             *)
                 if [ -z "$ISSUE_NUMBER" ]; then
                     if ! validate_issue_number "$1"; then
                         log_error "Invalid issue number: $1"
-                        exit 1
+                        exit "$EXIT_GENERAL_ERROR"
                     fi
                     ISSUE_NUMBER="$1"
                 else
                     log_error "Unexpected argument: $1"
                     echo "Use --help for usage information"
-                    exit 1
+                    exit "$EXIT_GENERAL_ERROR"
                 fi
                 shift
                 ;;
@@ -176,7 +177,7 @@ main() {
     if [ -z "$ISSUE_NUMBER" ]; then
         log_error "Issue number is required"
         echo "Use --help for usage information"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 
     check_target_repo

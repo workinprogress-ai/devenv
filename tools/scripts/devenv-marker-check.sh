@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # devenv-marker-check.sh - Deterministic DEVENV-marker and AC-comment scanning
 # Version: 1.2.0
 # Description: Replaces hand-run grep sweeps: verify no plan-bounded
@@ -66,12 +68,6 @@ Exit Codes:
     2 invalid arguments
 EOF
     exit 0
-}
-
-invalid_args() {
-    log_error "$1"
-    echo "Use --help for usage information"
-    exit 2
 }
 
 main() {

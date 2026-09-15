@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # issue-list.sh - List and filter GitHub issues
 # Version: 1.0.0
 # Description: Query and filter GitHub issues with support for labels, assignees,
@@ -8,6 +10,7 @@
 # Last Modified: 2026-01-01
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
@@ -30,6 +33,7 @@ FILTER_MILESTONE=""
 FILTER_TYPE=""
 OUTPUT_FORMAT="table"
 LIMIT=30
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 ALLOW_DEVENV_REPO=0
 
@@ -93,12 +97,6 @@ EOF
     exit 0
 }
 
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
-}
-
 # List issues using library filters
 list_issues() {
     local gh_args=()
@@ -110,7 +108,7 @@ list_issues() {
     
     # Build filter arguments using library function
     local filter_string
-    filter_string=$(build_issue_filters --state "$FILTER_STATE" --type "$FILTER_TYPE" --limit "$LIMIT") || exit 1
+    filter_string=$(build_issue_filters --state "$FILTER_STATE" --type "$FILTER_TYPE" --limit "$LIMIT") || exit "$EXIT_GENERAL_ERROR"
     read -ra filter_args <<< "$filter_string"
     gh_args+=("${filter_args[@]}")
     
@@ -146,7 +144,7 @@ list_issues() {
             ;;
         *)
             log_error "Invalid format: $OUTPUT_FORMAT (must be table, json, or simple)"
-            exit 1
+            exit $EXIT_MISUSE
             ;;
     esac
     
@@ -185,6 +183,12 @@ main() {
     done
     
     # Ensure GitHub CLI authentication
+    # Global flags before auth/validation: --help must work without
+    # a valid GitHub session or any positional args.
+    if handle_global_flag "${1:-}"; then
+        exit 0
+    fi
+
     ensure_gh_login
     
     # Continue parsing other arguments
@@ -198,6 +202,7 @@ main() {
                 exit 0
                 ;;
             -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
                 VERBOSE=1
                 shift
                 ;;
@@ -249,7 +254,7 @@ main() {
             *)
                 log_error "Unknown option: $1"
                 echo "Use --help for usage information"
-                exit 1
+                exit $EXIT_MISUSE
                 ;;
         esac
     done

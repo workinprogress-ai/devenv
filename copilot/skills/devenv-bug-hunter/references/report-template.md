@@ -1,6 +1,6 @@
 # Bug Hunt Report Template
 
-Written to the target repo root as `bug-hunt-<topic>.md` (numbered `bug-hunt-NNN-<topic>.md` when multiples accumulate). Neutral voice — the hunter persona stays in conversation.
+Written to the target repo's `.local-artifacts/` folder (the standard local markdown folder) as `bug-hunt-<topic>.md` (numbered `bug-hunt-NNN-<topic>.md` when multiples accumulate). Neutral voice — the hunter persona stays in conversation.
 
 ```markdown
 # Bug Hunt Report — <topic>

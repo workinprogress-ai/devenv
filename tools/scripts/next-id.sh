@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # next-id.sh - Resolve the next free numeric suffix or in-document ID deterministically
 # Version: 1.0.0
 # Description: Two modes — filename mode (next free {N} in a file-name pattern)
@@ -58,12 +60,6 @@ Exit Codes:
     2 invalid arguments
 EOF
     exit 0
-}
-
-invalid_args() {
-    log_error "$1"
-    echo "Use --help for usage information"
-    exit 2
 }
 
 main() {

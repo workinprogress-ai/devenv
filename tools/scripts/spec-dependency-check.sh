@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # spec-dependency-check.sh - Validate Specifications-*.md dependency graph and anchors
 # Version: 1.0.0
 # Description: Deterministic integrity checks the model otherwise does by eye:
@@ -41,12 +43,6 @@ Exit Codes:
     2 invalid arguments
 EOF
     exit 0
-}
-
-invalid_args() {
-    log_error "$1"
-    echo "Use --help for usage information"
-    exit 2
 }
 
 main() {

@@ -1,4 +1,6 @@
 #!/bin/bash
+# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
+DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # pr-thread-reply.sh - Reply to an inline review comment on a GitHub PR
 # Version: 1.0.0
 # Description: Posts a reply to an existing review comment (not a top-level PR comment)
@@ -7,13 +9,15 @@
 # Last Modified: 2026-05-08
 
 set -euo pipefail
+# shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
+source "$DEVENV_TOOLS/lib/body-source.bash"
 
-readonly SCRIPT_VERSION="1.0.0"
+readonly SCRIPT_VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
 script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Reply to an inline review comment on a GitHub PR"
@@ -28,6 +32,7 @@ COMMENT_BODY=""
 COMMENT_FILE=""
 USE_EDITOR=0
 DRY_RUN=0
+# shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 ALLOW_DEVENV_REPO=0
 TEMP_FILE=""
@@ -60,7 +65,8 @@ Options:
 
 Reply Source (one required):
     -b, --body TEXT             Reply text (inline)
-    -f, --body-file FILE        Read reply from file (markdown)
+    -f, --body-file FILE        Read reply from file (markdown; '-' reads stdin;
+                                piped stdin with no flag is auto-read)
     -e, --edit                  Open \$EDITOR to compose reply
 
 Environment Variables:
@@ -79,12 +85,6 @@ Examples:
 
 EOF
     exit 0
-}
-
-log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
-        log_info "$@"
-    fi
 }
 
 cleanup() {
@@ -117,12 +117,12 @@ compose_in_editor() {
     log_verbose "Opening editor: $editor"
     if ! "$editor" "$TEMP_FILE"; then
         log_error "Editor exited with error"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
     COMMENT_BODY=$(cat "$TEMP_FILE")
     if [ -z "$(echo "$COMMENT_BODY" | tr -d '[:space:]')" ]; then
         log_error "Reply body is empty — aborting"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 }
 
@@ -130,15 +130,23 @@ resolve_body() {
     if [ "$USE_EDITOR" -eq 1 ]; then
         compose_in_editor
     elif [ -n "$COMMENT_FILE" ]; then
-        if [ ! -f "$COMMENT_FILE" ]; then
-            log_error "File not found: $COMMENT_FILE"
-            exit 1
+        if [ "$COMMENT_FILE" = "-" ]; then
+            if body_source_stdin_is_tty; then
+                log_error "--body-file - requires piped stdin (refusing to read the terminal)"
+                exit "$EXIT_GENERAL_ERROR"
+            fi
+            COMMENT_BODY=$(cat)
+        else
+            if [ ! -f "$COMMENT_FILE" ]; then
+                log_error "File not found: $COMMENT_FILE"
+                exit $EXIT_API_FAILURE
+            fi
+            COMMENT_BODY=$(cat "$COMMENT_FILE")
         fi
-        COMMENT_BODY=$(cat "$COMMENT_FILE")
     fi
     if [ -z "$(echo "${COMMENT_BODY:-}" | tr -d '[:space:]')" ]; then
         log_error "Reply body is empty"
-        exit 1
+        exit "$EXIT_GENERAL_ERROR"
     fi
 }
 
@@ -159,7 +167,7 @@ post_reply() {
             repo_name="${BASH_REMATCH[2]}"
         else
             log_error "Cannot determine repository owner/name."
-            exit 1
+            exit "$EXIT_GENERAL_ERROR"
         fi
     fi
 
@@ -179,7 +187,7 @@ post_reply() {
         -f body="$COMMENT_BODY" \
         2>&1) || {
         log_error "Failed to post reply: $response"
-        exit 1
+        exit $EXIT_API_FAILURE
     }
 
     local reply_url
@@ -195,13 +203,15 @@ main() {
     if [ $# -eq 0 ]; then
         log_error "PR number is required"
         echo "Use --help for usage information"
-        exit 1
+        exit $EXIT_MISUSE
     fi
 
-    case "$1" in
-        -h|--help)    show_usage ;;
-        -v|--version) echo "$SCRIPT_VERSION"; exit 0 ;;
-    esac
+
+    # Global flags before auth/validation: --help must work without
+    # a valid GitHub session or any positional args.
+    if handle_global_flag "${1:-}"; then
+        exit 0
+    fi
 
     ensure_gh_login
 
@@ -209,7 +219,11 @@ main() {
         case "$1" in
             -h|--help)         show_usage ;;
             -v|--version)      echo "$SCRIPT_VERSION"; exit 0 ;;
-            -V|--verbose)      VERBOSE=1; shift ;;
+            -V|--verbose)
+                # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
+                VERBOSE=1
+                shift
+                ;;
             -n|--dry-run)      DRY_RUN=1; shift ;;
             --devenv)          ALLOW_DEVENV_REPO=1; shift ;;
             --comment-id)      COMMENT_ID="$2"; shift 2 ;;
@@ -219,7 +233,7 @@ main() {
             -*)
                 log_error "Unknown option: $1"
                 echo "Use --help for usage information"
-                exit 1
+                exit $EXIT_MISUSE
                 ;;
             *)
                 if [ -z "$PR_NUMBER" ]; then
@@ -227,7 +241,7 @@ main() {
                 else
                     log_error "Unexpected argument: $1"
                     echo "Use --help for usage information"
-                    exit 1
+                    exit $EXIT_MISUSE
                 fi
                 shift
                 ;;
@@ -237,17 +251,29 @@ main() {
     if [ -z "$PR_NUMBER" ]; then
         log_error "PR number is required"
         echo "Use --help for usage information"
-        exit 1
+        exit $EXIT_MISUSE
     fi
     if [ -z "$COMMENT_ID" ]; then
         log_error "--comment-id is required"
         echo "Use --help for usage information"
-        exit 1
+        exit $EXIT_MISUSE
     fi
     if [ -z "$COMMENT_BODY" ] && [ -z "$COMMENT_FILE" ] && [ "$USE_EDITOR" -eq 0 ]; then
-        log_error "One of --body, --body-file, or --edit is required"
-        echo "Use --help for usage information"
-        exit 1
+        # No explicit source: piped stdin auto-reads (shared body-source
+        # contract); a TTY is a real interactive session, so require a flag.
+        if ! body_source_stdin_is_tty; then
+            local resolved
+            if ! resolved=$(body_source_resolve ""); then
+                echo "Use --help for usage information"
+                exit $EXIT_MISUSE
+            fi
+            COMMENT_BODY="$resolved"
+            log_verbose "No source flag; reply read from piped stdin"
+        else
+            log_error "One of --body, --body-file, or --edit is required"
+            echo "Use --help for usage information"
+            exit $EXIT_MISUSE
+        fi
     fi
 
     validate_pr_number "$PR_NUMBER"
