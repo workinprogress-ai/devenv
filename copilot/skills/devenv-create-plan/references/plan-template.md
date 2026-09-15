@@ -303,7 +303,7 @@ phase as `[QUESTION] ...` bullets.
 - **Appendix** — optional for straightforward work. Required for medium/high-complexity plans derived from upstream design artifacts; summarize the important design context directly (decisions, constraints, contracts, migration notes, rejected alternatives), then link references.
 - **Appendix complexity trigger** — treat appendix as required when design-derived work hits the threshold: any 1 high-complexity trigger or any 2 medium-complexity triggers.
 - **Pending Questions** — optional. Place it immediately above `## Reference Information`. Use it only for unresolved plan-level questions; keep task- and phase-local questions inline as `[QUESTION]` bullets where they belong.
-- **Phase boundaries** — each phase must end committable. If a phase can't, split it.
+- **Phase boundaries** — under `phase-green`, each phase must end committable; if a phase can't, split it. Under `milestone-green`, milestone phases must end committable and intermediate phases must carry only declared red work per the plan's red-test register.
 - **Task headers** — bold, with size label, optional inline `(additional context)` link.
 - **Step-first tasks** — each task line should be a concrete step. Include `Files:` for execution-facing plans by default; include `decision:` and `depends on` only when needed. Keep additional context directly under each task.
 - **Reference table** — prefer a "key files" table with a relevance column over a flat link list. Add a separate **Related links** sub-list for issues/docs/PRs.

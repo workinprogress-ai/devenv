@@ -10,6 +10,13 @@ Every plan carries a **verification declaration** — set at planning time and a
 
 Typical non-code declarations: docs — lint + link-check + consistency pass against a stated source of truth; mechanical file work — script exit 0, input/output counts match, spot-check diff shown in handback; ops/runbook — each stage's own checks (expected command outputs, expected states) plus a stated rollback path.
 
+**Code regimes.** A code declaration carries a green policy chosen at planning time and recorded in the `**Verification**` line:
+
+- **`code (phase-green)` — default.** Every phase ends fully green and committable (Hard rule 3 below applies as written). Every phase is an independent PR candidate; review cadence is the user's choice.
+- **`code (milestone-green)`.** Chosen phases are declared **milestone phases** (always including the final phase) — those end fully green and are the plan's PR/review candidates. Intermediate phases may carry **declared red work**: a TDD red whose implementing phase comes later, or failing contract tests until their implementing phase lands. Under this regime, Hard rule 3's green items are satisfied at milestone phases only; for intermediate phases the gates become: the **build compiles**, all non-declared-red tests pass, and every red test is **declared in the plan** — a red-test register (test name/file, why red, which phase closes it) in the phase description. A red test past its declared closure point, or any red test not in the register, is a blocker exactly as under phase-green.
+
+Choosing `milestone-green` removes the need for the coverage escape hatch (Hard rule 4) in most plans — one declared instrument instead of scattered workarounds. Hard rule 5's in-phase red-green ban applies only under `phase-green`.
+
 ## Hard rules
 
 1. **Phase 1 is always: Baseline establishment** — understand and verify what exists before changing it. For code work (the default declaration) this is **Discovery & test scaffolding**:
@@ -132,8 +139,8 @@ When two or more patterns are viable, surface the options and a recommendation d
 - Phases that depend on **future** phases (cyclic) — re-order tasks until the dependency graph is a DAG flowing forward.
 - Skipping the coverage check because "it's just a refactor" — refactors are exactly when regressions sneak in.
 - Tests that hit lines without asserting anything — these inflate coverage numbers but catch nothing.
-- Writing failing tests for functionality to be implemented in a later phase — the TDD red-green cycle must complete within the same phase it starts. Tests written in Phase 1 must assert **current observable behaviour** (including "this stub throws as expected") and must pass at the end of Phase 1. Do not write a test that expects real behaviour the code does not yet have.
-- Proposing a phase outline where Phase 1 is described as "add failing coverage for new behaviour" (or equivalent) — phase proposals must describe committable deliverables, not deferred red-state work.
+- Writing failing tests for functionality to be implemented in a later phase (phase-green) — the TDD red-green cycle must complete within the same phase it starts. Tests written in Phase 1 must assert **current observable behaviour** (including "this stub throws as expected") and must pass at the end of Phase 1. Do not write a test that expects real behaviour the code does not yet have. Under milestone-green the same reds are allowed only when declared in the phase's red-test register.
+- Proposing a phase outline where Phase 1 is described as "add failing coverage for new behaviour" (or equivalent) under phase-green — phase proposals must describe committable deliverables, not deferred red-state work (milestone-green intermediate phases declare their reds in the register instead).
 - Adding Phase 1 tests by default when existing coverage already locks the relevant current behaviour — this creates noise without improving the plan.
 - DEVENV markers left in committed code — any `// DEVENV[...]` temporary comment introduced during the plan must be removed in the Cleanup phase. The Cleanup phase must include an explicit removal task if any markers were added. `devenv-marker-check .` must pass (zero markers) before the plan is complete.
 - Legacy and new implementations coexisting across multiple phases with no cleanup task — if `LegacyFooService` or a hollow-out stub is introduced, the Cleanup phase must have an explicit task to remove it.

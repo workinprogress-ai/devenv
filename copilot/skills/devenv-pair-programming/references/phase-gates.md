@@ -18,7 +18,7 @@ Once all ACs are resolved, surface the AC summary in the handback (delegation mo
 
 ## Phase Completion Gate
 
-Before declaring a phase complete, run the committability checklist from [phase-rules.md](../../devenv-create-plan/references/phase-rules.md). The checklist below is the **code preset** — it applies when the plan's `**Verification**` declaration is `code` or absent (legacy plans). For non-code declarations, run the plan's declared gates instead; the test/coverage items do not apply:
+Before declaring a phase complete, run the committability checklist from [phase-rules.md](../../devenv-create-plan/references/phase-rules.md). The checklist below is the **code preset** — it applies when the plan's `**Verification**` declaration is `code (phase-green)` or absent/legacy `code`. For non-code declarations, run the plan's declared gates instead; the test/coverage items do not apply. For `code (milestone-green)`, see the variant after the gate-pass announcement below:
 
 - [ ] All tests pass — including any tests written in the failing state (TDD) during this phase; the red-green cycle must close before this gate
 - [ ] Coverage has not regressed vs. the start of the phase
@@ -58,3 +58,5 @@ The user can also override the rule for a phase by:
 If the gate passes cleanly, announce it:
 
 > *"✅ Gate clear — phase is committable."*
+
+**Milestone-green variant.** When the plan's declaration is `code (milestone-green)`: expected-red tests listed in the plan's red-test register (test name/file, why red, closing phase) do **not** fail this gate for intermediate non-milestone phases — the intermediate gate is: build compiles, all non-registered tests pass, every red is in the register. A red test past its declared closure phase, or red but not registered, is a blocker as usual. Milestone phases run the full phase-green checklist above. The coverage escape hatch (phase-rules Hard rule 4) is rarely needed under this regime — the register *is* the declared instrument.
