@@ -63,7 +63,7 @@ if [[ $# -gt 0 && ( "$1" == "-h" || "$1" == "--help" ) ]]; then
 fi
 
 if [[ $# -lt 2 ]]; then
-  die "Usage: devenv-desktop-menu-add-shortcut <label> <command> [folder]  (use --help for details)" "$EXIT_INVALID_ARGUMENT"
+  die "Usage: devenv-desktop-menu-add-shortcut <label> <command> [folder]  (use --help for details)" "$EXIT_MISUSE"
 fi
 
 label="$1"
@@ -73,7 +73,7 @@ folder="${3:-}"
 menu_file="$(desktop_menu_get_file)"
 
 if [[ ! -f "$menu_file" ]]; then
-  die "Fluxbox menu file not found: ${menu_file}" "$EXIT_NOT_FOUND"
+  die "Fluxbox menu file not found: ${menu_file}" "$EXIT_API_FAILURE"
 fi
 
 desktop_menu_add_shortcut "$menu_file" "$label" "$cmd" "$folder"

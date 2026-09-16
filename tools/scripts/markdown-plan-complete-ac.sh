@@ -113,7 +113,7 @@ parse_args() {
             -*)
                 log_error "Unknown option: $1"
                 log_info "Run '$SCRIPT_NAME --help' for usage."
-                exit "$EXIT_INVALID_ARGUMENT"
+                exit "$EXIT_MISUSE"
                 ;;
             *)
                 positional+=("$1")
@@ -125,7 +125,7 @@ parse_args() {
     if [ "${#positional[@]}" -eq 0 ]; then
         log_error "At least one AC_NUMBER is required."
         log_info "Run '$SCRIPT_NAME --help' for usage."
-        exit "$EXIT_INVALID_ARGUMENT"
+        exit "$EXIT_MISUSE"
     fi
 
     # Classify each positional arg: AC numbers match AC-N[.N...]; anything
@@ -137,7 +137,7 @@ parse_args() {
             if [ -n "$PLAN_FILE" ]; then
                 log_error "Unexpected argument '$arg': file already set to '$PLAN_FILE'."
                 log_info "Run '$SCRIPT_NAME --help' for usage."
-                exit "$EXIT_INVALID_ARGUMENT"
+                exit "$EXIT_MISUSE"
             fi
             PLAN_FILE="$arg"
         fi
@@ -146,7 +146,7 @@ parse_args() {
     if [ "${#AC_NUMBERS[@]}" -eq 0 ]; then
         log_error "At least one AC_NUMBER is required."
         log_info "Run '$SCRIPT_NAME --help' for usage."
-        exit "$EXIT_INVALID_ARGUMENT"
+        exit "$EXIT_MISUSE"
     fi
 }
 
@@ -163,7 +163,7 @@ resolve_plan_file() {
     if [ -n "$PLAN_FILE" ]; then
         if [ ! -f "$PLAN_FILE" ]; then
             log_error "File not found: $PLAN_FILE"
-            exit "$EXIT_NOT_FOUND"
+            exit "$EXIT_API_FAILURE"
         fi
         return
     fi
@@ -180,7 +180,7 @@ resolve_plan_file() {
     if [ -z "$found" ]; then
         log_error "No Plan-*.md (or legacy Implementation_plan-*.md) file found in .local-artifacts/ or the current directory."
         log_info "Specify the file explicitly as one of the arguments."
-        exit "$EXIT_NOT_FOUND"
+        exit "$EXIT_API_FAILURE"
     fi
 
     PLAN_FILE="$found"

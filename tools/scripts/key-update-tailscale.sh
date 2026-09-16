@@ -22,17 +22,18 @@ echo "    -------------------------------------------------------"
 echo "    This will update your Auth Key and immediately reconnect."
 echo ""
 
-# 1. Capture New Key
-read -s -p "    Paste new Reusable Auth Key: " NEW_KEY
+# 1. Capture New Key; capture EOF so an empty key reaches the validation
+# below instead of set -e exiting on read's rc.
+read -s -r -p "    Paste new Reusable Auth Key: " NEW_KEY || NEW_KEY=""
 echo "" # Newline
 
 if [ -z "$NEW_KEY" ]; then
-    error_exit "No key provided. Operation cancelled."
+    die "No key provided. Operation cancelled." "$EXIT_MISUSE"
 fi
 
 # Validate key format (should start with tskey-)
 if [[ ! "$NEW_KEY" =~ ^tskey- ]]; then
-    error_exit "Invalid key format. Tailscale auth keys start with 'tskey-'"
+    die "Invalid key format. Tailscale auth keys start with 'tskey-'" "$EXIT_MISUSE"
 fi
 
 # 2. Update env-vars.sh (Persistence)
@@ -60,5 +61,5 @@ if sudo tailscale up --authkey="$NEW_KEY" --hostname="$CURRENT_HOSTNAME" --accep
     echo ""
     echo "    You can now continue working. No container restart required."
 else
-    error_exit "Failed to authenticate. Please check if the key is valid and not expired."
+    die "Failed to authenticate. Please check if the key is valid and not expired." "$EXIT_API_FAILURE"
 fi

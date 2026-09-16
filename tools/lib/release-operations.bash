@@ -239,19 +239,6 @@ calculate_next_version() {
 # Validate semantic version format
 # Returns 0 if valid, 1 otherwise
 ################################################################################
-validate_semver() {
-  local version="$1"
-  
-  # Remove leading 'v' if present
-  version="${version#v}"
-  
-  # Check semver format: X.Y.Z with optional prerelease and metadata
-  if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+((-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?)?$ ]]; then
-    return 0
-  fi
-  
-  return 1
-}
 
 ################################################################################
 # Bump semantic version based on change type
@@ -375,20 +362,6 @@ strip_version_prefix() {
 # Compare two semantic versions
 # Returns: -1 if first < second, 0 if equal, 1 if first > second
 ################################################################################
-compare_versions() {
-  local version1 version2
-  version1="$(strip_version_prefix "$1")"
-  version2="$(strip_version_prefix "$2")"
-  
-  # Use sort -V for version comparison
-  if [[ "$version1" == "$version2" ]]; then
-    echo 0
-  elif [[ "$(printf '%s\n' "$version1" "$version2" | sort -V | head -n1)" == "$version1" ]]; then
-    echo -1  # version1 < version2
-  else
-    echo 1   # version1 > version2
-  fi
-}
 
 # Export all functions
 export -f get_latest_version_tag
@@ -398,10 +371,8 @@ export -f is_feature_commit
 export -f is_fix_commit
 export -f commit_bump_from_header
 export -f calculate_next_version
-export -f validate_semver
 export -f bump_semver
 export -f check_release_config_supports_custom_types
 export -f get_conventional_commit_type
 export -f get_version_change_type
 export -f strip_version_prefix
-export -f compare_versions

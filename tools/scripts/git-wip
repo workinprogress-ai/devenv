@@ -1,4 +1,12 @@
 #!/bin/bash
+# git-wip: stage everything and push a WIP snapshot commit.
+#
+# Hook-bypass exception (intentional): this commit is created with `git
+# commit -n`, bypassing pre-commit/commit-msg hooks. WIP snapshots are
+# throwaway checkpoints by design — requiring them to pass commitlint would
+# defeat their purpose. The exception covers WIP snapshots here and the forced
+# version-bump empty commits in repo-bump-version.sh; normal commits must
+# always go through hooks.
 #
 
 STAGED_ONLY=false

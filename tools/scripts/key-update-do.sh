@@ -33,17 +33,18 @@ echo "    -------------------------------------------------------"
 echo "    This will update your Digital Ocean API token."
 echo ""
 
-# Get token from argument or prompt user
+# Get token from argument or prompt user; capture EOF so an empty token
+# reaches the validation below instead of set -e exiting on read's rc.
 if [ -n "${1:-}" ]; then
     NEW_TOKEN="$1"
 else
-    read -s -p "    Paste Digital Ocean API token: " NEW_TOKEN
+    read -s -r -p "    Paste Digital Ocean API token: " NEW_TOKEN || NEW_TOKEN=""
     echo "" # Newline
     echo "    Create one at: https://cloud.digitalocean.com/account/api/tokens"
 fi
 
 if [ -z "$NEW_TOKEN" ]; then
-    error_exit "No token provided. Operation cancelled."
+    die "No token provided. Operation cancelled." "$EXIT_MISUSE"
 fi
 
 # Validate token format (Digital Ocean tokens are long hex strings, typically 64 characters)

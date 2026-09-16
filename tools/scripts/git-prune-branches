@@ -1,19 +1,50 @@
 #!/bin/bash
+set -euo pipefail
 
-echo Running git fetch, just a moment...
+# git-prune-branches: delete local branches whose upstream is gone.
+# Branches are detected via for-each-ref's machine-readable upstream tracking
+# (never human-formatted `git branch -vv` output), previewed, and deleted only
+# after an explicit 'Y'. Deletion prefers a safe `git branch -d` per branch;
+# a branch that fails the safe delete (e.g. never-merged work) is reported and
+# left in place — force deletion is never performed here.
+
+scratch=$(mktemp)
+trap 'rm -f "$scratch"' EXIT
+
+echo "Running git fetch, just a moment..."
 git fetch -p
-git branch -vv | grep ': gone]' | awk '{print $1}' > /tmp/prunebranches
+
+# Branches whose upstream is gone: "(refname:short)\t[gone]" — the track
+# token is exactly "[gone]" only when the remote ref no longer exists.
+git for-each-ref --format='%(refname:short)%(if)%(upstream:track,trackshort)%(then)|%(upstream:track)%(end)' refs/heads \
+  | grep -F '|[gone]' | cut -d'|' -f1 > "$scratch" || true
+
+count=$(wc -l < "$scratch")
+if [ "$count" -eq 0 ]; then
+    echo "No branches with a gone upstream. Nothing to prune."
+    exit 0
+fi
+
 echo
 echo "These are the branches that will be pruned."
 echo
-cat /tmp/prunebranches
+cat "$scratch"
 echo
 echo "Type 'Y' to proceed"
-read -n 1 conf
+read -r -n 1 conf
 echo
 echo
 if [[ "$conf" = "y" || "$conf" = "Y" ]]; then
-  echo Pruned
-  echo
-  cat /tmp/prunebranches | xargs git branch -D
+    while IFS= read -r branch; do
+        [ -n "$branch" ] || continue
+        if git branch -d "$branch" 2>/dev/null; then
+            echo "Deleted: $branch"
+        else
+            echo "SKIPPED (not safely deletable): $branch" >&2
+        fi
+    done < "$scratch"
+    echo
+    echo "Pruned."
+else
+    echo "Aborted — nothing deleted."
 fi

@@ -85,7 +85,7 @@ parse_repo() {
     local repo="$1"
     if [[ ! "$repo" =~ ^[^/]+/[^/]+$ ]]; then
         log_error "Invalid --repo format: '$repo' (expected OWNER/REPO)"
-        exit 1
+        exit "$EXIT_API_FAILURE"
     fi
     echo "${repo%%/*}" "${repo##*/}"
 }
@@ -101,7 +101,7 @@ list_artifacts() {
         "/repos/$owner/$repo/actions/runs/$RUN_ID/artifacts" \
         --jq '.artifacts' 2>/dev/null); then
         log_error "Failed to fetch artifacts for run $RUN_ID in $REPO"
-        exit 1
+        exit "$EXIT_API_FAILURE"
     fi
 
     if [ "$(echo "$artifacts" | jq 'length')" -eq 0 ]; then
@@ -146,7 +146,10 @@ download_artifacts() {
             local size_mib=$(( total_bytes / 1048576 ))
             log_warn "Total artifact size is approximately ${size_mib} MiB."
             log_warn "Use --name to download a specific artifact, or proceed carefully."
-            read -r -p "Continue downloading all artifacts? [y/N] " confirm
+            if ! read -r -p "Continue downloading all artifacts? [y/N] " confirm < /dev/tty; then
+                echo "Non-interactive session: refusing bulk download (use --name)." >&2
+                exit "$EXIT_MISUSE"
+            fi
             [[ "$confirm" =~ ^[Yy]$ ]] || exit 0
         fi
     fi
@@ -160,7 +163,7 @@ download_artifacts() {
 
     if ! gh run download "$RUN_ID" "${gh_args[@]}"; then
         log_error "Failed to download artifacts for run $RUN_ID"
-        exit 1
+        exit "$EXIT_API_FAILURE"
     fi
 
     log_info "Artifacts downloaded to: $DEST_DIR"
@@ -206,7 +209,7 @@ main() {
             -*)
                 log_error "Unknown option: $1"
                 echo "Use --help for usage information"
-                exit 1 ;;
+                exit "$EXIT_MISUSE" ;;
             *)
                 if [ -z "$RUN_ID" ]; then
                     RUN_ID="$1"
@@ -214,7 +217,7 @@ main() {
                 else
                     log_error "Unexpected argument: $1"
                     echo "Use --help for usage information"
-                    exit 1
+                    exit "$EXIT_MISUSE"
                 fi ;;
         esac
     done
@@ -222,13 +225,13 @@ main() {
     if [ -z "$RUN_ID" ]; then
         log_error "RUN_ID is required"
         echo "Use --help for usage information"
-        exit 1
+        exit "$EXIT_MISUSE"
     fi
 
     if [ -z "$REPO" ]; then
         log_error "--repo OWNER/REPO is required"
         echo "Use --help for usage information"
-        exit 1
+        exit "$EXIT_MISUSE"
     fi
 
     if [ "$DOWNLOAD" -eq 1 ]; then

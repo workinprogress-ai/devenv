@@ -20,10 +20,10 @@ source "$DEVENV_TOOLS/lib/error-handling.bash"
 #
 ################################################################################
 
-POD_NAME_PART="$1"
+POD_NAME_PART="${1:?usage: kube-pod-exec.sh <pod-name-part> <command> }"
 NAMESPACE_OPTION=""
 
-if [ -n "$NAMESPACE" ]; then
+if [ -n "${NAMESPACE:-}" ]; then
     NAMESPACE_OPTION="-n $NAMESPACE"
 fi
 

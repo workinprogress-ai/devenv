@@ -5,6 +5,11 @@ DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # Version: 1.1.0
 # Description: Upserts an issue comment by matching the exact metadata line
 #              "doc_id: <doc_id>" within the first 256 characters.
+# Concurrency: single-writer per doc_id is assumed. The fetch-match-update
+#              sequence is not atomic; two concurrent upserts with the same
+#              doc_id can both POST and leave duplicate comments (reported as
+#              a conflict on the next run). Do not run concurrent upserts of
+#              the same artifact.
 # Requirements: Bash 4.0+, gh CLI, jq
 
 set -euo pipefail
@@ -406,8 +411,8 @@ main() {
     if [ "$match_count" -eq 1 ]; then
         local comment_id
         local comment_url
-        comment_id=$(echo "$matches" | jq '.[0].id')
-        comment_url=$(echo "$matches" | jq -r '.[0].url')
+        comment_id=$(echo "$matches" | jq '.[0].id') || api_failure "Failed to extract comment id"
+        comment_url=$(echo "$matches" | jq -r '.[0].url') || api_failure "Failed to extract comment url"
 
         if [ "$DRY_RUN" -eq 1 ]; then
             jq -n \
@@ -430,8 +435,8 @@ main() {
 
         local out_id
         local out_url
-        out_id=$(echo "$updated" | jq '.id')
-        out_url=$(echo "$updated" | jq -r '.html_url')
+        out_id=$(echo "$updated" | jq '.id') || api_failure "Failed to extract updated comment id"
+        out_url=$(echo "$updated" | jq -r '.html_url') || api_failure "Failed to extract updated comment url"
 
         jq -n \
             --arg action "updated" \
@@ -461,8 +466,8 @@ main() {
 
     local created_id
     local created_url
-    created_id=$(echo "$created" | jq '.id')
-    created_url=$(echo "$created" | jq -r '.html_url')
+    created_id=$(echo "$created" | jq '.id') || api_failure "Failed to extract created comment id"
+    created_url=$(echo "$created" | jq -r '.html_url') || api_failure "Failed to extract created comment url"
 
     jq -n \
         --arg action "created" \

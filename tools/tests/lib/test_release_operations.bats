@@ -45,18 +45,6 @@ teardown() {
   [[ "$result" == "1 2 3" ]]
 }
 
-# Test validate_semver
-@test "validate_semver with valid version" {
-  source "${DEVENV_ROOT}/tools/lib/release-operations.bash"
-  validate_semver "1.2.3"
-  [[ $? -eq 0 ]]
-}
-
-@test "validate_semver with invalid version" {
-  source "${DEVENV_ROOT}/tools/lib/release-operations.bash"
-  ! validate_semver "not.a.version"
-}
-
 # Test bump_semver
 @test "bump_semver patch" {
   source "${DEVENV_ROOT}/tools/lib/release-operations.bash"
@@ -162,35 +150,13 @@ teardown() {
   [[ "$result" == "1.2.3" ]]
 }
 
-# Test compare_versions
-@test "compare_versions equal" {
-  source "${DEVENV_ROOT}/tools/lib/release-operations.bash"
-  result=$(compare_versions "1.2.3" "1.2.3")
-  
-  [[ "$result" == "0" ]]
-}
-
-@test "compare_versions first less than second" {
-  source "${DEVENV_ROOT}/tools/lib/release-operations.bash"
-  result=$(compare_versions "1.2.3" "1.2.4")
-  
-  [[ "$result" == "-1" ]]
-}
-
-@test "compare_versions first greater than second" {
-  source "${DEVENV_ROOT}/tools/lib/release-operations.bash"
-  result=$(compare_versions "1.2.4" "1.2.3")
-  
-  [[ "$result" == "1" ]]
-}
-
 # Test library exports
 @test "all release-operations functions are exported" {
   source "${DEVENV_ROOT}/tools/lib/release-operations.bash"
   
   declare -f get_latest_version_tag >/dev/null
   declare -f parse_semver >/dev/null
-  declare -f validate_semver >/dev/null
+  declare -f bump_semver >/dev/null
   declare -f bump_semver >/dev/null
   declare -f is_breaking_commit >/dev/null
 }

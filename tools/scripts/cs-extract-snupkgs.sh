@@ -26,14 +26,14 @@ require_command unzip "unzip is required to extract snupkgs"
 
 if [ $# -lt 1 ]; then
     usage
-    exit $EXIT_INVALID_ARGUMENT
+    exit $EXIT_MISUSE
 fi
 
 SNUPKG_PATH="$1"
 OUTPUT_ROOT="${2:-snupkg-extracted}"
 
 if [ ! -f "$SNUPKG_PATH" ]; then
-    die "File not found: $SNUPKG_PATH" "$EXIT_NOT_FOUND"
+    die "File not found: $SNUPKG_PATH" "$EXIT_API_FAILURE"
 fi
 
 mkdir -p "$OUTPUT_ROOT"

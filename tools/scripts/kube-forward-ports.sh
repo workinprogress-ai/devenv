@@ -23,7 +23,7 @@ source "$DEVENV_TOOLS/lib/infrastructure-utilities.bash"
 mappings=()
 
 # If the first argument is a file, read mappings from it.
-if [ -f "$1" ]; then
+if [ -f "${1:-}" ]; then
   while IFS= read -r line || [ -n "$line" ]; do
     # Skip empty lines or lines starting with #
     if [[ -z "$line" || "$line" =~ ^# ]]; then

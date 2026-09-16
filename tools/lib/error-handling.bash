@@ -9,19 +9,33 @@ fi
 _ERROR_HANDLING_LOADED=1
 
 # Exit codes - following standard conventions
+#
+# Canonical set (the only meanings callers may rely on):
+#   0 success | 1 general error | 2 invalid usage/args | 3 duplicate/ambiguous
+#   match where exactly one was required | 4 gh/API failure or target not
+#   found | 5 multiple candidates where one was required | 124 timeout
+#   | 127 command missing | 128 invalid exit
+#
+# Deprecated aliases (Plan: exit-code contract consolidation) - do NOT use in
+# new code; they remain only until the last migrated call site is swept:
+#   EXIT_INVALID_ARGUMENT -> use EXIT_MISUSE (usage errors) or
+#   EXIT_API_FAILURE (not-found conditions)
+#   EXIT_NOT_FOUND        -> use EXIT_API_FAILURE (same value, 4)
+#   EXIT_PERMISSION_DENIED -> use EXIT_GENERAL_ERROR
 # shellcheck disable=SC2034  # Variables exported for use by sourcing scripts
 export EXIT_SUCCESS=0
 export EXIT_GENERAL_ERROR=1
 export EXIT_MISUSE=2
-export EXIT_INVALID_ARGUMENT=3
-export EXIT_NOT_FOUND=4
-export EXIT_PERMISSION_DENIED=5
-export EXIT_TIMEOUT=124
-export EXIT_COMMAND_NOT_FOUND=127
-export EXIT_INVALID_EXIT=128
 export EXIT_CONFLICT=3
 export EXIT_API_FAILURE=4
 export EXIT_AMBIGUOUS=5
+export EXIT_TIMEOUT=124
+export EXIT_COMMAND_NOT_FOUND=127
+export EXIT_INVALID_EXIT=128
+# Deprecated aliases - collide with the canonical 3/4/5 meanings; do not use.
+export EXIT_INVALID_ARGUMENT=3
+export EXIT_NOT_FOUND=4
+export EXIT_PERMISSION_DENIED=5
 
 # Track if strict mode is enabled
 ERROR_HANDLING_STRICT_MODE_ENABLED=0
@@ -206,9 +220,9 @@ require_permission() {
     local message="${3:-Permission denied: cannot $perm_type $file_path}"
     
     case "$perm_type" in
-        r) [ -r "$file_path" ] || die "$message" "$EXIT_PERMISSION_DENIED" ;;
-        w) [ -w "$file_path" ] || die "$message" "$EXIT_PERMISSION_DENIED" ;;
-        x) [ -x "$file_path" ] || die "$message" "$EXIT_PERMISSION_DENIED" ;;
+        r) [ -r "$file_path" ] || die "$message" "$EXIT_GENERAL_ERROR" ;;
+        w) [ -w "$file_path" ] || die "$message" "$EXIT_GENERAL_ERROR" ;;
+        x) [ -x "$file_path" ] || die "$message" "$EXIT_GENERAL_ERROR" ;;
         *) die "Invalid permission type: $perm_type" "$EXIT_MISUSE" ;;
     esac
 }

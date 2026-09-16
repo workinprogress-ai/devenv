@@ -137,7 +137,10 @@ confirm_files() {
         echo "    - $(basename "$f")"
     done
     printf "  Delete these %d file(s)? [y/N] " "$#"
-    read -r answer
+    if ! read -r answer < /dev/tty; then
+        echo "Non-interactive session: refusing deletion (pass --yes to skip the prompt)." >&2
+        return 1
+    fi
     [ "$answer" = "y" ] || [ "$answer" = "Y" ]
 }
 

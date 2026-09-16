@@ -17,7 +17,7 @@ ENV_VARS_FILE="$DEVENV_ROOT/.runtime/env-vars.sh"
 
 # Check if at least one environment variable is provided
 if [ $# -eq 0 ]; then
-    die "Usage: devenv-add-env-vars.sh \"VAR1=value1\" \"VAR2=value2\" ..." "$EXIT_INVALID_ARGUMENT"
+    die "Usage: devenv-add-env-vars.sh \"VAR1=value1\" \"VAR2=value2\" ..." "$EXIT_MISUSE"
 fi
 
 # Validate env-vars.sh exists
@@ -34,7 +34,7 @@ for env_var in "$@"; do
     if [[ ! "$env_var" =~ ^[A-Z_][A-Z0-9_]*=.* ]]; then
         log_error "Invalid environment variable format: $env_var"
         log_error "Expected format: VAR_NAME=value (variable name must start with letter/underscore, uppercase)"
-        exit $EXIT_INVALID_ARGUMENT
+        exit $EXIT_MISUSE
     fi
     
     # Extract variable name and value

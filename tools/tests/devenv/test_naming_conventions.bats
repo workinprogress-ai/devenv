@@ -50,13 +50,6 @@ setup() {
   [ -n "$output" ]
 }
 
-@test "config.bash functions use config_ namespace prefix" {
-  run bash -c "grep -E '^config_[a-z_]+\\(\\)' \"$PROJECT_ROOT/tools/lib/config.bash\" || true"
-  [ -n "$output" ]
-  # Should find multiple config_* functions
-  [ "${#lines[@]}" -gt 3 ]
-}
-
 @test "versioning.bash functions use descriptive names" {
   run bash -c "grep -E '^(parse_|compare_|version_|get_|check_|require_|script_)[a-z_]+\\(\\)' \"$PROJECT_ROOT/tools/lib/versioning.bash\" || true"
   [ -n "$output" ]

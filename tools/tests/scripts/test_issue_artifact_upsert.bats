@@ -284,3 +284,36 @@ GH
   [ "$(echo "$output" | jq -r '.action')" = "created" ]
   [ "$(echo "$output" | jq -r '.comment_id')" = "777" ]
 }
+
+# ---------------------------------------------------------------------------
+# doc_id 256-character window behavior (Plan-001 5.6)
+# ---------------------------------------------------------------------------
+
+@test "doc_id just inside the 256-char window is accepted" {
+  # pad = 250 chars after the doc_id line, so "doc_id: ..." starts at char 1
+  # and the full metadata line is well inside the first 256 characters.
+  local pad
+  pad=$(printf 'p%.0s' $(seq 1 200))
+  export MOCK_COMMENTS_JSON='[]'
+
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+    --issue 42 \
+    --body "doc_id: dv1:org/repo:issue-42:spike:test\n${pad}"
+
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq -r '.action')" = "created" ]
+}
+
+@test "doc_id beyond the 256-char window is rejected" {
+  # 300 chars of padding BEFORE the doc_id line pushes it out of the window.
+  local pad
+  pad=$(printf 'p%.0s' $(seq 1 300))
+  export MOCK_COMMENTS_JSON='[]'
+
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+    --issue 42 \
+    --body "${pad}\ndoc_id: dv1:org/repo:issue-42:spike:test"
+
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"256"* ]]
+}

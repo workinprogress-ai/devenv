@@ -71,124 +71,111 @@ namespace_exists() {
 # Pod Operations
 # ============================================================================
 
-# List pods in namespace
+# ============================================================================
+# Generic resource listing (single implementation for all kinds)
+# ============================================================================
+
+# _list_k8s_resources KIND [--namespace NS] [--filter PATTERN]
+#   Lists resource names of KIND (pods, deployments, statefulsets, ...).
+#   The --filter pattern is passed to jq as a variable (never interpolated
+#   into the jq program), so regex metacharacters in user input are safe.
+#   An empty --filter (or none) lists everything.
+_list_k8s_resources() {
+    local kind="$1"
+    shift
+    local ns="${NAMESPACE:-}"
+    local pattern=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --namespace|-n)
+                ns="$2"
+                shift 2
+                ;;
+            --filter|-f)
+                pattern="$2"
+                shift 2
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+
+    local ns_option=()
+    [ -n "$ns" ] && ns_option=(-n "$ns")
+
+    if [ -n "$pattern" ]; then
+        kubectl get "$kind" "${ns_option[@]}" -o json \
+            | jq -r --arg pat "$pattern" '.items[].metadata.name | select(test($pat))'
+    else
+        kubectl get "$kind" "${ns_option[@]}" -o json \
+            | jq -r '.items[].metadata.name'
+    fi
+}
+
+# Public list functions — kept for API compatibility with existing callers.
 # Usage: list_pods [--namespace NS] [--filter PATTERN]
-# Arguments:
-#   --namespace NS        Kubernetes namespace
-#   --filter PATTERN      Regex pattern to filter pod names
-# Returns: List of pod names
-# Example:
-#   pods=$(list_pods --namespace default --filter "web.*")
 list_pods() {
-    local ns="${NAMESPACE:-}"
-    local pattern="${1:-.}"
-    local ns_option=""
-
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --namespace|-n)
-                ns="$2"
-                shift 2
-                ;;
-            --filter|-f)
-                pattern="$2"
-                shift 2
-                ;;
-            *)
-                shift
-                ;;
-        esac
-    done
-
-    [ -n "$ns" ] && ns_option="-n $ns"
-
-    if [ -n "$pattern" ] && [ "$pattern" != "." ]; then
-        # shellcheck disable=SC2086  # ns_option should not be quoted (can be empty)
-        kubectl get pods $ns_option -o json | jq -r ".items[].metadata.name | select(test(\"$pattern\"))"
-    else
-        # shellcheck disable=SC2086  # ns_option should not be quoted (can be empty)
-        kubectl get pods $ns_option -o json | jq -r '.items[].metadata.name'
-    fi
+    _list_k8s_resources pods "$@"
 }
 
-# List deployments in namespace
 # Usage: list_deployments [--namespace NS] [--filter PATTERN]
-# Arguments:
-#   --namespace NS        Kubernetes namespace
-#   --filter PATTERN      Regex pattern to filter deployment names
-# Returns: List of deployment names
-# Example:
-#   deployments=$(list_deployments --namespace default --filter "api.*")
 list_deployments() {
-    local ns="${NAMESPACE:-}"
-    local pattern="${1:-.}"
-    local ns_option=""
-
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --namespace|-n)
-                ns="$2"
-                shift 2
-                ;;
-            --filter|-f)
-                pattern="$2"
-                shift 2
-                ;;
-            *)
-                shift
-                ;;
-        esac
-    done
-
-    [ -n "$ns" ] && ns_option="-n $ns"
-
-    if [ -n "$pattern" ] && [ "$pattern" != "." ]; then
-        # shellcheck disable=SC2086  # ns_option should not be quoted (can be empty)
-        kubectl get deployments $ns_option -o json | jq -r ".items[].metadata.name | select(test(\"$pattern\"))"
-    else
-        # shellcheck disable=SC2086  # ns_option should not be quoted (can be empty)
-        kubectl get deployments $ns_option --no-headers | awk '{print $1}'
-    fi
+    _list_k8s_resources deployments "$@"
 }
 
-# List statefulsets in namespace
 # Usage: list_statefulsets [--namespace NS] [--filter PATTERN]
-# Arguments:
-#   --namespace NS        Kubernetes namespace
-#   --filter PATTERN      Regex pattern to filter statefulset names
-# Returns: List of statefulset names
-# Example:
-#   statefulsets=$(list_statefulsets --namespace default)
 list_statefulsets() {
-    local ns="${NAMESPACE:-}"
-    local pattern="${1:-.}"
-    local ns_option=""
+    _list_k8s_resources statefulsets "$@"
+}
 
+# ============================================================================
+# Single-match resolution for destructive tools
+# ============================================================================
+
+# resolve_single_match LIST_FUNCTION_NAME --filter PATTERN [--namespace NS]
+#   Resolves a user-supplied name fragment to exactly one resource name.
+#   Prints the single match on success.
+#   Returns:
+#     0 - exactly one match; name on stdout
+#     2 - no matches (message on stderr)
+#     3 - multiple matches (all candidates on stderr)
+#   Non-interactive safe: never prompts. Destructive callers add their own
+#   confirmation step after a 0 return.
+resolve_single_match() {
+    local list_fn="$1"
+    shift
+
+    local pattern="" ns="${NAMESPACE:-}"
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --namespace|-n)
-                ns="$2"
-                shift 2
-                ;;
-            --filter|-f)
-                pattern="$2"
-                shift 2
-                ;;
-            *)
-                shift
-                ;;
+            --filter|-f)  pattern="$2"; shift 2 ;;
+            --namespace|-n) ns="$2"; shift 2 ;;
+            *) shift ;;
         esac
     done
 
-    [ -n "$ns" ] && ns_option="-n $ns"
+    local matches
+    matches=$("$list_fn" --namespace "$ns" --filter "$pattern") || {
+        log_error "Failed to list $list_fn resources"
+        return 2
+    }
 
-    if [ -n "$pattern" ] && [ "$pattern" != "." ]; then
-        # shellcheck disable=SC2086  # ns_option should not be quoted (can be empty)
-        kubectl get statefulsets $ns_option -o json | jq -r ".items[].metadata.name | select(test(\"$pattern\"))"
-    else
-        # shellcheck disable=SC2086  # ns_option should not be quoted (can be empty)
-        kubectl get statefulsets $ns_option --no-headers | awk '{print $1}'
+    if [ -z "$matches" ]; then
+        log_error "No matching resources found for pattern: $pattern"
+        return 2
     fi
+
+    local count
+    count=$(printf '%s\n' "$matches" | wc -l)
+    if [ "$count" -gt 1 ]; then
+        log_error "Pattern '$pattern' matches $count resources — be more specific:"
+        printf '%s\n' "$matches" >&2
+        return 3
+    fi
+
+    printf '%s\n' "$matches"
 }
 
 # ============================================================================
@@ -347,11 +334,11 @@ pod_exists() {
         return 1
     fi
 
-    local ns_option=""
-    [ -n "$ns" ] && ns_option="-n $ns"
+    local ns_flag=""
+    [ -n "$ns" ] && ns_flag="-n $ns"
 
-    # shellcheck disable=SC2086  # ns_option should not be quoted (can be empty)
-    kubectl get pod "$pod" $ns_option &>/dev/null
+    # shellcheck disable=SC2086  # ns_flag should not be quoted (can be empty)
+    kubectl get pod "$pod" $ns_flag &>/dev/null
 }
 
 # Check if deployment exists
@@ -384,11 +371,11 @@ deployment_exists() {
         return 1
     fi
 
-    local ns_option=""
-    [ -n "$ns" ] && ns_option="-n $ns"
+    local ns_flag=""
+    [ -n "$ns" ] && ns_flag="-n $ns"
 
     # shellcheck disable=SC2086  # ns_option should not be quoted (can be empty)
-    kubectl get deployment "$deployment" $ns_option &>/dev/null
+    kubectl get deployment "$deployment" $ns_flag &>/dev/null
 }
 
 # ============================================================================
@@ -425,11 +412,11 @@ get_pod_info() {
         return 1
     fi
 
-    local ns_option=""
-    [ -n "$ns" ] && ns_option="-n $ns"
+    local ns_flag=""
+    [ -n "$ns" ] && ns_flag="-n $ns"
 
     # shellcheck disable=SC2086  # ns_option should not be quoted (can be empty)
-    kubectl get pod "$pod" $ns_option -o json
+    kubectl get pod "$pod" $ns_flag -o json
 }
 
 # Get deployment info as JSON
@@ -462,11 +449,11 @@ get_deployment_info() {
         return 1
     fi
 
-    local ns_option=""
-    [ -n "$ns" ] && ns_option="-n $ns"
+    local ns_flag=""
+    [ -n "$ns" ] && ns_flag="-n $ns"
 
     # shellcheck disable=SC2086  # ns_option should not be quoted (can be empty)
-    kubectl get deployment "$deployment" $ns_option -o json
+    kubectl get deployment "$deployment" $ns_flag -o json
 }
 
 # ============================================================================
@@ -542,3 +529,27 @@ export -f get_deployment_info
 export -f list_contexts
 export -f get_current_context
 export -f select_context_interactive
+
+# ============================================================================
+# Destructive-action confirmation
+# ============================================================================
+
+# confirm_or_fail ACTION_DESCRIPTION
+#   Confirms a destructive action on the terminal, or fails fast when
+#   non-interactive unless the caller opted out via YES=1 / FORCE_YES=1.
+#   Shared by kube-pod-delete / kube-pod-scale / kube-pod-restart.
+confirm_or_fail() {
+    local action="$1"
+    if [ "${YES:-0}" = "1" ] || [ "${FORCE_YES:-0}" = "1" ]; then
+        return 0
+    fi
+    if [ -t 0 ]; then
+        printf "%s? [y/N] " "$action"
+        local answer=""
+        read -r answer < /dev/tty || true
+        [[ "${answer:-}" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; }
+    else
+        echo "Refusing to proceed without confirmation (set YES=1 to skip the prompt): $action" >&2
+        exit 2
+    fi
+}

@@ -37,7 +37,7 @@ fi
 EXTRA_ARGS=("$@")
 
 if [ ! -d "$TF_DIR" ]; then
-    die "Directory not found: $TF_DIR" "$EXIT_NOT_FOUND"
+    die "Directory not found: $TF_DIR" "$EXIT_API_FAILURE"
 fi
 
 pushd "$TF_DIR" >/dev/null

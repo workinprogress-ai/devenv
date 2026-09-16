@@ -93,7 +93,7 @@ main() {
                 exit 0
                 ;;
             --repo)
-                [ $# -ge 2 ] || die "--repo requires a value" "$EXIT_INVALID_ARGUMENT"
+                [ $# -ge 2 ] || die "--repo requires a value" "$EXIT_MISUSE"
                 repo="$2"
                 shift 2
                 ;;
@@ -102,7 +102,7 @@ main() {
                 shift
                 ;;
             --depth)
-                [ $# -ge 2 ] || die "--depth requires a value" "$EXIT_INVALID_ARGUMENT"
+                [ $# -ge 2 ] || die "--depth requires a value" "$EXIT_MISUSE"
                 depth="$2"
                 shift 2
                 ;;
@@ -111,7 +111,7 @@ main() {
                 shift
                 ;;
             --branch)
-                [ $# -ge 2 ] || die "--branch requires a value" "$EXIT_INVALID_ARGUMENT"
+                [ $# -ge 2 ] || die "--branch requires a value" "$EXIT_MISUSE"
                 branches+=("$2")
                 shift 2
                 ;;
@@ -120,13 +120,13 @@ main() {
                 shift
                 ;;
             *)
-                die "Unknown argument: $1. Use --help for usage information." "$EXIT_INVALID_ARGUMENT"
+                die "Unknown argument: $1. Use --help for usage information." "$EXIT_MISUSE"
                 ;;
         esac
     done
 
-    [ -n "$repo" ] || die "--repo is required" "$EXIT_INVALID_ARGUMENT"
-    [[ "$depth" =~ ^[0-9]+$ ]] || die "--depth must be a positive integer, got: $depth" "$EXIT_INVALID_ARGUMENT"
+    [ -n "$repo" ] || die "--repo is required" "$EXIT_MISUSE"
+    [[ "$depth" =~ ^[0-9]+$ ]] || die "--depth must be a positive integer, got: $depth" "$EXIT_MISUSE"
 
     local repo_dir="$REPO_CACHE_DIR/$repo"
     if [ ! -d "$repo_dir/.git" ]; then

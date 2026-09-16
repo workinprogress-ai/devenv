@@ -18,7 +18,7 @@ target_folder="${CONFIG_FOLDER:-$DEVENV_ROOT/.debug/config}"
 if [ -z "$repo_url" ]; then
     log_error "No repository URL provided. Set SERVICES_CONFIG_REPO or pass repo-url as argument."
     echo "Usage: get-services-config.sh [repo-url] [branch]"
-    exit $EXIT_INVALID_ARGUMENT
+    exit $EXIT_MISUSE
 fi
 
 return_to_folder=$(pwd)

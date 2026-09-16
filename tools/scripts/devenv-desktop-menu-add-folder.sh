@@ -59,7 +59,7 @@ if [[ $# -gt 0 && ( "$1" == "-h" || "$1" == "--help" ) ]]; then
 fi
 
 if [[ $# -lt 1 ]]; then
-  die "Usage: devenv-desktop-menu-add-folder <folder-name> [parent-folder]  (use --help for details)" "$EXIT_INVALID_ARGUMENT"
+  die "Usage: devenv-desktop-menu-add-folder <folder-name> [parent-folder]  (use --help for details)" "$EXIT_MISUSE"
 fi
 
 folder_name="$1"
@@ -68,7 +68,7 @@ parent_folder="${2:-}"
 menu_file="$(desktop_menu_get_file)"
 
 if [[ ! -f "$menu_file" ]]; then
-  die "Fluxbox menu file not found: ${menu_file}" "$EXIT_NOT_FOUND"
+  die "Fluxbox menu file not found: ${menu_file}" "$EXIT_API_FAILURE"
 fi
 
 desktop_menu_add_folder "$menu_file" "$folder_name" "$parent_folder"

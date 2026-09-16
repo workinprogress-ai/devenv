@@ -98,7 +98,7 @@ desktop_menu_add_shortcut() {
   local folder="${4:-}"
 
   if [[ ! -f "$menu_file" ]]; then
-    die "Menu file not found: ${menu_file}" "$EXIT_NOT_FOUND"
+    die "Menu file not found: ${menu_file}" "$EXIT_API_FAILURE"
   fi
 
   if desktop_menu_shortcut_exists "$menu_file" "$label"; then
@@ -108,7 +108,7 @@ desktop_menu_add_shortcut() {
 
   if [[ -n "$folder" ]]; then
     if ! desktop_menu_folder_exists "$menu_file" "$folder"; then
-      die "Folder '${folder}' does not exist in '${menu_file}'" "$EXIT_NOT_FOUND"
+      die "Folder '${folder}' does not exist in '${menu_file}'" "$EXIT_API_FAILURE"
     fi
     _desktop_menu_insert_into_folder \
       "$menu_file" "$folder" "        [exec] (${label}) { ${command} } <>"
@@ -136,7 +136,7 @@ desktop_menu_add_folder() {
   local parent="${3:-}"
 
   if [[ ! -f "$menu_file" ]]; then
-    die "Menu file not found: ${menu_file}" "$EXIT_NOT_FOUND"
+    die "Menu file not found: ${menu_file}" "$EXIT_API_FAILURE"
   fi
 
   if desktop_menu_folder_exists "$menu_file" "$folder_name"; then
@@ -146,7 +146,7 @@ desktop_menu_add_folder() {
 
   if [[ -n "$parent" ]]; then
     if ! desktop_menu_folder_exists "$menu_file" "$parent"; then
-      die "Parent folder '${parent}' does not exist in '${menu_file}'" "$EXIT_NOT_FOUND"
+      die "Parent folder '${parent}' does not exist in '${menu_file}'" "$EXIT_API_FAILURE"
     fi
     _desktop_menu_insert_into_folder \
       "$menu_file" "$parent" "        [submenu] (${folder_name}) {}\\n        [end]"

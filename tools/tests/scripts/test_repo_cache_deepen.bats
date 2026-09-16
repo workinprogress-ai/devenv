@@ -60,7 +60,7 @@ teardown() {
 
 @test "repo-cache-deepen rejects non-numeric depth" {
     run bash "$DEVENV_TOOLS/scripts/repo-cache-deepen.sh" --repo repo-alpha --depth abc
-    [ "$status" -eq 3 ]
+    [ "$status" -eq 2 ]
     [[ "$output" == *"--depth must be a positive integer"* ]]
 }
 

@@ -80,7 +80,7 @@ rerun_workflow() {
 
     if ! gh run rerun "$RUN_ID" "${gh_args[@]}"; then
         log_error "Failed to re-run workflow run: $RUN_ID"
-        exit 1
+        exit "$EXIT_API_FAILURE"
     fi
 
     local run_url
@@ -127,7 +127,7 @@ main() {
             -*)
                 log_error "Unknown option: $1"
                 echo "Use --help for usage information"
-                exit 1 ;;
+                exit "$EXIT_MISUSE" ;;
             *)
                 if [ -z "$RUN_ID" ]; then
                     RUN_ID="$1"
@@ -135,7 +135,7 @@ main() {
                 else
                     log_error "Unexpected argument: $1"
                     echo "Use --help for usage information"
-                    exit 1
+                    exit "$EXIT_MISUSE"
                 fi ;;
         esac
     done
@@ -143,13 +143,13 @@ main() {
     if [ -z "$RUN_ID" ]; then
         log_error "RUN_ID is required"
         echo "Use --help for usage information"
-        exit 1
+        exit "$EXIT_MISUSE"
     fi
 
     if [ -z "$REPO" ]; then
         log_error "--repo OWNER/REPO is required"
         echo "Use --help for usage information"
-        exit 1
+        exit "$EXIT_MISUSE"
     fi
 
     rerun_workflow

@@ -82,10 +82,10 @@ main() {
                 shift
                 ;;
             -*)
-                die "Unknown option: $1. Use --help for usage information." "$EXIT_INVALID_ARGUMENT"
+                die "Unknown option: $1. Use --help for usage information." "$EXIT_MISUSE"
                 ;;
             *)
-                die "Unexpected argument: $1. Use --help for usage information." "$EXIT_INVALID_ARGUMENT"
+                die "Unexpected argument: $1. Use --help for usage information." "$EXIT_MISUSE"
                 ;;
         esac
     done

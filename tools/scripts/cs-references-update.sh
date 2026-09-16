@@ -17,7 +17,7 @@ source "$DEVENV_TOOLS/lib/error-handling.bash"
 # ============================================================================
 
 readonly EXIT_OK=0
-readonly EXIT_INVALID_ARGUMENT=2   # bad flag / conflicting flags / unknown TFM mapping
+readonly EXIT_MISUSE=2   # bad flag / conflicting flags / unknown TFM mapping
 readonly EXIT_DIR_NOT_FOUND=3      # target directory does not exist
 readonly EXIT_RESTORE_FAILED=10    # dotnet restore failed after a TFM/LangVersion rewrite
 
@@ -98,12 +98,12 @@ while [[ $# -gt 0 ]]; do
             show_usage
             ;;
         --framework)
-            [[ $# -ge 2 && -n "${2:-}" ]] || { echo "ERROR: --framework requires a value (e.g. net10.0)" >&2; exit "$EXIT_INVALID_ARGUMENT"; }
+            [[ $# -ge 2 && -n "${2:-}" ]] || { echo "ERROR: --framework requires a value (e.g. net10.0)" >&2; exit "$EXIT_MISUSE"; }
             framework="$2"
             shift 2
             ;;
         --lang-version)
-            [[ $# -ge 2 && -n "${2:-}" ]] || { echo "ERROR: --lang-version requires a value (e.g. 14.0)" >&2; exit "$EXIT_INVALID_ARGUMENT"; }
+            [[ $# -ge 2 && -n "${2:-}" ]] || { echo "ERROR: --lang-version requires a value (e.g. 14.0)" >&2; exit "$EXIT_MISUSE"; }
             lang_version="$2"
             shift 2
             ;;
@@ -113,14 +113,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         -*)
             echo "ERROR: Unknown option: $1. Use --help for usage." >&2
-            exit "$EXIT_INVALID_ARGUMENT"
+            exit "$EXIT_MISUSE"
             ;;
         *)
             if [ -z "$target_dir" ]; then
                 target_dir="$1"
             else
                 echo "ERROR: Too many arguments. Use --help for usage." >&2
-                exit "$EXIT_INVALID_ARGUMENT"
+                exit "$EXIT_MISUSE"
             fi
             shift
             ;;
@@ -133,17 +133,17 @@ target_dir="${target_dir:-$(pwd)}"
 
 if [ -n "$framework" ] && ! [[ "$framework" =~ ^net[0-9]+\.0$ ]]; then
     echo "ERROR: --framework value '$framework' does not look like a TFM (expected net<N>.0, e.g. net10.0)" >&2
-    exit "$EXIT_INVALID_ARGUMENT"
+    exit "$EXIT_MISUSE"
 fi
 
 if [ -n "$lang_version" ] && ! [[ "$lang_version" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
     echo "ERROR: --lang-version value '$lang_version' does not look like a C# version (expected <N>[.<M>], e.g. 14.0)" >&2
-    exit "$EXIT_INVALID_ARGUMENT"
+    exit "$EXIT_MISUSE"
 fi
 
 if [ "$lang_default" -eq 1 ] && [ -n "$lang_version" ]; then
     echo "ERROR: --lang-default and --lang-version are mutually exclusive." >&2
-    exit "$EXIT_INVALID_ARGUMENT"
+    exit "$EXIT_MISUSE"
 fi
 
 if [ ! -d "$target_dir" ]; then
@@ -169,7 +169,7 @@ elif [ -n "$framework" ]; then
     if [ -z "${TFM_DEFAULT_LANG[$framework]+x}" ]; then
         if grep -rql --include='*.csproj' '<LangVersion>' "$target_dir" 2>/dev/null; then
             echo "ERROR: TFM '$framework' has no mapped default C# language version, but <LangVersion> tags exist in the tree. Supported TFMs: ${!TFM_DEFAULT_LANG[*]}. Pass --lang-version or --lang-default explicitly." >&2
-            exit "$EXIT_INVALID_ARGUMENT"
+            exit "$EXIT_MISUSE"
         fi
     else
         lang_version="${TFM_DEFAULT_LANG[$framework]}"

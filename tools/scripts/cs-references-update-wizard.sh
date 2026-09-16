@@ -200,12 +200,12 @@ main() {
                 shift 2
                 ;;
             --framework)
-                [[ $# -ge 2 && -n "${2:-}" ]] || die "--framework requires a value (e.g. net10.0)" "$EXIT_INVALID_ARGUMENT"
+                [[ $# -ge 2 && -n "${2:-}" ]] || die "--framework requires a value (e.g. net10.0)" "$EXIT_MISUSE"
                 framework="$2"
                 shift 2
                 ;;
             --lang-version)
-                [[ $# -ge 2 && -n "${2:-}" ]] || die "--lang-version requires a value (e.g. 14.0)" "$EXIT_INVALID_ARGUMENT"
+                [[ $# -ge 2 && -n "${2:-}" ]] || die "--lang-version requires a value (e.g. 14.0)" "$EXIT_MISUSE"
                 lang_version="$2"
                 shift 2
                 ;;
@@ -222,13 +222,13 @@ main() {
                 shift
                 ;;
             -*)
-                die "Unknown option: $1. Use --help for usage information." "$EXIT_INVALID_ARGUMENT"
+                die "Unknown option: $1. Use --help for usage information." "$EXIT_MISUSE"
                 ;;
             *)
                 if [ -z "$repo_dir" ]; then
                     repo_dir="$1"
                 else
-                    die "Too many arguments. Use --help for usage information." "$EXIT_INVALID_ARGUMENT"
+                    die "Too many arguments. Use --help for usage information." "$EXIT_MISUSE"
                 fi
                 shift
                 ;;
@@ -238,7 +238,7 @@ main() {
     repo_dir="${repo_dir:-.}"
 
     if [ ! -d "$repo_dir" ]; then
-        die "Directory not found: $repo_dir" "$EXIT_INVALID_ARGUMENT"
+        die "Directory not found: $repo_dir" "$EXIT_API_FAILURE"
     fi
     repo_dir=$(cd "$repo_dir" && pwd)
 
@@ -288,6 +288,19 @@ main() {
         fi
 
         # ── Step 1: Ensure default branch is up to date ───────────────────
+
+        # Guard: never destroy uncommitted work. If the working tree is dirty,
+        # ask before the hard reset / clean below; a plain "n" aborts.
+        local dirty_status
+        dirty_status=$(git -C "$repo_dir" status --porcelain 2>/dev/null || true)
+        if [ -n "$dirty_status" ]; then
+            log_warn "$repo_name has uncommitted changes:"
+            printf '%s\n' "$dirty_status" | sed 's/^/    /' >&2
+            if ! prompt_yes_no "Discard them via 'git reset --hard' + 'git clean -fd'"; then
+                log_error "Aborted: refusing to discard uncommitted changes in $repo_name"
+                exit $EXIT_GIT_FAILED
+            fi
+        fi
 
         log_info "Syncing $default_branch to origin in $repo_name..."
         git -C "$repo_dir" checkout "$default_branch" 2>/dev/null || {

@@ -84,7 +84,7 @@ list_workflows() {
     local repos
     if ! repos=$(gh repo list "$org" --limit 1000 --json name -q '.[].name' 2>/dev/null); then
         log_error "Failed to list repositories for org: $org"
-        exit 1
+        exit "$EXIT_API_FAILURE"
     fi
 
     if [ -z "$repos" ]; then
@@ -181,11 +181,11 @@ main() {
             -*)
                 log_error "Unknown option: $1"
                 echo "Use --help for usage information"
-                exit 1 ;;
+                exit "$EXIT_MISUSE" ;;
             *)
                 log_error "Unexpected argument: $1"
                 echo "Use --help for usage information"
-                exit 1 ;;
+                exit "$EXIT_MISUSE" ;;
         esac
     done
 

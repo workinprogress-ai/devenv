@@ -203,12 +203,12 @@ main() {
                 shift
                 ;;
             --framework)
-                [[ $# -ge 2 && -n "${2:-}" ]] || die "--framework requires a value (e.g. net10.0)" "$EXIT_INVALID_ARGUMENT"
+                [[ $# -ge 2 && -n "${2:-}" ]] || die "--framework requires a value (e.g. net10.0)" "$EXIT_MISUSE"
                 framework="$2"
                 shift 2
                 ;;
             --lang-version)
-                [[ $# -ge 2 && -n "${2:-}" ]] || die "--lang-version requires a value (e.g. 14.0)" "$EXIT_INVALID_ARGUMENT"
+                [[ $# -ge 2 && -n "${2:-}" ]] || die "--lang-version requires a value (e.g. 14.0)" "$EXIT_MISUSE"
                 lang_version="$2"
                 shift 2
                 ;;
@@ -234,13 +234,13 @@ main() {
                 shift
                 ;;
             -*)
-                die "Unknown option: $1. Use --help for usage information." "$EXIT_INVALID_ARGUMENT"
+                die "Unknown option: $1. Use --help for usage information." "$EXIT_MISUSE"
                 ;;
             *)
                 if [ -z "$target_dir" ]; then
                     target_dir="$1"
                 else
-                    die "Too many arguments. Use --help for usage information." "$EXIT_INVALID_ARGUMENT"
+                    die "Too many arguments. Use --help for usage information." "$EXIT_MISUSE"
                 fi
                 shift
                 ;;
@@ -249,7 +249,7 @@ main() {
 
     # --global and TARGET_DIR are mutually exclusive
     if [ "$global_mode" -eq 1 ] && [ -n "$target_dir" ]; then
-        die "--global and TARGET_DIR are mutually exclusive. Use --help for usage information." "$EXIT_INVALID_ARGUMENT"
+        die "--global and TARGET_DIR are mutually exclusive. Use --help for usage information." "$EXIT_MISUSE"
     fi
 
     local root_repo=""
@@ -259,7 +259,7 @@ main() {
         target_dir="${target_dir:-.}"
 
         if [ ! -d "$target_dir" ]; then
-            die "Directory not found: $target_dir" "$EXIT_INVALID_ARGUMENT"
+            die "Directory not found: $target_dir" "$EXIT_API_FAILURE"
         fi
         target_dir=$(cd "$target_dir" && pwd)
 
@@ -273,7 +273,7 @@ main() {
             ! -path "*/test/*" ! -path "*/tests/*" 2>/dev/null)
 
         if [ -z "$csproj_files" ] && [ "$has_sln" -eq 0 ]; then
-            die "No .sln or .csproj files found in: $target_dir" "$EXIT_INVALID_ARGUMENT"
+            die "No .sln or .csproj files found in: $target_dir" "$EXIT_MISUSE"
         fi
 
         root_repo=$(basename "$target_dir")
@@ -324,7 +324,7 @@ main() {
     if [ "$global_mode" -eq 1 ] && [ "$global_start_gen" -gt 0 ]; then
         local max_gen="${depths[-1]}"
         if [ "$global_start_gen" -gt "$max_gen" ]; then
-            die "Starting generation $global_start_gen exceeds maximum generation $max_gen" "$EXIT_INVALID_ARGUMENT"
+            die "Starting generation $global_start_gen exceeds maximum generation $max_gen" "$EXIT_MISUSE"
         fi
     fi
 

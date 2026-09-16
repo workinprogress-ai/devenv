@@ -27,22 +27,24 @@ source "$DEVENV_TOOLS/lib/kube-selection.bash"
 # Ensure correct usage
 if [ $# -lt 1 ]; then
     echo "Usage: $0 <partial-deployment-name> [namespace]"
-    exit 1
+    echo "Environment: YES=1 skips the confirmation prompt."
+    exit "$EXIT_MISUSE"
 fi
 
 DEPLOYMENT_NAME_PART="$1"
 
-# Find matching deployment using library function
-DEPLOYMENT_NAME=$(list_deployments --namespace "${NAMESPACE:-}" --filter "$DEPLOYMENT_NAME_PART" | head -n 1)
-
-# Check if a deployment was found
-if [ -z "$DEPLOYMENT_NAME" ]; then
-    echo "No matching deployment found for pattern: $DEPLOYMENT_NAME_PART"
-    exit 1
-fi
+# Resolve the name fragment to exactly one deployment: refuses on zero matches
+# and on multiple matches (candidates listed) so a partial name can never
+# restart an unintended workload.
+DEPLOYMENT_NAME=$(resolve_single_match list_deployments --filter "$DEPLOYMENT_NAME_PART" --namespace "${NAMESPACE:-}") || {
+    rc=$?
+    exit "$rc"
+}
 
 # Get namespace option for kubectl commands
 NS_OPTION=$(get_namespace_option "${NAMESPACE:-}")
+
+confirm_or_fail "Restart deployment '$DEPLOYMENT_NAME' (scale to 0 and back${NAMESPACE:+ in namespace $NAMESPACE})"
 
 # Get the current number of replicas using library function
 DEPLOYMENT_INFO=$(get_deployment_info --namespace "${NAMESPACE:-}" "$DEPLOYMENT_NAME")

@@ -14,7 +14,9 @@ set -euo pipefail
 #   repository-names - Names of repositories to bump (optional)
 #
 # Description:
-#   Forces an empty commit in multiple repositories to trigger version updates.
+#   Forces an empty commit in multiple repositories to trigger version update
+#   (created with -n, bypassing hooks — see the hook-bypass exception note in
+#   git-wip; version-trigger empty commits are intentional hook-free commits).
 #
 # Dependencies:
 #   - git
@@ -212,9 +214,6 @@ fi
 log_info "========================================"
 
 # Exit with appropriate code
-source "$DEVENV_TOOLS/lib/error-handling.bash"
-source "$DEVENV_TOOLS/lib/release-operations.bash"
-
 if [ $fail_count -gt 0 ]; then
     exit "$EXIT_GENERAL_ERROR"
 else

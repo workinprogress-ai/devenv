@@ -313,8 +313,16 @@ git wip-recover --branch my-branch  # check out as 'my-branch'
 **Safety guards in `git-unwip`:**
 
 1. **Protected branches** — refuses to run on `main`, `master`, or `develop`.
-2. **Remote WIP check** — only force-pushes if the remote tip is itself a `WIP:` commit; skips the push otherwise.
-3. **`--force-with-lease`** — aborts if the remote has new commits that weren't present when you last fetched, preventing accidental overwrites.
+2. **Anchored WIP matching** — the reset target is the last commit whose
+   subject does not start with `WIP:` (a subject merely containing "wip:"
+   elsewhere is never skipped); full hashes are used, and a history with no
+   non-WIP commit is refused.
+3. **Ancestry check** — the chosen reset target must be an ancestor of `HEAD`
+   or the run aborts.
+4. **Remote WIP check** — only force-pushes if the remote tip is itself a `WIP:`
+   commit; skips the push otherwise (a branch with no upstream is skipped too).
+5. **`--force-with-lease`** — aborts if the remote has new commits that weren't
+   present when you last fetched, preventing accidental overwrites.
 
 **Recovery with `refs/wip/last`:**
 
@@ -2388,7 +2396,7 @@ key-update-do [new-token]
 **Features:**
 
 - Accepts token as command-line argument or interactive prompt
-- Validates token format and length
+- Warns when a token looks shorter than the typical format (proceeds anyway)
 - Stores token persistently in `.setup/do_token.txt` with secure permissions
 - Updates `DO_TOKEN` environment variable
 - Reloads environment variables in the current shell

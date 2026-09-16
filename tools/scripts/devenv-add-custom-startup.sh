@@ -15,7 +15,7 @@ STARTUP_SCRIPT="$DEVENV_ROOT/.devcontainer/user-custom-startup.sh"
 
 # Check if at least one command is provided
 if [ $# -eq 0 ]; then
-    die "Usage: devenv-add-custom-startup.sh \"command1\" \"command2\" ..." "$EXIT_INVALID_ARGUMENT"
+    die "Usage: devenv-add-custom-startup.sh \"command1\" \"command2\" ..." "$EXIT_MISUSE"
 fi
 
 # Create the startup script if it doesn't exist

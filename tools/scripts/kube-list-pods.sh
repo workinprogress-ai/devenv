@@ -5,7 +5,7 @@ DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 
 # Optional search string for pod filtering
-POD_NAME_PART="$1"
+POD_NAME_PART="${1:-}"
 NAMESPACE_OPTION=""
 
 if [ -n "${NAMESPACE:-}" ]; then

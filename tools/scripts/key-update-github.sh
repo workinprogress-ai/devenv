@@ -15,17 +15,18 @@ echo "    -------------------------------------------------------"
 echo "    This will update your GitHub personal access token."
 echo ""
 
-# Get token from argument or prompt user
+# Get token from argument or prompt user; capture EOF so an empty token
+# reaches the validation below instead of set -e exiting on read's rc.
 if [ -n "${1:-}" ]; then
     NEW_TOKEN="$1"
 else
-    read -s -p "    Paste GitHub personal access token (classic) with repo scope: " NEW_TOKEN
+    read -s -r -p "    Paste GitHub personal access token (classic) with repo scope: " NEW_TOKEN || NEW_TOKEN=""
     echo "" # Newline
     echo "    Create one at: https://github.com/settings/tokens"
 fi
 
 if [ -z "$NEW_TOKEN" ]; then
-    error_exit "No token provided. Operation cancelled."
+    die "No token provided. Operation cancelled." "$EXIT_MISUSE"
 fi
 
 # Validate token format (GitHub tokens typically start with ghp_)

@@ -18,7 +18,7 @@ BOOTSTRAP_SCRIPT="$BOOTSTRAP_DIR/user-custom-bootstrap.sh"
 
 # Require at least one command
 if [ $# -eq 0 ]; then
-    die "Usage: devenv-add-custom-bootstrap.sh \"command1\" \"command2\" ..." "$EXIT_INVALID_ARGUMENT"
+    die "Usage: devenv-add-custom-bootstrap.sh \"command1\" \"command2\" ..." "$EXIT_MISUSE"
 fi
 
 # Ensure target directory and bootstrap script exist with header

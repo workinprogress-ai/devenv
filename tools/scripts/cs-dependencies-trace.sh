@@ -121,13 +121,13 @@ main() {
                 shift
                 ;;
             -*)
-                die "Unknown option: $1. Use --help for usage information." "$EXIT_INVALID_ARGUMENT"
+                die "Unknown option: $1. Use --help for usage information." "$EXIT_MISUSE"
                 ;;
             *)
                 if [ -z "$target_dir" ]; then
                     target_dir="$1"
                 else
-                    die "Too many arguments. Use --help for usage information." "$EXIT_INVALID_ARGUMENT"
+                    die "Too many arguments. Use --help for usage information." "$EXIT_MISUSE"
                 fi
                 shift
                 ;;
@@ -137,7 +137,7 @@ main() {
     target_dir="${target_dir:-.}"
 
     if [ ! -d "$target_dir" ]; then
-        die "Directory not found: $target_dir" "$EXIT_INVALID_ARGUMENT"
+        die "Directory not found: $target_dir" "$EXIT_API_FAILURE"
     fi
     target_dir=$(cd "$target_dir" && pwd)
 
@@ -152,7 +152,7 @@ main() {
         ! -path "*/test/*" ! -path "*/tests/*" 2>/dev/null)
 
     if [ -z "$csproj_files" ] && [ "$has_sln" -eq 0 ]; then
-        die "No .sln or .csproj files found in: $target_dir" "$EXIT_INVALID_ARGUMENT"
+        die "No .sln or .csproj files found in: $target_dir" "$EXIT_MISUSE"
     fi
 
     local repo_name
