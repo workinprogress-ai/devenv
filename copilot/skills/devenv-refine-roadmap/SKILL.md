@@ -32,7 +32,7 @@ If only step **status** is out of date (issues closed, PRs merged), use [`/deven
 
 The user provides an epic number (optionally `:<doc_id>` when the epic holds more than one roadmap artifact) — e.g. `89` or `89:dv1:workinprogress-ai/planning.development.main:issue-89:roadmap:orders-001`.
 
-Resolution: `issue-artifact-select --issue <N> --artifact-type roadmap [--doc-id <DOC_ID> | --latest]` → `mkdir -p <repo-root>/.local-artifacts && issue-artifact-get --issue <N> --doc-id <DOC_ID> --write-body <repo-root>/.local-artifacts/roadmap-refine.md` (session scratch copy under the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)).
+Resolution: `DOC_ID=$(issue-artifact-select --issue <N> --artifact-type roadmap [--doc-id <ID> | --latest] --format doc-id)` → `mkdir -p <repo-root>/.local-artifacts && issue-artifact-get --issue <N> --doc-id "$DOC_ID" --write-body <repo-root>/.local-artifacts/roadmap-refine.md` (session scratch copy under the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)).
 
 ## Workflow
 
@@ -113,7 +113,7 @@ After writing, list what may need follow-up:
 
 - **Status sync**: structural edits don't refresh issue/PR status → suggest [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md)
 - **Plan impact**: plans tied to superseded or split steps may need updating → suggest [`/devenv-refine-plan`](../devenv-refine-plan/SKILL.md) for affected plans
-- **Blueprint drift**: if the structural change reveals a deeper architectural issue, file an **upstream-impact issue** (`issue-create --type Task --label upstream-impact --no-template` in the planning repo — `GITHUB_REPO` is already set) describing what changed, why it matters, and the affected blueprint sections — then also suggest [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) directly if the user wants to cascade now
+- **Blueprint drift**: if the structural change reveals a deeper architectural issue, file an **upstream-impact issue** (`issue-create --type Task --label upstream-impact --no-template` in the planning repo — resolve and state `GITHUB_REPO=<owner>/<planning-repo>` per the repo-targeting guard) describing what changed, why it matters, and the affected blueprint sections — then also suggest [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) directly if the user wants to cascade now
 
 ## Anti-patterns
 

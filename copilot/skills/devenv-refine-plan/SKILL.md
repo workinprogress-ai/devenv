@@ -1,6 +1,6 @@
 ---
 name: devenv-refine-plan
-description: Align an existing Plan-*.md (or GitHub issue containing a plan artifact comment; legacy artifacts are typed implementation-plan) with reality — one skill entered from three starting points. Surgical mode for small known edits ("mark 3.4 done", "tick off task 2.1", "add a note to task X", "answer that open question", "add one more task to phase 3" — max 3 edits, per-edit confirm). Revision mode for known broader changes ("refine the plan", "update the plan", "rework the plan based on what we learned", tasks reworded, scope adjusted). Assessment mode when staleness is unknown ("refresh the plan", "is this plan still valid?", "the plan might be out of date", returning after a gap) — runs a staleness assessment against the current codebase and routes internally. Auto-detects file path vs GitHub issue number, preserves all existing `[x]` checkbox state, appends new tasks by default, supports task reflow for structural insertion, and creates new phases when the target phase is fully complete. DO NOT USE for creating a brand-new plan from scratch (use `/devenv-create-plan`) or for executing the plan (use `/devenv-pair-programming` or `/devenv-delegation`).
+description: Align an existing Plan-*.md (or GitHub issue containing a plan artifact comment; legacy artifacts are typed implementation-plan) with reality — one skill entered from three starting points. Surgical mode for small known edits ("mark 3.4 done", "tick off task 2.1", "add a note to task X", "answer that open question", "add one more task to phase 3" — max 3 edits, per-edit confirm). Revision mode for known broader changes ("refine the plan", "update the plan", "rework the plan based on what we learned", tasks reworded, scope adjusted). Assessment mode when staleness is unknown ("refresh the plan", "is this plan still valid?", "the plan might be out of date", returning after a gap) — runs a staleness assessment against the current codebase and routes internally. Auto-detects file path vs GitHub issue number, preserves all existing [x] checkbox state, appends new tasks by default, supports task reflow for structural insertion, and creates new phases when the target phase is fully complete. DO NOT USE for creating a brand-new plan from scratch (use /devenv-create-plan) or for executing the plan (use /devenv-pair-programming or /devenv-delegation).
 argument-hint: Path to an Plan-*.md OR github-issue-number[:doc_id], plus what changed (or nothing for assessment)
 ---
 
@@ -86,7 +86,7 @@ Small, surgical edits without a revision interview.
 
 For each edit, show a one-line preview and ask for explicit confirmation (one y/n per edit — never batch):
 
-> "Mark task **3.4 Create X** as done? (y/n)"
+> "Mark task **3.4 Create X** as done? (y/n)" — present via the structured interview per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections) when the choice is bounded
 > "Append note to **2.7**: 'fix landed in commit abc123'? (y/n)"
 
 If the user declines any edit, skip it and continue. Notes append to the task line as `— note: <text>` or an indented sub-bullet. Resolved questions: inline-edit the `[QUESTION]` line with `— answered: <text>`, or fold the answer into surrounding text and remove the question (prefer inline for short answers).
@@ -96,9 +96,9 @@ Then apply the shared hard rules (Step 3), write (Step 5), and report (Step 6) w
 ### 1. Load and parse the existing plan
 
 - Read the source (file or `issue-artifact-get --write-body` output).
-- Run `plan-parse <plan_file> --structure` for the authoritative phase/task inventory; `--census` for per-phase completion; `--anchors` for the file-path existence scan.
+- Run `plan-parse <plan_file> --structure` for the authoritative phase/task inventory (phase headings, task lines, IDs, completion state in one JSON — no hand-scanning); `--census` for per-phase completion; `--anchors` for the file-path existence scan.
 - If the source is an issue artifact, materialize it to a local working copy under `.local-artifacts/` before editing (temp folder only on explicit user request). Use that local working copy for all iterations in this refinement effort, and keep its `doc_id` in context for republish.
-- Run `plan-parse <plan_file> --structure` for the authoritative view: phase headings, task lines, IDs, and completion state in one JSON — do not hand-scan headings or checkboxes. Use `--census` when you only need per-phase completion counts.
+
 - The highest task number per phase and highest phase number come from the `plan-parse` output (max `id` / max `number`) — no manual arithmetic.
 - **Assess completion state**: `plan-parse --census` gives per-phase done/open counts directly.
 - If a marker-style escalation record exists in plan decisions or pending questions, treat it as high-priority refinement context and resolve it first.
@@ -125,7 +125,7 @@ In revision mode, use `vscode_askQuestions` to gather:
   - Option-weighing / approach not settled → `/devenv-design-discussion <plan-path>`
   - Current approach needs reclassification → `/devenv-grooming <plan-path>`
 
-  **File an upstream-impact issue** for confirmed architectural findings that originate above the plan (specification or blueprint level): `issue-create --type Task --label upstream-impact --no-template` in the planning repo (`GITHUB_REPO` is already set), body covering what changed/was discovered, why it matters, and the affected upstream sections. This puts the finding on the queue that `/devenv-refine-specifications` and `/devenv-refine-blueprint` consume in cascade mode.
+  **File an upstream-impact issue** for confirmed architectural findings that originate above the plan (specification or blueprint level): `issue-create --type Task --label upstream-impact --no-template` in the planning repo (resolve and state `GITHUB_REPO=<owner>/<planning-repo>` per the repo-targeting guard), body covering what changed/was discovered, why it matters, and the affected upstream sections. This puts the finding on the queue that `/devenv-refine-specifications` and `/devenv-refine-blueprint` consume in cascade mode.
 
   Do not continue plan refinement for architectural items until the design question is resolved.
 - **Legacy code exposure** — if new tasks will introduce implementations that coexist with existing legacy code in the same files across multiple phases, flag the issue: the plan likely needs an early cleanup phase. See [phase-rules.md](../devenv-create-plan/references/phase-rules.md) for available patterns (demolition, hollow-out, rename suffix, branch by abstraction). Surface the viable options and a recommendation before writing new tasks; don't silently pick one.

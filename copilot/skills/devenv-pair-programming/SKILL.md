@@ -1,6 +1,6 @@
 ---
 name: devenv-pair-programming
-description: 'Collaborate with the user as a pair-programming partner on a user story, GitHub issue, or plan. USE WHEN the user says "pair program", "let''s pair on this", "pair with me", "work on this issue with me", "implement this together", "let''s tackle this plan together", "work through this plan", or hands off a GitHub issue with collaborative intent (not "just do it"). Loads the plan (from a file path or a GitHub issue artifact comment), uses the goals/context/phase sections to orient the session, and treats acceptance criteria plus phase goals as the source of truth while keeping a condensed task list as the authoritative current-state ledger. Both parties take turns implementing and reviewing, the AI keeps AC/phase progress and task state current, asks before assuming, pushes back when warranted, and offers to document discoveries via `issue-comment` / `issue-create`. DO NOT USE for solo "do this for me" tasks, pure Q&A, or when the user wants the AI to drive the entire implementation without checkpoints.'
+description: 'Collaborate with the user as a pair-programming partner on a user story, GitHub issue, or plan. USE WHEN the user says "pair program", "let''s pair on this", "pair with me", "work on this issue with me", "implement this together", "let''s tackle this plan together", "work through this plan", or hands off a GitHub issue with collaborative intent (not "just do it"). Loads the plan (from a file path or a GitHub issue artifact comment), uses the goals/context/phase sections to orient the session, and treats acceptance criteria plus phase goals as the source of truth while keeping a condensed task list as the authoritative current-state ledger. Both parties take turns implementing and reviewing, the AI keeps AC/phase progress and task state current, asks before assuming, pushes back when warranted, and offers to document discoveries via issue-comment / issue-create. DO NOT USE for solo "do this for me" tasks, pure Q&A, or when the user wants the AI to drive the entire implementation without checkpoints.'
 argument-hint: '[issue-number[:doc_id] | path-to-plan | "ad-hoc"]'
 user-invocable: true
 ---
@@ -152,7 +152,7 @@ If resuming from a compacted context:
 
 1. **Re-read this skill file.** Do not rely on an in-context summary.
 2. **State your operating mode:** *"→ Resuming under `/devenv-pair-programming` — [phase, last completed task]."*
-3. **Run the appropriate next step** — not the full Session Kickoff; whatever comes next: phase transition (steps 5–6), task split, or mid-task continuation.
+3. **Run the appropriate next step** — not the full Session Kickoff; whatever comes next: phase transition (steps 4–5), task split, or mid-task continuation.
 
 **The session summary saying "active skill: devenv-pair-programming" is an operating constraint, not background context.** Treat it the same as if the skill was just invoked.
 
@@ -196,7 +196,7 @@ When associated `<N>` + `<DOC_ID>` are known, run a **one-time artifact freshnes
 
 During the same session, assume this working copy is authoritative unless the user indicates external edits occurred.
 
-**If missing or too thin** (no task list, no ACs, or no usable human-facing phase structure): offer to run a **collaborative inline breakdown** before execution rather than sending the user away to a separate skill invocation. See [Inline Plan Breakdown](#inline-plan-breakdown) below. Alternatively offer (a) proceed ad-hoc, (b) invoke [`/devenv-create-plan`](../devenv-create-plan/SKILL.md) separately, (c) abort. Wait for an answer.
+**If missing or too thin** (no task list, no ACs, or no usable human-facing phase structure): offer to run a **collaborative inline breakdown** before execution rather than sending the user away to a separate skill invocation. See [Inline Plan Breakdown](#2a-inline-plan-breakdown) below. Alternatively offer (a) proceed ad-hoc, (b) invoke [`/devenv-create-plan`](../devenv-create-plan/SKILL.md) separately, (c) abort. Wait for an answer.
 
 ### 2a. Inline Plan Breakdown
 
@@ -253,14 +253,7 @@ Wait for explicit confirmation, add the `## Goals and Acceptance Criteria` secti
 
 ### 2e. Forward guidance comments (placed at first touch, only when useful)
 
-Do **not** run an upfront codebase-wide pass to seed forward comments. Instead, place DEVENV forward comments **when first touching a file for a task anyway** — the comment lands while the relevant code or document is already open:
-
-- When implementing or reviewing a task that touches a file with a future integration point, add `// FIXME(DEVENV[plan-key]): ...` (plan-bounded) or `// TODO(DEVENV[plan-key]): ... — remove when <condition>` (cross-plan) at that spot in the same pass (source files); in documents use the `<!-- ... -->` annotation form of the same markers.
-- For AC-satisfying work: `// FIXME(DEVENV[plan-key]): [AC-2] This method must return a typed result.` — the AC discharges within this plan (find later with `grep -rn "\[AC-" .`; document annotations use the same `[AC-N]` tag)
-- Do not add normal code or document comments referencing plan phases/task numbers; temporary future-work references must use the `FIXME(DEVENV[...])` / `TODO(DEVENV[...])` format.
-- At kickoff, run `devenv-marker-check --todo-report` over the working scope and surface existing TODOs as session constraints — a scoped TODO in a file this plan touches is a prior session's message; honor it or explicitly resolve it with the user.
-
-Announce briefly when you drop one: *"Dropped a forward comment — [BulkSyncWorker.cs:142](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142)…"* Skip silently when none are useful.
+Canonical text lives in the shared [Execution gates & forward guidance](../common/references/execution-gates.md) protocol (§ Forward guidance comments) — it applies identically to every execution skill. Place DEVENV markers per that section's rules; the essentials are quoted there verbatim.
 
 ### 3. Orient and surface the starting point
 
@@ -268,7 +261,7 @@ Announce briefly when you drop one: *"Dropped a forward comment — [BulkSyncWor
 - Plan present: surface the current phase goal, end state, watch-outs, and likely next chunks of work. Ad-hoc: ask what we're tackling first.
 - If the user seems new to pairing (first-time tone, questions about the process): *"Quick orientation: one of us drives while the other navigates. We swap roles regularly. At any point you can push back on my approach or take the wheel."*
 
-### 5. Emit phase file links
+### 4. Emit phase file links
 
 Output a compact **Files in scope** block before the task split. Collect `Files:` paths from all tasks in the upcoming phase:
 
@@ -277,7 +270,7 @@ Output a compact **Files in scope** block before the task split. Collect `Files:
 
 Use workspace-root-relative paths. One line, dot-separated; group by subdirectory if >8 files. Repeat at every phase transition. Omit in ad-hoc mode.
 
-### 6. Phase kickoff gate (one scan, one output)
+### 5. Phase kickoff gate (one scan, one output)
 
 Before the task split for any new phase, run **one combined scan** covering decisions, ACs, and pending questions — then present one output block.
 
@@ -304,7 +297,7 @@ Before the task split for any new phase, run **one combined scan** covering deci
 
 Apply the shared [decision resolution protocol](../common/references/decision-resolution-protocol.md) for classification, option framing, and plan updates.
 
-### 6b. Brain bootup
+### 5b. Brain bootup
 
 **Skip by default.** Only run if the user says "catch me up", "bootup:", or "orient me" — or if session memory shows this is first contact with the codebase.
 
@@ -315,14 +308,14 @@ When triggered:
 
 Explore conversationally if the user engages. Move to step 7 when ready (or immediately if they don't engage).
 
-### 6c. Refresh forward comments for this phase
+### 5c. Refresh forward comments for this phase
 
 1. **Remove** forward DEVENV comments in previous phase files whose work is now done.
 2. **Add** targeted forward comments for this phase's specific tasks.
 
 Report briefly if anything changed; skip if nothing changed.
 
-### 7. Negotiate the task split
+### 6. Negotiate the task split
 
 **Default:** ask *"Which chunk should we start with?"* — let the user direct from the phase context. Only produce a split table if (a) the user asks ("suggest a split", "how should we divide this?") or (b) there are 4+ tasks with mixed `owner:` annotations.
 
@@ -347,7 +340,7 @@ Rules (always apply):
 - **Stop and wait for explicit agreement before touching any file unless the user has clearly entered flow mode.** Silence is not approval.
 - **A raised decision gate overrides flow mode.** Once you have emitted `🔶`, do not touch files or invoke other mutating tools again until the user explicitly resolves that decision.
 
-### 7b. Minimal operating loop
+### 6b. Minimal operating loop
 
 After kickoff, keep using this compact loop:
 
@@ -361,7 +354,7 @@ Also during this loop: notice new scope, capture unresolved questions in the pla
 
 When the user makes an in-flow assist request, fulfill the immediate assist first, then perform any plan maintenance that follows from the result.
 
-### 7c. Context checkpoint (lightweight)
+### 6c. Context checkpoint (lightweight)
 
 At phase transitions, and whenever direction changes materially, post a short checkpoint:
 
@@ -372,7 +365,7 @@ At phase transitions, and whenever direction changes materially, post a short ch
 
 Keep this to 3-6 lines unless the user asks for detail.
 
-### 7d. Review and re-anchor protocol (canonical)
+### 6d. Review and re-anchor protocol (canonical)
 
 Use this protocol for all review moments: post-change review, in-flow check-ins, re-engagement after a pause, and return-after-break status requests.
 
@@ -486,7 +479,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 
 3. **Review the actual diff.** Re-read every file the user touched before saying anything about it. See [Always Work From Current Files](#always-work-from-current-files).
 
-4. **Run the [Review and re-anchor protocol](#7d-review-and-re-anchor-protocol-canonical).** For focused single-chunk reviews, use this detailed format:
+4. **Run the [Review and re-anchor protocol](#6d-review-and-re-anchor-protocol-canonical).** For focused single-chunk reviews, use this detailed format:
 
    > **Review of 2.2:**
    >
@@ -581,7 +574,7 @@ Do this instead:
 
 Use a short format like:
 
-> *"🛑 I hit a wall in [`BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs): the retry wrapper needs request metadata that this layer does not have. I checked the neighboring client path and there isn't an existing pattern to copy. I am **not** going to fake it with a nullable fallback just to get unstuck. Want to (a) pass the metadata through, (b) move this lower, or (c) take a different approach?"*
+A worked wall-dialogue example (blocker → checks → named non-workaround → bounded options) is in [`references/interaction-phrasings.md`](./references/interaction-phrasings.md).
 
 Two failed attempts on the same local problem is enough. Do not keep thrashing.
 
@@ -665,17 +658,7 @@ Treat phase-transition phrases as navigation, not blanket implementation approva
 
 #### Common failure dialogues (must-pass)
 
-Use these as concrete guardrails:
-
-| User says | AI must do |
-|---|---|
-| "Proceed to phase 3" | Run phase kickoff (files, decisions, split). Do not implement yet. |
-| "Sounds good, continue" after a phase summary | Confirm next chunk and driver. Do not assume AI is driving. |
-| "What's next? 4.2 and 4.3?" | Confirm readiness, propose split, wait for driver assignment. |
-| "Go ahead" right after navigation talk | Treat as navigation confirmation, not coding authorization. |
-| "Can you take this one and implement 2.4?" | AI can drive 2.4; confirm scope, implement, then hand back for review. |
-
-**Driving assignments** (AI may implement): *"you take this"*, *"can you implement this part"*, *"you drive"*, *"please code this"*. **Not assignments:** *"go ahead"* after a phase move, *"what's next?"*, *"continue"*, *"sounds good"*, *"ready"*. Resolve ambiguous wording by context — last turn was planning/navigation → navigation; last turn was a concrete implementation choice → approval. Still ambiguous → ask: *"Do you want me to drive this chunk, or are you driving and I should navigate?"*
+The canonical failure-dialogue table and driving-assignment examples live in [`references/interaction-phrasings.md`](./references/interaction-phrasings.md) — consult them when classifying an ambiguous directive; they are guardrail examples, not new rules.
 
 ### Session drift: re-anchoring the protocol
 
@@ -895,13 +878,13 @@ Note the **checkpoint** (last explicitly confirmed completed task, or phase star
 3. **Track scope quietly.** Note which plan tasks appear addressed and update tracking when clear.
 4. **Stay available.** Brief observations or pointers are fine; don't go silent.
 
-If flow continues for a while without a recap, run a concise [Review and re-anchor protocol](#7d-review-and-re-anchor-protocol-canonical) check-in at least every ~5 conversational turns (or sooner if risk/ambiguity rises).
+If flow continues for a while without a recap, run a concise [Review and re-anchor protocol](#6d-review-and-re-anchor-protocol-canonical) check-in at least every ~5 conversational turns (or sooner if risk/ambiguity rises).
 
 ### Re-engagement: reviewing what was done
 
 When the user pauses, asks for a review, or slows down:
 
-1. **Run the [Review and re-anchor protocol](#7d-review-and-re-anchor-protocol-canonical).**
+1. **Run the [Review and re-anchor protocol](#6d-review-and-re-anchor-protocol-canonical).**
 
 2. **Maintain current-state tasks** — when work is clearly complete, tick tasks immediately; when tasks are obsolete, remove or strike them with a concise reason; when new work is discovered, add concise unchecked tasks in the right phase (or a new phase if needed). Offer first when the mapping is ambiguous: *"Happy to tick 3.1 and 3.2 and replace 3.3 with a narrower follow-up — want me to do that now?"*
 
@@ -1052,30 +1035,11 @@ What is **not** an option: quietly becoming delegation for the run while this sk
 
 ## AC Review Gate
 
-Run after all implementation phases, before Cleanup. The `[AC-N]` DEVENV comments are removed in Cleanup — run the gate while they're still present.
-
-- Scan: `grep -rn "\[AC-" <repo-root>`
-- **Objectively verifiable:** tick via `markdown-plan-complete-ac AC-N [<plan_file>]`; state the evidence.
-- **Requires judgment:** present to user: *"AC-3 — [text]: can you confirm this is satisfied?"*; tick after confirmation.
-- **No matching comment:** surface it: *"AC-4 has no implementation comment — was it addressed?"*; let user decide (tick, defer, or new task).
-
-All ACs must be `[x]` or explicitly deferred/deprecated before Cleanup. See full protocol in [phase-gates.md](./references/phase-gates.md).
+Canonical text lives in the shared [Execution gates & forward guidance](../common/references/execution-gates.md) protocol (§ AC review gate). Run it after all implementation phases, before Cleanup: scan `[AC-` comments with `devenv-marker-check --ac`, tick objectively-verifiable ACs with cited evidence, present judgment ACs to the user, surface ACs with no matching comment. All ACs `[x]` or explicitly deferred/deprecated before Cleanup.
 
 ## Phase Completion Gate
 
-Before declaring a phase complete, run the committability checklist (see [phase-gates.md](./references/phase-gates.md) for the full coverage-drop protocol and override options). Run the plan's **declared verification gates** — for code-declared plans (the default; also the assumption for plans with no `**Verification**` line) this is the full checklist below; for non-code declarations, run what the plan declares (deterministic, observable checks) and treat failures identically — the test/coverage items below do not apply:
-
-- [ ] All tests pass (TDD red-green cycle closed)
-- [ ] Coverage has not regressed
-- [ ] New tests assert observable behavior
-- [ ] No blocking TODOs
-- [ ] No straggler plan-bounded DEVENV markers for completed work — `devenv-marker-check <phase-files>` fails only on FIXME(DEVENV[...]); condition-bearing `TODO(DEVENV[...])` markers that deliberately survive the phase are acceptable and must be surfaced in the handback
-
-Coverage drops are blockers — surface and resolve before declaring complete. If the gate passes: *"✅ Gate clear — phase is committable."*
-
-Pending questions are also blockers unless they have been explicitly deferred or externalized. A phase is not complete while it still contains unresolved `[QUESTION]` items that affect execution of that phase.
-
-If this is the **final implementation phase**, no AC may remain unchecked. Before declaring final-phase completion, verify every AC is either `[x]` or explicitly deferred/deprecated. If any AC remains undone, the gate is blocked and final-phase completion cannot be declared.
+Canonical text lives in the shared [Execution gates & forward guidance](../common/references/execution-gates.md) protocol (§ Phase completion gate). Run the committability checklist (via [phase-gates.md](./references/phase-gates.md)) before declaring a phase complete and handing back: declared verification gates pass, coverage not regressed, no blocking TODOs, no remaining plan-bounded `FIXME(DEVENV[...])` markers, no condition-less `TODO(DEVENV[...])` markers. Under milestone-green, registered reds don't fail non-milestone phases; red-past-closure or unregistered reds block. Coverage drops block.
 
 ## Session Wrap-Up
 
@@ -1083,7 +1047,7 @@ When the user signals end of session (or a phase boundary that suggests a natura
 
 > *"🏁 Wrapping up — here's where we landed."*
 
-1. **If the session ends at a completed phase boundary**, verify the [Phase Completion Gate](#phase-completion-gate) was run for that phase. If it was skipped for any reason, run it now before proceeding.
+1. **If the session ends at a completed phase boundary**, verify the [Phase Completion Gate](../common/references/execution-gates.md#phase-completion-gate) was run for that phase. If it was skipped for any reason, run it now before proceeding.
 2. Summarize what was done, what's left, current state of the plan. Use this format:
 
    > **Done**
@@ -1105,7 +1069,7 @@ When the user signals end of session (or a phase boundary that suggests a natura
 6. **Architectural deviations discovered during execution:** if the session revealed that an upstream design artifact is wrong (a blueprint boundary didn't survive contact with the codebase, a specification item proved unmeasurable), offer to file an **upstream-impact issue** in the planning repo: `GITHUB_REPO=<org>/<planning-repo> issue-create --type Task --label upstream-impact --no-template`, body covering what was discovered, why it matters, and the affected upstream sections. The refine skills consume this queue in cascade mode.
 7. **Knowledge distillation (explicit request only).** Following the shared [knowledge distillation protocol](../common/references/knowledge-distillation-protocol.md): when the user explicitly asks to distill this session or calls out a specific point to add, scan for organization-specific implementation lessons (where things are wired in this org's repos, idioms of its libraries, enforced conventions — not procedural workflow rules), summarize the candidates in chat with their proposed target files, and let the user approve before anything is written to `repos/docs.copilot-knowledge`. The user reviews and commits. Never offer distillation unprompted. The same request also covers general knowledge discovered this session (emerging practices, engineering patterns) — those follow the [knowledge extraction protocol](../common/references/knowledge-extraction-protocol.md) into the `candidates/` area instead of the main body.
 8. Offer to post a status comment on the issue (if applicable) — show the draft, wait for confirmation. When a plan file backs the work, the draft ends with the `Progress:` snapshot line (see [GH issue artifact sync](#gh-issue-artifact-sync)): `Progress: <done>/<total> tasks (<pct>%), phase <n> of <N> — <YYYY-MM-DD>`, values from `plan-parse --census`, never hand-counted.
-9. **Offer to retire local working copies** (y/n, never auto-delete): when the plan (or any other issue artifact used this session) was synced via `issue-artifact-upsert` and the session's work on it is done, run `artifact-clean -l <repo>` to inventory `.local-artifacts/` by family, offer deletion (ephemeral `tmpN.md` needs no confirmation; working copies and session memory do), and delete on approval via `artifact-clean`. If the user keeps them (work continues next session), leave them in `.local-artifacts/` — `/devenv-open-pr` still requires them gone before opening a PR. requires them gone before opening a PR.
+9. **Offer to retire local working copies** (y/n, never auto-delete): when the plan (or any other issue artifact used this session) was synced via `issue-artifact-upsert` and the session's work on it is done, run `artifact-clean -l <repo>` to inventory `.local-artifacts/` by family, offer deletion (ephemeral `tmpN.md` needs no confirmation; working copies and session memory do), and delete on approval via `artifact-clean`. If the user keeps them (work continues next session), leave them in `.local-artifacts/` — `/devenv-open-pr` still requires them gone before opening a PR.
 10. Suggest a starting point for the next session.
 
 ## Anti-patterns

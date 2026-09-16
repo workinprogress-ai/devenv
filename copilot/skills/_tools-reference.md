@@ -1,6 +1,6 @@
 # Tools Reference
 
-Quick reference for all CLI tools used by the skill suite. Skills invoke `tools/<name>` relative to the workspace root.
+Quick reference for all CLI tools used by the skill suite. **Invoke tools by bare name** (`plan-parse`, `issue-get`, …) — all wrappers are on `PATH` from any working directory. The `tools/scripts/<name>.sh` path form also works but only from the workspace root; bare name is canonical.
 
 **This file is the complete invocation reference — do not run `--help` on any tool at runtime.** Every tool a skill is expected to call has its stable invocation pattern here; when a skill needs a command shape, it quotes it inline or cites this file.
 
@@ -111,6 +111,8 @@ Deterministic plan structure parsing.
 ```
 plan-parse PLAN_FILE [--structure] [--census] [--anchors] [--summary] [--lint [--require-header]]
 ```
+
+Exactly one mode flag per invocation — passing two (e.g. `--summary --census`) is a usage error (exit 2), never a silent last-wins. Run separate invocations when both views are needed.
 
 `--structure` (default): phases with tasks and completion state plus the AC checklist as JSON. `--census`: per-phase done/open counts. `--anchors`: file paths mentioned in the plan with existence flags (staleness scans). `--summary`: single-object progress summary — `{plan_file, doc_id, issue_number, planning_repo (header routing fields; null when absent or none), phases_total, phases_complete, current_phase, tasks_done/open/total, pct_tasks, weighted{done,total,pct}, sized_tasks, open_questions, unchecked_acs}`; size weights S=1 M=2 L=4, missing size counts as M. `--lint`: structural lint — `{errors, warnings, checks, ok}`, exit 1 on errors; checks no-phases, alphabetic task suffixes (`2.1a`), duplicate ids, `## Revision History` presence; warns on empty phases, missing size tokens, numbering gaps. `--lint --require-header`: additionally validates the `DEVENV_ARTIFACT_V1` header (presence, `doc_id` format + first-256 placement, `artifact_type: plan`, `planning_repo` owner/repo form or `none` — the sanctioned ungoverned-work sentinel) — **the gate to run before any plan-artifact `issue-artifact-upsert`** (errors block; only explicit user acceptance of a documented deviation bypasses). Use instead of hand-scanning headings, checkboxes, or `Files:` bullets — and instead of hand-counting progress (the `Progress:` snapshot line derives from `--summary`/`--census`).
 
@@ -984,8 +986,6 @@ project-update-issue "Sprint 5" 123 --field "Priority=High"
 
 ---
 
-## Repo and markdown tools
-
 ## GitHub Actions tools
 
 Org-wide GitHub Actions operations — views `gh` alone can't replicate in one call.
@@ -1141,7 +1141,7 @@ Mark one or more plan task checkboxes complete or incomplete.
 markdown-plan-complete-task [--uncomplete] TASK_NUMBER... [PLAN_FILE]
 ```
 
-When `PLAN_FILE` is omitted, auto-detects the first `Plan-*.md` (or legacy `Implementation_plan-*.md`) in the current directory, then in `.local-artifacts/`.
+When `PLAN_FILE` is omitted, auto-detects the first `Plan-*.md` (or legacy `Implementation_plan-*.md`) in `.local-artifacts/`, then the current directory.
 
 Examples:
 

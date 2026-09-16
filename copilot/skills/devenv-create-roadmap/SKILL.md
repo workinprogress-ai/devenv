@@ -172,7 +172,7 @@ Show the draft. Revise. **Do not publish yet.**
 
 Once approved:
 
-1. Create the parent epic in the planning repo (`GITHUB_REPO=<org>/<planning-repo> issue-create --title "Epic: <system> roadmap" --type "Epic" --no-template`) with a placeholder body (title, blueprint link, note that the roadmap artifact follows in a comment). Epic is the correct type here by definition — a roadmap's parent coordinates multi-repo delivery, which is exactly what Epic is for (orchestration, not single deliverables).
+1. Create the parent epic in the planning repo (`GITHUB_REPO=<org>/<planning-repo> issue-create --title "Epic: <system> roadmap" --type "Epic"`) with a placeholder body (title, blueprint link, note that the roadmap artifact follows in a comment). Epic is the correct type here by definition — a roadmap's parent coordinates multi-repo delivery, which is exactly what Epic is for (orchestration, not single deliverables).
 2. Publish the roadmap as an artifact comment on the epic: follow the shared [Artifact Identity Convention](../_conventions.md#artifact-identity-convention) with `artifact_type: roadmap` and `artifact_scope: issue-comment`. Resolve the deterministic `doc_id` with `issue-artifact-doc-id --issue <epic-number> --artifact-type roadmap --slug <system>-<NNN>` (form `dv1:<owner>/<repo>:issue-<epic-number>:roadmap:<system>-<NNN>`), stamp it into the scratch copy's `DEVENV_ARTIFACT_V1` header via `artifact-header <scratch-path> --set doc_id=<value>`, and run `issue-artifact-upsert --issue <epic-number> --body-file <scratch-path>`.
 3. Note the epic number and artifact `doc_id` — every later roadmap skill (refine/update) addresses the roadmap by `doc_id`.
 
@@ -203,11 +203,10 @@ For each roadmap step where the component repo is known:
 GITHUB_REPO=<org>/<component-repo> issue-create \
   --title "<step title>" \
   --type "<type>" \
-  --body-file <temp-body-file> \
-  --no-template
+  --body-file <temp-body-file>
 ```
 
-> **Note:** `issue-create` does not have a `--repo` flag. The repo is selected via the `GITHUB_REPO` env var (`owner/repo` form). If unset, the tool falls back to `GH_ORG` + current repo name, then to the current git repo. `--type` is required for non-interactive creation — valid values come from `tools/config/issues-config.yml` (Bug, Feature, Task, Epic); roadmap step issues are normally `Task` and the parent epic is `Epic`, unless the user approves otherwise.
+> **Note:** `issue-create` does not have a `--repo` flag. The repo is selected via the `GITHUB_REPO` env var (`owner/repo` form). If unset, the tool falls back to `GH_ORG` + current repo name, then to the current git repo. `--type` is required for deterministic runs — valid values come from `tools/config/issues-config.yml` (Bug, Feature, Task, Epic); roadmap step issues are normally `Task` and the parent epic is `Epic`, unless the user approves otherwise.
 
 The body should reference back to the roadmap artifact and blueprint:
 
@@ -272,7 +271,7 @@ After the roadmap is created and issues exist:
 
 - **Track delivery progress**: [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md) syncs roadmap step status from issue/PR state.
 - **Implement a step**: [`/devenv-create-plan`](../devenv-create-plan/SKILL.md) on the issue produces task-level detail.
-- **Architecture changed**: [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) → then re-run this skill to add new steps.
+- **Architecture changed**: [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) → then [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md) to add/adjust steps (preserves STEP-NN IDs and issue links).
 
 ## Anti-patterns
 

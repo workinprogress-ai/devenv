@@ -40,7 +40,7 @@ The `description` is the **only** signal the model uses to decide whether to aut
 2. **Include a `USE WHEN` clause** with the exact trigger phrases users will say (in quotes).
 3. **Include a `DO NOT USE FOR` clause** that names sibling skills it should defer to.
 4. Stay under 1500 characters total; brevity is still preferred — trim toward 1000 when possible.
-5. Do not use markdown formatting in the description — it's plain text.
+5. Avoid markdown formatting in the description — it renders as plain text in skill pickers, so formatting that would leak raw (backticks, bold markers) should not be used. Slash-command names and plain words are fine.
 
 Template:
 
@@ -110,7 +110,7 @@ Rules:
 
 - **One glob.** Working-copy probes check `<repo>/.local-artifacts/` (e.g. `.local-artifacts/Plan-issue-42-*.md`), not the repo root.
 - **One ignore.** `.local-artifacts/` is committed to no repo; every repo's `.gitignore` (including all `template.*` repos) carries the entry.
-- **Offer-to-retire at wrap-up.** When an artifact is republished to its issue (`issue-artifact-upsert`) or a skill session that owns local files ends, list the stale `.local-artifacts/` files and offer deletion (y/n) — never auto-delete. Use [`artifact-clean`](../_tools-reference.md#artifact-clean) for the sweep: it groups files into the families below, drops `tmpN.md` without confirmation, and confirms everything else. After publication the issue copy is authoritative; see the [issue-backed artifact edit protocol](#issue-backed-artifact-edit-protocol).
+- **Offer-to-retire at wrap-up.** When an artifact is republished to its issue (`issue-artifact-upsert`) or a skill session that owns local files ends, list the stale `.local-artifacts/` files and offer deletion (y/n) — never auto-delete. Use [`artifact-clean`](./_tools-reference.md#artifact-clean) for the sweep: it groups files into the families below, drops `tmpN.md` without confirmation, and confirms everything else. After publication the issue copy is authoritative; see the [issue-backed artifact edit protocol](#issue-backed-artifact-edit-protocol).
 - **Out of scope:** deliverable-style docs that are the skill's own product — spike docs (`spike-NNN-*.md`), bug-hunt reports (`bug-hunt-*.md`), and technical-debt audits (`TECH_DEBT_AUDIT*.md`) live in `.local-artifacts/` with everything else but are retained deliverables, not cleanup fodder; specs/blueprints written into planning repos (`docs/Specifications/` etc.) are shipped files. Cleanup sweeps must not touch any of these.
 
 ## Issue-backed artifact edit protocol
@@ -363,7 +363,7 @@ Do not leave a wrapper usable only via runtime `--help`. If a skill is expected 
 
 For recurring policy text, use short references to shared snippets rather than repeating full prose in each skill.
 
-Recommended snippet references:
+Recommended snippet references (paths shown as they appear **inside a skill folder** — they resolve after pasting, not in place):
 
 - **Tool help policy**: "Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`_tools-reference.md`](../_tools-reference.md) instead of running ad-hoc `--help` during execution."
 - **Catalog pointer**: "See the [Skills catalog](./common/references/skills-catalog.md) for the full list and decision tree."
@@ -386,7 +386,7 @@ Required behavior:
 6. Do not expose hidden internal chain-of-thought; provide a concise decision trace summary only.
 7. Confirm in chat where the file was written; do not dump the full diagnostic body in chat unless the user asks.
 
-Authoring rule: Add the blockquote immediately after the title (before the opening paragraph) for the listed skills only.
+Authoring rule: Add the blockquote immediately after the title (before the opening paragraph), or directly after an existing Tool help policy blockquote — both placements are sanctioned; keep the two blockquotes adjacent either way.
 
 ## Shared skill feedback
 
@@ -401,7 +401,7 @@ Required behavior:
 5. Do not expose hidden internal chain-of-thought; describe observations in user-facing terms.
 6. Confirm in chat where the file was written; do not dump the full report body in chat unless the user asks.
 
-Authoring rule: Add the skill-feedback blockquote immediately below the diagnostic-mode blockquote.
+Authoring rule: Add the skill-feedback blockquote immediately below the diagnostic-mode blockquote (whichever sanctioned position the diagnostic one occupies).
 
 ## Shared artifact output packaging
 
@@ -541,9 +541,9 @@ Each skill should link to:
 - Its **alternatives** (e.g. `delegation` links to `pair-programming` for high-impact work).
 - Its **successors** where natural (e.g. a phase-complete skill linking to `open-pr`).
 
-Use relative paths: `[/devenv-pair-programming](../devenv-pair-programming/SKILL.md)`.
+Use relative paths (as they appear inside a skill folder): `[/devenv-pair-programming](../devenv-pair-programming/SKILL.md)`.
 
-Also add a one-liner near the top of each `SKILL.md`: "See the [Skills catalog](./common/references/skills-catalog.md) for the full list and decision tree."
+Also add a one-liner to each `SKILL.md` — usually in the Sibling skills section (the fleet-standard position): "See the [Skills catalog](./common/references/skills-catalog.md) for the full list and decision tree."
 
 ## Open Questions Log (Q-NNN)
 

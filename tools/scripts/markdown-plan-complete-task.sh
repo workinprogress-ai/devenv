@@ -154,9 +154,9 @@ parse_args() {
 # ============================================================================
 
 # Resolve the plan file: use the explicit argument if given, otherwise find
-# the first Plan-*.md (or legacy Implementation_plan-*.md) in the current
-# directory, then in .local-artifacts/ (the standard home for local working
-# copies of issue artifacts).
+# the first Plan-*.md (or legacy Implementation_plan-*.md) in .local-artifacts/
+# (the standard home for local working copies of issue artifacts), then in the
+# current directory.
 resolve_plan_file() {
     if [ -n "$PLAN_FILE" ]; then
         if [ ! -f "$PLAN_FILE" ]; then
@@ -167,14 +167,14 @@ resolve_plan_file() {
     fi
 
     local found
-    found=$(find . -maxdepth 1 \( -name 'Plan-*.md' -o -name 'Implementation_plan-*.md' \) | sort | head -1)
+    found=$(find .local-artifacts -maxdepth 1 \( -name 'Plan-*.md' -o -name 'Implementation_plan-*.md' \) 2>/dev/null | sort | head -1)
 
-    if [ -z "$found" ] && [ -d .local-artifacts ]; then
-        found=$(find .local-artifacts -maxdepth 1 \( -name 'Plan-*.md' -o -name 'Implementation_plan-*.md' \) | sort | head -1)
+    if [ -z "$found" ]; then
+        found=$(find . -maxdepth 1 \( -name 'Plan-*.md' -o -name 'Implementation_plan-*.md' \) | sort | head -1)
     fi
 
     if [ -z "$found" ]; then
-        log_error "No Plan-*.md (or legacy Implementation_plan-*.md) file found in the current directory or .local-artifacts/."
+        log_error "No Plan-*.md (or legacy Implementation_plan-*.md) file found in .local-artifacts/ or the current directory."
         log_info "Specify the plan file explicitly as one of the arguments."
         exit "$EXIT_API_FAILURE"
     fi

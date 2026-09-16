@@ -35,9 +35,9 @@ The user provides one of:
 - **Issue number(s)** — any issue whose body describes a needed blueprint change, whatever its origin. Queue work orders (`upstream-impact` label, filed by grooming, execution closeouts, spikes, plan refinement) carry the predictable body format ("what changed, why, affected sections") and load straight in via `issue-get <N> --pretty`. Issues from any other source (users, stakeholders, ad-hoc) are equally valid input — read the body, extract the intended change, and confirm the direction with the reporter if it's ambiguous. Either way, follow the [cross-artifact cascade protocol](../common/references/cross-artifact-cascade.md)'s issue-intake loop.
 - **The upstream-impact queue** — "work the queue" / no specific issue: `issue-list --label upstream-impact`, present, let the architect pick all/some, then loop per issue.
 
-Plus optionally the file path when an issue references a specific blueprint. At intake, run **span detection** (cascade protocol): if the change alters both what the system does and how it is shaped, enter **cascade mode** — this session drives both the specifications and the blueprint edits under the shared protocol, with ADRs recording significant decisions. Either refine skill can drive; entry choice only picks the home document.
+Plus optionally the file path when an issue references a specific blueprint.
 
-Also offer queue consumption on any entry: "N open upstream-impact issues in this repo — fold them into this session?"
+At intake, run the [cross-artifact cascade protocol](../common/references/cross-artifact-cascade.md)'s span detection and queue-consumption offer — that protocol owns both; this skill only supplies the blueprint as the home document when cascade mode triggers.
 
 ## Workflow
 
@@ -119,7 +119,7 @@ If the blueprint is already split (subfolder + `Index.md` exists) and a refineme
 >
 > Anything I've misread, over-scoped, or missed?"
 
-Do not write anything until the user confirms. If the user adjusts scope, revise the plan and confirm again.
+Present the confirmation via the structured interview per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections) — the template demonstrates content, not format. Do not write anything until the user confirms. If the user adjusts scope, revise the plan and confirm again.
 
 ---
 
@@ -153,7 +153,7 @@ After writing, list what may need follow-up:
 
 - Silently overwriting decisions
 - Reflowing numbers (breaks links from roadmaps and plans)
-- Deleting per-component delta entries when the change shipped — mark them `(shipped)` instead
+- Deleting per-component delta entries when the change shipped — rewrite them as current state (`Type: existing`, survey text from the delta) instead; never leave tombstone markers
 - Rewriting the blueprint from scratch — that's [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md), not refine
 - Forcing non-surgical architecture discovery through this skill instead of escalating to [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md) or [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
 - Forgetting to surface roadmap and plan impact after the edit

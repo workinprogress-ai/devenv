@@ -95,6 +95,15 @@ WorkInProgress (`workinprogress-ai`) library and service repos are cloned into t
 
 If the needed repo is not present in `repos/`, ask the user to clone it before proceeding — do not guess at paths or attempt to work without the source.
 
+### Copilot knowledge repo (two-clone model)
+
+The `docs.copilot-knowledge` repo exists in this workspace in two distinct roles:
+
+- **`copilot/knowledge/` — canonical, accepted knowledge.** Bootstrap clones it from the `[copilot] knowledge_repo` key in `devenv.config`, and `~/.copilot/knowledge` is symlinked to it, so skills read it through that link. It is machine-managed: **never edit it directly and never open branches there** — bootstrap and container-start pulls run `--ff-only` and will overwrite or discard local state.
+- **`repos/docs.copilot-knowledge/` — the official place for modifications**: proposals, branches, and PRs. Changes here never affect what skills see until merged upstream and the canonical copy is refreshed (container start/rebuild).
+
+To change knowledge: log an issue in `repos/docs.copilot-knowledge/`, and let the canonical copy refresh — do not bypass the PR flow by editing `copilot/knowledge/` directly.
+
 ### Prefer workspace tooling over raw CLIs
 
 The `tools/` folder contains workspace-specific wrappers around common CLIs (`gh`, `git`, `dotnet`, `kubectl`, MongoDB, etc.) — they are the workspace's abstraction layer over those backends. All tools are on `PATH`, so invoke them by bare name from any working directory.

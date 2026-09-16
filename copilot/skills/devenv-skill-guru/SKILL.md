@@ -25,7 +25,7 @@ Before asking anything, check whether the user's message unambiguously maps to e
 - "Triage issue #42" → `/devenv-triage-issue`
 - "Which skill handles issue #42?" → [Issue mode](#issue-mode) below
 - "Fix problems in our custom skills" → `/devenv-skill-maintenance`
-- "I want to go from raw idea to merged PR" → Chain A from the registry
+- "I want to go from raw idea to merged PR" → Chain D from the registry
 
 If unambiguous: give the recommendation directly with a one-line rationale. Skip Q1–Q3.
 
@@ -119,7 +119,7 @@ Use the registry to match the user's answers to a skill:
    - Bug-hunt guardrail: for broad/focused bug hunting (including "find race conditions", "hunt null bugs", "audit auth module for bugs"), route to `/devenv-tech-debt-audit`.
    - Bug-investigation guardrail: for one known failing behavior/issue/incident, route to `/devenv-bug-hunter` (diagnose mode).
 4. **Check for a chain** — if the user's goal implies a multi-step workflow (e.g. "I want to implement this whole story", "from idea to PR"), look up the matching chain in the registry and recommend the full sequence.
-5. **Check for fork-added skills** — after the primary recommendation, scan the registry for any skills not present in the five standard categories. If any exist, surface them: "This workspace also has: `/custom-skill` — [one-line purpose]."
+5. **Check for fork-added skills** — after the primary recommendation, scan the registry for any skills outside the standard categories. If any exist, surface them: "This workspace also has: `/custom-skill` — [one-line purpose]."
 
 ## Ambiguity breaker for existing-component feature asks
 
@@ -211,7 +211,7 @@ After any recommendation, offer to invoke the skill if the platform allows it �
 
 ## Principle skills
 
-These five are the core of the catalog. If the user is unsure where to start with a non-trivial piece of work, nudge toward them:
+These are the core of the catalog. If the user is unsure where to start with a non-trivial piece of work, nudge toward them:
 
 1. **`/devenv-create-plan`** — before any significant work begins
 2. **`/devenv-pair-programming`** — collaborative with bounded autonomy span, one task or small chunk per human touchpoint; the human stays in control
@@ -224,7 +224,7 @@ These five are the core of the catalog. If the user is unsure where to start wit
 - **Launching a skill without explicit permission** — recommend, then offer; invoke only on a clear yes.
 - **Writing to GitHub in issue mode** — the guru is read-only; metadata triage (labels, type, priority, size, duplicates) belongs to `/devenv-triage-issue`.
 - **Answering full-triage requests in issue mode** — when the user wants labels/sizing/duplicates/batch processing, route to `/devenv-triage-issue` instead of a lightweight recommendation.
-- **Asking more than 3 questions** — if you still can't decide after 3, give your best recommendation with a caveat.
+- **Asking more than 4 questions** — if you still can't decide after 4, give your best recommendation with a caveat.
 - **Recommending `/devenv-delegation` for high-impact work** — escalate to `/devenv-pair-programming`.
 - **Recommending `/devenv-pair-programming` for pure exploration** — start with `/devenv-rubber-duck` or `/devenv-spike`.
 - **Routing broad bug hunting to `/devenv-bug-hunter`** — use `/devenv-tech-debt-audit`; reserve the hunter for one specific suspected or known bug.

@@ -1,6 +1,6 @@
 ---
 name: devenv-delegation
-description: 'Drive implementation of a pre-existing plan with assistant-led execution and user review. USE WHEN the user says "delegate this to you", "you take this", "run with this", "implement this plan", "work through this plan", or "do this for me" with a plan or GH issue attached, AND the work is mechanical, rote, or low-impact (refactors, rename sweeps, test scaffolding, cleanup, docs). REQUIRES a persistent, validated ledger — normally a plan (file path or GH issue with a plan in the body); an ad-hoc decomposed task list is acceptable input via a viability audit + materialization at kickoff, and a bare GH issue is acceptable input via the issue intake gate (materializes a small plan first), never as a bare in-context list. Works phase by phase: uses acceptance criteria and human-facing phase summaries as the review guide, refreshes and confirms the phase task list as the current-state execution ledger, runs a full phase semi-autonomously (stopping only for ambiguity, major decisions, or unexpected obstacles), then hands back with a structured phase completion summary including hotspots, decisions made, and any deviations noted. Phase-boundary policy is set at commissioning: gate mode (default — stop and hand back at every boundary) or checkpoint mode (run the full boundary protocol but continue unless the boundary evaluation — deviations, risk shifts, blocked gates, contract changes — says the user should see it; forced-stop triggers apply regardless). The handback window is pair-like: questions, discussion, and small fixing work until execution resumes at explicit direction. SUGGESTS switching to `/devenv-pair-programming` for high-impact phases; respects the user''s decision either way. DO NOT USE for ad-hoc work without a plan or decomposed list (use `/devenv-create-plan` first), or highly collaborative work where the user wants to drive (use `/devenv-pair-programming`).'
+description: 'Drive implementation of a pre-existing plan with assistant-led execution and user review. USE WHEN the user says "delegate this to you", "you take this", "run with this", "implement this plan", "work through this plan", or "do this for me" with a plan or GH issue attached, AND the work is mechanical, rote, or low-impact (refactors, rename sweeps, test scaffolding, cleanup, docs). REQUIRES a persistent, validated ledger — a plan file, a GH issue with a plan in the body, an ad-hoc task list (viability audit + materialization), or a bare GH issue (issue intake gate); never a bare in-context list. Runs phase by phase against the plan''s acceptance criteria, stopping only for ambiguity, major decisions, or unexpected obstacles; hands back with a structured completion summary (hotspots, decisions, deviations). Boundary policy set at commissioning: gate mode (default) or checkpoint mode. SUGGESTS /devenv-pair-programming for high-impact phases; respects the user''s decision. DO NOT USE for ad-hoc work without a plan or list (use /devenv-create-plan first), or collaborative user-driven work (use /devenv-pair-programming).'
 argument-hint: '<issue-number[:doc_id] | path-to-plan | ad-hoc task list> [phase or task range]'
 user-invocable: true
 ---
@@ -52,12 +52,11 @@ Do **not** use for:
 2. **Engagement floor — the AI is the principal driver.** The human stays in the loop with brief task pings, inline concern surfacing, and a structured end-of-session summary with **review hotspots**. This is the mirror image of pair-programming's user-drives default: here the AI drives and the user supervises from the handback gates — phase completions, mid-phase stops, and aborts are all handback points. Handbacks exist to make that supervision cheap — surface hotspots, deviations, and decisions so a supervisor can review without re-reading the whole diff.
 3. **Phase-first, AC-first review.** Use acceptance criteria plus goals, context, and phase summaries as the source of truth; the phase task list is the authoritative current-state execution ledger.
 4. **Local working copies live in `.local-artifacts/`.** The plan working copy is pulled to and kept under the target repo's `.local-artifacts/` (see the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)); at wrap-up points, offer to retire files whose issue artifact has been synced (y/n, never auto-delete) — inventory and delete via `artifact-clean` (see [`../_tools-reference.md`](../_tools-reference.md#artifact-clean)).
-4. **Runtime micro-planning = task-list refresh.** At phase start, refresh and confirm the current phase task list, then execute from it. Do not run a parallel shadow checklist.
-5. **No assumptions.** Ask before non-trivial choices, ambiguous acceptance criteria, multiple competing patterns, or anything contradicting the plan.
-6. **Suitability check first.** Some phases shouldn't be delegated. Say so.
-7. **Push back honestly.** Surface concerns, doubts, and unknowns as they arise — don't batch them to the end.
-8. **No unilateral workaround shims.** If the next move is a shim, compatibility wrapper, adapter, temporary bridge, or other hack-style workaround primarily intended to force tests/build to pass, stop and collaborate first. These are prohibited unilaterally and only permitted with explicit user agreement. Follow the shared [workaround decision policy](../common/references/workaround-decision-policy.md).
-9. **No workaround code without permission.** Never add shims, wrappers, compatibility layers, or hack patches to recover a sweeping change or red build unless the user explicitly approved that exact workaround and scope.
+5. **Runtime micro-planning = task-list refresh.** At phase start, refresh and confirm the current phase task list, then execute from it. Do not run a parallel shadow checklist.
+6. **No assumptions.** Ask before non-trivial choices, ambiguous acceptance criteria, multiple competing patterns, or anything contradicting the plan.
+7. **Suitability check first.** Some phases shouldn't be delegated. Say so.
+8. **Push back honestly.** Surface concerns, doubts, and unknowns as they arise — don't batch them to the end.
+9. **No workaround code without permission.** Shims, compatibility wrappers, adapters, temporary bridges, or hack patches — whether to force tests green, recover a red build, or absorb a sweeping change — are prohibited unilaterally and permitted only with explicit user agreement for that exact workaround and scope. Follow the shared [workaround decision policy](../common/references/workaround-decision-policy.md).
 10. **Test contortions are design signals.** If meaningful test validation requires hacks, brittle scaffolding, heavy mocking contortions, or test-only behavior changes beyond normal setup, stop implementation and surface it as a likely design issue. Explain what made testing difficult, what shortcuts would be required, and ask the user how to proceed before continuing.
 11. **Architectural fidelity beats local progress.** If the plan, contracts, or design context imply a hard architectural requirement — for example execution locus, boundary ownership, server-side vs client-side execution, or a materially distinct implementation mode — treat that as binding. If it is not explicit enough to implement safely, stop and ask rather than choosing the easiest nearby implementation surface.
 12. **Durable artifact naming must be phase-agnostic.** Never name a persistent repository artifact (files, classes, methods, test fixtures) from transient execution labels such as phase, step, milestone, or task numbers. Name by stable domain concept or behavior family. If a phase-derived name is temporarily unavoidable, mark it with `FIXME(DEVENV[plan-key])` and add explicit cleanup work before completion.
@@ -90,31 +89,7 @@ Use the emoji vocabulary defined in `copilot-instructions.md` consistently:
 
 ## Handling Unexpected Bug Discoveries
 
-When execution uncovers a bug that was not already documented in the plan's known issues or task descriptions, **stop immediately**. Do not code around it or encode it in tests. Classify the scope and respond:
-
-**Test integrity guardrail (required):** never remove, loosen, skip, or narrow failing behavior assertions just to recover a green run.
-
-- Do not delete/relax roundtrip assertions or replace behavior coverage with narrower checks (for example, deserialize-only) when the failing assertion indicates a real product defect.
-- Keep the failing behavior assertion as the defect signal, add a focused reproduction test if useful, then fix implementation.
-- If the user explicitly requests a temporary test adjustment, mark it as temporary (`FIXME(DEVENV[plan-key]): ...`), define immediate restoration criteria, and add an explicit near-term plan task to restore full behavior coverage.
-
-1. **In-scope in the current task** — This bug is in code covered by the current task.
-   - Write a specification test that asserts target (correct) behavior (will fail now).
-   - Fix the bug.
-
-2. **In-scope in the plan** — The bug is in a component/area this plan covers, but is not part of this task's scope.
-   - Write a specification test that asserts target (correct) behavior (will fail now).
-   - Mark with `[ignore]` (C#) or equivalent skip annotation.
-   - Add a `// FIXME(DEVENV[plan-key]): Fix in Phase N` comment.
-   - Update the plan with a new task to address it in the applicable phase.
-   - Inform the user: show the test, explain why you stopped.
-
-3. **Out-of-scope, not in plan** — The bug is in unrelated code or a different epic.
-   - Do NOT write tests, do NOT code around it.
-   - Inform the user: describe the bug, suggest creating a GitHub issue, ask for direction.
-
-4. **User-indicated documentation only** — Only if the user explicitly says "just document it."
-   - Add a code comment with context; do not write tests or attempt fixes.
+Follow pair-programming's canonical [Handling Unexpected Bug Discoveries](../devenv-pair-programming/SKILL.md#handling-unexpected-bug-discoveries) protocol — it applies identically here, including the four-case scope classification and the test-integrity guardrail. Delegation carries no local delta: the cases, responses, and core rule are exactly as defined there.
 
 **Core rule: Stop, explain, ask. Never silently encode or mask a bug.**
 
@@ -129,6 +104,8 @@ Run `devenv-marker-check --todo-report <working-scope>` (target repo, plan-affec
 ### 1. Load the plan
 
 Ask if not provided: GH issue # or path to a plan markdown.
+
+#### GH issue intake
 
 - **GH issue**:
   1. **Issue without an existing plan artifact → materialize a plan first (issue intake gate).** If step 2 below finds no plan artifact for the issue (and no local `Plan-issue-<N>-*.md` exists), do not refuse — this is the issue intake gate, sibling to [ad-hoc intake](#ad-hoc-task-list-intake): (a) read the issue body (`issue-get <N>`, repo via `GITHUB_REPO`); (b) run the same suitability judgment as ad-hoc intake (well-suited / borderline / better-as-pair; better-as-pair → recommend `/devenv-pair-programming`); (c) draft a **small plan** from the issue — goal line, acceptance criteria derived from the issue's stated outcome, checkboxed tasks with verifiable completion signals, declared verification approach; keep it genuinely small (an issue-sized plan, typically 1–2 phases); (d) show it for explicit user approval; (e) write it as `Plan-issue-<N>-001.md` in the target repo's `.local-artifacts/` and continue with it as the ledger. The plan may be published to the issue as a plan artifact afterwards per the standard offer.
@@ -384,10 +361,7 @@ Stop and surface to the user when hitting:
 - Multiple existing patterns where the choice is consequential and non-obvious.
 - Anything that contradicts the plan in a significant way.
 - An unexpected obstacle that may change scope or phase structure.
-- **Foreign working-tree changes.** Working-tree edits outside the run's own tra
-cked changes — the run's files are presumed exclusively its own while the user i
-s away, so fresh foreign edits (especially near the plan's `Files:` sets) risk c
-lobbering concurrent user work. Pause and surface; checkpoint mode defers the s
+- **Foreign working-tree changes.** Working-tree edits outside the run's own tracked changes — the run's files are presumed exclusively its own while the user is away, so fresh foreign edits (especially near the plan's `Files:` sets) risk clobbering concurrent user work. Pause and surface; checkpoint mode defers the s
 urface to the next boundary unless the changes collide with files the run has al
 ready edited.
 - Any point where the next plausible move is workaround, placeholder, fallback, or other hack code whose real purpose is just to get unstuck.
@@ -459,8 +433,7 @@ Default output shape:
 > **Challenges:** [encountered-and-worked-through items, or "none"]
 > **Hotspots:** [file:line items worth review]
 > **Open questions:** [[QUESTION] items, unresolved choices, or "none"]
-> **Working-tree provenance:** [files the run changed vs foreign/pre-existing ed
-its observed — one line; "all changes are the run's" when nothing foreign]
+> **Working-tree provenance:** [files the run changed vs foreign/pre-existing edits observed — one line; "all changes are the run's" when nothing foreign]
 > **Gate:** [clear/blocked/not yet run + reason]
 > **Next:** [continue to next phase / rework item / plan revision]
 
@@ -572,15 +545,15 @@ The AI's in-context view of a file is a **cache** — invalidated the moment any
 
 ## Forward Guidance Comments
 
-Follow pair-programming's canonical [Forward Guidance Comments](../devenv-pair-programming/SKILL.md#forward-guidance-comments) protocol — it applies identically here. Essentials: any comment referencing the plan or future work must use `FIXME(DEVENV[...]): ...` (plan-bounded, merge-blocking) or `TODO(DEVENV[...]): ... — remove when <condition>` (cross-plan, sanctioned to ship) markers (never plain TODO/FIXME, never permanent plan-referencing comments) — code comments in source files, `<!-- ... -->` annotations in documents; annotate AC-satisfying work with `[AC-N]`; at kickoff, run `devenv-marker-check --todo-report` in the working scope and surface existing hits as session constraints; remove FIXME markers when their work lands; after any mid-phase plan revision, run the DEVENV forward-comment audit. Marker-form examples and the `<plan-key>` rule are in the canonical section.
+Follow the shared [Forward Guidance Comments](../common/references/execution-gates.md#forward-guidance-comments) protocol — it applies identically here. Essentials: any comment referencing the plan or future work must use `FIXME(DEVENV[...]): ...` (plan-bounded, merge-blocking) or `TODO(DEVENV[...]): ... — remove when <condition>` (cross-plan, sanctioned to ship) markers (never plain TODO/FIXME, never permanent plan-referencing comments) — code comments in source files, `<!-- ... -->` annotations in documents; annotate AC-satisfying work with `[AC-N]`; at kickoff, run `devenv-marker-check --todo-report` in the working scope and surface existing hits as session constraints; remove FIXME markers when their work lands; after any mid-phase plan revision, run the DEVENV forward-comment audit. Marker-form examples and the `<plan-key>` rule are in the canonical section.
 
 ## AC Review Gate
 
-Run after all implementation phases, before Cleanup, exactly as defined in pair-programming's canonical [AC Review Gate](../devenv-pair-programming/SKILL.md#ac-review-gate): scan `[AC-` comments, tick objectively-verifiable ACs with cited evidence, present judgment ACs to the user, and surface ACs with no matching comment. All ACs must be `[x]` or explicitly deferred/deprecated before Cleanup. Full protocol: [phase-gates.md](../devenv-pair-programming/references/phase-gates.md).
+Run after all implementation phases, before Cleanup, exactly as defined in the shared [AC Review Gate](../common/references/execution-gates.md#ac-review-gate): scan `[AC-` comments, tick objectively-verifiable ACs with cited evidence, present judgment ACs to the user, and surface ACs with no matching comment. All ACs must be `[x]` or explicitly deferred/deprecated before Cleanup. Full protocol: [phase-gates.md](../devenv-pair-programming/references/phase-gates.md).
 
 ## Phase Completion Gate
 
-Before declaring a phase complete and handing back, run the committability checklist as defined in pair-programming's canonical [Phase Completion Gate](../devenv-pair-programming/SKILL.md#phase-completion-gate): run the plan's **declared verification gates** — for code-declared plans (the default; also the assumption for plans with no `**Verification**` line) that is all tests pass, coverage not regressed, new tests assert observable behavior, no blocking TODOs, no remaining `FIXME(DEVENV[...])` markers and no condition-less `TODO(DEVENV[...])` markers; for non-code declarations, run what the plan declares instead (the test/coverage items do not apply) and treat failures identically. Under `code (milestone-green)`, expected-red tests in the plan's red-test register do not fail intermediate non-milestone phases (build compiles, non-registered tests pass, reds registered); milestone phases run the full checklist, and red-past-closure or unregistered reds are blockers. Coverage drops are blockers. In the final implementation phase, no AC may remain unchecked — every AC `[x]` or explicitly deferred/deprecated. Full coverage-drop protocol and override options: [phase-gates.md](../devenv-pair-programming/references/phase-gates.md).
+Before declaring a phase complete and handing back, run the committability checklist as defined in the shared [Phase Completion Gate](../common/references/execution-gates.md#phase-completion-gate): run the plan's **declared verification gates** — for code-declared plans (the default; also the assumption for plans with no `**Verification**` line) that is all tests pass, coverage not regressed, new tests assert observable behavior, no blocking TODOs, no remaining `FIXME(DEVENV[...])` markers and no condition-less `TODO(DEVENV[...])` markers; for non-code declarations, run what the plan declares instead (the test/coverage items do not apply) and treat failures identically. Under `code (milestone-green)`, expected-red tests in the plan's red-test register do not fail intermediate non-milestone phases (build compiles, non-registered tests pass, reds registered); milestone phases run the full checklist, and red-past-closure or unregistered reds are blockers. Coverage drops are blockers. In the final implementation phase, no AC may remain unchecked — every AC `[x]` or explicitly deferred/deprecated. Full coverage-drop protocol and override options: [phase-gates.md](../devenv-pair-programming/references/phase-gates.md).
 
 ## Anti-patterns
 

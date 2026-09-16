@@ -117,6 +117,6 @@ capability-slice, or hybrid. Include the rationale.>
 ## Notes
 
 - This roadmap is updated by the `/devenv-update-roadmap` skill — step status and progress annotations are derived from linked issues, PRs, and plan artifacts. **Issue links use canonical `org/repo#N` form**; each linked issue carries a `STEP-NN` backlink in its body.
-- Structural changes (adding, splitting, re-sequencing, or removing steps) go through `/devenv-refine-roadmap` — STEP-NN IDs are preserved, new steps are appended with the next sequential ID, merged steps inherit the most advanced status, split children start ⬜ with a note, and superseded steps are deleted clean.
+- Structural changes (adding, splitting, re-sequencing, or removing steps) go through `/devenv-refine-roadmap` — see that skill for STEP-NN preservation and status-marker rules.
 - The parent epic's task list is a **projection** of this roadmap's statuses — it is regenerated on every update; hand-edits there are not durable.
 ```

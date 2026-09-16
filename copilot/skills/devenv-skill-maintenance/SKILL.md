@@ -7,6 +7,10 @@ user-invocable: true
 
 # Skill maintenance
 
+> **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`.
+
+> **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
+
 Use this skill to repair the workspace's custom skill system in a controlled way. The user will describe the problems to fix; your job is to inspect the current skills and governance docs, identify the smallest correct patch, apply it, and validate that the skill ecosystem remains coherent, complementary, and aligned with workspace norms.
 
 ## What to inspect first

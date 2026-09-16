@@ -77,7 +77,7 @@ Update `session_memory-blueprint.md` to track decisions and open questions acros
 
 ### Splitting a large blueprint into multiple files
 
-For very large blueprints (approaching ~1,500 lines or many components in §4), split into a subfolder with one file per section group (e.g. `01-context.md`, `02-architecture.md`, `03-components.md`, `04-risks.md`). Section numbers are continuous across files; use `<see NN-slug.md §N>` for cross-file references. Produce an `Index.md` as the canonical entry point.
+For very large blueprints (approaching ~1,500 lines or many components in §4), split into a subfolder with one file per section group and an `Index.md` entry point. Follow the full splitting procedure (redirect stub at the old path, continuous section numbering, cross-reference walk) from [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) §*Splitting an oversized blueprint* so existing links don't dangle.
 
 For the Index.md template, see [multi-doc-projects.md](../devenv-write-specifications/references/multi-doc-projects.md) (specifications-specific; the Index.md template structure applies to blueprints as well).
 
@@ -121,7 +121,7 @@ Classify the primary component type(s) in scope before surveying architecture de
 - API gateway
 - Frontend application
 
-Use the `component-context/index.md` file from the configured Copilot knowledge location. Resolve that location from `devenv.config` `[copilot]` (`knowledge_repo`, `knowledge_subpath`) before loading context. For service-heavy work, select only the needed service context files (`01-Service-Architecture.md`, `02-Service-Implementation.md`, `03-Service-Plugins.md`). If API gateway/frontend context is not yet available, proceed with general architecture rules and record that specialized context is pending.
+Apply the shared [Component context loading](../_conventions.md#component-context-loading) rules for `component-context/index.md` selection.
 
 #### Step 3 (brownfield only): Survey the existing system
 

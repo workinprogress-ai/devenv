@@ -91,7 +91,7 @@ For multi-repo orientation, additionally map how the repos relate: shared librar
 
 ### Confidence protocol
 
-1. **Search first.** Before answering, locate the relevant code (`grep_search`, `semantic_search`, `read_file`). Cite what you find.
+1. **Search first.** Before answering, locate the relevant code (`grep_search`, `read_file`). Cite what you find.
 2. **Ask one clarifying question** if the question is ambiguous or the scope is unclear. Just one — don't interrogate.
 3. **Answer with inline uncertainty flags** when confidence is partial: "I believe...", "this looks like...", "I'd verify this at [file:line]".
 4. **"I don't know. I am sad."** when genuinely unable to find or reason about the answer — after a real attempt, not as an escape hatch.

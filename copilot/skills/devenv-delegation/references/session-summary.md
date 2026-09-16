@@ -35,33 +35,11 @@ Use this format at the end of every work session (and when aborting mid-session)
 
 ## Hotspot bullet format
 
-Each hotspot bullet must contain:
-
-1. A **clickable link** to the exact `file:line` (workspace-relative path, `#L<num>` anchor).
-2. A **one-sentence reason** the human should look here.
-
-Bad (too vague):
-
-```markdown
-- BulkSyncWorker.cs — please review
-```
-
-Good:
-
-```markdown
-- [BulkSyncWorker.cs:142](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142) — picked exponential backoff with jitter=0.3 without precedent; sanity-check the multiplier
-```
+Format, examples, and the flag criteria are defined in the shared [Hotspot bullet format](../../_conventions.md#hotspot-bullet-format-shared) section — use it verbatim; do not restate them here.
 
 ## When to flag a hotspot
 
-Any of:
-
-- AI made a non-obvious choice
-- Public API surface changed
-- A test was loosened, skipped, or weakened
-- New error handling / retry / fallback logic
-- AI had low confidence on this code
-- External integration boundary (HTTP, DB, filesystem, IPC) was touched
+Any hotspot matching the shared criteria list (see the link above) gets a bullet. If a session has **zero** hotspots, say so explicitly — don't omit the section. Zero hotspots is a meaningful signal ("all mechanical, nothing surprising").
 
 If a session has **zero** hotspots, say so explicitly — don't omit the section. Zero hotspots is a meaningful signal ("all mechanical, nothing surprising").
 

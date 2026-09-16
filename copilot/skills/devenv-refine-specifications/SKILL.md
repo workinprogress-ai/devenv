@@ -38,9 +38,9 @@ The user provides one of:
 - **Issue number(s)** — any issue whose body describes a needed specifications change, whatever its origin. Queue work orders (`upstream-impact` label, filed by grooming, execution closeouts, spikes, plan refinement) carry the predictable body format ("what changed, why, affected sections") and load straight in via `issue-get <N> --pretty`. Issues from any other source (users, stakeholders, ad-hoc) are equally valid input — read the body, extract the intended change, and confirm the direction with the reporter if it's ambiguous. Either way, follow the [cross-artifact cascade protocol](../common/references/cross-artifact-cascade.md)'s issue-intake loop.
 - **The upstream-impact queue** — "work the queue" / no specific issue: `issue-list --label upstream-impact`, present, let the architect pick all/some, then loop per issue.
 
-Plus optionally the file path when an issue references a specific doc. At intake, run **span detection** (cascade protocol): if the change alters both what the system does and how it is shaped, enter **cascade mode** — this session drives both the specifications and the blueprint edits under the shared protocol, with ADRs recording significant decisions. Either refine skill can drive; entry choice only picks the home document.
+Plus optionally the file path when an issue references a specific doc.
 
-Also offer queue consumption on any entry: "N open upstream-impact issues in this repo — fold them into this session?"
+At intake, run the [cross-artifact cascade protocol](../common/references/cross-artifact-cascade.md)'s span detection and queue-consumption offer — that protocol owns both; this skill only supplies the specifications as the home document when cascade mode triggers.
 
 For multi-document projects (one doc per epic), refine **one doc per invocation** for doc-scoped changes. Cascade mode supersedes this when the change spans artifacts (a cross-epic cascade runs once against all affected docs).
 
@@ -98,13 +98,13 @@ Use `vscode_askQuestions` to gather:
 - **Open questions** — "Are there open questions from the original gathering session that were deferred and can now be resolved? Are there new ambiguities or tensions this refinement introduces?"
 - **Source material** — "Are there meeting transcripts, email threads, recordings, voice memos, or other communications records behind these changes? If so, where are they?"
 
-If the user provides communications artifacts, summarise each one separately (prefer the `Explore` subagent, one invocation per artifact, in parallel where possible) with a prompt focused on stated goals, decisions reached, named actors, constraints mentioned, and concrete behaviours described. Surface each summary back for confirmation, then use the approved summaries to drive the change list. Note the source in the revision-history entry (step 4) so the rationale can be re-traced.
+If the user provides communications artifacts, summarise each one separately (prefer the `Explore` subagent, one invocation per artifact, in parallel where possible) with a prompt focused on stated goals, decisions reached, named actors, constraints mentioned, and concrete behaviours described. Surface each summary back for confirmation, then use the approved summaries to drive the change list. Note the source in the ADR (step 6) so the rationale can be re-traced.
 
 ### 3. Apply changes — preserve everything
 
 **Hard rules:**
 
-- **Never reflow IDs.** `SPEC-007` stays `SPEC-007` for its lifetime. New specification items get the next sequential number per category prefix (e.g. `AUTH-008`, `ORD-014`) — resolve via `next-id --file <doc> --prefix '<PREFIX>-' --full`. Gaps from deleted items are expected and harmless.
+- **Never reflow IDs.** `SPEC-007` stays `SPEC-007` for its lifetime (the doc-split procedure is the sole exception, applied once at split time). New specification items get the next sequential number per category prefix (e.g. `AUTH-008`, `ORD-014`) — resolve via `next-id --file <doc> --prefix '<PREFIX>-' --full`. Gaps from deleted items are expected and harmless.
 - **Superseded specification items are deleted clean** — no strikethrough, no tombstone text. If the supersession is significant (a future implementer would ask why), write an ADR; otherwise delete silently. Update every `Dependencies:` reference pointing at the removed ID.
 - **Rewrite acceptance criteria in place as current truth.** Updated criteria keep the specification item's ID; the document never carries prior-state narrative. Prior wording lives in git history and, when significant, an ADR.
 - **Dependency links must stay valid.** If a specification item is superseded, walk every other specification item's `Dependencies:` line and update the link to point at the replacement (or remove the link). Verify with `spec-dependency-check <doc>` after the edit — it flags unknown references and cycles deterministically.

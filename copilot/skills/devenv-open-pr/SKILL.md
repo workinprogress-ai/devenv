@@ -1,6 +1,6 @@
 ---
 name: devenv-open-pr
-description: Open a GitHub PR from the current branch — builds a structured title and body from the active plan, git diff, and parent issue, then submits via `pr-create-for-merge`. USE WHEN the user says "open a PR", "raise a PR", "create a PR", "open a pull request", "raise a pull request", "create a pull request", "let's open a PR", "ship this phase", or "wrap this branch into a PR". Always shows the draft for approval before submitting; defaults to ready-for-review, not draft. DO NOT USE FOR responding to existing PR feedback (use `/devenv-address-pr-comments`), wrapping up without opening a PR (use `/devenv-session-handoff`), getting a code review without a PR (use `/devenv-code-review`), or the GitHub extension's reviewer-suggesting flow (use `/create-pull-request`).
+description: Open a GitHub PR from the current branch — builds a structured title and body from the active plan, git diff, and parent issue, then submits via pr-create-for-merge. USE WHEN the user says "open a PR", "raise a PR", "create a PR", "open a pull request", "raise a pull request", "create a pull request", "let's open a PR", "ship this phase", or "wrap this branch into a PR". Always shows the draft for approval before submitting; defaults to ready-for-review, not draft. DO NOT USE FOR responding to existing PR feedback (use /devenv-address-pr-comments), wrapping up without opening a PR (use /devenv-session-handoff), getting a code review without a PR (use /devenv-code-review), or the GitHub extension's reviewer-suggesting flow (use /create-pull-request).
 argument-hint: Optional — branch name or plan path; otherwise uses current branch and detected plan
 ---
 
@@ -102,14 +102,15 @@ Show the proposed title; the user can edit before submission.
 - [repos/path/other.ext:10](repos/path/other.ext#L10) — <reason>
 
 ## Related
-- Closes #N    <!-- or "Refs #N" -->
+- Closes #N    <!-- full resolution --> | - Refs #N    <!-- partial work, issue stays open -->
 - Plan: [Plan-X.md](Plan-X.md)
+- Throwaway/temporary code: <what scaffolding exists and its removal plan — omit if none>
 - Session handoff: <link to comment, if any>
 ```
 
 Issue references belong in the body, not the title, so the squash commit title stays conventional-commit compliant.
 
-Sections with no content get omitted — don't pad.
+Sections with no content get omitted — don't pad. Choose `Closes #N` only when this PR fully resolves the issue; use `Refs #N` for partial work so the issue stays open (never infer `Closes` for incomplete resolution).
 
 If a session-handoff comment exists on the parent issue, reuse its **Key decisions**, **Review hotspots**, and **Throwaway/temporary code** sections verbatim (with attribution: "From session handoff <date>"). Don't regenerate; the handoff already captured the rationale freshly.
 

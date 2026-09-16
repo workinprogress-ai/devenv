@@ -53,20 +53,6 @@ Never create an issue or post a comment without explicit "yes" confirmation.
 **Issue body placeholder:**
 
 ```
-Design grooming notes are in a comment identified by artifact doc_id.
-
-Next step: use `/devenv-design-discussion`, `/devenv-grooming`, or
-`/devenv-create-plan` as appropriate.
-Document file: `<workspace-relative path to the relevant design or planning artifact>`
-```
-
-### `devenv-grooming`
-
-**Default title:** `Design Grooming: <component name> — <YYYY-MM-DD>`
-
-**Issue body placeholder:**
-
-```
 Grooming notes are in a comment identified by artifact doc_id.
 
 Next step: continue with `/devenv-design-discussion` or `/devenv-create-plan` as appropriate.

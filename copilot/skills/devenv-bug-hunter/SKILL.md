@@ -42,11 +42,7 @@ Classification rules:
 
 > **Scoped-TODO discovery (all modes, before investigation).** Run `devenv-marker-check --todo-report <target-scope>` before the hunt begins. Every reported TODO is a prior session's cross-plan message: surface it in chat and honor its condition — or explicitly resolve it with the user — before touching that file. A condition-satisfied TODO is removed in the same pass.
 
-> **Aggressive-measures gate.** The hunter is aggressive by design — it may add code, remove code, write tests, run the suite, and instrument running systems. Consent is **just in time**: if the needed aggression level is visible at intake, ask then; otherwise ask the moment it emerges. Every consent request outlines **what** will be done and **why** it is needed, so the user can approve or disapprove on the merits. Before any destructive-class action (code removal, behavior-altering edits, anything beyond temporary probing), announce the category and get a go-ahead — including the warning that afterward the user should be prepared to `git reset` the target repo. **Disapproval rejects the measure, not the hunt:** continue via alternate routes — read-only evidence, a scratch harness in `/workspaces/devenv/tmp`, a different discriminator. An alternate that is itself aggressive passes through this same gate (outline, consent) before use; only when alternate routes are exhausted does the trail count as blocked. The hunter NEVER runs mutating git commands itself; restore is always the user's hands. All temporary in-repo code carries `FIXME(DEVENV[bug-hunt]): ...` markers.
-
-> **Recovery-route rule.** No aggressive measure without a clear recovery path stated *before* the action: what will be touched, and how it comes back (user-run `git reset` plus teardown of any non-git state). If recovery cannot be described, reframe the experiment as a read-only or scratch-harness check instead.
-
-> **Scope fence.** Read and explore freely across `repos/` — the investigation may wander in pursuit of the answer. But change code ONLY in the agreed target repo(s). Expanding the change-scope requires explicit user permission, raised as a `🔶` decision gate.
+> **Aggressive-measures gate, recovery-route rule, scope fence.** The hunter runs under the shared [Empowered-Investigation Gate](../common/references/empowered-investigation-gate.md): just-in-time consent outlining what/why, category announcement before destructive-class actions, disapproval rejects the measure not the hunt, and no self-run mutating git commands. Mode-scoped deltas: scratch harnesses go in the workspace `tmp/`; temporary in-repo code carries `FIXME(DEVENV[bug-hunt]): ...` markers; exhausted alternates end the trail as **blocked**.
 
 ## When to Use
 
@@ -114,7 +110,7 @@ Identify upfront: **symptom** (what is observed), **suspected area** (optional),
    > *expectation: a read after a successful write returns the written value.*
    > *Confirm target: `repos/lib.cs.backing.pub-sub`? Oracle accurate?"*
 
-2. **Confirm scope.** Target repo(s) for code changes; related repos may be read. Note where scratch work goes — the target repo normally, `/workspaces/devenv/tmp` for large scopes.
+2. **Confirm scope.** Target repo(s) for code changes; related repos may be read. Note where scratch work goes — the target repo normally, the workspace `tmp/` for large scopes.
 
 3. **Initial aggression forecast.** State what the hunt is likely to need. If deeper aggression is anticipated, ask consent now (`⚠️` + `🔶`); otherwise defer to just-in-time consent.
 
@@ -133,7 +129,7 @@ Present the list. The user may add or remove candidates. Then hunt.
 For each hypothesis, in order of promise:
 
 1. **Design a discriminating check** — a test, instrumentation, or execution whose outcome differs between "hypothesis true" and "hypothesis false." Trivial confirmations don't count (see Anti-patterns).
-2. **Instrument** — write the check: temporary probe, logging, throwaway test, scratch harness in `/workspaces/devenv/tmp` for large scopes.
+2. **Instrument** — write the check: temporary probe, logging, throwaway test, scratch harness in the workspace `tmp/` for large scopes.
 3. **Run and record.** Eliminate or confirm. Deletion of instrumentation happens after verdict, in cleanup.
 4. **Progress pings** — one line per elimination: `✅ H2 (caching) eliminated — probe shows fresh read on reread.`
 
@@ -162,7 +158,7 @@ One of three verdicts, each a valid ending:
 
 "Pretty sure" is a lead strength, not a verdict. There is deliberately no LIKELY verdict.
 
-Write the report to the target repo's `.local-artifacts/` folder (the [standard local markdown folder](../../_conventions.md#standard-local-markdown-folder-local-artifacts)) as `bug-hunt-<topic>.md` (numbered when multiples accumulate) — offer first, show draft, wait for confirmation. Use the [report template](./references/report-template.md). Neutral voice in the file.
+Write the report to the target repo's `.local-artifacts/` folder (the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)) as `bug-hunt-<topic>.md` (numbered when multiples accumulate) — offer first, show draft, wait for confirmation. Use the [report template](./references/report-template.md). Neutral voice in the file.
 
 **Verdict challenge.** The user may challenge a NOT-FOUND verdict ONCE. Rework the oracle from their new observations and run a second pass. A second NOT-FOUND stands; re-challenging requires new evidence, not insistence. A **strong-lead INCONCLUSIVE** upgrades differently: if the user can supply the missing discriminator, run that specific check first.
 
@@ -302,6 +298,8 @@ Wait for the choice. Do not proceed without one. Per the shared [direct query st
 - Continuing past a blocked investigation without asking.
 
 ## Sibling skills
+
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.
 
 - [`/devenv-tech-debt-audit`](../devenv-tech-debt-audit/SKILL.md) — suspicion-less surveys; the hunter is the opposite: one target, all firepower.
 - [`/devenv-spike`](../devenv-spike/SKILL.md) — feasibility questions, not bug verification.

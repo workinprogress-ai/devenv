@@ -1,6 +1,6 @@
 ---
 name: devenv-address-pr-comments
-description: 'Address PR review feedback with AI handling clear threads automatically and surfacing the complex ones for direction. USE WHEN the user says "address PR comments", "work through the review feedback", "go through the PR comments with me", "respond to reviewer comments", "let''s address this PR review together", "fix the nits", or wants any guided workflow for PR review feedback — from a live PR (PR number) or a markdown document holding captured review feedback (e.g. a saved /devenv-code-review report). Loads threads, classifies them, auto-fixes the clear ones (nits, obvious requests-for-change) with a single consent gate, then surfaces questions, informational/praise, and high-impact threads one by one with a recommendation. Offers a conventional commit suggestion at the end — never commits. DO NOT USE FOR opening a PR (use `/devenv-open-pr`), doing the code review yourself (use `/devenv-code-review`), or responding to CI failures.'
+description: 'Address PR review feedback with AI handling clear threads automatically and surfacing the complex ones for direction. USE WHEN the user says "address PR comments", "work through the review feedback", "go through the PR comments with me", "respond to reviewer comments", "let''s address this PR review together", "fix the nits", or wants any guided workflow for PR review feedback — from a live PR (PR number) or a markdown document holding captured review feedback (e.g. a saved /devenv-code-review report). Loads threads, classifies them, auto-fixes the clear ones (nits, obvious requests-for-change) with a single consent gate, then surfaces questions, informational/praise, and high-impact threads one by one with a recommendation. Offers a conventional commit suggestion at the end — never commits. DO NOT USE FOR opening a PR (use /devenv-open-pr), doing the code review yourself (use /devenv-code-review), or responding to CI failures.'
 argument-hint: PR number | path-to-review-markdown (PR auto-detected from current branch if omitted)
 user-invocable: true
 ---
@@ -171,6 +171,8 @@ How do you want to handle this? (reply / fix / both / skip / mark complete)
 ─────────────────────────────────────────
 ```
 
+Present this per-thread ask via the structured interview per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections) when the choice is bounded — the template above demonstrates content, not format.
+
 **Shortcut resolution:** If the user says *"just mark complete"*, *"mark complete"*, or *"mark resolved"* — for **the current thread only** — skip the action flow: resolve immediately via `pr-thread-resolve <THREAD_ID>` and move to the next thread. This covers threads the user has handled elsewhere or wants to close without discussion. It is not a blanket instruction for all remaining threads.
 
 **Handling each surfaced thread based on user direction:**
@@ -255,7 +257,7 @@ Never suggest `git commit` commands or run any git operations. Only suggest the 
 - **`quit` at any prompt** exits cleanly and shows the partial summary.
 - **Uncommitted local edits:** before applying any code change, warn if affected files have dirty state.
 - **Document mode has no threads to resolve or reply to.** Never call `pr-thread-resolve` / `pr-thread-reply` for findings that came from a document — resolution state lives on GitHub review threads, which the document is a snapshot of, not a handle to. The workflow is: classify → fix/direct → summarize. If the document came from a real PR and the user later wants the matching threads resolved, that is a separate PR-mode pass.
-- **`--dry-run` propagates** — if the skill was invoked with `--dry-run`, all `pr-thread-reply` and `pr-thread-resolve` calls use `--dry-run`; without that flag, confirmed actions post for real per the Phase 2/3 flows. In document mode `--dry-run` means no files are edited — show the would-be changes only.
+- **Dry-run support** — if the user asks for a dry run, pass `--dry-run` on `pr-thread-reply` and `pr-thread-resolve` calls; without it, confirmed actions post for real per the Phase 2/3 flows. In document mode `--dry-run` means no files are edited — show the would-be changes only.
 
 ---
 

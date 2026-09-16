@@ -35,7 +35,7 @@ Do **not** use for:
 
 The user provides an epic number (optionally `:<doc_id>` when the epic holds more than one roadmap artifact) — e.g. `89`.
 
-Resolution: `issue-artifact-select --issue <N> --artifact-type roadmap [--latest]` → `mkdir -p <repo-root>/.local-artifacts && issue-artifact-get --write-body <repo-root>/.local-artifacts/roadmap-session.md` (session scratch copy under the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)).
+Resolution: `DOC_ID=$(issue-artifact-select --issue <N> --artifact-type roadmap [--latest] --format doc-id)` → `mkdir -p <repo-root>/.local-artifacts && issue-artifact-get --issue <N> --doc-id "$DOC_ID" --write-body <repo-root>/.local-artifacts/roadmap-sync.md` (session scratch copy under the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)).
 
 ## Status Mapping (precedence — first match wins, per STEP)
 
@@ -62,7 +62,7 @@ The annotation is rewritten on every run so it cannot rot. Cross-check the
 step's real progress with `/devenv-query-progress` when its plan summary and the
 issue state disagree.
 
-**Status precedence summary** (enforced by tooling; the first match wins):
+**Status precedence summary** (apply manually at mapping time; the first match wins):
 closed-merge → done; blocked → paused; open + PR/plan-activity → in-progress;
 otherwise → not-started; all-closed-unmerged → cancelled.
 
@@ -85,7 +85,7 @@ For each step that has a linked issue, run:
 issue-get <issue-number> --pretty
 ```
 
-The output includes the issue's open/closed state, merge state (if closed via PR), labels, and a list of linked PRs. If `issue-get` doesn't surface linked PRs directly, use `pr-list` filtered by linked-issue if available, or fall back to scanning issue comments for `Closes #N` / `Fixes #N` references.
+`issue-get` returns the issue's open/closed state and labels — **not** merge state or linked PRs. Get merge state from `pr-get <PR_NUMBER>` (`mergeStateStatus`, `state`) after locating candidate PRs: scan issue comments for `Closes #N` / `Fixes #N` references and match with `pr-list --state all`.
 
 Capture for each:
 - `state`: open | closed

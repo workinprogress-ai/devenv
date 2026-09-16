@@ -374,3 +374,25 @@ EOF
     [ "$status" -eq 0 ]
     [ "$(echo "$output" | jq -r '.planning_repo')" = "test-org/planning.main" ]
 }
+
+# ---------------------------------------------------------------------------
+# Multi-mode flag rejection
+# ---------------------------------------------------------------------------
+
+@test "plan-parse rejects multiple mode flags (no silent last-wins)" {
+    run bash "$DEVENV_TOOLS/scripts/plan-parse.sh" "$PLAN_FILE" --summary --census
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"only one mode flag allowed"* ]]
+}
+
+@test "plan-parse rejects multiple mode flags in either order" {
+    run bash "$DEVENV_TOOLS/scripts/plan-parse.sh" "$PLAN_FILE" --census --structure
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"already set: --census"* ]]
+}
+
+@test "plan-parse still accepts a single mode flag" {
+    run bash "$DEVENV_TOOLS/scripts/plan-parse.sh" "$PLAN_FILE" --census
+    [ "$status" -eq 0 ]
+    echo "$output" | jq -e '.census' > /dev/null
+}

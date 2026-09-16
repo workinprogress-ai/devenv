@@ -20,6 +20,7 @@ script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Parse plan structure into JSON"
 
 FILE=""
 MODE="structure"   # structure | anchors | census | summary | lint
+MODE_SET=0          # counts explicit --<mode> flags; >1 is a usage error
 REQUIRE_HEADER=0
 
 show_usage() {
@@ -248,6 +249,11 @@ main() {
                 ;;
             -V|--verbose) shift ;;
             --structure|--anchors|--census|--summary|--lint)
+                MODE_SET=$((MODE_SET + 1))
+                if [ "$MODE_SET" -gt 1 ]; then
+                    echo "plan-parse: only one mode flag allowed (already set: --$MODE, got $1)" >&2
+                    exit "$EXIT_MISUSE"
+                fi
                 MODE="${1#--}"; shift ;;
             --require-header)
                 REQUIRE_HEADER=1; shift ;;

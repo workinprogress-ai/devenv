@@ -1,6 +1,6 @@
 ---
 name: devenv-create-plan
-description: 'Create a structured Plan.md for a user story, task, GitHub issue, complete spec/RFC/design doc, or any multi-step objective planned for later execution (code — the default — docs, mechanical file work, runbooks, mixed work). USE WHEN the user says "create a plan", "plan this story", "break this task into phases", "break down this work", "write up a plan for this", "plan from this spec", "convert this issue into a plan", or hands off a GitHub issue / user story / complete spec to be implemented. Interviews the user when needed, scans repo conventions, drafts phased atomic tasks with a plan-declared verification approach, gets explicit approval, writes the file to the target repo's gitignored `.local-artifacts/` folder with a numbered suffix, and offers to publish the plan as a GitHub issue artifact comment. DO NOT USE for ad-hoc coding tasks where no plan file is wanted, for pure research/Q&A, or for editing an existing plan (just edit the file directly).'
+description: 'Create a structured Plan.md for a user story, task, GitHub issue, complete spec/RFC/design doc, or any multi-step objective planned for later execution (code — the default — docs, mechanical file work, runbooks, mixed work). USE WHEN the user says "create a plan", "plan this story", "break this task into phases", "break down this work", "write up a plan for this", "plan from this spec", "convert this issue into a plan", or hands off a GitHub issue / user story / complete spec to be implemented. Interviews the user when needed, scans repo conventions, drafts phased atomic tasks with a plan-declared verification approach, gets explicit approval, writes the file to the target repo's gitignored .local-artifacts/ folder with a numbered suffix, and offers to publish the plan as a GitHub issue artifact comment. DO NOT USE for ad-hoc coding tasks where no plan file is wanted, for pure research/Q&A, or for editing an existing plan (just edit the file directly).'
 argument-hint: '[issue-number[:doc_id] | path-to-story | freeform description]'
 user-invocable: true
 ---
@@ -110,8 +110,7 @@ Once the above is gathered, **draft the phase structure — names and one-line d
 > - *Phase 2 — Contracts & boundaries: define or tighten interfaces, request/response shapes, message schemas, extension points, or other contracts that later phases implement against; use temporary coverage exclusions only when unavoidable and always pair them with FIXME(DEVENV[plan-key]) markers*
 > - *Phase 3 — [Name]: [deliverable]*
 > - *Phase N — Cleanup & docs: remove scaffolding, update docs, verify coverage*>
-> *Verification: code (default) — tests pass, coverage ≥ baseline, build green. For non-code objectives, propose the instrument here (docs: lint + link-check + consistency pass; mechanical: script exit 0 + counts + spot-check diff; runbook: per-stage checks + rollback path) — it must be deterministic, observable, runnable at phase end.*>
-> *Does this structure make sense for what you're building? Any phases to merge, split, or reorder before I fill in the tasks?"*
+> *Verification: code (default) — tests pass, coverage ≥ baseline, build green. For non-code objectives, propose the instrument here (docs: lint + link-check + consistency pass; mechanical: script exit 0 + counts + spot-check diff; runbook: per-stage checks + rollback path) — it must be deterministic, observable, runnable at phase end.*>> *Does this structure make sense for what you're building? Any phases to merge, split, or reorder before I fill in the tasks?"*
 
 Present the final confirmation question via the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections): the outline itself (phases + verification line) goes in chat as referenced material, then the choice — structure approved as-is / merge-split-or-reorder (freeform: name the changes) / split Phase N into sub-steps — via `vscode_askQuestions`. Prose follow-up remains open for reshaping the structure conversationally before deciding.
 
@@ -190,7 +189,7 @@ Use the [plan template](./references/plan-template.md). Follow:
 - `## Phase TOC` must appear immediately before `## Phases` and provide short anchor links for quick navigation across phases
 - `## Phases` is the human-facing execution section: each phase gets goal, end-state vision, suggested strategies, AC links, watch-outs / decisions, deliverables, and its task list
 - Resolve pending questions as early as possible during plan creation. Unresolved items are allowed only for implementation-level details or explicit user deferral.
-- Once the target repository is known, run `devenv-marker-check --todo-report <repo>` during the convention scan and surface any scoped TODO(DEVENV[...] markers with their discharge conditions in the plan's orientation/context section — execution will be required to honor them.
+- Once the target repository is known, run `devenv-marker-check --todo-report <repo>` during the convention scan and surface any scoped `TODO(DEVENV[plan-key])` markers with their discharge conditions in the plan's orientation/context section — execution will be required to honor them.
 - When contract-first phases temporarily reduce meaningful coverage (for example because interfaces, schema holders, or placeholder adapters land before their implementations), the plan may use temporary coverage-exclusion mechanisms only when truly necessary. If it does, include explicit cleanup/removal tasks in a later phase and require `FIXME(DEVENV[plan-key]): ...` markers at the code locations that need real implementation or coverage restoration.
 - Every unresolved decision that can block execution must appear in both places:
   - `## Phases` under the relevant phase's **Watch Outs / Decisions**
@@ -293,8 +292,8 @@ issue-artifact-upsert --issue <N> --body-file <path-to-plan>
 
 The tool automatically extracts `doc_id` from the file header and creates or updates the comment accordingly.
 
-3. If upsert reports duplicate `doc_id` conflict, stop and ask the user which comment ID is canonical before continuing.
-4. **Offer to retire the local file** (y/n) — after publication the issue artifact is the sole source of truth; see the [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md). Never auto-delete; if the user keeps it, note that `/devenv-open-pr` requires working copies gone before opening a PR.
+4. If upsert reports duplicate `doc_id` conflict, stop and ask the user which comment ID is canonical before continuing.
+5. **Offer to retire the local file** (y/n) — after publication the issue artifact is the sole source of truth; see the [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md). Never auto-delete; if the user keeps it, note that `/devenv-open-pr` requires working copies gone before opening a PR.
 
 Execution posture for this step:
 
