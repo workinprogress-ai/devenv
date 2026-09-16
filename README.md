@@ -11,7 +11,7 @@ A comprehensive development environment setup with dev containers, tooling, and 
 - **Database Tools**: MongoDB, SQL Server, and SMB server utilities
 - **.NET Development**: NuGet package management and local debugging support
 - **Comprehensive Testing**: BATS test framework with extensive coverage
-- **Documentation**: Detailed guides for coding standards, contributing, and best practices
+- **Documentation**: Detailed guides for tooling standards, workflow, and best practices
 
 ## Prerequisites
 
@@ -172,7 +172,7 @@ The [setup script](./setup) will ask you a few questions about your environment 
 The script will ask you for the following information:
 
 - Your human name:  This is the name by which you will be identified in all commits.  This is YOUR NAME AS A HUMAN BEING, not your username.  The name your mother calls you when she's angry.
-- Your omsnic.com email:  This identifies you by email in all commits.
+- Your email address:  This identifies you by email in all commits. The setup script reads the expected email domain from `devenv.config` (`email_domain`, currently `workinprogress.ai`) and validates your address against it. Forks should set their own domain there.
 - Your timezone:  This is in order to correctly display your local time within the container.  By default, the script will attempt to determine your time zone.  If it does so correctly, then you can just hit ENTER and accept the default.
 - A PAT:  The Personal Access Token is what allows package access and other functions from the dev environment.  The recommended note should be 'DEVENV_TOKEN'.  This token should have the following permissions:
   - repo (all)
@@ -185,7 +185,7 @@ The script will ask you for the following information:
 
 ## Creating the Dev Container
 
-There is a first time procedure to execute to set up the container the first time. Container configuration and setup is handled in two parts:  There is a configuration that defines the basic container setup (the [devcontainer.json](./../.devcontainer/devcontainer.json) file) and a subsequent script that is run once the container is up.
+There is a first time procedure to execute to set up the container the first time. Container configuration and setup is handled in two parts:  There is a configuration that defines the basic container setup (the [devcontainer.json](./.devcontainer/devcontainer.json) file) and a subsequent script that is run once the container is up.
 
 1) In VS Code, open the repository root folder.  Once VS loads it, you should see a message come up that asks if you want to open it in a dev container.  Click on the button to re-open the folder in a dev container.  Alternatively if you do not get asked to open it in a dev container, you can tell VS explicitly to do so. From the command pallette choose "Dev Containers:  Open Folder in Container..."  Choose the repository root folder.
 
@@ -217,15 +217,13 @@ For more information see the documentation:
 
 **Development Standards:**
 
-- [Coding Standards](./docs/Coding-standards.md) - Code quality and style guidelines
-- [Contributing](./docs/Contributing.md) - How to contribute to projects
+- [Tooling Standards](./docs/Tooling-Standards.md) - How to write, structure, and test tools in this repo, including the logging framework
+- [Workflow Guide](./docs/Workflow.md) - Delivery methodology and working agreements
 - [Function Naming Conventions](./docs/Function-Naming-Conventions.md) - Bash function naming standards
-- [Logging Framework](./docs/Logging-Framework.md) - Standardized logging guide
 
 **Advanced Topics:**
 
 - [Port Forwarding](./docs/Port-forwarding.md) - Remote service access guide
-- [Culture](./docs/Culture.md) - Team culture and practices
 
 **Customizing the devenv:**
 
@@ -245,7 +243,7 @@ Run linting with:
 ./tools/lint-tools-scripts
 ```
 
-See [tests/README.md](./tests/README.md) for more information about writing and running tests.
+See [Tooling Standards — Testing requirements](./docs/Tooling-Standards.md) for more information about writing and running tests.
 
 ## Reference
 

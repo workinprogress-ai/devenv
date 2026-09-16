@@ -187,7 +187,5 @@ call_npm() {
 
 ## See Also
 
-- [Coding Standards](Coding-standards.md) - General code quality standards
-- [Contributing Guide](Contributing.md) - How to contribute code
-- [Error Handling](../lib/error-handling.bash) - Standard error handling functions
-- [Configuration](../lib/config.bash) - Configuration management functions
+- [Tooling Standards](Tooling-Standards.md) - General code quality standards and the library catalog
+- [Workflow Guide](Workflow.md) - Delivery methodology and working agreements

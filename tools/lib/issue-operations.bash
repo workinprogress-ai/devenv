@@ -673,15 +673,18 @@ get_all_type_labels() {
 
 # Set GitHub native issue type on an existing issue
 # Usage: set_issue_type ISSUE_NUMBER REPO_OWNER REPO_NAME TYPE_NAME
-# Notes: Requires that TYPE_NAME exists in tools/config/issues-config.yml with an id
+# Notes: Uses `gh issue edit --type <name>` — the same gh-native mechanism as
+# issue-update's --type path. TYPE_NAME is normalized first, so the caller may
+# pass case-insensitive names; unknown names are a hard failure (return 1) so
+# callers can surface the dropped enrichment.
 set_issue_type() {
     local issue_number="$1"
     local repo_owner="$2"
     local repo_name="$3"
     local type_name="$4"
 
-    if [ -z "$issue_number" ] || [ -z "$repo_owner" ] || [ -z "$repo_name" ] || [ -z "$type_name" ]; then
-        echo "ERROR: set_issue_type requires ISSUE_NUMBER REPO_OWNER REPO_NAME TYPE_NAME" >&2
+    if [ -z "$issue_number" ] || [ -z "$type_name" ]; then
+        echo "ERROR: set_issue_type requires ISSUE_NUMBER and TYPE_NAME" >&2
         return 1
     fi
 
@@ -690,54 +693,35 @@ set_issue_type() {
         echo "ERROR: gh CLI is required" >&2
         return 1
     fi
-    if ! command -v jq >/dev/null 2>&1; then
-        echo "ERROR: jq is required" >&2
-        return 1
-    fi
 
-    # Resolve the issue's node ID via REST (the same service that created the
-    # issue) — a GraphQL lookup here can hit index lag right after creation.
-    # Retry with backoff: sub-second to a couple of seconds of lag is typical.
-    local issue_id=""
-    local attempt
-    for attempt in 1 2 3; do
-        issue_id=$(gh api "repos/${repo_owner}/${repo_name}/issues/${issue_number}" --jq '.node_id' 2>/dev/null)
-        if [ -n "$issue_id" ] && [ "$issue_id" != "null" ]; then
-            break
-        fi
-        [ "$attempt" -lt 3 ] && sleep 2
-    done
-
-    if [ -z "$issue_id" ] || [ "$issue_id" = "null" ]; then
-        echo "ERROR: Could not find issue #$issue_number (after $attempt attempts)" >&2
-        return 1
-    fi
-
-    # Load type ID from config via issues-config library
     # shellcheck disable=SC1091
     source "${DEVENV_TOOLS}/lib/issues-config.bash"
-    local type_id
-    type_id=$(get_issue_type_id "$type_name")
+    local normalized
+    normalized=$(normalize_issue_type "$type_name") || {
+        echo "ERROR: Issue type '$type_name' is not a valid type (expected Bug, Feature, Task, or Epic)" >&2
+        return 1
+    }
 
-    if [ -z "$type_id" ] || [ "$type_id" = "null" ]; then
-        # Non-fatal: if id missing, skip setting to avoid failure
-        echo "WARN: Issue type '$type_name' has no configured ID; skipping type set" >&2
+    # gh issue edit resolves the issue by number within the repo that gh's
+    # cwd (or GH_REPO/issue context) points at; set GH_REPO explicitly so the
+    # call always lands on the repo the issue was created in, regardless of
+    # the caller's terminal location.
+    if GH_REPO="${repo_owner}/${repo_name}" gh issue edit "$issue_number" --type "$normalized" >/dev/null 2>&1; then
         return 0
     fi
 
-    # Update the issue with the type
-    local mutation
-    mutation='mutation { updateIssue(input: {id: "'$issue_id'", issueTypeId: "'$type_id'"}) { issue { number issueType { name } } } }'
+    # Transient failures happen (REST/GraphQL index lag right after creation);
+    # retry with the same backoff pattern the old node_id lookup used.
+    local attempt
+    for attempt in 2 3; do
+        sleep 2
+        if GH_REPO="${repo_owner}/${repo_name}" gh issue edit "$issue_number" --type "$normalized" >/dev/null 2>&1; then
+            return 0
+        fi
+    done
 
-    local result
-    result=$(gh api graphql -f query="$mutation" 2>/dev/null)
-
-    if echo "$result" | jq -e '.data.updateIssue.issue.issueType' &>/dev/null; then
-        return 0
-    else
-        echo "WARN: Could not set issue type via API" >&2
-        return 0
-    fi
+    echo "ERROR: Could not set issue type to '$normalized' on issue #$issue_number in ${repo_owner}/${repo_name} (after $attempt attempts)" >&2
+    return 1
 }
 
 # ============================================================================

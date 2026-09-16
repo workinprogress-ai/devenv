@@ -46,6 +46,44 @@ config-read copilot engineering_repo
 
 The governing rules live in [`copilot/skills/common/references/knowledge-lookup-protocol.md`](../copilot/skills/common/references/knowledge-lookup-protocol.md) (read side), mirrored by the knowledge distillation protocol (write side for org-specific specifics) and the knowledge extraction protocol (write side for emerging general knowledge: practices and patterns → `candidates/`) in the same folder. Skill files reference the protocols rather than duplicating their text.
 
+## The two knowledge-repo clones
+
+The `docs.copilot-knowledge` repo exists in the workspace as **two clones with distinct roles** — this is deliberate, not duplication:
+
+| Clone | Role | Managed how |
+|---|---|---|
+| `copilot/knowledge/` | **Canonical accepted knowledge** — the only copy skills read (via the `~/.copilot/knowledge` symlink) | Machine-managed: cloned/pulled by bootstrap and container start using `--ff-only`. **Never edit it directly and never open branches there** — a local edit can be silently discarded on the next pull. |
+| `repos/docs.copilot-knowledge/` | **Modification workspace** — branches and PRs happen here | Human/AI-managed: propose changes, open branches, and submit PRs. Changes here don't affect what skills see until merged upstream and the canonical clone refreshes. |
+
+This mirrors the devenv repo's own two-clone arrangement (`repos/devenv/` for changes, the running environment for consumption). Note two practical consequences: **mid-session freshness** — the canonical clone refreshes only at bootstrap/container start, not mid-session — and **candidates/ index links** — links from knowledge files into `copilot/skills/` references resolve only inside the devenv workspace, not from the knowledge repo standalone.
+
+## How devenv relates to the sub-repos
+
+The devenv workspace is the hub of a small constellation of repositories. Each has a distinct role, a distinct manager, and a distinct edit route:
+
+```text
+devenv workspace (the running environment — this repo, checked out at the workspace root)
+│
+├─ copilot/knowledge/             canonical accepted knowledge  ← machine-managed
+│    ↕ ~/.copilot/knowledge symlink (how skills read it)
+│
+├─ repos/
+│   ├─ docs.copilot-knowledge/    knowledge modification workspace  ← PRs here
+│   ├─ docs.engineering/          ratified org standards + patterns ← PRs here
+│   ├─ devenv/                    devenv's own modification workspace ← PRs here
+│   └─ <org repos>/               working clones used by tasks and skills
+```
+
+| Path | What it is | Managed by | Refreshes when | Edits go |
+|---|---|---|---|---|
+| `copilot/knowledge/` | Canonical knowledge skills read via the symlink | **Machine** — bootstrap clones it; container start pulls `--ff-only` ([`copilot-knowledge.bash`](../tools/lib/copilot-knowledge.bash)) | Container start / bootstrap | **Never directly** — PRs via `repos/docs.copilot-knowledge/` |
+| `repos/docs.copilot-knowledge/` | Knowledge modification workspace | Human/AI (branches, PRs) | Manual pull | Directly — branches + PRs to `docs.copilot-knowledge` |
+| `repos/docs.engineering/` | Ratified standards + patterns library | Human/AI (branches, PRs) | Manual pull | Directly — PRs; on the AI side only `/devenv-design-discussion` prepares changes |
+| `repos/devenv/` | Devenv's own modification workspace | Human/AI | Manual pull | Directly — PRs to devenv |
+| `repos/<name>/` | Working clones of org repos used during tasks | Human/AI | `repo-get` / `repo-update-all` / repo-cache tools | Per that repo's own workflow |
+
+The key asymmetry to internalize: **the machine writes what the skills read; people write what the machine pulls.** The `copilot/knowledge/` clone is machine-managed so skills always see ratified, stable content; everything under `repos/` is human/AI-managed because that is where proposals, branches, and reviews happen. A change becomes *live* for skills only after it merges upstream and the consuming copy refreshes — at container start for knowledge, on pull for the engineering repo. Forks re-point the whole constellation through three `devenv.config` keys (`knowledge_repo`, `knowledge_subpath`, `engineering_repo`) without touching any skill.
+
 ## Related configuration
 
 See [Devenv Customization](./Devenv-Customization.md) for the full `[copilot]` section reference, including `knowledge_repo` and `knowledge_subpath`.

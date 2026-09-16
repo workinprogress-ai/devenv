@@ -222,9 +222,35 @@ bash .devcontainer/install-extras/tailscale.sh
 
 ## Container desktop environment
 
-The dev container includes a "light" and simple graphical desktop environment that can be used as an alternative to the terminal.  This is useful for running graphical applications or for those who prefer a graphical interface.  The desktop environment is based on the `xfce` desktop environment.  It is not intended to be a full desktop environment, but rather a simple one that can be used for basic tasks.  It includes a terminal, file manager, and web browser.  It also includes a few other utilities such as a text editor and a calculator.
+The dev container includes a "light" and simple graphical desktop environment that can be used as an alternative to the terminal.  This is useful for running graphical applications or for those who prefer a graphical interface.  It is provided by the `desktop-lite` container feature (Fluxbox-based) — intentionally minimal rather than a full desktop environment.  It includes a terminal, file manager, and web browser, plus a few other utilities such as a text editor and a calculator.
 
 To access the desktop environment, you need to [open a browser to port 6080 on the localhost](http://localhost:6080).  The easiest way do this is to open the Ports tab in Vs Code (ctrl+shift+p and type "Ports" and click on the option `View: Toggle Ports`).  Of course, you can also bookmark it in the browser.  The web page will take you to a web-hosted instances of VNC that you can use to access the desktop.  The password is `vscode`.  (It's a super simple interface.  Don't gripe, remember it's running in a container so just use it and be amazed that it works at all.)
+
+## Container resource tuning
+
+The container's resource limits are set in `.devcontainer/devcontainer.json` with sensible defaults, and each can be overridden through an environment variable on your **host** machine before starting the container:
+
+| Variable | Default | Controls |
+|----------|---------|----------|
+| `DEVCONT_MEM` | `8g` | Container memory limit |
+| `DEVCONT_SWAP` | `12g` | Container memory+swap limit |
+| `DEVCONT_CPUS` | `4` | CPU count |
+
+Raise them when your work is heavy on Docker-in-Docker builds, large repo caches, or many parallel processes — the dev container is intentionally substantial, and the defaults assume a reasonably provisioned host. Set the variable in your shell environment (or `.wslconfig`-equivalent VM configuration) before rebuilding/reopening the container; VS Code reads `${localEnv:...}` at container creation time, so changes require a rebuild to take effect.
+
+## Container engine: Podman (preferred) or Docker
+
+Both **Podman** and **Docker** are supported as the container engine on the host, and **Podman is preferred**. The `./setup` script detects and helps install either one, and the container workflow is the same after that.
+
+When using Podman, tell VS Code to use it as the container engine by adding this to your **user** `settings.json` (Command Palette → "Preferences: Open User Settings (JSON)"):
+
+```json
+{
+    "dev.containers.dockerPath": "podman"
+}
+```
+
+Without that setting, VS Code's Dev Containers extension defaults to `docker` and container operations will fail on a Podman-only machine. Everything else — `./setup`, first container build, Reopen in Container — works identically under Podman.
 
 ## Utilities
 

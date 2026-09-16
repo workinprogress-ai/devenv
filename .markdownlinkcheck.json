@@ -1,0 +1,10 @@
+{
+  "ignorePatterns": [
+    {
+      "pattern": "^https://code.visualstudio.com"
+    }
+  ],
+  "retryOn429": true,
+  "retryCounts": 2,
+  "timeout": "10s"
+}

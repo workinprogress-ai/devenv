@@ -192,6 +192,8 @@ Behavior:
 - During `devenv-update`, devenv refreshes that repo and updates the symlink target automatically.
 - On container start, devenv runs a non-blocking pull for `copilot/knowledge` (when it is a git repo) via `pull_copilot_knowledge_on_container_start` in `tools/lib/copilot-knowledge.bash`.
 
+These three keys wire the whole repo constellation — the machine-managed knowledge clone, its `repos/` modification workspace, and the engineering-standards clone. For the full relationship map (who manages which copy, what refreshes when, where edits go), see [How devenv relates to the sub-repos](./Knowledge-and-Engineering-Patterns.md#how-devenv-relates-to-the-sub-repos).
+
 ### [bootstrap]
 
 ```ini
@@ -570,10 +572,10 @@ For deeper bootstrap tweaks, see [Bootstrap-Customization.md](./Bootstrap-Custom
 1. Fork the main devenv repository
 2. Create a feature branch
 3. Make your improvements
-4. Ensure all tests pass
+4. Ensure all tests pass (`bash tools/tests/run-tests-local.sh`)
 5. Submit a pull request
 
-See [Contributing](./Contributing.md) for more details.
+See the [Tooling Standards](./Tooling-Standards.md) guide for the testing and linting bar your changes must meet.
 
 ## Getting Help
 

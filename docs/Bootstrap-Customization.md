@@ -426,4 +426,4 @@ run_bootstrap_tasks
 
 - [Dev Container Environment](./Dev-container-environment.md) - Development container overview
 - [Customization Guide](./Devenv-Customization.md) - General customization options
-- [Contributing Guide](./Contributing.md) - How to contribute improvements
+- [Workflow Guide](./Workflow.md) - Delivery methodology and working agreements

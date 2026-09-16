@@ -54,8 +54,11 @@ if [ ! -d "$BACKUP_DIR" ]; then
     exit "$EXIT_API_FAILURE"
 fi
 
-# Optionally, pick the latest backup folder (based on directory name timestamp).
-LATEST_BACKUP=$(ls -td "$BACKUP_DIR"/*/ 2>/dev/null | head -1)
+# Optionally, pick the latest backup folder. "Latest" means the greatest
+# directory-name timestamp (backup-YYYYMMDD...), NOT mtime — mtimes of
+# freshly-created backup dirs can tie or invert under load, silently
+# selecting the wrong backup.
+LATEST_BACKUP=$(ls -1d "$BACKUP_DIR"/*/ 2>/dev/null | sort -r | head -1)
 
 if [ -z "$LATEST_BACKUP" ]; then
     echo "No backup subdirectories found in $BACKUP_DIR." >&2

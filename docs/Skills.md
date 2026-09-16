@@ -2,6 +2,8 @@
 
 A complete reference for the Copilot skill suite available in this workspace. Skills are invoked with a `/skill-name` slash command in Copilot Chat.
 
+> **Authority note:** each skill's `SKILL.md` frontmatter (`copilot/skills/<name>/SKILL.md`) is the authoritative description of that skill — its trigger phrases and boundaries. This catalog summarizes the suite for browsing; when a summary and a frontmatter disagree, the frontmatter wins.
+
 **Not sure which skill to use?** Say `/devenv-skill-guru` and answer 1–3 questions.
 
 **Need the full workflow, not just the catalog?** See [Workflow Guide](./Workflow.md).
@@ -470,11 +472,130 @@ At any point you can say "I'll take this one" or "you take this one" and the AI 
 
 ---
 
+## Using skills — invocation and prompt examples
+
+Every skill is invoked with its slash command in Copilot Chat. Most accept an
+argument; when you omit it, the skill either asks or auto-detects from context
+(current branch, open plan, detected artifacts). The examples below show real
+invocation forms — copy one and swap in your own numbers, paths, and wording.
+Anything not covered here is fair game as a plain-language request: describe
+what you want, and the skill's interview will fill in the gaps.
+
+### Starting points
+
+| You want… | Type this |
+|---|---|
+| A skill recommendation | `/devenv-skill-guru` — or `/devenv-skill-guru` + a one-line goal, or `/devenv-skill-guru 42` to route an issue |
+| To think out loud with no artifact | `/devenv-rubber-duck` + the half-formed idea |
+| To understand a codebase conversationally | `/devenv-chat-with-code repos/lib.cs.services.bulk-sync` |
+
+### The delivery lifecycle, start to finish
+
+### 1. Define what to build
+
+```text
+/devenv-write-specifications orders-management
+/devenv-write-specifications docs/notes/requirements-draft.md
+/devenv-write-specifications 57
+```
+
+### 2. Architect it
+
+```text
+/devenv-create-blueprint orders-management
+/devenv-create-blueprint docs/Specifications/orders-001.md
+/devenv-create-blueprint We need a reservation service handling expiry, overbooking, and async confirmation
+```
+
+### 3. Plan the work
+
+```text
+/devenv-create-plan 42
+/devenv-create-plan 42:dv1:workinprogress-ai/planning.reqord:issue-42:plan:orders
+/devenv-create-plan Add rate limiting to the public API
+/devenv-create-plan docs/stories/rate-limiting.md
+```
+
+### 4. Build it
+
+```text
+/devenv-pair-programming            (uses detected plan; or add an issue/plan path, or "ad-hoc")
+/devenv-pair-programming 42
+/devenv-delegation .local-artifacts/Plan-issue-42-001.md
+/devenv-delegation 42
+/devenv-delegation .local-artifacts/Plan-issue-42-001.md phases 3-5
+```
+
+### 5. Keep artifacts current while building
+
+```text
+/devenv-refine-plan .local-artifacts/Plan-issue-42-001.md phase 3 grew: add a migration step
+/devenv-refine-plan 42                       (assessment mode — checks staleness against reality)
+/devenv-query-progress 42
+/devenv-query-progress how is the whole epic 7 doing?
+/devenv-refine-specifications docs/Specifications/orders-001.md
+/devenv-refine-blueprint docs/Architecture/Blueprint-orders-001.md
+/devenv-refine-roadmap 89
+/devenv-update-roadmap 89
+```
+
+### 6. Review, finish, hand off
+
+```text
+/devenv-code-review                     (current branch vs default)
+/devenv-code-review 99
+/devenv-code-review --base main --head feature/rate-limiting
+/devenv-address-pr-comments 99
+/devenv-address-pr-comments .local-artifacts/tmp2.md
+/devenv-pre-commit
+/devenv-pre-commit --all
+/devenv-open-pr
+/devenv-open-pr feature/rate-limiting
+/devenv-session-handoff
+/devenv-session-handoff 42
+```
+
+### Investigation, design, and upkeep
+
+```text
+/devenv-spike Can we replace the polling loop with change streams without breaking offline clients?
+/devenv-spike 63
+/devenv-bug-hunter the sync job completes but rows are missing; expected all rows to land
+/devenv-bug-hunter 71
+/devenv-design-discussion Should reservations expire server-side or client-side?
+/devenv-design-discussion 42          (diagnoses a plan with unresolved design questions)
+/devenv-grooming Reservation expiry keeps changing scope — help shape this before we plan
+/devenv-grooming repos/lib.cs.services.reservations
+/devenv-document repos/lib.cs.services.bulk-sync
+/devenv-document the file-monitor service
+/devenv-tech-debt-audit repos/lib.cs.services.chassis
+/devenv-tech-debt-audit repos/lib.cs.services.chassis "plugin pipeline"
+/devenv-chat-with-code repos/lib.cs.services.bulk-sync repos/lib.cs.common.essentials ... How do I create a new sync job?  Does it publish the endpoints automatically? 
+```
+
+### Issue and repo hygiene
+
+```text
+/devenv-triage-issue 88
+/devenv-triage-issue 88 89 90
+/devenv-skill-maintenance broken routing in the catalog; triage-issue and guru disagree about bug hunts
+```
+
+### Tips
+
+- **Arguments are optional almost everywhere.** `/devenv-open-pr`, `/devenv-pre-commit`, `/devenv-code-review`, `/devenv-session-handoff`, and `/devenv-skill-guru` all work bare and auto-detect from the current branch/context.
+- **Mid-run phrasing beats new invocations.** Inside a running skill, plain requests work: "mark 3.4 done", "add a task for the migration", "stop here". New slash commands are for *switching* skills, not for steering the current one.
+- **`issue[:doc_id]` disambiguates.** When one issue carries several plan artifacts, add the `doc_id` (the skill lists candidates if you omit it).
+- **Quoted focus areas narrow audits** without limiting the mental model: `/devenv-tech-debt-audit repos/foo "auth flow"`.
+- Every skill supports **diagnostics**: if an output or action seemed wrong, say "enter diagnostic mode" and the skill writes a `DIAGNOSTIC_REPORT.md` instead of guessing at fixes.
+
+---
+
 ## How to author a new skill
 
 1. Read [`copilot/skills/_conventions.md`](../copilot/skills/_conventions.md) — frontmatter template, description structure, section ordering, reference-file criteria, confirmation flow.
 2. Create `copilot/skills/<name>/SKILL.md` (folder name must match `name:` frontmatter).
-3. Keep `description:` ≤ 1024 chars — verify with `awk '/^description:/ {gsub(/^description: */,""); print length}' SKILL.md`.
+3. Keep `description:` within the length cap defined in [`_conventions.md`](../copilot/skills/_conventions.md) (under 1500 chars, trim toward 1000) — verify with `awk '/^description:/ {gsub(/^description: */,""); print length}' SKILL.md`.
 4. Include explicit **USE WHEN** and **DO NOT USE FOR** phrases in the description.
 5. Add a "Sibling skills" section at the bottom with a link back to this catalog.
 6. Use the `agent-customization` Copilot skill for help with frontmatter and configuration.

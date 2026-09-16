@@ -6,7 +6,11 @@ bats suite. New tools should start from `tools/templates/script-template.sh`
 (via `tooling-create-script <name>`), which embodies most of this guide.
 
 Related docs: [Function Naming Conventions](Function-Naming-Conventions.md),
-[Logging Framework](Logging-Framework.md), [Additional Tooling](Additional-Tooling.md).
+[Additional Tooling](Additional-Tooling.md).
+
+Note that CI enforces both halves of docs quality: changed markdown is run
+through `markdownlint-cli2` **and** `markdown-link-check` in the
+`lint-markdown` job — a PR with broken links or lint failures will not pass.
 
 ## The golden rules
 
@@ -148,6 +152,54 @@ If your tool accepts a markdown/text body:
   `register_cleanup` from `error-handling.bash`. The helper registers an EXIT
   trap in the caller's shell — do not wrap it in `$( )`.
 - Happy-path `rm` is not cleanup; early exits leak.
+
+## Logging & error handling
+
+All logging comes from `tools/lib/error-handling.bash` — never define your own
+`log_*` functions. The library provides timestamps (ISO 8601), color-coded
+levels, stream discipline (errors/warnings to stderr, info to stdout), and
+`DEBUG`-gated verbose output.
+
+### Setup
+
+Source the library first (per the golden rules), then enable strict mode:
+
+```bash
+source "$DEVENV_TOOLS/lib/error-handling.bash"
+
+enable_strict_mode
+```
+
+### Logging functions
+
+| Function | Level | Stream | Exits | Use for |
+|----------|-------|--------|-------|---------|
+| `log_debug` | DEBUG | stdout | No | Troubleshooting detail; shown only when `DEBUG=1` |
+| `log_info` | INFO | stdout | No | Normal operational messages |
+| `log_warn` | WARN | stderr | No | Recoverable issues |
+| `log_error` | ERROR | stderr | No | Handled failures |
+| `log_fatal` | FATAL | stderr | **Yes** | Unrecoverable errors — logs, then exits 1 |
+
+```bash
+log_debug "Found ${count} items to process"
+log_info "Processing repository: $repo_name"
+log_warn "Cache directory not found, creating it"
+log_error "Failed to connect to database"
+log_fatal "Cannot proceed without valid credentials"   # exits
+```
+
+Enable debug output for a single run with `DEBUG=1 ./tools/scripts/my-tool.sh`.
+
+### Usage conventions
+
+- **Provide context**: `log_info "Processing repo: $repo ($count files)"`, not
+  `log_info "Processing"`.
+- **Log before risky operations** so failures carry the intent:
+  `log_debug "Removing $dir" && rm -rf "$dir"`.
+- **Combine with error handling**:
+  `some_command || log_fatal "some_command failed; cannot continue"`.
+- The strict-mode error trap logs failures automatically via `log_error` —
+  don't duplicate it with a hand-rolled `trap ... ERR` unless extending it.
 
 ## Repo resolution and interactive tools
 

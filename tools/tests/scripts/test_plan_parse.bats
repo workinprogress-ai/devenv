@@ -209,6 +209,12 @@ EOF
     [ "$status" -eq 2 ]
 }
 
+@test "plan-parse rejects multiple mode flags (exit 2, no silent last-wins)" {
+    run bash "$DEVENV_TOOLS/scripts/plan-parse.sh" "$PLAN_FILE" --summary --census
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"only one mode flag"* ]]
+}
+
 # ---------------------------------------------------------------------------
 # Header routing fields in --summary
 # ---------------------------------------------------------------------------

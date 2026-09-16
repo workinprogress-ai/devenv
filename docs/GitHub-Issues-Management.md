@@ -2,6 +2,8 @@
 
 This guide covers the complete GitHub Issues workflow in Devenv, from issue creation through deployment to production.
 
+> **Division between the two issue docs:** this guide owns the *workflow and concepts* (types, status model, hierarchy, practices). For command syntax and quick lookups, [GitHub Issues Quick Reference](./GitHub-Issues-Quick-Reference.md) is canonical — its command tables are the maintained source; the command snippets here illustrate workflow context.
+
 ## Table of Contents
 
 1. [Workflow Overview](#workflow-overview)
@@ -701,10 +703,10 @@ project-update-issue "Q1 2026" 150 --status "Production"
 
 2. **Set type immediately**: Every issue should have a type
    - Epic for phases/major features
-   - Story for deliverables
+   - Feature for deliverables
    - Bug for defects
 
-3. **Link to parent**: Stories and bugs under epics should use `--parent`
+3. **Link to parent**: Features and bugs under epics should use `--parent`
    - Makes hierarchy clear
    - Helps track epic progress
 
@@ -754,5 +756,5 @@ project-update-issue "Q1 2026" 150 --status "Production"
 ## See Also
 
 - [Additional Tooling](./Additional-Tooling.md) - Complete script reference
-- [Contributing Guidelines](./Contributing.md) - Development workflow
-- [Coding Standards](./Coding-standards.md) - Code quality standards
+- [Workflow Guide](./Workflow.md) - Delivery methodology and working agreements
+- [Tooling Standards](./Tooling-Standards.md) - Code quality standards for the tools suite

@@ -170,8 +170,8 @@ issue-select --type Task               # Filter by type
 
 | Type | Usage | Parent | Tasks |
 |------|-------|--------|-------|
-| Epic | Major feature/phase | None | No (use stories) |
-| Story | Deliverable | Epic | Yes (checkboxes) |
+| Epic | Major feature/phase | None | No (use features) |
+| Feature | Deliverable | Epic | Yes (checkboxes) |
 | Bug | Defect | Epic or None | Yes (checkboxes) |
 
 ### Create with Parent
@@ -394,5 +394,5 @@ project-update-issue --help
 
 ## See Full Documentation
 
-- Complete guide: [GitHub Issues Management](./GitHub-Issues-Management.md)
+- Complete guide: [GitHub Issues Management](./GitHub-Issues-Management.md) — owns the workflow and concepts (types, status model, hierarchy); this quick reference owns command syntax
 - All tools: [Additional Tooling](./Additional-Tooling.md)

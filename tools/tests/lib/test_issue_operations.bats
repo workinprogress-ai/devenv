@@ -250,39 +250,46 @@ create_mock_gh_for_set_issue_type() {
         export PATH="$TEST_TEMP_DIR/bin:$PATH"
         cat > "$TEST_TEMP_DIR/bin/gh" <<'EOF'
 #!/usr/bin/env bash
-if [ "$1" = "api" ] && [[ "$2" == repos/* ]]; then
-    if echo "$*" | grep -q -- '--jq .node_id'; then
-        echo 'MDU6SXNzdWUxMjM0NTY='
-        exit 0
-    fi
-fi
-if [ "$1" = "api" ] && [ "$2" = "graphql" ]; then
-    args="${*:3}"
-    if echo "$args" | grep -q 'mutation'; then
-        echo '{"data":{"updateIssue":{"issue":{"issueType":{"name":"Bug"}}}}}'
-        exit 0
-    fi
+# Mock for set_issue_type's gh-native path: `gh issue edit <N> --type <name>`.
+if [ "$1" = "issue" ] && [ "$2" = "edit" ]; then
+    for a in "$@"; do
+        if [ "$a" = "--type" ]; then
+            exit 0
+        fi
+    done
 fi
 exit 0
 EOF
         chmod +x "$TEST_TEMP_DIR/bin/gh"
 }
 
-@test "set_issue_type succeeds with mocked gh and config IDs" {
+@test "set_issue_type succeeds via gh issue edit (type by name)" {
         create_mock_gh_for_set_issue_type
-        # Prepare issues config with IDs
+        # Type config with IDs is no longer required by the mechanism; a minimal
+        # config with the type name is enough for normalization.
         local cfg="$TEST_TEMP_DIR/issues-config.yml"
         cat > "$cfg" <<'YML'
 types:
     - name: Bug
         description: "A bug or defect that needs fixing"
-        id: "IT_kwDOCk-E0c4BWVJJ"
 YML
         run bash -c "export ISSUES_CONFIG=$cfg; source $PROJECT_ROOT/tools/lib/issues-config.bash; source $PROJECT_ROOT/tools/lib/issue-operations.bash; set_issue_type 123 test-org test-repo Bug"
         [ "$status" -eq 0 ]
 }
 
-@test "set_issue_type skips when type id missing" {
+@test "set_issue_type fails on unknown type name (return 1 so caller flags dropped enrichment)" {
+        create_mock_gh_for_set_issue_type
+        local cfg="$TEST_TEMP_DIR/issues-config.yml"
+        cat > "$cfg" <<'YML'
+types:
+    - name: Bug
+        description: "A bug or defect that needs fixing"
+YML
+        run bash -c "export ISSUES_CONFIG=$cfg; source $PROJECT_ROOT/tools/lib/issues-config.bash; source $PROJECT_ROOT/tools/lib/issue-operations.bash; set_issue_type 123 test-org test-repo NotAType"
+        [ "$status" -eq 1 ]
+}
+
+@test "set_issue_type succeeds regardless of configured IDs (mechanism is gh-native, not config-ID based)" {
         create_mock_gh_for_set_issue_type
         local cfg="$TEST_TEMP_DIR/issues-config.yml"
         cat > "$cfg" <<'YML'

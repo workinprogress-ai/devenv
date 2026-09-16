@@ -933,7 +933,7 @@ actions-artifacts 12345678 --repo workinprogress-ai/my-service --download
 
 # Download a specific artifact to a directory
 actions-artifacts 12345678 --repo workinprogress-ai/my-service \
-    --download --name coverage-report --dir /tmp/artifacts
+    --download --name coverage-report --dir .local-artifacts
 ```
 
 **Notes:**
@@ -1649,7 +1649,7 @@ editor <file> [file ...]
 
 ```bash
 # Open file directly
-editor /tmp/notes.txt
+editor .local-artifacts/notes.txt
 
 # Used automatically by git
 git commit --allow-empty  # Opens in VS Code, waits until tab closes
@@ -3036,6 +3036,6 @@ For more information about setting up the development environment, see [Dev-cont
 
 ## See Also
 
-- [Contributing Guidelines](./Contributing.md) - How to contribute to the project
-- [Coding Standards](./Coding-standards.md) - Code style and conventions
+- [Tooling Standards](./Tooling-Standards.md) - Code style and conventions for the tools suite
+- [Workflow Guide](./Workflow.md) - Delivery methodology and working agreements
 - [Function Naming Conventions](./Function-Naming-Conventions.md) - Naming standards

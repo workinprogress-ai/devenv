@@ -282,4 +282,4 @@ echo "  Database: localhost:5432"
 
 - [Dev Container Environment](./Dev-container-environment.md) - Dev container configuration
 - [Additional Tooling](./Additional-Tooling.md) - Available development tools
-- [Contributing](./Contributing.md) - Contributing guidelines
+- [Workflow Guide](./Workflow.md) - Delivery methodology and working agreements
