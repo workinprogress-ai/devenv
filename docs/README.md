@@ -140,6 +140,9 @@ Complete workflow for managing GitHub Issues, Projects, and Sprints:
 **...write a new tool for the tools/ suite**
 → [Tooling Standards](./Tooling-Standards.md)
 
+**...save unfinished work safely (WIP commits)**
+→ [WIP-commit convention](./Additional-Tooling.md#the-wip-commit-convention)
+
 **...access remote services**
 → [Port Forwarding](./Port-forwarding.md)
 

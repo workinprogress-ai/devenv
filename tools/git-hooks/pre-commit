@@ -1,20 +1,12 @@
 #!/bin/bash
 # pre-commit: block normal commits when WIP commits are present
+#
+# Thin caller: the gate logic lives in wip-gate.sh (same directory) so that
+# husky-based repos can run the identical check via their delegation blocks.
+# This hook only fires where the effective core.hooksPath resolves here —
+# i.e. repos with no local core.hooksPath override.
 
-# Check if HEAD is a WIP commit (covers the case where WIP has been pushed and
-# the local branch is in sync with the remote WIP tip)
-head_msg=$(git log -1 --format=%s 2>/dev/null)
-if [[ "$head_msg" == WIP:* ]]; then
-    echo "error: Cannot commit on top of a WIP commit."
-    echo "       Run 'git-unwip' first, then re-stage your changes."
-    exit 1
-fi
+set -uo pipefail
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Also check unpushed history (covers WIP buried among unpushed commits)
-if git rev-parse @{u} >/dev/null 2>&1; then
-    if git log @{u}..HEAD --format=%s 2>/dev/null | grep -q "^WIP:"; then
-        echo "error: WIP commit(s) found in unpushed branch history."
-        echo "       Run 'git-unwip' first, then re-stage your changes."
-        exit 1
-    fi
-fi
+exec bash "$HOOK_DIR/wip-gate.sh"

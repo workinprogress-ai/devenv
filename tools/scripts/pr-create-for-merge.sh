@@ -144,16 +144,24 @@ cd "$REPO_DIR" 2>/dev/null || { echo "Failed to change directory to $REPO_DIR" >
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "Directory $REPO_DIR is not a git repository." >&2; exit "$EXIT_GENERAL_ERROR"; }
 
 # Refuse to open a PR if implementation plan files are present in the repo root
-# or in .local-artifacts/ (the standard home for plan working copies).
-# These are working files that belong in the GitHub issue, not in the commit history.
-mapfile -t PLAN_FILES < <(find . .local-artifacts -maxdepth 1 \( -name 'Plan-*.md' -o -name 'Implementation_plan-*.md' \) 2>/dev/null | sort)
+mapfile -t PLAN_FILES < <(find . -maxdepth 1 \( -name 'Plan-*.md' -o -name 'Implementation_plan-*.md' \) 2>/dev/null | sort)
 if [ ${#PLAN_FILES[@]} -gt 0 ]; then
-  echo "Error: Implementation plan file(s) found in the repo root or .local-artifacts/:" >&2
+  echo "Error: Implementation plan file(s) found in the repo root:" >&2
   for f in "${PLAN_FILES[@]}"; do
     echo "  ${f#./}" >&2
   done
   echo "These are working files and must not be committed. Move the content to the associated GitHub issue, then delete the file(s) before opening a PR." >&2
   exit "$EXIT_GENERAL_ERROR"
+fi
+
+# Warn if implementation plan files are present in .local-artifacts/
+mapfile -t PLAN_FILES < <(find .local-artifacts -maxdepth 1 \( -name 'Plan-*.md' -o -name 'Implementation_plan-*.md' \) 2>/dev/null | sort)
+if [ ${#PLAN_FILES[@]} -gt 0 ]; then
+  echo "Warning: Implementation plan file(s) found in .local-artifacts/:" >&2
+  for f in "${PLAN_FILES[@]}"; do
+    echo "  ${f#./}" >&2
+  done
+  echo "Make sure these are synced and then eliminate them from the .local-artifacts folder" >&2
 fi
 
 if ! git diff-index --quiet HEAD --; then

@@ -123,6 +123,33 @@ teardown() {
   [[ "$output" =~ "uncommitted or staged changes" ]]
 }
 
+@test "pr-create-for-merge fails when a plan file sits in the repo root" {
+  cd "$REPO_DIR"
+  echo "plan content" > Plan-issue-789-001.md
+  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Implementation plan file(s) found in the repo root" ]]
+}
+
+@test "pr-create-for-merge warns but proceeds when a plan file is only in .local-artifacts" {
+  cd "$REPO_DIR"
+  mkdir -p .local-artifacts
+  echo "working copy" > .local-artifacts/Plan-issue-789-001.md
+  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  [[ "$output" =~ "Warning: Implementation plan file(s) found in .local-artifacts/" ]]
+  [[ "$output" =~ "mock-owner/mock-repo/pull/123" ]]
+}
+
+@test "pr-create-for-merge root plan file blocks even when .local-artifacts also has one" {
+  cd "$REPO_DIR"
+  mkdir -p .local-artifacts
+  echo "working copy" > .local-artifacts/Plan-issue-789-001.md
+  echo "plan content" > Plan-issue-789-002.md
+  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Implementation plan file(s) found in the repo root" ]]
+}
+
 @test "pr-create-for-merge rejects review branch" {
   git checkout -b review/test-123 >/dev/null 2>&1
   run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"

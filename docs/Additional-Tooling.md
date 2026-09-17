@@ -334,6 +334,32 @@ A global `pre-commit` hook (applied via `core.hooksPath` during bootstrap) preve
 
 *NOTE*: `git-wip` bypasses hooks (`-n` flag) intentionally — WIP commits are scratch saves, not production-quality commits.
 
+#### The WIP-commit convention
+
+WIP commits are an **escape hatch, not a storage format**. Use them to save unfinished work when you must switch context or protect in-flight changes — never as a place where work lives. The intent is that WIP state is **short-lived**: as soon as you can, run `git-unwip` and make a real, well-formed commit.
+
+**The rule: only a WIP commit may follow a WIP commit.** A normal commit on top of a WIP commit is blocked — by design — so in-progress work can't silently become permanent history disguised as a finished commit. The block fires when `HEAD` is a `WIP:` commit or a `WIP:` commit is buried in the branch's unpushed history.
+
+**How the block is delivered.** The gate logic lives in `tools/git-hooks/wip-gate.sh` in the devenv repo, and reaches repositories primarily through the **template boilerplate sync** — the same mechanism that distributes any shared boilerplate:
+
+1. **Template sync (primary).** The template repos (`template.service`, `template.cs-library`) carry the gate block in their `.husky/pre-commit`, and their `.repo/update-manifest.json` lists that file for sync. Derived repos receive the block by running their `.repo/update.sh` boilerplate update and committing `chore: update boilerplate` — a visible, reviewable, test-gated commit in the repo itself. `repos/repo-cache-sync-boilerplate.sh` automates that sweep across `lib.cs.*` and `service.*` repos (master-only, clean-tree, tests-gated, per-repo commit + push); run it manually when rolling out boilerplate changes. Repos acquire `.repo/update.sh` on first sync (the script seeds the infrastructure from the template).
+2. **Global hooks dir (fallback).** Bootstrap points `core.hooksPath` at `tools/git-hooks/` globally, so repos that don't manage their own hooks get the gate without any per-repo file.
+**What a well-formed commit looks like.** A real commit names what changed and why: a conventional type prefix (`feat:`, `fix:`, `docs:`, …) and, in the devenv repo itself, a `Devenv-Action` trailer telling consumers what to do after pulling. If a change can't pass those bars yet, it isn't ready to be a real commit — WIP it, finish the work, then `git-unwip` and commit properly.
+
+**Visibility.** The shell prompt shows a `⚡WIP` marker whenever the current repo's `HEAD` is a WIP commit — if you can see the marker, the branch is one commit away from needing `git-unwip` before anything permanent lands on it.
+
+#### `repo-cache-sync-boilerplate`
+
+Sweeps the `lib.cs.*` / `service.*` repos in the repo cache: seeds each repo's `.repo/` update infrastructure from its template, runs the template update (which syncs `.husky/pre-commit` and all other manifest boilerplate), runs the repo's `./run-tests` when present, then commits `chore: update boilerplate` and pushes — per repo, on `master` only, and only with a clean working tree:
+
+```bash
+./repos/repo-cache-sync-boilerplate.sh --dry-run        # print the plan, touch nothing
+./repos/repo-cache-sync-boilerplate.sh                  # full sweep (commits + pushes)
+./repos/repo-cache-sync-boilerplate.sh --repo lib.cs.services.sagas   # single repo
+```
+
+A test failure or update error stops the sweep at that repo; nothing is committed for repos the guards skip.
+
 ### `git update`
 
 Updates the current repository with interactive options for handling uncommitted changes.

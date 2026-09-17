@@ -53,6 +53,9 @@ __bash_prompt() {
                 && if git --no-optional-locks ls-files --error-unmatch -m --directory --no-empty-directory -o --exclude-standard ":/*" > /dev/null 2>&1; then \
                         echo -n " \[\033[1;33m\]✗"; \
                 fi \
+                && if git --no-optional-locks log -1 --format=%s 2>/dev/null | grep -q "^WIP:"; then \
+                        echo -n " \[\033[1;33m\]⚡WIP"; \
+                fi \
                 && echo -n "\[\033[0;36m\]) "; \
             fi; \
         fi`'
