@@ -7,10 +7,10 @@ set -euo pipefail
 # Scale a Kubernetes deployment to a specified replica count
 #
 # Usage:
-#   ./kube-pod-scale.sh <deployment-name-part> <replica-count> [namespace]
+#   ./kube-pod-scale.sh <deployment-name-part> <replica-count> [-n|--namespace <ns>]
 #
 # Environment Variables:
-#   NAMESPACE - Kubernetes namespace (optional)
+#   NAMESPACE - Kubernetes namespace (optional; overridden by the flag)
 #   YES       - set to 1 to skip the confirmation prompt
 #
 # Dependencies:
@@ -25,11 +25,13 @@ source "$DEVENV_TOOLS/lib/kube-selection.bash"
 
 # Ensure correct usage
 if [ $# -lt 2 ]; then
-    echo "Usage: $0 <partial-deployment-name> <replicas> [namespace]"
+    echo "Usage: $0 <deployment-name-part> <replicas> [-n|--namespace <ns>]"
     echo "Environment: YES=1 skips the confirmation prompt."
     exit "$EXIT_MISUSE"
 fi
 
+# shellcheck disable=SC2034  # argv is consumed via nameref by parse_namespace_flag
+argv=("$@")
 DEPLOYMENT_NAME_PART="$1"
 REPLICAS="$2"
 
@@ -42,17 +44,18 @@ fi
 # Resolve the name fragment to exactly one deployment: refuses on zero matches
 # and on multiple matches (candidates listed) so a partial name can never
 # scale an unintended workload.
-DEPLOYMENT_NAME=$(resolve_single_match list_deployments --filter "$DEPLOYMENT_NAME_PART" --namespace "${NAMESPACE:-}") || {
+shift 2
+
+parse_namespace_flag argv || true
+NAMESPACE=$(resolve_namespace "${NAMESPACE_FLAG_VALUE:-}")
+
+DEPLOYMENT_NAME=$(resolve_single_match list_deployments --filter "$DEPLOYMENT_NAME_PART" --namespace "$NAMESPACE") || {
     rc=$?
     exit "$rc"
 }
 
-# Get namespace option for kubectl commands
-NS_OPTION=$(get_namespace_option "${NAMESPACE:-}")
-
-confirm_or_fail "Scale deployment '$DEPLOYMENT_NAME' to $REPLICAS replicas${NAMESPACE:+ in namespace $NAMESPACE}"
+confirm_or_fail "Scale deployment '$DEPLOYMENT_NAME' to $REPLICAS replicas in namespace $NAMESPACE"
 
 echo "Scaling deployment: $DEPLOYMENT_NAME to $REPLICAS replicas..."
 
-# shellcheck disable=SC2086  # NS_OPTION should not be quoted (can be empty)
-kubectl scale deployment "$DEPLOYMENT_NAME" --replicas="$REPLICAS" $NS_OPTION
+kubectl scale deployment "$DEPLOYMENT_NAME" --replicas="$REPLICAS" -n "$NAMESPACE"

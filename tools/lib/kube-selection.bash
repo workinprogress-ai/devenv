@@ -49,6 +49,154 @@ list_namespaces() {
     kubectl get namespaces -o json | jq -r '.items[].metadata.name'
 }
 
+# Extract -n|--namespace <ns> from the argument list (in-place via nameref).
+# Usage: parse_namespace_flag ARGS_ARRAY_NAME
+#   e.g.  parse_namespace_flag argv   →  sets NAMESPACE_FLAG_VALUE, shifts argv
+# Returns 0 if a flag was found (NAMESPACE_FLAG_VALUE set, array shifted),
+# 1 if absent (NAMESPACE_FLAG_VALUE empty, array untouched).
+parse_namespace_flag() {
+    local -n _argv="$1"
+    # shellcheck disable=SC2034  # NAMESPACE_FLAG_VALUE is the caller-read output variable
+    NAMESPACE_FLAG_VALUE=""
+    local i
+    for i in "${!_argv[@]}"; do
+        case "${_argv[$i]}" in
+            -n|--namespace)
+                if [ -z "${_argv[$((i + 1))]:-}" ]; then
+                    log_error "--namespace flag requires a value"
+                    return 2
+                fi
+                NAMESPACE_FLAG_VALUE="${_argv[$((i + 1))]}"
+                unset '_argv[$i]' '_argv[$((i + 1))]'
+                _argv=("${_argv[@]}")
+                return 0
+                ;;
+            -n=*|--namespace=*)
+                # shellcheck disable=SC2034  # output variable, read by caller
+                NAMESPACE_FLAG_VALUE="${_argv[$i]#*=}"
+                unset '_argv[$i]'
+                _argv=("${_argv[@]}")
+                return 0
+                ;;
+        esac
+    done
+    return 1
+}
+
+# Testable interactivity guard for selection paths.
+# True when: stdin is a TTY, fzf is available, and KUBE_NO_INTERACTIVE is unset/0.
+# KUBE_NO_INTERACTIVE=1 forces non-interactive behavior (used by tests and
+# scriptable environments) without relying on TTY detection alone.
+_kube_interactive() {
+    [ "${KUBE_NO_INTERACTIVE:-0}" != "1" ] && [ -t 0 ] && command -v fzf >/dev/null 2>&1
+}
+
+# Resolve a namespace from explicit arg, env var, or interactive picker.
+# Usage: resolve_namespace [ARG_NAMESPACE]
+# Arguments:
+#   ARG_NAMESPACE          Explicit namespace (e.g. from -n/--namespace flag or
+#                          positional argument). Optional.
+# Environment:
+#   NAMESPACE              Fallback when no arg is given (existing convention).
+# Returns:
+#   0 and echoes the resolved namespace name.
+#   1 when no namespace can be resolved non-interactively AND kubectl has no
+#     default (rare; kubectl almost always has a context default).
+# Resolution order:
+#   1. Explicit argument
+#   2. NAMESPACE env var
+#   3. Partial-match resolution (arg or env): case-insensitive substring match
+#      against the namespace list — unique hit auto-selects, multiple hits
+#      offer an fzf-filtered menu (TTY) or error listing candidates (non-TTY),
+#      zero hits errors listing candidates.
+#   4. Nothing given + TTY: fzf picker over all namespaces.
+#   5. Nothing given + non-TTY: kubectl current-context default, with a
+#      one-line hint that -n or the picker exists.
+# Example:
+#   NS=$(resolve_namespace "$wanted_ns") || exit $?
+resolve_namespace() {
+    local arg_ns="${1:-}"
+    local candidate="${arg_ns:-${NAMESPACE:-}}"
+
+    # Exact match fast path (also covers arg/env given verbatim).
+    if [ -n "$candidate" ] && namespace_exists "$candidate" 2>/dev/null; then
+        echo "$candidate"
+        return 0
+    fi
+
+    local all_ns
+    all_ns=$(list_namespaces 2>/dev/null) || {
+        log_error "Could not list namespaces (kubectl cluster unreachable?)"
+        return 1
+    }
+    if [ -z "$all_ns" ]; then
+        log_error "No namespaces returned by cluster"
+        return 1
+    fi
+
+    # Partial-match resolution.
+    if [ -n "$candidate" ]; then
+        local lowered_candidate
+        lowered_candidate=$(printf '%s' "$candidate" | tr '[:upper:]' '[:lower:]')
+        local matches
+        matches=$(printf '%s\n' "$all_ns" | while read -r ns; do
+            local lowered_ns
+            lowered_ns=$(printf '%s' "$ns" | tr '[:upper:]' '[:lower:]')
+            case "$lowered_ns" in
+                *"$lowered_candidate"*) printf '%s\n' "$ns" ;;
+            esac
+        done)
+
+        local match_count
+        match_count=$(printf '%s' "$matches" | grep -c . || true)
+
+        if [ "$match_count" -eq 1 ]; then
+            local resolved
+            resolved=$(printf '%s' "$matches" | head -1)
+            log_info "Namespace '$candidate' resolved to '$resolved'"
+            echo "$resolved"
+            return 0
+        elif [ "$match_count" -gt 1 ]; then
+            if _kube_interactive; then
+                local picked
+                picked=$(printf '%s' "$matches" | fzf_select_single "Ambiguous namespace (matched $match_count, pick one): ")
+                if [ -n "$picked" ]; then
+                    echo "$picked"
+                    return 0
+                fi
+                log_error "No namespace selected"
+                return 1
+            fi
+            log_error "Namespace '$candidate' is ambiguous — matches: $(printf '%s' "$matches" | tr '\n' ' ')"
+            return 1
+        fi
+
+        # No match at all: list closest candidates for the human.
+        log_error "No namespace matches '$candidate' — available: $(printf '%s' "$all_ns" | tr '\n' ' ')"
+        return 1
+    fi
+
+    # Nothing given: interactive picker on a TTY.
+    if _kube_interactive; then
+        local picked
+        picked=$(printf '%s\n' "$all_ns" | fzf_select_single "Select namespace: ")
+        if [ -n "$picked" ]; then
+            echo "$picked"
+            return 0
+        fi
+        log_error "No namespace selected"
+        return 1
+    fi
+
+    # Non-interactive fallback: kubectl current-context default + hint.
+    local default_ns
+    default_ns=$(kubectl config view --minify --output 'jsonpath={..namespace}' 2>/dev/null)
+    default_ns="${default_ns:-default}"
+    log_info "No namespace given — using '$default_ns' (tip: pass -n <ns>, set NAMESPACE=, or run interactively to pick from a list)"
+    echo "$default_ns"
+    return 0
+}
+
 # Check if namespace exists
 # Usage: namespace_exists NAMESPACE
 # Arguments:

@@ -14,11 +14,19 @@ source "$DEVENV_TOOLS/lib/fzf-selection.bash"
 # Check fzf is installed
 check_fzf_installed || exit 1
 
+source "$DEVENV_TOOLS/lib/kube-selection.bash"
+
+# shellcheck disable=SC2034  # argv is consumed via nameref by parse_namespace_flag
+argv=("$@")
 FILTER="${1:-}"
 HEADER="${2:-Select a deployment}"
 
-# Get deployments, apply optional name filter
-DEPLOY_LIST=$(kubectl get deployments --no-headers | awk '{print $1}')
+parse_namespace_flag argv || true
+NS=$(resolve_namespace "${NAMESPACE_FLAG_VALUE:-}")
+HEADER="$HEADER (ns: $NS)"
+
+# Get deployments in the resolved namespace, apply optional name filter
+DEPLOY_LIST=$(kubectl get deployments -n "$NS" --no-headers | awk '{print $1}')
 
 # Apply filter if provided
 if [ -n "$FILTER" ]; then

@@ -3,6 +3,7 @@ set -euo pipefail
 # Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
 DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 source "$DEVENV_TOOLS/lib/error-handling.bash"
+source "$DEVENV_TOOLS/lib/kube-selection.bash"
 
 ################################################################################
 # kube-logs.sh
@@ -10,10 +11,15 @@ source "$DEVENV_TOOLS/lib/error-handling.bash"
 # Retrieve logs from a Kubernetes pod
 #
 # Usage:
-#   ./kube-logs.sh <pod-name-part> [kubectl-options...]
+#   ./kube-logs.sh <pod-name-part> [-n|--namespace <ns>] [kubectl-options...]
+#
+# Namespace resolution: -n/--namespace flag > NAMESPACE env var > partial-match
+# on the cluster's namespaces > interactive fzf picker (TTY) > current-context
+# default (non-TTY). Partial matches resolve when unique; ambiguity offers a
+# filtered picker.
 #
 # Environment Variables:
-#   NAMESPACE - Kubernetes namespace (optional)
+#   NAMESPACE - Kubernetes namespace (optional; overridden by the flag)
 #
 # Dependencies:
 #   - kubectl
@@ -21,16 +27,17 @@ source "$DEVENV_TOOLS/lib/error-handling.bash"
 #
 ################################################################################
 
-POD_NAME_PART="${1:?usage: kube-logs.sh <pod-name-part> [kubectl-options...] }"
-NAMESPACE_OPTION=""
-
-if [ -n "${NAMESPACE:-}" ]; then
-    NAMESPACE_OPTION="-n $NAMESPACE"
-fi
+# shellcheck disable=SC2034  # argv is consumed via nameref by parse_namespace_flag
+argv=("$@")
+POD_NAME_PART="${1:?usage: kube-logs.sh <pod-name-part> [-n|--namespace <ns>] [kubectl-options...] }"
 shift
 
+# Namespace resolution: flag > env > partial match > picker > context default.
+parse_namespace_flag argv || true
+NAMESPACE=$(resolve_namespace "${NAMESPACE_FLAG_VALUE:-}")
+
 # Find matching pods
-POD_NAME=$(kube-pod-select.sh $POD_NAME_PART)
+POD_NAME=$(NAMESPACE="$NAMESPACE" kube-pod-select.sh "$POD_NAME_PART")
 
 # Check if a pod was found
 if [ -z "$POD_NAME" ]; then
@@ -38,5 +45,5 @@ if [ -z "$POD_NAME" ]; then
     exit 1
 fi
 
-echo "Fetching logs for pod: $POD_NAME"
-kubectl logs $POD_NAME $NAMESPACE_OPTION "$@"
+echo "Fetching logs for pod: $POD_NAME in namespace: $NAMESPACE"
+kubectl logs "$POD_NAME" -n "$NAMESPACE" "$@"

@@ -115,6 +115,22 @@ case "$1 $2" in
         name="$3"
         [[ -n "${STUB_KUBECTL_SCALED:-}" ]] && echo "$name" >> "$STUB_KUBECTL_SCALED"
         exit 0 ;;
+    "get namespaces")
+        if [[ "${STUB_KUBECTL_FAIL:-0}" == "1" ]]; then
+            echo "stub-kubectl: simulated failure" >&2
+            exit 1
+        fi
+        emit "${STUB_KUBECTL_NAMESPACES:-}"
+        exit 0 ;;
+    "get namespace")
+        ns="$3"
+        for n in ${STUB_KUBECTL_NAMESPACES:-}; do
+            [[ "$n" == "$ns" ]] && exit 0
+        done
+        exit 1 ;;
+    "config view")
+        echo "${STUB_KUBECTL_DEFAULT_NS:-}"
+        exit 0 ;;
     *) exit 0 ;;
 esac
 EOF

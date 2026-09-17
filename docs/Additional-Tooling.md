@@ -2453,6 +2453,46 @@ get-services-config
 
 The configuration is placed in `~/.debug/config`.
 
+## Kubernetes Tools
+
+The `kube-*` script family wraps common kubectl workflows (pod listing, logs,
+exec, console, delete, restart, scale, port-forwarding, traffic interception,
+context/deployment selection).
+
+### Namespace selection (all scripts)
+
+Every script that targets namespaced resources resolves its namespace the same
+way, in priority order:
+
+1. **Flag:** `-n <ns>` or `--namespace <ns>` (also `--namespace=<ns>`)
+2. **Environment:** `NAMESPACE=<ns>`
+3. **Partial match:** a non-exact flag/env value is matched case-insensitively
+   against the cluster's namespaces — a unique match auto-selects, multiple
+   matches offer a filtered picker (interactive) or an error listing
+   candidates (non-interactive)
+4. **Interactive picker:** with no namespace given on a TTY, an `fzf` list of
+   all namespaces appears
+5. **Non-interactive default:** the current context's default namespace is
+   used, with a one-line hint that `-n` / `NAMESPACE` / the picker exist
+
+Examples:
+
+```bash
+kube-logs.sh api -n prod              # exact namespace via flag
+kube-logs.sh api -n prod-eu           # partial: resolves if unique
+NAMESPACE=prod kube-logs.sh api       # env form
+kube-pod-delete.sh api -n prod        # destructive scripts honor the flag
+KUBE_NO_INTERACTIVE=1 kube-logs.sh api  # force non-interactive (scripts/CI)
+```
+
+Set `KUBE_NO_INTERACTIVE=1` to disable the interactive picker entirely
+(assumed by scripts and CI); interactive pickers require a TTY and `fzf`.
+
+Destructive scripts (`kube-pod-delete`, `kube-pod-restart`, `kube-pod-scale`)
+keep their consent gates regardless of how the namespace was supplied.
+
+---
+
 ## Configuration Files
 
 ### `docker-compose-dependencies.yml`

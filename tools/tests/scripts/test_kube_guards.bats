@@ -20,6 +20,11 @@ setup() {
     export STUB_KUBECTL_SCALED="$TEST_TEMP_DIR/scaled.txt"
     : > "$STUB_KUBECTL_DELETED"
     : > "$STUB_KUBECTL_SCALED"
+    # Namespace resolver fixture: scripts resolve against this list; the
+    # non-interactive fallback default is 'default'.
+    export STUB_KUBECTL_NAMESPACES="default web"
+    export STUB_KUBECTL_DEFAULT_NS="default"
+    export KUBE_NO_INTERACTIVE=1
     export DEVENV_TOOLS="$PROJECT_ROOT/tools"
 }
 
@@ -124,4 +129,95 @@ setup() {
     run bash "$DEVENV_TOOLS/scripts/kube-pod-restart.sh" api < /dev/null
     [ "$status" -eq 2 ]
     [ ! -s "$STUB_KUBECTL_SCALED" ]
+}
+
+# =========================================================================
+# Namespace flag (-n|--namespace) wiring — Plan-002 Phase 3
+# =========================================================================
+
+@test "kube-pod-delete: -n flag reaches the destructive call (records ns via stub)" {
+    export STUB_KUBECTL_PODS="api-1"
+    export YES=1
+    export KUBE_NO_INTERACTIVE=1
+    run bash "$DEVENV_TOOLS/scripts/kube-pod-delete.sh" api -n web < /dev/null
+    assert_success
+    grep -qx "api-1" "$STUB_KUBECTL_DELETED"
+}
+
+@test "kube-pod-delete: legacy positional namespace still works" {
+    export STUB_KUBECTL_PODS="api-1"
+    export YES=1
+    export KUBE_NO_INTERACTIVE=1
+    run bash "$DEVENV_TOOLS/scripts/kube-pod-delete.sh" api web < /dev/null
+    assert_success
+    grep -qx "api-1" "$STUB_KUBECTL_DELETED"
+}
+
+@test "kube-pod-scale: -n flag form scales successfully" {
+    export STUB_KUBECTL_DEPLOYS="api"
+    export YES=1
+    export KUBE_NO_INTERACTIVE=1
+    run bash "$DEVENV_TOOLS/scripts/kube-pod-scale.sh" api 3 -n web < /dev/null
+    assert_success
+    grep -qx "api" "$STUB_KUBECTL_SCALED"
+}
+
+@test "kube-pod-scale: NAMESPACE env var still supported (backward compat)" {
+    export STUB_KUBECTL_DEPLOYS="api"
+    export YES=1
+    export NAMESPACE=web
+    export KUBE_NO_INTERACTIVE=1
+    run bash "$DEVENV_TOOLS/scripts/kube-pod-scale.sh" api 3 < /dev/null
+    assert_success
+    grep -qx "api" "$STUB_KUBECTL_SCALED"
+}
+
+@test "kube-pod-restart: -n flag form passes the guard with YES=1" {
+    export STUB_KUBECTL_DEPLOYS="api"
+    export YES=1
+    export KUBE_NO_INTERACTIVE=1
+    run bash "$DEVENV_TOOLS/scripts/kube-pod-restart.sh" api -n web < /dev/null
+    # The stub cannot satisfy get_deployment_info's single-item JSON shape,
+    # so restart reports it cannot determine replicas (exit 1) — the guard
+    # itself (match + confirm) passed, which is what this test pins.
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Could not determine the current number of replicas"* ]]
+}
+
+@test "kube-selection: parse_namespace_flag extracts -n and shifts args" {
+    source "$DEVENV_TOOLS/lib/error-handling.bash"
+    source "$DEVENV_TOOLS/lib/kube-selection.bash"
+    local argv=("api" "-n" "web" "extra")
+    parse_namespace_flag argv
+    [ "$NAMESPACE_FLAG_VALUE" = "web" ]
+    [ "${#argv[@]}" -eq 2 ]
+    [ "${argv[0]}" = "api" ]
+    [ "${argv[1]}" = "extra" ]
+}
+
+@test "kube-selection: parse_namespace_flag absent leaves args untouched" {
+    source "$DEVENV_TOOLS/lib/error-handling.bash"
+    source "$DEVENV_TOOLS/lib/kube-selection.bash"
+    local argv=("api" "extra")
+    parse_namespace_flag argv || true
+    [ -z "$NAMESPACE_FLAG_VALUE" ]
+    [ "${#argv[@]}" -eq 2 ]
+}
+
+@test "kube-selection: parse_namespace_flag --ns=value form" {
+    source "$DEVENV_TOOLS/lib/error-handling.bash"
+    source "$DEVENV_TOOLS/lib/kube-selection.bash"
+    local argv=("api" "--namespace=web")
+    parse_namespace_flag argv
+    [ "$NAMESPACE_FLAG_VALUE" = "web" ]
+    [ "${#argv[@]}" -eq 1 ]
+}
+
+@test "kube-selection: parse_namespace_flag missing value is an error" {
+    source "$DEVENV_TOOLS/lib/error-handling.bash"
+    source "$DEVENV_TOOLS/lib/kube-selection.bash"
+    local argv=("-n")
+    local rc=0
+    parse_namespace_flag argv 2>/dev/null || rc=$?
+    [ "$rc" -eq 2 ]
 }

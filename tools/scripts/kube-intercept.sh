@@ -19,6 +19,13 @@ source "$DEVENV_TOOLS/lib/error-handling.bash"
 
 source "$DEVENV_TOOLS/lib/kube-selection.bash"
 
+# Namespace: -n|--namespace <ns> anywhere before mappings; resolver handles
+# partial match / picker / default when omitted.
+argv=("$@")
+parse_namespace_flag argv || true
+NS=$(resolve_namespace "${NAMESPACE_FLAG_VALUE:-${NAMESPACE:-}}")
+set -- "${argv[@]}"
+
 # Array to store mapping strings
 mappings=()
 
@@ -41,7 +48,7 @@ done
 
 # Ensure at least one mapping is provided.
 if [ ${#mappings[@]} -eq 0 ]; then
-  echo "Usage: $0 [mapping_file] POD=PORT or POD=LOCAL_PORT:POD_PORT [POD=PORT ...]"
+  echo "Usage: $0 [-n|--namespace <ns>] [mapping_file] POD=PORT or POD=LOCAL_PORT:POD_PORT [POD=PORT ...]"
 fi
 
 mapping_lines=()
@@ -57,7 +64,7 @@ for mapping in "${mappings[@]}"; do
   IFS=',' read -ra port_pairs <<< "$port_mapping"
 
   # Use library function to get pod name from deployment identifier
-  pod_name=$(get_deployment_info "$deployment_identifier" "Pick a pod for $mapping")
+  pod_name=$(get_deployment_info --namespace "$NS" "$deployment_identifier" "Pick a pod for $mapping")
   if [ -z "$pod_name" ]; then
     echo "Failed to select pod for deployment: $deployment_identifier" >&2
     exit 1

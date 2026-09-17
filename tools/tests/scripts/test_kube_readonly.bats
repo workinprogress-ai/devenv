@@ -16,6 +16,11 @@ load ../fixtures/cli-stubs
 setup() {
     test_helper_setup
     stub_kubectl_json
+    # Namespace resolver fixture: kube scripts now resolve a namespace before
+    # their main work; non-interactive default is 'default'.
+    export STUB_KUBECTL_NAMESPACES="default web"
+    export STUB_KUBECTL_DEFAULT_NS="default"
+    export KUBE_NO_INTERACTIVE=1
     export DEVENV_TOOLS="$PROJECT_ROOT/tools"
 
     # Recording stubs for the non-kubectl CLIs the mapping tools invoke.

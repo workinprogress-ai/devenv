@@ -18,6 +18,14 @@ source "$DEVENV_TOOLS/lib/error-handling.bash"
 #   ./kube-forward-ports.sh myapp=8080 frontend=3000:3000
 
 source "$DEVENV_TOOLS/lib/infrastructure-utilities.bash"
+source "$DEVENV_TOOLS/lib/kube-selection.bash"
+
+# Namespace: -n|--namespace <ns> anywhere before mappings; resolver handles
+# partial match / picker / default when omitted.
+argv=("$@")
+parse_namespace_flag argv || true
+NS=$(resolve_namespace "${NAMESPACE_FLAG_VALUE:-${NAMESPACE:-}}")
+set -- "${argv[@]}"
 
 # Array to store mapping strings
 mappings=()
@@ -41,7 +49,7 @@ done
 
 # Ensure at least one mapping is provided.
 if [ ${#mappings[@]} -eq 0 ]; then
-  echo "Usage: $0 [mapping_file] POD=PORT or POD=LOCAL_PORT:POD_PORT [POD=PORT ...]"
+  echo "Usage: $0 [-n|--namespace <ns>] [mapping_file] POD=PORT or POD=LOCAL_PORT:POD_PORT [POD=PORT ...]"
   exit 1
 fi
 
@@ -72,7 +80,7 @@ for mapping in "${mappings[@]}"; do
     exit 1
   fi
 
-  pod_name=$(kube-pod-select.sh "$pod_identifier" "Pick a pod for $mapping")
+  pod_name=$(kube-pod-select.sh -n "$NS" "$pod_identifier" "Pick a pod for $mapping")
   echo "Mapping: local port $local_port to pod '$pod_name' on port $pod_port."
   mapping_details+=("$pod_name:$local_port:$pod_port")
 done
@@ -101,7 +109,7 @@ forward_port() {
 
   while ! $should_terminate; do
     echo "[$label] Starting port-forward..."
-    kubectl port-forward "$pod_name" "$local_port:$pod_port" 2>&1 | while read -r line; do
+    kubectl port-forward -n "$NS" "$pod_name" "$local_port:$pod_port" 2>&1 | while read -r line; do
       echo "[$label] $line"
     done
 
