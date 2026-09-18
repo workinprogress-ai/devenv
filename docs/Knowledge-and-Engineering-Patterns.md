@@ -17,11 +17,9 @@ The engineering repo is imported with the same machinery as knowledge, so the st
 [copilot]
 engineering_repo=https://github.com/workinprogress-ai/docs.engineering.git
 engineering_subpath=docs/
-# Legacy key retained for fork compatibility (the repos/ clone used for modifications):
-engineering_repo_name=docs.engineering
 ```
 
-Skills read the standards at runtime from `~/.copilot/engineering/...`; the repo's name for GitHub operations (issues, PRs) resolves with `config-read copilot engineering_repo_name`.
+Skills read the standards at runtime from `~/.copilot/engineering/...`.
 
 ## Where skills use them
 
