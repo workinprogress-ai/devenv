@@ -13,16 +13,18 @@ _DEVENV_SELF_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Node.js and NPM/PNPM Versions
 # ============================================================================
 
-# Node.js version (use LTS)
+# Node.js version (LTS "Jod" line, matches the dev container image)
 # Update this when upgrading Node.js across the team
-export NODE_VERSION="20.14.0"  # LTS as of 2026-01-01
+export NODE_VERSION="24.18.0"
 
-# NPM version (comes with Node.js, use "latest" or specific version)
-export NPM_VERSION="10.7.0"
+# NPM version (ships with Node.js)
+export NPM_VERSION="11.16.0"
 
 # PNPM version - our standardized package manager
 # IMPORTANT: Keep this synchronized across all environments
-export PNPM_VERSION="8.7.1"
+# 11.9.0 is the version baked into the dev container image; repos migrate
+# their lockfiles forward to this generation via .repo/update.sh.
+export PNPM_VERSION="11.9.0"
 
 # ============================================================================
 # Tool Paths and Aliases
@@ -49,6 +51,11 @@ export npm_config_cache="${NODE_CACHE_DIR}/npm"
 # PNPM configuration
 export PNPM_HOME="${DEVENV_ROOT:-$_DEVENV_SELF_ROOT}/.debug/pnpm"
 export PNPM_STORE_DIR="${DEVENV_ROOT:-$_DEVENV_SELF_ROOT}/.debug/pnpm-store"
+
+# PNPM non-interactive safety: pnpm must never block a headless session on a
+# confirmation prompt (module purge, build-approval, etc.). CI mode disables
+# interactive prompts and fails fast instead.
+export CI="${CI:-true}"
 
 # ============================================================================
 # Version Verification Functions

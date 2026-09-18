@@ -78,11 +78,15 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "bootstrap.sh defines version constants" {
-  run grep "PNPM_VERSION=" "$PROJECT_ROOT/.devcontainer/bootstrap.sh"
+@test "tool versions are declared in exactly one place (tool-versions.bash)" {
+  # Single source of truth: the declarations live in tool-versions.bash;
+  # bootstrap.sh must NOT carry duplicate defaults (drift defect fixed).
+  run grep "PNPM_VERSION=" "$PROJECT_ROOT/.devcontainer/tool-versions.bash"
   [ "$status" -eq 0 ]
-  run grep "NODE_VERSION=" "$PROJECT_ROOT/.devcontainer/bootstrap.sh"
+  run grep "NODE_VERSION=" "$PROJECT_ROOT/.devcontainer/tool-versions.bash"
   [ "$status" -eq 0 ]
+  run bash -c "grep -rlE '^(PNPM|NODE|NPM)_VERSION=' $PROJECT_ROOT/.devcontainer/ | grep -v tool-versions.bash"
+  [ "$status" -ne 0 ]
 }
 
 @test "constants have descriptive names" {

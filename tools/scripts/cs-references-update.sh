@@ -259,9 +259,57 @@ fi
 # Package Updates
 # ============================================================================
 
+# Capture the tree state before updating: the boilerplate chain below must
+# only fire when THIS script changed something — not when the tree was
+# already dirty with unrelated in-flight work.
+tree_was_dirty_before=0
+if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+    tree_was_dirty_before=1
+fi
+
+updates_output="$(mktemp)"
+trap 'rm -f "$updates_output"' EXIT
+
 find . -name '*.csproj' -not -path '*/obj/*' -not -path '*/bin/*' -print0 | while IFS= read -r -d '' csproj; do
   dotnet outdated "$csproj" --upgrade
-done
+done | tee "$updates_output"
+
+updated_anything=$(grep -cE 'upgraded successfully|is up to date with [a-f0-9]{7,}' "$updates_output" 2>/dev/null || true)
+# The per-project dotnet-outdated banner repeats per csproj; collapse it.
+if [ "${updated_anything:-0}" -eq 0 ] && grep -q "No outdated dependencies" "$updates_output"; then
+    echo "No package updates applied."
+fi
+
+# ============================================================================
+# Boilerplate sync chain
+# ============================================================================
+
+# Chain the repo's boilerplate updater (if present) so dependency updates and
+# template sync happen in one pass. Always delegate the run/don't-run decision
+# to update.sh itself — its migration step runs before its own dirty-tree
+# guard (clean lockfile is all migration needs), so a tree dirtied by THIS
+# script's upgrades must not suppress the chain. Pre-existing dirt (before
+# this script ran) means update.sh's sync will be skipped by its guard, so
+# the message says that instead of a FATAL-looking refusal. Unattended-safe:
+# non-fatal when absent or failing.
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -n "$repo_root" ] && [ -x "$repo_root/.repo/update.sh" ]; then
+    if [ "$tree_was_dirty_before" -eq 1 ]; then
+        echo "Chaining .repo/update.sh — note: tree was dirty before this run, so its boilerplate sync will be skipped (its lockfile migration still runs)."
+    else
+        echo "Chaining .repo/update.sh (boilerplate sync)..."
+    fi
+    chain_output="$(mktemp)"
+    if ! "$repo_root/.repo/update.sh" --no-refresh >"$chain_output" 2>&1; then
+        if grep -q "Working tree is not clean" "$chain_output"; then
+            echo "NOTE: .repo/update.sh deferred its boilerplate sync (dirty tree) — its lockfile migration ran. Re-run it after committing to complete the sync."
+        else
+            echo "WARNING: .repo/update.sh failed — output:" >&2
+            cat "$chain_output" >&2
+        fi
+    fi
+    rm -f "$chain_output"
+fi
 
 exit "$EXIT_OK"
 

@@ -16,9 +16,9 @@ scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"; scriptfile="$0"; 
 # shellcheck source=./bootstrap.bash
 source "$(dirname "${BASH_SOURCE[0]}")/bootstrap.bash"
 
-# Defaults for common tool versions (override via env as needed)
-PNPM_VERSION=${PNPM_VERSION:-10.32.1}
-NODE_VERSION=${NODE_VERSION:-20}
+# Tool versions are declared in ONE place: .devcontainer/tool-versions.bash
+# (sourced by bootstrap.bash below). Do not re-declare them here — duplicate
+# defaults drift, which is exactly how node/pnpm version skew happened before.
 
 # Run bootstrap tasks (all default tasks or specific tasks passed as arguments)
 run_bootstrap_tasks "$@"

@@ -119,3 +119,67 @@ write_file() {
   run bash "$SCRIPT" --all --ac "$WORK_DIR"
   [ "$status" -eq 2 ]
 }
+
+# ---------------------------------------------------------------------------
+# Default noise-class exclusions (cache, node_modules, .git, repos) and the
+# --no-exclude escape hatch for exhaustive audits.
+# ---------------------------------------------------------------------------
+
+@test "default gate skips markers under excluded dirs (cache/repos/node_modules/.git)" {
+  mkdir -p "$WORK_DIR/src" "$WORK_DIR/cache/devenv" "$WORK_DIR/repos/devenv" "$WORK_DIR/node_modules/pkg" "$WORK_DIR/.git/hooks"
+  write_file "src/a.cs" "// FIXME(DEVENV[p1]): real marker in scanned path"
+  write_file "cache/devenv/a.cs" "// FIXME(DEVENV[p1]): cache clone copy"
+  write_file "repos/devenv/a.cs" "// FIXME(DEVENV[p1]): repo clone copy"
+  write_file "node_modules/pkg/a.cs" "// FIXME(DEVENV[p1]): vendored copy"
+  write_file ".git/hooks/pre-commit" "// FIXME(DEVENV[p1]): vcs internals"
+  run bash "$SCRIPT" "$WORK_DIR"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"src/a.cs"* ]]
+  [[ "$output" != *"cache/devenv"* ]]
+  [[ "$output" != *"repos/devenv"* ]]
+  [[ "$output" != *"node_modules"* ]]
+  [[ "$output" != *".git/"* ]]
+}
+
+@test "--todo-report also honors exclusions" {
+  mkdir -p "$WORK_DIR/repos/devenv"
+  write_file "repos/devenv/a.cs" "// TODO(DEVENV[p1]): clone copy — remove when x"
+  run bash "$SCRIPT" --todo-report "$WORK_DIR"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"No scoped TODO(DEVENV markers found"* ]]
+}
+
+@test "--no-exclude scans excluded dirs too" {
+  mkdir -p "$WORK_DIR/cache/devenv"
+  write_file "cache/devenv/a.cs" "// FIXME(DEVENV[p1]): cache clone copy"
+  run bash "$SCRIPT" --no-exclude "$WORK_DIR"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"cache/devenv/a.cs"* ]]
+}
+
+@test "--no-exclude --all audits every form everywhere" {
+  mkdir -p "$WORK_DIR/repos/devenv"
+  write_file "repos/devenv/a.cs" "// TODO(DEVENV[p1]): clone copy — remove when x"
+  run bash "$SCRIPT" --no-exclude --all "$WORK_DIR"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"TODO(DEVENV[p1]): clone copy"* ]]
+}
+
+@test "explicitly naming an excluded path still scans it" {
+  mkdir -p "$WORK_DIR/repos/devenv"
+  write_file "repos/devenv/a.cs" "// FIXME(DEVENV[p1]): explicit target"
+  run bash "$SCRIPT" "$WORK_DIR/repos/devenv"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"explicit target"* ]]
+}
+
+@test "plain TODO/FIXME comments never match in any mode" {
+  printf '// TODO: normal todo\n# FIXME: normal fixme\n// TODO no colon\n' > "$WORK_DIR/a.cs"
+  run bash "$SCRIPT" "$WORK_DIR"
+  [ "$status" -eq 0 ]
+  run bash "$SCRIPT" --all "$WORK_DIR"
+  [ "$status" -eq 0 ]
+  run bash "$SCRIPT" --todo-report "$WORK_DIR"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"No scoped TODO(DEVENV markers found"* ]]
+}

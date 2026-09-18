@@ -84,6 +84,17 @@ if ! [ -f $container_bootstrap_run_file ]; then
     echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 fi
 
+# Enforce declared tool versions (node/pnpm) on the running container. Sourced
+# here because bootstrap.bash exports the functions only into its own shell.
+# shellcheck source=/dev/null
+if [ -f "$toolbox_root/.devcontainer/tool-versions.bash" ]; then
+    # shellcheck disable=SC1091
+    . "$toolbox_root/.devcontainer/tool-versions.bash"
+    if ! ensure_tool_versions; then
+        echo "WARNING: tool version enforcement failed - run 'ensure_tool_versions' manually to see details" >&2
+    fi
+fi
+
 # Clean up bootstrap lock file on successful completion
 if [ -f "$bootstrap_lock_file" ]; then
     rm -f "$bootstrap_lock_file"

@@ -4,7 +4,7 @@
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 # devenv-marker-check.sh - Deterministic DEVENV-marker and AC-comment scanning
-# Version: 1.2.0
+# Version: 1.3.0
 # Description: Replaces hand-run grep sweeps: verify no plan-bounded
 #              FIXME(DEVENV[ markers remain (gate mode), list [AC-N] comments
 #              (finder mode), list scoped TODO(DEVENV markers with discharge
@@ -17,7 +17,7 @@ set -euo pipefail
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
 
-readonly SCRIPT_VERSION="1.2.0"
+readonly SCRIPT_VERSION="1.3.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
 script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Scan for DEVENV markers and AC comments"
@@ -27,6 +27,11 @@ AC_MODE=0
 TODO_REPORT=0
 ALL_MARKERS=0
 REQUIRE=0
+NO_EXCLUDE=0
+# Default noise-class exclusions: gitignored caches (repo-cache clones,
+# node_modules), VCS internals, and workspace-root per-repo clone dirs.
+# --no-exclude restores exhaustive traversal for audit sweeps.
+readonly EXCLUDE_DIRS=(cache node_modules .git repos)
 PATHS=()
 
 show_usage() {
@@ -60,6 +65,9 @@ Options:
     --require                    Invert the gate: succeed only when at least one
                                  match exists (verification sweeps like
                                  "protocol reference present in every skill")
+    --no-exclude                 Scan ALL directories including the default
+                                 noise-class exclusions (cache, node_modules,
+                                 .git, repos). Use for exhaustive audits.
     -V, --verbose                Enable verbose logs
     -h, --help                   Show help and exit
     -v, --version                Show version and exit
@@ -92,6 +100,7 @@ main() {
                 [ -z "${2:-}" ] && invalid_args "Missing value for --marker"
                 MARKER="$2"; shift 2 ;;
             --require) REQUIRE=1; shift ;;
+            --no-exclude) NO_EXCLUDE=1; shift ;;
             --*) invalid_args "Unknown option: $1" ;;
             *) PATHS+=("$1"); shift ;;
         esac
@@ -130,7 +139,16 @@ main() {
 
     local result
     set +e
-    result=$(grep -rnE "$regex" "${PATHS[@]}" 2>/dev/null)
+    if [ "$NO_EXCLUDE" -eq 1 ]; then
+        result=$(grep -rnE "$regex" "${PATHS[@]}" 2>/dev/null)
+    else
+        local -a excl_args=()
+        local d
+        for d in "${EXCLUDE_DIRS[@]}"; do
+            excl_args+=(--exclude-dir="$d")
+        done
+        result=$(grep -rnE "$regex" "${excl_args[@]}" "${PATHS[@]}" 2>/dev/null)
+    fi
     set -e
 
     if [ -n "$result" ]; then

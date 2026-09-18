@@ -856,6 +856,19 @@ configure_dotnet_tools() {
 
 # Install Node.js packages
 install_node_packages() {
+    # Version constants live in tool-versions.bash. Top-level sourcing of it
+    # can no-op when this library is sourced before initialize_paths sets
+    # DEVENV_ROOT, so re-source here, resolving the file relative to this
+    # script's own location (immune to $0 / DEVENV_ROOT state).
+    if [ -z "${PNPM_VERSION:-}" ] || [ -z "${NODE_VERSION:-}" ]; then
+        local _tv="${BASH_SOURCE[0]%/*}/tool-versions.bash"
+        # shellcheck disable=SC1090 # source path is runtime-derived (sibling of this script)
+        [ -f "$_tv" ] && source "$_tv"
+    fi
+    if [ -z "${PNPM_VERSION:-}" ]; then
+        echo "ERROR: PNPM_VERSION is not set - tool-versions.bash could not be resolved" >&2
+        return 1
+    fi
     echo "# Node packages"
     echo "#############################################"
     call_npm install -g zx
