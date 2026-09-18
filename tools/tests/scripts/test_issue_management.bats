@@ -181,7 +181,12 @@ EOF
   create_gh_mock_for_issue_close
   create_mock_git_repo "$TEST_TEMP_DIR/test-repo"
   cd "$TEST_TEMP_DIR/test-repo"
+  # GITHUB_REPO outranks GH_ORG in get_repo_spec resolution; unset it so the
+  # test exercises the cwd+GH_ORG path it names, regardless of the caller's shell.
+  local saved_github_repo="${GITHUB_REPO:-}"
+  unset GITHUB_REPO
   GH_ORG=test-org run bash "$PROJECT_ROOT/tools/scripts/issue-close.sh" 5
+  [ -n "$saved_github_repo" ] && export GITHUB_REPO="$saved_github_repo"
   cd "$ORIGINAL_PWD"
   [ "$status" -eq 0 ]
   # verify and close must both target the cwd-derived repo via -R, split correctly
