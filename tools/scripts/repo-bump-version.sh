@@ -26,17 +26,17 @@ set -euo pipefail
 #
 ################################################################################
 
-# Self-derive the tools root when DEVENV_TOOLS is not set in the environment
-# (the symlink path through tools/ is repo-root/tools/scripts/<name>, so the
-# tools dir is two levels up from this script).
-DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/tools}"
+# Resolve the tools root from this script's own location (self-root
+# contract: self-location wins; a foreign exported DEVENV_TOOLS is ignored).
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
+DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/release-operations.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 
-script_folder="${DEVENV_TOOLS:-.}/scripts"
-repos_dir="${DEVENV_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/repos"
+script_folder="${DEVENV_TOOLS}/scripts"
+repos_dir="${DEVENV_ROOT}/repos"
 
 # Function to display usage
 usage() {

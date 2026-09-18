@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
+# Resolve the tools root from this script's own location (self-root
+# contract: self-location wins; a foreign exported DEVENV_TOOLS is ignored).
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
+DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 # Automatic markdown linting fixer
 # This script automatically fixes common markdown linting issues
 
 set -euo pipefail
-# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
-DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
-if [[ -z "${DEVENV_ROOT:-}" ]]; then
-    echo "Error: DEVENV_ROOT is not set. Please run this script from within a Devenv environment." >&2
-    exit 1
-fi
+# Derive the checkout root from this script's own location; an exported
+# DEVENV_ROOT pointing elsewhere is ignored (self-root contract).
+DEVENV_ROOT="$(devenv_self_root "${BASH_SOURCE[0]}")"
+export DEVENV_ROOT
 
 FIX_MODE=false
 FILES=()

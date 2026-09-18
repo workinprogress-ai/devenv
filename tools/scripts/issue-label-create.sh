@@ -1,6 +1,8 @@
 #!/bin/bash
-# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
-DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+# Resolve the tools root from this script's own location (self-root
+# contract: self-location wins; a foreign exported DEVENV_TOOLS is ignored).
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
+DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 # issue-label-create.sh - Create (or idempotently ensure) an issue label
 # Version: 1.0.0
 # Description: Creates a GitHub issue label with name, color, description.

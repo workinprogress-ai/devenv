@@ -13,8 +13,12 @@ fi
 _VALIDATION_LOADED=1
 
 # Ensure error handling library is loaded
-if [ -z "${_ERROR_HANDLING_LOADED:-}" ] && [ -f "${DEVENV_ROOT:-}/tools/lib/error-handling.bash" ]; then
-    source "${DEVENV_ROOT:-}/tools/lib/error-handling.bash"
+# Self-locate this checkout (self-root contract: self-location wins;
+# a foreign exported DEVENV_ROOT is ignored).
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/self-root.bash"
+devenv_ensure_root "${BASH_SOURCE[0]}"
+if [ -z "${_ERROR_HANDLING_LOADED:-}" ] && [ -f "${DEVENV_ROOT}/tools/lib/error-handling.bash" ]; then
+    source "${DEVENV_ROOT}/tools/lib/error-handling.bash"
 fi
 
 # ============================================================================

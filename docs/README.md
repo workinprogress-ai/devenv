@@ -93,6 +93,10 @@ Complete workflow for managing GitHub Issues, Projects, and Sprints:
   - Environment variables
   - SSH agent forwarding
   - VS Code configuration
+- **[Developing Devenv Itself](./Nested-Devenv-Development.md)**
+  - Nested-clone workflow (repos/devenv)
+  - Self-locating scripts and test resolution
+  - Targeting devenv with issue/PR tools
   - Troubleshooting
 
 - **[Tailscale VPN Setup](./Tailscale-Setup.md)**

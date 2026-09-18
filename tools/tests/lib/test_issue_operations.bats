@@ -221,11 +221,14 @@ EOF
 # ============================================================================
 
 @test "issue-operations can load without error-handling library" {
-    # Override DEVENV_ROOT temporarily to test standalone loading
-    local temp_root=$(mktemp -d)
+    # Standalone loading: the lib self-locates via self-root.bash, so a copy
+    # in a bare checkout must carry the resolver alongside it.
+    local temp_root
+    temp_root=$(mktemp -d)
     mkdir -p "$temp_root/tools/lib"
     cp "$DEVENV_ROOT/tools/lib/issue-operations.bash" "$temp_root/tools/lib/"
-    
+    cp "$DEVENV_ROOT/tools/lib/self-root.bash" "$temp_root/tools/lib/"
+
     source "$temp_root/tools/lib/issue-operations.bash"
     rm -rf "$temp_root"
     [ -n "$_ISSUE_OPERATIONS_LOADED" ]

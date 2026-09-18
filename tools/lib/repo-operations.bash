@@ -12,6 +12,11 @@ if [ -n "${_REPO_OPERATIONS_LOADED:-}" ]; then
 fi
 readonly _REPO_OPERATIONS_LOADED=1
 
+# Self-locate this checkout (self-root contract: self-location wins;
+# a foreign exported DEVENV_ROOT is ignored).
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/self-root.bash"
+devenv_ensure_root "${BASH_SOURCE[0]}"
+
 # Canonical devenv-repo test lives in git-operations.bash; source it so the
 # is_devenv_repository compatibility wrapper can delegate.
 if [ -z "${_GIT_OPERATIONS_LOADED:-}" ] && [ -f "${DEVENV_TOOLS}/lib/git-operations.bash" ]; then
@@ -377,8 +382,15 @@ is_devenv_repository() {
 #   fi
 #
 get_or_create_repos_directory() {
-    local repos_dir="${DEVENV_ROOT:-$HOME}/repos"
-    
+    # DEVENV_ROOT is self-derived at source time (self-root contract) — this
+    # checkout's repos/ dir, never a foreign checkout's.
+    local repos_dir="${DEVENV_ROOT:-}/repos"
+
+    if [ -z "${repos_dir%/repos}" ]; then
+        echo "ERROR: DEVENV_ROOT is not established — source self-root.bash before using repo-operations" >&2
+        return 1
+    fi
+
     if [ ! -d "$repos_dir" ]; then
         mkdir -p "$repos_dir" || {
             echo "ERROR: Failed to create repositories directory: $repos_dir" >&2

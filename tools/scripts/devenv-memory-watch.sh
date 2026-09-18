@@ -1,6 +1,8 @@
 #!/bin/bash
-# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
-DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+# Resolve the tools root from this script's own location (self-root
+# contract: self-location wins; a foreign exported DEVENV_TOOLS is ignored).
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
+DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 
 # devenv-memory-watch.sh - sample container memory over time and flag likely culprits
@@ -13,8 +15,7 @@ readonly DEFAULT_MAX_PROCESSES=250
 readonly DEFAULT_STATE_SUBDIR=".debug/devenv-memory-watch"
 readonly LEGACY_STATE_SUBDIR=".debug/devcontainer-memory-watch"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEVENV_ROOT="${DEVENV_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
+DEVENV_ROOT="${DEVENV_ROOT}"
 STATE_DIR="${STATE_DIR:-}"
 if [ -z "$STATE_DIR" ]; then
 	if [ -d "$DEVENV_ROOT/$DEFAULT_STATE_SUBDIR" ] || [ ! -d "$DEVENV_ROOT/$LEGACY_STATE_SUBDIR" ]; then

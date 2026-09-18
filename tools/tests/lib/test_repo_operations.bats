@@ -389,10 +389,24 @@ repo3'
 # get_or_create_repos_directory Tests
 # ============================================================================
 
+# Fixture: a minimal fake checkout carrying the lib + resolver, so the lib
+# self-locates to the fake root. The self-root contract honors an exported
+# DEVENV_ROOT only when it matches that self-derived root.
+_make_fake_repoops_checkout() {
+    local root="$1"
+    mkdir -p "$root/tools/lib"
+    cp "$PROJECT_ROOT/tools/lib/repo-operations.bash" "$root/tools/lib/"
+    cp "$PROJECT_ROOT/tools/lib/self-root.bash" "$root/tools/lib/"
+    # repo-operations sources git-operations.bash from its own checkout's lib
+    cp "$PROJECT_ROOT/tools/lib/git-operations.bash" "$root/tools/lib/"
+}
+
 @test "repo-operations: get_or_create_repos_directory uses DEVENV_ROOT" {
+    local fake_root="$TEST_TEMP_DIR/fake_checkout"
+    _make_fake_repoops_checkout "$fake_root"
     run bash -c "
-        export DEVENV_ROOT='$TEST_TEMP_DIR'
-        source '$PROJECT_ROOT/tools/lib/repo-operations.bash'
+        export DEVENV_ROOT='$fake_root'
+        source '$fake_root/tools/lib/repo-operations.bash'
         result=\$(get_or_create_repos_directory)
         [ -d \"\$result\" ] && echo \"success\"
     "
@@ -401,21 +415,31 @@ repo3'
 }
 
 @test "repo-operations: get_or_create_repos_directory creates directory if missing" {
+    # Self-root contract: the lib self-locates to ITS OWN checkout even when a
+    # foreign DEVENV_ROOT points elsewhere. Creation must land under the fake
+    # root (the sourced lib checkout), never the foreign one.
+    local fake_root="$TEST_TEMP_DIR/fake_checkout2"
+    local foreign_root="$TEST_TEMP_DIR/foreign_location"
+    _make_fake_repoops_checkout "$fake_root"
     run bash -c "
-        export DEVENV_ROOT='$TEST_TEMP_DIR/new_location'
-        source '$PROJECT_ROOT/tools/lib/repo-operations.bash'
+        export DEVENV_ROOT='$foreign_root'
+        source '$fake_root/tools/lib/repo-operations.bash'
         result=\$(get_or_create_repos_directory)
         [ -d \"\$result\" ] && echo \"directory_created\"
     "
     [ "$status" -eq 0 ]
     [[ "$output" == *"directory_created"* ]]
-    [ -d "$TEST_TEMP_DIR/new_location/repos" ]
+    [ -d "$fake_root/repos" ]
+    [ ! -d "$foreign_root/repos" ]
 }
 
+
 @test "repo-operations: get_or_create_repos_directory returns path" {
+    local fake_root="$TEST_TEMP_DIR/fake_checkout3"
+    _make_fake_repoops_checkout "$fake_root"
     run bash -c "
-        export DEVENV_ROOT='$TEST_TEMP_DIR'
-        source '$PROJECT_ROOT/tools/lib/repo-operations.bash'
+        export DEVENV_ROOT='$fake_root'
+        source '$fake_root/tools/lib/repo-operations.bash'
         get_or_create_repos_directory
     "
     [ "$status" -eq 0 ]

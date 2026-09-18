@@ -635,53 +635,15 @@ EOF
     chmod +x "$toolbox_root/.runtime/env-vars.sh"
 }
 
-# Create symlinks for tool scripts
+# Create tool entry points (stubs) via the idempotent sync script
 create_tool_symlinks() {
-    echo "# Creating symlinks in tools/ for executable scripts"
+    echo "# Syncing tool entry points in tools/"
     echo "#############################################"
     mkdir -p "$toolbox_root/tools"
-    find "$toolbox_root/tools" -maxdepth 1 -type l -delete
 
-    EXCLUDE_SCRIPTS=(
-        "repo-get.sh"
-        "key-update-tailscale.sh"
-        "key-update-github.sh"
-        "key-update-do.sh"
-        "lint-scripts.sh"
-        "script-template.sh"
-        "tooling-create-script.sh"
-    )
+    "$toolbox_root/.devcontainer/entry-stubs-sync.sh"
 
-    for script in "$toolbox_root/tools/scripts"/*.sh; do
-        if [ -f "$script" ]; then
-            script_name=$(basename "$script" .sh)
-            script_basename=$(basename "$script")
-
-            skip=false
-            for bash_func_script in "${EXCLUDE_SCRIPTS[@]}"; do
-                if [ "$script_basename" = "$bash_func_script" ]; then
-                    skip=true
-                    break
-                fi
-            done
-
-            if [ "$skip" = false ]; then
-                ln -sf "$script" "$toolbox_root/tools/$script_name"
-            fi
-        fi
-    done
-
-    for script in "$toolbox_root/tools/scripts"/git-*; do
-        if [ -f "$script" ] && [[ ! "$script" =~ \.sh$ ]]; then
-            script_name=$(basename "$script")
-            ln -sf "$script" "$toolbox_root/tools/$script_name"
-        fi
-    done
-
-    ln -sf "$toolbox_root/tools/tests/run-tests-local.sh" "$toolbox_root/tools/run-tools-tests"
-    ln -sf "$toolbox_root/tools/scripts/lint-scripts.sh" "$toolbox_root/tools/lint-tools-scripts"
-
-    # Ensure system editor points to our wrapper (done after tool symlinks exist)
+    # Ensure system editor points to our wrapper (done after entry points exist)
     local system_editor_symlink="/bin/editor"
     local target_editor="$toolbox_root/tools/editor"
     if [ -L "$system_editor_symlink" ] || [ -e "$system_editor_symlink" ]; then

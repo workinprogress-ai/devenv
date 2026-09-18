@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
-DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+# Resolve the tools root from this script's own location (self-root
+# contract: self-location wins; a foreign exported DEVENV_TOOLS is ignored).
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
+DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 # install-extra.sh
 # Pick an "extra" from $devenv/.devcontainer/install-extras using fzf and run it.

@@ -1,5 +1,8 @@
 #!/bin/zsh
 
+# Self-located checkout root (prompt fallback; no hardcoded path).
+_DEVENV_SELF_ROOT="$(cd "$(dirname "${(%):-%x}")/.." && pwd)"
+
 # Capture the VS Code workspace start directory once per shell session.
 # The first shell sources this with $PWD = the workspace folder; subshells
 # inherit the already-exported value and the :- guard leaves it unchanged.
@@ -17,7 +20,7 @@ fi
 if [[ ! "$PWD" =~ '^/vscode(/|$)' && -z "${DEVENV_START_DIR:-}" ]]; then
     _gsd=$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null)
     _gsdc="${_gsd:-$PWD}"
-    _gsdr="${DEVENV_ROOT:-/workspaces/devenv}"
+    _gsdr="${DEVENV_ROOT:-$_DEVENV_SELF_ROOT}"
     if [[ "$_gsdc" == "$_gsdr" || "$_gsdc" == "$_gsdr/"* ]]; then
         export DEVENV_START_DIR="$_gsdc"
     else

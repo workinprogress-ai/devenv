@@ -35,8 +35,12 @@ if [[ "${_DESKTOP_MENU_LOADED:-}" == "true" ]]; then
 fi
 _DESKTOP_MENU_LOADED="true"
 
+# Self-locate this checkout (self-root contract: self-location wins;
+# a foreign exported DEVENV_ROOT is ignored).
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/self-root.bash"
+devenv_ensure_root "${BASH_SOURCE[0]}"
 # shellcheck source=/dev/null
-source "${DEVENV_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/tools/lib/error-handling.bash"
+source "${DEVENV_ROOT}/tools/lib/error-handling.bash"
 
 ################################################################################
 # Return the path to the Fluxbox menu file.

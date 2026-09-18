@@ -3,10 +3,13 @@
 
 set -euo pipefail
 
-# Set and export DEVENV_TOOLS if not already set (for local runs). Child bats
-# processes read it from the environment; without export, a CI-like invocation
-# (`env -u DEVENV_TOOLS ...`) leaves them with it unset.
-export DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/tools}"
+# Resolve the tools root from this script's own location (self-root contract:
+# self-location wins; an exported DEVENV_TOOLS is honored only when it points
+# at this same checkout). Export for child bats processes, which read it from
+# the environment; without export, a CI-like invocation leaves them unset.
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
+DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
+export DEVENV_TOOLS
 
 TESTS_DIR="$DEVENV_TOOLS/tests"
 

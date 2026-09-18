@@ -1,4 +1,6 @@
 #!/bin/bash
+
+_DEVENV_SELF_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # tool-versions.bash - Standardized tool and version management for devenv
 # Sources this file to ensure consistent tool versions across the environment
 # Version: 1.0.0
@@ -38,15 +40,15 @@ export NPM_CLIENT="pnpm"
 # export NODE_TLS_REJECT_UNAUTHORIZED=0
 
 # Node.js cache directory
-export NODE_CACHE_DIR="${DEVENV_ROOT:-.}/.debug/node-cache"
+export NODE_CACHE_DIR="${DEVENV_ROOT:-$_DEVENV_SELF_ROOT}/.debug/node-cache"
 mkdir -p "$NODE_CACHE_DIR"
 
 # NPM cache configuration
 export npm_config_cache="${NODE_CACHE_DIR}/npm"
 
 # PNPM configuration
-export PNPM_HOME="${DEVENV_ROOT:-.}/.debug/pnpm"
-export PNPM_STORE_DIR="${DEVENV_ROOT:-.}/.debug/pnpm-store"
+export PNPM_HOME="${DEVENV_ROOT:-$_DEVENV_SELF_ROOT}/.debug/pnpm"
+export PNPM_STORE_DIR="${DEVENV_ROOT:-$_DEVENV_SELF_ROOT}/.debug/pnpm-store"
 
 # ============================================================================
 # Version Verification Functions

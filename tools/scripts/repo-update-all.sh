@@ -1,11 +1,15 @@
 #!/bin/bash
 set -euo pipefail
+# Resolve the tools root from this script's own location (self-root
+# contract: self-location wins; a foreign exported DEVENV_TOOLS is ignored).
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
+DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/repo-operations.bash"
 
 # Update all repositories under ./repos using the GitHub-focused repo-get.sh
 
-script_folder="${DEVENV_TOOLS:-.}/scripts"
+script_folder="${DEVENV_TOOLS}/scripts"
 
 # Source repo-operations library
 

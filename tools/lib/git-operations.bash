@@ -2,6 +2,8 @@
 # git-operations.bash
 # Version: 1.0.0
 # Purpose: Reusable Git and GitHub PR operations library
+# Version: 1.0.0
+# Purpose: Reusable Git and GitHub PR operations library
 # Description: Centralized functions for PR operations, branch management, git hygiene checks
 # Requirements: Bash 4.0+, git, gh CLI
 # Author: WorkInProgress.ai
@@ -10,19 +12,24 @@
 if [ -n "${_GIT_OPERATIONS_LOADED:-}" ]; then return 0; fi
 readonly _GIT_OPERATIONS_LOADED=1
 
+# Self-locate this checkout (self-root contract: self-location wins;
+# a foreign exported DEVENV_ROOT is ignored).
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/self-root.bash"
+devenv_ensure_root "${BASH_SOURCE[0]}"
+
 # Source dependencies
 # shellcheck disable=SC1091
-if [ -f "${DEVENV_ROOT:-}/tools/lib/error-handling.bash" ]; then
+if [ -f "${DEVENV_ROOT}/tools/lib/error-handling.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/error-handling.bash"
 fi
 
 # shellcheck disable=SC1091
-if [ -f "${DEVENV_ROOT:-}/tools/lib/github-helpers.bash" ]; then
+if [ -f "${DEVENV_ROOT}/tools/lib/github-helpers.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
 fi
 
 # shellcheck disable=SC1091
-if [ -f "${DEVENV_ROOT:-}/tools/lib/validation.bash" ]; then
+if [ -f "${DEVENV_ROOT}/tools/lib/validation.bash" ]; then
     source "$DEVENV_ROOT/tools/lib/validation.bash"
 fi
 
@@ -420,11 +427,10 @@ configure_git_global() {
     git config --global pull.ff only
     git config --global --bool push.autoSetupRemote true
 
-    # Centralized git hooks (blocks committing on top of WIP commits, etc.)
-    if [ -n "${DEVENV_ROOT:-}" ] && [ -d "$DEVENV_ROOT/tools/git-hooks" ]; then
-        git config --global core.hooksPath "$DEVENV_ROOT/tools/git-hooks"
-    fi
-    
+    # Note: no global core.hooksPath installation here. Repos carry their own
+    # husky hooks (each self-installing the devenv wip-gate block), so a global
+    # hooksPath would override per-repo hooks with one shared directory.
+
     # Merge and diff tools
     git config --global merge.tool vscode
     git config --global mergetool.vscode.cmd "code --wait \$MERGED"

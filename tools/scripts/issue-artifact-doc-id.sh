@@ -1,6 +1,8 @@
 #!/bin/bash
-# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
-DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+# Resolve the tools root from this script's own location (self-root
+# contract: self-location wins; a foreign exported DEVENV_TOOLS is ignored).
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
+DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 # issue-artifact-doc-id.sh - Generate deterministic artifact doc_id values
 # Version: 1.1.0
 # Description: Builds stable doc_id strings for issue artifact comments.

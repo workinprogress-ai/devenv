@@ -20,7 +20,7 @@ setup() {
     test_helper_setup
 
     # Fake tools root: real lib/ for error-handling, stub updater at root.
-    FAKE_TOOLS="$TEST_TEMP_DIR/fake-tools"
+    FAKE_TOOLS="$TEST_TEMP_DIR/checkout/tools"
     mkdir -p "$FAKE_TOOLS"
     ln -s "$PROJECT_ROOT/tools/lib" "$FAKE_TOOLS/lib"
     export DEVENV_TOOLS="$FAKE_TOOLS"
@@ -65,6 +65,15 @@ esac
 EOF
     chmod +x "$BIN/sudo" "$BIN/tailscale"
     export PATH="$BIN:$PATH"
+
+    # Copies of the scripts under test live inside the fake tools root so the
+    # scripts self-locate there (self-root contract: an exported foreign
+    # DEVENV_TOOLS no longer redirects them). The fake root's lib/ symlink
+    # resolves their lib sources; the updater stubs above record calls.
+    mkdir -p "$FAKE_TOOLS/scripts"
+    cp "$PROJECT_ROOT/tools/scripts/key-update-do.sh" "$FAKE_TOOLS/scripts/"
+    cp "$PROJECT_ROOT/tools/scripts/key-update-github.sh" "$FAKE_TOOLS/scripts/"
+    cp "$PROJECT_ROOT/tools/scripts/key-update-tailscale.sh" "$FAKE_TOOLS/scripts/"
 }
 
 @test "key-update-do: no argument with closed stdin refuses without hanging" {
@@ -76,7 +85,7 @@ EOF
 }
 
 @test "key-update-do: argument path stores token with 600 and calls the updater" {
-    run bash "$PROJECT_ROOT/tools/scripts/key-update-do.sh" "d0token1234567890abcdef1234567890"
+    run bash "$FAKE_TOOLS/scripts/key-update-do.sh" "d0token1234567890abcdef1234567890"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Success"* ]]
     [ "$(stat -c '%a' "$DEVENV_ROOT/.setup/do_token.txt")" = "600" ]
@@ -92,7 +101,7 @@ EOF
 }
 
 @test "key-update-github: argument path stores token with 600 and calls the updater" {
-    run bash "$PROJECT_ROOT/tools/scripts/key-update-github.sh" "ghp_abcdef1234567890"
+    run bash "$FAKE_TOOLS/scripts/key-update-github.sh" "ghp_abcdef1234567890"
     [ "$status" -eq 0 ]
     [ "$(stat -c '%a' "$DEVENV_ROOT/.setup/github_token.txt")" = "600" ]
     grep -q "^ghp_abcdef1234567890$" "$DEVENV_ROOT/.setup/github_token.txt"
@@ -118,7 +127,7 @@ EOF
 @test "key-update-tailscale: valid key re-auths the daemon and persists the value" {
     KEYFILE="$TEST_TEMP_DIR/key.txt"
     printf 'tskey-abc123def456\n' > "$KEYFILE"
-    run bash "$PROJECT_ROOT/tools/scripts/key-update-tailscale.sh" < "$KEYFILE"
+    run bash "$FAKE_TOOLS/scripts/key-update-tailscale.sh" < "$KEYFILE"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Success"* ]]
     grep -q "sudo tailscale up --authkey=tskey-abc123def456" "$CALL_LOG"

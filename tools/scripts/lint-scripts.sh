@@ -1,6 +1,8 @@
 #!/bin/bash
-# Self-derive the tools root when DEVENV_TOOLS is not exported (set -u makes a bare deref fatal).
-DEVENV_TOOLS="${DEVENV_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+# Resolve the tools root from this script's own location (self-root
+# contract: self-location wins; a foreign exported DEVENV_TOOLS is ignored).
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
+DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 # lint-scripts.sh - Run shellcheck on all shell scripts in the project
 # Version: 1.0.0
@@ -8,10 +10,9 @@ source "$DEVENV_TOOLS/lib/error-handling.bash"
 
 set -euo pipefail
 
-# Determine project root - use absolute path to ensure consistency from any directory
-script_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
-readonly script_dir
-readonly project_root="${PROJECT_ROOT:-${DEVENV_ROOT:-$(cd "$script_dir/../.." && pwd)}}"
+# Determine project root via the self-root contract (works from any cwd,
+# through symlinks, and ignores foreign DEVENV_ROOT exports)
+readonly project_root="${PROJECT_ROOT:-$(devenv_self_root "${BASH_SOURCE[0]}")}"
 
 # Configuration
 readonly SCRIPT_VERSION="1.0.0"
