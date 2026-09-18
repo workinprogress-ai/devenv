@@ -44,9 +44,18 @@ resolver_failure() {
 }
 
 @test "sweep: entry stub dispatches to the scripts/ file (spot check issue-get)" {
+    # Clones (post nested-devenv refactor) do not materialize depth-1 entry
+    # stubs — those live in the workspace-root tools tree. Skip the spot check
+    # when no stub exists at this tree's depth-1, consistent with the setup
+    # test's tolerance for missing entries. See issue #42 for the layout
+    # contract decision.
+    local entry="${BATS_TEST_DIRNAME}/../../issue-get"
+    if [ ! -e "$entry" ]; then
+        skip "no depth-1 entry stubs in this tree (clone layout; issue #42)"
+    fi
     local out
     out=$(timeout 10 env DEVENV_TOOLS=/nonexistent/foreign/tools \
-        bash "${BATS_TEST_DIRNAME}/../../issue-get" --help < /dev/null 2>&1 || true)
+        bash "$entry" --help < /dev/null 2>&1 || true)
     [[ "$out" == *"Usage: issue-get"* ]]
     ! resolver_failure "$out"
 }
