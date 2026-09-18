@@ -391,6 +391,86 @@ merge_pr() {
 # Git Configuration Functions (from git-config.bash)
 # ============================================================================
 
+# Extract the owner part from a repo spec or https URL.
+# Accepts: owner/repo, https://host/owner/repo(.git),
+#          https://user:token@host/owner/repo(.git)
+# Prints the owner; prints nothing and returns 1 when the input is
+# unparseable (caller decides foreign handling per the ambiguity rule).
+repo_url_owner() {
+    local spec="$1"
+    local path_part=""
+
+    case "$spec" in
+        *"://"*"@"*)
+            # https://user:token@host/owner/repo(.git) — strip scheme+creds+host
+            path_part="${spec#*://*@*/}"
+            ;;
+        *"://"*"/"*)
+            # https://host/owner/repo(.git)
+            path_part="${spec#*://*/}"
+            ;;
+        git@*:*)
+            # git@host:owner/repo(.git) — SSH form
+            path_part="${spec#*:}"
+            ;;
+        *)
+            path_part="$spec"
+            ;;
+    esac
+    # Strip trailing .git
+    path_part="${path_part%.git}"
+    # A valid form is owner/repo — require both parts
+    case "$path_part" in
+        */*/*) path_part="${path_part%/*}" ;;  # tolerate deeper paths: owner/repo/extra
+        */*) : ;;
+        *) return 1 ;;  # no owner/repo structure — unparseable
+    esac
+    printf '%s\n' "${path_part%%/*}"
+}
+
+# Resolve the configured GitHub org: GH_ORG env first, then
+# devenv.config [organization] github_org. Prints the org; returns 1 when
+# neither is set (ambiguity — callers treat the repo as foreign).
+repo_configured_org() {
+    if [ -n "${GH_ORG:-}" ]; then
+        echo "$GH_ORG"
+        return 0
+    fi
+    local config_file="${DEVENV_ROOT:-}/devenv.config"
+    if [ -f "$config_file" ] && [ -f "${DEVENV_TOOLS:-}/lib/config-reader.bash" ]; then
+        # shellcheck disable=SC1091
+        source "${DEVENV_TOOLS}/lib/config-reader.bash"
+        config_init "$config_file" || return 1
+        local org
+        org=$(config_read_value "organization" "github_org" "" 2>/dev/null)
+        [ -n "$org" ] && { echo "$org"; return 0; }
+    fi
+    return 1
+}
+
+# Membership check: is this repo owned by the configured org?
+# Ambiguity (no org configured, unparseable spec) is treated as NOT a member
+# with a warning — safety-first: foreign repos are never URL-rewritten.
+#
+# Usage:
+#   if repo_is_org_member "https://user:token@github.com/myorg/myrepo.git"; then
+#       ... rewrite allowed ...
+#   fi
+repo_is_org_member() {
+    local spec="$1"
+    local owner org
+
+    org=$(repo_configured_org) || {
+        log_warn "repo_is_org_member: no GitHub org configured (GH_ORG / devenv.config [organization]) — treating repo as foreign"
+        return 1
+    }
+    owner=$(repo_url_owner "$spec") || {
+        log_warn "repo_is_org_member: cannot parse owner from '$spec' — treating repo as foreign"
+        return 1
+    }
+    [ "$owner" = "$org" ]
+}
+
 # Configure git settings for a local repository
 # Args:
 #   $1 - Repository directory path (optional, defaults to current directory)
@@ -419,11 +499,21 @@ configure_git_repo() {
     git config core.eol lf
     git config pull.ff only
     
-    # Update remote URL if provided (with embedded credentials)
+    # Update remote URL if provided — but never rewrite a foreign repo's
+    # remote. The guard checks the CURRENT origin: the mangle scenario is
+    # repointing an existing foreign repo's remote at an org URL. Ambiguity
+    # is treated as foreign (safety-first); org config or new-URL membership
+    # is not consulted for the rewrite decision.
     if [ -n "$remote_url" ]; then
-        git remote set-url origin "$remote_url"
+        local current_origin
+        current_origin=$(git remote get-url origin 2>/dev/null || echo "")
+        if [ -n "$current_origin" ] && ! repo_is_org_member "$current_origin"; then
+            log_warn "configure_git_repo: foreign repo (origin '$current_origin') — skipping remote URL rewrite"
+        else
+            git remote set-url origin "$remote_url"
+        fi
     fi
-    
+
     # Return to original directory
     cd "$current_dir" || return 1
 }
