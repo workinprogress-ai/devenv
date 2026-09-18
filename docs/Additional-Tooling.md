@@ -3133,7 +3133,6 @@ config-read SECTION KEY [DEFAULT] [--config FILE]
 **Examples:**
 
 ```bash
-config-read copilot engineering_repo_name  # e.g. docs.engineering (repo name for GitHub ops)
 config-read copilot engineering_repo      # full clone URL used by the bootstrap import
 config-read copilot knowledge_repo
 config-read workflows status_workflow
