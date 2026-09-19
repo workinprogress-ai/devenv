@@ -55,7 +55,8 @@ readonly REPO_CACHE_PARALLEL="${REPO_CACHE_PARALLEL:-5}"
 # Environment Variables:
 #   GH_ORG    - GitHub organization name (required)
 #   GH_USER   - GitHub username for HTTPS auth (required)
-#   GH_TOKEN  - GitHub personal access token (required)
+#   GH_TOKEN  - GitHub personal access token (optional; gh keychain auth is
+#               the preferred source)
 #
 # Returns:
 #   0 if all matching repos were cached/updated successfully
@@ -88,10 +89,6 @@ refresh_repo_cache() {
         log_error "GH_USER is not set. Cannot refresh repo cache."
         return 1
     fi
-    if [ -z "${GH_TOKEN:-}" ]; then
-        log_error "GH_TOKEN is not set. Cannot refresh repo cache."
-        return 1
-    fi
 
     # Fetch org repo list
     local all_repos
@@ -122,7 +119,8 @@ refresh_repo_cache() {
         return 1
     }
 
-    local git_url_prefix="https://${GH_USER}:${GH_TOKEN}@github.com/${GH_ORG}"
+    # Clean URL: auth via gh's credential helper, never embedded.
+    local git_url_prefix="https://github.com/${GH_ORG}"
     local count=0
     local repo_name
 

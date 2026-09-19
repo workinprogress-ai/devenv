@@ -305,12 +305,18 @@ load_setup_credentials() {
     fi
 
     if [ -f "$setup_dir/github_token.txt" ]; then
-        GH_TOKEN=$(cat "$setup_dir/github_token.txt")
-        export GH_TOKEN
+        # Legacy seed file: import it into gh's credential store once, then
+        # delete it. The keychain is the only sanctioned token surface; if
+        # login fails the recovery path is key-update-github.sh.
+        if gh auth login --with-token --hostname github.com --skip-ssh-key < "$setup_dir/github_token.txt" >/dev/null 2>&1; then
+            rm -f "$setup_dir/github_token.txt"
+            echo "Imported github_token.txt into gh keychain; seed file deleted."
+        else
+            echo "WARNING: github_token.txt could not be logged into gh (expired or invalid?)."
+            echo "Rotate credentials with: key-update-github.sh <new-token>"
+        fi
     else
-        echo "ERROR: No GitHub token found in $setup_dir/github_token.txt"
-        echo "Run 'setup' to configure your GitHub token"
-        exit 1
+        echo "No GitHub token file found; relying on gh keychain auth (run 'gh auth login' if not authenticated)."
     fi
 
     if [ -f "$setup_dir/github_user.txt" ]; then
@@ -605,10 +611,9 @@ export DIGITALOCEAN_REGISTRY="${DIGITALOCEAN_REGISTRY:-}"
 export DO_APP_NAME="${DO_APP_NAME:-}"
 export DO_REGION="${DO_REGION:-}"
 
-# GitHub auth (loaded from .setup during bootstrap)
+# GitHub auth (gh keychain is the source; bootstrap never exports GH_TOKEN)
 export GH_USER="${GH_USER:-}"
 export GH_ORG="${GH_ORG:-}"
-export GH_TOKEN="${GH_TOKEN:-}"
 
 # User identity
 export USER_EMAIL="${USER_EMAIL:-}"
@@ -931,14 +936,16 @@ sync_copilot_knowledge() {
         return 0
     fi
 
-    if [ -z "${GH_TOKEN:-}" ]; then
-        echo "WARNING: GH_TOKEN is not set; skipping Copilot knowledge sync (load_setup_credentials must run first)"
+    local token
+    token=$(gh auth token 2>/dev/null) || token=""
+    if [ -z "$token" ]; then
+        echo "WARNING: gh is not authenticated; skipping Copilot knowledge sync (run 'gh auth login')"
         return 0
     fi
 
     subpath=$(normalize_copilot_knowledge_subpath "$subpath")
 
-    header=$(build_github_basic_auth_header "$GH_TOKEN")
+    header=$(build_github_basic_auth_header "$token")
 
     if [ -d "$knowledge_repo_dir/.git" ]; then
         git -C "$knowledge_repo_dir" remote set-url origin "$repo_url"
@@ -1066,10 +1073,12 @@ configure_nuget_sources() {
     NUGET_FEED_URL=$(echo "$NUGET_FEED_URL" | sed "s|\${GH_ORG}|${GH_ORG}|g")
     NUGET_FEED_URL=$(echo "$NUGET_FEED_URL" | sed "s|\${GH_USER}|${GH_USER}|g")
     
-    if [ -n "${GH_TOKEN:-}" ] && [ -n "${GH_USER:-}" ] && [ -n "${GH_ORG:-}" ] && [ -n "${NUGET_FEED_URL:-}" ]; then
-        add_nuget_source_if_not_exists "github" "$NUGET_FEED_URL" $GH_USER $GH_TOKEN
+    local gh_token
+    gh_token=$(gh auth token 2>/dev/null) || gh_token=""
+    if [ -n "$gh_token" ] && [ -n "${GH_USER:-}" ] && [ -n "${GH_ORG:-}" ] && [ -n "${NUGET_FEED_URL:-}" ]; then
+        add_nuget_source_if_not_exists "github" "$NUGET_FEED_URL" $GH_USER $gh_token
     else
-        echo "Skipping GitHub NuGet feed: GH_ORG/GH_USER/GH_TOKEN/feed_url not fully configured"
+        echo "Skipping GitHub NuGet feed: GH_ORG/GH_USER/gh-auth/feed_url not fully configured"
     fi
 }
 
@@ -1077,10 +1086,12 @@ configure_nuget_sources() {
 configure_user_npmrc() {
     echo "# Configure user npmrc file"
     echo "#############################################"
-    if [ -n "${GH_TOKEN:-}" ]; then
-        echo "//npm.pkg.github.com/:_authToken=$GH_TOKEN" > ~/.npmrc
+    local gh_token
+    gh_token=$(gh auth token 2>/dev/null) || gh_token=""
+    if [ -n "$gh_token" ]; then
+        echo "//npm.pkg.github.com/:_authToken=$gh_token" > ~/.npmrc
     else
-        echo "Skipping npmrc auth token (GH_TOKEN not set)" > ~/.npmrc
+        echo "Skipping npmrc auth token (gh not authenticated)" > ~/.npmrc
     fi
 }
 

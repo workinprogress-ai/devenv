@@ -2,15 +2,15 @@
 # Behavior tests for the key-update family (Plan-002 task 3.1 / AC-3).
 #
 # Locks: non-interactive invocation without an argument refuses (non-zero,
-# no hang on the read prompt); persisted token files carry 600 permissions;
-# the backing provider (devenv-add-env-vars / tailscale daemon) is invoked
-# with the supplied value.
+# no hang on the read prompt); the GitHub script rotates via gh's credential
+# store (gh auth login) and writes no token files; the DO script persists
+# token files with 600 permissions and calls the updater with the value.
 #
 # The scripts invoke the env-var updater by absolute path
 # ($DEVENV_TOOLS/devenv-add-env-vars[.sh]), so PATH stubbing cannot intercept
 # it — tests point DEVENV_TOOLS at a fake tools root that symlinks the real
-# lib/ and provides recording stubs for the updater. tailscale additionally
-# needs PATH stubs for sudo and the tailscale CLI.
+# lib/ and provides recording stubs for the updater. tailscale needs PATH
+# stubs for sudo and the tailscale CLI; github needs a PATH stub for gh.
 
 bats_require_minimum_version 1.5.0
 
@@ -63,7 +63,16 @@ case "$1 $2" in
     *) exit 0 ;;
 esac
 EOF
-    chmod +x "$BIN/sudo" "$BIN/tailscale"
+    cat > "$BIN/gh" << 'EOF'
+#!/usr/bin/env bash
+echo "gh $*" >> "${CALL_LOG:?}"
+if [[ "${STUB_GH_LOGIN_FAIL:-0}" == "1" && "$1 $2" == "auth login" ]]; then
+    echo "gh: login failed" >&2
+    exit 1
+fi
+exit 0
+EOF
+    chmod +x "$BIN/sudo" "$BIN/tailscale" "$BIN/gh"
     export PATH="$BIN:$PATH"
 
     # Copies of the scripts under test live inside the fake tools root so the
@@ -100,12 +109,30 @@ EOF
     [ ! -s "$CALL_LOG" ]
 }
 
-@test "key-update-github: argument path stores token with 600 and calls the updater" {
+@test "key-update-github: argument path rotates via gh keychain and writes no token files" {
     run bash "$FAKE_TOOLS/scripts/key-update-github.sh" "ghp_abcdef1234567890"
     [ "$status" -eq 0 ]
-    [ "$(stat -c '%a' "$DEVENV_ROOT/.setup/github_token.txt")" = "600" ]
-    grep -q "^ghp_abcdef1234567890$" "$DEVENV_ROOT/.setup/github_token.txt"
-    grep -q "devenv-add-env-vars GH_TOKEN=ghp_abcdef1234567890" "$CALL_LOG"
+    [[ "$output" == *"Success"* ]]
+    grep -q "gh auth login --with-token --hostname github.com" "$CALL_LOG"
+    grep -q "gh auth setup-git --hostname github.com" "$CALL_LOG"
+    [ ! -f "$DEVENV_ROOT/.setup/github_token.txt" ]
+    ! grep -q "devenv-add-env-vars" "$CALL_LOG"
+}
+
+@test "key-update-github: does not export GH_TOKEN (allowlist-only contract)" {
+    run bash "$FAKE_TOOLS/scripts/key-update-github.sh" "ghp_abcdef1234567890"
+    [ "$status" -eq 0 ]
+    # The script runs in a child shell, so an export could not reach this
+    # process; assert the contract at the source instead: no export line.
+    ! grep -q 'export GH_TOKEN=' "$FAKE_TOOLS/scripts/key-update-github.sh"
+}
+
+@test "key-update-github: gh login failure aborts with no side effects" {
+    STUB_GH_LOGIN_FAIL=1 run bash "$FAKE_TOOLS/scripts/key-update-github.sh" "ghp_bad"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"No changes made"* ]]
+    ! grep -q "gh auth setup-git" "$CALL_LOG"
+    [ ! -f "$DEVENV_ROOT/.setup/github_token.txt" ]
 }
 
 @test "key-update-tailscale: closed stdin refuses without hanging" {

@@ -170,27 +170,20 @@ get_full_repo_name() {
 # Usage:
 #   ensure_gh_login
 #
-# Environment Variables:
-#   GH_TOKEN       - GitHub Personal Access Token (optional)
-#
 # Returns:
-#   0 if authenticated successfully, exits with error if authentication fails
+#   0 if authenticated successfully; 1 if authentication fails. Callers run
+#   under set -e, so an unguarded call terminates the script on failure.
 #
 ensure_gh_login() {
     # Check if already authenticated
     if gh auth status &>/dev/null; then
         return 0
     fi
-    
-    # Try to authenticate with GH_TOKEN if available
-    if [ -n "${GH_TOKEN:-}" ]; then
-        echo "$GH_TOKEN" | gh auth login --with-token --hostname github.com --skip-ssh-key 2>/dev/null && return 0
-    fi
-    
-    # If not authenticated and no token, fail with clear error
-    echo "Error: GitHub CLI is not authenticated and GH_TOKEN is not set" >&2
-    echo "Please set GH_TOKEN environment variable or authenticate with: gh auth login" >&2
-    exit 1
+
+    # The gh credential store is the single auth source; bootstrap and the
+    # key-update script rotate it. No env-token login is attempted here.
+    echo "Error: GitHub CLI is not authenticated. Run: gh auth login" >&2
+    return 1
 }
 
 # Check required dependencies for GitHub CLI operations

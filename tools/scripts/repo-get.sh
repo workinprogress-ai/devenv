@@ -31,11 +31,6 @@ if [ -z "${GH_USER:-}" ]; then
     exit 1
 fi
 
-if [ -z "${GH_TOKEN:-}" ]; then
-    echo "ERROR: 'GH_TOKEN' is not set. Cannot continue." >&2
-    exit 1
-fi
-
 # Function to select a repo using fzf
 select_repo_interactive() {
     check_fzf_installed || exit 1
@@ -131,9 +126,17 @@ if [ -z "${GH_ORG:-}" ]; then
     exit 1
 fi
 
+# gh must be authenticated (keychain or session export); clones use clean
+# URLs with git auth via gh's credential helper.
+if ! gh auth status >/dev/null 2>&1; then
+    echo "ERROR: GitHub CLI is not authenticated. Run 'gh auth login' first." >&2
+    exit 1
+fi
+
 TARGET_DIR="$repos_dir/$REPO_NAME"
-GIT_URL_PREFIX="https://${GH_USER}:${GH_TOKEN}@github.com/${GH_ORG}"
-GIT_URL="${GIT_URL_PREFIX}/${REPO_NAME}.git"
+# Clean URL: authentication flows through gh's credential helper
+# (gh auth setup-git), never embedded in the remote.
+GIT_URL="https://github.com/${GH_ORG}/${REPO_NAME}.git"
 
 detect_default_branch() {
     local ref
@@ -203,7 +206,7 @@ if [ "$ALL_MODE" = true ]; then
         [ -z "$repo" ] && continue
         REPO_NAME="$repo"
         TARGET_DIR="$repos_dir/$REPO_NAME"
-        GIT_URL="${GIT_URL_PREFIX}/${REPO_NAME}.git"
+        GIT_URL="https://github.com/${GH_ORG}/${REPO_NAME}.git"
         echo "==> Cloning $REPO_NAME..." >&2
         if ! clone_repo; then
             echo "WARNING: Failed to clone $REPO_NAME" >&2

@@ -147,27 +147,28 @@ write_config() {
 # Auth seam (AC-4)
 # ============================================================================
 
-@test "auth: emits GH_TOKEN and auth-kind exports when set" {
+@test "auth: emits GH_TOKEN and auth-kind exports when set and allowlisted" {
     source_core
     provider_detect "$TEST_TEMP_DIR/absent.config"
-    GH_TOKEN=ghp_test123 run bash -c 'source "$0" && provider_detect "$1/absent.config" && eval "$(provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "env" ] && [ "$GH_TOKEN" = "ghp_test123" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
+    GH_TOKEN=ghp_test123 run bash -c 'source "$0" && provider_detect "$1/absent.config" && PROVIDER_TOKEN_ENV_ALLOWLIST=ghp_test123 && eval "$(GH_TOKEN=ghp_test123 provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "env" ] && [ "$GH_TOKEN" = "ghp_test123" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
     assert_success
 }
 
 @test "auth: fails with defined error when no credential source exists" {
+    stub_gh
     source_core
     provider_detect "$TEST_TEMP_DIR/absent.config"
-    GH_TOKEN= run provider_auth_env
+    GH_TOKEN= run bash -c 'source "$0" && provider_detect "$1/absent.config" && provider_auth_env' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
     assert_failure
     [[ "$output" == *"no credential source available"* ]]
 }
 
-@test "secret_get: returns the token via stdout" {
+@test "resolution: allowlisted env token outranks keychain" {
+    stub_gh
     source_core
     provider_detect "$TEST_TEMP_DIR/absent.config"
-    GH_TOKEN=ghp_abc123 run provider_secret_get token
+    run bash -c 'source "$0" && provider_detect "$1/absent.config" && PROVIDER_TOKEN_ENV_ALLOWLIST=ghp_abc123 && eval "$(GH_TOKEN=ghp_abc123 provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "env" ] && [ "$GH_TOKEN" = "ghp_abc123" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
     assert_success
-    [ "$output" = "ghp_abc123" ]
 }
 
 @test "secret_get: fails for unknown secret kinds" {
@@ -182,6 +183,103 @@ write_config() {
     source_core
     provider_detect "$TEST_TEMP_DIR/absent.config"
     GH_TOKEN=ghp_supersecret run bash -c 'source "$0" && provider_detect "$1/absent.config" && { provider_secret_get token >/dev/null 2>"$2/err.txt" || true; } && { grep -q supersecret "$2/err.txt" && exit 1 || exit 0; }' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
+    assert_success
+}
+
+# ============================================================================
+# Token resolution order (AC-1) & escape-hatch allowlist (AC-2)
+# ============================================================================
+
+@test "resolution: keychain kind when no env token and gh auth token works" {
+    stub_gh
+    source_core
+    provider_detect "$TEST_TEMP_DIR/absent.config"
+    unset GH_TOKEN
+    STUB_GH_AUTH_TOKEN=ghp_keychain123 run bash -c 'source "$0" && provider_detect "$1/absent.config" && eval "$(provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "keychain" ] && [ -z "${GH_TOKEN:-}" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
+    assert_success
+}
+
+@test "resolution: secret_get delegates to gh auth token when env is unset" {
+    stub_gh
+    source_core
+    provider_detect "$TEST_TEMP_DIR/absent.config"
+    unset GH_TOKEN
+    STUB_GH_AUTH_TOKEN=ghp_keychain456 run provider_secret_get token
+    assert_success
+    [ "$output" = "ghp_keychain456" ]
+}
+
+@test "secret_get: returns the allowlisted env token via stdout" {
+    source_core
+    provider_detect "$TEST_TEMP_DIR/absent.config"
+    run bash -c 'source "$0" && provider_detect "$1/absent.config" && PROVIDER_TOKEN_ENV_ALLOWLIST=ghp_abc123 && GH_TOKEN=ghp_abc123 provider_secret_get token' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
+    assert_success
+    [ "$output" = "ghp_abc123" ]
+}
+
+@test "resolution: env token outside the allowlist warns and falls through to keychain" {
+    stub_gh
+    source_core
+    provider_detect "$TEST_TEMP_DIR/absent.config"
+    STUB_GH_AUTH_TOKEN=ghp_keychain789 run bash -c 'source "$0" && provider_detect "$1/absent.config" && GH_TOKEN=ghp_ignored; out=$(provider_auth_env 2>"$2/warn.txt"); eval "$out"; [ "$PROVIDER_AUTH_KIND" = "keychain" ] && grep -q "not on the env allowlist" "$2/warn.txt"' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR" "$TEST_TEMP_DIR"
+    assert_success
+}
+
+@test "resolution: non-allowlisted env token is never emitted nor leaked by secret_get" {
+    stub_gh
+    source_core
+    provider_detect "$TEST_TEMP_DIR/absent.config"
+    STUB_GH_AUTH_TOKEN=ghp_keychain999 GH_TOKEN=ghp_env_secret123 run bash -c 'source "$0" && provider_detect "$1/absent.config" && tok=$(provider_secret_get token 2>/dev/null) && [ "$tok" = "ghp_keychain999" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
+    assert_success
+}
+
+@test "resolution: fails with defined error when env is unallowlisted and keychain is down" {
+    stub_gh
+    source_core
+    provider_detect "$TEST_TEMP_DIR/absent.config"
+    GH_TOKEN=ghp_notlisted run bash -c 'source "$0" && provider_detect "$1/absent.config" && provider_auth_env' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
+    assert_failure
+    [[ "$output" == *"no credential source available"* ]]
+    [[ "$output" == *"not allowlisted"* ]]
+}
+
+@test "allowlist: env token on the allowlist is honored with kind env" {
+    source_core
+    provider_detect "$TEST_TEMP_DIR/absent.config"
+    run bash -c 'source "$0" && provider_detect "$1/absent.config" && PROVIDER_TOKEN_ENV_ALLOWLIST=ghp_escape_token && eval "$(GH_TOKEN=ghp_escape_token provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "env" ] && [ "$GH_TOKEN" = "ghp_escape_token" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
+    assert_success
+}
+
+@test "allowlist: loads from [provider] token_env_allowlist config key" {
+    local cfg
+    cfg=$(write_config "
+[provider]
+name = github
+token_env_allowlist = ghp_cfg_token ghp_other:justification")
+    source_core
+    provider_detect "$cfg"
+    [ "$PROVIDER_TOKEN_ENV_ALLOWLIST" = "ghp_cfg_token ghp_other:justification" ]
+    run bash -c 'source "$0" && provider_detect "$1" && eval "$(GH_TOKEN=ghp_cfg_token provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "env" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$cfg"
+    assert_success
+}
+
+@test "allowlist: caller-provided value survives detection without a config file" {
+    source_core
+    PROVIDER_TOKEN_ENV_ALLOWLIST="ghp_pre_exported"
+    provider_detect "$TEST_TEMP_DIR/absent.config"
+    [ "$PROVIDER_TOKEN_ENV_ALLOWLIST" = "ghp_pre_exported" ]
+}
+
+@test "allowlist: ships empty by default" {
+    source_core
+    provider_detect "$TEST_TEMP_DIR/absent.config"
+    [ -z "$PROVIDER_TOKEN_ENV_ALLOWLIST" ]
+}
+
+@test "allowlist: matching is on value, colon reason suffix tolerated" {
+    source_core
+    provider_detect "$TEST_TEMP_DIR/absent.config"
+    run bash -c 'source "$0" && provider_detect "$1/absent.config" && PROVIDER_TOKEN_ENV_ALLOWLIST="ghp_with_reason:legacy-deployer" && eval "$(GH_TOKEN=ghp_with_reason provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "env" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
     assert_success
 }
 

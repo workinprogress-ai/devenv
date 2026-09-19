@@ -54,9 +54,10 @@ config_read_value() {
     # Supports ${VAR_NAME} syntax. Parameter expansion (not sed) so values
     # containing "/" or "&" cannot break the substitution and secret values
     # never transit a process argument.
+    # Note: GH_TOKEN is deliberately NOT interpolated — config files are a
+    # persistent surface and must never carry or expand secrets.
     value="${value//\$\{GH_ORG\}/${GH_ORG:-}}"
     value="${value//\$\{GH_USER\}/${GH_USER:-}}"
-    value="${value//\$\{GH_TOKEN\}/${GH_TOKEN:-}}"
     
     echo "$value"
     return 0

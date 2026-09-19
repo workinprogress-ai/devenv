@@ -27,9 +27,12 @@ pull_copilot_knowledge_on_container_start() {
     [ -n "$branch" ] || branch=$(git -C "$repo_dir" symbolic-ref --short HEAD 2>/dev/null)
     [ -n "$branch" ] || branch="main"
 
-    if [ -n "${GH_TOKEN:-}" ]; then
+    # Resolve the token through gh's credential store — never from env.
+    local token=""
+    token=$(gh auth token 2>/dev/null) || true
+    if [ -n "$token" ]; then
         local header
-        header=$(build_github_basic_auth_header "$GH_TOKEN")
+        header=$(build_github_basic_auth_header "$token")
         nohup env REPO_DIR="$repo_dir" BRANCH="$branch" HEADER="$header" bash -c '
             git -C "$REPO_DIR" -c http.extraheader="$HEADER" fetch --prune origin >/dev/null 2>&1 || exit 0
             git -C "$REPO_DIR" -c http.extraheader="$HEADER" pull --ff-only origin "$BRANCH" >/dev/null 2>&1 || true
