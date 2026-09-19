@@ -232,7 +232,7 @@ issue-list --milestone "Sprint 5"
 ### Interactive Grooming Session
 
 ```bash
-issue-groom
+issue-triage
 ```
 
 **Grooming sets:**
@@ -249,7 +249,7 @@ issue-groom
 ### Sprint Planning
 
 ```bash
-issue-groom
+issue-triage
 issue-update 123 --milestone "Sprint 6"
 project-add-issue "Q1 2026" 123
 project-update-issue "Q1 2026" 123 --status "Ready"
@@ -366,7 +366,7 @@ issue-list      # List issues
 issue-update    # Update issue
 issue-close     # Close issue
 issue-select    # Interactive picker
-issue-groom     # Grooming wizard
+issue-triage     # Grooming wizard
 project-add-issue     # Add to project
 project-update-issue  # Update project fields
 ```
@@ -387,7 +387,7 @@ issue-list --help
 issue-update --help
 issue-close --help
 issue-select --help
-issue-groom --help
+issue-triage --help
 project-add-issue --help
 project-update-issue --help
 ```

@@ -154,8 +154,8 @@ Apply all? (y/n)
 
 On `y`:
 
-- Labels: `issue-update <n> --add-label "<label1>" --add-label "<label2>"` (repeatable)
-- Comment: `issue-comment <n> --body-file <draft>`
+- **Metadata bundles (title/body/milestone/assignee/labels/triage-complete):** prefer `issue-triage <n> --label "<l1>" --label "<l2>" --milestone <m> --assignee <u> --triage-complete` — one call applies the whole bundle for an issue; for bulk sweeps pass multiple issue numbers (`issue-triage 44 45 46 --label needs-triage`). Status writes inside the tool are config-sourced and best-effort.
+- Comments: `issue-comment <n> --body-file <draft>`
 - Close as duplicate/invalid: `issue-close <n>` then post a comment via `issue-comment <n> --body "Closing as duplicate of #<other>"` (both run as one bundled apply like the rest — surface them clearly in the recommendation so the user can veto the bundle)
 
 On `n`: print the recommendations, do nothing, stop.

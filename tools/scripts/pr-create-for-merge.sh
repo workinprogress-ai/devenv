@@ -236,4 +236,11 @@ if [ $status -ne 0 ]; then
   exit $status
 fi
 
+# Fire skill event signals for issues linked in the PR body (best-effort).
+if [ -n "$PR_URL" ]; then
+  PR_NUM=$(basename "$PR_URL")
+  source "$(dirname "$0")/../lib/pr-events.bash" 2>/dev/null || true
+  pr_events_signal_for_pr created "$PR_NUM" 2>/dev/null || true
+fi
+
 echo "$PR_URL"

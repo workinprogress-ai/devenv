@@ -581,20 +581,20 @@ issue-select --multi --milestone "Sprint 5"
 
 ---
 
-### issue-groom
+### issue-triage
 
 Interactive issue grooming wizard for backlog management.
 
 ```
-issue-groom [--project NAME] [--milestone NAME]
+issue-triage [--project NAME] [--milestone NAME]
 ```
 
 Examples:
 
 ```bash
-issue-groom
-issue-groom --project "Q1 2026"
-issue-groom --milestone "Sprint 5"
+issue-triage
+issue-triage --project "Q1 2026"
+issue-triage --milestone "Sprint 5"
 ```
 
 ---
@@ -983,6 +983,23 @@ Examples:
 project-update-issue "Q1 2026" 123 --status "Ready"
 project-update-issue "Sprint 5" 123 --field "Priority=High"
 ```
+
+---
+
+### `_on_<event>` (skill event signals)
+
+Skill lifecycle event signals — a tooling class, not CRUD wrappers. Nine entry points (`tools/_on_begin_grooming` … `tools/_on_merge`, begin/end pairs per lifecycle phase) delegating to `tools/scripts/_on_event_dispatch.sh`, which reads `tools/config/skill-events.yml` and fans the Status transition out through `project-update-issue --all-projects --safe`.
+
+```bash
+_on_<event> ISSUE_NUMBER
+_on_begin_grooming 43
+```
+
+Key facts:
+
+- Best-effort: always exit 0 for skill flows; failures warn, never block. Idempotent — re-signaling repairs drift.
+- Skills know only the event name + issue number. Never read the config, never name projects, never contain Status vocabulary (see [_conventions.md](./_conventions.md#skill-event-signals-_on_)).
+- Trigger points: skill lifecycle boundaries (wired per skill) and, later, the PR-events workflow (`_on_begin_review` on PR open, `_on_merge` on merge).
 
 ---
 

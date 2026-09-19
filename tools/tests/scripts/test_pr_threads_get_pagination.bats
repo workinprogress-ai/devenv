@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Pagination behavior tests for pr-threads-get (Plan-002 task 4.1 / AC-6).
+# Pagination behavior tests for pr-threads-get.
 #
 # Drives the script's manual GraphQL pagination loop through the paginated gh
 # fixture: multi-page traversal merges both pages' threads; a single page

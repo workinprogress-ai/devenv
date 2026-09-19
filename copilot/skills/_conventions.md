@@ -6,7 +6,7 @@ Single source of truth for the shape of skills under `copilot/skills/`. New skil
 
 ## File layout
 
-```
+```text
 copilot/skills/<skill-name>/
 ├── SKILL.md           # required; `name` field must match folder name
 └── references/        # optional; one level deep only
@@ -44,7 +44,7 @@ The `description` is the **only** signal the model uses to decide whether to aut
 
 Template:
 
-```
+```text
 <One-sentence purpose>. USE WHEN the user says "<phrase 1>", "<phrase 2>", "<phrase 3>", or <situational trigger>. <One sentence on what the skill does mechanically>. DO NOT USE FOR <situation> (use `/<sibling-skill>`), <other situation>, or <yet another>.
 ```
 
@@ -343,7 +343,7 @@ When exploring WorkInProgress code, prefer local source under `repos/` before an
 
 Wrapper inventory (as of authoring):
 
-- Issues: `issue-create`, `issue-create-batch`, `issue-list`, `issue-update` (incl. `--add-label`/`--remove-label`), `issue-close`, `issue-comment`, `issue-comment-list`, `issue-comment-update`, `issue-get`, `issue-groom`, `issue-select`, `issue-artifact-doc-id`, `issue-artifact-get`, `issue-artifact-list`, `issue-artifact-select`, `issue-artifact-upsert`
+- Issues: `issue-create`, `issue-create-batch`, `issue-list`, `issue-update` (incl. `--add-label`/`--remove-label`), `issue-close`, `issue-comment`, `issue-comment-list`, `issue-comment-update`, `issue-get`, `issue-triage`, `issue-select`, `issue-artifact-doc-id`, `issue-artifact-get`, `issue-artifact-list`, `issue-artifact-select`, `issue-artifact-upsert`
 - PRs: `pr-create-for-review`, `pr-create-for-merge`, `pr-complete-merge`, `pr-merge-pull-request`, `pr-cleanup-review-branches`, `pr-get-review-link`, `pr-get-merge-link` — plus added: `pr-get`, `pr-comment`, `pr-diff`, `pr-list`, `pr-threads-get`, `pr-thread-reply`, `pr-thread-resolve`
 - Projects: `project-add-issue`, `project-update-issue`
 
@@ -544,6 +544,20 @@ Each skill should link to:
 Use relative paths (as they appear inside a skill folder): `[/devenv-pair-programming](../devenv-pair-programming/SKILL.md)`.
 
 Also add a one-liner to each `SKILL.md` — usually in the Sibling skills section (the fleet-standard position): "See the [Skills catalog](./common/references/skills-catalog.md) for the full list and decision tree."
+
+## Skill Event Signals (`_on_*`)
+
+Skills maintain GitHub Project issue status as a side effect of their lifecycle by invoking deterministic **event-signal scripts**. This is a tooling class distinct from the CRUD wrappers:
+
+- **Skills know only the event name and the issue number.** Never read `tools/config/skill-events.yml`, never name projects, never contain Status vocabulary (hyphenated tokens like `To-Groom` live only in config and the wrappers).
+- **Invocation:** `_on_<event> <issue-number>` — thin entry points delegating to `tools/scripts/_on_event_dispatch.sh`.
+- **Events** (begin/end pairs per lifecycle phase): `_on_begin_grooming`, `_on_end_grooming`, `_on_begin_planning`, `_on_end_planning`, `_on_begin_implementation`, `_on_end_implementation`, `_on_begin_review`, `_on_end_review`, `_on_merge`.
+- **Best-effort guarantee:** event scripts always exit 0 for skill flows; failures print warnings and never block skill work. Transitions are idempotent — a later signal repairs drift.
+- **Visible, not gated:** the event signal is a side effect of a boundary the user already approved (opening the PR, completing the merge, closing the plan) — it never prompts for its own permission. But it is not silent: skills state the signal in their normal output (one line, e.g. `→ signalled _on_begin_review for #43`).
+- **Placement rule:** invoke at existing lifecycle boundaries (intake confirmation, phase handoffs, wrap-up) — do not create new interactive gates for status updates.
+- **Charter boundary:** events absorb deterministic, content-free, cross-cutting side effects — nothing that requires authored content or judgment. The moment an event handler would need to write prose or decide *whether* to act, that work belongs to the skill, not the event.
+
+Canonical tooling reference: [`_tools-reference.md`](./_tools-reference.md) (`_on_*` entry points, `_on_event_dispatch.sh`).
 
 ## Open Questions Log (Q-NNN)
 

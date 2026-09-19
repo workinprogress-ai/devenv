@@ -3,7 +3,7 @@
 # contract: self-location wins; a foreign exported DEVENV_TOOLS is ignored).
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
-# issue-groom.sh - Interactive issue grooming and workflow management
+# issue-triage.sh - Interactive issue triage and workflow management
 # Version: 1.0.0
 # Description: Interactive wizard for grooming issues through TBD → To Groom → Ready workflow
 # Requirements: Bash 4.0+, gh CLI, fzf
@@ -29,6 +29,8 @@ readonly SCRIPT_NAME
 
 PROJECT_NAME=""
 MILESTONE=""
+ISSUES=()
+BUNDLE_OPTS=()
 # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 ALLOW_DEVENV_REPO=0
@@ -55,7 +57,7 @@ show_usage() {
     cat << EOF
 Usage: $SCRIPT_NAME [OPTIONS]
 
-Interactive issue grooming wizard to manage backlog and prepare issues for sprints.
+Interactive issue triage wizard to manage backlog and prepare issues for sprints.
 
 Options:
     -h, --help                  Show this help message and exit
@@ -66,10 +68,24 @@ Options:
     -m, --milestone NAME        Filter by milestone
     --devenv                    Safety override to groom issues in devenv repo
 
+CLI Apply Mode:
+    $SCRIPT_NAME <ISSUE>... [BUNDLE-OPTIONS] [--yes]
+        Apply a metadata bundle to one or more issues non-interactively
+        and exit. All requested edits must succeed for exit 0.
+
+    Bundle options:
+        --title TEXT        Set issue title
+        --body-file FILE    Set issue body from file
+        --milestone NAME    Set milestone
+        --assignee USER     Add assignee
+        --label NAME        Add a label (repeatable)
+        --triage-complete   Fire the triage-complete event; the Status
+                            transition comes from skill-events.yml
+                            (config-sourced; never hardcoded)
+
 Workflow:
-    TBD         → Issue needs refinement before grooming
-    To Groom    → Ready for grooming session
-    Ready       → Fully groomed, ready for sprint planning
+    TBD → To-Groom → Ready → Implementing → Review → Merged → Staging → Production
+    (vocabulary is sourced from devenv.config [workflows])
 
 Grooming Actions:
     - Review issue details
@@ -161,7 +177,7 @@ groom_issue() {
             3)
                 # Open editor for body
                 local tmpfile
-                create_temp_file tmpfile issue-groom
+                create_temp_file tmpfile issue-triage
                 gh issue view "${repo_spec[@]}" "$issue_num" --json body -q .body > "$tmpfile"
                 "${EDITOR:-nano}" "$tmpfile"
                 gh issue edit "${repo_spec[@]}" "$issue_num" --body-file "$tmpfile"
@@ -292,6 +308,52 @@ set_milestone() {
 }
 
 # Run grooming session
+apply_issue_bundle() {
+    # CLI apply mode: one call applies a whole metadata bundle to one issue.
+    # Exit 0 only if every requested edit succeeded. Status writes validate
+    # against the configured workflow vocabulary - never hardcoded strings.
+    local issue="$1"; shift
+    local failed=0 did_any=0
+    local repo_spec
+    read -ra repo_spec <<< "$(get_repo_spec)"
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --title)
+                gh issue edit "${repo_spec[@]}" "$issue" --title "$2" >/dev/null 2>&1 || { log_error "title update failed"; failed=1; }
+                did_any=1; shift 2 ;;
+            --body-file)
+                gh issue edit "${repo_spec[@]}" "$issue" --body-file "$2" >/dev/null 2>&1 || { log_error "body update failed"; failed=1; }
+                did_any=1; shift 2 ;;
+            --milestone)
+                gh issue edit "${repo_spec[@]}" "$issue" --milestone "$2" >/dev/null 2>&1 || { log_error "milestone update failed"; failed=1; }
+                did_any=1; shift 2 ;;
+            --assignee)
+                gh issue edit "${repo_spec[@]}" "$issue" --add-assignee "$2" >/dev/null 2>&1 || { log_error "assignee update failed"; failed=1; }
+                did_any=1; shift 2 ;;
+            --label)
+                gh issue edit "${repo_spec[@]}" "$issue" --add-label "$2" >/dev/null 2>&1 || { log_error "label update failed for '$2'"; failed=1; }
+                did_any=1; shift 2 ;;
+            --triage-complete)
+                # Fire the triage event; its configured transition comes from
+                # skill-events.yml (config-sourced, best-effort).
+                local tools_dir
+                tools_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+                if [ -f "$tools_dir/_on_triage_complete" ]; then
+                    bash "$tools_dir/_on_triage_complete" "$issue" >/dev/null 2>&1 || { log_error "triage-complete signal failed"; failed=1; }
+                else
+                    log_error "event entry point _on_triage_complete not found"; failed=1
+                fi
+                did_any=1; shift ;;
+            *)
+                log_error "unknown bundle option: $1"; failed=1; shift ;;
+        esac
+    done
+
+    [ "$did_any" -eq 1 ] || { log_error "no bundle options given"; return 1; }
+    return $failed
+}
+
 run_grooming_session() {
     local issues
     issues=$(get_grooming_issues)
@@ -372,8 +434,10 @@ main() {
                 shift 2
                 ;;
             -m|--milestone)
-                # shellcheck disable=SC2034  # May be used in future feature
+                # CLI bundle mode applies it; wizard filtering is a future use.
+                # shellcheck disable=SC2034  # read by the wizard filter pass
                 MILESTONE="$2"
+                BUNDLE_OPTS+=("--milestone" "$2")
                 shift 2
                 ;;
             --devenv)
@@ -381,10 +445,21 @@ main() {
                 ALLOW_DEVENV_REPO=1
                 shift
                 ;;
+            --triage-complete)
+                BUNDLE_OPTS+=("$1"); shift
+                ;;
+            --title|--body-file|--assignee|--label)
+                BUNDLE_OPTS+=("$1" "$2"); shift 2
+                ;;
             *)
-                log_error "Unknown option: $1"
-                echo "Use --help for usage information"
-                exit $EXIT_MISUSE
+                if [[ "$1" =~ ^[0-9]+$ ]]; then
+                    ISSUES+=("$1")
+                    shift
+                else
+                    log_error "Unknown option: $1"
+                    echo "Use --help for usage information"
+                    exit $EXIT_MISUSE
+                fi
                 ;;
         esac
     done
@@ -394,6 +469,18 @@ main() {
     
     # Validate target repo
     check_target_repo
+    
+    # CLI apply mode: numeric positional args are issue numbers; apply the
+    # bundle to each and exit (wizard is skipped entirely). Enables
+    # skill-driven and scripted use; bulk sweeps pass multiple numbers.
+    if [ ${#ISSUES[@]} -gt 0 ]; then
+        local rc=0
+        for issue in "${ISSUES[@]}"; do
+            log_info "Applying triage bundle to issue #$issue..."
+            apply_issue_bundle "$issue" "${BUNDLE_OPTS[@]}" || rc=1
+        done
+        exit $rc
+    fi
     
     # Welcome message
     clear

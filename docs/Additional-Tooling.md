@@ -1446,34 +1446,54 @@ issue-artifact-select --issue 42 \
   --format url
 ```
 
-### `issue-groom`
+### `issue-triage`
 
-Interactive issue grooming wizard for backlog management.
+Issue triage for backlog management: an interactive wizard for humans, plus a fully scriptable CLI apply mode for skills and automation. (Formerly `issue-groom` — renamed; triage is the honest name for metadata-level backlog work, distinct from the `/devenv-grooming` design skill.)
+
+**Interactive wizard:**
 
 ```bash
-issue-groom [OPTIONS]
+issue-triage [OPTIONS]
 ```
 
-**Options:**
+Options: `--project NAME`, `--milestone NAME` (filters). The wizard walks issues through review, type/label/milestone/assignee edits, and readiness.
 
-- `--project NAME`: Filter by project
-- `--milestone NAME`: Filter by milestone
+**CLI apply mode** (non-interactive; all requested edits must succeed for exit 0):
 
-**Features:**
+```bash
+issue-triage ISSUE... [--title TEXT] [--body-file FILE] [--milestone NAME] \
+    [--assignee USER] [--label NAME]... [--triage-complete]
+```
 
-- Review issue details
-- Set type (epic/story/bug)
-- Edit title and description
-- Set milestone (sprint)
-- Add assignees and labels
-- Link to parent issues
-- Mark as Ready for implementation
+- Pass one issue for a single bundle, multiple issues for a bulk sweep
+- `--triage-complete` fires the triage-complete event; the Status transition comes from `tools/config/skill-events.yml` (config-sourced, never hardcoded)
+- Example: `issue-triage 44 45 46 --label needs-triage --triage-complete`
 
-**Workflow States:**
+**Workflow States** (sourced from `devenv.config [workflows]`; hyphenated single tokens):
 
-- **TBD**: Newly created, needs refinement
-- **To Groom**: Ready for grooming session
-- **Ready**: Groomed and ready for implementation
+TBD → To-Groom → Ready → Implementing → Review → Merged → Staging → Production
+
+### Skill Event Signals (`_on_*`)
+
+Deterministic lifecycle-event scripts that keep GitHub Project status in sync as work moves through the workflow. Both local tooling and skills fire them; nobody has to think about project status unless they choose to.
+
+```bash
+_on_begin_grooming 43        # one entry point per lifecycle event
+_on_merge 43                 # fired by merge tooling after a successful merge
+```
+
+**Events**: `_on_triage_complete` (backlog triage done → candidate for design grooming), then begin/end pairs per phase: `_on_begin_grooming`, `_on_end_grooming`, `_on_begin_planning`, `_on_end_planning`, `_on_begin_implementation`, `_on_end_implementation`, `_on_begin_review`, `_on_end_review`, `_on_merge`.
+
+**Trigger points:**
+
+- Skills fire them at lifecycle boundaries (grooming completion, plan approval, implementation kickoff, PR open, review completion)
+- Local PR tooling fires `_on_begin_review` when a PR is created via `pr-create-for-merge` and `_on_merge` when a merge completes via `pr-merge-pull-request` / `pr-complete-merge`
+- Issues are linked via closing keywords in the PR body (`Closes #N`, `Fixes #N`, …), deduplicated, capped at 10 per PR
+- Everything is local: signals run under your own `gh` authentication (keychain). Web-UI merges fire nothing — status changes you make outside local tooling are your own
+
+**Guarantees:** best-effort (signals exit 0 and never block work), idempotent (re-signaling repairs drift), config-driven (Status values live in `tools/config/skill-events.yml` + `devenv.config [workflows]` — callers never name statuses or projects).
+
+**Which project/PR tools participate:** `pr-create-for-merge` (open), `pr-merge-pull-request` and `pr-complete-merge` (merge, via the shared `merge_pr` path). `pr-create-for-review` does **not** fire signals — its PRs are non-mergeable review artifacts, not a review-lifecycle boundary.
 
 ### `project-add-issue`
 
@@ -2833,7 +2853,7 @@ The following convenience aliases are available in the dev container:
 - `issue-update` - Update issue fields
 - `issue-close` - Close or reopen issues
 - `issue-select` - Interactive issue selection with fzf
-- `issue-groom` - Interactive grooming wizard
+- `issue-triage` - Interactive grooming wizard
 
 **Project Management:**
 

@@ -73,7 +73,7 @@ tools/scripts/kube-set-context.sh:3 wrapper DONE
 tools/scripts/pr-thread-reply.sh:3 wrapper DONE
 tools/scripts/issue-list.sh:3 wrapper DONE
 tools/scripts/devenv-add-custom-startup.sh:3 wrapper DONE
-tools/scripts/issue-groom.sh:3 wrapper DONE
+tools/scripts/issue-triage.sh:3 wrapper DONE
 tools/scripts/lint-scripts.sh:3 wrapper DONE
 tools/scripts/lint-scripts.sh:14 wrapper DONE
 tools/scripts/issue-create.sh:3 wrapper DONE

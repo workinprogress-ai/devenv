@@ -250,7 +250,7 @@ Issues in GitHub Projects use a Status field with 8 states:
 
 ```bash
 # 1. Groom issues (interactive)
-issue-groom --milestone "Sprint 5"
+issue-triage --milestone "Sprint 5"
 
 # 2. Assign groomed issues to sprint
 issue-update 123 --milestone "Sprint 6"
@@ -306,7 +306,7 @@ project-update-issue "Q1 2026" $issue_num --status "Production"
 issue-list --state open --label "status:tbd" --limit 50
 
 # 2. Start interactive grooming session
-issue-groom
+issue-triage
 
 # 3. For each issue, the wizard will help you:
 #    - Set type (epic/story/bug)
@@ -556,10 +556,10 @@ project-update-issue PROJECT_NAME ISSUE# [--status STATUS] \
 
 ### Grooming & Workflow
 
-**`issue-groom`** - Interactive grooming wizard
+**`issue-triage`** - Interactive grooming wizard
 
 ```bash
-issue-groom [--project NAME] [--milestone NAME]
+issue-triage [--project NAME] [--milestone NAME]
 ```
 
 ## Examples
@@ -731,7 +731,7 @@ project-update-issue "Q1 2026" 150 --status "Production"
 
 ### Grooming
 
-1. **Do grooming as a team**: Use `issue-groom` wizard together
+1. **Do grooming as a team**: Use `issue-triage` wizard together
 2. **Estimate effort**: Add labels for story points if using
 3. **Add priority**: Use labels: `priority:critical`, `priority:high`, `priority:medium`, `priority:low`
 4. **Identify blockers**: Add label `blocked` and comment on blocking issues

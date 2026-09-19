@@ -151,14 +151,14 @@ STUB
 }
 
 @test "all issue scripts have version information" {
-  for script in issue-create.sh issue-create-batch.sh issue-list.sh issue-update.sh issue-close.sh issue-select.sh issue-groom.sh; do
+  for script in issue-create.sh issue-create-batch.sh issue-list.sh issue-update.sh issue-close.sh issue-select.sh issue-triage.sh; do
     run grep "SCRIPT_VERSION=" "$PROJECT_ROOT/tools/scripts/$script"
     [ "$status" -eq 0 ]
   done
 }
 
 @test "all issue scripts source versioning library" {
-  for script in issue-create.sh issue-create-batch.sh issue-list.sh issue-update.sh issue-close.sh issue-select.sh issue-groom.sh; do
+  for script in issue-create.sh issue-create-batch.sh issue-list.sh issue-update.sh issue-close.sh issue-select.sh issue-triage.sh; do
     run grep 'source.*versioning.bash' "$PROJECT_ROOT/tools/scripts/$script"
     [ "$status" -eq 0 ]
   done

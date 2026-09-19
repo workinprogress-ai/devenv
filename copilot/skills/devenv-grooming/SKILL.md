@@ -130,6 +130,10 @@ Ask only what is missing (the grooming document may already answer some of these
 3. For existing components: are we patching drift/gaps, or replacing the core approach?
 4. Is the relevant `docs/Architecture_and_implementation.md` up to date?
 
+### Event signal
+
+When grooming completes for an issue (routing confirmed / decisions closed), signal `_on_end_grooming <issue-number>`. Fire-and-forget per the [event-signal convention](../_conventions.md#skill-event-signals-_on_) — never block on its result.
+
 ### Phase 2: Route with rationale
 
 Respond with:

@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Behavior tests for the key-update family (Plan-002 task 3.1 / AC-3).
+# Behavior tests for the key-update family.
 #
 # Locks: non-interactive invocation without an argument refuses (non-zero,
 # no hang on the read prompt); persisted token files carry 600 permissions;

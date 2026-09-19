@@ -370,7 +370,21 @@ merge_pr() {
         log_info "Merging PR $pr_num with $method..."
     fi
     
-    gh pr merge "${merge_args[@]}" 2>&1
+    local merge_output
+    if ! merge_output=$(gh pr merge "${merge_args[@]}" 2>&1); then
+        printf '%s\n' "$merge_output"
+        return 1
+    fi
+    printf '%s\n' "$merge_output"
+
+    # Fire skill event signals for issues linked in the merged PR body.
+    # Best-effort - never alters this function's success.
+    if [ -n "${_PR_EVENTS_LOADED:-}" ] || source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/pr-events.bash" 2>/dev/null; then
+        local pr_body
+        pr_body=$(gh pr view "${repo_args[@]}" "$pr_num" --json body --jq '.body' 2>/dev/null || true)
+        pr_events_signal merged "$pr_body" || true
+    fi
+    return 0
 }
 
 # ============================================================================

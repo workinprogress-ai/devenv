@@ -37,6 +37,10 @@ For the no-args mode: detect the default branch via `git symbolic-ref refs/remot
 
 ## Workflow
 
+### Event signal
+
+When a review completes with changes merged or approved-for-merge, signal `_on_end_review <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals-_on_).
+
 ### 1. Load context
 
 - For PR mode: capture title, body, author, labels, draft status, base/head refs.

@@ -58,7 +58,7 @@ issue-comment | symlink-abs | /workspaces/devenv/tools/scripts/issue-comment.sh
 issue-create-batch | symlink-abs | /workspaces/devenv/tools/scripts/issue-create-batch.sh
 issue-create | symlink-abs | /workspaces/devenv/tools/scripts/issue-create.sh
 issue-get | symlink-abs | /workspaces/devenv/tools/scripts/issue-get.sh
-issue-groom | symlink-abs | /workspaces/devenv/tools/scripts/issue-groom.sh
+issue-triage | symlink-abs | /workspaces/devenv/tools/scripts/issue-triage.sh
 issue-label-create | symlink-abs | /workspaces/devenv/tools/scripts/issue-label-create.sh
 issue-label-list | symlink-abs | /workspaces/devenv/tools/scripts/issue-label-list.sh
 issue-list | symlink-abs | /workspaces/devenv/tools/scripts/issue-list.sh
