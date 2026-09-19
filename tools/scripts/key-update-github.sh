@@ -36,26 +36,24 @@ if [[ ! "$NEW_TOKEN" =~ ^(gh|ghp_) ]]; then
     log_warn "Token doesn't start with expected prefix (ghp_ or gh_). Proceeding anyway..."
 fi
 
-# 1. Update env-vars.sh (Persistence)
-echo "    - Updating environment variables..."
-"$DEVENV_TOOLS/devenv-add-env-vars" "GH_TOKEN=$NEW_TOKEN"
-
-# 2. Update token file in .setup folder
-echo "    - Storing token in backup file..."
-TOKEN_FILE="$DEVENV_ROOT/.setup/github_token.txt"
-echo "$NEW_TOKEN" > "$TOKEN_FILE"
-chmod 600 "$TOKEN_FILE"
-
-# 2. Export for current execution scope
-export GH_TOKEN="$NEW_TOKEN"
-
-# 3. Source the updated env-vars to reload in current shell context
-if [ -f "$DEVENV_ROOT/.runtime/env-vars.sh" ]; then
-    source "$DEVENV_ROOT/.runtime/env-vars.sh"
+# 1. Rotate via the GitHub CLI credential store (keychain) — the single
+#    source of truth. The token is never written to env-vars.sh or any
+#    backup file; git authentication flows through gh's credential helper.
+echo "    - Rotating GitHub credentials (gh auth login)..."
+if ! printf '%s' "$NEW_TOKEN" | gh auth login --with-token --hostname github.com --skip-ssh-key; then
+    die "gh auth login failed — token not accepted by GitHub. No changes made."
 fi
 
-echo "    ✅ Success! GitHub token updated."
+# 2. Keep gh's credential helper wired so clean remote URLs authenticate.
+if ! gh auth setup-git --hostname github.com; then
+    log_warn "gh auth setup-git failed — git pushes/pulls over https may fail until it is re-run"
+fi
+
+# No GH_TOKEN export: the keychain is the single auth source and env exports
+# happen only through the provider seam's allowlist.
+
+echo "    ✅ Success! GitHub token updated (gh credential store)."
 echo "    -------------------------------------------------------"
-echo "    The new token is now active in your environment."
-echo "    You can now continue working. No container restart required."
+echo "    The new token is now active. git https auth goes through"
+echo "    gh's credential helper; no token is stored in env files."
 echo ""

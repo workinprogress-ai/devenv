@@ -278,19 +278,42 @@ The following are additional `git` commands that extend it's basic capabilities.
 
 ## Credentials and Authentication
 
-Your credentials are stored securely in the `.setup` folder on your host machine:
+GitHub authentication is **keychain-based**: `gh auth login` stores your
+credential in `~/.config/gh/hosts.yml` and a git credential helper
+(`gh auth setup-git`, wired during bootstrap and after each rotation)
+authenticates clean `https://github.com/...` remotes. Nothing exports
+`GH_TOKEN`; secrets never transit the environment.
 
-* **GitHub Token** (`.setup/github_token.txt`): Used for GitHub API access, package registry, and SSH-based repository cloning. Automatically loaded as `GH_TOKEN` environment variable.
+Other credentials are stored in the `.setup` folder on your host machine:
+
 * **GitHub Username** (`.setup/github_username.txt`): Your GitHub username. Automatically loaded as `GH_USER` environment variable.
 * **GitHub Organization** (`.setup/github_org.txt`): The GitHub organization that owns your repositories. Automatically loaded as `GH_ORG` environment variable.
-* **Digital Ocean API Token** (`.setup/digitalocean_token.txt`): Used for infrastructure operations via Digital Ocean. Automatically loaded as `DO_API_TOKEN` environment variable.
+* **Digital Ocean API Token** (`.setup/digitalocean_token.txt`): Used for infrastructure operations via Digital Ocean. Automatically loaded as `DO_API_TOKEN` en
+vironment variable.
 * **SSH Key** (`.setup/ssh_key_path.txt`): Path to your SSH private key for secure repository access.
 
-These credentials are automatically loaded into the container environment on startup (via `bootstrap.sh`) and are accessible to all scripts that need them. Credentials are **never** stored in the container image itself — they're only loaded at runtime from your host machine.
+These credentials are automatically loaded into the container environment on startup (via `bootstrap.sh`) and are accessible to all scripts that need them. Cred
+entials are **never** stored in the container image itself — they're only loaded at runtime from your host machine.
+
+**Re-authenticating GitHub (the keychain path):**
+
+1. Run `gh auth login` and follow the browser/device flow — or pipe a fresh
+   PAT: `gh auth login --with-token --hostname github.com --skip-ssh-key`.
+2. Run `gh auth setup-git --hostname github.com` (the key-update tooling
+   does both steps for you: `key-update-github.sh <token>`).
+3. Verify with `gh auth status` — it should report login sourced from
+   `hosts.yml` (your keychain), not `GH_TOKEN`.
+
+Note: `~/.config/gh` lives on the container's filesystem, so the keychain is
+re-seeded on container re-create. Bootstrap imports the legacy
+`.setup/github_token.txt` into the keychain once and deletes the file; if
+that login fails (expired or revoked token), rotate credentials with
+`key-update-github.sh <new-token>` — or run `gh auth login` directly.
 
 **To update credentials:**
 
-* GitHub Token: Run `./setup` and update when prompted, or manually edit `.setup/github_token.txt`
+* GitHub Token: Run `key-update-github.sh <token>` (rotates the keychain and
+  re-wires the git credential helper), or run `gh auth login` manually
 * Digital Ocean Token: Run `./setup` and choose the Digital Ocean setup option
 * SSH Key: Configure via the initial setup or re-run the setup script
 

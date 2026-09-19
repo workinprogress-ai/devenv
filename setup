@@ -103,6 +103,9 @@ validate_github_pat() {
 
   GH_TOKEN=$(cat "$token_file")
 
+  # KNOWN GAP: the token is only prefix-validated here, not validated
+  # against the GitHub API. A follow-up should verify the token live
+  # before accepting it.
   if [[ "$GH_TOKEN" != ghp_* ]]; then
     echo "Token must start with ghp_. Please create a new token and paste it."
     : > "$token_file"

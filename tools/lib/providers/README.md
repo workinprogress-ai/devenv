@@ -42,14 +42,54 @@ provider_issues_set_type org repo 42 Bug   # gated: native-issue-types
 - **Detection is config-driven**: `[provider] name` in `devenv.config`
   (default `github`).
 - **Auth seam**: credentials resolve only via `provider_auth_env` /
-  `provider_secret_get`. Modules never read `GH_TOKEN` directly, so the
-  file-based store (slice 2/#35) swaps in behind the seam.
+  `provider_secret_get`. Modules never read `GH_TOKEN` directly. Resolution
+  order: **env-if-allowlisted → keychain (`gh auth token`) → error**. See
+  [Token resolution & the escape-hatch allowlist](#token-resolution--the-escape-hatch-allowlist).
 - **Capability flags**: GH-only surfaces (rulesets, project-boards,
   native-issue-types) are declared capabilities. Gated verbs call
   `provider_require_capability`, which fails with the defined
   "provider does not support this" error — never a mid-command crash.
 - **Error contract**: library functions return non-zero and log via
   `log_error`; provider libraries never `exit`.
+
+## Token resolution & the escape-hatch allowlist
+
+`provider_auth_env` and `provider_secret_get token` resolve credentials in a
+fixed order:
+
+1. **env-if-allowlisted** — a session-scoped `GH_TOKEN` export is honored only
+   when its value is on the allowlist.
+2. **keychain** — `gh auth token` (gh's own credential store; the normal,
+   preferred state after `gh auth login`).
+3. **error** — neither available: defined failure, never a fallback prompt.
+
+`PROVIDER_AUTH_KIND` reports which branch was taken: `env` or `keychain`.
+
+Note: the keychain branch of `eval "$(provider_auth_env)"` emits `unset
+GH_TOKEN` — a non-allowlisted env token must not outrank the keychain in
+caller shells (gh prefers env). Code that reads `GH_TOKEN` for non-auth
+purposes must resolve it via `provider_secret_get` instead of the variable.
+
+### Escape-hatch allowlist
+
+The allowlist exists for the rare case where a tool genuinely needs a
+session-scoped token export (e.g. a subprocess that cannot use gh's keychain).
+It ships **empty**.
+
+- **Where:** `devenv.config`, key `[provider] token_env_allowlist` — a
+  space-separated list of exact token values. (Config, not a separate file, to
+  keep a single source of truth for workspace configuration; the key ships
+  commented-out/absent.)
+- **Entry protocol:** every entry requires (a) a written justification naming
+  the consumer that cannot use the keychain, (b) a review before merge, and
+  (c) removal when the consumer is fixed. Entries are token *values*, so an
+  entry is naturally invalidated by rotation — treat that as the reminder to
+  re-justify. Reasons are embedded as a colon suffix (`<value>:<reason>`) and
+  must be space-free (use dashes or underscores), since entries are
+  space-separated.
+- **Behavior without an entry:** the seam warns at consumer time (stderr) and
+  resolves via the keychain instead; the env token is never used and never
+  emitted by `provider_auth_env`.
 
 ## Repo targeting
 

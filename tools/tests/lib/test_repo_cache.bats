@@ -83,7 +83,7 @@ teardown() {
     [[ "$output" == *"GH_USER"* ]]
 }
 
-@test "repo-cache: refresh_repo_cache fails when GH_TOKEN is unset" {
+@test "repo-cache: refresh_repo_cache proceeds without GH_TOKEN (keychain contract)" {
     run bash -c "
         export DEVENV_TOOLS='$DEVENV_TOOLS'
         export GH_ORG='test-org'
@@ -92,8 +92,12 @@ teardown() {
         source '$DEVENV_TOOLS/lib/repo-cache.bash'
         refresh_repo_cache 2>&1
     "
-    [ "$status" -eq 1 ]
-    [[ "$output" == *"GH_TOKEN"* ]]
+    # GH_TOKEN is no longer required: clean URLs authenticate via gh's
+    # credential helper. Positive invariant: execution must reach the
+    # org-repo-list step (its failure is the expected sandbox outcome),
+    # never the removed env-var gate.
+    [[ "$output" == *"Failed to list organization repositories"* || "$output" == *"No repositories found"* ]]
+    [[ "$output" != *"GH_TOKEN is not set"* ]]
 }
 
 # ============================================================================

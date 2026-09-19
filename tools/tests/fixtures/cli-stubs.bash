@@ -148,6 +148,9 @@ EOF
 #                          paths; each `gh api` call pops the first entry and
 #                          prints that file's contents; an empty/exhausted
 #                          queue exits 1 (simulates end of pagination)
+#   STUB_GH_AUTH_TOKEN     value printed for `gh auth token` (keychain
+#                          simulation); empty/unset prints nothing and exits 1
+#                          (simulates gh not logged in)
 # ---------------------------------------------------------------------------
 stub_gh() {
     _stubs_ensure_bin_dir
@@ -156,6 +159,14 @@ stub_gh() {
 echo "gh $*" >> "${STUB_CALL_LOG:?}"
 if [[ "${STUB_GH_FAIL:-0}" == "1" ]]; then
     echo "stub-gh: simulated failure" >&2
+    exit 1
+fi
+if [[ "$1" == "auth" && "${2:-}" == "token" ]]; then
+    if [[ -n "${STUB_GH_AUTH_TOKEN:-}" ]]; then
+        printf '%s\n' "$STUB_GH_AUTH_TOKEN"
+        exit 0
+    fi
+    echo "stub-gh: not logged in (set STUB_GH_AUTH_TOKEN to simulate keychain auth)" >&2
     exit 1
 fi
 if [[ "$1" == "api" ]]; then
