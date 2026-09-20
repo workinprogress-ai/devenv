@@ -136,6 +136,8 @@ The skill never runs this command — suggesting it for the user to run is exact
 - **Never modifies hooks** (`.git/hooks/`, `.husky/`, etc.) — this skill replaces hooks for the duration of an interactive session, it doesn't install them.
 - **Never re-runs all checks after a single auto-fix** — only re-runs the tool that was fixed.
 
+> **Micro-fix lane:** an explicit user ask to fix one reported failure ("just fix that lint error for me") goes beyond this skill's suggest-only mandate; it may run in-session under the shared [incidental implementation protocol](../common/references/incidental-implementation-protocol.md) (micro ceiling, supervised handback). The never-runs boundaries above still apply inside the lane — the protocol adds nothing and waives nothing.
+
 ## Anti-patterns
 
 - **Running `git commit` "since everything passed"** — the user commits.

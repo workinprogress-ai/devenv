@@ -21,7 +21,7 @@ Review code changes and produce structured, actionable feedback for work. Invers
 - Reviewing a branch that is about to become a PR (no GitHub PR required).
 - Reviewing a branch's diff against the default branch as a self-check.
 
-If the user wants the AI to *write* or refactor code, use `/devenv-pair-programming`, or `/devenv-delegation` for a commissioned autonomous run, instead. If the user wants to *respond to* review comments on their own PR, use `/devenv-address-pr-comments`.
+If the user wants the AI to *write* or refactor code, use `/devenv-pair-programming`, or `/devenv-delegation` for a commissioned autonomous run, instead. Exception: a **micro fix** of this review's own findings (one concern, one sitting, directly tied to the findings) may run in-session under the [incidental implementation protocol](../common/references/incidental-implementation-protocol.md) once the review is complete — anything beyond micro routes as above. If the user wants to *respond to* review comments on their own PR, use `/devenv-address-pr-comments`.
 
 ## Inputs
 
@@ -159,7 +159,7 @@ Tooling: inline threads are created via `pr-review-comment PR --file PATH --line
 - **Fabricating praise** — don't manufacture a "Praise" entry to soften critical feedback. Skip the section if there's nothing specific to call out.
 - **Auto-posting** — every push to GitHub requires explicit confirmation, and the post always comes from the user-edited file, never from what was printed to chat earlier.
 - **Reviewing without reading** — skim-based reviews produce vague findings. If the diff is too large to read carefully, narrow the scope or refuse.
-- **Mixing review with rewrite** — this skill produces feedback. It does not modify the code under review. If the user wants fixes, switch to `/devenv-pair-programming` or `/devenv-delegation` (commissioned autonomous run) after the review.
+- **Mixing review with rewrite** — this skill produces feedback. It does not modify the code under review while the review workflow is open. After the review is complete, a micro fix of the review's own findings may run under the [incidental implementation protocol](../common/references/incidental-implementation-protocol.md); anything beyond micro routes to `/devenv-pair-programming` or `/devenv-delegation` (commissioned autonomous run).
 - **Posting without re-reading the file** — if the user said they edited the review file, parsing from a cached earlier read posts deleted findings or misses their rewording. Always re-read at post time.
 
 ## Sibling skills

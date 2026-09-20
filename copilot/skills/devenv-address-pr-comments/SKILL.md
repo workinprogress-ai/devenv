@@ -259,6 +259,8 @@ Never suggest `git commit` commands or run any git operations. Only suggest the 
 - **Document mode has no threads to resolve or reply to.** Never call `pr-thread-resolve` / `pr-thread-reply` for findings that came from a document — resolution state lives on GitHub review threads, which the document is a snapshot of, not a handle to. The workflow is: classify → fix/direct → summarize. If the document came from a real PR and the user later wants the matching threads resolved, that is a separate PR-mode pass.
 - **Dry-run support** — if the user asks for a dry run, pass `--dry-run` on `pr-thread-reply` and `pr-thread-resolve` calls; without it, confirmed actions post for real per the Phase 2/3 flows. In document mode `--dry-run` means no files are edited — show the would-be changes only.
 
+> **Beyond-thread micro fixes:** an explicit user ask for a small fix outside the thread set ("also fix that typo before we finish") is not opportunistic self-initiated work — it may run in-session under the shared [incidental implementation protocol](../common/references/incidental-implementation-protocol.md) (micro ceiling, supervised handback). Self-initiated adjacent improvements remain prohibited per the anti-patterns below.
+
 ---
 
 ## Anti-patterns

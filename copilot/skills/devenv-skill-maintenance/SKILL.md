@@ -66,6 +66,8 @@ When a file path is provided, read that file first and treat it as the primary d
 
 If a reported problem does not fit one of these categories, stop and ask for clarification instead of guessing.
 
+> **Micro-fix lane:** a small bug spotted in the workspace tooling or bash scripts *during* a maintenance session (e.g. while sweeping skills) may be fixed in-session under the shared [incidental implementation protocol](../common/references/incidental-implementation-protocol.md) once the maintenance task itself is complete — explicit ask or offered choice, micro size ceiling, supervised handback. Anything beyond micro routes to `/devenv-pair-programming`, `/devenv-create-plan`, or `/devenv-delegation` per that protocol.
+
 ## Evidence bar (non-negotiable)
 
 The skill system is a foundation for many workflows; a wrong "improvement" is more damaging than no change.

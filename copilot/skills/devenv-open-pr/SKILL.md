@@ -22,6 +22,8 @@ Take a committable phase of work from a plan-driven workflow and open a GitHub P
 
 If a PR already exists and you're responding to feedback, use `/devenv-address-pr-comments`. If you're ending a session without opening a PR yet, use `/devenv-session-handoff`. If you want a code review and don't need a PR opened, use `/devenv-code-review`. If you want the GitHub extension's flow with reviewer suggestions and richer integration, use `/create-pull-request`.
 
+> **Micro-fix lane:** a small fix requested just before shipping ("fix that typo, then open the PR") may run in-session under the shared [incidental implementation protocol](../common/references/incidental-implementation-protocol.md) — micro ceiling, supervised handback; anything bigger routes to `/devenv-pair-programming` first.
+
 ## Event signal
 
 When the PR opens successfully, signal `_on_begin_review <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals-_on_). (The PR-events workflow also fires this; double-signaling is safe.)

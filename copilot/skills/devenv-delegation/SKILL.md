@@ -131,7 +131,7 @@ Ask if not provided: GH issue # or path to a plan markdown.
    2. Compare with the local `<plan_file>` via `diff /tmp/artifact-fresh.md <plan_file>` — identical output means fresh; any difference is drift to review.
    3. If materially different, reconcile before execution (ask user whether to adopt remote, keep local, or merge).
    4. During the same session, treat the local working copy as authoritative unless the user indicates external edits occurred.
-- **No plan or too thin**: refuse delegation. Redirect to `/devenv-create-plan` to draft one first, or `/devenv-refine-plan` if the plan exists but lacks the human-facing sections.
+- **No plan or too thin**: refuse delegation. Redirect to `/devenv-create-plan` to draft one first, or `/devenv-refine-plan` if the plan exists but lacks the human-facing sections. Exception: a genuinely micro commission (below) materializes a stub ledger instead of refusing.
 
 ### 1b. Quick drift check
 
@@ -185,6 +185,24 @@ When handed an ad-hoc decomposed task list — pasted into chat or carried over 
 4. **Route on fail.** If any audit condition fails, refuse the list and recommend `/devenv-create-plan` — audit failure is itself evidence the work needs real planning, not transcription.
 
 A pair-programming conversational chunk list is an agreement about conversation cadence; a delegation ledger is a commissioning document for autonomy. The audit + materialization step is where that difference gets checked — explicitly, not by assumption.
+
+### 2b. Micro commission
+
+When the commissioned work is genuinely **micro** (same definition as the shared [incidental implementation protocol](../common/references/incidental-implementation-protocol.md): one concern, one sitting, observable check — "delegate this one-line doc fix"), the intake collapses to its degenerate form but never disappears. Every delegated run still leaves a plan file on disk; the stub **is** the materialized ledger, however small. "Unattended requires a ledger" has zero exceptions — what collapses is the ceremony around the ledger, not the ledger.
+
+| Standard commission | Micro commission |
+|---|---|
+| Suitability table | Skipped — micro *is* the suitability verdict |
+| Boundary-mode interview | Skipped — one phase, one boundary = the final handback (gate semantics by construction) |
+| Standard plan | **Stub ledger**: single phase, single task, one observable verification line |
+| Phased handbacks | One compact final handback citing the ledger |
+
+Invariants that do **not** relax:
+
+- The stub is a real plan file — same file convention, same ticks, same as-built discipline.
+- Materialization over in-context execution still applies; the anti-pattern above is not waived by smallness.
+- **The wall survives mid-run.** If the work turns out bigger than declared (a second concern, judgment calls, plan-shaped scope), stop and convert: materialize a real plan or re-commission. Never let scope drift silently under the stub.
+- All safety rails unchanged — git prohibition, DEVENV markers, decision gates — and the final handback keeps the standard shape, compact.
 
 ### 3. Suitability analysis
 
@@ -581,6 +599,7 @@ Before declaring a phase complete and handing back, run the committability check
 - A phase handback without **review hotspots** when hotspot-worthy work was done.
 - Auto-proceeding past a gate-mode boundary without user review and approval — or, the mirror defect: stopping and asking for approval at a checkpoint-mode boundary whose evaluation passed, silently reverting the user's commissioned trust grant to gate behavior.
 - Self-granting checkpoint mode or escalating boundary autonomy mid-run — the boundary policy is set at commissioning and changed only by the user, at a handback.
+- Running scope past micro under a micro-commission stub without stopping to convert — the stub ledger covers one concern, one sitting; growth without conversion is silent scope drift under a commission that was never sized for it.
 - Treating checkpoint mode as license to skip the boundary's mechanical work — gates, ledger reconciliation, and the report run in every mode; only the wait is conditional.
 - Treating between-phase requests as out-of-scope — minor work should just be done; larger work should be offered as a plan edit.
 - Silently expanding scope beyond what was delegated.

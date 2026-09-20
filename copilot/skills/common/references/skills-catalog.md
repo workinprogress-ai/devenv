@@ -166,7 +166,7 @@ Orients against README, project structure, runtime entry points or primary docum
 
 > **Close the loop after implementation.**
 
-The inverse of `/devenv-delegation` — this skill provides review assistance for your changes. Produces structured feedback grouped by severity (Blocker / Concern / Nit / Praise) using the same hotspot format as `/devenv-delegation`.
+The inverse of `/devenv-delegation` — this skill provides review assistance for your changes. Produces structured feedback grouped by severity (Blocker / Concern / Nit / Praise) using the same hotspot format as `/devenv-delegation`. After a review completes, micro fixes of its own findings may run in-session (shared [incidental implementation protocol](incidental-implementation-protocol.md)); larger work routes to the execution skills.
 
 **Use for:** reviewing a PR, reviewing a local diff, reviewing code from a feature branch  
 **Don't use for:** addressing comments on your own PR (→ `/devenv-address-pr-comments`)  
