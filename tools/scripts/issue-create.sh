@@ -450,6 +450,28 @@ create_issue() {
             enrich_failed=1
         fi
     fi
+
+    # Workflow integration: native sub-issue link + parent recompute +
+    # birth-status write. All best-effort; failures never block creation.
+    local issue_num="${issue_url##*/}"
+    local wf_lib
+    wf_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/workflow-core.bash"
+    if [ -f "$wf_lib" ]; then
+        # shellcheck source=../lib/workflow-core.bash
+        source "$wf_lib"
+        if [ -n "$PARENT_ISSUE" ]; then
+            issue_link_subissue "$PARENT_ISSUE" "$issue_num" 2>/dev/null \
+                && log_verbose "Linked sub-issue #$issue_num -> #$PARENT_ISSUE"
+            workflow_recompute_parent "$issue_num" 2>/dev/null
+        fi
+        # Birth rule: a Task under a parent is born Ready (its planning is
+        # part of implementation); standalone issues start at TBD.
+        if [ "$ISSUE_TYPE" = "Task" ] && [ -n "$PARENT_ISSUE" ]; then
+            workflow_apply_status "$issue_num" "Ready" child 2>/dev/null
+        else
+            workflow_apply_status "$issue_num" "TBD" child 2>/dev/null
+        fi
+    fi
     
     echo "$issue_url"
     return "$enrich_failed"

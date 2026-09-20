@@ -47,7 +47,7 @@ Complete workflow for managing GitHub Issues, Projects, and Sprints:
 - `issue-list` - List/filter issues
 - `issue-update` - Update issue fields
 - `issue-select` - Interactive issue picker
-- `issue-groom` - Backlog grooming wizard
+- `issue-triage` - Backlog grooming wizard
 - `pr-get` / `pr-list` - Fetch PR data as JSON
 - `pr-comment` - Add comment to a PR
 - `pr-diff` - Get unified diff for PR or local refs

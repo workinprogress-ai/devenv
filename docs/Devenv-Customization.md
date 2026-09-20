@@ -5,6 +5,7 @@ If you've forked this repository for your organization, this guide explains what
 ## Quick Checklist
 
 - ✅ Update `devenv.config` for org identity, container name, workflows, and bootstrap defaults
+- ✅ (If you customize the issue workflow) Read [Issue Workflow](./Issue-Workflow.md) first — the `[workflows]` vocabulary carries engine contracts, documented in its section below.  You will need to re-write [Issue Workflow](./Issue-Workflow.md) to reflect your workflow.
 - ✅ (Optional) Update `copilot/copilot-instructions.md` with organization-specific AI coding guidelines
 - ✅ (Optional) Add custom Copilot skills to `copilot/skills/` for domain-specific workflows
 - ✅ (Optional) Configure shared Copilot knowledge sync in `devenv.config` (`[copilot]` section)
@@ -25,7 +26,7 @@ When forking, you have two options:
 
 ## Copilot Skills
 
-This repository ships with a suite of 15 slash-command skills that cover the full development lifecycle — from issue triage through PR review. They live in `copilot/skills/` and are invoked with `/skill-name` in Copilot Chat.
+This repository ships with a suite of slash-command skills that cover the full development lifecycle — from issue triage through PR review. They live in `copilot/skills/` and are invoked with `/skill-name` in Copilot Chat. The full catalog lives in [docs/Skills.md](./Skills.md); it is the source of truth for what ships, so this guide intentionally does not repeat a count.
 
 See [docs/Skills.md](./Skills.md) for the full catalog and decision tree.
 
@@ -167,10 +168,28 @@ name=YourOrg Dev Environment
 
 ```ini
 [workflows]
-status_workflow=Backlog,Ready,In Progress,In review,Done
+status_workflow=TBD,To-Groom,Ready,Implementing,Review,Merged,Staging,Production
 ```
 
-- **status_workflow**: Your issue flow, ordered
+- **status_workflow**: The issue status vocabulary, ordered. Everything downstream — project boards, the workflow engine, `workflow-signal`, parent status rollup — reads this single key.
+
+This is **not a free-form list**: the engine derives behavior from the vocabulary's shape. If you customize it, keep the contract:
+
+1. **Two ordered halves.** Workflow states first (planning and implementation states), delivery states after (merge/deploy states). The split is the delivery boundary.
+2. **`Implementing` is the load-bearing boundary token.** The engine locates the delivery boundary by looking up `Implementing` in this list — it drives the rollup floor (pre-delivery children of an active parent count as Implementing) and the "workflow states cannot be forced" gate. Keep the token name, or update both lookups in `tools/lib/workflow-core.bash`.
+3. **`TBD` and `Ready` are the birth tokens.** New issues are born at `TBD`; a Task created under a parent is born `Ready`. Renaming either requires updating the birth rule in `tools/scripts/issue-create.sh`.
+4. **`tools/config/skill-events.yml` names statuses too.** Every event's `status:` value must exist in `status_workflow` — rename there in the same change or signals will write statuses no board defines.
+
+Safe rename/reorder procedure:
+
+1. Edit `status_workflow` in `devenv.config`.
+2. Update the matching `status:` values in `tools/config/skill-events.yml`.
+3. If you renamed `Implementing`, `Ready`, or `TBD`, update the boundary lookups in `tools/lib/workflow-core.bash` and the birth rule in `tools/scripts/issue-create.sh`.
+4. Migrate live board cards to the new names (project fields hold the old strings — the engine treats foreign values as unreadable).
+5. Run the test suites (`bats tools/tests/lib tools/tests/scripts`) — the workflow suites fail loudly on contract breaks.
+6. Re-write [Issue Workflow](./Issue-Workflow.md) to reflect the updated status workflow.
+
+Do not duplicate states, and do not interleave the two halves — status derivation (minimum-state rollup) is order-sensitive by design. The semantics each state carries, and what moves a card, are documented in [Issue Workflow](./Issue-Workflow.md); that guide is the model, this section is only the customization contract.
 
 ### [copilot]
 
@@ -283,6 +302,8 @@ Your ruleset JSON file can use these tokens, which are replaced during applicati
 ## GitHub Issue Types Configuration (issue-create.sh)
 
 The `issue-create.sh` tool supports GitHub's native issue types. Issue types are configured in `tools/config/issues-config.yml`, which is the single source of truth for type names, descriptions, and GitHub API IDs.
+
+Type names are **load-bearing** for the workflow model: Features and Bugs are deliverables, Tasks are work toward someone else's change (the only type that nests, and the only one born `Ready` under a parent — `issue-create.sh` string-matches `Task` for that birth rule), and Epics group deliverables. Keep these four names, or update the birth rule and the `planning.type_mapping` consumers when renaming. See [Issue Workflow](./Issue-Workflow.md) for the roles.
 
 ### Configure Issue Types
 
@@ -452,7 +473,7 @@ email_domain=acme.com
 name=Acme Dev Environment
 
 [workflows]
-status_workflow=Backlog,In Progress,Done
+status_workflow=TBD,To-Groom,Ready,Implementing,Review,Merged
 ```
 
 ### Enterprise Organization
@@ -467,7 +488,7 @@ email_domain=megacorp.com
 name=Mega Corp Development Environment
 
 [workflows]
-status_workflow=Backlog,Ready,In Progress,In review,Testing,Done
+status_workflow=TBD,To-Groom,Ready,Implementing,Review,Testing,Merged,Staging,Production
 ```
 
 ## Adding New Tools and Libraries
@@ -503,15 +524,11 @@ For the current shared-library catalog, see [Additional Tooling](./Additional-To
 
 ### Adding a new script
 
-Scripts live in `tools/scripts/<name>.sh` and are exposed via a symlink at `tools/<name>` (without the `.sh` extension).
+Scripts live in `tools/scripts/<name>.sh`. Depth-1 entries at `tools/<name>` (without the `.sh` extension) are generated — not hand-made: `.devcontainer/entry-stubs-sync.sh` (run by bootstrap and by the test runner) creates a stub for every `tools/scripts/` script except underscore-prefixed internal scripts (`_*.sh` get no depth-1 entry — call them via their `tools/scripts/` path). Never hand-edit or hand-create a stub.
 
 1. **Start from the template**: `tooling-create-script <name>` scaffolds the file from `tools/templates/script-template.sh`.
 2. **File location**: `tools/scripts/<group>-<action>.sh`, following the existing `group-action` naming pattern (e.g. `markdown-plan-complete-task.sh`).
-3. **Symlink**: create a relative symlink from `tools/` to the script:
-
-   ```bash
-   ln -s scripts/<name>.sh tools/<name>
-   ```
+3. **Entry point**: none needed by hand — run `.devcontainer/entry-stubs-sync.sh` (or bootstrap) and the `tools/<name>` stub is generated automatically.
 
 4. **Standard structure** (in order):
    - Shebang + header comment (name, version, description, specifications)
@@ -572,7 +589,7 @@ For deeper bootstrap tweaks, see [Bootstrap-Customization.md](./Bootstrap-Custom
 1. Fork the main devenv repository
 2. Create a feature branch
 3. Make your improvements
-4. Ensure all tests pass (`bash tools/tests/run-tests-local.sh`)
+4. Ensure all tests pass (`bash tools/tests/run-devenv-tests.sh`)
 5. Submit a pull request
 
 See the [Tooling Standards](./Tooling-Standards.md) guide for the testing and linting bar your changes must meet.

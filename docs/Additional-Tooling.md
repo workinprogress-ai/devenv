@@ -19,6 +19,40 @@ Public functions:
   - No-op when `copilot/knowledge` is not an initialized git repository.
   - Used by `.devcontainer/startup.sh` so each container start refreshes Copilot knowledge when available.
 
+### `workflow-core.bash`
+
+The workflow state engine: policy and orchestration for issue status. Zero direct I/O — all reads go through `issue-graph.bash`, all writes through the `project-update-issue` fan-out (grep-enforced by test). Sourced by `_on_event_dispatch.sh`, `issue-create.sh`, and the status tooling.
+
+Public functions:
+
+- `workflow_order` / `workflow_status_order <token>`
+  - Vocabulary from `devenv.config [workflows] status_workflow` (or a `WORKFLOW_ORDER_OVERRIDE`), and a token's 1-based position in it.
+- `workflow_compute_rollup <status>...`
+  - Pure min-rollup over child statuses: all pre-delivery → non-zero (parent keeps own state); any delivery state → minimum, pre-delivery children floored at `Implementing`.
+- `workflow_on_event <event> <issue>`
+  - Resolves an event via `tools/config/skill-events.yml` and writes the mapped status (the dispatcher's entire job).
+- `workflow_apply_status <issue> <status> [child|parent]`
+  - Forced/statused writes. `child` (default) rolls the parent up; `parent` cascades to children once and rejects gated (pre-delivery) statuses.
+- `workflow_recompute_parent <issue>`
+  - Re-derives and writes a parent's status from its children (fired on sub-issue linking).
+- `_workflow_write` / `_workflow_rollup_parent_of` / `_workflow_derive_parent_status`
+  - Internal: single guarded write choke point (suppress flag = no upward propagation), change-gated recursive climb.
+
+Tests: `tools/tests/lib/test_workflow_core.bats`, `test_workflow_rollup.bats`.
+
+### `issue-graph.bash`
+
+All issue-hierarchy I/O behind helpers: native sub-issue graph plus legacy body-text parent fallback.
+
+Public functions:
+
+- `issue_link_subissue <parent> <child>` — native `addSubIssue` linkage.
+- `issue_children <parent>` — native sub-issue numbers, one per line (first 50; deliberate limit).
+- `issue_parent <issue>` — native `Issue.parent` first, `Part of #N` body-text fallback for pre-native issues.
+- `issue_read_status <issue>` — first vocabulary-valid Status across the issue's projects; foreign-board values count as unreadable.
+
+Test seam: `ISSUE_GRAPH_TOOLS` overrides where the board-reading script is found. Tests: `tools/tests/lib/test_issue_graph.bats`.
+
 ## Diagnostics
 
 ### `devenv-memory-watch`
@@ -1446,34 +1480,71 @@ issue-artifact-select --issue 42 \
   --format url
 ```
 
-### `issue-groom`
+### `issue-triage`
 
-Interactive issue grooming wizard for backlog management.
+Issue triage for backlog management: an interactive wizard for humans, plus a fully scriptable CLI apply mode for skills and automation. (Formerly `issue-groom` — renamed; triage is the honest name for metadata-level backlog work, distinct from the `/devenv-grooming` design skill.)
+
+**Interactive wizard:**
 
 ```bash
-issue-groom [OPTIONS]
+issue-triage [OPTIONS]
 ```
 
-**Options:**
+Options: `--project NAME`, `--milestone NAME` (filters). The wizard walks issues through review, type/label/milestone/assignee edits, and readiness.
 
-- `--project NAME`: Filter by project
-- `--milestone NAME`: Filter by milestone
+**CLI apply mode** (non-interactive; all requested edits must succeed for exit 0):
 
-**Features:**
+```bash
+issue-triage ISSUE... [--title TEXT] [--body-file FILE] [--milestone NAME] \
+    [--assignee USER] [--label NAME]... [--triage-complete]
+```
 
-- Review issue details
-- Set type (epic/story/bug)
-- Edit title and description
-- Set milestone (sprint)
-- Add assignees and labels
-- Link to parent issues
-- Mark as Ready for implementation
+- Pass one issue for a single bundle, multiple issues for a bulk sweep
+- `--triage-complete` fires the triage-complete event; the Status transition comes from `tools/config/skill-events.yml` (config-sourced, never hardcoded)
+- Example: `issue-triage 44 45 46 --label needs-triage --triage-complete`
 
-**Workflow States:**
+**Workflow States** (sourced from `devenv.config [workflows]`; hyphenated single tokens):
 
-- **TBD**: Newly created, needs refinement
-- **To Groom**: Ready for grooming session
-- **Ready**: Groomed and ready for implementation
+TBD → To-Groom → Ready → Implementing → Review → Merged → Staging → Production
+
+### `workflow-signal`
+
+Manually signal workflow events for one or many issues — the ergonomic front door to the `_on_*` event system. Primary use: deploy-sourced events (`staging-deploy`, `production-deploy`) that have no automatic observer; secondary: any manual correction. Signals pass through the standard dispatch path, so parent rollup, cascade, and loop-guard rules apply automatically. See [Issue Workflow](./Issue-Workflow.md) for the model.
+
+```bash
+workflow-signal                      # interactive: pick "what happened?"
+workflow-signal staging-deploy 101 102   # batch: one event, many issues
+workflow-signal production-deploy 101 begin-review 105 106   # mixed batches
+workflow-signal --list               # available events
+```
+
+Event names accept bare, underscore, hyphen, or full forms (`staging-deploy` = `staging_deploy` = `_on_staging_deploy`).
+
+---
+
+### Skill Event Signals (`_on_*`)
+
+Deterministic lifecycle-event scripts that keep GitHub Project status in sync as work moves through the workflow. Both local tooling and skills fire them; nobody has to think about project status unless they choose to.
+
+```bash
+tools/scripts/_on_begin_grooming.sh 43   # one entry point per lifecycle event
+tools/scripts/_on_merge.sh 43            # fired by merge tooling after a successful merge
+```
+
+These are internal scripts (underscore prefix): they have no depth-1 `tools/` entry and are invoked via their `tools/scripts/` path. Interactive/batch firing goes through `workflow-signal` instead.
+
+**Events**: `_on_triage_complete` (backlog triage done → candidate for design grooming), then begin/end pairs per phase: `_on_begin_grooming`, `_on_end_grooming`, `_on_begin_planning`, `_on_end_planning`, `_on_begin_implementation`, `_on_end_implementation`, `_on_begin_review`, `_on_end_review`, `_on_merge`.
+
+**Trigger points:**
+
+- Skills fire them at lifecycle boundaries (grooming completion, plan approval, implementation kickoff, PR open, review completion)
+- Local PR tooling fires `_on_begin_review` when a PR is created via `pr-create-for-merge` and `_on_merge` when a merge completes via `pr-merge-pull-request` / `pr-complete-merge`
+- Issues are linked via closing keywords in the PR body (`Closes #N`, `Fixes #N`, …), deduplicated, capped at 10 per PR
+- Everything is local: signals run under your own `gh` authentication (keychain). Web-UI merges fire nothing — status changes you make outside local tooling are your own
+
+**Guarantees:** best-effort (signals exit 0 and never block work), idempotent (re-signaling repairs drift), config-driven (Status values live in `tools/config/skill-events.yml` + `devenv.config [workflows]` — callers never name statuses or projects).
+
+**Which project/PR tools participate:** `pr-create-for-merge` (open), `pr-merge-pull-request` and `pr-complete-merge` (merge, via the shared `merge_pr` path). `pr-create-for-review` does **not** fire signals — its PRs are non-mergeable review artifacts, not a review-lifecycle boundary.
 
 ### `project-add-issue`
 
@@ -2833,7 +2904,7 @@ The following convenience aliases are available in the dev container:
 - `issue-update` - Update issue fields
 - `issue-close` - Close or reopen issues
 - `issue-select` - Interactive issue selection with fzf
-- `issue-groom` - Interactive grooming wizard
+- `issue-triage` - Interactive grooming wizard
 
 **Project Management:**
 

@@ -30,6 +30,8 @@ script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Update GitHub Project issues"
 PROJECT_NAME=""
 ISSUE_NUMBER=""
 FIELD_UPDATES=()
+ALL_PROJECTS=0
+SAFE_MODE=0
 STATUS_WORKFLOW=()
 DRY_RUN=0
 # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
@@ -60,7 +62,9 @@ load_status_workflow() {
         exit 1
     fi
     
-    # Convert space-separated to array
+    # config_read_array normalizes the comma-separated config value to a
+    # space-separated token stream; vocabulary tokens are hyphenated
+    # single words (no spaces), so whitespace splitting is exact.
     read -ra STATUS_WORKFLOW <<< "$workflow_str"
 }
 
@@ -89,6 +93,11 @@ Field Updates:
                                 Valid: TBD, To Groom, Ready, Implementing, Review, 
                                        Merged, Staging, Production
     --field NAME=VALUE          Set custom field value (can be specified multiple times)
+    --all-projects              Fan the status update out to EVERY project
+                                containing the issue (strict: errors when the
+                                issue is in no projects)
+    --safe                      With --all-projects: zero membership becomes a
+                                no-op success (used by skill event scripts)
     --list-fields               List all available fields in the project
     --devenv                    Safety override to manage projects in devenv repo
 
@@ -160,6 +169,66 @@ validate_status() {
     return 1
 }
 
+# Update issue status in EVERY project containing the issue (fan-out).
+# Strict by default: zero membership is an error. --safe downgrades that to
+# a no-op success (skills always pass --safe). Projects without a Status
+# field are skipped and reported; exit 0 when at least one project updated.
+update_status_all_projects() {
+    local status="$1"
+
+    local repo_spec owner repo issue_url
+    repo_spec=$(resolve_target_repo) || return 1
+    owner="${repo_spec%%/*}"
+    repo="${repo_spec#*/}"
+    issue_url="https://github.com/$owner/$repo/issues/$ISSUE_NUMBER"
+
+    # Reverse lookup: all containing projects + current status.
+    # A lookup FAILURE is distinct from zero membership: fail the run
+    # (strict) or report-and-fail (--safe never lies about success).
+    local projects
+    if ! projects=$(projects_for_issue "$issue_url" "$owner"); then
+        if [ "$SAFE_MODE" -eq 1 ]; then
+            log_warn "project lookup failed for issue #$ISSUE_NUMBER - skipping status update (--safe reports, never lies)"
+        else
+            log_error "project lookup failed for issue #$ISSUE_NUMBER"
+        fi
+        return 1
+    fi
+
+    if [ -z "$projects" ]; then
+        if [ "$SAFE_MODE" -eq 1 ]; then
+            log_info "Issue #$ISSUE_NUMBER is in no projects - nothing to update (--safe)"
+            return 0
+        fi
+        log_error "Issue #$ISSUE_NUMBER is in no projects (use --safe to tolerate this)"
+        return 1
+    fi
+
+    local updated=0 failed=0
+    while IFS=$'\t' read -r proj_title proj_num proj_status; do
+        [ -n "$proj_title" ] || continue
+        if [ "$proj_status" = "$status" ]; then
+            log_info "Project '$proj_title' ($proj_num): already Status='$status' (idempotent skip)"
+            ((++updated))
+            continue
+        fi
+        # Route through the single-project path for the actual write.
+        PROJECT_NAME="$proj_num"
+        if update_status "$status"; then
+            ((++updated))
+        else
+            ((++failed))
+        fi
+    done <<< "$projects"
+
+    if [ "$updated" -eq 0 ]; then
+        log_error "No project updated for issue #$ISSUE_NUMBER (updated=$updated failed=$failed)"
+        return 1
+    fi
+    [ "$failed" -gt 0 ] && log_warn "Partial: updated=$updated failed=$failed for issue #$ISSUE_NUMBER"
+    return 0
+}
+
 # Update issue status in project
 update_status() {
     local status="$1"
@@ -175,23 +244,35 @@ update_status() {
         return 0
     fi
     
-    # For now, provide instructions since gh CLI doesn't directly support field updates
-    log_info "Status update requested: $status"
-    log_info "Note: Project field updates require GraphQL API or web UI"
-    log_info "To update manually:"
-    log_info "  1. Visit: https://github.com/orgs/$(get_repo_owner)/projects"
-    log_info "  2. Open project: $PROJECT_NAME"
-    log_info "  3. Find issue #$ISSUE_NUMBER"
-    log_info "  4. Set Status to: $status"
-    
-    # TODO: Implement GraphQL mutation to update project item field
-    # This requires:
-    # 1. Get project ID from name
-    # 2. Get project item ID for the issue
-    # 3. Get field ID for Status field
-    # 4. Get option ID for the status value
-    # 5. Execute updateProjectV2ItemFieldValue mutation
-    
+    # Real write path: resolve IDs (project, item, field, option) and mutate.
+    local repo_spec owner repo issue_url
+    repo_spec=$(resolve_target_repo) || return 1
+    owner="${repo_spec%%/*}"
+    repo="${repo_spec#*/}"
+    issue_url="https://github.com/$owner/$repo/issues/$ISSUE_NUMBER"
+
+    local project_id item_id field_id option_id
+    project_id=$(project_id_by_name "$owner" "$PROJECT_NAME") || {
+        log_error "Project '$PROJECT_NAME' not found for owner '$owner'"
+        return 1
+    }
+    item_id=$(project_item_id_for_issue "$project_id" "$ISSUE_NUMBER") || {
+        log_error "Issue #$ISSUE_NUMBER is not in project '$PROJECT_NAME'"
+        return 1
+    }
+    field_id=""
+    option_id=""
+    read -r field_id option_id <<< "$(project_field_and_option_ids "$project_id" "Status" "$status")"
+    if [ -z "$field_id" ] || [ -z "$option_id" ]; then
+        log_error "Status option '$status' not found in project '$PROJECT_NAME'"
+        return 1
+    fi
+
+    update_project_item_field "$project_id" "$item_id" "$field_id" "$option_id" || {
+        log_error "Failed to set Status='$status' for issue #$ISSUE_NUMBER in '$PROJECT_NAME'"
+        return 1
+    }
+    log_info "Set Status='$status' for issue #$ISSUE_NUMBER in project '$PROJECT_NAME'"
     return 0
 }
 
@@ -222,6 +303,7 @@ list_project_fields() {
 main() {
     local list_fields=0
     local status_value=""
+    POSITIONAL_ARGS=()
     
     # Load status workflow from config
     load_status_workflow
@@ -233,22 +315,17 @@ main() {
         exit 1
     fi
     
-    # First argument is project name
-    if [[ ! "$1" =~ ^- ]]; then
-        PROJECT_NAME="$1"
-        shift
-    fi
-    
-    # Second argument is issue number
-    if [[ $# -gt 0 ]] && [[ "$1" =~ ^[0-9]+$ ]]; then
-        ISSUE_NUMBER="$1"
-        shift
-    fi
-    
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -h|--help)
                 show_usage
+                ;;
+            --)  # end of options: everything after is positional
+                shift
+                while [[ $# -gt 0 ]]; do
+                    POSITIONAL_ARGS+=("$1")
+                    shift
+                done
                 ;;
             -v|--version)
                 echo "$SCRIPT_VERSION"
@@ -267,6 +344,14 @@ main() {
                 status_value="$2"
                 shift 2
                 ;;
+            --all-projects)
+                ALL_PROJECTS=1
+                shift
+                ;;
+            --safe)
+                SAFE_MODE=1
+                shift
+                ;;
             --field)
                 FIELD_UPDATES+=("$2")
                 shift 2
@@ -281,15 +366,31 @@ main() {
                 shift
                 ;;
             *)
-                log_error "Unknown option: $1"
-                echo "Use --help for usage information"
-                exit 1
+                # Bare positionals: [PROJECT_NAME] ISSUE_NUMBER (fan-out mode
+                # may pass only the issue number). Collect, don't error.
+                POSITIONAL_ARGS+=("$1")
+                shift
                 ;;
         esac
     done
     
-    # Validate required arguments
-    if [ -z "$PROJECT_NAME" ]; then
+    # Positionals (remaining argv): [PROJECT_NAME] ISSUE_NUMBER. Under
+    # --all-projects a lone numeric positional is the issue (the project is
+    # discovered from the issue).
+    if [[ ${#POSITIONAL_ARGS[@]} -gt 0 ]]; then
+        if [[ "$ALL_PROJECTS" -eq 1 && ${#POSITIONAL_ARGS[@]} -eq 1 && "${POSITIONAL_ARGS[0]}" =~ ^[0-9]+$ ]]; then
+            ISSUE_NUMBER="${POSITIONAL_ARGS[0]}"
+        else
+            PROJECT_NAME="${POSITIONAL_ARGS[0]}"
+            if [[ ${#POSITIONAL_ARGS[@]} -gt 1 && "${POSITIONAL_ARGS[1]}" =~ ^[0-9]+$ ]]; then
+                ISSUE_NUMBER="${POSITIONAL_ARGS[1]}"
+            fi
+        fi
+    fi
+
+    # Validate required arguments (single-project mode needs PROJECT_NAME;
+    # --all-projects discovers projects from the issue so it does not).
+    if [ "$ALL_PROJECTS" -ne 1 ] && [ -z "$PROJECT_NAME" ]; then
         log_error "Project name is required"
         exit 1
     fi
@@ -312,9 +413,13 @@ main() {
         exit 1
     fi
     
-    # Update status if provided
+    # Update status if provided (fan-out or single-project)
     if [ -n "$status_value" ]; then
-        update_status "$status_value"
+        if [ "$ALL_PROJECTS" -eq 1 ]; then
+            update_status_all_projects "$status_value"
+        else
+            update_status "$status_value"
+        fi
     fi
     
     # Update custom fields if provided

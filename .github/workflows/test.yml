@@ -30,7 +30,7 @@ jobs:
           echo "PROJECT_ROOT=$GITHUB_WORKSPACE" >> $GITHUB_ENV
       
       - name: Run tests
-        run: ./tools/tests/run-tests-local.sh
+        run: ./tools/tests/run-devenv-tests.sh
         
       - name: Lint scripts
         run: ./tools/scripts/lint-scripts.sh

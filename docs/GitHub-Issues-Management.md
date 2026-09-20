@@ -4,6 +4,13 @@ This guide covers the complete GitHub Issues workflow in Devenv, from issue crea
 
 > **Division between the two issue docs:** this guide owns the *workflow and concepts* (types, status model, hierarchy, practices). For command syntax and quick lookups, [GitHub Issues Quick Reference](./GitHub-Issues-Quick-Reference.md) is canonical — its command tables are the maintained source; the command snippets here illustrate workflow context.
 
+## Issue Workflow (canonical)
+
+Status semantics, the two state sources (workflow signals vs deploys), parent
+rollup, and what may be forced are defined canonically in
+[Issue Workflow](./Issue-Workflow.md); this page keeps the management
+procedures and defers to it.
+
 ## Table of Contents
 
 1. [Workflow Overview](#workflow-overview)
@@ -162,9 +169,9 @@ Issues in GitHub Projects use a Status field with 8 states:
 - May lack acceptance criteria
 - Not assigned to anyone
 
-**Transition to:** To Groom (when ready for refinement)
+**Transition to:** To-Groom (when ready for refinement)
 
-### 2. **To Groom** (Ready for Grooming)
+### 2. **To-Groom** (Ready for Grooming)
 
 - Ready for backlog grooming session
 - Has basic description
@@ -250,7 +257,7 @@ Issues in GitHub Projects use a Status field with 8 states:
 
 ```bash
 # 1. Groom issues (interactive)
-issue-groom --milestone "Sprint 5"
+issue-triage --milestone "Sprint 5"
 
 # 2. Assign groomed issues to sprint
 issue-update 123 --milestone "Sprint 6"
@@ -306,7 +313,7 @@ project-update-issue "Q1 2026" $issue_num --status "Production"
 issue-list --state open --label "status:tbd" --limit 50
 
 # 2. Start interactive grooming session
-issue-groom
+issue-triage
 
 # 3. For each issue, the wizard will help you:
 #    - Set type (epic/story/bug)
@@ -319,7 +326,7 @@ issue-groom
 
 # 4. After grooming, move to project
 project-add-issue "Q1 2026" 42 43 44 45
-project-update-issue "Q1 2026" 42 --status "To Groom"
+project-update-issue "Q1 2026" 42 --status "To-Groom"
 ```
 
 ### Finding and Filtering Issues
@@ -556,10 +563,10 @@ project-update-issue PROJECT_NAME ISSUE# [--status STATUS] \
 
 ### Grooming & Workflow
 
-**`issue-groom`** - Interactive grooming wizard
+**`issue-triage`** - Interactive grooming wizard
 
 ```bash
-issue-groom [--project NAME] [--milestone NAME]
+issue-triage [--project NAME] [--milestone NAME]
 ```
 
 ## Examples
@@ -607,7 +614,7 @@ issue-create --title "PayPal Integration" --type Task \
 project-add-issue "Q1 2026" 100 101 102
 
 # 4. Set statuses
-project-update-issue "Q1 2026" 100 --status "To Groom"
+project-update-issue "Q1 2026" 100 --status "To-Groom"
 project-update-issue "Q1 2026" 101 --status "Ready"
 ```
 
@@ -731,11 +738,11 @@ project-update-issue "Q1 2026" 150 --status "Production"
 
 ### Grooming
 
-1. **Do grooming as a team**: Use `issue-groom` wizard together
+1. **Do grooming as a team**: Use `issue-triage` wizard together
 2. **Estimate effort**: Add labels for story points if using
 3. **Add priority**: Use labels: `priority:critical`, `priority:high`, `priority:medium`, `priority:low`
 4. **Identify blockers**: Add label `blocked` and comment on blocking issues
-5. **Mark TBD → To Groom → Ready**: Follow the workflow progression
+5. **Mark TBD → To-Groom → Ready**: Follow the workflow progression
 
 ### Status Management
 

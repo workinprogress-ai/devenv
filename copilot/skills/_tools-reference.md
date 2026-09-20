@@ -581,20 +581,20 @@ issue-select --multi --milestone "Sprint 5"
 
 ---
 
-### issue-groom
+### issue-triage
 
 Interactive issue grooming wizard for backlog management.
 
 ```
-issue-groom [--project NAME] [--milestone NAME]
+issue-triage [--project NAME] [--milestone NAME]
 ```
 
 Examples:
 
 ```bash
-issue-groom
-issue-groom --project "Q1 2026"
-issue-groom --milestone "Sprint 5"
+issue-triage
+issue-triage --project "Q1 2026"
+issue-triage --milestone "Sprint 5"
 ```
 
 ---
@@ -983,6 +983,23 @@ Examples:
 project-update-issue "Q1 2026" 123 --status "Ready"
 project-update-issue "Sprint 5" 123 --field "Priority=High"
 ```
+
+---
+
+### `_on_<event>` (skill event signals)
+
+Skill lifecycle event signals — a tooling class, not CRUD wrappers. Internal scripts (`tools/scripts/_on_*.sh`: `_on_triage_complete`, begin/end pairs per lifecycle phase, merge/deploy events) delegating to `tools/scripts/_on_event_dispatch.sh`, which reads `tools/config/skill-events.yml` and fans the Status transition out through `project-update-issue --all-projects --safe`. Underscore-prefixed scripts are internal: no depth-1 `tools/` entries — call them via their `tools/scripts/` path or through `workflow-signal`.
+
+```bash
+tools/scripts/_on_<event>.sh ISSUE_NUMBER   # internal path, no depth-1 entry
+tools/scripts/_on_begin_grooming.sh 43
+```
+
+Key facts:
+
+- Best-effort: always exit 0 for skill flows; failures warn, never block. Idempotent — re-signaling repairs drift.
+- Skills know only the event name + issue number. Never read the config, never name projects, never contain Status vocabulary (see [_conventions.md](./_conventions.md#skill-event-signals-_on_)).
+- Trigger points: skill lifecycle boundaries (wired per skill) and local PR tooling (`_on_begin_review` on PR open via `pr-create-for-merge`, `_on_merge` on merge via the merge wrappers). Manual/interactive firing: `workflow-signal` (batching + deploy events). Full model: the repo's `docs/Issue-Workflow.md`.
 
 ---
 

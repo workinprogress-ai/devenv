@@ -32,7 +32,7 @@ TOOLS_DIR="${BATS_TEST_DIRNAME}/../../.."
 }
 
 @test "pattern: harness uses the canonical line" {
-    grep -qF "$CANONICAL_LINE" "${BATS_TEST_DIRNAME}/../run-tests-local.sh"
+    grep -qF "$CANONICAL_LINE" "${BATS_TEST_DIRNAME}/../run-devenv-tests.sh"
 }
 
 @test "pattern: the old _srl depth probe is gone from all of tools/" {

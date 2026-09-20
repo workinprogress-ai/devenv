@@ -1,0 +1,45 @@
+# Skill Event Configuration
+# Maps skill lifecycle events to GitHub Project Status transitions.
+# Consumed by the _on_* event scripts (tools/scripts/_on_event_dispatch.sh);
+# skills call the events and never read this file or know Status vocabulary.
+#
+# Event names follow the begin/end pair convention, one event per lifecycle
+# phase, plus _on_triage_complete (backlog triage done -> candidate for
+# design grooming): _on_begin_grooming, _on_end_grooming, _on_begin_planning,
+# _on_end_planning, _on_begin_implementation, _on_end_implementation,
+# _on_begin_review, _on_end_review, _on_merge.
+#
+# status values MUST be hyphenated single tokens drawn from devenv.config
+# [workflows] status_workflow. Unknown events warn and no-op (best-effort:
+# status plumbing never blocks skill work).
+#
+# Schema (events map, keyed by event name):
+# events:
+#   _on_begin_grooming:
+#     status: <hyphenated status token>
+
+events:
+  _on_triage_complete:
+    status: To-Groom
+  _on_begin_grooming:
+    status: To-Groom
+  _on_end_grooming:
+    status: Ready
+  _on_begin_planning:
+    status: Ready
+  _on_end_planning:
+    status: Ready
+  _on_begin_implementation:
+    status: Implementing
+  _on_end_implementation:
+    status: Review
+  _on_begin_review:
+    status: Review
+  _on_end_review:
+    status: Merged
+  _on_merge:
+    status: Merged
+  _on_staging_deploy:
+    status: Staging
+  _on_production_deploy:
+    status: Production

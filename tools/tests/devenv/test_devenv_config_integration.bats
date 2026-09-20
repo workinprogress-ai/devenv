@@ -50,9 +50,15 @@ EOF
 @test "devenv.config: workflows section has status_workflow" {
     run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $PROJECT_ROOT/devenv.config && config_read_array workflows status_workflow"
     [ "$status" -eq 0 ]
-    [[ "$output" =~ Backlog ]]
+    # 8-state kanban, hyphenated single tokens
+    [[ "$output" =~ TBD ]]
+    [[ "$output" =~ To-Groom ]]
     [[ "$output" =~ Ready ]]
-    [[ "$output" =~ Done ]]
+    [[ "$output" =~ Implementing ]]
+    [[ "$output" =~ Review ]]
+    [[ "$output" =~ Merged ]]
+    [[ "$output" =~ Staging ]]
+    [[ "$output" =~ Production ]]
 }
 
 @test "devenv.config: copilot section has required knowledge keys" {
@@ -129,23 +135,23 @@ EOF
     [ "$status" -eq 0 ]
 }
 
-@test "issue-groom.sh: sources config-reader library" {
-    run grep 'source.*config-reader.bash' "$PROJECT_ROOT/tools/scripts/issue-groom.sh"
+@test "issue-triage.sh: sources config-reader library" {
+    run grep 'source.*config-reader.bash' "$PROJECT_ROOT/tools/scripts/issue-triage.sh"
     [ "$status" -eq 0 ]
 }
 
-@test "issue-groom.sh: sources issue-operations library" {
-    run grep 'source.*issue-operations.bash' "$PROJECT_ROOT/tools/scripts/issue-groom.sh"
+@test "issue-triage.sh: sources issue-operations library" {
+    run grep 'source.*issue-operations.bash' "$PROJECT_ROOT/tools/scripts/issue-triage.sh"
     [ "$status" -eq 0 ]
 }
 
-@test "issue-groom.sh: has initialize_issue_types function" {
-    run grep "^initialize_issue_types()" "$PROJECT_ROOT/tools/scripts/issue-groom.sh"
+@test "issue-triage.sh: has initialize_issue_types function" {
+    run grep "^initialize_issue_types()" "$PROJECT_ROOT/tools/scripts/issue-triage.sh"
     [ "$status" -eq 0 ]
 }
 
-@test "issue-groom.sh: calls initialize_issue_types in main" {
-    run bash -c "grep -A 5 '^main()' $PROJECT_ROOT/tools/scripts/issue-groom.sh | grep -q 'initialize_issue_types'"
+@test "issue-triage.sh: calls initialize_issue_types in main" {
+    run bash -c "grep -A 5 '^main()' $PROJECT_ROOT/tools/scripts/issue-triage.sh | grep -q 'initialize_issue_types'"
     [ "$status" -eq 0 ]
 }
 

@@ -21,7 +21,7 @@ cd repos/devenv
 ## Running devenv's own tests
 
 ```bash
-bash tools/tests/run-tests-local.sh
+bash tools/tests/run-devenv-tests.sh
 ```
 
 Scripts resolve their tools root from their own location (the self-root
@@ -38,7 +38,7 @@ The short-name commands in `tools/` (e.g. `issue-get`, `plan-parse`) are **gener
 exec bash "$(dirname "$0")/scripts/issue-get.sh" "$@"
 ```
 
-They are owned by the idempotent `.devcontainer/entry-stubs-sync.sh`, which bootstrap runs: it creates a stub for every `tools/scripts/` script (no exclusions), converts stale symlinks, and is a no-op when everything is in sync. Never hand-edit a stub — edit the real script in `tools/scripts/` and re-run the sync if you added a new script.
+They are owned by the idempotent `.devcontainer/entry-stubs-sync.sh`, which bootstrap runs: it creates a stub for every `tools/scripts/` script except underscore-prefixed internal scripts (`_*.sh` — those are invoked via their `tools/scripts/` path directly and get no depth-1 entry; stale stubs for them are removed), converts stale symlinks, links the test runner as `tools/run-devenv-tests`, and is a no-op when everything is in sync. Never hand-edit a stub — edit the real script in `tools/scripts/` and re-run the sync if you added a new script.
 
 ## Committing
 

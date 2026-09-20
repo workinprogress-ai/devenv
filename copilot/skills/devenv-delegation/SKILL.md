@@ -62,6 +62,10 @@ Do **not** use for:
 12. **Durable artifact naming must be phase-agnostic.** Never name a persistent repository artifact (files, classes, methods, test fixtures) from transient execution labels such as phase, step, milestone, or task numbers. Name by stable domain concept or behavior family. If a phase-derived name is temporarily unavoidable, mark it with `FIXME(DEVENV[plan-key])` and add explicit cleanup work before completion.
 13. **Temporary bridge code always gets a plan-bounded DEVENV FIXME and a removal plan.** Any temporary bridge or scaffold must receive a `FIXME(DEVENV[plan-key]): ...` marker at the exact code location, plus a corresponding plan item naming the removal phase/task and the expected cleanup point. The plan must say when and where the temporary code will be removed, not merely that it is temporary.
 
+## Event signal
+
+At phase kickoff of the first implementation phase, signal `_on_begin_implementation <issue-number>`; at PR open (or equivalent review handoff), signal `_on_begin_review <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals-_on_). Never surface event-signal output as a task ping.
+
 ## Personality
 
 Slightly more reserved than pair-programming. Less chitchat, more execution focus.

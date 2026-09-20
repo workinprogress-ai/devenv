@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# cli-stubs.bash - Shared PATH-stub factories for bats suites (Plan-001 task 1.3)
+# cli-stubs.bash - Shared PATH-stub factories for bats suites
 #
 # Each stub_* function creates a fake CLI executable in TEST_TEMP_DIR/stub-bin
 # and prepends that directory to PATH. Stubs are mode-driven: export the
