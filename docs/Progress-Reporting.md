@@ -4,6 +4,8 @@ How progress is tracked and reported in this workspace — the doctrine behind `
 
 ## The doctrine: progress is a derived view
 
+Status and progress are never maintained by hand: issue status is signal-driven (with parents derived from children — see [Issue Workflow](./Issue-Workflow.md)), and every progress view below is computed from artifacts, never authored.
+
 Progress is **computed, never stored**. Ground truth lives in exactly five places:
 
 1. Task checkboxes in plans (`[x]` / `[ ]`)

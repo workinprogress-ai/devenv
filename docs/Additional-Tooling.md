@@ -19,6 +19,40 @@ Public functions:
   - No-op when `copilot/knowledge` is not an initialized git repository.
   - Used by `.devcontainer/startup.sh` so each container start refreshes Copilot knowledge when available.
 
+### `workflow-core.bash`
+
+The workflow state engine: policy and orchestration for issue status. Zero direct I/O — all reads go through `issue-graph.bash`, all writes through the `project-update-issue` fan-out (grep-enforced by test). Sourced by `_on_event_dispatch.sh`, `issue-create.sh`, and the status tooling.
+
+Public functions:
+
+- `workflow_order` / `workflow_status_order <token>`
+  - Vocabulary from `devenv.config [workflows] status_workflow` (or a `WORKFLOW_ORDER_OVERRIDE`), and a token's 1-based position in it.
+- `workflow_compute_rollup <status>...`
+  - Pure min-rollup over child statuses: all pre-delivery → non-zero (parent keeps own state); any delivery state → minimum, pre-delivery children floored at `Implementing`.
+- `workflow_on_event <event> <issue>`
+  - Resolves an event via `tools/config/skill-events.yml` and writes the mapped status (the dispatcher's entire job).
+- `workflow_apply_status <issue> <status> [child|parent]`
+  - Forced/statused writes. `child` (default) rolls the parent up; `parent` cascades to children once and rejects gated (pre-delivery) statuses.
+- `workflow_recompute_parent <issue>`
+  - Re-derives and writes a parent's status from its children (fired on sub-issue linking).
+- `_workflow_write` / `_workflow_rollup_parent_of` / `_workflow_derive_parent_status`
+  - Internal: single guarded write choke point (suppress flag = no upward propagation), change-gated recursive climb.
+
+Tests: `tools/tests/lib/test_workflow_core.bats`, `test_workflow_rollup.bats`.
+
+### `issue-graph.bash`
+
+All issue-hierarchy I/O behind helpers: native sub-issue graph plus legacy body-text parent fallback.
+
+Public functions:
+
+- `issue_link_subissue <parent> <child>` — native `addSubIssue` linkage.
+- `issue_children <parent>` — native sub-issue numbers, one per line (first 50; deliberate limit).
+- `issue_parent <issue>` — native `Issue.parent` first, `Part of #N` body-text fallback for pre-native issues.
+- `issue_read_status <issue>` — first vocabulary-valid Status across the issue's projects; foreign-board values count as unreadable.
+
+Test seam: `ISSUE_GRAPH_TOOLS` overrides where the board-reading script is found. Tests: `tools/tests/lib/test_issue_graph.bats`.
+
 ## Diagnostics
 
 ### `devenv-memory-watch`
@@ -1472,6 +1506,21 @@ issue-triage ISSUE... [--title TEXT] [--body-file FILE] [--milestone NAME] \
 **Workflow States** (sourced from `devenv.config [workflows]`; hyphenated single tokens):
 
 TBD → To-Groom → Ready → Implementing → Review → Merged → Staging → Production
+
+### `workflow-signal`
+
+Manually signal workflow events for one or many issues — the ergonomic front door to the `_on_*` event system. Primary use: deploy-sourced events (`staging-deploy`, `production-deploy`) that have no automatic observer; secondary: any manual correction. Signals pass through the standard dispatch path, so parent rollup, cascade, and loop-guard rules apply automatically. See [Issue Workflow](./Issue-Workflow.md) for the model.
+
+```bash
+workflow-signal                      # interactive: pick "what happened?"
+workflow-signal staging-deploy 101 102   # batch: one event, many issues
+workflow-signal production-deploy 101 begin-review 105 106   # mixed batches
+workflow-signal --list               # available events
+```
+
+Event names accept bare, underscore, hyphen, or full forms (`staging-deploy` = `staging_deploy` = `_on_staging_deploy`).
+
+---
 
 ### Skill Event Signals (`_on_*`)
 

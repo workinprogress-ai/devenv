@@ -999,7 +999,7 @@ Key facts:
 
 - Best-effort: always exit 0 for skill flows; failures warn, never block. Idempotent — re-signaling repairs drift.
 - Skills know only the event name + issue number. Never read the config, never name projects, never contain Status vocabulary (see [_conventions.md](./_conventions.md#skill-event-signals-_on_)).
-- Trigger points: skill lifecycle boundaries (wired per skill) and, later, the PR-events workflow (`_on_begin_review` on PR open, `_on_merge` on merge).
+- Trigger points: skill lifecycle boundaries (wired per skill) and local PR tooling (`_on_begin_review` on PR open via `pr-create-for-merge`, `_on_merge` on merge via the merge wrappers). Manual/interactive firing: `workflow-signal` (batching + deploy events). Full model: the repo's `docs/Issue-Workflow.md`.
 
 ---
 

@@ -557,7 +557,7 @@ Skills maintain GitHub Project issue status as a side effect of their lifecycle 
 - **Placement rule:** invoke at existing lifecycle boundaries (intake confirmation, phase handoffs, wrap-up) — do not create new interactive gates for status updates.
 - **Charter boundary:** events absorb deterministic, content-free, cross-cutting side effects — nothing that requires authored content or judgment. The moment an event handler would need to write prose or decide *whether* to act, that work belongs to the skill, not the event.
 
-Canonical tooling reference: [`_tools-reference.md`](./_tools-reference.md) (`_on_*` entry points, `_on_event_dispatch.sh`).
+Canonical tooling reference: [`_tools-reference.md`](./_tools-reference.md) (`_on_*` entry points, `_on_event_dispatch.sh`, `workflow-signal` for manual/interactive firing). The human-facing model — types, status semantics, parent rollup — is documented canonically in the repo's `docs/Issue-Workflow.md`.
 
 ## Open Questions Log (Q-NNN)
 

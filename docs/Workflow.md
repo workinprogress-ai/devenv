@@ -57,7 +57,7 @@ Progress note: progress at any layer is a **derived view** over ground truth (ta
 
 ## Default delivery flow
 
-This is the normal happy path.
+This is the normal happy path. The artifacts flow through skills; in parallel, the issues carrying them advance through the status column — triaged, groomed, implemented, reviewed, merged, deployed — driven by the signals those same skills and tools fire. The card mechanics (what moves a status, how parents track children) are defined in [Issue Workflow](./Issue-Workflow.md); this page covers the artifact flow.
 
 ```text
 Raw idea / request

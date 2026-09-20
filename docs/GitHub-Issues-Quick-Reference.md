@@ -196,22 +196,28 @@ project-update-issue "Q1 2026" 123 --status "Ready"
 
 ## Status Workflow
 
+Status is a single ordered column with two halves: workflow states (TBD → Review) advanced by work signals, and deployment states (Merged → Production) advanced by deploys. Most transitions fire automatically from skills and PR tooling; parents of decomposed work derive their status from children. See [Issue Workflow](./Issue-Workflow.md) for the full model.
+
 ```text
-TBD → To Groom → Ready → Implementing → Review → Merged → Staging → Production
-                                                                      ↓
-                                                            (Auto-closes)
+TBD → To-Groom → Ready → Implementing → Review → Merged → Staging → Production
+     (workflow signals)                        (deploys / workflow-signal)
 ```
 
-### Set Status
+### Signal an event (preferred way to move a card)
 
 ```bash
-project-update-issue "Project" 123 --status "Ready"
-project-update-issue "Project" 123 --status "Implementing"
-project-update-issue "Project" 123 --status "Review"
-project-update-issue "Project" 123 --status "Merged"
-project-update-issue "Project" 123 --status "Staging"
-project-update-issue "Project" 123 --status "Production"
+workflow-signal begin-implementation 123
+workflow-signal production-deploy 101 102   # batch
+workflow-signal                             # interactive: pick "what happened"
 ```
+
+### Set Status directly (forced writes; delivery states only)
+
+```bash
+project-update-issue 123 --status "Implementing" --all-projects
+```
+
+Workflow states cannot be forced — they advance only by their own signals.
 
 ## Sprint Management
 
@@ -326,7 +332,7 @@ issue-list --type Task --milestone "Sprint 5" --assignee none
 
 ### Issue Won't Close When Set to Production
 
-✅ Solution: Issue auto-closes when Status field set to "Production" in project
+✅ Solution: closing remains an explicit act (issue-close or the closing PR); status reaching Production does not auto-close
 
 - Must be in project first: `project-add-issue "Project" 123`
 - Then set status: `project-update-issue "Project" 123 --status "Production"`

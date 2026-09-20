@@ -87,8 +87,8 @@ load ../test_helper
 }
 
 # ---------------------------------------------------------------------------
-# Characterization test (tooling plan Phase 1) — pins issue-comment's current
-# no-source error so Phase 4 body-source conversion is a provable delta.
+# Characterization test — pins issue-comment's current no-source error
+# contract so future changes to comment sourcing are a provable delta.
 # ---------------------------------------------------------------------------
 
 @test "characterization: issue-comment fails when no comment source is provided" {
@@ -187,4 +187,103 @@ EOF
   # verify and close must both target the cwd-derived repo via -R, split correctly
   [ "$(grep -cx -- "-R" "$GH_CALL_LOG")" -ge 2 ]
   [ "$(grep -cx -- "test-org/test-repo" "$GH_CALL_LOG")" -ge 2 ]
+}
+
+
+# Birth-rule orchestration: issue-create's post-create block must link the
+# sub-issue, then write the birth status via the workflow library's choke
+# point — Ready for a Task with a parent, TBD otherwise. The workflow
+# libraries are seam-stubbed (WORKFLOW_CORE_TOOLS); assertions are on the
+# wrapper argv the choke point invokes.
+
+# Shared harness: full create flow with gh stubbed at every transport.
+# Records every gh invocation so assertions can pin the status write.
+setup_birth_rule_harness() {
+    local stub_dir="$TEST_TEMP_DIR/bin"
+    mkdir -p "$stub_dir"
+    export PATH="$stub_dir:$PATH"
+    export GITHUB_REPO="test-org/test-repo"
+    export GH_CALL_LOG="$TEST_TEMP_DIR/gh-calls.log"
+    : > "$GH_CALL_LOG"
+    # Wrapper seam: record the fan-out argv instead of running the real
+    # project-update-issue.sh (its gh traffic is irrelevant here).
+    local wf_tools="$TEST_TEMP_DIR/wf-tools/scripts"
+    mkdir -p "$wf_tools"
+    cat > "$wf_tools/project-update-issue.sh" <<EOF
+#!/usr/bin/env bash
+echo "WF-WRITE \$*" >> "$GH_CALL_LOG"
+exit 0
+EOF
+    chmod +x "$wf_tools/project-update-issue.sh"
+    export WORKFLOW_CORE_TOOLS="$TEST_TEMP_DIR/wf-tools"
+    # Workflow libraries read the board via project-list-for-issue; stub it
+    # to report no cards so status reads are empty (no rollup interference).
+    local ig_tools="$TEST_TEMP_DIR/ig-tools/scripts"
+    mkdir -p "$ig_tools"
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$ig_tools/project-list-for-issue.sh"
+    chmod +x "$ig_tools/project-list-for-issue.sh"
+    export ISSUE_GRAPH_TOOLS="$TEST_TEMP_DIR/ig-tools"
+    # gh stub: create returns a URL; repo view answers owner/name; graphql
+    # (node id lookups for the link) succeeds; everything else succeeds.
+    cat > "$stub_dir/gh" <<STUB
+#!/usr/bin/env bash
+echo "gh \$*" >> "$GH_CALL_LOG"
+# NOTE: \$* joins with single spaces and the first arg carries no leading
+# space, so patterns must not require one ("issue create", not " issue create").
+case "\$*" in
+    *"issue create"*)
+        echo "https://github.com/test-org/test-repo/issues/777"
+        ;;
+    *"repo view"*)
+        if [[ "\$*" == *"owner"* ]]; then echo "test-org"; else echo "test-repo"; fi
+        ;;
+    *"graphql"*)
+        echo '{"data":{"repository":{"issue":{"id":"I_stub"}}}}'
+        ;;
+    *)
+        exit 0
+        ;;
+esac
+STUB
+    chmod +x "$stub_dir/gh"
+}
+
+@test "issue-create: Task with parent is born Ready" {
+    setup_birth_rule_harness
+    run bash "$PROJECT_ROOT/tools/scripts/issue-create.sh" \
+        --title "birth rule probe" --type Task --parent 42 --no-interactive
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"https://github.com/test-org/test-repo/issues/777"* ]]
+    # The link + birth write must both have been attempted for the new issue.
+    grep -q "addSubIssue" "$GH_CALL_LOG"
+    grep -q -- "--status Ready" "$GH_CALL_LOG"
+    # Birth status targets the NEW issue (777), not the parent.
+    grep -E "WF-WRITE 777 --status Ready" "$GH_CALL_LOG"
+    [ "$(grep -cE "WF-WRITE 777 --status" "$GH_CALL_LOG")" -eq 1 ]
+}
+
+@test "issue-create: standalone issue is born TBD" {
+    setup_birth_rule_harness
+    run bash "$PROJECT_ROOT/tools/scripts/issue-create.sh" \
+        --title "birth rule probe standalone" --type Task --no-interactive
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"https://github.com/test-org/test-repo/issues/777"* ]]
+    # No parent: no link, and the birth write is TBD for the new issue.
+    if grep -q "addSubIssue" "$GH_CALL_LOG"; then
+        fail "standalone issue must not be linked to a parent"
+    fi
+    grep -E "WF-WRITE 777 --status TBD" "$GH_CALL_LOG"
+    [ "$(grep -cE "WF-WRITE 777 --status" "$GH_CALL_LOG")" -eq 1 ]
+}
+
+@test "issue-create: non-Task with parent is born TBD" {
+    # The birth rule keys on the delivery role: only Tasks (work toward
+    # someone else's change) start Ready under a parent; deliverables start
+    # at TBD regardless of nesting.
+    setup_birth_rule_harness
+    run bash "$PROJECT_ROOT/tools/scripts/issue-create.sh" \
+        --title "birth rule probe bug" --type Bug --parent 42 --no-interactive
+    [ "$status" -eq 0 ]
+    grep -q "addSubIssue" "$GH_CALL_LOG"
+    grep -E "WF-WRITE 777 --status TBD" "$GH_CALL_LOG"
 }

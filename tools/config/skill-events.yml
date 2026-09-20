@@ -39,3 +39,7 @@ events:
     status: Merged
   _on_merge:
     status: Merged
+  _on_staging_deploy:
+    status: Staging
+  _on_production_deploy:
+    status: Production
