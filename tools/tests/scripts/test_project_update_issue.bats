@@ -2,7 +2,7 @@
 # Characterization tests for project-update-issue.sh current behavior.
 # Lock the observable contract of the v1.0.0 stub before the write path is
 # implemented: validation against the configured workflow, arg handling,
-# and stub output shape. Phase 4 evolves these deliberately.
+# and stub output shape. The write path evolves these deliberately.
 
 bats_require_minimum_version 1.5.0
 

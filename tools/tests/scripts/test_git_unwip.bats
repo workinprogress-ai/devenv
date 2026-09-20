@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for git-unwip target selection (Plan-001 4.4).
+# Tests for git-unwip target selection.
 #
 # Uses real temp git repos (same scaffolding as test_git_wip.bats):
 # verifies the reset target is the last commit whose subject does NOT start

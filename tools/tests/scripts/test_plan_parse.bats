@@ -348,11 +348,11 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
-# Characterization tests (tooling plan Phase 1) — pin current behavior so
-# Phase 3 changes are provable deltas. Flipped, not deleted.
+# Characterization tests — pin current behavior so parser changes
+# are provable deltas. Flipped, not deleted.
 # ---------------------------------------------------------------------------
 
-@test "characterization flipped: --lint --require-header accepts planning_repo 'none' (tooling plan Phase 3)" {
+@test "characterization flipped: --lint --require-header accepts planning_repo 'none'" {
     # fixture body already provides phases/tasks; only the header is inserted
     sed -i '1i <!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:test-org/test-repo:issue-42:plan:test-slug\nartifact_type: plan\nplanning_repo: none\n-->' "$PLAN_FILE"
     run bash "$DEVENV_TOOLS/scripts/plan-parse.sh" "$PLAN_FILE" --lint --require-header

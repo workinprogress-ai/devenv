@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# pr-events.bash library tests (task 7.1/7.2): linked-issue parsing and
+# pr-events.bash library tests: linked-issue parsing and
 # event mapping for the local PR-tool event firing. No GitHub API touched.
 
 bats_require_minimum_version 1.5.0

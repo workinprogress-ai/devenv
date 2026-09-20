@@ -79,7 +79,7 @@ load ../test_helper
 }
 
 # ============================================================================
-# pr-threads-get tests (task 2.8)
+# pr-threads-get tests
 # ============================================================================
 
 @test "pr-threads-get.sh has valid bash syntax" {
@@ -145,7 +145,7 @@ EOF
 }
 
 # ============================================================================
-# pr-thread-reply tests (task 2.9)
+# pr-thread-reply tests
 # ============================================================================
 
 @test "pr-thread-reply.sh has valid bash syntax" {
@@ -170,7 +170,7 @@ EOF
 }
 
 # ============================================================================
-# pr-thread-resolve tests (task 2.9)
+# pr-thread-resolve tests
 # ============================================================================
 
 @test "pr-thread-resolve.sh has valid bash syntax" {

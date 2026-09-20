@@ -206,8 +206,8 @@ teardown() {
 }
 
 # ---------------------------------------------------------------------------
-# Characterization tests (tooling plan Phase 1) — pin current behavior so
-# Phase 2+ body-source changes are provable deltas. Flipped, not deleted.
+# Characterization tests — pin current behavior so body-source changes
+# are provable deltas. Flipped, not deleted.
 # ---------------------------------------------------------------------------
 
 @test "characterization: upsert fails with exit 2 when no comment source is provided" {
@@ -286,7 +286,7 @@ GH
 }
 
 # ---------------------------------------------------------------------------
-# doc_id 256-character window behavior (Plan-001 5.6)
+# doc_id 256-character window behavior
 # ---------------------------------------------------------------------------
 
 @test "doc_id just inside the 256-char window is accepted" {

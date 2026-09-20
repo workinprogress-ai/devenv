@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
-# Gated live tests for project-list-for-issue (Phase 3) and the write path
-# (Phase 4) against the org scratch project.
+# Gated live tests for project-list-for-issue and the write path
+# against the org scratch project.
 #
 # Run with:  RUN_LIVE_TESTS=1 SCRATCH_PROJECT=tooling-scratch \
 #            GITHUB_REPO=<org>/<repo> bats tools/tests/live/

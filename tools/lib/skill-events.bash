@@ -9,7 +9,7 @@
 # - event_names: echoes all configured event names, one per line
 # - Unknown events NEVER abort a skill: callers treat rc=1 as warn-and-continue
 #
-# Consumers: tools/scripts/_on_event_dispatch.sh (Phase 5)
+# Consumers: tools/scripts/_on_event_dispatch.sh
 
 # Source guard
 if [ -n "${_SKILL_EVENTS_LOADED:-}" ]; then return 0 2>/dev/null || exit 0; fi

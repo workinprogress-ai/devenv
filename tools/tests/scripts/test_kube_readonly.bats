@@ -1,12 +1,12 @@
 #!/usr/bin/env bats
-# Behavior tests for the read-only kube tools (Plan-002 task 3.3 / AC-5).
+# Behavior tests for the read-only kube tools.
 #
 # Complements the destructive-tool guard suite (test_kube_guards.bats) with
 # the read-only families: kube-list-pods, kube-logs, kube-pod-console,
 # kube-pod-exec, kube-forward-ports, kube-intercept. Locks argument handling
 # and consumption of the shared selection path (first-match / list passthrough
 # as implemented); network lifecycle (port-forward/telepresence) is out of
-# scope per the plan's non-goals.
+# scope.
 
 bats_require_minimum_version 1.5.0
 

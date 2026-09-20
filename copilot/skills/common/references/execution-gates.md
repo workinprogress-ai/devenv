@@ -37,6 +37,7 @@ Before declaring a phase complete, run the committability checklist (see [phase-
 - [ ] New tests assert observable behavior
 - [ ] No blocking TODOs
 - [ ] No straggler plan-bounded DEVENV markers for completed work — `devenv-marker-check <phase-files>` fails only on FIXME(DEVENV[...]); condition-bearing `TODO(DEVENV[...])` markers that deliberately survive the phase are acceptable and must be surfaced in the handback
+- [ ] No plan-vocabulary references in comments or test headers of changed files — grep them for `Plan-[0-9]+`, `task [0-9]+\.[0-9]+`, and `Phase [0-9]+`; a comment citing the plan, a phase, or a task number is ephemeral bookkeeping and must be rewritten to state the durable invariant (what the code guarantees), matching the forward-guidance rule above. Allowed: the same references inside `FIXME(DEVENV[...])`/`TODO(DEVENV[...])` markers, and plan-file subject matter in the plan tooling itself (its tests, fixtures, and usage docs)
 
 Coverage drops are blockers — surface and resolve before declaring complete. If the gate passes: *"✅ Gate clear — phase is committable."*
 

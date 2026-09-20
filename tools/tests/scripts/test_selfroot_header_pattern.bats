@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Anti-drift guard for the self-root resolver headers (Plan-005).
+# Anti-drift guard for the self-root resolver headers.
 #
 # Canonical wrapper header (depth-2 files: tools/scripts/, tools/tests/):
 #   source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"

@@ -246,7 +246,7 @@ EOF
     [[ ! "$output" =~ "MAJOR" ]]
 }
 
-# ── Framework / language flags (Phase 2) ──────────────────────────────────
+# ── Framework / language flags ─────────────────────────────────────────────
 
 @test "cs-references-update-wizard.sh forwards --framework to cs-references-update" {
     cat > "$TEST_TEMP_DIR/bin/cs-references-update" <<'EOF'

@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Phase 5 write-path tests: dispatcher transitions through the real wrapper
+# Write-path tests: dispatcher transitions through the real wrapper
 # (stubbed gh), plus best-effort failure semantics (D-008).
 
 bats_require_minimum_version 1.5.0

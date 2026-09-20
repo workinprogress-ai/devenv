@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # Guard-behavior tests for kube-pod-delete / kube-pod-scale / kube-pod-restart
-# and the shared kube-selection resolve_single_match helper (Plan-001 3.6).
+# and the shared kube-selection resolve_single_match helper.
 #
 # Every destructive branch asserts BOTH the exit status AND that no destructive
 # kubectl call was recorded by the stub.
@@ -132,7 +132,7 @@ setup() {
 }
 
 # =========================================================================
-# Namespace flag (-n|--namespace) wiring — Plan-002 Phase 3
+# Namespace flag (-n|--namespace) wiring
 # =========================================================================
 
 @test "kube-pod-delete: -n flag reaches the destructive call (records ns via stub)" {

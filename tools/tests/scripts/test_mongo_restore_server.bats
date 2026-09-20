@@ -1,6 +1,5 @@
 #!/usr/bin/env bats
-# Guard tests for mongo-restore-server consent gate and error path
-# (Plan-001 3.6).
+# Guard tests for mongo-restore-server consent gate and error path.
 
 bats_require_minimum_version 1.5.0
 

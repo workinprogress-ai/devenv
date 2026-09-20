@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
-# Smoke tests for the shared CLI stub fixtures (Plan-001 task 1.4)
+# Smoke tests for the shared CLI stub fixtures.
 # Verifies each stub emits its canned output, honors its mode flags, and
-# records invocations — so Phase 3+ guard-test failures are guard bugs,
+# records invocations — so guard-test failures point at guard bugs,
 # not fixture bugs.
 
 bats_require_minimum_version 1.5.0

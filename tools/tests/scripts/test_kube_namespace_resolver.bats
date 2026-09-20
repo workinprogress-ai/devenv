@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
-# Unit tests for resolve_namespace in kube-selection.bash
-# (Plan-002 Phase 2). All cluster/fzf interaction is mocked.
+# Unit tests for resolve_namespace in kube-selection.bash.
+# All cluster/fzf interaction is mocked.
 
 bats_require_minimum_version 1.5.0
 

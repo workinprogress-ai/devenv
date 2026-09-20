@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Behavior tests for git-wip-recover (Plan-002 task 3.2 / AC-4).
+# Behavior tests for git-wip-recover.
 #
 # Uses a real temp git repo (same scaffolding as test_git_unwip.bats) and
 # creates refs/wip/last as git-wip would. Locks: --show output, --branch

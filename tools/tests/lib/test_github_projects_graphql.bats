@@ -105,6 +105,6 @@ STUB
 @test "projects_for_issue lists projects with status, empty when none" {
     run bash -c "source '$LIB' && projects_for_issue https://github.com/test-org/test-repo/issues/42 test-org"
     [ "$status" -eq 0 ]
-    # Implementation detail asserted live in Phase 3; here: call shape only.
+    # Implementation detail asserted by the live suite; here: call shape only.
     grep -q "graphql" "$GH_CALL_LOG"
 }

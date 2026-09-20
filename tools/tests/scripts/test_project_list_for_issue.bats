@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Unit tests for project-list-for-issue (task 3.2) — stubbed gh.
+# Unit tests for project-list-for-issue — stubbed gh.
 # Live behavior is covered by tools/tests/live/project_tools.live.bats.
 
 bats_require_minimum_version 1.5.0

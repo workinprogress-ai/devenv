@@ -57,13 +57,13 @@ next-id --pattern 'Plan-issue-42-{N}.md' [--dir DIR] [--width W] [--filename]
 next-id --file DOC.md --prefix 'SPEC-' [--full]
 ```
 
-Filename mode scans a directory for the pattern's `{N}` digit run and prints the next free number (or full filename with `--filename`). In-doc mode scans a document for `PREFIX-NNN` tokens and prints the next number (or `PREFIX-NNN` with `--full`). Use for every "next available suffix" / "next sequential ID" need — never hand-count.
+Filename mode scans a directory for the pattern's `{N}` digit run and prints the next free number (or the next filename with `--filename` — a **bare filename, not joined with `--dir`**; prefix the directory yourself before using it as a path). In-doc mode scans a document for `PREFIX-NNN` tokens and prints the next number (or `PREFIX-NNN` with `--full`). Use for every "next available suffix" / "next sequential ID" need — never hand-count.
 
 Examples:
 
 ```bash
 next-id --pattern 'spike-{N}-*' --width 3          # 004
-next-id --pattern 'Blueprint-orders-{N}.md' --filename
+next-id --pattern 'Blueprint-orders-{N}.md' --filename # Blueprint-orders-005.md (bare name — join with --dir for a usable path)
 next-id --file Specifications-orders-001.md --prefix 'SPEC-' --full   # SPEC-015
 ```
 
