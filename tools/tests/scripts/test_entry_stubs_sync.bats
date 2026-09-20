@@ -2,8 +2,10 @@
 # Tests for .devcontainer/entry-stubs-sync.sh — the idempotent owner of the
 # tools/ depth-1 entry points.
 #
-# Contract: stub exists ⇔ tools/scripts/ script exists. Stubs exec the real
-# scripts/ file. Foreign depth-1 files are not ours and are left untouched.
+# Contract: stub exists ⇔ tools/scripts/ script exists, EXCEPT underscore-
+# prefixed scripts (internal: no depth-1 entry, stale stubs purged).
+# tools/tests/run-devenv-tests.sh also gets a depth-1 entry. Stubs exec the
+# real scripts/ file. Foreign depth-1 files are not ours and are untouched.
 
 load ../test_helper
 
@@ -143,6 +145,67 @@ _make_stub() {
 
     [ -f "$root/tools/git-wip" ]
     grep -q 'scripts/git-wip' "$root/tools/git-wip"
+    rm -rf "$root"
+}
+
+@test "underscore-prefixed scripts get no depth-1 entry (internal by contract)" {
+    local root
+    root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_script "$root" "alpha.sh"
+    printf '#!/bin/bash\nexec bash "$(dirname "$0")/scripts/_on_event_dispatch.sh" "_on_merge" "$@"\n' > "$root/tools/scripts/_on_merge.sh"
+    chmod +x "$root/tools/scripts/_on_merge.sh"
+
+    run bash "$SYNC_SCRIPT"
+    [ "$status" -eq 0 ]
+
+    [ -f "$root/tools/alpha" ]
+    [ ! -e "$root/tools/_on_merge" ]
+    rm -rf "$root"
+}
+
+@test "stale underscore stubs from the old contract are purged" {
+    local root
+    root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_script "$root" "alpha.sh"
+    _make_stub "$root" "_on_merge" "_on_merge.sh"
+
+    run bash "$SYNC_SCRIPT"
+    [ "$status" -eq 0 ]
+
+    [ ! -e "$root/tools/_on_merge" ]
+    [ -f "$root/tools/alpha" ]
+    rm -rf "$root"
+}
+
+@test "foreign underscore files at depth-1 are left untouched" {
+    local root
+    root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_script "$root" "alpha.sh"
+    printf 'custom internal tool\n' > "$root/tools/_my_private_tool"
+
+    run bash "$SYNC_SCRIPT"
+    [ "$status" -eq 0 ]
+
+    [ "$(cat "$root/tools/_my_private_tool")" = "custom internal tool" ]
+    rm -rf "$root"
+}
+
+@test "test runner gets a depth-1 entry (tools/run-devenv-tests)" {
+    local root
+    root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    mkdir -p "$root/tools/tests"
+    printf '#!/bin/bash\necho tests-ran\n' > "$root/tools/tests/run-devenv-tests.sh"
+    chmod +x "$root/tools/tests/run-devenv-tests.sh"
+
+    run bash "$SYNC_SCRIPT"
+    [ "$status" -eq 0 ]
+
+    [ -f "$root/tools/run-devenv-tests" ]
+    grep -q 'tests/run-devenv-tests.sh' "$root/tools/run-devenv-tests"
     rm -rf "$root"
 }
 

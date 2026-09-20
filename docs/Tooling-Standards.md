@@ -219,7 +219,7 @@ Every tool gets a bats file at `tools/tests/scripts/test_<tool>.bats`:
 - Tests must pass with `GITHUB_REPO`, `GH_REPO`, `DEVENV_ROOT`, and
   `DEVENV_TOOLS` either set or unset — stub the environment, don't depend on it
 
-Run everything: `bash tools/tests/run-tests-local.sh` (from a clean
+Run everything: `bash tools/tests/run-devenv-tests.sh` (from a clean
 environment: `env -u GITHUB_REPO -u GH_REPO ...`).
 
 ## Static analysis

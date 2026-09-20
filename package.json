@@ -6,7 +6,7 @@
   "scripts": {
     "prepare": "husky",
     "ci:release": "semantic-release",
-    "test": "bash tools/tests/run-tests-local.sh",
+    "test": "bash tools/tests/run-devenv-tests.sh",
     "lint": "bash tools/scripts/lint-scripts.sh"
   },
   "repository": {

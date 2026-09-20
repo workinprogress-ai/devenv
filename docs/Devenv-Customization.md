@@ -524,15 +524,11 @@ For the current shared-library catalog, see [Additional Tooling](./Additional-To
 
 ### Adding a new script
 
-Scripts live in `tools/scripts/<name>.sh` and are exposed via a symlink at `tools/<name>` (without the `.sh` extension).
+Scripts live in `tools/scripts/<name>.sh`. Depth-1 entries at `tools/<name>` (without the `.sh` extension) are generated — not hand-made: `.devcontainer/entry-stubs-sync.sh` (run by bootstrap and by the test runner) creates a stub for every `tools/scripts/` script except underscore-prefixed internal scripts (`_*.sh` get no depth-1 entry — call them via their `tools/scripts/` path). Never hand-edit or hand-create a stub.
 
 1. **Start from the template**: `tooling-create-script <name>` scaffolds the file from `tools/templates/script-template.sh`.
 2. **File location**: `tools/scripts/<group>-<action>.sh`, following the existing `group-action` naming pattern (e.g. `markdown-plan-complete-task.sh`).
-3. **Symlink**: create a relative symlink from `tools/` to the script:
-
-   ```bash
-   ln -s scripts/<name>.sh tools/<name>
-   ```
+3. **Entry point**: none needed by hand — run `.devcontainer/entry-stubs-sync.sh` (or bootstrap) and the `tools/<name>` stub is generated automatically.
 
 4. **Standard structure** (in order):
    - Shebang + header comment (name, version, description, specifications)
@@ -593,7 +589,7 @@ For deeper bootstrap tweaks, see [Bootstrap-Customization.md](./Bootstrap-Custom
 1. Fork the main devenv repository
 2. Create a feature branch
 3. Make your improvements
-4. Ensure all tests pass (`bash tools/tests/run-tests-local.sh`)
+4. Ensure all tests pass (`bash tools/tests/run-devenv-tests.sh`)
 5. Submit a pull request
 
 See the [Tooling Standards](./Tooling-Standards.md) guide for the testing and linting bar your changes must meet.

@@ -37,7 +37,7 @@ if git diff --cached --name-only | grep -qE '^(tools/|\.devcontainer/)'; then
     fi
     
     # Run tests
-    if ! "$DEVENV_ROOT/tools/tests/run-tests-local.sh"; then
+    if ! "$DEVENV_ROOT/tools/tests/run-devenv-tests.sh"; then
         echo "Tests failed. Commit aborted."
         exit 1
     fi

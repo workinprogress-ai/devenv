@@ -49,13 +49,14 @@ pr_events_signal() {
         return 0
     fi
 
-    # Signal via the tools/_on_<event> entry points; resolve their location
-    # relative to this library (self-root contract).
+    # Signal via the scripts/_on_<event>.sh entry points; resolve their
+    # location relative to this library (self-root contract). Underscore-
+    # prefixed scripts are internal by contract: no depth-1 entry exists.
     local tools_dir
     tools_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
     local issue
     for issue in $issues; do
-        if bash "$tools_dir/$event" "$issue" >/dev/null 2>&1; then
+        if bash "$tools_dir/scripts/$event.sh" "$issue" >/dev/null 2>&1; then
             echo "event: signalled $event for issue #$issue (PR $point)"
         else
             echo "WARNING: event signal $event failed for issue #$issue (best-effort, continuing)" >&2

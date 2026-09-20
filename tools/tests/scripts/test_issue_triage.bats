@@ -52,9 +52,9 @@ STUB
 }
 
 @test "CLI mode: --triage-complete fires the event entry point for the issue" {
-    # The event signal goes through tools/_on_triage_complete -> dispatcher
-    # -> wrapper; under a no-op gh stub the observable is the wrapper's
-    # reverse-lookup call for the target issue.
+    # The event signal goes through tools/scripts/_on_triage_complete.sh
+    # -> dispatcher -> wrapper; under a no-op gh stub the observable is the
+    # wrapper's reverse-lookup call for the target issue.
     run bash "$SCRIPT" 44 --triage-complete
     [ "$status" -eq 0 ]
     grep -q "issues/44" "$STUB_DIR/calls.log"

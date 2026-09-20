@@ -339,10 +339,11 @@ apply_issue_bundle() {
                 # skill-events.yml (config-sourced, best-effort).
                 local tools_dir
                 tools_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-                if [ -f "$tools_dir/_on_triage_complete" ]; then
-                    bash "$tools_dir/_on_triage_complete" "$issue" >/dev/null 2>&1 || { log_error "triage-complete signal failed"; failed=1; }
+                dispatcher="$tools_dir/scripts/_on_triage_complete.sh"
+                if [ -f "$dispatcher" ]; then
+                    bash "$dispatcher" "$issue" >/dev/null 2>&1 || { log_error "triage-complete signal failed"; failed=1; }
                 else
-                    log_error "event entry point _on_triage_complete not found"; failed=1
+                    log_error "event script scripts/_on_triage_complete.sh not found"; failed=1
                 fi
                 did_any=1; shift ;;
             *)

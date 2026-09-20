@@ -6,7 +6,7 @@
 load ../test_helper
 
 PROJ_ROOT="$(cd "${BATS_TEST_DIRNAME}/../../.." && pwd)"
-RUN_TESTS="${PROJ_ROOT}/tools/tests/run-tests-local.sh"
+RUN_TESTS="${PROJ_ROOT}/tools/tests/run-devenv-tests.sh"
 LINT_SCRIPTS="${PROJ_ROOT}/tools/scripts/lint-scripts.sh"
 LINT_DOCS="${PROJ_ROOT}/tools/scripts/lint-documentation.sh"
 RESOLVER="${PROJ_TOOLS:-${PROJ_ROOT}/tools}/lib/self-root.bash"
@@ -36,12 +36,12 @@ RESOLVER="${PROJ_TOOLS:-${PROJ_ROOT}/tools}/lib/self-root.bash"
     bare="$(mktemp -d)"
     marker="SELFLOC_SENTINEL_$$_$RANDOM"
     mkdir -p "$bare/tools/tests/lib" "$bare/tools/lib"
-    cp "$RUN_TESTS" "$bare/tools/tests/run-tests-local.sh"
+    cp "$RUN_TESTS" "$bare/tools/tests/run-devenv-tests.sh"
     cp "$PROJ_ROOT/tools/lib/self-root.bash" "$bare/tools/lib/"
     printf '#!/usr/bin/env bats\n\n@test "%s" { true; }\n' "$marker" \
         > "$bare/tools/tests/lib/test_sentinel.bats"
 
-    run env -u DEVENV_TOOLS -u DEVENV_ROOT timeout 60 bash "$bare/tools/tests/run-tests-local.sh"
+    run env -u DEVENV_TOOLS -u DEVENV_ROOT timeout 60 bash "$bare/tools/tests/run-devenv-tests.sh"
     [ "$status" -eq 0 ]
     [[ "$output" == *"$marker"* ]]
 

@@ -988,11 +988,11 @@ project-update-issue "Sprint 5" 123 --field "Priority=High"
 
 ### `_on_<event>` (skill event signals)
 
-Skill lifecycle event signals — a tooling class, not CRUD wrappers. Nine entry points (`tools/_on_begin_grooming` … `tools/_on_merge`, begin/end pairs per lifecycle phase) delegating to `tools/scripts/_on_event_dispatch.sh`, which reads `tools/config/skill-events.yml` and fans the Status transition out through `project-update-issue --all-projects --safe`.
+Skill lifecycle event signals — a tooling class, not CRUD wrappers. Internal scripts (`tools/scripts/_on_*.sh`: `_on_triage_complete`, begin/end pairs per lifecycle phase, merge/deploy events) delegating to `tools/scripts/_on_event_dispatch.sh`, which reads `tools/config/skill-events.yml` and fans the Status transition out through `project-update-issue --all-projects --safe`. Underscore-prefixed scripts are internal: no depth-1 `tools/` entries — call them via their `tools/scripts/` path or through `workflow-signal`.
 
 ```bash
-_on_<event> ISSUE_NUMBER
-_on_begin_grooming 43
+tools/scripts/_on_<event>.sh ISSUE_NUMBER   # internal path, no depth-1 entry
+tools/scripts/_on_begin_grooming.sh 43
 ```
 
 Key facts:

@@ -42,10 +42,10 @@ setup() {
 
 @test "signal: fires entry point per linked issue (stubbed tools dir)" {
     local tree="$TEST_TEMP_DIR/tree"
-    mkdir -p "$tree/lib" "$tree"
+    mkdir -p "$tree/lib" "$tree/scripts"
     cp "$LIB" "$tree/lib/"
-    printf '#!/usr/bin/env bash\necho "SIGNAL %s $1" >> "%s/signals.log"\n' "_on_begin_review" "$tree" > "$tree/_on_begin_review"
-    chmod +x "$tree/_on_begin_review"
+    printf '#!/usr/bin/env bash\necho "SIGNAL %s $1" >> "%s/signals.log"\n' "_on_begin_review" "$tree" > "$tree/scripts/_on_begin_review.sh"
+    chmod +x "$tree/scripts/_on_begin_review.sh"
     run bash -c "source '$tree/lib/pr-events.bash' && pr_events_signal created 'Fixes #7 closes #9'"
     [ "$status" -eq 0 ]
     grep -q "SIGNAL _on_begin_review 7" "$tree/signals.log"
@@ -54,7 +54,7 @@ setup() {
 
 @test "signal: best-effort - failing entry point never propagates non-zero" {
     local tree="$TEST_TEMP_DIR/tree"
-    mkdir -p "$tree/lib" "$tree"
+    mkdir -p "$tree/lib" "$tree/scripts"
     cp "$LIB" "$tree/lib/"
     printf '#!/usr/bin/env bash\nexit 3\n' > "$tree/_on_merge"
     chmod +x "$tree/_on_merge"

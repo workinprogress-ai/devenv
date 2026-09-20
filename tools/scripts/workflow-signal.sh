@@ -18,8 +18,10 @@
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 # Entry-point root: real tools by default; test seam overrides ONLY where
-# events are looked up (libs above still load from the real tree).
-SIGNAL_TOOLS_ROOT="$DEVENV_TOOLS"
+# events are looked up (libs above still load from the real tree). Event
+# entry points live in <root>/scripts as _on_<event>.sh — underscore-
+# prefixed scripts are internal by contract and get no depth-1 tools/ entry.
+SIGNAL_TOOLS_ROOT="$DEVENV_TOOLS/scripts"
 if [ -n "${WORKFLOW_SIGNAL_TOOLS:-}" ]; then
     SIGNAL_TOOLS_ROOT="$WORKFLOW_SIGNAL_TOOLS"
 fi
@@ -112,10 +114,12 @@ normalize_event() {
 }
 
 # Resolve the entry point for an event; empty string when it does not exist.
+# Entry points are underscore-prefixed scripts in tools/scripts/ (no depth-1
+# entries by contract); the dispatcher itself is not an event.
 entry_point_for() {
     local event="$1"
-    local ep="$SIGNAL_TOOLS_ROOT/$event"
-    if [ -x "$ep" ]; then
+    local ep="$SIGNAL_TOOLS_ROOT/$event.sh"
+    if [ -x "$ep" ] && [ "$(basename "$ep")" != "_on_event_dispatch.sh" ]; then
         printf '%s' "$ep"
     else
         printf ''
@@ -124,9 +128,10 @@ entry_point_for() {
 
 list_events() {
     local ep name
-    for ep in "$SIGNAL_TOOLS_ROOT"/_on_*; do
+    for ep in "$SIGNAL_TOOLS_ROOT"/_on_*.sh; do
         [ -x "$ep" ] || continue
-        name="$(basename "$ep")"
+        name="$(basename "$ep" .sh)"
+        [ "$name" = "_on_event_dispatch" ] && continue
         printf '%s\n' "$name"
     done
 }
@@ -186,7 +191,7 @@ signal_from_args() {
                         exit 1
                     fi
                     did_any=1
-                    if bash "$SIGNAL_TOOLS_ROOT/$current_event" "$arg" >/dev/null 2>&1; then
+                    if bash "$SIGNAL_TOOLS_ROOT/$current_event.sh" "$arg" >/dev/null 2>&1; then
                         echo "signalled $current_event for issue #$arg"
                     else
                         echo "WARNING: signal $current_event failed for issue #$arg (best-effort, continuing)" >&2

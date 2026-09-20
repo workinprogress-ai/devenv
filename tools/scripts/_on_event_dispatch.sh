@@ -17,7 +17,8 @@
 # - Skills call the _on_* entry scripts; they never read the config,
 #   never name projects, never contain Status vocabulary.
 #
-# All tools/_on_* entry points (thin callers) delegate here.
+# The tools/scripts/_on_<event>.sh entry scripts (internal, no depth-1
+# entries) delegate here.
 #
 # Trigger points: skills invoke these at lifecycle boundaries; local PR
 # tooling fires _on_begin_review on PR open and _on_merge on merge for

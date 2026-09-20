@@ -1527,9 +1527,11 @@ Event names accept bare, underscore, hyphen, or full forms (`staging-deploy` = `
 Deterministic lifecycle-event scripts that keep GitHub Project status in sync as work moves through the workflow. Both local tooling and skills fire them; nobody has to think about project status unless they choose to.
 
 ```bash
-_on_begin_grooming 43        # one entry point per lifecycle event
-_on_merge 43                 # fired by merge tooling after a successful merge
+tools/scripts/_on_begin_grooming.sh 43   # one entry point per lifecycle event
+tools/scripts/_on_merge.sh 43            # fired by merge tooling after a successful merge
 ```
+
+These are internal scripts (underscore prefix): they have no depth-1 `tools/` entry and are invoked via their `tools/scripts/` path. Interactive/batch firing goes through `workflow-signal` instead.
 
 **Events**: `_on_triage_complete` (backlog triage done → candidate for design grooming), then begin/end pairs per phase: `_on_begin_grooming`, `_on_end_grooming`, `_on_begin_planning`, `_on_end_planning`, `_on_begin_implementation`, `_on_end_implementation`, `_on_begin_review`, `_on_end_review`, `_on_merge`.
 

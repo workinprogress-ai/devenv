@@ -1,6 +1,6 @@
 # Issue Workflow
 
-This is the canonical guide to how work flows through issues in this organization: what our issue types mean, how work decomposes, how status is derived and propagated, and who (or what) moves a card. Every other document that touches workflow defers to this one. The generalizable methodology behind this model is documented as the [Derived Status Rollup](https://github.com/workinprogress-ai/docs.engineering/blob/main/docs/Pattern_Library/Design_Patterns/Derived_Status_Rollup.md) pattern in the engineering pattern library.
+This is the canonical guide to how work flows through issues in this organization: what our issue types mean, how work decomposes, how status is derived and propagated, and who (or what) moves a card. Every other document that touches workflow defers to this one. The generalizable methodology behind this model is documented as the *Derived Status Rollup* pattern in the engineering pattern library (`docs.engineering`, Work Management Patterns).
 
 ## The model in one paragraph
 
@@ -159,7 +159,7 @@ Everything is local: your `gh` authentication, your machine. Signals are best-ef
 
 ## Related
 
-- [Derived Status Rollup](https://github.com/workinprogress-ai/docs.engineering/blob/main/docs/Pattern_Library/Design_Patterns/Derived_Status_Rollup.md) — the methodology as a generalizable pattern (engineering pattern library)
+- *Derived Status Rollup* — the methodology as a generalizable pattern (engineering pattern library, `docs.engineering` → Work Management Patterns; referenced, not linked: the pattern library lives in a separate repo)
 - [Devenv Customization](./Devenv-Customization.md) — the customization contract for `status_workflow`: which tokens are load-bearing, what must change together when renaming
 - [Additional Tooling](./Additional-Tooling.md) — per-command reference: `workflow-signal`, `issue-triage`, `project-list-for-issue`, `project-update-issue`
 - `devenv.config [workflows]` — the vocabulary source of truth
