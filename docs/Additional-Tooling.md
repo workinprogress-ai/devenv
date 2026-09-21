@@ -2012,6 +2012,10 @@ cs-references-update [REPO_DIR] [OPTIONS]
 - `--framework` alone: existing `<LangVersion>` tags are rewritten to the TFM's default language version (`net8.0` → `12.0`, `net9.0` → `13.0`, `net10.0` → `14.0`). An unmapped TFM combined with tags present in the tree is an argument error naming the supported TFMs — pass `--lang-version` or `--lang-default` explicitly instead.
 - `--lang-default` given: tags are removed; the default applies silently.
 
+**Boilerplate chain:**
+
+If the target repo has an executable `.repo/update.sh`, it is chained after the package update (`--no-refresh`). When the tree was clean before the run, the chain passes `--force` — the only dirt at that point is this script's own upgrades, so the boilerplate sync proceeds instead of refusing. When the tree was already dirty before the run, the chain runs without `--force`; `update.sh` defers its sync (its lockfile migration still runs) and this script surfaces a NOTE to re-run it after committing.
+
 **Exit codes:**
 
 | Code | Meaning |
@@ -2084,7 +2088,7 @@ cs-references-update-wizard [OPTIONS] [REPO_DIR]
 5. Commit and push the branch
 6. Run `./run-tests` if present — pause for the user to fix failures
 7. If major bumps or test failures are detected, prompt the user to confirm the change level (`patch` or `major`)
-8. Create a PR with the selected prefix (`patch:` or `major:`)
+8. Create a PR with the selected prefix (`patch:` or `major:`). When the only changed `.csproj` files are under `test/`/`tests/` trees, the PR and commit are `chore(tests): update references` instead — semantic-release emits no version bump for test-only dependency updates
 9. Merge the PR
 10. Return to the default branch and clean up the local branch
 

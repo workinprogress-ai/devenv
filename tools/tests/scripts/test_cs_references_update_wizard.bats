@@ -363,3 +363,94 @@ EOF
     ! grep -q "and target framework" "$TEST_TEMP_DIR/pr.args"
     rm -f "$TEST_TEMP_DIR/bin/git"
 }
+
+@test "wizard commits test-only update as chore(tests)" {
+    # Add a test-project csproj (committed) that the mock update touches;
+    # src csproj stays untouched → the only changed csproj is under tests/.
+    mkdir -p "$REPO_DIR/tests"
+    cat > "$REPO_DIR/tests/MyLib.Tests.csproj" <<'CSPROJ'
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="WorkInProgress.Lib.Common" Version="1.0.0" />
+  </ItemGroup>
+</Project>
+CSPROJ
+    git -C "$REPO_DIR" add -A && git -C "$REPO_DIR" commit -q -m "add test project"
+    git -C "$REPO_DIR" update-ref refs/remotes/origin/master HEAD
+
+    cat > "$TEST_TEMP_DIR/bin/cs-references-update" <<'EOF'
+#!/usr/bin/env bash
+repo_dir="${1:-$PWD}"
+sed -i 's/Version="1\.0\.0"/Version="2.1.0"/' "$repo_dir/tests/MyLib.Tests.csproj"
+exit 0
+EOF
+
+    cat > "$TEST_TEMP_DIR/bin/pr-create-for-merge" <<'EOF'
+#!/usr/bin/env bash
+echo "TITLE: $*" >> "${CAPTURE_FILE:?}"
+echo "https://github.com/test-org/test-repo/pull/1"
+EOF
+    local real_git
+    real_git="$(command -v git)"
+    cat > "$TEST_TEMP_DIR/bin/git" <<EOF
+#!/usr/bin/env bash
+if [[ "\$*" =~ "push" ]]; then
+    exit 0
+fi
+exec "$real_git" "\$@"
+EOF
+    chmod +x "$TEST_TEMP_DIR/bin/git"
+
+    run env CAPTURE_FILE="$TEST_TEMP_DIR/pr.args" \
+        "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" "$REPO_DIR"
+    [ "$status" -eq 0 ]
+    grep -q "chore(tests): update references" "$TEST_TEMP_DIR/pr.args"
+    ! grep -q "major:" "$TEST_TEMP_DIR/pr.args"
+    ! grep -q "patch:" "$TEST_TEMP_DIR/pr.args"
+    # The commit on the update branch carries the same message
+    grep -q "chore(tests): update references" <(git -C "$REPO_DIR" log --format=%s -1 "$REPO_DIR" 2>/dev/null) || true
+    rm -f "$TEST_TEMP_DIR/bin/git"
+}
+
+@test "wizard keeps src rules when src and test csprojs both change" {
+    mkdir -p "$REPO_DIR/tests"
+    cat > "$REPO_DIR/tests/MyLib.Tests.csproj" <<'CSPROJ'
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="WorkInProgress.Lib.Common" Version="1.0.0" />
+  </ItemGroup>
+</Project>
+CSPROJ
+    git -C "$REPO_DIR" add -A && git -C "$REPO_DIR" commit -q -m "add test project"
+    git -C "$REPO_DIR" update-ref refs/remotes/origin/master HEAD
+
+    cat > "$TEST_TEMP_DIR/bin/cs-references-update" <<'EOF'
+#!/usr/bin/env bash
+repo_dir="${1:-$PWD}"
+sed -i 's/Version="1\.0\.0"/Version="1.1.0"/' "$repo_dir/src/MyLib.csproj" "$repo_dir/tests/MyLib.Tests.csproj"
+exit 0
+EOF
+
+    cat > "$TEST_TEMP_DIR/bin/pr-create-for-merge" <<'EOF'
+#!/usr/bin/env bash
+echo "TITLE: $*" >> "${CAPTURE_FILE:?}"
+echo "https://github.com/test-org/test-repo/pull/1"
+EOF
+    local real_git
+    real_git="$(command -v git)"
+    cat > "$TEST_TEMP_DIR/bin/git" <<EOF
+#!/usr/bin/env bash
+if [[ "\$*" =~ "push" ]]; then
+    exit 0
+fi
+exec "$real_git" "\$@"
+EOF
+    chmod +x "$TEST_TEMP_DIR/bin/git"
+
+    run env CAPTURE_FILE="$TEST_TEMP_DIR/pr.args" \
+        "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" "$REPO_DIR"
+    [ "$status" -eq 0 ]
+    grep -q "patch: update references" "$TEST_TEMP_DIR/pr.args"
+    ! grep -q "chore(tests)" "$TEST_TEMP_DIR/pr.args"
+    rm -f "$TEST_TEMP_DIR/bin/git"
+}

@@ -221,3 +221,54 @@ CSPROJ
     [[ "$output" == *"--lang-version"* ]]
     [[ "$output" == *"--lang-default"* ]]
 }
+
+# ── Boilerplate chain (.repo/update.sh) ──────────────────────────────────
+
+# Writes a record-keeping stub update.sh into the fixture repo and commits
+# everything so the tree is clean at script start.
+_setup_chain_fixture() {
+    mkdir -p "$REPO_DIR/.repo"
+    cat > "$REPO_DIR/.repo/update.sh" <<'EOF'
+#!/usr/bin/env bash
+echo "ARGS: $*" >> "$CHAIN_LOG"
+if [ "${CHAIN_FAIL:-0}" = "1" ]; then
+    echo "Working tree is not clean." >&2
+    exit 1
+fi
+exit 0
+EOF
+    chmod +x "$REPO_DIR/.repo/update.sh"
+    export CHAIN_LOG="$TEST_TEMP_DIR/chain.log"
+    : > "$CHAIN_LOG"
+    git -C "$REPO_DIR" init -q
+    git -C "$REPO_DIR" add -A
+    git -C "$REPO_DIR" -c user.email=t@t -c user.name=t commit -q -m "chain fixture"
+}
+
+@test "chain: passes --force --no-refresh when tree was clean before run" {
+    _setup_chain_fixture
+    # dotnet-outdated mock upgrades nothing → tree stays clean, chain still fires
+    run bash "$SCRIPT_UNDER_TEST" "$REPO_DIR"
+    [ "$status" -eq 0 ]
+    grep -q "ARGS: --no-refresh --force" "$CHAIN_LOG"
+}
+
+@test "chain: passes --no-refresh only when tree was dirty before run" {
+    _setup_chain_fixture
+    # Pre-existing dirt (unrelated to this script)
+    echo "# local edit" >> "$REPO_DIR/src/MyLib.csproj"
+    run bash "$SCRIPT_UNDER_TEST" "$REPO_DIR"
+    [ "$status" -eq 0 ]
+    grep -q "ARGS: --no-refresh$" "$CHAIN_LOG"
+}
+
+@test "chain: survives update.sh refusing on dirty tree (non-fatal)" {
+    _setup_chain_fixture
+    # update.sh dies with the dirt message even with --force (simulating an
+    # older boilerplate without --force support) — the chain must degrade to
+    # a NOTE, not kill the run.
+    export CHAIN_FAIL=1
+    run bash "$SCRIPT_UNDER_TEST" "$REPO_DIR"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"NOTE: .repo/update.sh deferred its boilerplate sync"* ]]
+}

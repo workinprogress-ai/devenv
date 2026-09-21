@@ -66,6 +66,9 @@ GITHUB_REPO=workinprogress-ai/devenv issue-list
 issue-get 42 --devenv          # or pass the tool's --devenv flag
 ```
 
+Exception: when working inside a devenv clone nested below a `repos/`
+directory (e.g. `/workspaces/devenv/repos/devenv`), the guard is satisfied automatically — no `--devenv` flag needed. Being cd'ed into a nested clone is itself the deliberate devenv-target signal.
+
 ## Skill and knowledge development caveat
 
 The live Copilot session reads skills and knowledge through `~/.copilot`

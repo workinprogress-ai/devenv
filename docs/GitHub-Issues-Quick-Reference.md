@@ -23,7 +23,7 @@ issue-create --title "Title" --template FILE --no-interactive
 issue-create --title "Task" --type Task --parent 123
 
 # Override repo safety check (for devenv repo)
-issue-create --devenv --title "Internal issue" --type Bug
+issue-create --devenv --title "Internal issue" --type Bug   # canonical devenv root only — nested repos/devenv clones need no flag
 ```
 
 ### Create Issues in Batch

@@ -385,6 +385,93 @@ repo3'
     rm -rf "$t"
 }
 
+@test "git-operations: is_nested_devenv_clone true for devenv-named repo under repos/" {
+    local t
+    t=$(mktemp -d)
+    mkdir -p "$t/repos/devenv"
+    git -C "$t/repos/devenv" init -q
+    run bash -c "
+        cd '$t/repos/devenv'
+        source '$PROJECT_ROOT/tools/lib/git-operations.bash'
+        is_nested_devenv_clone
+    "
+    [ "$status" -eq 0 ]
+    rm -rf "$t"
+}
+
+@test "git-operations: is_nested_devenv_clone true via marker file when dir renamed" {
+    local t
+    t=$(mktemp -d)
+    # Clone renamed but still nested under repos/ — the nesting check is
+    # independent of the devenv-name/marker detection that gates its use.
+    mkdir -p "$t/repos/renamed-devenv/.devcontainer"
+    git -C "$t/repos/renamed-devenv" init -q
+    touch "$t/repos/renamed-devenv/.devcontainer/bootstrap.sh"
+    run bash -c "
+        cd '$t/repos/renamed-devenv'
+        source '$PROJECT_ROOT/tools/lib/git-operations.bash'
+        is_devenv_repo && is_nested_devenv_clone
+    "
+    [ "$status" -eq 0 ]
+    rm -rf "$t"
+}
+
+@test "git-operations: is_nested_devenv_clone false for canonical devenv root" {
+    # A devenv repo whose parent is not named repos/ (the canonical workspace
+    # root) is not a nested clone — guard must stay in force there.
+    run bash -c "
+        cd '$PROJECT_ROOT'
+        source '$PROJECT_ROOT/tools/lib/git-operations.bash'
+        is_devenv_repo && ! is_nested_devenv_clone
+    "
+    [ "$status" -eq 0 ]
+}
+
+@test "git-operations: is_nested_devenv_clone false for ordinary repo under repos/" {
+    local t
+    t=$(mktemp -d)
+    # Ordinary project repo nested under repos/ — not devenv at all, so the
+    # nesting predicate alone is irrelevant; the check itself still returns 0
+    # but is_devenv_repo must be false (guard unaffected).
+    mkdir -p "$t/repos/lib.cs.something"
+    git -C "$t/repos/lib.cs.something" init -q
+    run bash -c "
+        cd '$t/repos/lib.cs.something'
+        source '$PROJECT_ROOT/tools/lib/git-operations.bash'
+        is_nested_devenv_clone && ! is_devenv_repo
+    "
+    [ "$status" -eq 0 ]
+    rm -rf "$t"
+}
+
+@test "git-operations: check_target_repo auto-allows nested devenv clone without --devenv" {
+    local t
+    t=$(mktemp -d)
+    mkdir -p "$t/repos/devenv"
+    git -C "$t/repos/devenv" init -q
+    run bash -c "
+        cd '$t/repos/devenv'
+        ALLOW_DEVENV_REPO=0
+        source '$PROJECT_ROOT/tools/lib/git-operations.bash'
+        check_target_repo
+    "
+    [ "$status" -eq 0 ]
+    [[ ! "$output" =~ "appears to be the devenv repository itself" ]]
+    rm -rf "$t"
+}
+
+@test "git-operations: check_target_repo still guards canonical devenv root" {
+    run bash -c "
+        cd '$PROJECT_ROOT'
+        unset GITHUB_REPO
+        ALLOW_DEVENV_REPO=0
+        source '$PROJECT_ROOT/tools/lib/git-operations.bash'
+        check_target_repo
+    "
+    [ "$status" -ne 0 ]
+    [[ "$output" =~ "appears to be the devenv repository itself" ]]
+}
+
 # ============================================================================
 # get_or_create_repos_directory Tests
 # ============================================================================

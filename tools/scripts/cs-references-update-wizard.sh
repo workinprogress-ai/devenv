@@ -391,8 +391,24 @@ main() {
 
     # ── Step 6: Determine change level ────────────────────────────────────
 
+    # Test-only detection: when every changed csproj lives under a test tree
+    # (test/ or tests/ path segment), the update cannot affect package
+    # consumers — downgrade the commit to chore(tests) so semantic-release
+    # emits no version bump. Src snapshots above already exclude test trees,
+    # so has_breaking/has_framework_change can only be driven by src changes;
+    # a test-only change therefore always lands as chore(tests).
+    local test_only=0
+    local changed_csprojs
+    changed_csprojs=$(git -C "$repo_dir" diff --name-only HEAD 2>/dev/null | grep '\.csproj$' || true)
+    if [ -n "$changed_csprojs" ] && ! grep -qvE '(^|/)(test|tests)/' <<< "$changed_csprojs"; then
+        test_only=1
+    fi
+
     local change_level="patch"
-    if [ "$has_framework_change" -eq 1 ]; then
+    if [ "$test_only" -eq 1 ]; then
+        log_info "Only test csproj files changed — committing as chore(tests) (no release)."
+        change_level="chore(tests)"
+    elif [ "$has_framework_change" -eq 1 ]; then
         log_warn "Framework change detected in $repo_name — forcing major update."
         change_level="major"
     elif [ "$has_breaking" -eq 1 ]; then

@@ -500,9 +500,27 @@ is_devenv_repo() {
     [ -f "$git_root/.devcontainer/bootstrap.sh" ] || [ "$(basename "$git_root")" = "devenv" ]
 }
 
+# Check whether the current repo is a devenv clone nested below a repos/
+# directory (e.g. <workspace>/repos/devenv). Such clones are deliberate
+# devenv-development targets, so wrappers may operate on them without the
+# --devenv override. The canonical workspace devenv root (whose parent is the
+# workspace folder, not repos/) keeps the guard.
+#
+# Returns:
+#   0 if the git root's parent directory is named "repos", 1 otherwise
+#
+is_nested_devenv_clone() {
+    local git_root
+    git_root=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
+    [ "$(basename "$(dirname "$git_root")")" = "repos" ]
+}
+
 # Check if we're in the devenv repo and validate permissions
 # Uses the global variable ALLOW_DEVENV_REPO (should be set by calling script)
-# Detection delegates to is_devenv_repo (canonical test)
+# Detection delegates to is_devenv_repo (canonical test).
+# Nested devenv clones below a repos/ directory are auto-allowed: being
+# cd'ed into <anywhere>/repos/devenv is itself the deliberate devenv-target
+# signal, so the --devenv flag is not required there.
 # Args: none (uses $ALLOW_DEVENV_REPO global)
 check_target_repo() {
     local git_root
@@ -514,7 +532,9 @@ check_target_repo() {
     # Canonical devenv-repo test — same predicate everywhere
     if is_devenv_repo; then
         if [ -z "${GITHUB_REPO:-}" ]; then
-            if [ "${ALLOW_DEVENV_REPO:-0}" -eq 0 ]; then
+            if is_nested_devenv_clone; then
+                log_info "Operating on a devenv clone below repos/ — no --devenv override needed"
+            elif [ "${ALLOW_DEVENV_REPO:-0}" -eq 0 ]; then
                 log_error "The current repository appears to be the devenv repository itself"
                 log_info "Operations should be performed in target project repositories, not in devenv"
                 log_info "To target a project repo, prefix the command with GITHUB_REPO=<owner>/<repo>"

@@ -10,7 +10,7 @@ Quick reference for all CLI tools used by the skill suite. **Invoke tools by bar
 
 - `-n, --dry-run` — show what would happen without executing
 - `-V, --verbose` — enable debug output
-- `--devenv` — safety override to run against the devenv repo itself; **reserved for work that is genuinely about the devenv repo** — never as a shortcut past the devenv-repo refusal. When a wrapper refuses because the cwd is the devenv repo, target the actual project repo instead (see the [repo-targeting guard](./_conventions.md#repo-targeting-guard-required-for-issueartifact-calls))
+- `--devenv` — safety override to run against the devenv repo itself; **reserved for work that is genuinely about the devenv repo** — never as a shortcut past the devenv-repo refusal. Exception: a devenv clone nested below a `repos/` directory (e.g. `repos/devenv` in the workspace) is auto-allowed without the flag — cd'ing into it is the deliberate devenv-target signal. When a wrapper refuses because the cwd is the canonical devenv root, target the actual project repo instead (see the [repo-targeting guard](./_conventions.md#repo-targeting-guard-required-for-issueartifact-calls))
 - `GITHUB_REPO` env var — override repo (`owner/repo`); **resolution order: `GITHUB_REPO`, else `GH_ORG` + current directory's repo name, else current repo — the terminal location silently decides the target when the env var is unset.** Prefix issue/artifact calls with `GITHUB_REPO=<owner>/<repo>` whenever the target is anything other than the cwd's repo
 
 ---

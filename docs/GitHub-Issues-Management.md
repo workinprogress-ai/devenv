@@ -367,7 +367,8 @@ The issue management scripts include built-in safety checks to prevent accidenta
 
 - `issue-create`, `issue-list`, `issue-update`, `issue-close`, and `issue-select` detect when running against devenv repo
 - If detected, they fail with a helpful error message
-- To override and operate on devenv anyway, pass the `--devenv` flag
+- Exception: a devenv clone nested below a `repos/` directory (e.g. `~/workspaces/ws/repos/devenv`) is auto-allowed — being cd'ed into it is itself the deliberate devenv-target signal, so no flag is needed
+- To override and operate on the canonical devenv root anyway, pass the `--devenv` flag
 
 **Example Override:**
 

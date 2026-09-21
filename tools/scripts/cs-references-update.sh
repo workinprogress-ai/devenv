@@ -286,21 +286,25 @@ fi
 
 # Chain the repo's boilerplate updater (if present) so dependency updates and
 # template sync happen in one pass. Always delegate the run/don't-run decision
-# to update.sh itself — its migration step runs before its own dirty-tree
-# guard (clean lockfile is all migration needs), so a tree dirtied by THIS
-# script's upgrades must not suppress the chain. Pre-existing dirt (before
-# this script ran) means update.sh's sync will be skipped by its guard, so
-# the message says that instead of a FATAL-looking refusal. Unattended-safe:
-# non-fatal when absent or failing.
+# to update.sh itself, via --force when needed: its dirty-tree guard runs in
+# its main() before any sync work, so a tree dirtied by THIS script's own
+# upgrades would otherwise kill the chain mid-run — pass --force so the sync
+# proceeds (the changes mixed into the tree are this run's own upgrades).
+# Pre-existing dirt (before this script ran) means the sync would mix
+# unrelated local work, so the chain is skipped with a NOTE instead.
+# Unattended-safe: non-fatal when absent or failing.
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 if [ -n "$repo_root" ] && [ -x "$repo_root/.repo/update.sh" ]; then
+    chain_args=(--no-refresh)
     if [ "$tree_was_dirty_before" -eq 1 ]; then
         echo "Chaining .repo/update.sh — note: tree was dirty before this run, so its boilerplate sync will be skipped (its lockfile migration still runs)."
     else
-        echo "Chaining .repo/update.sh (boilerplate sync)..."
+        # Tree was clean before this run; any dirt now is from this script's
+        # own upgrades, so --force is safe and keeps the chain alive.
+        chain_args+=(--force)
     fi
     chain_output="$(mktemp)"
-    if ! "$repo_root/.repo/update.sh" --no-refresh >"$chain_output" 2>&1; then
+    if ! "$repo_root/.repo/update.sh" "${chain_args[@]}" >"$chain_output" 2>&1; then
         if grep -q "Working tree is not clean" "$chain_output"; then
             echo "NOTE: .repo/update.sh deferred its boilerplate sync (dirty tree) — its lockfile migration ran. Re-run it after committing to complete the sync."
         else
