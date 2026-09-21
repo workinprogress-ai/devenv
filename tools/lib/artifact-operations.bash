@@ -12,6 +12,22 @@ if [ -n "${_ARTIFACT_OPERATIONS_LOADED:-}" ]; then
 fi
 readonly _ARTIFACT_OPERATIONS_LOADED=1
 
+# Provider layer: REST reads route through the abstraction (slice 3/#36).
+# github-helpers (sourced below) loads the provider layer; this guard covers
+# standalone sourcing.
+if [ -z "${_PROVIDER_CORE_LOADED:-}" ]; then
+    _ao_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [ -f "$_ao_lib_dir/providers/provider-core.bash" ]; then
+        # shellcheck disable=SC1091
+        source "$_ao_lib_dir/providers/provider-core.bash"
+        provider_detect "${DEVENV_ROOT:-$(dirname "$(dirname "$_ao_lib_dir")")}/devenv.config" 2>/dev/null || PROVIDER_NAME="${PROVIDER_NAME:-github}"
+        # shellcheck disable=SC1091
+        # shellcheck disable=SC1090
+        source "$_ao_lib_dir/providers/${PROVIDER_NAME}/repos.bash"
+    fi
+    unset _ao_lib_dir
+fi
+
 # Ensure dependencies are loaded
 source "${DEVENV_TOOLS}/lib/error-handling.bash"
 source "${DEVENV_TOOLS}/lib/github-helpers.bash"
@@ -158,7 +174,7 @@ query_packages() {
     local query_result
     local gh_exit_code=0
     # shellcheck disable=SC2086
-    query_result=$(gh api "$endpoint" $query_params --paginate 2>&1) || gh_exit_code=$?
+    query_result=$(provider_api_paginate "$endpoint" $query_params 2>&1) || gh_exit_code=$?
     
     # Distinguish between actual errors and empty results
     if [ $gh_exit_code -ne 0 ]; then
@@ -258,7 +274,7 @@ get_package_versions() {
     # Query package versions from GitHub API - capture both exit code and output
     local versions_result
     local gh_exit_code=0
-    versions_result=$(gh api "$endpoint" --paginate 2>&1) || gh_exit_code=$?
+    versions_result=$(provider_api_paginate "$endpoint" 2>&1) || gh_exit_code=$?
     
     # Distinguish between actual errors and empty results
     if [ $gh_exit_code -ne 0 ]; then

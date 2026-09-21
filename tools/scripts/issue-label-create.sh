@@ -96,7 +96,7 @@ ensure_label() {
     read -ra repo_spec <<< "$(get_repo_spec)"
 
     local exists=0
-    gh label list "${repo_spec[@]}" --limit 200 --json name 2>/dev/null \
+    provider_issues_label_list "${repo_spec[1]:-}" --limit 200 --json name 2>/dev/null \
         | jq -r --arg n "$name" 'any(.[]; .name == $n)' | grep -q true && exists=1
 
     if [ "$exists" -eq 1 ]; then
@@ -105,10 +105,11 @@ ensure_label() {
                 log_info "[DRY RUN] Would update label: $name (color: ${color:-unchanged}, description: ${description:-unchanged})"
                 return 0
             fi
-            local args=("${repo_spec[@]}" "$name")
-            [ -n "$color" ] && args+=(--color "$color")
-            [ -n "$description" ] && args+=(--description "$description")
-            if gh label edit "${args[@]}"; then
+            local repo="${repo_spec[1]:-}"
+            local api_args=(-X PATCH "repos/${repo}/labels/${name}")
+            [ -n "$color" ] && api_args+=(-F "new_color=$color" -F "color=$color")
+            [ -n "$description" ] && api_args+=(-f "new_description=$description" -f "description=$description")
+            if provider_api "${api_args[0]}" "${api_args[1]}" "${api_args[@]:2}"; then
                 log_info "Updated label: $name"
             else
                 log_error "Failed to update label: $name"
@@ -125,10 +126,12 @@ ensure_label() {
         return 0
     fi
 
-    local args=("${repo_spec[@]}" "$name")
-    [ -n "$color" ] && args+=(--color "$color")
-    [ -n "$description" ] && args+=(--description "$description")
-    if gh label create "${args[@]}"; then
+    local repo="${repo_spec[1]:-}"
+    local api_args=(-X POST "repos/${repo}/labels")
+    [ -n "$color" ] && api_args+=(-f "color=$color")
+    [ -n "$description" ] && api_args+=(-f "description=$description")
+    api_args+=(-f "name=$name")
+    if provider_api "${api_args[0]}" "${api_args[1]}" "${api_args[@]:2}"; then
         log_info "Created label: $name"
     else
         log_error "Failed to create label: $name"

@@ -109,7 +109,7 @@ list_prs() {
     log_verbose "Listing PRs (state=$STATE limit=$LIMIT)"
 
     if [ "$OUTPUT_FORMAT" = "table" ]; then
-        if ! gh pr list "${gh_args[@]}"; then
+        if ! provider_prs_list "" "${gh_args[@]}"; then
             log_error "Failed to list PRs"
             exit $EXIT_API_FAILURE
         fi
@@ -117,7 +117,7 @@ list_prs() {
     fi
 
     local json
-    if ! json=$(gh pr list "${gh_args[@]}" --json "$DEFAULT_FIELDS" 2>/dev/null); then
+    if ! json=$(provider_prs_list "" "${gh_args[@]}" --json "$DEFAULT_FIELDS" 2>/dev/null); then
         log_error "Failed to list PRs"
         exit $EXIT_API_FAILURE
     fi

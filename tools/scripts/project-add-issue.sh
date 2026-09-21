@@ -92,9 +92,13 @@ get_owner() {
     if [ -n "${GITHUB_ORG:-}" ]; then
         echo "$GITHUB_ORG"
     else
-        # Derive the owner from the canonical target repo so owner derivation
-        # can never drift from issue resolution (both use resolve_target_repo).
-        gh repo view "$(resolve_target_repo)" --json owner -q .owner.login
+        local repo_spec=""
+        local repo_name
+        repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
+        if [ -n "$repo_name" ]; then
+            repo_spec="-R $repo_name"
+        fi
+        provider_repos_view "${repo_spec#-R }" --json owner -q .owner.login
     fi
 }
 
@@ -105,9 +109,15 @@ get_owner() {
 # current directory, silently adding wrong-repo issues with matching numbers.
 get_issue_url() {
     local issue_num="$1"
-    local repo_spec
-    repo_spec=$(resolve_target_repo) || return 1
-    gh issue view -R "$repo_spec" "$issue_num" --json url -q .url
+    local repo_spec=""
+    if [ -n "${GITHUB_ORG:-}" ]; then
+        local repo_name
+        repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
+        if [ -n "$repo_name" ]; then
+            repo_spec="-R ${GITHUB_ORG}/${repo_name}"
+        fi
+    fi
+    provider_issues_view "${repo_spec#-R }" "$issue_num" --json url -q .url
 }
 
 # Add issue to project
@@ -131,10 +141,8 @@ add_issue_to_project() {
     
     log_verbose "Adding issue #$issue_num to project '$PROJECT_NAME'"
     
-    # Add issue to project (stderr captured, not discarded — a failed or
-    # wrong-repo item-add should surface its reason, not a generic hint)
-    local add_stderr
-    if add_stderr=$(gh project item-add "$PROJECT_NAME" --owner "$owner" --url "$issue_url" 2>&1 >/dev/null); then
+    # Add issue to project
+    if provider_projects_item_add "" "$PROJECT_NAME" "$issue_url" --owner "$owner" &> /dev/null; then
         log_info "Added issue #$issue_num to project '$PROJECT_NAME'"
         
         # Set field values if provided

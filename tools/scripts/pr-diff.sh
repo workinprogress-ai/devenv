@@ -103,12 +103,12 @@ diff_pr() {
     log_verbose "Fetching diff for PR #$PR_NUMBER"
 
     if [ "$NAME_ONLY" -eq 1 ]; then
-        if ! gh pr diff "${repo_spec[@]}" "$PR_NUMBER" --name-only 2>/dev/null; then
+        if ! provider_prs_diff "${repo_spec[1]:-}" "$PR_NUMBER" --name-only 2>/dev/null; then
             log_error "Failed to fetch diff for PR #$PR_NUMBER"
             exit $EXIT_API_FAILURE
         fi
     else
-        if ! gh pr diff "${repo_spec[@]}" "$PR_NUMBER" 2>/dev/null; then
+        if ! provider_prs_diff "${repo_spec[1]:-}" "$PR_NUMBER" 2>/dev/null; then
             log_error "Failed to fetch diff for PR #$PR_NUMBER"
             exit $EXIT_API_FAILURE
         fi

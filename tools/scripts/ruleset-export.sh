@@ -101,7 +101,7 @@ export_ruleset() {
     if [ -z "$RULESET_ID" ]; then
         log_verbose "Listing rulesets for $owner_repo"
         local raw
-        if ! raw=$(gh api "repos/$owner_repo/rulesets" --paginate 2>/dev/null); then
+        if ! raw=$(provider_org_rulesets_list "$owner_repo" --paginate 2>/dev/null); then
             log_error "Failed to list rulesets"
             exit 1
         fi
@@ -111,7 +111,7 @@ export_ruleset() {
 
     log_verbose "Exporting ruleset $RULESET_ID from $owner_repo"
     local raw
-    if ! raw=$(gh api "repos/$owner_repo/rulesets/$RULESET_ID" 2>/dev/null); then
+    if ! raw=$(provider_org_ruleset_get "$owner_repo" "$RULESET_ID" 2>/dev/null); then
         log_error "Failed to fetch ruleset $RULESET_ID"
         exit 1
     fi

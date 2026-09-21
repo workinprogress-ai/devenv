@@ -135,7 +135,7 @@ search_issues() {
     # shellcheck disable=SC2054  # gh CLI uses comma-separated fields
     gh_args+=(--json number,title,body,state,url)
 
-    log_verbose "Running: gh issue list ${gh_args[*]} (searching ${#SEARCH_TERMS[@]} term(s))"
+    log_verbose "Running: provider_issues_list (searching ${#SEARCH_TERMS[@]} term(s))"
 
     # Static jq program. Terms come in as $ARGS.positional; each is lowercased
     # and tested as a substring against the lowercased title + body (body
@@ -154,7 +154,7 @@ search_issues() {
         | del(.body) + {matchedTerms: $matched, matchCount: ($matched | length)}
     '
 
-    gh issue list "${gh_args[@]}" \
+    provider_issues_list "" "${gh_args[@]}" \
         | jq -r --args "${jq_program}" -- "${SEARCH_TERMS[@]}" \
         | jq -s --argjson limit "$LIMIT" 'sort_by(-.matchCount) | .[0:$limit]'
 }

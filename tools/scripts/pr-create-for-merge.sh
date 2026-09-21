@@ -193,7 +193,7 @@ fi
 # Get repo spec
 read -ra repo_spec <<< "$(get_repo_spec)"
 
-existing_url=$(gh pr list "${repo_spec[@]}" --state open --head "$CURRENT_BRANCH" --json url --jq '.[0].url' 2>/dev/null || true)
+existing_url=$(provider_prs_list "${repo_spec[1]:-}" --state open --head "$CURRENT_BRANCH" --json url --jq '.[0].url' 2>/dev/null || true)
 if [ -n "$existing_url" ]; then
   echo "An open PR already exists for $CURRENT_BRANCH: $existing_url" >&2
   echo "$existing_url"
@@ -211,7 +211,7 @@ ${PR_BODY}"
   fi
 fi
 
-args=(pr create --title "$PR_TITLE" --body "$PR_BODY" --base "$TARGET_BRANCH" --head "$CURRENT_BRANCH")
+args=(--title "$PR_TITLE" --body "$PR_BODY" --base "$TARGET_BRANCH" --head "$CURRENT_BRANCH")
 [ "$DRAFT" = "true" ] && args+=(--draft)
 for reviewer in "${REVIEWERS[@]}"; do
   args+=(--reviewer "$reviewer")
@@ -226,7 +226,7 @@ done
 
 echo "Creating PR from $CURRENT_BRANCH -> $TARGET_BRANCH..." >&2
 set +e
-PR_URL=$(gh "${args[@]}" 2>&1 | grep -oE 'https://github.com[^ ]+' | head -n1)
+PR_URL=$(provider_prs_create "${repo_spec[1]:-}" "${args[@]}" 2>&1 | grep -oE 'https://github.com[^ ]+' | head -n1)
 status=$?
 set -e
 

@@ -84,7 +84,7 @@ list_workflows() {
     log_verbose "Fetching repos for org: $org"
 
     local repos
-    if ! repos=$(gh repo list "$org" --limit 1000 --json name -q '.[].name' 2>/dev/null); then
+    if ! repos=$(provider_repos_list "$org" --limit 1000 --json name -q '.[].name' 2>/dev/null); then
         log_error "Failed to list repositories for org: $org"
         exit "$EXIT_API_FAILURE"
     fi
@@ -110,7 +110,7 @@ list_workflows() {
         log_verbose "Fetching workflows for $org/$repo..."
 
         local wfs
-        wfs=$(gh workflow list -R "$org/$repo" \
+        wfs=$(provider_actions_workflow_list "$org/$repo" \
             --json id,name,path,state \
             2>/dev/null || echo "[]")
 

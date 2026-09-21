@@ -155,7 +155,7 @@ post_comment() {
 
     log_verbose "Posting comment on PR #$PR_NUMBER"
 
-    if gh pr comment "${gh_args[@]}" "$PR_NUMBER"; then
+    if provider_prs_comment "${gh_args[0]:-}" "${gh_args[@]}" "$PR_NUMBER"; then
         log_info "Comment posted on PR #$PR_NUMBER"
     else
         log_error "Failed to post comment on PR #$PR_NUMBER"

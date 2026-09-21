@@ -86,7 +86,7 @@ trigger_workflow() {
 
     log_verbose "Triggering workflow '$WORKFLOW' in $REPO${REF:+ on $REF}"
 
-    if ! gh workflow run "$WORKFLOW" "${gh_args[@]}"; then
+    if ! provider_actions_workflow_run "$WORKFLOW" "${gh_args[@]}"; then
         log_error "Failed to trigger workflow: $WORKFLOW"
         exit 1
     fi
@@ -98,7 +98,7 @@ trigger_workflow() {
     sleep 2
 
     local run_url
-    run_url=$(gh run list -R "$REPO" \
+    run_url=$(provider_actions_run_list "$REPO" \
         --workflow "$WORKFLOW" \
         --limit 1 \
         --json url \
@@ -108,7 +108,7 @@ trigger_workflow() {
         log_info "Run URL: $run_url"
     else
         log_warn "Run queued but URL not yet available."
-        log_warn "Check: gh run list -R $REPO --workflow $WORKFLOW"
+        log_warn "Check: provider_actions_run_list $REPO --workflow $WORKFLOW"
     fi
 }
 

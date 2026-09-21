@@ -57,12 +57,12 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-if [ "$method" = "GET" ] && [[ "$endpoint" =~ ^repos/\{owner\}/\{repo\}/issues/[0-9]+/comments$ ]]; then
+if [ "$method" = "GET" ] && [[ "$endpoint" =~ ^repos/(\{owner\}/\{repo\}|[^/]+/[^/]+)/issues/[0-9]+/comments$ ]]; then
   printf '%s\n' "${MOCK_COMMENTS_JSON:-[]}"
   exit 0
 fi
 
-if [ "$method" = "POST" ] && [[ "$endpoint" =~ ^repos/\{owner\}/\{repo\}/issues/[0-9]+/comments$ ]]; then
+if [ "$method" = "POST" ] && [[ "$endpoint" =~ ^repos/(\{owner\}/\{repo\}|[^/]+/[^/]+)/issues/[0-9]+/comments$ ]]; then
   issue_number="${endpoint#repos/{owner}/{repo}/issues/}"
   issue_number="${issue_number%/comments}"
   create_id="${MOCK_CREATE_ID:-9001}"
@@ -71,7 +71,7 @@ if [ "$method" = "POST" ] && [[ "$endpoint" =~ ^repos/\{owner\}/\{repo\}/issues/
   exit 0
 fi
 
-if [ "$method" = "PATCH" ] && [[ "$endpoint" =~ ^repos/\{owner\}/\{repo\}/issues/comments/[0-9]+$ ]]; then
+if [ "$method" = "PATCH" ] && [[ "$endpoint" =~ ^repos/(\{owner\}/\{repo\}|[^/]+/[^/]+)/issues/comments/[0-9]+$ ]]; then
   comment_id="${endpoint##*/}"
   update_url="${MOCK_UPDATE_URL:-https://example.test/issues/1#issuecomment-$comment_id}"
   printf '{"id":%s,"html_url":"%s","body":%s}\n' "$comment_id" "$update_url" "$(jq -Rn --arg v "$body" '$v')"

@@ -21,6 +21,26 @@ if [ -z "${_ERROR_HANDLING_LOADED:-}" ] && [ -f "${DEVENV_ROOT}/tools/lib/error-
     source "${DEVENV_ROOT}/tools/lib/error-handling.bash"
 fi
 
+# Provider layer: issue/PR verbs route through the abstraction (slice 3/#36).
+# Load the domain modules whenever their verbs are missing — another lib may
+# have loaded provider-core alone (its flag says nothing about modules).
+# Module sourcing is best-effort: a bare checkout carrying only this lib and
+# self-root must still load (verbs stay undefined; call sites fail defined).
+if ! declare -F provider_issues_set_type >/dev/null; then
+    if [ -f "${DEVENV_ROOT}/tools/lib/providers/provider-core.bash" ]; then
+        # shellcheck disable=SC1091
+        source "${DEVENV_ROOT}/tools/lib/providers/provider-core.bash"
+        provider_detect "${DEVENV_ROOT}/devenv.config" 2>/dev/null || PROVIDER_NAME="${PROVIDER_NAME:-github}"
+    fi
+    _io_provider_dir="${DEVENV_ROOT}/tools/lib/providers/${PROVIDER_NAME:-github}"
+    for _io_module in issues prs repos; do
+        # shellcheck disable=SC1091
+        # shellcheck disable=SC1090
+        [ -f "$_io_provider_dir/$_io_module.bash" ] && source "$_io_provider_dir/$_io_module.bash"
+    done
+    unset _io_provider_dir _io_module
+fi
+
 # ============================================================================
 # Issue Listing and Filtering
 # ============================================================================
@@ -171,10 +191,9 @@ list_issues_formatted() {
 
     local gh_args=()
     
-    # Add repository if specified
-    if [ -n "$repo" ]; then
-        gh_args+=(-R "$repo")
-    fi
+    # Add repository if specified (positionally for the provider verb)
+    local repo_arg=""
+    [ -n "$repo" ] && repo_arg="$repo"
 
     # Build filters
     local filter_str
@@ -185,17 +204,17 @@ list_issues_formatted() {
     # Set output format
     case "$format" in
         table)
-            gh issue list "${gh_args[@]}"
+            provider_issues_list "$repo_arg" "${gh_args[@]}"
             ;;
         json)
             # shellcheck disable=SC2054  # gh CLI uses comma-separated fields
             gh_args+=(--json number,title,state,labels,assignees,milestone,createdAt,updatedAt,url)
-            gh issue list "${gh_args[@]}"
+            provider_issues_list "$repo_arg" "${gh_args[@]}"
             ;;
         simple)
             # shellcheck disable=SC2054  # gh CLI uses comma-separated fields
             gh_args+=(--json number,title)
-            gh issue list "${gh_args[@]}" | jq -r '.[] | "#\(.number) - \(.title)"'
+            provider_issues_list "$repo_arg" "${gh_args[@]}" | jq -r '.[] | "#\(.number) - \(.title)"'
             ;;
         *)
             log_error "Invalid format: $format (must be table, json, or simple)"
@@ -268,7 +287,9 @@ get_issues_for_selection() {
     done
 
     # Get issues and format for fzf (tab-separated)
-    gh issue list "${gh_args[@]}" | jq -r '.[] | 
+    local repo_arg=""
+    [ -n "$repo" ] && repo_arg="$repo"
+    provider_issues_list "$repo_arg" "${gh_args[@]}" | jq -r '.[] | 
         "#\(.number)\t\(.title)\t[\(.labels | map(.name) | join(", "))]"'
 }
 
@@ -315,7 +336,7 @@ find_pr_by_branch() {
     local gh_args=(--state "$state" --head "$branch" --json url --jq '.[0].url')
     [ -n "$repo" ] && gh_args+=(-R "$repo")
     
-    gh pr list "${gh_args[@]}" 2>/dev/null || echo ""
+    provider_prs_list "${gh_args[@]}" 2>/dev/null || echo ""
 }
 
 # Find PR by search criteria
@@ -359,7 +380,7 @@ find_pr_by_search() {
     gh_args+=(--json title,url,number)
     [ -n "$repo" ] && gh_args+=(-R "$repo")
     
-    gh pr list "${gh_args[@]}" 2>/dev/null || echo "[]"
+    provider_prs_list "${gh_args[@]}" 2>/dev/null || echo "[]"
 }
 
 # Create PR with options
@@ -422,7 +443,7 @@ create_pr() {
     [ -n "$head" ] && gh_args+=(--head "$head")
     [ -n "$base" ] && gh_args+=(--base "$base")
 
-    gh pr create "${gh_args[@]}" 2>/dev/null || return 1
+    provider_prs_create "${gh_args[@]}" 2>/dev/null || return 1
 }
 
 # ============================================================================
@@ -472,12 +493,12 @@ close_issue() {
     fi
 
     for issue_num in "${issue_numbers[@]}"; do
-        local gh_args=()
-        [ -n "$repo" ] && gh_args+=(-R "$repo")
+        local close_args=()
+        [ -n "$repo" ] && close_args+=("$repo")
         [ -n "$reason" ] && gh_args+=(--reason "$reason")
         [ -n "$comment" ] && gh_args+=(--comment "$comment")
         
-        gh issue close "$issue_num" "${gh_args[@]}" || return 1
+        provider_issues_close "${close_args[@]}" "$issue_num" "${gh_args[@]}" || return 1
     done
 }
 
@@ -518,11 +539,11 @@ reopen_issue() {
     fi
 
     for issue_num in "${issue_numbers[@]}"; do
-        local gh_args=()
-        [ -n "$repo" ] && gh_args+=(-R "$repo")
+        local reopen_repo_args=()
+        [ -n "$repo" ] && reopen_repo_args+=("$repo")
         [ -n "$comment" ] && gh_args+=(--comment "$comment")
         
-        gh issue reopen "$issue_num" "${gh_args[@]}" || return 1
+        provider_issues_reopen "${reopen_repo_args[@]}" "$issue_num" "${gh_args[@]}" || return 1
     done
 }
 
@@ -580,10 +601,7 @@ issue_exists() {
 
     validate_issue_number "$issue" || return 1
 
-    local gh_args=(--json number)
-    [ -n "$repo" ] && gh_args+=(-R "$repo")
-    
-    if gh issue view "$issue" "${gh_args[@]}" &>/dev/null; then
+    if provider_issues_exists "$repo" "$issue"; then
         return 0
     else
         return 1
@@ -706,11 +724,7 @@ set_issue_type() {
         return 1
     }
 
-    # gh issue edit resolves the issue by number within the repo that gh's
-    # cwd (or GH_REPO/issue context) points at; set GH_REPO explicitly so the
-    # call always lands on the repo the issue was created in, regardless of
-    # the caller's terminal location.
-    if GH_REPO="${repo_owner}/${repo_name}" gh issue edit "$issue_number" --type "$normalized" >/dev/null 2>&1; then
+    if provider_issues_set_type "$repo_owner" "$repo_name" "$issue_number" "$normalized"; then
         return 0
     fi
 
@@ -719,7 +733,7 @@ set_issue_type() {
     local attempt
     for attempt in 2 3; do
         sleep 2
-        if GH_REPO="${repo_owner}/${repo_name}" gh issue edit "$issue_number" --type "$normalized" >/dev/null 2>&1; then
+        if provider_issues_set_type "$repo_owner" "$repo_name" "$issue_number" "$normalized"; then
             return 0
         fi
     done
@@ -750,9 +764,7 @@ validate_comment_id() {
 fetch_issue_comments() {
     local issue_number="$1"
     local raw
-    if ! raw=$(GH_REPO="${GITHUB_REPO:-}" gh api \
-            "repos/{owner}/{repo}/issues/${issue_number}/comments" \
-            --paginate 2>/dev/null); then
+    if ! raw=$(provider_issues_comments "$issue_number" "${GITHUB_REPO:-}"); then
         log_error "Failed to fetch comments for issue #$issue_number — does the issue exist?"
         return 1
     fi
@@ -810,9 +822,7 @@ format_issue_comments() {
 # Note: Requires GITHUB_REPO env var (owner/repo) to be set
 check_issue_comment_exists() {
     local comment_id="$1"
-    if ! GH_REPO="${GITHUB_REPO:-}" gh api \
-            "repos/{owner}/{repo}/issues/comments/${comment_id}" \
-            --silent 2>/dev/null; then
+    if ! provider_api GET "repos/${GITHUB_REPO}/issues/comments/${comment_id}" --silent >/dev/null 2>&1; then
         log_error "Comment ID $comment_id not found — does it belong to this repository?"
         return 1
     fi
@@ -825,11 +835,9 @@ check_issue_comment_exists() {
 update_issue_comment() {
     local comment_id="$1"
     local body="$2"
-    if ! GH_REPO="${GITHUB_REPO:-}" gh api \
-            "repos/{owner}/{repo}/issues/comments/${comment_id}" \
-            -X PATCH \
+    if ! provider_api PATCH "repos/${GITHUB_REPO}/issues/comments/${comment_id}" \
             -f "body=${body}" \
-            --silent; then
+            --silent >/dev/null 2>&1; then
         log_error "Failed to update comment $comment_id"
         return 1
     fi

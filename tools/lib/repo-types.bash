@@ -18,6 +18,30 @@ if [ -z "${_VALIDATION_LOADED:-}" ] && [ -f "${DEVENV_TOOLS}/lib/validation.bash
     source "${DEVENV_TOOLS}/lib/validation.bash"
 fi
 
+# Provider layer: repo/org verbs route through the abstraction (slice 3/#36).
+if [ -z "${_PROVIDER_CORE_LOADED:-}" ] && [ -n "${DEVENV_TOOLS:-}" ]; then
+    # Prefer this checkout's provider modules; fall back to DEVENV_TOOLS
+    # (sandboxed test roots may symlink only lib/).
+    _rt_self_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [ -f "$_rt_self_lib/providers/provider-core.bash" ]; then
+        # shellcheck disable=SC1091
+        source "$_rt_self_lib/providers/provider-core.bash"
+    elif [ -f "${DEVENV_TOOLS}/lib/providers/provider-core.bash" ]; then
+        # shellcheck disable=SC1091
+        source "${DEVENV_TOOLS}/lib/providers/provider-core.bash"
+    fi
+    if [ -n "${_PROVIDER_CORE_LOADED:-}" ]; then
+        provider_detect "${DEVENV_ROOT:-}/devenv.config" 2>/dev/null || PROVIDER_NAME="${PROVIDER_NAME:-github}"
+        # shellcheck disable=SC1091
+        # shellcheck disable=SC1090
+        source "$_rt_self_lib/providers/${PROVIDER_NAME}/repos.bash"
+        # shellcheck disable=SC1091
+        # shellcheck disable=SC1090
+        source "$_rt_self_lib/providers/${PROVIDER_NAME}/org.bash"
+    fi
+    unset _rt_self_lib
+fi
+
 # Get the repo types config path, honoring overrides and defaults
 repo_types_config_path() {
     local override="${1:-}"
@@ -422,7 +446,7 @@ configure_rulesets_for_type() {
 
     # Check if ruleset already exists
     local existing_ruleset
-    existing_ruleset=$(gh api "repos/${full_name}/rulesets" 2>/dev/null | jq -r ".[] | select(.name == \"$ruleset_name\") | .id" 2>/dev/null || echo "")
+    existing_ruleset=$(provider_org_rulesets_list "$full_name" 2>/dev/null | jq -r ".[] | select(.name == \"$ruleset_name\") | .id" 2>/dev/null || echo "")
 
     # Create temp file for API payload
     local temp_payload
@@ -432,7 +456,7 @@ configure_rulesets_for_type() {
     local ruleset_output
     if [ -n "$existing_ruleset" ]; then
         # Update existing via PUT
-        ruleset_output=$(gh api --input "$temp_payload" -X PUT "repos/${full_name}/rulesets/${existing_ruleset}" 2>&1 || true)
+        ruleset_output=$(provider_org_ruleset_update "$full_name" "$existing_ruleset" "$temp_payload" 2>&1 || true)
         rm -f "$temp_payload"
 
         if echo "$ruleset_output" | jq -e '.id' >/dev/null 2>&1; then
@@ -446,7 +470,7 @@ configure_rulesets_for_type() {
         fi
     else
         # Create new via POST
-        ruleset_output=$(gh api --input "$temp_payload" -X POST "repos/${full_name}/rulesets" 2>&1 || true)
+        ruleset_output=$(provider_org_ruleset_create "$full_name" "$temp_payload" 2>&1 || true)
         rm -f "$temp_payload"
 
         if echo "$ruleset_output" | jq -e '.id' >/dev/null 2>&1; then
@@ -550,7 +574,7 @@ configure_merge_types_for_type() {
     fi
     
     # Apply settings via GitHub API using -F flags for booleans (raw JSON)
-    if gh api -X PATCH "repos/${full_name}" \
+    if provider_repos_patch "$full_name" \
         -F "allow_merge_commit=$allow_merge" \
         -F "allow_squash_merge=$allow_squash" \
         -F "allow_rebase_merge=$allow_rebase" >/dev/null 2>&1; then
@@ -585,7 +609,7 @@ configure_template_setting_for_type() {
     
     if [ "$is_template" = "true" ]; then
         log_info "Marking repository as a template..."
-        if gh repo edit "$full_name" --template >/dev/null 2>&1; then
+        if provider_repos_edit "$full_name" --template >/dev/null 2>&1; then
             log_info "✓ Repository marked as template"
             return 0
         else
@@ -623,7 +647,7 @@ configure_pr_branch_deletion_for_type() {
     log_info "Configuring PR branch deletion on merge..."
     
     # Apply setting via GitHub API using -F flag for boolean (raw JSON)
-    if gh api -X PATCH "repos/${full_name}" \
+    if provider_repos_patch "$full_name" \
         -F "delete_branch_on_merge=$delete_pr_branch" >/dev/null 2>&1; then
         log_info "✓ PR branch deletion on merge configured (enabled: $delete_pr_branch)"
         return 0
@@ -663,13 +687,12 @@ configure_repository_features_for_type() {
     log_info "Configuring repository features..."
     
     # Build API flags - use -F for booleans (raw JSON), -f for strings
-    local api_flags=(-X PATCH "repos/${full_name}")
-    api_flags+=(-F "has_wiki=$has_wiki" -F "has_issues=$has_issues" -F "has_discussions=$has_discussions" -F "has_projects=$has_projects")
+    local api_flags=(-F "has_wiki=$has_wiki" -F "has_issues=$has_issues" -F "has_discussions=$has_discussions" -F "has_projects=$has_projects")
     api_flags+=(-F "allow_auto_merge=$allow_auto_merge" -F "allow_update_branch=$allow_update_branch" -F "allow_forking=$allow_forking")
     api_flags+=(-f "squash_merge_commit_title=$squash_merge_commit_title" -f "squash_merge_commit_message=$squash_merge_commit_message")
     
     # Apply all settings via GitHub API in a single PATCH request
-    if gh api "${api_flags[@]}" >/dev/null 2>&1; then
+    if provider_repos_patch "$full_name" "${api_flags[@]}" >/dev/null 2>&1; then
         log_info "✓ Repository features configured:"
         log_info "  - Wiki: $has_wiki, Issues: $has_issues, Discussions: $has_discussions, Projects: $has_projects"
         log_info "  - Auto-merge: $allow_auto_merge, Update branch: $allow_update_branch, Forking: $allow_forking"
@@ -743,10 +766,8 @@ configure_repository_permissions_for_type() {
         
         # Apply permission based on type
         if [ "$type" = "team" ]; then
-            # For teams, use the GitHub API to add team to repository
-            # API endpoint: PUT /orgs/{org}/teams/{team_slug}/repos/{owner}/{repo}
-            if gh api -X PUT "orgs/${owner}/teams/${name}/repos/${full_name}" \
-                -f "permission=$permission" >/dev/null 2>&1; then
+            # For teams, grant via the provider verb (idempotent PUT)
+            if provider_repos_team_put "$owner" "$name" "$full_name" "$permission"; then
                 log_info "  ✓ Team '$name' granted '$permission' permission"
                 ((success_count++))
             else
@@ -754,10 +775,8 @@ configure_repository_permissions_for_type() {
                 ((fail_count++))
             fi
         elif [ "$type" = "user" ]; then
-            # For users, use the collaborator API
-            # API endpoint: PUT /repos/{owner}/{repo}/collaborators/{username}
-            if gh api -X PUT "repos/${full_name}/collaborators/${name}" \
-                -f "permission=$permission" >/dev/null 2>&1; then
+            # For users, use the collaborator verb (idempotent PUT)
+            if provider_repos_collaborator_put "$full_name" "$name" -f "permission=$permission"; then
                 log_info "  ✓ User '$name' granted '$permission' permission"
                 ((success_count++))
             else

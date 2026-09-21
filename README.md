@@ -234,13 +234,13 @@ The devenv can be forked and customized to use with other organizations. See [th
 Run the test suite with:
 
 ```bash
-./tools/run-tools-tests
+./tools/tests/run-devenv-tests.sh
 ```
 
 Run linting with:
 
 ```bash
-./tools/lint-tools-scripts
+lint-scripts
 ```
 
 See [Tooling Standards — Testing requirements](./docs/Tooling-Standards.md) for more information about writing and running tests.

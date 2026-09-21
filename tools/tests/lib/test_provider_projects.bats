@@ -167,3 +167,83 @@ setup() {
     assert_success
     grep -q "^gh release list -R org/repo$" "$STUB_CALL_LOG"
 }
+
+# ============================================================================
+# Phase-2 verbs: project GraphQL resolution + field mutation (issue #36)
+# ============================================================================
+
+@test "projects id_by_name: numeric form uses projectV2(number:)" {
+    printf '{"data":{"organization":{"projectV2":{"id":"PVT_num"}}}}' > "$TEST_TEMP_DIR/gql.json"
+    export STUB_GH_API_RESPONSE="$TEST_TEMP_DIR/gql.json"
+    run provider_projects_id_by_name myorg 42
+    assert_success
+    # The stub ignores --jq (it cats the canned file), so assert the call
+    # shape: numeric path issues graphql with -F n= (no list scan).
+    grep -q '\-f o=myorg -F n=42 --jq' "$STUB_CALL_LOG"
+}
+
+@test "projects id_by_name: capability-gated" {
+    PROVIDER_CAPABILITIES=""
+    run provider_projects_id_by_name myorg 42
+    assert_failure
+    [[ "$output" == *"does not support capability 'project-boards'"* ]]
+}
+
+@test "projects item_id_for_issue: rejects non-numeric issue" {
+    run provider_projects_item_id_for_issue "PVT_abc" "not-a-number"
+    assert_failure
+    [[ "$output" == *"must be numeric"* ]]
+}
+
+@test "projects item_id_for_issue: graphql issued with project id" {
+    printf '{"data":{"node":{"items":{"nodes":[{"id":"PVTI_9","content":{"number":7}}]}}}}' > "$TEST_TEMP_DIR/gql2.json"
+    export STUB_GH_API_RESPONSE="$TEST_TEMP_DIR/gql2.json"
+    run provider_projects_item_id_for_issue "PVT_abc" 7
+    assert_success
+    grep -q '\-f p=PVT_abc --jq' "$STUB_CALL_LOG"
+}
+
+@test "projects field_option_ids: graphql issued" {
+    printf '{"data":{"node":{"field":{"id":"FLD_1","options":[{"id":"OPT_a","name":"To-groom"}]}}}}' > "$TEST_TEMP_DIR/gql3.json"
+    export STUB_GH_API_RESPONSE="$TEST_TEMP_DIR/gql3.json"
+    run provider_projects_field_option_ids "PVT_abc" "Status" "to-groom"
+    assert_success
+    [ "$output" = "FLD_1 OPT_a" ]
+    grep -q "gh api graphql" "$STUB_CALL_LOG"
+}
+
+@test "projects field_set: mutation issued with all four IDs" {
+    export STUB_GH_MUTATIONS="$TEST_TEMP_DIR/mutations.log"
+    run provider_projects_field_set "PVT_abc" "PVTI_1" "FLD_2" "OPT_3"
+    assert_success
+    grep -q "updateProjectV2ItemFieldValue" "$STUB_CALL_LOG"
+}
+
+@test "projects field_set: capability-gated" {
+    PROVIDER_CAPABILITIES=""
+    run provider_projects_field_set "PVT_abc" "PVTI_1" "FLD_2" "OPT_3"
+    assert_failure
+    [[ "$output" == *"does not support capability 'project-boards'"* ]]
+}
+
+@test "projects for_issue: graphql issued with issue url" {
+    run provider_projects_for_issue "https://github.com/myorg/r/issues/1" myorg
+    assert_success
+    grep -q "gh api graphql" "$STUB_CALL_LOG"
+}
+
+@test "repos api: generic escape hatch passes method/endpoint through" {
+    # shellcheck disable=SC1091
+    source "$DEVENV_TOOLS/lib/providers/github/repos.bash"
+    run provider_api PATCH repos/org/repo -f has_wiki=false
+    assert_success
+    grep -q "^gh api -X PATCH repos/org/repo -f has_wiki=false$" "$STUB_CALL_LOG"
+}
+
+@test "repos api_paginate: --paginate flag wired" {
+    # shellcheck disable=SC1091
+    source "$DEVENV_TOOLS/lib/providers/github/repos.bash"
+    run provider_api_paginate /users/org/packages
+    assert_success
+    grep -q "^gh api /users/org/packages --paginate$" "$STUB_CALL_LOG"
+}

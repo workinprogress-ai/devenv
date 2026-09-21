@@ -155,7 +155,9 @@ find_pr_by_branches() {
         read -ra repo_args <<< "$repo_spec"
     fi
     
-    gh pr list "${repo_args[@]}" --head "$head_branch" --base "$base_branch" --state open \
+    local prov_repo=""
+    [ -n "$repo_spec" ] && prov_repo="$(echo "$repo_spec" | sed 's/^-R //')"
+    provider_prs_list "$prov_repo" --head "$head_branch" --base "$base_branch" --state open \
         --json number --jq '.[0].number' 2>/dev/null || echo ""
 }
 
@@ -174,7 +176,9 @@ get_pr_details() {
         read -ra repo_args <<< "$repo_spec"
     fi
     
-    gh pr view "${repo_args[@]}" "$pr_num" \
+    local prov_repo=""
+    [ -n "$repo_spec" ] && prov_repo="$(echo "$repo_spec" | sed 's/^-R //')"
+    provider_prs_view "$prov_repo" "$pr_num" \
         --json title,body,isDraft,state,author --jq . 2>/dev/null || echo ""
 }
 
@@ -328,7 +332,9 @@ merge_pr_squash() {
     fi
     
     log_info "Merging PR $pr_num with squash..."
-    gh pr merge "${repo_args[@]}" "$pr_num" --squash --delete-branch --body "$commit_msg" 2>&1
+    local prov_repo=""
+    [ -n "$repo_spec" ] && prov_repo="$(echo "$repo_spec" | sed 's/^-R //')"
+    provider_prs_merge "$prov_repo" "$pr_num" --squash --delete-branch --body "$commit_msg" 2>&1
 }
 
 # Merge PR with a specified method (squash, merge, or rebase)
@@ -362,7 +368,7 @@ merge_pr() {
     subject="$(printf "%s" "$commit_msg" | head -n1)"
     body="$(printf "%s" "$commit_msg" | tail -n +2 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
 
-    local merge_args=("${repo_args[@]}" "$pr_num" --"$method" --delete-branch --subject "$subject" --body "$body")
+    local merge_args=("$pr_num" --"$method" --delete-branch --subject "$subject" --body "$body")
     if [ "$force" = "true" ]; then
         merge_args+=(--admin)
         log_info "Merging PR $pr_num with $method (--admin)..."
@@ -371,7 +377,9 @@ merge_pr() {
     fi
     
     local merge_output
-    if ! merge_output=$(gh pr merge "${merge_args[@]}" 2>&1); then
+    local prov_repo_merge=""
+    [ -n "$repo_spec" ] && prov_repo_merge="${repo_spec#-R }"
+    if ! merge_output=$(provider_prs_merge "$prov_repo_merge" "${merge_args[@]}" 2>&1); then
         printf '%s\n' "$merge_output"
         return 1
     fi
@@ -381,7 +389,7 @@ merge_pr() {
     # Best-effort - never alters this function's success.
     if [ -n "${_PR_EVENTS_LOADED:-}" ] || source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/pr-events.bash" 2>/dev/null; then
         local pr_body
-        pr_body=$(gh pr view "${repo_args[@]}" "$pr_num" --json body --jq '.body' 2>/dev/null || true)
+        pr_body=$(provider_prs_view "${repo_spec#-R }" "$pr_num" --json body --jq '.body' 2>/dev/null || true)
         pr_events_signal merged "$pr_body" || true
     fi
     return 0
@@ -700,14 +708,18 @@ configure_branch_protection() {
         return 1
     fi
     
-    # Apply branch protection
-    if gh api -X PUT "repos/${full_name}/branches/${branch_name}/protection" \
-        --input - <<< "$protection_payload" >/dev/null 2>&1; then
+    # Apply branch protection (provider verb consumes a payload file)
+    local payload_file
+    payload_file=$(mktemp)
+    printf '%s' "$protection_payload" > "$payload_file"
+    if provider_repos_protect_branch "$full_name" "$branch_name" "$payload_file"; then
+        rm -f "$payload_file"
         echo "  ✓ Branch protection configured for $branch_name"
         return 0
     else
         echo "  WARNING: Could not configure branch protection (branch may not exist yet)"
         echo "  Run this after pushing your first commit to $branch_name"
+        rm -f "$payload_file"
         return 1
     fi
 }
@@ -750,7 +762,7 @@ set_repo_setting() {
         return 1
     fi
     
-    if gh api -X PATCH "repos/${full_name}" -f "${setting_name}=${setting_value}" >/dev/null 2>&1; then
+    if provider_repos_patch "$full_name" -f "${setting_name}=${setting_value}" >/dev/null 2>&1; then
         echo "  ✓ Repository setting '$setting_name' set to '$setting_value'"
         return 0
     else

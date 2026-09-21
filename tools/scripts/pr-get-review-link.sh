@@ -60,10 +60,10 @@ git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "Directory $REPO_D
 read -ra repo_spec <<< "$(get_repo_spec)"
 
 # Prefer REVIEW-titled PRs, then any PR with review/ in the head
-pr_url=$(gh pr list "${repo_spec[@]}" --state open --search "REVIEW:" --json title,url --jq '.[] | select(.title | startswith("REVIEW:")) | .url' | head -n 1)
+pr_url=$(provider_prs_list "${repo_spec[1]:-}" --state open --search "REVIEW:" --json title,url --jq '.[] | select(.title | startswith("REVIEW:")) | .url' | head -n 1)
 
 if [ -z "$pr_url" ]; then
-  pr_url=$(gh pr list "${repo_spec[@]}" --state open --search "head:review/" --json url --jq '.[0].url' 2>/dev/null || true)
+  pr_url=$(provider_prs_list "${repo_spec[1]:-}" --state open --search "head:review/" --json url --jq '.[0].url' 2>/dev/null || true)
 fi
 
 if [ -z "$pr_url" ]; then

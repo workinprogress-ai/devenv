@@ -280,7 +280,7 @@ main() {
 
     # Single repo-resolution entry point (override > GITHUB_REPO > cwd),
     # devenv-repo safety gate included; exports GH_REPO for gh api templates.
-    resolve_target_repo "$REPO_OVERRIDE" > /dev/null
+    TARGET_REPO="$(resolve_target_repo "$REPO_OVERRIDE")"
 
     local body
     body="$(load_comment_body)"
@@ -379,7 +379,7 @@ main() {
 
     log_verbose "Fetching comments for issue #$ISSUE_NUMBER"
     local comments_raw
-    if ! comments_raw=$(gh api "repos/{owner}/{repo}/issues/${ISSUE_NUMBER}/comments" --paginate 2>/dev/null); then
+    if ! comments_raw=$(provider_issues_comments "$ISSUE_NUMBER" "$TARGET_REPO" 2>/dev/null); then
         api_failure "Failed to fetch comments for issue #$ISSUE_NUMBER"
     fi
 
@@ -428,9 +428,7 @@ main() {
 
         log_verbose "Updating comment ID $comment_id"
         local updated
-        if ! updated=$(gh api \
-            "repos/{owner}/{repo}/issues/comments/${comment_id}" \
-            -X PATCH \
+        if ! updated=$(provider_api PATCH "repos/${TARGET_REPO}/issues/comments/${comment_id}" \
             -f "body=${body}" 2>/dev/null); then
             api_failure "Failed to update comment ID $comment_id"
         fi
@@ -459,9 +457,7 @@ main() {
 
     log_verbose "Creating new comment on issue #$ISSUE_NUMBER"
     local created
-    if ! created=$(gh api \
-        "repos/{owner}/{repo}/issues/${ISSUE_NUMBER}/comments" \
-        -X POST \
+    if ! created=$(provider_api POST "repos/${TARGET_REPO}/issues/${ISSUE_NUMBER}/comments" \
         -f "body=${body}" 2>/dev/null); then
         api_failure "Failed to create issue comment on issue #$ISSUE_NUMBER"
     fi

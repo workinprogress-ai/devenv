@@ -134,7 +134,7 @@ post_comment() {
 
     log_verbose "Posting comment on issue #$ISSUE_NUMBER"
 
-    if gh issue comment "${gh_args[@]}" "$ISSUE_NUMBER"; then
+    if provider_issues_comment "${gh_args[0]:-}" "${gh_args[@]}" "$ISSUE_NUMBER"; then
         log_info "Comment posted on issue #$ISSUE_NUMBER"
     else
         log_error "Failed to post comment on issue #$ISSUE_NUMBER"

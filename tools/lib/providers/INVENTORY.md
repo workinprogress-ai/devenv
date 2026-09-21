@@ -1,12 +1,18 @@
-# GitHub CLI Call Inventory
+# GitHub Call Inventory — Routing Ledger
 
-Complete catalog of every `gh` invocation across devenv tooling, classified by
-domain, repo-targeting idiom, output shape, and read-vs-mutation. This is the
-source of truth for the provider facade surface:
-domain APIs are derived from what callers actually do, not designed top-down.
+Historical catalog of every `gh` invocation across devenv tooling (as of
+slice 1, issue #33), classified by domain, repo-targeting idiom, output shape,
+and read-vs-mutation. It was the source of truth for deriving the provider
+facade surface.
 
-Counts below are call sites, not lines. `gh api graphql` is listed as `api
-graphql`. Files are relative to `tools/`.
+**As of slice 3 (#36), this catalog is historical: every listed call site now
+routes through `provider_<domain>_<verb>` functions. The live transport map is
+the provider modules themselves (`tools/lib/providers/github/*.bash`); the
+only sanctioned direct `gh` calls left in scripts are the auth seam
+(`key-update-github.sh`: `gh auth login`/`gh auth setup-git`; `repo-get.sh`:
+`gh auth status`) and the fzf preview viewer in `issue-select.sh` (fresh-shell
+constraint, documented inline). Use this file to trace WHY each verb exists;
+use the provider modules to see WHAT the transport is today.
 
 ## Summary
 
@@ -16,14 +22,14 @@ graphql`. Files are relative to `tools/`.
 | prs | 25 | 21 | list/view/create/merge/diff/comment + threads |
 | repos | 8 | 15 | view/list/create/edit + branch protection |
 | actions | 20 | 14 | runs/workflows incl. polling + artifacts |
-| projects | 0 | 8 | GraphQL surfaces; GH-only capability |
+| projects | 6 | 8 | GraphQL surfaces; GH-only capability |
 | rulesets | 9 | 3 | REST rulesets; GH-only capability |
 | releases | 0 | 1 | list only |
 | org issue-types | 1 | 1 | GraphQL; GH-only capability |
 | artifacts | 2 | 3 | run artifacts (actions domain) |
-| milestones | 0 | 1 | issue-groom; issues domain |
+| milestones | 0 | 1 | issues domain (triage) |
 | auth | 2 | 2 | auth seam territory |
-| **total** | **~89** | **~112** | |
+| **total** | **~59 verified** | **~90** | slice-3 audit; early rows were estimates |
 
 ## Library call sites (`tools/lib/*.bash`)
 
@@ -34,7 +40,7 @@ graphql`. Files are relative to `tools/`.
 | 82 | `gh repo view --json owner` | repos | none (cwd) | json field | R |
 | 128 | `gh repo view --json nameWithOwner` | repos | none (cwd) | json field | R |
 | 181 | `gh auth status` | auth | — | status | R |
-| 187 | `gh auth login --with-token` | auth | — | — | M |
+| 187 | (removed in #35) `gh auth login --with-token` | auth | — | — | M |
 | 220 | `gh auth status` | auth | — | status | R |
 | 266 | `gh run list -R $repo --branch --limit 10` | actions | `-R` | text | R |
 | 272 | `gh run list -R $repo --branch --limit 1` | actions | `-R` | text | R |
@@ -44,8 +50,10 @@ graphql`. Files are relative to `tools/`.
 | 375 | `gh label create $label $repo_spec` | issues | repo_spec array | — | M |
 | 30, 65, 80, 108, 192, 222, 239 | comments/examples only | — | — | — | — |
 
-Notes: `ensure_gh_login` (line 179) is the auth-seam absorption point; its
-`exit 1` (line 192) is the recorded anti-precedent — provider libs never exit.
+Notes: `ensure_gh_login` is the auth-seam absorption point; since #35 it is a
+verify-only status check (return 1, no env-token login). Callers run under
+`set -e`, so an unguarded call terminates the script — same effect as the
+pre-#35 `exit 1`.
 `get_full_repo_name` resolves repos from the cwd — the facade must support
 "no explicit target" resolution, not just `-R`/`GH_REPO=`.
 
@@ -147,7 +155,6 @@ Per-script verb map (unique verbs per script):
 | issue-comment.sh | issue comment | issues |
 | issue-create.sh | auth status/login, issue create, project item-add, project list, repo view | issues, auth, projects |
 | issue-get.sh | issue view | issues |
-| issue-groom.sh | api (milestones), issue edit, issue view | issues |
 | issue-label-create.sh | label create, label edit, label list | issues |
 | issue-label-list.sh | label list | issues |
 | issue-list.sh | issue list | issues |
@@ -171,7 +178,6 @@ Per-script verb map (unique verbs per script):
 | project-add-issue.sh | issue view, project item-add, project list, repo view | projects, issues |
 | project-update-issue.sh | project field-list, repo view, workflow stages | projects |
 | release-list.sh | release list | releases |
-| repo-create-new-service.sh | repo create | repos |
 | repo-create.sh | api (commits probe), repo create, repo view | repos |
 | ruleset-export.sh | api (rulesets list/get, paginated) | rulesets |
 
