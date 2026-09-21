@@ -388,3 +388,23 @@ token_env_allowlist = ghp_cfg_token ghp_other:justification")
     provider_has_capability rulesets
     provider_has_capability native-issue-types
 }
+
+# ============================================================================
+# Credential lifecycle seam (auth import/status)
+# ============================================================================
+
+@test "lifecycle: import_token fails defined when provider module is absent" {
+    # core without any auth module loaded: provider_dispatch auth import_token
+    # finds no impl and fails with the defined error.
+    source_core
+    provider_detect "$TEST_TEMP_DIR/absent.config"
+    run provider_auth_import_token <<< "tok"
+    assert_failure
+}
+
+@test "lifecycle: status fails defined when provider module is absent" {
+    source_core
+    provider_detect "$TEST_TEMP_DIR/absent.config"
+    run provider_auth_status
+    assert_failure
+}
