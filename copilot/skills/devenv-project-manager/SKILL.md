@@ -1,6 +1,6 @@
 ---
 name: devenv-project-manager
-description: 'On-demand project management for the org''s issue boards and full issue landscape — project members and unprojected tickets alike. Answers status/composition/progress questions, sweeps for drift and hygiene problems, recommends grooming/flow/state changes, and effects changes when explicitly asked. USE WHEN the user says "project status", "board status", "what''s in flight", "how is the epic going?", "clean up the board", "board hygiene", "what''s drifted?", "what''s stale?", "what should be groomed next?", "what should I look at?", "what changed while I was away?", "what''s unprojected?", "move #N to X", "add these issues to the project", or asks any population-level question about issues and their states. DO NOT USE for updating plan files or running phases (use /devenv-refine-plan, /devenv-pair-programming, /devenv-delegation), grooming a specific design topic (use /devenv-grooming), triaging a single new issue at intake (use /devenv-triage-issue — this skill may RECOMMEND triage but not perform it), creating plans (use /devenv-create-plan), or syncing roadmap status (use /devenv-update-roadmap).'
+description: 'On-demand project management for the org''s issue boards and full issue landscape — project members and unprojected tickets alike. Answers status/composition/progress questions, sweeps for drift and hygiene problems, recommends grooming/flow/state changes, and effects changes when explicitly asked. USE WHEN the user says "project status", "board status", "what''s in flight", "how is the epic going?", "show the roadmap for epic N", "clean up the board", "board hygiene", "what''s drifted?", "what''s stale?", "what should be groomed next?", "what should I look at?", "what changed while I was away?", "what''s unprojected?", "move #N to X", "add these issues to the project", "create issues from the roadmap steps", or asks any population-level question about issues and their states. DO NOT USE for updating plan files or running phases (use /devenv-refine-plan, /devenv-pair-programming, /devenv-delegation), grooming a specific design topic (use /devenv-grooming), triaging a single new issue at intake (use /devenv-triage-issue — this skill may RECOMMEND triage but not perform it), creating plans (use /devenv-create-plan), or syncing/revising roadmap artifacts (use /devenv-update-roadmap / /devenv-refine-roadmap — this skill only READS roadmaps).'
 argument-hint: '<question | sweep | instruction (freeform)>'
 user-invocable: true
 ---
@@ -56,6 +56,8 @@ For board scoping: resolve the project(s) from the org's configuration (`GH_ORG`
 
 **Epic/parent rollups.** Child progress → parent derivation uses the **same workflow-core minimum-state rollup** the engine uses (`tools/lib/workflow-core.bash`) — never reimplement the semantics. Plan-set assembly per issue: direct plan artifacts (`issue-artifact-list --artifact-type plan`, plus legacy `implementation-plan`), descendant issues' plans via issue-tree linkage, and local `Plan-*.md` working copies when discoverable (`.local-artifacts/` first; note which are local-only). Always run the **linkage audit**: name how children were detected; surface open issues referencing the scope but lacking parent links — missing linkage under-reports progress and must never fail silently.
 
+**Roadmap view.** Resolve the roadmap artifact on an epic (`issue-artifact-select --artifact-type roadmap`) and render its phases and step statuses (✅ 🟡 ⬜ ⏸️) with step→issue links — the delivery view alongside the issue-tree roll-up, reported side by side, never summed. Detect **step-vs-issue drift** (step ⬜ but its issue closed; step 🟡 with no open PR) and surface both readings; reconciliation routes to `/devenv-update-roadmap`. Steps lacking issues are the input to backlog materialization (see Act).
+
 **Per-plan metrics.** `plan-parse <plan> --summary` per plan: raw counts, weighted counts, current phase, open questions, unchecked ACs. Never hand-count. Headline is raw counts; size-weighted percentage is a secondary lens (meaningful only when `sized_tasks` is healthy). Phase position always accompanies a percentage ("66% — phase 3 of 5"). For unstarted scope, report **plan coverage** (plans existing / plans needed; denominator from grooming attack-plan rows → roadmap steps → open child issues) — never "0%", and never invent a denominator. Issue→plans roll-up and roadmap step status are separate views, never summed.
 
 **Drill-downs.** "Why is #42 still To-Groom?" — issue + labels + project fields + linked PRs + plan state when an artifact identity exists. When plan and issue states disagree, surface **both readings** as a callout; reconciliation belongs to executor/closeout skills, never here (except via an explicit Act instruction).
@@ -97,13 +99,14 @@ Sweep the scoped board and issue landscape; emit a reviewable table (issue, find
 Two legal forms, nothing else:
 
 1. **Single change on explicit instruction** — "move #42 to Ready", "add #17 and #23 to the project". Confirm ambiguous targets; never guess an issue.
-2. **Consented batch** — from an Assess table: present the reviewable table, get explicit approval of the exact rows, apply only those rows.
+2. **Consented batch** — from a reviewable table: an Assess findings table, or a roadmap view's steps-lacking-issues list. Present the table, get explicit approval of the exact rows, apply only those rows.
 
 Mechanics and limits:
 
 - Writes go through `project-update-issue` / `project-add-issue` / the status machinery — the workflow engine's own validation governs (workflow states cannot be forced; the engine rejects illegal transitions and the skill reports the rejection, never bypasses it).
+- **Backlog materialization from ratified scope only.** From a roadmap view, steps lacking issues may be materialized as backlog issues: proposal table (step → repo, title, type, parent-epic linkage) → explicit approval → `issue-create` per workspace conventions (native types, templates, no-template for determinism) → report created issue numbers → optional `project-add-issue` as a second consented step. Birth statuses follow the workflow engine's rules (TBD by default; Ready under a parent) — never forced. This authority extends **only** to ratified roadmap scope — the same authority `/devenv-create-roadmap` and `/devenv-update-roadmap` already hold for their flows; it never covers this skill's own Assess findings or Recommendations (those route to their owning skills).
 - Every applied change is echoed in output (issue, from → to) — the transcript is the audit log.
-- **Never touches**: plan file content, issue bodies (except via the artifact-sync skills), labels outside the configured vocabulary, or any state the workflow engine forbids.
+- **Never touches**: plan file content, issue bodies (except via the artifact-sync skills), labels outside the configured vocabulary, or any state the workflow engine forbids — and never republishes roadmap artifacts or epic task lists (`/devenv-update-roadmap` owns those writes; one writer per artifact).
 - Issues owned by an in-flight run are off-limits to batch correction (Assess flags them; Act declines them with the reason unless the user explicitly insists).
 
 ## Configuration
@@ -139,11 +142,11 @@ State vocabulary: `status_workflow` (single source — this skill derives column
 - Deepening the repo cache without saying so; counting WIP commits as progress signal.
 - Running `issue-*` calls with unset `GITHUB_REPO` from the workspace root — or "fixing" the devenv-repo refusal with `--devenv`.
 - Hard-coding state names or staleness days instead of reading config.
-- Executing this skill's own recommendations instead of routing them.
+- Executing this skill's own recommendations instead of routing them — including creating issues from its own findings; only **ratified roadmap scope** may be materialized (see Act).
 
 ## Future capabilities (deliberately not yet)
 
-Recorded so enhancement requests have an obvious home — adopt only with real usage evidence: iteration-batch proposal (needs dependency-link discipline), cycle-time/bottleneck metrics (needs honest timeline aggregation), snapshot diffing (standup digest covers it statelessly), milestone readiness (adopt iff milestone discipline emerges), consent-gated nudges (needs an owner field). Rejected: scheduled sweeps (on-demand by decision), assignment suggestions, filing issues from recommendations (starts triage/grooming's job without their gates).
+Recorded so enhancement requests have an obvious home — adopt only with real usage evidence: iteration-batch proposal (needs dependency-link discipline), cycle-time/bottleneck metrics (needs honest timeline aggregation), snapshot diffing (standup digest covers it statelessly), milestone readiness (adopt iff milestone discipline emerges), consent-gated nudges (needs an owner field). Rejected: scheduled sweeps (on-demand by decision), assignment suggestions, filing issues from recommendations (starts triage/grooming's job without their gates — materializing **ratified roadmap steps** is the deliberate exception, owned by Act).
 
 ## Sibling skills
 

@@ -190,7 +190,7 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 | `/devenv-update-roadmap` | Sync roadmap status from issues + PRs; republish artifact + epic task list | Epic number (optionally `:doc_id`) |
 | `/devenv-create-plan` | Create a current-state execution plan via interview; any multi-step objective (code default; docs, mechanical file work, runbooks via a plan-declared verification approach); supports direct-plan mode and treats side-stream artifacts as additional (non-directing) context | Issue # or description |
 | `/devenv-refine-plan` | Align a plan with reality from any starting point — surgical edits, structured revision, or staleness assessment with internal routing | Plan file path or issue # |
-| `/devenv-project-manager` | On-demand project management — status answers, hygiene sweeps, recommendations, and consented changes across the issue landscape (project members and unprojected tickets); subsumes the former query-progress charter | Question, sweep, or instruction (freeform) |
+| `/devenv-project-manager` | On-demand project management — status answers (incl. roadmap views), hygiene sweeps, recommendations, and consented changes (incl. materializing ratified roadmap steps as backlog issues) across the issue landscape (project members and unprojected tickets); subsumes the former query-progress charter | Question, sweep, or instruction (freeform) |
 
 ### Working modes
 
