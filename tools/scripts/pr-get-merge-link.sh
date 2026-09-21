@@ -40,7 +40,7 @@ git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "Directory $REPO_D
 read -ra repo_spec <<< "$(get_repo_spec)"
 
 current_branch=$(git rev-parse --abbrev-ref HEAD)
-pr_url=$(gh pr list "${repo_spec[@]}" --state open --head "$current_branch" --json url --jq '.[0].url' 2>/dev/null || true)
+pr_url=$(provider_prs_list "${repo_spec[1]:-}" --state open --head "$current_branch" --json url --jq '.[0].url' 2>/dev/null || true)
 
 if [ -z "$pr_url" ]; then
   echo "No open PR found for branch '$current_branch'." >&2

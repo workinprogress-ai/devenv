@@ -183,8 +183,7 @@ post_reply() {
 
     # Use REST API: POST /repos/{owner}/{repo}/pulls/{pull_number}/comments/{comment_id}/replies
     local response
-    response=$(gh api \
-        -X POST \
+    response=$(provider_api POST \
         "/repos/$repo_owner/$repo_name/pulls/$PR_NUMBER/comments/$COMMENT_ID/replies" \
         -f body="$COMMENT_BODY" \
         2>&1) || {

@@ -118,7 +118,9 @@ select_issues() {
         return 1
     fi
     
-    # Build preview command
+    # Build preview command. fzf executes it in a fresh shell, so it cannot
+    # call provider functions directly; route through gh's own read path is
+    # the sanctioned exception for this viewer-only read (issue-get view).
     local preview_cmd="gh issue view {1} 2>/dev/null || echo 'Loading...'"
     
     # Select using fzf library - use multi or single based on flag
@@ -144,10 +146,10 @@ select_issues() {
                 echo "$issue_num"
                 ;;
             url)
-                gh issue view "$issue_num" --json url -q .url
+                provider_issues_view "" "$issue_num" --json url -q .url
                 ;;
             json)
-                gh issue view "$issue_num" --json number,title,url,state,labels
+                provider_issues_view "" "$issue_num" --json number,title,url,state,labels
                 ;;
             *)
                 echo "$issue_num"

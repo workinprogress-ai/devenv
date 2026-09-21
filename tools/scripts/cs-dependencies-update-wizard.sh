@@ -559,7 +559,7 @@ main() {
                     local workflow_failed=0
                     for _repo in "${merged_repos[@]}"; do
                         local _branch
-                        _branch=$(gh api "repos/$_repo" --jq '.default_branch' 2>/dev/null) || _branch="master"
+                        _branch=$(provider_api GET "repos/$_repo" --jq '.default_branch' 2>/dev/null) || _branch="master"
                         if ! wait_for_workflow_runs "$_repo" "$_branch" 15 600; then
                             workflow_failed=1
                         fi

@@ -75,7 +75,7 @@ watch_run() {
     if [ -z "$run_id" ]; then
         log_info "No RUN_ID provided — detecting latest in-progress run for $REPO..."
 
-        run_id=$(gh run list -R "$REPO" \
+        run_id=$(provider_actions_run_list "$REPO" \
             --status in_progress \
             --limit 1 \
             --json databaseId \
@@ -94,7 +94,7 @@ watch_run() {
     [ "$EXIT_STATUS" -eq 1 ] && gh_args+=(--exit-status)
 
     log_verbose "Watching run $run_id in $REPO"
-    gh run watch "$run_id" "${gh_args[@]}"
+    provider_actions_run_watch "$REPO" "$run_id" "${gh_args[@]:1}"
 }
 
 # ============================================================================

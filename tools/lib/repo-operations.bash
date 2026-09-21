@@ -12,6 +12,19 @@ if [ -n "${_REPO_OPERATIONS_LOADED:-}" ]; then
 fi
 readonly _REPO_OPERATIONS_LOADED=1
 
+# Provider layer: repo verbs route through the abstraction (slice 3/#36).
+if [ -z "${_PROVIDER_CORE_LOADED:-}" ]; then
+    _ro_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [ -f "$_ro_lib_dir/providers/provider-core.bash" ]; then
+        # shellcheck disable=SC1091
+        source "$_ro_lib_dir/providers/provider-core.bash"
+        provider_detect "${DEVENV_ROOT:-$(dirname "$(dirname "$_ro_lib_dir")")}/devenv.config" 2>/dev/null || PROVIDER_NAME="${PROVIDER_NAME:-github}"
+        # shellcheck disable=SC1091
+        source "$_ro_lib_dir/providers/${PROVIDER_NAME}/repos.bash"
+    fi
+    unset _ro_lib_dir
+fi
+
 # Self-locate this checkout (self-root contract: self-location wins;
 # a foreign exported DEVENV_ROOT is ignored).
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/self-root.bash"
@@ -63,12 +76,11 @@ list_organization_repositories() {
         return 1
     fi
     
-    gh repo list "$org" --limit "$limit" --json name --jq '.[].name' 2>/dev/null || {
+    provider_repos_list "$org" --limit "$limit" --json name --jq '.[].name' 2>/dev/null || {
         echo "ERROR: Failed to list repositories in organization '$org'" >&2
         return 1
     }
 }
-
 # List all locally cloned repositories in a directory
 #
 # Scans the specified directory for subdirectories representing cloned repositories.

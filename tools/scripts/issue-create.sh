@@ -379,14 +379,14 @@ create_issue() {
     read -ra repo_spec <<< "$(get_repo_spec)"
     
     if [ "$DRY_RUN" -eq 1 ]; then
-        log_info "[DRY RUN] Would create issue with command:"
-        echo "gh issue create ${repo_spec[*]} ${gh_args[*]}"
+        log_info "[DRY RUN] Would create issue via provider_issues_create:"
+        echo "provider_issues_create ${repo_spec[1]:-} ${gh_args[*]}"
         return 0
     fi
     
     # Create the issue and capture the URL
     local issue_url
-    issue_url=$(gh issue create "${repo_spec[@]}" "${gh_args[@]}")
+    issue_url=$(provider_issues_create "${repo_spec[1]:-}" "${gh_args[@]}")
     
     if [ -z "$issue_url" ]; then
         log_error "Failed to create issue"
@@ -400,18 +400,11 @@ create_issue() {
     issue_number=$(echo "$issue_url" | grep -oP '/issues/\K\d+')
     
     # Set the issue type via GraphQL (organization-level issue types)
-    # Enrichment MUST target the same repository the issue was created in.
-    # Derive owner/name from the creation-time repo_spec (get_repo_spec honors
-    # GITHUB_REPO) instead of the cwd — a bare `gh repo view` here leaks the
-    # terminal cwd and native types get applied against the wrong repo.
-    local repo_owner repo_name
-    if [ "${repo_spec[0]:-}" = "-R" ] && [ -n "${repo_spec[1]:-}" ]; then
-        repo_owner="${repo_spec[1]%%/*}"
-        repo_name="${repo_spec[1]#*/}"
-    else
-        repo_owner=$(gh repo view --json owner -q .owner.login)
-        repo_name=$(gh repo view --json name -q .name)
-    fi
+    # Get repo owner from current repository
+    local repo_owner
+    repo_owner=$(provider_repos_view "" --json owner -q .owner.login)
+    local repo_name
+    repo_name=$(provider_repos_view "" --json name -q .name)
     
     # Any requested enrichment that fails to apply is reported loudly and
     # fails the command: callers must be able to detect that a requested
@@ -439,7 +432,7 @@ create_issue() {
         # Resolve project name to number if not already a number
         local project_number="$ISSUE_PROJECT"
         if ! [[ "$project_number" =~ ^[0-9]+$ ]]; then
-            project_number=$(gh project list --owner "$owner" --format json --jq ".projects[] | select(.title == \"$ISSUE_PROJECT\") | .number" 2>/dev/null | head -1)
+            project_number=$(provider_projects_list "" --owner "$owner" --format json --jq ".projects[] | select(.title == \"$ISSUE_PROJECT\") | .number" 2>/dev/null | head -1)
             if [ -z "$project_number" ]; then
                 log_error "Issue created but could not be added to project: project '$ISSUE_PROJECT' not found"
                 log_error "Remediation: verify the project name, then add the issue manually"
@@ -449,7 +442,7 @@ create_issue() {
             fi
         fi
         
-        if [ -n "$project_number" ] && gh project item-add "$project_number" --owner "$owner" --url "$issue_url" &> /dev/null; then
+        if [ -n "$project_number" ] && provider_projects_item_add "" "$project_number" "$issue_url" --owner "$owner" &> /dev/null; then
             log_info "Added to project: $ISSUE_PROJECT"
         elif [ -n "$project_number" ]; then
             log_error "Issue created but could not be added to project: $ISSUE_PROJECT (project may not exist or you may lack permissions)"

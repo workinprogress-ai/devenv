@@ -173,7 +173,6 @@ query($owner: String!, $repo: String!, $pr: Int!, $cursor: String) {
 
     while [ "$has_next_page" = "true" ]; do
         local gh_args=()
-        gh_args+=(api graphql)
         gh_args+=(-f query="$query")
         gh_args+=(-f owner="$repo_owner")
         gh_args+=(-f repo="$repo_name")
@@ -183,7 +182,7 @@ query($owner: String!, $repo: String!, $pr: Int!, $cursor: String) {
         fi
 
         local response
-        response=$(gh "${gh_args[@]}" 2>/dev/null || true)
+        response=$(provider_api graphql "${gh_args[@]}" 2>/dev/null || true)
 
         if [ -z "$response" ]; then
             log_error "GraphQL query returned empty response"

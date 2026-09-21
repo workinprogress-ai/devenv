@@ -85,7 +85,7 @@ list_issue_types() {
     log_verbose "Querying issue types for org: $org"
 
     local raw
-    if ! raw=$(gh api graphql -f query="query { organization(login: \"$org\") { issueTypes(first: 100) { edges { node { id name } } } } }" 2>/dev/null); then
+    if ! raw=$(provider_org_issue_types "$org" 2>/dev/null); then
         log_error "Failed to query issue types for org $org"
         exit 1
     fi

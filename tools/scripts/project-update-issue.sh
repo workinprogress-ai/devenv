@@ -150,7 +150,7 @@ get_owner() {
         if [ -n "$repo_name" ]; then
             repo_spec="-R $repo_name"
         fi
-        gh repo view $repo_spec --json owner -q .owner.login
+        provider_repos_view "${repo_spec#-R }" --json owner -q .owner.login
     fi
 }
 
@@ -285,10 +285,10 @@ list_project_fields() {
     log_info "Owner: $owner"
     log_info ""
     log_info "Note: Field listing requires GraphQL API"
-    log_info "Run: gh project field-list $PROJECT_NAME --owner $owner"
+    log_info "Run: provider_projects_field_list $PROJECT_NAME --owner $owner"
     
     # Attempt to list fields if command exists
-    if gh project field-list "$PROJECT_NAME" --owner "$owner" 2>/dev/null; then
+    if provider_projects_field_list "" "$PROJECT_NAME" --owner "$owner" 2>/dev/null; then
         return 0
     else
         log_warn "Could not list fields automatically"

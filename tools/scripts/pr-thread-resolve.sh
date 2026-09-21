@@ -95,7 +95,7 @@ mutation($threadId: ID!) {
 }'
 
     local response
-    response=$(gh api graphql \
+    response=$(provider_api graphql \
         -f query="$mutation" \
         -f threadId="$THREAD_ID" \
         2>&1) || {

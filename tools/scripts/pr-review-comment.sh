@@ -108,7 +108,7 @@ get_head_sha() {
     local repo_spec
     read -ra repo_spec <<< "$(get_repo_spec)"
     local sha
-    if ! sha=$(gh pr view "${repo_spec[@]}" "$PR_NUMBER" --json headRefOid -q .headRefOid 2>/dev/null); then
+    if ! sha=$(provider_prs_view "${repo_spec[1]:-}" "$PR_NUMBER" --json headRefOid -q .headRefOid 2>/dev/null); then
         log_error "Failed to fetch PR #$PR_NUMBER head SHA"
         exit $EXIT_API_FAILURE
     fi
@@ -125,7 +125,7 @@ get_repo_node_id() {
         owner_repo="${repo_spec[1]:-}"
     fi
     local node_id
-    if ! node_id=$(gh api graphql -f query="query { repository(owner: \"${owner_repo%%/*}\", name: \"${owner_repo##*/}\") { id } }" 2>/dev/null | jq -r '.data.repository.id'); then
+    if ! node_id=$(provider_api graphql -f query="query { repository(owner: \"${owner_repo%%/*}\", name: \"${owner_repo##*/}\") { id } }" 2>/dev/null | jq -r '.data.repository.id'); then
         log_error "Failed to resolve repository node ID for $owner_repo"
         exit $EXIT_API_FAILURE
     fi
@@ -182,9 +182,9 @@ post_inline_comment() {
     }'
 
     local result
-    if ! result=$(gh api graphql \
+    if ! result=$(provider_api graphql \
         -f query="$query" \
-        -f pr="$(gh pr view "${repo_spec[@]}" "$PR_NUMBER" --json id -q .id)" \
+        -f pr="$(provider_prs_view "${repo_spec[1]:-}" "$PR_NUMBER" --json id -q .id)" \
         -f body="$COMMENT_BODY" \
         -f path="$FILE_PATH" \
         -F line="$LINE_NUMBER" \

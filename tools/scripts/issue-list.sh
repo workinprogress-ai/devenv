@@ -150,13 +150,13 @@ list_issues() {
             ;;
     esac
     
-    log_verbose "Running: gh issue list ${gh_args[*]}"
+    log_verbose "Running: provider_issues_list ${gh_args[*]}"
     
     # Execute the list command
     if [ "$OUTPUT_FORMAT" = "simple" ]; then
-        gh issue list "${gh_args[@]}" | jq -r '.[] | "#\(.number) - \(.title)"'
+        provider_issues_list "" "${gh_args[@]}" | jq -r '.[] | "#\(.number) - \(.title)"'
     else
-        gh issue list "${gh_args[@]}"
+        provider_issues_list "" "${gh_args[@]}"
     fi
 }
 
@@ -270,7 +270,7 @@ main() {
     # Open in web if requested
     if [ "$open_web" -eq 1 ]; then
         log_info "Opening issues in web browser..."
-        gh issue list --web
+        provider_issues_list "" --web
         exit 0
     fi
     

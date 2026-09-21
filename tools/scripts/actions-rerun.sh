@@ -80,13 +80,13 @@ rerun_workflow() {
 
     log_verbose "Re-running run $RUN_ID in $REPO (failed-only=$FAILED_ONLY debug=$DEBUG_MODE)"
 
-    if ! gh run rerun "$RUN_ID" "${gh_args[@]}"; then
+    if ! provider_actions_run_rerun "$REPO" "$RUN_ID" "${gh_args[@]}"; then
         log_error "Failed to re-run workflow run: $RUN_ID"
         exit "$EXIT_API_FAILURE"
     fi
 
     local run_url
-    run_url=$(gh run view "$RUN_ID" -R "$REPO" --json url -q '.url' 2>/dev/null || echo "")
+    run_url=$(provider_actions_run_view "$REPO" "$RUN_ID" --json url -q '.url' 2>/dev/null || echo "")
 
     if [ -n "$run_url" ]; then
         log_info "Re-run queued: $run_url"

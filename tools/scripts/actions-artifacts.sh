@@ -99,9 +99,7 @@ list_artifacts() {
     log_verbose "Listing artifacts for run $RUN_ID in $REPO"
 
     local artifacts
-    if ! artifacts=$(gh api \
-        "/repos/$owner/$repo/actions/runs/$RUN_ID/artifacts" \
-        --jq '.artifacts' 2>/dev/null); then
+    if ! artifacts=$(provider_actions_run_artifacts "$owner/$repo" "$RUN_ID" 2>/dev/null); then
         log_error "Failed to fetch artifacts for run $RUN_ID in $REPO"
         exit "$EXIT_API_FAILURE"
     fi
@@ -140,8 +138,7 @@ download_artifacts() {
     # When downloading all (no --name), warn if total size is large
     if [ -z "$ARTIFACT_NAME" ]; then
         local total_bytes
-        total_bytes=$(gh api \
-            "/repos/$owner/$repo/actions/runs/$RUN_ID/artifacts" \
+        total_bytes=$(provider_actions_run_artifacts "$owner/$repo" "$RUN_ID" 2>/dev/null \
             --jq '[.artifacts[].size_in_bytes] | add // 0' 2>/dev/null || echo "0")
 
         if [ "$total_bytes" -gt "$DOWNLOAD_SIZE_WARN_BYTES" ]; then
@@ -163,7 +160,7 @@ download_artifacts() {
 
     log_verbose "Downloading artifacts for run $RUN_ID from $REPO to $DEST_DIR"
 
-    if ! gh run download "$RUN_ID" "${gh_args[@]}"; then
+    if ! provider_actions_run_download "$REPO" "$RUN_ID" "${gh_args[@]:1}"; then
         log_error "Failed to download artifacts for run $RUN_ID"
         exit "$EXIT_API_FAILURE"
     fi

@@ -100,16 +100,16 @@ provider_issues_exists() {
 # List issue comments (paginated JSON).
 # Usage: provider_issues_comments [repo] NUMBER
 provider_issues_comments() {
-    local repo="" number="$1"
+    local number="$1"
+    local repo=""
     if [ $# -gt 1 ] && [[ "$2" != --* ]]; then
-        repo="$2"; shift 2
-    else
-        shift
+        repo="$2"
     fi
-    local repo_flag=()
-    [ -n "$repo" ] && repo_flag=(-R "$repo")
-    gh api "repos/${repo:-{owner}/{repo}}/issues/${number}/comments" \
-        "${repo_flag[@]}" --paginate 2>/dev/null
+    if [ -n "$repo" ]; then
+        gh api "repos/${repo}/issues/${number}/comments" --paginate 2>/dev/null
+    else
+        gh api "repos/{owner}/{repo}/issues/${number}/comments" --paginate 2>/dev/null
+    fi
 }
 
 # List milestones.
@@ -215,7 +215,8 @@ provider_issues_set_type() {
 provider_issues_label_list() {
     local repo_args=()
     provider_gh_repo_args repo_args "$1"
-    gh label list "${repo_args[@]}" --json name 2>/dev/null
+    shift
+    gh label list "${repo_args[@]}" "$@" --json name 2>/dev/null
 }
 
 # Create a label if absent (idempotent; mirrors ensure_label semantics).

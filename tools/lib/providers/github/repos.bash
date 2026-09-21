@@ -137,17 +137,20 @@ provider_repos_protect_branch() {
 }
 
 # Grant team access to a repo (REST PUT, per repo-types).
-# Usage: provider_repos_team_put ORG TEAM_SLUG REPO
+# Usage: provider_repos_team_put ORG TEAM_SLUG REPO [PERMISSION]
 provider_repos_team_put() {
     local org="$1" team="$2" repo="$3"
-    gh api -X PUT "orgs/$org/teams/$team/repos/$repo" >/dev/null 2>&1
+    local perm_args=()
+    [ -n "${4:-}" ] && perm_args=(-f "permission=$4")
+    gh api -X PUT "orgs/$org/teams/$team/repos/$repo" "${perm_args[@]}" >/dev/null 2>&1
 }
 
 # Grant collaborator access to a repo (REST PUT, per repo-types).
-# Usage: provider_repos_collaborator_put REPO USERNAME
+# Usage: provider_repos_collaborator_put REPO USERNAME [FLAGS...]
 provider_repos_collaborator_put() {
     local repo="$1" user="$2"
-    gh api -X PUT "repos/$repo/collaborators/$user" >/dev/null 2>&1
+    shift 2
+    gh api -X PUT "repos/$repo/collaborators/$user" "$@" >/dev/null 2>&1
 }
 
 # Patch repo settings (REST PATCH, per repo-types/git-operations).
@@ -155,4 +158,27 @@ provider_repos_collaborator_put() {
 provider_repos_patch() {
     local repo="$1"; shift
     gh api -X PATCH "repos/$repo" "$@"
+}
+
+# Generic REST API escape hatch for provider-specific surfaces without a
+# dedicated verb (repo-types PATCH flows, artifact reads, graphql traversals).
+# Usage: provider_api METHOD ENDPOINT [FLAGS...]
+# METHOD "graphql" maps to `gh api graphql` (no -X, matching gh's native form).
+provider_api() {
+    local method="$1"
+    local endpoint="$2"
+    shift 2
+    if [ "$method" = "graphql" ]; then
+        gh api graphql "$endpoint" "$@"
+    else
+        gh api -X "$method" "$endpoint" "$@"
+    fi
+}
+
+# Paginated GET for REST surfaces that page (artifact/package reads).
+# Usage: provider_api_paginate ENDPOINT [--jq JQPROG]
+provider_api_paginate() {
+    local endpoint="$1"
+    shift
+    gh api "$endpoint" --paginate "$@"
 }

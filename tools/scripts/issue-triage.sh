@@ -132,7 +132,7 @@ show_issue_details() {
     echo "Issue #$issue_num Details"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
-    gh issue view "${repo_spec[@]}" "$issue_num"
+    provider_issues_view "${repo_spec[1]:-}" "$issue_num"
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
@@ -170,7 +170,7 @@ groom_issue() {
             2)
                 read -rp "New title: " new_title
                 if [ -n "$new_title" ]; then
-                    gh issue edit "${repo_spec[@]}" "$issue_num" --title "$new_title"
+                    provider_issues_edit "${repo_spec[1]:-}" "$issue_num" --title "$new_title"
                     log_info "Updated title"
                 fi
                 ;;
@@ -178,9 +178,9 @@ groom_issue() {
                 # Open editor for body
                 local tmpfile
                 create_temp_file tmpfile issue-triage
-                gh issue view "${repo_spec[@]}" "$issue_num" --json body -q .body > "$tmpfile"
+                provider_issues_view "${repo_spec[1]:-}" "$issue_num" --json body -q .body > "$tmpfile"
                 "${EDITOR:-nano}" "$tmpfile"
-                gh issue edit "${repo_spec[@]}" "$issue_num" --body-file "$tmpfile"
+                provider_issues_edit "${repo_spec[1]:-}" "$issue_num" --body-file "$tmpfile"
                 log_info "Updated description"
                 log_info "Updated description"
                 ;;
@@ -190,14 +190,14 @@ groom_issue() {
             5)
                 read -rp "Assignee username: " assignee
                 if [ -n "$assignee" ]; then
-                    gh issue edit "${repo_spec[@]}" "$issue_num" --add-assignee "$assignee"
+                    provider_issues_edit "${repo_spec[1]:-}" "$issue_num" --add-assignee "$assignee"
                     log_info "Added assignee: $assignee"
                 fi
                 ;;
             6)
                 read -rp "Label to add: " label
                 if [ -n "$label" ]; then
-                    gh issue edit "${repo_spec[@]}" "$issue_num" --add-label "$label"
+                    provider_issues_edit "${repo_spec[1]:-}" "$issue_num" --add-label "$label"
                     log_info "Added label: $label"
                 fi
                 ;;
@@ -205,9 +205,9 @@ groom_issue() {
                 read -rp "Parent issue number: " parent
                 if [[ "$parent" =~ ^[0-9]+$ ]]; then
                     local current_body
-                    current_body=$(gh issue view "${repo_spec[@]}" "$issue_num" --json body -q .body)
+                    current_body=$(provider_issues_view "${repo_spec[1]:-}" "$issue_num" --json body -q .body)
                     local new_body="Part of #${parent}\n\n${current_body}"
-                    echo -e "$new_body" | gh issue edit "${repo_spec[@]}" "$issue_num" --body-file -
+                    echo -e "$new_body" | provider_issues_edit "${repo_spec[1]:-}" "$issue_num" --body-file -
                     log_info "Linked to parent #$parent"
                 fi
                 ;;
@@ -215,13 +215,13 @@ groom_issue() {
                 # Mark as Ready
                 log_info "Marking issue #$issue_num as Ready"
                 log_info "Note: Set Status=Ready in project manually or via GraphQL"
-                gh issue edit "${repo_spec[@]}" "$issue_num" --remove-label "needs-grooming" 2>/dev/null || true
-                gh issue edit "${repo_spec[@]}" "$issue_num" --add-label "status:ready"
+                provider_issues_edit "${repo_spec[1]:-}" "$issue_num" --remove-label "needs-grooming" 2>/dev/null || true
+                provider_issues_edit "${repo_spec[1]:-}" "$issue_num" --add-label "status:ready"
                 return 0
                 ;;
             9)
                 # Mark for grooming
-                gh issue edit "${repo_spec[@]}" "$issue_num" --add-label "needs-grooming"
+                provider_issues_edit "${repo_spec[1]:-}" "$issue_num" --add-label "needs-grooming"
                 log_info "Marked for grooming"
                 return 0
                 ;;
@@ -232,7 +232,7 @@ groom_issue() {
                 ;;
             o)
                 # Open in browser
-                gh issue view "${repo_spec[@]}" "$issue_num" --web
+                provider_issues_view "${repo_spec[1]:-}" "$issue_num" --web
                 ;;
             q)
                 # Quit
@@ -270,11 +270,11 @@ set_issue_type() {
     local all_labels
     all_labels=$(get_all_type_labels)
     for label in $all_labels; do
-        gh issue edit "${repo_spec[@]}" "$issue_num" --remove-label "$label" 2>/dev/null || true
+        provider_issues_edit "${repo_spec[1]:-}" "$issue_num" --remove-label "$label" 2>/dev/null || true
     done
     
     # Add new type label
-    gh issue edit "${repo_spec[@]}" "$issue_num" --add-label "$type_label"
+    provider_issues_edit "${repo_spec[1]:-}" "$issue_num" --add-label "$type_label"
     log_info "Set type to: $type_label"
 }
 
@@ -297,12 +297,12 @@ set_milestone() {
     # List available milestones
     echo ""
     echo "Available milestones:"
-    gh api "repos/${owner}/${repo}/milestones" --jq '.[] | "\(.number)) \(.title) (due: \(.due_on // "no date"))"'
+    provider_issues_milestones "${owner}/${repo}" --jq '.[] | "\(.number)) \(.title) (due: \(.due_on // "no date"))"'
     echo ""
     read -rp "Milestone title or number: " milestone_choice
     
     if [ -n "$milestone_choice" ]; then
-        gh issue edit "${repo_spec[@]}" "$issue_num" --milestone "$milestone_choice"
+        provider_issues_edit "${repo_spec[1]:-}" "$issue_num" --milestone "$milestone_choice"
         log_info "Set milestone to: $milestone_choice"
     fi
 }
@@ -320,19 +320,19 @@ apply_issue_bundle() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --title)
-                gh issue edit "${repo_spec[@]}" "$issue" --title "$2" >/dev/null 2>&1 || { log_error "title update failed"; failed=1; }
+                provider_issues_edit "${repo_spec[1]:-}" "$issue" --title "$2" >/dev/null 2>&1 || { log_error "title update failed"; failed=1; }
                 did_any=1; shift 2 ;;
             --body-file)
-                gh issue edit "${repo_spec[@]}" "$issue" --body-file "$2" >/dev/null 2>&1 || { log_error "body update failed"; failed=1; }
+                provider_issues_edit "${repo_spec[1]:-}" "$issue" --body-file "$2" >/dev/null 2>&1 || { log_error "body update failed"; failed=1; }
                 did_any=1; shift 2 ;;
             --milestone)
-                gh issue edit "${repo_spec[@]}" "$issue" --milestone "$2" >/dev/null 2>&1 || { log_error "milestone update failed"; failed=1; }
+                provider_issues_edit "${repo_spec[1]:-}" "$issue" --milestone "$2" >/dev/null 2>&1 || { log_error "milestone update failed"; failed=1; }
                 did_any=1; shift 2 ;;
             --assignee)
-                gh issue edit "${repo_spec[@]}" "$issue" --add-assignee "$2" >/dev/null 2>&1 || { log_error "assignee update failed"; failed=1; }
+                provider_issues_edit "${repo_spec[1]:-}" "$issue" --add-assignee "$2" >/dev/null 2>&1 || { log_error "assignee update failed"; failed=1; }
                 did_any=1; shift 2 ;;
             --label)
-                gh issue edit "${repo_spec[@]}" "$issue" --add-label "$2" >/dev/null 2>&1 || { log_error "label update failed for '$2'"; failed=1; }
+                provider_issues_edit "${repo_spec[1]:-}" "$issue" --add-label "$2" >/dev/null 2>&1 || { log_error "label update failed for '$2'"; failed=1; }
                 did_any=1; shift 2 ;;
             --triage-complete)
                 # Fire the triage event; its configured transition comes from

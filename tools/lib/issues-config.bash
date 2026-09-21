@@ -10,6 +10,20 @@ if [ -n "${_ISSUES_CONFIG_LIB_LOADED:-}" ]; then
 fi
 _ISSUES_CONFIG_LIB_LOADED=1
 
+# Provider layer: org verbs route through the abstraction (slice 3/#36).
+if [ -z "${_PROVIDER_CORE_LOADED:-}" ]; then
+    _ic_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [ -f "$_ic_lib_dir/providers/provider-core.bash" ]; then
+        # shellcheck disable=SC1091
+        source "$_ic_lib_dir/providers/provider-core.bash"
+        provider_detect "${DEVENV_ROOT:-$(dirname "$(dirname "$_ic_lib_dir")")}/devenv.config" 2>/dev/null || PROVIDER_NAME="${PROVIDER_NAME:-github}"
+        # shellcheck disable=SC1091
+        # shellcheck disable=SC1090
+        source "$_ic_lib_dir/providers/${PROVIDER_NAME}/org.bash"
+    fi
+    unset _ic_lib_dir
+fi
+
 # Ensure dependencies are available for logging and validation
 if [ -z "${_ERROR_HANDLING_LOADED:-}" ] && [ -f "${DEVENV_TOOLS}/lib/error-handling.bash" ]; then
     # shellcheck disable=SC1091
@@ -164,11 +178,8 @@ fetch_org_issue_type_ids() {
         return 1
     fi
 
-    local query
-    query='query { organization(login: "'$org'") { issueTypes(first: 100) { edges { node { id name } } } } }'
-
     local result
-    result=$(gh api graphql -f query="$query" 2>/dev/null) || return 1
+    result=$(provider_org_issue_types "$org" 2>/dev/null) || return 1
 
     echo "$result" | jq -r '.data.organization.issueTypes.edges[] | "\(.node.name)\t\(.node.id)"'
 }

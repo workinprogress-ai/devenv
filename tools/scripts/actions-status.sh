@@ -92,7 +92,7 @@ list_action_runs() {
     log_verbose "Fetching repos for org: $org"
 
     local repos
-    if ! repos=$(gh repo list "$org" --limit 1000 --json name -q '.[].name' 2>/dev/null); then
+    if ! repos=$(provider_repos_list "$org" --limit 1000 --json name -q '.[].name' 2>/dev/null); then
         log_error "Failed to list repositories for org: $org"
         exit 1
     fi
@@ -118,7 +118,7 @@ list_action_runs() {
         log_verbose "Fetching runs for $org/$repo..."
 
         local runs
-        runs=$(gh run list -R "$org/$repo" \
+        runs=$(provider_actions_run_list "$org/$repo" \
             --limit "$LIMIT" \
             --json "$RUN_FIELDS" \
             2>/dev/null || echo "[]")

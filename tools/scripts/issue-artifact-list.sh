@@ -144,7 +144,7 @@ main() {
 
     local comments_raw
     log_verbose "Fetching comments for issue #$ISSUE_NUMBER"
-    if ! comments_raw=$(gh api "repos/{owner}/{repo}/issues/${ISSUE_NUMBER}/comments" --paginate 2>/dev/null); then
+    if ! comments_raw=$(provider_issues_comments "$ISSUE_NUMBER" "${GITHUB_REPO:-}" 2>/dev/null); then
         api_failure "Failed to fetch comments for issue #$ISSUE_NUMBER"
     fi
 

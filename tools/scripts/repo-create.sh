@@ -114,7 +114,7 @@ wait_for_repo_ready() {
     while [ "$attempt" -le "$max_attempts" ]; do
         # Check if repo has at least one commit. For newly templated repos,
         # GitHub may briefly return 409 while template files are still syncing.
-        if gh api "repos/${full_name}/commits?per_page=1" --jq 'length' 2>/dev/null | grep -q '^[1-9][0-9]*$'; then
+        if provider_api GET "repos/${full_name}/commits?per_page=1" --jq 'length' 2>/dev/null | grep -q '^[1-9][0-9]*$'; then
             log_info "✓ Repository is ready"
             return 0
         fi
@@ -276,7 +276,7 @@ create_repo() {
     local full_name="${GH_ORG}/${repo_name}"  # Fully qualified name (e.g., org/service.platform.identity)
 
     # Check if repo already exists
-    if gh repo view "$full_name" >/dev/null 2>&1; then
+    if provider_repos_view "$full_name" >/dev/null 2>&1; then
         log_info "Repository '$full_name' already exists. Nothing to do."
         return 0
     fi
@@ -294,7 +294,7 @@ create_repo() {
             template=$(get_type_template "$repo_type" "$REPO_TYPES_CONFIG")
         fi
     
-    local args=("repo" "create" "$full_name" "--${visibility}")
+    local args=("--${visibility}")
     
     if [ -n "$description" ]; then
         args+=("--description" "$description")
@@ -306,7 +306,7 @@ create_repo() {
         log_info "Using template: ${GH_ORG}/${template}"
     fi
 
-    if ! gh "${args[@]}"; then
+    if ! provider_repos_create "$full_name" "${args[@]}"; then
         log_error "Failed to create repository"
         exit 1
     fi

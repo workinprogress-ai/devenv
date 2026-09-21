@@ -169,7 +169,7 @@ read -ra repo_spec <<< "$(get_repo_spec)"
 
 echo "Creating draft PR for review comparison..." >&2
 set +e
-PR_URL=$(gh pr create "${repo_spec[@]}" \
+PR_URL=$(provider_prs_create "${repo_spec[1]:-}" \
   --title "$PR_TITLE" \
   --body "$PR_BODY" \
   --base "$TARGET_BRANCH" \
