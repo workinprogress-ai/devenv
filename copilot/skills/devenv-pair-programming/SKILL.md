@@ -158,6 +158,19 @@ If resuming from a compacted context:
 2. **State your operating mode:** *"→ Resuming under `/devenv-pair-programming` — [phase, last completed task]."*
 3. **Run the appropriate next step** — not the full Session Kickoff; whatever comes next: phase transition (steps 4–5), task split, or mid-task continuation.
 
+**Pairing state file (durable across compaction and sessions).** Keep one state file **per plan instance** under the target repo's `.local-artifacts/` — named `pairing-state-<plan-stem>.md` (e.g. `pairing-state-Plan-issue-42-001.md`). One file per plan instance, not per session: sessions are transient, but multiple pair sessions on *different* plans in the same clone are legitimate concurrency, and shared-file cross-talk would corrupt both. The state file is the standard local markdown folder pair already reads at kickoff — resumption works from evidence instead of reconstruction:
+
+- **Write/update** at phase boundaries, AI handbacks, and wrap-up — not per task. Contents: plan file path, current phase, last completed task, current chunk + driver, open decision gates / `[QUESTION]`s, next step.
+- **Session notes (residue the plan can't hold)** — append when they exist: mid-task partial intent (e.g. "test at L142 intentionally red"), working-tree provenance (run's edits vs user's vs throwaway), and live debates (options on the table, why alternatives were rejected — the plan holds `[QUESTION]`s, not argumentation). These four items are the handoff payload; everything else (done/next task state) lives in the plan and is never duplicated here.
+- **Read** at every 0b resumption before stating operating mode; the mode statement comes from the state file, not memory. This covers both same-conversation compaction and genuinely new sessions on the same plan in the same clone. On session start with no explicit plan, scan for existing **plan-stemmed** `pairing-state-*.md` files only — one hit is likely the resume target; multiple hits mean parallel plans, so ask which (never merge their contents). Ad-hoc state files (`pairing-state-adhoc-*.md`) are excluded from this scan: they are resumed only when the user explicitly names one.
+- **Ad-hoc sessions default to session memory.** Ad-hoc work is ephemeral by contract, so its default state is too: keep the same state items (current chunk, partial intent, provenance, open questions) in **session memory** as a compaction bridge. A durable ad-hoc state file exists only on explicit user request (or insistence over the plan-ify offer): name it `pairing-state-adhoc-<topic>.md`, with a short subject the user will recognize. Ad-hoc state files are **never auto-discovered** — resuming one is always explicit: the user names the file or provides it in context when starting the new session. The AI never scans for, suggests, or guesses among ad-hoc files; the user is the index. The plan-ify escalation remains the recommended path whenever durability keeps coming up.
+- **Two sessions on the *same* plan instance:** treat the state file as last-writer-wins for the shared items, and never fabricate state for a concurrent session — if the file names a current chunk/driver you didn't write, surface it and reconcile with the user rather than overwriting silently.
+- **Retire** via the standard `artifact-clean` offer when the plan closes; a state file for a finished plan is stale by definition.
+- **Explicit triggers (user-invoked anytime):**
+  - *"save state"* / *"checkpoint this"* → write/update the state file (or the session-memory state for ad-hoc) right now, even mid-task, and confirm in one line. Between checkpoints, nothing changes — the existing write points stand.
+  - *"resume"* / *"pick up where we left off"* → run the 0b resumption path immediately: re-read the state file (plan sessions) or session-memory state (ad-hoc), state the operating mode, propose the next chunk. If no state exists anywhere, say so plainly and fall back to the normal kickoff — never invent a resume from vibes.
+  - For ad-hoc, *"save state"* first offers the plan-ify path — durability wanted is usually plan-wanted. If the user explicitly insists on a file, write `pairing-state-adhoc-<topic>.md` (subject the user will recognize) and note in one line that resuming it later requires naming it — ad-hoc files are never scanned. *"resume"* on ad-hoc therefore needs the filename (or the file's content) from the user; without it there is nothing to resume from — say so plainly and fall back to the working-tree re-anchor instead.
+
 **The session summary saying "active skill: devenv-pair-programming" is an operating constraint, not background context.** Treat it the same as if the skill was just invoked.
 
 If the user returns after stepping away and asks where to pick up ("where are we?", "what's done?", "what's next?"), run a concise **Review and re-anchor protocol** pass first: re-establish state from files/diff and plan, surface what changed / what is now true / what is uncertain, and offer next-step options. Concise mode (3-6 lines) by default; expand only if asked.
@@ -350,7 +363,7 @@ After kickoff, keep using this compact loop:
 
 1. Confirm the next chunk (who drives, expected outcome). Default driver is the user unless explicitly changed.
 2. One side implements while the other navigates.
-3. Review immediately against intent and AC impact.
+3. Review immediately against intent and AC impact. Verification is scoped to the change: run test suites only when the code under test actually changed — never as regression sweeps after doc/plan-only edits or between unrelated chunks.
 4. Update AC/phase progress and keep task checkboxes/task entries current.
 5. Repeat, or pause for a phase-level check when direction changes.
 
@@ -476,7 +489,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 
 2. **Immediately start navigator work.** The moment the user picks up a chunk of work:
    - **Pre-read your upcoming batch** — files, patterns, gotchas. Surface a brief summary on handback.
-   - **Research open questions.** If a `decision:` item is coming, gather options and codebase evidence now.
+   - **Research open questions — build the decision dossier.** When the next queued task carries `decision:` metadata (or an unresolved inline `[QUESTION]` that branches implementation), don't just note it: prepare a mini dossier while the user drives the current chunk — the 2–3 viable options, codebase evidence for each (file:line precedents), and a one-line trade-off summary. Have it ready at the decision point so the gate resolves in one exchange instead of stalling mid-task.
    - **Flag anything genuinely useful** — one proactive interjection is fine. Don't pepper.
    - Track AC and phase progress as you notice work being completed, and proactively suggest the next useful chunk.
    - If there's truly nothing to do: *"No obvious prep here — straightforward once the current change lands."*
@@ -884,6 +897,15 @@ Note the **checkpoint** (last explicitly confirmed completed task, or phase star
 
 If flow continues for a while without a recap, run a concise [Review and re-anchor protocol](#6d-review-and-re-anchor-protocol-canonical) check-in at least every ~5 conversational turns (or sooner if risk/ambiguity rises).
 
+### Flow-mode question discipline
+
+Flow mode changes the interruption economy, not the navigator's duties:
+
+- **Entry** is the user declaring it ("flow mode", "I'll drive for a bit") or the recognizing signals above. AI behavior switches when flow starts, not per question.
+- **While flow is active:** non-blocking observations, minor concerns, and answerable questions go into a **deferred buffer** (session context) instead of interrupting. Blocking signals — 🛑 walls, 🔶 decision gates, plan-integrity conflicts — always surface immediately; nothing in this discipline overrides a stop trigger.
+- **Drain the buffer** at the next natural boundary: task completion, direction change, the periodic ~5-turn check-in (use the `📋` signal), or flow exit. Present buffered items as one consolidated list — smallest-first, each one line — not as a drip.
+- **Exit** returns to normal cadence: buffered items drain at the re-engagement review, then standard handback/question rules resume.
+
 ### Re-engagement: reviewing what was done
 
 When the user pauses, asks for a review, or slows down:
@@ -1009,6 +1031,7 @@ During execution:
 - Take instructions chunk-by-chunk.
 - Checkpoint frequently — don't batch up large amounts of work.
 - If scope visibly expands beyond a quick task, **offer to pause and draft a plan**: *"This is growing — want to pause and run `/devenv-create-plan` so we have something to track?"*
+- **Plan-ify signal (session boundary):** if an ad-hoc session is ending with chunks still remaining, offer the choice in stronger terms — materialize the chunk list as a plan now, save an explicitly-named ad-hoc state file (`pairing-state-adhoc-<topic>.md`, resumed only by naming it), or accept that the next session starts fresh from the working tree. Work that keeps needing state files across sessions is work that wants a plan.
 
 ## Rabbit Hole Detection
 
@@ -1027,6 +1050,8 @@ Never suggest this at the start of a session — the user chose pair-programming
 > *"The next few tasks are pretty mechanical — I can run with them solo if you want. Just say `/devenv-delegation` and I'll take it from here, or we keep pairing if you'd rather stay close."*
 
 Only offer once per session unless the user brings it up again. Never frame it as "you should do this differently" — it's a menu option, not a redirect.
+
+**Phase-tail offer.** The natural decision point for this off-ramp is the phase close, not only decay detection: when a phase completes and its remaining tasks (or the next phase's) are uniformly mechanical — `[S]` sizes, rename sweeps, boilerplate, docs — offer the same menu once: *"The rest of this phase is mechanical — want to commission a `/devenv-delegation` run for the tail, or keep pairing?"* At most one tail offer per phase. The trust boundary is unchanged: delegation still requires its own invocation; this offer only names the door at the moment the user is already deciding what comes next.
 
 **Chunk lists can ride along.** If this session produced a conversational chunk list the user wants to hand to delegation, that list may travel to the new session as input — but delegation will audit it for viability and materialize it into a plan file before executing (see its ad-hoc task list intake). A pair chunk list is not yet a delegation ledger; do not represent it as one.
 
@@ -1074,7 +1099,8 @@ When the user signals end of session (or a phase boundary that suggests a natura
 7. **Knowledge distillation (explicit request only).** Following the shared [knowledge distillation protocol](../common/references/knowledge-distillation-protocol.md): when the user explicitly asks to distill this session or calls out a specific point to add, scan for organization-specific implementation lessons (where things are wired in this org's repos, idioms of its libraries, enforced conventions — not procedural workflow rules), summarize the candidates in chat with their proposed target files, and let the user approve before anything is written to `repos/docs.copilot-knowledge`. The user reviews and commits. Never offer distillation unprompted. The same request also covers general knowledge discovered this session (emerging practices, engineering patterns) — those follow the [knowledge extraction protocol](../common/references/knowledge-extraction-protocol.md) into the `candidates/` area instead of the main body.
 8. Offer to post a status comment on the issue (if applicable) — show the draft, wait for confirmation. When a plan file backs the work, the draft ends with the `Progress:` snapshot line (see [GH issue artifact sync](#gh-issue-artifact-sync)): `Progress: <done>/<total> tasks (<pct>%), phase <n> of <N> — <YYYY-MM-DD>`, values from `plan-parse --census`, never hand-counted.
 9. **Offer to retire local working copies** (y/n, never auto-delete): when the plan (or any other issue artifact used this session) was synced via `issue-artifact-upsert` and the session's work on it is done, run `artifact-clean -l <repo>` to inventory `.local-artifacts/` by family, offer deletion (ephemeral `tmpN.md` needs no confirmation; working copies and session memory do), and delete on approval via `artifact-clean`. If the user keeps them (work continues next session), leave them in `.local-artifacts/` — `/devenv-open-pr` still requires them gone before opening a PR.
-10. Suggest a starting point for the next session.
+10. **Ending mid-plan (phases remain):** update the pairing state file (`pairing-state-<plan-stem>.md` under the repo's `.local-artifacts/`) with current chunk, partial intent, working-tree provenance, and any live debate — then say so in one line. The plan holds task state; the state file holds what the plan can't. If the user wants a human-visible record too, offer the status comment (step 8) instead — never a separate handoff document.
+11. Suggest a starting point for the next session. The state file (if written) is the next session's orientation input — 0b reads it before anything else.
 
 ## Anti-patterns
 

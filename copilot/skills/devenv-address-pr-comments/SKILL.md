@@ -285,7 +285,7 @@ Never suggest `git commit` commands or run any git operations. Only suggest the 
 - `/devenv-open-pr` — for opening the PR before review starts.
 - `/devenv-pre-commit` — run quality gates after making changes in response to comments.
 - `/devenv-create-plan` — for design/architecture threads too complex to resolve inline.
-- `/devenv-session-handoff` — if you need to stop mid-review and hand off to the next session.
+- Your execution skill's own wrap-up (e.g. pair-programming writes the pairing state file) — if you need to stop mid-review and resume in a later session.
 - GitHub PR extension's `address-pr-comments` — for a fast batch-fix-all workflow without per-comment choices.
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

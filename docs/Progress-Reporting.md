@@ -95,5 +95,5 @@ Fetch-only and never checks out — cache working copies stay on the default bra
 ## Cross-references
 
 - [Workflow Guide](./Workflow.md) — the delivery methodology this reporting layer observes.
-- [Skills Catalog](./Skills.md) — the `/devenv-project-manager` entry and its boundaries vs `/devenv-update-roadmap`, `/devenv-refine-plan`, `/devenv-session-handoff`.
+- [Skills Catalog](./Skills.md) — the `/devenv-project-manager` entry and its boundaries vs `/devenv-update-roadmap`, `/devenv-refine-plan`.
 - [Additional Tooling](./Additional-Tooling.md) — `plan-parse`, `repo-cache-update`, `repo-cache-deepen` reference pages.

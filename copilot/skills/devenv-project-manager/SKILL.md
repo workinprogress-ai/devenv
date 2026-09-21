@@ -156,6 +156,5 @@ Recorded so enhancement requests have an obvious home — adopt only with real u
 - `/devenv-update-roadmap` — writes roadmap status (this skill only reads roadmap artifacts).
 - `/devenv-refine-plan` — edits plans after drift is surfaced here.
 - `/devenv-pair-programming` / `/devenv-delegation` — execute; answer their own in-run status; append the `Progress:` snapshots this skill trends.
-- `/devenv-session-handoff` — narrative handoff for the next contributor.
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

@@ -53,8 +53,7 @@ What are you trying to do?
 │   └─ Quality gates before commit      →  /devenv-pre-commit
 │
 └─ 🏁 Wrap up
-    ├─ Open a PR from finished phase     →  /devenv-open-pr
-    └─ Hand off the session             →  /devenv-session-handoff
+    └─ Open a PR from finished phase     →  /devenv-open-pr
 ```
 
 ---
@@ -211,7 +210,6 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 | `/devenv-triage-issue` | Route an issue to the right skill + classify, label, size | Issue # or pasted text |
 | `/devenv-open-pr` | Draft + open a PR from a finished phase | Branch or plan path |
 | `/devenv-address-pr-comments` | Address PR review comments — auto-fixes clear threads, surfaces complex ones for direction | PR # or path to review markdown |
-| `/devenv-session-handoff` | Summarise session for the next contributor | Issue/PR # (optional) |
 
 ### Quality
 
@@ -364,7 +362,6 @@ Component design changed
                                         # or surgical mode (tick off completed tasks)
   → /devenv-delegation                   # run the next phase
     → /devenv-pre-commit
-      → /devenv-session-handoff          # hand off to team
 ```
 
 ---
@@ -398,7 +395,6 @@ Component design changed
 | `/devenv-design-discussion` vs `/devenv-spike` | Design-discussion narrows options by reasoning. Spike answers feasibility questions that require running code. |
 | `/devenv-design-discussion` vs `/devenv-create-blueprint` | Design-discussion is exploratory and focused — picks between approaches. Blueprint is formal and broad — decomposes a chosen approach into domains, services, events, components. Design-discussion typically *precedes* a blueprint, or is invoked *after* one to settle a specific question. |
 | `/devenv-design-discussion` vs `/devenv-create-plan` | Use design-discussion when the approach is still unclear or one bounded blocker needs deeper option-weighing. Use create-plan when the approach is already chosen and you need executable tasks. |
-| `/devenv-session-handoff` vs `/devenv-refine-plan` surgical mode | Narrative summary vs structured task-state update. |
 
 ---
 
@@ -445,6 +441,15 @@ If implementation reveals the plan is wrong, incomplete, or simply no longer mat
 ### Swapping roles
 
 At any point you can say "I'll take this one" or "you take this one" and the AI adjusts. The split is a starting proposal, not a contract.
+
+### Saving and resuming state
+
+Pair keeps a small state note for the current plan (current chunk, open questions, next step) under the repo's `.local-artifacts/` folder, so a session can pick up exactly where the last one ended. It updates automatically at phase boundaries and hand-backs — you never have to think about it. Two phrases put you in control:
+
+- **"save state"** / **"checkpoint this"** — write the state note right now, even mid-task. Useful before context gets long, before a break, or at any moment you want a restorable snapshot.
+- **"resume"** / **"pick up where we left off"** — reload the state note and propose the next chunk. If there's no saved state (new plan, nothing written yet), the AI says so plainly and orients from the plan and working tree instead.
+
+For ad-hoc sessions (no plan), state lives only in the current conversation by default. If you explicitly want a durable note anyway, say "save state" and insist — the AI writes `pairing-state-adhoc-<topic>.md` (it picks a recognizable topic name). Resuming an ad-hoc note later is always on you: name the file or paste its contents when you start the new session — the AI never scans for or guesses among ad-hoc notes. If you find yourself wanting durability repeatedly, that's the signal to plan the work instead (`/devenv-create-plan`).
 
 ---
 

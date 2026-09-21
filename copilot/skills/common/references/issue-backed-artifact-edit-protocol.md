@@ -26,7 +26,7 @@ Keep GitHub issue artifacts editable, reviewable, and stable by treating GitHub 
 
 4. **Offer to retire the working copy**
    - After publication the issue-hosted artifact is again the sole source of truth; the local file is disposable.
-   - Offer (y/n) to delete the local working copy — during the same session if the session's work on the artifact is done, otherwise at the next wrap-up point (phase completion handback, session handoff). Never auto-delete.
+   - Offer (y/n) to delete the local working copy — during the same session if the session's work on the artifact is done, otherwise at the next wrap-up point (phase completion handback, session close). Never auto-delete.
 
 ## Revision history
 

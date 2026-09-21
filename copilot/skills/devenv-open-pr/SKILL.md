@@ -1,6 +1,6 @@
 ---
 name: devenv-open-pr
-description: Open a GitHub PR from the current branch — builds a structured title and body from the active plan, git diff, and parent issue, then submits via pr-create-for-merge. USE WHEN the user says "open a PR", "raise a PR", "create a PR", "open a pull request", "raise a pull request", "create a pull request", "let's open a PR", "ship this phase", or "wrap this branch into a PR". Always shows the draft for approval before submitting; defaults to ready-for-review, not draft. DO NOT USE FOR responding to existing PR feedback (use /devenv-address-pr-comments), wrapping up without opening a PR (use /devenv-session-handoff), getting a code review without a PR (use /devenv-code-review), or the GitHub extension's reviewer-suggesting flow (use /create-pull-request).
+description: Open a GitHub PR from the current branch — builds a structured title and body from the active plan, git diff, and parent issue, then submits via pr-create-for-merge. USE WHEN the user says "open a PR", "raise a PR", "create a PR", "open a pull request", "raise a pull request", "create a pull request", "let's open a PR", "ship this phase", or "wrap this branch into a PR". Always shows the draft for approval before submitting; defaults to ready-for-review, not draft. DO NOT USE FOR responding to existing PR feedback (use /devenv-address-pr-comments), ending a session mid-plan without shipping (close it via your execution skill's wrap-up), getting a code review without a PR (use /devenv-code-review), or the GitHub extension's reviewer-suggesting flow (use /create-pull-request).
 argument-hint: Optional — branch name or plan path; otherwise uses current branch and detected plan
 ---
 
@@ -20,7 +20,7 @@ Take a committable phase of work from a plan-driven workflow and open a GitHub P
 - The branch has commits, the work is reviewable, and you want a PR opened with a proper body.
 - You want the PR description auto-built from the plan + git history rather than typed by hand.
 
-If a PR already exists and you're responding to feedback, use `/devenv-address-pr-comments`. If you're ending a session without opening a PR yet, use `/devenv-session-handoff`. If you want a code review and don't need a PR opened, use `/devenv-code-review`. If you want the GitHub extension's flow with reviewer suggestions and richer integration, use `/create-pull-request`.
+If a PR already exists and you're responding to feedback, use `/devenv-address-pr-comments`. If you're ending a session without opening a PR yet, close it via your execution skill's own wrap-up (pair writes the pairing state file). If you want a code review and don't need a PR opened, use `/devenv-code-review`. If you want the GitHub extension's flow with reviewer suggestions and richer integration, use `/create-pull-request`.
 
 > **Micro-fix lane:** a small fix requested just before shipping ("fix that typo, then open the PR") may run in-session under the shared [incidental implementation protocol](../common/references/incidental-implementation-protocol.md) — micro ceiling, supervised handback; anything bigger routes to `/devenv-pair-programming` first.
 
@@ -62,8 +62,7 @@ Assemble the PR draft from, in order:
 1. **Active plan** — `Plan-*.md` under the target repo's `.local-artifacts/` (not the devenv workspace root). Use phase name for title, completed `[x]` tasks for the changes list, decision blocks for rationale.
 2. **`git log --oneline <merge-base>..HEAD`** and **`git diff --stat`** — actual changes shipped, file scope.
 3. **Parent issue** — extract from plan body (`refs #N`, `closes #N`) or branch name (`issue-NNN-...`, `NNN-...`). If found, fetch via `issue-get` for issue title (used in PR title context) and to confirm `Closes #N` is appropriate.
-4. **Session-handoff comment** — if one was posted on the parent issue/PR already, reuse its hotspots and decision sections rather than regenerating.
-5. **The user** — for anything missing: title clarification, testing notes, anything the artifacts don't show.
+4. **The user** — for anything missing: title clarification, testing notes, anything the artifacts don't show.
 
 ## PR title
 
@@ -111,14 +110,11 @@ Show the proposed title; the user can edit before submission.
 - Closes #N    <!-- full resolution --> | - Refs #N    <!-- partial work, issue stays open -->
 - Plan: [Plan-X.md](Plan-X.md)
 - Throwaway/temporary code: <what scaffolding exists and its removal plan — omit if none>
-- Session handoff: <link to comment, if any>
 ```
 
 Issue references belong in the body, not the title, so the squash commit title stays conventional-commit compliant.
 
 Sections with no content get omitted — don't pad. Choose `Closes #N` only when this PR fully resolves the issue; use `Refs #N` for partial work so the issue stays open (never infer `Closes` for incomplete resolution).
-
-If a session-handoff comment exists on the parent issue, reuse its **Key decisions**, **Review hotspots**, and **Throwaway/temporary code** sections verbatim (with attribution: "From session handoff <date>"). Don't regenerate; the handoff already captured the rationale freshly.
 
 ## Mode
 
@@ -129,7 +125,7 @@ User can opt into draft mode explicitly ("open as draft", "draft PR"). If they d
 ## Flow
 
 0. **Pre-flight** — check for `Plan-*.md` under `.local-artifacts/` per the section above. Read and use any found plan as a source, but do not proceed past step 4 until the user has deleted it.
-1. Detect branch, plan, parent issue, prior handoff.
+1. Detect branch, plan, parent issue.
 2. Build draft title and body.
 3. Show the full draft in chat.
 4. Ask for edits / confirmation: "Open this PR? (y/n/edit)"
@@ -146,14 +142,12 @@ After the PR is opened, print the PR URL and number.
 - **Inventing testing notes** — if the user didn't run tests and you don't see them in CI, ask. Don't write "tested locally" speculatively.
 - **Padding the body** — omit empty sections rather than writing "N/A".
 - **Inferring `closes #N` for partial work** — if the PR doesn't fully resolve the issue, use `refs #N`.
-- **Regenerating decisions when a handoff exists** — reuse the handoff's rationale; the freshly-written version is more accurate than reverse-engineering from commits.
 - **Mixing this with the GitHub extension's flow** — if the user wants reviewer suggestions, labels, project assignment, etc., redirect to `/create-pull-request`.
 - **Opening a PR with no commits ahead of base** — stop and tell the user; don't open an empty PR.
 
 ## Sibling skills
 
 - `/devenv-address-pr-comments` — once the PR has review feedback to address.
-- `/devenv-session-handoff` — wrap-up that doesn't (yet) open a PR; often runs before this skill.
 - `/devenv-code-review` — if you want review feedback without opening a PR.
 - `/create-pull-request` (GitHub extension) — for the richer reviewer-suggesting / label / project flow.
 - `/devenv-refine-plan` — if opening the PR reveals plan tasks to mark or add (surgical mode), or broader drift (assessment mode).

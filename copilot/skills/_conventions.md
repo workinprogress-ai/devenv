@@ -295,12 +295,14 @@ Not every markdown a skill writes is a persisted artifact. When the user asks fo
 - Check existing `tmp*.md` files in `.local-artifacts/` first and use the next free number. Do not overwrite an existing tmp markdown unless it is clearly safe to do so.
 - These files are routinely deleted or modified by the user between sessions — never assume you know what a `tmpN.md` contains; re-read it before any overwrite or reuse.
 - Ephemeral files are not persisted artifacts: no `DEVENV_ARTIFACT_V1` header, no `doc_id`, and they are not republished via `issue-artifact-upsert`.
-- Boundary with the Artifact Identity Convention: if the content will outlive the immediate exchange (plans, grooming documents, spike findings, roadmaps, session handoffs), it is a persisted artifact and follows that convention instead. When classification is ambiguous, ask the user one direct question.
+- Boundary with the Artifact Identity Convention: if the content will outlive the immediate exchange (plans, grooming documents, spike findings, roadmaps, pairing state files), it is a persisted artifact and follows that convention instead. When classification is ambiguous, ask the user one direct question.
 
 ## Tooling discipline
 
 - **The AI never runs `gh` directly — for any GitHub domain.** Issue operations: `issue-*` tools exclusively (unconditional, reads and writes). PR, project, Actions, and repository-inspection operations: their wrappers. If an operation is not covered by any wrapper, surface it as a tooling gap and let the user decide — `gh` is not a fallback.
+
 - Wrapper signatures are standardized in [`_tools-reference.md`](./_tools-reference.md) — it is the complete invocation reference; consult it instead of running ad-hoc `--help` during execution.
+
 ### Repo-targeting guard (required for issue/artifact calls)
 
 Issue and artifact wrappers resolve their target repo from the environment — `GITHUB_REPO` if set, else `GH_ORG` + current directory's repo name. That means **the terminal's location silently decides which repo a call hits**, and a session running from the workspace root or the devenv repo itself will aim every call at the wrong repo.
