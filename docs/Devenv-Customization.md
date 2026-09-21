@@ -49,7 +49,7 @@ See [docs/Skills.md](./Skills.md) for the full catalog and decision tree.
    awk '/^description:/ {gsub(/^description: */,""); print length}' copilot/skills/<name>/SKILL.md
    ```
 
-4. **Register the skill for `/devenv-skill-guru` discoverability** — append a row to the appropriate category table in `copilot/skills/devenv-skill-guru/references/skills-registry.md`. This is the single file the `skill-guru` routing skill reads; without an entry here, the skill won't be surfaced when users ask "which skill should I use".
+4. **Register the skill for `/devenv-help` discoverability** — append a row to the appropriate category table in `copilot/skills/devenv-help/references/skills-registry.md`. This is the single file the `devenv-help` routing skill reads; without an entry here, the skill won't be surfaced when users ask "which skill should I use".
 
    Each row needs: skill name (with `/`), one-line purpose, 2–4 USE WHEN trigger phrases, and a NOT FOR clause.
 

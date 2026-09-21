@@ -1,6 +1,6 @@
 # Skills Registry
 
-Single source of truth for the skill catalog. The `skill-guru` SKILL.md reads this file to answer questions about what skills exist, what triggers them, and how they chain together.
+Single source of truth for the skill catalog and the devenv-help routing map. The `devenv-help` SKILL.md reads this file at question time to answer which-skill questions, recommend skills and chains, and route workflow intents.
 
 **For fork maintainers:** to add a custom skill, append a row to the appropriate category table below and, if the skill is part of a multi-step workflow, add or extend a chain entry in the Chains section.
 
@@ -107,7 +107,7 @@ Skills for closing out a session or shipping work.
 
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 | --- | --- | --- | --- |
-| `/devenv-skill-guru` | Ask 1–3 questions and recommend the right skill; also accepts an issue number for a read-only which-skill-handles-this recommendation and offers to start it | "which skill should I use", "help me pick a skill", "I'm not sure what to use", "skill guru", "which skill handles issue #42", "recommend a skill for this issue" | starting any skill without explicit permission; issue metadata triage (labels, type, priority, size, duplicates) → `/devenv-triage-issue` |
+| `/devenv-help` | Front door for the devenv: answers factual questions about skills, tooling, wrapper commands, docs, configuration, and the engineering/knowledge repos directly with live-source citations; recommends the right skill or chain for workflow intents (1–4 questions when intent is unclear); accepts an issue number for read-only which-skill-handles-this; offers to start but never starts unprompted | "help", "how do I", "what tool", "where is", "which skill should I use", "help me pick a skill", "I'm not sure what to use", "which skill handles issue #42", "why does the devenv do X" | starting any skill without explicit permission; code-behavior questions about project repos → `/devenv-chat-with-code`; general coding → default agent; issue metadata triage (labels, type, priority, size, duplicates) → `/devenv-triage-issue` |
 | `/devenv-skill-maintenance` | Maintain and correct the custom skill system while keeping docs, registry, and routing artifacts in sync | "fix this skill", "update SKILL.md", "repair the skills catalog", "sync skill docs", "correct skill routing", "here is diagnostic output from another skill", "act on this IMPROVEMENT_REPORT", "file this finding as an issue", "fix devenv issue N" | general coding tasks unrelated to customization; feature implementation in product code; runtime bug diagnosis unrelated to skill docs |
 
 ---
@@ -316,4 +316,4 @@ To extend this catalog after forking:
 
 3. **Add a chain** if the new skill participates in a multi-step workflow — follow the chain block format with a `**Start here:**` line.
 
-4. The `skill-guru` skill reads this file at invocation time, so no changes to `SKILL.md` are needed for simple additions. If the skill requires new Q1 options (a new work stage), update the question protocol in `SKILL.md` as well.
+4. The `devenv-help` skill reads this file at question time, so no changes to its SKILL.md are needed for simple additions. If the skill requires new Q1 options (a new work stage), update the question protocol in `devenv-help/references/routing-mechanics.md` as well.

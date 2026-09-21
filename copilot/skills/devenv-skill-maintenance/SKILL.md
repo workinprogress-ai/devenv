@@ -22,8 +22,8 @@ Location conventions for this skill:
 
 1. Read the current custom skills under `copilot/skills/`.
 2. Read `docs/Skills.md` so the catalog and the actual skills stay aligned.
-3. Read `copilot/skills/devenv-skill-guru/references/skills-registry.md` because it is the routing source of truth.
-4. Read `copilot/skills/devenv-skill-guru/SKILL.md` and `copilot/skills/common/references/skills-catalog.md` when routing behavior or discovery language may be affected.
+3. Read `copilot/skills/devenv-help/references/skills-registry.md` because it is the routing source of truth.
+4. Read `copilot/skills/devenv-help/SKILL.md` and `copilot/skills/common/references/skills-catalog.md` when routing behavior or discovery language may be affected.
 5. Read `docs/Workflow.md` and treat its Principles section as core constraints.
 6. Read any repo-local guidance that affects skill authoring or routing.
 7. Confirm which files are actually in scope before changing anything.
@@ -114,8 +114,8 @@ A devenv issue describing a skill-system problem is a first-class intake: fetch 
 6. Update linked governance docs as needed in the same change:
 	- `docs/Skills.md` for user-facing catalog alignment.
 	- `docs/Workflow.md` only when principles, flow semantics, or methodology wording are affected.
-	- `copilot/skills/devenv-skill-guru/references/skills-registry.md` when discoverability/routing metadata changes.
-	- `copilot/skills/devenv-skill-guru/SKILL.md` when routing logic or shortcut examples must change.
+	- `copilot/skills/devenv-help/references/skills-registry.md` when discoverability/routing metadata changes.
+	- `copilot/skills/devenv-help/SKILL.md` when routing logic or shortcut examples must change.
 	- `copilot/skills/common/references/skills-catalog.md` when shared catalog wording must stay in sync.
 7. Do not refactor unrelated skills or rewrite healthy guidance just to make docs look nicer.
 
@@ -131,7 +131,7 @@ When a fix must apply to many skills, document the pattern explicitly and use a 
 
 - **Update a shared reference file or registry**
   - Pattern: surgically edit the one canonical file.
-  - Verification: run any registry/catalog validation checks; confirm skill-guru can still reach the updated content.
+  - Verification: run any registry/catalog validation checks; confirm devenv-help can still reach the updated content.
 
 ## Quality checks
 

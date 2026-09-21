@@ -597,7 +597,7 @@ This guide is the methodology. The skills catalog is the tooling map.
 
 - Use [Skills Catalog](./Skills.md) when you need to choose one skill quickly.
 - Use this guide when you want to understand how the work should flow even outside of Copilot-assisted execution.
-- Use `/devenv-skill-guru` when you want help mapping a real situation onto the workflow.
+- Use `/devenv-help` when you want help mapping a real situation onto the workflow — or any question about the devenv's tooling, docs, or conventions.
 
 The ASCII diagrams in this document come in two forms:
 

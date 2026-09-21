@@ -21,6 +21,8 @@ A conversational fact-finding session with one or more repositories, including s
 - You want to understand architecture, data flow, dependencies, or intent before deciding what to build or change.
 - You're asking cross-cutting questions that span multiple repos.
 
+**Environment boundary:** questions about *how this environment works* — devenv tooling, wrapper commands, docs, configuration, workflow conventions, the engineering/knowledge repos — belong to [`/devenv-help`](../devenv-help/SKILL.md), not here. The test: if the honest answer cites devenv docs/tooling rather than the repo's code, route it there. A question can straddle both ("how does this repo's test runner work?") — in that case answer the code-behavior half as usual and let the user take the environment half to `/devenv-help`.
+
 Do **not** use this skill to write or modify **repository** files — it is read-only by design. Session memory under `/memories/session/` (orientation summaries) is permitted; it is session state, not repository content. Hand off to `/devenv-pair-programming` (collaborative) or `/devenv-delegation` (commissioned autonomous mechanical run) for implementation. For formal debt findings, use `/devenv-tech-debt-audit`. For design trade-off discussions, use `/devenv-design-discussion`.
 
 ## Core Principles

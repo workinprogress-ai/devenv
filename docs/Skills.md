@@ -4,7 +4,7 @@ A complete reference for the Copilot skill suite available in this workspace. Sk
 
 > **Authority note:** each skill's `SKILL.md` frontmatter (`copilot/skills/<name>/SKILL.md`) is the authoritative description of that skill — its trigger phrases and boundaries. This catalog summarizes the suite for browsing; when a summary and a frontmatter disagree, the frontmatter wins.
 
-**Not sure which skill to use?** Say `/devenv-skill-guru` and answer 1–3 questions.
+**Not sure which skill to use, or how something in this environment works?** Say `/devenv-help` — it answers questions directly and recommends skills.
 
 **Need the full workflow, not just the catalog?** See [Workflow Guide](./Workflow.md).
 
@@ -246,7 +246,7 @@ Answers status/composition/progress questions (board status, epic rollups via th
 
 | Skill | Purpose | Argument |
 |---|---|---|
-| `/devenv-skill-guru` | Pick the right skill; also read-only skill recommendation for an issue # (offers to start it) | Problem description or issue # (optional) |
+| `/devenv-help` | Answer questions about the devenv — its skills, tooling, scripts, docs, config, and the engineering/knowledge repos — directly with citations; also picks the right skill or chain for workflow intents (offers to start, never starts unprompted) | Any question about the environment, a problem description, or issue # (optional) |
 | `/devenv-skill-maintenance` | Correct and synchronize the custom skill system (skills, guru routing, registry, and related docs) while preserving workflow principles; files validated findings as devenv issues and fixes from them | Skill problems to fix, plus optional target skill names, file paths, diagnostic output, an `IMPROVEMENT_REPORT.md`, or devenv issue numbers |
 
 ---
@@ -489,7 +489,7 @@ what you want, and the skill's interview will fill in the gaps.
 
 | You want… | Type this |
 |---|---|
-| A skill recommendation | `/devenv-skill-guru` — or `/devenv-skill-guru` + a one-line goal, or `/devenv-skill-guru 42` to route an issue |
+| A skill recommendation — or any question about the devenv itself | `/devenv-help` — bare, with a one-line goal, with a tooling/workflow question, or `/devenv-help 42` to route an issue |
 | To think out loud with no artifact | `/devenv-rubber-duck` + the half-formed idea |
 | To understand a codebase conversationally | `/devenv-chat-with-code repos/lib.cs.services.bulk-sync` |
 
@@ -585,7 +585,7 @@ what you want, and the skill's interview will fill in the gaps.
 
 ### Tips
 
-- **Arguments are optional almost everywhere.** `/devenv-open-pr`, `/devenv-pre-commit`, `/devenv-code-review`, and `/devenv-skill-guru` all work bare and auto-detect from the current branch/context.
+- **Arguments are optional almost everywhere.** `/devenv-open-pr`, `/devenv-pre-commit`, `/devenv-code-review`, and `/devenv-help` all work bare and auto-detect from the current branch/context.
 - **Mid-run phrasing beats new invocations.** Inside a running skill, plain requests work: "mark 3.4 done", "add a task for the migration", "stop here". New slash commands are for *switching* skills, not for steering the current one.
 - **`issue[:doc_id]` disambiguates.** When one issue carries several plan artifacts, add the `doc_id` (the skill lists candidates if you omit it).
 - **Quoted focus areas narrow audits** without limiting the mental model: `/devenv-tech-debt-audit repos/foo "auth flow"`.

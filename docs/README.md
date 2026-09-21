@@ -15,7 +15,7 @@ A suite of skills covering the full development lifecycle — from thinking and 
 - **[Progress Reporting](./Progress-Reporting.md)** — how progress is derived from plans/issues/git, the `Progress:` snapshot line, and `/devenv-project-manager`
 - **[Knowledge & Engineering Patterns](./Knowledge-and-Engineering-Patterns.md)** — how skills consult copilot knowledge and the configurable engineering-standards repo
 
-**Not sure which to use?** Say `/devenv-skill-guru` and answer 1–3 questions.
+**Not sure which to use, or how something here works?** Say `/devenv-help`.
 
 ## 🚀 Quick Start
 

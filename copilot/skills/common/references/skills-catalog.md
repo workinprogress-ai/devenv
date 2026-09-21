@@ -2,7 +2,7 @@
 
 A complete reference for the Copilot skill suite available in this workspace. Skills are invoked with a `/skill-name` slash command in Copilot Chat.
 
-**Not sure which skill to use?** Say `/devenv-skill-guru` and answer 1–3 questions.
+**Not sure which skill to use, or how something in this environment works?** Say `/devenv-help` — it answers questions directly and recommends skills.
 
 **Need the full workflow, not just the catalog?** See [Workflow Guide](../../_shared/docs/Workflow.md).
 
@@ -224,7 +224,7 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 
 | Skill | Purpose | Argument |
 | --- | --- | --- |
-| `/devenv-skill-guru` | Pick the right skill; also read-only skill recommendation for an issue # (offers to start it) | Problem description or issue # (optional) |
+| `/devenv-help` | Answer questions about the devenv — skills, tooling, scripts, docs, config, engineering/knowledge repos — directly with citations; also picks the right skill or chain for workflow intents (offers to start, never starts unprompted) | Any question about the environment, a problem description, or issue # (optional) |
 | `/devenv-skill-maintenance` | Correct and synchronize the custom skill system (SKILL.md files, registry, guru routing, and catalogs); files validated findings as devenv issues and fixes from them | Skill problems to fix, plus optional target skill names, file paths, diagnostic output, an `IMPROVEMENT_REPORT.md`, or devenv issue numbers |
 
 ---
