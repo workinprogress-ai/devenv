@@ -14,7 +14,7 @@ source $toolbox_root/.runtime/env-vars.sh
 source "$toolbox_root/tools/lib/copilot-knowledge.bash"
 #source $toolbox_root/.devcontainer/load-ssh.sh
 pull_copilot_knowledge_on_container_start "$toolbox_root"
-
+pull_copilot_engineering_on_container_start "$toolbox_root"
 nohup $toolbox_root/.devcontainer/load-docker.sh &>/dev/null &
 nohup $toolbox_root/.devcontainer/background-check-devenv-updates.sh > /dev/null 2>&1 &
 

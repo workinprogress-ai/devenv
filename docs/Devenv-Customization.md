@@ -202,7 +202,9 @@ engineering_repo=docs.engineering
 
 - **knowledge_repo**: Git repository URL for shared Copilot knowledge assets.
 - **knowledge_subpath**: Folder inside that repository that should be linked to `~/.copilot/knowledge`.
-- **engineering_repo**: Name of the repository holding engineering standards, patterns, and best practices (resolved as a sibling clone under `repos/`). Skills read it via `config-read copilot engineering_repo` — forks may point it at their own standards repo without editing any skill. See [Knowledge & Engineering Patterns](./Knowledge-and-Engineering-Patterns.md).
+- **engineering_repo**: Git repository URL for the engineering standards repo — imported with the same bootstrap/container-start machinery as knowledge, canonical copy at `copilot/engineering/`, linked to `~/.copilot/engineering`. Skills read it through the link; modifications happen in `repos/docs.engineering/` via branches/PRs. Forks may point it at their own standards repo without editing any skill. See [Knowledge & Engineering Patterns](./Knowledge-and-Engineering-Patterns.md).
+- **engineering_subpath**: Folder inside the engineering repo to link as `~/.copilot/engineering` (empty = repo root).
+- **engineering_repo_name**: Legacy fork-compatibility key naming the `repos/` modification clone.
 
 Behavior:
 

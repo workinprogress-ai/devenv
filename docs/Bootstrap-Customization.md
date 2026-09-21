@@ -256,6 +256,8 @@ run_bootstrap_tasks "${TASKS[@]}"
 - `install_copilot_instructions` - Symlink `copilot/copilot-instructions.md` to `~/.copilot/copilot-instructions.md` (skipped silently if source file absent)
 - `sync_copilot_knowledge` - Clone/pull configured Copilot knowledge repo to `copilot/knowledge` and link `~/.copilot/knowledge`
 - `pull_copilot_knowledge_on_container_start` - Non-blocking knowledge repo pull on container start (`tools/lib/copilot-knowledge.bash`), no-op when `copilot/knowledge` is not a git repo
+- `pull_copilot_engineering_on_container_start` - Non-blocking engineering-standards repo pull on container start (same library), no-op when `copilot/engineering` is not a git repo
+- `pull_copilot_engineering_on_container_start` - Non-blocking engineering-standards repo pull on container start (same library), no-op when `copilot/engineering` is not a git repo
 - `configure_nuget_sources` - Configure NuGet package sources
 - `configure_user_npmrc` - Configure npm registry authentication
 - `ensure_directories_and_settings` - Create directories and system settings

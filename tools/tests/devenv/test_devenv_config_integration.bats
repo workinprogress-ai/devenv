@@ -25,6 +25,8 @@ issue_types=story,bug
 [copilot]
 knowledge_repo=https://github.com/example/docs.copilot-knowledge.git
 knowledge_subpath=copilot-knowledge/
+engineering_repo=https://github.com/example/docs.engineering.git
+engineering_subpath=docs/
 EOF
 }
 
@@ -64,6 +66,15 @@ EOF
 @test "devenv.config: copilot section has required knowledge keys" {
     run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $PROJECT_ROOT/devenv.config && config_validate_required copilot knowledge_repo knowledge_subpath"
     [ "$status" -eq 0 ]
+}
+
+@test "devenv.config: copilot section has engineering repo keys" {
+    run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $PROJECT_ROOT/devenv.config && config_read_value copilot engineering_repo"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ docs.engineering ]]
+    run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $PROJECT_ROOT/devenv.config && config_read_value copilot engineering_subpath"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ docs ]]
 }
 
 @test "issues-config.yml: has issue types defined" {

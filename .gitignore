@@ -31,6 +31,9 @@ playground/*
 # Copilot knowledge is synced from an external repo during bootstrap/update
 copilot/knowledge/
 copilot/knowledge/*
+# Engineering standards are synced from an external repo during bootstrap/update
+copilot/engineering/
+copilot/engineering/*
 
 # Ignore symlinks in tools/ but keep subdirectories
 tools/*

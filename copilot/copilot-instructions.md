@@ -100,6 +100,7 @@ If the needed repo is not present in `repos/`, ask the user to clone it before p
 The `docs.copilot-knowledge` repo exists in this workspace in two distinct roles:
 
 - **`copilot/knowledge/` — canonical, accepted knowledge.** Bootstrap clones it from the `[copilot] knowledge_repo` key in `devenv.config`, and `~/.copilot/knowledge` is symlinked to it, so skills read it through that link. It is machine-managed: **never edit it directly and never open branches there** — bootstrap and container-start pulls run `--ff-only` and will overwrite or discard local state.
+- **`copilot/engineering/` — canonical, ratified engineering standards.** Same machine-managed import model: bootstrap clones it from `[copilot] engineering_repo` and `~/.copilot/engineering` is symlinked to it. **Never edit it directly and never open branches there** — modifications happen in `repos/docs.engineering/` (branches + PRs); changes go live for skills after merge and the next canonical refresh.
 - **`repos/docs.copilot-knowledge/` — the official place for modifications**: proposals, branches, and PRs. Changes here never affect what skills see until merged upstream and the canonical copy is refreshed (container start/rebuild).
 
 To change knowledge: log an issue in `repos/docs.copilot-knowledge/`, and let the canonical copy refresh — do not bypass the PR flow by editing `copilot/knowledge/` directly.

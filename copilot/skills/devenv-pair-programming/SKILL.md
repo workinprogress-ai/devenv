@@ -873,7 +873,7 @@ If explicit: *"Got it — I'll stand by in navigator mode."* If implicit, step b
 
 ### AI behavior during the flow
 
-**External knowledge is an implementation input (apply the [Knowledge & Engineering-Pattern Lookup Protocol](../common/references/knowledge-lookup-protocol.md) — apply intensity):** consult copilot knowledge for org wiring/idioms/conventions as tasks touch them, guide the user by that knowledge, and cite what shapes non-obvious choices. Engineering patterns apply as needed.
+**External knowledge is an implementation input (apply the [Knowledge & Engineering-Pattern Lookup Protocol](../common/references/knowledge-lookup-protocol.md) — apply intensity):** consult copilot knowledge for org wiring/idioms/conventions as tasks touch them, guide the user by that knowledge, and cite what shapes non-obvious choices. Engineering standards **apply**: implement per the org's standards, including the Design-Principles library and its adherence levels (protocol's Design-Principles adherence section governs the REQUIRED/PREFERRED/ADVISORY gates and the link-before-ask rule).
 
 Note the **checkpoint** (last explicitly confirmed completed task, or phase start). This is the re-orientation anchor.
 

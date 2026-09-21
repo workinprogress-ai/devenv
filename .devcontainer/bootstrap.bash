@@ -105,8 +105,16 @@ load_config() {
     COPILOT_KNOWLEDGE_REPO=$(config_read_value "copilot" "knowledge_repo" "")
     COPILOT_KNOWLEDGE_SUBPATH=$(config_read_value "copilot" "knowledge_subpath" "")
 
+    # Optional engineering standards repo settings (same import model as knowledge).
+    # engineering_repo: if set, cloned/pulled into copilot/engineering and linked to ~/.copilot/engineering.
+    # engineering_subpath: subfolder to link; empty or omitted links the repo root.
+    COPILOT_ENGINEERING_REPO=$(config_read_value "copilot" "engineering_repo" "")
+    COPILOT_ENGINEERING_SUBPATH=$(config_read_value "copilot" "engineering_subpath" "")
+
     export COPILOT_KNOWLEDGE_REPO
     export COPILOT_KNOWLEDGE_SUBPATH
+    export COPILOT_ENGINEERING_REPO
+    export COPILOT_ENGINEERING_SUBPATH
 }
 
 # Detect CPU architecture (ARM vs x86)
@@ -915,6 +923,60 @@ build_github_basic_auth_header() {
     echo "AUTHORIZATION: basic $auth"
 }
 
+# Clone or update a Copilot-side external repo and symlink its content into ~/.copilot/.
+# Shared implementation for the knowledge and engineering standards imports:
+#   sync_copilot_side_repo <repo-url> <subpath> <checkout-dir> <link-path> <label> <backup-dir>
+sync_copilot_side_repo() {
+    local repo_url="$1"
+    local subpath="$2"
+    local repo_dir="$3"
+    local link_path="$4"
+    local label="$5"
+    local backup_parent="$6"
+    local header
+    local default_branch
+
+    if [ -z "${GH_TOKEN:-}" ]; then
+        echo "WARNING: GH_TOKEN is not set; skipping $label sync (load_setup_credentials must run first)"
+        return 0
+    fi
+
+    subpath=$(normalize_copilot_knowledge_subpath "$subpath")
+    header=$(build_github_basic_auth_header "$GH_TOKEN")
+
+    if [ -d "$repo_dir/.git" ]; then
+        git -C "$repo_dir" remote set-url origin "$repo_url"
+        git -C "$repo_dir" -c http.extraheader="$header" fetch --prune origin
+        default_branch=$(git -C "$repo_dir" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')
+        if [ -z "$default_branch" ]; then
+            default_branch=$(git -C "$repo_dir" rev-parse --abbrev-ref HEAD)
+        fi
+        git -C "$repo_dir" checkout "$default_branch" >/dev/null 2>&1 || true
+        git -C "$repo_dir" -c http.extraheader="$header" pull --ff-only origin "$default_branch"
+    else
+        if [ -d "$repo_dir" ] && [ -n "$(ls -A "$repo_dir" 2>/dev/null)" ]; then
+            local backup_dir
+            mkdir -p "$backup_parent"
+            backup_dir="$backup_parent/pre-sync.$(date +%Y%m%d%H%M%S)"
+            mv "$repo_dir" "$backup_dir"
+            echo "Existing non-git $label folder moved to $backup_dir"
+        fi
+        rm -rf "$repo_dir"
+        git -c http.extraheader="$header" clone "$repo_url" "$repo_dir"
+    fi
+
+    local content_source="$repo_dir/$subpath"
+    if [ ! -d "$content_source" ]; then
+        echo "ERROR: $label subpath not found: $content_source"
+        return 1
+    fi
+
+    mkdir -p "$HOME/.copilot"
+    rm -rf "$link_path"
+    ln -s "$content_source" "$link_path"
+    echo "$label symlinked: $link_path → $content_source"
+}
+
 # Clone or update configured Copilot knowledge repo and link ~/.copilot/knowledge
 sync_copilot_knowledge() {
     echo "# Sync Copilot knowledge"
@@ -923,54 +985,38 @@ sync_copilot_knowledge() {
     local repo_url="${COPILOT_KNOWLEDGE_REPO:-}"
     local subpath="${COPILOT_KNOWLEDGE_SUBPATH:-}"
     local knowledge_repo_dir="$toolbox_root/copilot/knowledge"
-    local header
-    local default_branch
 
     if [ -z "$repo_url" ]; then
         echo "No [copilot] knowledge_repo configured; skipping knowledge sync"
         return 0
     fi
 
-    if [ -z "${GH_TOKEN:-}" ]; then
-        echo "WARNING: GH_TOKEN is not set; skipping Copilot knowledge sync (load_setup_credentials must run first)"
+    sync_copilot_side_repo \
+        "$repo_url" "$subpath" "$knowledge_repo_dir" \
+        "$HOME/.copilot/knowledge" \
+        "Copilot knowledge" \
+        "$toolbox_root/.runtime/copilot-knowledge-backups"
+}
+
+# Clone or update configured engineering standards repo and link ~/.copilot/engineering
+sync_copilot_engineering() {
+    echo "# Sync engineering standards"
+    echo "#############################################"
+
+    local repo_url="${COPILOT_ENGINEERING_REPO:-}"
+    local subpath="${COPILOT_ENGINEERING_SUBPATH:-}"
+    local engineering_repo_dir="$toolbox_root/copilot/engineering"
+
+    if [ -z "$repo_url" ]; then
+        echo "No [copilot] engineering_repo configured; skipping engineering standards sync"
         return 0
     fi
 
-    subpath=$(normalize_copilot_knowledge_subpath "$subpath")
-
-    header=$(build_github_basic_auth_header "$GH_TOKEN")
-
-    if [ -d "$knowledge_repo_dir/.git" ]; then
-        git -C "$knowledge_repo_dir" remote set-url origin "$repo_url"
-        git -C "$knowledge_repo_dir" -c http.extraheader="$header" fetch --prune origin
-        default_branch=$(git -C "$knowledge_repo_dir" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')
-        if [ -z "$default_branch" ]; then
-            default_branch=$(git -C "$knowledge_repo_dir" rev-parse --abbrev-ref HEAD)
-        fi
-        git -C "$knowledge_repo_dir" checkout "$default_branch" >/dev/null 2>&1 || true
-        git -C "$knowledge_repo_dir" -c http.extraheader="$header" pull --ff-only origin "$default_branch"
-    else
-        if [ -d "$knowledge_repo_dir" ] && [ -n "$(ls -A "$knowledge_repo_dir" 2>/dev/null)" ]; then
-            local backup_dir
-            mkdir -p "$toolbox_root/.runtime/copilot-knowledge-backups"
-            backup_dir="$toolbox_root/.runtime/copilot-knowledge-backups/pre-sync.$(date +%Y%m%d%H%M%S)"
-            mv "$knowledge_repo_dir" "$backup_dir"
-            echo "Existing non-git knowledge folder moved to $backup_dir"
-        fi
-        rm -rf "$knowledge_repo_dir"
-        git -c http.extraheader="$header" clone "$repo_url" "$knowledge_repo_dir"
-    fi
-
-    local knowledge_source="$knowledge_repo_dir/$subpath"
-    if [ ! -d "$knowledge_source" ]; then
-        echo "ERROR: Copilot knowledge subpath not found: $knowledge_source"
-        return 1
-    fi
-
-    mkdir -p "$HOME/.copilot"
-    rm -rf "$HOME/.copilot/knowledge"
-    ln -s "$knowledge_source" "$HOME/.copilot/knowledge"
-    echo "Copilot knowledge symlinked: $HOME/.copilot/knowledge → $knowledge_source"
+    sync_copilot_side_repo \
+        "$repo_url" "$subpath" "$engineering_repo_dir" \
+        "$HOME/.copilot/engineering" \
+        "Engineering standards" \
+        "$toolbox_root/.runtime/copilot-engineering-backups"
 }
 
 # Copy Copilot instructions to ~/.copilot/copilot-instructions.md
@@ -1169,6 +1215,7 @@ run_bootstrap_tasks() {
         configure_git
         install_copilot_instructions
         sync_copilot_knowledge
+        sync_copilot_engineering
         ensure_directories_and_settings
         install_repo_dependencies
         configure_nuget_sources
@@ -1226,6 +1273,7 @@ run_update_tasks() {
         configure_git
         install_copilot_instructions
         sync_copilot_knowledge
+        sync_copilot_engineering
         ensure_directories_and_settings
         install_repo_dependencies
         configure_nuget_sources

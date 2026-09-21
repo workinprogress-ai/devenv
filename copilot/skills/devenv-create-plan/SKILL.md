@@ -54,7 +54,7 @@ Source precedence rule:
 
 ## Procedure
 
-**External knowledge lookup (apply the [Knowledge & Engineering-Pattern Lookup Protocol](../common/references/knowledge-lookup-protocol.md) — consult intensity):** while drafting phases and tasks, consult copilot knowledge (org implementation specifics) and the engineering-patterns repo (`config-read copilot engineering_repo`) so plans declare which patterns and practices each phase applies, citing sources.
+**External knowledge lookup (apply the [Knowledge & Engineering-Pattern Lookup Protocol](../common/references/knowledge-lookup-protocol.md) — consult intensity):** while drafting phases and tasks, consult copilot knowledge (org implementation specifics) and the engineering standards (canonical import at `~/.copilot/engineering`) so plans declare which patterns and practices each phase applies, citing sources.
 
 ### Event signal
 

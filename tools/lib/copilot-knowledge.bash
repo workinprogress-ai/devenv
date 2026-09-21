@@ -14,11 +14,11 @@ build_github_basic_auth_header() {
     echo "AUTHORIZATION: basic $auth"
 }
 
-# Pull latest Copilot knowledge on container start (non-blocking).
-# No-op when copilot/knowledge is not an initialized git repository.
-pull_copilot_knowledge_on_container_start() {
-    local toolbox_root="$1"
-    local repo_dir="$toolbox_root/copilot/knowledge"
+# Background non-blocking --ff-only pull for one synced Copilot-side repo.
+# No-op when the checkout dir is not an initialized git repository.
+# Usage: pull_copilot_side_repo_on_container_start <repo-dir> <label>
+pull_copilot_side_repo_on_container_start() {
+    local repo_dir="$1"
     local branch
 
     [ -d "$repo_dir/.git" ] || return 0
@@ -40,4 +40,16 @@ pull_copilot_knowledge_on_container_start() {
             git -C "$REPO_DIR" pull --ff-only origin "$BRANCH" >/dev/null 2>&1 || true
         ' >/dev/null 2>&1 &
     fi
+}
+
+# Pull latest Copilot knowledge on container start (non-blocking).
+# No-op when copilot/knowledge is not an initialized git repository.
+pull_copilot_knowledge_on_container_start() {
+    pull_copilot_side_repo_on_container_start "$1/copilot/knowledge"
+}
+
+# Pull latest engineering standards on container start (non-blocking).
+# No-op when copilot/engineering is not an initialized git repository.
+pull_copilot_engineering_on_container_start() {
+    pull_copilot_side_repo_on_container_start "$1/copilot/engineering"
 }

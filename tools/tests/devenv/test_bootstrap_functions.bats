@@ -283,7 +283,40 @@ EOF
 }
 
 @test "sync_copilot_knowledge stores pre-sync backups under runtime path" {
-  run grep '\.runtime/copilot-knowledge-backups/pre-sync\.' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  run bash -c "
+    grep -q 'copilot-knowledge-backups' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
+    grep -q 'copilot-engineering-backups' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
+  "
+  [ "$status" -eq 0 ]
+}
+
+@test "sync_copilot_side_repo is the shared parametric sync used by both imports" {
+  run bash -c "
+    grep -q 'sync_copilot_side_repo()' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
+    grep -A3 -F 'sync_copilot_side_repo' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep -q 'copilot/knowledge' &&
+    grep -A3 -F 'sync_copilot_side_repo' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep -q 'copilot/engineering'
+  "
+  [ "$status" -eq 0 ]
+}
+
+@test "sync_copilot_engineering is defined and registered in both task runners" {
+  run bash -c "
+    grep -q 'sync_copilot_engineering()' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
+    grep -cE '^[[:space:]]+sync_copilot_engineering$' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep -q '^2$'
+  "
+  [ "$status" -eq 0 ]
+}
+
+@test "engineering sync skips gracefully when engineering_repo unconfigured" {
+  run grep 'No \[copilot\] engineering_repo configured; skipping' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "container start pulls engineering standards non-blocking" {
+  run bash -c "
+    grep -q 'pull_copilot_engineering_on_container_start()' '$PROJECT_ROOT/tools/lib/copilot-knowledge.bash' &&
+    grep -q 'pull_copilot_engineering_on_container_start' '$PROJECT_ROOT/.devcontainer/startup.sh'
+  "
   [ "$status" -eq 0 ]
 }
 

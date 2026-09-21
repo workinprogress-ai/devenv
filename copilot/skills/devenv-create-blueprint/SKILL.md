@@ -89,7 +89,7 @@ This is a three-phase process. **Stop at each checkpoint** and wait for explicit
 
 ### Phase 1: Context & System Survey
 
-**External knowledge lookup (apply the [Knowledge & Engineering-Pattern Lookup Protocol](../common/references/knowledge-lookup-protocol.md) — consult intensity):** survey copilot knowledge for component/context specifics and the engineering-patterns repo (`config-read copilot engineering_repo`) for applicable standards alongside the inputs below; cite what materially shapes the blueprint.
+**External knowledge lookup (apply the [Knowledge & Engineering-Pattern Lookup Protocol](../common/references/knowledge-lookup-protocol.md) — consult intensity):** survey copilot knowledge for component/context specifics and the engineering standards (canonical import at `~/.copilot/engineering`) for applicable standards alongside the inputs below; cite what materially shapes the blueprint.
 
 **Goal:** Establish what problem the blueprint addresses, gather the specifications basis, and (for brownfield) survey the existingg system landscape.
 
