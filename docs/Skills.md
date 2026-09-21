@@ -41,7 +41,7 @@ What are you trying to do?
 ├─ 📋 Plan
 │   ├─ Create from idea / issue or complete spec / RFC (any multi-step objective: code default; docs, mechanical, runbooks)  →  /devenv-create-plan
 │   ├─ Align existing plan with reality (surgical edit / revision / staleness assessment)  →  /devenv-refine-plan
-│   └─ Query progress on work (read-only roll-ups across plans/issues)  →  /devenv-query-progress
+│   └─ Manage the board / query progress (status, hygiene, recommendations across issues)  →  /devenv-project-manager
 │
 ├─ 🔨 Build
 │   ├─ No plan yet                      →  /devenv-create-plan first
@@ -184,15 +184,15 @@ The inverse of `/devenv-delegation` — this skill provides review assistance fo
 
 ---
 
-### `/devenv-query-progress`
+### `/devenv-project-manager`
 
-> **Read-only answers to "how is the work going?" across plans, issues, and roadmaps.**
+> **On-demand project management for the issue landscape — project members and unprojected tickets alike.**
 
-Derives progress at query time from ground truth — task checkboxes, issue state, linked PRs, labels, git — via `plan-parse --summary`. Rolls up the issue tree (direct + descendant plans), reports coverage before percentage for unstarted scope, surfaces drift and risk callouts (personalized by assigned engineer), trends `Progress:` snapshot lines from wrap-up comments, and enriches with git-derived signals (unmerged branch commits, phantom progress, landed-but-unticked) from the repo cache. Strictly read-only: no plan edits, no issue writes, no roadmap syncs; the only write is an explicitly-confirmed report posting. **Report mode:** "report on issues N, M, …" / plural issues / `--report` compiles one markdown report to `.local-artifacts/` (fixed-shape per-issue sections; an epic in scope expands to a roll-up + per-child sections). Full doctrine in [Progress Reporting](./Progress-Reporting.md).
+Answers status/composition/progress questions (board status, epic rollups via the shared workflow-core derivation, drill-downs, return digests, personal work queues, cross-repo portfolio views), sweeps for drift and hygiene problems (membership gaps, status drift, staleness, orphan and label hygiene — every finding with evidence), recommends grooming/flow/triage candidates with routes, and effects changes on explicit instruction or consented batch only. The four classes gate writes: Answer/Assess/Recommend are read-only; Act requires explicit instruction or an approved findings table. Progress stays a derived view (`plan-parse --summary`), thresholds come from `devenv.config [workflows] stale_*_days`, state semantics from `status_workflow`. **Report mode:** "report on issues N, M, …" / plural issues / `--report` compiles one markdown report to `.local-artifacts/` (fixed-shape per-issue sections; an epic in scope expands to a roll-up + per-child sections). Full doctrine in [Progress Reporting](./Progress-Reporting.md).
 
-**Use for:** "how is X going?", cross-plan/cross-issue status roll-ups, "what's blocking the epic?", "are we on track?"  
-**Don't use for:** updating anything (executor skills, `/devenv-refine-plan`); syncing roadmap status (→ `/devenv-update-roadmap`); session summaries (→ `/devenv-session-handoff`)  
-**Tool deps:** `plan-parse`, `issue-get`, `issue-list`, `issue-search`, `issue-comment-list`, `issue-artifact-list`, `repo-cache-deepen` (offered, never implicit), read-only git
+**Use for:** "project status", "what's in flight?", "how is the epic going?", "clean up the board", "what's drifted/stale?", "what should be groomed next?", "what changed while I was away?", "what's unprojected?", "move #N to X"
+**Don't use for:** plan stewardship (executor skills, `/devenv-refine-plan`); grooming execution (→ `/devenv-grooming`); single-issue intake triage (→ `/devenv-triage-issue`); plan creation (→ `/devenv-create-plan`); roadmap status sync (→ `/devenv-update-roadmap`)
+**Tool deps:** `plan-parse`, `issue-get`, `issue-list`, `issue-search`, `issue-comment-list`, `issue-artifact-list`, `project-list-for-issue`, `project-update-issue`, `project-add-issue`, `config-read`, read-only git
 
 ---
 
@@ -212,7 +212,7 @@ Derives progress at query time from ground truth — task checkboxes, issue stat
 | `/devenv-update-roadmap` | Sync roadmap status from issues + PRs; republish artifact + epic task list | Epic number (optionally `:doc_id`) |
 | `/devenv-create-plan` | Create a current-state execution plan via interview or from a complete spec/RFC/doc | Issue #, description, or complete spec |
 | `/devenv-refine-plan` | Align a plan with reality from any starting point — surgical edits, structured revision, or staleness assessment with internal routing | Plan file path or issue # |
-| `/devenv-query-progress` | Read-only progress reporting across plans, issues, and roadmaps — derived metrics, issue-tree roll-ups, risk callouts, trends; report mode compiles multi-issue markdown reports (epic scope expands to children); never writes | Issue #, plan path, epic #, issue list + `--report`, or freeform question |
+| `/devenv-project-manager` | On-demand project management — status answers, hygiene sweeps, recommendations, and consented changes across the issue landscape (project members and unprojected tickets) | Question, sweep, or instruction (freeform) |
 
 ### Working modes
 
@@ -420,9 +420,9 @@ Component design changed
 | `/devenv-design-discussion` vs `/devenv-create-blueprint` | Design-discussion is exploratory and focused — picks between approaches. Blueprint is formal and broad — decomposes a chosen approach into domains, services, events, components. Design-discussion typically *precedes* a blueprint, or is invoked *after* one to settle a specific question. |
 | `/devenv-design-discussion` vs `/devenv-create-plan` | Use design-discussion when the approach is still unclear or one bounded blocker needs deeper option-weighing. Use create-plan when the approach is already chosen and you need executable tasks. |
 | `/devenv-session-handoff` vs `/devenv-refine-plan` surgical mode | Narrative summary vs structured task-state update. |
-| `/devenv-query-progress` vs `/devenv-update-roadmap` | Read vs write. Query-progress **reports** derived status (no side effects); update-roadmap **syncs** roadmap step status from issues and republishes the artifact. |
-| `/devenv-query-progress` vs `/devenv-session-handoff` | Live progress vs session wrap. Query-progress answers "how far along is this?" at query time; session-handoff writes a narrative handoff for the next contributor. |
-| `/devenv-query-progress` vs `/devenv-refine-plan` | Report vs edit. Query-progress surfaces drift with both readings; refine-plan is where the plan gets fixed. |
+| `/devenv-project-manager` vs `/devenv-update-roadmap` | Board truth vs roadmap sync. Project-manager **answers and corrects** issue/board state (writes only on explicit instruction or consented batch); update-roadmap **syncs** roadmap step status from issues and republishes the artifact. |
+| `/devenv-project-manager` vs `/devenv-session-handoff` | Live board vs session wrap. Project-manager answers "how far along is this?" / "what's in flight?" at query time; session-handoff writes a narrative handoff for the next contributor. |
+| `/devenv-project-manager` vs `/devenv-refine-plan` | Board vs plan. Project-manager surfaces drift with both readings (and can correct board state on instruction); refine-plan is where the plan gets fixed. |
 
 ---
 
@@ -531,8 +531,8 @@ what you want, and the skill's interview will fill in the gaps.
 ```text
 /devenv-refine-plan .local-artifacts/Plan-issue-42-001.md phase 3 grew: add a migration step
 /devenv-refine-plan 42                       (assessment mode — checks staleness against reality)
-/devenv-query-progress 42
-/devenv-query-progress how is the whole epic 7 doing?
+/devenv-project-manager 42
+/devenv-project-manager how is the whole epic 7 doing?
 /devenv-refine-specifications docs/Specifications/orders-001.md
 /devenv-refine-blueprint docs/Architecture/Blueprint-orders-001.md
 /devenv-refine-roadmap 89

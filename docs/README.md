@@ -12,7 +12,7 @@ A suite of skills covering the full development lifecycle — from thinking and 
   - [All skills — quick reference](./Skills.md#all-skills--quick-reference) — every skill in compact tables
   - Each skill's `SKILL.md` frontmatter (`copilot/skills/<name>/`) is authoritative; the catalog summarizes
 - **[Workflow Guide](./Workflow.md)** — end-to-end methodology guide with ASCII flowcharts and skill mapping notes
-- **[Progress Reporting](./Progress-Reporting.md)** — how progress is derived from plans/issues/git, the `Progress:` snapshot line, and `/devenv-query-progress`
+- **[Progress Reporting](./Progress-Reporting.md)** — how progress is derived from plans/issues/git, the `Progress:` snapshot line, and `/devenv-project-manager`
 - **[Knowledge & Engineering Patterns](./Knowledge-and-Engineering-Patterns.md)** — how skills consult copilot knowledge and the configurable engineering-standards repo
 
 **Not sure which to use?** Say `/devenv-skill-guru` and answer 1–3 questions.

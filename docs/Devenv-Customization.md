@@ -169,9 +169,20 @@ name=YourOrg Dev Environment
 ```ini
 [workflows]
 status_workflow=TBD,To-Groom,Ready,Implementing,Review,Merged,Staging,Production
+# Staleness thresholds (days) for project-manager Assess/Recommend passes.
+stale_to_groom_days=14
+stale_ready_days=21
+stale_implementing_days=30
+stale_tbd_days=7
 ```
 
 - **status_workflow**: The issue status vocabulary, ordered. Everything downstream — project boards, the workflow engine, `workflow-signal`, parent status rollup — reads this single key.
+- **stale_to_groom_days**: How long an issue may sit in `To-Groom` before `/devenv-project-manager` flags it as stale (Assess findings, grooming-candidate recommendations).
+- **stale_ready_days**: Inactivity threshold for `Ready` items (ready but nobody picking them up).
+- **stale_implementing_days**: Inactivity threshold for in-flight items (`Implementing`, `Review`-adjacent work that has gone quiet).
+- **stale_tbd_days**: How long an untriaged `TBD` issue may wait before it surfaces in hygiene sweeps.
+
+All four are read via `config-read workflows <key>` — never hard-coded in skills. Tune per org; the defaults fit a two-week delivery cadence.
 
 This is **not a free-form list**: the engine derives behavior from the vocabulary's shape. If you customize it, keep the contract:
 

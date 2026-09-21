@@ -325,7 +325,7 @@ The mode is part of the commission — never self-granted or escalated mid-run. 
 
 If the user returns after stepping away and asks for status (for example: "where are we?", "what finished?", "what's next?"), run a concise **Phase review pass** before proposing next actions.
 
-This is delegation-specific review: phase acceptance and steering, not pair-programming turn-by-turn checkpointing. It answers status **for the current run only** — cross-plan or cross-issue roll-up questions ("how is the epic going?", "what's the progress across these issues?") route to `/devenv-query-progress` (read-only derived reporting; see [Sibling skills](#sibling-skills)).
+This is delegation-specific review: phase acceptance and steering, not pair-programming turn-by-turn checkpointing. It answers status **for the current run only** — cross-plan or cross-issue roll-up questions ("how is the epic going?", "what's the progress across these issues?") route to `/devenv-project-manager` (read-only Answer class; see [Sibling skills](#sibling-skills)).
 
 ### Phase-close cleanup pass
 
@@ -507,7 +507,7 @@ Do not perform routine mid-phase syncs beyond the required material-revision exc
 Progress: <done>/<total> tasks (<pct>%), phase <n> of <N> — <YYYY-MM-DD>
 ```
 
-Values come from `plan-parse <plan_file> --census` at draft time — never hand-counted. The ISO date suffix makes snapshot ordering body-derivable. The line rides in the existing confirm-then-post flow; no new gate. Purpose: durable trend anchors for `/devenv-query-progress`, and human-scannable state in the issue thread.
+Values come from `plan-parse <plan_file> --census` at draft time — never hand-counted. The ISO date suffix makes snapshot ordering body-derivable. The line rides in the existing confirm-then-post flow; no new gate. Purpose: durable trend anchors for `/devenv-project-manager`, and human-scannable state in the issue thread.
 
 **End-of-engagement closeout (required):** when the final in-scope phase is accepted, the plan file is now the as-built record. Before handing back:
 

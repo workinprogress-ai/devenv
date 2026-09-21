@@ -1,6 +1,6 @@
 # Progress Reporting
 
-How progress is tracked and reported in this workspace — the doctrine behind `/devenv-query-progress` and the `Progress:` snapshot lines executor skills append to wrap-up comments.
+How progress is tracked and reported in this workspace — the doctrine behind `/devenv-project-manager`'s Answer class and the `Progress:` snapshot lines executor skills append to wrap-up comments.
 
 ## The doctrine: progress is a derived view
 
@@ -57,7 +57,7 @@ Assignees are derived from the issues themselves (`issue-get` returns `assignees
 - Risk callouts that need engineer attention name that engineer: "@{login}: issue #3 closed but its plan shows 4 open tasks — reconcile?"
 - Unassigned issues with open work are themselves a callout — an ownership gap.
 
-## `/devenv-query-progress` usage
+## `/devenv-project-manager` usage (Answer class)
 
 Read-only progress reporting across plans, grooming issues, and roadmaps.
 
@@ -95,5 +95,5 @@ Fetch-only and never checks out — cache working copies stay on the default bra
 ## Cross-references
 
 - [Workflow Guide](./Workflow.md) — the delivery methodology this reporting layer observes.
-- [Skills Catalog](./Skills.md) — the `/devenv-query-progress` entry and its boundaries vs `/devenv-update-roadmap`, `/devenv-refine-plan`, `/devenv-session-handoff`.
+- [Skills Catalog](./Skills.md) — the `/devenv-project-manager` entry and its boundaries vs `/devenv-update-roadmap`, `/devenv-refine-plan`, `/devenv-session-handoff`.
 - [Additional Tooling](./Additional-Tooling.md) — `plan-parse`, `repo-cache-update`, `repo-cache-deepen` reference pages.

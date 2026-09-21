@@ -373,7 +373,7 @@ Keep this to 3-6 lines unless the user asks for detail.
 
 Use this protocol for all review moments: post-change review, in-flow check-ins, re-engagement after a pause, and return-after-break status requests.
 
-These reviews answer status **for the current session and plan only** — cross-plan or cross-issue roll-up questions ("how is the epic going?", "what's the progress on the audit work across issues?") route to `/devenv-query-progress` (read-only derived reporting; see [Sibling skills](#sibling-skills)).
+These reviews answer status **for the current session and plan only** — cross-plan or cross-issue roll-up questions ("how is the epic going?", "what's the progress on the audit work across issues?") route to `/devenv-project-manager` (read-only Answer class; see [Sibling skills](#sibling-skills)).
 
 1. **Verify current reality first.** Read the actual changed files/diff since the last checkpoint. Never review from memory.
 2. **Map to intent and plan.** Identify what is done, partial, off-plan, untouched, and AC impact.
@@ -968,7 +968,7 @@ Do not sync mid-phase **except** for the immediate sync required after a materia
 Progress: <done>/<total> tasks (<pct>%), phase <n> of <N> — <YYYY-MM-DD>
 ```
 
-Values come from `plan-parse <plan_file> --census` at draft time — never hand-counted. The ISO date suffix makes snapshot ordering body-derivable. The line rides in the existing confirm-then-post flow; no new gate. Purpose: durable trend anchors for `/devenv-query-progress`, and human-scannable state in the issue thread.
+Values come from `plan-parse <plan_file> --census` at draft time — never hand-counted. The ISO date suffix makes snapshot ordering body-derivable. The line rides in the existing confirm-then-post flow; no new gate. Purpose: durable trend anchors for `/devenv-project-manager`, and human-scannable state in the issue thread.
 
 ## Documenting Discoveries (Issue Integration)
 

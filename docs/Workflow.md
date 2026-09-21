@@ -53,7 +53,7 @@ Durable issue-backed artifact note:
 
 The important rule is that you do not skip to a lower layer when the uncertainty still belongs to an upper layer.
 
-Progress note: progress at any layer is a **derived view** over ground truth (task checkboxes, issue state, PRs, labels, git) — never stored. See [Progress Reporting](./Progress-Reporting.md) for the roll-up model, the `Progress:` snapshot-line convention, and `/devenv-query-progress`.
+Progress note: progress at any layer is a **derived view** over ground truth (task checkboxes, issue state, PRs, labels, git) — never stored. See [Progress Reporting](./Progress-Reporting.md) for the roll-up model, the `Progress:` snapshot-line convention, and `/devenv-project-manager`.
 
 ## Default delivery flow
 
