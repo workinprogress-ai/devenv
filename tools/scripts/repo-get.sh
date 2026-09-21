@@ -127,8 +127,8 @@ if [ -z "${GH_ORG:-}" ]; then
 fi
 
 # gh must be authenticated (keychain or session export); clones use clean
-# URLs with git auth via gh's credential helper.
-if ! gh auth status >/dev/null 2>&1; then
+# URLs with git auth via the provider credential helper.
+if ! provider_auth_status >/dev/null 2>&1; then
     echo "ERROR: GitHub CLI is not authenticated. Run 'gh auth login' first." >&2
     exit 1
 fi

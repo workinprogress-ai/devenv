@@ -314,18 +314,19 @@ load_setup_credentials() {
     fi
 
     if [ -f "$setup_dir/github_token.txt" ]; then
-        # Legacy seed file: import it into gh's credential store once, then
-        # delete it. The keychain is the only sanctioned token surface; if
-        # login fails the recovery path is key-update-github.sh.
-        if gh auth login --with-token --hostname github.com --skip-ssh-key < "$setup_dir/github_token.txt" >/dev/null 2>&1; then
+        # Legacy seed file: import it into the provider credential store
+        # once, then delete it. The keychain is the only sanctioned token
+        # surface; if import fails the recovery path is key-update-github.sh.
+        ensure_provider_seam
+        if provider_auth_import_token < "$setup_dir/github_token.txt" >/dev/null 2>&1; then
             rm -f "$setup_dir/github_token.txt"
-            echo "Imported github_token.txt into gh keychain; seed file deleted."
+            echo "Imported github_token.txt into the provider credential store; seed file deleted."
         else
-            echo "WARNING: github_token.txt could not be logged into gh (expired or invalid?)."
+            echo "WARNING: github_token.txt could not be imported (expired or invalid?)."
             echo "Rotate credentials with: key-update-github.sh <new-token>"
         fi
     else
-        echo "No GitHub token file found; relying on gh keychain auth (run 'gh auth login' if not authenticated)."
+        echo "No GitHub token file found; relying on provider credential store (run 'gh auth login' if not authenticated)."
     fi
 
     if [ -f "$setup_dir/github_user.txt" ]; then

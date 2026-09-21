@@ -19,6 +19,8 @@ load ../test_helper
 
 # Sanctioned direct-gh sites: file substring -> regex of allowed gh usages.
 # Everything else matching a transport pattern fails the lock.
+# NOTE: .devcontainer/bootstrap.bash has NO entries — all credential
+# lifecycle (import/status) routes through the provider auth seam.
 # shellcheck disable=SC2034
 ALLOWED_EXCEPTIONS=(
     "key-update-github.sh:gh auth (login|setup-git)"
@@ -46,11 +48,12 @@ TRANSPORT_PATTERNS=(
     'gh "'
 )
 
-# Scan targets: wrappers + non-provider libs. The provider modules
-# (tools/lib/providers/**) are where gh calls belong and are excluded.
+# Scan targets: wrappers + non-provider libs + bootstrap. The provider
+# modules (tools/lib/providers/**) are where gh calls belong and are excluded.
 LOCK_TARGETS=(
     "tools/scripts"
     "tools/lib"
+    ".devcontainer"
 )
 
 is_exception() {
@@ -88,22 +91,14 @@ collect_violations() {
                 continue
             fi
             # Usage-heredoc prose lines (e.g. "Note: 'gh run' ...",
-            # "Use 'gh project list' ...", "retrieved by polling ...") are
-            # English sentences, not shell syntax. Executable lines start
-            # with a shell keyword, command, variable, or quote/bracket;
-            # anything else is prose and is skipped (default-deny keeps
-            # heredoc docs from false-failing the lock).
-            local first_char="${text:0:1}"
-            local is_shell_syntax=0
+            # "Use 'gh project list' ...") start with an uppercase letter —
+            # sentence case — while executable lines (commands, keywords,
+            # var assignments) start lowercase, '$', or punctuation. Scan
+            # everything except uppercase-initial prose; a raw-gh hit on a
+            # scanned line is a violation unless the allowlist excuses it.
             case "$text" in
-                if*|for*|while*|case*|local*|readonly*|export*|source*|return*|shift*|echo*|printf*|cd\ *|set*|unset*|\[*) is_shell_syntax=1 ;;
+                [A-Z]*) continue ;;
             esac
-            case "$first_char" in
-                '$'|'"'|'('|'['|'-'|[A-Z]) is_shell_syntax=0 ;;
-            esac
-            if [ "$is_shell_syntax" -eq 0 ]; then
-                continue
-            fi
             # Known shell commands that may legitimately carry a gh transport
             # pattern in their argv are checked against the allowlist below;
             # bare `gh ...` first-words are the violation this gate exists for.

@@ -329,3 +329,48 @@ provider_require_capability() {
     log_error "provider '${PROVIDER_NAME}' does not support capability '${cap}' — operation not available"
     return 1
 }
+
+# ============================================================================
+# Credential lifecycle seam (#35/#36 follow-up)
+# ============================================================================
+
+# Import a credential into the provider's credential store, wiring whatever
+# git-transport integration the provider requires (GitHub: gh auth login +
+# gh auth setup-git). The single sanctioned place for a provider's credential
+# CLI to be invoked; scripts and bootstrap never call it directly.
+#
+# Usage:
+#   provider_auth_import_token <<< "$TOKEN"     # token on stdin
+#
+# Returns:
+#   0 when the credential was stored and git integration wired; 1 otherwise.
+provider_auth_import_token() {
+    if [ -z "${PROVIDER_NAME:-}" ]; then
+        log_error "provider_auth_import_token: provider_detect has not run"
+        return 1
+    fi
+    if ! provider_dispatch auth import_token; then
+        return 1
+    fi
+    provider_auth_import_token_impl
+}
+
+# Check whether the provider has a usable credential (exit-code only; no
+# output, no stdout leakage). Gates scripts that require authentication
+# without performing it.
+#
+# Usage:
+#   provider_auth_status || { echo "not authenticated"; exit 1; }
+#
+# Returns:
+#   0 when authenticated; 1 otherwise.
+provider_auth_status() {
+    if [ -z "${PROVIDER_NAME:-}" ]; then
+        log_error "provider_auth_status: provider_detect has not run"
+        return 1
+    fi
+    if ! provider_dispatch auth status; then
+        return 1
+    fi
+    provider_auth_status_impl
+}

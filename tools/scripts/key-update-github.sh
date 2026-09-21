@@ -12,6 +12,14 @@ DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 # Source error handling library
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 
+# Provider auth seam: the credential lifecycle (import + git helper wiring)
+# is the provider's job, not this script's.
+# shellcheck disable=SC1091
+source "$DEVENV_TOOLS/lib/providers/provider-core.bash"
+provider_detect "${DEVENV_ROOT:-}/devenv.config" 2>/dev/null || PROVIDER_NAME="${PROVIDER_NAME:-github}"
+# shellcheck disable=SC1090,SC1091
+source "$DEVENV_TOOLS/lib/providers/${PROVIDER_NAME}/auth.bash"
+
 echo ">>> 🔐 GitHub Token Update Utility"
 echo "    -------------------------------------------------------"
 echo "    This will update your GitHub personal access token."
@@ -36,24 +44,20 @@ if [[ ! "$NEW_TOKEN" =~ ^(gh|ghp_) ]]; then
     log_warn "Token doesn't start with expected prefix (ghp_ or gh_). Proceeding anyway..."
 fi
 
-# 1. Rotate via the GitHub CLI credential store (keychain) — the single
-#    source of truth. The token is never written to env-vars.sh or any
-#    backup file; git authentication flows through gh's credential helper.
-echo "    - Rotating GitHub credentials (gh auth login)..."
-if ! printf '%s' "$NEW_TOKEN" | gh auth login --with-token --hostname github.com --skip-ssh-key; then
-    die "gh auth login failed — token not accepted by GitHub. No changes made."
+# 1. Rotate via the provider credential store — the single source of truth.
+#    The token is never written to env-vars.sh or any backup file; git
+#    authentication flows through the provider's credential helper.
+echo "    - Rotating credentials (provider auth seam)..."
+if ! provider_auth_import_token <<< "$NEW_TOKEN"; then
+    die "credential import failed — token not accepted. No changes made."
 fi
 
-# 2. Keep gh's credential helper wired so clean remote URLs authenticate.
-if ! gh auth setup-git --hostname github.com; then
-    log_warn "gh auth setup-git failed — git pushes/pulls over https may fail until it is re-run"
-fi
+# 2. The provider verb wired the git credential helper during import.
+# No GH_TOKEN export: the credential store is the single auth source and env
+# exports happen only through the provider seam's allowlist.
 
-# No GH_TOKEN export: the keychain is the single auth source and env exports
-# happen only through the provider seam's allowlist.
-
-echo "    ✅ Success! GitHub token updated (gh credential store)."
+echo "    ✅ Success! Credentials updated (provider credential store)."
 echo "    -------------------------------------------------------"
 echo "    The new token is now active. git https auth goes through"
-echo "    gh's credential helper; no token is stored in env files."
+echo "    the provider credential helper; no token is stored in env files."
 echo ""
