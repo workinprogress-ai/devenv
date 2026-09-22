@@ -9,6 +9,7 @@ Written to the target repo's `.local-artifacts/` folder (the standard local mark
 - target_repo: <repo path>
 - hunted_utc: <ISO date>
 - hunter: /devenv-bug-hunter
+- effort_estimate: <Small | Medium | Large> — <sizing basis: files/steps/context>
 
 ## Oracle
 
@@ -55,6 +56,14 @@ Written to the target repo's `.local-artifacts/` folder (the standard local mark
 - FOUND: preserve the repro test before any restore, then continue with `/devenv-bug-hunter` diagnose + fix modes using this report. The repro is the starting artifact.
 - NOT-FOUND: conditions under which the suspicion would become real; what to watch for.
 - INCONCLUSIVE: what evidence or access a follow-up hunt would need.
+
+## Disposition
+
+<Written when the user made capture/hand-off choices; omitted if the report is created before those choices — added afterward. One line per decision:>
+
+- report: local artifact (this file) | local only, not captured
+- issue: existing #<N> (findings posted as comment) | created #<N> | none (local only)
+- resolution: kill now | plan (/devenv-create-plan) | handoff (/devenv-pair-programming | /devenv-delegation) | self-fix | undecided
 
 ## Instrumentation Log
 
