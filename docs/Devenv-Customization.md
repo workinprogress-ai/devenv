@@ -347,7 +347,7 @@ Each entry needs:
 Get the IDs from your GitHub organization using the workspace wrapper (one-time setup inspection — day-to-day issue operations always go through the `issue-*` tools):
 
 ```bash
-org-issue-types --format json
+issue-types --format json
 ```
 
 ### Syncing with GitHub Organization Settings
@@ -462,7 +462,7 @@ service:
 **To create a ruleset JSON:**
 
 1. Configure a ruleset manually in GitHub UI
-2. Export it via the workspace wrapper: `ruleset-export <RULESET_ID> --output <file>` (list IDs first with `ruleset-export`)
+2. Export it via the workspace wrapper: `policy-export <RULESET_ID> --output <file>` (list IDs first with `policy-export`)
 3. Save to `tools/config/your-ruleset.json`
 4. Replace hardcoded values with tokens (`{{repo_name}}`, `{{owner}}`, etc.)
 5. Reference the filename in `rulesetConfigFile` property

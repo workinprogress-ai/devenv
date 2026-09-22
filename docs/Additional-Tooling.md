@@ -177,7 +177,7 @@ Each type can specify a GitHub repository ruleset JSON file:
 
 - `rulesetConfigFile`: Filename in `tools/config/` (e.g., `ruleset-default.json`)
 - Set to `null` or blank to skip ruleset application
-- JSON file is a GitHub ruleset export (from `ruleset-export <ID> --output <file>`)
+- JSON file is a GitHub ruleset export (from `policy-export <ID> --output <file>`)
 - Supports token replacement:
   - `{{repo_name}}` - Repository name
   - `{{owner}}` - Organization/owner
@@ -188,7 +188,7 @@ Each type can specify a GitHub repository ruleset JSON file:
 **Creating custom ruleset JSON:**
 
 1. Configure ruleset in GitHub UI for a test repo
-2. Export: `ruleset-export <RULESET_ID> --output <file>`
+2. Export: `policy-export <RULESET_ID> --output <file>`
 3. Save to `tools/config/my-ruleset.json`
 4. Replace hardcoded values with tokens
 5. Reference in type config: `rulesetConfigFile: my-ruleset.json`
@@ -764,14 +764,14 @@ artifact-clean [PATH...] [--tmp | --session | --working | --all] [-y] [-l]
 
 Tools for inspecting, triggering, monitoring, and downloading outputs of GitHub Actions workflow runs.
 
-### `actions-status`
+### `pipelines-status`
 
 Reports the latest GitHub Actions workflow run status across all repos in the org, with optional filtering by repo name and run conclusion.
 
 **Usage:**
 
 ```bash
-actions-status [OPTIONS]
+pipelines-status [OPTIONS]
 ```
 
 **Options:**
@@ -787,19 +787,19 @@ actions-status [OPTIONS]
 
 ```bash
 # Show latest run status for all repos
-actions-status
+pipelines-status
 
 # Only repos matching a name pattern
-actions-status --repo 'lib\.cs\.'
+pipelines-status --repo 'lib\.cs\.'
 
 # Only failed runs
-actions-status --status failure
+pipelines-status --status failure
 
 # Filter by repo and workflow
-actions-status --repo 'services' --workflow CI
+pipelines-status --repo 'services' --workflow CI
 
 # Pipe into jq for further processing
-actions-status --json | jq '.[] | select(.conclusion == "failure") | .url'
+pipelines-status --json | jq '.[] | select(.conclusion == "failure") | .url'
 ```
 
 **Notes:**
@@ -810,14 +810,14 @@ actions-status --json | jq '.[] | select(.conclusion == "failure") | .url'
 
 ---
 
-### `actions-list`
+### `pipelines-list`
 
 Lists GitHub Actions workflow definitions (name, file, state) across org repositories. Shows what workflows *exist*, not their run history.
 
 **Usage:**
 
 ```bash
-actions-list [OPTIONS]
+pipelines-list [OPTIONS]
 ```
 
 **Options:**
@@ -831,28 +831,28 @@ actions-list [OPTIONS]
 
 ```bash
 # List all active workflows
-actions-list
+pipelines-list
 
 # Workflows for repos matching a pattern
-actions-list --repo 'lib\.cs\.services\.'
+pipelines-list --repo 'lib\.cs\.services\.'
 
 # Include disabled workflows
-actions-list --state all
+pipelines-list --state all
 
 # JSON output piped to jq
-actions-list --json | jq '.[] | select(.state != "active")'
+pipelines-list --json | jq '.[] | select(.state != "active")'
 ```
 
 ---
 
-### `actions-run`
+### `pipelines-run`
 
 Triggers a `workflow_dispatch` event on a GitHub repository and reports the resulting run URL.
 
 **Usage:**
 
 ```bash
-actions-run WORKFLOW --repo OWNER/REPO [OPTIONS]
+pipelines-run WORKFLOW --repo OWNER/REPO [OPTIONS]
 ```
 
 **Arguments:**
@@ -869,13 +869,13 @@ actions-run WORKFLOW --repo OWNER/REPO [OPTIONS]
 
 ```bash
 # Trigger CI on the default branch
-actions-run ci.yml --repo workinprogress-ai/my-service
+pipelines-run ci.yml --repo workinprogress-ai/my-service
 
 # Run on a specific branch
-actions-run ci.yml --repo workinprogress-ai/my-service --ref feature/my-branch
+pipelines-run ci.yml --repo workinprogress-ai/my-service --ref feature/my-branch
 
 # Pass workflow_dispatch inputs
-actions-run deploy.yml --repo workinprogress-ai/my-service \
+pipelines-run deploy.yml --repo workinprogress-ai/my-service \
     --input environment=staging \
     --input version=1.2.3
 ```
@@ -887,14 +887,14 @@ actions-run deploy.yml --repo workinprogress-ai/my-service \
 
 ---
 
-### `actions-rerun`
+### `pipelines-rerun`
 
 Re-runs a GitHub Actions workflow run, with options to re-run only failed jobs or enable debug logging.
 
 **Usage:**
 
 ```bash
-actions-rerun RUN_ID --repo OWNER/REPO [OPTIONS]
+pipelines-rerun RUN_ID --repo OWNER/REPO [OPTIONS]
 ```
 
 **Arguments:**
@@ -911,25 +911,25 @@ actions-rerun RUN_ID --repo OWNER/REPO [OPTIONS]
 
 ```bash
 # Re-run the full workflow
-actions-rerun 12345678 --repo workinprogress-ai/my-service
+pipelines-rerun 12345678 --repo workinprogress-ai/my-service
 
 # Re-run only failed jobs
-actions-rerun 12345678 --repo workinprogress-ai/my-service --failed
+pipelines-rerun 12345678 --repo workinprogress-ai/my-service --failed
 
 # Re-run with debug output enabled
-actions-rerun 12345678 --repo workinprogress-ai/my-service --debug
+pipelines-rerun 12345678 --repo workinprogress-ai/my-service --debug
 ```
 
 ---
 
-### `actions-watch`
+### `pipelines-watch`
 
 Streams live output from a running GitHub Actions workflow run. If no `RUN_ID` is given, auto-detects the latest in-progress run in the repo.
 
 **Usage:**
 
 ```bash
-actions-watch [RUN_ID] --repo OWNER/REPO [OPTIONS]
+pipelines-watch [RUN_ID] --repo OWNER/REPO [OPTIONS]
 ```
 
 **Arguments:**
@@ -945,25 +945,25 @@ actions-watch [RUN_ID] --repo OWNER/REPO [OPTIONS]
 
 ```bash
 # Watch the latest in-progress run
-actions-watch --repo workinprogress-ai/my-service
+pipelines-watch --repo workinprogress-ai/my-service
 
 # Watch a specific run
-actions-watch 12345678 --repo workinprogress-ai/my-service
+pipelines-watch 12345678 --repo workinprogress-ai/my-service
 
 # Exit with the run's exit code (for CI use)
-actions-watch 12345678 --repo workinprogress-ai/my-service --exit-status
+pipelines-watch 12345678 --repo workinprogress-ai/my-service --exit-status
 ```
 
 ---
 
-### `actions-artifacts`
+### `pipelines-artifacts`
 
 Lists or downloads artifacts from a completed GitHub Actions workflow run. Default mode is list (no files are downloaded).
 
 **Usage:**
 
 ```bash
-actions-artifacts RUN_ID --repo OWNER/REPO [OPTIONS]
+pipelines-artifacts RUN_ID --repo OWNER/REPO [OPTIONS]
 ```
 
 **Arguments:**
@@ -983,16 +983,16 @@ actions-artifacts RUN_ID --repo OWNER/REPO [OPTIONS]
 
 ```bash
 # List artifacts for a run
-actions-artifacts 12345678 --repo workinprogress-ai/my-service
+pipelines-artifacts 12345678 --repo workinprogress-ai/my-service
 
 # List as JSON and pipe to jq
-actions-artifacts 12345678 --repo workinprogress-ai/my-service --json | jq '.[].name'
+pipelines-artifacts 12345678 --repo workinprogress-ai/my-service --json | jq '.[].name'
 
 # Download all artifacts
-actions-artifacts 12345678 --repo workinprogress-ai/my-service --download
+pipelines-artifacts 12345678 --repo workinprogress-ai/my-service --download
 
 # Download a specific artifact to a directory
-actions-artifacts 12345678 --repo workinprogress-ai/my-service \
+pipelines-artifacts 12345678 --repo workinprogress-ai/my-service \
     --download --name coverage-report --dir .local-artifacts
 ```
 
@@ -2448,12 +2448,12 @@ devenv-add-custom-startup "echo 'Container started'" "export MY_VAR=value"
 
 **Note:** For organization-wide startup customizations, create `.devcontainer/org-custom-startup.sh` and commit it to the repository.
 
-### `key-update-github`
+### `key-update-git`
 
 Updates the GitHub personal access token stored in `.setup/github_token.txt`.
 
 ```bash
-key-update-github [new-token]
+key-update-git [new-token]
 ```
 
 **Interactive mode:** If no token is provided, prompts for input.
@@ -2943,7 +2943,7 @@ The following convenience aliases are available in the dev container:
 **Utilities:**
 
 - `get-public-ip` - Get current public IP
-- `key-update-github` - Update GitHub token in setup
+- `key-update-git` - Update GitHub token in setup
 - `key-update-tailscale` - Update Tailscale auth key
 - `key-update-do` - Update Digital Ocean API token
 - `devenv-vscode-fix-sockets` - Fix stale VS Code IPC sockets (see [Troubleshooting](./Dev-container-environment.md#troubleshooting))

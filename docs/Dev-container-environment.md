@@ -300,7 +300,7 @@ entials are **never** stored in the container image itself — they're only load
 1. Run `gh auth login` and follow the browser/device flow — or pipe a fresh
    PAT: `gh auth login --with-token --hostname github.com --skip-ssh-key`.
 2. Run `gh auth setup-git --hostname github.com` (the key-update tooling
-   does both steps for you: `key-update-github.sh <token>`).
+   does both steps for you: `key-update-git.sh <token>`).
 3. Verify with `gh auth status` — it should report login sourced from
    `hosts.yml` (your keychain), not `GH_TOKEN`.
 
@@ -308,11 +308,11 @@ Note: `~/.config/gh` lives on the container's filesystem, so the keychain is
 re-seeded on container re-create. Bootstrap imports the legacy
 `.setup/github_token.txt` into the keychain once and deletes the file; if
 that login fails (expired or revoked token), rotate credentials with
-`key-update-github.sh <new-token>` — or run `gh auth login` directly.
+`key-update-git.sh <new-token>` — or run `gh auth login` directly.
 
 **To update credentials:**
 
-* GitHub Token: Run `key-update-github.sh <token>` (rotates the keychain and
+* GitHub Token: Run `key-update-git.sh <token>` (rotates the keychain and
   re-wires the git credential helper), or run `gh auth login` manually
 * Digital Ocean Token: Run `./setup` and choose the Digital Ocean setup option
 * SSH Key: Configure via the initial setup or re-run the setup script

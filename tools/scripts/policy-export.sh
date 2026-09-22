@@ -3,7 +3,7 @@
 # contract: self-location wins; a foreign exported DEVENV_TOOLS is ignored).
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
-# ruleset-export.sh - Export a GitHub repository ruleset as JSON
+# policy-export.sh - Export a GitHub repository ruleset as JSON
 # Version: 1.0.0
 # Description: Fetches a single repository ruleset by ID (or lists a repo's
 #              rulesets when no ID is given) as JSON. Read-only; used for

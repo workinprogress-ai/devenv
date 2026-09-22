@@ -9,7 +9,7 @@ facade surface.
 routes through `provider_<domain>_<verb>` functions. The live transport map is
 the provider modules themselves (`tools/lib/providers/github/*.bash`); the
 only sanctioned direct `gh` calls left in scripts are the auth seam
-(`key-update-github.sh`: `gh auth login`/`gh auth setup-git`; `repo-get.sh`:
+(`key-update-git.sh`: `gh auth login`/`gh auth setup-git`; `repo-get.sh`:
 `gh auth status`) and the fzf preview viewer in `issue-select.sh` (fresh-shell
 constraint, documented inline). Use this file to trace WHY each verb exists;
 use the provider modules to see WHAT the transport is today.
@@ -142,12 +142,12 @@ Per-script verb map (unique verbs per script):
 
 | Script | Verbs | Domain |
 |---|---|---|
-| actions-artifacts.sh | api (actions artifacts), run download | actions |
-| actions-list.sh | repo list, workflow list | actions, repos |
-| actions-rerun.sh | run rerun, run view | actions |
-| actions-run.sh | run list, workflow run | actions |
-| actions-status.sh | repo list, run list | actions, repos |
-| actions-watch.sh | run list, run watch | actions |
+| pipelines-artifacts.sh | api (actions artifacts), run download | actions |
+| pipelines-list.sh | repo list, workflow list | actions, repos |
+| pipelines-rerun.sh | run rerun, run view | actions |
+| pipelines-run.sh | run list, workflow run | actions |
+| pipelines-status.sh | repo list, run list | actions, repos |
+| pipelines-watch.sh | run list, run watch | actions |
 | cs-dependencies-update-wizard.sh | api (default branch) | repos |
 | issue-artifact-get.sh | api (issue comments, paginated) | issues |
 | issue-artifact-list.sh | api (issue comments, paginated) | issues |
@@ -161,7 +161,7 @@ Per-script verb map (unique verbs per script):
 | issue-search.sh | issue list | issues |
 | issue-select.sh | issue edit, issue view | issues |
 | issue-update.sh | issue close, issue edit, issue reopen, issue view | issues |
-| org-issue-types.sh | api graphql (org issueTypes) | org issue-types |
+| issue-types.sh | api graphql (org issueTypes) | org issue-types |
 | pr-comment.sh | pr comment | prs |
 | pr-complete-merge.sh | repo view | prs, repos |
 | pr-create-for-merge.sh | pr list | prs |
@@ -179,7 +179,7 @@ Per-script verb map (unique verbs per script):
 | project-update-issue.sh | project field-list, repo view, workflow stages | projects |
 | release-list.sh | release list | releases |
 | repo-create.sh | api (commits probe), repo create, repo view | repos |
-| ruleset-export.sh | api (rulesets list/get, paginated) | rulesets |
+| policy-export.sh | api (rulesets list/get, paginated) | rulesets |
 
 ## Targeting idioms (normalization scope for `provider_repo_target`)
 

@@ -27,7 +27,7 @@ done
 unset __cap
 
 # ---------------------------------------------------------------------------
-# Rulesets (GH-only capability; REST CRUD per repo-types/ruleset-export)
+# Rulesets (GH-only capability; REST CRUD per repo-types/policy-export)
 # ---------------------------------------------------------------------------
 
 # List rulesets for a repo (paginated).

@@ -3,7 +3,7 @@
 # contract: self-location wins; a foreign exported DEVENV_TOOLS is ignored).
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
-# actions-artifacts.sh - List or download artifacts from a GitHub Actions run
+# pipelines-artifacts.sh - List or download artifacts from a GitHub Actions run
 # Version: 1.0.0
 # Description: Lists artifact metadata (name, size, ID) for a completed
 #              GitHub Actions workflow run, or downloads them. Default is list.

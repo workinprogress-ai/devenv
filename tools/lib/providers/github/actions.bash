@@ -84,7 +84,7 @@ provider_actions_workflow_list() {
     gh workflow list "${repo_args[@]}"
 }
 
-# Fetch run artifacts metadata (REST surface, per actions-artifacts).
+# Fetch run artifacts metadata (REST surface, per pipelines-artifacts).
 # Usage: provider_actions_run_artifacts REPO RUN_ID
 provider_actions_run_artifacts() {
     local repo="$1" run_id="$2"

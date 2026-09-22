@@ -3,7 +3,7 @@
 # contract: self-location wins; a foreign exported DEVENV_TOOLS is ignored).
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
-# org-issue-types.sh - List the GitHub organization's issue types
+# issue-types.sh - List the GitHub organization's issue types
 # Version: 1.0.0
 # Description: Queries the organization's configured issue types (ID + name)
 #              via GraphQL. Read-only; used when setting up or verifying the
