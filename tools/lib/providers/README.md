@@ -119,3 +119,14 @@ Suite naming is fixed now so a per-provider directory layout later is a pure
   `INVENTORY.md`).
 - Slice 7 (#40): Azure DevOps provider.
 - Slice 9 (#41): full documentation overhaul — this README is a stub.
+
+## The docs half of the fork contract
+
+A fork that swaps providers edits this directory plus one skill-side file:
+[`copilot/skills/_shared/references/provider-protocols/github.md`](../../../copilot/skills/_shared/references/provider-protocols/github.md)
+— the protocol reference every skill body cites instead of inlining GitHub
+transport detail. Provider code and skill docs are two halves of one contract:
+swap the provider modules here, replace the protocol reference there, and the
+skill suite (including the decoupling gate in
+`tools/tests/skills/test_provider_protocol_decoupling.bats`) enforces that no
+skill body drifted back toward a hard-coded backend.

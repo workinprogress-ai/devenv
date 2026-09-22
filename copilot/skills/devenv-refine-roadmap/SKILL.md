@@ -30,7 +30,7 @@ If only step **status** is out of date (issues closed, PRs merged), use [`/deven
 
 ## Inputs
 
-The user provides an epic number (optionally `:<doc_id>` when the epic holds more than one roadmap artifact) — e.g. `89` or `89:dv1:workinprogress-ai/planning.development.main:issue-89:roadmap:orders-001`.
+The user provides an epic number (optionally `:<doc_id>` when the epic holds more than one roadmap artifact) — e.g. `89` or `89:dv1:<owner>/<planning-repo>:issue-89:roadmap:orders-001`.
 
 Resolution: `DOC_ID=$(issue-artifact-select --issue <N> --artifact-type roadmap [--doc-id <ID> | --latest] --format doc-id)` → `mkdir -p <repo-root>/.local-artifacts && issue-artifact-get --issue <N> --doc-id "$DOC_ID" --write-body <repo-root>/.local-artifacts/roadmap-refine.md` (session scratch copy under the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)).
 
@@ -88,12 +88,12 @@ For any change where a future implementer would ask *why* (a superseded step, a 
 For every new step added in this revision, ask:
 
 > "Create GitHub issues for the new steps?
-> - STEP-15 → workinprogress-ai/service.commerce.inventory
-> - STEP-16 → workinprogress-ai/service.commerce.fulfillment-orchestrator
+> - STEP-15 → <owner>/<component-repo-a>
+> - STEP-16 → <owner>/<component-repo-b>
 >
 > Proceed? (Y / N / Choose subset)" — ask via the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections): present *yes, create all / choose a subset / no* as selectable options with freeform input.
 
-If yes, follow the same `GITHUB_REPO=<org>/<repo> issue-create` procedure documented in [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) Step A. Update the parent epic in the planning repo to add the new issues to its task list.
+If yes, follow the same `issue-create` procedure documented in [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) Step A. Update the parent epic in the planning repo to add the new issues to its task list.
 
 For deleted steps with linked issues, do **not** auto-close them — surface a list and let the user decide:
 
@@ -113,7 +113,7 @@ After writing, list what may need follow-up:
 
 - **Status sync**: structural edits don't refresh issue/PR status → suggest [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md)
 - **Plan impact**: plans tied to superseded or split steps may need updating → suggest [`/devenv-refine-plan`](../devenv-refine-plan/SKILL.md) for affected plans
-- **Blueprint drift**: if the structural change reveals a deeper architectural issue, file an **upstream-impact issue** (`issue-create --type Task --label upstream-impact --no-template` in the planning repo — resolve and state `GITHUB_REPO=<owner>/<planning-repo>` per the repo-targeting guard) describing what changed, why it matters, and the affected blueprint sections — then also suggest [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) directly if the user wants to cascade now
+- **Blueprint drift**: if the structural change reveals a deeper architectural issue, file an **upstream-impact issue** in the planning repo per the [upstream-impact filing recipe](../_shared/references/provider-protocols/github.md#upstream-impact-filing) — then also suggest [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) directly if the user wants to cascade now
 
 ## Anti-patterns
 

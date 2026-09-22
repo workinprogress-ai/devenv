@@ -21,10 +21,6 @@ setup() {
     git init -q
     git config user.email "test@example.com"
     git config user.name "Test User"
-    
-    # Save original global git config for restoration after tests
-    SAVED_GIT_CONFIG="$TEST_TEMP_DIR/git_config_backup"
-    git config --global --list > "$SAVED_GIT_CONFIG" 2>/dev/null || true
 }
 
 teardown() {

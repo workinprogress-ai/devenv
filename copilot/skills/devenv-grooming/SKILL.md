@@ -207,7 +207,7 @@ When creating child issues from grooming (user-gated):
 	- add optional flags as needed (`--parent`, `--label`, `--assignee`, `--milestone`, `--project`, `--blocked-by`).
 - Type value source is explicit:
 	- if the grooming row already has an approved issue type, pass that exact value to `--type`.
-	- if type is not approved yet, read allowed types from `tools/config/issues-config.yml` (or `ISSUES_CONFIG` override when set), present the allowed list, and ask the user to choose one before running `issue-create`.
+        - if type is not approved yet, list the allowed issue types (see the [deterministic issue creation recipe](../_shared/references/provider-protocols/github.md#deterministic-issue-creation)), present the allowed list, and ask the user to choose one before running `issue-create`.
 - Do not run `issue-create --help` or `gh issue create --help` during child-issue creation flow. If command shape guidance is needed, use this section and `copilot/skills/_tools-reference.md` as the source of truth and proceed with the deterministic forms above.
 - Extract the created issue number from command output and update the matching attack-plan row.
 - Keep `TBD` for any row not created in the current session.
@@ -256,7 +256,7 @@ Before routing onward to planning or execution, verify all of the following:
 
 If any of those checks fail, write or update the grooming document first. Never treat conversational design iteration as a substitute for the written artifact.
 
-**Upstream-impact discovery:** when the session concludes that the root cause of a design problem lives above the plan — a specification item is wrong or missing, or the blueprint's structure no longer matches what implementation needs — file an **upstream-impact issue** in the planning repo: `GITHUB_REPO=<org>/<planning-repo> issue-create --type Task --label upstream-impact --no-template` with a body covering what changed/was discovered, why it matters, and the affected upstream sections. Do not edit the specifications/blueprint from grooming; the refine skills consume this queue in cascade mode. Grooming discovers; refinement executes.
+**Upstream-impact discovery:** when the session concludes that the root cause of a design problem lives above the plan — a specification item is wrong or missing, or the blueprint's structure no longer matches what implementation needs — offer to file an **upstream-impact issue** in the planning repo per the [upstream-impact filing recipe](../_shared/references/provider-protocols/github.md#upstream-impact-filing). Do not edit the specifications/blueprint from grooming; the refine skills consume this queue in cascade mode. Grooming discovers; refinement executes.
 
 ### Decision carry-forward review (required)
 

@@ -5,6 +5,7 @@ A complete reference for the Copilot skill suite available in this workspace. Sk
 > **Authority note:** each skill's `SKILL.md` frontmatter (`copilot/skills/<name>/SKILL.md`) is the authoritative description of that skill — its trigger phrases and boundaries. This catalog summarizes the suite for browsing; when a summary and a frontmatter disagree, the frontmatter wins.
 
 **Not sure which skill to use, or how something in this environment works?** Say `/devenv-help` — it answers questions directly and recommends skills.
+> **Provider transport:** skill bodies stay provider-neutral — GitHub-specific wrapper signatures, env vars, config paths, and invocation recipes live in the [GitHub protocol reference](../copilot/skills/_shared/references/provider-protocols/github.md). A provider fork replaces that file; skill bodies don't change.
 
 **Need the full workflow, not just the catalog?** See [Workflow Guide](./Workflow.md).
 

@@ -91,7 +91,7 @@ This section is the single home for workspace-specific rules. Add new convention
 
 ### WorkInProgress library repos
 
-WorkInProgress (`workinprogress-ai`) library and service repos are cloned into the `repos/` folder of this workspace. When a task requires reading or editing one of these repos, look there first (e.g. `repos/lib.cs.services.bulk-sync/`).
+WorkInProgress library and service repos (owned by the org configured via `GH_ORG`) are cloned into the `repos/` folder of this workspace. When a task requires reading or editing one of these repos, look there first (e.g. `repos/lib.cs.services.bulk-sync/`).
 
 If the needed repo is not present in `repos/`, ask the user to clone it before proceeding — do not guess at paths or attempt to work without the source.
 
@@ -105,13 +105,21 @@ The `docs.copilot-knowledge` repo exists in this workspace in two distinct roles
 
 To change knowledge: log an issue in `repos/docs.copilot-knowledge/`, and let the canonical copy refresh — do not bypass the PR flow by editing `copilot/knowledge/` directly.
 
+### Symlink topology (canonical paths vs. views)
+
+Some workspace paths are the same content reachable through multiple routes; authoring and verifying against the wrong route produces broken links that look mysterious.
+
+- **`docs/` is canonical** for the workspace docs it contains (Skills.md, Workflow.md, …). `copilot/skills/_shared/docs` is a git-tracked **symlink** to `../../../docs` — a view for skill-relative citation paths, not a separate copy. `~/.copilot/skills` and `~/.copilot/knowledge` are machine-local convenience symlinks into the workspace; never reference them from repo files.
+- **Author relative links and run link-checks against the canonical in-repo path**, never a symlinked alias. Relative resolution follows the access path, so a link that is correct from the alias depth is wrong from the canonical path (and vice versa); link-checking an alias reports phantom failures. GitHub renders only the canonical path for symlinked directories, which makes the canonical choice the only one that is right everywhere.
+- A file reachable at two depths (e.g. `docs/Skills.md`) carries exactly one relative link form — the one correct from its canonical location.
+
 ### Prefer workspace tooling over raw CLIs
 
 The `tools/` folder contains workspace-specific wrappers around common CLIs (`gh`, `git`, `dotnet`, `kubectl`, MongoDB, etc.) — they are the workspace's abstraction layer over those backends. All tools are on `PATH`, so invoke them by bare name from any working directory.
 
 **`GITHUB_REPO` is set in the environment** (`owner/repo` format).
 
-**Issue management goes through the `issue-*` tools exclusively — reads and writes.** `issue-get`, `issue-list`, `issue-select`, `issue-search`, `issue-create`, `issue-create-batch`, `issue-update` (incl. native `--type`), `issue-comment`, `issue-comment-list`, `issue-comment-update`, `issue-close`, `issue-triage`, `issue-label-list`, `issue-label-create`, and the `issue-artifact-*` suite are the workspace's abstraction layer over issue management; the backing CLI is an implementation detail that may change. Never run raw `gh issue ...` (or `gh api .../issues/...`) for any issue operation — reading, listing, creating, updating, commenting, or closing — regardless of whether a skill is active. The wrappers also enforce workspace conventions (native types from `tools/config/issues-config.yml`, templates, labels, close reasons) that raw `gh` silently skips.
+**Issue management goes through the `issue-*` tools exclusively — reads and writes.** `issue-get`, `issue-list`, `issue-select`, `issue-search`, `issue-create`, `issue-create-batch`, `issue-update` (incl. native `--type`), `issue-comment`, `issue-comment-list`, `issue-comment-update`, `issue-close`, `issue-triage`, `issue-label-list`, `issue-label-create`, and the `issue-artifact-*` suite are the workspace's abstraction layer over issue management; the backing CLI is an implementation detail that may change. Never run raw `gh issue ...` (or `gh api .../issues/...`) for any issue operation — reading, listing, creating, updating, commenting, or closing — regardless of whether a skill is active. The wrappers also enforce workspace conventions (native types from the provider's issue-type configuration, templates, labels, close reasons) that raw `gh` silently skips.
 
 Tool coverage by domain:
 
@@ -121,7 +129,7 @@ Tool coverage by domain:
 - **GitHub Actions — `actions-*` wrappers**: status, list, run, rerun, watch, artifacts.
 - **Repository inspection — `release-list`, `ruleset-export`, `org-issue-types`, `artifacts-list`**: releases, rulesets, org issue types, GitHub Packages.
 
-Full invocation signatures for every wrapper live in [`copilot/skills/_tools-reference.md`](copilot/skills/_tools-reference.md) — the complete invocation reference; never `--help` at runtime.
+Full invocation signatures for the wrappers live in the [GitHub protocol reference](copilot/skills/_shared/references/provider-protocols/github.md) — the complete invocation reference; devenv-neutral tooling is in [`copilot/skills/_tools-reference.md`](copilot/skills/_tools-reference.md); never `--help` at runtime.
 
 **The AI never runs the `gh` CLI directly — no exceptions.** All GitHub operations go through the workspace wrappers; the wrapper layer is the workspace's abstraction over GitHub and the backing CLI is an implementation detail that may change. If an operation is not covered by any wrapper, do not fall back to `gh` — surface it to the user as a tooling gap and let them decide (run it themselves, or commission a new wrapper). Using `gh` direct for something a wrapper plausibly should cover is a tooling-gap signal, not a preference.
 

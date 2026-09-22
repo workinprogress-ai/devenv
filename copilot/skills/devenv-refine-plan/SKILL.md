@@ -129,7 +129,7 @@ In revision mode, use `vscode_askQuestions` to gather:
   - Option-weighing / approach not settled → `/devenv-design-discussion <plan-path>`
   - Current approach needs reclassification → `/devenv-grooming <plan-path>`
 
-  **File an upstream-impact issue** for confirmed architectural findings that originate above the plan (specification or blueprint level): `issue-create --type Task --label upstream-impact --no-template` in the planning repo (resolve and state `GITHUB_REPO=<owner>/<planning-repo>` per the repo-targeting guard), body covering what changed/was discovered, why it matters, and the affected upstream sections. This puts the finding on the queue that `/devenv-refine-specifications` and `/devenv-refine-blueprint` consume in cascade mode.
+  **File an upstream-impact issue** for confirmed architectural findings that originate above the plan (specification or blueprint level), per the [upstream-impact filing recipe](../_shared/references/provider-protocols/github.md#upstream-impact-filing) and the repo-targeting guard. This puts the finding on the queue that `/devenv-refine-specifications` and `/devenv-refine-blueprint` consume in cascade mode.
 
   Do not continue plan refinement for architectural items until the design question is resolved.
 - **Legacy code exposure** — if new tasks will introduce implementations that coexist with existing legacy code in the same files across multiple phases, flag the issue: the plan likely needs an early cleanup phase. See [phase-rules.md](../devenv-create-plan/references/phase-rules.md) for available patterns (demolition, hollow-out, rename suffix, branch by abstraction). Surface the viable options and a recommendation before writing new tasks; don't silently pick one.

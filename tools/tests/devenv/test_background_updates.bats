@@ -21,7 +21,10 @@ setup() {
 }
 
 teardown() {
-  # Kill any background processes
+  # Kill any background processes this test file started — scoped to the PID
+  # recorded in this file's own PID file, never a name pattern (a `pkill -f`
+  # on the script name can kill other test files' in-flight grep processes
+  # whose command lines merely mention the same filename).
   if [ -f "$MOCK_REPO/.devcontainer/.update-check.pid" ]; then
     pid=$(cat "$MOCK_REPO/.devcontainer/.update-check.pid" 2>/dev/null || true)
     if [ -n "$pid" ]; then
@@ -30,8 +33,6 @@ teardown() {
     fi
     rm -f "$MOCK_REPO/.devcontainer/.update-check.pid"
   fi
-  
-  pkill -f "background-check-devenv-updates.sh" 2>/dev/null || true
   
   cd "$ORIGINAL_PWD" 2>/dev/null || true
   test_helper_teardown

@@ -418,13 +418,20 @@ repo3'
 
 @test "git-operations: is_nested_devenv_clone false for canonical devenv root" {
     # A devenv repo whose parent is not named repos/ (the canonical workspace
-    # root) is not a nested clone — guard must stay in force there.
+    # root) is not a nested clone — guard must stay in force there. Built as a
+    # fixture so the assertion does not depend on where this suite's own repo
+    # is checked out (some workspaces keep devenv itself below a repos/ dir).
+    local t
+    t=$(mktemp -d)
+    mkdir -p "$t/devenv"
+    git -C "$t/devenv" init -q
     run bash -c "
-        cd '$PROJECT_ROOT'
+        cd '$t/devenv'
         source '$PROJECT_ROOT/tools/lib/git-operations.bash'
         is_devenv_repo && ! is_nested_devenv_clone
     "
     [ "$status" -eq 0 ]
+    rm -rf "$t"
 }
 
 @test "git-operations: is_nested_devenv_clone false for ordinary repo under repos/" {
@@ -461,8 +468,15 @@ repo3'
 }
 
 @test "git-operations: check_target_repo still guards canonical devenv root" {
+    # Fixture parent is not named repos/, so the canonical-root guard (not the
+    # nested-clone auto-allow) must fire — independent of where this suite's
+    # own repo is checked out.
+    local t
+    t=$(mktemp -d)
+    mkdir -p "$t/devenv"
+    git -C "$t/devenv" init -q
     run bash -c "
-        cd '$PROJECT_ROOT'
+        cd '$t/devenv'
         unset GITHUB_REPO
         ALLOW_DEVENV_REPO=0
         source '$PROJECT_ROOT/tools/lib/git-operations.bash'
@@ -470,6 +484,7 @@ repo3'
     "
     [ "$status" -ne 0 ]
     [[ "$output" =~ "appears to be the devenv repository itself" ]]
+    rm -rf "$t"
 }
 
 # ============================================================================

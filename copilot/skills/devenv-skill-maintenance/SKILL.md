@@ -82,7 +82,7 @@ The skill system is a foundation for many workflows; a wrong "improvement" is mo
 
 ## Filing findings as devenv issues
 
-Validated findings (diagnostic errata, evidence-passing improvement candidates) may be filed as issues in the devenv repo so they survive the session and queue repair work. Filing is always user-approved first — show the draft title and body, wait for explicit confirmation, then run `GITHUB_REPO=workinprogress-ai/devenv issue-create --type <Bug|Task> --no-template --no-interactive --title ... --body-file ...` (`Bug` for diagnostic errata, `Task` for improvement candidates).
+Validated findings (diagnostic errata, evidence-passing improvement candidates) may be filed as issues in the devenv repo so they survive the session and queue repair work. Filing is always user-approved first — show the draft title and body, wait for explicit confirmation, then run `issue-create` per the [deterministic issue creation recipe](../_shared/references/provider-protocols/github.md#deterministic-issue-creation), targeting the devenv repo (`Bug` for diagnostic errata, `Task` for improvement candidates).
 
 Rules:
 
