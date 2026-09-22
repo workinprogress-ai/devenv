@@ -176,8 +176,7 @@ load ../test_helper
 
 
 # ============================================================================
-# pipelines-* (renamed actions-*) — active since the Plan-issue-38-001
-# test-first migration (P2); the rename itself lands in P3.
+# pipelines-* family — syntax and --help contract for every member.
 # ============================================================================
 
 @test "pipelines-status.sh exists with valid syntax and --help" {

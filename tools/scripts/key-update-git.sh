@@ -25,8 +25,8 @@ echo "    -------------------------------------------------------"
 echo "    This will update your GitHub personal access token."
 echo ""
 
-# --help / -h must never be interpreted as a token (adversarial-review F1:
-# the flag used to fall through to the token path and fail at import).
+# --help / -h must never be interpreted as a token: an unrecognized flag
+# would otherwise fall through to the token path and fail at import.
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
     echo "Usage: key-update-git.sh [TOKEN] | --help"
     echo ""

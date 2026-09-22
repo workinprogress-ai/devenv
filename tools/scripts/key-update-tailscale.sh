@@ -24,6 +24,16 @@ echo "    -------------------------------------------------------"
 echo "    This will update your Auth Key and immediately reconnect."
 echo ""
 
+# --help / -h must never be interpreted as a key: an unrecognized flag
+# would otherwise fall through to the key path and fail at auth.
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+    echo "Usage: key-update-tailscale.sh [AUTH_KEY] | --help"
+    echo ""
+    echo "Rotate the Tailscale Reusable Auth Key and reconnect the node."
+    echo "With AUTH_KEY: non-interactive. Without: prompts on the terminal."
+    exit 0
+fi
+
 # 1. Capture New Key; capture EOF so an empty key reaches the validation
 # below instead of set -e exiting on read's rc.
 read -s -r -p "    Paste new Reusable Auth Key: " NEW_KEY || NEW_KEY=""

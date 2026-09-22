@@ -105,7 +105,8 @@ load ../test_helper
   [ "$output" = "some-org" ]
 }
 
-# Active since the Plan-issue-38-001 test-first migration (P2).
+# Existence guard: wrapper scripts are added independently; this suite
+# asserts only scripts that are present.
 @test "policy-export.sh exists with valid syntax and --help" {
   run bash -n "$PROJECT_ROOT/tools/scripts/policy-export.sh"
   [ "$status" -eq 0 ]

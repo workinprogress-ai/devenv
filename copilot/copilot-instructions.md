@@ -230,6 +230,8 @@ When writing temporary comments into code during implementation sessions, use th
 
 ```csharp
 // BAD:  // F006 (2026-08-31): legacy OpBulkUpsert fallback removed per gate decision — string _id is guaranteed.
+// BAD:  // --help must never be treated as a token (adversarial-review F1: the flag used to fall through).
+// GOOD: // --help must never be treated as a token: an unrecognized flag would otherwise fall through to the token path.
 // GOOD: // _id is guaranteed to be a string by the ingest layer; no legacy fallback path is required.
 ```
 

@@ -35,6 +35,16 @@ echo "    -------------------------------------------------------"
 echo "    This will update your Digital Ocean API token."
 echo ""
 
+# --help / -h must never be interpreted as a token: an unrecognized flag
+# would otherwise fall through to the token path and be stored as a secret.
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+    echo "Usage: key-update-do.sh [TOKEN] | --help"
+    echo ""
+    echo "Rotate the Digital Ocean API token. With TOKEN: non-interactive."
+    echo "Without: prompts on the terminal."
+    exit 0
+fi
+
 # Get token from argument or prompt user; capture EOF so an empty token
 # reaches the validation below instead of set -e exiting on read's rc.
 if [ -n "${1:-}" ]; then
