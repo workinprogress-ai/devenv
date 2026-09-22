@@ -313,20 +313,35 @@ load_setup_credentials() {
         echo "WARNING!!!  No human name found in $name_file"
     fi
 
+    # Auth state machine (Plan-issue-55-001 final contract):
+    #   keychain OK            -> info only, seed left alone
+    #   keychain empty + seed  -> import once, DELETE the seed (one-shot;
+    #                             plaintext must not linger), auth restored
+    #   keychain empty, no seed-> AUTH_NEEDED=1; the finish banner tells the
+    #                             user to run key-update-git.sh
+    AUTH_NEEDED=0
+
+    if provider_auth_status >/dev/null 2>&1; then
+        echo "GitHub credential store is authenticated."
+        if [ -f "$setup_dir/github_token.txt" ]; then
+            echo "Seed file $setup_dir/github_token.txt is no longer needed while authenticated; remove it to reduce plaintext exposure."
+        fi
+        return 0
+    fi
+
+    ensure_provider_seam
+
     if [ -f "$setup_dir/github_token.txt" ]; then
-        # Legacy seed file: import it into the provider credential store
-        # once, then delete it. The keychain is the only sanctioned token
-        # surface; if import fails the recovery path is key-update-git.sh.
-        ensure_provider_seam
         if provider_auth_import_token < "$setup_dir/github_token.txt" >/dev/null 2>&1; then
             rm -f "$setup_dir/github_token.txt"
-            echo "Imported github_token.txt into the provider credential store; seed file deleted."
+            echo "Seed file imported into the provider credential store and deleted (one-shot; re-add only if you want replay-ability)."
         else
             echo "WARNING: github_token.txt could not be imported (expired or invalid?)."
-            echo "Rotate credentials with: key-update-git.sh <new-token>"
+            AUTH_NEEDED=1
         fi
     else
-        echo "No GitHub token file found; relying on provider credential store (run 'gh auth login' if not authenticated)."
+        echo "Provider credential store is empty and no seed file found in $setup_dir."
+        AUTH_NEEDED=1
     fi
 
     if [ -f "$setup_dir/github_user.txt" ]; then
@@ -1206,6 +1221,10 @@ record_bootstrap_run_time() {
 finish_message() {
     echo "Bootstrap complete"
     echo "--------------------------------------------------------------"
+    if [ "${AUTH_NEEDED:-0}" -eq 1 ]; then
+        echo "ACTION REQUIRED: Auth credentials are not configured."
+        echo "Run: key-update-git.sh <new-token>"
+    fi
     echo "Please exit out of VS Code and let the container restart."
     echo "Please restart the container to complete the setup."
 }
