@@ -172,7 +172,7 @@ Show the draft. Revise. **Do not publish yet.**
 
 Once approved:
 
-1. Create the parent epic in the planning repo (`GITHUB_REPO=<org>/<planning-repo> issue-create --title "Epic: <system> roadmap" --type "Epic"`) with a placeholder body (title, blueprint link, note that the roadmap artifact follows in a comment). Epic is the correct type here by definition — a roadmap's parent coordinates multi-repo delivery, which is exactly what Epic is for (orchestration, not single deliverables).
+1. Create the parent epic in the planning repo: run `issue-create` with title `"Epic: <system> roadmap"` and type `Epic`, targeting `<owner>/<planning-repo>` per the [repository targeting rules](../_shared/references/provider-protocols/github.md#repository-targeting) — exact invocation: [issue-create](../_shared/references/provider-protocols/github.md#issue-create). Use a placeholder body (title, blueprint link, note that the roadmap artifact follows in a comment). Epic is the correct type here by definition — a roadmap's parent coordinates multi-repo delivery, which is exactly what Epic is for (orchestration, not single deliverables).
 2. Publish the roadmap as an artifact comment on the epic: follow the shared [Artifact Identity Convention](../_conventions.md#artifact-identity-convention) with `artifact_type: roadmap` and `artifact_scope: issue-comment`. Resolve the deterministic `doc_id` with `issue-artifact-doc-id --issue <epic-number> --artifact-type roadmap --slug <system>-<NNN>` (form `dv1:<owner>/<repo>:issue-<epic-number>:roadmap:<system>-<NNN>`), stamp it into the scratch copy's `DEVENV_ARTIFACT_V1` header via `artifact-header <scratch-path> --set doc_id=<value>`, and run `issue-artifact-upsert --issue <epic-number> --body-file <scratch-path>`.
 3. Note the epic number and artifact `doc_id` — every later roadmap skill (refine/update) addresses the roadmap by `doc_id`.
 
@@ -200,13 +200,13 @@ This step uses the existing `issue-create` and `issue-update` tooling. Do not in
 For each roadmap step where the component repo is known:
 
 ```bash
-GITHUB_REPO=<org>/<component-repo> issue-create \
+issue-create \
   --title "<step title>" \
   --type "<type>" \
   --body-file <temp-body-file>
 ```
 
-> **Note:** `issue-create` does not have a `--repo` flag. The repo is selected via the `GITHUB_REPO` env var (`owner/repo` form). If unset, the tool falls back to `GH_ORG` + current repo name, then to the current git repo. `--type` is required for deterministic runs — valid values come from `tools/config/issues-config.yml` (Bug, Feature, Task, Epic); roadmap step issues are normally `Task` and the parent epic is `Epic`, unless the user approves otherwise.
+Resolve the target `<owner>/<component-repo>` per the [repository targeting rules](../_shared/references/provider-protocols/github.md#repository-targeting) and the [deterministic issue creation recipe](../_shared/references/provider-protocols/github.md#deterministic-issue-creation) — `issue-create` has no `--repo` flag, and valid type values come from the provider's issue-type configuration. Roadmap step issues are normally `Task` and the parent epic is `Epic`, unless the user approves otherwise.
 
 The body should reference back to the roadmap artifact and blueprint:
 
@@ -223,8 +223,8 @@ The body should reference back to the roadmap artifact and blueprint:
 Capture the resulting issue number. Show the user a running list:
 
 ```
-✔ STEP-01 → workinprogress-ai/service.commerce.inventory#412
-✔ STEP-02 → workinprogress-ai/service.commerce.inventory#413
+✔ STEP-01 → <owner>/<component-repo>#412
+✔ STEP-02 → <owner>/<component-repo>#413
 ...
 ```
 
@@ -242,16 +242,16 @@ The epic body carries the placeholder plus a markdown task list of every child i
 
 ### PHASE-01: <name>
 
-- [ ] workinprogress-ai/service.commerce.inventory#412 — STEP-01: <title>
-- [ ] workinprogress-ai/service.commerce.inventory#413 — STEP-02: <title>
+- [ ] <owner>/<component-repo>#412 — STEP-01: <title>
+- [ ] <owner>/<component-repo>#413 — STEP-02: <title>
 
 ### PHASE-02: <name>
 
-- [ ] workinprogress-ai/service.commerce.fulfillment#56 — STEP-03: <title>
+- [ ] <owner>/<component-repo>#56 — STEP-03: <title>
 ...
 ```
 
-Update via `GITHUB_REPO=<planning-repo> issue-update <epic-number> --body-file <temp-body-file>`.
+Update via `issue-update <epic-number> --body-file <temp-body-file>`, targeted at `<owner>/<planning-repo>` per the [repository targeting rules](../_shared/references/provider-protocols/github.md#repository-targeting) — exact invocation: [issue-update](../_shared/references/provider-protocols/github.md#issue-update).
 
 ### Step C — Update the roadmap artifact with issue links
 
@@ -259,7 +259,7 @@ For each step in the scratch copy, append the issue link to the step heading and
 
 ```markdown
 ### STEP-01: Extend inventory with reservation API
-**Issue**: [workinprogress-ai/service.commerce.inventory#412](https://github.com/workinprogress-ai/service.commerce.inventory/issues/412)
+**Issue**: [<owner>/<component-repo>#412](https://github.com/<owner>/<component-repo>/issues/412)
 **Status**: ⬜ Not started
 ```
 

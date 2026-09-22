@@ -160,7 +160,7 @@ Uses existing tooling only:
 
 - `issue-get N --pretty` — fetch issue state, labels, linked PRs
 - `pr-list` / `pr-get` — fetch PR state when needed
-- `GITHUB_REPO=<org>/<repo> issue-create --title <title> --body-file <path>` — create missing issues (no `--repo` flag; use the env var)
+- `issue-create --title <title> --body-file <path>` — create missing issues (resolve the target repo per the [repository targeting rules](../_shared/references/provider-protocols/github.md#repository-targeting); [exact invocation](../_shared/references/provider-protocols/github.md#issue-create))
 - `issue-update <N> --body-file <path>` — update parent epic body
 - `issue-artifact-select` / `issue-artifact-get` / `issue-artifact-upsert` — pull and republish the roadmap artifact
 
