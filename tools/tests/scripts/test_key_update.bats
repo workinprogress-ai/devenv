@@ -81,9 +81,8 @@ EOF
     # resolves their lib sources; the updater stubs above record calls.
     mkdir -p "$FAKE_TOOLS/scripts"
     cp "$PROJECT_ROOT/tools/scripts/key-update-do.sh" "$FAKE_TOOLS/scripts/"
-    # Plan-issue-38-001 P2 (test-first): the git-family script does not exist
-    # under its new name until the P3 rename lands. Copy it only when present
-    # so its absence fails only the key-update-git tests, not the whole suite.
+    # Copy only when present so a missing script fails just its own tests,
+    # not the whole suite via a failed setup copy.
     if [ -f "$PROJECT_ROOT/tools/scripts/key-update-git.sh" ]; then
         cp "$PROJECT_ROOT/tools/scripts/key-update-git.sh" "$FAKE_TOOLS/scripts/"
     fi
@@ -166,8 +165,40 @@ EOF
     grep -q "devenv-add-env-vars.sh TS_AUTHKEY=tskey-abc123def456" "$CALL_LOG"
 }
 
-# Active since the Plan-issue-38-001 test-first migration (P2).
+# Existence guard: the key-update family gains members independently;
+# this suite asserts only scripts that are present.
 @test "key-update-git.sh exists" {
   run bash -n "$PROJECT_ROOT/tools/scripts/key-update-git.sh"
   [ "$status" -eq 0 ]
+}
+
+# Help contract: --help/-h must print usage and exit 0 — never be consumed
+# as a token/key by the scripts that read positional secrets.
+
+@test "key-update-do.sh --help exits 0 without prompting" {
+    run bash "$PROJECT_ROOT/tools/scripts/key-update-do.sh" --help < /dev/null
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "Usage: key-update-do.sh" ]]
+}
+
+@test "key-update-tailscale.sh --help exits 0 without prompting" {
+    run bash "$PROJECT_ROOT/tools/scripts/key-update-tailscale.sh" --help < /dev/null
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "Usage: key-update-tailscale.sh" ]]
+}
+
+@test "key-update-git.sh --help exits 0 without prompting" {
+    run bash "$PROJECT_ROOT/tools/scripts/key-update-git.sh" --help < /dev/null
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "Usage: key-update-git.sh" ]]
+    # The flag must not reach the credential-import path.
+    [[ ! "$output" =~ "Token Update Utility" ]] || [[ "$output" =~ "Usage:" ]]
+}
+
+@test "key-update family -h short flag also exits 0" {
+    for script in key-update-do key-update-tailscale key-update-git; do
+        run bash "$PROJECT_ROOT/tools/scripts/${script}.sh" -h < /dev/null
+        [ "$status" -eq 0 ]
+        [[ "$output" =~ "Usage:" ]]
+    done
 }
