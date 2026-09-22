@@ -8,29 +8,70 @@ Tests are written using [BATS (Bash Automated Testing System)](https://github.co
 
 ## Running Tests
 
-### Run all tests
+### Run all tests (parallel — the default)
 
 ```bash
-bats tests/
+./tools/tests/run-devenv-tests.sh
 ```
+
+The runner executes the whole suite (`lib/`, `scripts/`, `devenv/`) in a single
+`bats --jobs` invocation. Jobs default to `nproc`, capped by `MAX_PARALLEL_JOBS`
+(currently 8).
+
+### Runner flags
+
+```bash
+./tools/tests/run-devenv-tests.sh --jobs 4     # explicit parallelism
+./tools/tests/run-devenv-tests.sh --sequential # debugging: jobs=1
+./tools/tests/run-devenv-tests.sh --help
+```
+
+`--jobs N` accepts a numeric argument; values above the cap are limited with a
+warning. A failing suite exits non-zero in both modes, and the runner echoes
+total duration.
 
 ### Run a specific test file
 
 ```bash
-bats tests/test_error_handling.bats
+bats tools/tests/lib/test_error_handling.bats
 ```
 
 ### Run tests with verbose output
 
 ```bash
-bats -t tests/
+bats -t tools/tests/
 ```
 
 ### Run tests with debug output
 
 ```bash
-DEBUG=1 bats tests/
+DEBUG=1 bats tools/tests/
 ```
+
+## Parallel-Safety Contract
+
+Every test must be safe to run concurrently with every other test. The shared
+[`test_helper.bash`](./test_helper.bash) provides this by default — each test
+gets its own `TEST_TEMP_DIR` (`mktemp -d`) and a redirected `HOME`, so global
+state writes land in per-test temp directories. The rules for new tests:
+
+- **Use `test_helper.bash`** (`test_helper_setup` / `test_helper_teardown`) —
+  don't hand-roll setup that skips the `HOME`/`TEST_TEMP_DIR` redirect.
+- **Never write to real user state** — no `git config --global` against the
+  real `~/.gitconfig`; use `GIT_CONFIG_GLOBAL` or the redirected `HOME`.
+- **Never use fixed shared paths** — no `/tmp/my-fixture` literals; derive
+  from `TEST_TEMP_DIR`. Path-assertion fixtures (asserting a string *equals*
+  a path without touching it) are fine.
+- **Never `pkill -f` by name** — the pattern can match other tests'
+  in-flight processes. Kill only PIDs recorded in your own PID file under
+  `TEST_TEMP_DIR`.
+- **No fixed shared filenames** for files written in `setup()` and removed in
+  `teardown()` — under `--jobs`, test cases of the same file run in separate
+  processes and will race. Use `mktemp` (see `test_fanout_semantics.bats` for
+  the pattern).
+
+If a test cannot meet the contract, mark it and run it sequentially — don't
+make the suite flaky for everyone.
 
 ## Test Structure
 
@@ -137,7 +178,7 @@ The following environment variables are available in tests:
 
 ### Libraries (`lib/`)
 
-- `test_error_handling.bats` - Error handling and logging functions
+- `lib/test_error_handling.bats` - Error handling and logging functions
 - `test_config.bats` - Configuration management
 - `test_git_config.bats` - Git configuration utilities
 - `test_versioning.bats` - Version parsing and comparison

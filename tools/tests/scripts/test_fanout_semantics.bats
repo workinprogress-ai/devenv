@@ -12,7 +12,11 @@ load ../test_helper
 setup() {
     test_helper_setup
     SCRIPT="$PROJECT_ROOT/tools/scripts/project-update-issue.sh"
-    STRIPPED="$PROJECT_ROOT/tools/scripts/.fanout-under-test.sh"
+    # Per-test unique copy: bats --jobs runs this file's test cases in separate
+    # processes, so a fixed shared filename races (teardown of one test deletes
+    # the file another test is sourcing). mktemp keeps it in tools/scripts/ so
+    # the copy's ../lib resolution still works.
+    STRIPPED="$(mktemp "$PROJECT_ROOT/tools/scripts/.fanout-under-test.XXXXXX")"
     grep -v '^main "\$@"$' "$SCRIPT" > "$STRIPPED"
     stub_dir="$(mktemp -d)"
     printf '#!/usr/bin/env bash\nexit 0\n' > "$stub_dir/gh"
@@ -23,7 +27,7 @@ setup() {
 }
 
 teardown() {
-    rm -f "$PROJECT_ROOT/tools/scripts/.fanout-under-test.sh"
+    rm -f "$STRIPPED"
 }
 
 fanout() {
