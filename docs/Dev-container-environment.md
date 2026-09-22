@@ -305,10 +305,14 @@ entials are **never** stored in the container image itself — they're only load
    `hosts.yml` (your keychain), not `GH_TOKEN`.
 
 Note: `~/.config/gh` lives on the container's filesystem, so the keychain is
-re-seeded on container re-create. Bootstrap imports the legacy
-`.setup/github_token.txt` into the keychain once and deletes the file; if
-that login fails (expired or revoked token), rotate credentials with
-`key-update-git.sh <new-token>` — or run `gh auth login` directly.
+**wiped on container re-create**. Bootstrap handles this as a one-shot
+consume: if the keychain is empty and `.setup/github_token.txt` exists, it
+imports the token and **deletes the file** (plaintext must not linger). If
+the keychain is empty and no seed exists, bootstrap finishes with an
+**ACTION REQUIRED** banner — run `key-update-git.sh <new-token>`  to authenticate. An authenticated keychain leaves the seed
+untouched with an info message.
+
+Trade-off (accepted): convenience over at-rest minimization — the seed gives zero-touch recovery on the first bootstrap after a re-create, at the cost of one plaintext token on the workspace mount until consumed (the same exposure family as issue #31).
 
 **To update credentials:**
 

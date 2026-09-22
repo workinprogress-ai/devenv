@@ -202,3 +202,154 @@ EOF
         [[ "$output" =~ "Usage:" ]]
     done
 }
+
+# ============================================================================
+# Bootstrap seed contract (Plan-issue-55-001 final): consume-on-use.
+#   authed            -> info only; seed left alone
+#   empty + seed      -> import once, DELETE the seed (plaintext must not linger)
+#   empty + no seed   -> AUTH_NEEDED=1; finish banner carries the action
+# ============================================================================
+
+@test "bootstrap seed: authed keychain -> info only, seed left alone" {
+    T=$(mktemp -d)
+    mkdir -p "$T/.setup"
+    echo seed > "$T/.setup/github_token.txt"
+    printf 'test-user\n' > "$T/.setup/github_user.txt"
+    printf 'test-org\n' > "$T/.setup/github_org.txt"
+    printf 'Test User\n' > "$T/.setup/name.txt"
+    printf 'test@user.dev\n' > "$T/.setup/email.txt"
+    printf 'optional-do-token\n' > "$T/.setup/digitalocean_token.txt"
+    run bash -c "
+        export email_file='$T/.setup/email.txt'
+        export name_file='$T/.setup/name.txt'
+        export setup_dir='$T/.setup'
+        export toolbox_root='$T'
+        export PROJECT_ROOT='$PROJECT_ROOT'
+        export AUTH_NEEDED=1
+        provider_auth_status() { return 0; }
+        provider_auth_import_token() { echo SHOULD-NOT-RUN; return 0; }
+        ensure_provider_seam() { :; }
+        source <(sed -n '/^load_setup_credentials()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+        load_setup_credentials
+    "
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "authenticated" ]]
+    [[ ! "$output" =~ "Seed file imported" ]]
+    [ -f "$T/.setup/github_token.txt" ]
+    rm -rf "$T"
+}
+
+@test "bootstrap seed: empty keychain + seed -> import once, seed deleted, no AUTH_NEEDED" {
+    T=$(mktemp -d)
+    mkdir -p "$T/.setup"
+    printf 'seed\n' > "$T/.setup/github_token.txt"
+    printf 'test-user\n' > "$T/.setup/github_user.txt"
+    printf 'test-org\n' > "$T/.setup/github_org.txt"
+    printf 'Test User\n' > "$T/.setup/name.txt"
+    printf 'test@user.dev\n' > "$T/.setup/email.txt"
+    printf 'optional-do-token\n' > "$T/.setup/digitalocean_token.txt"
+    run bash -c "
+        export email_file='$T/.setup/email.txt'
+        export name_file='$T/.setup/name.txt'
+        export setup_dir='$T/.setup'
+        export toolbox_root='$T'
+        export PROJECT_ROOT='$PROJECT_ROOT'
+        export AUTH_NEEDED=1
+        provider_auth_status() { return 1; }
+        provider_auth_import_token() { echo imported; return 0; }
+        ensure_provider_seam() { :; }
+        source <(sed -n '/^load_setup_credentials()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+        load_setup_credentials
+        if [ -f '$T/.setup/github_token.txt' ]; then post_seed=yes; else post_seed=no; fi
+        echo \"POST: seed_exists=\$post_seed auth_needed=\$AUTH_NEEDED\"
+    "
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "imported into the provider credential store and deleted" ]]
+    [[ "$output" =~ "POST: seed_exists=no auth_needed=0" ]]
+    rm -rf "$T"
+}
+
+@test "bootstrap seed: import failure keeps seed + sets AUTH_NEEDED" {
+    T=$(mktemp -d)
+    mkdir -p "$T/.setup"
+    echo seed > "$T/.setup/github_token.txt"
+    printf 'test-user\n' > "$T/.setup/github_user.txt"
+    printf 'test-org\n' > "$T/.setup/github_org.txt"
+    printf 'Test User\n' > "$T/.setup/name.txt"
+    printf 'test@user.dev\n' > "$T/.setup/email.txt"
+    printf 'optional-do-token\n' > "$T/.setup/digitalocean_token.txt"
+    run bash -c "
+        export email_file='$T/.setup/email.txt'
+        export name_file='$T/.setup/name.txt'
+        export setup_dir='$T/.setup'
+        export toolbox_root='$T'
+        export PROJECT_ROOT='$PROJECT_ROOT'
+        provider_auth_status() { return 1; }
+        provider_auth_import_token() { return 1; }
+        ensure_provider_seam() { :; }
+        source <(sed -n '/^load_setup_credentials()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+        load_setup_credentials
+        if [ -f '$T/.setup/github_token.txt' ]; then post_seed=yes; else post_seed=no; fi
+        echo \"POST: seed_exists=\$post_seed auth_needed=\$AUTH_NEEDED\"
+    "
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "could not be imported" ]]
+    [[ "$output" =~ "POST: seed_exists=yes auth_needed=1" ]]
+    rm -rf "$T"
+}
+
+@test "bootstrap seed: empty keychain + no seed -> AUTH_NEEDED=1" {
+    T=$(mktemp -d)
+    mkdir -p "$T/.setup"
+    printf 'test-user\n' > "$T/.setup/github_user.txt"
+    printf 'test-org\n' > "$T/.setup/github_org.txt"
+    printf 'Test User\n' > "$T/.setup/name.txt"
+    printf 'test@user.dev\n' > "$T/.setup/email.txt"
+    printf 'optional-do-token\n' > "$T/.setup/digitalocean_token.txt"
+    run bash -c "
+        export email_file='$T/.setup/email.txt'
+        export name_file='$T/.setup/name.txt'
+        export setup_dir='$T/.setup'
+        export toolbox_root='$T'
+        export PROJECT_ROOT='$PROJECT_ROOT'
+        provider_auth_status() { return 1; }
+        ensure_provider_seam() { :; }
+        source <(sed -n '/^load_setup_credentials()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+        load_setup_credentials
+        echo \"POST: auth_needed=\$AUTH_NEEDED\"
+    "
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "no seed file found" ]]
+    [[ "$output" =~ "POST: auth_needed=1" ]]
+    rm -rf "$T"
+}
+
+@test "finish_message: banner carries the key-update action when AUTH_NEEDED" {
+    run bash -c "
+        AUTH_NEEDED=1
+        finish_message() { :; }
+        source <(sed -n '/^finish_message()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+        finish_message
+    "
+    [[ "$output" =~ "ACTION REQUIRED" ]]
+    [[ "$output" =~ "key-update-git.sh" ]]
+}
+
+@test "finish_message: banner is silent about auth when AUTH_NEEDED=0" {
+    run bash -c "
+        AUTH_NEEDED=0
+        source <(sed -n '/^finish_message()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+        finish_message
+    "
+    [[ ! "$output" =~ "ACTION REQUIRED" ]]
+}
+
+# ============================================================================
+
+
+@test "bootstrap seed: failure path defers to the AUTH_NEEDED banner" {
+    # Import failure sets AUTH_NEEDED; the finish banner carries the action
+    # line pointing at key-update-git.sh.
+    run grep -q 'Run: key-update-git.sh <new-token>' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+    [ "$status" -eq 0 ]
+}
