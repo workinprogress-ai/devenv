@@ -92,28 +92,22 @@ get_owner() {
     if [ -n "${GITHUB_ORG:-}" ]; then
         echo "$GITHUB_ORG"
     else
-        local repo_spec=""
-        local repo_name
-        repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
-        if [ -n "$repo_name" ]; then
-            repo_spec="-R $repo_name"
-        fi
-        gh repo view $repo_spec --json owner -q .owner.login
+        # Derive the owner from the canonical target repo so owner derivation
+        # can never drift from issue resolution (both use resolve_target_repo).
+        gh repo view "$(resolve_target_repo)" --json owner -q .owner.login
     fi
 }
 
 # Get issue URL
+# Repo resolution follows the suite's canonical order via resolve_target_repo:
+#   explicit override > GITHUB_REPO env > GH_ORG + cwd git root > error.
+# This script previously ignored GITHUB_REPO here and resolved from the
+# current directory, silently adding wrong-repo issues with matching numbers.
 get_issue_url() {
     local issue_num="$1"
-    local repo_spec=""
-    if [ -n "${GITHUB_ORG:-}" ]; then
-        local repo_name
-        repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
-        if [ -n "$repo_name" ]; then
-            repo_spec="-R ${GITHUB_ORG}/${repo_name}"
-        fi
-    fi
-    gh issue view $repo_spec "$issue_num" --json url -q .url
+    local repo_spec
+    repo_spec=$(resolve_target_repo) || return 1
+    gh issue view -R "$repo_spec" "$issue_num" --json url -q .url
 }
 
 # Add issue to project
@@ -137,8 +131,10 @@ add_issue_to_project() {
     
     log_verbose "Adding issue #$issue_num to project '$PROJECT_NAME'"
     
-    # Add issue to project
-    if gh project item-add "$PROJECT_NAME" --owner "$owner" --url "$issue_url" &> /dev/null; then
+    # Add issue to project (stderr captured, not discarded — a failed or
+    # wrong-repo item-add should surface its reason, not a generic hint)
+    local add_stderr
+    if add_stderr=$(gh project item-add "$PROJECT_NAME" --owner "$owner" --url "$issue_url" 2>&1 >/dev/null); then
         log_info "Added issue #$issue_num to project '$PROJECT_NAME'"
         
         # Set field values if provided
@@ -149,7 +145,8 @@ add_issue_to_project() {
         return 0
     else
         log_error "Failed to add issue #$issue_num to project '$PROJECT_NAME'"
-        log_info "Check that the project exists and you have permissions"
+        [ -n "$add_stderr" ] && log_error "gh: $add_stderr"
+        log_info "Check that the project exists, you have permissions, and GITHUB_REPO/GITHUB_ORG point at the issue's repository"
         return 1
     fi
 }
