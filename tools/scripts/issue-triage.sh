@@ -18,6 +18,16 @@ source "$DEVENV_TOOLS/lib/github-helpers.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/config-reader.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"
+source "$DEVENV_TOOLS/lib/issues-config.bash"
+#
+# Triage label vocabulary resolves via the policy layer; issue-policy.bash
+# self-sources the guarded core (org policy_org also arrives transitively
+# via github-helpers). The two LABEL_* values feed the interactive grooming
+# actions below.
+# shellcheck disable=SC1090,SC1091
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib/policy" && pwd)/issue-policy.bash"
+LABEL_NEEDS_GROOMING="$(policy_triage_label needs-grooming 2>/dev/null || echo needs-grooming)"
+LABEL_STATUS_READY="$(policy_triage_label status:ready 2>/dev/null || echo status:ready)"
 
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
@@ -34,12 +44,6 @@ BUNDLE_OPTS=()
 # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 ALLOW_DEVENV_REPO=0
-ISSUE_TYPES=()
-
-# Initialize issue types from config
-initialize_issue_types() {
-    load_issue_types_from_config "$DEVENV_TOOLS/config/issues-config.yml"
-}
 
 # Workflow states
 # shellcheck disable=SC2034 # Used for documentation and potential future use
@@ -90,7 +94,7 @@ Workflow:
 Grooming Actions:
     - Review issue details
     - Add/update description and acceptance criteria
-    - Add type label (epic/story/bug)
+    - Set issue type (native type from the configured vocabulary)
     - Set milestone (sprint assignment)
     - Add assignee
     - Add priority and other labels
@@ -146,7 +150,7 @@ groom_issue() {
         
         echo ""
         echo "Grooming Actions:"
-        echo "  1) Set type (epic/story/bug)"
+        echo "  1) Set type"
         echo "  2) Edit title"
         echo "  3) Edit description"
         echo "  4) Set milestone (sprint)"
@@ -165,7 +169,7 @@ groom_issue() {
         
         case "$action" in
             1)
-                set_issue_type "$issue_num"
+                pick_issue_type "$issue_num"
                 ;;
             2)
                 read -rp "New title: " new_title
@@ -215,13 +219,13 @@ groom_issue() {
                 # Mark as Ready
                 log_info "Marking issue #$issue_num as Ready"
                 log_info "Note: Set Status=Ready in project manually or via GraphQL"
-                provider_issues_edit "${repo_spec[1]:-}" "$issue_num" --remove-label "needs-grooming" 2>/dev/null || true
-                provider_issues_edit "${repo_spec[1]:-}" "$issue_num" --add-label "status:ready"
+                provider_issues_edit "${repo_spec[1]:-}" "$issue_num" --remove-label "$LABEL_NEEDS_GROOMING" 2>/dev/null || true
+                provider_issues_edit "${repo_spec[1]:-}" "$issue_num" --add-label "$LABEL_STATUS_READY"
                 return 0
                 ;;
             9)
                 # Mark for grooming
-                provider_issues_edit "${repo_spec[1]:-}" "$issue_num" --add-label "needs-grooming"
+                provider_issues_edit "${repo_spec[1]:-}" "$issue_num" --add-label "$LABEL_NEEDS_GROOMING"
                 log_info "Marked for grooming"
                 return 0
                 ;;
@@ -247,35 +251,37 @@ groom_issue() {
     done
 }
 
-# Set issue type
-set_issue_type() {
+# Interactive type picker; applies the chosen type via the lib's native
+# setter (owner/name split — get_repo_spec yields "-R owner/repo").
+pick_issue_type() {
     local issue_num="$1"
     local repo_spec
     read -ra repo_spec <<< "$(get_repo_spec)"
-    
+
     echo ""
     echo "Select issue type:"
-    build_type_menu
+    local types
+    types=$(get_issue_types_array)
+    local i=1
+    for t in $types; do
+        echo "  $i) $t"
+        i=$((i + 1))
+    done
     echo ""
-    read -rp "Type [1-${#ISSUE_TYPES[@]}]: " type_choice
-    
-    local type_label
-    type_label=$(get_type_label_from_choice "$type_choice")
-    if [ -z "$type_label" ]; then
+    read -rp "Type [1-$(wc -w <<< "$types")]: " type_choice
+
+    local selected
+    selected=$(echo "$types" | tr ' ' '\n' | sed -n "${type_choice}p")
+    if [ -z "$selected" ]; then
         echo "Invalid choice"
         return 1
     fi
-    
-    # Remove all existing type labels
-    local all_labels
-    all_labels=$(get_all_type_labels)
-    for label in $all_labels; do
-        provider_issues_edit "${repo_spec[1]:-}" "$issue_num" --remove-label "$label" 2>/dev/null || true
-    done
-    
-    # Add new type label
-    provider_issues_edit "${repo_spec[1]:-}" "$issue_num" --add-label "$type_label"
-    log_info "Set type to: $type_label"
+
+    local owner repo_name
+    owner="${repo_spec[1]%%/*}"
+    repo_name="${repo_spec[1]#*/}"
+    set_issue_type "$issue_num" "$owner" "$repo_name" "$selected"
+    log_info "Set type to: $selected"
 }
 
 # Set milestone
@@ -286,8 +292,8 @@ set_milestone() {
     
     # Determine owner and repo
     local owner repo
-    if [ -n "${GH_ORG:-}" ]; then
-        owner="$GH_ORG"
+    owner="$(policy_org 2>/dev/null || true)"
+    if [ -n "$owner" ]; then
         repo=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
     else
         owner=$(git remote get-url origin 2>/dev/null | sed -E 's|.*[:/]([^/]+)/([^/]+)\.git|\1|')
@@ -386,9 +392,6 @@ run_grooming_session() {
 # ============================================================================
 
 main() {
-    # Initialize issue types from config
-    initialize_issue_types
-    
     # Parse command-line arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in

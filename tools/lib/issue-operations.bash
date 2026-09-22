@@ -59,22 +59,48 @@ fi
 #   filters=$(build_issue_filters --state closed --type Bug --limit 50)
 #   gh issue list ${filters}
 # Normalize an issue type value to the canonical native spelling.
-# Accepts canonical names (Bug, Feature, Task, Epic; case-insensitive) and
-# legacy aliases (story->Task). Returns the canonical name on stdout, or
-# fails with an error listing valid values.
+# The valid type set (and any aliases) is org policy: resolved from
+# tools/lib/policy (config-driven, POLICY_* overridable) -- not hardcoded
+# here. Accepts canonical names case-insensitively. Returns the canonical
+# name on stdout, or fails with an error listing the configured values.
 # Usage: normalize_issue_type TYPE
 normalize_issue_type() {
     local input="$1"
-    case "$(echo "$input" | tr '[:upper:]' '[:lower:]')" in
-        bug)     echo "Bug" ;;
-        feature) echo "Feature" ;;
-        task|story) echo "Task" ;;
-        epic)    echo "Epic" ;;
-        *)
-            log_error "Invalid issue type: $input (must be Bug, Feature, Task, or Epic)"
-            return 1
-            ;;
-    esac
+    local lowered
+    lowered=$(echo "$input" | tr '[:upper:]' '[:lower:]')
+
+    _ensure_issue_policy_loaded
+
+    local canonical t lowered_alias alias_name alias_target
+    for t in $ISSUE_POLICY_TYPES; do
+        canonical="$t"
+        lowered_alias=$(echo "$t" | tr '[:upper:]' '[:lower:]')
+        [ "$lowered" = "$lowered_alias" ] && { echo "$canonical"; return 0; }
+    done
+    # Aliases: "alias=Target" pairs; alias matched case-insensitively.
+    for pair in $ISSUE_POLICY_ALIASES; do
+        alias_name="${pair%%=*}"
+        alias_target="${pair#*=}"
+        [ "$lowered" = "$(echo "$alias_name" | tr '[:upper:]' '[:lower:]')" ] && { echo "$alias_target"; return 0; }
+    done
+
+    log_error "Invalid issue type: $input (must be one of: $ISSUE_POLICY_TYPES)"
+    return 1
+}
+
+# Load the issue-type policy values once per process (idempotent).
+_ensure_issue_policy_loaded() {
+    [ -n "${ISSUE_POLICY_TYPES:-}" ] && return 0
+    local lib_dir
+    lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # shellcheck disable=SC1090,SC1091
+    source "$lib_dir/policy/policy-core.bash"
+    policy_core_init "${DEVENV_ROOT:-}/devenv.config" 2>/dev/null || \
+        policy_core_init "$(cd "$lib_dir/../.." && pwd)/devenv.config"
+    # shellcheck disable=SC1090,SC1091
+    source "$lib_dir/policy/issue-policy.bash"
+    ISSUE_POLICY_TYPES="$(policy_issue_types)"
+    ISSUE_POLICY_ALIASES="$(policy_issue_aliases)"
 }
 
 build_issue_filters() {
@@ -613,81 +639,12 @@ issue_exists() {
 # ============================================================================
 
 # Load issue types from configuration
-# Usage: load_issue_types_from_config [config_file]
-# Returns: Sets ISSUE_TYPES array globally, exits on error
-# Note: Issue type names must be single words or hyphenated (e.g., story, bug, feature-request)
-#       Multi-word names will not work correctly with bash array splitting
-load_issue_types_from_config() {
-    local config_file="${1:-${DEVENV_TOOLS}/config/issues-config.yml}"
-    
-    # Initialize empty array
-    ISSUE_TYPES=()
-    
-    # Config file is mandatory
-    if [[ ! -f "$config_file" ]]; then
-        echo "ERROR: issues-config.yml not found at $config_file" >&2
-        return 1
-    fi
-    
-    # yq must be available
-    if ! command -v yq >/dev/null 2>&1; then
-        echo "ERROR: yq is required to read issues-config.yml" >&2
-        return 1
-    fi
-    
-    # Load issue types from YAML
-    local types
-    types=$(yq eval '.types[].name' "$config_file" 2>/dev/null)
-    if [[ -z "$types" ]]; then
-        echo "ERROR: No issue types found in $config_file" >&2
-        return 1
-    fi
-    
-    # Convert newline-separated names to array
-    while IFS= read -r name; do
-        [[ -n "$name" ]] && ISSUE_TYPES+=("$name")
-    done <<< "$types"
-    return 0
-}
 
 # Build dynamic menu for selecting issue type
-# Usage: build_type_menu
-# Outputs numbered menu options
-build_type_menu() {
-    local i=1
-    for issue_type in "${ISSUE_TYPES[@]}"; do
-        # Capitalize first letter
-        local display_name="${issue_type^}"
-        echo "  $i) $display_name"
-        ((i++))
-    done
-}
 
 # Get issue type label from choice
-# Usage: get_type_label_from_choice <choice_number>
-# Returns: type:TYPE label
-get_type_label_from_choice() {
-    local choice="$1"
-    
-    # Convert to zero-based index
-    local index=$((choice - 1))
-    
-    if [[ $index -ge 0 ]] && [[ $index -lt ${#ISSUE_TYPES[@]} ]]; then
-        echo "type:${ISSUE_TYPES[$index]}"
-        return 0
-    fi
-    
-    return 1
-}
 
 # Get all type labels for removal
-# Usage: get_all_type_labels
-# Returns: Space-separated list of type:TYPE labels
-get_all_type_labels() {
-    for issue_type in "${ISSUE_TYPES[@]}"; do
-        echo -n "type:$issue_type "
-    done
-}
 
 # =========================================================================
 # Issue Type GraphQL Operations
@@ -922,10 +879,6 @@ export -f close_issue
 export -f reopen_issue
 export -f validate_issue_number
 export -f issue_exists
-export -f load_issue_types_from_config
-export -f build_type_menu
-export -f get_type_label_from_choice
-export -f get_all_type_labels
 export -f validate_comment_id
 export -f fetch_issue_comments
 export -f format_issue_comments

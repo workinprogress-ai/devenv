@@ -18,6 +18,9 @@ source "$DEVENV_TOOLS/lib/github-helpers.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/validation.bash"
 source "$DEVENV_TOOLS/lib/fzf-selection.bash"
+#
+# Org identity (policy_org) arrives transitively via github-helpers
+# (which loads the policy layer); no explicit policy sourcing here.
 
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
@@ -89,8 +92,11 @@ EOF
 
 # Get the owner (org or user)
 get_owner() {
-    if [ -n "${GITHUB_ORG:-}" ]; then
-        echo "$GITHUB_ORG"
+    local policy_org
+    policy_org="${GITHUB_ORG:-}"
+    [ -z "$policy_org" ] && policy_org="$(policy_org 2>/dev/null || true)"
+    if [ -n "$policy_org" ]; then
+        echo "$policy_org"
     else
         local repo_spec=""
         local repo_name
@@ -110,11 +116,13 @@ get_owner() {
 get_issue_url() {
     local issue_num="$1"
     local repo_spec=""
-    if [ -n "${GITHUB_ORG:-}" ]; then
+    policy_org="${GITHUB_ORG:-}"
+    [ -z "$policy_org" ] && policy_org="$(policy_org 2>/dev/null || true)"
+    if [ -n "$policy_org" ]; then
         local repo_name
         repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
         if [ -n "$repo_name" ]; then
-            repo_spec="-R ${GITHUB_ORG}/${repo_name}"
+            repo_spec="-R ${policy_org}/${repo_name}"
         fi
     fi
     provider_issues_view "${repo_spec#-R }" "$issue_num" --json url -q .url

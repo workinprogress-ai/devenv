@@ -75,16 +75,21 @@ load ../test_helper
   [[ "$output" =~ "Bug, Feature, Task, or Epic" ]]
 }
 
-@test "issue-update.sh normalizes legacy type aliases (dry-run)" {
+@test "issue-update.sh normalizes canonical types case-insensitively" {
   # ensure_gh_login precedes update_issue, so without auth the run exits
   # before normalization. Assert the normalize path via the shared lib instead.
-  fn=$(sed -n '/^normalize_issue_type()/,/^}/p' "$PROJECT_ROOT/tools/lib/issue-operations.bash")
-  run bash -c "eval '$fn'; normalize_issue_type story"
-  [ "$status" -eq 0 ]
-  [ "$output" = "Task" ]
-  run bash -c "eval '$fn'; normalize_issue_type EPIC"
+  # The normalizer is policy-backed (tools/lib/policy) — it needs the policy
+  # core, which resolves config from DEVENV_ROOT.
+  export DEVENV_ROOT="$PROJECT_ROOT"
+  run bash -c "source '$PROJECT_ROOT/tools/lib/issue-operations.bash'; normalize_issue_type EPIC"
   [ "$status" -eq 0 ]
   [ "$output" = "Epic" ]
+  run bash -c "source '$PROJECT_ROOT/tools/lib/issue-operations.bash'; normalize_issue_type bug"
+  [ "$status" -eq 0 ]
+  [ "$output" = "Bug" ]
+  # Legacy alias 'story' was removed from the policy alias set.
+  run bash -c "source '$PROJECT_ROOT/tools/lib/issue-operations.bash'; normalize_issue_type story"
+  [ "$status" -eq 1 ]
 }
 
 @test "issue-update.sh rejects invalid type" {

@@ -106,15 +106,7 @@ EOF
     [ -f "$PROJECT_ROOT/tools/lib/issue-operations.bash" ]
 }
 
-@test "issue-operations.bash: has load_issue_types_from_config function" {
-    run bash -c "source $PROJECT_ROOT/tools/lib/issue-operations.bash && declare -f load_issue_types_from_config"
-    [ "$status" -eq 0 ]
-}
 
-@test "issue-operations.bash: has build_type_menu function" {
-    run bash -c "source $PROJECT_ROOT/tools/lib/issue-operations.bash && declare -f build_type_menu"
-    [ "$status" -eq 0 ]
-}
 
 @test "bootstrap.bash: has load_config function" {
     run grep -n "^load_config()" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
@@ -156,15 +148,7 @@ EOF
     [ "$status" -eq 0 ]
 }
 
-@test "issue-triage.sh: has initialize_issue_types function" {
-    run grep "^initialize_issue_types()" "$PROJECT_ROOT/tools/scripts/issue-triage.sh"
-    [ "$status" -eq 0 ]
-}
 
-@test "issue-triage.sh: calls initialize_issue_types in main" {
-    run bash -c "grep -A 5 '^main()' $PROJECT_ROOT/tools/scripts/issue-triage.sh | grep -q 'initialize_issue_types'"
-    [ "$status" -eq 0 ]
-}
 
 @test "setup script: loads email_domain from config" {
     run grep "email_domain" "$PROJECT_ROOT/setup"

@@ -2,6 +2,7 @@
 # config-reader.bash
 # Library for reading INI-style configuration files with environment variable expansion
 # Provides: config_read_value(), config_read_array(), config_validate_required()
+# Duplicate keys: last occurrence wins; repeats warn on stderr.
 
 # Guard against multiple sourcing
 if [ -n "${_CONFIG_READER_LOADED:-}" ]; then return 0; fi
@@ -35,14 +36,19 @@ config_read_value() {
     fi
     
     local value
-    value=$(awk -v section="$section" -v key="$key" '
+    value=$(awk -v section="$section" -v key="$key" -v conffile="$CONFIG_FILE" '
         /^\['"$section"'\]/ { in_section=1; next }
         /^\[/ { in_section=0; next }
         in_section && /^'"$key"'=/ {
             sub(/^'"$key"'=/, "")
-            print
-            exit
+            # Duplicate keys: last occurrence wins; the repeat is warned on
+            # stderr so a stale edit is visible instead of silently ambiguous.
+            if (seen++) {
+                printf "WARNING: duplicate key %s.%s in %s (line %d) — using last value\n", section, key, conffile, NR > "/dev/stderr"
+            }
+            val=$0
         }
+        END { if (seen) print val }
     ' "$CONFIG_FILE")
     
     # If not found and default provided, use default

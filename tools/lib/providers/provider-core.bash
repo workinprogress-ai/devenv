@@ -78,6 +78,19 @@ PROVIDER_TOKEN_KEYCHAIN="keychain"
 #
 # Returns:
 #   0 on success; 1 if the config file exists but the value is empty.
+# The default-provider fallback is org policy: load the identity policy
+# module (config-driven, POLICY_DEFAULT_PROVIDER overridable) once.
+if ! declare -F policy_default_provider >/dev/null; then
+    _policy_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../policy" 2>/dev/null && pwd)"
+    if [ -n "$_policy_dir" ] && [ -f "$_policy_dir/policy-core.bash" ]; then
+        # shellcheck disable=SC1090,SC1091
+        source "$_policy_dir/policy-core.bash"
+        policy_core_init "${DEVENV_ROOT:-}/devenv.config" 2>/dev/null || true
+        # shellcheck disable=SC1090,SC1091
+        source "$_policy_dir/identity-policy.bash"
+    fi
+fi
+
 provider_detect() {
     local config_file="${1:-}"
 
@@ -108,7 +121,10 @@ provider_detect() {
     fi
 
     if [ -z "$name" ]; then
-        name="github"
+        # Default provider is org policy (fork-replaceable): resolve via the
+        # policy layer, falling back to the historical value when the policy
+        # layer itself cannot load (bootstrapping edge).
+        name="$(policy_default_provider 2>/dev/null || echo github)"
     fi
 
     PROVIDER_NAME="$name"

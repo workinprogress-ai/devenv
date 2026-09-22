@@ -57,16 +57,16 @@ Options:
 
 Examples:
     # Re-run the full workflow
-    $SCRIPT_NAME 12345678 --repo workinprogress-ai/my-service
+    $SCRIPT_NAME 12345678 --repo <org>/my-service
 
     # Re-run only failed jobs
-    $SCRIPT_NAME 12345678 --repo workinprogress-ai/my-service --failed
+    $SCRIPT_NAME 12345678 --repo <org>/my-service --failed
 
     # Re-run with debug output enabled
-    $SCRIPT_NAME 12345678 --repo workinprogress-ai/my-service --debug
+    $SCRIPT_NAME 12345678 --repo <org>/my-service --debug
 
     # Combine: failed jobs with debug
-    $SCRIPT_NAME 12345678 --repo workinprogress-ai/my-service --failed --debug
+    $SCRIPT_NAME 12345678 --repo <org>/my-service --failed --debug
 
 EOF
     exit 0

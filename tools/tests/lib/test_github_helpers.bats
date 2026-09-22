@@ -505,7 +505,7 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "get_repo_owner: does not pass -R with basename to gh" {
+@test "get_repo_owner: policy org wins before gh fallback; gh consulted when policy unresolvable" {
   create_mock_git_repo "$TEST_TEMP_DIR/owner-repo"
   cd "$TEST_TEMP_DIR/owner-repo" || exit 1
 
@@ -518,13 +518,17 @@ load ../test_helper
   }
   export -f gh
 
+  # Policy chain resolves from config first: config org must beat the gh
+  # fallback without ever passing -R.
   run bash -c "
     export -f gh
-    unset GH_ORG
+    unset GH_ORG POLICY_ORG
+    printf '[organization]\nname=t\ngithub_org=config-org\n' > '$TEST_TEMP_DIR/devenv.config'
+    export DEVENV_ROOT='$TEST_TEMP_DIR'
     source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
     get_repo_owner
   "
   cd "$ORIGINAL_PWD" || true
   [ "$status" -eq 0 ]
-  [ "$output" = "test-org" ]
+  [ "$output" = "config-org" ]
 }

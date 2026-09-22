@@ -17,6 +17,9 @@ source "$DEVENV_TOOLS/lib/versioning.bash"
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/config-reader.bash"
+#
+# Org identity (policy_org) arrives transitively via github-helpers
+# (which loads the policy layer); no explicit policy sourcing here.
 
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
@@ -141,8 +144,11 @@ EOF
 
 # Get the owner (org or user)
 get_owner() {
-    if [ -n "${GITHUB_ORG:-}" ]; then
-        echo "$GITHUB_ORG"
+    local policy_org
+    policy_org="${GITHUB_ORG:-}"
+    [ -z "$policy_org" ] && policy_org="$(policy_org 2>/dev/null || true)"
+    if [ -n "$policy_org" ]; then
+        echo "$policy_org"
     else
         local repo_spec=""
         local repo_name

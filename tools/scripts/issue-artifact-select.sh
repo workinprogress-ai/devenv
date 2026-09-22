@@ -61,7 +61,7 @@ Selection rules:
 
 Examples:
     $SCRIPT_NAME --issue 42 --artifact-type plan --latest --format doc-id
-    $SCRIPT_NAME --issue 42 --doc-id "dv1:workinprogress-ai-devenv:issue-42:plan:implementation-plan-issue-42-001" --format url
+    $SCRIPT_NAME --issue 42 --doc-id "dv1:<org>-<repo>:issue-42:plan:plan-issue-42-001" --format url
 EOF
     exit 0
 }

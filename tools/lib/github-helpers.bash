@@ -12,6 +12,18 @@ if [ -n "${_GITHUB_HELPERS_LOADED:-}" ]; then
 fi
 readonly _GITHUB_HELPERS_LOADED=1
 
+# Org identity is org policy: resolve via the policy layer
+# (POLICY_ORG -> GH_ORG -> config [organization] github_org).
+_policy_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/policy" 2>/dev/null && pwd)"
+if [ -n "$_policy_dir" ] && [ -f "$_policy_dir/policy-core.bash" ]; then
+    # shellcheck disable=SC1090,SC1091
+    source "$_policy_dir/policy-core.bash"
+    policy_core_init "${DEVENV_ROOT:-}/devenv.config" 2>/dev/null || true
+    # shellcheck disable=SC1090,SC1091
+    source "$_policy_dir/identity-policy.bash"
+fi
+
+
 # Provider layer: GitHub verbs route through the abstraction (slice 3/#36).
 if [ -z "${_PROVIDER_CORE_LOADED:-}" ]; then
     _gh_self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -66,12 +78,14 @@ get_repo_spec() {
         return
     fi
     
-    # Otherwise, try to construct from GH_ORG and current repo
-    if [ -n "${GH_ORG:-}" ]; then
+    # Otherwise, try to construct from the policy org and current repo
+    local policy_org
+    policy_org=$(policy_org 2>/dev/null || true)
+    if [ -n "$policy_org" ]; then
         local repo_name
         repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
         if [ -n "$repo_name" ]; then
-            echo "-R" "${GH_ORG}/${repo_name}"
+            echo "-R" "${policy_org}/${repo_name}"
             return
         fi
     fi
@@ -97,8 +111,10 @@ get_repo_spec() {
 #   Outputs the owner name, exits with error if cannot be determined
 #
 get_repo_owner() {
-    if [ -n "${GH_ORG:-}" ]; then
-        echo "$GH_ORG"
+    local policy_org
+    policy_org=$(policy_org 2>/dev/null || true)
+    if [ -n "$policy_org" ]; then
+        echo "$policy_org"
     else
         # No -R flag: resolves the repository from the current directory's
         # git remote. A basename-only -R spec is rejected by gh.
@@ -418,11 +434,12 @@ resolve_target_repo() {
         repo="$repo_override"
     elif [ -n "${GITHUB_REPO:-}" ]; then
         repo="$GITHUB_REPO"
-    elif [ -n "${GH_ORG:-}" ]; then
-        local repo_name
+    else
+        local policy_org repo_name
+        policy_org=$(policy_org 2>/dev/null || true)
         repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
-        if [ -n "$repo_name" ]; then
-            repo="${GH_ORG}/${repo_name}"
+        if [ -n "$policy_org" ] && [ -n "$repo_name" ]; then
+            repo="${policy_org}/${repo_name}"
         fi
     fi
 

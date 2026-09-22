@@ -66,16 +66,16 @@ Options:
 
 Examples:
     # List artifacts for a run
-    $SCRIPT_NAME 12345678 --repo workinprogress-ai/my-service
+    $SCRIPT_NAME 12345678 --repo <org>/my-service
 
     # List as JSON and pipe to jq
-    $SCRIPT_NAME 12345678 --repo workinprogress-ai/my-service --json | jq '.[].name'
+    $SCRIPT_NAME 12345678 --repo <org>/my-service --json | jq '.[].name'
 
     # Download all artifacts
-    $SCRIPT_NAME 12345678 --repo workinprogress-ai/my-service --download
+    $SCRIPT_NAME 12345678 --repo <org>/my-service --download
 
     # Download a specific artifact to a directory
-    $SCRIPT_NAME 12345678 --repo workinprogress-ai/my-service \\
+    $SCRIPT_NAME 12345678 --repo <org>/my-service \\
         --download --name coverage-report --dir /tmp/artifacts
 
 EOF
