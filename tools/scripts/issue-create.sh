@@ -400,11 +400,18 @@ create_issue() {
     issue_number=$(echo "$issue_url" | grep -oP '/issues/\K\d+')
     
     # Set the issue type via GraphQL (organization-level issue types)
-    # Get repo owner from current repository
-    local repo_owner
-    repo_owner=$(gh repo view --json owner -q .owner.login)
-    local repo_name
-    repo_name=$(gh repo view --json name -q .name)
+    # Enrichment MUST target the same repository the issue was created in.
+    # Derive owner/name from the creation-time repo_spec (get_repo_spec honors
+    # GITHUB_REPO) instead of the cwd — a bare `gh repo view` here leaks the
+    # terminal cwd and native types get applied against the wrong repo.
+    local repo_owner repo_name
+    if [ "${repo_spec[0]:-}" = "-R" ] && [ -n "${repo_spec[1]:-}" ]; then
+        repo_owner="${repo_spec[1]%%/*}"
+        repo_name="${repo_spec[1]#*/}"
+    else
+        repo_owner=$(gh repo view --json owner -q .owner.login)
+        repo_name=$(gh repo view --json name -q .name)
+    fi
     
     # Any requested enrichment that fails to apply is reported loudly and
     # fails the command: callers must be able to detect that a requested
