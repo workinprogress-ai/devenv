@@ -20,14 +20,14 @@ session-scoped env token honored only via the allowlist
 Credential verbs (provider seam — wrappers call these; do not call gh directly):
 
 - `provider_auth_import_token TOKEN` — store a credential and wire the git
-  credential helper. Used by `key-update-github.sh` and the bootstrap seed-file
+  credential helper. Used by `key-update-git.sh` and the bootstrap seed-file
   import.
 - `provider_auth_status` — authenticated check (exit code only). Used by
   `repo-get.sh` gates.
 - `provider_secret_get token` — print the resolved token. Used by bootstrap
   (nuget/npmrc/copilot syncs).
 
-Rotation: `key-update-github.sh <token>` (or `gh auth login` manually).
+Rotation: `key-update-git.sh <token>` (or `gh auth login` manually).
 
 ## Repository targeting
 
@@ -1018,62 +1018,64 @@ Key facts:
 
 Org-wide GitHub Actions operations — views `gh` alone can't replicate in one call.
 
-### actions-status
+**Naming note (D-007):** the `pipelines-*` tools are named provider-neutrally; they route through the `actions` provider domain (`provider_actions_*` verbs) — the GitHub-domain name in the provider facade.
+
+### pipelines-status
 
 Report workflow run status across the org (latest run per repo; uses `GH_ORG`).
 
 ```
-actions-status [OPTIONS]
+pipelines-status [OPTIONS]
 ```
 
 Key flags: `-r, --repo REGEX` (filter repos by name), `-s, --status STATUS` (`success`/`failure`/`cancelled`/`skipped`), `--json`/`--pretty`.
 
-### actions-list
+### pipelines-list
 
 List workflow definitions across the org.
 
 ```
-actions-list [OPTIONS]
+pipelines-list [OPTIONS]
 ```
 
 Key flags: `-r, --repo REGEX`, `--state STATE` (`active`, `disabled_manually`, …), `--json`/`--pretty`.
 
-### actions-run
+### pipelines-run
 
 Trigger a `workflow_dispatch` run.
 
 ```
-actions-run WORKFLOW --repo OWNER/REPO [--ref REF] [--input KEY=VALUE...]
+pipelines-run WORKFLOW --repo OWNER/REPO [--ref REF] [--input KEY=VALUE...]
 ```
 
 Key flags: `--repo OWNER/REPO` (required), `--ref REF` (default: repo default branch), `--input KEY=VALUE` (repeatable). Note: `gh workflow run` returns no run ID; the tool polls `gh run list` (~2s) to surface the run URL.
 
-### actions-rerun
+### pipelines-rerun
 
 Re-run a workflow run, or its failed jobs only.
 
 ```
-actions-rerun RUN_ID --repo OWNER/REPO [--failed]
+pipelines-rerun RUN_ID --repo OWNER/REPO [--failed]
 ```
 
 Key flags: `--repo OWNER/REPO` (required), `--failed` (failed jobs only).
 
-### actions-watch
+### pipelines-watch
 
 Stream live logs from an in-progress run.
 
 ```
-actions-watch [RUN_ID] --repo OWNER/REPO [--exit-status]
+pipelines-watch [RUN_ID] --repo OWNER/REPO [--exit-status]
 ```
 
 Key flags: `--repo OWNER/REPO` (required), `--exit-status` (exit non-zero if the watched run fails).
 
-### actions-artifacts
+### pipelines-artifacts
 
 List or download artifacts from a run.
 
 ```
-actions-artifacts RUN_ID --repo OWNER/REPO [--download [--name NAME] [--dir DIR]] [--json|--pretty]
+pipelines-artifacts RUN_ID --repo OWNER/REPO [--download [--name NAME] [--dir DIR]] [--json|--pretty]
 ```
 
 Key flags: `--repo OWNER/REPO` (required), `--download` (download instead of list; `--name`/`--dir` qualify it).
@@ -1092,32 +1094,32 @@ release-list [--format table|json|simple] [--limit N]
 
 Example: `release-list --format json --limit 5`
 
-### ruleset-export
+### policy-export
 
 Export a repository ruleset as JSON (branch-protection backup/inspection). With no ID, lists the repo's rulesets (`id  name  enforcement`). Read-only.
 
 ```
-ruleset-export [RULESET_ID] [--output FILE]
+policy-export [RULESET_ID] [--output FILE]
 ```
 
 Examples:
 
 ```bash
-ruleset-export                      # list this repo's rulesets
-ruleset-export 8612 --output b.json # export one to a file
+policy-export                      # list this repo's rulesets
+policy-export 8612 --output b.json # export one to a file
 ```
 
-### org-issue-types
+### issue-types
 
 List the GitHub organization's configured issue types (name + node ID) via GraphQL — mirrors `tools/config/issues-config.yml`. Read-only.
 
 ```
-org-issue-types [--format table|json|simple]
+issue-types [--format table|json|simple]
 ```
 
 Org resolution: `GH_ORG`, else the owner part of `GITHUB_REPO`.
 
-Example: `org-issue-types --format json`
+Example: `issue-types --format json`
 
 ---
 

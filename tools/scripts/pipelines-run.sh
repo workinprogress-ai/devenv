@@ -3,7 +3,7 @@
 # contract: self-location wins; a foreign exported DEVENV_TOOLS is ignored).
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
-# actions-run.sh - Trigger a GitHub Actions workflow dispatch event
+# pipelines-run.sh - Trigger a GitHub Actions workflow dispatch event
 # Version: 1.0.0
 # Description: Triggers a workflow_dispatch event on a GitHub repository and
 #              reports the resulting run URL.

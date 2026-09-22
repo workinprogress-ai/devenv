@@ -1169,7 +1169,7 @@ When the user signals end of session (or a phase boundary that suggests a natura
 - Auto-running `issue-comment` / `issue-update` / `issue-create` without explicit confirmation.
 - Writing to `repos/docs.copilot-knowledge` without explicit user approval of the specific additions — knowledge suggestions are surfaced in chat first; the user reviews and commits (see the [knowledge distillation protocol](../common/references/knowledge-distillation-protocol.md)).
 - Mining the conversation for extra knowledge candidates after the user explicitly called out a specific point to add — use their point alone.
-- Using `gh` for any GitHub operation — every domain has wrappers (`issue-*`, `pr-*`, `project-*`, `actions-*`, inspection tools); uncovered operations are surfaced as tooling gaps, never run via `gh`.
+- Using `gh` for any GitHub operation — every domain has wrappers (`issue-*`, `pr-*`, `project-*`, `pipelines-*`, inspection tools); uncovered operations are surfaced as tooling gaps, never run via `gh`.
 - Suggesting delegation at session start before any collaboration patterns are visible.
 - Missing the re-engagement window — if the user pauses or signals they are done, surface the assessment; don't wait to be explicitly asked.
 

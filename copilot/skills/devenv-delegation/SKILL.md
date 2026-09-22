@@ -497,7 +497,7 @@ Sync procedure (both cases):
 2. Run the pre-upsert lint gate: `plan-parse <path> --lint --require-header` — errors block the sync until fixed (explicit user acceptance of a documented deviation is the only bypass); warnings surface for awareness.
 3. Run `issue-artifact-upsert --issue <N> --body-file <path>`.
 
-**Pre-mutation tool check (all GitHub operations, not just sync):** all GitHub operations go through the workspace wrappers — `issue-*` exclusively for issue operations, `pr-*` / `project-*` / `actions-*` / inspection wrappers for the rest. There is no `gh` path for anything; an uncovered operation is surfaced as a tooling gap for the user to resolve. Precedent from earlier in a session does not override this; skill boundaries reset behavioral defaults.
+**Pre-mutation tool check (all GitHub operations, not just sync):** all GitHub operations go through the workspace wrappers — `issue-*` exclusively for issue operations, `pr-*` / `project-*` / `pipelines-*` / inspection wrappers for the rest. There is no `gh` path for anything; an uncovered operation is surfaced as a tooling gap for the user to resolve. Precedent from earlier in a session does not override this; skill boundaries reset behavioral defaults.
 
 Do not perform routine mid-phase syncs beyond the required material-revision exception above. If the session ends mid-phase, offer to sync the completed updates. **User-issued stops are not sync exemptions** — before honoring a stop, run the shared [stop protocol](../_conventions.md#stop-protocol-shared): tick done work, write pending plan deltas, and sync if the stop lands at a boundary or material revisions just landed; note the pending sync otherwise.
 

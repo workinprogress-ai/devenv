@@ -3,10 +3,10 @@
 # contract: self-location wins; a foreign exported DEVENV_TOOLS is ignored).
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
-# actions-watch.sh - Follow a GitHub Actions workflow run's live logs
+# pipelines-rerun.sh - Re-run a GitHub Actions workflow run
 # Version: 1.0.0
-# Description: Streams live output from a running GitHub Actions workflow run.
-#              If no RUN_ID is given, auto-detects the latest in-progress run.
+# Description: Re-runs a GitHub Actions workflow run, with options to
+#              re-run only failed jobs or enable debug logging.
 # Requirements: Bash 4.0+, gh CLI
 # Author: WorkInProgress.ai
 # Last Modified: 2026-05-16
@@ -21,15 +21,16 @@ source "$DEVENV_TOOLS/lib/github-helpers.bash"
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Follow a GitHub Actions workflow run's live logs"
+script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Re-run a GitHub Actions workflow run"
 
 # ============================================================================
 # Global Variables
 # ============================================================================
 
-RUN_ID=""      # optional — auto-detects latest in-progress if omitted
-REPO=""        # owner/repo (required)
-EXIT_STATUS=0  # set to 1 to exit non-zero if the run fails
+RUN_ID=""
+REPO=""
+FAILED_ONLY=0
+DEBUG_MODE=0
 # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 
@@ -39,62 +40,59 @@ VERBOSE=0
 
 show_usage() {
     cat << EOF
-Usage: $SCRIPT_NAME [RUN_ID] --repo OWNER/REPO [OPTIONS]
+Usage: $SCRIPT_NAME RUN_ID --repo OWNER/REPO [OPTIONS]
 
-Stream live output from a GitHub Actions workflow run.
-If RUN_ID is omitted, auto-detects the latest in-progress run in the repo.
+Re-run a GitHub Actions workflow run.
 
 Arguments:
-    RUN_ID                      Workflow run ID to watch (optional)
+    RUN_ID                      The workflow run ID to re-run
 
 Options:
     -h, --help                  Show this help message and exit
     -v, --version               Show version information and exit
     -V, --verbose               Enable verbose output
     --repo OWNER/REPO           Repository containing the run (required)
-    --exit-status               Exit non-zero if the watched run fails
-                                (useful when scripting CI pipelines)
+    --failed                    Re-run only failed jobs (not the whole workflow)
+    --debug                     Enable debug logging for the re-run
 
 Examples:
-    # Watch the latest in-progress run
-    $SCRIPT_NAME --repo workinprogress-ai/my-service
-
-    # Watch a specific run
+    # Re-run the full workflow
     $SCRIPT_NAME 12345678 --repo workinprogress-ai/my-service
 
-    # Exit with the run's exit code (for CI use)
-    $SCRIPT_NAME 12345678 --repo workinprogress-ai/my-service --exit-status
+    # Re-run only failed jobs
+    $SCRIPT_NAME 12345678 --repo workinprogress-ai/my-service --failed
+
+    # Re-run with debug output enabled
+    $SCRIPT_NAME 12345678 --repo workinprogress-ai/my-service --debug
+
+    # Combine: failed jobs with debug
+    $SCRIPT_NAME 12345678 --repo workinprogress-ai/my-service --failed --debug
 
 EOF
     exit 0
 }
 
-watch_run() {
-    local run_id="$RUN_ID"
-
-    if [ -z "$run_id" ]; then
-        log_info "No RUN_ID provided — detecting latest in-progress run for $REPO..."
-
-        run_id=$(provider_actions_run_list "$REPO" \
-            --status in_progress \
-            --limit 1 \
-            --json databaseId \
-            -q '.[0].databaseId' 2>/dev/null || echo "")
-
-        if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
-            log_error "No in-progress runs found for $REPO"
-            exit 1
-        fi
-
-        log_info "Found in-progress run: $run_id"
-    fi
-
+rerun_workflow() {
     local gh_args=()
     gh_args+=(-R "$REPO")
-    [ "$EXIT_STATUS" -eq 1 ] && gh_args+=(--exit-status)
+    [ "$FAILED_ONLY" -eq 1 ] && gh_args+=(--failed)
+    [ "$DEBUG_MODE" -eq 1 ]  && gh_args+=(-d)
 
-    log_verbose "Watching run $run_id in $REPO"
-    provider_actions_run_watch "$REPO" "$run_id" "${gh_args[@]:1}"
+    log_verbose "Re-running run $RUN_ID in $REPO (failed-only=$FAILED_ONLY debug=$DEBUG_MODE)"
+
+    if ! provider_actions_run_rerun "$REPO" "$RUN_ID" "${gh_args[@]}"; then
+        log_error "Failed to re-run workflow run: $RUN_ID"
+        exit "$EXIT_API_FAILURE"
+    fi
+
+    local run_url
+    run_url=$(provider_actions_run_view "$REPO" "$RUN_ID" --json url -q '.url' 2>/dev/null || echo "")
+
+    if [ -n "$run_url" ]; then
+        log_info "Re-run queued: $run_url"
+    else
+        log_info "Re-run queued for run $RUN_ID in $REPO"
+    fi
 }
 
 # ============================================================================
@@ -124,12 +122,14 @@ main() {
                 ;;
             --repo)
                 REPO="$2"; shift 2 ;;
-            --exit-status)
-                EXIT_STATUS=1; shift ;;
+            --failed)
+                FAILED_ONLY=1; shift ;;
+            --debug)
+                DEBUG_MODE=1; shift ;;
             -*)
                 log_error "Unknown option: $1"
                 echo "Use --help for usage information"
-                exit 1 ;;
+                exit "$EXIT_MISUSE" ;;
             *)
                 if [ -z "$RUN_ID" ]; then
                     RUN_ID="$1"
@@ -137,18 +137,24 @@ main() {
                 else
                     log_error "Unexpected argument: $1"
                     echo "Use --help for usage information"
-                    exit 1
+                    exit "$EXIT_MISUSE"
                 fi ;;
         esac
     done
 
+    if [ -z "$RUN_ID" ]; then
+        log_error "RUN_ID is required"
+        echo "Use --help for usage information"
+        exit "$EXIT_MISUSE"
+    fi
+
     if [ -z "$REPO" ]; then
         log_error "--repo OWNER/REPO is required"
         echo "Use --help for usage information"
-        exit 1
+        exit "$EXIT_MISUSE"
     fi
 
-    watch_run
+    rerun_workflow
 }
 
 main "$@"

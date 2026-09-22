@@ -316,14 +316,14 @@ load_setup_credentials() {
     if [ -f "$setup_dir/github_token.txt" ]; then
         # Legacy seed file: import it into the provider credential store
         # once, then delete it. The keychain is the only sanctioned token
-        # surface; if import fails the recovery path is key-update-github.sh.
+        # surface; if import fails the recovery path is key-update-git.sh.
         ensure_provider_seam
         if provider_auth_import_token < "$setup_dir/github_token.txt" >/dev/null 2>&1; then
             rm -f "$setup_dir/github_token.txt"
             echo "Imported github_token.txt into the provider credential store; seed file deleted."
         else
             echo "WARNING: github_token.txt could not be imported (expired or invalid?)."
-            echo "Rotate credentials with: key-update-github.sh <new-token>"
+            echo "Rotate credentials with: key-update-git.sh <new-token>"
         fi
     else
         echo "No GitHub token file found; relying on provider credential store (run 'gh auth login' if not authenticated)."
@@ -521,8 +521,8 @@ key-update-tailscale() {
     fi
 }
 
-key-update-github() {
-    "$DEVENV_ROOT/tools/scripts/key-update-github.sh" "$@"
+key-update-git() {
+    "$DEVENV_ROOT/tools/scripts/key-update-git.sh" "$@"
     if [ -f "$DEVENV_ROOT/.runtime/env-vars.sh" ]; then
         source "$DEVENV_ROOT/.runtime/env-vars.sh"
     fi

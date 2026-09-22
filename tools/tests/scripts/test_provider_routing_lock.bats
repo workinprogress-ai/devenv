@@ -23,7 +23,7 @@ load ../test_helper
 # lifecycle (import/status) routes through the provider auth seam.
 # shellcheck disable=SC2034
 ALLOWED_EXCEPTIONS=(
-    "key-update-github.sh:gh auth (login|setup-git)"
+    "key-update-git.sh:gh auth (login|setup-git)"
     "repo-get.sh:gh auth status"
     "issue-create.sh:gh auth status"
     "github-helpers.bash:gh auth status"

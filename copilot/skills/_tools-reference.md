@@ -4,7 +4,7 @@
 Quick reference for devenv's **provider-neutral** CLI tools used by the skill suite. **Invoke tools by bare name** (`plan-parse`, `next-id`, …) — all wrappers are on `PATH` from any working directory.
 
 **GitHub transport detail (wrapper signatures for `issue-*`, `pr-*`, `project-*`,
-`actions-*`, repository-inspection tools; env-var semantics; config paths;
+`pipelines-*`, repository-inspection tools; env-var semantics; config paths;
 prohibitions; canonical recipes) lives in the
 [GitHub protocol reference](./_shared/references/provider-protocols/github.md).
 This file keeps only provider-neutral tooling and the shared contracts below.**

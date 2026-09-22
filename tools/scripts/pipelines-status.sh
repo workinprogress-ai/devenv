@@ -3,11 +3,11 @@
 # contract: self-location wins; a foreign exported DEVENV_TOOLS is ignored).
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
-# actions-list.sh - List workflow definitions across the org
+# pipelines-status.sh - Report GitHub Actions run status across the org
 # Version: 1.0.0
-# Description: Lists GitHub Actions workflow definitions (name, file, state)
-#              across org repositories. Shows what workflows exist, not their
-#              run history.
+# Description: Enumerates repos in the GitHub org and reports the latest
+#              workflow run status, with optional filtering by repo name and
+#              run conclusion.
 # Requirements: Bash 4.0+, gh CLI, jq
 # Author: WorkInProgress.ai
 # Last Modified: 2026-05-16
@@ -22,17 +22,21 @@ source "$DEVENV_TOOLS/lib/github-helpers.bash"
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "List workflow definitions across the org"
+script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Report GitHub Actions run status across the org"
 
 # ============================================================================
 # Global Variables
 # ============================================================================
 
-REPO_REGEX=""          # grep -E filter for repo names
-STATE_FILTER="active"  # active | disabled_manually | disabled_inactivity | all
-OUTPUT_FORMAT="table"  # table | json | pretty
+REPO_REGEX=""         # grep -E pattern to filter repo names
+STATUS_FILTER=""      # filter by conclusion: success | failure | cancelled | skipped
+WORKFLOW_FILTER=""    # filter by exact workflow name
+LIMIT="1"             # runs per repo (default: latest only)
+OUTPUT_FORMAT="table" # table | json | pretty
 # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
+
+readonly RUN_FIELDS="workflowName,status,conclusion,headBranch,updatedAt,url,databaseId"
 
 # ============================================================================
 # Helper Functions
@@ -42,8 +46,8 @@ show_usage() {
     cat << EOF
 Usage: $SCRIPT_NAME [OPTIONS]
 
-List GitHub Actions workflow definitions across org repositories.
-Shows what workflows exist, not their run history. Use actions-status for that.
+Report GitHub Actions workflow run status across the org.
+Defaults to the latest run per repo. Uses GH_ORG to enumerate repositories.
 
 Options:
     -h, --help                  Show this help message and exit
@@ -53,31 +57,35 @@ Options:
     --pretty                    Output as pretty-printed JSON
 
 Filters:
-    -r, --repo REGEX            Filter repos by name (extended regex)
-    --state STATE               Workflow state filter: active, disabled_manually,
-                                disabled_inactivity, all (default: active)
+    -r, --repo REGEX            Filter repos by name (extended regex, e.g. 'lib\.cs\.')
+    -s, --status STATUS         Filter by conclusion: success, failure, cancelled, skipped
+    -w, --workflow NAME         Filter by workflow name (exact match)
+    --limit N                   Runs per repo to fetch (default: 1)
 
 Environment Variables:
     GH_ORG                      GitHub organisation name (required)
 
 Examples:
-    # List all active workflows
+    # Show latest run status for all repos
     $SCRIPT_NAME
 
-    # Workflows for repos matching a pattern
-    $SCRIPT_NAME --repo 'lib\.cs\.services\.'
+    # Only repos matching a name pattern
+    $SCRIPT_NAME --repo 'lib\.cs\.'
 
-    # Include disabled workflows
-    $SCRIPT_NAME --state all
+    # Only failed runs
+    $SCRIPT_NAME --status failure
 
-    # JSON output piped to jq
-    $SCRIPT_NAME --json | jq '.[] | select(.state != "active")'
+    # Filter by repo and workflow, show as JSON
+    $SCRIPT_NAME --repo 'services' --workflow CI --json
+
+    # Pipe into jq for further processing
+    $SCRIPT_NAME --json | jq '.[] | select(.conclusion == "failure") | .url'
 
 EOF
     exit 0
 }
 
-list_workflows() {
+list_action_runs() {
     local org
     org=$(get_repo_owner)
 
@@ -86,7 +94,7 @@ list_workflows() {
     local repos
     if ! repos=$(provider_repos_list "$org" --limit 1000 --json name -q '.[].name' 2>/dev/null); then
         log_error "Failed to list repositories for org: $org"
-        exit "$EXIT_API_FAILURE"
+        exit 1
     fi
 
     if [ -z "$repos" ]; then
@@ -103,45 +111,54 @@ list_workflows() {
         exit 0
     fi
 
-    local all_workflows="[]"
+    local all_runs="[]"
 
     while IFS= read -r repo; do
         [ -z "$repo" ] && continue
-        log_verbose "Fetching workflows for $org/$repo..."
+        log_verbose "Fetching runs for $org/$repo..."
 
-        local wfs
-        wfs=$(provider_actions_workflow_list "$org/$repo" \
-            --json id,name,path,state \
+        local runs
+        runs=$(provider_actions_run_list "$org/$repo" \
+            --limit "$LIMIT" \
+            --json "$RUN_FIELDS" \
             2>/dev/null || echo "[]")
 
-        [ "$wfs" = "[]" ] && continue
+        [ "$runs" = "[]" ] && continue
 
-        if [ "$STATE_FILTER" != "all" ]; then
-            wfs=$(echo "$wfs" | jq --arg s "$STATE_FILTER" \
-                '[.[] | select(.state == $s)]')
+        if [ -n "$WORKFLOW_FILTER" ]; then
+            runs=$(echo "$runs" | jq --arg wf "$WORKFLOW_FILTER" \
+                '[.[] | select(.workflowName == $wf)]')
         fi
 
-        [ "$wfs" = "[]" ] && continue
+        if [ -n "$STATUS_FILTER" ]; then
+            runs=$(echo "$runs" | jq --arg s "$STATUS_FILTER" \
+                '[.[] | select(.conclusion == $s or .status == $s)]')
+        fi
 
-        wfs=$(echo "$wfs" | jq --arg r "$repo" '[.[] | . + {repo: $r}]')
-        all_workflows=$(printf '%s\n%s' "$all_workflows" "$wfs" | jq -s 'add')
+        [ "$runs" = "[]" ] && continue
+
+        runs=$(echo "$runs" | jq --arg r "$repo" '[.[] | . + {repo: $r}]')
+        all_runs=$(printf '%s\n%s' "$all_runs" "$runs" | jq -s 'add')
     done <<< "$repos"
 
     case "$OUTPUT_FORMAT" in
         json)
-            echo "$all_workflows"
+            echo "$all_runs"
             ;;
         pretty)
-            echo "$all_workflows" | jq .
+            echo "$all_runs" | jq .
             ;;
         table)
-            echo "$all_workflows" | jq -r '
-                (["REPO", "WORKFLOW NAME", "FILE", "STATE"]),
+            echo "$all_runs" | jq -r '
+                (["REPO", "WORKFLOW", "BRANCH", "STATUS", "CONCLUSION", "UPDATED", "URL"]),
                 (.[] | [
                     .repo,
-                    .name,
-                    (.path | split("/")[-1]),
-                    .state
+                    .workflowName,
+                    .headBranch,
+                    .status,
+                    (.conclusion // "-"),
+                    (.updatedAt | split("T")[0]),
+                    .url
                 ])
                 | @tsv
             ' | column -t -s $'\t'
@@ -178,20 +195,28 @@ main() {
             --pretty)     OUTPUT_FORMAT="pretty"; shift ;;
             -r|--repo)
                 REPO_REGEX="$2"; shift 2 ;;
-            --state)
-                STATE_FILTER="$2"; shift 2 ;;
+            -s|--status)
+                STATUS_FILTER="$2"; shift 2 ;;
+            -w|--workflow)
+                WORKFLOW_FILTER="$2"; shift 2 ;;
+            --limit)
+                if ! [[ "$2" =~ ^[0-9]+$ ]]; then
+                    log_error "Invalid limit: $2 (must be a positive integer)"
+                    exit 1
+                fi
+                LIMIT="$2"; shift 2 ;;
             -*)
                 log_error "Unknown option: $1"
                 echo "Use --help for usage information"
-                exit "$EXIT_MISUSE" ;;
+                exit 1 ;;
             *)
                 log_error "Unexpected argument: $1"
                 echo "Use --help for usage information"
-                exit "$EXIT_MISUSE" ;;
+                exit 1 ;;
         esac
     done
 
-    list_workflows
+    list_action_runs
 }
 
 main "$@"

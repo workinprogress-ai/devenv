@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# key-update-github.sh
+# key-update-git.sh
 # Updates the GitHub personal access token and reloads environment
-# Usage: key-update-github.sh [TOKEN]
+# Usage: key-update-git.sh [TOKEN]
 
 set -euo pipefail
 # Resolve the tools root from this script's own location (self-root
@@ -24,6 +24,16 @@ echo ">>> 🔐 GitHub Token Update Utility"
 echo "    -------------------------------------------------------"
 echo "    This will update your GitHub personal access token."
 echo ""
+
+# --help / -h must never be interpreted as a token (adversarial-review F1:
+# the flag used to fall through to the token path and fail at import).
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+    echo "Usage: key-update-git.sh [TOKEN] | --help"
+    echo ""
+    echo "Rotate the provider credential-store token used for git https auth."
+    echo "With TOKEN: non-interactive rotation. Without: prompts on the terminal."
+    exit 0
+fi
 
 # Get token from argument or prompt user; capture EOF so an empty token
 # reaches the validation below instead of set -e exiting on read's rc.
