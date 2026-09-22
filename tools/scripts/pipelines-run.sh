@@ -62,13 +62,13 @@ Options:
 
 Examples:
     # Trigger CI on the default branch
-    $SCRIPT_NAME ci.yml --repo workinprogress-ai/my-service
+    $SCRIPT_NAME ci.yml --repo <org>/my-service
 
     # Run on a specific branch
-    $SCRIPT_NAME ci.yml --repo workinprogress-ai/my-service --ref feature/my-branch
+    $SCRIPT_NAME ci.yml --repo <org>/my-service --ref feature/my-branch
 
     # Pass workflow_dispatch inputs
-    $SCRIPT_NAME deploy.yml --repo workinprogress-ai/my-service \\
+    $SCRIPT_NAME deploy.yml --repo <org>/my-service \\
         --input environment=staging \\
         --input version=1.2.3
 

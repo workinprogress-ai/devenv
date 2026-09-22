@@ -36,6 +36,17 @@ readonly _WORKFLOW_CORE_LOADED=1
 
 # shellcheck disable=SC2034  # read by callers that source this library
 WORKFLOW_CORE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Workflow status semantics are org policy: the delivery-segment anchor and
+# the unreadable-status fallback resolve via the policy layer (config-driven,
+# POLICY_* overridable) with the current org's values as built-in fallback.
+# shellcheck disable=SC1090,SC1091
+source "$WORKFLOW_CORE_DIR/policy/policy-core.bash"
+policy_core_init "${DEVENV_ROOT:-$(cd "$WORKFLOW_CORE_DIR/../.." && pwd)}/devenv.config" 2>/dev/null || true
+# shellcheck disable=SC1090,SC1091
+source "$WORKFLOW_CORE_DIR/policy/workflow-policy.bash"
+WORKFLOW_POLICY_ANCHOR="$(policy_delivery_segment_anchor)"
+WORKFLOW_POLICY_FALLBACK="$(policy_status_fallback)"
 # Hierarchy reads live in issue-graph.bash (all I/O stays out of this file).
 # shellcheck source=issue-graph.bash
 source "$WORKFLOW_CORE_DIR/issue-graph.bash"
@@ -85,7 +96,7 @@ workflow_compute_rollup() {
     # First delivery index: position of "Implementing" in the configured
     # order. The delivery segment is Implementing..last; anything earlier is
     # pre-delivery. Unknown token -> hard error (vocabulary mismatch).
-    delivery_idx="$(workflow_status_order Implementing)" || return 1
+    delivery_idx="$(workflow_status_order "$WORKFLOW_POLICY_ANCHOR")" || return 1
     for st in "$@"; do
         idx="$(workflow_status_order "$st")" || return 1
         if [ "$idx" -lt "$delivery_idx" ]; then
@@ -172,7 +183,7 @@ _workflow_derive_parent_status() {
     while IFS= read -r c; do
         [ -n "$c" ] || continue
         st=$(issue_read_status "$c")
-        [ -n "$st" ] || st="Ready"   # unreadable counts as pre-delivery
+        [ -n "$st" ] || st="$WORKFLOW_POLICY_FALLBACK"   # unreadable counts as pre-delivery
         statuses+=("$st")
     done <<< "$children"
     [ "${#statuses[@]}" -gt 0 ] || return 1
@@ -210,7 +221,7 @@ workflow_apply_status() {
     }
     if [ "$direction" = "parent" ]; then
         local delivery_idx idx
-        delivery_idx=$(workflow_status_order Implementing) || return 1
+        delivery_idx=$(workflow_status_order "$WORKFLOW_POLICY_ANCHOR") || return 1
         idx=$(workflow_status_order "$status") || return 1
         if [ "$idx" -lt "$delivery_idx" ]; then
             echo "Status '$status' is gated - it cannot be forced; workflow states advance by their own signals" >&2

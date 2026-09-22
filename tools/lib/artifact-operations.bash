@@ -10,6 +10,17 @@
 if [ -n "${_ARTIFACT_OPERATIONS_LOADED:-}" ]; then
     return 0
 fi
+
+# Org identity is org policy: resolve via the policy layer
+# (POLICY_ORG -> GH_ORG -> config [organization] github_org).
+_policy_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/policy" 2>/dev/null && pwd)"
+if [ -n "$_policy_dir" ] && [ -f "$_policy_dir/policy-core.bash" ]; then
+    # shellcheck disable=SC1090,SC1091
+    source "$_policy_dir/policy-core.bash"
+    policy_core_init "${DEVENV_ROOT:-}/devenv.config" 2>/dev/null || true
+    # shellcheck disable=SC1090,SC1091
+    source "$_policy_dir/identity-policy.bash"
+fi
 readonly _ARTIFACT_OPERATIONS_LOADED=1
 
 # Provider layer: REST reads route through the abstraction (slice 3/#36).
@@ -144,7 +155,7 @@ query_packages() {
 
     # Use GH_ORG environment variable if owner not provided
     if [ -z "$owner" ]; then
-        owner="${GH_ORG:-}"
+        owner="${GH_ORG:-}"; [ -z "$owner" ] && owner="$(policy_org 2>/dev/null || true)"
     fi
 
     # Validate required arguments
@@ -251,7 +262,7 @@ get_package_versions() {
 
     # Use GH_ORG environment variable if owner not provided
     if [ -z "$owner" ]; then
-        owner="${GH_ORG:-}"
+        owner="${GH_ORG:-}"; [ -z "$owner" ] && owner="$(policy_org 2>/dev/null || true)"
     fi
 
     # Validate required arguments

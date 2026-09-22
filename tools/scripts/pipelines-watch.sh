@@ -57,13 +57,13 @@ Options:
 
 Examples:
     # Watch the latest in-progress run
-    $SCRIPT_NAME --repo workinprogress-ai/my-service
+    $SCRIPT_NAME --repo <org>/my-service
 
     # Watch a specific run
-    $SCRIPT_NAME 12345678 --repo workinprogress-ai/my-service
+    $SCRIPT_NAME 12345678 --repo <org>/my-service
 
     # Exit with the run's exit code (for CI use)
-    $SCRIPT_NAME 12345678 --repo workinprogress-ai/my-service --exit-status
+    $SCRIPT_NAME 12345678 --repo <org>/my-service --exit-status
 
 EOF
     exit 0

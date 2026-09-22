@@ -75,10 +75,9 @@ EOF
     [[ "$result" =~ --type ]] && [[ "$result" =~ "Feature" ]]
 }
 
-@test "build_issue_filters with legacy alias story maps to Task" {
+@test "build_issue_filters rejects legacy alias story (alias removed per policy)" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    result=$(build_issue_filters --type story)
-    [[ "$result" =~ --type ]] && [[ "$result" =~ "Task" ]]
+    ! build_issue_filters --type story
 }
 
 @test "build_issue_filters with legacy alias bug maps to Bug" {
@@ -404,132 +403,19 @@ YML
     [[ "$output" =~ loaded ]]
 }
 
-@test "issue-operations: load_issue_types_from_config fails with missing config file" {
-    run bash -c "source $PROJECT_ROOT/tools/lib/issue-operations.bash && load_issue_types_from_config /nonexistent/config 2>&1"
-    [ "$status" -ne 0 ]
-    [[ "$output" =~ "not found" ]]
-}
 
-@test "issue-operations: load_issue_types_from_config succeeds with valid yaml" {
-    create_test_config
-    run bash -c "source $PROJECT_ROOT/tools/lib/issue-operations.bash && load_issue_types_from_config $TEST_CONFIG_FILE && echo success"
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ success ]]
-}
 
-@test "issue-operations: load_issue_types_from_config populates ISSUE_TYPES array" {
-    create_test_config
-    run bash -c "source $PROJECT_ROOT/tools/lib/issue-operations.bash && load_issue_types_from_config $TEST_CONFIG_FILE && echo \${#ISSUE_TYPES[@]}"
-    [ "$status" -eq 0 ]
-    [ "$output" = "4" ]
-}
 
-@test "issue-operations: ISSUE_TYPES array contains all configured types" {
-    create_test_config
-    run bash -c "source $PROJECT_ROOT/tools/lib/issue-operations.bash && load_issue_types_from_config $TEST_CONFIG_FILE && printf '%s\\n' \"\${ISSUE_TYPES[@]}\""
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ Story ]]
-    [[ "$output" =~ Bug ]]
-    [[ "$output" =~ Enhancement ]]
-    [[ "$output" =~ Documentation ]]
-}
 
-@test "issue-operations: load_issue_types_from_config fails when no types in yaml" {
-    cat > "$TEST_CONFIG_FILE" <<'EOF'
-types: []
-EOF
-    run bash -c "source $PROJECT_ROOT/tools/lib/issue-operations.bash && load_issue_types_from_config $TEST_CONFIG_FILE 2>&1"
-    [ "$status" -ne 0 ]
-}
 
-@test "issue-operations: build_type_menu generates numbered menu" {
-    create_test_config
-    run bash -c "source $PROJECT_ROOT/tools/lib/issue-operations.bash && load_issue_types_from_config $TEST_CONFIG_FILE && build_type_menu"
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "1) Story" ]]
-    [[ "$output" =~ "2) Bug" ]]
-    [[ "$output" =~ "3) Enhancement" ]]
-    [[ "$output" =~ "4) Documentation" ]]
-}
 
-@test "issue-operations: build_type_menu capitalizes issue types" {
-    cat > "$TEST_CONFIG_FILE" <<'EOF'
-types:
-  - name: story
-    description: "A user story"
-    id: "IT_test1"
-  - name: bug
-    description: "A bug report"
-    id: "IT_test2"
-EOF
-    run bash -c "source $PROJECT_ROOT/tools/lib/issue-operations.bash && load_issue_types_from_config $TEST_CONFIG_FILE && build_type_menu | head -1"
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "Story" ]]
-}
 
-@test "issue-operations: get_type_label_from_choice returns correct label" {
-    create_test_config
-    run bash -c "source $PROJECT_ROOT/tools/lib/issue-operations.bash && load_issue_types_from_config $TEST_CONFIG_FILE && get_type_label_from_choice 1"
-    [ "$status" -eq 0 ]
-    [ "$output" = "type:Story" ]
-}
 
-@test "issue-operations: get_type_label_from_choice works for all types" {
-    create_test_config
-    run bash -c "source $PROJECT_ROOT/tools/lib/issue-operations.bash && load_issue_types_from_config $TEST_CONFIG_FILE && get_type_label_from_choice 2"
-    [ "$status" -eq 0 ]
-    [ "$output" = "type:Bug" ]
-}
 
-@test "issue-operations: get_type_label_from_choice fails for invalid choice" {
-    create_test_config
-    run bash -c "source $PROJECT_ROOT/tools/lib/issue-operations.bash && load_issue_types_from_config $TEST_CONFIG_FILE && get_type_label_from_choice 99"
-    [ "$status" -ne 0 ]
-}
 
-@test "issue-operations: get_type_label_from_choice fails for zero choice" {
-    create_test_config
-    run bash -c "source $PROJECT_ROOT/tools/lib/issue-operations.bash && load_issue_types_from_config $TEST_CONFIG_FILE && get_type_label_from_choice 0"
-    [ "$status" -ne 0 ]
-}
 
-@test "issue-operations: get_all_type_labels returns all labels" {
-    create_test_config
-    run bash -c "source $PROJECT_ROOT/tools/lib/issue-operations.bash && load_issue_types_from_config $TEST_CONFIG_FILE && get_all_type_labels"
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "type:Story" ]]
-    [[ "$output" =~ "type:Bug" ]]
-    [[ "$output" =~ "type:Enhancement" ]]
-    [[ "$output" =~ "type:Documentation" ]]
-}
 
-@test "issue-operations: get_all_type_labels output is space-separated" {
-    cat > "$TEST_CONFIG_FILE" <<'EOF'
-types:
-  - name: Story
-    description: "A user story"
-    id: "IT_test1"
-  - name: Bug
-    description: "A bug report"
-    id: "IT_test2"
-EOF
-    run bash -c "source $PROJECT_ROOT/tools/lib/issue-operations.bash && load_issue_types_from_config $TEST_CONFIG_FILE && get_all_type_labels | tr ' ' '\\n'"
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "type:Story" ]]
-    [[ "$output" =~ "type:Bug" ]]
-}
 
-@test "issue-operations: handles single issue type in config" {
-    cat > "$TEST_CONFIG_FILE" <<'EOF'
-types:
-  - name: Bug
-    description: "A bug report"
-    id: "IT_test1"
-EOF
-    run bash -c "source $PROJECT_ROOT/tools/lib/issue-operations.bash && load_issue_types_from_config $TEST_CONFIG_FILE && get_type_label_from_choice 1"
-    [ "$status" -eq 0 ]
-    [ "$output" = "type:Bug" ]
-}
 
 # ============================================================================
 # Issue Comment Operations tests

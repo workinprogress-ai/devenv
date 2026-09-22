@@ -68,6 +68,9 @@ source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"
+#
+# Org identity (policy_org) arrives transitively via github-helpers
+# (which loads the policy layer); no explicit policy sourcing here.
 
 usage() {
     cat << 'EOF' >&2
@@ -230,9 +233,10 @@ if ! merge_pr "$PR_ID" "$MERGE_COMMIT_MESSAGE" "$MERGE_METHOD" "${repo_spec[*]}"
 fi
 
 # Build PR URL for output
-if [ -n "${GH_ORG:-}" ]; then
+policy_org="$(policy_org 2>/dev/null || true)"
+if [ -n "$policy_org" ]; then
     repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
-    PR_URL="https://github.com/${GH_ORG}/${repo_name}/pull/$PR_ID"
+    PR_URL="https://github.com/${policy_org}/${repo_name}/pull/$PR_ID"
 else
     PR_URL="https://github.com/$(provider_repos_view "${repo_spec[1]:-}" --json owner,name --jq '.owner.login + "/" + .name')/pull/$PR_ID"
 fi

@@ -130,3 +130,8 @@ swap the provider modules here, replace the protocol reference there, and the
 skill suite (including the decoupling gate in
 `tools/tests/skills/test_provider_protocol_decoupling.bats`) enforces that no
 skill body drifted back toward a hard-coded backend.
+
+Org-policy decisions (issue types, triage labels, workflow status semantics,
+provider default, org identity) are the other fork surface: they live in
+[`tools/lib/policy/`](../policy/README.md) with config-driven values and
+`POLICY_*` overrides — a fork edits config, not code.

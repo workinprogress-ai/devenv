@@ -14,6 +14,9 @@ source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/github-helpers.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"
+#
+# Org identity (policy_org) arrives transitively via github-helpers
+# (which loads the policy layer); no explicit policy sourcing here.
 
 
 
@@ -105,9 +108,10 @@ fi
 
 echo
 echo "✅ Pull request $PR_ID completed successfully."
-if [ -n "${GH_ORG:-}" ]; then
+policy_org="$(policy_org 2>/dev/null || true)"
+if [ -n "$policy_org" ]; then
     repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
-    echo "PR: https://github.com/${GH_ORG}/${repo_name}/pull/$PR_ID"
+    echo "PR: https://github.com/${policy_org}/${repo_name}/pull/$PR_ID"
 else
     echo "PR: https://github.com/$(provider_repos_view "${repo_spec[1]:-}" --json owner,name --jq '.owner.login + "/" + .name')/pull/$PR_ID"
 fi

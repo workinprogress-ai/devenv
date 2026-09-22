@@ -16,6 +16,9 @@ labels:
   - name: needs-grooming
     color: "d4c5f9"
     description: "Routed to grooming before planning"
+  - name: status:ready
+    color: "0e8a16"
+    description: "Groomed and ready for implementation"
 
   # Upstream-impact queue (consumed by the refine skills in cascade mode)
   - name: upstream-impact

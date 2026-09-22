@@ -178,10 +178,17 @@ load ../test_helper
 # query_packages Tests
 # ============================================================================
 
-@test "query_packages: requires owner argument or GH_ORG" {
+@test "query_packages: requires owner argument or org policy resolution" {
   run bash -c "
-    unset GH_ORG
+    unset GH_ORG POLICY_ORG
+    printf '[organization]\nname=t\n' > '$TEST_TEMP_DIR/empty-org.config'
+    export DEVENV_ROOT='$TEST_TEMP_DIR'
+    : > '$TEST_TEMP_DIR/no-orgs.config'
     source '$PROJECT_ROOT/tools/lib/artifact-operations.bash'
+    _policy_dir='$PROJECT_ROOT/tools/lib/policy'
+    source "\$_policy_dir/policy-core.bash"
+    policy_core_init '$TEST_TEMP_DIR/no-orgs.config'
+    source "\$_policy_dir/identity-policy.bash"
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
     query_packages
   "
