@@ -15,7 +15,7 @@ The engineering repo is imported with the same machinery as knowledge, so the st
 
 ```ini
 [copilot]
-engineering_repo=https://github.com/workinprogress-ai/docs.engineering.git
+engineering_repo=https://<git-host>/<org>/docs.engineering.git   # e.g. github.com/workinprogress-ai/docs.engineering.git
 engineering_subpath=docs/
 ```
 
@@ -88,4 +88,4 @@ The key asymmetry to internalize: **the machine writes what the skills read; peo
 
 ## Related configuration
 
-See [Devenv Customization](./Devenv-Customization.md) for the full `[copilot]` section reference, including `knowledge_repo`, `knowledge_subpath`, `engineering_repo`, and `engineering_subpath`.
+See [the Forking Guide](./Forking.md) for the full `[copilot]` section reference, including `knowledge_repo`, `knowledge_subpath`, `engineering_repo`, and `engineering_subpath`.

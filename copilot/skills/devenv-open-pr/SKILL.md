@@ -45,7 +45,7 @@ ls .local-artifacts/Plan-*.md 2>/dev/null
 
 If any exist:
 
-1. **Warn the user.** These are working files; their content should live in the associated GitHub issue, not in the commit history.
+1. **Warn the user.** These are working files; their content should live in the associated issue, not in the commit history.
 2. **Determine whether the plan is already in the issue.** If a parent issue is detectable (from branch name, plan body, etc.), fetch it via `issue-get <N> --pretty` and check whether the plan content is there.
 3. **Offer to save it.** If the plan is not in the issue, offer to post it as a comment:
    ```

@@ -13,7 +13,7 @@ user-invocable: true
 
 Revise the **structure** of an existing roadmap artifact after new information — the blueprint changed, a step needs splitting, a new component landed, or phases need re-sequencing. Preserve every prior step ID and issue link; supersede structure deliberately.
 
-Roadmaps are GitHub artifacts (doc_id-addressed comments on their parent epic), not files in source control. Refinement pulls the artifact to a session scratch copy, edits there, and republishes. For the shared pull/edit/publish mechanics see [issue-artifact-integration.md](../common/references/issue-artifact-integration.md) and the [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md).
+Roadmaps are issue artifacts (doc_id-addressed comments on their parent epic), not files in source control. Refinement pulls the artifact to a session scratch copy, edits there, and republishes. For the shared pull/edit/publish mechanics see [issue-artifact-integration.md](../common/references/issue-artifact-integration.md) and the [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md).
 
 Write roadmap phases and steps as the current target delivery structure. Keep historical change narrative out of the document entirely — the document is target state, period. Rationale for significant changes lives in ADRs (`docs/Decisions/`, see the shared [ADR template](../common/references/adr-template.md)); git (of the planning repo) and the issue's edit history record when. Roadmaps are downstream of specifications/blueprint and upstream of grooming: they receive changes from both directions, but changes never *enter* the workflow through a roadmap — use the refine skills and the upstream-impact queue for that.
 
@@ -87,7 +87,7 @@ For any change where a future implementer would ask *why* (a superseded step, a 
 
 For every new step added in this revision, ask:
 
-> "Create GitHub issues for the new steps?
+> "Create issues for the new steps?
 > - STEP-15 → <owner>/<component-repo-a>
 > - STEP-16 → <owner>/<component-repo-b>
 >
@@ -124,7 +124,7 @@ After writing, list what may need follow-up:
 - Rewriting the roadmap from scratch — that's [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md), not refine
 - Forgetting to update the parent epic's task list when issues are added or superseded
 - Writing prior-state narrative in phase/step body content — the document is target state; ADRs and the issue's edit history hold the rest
-- Committing the scratch copy to source control — roadmaps are GitHub artifacts only
+- Committing the scratch copy to source control — roadmaps are issue artifacts only
 - Treating the roadmap as an entry point for upstream changes — route those through the refine skills and the upstream-impact queue
 
 ## Sibling Skills

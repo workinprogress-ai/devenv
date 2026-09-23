@@ -13,7 +13,7 @@ user-invocable: true
 
 Take a blueprint, a specifications document, or both, and produce a **delivery roadmap** — a phased, high-level sequencing of work that respects dependencies and surfaces business priority. The roadmap is the link between intent (specifications / architecture) and execution: each step is the seed for one or more GitHub issues and (later) plans.
 
-This skill is also the **canonical entry point for creating GitHub issues** from a specifications or blueprint document. Other skills that need bulk issue creation route through here.
+This skill is also the **canonical entry point for creating issues** from a specifications or blueprint document. Other skills that need bulk issue creation route through here.
 
 ## When to Use
 
@@ -57,7 +57,7 @@ Three input modes are supported:
 |---|---|---|---|
 | **Blueprint + Specifications** | Epic-scale work — architecture exists and stakeholder priority must inform sequencing | Per-component deltas (§4 of blueprint); priority groups (§3 of each specifications doc) inform phase ordering | From blueprint |
 | **Blueprint only** | Architecture exists but stakeholder priority isn't a major factor | Per-component deltas (§4 of blueprint) | From blueprint |
-| **Specifications only** (single or multiple docs) | Smaller work that doesn't warrant a blueprint, but still needs delivery sequencing and GitHub issues | Each `SPEC-NNN` (or category-prefixed ID) becomes a candidate step; priority groups (`GROUP-NN`) inform phase ordering | **Asked from the user per step** — there is no blueprint to derive it from |
+| **Specifications only** (single or multiple docs) | Smaller work that doesn't warrant a blueprint, but still needs delivery sequencing and issue tracking issues | Each `SPEC-NNN` (or category-prefixed ID) becomes a candidate step; priority groups (`GROUP-NN`) inform phase ordering | **Asked from the user per step** — there is no blueprint to derive it from |
 
 If neither input is supplied, stop and redirect: specifications-first → `/devenv-write-specifications`; architecture-first → `/devenv-create-blueprint`.
 
@@ -71,7 +71,7 @@ Produce a `Roadmap-<system>-NNN` artifact where:
 - `<system>` matches the blueprint's system name
 - `NNN` is a zero-padded numeric suffix
 
-**Roadmaps are GitHub artifacts, not files in source control.** The roadmap lives as a `doc_id`-addressed artifact comment on the parent epic in the planning repo (same pattern as plan artifacts; see [issue-artifact-integration.md](../common/references/issue-artifact-integration.md)). The epic body is a short placeholder plus the task list of child issues; the roadmap content is in the artifact comment.
+**Roadmaps are issue artifacts, not files in source control.** The roadmap lives as a `doc_id`-addressed artifact comment on the parent epic in the planning repo (same pattern as plan artifacts; see [issue-artifact-integration.md](../common/references/issue-artifact-integration.md)). The epic body is a short placeholder plus the task list of child issues; the roadmap content is in the artifact comment.
 
 During the session, work on a local scratch copy under the target planning repo's `.local-artifacts/` (e.g. `.local-artifacts/roadmap-<system>-NNN.md`; the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)). The scratch copy is session working state only — it is not committed and not kept after the roadmap is published. The published artifact comment is the single source of truth. Pull/edit/republish mechanics follow the shared [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md).
 
@@ -212,7 +212,7 @@ The body should reference back to the roadmap artifact and blueprint:
 
 ```markdown
 **Roadmap step**: STEP-NN on epic `<org>/<planning-repo>#<epic-number>` (roadmap artifact `<doc_id>`)
-**Blueprint section**: [§N.N](<link to blueprint section on GitHub>)
+**Blueprint section**: [§N.N](<link to blueprint section>)
 
 <one-paragraph description of the step from the roadmap>
 
@@ -276,7 +276,7 @@ After the roadmap is created and issues exist:
 ## Anti-patterns
 
 - Publishing the roadmap artifact before user approval
-- Writing the roadmap into the repo as a source-controlled file (e.g. under `docs/Roadmap/`) — roadmaps are GitHub artifacts on the epic, not files in source control
+- Writing the roadmap into the repo as a source-controlled file (e.g. under `docs/Roadmap/`) — roadmaps are issue artifacts on the epic, not files in source control
 - Committing the scratch copy or treating it as durable after publish
 - Auto-creating issues without explicit confirmation
 - Re-numbering steps when adding new ones (always append with next sequential number)

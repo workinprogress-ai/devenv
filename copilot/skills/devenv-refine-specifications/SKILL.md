@@ -182,7 +182,7 @@ See the stability audit protocol in [`/devenv-write-specifications` § Stability
 ## Sibling Skills
 
 - [`/devenv-write-specifications`](../devenv-write-specifications/SKILL.md) — to create a new specifications doc from scratch, or to brainstorm broad/non-surgical changes in continuation mode
-- [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) — to create a roadmap (and GitHub issues) from the refined specification items; supports a specification items-only mode when no blueprint exists
+- [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) — to create a roadmap (and issues) from the refined specification items; supports a specification items-only mode when no blueprint exists
 - [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) — when changes have architectural implications
 - [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md) — when changes affect delivery sequencing of an existing roadmap
 - [`/devenv-refine-plan`](../devenv-refine-plan/SKILL.md) — when changes affect an in-flight plan

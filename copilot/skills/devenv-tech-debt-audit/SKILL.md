@@ -1,7 +1,7 @@
 ---
 name: devenv-tech-debt-audit
 description: Thorough, opinionated tech debt, architecture, and correctness-risk audit of one or more repos, with optional focus on a specific functional area. Produces TECH_DEBT_AUDIT.md with file-cited findings, severity, effort estimates, a required "Top bug risks" section, and a required "looks bad but is actually fine" section. After writing the audit, offers to create a GitHub issue (findings in a comment; description is a placeholder for a plan). USE WHEN the user says "audit this repo", "tech debt audit", "codebase health check", "architecture review", "code quality assessment", "run a debt audit on", or hands off a repo path or GitHub issue number for audit. Reads the GitHub issue body for guiding instructions when an issue number is given, then posts the executive summary as a comment. Equally tuned for C#/.NET and TypeScript stacks. DO NOT USE FOR reviewing a single PR (use /devenv-code-review), general pair programming (use /devenv-pair-programming), or producing a plan from findings (use /devenv-create-plan after the audit is complete).
-argument-hint: Repo path(s) (e.g. repos/lib.cs.services.bulk-sync), a GitHub issue number, or repo path(s) followed by a quoted focus area description (e.g. repos/lib.cs.services.chassis "plugin pipeline and built-in plugins")
+argument-hint: Repo path(s) (e.g. repos/lib.cs.services.bulk-sync), an issue number, or repo path(s) followed by a quoted focus area description (e.g. repos/lib.cs.services.chassis "plugin pipeline and built-in plugins")
 ---
 
 # Tech Debt Audit
@@ -12,7 +12,11 @@ When invoked via `/devenv-tech-debt-audit`, follow the protocol below exactly.
 
 > Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
 
+---
+
 > **Diagnostic mode:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`.
+
+---
 
 > **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 
@@ -20,7 +24,7 @@ When invoked via `/devenv-tech-debt-audit`, follow the protocol below exactly.
 
 - Running a health check on a repo before a major refactor or new feature push.
 - Producing an audit artifact to anchor a tech debt discussion or planning session.
-- Following up on a GitHub issue that requests an audit with specific scope or dimension instructions.
+- Following up on an issue that requests an audit with specific scope or dimension instructions.
 
 Do **not** use for reviewing a single PR (use `/devenv-code-review`), for pair programming on specific tasks (use `/devenv-pair-programming`), or for breaking down findings into actionable tasks (use `/devenv-create-plan` once the audit is in hand).
 
@@ -34,7 +38,7 @@ Do **not** use for reviewing a single PR (use `/devenv-code-review`), for pair p
 
 ## Input detection
 
-Auto-detect the argument left-to-right: **repo path(s)** (`repos/`, `./`, or `/`), **GitHub issue number** (bare integer — mutually exclusive with paths), **focus area** (remaining text). If nothing is provided, ask.
+Auto-detect the argument left-to-right: **repo path(s)** (`repos/`, `./`, or `/`), **issue number** (bare integer — mutually exclusive with paths), **focus area** (remaining text). If nothing is provided, ask.
 
 | Input example | Repo | Focus area |
 |---|---|---|
@@ -46,7 +50,7 @@ Auto-detect the argument left-to-right: **repo path(s)** (`repos/`, `./`, or `/`
 
 If a focus area is given, announce it before starting and concentrate Phase 1/2 investigation on those files. The mental model still covers the full system.
 
-If a GitHub issue number is given: fetch the body with `issue-get N --pretty`, extract guiding instructions (scope, dimension overrides, file exclusions), announce them, and set the output filename to `TECH_DEBT_AUDIT-N.md`.
+If an issue number is given: fetch the body with `issue-get N --pretty`, extract guiding instructions (scope, dimension overrides, file exclusions), announce them, and set the output filename to `TECH_DEBT_AUDIT-N.md`.
 
 **Output location:** the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts) — single repo → `<repo-root>/.local-artifacts/TECH_DEBT_AUDIT[-NNN].md`; multiple repos → `<workspace>/.local-artifacts/TECH_DEBT_AUDIT[-NNN].md`.
 
@@ -130,6 +134,7 @@ For each Critical/High item in **Top bug risks**, explicitly recommend follow-up
 Detect the primary stack(s) from the project manifest and run the relevant tools. Run them in parallel when possible.
 
 **C# / .NET:**
+
 - `dotnet build --no-incremental 2>&1` — surface compiler warnings, nullability violations, and errors
 - `dotnet format --verify-no-changes 2>&1` — formatting drift
 - `dotnet list package --vulnerable 2>&1` — CVEs in NuGet packages
@@ -138,6 +143,7 @@ Detect the primary stack(s) from the project manifest and run the relevant tools
 - `rg "#nullable\s+disable|#pragma\s+warning\s+disable\s+nullable"` — nullability opt-outs
 
 **TypeScript / JavaScript:**
+
 - `pnpm audit` / `npm audit` — CVEs
 - `npx tsc --noEmit` — type drift
 - `npx knip` — dead exports
@@ -160,13 +166,13 @@ If the exact output file (`TECH_DEBT_AUDIT.md` or `TECH_DEBT_AUDIT-NNN.md` with 
 
 A different issue number always produces a new file — never update a file from a previous issue run.
 
-## GitHub integration
+## Issue integration
 
 Two flows — do not mix them.
 
-**Flow A (audit driven by an existing issue):** After writing the audit file, draft a comment with the executive summary + relative path to the file. Show the draft and ask: *"Post this to issue #NNN? (y/n)"*. See [github-issue-creation.md](../common/references/github-issue-creation.md) for the post protocol (artifact `doc_id` metadata, `issue-artifact-upsert`, and `doc_id` line within first 256 characters).
+**Flow A (audit driven by an existing issue):** After writing the audit file, draft a comment with the executive summary + relative path to the file. Show the draft and ask: *"Post this to issue #NNN? (y/n)"*. See [issue-creation.md](../common/references/issue-creation.md) for the post protocol (artifact `doc_id` metadata, `issue-artifact-upsert`, and `doc_id` line within first 256 characters).
 
-**Flow B (create new issue after audit):** After writing the audit, offer to track it in a GitHub issue. Issue title: `Tech Debt Audit: <focus-area> — <repo-name> — <YYYY-MM-DD>` (without focus area: `Tech Debt Audit — <repo-name> — <YYYY-MM-DD>`). Ask which content to put in the comment (full audit / executive summary + Top 5 / executive summary only). See [github-issue-creation.md](../common/references/github-issue-creation.md) for the 5-step protocol (artifact `doc_id` metadata, `issue-artifact-upsert`, and `doc_id` line within first 256 characters).
+**Flow B (create new issue after audit):** After writing the audit, offer to track it in a new issue. Issue title: `Tech Debt Audit: <focus-area> — <repo-name> — <YYYY-MM-DD>` (without focus area: `Tech Debt Audit — <repo-name> — <YYYY-MM-DD>`). Ask which content to put in the comment (full audit / executive summary + Top 5 / executive summary only). See [issue-creation.md](../common/references/issue-creation.md) for the 5-step protocol (artifact `doc_id` metadata, `issue-artifact-upsert`, and `doc_id` line within first 256 characters).
 
 Never create an issue or post a comment without explicit "yes" confirmation.
 
@@ -178,7 +184,7 @@ Never create an issue or post a comment without explicit "yes" confirmation.
 - **Do not stop on first tool failure.** If `dotnet test` fails to build, note it and continue with the remaining dimensions.
 - **Do not install tools globally.** Note missing tools and proceed.
 - **Do not run `gh` directly — for any GitHub operation.** Use the wrappers (`issue-*`, `pr-*`, `project-*`, `pipelines-*`, inspection tools); if an operation is uncovered, surface it as a tooling gap for the user to resolve.
-- **Do not post to GitHub or create issues without explicit "yes" confirmation.**
+- **Do not post to the issue tracker or create issues without explicit "yes" confirmation.**
 - **Do not mix Flow A and Flow B.** If the argument was an issue number, use Flow A (post to existing issue). If it was a repo path, use Flow B (offer to create a new issue). Never create a new issue when the user provided an issue number.
 - **Do not audit the entire repo when a focus area was given and skip the focus entirely.** A focus area narrows depth, not breadth — still read the full architecture, but concentrate Phase 2 findings on the named area.
 

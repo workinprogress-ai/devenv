@@ -1,7 +1,7 @@
 ---
 name: devenv-write-specifications
 description: 'Conduct a structured three-phase specifications interview to produce a user-oriented specifications document. Also handles brainstorming and refinement on an existing Specifications-*.md — pass the file path to pick up where a previous session left off, explore new ideas, and integrate new input. USE WHEN the user says "write specifications", "write up specifications", "define the specifications for", "continue authoring specifications", "add more specifications", "I have a new idea", "brainstorm this change", "what if we...", or hands off a system idea that needs functional definition before planning begins. Produces (or extends) a Specifications-<topic>-NNN.md covering system vision, concrete acceptance-criteria-bearing specification items with IDs and dependency graph, and stakeholder priority groupings (not a delivery roadmap — use /devenv-create-roadmap for that). Maintains a session_memory-specifications.md across sessions. DO NOT USE for correcting, rewording, or removing existing specifications when you already know what should change (use /devenv-refine-specifications instead), for quick feature clarifications that don''t warrant a formal document, or for code generation.'
-argument-hint: '[system name | path-to-existing-notes | GitHub issue number]'
+argument-hint: '[system name | path-to-existing-notes | issue number]'
 user-invocable: true
 ---
 
@@ -510,7 +510,7 @@ This skill produces a specifications document that feeds directly into:
 
 ## Companion Tooling
 
-This skill produces the specifications document but **does not create GitHub issues**. To create issues from the approved doc, run [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md):
+This skill produces the specifications document but **does not create issues**. To create issues from the approved doc, run [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md):
 
 - **Epic-scale work** — first run [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md), then `/devenv-create-roadmap` with both the blueprint and specification items as input. The roadmap creates the parent epic + per-step child issues across component repos.
 - **Smaller work that doesn't warrant a blueprint** — run `/devenv-create-roadmap` with just the specifications doc. It supports a specification items-only mode that asks for the target component per step and creates the issues from there.

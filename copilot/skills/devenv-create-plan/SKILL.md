@@ -1,6 +1,6 @@
 ---
 name: devenv-create-plan
-description: 'Create a structured Plan.md for a user story, task, GitHub issue, complete spec/RFC/design doc, or any multi-step objective planned for later execution (code — the default — docs, mechanical file work, runbooks, mixed work). USE WHEN the user says "create a plan", "plan this story", "break this task into phases", "break down this work", "write up a plan for this", "plan from this spec", "convert this issue into a plan", or hands off a GitHub issue / user story / complete spec to be implemented. Interviews the user when needed, scans repo conventions, drafts phased atomic tasks with a plan-declared verification approach, gets explicit approval, writes the file to the target repo's gitignored .local-artifacts/ folder with a numbered suffix, and offers to publish the plan as a GitHub issue artifact comment. DO NOT USE for ad-hoc coding tasks where no plan file is wanted, for pure research/Q&A, or for editing an existing plan (just edit the file directly).'
+description: 'Create a structured Plan.md for a user story, task, GitHub-style issue, complete spec/RFC/design doc, or any multi-step objective planned for later execution (code — the default — docs, mechanical file work, runbooks, mixed work). USE WHEN the user says "create a plan", "plan this story", "break this task into phases", "break down this work", "write up a plan for this", "plan from this spec", "convert this issue into a plan", or hands off a GitHub issue / user story / complete spec to be implemented. Interviews the user when needed, scans repo conventions, drafts phased atomic tasks with a plan-declared verification approach, gets explicit approval, writes the file to the target repo's gitignored .local-artifacts/ folder with a numbered suffix, and offers to publish the plan as a GitHub issue artifact comment. DO NOT USE for ad-hoc coding tasks where no plan file is wanted, for pure research/Q&A, or for editing an existing plan (just edit the file directly).'
 argument-hint: '[issue-number[:doc_id] | path-to-story | freeform description]'
 user-invocable: true
 ---
@@ -21,7 +21,7 @@ Trigger phrases:
 - "plan this story" / "plan out this work"
 - "break this task into phases" / "break down this work"
 - "plan from this spec" / "convert this issue into a plan"
-- A GitHub issue URL or number is handed off with intent to implement
+- An issue URL or number is handed off with intent to implement
 - A pasted user story / specifications blob / complete spec with intent to implement
 
 Do **not** use for:
@@ -38,7 +38,7 @@ Exception: direct-plan mode is valid when the user intentionally wants to create
 ## Inputs the Skill Collects
 
 1. **Source material** (one or more of):
-  - GitHub issue (number or URL) — fetch with `issue-get N --pretty` and `issue-comment-list N --full`; use both the issue body and comments as source material
+  - Issue (number or URL) — fetch with `issue-get N --pretty` and `issue-comment-list N --full`; use both the issue body and comments as source material
   - Pasted user story / specifications text
   - Complete spec / RFC / design doc / issue body
    - Linked design docs or files in `planning.*` repos
@@ -278,7 +278,7 @@ Revision policy: do not create, append, or normalize `## Revision History` in th
 
 Confirm the path back to the user.
 
-### 9. Offer GitHub issue artifact publication (only if an issue is associated)
+### 9. Offer issue artifact publication (only if an issue is associated)
 
 Ask, verbatim:
 

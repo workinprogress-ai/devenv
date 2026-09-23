@@ -64,7 +64,7 @@ main() {
         exit 0
     fi
 
-    ensure_gh_login        # only if the tool talks to GitHub
+    ensure_provider_auth   # only if the tool talks to the provider (GitHub today: ensure_gh_login inside the module)
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -86,7 +86,7 @@ Source only what you use. All paths are `$DEVENV_TOOLS/lib/`.
 |---|---|---|
 | `error-handling.bash` | Logging (`log_debug/info/warn/error/fatal`, `success`), exit-code constants, `die`, `invalid_args`, `require_option_value`, `api_failure`, `handle_global_flag`, `enable_strict_mode`, `require_command`, `safe_remove` | **Always.** Non-negotiable. |
 | `versioning.bash` | `script_version` (power `-v/--version`) | Always |
-| `github-helpers.bash` | `ensure_gh_login`, `get_repo_spec`, `resolve_target_repo` | Any GitHub-facing tool |
+| `github-helpers.bash` | `ensure_gh_login`, `get_repo_spec`, `resolve_target_repo` | Any GitHub-facing tool (superseded by `tools/lib/providers/` for new work — see the [provider abstraction](../tools/lib/providers/README.md)) |
 | `git-operations.bash` | `check_target_repo` (devenv-repo safety gate) | Tools operating on the cwd's repo; required by `resolve_target_repo` |
 | `issue-operations.bash` | Issue CRUD wrappers | Issue tools |
 | `body-source.bash` | `body_source_resolve`, `body_source_capture_stdin`, `body_source_stdin_is_tty` | Tools that accept markdown/text bodies |
@@ -137,7 +137,12 @@ If your tool accepts a markdown/text body:
 - Empty or whitespace-only stdin is a hard error ("Refusing empty stdin body").
   Don't hand-roll this; the lib does it.
 
-## Repo targeting (GitHub tools)
+## Repo targeting (provider-seamed tools)
+
+Repo targeting resolves through the provider seam — the env-var chain below is
+the GitHub implementation's as-built shape (`GITHUB_REPO`, `GH_ORG` are
+as-built identifiers); a provider module owns the equivalent chain for its
+backend.
 
 - Use `resolve_target_repo [override]` — it resolves
   `--repo override` → `GITHUB_REPO` → `GH_ORG`+cwd, exports `GH_REPO`, and

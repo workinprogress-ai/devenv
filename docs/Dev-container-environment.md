@@ -286,8 +286,8 @@ authenticates clean `https://github.com/...` remotes. Nothing exports
 
 Other credentials are stored in the `.setup` folder on your host machine:
 
-* **GitHub Username** (`.setup/github_username.txt`): Your GitHub username. Automatically loaded as `GH_USER` environment variable.
-* **GitHub Organization** (`.setup/github_org.txt`): The GitHub organization that owns your repositories. Automatically loaded as `GH_ORG` environment variable.
+* **Git host username** (`.setup/github_username.txt`): Your username on the git host (GitHub today). Automatically loaded as `GH_USER` environment variable.
+* **Git host organization** (`.setup/github_org.txt`): The organization on the git host that owns your repositories. Automatically loaded as `GH_ORG` environment variable.
 * **Digital Ocean API Token** (`.setup/digitalocean_token.txt`): Used for infrastructure operations via Digital Ocean. Automatically loaded as `DO_API_TOKEN` en
 vironment variable.
 * **SSH Key** (`.setup/ssh_key_path.txt`): Path to your SSH private key for secure repository access.
@@ -295,7 +295,7 @@ vironment variable.
 These credentials are automatically loaded into the container environment on startup (via `bootstrap.sh`) and are accessible to all scripts that need them. Cred
 entials are **never** stored in the container image itself — they're only loaded at runtime from your host machine.
 
-**Re-authenticating GitHub (the keychain path):**
+**Re-authenticating (the keychain path — GitHub today):**
 
 1. Run `gh auth login` and follow the browser/device flow — or pipe a fresh
    PAT: `gh auth login --with-token --hostname github.com --skip-ssh-key`.
@@ -316,7 +316,7 @@ Trade-off (accepted): convenience over at-rest minimization — the seed gives z
 
 **To update credentials:**
 
-* GitHub Token: Run `key-update-git.sh <token>` (rotates the keychain and
+* Git host credential: Run `key-update-git.sh <token>` (rotates the keychain and
   re-wires the git credential helper), or run `gh auth login` manually
 * Digital Ocean Token: Run `./setup` and choose the Digital Ocean setup option
 * SSH Key: Configure via the initial setup or re-run the setup script

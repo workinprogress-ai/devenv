@@ -1,7 +1,7 @@
 ---
 name: devenv-spike
 description: Run an exploratory investigation of a question, build a throwaway prototype if needed, and produce a structured findings + recommendation doc. Empowered like the bug hunter: may create code to prove something, modify target-repo code, and run destructive-class experiments — with just-in-time user permission and a clear recovery route (user-run git reset). USE WHEN the user says "spike on X", "investigate whether we can Y", "explore the feasibility of Z", "throwaway prototype for Q", "do a quick proof-of-concept", or hands off an open question that needs research before any plan exists. Auto-detects input: a free-form question, or a GitHub issue number whose body describes the question. Produces a markdown doc (spike-NNN-<topic>.md) under .local-artifacts/, an explicitly throwaway prototype under playground/devenv-spike-<topic>-<date>/ if code was needed, and a chat summary. Optionally offers to open a draft issue with the findings. All artifacts are clearly marked "NOT FOR PRODUCTION". DO NOT USE for writing production code (use /devenv-pair-programming or /devenv-delegation), for lightweight thinking-out-loud without artifacts (use /devenv-rubber-duck), for executing an approved plan (use /devenv-pair-programming or /devenv-delegation), or for verifying a specific suspected bug (use /devenv-bug-hunter).
-argument-hint: A question / problem statement to investigate, OR a GitHub issue number containing the question
+argument-hint: A question / problem statement to investigate, OR an issue number containing the question
 ---
 
 # Spike
@@ -28,7 +28,7 @@ If the user wants production code, use `/devenv-pair-programming` (collaborative
 The user provides one of:
 
 - **A free-form question / problem statement** — e.g. "can we use library X for our message bus?" or "what's the perf cost of serializing every event through Y?"
-- **A GitHub issue number** — e.g. `42`. Fetch the issue body via `issue-get N --pretty`; the body describes the question.
+- **An issue number** — e.g. `42`. Fetch the issue body via `issue-get N --pretty`; the body describes the question.
 
 **Auto-detection rule:** `^[0-9]+$` → issue number; otherwise treat as free-form. Ambiguous → ask.
 
@@ -120,11 +120,11 @@ Write `spike-NNN-<topic>.md` under the target repo's `.local-artifacts/` folder 
 
 Inline summary: 3–5 bullets covering the question, the verdict, and the artifacts produced (doc path, prototype path).
 
-### 6. Optional: file a GitHub issue
+### 6. Optional: file an issue
 
 After writing the findings doc, ask:
 
-> *"Want to track this in a GitHub issue? I can create a new one, or post the findings to an existing issue number. The findings doc will go in a comment; the description stays as a short placeholder for `/devenv-create-plan`."*
+> *"Want to track this in an issue? I can create a new one, or post the findings to an existing issue number. The findings doc will go in a comment; the description stays as a short placeholder for `/devenv-create-plan`."*
 
 If yes:
 

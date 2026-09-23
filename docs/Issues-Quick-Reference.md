@@ -1,6 +1,6 @@
-# GitHub Issues Quick Reference
+# Issues Quick Reference
 
-Fast lookup for common GitHub Issues commands and workflows.
+Fast lookup for common issue commands and workflows.
 
 ## Issue Commands
 
@@ -400,5 +400,5 @@ project-update-issue --help
 
 ## See Full Documentation
 
-- Complete guide: [GitHub Issues Management](./GitHub-Issues-Management.md) — owns the workflow and concepts (types, status model, hierarchy); this quick reference owns command syntax
+- Complete guide: [Issues Management](./Issues-Management.md) — owns the workflow and concepts (types, status model, hierarchy); this quick reference owns command syntax
 - All tools: [Additional Tooling](./Additional-Tooling.md)

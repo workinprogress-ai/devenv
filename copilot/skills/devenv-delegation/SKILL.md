@@ -38,7 +38,7 @@ Trigger phrases:
 - "do this for me" — when a plan is attached
 - A plan + intent for assistant-led execution (not collaborative turn-taking)
 - An ad-hoc decomposed task list (pasted in, or carried over from a pair-programming session) + intent for an autonomous run — acceptable via the [ad-hoc intake gate](#ad-hoc-task-list-intake), never as a bare in-context list
-- A GH issue number with intent for an autonomous run — acceptable via the [issue intake gate](#gh-issue-intake), which materializes a small plan first
+- An issue number with intent for an autonomous run — acceptable via the [issue intake gate](#gh-issue-intake), which materializes a small plan first
 
 Do **not** use for:
 

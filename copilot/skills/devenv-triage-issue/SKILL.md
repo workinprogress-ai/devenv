@@ -1,15 +1,15 @@
 ---
 name: devenv-triage-issue
-description: Triage GitHub issues on two layers — workflow routing (which skill should handle it: bug → /devenv-bug-hunter, ready-to-plan → /devenv-create-plan, design-unclear → /devenv-grooming, one bounded question → /devenv-design-discussion, cross-component epic → /devenv-create-blueprint + /devenv-create-roadmap, unknown feasibility → /devenv-spike, debt assessment → /devenv-tech-debt-audit, docs gap → /devenv-document, missing functional definition → /devenv-write-specifications, upstream-impact label → refine skills) and GitHub metadata (type, labels, priority, size, duplicates, clarifying comment). USE WHEN the user says "triage this issue", "what should handle this issue", "route this issue", "triage #123", "label and size this", "is this a duplicate", or hands off a fresh untriaged issue / batch / pasted issue text. Auto-detects input: issue number(s) → fetched via issue-get; pasted text → triaged in place. Bundles all proposed writes into a single y/n confirm before applying. DO NOT USE FOR implementing the issue (skills routed to take over) or plain summaries (use the default agent / summarize-github-issue-pr-notification).
+description: Triage issues on two layers — workflow routing (which skill should handle it: bug → /devenv-bug-hunter, ready-to-plan → /devenv-create-plan, design-unclear → /devenv-grooming, one bounded question → /devenv-design-discussion, cross-component epic → /devenv-create-blueprint + /devenv-create-roadmap, unknown feasibility → /devenv-spike, debt assessment → /devenv-tech-debt-audit, docs gap → /devenv-document, missing functional definition → /devenv-write-specifications, upstream-impact label → refine skills) and GitHub metadata (type, labels, priority, size, duplicates, clarifying comment). USE WHEN the user says "triage this issue", "what should handle this issue", "route this issue", "triage #123", "label and size this", "is this a duplicate", or hands off a fresh untriaged issue / batch / pasted issue text. Auto-detects input: issue number(s) → fetched via issue-get; pasted text → triaged in place. Bundles all proposed writes into a single y/n confirm before applying. DO NOT USE FOR implementing the issue (skills routed to take over) or plain summaries (use the default agent / summarize-github-issue-pr-notification).
 argument-hint: An issue number, list of issue numbers, or pasted issue text to triage
 ---
 
 # Triage issue
 
-Take a fresh / untriaged GitHub issue and produce a structured triage recommendation in two layers:
+Take a fresh / untriaged issue and produce a structured triage recommendation in two layers:
 
 1. **Workflow routing** — where does this issue sit in the delivery workflow, and which skill should pick it up?
-2. **GitHub metadata** — type, labels, priority, size, duplicate check, and (if needed) a drafted clarifying comment.
+2. **Issue metadata** — type, labels, priority, size, duplicate check, and (if needed) a drafted clarifying comment (native provider issue types today: GitHub).
 
 Bundle all proposed writes into one confirmation before applying.
 
@@ -99,7 +99,7 @@ Routing rules:
 - **docs** — gaps or errors in documentation.
 - **chore** — refactor, dependency bump, internal cleanup; no user-visible change.
 
-The native GitHub type is written via `issue-update <N> --type <Bug|Feature|Task|Epic>` (map the classification above onto the native vocabulary; legacy aliases accepted).
+The native provider issue type is written via `issue-update <N> --type <Bug|Feature|Task|Epic>` (map the classification above onto the native vocabulary; legacy aliases accepted).
 
 **Epic is orchestration, not size.** Reserve the native `Epic` type for issues that are long-lived and coordinate work across multiple repos or multiple independently-delivered efforts. A large single-repo deliverable — even one with many steps or a multi-phase plan — is a **Feature**. Epics orchestrate; features deliver. When a classification is between Feature and Epic, choose Feature.
 

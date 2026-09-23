@@ -6,7 +6,7 @@ A comprehensive development environment setup with dev containers, tooling, and 
 
 - **Dev Container Environment**: Fully configured development container with all necessary tools
 - **Repository Management**: Scripts for cloning, updating, and managing multiple repositories
-- **Pull Request Workflows**: GitHub CLI-based PR creation and management tools
+- **Pull Request Workflows**: wrapper-based PR creation and management tools (routed through the provider abstraction)
 - **Developer Utilities**: Script templates, linting, versioning, and code quality tools
 - **Database Tools**: MongoDB, SQL Server, and SMB server utilities
 - **.NET Development**: NuGet package management and local debugging support
@@ -210,10 +210,10 @@ For more information see the documentation:
 - [The Development Environment](./docs/Dev-container-environment.md) - Comprehensive dev container guide
 - [Additional Tooling](./docs/Additional-Tooling.md) - All available scripts and utilities
 
-**GitHub Issues & Projects:**
+**Issues & Projects** (as-built on GitHub):
 
-- [GitHub Issues Management](./docs/GitHub-Issues-Management.md) - Complete workflow guide for GitHub Issues, Projects, and Milestones
-- [GitHub Issues Quick Reference](./docs/GitHub-Issues-Quick-Reference.md) - Fast lookup for common commands
+- [Issues Management](./docs/Issues-Management.md) - Complete workflow guide for issues, projects, and milestones (as-built on GitHub)
+- [Issues Quick Reference](./docs/Issues-Quick-Reference.md) - Fast lookup for common commands
 
 **Development Standards:**
 
@@ -227,7 +227,7 @@ For more information see the documentation:
 
 **Customizing the devenv:**
 
-The devenv can be forked and customized to use with other organizations. See [the Devenv customization guide](./docs/Devenv-Customization.md)
+The devenv can be forked and customized to use with other organizations. See [the forking guide](./docs/Forking.md)
 
 ## Testing
 
