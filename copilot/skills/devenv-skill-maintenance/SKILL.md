@@ -66,7 +66,7 @@ When a file path is provided, read that file first and treat it as the primary d
 
 If a reported problem does not fit one of these categories, stop and ask for clarification instead of guessing.
 
-> **Micro-fix lane:** a small bug spotted in the workspace tooling or bash scripts *during* a maintenance session (e.g. while sweeping skills) may be fixed in-session under the shared [incidental implementation protocol](../common/references/incidental-implementation-protocol.md) once the maintenance task itself is complete — explicit ask or offered choice, micro size ceiling, supervised handback. Anything beyond micro routes to `/devenv-pair-programming`, `/devenv-create-plan`, or `/devenv-delegation` per that protocol.
+> **Micro-fix lane:** a small bug spotted in the workspace tooling or bash scripts *during* a maintenance session (e.g. while sweeping skills) may be fixed in-session under the shared [incidental implementation protocol](../common/references/incidental-implementation-protocol.md) once the maintenance task itself is complete — explicit ask or offered choice, micro size ceiling, supervised handback. Anything beyond micro routes to `/devenv-pair`, `/devenv-plan`, or `/devenv-delegate` per that protocol.
 
 ## Evidence bar (non-negotiable)
 
@@ -102,16 +102,20 @@ A devenv issue describing a skill-system problem is a first-class intake: fetch 
 
 ## Repair process
 
-1. Restate the problem set in one short summary.
-2. Parse diagnostic input and map each finding to one or more concrete files.
+1. **Run `lint-skills` before touching anything** and record its findings as part of the
+   problem set — it is this skill's required pre-repair validator. Re-run it after the repair;
+   the repair is not complete until it exits clean (or the remaining findings are explicitly
+   waived by the user, with reasons).
+2. Restate the problem set in one short summary.
+3. Parse diagnostic input and map each finding to one or more concrete files.
   - If diagnostics are pasted in chat, parse the pasted content.
   - If the user provides a file path, read that file and parse its contents.
   - If both are provided, use the file as canonical and treat pasted content as supplemental unless the user says otherwise.
   - For `IMPROVEMENT_REPORT.md` input, validate every candidate against the evidence bar before mapping to files; rejected candidates are surfaced to the user with reasons, not silently dropped or applied.
-3. Decide whether the fix is local to one skill or affects multiple skills plus shared routing/docs. For bulk edits across many skills (e.g., adding a new standard reference, updating a shared protocol), use a systematic batch operation rather than many individual edits.
-4. Make the smallest patch that resolves the reported problems. If the pattern affects many skills (> 3), write a batch script or clearly documented find-replace rule; surface the pattern to the user for validation before applying.
-5. Keep wording consistent with existing skill language and current workspace conventions.
-6. Update linked governance docs as needed in the same change:
+4. Decide whether the fix is local to one skill or affects multiple skills plus shared routing/docs. For bulk edits across many skills (e.g., adding a new standard reference, updating a shared protocol), use a systematic batch operation rather than many individual edits.
+5. Make the smallest patch that resolves the reported problems. If the pattern affects many skills (> 3), write a batch script or clearly documented find-replace rule; surface the pattern to the user for validation before applying.
+6. Keep wording consistent with existing skill language and current workspace conventions.
+7. Update linked governance docs as needed in the same change:
 	- `docs/Skills.md` for user-facing catalog alignment.
 	- `docs/Workflow.md` only when principles, flow semantics, or methodology wording are affected.
 	- `copilot/skills/devenv-help/references/skills-registry.md` when discoverability/routing metadata changes.

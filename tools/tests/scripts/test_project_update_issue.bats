@@ -86,3 +86,110 @@ EOF
     [ "$status" -eq 0 ]
     [[ "$output" == *"gh-project-field-list-called"* ]]
 }
+
+# --- --field real write path (single-select, via the shared GraphQL helpers) ---
+
+# Install a jq-applying gh stub (the wrapper's field/option resolution filters
+# inside the jq program, so a bare exit-0 gh cannot satisfy the real path).
+jq_gh_stub() {
+    cat > "$STUB_DIR/gh" <<'EOF'
+#!/usr/bin/env bash
+prog=""
+prev=""
+for a in "$@"; do
+    if [ "$prev" = "--jq" ]; then prog="$a"; fi
+    prev="$a"
+done
+payload=""
+case "$*" in
+    *"items(first"*)
+        payload='{"data":{"node":{"items":{"pageInfo":{"hasNextPage":false,"endCursor":""},"nodes":[{"id":"PVTI_item1","content":{"number":123,"repository":{"nameWithOwner":"test-org/test-repo"}}}]}}}}'
+        ;;
+    *"projectsV2(first"*)
+        payload='{"data":{"organization":{"projectsV2":{"pageInfo":{"hasNextPage":false,"endCursor":""},"nodes":[{"id":"PVT_test1","number":9,"title":"someproject"}]}}}}'
+        ;;
+    *"ProjectV2SingleSelectField"*)
+        payload='{"data":{"node":{"field":{"id":"PVTVF_f1","options":[{"id":"PVTFO_o1","name":"High"}]}}}}'
+        ;;
+    *updateProjectV2ItemFieldValue*)
+        payload='{"data":{"updateProjectV2ItemFieldValue":{"projectV2Item":{"id":"PVTI_item1"}}}}'
+        ;;
+    *"projectV2(number"*)
+        payload='{"data":{"organization":{"projectV2":{"id":"PVT_test1"}}}}'
+        ;;
+    *)
+        payload='{"data":{}}'
+        ;;
+esac
+if [ -n "$prog" ]; then
+    printf '%s' "$payload" | jq -r "$prog"
+else
+    echo "$payload"
+fi
+EOF
+    chmod +x "$STUB_DIR/gh"
+}
+
+@test "--field performs a real single-select write (mutation issued)" {
+    jq_gh_stub
+    run bash "$SCRIPT" someproject 123 --field "Priority=High"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Set Priority='High'"* ]]
+}
+
+@test "--field with unresolvable option fails with named error (never lies)" {
+    jq_gh_stub
+    # Same stub, but the field has no matching option for the requested value.
+    cat > "$STUB_DIR/gh" <<'EOF'
+#!/usr/bin/env bash
+prog=""
+prev=""
+for a in "$@"; do
+    if [ "$prev" = "--jq" ]; then prog="$a"; fi
+    prev="$a"
+done
+payload='{"data":{}}'
+case "$*" in
+    *"items(first"*)
+        payload='{"data":{"node":{"items":{"pageInfo":{"hasNextPage":false,"endCursor":""},"nodes":[{"id":"PVTI_item1","content":{"number":123,"repository":{"nameWithOwner":"test-org/test-repo"}}}]}}}}'
+        ;;
+    *"projectsV2(first"*)
+        payload='{"data":{"organization":{"projectsV2":{"pageInfo":{"hasNextPage":false,"endCursor":""},"nodes":[{"id":"PVT_test1","number":9,"title":"someproject"}]}}}}'
+        ;;
+esac
+printf '%s' "$payload" | jq -r "$prog"
+EOF
+    chmod +x "$STUB_DIR/gh"
+    run bash "$SCRIPT" someproject 123 --field "Priority=Nope"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"not found"* ]]
+}
+
+@test "--field with invalid NAME=VALUE format fails" {
+    jq_gh_stub
+    run bash "$SCRIPT" someproject 123 --field "NoEqualsSign"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"expected NAME=VALUE"* ]]
+}
+
+@test "--field combined with --all-projects is rejected" {
+    run bash "$SCRIPT" 123 --all-projects --field "Priority=High"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"fan-out is Status-only"* ]]
+}
+
+@test "failed --status exits non-zero even with a --field queued" {
+    # gh stub that fails the project lookup (project not found): the status
+    # update fails, and the wrapper must exit 1, not paper over it.
+    printf '#!/usr/bin/env bash\nexit 1\n' > "$STUB_DIR/gh"
+    chmod +x "$STUB_DIR/gh"
+    run bash "$SCRIPT" someproject 123 --status "Ready" --field "Priority=High"
+    [ "$status" -ne 0 ]
+}
+
+@test "--help documents hyphenated To-Groom vocabulary" {
+    run bash "$SCRIPT" --help
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"To-Groom"* ]]
+    ! grep -q "To Groom" <<< "$output"
+}

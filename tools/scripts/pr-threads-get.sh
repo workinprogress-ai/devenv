@@ -15,7 +15,7 @@ set -euo pipefail
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 
 readonly SCRIPT_VERSION="1.0.0"
@@ -136,53 +136,18 @@ fetch_threads() {
 
     log_verbose "Fetching review threads for PR #$PR_NUMBER in $repo_owner/$repo_name"
 
-    # GraphQL query — fetches review threads with nested comments
-    # We use 100 threads per page; paginate if needed (most PRs have < 100)
-    local query='
-query($owner: String!, $repo: String!, $pr: Int!, $cursor: String) {
-  repository(owner: $owner, name: $repo) {
-    pullRequest(number: $pr) {
-      reviewThreads(first: 100, after: $cursor) {
-        pageInfo { hasNextPage endCursor }
-        nodes {
-          id
-          isResolved
-          path
-          line
-          startLine
-          diffSide
-          comments(first: 50) {
-            nodes {
-              id
-              databaseId
-              author { login }
-              body
-              createdAt
-              url
-            }
-          }
-        }
-      }
-    }
-  }
-}'
+    # The query document lives in the provider module (QUERY_PR_THREADS);
+    # provider_prs_threads_page passes it per page.
 
     local all_threads="[]"
     local cursor="null"
     local has_next_page=true
 
     while [ "$has_next_page" = "true" ]; do
-        local gh_args=()
-        gh_args+=(-f query="$query")
-        gh_args+=(-f owner="$repo_owner")
-        gh_args+=(-f repo="$repo_name")
-        gh_args+=(-F pr="$PR_NUMBER")
-        if [ "$cursor" != "null" ]; then
-            gh_args+=(-f cursor="$cursor")
-        fi
-
+        # Per-page transport lives in the facade verb; this loop owns only
+        # the cursor walk and extraction.
         local response
-        response=$(provider_api graphql "${gh_args[@]}" 2>/dev/null || true)
+        response=$(provider_prs_threads_page "$repo_owner/$repo_name" "$PR_NUMBER" "$([ "$cursor" != "null" ] && echo "$cursor" || true)" 2>/dev/null || true)
 
         if [ -z "$response" ]; then
             log_error "GraphQL query returned empty response"

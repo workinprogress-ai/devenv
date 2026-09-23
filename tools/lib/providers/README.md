@@ -15,11 +15,13 @@ tools/lib/providers/
 │   ├── issues.bash         # issues, labels, milestones, native types
 │   ├── prs.bash            # prs, review threads, merge lookups
 │   ├── repos.bash          # repos, protection, perms, repo_target normalizer
-│   ├── actions.bash        # runs, workflows, artifacts, polling
+│   ├── pipelines.bash      # runs, workflows, artifacts, polling
+│   │                       # (tool name "pipelines-*"; domain formerly
+│   │                       #  named "actions" — same surface)
 │   ├── projects.bash       # project boards (GH-only capability)
-│   └── org.bash            # rulesets, releases, org issue-types
-└── INVENTORY.md            # gh-call inventory this facade was derived from
-                            # (point-in-time snapshot; retires with slice 3/#36)
+│   ├── org.bash            # rulesets, releases, org issue-types
+│   ├── urls.bash           # host/transport/web-URL seam
+│   └── auth.bash           # credential lifecycle (login, status, token)
 ```
 
 ## Usage
@@ -94,8 +96,9 @@ It ships **empty**.
 ## Repo targeting
 
 `provider_repo_target` (repos.bash) is the canonical normalizer. Resolution
-order: explicit arg → `GITHUB_REPO` → full-form `GH_REPO` → empty (caller
-resolves from the cwd git remote). Slice 3 routing (#36) builds on this.
+order: explicit arg → `DEVENV_REPO` env (the deprecated `GITHUB_REPO` alias
+still resolves) → full-form `GH_REPO` → org identity + cwd git root basename →
+empty (caller decides the error).
 
 ## Provider tests — who runs what
 
@@ -114,9 +117,10 @@ Suite naming is fixed now so a per-provider directory layout later is a pure
 
 ## Related slices
 
-- Slice 2 (#35): file-based PAT store behind the auth seam.
+- Slice 2 (#35): keychain-first auth behind the auth seam (env tokens only
+  via the explicit allowlist; no file-based token store shipped).
 - Slice 3 (#36): route existing wrappers through this facade (also retires
-  `INVENTORY.md`).
+  
 - Slice 7 (#40): Azure DevOps provider.
 - Slice 9 (#41): full documentation overhaul — this README is a stub.
 

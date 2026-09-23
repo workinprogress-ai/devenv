@@ -115,8 +115,8 @@ Run the full refinement flow (revision interview, hard rules, completeness recon
 ### Intent-only → extract intent, then re-plan
 
 1. **Extract intent** — one paragraph per phase describing *what it was trying to achieve* (the goal, not the tasks). Reconstruct or preserve the human-facing `## Phases` section if missing or clearly stale. Show the user; ask *"Does this capture the intent correctly, or has any of it changed?"*
-2. Ask: *"Do you want me to run a full re-plan now using these as goals, or just save the intent summary so you can run `/devenv-create-plan` when you're ready?"*
-3. **Re-planning now**: hand off to `/devenv-create-plan` with the extracted intents as goals (skip its free-form goals interview; interview only for repo/tech context). Write a new `Plan-*.md` with a fresh suffix, preserving the old plan file as-is.
+2. Ask: *"Do you want me to run a full re-plan now using these as goals, or just save the intent summary so you can run `/devenv-plan` when you're ready?"*
+3. **Re-planning now**: hand off to `/devenv-plan` with the extracted intents as goals (skip its free-form goals interview; interview only for repo/tech context). Write a new `Plan-*.md` with a fresh suffix, preserving the old plan file as-is.
 4. **Saving for later**: write the intent summary as a `## Preserved intent` section appended to the bottom of the existing plan, and update the status line to `Status: intent-only — tasks are stale; see Preserved intent for goals.` (current-state status; no date marker).
 
 ## Rules

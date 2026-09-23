@@ -44,6 +44,30 @@ Per-tool entries below reference this section instead of restating the semantics
 
 ## Repository inspection & plan tooling (provider-neutral)
 
+### lint-skills
+
+Deterministic contract checker for the `copilot/skills` tree. Checks (named `SK001`–`SK006`): frontmatter validity (`name:`/`description:`/`user-invocable:`), frontmatter-name/directory match, description length limits (warn > 1200, fail > 2000), registry ↔ filesystem bidirectional match (ghosts and orphans), catalog presence, relative-link resolution, and retired-name reintroduction. Accepts a repo root or a direct skills directory; defaults to its own repo.
+
+```
+lint-skills [<repo-root-or-skills-dir>]
+```
+
+Exit 0 = clean (warnings allowed); exit 1 = any failure. `/devenv-skill-maintenance` requires a clean run before and after every repair.
+
+---
+
+### skill-orient
+
+Shared read-only orientation stanza for skills. Emits compact JSON: active plan (path + done/total/open census), scoped TODO markers in the requested scope, staged/unstaged/untracked counts, and a provenance hint.
+
+```
+skill-orient [--scope <paths...>] [--plan <plan-file>]
+```
+
+Read-only; one git-status parse, one marker scan, one plan-parse census — no exploration, no network. Canonical orientation step for pair, delegate, and commit kickoffs.
+
+---
+
 ### repo-cache-update
 
 Refresh the C# repository cache and dependency index, then print the cache directory path on stdout.

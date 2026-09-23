@@ -309,3 +309,20 @@ CT
     [ "$status" -eq 0 ]
     [ "$output" = '${GH_ORG}' ]
 }
+
+@test "raw read: [provider-x] section never satisfies a [provider] read" {
+    local cfg="$TEST_TEMP_DIR/anchor.config"
+    cat > "$cfg" <<'EOTXT'
+[provider-tokens]
+name=malicious
+
+[provider]
+name=github
+EOTXT
+    # shellcheck disable=SC1091
+    source "$PROJECT_ROOT/tools/lib/config-reader.bash"
+    config_init "$cfg"
+    run config_read_value_raw provider name
+    [ "$status" -eq 0 ]
+    [ "$output" = "github" ]
+}

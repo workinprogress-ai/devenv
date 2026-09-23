@@ -26,15 +26,28 @@ setup() {
     cat > "$STUB_DIR/gh" <<'STUB'
 #!/usr/bin/env bash
 echo "gh $*" >> "$STUB_CALLS"
+# Apply the caller's --jq program like real gh (the project lookup filters
+# inside that program; a raw-JSON echo would break the contract it asserts).
+prog=""
+prev=""
+for a in "$@"; do
+    if [ "$prev" = "--jq" ]; then prog="$a"; fi
+    prev="$a"
+done
 case "$*" in
-    *"updateProjectV2ItemFieldValue"*) echo '{"data":{"updateProjectV2ItemFieldValue":{"projectV2Item":{"id":"PVTI_x"}}}}' ;;
-    *"projectV2(number"*) echo '{"data":{"organization":{"projectV2":{"id":"PVT_p1"}}}}' ;;
-    *"items(first"*) echo '{"data":{"node":{"items":{"nodes":[{"id":"PVTI_x","content":{"number":44}}]}}}}' ;;
-    *"ProjectV2SingleSelectField"*) echo '{"data":{"node":{"field":{"id":"PVTVF_f","options":[{"id":"PVTFO_o","name":"To-Groom"}]}}}}' ;;
-    *"projectsV2(first"*) echo '{"data":{"organization":{"projectsV2":{"nodes":[{"id":"PVT_p1","number":9,"title":"P","owner":{"login":"test-org"}}]}}}}' ;;
-    *"resource(url"*) echo '{"data":{"resource":{"projectItems":{"nodes":[{"project":{"id":"PVT_p1","number":9,"title":"P","owner":{"login":"test-org"}},"fieldValues":{"nodes":[]}}]}}}}' ;;
-    *) echo '{"data":{}}' ;;
+    *"updateProjectV2ItemFieldValue"*) payload='{"data":{"updateProjectV2ItemFieldValue":{"projectV2Item":{"id":"PVTI_x"}}}}' ;;
+    *"projectV2(number"*) payload='{"data":{"organization":{"projectV2":{"id":"PVT_p1"}}}}' ;;
+    *"items(first"*) payload='{"data":{"node":{"items":{"pageInfo":{"hasNextPage":false,"endCursor":""},"nodes":[{"id":"PVTI_x","content":{"number":44,"repository":{"nameWithOwner":"test-org/test-repo"}}}]}}}}' ;;
+    *"ProjectV2SingleSelectField"*) payload='{"data":{"node":{"field":{"id":"PVTVF_f","options":[{"id":"PVTFO_o","name":"To-Groom"}]}}}}' ;;
+    *"projectsV2(first"*) payload='{"data":{"organization":{"projectsV2":{"pageInfo":{"hasNextPage":false,"endCursor":""},"nodes":[{"id":"PVT_p1","number":9,"title":"P","owner":{"login":"test-org"}}]}}}}' ;;
+    *"resource(url"*) payload='{"data":{"resource":{"projectItems":{"nodes":[{"project":{"id":"PVT_p1","number":9,"title":"P","owner":{"login":"test-org"}},"fieldValues":{"nodes":[]}}]}}}}' ;;
+    *) payload='{"data":{}}' ;;
 esac
+if [ -n "$prog" ]; then
+    printf '%s' "$payload" | jq -r "$prog"
+else
+    echo "$payload"
+fi
 STUB
     export STUB_CALLS="$stub_dir/calls.log"
     run bash "$DISPATCH" _on_begin_grooming 44

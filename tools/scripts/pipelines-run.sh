@@ -16,7 +16,7 @@ set -euo pipefail
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
@@ -77,16 +77,20 @@ EOF
 }
 
 trigger_workflow() {
-    local gh_args=()
-    gh_args+=(-R "$REPO")
-    [ -n "$REF" ] && gh_args+=(--ref "$REF")
+    local trigger_args=()
+    [ -n "$REF" ] && trigger_args+=(--ref "$REF")
     for input in "${INPUTS[@]}"; do
-        gh_args+=(--field "$input")
+        trigger_args+=(--field "$input")
     done
 
     log_verbose "Triggering workflow '$WORKFLOW' in $REPO${REF:+ on $REF}"
 
-    if ! provider_actions_workflow_run "$WORKFLOW" "${gh_args[@]}"; then
+    # Repo and workflow go positionally: the facade verb's signature is
+    # provider_pipelines_workflow_run [repo] WORKFLOW [flags...] and it builds
+    # the -R form itself. Feeding it a prebuilt (-R repo ...) array made the
+    # leading -R land in the optional-repo slot, producing "gh workflow run
+    # -R -R ...".
+    if ! provider_pipelines_workflow_run "$REPO" "$WORKFLOW" "${trigger_args[@]}"; then
         log_error "Failed to trigger workflow: $WORKFLOW"
         exit 1
     fi
@@ -98,7 +102,7 @@ trigger_workflow() {
     sleep 2
 
     local run_url
-    run_url=$(provider_actions_run_list "$REPO" \
+    run_url=$(provider_pipelines_run_list "$REPO" \
         --workflow "$WORKFLOW" \
         --limit 1 \
         --json url \
@@ -108,7 +112,7 @@ trigger_workflow() {
         log_info "Run URL: $run_url"
     else
         log_warn "Run queued but URL not yet available."
-        log_warn "Check: provider_actions_run_list $REPO --workflow $WORKFLOW"
+        log_warn "Check: provider_pipelines_run_list $REPO --workflow $WORKFLOW"
     fi
 }
 

@@ -13,8 +13,8 @@
 #     provider_secret_get. Domain modules and scripts never read GH_TOKEN
 #     directly, so the credential backing store swaps in behind these
 #     functions without touching callers.
-#   - Token resolution order: env-if-allowlisted → keychain (gh auth token)
-#     → error. A session-scoped GH_TOKEN export is honored only when the
+#   - Token resolution order: env-if-allowlisted → provider credential
+#     store (the active provider's auth module) → error. A session-scoped GH_TOKEN export is honored only when the
 #     allowlist opts in (escape hatch); otherwise the seam warns and falls
 #     through to the keychain.
 #   - Capability flags: GH-only surfaces (rulesets, project boards, native
@@ -22,7 +22,7 @@
 #     provider_require_capability, which fails with a defined
 #     "provider does not support this" error instead of failing mid-command.
 #   - Error contract: library functions return non-zero and log via log_error;
-#     provider-core never exits (github-helpers' `exit 1` is the recorded
+#     provider-core never exits (provider-loader's `exit 1` is the recorded
 #     anti-precedent). Exit decisions belong to scripts.
 #
 # Sourcing contract: callers set DEVENV_TOOLS (self-root contract), source
@@ -114,7 +114,8 @@ provider_detect() {
             # Minimal INI read: value in the [provider] section. Tolerates
             # comments, blank lines, and padded keys/values; first match wins.
             name=$(awk -F= '
-                /^\[/ { in_provider = ($0 ~ /^\[provider\]/) ; next }
+                /^\[provider\]$/ { in_provider = 1; next }
+                /^\[/ { in_provider = 0; next }
                 in_provider && $1 ~ /^[ \t]*name[ \t]*$/ { v=$2; gsub(/^[ \t]+|[ \t]+$/, "", v); print v; exit }
             ' "$config_file")
         fi
@@ -147,7 +148,8 @@ provider_detect() {
         if [ -z "$allow" ]; then
             # Same minimal INI fallback as the name key above.
             allow=$(awk -F= '
-                /^\[/ { in_provider = ($0 ~ /^\[provider\]/) ; next }
+                /^\[provider\]$/ { in_provider = 1; next }
+                /^\[/ { in_provider = 0; next }
                 in_provider && $1 ~ /^[ \t]*token_env_allowlist[ \t]*$/ { v=$2; gsub(/^[ \t]+|[ \t]+$/, "", v); print v; exit }
             ' "$config_file")
         fi
@@ -170,6 +172,53 @@ provider_module_dir() {
         return 1
     fi
     echo "${DEVENV_TOOLS}/lib/providers/${PROVIDER_NAME}"
+}
+
+# The one canonical module loader: detect if needed, then source the named
+# domain modules for the active provider. This replaces the per-lib guarded
+# detect+source blocks (which drifted — one lib forgot auth.bash, and their
+# hard-coded github fallbacks bypassed the policy layer). Best-effort by
+# contract: a module file that does not exist is skipped with a warning, so
+# a bare checkout carrying only this lib still loads (call sites fail
+# defined), and an already-sourced module is a no-op (each module guards its
+# own re-sourcing).
+#
+# Module paths anchor on this file's own location (the self-root contract:
+# self-location wins), not on DEVENV_TOOLS — a caller may legitimately point
+# DEVENV_TOOLS elsewhere (test isolation does exactly that) without moving
+# the provider modules out from under the loader.
+#
+# Usage:
+#   provider_load issues prs repos        # source those modules
+#   provider_load                          # core only (detect + no modules)
+#
+# Returns:
+#   0 when detection ran (or was already done); 1 when detection fails.
+provider_load() {
+    if [ -z "$PROVIDER_NAME" ]; then
+        provider_detect "${DEVENV_ROOT:-}/devenv.config" 2>/dev/null
+        if [ -z "$PROVIDER_NAME" ]; then
+            # Policy-layer default with historical fallback for stripped
+            # bootstrapping environments.
+            PROVIDER_NAME="$(policy_default_provider 2>/dev/null || echo github)"
+            export PROVIDER_NAME
+        fi
+    fi
+    if [ -z "${_PROVIDER_CORE_MODULE_DIR:-}" ]; then
+        _PROVIDER_CORE_MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        export _PROVIDER_CORE_MODULE_DIR
+    fi
+    local module_dir="${_PROVIDER_CORE_MODULE_DIR}/${PROVIDER_NAME}"
+    local module
+    for module in "$@"; do
+        if [ -f "$module_dir/$module.bash" ]; then
+            # shellcheck disable=SC1090
+            source "$module_dir/$module.bash"
+        else
+            log_warn "provider_load: module '$module' not present for provider '$PROVIDER_NAME' — skipped (call sites must fail defined)"
+        fi
+    done
+    return 0
 }
 
 # Dispatch guard for a domain verb: verifies the active provider implements
@@ -211,9 +260,20 @@ provider_token_env_allowed() {
 }
 
 # Warn that a session-scoped GH_TOKEN export is being ignored. Kept on stderr
-# so stdout consumers (eval capture, emitted exports) are unaffected.
+# so stdout consumers (eval capture, emitted exports) are unaffected. The
+# fallback wording is provider-neutral; the active provider's credential
+# store decides what "keychain" concretely means.
 provider_token_env_denied_warning() {
-    log_warn "GH_TOKEN is set but not on the env allowlist (config key [provider] token_env_allowlist) — ignored; resolving via keychain ('gh auth token'). Add an allowlist entry only with a documented justification."
+    log_warn "GH_TOKEN is set but not on the env allowlist (config key [provider] token_env_allowlist) — ignored; resolving via the ${PROVIDER_NAME:-active} provider credential store. Add an allowlist entry only with a documented justification."
+}
+
+# Whether the active provider offers a credential-store (keychain) token.
+# Delegates to the provider module's provider_auth_token_impl — the neutral
+# core owns the allowlist policy, never a concrete credential CLI.
+# Returns 0 when a keychain token is available; 1 otherwise.
+_provider_keychain_available() {
+    declare -F provider_auth_token_impl >/dev/null || return 1
+    provider_auth_token_impl >/dev/null 2>&1
 }
 
 # Resolve the token source kind in order: env-if-allowlisted → keychain →
@@ -226,19 +286,17 @@ provider_token_kind() {
         fi
         provider_token_env_denied_warning
     fi
-    if command -v gh >/dev/null 2>&1; then
-        if gh auth token >/dev/null 2>&1; then
-            printf '%s\n' "$PROVIDER_TOKEN_KEYCHAIN"
-            return 0
-        fi
+    if _provider_keychain_available; then
+        printf '%s\n' "$PROVIDER_TOKEN_KEYCHAIN"
+        return 0
     fi
     return 1
 }
 
-# Emit the environment assignments domain modules need for gh auth, without
-# exposing the token value. Resolution order: env-if-allowlisted → keychain
-# (gh auth token) → error. The keychain branch emits no token export — gh
-# resolves natively from its own credential store.
+# Emit the environment assignments domain modules need for auth, without
+# exposing the token value. Resolution order: env-if-allowlisted → provider
+# credential store → error. The keychain branch emits no token export —
+# the provider CLI resolves natively from its own credential store.
 #
 # Usage:
 #   eval "$(provider_auth_env)"   # or inspect PROVIDER_AUTH_KIND
@@ -248,7 +306,7 @@ provider_token_kind() {
 provider_auth_env() {
     local kind
     kind=$(provider_token_kind) || {
-        log_error "no credential source available (GH_TOKEN not allowlisted and keychain 'gh auth token' failed) — provider auth seam cannot resolve"
+        log_error "no credential source available (GH_TOKEN not allowlisted and the ${PROVIDER_NAME:-active} provider credential store has no token) — provider auth seam cannot resolve"
         return 1
     }
     case "$kind" in
@@ -262,9 +320,10 @@ provider_auth_env() {
             return 0
             ;;
         "$PROVIDER_TOKEN_KEYCHAIN")
-            # No token export: gh resolves natively from its credential store.
+            # No token export: the provider CLI resolves natively from its
+            # own credential store.
             # Emit `unset GH_TOKEN` so a leftover (ignored) env token cannot
-            # outrank the keychain in child gh processes.
+            # outrank the credential store in child provider-CLI processes.
             printf 'unset GH_TOKEN\n'
             printf 'export PROVIDER_AUTH_KIND=%q\n' "$PROVIDER_TOKEN_KEYCHAIN"
             return 0
@@ -292,14 +351,14 @@ provider_secret_get() {
                 return 0
             fi
             [ -n "${GH_TOKEN:-}" ] && provider_token_env_denied_warning
-            if command -v gh >/dev/null 2>&1; then
+            if declare -F provider_auth_token_impl >/dev/null; then
                 local tok
-                if tok=$(gh auth token 2>/dev/null) && [ -n "$tok" ]; then
+                if tok=$(provider_auth_token_impl 2>/dev/null) && [ -n "$tok" ]; then
                     printf '%s\n' "$tok"
                     return 0
                 fi
             fi
-            log_error "secret 'token' unavailable via provider '${PROVIDER_NAME}' (env token not allowlisted and keychain 'gh auth token' failed)"
+            log_error "secret 'token' unavailable via provider '${PROVIDER_NAME}' (env token not allowlisted and the provider credential store has no token)"
             return 1
             ;;
         *)
@@ -313,11 +372,35 @@ provider_secret_get() {
 # Capability flags (AC-3)
 # ============================================================================
 
-# Capability registry for the active provider. Domain modules populate
-# PROVIDER_CAPABILITIES at source time; core owns the query/gate helpers.
-# Space-separated canonical capability names:
-#   rulesets  project-boards  native-issue-types  releases  actions
+# Capability registry for the active provider. Domain modules declare at
+# source time via provider_declare_capability (validation against the
+# canonical list fails fast on typos); core owns the query/gate helpers.
+# Canonical capability names:
+#   rulesets  project-boards  native-issue-types  pipelines
+# (releases is deliberately absent: portable across providers, ungated.)
 PROVIDER_CAPABILITIES="${PROVIDER_CAPABILITIES:-}"
+
+# Canonical capability names. A declare of anything else is a bug — fail at
+# source time with a named error rather than silently answering false at
+# query time.
+PROVIDER_CAPABILITY_CANONICAL="rulesets project-boards native-issue-types pipelines"
+
+# Declare one capability for the active provider.
+# Usage: provider_declare_capability <name>
+provider_declare_capability() {
+    local cap="$1"
+    case " $PROVIDER_CAPABILITY_CANONICAL " in
+        *" $cap "*) ;;
+        *)
+            log_error "provider_declare_capability: '$cap' is not a canonical capability (${PROVIDER_CAPABILITY_CANONICAL})"
+            return 1
+            ;;
+    esac
+    case " $PROVIDER_CAPABILITIES " in
+        *" $cap "*) ;;
+        *) PROVIDER_CAPABILITIES="${PROVIDER_CAPABILITIES:+$PROVIDER_CAPABILITIES }$cap" ;;
+    esac
+}
 
 # Query a capability (read-only).
 #
@@ -351,9 +434,9 @@ provider_require_capability() {
 # ============================================================================
 
 # Import a credential into the provider's credential store, wiring whatever
-# git-transport integration the provider requires (GitHub: gh auth login +
-# gh auth setup-git). The single sanctioned place for a provider's credential
-# CLI to be invoked; scripts and bootstrap never call it directly.
+# git-transport integration the provider requires. The single sanctioned
+# place for a provider's credential CLI to be invoked; scripts and bootstrap
+# never call it directly.
 #
 # Usage:
 #   provider_auth_import_token <<< "$TOKEN"     # token on stdin
@@ -434,17 +517,9 @@ _provider_identity_raw_read() {
         # shellcheck disable=SC1091
         source "${DEVENV_TOOLS}/lib/config-reader.bash"
         if config_init "$config_file" 2>/dev/null; then
-            # Read without expansion: config_read_value would interpolate
-            # ${GH_ORG}/${GH_USER} templates, re-entering this accessor.
-            value=$(awk -v section="$section" -v key="$key" '
-                $0 ~ "^\\[" section "\\]" { in_section=1; next }
-                /^\[/ { in_section=0; next }
-                in_section && $0 ~ "^" key "=" {
-                    sub("^" key "=", "")
-                    print
-                    exit
-                }
-            ' "$config_file")
+            # Raw read: config_read_value would interpolate ${GH_ORG}/
+            # ${GH_USER} templates, re-entering this accessor.
+            value=$(config_read_value_raw "$section" "$key" "")
             printf '%s\n' "$value"
             return 0
         fi
@@ -474,10 +549,15 @@ provider_org_get() {
         return 0
     fi
     local value
-    value=$(_provider_identity_raw_read "organization" "github_org") && [ -n "$value" ] && {
-        printf '%s\n' "$value"
-        return 0
-    }
+    # Config keys: neutral names first, GitHub-branded names as fallbacks
+    # (existing configs keep working; the forking guide recommends neutral).
+    for __key in org provider_org github_org; do
+        value=$(_provider_identity_raw_read "organization" "$__key") && [ -n "$value" ] && {
+            printf '%s\n' "$value"
+            return 0
+        }
+    done
+    unset __key
     local seed_file="${DEVENV_ROOT:-}/.setup/provider_org.txt"
     if [ -f "$seed_file" ]; then
         value=$(tr -d '[:space:]' < "$seed_file")
@@ -505,10 +585,13 @@ provider_user_get() {
         return 0
     fi
     local value
-    value=$(_provider_identity_raw_read "organization" "github_user") && [ -n "$value" ] && {
-        printf '%s\n' "$value"
-        return 0
-    }
+    for __key in user provider_user github_user; do
+        value=$(_provider_identity_raw_read "organization" "$__key") && [ -n "$value" ] && {
+            printf '%s\n' "$value"
+            return 0
+        }
+    done
+    unset __key
     local seed_file="${DEVENV_ROOT:-}/.setup/provider_user.txt"
     if [ -f "$seed_file" ]; then
         value=$(tr -d '[:space:]' < "$seed_file")

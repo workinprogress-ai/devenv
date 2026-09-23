@@ -15,7 +15,7 @@ set -euo pipefail
 # shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/fzf-selection.bash"
 source "$DEVENV_TOOLS/lib/issues-config.bash"
@@ -48,8 +48,6 @@ DRY_RUN=0
 # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 TEMP_FILE=""
-GITHUB_ORG=""  # Will be populated from repo owner
-
 # ============================================================================
 # Helper Functions
 # ============================================================================
@@ -287,9 +285,9 @@ check_dependencies() {
         exit "$EXIT_GENERAL_ERROR"
     fi
 
-    if ! gh auth status &> /dev/null; then
-        log_error "Not authenticated with GitHub CLI"
-        log_info "Run: gh auth login"
+    if ! provider_auth_status &> /dev/null; then
+        log_error "Not authenticated with the provider CLI"
+        log_info "Run: key-update-git"
         exit "$EXIT_GENERAL_ERROR"
     fi
 }

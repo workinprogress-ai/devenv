@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # github/repos.bash - GitHub implementation of the repos domain facade.
 #
-# Implements provider_repos_* functions per tools/lib/providers/INVENTORY.md:
+# Implements provider_repos_* functions (live contract: tools/lib/providers/README.md):
 # view / list / create / edit / default-branch probe / protection / perms,
 # plus provider_repo_target — the canonical repo-targeting normalizer the
 # other domain modules and slice-3 routing build on (five idiom families:
@@ -21,18 +21,18 @@ fi
 
 if ! declare -F provider_gh_repo_args >/dev/null; then
     provider_gh_repo_args() {
-        local __var="$1"
+        local -n __arr="$1"
         local __repo="${2:-}"
         if [ -n "$__repo" ]; then
-            eval "$__var=(-R \"$__repo\")"
+            __arr=("-R" "$__repo")
         else
-            eval "$__var=()"
+            __arr=()
         fi
     }
 fi
 
 # ============================================================================
-# Repo-targeting normalization (plan task 3.3)
+# Repo-targeting normalization: the canonical owner/repo resolver
 # ============================================================================
 
 # Normalize a repo target to owner/repo (or empty when cwd-resolved).
@@ -48,12 +48,21 @@ fi
 #   repo=$(provider_repo_target org/repo)   # org/repo
 #   repo=$(provider_repo_target)            # env chain, then cwd resolution
 provider_repo_target() {
+    # Repo-targeting env contract: DEVENV_REPO is the canonical override;
+    # GITHUB_REPO is accepted as a deprecated alias (legacy scripts and
+    # muscle memory) and resolves silently — the deprecation note lives in
+    # the docs, not in every command's stderr.
     local repo="${1:-}"
     if [ -n "$repo" ]; then
         echo "$repo"
         return 0
     fi
+    if [ -n "${DEVENV_REPO:-}" ]; then
+        echo "$DEVENV_REPO"
+        return 0
+    fi
     if [ -n "${GITHUB_REPO:-}" ]; then
+        # Deprecated alias — documented compatibility, resolves silently.
         echo "$GITHUB_REPO"
         return 0
     fi

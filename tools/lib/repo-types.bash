@@ -31,13 +31,7 @@ if [ -z "${_PROVIDER_CORE_LOADED:-}" ] && [ -n "${DEVENV_TOOLS:-}" ]; then
         source "${DEVENV_TOOLS}/lib/providers/provider-core.bash"
     fi
     if [ -n "${_PROVIDER_CORE_LOADED:-}" ]; then
-        provider_detect "${DEVENV_ROOT:-}/devenv.config" 2>/dev/null || PROVIDER_NAME="${PROVIDER_NAME:-github}"
-        # shellcheck disable=SC1091
-        # shellcheck disable=SC1090
-        source "$_rt_self_lib/providers/${PROVIDER_NAME}/repos.bash"
-        # shellcheck disable=SC1091
-        # shellcheck disable=SC1090
-        source "$_rt_self_lib/providers/${PROVIDER_NAME}/org.bash"
+        provider_load repos org
     fi
     unset _rt_self_lib
 fi

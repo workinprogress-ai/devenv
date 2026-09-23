@@ -26,7 +26,7 @@ ALLOWED_EXCEPTIONS=(
     "key-update-git.sh:gh auth (login|setup-git)"
     "repo-get.sh:gh auth status"
     "issue-create.sh:gh auth status"
-    "github-helpers.bash:gh auth status"
+    "provider-loader.bash:gh auth status"
     "copilot-knowledge.bash:gh auth token"
     "issue-select.sh:gh issue (view|edit)"
 )
@@ -160,12 +160,16 @@ collect_violations() {
 # ============================================================================
 
 # Residue patterns: executable reads of the branded identity vars.
+# GITHUB_REPO joins the list as the deprecated repo-targeting alias: reads
+# are confined to the provider layer (the alias leg in provider_repo_target)
+# and provider-loader (get_repo_spec's alias leg). New code reads DEVENV_REPO.
 # shellcheck disable=SC2034
 RESIDUE_PATTERNS=(
     '\$\{?GH_ORG:?[=-}]?'
     '\$\{?GH_USER:?[=-}]?'
     '\$\{?GH_REPO:?[=-}]?'
     '\$\{?GITHUB_ORG:?[=-}]?'
+    '\$\{?GITHUB_REPO:?[=-}]?'
 )
 
 # Sanctioned non-provider sites: file substring -> regex of allowed reads.
@@ -175,6 +179,17 @@ RESIDUE_PATTERNS=(
 # shellcheck disable=SC2034
 RESIDUE_ALLOWED=(
     "test_helper.bash:export GH_(USER|ORG|TOKEN)="
+    # provider-loader's get_repo_spec / resolve_target_repo carry the
+    # deprecated GITHUB_REPO alias legs (documented compatibility).
+    "provider-loader.bash:GITHUB_REPO"
+    # The alias tests themselves (repos module contract).
+    "test_provider_repos.bats:GITHUB_REPO="
+    # The repos module's own alias leg (provider_repo_target).
+    "repos.bash:GITHUB_REPO"
+    # git-operations' safety-gate override check: the deprecated alias must
+    # keep suppressing the devenv-root refusal exactly as before the
+    # DEVENV_REPO migration (full compatibility contract).
+    "git-operations.bash:GITHUB_REPO"
     # config-reader's no-provider fallback branch: standalone bootstrap edge
     # (config-reader loads before the provider layer exists); the provider
     # path above it is the sanctioned resolver.

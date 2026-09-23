@@ -96,11 +96,11 @@ load ../test_helper
   [[ "$output" =~ "Usage:" ]]
 }
 
-@test "issue-types.sh resolves org from GITHUB_REPO owner part" {
+@test "issue-types.sh resolves org from DEVENV_REPO owner part" {
   # Source the script's resolve_org in isolation (script main is guarded by
   # direct invocation only). Extract and eval just the function.
   fn=$(sed -n '/^resolve_org()/,/^}/p' "$PROJECT_ROOT/tools/scripts/issue-types.sh")
-  run bash -c "GITHUB_REPO=some-org/some-repo GH_ORG= ; eval '$fn'; resolve_org"
+  run bash -c "DEVENV_REPO=some-org/some-repo GH_ORG= ; eval '$fn'; resolve_org"
   [ "$status" -eq 0 ]
   [ "$output" = "some-org" ]
 }

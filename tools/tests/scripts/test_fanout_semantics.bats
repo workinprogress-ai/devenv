@@ -2,7 +2,7 @@
 # Fan-out semantics tests: update_status_all_projects driven in isolation.
 # Harness: a copy of the wrapper with the trailing main-call stripped is
 # sourced from tools/scripts/ (so sibling lib resolution still works), and
-# the three collaborators (resolve_target_repo, projects_for_issue,
+# the three collaborators (resolve_target_repo, provider_projects_for_issue,
 # update_status) are overridden per scenario.
 
 bats_require_minimum_version 1.5.0
@@ -36,7 +36,7 @@ fanout() {
         set -uo pipefail
         source '$STRIPPED'
         resolve_target_repo() { echo 'test-org/test-repo'; }
-        projects_for_issue() {
+        provider_projects_for_issue() {
             [ '$lookup_rc' -eq 1 ] && return 1
             printf '%s' '$lookup_out'
         }
@@ -98,7 +98,7 @@ fanout() {
         set -uo pipefail
         source '$stripped'
         resolve_target_repo() { echo 'test-org/test-repo'; }
-        projects_for_issue() { printf '%s' \$'Alpha\t1\tTBD\nBeta\t2\tTBD'; }
+        provider_projects_for_issue() { printf '%s' \$'Alpha\t1\tTBD\nBeta\t2\tTBD'; }
         update_status() { [ \"\$PROJECT_NAME\" = '2' ] && return 1; return 0; }
         SAFE_MODE=0 ISSUE_NUMBER=44
         update_status_all_projects 'Ready'

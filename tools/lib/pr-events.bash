@@ -13,18 +13,15 @@
 if [ -n "${_PR_EVENTS_LOADED:-}" ]; then return 0; fi
 readonly _PR_EVENTS_LOADED=1
 
-# Provider layer: pr verbs route through the abstraction (slice 3/#36).
-if [ -z "${_PROVIDER_CORE_LOADED:-}" ]; then
-    _pe_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    if [ -f "$_pe_lib_dir/providers/provider-core.bash" ]; then
-        # shellcheck disable=SC1091
-        source "$_pe_lib_dir/providers/provider-core.bash"
-        provider_detect "${DEVENV_ROOT:-$(dirname "$(dirname "$_pe_lib_dir")")}/devenv.config" 2>/dev/null || PROVIDER_NAME="${PROVIDER_NAME:-github}"
-        # shellcheck disable=SC1091
-        source "$_pe_lib_dir/providers/${PROVIDER_NAME}/prs.bash"
-    fi
-    unset _pe_lib_dir
+# Provider layer: pr verbs route through the abstraction via the one
+# canonical loader.
+_pe_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$_pe_lib_dir/providers/provider-core.bash" ]; then
+    # shellcheck disable=SC1091
+    source "$_pe_lib_dir/providers/provider-core.bash"
+    provider_load prs
 fi
+unset _pe_lib_dir
 
 # Extract linked issue numbers from a PR body (closing keywords:
 # Closes/Closed/Close, Fixes/Fixed/Fix, Resolves/Resolved, plural forms,

@@ -45,8 +45,8 @@ source "$DEVENV_TOOLS/lib/error-handling.bash"
 
 enable_strict_mode
 
-# shellcheck source=../lib/github-helpers.bash
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+# shellcheck source=../lib/provider-loader.bash
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 
 # ============================================================================
 # Helper Functions

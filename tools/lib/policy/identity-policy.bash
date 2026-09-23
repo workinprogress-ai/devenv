@@ -43,7 +43,10 @@ policy_org() {
         return 0
     fi
     local value
-    value=$(config_read_value "organization" "github_org" "")
+    # Neutral keys first; the GitHub-branded key is the legacy fallback.
+    value=$(config_read_value "organization" "org" "")
+    [ -z "$value" ] && value=$(config_read_value "organization" "provider_org" "")
+    [ -z "$value" ] && value=$(config_read_value "organization" "github_org" "")
     if [ -n "$value" ]; then
         echo "$value"
         return 0

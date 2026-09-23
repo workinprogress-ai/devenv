@@ -14,11 +14,11 @@ Two sources exist:
 | Skill | Copilot knowledge | Engineering patterns | When |
 |---|---|---|---|
 | `/devenv-create-blueprint` | **Consult** — component/context specifics ground system-level decisions | **Consult** — standards constrain architecture choices | During context survey and architecture phases |
-| `/devenv-grooming` | **Consult** — implementation specifics shape the attack plan | **Consult** — practices that must be applied become explicit grooming details | During grooming-document construction and issue attack-plan writing |
-| `/devenv-create-plan` | **Consult** — plans should declare which org patterns/practices a phase applies | **Consult** | During phase/task drafting |
-| `/devenv-design-discussion` | As needed | **Consult** — patterns weigh on option trade-offs | When weighing options |
-| `/devenv-pair-programming` | **Apply** — implementation guidance for the work at hand | **Apply** — implement per org standards, including the [Design-Principles adherence](#design-principles-adherence-executor-behavior) rules | While implementing |
-| `/devenv-delegation` | **Apply** — same as pair; the run must implement per org specifics | **Apply** — same as pair | While implementing |
+| `/devenv-groom` | **Consult** — implementation specifics shape the attack plan | **Consult** — practices that must be applied become explicit grooming details | During grooming-document construction and issue attack-plan writing |
+| `/devenv-plan` | **Consult** — plans should declare which org patterns/practices a phase applies | **Consult** | During phase/task drafting |
+| `/devenv-design` | As needed | **Consult** — patterns weigh on option trade-offs | When weighing options |
+| `/devenv-pair` | **Apply** — implementation guidance for the work at hand | **Apply** — implement per org standards, including the [Design-Principles adherence](#design-principles-adherence-executor-behavior) rules | While implementing |
+| `/devenv-delegate` | **Apply** — same as pair; the run must implement per org specifics | **Apply** — same as pair | While implementing |
 
 ("Apply" means the knowledge directly shapes code being written; "consult" means it informs documents and decisions.)
 

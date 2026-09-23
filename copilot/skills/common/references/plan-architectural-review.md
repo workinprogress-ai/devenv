@@ -109,9 +109,9 @@ Use this matrix after producing the Architectural Brief to select the next skill
 
 | Stage / intent | Default route | Escalate to | Why |
 | --- | --- | --- | --- |
-| Pre-plan architecture ambiguity | `/devenv-design-discussion` | `/devenv-grooming` | Broad option-weighing and recommendation is primary. |
-| In-flight implementation unblock (plan partially executed) | `/devenv-grooming` | `/devenv-design-discussion` only for one bounded blocker that needs deeper option-weighing than the execution skills can support | Preserve execution continuity; close decisions at the blocker boundary first. |
-| Post-decision task sequencing/scope updates | `/devenv-refine-plan` | `/devenv-grooming` if new architecture drift appears | Architecture is settled; update tasks safely. |
+| Pre-plan architecture ambiguity | `/devenv-design` | `/devenv-groom` | Broad option-weighing and recommendation is primary. |
+| In-flight implementation unblock (plan partially executed) | `/devenv-groom` | `/devenv-design` only for one bounded blocker that needs deeper option-weighing than the execution skills can support | Preserve execution continuity; close decisions at the blocker boundary first. |
+| Post-decision task sequencing/scope updates | `/devenv-refine-plan` | `/devenv-groom` if new architecture drift appears | Architecture is settled; update tasks safely. |
 
 Tie-breaker prompt when uncertain:
 
@@ -123,16 +123,16 @@ When a partially executed plan develops problems, use this triage before routing
 
 1. **Small local problem or question** — execution skill handles it directly and updates the plan in place.
    - Examples: one task needs rewording, one follow-up task is needed, one local decision can be closed with brief user discussion.
-   - Route: stay in `/devenv-pair-programming` or `/devenv-delegation` (commissioned run); if architecture is already settled, update the plan directly.
+   - Route: stay in `/devenv-pair` or `/devenv-delegate` (commissioned run); if architecture is already settled, update the plan directly.
 
-2. **Accumulated questions or broader architectural drift** — return to `/devenv-grooming`.
+2. **Accumulated questions or broader architectural drift** — return to `/devenv-groom`.
    - Signals: multiple open decisions, interdependent blockers across phases, signs the current design needs broader reshaping, or the plan may need sweeping revision/replacement.
-   - Route: `/devenv-grooming` first, then `/devenv-refine-plan` once design decisions are re-settled.
+   - Route: `/devenv-groom` first, then `/devenv-refine-plan` once design decisions are re-settled.
 
-3. **Single large blocker / question** — use `/devenv-design-discussion`.
+3. **Single large blocker / question** — use `/devenv-design`.
    - Signals: one bounded design question needs deeper brainstorming or option-weighing, but the outcome is expected to change a limited slice of the plan rather than re-baseline the whole design.
-   - Route: `/devenv-design-discussion`, then back to `/devenv-refine-plan` for task updates.
-   - If the discussion reveals that the blocker is not actually bounded and instead exposes broader design drift, pivot immediately to `/devenv-grooming` before refreshing the plan.
+   - Route: `/devenv-design`, then back to `/devenv-refine-plan` for task updates.
+   - If the discussion reveals that the blocker is not actually bounded and instead exposes broader design drift, pivot immediately to `/devenv-groom` before refreshing the plan.
 
 4. **Upstream architecture artifact is wrong** — go upstream before returning downstream.
    - If grooming shows the problem is really in the blueprint or higher-level architecture assumptions, update/discuss the blueprint first, then cascade the resulting changes back down through grooming and plan refinement.

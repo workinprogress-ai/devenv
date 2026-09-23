@@ -183,3 +183,38 @@ write_file() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"No scoped TODO(DEVENV markers found"* ]]
 }
+
+# ---------------------------------------------------------------------------
+# copilot/ scope (option C): gate and --all modes exclude copilot/ by default
+# (skill files carry example markers by design); --include-copilot restores
+# scanning; --todo-report and --ac always scan copilot/.
+# ---------------------------------------------------------------------------
+
+@test "gate mode: markers under copilot/ are ignored by default" {
+  mkdir -p "$WORK_DIR/copilot"
+  write_file "copilot/skill.md" "// FIXME:DEVENV[p1]: example marker in docs"
+  run bash "$SCRIPT" "$WORK_DIR"
+  [ "$status" -eq 0 ]
+}
+
+@test "gate mode: markers under docs/ still block (not exempt)" {
+  mkdir -p "$WORK_DIR/docs"
+  write_file "docs/real.md" "// FIXME:DEVENV[p1]: real marker in docs"
+  run bash "$SCRIPT" "$WORK_DIR"
+  [ "$status" -eq 1 ]
+}
+
+@test "gate mode: --include-copilot restores blocking under copilot/" {
+  mkdir -p "$WORK_DIR/copilot"
+  write_file "copilot/skill.md" "// FIXME:DEVENV[p1]: example marker in docs"
+  run bash "$SCRIPT" --include-copilot "$WORK_DIR"
+  [ "$status" -eq 1 ]
+}
+
+@test "--todo-report always scans copilot/ (colon form detected)" {
+  mkdir -p "$WORK_DIR/copilot"
+  write_file "copilot/skill.md" "// TODO:DEVENV[p1]: swap — remove when #40 merged"
+  run bash "$SCRIPT" --todo-report "$WORK_DIR"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"swap"* ]]
+}

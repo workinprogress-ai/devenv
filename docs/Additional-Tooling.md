@@ -323,11 +323,25 @@ The same as the `repo-get` command, but can be used as a Git subcommand.
 git repo <repository-name>
 ```
 
+### `repo-commit`
+
+The single sanctioned commit wrapper (source: `tools/scripts/repo-commit.sh`; invoke via the `tools/repo-commit` entry on `PATH`). Interactive-only by design: the suggested message arrives on argv or via `--file <path>` (preferred for anything longer than a one-line subject — immune to shell mangling), and the user's configured git editor always opens with it — a commit is created from the existing index only if the user saves the editor with a non-empty message. Refuses options (`-m`, `--yes`), non-interactive editors, and an empty index. Never stages (except via `--wip`), never bypasses hooks on the normal lane, never runs tests.
+
+The `--wip` lane delegates to `git-wip`: stages everything (unless `--staged-only`), bypasses hooks (the documented WIP exception), prefixes `WIP:`, pushes, and records `refs/wip/last`. WIP commit shape lives in `git-wip` alone; there is no editor step — invoking `--wip` is the confirmation.
+
+```bash
+repo-commit "feat(sync): add retry with backoff"
+repo-commit --file /tmp/msg.txt          # long messages: write to a temp file first
+repo-commit --wip "checkpoint before refactor"   # WIP lane (delegates to git-wip)
+```
+
+Governance: only the `/devenv-commit` skill invokes this tool (see `copilot-instructions.md` §7). All other skills hand off to that skill when the user says "commit this".
+
 ### `git wip` / `git unwip` / `git wip-recover`
 
 Work-in-progress commit management:
 
-- `git-wip`: Stages all changes, creates a `WIP: <message>` commit, pushes it to the remote, and records the commit in `refs/wip/last` for later recovery.
+- `git-wip`: Stages all changes, creates a `WIP: <message>` commit (message via positional words or `--file <path>`), pushes it to the remote, and records the commit in `refs/wip/last` for later recovery.
   - `--staged-only`: Skip `git add -A` and commit only what is already staged.
 - `git-unwip`: Soft-resets to the last non-WIP commit (restaging your changes) and safely force-pushes to clear the WIP commit from the remote. Does **not** delete `refs/wip/last`, so the WIP commit remains recoverable.
 - `git-wip-recover`: Inspect or restore the most recently saved WIP commit from `refs/wip/last`.
@@ -804,7 +818,7 @@ pipelines-status --json | jq '.[] | select(.conclusion == "failure") | .url'
 
 **Notes:**
 
-- Enumerates repos for the configured org (up to 1000). Org resolves via devenv.config; `GITHUB_REPO` narrows to one repo.
+- Enumerates repos for the configured org (up to 1000). Org resolves via devenv.config; `DEVENV_REPO` narrows to one repo.
 - Runs per-repo enumeration rather than the `/orgs/{org}/actions/runs` API to avoid requiring the `workflow` token scope.
 - With many repos this is sequential; for very large orgs it may be slow.
 
@@ -1300,7 +1314,7 @@ If neither source provides an issue number, the command fails with invalid argum
 
 **Options:**
 
-- `--repo OWNER/REPO`: Override target repository (defaults to `GITHUB_REPO`)
+- `--repo OWNER/REPO`: Override target repository (defaults to `DEVENV_REPO`)
 - `--dry-run`: Resolve intended action without writing
 - `--verbose`: Enable verbose logs
 
@@ -1482,7 +1496,7 @@ issue-artifact-select --issue 42 \
 
 ### `issue-triage`
 
-Issue triage for backlog management: an interactive wizard for humans, plus a fully scriptable CLI apply mode for skills and automation. (Formerly `issue-groom` — renamed; triage is the honest name for metadata-level backlog work, distinct from the `/devenv-grooming` design skill.)
+Issue triage for backlog management: an interactive wizard for humans, plus a fully scriptable CLI apply mode for skills and automation. (Formerly `issue-groom` — renamed; triage is the honest name for metadata-level backlog work, distinct from the `/devenv-groom` design skill.)
 
 **Interactive wizard:**
 
@@ -2952,7 +2966,7 @@ The following convenience aliases are available in the dev container:
 
 Tools for working with markdown documents, specifically plans
 produced through the planning workflow (for example via
-`devenv-create-plan`).
+`devenv-plan`).
 
 ### `markdown-plan-complete-task`
 
@@ -3092,8 +3106,8 @@ plan-parse <PLAN_FILE> --summary | --census | --anchors | --lint [--require-head
 ### `devenv-marker-check`
 
 Deterministic DEVENV-marker and AC-comment scanning for cleanup gates and
-discovery sweeps. Gate mode fails when plan-bounded `FIXME(DEVENV[...])`
-markers remain (cross-plan `TODO(DEVENV[...])` markers are sanctioned to ship);
+discovery sweeps. Gate mode fails when plan-bounded `FIXME:DEVENV[...]:`
+markers remain (cross-plan `TODO:DEVENV[...]:` markers are sanctioned to ship);
 `--todo-report` lists scoped TODOs and warns about missing discharge
 conditions; `--all` audits every marker form.
 

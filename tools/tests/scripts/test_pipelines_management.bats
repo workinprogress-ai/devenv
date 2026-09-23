@@ -42,8 +42,8 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "pipelines-status.sh sources github-helpers library" {
-  run grep 'source.*github-helpers.bash' "$PROJECT_ROOT/tools/scripts/pipelines-status.sh"
+@test "pipelines-status.sh sources provider-loader library" {
+  run grep 'source.*provider-loader.bash' "$PROJECT_ROOT/tools/scripts/pipelines-status.sh"
   [ "$status" -eq 0 ]
 }
 
@@ -67,8 +67,8 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "pipelines-list.sh sources github-helpers library" {
-  run grep 'source.*github-helpers.bash' "$PROJECT_ROOT/tools/scripts/pipelines-list.sh"
+@test "pipelines-list.sh sources provider-loader library" {
+  run grep 'source.*provider-loader.bash' "$PROJECT_ROOT/tools/scripts/pipelines-list.sh"
   [ "$status" -eq 0 ]
 }
 
@@ -92,8 +92,8 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "pipelines-run.sh sources github-helpers library" {
-  run grep 'source.*github-helpers.bash' "$PROJECT_ROOT/tools/scripts/pipelines-run.sh"
+@test "pipelines-run.sh sources provider-loader library" {
+  run grep 'source.*provider-loader.bash' "$PROJECT_ROOT/tools/scripts/pipelines-run.sh"
   [ "$status" -eq 0 ]
 }
 
@@ -117,8 +117,8 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "pipelines-rerun.sh sources github-helpers library" {
-  run grep 'source.*github-helpers.bash' "$PROJECT_ROOT/tools/scripts/pipelines-rerun.sh"
+@test "pipelines-rerun.sh sources provider-loader library" {
+  run grep 'source.*provider-loader.bash' "$PROJECT_ROOT/tools/scripts/pipelines-rerun.sh"
   [ "$status" -eq 0 ]
 }
 
@@ -142,8 +142,8 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "pipelines-watch.sh sources github-helpers library" {
-  run grep 'source.*github-helpers.bash' "$PROJECT_ROOT/tools/scripts/pipelines-watch.sh"
+@test "pipelines-watch.sh sources provider-loader library" {
+  run grep 'source.*provider-loader.bash' "$PROJECT_ROOT/tools/scripts/pipelines-watch.sh"
   [ "$status" -eq 0 ]
 }
 
@@ -167,8 +167,8 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "pipelines-artifacts.sh sources github-helpers library" {
-  run grep 'source.*github-helpers.bash' "$PROJECT_ROOT/tools/scripts/pipelines-artifacts.sh"
+@test "pipelines-artifacts.sh sources provider-loader library" {
+  run grep 'source.*provider-loader.bash' "$PROJECT_ROOT/tools/scripts/pipelines-artifacts.sh"
   [ "$status" -eq 0 ]
 }
 
@@ -225,4 +225,23 @@ load ../test_helper
   run bash "$PROJECT_ROOT/tools/scripts/pipelines-artifacts.sh" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
+}
+
+@test "pipelines-run: trigger passes repo positionally, single -R (gh-stub argv)" {
+    load ../fixtures/cli-stubs
+    stub_gh
+    unset _PROVIDER_CORE_LOADED PROVIDER_NAME PROVIDER_CAPABILITIES
+    # shellcheck disable=SC1091
+    source "$DEVENV_TOOLS/lib/providers/provider-core.bash"
+    provider_detect "$TEST_TEMP_DIR/absent.config"
+    # shellcheck disable=SC1091
+    source "$DEVENV_TOOLS/lib/providers/github/pipelines.bash"
+    gh_calls_reset
+    # The exact shape trigger_workflow uses after the fix: repo positional,
+    # workflow name second, flags pass through.
+    local gh_args=()
+    gh_args+=(--ref "feature/x")
+    gh_args+=(--field "k=v")
+    provider_pipelines_workflow_run "org/repo" "ci.yml" "${gh_args[@]}"
+    gh_last_call_equals "workflow run ci.yml -R org/repo --ref feature/x --field k=v"
 }

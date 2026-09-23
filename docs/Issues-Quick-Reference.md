@@ -383,7 +383,7 @@ Use `alias` in shell to see all available aliases.
 
 - `GH_USER` - Legacy GitHub-branded override (compatibility only); your provider username resolves from devenv.config/seed by default
 - `GH_TOKEN` - Not used day-to-day: tokens live in the keychain (via `key-update-git`), and an exported `GH_TOKEN` is honored only when the provider allowlist opts in. Never required.
-- `GITHUB_REPO` - Target repo override (`owner/repo`); auto-detected from the cwd when unset
+- `DEVENV_REPO` - Target repo override (`owner/repo`); auto-detected from the cwd when unset
 
 ## Get Help
 

@@ -53,7 +53,7 @@ Durable issue-backed artifact note:
 
 The important rule is that you do not skip to a lower layer when the uncertainty still belongs to an upper layer.
 
-Progress note: progress at any layer is a **derived view** over ground truth (task checkboxes, issue state, PRs, labels, git) — never stored. See [Progress Reporting](./Progress-Reporting.md) for the roll-up model, the `Progress:` snapshot-line convention, and `/devenv-project-manager`.
+Progress note: progress at any layer is a **derived view** over ground truth (task checkboxes, issue state, PRs, labels, git) — never stored. See [Progress Reporting](./Progress-Reporting.md) for the roll-up model, the `Progress:` snapshot-line convention, and `/devenv-board`.
 
 ## Default delivery flow
 
@@ -86,11 +86,11 @@ In Devenv, the usual skill mapping is:
 
 - Specifications -> `/devenv-write-specifications`
 - Blueprint -> `/devenv-create-blueprint`
-- Grooming -> `/devenv-grooming`
-- Plan -> `/devenv-create-plan`
-- Collaborative execution -> `/devenv-pair-programming`
-- Delegated execution -> `/devenv-delegation`
-- Review / merge -> `/devenv-pre-commit`, `/devenv-open-pr`, `/devenv-address-pr-comments`
+- Grooming -> `/devenv-groom`
+- Plan -> `/devenv-plan`
+- Collaborative execution -> `/devenv-pair`
+- Delegated execution -> `/devenv-delegate`
+- Review / merge -> `/devenv-commit`, `/devenv-open-pr`, `/devenv-address-pr-comments`; complex plans may also encode a Review **phase inside execution** — see the plan-encoded review protocol
 
 Supporting view: the same happy path with Devenv skill support looks like this:
 
@@ -105,19 +105,22 @@ Blueprint
   |   supported by: /devenv-create-blueprint
   v
 Grooming
-  |   supported by: /devenv-grooming
+  |   supported by: /devenv-groom
   v
 Plan
-  |   supported by: /devenv-create-plan
+  |   supported by: /devenv-plan
   v
 Execution
-  |   supported by: /devenv-pair-programming
-  |              or /devenv-delegation
+  |   supported by: /devenv-pair
+  |              or /devenv-delegate
   v
 Review / merge / follow-up feedback
-      supported by: /devenv-pre-commit
+      supported by: /devenv-commit
                  -> /devenv-open-pr
                  -> /devenv-address-pr-comments
+   (complex plans: the plan's own Review phase runs inside execution —
+    adversarial rounds whose approved findings fold back into the plan;
+    see the plan-encoded review protocol in the skills references)
 ```
 
 Read this as tool support layered onto the workflow, not as a replacement for the workflow itself.
@@ -221,7 +224,7 @@ Methodologically:
 - Use collaborative execution when the human should stay tightly involved in decisions.
 - Use delegated execution when the work is mostly mechanical and review can happen at larger checkpoints.
 
-In Devenv, that usually maps to `/devenv-pair-programming` vs `/devenv-delegation`.
+In Devenv, that usually maps to `/devenv-pair` vs `/devenv-delegate`.
 
 Planning guardrail:
 
@@ -232,13 +235,13 @@ Supporting view with skill selection:
 ```text
 Plan exists?
   |
-  +-- no  --> /devenv-create-plan
+  +-- no  --> /devenv-plan
   |
   +-- yes --> Is the work high-impact, novel, or strongly collaborative?
                 |
-                +-- yes --> /devenv-pair-programming
+                +-- yes --> /devenv-pair
                 |
-                +-- no  --> /devenv-delegation
+                +-- no  --> /devenv-delegate
 ```
 
 ## Plan problems during execution
@@ -282,15 +285,15 @@ Rule of thumb:
 
 In Devenv, the usual mapping is:
 
-- Small local issue -> stay in `/devenv-pair-programming` or `/devenv-delegation`
-- Focused design discussion -> `/devenv-design-discussion`, then `/devenv-refine-plan`
-- Broader reshaping -> `/devenv-grooming`, then `/devenv-refine-plan`
+- Small local issue -> stay in `/devenv-pair` or `/devenv-delegate`
+- Focused design discussion -> `/devenv-design`, then `/devenv-refine-plan`
+- Broader reshaping -> `/devenv-groom`, then `/devenv-refine-plan`
 - Upstream architecture change -> file an upstream-impact issue, then `/devenv-refine-blueprint` (or `/devenv-refine-specifications`) in cascade mode, then grooming and plan refresh
 
 Supporting view with skill mapping:
 
 ```text
-/devenv-pair-programming or /devenv-delegation
+/devenv-pair or /devenv-delegate
   |
   v
 Problem discovered in the plan or design
@@ -299,19 +302,19 @@ Problem discovered in the plan or design
   |      -> stay in the execution skill
   |
   +-- Single large blocker / design question
-  |      -> /devenv-design-discussion
+  |      -> /devenv-design
   |      -> /devenv-refine-plan
   |      -> back to execution
   |
   +-- Accumulated questions / architectural drift
-  |      -> /devenv-grooming
+  |      -> /devenv-groom
   |      -> /devenv-refine-plan
   |      -> back to execution
   |
   +-- Upstream architecture artifact is wrong
          -> file an upstream-impact issue (any skill can discover)
          -> /devenv-refine-blueprint or /devenv-refine-specifications (cascade mode)
-         -> /devenv-grooming
+         -> /devenv-groom
          -> /devenv-refine-plan
          -> back to execution
 ```
@@ -341,14 +344,14 @@ Do not force a broad redesign through the narrow “single blocker” path just 
 Supporting view with skill pivot:
 
 ```text
-/devenv-design-discussion starts on a bounded blocker
+/devenv-design starts on a bounded blocker
   |
   +-- stays bounded
   |      -> /devenv-refine-plan
   |      -> resume execution
   |
   +-- reveals broader design drift
-         -> /devenv-grooming
+         -> /devenv-groom
          -> /devenv-refine-plan
          -> resume execution
 ```
@@ -397,7 +400,7 @@ Upstream found wrong during execution/grooming/spike
      (issue intake -> cascade mode -> reply + close issue)
 
 Component design changed
-  -> /devenv-grooming or /devenv-design-discussion
+  -> /devenv-groom or /devenv-design
   -> /devenv-refine-plan
   -> execution
 ```
@@ -553,16 +556,16 @@ Supporting view with skill mapping:
 Existing-component feature request
   |
   +-- Approach already chosen
-  |      -> /devenv-create-plan
+  |      -> /devenv-plan
   |         or /devenv-refine-plan
-  |      -> /devenv-pair-programming or /devenv-delegation
+  |      -> /devenv-pair or /devenv-delegate
   |
   +-- Approach unclear
-      -> /devenv-grooming
-      -> /devenv-design-discussion   (only for one bounded blocker)
-      -> /devenv-create-plan
+      -> /devenv-groom
+      -> /devenv-design   (only for one bounded blocker)
+      -> /devenv-plan
         or /devenv-refine-plan
-      -> /devenv-pair-programming or /devenv-delegation
+      -> /devenv-pair or /devenv-delegate
 ```
 
 ## Artifact roles in the workflow

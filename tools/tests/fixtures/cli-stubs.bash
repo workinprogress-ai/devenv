@@ -197,6 +197,39 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
+# gh argv assertions (call-shape harness)
+#
+# The stub_gh factory above records every invocation as one line in
+# $STUB_CALL_LOG ("gh <argv...>"). These helpers assert on that log so suites
+# can lock wrapper->facade call shapes: exact argv, or substring containment.
+# ---------------------------------------------------------------------------
+
+# Reset the gh call log (start a fresh assertion window).
+gh_calls_reset() {
+    : > "${STUB_CALL_LOG:?}"
+}
+
+# Assert the last recorded gh invocation matches EXPECTED exactly.
+# EXPECTED is the full argv after "gh " (e.g. "workflow run -R org/repo ci.yml").
+gh_last_call_equals() {
+    local expected="$1"
+    local last
+    last=$(grep '^gh ' "$STUB_CALL_LOG" | tail -n1)
+    if [[ "$last" != "gh $expected" ]]; then
+        echo "gh argv mismatch" >&2
+        echo "  expected: gh $expected" >&2
+        echo "  actual:   $last" >&2
+        return 1
+    fi
+}
+
+# Assert some recorded gh invocation contains SUBSTRING (first match wins).
+gh_calls_contain() {
+    local substring="$1"
+    grep -q -- "$substring" "$STUB_CALL_LOG"
+}
+
+# ---------------------------------------------------------------------------
 # mongorestore / mongosh / mongodump stubs
 #
 # Modes:

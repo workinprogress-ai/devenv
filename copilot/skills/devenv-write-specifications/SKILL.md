@@ -1,6 +1,6 @@
 ---
 name: devenv-write-specifications
-description: 'Conduct a structured three-phase specifications interview to produce a user-oriented specifications document. Also handles brainstorming and refinement on an existing Specifications-*.md — pass the file path to pick up where a previous session left off, explore new ideas, and integrate new input. USE WHEN the user says "write specifications", "write up specifications", "define the specifications for", "continue authoring specifications", "add more specifications", "I have a new idea", "brainstorm this change", "what if we...", or hands off a system idea that needs functional definition before planning begins. Produces (or extends) a Specifications-<topic>-NNN.md covering system vision, concrete acceptance-criteria-bearing specification items with IDs and dependency graph, and stakeholder priority groupings (not a delivery roadmap — use /devenv-create-roadmap for that). Maintains a session_memory-specifications.md across sessions. DO NOT USE for correcting, rewording, or removing existing specifications when you already know what should change (use /devenv-refine-specifications instead), for quick feature clarifications that don''t warrant a formal document, or for code generation.'
+description: 'Conduct a structured three-phase specifications interview to produce a user-oriented specifications document. Also handles brainstorming and refinement on an existing Specifications-*.md — pass the file path to pick up where a previous session left off, explore new ideas, and integrate new input. USE WHEN the user says "write specifications", "write up specifications", "define the specifications for", "continue authoring specifications", "add more specifications", "I have a new idea", "brainstorm this change", "what if we...", or hands off a system idea that needs functional definition before planning begins. Produces (or extends) a Specifications-<topic>-NNN.md covering system vision, acceptance-criteria-bearing items with IDs and a dependency graph, and stakeholder priority groupings (not a delivery roadmap — use /devenv-create-roadmap for that). Maintains a session_memory-specifications.md across sessions. DO NOT USE for correcting, rewording, or removing existing specifications when you already know what should change (use /devenv-refine-specifications instead), for quick feature clarifications that don''t warrant a formal document, or for code generation.'
 argument-hint: '[system name | path-to-existing-notes | issue number]'
 user-invocable: true
 ---
@@ -494,7 +494,7 @@ Do not declare stability if blocking contradictions remain unresolved.
 - Writing specification items without acceptance criteria.
 - Writing the output file before Phase 3 is approved.
 - Merging `session_memory-specifications.md` to the main branch.
-- Conflating priority groupings (this skill's Phase 3) with a delivery roadmap (`/devenv-create-roadmap`) or a plan (`/devenv-create-plan`).
+- Conflating priority groupings (this skill's Phase 3) with a delivery roadmap (`/devenv-create-roadmap`) or a plan (`/devenv-plan`).
 - **Jumping to detailed specification items during Phase 1** because the user mentioned specifics — park the details, finish the vision first.
 - **Writing episodes before Phase 3 is approved** — they'll be stale before the ink is dry.
 - **Putting implementation details or exception-path coverage into episodes** — episodes illustrate happy and common paths only.
@@ -506,7 +506,7 @@ This skill produces a specifications document that feeds directly into:
 - [`/devenv-refine-specifications`](../devenv-refine-specifications/SKILL.md) — revise the document later when scope shifts or new communications arrive
 - [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) — translate specification items into an architectural blueprint for epic-scale work
 - [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) — produce a real delivery roadmap (after a blueprint exists); supersedes Phase 3's priority groupings for execution purposes
-- [`/devenv-create-plan`](../devenv-create-plan/SKILL.md) — interview-driven planning for a specific specification item or group, or a complete spec/RFC
+- [`/devenv-plan`](../devenv-plan/SKILL.md) — interview-driven planning for a specific specification item or group, or a complete spec/RFC
 
 ## Companion Tooling
 

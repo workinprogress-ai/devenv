@@ -64,7 +64,7 @@ write_config() {
 
 @test "scaffold: providers library directory exists with expected layout" {
     [ -d "$DEVENV_TOOLS/lib/providers" ]
-    [ -f "$DEVENV_TOOLS/lib/providers/INVENTORY.md" ]
+    [ -f "$DEVENV_TOOLS/lib/providers/README.md" ]
 }
 
 # ============================================================================
@@ -150,7 +150,7 @@ write_config() {
 @test "auth: emits GH_TOKEN and auth-kind exports when set and allowlisted" {
     source_core
     provider_detect "$TEST_TEMP_DIR/absent.config"
-    GH_TOKEN=ghp_test123 run bash -c 'source "$0" && provider_detect "$1/absent.config" && PROVIDER_TOKEN_ENV_ALLOWLIST=ghp_test123 && eval "$(GH_TOKEN=ghp_test123 provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "env" ] && [ "$GH_TOKEN" = "ghp_test123" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
+    GH_TOKEN=ghp_test123 run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && PROVIDER_TOKEN_ENV_ALLOWLIST=ghp_test123 && eval "$(GH_TOKEN=ghp_test123 provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "env" ] && [ "$GH_TOKEN" = "ghp_test123" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
     assert_success
 }
 
@@ -158,7 +158,7 @@ write_config() {
     stub_gh
     source_core
     provider_detect "$TEST_TEMP_DIR/absent.config"
-    GH_TOKEN= run bash -c 'source "$0" && provider_detect "$1/absent.config" && provider_auth_env' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
+    GH_TOKEN= run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && provider_auth_env' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
     assert_failure
     [[ "$output" == *"no credential source available"* ]]
 }
@@ -167,7 +167,7 @@ write_config() {
     stub_gh
     source_core
     provider_detect "$TEST_TEMP_DIR/absent.config"
-    run bash -c 'source "$0" && provider_detect "$1/absent.config" && PROVIDER_TOKEN_ENV_ALLOWLIST=ghp_abc123 && eval "$(GH_TOKEN=ghp_abc123 provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "env" ] && [ "$GH_TOKEN" = "ghp_abc123" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
+    run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && PROVIDER_TOKEN_ENV_ALLOWLIST=ghp_abc123 && eval "$(GH_TOKEN=ghp_abc123 provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "env" ] && [ "$GH_TOKEN" = "ghp_abc123" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
     assert_success
 }
 
@@ -182,7 +182,7 @@ write_config() {
 @test "secret_get: never echoes the token into the error path" {
     source_core
     provider_detect "$TEST_TEMP_DIR/absent.config"
-    GH_TOKEN=ghp_supersecret run bash -c 'source "$0" && provider_detect "$1/absent.config" && { provider_secret_get token >/dev/null 2>"$2/err.txt" || true; } && { grep -q supersecret "$2/err.txt" && exit 1 || exit 0; }' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
+    GH_TOKEN=ghp_supersecret run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && { provider_secret_get token >/dev/null 2>"$2/err.txt" || true; } && { grep -q supersecret "$2/err.txt" && exit 1 || exit 0; }' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
     assert_success
 }
 
@@ -190,18 +190,24 @@ write_config() {
 # Token resolution order (AC-1) & escape-hatch allowlist (AC-2)
 # ============================================================================
 
-@test "resolution: keychain kind when no env token and gh auth token works" {
+@test "resolution: keychain kind when no env token and the provider credential store works" {
     stub_gh
     source_core
+    # The keychain leg lives in the active provider's auth module; load it
+    # exactly as every real caller does (core + provider_load auth).
+    # shellcheck disable=SC1091
+    source "${DEVENV_TOOLS}/lib/providers/github/auth.bash"
     provider_detect "$TEST_TEMP_DIR/absent.config"
     unset GH_TOKEN
-    STUB_GH_AUTH_TOKEN=ghp_keychain123 run bash -c 'source "$0" && provider_detect "$1/absent.config" && eval "$(provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "keychain" ] && [ -z "${GH_TOKEN:-}" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
+    STUB_GH_AUTH_TOKEN=ghp_keychain123 run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && eval "$(provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "keychain" ] && [ -z "${GH_TOKEN:-}" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
     assert_success
 }
 
-@test "resolution: secret_get delegates to gh auth token when env is unset" {
+@test "resolution: secret_get delegates to the provider credential store when env is unset" {
     stub_gh
     source_core
+    # shellcheck disable=SC1091
+    source "${DEVENV_TOOLS}/lib/providers/github/auth.bash"
     provider_detect "$TEST_TEMP_DIR/absent.config"
     unset GH_TOKEN
     STUB_GH_AUTH_TOKEN=ghp_keychain456 run provider_secret_get token
@@ -212,24 +218,28 @@ write_config() {
 @test "secret_get: returns the allowlisted env token via stdout" {
     source_core
     provider_detect "$TEST_TEMP_DIR/absent.config"
-    run bash -c 'source "$0" && provider_detect "$1/absent.config" && PROVIDER_TOKEN_ENV_ALLOWLIST=ghp_abc123 && GH_TOKEN=ghp_abc123 provider_secret_get token' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
+    run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && PROVIDER_TOKEN_ENV_ALLOWLIST=ghp_abc123 && GH_TOKEN=ghp_abc123 provider_secret_get token' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
     assert_success
     [ "$output" = "ghp_abc123" ]
 }
 
-@test "resolution: env token outside the allowlist warns and falls through to keychain" {
+@test "resolution: env token outside the allowlist warns and falls through to the provider credential store" {
     stub_gh
     source_core
+    # shellcheck disable=SC1091
+    source "${DEVENV_TOOLS}/lib/providers/github/auth.bash"
     provider_detect "$TEST_TEMP_DIR/absent.config"
-    STUB_GH_AUTH_TOKEN=ghp_keychain789 run bash -c 'source "$0" && provider_detect "$1/absent.config" && GH_TOKEN=ghp_ignored; out=$(provider_auth_env 2>"$2/warn.txt"); eval "$out"; [ "$PROVIDER_AUTH_KIND" = "keychain" ] && grep -q "not on the env allowlist" "$2/warn.txt"' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR" "$TEST_TEMP_DIR"
+    STUB_GH_AUTH_TOKEN=ghp_keychain789 run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && GH_TOKEN=ghp_ignored; out=$(provider_auth_env 2>"$2/warn.txt"); eval "$out"; [ "$PROVIDER_AUTH_KIND" = "keychain" ] && grep -q "not on the env allowlist" "$2/warn.txt"' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR" "$TEST_TEMP_DIR"
     assert_success
 }
 
 @test "resolution: non-allowlisted env token is never emitted nor leaked by secret_get" {
     stub_gh
     source_core
+    # shellcheck disable=SC1091
+    source "${DEVENV_TOOLS}/lib/providers/github/auth.bash"
     provider_detect "$TEST_TEMP_DIR/absent.config"
-    STUB_GH_AUTH_TOKEN=ghp_keychain999 GH_TOKEN=ghp_env_secret123 run bash -c 'source "$0" && provider_detect "$1/absent.config" && tok=$(provider_secret_get token 2>/dev/null) && [ "$tok" = "ghp_keychain999" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
+    STUB_GH_AUTH_TOKEN=ghp_keychain999 GH_TOKEN=ghp_env_secret123 run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && tok=$(provider_secret_get token 2>/dev/null) && [ "$tok" = "ghp_keychain999" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
     assert_success
 }
 
@@ -237,7 +247,7 @@ write_config() {
     stub_gh
     source_core
     provider_detect "$TEST_TEMP_DIR/absent.config"
-    GH_TOKEN=ghp_notlisted run bash -c 'source "$0" && provider_detect "$1/absent.config" && provider_auth_env' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
+    GH_TOKEN=ghp_notlisted run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && provider_auth_env' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
     assert_failure
     [[ "$output" == *"no credential source available"* ]]
     [[ "$output" == *"not allowlisted"* ]]
@@ -246,7 +256,7 @@ write_config() {
 @test "allowlist: env token on the allowlist is honored with kind env" {
     source_core
     provider_detect "$TEST_TEMP_DIR/absent.config"
-    run bash -c 'source "$0" && provider_detect "$1/absent.config" && PROVIDER_TOKEN_ENV_ALLOWLIST=ghp_escape_token && eval "$(GH_TOKEN=ghp_escape_token provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "env" ] && [ "$GH_TOKEN" = "ghp_escape_token" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
+    run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && PROVIDER_TOKEN_ENV_ALLOWLIST=ghp_escape_token && eval "$(GH_TOKEN=ghp_escape_token provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "env" ] && [ "$GH_TOKEN" = "ghp_escape_token" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
     assert_success
 }
 
@@ -279,7 +289,7 @@ token_env_allowlist = ghp_cfg_token ghp_other:justification")
 @test "allowlist: matching is on value, colon reason suffix tolerated" {
     source_core
     provider_detect "$TEST_TEMP_DIR/absent.config"
-    run bash -c 'source "$0" && provider_detect "$1/absent.config" && PROVIDER_TOKEN_ENV_ALLOWLIST="ghp_with_reason:legacy-deployer" && eval "$(GH_TOKEN=ghp_with_reason provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "env" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
+    run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && PROVIDER_TOKEN_ENV_ALLOWLIST="ghp_with_reason:legacy-deployer" && eval "$(GH_TOKEN=ghp_with_reason provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "env" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
     assert_success
 }
 
@@ -344,7 +354,7 @@ token_env_allowlist = ghp_cfg_token ghp_other:justification")
     source "$DEVENV_TOOLS/lib/providers/github/issues.bash"
     # shellcheck disable=SC1091
     source "$DEVENV_TOOLS/lib/providers/github/prs.bash"
-    for verb in list view create merge comment diff thread_reply thread_resolve list_open_for_head; do
+    for verb in list view create merge comment diff thread_reply thread_resolve threads_page; do
         declare -F "provider_prs_${verb}" >/dev/null || fail "missing provider_prs_${verb}"
     done
 }
@@ -360,9 +370,9 @@ token_env_allowlist = ghp_cfg_token ghp_other:justification")
 
 @test "github module: actions facade is loadable and implements the inventory verbs" {
     # shellcheck disable=SC1091
-    source "$DEVENV_TOOLS/lib/providers/github/actions.bash"
+    source "$DEVENV_TOOLS/lib/providers/github/pipelines.bash"
     for verb in run_list run_view run_watch run_rerun run_cancel run_download run_artifacts workflow_list workflow_run wait_for_branch; do
-        declare -F "provider_actions_${verb}" >/dev/null || fail "missing provider_actions_${verb}"
+        declare -F "provider_pipelines_${verb}" >/dev/null || fail "missing provider_pipelines_${verb}"
     done
 }
 
@@ -371,7 +381,7 @@ token_env_allowlist = ghp_cfg_token ghp_other:justification")
     source "$DEVENV_TOOLS/lib/providers/provider-core.bash"
     # shellcheck disable=SC1091
     source "$DEVENV_TOOLS/lib/providers/github/projects.bash"
-    for verb in list field_list item_add workflow_stages; do
+    for verb in list field_list item_add; do
         declare -F "provider_projects_${verb}" >/dev/null || fail "missing provider_projects_${verb}"
     done
     provider_has_capability project-boards
@@ -527,4 +537,21 @@ provider_accessor_setup() {
     "
     [ "$status" -eq 0 ]
     [ "$output" = "seed-user" ]
+}
+
+@test "capability: declare validates against the canonical list" {
+    # shellcheck disable=SC1091
+    source "$DEVENV_TOOLS/lib/providers/provider-core.bash"
+    run provider_declare_capability not-a-capability
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"canonical"* ]]
+}
+
+@test "capability: canonical declares are idempotent and queryable" {
+    # shellcheck disable=SC1091
+    source "$DEVENV_TOOLS/lib/providers/provider-core.bash"
+    provider_declare_capability pipelines
+    provider_declare_capability pipelines
+    provider_has_capability pipelines
+    ! provider_has_capability releases
 }

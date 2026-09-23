@@ -14,14 +14,14 @@ set -euo pipefail
 # shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/config-reader.bash"
 #
-# Org identity (policy_org) arrives transitively via github-helpers
+# Org identity (policy_org) arrives transitively via provider-loader
 # (which loads the policy layer); no explicit policy sourcing here.
 
-readonly SCRIPT_VERSION="1.0.0"
+readonly SCRIPT_VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
 script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Update GitHub Project issues"
@@ -93,8 +93,10 @@ Options:
 
 Field Updates:
     --status STATUS             Set Status field value
-                                Valid: TBD, To Groom, Ready, Implementing, Review, 
+                                Valid: TBD, To-Groom, Ready, Implementing, Review,
                                        Merged, Staging, Production
+    --field NAME=VALUE          Set a single-select field value (can be specified
+                                multiple times); must match an existing option
     --field NAME=VALUE          Set custom field value (can be specified multiple times)
     --all-projects              Fan the status update out to EVERY project
                                 containing the issue (strict: errors when the
@@ -110,7 +112,7 @@ Environment Variables:
 
 Status Workflow:
     TBD         → Issue created, not ready for grooming
-    To Groom    → Ready to be groomed/refined
+    To-Groom    → Ready to be groomed/refined
     Ready       → Groomed and ready for implementation
     Implementing→ Active development in progress
     Review      → In pull request review
@@ -149,13 +151,11 @@ get_owner() {
     if [ -n "$policy_org" ]; then
         echo "$policy_org"
     else
-        local repo_spec=""
         local repo_name
         repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
         if [ -n "$repo_name" ]; then
-            repo_spec="-R $repo_name"
+            provider_repos_view "$repo_name" --json owner -q .owner.login
         fi
-        provider_repos_view "${repo_spec#-R }" --json owner -q .owner.login
     fi
 }
 
@@ -191,7 +191,7 @@ update_status_all_projects() {
     # A lookup FAILURE is distinct from zero membership: fail the run
     # (strict) or report-and-fail (--safe never lies about success).
     local projects
-    if ! projects=$(projects_for_issue "$issue_url" "$owner"); then
+    if ! projects=$(provider_projects_for_issue "$issue_url" "$owner"); then
         if [ "$SAFE_MODE" -eq 1 ]; then
             log_warn "project lookup failed for issue #$ISSUE_NUMBER - skipping status update (--safe reports, never lies)"
         else
@@ -257,23 +257,23 @@ update_status() {
     issue_url="$(provider_web_url "$owner/$repo" "issues/$ISSUE_NUMBER")"
 
     local project_id item_id field_id option_id
-    project_id=$(project_id_by_name "$owner" "$PROJECT_NAME") || {
+    project_id=$(provider_projects_id_by_name "$owner" "$PROJECT_NAME") || {
         log_error "Project '$PROJECT_NAME' not found for owner '$owner'"
         return 1
     }
-    item_id=$(project_item_id_for_issue "$project_id" "$ISSUE_NUMBER") || {
-        log_error "Issue #$ISSUE_NUMBER is not in project '$PROJECT_NAME'"
+    item_id=$(provider_projects_item_id_for_issue "$project_id" "$ISSUE_NUMBER" "$owner" "$repo") || {
+        log_error "Issue #$ISSUE_NUMBER ($owner/$repo) is not (uniquely) in project '$PROJECT_NAME'"
         return 1
     }
     field_id=""
     option_id=""
-    read -r field_id option_id <<< "$(project_field_and_option_ids "$project_id" "Status" "$status")"
+    read -r field_id option_id <<< "$(provider_projects_field_option_ids "$project_id" "Status" "$status")"
     if [ -z "$field_id" ] || [ -z "$option_id" ]; then
         log_error "Status option '$status' not found in project '$PROJECT_NAME'"
         return 1
     fi
 
-    update_project_item_field "$project_id" "$item_id" "$field_id" "$option_id" || {
+    provider_projects_field_set "$project_id" "$item_id" "$field_id" "$option_id" || {
         log_error "Failed to set Status='$status' for issue #$ISSUE_NUMBER in '$PROJECT_NAME'"
         return 1
     }
@@ -419,40 +419,91 @@ main() {
     fi
     
     # Update status if provided (fan-out or single-project)
+    local status_failed=0
     if [ -n "$status_value" ]; then
         if [ "$ALL_PROJECTS" -eq 1 ]; then
-            update_status_all_projects "$status_value"
+            update_status_all_projects "$status_value" || status_failed=1
         else
-            update_status "$status_value"
+            update_status "$status_value" || status_failed=1
         fi
     fi
-    
-    # Update custom fields if provided
-    for field_update in "${FIELD_UPDATES[@]}"; do
-        local field_name="${field_update%%=*}"
-        local field_val="${field_update#*=}"
-        
-        if [ "$field_name" = "$field_update" ]; then
-            log_warn "Invalid field format: $field_update (expected NAME=VALUE)"
-            continue
+
+    # Update custom fields (single-project only: fan-out is Status-only)
+    local fields_failed=0
+    if [ ${#FIELD_UPDATES[@]} -gt 0 ]; then
+        if [ "$ALL_PROJECTS" -eq 1 ]; then
+            log_error "--field cannot be combined with --all-projects (fan-out is Status-only)"
+            exit 1
         fi
-        
-        log_verbose "Field update requested: $field_name = $field_val"
-        
-        if [ "$DRY_RUN" -eq 1 ]; then
-            log_info "[DRY RUN] Would set $field_name='$field_val' for issue #$ISSUE_NUMBER"
-        else
-            log_info "Custom field update: $field_name = $field_val"
-            log_info "Note: Requires GraphQL API or web UI"
-        fi
-    done
-    
+        update_fields || fields_failed=1
+    fi
+
+    # A failed update must never exit 0, even when other updates succeeded.
+    if [ "$status_failed" -eq 1 ] || [ "$fields_failed" -eq 1 ]; then
+        exit 1
+    fi
+
     # Check if any updates were requested
     if [ -z "$status_value" ] && [ ${#FIELD_UPDATES[@]} -eq 0 ]; then
         log_error "No field updates specified"
         log_info "Use --status or --field to specify updates"
         exit 1
     fi
+}
+
+# Apply --field NAME=VALUE updates to the issue's project card (single-select
+# fields, via the shared GraphQL helpers). All specified fields must resolve
+# and write; the first failure aborts with rc=1 — never a partial silent success.
+update_fields() {
+    if [ "$DRY_RUN" -eq 1 ]; then
+        local f v
+        for field_update in "${FIELD_UPDATES[@]}"; do
+            f="${field_update%%=*}"
+            v="${field_update#*=}"
+            log_info "[DRY RUN] Would set $f='$v' for issue #$ISSUE_NUMBER in project '$PROJECT_NAME'"
+        done
+        return 0
+    fi
+
+    local repo_spec owner repo
+    repo_spec=$(resolve_target_repo) || return 1
+    owner="${repo_spec%%/*}"
+    repo="${repo_spec#*/}"
+
+    local project_id item_id
+    project_id=$(provider_projects_id_by_name "$owner" "$PROJECT_NAME") || {
+        log_error "Project '$PROJECT_NAME' not found for owner '$owner'"
+        return 1
+    }
+    item_id=$(provider_projects_item_id_for_issue "$project_id" "$ISSUE_NUMBER" "$owner" "$repo") || {
+        log_error "Issue #$ISSUE_NUMBER ($owner/$repo) is not (uniquely) in project '$PROJECT_NAME'"
+        return 1
+    }
+
+    local field_update field_name field_val field_id option_id
+    for field_update in "${FIELD_UPDATES[@]}"; do
+        field_name="${field_update%%=*}"
+        field_val="${field_update#*=}"
+
+        if [ "$field_name" = "$field_update" ] || [ -z "$field_name" ] || [ -z "$field_val" ]; then
+            log_error "Invalid field format: $field_update (expected NAME=VALUE)"
+            return 1
+        fi
+
+        # Single-select only: field + option IDs must both resolve.
+        read -r field_id option_id <<< "$(provider_projects_field_option_ids "$project_id" "$field_name" "$field_val")"
+        if [ -z "$field_id" ] || [ -z "$option_id" ]; then
+            log_error "Field '$field_name' option '$field_val' not found in project '$PROJECT_NAME' (single-select fields only)"
+            return 1
+        fi
+
+        provider_projects_field_set "$project_id" "$item_id" "$field_id" "$option_id" || {
+            log_error "Failed to set $field_name='$field_val' for issue #$ISSUE_NUMBER in '$PROJECT_NAME'"
+            return 1
+        }
+        log_info "Set $field_name='$field_val' for issue #$ISSUE_NUMBER in project '$PROJECT_NAME'"
+    done
+    return 0
 }
 
 # Run main function

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # github/issues.bash - GitHub implementation of the issues domain facade.
 #
-# Implements provider_issues_* functions per tools/lib/providers/INVENTORY.md:
+# Implements provider_issues_* functions (live contract: tools/lib/providers/README.md):
 # list / view / create / close / reopen / edit / comment / label ops /
 # milestone list / artifact comments. Repo targeting accepts -R owner/repo,
 # GH_REPO= env, or args-array pass-through (normalized by provider_repo_target
@@ -25,12 +25,16 @@ if ! declare -F log_error >/dev/null; then
     log_error() { echo "ERROR: $*" >&2; }
 fi
 
-PROVIDER_CAPABILITIES="${PROVIDER_CAPABILITIES:-}"
 # Native issue-type editing is GH-specific (gh issue edit --type).
-case " $PROVIDER_CAPABILITIES " in
-    *" native-issue-types "*) ;;
-    *) PROVIDER_CAPABILITIES="${PROVIDER_CAPABILITIES:+$PROVIDER_CAPABILITIES }native-issue-types" ;;
-esac
+if ! declare -F provider_declare_capability >/dev/null; then
+    # Standalone-sourcing fallback: the capability registry lives
+    # in provider-core; source it when this module is loaded alone.
+    _cap_core_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    # shellcheck disable=SC1091
+    source "$_cap_core_dir/provider-core.bash"
+    unset _cap_core_dir
+fi
+provider_declare_capability native-issue-types
 
 # ---------------------------------------------------------------------------
 # Internal targeting helper
@@ -41,12 +45,15 @@ esac
 # Sets VARNAME as a bash array: (-R owner/repo) or empty. Use
 # "${VARNAME[@]}" at the gh call site.
 provider_gh_repo_args() {
-    local __var="$1"
+    # nameref + printf -v: inert by construction — repo content is never
+    # re-parsed as shell syntax (the historical eval form executed $(...)
+    # embedded in repo values).
+    local -n __arr="$1"
     local __repo="${2:-}"
     if [ -n "$__repo" ]; then
-        eval "$__var=(-R \"$__repo\")"
+        __arr=("-R" "$__repo")
     else
-        eval "$__var=()"
+        __arr=()
     fi
 }
 
@@ -60,12 +67,25 @@ provider_gh_repo_args() {
 # Usage: provider_issues_list [repo] [--state S] [--label L] [--assignee A]
 #        [--limit N] [--json FIELD,...]
 provider_issues_list() {
+    # Flag contract: valued flags are --opt value pairs; the known boolean
+    # flags below take no value (the historical blind "shift 2" swallowed
+    # whatever followed a valueless flag — silently corrupting the arg
+    # stream, audit F019). Unknown flags fail defined instead of guessing.
     local repo=""
     local args=()
     local repo_args=()
     while [ $# -gt 0 ]; do
         case "$1" in
-            --*) args+=("$1" "$2"); shift 2 ;;
+            --web|--lock)
+                args+=("$1"); shift
+                ;;
+            --*)
+                if [ $# -lt 2 ]; then
+                    log_error "provider_issues_list: flag '$1' requires a value"
+                    return 1
+                fi
+                args+=("$1" "$2"); shift 2
+                ;;
             *) repo="$1"; shift ;;
         esac
     done
@@ -116,10 +136,11 @@ provider_issues_comments() {
 # Usage: provider_issues_milestones [repo]
 provider_issues_milestones() {
     local repo="$1"
+    shift
     if [ -n "$repo" ]; then
-        gh api "repos/$repo/milestones" 2>/dev/null
+        gh api "repos/$repo/milestones" "$@" 2>/dev/null
     else
-        gh api "repos/{owner}/{repo}/milestones" 2>/dev/null
+        gh api "repos/{owner}/{repo}/milestones" "$@" 2>/dev/null
     fi
 }
 
@@ -216,7 +237,11 @@ provider_issues_label_list() {
     local repo_args=()
     provider_gh_repo_args repo_args "$1"
     shift
-    gh label list "${repo_args[@]}" "$@" --json name 2>/dev/null
+    # Pure pass-through: callers own their --json field list. (The verb used
+    # to append "--json name", silently corrupting caller-specified field
+    # lists with a duplicate flag that worked only by undocumented gh
+    # last-wins tolerance.)
+    gh label list "${repo_args[@]}" "$@" 2>/dev/null
 }
 
 # Create a label if absent (idempotent; mirrors ensure_label semantics).
@@ -226,7 +251,15 @@ provider_issues_label_ensure() {
     local name="$1" color="${2:-ededed}" desc="${3:-Automated process}"
     local repo_args=()
     provider_gh_repo_args repo_args "$repo"
-    if gh label list "${repo_args[@]}" --json name --jq '.[].name' 2>/dev/null | grep -qx "$name"; then
+    # Distinguish "cannot list" from "not listed": a permissions failure
+    # must not masquerade as absent-label and produce a confusing create
+    # failure downstream.
+    local listed
+    if ! listed=$(gh label list "${repo_args[@]}" --json name --jq '.[].name' 2>/dev/null); then
+        log_error "provider_issues_label_ensure: cannot list labels in '${repo:-cwd repo}' — check credentials/permissions"
+        return 1
+    fi
+    if printf '%s\n' "$listed" | grep -qx "$name"; then
         return 0
     fi
     gh label create "$name" "${repo_args[@]}" --color "$color" --description "$desc" 2>/dev/null

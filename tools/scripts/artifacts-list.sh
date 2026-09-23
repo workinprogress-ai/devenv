@@ -46,7 +46,7 @@
 #   - column (text formatter)
 #   - artifact-operations.bash
 #   - error-handling.bash
-#   - github-helpers.bash
+#   - provider-loader.bash
 #
 ################################################################################
 
@@ -54,7 +54,7 @@ set -euo pipefail
 
 # Source required libraries
 source "${DEVENV_TOOLS}/lib/error-handling.bash"
-source "${DEVENV_TOOLS}/lib/github-helpers.bash"
+source "${DEVENV_TOOLS}/lib/provider-loader.bash"
 source "${DEVENV_TOOLS}/lib/artifact-operations.bash"
 
 # ============================================================================

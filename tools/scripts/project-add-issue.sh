@@ -14,15 +14,15 @@ set -euo pipefail
 # shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/validation.bash"
 source "$DEVENV_TOOLS/lib/fzf-selection.bash"
 #
-# Org identity (policy_org) arrives transitively via github-helpers
+# Org identity (policy_org) arrives transitively via provider-loader
 # (which loads the policy layer); no explicit policy sourcing here.
 
-readonly SCRIPT_VERSION="1.0.0"
+readonly SCRIPT_VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
 script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Add issues to GitHub Projects"
 readonly SCRIPT_NAME
@@ -59,7 +59,8 @@ Options:
     -V, --verbose               Enable verbose output
     -n, --dry-run               Show what would be done without adding issues
 
-    --field NAME=VALUE          Set project field value (can be specified multiple times)
+    --field NAME=VALUE          Set a single-select project field value (can be
+                                specified multiple times)
                                 Example: --field "Status=Ready" --field "Priority=High"
     --devenv                    Safety override to manage projects in devenv repo
 
@@ -79,7 +80,7 @@ Examples:
 
     # Add multiple issues with same field values
     $SCRIPT_NAME "Sprint 5" 123 124 \\
-        --field "Status=To Groom" --field "Sprint=Sprint 5"
+        --field "Status=To-Groom" --field "Sprint=Sprint 5"
 
 Note:
     This script adds issues to GitHub Projects (v2). The project must already exist.
@@ -97,13 +98,11 @@ get_owner() {
     if [ -n "$policy_org" ]; then
         echo "$policy_org"
     else
-        local repo_spec=""
         local repo_name
         repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
         if [ -n "$repo_name" ]; then
-            repo_spec="-R $repo_name"
+            provider_repos_view "$repo_name" --json owner -q .owner.login
         fi
-        provider_repos_view "${repo_spec#-R }" --json owner -q .owner.login
     fi
 }
 
@@ -114,16 +113,16 @@ get_owner() {
 # current directory, silently adding wrong-repo issues with matching numbers.
 get_issue_url() {
     local issue_num="$1"
-    local repo_spec=""
+    local repo=""
     policy_org="$(provider_org_get 2>/dev/null || true)"
     if [ -n "$policy_org" ]; then
         local repo_name
         repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
         if [ -n "$repo_name" ]; then
-            repo_spec="-R ${policy_org}/${repo_name}"
+            repo="${policy_org}/${repo_name}"
         fi
     fi
-    provider_issues_view "${repo_spec#-R }" "$issue_num" --json url -q .url
+    provider_issues_view "$repo" "$issue_num" --json url -q .url
 }
 
 # Add issue to project
@@ -153,7 +152,7 @@ add_issue_to_project() {
         
         # Set field values if provided
         if [ ${#FIELD_VALUES[@]} -gt 0 ]; then
-            set_field_values "$issue_num" "$owner"
+            set_field_values "$issue_num" "$owner" || return 1
         fi
         
         return 0
@@ -165,29 +164,53 @@ add_issue_to_project() {
     fi
 }
 
-# Set field values for issue in project
+# Set field values for the newly added issue's project card (single-select
+# fields, via the shared GraphQL helpers). All specified fields must resolve
+# and write; the first failure aborts with rc=1 — never a partial silent success.
 set_field_values() {
     local issue_num="$1"
     local owner="$2"
-    
+    local repo="${owner#*/}"
+    owner="${owner%%/*}"
+
+    local repo_spec
+    repo_spec=$(resolve_target_repo) || return 1
+    owner="${repo_spec%%/*}"
+    repo="${repo_spec#*/}"
+
+    local project_id item_id
+    project_id=$(provider_projects_id_by_name "$owner" "$PROJECT_NAME") || {
+        log_error "Project '$PROJECT_NAME' not found for owner '$owner'"
+        return 1
+    }
+    item_id=$(provider_projects_item_id_for_issue "$project_id" "$issue_num" "$owner" "$repo") || {
+        log_error "Issue #$issue_num ($owner/$repo) is not (uniquely) in project '$PROJECT_NAME'"
+        return 1
+    }
+
+    local field_value field_name field_val field_id option_id
     for field_value in "${FIELD_VALUES[@]}"; do
-        # Parse field name and value
-        local field_name="${field_value%%=*}"
-        local field_val="${field_value#*=}"
-        
-        if [ "$field_name" = "$field_value" ]; then
-            log_warn "Invalid field format: $field_value (expected NAME=VALUE)"
-            continue
+        field_name="${field_value%%=*}"
+        field_val="${field_value#*=}"
+
+        if [ "$field_name" = "$field_value" ] || [ -z "$field_name" ] || [ -z "$field_val" ]; then
+            log_error "Invalid field format: $field_value (expected NAME=VALUE)"
+            return 1
         fi
-        
-        log_verbose "Setting field '$field_name' to '$field_val' for issue #$issue_num"
-        
-        # Note: gh CLI doesn't have a direct command to set project item fields yet
-        # This would require using the GraphQL API directly
-        # For now, log a message
-        log_warn "Field setting requires manual configuration or GraphQL API"
-        log_info "Field: $field_name = $field_val (for issue #$issue_num)"
+
+        read -r field_id option_id <<< "$(provider_projects_field_option_ids "$project_id" "$field_name" "$field_val")"
+        if [ -z "$field_id" ] || [ -z "$option_id" ]; then
+            log_error "Field '$field_name' option '$field_val' not found in project '$PROJECT_NAME' (single-select fields only)"
+            return 1
+        fi
+
+        provider_projects_field_set "$project_id" "$item_id" "$field_id" "$option_id" || {
+            log_error "Failed to set $field_name='$field_val' for issue #$issue_num in '$PROJECT_NAME'"
+            return 1
+        }
+        log_info "Set $field_name='$field_val' for issue #$issue_num in project '$PROJECT_NAME'"
     done
+    return 0
 }
 
 # Process all issues

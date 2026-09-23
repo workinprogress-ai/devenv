@@ -40,7 +40,7 @@ set -euo pipefail
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
-# ... other libs as needed (github-helpers, issue-operations, ...)
+# ... other libs as needed (provider-loader, issue-operations, ...)
 
 readonly SCRIPT_VERSION="1.0.0"
 readonly SCRIPT_NAME="$(basename "$0")"
@@ -86,7 +86,7 @@ Source only what you use. All paths are `$DEVENV_TOOLS/lib/`.
 |---|---|---|
 | `error-handling.bash` | Logging (`log_debug/info/warn/error/fatal`, `success`), exit-code constants, `die`, `invalid_args`, `require_option_value`, `api_failure`, `handle_global_flag`, `enable_strict_mode`, `require_command`, `safe_remove` | **Always.** Non-negotiable. |
 | `versioning.bash` | `script_version` (power `-v/--version`) | Always |
-| `github-helpers.bash` | `ensure_gh_login`, `get_repo_spec`, `resolve_target_repo` | Any GitHub-facing tool (superseded by `tools/lib/providers/` for new work — see the [provider abstraction](../tools/lib/providers/README.md)) |
+| `provider-loader.bash` | `ensure_gh_login`, `get_repo_spec`, `resolve_target_repo` | Any GitHub-facing tool (superseded by `tools/lib/providers/` for new work — see the [provider abstraction](../tools/lib/providers/README.md)) |
 | `git-operations.bash` | `check_target_repo` (devenv-repo safety gate) | Tools operating on the cwd's repo; required by `resolve_target_repo` |
 | `issue-operations.bash` | Issue CRUD wrappers | Issue tools |
 | `body-source.bash` | `body_source_resolve`, `body_source_capture_stdin`, `body_source_stdin_is_tty` | Tools that accept markdown/text bodies |
@@ -140,7 +140,9 @@ If your tool accepts a markdown/text body:
 ## Repo targeting (provider-seamed tools)
 
 Repo targeting resolves through the provider seam via `provider_repo_target`
-(explicit `--repo` → `GITHUB_REPO` → full-form `GH_REPO` → configured org +
+(explicit `--repo` → `DEVENV_REPO` → full-form `GH_REPO` → configured org +
+
+> The legacy `GITHUB_REPO` environment variable remains a deprecated alias for `DEVENV_REPO`; new scripts and documentation should use `DEVENV_REPO` only.
 cwd basename). Org identity comes from `provider_org_get` (env override →
 config `[organization] github_org` → seed); a provider module owns the
 equivalent chain for its backend.
@@ -222,11 +224,11 @@ Every tool gets a bats file at `tools/tests/scripts/test_<tool>.bats`:
   external dependencies (see `test_issue_artifact_upsert.bats` for the gh-stub
   pattern)
 - Exit-code assertions for each error class your tool emits
-- Tests must pass with `GITHUB_REPO`, `GH_REPO`, `DEVENV_ROOT`, and
+- Tests must pass with `DEVENV_REPO`, `GH_REPO`, `DEVENV_ROOT`, and
   `DEVENV_TOOLS` either set or unset — stub the environment, don't depend on it
 
 Run everything: `bash tools/tests/run-devenv-tests.sh` (from a clean
-environment: `env -u GITHUB_REPO -u GH_REPO ...`).
+environment: `env -u DEVENV_REPO -u GH_REPO ...`).
 
 ## Static analysis
 

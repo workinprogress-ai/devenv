@@ -17,7 +17,7 @@ set -euo pipefail
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
@@ -111,7 +111,7 @@ list_workflows() {
         log_verbose "Fetching workflows for $org/$repo..."
 
         local wfs
-        wfs=$(provider_actions_workflow_list "$org/$repo" \
+        wfs=$(provider_pipelines_workflow_list "$org/$repo" \
             --json id,name,path,state \
             2>/dev/null || echo "[]")
 

@@ -43,7 +43,7 @@ DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 #   - gh (GitHub CLI)
 #   - yq (YAML processor)
 #   - repo-operations.bash
-#   - github-helpers.bash
+#   - provider-loader.bash
 #   - git-operations.bash
 #   - fzf-selection.bash
 #
@@ -56,7 +56,7 @@ source "$DEVENV_TOOLS/lib/repo-operations.bash"
 # shellcheck disable=SC1091
 source "$DEVENV_TOOLS/lib/repo-types.bash"
 # shellcheck disable=SC1091
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 # shellcheck disable=SC1091
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 # shellcheck disable=SC1091

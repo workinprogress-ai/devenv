@@ -1,6 +1,6 @@
 ---
 name: devenv-address-pr-comments
-description: 'Address PR review feedback with AI handling clear threads automatically and surfacing the complex ones for direction. USE WHEN the user says "address PR comments", "work through the review feedback", "go through the PR comments with me", "respond to reviewer comments", "let''s address this PR review together", "fix the nits", or wants any guided workflow for PR review feedback — from a live PR (PR number) or a markdown document holding captured review feedback (e.g. a saved /devenv-code-review report). Loads threads, classifies them, auto-fixes the clear ones (nits, obvious requests-for-change) with a single consent gate, then surfaces questions, informational/praise, and high-impact threads one by one with a recommendation. Offers a conventional commit suggestion at the end — never commits. DO NOT USE FOR opening a PR (use /devenv-open-pr), doing the code review yourself (use /devenv-code-review), or responding to CI failures.'
+description: 'Address PR review feedback with AI handling clear threads automatically and surfacing the complex ones for direction. USE WHEN the user says "address PR comments", "work through the review feedback", "go through the PR comments with me", "respond to reviewer comments", "let''s address this PR review together", "fix the nits", or wants any guided workflow for PR review feedback — from a live PR (PR number) or a markdown document holding captured review feedback (e.g. a saved /devenv-review report). Loads threads, classifies them, auto-fixes the clear ones (nits, obvious requests-for-change) with a single consent gate, then surfaces questions, informational/praise, and high-impact threads one by one with a recommendation. Offers a conventional commit suggestion at the end — never commits. DO NOT USE FOR opening a PR (use /devenv-open-pr), doing the code review yourself (use /devenv-review), or responding to CI failures.'
 argument-hint: PR number | path-to-review-markdown (PR auto-detected from current branch if omitted)
 user-invocable: true
 ---
@@ -38,9 +38,9 @@ A reply and a code change can go together, but neither implies the other. And re
 
 - A reviewer left inline comments and you want to address them efficiently, with the complex ones handled thoughtfully.
 - You want the clear stuff done automatically and the nuanced stuff surfaced for your input.
-- Review feedback exists only as a markdown document — a saved `/devenv-code-review` report or manually captured comments — and you want the same guided workflow on it.
+- Review feedback exists only as a markdown document — a saved `/devenv-review` report or manually captured comments — and you want the same guided workflow on it.
 
-For code review you do yourself, use `/devenv-code-review`. For CI failures, fix them directly — this skill is for reviewer comments.
+For code review you do yourself, use `/devenv-review`. For CI failures, fix them directly — this skill is for reviewer comments.
 
 ## Prerequisites
 
@@ -56,7 +56,7 @@ For code review you do yourself, use `/devenv-code-review`. For CI failures, fix
 1. **PR mode:** detect PR number (from argument, or `pr-list --head <current-branch> --limit 1 | jq -r '.[0].number'`), run `pr-threads-get <N>` (unresolved only), and if 0 threads report "No unresolved review threads." and stop.
 
    **Document mode:** read the feedback document and convert it to the same thread model:
-   - Parse findings from the document's sections. A saved `/devenv-code-review` report maps directly: 🛑 Blocker → C-complex (blockers need direction), ⚠️ Concern → C-complex, 💭 Nit → A, ✅ Praise → E, "Questions for the author" → B, "Missing tests" → C-clear when the gap is localized (add the test) else C-complex, "TODO/FIXME left in the diff" → C-clear.
+   - Parse findings from the document's sections. A saved `/devenv-review` report maps directly: 🛑 Blocker → C-complex (blockers need direction), ⚠️ Concern → C-complex, 💭 Nit → A, ✅ Praise → E, "Questions for the author" → B, "Missing tests" → C-clear when the gap is localized (add the test) else C-complex, "TODO/FIXME left in the diff" → C-clear.
    - An unstructured document (pasted comments, bullets): treat each bullet/comment block as one thread; classify with the table below.
    - Extract `file:line` from links or text; a finding without a locatable file is `?` (needs clarification) — never guess the target.
    - There are no thread IDs, replies, or resolution in this mode — the only actions are code changes and the final summary. State this up front: "Document mode: I'll apply fixes and summarize; there are no threads to reply to or resolve."
@@ -114,6 +114,8 @@ Accept free-form adjustments: "I'll take the nits", "skip the design comment", "
 
 If any Group D threads exist, proactively note:
 > "The design thread on api.ts:120 may be too complex to resolve inline. Once we've discussed it, I can offer to open a plan."
+
+Larger-than-micro thread work (multi-file fixes, design changes, anything past the incidental-implementation ceiling) should be offered as `/devenv-plan` engagement: the plan, once written, ends with a per-phase implementer recommendation, so the handoff covers both *what* to do and *who* executes it.
 
 ---
 
@@ -182,7 +184,7 @@ Present this per-thread ask via the structured interview per the shared [direct 
 - **`both`** — apply the fix, draft a reply explaining what was done, show both for approval, then apply and mark resolved.
 - **`skip`** — note it in the summary as not yet addressed; leave open.
 - **Praise / informational** — draft an optional acknowledgement reply (show it), then: `Resolve this one? (y / leave open)`.
-- **Design / architecture (D)** — after discussing, offer: *"This looks complex enough to warrant a proper plan. Want me to open a plan via `/devenv-create-plan`?"* If yes, capture the context and hand off. Leave unresolved; note in summary.
+- **Design / architecture (D)** — after discussing, offer: *"This looks complex enough to warrant a proper plan. Want me to open a plan via `/devenv-plan`?"* If yes, capture the context and hand off. Leave unresolved; note in summary.
 
 **Drafting replies:** Always show the draft before posting:
 
@@ -210,9 +212,9 @@ Done — 11 threads
 ```
 
 Then:
-- If any code was changed → "Run `/devenv-pre-commit` before pushing."
+- If any code was changed → "Run `/devenv-commit` before pushing."
 - **PR mode:** if threads are left open → list each with a one-line reminder of what's pending. **Document mode:** list findings not addressed with what remains instead (there is no open/closed state).
-- If a plan was offered → remind the user to follow up with `/devenv-create-plan`.
+- If a plan was offered → remind the user to follow up with `/devenv-plan`.
 - Offer a **commit suggestion** (see below).
 
 ### Commit suggestion
@@ -281,10 +283,10 @@ Never suggest `git commit` commands or run any git operations. Only suggest the 
 
 ## Sibling skills
 
-- `/devenv-code-review` — you do the reviewing; this skill is for addressing feedback you've received.
+- `/devenv-review` — you do the reviewing; this skill is for addressing feedback you've received.
 - `/devenv-open-pr` — for opening the PR before review starts.
-- `/devenv-pre-commit` — run quality gates after making changes in response to comments.
-- `/devenv-create-plan` — for design/architecture threads too complex to resolve inline.
+- `/devenv-commit` — run quality gates after making changes in response to comments.
+- `/devenv-plan` — for design/architecture threads too complex to resolve inline; its completion step recommends the implementer (pair/delegate) per phase.
 - Your execution skill's own wrap-up (e.g. pair-programming writes the pairing state file) — if you need to stop mid-review and resume in a later session.
 - GitHub PR extension's `address-pr-comments` — for a fast batch-fix-all workflow without per-comment choices.
 

@@ -8,30 +8,72 @@
 # version-bump empty commits in repo-bump-version.sh; normal commits must
 # always go through hooks.
 #
+# Message input: positional args (joined with spaces) or --file <path> for a
+# pre-written message (long messages arrive unmangled; the file content is
+# used verbatim after the WIP: prefix). --file and positional args are
+# mutually exclusive.
 
 STAGED_ONLY=false
-COMMIT_MSG_PARTS=()
+MSG_FILE=""
 
-for arg in "$@"; do
-  case "$arg" in
+print_usage() {
+    cat <<'EOF'
+Usage: git-wip [--staged-only] [--file <path>] ["<message words...>"]
+
+Stage everything (or --staged-only to skip staging) and push a WIP snapshot
+commit prefixed with "WIP: ".
+
+  --staged-only   Do not run `git add -A`; commit the existing index.
+  --file <path>   Read the message from a file (used verbatim after the
+                  WIP: prefix). Mutually exclusive with positional words.
+EOF
+}
+
+ARGS=()
+while [ $# -gt 0 ]; do
+  case "$1" in
     --staged-only)
       STAGED_ONLY=true
       ;;
+    --file)
+      [ -n "${2:-}" ] || { echo "Error: --file requires a path" >&2; exit 1; }
+      MSG_FILE="$2"
+      ;;
+    -h|--help)
+      print_usage
+      exit 0
+      ;;
     --*)
-      echo "Error: unknown flag '$arg'" >&2
+      echo "Error: unknown flag '$1'" >&2
       exit 1
       ;;
     *)
-      COMMIT_MSG_PARTS+=("$arg")
+      ARGS+=("$1")
       ;;
   esac
+  shift
 done
+
+if [ -n "$MSG_FILE" ] && [ ${#ARGS[@]} -gt 0 ]; then
+  echo "Error: --file and a positional message are mutually exclusive" >&2
+  exit 1
+fi
+
+if [ -n "$MSG_FILE" ]; then
+  if [ ! -f "$MSG_FILE" ]; then
+    echo "Error: message file not found: $MSG_FILE" >&2
+    exit 1
+  fi
+  MSG="$(cat "$MSG_FILE")"
+else
+  MSG="${ARGS[*]:-}"
+fi
 
 if [ "$STAGED_ONLY" = false ]; then
   git add -A
 fi
 
-git commit -m "WIP: ${COMMIT_MSG_PARTS[*]}" -n
+git commit -m "WIP: ${MSG}" -n
 git push
 git update-ref refs/wip/last HEAD
 

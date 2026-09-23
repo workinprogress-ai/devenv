@@ -21,21 +21,25 @@ fi
 
 if ! declare -F provider_gh_repo_args >/dev/null; then
     provider_gh_repo_args() {
-        local __var="$1"
+        local -n __arr="$1"
         local __repo="${2:-}"
         if [ -n "$__repo" ]; then
-            eval "$__var=(-R \"$__repo\")"
+            __arr=("-R" "$__repo")
         else
-            eval "$__var=()"
+            __arr=()
         fi
     }
 fi
 
-PROVIDER_CAPABILITIES="${PROVIDER_CAPABILITIES:-}"
-case " $PROVIDER_CAPABILITIES " in
-    *" project-boards "*) ;;
-    *) PROVIDER_CAPABILITIES="${PROVIDER_CAPABILITIES:+$PROVIDER_CAPABILITIES }project-boards" ;;
-esac
+if ! declare -F provider_declare_capability >/dev/null; then
+    # Standalone-sourcing fallback: the capability registry lives
+    # in provider-core; source it when this module is loaded alone.
+    _cap_core_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    # shellcheck disable=SC1091
+    source "$_cap_core_dir/provider-core.bash"
+    unset _cap_core_dir
+fi
+provider_declare_capability project-boards
 
 # List project boards for a repo.
 # Usage: provider_projects_list [repo] [FLAGS...]
@@ -78,18 +82,8 @@ provider_projects_item_add() {
     gh project item-add "$project" "${repo_args[@]}" --url "$item" "$@"
 }
 
-# Workflow stages lookup (project-update tooling dependency).
-# Usage: provider_projects_workflow_stages [repo]
-provider_projects_workflow_stages() {
-    provider_require_capability project-boards || return 1
-    local repo="$1"
-    local repo_args=()
-    provider_gh_repo_args repo_args "$repo"
-    gh workflow list "${repo_args[@]}" --all
-}
-
 # Resolve a project's GraphQL node ID from its title or numeric number.
-# Replacement for github-helpers' project_id_by_name.
+# Counterpart to provider-loader's legacy project_id_by_name.
 # Usage: provider_projects_id_by_name OWNER PROJECT-NAME-OR-NUMBER
 # stdout: project node ID (PVT_...)  |  rc=1 when not found
 provider_projects_id_by_name() {
@@ -114,35 +108,64 @@ provider_projects_id_by_name() {
         return 1
     fi
 
-    # Title match: scan the org's project list (small; fresh call, no cache).
-    local query='query($o:String!){
-        organization(login:$o){ projectsV2(first:50){ nodes{ id title } } }
+    # Title match: scan the org's project list, paginated (a >50-project org
+    # must not silently lose tail projects from the scan). One gh call per
+    # page: line 1 is pageInfo ("true CURSOR"), remaining non-empty lines are
+    # matching project IDs. First call omits the cursor variable.
+    local query='query($o:String!,$c:String){
+        organization(login:$o){ projectsV2(first:50, after:$c){ pageInfo{ hasNextPage endCursor } nodes{ id title } } }
     }'
     # gh api's --jq program cannot receive --arg variables, so the title is
     # interpolated into the program. Reject embedded quotes first — a title
-    # containing a double quote cannot be safely expressed here.
+    # containing a double quote cannot be safely expressed here. Logged so
+    # the caller can distinguish "unusable input" from "no such project".
     case "$name_or_number" in
-        *'"'*) return 1 ;;
+        *'"'*)
+            log_error "provider_projects_id_by_name: project title must not contain double quotes ('$name_or_number')"
+            return 1
+            ;;
     esac
-    local id
-    id=$(gh api graphql -f "query=$query" -f o="$owner" \
-        --jq ".data.organization.projectsV2.nodes[] | select(.title == \"$name_or_number\") | .id" \
-        2>/dev/null) || return 1
-    [ -n "$id" ] && { echo "$id"; return 0; }
+    local -a ids=()
+    local cursor="" has_more=true
+    local -a page_lines
+    local line
+    while [ "$has_more" = "true" ]; do
+        local -a cursor_args=()
+        [ -n "$cursor" ] && cursor_args=(-f c="$cursor")
+        local page
+        page=$(gh api graphql -f "query=$query" -f o="$owner" "${cursor_args[@]}" \
+            --jq '.data.organization.projectsV2 as $p
+                  | "\($p.pageInfo.hasNextPage) \($p.pageInfo.endCursor // "")",
+                    ($p.nodes[] | select(.title == "'"$name_or_number"'") | .id)' \
+            2>/dev/null) || return 1
+        mapfile -t page_lines <<< "$page"
+        has_more="${page_lines[0]%% *}"
+        cursor="${page_lines[0]#* }"
+        for line in "${page_lines[@]:1}"; do
+            [ -n "$line" ] && ids+=("$line")
+        done
+    done
+    [ "${#ids[@]}" -gt 0 ] && { printf '%s\n' "${ids[@]}"; return 0; }
     return 1
 }
 
 # Resolve the project item ID for an issue inside a project.
-# Replacement for github-helpers' project_item_id_for_issue.
-# Usage: provider_projects_item_id_for_issue PROJECT-ID ISSUE-NUMBER
-# stdout: item node ID (PVTI_...)  |  rc=1 when the issue is not in the project
+# Counterpart to provider-loader's legacy project_item_id_for_issue.
+# Repo-strict: issue numbers are only unique per repository, so the owner/name
+# pair must match exactly — a board holding cards from several repos can carry
+# the same issue number many times, and resolving those ambiguously either
+# corrupts the mutation payload (multi-ID blob) or writes the wrong card.
+# Usage: provider_projects_item_id_for_issue PROJECT-ID ISSUE-NUMBER OWNER REPO
+# stdout: item node ID (PVTI_...)  |  rc=1 when absent, ambiguous, or arg-mismatch
 provider_projects_item_id_for_issue() {
     provider_require_capability project-boards || return 1
     local project_id="$1"
     local issue_number="$2"
+    local owner="$3"
+    local repo="$4"
 
-    if [ -z "$project_id" ] || [ -z "$issue_number" ]; then
-        log_error "provider_projects_item_id_for_issue: project-id and issue-number required"
+    if [ -z "$project_id" ] || [ -z "$issue_number" ] || [ -z "$owner" ] || [ -z "$repo" ]; then
+        log_error "provider_projects_item_id_for_issue: project-id, issue-number, owner and repo required"
         return 1
     fi
     if ! [[ "$issue_number" =~ ^[0-9]+$ ]]; then
@@ -150,25 +173,69 @@ provider_projects_item_id_for_issue() {
         return 1
     fi
 
-    local query='query($p:ID!){
+    local query='query($p:ID!,$c:String){
         node(id:$p){
             ... on ProjectV2 {
-                items(first:100){ nodes{ id content{ ... on Issue{ number } } } }
+                items(first:100, after:$c){
+                    pageInfo{ hasNextPage endCursor }
+                    nodes{ id content{ ... on Issue{ number repository{ nameWithOwner } } } }
+                }
             }
         }
     }'
-    # Number is validated numeric above; interpolate into the jq program
-    # (gh api's --jq cannot receive --arg variables).
-    local id
-    id=$(gh api graphql -f "query=$query" -f p="$project_id" \
-        --jq ".data.node.items.nodes[] | select(.content.number == $issue_number) | .id" \
-        2>/dev/null) || return 1
-    [ -n "$id" ] && { echo "$id"; return 0; }
-    return 1
+
+    # Owner/repo are shell-quoted into the jq program (gh api's --jq cannot
+    # receive --arg variables); embedded double quotes would break the quoting.
+    case "$owner$repo" in
+        *'"'*)
+            log_error "provider_projects_item_id_for_issue: owner/repo must not contain double quotes"
+            return 1
+            ;;
+    esac
+    local full_name="$owner/$repo"
+
+    # One gh call per page: line 1 is pageInfo ("true CURSOR"), remaining
+    # non-empty lines are matching item IDs. First call omits the cursor
+    # variable entirely (an empty after:"" is not a valid page cursor).
+    local -a ids=()
+    local cursor="" has_more=true
+    local -a page_lines
+    local line
+    while [ "$has_more" = "true" ]; do
+        local -a cursor_args=()
+        [ -n "$cursor" ] && cursor_args=(-f c="$cursor")
+        local page
+        page=$(gh api graphql -f "query=$query" -f p="$project_id" "${cursor_args[@]}" \
+            --jq '.data.node.items as $items
+                  | "\($items.pageInfo.hasNextPage) \($items.pageInfo.endCursor // "")",
+                    ($items.nodes[]
+                     | select(.content.number == '"$issue_number"'
+                              and .content.repository.nameWithOwner == "'"$full_name"'")
+                     | .id)' 2>/dev/null) || return 1
+        mapfile -t page_lines <<< "$page"
+        has_more="${page_lines[0]%% *}"
+        cursor="${page_lines[0]#* }"
+        for line in "${page_lines[@]:1}"; do
+            [ -n "$line" ] && ids+=("$line")
+        done
+    done
+
+    # Uniqueness: exactly one card may match. Zero = not in project; more than
+    # one is a data-integrity condition we refuse to guess at.
+    if [ "${#ids[@]}" -eq 0 ]; then
+        log_error "provider_projects_item_id_for_issue: $full_name#$issue_number is not in project $project_id"
+        return 1
+    fi
+    if [ "${#ids[@]}" -ne 1 ]; then
+        log_error "provider_projects_item_id_for_issue: expected exactly 1 card for $full_name#$issue_number, got ${#ids[@]}"
+        return 1
+    fi
+    echo "${ids[0]}"
+    return 0
 }
 
 # Resolve the single-select field ID and option ID for a field/value pair.
-# Replacement for github-helpers' project_field_and_option_ids.
+# Counterpart to provider-loader's legacy project_field_and_option_ids.
 # Usage: provider_projects_field_option_ids PROJECT-ID FIELD-NAME OPTION-NAME
 # stdout: "<field-id> <option-id>"  |  rc=1 when field or option not found
 provider_projects_field_option_ids() {
@@ -208,7 +275,7 @@ provider_projects_field_option_ids() {
 }
 
 # Set a single-select field value on a project item.
-# Replacement for github-helpers' update_project_item_field.
+# Counterpart to provider-loader's legacy update_project_item_field.
 # Usage: provider_projects_field_set PROJECT-ID ITEM-ID FIELD-ID OPTION-ID
 # rc=0 on success (idempotent same-value writes succeed silently)
 provider_projects_field_set() {
@@ -233,7 +300,7 @@ provider_projects_field_set() {
 }
 
 # List projects containing an issue, with the issue's current Status in each.
-# Replacement for github-helpers' projects_for_issue.
+# Counterpart to provider-loader's legacy projects_for_issue.
 # Usage: provider_projects_for_issue ISSUE-URL OWNER
 # stdout: "<project-title>\t<project-number>\t<status-or-dash>" per project
 # rc=0 always; empty output when the issue is in no projects (read path)
@@ -277,7 +344,7 @@ provider_projects_for_issue() {
     fi
 
     # Extract per-project: title, number, and the Status single-select value.
-    # (jq extraction shared with the github-helpers implementation.)
+    # (jq extraction shared with the provider-loader legacy implementation.)
     jq -r --arg owner "$owner" '
         .data.resource.projectItems.nodes[]
         | select(.project.owner.login == $owner)

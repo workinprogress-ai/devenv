@@ -44,3 +44,12 @@ if git diff --cached --name-only | grep -qE '^(tools/|\.devcontainer/)'; then
     
     echo "All checks passed!"
 fi
+
+# Skill-tree contract check: run lint-skills when copilot/skills changes
+if git diff --cached --name-only | grep -q '^copilot/skills/'; then
+    echo "Skill tree changed - running lint-skills..."
+    if ! "$DEVENV_ROOT/tools/lint-skills"; then
+        echo "lint-skills failed. Commit aborted."
+        exit 1
+    fi
+fi

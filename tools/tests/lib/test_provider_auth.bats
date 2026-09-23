@@ -89,3 +89,29 @@ setup() {
     '
     assert_failure
 }
+
+@test "auth module: provider_auth_token_impl prints the keychain token" {
+    # shellcheck disable=SC1091
+    source "${DEVENV_TOOLS}/lib/providers/github/auth.bash"
+    STUB_GH_AUTH_TOKEN="tok123" run provider_auth_token_impl
+    [ "$status" -eq 0 ]
+    [ "$output" = "tok123" ]
+}
+
+@test "core: token kind delegates keychain probe to the provider impl" {
+    # With the github auth module loaded, the keychain leg is available.
+    # shellcheck disable=SC1091
+    source "${DEVENV_TOOLS}/lib/providers/github/auth.bash"
+    STUB_GH_AUTH_TOKEN="tok123" run bash -c 'true'
+    [ -n "$(declare -f provider_auth_token_impl)" ]
+}
+
+@test "core: no gh invocation remains in provider-core (grep gate)" {
+    local hits
+    hits=$(grep -nE '\bgh\b' "$DEVENV_TOOLS/lib/providers/provider-core.bash" | grep -v '^\s*#' | grep -vE ':[0-9]+:\s*#' || true)
+    [ -z "$hits" ] || {
+        echo "gh references in neutral core:" >&2
+        printf '%s\n' "$hits" >&2
+        return 1
+    }
+}

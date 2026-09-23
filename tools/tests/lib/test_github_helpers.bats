@@ -10,7 +10,7 @@ load ../test_helper
 
 @test "get_full_repo_name: requires repo path argument" {
   run bash -c "
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     get_full_repo_name ''
   "
   [ "$status" -ne 0 ]
@@ -19,7 +19,7 @@ load ../test_helper
 
 @test "get_full_repo_name: fails on invalid path" {
   run bash -c "
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     get_full_repo_name '/nonexistent/path/to/repo'
   "
   [ "$status" -ne 0 ]
@@ -45,7 +45,7 @@ load ../test_helper
   
   run bash -c "
     export -f gh
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     get_full_repo_name '$TEST_TEMP_DIR/test-repo'
   "
   [ "$status" -eq 0 ]
@@ -67,7 +67,7 @@ load ../test_helper
   
   run bash -c "
     export -f gh
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     get_full_repo_name '$TEST_TEMP_DIR/test-repo2'
   "
   [ "$status" -eq 0 ]
@@ -89,7 +89,7 @@ load ../test_helper
   
   run bash -c "
     export -f gh
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     get_full_repo_name '$TEST_TEMP_DIR/test-repo3'
   "
   [ "$status" -eq 0 ]
@@ -111,7 +111,7 @@ load ../test_helper
   
   run bash -c "
     export -f gh
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     get_full_repo_name '$TEST_TEMP_DIR/test-repo4'
   "
   [ "$status" -eq 0 ]
@@ -133,7 +133,7 @@ load ../test_helper
   
   run bash -c "
     export -f gh
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     get_full_repo_name '$TEST_TEMP_DIR/test-repo5'
   "
   [ "$status" -ne 0 ]
@@ -155,7 +155,7 @@ load ../test_helper
   
   run bash -c "
     export -f gh
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     get_full_repo_name '$TEST_TEMP_DIR/test-repo6'
   "
   [ "$status" -ne 0 ]
@@ -169,7 +169,7 @@ load ../test_helper
 @test "wait_for_workflow_runs: requires repo argument" {
   run bash -c "
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     wait_for_workflow_runs ''
   "
   [ "$status" -ne 0 ]
@@ -188,7 +188,7 @@ load ../test_helper
     }
     export -f gh
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     wait_for_workflow_runs 'owner/repo' 'master' 1 5
   "
   [ "$status" -eq 0 ]
@@ -206,7 +206,7 @@ load ../test_helper
     }
     export -f gh
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     wait_for_workflow_runs 'owner/repo' 'master' 1 5
   "
   [ "$status" -eq 1 ]
@@ -224,7 +224,7 @@ load ../test_helper
     }
     export -f gh
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     wait_for_workflow_runs 'owner/repo' 'master' 1 5
   "
   [ "$status" -eq 1 ]
@@ -241,7 +241,7 @@ load ../test_helper
     }
     export -f gh
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     wait_for_workflow_runs 'owner/repo' 'master' 1 2
   "
   [ "$status" -eq 2 ]
@@ -271,7 +271,7 @@ load ../test_helper
     }
     export -f gh
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     wait_for_workflow_runs 'owner/repo' 'master' 1 10
   "
   [ "$status" -eq 0 ]
@@ -293,7 +293,7 @@ load ../test_helper
     }
     export -f gh
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     wait_for_workflow_runs_multi 'master' 1 5 'owner/repo1' 'owner/repo2'
   "
   [ "$status" -eq 0 ]
@@ -317,7 +317,7 @@ load ../test_helper
     }
     export -f gh
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     wait_for_workflow_runs_multi 'master' 1 5 'owner/repo1' 'owner/repo2'
   "
   [ "$status" -eq 1 ]
@@ -336,7 +336,7 @@ load ../test_helper
     }
     export -f gh
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     wait_for_workflow_runs_multi 'master' 1 5 'owner/repo1' 'owner/repo2'
   "
   [ "$status" -eq 1 ]
@@ -351,7 +351,7 @@ load ../test_helper
 @test "cancel_branch_workflow_runs: requires repo argument" {
   run bash -c "
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     cancel_branch_workflow_runs '' 'main'
   "
   [ "$status" -ne 0 ]
@@ -361,7 +361,7 @@ load ../test_helper
 @test "cancel_branch_workflow_runs: requires branch argument" {
   run bash -c "
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     cancel_branch_workflow_runs 'owner/repo' ''
   "
   [ "$status" -ne 0 ]
@@ -379,7 +379,7 @@ load ../test_helper
     }
     export -f gh
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     cancel_branch_workflow_runs 'owner/repo' 'my-branch'
   "
   [ "$status" -eq 0 ]
@@ -403,7 +403,7 @@ load ../test_helper
     }
     export -f gh
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     cancel_branch_workflow_runs 'owner/repo' 'my-branch'
   "
   [ "$status" -eq 0 ]
@@ -424,7 +424,7 @@ load ../test_helper
     }
     export -f gh
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     cancel_branch_workflow_runs 'owner/repo' 'my-branch'
   "
   [ "$status" -eq 0 ]
@@ -437,7 +437,7 @@ load ../test_helper
 @test "ensure_label: requires label argument" {
   run bash -c "
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     ensure_label ''
   "
   [ "$status" -ne 0 ]
@@ -456,7 +456,7 @@ load ../test_helper
     }
     export -f gh
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     ensure_label 'automated'
   "
   [ "$status" -eq 0 ]
@@ -479,7 +479,7 @@ load ../test_helper
     }
     export -f gh
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     ensure_label 'automated'
   "
   [ "$status" -eq 0 ]
@@ -499,7 +499,7 @@ load ../test_helper
     }
     export -f gh
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     ensure_label 'automated'
   "
   [ "$status" -eq 0 ]
@@ -525,7 +525,7 @@ load ../test_helper
     unset GH_ORG POLICY_ORG
     printf '[organization]\nname=t\ngithub_org=config-org\n' > '$TEST_TEMP_DIR/devenv.config'
     export DEVENV_ROOT='$TEST_TEMP_DIR'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     get_repo_owner
   "
   cd "$ORIGINAL_PWD" || true
@@ -548,7 +548,7 @@ load ../test_helper
     unset GITHUB_REPO GH_REPO
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
     source '$PROJECT_ROOT/tools/lib/git-operations.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     cd '$TEST_TEMP_DIR/owner-repo'
     ALLOW_DEVENV_REPO=0 resolve_target_repo 'arg-org/arg-repo'
   "
@@ -564,7 +564,7 @@ load ../test_helper
     unset GH_REPO
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
     source '$PROJECT_ROOT/tools/lib/git-operations.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     GITHUB_REPO='env-org/env-repo' resolve_target_repo
   "
   [ "$status" -eq 0 ]
@@ -579,7 +579,7 @@ load ../test_helper
     unset GITHUB_REPO GH_REPO
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
     source '$PROJECT_ROOT/tools/lib/git-operations.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     GITHUB_REPO='env-org/env-repo' resolve_target_repo > /dev/null
     printf '%s' \"\${GH_REPO:-}\"
   "
@@ -601,7 +601,7 @@ load ../test_helper
     export DEVENV_ROOT_SET=1
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
     source '$PROJECT_ROOT/tools/lib/git-operations.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     cd '$TEST_TEMP_DIR/cwd-repo'
     resolve_target_repo
   "
@@ -618,7 +618,7 @@ load ../test_helper
     unset GITHUB_REPO GH_REPO GH_ORG POLICY_ORG
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
     source '$PROJECT_ROOT/tools/lib/git-operations.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     cd '$TEST_TEMP_DIR'
     resolve_target_repo
   "
@@ -632,7 +632,7 @@ load ../test_helper
     export DEVENV_ROOT='$TEST_TEMP_DIR'
     unset GITHUB_REPO GH_REPO
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     GITHUB_REPO='env-org/env-repo' resolve_target_repo
   "
   [ "$status" -ne 0 ]
@@ -649,7 +649,7 @@ load ../test_helper
     export DEVENV_ROOT_SET=1
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
     source '$PROJECT_ROOT/tools/lib/git-operations.bash'
-    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     cd '$TEST_TEMP_DIR/ws/repos/cwd-repo'
     # is_devenv_repo keys on .devcontainer/bootstrap.sh (or a repo literally
     # named devenv); emulate the nested devenv-clone layout with its marker.

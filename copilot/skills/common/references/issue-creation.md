@@ -45,7 +45,7 @@ Never create an issue or post a comment without explicit "yes" confirmation.
 
 ## Skill-specific title and body variants
 
-### `devenv-grooming`
+### `devenv-groom`
 
 **Default title:** `Design Grooming: <component name> — <YYYY-MM-DD>`
 
@@ -54,11 +54,11 @@ Never create an issue or post a comment without explicit "yes" confirmation.
 ```
 Grooming notes are in a comment identified by artifact doc_id.
 
-Next step: continue with `/devenv-design-discussion` or `/devenv-create-plan` as appropriate.
+Next step: continue with `/devenv-design` or `/devenv-plan` as appropriate.
 Document file: `<workspace-relative path to the relevant design artifact>`
 ```
 
-### `devenv-design-discussion`
+### `devenv-design`
 
 **Default title:** `Design: <topic> — <YYYY-MM-DD>`
 
@@ -67,11 +67,11 @@ Document file: `<workspace-relative path to the relevant design artifact>`
 ```
 Design discussion document is in a comment identified by artifact doc_id.
 
-Next step: use `/devenv-create-plan`
+Next step: use `/devenv-plan`
 to move from design to implementation.
 ```
 
-### `devenv-tech-debt-audit`
+### `devenv-audit`
 
 **Default title:** `Tech Debt Audit: <focus-area> — <repo-name> — <YYYY-MM-DD>`
 

@@ -931,6 +931,12 @@ normalize_copilot_knowledge_subpath() {
 }
 
 # Build GitHub-compatible basic auth header for git HTTPS operations.
+# Accepted-risk note: the resulting header rides git's argv
+# via `-c http.extraheader=...`, so it is briefly visible in process listings
+# (ps) to local container users. Mitigations: container-local scope, header
+# lives only for the fetch/pull duration, token is the provider credential
+# store's own. Hardening (credential-helper transport) is deferred to the
+# multi-provider epic.
 build_github_basic_auth_header() {
     local token="$1"
     local auth
@@ -1003,13 +1009,25 @@ sync_copilot_side_repo() {
 # than call-order-dependent.
 ensure_provider_seam() {
     if declare -F provider_secret_get >/dev/null; then
-        return 0
+        # The core defines provider_secret_get itself, so its presence does
+        # not imply the active provider's auth module is loaded; the
+        # credential lifecycle verbs below need that module.
+        if declare -F provider_auth_status >/dev/null && \
+           declare -F provider_auth_status_impl >/dev/null; then
+            return 0
+        fi
     fi
     local seam_lib="$toolbox_root/tools/lib/providers/provider-core.bash"
     if [ -f "$seam_lib" ]; then
         # shellcheck disable=SC1090
         source "$seam_lib"
         provider_detect "$(dirname "$toolbox_root")/devenv.config" 2>/dev/null || PROVIDER_NAME="${PROVIDER_NAME:-github}"
+        local auth_mod
+        auth_mod="$(dirname "$seam_lib")/providers/${PROVIDER_NAME}/auth.bash"
+        # shellcheck disable=SC1090,SC1091
+        if [ -f "$auth_mod" ]; then
+            source "$auth_mod"
+        fi
     fi
 }
 

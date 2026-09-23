@@ -13,12 +13,10 @@ DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 
 # Provider auth seam: the credential lifecycle (import + git helper wiring)
-# is the provider's job, not this script's.
+# is the provider's job, not this script's; loaded via the canonical loader.
 # shellcheck disable=SC1091
 source "$DEVENV_TOOLS/lib/providers/provider-core.bash"
-provider_detect "${DEVENV_ROOT:-}/devenv.config" 2>/dev/null || PROVIDER_NAME="${PROVIDER_NAME:-github}"
-# shellcheck disable=SC1090,SC1091
-source "$DEVENV_TOOLS/lib/providers/${PROVIDER_NAME}/auth.bash"
+provider_load auth
 
 echo ">>> 🔐 GitHub Token Update Utility"
 echo "    -------------------------------------------------------"

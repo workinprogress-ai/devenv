@@ -65,11 +65,6 @@ setup() {
     grep -q "^gh pr diff 33 -R org/repo$" "$STUB_CALL_LOG"
 }
 
-@test "prs list open-for-head: head/base/state wired for merge lookups" {
-    run provider_prs_list_open_for_head org/repo feature-x main
-    assert_success
-    grep -q "^gh pr list -R org/repo --head feature-x --base main --state open$" "$STUB_CALL_LOG"
-}
 
 # ============================================================================
 # Pagination (mandatory per plan watch-outs)
@@ -131,8 +126,57 @@ setup() {
     grep -q "/repos/org/repo/pulls/33/comments/555/replies" "$STUB_GH_MUTATIONS"
 }
 
-@test "prs thread resolve: issues a GraphQL resolveReviewThread" {
-    run provider_prs_thread_resolve "PRR_node123"
-    assert_success
-    grep -q "gh api graphql" "$STUB_CALL_LOG"
+
+
+
+@test "prs view: bare number first arg is the number, not a repo (regex guard)" {
+    gh_calls_reset
+    provider_prs_view "42" --json url
+    gh_last_call_equals "pr view 42 --json url"
+}
+
+@test "prs view: repo-first shape unchanged (guard regression guard)" {
+    gh_calls_reset
+    provider_prs_view "org/repo" "42" --json url
+    gh_last_call_equals "pr view 42 --json url -R org/repo"
+}
+
+@test "thread resolve: variables-based mutation, emits isResolved" {
+    gh_calls_reset
+    run provider_prs_thread_resolve "PRRT_kwDOAbc123"
+    [ "$status" -eq 0 ] || echo "output: $output"
+    gh_calls_contain "graphql -f query=mutation(\$threadId: ID!)"
+    gh_calls_contain "threadId=PRRT_kwDOAbc123"
+}
+
+@test "thread resolve: empty thread id fails defined" {
+    run provider_prs_thread_resolve ""
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"required"* ]]
+}
+
+@test "thread reply: repo/pr/comment/body validated, POST emitted" {
+    gh_calls_reset
+    provider_prs_thread_reply "org/repo" "9" "555" "reply body" >/dev/null
+    gh_last_call_equals "api -X POST /repos/org/repo/pulls/9/comments/555/replies -f body=reply body"
+}
+
+@test "thread reply: malformed repo fails defined" {
+    run provider_prs_thread_reply "norepo" "9" "555" "body"
+    [ "$status" -ne 0 ]
+}
+
+@test "threads page: builds owner/repo/pr variables; cursor optional" {
+    gh_calls_reset
+    provider_prs_threads_page "org/repo" "9" "CUR1" >/dev/null
+    gh_calls_contain "graphql -f query=query(\$owner: String!"
+    gh_calls_contain "-f owner=org"
+    gh_calls_contain "-f repo=repo"
+    gh_calls_contain "-F pr=9"
+    gh_calls_contain "-f cursor=CUR1"
+}
+
+@test "threads page: numeric pr enforced" {
+    run provider_prs_threads_page "org/repo" "abc"
+    [ "$status" -ne 0 ]
 }

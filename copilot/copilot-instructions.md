@@ -78,7 +78,7 @@ Reground identity guardrails:
 
 - Treat the active skill from session provenance as authoritative. Do not infer a different skill from current task shape or wording.
 - Reground must never switch skill identity by heuristic.
-- Switching skills requires explicit user intent naming the target skill (for example: "switch to /devenv-delegation").
+- Switching skills requires explicit user intent naming the target skill (for example: "switch to /devenv-delegate").
 - If active-skill provenance is uncertain, ask one direct confirmation question before loading any skill.
 - Never perform a silent skill switch during reground.
 
@@ -120,7 +120,7 @@ Some workspace paths are the same content reachable through multiple routes; aut
 
 The `tools/` folder contains workspace-specific wrappers around common CLIs (`gh`, `git`, `dotnet`, `kubectl`, MongoDB, etc.) — they are the workspace's abstraction layer over those backends. All tools are on `PATH`, so invoke them by bare name from any working directory.
 
-**`GITHUB_REPO` is set in the environment** (`owner/repo` format).
+**`DEVENV_REPO` is the repo-targeting environment variable** (`owner/repo` format). The legacy `GITHUB_REPO` remains a deprecated alias.
 
 **Issue management goes through the `issue-*` tools exclusively — reads and writes.** `issue-get`, `issue-list`, `issue-select`, `issue-search`, `issue-create`, `issue-create-batch`, `issue-update` (incl. native `--type`), `issue-comment`, `issue-comment-list`, `issue-comment-update`, `issue-close`, `issue-triage`, `issue-label-list`, `issue-label-create`, and the `issue-artifact-*` suite are the workspace's abstraction layer over issue management; the backing CLI is an implementation detail that may change. Never run raw `gh issue ...` (or `gh api .../issues/...`) for any issue operation — reading, listing, creating, updating, commenting, or closing — regardless of whether a skill is active. The wrappers also enforce workspace conventions (native types from the provider's issue-type configuration, templates, labels, close reasons) that raw `gh` silently skips.
 
@@ -176,6 +176,10 @@ If you find yourself about to type `git commit`, `git add`, `git push`, or any o
 
 **Wrappers that internally mutate** (e.g. `pr-create-for-merge` pushes the branch, `git-update` pulls) **are allowed** — wrappers encode the safety. The rule prohibits *raw* git mutations, not named workspace wrapper invocations.
 
+**Invoke built-in tools on `PATH`, without explicit paths.** Call `issue-create`, `repo-commit`, `git-wip`, etc. by bare name. If a path is ever required, it must point to `tools/` — never `tools/scripts/`. The depth-1 `tools/` entry is the fork customization point: a fork swaps the executor there without touching anything that invokes it. (`tools/scripts/` holds the implementations; referencing it is for source location and tests, not invocation.) **Carve-out — event-signal scripts:** lifecycle event handlers (`_on_<event>`, e.g. `_on_begin_review`) have no depth-1 entry by design; they are invoked with their explicit `tools/scripts/` path and are exempt from this rule.
+
+**`repo-commit` — the sole sanctioned commit wrapper.** The one and only path for creating a commit is the `repo-commit` tool, and **only the `/devenv-commit` skill may invoke it** (governance rule — bash cannot verify its caller, so this binds like the `gh` prohibition above: culturally, not technically). Its safety is structural, not aspirational: `repo-commit` has no non-interactive path — it always opens the user's configured git editor pre-loaded with the suggested message, commits the existing index only, and a commit exists only if the user saves the editor with a non-empty message. The editor save is the permission gate. It never stages, never bypasses hooks, never runs tests. Every other skill — pair, delegate, review, research, all of them — never commits; they hand off to `/devenv-commit` when the user says "commit this".
+
 **Never use `mcp_gitkraken_*` tools.** The user does not use GitKraken. For git inspection use read-only git commands (`git log`, `git diff`, `git status`, etc.) or the workspace `tools/` wrappers. For file content use `read_file` or `grep_search`. No GitKraken tool — read-only or otherwise — should ever be invoked.
 
 If a task requires a raw mutation, show the user the exact command and ask them to run it. Never invent a workaround that mutates state directly.
@@ -202,31 +206,31 @@ If a task requires a raw mutation, show the user the exact command and ask them 
 
 When writing temporary comments into code during implementation sessions, use the `DEVENV` marker format so they are unambiguously identifiable and removable. The marker form is chosen by **scope** — one objective question: *does this obligation discharge when this plan's PR merges?*
 
-**Plan-bounded markers** — use `FIXME(DEVENV[<plan-key>]):` when the obligation discharges with this plan. The work is temporary within the plan's lifetime: a stub a later task replaces, a bridge a cleanup task removes, an AC annotation awaiting verification. FIXME is a merge-blocker: these must be gone from the PR (removed, or converted to the TODO form with a discharge condition) before the work ships.
+**Plan-bounded markers** — use `FIXME:DEVENV[<plan-key>]:` when the obligation discharges with this plan. The work is temporary within the plan's lifetime: a stub a later task replaces, a bridge a cleanup task removes, an AC annotation awaiting verification. FIXME is a merge-blocker: these must be gone from the PR (removed, or converted to the TODO form with a discharge condition) before the work ships.
 
 | Language | Example |
 |----------|---------|
-| C# / TypeScript / Go | `// FIXME(DEVENV[Implementation_plan-issue-42-001]): temporary stub — replaced by task 3.2` |
-| Python / Bash | `# FIXME(DEVENV[Implementation_plan-issue-42-001]): temporary scaffold — removed in cleanup` |
-| SQL | `-- FIXME(DEVENV[Implementation_plan-issue-42-001]): revisit when schema settles` |
-| HTML / XML | `<!-- FIXME(DEVENV[Implementation_plan-issue-42-001]): placeholder -->` |
+| C# / TypeScript / Go | `// FIXME:DEVENV[Implementation_plan-issue-42-001]: temporary stub — replaced by task 3.2` |
+| Python / Bash | `# FIXME:DEVENV[Implementation_plan-issue-42-001]: temporary scaffold — removed in cleanup` |
+| SQL | `-- FIXME:DEVENV[Implementation_plan-issue-42-001]: revisit when schema settles` |
+| HTML / XML | `<!-- FIXME:DEVENV[Implementation_plan-issue-42-001]: placeholder -->` |
 
-**Cross-plan markers** — use `TODO(DEVENV[<plan-key>]): <what> — remove when <condition>` when the obligation is deliberately longer-lived than this plan. TODOs are agent-to-agent messages: they survive the PR and later sessions must honor them. Every TODO must state its **discharge condition** so a future session can evaluate it and eventually delete it; a TODO without a condition is a defect. TODOs are never merge-blockers.
+**Cross-plan markers** — use `TODO:DEVENV[<plan-key>]: <what> — remove when <condition>` when the obligation is deliberately longer-lived than this plan. TODOs are agent-to-agent messages: they survive the PR and later sessions must honor them. Every TODO must state its **discharge condition** so a future session can evaluate it and eventually delete it; a TODO without a condition is a defect. TODOs are never merge-blockers.
 
 | Language | Example |
 |----------|---------|
-| C# / TypeScript / Go | `// TODO(DEVENV[Implementation_plan-issue-42-001]): swap in the real provider once #40 lands — remove when #40 is merged` |
-| Python / Bash | `# TODO(DEVENV[Implementation_plan-issue-42-001]): replace scratch harness with CI job — remove when the pipeline exists` |
-| SQL | `-- TODO(DEVENV[Implementation_plan-issue-42-001]): drop shim column after v2 migration — remove when v2 rollout completes` |
-| HTML / XML | `<!-- TODO(DEVENV[Implementation_plan-issue-42-001]): remove banner after launch — remove when launch week ends -->` |
+| C# / TypeScript / Go | `// TODO:DEVENV[Implementation_plan-issue-42-001]: swap in the real provider once #40 lands — remove when #40 is merged` |
+| Python / Bash | `# TODO:DEVENV[Implementation_plan-issue-42-001]: replace scratch harness with CI job — remove when the pipeline exists` |
+| SQL | `-- TODO:DEVENV[Implementation_plan-issue-42-001]: drop shim column after v2 migration — remove when v2 rollout completes` |
+| HTML / XML | `<!-- TODO:DEVENV[Implementation_plan-issue-42-001]: remove banner after launch — remove when launch week ends -->` |
 
-**Discovery rule (what makes TODOs real).** At kickoff or orientation in any execution session, run `devenv-marker-check --todo-report` over the working scope (or grep `TODO(DEVENV` where the tool is unavailable) and surface existing hits as session constraints — a TODO in a file this plan touches is a prior session's message; honor it or explicitly resolve it with the user. Plain `TODO:`/`FIXME:` comments (without the DEVENV key) remain governed by the ordinary human convention: TODO is sanctioned long-range intent, FIXME means resolve before merge.
+**Discovery rule (what makes TODOs real).** At kickoff or orientation in any execution session, run `devenv-marker-check --todo-report` over the working scope (or grep `TODO:DEVENV` where the tool is unavailable) and surface existing hits as session constraints — a TODO in a file this plan touches is a prior session's message; honor it or explicitly resolve it with the user. Plain `TODO:`/`FIXME:` comments (without the DEVENV key) remain governed by the ordinary human convention: TODO is sanctioned long-range intent, FIXME means resolve before merge.
 
 **Keep comments descriptive, not structural.** Write what will happen (*"Phase 2 adds the retry wrapper here"*), not where in the plan it appears (*"see task 2.4"*). Descriptive comments survive plan renumbering; structural references go stale silently.
 
 `<plan-key>` is the plan filename stem without extension (e.g. `Implementation_plan-issue-42-001`), or a short label if there is no plan file. The key is mandatory in both forms.
 
-**Grep to find all markers (including legacy bare forms):** `grep -rn "DEVENV\\[" .` — or run the tool in audit mode: `devenv-marker-check --all .`
+**Grep to find all markers (including unscoped `DEVENV[` forms):** `grep -rn "DEVENV\\[" .` — or run the tool in audit mode: `devenv-marker-check --all .`
 
 **All plan-bounded FIXME markers must be removed before the work ships.** If a plan introduced FIXME markers, its Cleanup phase must include an explicit task to remove them all (or convert justified survivors to the TODO form with a discharge condition). A FIXME marker left in merged code is a defect; a TODO whose condition is not satisfied is also a defect.
 

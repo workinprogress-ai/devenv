@@ -14,7 +14,7 @@ set -euo pipefail
 # shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/config-reader.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"
@@ -22,7 +22,7 @@ source "$DEVENV_TOOLS/lib/issues-config.bash"
 #
 # Triage label vocabulary resolves via the policy layer; issue-policy.bash
 # self-sources the guarded core (org policy_org also arrives transitively
-# via github-helpers). The two LABEL_* values feed the interactive grooming
+# via provider-loader). The two LABEL_* values feed the interactive grooming
 # actions below.
 # shellcheck disable=SC1090,SC1091
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib/policy" && pwd)/issue-policy.bash"

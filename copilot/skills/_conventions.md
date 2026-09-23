@@ -1,6 +1,6 @@
 # Skill Conventions
 
-Single source of truth for the shape of skills under `copilot/skills/`. New skills must consult this file before being authored. Maintained alongside the existing skills (`devenv-create-plan`, `devenv-pair-programming`, `devenv-delegation`); patterns here are extracted from those.
+Single source of truth for the shape of skills under `copilot/skills/`. New skills must consult this file before being authored. Maintained alongside the existing skills (`devenv-plan`, `devenv-pair`, `devenv-delegate`); patterns here are extracted from those.
 
 > This file is **not** itself a skill. The leading underscore keeps it sorted above the actual skill folders and makes that visually obvious.
 
@@ -213,7 +213,7 @@ Any skill that recommends or names a successor skill at handoff must select it f
 Required behavior at the handoff decision point:
 
 1. Check whether the successor's target artifact already exists (plan file or plan artifact on the issue, blueprint file, specifications doc, grooming doc, etc.).
-2. No artifact yet → route to the **create** skill (`/devenv-create-plan`, `/devenv-create-blueprint`, ...).
+2. No artifact yet → route to the **create** skill (`/devenv-plan`, `/devenv-create-blueprint`, ...).
 3. Artifact exists and needs alignment → route to the **refine** skill (`/devenv-refine-plan`, ...).
 4. Naming frequency of successor skills inside the current skill's prose is not evidence — never let it override the state check.
 
@@ -305,7 +305,7 @@ Not every markdown a skill writes is a persisted artifact. When the user asks fo
 
 ### Repo-targeting guard (required for issue/artifact calls)
 
-Issue and artifact wrappers resolve their target repo from the environment — `GITHUB_REPO` if set, else `GH_ORG` + current directory's repo name. That means **the terminal's location silently decides which repo a call hits**, and a session running from the workspace root or the devenv repo itself will aim every call at the wrong repo.
+Issue and artifact wrappers resolve their target repo from the environment — `DEVENV_REPO` if set, else `GH_ORG` + current directory's repo name. That means **the terminal's location silently decides which repo a call hits**, and a session running from the workspace root or the devenv repo itself will aim every call at the wrong repo.
 
 Required behavior before any `issue-*` / `pr-*` / `project-*` / artifact call:
 
@@ -319,7 +319,7 @@ Required behavior before any `issue-*` / `pr-*` / `project-*` / artifact call:
 4. **The devenv-repo refusal is a routing signal, not an obstacle.** When a wrapper errors with "the current repository appears to be the devenv repository", the fix is to target the actual project repo — **never** to add `--devenv`. That flag is reserved for work that is genuinely about the devenv repo itself (its skills, tooling, docs); using it to push through the safety check aims the call at the devenv repo and away from the real target.
 5. If the target repo cannot be resolved confidently, ask one direct clarification question before running the call.
 
-Anti-pattern: running `issue-*` from the workspace root with no `GITHUB_REPO`, then "fixing" the refusal with `--devenv` — the call now queries the wrong repo and the answer is silently misleading (issue not found, empty artifact lists).
+Anti-pattern: running `issue-*` from the workspace root with no `DEVENV_REPO`, then "fixing" the refusal with `--devenv` — the call now queries the wrong repo and the answer is silently misleading (issue not found, empty artifact lists).
 ### Working-directory guard (required)
 
 Before running any repo-scoped command (wrappers, `gh`, build/test, or scripts), ensure the terminal is in the correct target repo root.
@@ -369,8 +369,8 @@ Recommended snippet references (paths shown as they appear **inside a skill fold
 
 - **Tool help policy**: "Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`_tools-reference.md`](../_tools-reference.md) instead of running ad-hoc `--help` during execution."
 - **Catalog pointer**: "See the [Skills catalog](./common/references/skills-catalog.md) for the full list and decision tree."
-- **Diagnostic mode**: "When the user requests diagnostics for undesirable output/action, follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) and write `DIAGNOSTIC_REPORT.md` under `.local-artifacts/` at the active project root."
-- **Skill feedback**: "When the user asks how a skill could be improved with no defect alleged, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) and write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root. Zero findings is a valid result."
+- **Diagnostic mode**: "When the user requests diagnostics for undesirable output/action, follow the shared [Diagnostic Mode Protocol](common/references/diagnostic-mode-protocol.md) and write `DIAGNOSTIC_REPORT.md` under `.local-artifacts/` at the active project root."
+- **Skill feedback**: "When the user asks how a skill could be improved with no defect alleged, follow the shared [Skill Feedback Protocol](common/references/skill-feedback-protocol.md) and write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root. Zero findings is a valid result."
 - **Provider protocol**: "GitHub transport detail (wrapper signatures, env vars, config paths, prohibitions, invocation recipes) lives in the [GitHub protocol reference](_shared/references/provider-protocols/github.md) — a skill body states intent, never transport. A fork swaps that file; skill bodies are provider-neutral."
 
 **Provider-protocol reference** (`copilot/skills/_shared/references/provider-protocols/<provider>.md`): the single definition of provider transport — wrapper signatures, env-var semantics, config paths, prohibitions, and canonical recipes. Skill bodies must not inline this material; they cite the reference instead. Citation depth by location: skill folders use `../_shared/references/provider-protocols/github.md`, `common/references/` uses `../../_shared/references/provider-protocols/github.md`, and files at the `copilot/skills/` level (including `_conventions.md` itself) use `_shared/references/provider-protocols/github.md`. A fork replaces the protocol file; skill bodies stay provider-neutral.
@@ -443,13 +443,13 @@ Test-integrity specification item (all execution skills):
 
 - Do not remove, loosen, skip, or narrow failing behavior assertions to hide a real product defect or to recover a green run.
 - Keep behavior assertions that reveal the defect, add a focused reproduction test when useful, then fix implementation.
-- Temporary test adjustments are allowed only with explicit user approval, a `FIXME(DEVENV[plan-key]): ...` marker, and a concrete restoration task tracked immediately.
+- Temporary test adjustments are allowed only with explicit user approval, a `FIXME:DEVENV[plan-key]:: ...` marker, and a concrete restoration task tracked immediately.
 
 The protocol applies to skills:
 
-- `devenv-delegation` — specifies full four-case classification and response per case.
-- `devenv-pair-programming` — specifies full four-case classification and response per case.
-- Other execution skills (future skills or `devenv-spike` prototype work) — must ask for user direction instead of proceeding unilaterally.
+- `devenv-delegate` — specifies full four-case classification and response per case.
+- `devenv-pair` — specifies full four-case classification and response per case.
+- Other execution skills (future skills or `devenv-research` prototype work) — must ask for user direction instead of proceeding unilaterally.
 
 **Minimal behavior for non-delegating skills:** Stop, describe the discovery, and ask: *"This looks like a [brief defect description]. Out of scope for our current work. Create a GitHub issue, document in code, or ignore?"*
 
@@ -546,7 +546,7 @@ Each skill should link to:
 - Its **alternatives** (e.g. `delegation` links to `pair-programming` for high-impact work).
 - Its **successors** where natural (e.g. a phase-complete skill linking to `open-pr`).
 
-Use relative paths (as they appear inside a skill folder): `[/devenv-pair-programming](../devenv-pair-programming/SKILL.md)`.
+Use relative paths (as they appear inside a skill folder): `[/devenv-pair](../devenv-pair/SKILL.md)`.
 
 Also add a one-liner to each `SKILL.md` — usually in the Sibling skills section (the fleet-standard position): "See the [Skills catalog](./common/references/skills-catalog.md) for the full list and decision tree."
 
@@ -613,7 +613,7 @@ When a skill needs to summarize one or more existing documents or repos, prefer 
 
 ## Design skill context classification
 
-For design-oriented skills (`devenv-grooming` and related refinements), begin by classifying execution context before reading files or proposing structure.
+For design-oriented skills (`devenv-groom` and related refinements), begin by classifying execution context before reading files or proposing structure.
 
 Supported contexts:
 

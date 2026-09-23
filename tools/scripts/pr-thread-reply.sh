@@ -15,7 +15,7 @@ set -euo pipefail
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/body-source.bash"
 
@@ -181,15 +181,14 @@ post_reply() {
 
     log_verbose "Posting reply to comment #$COMMENT_ID on PR #$PR_NUMBER"
 
-    # Use REST API: POST /repos/{owner}/{repo}/pulls/{pull_number}/comments/{comment_id}/replies
+    # REST transport lives in the facade verb; the caller extracts the
+    # reply URL from the response the verb emits.
     local response
-    response=$(provider_api POST \
-        "/repos/$repo_owner/$repo_name/pulls/$PR_NUMBER/comments/$COMMENT_ID/replies" \
-        -f body="$COMMENT_BODY" \
-        2>&1) || {
+    if ! response=$(provider_prs_thread_reply \
+        "$repo_owner/$repo_name" "$PR_NUMBER" "$COMMENT_ID" "$COMMENT_BODY"); then
         log_error "Failed to post reply: $response"
         exit $EXIT_API_FAILURE
-    }
+    fi
 
     local reply_url
     reply_url=$(echo "$response" | jq -r '.html_url // empty')

@@ -8,15 +8,13 @@ readonly _COPILOT_KNOWLEDGE_LOADED=1
 
 # Provider layer: token resolution routes through the auth seam (#35/#36).
 # Best-effort load; the fallback branch below covers stripped environments.
-if [ -z "${_PROVIDER_CORE_LOADED:-}" ]; then
-    _ck_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    if [ -f "$_ck_lib_dir/providers/provider-core.bash" ]; then
-        # shellcheck disable=SC1091
-        source "$_ck_lib_dir/providers/provider-core.bash"
-        provider_detect "${DEVENV_ROOT:-$(dirname "$(dirname "$_ck_lib_dir")")}/devenv.config" 2>/dev/null || PROVIDER_NAME="${PROVIDER_NAME:-github}"
-    fi
-    unset _ck_lib_dir
+_ck_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$_ck_lib_dir/providers/provider-core.bash" ]; then
+    # shellcheck disable=SC1091
+    source "$_ck_lib_dir/providers/provider-core.bash"
+    provider_load
 fi
+unset _ck_lib_dir
 
 # Build GitHub-compatible basic auth header for git HTTPS operations.
 build_github_basic_auth_header() {
@@ -46,10 +44,11 @@ pull_copilot_side_repo_on_container_start() {
     local token=""
     if declare -F provider_secret_get >/dev/null; then
         token=$(provider_secret_get token 2>/dev/null) || true
-    else
-        token=$(gh auth token 2>/dev/null) || true
     fi
     if [ -n "$token" ]; then
+        # Accepted-risk: header transits git argv (ps-visible)
+        # and the nohup env keeps it for the fetch duration — same
+        # container-local mitigations as the bootstrap sync site.
         local header
         header=$(build_github_basic_auth_header "$token")
         nohup env REPO_DIR="$repo_dir" BRANCH="$branch" HEADER="$header" bash -c '

@@ -1,6 +1,6 @@
 ---
 name: devenv-document
-description: 'Document an existing system, component, or cross-cutting concern by reading existing docs first and code second. USE WHEN the user says "document this system", "write documentation for", "I need docs for", "create a context brief", "document this codebase", "document this component", "write up how this works", "we need documentation for", or hands off a legacy or underdocumented codebase that needs to be described before AI or humans can work with it effectively. Interviews the user upfront to establish audience, output format, and scope; proposes a session plan before any investigation begins; tracks open questions in a Q-NNN log. DO NOT USE FOR plans (use /devenv-create-plan), architectural design (use /devenv-create-blueprint), specifications authoring (use /devenv-write-specifications), or conversational Q&A without a written output (use /devenv-chat-with-code).'
+description: 'Document an existing system, component, or cross-cutting concern by reading existing docs first and code second. USE WHEN the user says "document this system", "write documentation for", "I need docs for", "create a context brief", "document this codebase", "document this component", "write up how this works", "we need documentation for", or hands off a legacy or underdocumented codebase that needs to be described before AI or humans can work with it effectively. Interviews the user upfront to establish audience, output format, and scope; proposes a session plan before any investigation begins; tracks open questions in a Q-NNN log. DO NOT USE FOR plans (use /devenv-plan), architectural design (use /devenv-create-blueprint), specifications authoring (use /devenv-write-specifications), or conversational Q&A without a written output (use /devenv-chat).'
 argument-hint: '[repo path | component name | "what to document"]'
 user-invocable: true
 ---
@@ -29,11 +29,11 @@ Trigger phrases:
 
 Do **not** use for:
 
-- Conversational fact-finding without a written output → [`/devenv-chat-with-code`](../devenv-chat-with-code/SKILL.md)
+- Conversational fact-finding without a written output → [`/devenv-chat`](../devenv-chat/SKILL.md)
 - Formal architectural decomposition → [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
 - Authoring functional specifications → [`/devenv-write-specifications`](../devenv-write-specifications/SKILL.md)
-- Writing a plan → [`/devenv-create-plan`](../devenv-create-plan/SKILL.md)
-- Tech debt assessment → [`/devenv-tech-debt-audit`](../devenv-tech-debt-audit/SKILL.md)
+- Writing a plan → [`/devenv-plan`](../devenv-plan/SKILL.md)
+- Tech debt assessment → [`/devenv-audit`](../devenv-audit/SKILL.md)
 
 ## Core Principles
 
@@ -237,7 +237,7 @@ If the output is a context brief for future AI sessions, apply a tight format:
 - `## Where to start reading` — file paths and entry points
 - `## Known unknowns` — deferred Q-NNN items
 
-This format is consumed by other skills (e.g. [`/devenv-chat-with-code`](../devenv-chat-with-code/SKILL.md), [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)) and should be as dense and factual as possible.
+This format is consumed by other skills (e.g. [`/devenv-chat`](../devenv-chat/SKILL.md), [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)) and should be as dense and factual as possible.
 
 ---
 
@@ -253,7 +253,7 @@ After writing:
 3. Suggest follow-on skills if natural:
    - Architecture gaps visible in the docs → [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
    - Undefined specifications surfaced → [`/devenv-write-specifications`](../devenv-write-specifications/SKILL.md)
-   - Tech debt discovered → [`/devenv-tech-debt-audit`](../devenv-tech-debt-audit/SKILL.md)
+   - Tech debt discovered → [`/devenv-audit`](../devenv-audit/SKILL.md)
 
 ## Anti-patterns
 

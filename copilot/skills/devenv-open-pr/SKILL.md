@@ -1,7 +1,8 @@
 ---
 name: devenv-open-pr
-description: Open a GitHub PR from the current branch — builds a structured title and body from the active plan, git diff, and parent issue, then submits via pr-create-for-merge. USE WHEN the user says "open a PR", "raise a PR", "create a PR", "open a pull request", "raise a pull request", "create a pull request", "let's open a PR", "ship this phase", or "wrap this branch into a PR". Always shows the draft for approval before submitting; defaults to ready-for-review, not draft. DO NOT USE FOR responding to existing PR feedback (use /devenv-address-pr-comments), ending a session mid-plan without shipping (close it via your execution skill's wrap-up), getting a code review without a PR (use /devenv-code-review), or the GitHub extension's reviewer-suggesting flow (use /create-pull-request).
+description: Open a GitHub PR from the current branch — builds a structured title and body from the active plan, git diff, and parent issue, then submits via pr-create-for-merge. USE WHEN the user says "open a PR", "raise a PR", "create a PR", "open a pull request", "raise a pull request", "create a pull request", "let's open a PR", "ship this phase", or "wrap this branch into a PR". Always shows the draft for approval before submitting; defaults to ready-for-review, not draft. DO NOT USE FOR responding to existing PR feedback (use /devenv-address-pr-comments), ending a session mid-plan without shipping (close it via your execution skill's wrap-up), getting a code review without a PR (use /devenv-review), or the GitHub extension's reviewer-suggesting flow (use /create-pull-request).
 argument-hint: Optional — branch name or plan path; otherwise uses current branch and detected plan
+user-invocable: true
 ---
 
 # Open PR
@@ -20,9 +21,9 @@ Take a committable phase of work from a plan-driven workflow and open a GitHub P
 - The branch has commits, the work is reviewable, and you want a PR opened with a proper body.
 - You want the PR description auto-built from the plan + git history rather than typed by hand.
 
-If a PR already exists and you're responding to feedback, use `/devenv-address-pr-comments`. If you're ending a session without opening a PR yet, close it via your execution skill's own wrap-up (pair writes the pairing state file). If you want a code review and don't need a PR opened, use `/devenv-code-review`. If you want the GitHub extension's flow with reviewer suggestions and richer integration, use `/create-pull-request`.
+If a PR already exists and you're responding to feedback, use `/devenv-address-pr-comments`. If you're ending a session without opening a PR yet, close it via your execution skill's own wrap-up (pair writes the pairing state file). If you want a code review and don't need a PR opened, use `/devenv-review`. If you want the GitHub extension's flow with reviewer suggestions and richer integration, use `/create-pull-request`.
 
-> **Micro-fix lane:** a small fix requested just before shipping ("fix that typo, then open the PR") may run in-session under the shared [incidental implementation protocol](../common/references/incidental-implementation-protocol.md) — micro ceiling, supervised handback; anything bigger routes to `/devenv-pair-programming` first.
+> **Micro-fix lane:** a small fix requested just before shipping ("fix that typo, then open the PR") may run in-session under the shared [incidental implementation protocol](../common/references/incidental-implementation-protocol.md) — micro ceiling, supervised handback; anything bigger routes to `/devenv-pair` first.
 
 ## Event signal
 
@@ -148,7 +149,7 @@ After the PR is opened, print the PR URL and number.
 ## Sibling skills
 
 - `/devenv-address-pr-comments` — once the PR has review feedback to address.
-- `/devenv-code-review` — if you want review feedback without opening a PR.
+- `/devenv-review` — if you want review feedback without opening a PR.
 - `/create-pull-request` (GitHub extension) — for the richer reviewer-suggesting / label / project flow.
 - `/devenv-refine-plan` — if opening the PR reveals plan tasks to mark or add (surgical mode), or broader drift (assessment mode).
 

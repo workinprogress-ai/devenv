@@ -1,6 +1,6 @@
 ---
 name: devenv-refine-blueprint
-description: 'Revise an existing Blueprint-*.md after architecture decisions change, new specifications arrive, or implementation discovery exposes gaps. USE WHEN the user says "refine the blueprint", "update the blueprint", "revise the architecture", "the blueprint needs updating", hands off a stale blueprint, hands off issue number(s) describing a needed blueprint change (upstream-impact work orders or issues from any source) or asks to work the upstream-impact queue, or a change spans specifications and blueprint (cascade mode — one session edits both). Preserves section numbering and cross-references, appends rather than reflows, deletes superseded structure clean (the why lives in ADRs; the document carries target state only). If intake reveals a non-surgical change (broad re-architecture, unresolved option-weighing, major uncertain ripple effects), stop and route to /devenv-design-discussion or /devenv-create-blueprint. DO NOT USE for creating a new blueprint (use /devenv-create-blueprint), broad brainstorming without a settled direction (use /devenv-design-discussion), ad-hoc edits to a single line (just edit the file), or updating a roadmap (use /devenv-update-roadmap).'
+description: 'Revise an existing Blueprint-*.md after architecture decisions change, new specifications arrive, or implementation discovery exposes gaps. USE WHEN the user says "refine the blueprint", "update the blueprint", "revise the architecture", "the blueprint needs updating", hands off a stale blueprint, hands off issue number(s) describing a needed blueprint change (upstream-impact work orders or issues from any source) or asks to work the upstream-impact queue, or a change spans specifications and blueprint (cascade mode — one session edits both). Preserves section numbering and cross-references, appends rather than reflows, deletes superseded structure clean (the why lives in ADRs; the document carries target state only). If intake reveals a non-surgical change (broad re-architecture, unresolved option-weighing, major uncertain ripple effects), stop and route to /devenv-design or /devenv-create-blueprint. DO NOT USE for creating a new blueprint (use /devenv-create-blueprint), broad brainstorming without a settled direction (use /devenv-design), ad-hoc edits to a single line (just edit the file), or updating a roadmap (use /devenv-update-roadmap).'
 argument-hint: 'Path to a Blueprint-*.md file'
 user-invocable: true
 ---
@@ -23,7 +23,7 @@ Write the blueprint body as the current target architecture. Keep historical cha
 
 Use this skill when the user already knows the intended architecture change direction and wants that change applied safely.
 
-If the user is still deciding between architecture options, route to [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md). If the foundational architecture itself is being re-derived, route to [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) and treat the existing blueprint as input context.
+If the user is still deciding between architecture options, route to [`/devenv-design`](../devenv-design/SKILL.md). If the foundational architecture itself is being re-derived, route to [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) and treat the existing blueprint as input context.
 
 If no blueprint exists, stop and redirect to [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md).
 
@@ -57,7 +57,7 @@ If non-surgical:
 1. Stop direct edit flow.
 2. Explain why: this is discovery/decision work, not direct refinement.
 3. Route based on scope:
-  - **Bounded option-weighing** for a specific design choice → [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md)
+  - **Bounded option-weighing** for a specific design choice → [`/devenv-design`](../devenv-design/SKILL.md)
   - **Foundational redesign** across the blueprint → [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
 4. Offer one explicit confirmation gate: continue anyway with direct edits, or switch now.
 
@@ -147,7 +147,7 @@ After writing, list what may need follow-up:
 - **Roadmap impact**: new components or removed deltas → structural roadmap changes → suggest [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md). For step-status drift only (issues closed, PRs merged), suggest [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md) instead.
 - **Specifications impact**: if architectural changes were driven by a specifications gap, suggest [`/devenv-refine-specifications`](../devenv-refine-specifications/SKILL.md)
 - **Plan impact**: existing plans may now reference superseded sections → suggest [`/devenv-refine-plan`](../devenv-refine-plan/SKILL.md) for affected plans
-- **Unsettled approach** that triggered this refine: if a specific design question is still open, suggest [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md) to weigh options before further refinement
+- **Unsettled approach** that triggered this refine: if a specific design question is still open, suggest [`/devenv-design`](../devenv-design/SKILL.md) to weigh options before further refinement
 
 ## Anti-patterns
 
@@ -155,7 +155,7 @@ After writing, list what may need follow-up:
 - Reflowing numbers (breaks links from roadmaps and plans)
 - Deleting per-component delta entries when the change shipped — rewrite them as current state (`Type: existing`, survey text from the delta) instead; never leave tombstone markers
 - Rewriting the blueprint from scratch — that's [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md), not refine
-- Forcing non-surgical architecture discovery through this skill instead of escalating to [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md) or [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
+- Forcing non-surgical architecture discovery through this skill instead of escalating to [`/devenv-design`](../devenv-design/SKILL.md) or [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
 - Forgetting to surface roadmap and plan impact after the edit
 - Keeping superseded sections as tombstone text — delete them clean; an ADR holds the why when it matters
 - Parking future ideas in the blueprint — the blueprint is a technical description of the system; uncommitted concepts belong in the tracker as issues labeled `future-idea`
