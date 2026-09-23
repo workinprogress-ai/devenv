@@ -270,15 +270,117 @@ fi
 updates_output="$(mktemp)"
 trap 'rm -f "$updates_output"' EXIT
 
+# Per-project loop: tag each csproj's output with its path so the summary can
+# classify updates as src/ vs test/. Pre-upgrade "Pkg  cur -> latest" lines are
+# parsed per file: dotnet-outdated prints the latest-available table BEFORE
+# upgrading, so classification (major/minor/patch) reflects what was applied.
 find . -name '*.csproj' -not -path '*/obj/*' -not -path '*/bin/*' -print0 | while IFS= read -r -d '' csproj; do
+  echo "<<<PROJECT $csproj>>>"
   dotnet outdated "$csproj" --upgrade
 done | tee "$updates_output"
 
-updated_anything=$(grep -cE 'upgraded successfully|is up to date with [a-f0-9]{7,}' "$updates_output" 2>/dev/null || true)
+updated_anything=$(grep -cE 'upgraded successfully|is up to date with [a-f0-9]{7
+,}' "$updates_output" 2>/dev/null || true)
 # The per-project dotnet-outdated banner repeats per csproj; collapse it.
 if [ "${updated_anything:-0}" -eq 0 ] && grep -q "No outdated dependencies" "$updates_output"; then
     echo "No package updates applied."
 fi
+
+# ============================================================================
+# Update summary — colored classification + src/ (non-test) digest
+# ============================================================================
+#
+# dotnet-outdated strips its own ANSI colors when stdout is not a TTY (our
+# capture), so classification is computed here from the version triple the
+# tool prints per package: "Package  current -> latest". Colors: red = major
+# (breaking), yellow = minor, green = patch. Emojis: 💥 / ✨ / 🩹. The digest
+# covers only packages from projects under src/ — test-tree updates don't
+# change what package consumers see.
+
+summarize_updates() {
+    grep '<<<PROJECT ' "$updates_output" >/dev/null 2>&1 || return 0
+
+    python3 - "$updates_output" <<'PYEOF'
+import os
+import re
+import sys
+
+log_path = sys.argv[1]
+with open(log_path, encoding="utf-8", errors="replace") as fh:
+    lines = fh.read().splitlines()
+
+# Semantic version bump classification: compares the numeric components of
+# the current and latest versions. Returns "major", "minor", or "patch".
+def classify(current: str, latest: str) -> str:
+    def nums(v: str):
+        return [int(x) for x in re.findall(r"\d+", v)[:3]]
+    cur, lat = nums(current), nums(latest)
+    while len(cur) < 3:
+        cur.append(0)
+    while len(lat) < 3:
+        lat.append(0)
+    if lat[0] != cur[0]:
+        return "major"
+    if lat[1] != cur[1]:
+        return "minor"
+    return "patch"
+
+RED, YELLOW, GREEN, BOLD, RESET = "\033[31m", "\033[33m", "\033[32m", "\033[1m", "\033[0m"
+EMOJI = {"major": "💥", "minor": "✨", "patch": "🩹"}
+COLOR = {"major": RED, "minor": YELLOW, "patch": GREEN}
+
+# Package line under --upgrade: "  PackageName  1.2.3 -> 4.5.6" (indent 2+).
+pkg_re = re.compile(r"^\s{2,}(\S+)\s+(\S+)\s+->\s+(\S+)\s*$")
+
+# Blast radius = unique package updates from src/ projects. The same package
+# version bump appears once per consuming project (and again in test/
+# projects); the summary reports each distinct package+version-transition
+# once. Test-tree updates are consumers, not deliverables — excluded entirely.
+src_counts = {"major": 0, "minor": 0, "patch": 0}
+current_proj = ""
+seen_src = {}  # (package, current, latest) -> kind
+
+for line in lines:
+    m = re.match(r"^<<<PROJECT (.+?)>>>$", line)
+    if m:
+        current_proj = m.group(1).replace("\\", "/")
+        continue
+    pm = pkg_re.match(line)
+    if not pm:
+        continue
+    package, current, latest = pm.group(1), pm.group(2), pm.group(3)
+    if not "/src/" in f"/{current_proj}":
+        continue  # test (and any non-src) consumers are excluded
+    key = (package, current, latest)
+    if key in seen_src:
+        continue  # same package bump already reported from another project
+    kind = classify(current, latest)
+    seen_src[key] = kind
+    src_counts[kind] += 1
+
+# Unique src/ package updates, colored by blast radius, alphabetical so the
+# same package family groups together.
+if seen_src:
+    print()
+    print(f"{BOLD}Package updates this run (src/):{RESET}")
+    for (package, current, latest), kind in sorted(seen_src.items()):
+        print(f"  {EMOJI[kind]} {COLOR[kind]}{package}: {current} -> {latest}{RESET} ({kind})")
+
+print()
+print(f"{BOLD}Blast radius — {len(seen_src)} unique package update(s) in src/:{RESET}")
+if src_counts["major"] == 0 and src_counts["minor"] == 0 and src_counts["patch"] == 0:
+    print("  ✅ No src/ package updates")
+else:
+    if src_counts["major"]:
+        print(f"  💥 {RED}{src_counts['major']} breaking (major){RESET}")
+    if src_counts["minor"]:
+        print(f"  ✨ {YELLOW}{src_counts['minor']} feature (minor){RESET}")
+    if src_counts["patch"]:
+        print(f"  🩹 {GREEN}{src_counts['patch']} fix (patch){RESET}")
+PYEOF
+}
+
+summarize_updates
 
 # ============================================================================
 # Boilerplate sync chain
