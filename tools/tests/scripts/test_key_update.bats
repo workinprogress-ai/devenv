@@ -119,7 +119,7 @@ EOF
     [[ "$output" == *"Success"* ]]
     grep -q "gh auth login --with-token --hostname github.com" "$CALL_LOG"
     grep -q "gh auth setup-git --hostname github.com" "$CALL_LOG"
-    [ ! -f "$DEVENV_ROOT/.setup/github_token.txt" ]
+    [ ! -f "$DEVENV_ROOT/.setup/provider_token.txt" ]
     ! grep -q "devenv-add-env-vars" "$CALL_LOG"
 }
 
@@ -136,7 +136,7 @@ EOF
     [ "$status" -ne 0 ]
     [[ "$output" == *"No changes made"* ]]
     ! grep -q "gh auth setup-git" "$CALL_LOG"
-    [ ! -f "$DEVENV_ROOT/.setup/github_token.txt" ]
+    [ ! -f "$DEVENV_ROOT/.setup/provider_token.txt" ]
 }
 
 @test "key-update-tailscale: closed stdin refuses without hanging" {
@@ -213,9 +213,9 @@ EOF
 @test "bootstrap seed: authed keychain -> info only, seed left alone" {
     T=$(mktemp -d)
     mkdir -p "$T/.setup"
-    echo seed > "$T/.setup/github_token.txt"
-    printf 'test-user\n' > "$T/.setup/github_user.txt"
-    printf 'test-org\n' > "$T/.setup/github_org.txt"
+    echo seed > "$T/.setup/provider_token.txt"
+    printf 'test-user\n' > "$T/.setup/provider_user.txt"
+    printf 'test-org\n' > "$T/.setup/provider_org.txt"
     printf 'Test User\n' > "$T/.setup/name.txt"
     printf 'test@user.dev\n' > "$T/.setup/email.txt"
     printf 'optional-do-token\n' > "$T/.setup/digitalocean_token.txt"
@@ -235,16 +235,16 @@ EOF
     [ "$status" -eq 0 ]
     [[ "$output" =~ "authenticated" ]]
     [[ ! "$output" =~ "Seed file imported" ]]
-    [ -f "$T/.setup/github_token.txt" ]
+    [ -f "$T/.setup/provider_token.txt" ]
     rm -rf "$T"
 }
 
 @test "bootstrap seed: empty keychain + seed -> import once, seed deleted, no AUTH_NEEDED" {
     T=$(mktemp -d)
     mkdir -p "$T/.setup"
-    printf 'seed\n' > "$T/.setup/github_token.txt"
-    printf 'test-user\n' > "$T/.setup/github_user.txt"
-    printf 'test-org\n' > "$T/.setup/github_org.txt"
+    printf 'seed\n' > "$T/.setup/provider_token.txt"
+    printf 'test-user\n' > "$T/.setup/provider_user.txt"
+    printf 'test-org\n' > "$T/.setup/provider_org.txt"
     printf 'Test User\n' > "$T/.setup/name.txt"
     printf 'test@user.dev\n' > "$T/.setup/email.txt"
     printf 'optional-do-token\n' > "$T/.setup/digitalocean_token.txt"
@@ -260,7 +260,7 @@ EOF
         ensure_provider_seam() { :; }
         source <(sed -n '/^load_setup_credentials()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
         load_setup_credentials
-        if [ -f '$T/.setup/github_token.txt' ]; then post_seed=yes; else post_seed=no; fi
+        if [ -f '$T/.setup/provider_token.txt' ]; then post_seed=yes; else post_seed=no; fi
         echo \"POST: seed_exists=\$post_seed auth_needed=\$AUTH_NEEDED\"
     "
     [ "$status" -eq 0 ]
@@ -272,9 +272,9 @@ EOF
 @test "bootstrap seed: import failure keeps seed + sets AUTH_NEEDED" {
     T=$(mktemp -d)
     mkdir -p "$T/.setup"
-    echo seed > "$T/.setup/github_token.txt"
-    printf 'test-user\n' > "$T/.setup/github_user.txt"
-    printf 'test-org\n' > "$T/.setup/github_org.txt"
+    echo seed > "$T/.setup/provider_token.txt"
+    printf 'test-user\n' > "$T/.setup/provider_user.txt"
+    printf 'test-org\n' > "$T/.setup/provider_org.txt"
     printf 'Test User\n' > "$T/.setup/name.txt"
     printf 'test@user.dev\n' > "$T/.setup/email.txt"
     printf 'optional-do-token\n' > "$T/.setup/digitalocean_token.txt"
@@ -289,7 +289,7 @@ EOF
         ensure_provider_seam() { :; }
         source <(sed -n '/^load_setup_credentials()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
         load_setup_credentials
-        if [ -f '$T/.setup/github_token.txt' ]; then post_seed=yes; else post_seed=no; fi
+        if [ -f '$T/.setup/provider_token.txt' ]; then post_seed=yes; else post_seed=no; fi
         echo \"POST: seed_exists=\$post_seed auth_needed=\$AUTH_NEEDED\"
     "
     [ "$status" -eq 0 ]
@@ -301,8 +301,8 @@ EOF
 @test "bootstrap seed: empty keychain + no seed -> AUTH_NEEDED=1" {
     T=$(mktemp -d)
     mkdir -p "$T/.setup"
-    printf 'test-user\n' > "$T/.setup/github_user.txt"
-    printf 'test-org\n' > "$T/.setup/github_org.txt"
+    printf 'test-user\n' > "$T/.setup/provider_user.txt"
+    printf 'test-org\n' > "$T/.setup/provider_org.txt"
     printf 'Test User\n' > "$T/.setup/name.txt"
     printf 'test@user.dev\n' > "$T/.setup/email.txt"
     printf 'optional-do-token\n' > "$T/.setup/digitalocean_token.txt"

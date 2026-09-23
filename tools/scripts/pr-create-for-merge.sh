@@ -226,7 +226,7 @@ done
 
 echo "Creating PR from $CURRENT_BRANCH -> $TARGET_BRANCH..." >&2
 set +e
-PR_URL=$(provider_prs_create "${repo_spec[1]:-}" "${args[@]}" 2>&1 | grep -oE 'https://github.com[^ ]+' | head -n1)
+PR_URL=$(provider_prs_create "${repo_spec[1]:-}" "${args[@]}" 2>&1 | provider_extract_url)
 status=$?
 set -e
 

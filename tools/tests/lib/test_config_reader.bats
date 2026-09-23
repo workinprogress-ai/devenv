@@ -210,3 +210,102 @@ EOF
     [ "$status" -eq 0 ]
     [ "$output" = "value with spaces in it" ]
 }
+
+# ============================================================================
+# Expansion behavior locks: ${GH_ORG}/${GH_USER} template expansion
+# semantics are stable whether the values come from env or the provider
+# accessors.
+# ============================================================================
+
+@test "config-reader: GH_USER template is expanded in values" {
+    create_test_config
+    run bash -c "export GH_USER=test-user && source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $TEST_CONFIG_FILE && config_read_value organization email_domain"
+    [ "$status" -eq 0 ]
+}
+
+@test "config-reader: only GH_ORG/GH_USER expand; other vars stay literal" {
+    cat > "$TEST_CONFIG_FILE" <<'EOT'
+[template]
+value=prefix-${GH_USER_DOES_NOT_EXIST}-suffix
+EOT
+    run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $TEST_CONFIG_FILE && config_read_value template value"
+    [ "$status" -eq 0 ]
+    [ "$output" = 'prefix-${GH_USER_DOES_NOT_EXIST}-suffix' ]
+}
+
+@test "config-reader: unset GH_ORG/GH_USER expand to empty string" {
+    cat > "$TEST_CONFIG_FILE" <<'EOT'
+[template]
+value=prefix-${GH_ORG}-mid-${GH_USER}-suffix
+EOT
+    run bash -c "unset GH_ORG GH_USER && source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $TEST_CONFIG_FILE && config_read_value template value"
+    [ "$status" -eq 0 ]
+    [ "$output" = "prefix--mid--suffix" ]
+}
+
+@test "config-reader: expansion is single-pass (file template replaced once with env value)" {
+    cat > "$TEST_CONFIG_FILE" <<'EOT'
+[template]
+nested=${GH_USER}
+EOT
+    # A value that itself looks like a template must not recurse: the
+    # substitution pass runs once over the raw file value, so the result
+    # keeps its ${...} text literal.
+    run bash -c "export GH_USER=TH_ORG_PLACEHOLDER && source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $TEST_CONFIG_FILE && config_read_value template nested"
+    [ "$status" -eq 0 ]
+    [ "$output" = 'TH_ORG_PLACEHOLDER' ]
+}
+
+@test "config-reader: GH_TOKEN is never interpolated" {
+    cat > "$TEST_CONFIG_FILE" <<'EOT'
+[template]
+value=token=${GH_TOKEN}
+EOT
+    run bash -c "export GH_TOKEN='ghp_secret' && source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $TEST_CONFIG_FILE && config_read_value template value"
+    [ "$status" -eq 0 ]
+    [[ "$output" != *'ghp_secret'* ]]
+}
+
+@test "config-reader: GH_ORG template resolves via provider accessor when loaded" {
+    # The accessor chain (env → config → seed) backs template expansion when
+    # the provider layer is present; raw reads prevent re-entry.
+    run bash -c "
+        export DEVENV_TOOLS='$PROJECT_ROOT/tools'
+        export DEVENV_ROOT='$TEST_TEMP_DIR'
+        export DEVENV_ROOT_SET=1
+        unset GH_ORG
+        printf '[organization]\nname=t\ngithub_org=cfg-org\n' > '$TEST_TEMP_DIR/devenv.config'
+        source '$PROJECT_ROOT/tools/lib/providers/provider-core.bash'
+        source '$PROJECT_ROOT/tools/lib/config-reader.bash'
+        cat > '$TEST_TEMP_DIR/tpl.config' <<'CT'
+[t]
+v=\${GH_ORG}-suffix
+CT
+        config_init '$TEST_TEMP_DIR/tpl.config'
+        config_read_value t v
+    "
+    [ "$status" -eq 0 ]
+    [ "$output" = "cfg-org-suffix" ]
+}
+
+@test "config-reader: template expansion does not recurse through the accessor" {
+    # A config whose github_org itself contains the template: the accessor
+    # reads it RAW, expansion happens once in config-reader, done.
+    run bash -c "
+        export DEVENV_TOOLS='$PROJECT_ROOT/tools'
+        export DEVENV_ROOT='$TEST_TEMP_DIR'
+        export DEVENV_ROOT_SET=1
+        unset GH_ORG
+        printf '[organization]\nname=t\ngithub_org=\${GH_ORG}\n' > '$TEST_TEMP_DIR/devenv.config'
+        source '$PROJECT_ROOT/tools/lib/providers/provider-core.bash'
+        source '$PROJECT_ROOT/tools/lib/config-reader.bash'
+        cat > '$TEST_TEMP_DIR/tpl2.config' <<'CT'
+[t]
+v=\${GH_ORG}
+CT
+        config_init '$TEST_TEMP_DIR/tpl2.config'
+        config_read_value t v
+    "
+    [ "$status" -eq 0 ]
+    [ "$output" = '${GH_ORG}' ]
+}

@@ -37,7 +37,7 @@ FORBIDDEN_PATTERNS=(
     "GITHUB_REPO=workinprogress"
     "workinprogress-ai"
     "issues-config.yml"
-    "github_token.txt"
+    "provider_token.txt"
     "gh auth token"
     "gh auth login"
 )

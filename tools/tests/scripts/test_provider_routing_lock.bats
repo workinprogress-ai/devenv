@@ -150,3 +150,106 @@ collect_violations() {
         [ "$found" -eq 1 ] || fail "stale allowlist entry: no file matches '*${file_pat}*'"
     done
 }
+
+# ============================================================================
+# Env-var residue gate: scripts and non-provider libs never read
+# GH_ORG / GH_USER / GH_REPO / GITHUB_ORG directly — org, user, and repo
+# identity resolve through the provider accessors (provider_org_get /
+# provider_user_get / provider_repo_target). Env vars are compatibility
+# overrides read INSIDE the provider layer only.
+# ============================================================================
+
+# Residue patterns: executable reads of the branded identity vars.
+# shellcheck disable=SC2034
+RESIDUE_PATTERNS=(
+    '\$\{?GH_ORG:?[=-}]?'
+    '\$\{?GH_USER:?[=-}]?'
+    '\$\{?GH_REPO:?[=-}]?'
+    '\$\{?GITHUB_ORG:?[=-}]?'
+)
+
+# Sanctioned non-provider sites: file substring -> regex of allowed reads.
+# test_helper.bash exports the vars for every bats suite (test ergonomics,
+# not transport); git-operations' only live reference is the safety-gate
+# message text (its chain delegates to policy_org → provider accessor).
+# shellcheck disable=SC2034
+RESIDUE_ALLOWED=(
+    "test_helper.bash:export GH_(USER|ORG|TOKEN)="
+    # config-reader's no-provider fallback branch: standalone bootstrap edge
+    # (config-reader loads before the provider layer exists); the provider
+    # path above it is the sanctioned resolver.
+    "config-reader.bash:GH_(ORG|USER):\-\}"
+)
+
+# Appends RESIDUE violation lines for one scan target to $VIOLATIONS_FILE.
+collect_residue_violations() {
+    local target="$1"
+    local pattern file line text entry file_pat rx allowed
+    for pattern in "${RESIDUE_PATTERNS[@]}"; do
+        while IFS= read -r hit; do
+            [ -z "$hit" ] && continue
+            file="${hit%%:*}"
+            line="${hit#*:}"
+            text="${line#*:}"
+            line="${line%%:*}"
+            text="${text#"${text%%[![:space:]]*}"}"
+            # Comments and message lines may mention the var names.
+            if [[ "$text" =~ ^# ]]; then
+                continue
+            fi
+            if [[ "$text" =~ ^(echo|log_info|log_warn|log_error|log_verbose|printf|die)([[:space:]]|\() ]]; then
+                continue
+            fi
+            # Uppercase-initial lines are usage-heredoc prose.
+            case "$text" in
+                [A-Z]*) continue ;;
+            esac
+            allowed=0
+            for entry in "${RESIDUE_ALLOWED[@]}"; do
+                file_pat="${entry%%:*}"
+                rx="${entry#*:}"
+                if [[ "$file" == *"$file_pat"* ]] && [[ "$text" =~ $rx ]]; then
+                    allowed=1
+                    break
+                fi
+            done
+            [ "$allowed" -eq 1 ] && continue
+            printf 'RESIDUE %s:%s [%s] %s\n' "$file" "$line" "$pattern" "$text" >> "$VIOLATIONS_FILE"
+        done < <(grep -nE -- "$pattern" "$target"/*.sh "$target"/*.bash 2>/dev/null)
+    done
+}
+
+@test "residue lock: no direct GH_ORG/GH_USER/GH_REPO/GITHUB_ORG reads outside providers" {
+    VIOLATIONS_FILE="$TEST_TEMP_DIR/residue_violations.txt"
+    export VIOLATIONS_FILE
+    : > "$VIOLATIONS_FILE"
+    local scan_dir
+    for scan_dir in "${LOCK_TARGETS[@]}"; do
+        collect_residue_violations "${DEVENV_ROOT}/${scan_dir}"
+    done
+    if [ -s "$VIOLATIONS_FILE" ]; then
+        cat "$VIOLATIONS_FILE" >&2
+        echo "branded env-var reads found outside providers (use provider accessors)" >&2
+        return 1
+    fi
+}
+
+@test "residue lock: negative control — injected residue fails the scan" {
+    # Rot-proofing: if the scan can no longer detect residue (pattern rot,
+    # over-broad exemptions), this control must fail.
+    local scratch="$TEST_TEMP_DIR/residue_control"
+    mkdir -p "$scratch"
+    cat > "$scratch/fake-wrapper.sh" <<'FAKE'
+#!/usr/bin/env bash
+org="${GH_ORG:-}"
+echo "$org"
+FAKE
+    VIOLATIONS_FILE="$TEST_TEMP_DIR/residue_control_out.txt"
+    export VIOLATIONS_FILE
+    : > "$VIOLATIONS_FILE"
+    collect_residue_violations "$scratch"
+    if [ ! -s "$VIOLATIONS_FILE" ]; then
+        echo "negative control failed: injected GH_ORG residue was NOT detected — scan is rotting" >&2
+        return 1
+    fi
+}

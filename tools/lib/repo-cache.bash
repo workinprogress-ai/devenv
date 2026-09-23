@@ -52,11 +52,10 @@ readonly REPO_CACHE_PARALLEL="${REPO_CACHE_PARALLEL:-5}"
 #   $1 - Optional grep-compatible regex filter applied to repo names.
 #        When omitted, all organization repositories are cached.
 #
-# Environment Variables:
-#   GH_ORG    - GitHub organization name (required)
-#   GH_USER   - GitHub username for HTTPS auth (required)
-#   GH_TOKEN  - GitHub personal access token (optional; gh keychain auth is
-#               the preferred source)
+# Org identity resolves via the provider org accessor (GH_ORG env override →
+# config [organization] github_org → seed); no env var is required. Clone
+# URLs are clean https forms — authentication rides gh's credential helper
+# (gh auth setup-git), so no username or token participates in the URL.
 #
 # Returns:
 #   0 if all matching repos were cached/updated successfully
@@ -80,25 +79,20 @@ readonly REPO_CACHE_PARALLEL="${REPO_CACHE_PARALLEL:-5}"
 refresh_repo_cache() {
     local filter="${1:-}"
 
-    # Validate required environment
-    if [ -z "${GH_ORG:-}" ]; then
-        log_error "GH_ORG is not set. Cannot refresh repo cache."
-        return 1
-    fi
-    if [ -z "${GH_USER:-}" ]; then
-        log_error "GH_USER is not set. Cannot refresh repo cache."
-        return 1
-    fi
+    # Org identity via the provider accessor (GH_ORG env override first,
+    # then config, then seed — resolution errors name the config key).
+    local org
+    org=$(provider_org_get) || return 1
 
     # Fetch org repo list
     local all_repos
-    all_repos=$(list_organization_repositories "$GH_ORG") || {
+    all_repos=$(list_organization_repositories "$org") || {
         log_error "Failed to list organization repositories"
         return 1
     }
 
     if [ -z "$all_repos" ]; then
-        log_error "No repositories found in organization '$GH_ORG'"
+        log_error "No repositories found in organization '$org'"
         return 1
     fi
 
@@ -119,8 +113,10 @@ refresh_repo_cache() {
         return 1
     }
 
-    # Clean URL: auth via gh's credential helper, never embedded.
-    local git_url_prefix="https://github.com/${GH_ORG}"
+    # Clean URL via the provider transport seam: auth rides gh's credential
+    # helper, never embedded.
+    local git_url_prefix
+    git_url_prefix="$(provider_git_remote_base "$org")" || return 1
     local count=0
     local repo_name
 

@@ -25,12 +25,6 @@ usage() {
   echo "  repository-name: Name of the GitHub repository (alphanumeric, hyphens, and dots)" >&2
 }
 
-# Validate required environment variables
-if [ -z "${GH_USER:-}" ]; then
-    echo "ERROR: 'GH_USER' is not set. Cannot continue." >&2
-    exit 1
-fi
-
 # Function to select a repo using fzf
 select_repo_interactive() {
     check_fzf_installed || exit 1
@@ -39,7 +33,7 @@ select_repo_interactive() {
     local local_repos
     local available_repos
     
-    org_repos=$(list_organization_repositories "$GH_ORG" 1000) || {
+    org_repos=$(list_organization_repositories "$(provider_org_get)" 1000) || {
         echo "ERROR: Failed to list organization repositories" >&2
         exit 1
     }
@@ -69,7 +63,7 @@ get_available_repos() {
     local local_repos
     local available_repos
 
-    org_repos=$(list_organization_repositories "$GH_ORG" 1000) || {
+    org_repos=$(list_organization_repositories "$(provider_org_get)" 1000) || {
         echo "ERROR: Failed to list organization repositories" >&2
         exit 1
     }
@@ -120,9 +114,8 @@ else
     REPO_NAME="$input_repo"
 fi
 
-# Ensure GH_ORG is set
-if [ -z "${GH_ORG:-}" ]; then
-    echo "ERROR: GH_ORG environment variable is not set. Run 'setup' first." >&2
+# Resolve the org via the provider accessor (env override → config → seed).
+if ! ORG="$(provider_org_get)"; then
     exit 1
 fi
 
@@ -136,7 +129,7 @@ fi
 TARGET_DIR="$repos_dir/$REPO_NAME"
 # Clean URL: authentication flows through gh's credential helper
 # (gh auth setup-git), never embedded in the remote.
-GIT_URL="https://github.com/${GH_ORG}/${REPO_NAME}.git"
+GIT_URL="$(provider_git_transport_url "$ORG" "$REPO_NAME")"
 
 detect_default_branch() {
     local ref
@@ -206,7 +199,7 @@ if [ "$ALL_MODE" = true ]; then
         [ -z "$repo" ] && continue
         REPO_NAME="$repo"
         TARGET_DIR="$repos_dir/$REPO_NAME"
-        GIT_URL="https://github.com/${GH_ORG}/${REPO_NAME}.git"
+        GIT_URL="$(provider_git_transport_url "$ORG" "$REPO_NAME")"
         echo "==> Cloning $REPO_NAME..." >&2
         if ! clone_repo; then
             echo "WARNING: Failed to clone $REPO_NAME" >&2

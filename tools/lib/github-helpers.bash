@@ -43,6 +43,10 @@ if [ -z "${_PROVIDER_CORE_LOADED:-}" ]; then
         source "$_gh_self_dir/providers/${PROVIDER_NAME}/projects.bash"
         # shellcheck disable=SC1091
         source "$_gh_self_dir/providers/${PROVIDER_NAME}/org.bash"
+        # shellcheck disable=SC1090,SC1091
+        if [ -f "$_gh_self_dir/providers/${PROVIDER_NAME}/urls.bash" ]; then
+            source "$_gh_self_dir/providers/${PROVIDER_NAME}/urls.bash"
+        fi
     fi
     unset _gh_self_dir
 fi
@@ -66,7 +70,7 @@ fi
 #
 # Environment Variables:
 #   GITHUB_REPO    - Full repository specification in format "owner/repo"
-#   GITHUB_ORG     - GitHub organization or user name
+#   (org identity resolves via the provider org accessor; GITHUB_ORG is not read)
 #
 # Returns:
 #   Outputs "-R owner/repo" if repository can be determined, empty string otherwise
@@ -105,7 +109,7 @@ get_repo_spec() {
 #   owner=$(get_repo_owner)
 #
 # Environment Variables:
-#   GITHUB_ORG     - GitHub organization or user name
+#   (org identity resolves via the provider org accessor; GITHUB_ORG is not read)
 #
 # Returns:
 #   Outputs the owner name, exits with error if cannot be determined
@@ -426,22 +430,16 @@ ensure_label() {
 # On success: exports GH_REPO=<owner>/<repo> and prints the resolved
 # "owner/repo". On refusal: exits (gate behavior). Callers that pass the
 # result to `gh -R` can use the printed value directly.
+# GH_REPO ownership: the variable is transport state the provider layer
+# owns (child gh processes resolve it natively); this export propagates the
+# provider's resolution result — callers never set or read it directly.
 resolve_target_repo() {
     local repo_override="${1:-}"
     local repo=""
 
-    if [ -n "$repo_override" ]; then
-        repo="$repo_override"
-    elif [ -n "${GITHUB_REPO:-}" ]; then
-        repo="$GITHUB_REPO"
-    else
-        local policy_org repo_name
-        policy_org=$(policy_org 2>/dev/null || true)
-        repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
-        if [ -n "$policy_org" ] && [ -n "$repo_name" ]; then
-            repo="${policy_org}/${repo_name}"
-        fi
-    fi
+    # Resolution delegates to the provider layer (provider_repo_target):
+    # explicit arg → GITHUB_REPO → full-form GH_REPO → org + cwd basename.
+    repo=$(provider_repo_target "$repo_override")
 
     if [ -z "$repo" ]; then
         log_error "Unable to resolve target repository"

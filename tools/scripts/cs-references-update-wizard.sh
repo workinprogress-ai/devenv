@@ -470,7 +470,7 @@ main() {
     local pr_url=""
     local pr_attempt
     for pr_attempt in 1 2 3 4 5; do
-        pr_url=$(pr-create-for-merge --no-issue --repo-dir "$repo_dir" --branch "$update_branch" --label "automated" "$pr_title" 2>&1 | grep -oE 'https://github.com[^ ]+' | head -1) || true
+        pr_url=$(pr-create-for-merge --no-issue --repo-dir "$repo_dir" --branch "$update_branch" --label "automated" "$pr_title" 2>&1 | provider_extract_url) || true
         [ -n "$pr_url" ] && break
         log_warn "PR creation attempt $pr_attempt failed — retrying in 10s..."
         echo "pr-create-for-merge --no-issue --repo-dir \"$repo_dir\" --branch \"$update_branch\" --label \"automated\" \"$pr_title\""

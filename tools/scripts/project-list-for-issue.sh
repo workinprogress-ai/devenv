@@ -109,7 +109,7 @@ main() {
     repo_spec=$(resolve_target_repo) || exit 1
     owner="${repo_spec%%/*}"
     repo="${repo_spec#*/}"
-    issue_url="https://github.com/$owner/$repo/issues/$ISSUE_NUMBER"
+    issue_url="$(provider_web_url "$owner/$repo" "issues/$ISSUE_NUMBER")"
 
     log_verbose "Looking up projects for $issue_url"
     projects_for_issue "$issue_url" "$owner"

@@ -21,6 +21,12 @@ if [ -z "${_PROVIDER_CORE_LOADED:-}" ]; then
         provider_detect "${DEVENV_ROOT:-$(dirname "$(dirname "$_ro_lib_dir")")}/devenv.config" 2>/dev/null || PROVIDER_NAME="${PROVIDER_NAME:-github}"
         # shellcheck disable=SC1091
         source "$_ro_lib_dir/providers/${PROVIDER_NAME}/repos.bash"
+        # URL seam (provider_git_transport_url et al.) — optional module:
+        # guarded so providers without it keep loading.
+        # shellcheck disable=SC1090,SC1091
+        if [ -f "$_ro_lib_dir/providers/${PROVIDER_NAME}/urls.bash" ]; then
+            source "$_ro_lib_dir/providers/${PROVIDER_NAME}/urls.bash"
+        fi
     fi
     unset _ro_lib_dir
 fi

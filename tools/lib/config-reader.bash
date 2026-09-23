@@ -62,8 +62,21 @@ config_read_value() {
     # never transit a process argument.
     # Note: GH_TOKEN is deliberately NOT interpolated — config files are a
     # persistent surface and must never carry or expand secrets.
-    value="${value//\$\{GH_ORG\}/${GH_ORG:-}}"
-    value="${value//\$\{GH_USER\}/${GH_USER:-}}"
+    # GH_ORG/GH_USER templates resolve via the provider identity accessors
+    # (env override → config → seed) when the provider layer is loaded; the
+    # accessors read RAW config values, so this call cannot re-enter
+    # config-reader (recursion guard by construction). Fallback to plain env
+    # when the provider layer is absent.
+    if declare -F provider_org_get >/dev/null; then
+        local org_res user_res
+        org_res=$(provider_org_get 2>/dev/null || true)
+        user_res=$(provider_user_get 2>/dev/null || true)
+        value="${value//\$\{GH_ORG\}/${org_res:-}}"
+        value="${value//\$\{GH_USER\}/${user_res:-}}"
+    else
+        value="${value//\$\{GH_ORG\}/${GH_ORG:-}}"
+        value="${value//\$\{GH_USER\}/${GH_USER:-}}"
+    fi
     
     echo "$value"
     return 0

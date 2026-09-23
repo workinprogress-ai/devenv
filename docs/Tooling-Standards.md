@@ -139,17 +139,18 @@ If your tool accepts a markdown/text body:
 
 ## Repo targeting (provider-seamed tools)
 
-Repo targeting resolves through the provider seam — the env-var chain below is
-the GitHub implementation's as-built shape (`GITHUB_REPO`, `GH_ORG` are
-as-built identifiers); a provider module owns the equivalent chain for its
-backend.
+Repo targeting resolves through the provider seam via `provider_repo_target`
+(explicit `--repo` → `GITHUB_REPO` → full-form `GH_REPO` → configured org +
+cwd basename). Org identity comes from `provider_org_get` (env override →
+config `[organization] github_org` → seed); a provider module owns the
+equivalent chain for its backend.
 
-- Use `resolve_target_repo [override]` — it resolves
-  `--repo override` → `GITHUB_REPO` → `GH_ORG`+cwd, exports `GH_REPO`, and
-  runs the devenv-repo safety gate. It hard-exits if `git-operations.bash`
-  isn't loaded, so source that lib too.
-- Do not hand-roll `GITHUB_REPO → GH_ORG → git remote` chains; five historical
-  idioms existed and were consolidated for exactly this reason.
+- Use `resolve_target_repo [override]` — it delegates to
+  `provider_repo_target` and runs the devenv-repo safety gate. It
+  hard-exits if `git-operations.bash` isn't loaded, so source that lib too.
+- Do not hand-roll repo/org resolution chains; five historical idioms
+  existed and were consolidated for exactly this reason. `GH_REPO` is
+  provider-owned transport state — scripts never read or write it.
 
 ## Temp files and cleanup
 

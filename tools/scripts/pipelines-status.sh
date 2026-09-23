@@ -47,7 +47,7 @@ show_usage() {
 Usage: $SCRIPT_NAME [OPTIONS]
 
 Report GitHub Actions workflow run status across the org.
-Defaults to the latest run per repo. Uses GH_ORG to enumerate repositories.
+Defaults to the latest run per repo. Enumerates repositories for the configured org (devenv.config [organization] github_org).
 
 Options:
     -h, --help                  Show this help message and exit
@@ -63,7 +63,8 @@ Filters:
     --limit N                   Runs per repo to fetch (default: 1)
 
 Environment Variables:
-    GH_ORG                      GitHub organisation name (required)
+    (none required — org resolves via devenv.config [organization] github_org;
+     GH_ORG remains an optional override.
 
 Examples:
     # Show latest run status for all repos

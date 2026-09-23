@@ -208,9 +208,9 @@ main() {
     [ -n "$roadmap" ] || invalid_args "ROADMAP_FILE is required"
     [ -f "$roadmap" ] || invalid_args "Roadmap file not found: $roadmap"
 
-    # Default org: GH_ORG env, else first org/repo#N found in the file, else "org"
+    # Default org: provider org accessor, else first org/repo#N found in the file, else "org"
     if [ -z "$default_org" ]; then
-        default_org="${GH_ORG:-}"
+        default_org="$(provider_org_get 2>/dev/null || true)"
     fi
     [ -n "$default_org" ] || default_org=$(grep -oE '[A-Za-z0-9_.-]+/#[0-9]+' "$roadmap" | head -1 | cut -d/ -f1)
     [ -n "$default_org" ] || default_org="org"

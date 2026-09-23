@@ -615,7 +615,7 @@ create_batch() {
 
         local issue_url
         local issue_number
-        issue_url=$(echo "$output" | grep -Eo 'https://github.com/[^[:space:]]+/issues/[0-9]+' | tail -1 || true)
+        issue_url=$(echo "$output" | tac | provider_extract_url 'issues/[0-9]+' || true)
         issue_number=$(echo "$issue_url" | grep -Eo '[0-9]+$' || true)
         if [ -z "$issue_url" ] || [ -z "$issue_number" ]; then
             log_error "Issue[$index] created but could not parse URL/number"

@@ -3,8 +3,10 @@
 #
 # Wraps gh's credential-store operations: login (token import), status, and
 # the git credential-helper wiring. This module is the single sanctioned
-# home for direct gh auth invocations; everything else routes through the
-# provider seam. Contract: return non-zero + log_error; never exit.
+# home for direct gh auth invocations (including the github.com host flags —
+# host literals inside provider modules are per-provider by definition);
+# everything else routes through the provider seam. Contract: return
+# non-zero + log_error; never exit.
 
 # Guard against multiple sourcing
 if [ -n "${_PROVIDER_GITHUB_AUTH_LOADED:-}" ]; then

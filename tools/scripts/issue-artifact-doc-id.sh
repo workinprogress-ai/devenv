@@ -61,28 +61,15 @@ EOF
 }
 
 resolve_owner_repo() {
-    if [ -n "$REPO_OVERRIDE" ]; then
-        echo "$REPO_OVERRIDE"
-        return
-    fi
-
-    if [ -n "${GITHUB_REPO:-}" ]; then
-        echo "$GITHUB_REPO"
-        return
-    fi
-
-    local git_root
-    git_root=$(git rev-parse --show-toplevel 2>/dev/null || true)
-    if [ -z "$git_root" ]; then
+    # Resolve via the provider layer (explicit arg → GITHUB_REPO → full-form
+    # GH_REPO → org + cwd basename). Read-only resolver: the devenv-repo
+    # safety gate is not applied here (no mutations happen in this script),
+    # mirroring the resolution chain without the gate.
+    local resolved_repo
+    resolved_repo=$(provider_repo_target "$REPO_OVERRIDE")
+    if [ -z "$resolved_repo" ]; then
         invalid_args "Repository is required: pass --repo or set GITHUB_REPO"
     fi
-
-    local resolved_repo
-    resolved_repo=$(get_full_repo_name "$git_root" 2>/dev/null || true)
-    if [ -z "$resolved_repo" ]; then
-        invalid_args "Could not resolve repository; pass --repo OWNER/REPO"
-    fi
-
     echo "$resolved_repo"
 }
 

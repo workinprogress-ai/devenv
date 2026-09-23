@@ -42,6 +42,8 @@ if [ -n "${1:-}" ]; then
 else
     read -s -r -p "    Paste GitHub personal access token (classic) with repo scope: " NEW_TOKEN || NEW_TOKEN=""
     echo "" # Newline
+    # Host literal sanctioned: user-facing pointer to this provider's token
+    # page (the fork rewrites this script with its provider's URL).
     echo "    Create one at: https://github.com/settings/tokens"
 fi
 

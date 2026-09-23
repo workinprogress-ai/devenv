@@ -32,9 +32,38 @@ Rotation: `key-update-git.sh <token>` (or `gh auth login` manually).
 ## Repository targeting
 
 Resolution order for repo-targeted wrappers: explicit `--repo` argument →
-`GITHUB_REPO` env → `GH_ORG` + current repo basename → cwd git context.
-Prefer `GITHUB_REPO=<owner>/<repo>` for cross-repo operations; the
-devenv-repo safety gate rejects devenv-repo mutations without it.
+`GITHUB_REPO` env → `GH_REPO` (full form) → org identity + current repo
+basename → cwd git context. Prefer `GITHUB_REPO=<owner>/<repo>` for
+cross-repo operations; the devenv-repo safety gate rejects devenv-repo
+mutations without it. Resolution lives in `provider_repo_target`; wrapper
+code never re-implements the chain. `GH_REPO` is provider-owned transport
+state — scripts never read or write it.
+
+## Identity accessors (sanctioned path)
+
+Org and user identity resolve through provider-core accessors:
+
+- `provider_org_get` — `GH_ORG` env override → config `[organization]
+  github_org` → seed `.setup/provider_org.txt` → config-guided error.
+- `provider_user_get` — `GH_USER` env override → config `[organization]
+  github_user` → seed `.setup/provider_user.txt` → config-guided error.
+
+Accessors read RAW config values (no template expansion) so config-reader's
+`${GH_ORG}`/`${GH_USER}` template expansion can safely resolve through them
+without recursion. All scripts and non-provider libs MUST use these
+accessors (directly or via `policy_org`, which delegates) — direct
+`GH_ORG`/`GH_USER`/`GH_REPO`/`GITHUB_ORG` reads outside the provider layer
+fail the residue gate in `test_provider_routing_lock.bats`.
+
+Env vars remain **compatibility fallbacks**: a user-set export overrides
+the accessor chain; bootstrap never produces them.
+
+## URL / host seam
+
+All provider-host URL work lives in `github/urls.bash`:
+`provider_git_transport_url`, `provider_git_remote_base`, `provider_web_url`,
+`provider_extract_url`, `provider_remote_to_web`. Generic scripts never
+hard-code the host literal.
 
 ## Wrapper reference
 
@@ -1022,7 +1051,7 @@ Org-wide GitHub Actions operations — views `gh` alone can't replicate in one c
 
 ### pipelines-status
 
-Report workflow run status across the org (latest run per repo; uses `GH_ORG`).
+Report workflow run status across the org (latest run per repo; org resolves via the provider org accessor).
 
 ```
 pipelines-status [OPTIONS]
@@ -1117,7 +1146,7 @@ List the GitHub organization's configured issue types (name + node ID) via Graph
 issue-types [--format table|json|simple]
 ```
 
-Org resolution: `GH_ORG`, else the owner part of `GITHUB_REPO`.
+Org resolution: provider org accessor (config-first), else the owner part of `GITHUB_REPO`.
 
 Example: `issue-types --format json`
 

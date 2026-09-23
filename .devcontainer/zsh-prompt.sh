@@ -76,8 +76,12 @@ _devenv_userpart() {
         colour=red
         bold='%B'
     fi
-    if [[ -n "${GH_USER:-}" ]]; then
-        echo -n "${bold}%F{$colour}@${GH_USER}%f%b"
+    # Decorative identity: seed file read (lightweight — no provider stack
+    # sourcing per prompt).
+    local _puser
+    _puser="$(cat "$DEVENV_ROOT/.setup/provider_user.txt" 2>/dev/null || true)"
+    if [[ -n "$_puser" ]]; then
+        echo -n "${bold}%F{$colour}@${_puser}%f%b"
     else
         echo -n "${bold}%F{$colour}%n%f%b"
     fi

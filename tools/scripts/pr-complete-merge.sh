@@ -108,10 +108,11 @@ fi
 
 echo
 echo "✅ Pull request $PR_ID completed successfully."
-policy_org="$(policy_org 2>/dev/null || true)"
+# Web-UI link built through the provider URL seam (host lives in the provider).
+policy_org="$(provider_org_get 2>/dev/null || true)"
 if [ -n "$policy_org" ]; then
     repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
-    echo "PR: https://github.com/${policy_org}/${repo_name}/pull/$PR_ID"
+    echo "PR: $(provider_web_url "${policy_org}/${repo_name}" "pull/$PR_ID")"
 else
-    echo "PR: https://github.com/$(provider_repos_view "${repo_spec[1]:-}" --json owner,name --jq '.owner.login + "/" + .name')/pull/$PR_ID"
+    echo "PR: $(provider_web_url "$(provider_repos_view "${repo_spec[1]:-}" --json owner,name --jq '.owner.login + "/" + .name')" "pull/$PR_ID")"
 fi

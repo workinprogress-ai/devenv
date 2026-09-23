@@ -41,11 +41,12 @@ fi
 #   2. GITHUB_REPO env
 #   3. GH_REPO env (gh's own variable; may be basename-only which is invalid
 #      for -R, so only full owner/repo forms pass through)
-#   4. empty (caller resolves from the cwd git remote, github-helpers style)
+#   4. org identity (provider_org_get) + current git repo basename
+#   5. empty when no git root (caller decides the error)
 #
 # Usage:
 #   repo=$(provider_repo_target org/repo)   # org/repo
-#   repo=$(provider_repo_target)            # GITHUB_REPO/GH_REPO or empty
+#   repo=$(provider_repo_target)            # env chain, then cwd resolution
 provider_repo_target() {
     local repo="${1:-}"
     if [ -n "$repo" ]; then
@@ -58,6 +59,16 @@ provider_repo_target() {
     fi
     if [ -n "${GH_REPO:-}" ] && [[ "$GH_REPO" == */* ]]; then
         echo "$GH_REPO"
+        return 0
+    fi
+    # Cwd resolution: org identity + git root basename. Both legs must
+    # resolve; a missing git root leaves the result empty (not an error) so
+    # callers keep their own exit semantics.
+    local org repo_name
+    org=$(provider_org_get 2>/dev/null) || org=""
+    repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
+    if [ -n "$org" ] && [ -n "$repo_name" ]; then
+        echo "${org}/${repo_name}"
         return 0
     fi
     echo ""
