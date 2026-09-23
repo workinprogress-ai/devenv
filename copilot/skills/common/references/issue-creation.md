@@ -1,12 +1,12 @@
-# GitHub Issue Creation Flow
+# Issue Creation Flow
 
-Shared five-step protocol for skills that optionally post an output document to a GitHub issue at the end of a session.
+Shared five-step protocol for skills that optionally post an output document to an issue at the end of a session.
 
 ## When to invoke
 
 After the output document has been written and the user has confirmed it, ask:
 
-> *"Want to track this in a GitHub issue? I can create a new one, or post the document to an existing issue number. The document will go in a comment; the description stays as a short placeholder for the next skill."*
+> *"Want to track this in an issue? I can create a new one, or post the document to an existing issue number. The document will go in a comment; the description stays as a short placeholder for the next skill."*
 
 If the user says no, skip to session wrap-up.
 

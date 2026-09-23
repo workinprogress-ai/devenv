@@ -21,7 +21,7 @@ Grooming is the **design steward** for a piece of work. It always works with a *
 
 > **Issue operations during grooming: wrappers only.** Creating or batch-creating child issues uses `issue-create` / `issue-create-batch` — never raw `gh issue create`. Full rules in the child-issue creation section.
 
-Grooming also produces a **suggested issue attack plan** as a set of GitHub issues classified as **Feature**, **Fix**, or **Task**. Each suggested issue must:
+Grooming also produces a **suggested issue attack plan** as a set of issues classified as **Feature**, **Fix**, or **Task**. Each suggested issue must:
 
 - map to one repo/component,
 - include a size signal (`S|M|L`), and
@@ -72,7 +72,7 @@ Before anything else, locate the grooming document for this work.
 - Component repo path
 - `Architecture_and_implementation.md` path
 - `Plan-*.md` path (returned from implementation)
-- GitHub issue number
+- Issue number
 
 **Step 2 — Search for an existing grooming document.** A grooming document may live:
 
@@ -98,7 +98,7 @@ For every grooming artifact (local file or issue comment), follow the shared [Ar
 - Always keep the `DEVENV_ARTIFACT_V1` header at the top of the artifact body (with `doc_id` in the first 256 characters).
 - For local files (no issue target yet), set the `doc_id` by hand following the convention's local-file form — `dv1:<owner>/<repo>:local:grooming:<artifact-slug>`, slug derived from the filename stem — and stamp it into the header via `artifact-header <file> --set doc_id=<value>`. Once the grooming document is persisted to a GitHub issue, derive its issue-bound `doc_id` deterministically instead: `issue-artifact-doc-id --issue <N> --artifact-type grooming --source-file <file>`.
 
-If the grooming document is stored in a GitHub issue comment:
+If the grooming document is stored as an issue comment:
 
 - Materialize the current comment artifact to a local working copy under `.local-artifacts/` (temp folder only on explicit user request). Edit that local working copy during the session.
 - Header placement and general publication mechanics follow the shared convention and [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md) — grooming-specific: republish via `issue-artifact-upsert` only (never `mcp_gitkraken_*` or generic `issue-comment` for the persisted artifact), and only after the grooming changes for this effort are settled
@@ -179,7 +179,7 @@ When grooming is active, propose a deliverable issue attack plan in issue-sized 
 
 Placement guidance:
 
-- **Single repo + small/medium scope:** one issue can be enough; grooming and plan may live on the same GitHub issue.
+- **Single repo + small/medium scope:** one issue can be enough; grooming and plan may live on the same istHub issue.
 - **Multiple repos/components or multiple production deliverables:** grooming should live at epic level (typically in a planning repo issue) and coordinate multiple downstream plan issues.
 
 The grooming document is the coordination artifact across those plans.

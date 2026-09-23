@@ -13,7 +13,7 @@ Provides shared Copilot knowledge sync helpers.
 Public functions:
 
 - `build_github_basic_auth_header <token>`
-  - Builds a GitHub-compatible `http.extraheader` value using `x-access-token` basic auth.
+  - Builds the provider-compatible `http.extraheader` value using `x-access-token` basic auth (GitHub form today).
 - `pull_copilot_knowledge_on_container_start <toolbox_root>`
   - Runs a non-blocking background `git fetch/pull` for `<toolbox_root>/copilot/knowledge`.
   - No-op when `copilot/knowledge` is not an initialized git repository.
@@ -87,7 +87,7 @@ Tools for managing repositories, cloning, updating, and working with multiple re
 
 ### `repo-get`
 
-Clones a repository from GitHub into the `repos/` folder.
+Clones a repository from the git host into the `repos/` folder.
 
 **Usage:**
 
@@ -117,7 +117,7 @@ repo-get
 **Notes:**
 
 - Automatically configures git settings from `git-config.sh`
-- Supports SSH-first cloning with HTTPS fallback using `GH_TOKEN`
+- Supports SSH-first cloning with HTTPS fallback; HTTPS credentials resolve through the provider credential helper (keychain — no token env var)
 - Automatically detects default branch (main/master)
 - Runs `.repo/init.sh` and `.repo/update.sh` hooks if present
 - Supports partial repo names for convenience
@@ -128,7 +128,7 @@ repo-get
 
 ### `repo-create`
 
-Creates a new GitHub repository using standardized org rules, then clones it locally and optionally runs a post-creation script.
+Creates a new repository on the git host using standardized org rules, then clones it locally and optionally runs a post-creation script.
 
 **Usage:**
 
@@ -247,7 +247,7 @@ repo-update-all [--jobs N]
 
 ### `repo-get-web-url`
 
-Outputs the GitHub web URL for the current repository.
+Outputs the web URL for the current repository on the git host.
 
 **Usage:**
 
@@ -255,11 +255,11 @@ Outputs the GitHub web URL for the current repository.
 repo-get-web-url
 ```
 
-## GitHub Issues
+## Issues (batch creation)
 
 ### `issue-create-batch`
 
-Creates multiple GitHub issues from a YAML/JSON manifest using deterministic, non-interactive issue creation.
+Creates multiple issues from a YAML/JSON manifest using deterministic, non-interactive issue creation.
 
 **Usage:**
 
@@ -411,7 +411,7 @@ git update
 
 ## Pull Request Management
 
-Tools for creating, managing, and working with pull requests on GitHub. The wrappers are the workspace abstraction over the backing `gh` CLI.
+Tools for creating, managing, and working with pull requests. The wrappers are the workspace abstraction over the backing `gh` CLI.
 
 ### `pr-create-for-review`
 
@@ -473,7 +473,7 @@ pr-create-for-merge "docs: update README" --issue 789 --draft --reviewer @john
 
 ### `pr-get-merge-link`
 
-Gets the GitHub URL for an open pull request on the current branch.
+Gets the web URL for an open pull request on the current branch.
 
 ```bash
 pr-get-merge-link
@@ -481,7 +481,7 @@ pr-get-merge-link
 
 ### `pr-get-review-link`
 
-Gets the GitHub URL for a review pull request.
+Gets the web URL for a review pull request.
 
 ```bash
 pr-get-review-link
@@ -616,7 +616,7 @@ pr-thread-reply 123 --comment-id 456 --body "LGTM" --dry-run
 
 ### `pr-thread-resolve`
 
-Marks a PR review thread as resolved using the GitHub GraphQL `resolveReviewThread` mutation. Takes the GraphQL node ID (starts with `PRRT_`) returned by `pr-threads-get`.
+Marks a PR review thread as resolved using the provider's review-thread resolution (GitHub GraphQL `resolveReviewThread` today). Takes the GraphQL node ID (starts with `PRRT_`) returned by `pr-threads-get`.
 
 ```bash
 pr-thread-resolve THREAD_ID [--dry-run]
@@ -638,7 +638,7 @@ Tools for listing, filtering, and managing artifacts in GitHub Packages.
 
 ### `artifacts-list`
 
-Lists and filters artifacts (packages) from GitHub Packages with support for multiple package types and filtering by name.
+Lists and filters artifacts (packages) from the provider package registry (GitHub Packages today) with support for multiple package types and filtering by name.
 
 **Usage:**
 
@@ -760,13 +760,13 @@ for the family definitions.
 artifact-clean [PATH...] [--tmp | --session | --working | --all] [-y] [-l]
 ```
 
-## GitHub Actions
+## CI Pipelines
 
-Tools for inspecting, triggering, monitoring, and downloading outputs of GitHub Actions workflow runs.
+Tools for inspecting, triggering, monitoring, and downloading outputs of CI pipeline workflow runs (GitHub Actions today, via the provider `actions` domain).
 
 ### `pipelines-status`
 
-Reports the latest GitHub Actions workflow run status across all repos in the org, with optional filtering by repo name and run conclusion.
+Reports the latest CI pipeline workflow run status across all repos in the org, with optional filtering by repo name and run conclusion.
 
 **Usage:**
 
@@ -812,7 +812,7 @@ pipelines-status --json | jq '.[] | select(.conclusion == "failure") | .url'
 
 ### `pipelines-list`
 
-Lists GitHub Actions workflow definitions (name, file, state) across org repositories. Shows what workflows *exist*, not their run history.
+Lists CI workflow definitions (name, file, state) across org repositories. Shows what workflows *exist*, not their run history.
 
 **Usage:**
 
@@ -847,7 +847,7 @@ pipelines-list --json | jq '.[] | select(.state != "active")'
 
 ### `pipelines-run`
 
-Triggers a `workflow_dispatch` event on a GitHub repository and reports the resulting run URL.
+Triggers a `workflow_dispatch` event on a repository and reports the resulting run URL.
 
 **Usage:**
 
@@ -869,13 +869,13 @@ pipelines-run WORKFLOW --repo OWNER/REPO [OPTIONS]
 
 ```bash
 # Trigger CI on the default branch
-pipelines-run ci.yml --repo workinprogress-ai/my-service
+pipelines-run ci.yml --repo <org>/my-service
 
 # Run on a specific branch
-pipelines-run ci.yml --repo workinprogress-ai/my-service --ref feature/my-branch
+pipelines-run ci.yml --repo <org>/my-service --ref feature/my-branch
 
 # Pass workflow_dispatch inputs
-pipelines-run deploy.yml --repo workinprogress-ai/my-service \
+pipelines-run deploy.yml --repo <org>/my-service \
     --input environment=staging \
     --input version=1.2.3
 ```
@@ -889,7 +889,7 @@ pipelines-run deploy.yml --repo workinprogress-ai/my-service \
 
 ### `pipelines-rerun`
 
-Re-runs a GitHub Actions workflow run, with options to re-run only failed jobs or enable debug logging.
+Re-runs a CI pipeline workflow run, with options to re-run only failed jobs or enable debug logging.
 
 **Usage:**
 
@@ -911,20 +911,20 @@ pipelines-rerun RUN_ID --repo OWNER/REPO [OPTIONS]
 
 ```bash
 # Re-run the full workflow
-pipelines-rerun 12345678 --repo workinprogress-ai/my-service
+pipelines-rerun 12345678 --repo <org>/my-service
 
 # Re-run only failed jobs
-pipelines-rerun 12345678 --repo workinprogress-ai/my-service --failed
+pipelines-rerun 12345678 --repo <org>/my-service --failed
 
 # Re-run with debug output enabled
-pipelines-rerun 12345678 --repo workinprogress-ai/my-service --debug
+pipelines-rerun 12345678 --repo <org>/my-service --debug
 ```
 
 ---
 
 ### `pipelines-watch`
 
-Streams live output from a running GitHub Actions workflow run. If no `RUN_ID` is given, auto-detects the latest in-progress run in the repo.
+Streams live output from a running CI pipeline workflow run. If no `RUN_ID` is given, auto-detects the latest in-progress run in the repo.
 
 **Usage:**
 
@@ -945,20 +945,20 @@ pipelines-watch [RUN_ID] --repo OWNER/REPO [OPTIONS]
 
 ```bash
 # Watch the latest in-progress run
-pipelines-watch --repo workinprogress-ai/my-service
+pipelines-watch --repo <org>/my-service
 
 # Watch a specific run
-pipelines-watch 12345678 --repo workinprogress-ai/my-service
+pipelines-watch 12345678 --repo <org>/my-service
 
 # Exit with the run's exit code (for CI use)
-pipelines-watch 12345678 --repo workinprogress-ai/my-service --exit-status
+pipelines-watch 12345678 --repo <org>/my-service --exit-status
 ```
 
 ---
 
 ### `pipelines-artifacts`
 
-Lists or downloads artifacts from a completed GitHub Actions workflow run. Default mode is list (no files are downloaded).
+Lists or downloads artifacts from a completed CI pipeline workflow run. Default mode is list (no files are downloaded).
 
 **Usage:**
 
@@ -983,33 +983,33 @@ pipelines-artifacts RUN_ID --repo OWNER/REPO [OPTIONS]
 
 ```bash
 # List artifacts for a run
-pipelines-artifacts 12345678 --repo workinprogress-ai/my-service
+pipelines-artifacts 12345678 --repo <org>/my-service
 
 # List as JSON and pipe to jq
-pipelines-artifacts 12345678 --repo workinprogress-ai/my-service --json | jq '.[].name'
+pipelines-artifacts 12345678 --repo <org>/my-service --json | jq '.[].name'
 
 # Download all artifacts
-pipelines-artifacts 12345678 --repo workinprogress-ai/my-service --download
+pipelines-artifacts 12345678 --repo <org>/my-service --download
 
 # Download a specific artifact to a directory
-pipelines-artifacts 12345678 --repo workinprogress-ai/my-service \
+pipelines-artifacts 12345678 --repo <org>/my-service \
     --download --name coverage-report --dir .local-artifacts
 ```
 
 **Notes:**
 
-- List mode uses the GitHub REST API (`/actions/runs/{id}/artifacts`) to show metadata without downloading.
+- List mode uses the provider REST API (`/actions/runs/{id}/artifacts` on GitHub) to show metadata without downloading.
 - When downloading all artifacts (no `--name`), warns if total size exceeds 100 MiB.
 
 ---
 
-## GitHub Issues and Project Management
+## Issues and Project Management
 
-Tools for managing GitHub Issues, Projects, and Sprint/Milestone workflows.
+Tools for managing issues, projects, and sprint/milestone workflows (GitHub today, via the provider issues/projects domains).
 
 ### `issue-create`
 
-Creates a new GitHub issue with labels, assignees, and project assignment. Supports interactive template selection and editing.
+Creates a new issue with labels, assignees, and project assignment. Supports interactive template selection and editing.
 
 ```bash
 issue-create --title "Issue title" [OPTIONS]
@@ -1075,7 +1075,7 @@ issue-create --devenv --title "Internal issue" --type Bug
 
 ### `issue-list`
 
-Lists and filters GitHub issues.
+Lists and filters issues.
 
 ```bash
 issue-list [OPTIONS]
@@ -1272,7 +1272,7 @@ issue-comment-update 123456789 --body-file updated-artifact.md
 
 ### `issue-artifact-upsert`
 
-Deterministically creates or updates a GitHub issue comment by stable `doc_id` metadata.
+Deterministically creates or updates an issue comment artifact by stable `doc_id` metadata.
 
 ```bash
 issue-artifact-upsert [--issue ISSUE_NUMBER] [--body TEXT | --body-file FILE | piped stdin | interactive] [OPTIONS]
@@ -1391,7 +1391,7 @@ issue-artifact-doc-id \
 
 ### `issue-artifact-get`
 
-Retrieves a single GitHub issue comment artifact by deterministic `doc_id`.
+Retrieves a single issue comment artifact by deterministic `doc_id`.
 
 ```bash
 issue-artifact-get --issue ISSUE_NUMBER --doc-id DOC_ID [--full] [--pretty] [OPTIONS]
@@ -1524,7 +1524,7 @@ Event names accept bare, underscore, hyphen, or full forms (`staging-deploy` = `
 
 ### Skill Event Signals (`_on_*`)
 
-Deterministic lifecycle-event scripts that keep GitHub Project status in sync as work moves through the workflow. Both local tooling and skills fire them; nobody has to think about project status unless they choose to.
+Deterministic lifecycle-event scripts that keep provider project-board status in sync as work moves through the workflow. Both local tooling and skills fire them; nobody has to think about project status unless they choose to.
 
 ```bash
 tools/scripts/_on_begin_grooming.sh 43   # one entry point per lifecycle event
@@ -1548,7 +1548,7 @@ These are internal scripts (underscore prefix): they have no depth-1 `tools/` en
 
 ### `project-add-issue`
 
-Adds issues to GitHub Projects (v2).
+Adds issues to the provider project board (GitHub Projects v2 today).
 
 ```bash
 project-add-issue PROJECT_NAME ISSUE_NUMBER... [OPTIONS]
@@ -1575,7 +1575,7 @@ project-add-issue "Q1 2026" 123 --field "Status=Ready" --field "Priority=High"
 
 ### `project-update-issue`
 
-Updates issue field values in GitHub Projects (v2).
+Updates issue field values on the provider project board (GitHub Projects v2 today).
 
 ```bash
 project-update-issue PROJECT_NAME ISSUE_NUMBER [OPTIONS]
@@ -2145,7 +2145,7 @@ For each depth level (0 = direct dependents, 1 = transitive dependents, …):
 1. Check whether each dependent repo already uses the latest published version — skip if so
 2. Call `cs-references-update-wizard` for each repo that needs updating
 3. If a repo fails, pause and prompt the user to fix it before continuing
-4. After the level is complete, wait for GitHub Actions, refresh the cache, and advance
+4. After the level is complete, wait for CI pipelines to finish, refresh the cache, and advance
 
 **Workflow (--global):**
 
@@ -2155,7 +2155,7 @@ For each generation:
 
 1. Run `cs-references-update-wizard` for every repo (exit 10 = no changes → skipped silently)
 2. If a repo fails, pause and prompt the user to fix it before continuing with the generation
-3. After the generation is complete, wait for GitHub Actions, refresh the cache, and advance
+3. After the generation is complete, wait for CI pipelines to finish, refresh the cache, and advance
 
 **Resuming an interrupted global run:**
 
@@ -2373,7 +2373,7 @@ install-extras dns-hijack
 
 ### `devenv-update`
 
-Updates the devenv repository to the latest version from GitHub.
+Updates the devenv repository to the latest version from the git host.
 
 ```bash
 devenv-update
@@ -2450,7 +2450,7 @@ devenv-add-custom-startup "echo 'Container started'" "export MY_VAR=value"
 
 ### `key-update-git`
 
-Updates the GitHub personal access token stored in `.setup/github_token.txt`.
+Rotates the git provider credential: imports the new token through the provider auth seam into the keychain (the single source of truth) and re-wires the git credential helper. No token is written to env files, remote URLs, or `.setup/` — the seed file `.setup/github_token.txt` is a bootstrap-input one-shot, not the store.
 
 ```bash
 key-update-git [new-token]
@@ -2597,7 +2597,7 @@ tools/scripts/repo-update-config.sh <repo-path> [--type <type>]
 - `--type <type>`: Repository type (optional; will be auto-detected from GitHub if not specified)
 
 **Description:**
-This script reads the repository type from either the command-line argument or by querying GitHub for repository topics. It then applies the standardized configuration for that type, including:
+This script reads the repository type from either the command-line argument or by querying the provider for repository topics. It then applies the standardized configuration for that type, including:
 
 - **GitHub rulesets** - Branch protection rules (requires GitHub Pro or public repository)
 - **Merge types** - Allowed merge strategies (merge, squash, rebase) per type
@@ -2673,7 +2673,7 @@ service:
 - GitHub CLI (`gh`)
 - `yq` (YAML processor)
 
-**Related:** See [repo-create](#repo-create) for initial repository creation details, and [Repo Creation Standards (repo-create.sh)](./Devenv-Customization.md#repo-creation-standards-repo-createsh) in the Devenv-Customization docs for configuration options.
+**Related:** See [repo-create](#repo-create) for initial repository creation details, and [Repo Creation Standards (repo-create.sh)](./Forking.md#repo-creation-standards-repo-createsh) in the Forking Guide for configuration options.
 
 ## Shared Libraries
 
@@ -2706,7 +2706,7 @@ Clones or updates all organization repositories into `$DEVENV_TOOLS/cache/repo_c
 - Writes a `.cache_timestamp` file (ISO timestamp + content hash) for staleness detection by downstream tools
 - Outputs the cache directory path on success
 
-**Required environment variables:** `GH_ORG`, `GH_USER`, `GH_TOKEN`
+**Required environment variables:** `GH_ORG`, `GH_USER` (authentication resolves via the provider keychain — no token env var)
 
 **Example:**
 
@@ -2890,7 +2890,7 @@ The following convenience aliases are available in the dev container:
 
 - `repo-get` - Clone/navigate to repository
 - `repo-update-all` - Update all repositories in parallel
-- `repo-get-web-url` - Get GitHub web URL for current repository
+- `repo-get-web-url` - Get the web URL for the current repository
 
 **Pull Request Management:**
 
@@ -2943,7 +2943,7 @@ The following convenience aliases are available in the dev container:
 **Utilities:**
 
 - `get-public-ip` - Get current public IP
-- `key-update-git` - Update GitHub token in setup
+- `key-update-git` - Rotate the git provider credential (keychain import + credential helper)
 - `key-update-tailscale` - Update Tailscale auth key
 - `key-update-do` - Update Digital Ocean API token
 - `devenv-vscode-fix-sockets` - Fix stale VS Code IPC sockets (see [Troubleshooting](./Dev-container-environment.md#troubleshooting))
@@ -3149,22 +3149,22 @@ issue/PR.
 
 ## Usage Notes
 
-- Most tools require proper environment variables to be set (e.g., `GH_USER`, `GH_TOKEN`)
-- GitHub operations prefer SSH but fall back to HTTPS with token authentication
+- Most tools require proper environment variables to be set (e.g., `GH_USER`, `GH_ORG`; credentials resolve keychain-first via the provider secret seam — no token env var is required)
+- Git authentication flows through the provider's credential helper over HTTPS; no embedded tokens
 - Tools automatically handle error conditions and provide helpful error messages
-- Scripts follow consistent naming conventions (prefix-based: `repo-`, `pr-`, `git-`, `issue-`, `artifact-`, `actions-`)
+- Scripts follow consistent naming conventions (prefix-based: `repo-`, `pr-`, `git-`, `issue-`, `artifact-`, `pipelines-`)
 - Many tools are designed to work within the development container environment
 
 ## Environment Variables
 
 The following environment variables should be configured for full functionality:
 
-- `GH_USER`: GitHub username
-- `GH_ORG`: GitHub organization name (owner of repositories)
-- `GH_TOKEN`: GitHub personal access token with:
+- `GH_USER`: Provider username (GitHub username today)
+- `GH_ORG`: Git host organization name (owner of repositories)
+- `GH_TOKEN`: not required day-to-day — tokens live in the keychain, imported via `key-update-git` or the provider auth seam. When you mint a token (bootstrap provisioning or rotation), give it these scopes:
   - `repo` (full control of private repositories)
-  - `workflow` (update GitHub Actions workflows)
-  - `read:packages` (download packages from GitHub Package Registry)
+  - `workflow` (update CI pipeline workflows)
+  - `read:packages` (download packages from the provider package registry)
   - `read:org` (read org and team membership, read org projects)
   - `write:discussion` (write access to discussions)
   - `project` (full control of projects)

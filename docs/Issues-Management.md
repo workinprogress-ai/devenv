@@ -1,8 +1,8 @@
-# GitHub Issues Management Guide
+# Issues Management Guide
 
-This guide covers the complete GitHub Issues workflow in Devenv, from issue creation through deployment to production.
+This guide covers the complete issue workflow in Devenv — as-built on GitHub, the current provider — from issue creation through deployment to production.
 
-> **Division between the two issue docs:** this guide owns the *workflow and concepts* (types, status model, hierarchy, practices). For command syntax and quick lookups, [GitHub Issues Quick Reference](./GitHub-Issues-Quick-Reference.md) is canonical — its command tables are the maintained source; the command snippets here illustrate workflow context.
+> **Division between the two issue docs:** this guide owns the *workflow and concepts* (types, status model, hierarchy, practices). For command syntax and quick lookups, [Issues Quick Reference](./Issues-Quick-Reference.md) is canonical — its command tables are the maintained source; the command snippets here illustrate workflow context.
 
 ## Issue Workflow (canonical)
 

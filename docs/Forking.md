@@ -1,18 +1,79 @@
-# Customization Guide for the Devenv
+# Forking Guide
 
-If you've forked this repository for your organization, this guide explains what to configure so the environment matches your org. The essentials live in `devenv.config`; repository-creation standards live in `tools/config/repo-types.yaml`.
+If you've forked this repository for your organization, this guide tells you what you may change safely, what you must override deliberately, and how to adapt the environment to a different git/work-item provider — Azure DevOps first among them. The devenv separates *what a fork decides* (values in config, policy modules, provider modules, protocol references) from *how the tooling works* (everything else), so upstream changes keep merging with minimal conflict.
+
+The essentials live in `devenv.config`; repository-creation standards live in `tools/config/repo-types.yaml`; issue-type vocabulary lives in `tools/config/issues-config.yml`; provider behavior lives in `tools/lib/providers/<provider>/`.
 
 ## Quick Checklist
 
-- ✅ Update `devenv.config` for org identity, container name, workflows, and bootstrap defaults
-- ✅ (If you customize the issue workflow) Read [Issue Workflow](./Issue-Workflow.md) first — the `[workflows]` vocabulary carries engine contracts, documented in its section below.  You will need to re-write [Issue Workflow](./Issue-Workflow.md) to reflect your workflow.
+- ✅ Read [The fork-stable surfaces contract](#the-fork-stable-surfaces-contract) below — it defines what you may change without carrying maintenance burden
+- ✅ Update `devenv.config` for org identity, provider name, container name, workflows, and bootstrap defaults
+- ✅ (If you customize the issue workflow) Read [Issue Workflow](./Issue-Workflow.md) first — the `[workflows]` vocabulary carries engine contracts, documented in its section below. You will need to re-write [Issue Workflow](./Issue-Workflow.md) to reflect your workflow.
+- ✅ (If you use issue creation tooling) Update `tools/config/issues-config.yml` with your organization's issue types and provider issue-type IDs
+- ✅ (If you adapt to a non-GitHub provider) Follow [Adapting to Azure DevOps](#adapting-to-azure-devops) — provider modules, protocol reference, and config keys
+- ✅ (If you use repo creation tooling) Update `tools/config/repo-types.yaml` for naming, templates, branch protection, and post-creation scripts
 - ✅ (Optional) Update `copilot/copilot-instructions.md` with organization-specific AI coding guidelines
 - ✅ (Optional) Add custom Copilot skills to `copilot/skills/` for domain-specific workflows
 - ✅ (Optional) Configure shared Copilot knowledge sync in `devenv.config` (`[copilot]` section)
 - ✅ (Optional) Create `org-custom-bootstrap.sh` and `org-custom-startup.sh` for organization-wide customizations
-- ✅ (If you use repo creation tooling) Update `tools/config/repo-types.yaml` for naming, templates, branch protection, and post-creation scripts
-- ✅ (If you use issue creation tooling) Update `tools/config/issues-config.yml` with your organization's issue types and GitHub issue type IDs
 - ✅ Create/adjust template repos per type (recommended) so new repos start with CI, CODEOWNERS, and hooks
+
+## The fork-stable surfaces contract
+
+The devenv keeps a deliberately small set of fork-owned surfaces. **Everything inside these surfaces is yours** — change values, add modules, rewrite content. **Everything outside them is upstream-stable**: upstream changes should merge cleanly, and local edits there are maintained at your own cost.
+
+| # | Surface | Path(s) | What a fork changes here |
+| - | ------- | ------- | ------------------------ |
+| 1 | Data policy (config values) | `devenv.config`, `tools/config/issues-config.yml` | Org identity, provider name, workflow vocabulary, issue types, staleness thresholds, nuget/npm feeds |
+| 2 | Behavior policy (policy overrides) | `tools/lib/policy/*.bash` | Org policy decisions as config-driven knobs (`policy_define` accessors) — see the [policy library README](../tools/lib/policy/README.md) for the full knob catalog |
+| 3 | Provider modules | `tools/lib/providers/*` | Add or replace per-provider domain modules; set `[provider] name`; manage the token-env allowlist — see the [provider abstraction README](../tools/lib/providers/README.md) |
+| 4 | Provider protocol references | `copilot/skills/_shared/references/provider-protocols/<provider>.md` | The concrete wrapper signatures, env vars, config paths, and invocation recipes the skills point at. A fork replaces `github.md` with its own provider's file; skill bodies don't change |
+| 5 | Shared references a fork may re-skin | `copilot/skills/common/references/*.md` (e.g. `issue-creation.md`) | Provider-coupled phrasing inside shared skill references |
+
+**One deliberate exception:** `setup` (and the bootstrap flow it feeds) is git-host-oriented by nature. The working assumption is that any fork **rewrites `setup`** rather than adapting it. It is neither fork-stable nor upstream-stable — treat it as fork-replaced, and expect upstream changes to `setup` to need manual reconciliation.
+
+Everything not listed in the table and not named as an exception follows the upstream-stable rule: prefer expressing a difference through a config key, a policy knob, a provider module, or a protocol reference. If none of those fit, raise it upstream — a new override point benefits every fork.
+
+## Provider configuration
+
+The tools layer talks to the git host and work-item provider through an abstraction, not directly. The active provider is a config value:
+
+```ini
+[provider]
+name=github
+# token_env_allowlist=  # escape hatch: space-separated env-var names honored
+                         # as token sources despite the keychain-first policy
+```
+
+- **name**: Which module set under `tools/lib/providers/<name>/` answers the `provider_<domain>_<verb>` facade calls. Default `github`; forks adapting to another backend change this key (see [Adapting to Azure DevOps](#adapting-to-azure-devops)).
+- **token_env_allowlist**: Session-scoped token exports are ignored by default — credentials resolve env-if-allowlisted → keychain → error. The allowlist ships empty; add entries only with a documented justification (see the [provider abstraction README](../tools/lib/providers/README.md)).
+
+Dispatch is by naming convention with no registry: adding a provider means adding module files — the core never changes. Domain modules and scripts never read token env vars directly; they call `provider_secret_get`, so the credential backing store swaps in behind the seam. Rotation runs through `key-update-git` (imports via the provider auth seam into the keychain and wires the git credential helper — no token ever lands in env files or remote URLs).
+
+### Capability flags
+
+Providers differ in what they support. GH-only surfaces — rulesets, project boards, native issue types, releases, CI pipelines — are declared capabilities. Modules gate those code paths with `provider_require_capability`, which fails with a defined "provider does not support this" error instead of failing mid-command. A fork's provider module declares the capabilities it honors; scripts degrade or substitute accordingly (labels-based typing instead of native types, for example).
+
+## Adapting to Azure DevOps
+
+The ADO path follows the fixed minimal mapping from the provider-agnostic effort (epic #29, slice 7):
+
+| Concept | GitHub (as-built) | Azure DevOps mapping |
+| ------- | ----------------- | -------------------- |
+| Project scope | Organization → repos | **Single project** per devenv instance |
+| Work item types | Native issue types (Bug/Feature/Task/Epic) | **Type map**: ADO work item types via `[issues]`/`issues-config.yml` values |
+| Repo ↔ area | Org-wide area paths | **area-path = repo** (one area path per repository) |
+| Board states | Project Status field | **board columns = `status_workflow`** — the `[workflows]` vocabulary drives column names |
+| Auth | PAT in keychain via credential helper | **PAT auth** — same keychain-first seam, ADO token store behind `provider_auth_import_token` |
+
+Procedure:
+
+1. **Copy the protocol reference** — duplicate `copilot/skills/_shared/references/provider-protocols/github.md` to `ado.md` and adapt the wrapper signatures, env-var names, and invocation recipes to ADO's CLI/API. Skill bodies keep pointing at the reference by name; the file swap is the fork surface.
+2. **Add provider modules** — create `tools/lib/providers/ado/` with domain modules answering the `provider_<domain>_<verb>` calls (`issues`, `prs`, `repos`, `actions`, …). Start from the GitHub modules as templates; replace the transport, keep the function signatures.
+3. **Flip the config key** — set `[provider] name=ado` in `devenv.config`.
+4. **Map the capabilities** — decide which GH-only capabilities your ADO setup substitutes: rulesets → ADO branch policies, project boards → board columns over `status_workflow`, native issue types → ADO work item type map. Gate what you don't support; degrade what you substitute.
+5. **Replace provider-specific config values** — native type IDs in `issues-config.yml` (GitHub `IT_kwDO…` IDs, discovered via the GraphQL recipe in that file's header) and the nuget feed URL (`nuget.pkg.github.com/...`) are GitHub-specific values a fork replaces.
+6. **Rewrite `setup`** — per the contract exception above, credential intake and bootstrap wiring are expected to be fork-replaced for a new provider.
 
 ## Copilot Instructions
 
@@ -138,7 +199,9 @@ devenv-add-custom-bootstrap "your-command"
 devenv-add-custom-startup "your-command"
 ```
 
-## Required: devenv.config
+## Configuring within the surfaces: devenv.config reference
+
+This section is the reference for the config keys a fork most commonly changes. Surface #1 of the contract — everything here is a data value, not code.
 
 Edit `devenv.config` in the root directory:
 
@@ -152,7 +215,7 @@ email_domain=yourorg.com
 ```
 
 - **name**: Organization name (for docs/branding)
-- **github_org**: GitHub org/user used for cloning and feeds
+- **github_org**: Git host org/user used for cloning and feeds (the name predates provider neutrality and remains the as-built key)
 - **email_domain**: Enforced commit email domain (empty = any valid email)
 
 ### [container]
@@ -218,7 +281,7 @@ engineering_repo=docs.engineering
 
 Behavior:
 
-- During bootstrap, devenv clones or pulls `knowledge_repo` into `copilot/knowledge` using your configured `GH_TOKEN`.
+- During bootstrap, devenv clones or pulls `knowledge_repo` into `copilot/knowledge` using credentials resolved through the provider secret seam (keychain-first; no token is exported into the environment).
 - It then symlinks `~/.copilot/knowledge` to `copilot/knowledge/<knowledge_subpath>`.
 - During `devenv-update`, devenv refreshes that repo and updates the symlink target automatically.
 - On container start, devenv runs a non-blocking pull for `copilot/knowledge` (when it is a git repo) via `pull_copilot_knowledge_on_container_start` in `tools/lib/copilot-knowledge.bash`.
@@ -236,15 +299,17 @@ validate_config=true
 
 ## Repo Creation Standards (repo-create.sh)
 
+> **Provider capability note:** rulesets, templates, merge-button control, Discussions, and most of the toggles below are GitHub-provider capabilities (gated by `provider_require_capability` in the modules). A fork on a provider without them either substitutes (ADO branch policies for rulesets) or leaves them unset — creation degrades with a warning, not a failure.
+
 If you use `tools/scripts/repo-create.sh`, configure `tools/config/repo-types.yaml`:
 
 ### Configuration per type
 
 - **Naming**: `naming_pattern` and `naming_example` per type (e.g., `service.<category>.<descriptor>`, `gateway.<category>.<descriptor>`, `app.web.<descriptor>`, `lib.cs.<category>.<descriptor>`)
 - **Templates**: `template` per type (or null) to pre-bake CI, CODEOWNERS, and .repo scripts
-- **Template marking**: `isTemplate` (boolean, default: false) marks the repository as a GitHub template, making it available for use with "Use this template" button
+- **Template marking**: `isTemplate` (boolean, default: false) marks the repository as a template, making it available for use with the provider's "use as template" flow
 - **Post-creation**: `post_creation_script`, `delete_post_creation_script`, and `post_creation_commit_handling` (`none|amend|new`)
-- **Merge types**: `allowedMergeTypes` - Controls which merge buttons appear in the GitHub UI (merge|squash|rebase)
+- **Merge types**: `allowedMergeTypes` - Controls which merge buttons appear in the provider's PR UI (merge|squash|rebase)
   - This is a repository-level setting that applies globally
   - Should match the ruleset's `allowed_merge_methods` for consistency
   - Both settings work together: this controls UI, ruleset enforces on protected branches
@@ -255,14 +320,14 @@ If you use `tools/scripts/repo-create.sh`, configure `tools/config/repo-types.ya
 - **Issues**: `hasIssues` (boolean, default: true) - Enable/disable the Issues tab
   - Set to `false` for template repositories since they shouldn't track issues
   - Keep enabled for active development repositories
-- **Discussions**: `hasDiscussions` (boolean, default: false) - Enable GitHub Discussions
+- **Discussions**: `hasDiscussions` (boolean, default: false) - Enable provider-hosted Discussions
   - Useful for community-driven projects or public repositories
   - Provides a forum-like space separate from issues
 - **Projects**: `hasProjects` (boolean, default: false) - Enable the Projects tab visibility
   - Controls whether the "Projects" tab appears in the repository navigation
-  - Note: This only affects visibility/convenience - issues can be added to GitHub Projects regardless of this setting
+  - Note: This only affects visibility/convenience - issues can be added to provider Projects regardless of this setting
   - Disable if using external project management tools (Jira, Azure DevOps, etc.) or want to reduce tab clutter
-  - Enable only if your team actively uses GitHub Projects and wants easy access from the repo interface
+  - Enable only if your team actively uses provider Projects and wants easy access from the repo interface
 - **Auto-merge**: `allowAutoMerge` (boolean, default: true) - Allow auto-merge on pull requests
   - Enables automation workflows to merge PRs after checks pass
   - Useful for Dependabot and other automated updates
@@ -274,27 +339,27 @@ If you use `tools/scripts/repo-create.sh`, configure `tools/config/repo-types.ya
   - Keep disabled for private/internal code repositories
 - **Squash commit title**: `squashMergeCommitTitle` (string, default: PR_TITLE) - Format for squash merge commit titles
   - `PR_TITLE` - Use the pull request title as the commit title
-  - `COMMIT_OR_PR_TITLE` - Use the first commit message title or PR title (GitHub's original default)
+  - `COMMIT_OR_PR_TITLE` - Use the first commit message title or PR title (the provider's original default)
 - **Squash commit message**: `squashMergeCommitMessage` (string, default: COMMIT_MESSAGES) - Format for squash merge commit message body
   - `PR_BODY` - Use the pull request description
   - `COMMIT_MESSAGES` - Use all commit messages from the PR (preserves commit history in message)
   - `BLANK` - No commit message body (clean single-line commits)
-- **GitHub UI Mapping** for squash merge settings:
+- **Provider UI mapping** for squash merge settings:
   - "Use PR title": `title=PR_TITLE, message=BLANK`
   - "Use PR title and commit details": `title=PR_TITLE, message=COMMIT_MESSAGES` (default)
   - "Use PR title and description": `title=PR_TITLE, message=PR_BODY`
   - "Default message": `title=COMMIT_OR_PR_TITLE, message=COMMIT_MESSAGES`
-- **Rulesets** (GitHub Pro/public repos only):
+- **Rulesets** (GitHub capability: Pro/public repos only; see the capability note above):
   - `rulesetConfigFile`: Path to JSON ruleset file in `tools/config/` (e.g., `ruleset-default.json`)
   - Set to `null` or blank to disable rulesets for a type
-  - JSON file is a GitHub ruleset export with token placeholders: `{{repo_name}}`, `{{owner}}`, `{{type_name}}`, `{{type_description}}`
+  - JSON file is a provider ruleset export (GitHub ruleset export today) with token placeholders: `{{repo_name}}`, `{{owner}}`, `{{type_name}}`, `{{type_description}}`
   - Ruleset can also specify `allowed_merge_methods` for protected branches (more restrictive than repo-level setting)
 - **Access**: `access` - List of teams or users with their permission levels (optional)
   - If not specified, no default permissions are applied (repository uses organization defaults)
   - Each entry contains:
-    - `name`: Team or user name (GitHub team slug or username)
+    - `name`: Team or user name (provider team slug or username)
     - `type`: `team` or `user` (default: team)
-    - `permission`: GitHub repository permission level:
+    - `permission`: Provider repository permission level:
       - `pull` (Read) - Can pull/clone, open issues, and comment
       - `triage` (Triage) - Can manage issues/PRs without write access
       - `push` (Write) - Can push, create branches, and manage issues/PRs
@@ -311,9 +376,11 @@ Your ruleset JSON file can use these tokens, which are replaced during applicati
 - `{{type_name}}` - Repository type (e.g., `service`, `documentation`)
 - `{{type_description}}` - Type description from config
 
-## GitHub Issue Types Configuration (issue-create.sh)
+## Issue Types Configuration (issue-create.sh)
 
-The `issue-create.sh` tool supports GitHub's native issue types. Issue types are configured in `tools/config/issues-config.yml`, which is the single source of truth for type names, descriptions, and GitHub API IDs.
+> **Provider capability note:** native issue types are a GitHub-provider capability (`native-issue-types`). A fork without the capability runs the same type vocabulary as labels via the `[issues] types` policy knob — see the [policy library README](../tools/lib/policy/README.md). The `IT_kwDO…` IDs and the GraphQL discovery recipe in `issues-config.yml`'s header are GitHub-specific values.
+
+The `issue-create.sh` tool supports native issue types on providers that declare the capability. Issue types are configured in `tools/config/issues-config.yml`, which is the single source of truth for type names, descriptions, and provider API IDs.
 
 Type names are **load-bearing** for the workflow model: Features and Bugs are deliverables, Tasks are work toward someone else's change (the only type that nests, and the only one born `Ready` under a parent — `issue-create.sh` string-matches `Task` for that birth rule), and Epics group deliverables. Keep these four names, or update the birth rule and the `planning.type_mapping` consumers when renaming. See [Issue Workflow](./Issue-Workflow.md) for the roles.
 
@@ -338,11 +405,11 @@ types:
 
 Each entry needs:
 
-- **name**: The issue type name (displayed in GitHub UI and used for validation)
+- **name**: The issue type name (displayed in the provider UI and used for validation)
 - **description**: Human-readable description for users selecting a type
-- **id**: GitHub organization-level issue type ID (required for setting types via API)
+- **id**: Provider organization-level issue type ID (required for setting types via API; GitHub `IT_kwDO…` IDs today)
 
-### Getting Your Organization's Issue Type IDs
+### Getting Your Organization's Issue Type IDs (GitHub-native path)
 
 Get the IDs from your GitHub organization using the workspace wrapper (one-time setup inspection — day-to-day issue operations always go through the `issue-*` tools):
 
@@ -350,7 +417,7 @@ Get the IDs from your GitHub organization using the workspace wrapper (one-time 
 issue-types --format json
 ```
 
-### Syncing with GitHub Organization Settings
+### Syncing with GitHub Organization Settings (GitHub-native path)
 
 To add or modify issue types in GitHub:
 
@@ -388,11 +455,11 @@ types:
     id: "IT_kwDOXXXXXXXXXXXXX4"
 ```
 
-Note: Replace the `id` values with your actual organization's issue type IDs from GitHub.
+Note: Replace the `id` values with your actual organization's issue type IDs from the provider.
 
 ### Planning Type Mapping
 
-The `planning` section in `issues-config.yml` maps concepts from a specifications document to GitHub issue types. This is used when creating issues from a specifications document to determine which issue type to assign for each level of the document hierarchy.
+The `planning` section in `issues-config.yml` maps concepts from a specifications document to issue types (GitHub native types on the GitHub-native path). This is used when creating issues from a specifications document to determine which issue type to assign for each level of the document hierarchy.
 
 ```yaml
 planning:
@@ -461,7 +528,7 @@ service:
 
 **To create a ruleset JSON:**
 
-1. Configure a ruleset manually in GitHub UI
+1. Configure a ruleset manually in the provider UI (GitHub UI today)
 2. Export it via the workspace wrapper: `policy-export <RULESET_ID> --output <file>` (list IDs first with `policy-export`)
 3. Save to `tools/config/your-ruleset.json`
 4. Replace hardcoded values with tokens (`{{repo_name}}`, `{{owner}}`, etc.)
@@ -581,16 +648,11 @@ Always check for the tool's presence before installing (see the `yq` install pat
 
 ---
 
-## What You Should NOT Change (unless you want to maintain your fork)
+## What stays upstream
 
-- Test infrastructure (unless enhancing it)
-- Error handling libraries
-- Git configuration helpers
-- Version comparison logic
-- Core script templates
-- Bootstrap framework
+The [fork-stable surfaces contract](#the-fork-stable-surfaces-contract) at the top of this guide is the authoritative list of what you may change freely. Everything outside it — test infrastructure, error-handling libraries, git configuration helpers, version comparison logic, core script templates, the bootstrap framework, and the tooling library structure — is upstream-stable: keep it unmodified and upstream improvements keep flowing to your fork with minimal conflict.
 
-These are intended to be generic and reused across orgs.
+When you need a difference the surfaces can't express, add an override point (a policy knob, a config key, a capability gate) and contribute it upstream — a new override point benefits every fork.
 
 ## Advanced Customization
 

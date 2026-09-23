@@ -143,9 +143,9 @@ See [solution-proposal-template.md](./references/solution-proposal-template.md) 
 
 When written, the file is the canonical artifact for this discussion.
 
-After writing the doc, offer publication as a separate GitHub issue comment when the user wants the proposal attached to planning flow, implementation context, or blocker history. Prefer posting to an existing relevant issue; create a new issue only when the user explicitly wants standalone tracking. When publication is accepted, also offer to move or delete the local file per the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts) retirement rule — the issue copy becomes the source of truth.
+After writing the doc, offer publication as a separate issue comment when the user wants the proposal attached to planning flow, implementation context, or blocker history. Prefer posting to an existing relevant issue; create a new issue only when the user explicitly wants standalone tracking. When publication is accepted, also offer to move or delete the local file per the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts) retirement rule — the issue copy becomes the source of truth.
 
-If a written solution proposal is posted to a GitHub issue comment, follow the shared [Artifact Identity Convention](../_conventions.md#artifact-identity-convention) with `artifact_type: solution-proposal`.
+If a written solution proposal is posted to an issue comment, follow the shared [Artifact Identity Convention](../_conventions.md#artifact-identity-convention) with `artifact_type: solution-proposal`.
 
 - Follow the convention's general mechanics (header placement, select→get before republish, upsert publication, duplicate-`doc_id` conflict stop) — the convention defines them; this skill only fixes `artifact_type: solution-proposal`, same-doc_id for revisions, and new doc_id for a distinct blocker-specific discussion
 - If the issue may already contain one or more solution-proposal artifacts, resolve the canonical artifact first with `issue-artifact-select` or `issue-artifact-list`, then read it with `issue-artifact-get` before republishing.
@@ -153,9 +153,9 @@ If a written solution proposal is posted to a GitHub issue comment, follow the s
 - Use the same doc_id when republishing revisions of the same written proposal
 - For a distinct blocker-specific design discussion on the same issue, use a new doc_id in the file header and post it as a separate artifact comment rather than overwriting an earlier proposal
 
-If no written proposal is produced, no artifact identity or GitHub publication flow is required.
+If no written proposal is produced, no artifact identity or issue publication flow is required.
 
-If posted to a GitHub issue, treat the file as canonical and the issue comment as a published copy that downstream skills may read as context. It can be upstream input for [`/devenv-create-plan`](../devenv-create-plan/SKILL.md).
+If posted to an issue, treat the file as canonical and the issue comment as a published copy that downstream skills may read as context. It can be upstream input for [`/devenv-create-plan`](../devenv-create-plan/SKILL.md).
 
 ## Process
 
@@ -173,7 +173,7 @@ After initial context is loaded (problem, constraints, repo context), switch to 
 
 ### Phase 0 (conditional): Plan intake — load only when a plan is provided
 
-If the argument is an `Plan-*.md` file path or a GitHub issue number, or if the user references a plan with phrases like "there is an architectural problem in this plan" or "look at this plan":
+If the argument is an `Plan-*.md` file path or an issue number, or if the user references a plan with phrases like "there is an architectural problem in this plan" or "look at this plan":
 
 1. Load and follow the [plan architectural review protocol](../common/references/plan-architectural-review.md).
 2. Produce the scoped architectural brief defined in that protocol.

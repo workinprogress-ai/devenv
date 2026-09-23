@@ -48,7 +48,7 @@ Ambiguity resolves to the read-only class; confirm before escalating to Act. A r
 
 Issue and artifact calls inherit their repo from the environment (else cwd). Before the first call: identify which repo holds the issues in question and set the call's target repo explicitly per the [repository targeting rules](../_shared/references/provider-protocols/github.md#repository-targeting). Sources, in order: the active artifact's `DEVENV_ARTIFACT_V1` header (`issue_number`, `planning_repo`), the linked artifact's `doc_id` repo segment, the user's input, plan/branch references, or the `repos/` folder the work lives in. Tree walks that cross repos (epic in the planning repo, children in component repos) resolve each call's target individually. Follow the shared [repo-targeting guard](../_conventions.md#repo-targeting-guard-required-for-issueartifact-calls), including its planning-repo resolution chain — there are many planning repos (one per project); never assume a fixed one. If a wrapper refuses because the cwd is the devenv repo, that is a routing signal — never add `--devenv` to push through it.
 
-For board scoping: resolve the project(s) from the org's configuration (`GH_ORG`, the project the board work targets — confirm with the user when ambiguous which project is "the board"). Multi-repo questions iterate the repo constellation explicitly and say which repos they covered.
+For board scoping: resolve the project(s) from the org's configuration (`GH_ORG` — the as-built org identifier, the project the board work targets — confirm with the user when ambiguous which project is "the board"). Multi-repo questions iterate the repo constellation explicitly and say which repos they covered.
 
 ## Answer (read-only)
 

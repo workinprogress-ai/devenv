@@ -1,6 +1,6 @@
 ---
 name: devenv-update-roadmap
-description: 'Sync a roadmap artifact (doc_id-addressed comment on its parent epic) with the current state of its linked GitHub issues and PRs, optionally creating issues for steps that don''t yet have them. USE WHEN the user says "update the roadmap", "sync the roadmap", "refresh roadmap status", "update roadmap state from issues", or "the roadmap is out of date". Maps issue/PR state to step status (closed → ✅, open + linked PR → 🟡, open no PR → ⬜, blocking label → ⏸️), updates the epic task list, and republishes the artifact. Also detects steps without issues and offers to create them. DO NOT USE for creating a new roadmap (use /devenv-create-roadmap), for refining the underlying blueprint (use /devenv-refine-blueprint), or for structural roadmap edits (use /devenv-refine-roadmap).'
+description: 'Sync a roadmap artifact (doc_id-addressed comment on its parent epic) with the current state of its linked issues and PRs, optionally creating issues for steps that don''t yet have them. USE WHEN the user says "update the roadmap", "sync the roadmap", "refresh roadmap status", "update roadmap state from issues", or "the roadmap is out of date". Maps issue/PR state to step status (closed → ✅, open + linked PR → 🟡, open no PR → ⬜, blocking label → ⏸️), updates the epic task list, and republishes the artifact. Also detects steps without issues and offers to create them. DO NOT USE for creating a new roadmap (use /devenv-create-roadmap), for refining the underlying blueprint (use /devenv-refine-blueprint), or for structural roadmap edits (use /devenv-refine-roadmap).'
 argument-hint: '<epic-number[:doc_id]> — the roadmap artifact to sync'
 user-invocable: true
 ---
@@ -13,7 +13,7 @@ user-invocable: true
 
 Reconcile a roadmap artifact with reality: read every linked issue and PR, recompute each step's status, update the epic task list, and republish the artifact. Optionally create issues for steps that don't have them yet.
 
-This skill keeps the roadmap a *current state of the work* document, not just a planning artifact. Roadmaps are GitHub artifacts (doc_id-addressed comments on their parent epic) — no local file is kept. Pull/edit/republish mechanics follow the shared [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md).
+This skill keeps the roadmap a *current state of the work* document, not just a planning artifact. Roadmaps are issue artifacts (doc_id-addressed comments on their parent epic) — no local file is kept. Pull/edit/republish mechanics follow the shared [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md).
 
 ## When to Use
 

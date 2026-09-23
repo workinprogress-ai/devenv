@@ -97,7 +97,7 @@ This is a three-phase process. **Stop at each checkpoint** and wait for explicit
 
 Ask the user:
 
-1. "What's the problem this blueprint addresses? Is there a specifications document, GitHub issue, or written brief?"
+1. "What's the problem this blueprint addresses? Is there a specifications document, issue, or written brief?"
 2. "Is this **greenfield** (new system from scratch) or **brownfield** (extending/changing an existing system)?"
 3. "What's the rough scope — a feature, a subsystem, or an epic spanning multiple services?"
 4. "Are there meeting transcripts, email threads, design discussions, voice memos, or other communications records that capture architectural context or decisions? If so, where are they?"

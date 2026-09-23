@@ -1,6 +1,6 @@
 ---
 name: devenv-refine-plan
-description: Align an existing Plan-*.md (or GitHub issue containing a plan artifact comment; legacy artifacts are typed implementation-plan) with reality — one skill entered from three starting points. Surgical mode for small known edits ("mark 3.4 done", "tick off task 2.1", "add a note to task X", "answer that open question", "add one more task to phase 3" — max 3 edits, per-edit confirm). Revision mode for known broader changes ("refine the plan", "update the plan", "rework the plan based on what we learned", tasks reworded, scope adjusted). Assessment mode when staleness is unknown ("refresh the plan", "is this plan still valid?", "the plan might be out of date", returning after a gap) — runs a staleness assessment against the current codebase and routes internally. Auto-detects file path vs GitHub issue number, preserves all existing [x] checkbox state, appends new tasks by default, supports task reflow for structural insertion, and creates new phases when the target phase is fully complete. DO NOT USE for creating a brand-new plan from scratch (use /devenv-create-plan) or for executing the plan (use /devenv-pair-programming or /devenv-delegation).
+description: Align an existing Plan-*.md (or an issue containing a plan artifact comment; legacy artifacts are typed implementation-plan) with reality — one skill entered from three starting points. Surgical mode for small known edits ("mark 3.4 done", "tick off task 2.1", "add a note to task X", "answer that open question", "add one more task to phase 3" — max 3 edits, per-edit confirm). Revision mode for known broader changes ("refine the plan", "update the plan", "rework the plan based on what we learned", tasks reworded, scope adjusted). Assessment mode when staleness is unknown ("refresh the plan", "is this plan still valid?", "the plan might be out of date", returning after a gap) — runs a staleness assessment against the current codebase and routes internally. Auto-detects file path vs GitHub issue number, preserves all existing [x] checkbox state, appends new tasks by default, supports task reflow for structural insertion, and creates new phases when the target phase is fully complete. DO NOT USE for creating a brand-new plan from scratch (use /devenv-create-plan) or for executing the plan (use /devenv-pair-programming or /devenv-delegation).
 argument-hint: Path to an Plan-*.md OR github-issue-number[:doc_id], plus what changed (or nothing for assessment)
 ---
 
@@ -31,7 +31,7 @@ Classification rules:
 
 ## When to Use
 
-- The user has a `Plan-*.md` (or a GitHub issue with a plan artifact comment; legacy artifacts are typed implementation-plan) that needs small surgical edits, broader revision, or staleness assessment — in any combination.
+- The user has a `Plan-*.md` (or an issue with a plan artifact comment; legacy artifacts are typed implementation-plan) that needs small surgical edits, broader revision, or staleness assessment — in any combination.
 - A previous `/devenv-create-plan` run needs alignment with what actually happened.
 - Execution (pair-programming / delegation) surfaced drift signals and suggested an assessment.
 
@@ -42,7 +42,7 @@ If there is no existing plan, stop and redirect to `/devenv-create-plan`.
 The user provides exactly one of:
 
 - **A file path** — e.g. `Plan-issue-42-001.md`, `repos/foo/Plan-003.md`. Treated as a literal markdown file to read and write back.
-- **A GitHub issue number** — e.g. `42` or `42:<doc_id>`. Resolve one plan artifact (`issue-artifact-select`) and read it via `issue-artifact-get`. After refinement, offer to push updates back to the same artifact via `issue-artifact-upsert`.
+- **An issue number** — e.g. `42` or `42:<doc_id>`. Resolve one plan artifact (`issue-artifact-select`) and read it via `issue-artifact-get`. After refinement, offer to push updates back to the same artifact via `issue-artifact-upsert`.
 
 Issue artifact selection rules:
 

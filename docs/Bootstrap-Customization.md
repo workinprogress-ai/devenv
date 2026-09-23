@@ -96,7 +96,7 @@ echo "Running organization bootstrap..."
 sudo apt install -y company-vpn-client
 
 # Configure organization-specific settings
-git config --global url."https://github.com/my-org/".insteadOf "https://gh/"
+git config --global url."https://<git-host>/my-org/".insteadOf "https://gh/"   # example: rewrite host prefixes to your org
 
 # Set up organization services
 echo "Starting company services..."
@@ -427,5 +427,5 @@ run_bootstrap_tasks
 ## See Also
 
 - [Dev Container Environment](./Dev-container-environment.md) - Development container overview
-- [Customization Guide](./Devenv-Customization.md) - General customization options
+- [Forking Guide](./Forking.md) - Fork-stable surfaces, provider adaptation, and customization options
 - [Workflow Guide](./Workflow.md) - Delivery methodology and working agreements

@@ -18,7 +18,7 @@ Review code changes and produce structured, actionable feedback for work. Invers
 
 - Reviewing a PR before approving / requesting changes.
 - Reviewing local work-in-progress before opening a PR.
-- Reviewing a branch that is about to become a PR (no GitHub PR required).
+- Reviewing a branch that is about to become a PR (no published PR required).
 - Reviewing a branch's diff against the default branch as a self-check.
 
 If the user wants the AI to *write* or refactor code, use `/devenv-pair-programming`, or `/devenv-delegation` for a commissioned autonomous run, instead. Exception: a **micro fix** of this review's own findings (one concern, one sitting, directly tied to the findings) may run in-session under the [incidental implementation protocol](../common/references/incidental-implementation-protocol.md) once the review is complete — anything beyond micro routes as above. If the user wants to *respond to* review comments on their own PR, use `/devenv-address-pr-comments`.

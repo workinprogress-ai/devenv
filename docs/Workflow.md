@@ -47,7 +47,7 @@ Each layer answers a different question:
 
 Durable issue-backed artifact note:
 
-- Grooming artifacts and plans may be persisted as deterministic GitHub issue comment artifacts rather than issue-body text.
+- Grooming artifacts and plans may be persisted as deterministic issue comment artifacts rather than issue-body text.
 - When an issue holds multiple plans, each plan is a separate artifact selected by `doc_id`.
 - The issue description remains general context; it is not the canonical storage location for plans.
 
@@ -527,7 +527,7 @@ Direct-plan exception:
 - A user may intentionally create a plan with no grooming artifact (for example from thin-air context, mixed pasted text, or unclassified artifacts).
 - Side-stream inputs may be provided whether or not grooming exists; they provide additional information but do not direct plan scope.
 - When a grooming artifact exists, grooming is the directing source for scope, slice boundaries, and plan-coordination context.
-- When plans are stored on a GitHub issue, one issue may hold more than one plan artifact. In that case, each plan is selected and updated by `doc_id`, not by replacing the issue body.
+- When plans are stored as issue artifacts, one issue may hold more than one plan artifact. In that case, each plan is selected and updated by `doc_id`, not by replacing the issue body.
 
 ## Multi-repo vs single-repo placement
 
@@ -583,11 +583,11 @@ Do not treat these as interchangeable. Each exists to answer a different questio
 
 1. **Living documents** — target state. No change logs, no Revision History sections, no strikethrough, no tombstones. Superseded content is **deleted clean**; IDs never reflow, so gaps in numbering are expected and harmless.
 2. **ADRs** (`docs/Decisions/ADR-NNN-<slug>.md`) — the *why*. Every significant decision (one a future implementer would ask about) gets an Architecture Decision Record: context, decision, alternatives, consequences. ADRs are append-mostly; superseding an ADR writes a new one, it does not edit the old.
-3. **Git** — the *when*. Who changed what, when. That is what it is for. (For GitHub-artifact roadmaps, the issue comment's edit history plays this role.)
+3. **Git** — the *when*. Who changed what, when. That is what it is for. (For artifact roadmaps, the issue comment's edit history plays this role.)
 
 Grooming documents and plans are not in this tier — grooming keeps its own revision-history convention, and plans are current-state execution artifacts with their own rules.
 
-**Roadmaps are optional coordination documents, hosted as GitHub artifacts.** A roadmap is added only when a larger effort needs delivery coordination across multiple components — usually associated with an epic — and lives as a doc_id-addressed artifact comment on that parent epic in the planning repo (same pattern as plan artifacts); no long-lived local copy is kept and nothing is committed. When one exists it is a **change-bound artifact**: maintained while the change is in flight (structural edits via `/devenv-refine-roadmap`, status sync via `/devenv-update-roadmap`), and done when the change ships and the parent epic closes — unlike specifications, which are perpetual living documents. The roadmap is downstream of the specifications and blueprint, and upstream of grooming: it receives changes arriving from upstream (spec/blueprint refinement) or pushed back from downstream (execution discoveries), but it is never itself an entry point for changes — changes enter through the refine skills and the upstream-impact queue.
+**Roadmaps are optional coordination documents, hosted as issue artifacts.** A roadmap is added only when a larger effort needs delivery coordination across multiple components — usually associated with an epic — and lives as a doc_id-addressed artifact comment on that parent epic in the planning repo (same pattern as plan artifacts); no long-lived local copy is kept and nothing is committed. When one exists it is a **change-bound artifact**: maintained while the change is in flight (structural edits via `/devenv-refine-roadmap`, status sync via `/devenv-update-roadmap`), and done when the change ships and the parent epic closes — unlike specifications, which are perpetual living documents. The roadmap is downstream of the specifications and blueprint, and upstream of grooming: it receives changes arriving from upstream (spec/blueprint refinement) or pushed back from downstream (execution discoveries), but it is never itself an entry point for changes — changes enter through the refine skills and the upstream-impact queue.
 
 Ephemeral markdown (bug descriptions to paste into an issue, feature requests for a backing library, scratch summaries that exist only for immediate use) is **not** a workflow artifact. Write it to `.local-artifacts/tmpN.md` in the active repo (incrementing `N`, next free number; never assume an existing tmp file's contents). `.local-artifacts/` is the gitignored standard folder for all local, never-committed markdown — ephemeral scratch, session memory, and working copies of issue-published artifacts. These files are expected to be deleted quickly and carry no artifact metadata.
 

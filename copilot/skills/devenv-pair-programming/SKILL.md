@@ -1,6 +1,6 @@
 ---
 name: devenv-pair-programming
-description: 'Collaborate with the user as a pair-programming partner on a user story, GitHub issue, or plan. USE WHEN the user says "pair program", "let''s pair on this", "pair with me", "work on this issue with me", "implement this together", "let''s tackle this plan together", "work through this plan", or hands off a GitHub issue with collaborative intent (not "just do it"). Loads the plan (from a file path or a GitHub issue artifact comment), uses the goals/context/phase sections to orient the session, and treats acceptance criteria plus phase goals as the source of truth while keeping a condensed task list as the authoritative current-state ledger. Both parties take turns implementing and reviewing, the AI keeps AC/phase progress and task state current, asks before assuming, pushes back when warranted, and offers to document discoveries via issue-comment / issue-create. DO NOT USE for solo "do this for me" tasks, pure Q&A, or when the user wants the AI to drive the entire implementation without checkpoints.'
+description: 'Collaborate with the user as a pair-programming partner on a user story, issue, or plan. USE WHEN the user says "pair program", "let''s pair on this", "pair with me", "work on this issue with me", "implement this together", "let''s tackle this plan together", "work through this plan", or hands off a GitHub issue with collaborative intent (not "just do it"). Loads the plan (from a file path or a GitHub issue artifact comment), uses the goals/context/phase sections to orient the session, and treats acceptance criteria plus phase goals as the source of truth while keeping a condensed task list as the authoritative current-state ledger. Both parties take turns implementing and reviewing, the AI keeps AC/phase progress and task state current, asks before assuming, pushes back when warranted, and offers to document discoveries via issue-comment / issue-create. DO NOT USE for solo "do this for me" tasks, pure Q&A, or when the user wants the AI to drive the entire implementation without checkpoints.'
 argument-hint: '[issue-number[:doc_id] | path-to-plan | "ad-hoc"]'
 user-invocable: true
 ---
@@ -135,7 +135,7 @@ When execution uncovers a bug that was not already documented in the plan's know
 
 3. **Out-of-scope, not in plan** — The bug is in unrelated code or a different epic.
    - Do NOT write tests, do NOT code around it.
-   - Inform the user: describe the bug, suggest creating a GitHub issue, ask for direction.
+   - Inform the user: describe the bug, suggest creating an issue, ask for direction.
 
 4. **User-indicated documentation only** — Only if the user explicitly says "just document it."
    - Add a code comment with context; do not write tests or attempt fixes.

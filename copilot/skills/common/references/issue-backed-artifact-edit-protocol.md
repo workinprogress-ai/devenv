@@ -1,10 +1,10 @@
 # Issue-backed artifact edit protocol
 
-Use this protocol whenever a skill must modify an artifact that already lives in a GitHub issue comment (or a legacy issue body artifact being migrated).
+Use this protocol whenever a skill must modify an artifact that already lives in an issue comment (or a legacy issue body artifact being migrated).
 
 ## Goal
 
-Keep GitHub issue artifacts editable, reviewable, and stable by treating GitHub as the publication target rather than the live editing surface.
+Keep issue artifacts editable, reviewable, and stable by treating the issue tracker as the publication target rather than the live editing surface.
 
 ## Required workflow
 
@@ -63,6 +63,6 @@ If the artifact changed concurrently during iteration, run one final section-lev
 
 ## Typical applications
 
-- Plan stored in a GitHub issue comment artifact (working copy: `.local-artifacts/Plan-issue-<N>-*.md`)
-- Grooming/design artifact stored in a GitHub issue comment (working copy: `.local-artifacts/Grooming-*.md`)
+- Plan stored as an issue comment artifact (working copy: `.local-artifacts/Plan-issue-<N>-*.md`)
+- Grooming/design artifact stored as an issue comment (working copy: `.local-artifacts/Grooming-*.md`)
 - Any other persisted markdown artifact republished into an issue thread

@@ -5,6 +5,7 @@ A complete reference for the Copilot skill suite available in this workspace. Sk
 > **Authority note:** each skill's `SKILL.md` frontmatter (`copilot/skills/<name>/SKILL.md`) is the authoritative description of that skill — its trigger phrases and boundaries. This catalog summarizes the suite for browsing; when a summary and a frontmatter disagree, the frontmatter wins.
 
 **Not sure which skill to use, or how something in this environment works?** Say `/devenv-help` — it answers questions directly and recommends skills.
+
 > **Provider transport:** skill bodies stay provider-neutral — GitHub-specific wrapper signatures, env vars, config paths, and invocation recipes live in the [GitHub protocol reference](../copilot/skills/_shared/references/provider-protocols/github.md). A provider fork replaces that file; skill bodies don't change.
 
 **Need the full workflow, not just the catalog?** See [Workflow Guide](./Workflow.md).
@@ -102,9 +103,9 @@ Conducts a three-phase architectural interview (context → architecture → con
 
 > **Before any significant work begins.**
 
-Interviews the user, scans repo conventions, drafts phased atomic tasks, and writes a `Plan-*.md` under the repo's `.local-artifacts/` folder (the gitignored home for local working markdown). Works for any multi-step objective — code (the default), docs overhauls, mechanical file work, runbooks, mixed work — via a **plan-declared verification approach** (code plans keep the full test/coverage gates verbatim; non-code plans declare deterministic, observable checks). The plan is a current-state execution artifact that follows the engineer's real work rather than a contract the engineer must obey. Offers to push the plan into the associated GitHub issue. The gateway to all build-phase skills.
+Interviews the user, scans repo conventions, drafts phased atomic tasks, and writes a `Plan-*.md` under the repo's `.local-artifacts/` folder (the gitignored home for local working markdown). Works for any multi-step objective — code (the default), docs overhauls, mechanical file work, runbooks, mixed work — via a **plan-declared verification approach** (code plans keep the full test/coverage gates verbatim; non-code plans declare deterministic, observable checks). The plan is a current-state execution artifact that follows the engineer's real work rather than a contract the engineer must obey. Offers to push the plan into the associated issue. The gateway to all build-phase skills.
 
-**Use for:** planning a user story, breaking down a GitHub issue, writing up work before starting — coding or non-coding multi-step objectives alike  
+**Use for:** planning a user story, breaking down an issue, writing up work before starting — coding or non-coding multi-step objectives alike  
 **Don't use for:** pure research (→ `/devenv-spike`), editing an existing plan (→ `/devenv-refine-plan`)  
 **Tool deps:** `issue-get`, `issue-artifact-doc-id`, `issue-artifact-upsert`
 

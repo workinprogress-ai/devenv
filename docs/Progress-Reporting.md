@@ -9,7 +9,7 @@ Status and progress are never maintained by hand: issue status is signal-driven 
 Progress is **computed, never stored**. Ground truth lives in exactly five places:
 
 1. Task checkboxes in plans (`[x]` / `[ ]`)
-2. GitHub issue state (open/closed, labels)
+2. Issue state (open/closed, labels)
 3. Linked pull requests
 4. Issue labels (`blocked`, `paused`, …)
 5. Git history

@@ -1,6 +1,6 @@
 # Issue Artifact Integration
 
-Use this reference when a skill needs to read, select, or republish persisted markdown artifacts stored in GitHub issue comments.
+Use this reference when a skill needs to read, select, or republish persisted markdown artifacts stored as issue comments.
 
 All write commands here require **explicit user confirmation** before execution. The pattern is always: draft -> show -> wait for "yes" -> run.
 

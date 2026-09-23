@@ -23,18 +23,18 @@ A suite of skills covering the full development lifecycle — from thinking and 
 
 1. [Dev Container Environment](./Dev-container-environment.md) - Set up and run the dev container
 2. [Additional Tooling](./Additional-Tooling.md) - Overview of available scripts
-3. [GitHub Issues Quick Reference](./GitHub-Issues-Quick-Reference.md) - Common issue/PR commands
+3. [Issues Quick Reference](./Issues-Quick-Reference.md) - Common issue/PR commands
 
-## 📋 GitHub Issues & Project Management
+## 📋 Issues & Project Management
 
-Complete workflow for managing GitHub Issues, Projects, and Sprints:
+Complete workflow for managing issues, projects, and sprints (as-built on GitHub, provider-neutral by design):
 
-- **[GitHub Issues Quick Reference](./GitHub-Issues-Quick-Reference.md)** — canonical command lookup
+- **[Issues Quick Reference](./Issues-Quick-Reference.md)** — canonical command lookup
   - Fast lookup for common commands
   - Filtering and status cheatsheet
   - Workflow examples
   - Common issues and solutions
-- **[GitHub Issues Management](./GitHub-Issues-Management.md)** — workflow & concepts
+- **[Issues Management](./Issues-Management.md)** — workflow & concepts
   - Issue types and hierarchy (Epic, Feature, Bug, Task)
   - Status workflow (TBD → Production)
   - Sprint planning and grooming
@@ -118,16 +118,16 @@ Complete workflow for managing GitHub Issues, Projects, and Sprints:
 ### I want to
 
 **...understand how to track work**
-→ [GitHub Issues Management](./GitHub-Issues-Management.md)
+→ [Issues Management](./Issues-Management.md)
 
 **...understand how the Copilot skills fit together**
 → [Workflow Guide](./Workflow.md) or [Skills Catalog](./Skills.md)
 
 **...configure the knowledge and engineering-standards sources skills use**
-→ [Knowledge & Engineering Patterns](./Knowledge-and-Engineering-Patterns.md) — including [how devenv relates to the sub-repos](./Knowledge-and-Engineering-Patterns.md#how-devenv-relates-to-the-sub-repos) — and [Devenv Customization](./Devenv-Customization.md)
+→ [Knowledge & Engineering Patterns](./Knowledge-and-Engineering-Patterns.md) — including [how devenv relates to the sub-repos](./Knowledge-and-Engineering-Patterns.md#how-devenv-relates-to-the-sub-repos) — and [Forking Guide](./Forking.md)
 
 **...quickly look up a command**
-→ [GitHub Issues Quick Reference](./GitHub-Issues-Quick-Reference.md) or [Additional Tooling](./Additional-Tooling.md)
+→ [Issues Quick Reference](./Issues-Quick-Reference.md) or [Additional Tooling](./Additional-Tooling.md)
 
 **...set up my development environment**
 → [Dev Container Environment](./Dev-container-environment.md)
@@ -154,7 +154,7 @@ Complete workflow for managing GitHub Issues, Projects, and Sprints:
 
 1. Start with [Dev Container Environment](./Dev-container-environment.md) to understand the setup
 2. Read the [Workflow Guide](./Workflow.md) to understand the delivery methodology
-3. Bookmark [GitHub Issues Quick Reference](./GitHub-Issues-Quick-Reference.md) for daily use
+3. Bookmark [Issues Quick Reference](./Issues-Quick-Reference.md) for daily use
 4. Reference [Additional Tooling](./Additional-Tooling.md) as needed
 
 ## 🔗 Related Resources
@@ -169,7 +169,7 @@ Complete workflow for managing GitHub Issues, Projects, and Sprints:
 
 - Check the relevant documentation section above
 - Use script `--help` flags: `issue-create --help`
-- Ask in team chat or create a GitHub issue
+- Ask in team chat or create an issue
 
 ## 📄 Documentation Standards
 

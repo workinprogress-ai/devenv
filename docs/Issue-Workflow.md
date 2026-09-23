@@ -160,7 +160,7 @@ Everything is local: your `gh` authentication, your machine. Signals are best-ef
 ## Related
 
 - *Derived Status Rollup* — the methodology as a generalizable pattern (engineering pattern library, `docs.engineering` → Work Management Patterns; referenced, not linked: the pattern library lives in a separate repo)
-- [Devenv Customization](./Devenv-Customization.md) — the customization contract for `status_workflow`: which tokens are load-bearing, what must change together when renaming
+- [Forking Guide](./Forking.md) — the customization contract for `status_workflow`: which tokens are load-bearing, what must change together when renaming
 - [Additional Tooling](./Additional-Tooling.md) — per-command reference: `workflow-signal`, `issue-triage`, `project-list-for-issue`, `project-update-issue`
 - `devenv.config [workflows]` — the vocabulary source of truth
 - `tools/config/skill-events.yml` — the event → status mapping

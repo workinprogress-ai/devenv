@@ -7,6 +7,7 @@
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
 
 Before implementing:
+
 - State your assumptions explicitly. If uncertain, ask.
 - If multiple interpretations exist, present them - don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
@@ -30,12 +31,14 @@ Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, sim
 **Touch only what you must. Clean up only your own mess.**
 
 When editing existing code:
+
 - Don't "improve" adjacent code, comments, or formatting.
 - Don't refactor things that aren't broken.
 - Match existing style, even if you'd do it differently.
 - If you notice unrelated dead code, mention it - don't delete it.
 
 When your changes create orphans:
+
 - Remove imports/variables/functions that YOUR changes made unused.
 - Don't remove pre-existing dead code unless asked.
 
@@ -144,9 +147,10 @@ For `git`: prefer `git-*` wrappers when one exists for a non-trivial operation; 
 **Conversation output:** the user's language, exclusively and consistently. Chat replies match the language the user is writing in. Do not switch conversation language mid-session, and do not drift toward the model's source language (for example a Chinese model suddenly producing Chinese output while the user writes in English) — treat the user's language as the single conversation language and self-correct the moment any drift appears.
 
 **English is the language of the codebase — including markdown.** Everything that lives in a repository is English, no exceptions:
+
 - **Code in all forms** — identifiers, variable/function/class/test names, code comments, and inline documentation.
 - **Markdown and documentation** — READMEs, docs, ADRs, and planning artifacts (plans, blueprints, roadmaps, specifications docs, spike results, pairing state notes).
-- **Commit messages and GitHub text** — commit titles/bodies, issue bodies, titles, comments, and PR descriptions posted via tools.
+- **Commit messages and issue/PR text** — commit titles/bodies, issue bodies, titles, comments, and PR descriptions posted via tools (the tracker's provider-specific vocabulary — e.g. "GitHub issue" — is fine where the protocol reference defines it).
 
 **Translation copies of artifacts:** if the user asks for a translation of an artifact, a copy of it may be output in the user's language (typically to a temp or scratch file). The principal artifact in the repository remains in English.
 
