@@ -93,8 +93,7 @@ EOF
 # Get the owner (org or user)
 get_owner() {
     local policy_org
-    policy_org="${GITHUB_ORG:-}"
-    [ -z "$policy_org" ] && policy_org="$(policy_org 2>/dev/null || true)"
+    policy_org="$(provider_org_get 2>/dev/null || true)"
     if [ -n "$policy_org" ]; then
         echo "$policy_org"
     else
@@ -116,8 +115,7 @@ get_owner() {
 get_issue_url() {
     local issue_num="$1"
     local repo_spec=""
-    policy_org="${GITHUB_ORG:-}"
-    [ -z "$policy_org" ] && policy_org="$(policy_org 2>/dev/null || true)"
+    policy_org="$(provider_org_get 2>/dev/null || true)"
     if [ -n "$policy_org" ]; then
         local repo_name
         repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")

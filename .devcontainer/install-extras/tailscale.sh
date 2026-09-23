@@ -60,7 +60,10 @@ else
 fi
 
 # Ask for Hostname to inject (suggest a default)
-base_user="${GH_USER:-${USER:-dev}}"
+# Tailscale machine-user: seed file first (runs before the provider seam
+# exists), then the plain unix user.
+base_user="$(cat "${DEVENV_ROOT:-}/.setup/provider_user.txt" 2>/dev/null || true)"
+base_user="${base_user:-${USER:-dev}}"
 base_user=$(echo "$base_user" | tr '[:upper:]' '[:lower:]')
 base_user=$(echo "$base_user" | tr -c 'a-z0-9-' '-')
 [ -z "$base_user" ] && base_user="dev"

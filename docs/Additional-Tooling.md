@@ -648,7 +648,7 @@ artifacts-list --owner <org> [--type <type>] [--name <pattern>] [--format <forma
 
 **Required Options:**
 
-- `--owner <org>`: Repository owner or organization name (or use `GH_ORG` environment variable)
+- `--owner <org>`: Repository owner or organization name (resolved from devenv.config `[organization] github_org` when omitted)
 
 **Optional Filters:**
 
@@ -804,7 +804,7 @@ pipelines-status --json | jq '.[] | select(.conclusion == "failure") | .url'
 
 **Notes:**
 
-- Uses `GH_ORG` to enumerate repos (up to 1000). Set `GH_ORG` or use `GITHUB_REPO`.
+- Enumerates repos for the configured org (up to 1000). Org resolves via devenv.config; `GITHUB_REPO` narrows to one repo.
 - Runs per-repo enumeration rather than the `/orgs/{org}/actions/runs` API to avoid requiring the `workflow` token scope.
 - With many repos this is sequential; for very large orgs it may be slow.
 
@@ -2450,7 +2450,7 @@ devenv-add-custom-startup "echo 'Container started'" "export MY_VAR=value"
 
 ### `key-update-git`
 
-Rotates the git provider credential: imports the new token through the provider auth seam into the keychain (the single source of truth) and re-wires the git credential helper. No token is written to env files, remote URLs, or `.setup/` — the seed file `.setup/github_token.txt` is a bootstrap-input one-shot, not the store.
+Rotates the git provider credential: imports the new token through the provider auth seam into the keychain (the single source of truth) and re-wires the git credential helper. No token is written to env files, remote URLs, or `.setup/` — the seed file `.setup/provider_token.txt` is a bootstrap-input one-shot, not the store.
 
 ```bash
 key-update-git [new-token]
@@ -2706,7 +2706,7 @@ Clones or updates all organization repositories into `$DEVENV_TOOLS/cache/repo_c
 - Writes a `.cache_timestamp` file (ISO timestamp + content hash) for staleness detection by downstream tools
 - Outputs the cache directory path on success
 
-**Required environment variables:** `GH_ORG`, `GH_USER` (authentication resolves via the provider keychain — no token env var)
+**Required configuration:** `[organization] github_org` in devenv.config (identity resolves via provider accessors; authentication resolves via the provider keychain — no token env var)
 
 **Example:**
 
@@ -3149,7 +3149,7 @@ issue/PR.
 
 ## Usage Notes
 
-- Most tools require proper environment variables to be set (e.g., `GH_USER`, `GH_ORG`; credentials resolve keychain-first via the provider secret seam — no token env var is required)
+- Most tools require no identity exports: org/user resolve via the provider accessors from devenv.config `[organization]` (credentials resolve keychain-first — no token env var)
 - Git authentication flows through the provider's credential helper over HTTPS; no embedded tokens
 - Tools automatically handle error conditions and provide helpful error messages
 - Scripts follow consistent naming conventions (prefix-based: `repo-`, `pr-`, `git-`, `issue-`, `artifact-`, `pipelines-`)
@@ -3159,8 +3159,7 @@ issue/PR.
 
 The following environment variables should be configured for full functionality:
 
-- `GH_USER`: Provider username (GitHub username today)
-- `GH_ORG`: Git host organization name (owner of repositories)
+- Legacy GitHub-branded overrides (compatibility only — the GitHub provider honors them ahead of config; other providers ignore them): `GH_USER` (username), `GH_ORG` (organization). Prefer devenv.config `[organization]`.
 - `GH_TOKEN`: not required day-to-day — tokens live in the keychain, imported via `key-update-git` or the provider auth seam. When you mint a token (bootstrap provisioning or rotation), give it these scopes:
   - `repo` (full control of private repositories)
   - `workflow` (update CI pipeline workflows)

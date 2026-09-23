@@ -53,7 +53,7 @@ secure_file() {
 }
 
 validate_github_pat() {
-  local token_file="$SETUP_DIR/github_token.txt"
+  local token_file="$SETUP_DIR/provider_token.txt"
 
   while true; do
   if [ ! -s "$token_file" ]; then
@@ -68,7 +68,7 @@ validate_github_pat() {
   fi
 
   # Prompt for GitHub organization if not already set
-  if [ ! -f "$SETUP_DIR/github_org.txt" ]; then
+  if [ ! -f "$SETUP_DIR/provider_org.txt" ]; then
     # Try to extract organization from git remote URL
     detected_org=""
     if git remote get-url origin &>/dev/null; then
@@ -95,8 +95,8 @@ validate_github_pat() {
     fi
     
     if [ -n "$github_org" ]; then
-      echo "$github_org" > "$SETUP_DIR/github_org.txt"
-      chmod 600 "$SETUP_DIR/github_org.txt"
+      echo "$github_org" > "$SETUP_DIR/provider_org.txt"
+      chmod 600 "$SETUP_DIR/provider_org.txt"
       echo "GitHub organization set to: $github_org"
     fi
   fi
@@ -158,12 +158,12 @@ chmod 700 "$SETUP_DIR"
 
 # Asking questions
 save_response "What is your HUMAN name?" "name.txt"
-save_response "What is your github user (just the USER, not your email)?" "github_user.txt"
+save_response "What is your github user (just the USER, not your email)?" "provider_user.txt"
 echo "For the next step, you will need a GitHub PAT (personal access token)."
 echo "Create a classic token at: https://github.com/settings/tokens/new"
 echo "Required scopes: repo, read:packages, read:org, write:discussion, project"
 echo "See the README for detailed instructions."
-save_response "Paste your GitHub PAT (starts with ghp_):" "github_token.txt"
+save_response "Paste your GitHub PAT (starts with ghp_):" "provider_token.txt"
 validate_github_pat
 
 echo ""
@@ -392,8 +392,8 @@ if [ -n "${email:-}" ]; then
 fi
 
 # Create .npmrc if GitHub token is available
-if [ -f "$SETUP_DIR/github_token.txt" ]; then
-  github_token=$(cat "$SETUP_DIR/github_token.txt")
+if [ -f "$SETUP_DIR/provider_token.txt" ]; then
+  github_token=$(cat "$SETUP_DIR/provider_token.txt")
   npmrc_file="$HOME/.npmrc"
   if [ ! -f "$npmrc_file" ] || ! grep -q "_authToken" "$npmrc_file"; then
     echo "//npm.pkg.github.com/:_authToken=$github_token" >> "$npmrc_file"
@@ -406,9 +406,9 @@ echo ""
 echo "=== Configuration Summary ==="
 echo "Setup directory: $SETUP_DIR"
 [ -f "$SETUP_DIR/name.txt" ] && echo "✓ User name configured"
-[ -f "$SETUP_DIR/github_user.txt" ] && echo "✓ GitHub user configured"
-[ -f "$SETUP_DIR/github_token.txt" ] && echo "✓ GitHub token configured"
-[ -f "$SETUP_DIR/github_org.txt" ] && echo "✓ GitHub organization configured"
+[ -f "$SETUP_DIR/provider_user.txt" ] && echo "✓ GitHub user configured"
+[ -f "$SETUP_DIR/provider_token.txt" ] && echo "✓ GitHub token configured"
+[ -f "$SETUP_DIR/provider_org.txt" ] && echo "✓ GitHub organization configured"
 [ -f "$SETUP_DIR/digitalocean_token.txt" ] && echo "✓ Digital Ocean token configured"
 [ -f "$SETUP_DIR/email.txt" ] && echo "✓ Email configured"
 [ -f "$SETUP_DIR/timezone.txt" ] && echo "✓ Timezone configured"

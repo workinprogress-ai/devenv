@@ -440,20 +440,9 @@ repo_url_owner() {
 # devenv.config [organization] github_org. Prints the org; returns 1 when
 # neither is set (ambiguity — callers treat the repo as foreign).
 repo_configured_org() {
-    if [ -n "${GH_ORG:-}" ]; then
-        echo "$GH_ORG"
-        return 0
-    fi
-    local config_file="${DEVENV_ROOT:-}/devenv.config"
-    if [ -f "$config_file" ] && [ -f "${DEVENV_TOOLS:-}/lib/config-reader.bash" ]; then
-        # shellcheck disable=SC1091
-        source "${DEVENV_TOOLS}/lib/config-reader.bash"
-        config_init "$config_file" || return 1
-        local org
-        org=$(config_read_value "organization" "github_org" "" 2>/dev/null)
-        [ -n "$org" ] && { echo "$org"; return 0; }
-    fi
-    return 1
+    # Single org chain: delegate to the policy layer (POLICY_ORG → provider
+    # accessor → config → seed). No local re-implementation here.
+    policy_org 2>/dev/null
 }
 
 # Membership check: is this repo owned by the configured org?

@@ -175,7 +175,7 @@ PR_URL=$(provider_prs_create "${repo_spec[1]:-}" \
   --base "$TARGET_BRANCH" \
   --head "$SOURCE_BRANCH" \
   --draft \
-  --assignee @me 2>&1 | grep -oE 'https://github.com[^ ]+' | head -n1)
+  --assignee @me 2>&1 | provider_extract_url)
 status=$?
 set -e
 

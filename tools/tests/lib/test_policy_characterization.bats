@@ -118,3 +118,75 @@ load ../test_helper
     [ "$output" = "github" ]
     rm -rf "$t"
 }
+
+# ============================================================================
+# policy_org chain lock: the POLICY_ORG -> GH_ORG -> config precedence must
+# hold regardless of whether the config leg resolves directly or through the
+# provider accessor.
+# ============================================================================
+
+policy_org_lock_env() {
+    # Isolate: policy chain precedence requires each leg unset/cleared in order.
+    unset POLICY_ORG GH_ORG
+    rm -f "$TEST_TEMP_DIR/devenv.config"
+    printf '[organization]\nname=t\ngithub_org=%s\n' "$1" > "$TEST_TEMP_DIR/devenv.config"
+    export DEVENV_ROOT="$TEST_TEMP_DIR"
+    export DEVENV_ROOT_SET=1
+}
+
+@test "characterize: policy_org config leg resolves github_org" {
+    policy_org_lock_env cfg-org
+    run bash -c "
+        set -e
+        export DEVENV_ROOT='$TEST_TEMP_DIR'
+        source '$PROJECT_ROOT/tools/lib/policy/policy-core.bash'
+        policy_core_init '$TEST_TEMP_DIR/devenv.config'
+        source '$PROJECT_ROOT/tools/lib/policy/identity-policy.bash'
+        policy_org
+    "
+    [ "$status" -eq 0 ]
+    [ "$output" = "cfg-org" ]
+}
+
+@test "characterize: policy_org GH_ORG env outranks config" {
+    run bash -c "
+        set -e
+        unset POLICY_ORG
+        printf '[organization]\nname=t\ngithub_org=cfg-org\n' > '$TEST_TEMP_DIR/devenv.config'
+        export DEVENV_ROOT='$TEST_TEMP_DIR'
+        source '$PROJECT_ROOT/tools/lib/policy/policy-core.bash'
+        policy_core_init '$TEST_TEMP_DIR/devenv.config'
+        source '$PROJECT_ROOT/tools/lib/policy/identity-policy.bash'
+        GH_ORG=env-org policy_org
+    "
+    [ "$status" -eq 0 ]
+    [ "$output" = "env-org" ]
+}
+
+@test "characterize: policy_org POLICY_ORG outranks everything" {
+    run bash -c "
+        set -e
+        printf '[organization]\nname=t\ngithub_org=cfg-org\n' > '$TEST_TEMP_DIR/devenv.config'
+        export DEVENV_ROOT='$TEST_TEMP_DIR'
+        source '$PROJECT_ROOT/tools/lib/policy/policy-core.bash'
+        policy_core_init '$TEST_TEMP_DIR/devenv.config'
+        source '$PROJECT_ROOT/tools/lib/policy/identity-policy.bash'
+        POLICY_ORG=policy-org GH_ORG=env-org policy_org
+    "
+    [ "$status" -eq 0 ]
+    [ "$output" = "policy-org" ]
+}
+
+@test "characterize: policy_org fails rc=1 when all legs unresolvable" {
+    run bash -c "
+        set -e
+        unset POLICY_ORG GH_ORG
+        printf '[organization]\nname=t\n' > '$TEST_TEMP_DIR/devenv.config'
+        export DEVENV_ROOT='$TEST_TEMP_DIR'
+        source '$PROJECT_ROOT/tools/lib/policy/policy-core.bash'
+        policy_core_init '$TEST_TEMP_DIR/devenv.config'
+        source '$PROJECT_ROOT/tools/lib/policy/identity-policy.bash'
+        policy_org
+    "
+    [ "$status" -ne 0 ]
+}

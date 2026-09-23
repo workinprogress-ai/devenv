@@ -41,7 +41,7 @@ __bash_prompt() {
            else \
              _UC="\[\033[1;31m\]"; \
            fi \
-        && [ ! -z "${GH_USER:-}" ] && echo -n "${_UC}@${GH_USER:-} " || echo -n "${_UC}\u " \
+        && _pu="$(cat "$DEVENV_ROOT/.setup/provider_user.txt" 2>/dev/null || true)" && [ ! -z "$_pu" ] && echo -n "${_UC}@${_pu} " || echo -n "${_UC}\u " \
         && [ "$XIT" -ne "0" ] && echo -n "\[\033[1;31m\]➜" || echo -n "\[\033[0m\]➜"`'
 
     local gitbranch='`\

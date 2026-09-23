@@ -145,8 +145,7 @@ EOF
 # Get the owner (org or user)
 get_owner() {
     local policy_org
-    policy_org="${GITHUB_ORG:-}"
-    [ -z "$policy_org" ] && policy_org="$(policy_org 2>/dev/null || true)"
+    policy_org="$(provider_org_get 2>/dev/null || true)"
     if [ -n "$policy_org" ]; then
         echo "$policy_org"
     else
@@ -186,7 +185,7 @@ update_status_all_projects() {
     repo_spec=$(resolve_target_repo) || return 1
     owner="${repo_spec%%/*}"
     repo="${repo_spec#*/}"
-    issue_url="https://github.com/$owner/$repo/issues/$ISSUE_NUMBER"
+    issue_url="$(provider_web_url "$owner/$repo" "issues/$ISSUE_NUMBER")"
 
     # Reverse lookup: all containing projects + current status.
     # A lookup FAILURE is distinct from zero membership: fail the run
@@ -255,7 +254,7 @@ update_status() {
     repo_spec=$(resolve_target_repo) || return 1
     owner="${repo_spec%%/*}"
     repo="${repo_spec#*/}"
-    issue_url="https://github.com/$owner/$repo/issues/$ISSUE_NUMBER"
+    issue_url="$(provider_web_url "$owner/$repo" "issues/$ISSUE_NUMBER")"
 
     local project_id item_id field_id option_id
     project_id=$(project_id_by_name "$owner" "$PROJECT_NAME") || {

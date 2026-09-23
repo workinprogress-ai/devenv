@@ -168,7 +168,8 @@ main() {
     log_info "✓ Configuration applied"
 }
 
-# Ensure GH_ORG is set
-require_env "GH_ORG" "GH_ORG environment variable is not set. Run 'setup' first."
+# Org identity gate: fail fast when unresolvable (env override → config → seed).
+# shellcheck disable=SC2034  # ORG validates resolution; downstream tooling re-resolves
+ORG="$(provider_org_get)" || die "Organization identity unresolved. Configure [organization] github_org in devenv.config or run setup." "$EXIT_INVALID_ARGUMENT"
 
 main "$@"

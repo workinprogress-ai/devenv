@@ -365,7 +365,12 @@ provider_auth_import_token() {
         log_error "provider_auth_import_token: provider_detect has not run"
         return 1
     fi
-    if ! provider_dispatch auth import_token; then
+    # Guard on the _impl function, not this wrapper: provider_dispatch auth
+    # import_token would find this very function and always pass, so a
+    # provider missing its auth module would crash on the missing impl
+    # instead of failing with the defined error.
+    if ! declare -F provider_auth_import_token_impl >/dev/null; then
+        log_error "provider '${PROVIDER_NAME}' does not implement auth import_token (provider_auth_import_token_impl is not defined)"
         return 1
     fi
     provider_auth_import_token_impl
@@ -385,8 +390,133 @@ provider_auth_status() {
         log_error "provider_auth_status: provider_detect has not run"
         return 1
     fi
-    if ! provider_dispatch auth status; then
+    # Guard on the _impl function (same reason as import_token above).
+    if ! declare -F provider_auth_status_impl >/dev/null; then
+        log_error "provider '${PROVIDER_NAME}' does not implement auth status (provider_auth_status_impl is not defined)"
         return 1
     fi
     provider_auth_status_impl
+}
+
+# ============================================================================
+# Identity accessors (org / user)
+# ============================================================================
+
+# Config file used by the identity accessors. Set via provider_identity_init;
+# defaults to DEVENV_ROOT/devenv.config on first accessor use.
+PROVIDER_IDENTITY_CONFIG=""
+
+# Bind the identity accessors to a config file. Optional: accessors fall back
+# to DEVENV_ROOT/devenv.config. provider_detect callers that pass an explicit
+# config path should pass the same one here.
+#
+# Usage:
+#   provider_identity_init /path/to/devenv.config
+provider_identity_init() {
+    PROVIDER_IDENTITY_CONFIG="${1:-${DEVENV_ROOT:-}/devenv.config}"
+}
+
+# Raw INI read for one section/key, mirroring provider_detect's layered
+# strategy: config-reader when loadable, minimal awk fallback otherwise.
+# Reads RAW values only — no ${VAR} template expansion. Template expansion
+# stays in config-reader, which resolves those templates against these
+# accessors; expansion here would make the two mutually recurse.
+#
+# Returns:
+#   Prints the raw value (possibly empty); 0 when a config file exists.
+_provider_identity_raw_read() {
+    local section="$1"
+    local key="$2"
+    local config_file="${PROVIDER_IDENTITY_CONFIG:-${DEVENV_ROOT:-}/devenv.config}"
+    [ -f "$config_file" ] || return 1
+    local value=""
+    if [ -f "${DEVENV_TOOLS:-}/lib/config-reader.bash" ]; then
+        # shellcheck disable=SC1091
+        source "${DEVENV_TOOLS}/lib/config-reader.bash"
+        if config_init "$config_file" 2>/dev/null; then
+            # Read without expansion: config_read_value would interpolate
+            # ${GH_ORG}/${GH_USER} templates, re-entering this accessor.
+            value=$(awk -v section="$section" -v key="$key" '
+                $0 ~ "^\\[" section "\\]" { in_section=1; next }
+                /^\[/ { in_section=0; next }
+                in_section && $0 ~ "^" key "=" {
+                    sub("^" key "=", "")
+                    print
+                    exit
+                }
+            ' "$config_file")
+            printf '%s\n' "$value"
+            return 0
+        fi
+    fi
+    # Minimal INI fallback: same shape as provider_detect's name read.
+    awk -F= -v section="$section" -v key="$key" '
+        $0 ~ "^\\[" section "\\]" { in_section=1; next }
+        /^\[/ { in_section=0; next }
+        in_section && $1 ~ "^[ \\t]*" key "[ \\t]*$" { v=$2; gsub(/^[ \\t]+|[ \\t]+$/, "", v); print v; exit }
+    ' "$config_file"
+    return 0
+}
+
+# Resolve org identity: GH_ORG env override → config [organization]
+# github_org → seed file (.setup/provider_org.txt) → failure. Env stays
+# first so existing session exports keep working (compatibility override);
+# config is the sanctioned source after bootstrap demotion.
+#
+# Usage:
+#   org=$(provider_org_get) || exit
+#
+# Returns:
+#   Prints the org; returns 1 with a config-guided error when unresolvable.
+provider_org_get() {
+    if [ -n "${GH_ORG:-}" ]; then
+        printf '%s\n' "$GH_ORG"
+        return 0
+    fi
+    local value
+    value=$(_provider_identity_raw_read "organization" "github_org") && [ -n "$value" ] && {
+        printf '%s\n' "$value"
+        return 0
+    }
+    local seed_file="${DEVENV_ROOT:-}/.setup/provider_org.txt"
+    if [ -f "$seed_file" ]; then
+        value=$(tr -d '[:space:]' < "$seed_file")
+        if [ -n "$value" ]; then
+            printf '%s\n' "$value"
+            return 0
+        fi
+    fi
+    log_error "unable to resolve organization identity — set [organization] github_org in devenv.config (or run setup); the GH_ORG env var is an optional override, not the source"
+    return 1
+}
+
+# Resolve user identity: GH_USER env override → config [organization]
+# github_user (optional key) → seed file (.setup/provider_user.txt) → failure.
+# Same precedence rationale as provider_org_get.
+#
+# Usage:
+#   user=$(provider_user_get) || exit
+#
+# Returns:
+#   Prints the user; returns 1 with a config-guided error when unresolvable.
+provider_user_get() {
+    if [ -n "${GH_USER:-}" ]; then
+        printf '%s\n' "$GH_USER"
+        return 0
+    fi
+    local value
+    value=$(_provider_identity_raw_read "organization" "github_user") && [ -n "$value" ] && {
+        printf '%s\n' "$value"
+        return 0
+    }
+    local seed_file="${DEVENV_ROOT:-}/.setup/provider_user.txt"
+    if [ -f "$seed_file" ]; then
+        value=$(tr -d '[:space:]' < "$seed_file")
+        if [ -n "$value" ]; then
+            printf '%s\n' "$value"
+            return 0
+        fi
+    fi
+    log_error "unable to resolve user identity — set [organization] github_user in devenv.config (or run setup); the GH_USER env var is an optional override, not the source"
+    return 1
 }

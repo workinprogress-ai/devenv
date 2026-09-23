@@ -273,7 +273,7 @@ create_repo() {
     local skip_template="$6"
     local skip_clone="$7"
     local skip_post_creation="$8"
-    local full_name="${GH_ORG}/${repo_name}"  # Fully qualified name (e.g., org/service.platform.identity)
+    local full_name="${ORG}/${repo_name}"  # Fully qualified name (e.g., org/service.platform.identity)
 
     # Check if repo already exists
     if provider_repos_view "$full_name" >/dev/null 2>&1; then
@@ -302,8 +302,8 @@ create_repo() {
     
     # Add template if available and not skipped
     if [ -n "$template" ] && [ "$template" != "null" ]; then
-        args+=("--template" "${GH_ORG}/${template}")
-        log_info "Using template: ${GH_ORG}/${template}"
+        args+=("--template" "${ORG}/${template}")
+        log_info "Using template: ${ORG}/${template}"
     fi
 
     if ! provider_repos_create "$full_name" "${args[@]}"; then
@@ -311,6 +311,8 @@ create_repo() {
         exit 1
     fi
     
+    # Host literal sanctioned: user-facing next-step message (display only,
+    # not transport); fork rewrites with its provider's host.
     log_info "✓ Repository created: git@github.com:${full_name}.git"
     
     # Wait for repository to be ready (only when using templates)
@@ -370,6 +372,7 @@ create_repo() {
     log_info ""
     log_info "Next steps:"
     if [ "$skip_clone" = "true" ]; then
+        # Host literal sanctioned: display-only message (see above).
         log_info "  1. Clone the repo: git clone git@github.com:${full_name}.git"
         log_info "  2. Make your changes and commit"
     else
@@ -547,8 +550,10 @@ main() {
 
     require_command gh
     require_command yq
-    require_env GH_ORG "GH_ORG is not set. Run 'setup' first to configure environment."
-    require_env GH_USER "GH_USER is not set. Run 'setup' first to configure environment."
+    # Org identity resolves via the provider accessor (env override →
+    # config → seed); no GH_ORG export required. User identity is not
+    # consumed by creation itself — gh's authenticated identity carries it.
+    ORG="$(provider_org_get)" || die "Organization identity unresolved. Configure [organization] github_org in devenv.config or run setup." "$EXIT_INVALID_ARGUMENT"
     ensure_gh_login
     
     create_repo "$repo_name" "$visibility" "$description" "$repo_type" "$skip_protection" "$skip_template" "$skip_clone" "$skip_post_creation"

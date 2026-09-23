@@ -54,13 +54,44 @@ setup() {
     [ "$output" = "gh/repo" ]
 }
 
-@test "repo_target: basename-only GH_REPO is rejected (empty; gh -R invalid)" {
-    GH_REPO=justname run provider_repo_target
-    [ -z "$output" ]
+@test "repo_target: basename-only GH_REPO falls through to cwd leg" {
+    # Basename GH_REPO is invalid for -R, so it must not be echoed as-is;
+    # the full chain resolves it via the cwd leg instead.
+    local repo_dir="$TEST_TEMP_DIR/t-repo"
+    mkdir -p "$repo_dir" && (cd "$repo_dir" && git init -q && git config user.email t@t && git config user.name t)
+    local script="$TEST_TEMP_DIR/target_partial2.sh"
+    cat > "$script" <<SEOF
+export DEVENV_TOOLS="$DEVENV_TOOLS"
+unset _PROVIDER_CORE_LOADED PROVIDER_NAME GITHUB_REPO
+source "\$DEVENV_TOOLS/lib/providers/provider-core.bash"
+provider_detect "$TEST_TEMP_DIR/absent.config"
+source "\$DEVENV_TOOLS/lib/providers/github/repos.bash"
+provider_org_get() { echo cfg-org; }
+GH_REPO=justname
+export GH_REPO
+cd "$repo_dir"
+provider_repo_target
+SEOF
+    run bash "$script"
+    [ "$status" -eq 0 ]
+    [ "$output" = "cfg-org/t-repo" ]
 }
 
-@test "repo_target: empty result when nothing is set (cwd resolution)" {
-    run provider_repo_target
+@test "repo_target: empty result when env empty, org unresolvable, no git root" {
+    local script="$TEST_TEMP_DIR/target_empty.sh"
+    mkdir -p "$TEST_TEMP_DIR/nogit"
+    cat > "$script" <<SEOF
+export DEVENV_TOOLS="$DEVENV_TOOLS"
+unset _PROVIDER_CORE_LOADED PROVIDER_NAME GITHUB_REPO GH_REPO GH_ORG
+source "\$DEVENV_TOOLS/lib/providers/provider-core.bash"
+provider_detect "$TEST_TEMP_DIR/absent.config"
+source "\$DEVENV_TOOLS/lib/providers/github/repos.bash"
+provider_org_get() { return 1; }
+cd "$TEST_TEMP_DIR/nogit"
+provider_repo_target
+SEOF
+    run bash "$script"
+    [ "$status" -eq 0 ]
     [ -z "$output" ]
 }
 
@@ -149,4 +180,100 @@ setup() {
     run provider_repos_protect_branch bare main /dev/null
     assert_failure
     [[ "$(stub_call_count gh)" -eq 0 ]]
+}
+
+# ============================================================================
+# Full-chain repo target: explicit arg → GITHUB_REPO → GH_REPO full form →
+# org identity + cwd basename → empty. Mirrors the documented wrapper
+# resolution chain; semantics must not change when github-helpers delegates
+# here.
+# ============================================================================
+
+@test "repo_target: org + cwd basename when env chain empty" {
+    local repo_dir="$TEST_TEMP_DIR/cwd-repo"
+    mkdir -p "$repo_dir" && (cd "$repo_dir" && git init -q && git config user.email t@t && git config user.name t)
+    local script="$TEST_TEMP_DIR/target_full_chain.sh"
+    cat > "$script" <<SEOF
+export DEVENV_TOOLS="$DEVENV_TOOLS"
+unset _PROVIDER_CORE_LOADED PROVIDER_NAME GITHUB_REPO GH_REPO GH_ORG
+source "\$DEVENV_TOOLS/lib/providers/provider-core.bash"
+provider_detect "$TEST_TEMP_DIR/absent.config"
+source "\$DEVENV_TOOLS/lib/providers/github/repos.bash"
+provider_org_get() { echo cfg-org; }
+cd "$repo_dir"
+provider_repo_target
+SEOF
+    run bash "$script"
+    [ "$status" -eq 0 ]
+    [ "$output" = "cfg-org/cwd-repo" ]
+}
+
+
+@test "repo_target: partial-form GH_REPO does not shadow cwd resolution" {
+    local repo_dir="$TEST_TEMP_DIR/cwd-repo2"
+    mkdir -p "$repo_dir" && (cd "$repo_dir" && git init -q && git config user.email t@t && git config user.name t)
+    local script="$TEST_TEMP_DIR/target_partial.sh"
+    cat > "$script" <<SEOF
+export DEVENV_TOOLS="$DEVENV_TOOLS"
+unset _PROVIDER_CORE_LOADED PROVIDER_NAME GITHUB_REPO
+source "\$DEVENV_TOOLS/lib/providers/provider-core.bash"
+provider_detect "$TEST_TEMP_DIR/absent.config"
+source "\$DEVENV_TOOLS/lib/providers/github/repos.bash"
+provider_org_get() { echo cfg-org; }
+GH_REPO=justname
+export GH_REPO
+cd "$repo_dir"
+provider_repo_target
+SEOF
+    run bash "$script"
+    [ "$status" -eq 0 ]
+    [ "$output" = "cfg-org/cwd-repo2" ]
+}
+
+# ============================================================================
+# URL/host seam (urls.bash): the single sanctioned home for the github.com
+# literal in URL work.
+# ============================================================================
+
+@test "urls: transport URL is clean https org form" {
+    source "$DEVENV_TOOLS/lib/providers/github/urls.bash"
+    run provider_git_transport_url org repo
+    [ "$status" -eq 0 ]
+    [ "$output" = "https://github.com/org/repo.git" ]
+    run provider_git_transport_url org ""
+    [ "$status" -ne 0 ]
+}
+
+@test "urls: web URL builds repo-relative links" {
+    source "$DEVENV_TOOLS/lib/providers/github/urls.bash"
+    run provider_web_url org/repo pull/12
+    [ "$status" -eq 0 ]
+    [ "$output" = "https://github.com/org/repo/pull/12" ]
+}
+
+@test "urls: extract_url pulls first URL, path filter narrows" {
+    source "$DEVENV_TOOLS/lib/providers/github/urls.bash"
+    local out
+    out=$(printf 'junk\nhttps://github.com/o/r/pull/9 tail\nhttps://github.com/o/r/issues/3\n' | provider_extract_url)
+    [ "$out" = "https://github.com/o/r/pull/9" ]
+    out=$(printf 'x https://github.com/o/r/pull/9\ny https://github.com/o/r/issues/3\n' | provider_extract_url issues/)
+    [ "$out" = "https://github.com/o/r/issues/3" ]
+    run bash -c "printf 'no urls here\n' | '$DEVENV_TOOLS/lib/providers/github/urls.bash' 2>/dev/null"
+    :
+}
+
+@test "urls: extract_url returns nonzero when nothing matches" {
+    source "$DEVENV_TOOLS/lib/providers/github/urls.bash"
+    run bash -c "printf 'nothing\n' | { source '$DEVENV_TOOLS/lib/providers/github/urls.bash'; provider_extract_url; }"
+    [ "$status" -ne 0 ]
+}
+
+@test "urls: remote_to_web normalizes ssh and https forms, rejects foreign hosts" {
+    source "$DEVENV_TOOLS/lib/providers/github/urls.bash"
+    run provider_remote_to_web "git@github.com:org/repo.git"
+    [ "$output" = "https://github.com/org/repo" ]
+    run provider_remote_to_web "https://github.com/org/repo.git"
+    [ "$output" = "https://github.com/org/repo" ]
+    run provider_remote_to_web "https://gitlab.com/org/repo.git"
+    [ "$status" -ne 0 ]
 }

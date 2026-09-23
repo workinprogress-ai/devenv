@@ -286,8 +286,8 @@ authenticates clean `https://github.com/...` remotes. Nothing exports
 
 Other credentials are stored in the `.setup` folder on your host machine:
 
-* **Git host username** (`.setup/github_username.txt`): Your username on the git host (GitHub today). Automatically loaded as `GH_USER` environment variable.
-* **Git host organization** (`.setup/github_org.txt`): The organization on the git host that owns your repositories. Automatically loaded as `GH_ORG` environment variable.
+* **Provider username** (`.setup/provider_user.txt`): Your username on the git host (GitHub today). Not exported as an environment variable — tools resolve identity through the provider accessors (config-first).
+* **Provider organization** (`.setup/provider_org.txt`): The organization on the git host that owns your repositories. Not exported — resolved through the provider org accessor (config `[organization] github_org` first).
 * **Digital Ocean API Token** (`.setup/digitalocean_token.txt`): Used for infrastructure operations via Digital Ocean. Automatically loaded as `DO_API_TOKEN` en
 vironment variable.
 * **SSH Key** (`.setup/ssh_key_path.txt`): Path to your SSH private key for secure repository access.
@@ -306,7 +306,7 @@ entials are **never** stored in the container image itself — they're only load
 
 Note: `~/.config/gh` lives on the container's filesystem, so the keychain is
 **wiped on container re-create**. Bootstrap handles this as a one-shot
-consume: if the keychain is empty and `.setup/github_token.txt` exists, it
+consume: if the keychain is empty and `.setup/provider_token.txt` exists, it
 imports the token and **deletes the file** (plaintext must not linger). If
 the keychain is empty and no seed exists, bootstrap finishes with an
 **ACTION REQUIRED** banner — run `key-update-git.sh <new-token>`  to authenticate. An authenticated keychain leaves the seed

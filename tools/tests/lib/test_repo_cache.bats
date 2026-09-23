@@ -57,30 +57,48 @@ teardown() {
 # Environment Validation Tests
 # ============================================================================
 
-@test "repo-cache: refresh_repo_cache fails when GH_ORG is unset" {
-    run bash -c "
-        export DEVENV_TOOLS='$DEVENV_TOOLS'
-        unset GH_ORG
-        export GH_USER='user'
-        export GH_TOKEN='token'
-        source '$DEVENV_TOOLS/lib/repo-cache.bash'
-        refresh_repo_cache 2>&1
-    "
-    [ "$status" -eq 1 ]
-    [[ "$output" == *"GH_ORG"* ]]
+@test "repo-cache: refresh_repo_cache resolves org via accessor (no GH_ORG needed)" {
+    local script="$TEST_TEMP_DIR/rc_accessor.sh"
+    cat > "$script" <<SCRIPT
+export DEVENV_TOOLS="$DEVENV_TOOLS"
+export DEVENV_ROOT="$TEST_TEMP_DIR"
+export DEVENV_ROOT_SET=1
+export REPO_CACHE_DIR="$TEST_TEMP_DIR/cache/repo_cache"
+unset GH_ORG GH_USER GH_TOKEN _PROVIDER_CORE_LOADED _REPO_OPERATIONS_LOADED POLICY_ORG
+printf '[organization]\nname=t\ngithub_org=cfg-org\n' > "$TEST_TEMP_DIR/devenv.config"
+source "\$DEVENV_TOOLS/lib/repo-operations.bash"
+source "\$DEVENV_TOOLS/lib/repo-cache.bash"
+list_organization_repositories() { printf 'cfg-repo\n'; }
+git() {
+    if [ "\$1" = 'clone' ]; then
+        local dir="\${@: -1}"
+        mkdir -p "\$dir/.git"
+        return 0
+    fi
+    command git "\$@"
+}
+refresh_repo_cache >/dev/null 2>&1
+SCRIPT
+    run bash "$script"
+    [ "$status" -eq 0 ]
 }
 
-@test "repo-cache: refresh_repo_cache fails when GH_USER is unset" {
-    run bash -c "
-        export DEVENV_TOOLS='$DEVENV_TOOLS'
-        export GH_ORG='test-org'
-        unset GH_USER
-        export GH_TOKEN='token'
-        source '$DEVENV_TOOLS/lib/repo-cache.bash'
-        refresh_repo_cache 2>&1
-    "
+@test "repo-cache: refresh_repo_cache fails with config-guided error when org unresolvable" {
+    local script="$TEST_TEMP_DIR/rc_unresolved.sh"
+    cat > "$script" <<SCRIPT
+export DEVENV_TOOLS="$DEVENV_TOOLS"
+export DEVENV_ROOT="$TEST_TEMP_DIR"
+export DEVENV_ROOT_SET=1
+unset GH_ORG GH_USER GH_TOKEN _PROVIDER_CORE_LOADED _REPO_OPERATIONS_LOADED POLICY_ORG
+rm -f "$TEST_TEMP_DIR/devenv.config"
+source "\$DEVENV_TOOLS/lib/repo-operations.bash"
+source "\$DEVENV_TOOLS/lib/repo-cache.bash"
+refresh_repo_cache 2>&1
+SCRIPT
+    run bash "$script"
     [ "$status" -eq 1 ]
-    [[ "$output" == *"GH_USER"* ]]
+    [[ "$output" == *"github_org"* ]]
+    [[ "$output" != *"GH_ORG is not set"* ]]
 }
 
 @test "repo-cache: refresh_repo_cache proceeds without GH_TOKEN (keychain contract)" {
@@ -585,4 +603,41 @@ teardown() {
     [ "$status" -eq 0 ]
     [[ "$output" == *"4 repositories"* ]]
     [[ "$output" == *"3 parallel"* ]]
+}
+
+# ============================================================================
+# Clone URL lock: clean https URL, no embedded credentials — auth rides
+# gh's credential helper and the org comes from the provider accessor.
+# ============================================================================
+
+@test "repo-cache: clone URL is clean https org form (no embedded auth)" {
+    local script="$TEST_TEMP_DIR/url_lock.sh"
+    cat > "$script" <<SCRIPT
+export DEVENV_TOOLS='$DEVENV_TOOLS'
+export REPO_CACHE_DIR='$TEST_TEMP_DIR/cache/repo_cache'
+export GH_ORG='url-org'
+export GH_USER='url-user'
+unset GH_TOKEN
+source "\$DEVENV_TOOLS/lib/repo-cache.bash"
+list_organization_repositories() { printf 'url-repo\n'; }
+git() {
+    if [ "\$1" = 'clone' ]; then
+        local a url
+        for a in "\$@"; do
+            case "\$a" in https://*) url="\$a" ;; esac
+        done
+        printf 'CLONE_URL: %s\n' "\$url" >> '$TEST_TEMP_DIR/clone_urls.txt'
+        local dir="\${@: -1}"
+        mkdir -p "\$dir/.git"
+        return 0
+    fi
+    command git "\$@"
+}
+refresh_repo_cache >/dev/null 2>&1
+SCRIPT
+    run bash "$script"
+    [ "$status" -eq 0 ]
+    local captured
+    captured=$(cat "$TEST_TEMP_DIR/clone_urls.txt")
+    [ "$captured" = "CLONE_URL: https://github.com/url-org/url-repo.git" ]
 }

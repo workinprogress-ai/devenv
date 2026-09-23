@@ -153,14 +153,14 @@ query_packages() {
         esac
     done
 
-    # Use GH_ORG environment variable if owner not provided
+    # Resolve owner via the provider org accessor when not provided
     if [ -z "$owner" ]; then
-        owner="${GH_ORG:-}"; [ -z "$owner" ] && owner="$(policy_org 2>/dev/null || true)"
+        owner="$(provider_org_get 2>/dev/null || true)"
     fi
 
     # Validate required arguments
     if [ -z "$owner" ]; then
-        log_error "owner is required (set --owner or GH_ORG environment variable)"
+        log_error "owner is required (set --owner or configure [organization] github_org in devenv.config)"
         return 1
     fi
 
@@ -260,14 +260,14 @@ get_package_versions() {
         esac
     done
 
-    # Use GH_ORG environment variable if owner not provided
+    # Resolve owner via the provider org accessor when not provided
     if [ -z "$owner" ]; then
-        owner="${GH_ORG:-}"; [ -z "$owner" ] && owner="$(policy_org 2>/dev/null || true)"
+        owner="$(provider_org_get 2>/dev/null || true)"
     fi
 
     # Validate required arguments
     if [ -z "$owner" ] || [ -z "$type" ] || [ -z "$name" ]; then
-        log_error "owner (set --owner or GH_ORG), type, and name are all required"
+        log_error "owner (set --owner or configure [organization] github_org), type, and name are all required"
         return 1
     fi
 

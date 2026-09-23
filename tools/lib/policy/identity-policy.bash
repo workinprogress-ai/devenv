@@ -30,6 +30,14 @@ policy_org() {
         echo "$POLICY_ORG"
         return 0
     fi
+    # Org resolution below the policy override delegates to the provider
+    # identity accessor (GH_ORG override → config → seed → failure) when the
+    # provider layer is loaded; the policy layer cannot source provider-core
+    # itself (provider-core sources this module for detection — circular).
+    if declare -F provider_org_get >/dev/null; then
+        provider_org_get
+        return $?
+    fi
     if [ -n "${GH_ORG:-}" ]; then
         echo "$GH_ORG"
         return 0

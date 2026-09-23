@@ -454,7 +454,7 @@ find_phase_for_requirement() {
 #   build_requirement_link <repo_url> <markdown_path> <req_id> <req_title>
 #
 # Arguments:
-#   repo_url       Base repo URL (e.g., https://github.com/owner/repo)
+#   repo_url       Base repo URL (e.g., https://<host>/owner/repo)
 #   markdown_path  Path to the markdown file relative to repo root
 #   req_id         Requirement identifier (e.g., REQ-001)
 #   req_title      Requirement title
@@ -478,7 +478,7 @@ build_requirement_link() {
 #   build_phase_link <repo_url> <markdown_path> <phase_id> <phase_name>
 #
 # Arguments:
-#   repo_url       Base repo URL (e.g., https://github.com/owner/repo)
+#   repo_url       Base repo URL (e.g., https://<host>/owner/repo)
 #   markdown_path  Path to the markdown file relative to repo root
 #   phase_id       Phase identifier (e.g., PHASE-01)
 #   phase_name     Phase name
@@ -537,7 +537,7 @@ list_all_ids() {
 # Arguments:
 #   text      The markdown text containing internal links
 #   base_url  Full URL to the markdown file (e.g.,
-#             https://github.com/owner/repo/blob/master/docs/req.md)
+#             https://<host>/owner/repo/blob/master/docs/req.md)
 #
 # Output (stdout):
 #   The text with internal links expanded to absolute URLs

@@ -532,3 +532,130 @@ load ../test_helper
   [ "$status" -eq 0 ]
   [ "$output" = "config-org" ]
 }
+
+# ============================================================================
+# resolve_target_repo behavior locks: the resolution chain, the GH_REPO
+# export hand-off to child gh processes, and the safety-gate semantics are
+# stable regardless of which layer performs the read.
+# ============================================================================
+
+@test "resolve_target_repo: explicit argument wins over env and cwd" {
+  create_mock_git_repo "$TEST_TEMP_DIR/owner-repo"
+  run bash -c "
+    set -e
+    export PROJECT_ROOT='$PROJECT_ROOT'
+    export DEVENV_ROOT='$TEST_TEMP_DIR'
+    unset GITHUB_REPO GH_REPO
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/git-operations.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    cd '$TEST_TEMP_DIR/owner-repo'
+    ALLOW_DEVENV_REPO=0 resolve_target_repo 'arg-org/arg-repo'
+  "
+  [ "$status" -eq 0 ]
+  [ "$output" = "arg-org/arg-repo" ]
+}
+
+@test "resolve_target_repo: GITHUB_REPO env used when no argument" {
+  run bash -c "
+    set -e
+    export PROJECT_ROOT='$PROJECT_ROOT'
+    export DEVENV_ROOT='$TEST_TEMP_DIR'
+    unset GH_REPO
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/git-operations.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    GITHUB_REPO='env-org/env-repo' resolve_target_repo
+  "
+  [ "$status" -eq 0 ]
+  [ "$output" = "env-org/env-repo" ]
+}
+
+@test "resolve_target_repo: exports GH_REPO for child gh env resolution" {
+  run bash -c "
+    set -e
+    export PROJECT_ROOT='$PROJECT_ROOT'
+    export DEVENV_ROOT='$TEST_TEMP_DIR'
+    unset GITHUB_REPO GH_REPO
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/git-operations.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    GITHUB_REPO='env-org/env-repo' resolve_target_repo > /dev/null
+    printf '%s' \"\${GH_REPO:-}\"
+  "
+  [ "$status" -eq 0 ]
+  [ "$output" = "env-org/env-repo" ]
+}
+
+@test "resolve_target_repo: falls back to org + git root basename" {
+  create_mock_git_repo "$TEST_TEMP_DIR/cwd-repo"
+  run bash -c "
+    set -e
+    export PROJECT_ROOT='$PROJECT_ROOT'
+    unset GITHUB_REPO GH_REPO GH_ORG POLICY_ORG
+    printf '[organization]\nname=t\ngithub_org=cfg-org\n' > '$TEST_TEMP_DIR/devenv.config'
+    export DEVENV_ROOT='$TEST_TEMP_DIR'
+    # Pre-seal the self-root contract so the test-scoped DEVENV_ROOT wins
+    # over self-location (git-operations would otherwise re-root to the
+    # repo checkout and bind its config).
+    export DEVENV_ROOT_SET=1
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/git-operations.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    cd '$TEST_TEMP_DIR/cwd-repo'
+    resolve_target_repo
+  "
+  [ "$status" -eq 0 ]
+  [ "$output" = "cfg-org/cwd-repo" ]
+}
+
+@test "resolve_target_repo: exits nonzero when nothing resolvable" {
+  run bash -c "
+    set -e
+    export PROJECT_ROOT='$PROJECT_ROOT'
+    export DEVENV_ROOT='$TEST_TEMP_DIR'
+    export DEVENV_ROOT_SET=1
+    unset GITHUB_REPO GH_REPO GH_ORG POLICY_ORG
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/git-operations.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    cd '$TEST_TEMP_DIR'
+    resolve_target_repo
+  "
+  [ "$status" -ne 0 ]
+}
+
+@test "resolve_target_repo: hard error when git-operations not sourced (gate bypass protection)" {
+  run bash -c "
+    set -e
+    export PROJECT_ROOT='$PROJECT_ROOT'
+    export DEVENV_ROOT='$TEST_TEMP_DIR'
+    unset GITHUB_REPO GH_REPO
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    GITHUB_REPO='env-org/env-repo' resolve_target_repo
+  "
+  [ "$status" -ne 0 ]
+}
+
+@test "resolve_target_repo: nested devenv clone below repos/ is auto-allowed" {
+  create_mock_git_repo "$TEST_TEMP_DIR/ws/repos/cwd-repo"
+  run bash -c "
+    set -e
+    export PROJECT_ROOT='$PROJECT_ROOT'
+    unset GITHUB_REPO GH_REPO GH_ORG POLICY_ORG
+    printf '[organization]\nname=t\ngithub_org=cfg-org\n' > '$TEST_TEMP_DIR/devenv.config'
+    export DEVENV_ROOT='$TEST_TEMP_DIR'
+    export DEVENV_ROOT_SET=1
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/git-operations.bash'
+    source '$PROJECT_ROOT/tools/lib/github-helpers.bash'
+    cd '$TEST_TEMP_DIR/ws/repos/cwd-repo'
+    # is_devenv_repo keys on .devcontainer/bootstrap.sh (or a repo literally
+    # named devenv); emulate the nested devenv-clone layout with its marker.
+    mkdir -p .devcontainer && touch .devcontainer/bootstrap.sh
+    resolve_target_repo
+  "
+  [ "$status" -eq 0 ]
+  [ "$output" = "cfg-org/cwd-repo" ]
+}

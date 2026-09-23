@@ -162,12 +162,13 @@ main() {
     fi
 
     # Single repo-resolution entry point (override > GITHUB_REPO > cwd),
-    # devenv-repo safety gate included; exports GH_REPO for gh api templates.
-    resolve_target_repo "$REPO_OVERRIDE" > /dev/null
+    # devenv-repo safety gate included; the printed value feeds the provider
+    # calls below explicitly.
+    TARGET_REPO="$(resolve_target_repo "$REPO_OVERRIDE")"
 
     local comments_raw
     log_verbose "Fetching comments for issue #$ISSUE_NUMBER"
-    if ! comments_raw=$(provider_issues_comments "$ISSUE_NUMBER" "${GITHUB_REPO:-}" 2>/dev/null); then
+    if ! comments_raw=$(provider_issues_comments "$ISSUE_NUMBER" "$TARGET_REPO" 2>/dev/null); then
         api_failure "Failed to fetch comments for issue #$ISSUE_NUMBER"
     fi
 

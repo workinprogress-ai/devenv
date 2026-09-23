@@ -163,9 +163,9 @@ get_planning_type_mappings() {
 # Env: GH_ORG (used if no org param provided)
 # Output: newline-delimited "NAME\tID"
 fetch_org_issue_type_ids() {
-    local org="${1:-${GH_ORG:-}}"
+    local org="${1:-$(provider_org_get 2>/dev/null || true)}"
     if [ -z "$org" ]; then
-        echo "ERROR: Organization not specified. Set GH_ORG or pass org as parameter" >&2
+        echo "ERROR: Organization not specified. Configure [organization] github_org in devenv.config or pass org as parameter" >&2
         return 1
     fi
 

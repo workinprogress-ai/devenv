@@ -80,7 +80,7 @@ resolve_org() {
         echo "${GITHUB_REPO%%/*}"
         return 0
     fi
-    log_error "Cannot resolve organization — set GH_ORG or GITHUB_REPO"
+    log_error "Cannot resolve organization — configure [organization] github_org in devenv.config or set GITHUB_REPO"
     return 1
 }
 

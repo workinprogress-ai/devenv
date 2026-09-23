@@ -88,14 +88,11 @@ load_config() {
         exit 1
     fi
     
-    # Load GitHub organization from config - mandatory field
-    if [ -z "${GH_ORG:-}" ]; then
-        GH_ORG=$(config_read_value "organization" "github_org" "")
-        if [ -z "$GH_ORG" ]; then
-            echo "ERROR: github_org not configured in devenv.config [organization] section"
-            exit 1
-        fi
-        export GH_ORG
+    # Org identity: config is the source; no session export (tools resolve
+    # via the provider org accessor). Fail fast when unconfigured.
+    if [ -z "$(provider_org_get 2>/dev/null || true)" ]; then
+        echo "ERROR: github_org not configured in devenv.config [organization] section"
+        exit 1
     fi
 
     # Optional Copilot knowledge repo settings.
@@ -323,20 +320,20 @@ load_setup_credentials() {
 
     if provider_auth_status >/dev/null 2>&1; then
         echo "GitHub credential store is authenticated."
-        if [ -f "$setup_dir/github_token.txt" ]; then
-            echo "Seed file $setup_dir/github_token.txt is no longer needed while authenticated; remove it to reduce plaintext exposure."
+        if [ -f "$setup_dir/provider_token.txt" ]; then
+            echo "Seed file $setup_dir/provider_token.txt is no longer needed while authenticated; remove it to reduce plaintext exposure."
         fi
         return 0
     fi
 
     ensure_provider_seam
 
-    if [ -f "$setup_dir/github_token.txt" ]; then
-        if provider_auth_import_token < "$setup_dir/github_token.txt" >/dev/null 2>&1; then
-            rm -f "$setup_dir/github_token.txt"
+    if [ -f "$setup_dir/provider_token.txt" ]; then
+        if provider_auth_import_token < "$setup_dir/provider_token.txt" >/dev/null 2>&1; then
+            rm -f "$setup_dir/provider_token.txt"
             echo "Seed file imported into the provider credential store and deleted (one-shot; re-add only if you want replay-ability)."
         else
-            echo "WARNING: github_token.txt could not be imported (expired or invalid?)."
+            echo "WARNING: provider_token.txt could not be imported (expired or invalid?)."
             AUTH_NEEDED=1
         fi
     else
@@ -344,23 +341,19 @@ load_setup_credentials() {
         AUTH_NEEDED=1
     fi
 
-    if [ -f "$setup_dir/github_user.txt" ]; then
-        GH_USER=$(cat "$setup_dir/github_user.txt")
-        export GH_USER
-    else
-        echo "ERROR: No GitHub user found in $setup_dir/github_user.txt"
+    if [ ! -f "$setup_dir/provider_user.txt" ]; then
+        echo "ERROR: No GitHub user found in $setup_dir/provider_user.txt"
         echo "Run 'setup' to configure your GitHub username"
         exit 1
     fi
 
-    if [ -f "$setup_dir/github_org.txt" ]; then
-        GH_ORG=$(cat "$setup_dir/github_org.txt")
-        export GH_ORG
-    else
-        echo "ERROR: No GitHub organization found in $setup_dir/github_org.txt"
+    if [ ! -f "$setup_dir/provider_org.txt" ]; then
+        echo "ERROR: No GitHub organization found in $setup_dir/provider_org.txt"
         echo "Run 'setup' to configure your GitHub organization"
         exit 1
     fi
+    # Seed presence validated above; no exports — the provider accessors read
+    # the seeds (and config) themselves when identity is needed.
 
     if [ -f "$setup_dir/digitalocean_token.txt" ]; then
         DO_API_TOKEN=$(cat "$setup_dir/digitalocean_token.txt")
@@ -636,9 +629,9 @@ export DIGITALOCEAN_REGISTRY="${DIGITALOCEAN_REGISTRY:-}"
 export DO_APP_NAME="${DO_APP_NAME:-}"
 export DO_REGION="${DO_REGION:-}"
 
-# GitHub auth (gh keychain is the source; bootstrap never exports GH_TOKEN)
-export GH_USER="${GH_USER:-}"
-export GH_ORG="${GH_ORG:-}"
+# GitHub identity: no GH_USER/GH_ORG exports — tools resolve identity via
+# the provider accessors (config-first); the env vars are optional overrides
+# set by the user, never produced by bootstrap.
 
 # User identity
 export USER_EMAIL="${USER_EMAIL:-}"
@@ -1152,16 +1145,22 @@ configure_nuget_sources() {
         NUGET_FEED_URL=$(config_read_value "nuget" "feed_url" "")
     fi
     
+    # Identity for the feed URL and the source registration comes from the
+    # provider accessors (env override → config → seed) — no env exports.
+    local feed_org feed_user
+    feed_org=$(provider_org_get 2>/dev/null) || feed_org=""
+    feed_user=$(provider_user_get 2>/dev/null) || feed_user=""
+    
     # Expand environment variables in feed URL
-    NUGET_FEED_URL=$(echo "$NUGET_FEED_URL" | sed "s|\${GH_ORG}|${GH_ORG}|g")
-    NUGET_FEED_URL=$(echo "$NUGET_FEED_URL" | sed "s|\${GH_USER}|${GH_USER}|g")
+    NUGET_FEED_URL=$(echo "$NUGET_FEED_URL" | sed "s|\${GH_ORG}|${feed_org}|g")
+    NUGET_FEED_URL=$(echo "$NUGET_FEED_URL" | sed "s|\${GH_USER}|${feed_user}|g")
     
     local gh_token
     gh_token=$(provider_secret_get token 2>/dev/null) || gh_token=""
-    if [ -n "$gh_token" ] && [ -n "${GH_USER:-}" ] && [ -n "${GH_ORG:-}" ] && [ -n "${NUGET_FEED_URL:-}" ]; then
-        add_nuget_source_if_not_exists "github" "$NUGET_FEED_URL" $GH_USER $gh_token
+    if [ -n "$gh_token" ] && [ -n "$feed_user" ] && [ -n "$feed_org" ] && [ -n "${NUGET_FEED_URL:-}" ]; then
+        add_nuget_source_if_not_exists "github" "$NUGET_FEED_URL" $feed_user $gh_token
     else
-        echo "Skipping GitHub NuGet feed: GH_ORG/GH_USER/gh-auth/feed_url not fully configured"
+        echo "Skipping GitHub NuGet feed: org/user identity, gh-auth, or feed_url not fully configured"
     fi
 }
 

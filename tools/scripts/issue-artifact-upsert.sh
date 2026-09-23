@@ -279,7 +279,8 @@ main() {
     fi
 
     # Single repo-resolution entry point (override > GITHUB_REPO > cwd),
-    # devenv-repo safety gate included; exports GH_REPO for gh api templates.
+    # devenv-repo safety gate included; the printed value feeds the provider
+    # calls below explicitly.
     TARGET_REPO="$(resolve_target_repo "$REPO_OVERRIDE")"
 
     local body

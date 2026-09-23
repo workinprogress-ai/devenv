@@ -423,11 +423,7 @@ create_issue() {
         log_verbose "Adding issue #$issue_number to project: $ISSUE_PROJECT"
         
         local owner
-        if [ -n "${GITHUB_ORG:-}" ]; then
-            owner="$GITHUB_ORG"
-        else
-            owner="$repo_owner"
-        fi
+        owner=$(provider_org_get 2>/dev/null) || owner="$repo_owner"
         
         # Resolve project name to number if not already a number
         local project_number="$ISSUE_PROJECT"

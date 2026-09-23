@@ -408,3 +408,123 @@ token_env_allowlist = ghp_cfg_token ghp_other:justification")
     run provider_auth_status
     assert_failure
 }
+
+# ============================================================================
+# Identity accessors: org/user resolution with env override first, raw
+# config second, seed file third. Raw reads only — config template
+# expansion must never re-enter these accessors.
+# ============================================================================
+
+provider_accessor_setup() {
+    test_helper_setup
+    export DEVENV_TOOLS="${BATS_TEST_DIRNAME}/../.."
+    unset _PROVIDER_CORE_LOADED PROVIDER_NAME _PROVIDER_GITHUB_URLS_LOADED
+    unset GH_ORG GH_USER POLICY_ORG
+    export DEVENV_ROOT="$TEST_TEMP_DIR"
+    export DEVENV_ROOT_SET=1
+    rm -f "$TEST_TEMP_DIR/devenv.config"
+    # shellcheck disable=SC1091
+    source "$DEVENV_TOOLS/lib/providers/provider-core.bash"
+    provider_detect "$TEST_TEMP_DIR/absent.config"
+}
+
+@test "provider_org_get: GH_ORG env override wins" {
+    provider_accessor_setup
+    printf '[organization]\nname=t\ngithub_org=cfg-org\n' > "$TEST_TEMP_DIR/devenv.config"
+    run bash -c "
+        export DEVENV_ROOT='$TEST_TEMP_DIR' DEVENV_ROOT_SET=1 DEVENV_TOOLS='$DEVENV_TOOLS'
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        GH_ORG=env-org provider_org_get
+    "
+    [ "$status" -eq 0 ]
+    [ "$output" = "env-org" ]
+}
+
+@test "provider_org_get: config [organization] github_org resolves" {
+    provider_accessor_setup
+    printf '[organization]\nname=t\ngithub_org=cfg-org\n' > "$TEST_TEMP_DIR/devenv.config"
+    run bash -c "
+        export DEVENV_ROOT='$TEST_TEMP_DIR' DEVENV_ROOT_SET=1 DEVENV_TOOLS='$DEVENV_TOOLS'
+        unset GH_ORG
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        provider_org_get
+    "
+    [ "$status" -eq 0 ]
+    [ "$output" = "cfg-org" ]
+}
+
+@test "provider_org_get: seed file is the third leg" {
+    provider_accessor_setup
+    mkdir -p "$TEST_TEMP_DIR/.setup"
+    printf 'seed-org\n' > "$TEST_TEMP_DIR/.setup/provider_org.txt"
+    run bash -c "
+        export DEVENV_ROOT='$TEST_TEMP_DIR' DEVENV_ROOT_SET=1 DEVENV_TOOLS='$DEVENV_TOOLS'
+        unset GH_ORG
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        provider_org_get
+    "
+    [ "$status" -eq 0 ]
+    [ "$output" = "seed-org" ]
+}
+
+@test "provider_org_get: fails with config-guided error when unresolvable" {
+    provider_accessor_setup
+    run bash -c "
+        export DEVENV_ROOT='$TEST_TEMP_DIR' DEVENV_ROOT_SET=1 DEVENV_TOOLS='$DEVENV_TOOLS'
+        unset GH_ORG
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        provider_org_get
+    "
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"github_org"* ]]
+    [[ "$output" != *"GH_ORG is not set"* ]]
+}
+
+@test "provider_org_get: raw read does not expand templates (no recursion)" {
+    provider_accessor_setup
+    # Config value that looks like a template: raw accessor must return it
+    # verbatim, never interpolating (config-reader expansion calls back into
+    # this accessor; expansion here would loop).
+    printf '[organization]\nname=t\ngithub_org=${GH_ORG}\n' > "$TEST_TEMP_DIR/devenv.config"
+    run bash -c "
+        export DEVENV_ROOT='$TEST_TEMP_DIR' DEVENV_ROOT_SET=1 DEVENV_TOOLS='$DEVENV_TOOLS'
+        unset GH_ORG
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        provider_org_get
+    "
+    [ "$status" -eq 0 ]
+    [ "$output" = '${GH_ORG}' ]
+}
+
+@test "provider_user_get: env override then config then seed" {
+    provider_accessor_setup
+    run bash -c "
+        export DEVENV_ROOT='$TEST_TEMP_DIR' DEVENV_ROOT_SET=1 DEVENV_TOOLS='$DEVENV_TOOLS'
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        GH_USER=env-user provider_user_get
+    "
+    [ "$status" -eq 0 ]
+    [ "$output" = "env-user" ]
+
+    printf '[organization]\nname=t\ngithub_user=cfg-user\n' > "$TEST_TEMP_DIR/devenv.config"
+    run bash -c "
+        export DEVENV_ROOT='$TEST_TEMP_DIR' DEVENV_ROOT_SET=1 DEVENV_TOOLS='$DEVENV_TOOLS'
+        unset GH_USER
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        provider_user_get
+    "
+    [ "$status" -eq 0 ]
+    [ "$output" = "cfg-user" ]
+
+    mkdir -p "$TEST_TEMP_DIR/.setup"
+    printf 'seed-user\n' > "$TEST_TEMP_DIR/.setup/provider_user.txt"
+    rm -f "$TEST_TEMP_DIR/devenv.config"
+    run bash -c "
+        export DEVENV_ROOT='$TEST_TEMP_DIR' DEVENV_ROOT_SET=1 DEVENV_TOOLS='$DEVENV_TOOLS'
+        unset GH_USER
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        provider_user_get
+    "
+    [ "$status" -eq 0 ]
+    [ "$output" = "seed-user" ]
+}
