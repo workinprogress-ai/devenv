@@ -17,7 +17,7 @@ set -euo pipefail
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 
 readonly SCRIPT_VERSION="1.0.0"
@@ -79,8 +79,8 @@ EOF
 }
 
 resolve_owner_repo() {
-    if [ -n "${GITHUB_REPO:-}" ]; then
-        echo "$GITHUB_REPO"
+    if [ -n "${DEVENV_REPO:-}" ]; then
+        echo "${DEVENV_REPO:-}"
         return 0
     fi
     local repo_spec

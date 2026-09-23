@@ -29,7 +29,7 @@ Do **not** use for:
 - Creating a new roadmap → [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md)
 - Refining the underlying blueprint → [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md)
 - Editing roadmap step descriptions or sequencing → [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md)
-- Combined plan + roadmap progress views → `/devenv-project-manager` (read-only Answer class). This skill's summary stays single-artifact: it describes the roadmap it just synced, never an aggregate across plans and issues.
+- Combined plan + roadmap progress views → `/devenv-board` (read-only Answer class). This skill's summary stays single-artifact: it describes the roadmap it just synced, never an aggregate across plans and issues.
 
 ## Inputs
 
@@ -59,7 +59,7 @@ and append the annotation to the status line:
 ```
 
 The annotation is rewritten on every run so it cannot rot. Cross-check the
-step's real progress with `/devenv-project-manager` when its plan summary and the
+step's real progress with `/devenv-board` when its plan summary and the
 issue state disagree.
 
 **Status precedence summary** (apply manually at mapping time; the first match wins):

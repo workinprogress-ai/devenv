@@ -11,11 +11,11 @@ DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 
 set -euo pipefail
 source "$DEVENV_TOOLS/lib/error-handling.bash"
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"
 #
-# Org identity (policy_org) arrives transitively via github-helpers
+# Org identity (policy_org) arrives transitively via provider-loader
 # (which loads the policy layer); no explicit policy sourcing here.
 
 

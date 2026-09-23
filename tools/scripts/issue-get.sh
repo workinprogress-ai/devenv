@@ -15,7 +15,7 @@ set -euo pipefail
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"
 

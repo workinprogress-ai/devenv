@@ -1,6 +1,6 @@
 ---
 name: devenv-create-blueprint
-description: 'Conduct a structured architecture interview to produce a system blueprint — a high-level, architectural description of a system or change to a system. USE WHEN the user says "create a blueprint", "design this system", "architect this", "blueprint this epic", "produce an architectural design", or hands off a specifications doc / problem description that needs architectural decomposition before any planning can begin. Produces a Blueprint-<system>-NNN.md covering shared vocabulary, domains, bounded contexts (with ubiquitous language and aggregates), components (deployable units), domain and integration events, a Context Map of cross-BC relationships, and (for brownfield work) a per-component delta. Maintains a session_memory-blueprint.md across sessions. DO NOT USE for low-level planning (use /devenv-create-plan), for ordering work into milestones (use /devenv-create-roadmap once the blueprint exists), or for capturing user-level functional specifications (use /devenv-write-specifications).'
+description: 'Conduct a structured architecture interview to produce a system blueprint — a high-level, architectural description of a system or change to a system. USE WHEN the user says "create a blueprint", "design this system", "architect this", "blueprint this epic", "produce an architectural design", or hands off a specifications doc / problem description that needs architectural decomposition before any planning can begin. Produces a Blueprint-<system>-NNN.md covering shared vocabulary, domains, bounded contexts (with ubiquitous language and aggregates), components (deployable units), domain and integration events, a Context Map of cross-BC relationships, and (for brownfield work) a per-component delta. Maintains a session_memory-blueprint.md across sessions. DO NOT USE for low-level planning (use /devenv-plan), for ordering work into milestones (use /devenv-create-roadmap once the blueprint exists), or for capturing user-level functional specifications (use /devenv-write-specifications).'
 argument-hint: '[system name | one-or-more paths to Specifications-*.md | freeform problem description]'
 user-invocable: true
 ---
@@ -24,7 +24,7 @@ Trigger phrases:
 
 Do **not** use for:
 
-- Low-level task breakdown → [`/devenv-create-plan`](../devenv-create-plan/SKILL.md)
+- Low-level task breakdown → [`/devenv-plan`](../devenv-plan/SKILL.md)
 - Ordering work into milestones / creating issues → [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md)
 - User-level functional specifications → [`/devenv-write-specifications`](../devenv-write-specifications/SKILL.md)
 - Editing an existing blueprint → [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md)
@@ -338,10 +338,10 @@ This is the seeding pass only — small in number (typically 3–7 ADRs for the 
 Once written, surface the next-step options to the user:
 
 - **Need to plan delivery order and create issues?** → [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md)
-- **Need detailed task-level plans for a component?** → [`/devenv-create-plan`](../devenv-create-plan/SKILL.md)
+- **Need detailed task-level plans for a component?** → [`/devenv-plan`](../devenv-plan/SKILL.md)
 - **Architecture changed mid-stream?** → [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md)
 - **Underlying specifications changed?** → [`/devenv-refine-specifications`](../devenv-refine-specifications/SKILL.md)
-- **Specific design or coding-approach question surfaced during implementation?** → [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md)
+- **Specific design or coding-approach question surfaced during implementation?** → [`/devenv-design`](../devenv-design/SKILL.md)
 
 ## Anti-patterns
 

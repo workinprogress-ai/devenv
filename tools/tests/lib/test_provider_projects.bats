@@ -190,15 +190,28 @@ setup() {
 }
 
 @test "projects item_id_for_issue: rejects non-numeric issue" {
-    run provider_projects_item_id_for_issue "PVT_abc" "not-a-number"
+    run provider_projects_item_id_for_issue "PVT_abc" "not-a-number" myorg myrepo
     assert_failure
     [[ "$output" == *"must be numeric"* ]]
 }
 
 @test "projects item_id_for_issue: graphql issued with project id" {
-    printf '{"data":{"node":{"items":{"nodes":[{"id":"PVTI_9","content":{"number":7}}]}}}}' > "$TEST_TEMP_DIR/gql2.json"
-    export STUB_GH_API_RESPONSE="$TEST_TEMP_DIR/gql2.json"
-    run provider_projects_item_id_for_issue "PVT_abc" 7
+    # The cli-stubs gh returns raw JSON without applying --jq, but the
+    # lookup's filtering happens inside the jq program gh executes. Wrap the
+    # stub with a jq-applying shim on PATH (mirroring real gh behavior).
+    printf '{"data":{"node":{"items":{"pageInfo":{"hasNextPage":false,"endCursor":""},"nodes":[{"id":"PVTI_9","content":{"number":7,"repository":{"nameWithOwner":"myorg/myrepo"}}}]}}}}' > "$TEST_TEMP_DIR/gql2.json"
+    local shim="$TEST_TEMP_DIR/jq-gh-bin"
+    mkdir -p "$shim"
+    cat > "$shim/gh" <<EOF
+#!/usr/bin/env bash
+echo "gh \$*" >> "\$STUB_CALL_LOG"
+prog=""
+prev=""
+for a in "\$@"; do [ "\$prev" = '--jq' ] && prog="\$a"; prev="\$a"; done
+cat "$TEST_TEMP_DIR/gql2.json" | jq -r "\$prog"
+EOF
+    chmod +x "$shim/gh"
+    PATH="$shim:$PATH" run provider_projects_item_id_for_issue "PVT_abc" 7 myorg myrepo
     assert_success
     grep -q '\-f p=PVT_abc --jq' "$STUB_CALL_LOG"
 }
@@ -246,4 +259,10 @@ setup() {
     run provider_api_paginate /users/org/packages
     assert_success
     grep -q "^gh api /users/org/packages --paginate$" "$STUB_CALL_LOG"
+}
+
+@test "id_by_name: quote-bearing title logs the reason, not silent not-found" {
+    run provider_projects_id_by_name "org" 'Bad "Title"'
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"double quotes"* ]]
 }

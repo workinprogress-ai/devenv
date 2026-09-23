@@ -29,11 +29,13 @@ ALLOWED_PATHS=(
     "copilot/skills/_tools-reference.md"
     "copilot/skills/_shared/docs/"
     "tools/tests/skills/"
+    "copilot/copilot-instructions.md"
 )
 
 # Forbidden transport tokens in skill bodies.
 FORBIDDEN_PATTERNS=(
     "GITHUB_REPO="
+    "GITHUB_REPO"
     "GITHUB_REPO=workinprogress"
     "workinprogress-ai"
     "issues-config.yml"

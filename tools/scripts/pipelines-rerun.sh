@@ -16,7 +16,7 @@ set -euo pipefail
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
@@ -80,13 +80,13 @@ rerun_workflow() {
 
     log_verbose "Re-running run $RUN_ID in $REPO (failed-only=$FAILED_ONLY debug=$DEBUG_MODE)"
 
-    if ! provider_actions_run_rerun "$REPO" "$RUN_ID" "${gh_args[@]}"; then
+    if ! provider_pipelines_run_rerun "$REPO" "$RUN_ID" "${gh_args[@]}"; then
         log_error "Failed to re-run workflow run: $RUN_ID"
         exit "$EXIT_API_FAILURE"
     fi
 
     local run_url
-    run_url=$(provider_actions_run_view "$REPO" "$RUN_ID" --json url -q '.url' 2>/dev/null || echo "")
+    run_url=$(provider_pipelines_run_view "$REPO" "$RUN_ID" --json url -q '.url' 2>/dev/null || echo "")
 
     if [ -n "$run_url" ]; then
         log_info "Re-run queued: $run_url"

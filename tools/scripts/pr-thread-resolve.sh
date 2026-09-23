@@ -15,7 +15,7 @@ set -euo pipefail
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 
 readonly SCRIPT_VERSION="1.0.0"
@@ -84,34 +84,13 @@ resolve_thread() {
 
     log_verbose "Resolving review thread: $THREAD_ID"
 
-    local mutation='
-mutation($threadId: ID!) {
-  resolveReviewThread(input: {threadId: $threadId}) {
-    thread {
-      id
-      isResolved
-    }
-  }
-}'
-
-    local response
-    response=$(provider_api graphql \
-        -f query="$mutation" \
-        -f threadId="$THREAD_ID" \
-        2>&1) || {
-        log_error "Failed to resolve thread: $response"
-        exit $EXIT_API_FAILURE
-    }
-
-    local errors
-    errors=$(echo "$response" | jq -r '.errors // empty' 2>/dev/null || echo "")
-    if [ -n "$errors" ]; then
-        log_error "GraphQL error resolving thread: $errors"
-        exit "$EXIT_GENERAL_ERROR"
-    fi
-
+    # Transport + GraphQL handling live in the facade verb; the caller keeps
+    # the outcome interpretation.
     local is_resolved
-    is_resolved=$(echo "$response" | jq -r '.data.resolveReviewThread.thread.isResolved // "unknown"')
+    if ! is_resolved=$(provider_prs_thread_resolve "$THREAD_ID"); then
+        log_error "Failed to resolve thread: $THREAD_ID"
+        exit $EXIT_API_FAILURE
+    fi
 
     if [ "$is_resolved" = "true" ]; then
         log_info "Thread resolved: $THREAD_ID"

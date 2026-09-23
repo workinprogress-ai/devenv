@@ -185,7 +185,7 @@ SEOF
 # ============================================================================
 # Full-chain repo target: explicit arg → GITHUB_REPO → GH_REPO full form →
 # org identity + cwd basename → empty. Mirrors the documented wrapper
-# resolution chain; semantics must not change when github-helpers delegates
+# resolution chain; semantics must not change when provider-loader delegates
 # here.
 # ============================================================================
 
@@ -276,4 +276,35 @@ SEOF
     [ "$output" = "https://github.com/org/repo" ]
     run provider_remote_to_web "https://gitlab.com/org/repo.git"
     [ "$status" -ne 0 ]
+}
+
+@test "org releases: empty repo is a defined failure (required owner/repo)" {
+    # The org module ships the releases verb; load it standalone here.
+    # shellcheck disable=SC1091
+    source "$DEVENV_TOOLS/lib/providers/github/org.bash"
+    gh_calls_reset
+    run provider_org_releases_list ""
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"owner/repo"* ]]
+}
+
+@test "org releases: non owner/repo form is rejected" {
+    # shellcheck disable=SC1091
+    source "$DEVENV_TOOLS/lib/providers/github/org.bash"
+    run provider_org_releases_list "just-a-name"
+    [ "$status" -ne 0 ]
+}
+
+@test "repo target: DEVENV_REPO outranks the deprecated GITHUB_REPO alias" {
+    # shellcheck disable=SC1091
+    source "$DEVENV_TOOLS/lib/providers/github/repos.bash"
+    run env DEVENV_REPO="new/repo" GITHUB_REPO="legacy/repo" bash -c 'source "$0" && provider_repo_target' "$DEVENV_TOOLS/lib/providers/github/repos.bash"
+    [ "$output" = "new/repo" ]
+}
+
+@test "repo target: GITHUB_REPO alias still resolves (deprecated, silent)" {
+    # shellcheck disable=SC1091
+    source "$DEVENV_TOOLS/lib/providers/github/repos.bash"
+    run env -u DEVENV_REPO GITHUB_REPO="legacy/repo" bash -c 'source "$0" && provider_repo_target' "$DEVENV_TOOLS/lib/providers/github/repos.bash"
+    [ "$output" = "legacy/repo" ]
 }

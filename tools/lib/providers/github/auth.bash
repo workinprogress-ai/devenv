@@ -45,3 +45,11 @@ provider_auth_import_token_impl() {
 provider_auth_status_impl() {
     gh auth status >/dev/null 2>&1
 }
+
+# Print the keychain token for the neutral core's auth seam. Single
+# sanctioned home for the gh token read; provider-core delegates here so the
+# resolution order (env-if-allowlisted → credential store) stays neutral.
+# Usage: provider_auth_token_impl   (prints the token on stdout)
+provider_auth_token_impl() {
+    gh auth token
+}

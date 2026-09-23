@@ -23,26 +23,23 @@
 if [ -n "${_ISSUE_GRAPH_LOADED:-}" ]; then return 0; fi
 readonly _ISSUE_GRAPH_LOADED=1
 
-# Provider layer: graph traversals route through the abstraction (slice 3/#36).
-if [ -z "${_PROVIDER_CORE_LOADED:-}" ]; then
-    _ig_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    if [ -f "$_ig_lib_dir/providers/provider-core.bash" ]; then
-        # shellcheck disable=SC1091
-        source "$_ig_lib_dir/providers/provider-core.bash"
-        provider_detect "${DEVENV_ROOT:-$(dirname "$(dirname "$_ig_lib_dir")")}/devenv.config" 2>/dev/null || PROVIDER_NAME="${PROVIDER_NAME:-github}"
-        # shellcheck disable=SC1091
-        # shellcheck disable=SC1090
-        source "$_ig_lib_dir/providers/${PROVIDER_NAME}/repos.bash"
-        # shellcheck disable=SC1091
-        # shellcheck disable=SC1090
-        source "$_ig_lib_dir/providers/${PROVIDER_NAME}/issues.bash"
-    fi
-    unset _ig_lib_dir
+# Provider layer: graph traversals route through the abstraction via the
+# one canonical loader.
+_ig_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$_ig_lib_dir/providers/provider-core.bash" ]; then
+    # shellcheck disable=SC1091
+    source "$_ig_lib_dir/providers/provider-core.bash"
+    provider_load repos issues
 fi
+unset _ig_lib_dir
 
 _issue_graph_repo_spec() {
-    if [ -n "${GITHUB_REPO:-}" ]; then
-        printf '%s' "$GITHUB_REPO"
+    # Resolution (env override → cwd identity) is provider_repo_target's
+    # contract; this wrapper keeps the graph-local naming.
+    local spec
+    spec=$(provider_repo_target)
+    if [ -n "$spec" ]; then
+        printf '%s' "$spec"
     else
         local owner repo
         owner=$(provider_repos_view "" --json owner -q .owner.login 2>/dev/null)

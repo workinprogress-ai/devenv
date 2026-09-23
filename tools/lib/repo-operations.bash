@@ -12,24 +12,15 @@ if [ -n "${_REPO_OPERATIONS_LOADED:-}" ]; then
 fi
 readonly _REPO_OPERATIONS_LOADED=1
 
-# Provider layer: repo verbs route through the abstraction (slice 3/#36).
-if [ -z "${_PROVIDER_CORE_LOADED:-}" ]; then
-    _ro_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    if [ -f "$_ro_lib_dir/providers/provider-core.bash" ]; then
-        # shellcheck disable=SC1091
-        source "$_ro_lib_dir/providers/provider-core.bash"
-        provider_detect "${DEVENV_ROOT:-$(dirname "$(dirname "$_ro_lib_dir")")}/devenv.config" 2>/dev/null || PROVIDER_NAME="${PROVIDER_NAME:-github}"
-        # shellcheck disable=SC1091
-        source "$_ro_lib_dir/providers/${PROVIDER_NAME}/repos.bash"
-        # URL seam (provider_git_transport_url et al.) — optional module:
-        # guarded so providers without it keep loading.
-        # shellcheck disable=SC1090,SC1091
-        if [ -f "$_ro_lib_dir/providers/${PROVIDER_NAME}/urls.bash" ]; then
-            source "$_ro_lib_dir/providers/${PROVIDER_NAME}/urls.bash"
-        fi
-    fi
-    unset _ro_lib_dir
+# Provider layer: repo verbs route through the abstraction via the one
+# canonical loader (provider_load skips absent optional modules like urls).
+_ro_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$_ro_lib_dir/providers/provider-core.bash" ]; then
+    # shellcheck disable=SC1091
+    source "$_ro_lib_dir/providers/provider-core.bash"
+    provider_load repos urls
 fi
+unset _ro_lib_dir
 
 # Self-locate this checkout (self-root contract: self-location wins;
 # a foreign exported DEVENV_ROOT is ignored).

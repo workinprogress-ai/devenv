@@ -15,7 +15,7 @@ set -euo pipefail
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/body-source.bash"
 
@@ -144,18 +144,27 @@ post_comment() {
         return 0
     fi
 
-    local gh_args=()
-    gh_args+=("${repo_spec[@]}")
-
+    local comment_args=()
     if [ -n "$COMMENT_FILE" ]; then
-        gh_args+=(--body-file "$COMMENT_FILE")
+        comment_args+=(--body-file "$COMMENT_FILE")
     else
-        gh_args+=(--body "$COMMENT_BODY")
+        comment_args+=(--body "$COMMENT_BODY")
     fi
 
     log_verbose "Posting comment on PR #$PR_NUMBER"
 
-    if provider_prs_comment "${gh_args[0]:-}" "${gh_args[@]}" "$PR_NUMBER"; then
+    # The facade verb's signature is provider_prs_comment [repo] NUMBER
+    # [flags...]: repo positionally (or empty for cwd resolution), then the
+    # PR number. Passing the prebuilt "-R repo --body ..." array with its
+    # first element duplicated into the repo slot scrambled the argument
+    # stream into invalid gh invocations in both the with-repo and no-repo
+    # shapes. get_repo_spec emits "-R owner/repo"; strip the flag word.
+    local repo="${repo_spec[1]:-}"
+    if [ "${repo_spec[0]:-}" != "-R" ]; then
+        repo=""
+    fi
+
+    if provider_prs_comment "$repo" "$PR_NUMBER" "${comment_args[@]}"; then
         log_info "Comment posted on PR #$PR_NUMBER"
     else
         log_error "Failed to post comment on PR #$PR_NUMBER"

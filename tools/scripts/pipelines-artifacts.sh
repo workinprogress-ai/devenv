@@ -16,7 +16,7 @@ set -euo pipefail
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
@@ -99,7 +99,7 @@ list_artifacts() {
     log_verbose "Listing artifacts for run $RUN_ID in $REPO"
 
     local artifacts
-    if ! artifacts=$(provider_actions_run_artifacts "$owner/$repo" "$RUN_ID" 2>/dev/null); then
+    if ! artifacts=$(provider_pipelines_run_artifacts "$owner/$repo" "$RUN_ID" 2>/dev/null); then
         log_error "Failed to fetch artifacts for run $RUN_ID in $REPO"
         exit "$EXIT_API_FAILURE"
     fi
@@ -138,8 +138,8 @@ download_artifacts() {
     # When downloading all (no --name), warn if total size is large
     if [ -z "$ARTIFACT_NAME" ]; then
         local total_bytes
-        total_bytes=$(provider_actions_run_artifacts "$owner/$repo" "$RUN_ID" 2>/dev/null \
-            --jq '[.artifacts[].size_in_bytes] | add // 0' 2>/dev/null || echo "0")
+        total_bytes=$(provider_pipelines_run_artifacts "$owner/$repo" "$RUN_ID" 2>/dev/null \
+            --jq '[.artifacts[].size_in_bytes] | add // 0' || echo "0")
 
         if [ "$total_bytes" -gt "$DOWNLOAD_SIZE_WARN_BYTES" ]; then
             local size_mib=$(( total_bytes / 1048576 ))
@@ -160,7 +160,7 @@ download_artifacts() {
 
     log_verbose "Downloading artifacts for run $RUN_ID from $REPO to $DEST_DIR"
 
-    if ! provider_actions_run_download "$REPO" "$RUN_ID" "${gh_args[@]:1}"; then
+    if ! provider_pipelines_run_download "$REPO" "$RUN_ID" "${gh_args[@]:1}"; then
         log_error "Failed to download artifacts for run $RUN_ID"
         exit "$EXIT_API_FAILURE"
     fi

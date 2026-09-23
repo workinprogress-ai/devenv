@@ -2,7 +2,7 @@
 
 Shared protocol for the **write side** of the copilot knowledge source — the mirror of the [Knowledge & Engineering-Pattern Lookup Protocol](knowledge-lookup-protocol.md), which governs the read side (and engineering-patterns lookup).
 
-Shared protocol for capturing organization-specific implementation lessons into the copilot knowledge repo — any skill may follow it on explicit request; `/devenv-pair-programming` and `/devenv-delegation` carry its explicit closeout wiring: capture when the user explicitly asks to distill the session or calls out a point to add. Never offer distillation unprompted — proactive offers are deferred to the offer-gating design tracked in the devenv repo.
+Shared protocol for capturing organization-specific implementation lessons into the copilot knowledge repo — any skill may follow it on explicit request; `/devenv-pair` and `/devenv-delegate` carry its explicit closeout wiring: capture when the user explicitly asks to distill the session or calls out a point to add. Never offer distillation unprompted — proactive offers are deferred to the offer-gating design tracked in the devenv repo.
 
 ## The knowledge bar
 

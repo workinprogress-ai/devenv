@@ -24,8 +24,8 @@ if [ -f "${DEVENV_ROOT}/tools/lib/error-handling.bash" ]; then
 fi
 
 # shellcheck disable=SC1091
-if [ -f "${DEVENV_ROOT}/tools/lib/github-helpers.bash" ]; then
-    source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
+if [ -f "${DEVENV_ROOT}/tools/lib/provider-loader.bash" ]; then
+    source "$DEVENV_ROOT/tools/lib/provider-loader.bash"
 fi
 
 # shellcheck disable=SC1091
@@ -143,17 +143,10 @@ delete_branch() {
 find_pr_by_branches() {
     local head_branch="${1:-}"
     local base_branch="${2:-}"
-    # shellcheck disable=SC2178
     local repo_spec="${3:-}"
     
     # shellcheck disable=SC2015
     [ -n "$head_branch" ] && [ -n "$base_branch" ] || { log_error "Head and base branches required"; return 1; }
-    
-    local repo_args=()
-    # shellcheck disable=SC2128
-    if [ -n "$repo_spec" ]; then
-        read -ra repo_args <<< "$repo_spec"
-    fi
     
     local prov_repo=""
     [ -n "$repo_spec" ] && prov_repo="$(echo "$repo_spec" | sed 's/^-R //')"
@@ -170,11 +163,6 @@ get_pr_details() {
     local repo_spec="${2:-}"
     
     [ -n "$pr_num" ] || { log_error "PR number required"; return 1; }
-    
-    local repo_args=()
-    if [ -n "$repo_spec" ]; then
-        read -ra repo_args <<< "$repo_spec"
-    fi
     
     local prov_repo=""
     [ -n "$repo_spec" ] && prov_repo="$(echo "$repo_spec" | sed 's/^-R //')"
@@ -326,11 +314,6 @@ merge_pr_squash() {
     # shellcheck disable=SC2015
     [ -n "$pr_num" ] && [ -n "$commit_msg" ] || { log_error "PR number and commit message required"; return 1; }
     
-    local repo_args=()
-    if [ -n "$repo_spec" ]; then
-        read -ra repo_args <<< "$repo_spec"
-    fi
-    
     log_info "Merging PR $pr_num with squash..."
     local prov_repo=""
     [ -n "$repo_spec" ] && prov_repo="$(echo "$repo_spec" | sed 's/^-R //')"
@@ -358,11 +341,6 @@ merge_pr() {
         squash|merge|rebase) ;;
         *) log_error "Invalid merge method: $method (must be squash, merge, or rebase)"; return 1 ;;
     esac
-    
-    local repo_args=()
-    if [ -n "$repo_spec" ]; then
-        read -ra repo_args <<< "$repo_spec"
-    fi
     
     local subject body
     subject="$(printf "%s" "$commit_msg" | head -n1)"
@@ -618,13 +596,13 @@ check_target_repo() {
 
     # Canonical devenv-repo test — same predicate everywhere
     if is_devenv_repo; then
-        if [ -z "${GITHUB_REPO:-}" ]; then
+        if [ -z "${DEVENV_REPO:-${GITHUB_REPO:-}}" ]; then
             if is_nested_devenv_clone; then
                 log_info "Operating on a devenv clone below repos/ — no --devenv override needed"
             elif [ "${ALLOW_DEVENV_REPO:-0}" -eq 0 ]; then
                 log_error "The current repository appears to be the devenv repository itself"
                 log_info "Operations should be performed in target project repositories, not in devenv"
-                log_info "To target a project repo, prefix the command with GITHUB_REPO=<owner>/<repo>"
+                log_info "To target a project repo, prefix the command with DEVENV_REPO=<owner>/<repo>"
                 log_info "To override this safety check (devenv-repo work only), pass the --devenv flag"
                 exit 1
             else

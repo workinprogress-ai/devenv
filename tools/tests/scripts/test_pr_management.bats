@@ -56,9 +56,9 @@ load ../test_helper
   done
 }
 
-@test "pr scripts source github-helpers" {
+@test "pr scripts source provider-loader" {
   for script in pr-get.sh pr-comment.sh pr-diff.sh pr-list.sh; do
-    run grep 'source.*github-helpers.bash' "$PROJECT_ROOT/tools/scripts/$script"
+    run grep 'source.*provider-loader.bash' "$PROJECT_ROOT/tools/scripts/$script"
     [ "$status" -eq 0 ]
   done
 }
@@ -189,11 +189,11 @@ EOF
   [ "$status" -ne 0 ]
 }
 
-@test "new pr-thread scripts source error-handling and github-helpers" {
+@test "new pr-thread scripts source error-handling and provider-loader" {
   for script in pr-threads-get.sh pr-thread-reply.sh pr-thread-resolve.sh; do
     run grep 'source.*error-handling.bash' "$PROJECT_ROOT/tools/scripts/$script"
     [ "$status" -eq 0 ]
-    run grep 'source.*github-helpers.bash' "$PROJECT_ROOT/tools/scripts/$script"
+    run grep 'source.*provider-loader.bash' "$PROJECT_ROOT/tools/scripts/$script"
     [ "$status" -eq 0 ]
   done
 }

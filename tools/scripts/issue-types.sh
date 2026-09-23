@@ -17,10 +17,10 @@ set -euo pipefail
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 #
-# Org identity (policy_org) arrives transitively via github-helpers
+# Org identity (policy_org) arrives transitively via provider-loader
 # (which loads the policy layer); no explicit policy sourcing here.
 
 readonly SCRIPT_VERSION="1.0.0"
@@ -55,8 +55,8 @@ Options:
     -f, --format FORMAT         Output format: table (default), json, simple
 
 Environment Variables:
-    GH_ORG                      Organization to query (falls back to the owner
-                                part of GITHUB_REPO)
+    DEVENV_REPO                 Repository override in owner/repo form (the
+                                deprecated GITHUB_REPO alias still works)
 
 Examples:
     # List issue types
@@ -76,11 +76,11 @@ resolve_org() {
         echo "$policy_org"
         return 0
     fi
-    if [ -n "${GITHUB_REPO:-}" ]; then
-        echo "${GITHUB_REPO%%/*}"
+    if [ -n "${DEVENV_REPO:-}" ]; then
+        echo "${DEVENV_REPO%%/*}"
         return 0
     fi
-    log_error "Cannot resolve organization — configure [organization] github_org in devenv.config or set GITHUB_REPO"
+    log_error "Cannot resolve organization — configure [organization] github_org in devenv.config or set DEVENV_REPO"
     return 1
 }
 

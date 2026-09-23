@@ -7,7 +7,7 @@ The essentials live in `devenv.config`; repository-creation standards live in `t
 ## Quick Checklist
 
 - ✅ Read [The fork-stable surfaces contract](#the-fork-stable-surfaces-contract) below — it defines what you may change without carrying maintenance burden
-- ✅ Update `devenv.config` for org identity, provider name, container name, workflows, and bootstrap defaults
+- ✅ Update `devenv.config` for org identity (the neutral `org` key; the legacy `github_org` still works as a fallback), provider name, container name, workflows, and bootstrap defaults
 - ✅ (If you customize the issue workflow) Read [Issue Workflow](./Issue-Workflow.md) first — the `[workflows]` vocabulary carries engine contracts, documented in its section below. You will need to re-write [Issue Workflow](./Issue-Workflow.md) to reflect your workflow.
 - ✅ (If you use issue creation tooling) Update `tools/config/issues-config.yml` with your organization's issue types and provider issue-type IDs
 - ✅ (If you adapt to a non-GitHub provider) Follow [Adapting to Azure DevOps](#adapting-to-azure-devops) — provider modules, protocol reference, and config keys
@@ -240,7 +240,7 @@ stale_tbd_days=7
 ```
 
 - **status_workflow**: The issue status vocabulary, ordered. Everything downstream — project boards, the workflow engine, `workflow-signal`, parent status rollup — reads this single key.
-- **stale_to_groom_days**: How long an issue may sit in `To-Groom` before `/devenv-project-manager` flags it as stale (Assess findings, grooming-candidate recommendations).
+- **stale_to_groom_days**: How long an issue may sit in `To-Groom` before `/devenv-board` flags it as stale (Assess findings, grooming-candidate recommendations).
 - **stale_ready_days**: Inactivity threshold for `Ready` items (ready but nobody picking them up).
 - **stale_implementing_days**: Inactivity threshold for in-flight items (`Implementing`, `Review`-adjacent work that has gone quiet).
 - **stale_tbd_days**: How long an untriaged `TBD` issue may wait before it surfaces in hygiene sweeps.

@@ -23,25 +23,20 @@ if [ -n "$_policy_dir" ] && [ -f "$_policy_dir/policy-core.bash" ]; then
 fi
 readonly _ARTIFACT_OPERATIONS_LOADED=1
 
-# Provider layer: REST reads route through the abstraction (slice 3/#36).
-# github-helpers (sourced below) loads the provider layer; this guard covers
-# standalone sourcing.
-if [ -z "${_PROVIDER_CORE_LOADED:-}" ]; then
-    _ao_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    if [ -f "$_ao_lib_dir/providers/provider-core.bash" ]; then
-        # shellcheck disable=SC1091
-        source "$_ao_lib_dir/providers/provider-core.bash"
-        provider_detect "${DEVENV_ROOT:-$(dirname "$(dirname "$_ao_lib_dir")")}/devenv.config" 2>/dev/null || PROVIDER_NAME="${PROVIDER_NAME:-github}"
-        # shellcheck disable=SC1091
-        # shellcheck disable=SC1090
-        source "$_ao_lib_dir/providers/${PROVIDER_NAME}/repos.bash"
-    fi
-    unset _ao_lib_dir
+# Provider layer: REST reads route through the abstraction via the one
+# canonical loader (covers standalone sourcing; provider-loader below also
+# loads the full provider layer).
+_ao_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$_ao_lib_dir/providers/provider-core.bash" ]; then
+    # shellcheck disable=SC1091
+    source "$_ao_lib_dir/providers/provider-core.bash"
+    provider_load repos
 fi
+unset _ao_lib_dir
 
 # Ensure dependencies are loaded
 source "${DEVENV_TOOLS}/lib/error-handling.bash"
-source "${DEVENV_TOOLS}/lib/github-helpers.bash"
+source "${DEVENV_TOOLS}/lib/provider-loader.bash"
 
 # ============================================================================
 # Package Type Definitions

@@ -14,7 +14,7 @@ DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 
 readonly SCRIPT_VERSION="1.0.0"
@@ -112,7 +112,7 @@ main() {
     issue_url="$(provider_web_url "$owner/$repo" "issues/$ISSUE_NUMBER")"
 
     log_verbose "Looking up projects for $issue_url"
-    projects_for_issue "$issue_url" "$owner"
+    provider_projects_for_issue "$issue_url" "$owner"
 }
 
 main "$@"

@@ -26,9 +26,8 @@ policy_triage_label() {
     local key="$1"
     local vocabulary
     vocabulary="$(policy_triage_labels)"
-    local candidate label_name
+    local candidate
     for candidate in $vocabulary; do
-        label_name="${candidate#*:}"
         case "$candidate" in
             "$key") echo "$candidate"; return 0 ;;
         esac

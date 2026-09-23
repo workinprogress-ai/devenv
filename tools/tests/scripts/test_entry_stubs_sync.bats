@@ -222,3 +222,25 @@ _make_stub() {
     [ "$(cat "$root/tools/.continueignore")" = "config" ]
     rm -rf "$root"
 }
+
+@test "real checkout: every depth-1 stub's exec target exists" {
+    # The mock-checkout tests above verify the sync script's mechanics; this
+    # one guards the real tree: a stub whose target is missing breaks the
+    # command for every developer. This exact gap shipped once (rename wave
+    # left nine stale stubs) — this test fails if it ever recurs.
+    local broken=""
+    local f target
+    for f in "$PROJECT_ROOT"/tools/[a-z]*; do
+        [ -f "$f" ] || continue
+        target=$(grep -o 'scripts/[a-zA-Z0-9._-]*\.sh' "$f" 2>/dev/null | head -1)
+        [ -n "$target" ] || continue
+        if [ ! -f "$PROJECT_ROOT/tools/$target" ]; then
+            broken+="$(basename "$f") -> $target"$'\n'
+        fi
+    done
+    [ -z "$broken" ] || {
+        echo "stale depth-1 stubs (exec target missing):" >&2
+        printf '%s' "$broken" >&2
+        return 1
+    }
+}

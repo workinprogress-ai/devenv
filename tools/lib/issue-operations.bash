@@ -21,24 +21,15 @@ if [ -z "${_ERROR_HANDLING_LOADED:-}" ] && [ -f "${DEVENV_ROOT}/tools/lib/error-
     source "${DEVENV_ROOT}/tools/lib/error-handling.bash"
 fi
 
-# Provider layer: issue/PR verbs route through the abstraction (slice 3/#36).
-# Load the domain modules whenever their verbs are missing — another lib may
-# have loaded provider-core alone (its flag says nothing about modules).
-# Module sourcing is best-effort: a bare checkout carrying only this lib and
-# self-root must still load (verbs stay undefined; call sites fail defined).
+# Provider layer: issue/PR verbs route through the abstraction via the one
+# canonical loader. provider_load skips absent modules, so a bare checkout
+# carrying only this lib still loads (call sites fail defined).
 if ! declare -F provider_issues_set_type >/dev/null; then
     if [ -f "${DEVENV_ROOT}/tools/lib/providers/provider-core.bash" ]; then
         # shellcheck disable=SC1091
         source "${DEVENV_ROOT}/tools/lib/providers/provider-core.bash"
-        provider_detect "${DEVENV_ROOT}/devenv.config" 2>/dev/null || PROVIDER_NAME="${PROVIDER_NAME:-github}"
+        provider_load issues prs repos
     fi
-    _io_provider_dir="${DEVENV_ROOT}/tools/lib/providers/${PROVIDER_NAME:-github}"
-    for _io_module in issues prs repos; do
-        # shellcheck disable=SC1091
-        # shellcheck disable=SC1090
-        [ -f "$_io_provider_dir/$_io_module.bash" ] && source "$_io_provider_dir/$_io_module.bash"
-    done
-    unset _io_provider_dir _io_module
 fi
 
 # ============================================================================
@@ -717,11 +708,14 @@ validate_comment_id() {
 # Fetch all comments for an issue via the GitHub REST API
 # Usage: fetch_issue_comments ISSUE_NUMBER
 # Returns: Raw JSON array on stdout; exit 1 on API failure
-# Note: Requires GITHUB_REPO env var (owner/repo) to be set
+# Note: Repo resolves via provider_repo_target (DEVENV_REPO, or the
+# deprecated GITHUB_REPO alias, then cwd identity).
 fetch_issue_comments() {
     local issue_number="$1"
     local raw
-    if ! raw=$(provider_issues_comments "$issue_number" "${GITHUB_REPO:-}"); then
+    local repo
+    repo=$(provider_repo_target)
+    if ! raw=$(provider_issues_comments "$issue_number" "$repo"); then
         log_error "Failed to fetch comments for issue #$issue_number — does the issue exist?"
         return 1
     fi
@@ -776,10 +770,13 @@ format_issue_comments() {
 # Verify that a comment ID exists in the repository
 # Usage: check_issue_comment_exists COMMENT_ID
 # Returns: 0 if the comment exists; 1 with error message if not
-# Note: Requires GITHUB_REPO env var (owner/repo) to be set
+# Note: Repo resolves via provider_repo_target (DEVENV_REPO, or the
+# deprecated GITHUB_REPO alias, then cwd identity).
 check_issue_comment_exists() {
     local comment_id="$1"
-    if ! provider_api GET "repos/${GITHUB_REPO}/issues/comments/${comment_id}" --silent >/dev/null 2>&1; then
+    local repo
+    repo=$(provider_repo_target)
+    if ! provider_api GET "repos/${repo}/issues/comments/${comment_id}" --silent >/dev/null 2>&1; then
         log_error "Comment ID $comment_id not found — does it belong to this repository?"
         return 1
     fi
@@ -788,11 +785,14 @@ check_issue_comment_exists() {
 # Replace the body of an existing issue comment via the GitHub REST API
 # Usage: update_issue_comment COMMENT_ID BODY
 # Returns: 0 on success; 1 with error message on API failure
-# Note: Requires GITHUB_REPO env var (owner/repo) to be set
+# Note: Repo resolves via provider_repo_target (DEVENV_REPO, or the
+# deprecated GITHUB_REPO alias, then cwd identity).
 update_issue_comment() {
     local comment_id="$1"
     local body="$2"
-    if ! provider_api PATCH "repos/${GITHUB_REPO}/issues/comments/${comment_id}" \
+    local repo
+    repo=$(provider_repo_target)
+    if ! provider_api PATCH "repos/${repo}/issues/comments/${comment_id}" \
             -f "body=${body}" \
             --silent >/dev/null 2>&1; then
         log_error "Failed to update comment $comment_id"

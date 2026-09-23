@@ -17,14 +17,16 @@ if ! declare -F log_error >/dev/null; then
     log_error() { echo "ERROR: $*" >&2; }
 fi
 
-PROVIDER_CAPABILITIES="${PROVIDER_CAPABILITIES:-}"
-for __cap in rulesets native-issue-types; do
-    case " $PROVIDER_CAPABILITIES " in
-        *" $__cap "*) ;;
-        *) PROVIDER_CAPABILITIES="${PROVIDER_CAPABILITIES:+$PROVIDER_CAPABILITIES }$__cap" ;;
-    esac
-done
-unset __cap
+if ! declare -F provider_declare_capability >/dev/null; then
+    # Standalone-sourcing fallback: the capability registry lives
+    # in provider-core; source it when this module is loaded alone.
+    _cap_core_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    # shellcheck disable=SC1091
+    source "$_cap_core_dir/provider-core.bash"
+    unset _cap_core_dir
+fi
+provider_declare_capability rulesets
+provider_declare_capability native-issue-types
 
 # ---------------------------------------------------------------------------
 # Rulesets (GH-only capability; REST CRUD per repo-types/policy-export)
@@ -65,7 +67,12 @@ provider_org_ruleset_update() {
 # List releases.
 # Usage: provider_org_releases_list [repo] [FLAGS]
 provider_org_releases_list() {
-    local repo="$1"; shift
+    local repo="${1:-}"
+    shift
+    if [ -z "$repo" ] || [[ "$repo" != */* ]]; then
+        log_error "provider_org_releases_list: repo must be owner/repo form"
+        return 1
+    fi
     gh release list -R "$repo" "$@"
 }
 

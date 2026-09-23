@@ -144,8 +144,8 @@ setup() {
 # Labels
 # ============================================================================
 
-@test "label list: passes repo, --json name" {
-    run provider_issues_label_list org/repo
+@test "label list: passes repo and caller flags through unchanged" {
+    run provider_issues_label_list org/repo --json name
     assert_success
     grep -q "^gh label list -R org/repo --json name$" "$STUB_CALL_LOG"
 }
@@ -157,4 +157,57 @@ setup() {
     run provider_issues_label_ensure org/repo priority-high
     assert_success
     grep -q "gh label create priority-high -R org/repo" "$STUB_CALL_LOG"
+}
+
+@test "milestones: trailing flags pass through to gh api (issue-triage --jq)" {
+    gh_calls_reset
+    provider_issues_milestones "org/repo" --jq '.[] | .title'
+    gh_last_call_equals "api repos/org/repo/milestones --jq .[] | .title"
+}
+
+@test "label list: no duplicate --json when caller supplies fields" {
+    gh_calls_reset
+    provider_issues_label_list "org/repo" --limit 200 --json name,description,color
+    gh_last_call_equals "label list -R org/repo --limit 200 --json name,description,color"
+}
+
+@test "gh_repo_args: repo value with command substitution stays inert" {
+    # Regression lock: the helper once eval'd its input, executing $(...)
+    # from repo names (audit F009). printf -v assignment is inert by design.
+    local arr=()
+    local probe_file="$TEST_TEMP_DIR/pwned-marker"
+    rm -f "$probe_file"
+    provider_gh_repo_args arr "a\$(touch '$probe_file')b"
+    [ "${arr[0]}" = "-R" ]
+    [ "${arr[1]}" = "a\$(touch '$probe_file')b" ]
+    [ ! -f "$probe_file" ]
+}
+
+@test "issues list: valueless flag passes through without swallowing the next arg" {
+    gh_calls_reset
+    provider_issues_list "" --web
+    gh_last_call_equals "issue list --web"
+}
+
+@test "issues list: valued flag followed by boolean parses both" {
+    gh_calls_reset
+    provider_issues_list "" --state open --web
+    gh_last_call_equals "issue list --state open --web"
+}
+
+@test "issues list: flag missing its value fails defined" {
+    run provider_issues_list "" --state
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"requires a value"* ]]
+}
+
+@test "label ensure: list failure is reported, not treated as absent" {
+    # A gh stub that fails the list forces the defined error path.
+    local fail_bin="$TEST_TEMP_DIR/failbin"
+    mkdir -p "$fail_bin"
+    printf '#!/usr/bin/env bash\n[ "$1" = "label" ] && [ "$2" = "list" ] && exit 1\nexit 0\n' > "$fail_bin/gh"
+    chmod +x "$fail_bin/gh"
+    PATH="$fail_bin:$PATH" run provider_issues_label_ensure "org/repo" "some-label"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"cannot list labels"* ]]
 }

@@ -6,8 +6,8 @@ DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 # devenv-marker-check.sh - Deterministic DEVENV-marker and AC-comment scanning
 # Version: 1.3.0
 # Description: Replaces hand-run grep sweeps: verify no plan-bounded
-#              FIXME(DEVENV[ markers remain (gate mode), list [AC-N] comments
-#              (finder mode), list scoped TODO(DEVENV markers with discharge
+#              FIXME:DEVENV[ markers remain (gate mode), list [AC-N]: comments
+#              (finder mode), list scoped TODO:DEVENV[ markers with discharge
 #              conditions (--todo-report), audit all markers (--all), or check
 #              custom markers with --require inversion.
 # Requirements: Bash 4.0+, grep
@@ -28,6 +28,7 @@ TODO_REPORT=0
 ALL_MARKERS=0
 REQUIRE=0
 NO_EXCLUDE=0
+INCLUDE_COPILOT=0
 # Default noise-class exclusions: gitignored caches (repo-cache clones,
 # node_modules), VCS internals, and workspace-root per-repo clone dirs.
 # --no-exclude restores exhaustive traversal for audit sweeps.
@@ -40,8 +41,8 @@ Usage: $SCRIPT_NAME [PATH...] [OPTIONS]
 
 Deterministic marker scanning for DEVENV workflows.
 
-Default (gate mode): fail (exit 1) when any plan-bounded FIXME(DEVENV[
-marker remains under the scanned paths — cross-plan TODO(DEVENV[ markers
+Default (gate mode): fail (exit 1) when any plan-bounded FIXME:DEVENV[ (or paren-form FIXME(DEVENV[
+marker remains under the scanned paths — cross-plan TODO:DEVENV[ markers
 are sanctioned to ship and do not block. Print each hit as
 file:line:match.
 
@@ -53,18 +54,23 @@ Options:
     --ac                         Finder mode: list [AC-N] DEVENV comments with
                                  file:line:match; exit 0 regardless (the AC
                                  review gate assesses them, this only finds them)
-    --todo-report                Finder mode: list scoped TODO(DEVENV[ markers
+    --todo-report                Finder mode: list scoped TODO:DEVENV[ markers
                                  with file:line:match and flag any that are
                                  missing a discharge condition ("remove when
                                  ..."); exit 0 regardless. Also surfaces
-                                 malformed TODO(DEVENV) entries lacking a plan
+                                 paren-form TODO(DEVENV) entries lacking a plan
+                                 key (paren form is detected but not canonical)
                                  key. Supports the kickoff Scoped-TODO
                                  discovery rule.
     --marker REGEX               Custom marker regex (default 'DEVENV\['), e.g.
-                                 'DEVENV\[bug-hunt\]' for bug-hunter sweeps
+                                 'DEVENV\[bug-hunt\]' for bug-hunt sweeps
     --require                    Invert the gate: succeed only when at least one
                                  match exists (verification sweeps like
                                  "protocol reference present in every skill")
+    --include-copilot            Gate/audit modes: also scan copilot/ (devenv's own
+                                 skill files carry example markers by design; they are
+                                 excluded from gate/audit modes by default, but still
+                                 scanned by --todo-report and --ac)
     --no-exclude                 Scan ALL directories including the default
                                  noise-class exclusions (cache, node_modules,
                                  .git, repos). Use for exhaustive audits.
@@ -101,6 +107,7 @@ main() {
                 MARKER="$2"; shift 2 ;;
             --require) REQUIRE=1; shift ;;
             --no-exclude) NO_EXCLUDE=1; shift ;;
+            --include-copilot) INCLUDE_COPILOT=1; shift ;;
             --*) invalid_args "Unknown option: $1" ;;
             *) PATHS+=("$1"); shift ;;
         esac
@@ -126,15 +133,15 @@ main() {
     if [ "$AC_MODE" -eq 1 ]; then
         regex='\[AC-[0-9]+'
     elif [ "$TODO_REPORT" -eq 1 ]; then
-        # surface scoped TODOs AND malformed legacy TODO(DEVENV) (no key) so
-        # off-spec forms cannot hide from the discovery rule
-        regex='TODO\(DEVENV'
+        # surface scoped TODOs in the canonical colon form AND paren-form
+        # entries so off-spec forms cannot hide from the discovery rule
+        regex='TODO:?\(DEVENV|TODO:DEVENV\['
     elif [ "$ALL_MARKERS" -eq 1 ]; then
-        regex='(FIXME|TODO)\(DEVENV|DEVENV\['
+        regex='(FIXME|TODO):?\(DEVENV|(FIXME|TODO):DEVENV\[|DEVENV\['
     else
-        # PR-blocking gate: plan-bounded FIXME markers only — cross-plan
-        # TODO(DEVENV markers are sanctioned to ship and must not block
-        regex='FIXME\(DEVENV'
+        # PR-blocking gate: plan-bounded FIXME markers only (colon form
+        # canonical, paren form detected) — cross-plan TODOs must not block
+        regex='FIXME:?\(DEVENV|FIXME:DEVENV\['
     fi
 
     local result
@@ -147,6 +154,12 @@ main() {
         for d in "${EXCLUDE_DIRS[@]}"; do
             excl_args+=(--exclude-dir="$d")
         done
+        # copilot/ carries example markers by design: excluded from the
+        # PR-blocking gate and audit modes unless --include-copilot is given.
+        # --todo-report and --ac always scan it.
+        if [ "$INCLUDE_COPILOT" -eq 0 ] && [ "$TODO_REPORT" -eq 0 ] && [ "$AC_MODE" -eq 0 ]; then
+            excl_args+=(--exclude-dir="copilot")
+        fi
         result=$(grep -rnE "$regex" "${excl_args[@]}" "${PATHS[@]}" 2>/dev/null)
     fi
     set -e
@@ -170,9 +183,9 @@ main() {
         fi
         local missing malformed
         missing=$(echo "$result" | grep -cv 'remove when .\{1,\}' || true)
-        malformed=$(echo "$result" | grep -cv 'TODO(DEVENV\[' || true)
+        malformed=$(echo "$result" | grep -cvE 'TODO:?\(DEVENV\[|TODO:DEVENV\[' || true)
         if [ "$malformed" -gt 0 ]; then
-            log_warn "$malformed malformed TODO(DEVENV) entry(ies) without a plan key found — plan keys are mandatory; fix or convert"
+            log_warn "$malformed malformed TODO entry(ies) without a plan key found (paren form or no key) — plan keys are mandatory; fix or convert to TODO:DEVENV[key]: ..."
         fi
         if [ "$missing" -gt 0 ]; then
             log_warn "$missing of $hits scoped TODO(s) missing a discharge condition ('remove when ...') — condition-less TODOs are defects per the marker spec; resolve with the user"
@@ -189,7 +202,7 @@ main() {
     fi
 
     if [ "$hits" -gt 0 ]; then
-        log_error "$hits plan-bounded FIXME(DEVENV marker(s) found — remove or convert them before completion"
+        log_error "$hits plan-bounded FIXME marker(s) found — remove or convert them before completion"
         exit 1
     fi
     if [ "$ALL_MARKERS" -eq 1 ]; then

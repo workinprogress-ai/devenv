@@ -50,10 +50,10 @@ source "$DEVENV_TOOLS/lib/retry.bash"
 # shellcheck source=../lib/git-config.bash
 # source "$DEVENV_TOOLS/lib/git-config.bash"
 
-# Optional: source github-helpers.bash + git-operations.bash if working with
+# Optional: source provider-loader.bash + git-operations.bash if working with
 # GitHub (resolve_target_repo hard-requires git-operations for the safety gate)
-# shellcheck source=../lib/github-helpers.bash
-# source "$DEVENV_TOOLS/lib/github-helpers.bash"
+# shellcheck source=../lib/provider-loader.bash
+# source "$DEVENV_TOOLS/lib/provider-loader.bash"
 # shellcheck source=../lib/git-operations.bash
 # source "$DEVENV_TOOLS/lib/git-operations.bash"
 

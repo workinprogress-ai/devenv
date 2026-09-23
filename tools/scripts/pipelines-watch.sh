@@ -16,7 +16,7 @@ set -euo pipefail
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
@@ -75,7 +75,7 @@ watch_run() {
     if [ -z "$run_id" ]; then
         log_info "No RUN_ID provided — detecting latest in-progress run for $REPO..."
 
-        run_id=$(provider_actions_run_list "$REPO" \
+        run_id=$(provider_pipelines_run_list "$REPO" \
             --status in_progress \
             --limit 1 \
             --json databaseId \
@@ -94,7 +94,7 @@ watch_run() {
     [ "$EXIT_STATUS" -eq 1 ] && gh_args+=(--exit-status)
 
     log_verbose "Watching run $run_id in $REPO"
-    provider_actions_run_watch "$REPO" "$run_id" "${gh_args[@]:1}"
+    provider_pipelines_run_watch "$REPO" "$run_id" "${gh_args[@]:1}"
 }
 
 # ============================================================================

@@ -102,7 +102,7 @@ Filename mode scans a directory for the pattern's `{N}` digit run and prints the
 Examples:
 
 ```bash
-next-id --pattern 'spike-{N}-*' --width 3          # 004
+next-id --pattern 'research-{N}-*' --width 3       # 004
 next-id --pattern 'Blueprint-orders-{N}.md' --filename # Blueprint-orders-005.md (bare name — join with --dir for a usable path)
 next-id --file Specifications-orders-001.md --prefix 'SPEC-' --full   # SPEC-015
 ```
@@ -134,7 +134,7 @@ Deterministic DEVENV-marker and AC-comment scanning (replaces hand-run grep swee
 devenv-marker-check [PATH...] [--all] [--ac] [--todo-report] [--marker REGEX] [--require]
 ```
 
-Gate mode (default): exit 1 when any plan-bounded `FIXME(DEVENV[` marker remains — cross-plan `TODO(DEVENV[` markers are sanctioned to ship and do not block. `--all` widens the gate to ALL marker forms (FIXME, TODO, and legacy bare `DEVENV[`) for cleanup audits. `--ac` lists `[AC-N]` comments for the AC review gate (always exit 0). `--todo-report` lists scoped `TODO(DEVENV` markers with file:line:match, warns about missing discharge conditions and malformed no-plan-key `TODO(DEVENV)` forms — supports the kickoff Scoped-TODO discovery rule (always exit 0). `--marker` scans a custom pattern (e.g. `DEVENV\\[bug-hunt\\]`). `--require` inverts the gate — pass only when at least one match exists. `--ac`/`--todo-report` are mutually exclusive; `--all` cannot be combined with either.
+Gate mode (default): exit 1 when any plan-bounded `FIXME:DEVENV[` marker remains — cross-plan `TODO:DEVENV[` markers are sanctioned to ship and do not block. `--all` widens the gate to ALL marker forms (FIXME, TODO, and bare `DEVENV[`) for cleanup audits. `--ac` lists `[AC-N]:` comments for the AC review gate (always exit 0). `--todo-report` lists scoped `TODO:DEVENV[` markers (legacy paren form included) with file:line:match, warns about missing discharge conditions and paren-form / no-plan-key `TODO(DEVENV)` forms (detected, not canonical) — supports the kickoff Scoped-TODO discovery rule (always exit 0). `--marker` scans a custom pattern (e.g. `DEVENV\\[bug-hunt\\]`). `--require` inverts the gate — pass only when at least one match exists. `--include-copilot` makes gate/`--all` modes also scan `copilot/` (devenv's own skill files carry example markers by design and are excluded from gate/audit modes by default; `--todo-report` and `--ac` always scan it). `--ac`/`--todo-report` are mutually exclusive; `--all` cannot be combined with either.
 
 Examples:
 
@@ -464,7 +464,7 @@ Create a new issue, optionally from a template. Body source per the [markdown bo
 Wrapper policy:
 
 - This wrapper is the **required** path for all issue creation in workspace repos — never raw `gh issue create` (enforces native types, templates, labels; repo selection stays behind the abstraction).
-- No `--repo` flag exists. The target repo is selected via the `GITHUB_REPO` env var (`owner/repo`); unset, it falls back to `GH_ORG` + current repo name, then to the current repo.
+- No `--repo` flag exists. The target repo is selected via the `DEVENV_REPO` env var (`owner/repo`; the deprecated `GITHUB_REPO` alias still resolves); unset, it falls back to org identity + current repo name, then to the current repo.
 
 ```
 issue-create [--title TITLE] [--body TEXT | --body-file FILE] [--type TYPE]
@@ -483,7 +483,7 @@ Key flags:
 Deterministic call shape (no editor, no fzf, no template):
 
 ```bash
-GITHUB_REPO=<org>/<repo> issue-create --title "<title>" --type "<type>" \
+DEVENV_REPO=<org>/<repo> issue-create --title "<title>" --type "<type>" \
   --body-file <path>
 ```
 
@@ -491,7 +491,7 @@ Examples:
 
 ```bash
 issue-create --title "Add OAuth" --type Feature \
-  --body-file spike-findings.md --no-interactive
+  --body-file research-findings.md --no-interactive
 issue-create --parent 10 --type Task --title "Write unit tests"
 ```
 
@@ -1146,7 +1146,7 @@ List the GitHub organization's configured issue types (name + node ID) via Graph
 issue-types [--format table|json|simple]
 ```
 
-Org resolution: provider org accessor (config-first), else the owner part of `GITHUB_REPO`.
+Org resolution: provider org accessor (config-first), else the owner part of `DEVENV_REPO`.
 
 Example: `issue-types --format json`
 
@@ -1165,11 +1165,11 @@ Example: `issue-types --format json`
 ### Deterministic issue creation
 
 ```bash
-GITHUB_REPO=<owner>/<repo> issue-create --no-template --no-interactive \
+DEVENV_REPO=<owner>/<repo> issue-create --no-template --no-interactive \
     --title "..." --body-file /tmp/body.md --type Task|Bug|Feature|Epic
 ```
 
-- `GITHUB_REPO` prefix is required (workspace safety gate); no `--repo` flag
+- `DEVENV_REPO` prefix is required (workspace safety gate); no `--repo` flag
   exists.
 - Types come from `tools/config/issues-config.yml` (Bug/Feature/Task/Epic);
   `--type` must match configured names.
@@ -1179,7 +1179,7 @@ GITHUB_REPO=<owner>/<repo> issue-create --no-template --no-interactive \
 ### Upstream-impact filing
 
 ```bash
-GITHUB_REPO=<owner>/<repo> issue-create --type Task --label upstream-impact \
+DEVENV_REPO=<owner>/<repo> issue-create --type Task --label upstream-impact \
     --no-template --title "..." --body-file /tmp/body.md
 ```
 

@@ -1,7 +1,8 @@
 ---
 name: devenv-refine-plan
-description: Align an existing Plan-*.md (or an issue containing a plan artifact comment; legacy artifacts are typed implementation-plan) with reality — one skill entered from three starting points. Surgical mode for small known edits ("mark 3.4 done", "tick off task 2.1", "add a note to task X", "answer that open question", "add one more task to phase 3" — max 3 edits, per-edit confirm). Revision mode for known broader changes ("refine the plan", "update the plan", "rework the plan based on what we learned", tasks reworded, scope adjusted). Assessment mode when staleness is unknown ("refresh the plan", "is this plan still valid?", "the plan might be out of date", returning after a gap) — runs a staleness assessment against the current codebase and routes internally. Auto-detects file path vs GitHub issue number, preserves all existing [x] checkbox state, appends new tasks by default, supports task reflow for structural insertion, and creates new phases when the target phase is fully complete. DO NOT USE for creating a brand-new plan from scratch (use /devenv-create-plan) or for executing the plan (use /devenv-pair-programming or /devenv-delegation).
+description: Align an existing Plan-*.md (or an issue containing a plan artifact comment; legacy artifacts are typed implementation-plan) with reality — one skill entered from three starting points. Surgical mode for small known edits ("mark 3.4 done", "tick off task 2.1", "add a note to task X", "answer that open question", "add one more task to phase 3" — max 3 edits, per-edit confirm). Revision mode for known broader changes ("refine the plan", "update the plan", "rework the plan based on what we learned", tasks reworded, scope adjusted). Assessment mode when staleness is unknown ("refresh the plan", "is this plan still valid?", "the plan might be out of date", returning after a gap) — runs a staleness assessment against the current codebase and routes internally. Auto-detects file path vs GitHub issue number, preserves all existing [x] checkbox state, appends new tasks by default, supports task reflow for structural insertion, and creates new phases when the target phase is fully complete. DO NOT USE for creating a brand-new plan from scratch (use /devenv-plan) or for executing the plan (use /devenv-pair or /devenv-delegate).
 argument-hint: Path to an Plan-*.md OR github-issue-number[:doc_id], plus what changed (or nothing for assessment)
+user-invocable: true
 ---
 
 # Refine plan
@@ -32,10 +33,10 @@ Classification rules:
 ## When to Use
 
 - The user has a `Plan-*.md` (or an issue with a plan artifact comment; legacy artifacts are typed implementation-plan) that needs small surgical edits, broader revision, or staleness assessment — in any combination.
-- A previous `/devenv-create-plan` run needs alignment with what actually happened.
+- A previous `/devenv-plan` run needs alignment with what actually happened.
 - Execution (pair-programming / delegation) surfaced drift signals and suggested an assessment.
 
-If there is no existing plan, stop and redirect to `/devenv-create-plan`.
+If there is no existing plan, stop and redirect to `/devenv-plan`.
 
 ## Inputs
 
@@ -67,7 +68,7 @@ After a refinement that unblocks implementation (approvals gained, decisions rec
 Apply the intake classification above. Then:
 
 - **Surgical mode** → run the [surgical edit protocol](#surgical-edit-protocol), then jump to Step 5 (write) and Step 6 (report).
-- **Assessment mode** → run the [staleness assessment protocol](./references/staleness-assessment.md); its outcome routes internally: slightly stale → surgical patching; significantly stale → findings-driven revision (Steps 1–4 with the findings replacing the open-ended interview); intent-only → intent extraction → `/devenv-create-plan`. Assessment also glances at the upstream-impact queue (`issue-list --label upstream-impact` in the planning repo): open issues naming this plan's scope are drift signals that feed the assessment.
+- **Assessment mode** → run the [staleness assessment protocol](./references/staleness-assessment.md); its outcome routes internally: slightly stale → surgical patching; significantly stale → findings-driven revision (Steps 1–4 with the findings replacing the open-ended interview); intent-only → intent extraction → `/devenv-plan`. Assessment also glances at the upstream-impact queue (`issue-list --label upstream-impact` in the planning repo): open issues naming this plan's scope are drift signals that feed the assessment.
 - **Revision mode** → continue with Steps 1–6 below.
 
 ### Surgical edit protocol
@@ -126,13 +127,13 @@ In revision mode, use `vscode_askQuestions` to gather:
 - **Decision points** — identify unresolved implementation decisions that could block phase execution; resolve them during refinement when possible.
 - **Escalation handoff closure** — if unresolved blockers/questions are captured in plan decisions or pending questions, confirm each one and decide: resolve now, defer with explicit trigger, or re-scope tasks/phases.
 - **Architectural fault classification** — if blockers/questions are architectural rather than task-scope adjustments, load and follow the [plan architectural review protocol](../common/references/plan-architectural-review.md) to locate fault points and classify type. If architectural issues are confirmed, produce a scoped brief and recommend the appropriate design skill with the plan path as argument:
-  - Option-weighing / approach not settled → `/devenv-design-discussion <plan-path>`
-  - Current approach needs reclassification → `/devenv-grooming <plan-path>`
+  - Option-weighing / approach not settled → `/devenv-design <plan-path>`
+  - Current approach needs reclassification → `/devenv-groom <plan-path>`
 
   **File an upstream-impact issue** for confirmed architectural findings that originate above the plan (specification or blueprint level), per the [upstream-impact filing recipe](../_shared/references/provider-protocols/github.md#upstream-impact-filing) and the repo-targeting guard. This puts the finding on the queue that `/devenv-refine-specifications` and `/devenv-refine-blueprint` consume in cascade mode.
 
   Do not continue plan refinement for architectural items until the design question is resolved.
-- **Legacy code exposure** — if new tasks will introduce implementations that coexist with existing legacy code in the same files across multiple phases, flag the issue: the plan likely needs an early cleanup phase. See [phase-rules.md](../devenv-create-plan/references/phase-rules.md) for available patterns (demolition, hollow-out, rename suffix, branch by abstraction). Surface the viable options and a recommendation before writing new tasks; don't silently pick one.
+- **Legacy code exposure** — if new tasks will introduce implementations that coexist with existing legacy code in the same files across multiple phases, flag the issue: the plan likely needs an early cleanup phase. See [phase-rules.md](../devenv-plan/references/phase-rules.md) for available patterns (demolition, hollow-out, rename suffix, branch by abstraction). Surface the viable options and a recommendation before writing new tasks; don't silently pick one.
 
 Do not assume. If the new specifications imply renumbering or reordering, flag it and ask before proceeding.
 
@@ -142,7 +143,7 @@ Before applying edits, offer an optional pressure-test pass using [pressure-test
 
 - Never run automatically; proceed only after explicit user consent.
 - Keep it bounded to at most two passes per current plan state.
-- Use findings to decide whether to continue local refinement, route a bounded blocker to [`/devenv-design-discussion`](../devenv-design-discussion/SKILL.md), or route broader drift to [`/devenv-grooming`](../devenv-grooming/SKILL.md).
+- Use findings to decide whether to continue local refinement, route a bounded blocker to [`/devenv-design`](../devenv-design/SKILL.md), or route broader drift to [`/devenv-groom`](../devenv-groom/SKILL.md).
 
 ### 3. Apply changes — preserve everything
 
@@ -173,7 +174,7 @@ Before applying edits, offer an optional pressure-test pass using [pressure-test
 
   When the new scope introduces or changes important boundaries, add an early phase for defining or tightening contracts before broad implementation starts. This usually means interfaces, API/request/response shapes, message schemas, extension points, or persistence boundaries land before the phases that fully implement them.
 
-  The first of the new phases must include an explicit task to **review the new scope and place forward guidance comments** (`FIXME(DEVENV[...])`) at anticipated touch points — the same role Phase 1 plays in a fresh plan. Example task: `- [ ] **5.1 [S] Review new scope and place forward guidance comments** — scan files affected by phases 5–6, add FIXME(DEVENV[...]) comments at integration points and stubs that later tasks will fill.`
+  The first of the new phases must include an explicit task to **review the new scope and place forward guidance comments** (`FIXME:DEVENV[...]:`) at anticipated touch points — the same role Phase 1 plays in a fresh plan. Example task: `- [ ] **5.1 [S] Review new scope and place forward guidance comments** — scan files affected by phases 5–6, add FIXME:DEVENV[...]: comments at integration points and stubs that later tasks will fill.`
 
   Surface this to the user before writing: *"Phase 3 is fully complete — I'll add the new work in a new Phase 5 rather than appending to Phase 3. The existing Cleanup (Phase 4) is also done, so I'll add a new Phase 6 for cleanup of the new scope. Does that structure work for you?"*
 - **Prefer rewrite/addition over removal.** If the work still matters but the original task is misleading, keep the number and reword it, or add a follow-on task.
@@ -196,7 +197,7 @@ Before applying edits, offer an optional pressure-test pass using [pressure-test
 - **Grooming-to-plan carry-forward is required when grooming exists.** For every still-relevant confirmed/deferred design point in the grooming artifact, either carry it into the plan (phase watch-outs, task `decision:` metadata, appendix, pending question, or scope/non-goal text) or explicitly decide it is out-of-scope and keep that rationale in current decision/question text.
 - **Resolution expectation during refinement:** resolve as many open questions as possible before writing. Leave questions pending only for implementation-level details or explicit user-requested deferral.
 - **Appendix maintenance for complex design-derived work:** if the refined plan is based on substantial upstream design context, ensure `## Appendix` exists and is current. It must summarize key design decisions, constraints/invariants, interface contracts, migration/rollout implications, and rejected alternatives that materially affect task ordering or scope.
-- **Temporary coverage exclusion discipline:** if a newly added contract-first phase uses temporary coverage-exclusion attributes or mechanisms because implementations arrive later, add explicit cleanup/removal tasks and require `FIXME(DEVENV[plan-key]): ...` markers at the affected code locations so coverage restoration is not lost.
+- **Temporary coverage exclusion discipline:** if a newly added contract-first phase uses temporary coverage-exclusion attributes or mechanisms because implementations arrive later, add explicit cleanup/removal tasks and require `FIXME:DEVENV[plan-key]:: ...` markers at the affected code locations so coverage restoration is not lost.
 
 **Acceptance criteria changes:**
 
@@ -292,7 +293,7 @@ Summarise inline:
 
 ## Sibling skills
 
-- `/devenv-create-plan` — for brand-new plans from scratch (also the re-plan target when assessment classifies a plan intent-only).
-- `/devenv-pair-programming` and `/devenv-delegation` — for actually executing the (refined) plan. Both surface drift signals that route back here (assessment mode).
+- `/devenv-plan` — for brand-new plans from scratch (also the re-plan target when assessment classifies a plan intent-only).
+- `/devenv-pair` and `/devenv-delegate` — for actually executing the (refined) plan. Both surface drift signals that route back here (assessment mode).
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

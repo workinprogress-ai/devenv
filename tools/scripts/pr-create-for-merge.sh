@@ -22,7 +22,7 @@ DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 #   - git
 #   - gh (GitHub CLI)
 #   - error-handling.bash
-#   - github-helpers.bash
+#   - provider-loader.bash
 #   - fzf-selection.bash
 #   - git-operations.bash
 #   - issue-operations.bash
@@ -31,7 +31,7 @@ DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 
 set -euo pipefail
 source "$DEVENV_TOOLS/lib/error-handling.bash"
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 source "$DEVENV_TOOLS/lib/fzf-selection.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"

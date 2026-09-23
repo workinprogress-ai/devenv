@@ -14,7 +14,7 @@ set -euo pipefail
 # shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 source "$DEVENV_TOOLS/lib/fzf-selection.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"

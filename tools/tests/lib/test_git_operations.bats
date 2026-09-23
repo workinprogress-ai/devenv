@@ -12,7 +12,7 @@ setup() {
     
     source "$DEVENV_ROOT/tools/lib/error-handling.bash"
     source "$DEVENV_ROOT/tools/lib/validation.bash"
-    source "$DEVENV_ROOT/tools/lib/github-helpers.bash"
+    source "$DEVENV_ROOT/tools/lib/provider-loader.bash"
     source "$DEVENV_ROOT/tools/lib/git-operations.bash"
     
     # Create temporary git repo for testing

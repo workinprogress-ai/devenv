@@ -31,9 +31,12 @@ jobs:
       
       - name: Run tests
         run: ./tools/tests/run-devenv-tests.sh
-        
+
       - name: Lint scripts
         run: ./tools/scripts/lint-scripts.sh
+
+      - name: Lint skills
+        run: ./tools/scripts/lint-skills.sh
 
   lint-markdown:
     name: Lint Markdown (changed files)

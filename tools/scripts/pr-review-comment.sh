@@ -18,7 +18,7 @@ set -euo pipefail
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 
 readonly SCRIPT_VERSION="1.0.0"
@@ -117,7 +117,8 @@ get_head_sha() {
 
 # Resolve the repository node ID via GraphQL.
 get_repo_node_id() {
-    local owner_repo="${GITHUB_REPO:-}"
+    local owner_repo
+    owner_repo=$(provider_repo_target)
     if [ -z "$owner_repo" ]; then
         local repo_spec
         read -ra repo_spec <<< "$(get_repo_spec)"

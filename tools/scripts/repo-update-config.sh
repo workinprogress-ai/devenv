@@ -32,7 +32,7 @@ DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 #   - gh (GitHub CLI)
 #   - yq (YAML processor)
 #   - repo-types.bash
-#   - github-helpers.bash
+#   - provider-loader.bash
 #   - error-handling.bash
 #   - validation.bash
 #
@@ -47,7 +47,7 @@ source "$DEVENV_TOOLS/lib/validation.bash"
 # shellcheck disable=SC1091
 source "$DEVENV_TOOLS/lib/repo-types.bash"
 # shellcheck disable=SC1091
-source "$DEVENV_TOOLS/lib/github-helpers.bash"
+source "$DEVENV_TOOLS/lib/provider-loader.bash"
 
 REPO_TYPES_CONFIG="$(repo_types_config_path)"
 

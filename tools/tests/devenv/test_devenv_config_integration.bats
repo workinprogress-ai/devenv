@@ -40,7 +40,9 @@ EOF
 }
 
 @test "devenv.config: organization section has required keys" {
-    run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $PROJECT_ROOT/devenv.config && config_validate_required organization name github_org email_domain"
+    # Org identity: the neutral "org" key is canonical; the deprecated
+    # "github_org" fallback satisfies the requirement on legacy configs.
+    run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $PROJECT_ROOT/devenv.config && { config_validate_required organization name org email_domain 2>/dev/null || config_validate_required organization name github_org email_domain; }"
     [ "$status" -eq 0 ]
 }
 

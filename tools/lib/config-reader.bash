@@ -192,3 +192,37 @@ config_get_status_workflow() {
     echo "$workflow"
     return 0
 }
+
+
+# Read a single configuration value RAW: no ${VAR} template expansion.
+# Exists for the provider identity accessors, which must read the config's
+# literal values (expanding there would re-enter the accessors — recursion).
+# Anchored section match: [section] must be exact; [section-x] never matches.
+# Last occurrence wins (same duplicate policy as config_read_value).
+# Usage: config_read_value_raw <section> <key> [default_value]
+config_read_value_raw() {
+    local section="$1"
+    local key="$2"
+    local default="${3:-}"
+
+    if [[ -z "$CONFIG_FILE" ]]; then
+        echo "ERROR: config_init not called" >&2
+        return 1
+    fi
+
+    local value
+    value=$(awk -v section="$section" -v key="$key" '
+        $0 == "[" section "]" { in_section=1; next }
+        /^\[/ { in_section=0; next }
+        in_section && index($0, key "=") == 1 {
+            sub("^" key "=", "")
+            val=$0
+        }
+        END { if (val != "") print val }
+    ' "$CONFIG_FILE")
+
+    if [[ -z "$value" ]]; then
+        value="$default"
+    fi
+    printf '%s\n' "$value"
+}

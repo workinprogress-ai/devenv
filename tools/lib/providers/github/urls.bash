@@ -98,9 +98,14 @@ provider_web_url() {
 #   Prints the first matching URL; returns 1 when none found.
 provider_extract_url() {
     local path_prefix="${1:-}"
-    local pattern='https://github\.com[^[:space:]]+'
+    # Host comes from provider_web_host (single point of definition): the
+    # dots are escaped for the ERE. A provider swapping its host changes
+    # provider_web_host and this derivation follows.
+    local host_rx
+    host_rx=$(provider_web_host | sed 's/\./\\./g')
+    local pattern="https://${host_rx}[^[:space:]]+"
     if [ -n "$path_prefix" ]; then
-        pattern="https://github\\.com/[^[:space:]]*/${path_prefix}[^[:space:]]*"
+        pattern="https://${host_rx}/[^[:space:]]*/${path_prefix}[^[:space:]]*"
     fi
     local url
     url=$(grep -Eo "$pattern" | head -n1)
@@ -121,21 +126,25 @@ provider_extract_url() {
 #   Prints the normalized URL; returns 1 when the remote is not this
 #   provider's host.
 provider_remote_to_web() {
+    # Matching derives from provider_web_host too — ssh/scp-style, https, and
+    # http forms all normalize to the provider's clean https web form.
     local remote="${1:-}"
+    local host
+    host=$(provider_web_host)
     case "$remote" in
-        git@github.com:*)
-            remote="${remote#git@github.com:}"
+        "git@${host}:"*)
+            remote="${remote#git@${host}:}"
             ;;
-        https://github.com/*)
-            remote="${remote#https://github.com/}"
+        "https://${host}/"*)
+            remote="${remote#https://${host}/}"
             ;;
-        http://github.com/*)
-            remote="${remote#http://github.com/}"
+        "http://${host}/"*)
+            remote="${remote#http://${host}/}"
             ;;
         *)
             return 1
             ;;
     esac
     remote="${remote%.git}"
-    printf 'https://github.com/%s\n' "$remote"
+    printf 'https://%s/%s\n' "$host" "$remote"
 }
