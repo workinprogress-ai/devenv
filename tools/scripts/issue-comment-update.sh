@@ -67,7 +67,7 @@ Comment Source (one required):
                                 reads stdin; piped stdin with no flag is auto-read)
 
 Environment Variables:
-    GITHUB_REPO                 Repository in format owner/repo (default: current repo)
+    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
 
 Examples:
     # Replace a comment body inline

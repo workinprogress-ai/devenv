@@ -60,7 +60,7 @@ Options:
     --repo OWNER/REPO           Override the target repository
 
 Environment Variables:
-    GITHUB_REPO                 Repository in format owner/repo (default: current repo)
+    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
 
 Output Fields (per comment):
     id           Numeric comment ID (use with issue-comment-update)

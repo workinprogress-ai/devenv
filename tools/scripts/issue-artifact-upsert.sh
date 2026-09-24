@@ -62,7 +62,7 @@ Options:
     -n, --dry-run                 Resolve intended action without writing
     --no-stamp                    Do not rewrite updated_at_utc (byte-exact republish)
     --all                         Interactive list includes tmp*.md (default: excluded)
-    --repo OWNER/REPO             Repository override (defaults to GITHUB_REPO)
+    --repo OWNER/REPO             Repository override (defaults to DEVENV_REPO)
     -V, --verbose                 Enable verbose logs
     -h, --help                    Show this help and exit
     -v, --version                 Show version and exit
@@ -278,7 +278,7 @@ main() {
         fi
     fi
 
-    # Single repo-resolution entry point (override > GITHUB_REPO > cwd),
+    # Single repo-resolution entry point (override > DEVENV_REPO > cwd),
     # devenv-repo safety gate included; the printed value feeds the provider
     # calls below explicitly.
     TARGET_REPO="$(resolve_target_repo "$REPO_OVERRIDE")"

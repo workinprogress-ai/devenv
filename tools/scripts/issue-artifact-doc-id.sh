@@ -47,7 +47,7 @@ Slug Source (exactly one required):
   --source-file FILE           Use basename of file (without extension)
 
 Optional:
-  --repo OWNER/REPO            Override repository (default: GITHUB_REPO or current git repo)
+  --repo OWNER/REPO            Override repository (default: DEVENV_REPO or current git repo)
   -V, --verbose                Enable verbose logging
   -h, --help                   Show help
   -v, --version                Show version
@@ -61,14 +61,14 @@ EOF
 }
 
 resolve_owner_repo() {
-    # Resolve via the provider layer (explicit arg → GITHUB_REPO → full-form
+    # Resolve via the provider layer (explicit arg → DEVENV_REPO → full-form
     # GH_REPO → org + cwd basename). Read-only resolver: the devenv-repo
     # safety gate is not applied here (no mutations happen in this script),
     # mirroring the resolution chain without the gate.
     local resolved_repo
     resolved_repo=$(provider_repo_target "$REPO_OVERRIDE")
     if [ -z "$resolved_repo" ]; then
-        invalid_args "Repository is required: pass --repo or set GITHUB_REPO"
+        invalid_args "Repository is required: pass --repo or set DEVENV_REPO"
     fi
     echo "$resolved_repo"
 }

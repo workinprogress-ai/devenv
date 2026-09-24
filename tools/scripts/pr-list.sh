@@ -67,7 +67,7 @@ Filters:
     --limit N                   Max number of PRs to return (default: 30)
 
 Environment Variables:
-    GITHUB_REPO                 Repository in format owner/repo (default: current repo)
+    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
 
 Examples:
     # All open PRs (JSON)

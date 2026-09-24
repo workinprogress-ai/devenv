@@ -65,7 +65,7 @@ Options:
     --devenv                    Safety override to manage projects in devenv repo
 
 Environment Variables:
-    GITHUB_REPO                 Repository in format owner/repo (default: current repo)
+    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
     GITHUB_ORG                  Organization name (required for org projects)
 
 Examples:
@@ -108,7 +108,7 @@ get_owner() {
 
 # Get issue URL
 # Repo resolution follows the suite's canonical order via resolve_target_repo:
-#   explicit override > GITHUB_REPO env > GH_ORG + cwd git root > error.
+#   explicit override > DEVENV_REPO env > GH_ORG + cwd git root > error.
 # This script previously ignored GITHUB_REPO here and resolved from the
 # current directory, silently adding wrong-repo issues with matching numbers.
 get_issue_url() {
@@ -159,7 +159,7 @@ add_issue_to_project() {
     else
         log_error "Failed to add issue #$issue_num to project '$PROJECT_NAME'"
         [ -n "$add_stderr" ] && log_error "gh: $add_stderr"
-        log_info "Check that the project exists, you have permissions, and GITHUB_REPO/GITHUB_ORG point at the issue's repository"
+        log_info "Check that the project exists, you have permissions, and DEVENV_REPO/GH_ORG point at the issue's repository"
         return 1
     fi
 }

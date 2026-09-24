@@ -54,7 +54,7 @@ Options:
     --devenv                    Safety override to list releases in devenv repo
 
 Environment Variables:
-    GITHUB_REPO                 Repository in format owner/repo (default: curren
+    DEVENV_REPO                 Repository in format owner/repo (default: curren
 t repo)
 
 Examples:

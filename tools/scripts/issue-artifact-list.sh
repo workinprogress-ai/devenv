@@ -45,7 +45,7 @@ Optional Filters:
 Options:
     --full                        Return full body as "body" (default: bodyPreview only)
     --pretty                      Pretty-print JSON output
-    --repo OWNER/REPO             Repository override (defaults to GITHUB_REPO)
+    --repo OWNER/REPO             Repository override (defaults to DEVENV_REPO)
     -V, --verbose                 Enable verbose logs
     -h, --help                    Show help and exit
     -v, --version                 Show version and exit
@@ -138,7 +138,7 @@ main() {
         exit "$EXIT_MISUSE"
     fi
 
-    # Single repo-resolution entry point (override > GITHUB_REPO > cwd),
+    # Single repo-resolution entry point (override > DEVENV_REPO > cwd),
     # devenv-repo safety gate included; the printed value feeds the provider
     # calls below explicitly.
     TARGET_REPO="$(resolve_target_repo "$REPO_OVERRIDE")"

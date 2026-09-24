@@ -1,6 +1,6 @@
 ---
 name: devenv-commit
-description: 'Review, craft, and create a commit — the only skill that commits, and only through the repo-commit tool. USE WHEN the user says "commit this", "let''s commit", "craft a commit message", "is this commit-worthy", "review my staged changes before commit", or is ready to land the current work. Interviews at invocation (review first?), reviews the STAGED diff only (warns on unstaged/untracked — never stages), evaluates atomicity and master-worthiness (suggests the git-wip lane for low-value work), crafts a convention-aware suggested message (commitlint config as oracle; plan context when present), warns on ephemeral plan references in messages, runs the DEVENV marker gate on the staged diff, then commits via repo-commit — which always opens the git editor; the editor save is the permission gate. Never runs tests, never checks hooks (infrastructure owns enforcement), never stages. DO NOT USE FOR running quality gates without committing (say "run pre-commit checks" and the checks-only flow applies, still no commit unless you confirm), opening a PR (use /devenv-open-pr), or code review (use /devenv-review).'
+description: 'Create a commit — the only skill that commits, and only through the repo-commit tool. USE WHEN the user says "commit this", "let''s commit", "craft a commit message", "wip this", or is ready to land the current work. Runs a light staged-glance (obvious hazards + the DEVENV marker gate), evaluates atomicity and master-worthiness (suggests the WIP lane for low-value work), crafts a convention-aware suggested message (commitlint config as oracle; plan context when present), warns on ephemeral plan references, then commits via repo-commit — which always opens the git editor (the editor save is the permission gate) or, on the user''s choice, takes the WIP lane. Deep pre-commit code review lives in /devenv-review ("review uncommitted"). Never stages (WIP lane excepted, via git-wip), never runs tests, never checks hooks (infrastructure owns enforcement). DO NOT USE FOR running quality gates without committing (say "run pre-commit checks" — the checks-only flow applies, still no commit unless you confirm), opening a PR (use /devenv-open-pr), or code review (use /devenv-review).'
 argument-hint: 'Optional: "--all" quality-gate scope, or a hint like "WIP" / "split this"'
 user-invocable: true
 ---
@@ -11,36 +11,37 @@ user-invocable: true
 
 > **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 
-This is the only skill in the workspace permitted to create a commit — and it does so exclusively through the `repo-commit` tool, which always opens the user's configured git editor with the suggested message. **The editor save is the permission gate**: if the user empties the message or aborts the editor, no commit exists. The skill never commits directly with `git commit`.
+This is the only skill in the workspace permitted to create a commit — and it does so exclusively through the `repo-commit` tool, which always opens the user's configured git editor with the suggested message. **The editor save is the permission gate**: if the user empties the message or aborts the editor, no commit exists. The skill never commits directly with `git commit`. A `--wip` lane exists for low-value snapshots: on the user's explicit choice, `repo-commit --wip` delegates to `git-wip` (stage-all, hooks bypassed, `WIP:` prefix, push) — WIP commit shape lives in `git-wip` alone.
 
 ## The two lanes
 
 **Checks lane** — the historical behavior, kept intact: run the project's quality gates (lint, format, type-check, tests) against changed files, report all failures together, suggest (never silently apply) auto-fixes. Trigger phrases: "run pre-commit checks", "is this ready to commit". **The checks lane never commits.**
 
-**Commit lane** — the new capability: review staged work, craft the message, evaluate the commit's worth, and create the commit through `repo-commit`. This lane runs only after the invocation interview confirms the user wants a commit.
+**Commit lane** — review the staged work lightly, craft the message, and create the commit through `repo-commit` (normal editor lane or WIP lane). Deep pre-commit code review is `/devenv-review`'s job — invoke it ("review uncommitted") when the user wants the diff attacked before landing; this skill keeps only the glance it needs to judge the commit itself.
 
 ## Invocation interview (commit lane, always)
 
 At invocation, ask via the structured interview:
 
-1. **Review first?** — "Review the staged changes before committing?" (yes, review first / no, go straight to message + commit / checks only — no commit)
+1. **Scope** — "Commit what's staged?" (yes, commit the staged work / no — wait, I'll stage first / checks only — no commit)
 2. If staging is empty at invocation, surface it immediately: *"Nothing is staged. Staging is manual — stage what you want committed (I never run `git add`), then tell me to proceed."* Stop there.
+
+**WIP predecessor check (interview).** If `git log -1 --format=%s` shows the last commit starts with `WIP:`: this commit would sit on top of throwaway history that still needs to be squashed or unwipped. Ask: *"The last commit is a WIP snapshot. How do you want to proceed?"* — (a) proceed with a **normal commit** on top (the WIP gets squashed/unwipped later), (b) make this a **WIP commit too** (the WIP lane, below), or (c) stop so the user can `git-unwip` first. Never silently stack a permanent commit on un-wipped WIP history.
 
 ## Shared orientation (commit lane)
 
-Run `skill-orient` at invocation for the staged/unstaged/untracked counts and any active plan (its context feeds message crafting). The staged-only review below remains the required detailed pass.
+Run `skill-orient` at invocation for the staged/unstaged/untracked counts and any active plan (its context feeds message crafting).
 
-## Staged-only review (commit lane)
+## Staged-glance (commit lane — light, by design)
 
-Review **what is staged** — `git diff --cached` — never the working tree at large.
+Glance at **what is staged** — `git diff --cached` — never the working tree at large. This is a commit-decision glance, not a code review; deep adversarial review of uncommitted work routes to [`/devenv-review`](../devenv-review/SKILL.md) ("review uncommitted").
 
 - **Unstaged modifications** to files that also have staged changes → warn: *"foo.ts has staged changes AND further unstaged edits — only the staged state will commit."*
-- **Untracked files** → list them; ask whether their absence is intentional (do not stage them, ever).
-- **Unstaged-only files** → one-line note; no action.
+- **Untracked files** → list them; ask whether their absence is intentional (do not stage them, ever — the WIP lane's stage-all is the only sanctioned exception, and it requires the user's explicit WIP choice).
+- **Obvious hazards only**: debug leftovers, commented-out code, conflict markers, generated files. Anything deeper → suggest `/devenv-review`.
+- **DEVENV marker gate** (below) still applies in full.
 
-The review covers: what changed at a glance (files, insertions/deletions, the shape of the diff), obvious hazards (debug leftovers, commented-out code, conflict markers, generated files), and the DEVENV marker gate below.
-
-**Questions beget questions.** When the review surfaces something worth confirming — an unexpectedly large deletion, a file that seems unrelated to the stated intent, a suspicious-looking constant, a generated file that may or may not be intentional — **ask before proposing the message**, preferably as a structured interview (`vscode_askQuestions`, batched: one ask, all the questions). Don't silently fold doubts into the message; don't interrogate over trivia either — ask only what would change the message, the commit split, or the go-ahead.
+**Questions beget questions.** When the glance surfaces something worth confirming — an unexpectedly large deletion, a file unrelated to the stated intent, a suspicious-looking constant — **ask before proposing the message**, batched into one structured interview. Don't interrogate over trivia — ask only what would change the message, the commit split, or the go-ahead.
 
 ## DEVENV marker gate (staged diff, blocking)
 
@@ -76,19 +77,24 @@ Before proposing the message, scan the draft for ephemeral workflow vocabulary: 
 
 ## Executing the commit — `repo-commit` only
 
-When the user confirms, run:
+When the craft is done, present the suggested message, then **confirm via structured interview** (never chat prose): *"Run repo-commit with this message?"* (run it — I'll edit in the editor / run it, WIP lane instead / edit the message first — freeform / stop). Only on confirmation, run:
 
 ```bash
-repo-commit "<suggested message>"
+repo-commit --file <message-file>   # preferred: write the message to a temp file, pass the path
+repo-commit "<message>"             # short messages only — long argv strings risk shell mangling
 ```
+
+**`--file` is the default shape for anything longer than a one-line subject**: write the suggested message to a temp file and pass the path — the file content becomes the editor's pre-load verbatim, immune to quoting/terminal mangling.
+
+**WIP lane** (`repo-commit --wip [--file <file>] [--staged-only] [--message-words…]`): chosen explicitly by the user (from the confirm interview or the WIP-predecessor interview). It delegates to `git-wip` — stages everything (unless `--staged-only`), bypasses hooks (the documented WIP exception), prefixes `WIP: `, pushes, and records `refs/wip/last`. The message produced has no conventional-commit prefix by design. There is no editor step on this lane — the user's choice of the WIP lane IS the confirmation, so make sure the interview answer is unambiguous before invoking.
 
 Contract of the tool (enforced by the tool, not just this skill):
 
-- The suggested message is pre-loaded into the **git editor, which always opens** — `repo-commit` prefers VS Code (`code --wait`) with nano as fallback when no editor is configured; it has no non-interactive path and refuses `-m`, `--yes`, option-shaped arguments, and known non-interactive editors (`true`, `:`, `echo`, …).
-- The commit is created from the **existing index only**; unstaged work is never swept in.
+- The suggested message is pre-loaded into the **git editor, which always opens** (normal lane) — `repo-commit` prefers VS Code (`code --wait`) with nano as fallback; it has no non-interactive path and refuses `-m`, `--yes`, option-shaped arguments, and known non-interactive editors (`true`, `:`, `echo`, `cat`, …).
+- The commit is created from the **existing index only**; unstaged work is never swept in (the `--wip` lane's stage-all is git-wip's documented behavior, chosen explicitly by the user).
 - The user may edit the message freely in the editor; **their saved text is the commit message** — the suggestion is a starting point.
-- Editor emptied or aborted → no commit, staged state untouched.
-- Hooks run normally — the tool never bypasses them (`--no-verify` appears nowhere in its vocabulary).
+- Editor emptied or aborted → no commit, staged state untouched. **This is the user declining — do not retry, do not hand back a paste-command.** One structured ask: *"Editor closed without a save — the commit didn't happen. Re-open the editor with the same message?"* (yes, retry / no, stop / edit the message first). Only a yes re-invokes `repo-commit`.
+- Hooks run normally on the normal lane — the tool never bypasses them (`--no-verify` appears nowhere in its vocabulary; the `--wip` lane's `-n` is git-wip's documented exception, not a flag this skill passes).
 
 After the commit: report the landed `hash subject`, and offer `/devenv-open-pr` if the branch's work is complete.
 
@@ -104,12 +110,12 @@ After the commit: report the landed `hash subject`, and offer `/devenv-open-pr` 
 
 ## What this skill never does
 
-- **Never runs `git commit` directly** — commits go through `repo-commit`, whose editor gate makes every commit human-confirmed.
-- **Never runs `git add`** — staging is the user's decision, always.
-- **Never bypasses with `--no-verify`** or equivalent skip flags; the tool it calls doesn't either.
+- **Never runs `git commit` directly** — commits go through `repo-commit`, whose editor gate makes every normal commit human-confirmed.
+- **Never runs `git add`** — staging is the user's decision, always (the `--wip` lane's stage-all happens inside git-wip, on the user's explicit WIP choice, not as a skill action).
+- **Never bypasses with `--no-verify`** or equivalent skip flags; the normal lane doesn't, and the WIP lane's hook bypass lives inside git-wip where it's documented.
 - **Never runs tests as a commit prerequisite** and never checks whether hooks are installed — infrastructure owns enforcement; the commit lane's gates are the marker gate and message hygiene, not test re-runs.
 - **Never modifies hooks** (`.git/hooks/`, `.husky/`, …).
-- **Never executes the WIP lane** — `git-wip` is a suggestion for the user, not a tool this skill invokes.
+- **Never executes the WIP lane uninvited** — it runs only on the user's explicit choice from an interview; `git-wip` alone remains a suggestion for the user to run themselves.
 - **Never re-runs all checks after a single auto-fix** — only the fixed tool.
 
 > **Micro-fix lane:** an explicit user ask to fix one reported failure ("just fix that lint error for me") may run in-session under the shared [incidental implementation protocol](../common/references/incidental-implementation-protocol.md) (micro ceiling, supervised handback). The never-runs boundaries above still apply inside the lane.
@@ -117,12 +123,17 @@ After the commit: report the landed `hash subject`, and offer `/devenv-open-pr` 
 ## Anti-patterns
 
 - **Committing via raw `git commit` "since everything passed"** — the only commit path is `repo-commit`.
-- **Staging on the user's behalf** — including "helpfully" staging a stray file; propose, never stage.
-- **Treating an empty editor abort as a failure to retry** — it is the user declining the commit; stop.
-- **Sweeping unstaged changes into the commit** — the tool prevents it; the skill must not route around it.
+- **Staging on the user's behalf** — including "helpfully" staging a stray file; propose, never stage (WIP lane excepted, and that's git-wip acting on the user's explicit choice).
+- **Confirming the commit in chat prose** ("shall I run repo-commit?") — the confirm is a structured interview, always.
+- **Passing long messages as one giant argv string** — use `--file`; the argv shape risks shell-quoting and terminal mangling.
+- **Retrying after an editor abort, or handing back a paste-command** — abort is the user declining; one structured ask, then a clean re-invoke only on yes.
+- **Stacking a permanent commit silently on WIP history** — the WIP-predecessor interview runs whenever the last commit is a WIP snapshot.
+- **Treating an empty editor abort as a failure to retry** — it is the user declining the commit; stop (then the single structured ask above applies).
+- **Sweeping unstaged changes into the commit** — the tool prevents it on the normal lane; the skill must not route around it.
 - **Skipping the marker gate** because "it's just a small commit."
 - **Ephemeral vocabulary in the message** ("Phase 2 complete, all tests passing") — the permanent record must read as durable history, not session bookkeeping.
-- **Executing the WIP lane for low-value work** — suggest `git-wip`; the user runs it.
+- **Running deep code review inside the commit lane** — that's `/devenv-review`'s job ("review uncommitted"); this skill's glance exists only to judge the commit itself.
+- **Executing the WIP lane for low-value work without the user's explicit choice** — suggest it in the interview; the user picks.
 - **Running hooks/tests as a commit precondition** — not this skill's job (the checks lane exists because the user asked for it, not as a hidden gate).
 - **Stopping on first check failure** — run everything, report once.
 - **Inventing commands** — if you can't detect a lint/test command, ask.
@@ -131,7 +142,7 @@ After the commit: report the landed `hash subject`, and offer `/devenv-open-pr` 
 ## Sibling skills
 
 - `/devenv-open-pr` — once the work is committed and the branch is complete.
-- `/devenv-review` — human-style review feedback on the diff (separate from automated checks).
+- `/devenv-review` — deep review of the diff; "review uncommitted" targets the staged + working-tree changes before they're committed (the recommended pre-commit review — two-session pattern, see the workflow docs).
 - `/devenv-address-pr-comments` — if checks reveal issues that came from PR feedback.
 - `/devenv-pair` / `/devenv-delegate` — execution skills; they never commit, and hand off here when the user says "commit this".
 

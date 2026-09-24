@@ -59,7 +59,7 @@ Options:
     --devenv                    Safety override to read PRs in devenv repo
 
 Environment Variables:
-    GITHUB_REPO                 Repository in format owner/repo (default: current repo)
+    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
 
 Output:
     JSON array of thread objects. Each thread:
@@ -129,7 +129,7 @@ fetch_threads() {
             repo_owner="${BASH_REMATCH[1]}"
             repo_name="${BASH_REMATCH[2]}"
         else
-            log_error "Cannot determine repository owner/name. Set GITHUB_REPO or run inside a git repo with a GitHub remote."
+            log_error "Cannot determine repository owner/name. Set DEVENV_REPO or run inside a git repo with a GitHub remote."
             exit "$EXIT_GENERAL_ERROR"
         fi
     fi

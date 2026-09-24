@@ -62,7 +62,7 @@ Options:
     --devenv                    Safety override for devenv repo
 
 Environment Variables:
-    GITHUB_REPO                 Repository in format owner/repo (default: current repo)
+    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
 
 Examples:
     # Diff for PR #123

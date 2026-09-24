@@ -61,7 +61,7 @@ Options:
     --devenv                    Safety override to read issues in devenv repo
 
 Environment Variables:
-    GITHUB_REPO                 Repository in format owner/repo (default: current repo)
+    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
 
 Output Fields:
     number       Issue number

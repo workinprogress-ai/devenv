@@ -17,14 +17,11 @@ if ! declare -F log_error >/dev/null; then
     log_error() { echo "ERROR: $*" >&2; }
 fi
 
-if ! declare -F provider_declare_capability >/dev/null; then
-    # Standalone-sourcing fallback: the capability registry lives
-    # in provider-core; source it when this module is loaded alone.
-    _cap_core_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-    # shellcheck disable=SC1091
-    source "$_cap_core_dir/provider-core.bash"
-    unset _cap_core_dir
-fi
+# Standalone-sourcing contract: the capability registry lives in
+# provider-core; source it unconditionally (its own loaded-guard makes
+# re-sourcing a no-op) so this module loads alone or under provider_load.
+# shellcheck disable=SC1091
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/provider-core.bash"
 provider_declare_capability rulesets
 provider_declare_capability native-issue-types
 
