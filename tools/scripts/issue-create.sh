@@ -84,7 +84,7 @@ Optional:
     --no-interactive            Skip the editor (requires --title; template body used as-is when a template is selected)
 
 Environment Variables:
-    GITHUB_REPO                 Repository in format owner/repo (default: current repo)
+    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
 
 Examples:
     # Interactive mode: select template, edit in editor

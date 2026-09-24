@@ -48,7 +48,7 @@ Optional Filters:
 Options:
     -f, --format FORMAT           Output format: json, doc-id, comment-id, url (default: json)
     --pretty                      Pretty-print JSON output
-    --repo OWNER/REPO             Repository override (defaults to GITHUB_REPO)
+    --repo OWNER/REPO             Repository override (defaults to DEVENV_REPO)
     -V, --verbose                 Enable verbose logs
     -h, --help                    Show help and exit
     -v, --version                 Show version and exit

@@ -3,6 +3,7 @@
         "devenv",
         "distro",
         "frontmatter",
+        "tock",
         "workinprogress"
     ],
     "workbench.colorCustomizations": {

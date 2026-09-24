@@ -102,7 +102,7 @@ Grooming Actions:
     - Skip or defer issues not ready for grooming
 
 Environment Variables:
-    GITHUB_REPO                 Repository in format owner/repo (default: current repo)
+    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
 
 Examples:
     # Start grooming session for all "To Groom" issues

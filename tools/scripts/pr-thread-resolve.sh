@@ -59,7 +59,7 @@ Options:
     --devenv                    Safety override for devenv repo threads
 
 Environment Variables:
-    GITHUB_REPO                 Repository in format owner/repo (not needed for
+    DEVENV_REPO                 Repository in format owner/repo (not needed for
                                 this script — thread IDs are globally unique)
 
 Examples:

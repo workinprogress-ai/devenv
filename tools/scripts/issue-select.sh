@@ -65,7 +65,7 @@ Selection:
     --devenv                    Safety override to select issues in devenv repo
 
 Environment Variables:
-    GITHUB_REPO                 Repository in format owner/repo (default: current repo)
+    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
 
 Output:
     Prints selected issue number(s) to stdout, one per line.

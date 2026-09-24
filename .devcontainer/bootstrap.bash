@@ -963,7 +963,7 @@ sync_copilot_side_repo() {
     # auth seam — never from env, never via raw gh.
     token=$(provider_secret_get token 2>/dev/null) || token=""
     if [ -z "$token" ]; then
-        echo "WARNING: gh is not authenticated; skipping $label sync (run 'gh auth login')"
+        echo "WARNING: gh is not authenticated; skipping $label sync (run 'key-update-git')"
         return 0
     fi
 

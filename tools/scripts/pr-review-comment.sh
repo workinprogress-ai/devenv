@@ -73,7 +73,7 @@ Options:
     --devenv                    Safety override to comment on devenv repo PRs
 
 Environment Variables:
-    GITHUB_REPO                 Repository in format owner/repo (default: curren
+    DEVENV_REPO                 Repository in format owner/repo (default: curren
 t repo)
 
 Examples:

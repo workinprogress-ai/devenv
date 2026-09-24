@@ -107,7 +107,7 @@ Field Updates:
     --devenv                    Safety override to manage projects in devenv repo
 
 Environment Variables:
-    GITHUB_REPO                 Repository in format owner/repo (default: current repo)
+    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
     GITHUB_ORG                  Organization name (required for org projects)
 
 Status Workflow:

@@ -172,28 +172,33 @@ RESIDUE_PATTERNS=(
     '\$\{?GITHUB_REPO:?[=-}]?'
 )
 
-# Sanctioned non-provider sites: file substring -> regex of allowed reads.
+# Sanctioned non-provider sites: directory-anchored path key -> regex of
+# allowed reads. Keys carry a stable directory prefix so a same-named file
+# elsewhere cannot shadow-match; a renamed file fails the lock loudly
+# instead of silently widening it. Entries for paths outside the current
+# scan scope (tests/, providers/) document the alias contract and engage
+# if LOCK_TARGETS ever grows to cover them.
 # test_helper.bash exports the vars for every bats suite (test ergonomics,
 # not transport); git-operations' only live reference is the safety-gate
 # message text (its chain delegates to policy_org → provider accessor).
 # shellcheck disable=SC2034
 RESIDUE_ALLOWED=(
-    "test_helper.bash:export GH_(USER|ORG|TOKEN)="
+    "tests/test_helper.bash:export GH_(USER|ORG|TOKEN)="
     # provider-loader's get_repo_spec / resolve_target_repo carry the
     # deprecated GITHUB_REPO alias legs (documented compatibility).
-    "provider-loader.bash:GITHUB_REPO"
+    "lib/provider-loader.bash:GITHUB_REPO"
     # The alias tests themselves (repos module contract).
-    "test_provider_repos.bats:GITHUB_REPO="
+    "tests/test_provider_repos.bats:GITHUB_REPO="
     # The repos module's own alias leg (provider_repo_target).
-    "repos.bash:GITHUB_REPO"
+    "providers/github/repos.bash:GITHUB_REPO"
     # git-operations' safety-gate override check: the deprecated alias must
     # keep suppressing the devenv-root refusal exactly as before the
     # DEVENV_REPO migration (full compatibility contract).
-    "git-operations.bash:GITHUB_REPO"
+    "lib/git-operations.bash:GITHUB_REPO"
     # config-reader's no-provider fallback branch: standalone bootstrap edge
     # (config-reader loads before the provider layer exists); the provider
     # path above it is the sanctioned resolver.
-    "config-reader.bash:GH_(ORG|USER):\-\}"
+    "lib/config-reader.bash:GH_(ORG|USER):\-\}"
 )
 
 # Appends RESIDUE violation lines for one scan target to $VIOLATIONS_FILE.

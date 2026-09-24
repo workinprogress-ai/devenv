@@ -53,7 +53,7 @@ What are you trying to do?
 ├─ 🔎 Review / address feedback
 │   ├─ Review your changes              →  /devenv-review
 │   ├─ You received PR review comments  →  /devenv-address-pr-comments
-│   └─ Quality gates before commit      →  /devenv-commit
+│   └─ Review / land the work           →  /devenv-review then /devenv-commit
 │
 └─ 🏁 Wrap up
     └─ Open a PR from finished phase     →  /devenv-open-pr
@@ -238,8 +238,8 @@ Answers status/composition/progress questions (board status, epic rollups via th
 | Skill | Purpose | Argument |
 |---|---|---|
 | `/devenv-hunt` | End-to-end bug skill — verify (aggressive hypothesis hunt, verdict) / diagnose (root-cause trace) / fix (test-first, confirmed changes) | Observation+expectation, bug description, issue #, or hunt report |
-| `/devenv-review` | Review assistance for your changes; `--plan` folds approved findings into the plan's Review phase | PR #, refs, `--plan <path>`, or nothing |
-| `/devenv-commit` | Lint/format/test before committing | `--all` or nothing |
+| `/devenv-review` | Review assistance for your changes; "review uncommitted" targets staged + working-tree changes; `--plan` folds approved findings into the plan's Review phase | PR #, refs, `--plan <path>`, or nothing |
+| `/devenv-commit` | Commit via repo-commit — glance + marker gate + message craft; WIP lane on choice; deep review → `/devenv-review` | "commit this", "wip this" (`--wip`), or nothing |
 | `/devenv-audit` | Opinionated codebase audit — file-cited findings across debt + correctness/bug risks, severity, effort; optional focus area; offers to create a GH issue after the audit | Repo path(s), optionally + focus area description; or GH issue # |
 
 ### Meta

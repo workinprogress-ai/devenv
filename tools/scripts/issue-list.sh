@@ -71,7 +71,7 @@ Output:
     --devenv                    Safety override to list issues in devenv repo
 
 Environment Variables:
-    GITHUB_REPO                 Repository in format owner/repo (default: current repo)
+    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
 
 Examples:
     # List all open issues

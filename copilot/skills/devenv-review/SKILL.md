@@ -21,6 +21,7 @@ Review code changes and produce structured, actionable feedback for work. Invers
 - Reviewing local work-in-progress before opening a PR.
 - Reviewing a branch that is about to become a PR (no published PR required).
 - Reviewing a branch's diff against the default branch as a self-check.
+- **Reviewing uncommitted work before landing it** — "review for commit" / "review uncommitted": diff staged + working-tree changes against HEAD. The natural pre-commit review; pairs naturally with `/devenv-commit` afterward (see the two-session pattern in the workflow docs).
 
 If the user wants the AI to *write* or refactor code, use `/devenv-pair`, or `/devenv-delegate` for a commissioned autonomous run, instead. Exception: a **micro fix** of this review's own findings (one concern, one sitting, directly tied to the findings) may run in-session under the [incidental implementation protocol](../common/references/incidental-implementation-protocol.md) once the review is complete — anything beyond micro routes as above. If the user wants to *respond to* review comments on their own PR, use `/devenv-address-pr-comments`.
 
@@ -30,12 +31,12 @@ The user provides one of:
 
 - **A PR number** — e.g. `123`. Fetch via `pr-get N --pretty` (title, body, base/head refs, author, labels, draft state). Fetch the diff via `pr-diff N`.
 - **Two refs** — e.g. `--base master --head my-feature`. Use `pr-diff --base BASE --head HEAD`. This is the preferred mode for pre-PR branch reviews.
-- **Nothing** — default mode: diff the current branch against the repository's default branch (`master` or `main`). Use `pr-diff --base <default> --head HEAD`. This is also a valid pre-PR review mode.
+- **Nothing** — ambiguous: resolve by what the working tree shows. **Uncommitted changes present** (staged or unstaged) → propose **uncommitted-diff mode** (diff of HEAD vs working tree + index, via `git diff HEAD`): "You have uncommitted changes — review those (for commit), or the branch vs default?" via structured interview; proceed on answer. **Clean tree** → default to current-branch-vs-default mode (announce it). `/devenv-commit branch` or a branch name given → branch mode, no ask.
 - **`--plan <path>`** — plan-encoded review: the plan being executed encodes a dedicated Review phase. The diff source is still auto-detected (PR / refs / default); the plan file supplies the fold-in target. The path may be omitted — see the detection ladder in step 8.
 
-**Auto-detection rule:** `^[0-9]+$` → PR number. Two refs given → ref-diff mode. Plan-encoded mode on top of the auto-detected diff source (announce both). No args → current-branch-vs-default mode (announce this so the user knows what's being reviewed). Branch review mode does not call GitHub PR APIs.
+**Auto-detection rule:** `^[0-9]+$` → PR number. Two refs given → ref-diff mode. Plan-encoded mode on top of the auto-detected diff source (announce both). No args → uncommitted changes → propose uncommitted-diff mode (interview when unclear); clean tree → current-branch-vs-default mode (announce). Branch review mode does not call GitHub PR APIs.
 
-For the no-args mode: detect the default branch via `git symbolic-ref refs/remotes/origin/HEAD` (or fall back to `master` then `main`), and use the current branch as head.
+For branch-vs-default mode: detect the default branch via `git symbolic-ref refs/remotes/origin/HEAD` (or fall back to `master` then `main`), and use the current branch as head. For uncommitted-diff mode: `git diff HEAD` (covers staged + unstaged); untracked files are listed for awareness but hold no reviewable content until added.
 
 ## Workflow
 

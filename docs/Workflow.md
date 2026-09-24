@@ -125,6 +125,15 @@ Review / merge / follow-up feedback
 
 Read this as tool support layered onto the workflow, not as a replacement for the workflow itself.
 
+## The two-session pattern (partner / reviewer)
+
+Recommended for work where pre-commit review matters: run **two chat sessions** side by side.
+
+- **Partner session** — `/devenv-pair` or `/devenv-delegate` doing the implementation. It never reviews its own work deeply and never commits.
+- **Reviewer session** — `/devenv-review` and `/devenv-commit` in a **tick/tock cycle**: tick = the partner finishes a chunk; tock = the reviewer runs `"review uncommitted"` (targets staged + working-tree changes vs HEAD), the user works the findings, then `/devenv-commit` lands the approved state. Reviewing can even happen while the partner starts the next chunk.
+
+The point is **separation of concerns**: the reviewer session stays unpolluted from partner bias — a session that wrote the code reviewing it itself is adversarially weak. Deep review lives in the reviewer session; the commit skill stays slim (staged-glance + marker gate only). Within a single pairing conversation, ordinary quick looks at each other's changes remain exactly that — conversation, not formal review rounds.
+
 ## Alternative delivery flows
 
 There are a few variations on the default flow that are still valid but less common. Some examples:

@@ -57,7 +57,7 @@ Options:
     --devenv                    Safety override to target the devenv repo
 
 Environment Variables:
-    GITHUB_REPO                 Repository in format owner/repo (default: curren
+    DEVENV_REPO                 Repository in format owner/repo (default: curren
 t repo)
 
 Examples:
@@ -90,7 +90,7 @@ resolve_owner_repo() {
         echo "${repo_spec[1]}"
         return 0
     fi
-    log_error "Cannot resolve target repository — set GITHUB_REPO"
+    log_error "Cannot resolve target repository — set DEVENV_REPO"
     return 1
 }
 

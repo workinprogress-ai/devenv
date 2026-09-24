@@ -53,11 +53,11 @@ Exit codes:
     1 — usage error or query failure
 
 Environment Variables:
-    GITHUB_REPO              Repository in format owner/repo
+    DEVENV_REPO              Repository in format owner/repo
 
 Examples:
     $SCRIPT_NAME 42
-    GITHUB_REPO=myorg/myrepo $SCRIPT_NAME 42
+    DEVENV_REPO=myorg/myrepo $SCRIPT_NAME 42
 EOF
 }
 

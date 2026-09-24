@@ -66,7 +66,7 @@ Comment Source (one required):
     -e, --edit                  Open \$EDITOR to compose comment
 
 Environment Variables:
-    GITHUB_REPO                 Repository in format owner/repo (default: current repo)
+    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
 
 Examples:
     # Inline comment
