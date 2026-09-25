@@ -30,6 +30,7 @@ The user provides one of:
 
 - **A free-form question / problem statement** — e.g. "can we use library X for our message bus?" or "what's the perf cost of serializing every event through Y?"
 - **An issue number** — e.g. `42`. Fetch the issue body via `issue-get N --pretty`; the body describes the question.
+- **A structured handoff block** — plan-encoded research tasks (`owner: User`) and grooming research handoffs deliver the question, why it matters, constraints, and a return route. Honor the block as the question source and the stated return route as the findings destination.
 
 **Auto-detection rule:** `^[0-9]+$` → issue number; otherwise treat as free-form. Ambiguous → ask.
 

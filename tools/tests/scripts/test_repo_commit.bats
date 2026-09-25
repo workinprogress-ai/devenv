@@ -35,6 +35,23 @@ stage_one_file() {
     git -C "$TESTREPO" add a.txt
 }
 
+# Build a PATH shadow that omits interactive editors (code/code-insiders/nano)
+# so the auto-resolve candidates come back empty and refusal paths are
+# deterministic regardless of what the container has installed.
+shadow_path_without_editors() {
+    SHADOW_BIN="$TESTREPO/shadow-bin"
+    mkdir -p "$SHADOW_BIN"
+    for dir in $(printf '%s' "$PATH" | tr ':' ' '); do
+        [ -d "$dir" ] || continue
+        for entry in "$dir"/*; do
+            [ -e "$entry" ] || continue
+            base="$(basename "$entry")"
+            case "$base" in code|code-insiders|nano) continue ;; esac
+            [ -e "$SHADOW_BIN/$base" ] || ln -s "$entry" "$SHADOW_BIN/$base" 2>/dev/null || true
+        done
+    done
+}
+
 @test "--help exits 0 and mentions the interactive contract" {
     run bash "$REPO_COMMIT" --help
     [ "$status" -eq 0 ]
@@ -74,29 +91,48 @@ stage_one_file() {
     [[ "$output" == *"nothing is staged"* ]]
 }
 
-@test "refuses non-interactive editor GIT_EDITOR=true (negative control)" {
+@test "non-interactive GIT_EDITOR sentinel falls through to core.editor" {
+    # THE regression case: automation hosts inject GIT_EDITOR=: into terminals;
+    # the user's own core.editor must outrank it and the commit proceeds.
     stage_one_file
-    GIT_EDITOR=true run bash "$REPO_COMMIT" "should be refused"
+    SAVE_EDITOR="$TESTREPO/save-editor.sh"
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$SAVE_EDITOR"
+    chmod +x "$SAVE_EDITOR"
+    git config core.editor "$SAVE_EDITOR"
+    GIT_EDITOR=: run bash "$REPO_COMMIT" "sentinel overridden by config"
+    [ "$status" -eq 0 ]
+    [ "$(git -C "$TESTREPO" log -1 --format=%s)" = "sentinel overridden by config" ]
+}
+
+@test "refuses when every editor source resolves non-interactive" {
+    stage_one_file
+    shadow_path_without_editors
+    git config core.editor true
+    run env PATH="$SHADOW_BIN" GIT_EDITOR=true VISUAL=true EDITOR=true \
+        bash "$REPO_COMMIT" "should be refused"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"non-interactive editor"* ]]
+    [[ "$output" == *"refusing non-interactive editor"* ]]
 }
 
 @test "refuses non-interactive editor via core.editor config" {
     stage_one_file
+    shadow_path_without_editors
     git config core.editor true
-    unset GIT_EDITOR
-    run bash "$REPO_COMMIT" "should be refused"
+    run env -u GIT_EDITOR -u VISUAL -u EDITOR PATH="$SHADOW_BIN" \
+        bash "$REPO_COMMIT" "should be refused"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"non-interactive editor"* ]]
+    [[ "$output" == *"refusing non-interactive editor"* ]]
 }
 
-@test "GIT_EDITOR='sed -i s/x/y/' still allowed (multi-word editors pass the gate)" {
-    # The gate refuses known non-interactive BASE commands; sed is interactive-classified
-    # as unknown — it would hang waiting for stdin, so instead assert the refusal list
-    # scope: ':'-style shells are refused.
+@test "refuses when a lone no-op sentinel is the only editor source" {
+    # GIT_EDITOR=: with nothing else available: no fall-through target exists,
+    # so the wrapper refuses rather than launching git's vi default.
     stage_one_file
-    GIT_EDITOR=: run bash "$REPO_COMMIT" "refused"
+    shadow_path_without_editors
+    run env -u VISUAL -u EDITOR GIT_EDITOR=: PATH="$SHADOW_BIN" \
+        bash "$REPO_COMMIT" "refused"
     [ "$status" -ne 0 ]
+    [[ "$output" == *"refusing non-interactive editor"* ]]
 }
 
 @test "editor session with saved message commits the staged index" {

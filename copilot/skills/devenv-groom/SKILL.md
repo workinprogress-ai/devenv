@@ -246,6 +246,21 @@ This flow updates the grooming document only; it does not modify the completed p
 - Route to `/devenv-plan` when architecture is settled and **no plan exists yet** for the groomed scope — plan generation from a grooming artifact always starts at create, not refine. If the attack plan has multiple rows, create the child issues first so each slice gets its own plan.
 - If uncertain between grooming and /devenv-design after Phase 1, ask one tie-breaker question: "Are we deciding between approaches broadly, or picking the fastest safe decision to unblock the current plan phase?"
 
+### Research handoff (empirical unknowns — offered)
+
+When a grooming decision rests on an **empirical unknown** — feasibility, performance truth, what a dependency actually does — offer a research handoff via `vscode_askQuestions` (run a research session / decide without it / route to /devenv-design instead). Research is empowered (destructive-class experiments, code modification) and user-supervised by design, so it runs in a **separate session**: on agreement, output this copyable block (mirror of the redivision block) and let the user paste it into a fresh `/devenv-research` invocation:
+
+```markdown
+## Research Handoff — <topic>
+
+- **Question:** <the empirical unknown, stated so a fresh session can act on it>
+- **Why it matters:** <which grooming decision this unblocks; the options waiting on the answer>
+- **Constraints:** <what's fixed — stack, performance envelope, compatibility>
+- **Return route:** bring the findings doc back to this grooming session — the classification and attack plan are redone with the answer in hand (`/devenv-groom <grooming-doc-path>`)
+```
+
+Never run the research inside the grooming session. Scope rule: feasibility-shaped questions only — approach or preference choices route to `/devenv-design` (existing round trip), not research.
+
 ### Artifact gate before any implementation handoff
 
 Before routing onward to planning or execution, verify all of the following:

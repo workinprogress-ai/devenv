@@ -34,8 +34,14 @@ Commits the existing index only if the editor session yields a non-empty message
 
 Refuses (normal lane):
   - any option other than --file (there is no -m, no --yes, no non-interactive path)
-  - GIT_EDITOR / core.editor set to non-interactive commands (true, :, echo, cat, exit)
+  - a finally resolved editor that is a non-interactive command (true, :, echo, cat, exit)
   - an empty index (nothing staged)
+
+A non-interactive GIT_EDITOR/core.editor value inherited from the environment is
+TREATED AS UNSET (resolution falls through to the next source) — automation hosts
+inject no-op editors like ':' into terminals; the user's own git config must
+outrank them. Only when the RESOLVED editor is non-interactive is the commit
+refused: the editor save is the permission gate.
 
 Never stages (except via the --wip delegation to git-wip), never runs tests, never
 inspects hooks.
@@ -46,6 +52,18 @@ EOF
 die() {
     echo "repo-commit: $*" >&2
     exit 1
+}
+
+# True when the editor's BASE command is a known non-interactive no-op (an env
+# sentinel or config value that would bypass the editor gate entirely).
+editor_is_noninteractive() {
+    local editor_base
+    editor_base="$(printf '%s' "${1:-}" | awk '{print $1}')"
+    editor_base="$(basename "${editor_base:-}")"
+    case "$editor_base" in
+        true|':'|'.'|exit|echo|cat|tee|touch|rm|sleep) return 0 ;;
+        *) return 1 ;;
+    esac
 }
 
 # --- Argument parsing: message via argv or --file; --wip delegates to git-wip. -
@@ -118,29 +136,27 @@ if git diff --cached --quiet; then
 fi
 
 # --- Resolve the editor: VS Code first, nano fallback (user ruling). ----------
-# An explicit GIT_EDITOR/core.editor still wins; the preference governs auto-resolution.
+# Non-interactive values are treated as UNSET: automation hosts inject no-op
+# editors (GIT_EDITOR=:) into terminals; the user's own core.editor must outrank
+# them. The gate below still refuses if EVERY source resolves non-interactive.
 editor=""
-if [ -n "${GIT_EDITOR:-}" ]; then
-    editor="$GIT_EDITOR"
-elif core_editor=$(git config --get core.editor 2>/dev/null) && [ -n "$core_editor" ]; then
-    editor="$core_editor"
-elif command -v code >/dev/null 2>&1; then
-    editor="code --wait"
-elif command -v nano >/dev/null 2>&1; then
-    editor="nano"
-elif [ -n "${VISUAL:-}" ]; then
-    editor="$VISUAL"
-elif [ -n "${EDITOR:-}" ]; then
-    editor="$EDITOR"
-fi
+for candidate in \
+    "${GIT_EDITOR:-}" \
+    "$(git config --get core.editor 2>/dev/null || true)" \
+    "$(command -v code >/dev/null 2>&1 && printf 'code --wait')" \
+    "$(command -v nano >/dev/null 2>&1 && printf 'nano')" \
+    "${VISUAL:-}" \
+    "${EDITOR:-}"; do
+    [ -n "$candidate" ] || continue
+    if ! editor_is_noninteractive "$candidate"; then
+        editor="$candidate"
+        break
+    fi
+done
 
-editor_base="$(printf '%s' "$editor" | awk '{print $1}')"
-editor_base="$(basename "${editor_base:-}")"
-case "$editor_base" in
-    true|':'|'.'|exit|echo|cat|tee|touch|rm|sleep)
-        die "refusing non-interactive editor '$editor' — the editor save is the permission gate"
-        ;;
-esac
+if [ -z "$editor" ]; then
+    die "refusing non-interactive editor — the editor save is the permission gate"
+fi
 # --- Launch the editor with the suggested message; commit only on save. -------
 # msgfile is a temp file for the editor session — removed on exit via the trap below.
 msgfile="$(mktemp "${TMPDIR:-/tmp}/repo-commit-msg.XXXXXX")"
@@ -157,7 +173,12 @@ fi
 # --edit forces the editor open on the supplied message; without it git skips the
 # editor entirely — the editor open IS the permission gate. git aborts the commit
 # when the editor session empties the message; that abort IS the cancel path.
-if ! git commit --cleanup=strip --edit -F "$msgfile" >/dev/null 2>&1; then
+# git's stdout/stderr are passed through UNREDIRECTED: terminal editors (nano, vi)
+# draw their UI on the TTY, and discarding output makes the editor run invisibly —
+# indistinguishable from a hang. The one-line notice tells the user which editor
+# is taking over the terminal.
+echo "repo-commit: opening editor: $editor  (save & close to commit; empty/abort cancels)"
+if ! git commit --cleanup=strip --edit -F "$msgfile"; then
     die "commit did not complete (editor session aborted or git failed) — index left untouched"
 fi
 
