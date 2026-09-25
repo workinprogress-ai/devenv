@@ -246,7 +246,7 @@ For legacy or underdocumented systems that need to be understood before any new 
 
 ### Chain H — Existing-component feature discovery to delivery
 
-For adding a feature to an existing component when the implementation approach is not yet clear. Start with grooming; use design-discussion only when one bounded question needs deeper option-weighing; then flow back into plan updates and execution.
+For adding a feature to an existing component when the implementation approach is not yet clear. Start with grooming; use /devenv-design only when one bounded question needs deeper option-weighing; then flow back into plan updates and execution.
 
 ```
 /devenv-groom
@@ -262,7 +262,7 @@ For adding a feature to an existing component when the implementation approach i
 
 ### Chain J — Design/spike artifact to delivery
 
-For work that starts from a design-discussion or spike artifact, route through grooming first to produce coordination slices before planning execution details.
+For work that starts from a /devenv-design or spike artifact, route through grooming first to produce coordination slices before planning execution details.
 
 ```
 /devenv-design or /devenv-research

@@ -519,11 +519,11 @@ Existing-component feature request
                 +--> Execute
 ```
 
-In Devenv, that usually maps to grooming first, with design-discussion used only when the real need is one focused design question.
+In Devenv, that usually maps to grooming first, with /devenv-design used only when the real need is one focused design question.
 
 ## Upstream artifact routing
 
-Design-discussion and spike artifacts should normally flow through grooming before planning.
+/devenv-design and spike artifacts should normally flow through grooming before planning.
 
 ```text
 Design discussion or spike artifact

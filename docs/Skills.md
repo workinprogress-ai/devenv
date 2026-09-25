@@ -247,7 +247,7 @@ Answers status/composition/progress questions (board status, epic rollups via th
 | Skill | Purpose | Argument |
 |---|---|---|
 | `/devenv-help` | Answer questions about the devenv — its skills, tooling, scripts, docs, config, and the engineering/knowledge repos — directly with citations; also picks the right skill or chain for workflow intents (offers to start, never starts unprompted) | Any question about the environment, a problem description, or issue # (optional) |
-| `/devenv-skill-maintenance` | Correct and synchronize the custom skill system (skills, guru routing, registry, and related docs) while preserving workflow principles; files validated findings as devenv issues and fixes from them | Skill problems to fix, plus optional target skill names, file paths, diagnostic output, an `IMPROVEMENT_REPORT.md`, or devenv issue numbers |
+| `/devenv-skill-maintenance` | Correct and synchronize the custom skill system (skills, devenv-help routing, registry, and related docs) while preserving workflow principles; files validated findings as devenv issues and fixes from them | Skill problems to fix, plus optional target skill names, file paths, diagnostic output, an `IMPROVEMENT_REPORT.md`, or devenv issue numbers |
 
 ---
 
@@ -406,15 +406,15 @@ Component design changed
 | `/devenv-pair` vs `/devenv-delegate` | Autonomy span. Pair = one task/small chunk per human touchpoint and the only home for high-impact work. Delegation = a commissioned phase-scale autonomous run, mechanical work only, explicit invocation required. Prefer `/devenv-pair` when in doubt. |
 | `/devenv-review` vs `/devenv-address-pr-comments` | Review assistance for your changes vs you address a reviewer's comments. |
 | `/devenv-address-pr-comments` vs GitHub PR extension | Auto-fixes clear threads + surfaces complex ones with recommendations vs batch fix-all with no per-thread direction. |
-| `/devenv-chat` vs `/devenv-audit` | Chat-with-code is conversational Q&A — you ask, it answers. Tech-debt-audit is an unsupervised sweep that produces a structured findings document. |
-| `/devenv-chat` vs `/devenv-design` | Chat-with-code surfaces facts about existing code. Design-discussion weighs trade-offs and drives to a recommendation for what to build or change. |
+| `/devenv-chat` vs `/devenv-audit` | /devenv-chat is conversational Q&A — you ask, it answers. /devenv-audit is an unsupervised sweep that produces a structured findings document. |
+| `/devenv-chat` vs `/devenv-design` | /devenv-chat surfaces facts about existing code. /devenv-design weighs trade-offs and drives to a recommendation for what to build or change. |
 | `/devenv-document` vs `/devenv-create-blueprint` | Document describes an *existing* system as it is (reference, orientation, context). Blueprint *designs* how a system should be structured (architecture, new components, deltas). Use document to understand the present; use blueprint to plan the future. |
-| `/devenv-document` vs `/devenv-audit` | Document aims to produce useful reference material. Tech-debt-audit aims to surface problems and prioritise remediation. |
-| `/devenv-design` vs `/devenv-research` | Design-discussion narrows options by reasoning. Spike answers feasibility questions that require running code. |
-| `/devenv-design` vs `/devenv-create-blueprint` | Design-discussion is exploratory and focused — picks between approaches. Blueprint is formal and broad — decomposes a chosen approach into domains, services, events, components. Design-discussion typically *precedes* a blueprint, or is invoked *after* one to settle a specific question. |
-| `/devenv-design` vs `/devenv-plan` | Use design-discussion when the approach is still unclear or one bounded blocker needs deeper option-weighing. Use create-plan when the approach is already chosen and you need executable tasks. |
-| `/devenv-board` vs `/devenv-update-roadmap` | Board truth vs roadmap sync. Project-manager **answers and corrects** issue/board state (writes only on explicit instruction or consented batch); update-roadmap **syncs** roadmap step status from issues and republishes the artifact. |
-| `/devenv-board` vs `/devenv-refine-plan` | Board vs plan. Project-manager surfaces drift with both readings (and can correct board state on instruction); refine-plan is where the plan gets fixed. |
+| `/devenv-document` vs `/devenv-audit` | Document aims to produce useful reference material. /devenv-audit aims to surface problems and prioritise remediation. |
+| `/devenv-design` vs `/devenv-research` | /devenv-design narrows options by reasoning. Spike answers feasibility questions that require running code. |
+| `/devenv-design` vs `/devenv-create-blueprint` | /devenv-design is exploratory and focused — picks between approaches. Blueprint is formal and broad — decomposes a chosen approach into domains, services, events, components. /devenv-design typically *precedes* a blueprint, or is invoked *after* one to settle a specific question. |
+| `/devenv-design` vs `/devenv-plan` | Use /devenv-design when the approach is still unclear or one bounded blocker needs deeper option-weighing. Use /devenv-plan when the approach is already chosen and you need executable tasks. |
+| `/devenv-board` vs `/devenv-update-roadmap` | Board truth vs roadmap sync. /devenv-board **answers and corrects** issue/board state (writes only on explicit instruction or consented batch); update-roadmap **syncs** roadmap step status from issues and republishes the artifact. |
+| `/devenv-board` vs `/devenv-refine-plan` | Board vs plan. /devenv-board surfaces drift with both readings (and can correct board state on instruction); refine-plan is where the plan gets fixed. |
 
 ---
 
@@ -576,7 +576,7 @@ what you want, and the skill's interview will fill in the gaps.
 ```text
 /devenv-triage 88
 /devenv-triage 88 89 90
-/devenv-skill-maintenance broken routing in the catalog; triage-issue and guru disagree about bug hunts
+/devenv-skill-maintenance broken routing in the catalog; devenv-triage and devenv-help disagree about bug hunts
 ```
 
 ### Tips

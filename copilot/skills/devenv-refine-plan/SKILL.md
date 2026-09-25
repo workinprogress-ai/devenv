@@ -1,7 +1,7 @@
 ---
 name: devenv-refine-plan
 description: Align an existing Plan-*.md (or an issue containing a plan artifact comment; legacy artifacts are typed implementation-plan) with reality — one skill entered from three starting points. Surgical mode for small known edits ("mark 3.4 done", "tick off task 2.1", "add a note to task X", "answer that open question", "add one more task to phase 3" — max 3 edits, per-edit confirm). Revision mode for known broader changes ("refine the plan", "update the plan", "rework the plan based on what we learned", tasks reworded, scope adjusted). Assessment mode when staleness is unknown ("refresh the plan", "is this plan still valid?", "the plan might be out of date", returning after a gap) — runs a staleness assessment against the current codebase and routes internally. Auto-detects file path vs GitHub issue number, preserves all existing [x] checkbox state, appends new tasks by default, supports task reflow for structural insertion, and creates new phases when the target phase is fully complete. DO NOT USE for creating a brand-new plan from scratch (use /devenv-plan) or for executing the plan (use /devenv-pair or /devenv-delegate).
-argument-hint: Path to an Plan-*.md OR github-issue-number[:doc_id], plus what changed (or nothing for assessment)
+argument-hint: Path to a Plan-*.md OR github-issue-number[:doc_id], plus what changed (or nothing for assessment)
 user-invocable: true
 ---
 
@@ -61,7 +61,7 @@ For issue-backed plan refinement, follow the shared [issue-backed artifact edit 
 
 ### Event signal
 
-After a refinement that unblocks implementation (approvals gained, decisions recorded), signal `_on_end_planning <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals-_on_).
+After a refinement that unblocks implementation (approvals gained, decisions recorded), signal `_on_end_planning <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals-on).
 
 ### 0. Mode dispatch
 

@@ -76,7 +76,7 @@ Keep the output scoped to the current artifact and current delivery horizon.
 ### Net result
 - Blocker findings: <count>
 - High findings: <count>
-- Recommended route: <continue current workflow | route to grooming | route to design-discussion | route to blueprint/refine>
+- Recommended route: <continue current workflow | route to grooming | route to /devenv-design | route to blueprint/refine>
 ```
 
 If there are zero blocker/high findings, say so explicitly.
@@ -86,7 +86,7 @@ If there are zero blocker/high findings, say so explicitly.
 ## Outcome handling
 
 - **No blocker/high findings:** continue current workflow.
-- **Single bounded blocker:** route to design-discussion if broader option-weighing is needed.
+- **Single bounded blocker:** route to /devenv-design if broader option-weighing is needed.
 - **Multiple entangled or widening issues:** route to grooming.
 - **Upstream architecture mismatch:** update/refine blueprint first, then cascade down.
 

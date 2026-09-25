@@ -49,7 +49,7 @@ What are you trying to do?
 ├─ 🔎 Review / address feedback
 │   ├─ Review your changes              →  /devenv-review
 │   ├─ You received PR review comments  →  /devenv-address-pr-comments
-│   └─ Quality gates before commit      →  /devenv-commit
+│   └─ Review / land the work           →  /devenv-review then /devenv-commit
 │
 └─ 🏁 Wrap up
     └─ Open a PR from finished phase     →  /devenv-open-pr
@@ -119,7 +119,7 @@ Analyzes a plan, refreshes and confirms the current phase task list as the execu
 If it raises a decision gate, it must stop before any mutating action until the user explicitly approves the path.
 
 **Use for:** commissioned autonomous runs over refactors, renames, test scaffolding, cleanup, docs — mechanical, low-risk phases; ad-hoc decomposed task lists accepted as input via viability audit + materialization into a plan file  
-**Don't use for:** high-impact work (→ `/devenv-pair`), task-by-task collaboration (→ `/devenv-pair`), ad-hoc work without a plan or decomposed list  
+**Don't use for:** high-impact work (→ `/devenv-pair`), task-by-task collaboration (→ `/devenv-pair`)  
 **Tool deps:** `issue-get`, `issue-artifact-select`, `issue-artifact-get`, `issue-artifact-upsert`, `issue-comment`
 
 ---
@@ -194,7 +194,7 @@ The inverse of `/devenv-delegate` — this skill provides review assistance for 
 
 | Skill | Purpose | Argument |
 | --- | --- | --- |
-| `/devenv-pair` | Collaborative build — the engineer drives, and the AI keeps the plan aligned to actual work as scope/questions emerge | Issue # or plan path |
+| `/devenv-pair` | Collaborative implementation with bounded autonomy span — one task or small chunk per human touchpoint; the AI keeps the plan aligned to actual work as scope/questions emerge, and raised decision gates block mutating actions until explicitly resolved | Issue # or plan path |
 | `/devenv-delegate` | Delegated build support — assistant-led execution with user review and ownership, while keeping the plan aligned to actual work; accepts a bare GH issue by materializing a small plan first (issue intake gate) | Issue # or plan path |
 | `/devenv-document` | Produce documentation for an existing system or component — audience, format, and scope set by interview | Repo path, component name, or description |
 | `/devenv-chat` | Conversational fact-finding with source code or markdown-first repos — the repo talks back | Repo path(s), or nothing for current workspace |
@@ -214,7 +214,7 @@ The inverse of `/devenv-delegate` — this skill provides review assistance for 
 | Skill | Purpose | Argument |
 | --- | --- | --- |
 | `/devenv-hunt` | End-to-end bug skill — verify (aggressive hypothesis hunt, verdict) / diagnose (root-cause trace) / fix (test-first, confirmed changes) | Observation+expectation, bug description, issue #, or hunt report |
-| `/devenv-review` | Review assistance for your changes; `--plan` folds approved findings into the plan's Review phase | PR #, refs, `--plan <path>`, or nothing |
+| `/devenv-review` | Review assistance for your changes; "review uncommitted" targets staged + working-tree changes vs HEAD; `--plan` folds approved findings into the plan's Review phase | PR #, refs, `--plan <path>`, or nothing |
 | `/devenv-commit` | Commit via repo-commit — glance + marker gate + message craft; WIP lane on choice; deep review → `/devenv-review` | "commit this", "wip this" (`--wip`), or nothing |
 | `/devenv-audit` | Opinionated codebase audit — file-cited findings across debt + correctness/bug risks, severity, effort; optional focus area; offers to create a GH issue after the audit | Repo path(s), optionally + focus area description; or GH issue # |
 
@@ -223,7 +223,7 @@ The inverse of `/devenv-delegate` — this skill provides review assistance for 
 | Skill | Purpose | Argument |
 | --- | --- | --- |
 | `/devenv-help` | Answer questions about the devenv — skills, tooling, scripts, docs, config, engineering/knowledge repos — directly with citations; also picks the right skill or chain for workflow intents (offers to start, never starts unprompted) | Any question about the environment, a problem description, or issue # (optional) |
-| `/devenv-skill-maintenance` | Correct and synchronize the custom skill system (SKILL.md files, registry, guru routing, and catalogs); files validated findings as devenv issues and fixes from them | Skill problems to fix, plus optional target skill names, file paths, diagnostic output, an `IMPROVEMENT_REPORT.md`, or devenv issue numbers |
+| `/devenv-skill-maintenance` | Correct and synchronize the custom skill system (SKILL.md files, registry, devenv-help routing, and catalogs); files validated findings as devenv issues and fixes from them | Skill problems to fix, plus optional target skill names, file paths, diagnostic output, an `IMPROVEMENT_REPORT.md`, or devenv issue numbers |
 
 ---
 
@@ -264,7 +264,7 @@ For the complete version of these flows, see [Workflow Guide](../../_shared/docs
 /devenv-chat                                # understand the codebase
   → /devenv-plan                # turn findings into a plan
     → /devenv-delegate / /devenv-pair   # implement
-      → /devenv-review                           # review before opening PR; --plan folds findings into the plan; --plan folds findings into the plan
+      → /devenv-review                           # review before opening PR; --plan folds findings into the plan
         → /devenv-open-pr
 ```
 
@@ -383,13 +383,13 @@ Component design changed
 | `/devenv-pair` vs `/devenv-delegate` | Autonomy span. Pair = one task/small chunk per human touchpoint and the only home for high-impact work. Delegation = a commissioned phase-scale autonomous run, mechanical work only, explicit invocation required. Prefer `/devenv-pair` when in doubt. |
 | `/devenv-review` vs `/devenv-address-pr-comments` | Review assistance for your changes vs you address a reviewer's comments. |
 | `/devenv-address-pr-comments` vs GitHub PR extension | Auto-fixes clear threads + surfaces complex ones with recommendations vs batch fix-all with no per-thread direction. |
-| `/devenv-chat` vs `/devenv-audit` | Chat-with-code is conversational Q&A — you ask, it answers. Tech-debt-audit is an unsupervised sweep that produces a structured findings document. |
-| `/devenv-chat` vs `/devenv-design` | Chat-with-code surfaces facts about existing code. Design-discussion weighs trade-offs and drives to a recommendation for what to build or change. |
+| `/devenv-chat` vs `/devenv-audit` | /devenv-chat is conversational Q&A — you ask, it answers. /devenv-audit is an unsupervised sweep that produces a structured findings document. |
+| `/devenv-chat` vs `/devenv-design` | /devenv-chat surfaces facts about existing code. /devenv-design weighs trade-offs and drives to a recommendation for what to build or change. |
 | `/devenv-document` vs `/devenv-create-blueprint` | Document describes an *existing* system as it is (reference, orientation, context). Blueprint *designs* how a system should be structured (architecture, new components, deltas). Use document to understand the present; use blueprint to plan the future. |
-| `/devenv-document` vs `/devenv-audit` | Document aims to produce useful reference material. Tech-debt-audit aims to surface problems and prioritise remediation. |
-| `/devenv-design` vs `/devenv-research` | Design-discussion narrows options by reasoning. Spike answers feasibility questions that require running code. |
-| `/devenv-design` vs `/devenv-create-blueprint` | Design-discussion is exploratory and focused — picks between approaches. Blueprint is formal and broad — decomposes a chosen approach into domains, services, events, components. Design-discussion typically *precedes* a blueprint, or is invoked *after* one to settle a specific question. |
-| `/devenv-design` vs `/devenv-plan` | Use design-discussion when the approach is still unclear or one bounded blocker needs deeper option-weighing. Use create-plan when the approach is already chosen and you need executable tasks. |
+| `/devenv-document` vs `/devenv-audit` | Document aims to produce useful reference material. /devenv-audit aims to surface problems and prioritise remediation. |
+| `/devenv-design` vs `/devenv-research` | /devenv-design narrows options by reasoning. Spike answers feasibility questions that require running code. |
+| `/devenv-design` vs `/devenv-create-blueprint` | /devenv-design is exploratory and focused — picks between approaches. Blueprint is formal and broad — decomposes a chosen approach into domains, services, events, components. /devenv-design typically *precedes* a blueprint, or is invoked *after* one to settle a specific question. |
+| `/devenv-design` vs `/devenv-plan` | Use /devenv-design when the approach is still unclear or one bounded blocker needs deeper option-weighing. Use /devenv-plan when the approach is already chosen and you need executable tasks. |
 
 ---
 

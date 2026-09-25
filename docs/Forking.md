@@ -232,7 +232,7 @@ name=YourOrg Dev Environment
 ```ini
 [workflows]
 status_workflow=TBD,To-Groom,Ready,Implementing,Review,Merged,Staging,Production
-# Staleness thresholds (days) for project-manager Assess/Recommend passes.
+# Staleness thresholds (days) for the board skill (/devenv-board) Assess/Recommend passes.
 stale_to_groom_days=14
 stale_ready_days=21
 stale_implementing_days=30

@@ -80,7 +80,7 @@ Candidates may carry org-context **only** in a practice's Example or a pattern's
 
 ## Lifecycle
 
-1. **Discover (passive).** Skills notice pattern/practice-shaped truth while working. No detection phase, no mining pass, no offers — capture begins only on the user's explicit request (or the design-discussion in-flight offer below).
+1. **Discover (passive).** Skills notice pattern/practice-shaped truth while working. No detection phase, no mining pass, no offers — capture begins only on the user's explicit request (or the /devenv-design in-flight offer below).
 2. **Capture (explicit request only).** The user asks to extract. Present each candidate in chat as a one-liner plus its classifier (practice/pattern) and proposed file name. Nothing is written without approval of the specific additions.
 3. **Route by confidence.** Two destinations, user's choice:
    - **Settled** — the discussion with the user already weighed it and it held: [`/devenv-design`](../../devenv-design/SKILL.md) prepares it directly as a change to the engineering repo (branch → diff shown → PR; see the vetting section of that skill). No staging toll — the exercising already happened, in the room, with the user present.

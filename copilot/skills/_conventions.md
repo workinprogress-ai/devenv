@@ -110,7 +110,7 @@ Rules:
 
 - **One glob.** Working-copy probes check `<repo>/.local-artifacts/` (e.g. `.local-artifacts/Plan-issue-42-*.md`), not the repo root.
 - **One ignore.** `.local-artifacts/` is committed to no repo; every repo's `.gitignore` (including all `template.*` repos) carries the entry.
-- **Offer-to-retire at wrap-up.** When an artifact is republished to its issue (`issue-artifact-upsert`) or a skill session that owns local files ends, list the stale `.local-artifacts/` files and offer deletion (y/n) — never auto-delete. Use [`artifact-clean`](./_tools-reference.md#artifact-clean) for the sweep: it groups files into the families below, drops `tmpN.md` without confirmation, and confirms everything else. After publication the issue copy is authoritative; see the [issue-backed artifact edit protocol](#issue-backed-artifact-edit-protocol).
+- **Offer-to-retire at wrap-up.** When an artifact is republished to its issue (`issue-artifact-upsert`) or a skill session that owns local files ends, list the stale `.local-artifacts/` files and offer deletion (y/n) — never auto-delete. Use [`artifact-clean`](./_shared/references/provider-protocols/github.md#artifact-clean) for the sweep: it groups files into the families below, drops `tmpN.md` without confirmation, and confirms everything else. After publication the issue copy is authoritative; see the [issue-backed artifact edit protocol](#issue-backed-artifact-edit-protocol).
 - **Out of scope:** deliverable-style docs that are the skill's own product — spike docs (`spike-NNN-*.md`), bug-hunt reports (`bug-hunt-*.md`), and technical-debt audits (`TECH_DEBT_AUDIT*.md`) live in `.local-artifacts/` with everything else but are retained deliverables, not cleanup fodder; specs/blueprints written into planning repos (`docs/Specifications/` etc.) are shipped files. Cleanup sweeps must not touch any of these.
 
 ## Issue-backed artifact edit protocol
@@ -542,7 +542,7 @@ Work product ownership is always with the user.
 
 Each skill should link to:
 
-- Its **predecessors** in the workflow (e.g. `pair-programming` links to `create-plan`).
+- Its **predecessors** in the workflow (e.g. `devenv-pair` links to `devenv-plan`).
 - Its **alternatives** (e.g. `delegation` links to `pair-programming` for high-impact work).
 - Its **successors** where natural (e.g. a phase-complete skill linking to `open-pr`).
 
@@ -562,7 +562,7 @@ Skills maintain GitHub Project issue status as a side effect of their lifecycle 
 - **Placement rule:** invoke at existing lifecycle boundaries (intake confirmation, phase handoffs, wrap-up) — do not create new interactive gates for status updates.
 - **Charter boundary:** events absorb deterministic, content-free, cross-cutting side effects — nothing that requires authored content or judgment. The moment an event handler would need to write prose or decide *whether* to act, that work belongs to the skill, not the event.
 
-Canonical tooling reference: [`_tools-reference.md`](./_tools-reference.md) (`_on_*` entry points, `_on_event_dispatch.sh`, `workflow-signal` for manual/interactive firing). The human-facing model — types, status semantics, parent rollup — is documented canonically in the repo's `docs/Issue-Workflow.md`.
+Canonical tooling reference: the [GitHub protocol reference](./_shared/references/provider-protocols/github.md#onevent-skill-event-signals) (`_on_*` entry points, `_on_event_dispatch.sh`, `workflow-signal` for manual/interactive firing). The human-facing model — types, status semantics, parent rollup — is documented canonically in the repo's `docs/Issue-Workflow.md`.
 
 ## Open Questions Log (Q-NNN)
 

@@ -73,6 +73,8 @@ Derive the suggestion from the staged diff, in the target repo's convention:
 
 Before proposing the message, scan the draft for ephemeral workflow vocabulary: `Phase \d+`, `task \d+\.\d+`, `Plan-\d+`, `WIP`, `TODO`, `FIXME`, audit/report filenames, dates-as-annotations ("Phase 2 complete, all tests passing"). The commit is the permanent record: **durable information only** — what changed and why it matters, stated so it stays true after the workflow that produced it is forgotten. Workflow state belongs to the plan and the handbacks, not the history. Rewrite offenders as durable statements of what changed and why.
 
+**Attribution is human-only.** Per the workflow principle (docs/Workflow.md), commit messages and trailers never attribute authorship or assistance to AI or a specific model — no `Co-Authored-By:` AI trailers, no "Generated with …" lines. Authorship is the engineer's, full stop.
+
 **Issue references are durable — include them when applicable.** An issue number is permanent, resolvable history, not ephemeral workflow state. When the staged work demonstrably relates to an issue — it implements it, fixes it, or advances it — reference it: `(#N)` at the end of the subject line, or on the relevant body bullet. Relevance is the bar: cite the issues the commit genuinely touches (check the branch name, staged content, and any active plan's issue linkage); never decorate a commit with numbers it doesn't relate to.
 
 ## Executing the commit — `repo-commit` only
