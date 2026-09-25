@@ -190,6 +190,16 @@ For code plans, always offer to encode a dedicated **Review** phase into the pla
 - **Separate from in-line review:** this phase is a deliberate, plan-encoded adversarial pass with its own cycle — distinct from any in-line reviews `/devenv-commit` performs before committing.
 - The Review phase's committable deliverable is the fixes from approved findings plus the recorded convergence decision; the plan's declared code gates still apply to those fixes.
 
+### 4d. Research-task encoding (feasibility-shaped unknowns — offered)
+
+When an interview answer would rest on an **empirical unknown** — "can we do X at all?", "what's actually true about Y?" — offer to encode it as a research task instead of a guess or an open question. Ask via `vscode_askQuestions` (add research task / leave as open question / resolve by assumption). Scope rule: feasibility-shaped questions only — preference or approach choices route to `/devenv-design`'s existing round trip, not research. Cap research tasks at 2–3 per plan; more than that is a grooming signal (the scope needs a spike before planning).
+
+Encoded shape:
+
+- `- [ ] **N.M [S|M] Research: <question>**` with `owner: User` — the research session runs in a **separate chat**, user-supervised (`/devenv-research` is empowered: destructive-class experiments, code modification with just-in-time permission), and the executor stops at this task and hands back rather than attempting it inline. The asymmetry with plan-encoded review is deliberate: review is read-only computation (safe to dispatch); research needs a user present.
+- `Additional context:` carries the return route — findings land in the research doc, then `/devenv-refine-plan` folds the answer back into this plan (resolving the open question that spawned it).
+- Downstream tasks that depended on the unknown get `depends on N.M` so the DAG shows the spike is load-bearing.
+
 ### 5. Draft the plan in chat
 
 Use the [plan template](./references/plan-template.md). Follow:

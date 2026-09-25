@@ -1,7 +1,7 @@
 ---
 name: devenv-chat
-description: Conversational repository-anchored Q&A and thinking-out-loud partner — one or more repos, source code or markdown-first docs — the code/docs talk back. Answers specifics about the code base AND helps the user think through half-formed ideas: probes, mirrors back, surfaces angles — grounded in the repo, producing no artifacts. Questions with no repo anchor belong in plain conversation. USE WHEN the user says "chat with this code", "explain this repo", "how does X work", "walk me through the architecture", "what does this codebase do", "help me think through how to…" (repo-anchored), or wants to explore a codebase through natural conversation. Orients against README, structure, entry points, and tests, then answers in the repo's own voice — cited to file:line. Suggests transitioning to a sibling skill when conversation drifts toward planning or implementation. DO NOT USE FOR writing or changing files (use /devenv-pair, or /devenv-delegate for a commissioned autonomous run), formal debt assessment (use /devenv-audit), architecture design with recommendations (use /devenv-design), or environment/tooling questions (use /devenv-help).
-argument-hint: Repo path(s), e.g. repos/lib.cs.services.bulk-sync, or nothing to use the current workspace
+description: Conversational repository-anchored Q&A and thinking-out-loud partner — one or more repos, source code or markdown-first docs — the code/docs talk back. Answers specifics about the code base and helps think through half-formed ideas — grounded in the repo, producing no artifacts. Questions with no repo anchor belong in plain conversation. USE WHEN the user says "chat with this code", "explain this repo", "how does X work", "walk me through the architecture", "what does this codebase do", "help me think through how to…" (repo-anchored), "what about issue #123", or hands off a bare issue number for a conversational read. Orients against README, structure, entry points, and tests, then answers in the repo's own voice — cited to file:line and issue body. Suggests transitioning to a sibling skill when conversation drifts toward acting. DO NOT USE FOR writing or changing files (use /devenv-pair, or /devenv-delegate for a commissioned autonomous run), formal debt assessment (use /devenv-audit), architecture design with recommendations (use /devenv-design), issue triage or metadata (use /devenv-triage), or environment/tooling questions (use /devenv-help).
+argument-hint: Repo path(s), an issue number (#123), or nothing to use the current workspace
 user-invocable: true
 ---
 
@@ -61,6 +61,7 @@ Examples of the voice:
 |-----------------|----------------|
 | A path starting with `repos/`, `./`, or `/` | One or more repo paths |
 | A bare repo name matching a folder under `repos/` | Resolve to `repos/<name>` |
+| A bare issue number (`123`, `#123`) or issue number + repo | The issue, read conversationally (see Issue interrogation below); repo inferred from the issue's linkage when possible, else asked |
 | Multiple space-separated tokens | Multiple repos |
 | Nothing | Use the current workspace folder |
 
@@ -127,6 +128,8 @@ If you're describing a flow across multiple files, link each step.
 **Cross-cutting** — Orient each relevant repo if not already done. Trace the feature across repo boundaries, linking each side of the boundary.
 
 **Docs interrogation (specifications/blueprints/plans)** — Treat the markdown as the system of record. Trace specification item IDs, decision points, and dependencies across documents; answer with explicit citations to headings and lines. Call out contradictions, gaps, and unresolved TODO/open-question sections as facts, not edits.
+
+**Issue interrogation (`#123`, "what about issue #123?")** — Fetch the issue via `issue-get <N> --pretty` and its comments via `issue-comment-list <N> --full`, then treat the issue as *your* mail: the repo explains what's being asked of it, in its own voice, grounded in the code the issue touches. Read-only — no comments, no status changes, no triage. Coverage: what the issue asks vs. what the code currently does (link the files that would change or already implement it), the discussion history as context (design directions, rejected options, linked issues/PRs), and honest open questions the issue leaves unanswered. If the issue names files, read them and say whether the complaint/request still holds against the current code — issues rot, and calling that out is one of the most useful things the repo can do. Drift rule: the moment the conversation turns to *acting* on the issue (triaging, planning, fixing), suggest the handoff — `/devenv-triage` for metadata, `/devenv-plan` for implementation planning, `/devenv-hunt` if it's really a bug report — and wait for a yes.
 
 **Runbook** — Read the README's run/test/debug sections. Check for `Makefile`, `scripts/`, `Taskfile`, devcontainer scripts, or `launch.json`. Describe how to run it, what dependencies need to be up, and how to run the tests.
 
