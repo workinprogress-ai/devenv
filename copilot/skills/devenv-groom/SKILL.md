@@ -132,7 +132,7 @@ Ask only what is missing (the grooming document may already answer some of these
 
 ### Event signal
 
-When grooming completes for an issue (routing confirmed / decisions closed), signal `_on_end_grooming <issue-number>`. Fire-and-forget per the [event-signal convention](../_conventions.md#skill-event-signals-_on_) — never block on its result.
+When grooming completes for an issue (routing confirmed / decisions closed), signal `_on_end_grooming <issue-number>`. Fire-and-forget per the [event-signal convention](../_conventions.md#skill-event-signals-on) — never block on its result.
 
 ### Phase 2: Route with rationale
 
@@ -216,10 +216,10 @@ When creating child issues from grooming (user-gated):
 
 **External knowledge lookup (apply the [Knowledge & Engineering-Pattern Lookup Protocol](../common/references/knowledge-lookup-protocol.md) — consult intensity):** when constructing the grooming document and issue attack plan, consult copilot knowledge (org implementation specifics) and the engineering standards (canonical import at `~/.copilot/engineering`) so the plan names the patterns to use and practices to apply, citing their sources.
 
-Design-discussion and spike artifacts should normally flow through grooming before planning.
+/devenv-design and spike artifacts should normally flow through grooming before planning.
 
 - For straightforward cases, grooming may be brief: capture key decisions/constraints from the upstream artifact, generate the issue attack plan, and then hand off to plan generation.
-- Do not route design-discussion/spike output directly to planning unless the user explicitly asks to bypass grooming.
+- Do not route /devenv-design/spike output directly to planning unless the user explicitly asks to bypass grooming.
 
 ### As-built reconciliation from a completed plan
 
@@ -244,7 +244,7 @@ This flow updates the grooming document only; it does not modify the completed p
 - Stay in grooming when questions are accumulating, multiple decisions are entangled, or the current design may need sweeping revision, replacement, or upstream artifact changes.
 - Route to `/devenv-refine-plan` when architecture is settled, a plan **already exists** for the groomed scope, and the remaining work is sequencing/scope edits in its tasks.
 - Route to `/devenv-plan` when architecture is settled and **no plan exists yet** for the groomed scope — plan generation from a grooming artifact always starts at create, not refine. If the attack plan has multiple rows, create the child issues first so each slice gets its own plan.
-- If uncertain between grooming and design-discussion after Phase 1, ask one tie-breaker question: "Are we deciding between approaches broadly, or picking the fastest safe decision to unblock the current plan phase?"
+- If uncertain between grooming and /devenv-design after Phase 1, ask one tie-breaker question: "Are we deciding between approaches broadly, or picking the fastest safe decision to unblock the current plan phase?"
 
 ### Artifact gate before any implementation handoff
 

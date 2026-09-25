@@ -128,9 +128,10 @@ Tool coverage by domain:
 
 - **Issue management — `issue-*` tools exclusively** (see the rule above): reads, writes, search, artifacts, grooming.
 - **PR operations — `pr-*` wrappers**: `pr-get`, `pr-list`, `pr-diff`, `pr-comment`, `pr-review-comment`, `pr-threads-get`, `pr-thread-reply`, `pr-thread-resolve`, `pr-create-for-merge`, `pr-create-for-review`, `pr-complete-merge`, `pr-merge-pull-request`, `pr-cleanup-review-branches`, `pr-get-review-link`, `pr-get-merge-link`. Use them for every PR operation they cover.
-- **Project boards — `project-*` wrappers**: `project-add-issue`, `project-update-issue`.
+- **Project boards — `project-*` wrappers**: `project-add-issue`, `project-update-issue`, `project-list-for-issue`.
 - **CI pipelines — `pipelines-*` wrappers**: status, list, run, rerun, watch, artifacts (route through the provider `actions` domain).
 - **Repository inspection — `release-list`, `policy-export`, `issue-types`, `artifacts-list`**: releases, repository policies, configured issue types, GitHub Packages.
+- **Lifecycle signals — `workflow-signal`**: fire skill event signals (`_on_*` begin/end pairs) manually or interactively; normally fired by skills at approved boundaries.
 
 Full invocation signatures for the wrappers live in the [GitHub protocol reference](copilot/skills/_shared/references/provider-protocols/github.md) — the complete invocation reference; devenv-neutral tooling is in [`copilot/skills/_tools-reference.md`](copilot/skills/_tools-reference.md); never `--help` at runtime.
 

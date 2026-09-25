@@ -34,7 +34,7 @@ When editing skills, preserve these invariants:
 
 - Skills are complementary, not competing. Avoid broadening one skill so it steals another skill's core role.
 - Skills are aware of each other. Update cross-references and boundary language when responsibilities shift.
-- Registry, guru, and catalogs must stay synchronized after maintenance changes.
+- Registry, devenv-help routing references, and catalogs must stay synchronized after maintenance changes.
 - Workflow core principles in `docs/Workflow.md` are non-negotiable and override convenience edits.
 - Changes must be minimal and surgical; do not rewrite stable skill guidance without a reported problem.
 
@@ -144,7 +144,7 @@ A repair is complete only when all of these are true:
 - The affected skill files still have valid frontmatter and a clear purpose.
 - The changed instructions match the intended user workflow.
 - Any catalog or registry entry that points to the skill is accurate.
-- Skill-guru can correctly route users to the maintained skill behavior.
+- devenv-help can correctly route users to the maintained skill behavior.
 - The skill no longer contains the reported contradiction or stale reference.
 - Improvement findings were validated against the evidence bar, and any candidate rejected there is reported with its reason.
 - Findings proposed for filing were deduplicated (issue-search/issue-list plus the local ledger); filings and refusals were recorded in `/memories/repo/skill-findings-ledger.md`.
@@ -161,7 +161,7 @@ When the fixes are done, summarize:
 
 - What problems were fixed.
 - Which skill files changed.
-- Which governance docs were updated (`docs/Skills.md`, `docs/Workflow.md`, registry, guru, shared catalog).
+- Which governance docs were updated (`docs/Skills.md`, `docs/Workflow.md`, registry, devenv-help, shared catalog).
 - How diagnostics were interpreted and resolved (pasted chat content, file path input, or both), and how improvement findings were validated against the evidence bar — including any candidates rejected and why.
 - Which findings were filed as devenv issues (with URLs) or refused, and what was recorded in the local dedup ledger.
 - Any remaining ambiguity the user should resolve before the skill is considered final.

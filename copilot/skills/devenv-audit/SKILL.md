@@ -159,7 +159,7 @@ If a repo is >50k LOC or has >5 top-level modules, dispatch subagents in paralle
 
 Each subagent gets: scope (one module), the Phase 2 dimensions list, the citation requirement, and a 200-finding cap. The main agent merges, deduplicates, and ranks.
 
-For a multi-repo invocation, dispatch one subagent per repo, then synthesize into a single report at `repos/TECH_DEBT_AUDIT[-NNN].md`.
+For a multi-repo invocation, dispatch one subagent per repo, then synthesize into a single report at `<workspace>/.local-artifacts/TECH_DEBT_AUDIT[-NNN].md` (per the declared output location above).
 
 ## Repeat-run mode
 

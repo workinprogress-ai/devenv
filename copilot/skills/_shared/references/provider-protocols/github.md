@@ -31,13 +31,14 @@ Rotation: `key-update-git.sh <token>` (or `gh auth login` manually).
 
 ## Repository targeting
 
-Resolution order for repo-targeted wrappers: explicit `--repo` argument →
-`GITHUB_REPO` env → `GH_REPO` (full form) → org identity + current repo
-basename → cwd git context. Prefer `GITHUB_REPO=<owner>/<repo>` for
-cross-repo operations; the devenv-repo safety gate rejects devenv-repo
-mutations without it. Resolution lives in `provider_repo_target`; wrapper
-code never re-implements the chain. `GH_REPO` is provider-owned transport
-state — scripts never read or write it.
+Resolution order for repo-targeted wrappers: explicit repo argument (where a
+wrapper takes one) → `DEVENV_REPO` env (`owner/repo`; canonical) →
+`GITHUB_REPO` (deprecated alias, resolves silently) → `GH_REPO` (full form)
+→ org identity + current repo basename → cwd git context. Prefer
+`DEVENV_REPO=<owner>/<repo>` for cross-repo operations; the devenv-repo
+safety gate rejects devenv-repo mutations without a repo target. Resolution
+lives in `provider_repo_target`; wrapper code never re-implements the chain.
+`GH_REPO` is provider-owned transport state — scripts never read or write it.
 
 ## Identity accessors (sanctioned path)
 
@@ -115,7 +116,7 @@ Parse, verify, and stamp `DEVENV_ARTIFACT_V1` headers in local artifact files.
 artifact-header FILE [--field KEY] [--stamp] [--set KEY=VALUE]
 ```
 
-Without options prints the parsed header as JSON (`{"found": true, "header": {...}}`; exit 1 when no header block exists). `--field KEY` prints one raw value. `--stamp` rewrites `updated_at_utc` to now. `--set` sets/replaces one key (any key — including `planning_repo`, the planning-repo back-link for governed work; see the [repo-targeting guard](./_conventions.md#repo-targeting-guard-required-for-issueartifact-calls)). Use instead of hand-parsing or hand-editing metadata blocks in local files.
+Without options prints the parsed header as JSON (`{"found": true, "header": {...}}`; exit 1 when no header block exists). `--field KEY` prints one raw value. `--stamp` rewrites `updated_at_utc` to now. `--set` sets/replaces one key (any key — including `planning_repo`, the planning-repo back-link for governed work; see the [repo-targeting guard](../../../_conventions.md#repo-targeting-guard-required-for-issueartifact-calls)). Use instead of hand-parsing or hand-editing metadata blocks in local files.
 
 Examples:
 
@@ -1038,7 +1039,7 @@ tools/scripts/_on_begin_grooming.sh 43
 Key facts:
 
 - Best-effort: always exit 0 for skill flows; failures warn, never block. Idempotent — re-signaling repairs drift.
-- Skills know only the event name + issue number. Never read the config, never name projects, never contain Status vocabulary (see [_conventions.md](./_conventions.md#skill-event-signals-_on_)).
+- Skills know only the event name + issue number. Never read the config, never name projects, never contain Status vocabulary (see [_conventions.md](../../../_conventions.md#skill-event-signals-on)).
 - Trigger points: skill lifecycle boundaries (wired per skill) and local PR tooling (`_on_begin_review` on PR open via `pr-create-for-merge`, `_on_merge` on merge via the merge wrappers). Manual/interactive firing: `workflow-signal` (batching + deploy events). Full model: the repo's `docs/Issue-Workflow.md`.
 
 ---

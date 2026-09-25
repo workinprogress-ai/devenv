@@ -31,7 +31,7 @@ Do **not** use for:
 - Editing an existing plan (edit the file in place)
 - Epic-scale work spanning multiple components — use [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) + [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) first; each roadmap step then gets its own plan
 
-If the primary upstream artifact is a design-discussion or spike output and there is no grooming artifact yet, route through [`/devenv-groom`](../devenv-groom/SKILL.md) first (unless the user explicitly asks to bypass grooming).
+If the primary upstream artifact is a design artifact (see [`/devenv-design`](../devenv-design/SKILL.md)) or spike output and there is no grooming artifact yet, route through [`/devenv-groom`](../devenv-groom/SKILL.md) first (unless the user explicitly asks to bypass grooming).
 
 Exception: direct-plan mode is valid when the user intentionally wants to create a plan without grooming (for example from thin-air context, mixed pasted notes, unclassified artifacts, or a complete spec/RFC/design doc). In this mode, the skill disambiguates from user input and available sources.
 
@@ -58,7 +58,7 @@ Source precedence rule:
 
 ### Event signal
 
-At plan approval (file written / artifact published), signal `_on_end_planning <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals-_on_).
+At plan approval (file written / artifact published), signal `_on_end_planning <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals-on).
 
 ### 1. Identify inputs and target repo
 
