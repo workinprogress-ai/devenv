@@ -20,24 +20,25 @@ session-scoped env token honored only via the allowlist
 Credential verbs (provider seam — wrappers call these; do not call gh directly):
 
 - `provider_auth_import_token TOKEN` — store a credential and wire the git
-  credential helper. Used by `key-update-git.sh` and the bootstrap seed-file
+  credential helper. Used by `key-update-git` (bash function wrapping `tools/scripts/_key-update-git.sh`) and the bootstrap seed-file
   import.
 - `provider_auth_status` — authenticated check (exit code only). Used by
   `repo-get.sh` gates.
 - `provider_secret_get token` — print the resolved token. Used by bootstrap
   (nuget/npmrc/copilot syncs).
 
-Rotation: `key-update-git.sh <token>` (or `gh auth login` manually).
+Rotation: `key-update-git <token>` (or `gh auth login` manually).
 
 ## Repository targeting
 
 Resolution order for repo-targeted wrappers: explicit repo argument (where a
-wrapper takes one) → `DEVENV_REPO` env (`owner/repo`; canonical) →
-`GITHUB_REPO` (deprecated alias, resolves silently) → `GH_REPO` (full form)
-→ org identity + current repo basename → cwd git context. Prefer
-`DEVENV_REPO=<owner>/<repo>` for cross-repo operations; the devenv-repo
-safety gate rejects devenv-repo mutations without a repo target. Resolution
-lives in `provider_repo_target`; wrapper code never re-implements the chain.
+wrapper takes one) → `DEVENV_REPO` env (`owner/repo`; the only repo-targeting
+env var) → `GH_REPO` (gh's own full-form variable, consumed
+provider-internally) → org identity + current repo basename → cwd git
+context. Prefer `DEVENV_REPO=<owner>/<repo>` for cross-repo operations; the
+devenv-repo safety gate rejects devenv-repo mutations without a repo target.
+Resolution lives in `provider_repo_target`; wrapper code never re-implements
+the chain.
 `GH_REPO` is provider-owned transport state — scripts never read or write it.
 
 ## Identity accessors (sanctioned path)
@@ -56,8 +57,8 @@ accessors (directly or via `policy_org`, which delegates) — direct
 `GH_ORG`/`GH_USER`/`GH_REPO`/`GITHUB_ORG` reads outside the provider layer
 fail the residue gate in `test_provider_routing_lock.bats`.
 
-Env vars remain **compatibility fallbacks**: a user-set export overrides
-the accessor chain; bootstrap never produces them.
+No devenv env var overrides identity — org and user resolve through the
+accessor chain (config → seed) only; bootstrap never produces GH_* exports.
 
 ## URL / host seam
 

@@ -50,7 +50,7 @@ _issue_graph_repo_spec() {
 
 # Resolve the repo spec once and split it; callers use the two globals
 # IG_OWNER / IG_REPO instead of invoking _issue_graph_repo_spec repeatedly
-# (each call can spawn gh + git when GITHUB_REPO is unset).
+# (each call can spawn gh + git when DEVENV_REPO is unset).
 _issue_graph_repo_parts() {
     local spec
     spec="$(_issue_graph_repo_spec)"

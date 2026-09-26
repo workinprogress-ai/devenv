@@ -4,6 +4,7 @@
         "distro",
         "frontmatter",
         "tock",
+        "unstaging",
         "workinprogress"
     ],
     "workbench.colorCustomizations": {

@@ -199,7 +199,7 @@ TS_AUTHKEY=<your-auth-key>
 
 #### Startup Commands
 
-The script registers commands in `.devcontainer/custom_startup.sh` to:
+The script registers commands in `.devcontainer/user-custom-startup.sh` (via `devenv-add-custom-startup`) to:
 
 * Ensure the Tailscale state directory exists
 * Start the Tailscale daemon with userspace networking
@@ -293,13 +293,13 @@ kill %1
 * **Update if needed:**
 
   ```bash
-   "$DEVENV_TOOLS/devenv-add-env-vars.sh" "NO_PROXY=localhost,127.0.0.1,::1,172.16.0.0/12,192.168.0.0/16,.local"
+   devenv-add-env-vars "NO_PROXY=localhost,127.0.0.1,::1,172.16.0.0/12,192.168.0.0/16,.local"
   ```
 
 ### Container restart loses connection
 
-* **Check startup commands:** Verify `.devcontainer/custom_startup.sh` contains the Tailscale startup logic.
-* **Manual restart:** Run `. ~/.devcontainer/custom_startup.sh` to reconnect without restarting the container.
+* **Check startup commands:** Verify `.devcontainer/user-custom-startup.sh` contains the Tailscale startup logic.
+* **Manual restart:** Run `. .devcontainer/user-custom-startup.sh` to reconnect without restarting the container.
 
 ---
 

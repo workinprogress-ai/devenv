@@ -34,8 +34,8 @@ setup() {
     stub_gh
 
     # Recording stub for gh is already provided by the fixture; the script
-    # resolves the repo spec via get_repo_spec, so pin it via GITHUB_REPO.
-    export GITHUB_REPO="test-org/test-repo"
+    # resolves the repo spec via get_repo_spec, so pin it via DEVENV_REPO.
+    export DEVENV_REPO="test-org/test-repo"
 
     # Count only pagination invocations, not the `gh auth status` preflight
     # that ensure_gh_login performs.

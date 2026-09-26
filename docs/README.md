@@ -40,6 +40,7 @@ Complete workflow for managing issues, projects, and sprints (as-built on GitHub
   - Sprint planning and grooming
   - Development workflow examples
   - Best practices and conventions
+- **[Issue Workflow](./Issue-Workflow.md)** — canonical card mechanics: the status pipeline, signals that advance cards, forcing rules, and who moves what
 
 **Key Scripts:**
 
@@ -93,6 +94,10 @@ Complete workflow for managing issues, projects, and sprints (as-built on GitHub
   - Environment variables
   - SSH agent forwarding
   - VS Code configuration
+- **[Bootstrap Customization](./Bootstrap-Customization.md)**
+  - Bootstrap task runners and override patterns
+  - User-custom startup scripts
+  - Configuration functions
 - **[Developing Devenv Itself](./Nested-Devenv-Development.md)**
   - Nested-clone workflow (repos/devenv)
   - Self-locating scripts and test resolution
@@ -160,7 +165,7 @@ Complete workflow for managing issues, projects, and sprints (as-built on GitHub
 ## 🔗 Related Resources
 
 - **GitHub CLI Documentation**: <https://cli.github.com/manual/>
-- **VS Code Remote Containers**: <https://code.visualstudio.com/docs/remote/containers>
+- **VS Code Dev Containers**: <https://code.visualstudio.com/docs/devcontainers/containers>
 - **Docker Documentation**: <https://docs.docker.com/>
 - **Podman Documentation**: <https://docs.podman.io/>
 - **Git Documentation**: <https://git-scm.com/doc>

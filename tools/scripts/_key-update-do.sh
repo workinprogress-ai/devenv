@@ -38,7 +38,7 @@ echo ""
 # --help / -h must never be interpreted as a token: an unrecognized flag
 # would otherwise fall through to the token path and be stored as a secret.
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-    echo "Usage: key-update-do.sh [TOKEN] | --help"
+    echo "Usage: key-update-do [TOKEN] | --help"
     echo ""
     echo "Rotate the Digital Ocean API token. With TOKEN: non-interactive."
     echo "Without: prompts on the terminal."

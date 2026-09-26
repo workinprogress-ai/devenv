@@ -56,7 +56,7 @@ Options:
 
 Environment Variables:
     DEVENV_REPO                 Repository override in owner/repo form (the
-                                deprecated GITHUB_REPO alias still works)
+                                single repo-targeting env var)
 
 Examples:
     # List issue types

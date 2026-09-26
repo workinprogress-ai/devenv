@@ -177,16 +177,20 @@ EOF
   chmod +x "$TEST_TEMP_DIR/bin/gh"
 }
 
-@test "issue-close.sh resolves repo from cwd git repo with GH_ORG set" {
+@test "issue-close.sh resolves repo from cwd git repo with config org set" {
   create_gh_mock_for_issue_close
   create_mock_git_repo "$TEST_TEMP_DIR/test-repo"
   cd "$TEST_TEMP_DIR/test-repo"
-  # GITHUB_REPO outranks GH_ORG in get_repo_spec resolution; unset it so the
-  # test exercises the cwd+GH_ORG path it names, regardless of the caller's shell.
-  local saved_github_repo="${GITHUB_REPO:-}"
-  unset GITHUB_REPO
-  GH_ORG=test-org run bash "$PROJECT_ROOT/tools/scripts/issue-close.sh" 5
-  [ -n "$saved_github_repo" ] && export GITHUB_REPO="$saved_github_repo"
+  # The cwd+config-org resolution path is what this test names; unset
+  # DEVENV_REPO so the test exercises that path, and satisfy the org leg via
+  # a seed scoped to a mocked DEVENV_ROOT (env vars carry no identity).
+  local saved_devenv_repo="${DEVENV_REPO:-}" saved_devenv_root="${DEVENV_ROOT:-}"
+  unset DEVENV_REPO
+  mkdir -p "$TEST_TEMP_DIR/mock-root/.setup"
+  printf 'test-org\n' > "$TEST_TEMP_DIR/mock-root/.setup/provider_org.txt"
+  DEVENV_ROOT="$TEST_TEMP_DIR/mock-root" DEVENV_ROOT_SET=1 run bash "$PROJECT_ROOT/tools/scripts/issue-close.sh" 5
+  [ -n "$saved_devenv_repo" ] && export DEVENV_REPO="$saved_devenv_repo"
+  [ -n "$saved_devenv_root" ] && export DEVENV_ROOT="$saved_devenv_root"
   cd "$ORIGINAL_PWD"
   [ "$status" -eq 0 ]
   # verify and close must both target the cwd-derived repo via -R, split correctly
@@ -207,7 +211,7 @@ setup_birth_rule_harness() {
     local stub_dir="$TEST_TEMP_DIR/bin"
     mkdir -p "$stub_dir"
     export PATH="$stub_dir:$PATH"
-    export GITHUB_REPO="test-org/test-repo"
+    export DEVENV_REPO="test-org/test-repo"
     export GH_CALL_LOG="$TEST_TEMP_DIR/gh-calls.log"
     : > "$GH_CALL_LOG"
     # Wrapper seam: record the fan-out argv instead of running the real

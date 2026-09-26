@@ -709,7 +709,7 @@ validate_comment_id() {
 # Usage: fetch_issue_comments ISSUE_NUMBER
 # Returns: Raw JSON array on stdout; exit 1 on API failure
 # Note: Repo resolves via provider_repo_target (DEVENV_REPO, or the
-# deprecated GITHUB_REPO alias, then cwd identity).
+# DEVENV_REPO (the single repo-targeting env var), then cwd identity).
 fetch_issue_comments() {
     local issue_number="$1"
     local raw
@@ -771,7 +771,7 @@ format_issue_comments() {
 # Usage: check_issue_comment_exists COMMENT_ID
 # Returns: 0 if the comment exists; 1 with error message if not
 # Note: Repo resolves via provider_repo_target (DEVENV_REPO, or the
-# deprecated GITHUB_REPO alias, then cwd identity).
+# DEVENV_REPO (the single repo-targeting env var), then cwd identity).
 check_issue_comment_exists() {
     local comment_id="$1"
     local repo
@@ -786,7 +786,7 @@ check_issue_comment_exists() {
 # Usage: update_issue_comment COMMENT_ID BODY
 # Returns: 0 on success; 1 with error message on API failure
 # Note: Repo resolves via provider_repo_target (DEVENV_REPO, or the
-# deprecated GITHUB_REPO alias, then cwd identity).
+# DEVENV_REPO (the single repo-targeting env var), then cwd identity).
 update_issue_comment() {
     local comment_id="$1"
     local body="$2"

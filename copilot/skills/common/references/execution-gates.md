@@ -6,8 +6,8 @@ Canonical shared protocol for all execution-lane skills (`devenv-pair`, `devenv-
 
 Do **not** run an upfront codebase-wide pass to seed forward comments. Instead, place DEVENV forward comments **when first touching a file for a task anyway** — the comment lands while the relevant code or document is already open:
 
-- When implementing or reviewing a task that touches a file with a future integration point, add `// FIXME:DEVENV[plan-key]:: ...` (plan-bounded) or `// TODO:DEVENV[plan-key]:: ... — remove when <condition>` (cross-plan) at that spot in the same pass (source files); in documents use the `<!-- ... -->` annotation form of the same markers.
-- For AC-satisfying work: `// FIXME:DEVENV[plan-key]:: [AC-2] This method must return a typed result.` — the AC discharges within this plan (find later with `devenv-marker-check --ac`; document annotations use the same `[AC-N]` tag)
+- When implementing or reviewing a task that touches a file with a future integration point, add `// FIXME:DEVENV[plan-key]: ...` (plan-bounded) or `// TODO:DEVENV[plan-key]: ... — remove when <condition>` (cross-plan) at that spot in the same pass (source files); in documents use the `<!-- ... -->` annotation form of the same markers.
+- For AC-satisfying work: `// FIXME:DEVENV[plan-key]: [AC-2] This method must return a typed result.` — the AC discharges within this plan (find later with `devenv-marker-check --ac`; document annotations use the same `[AC-N]` tag)
 - Do not add normal code or document comments referencing plan phases/task numbers; temporary future-work references must use the `FIXME:DEVENV[...]:` / `TODO:DEVENV[...]:` format.
 - At kickoff, run `devenv-marker-check --todo-report` over the working scope and surface existing TODOs as session constraints — a scoped TODO in a file this plan touches is a prior session's message; honor it or explicitly resolve it with the user.
 

@@ -436,7 +436,7 @@ repo_is_org_member() {
     local owner org
 
     org=$(repo_configured_org) || {
-        log_warn "repo_is_org_member: no GitHub org configured (GH_ORG / devenv.config [organization]) — treating repo as foreign"
+        log_warn "repo_is_org_member: no GitHub org configured (devenv.config [organization] org) — treating repo as foreign"
         return 1
     }
     owner=$(repo_url_owner "$spec") || {
@@ -596,7 +596,7 @@ check_target_repo() {
 
     # Canonical devenv-repo test — same predicate everywhere
     if is_devenv_repo; then
-        if [ -z "${DEVENV_REPO:-${GITHUB_REPO:-}}" ]; then
+        if [ -z "${DEVENV_REPO:-}" ]; then
             if is_nested_devenv_clone; then
                 log_info "Operating on a devenv clone below repos/ — no --devenv override needed"
             elif [ "${ALLOW_DEVENV_REPO:-0}" -eq 0 ]; then

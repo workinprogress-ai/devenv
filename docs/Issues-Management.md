@@ -45,13 +45,13 @@ Projects: Long-term efforts with Status workflow (TBD → Production)
 
 ### Epic
 
-**Purpose**: Represents a phase or major feature encompassing multiple tasks/bugs.
+**Purpose**: Long-lived orchestration issue coordinating work across multiple repos or efforts — not for single deliverables (use Feature).
 
 **Characteristics:**
 
 - Native issue type: `Epic`
 - No parent issue
-- Can have multiple child tasks/bugs
+- Can have multiple child features/tasks/bugs
 - Usually assigned to a project for long-term tracking
 - May span multiple sprints
 
@@ -65,12 +65,12 @@ issue-create --title "User Authentication System" --type Epic \
 
 ### Task
 
-**Purpose**: A specific deliverable that implements part of an epic or feature.
+**Purpose**: A task or work item toward someone else's change — work that supports a feature or epic but is not itself the deliverable.
 
 **Characteristics:**
 
 - Native issue type: `Task`
-- Has a parent epic (using "Part of #123" reference)
+- Has a parent epic or feature (using "Part of #123" reference)
 - Contains implementation tasks as checkboxes
 - Assigned to a milestone (sprint)
 - Should have acceptance criteria
@@ -92,7 +92,30 @@ issue-create --title "Implement OAuth2 Provider Integration" --type Task \
 - [ ] Add token refresh logic
 - [ ] Write integration tests" \
     --milestone "Sprint 5" \
-    --label "priority:high"
+    --label "priority/P1"
+```
+
+### Feature
+
+**Purpose**: A new feature or enhancement — the deliverable type. Represents user-visible change shipped as one unit.
+
+**Characteristics:**
+
+- Native issue type: `Feature`
+- Usually has a parent epic
+- Contains acceptance criteria and implementation checkboxes
+- Assigned to a milestone (sprint)
+
+**Creation:**
+
+```bash
+issue-create --title "OAuth2 login support" --type Feature --parent 42 \
+    --body "## Acceptance Criteria
+- [ ] Users can sign in with an OAuth2 provider
+- [ ] Session refresh works without re-prompting
+- [ ] Tests cover happy path and error cases" \
+    --milestone "Sprint 5" \
+    --label "priority/P1"
 ```
 
 ### Bug
@@ -127,12 +150,12 @@ Login succeeds
 # Bug linked to epic
 issue-create --title "OAuth2 token not refreshing on expiration" --type Bug \
     --parent 42 \
-    --label "priority:critical"
+    --label "priority/P0"
 ```
 
 ### Tasks (Checkboxes)
 
-Tasks are **NOT** separate issues. They are checkboxes in story/bug bodies:
+Implementation tasks are **NOT** separate issues. They are checkboxes in feature/bug bodies:
 
 ```markdown
 ## Implementation Tasks
@@ -244,7 +267,7 @@ Issues in GitHub Projects use a Status field with 8 states:
 
 ### 8. **Production** (Deployed to Production)
 
-- **Issue automatically closed when reaching Production**
+- **Closing is explicit**: reaching Production does not auto-close — close via `issue-close` or the closing PR
 - Feature/fix live for all users
 - No further work on original issue
 - New bugs created as separate issues
@@ -267,56 +290,54 @@ issue-update 125 --milestone "Sprint 6"
 # 4. Add issues to project
 project-add-issue "Q1 2026" 123 124 125
 
-# 5. Set status to Ready
-project-update-issue "Q1 2026" 123 --status "Ready"
-project-update-issue "Q1 2026" 124 --status "Ready"
-project-update-issue "Q1 2026" 125 --status "Ready"
+# 5. Move TBD issues to To-Groom via the triage signal (workflow states
+#    advance by their own signals — see Issue-Workflow.md "Forcing")
+issue-triage --triage-complete 123 124 125
+# (Manual escape hatch: project-update-issue "Q1 2026" 123 --status "Ready")
 ```
 
 ### Development Workflow
+
+Workflow states advance by their own signals (see [Issue Workflow](./Issue-Workflow.md)): assignments, PR events, and merge/deploy wrappers move cards — the examples below show what fires each transition. `project-update-issue --status` is the manual escape hatch, not the primary mechanism.
 
 ```bash
 # 1. Select an issue to work on
 issue_num=$(issue-select --milestone "Sprint 6")
 
-# 2. Start implementing
+# 2. Start implementing — assigning yourself signals Implementing
 issue-update $issue_num --add-assignee "@me"
-project-update-issue "Q1 2026" $issue_num --status "Implementing"
+# (Escape hatch: project-update-issue "Q1 2026" $issue_num --status "Implementing")
 
 # 3. Create branch and make changes
 git checkout -b feature/my-feature
 
-# 4. When ready for review, create PR
+# 4. When ready for review, open the PR — pr-create-for-merge signals Review
 pr-create-for-merge
 
-# 5. Update status to Review
-project-update-issue "Q1 2026" $issue_num --status "Review"
+# 5. After PR approval, merge via the wrappers — they signal Merged
+pr-complete-merge
 
-# 6. After PR approved and merged, update status
-project-update-issue "Q1 2026" $issue_num --status "Merged"
+# 6. Deploy to staging
+# (via your deployment process — signals Staging)
 
-# 7. Deploy to staging
-# (via your deployment process)
-project-update-issue "Q1 2026" $issue_num --status "Staging"
+# 7. After staging validation, deploy to production
+# (via your deployment process — signals Production)
 
-# 8. After staging validation, deploy to production
-# (via your deployment process)
-project-update-issue "Q1 2026" $issue_num --status "Production"
-
-# 9. Issue automatically closes when moved to Production
+# 8. Close explicitly when the work is confirmed live in production
+issue-close $issue_num --reason completed
 ```
 
 ### Backlog Grooming Workflow
 
 ```bash
 # 1. List issues in TBD state
-issue-list --state open --label "status:tbd" --limit 50
+issue-list --state open --label "needs-triage" --limit 50
 
 # 2. Start interactive grooming session
 issue-triage
 
 # 3. For each issue, the wizard will help you:
-#    - Set type (epic/story/bug)
+#    - Set type (Bug/Feature/Task/Epic — native field)
 #    - Edit title and description
 #    - Add acceptance criteria
 #    - Set milestone
@@ -342,7 +363,7 @@ issue-list --type Bug
 issue-list --milestone "Sprint 5"
 
 # Unassigned high-priority items
-issue-list --assignee none --label "priority:high"
+issue-list --assignee none --label "priority/P1"
 
 # Issues assigned to me
 issue-list --assignee "@me"
@@ -385,13 +406,13 @@ This safety mechanism ensures your team's issue management tools consistently ta
 **`issue-create`** - Create new issues with optional template support
 
 ```bash
-# Default: Interactive template selection with editor
+# Default: no template (plain issue with --body, or editor opens empty)
 issue-create --title "Title"
 
-# With specific template
+# Opt in to a specific template
 issue-create --title "Title" --template FILE
 
-# Without template
+# Explicit no-template (accepted no-op for backward compatibility)
 issue-create --title "Title" --no-template [--body TEXT]
 
 # Template without editor (for automation)
@@ -406,10 +427,9 @@ issue-create --title "Title" [--type Bug|Task|Feature|Epic] [--parent ISSUE#] \
 
 **Template Workflow:**
 
-- Default behavior: Script auto-discovers templates in `.github/ISSUE_TEMPLATE/`
-- Uses fzf to let you select a template interactively
+- Default behavior: **no template** — pass `--template FILE` to opt in (or `--select-template` to pick interactively from `.github/ISSUE_TEMPLATE/`)
 - Selected template opens in `$EDITOR` for customization
-- `--no-template`: Bypass template selection entirely
+- `--no-template`: Accepted as a no-op for backward compatibility (default is already no-template)
 - `--no-interactive`: Use template without editor (for scripts/automation)
 
 **`issue-create-batch`** - Create multiple issues in one command (preview-first)
@@ -601,14 +621,14 @@ issue-create --title "Stripe Integration" --type Task \
 - [ ] Write tests
 - [ ] Add error handling" \
     --milestone "Sprint 5" \
-    --label "priority:high"
+    --label "priority/P1"
 # Returns: https://github.com/owner/repo/issues/101
 
 issue-create --title "PayPal Integration" --type Task \
     --parent 100 \
     --body "..." \
     --milestone "Sprint 6" \
-    --label "priority:medium"
+    --label "priority/P2"
 # Returns: https://github.com/owner/repo/issues/102
 
 # 3. Add to project
@@ -675,7 +695,7 @@ Charge succeeds
 ## Actual
 Charge fails with generic error" \
     --milestone "Sprint 5" \
-    --label "priority:critical"
+    --label "priority/P0"
 # Returns: https://github.com/owner/repo/issues/150
 
 # 2. Start work
@@ -740,8 +760,8 @@ project-update-issue "Q1 2026" 150 --status "Production"
 ### Grooming
 
 1. **Do grooming as a team**: Use `issue-triage` wizard together
-2. **Estimate effort**: Add labels for story points if using
-3. **Add priority**: Use labels: `priority:critical`, `priority:high`, `priority:medium`, `priority:low`
+2. **Estimate effort**: Add size labels (S–XL) if using
+3. **Add priority**: Use labels: `priority/P0`, `priority/P1`, `priority/P2`, `priority/P3`
 4. **Identify blockers**: Add label `blocked` and comment on blocking issues
 5. **Mark TBD → To-Groom → Ready**: Follow the workflow progression
 
@@ -751,7 +771,7 @@ project-update-issue "Q1 2026" 150 --status "Production"
 2. **Don't skip states**: Follow the workflow (don't jump from Ready to Merged)
 3. **Use for reporting**: Status field is the single source of truth for progress
 4. **Automate transitions**: Use project workflows to auto-update status from PR status
-5. **Close in Production**: Never manually close issues—let Production status do it
+5. **Close in Production workflow**: after Production status, close explicitly via `issue-close` or the closing PR — status alone does not close
 
 ### Project Maintenance
 

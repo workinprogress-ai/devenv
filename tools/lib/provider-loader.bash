@@ -13,7 +13,7 @@ fi
 readonly _PROVIDER_LOADER_LOADED=1
 
 # Org identity is org policy: resolve via the policy layer
-# (POLICY_ORG -> GH_ORG -> config [organization] github_org).
+# (POLICY_ORG -> config [organization] org).
 _policy_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/policy" 2>/dev/null && pwd)"
 if [ -n "$_policy_dir" ] && [ -f "$_policy_dir/policy-core.bash" ]; then
     # shellcheck disable=SC1090,SC1091
@@ -45,8 +45,8 @@ unset _gh_self_dir
 # 
 # This function determines the appropriate repository specification for gh CLI
 # commands that accept the -R flag. It tries multiple sources in order:
-#   1. GITHUB_REPO environment variable (explicit override)
-#   2. GH_ORG + current repository name (constructed from context)
+#   1. DEVENV_REPO environment variable (explicit override)
+#   2. config org + current repository name (constructed from context)
 #   3. Empty (falls back to git context)
 #
 # Usage:
@@ -55,16 +55,15 @@ unset _gh_self_dir
 #   gh issue list "${repo_spec[@]}" --state open
 #
 # Environment Variables:
-#   GITHUB_REPO    - Full repository specification in format "owner/repo"
-#   (org identity resolves via the provider org accessor; GITHUB_ORG is not read)
-#
+#   DEVENV_REPO    - Full repository specification in format "owner/repo"
+#   (org identity resolves via the provider org accessor)
 # Returns:
 #   Outputs "-R owner/repo" if repository can be determined, empty string otherwise
 #
 get_repo_spec() {
-    # If GITHUB_REPO is set, use it
-    if [ -n "${DEVENV_REPO:-${GITHUB_REPO:-}}" ]; then
-        echo "-R" "${DEVENV_REPO:-${GITHUB_REPO:-}}"
+    # Repo targeting: DEVENV_REPO is the single override.
+    if [ -n "${DEVENV_REPO:-}" ]; then
+        echo "-R" "$DEVENV_REPO"
         return
     fi
     
@@ -88,7 +87,7 @@ get_repo_spec() {
 #
 # This function determines the owner of the current repository, checking
 # in order:
-#   1. GH_ORG environment variable
+#   1. The policy org (config [organization] org; POLICY_ORG override)
 #   2. gh repo view query (requires gh CLI access)
 #
 # Usage:
@@ -409,11 +408,11 @@ ensure_label() {
 #
 # Single repo-resolution entry point. Resolution order:
 #   1. REPO_OVERRIDE argument (maps a --repo flag)
-#   2. GITHUB_REPO environment variable
-#   3. GH_ORG + current git repo basename
+#   2. DEVENV_REPO environment variable
+#   3. config org + current git repo basename
 # Then applies the devenv-repo safety gate (check_target_repo semantics:
 # refuses to operate on the devenv repo itself unless ALLOW_DEVENV_REPO=1
-# or GITHUB_REPO explicitly targets it).
+# or DEVENV_REPO explicitly targets it).
 #
 # On success: exports GH_REPO=<owner>/<repo> and prints the resolved
 # "owner/repo". On refusal: exits (gate behavior). Callers that pass the
@@ -426,12 +425,12 @@ resolve_target_repo() {
     local repo=""
 
     # Resolution delegates to the provider layer (provider_repo_target):
-    # explicit arg → GITHUB_REPO → full-form GH_REPO → org + cwd basename.
+    # explicit arg → DEVENV_REPO → full-form GH_REPO → org + cwd basename.
     repo=$(provider_repo_target "$repo_override")
 
     if [ -z "$repo" ]; then
         log_error "Unable to resolve target repository"
-        log_info "Prefix the command with GITHUB_REPO=<owner>/<repo> or run from within the target repo"
+        log_info "Prefix the command with DEVENV_REPO=<owner>/<repo> or run from within the target repo"
         exit 1
     fi
 
@@ -444,13 +443,15 @@ resolve_target_repo() {
         log_error "resolve_target_repo requires git-operations.bash (safety gate); source it before calling"
         exit 1
     fi
-    local saved_github_repo="${GITHUB_REPO:-}"
+    # The gate needs the override visible to check_target_repo; restore the
+    # caller's value afterward so a non-subshell caller inherits no leak.
+    local saved_repo="${DEVENV_REPO:-}"
     DEVENV_REPO="$repo"
     check_target_repo
-    if [ -n "$saved_github_repo" ]; then
-        GITHUB_REPO="$saved_github_repo"
+    if [ -n "$saved_repo" ]; then
+        DEVENV_REPO="$saved_repo"
     else
-        unset GITHUB_REPO
+        unset DEVENV_REPO
     fi
 
     export GH_REPO="$repo"

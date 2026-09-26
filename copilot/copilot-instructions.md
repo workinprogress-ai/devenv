@@ -94,7 +94,7 @@ This section is the single home for workspace-specific rules. Add new convention
 
 ### WorkInProgress library repos
 
-WorkInProgress library and service repos (owned by the org configured via `GH_ORG`) are cloned into the `repos/` folder of this workspace. When a task requires reading or editing one of these repos, look there first (e.g. `repos/lib.cs.services.bulk-sync/`).
+WorkInProgress library and service repos (owned by the org configured in `devenv.config` `[organization]`) are cloned into the `repos/` folder of this workspace. When a task requires reading or editing one of these repos, look there first (e.g. `repos/lib.cs.services.bulk-sync/`).
 
 If the needed repo is not present in `repos/`, ask the user to clone it before proceeding — do not guess at paths or attempt to work without the source.
 
@@ -120,7 +120,7 @@ Some workspace paths are the same content reachable through multiple routes; aut
 
 The `tools/` folder contains workspace-specific wrappers around common CLIs (`gh`, `git`, `dotnet`, `kubectl`, MongoDB, etc.) — they are the workspace's abstraction layer over those backends. All tools are on `PATH`, so invoke them by bare name from any working directory.
 
-**`DEVENV_REPO` is the repo-targeting environment variable** (`owner/repo` format). The legacy `GITHUB_REPO` remains a deprecated alias.
+**`DEVENV_REPO` is the repo-targeting environment variable** (`owner/repo` format). It is the only one — no deprecated aliases exist.
 
 **Issue management goes through the `issue-*` tools exclusively — reads and writes.** `issue-get`, `issue-list`, `issue-select`, `issue-search`, `issue-create`, `issue-create-batch`, `issue-update` (incl. native `--type`), `issue-comment`, `issue-comment-list`, `issue-comment-update`, `issue-close`, `issue-triage`, `issue-label-list`, `issue-label-create`, and the `issue-artifact-*` suite are the workspace's abstraction layer over issue management; the backing CLI is an implementation detail that may change. Never run raw `gh issue ...` (or `gh api .../issues/...`) for any issue operation — reading, listing, creating, updating, commenting, or closing — regardless of whether a skill is active. The wrappers also enforce workspace conventions (native types from the provider's issue-type configuration, templates, labels, close reasons) that raw `gh` silently skips.
 
@@ -201,7 +201,7 @@ If a task requires a raw mutation, show the user the exact command and ask them 
 | `🧠` | **Brain bootup** — orientation summary (Navigate / Observe / Question steps) |
 | `📋` | **In-the-flow check-in** — re-engagement assessment after a flow period |
 
-**File and method references.** Whenever a specific class, method, or file is mentioned **anywhere in chat output** — task descriptions, phase announcements, hand-backs, reviews, concerns, hints, or brain bootup — use a clickable workspace-root-relative link: [`ExecuteAsync` in `BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L87). Never use backtick code formatting as a substitute for a link when the location is known. If the exact line isn't known, link to the file without `#L`.
+**File and method references.** Whenever a specific class, method, or file is mentioned **anywhere in chat output** — task descriptions, phase announcements, hand-backs, reviews, concerns, hints, or brain bootup — use a clickable workspace-root-relative link: [`IncomingSyncDaemon`](repos/lib.cs.services.bulk-sync/src/WorkInProgress.Lib.Services.BulkSync/Daemon/IncomingSyncDaemon.cs#L15). Never use backtick code formatting as a substitute for a link when the location is known. If the exact line isn't known, link to the file without `#L`.
 
 ### Temporary code comments (DEVENV markers)
 

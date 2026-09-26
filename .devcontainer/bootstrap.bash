@@ -87,11 +87,16 @@ load_config() {
         echo "ERROR: Failed to initialize config reader"
         exit 1
     fi
-    
+
+    # The identity check below calls the provider org accessor; the provider
+    # seam must exist before this task runs (load_config precedes every other
+    # accessor use, including the auth-status probe in load_setup_credentials).
+    ensure_provider_seam
+
     # Org identity: config is the source; no session export (tools resolve
     # via the provider org accessor). Fail fast when unconfigured.
     if [ -z "$(provider_org_get 2>/dev/null || true)" ]; then
-        echo "ERROR: github_org not configured in devenv.config [organization] section"
+        echo "ERROR: org not configured in devenv.config [organization] section"
         exit 1
     fi
 
@@ -315,7 +320,7 @@ load_setup_credentials() {
     #   keychain empty + seed  -> import once, DELETE the seed (one-shot;
     #                             plaintext must not linger), auth restored
     #   keychain empty, no seed-> AUTH_NEEDED=1; the finish banner tells the
-    #                             user to run key-update-git.sh
+    #                             user to run key-update-git
     AUTH_NEEDED=0
 
     if provider_auth_status >/dev/null 2>&1; then
@@ -523,21 +528,21 @@ devenv-update() {
 }
 
 key-update-tailscale() {
-    "$DEVENV_ROOT/tools/scripts/key-update-tailscale.sh" "$@"
+    "$DEVENV_ROOT/tools/scripts/_key-update-tailscale.sh" "$@"
     if [ -f "$DEVENV_ROOT/.runtime/env-vars.sh" ]; then
         source "$DEVENV_ROOT/.runtime/env-vars.sh"
     fi
 }
 
 key-update-git() {
-    "$DEVENV_ROOT/tools/scripts/key-update-git.sh" "$@"
+    "$DEVENV_ROOT/tools/scripts/_key-update-git.sh" "$@"
     if [ -f "$DEVENV_ROOT/.runtime/env-vars.sh" ]; then
         source "$DEVENV_ROOT/.runtime/env-vars.sh"
     fi
 }
 
 key-update-do() {
-    "$DEVENV_ROOT/tools/scripts/key-update-do.sh" "$@"
+    "$DEVENV_ROOT/tools/scripts/_key-update-do.sh" "$@"
     if [ -f "$DEVENV_ROOT/.runtime/env-vars.sh" ]; then
         source "$DEVENV_ROOT/.runtime/env-vars.sh"
     fi
@@ -629,9 +634,8 @@ export DIGITALOCEAN_REGISTRY="${DIGITALOCEAN_REGISTRY:-}"
 export DO_APP_NAME="${DO_APP_NAME:-}"
 export DO_REGION="${DO_REGION:-}"
 
-# GitHub identity: no GH_USER/GH_ORG exports — tools resolve identity via
-# the provider accessors (config-first); the env vars are optional overrides
-# set by the user, never produced by bootstrap.
+# GitHub identity: no GH_* exports — tools resolve identity via the
+# provider accessors (config → seed); no env var participates.
 
 # User identity
 export USER_EMAIL="${USER_EMAIL:-}"
@@ -1164,14 +1168,14 @@ configure_nuget_sources() {
     fi
     
     # Identity for the feed URL and the source registration comes from the
-    # provider accessors (env override → config → seed) — no env exports.
+    # provider accessors (config → seed) — no env exports.
     local feed_org feed_user
     feed_org=$(provider_org_get 2>/dev/null) || feed_org=""
     feed_user=$(provider_user_get 2>/dev/null) || feed_user=""
     
-    # Expand environment variables in feed URL
-    NUGET_FEED_URL=$(echo "$NUGET_FEED_URL" | sed "s|\${GH_ORG}|${feed_org}|g")
-    NUGET_FEED_URL=$(echo "$NUGET_FEED_URL" | sed "s|\${GH_USER}|${feed_user}|g")
+    # Expand template variables in feed URL
+    NUGET_FEED_URL=$(echo "$NUGET_FEED_URL" | sed "s|\${PROVIDER_ORG}|${feed_org}|g")
+    NUGET_FEED_URL=$(echo "$NUGET_FEED_URL" | sed "s|\${PROVIDER_USER}|${feed_user}|g")
     
     local gh_token
     gh_token=$(provider_secret_get token 2>/dev/null) || gh_token=""
@@ -1240,7 +1244,7 @@ finish_message() {
     echo "--------------------------------------------------------------"
     if [ "${AUTH_NEEDED:-0}" -eq 1 ]; then
         echo "ACTION REQUIRED: Auth credentials are not configured."
-        echo "Run: key-update-git.sh <new-token>"
+        echo "Run: key-update-git <new-token>"
     fi
     echo "Please exit out of VS Code and let the container restart."
     echo "Please restart the container to complete the setup."

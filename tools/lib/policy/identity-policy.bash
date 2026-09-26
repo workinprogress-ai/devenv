@@ -22,8 +22,8 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/policy-core.bash"
 
 policy_define "default_provider" "DEFAULT_PROVIDER" "provider" "name" "github"
 
-# Resolve the org identity: POLICY_ORG -> GH_ORG -> config [organization]
-# github_org -> fail (empty output, rc 1). Callers decide whether empty is
+# Resolve the org identity: POLICY_ORG -> config [organization] org ->
+# fail (empty output, rc 1). Callers decide whether empty is
 # acceptable; repo safety logic treats unresolvable as foreign.
 policy_org() {
     if [ -n "${POLICY_ORG:-}" ]; then
@@ -31,22 +31,15 @@ policy_org() {
         return 0
     fi
     # Org resolution below the policy override delegates to the provider
-    # identity accessor (GH_ORG override → config → seed → failure) when the
-    # provider layer is loaded; the policy layer cannot source provider-core
-    # itself (provider-core sources this module for detection — circular).
+    # identity accessor (config → seed → failure) when the provider layer is
+    # loaded; the policy layer cannot source provider-core itself
+    # (provider-core sources this module for detection — circular).
     if declare -F provider_org_get >/dev/null; then
         provider_org_get
         return $?
     fi
-    if [ -n "${GH_ORG:-}" ]; then
-        echo "$GH_ORG"
-        return 0
-    fi
     local value
-    # Neutral keys first; the GitHub-branded key is the legacy fallback.
     value=$(config_read_value "organization" "org" "")
-    [ -z "$value" ] && value=$(config_read_value "organization" "provider_org" "")
-    [ -z "$value" ] && value=$(config_read_value "organization" "github_org" "")
     if [ -n "$value" ]; then
         echo "$value"
         return 0

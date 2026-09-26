@@ -151,12 +151,12 @@ get_planning_type_mappings() {
 }
 
 # ==========================================================================
-# Organization Issue Types Sync (uses GH_ORG)
+# Organization Issue Types Sync (org via provider_org_get)
 # ==========================================================================
 
 # Fetch organization issue types with IDs via GitHub GraphQL
 # Usage: fetch_org_issue_type_ids [org]
-# Env: GH_ORG (used if no org param provided)
+# Org: resolved via provider_org_get when no org param is provided
 # Output: newline-delimited "NAME\tID"
 fetch_org_issue_type_ids() {
     local org="${1:-$(provider_org_get 2>/dev/null || true)}"

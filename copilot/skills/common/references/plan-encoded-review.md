@@ -17,8 +17,8 @@ When a Review-phase task becomes current:
 1. **Resolve the round.** Read the plan's Review phase. The round number is `1 + (number of already-ticked round tasks)`. If the previous round's convergence decision was "converged" (or the user closed the cycle), do not start a new round — the phase is done; tick the current task with a `round skipped — converged` note only if it was left open in error.
 2. **Resolve the diff target.** Cumulative branch diff vs base (the plan's execution branch vs its base), per the plan's Review-phase scope note. If a PR exists for the branch, PR mode may also be used; the computation is the same.
 3. **Dispatch the review subagent** with the self-contained brief below. One subagent per round. Do not review inline.
-4. **Receive findings.** The subagent returns the structured findings report (severity-grouped hotspots, missing tests, ephemeral-artifact references, questions).
-5. **Present + fold in.** Present the findings summary in chat, then run the fold-in interview (`vscode_askQuestions` set approval: blockers, concerns, missing tests; nits only if the user opts in; praise never). Apply approved encodings as normal numeric tasks in the Review phase (round number in the task **title**, never the task ID — plan tooling accepts dotted numeric IDs only). Record rejected findings (with reason) in the round summary; they are excluded from future yield counts.
+4. **Receive findings.** The subagent returns the structured findings report (numbered, severity-grouped hotspots, missing tests, ephemeral-artifact references, questions).
+5. **Present + fold in.** Write the full findings report to a `.local-artifacts/tmpN.md` working file in the target repo (next free number — the user's reviewable record), and present the findings in chat: every finding's number, severity, and file:line as a one-liner, pointing to the working file for full detail. A chat summary alone is not enough — the user cannot rule on findings they cannot read. Then run the fold-in interview (`vscode_askQuestions`), proposing set approval **by finding number**: blockers, concerns, missing tests; nits only if the user opts in; praise never. Apply approved encodings as normal numeric tasks in the Review phase (round number in the task **title**, never the task ID — plan tooling accepts dotted numeric IDs only); each task's `Additional context:` cites its finding number plus file:line and severity. Record rejected findings (number + reason) in the round summary; they are excluded from future yield counts.
 6. **Convergence decision.** Compute the yield over non-rejected findings: continue while any Blocker or ≥ 3 Concerns; converged at 0 Blockers and ≤ 2 Concerns. The user always confirms continue/stop. Tick the round task, record yield + decision in the round summary. If issue-backed, offer the artifact re-upsert (plan-parse lint first).
 7. **PR alongside (optional).** If a PR exists, offer once per round: post the kept findings as inline PR threads from the round's working file (tmpN). The fold-in and the PR posting are independent channels; either, both, or neither may be used.
 
@@ -59,14 +59,19 @@ OUTPUT (markdown, exactly this structure):
 ### Summary
 <1–2 sentences: what the change does, overall take.>
 
+Number every finding sequentially — **F1, F2, F3, …** — continuing across
+sections (Blockers, then Concerns, then Nits, then Praise, then Missing
+tests). The number is the finding's identity for the whole round: the fold-in
+interview, rejections, and the plan's task encodings all reference it.
+
 ### Findings
 
 #### 🛑 Blocker
-- [path/file.ext:LINE](path/file.ext#LINE) — <reason>
+- **F1** [path/file.ext:LINE](path/file.ext#LINE) — <reason>
 (empty section header with "(none)" under it if none)
 
 #### ⚠️ Concern
-- [path/file.ext:LINE](path/file.ext#LINE) — <reason>
+- **F2** [path/file.ext:LINE](path/file.ext#LINE) — <reason>
 
 #### 💭 Nit
 - Only include nits that materially affect readability or correctness.
@@ -91,6 +96,7 @@ final message.
 ## Fold-in rules (shared by all consumers)
 
 - Findings fold into the plan **only with user approval** (set-approval interview); the executor or review session is the single plan writer while it holds the ledger.
+- **Finding numbers are per-round reference vocabulary** (F1…Fn, assigned by the reviewer in the round report). The fold-in interview, the user's keep/reject decisions, rejections in the round summary, and each folded task's `Additional context:` bullet all cite numbers; across rounds, qualify them ("round 2, F3"). Numbers live in the working file, chat, and plan — never in durable source comments (see the ephemeral-artifact rule).
 - Eligible classes: Blockers, Concerns, Missing tests. Nits opt-in; praise never.
 - Rejected findings: recorded with reason in the round summary and excluded from subsequent yield computation.
 - Task encoding: normal numeric IDs (`4.2`, `4.3`, …); round number in the title; `Additional context:` cites the finding (file:line, severity).

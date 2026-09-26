@@ -50,9 +50,9 @@ fi
 STUB
     chmod +x "$stub_dir/gh"
     export PATH="$stub_dir:$PATH"
-    # Repo resolution comes from GITHUB_REPO (same pattern as the workflow-
+    # Repo resolution comes from DEVENV_REPO (same pattern as the workflow-
     # core suite); without it the stub would see repo-view calls.
-    export GITHUB_REPO="test-org/test-repo"
+    export DEVENV_REPO="test-org/test-repo"
 }
 
 @test "issue_link_subissue issues the addSubIssue mutation" {

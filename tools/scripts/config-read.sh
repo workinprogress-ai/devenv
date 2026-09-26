@@ -23,6 +23,12 @@ source "$DEVENV_TOOLS/lib/error-handling.bash"
 # shellcheck source=../lib/versioning.bash
 source "$DEVENV_TOOLS/lib/versioning.bash"
 
+# The provider identity accessors back ${PROVIDER_ORG}/${PROVIDER_USER}
+# template expansion; load the seam before config-reader so the expansion
+# branch sees the accessors.
+# shellcheck source=../lib/providers/provider-core.bash
+source "$DEVENV_TOOLS/lib/providers/provider-core.bash"
+
 # shellcheck source=../lib/config-reader.bash
 source "$DEVENV_TOOLS/lib/config-reader.bash"
 
@@ -35,7 +41,7 @@ show_usage() {
 Usage: $SCRIPT_NAME SECTION KEY [DEFAULT] [--config FILE]
 
 Read one value from devenv.config (INI-style: [section] + key=value).
-Environment variables (\${GH_ORG} etc.) are expanded. Prints the value, or
+Template variables (${PROVIDER_ORG} etc.) are expanded. Prints the value, or
 DEFAULT when the key is absent.
 
 Options:

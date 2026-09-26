@@ -24,9 +24,9 @@ test_helper_setup() {
     export devenv="$PROJECT_ROOT"
     export DEVENV_TOOLS="$DEVENV_ROOT/tools"
     
-    # Set up test environment variables
-    export GH_USER="test-user"
-    export GH_ORG="test-org"
+    # Identity env vars are deliberately NOT exported (GH_USER/GH_ORG have
+    # no effect anywhere); suites needing a polluted env set them locally to
+    # assert their inertness.
     # GH_TOKEN is deliberately NOT exported: a session-scoped env token is
     # the escape-hatch credential form the provider auth seam gates via the
     # allowlist, and a fake value here makes any real-gh credential

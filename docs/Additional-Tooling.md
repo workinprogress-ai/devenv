@@ -124,8 +124,6 @@ repo-get
 - Prevents cloning into reserved directories
 - Interactive selection requires `fzf` (pre-installed in dev container)
 
-*Note: `get-repo` is a convenience alias for `repo-get`. Both forms work identically.*
-
 ### `repo-create`
 
 Creates a new repository on the git host using standardized org rules, then clones it locally and optionally runs a post-creation script.
@@ -133,8 +131,8 @@ Creates a new repository on the git host using standardized org rules, then clon
 **Usage:**
 
 ```bash
-repo-create.sh <repo-name> --type <type> [options]
-repo-create.sh --interactive                  # prompts for type and name
+repo-create <repo-name> --type <type> [options]
+repo-create --interactive                  # prompts for type and name
 ```
 
 **Key options:**
@@ -1116,7 +1114,7 @@ issue-list --type Bug
 issue-list --milestone "Sprint 5"
 
 # List unassigned high-priority items
-issue-list --assignee none --label "priority:high"
+issue-list --assignee none --label "priority/P1"
 
 # Get JSON for scripting
 issue-list --format json --limit 100
@@ -1151,6 +1149,30 @@ issue-search reservation TTL
 issue-search --format json identity
 ```
 
+### `issue-get`
+
+Retrieves a GitHub issue's details as structured JSON.
+
+```bash
+issue-get ISSUE_NUMBER [OPTIONS]
+```
+
+**Options:**
+
+- `--repo OWNER/REPO`: Override target repository
+- `--field FIELD`: Print a single field's raw value instead of the full JSON
+- `--web`: Open the issue in a web browser
+
+**Examples:**
+
+```bash
+# Full JSON payload
+issue-get 123
+
+# One field
+issue-get 123 --field title
+```
+
 ### `issue-update`
 
 Updates issue fields (title, body, labels, assignees, milestone, state).
@@ -1178,7 +1200,7 @@ issue-update ISSUE_NUMBER [OPTIONS]
 issue-update 123 --title "New title"
 
 # Add labels and assignee
-issue-update 123 --add-label "priority:high" --add-assignee "john"
+issue-update 123 --add-label "priority/P1" --add-assignee "john"
 
 # Change milestone
 issue-update 123 --milestone "Sprint 6"
@@ -1248,6 +1270,29 @@ issue_num=$(issue-select --type Task)
 for issue in $(issue-select --multi); do
     issue-update "$issue" --add-assignee "@me"
 done
+```
+
+### `issue-comment`
+
+Adds a comment to a GitHub issue. Body comes from `--body`, `--body-file` (`-` reads stdin), or piped stdin with no other arguments.
+
+```bash
+issue-comment ISSUE_NUMBER [OPTIONS] [BODY]
+```
+
+**Options:**
+
+- `--body TEXT`: Comment body inline
+- `--body-file FILE`: Read body from file (`-` = stdin)
+- `-e, --edit`: Edit mode (update an existing comment with `--comment-id`)
+- `--comment-id ID`: Target comment for `--edit`
+- `--repo OWNER/REPO`: Override target repository
+
+**Examples:**
+
+```bash
+issue-comment 123 --body "Investigating — will report back"
+cat notes.md | issue-comment 123
 ```
 
 ### `issue-comment-list`
@@ -1494,6 +1539,54 @@ issue-artifact-select --issue 42 \
   --format url
 ```
 
+### `issue-label-create`
+
+Creates a GitHub issue label. Idempotent: an existing label is skipped (exit 0) unless `--update` is given, in which case color and description are updated.
+
+```bash
+issue-label-create NAME [--color HEX] [--description TEXT] [OPTIONS]
+issue-label-create --seed [OPTIONS]
+```
+
+**Options:**
+
+- `--color HEX`: 6-digit hex color (no `#`)
+- `--description TEXT`: Label description
+- `--seed`: Seed the standard vocabulary from `tools/config/labels-config.yml`
+- `--update`: Update color/description if the label already exists
+
+**Examples:**
+
+```bash
+issue-label-create "priority/P1" --color d93f0b --description "High"
+issue-label-create --seed   # bootstrap the standard label set
+```
+
+### `issue-label-list`
+
+Lists a repository's available issue labels (name, description, color). Read-only — use before suggesting labels in triage so only existing labels are proposed.
+
+```bash
+issue-label-list [OPTIONS]
+```
+
+**Options:**
+
+- `-f, --format FORMAT`: `table` (default), `json`, `simple`
+- `-s, --search TERM`: Filter labels by substring (case-insensitive)
+
+### `issue-types`
+
+Lists the GitHub organization's configured issue types (ID + name) via GraphQL. Read-only — used when setting up or verifying the native issue-type vocabulary (mirrors `tools/config/issues-config.yml`: Bug, Feature, Task, Epic).
+
+```bash
+issue-types [OPTIONS]
+```
+
+**Options:**
+
+- `-f, --format FORMAT`: `table` (default), `json`, `simple`
+
 ### `issue-triage`
 
 Issue triage for backlog management: an interactive wizard for humans, plus a fully scriptable CLI apply mode for skills and automation. (Formerly `issue-groom` — renamed; triage is the honest name for metadata-level backlog work, distinct from the `/devenv-groom` design skill.)
@@ -1528,7 +1621,7 @@ Manually signal workflow events for one or many issues — the ergonomic front d
 ```bash
 workflow-signal                      # interactive: pick "what happened?"
 workflow-signal staging-deploy 101 102   # batch: one event, many issues
-workflow-signal production-deploy 101 begin-review 105 106   # mixed batches
+workflow-signal production-deploy 101 102 begin-review 105   # mixed batches: repeat event/issue groups
 workflow-signal --list               # available events
 ```
 
@@ -1547,7 +1640,7 @@ tools/scripts/_on_merge.sh 43            # fired by merge tooling after a succes
 
 These are internal scripts (underscore prefix): they have no depth-1 `tools/` entry and are invoked via their `tools/scripts/` path. Interactive/batch firing goes through `workflow-signal` instead.
 
-**Events**: `_on_triage_complete` (backlog triage done → candidate for design grooming), then begin/end pairs per phase: `_on_begin_grooming`, `_on_end_grooming`, `_on_begin_planning`, `_on_end_planning`, `_on_begin_implementation`, `_on_end_implementation`, `_on_begin_review`, `_on_end_review`, `_on_merge`.
+**Events**: `_on_triage_complete` (backlog triage done → candidate for design grooming), then begin/end pairs per phase: `_on_begin_grooming`, `_on_end_grooming`, `_on_begin_planning`, `_on_end_planning`, `_on_begin_implementation`, `_on_end_implementation`, `_on_begin_review`, `_on_end_review`, `_on_merge`, plus deploy-sourced `_on_staging_deploy` and `_on_production_deploy` (no automatic observer — fire via `workflow-signal`).
 
 **Trigger points:**
 
@@ -1597,20 +1690,20 @@ project-update-issue PROJECT_NAME ISSUE_NUMBER [OPTIONS]
 
 **Options:**
 
-- `--status STATUS`: Set Status field (TBD, To Groom, Ready, Implementing, Review, Merged, Staging, Production)
+- `--status STATUS`: Set Status field (TBD, To-Groom, Ready, Implementing, Review, Merged, Staging, Production)
 - `--field NAME=VALUE`: Set custom field (repeatable)
 - `--list-fields`: List available fields in project
 
 **Status Workflow:**
 
 1. **TBD** - Not ready for grooming
-2. **To Groom** - Can be groomed
+2. **To-Groom** - Can be groomed
 3. **Ready** - Groomed, ready to implement
 4. **Implementing** - Active development
 5. **Review** - In pull request
 6. **Merged** - Merged to main, awaiting deployment
 7. **Staging** - Deployed to staging
-8. **Production** - Deployed to production (issue closed)
+8. **Production** - Deployed to production (closing stays explicit — `issue-close` or the closing PR)
 
 **Examples:**
 
@@ -1628,6 +1721,34 @@ project-update-issue "Q1 2026" 123 --field "Priority=High"
 ```
 
 **Note:** Project field updates currently provide instructions for manual updates or require GraphQL API implementation.
+
+## Releases & Policy Inspection
+
+### `release-list`
+
+Lists GitHub releases for the target repository (tag, name, published date, prerelease/draft flags, URL). Read-only.
+
+```bash
+release-list [OPTIONS]
+```
+
+**Options:**
+
+- `-f, --format FORMAT`: Output format: `table` (default), `json`, `simple`
+- `-V, --verbose`: Verbose output
+- `--repo OWNER/REPO`: Override target repository
+
+### `policy-export`
+
+Exports a GitHub repository ruleset as JSON — used to snapshot repo policy or to author ruleset fixtures for `repo-create` templates.
+
+```bash
+policy-export <RULESET_ID> [--output FILE]
+```
+
+**Options:**
+
+- `--output FILE`: Write the JSON export to a file (default: stdout)
 
 ## Container Management
 
@@ -1662,12 +1783,12 @@ docker-restart
 1. Kills the Docker daemon using `sudo pkill docker`
 2. Reloads Docker using `.devcontainer/load-docker.sh`
 
-### `container-enable-dotnet-debugger.sh`
+### `container-enable-dotnet-debugger`
 
 Injects and runs the .NET debugger into a locally running container for debugging purposes.
 
 ```bash
-container-enable-dotnet-debugger.sh <container-name>
+container-enable-dotnet-debugger <container-name>
 ```
 
 ### `server-run-sql`
@@ -1951,6 +2072,14 @@ repo-cache-deepen --repo lib.cs.services.bulk-sync
 # Deepen to 500 commits and fetch two feature branches
 repo-cache-deepen --repo service.reqord.identity --depth 500 \
     --branch issue-42-query-progress --branch issue-57-audit
+```
+
+### `cs-extract-snupkgs`
+
+Extracts `.snupkg` symbol packages into a target directory for inspection (source-linked PDBs and symbols from published packages).
+
+```bash
+cs-extract-snupkgs <package.snupkg> [more.snupkg ...] [--output DIR]
 ```
 
 ### `cs-dependencies-trace`
@@ -2462,6 +2591,10 @@ devenv-add-custom-startup "echo 'Container started'" "export MY_VAR=value"
 
 **Note:** For organization-wide startup customizations, create `.devcontainer/org-custom-startup.sh` and commit it to the repository.
 
+### Function-backed commands (function vs script)
+
+`key-update-git`, `key-update-do`, and `key-update-tailscale` are **bash functions** that wrap `tools/scripts/_key-update-*.sh` and re-source `.runtime/env-vars.sh` afterward, so the current shell sees refreshed values. The underscore-prefixed scripts have no depth-1 `tools/` entry by design — always invoke the bare function name. (`repo-get` is the deliberate counter-example: its depth-1 stub has real value for non-interactive use, so it is a plain script plus stub.)
+
 ### `key-update-git`
 
 Rotates the git provider credential: imports the new token through the provider auth seam into the keychain (the single source of truth) and re-wires the git credential helper. No token is written to env files, remote URLs, or `.setup/` — the seed file `.setup/provider_token.txt` is a bootstrap-input one-shot, not the store.
@@ -2586,7 +2719,7 @@ keep their consent gates regardless of how the namespace was supplied.
 
 ### `docker-compose-dependencies.yml`
 
-Docker Compose configuration file for running development dependencies (databases, message queues, etc.).
+Per-repo Compose file (when a repo ships one at its root) for running development dependencies — databases, message queues, and similar services alongside the dev container. Not a devenv-managed file: each repo owns its own. `container-*` tools target the devenv container itself, not these dependency stacks.
 
 ## Internal Scripts
 
@@ -2922,7 +3055,7 @@ The following convenience aliases are available in the dev container:
 - `issue-update` - Update issue fields
 - `issue-close` - Close or reopen issues
 - `issue-select` - Interactive issue selection with fzf
-- `issue-triage` - Interactive grooming wizard
+- `issue-triage` - Interactive backlog metadata wizard
 
 **Project Management:**
 
@@ -3173,16 +3306,15 @@ issue/PR.
 
 The following environment variables should be configured for full functionality:
 
-- Legacy GitHub-branded overrides (compatibility only — the GitHub provider honors them ahead of config; other providers ignore them): `GH_USER` (username), `GH_ORG` (organization). Prefer devenv.config `[organization]`.
 - `GH_TOKEN`: not required day-to-day — tokens live in the keychain, imported via `key-update-git` or the provider auth seam. When you mint a token (bootstrap provisioning or rotation), give it these scopes:
   - `repo` (full control of private repositories)
   - `workflow` (update CI pipeline workflows)
   - `read:packages` (download packages from the provider package registry)
   - `read:org` (read org and team membership, read org projects)
-  - `write:discussion` (write access to discussions)
   - `project` (full control of projects)
 - `DEVENV_ROOT`: Path to devenv root directory (auto-set)
-- `DEVENV_TOOLS`: Path to scripts/ directory (auto-set)
+- `DEVENV_TOOLS`: Path to the `tools/` directory (auto-set; scripts live under `tools/scripts/`, libs under `tools/lib/`)
+- `DEVENV_REPO`: Canonical (and only) repo target for repo-scoped wrappers, `owner/repo` form. Preferred for cross-repo operations. See [Tooling Standards](./Tooling-Standards.md) for the full resolution order.
 - `devenv`: Lowercase alias for DEVENV_ROOT (auto-set)
 - `SSH_AUTH_SOCK`: SSH agent socket (auto-configured with host forwarding)
 

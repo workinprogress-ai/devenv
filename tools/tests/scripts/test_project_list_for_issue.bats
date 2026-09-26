@@ -15,7 +15,7 @@ setup() {
     chmod +x "$stub_dir/gh"
     export PATH="$stub_dir:$PATH"
     # Deterministic repo targeting per the wrapper's documented env contract.
-    export GITHUB_REPO="test-org/test-repo"
+    export DEVENV_REPO="test-org/test-repo"
 }
 
 @test "usage error when no arguments given" {

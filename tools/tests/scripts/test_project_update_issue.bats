@@ -19,8 +19,8 @@ setup() {
     STUB_DIR="$stub_dir"
     SCRIPT="$PROJECT_ROOT/tools/scripts/project-update-issue.sh"
     # Deterministic repo targeting per the wrapper's documented env contract:
-    # the suite environment must not leak GH_ORG/GITHUB_REPO either way.
-    export GITHUB_REPO="test-org/test-repo"
+    # the suite environment must not leak GH_ORG either way.
+    export DEVENV_REPO="test-org/test-repo"
     unset GH_ORG
 }
 

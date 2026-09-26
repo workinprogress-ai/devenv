@@ -275,7 +275,7 @@ exit 0
 GH
   chmod +x "$TEST_TEMP_DIR/bin/gh"
 
-  run env -u GITHUB_REPO -u GH_REPO PATH="$TEST_TEMP_DIR/bin:$PATH" \
+  run env -u DEVENV_REPO -u GH_REPO PATH="$TEST_TEMP_DIR/bin:$PATH" \
     bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
     --issue 42 \
     --body $'doc_id: dv1:org/repo:issue-42:plan:createlock\nartifact_type: plan\nissue_number: 42'

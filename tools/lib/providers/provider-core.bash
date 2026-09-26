@@ -533,10 +533,9 @@ _provider_identity_raw_read() {
     return 0
 }
 
-# Resolve org identity: GH_ORG env override → config [organization]
-# github_org → seed file (.setup/provider_org.txt) → failure. Env stays
-# first so existing session exports keep working (compatibility override);
-# config is the sanctioned source after bootstrap demotion.
+# Resolve org identity: config [organization] org → seed file
+# (.setup/provider_org.txt) → failure. No env var participates — devenv
+# env vars carry no identity (GitHub is a provider like any other).
 #
 # Usage:
 #   org=$(provider_org_get) || exit
@@ -544,20 +543,11 @@ _provider_identity_raw_read() {
 # Returns:
 #   Prints the org; returns 1 with a config-guided error when unresolvable.
 provider_org_get() {
-    if [ -n "${GH_ORG:-}" ]; then
-        printf '%s\n' "$GH_ORG"
-        return 0
-    fi
     local value
-    # Config keys: neutral names first, GitHub-branded names as fallbacks
-    # (existing configs keep working; the forking guide recommends neutral).
-    for __key in org provider_org github_org; do
-        value=$(_provider_identity_raw_read "organization" "$__key") && [ -n "$value" ] && {
-            printf '%s\n' "$value"
-            return 0
-        }
-    done
-    unset __key
+    value=$(_provider_identity_raw_read "organization" "org") && [ -n "$value" ] && {
+        printf '%s\n' "$value"
+        return 0
+    }
     local seed_file="${DEVENV_ROOT:-}/.setup/provider_org.txt"
     if [ -f "$seed_file" ]; then
         value=$(tr -d '[:space:]' < "$seed_file")
@@ -566,13 +556,12 @@ provider_org_get() {
             return 0
         fi
     fi
-    log_error "unable to resolve organization identity — set [organization] github_org in devenv.config (or run setup); the GH_ORG env var is an optional override, not the source"
+    log_error "unable to resolve organization identity — set [organization] org in devenv.config (or run setup)"
     return 1
 }
 
-# Resolve user identity: GH_USER env override → config [organization]
-# github_user (optional key) → seed file (.setup/provider_user.txt) → failure.
-# Same precedence rationale as provider_org_get.
+# Resolve user identity: config [organization] user → seed file
+# (.setup/provider_user.txt) → failure. Same chain as provider_org_get.
 #
 # Usage:
 #   user=$(provider_user_get) || exit
@@ -580,18 +569,11 @@ provider_org_get() {
 # Returns:
 #   Prints the user; returns 1 with a config-guided error when unresolvable.
 provider_user_get() {
-    if [ -n "${GH_USER:-}" ]; then
-        printf '%s\n' "$GH_USER"
-        return 0
-    fi
     local value
-    for __key in user provider_user github_user; do
-        value=$(_provider_identity_raw_read "organization" "$__key") && [ -n "$value" ] && {
-            printf '%s\n' "$value"
-            return 0
-        }
-    done
-    unset __key
+    value=$(_provider_identity_raw_read "organization" "user") && [ -n "$value" ] && {
+        printf '%s\n' "$value"
+        return 0
+    }
     local seed_file="${DEVENV_ROOT:-}/.setup/provider_user.txt"
     if [ -f "$seed_file" ]; then
         value=$(tr -d '[:space:]' < "$seed_file")
@@ -600,6 +582,6 @@ provider_user_get() {
             return 0
         fi
     fi
-    log_error "unable to resolve user identity — set [organization] github_user in devenv.config (or run setup); the GH_USER env var is an optional override, not the source"
+    log_error "unable to resolve user identity — set [organization] user in devenv.config (or run setup)"
     return 1
 }

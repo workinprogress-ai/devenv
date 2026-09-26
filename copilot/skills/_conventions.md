@@ -39,7 +39,7 @@ The `description` is the **only** signal the model uses to decide whether to aut
 1. **Open with one sentence** that names what the skill does.
 2. **Include a `USE WHEN` clause** with the exact trigger phrases users will say (in quotes).
 3. **Include a `DO NOT USE FOR` clause** that names sibling skills it should defer to.
-4. Stay under 1500 characters total; brevity is still preferred — trim toward 1000 when possible.
+4. Keep the description under 1200 characters (lint-skills warns above that and fails over 2000); brevity is still preferred — trim toward 1000 when possible.
 5. Avoid markdown formatting in the description — it renders as plain text in skill pickers, so formatting that would leak raw (backticks, bold markers) should not be used. Slash-command names and plain words are fine.
 
 Template:
@@ -68,7 +68,7 @@ Use these headings, in this order, omitting any that don't apply. Keep section t
 Progress is **computed, never stored**. Ground truth lives in task checkboxes, issue state, linked PRs, labels, and git. A stored percentage is a cache with no invalidation discipline; a parallel progress-report artifact duplicates ground truth and becomes curated noise. Reporting skills derive their numbers at query time (`plan-parse --summary` / `--census`), and executor skills never hand-count.
 
 - **Canonical roll-up chain is issue → plans (direct + descendants).** A parent issue's plan set is its direct plans plus all descendant issues' plans (via `--parent` linkage). Roadmap step status is a separate derived view over issues — never combine the two aggregates (double-counting guard).
-- **The only durable progress narrative is the `Progress:` snapshot line** that pair-programming and delegation append to the existing wrap-up status comment:
+- **The only durable progress narrative is the `Progress:` snapshot line** that devenv-pair and devenv-delegate append to the existing wrap-up status comment:
 
   ```
   Progress: <done>/<total> tasks (<pct>%), phase <n> of <N> — <YYYY-MM-DD>
@@ -84,7 +84,7 @@ When a skill removes content it previously preserved (a specification item, road
 History lives in its dedicated homes (the three-home rule):
 
 - **Living documents** (specifications, blueprints, roadmaps) — target state only. Superseded content is deleted clean; IDs never reflow, so gaps in numbering are expected and harmless.
-- **ADRs** (`docs/Decisions/ADR-NNN-<slug>.md`) — the *why* for every significant supersession. If a future implementer would ask why content was removed, write an ADR naming the removed item and its replacement; otherwise delete silently. See [adr-template.md](./common/references/adr-template.md).
+- **ADRs** (`docs/Decisions/ADR-NNN-<slug>.md` in the target repo) — the *why* for every significant supersession. If a future implementer would ask why content was removed, write an ADR naming the removed item and its replacement; otherwise delete silently. See [adr-template.md](./common/references/adr-template.md).
 - **Git** — the *when*: what the removed content said and exactly when it disappeared.
 
 Skills that follow this convention: `devenv-refine-specifications`, `devenv-refine-roadmap`, `devenv-refine-blueprint`, `devenv-refine-plan`. Grooming documents are the exception: they keep their own `## Revision History` convention.
@@ -305,7 +305,7 @@ Not every markdown a skill writes is a persisted artifact. When the user asks fo
 
 ### Repo-targeting guard (required for issue/artifact calls)
 
-Issue and artifact wrappers resolve their target repo from the environment — `DEVENV_REPO` if set, else `GH_ORG` + current directory's repo name. That means **the terminal's location silently decides which repo a call hits**, and a session running from the workspace root or the devenv repo itself will aim every call at the wrong repo.
+Issue and artifact wrappers resolve their target repo from the environment — `DEVENV_REPO` if set, else the configured org + current directory's repo name. That means **the terminal's location silently decides which repo a call hits**, and a session running from the workspace root or the devenv repo itself will aim every call at the wrong repo.
 
 Required behavior before any `issue-*` / `pr-*` / `project-*` / artifact call:
 
@@ -345,9 +345,9 @@ When exploring WorkInProgress code, prefer local source under `repos/` before an
 
 Wrapper inventory (as of authoring):
 
-- Issues: `issue-create`, `issue-create-batch`, `issue-list`, `issue-update` (incl. `--add-label`/`--remove-label`), `issue-close`, `issue-comment`, `issue-comment-list`, `issue-comment-update`, `issue-get`, `issue-triage`, `issue-select`, `issue-artifact-doc-id`, `issue-artifact-get`, `issue-artifact-list`, `issue-artifact-select`, `issue-artifact-upsert`
-- PRs: `pr-create-for-review`, `pr-create-for-merge`, `pr-complete-merge`, `pr-merge-pull-request`, `pr-cleanup-review-branches`, `pr-get-review-link`, `pr-get-merge-link` — plus added: `pr-get`, `pr-comment`, `pr-diff`, `pr-list`, `pr-threads-get`, `pr-thread-reply`, `pr-thread-resolve`
-- Projects: `project-add-issue`, `project-update-issue`
+- Issues: `issue-create`, `issue-create-batch`, `issue-list`, `issue-search`, `issue-update` (incl. `--add-label`/`--remove-label`), `issue-close`, `issue-comment`, `issue-comment-list`, `issue-comment-update`, `issue-get`, `issue-triage`, `issue-select`, `issue-label-create`, `issue-label-list`, `issue-artifact-doc-id`, `issue-artifact-get`, `issue-artifact-list`, `issue-artifact-select`, `issue-artifact-upsert`
+- PRs: `pr-create-for-review`, `pr-create-for-merge`, `pr-complete-merge`, `pr-merge-pull-request`, `pr-cleanup-review-branches`, `pr-get-review-link`, `pr-get-merge-link` — plus added: `pr-get`, `pr-comment`, `pr-diff`, `pr-list`, `pr-review-comment`, `pr-threads-get`, `pr-thread-reply`, `pr-thread-resolve`
+- Projects: `project-add-issue`, `project-update-issue`, `project-list-for-issue`
 
 ## Skill-facing wrapper maintenance checklist
 
@@ -443,7 +443,7 @@ Test-integrity specification item (all execution skills):
 
 - Do not remove, loosen, skip, or narrow failing behavior assertions to hide a real product defect or to recover a green run.
 - Keep behavior assertions that reveal the defect, add a focused reproduction test when useful, then fix implementation.
-- Temporary test adjustments are allowed only with explicit user approval, a `FIXME:DEVENV[plan-key]:: ...` marker, and a concrete restoration task tracked immediately.
+- Temporary test adjustments are allowed only with explicit user approval, a `FIXME:DEVENV[plan-key]: ...` marker, and a concrete restoration task tracked immediately.
 
 The protocol applies to skills:
 
@@ -474,7 +474,7 @@ Validation guidance:
 
 ## Stop protocol (shared)
 
-Applies to every execution skill (`delegation`, `pair-programming`) when the user issues a hard stop — "stop here", "let's work together", any instruction to end the working turn before a phase boundary. A stop instruction ends *execution*; it never suspends plan-stewardship duties. Before (or as part of) honoring the stop:
+Applies to every execution skill (`devenv-delegate`, `devenv-pair`) when the user issues a hard stop — "stop here", "let's work together", any instruction to end the working turn before a phase boundary. A stop instruction ends *execution*; it never suspends plan-stewardship duties. Before (or as part of) honoring the stop:
 
 1. **Tick done work** — every task completed and verified since the last tick gets ticked (`markdown-plan-complete-task`) before the turn ends. Verification = the task's own completion signal (build/tests), not a later review.
 2. **Write pending plan deltas** — approved deviations and contract/surface changes made this turn are recorded in the plan in the same exchange (current-state writing); anything genuinely still undecided is listed to the user as explicitly pending, never silently dropped.
@@ -484,7 +484,7 @@ Stewardship survives skill switches: if the stop is followed by loading a differ
 
 ## Hotspot bullet format (shared)
 
-Used by `delegation`, `code-review`, and any skill that asks the human to focus review attention. Format:
+Used by `devenv-delegate`, `devenv-review`, and any skill that asks the human to focus review attention. Format:
 
 ```markdown
 - [<file>:<line>](<workspace-relative-path>#L<line>) — <one-sentence reason this needs eyes>
@@ -543,8 +543,8 @@ Work product ownership is always with the user.
 Each skill should link to:
 
 - Its **predecessors** in the workflow (e.g. `devenv-pair` links to `devenv-plan`).
-- Its **alternatives** (e.g. `delegation` links to `pair-programming` for high-impact work).
-- Its **successors** where natural (e.g. a phase-complete skill linking to `open-pr`).
+- Its **alternatives** (e.g. `devenv-delegate` links to `devenv-pair` for high-impact work).
+- Its **successors** where natural (e.g. a phase-complete skill linking to `devenv-open-pr`).
 
 Use relative paths (as they appear inside a skill folder): `[/devenv-pair](../devenv-pair/SKILL.md)`.
 
@@ -562,7 +562,7 @@ Skills maintain GitHub Project issue status as a side effect of their lifecycle 
 - **Placement rule:** invoke at existing lifecycle boundaries (intake confirmation, phase handoffs, wrap-up) — do not create new interactive gates for status updates.
 - **Charter boundary:** events absorb deterministic, content-free, cross-cutting side effects — nothing that requires authored content or judgment. The moment an event handler would need to write prose or decide *whether* to act, that work belongs to the skill, not the event.
 
-Canonical tooling reference: the [GitHub protocol reference](./_shared/references/provider-protocols/github.md#onevent-skill-event-signals) (`_on_*` entry points, `_on_event_dispatch.sh`, `workflow-signal` for manual/interactive firing). The human-facing model — types, status semantics, parent rollup — is documented canonically in the repo's `docs/Issue-Workflow.md`.
+Canonical tooling reference: the [GitHub protocol reference](./_shared/references/provider-protocols/github.md#_onevent-skill-event-signals) (`_on_*` entry points, `_on_event_dispatch.sh`, `workflow-signal` for manual/interactive firing). The human-facing model — types, status semantics, parent rollup — is documented canonically in the repo's `docs/Issue-Workflow.md`.
 
 ## Open Questions Log (Q-NNN)
 
