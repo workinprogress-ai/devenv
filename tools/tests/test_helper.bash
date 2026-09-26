@@ -184,3 +184,11 @@ compose_functions_defined() {
         return 1
     fi
 }
+
+# Central org fixture: the single fork-edit point for tests that exercise
+# org-qualified shapes (doc_ids, owner/repo fixtures, DEVENV_REPO values).
+# Concrete by design — format assertions need realistic shapes — but a fork
+# changes this one line, not eight fixture files.
+# shellcheck disable=SC2034
+TEST_ORG="workinprogress-ai"
+

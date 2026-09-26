@@ -509,9 +509,20 @@ build_ruleset_payload_from_file() {
     
     # Load JSON and replace tokens
     local payload
+    local email_domain
+    # {{email_domain}} resolves from devenv.config (central org authority) —
+    # lazy-init the config reader following workflow-core's pattern; fall back
+    # to empty (ruleset carries the raw token) rather than failing the stamp.
+    if [ -z "${CONFIG_FILE:-}" ]; then
+        # shellcheck disable=SC1091
+        [ -f "${DEVENV_TOOLS}/lib/config-reader.bash" ] && source "${DEVENV_TOOLS}/lib/config-reader.bash"
+        config_init "${DEVENV_ROOT:-}/devenv.config" 2>/dev/null || true
+    fi
+    email_domain=$(config_read_value "organization" "email_domain" "" 2>/dev/null || true)
     payload=$(cat "$ruleset_file" | \
         sed "s/{{repo_name}}/${repo_name}/g" | \
         sed "s/{{owner}}/${owner}/g" | \
+        sed "s/{{email_domain}}/${email_domain}/g" | \
         sed "s/{{type_name}}/${repo_type}/g" | \
         sed "s/{{type_description}}/${type_description}/g" | \
         jq -c . 2>/dev/null)

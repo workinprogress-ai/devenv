@@ -62,7 +62,7 @@
       "type": "commit_author_email_pattern",
       "parameters": {
         "operator": "ends_with",
-        "pattern": "@workinprogress.ai",
+        "pattern": "@{{email_domain}}",
         "negate": false,
         "name": ""
       }
@@ -71,7 +71,7 @@
       "type": "committer_email_pattern",
       "parameters": {
         "operator": "ends_with",
-        "pattern": "@workinprogress.ai",
+        "pattern": "@{{email_domain}}",
         "negate": false,
         "name": ""
       }

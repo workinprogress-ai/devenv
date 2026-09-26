@@ -19,10 +19,43 @@ source "$DEVENV_TOOLS/lib/fzf-selection.bash"
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 
 usage() {
-  echo "Usage: $(basename "$0") [--select|--all] [<repository-name>]" >&2
+  echo "Usage: $(basename "$0") [--select|--all] [<repository-name>|<repository-url>]" >&2
   echo "  --select: Show a selection list of repositories in the organization (excludes already cloned repos)" >&2
   echo "  --all: Clone all repositories in the organization not already present locally" >&2
   echo "  repository-name: Name of the GitHub repository (alphanumeric, hyphens, and dots)" >&2
+  echo "  repository-url: Full URL to a foreign repository (https:// or git@); cloned flat into repos/ by its basename" >&2
+}
+
+# True when the argument is a repository URL (foreign repo) rather than an
+# org repo name: https://host/owner/repo[.git], git@host:owner/repo[.git],
+# ssh://, or any value ending in .git.
+is_foreign_url() {
+  local arg="${1:-}"
+  case "$arg" in
+    https://*|http://*|git@*|ssh://git@*|*.git) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Foreign URL -> local folder name: URL basename minus .git, sanitized with
+# the same character rules as org repo names (defends against URL tricks —
+# path traversal, embedded whitespace, control characters).
+foreign_repo_name() {
+  local url="${1%/}"
+  local name
+  name="${url##*/}"
+  name="${name%.git}"
+  if ! [[ "$name" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]; then
+    echo "ERROR: Cannot derive a valid folder name from URL: $url" >&2
+    return 1
+  fi
+  case "$name" in
+    repos|devenv|.|..)
+      echo "ERROR: Derived folder name is reserved: $name" >&2
+      return 1
+      ;;
+  esac
+  printf '%s' "$name"
 }
 
 # Function to select a repo using fzf
@@ -106,12 +139,64 @@ elif [ -z "${1:-}" ]; then
     fi
 else
     input_repo="${1%/}"
-    if ! validate_repository_name "$input_repo"; then
+    if is_foreign_url "$input_repo"; then
+        FOREIGN_URL="$input_repo"
+        if ! REPO_NAME="$(foreign_repo_name "$input_repo")"; then
+            exit 1
+        fi
+    elif ! validate_repository_name "$input_repo"; then
         echo "ERROR: Invalid repository name: $input_repo" >&2
         usage
         exit 1
+    else
+        REPO_NAME="$input_repo"
     fi
-    REPO_NAME="$input_repo"
+fi
+
+# Foreign mode: a full URL was given — clone/update from that URL directly.
+# Org resolution, the provider auth precheck, and configure_git_repo's org
+# credential-helper wiring do not apply; auth is the user's own git config.
+if [ -n "${FOREIGN_URL:-}" ]; then
+    TARGET_DIR="$repos_dir/$REPO_NAME"
+    GIT_URL="$FOREIGN_URL"
+    if [ -d "$TARGET_DIR/.git" ]; then
+        existing_remote="$(git -C "$TARGET_DIR" remote get-url origin 2>/dev/null || echo "")"
+        if [ -n "$existing_remote" ] && [ "$existing_remote" != "$GIT_URL" ]; then
+            # Redact embedded credentials before displaying — remotes may carry
+            # user:token@ auth, and error output must never echo secrets.
+            display_remote="${existing_remote//:*@/:***@}"
+            display_remote="${display_remote//https:\/\/[^\/]*@/https://}"
+            echo "ERROR: $TARGET_DIR already exists as a clone of a different repository:" >&2
+            echo "  existing remote: $display_remote" >&2
+            echo "  requested URL  : $GIT_URL" >&2
+            echo "Refusing to mix remotes. Remove the folder if it is truly the same repo." >&2
+            exit 1
+        fi
+        echo "Foreign repository '$REPO_NAME' already exists. Fetching latest changes..." >&2
+        git -C "$TARGET_DIR" fetch --all --tags -f
+        default_branch="$(git -C "$TARGET_DIR" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)"
+        default_branch="${default_branch#origin/}"
+        [ -n "$default_branch" ] || default_branch=main
+        current_branch="$(git -C "$TARGET_DIR" rev-parse --abbrev-ref HEAD)"
+        if [ "$current_branch" != "$default_branch" ]; then
+            git -C "$TARGET_DIR" pull --rebase
+        else
+            git -C "$TARGET_DIR" pull --ff-only
+        fi
+    else
+        echo "Cloning foreign repository '$REPO_NAME' from $GIT_URL..." >&2
+        git clone "$GIT_URL" "$TARGET_DIR"
+    fi
+    if [ -f "$TARGET_DIR/.repo/update.sh" ]; then
+        echo "=> Running update script for $REPO_NAME..." >&2
+        (cd "$TARGET_DIR" && ./.repo/update.sh)
+    fi
+    if [ -f "$TARGET_DIR/.repo/init.sh" ] && [ ! -f "$TARGET_DIR/.repo/.inited" ]; then
+        echo "=> Running init script for $REPO_NAME..." >&2
+        (cd "$TARGET_DIR" && ./.repo/init.sh)
+    fi
+    echo "Foreign repository operation completed successfully." >&2
+    exit 0
 fi
 
 # Resolve the org via the provider accessor (env override → config → seed).

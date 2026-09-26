@@ -270,9 +270,9 @@ Do not duplicate states, and do not interleave the two halves — status derivat
 
 ```ini
 [copilot]
-knowledge_repo=https://github.com/workinprogress-ai/docs.copilot-knowledge.git
+knowledge_repo=https://github.com/workinprogress-ai/docs.copilot-knowledge.git   # ← your fork's repo
 knowledge_subpath=copilot-knowledge/
-engineering_repo=https://github.com/workinprogress-ai/docs.engineering.git
+engineering_repo=https://github.com/workinprogress-ai/docs.engineering.git       # ← your fork's repo
 engineering_repo_name=docs.engineering
 ```
 
