@@ -23,7 +23,7 @@ setup() {
     unset _PROVIDER_CORE_LOADED
     unset PROVIDER_NAME
     unset PROVIDER_CAPABILITIES
-    unset GITHUB_REPO GH_REPO
+    unset DEVENV_REPO GH_REPO
     stub_gh
     # shellcheck disable=SC1091
     source "$DEVENV_TOOLS/lib/providers/provider-core.bash"
@@ -38,15 +38,20 @@ setup() {
 # Targeting normalization (provider_repo_target)
 # ============================================================================
 
-@test "repo_target: explicit argument wins" {
+@test "repo_target: GITHUB_REPO env has no effect when argument present" {
     local out
     out=$(GITHUB_REPO=env/repo provider_repo_target explicit/repo)
     [ "$out" = "explicit/repo" ]
 }
 
-@test "repo_target: GITHUB_REPO env used when no argument" {
-    GITHUB_REPO=env/repo run provider_repo_target
-    [ "$output" = "env/repo" ]
+@test "repo_target: GITHUB_REPO env has no effect (no devenv alias)" {
+    # Isolate the seed path: a real DEVENV_ROOT seed would satisfy the cwd
+    # leg and hide the assertion this test exists for.
+    local isolated_root="$TEST_TEMP_DIR/no-seed-root"
+    mkdir -p "$isolated_root"
+    run env -u DEVENV_REPO DEVENV_ROOT="$isolated_root" GITHUB_REPO=env/repo bash -c 'source "$0" && provider_repo_target' "$DEVENV_TOOLS/lib/providers/github/repos.bash"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
 }
 
 @test "repo_target: GH_REPO full form used as fallback" {
@@ -62,7 +67,7 @@ setup() {
     local script="$TEST_TEMP_DIR/target_partial2.sh"
     cat > "$script" <<SEOF
 export DEVENV_TOOLS="$DEVENV_TOOLS"
-unset _PROVIDER_CORE_LOADED PROVIDER_NAME GITHUB_REPO
+unset _PROVIDER_CORE_LOADED PROVIDER_NAME DEVENV_REPO
 source "\$DEVENV_TOOLS/lib/providers/provider-core.bash"
 provider_detect "$TEST_TEMP_DIR/absent.config"
 source "\$DEVENV_TOOLS/lib/providers/github/repos.bash"
@@ -82,7 +87,7 @@ SEOF
     mkdir -p "$TEST_TEMP_DIR/nogit"
     cat > "$script" <<SEOF
 export DEVENV_TOOLS="$DEVENV_TOOLS"
-unset _PROVIDER_CORE_LOADED PROVIDER_NAME GITHUB_REPO GH_REPO GH_ORG
+unset _PROVIDER_CORE_LOADED PROVIDER_NAME DEVENV_REPO GH_REPO GH_ORG
 source "\$DEVENV_TOOLS/lib/providers/provider-core.bash"
 provider_detect "$TEST_TEMP_DIR/absent.config"
 source "\$DEVENV_TOOLS/lib/providers/github/repos.bash"
@@ -183,7 +188,7 @@ SEOF
 }
 
 # ============================================================================
-# Full-chain repo target: explicit arg → GITHUB_REPO → GH_REPO full form →
+# Full-chain repo target: explicit arg → DEVENV_REPO → GH_REPO full form →
 # org identity + cwd basename → empty. Mirrors the documented wrapper
 # resolution chain; semantics must not change when provider-loader delegates
 # here.
@@ -195,7 +200,7 @@ SEOF
     local script="$TEST_TEMP_DIR/target_full_chain.sh"
     cat > "$script" <<SEOF
 export DEVENV_TOOLS="$DEVENV_TOOLS"
-unset _PROVIDER_CORE_LOADED PROVIDER_NAME GITHUB_REPO GH_REPO GH_ORG
+unset _PROVIDER_CORE_LOADED PROVIDER_NAME DEVENV_REPO GH_REPO GH_ORG
 source "\$DEVENV_TOOLS/lib/providers/provider-core.bash"
 provider_detect "$TEST_TEMP_DIR/absent.config"
 source "\$DEVENV_TOOLS/lib/providers/github/repos.bash"
@@ -215,7 +220,7 @@ SEOF
     local script="$TEST_TEMP_DIR/target_partial.sh"
     cat > "$script" <<SEOF
 export DEVENV_TOOLS="$DEVENV_TOOLS"
-unset _PROVIDER_CORE_LOADED PROVIDER_NAME GITHUB_REPO
+unset _PROVIDER_CORE_LOADED PROVIDER_NAME DEVENV_REPO
 source "\$DEVENV_TOOLS/lib/providers/provider-core.bash"
 provider_detect "$TEST_TEMP_DIR/absent.config"
 source "\$DEVENV_TOOLS/lib/providers/github/repos.bash"
@@ -295,16 +300,21 @@ SEOF
     [ "$status" -ne 0 ]
 }
 
-@test "repo target: DEVENV_REPO outranks the deprecated GITHUB_REPO alias" {
+@test "repo target: DEVENV_REPO is the single env override" {
     # shellcheck disable=SC1091
     source "$DEVENV_TOOLS/lib/providers/github/repos.bash"
     run env DEVENV_REPO="new/repo" GITHUB_REPO="legacy/repo" bash -c 'source "$0" && provider_repo_target' "$DEVENV_TOOLS/lib/providers/github/repos.bash"
     [ "$output" = "new/repo" ]
 }
 
-@test "repo target: GITHUB_REPO alias still resolves (deprecated, silent)" {
+@test "repo target: GITHUB_REPO has no effect (no devenv alias exists)" {
+    # GITHUB_REPO must not resolve; the seed path is isolated too (a real
+    # DEVENV_ROOT seed would otherwise satisfy the cwd leg and mask the
+    # assertion).
     # shellcheck disable=SC1091
-    source "$DEVENV_TOOLS/lib/providers/github/repos.bash"
-    run env -u DEVENV_REPO GITHUB_REPO="legacy/repo" bash -c 'source "$0" && provider_repo_target' "$DEVENV_TOOLS/lib/providers/github/repos.bash"
-    [ "$output" = "legacy/repo" ]
+    local isolated_root="$TEST_TEMP_DIR/no-seed-root"
+    mkdir -p "$isolated_root"
+    run env -u DEVENV_REPO DEVENV_ROOT="$isolated_root" GITHUB_REPO="legacy/repo" bash -c 'source "$0" && provider_repo_target' "$DEVENV_TOOLS/lib/providers/github/repos.bash"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
 }

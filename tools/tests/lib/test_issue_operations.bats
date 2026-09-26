@@ -463,11 +463,11 @@ YML
         return 1
     }
     export -f gh
-    export GITHUB_REPO="test-org/test-repo"
+    export DEVENV_REPO="test-org/test-repo"
 
     run bash -c "
         export -f gh
-        export GITHUB_REPO='test-org/test-repo'
+        export DEVENV_REPO='test-org/test-repo'
         source '$PROJECT_ROOT/tools/lib/issue-operations.bash'
         fetch_issue_comments 42
     "
@@ -479,11 +479,11 @@ YML
 @test "issue-operations: fetch_issue_comments returns error on API failure" {
     gh() { return 1; }
     export -f gh
-    export GITHUB_REPO="test-org/test-repo"
+    export DEVENV_REPO="test-org/test-repo"
 
     run bash -c "
         export -f gh
-        export GITHUB_REPO='test-org/test-repo'
+        export DEVENV_REPO='test-org/test-repo'
         source '$PROJECT_ROOT/tools/lib/issue-operations.bash'
         fetch_issue_comments 99
     "
@@ -571,11 +571,11 @@ YML
         return 1
     }
     export -f gh
-    export GITHUB_REPO="test-org/test-repo"
+    export DEVENV_REPO="test-org/test-repo"
 
     run bash -c "
         export -f gh
-        export GITHUB_REPO='test-org/test-repo'
+        export DEVENV_REPO='test-org/test-repo'
         source '$PROJECT_ROOT/tools/lib/issue-operations.bash'
         check_issue_comment_exists 99
     "
@@ -585,11 +585,11 @@ YML
 @test "issue-operations: check_issue_comment_exists returns error when comment not found" {
     gh() { return 1; }
     export -f gh
-    export GITHUB_REPO="test-org/test-repo"
+    export DEVENV_REPO="test-org/test-repo"
 
     run bash -c "
         export -f gh
-        export GITHUB_REPO='test-org/test-repo'
+        export DEVENV_REPO='test-org/test-repo'
         source '$PROJECT_ROOT/tools/lib/issue-operations.bash'
         check_issue_comment_exists 404
     "
@@ -606,11 +606,11 @@ YML
         return 1
     }
     export -f gh
-    export GITHUB_REPO="test-org/test-repo"
+    export DEVENV_REPO="test-org/test-repo"
 
     run bash -c "
         export -f gh
-        export GITHUB_REPO='test-org/test-repo'
+        export DEVENV_REPO='test-org/test-repo'
         source '$PROJECT_ROOT/tools/lib/issue-operations.bash'
         update_issue_comment 77 'new body text'
     "
@@ -620,11 +620,11 @@ YML
 @test "issue-operations: update_issue_comment returns error on API failure" {
     gh() { return 1; }
     export -f gh
-    export GITHUB_REPO="test-org/test-repo"
+    export DEVENV_REPO="test-org/test-repo"
 
     run bash -c "
         export -f gh
-        export GITHUB_REPO='test-org/test-repo'
+        export DEVENV_REPO='test-org/test-repo'
         source '$PROJECT_ROOT/tools/lib/issue-operations.bash'
         update_issue_comment 77 'new body text'
     "

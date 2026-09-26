@@ -438,24 +438,23 @@ provider_accessor_setup() {
     provider_detect "$TEST_TEMP_DIR/absent.config"
 }
 
-@test "provider_org_get: GH_ORG env override wins" {
+@test "provider_org_get: GH_ORG env has no effect (no env leg)" {
     provider_accessor_setup
-    printf '[organization]\nname=t\ngithub_org=cfg-org\n' > "$TEST_TEMP_DIR/devenv.config"
+    printf '[organization]\nname=t\norg=cfg-org\n' > "$TEST_TEMP_DIR/devenv.config"
     run bash -c "
         export DEVENV_ROOT='$TEST_TEMP_DIR' DEVENV_ROOT_SET=1 DEVENV_TOOLS='$DEVENV_TOOLS'
         source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
         GH_ORG=env-org provider_org_get
     "
     [ "$status" -eq 0 ]
-    [ "$output" = "env-org" ]
+    [ "$output" = "cfg-org" ]
 }
 
-@test "provider_org_get: config [organization] github_org resolves" {
+@test "provider_org_get: config [organization] org resolves" {
     provider_accessor_setup
-    printf '[organization]\nname=t\ngithub_org=cfg-org\n' > "$TEST_TEMP_DIR/devenv.config"
+    printf '[organization]\nname=t\norg=cfg-org\n' > "$TEST_TEMP_DIR/devenv.config"
     run bash -c "
         export DEVENV_ROOT='$TEST_TEMP_DIR' DEVENV_ROOT_SET=1 DEVENV_TOOLS='$DEVENV_TOOLS'
-        unset GH_ORG
         source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
         provider_org_get
     "
@@ -481,13 +480,11 @@ provider_accessor_setup() {
     provider_accessor_setup
     run bash -c "
         export DEVENV_ROOT='$TEST_TEMP_DIR' DEVENV_ROOT_SET=1 DEVENV_TOOLS='$DEVENV_TOOLS'
-        unset GH_ORG
         source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
         provider_org_get
     "
     [ "$status" -ne 0 ]
-    [[ "$output" == *"github_org"* ]]
-    [[ "$output" != *"GH_ORG is not set"* ]]
+    [[ "$output" == *"[organization] org"* ]]
 }
 
 @test "provider_org_get: raw read does not expand templates (no recursion)" {
@@ -495,7 +492,7 @@ provider_accessor_setup() {
     # Config value that looks like a template: raw accessor must return it
     # verbatim, never interpolating (config-reader expansion calls back into
     # this accessor; expansion here would loop).
-    printf '[organization]\nname=t\ngithub_org=${GH_ORG}\n' > "$TEST_TEMP_DIR/devenv.config"
+    printf '[organization]\nname=t\norg=${GH_ORG}\n' > "$TEST_TEMP_DIR/devenv.config"
     run bash -c "
         export DEVENV_ROOT='$TEST_TEMP_DIR' DEVENV_ROOT_SET=1 DEVENV_TOOLS='$DEVENV_TOOLS'
         unset GH_ORG
@@ -506,20 +503,18 @@ provider_accessor_setup() {
     [ "$output" = '${GH_ORG}' ]
 }
 
-@test "provider_user_get: env override then config then seed" {
+@test "provider_user_get: GH_USER has no effect; config then seed" {
     provider_accessor_setup
     run bash -c "
         export DEVENV_ROOT='$TEST_TEMP_DIR' DEVENV_ROOT_SET=1 DEVENV_TOOLS='$DEVENV_TOOLS'
         source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
         GH_USER=env-user provider_user_get
     "
-    [ "$status" -eq 0 ]
-    [ "$output" = "env-user" ]
+    [ "$status" -ne 0 ]
 
-    printf '[organization]\nname=t\ngithub_user=cfg-user\n' > "$TEST_TEMP_DIR/devenv.config"
+    printf '[organization]\nname=t\nuser=cfg-user\n' > "$TEST_TEMP_DIR/devenv.config"
     run bash -c "
         export DEVENV_ROOT='$TEST_TEMP_DIR' DEVENV_ROOT_SET=1 DEVENV_TOOLS='$DEVENV_TOOLS'
-        unset GH_USER
         source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
         provider_user_get
     "
@@ -531,7 +526,6 @@ provider_accessor_setup() {
     rm -f "$TEST_TEMP_DIR/devenv.config"
     run bash -c "
         export DEVENV_ROOT='$TEST_TEMP_DIR' DEVENV_ROOT_SET=1 DEVENV_TOOLS='$DEVENV_TOOLS'
-        unset GH_USER
         source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
         provider_user_get
     "

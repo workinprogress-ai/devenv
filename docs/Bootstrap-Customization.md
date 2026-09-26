@@ -32,41 +32,44 @@ This design allows anyone forking this repository to:
 
 ## Default Bootstrap Flow
 
-The default bootstrap process executes these tasks in order:
+The default bootstrap process executes these tasks in order (mirrors `run_bootstrap_tasks` in `.devcontainer/bootstrap.bash` — that function is the source of truth):
 
-1. `init_bootstrap_run_time` - Initialize timing tracking
-2. `initialize_paths` - Set up core path variables
+1. `initialize_paths` - Set up core path variables
+2. `init_bootstrap_run_time` - Initialize timing tracking
 3. `detect_architecture` - Detect ARM vs x86
 4. `ensure_home_is_set` - Ensure HOME variable is set
-5. `load_version_info` - Load version from git tags
-6. `load_config` - Load and validate devenv.config
-7. `prepare_install_directories` - Create installation directories
-8. `reset_bashrc_to_original` - Reset bashrc to clean state (set `PRESERVE_BASHRC=1` to keep direct edits)
-9. `install_os_packages_round1` - Install base OS packages
-10. `add_specialized_repositories` - Add HashiCorp, Kubernetes repos
-11. `install_os_packages_round2` - Install specialized packages
-12. `install_dotnet` - Install .NET SDK
-13. `download_container_scripts` - Download helper scripts
-14. `load_setup_credentials` - Load credentials from .setup/
-15. `write_bash_functions_file` - Create bash functions
-16. `generate_env_vars_file` - Generate environment variables
-17. `create_tool_symlinks` - Create tool symlinks
-18. `write_devenvrc` - Write shell configuration
-19. `append_bashrc` - Update .bashrc
-20. `install_or_configure_nvm` - Install/configure nvm
-21. `configure_dotnet_tools` - Configure .NET tools
-22. `install_node_packages` - Install Node.js packages
-23. `configure_git` - Configure git globally
-24. `install_copilot_instructions` - Symlink `copilot/copilot-instructions.md` to `~/.copilot/copilot-instructions.md`
-25. `sync_copilot_knowledge` - Clone/pull configured Copilot knowledge repo and link `~/.copilot/knowledge`
-26. `ensure_directories_and_settings` - Create required directories
-27. `install_repo_dependencies` - Install devenv repo dependencies
-28. `configure_nuget_sources` - Configure NuGet sources
-29. `configure_user_npmrc` - Configure npm registry auth
-30. `run_custom_bootstrap_if_present` - Run custom bootstrap if exists
-31. `cleanup_packages` - Clean up apt packages
-32. `record_bootstrap_run_time` - Record completion time
-33. `finish_message` - Display completion message
+5. `ensure_bash_is_default_shell` - Verify bash is the login shell
+6. `load_version_info` - Load version from git tags
+7. `load_config` - Load and validate devenv.config
+8. `prepare_install_directories` - Create installation directories
+9. `reset_bashrc_to_original` - Reset bashrc to clean state (set `PRESERVE_BASHRC=1` to keep direct edits)
+10. `install_yq` - Install the yq YAML processor
+11. `install_os_packages_round1` - Install base OS packages
+12. `add_specialized_repositories` - Add HashiCorp, Kubernetes repos
+13. `install_os_packages_round2` - Install specialized packages
+14. `install_dotnet` - Install .NET SDK
+15. `download_container_scripts` - Download helper scripts
+16. `load_setup_credentials` - Load credentials from .setup/
+17. `write_bash_functions_file` - Create bash functions
+18. `generate_env_vars_file` - Generate environment variables
+19. `create_tool_symlinks` - Create tool symlinks
+20. `write_devenvrc` - Write shell configuration
+21. `append_bashrc` - Update .bashrc
+22. `install_or_configure_nvm` - Install/configure nvm
+23. `configure_dotnet_tools` - Configure .NET tools
+24. `install_node_packages` - Install Node.js packages
+25. `configure_git` - Configure git globally
+26. `install_copilot_instructions` - Symlink `copilot/copilot-instructions.md` to `~/.copilot/copilot-instructions.md`
+27. `sync_copilot_knowledge` - Clone/pull configured Copilot knowledge repo and link `~/.copilot/knowledge`
+28. `sync_copilot_engineering` - Clone/pull configured engineering standards repo and link `~/.copilot/engineering`
+29. `ensure_directories_and_settings` - Create required directories
+30. `install_repo_dependencies` - Install devenv repo dependencies
+31. `configure_nuget_sources` - Configure NuGet sources
+32. `configure_user_npmrc` - Configure npm registry auth
+33. `run_custom_bootstrap_if_present` - Run custom bootstrap if exists
+34. `cleanup_packages` - Clean up apt packages
+35. `record_bootstrap_run_time` - Record completion time
+36. `finish_message` - Display completion message
 
 ## Update Bootstrap Flow
 
@@ -257,7 +260,7 @@ run_bootstrap_tasks "${TASKS[@]}"
 - `sync_copilot_knowledge` - Clone/pull configured Copilot knowledge repo to `copilot/knowledge` and link `~/.copilot/knowledge`
 - `pull_copilot_knowledge_on_container_start` - Non-blocking knowledge repo pull on container start (`tools/lib/copilot-knowledge.bash`), no-op when `copilot/knowledge` is not a git repo
 - `pull_copilot_engineering_on_container_start` - Non-blocking engineering-standards repo pull on container start (same library), no-op when `copilot/engineering` is not a git repo
-- `pull_copilot_engineering_on_container_start` - Non-blocking engineering-standards repo pull on container start (same library), no-op when `copilot/engineering` is not a git repo
+- `sync_copilot_engineering` - Clone/pull configured engineering standards repo and link `~/.copilot/engineering` (bootstrap task 28)
 - `configure_nuget_sources` - Configure NuGet package sources
 - `configure_user_npmrc` - Configure npm registry authentication
 - `ensure_directories_and_settings` - Create directories and system settings

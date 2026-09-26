@@ -111,7 +111,7 @@ load ../test_helper
 @test "pr-threads-get.sh does not send string null cursor on first page" {
   mkdir -p "$TEST_TEMP_DIR/bin"
   export PATH="$TEST_TEMP_DIR/bin:$PATH"
-  export GITHUB_REPO="workinprogress-ai/example-repo"
+  export DEVENV_REPO="workinprogress-ai/example-repo"
 
   cat > "$TEST_TEMP_DIR/bin/gh" <<'EOF'
 #!/usr/bin/env bash

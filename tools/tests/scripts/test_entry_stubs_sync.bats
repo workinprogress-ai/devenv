@@ -164,6 +164,23 @@ _make_stub() {
     rm -rf "$root"
 }
 
+@test "stubs whose script was renamed away are purged (dead exec target)" {
+    local root
+    root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_script "$root" "alpha.sh"
+    # Stub for a script that no longer exists in tools/scripts/ (renamed or
+    # deleted): the sync must remove it, not leave a dead entry point.
+    _make_stub "$root" "old-name" "old-name.sh"
+
+    run bash "$SYNC_SCRIPT"
+    [ "$status" -eq 0 ]
+
+    [ ! -e "$root/tools/old-name" ]
+    [ -f "$root/tools/alpha" ]
+    rm -rf "$root"
+}
+
 @test "stale underscore stubs from the old contract are purged" {
     local root
     root="$(mktemp -d)"

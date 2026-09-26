@@ -58,8 +58,8 @@ Filters:
                                 disabled_inactivity, all (default: active)
 
 Environment Variables:
-    (none required — org resolves via devenv.config [organization] github_org;
-     GH_ORG remains an optional override.
+    (none required — org resolves via devenv.config [organization] org;
+     no env override exists.
 
 Examples:
     # List all active workflows

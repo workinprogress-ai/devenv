@@ -56,26 +56,30 @@ config_read_value() {
         value="$default"
     fi
     
-    # Expand environment variables
+    # Expand template variables
     # Supports ${VAR_NAME} syntax. Parameter expansion (not sed) so values
     # containing "/" or "&" cannot break the substitution and secret values
     # never transit a process argument.
-    # Note: GH_TOKEN is deliberately NOT interpolated — config files are a
-    # persistent surface and must never carry or expand secrets.
-    # GH_ORG/GH_USER templates resolve via the provider identity accessors
-    # (env override → config → seed) when the provider layer is loaded; the
+    # Note: token variables are deliberately NOT interpolated — config files
+    # are a persistent surface and must never carry or expand secrets.
+    # PROVIDER_ORG/PROVIDER_USER templates resolve via the provider identity
+    # accessors (config → seed) when the provider layer is loaded; the
     # accessors read RAW config values, so this call cannot re-enter
-    # config-reader (recursion guard by construction). Fallback to plain env
-    # when the provider layer is absent.
+    # config-reader (recursion guard by construction).
     if declare -F provider_org_get >/dev/null; then
         local org_res user_res
         org_res=$(provider_org_get 2>/dev/null || true)
         user_res=$(provider_user_get 2>/dev/null || true)
-        value="${value//\$\{GH_ORG\}/${org_res:-}}"
-        value="${value//\$\{GH_USER\}/${user_res:-}}"
-    else
-        value="${value//\$\{GH_ORG\}/${GH_ORG:-}}"
-        value="${value//\$\{GH_USER\}/${GH_USER:-}}"
+        # Single-pass expansion: each token is replaced over the ORIGINAL
+        # value only. A token spelling arriving inside an accessor-resolved
+        # value is neutralized with a sentinel that no later pass matches,
+        # so sequential replaces cannot re-expand substituted content.
+        local sentinel=$'\x01'
+        org_res="${org_res//\$\{/$sentinel\{}"
+        user_res="${user_res//\$\{/$sentinel\{}"
+        value="${value//\$\{PROVIDER_ORG\}/${org_res:-}}"
+        value="${value//\$\{PROVIDER_USER\}/${user_res:-}}"
+        value="${value//$sentinel/\$}"
     fi
     
     echo "$value"

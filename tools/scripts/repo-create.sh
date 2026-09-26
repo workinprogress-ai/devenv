@@ -36,7 +36,7 @@ DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 #   The script is optionally deleted after execution based on repo type configuration.
 #
 # Environment Variables:
-#   GH_ORG - GitHub organization for repository creation
+#   (no env org var) - org resolves via config [organization] org / provider_org_get
 #
 # Dependencies:
 #   - git
@@ -551,7 +551,7 @@ main() {
     require_command gh
     require_command yq
     # Org identity resolves via the provider accessor (env override →
-    # config → seed); no GH_ORG export required. User identity is not
+    # config → seed); no env export required. User identity is not
     # consumed by creation itself — gh's authenticated identity carries it.
     ORG="$(provider_org_get)" || die "Organization identity unresolved. Configure [organization] github_org in devenv.config or run setup." "$EXIT_INVALID_ARGUMENT"
     ensure_gh_login

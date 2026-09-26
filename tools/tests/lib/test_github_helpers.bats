@@ -523,7 +523,7 @@ load ../test_helper
   run bash -c "
     export -f gh
     unset GH_ORG POLICY_ORG
-    printf '[organization]\nname=t\ngithub_org=config-org\n' > '$TEST_TEMP_DIR/devenv.config'
+    printf '[organization]\nname=t\norg=config-org\n' > '$TEST_TEMP_DIR/devenv.config'
     export DEVENV_ROOT='$TEST_TEMP_DIR'
     source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     get_repo_owner
@@ -545,7 +545,7 @@ load ../test_helper
     set -e
     export PROJECT_ROOT='$PROJECT_ROOT'
     export DEVENV_ROOT='$TEST_TEMP_DIR'
-    unset GITHUB_REPO GH_REPO
+    unset DEVENV_REPO GH_REPO
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
     source '$PROJECT_ROOT/tools/lib/git-operations.bash'
     source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
@@ -556,7 +556,7 @@ load ../test_helper
   [ "$output" = "arg-org/arg-repo" ]
 }
 
-@test "resolve_target_repo: GITHUB_REPO env used when no argument" {
+@test "resolve_target_repo: DEVENV_REPO env used when no argument" {
   run bash -c "
     set -e
     export PROJECT_ROOT='$PROJECT_ROOT'
@@ -565,7 +565,7 @@ load ../test_helper
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
     source '$PROJECT_ROOT/tools/lib/git-operations.bash'
     source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
-    GITHUB_REPO='env-org/env-repo' resolve_target_repo
+    DEVENV_REPO='env-org/env-repo' resolve_target_repo
   "
   [ "$status" -eq 0 ]
   [ "$output" = "env-org/env-repo" ]
@@ -576,11 +576,11 @@ load ../test_helper
     set -e
     export PROJECT_ROOT='$PROJECT_ROOT'
     export DEVENV_ROOT='$TEST_TEMP_DIR'
-    unset GITHUB_REPO GH_REPO
+    unset DEVENV_REPO GH_REPO
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
     source '$PROJECT_ROOT/tools/lib/git-operations.bash'
     source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
-    GITHUB_REPO='env-org/env-repo' resolve_target_repo > /dev/null
+    DEVENV_REPO='env-org/env-repo' resolve_target_repo > /dev/null
     printf '%s' \"\${GH_REPO:-}\"
   "
   [ "$status" -eq 0 ]
@@ -592,8 +592,8 @@ load ../test_helper
   run bash -c "
     set -e
     export PROJECT_ROOT='$PROJECT_ROOT'
-    unset GITHUB_REPO GH_REPO GH_ORG POLICY_ORG
-    printf '[organization]\nname=t\ngithub_org=cfg-org\n' > '$TEST_TEMP_DIR/devenv.config'
+    unset DEVENV_REPO GH_REPO GH_ORG POLICY_ORG
+    printf '[organization]\nname=t\norg=cfg-org\n' > '$TEST_TEMP_DIR/devenv.config'
     export DEVENV_ROOT='$TEST_TEMP_DIR'
     # Pre-seal the self-root contract so the test-scoped DEVENV_ROOT wins
     # over self-location (git-operations would otherwise re-root to the
@@ -615,7 +615,7 @@ load ../test_helper
     export PROJECT_ROOT='$PROJECT_ROOT'
     export DEVENV_ROOT='$TEST_TEMP_DIR'
     export DEVENV_ROOT_SET=1
-    unset GITHUB_REPO GH_REPO GH_ORG POLICY_ORG
+    unset DEVENV_REPO GH_REPO GH_ORG POLICY_ORG
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
     source '$PROJECT_ROOT/tools/lib/git-operations.bash'
     source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
@@ -630,10 +630,10 @@ load ../test_helper
     set -e
     export PROJECT_ROOT='$PROJECT_ROOT'
     export DEVENV_ROOT='$TEST_TEMP_DIR'
-    unset GITHUB_REPO GH_REPO
+    unset DEVENV_REPO GH_REPO
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
     source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
-    GITHUB_REPO='env-org/env-repo' resolve_target_repo
+    DEVENV_REPO='env-org/env-repo' resolve_target_repo
   "
   [ "$status" -ne 0 ]
 }
@@ -643,8 +643,8 @@ load ../test_helper
   run bash -c "
     set -e
     export PROJECT_ROOT='$PROJECT_ROOT'
-    unset GITHUB_REPO GH_REPO GH_ORG POLICY_ORG
-    printf '[organization]\nname=t\ngithub_org=cfg-org\n' > '$TEST_TEMP_DIR/devenv.config'
+    unset DEVENV_REPO GH_REPO GH_ORG POLICY_ORG
+    printf '[organization]\nname=t\norg=cfg-org\n' > '$TEST_TEMP_DIR/devenv.config'
     export DEVENV_ROOT='$TEST_TEMP_DIR'
     export DEVENV_ROOT_SET=1
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'

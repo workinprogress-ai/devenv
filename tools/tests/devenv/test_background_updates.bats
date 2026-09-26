@@ -25,13 +25,13 @@ teardown() {
   # recorded in this file's own PID file, never a name pattern (a `pkill -f`
   # on the script name can kill other test files' in-flight grep processes
   # whose command lines merely mention the same filename).
-  if [ -f "$MOCK_REPO/.devcontainer/.update-check.pid" ]; then
-    pid=$(cat "$MOCK_REPO/.devcontainer/.update-check.pid" 2>/dev/null || true)
+  if [ -f "$MOCK_REPO/.runtime/.update-check.pid" ]; then
+    pid=$(cat "$MOCK_REPO/.runtime/.update-check.pid" 2>/dev/null || true)
     if [ -n "$pid" ]; then
       kill -9 "$pid" 2>/dev/null || true
       wait "$pid" 2>/dev/null || true
     fi
-    rm -f "$MOCK_REPO/.devcontainer/.update-check.pid"
+    rm -f "$MOCK_REPO/.runtime/.update-check.pid"
   fi
   
   cd "$ORIGINAL_PWD" 2>/dev/null || true

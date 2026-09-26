@@ -3,7 +3,7 @@
 # against the org scratch project.
 #
 # Run with:  RUN_LIVE_TESTS=1 SCRATCH_PROJECT=tooling-scratch \
-#            GITHUB_REPO=<org>/<repo> bats tools/tests/live/
+#            DEVENV_REPO=<org>/<repo> bats tools/tests/live/
 
 bats_require_minimum_version 1.5.0
 
@@ -27,7 +27,7 @@ load ../live/helpers
 @test "live: project-list-for-issue returns Status for scratch project item" {
     skip_if_live_disabled
     require_scratch_project
-    local issue_url="https://github.com/${GITHUB_REPO%/}/issues/43"
+    local issue_url="https://github.com/${DEVENV_REPO%/}/issues/43"
     local proj_num
     proj_num=$(gh project list --owner "${GH_ORG:-workinprogress-ai}" --format json \
         --jq ".projects[] | select(.title == \"$SCRATCH_PROJECT\") | .number")

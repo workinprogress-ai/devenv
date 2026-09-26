@@ -120,21 +120,21 @@ load ../test_helper
 }
 
 # ============================================================================
-# policy_org chain lock: the POLICY_ORG -> GH_ORG -> config precedence must
+# policy_org chain lock: the POLICY_ORG -> config org precedence must
 # hold regardless of whether the config leg resolves directly or through the
-# provider accessor.
+# provider accessor. No env var other than POLICY_ORG participates.
 # ============================================================================
 
 policy_org_lock_env() {
     # Isolate: policy chain precedence requires each leg unset/cleared in order.
     unset POLICY_ORG GH_ORG
     rm -f "$TEST_TEMP_DIR/devenv.config"
-    printf '[organization]\nname=t\ngithub_org=%s\n' "$1" > "$TEST_TEMP_DIR/devenv.config"
+    printf '[organization]\nname=t\norg=%s\n' "$1" > "$TEST_TEMP_DIR/devenv.config"
     export DEVENV_ROOT="$TEST_TEMP_DIR"
     export DEVENV_ROOT_SET=1
 }
 
-@test "characterize: policy_org config leg resolves github_org" {
+@test "characterize: policy_org config leg resolves org" {
     policy_org_lock_env cfg-org
     run bash -c "
         set -e
@@ -148,11 +148,11 @@ policy_org_lock_env() {
     [ "$output" = "cfg-org" ]
 }
 
-@test "characterize: policy_org GH_ORG env outranks config" {
+@test "characterize: policy_org GH_ORG env has no effect (config wins)" {
     run bash -c "
         set -e
         unset POLICY_ORG
-        printf '[organization]\nname=t\ngithub_org=cfg-org\n' > '$TEST_TEMP_DIR/devenv.config'
+        printf '[organization]\nname=t\norg=cfg-org\n' > '$TEST_TEMP_DIR/devenv.config'
         export DEVENV_ROOT='$TEST_TEMP_DIR'
         source '$PROJECT_ROOT/tools/lib/policy/policy-core.bash'
         policy_core_init '$TEST_TEMP_DIR/devenv.config'
@@ -160,7 +160,7 @@ policy_org_lock_env() {
         GH_ORG=env-org policy_org
     "
     [ "$status" -eq 0 ]
-    [ "$output" = "env-org" ]
+    [ "$output" = "cfg-org" ]
 }
 
 @test "characterize: policy_org POLICY_ORG outranks everything" {

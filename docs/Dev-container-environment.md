@@ -4,24 +4,24 @@ The dev container is a fully functional development environment.  It has all the
 
 When you first bring up the dev environment, it only contains the code that is in the `devenv` repo.  You will need to clone the other repos that you want to work on.  You can do this in the terminal in the dev container.  
 
-When you first open a terminal in the dev container, the current folder will be `~/repos` (the ~ indicates that it is located in the home folder).  The prompt will look something like this:
+When you first open a terminal in the dev container, the current folder will be `/workspaces/devenv/repos` (the workspace's repo cache).  The prompt will look something like this:
 
 ```bash
-@toochevere ➜ ~/repos (<>) $
+@toochevere ➜ /workspaces/devenv/repos (<>) $
 ```
 
 Any repos cloned should be put under the `repos/` folder.  A command line alias (actually it's a bash function but let's not be picky) exists in order to make this easy:  `repo-get`.  Simply use `repo-get` command with the name of the repo you wish to clone:
 
 ```bash
-@toochevere ➜ ~/repos (<>) $ repo-get devops
+@toochevere ➜ /workspaces/devenv/repos (<>) $ repo-get devops
 ```
 
-If the repos is not yet present under the `~/repos` folder then it will be cloned.  If it is present, it will be updated.   If the newly cloned repos has a `scripts` folder, then it will be automatically added to the `PATH` variable and any scripts will be available.
+If the repos is not yet present under the `repos/` folder then it will be cloned.  If it is present, it will be updated.   If the newly cloned repos has a `scripts` folder, then it will be automatically added to the `PATH` variable and any scripts will be available.
 
 You can also use `repo-get --select` to see an interactive menu of all repositories in your organization (excluding those already cloned), making it easy to discover and clone new repositories:
 
 ```bash
-@toochevere ➜ ~/repos (<>) $ repo-get --select
+@toochevere ➜ /workspaces/devenv/repos (<>) $ repo-get --select
 ```  
 
 **Note** that part of the setup script asked for an SSH key.  This key is used to clone the private repos.  If you did not provide a key, you will not be able to clone the private repos.
@@ -85,12 +85,12 @@ The dev containers extension that is used to run the dev environment has a speci
 
 Within this repository, there are a few folders of note:
 
-### `/workspace` repository folders
+### `/workspaces/devenv` repository folders
 
 * `.devcontainer` This folder contains the configuration for the dev container itself.  It is where the `bootstrap.sh` and `devcontainer.json` files are located.  It also contains a few temporary files that are used by the dev environment to manage the container.
-* `scripts` This folder contains a few utility scripts that are intended to be used by the user.
+* `tools` This folder contains the workspace's wrapper tools and utility scripts that are intended to be used by the user (depth-1 entry points; implementations in `tools/scripts/`).
 * `docs` This folder contains documentation for the dev environment.  It is where you are reading this file right now.
-* `repos` This folder is where the user should clone any repositories they wish to work on.  It is the default folder that the terminal opens to.  When calling the `get-repo` utility, the repo will be cloned here.  This folder is excluded from the repository of the dev environment itself.  
+* `repos` This folder is where the user should clone any repositories they wish to work on.  It is the default folder that the terminal opens to.  When calling the `repo-get` utility, the repo will be cloned here.  This folder is excluded from the repository of the dev environment itself.  
 * `.debug` This folder is where the utility scripts will place any files needed for debugging or other development purposes.  It is excluded from the repository of the dev environment itself.  The services configuration is placed in a subfolder of this folder, as well as the services data folder.
 
 **Remember** that any files or folders created outside of the mapped repo folder will not be saved if the container is deleted or rebuilt.  So if you want to keep something, make sure it is in the repo folder, perhaps in a place like the `.debug` folder.
@@ -99,7 +99,7 @@ Within this repository, there are a few folders of note:
 
 Because the dev environment is a Linux os in a container, it has a folder structure that reflects this as well.  The dev environment is based on Debian, so it has a Debian-like folder structure.  The home folder is `/home/vscode`.  Any processes that run in the container will run as the `vscode` user.
 
-**NOTE:**  On rare occasions, some apps get confused about the symlinking.  You can also just open repos or other folders directly from `/workspace/<REPO>` folder.  
+**NOTE:**  On rare occasions, some apps get confused about the symlinking.  You can also just open repos or other folders directly from `/workspaces/devenv/repos/<REPO>` folder.  
 
 ### `.bashrc` file
 
@@ -224,7 +224,7 @@ bash .devcontainer/install-extras/tailscale.sh
 
 The dev container includes a "light" and simple graphical desktop environment that can be used as an alternative to the terminal.  This is useful for running graphical applications or for those who prefer a graphical interface.  It is provided by the `desktop-lite` container feature (Fluxbox-based) — intentionally minimal rather than a full desktop environment.  It includes a terminal, file manager, and web browser, plus a few other utilities such as a text editor and a calculator.
 
-To access the desktop environment, you need to [open a browser to port 6080 on the localhost](http://localhost:6080).  The easiest way do this is to open the Ports tab in Vs Code (ctrl+shift+p and type "Ports" and click on the option `View: Toggle Ports`).  Of course, you can also bookmark it in the browser.  The web page will take you to a web-hosted instances of VNC that you can use to access the desktop.  The password is `vscode`.  (It's a super simple interface.  Don't gripe, remember it's running in a container so just use it and be amazed that it works at all.)
+To access the desktop environment, you need to [open a browser to port 6090 on the localhost](http://localhost:6090).  The easiest way do this is to open the Ports tab in Vs Code (ctrl+shift+p and type "Ports" and click on the option `View: Toggle Ports`).  Of course, you can also bookmark it in the browser.  The web page will take you to a web-hosted instances of VNC that you can use to access the desktop.  The password is `vscode`.  (It's a super simple interface.  Don't gripe, remember it's running in a container so just use it and be amazed that it works at all.)
 
 ## Container resource tuning
 
@@ -258,12 +258,11 @@ Without that setting, VS Code's Dev Containers extension defaults to `docker` an
 
 A few utility scripts have been provided to make life happy.
 
-* `get-services-config` This script pulls the service config from it's repository into the local dev environment.  It is placed in `~/debug/config`
+* `get-services-config` This script pulls the service config from it's repository into the local dev environment.  It is placed in `.debug/config`
 * `metrics-count-code-lines` A utility to count code lines in a file or folder
 * `container-enable-dotnet-debugger` A utility to inject and run the dotnet debugger into a locally running container.
-* `file.io` A utility to push a file to the file.io file sharing site.
-* `repo-get` A utility to clone or update a repo in the `~/repos` folder. Use `--select` for an interactive selection menu.
-* `repo-update-all` A utility to update all repos in the `~/repos` folder.
+* `repo-get` A utility to clone or update a repo in the `repos/` folder. Use `--select` for an interactive selection menu.
+* `repo-update-all` A utility to update all repos in the `repos/` folder.
 * `pr-create-for-review` A utility to create a "progressive" or "final" PR for reviewing all changes.
 * `pr-create-for-merge` A utility to create a PR for merging code to the default branch.
 * `repo-version-list` A utility to list all versions in a repo.
@@ -300,7 +299,7 @@ entials are **never** stored in the container image itself — they're only load
 1. Run `gh auth login` and follow the browser/device flow — or pipe a fresh
    PAT: `gh auth login --with-token --hostname github.com --skip-ssh-key`.
 2. Run `gh auth setup-git --hostname github.com` (the key-update tooling
-   does both steps for you: `key-update-git.sh <token>`).
+   does both steps for you: `key-update-git <token>`).
 3. Verify with `gh auth status` — it should report login sourced from
    `hosts.yml` (your keychain), not `GH_TOKEN`.
 
@@ -309,14 +308,14 @@ Note: `~/.config/gh` lives on the container's filesystem, so the keychain is
 consume: if the keychain is empty and `.setup/provider_token.txt` exists, it
 imports the token and **deletes the file** (plaintext must not linger). If
 the keychain is empty and no seed exists, bootstrap finishes with an
-**ACTION REQUIRED** banner — run `key-update-git.sh <new-token>`  to authenticate. An authenticated keychain leaves the seed
+**ACTION REQUIRED** banner — run `key-update-git <new-token>`  to authenticate. An authenticated keychain leaves the seed
 untouched with an info message.
 
 Trade-off (accepted): convenience over at-rest minimization — the seed gives zero-touch recovery on the first bootstrap after a re-create, at the cost of one plaintext token on the workspace mount until consumed (the same exposure family as issue #31).
 
 **To update credentials:**
 
-* Git host credential: Run `key-update-git.sh <token>` (rotates the keychain and
+* Git host credential: Run `key-update-git <token>` (rotates the keychain and
   re-wires the git credential helper), or run `gh auth login` manually
 * Digital Ocean Token: Run `./setup` and choose the Digital Ocean setup option
 * SSH Key: Configure via the initial setup or re-run the setup script

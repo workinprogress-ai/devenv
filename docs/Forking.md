@@ -93,7 +93,7 @@ See [docs/Skills.md](./Skills.md) for the full catalog and decision tree.
 
 ### Adding a custom skill
 
-1. **Read the conventions** — `copilot/skills/_conventions.md` defines the required file layout, frontmatter fields, description rules (including the 1024-char limit), section ordering, and confirmation-flow patterns.
+1. **Read the conventions** — `copilot/skills/_conventions.md` defines the required file layout, frontmatter fields, description rules (lint-skills warns over 1200 characters and fails over 2000 — keep it well under), section ordering, and confirmation-flow patterns.
 
 2. **Create the skill folder and SKILL.md**:
 
@@ -210,12 +210,13 @@ Edit `devenv.config` in the root directory:
 ```ini
 [organization]
 name=YourOrg
-github_org=your-org
+org=your-org
 email_domain=yourorg.com
 ```
 
 - **name**: Organization name (for docs/branding)
-- **github_org**: Git host org/user used for cloning and feeds (the name predates provider neutrality and remains the as-built key)
+- **org**: Neutral org key — Git host org/user used for cloning and feeds
+- **github_org**: Legacy alias for `org` (still resolves; prefer `org`)
 - **email_domain**: Enforced commit email domain (empty = any valid email)
 
 ### [container]
@@ -271,13 +272,15 @@ Do not duplicate states, and do not interleave the two halves — status derivat
 [copilot]
 knowledge_repo=https://github.com/workinprogress-ai/docs.copilot-knowledge.git
 knowledge_subpath=copilot-knowledge/
-engineering_repo=docs.engineering
+engineering_repo=https://github.com/workinprogress-ai/docs.engineering.git
+engineering_repo_name=docs.engineering
 ```
 
 - **knowledge_repo**: Git repository URL for shared Copilot knowledge assets.
 - **knowledge_subpath**: Folder inside that repository that should be linked to `~/.copilot/knowledge`.
 - **engineering_repo**: Git repository URL for the engineering standards repo — imported with the same bootstrap/container-start machinery as knowledge, canonical copy at `copilot/engineering/`, linked to `~/.copilot/engineering`. Skills read it through the link; modifications happen in `repos/docs.engineering/` via branches/PRs. Forks may point it at their own standards repo without editing any skill. See [Knowledge & Engineering Patterns](./Knowledge-and-Engineering-Patterns.md).
 - **engineering_subpath**: Folder inside the engineering repo to link as `~/.copilot/engineering` (empty = repo root).
+- **engineering_repo_name**: Short repo name for the engineering clone (must stay in sync with `engineering_repo`; the URL is passed straight to `git clone`).
 
 Behavior:
 
@@ -287,15 +290,6 @@ Behavior:
 - On container start, devenv runs a non-blocking pull for `copilot/knowledge` (when it is a git repo) via `pull_copilot_knowledge_on_container_start` in `tools/lib/copilot-knowledge.bash`.
 
 These three keys wire the whole repo constellation — the machine-managed knowledge clone, its `repos/` modification workspace, and the engineering-standards clone. For the full relationship map (who manages which copy, what refreshes when, where edits go), see [How devenv relates to the sub-repos](./Knowledge-and-Engineering-Patterns.md#how-devenv-relates-to-the-sub-repos).
-
-### [bootstrap]
-
-```ini
-[bootstrap]
-validate_config=true
-```
-
-- **validate_config**: Validate config on startup (recommended: true)
 
 ## Repo Creation Standards (repo-create.sh)
 
@@ -545,7 +539,7 @@ Keep a lightweight template repo for each type so new repos start with pipelines
 ```ini
 [organization]
 name=Acme Corp
-github_org=acme-corp
+org=acme-corp
 email_domain=acme.com
 
 [container]
@@ -560,7 +554,7 @@ status_workflow=TBD,To-Groom,Ready,Implementing,Review,Merged
 ```ini
 [organization]
 name=Mega Corp
-github_org=mega-corp-dev
+org=mega-corp-dev
 email_domain=megacorp.com
 
 [container]

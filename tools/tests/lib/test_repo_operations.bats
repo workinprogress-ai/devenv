@@ -477,7 +477,7 @@ repo3'
     git -C "$t/devenv" init -q
     run bash -c "
         cd '$t/devenv'
-        unset GITHUB_REPO DEVENV_REPO
+        unset DEVENV_REPO
         ALLOW_DEVENV_REPO=0
         source '$PROJECT_ROOT/tools/lib/git-operations.bash'
         check_target_repo

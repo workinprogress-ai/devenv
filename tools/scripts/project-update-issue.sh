@@ -108,7 +108,7 @@ Field Updates:
 
 Environment Variables:
     DEVENV_REPO                 Repository in format owner/repo (default: current repo)
-    GITHUB_ORG                  Organization name (required for org projects)
+    (none)                      Org identity resolves via config [organization] org
 
 Status Workflow:
     TBD         → Issue created, not ready for grooming

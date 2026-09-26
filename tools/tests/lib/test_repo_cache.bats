@@ -10,7 +10,6 @@ setup() {
     export REPO_CACHE_DIR="$TEST_TEMP_DIR/cache/repo_cache"
 
     # Provide required env vars for most tests
-    export GH_ORG="test-org"
     export GH_USER="test-user"
     export GH_TOKEN="ghp_test1234567890abcdefghijklmnopqrstuvwxyz"
 }
@@ -65,7 +64,7 @@ export DEVENV_ROOT="$TEST_TEMP_DIR"
 export DEVENV_ROOT_SET=1
 export REPO_CACHE_DIR="$TEST_TEMP_DIR/cache/repo_cache"
 unset GH_ORG GH_USER GH_TOKEN _PROVIDER_CORE_LOADED _REPO_OPERATIONS_LOADED POLICY_ORG
-printf '[organization]\nname=t\ngithub_org=cfg-org\n' > "$TEST_TEMP_DIR/devenv.config"
+printf '[organization]\nname=t\norg=cfg-org\n' > "$TEST_TEMP_DIR/devenv.config"
 source "\$DEVENV_TOOLS/lib/repo-operations.bash"
 source "\$DEVENV_TOOLS/lib/repo-cache.bash"
 list_organization_repositories() { printf 'cfg-repo\n'; }
@@ -97,14 +96,13 @@ refresh_repo_cache 2>&1
 SCRIPT
     run bash "$script"
     [ "$status" -eq 1 ]
-    [[ "$output" == *"github_org"* ]]
-    [[ "$output" != *"GH_ORG is not set"* ]]
+    [[ "$output" == *"[organization] org"* ]]
+    [[ "$output" != *"GH_ORG"* ]]
 }
 
 @test "repo-cache: refresh_repo_cache proceeds without GH_TOKEN (keychain contract)" {
     run bash -c "
         export DEVENV_TOOLS='$DEVENV_TOOLS'
-        export GH_ORG='test-org'
         export GH_USER='user'
         unset GH_TOKEN
         source '$DEVENV_TOOLS/lib/repo-cache.bash'
@@ -614,10 +612,11 @@ SCRIPT
     local script="$TEST_TEMP_DIR/url_lock.sh"
     cat > "$script" <<SCRIPT
 export DEVENV_TOOLS='$DEVENV_TOOLS'
+export DEVENV_ROOT='$TEST_TEMP_DIR'
+export DEVENV_ROOT_SET=1
 export REPO_CACHE_DIR='$TEST_TEMP_DIR/cache/repo_cache'
-export GH_ORG='url-org'
-export GH_USER='url-user'
 unset GH_TOKEN
+printf '[organization]\nname=t\norg=url-org\n' > '$TEST_TEMP_DIR/devenv.config'
 source "\$DEVENV_TOOLS/lib/repo-cache.bash"
 list_organization_repositories() { printf 'url-repo\n'; }
 git() {

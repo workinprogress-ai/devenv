@@ -292,9 +292,20 @@ body" "789")
 @test "configure_git_repo updates remote URL when provided" {
     local test_repo="$TEST_TEMP_DIR/test-repo"
     create_mock_git_repo "$test_repo"
-    local test_url="https://example.com/test.git"
+    # The helper seeds origin as git@github.com:test-org/dummy.git — an
+    # org-member URL, so the rewrite guard allows the repoint.
+    local test_url="https://test-org.example.com/test.git"
 
-    run bash -c "source $PROJECT_ROOT/tools/lib/git-operations.bash && configure_git_repo '$test_repo' '$test_url'"
+    # Safety gate resolves org from config: scope identity to a matching
+    # mock root (owner "test" must be a member or the rewrite is refused).
+    local ident_root="$TEST_TEMP_DIR/ident"
+    mkdir -p "$ident_root"
+    printf '[organization]\nname=t\norg=test-org\n' > "$ident_root/devenv.config"
+    # git-operations sources its provider stack from $DEVENV_ROOT/tools:
+    # mirror the real tools tree so the layer loads under the scoped root.
+    ln -s "$PROJECT_ROOT/tools" "$ident_root/tools"
+
+    run bash -c "export DEVENV_TOOLS='$PROJECT_ROOT/tools' DEVENV_ROOT='$ident_root' DEVENV_ROOT_SET=1 && source $PROJECT_ROOT/tools/lib/git-operations.bash && configure_git_repo '$test_repo' '$test_url'"
     [ "$status" -eq 0 ]
     cd "$test_repo"
     [ "$(git remote get-url origin)" = "$test_url" ]

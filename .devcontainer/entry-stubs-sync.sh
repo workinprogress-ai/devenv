@@ -77,12 +77,23 @@ for script in "$scripts_dir"/*.sh "$scripts_dir"/git-*; do
     fi
 done
 
-# Purge stale stubs for underscore-prefixed scripts (created under the old
-# contract): only exact stub-template matches are removed — anything else
-# at depth-1 is foreign and left alone.
-for entry in "$tools_dir"/_*; do
+# Purge stale stubs: exact stub-template matches whose exec target no longer
+# exists (renamed or deleted scripts), plus underscore-prefixed entries
+# (created under the old contract). Anything else at depth-1 is foreign and
+# left alone.
+# Stale-stub purge: any depth-1 file whose content is an exact stub template
+# pointing at a scripts/ target that no longer exists (renamed/deleted
+# script) is removed. Non-stub files are foreign and left alone.
+for entry in "$tools_dir"/*; do
     [ -f "$entry" ] || [ -L "$entry" ] || continue
-    if grep -qE '^exec bash "\$\(dirname "\$0"\)/scripts/_[A-Za-z0-9_-]+\.sh" "\$@"$' "$entry" 2>/dev/null; then
+    # Exact-stub contract: the file must be ONLY the exec line (header plus
+    # one stub line, nothing else). Multi-line hand-rolled wrappers are
+    # foreign and left alone even when their target has vanished.
+    [ "$(wc -l < "$entry")" -le 2 ] || continue
+    grep -qE '^exec bash "\$\(dirname "\$0"\)/scripts/[^"]+\.sh" "\$@"$' "$entry" 2>/dev/null || continue
+    target_rel=$(sed -n 's|^exec bash "\$(dirname "\$0")/scripts/\([^"]*\.sh\)" "\$@"$|\1|p' "$entry")
+    [ -n "$target_rel" ] || continue
+    if [ ! -f "$scripts_dir/$target_rel" ]; then
         rm -f "$entry"
         removed=$((removed + 1))
     fi

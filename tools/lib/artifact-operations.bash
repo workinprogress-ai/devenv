@@ -12,7 +12,7 @@ if [ -n "${_ARTIFACT_OPERATIONS_LOADED:-}" ]; then
 fi
 
 # Org identity is org policy: resolve via the policy layer
-# (POLICY_ORG -> GH_ORG -> config [organization] github_org).
+# (POLICY_ORG -> config [organization] org).
 _policy_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/policy" 2>/dev/null && pwd)"
 if [ -n "$_policy_dir" ] && [ -f "$_policy_dir/policy-core.bash" ]; then
     # shellcheck disable=SC1090,SC1091
@@ -155,7 +155,7 @@ query_packages() {
 
     # Validate required arguments
     if [ -z "$owner" ]; then
-        log_error "owner is required (set --owner or configure [organization] github_org in devenv.config)"
+        log_error "owner is required (set --owner or configure [organization] org in devenv.config)"
         return 1
     fi
 
@@ -262,7 +262,7 @@ get_package_versions() {
 
     # Validate required arguments
     if [ -z "$owner" ] || [ -z "$type" ] || [ -z "$name" ]; then
-        log_error "owner (set --owner or configure [organization] github_org), type, and name are all required"
+        log_error "owner (set --owner or configure [organization] org), type, and name are all required"
         return 1
     fi
 

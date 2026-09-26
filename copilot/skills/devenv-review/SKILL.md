@@ -63,7 +63,7 @@ When a review completes with changes merged or approved-for-merge, signal `_on_e
 
 ### 3. Build the review
 
-Output structure (markdown, in this order):
+Output structure (markdown, in this order). **Number every finding sequentially — F1, F2, F3, … — continuing across sections** (Blockers, Concerns, Nits, Praise, Missing tests, TODO/FIXME). The number is the finding's identity for the rest of the session: the user's edit-to-select decisions, fold-in interviews, and any follow-up discussion all cite numbers.
 
 ````markdown
 ## Code review — <PR title or "branch <head> vs. <base>">
@@ -79,22 +79,22 @@ Output structure (markdown, in this order):
 ### Findings
 
 #### 🛑 Blocker
-- [repos/path/file.ts:42](repos/path/file.ts#L42) — <reason: correctness bug, security issue, breaking API change, missing critical test>
+- **F1** [repos/path/file.ts:42](repos/path/file.ts#L42) — <reason: correctness bug, security issue, breaking API change, missing critical test>
   <!-- @post: file=path/file.ts line=42 side=RIGHT -->
 
 #### ⚠️ Concern
-- [repos/path/file.ts:88](repos/path/file.ts#L88) — <reason: design issue, maintainability, performance, edge case not handled>
+- **F2** [repos/path/file.ts:88](repos/path/file.ts#L88) — <reason: design issue, maintainability, performance, edge case not handled>
   <!-- @post: file=path/file.ts line=88 side=RIGHT -->
 
 #### 💭 Nit
-- (Skip this section unless a nit materially affects readability or correctness.)
+- **F3** (Skip this section unless a nit materially affects readability or correctness.)
 
 #### ✅ Praise
-- [repos/path/file.ts:120](repos/path/file.ts#L120) — <what's done well: clear abstraction, good test coverage, helpful comment, simplification>
+- **F4** [repos/path/file.ts:120](repos/path/file.ts#L120) — <what's done well: clear abstraction, good test coverage, helpful comment, simplification>
   <!-- @post: file=path/file.ts line=120 side=RIGHT -->
 
 ### Missing tests
-- <List new behavior in the diff that lacks corresponding test coverage. Empty list = explicit "tests cover the new behavior".>
+- **F5** <List new behavior in the diff that lacks corresponding test coverage. Empty list = explicit "tests cover the new behavior".>
 
 ### TODO/FIXME left in the diff
 - [repos/path/file.ts:55](repos/path/file.ts#L55) — `// TODO: handle empty input`
@@ -180,7 +180,7 @@ Announce which plan was resolved before reviewing.
 
 **Output:** produce the standard review structure, then:
 
-1. **Summary + local artifact.** Present the findings summary in chat and offer to write the review to a `.local-artifacts/tmpN.md` working copy as usual. The file is the durable round record; the user may edit findings there directly.
+1. **Summary + local artifact.** Write the full findings report to the `.local-artifacts/tmpN.md` working file (mandatory — the user's reviewable record) and present every finding's **number**, severity, and file:line in chat as a one-liner, pointing to the file for full detail; the fold-in interview proposes approvals **by finding number** (F1…Fn, per the shared protocol's numbering rule). The file is the durable round record; the user may edit findings there directly.
 2. **Fold-in interview.** Then run the set-approval interview via `vscode_askQuestions`: propose the approved findings as plan-task encodings (blockers, concerns, missing tests; nits only when the user opts in — praise never folds in). The user approves, edits, or rejects the proposed set. If the user stops the interview, they may edit the working file directly and tell you to restart the fold-in from the edited file — never fold from memory when they have stopped to edit.
 3. **Edit the plan.** Apply only the approved encodings to the plan file as new tasks in the plan's Review phase, using the plan's normal numeric task numbering (e.g. `4.2`, `4.3` — the Review phase is an ordinary phase; its number is whatever position it holds). Carry the round number in the task title (`Review round 2: fix X`) or a round-summary task, never in the task ID — plan tooling (`plan-parse`, `markdown-plan-complete-task`) only accepts dotted numeric IDs. Each task gets `Files:` where applicable, `depends on` where needed, and an `Additional context:` bullet citing the finding (file:line, severity). Mark each folded finding's origin in the round record (folded / rejected with reason).
 4. **Issue-backed sync.** If the plan was published as an issue artifact comment, offer to re-upsert: run `plan-parse <path> --lint --require-header` first (errors block), then `issue-artifact-upsert --issue <N> --body-file <path>` on explicit confirmation.

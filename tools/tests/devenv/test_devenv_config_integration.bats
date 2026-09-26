@@ -12,11 +12,11 @@ setup() {
     cat > "$TEST_CONFIG_FILE" <<'EOF'
 [organization]
 name=Test Organization
-github_org=test-org
+org=test-org
 email_domain=test.example.com
 
 [nuget]
-feed_url=https://nuget.pkg.github.com/${GH_ORG}/index.json
+feed_url=https://nuget.pkg.github.com/${PROVIDER_ORG}/index.json
 
 [workflows]
 status_workflow=TBD,Ready,In Progress,Done

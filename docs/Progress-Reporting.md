@@ -88,7 +88,7 @@ repo-cache-deepen --repo <name> [--depth N] [--branch <b>]...
 
 Fetch-only and never checks out — cache working copies stay on the default branch; branches land as remote refs (`refs/remotes/origin/<b>`). Idempotent and additive; `repo-cache-update` does not undo deepening.
 
-**Plan↔branch convention:** `Plan-issue-<N>-*.md` ↔ branches matching `issue-<N>*` or `<N>-*` in cached repos (the same pattern `open-pr` uses to extract parent issues from branch names).
+**Plan↔branch convention:** `Plan-issue-<N>-*.md` ↔ branches matching `issue-<N>*` or `<N>-*` in cached repos (the same pattern `/devenv-open-pr` uses to extract parent issues from branch names).
 
 **Merge-style caveat:** the unmerged/landed heuristics assume merge commits preserve branch history. Under squash-merge workflows, PR-based detection (merged PRs referencing the issue) is the merge-style-safe alternative.
 

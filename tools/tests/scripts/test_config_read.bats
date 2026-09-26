@@ -10,7 +10,7 @@ setup() {
   SCRIPT="$DEVENV_ROOT/tools/scripts/config-read.sh"
   WORK_DIR=$(mktemp -d)
   CONF="$WORK_DIR/devenv.config"
-  printf '[copilot]\nengineering_repo=my-standards\nknowledge_subpath=${GH_ORG}/k/\n[workflows]\nstatus_workflow=A,B\n' > "$CONF"
+  printf '[copilot]\nengineering_repo=my-standards\nknowledge_subpath=${PROVIDER_ORG}/k/\n[workflows]\nstatus_workflow=A,B\n' > "$CONF"
 }
 
 teardown() { rm -rf "$WORK_DIR"; }
@@ -21,8 +21,13 @@ teardown() { rm -rf "$WORK_DIR"; }
   [ "$output" = "my-standards" ]
 }
 
-@test "expands environment variables" {
-  GH_ORG=acme run bash "$SCRIPT" copilot knowledge_subpath --config "$CONF"
+@test "expands template variables via the provider accessors" {
+  # Expansion is accessor-fed (config -> seed): scope identity to a temp
+  # seed root; env vars carry no identity.
+  mkdir -p "$TEST_TEMP_DIR/ident/.setup"
+  printf 'acme\n' > "$TEST_TEMP_DIR/ident/.setup/provider_org.txt"
+  run env DEVENV_ROOT="$TEST_TEMP_DIR/ident" DEVENV_ROOT_SET=1 \
+      bash "$SCRIPT" copilot knowledge_subpath --config "$CONF"
   [ "$status" -eq 0 ]
   [ "$output" = "acme/k/" ]
 }

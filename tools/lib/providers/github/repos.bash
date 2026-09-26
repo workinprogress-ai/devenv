@@ -48,10 +48,9 @@ fi
 #   repo=$(provider_repo_target org/repo)   # org/repo
 #   repo=$(provider_repo_target)            # env chain, then cwd resolution
 provider_repo_target() {
-    # Repo-targeting env contract: DEVENV_REPO is the canonical override;
-    # GITHUB_REPO is accepted as a deprecated alias (legacy scripts and
-    # muscle memory) and resolves silently — the deprecation note lives in
-    # the docs, not in every command's stderr.
+    # Repo-targeting env contract: DEVENV_REPO is the single override; no
+    # other devenv env var participates. (GH_REPO below is gh's own variable,
+    # consumed provider-internally, not a devenv alias.)
     local repo="${1:-}"
     if [ -n "$repo" ]; then
         echo "$repo"
@@ -59,11 +58,6 @@ provider_repo_target() {
     fi
     if [ -n "${DEVENV_REPO:-}" ]; then
         echo "$DEVENV_REPO"
-        return 0
-    fi
-    if [ -n "${GITHUB_REPO:-}" ]; then
-        # Deprecated alias — documented compatibility, resolves silently.
-        echo "$GITHUB_REPO"
         return 0
     fi
     if [ -n "${GH_REPO:-}" ] && [[ "$GH_REPO" == */* ]]; then

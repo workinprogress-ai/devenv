@@ -141,10 +141,9 @@ If your tool accepts a markdown/text body:
 
 Repo targeting resolves through the provider seam via `provider_repo_target`
 (explicit `--repo` → `DEVENV_REPO` → full-form `GH_REPO` → configured org +
-
-> The legacy `GITHUB_REPO` environment variable remains a deprecated alias for `DEVENV_REPO`; new scripts and documentation should use `DEVENV_REPO` only.
-cwd basename). Org identity comes from `provider_org_get` (env override →
-config `[organization] github_org` → seed); a provider module owns the
+cwd basename). `DEVENV_REPO` is the only repo-targeting environment variable.
+Org identity comes from `provider_org_get` (config `[organization] org` →
+seed); a provider module owns the
 equivalent chain for its backend.
 
 - Use `resolve_target_repo [override]` — it delegates to

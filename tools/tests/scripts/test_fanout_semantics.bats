@@ -22,7 +22,7 @@ setup() {
     printf '#!/usr/bin/env bash\nexit 0\n' > "$stub_dir/gh"
     chmod +x "$stub_dir/gh"
     export PATH="$stub_dir:$PATH"
-    export GITHUB_REPO="test-org/test-repo"
+    export DEVENV_REPO="test-org/test-repo"
     unset GH_ORG
 }
 

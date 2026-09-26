@@ -80,17 +80,17 @@ EOF
     # DEVENV_TOOLS no longer redirects them). The fake root's lib/ symlink
     # resolves their lib sources; the updater stubs above record calls.
     mkdir -p "$FAKE_TOOLS/scripts"
-    cp "$PROJECT_ROOT/tools/scripts/key-update-do.sh" "$FAKE_TOOLS/scripts/"
+    cp "$PROJECT_ROOT/tools/scripts/_key-update-do.sh" "$FAKE_TOOLS/scripts/"
     # Copy only when present so a missing script fails just its own tests,
     # not the whole suite via a failed setup copy.
-    if [ -f "$PROJECT_ROOT/tools/scripts/key-update-git.sh" ]; then
-        cp "$PROJECT_ROOT/tools/scripts/key-update-git.sh" "$FAKE_TOOLS/scripts/"
+    if [ -f "$PROJECT_ROOT/tools/scripts/_key-update-git.sh" ]; then
+        cp "$PROJECT_ROOT/tools/scripts/_key-update-git.sh" "$FAKE_TOOLS/scripts/"
     fi
-    cp "$PROJECT_ROOT/tools/scripts/key-update-tailscale.sh" "$FAKE_TOOLS/scripts/"
+    cp "$PROJECT_ROOT/tools/scripts/_key-update-tailscale.sh" "$FAKE_TOOLS/scripts/"
 }
 
 @test "key-update-do: no argument with closed stdin refuses without hanging" {
-    run bash "$PROJECT_ROOT/tools/scripts/key-update-do.sh" < /dev/null
+    run bash "$PROJECT_ROOT/tools/scripts/_key-update-do.sh" < /dev/null
     [ "$status" -ne 0 ]
     [[ "$output" == *"No token provided"* ]]
     [ ! -s "$CALL_LOG" ]
@@ -98,7 +98,7 @@ EOF
 }
 
 @test "key-update-do: argument path stores token with 600 and calls the updater" {
-    run bash "$FAKE_TOOLS/scripts/key-update-do.sh" "d0token1234567890abcdef1234567890"
+    run bash "$FAKE_TOOLS/scripts/_key-update-do.sh" "d0token1234567890abcdef1234567890"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Success"* ]]
     [ "$(stat -c '%a' "$DEVENV_ROOT/.setup/do_token.txt")" = "600" ]
@@ -107,14 +107,14 @@ EOF
 }
 
 @test "key-update-git: no argument with closed stdin refuses without hanging" {
-    run bash "$PROJECT_ROOT/tools/scripts/key-update-git.sh" < /dev/null
+    run bash "$PROJECT_ROOT/tools/scripts/_key-update-git.sh" < /dev/null
     [ "$status" -ne 0 ]
     [[ "$output" == *"No token provided"* ]]
     [ ! -s "$CALL_LOG" ]
 }
 
 @test "key-update-git: argument path rotates via gh keychain and writes no token files" {
-    run bash "$FAKE_TOOLS/scripts/key-update-git.sh" "ghp_abcdef1234567890"
+    run bash "$FAKE_TOOLS/scripts/_key-update-git.sh" "ghp_abcdef1234567890"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Success"* ]]
     grep -q "gh auth login --with-token --hostname github.com" "$CALL_LOG"
@@ -124,15 +124,15 @@ EOF
 }
 
 @test "key-update-git: does not export GH_TOKEN (allowlist-only contract)" {
-    run bash "$FAKE_TOOLS/scripts/key-update-git.sh" "ghp_abcdef1234567890"
+    run bash "$FAKE_TOOLS/scripts/_key-update-git.sh" "ghp_abcdef1234567890"
     [ "$status" -eq 0 ]
     # The script runs in a child shell, so an export could not reach this
     # process; assert the contract at the source instead: no export line.
-    ! grep -q 'export GH_TOKEN=' "$FAKE_TOOLS/scripts/key-update-git.sh"
+    ! grep -q 'export GH_TOKEN=' "$FAKE_TOOLS/scripts/_key-update-git.sh"
 }
 
 @test "key-update-git: gh login failure aborts with no side effects" {
-    STUB_GH_LOGIN_FAIL=1 run bash "$FAKE_TOOLS/scripts/key-update-git.sh" "ghp_bad"
+    STUB_GH_LOGIN_FAIL=1 run bash "$FAKE_TOOLS/scripts/_key-update-git.sh" "ghp_bad"
     [ "$status" -ne 0 ]
     [[ "$output" == *"No changes made"* ]]
     ! grep -q "gh auth setup-git" "$CALL_LOG"
@@ -140,7 +140,7 @@ EOF
 }
 
 @test "key-update-tailscale: closed stdin refuses without hanging" {
-    run bash "$PROJECT_ROOT/tools/scripts/key-update-tailscale.sh" < /dev/null
+    run bash "$PROJECT_ROOT/tools/scripts/_key-update-tailscale.sh" < /dev/null
     [ "$status" -ne 0 ]
     [[ "$output" == *"No key provided"* ]]
     ! grep -q "tailscale up" "$CALL_LOG"
@@ -149,7 +149,7 @@ EOF
 @test "key-update-tailscale: non-tskey input refuses before any daemon call" {
     KEYFILE="$TEST_TEMP_DIR/key.txt"
     printf 'not-a-tskey\n' > "$KEYFILE"
-    run bash "$PROJECT_ROOT/tools/scripts/key-update-tailscale.sh" < "$KEYFILE"
+    run bash "$PROJECT_ROOT/tools/scripts/_key-update-tailscale.sh" < "$KEYFILE"
     [ "$status" -ne 0 ]
     [[ "$output" == *"Invalid key format"* ]]
     ! grep -q "sudo tailscale up" "$CALL_LOG"
@@ -158,7 +158,7 @@ EOF
 @test "key-update-tailscale: valid key re-auths the daemon and persists the value" {
     KEYFILE="$TEST_TEMP_DIR/key.txt"
     printf 'tskey-abc123def456\n' > "$KEYFILE"
-    run bash "$FAKE_TOOLS/scripts/key-update-tailscale.sh" < "$KEYFILE"
+    run bash "$FAKE_TOOLS/scripts/_key-update-tailscale.sh" < "$KEYFILE"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Success"* ]]
     grep -q "sudo tailscale up --authkey=tskey-abc123def456" "$CALL_LOG"
@@ -167,36 +167,36 @@ EOF
 
 # Existence guard: the key-update family gains members independently;
 # this suite asserts only scripts that are present.
-@test "key-update-git.sh exists" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/key-update-git.sh"
+@test "_key-update-git.sh exists" {
+  run bash -n "$PROJECT_ROOT/tools/scripts/_key-update-git.sh"
   [ "$status" -eq 0 ]
 }
 
 # Help contract: --help/-h must print usage and exit 0 — never be consumed
 # as a token/key by the scripts that read positional secrets.
 
-@test "key-update-do.sh --help exits 0 without prompting" {
-    run bash "$PROJECT_ROOT/tools/scripts/key-update-do.sh" --help < /dev/null
+@test "key-update-do --help exits 0 without prompting" {
+    run bash "$PROJECT_ROOT/tools/scripts/_key-update-do.sh" --help < /dev/null
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "Usage: key-update-do.sh" ]]
+    [[ "$output" =~ "Usage: key-update-do" ]]
 }
 
-@test "key-update-tailscale.sh --help exits 0 without prompting" {
-    run bash "$PROJECT_ROOT/tools/scripts/key-update-tailscale.sh" --help < /dev/null
+@test "key-update-tailscale --help exits 0 without prompting" {
+    run bash "$PROJECT_ROOT/tools/scripts/_key-update-tailscale.sh" --help < /dev/null
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "Usage: key-update-tailscale.sh" ]]
+    [[ "$output" =~ "Usage: key-update-tailscale" ]]
 }
 
-@test "key-update-git.sh --help exits 0 without prompting" {
-    run bash "$PROJECT_ROOT/tools/scripts/key-update-git.sh" --help < /dev/null
+@test "key-update-git --help exits 0 without prompting" {
+    run bash "$PROJECT_ROOT/tools/scripts/_key-update-git.sh" --help < /dev/null
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "Usage: key-update-git.sh" ]]
+    [[ "$output" =~ "Usage: key-update-git" ]]
     # The flag must not reach the credential-import path.
     [[ ! "$output" =~ "Token Update Utility" ]] || [[ "$output" =~ "Usage:" ]]
 }
 
 @test "key-update family -h short flag also exits 0" {
-    for script in key-update-do key-update-tailscale key-update-git; do
+    for script in _key-update-do _key-update-tailscale _key-update-git; do
         run bash "$PROJECT_ROOT/tools/scripts/${script}.sh" -h < /dev/null
         [ "$status" -eq 0 ]
         [[ "$output" =~ "Usage:" ]]
@@ -332,7 +332,7 @@ EOF
         finish_message
     "
     [[ "$output" =~ "ACTION REQUIRED" ]]
-    [[ "$output" =~ "key-update-git.sh" ]]
+    [[ "$output" =~ "key-update-git" ]]
 }
 
 @test "finish_message: banner is silent about auth when AUTH_NEEDED=0" {
@@ -349,7 +349,7 @@ EOF
 
 @test "bootstrap seed: failure path defers to the AUTH_NEEDED banner" {
     # Import failure sets AUTH_NEEDED; the finish banner carries the action
-    # line pointing at key-update-git.sh.
-    run grep -q 'Run: key-update-git.sh <new-token>' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+    # line pointing at key-update-git (the function name).
+    run grep -q 'Run: key-update-git <new-token>' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
     [ "$status" -eq 0 ]
 }

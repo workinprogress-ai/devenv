@@ -16,9 +16,9 @@ readonly CHECK_INTERVAL_SECONDS=600  # Check every 10 minutes
 readonly SLEEP_CHUNK_SECONDS=10      # Sleep in small chunks for responsive signal handling
 
 # Source versioning library if available
-if [ -f "$toolbox_root/lib/versioning.bash" ]; then
-    # shellcheck source=../lib/versioning.bash
-    source "$toolbox_root/lib/versioning.bash"
+if [ -f "$toolbox_root/tools/lib/versioning.bash" ]; then
+    # shellcheck source=../tools/lib/versioning.bash
+    source "$toolbox_root/tools/lib/versioning.bash"
     
     # Display version if requested
     script_version "background-check-devenv-updates.sh" "$SCRIPT_VERSION" "Background git update checker"
@@ -33,8 +33,11 @@ fi
 # Configuration (can be overridden by environment variables)
 DEVENV_UPDATE_INTERVAL=${DEVENV_UPDATE_INTERVAL:-$((2 * 3600))}  # Default: 2 hours
 DEVENV_UPDATE_MAX_ITERATIONS=${DEVENV_UPDATE_MAX_ITERATIONS:-0}  # 0 = unlimited
-UPDATE_FILE="$script_folder/.update-time"
-PID_FILE="$script_folder/.update-check.pid"
+# Per-instance state lives in .runtime/ (recreated per install), never
+# alongside source files.
+mkdir -p "$toolbox_root/.runtime"
+UPDATE_FILE="$toolbox_root/.runtime/.update-time"
+PID_FILE="$toolbox_root/.runtime/.update-check.pid"
 
 # Iteration counter
 iteration_count=0

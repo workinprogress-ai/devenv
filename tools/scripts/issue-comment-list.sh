@@ -150,8 +150,8 @@ main() {
                 shift
                 ;;
             --repo)
-                # shellcheck disable=SC2034  # Read by library functions via ${GITHUB_REPO:-}
-                GITHUB_REPO="$2"
+                # shellcheck disable=SC2034  # Read by library functions via ${DEVENV_REPO:-}
+                DEVENV_REPO="$2"
                 shift 2
                 ;;
             -*)

@@ -25,7 +25,7 @@ DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 #   GitHub settings.
 #
 # Environment Variables:
-#   GH_ORG - GitHub organization (required)
+#   (no env org var) - org resolves via config [organization] org / provider_org_get
 #
 # Dependencies:
 #   - git

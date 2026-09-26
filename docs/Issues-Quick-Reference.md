@@ -7,13 +7,16 @@ Fast lookup for common issue commands and workflows.
 ### Create Issue
 
 ```bash
-# Interactive mode (select template with fzf, edit in $EDITOR)
+# Default: no template (plain issue; --body TEXT to skip the editor)
 issue-create --title "Title"
+
+# Opt in to interactive template selection (fzf over .github/ISSUE_TEMPLATE/)
+issue-create --title "Title" --select-template
 
 # With specific template
 issue-create --title "Title" --template .github/ISSUE_TEMPLATE/feature_request.md
 
-# Without template
+# Explicit no-template (accepted no-op for backward compatibility)
 issue-create --title "Title" --no-template
 
 # Template without editor (automation)
@@ -77,7 +80,7 @@ issue-search --state all --type Bug "session timeout"  # Duplicate check
 
 ```bash
 issue-update 123 --title "New title"
-issue-update 123 --add-label "priority:high"
+issue-update 123 --add-label "priority/P1"
 issue-update 123 --add-assignee "john"
 issue-update 123 --milestone "Sprint 6"
 issue-update 123 --state closed
@@ -170,8 +173,9 @@ issue-select --type Task               # Filter by type
 
 | Type | Usage | Parent | Tasks |
 |------|-------|--------|-------|
-| Epic | Major feature/phase | None | No (use features) |
+| Epic | Long-lived orchestration across repos/efforts | None | No (use features) |
 | Feature | Deliverable | Epic | Yes (checkboxes) |
+| Task | Work toward someone else's change | Feature or Epic | Yes (checkboxes) |
 | Bug | Defect | Epic or None | Yes (checkboxes) |
 
 ### Create with Parent
@@ -190,8 +194,10 @@ project-add-issue "Q1 2026" 123
 
 ### Update Issue Status in Project
 
+Workflow states advance by their own signals (see [Issue Workflow](./Issue-Workflow.md)); manual writes are the escape hatch:
+
 ```bash
-project-update-issue "Q1 2026" 123 --status "Ready"
+project-update-issue "Q1 2026" 123 --status "Ready"   # escape hatch
 ```
 
 ## Status Workflow
@@ -243,7 +249,7 @@ issue-triage
 
 **Grooming sets:**
 
-- Type (epic/story/bug)
+- Type (Bug/Feature/Task/Epic — native field)
 - Acceptance criteria
 - Tasks/checkboxes
 - Labels (priority, etc.)
@@ -258,37 +264,34 @@ issue-triage
 issue-triage
 issue-update 123 --milestone "Sprint 6"
 project-add-issue "Q1 2026" 123
-project-update-issue "Q1 2026" 123 --status "Ready"
+issue-triage --triage-complete 123   # fires the TBD→To-Groom signal
 ```
 
 ### Start Development
 
 ```bash
-issue-update 123 --add-assignee "@me"
-project-update-issue "Q1 2026" 123 --status "Implementing"
+issue-update 123 --add-assignee "@me"   # assignment signals Implementing
 git checkout -b feature/my-feature
 ```
 
 ### Submit PR
 
 ```bash
-pr-create-for-merge
-project-update-issue "Q1 2026" 123 --status "Review"
+pr-create-for-merge   # signals Review on open
 ```
 
 ### Merge & Deploy
 
 ```bash
-# After PR approval/merge
-project-update-issue "Q1 2026" 123 --status "Merged"
+# After PR approval/merge — merge wrappers signal Merged
+pr-complete-merge
 
-# After staging validation
-project-update-issue "Q1 2026" 123 --status "Staging"
+# After staging validation — deploy process signals Staging
 
-# Deploy to production
-project-update-issue "Q1 2026" 123 --status "Production"
-# Issue auto-closes
-```
+# Deploy to production — deploy process signals Production
+
+# Closing stays explicit:
+issue-close 123 --reason completed
 
 ## Filtering Cheatsheet
 
@@ -311,22 +314,25 @@ issue-list --type Task --milestone "Sprint 5" --assignee none
 
 ### Type Labels
 
-- `Epic` — Phase or major feature (native type)
-- `Task` — Deliverable (native type; replaces legacy "story")
+Types are a native field (not labels), configured in `tools/config/issues-config.yml`:
+
+- `Epic` — Long-lived orchestration issue across repos/efforts (native type)
+- `Feature` — Deliverable (native type)
+- `Task` — Work toward someone else's change (native type)
 - `Bug` — Defect (native type)
 
 ### Priority Labels
 
-- `priority:critical` - Blocking, urgent
-- `priority:high` - Important, high value
-- `priority:medium` - Normal priority
-- `priority:low` - Nice to have
+- `priority/P0` - Critical — production broken, data loss, security, blocking
+- `priority/P1` - High — major user impact, no workaround, strategic
+- `priority/P2` - Normal priority
+- `priority/P3` - Low — nice to have
 
 ### Status Labels (optional, use project Status field)
 
-- `status:ready` - Ready to implement
-- `status:blocked` - Blocked by something
-- `status:needs-review` - Waiting for review
+- `needs-triage` - Newly filed, not yet routed
+- `needs-grooming` - Routed to grooming before planning
+- `status:ready` - Groomed and ready for implementation
 
 ## Common Issues
 
@@ -367,21 +373,28 @@ project-update-issue "Project" 123 --field "CustomField=Value"
 All commands are available as bash functions in the dev container:
 
 ```bash
-issue-create    # Create issue
+issue-create    # Create issue (batch: issue-create-batch)
 issue-list      # List issues
+issue-search    # Search issues
+issue-get       # Fetch issue as JSON
+issue-get       # Fetch issue as JSON
 issue-update    # Update issue
 issue-close     # Close issue
 issue-select    # Interactive picker
-issue-triage     # Grooming wizard
+issue-triage    # Backlog metadata wizard
+issue-comment   # Comment on an issue
+issue-label-create  # Create a label
+issue-label-list    # List labels
 project-add-issue     # Add to project
 project-update-issue  # Update project fields
+project-list-for-issue # List projects containing an issue
+workflow-signal  # Fire skill event signals manually
 ```
 
 Use `alias` in shell to see all available aliases.
 
 ## Environment Variables
 
-- `GH_USER` - Legacy GitHub-branded override (compatibility only); your provider username resolves from devenv.config/seed by default
 - `GH_TOKEN` - Not used day-to-day: tokens live in the keychain (via `key-update-git`), and an exported `GH_TOKEN` is honored only when the provider allowlist opts in. Never required.
 - `DEVENV_REPO` - Target repo override (`owner/repo`); auto-detected from the cwd when unset
 
@@ -390,10 +403,16 @@ Use `alias` in shell to see all available aliases.
 ```bash
 issue-create --help
 issue-list --help
+issue-search --help
+issue-get --help
 issue-update --help
 issue-close --help
 issue-select --help
 issue-triage --help
+issue-comment --help
+issue-comment-list --help
+issue-label-list --help
+issue-artifact-upsert --help
 project-add-issue --help
 project-update-issue --help
 ```

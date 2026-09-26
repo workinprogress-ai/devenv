@@ -27,7 +27,7 @@ echo ""
 # --help / -h must never be interpreted as a key: an unrecognized flag
 # would otherwise fall through to the key path and fail at auth.
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-    echo "Usage: key-update-tailscale.sh [AUTH_KEY] | --help"
+    echo "Usage: key-update-tailscale [AUTH_KEY] | --help"
     echo ""
     echo "Rotate the Tailscale Reusable Auth Key and reconnect the node."
     echo "With AUTH_KEY: non-interactive. Without: prompts on the terminal."

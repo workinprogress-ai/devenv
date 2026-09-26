@@ -63,8 +63,8 @@ Filters:
     --limit N                   Runs per repo to fetch (default: 1)
 
 Environment Variables:
-    (none required — org resolves via devenv.config [organization] github_org;
-     GH_ORG remains an optional override.
+    (none required — org resolves via devenv.config [organization] org;
+     no env override exists.
 
 Examples:
     # Show latest run status for all repos

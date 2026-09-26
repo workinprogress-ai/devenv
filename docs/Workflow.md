@@ -57,7 +57,7 @@ Progress note: progress at any layer is a **derived view** over ground truth (ta
 
 ## Default delivery flow
 
-This is the normal happy path. The artifacts flow through skills; in parallel, the issues carrying them advance through the status column — triaged, groomed, implemented, reviewed, merged, deployed — driven by the signals those same skills and tools fire. The card mechanics (what moves a status, how parents track children) are defined in [Issue Workflow](./Issue-Workflow.md); this page covers the artifact flow.
+This is the normal happy path. The artifacts flow through skills; in parallel, the issues carrying them advance through the status column — TBD, To-Groom, Ready, Implementing, Review, Merged, Staging, Production — driven by the signals those same skills and tools fire. The card mechanics (what moves a status, how parents track children) are defined in [Issue Workflow](./Issue-Workflow.md); this page covers the artifact flow.
 
 ```text
 Raw idea / request
@@ -90,7 +90,7 @@ In Devenv, the usual skill mapping is:
 - Plan -> `/devenv-plan`
 - Collaborative execution -> `/devenv-pair`
 - Delegated execution -> `/devenv-delegate`
-- Review / merge -> `/devenv-commit`, `/devenv-open-pr`, `/devenv-address-pr-comments`; complex plans may also encode a Review **phase inside execution** — see the plan-encoded review protocol
+- Review / merge -> `/devenv-commit`, `/devenv-open-pr`, `/devenv-address-pr-comments`; complex plans may also encode a Review **phase inside execution** — see the [plan-encoded review protocol](../copilot/skills/common/references/plan-encoded-review.md)
 
 Supporting view: the same happy path with Devenv skill support looks like this:
 
@@ -120,7 +120,7 @@ Review / merge / follow-up feedback
                  -> /devenv-address-pr-comments
    (complex plans: the plan's own Review phase runs inside execution —
     adversarial rounds whose approved findings fold back into the plan;
-    see the plan-encoded review protocol in the skills references)
+    see the [plan-encoded review protocol](../copilot/skills/common/references/plan-encoded-review.md))
 ```
 
 Read this as tool support layered onto the workflow, not as a replacement for the workflow itself.
@@ -186,9 +186,9 @@ Or ...
             [ downstream steps ]
 ```
 
-### A bug or isolated feature directly leads grooming
+### A bug or isolated feature leads directly to grooming
 
-Optionally with or without a spike or design discussion:
+Usually fed by a spike (see the section above); when the spike answered everything, this is a short stop:
 
 ```text
 **Spike(s)** -> Grooming
@@ -466,7 +466,7 @@ flowchart TD
     FILE --> QUEUE[(Upstream-impact queue<br/>planning repo)]
     QUEUE --> REF["Refine session<br/>/devenv-refine-specifications or /devenv-refine-blueprint<br/>issue intake, cascade mode"]
     REF -->|reply + close| QUEUE
-    REF -->|ADRs record the why| ADR[(docs/Decisions)]
+    REF -->|ADRs record the why| ADR[(target repo docs/Decisions)]
     REF -.->|"downstream picks up via<br/>staleness checks, not edited here"| DOWN[Grooming / plans / roadmap artifact]
 ```
 
@@ -594,7 +594,7 @@ Do not treat these as interchangeable. Each exists to answer a different questio
 **Living documents carry target state only (the three-home rule).** Specifications, blueprints, and roadmaps are living documents: each describes what the system *is*, never what changed. History has two dedicated homes, and only those homes:
 
 1. **Living documents** — target state. No change logs, no Revision History sections, no strikethrough, no tombstones. Superseded content is **deleted clean**; IDs never reflow, so gaps in numbering are expected and harmless.
-2. **ADRs** (`docs/Decisions/ADR-NNN-<slug>.md`) — the *why*. Every significant decision (one a future implementer would ask about) gets an Architecture Decision Record: context, decision, alternatives, consequences. ADRs are append-mostly; superseding an ADR writes a new one, it does not edit the old.
+2. **ADRs** (`docs/Decisions/ADR-NNN-<slug>.md` in the target repo) — the *why*. Every significant decision (one a future implementer would ask about) gets an Architecture Decision Record: context, decision, alternatives, consequences. ADRs are append-mostly; superseding an ADR writes a new one, it does not edit the old.
 3. **Git** — the *when*. Who changed what, when. That is what it is for. (For artifact roadmaps, the issue comment's edit history plays this role.)
 
 Grooming documents and plans are not in this tier — grooming keeps its own revision-history convention, and plans are current-state execution artifacts with their own rules.

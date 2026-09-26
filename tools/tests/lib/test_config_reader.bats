@@ -28,14 +28,14 @@ create_test_config() {
 
 [organization]
 name=Test Organization
-github_org=test-org
+org=test-org
 email_domain=test.example.com
 
 [container]
 registry=docker.io
 
 [nuget]
-feed_url=https://nuget.pkg.github.com/${GH_ORG}/index.json
+feed_url=https://nuget.pkg.github.com/${PROVIDER_ORG}/index.json
 
 [workflows]
 status_workflow=TBD,Ready,In Progress,Done
@@ -114,7 +114,7 @@ EOF
 
 @test "config-reader: config_validate_required succeeds when keys exist" {
     create_test_config
-    run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $TEST_CONFIG_FILE && config_validate_required organization name github_org email_domain"
+    run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $TEST_CONFIG_FILE && config_validate_required organization name org email_domain"
     [ "$status" -eq 0 ]
 }
 
@@ -134,11 +134,15 @@ EOF
     [[ "$output" =~ missing3 ]]
 }
 
-@test "config-reader: environment variables are expanded in values" {
+@test "config-reader: template variables are expanded in values" {
     create_test_config
-    run bash -c "export GH_ORG=myorg && source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $TEST_CONFIG_FILE && config_read_value nuget feed_url"
+    # Expansion is accessor-fed: load the provider core and scope identity
+    # to a temp DEVENV_ROOT seed so the real workspace config cannot leak in.
+    mkdir -p "$TEST_TEMP_DIR/ident-root/.setup"
+    printf 'test-org\n' > "$TEST_TEMP_DIR/ident-root/.setup/provider_org.txt"
+    run bash -c "export DEVENV_TOOLS='$PROJECT_ROOT/tools' DEVENV_ROOT='$TEST_TEMP_DIR/ident-root' DEVENV_ROOT_SET=1 && source '$PROJECT_ROOT/tools/lib/providers/provider-core.bash' && source '$PROJECT_ROOT/tools/lib/config-reader.bash' && config_init $TEST_CONFIG_FILE && config_read_value nuget feed_url"
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "https://nuget.pkg.github.com/myorg/index.json" ]]
+    [[ "$output" =~ "https://nuget.pkg.github.com/test-org/index.json" ]]
 }
 
 @test "config-reader: config_list_section returns all keys in section" {
@@ -146,7 +150,7 @@ EOF
     run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $TEST_CONFIG_FILE && config_list_section organization"
     [ "$status" -eq 0 ]
     [[ "$output" =~ name ]]
-    [[ "$output" =~ github_org ]]
+    [[ "$output" =~ org ]]
     [[ "$output" =~ email_domain ]]
 }
 
@@ -155,7 +159,7 @@ EOF
     run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $TEST_CONFIG_FILE && config_dump organization"
     [ "$status" -eq 0 ]
     [[ "$output" =~ "name=Test Organization" ]]
-    [[ "$output" =~ "github_org=test-org" ]]
+    [[ "$output" =~ "org=test-org" ]]
     [[ "$output" =~ "email_domain=test.example.com" ]]
 }
 
@@ -212,48 +216,65 @@ EOF
 }
 
 # ============================================================================
-# Expansion behavior locks: ${GH_ORG}/${GH_USER} template expansion
-# semantics are stable whether the values come from env or the provider
-# accessors.
+# Expansion behavior locks: ${PROVIDER_ORG}/${PROVIDER_USER} template
+# expansion resolves via the provider identity accessors (config -> seed);
+# no env var participates.
 # ============================================================================
 
-@test "config-reader: GH_USER template is expanded in values" {
+@test "config-reader: GH_USER env has no effect on template expansion" {
     create_test_config
-    run bash -c "export GH_USER=test-user && source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $TEST_CONFIG_FILE && config_read_value organization email_domain"
+    printf '[organization]\nname=t\nuser=cfg-user\n' > "$TEST_CONFIG_FILE"
+    run bash -c "export GH_USER=env-user && source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $TEST_CONFIG_FILE && config_read_value organization user"
     [ "$status" -eq 0 ]
+    [ "$output" = "cfg-user" ]
 }
 
-@test "config-reader: only GH_ORG/GH_USER expand; other vars stay literal" {
+@test "config-reader: only PROVIDER_ORG/PROVIDER_USER expand; other vars stay literal" {
     cat > "$TEST_CONFIG_FILE" <<'EOT'
 [template]
-value=prefix-${GH_USER_DOES_NOT_EXIST}-suffix
+value=prefix-${PROVIDER_USER_DOES_NOT_EXIST}-suffix
 EOT
     run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $TEST_CONFIG_FILE && config_read_value template value"
     [ "$status" -eq 0 ]
-    [ "$output" = 'prefix-${GH_USER_DOES_NOT_EXIST}-suffix' ]
+    [ "$output" = 'prefix-${PROVIDER_USER_DOES_NOT_EXIST}-suffix' ]
 }
 
-@test "config-reader: unset GH_ORG/GH_USER expand to empty string" {
+@test "config-reader: without the provider layer, tokens stay literal" {
     cat > "$TEST_CONFIG_FILE" <<'EOT'
 [template]
-value=prefix-${GH_ORG}-mid-${GH_USER}-suffix
+value=prefix-${PROVIDER_ORG}-mid-${PROVIDER_USER}-suffix
 EOT
-    run bash -c "unset GH_ORG GH_USER && source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $TEST_CONFIG_FILE && config_read_value template value"
+    run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $TEST_CONFIG_FILE && config_read_value template value"
+    [ "$status" -eq 0 ]
+    [ "$output" = 'prefix-${PROVIDER_ORG}-mid-${PROVIDER_USER}-suffix' ]
+}
+
+@test "config-reader: unresolvable identity expands tokens to empty string" {
+    cat > "$TEST_CONFIG_FILE" <<'EOT'
+[template]
+value=prefix-${PROVIDER_ORG}-mid-${PROVIDER_USER}-suffix
+EOT
+    local empty_root="$TEST_TEMP_DIR/empty-ident"
+    mkdir -p "$empty_root"
+    run bash -c "export DEVENV_TOOLS='$PROJECT_ROOT/tools' DEVENV_ROOT='$empty_root' DEVENV_ROOT_SET=1 && source '$PROJECT_ROOT/tools/lib/providers/provider-core.bash' && source '$PROJECT_ROOT/tools/lib/config-reader.bash' && config_init $TEST_CONFIG_FILE && config_read_value template value"
     [ "$status" -eq 0 ]
     [ "$output" = "prefix--mid--suffix" ]
 }
 
-@test "config-reader: expansion is single-pass (file template replaced once with env value)" {
+@test "config-reader: expansion is single-pass (raw org value holding a token is not re-expanded)" {
+    # The accessor reads the org value RAW. When that raw value is itself a
+    # template token, the org resolves to the literal text and expansion
+    # must not run a second pass over it.
+    local tmpl_root="$TEST_TEMP_DIR/tmpl-ident"
+    mkdir -p "$tmpl_root"
+    printf '[organization]\nname=t\norg=${PROVIDER_USER}\n' > "$tmpl_root/devenv.config"
     cat > "$TEST_CONFIG_FILE" <<'EOT'
 [template]
-nested=${GH_USER}
+nested=${PROVIDER_ORG}
 EOT
-    # A value that itself looks like a template must not recurse: the
-    # substitution pass runs once over the raw file value, so the result
-    # keeps its ${...} text literal.
-    run bash -c "export GH_USER=TH_ORG_PLACEHOLDER && source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $TEST_CONFIG_FILE && config_read_value template nested"
+    run bash -c "export DEVENV_TOOLS='$PROJECT_ROOT/tools' DEVENV_ROOT='$tmpl_root' DEVENV_ROOT_SET=1 && source '$PROJECT_ROOT/tools/lib/providers/provider-core.bash' && source '$PROJECT_ROOT/tools/lib/config-reader.bash' && config_init $TEST_CONFIG_FILE && config_read_value template nested"
     [ "$status" -eq 0 ]
-    [ "$output" = 'TH_ORG_PLACEHOLDER' ]
+    [ "$output" = '${PROVIDER_USER}' ]
 }
 
 @test "config-reader: GH_TOKEN is never interpolated" {
@@ -266,20 +287,19 @@ EOT
     [[ "$output" != *'ghp_secret'* ]]
 }
 
-@test "config-reader: GH_ORG template resolves via provider accessor when loaded" {
-    # The accessor chain (env → config → seed) backs template expansion when
-    # the provider layer is present; raw reads prevent re-entry.
+@test "config-reader: PROVIDER_ORG template resolves via provider accessor when loaded" {
+    # The accessor chain (config → seed) backs template expansion when the
+    # provider layer is present; raw reads prevent re-entry.
     run bash -c "
         export DEVENV_TOOLS='$PROJECT_ROOT/tools'
         export DEVENV_ROOT='$TEST_TEMP_DIR'
         export DEVENV_ROOT_SET=1
-        unset GH_ORG
-        printf '[organization]\nname=t\ngithub_org=cfg-org\n' > '$TEST_TEMP_DIR/devenv.config'
+        printf '[organization]\nname=t\norg=cfg-org\n' > '$TEST_TEMP_DIR/devenv.config'
         source '$PROJECT_ROOT/tools/lib/providers/provider-core.bash'
         source '$PROJECT_ROOT/tools/lib/config-reader.bash'
         cat > '$TEST_TEMP_DIR/tpl.config' <<'CT'
 [t]
-v=\${GH_ORG}-suffix
+v=\${PROVIDER_ORG}-suffix
 CT
         config_init '$TEST_TEMP_DIR/tpl.config'
         config_read_value t v
@@ -289,25 +309,24 @@ CT
 }
 
 @test "config-reader: template expansion does not recurse through the accessor" {
-    # A config whose github_org itself contains the template: the accessor
+    # A config whose org itself contains the template: the accessor
     # reads it RAW, expansion happens once in config-reader, done.
     run bash -c "
         export DEVENV_TOOLS='$PROJECT_ROOT/tools'
         export DEVENV_ROOT='$TEST_TEMP_DIR'
         export DEVENV_ROOT_SET=1
-        unset GH_ORG
-        printf '[organization]\nname=t\ngithub_org=\${GH_ORG}\n' > '$TEST_TEMP_DIR/devenv.config'
+        printf '[organization]\nname=t\norg=\${PROVIDER_ORG}\n' > '$TEST_TEMP_DIR/devenv.config'
         source '$PROJECT_ROOT/tools/lib/providers/provider-core.bash'
         source '$PROJECT_ROOT/tools/lib/config-reader.bash'
         cat > '$TEST_TEMP_DIR/tpl2.config' <<'CT'
 [t]
-v=\${GH_ORG}
+v=\${PROVIDER_ORG}
 CT
         config_init '$TEST_TEMP_DIR/tpl2.config'
         config_read_value t v
     "
     [ "$status" -eq 0 ]
-    [ "$output" = '${GH_ORG}' ]
+    [ "$output" = '${PROVIDER_ORG}' ]
 }
 
 @test "raw read: [provider-x] section never satisfies a [provider] read" {

@@ -222,7 +222,7 @@ Answers status/composition/progress questions (board status, epic rollups via th
 | `/devenv-delegate` | Commissioned autonomous build run — entered only by explicit invocation; assistant-led execution with user review and ownership, phase by phase, while keeping the plan aligned to actual work | Issue # or plan path |
 | `/devenv-document` | Produce documentation for an existing system or component — audience, format, and scope set by interview | Repo path, component name, or description |
 | `/devenv-chat` | Conversational fact-finding with source code, markdown-first repos, or a GitHub issue — the repo talks back | Repo path(s), issue #, or nothing for current workspace |
-| `/devenv-research` | Exploratory investigation + findings doc; empowered like the bug hunter (consented in-repo experiments with recovery route) | Question or issue # |
+| `/devenv-research` | Exploratory investigation + findings doc; empowered like `/devenv-hunt` (consented in-repo experiments with recovery route) | Question or issue # |
 | `/devenv-design` | Opinionated, conversation-first thinking partner for design/architecture choices; best for one bounded blocker or design question; writes `Solution_Proposal_<topic>-NNN.md` only on request (as context-rich input to technical design); may draft pattern candidates / knowledge additions when targeted or when a generalization becomes apparent; the only skill that prepares engineering-repo changes as user-merge PRs | Design question or topic |
 
 ### Workflow
@@ -548,7 +548,7 @@ what you want, and the skill's interview will fill in the gaps.
 /devenv-address-pr-comments 99
 /devenv-address-pr-comments .local-artifacts/tmp2.md
 /devenv-commit
-/devenv-commit --all
+/devenv-commit --all   # --all widens CHECKS scope to the whole project (never staging)
 /devenv-open-pr
 /devenv-open-pr feature/rate-limiting
 ```
@@ -593,7 +593,7 @@ what you want, and the skill's interview will fill in the gaps.
 
 1. Read [`copilot/skills/_conventions.md`](../copilot/skills/_conventions.md) — frontmatter template, description structure, section ordering, reference-file criteria, confirmation flow.
 2. Create `copilot/skills/<name>/SKILL.md` (folder name must match `name:` frontmatter).
-3. Keep `description:` within the length cap defined in [`_conventions.md`](../copilot/skills/_conventions.md) (under 1500 chars, trim toward 1000) — verify with `awk '/^description:/ {gsub(/^description: */,""); print length}' SKILL.md`.
+3. Keep `description:` under the lint gate defined in [`_conventions.md`](../copilot/skills/_conventions.md) (lint-skills warns over 1200 chars, fails over 2000 — trim toward 1000 when possible) — verify with `awk '/^description:/ {gsub(/^description: */,""); print length}' SKILL.md`.
 4. Include explicit **USE WHEN** and **DO NOT USE FOR** phrases in the description.
 5. Add a "Sibling skills" section at the bottom with a link back to this catalog.
 6. Use the `agent-customization` Copilot skill for help with frontmatter and configuration.
