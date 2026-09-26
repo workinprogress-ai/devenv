@@ -62,7 +62,7 @@ The `issue-*` / `pr-*` tools guard against accidentally operating on the
 devenv repo (they exist to manage *project* repos). To target devenv itself:
 
 ```bash
-DEVENV_REPO=workinprogress-ai/devenv issue-list
+DEVENV_REPO=example-org/devenv issue-list
 issue-get 42 --devenv          # or pass the tool's --devenv flag
 ```
 

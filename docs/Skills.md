@@ -511,7 +511,7 @@ what you want, and the skill's interview will fill in the gaps.
 
 ```text
 /devenv-plan 42
-/devenv-plan 42:dv1:workinprogress-ai/planning.reqord:issue-42:plan:orders
+/devenv-plan 42:dv1:example-org/planning.reqord:issue-42:plan:orders
 /devenv-plan Add rate limiting to the public API
 /devenv-plan docs/stories/rate-limiting.md
 ```

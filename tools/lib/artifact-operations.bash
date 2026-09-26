@@ -116,7 +116,7 @@ is_supported_package_type() {
 # Returns: JSON array of package objects with fields:
 #   - id, name, package_type, created_at, updated_at, url, html_url, owner
 # Example:
-#   query_packages --owner workinprogress-ai --type npm
+#   query_packages --owner example-org --type npm
 query_packages() {
     local owner=""
     local type=""
@@ -223,7 +223,7 @@ query_packages() {
 # Returns: JSON array of version objects with fields:
 #   - id, name, version, created_at, updated_at, html_url
 # Example:
-#   get_package_versions --owner workinprogress-ai --type npm --name my-package
+#   get_package_versions --owner example-org --type npm --name my-package
 get_package_versions() {
     local owner=""
     local type=""

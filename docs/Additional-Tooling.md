@@ -87,18 +87,19 @@ Tools for managing repositories, cloning, updating, and working with multiple re
 
 ### `repo-get`
 
-Clones a repository from the git host into the `repos/` folder.
+Clones a repository from the git host into the `repos/` folder. Also accepts a full URL to clone a **foreign** repository (outside the organization) into the same flat `repos/` folder.
 
 **Usage:**
 
 ```bash
-repo-get [--select] [<repository-name>]
+repo-get [--select] [<repository-name>|<repository-url>]
 ```
 
 **Options:**
 
 - `--select`: Show an interactive selection menu of repositories in the organization (excludes already cloned repos)
 - `<repository-name>`: Name of the repository to clone/update
+- `<repository-url>`: Full URL (`https://`, `git@`, or `ssh://`) to a foreign repository — cloned/updated by its basename, no org credential wiring (auth is your own git config; public repos need none). Refuses when the derived folder already exists as a clone of a different repository.
 - No arguments: Update the current repository (based on git context)
 
 **Examples:**
@@ -109,6 +110,9 @@ repo-get --select
 
 # Clone or update a specific repository
 repo-get devops
+
+# Clone a foreign (outside-org) repository into repos/<basename>
+repo-get https://github.com/octocat/Hello-World.git
 
 # Update current repository
 repo-get
@@ -1431,21 +1435,21 @@ issue-artifact-doc-id \
   --issue 123 \
   --artifact-type spike \
   --slug "Retry Strategy" \
-  --repo workinprogress-ai/devenv
+  --repo example-org/devenv
 
 # From a source file name
 issue-artifact-doc-id \
   --issue 77 \
   --artifact-type redesign \
   --source-file Redesign--003-Auth-Flow.md \
-  --repo workinprogress-ai/devenv
+  --repo example-org/devenv
 
 # For a plan artifact comment
 issue-artifact-doc-id \
   --issue 42 \
   --artifact-type plan \
   --source-file Plan-issue-42-001.md \
-  --repo workinprogress-ai/devenv
+  --repo example-org/devenv
 ```
 
 ### `issue-artifact-get`
@@ -1479,7 +1483,7 @@ issue-artifact-get --issue ISSUE_NUMBER --doc-id DOC_ID [--full] [--pretty] [OPT
 ```bash
 issue-artifact-get \
   --issue 42 \
-  --doc-id "dv1:workinprogress-ai/devenv:issue-42:plan:plan-issue-42-001" \
+  --doc-id "dv1:example-org/devenv:issue-42:plan:plan-issue-42-001" \
   --full --pretty
 ```
 
@@ -1535,7 +1539,7 @@ issue-artifact-select --issue 42 --artifact-type plan --latest --format doc-id
 
 # Select one exact artifact by doc_id
 issue-artifact-select --issue 42 \
-  --doc-id "dv1:workinprogress-ai/devenv:issue-42:plan:plan-issue-42-001" \
+  --doc-id "dv1:example-org/devenv:issue-42:plan:plan-issue-42-001" \
   --format url
 ```
 
