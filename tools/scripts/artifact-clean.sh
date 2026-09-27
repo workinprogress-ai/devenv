@@ -4,7 +4,7 @@
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 # artifact-clean.sh - Clean up `.local-artifacts/` folders by artifact family
-# Version: 1.0.0
+# Version: 1.2.0
 # Description: Interactive (default) or flag-driven cleanup of local artifact
 #              folders. Files are grouped into the three convention families
 #              from _conventions.md (ephemeral tmpN.md, session memory,
@@ -13,8 +13,9 @@ DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 #              working/session/other require an explicit -y/--yes or
 #              interactive confirmation. Never touches anything outside
 #              .local-artifacts/.
-# Requirements: Bash 4.0+, git (for repo root discovery)
-# Last Modified: 2026-09-13
+# Requirements: Bash 4.0+, git (for repo root discovery); fzf optional (richer
+#               interactive selection with live preview)
+# Last Modified: 2026-09-26
 
 # Note: Strict error handling (set -euo pipefail and ERR trap) is configured
 # via enable_strict_mode() from error-handling.bash after sourcing libraries
@@ -23,7 +24,7 @@ DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 # Source Required Libraries
 # ============================================================================
 
-readonly SCRIPT_VERSION="1.0.0"
+readonly SCRIPT_VERSION="1.2.0"
 readonly FOLDER_NAME=".local-artifacts"
 SCRIPT_NAME="$(basename "$0")"
 
@@ -32,6 +33,9 @@ source "$DEVENV_TOOLS/lib/error-handling.bash"
 
 # shellcheck source=../lib/versioning.bash
 source "$DEVENV_TOOLS/lib/versioning.bash"
+
+# shellcheck source=../lib/fzf-selection.bash
+source "$DEVENV_TOOLS/lib/fzf-selection.bash"
 
 # Enable strict error handling (sets -euo pipefail and ERR trap)
 enable_strict_mode
@@ -50,7 +54,8 @@ Clean up $FOLDER_NAME/ folders by artifact family. With no PATH, operates on
 the nearest directory (walking up from cwd) that contains a $FOLDER_NAME.
 
 Families (per the .local-artifacts convention):
-    ephemeral   tmpN.md scratch files (short-lived; deleted without confirmation)
+    ephemeral   tmpN.md scratch files (always cleaned automatically, even in
+                interactive mode — the convention needs no confirmation)
     session     session_memory-*.md planning-skill memory (confirm or -y)
     working     Plan-issue-*.md / Grooming-*.md / Specifications-*.md /
                 Blueprint-*.md / Roadmap-*.md — local working copies of
@@ -59,12 +64,21 @@ Families (per the .local-artifacts convention):
                 deleted)
 
 Options:
-    -i, --interactive   Interactive family-by-family selection (default when
-                        no family flags are given and stdin is a TTY)
+    -i, --interactive   Interactive selection (default when no family flags
+                        are given and stdin is a TTY). With fzf installed:
+                        one multi-select list of every deletable file, with
+                        a live preview of each file's content as you move
+                        through the list — TAB toggles, Enter confirms.
+                        Without fzf: falls back to family-by-family prompts.
     --tmp               Ephemeral family only
     --session           Session-memory family only
     --working           Issue working-copy family only
     --all               Every family, including other
+    --keep-tmp          Override: do NOT auto-delete ephemeral tmpN.md files.
+                        They flow through normal confirmation/selection like
+                        every other family — nothing is deleted without an
+                        explicit choice. (Safety hatch for auditing what the
+                        convention would otherwise remove silently.)
     -y, --yes           Assume yes for all confirmations
     -l, --list          List what would be cleaned per family; delete nothing
     -h, --help          Show this help message
@@ -146,12 +160,56 @@ confirm_files() {
     [ "$answer" = "y" ] || [ "$answer" = "Y" ]
 }
 
+# Interactive per-file selection across families, with a live preview of
+# each candidate's content (fzf multi-select). Ephemeral files are never
+# offered — they are cleaned unconditionally by the convention.
+# Args: folder, then deletable files (any family) as remaining args
+# Returns: 0 with selected full paths on stdout (one per line); 1 on cancel
+interactive_select_deletions() {
+    local folder="$1"
+    shift
+    [ $# -gt 0 ] || return 1
+
+    if ! command -v fzf >/dev/null 2>&1; then
+        return 1
+    fi
+
+    # Each entry is "<label><TAB><full path>": --with-nth=1 shows only the
+    # label, and the preview reads field 2 — the real file — so the right
+    # pane shows its content as the cursor moves.
+    local -a entries=()
+    local f base family label
+    for f in "$@"; do
+        base=$(basename "$f")
+        family=$(classify "$base")
+        label=$(printf '[%s] %s\t%s' "$family" "$base" "$f")
+        entries+=("$label")
+    done
+
+    local selected
+    selected=$(printf '%s\n' "${entries[@]}" | fzf \
+        --prompt="Select artifacts to delete: " \
+        --multi \
+        --border \
+        --height=60% \
+        --delimiter=$'\t' \
+        --with-nth=1 \
+        --bind="tab:toggle+down" \
+        --header="TAB toggle | Shift-Tab toggle-all | Enter delete selection | Esc cancel" \
+        --preview="cat {2}" \
+        --preview-window="right:50%:wrap") || return 1
+
+    # Strip the label column back off — field 2 is the full path.
+    printf '%s\n' "$selected" | cut -f2
+    return 0
+}
+
 # ============================================================================
 # Main
 # ============================================================================
 
 main() {
-    local MODE="" ASSUME_YES=0 LIST_ONLY=0
+    local MODE="" ASSUME_YES=0 LIST_ONLY=0 KEEP_TMP=0
     local -a USER_PATHS=()
 
     while [[ $# -gt 0 ]]; do
@@ -163,6 +221,7 @@ main() {
             --session) MODE="${MODE}session"; shift ;;
             --working) MODE="${MODE}working"; shift ;;
             --all) MODE="tmp session working other"; shift ;;
+            --keep-tmp) KEEP_TMP=1; shift ;;
             -y|--yes) ASSUME_YES=1; shift ;;
             -l|--list) LIST_ONLY=1; shift ;;
             --*) invalid_args "Unknown option: $1" ;;
@@ -205,20 +264,94 @@ main() {
         fi
     fi
 
-    local deleted=0 folder family f
+    local deleted=0 ephemeral_deleted=0 folder family f
     for root in "${roots[@]}"; do
         folder="$root/$FOLDER_NAME"
         log_info "Scanning $folder"
 
         local -a families=()
         if [ "$MODE" = "interactive" ]; then
-            families=(ephemeral session working other)
-        else
-            [[ "$MODE" == *tmp* ]] && families+=(ephemeral)
-            [[ "$MODE" == *session* ]] && families+=(session)
-            [[ "$MODE" == *working* ]] && families+=(working)
-            [[ "$MODE" == *other* ]] && families+=(other)
+            # Interactive mode: clean ephemeral unconditionally, then offer
+            # every remaining candidate in one multi-select with preview.
+            local -a deletable=()
+            for family in ephemeral session working other; do
+                while IFS= read -r f; do
+                    [ -n "$f" ] && deletable+=("$f")
+                done < <(collect_family "$folder" "$family")
+            done
+
+            if [ "${#deletable[@]}" -eq 0 ]; then
+                log_info "Nothing to clean in $folder"
+                continue
+            fi
+
+            # Ephemeral first — convention says no confirmation needed,
+            # unless --keep-tmp was passed: then tmpN.md files flow through
+            # normal selection like every other family.
+            local -a offerable=()
+            for f in "${deletable[@]}"; do
+                if [ "$(classify "$(basename "$f")")" = "ephemeral" ] && [ "$KEEP_TMP" -eq 0 ]; then
+                    rm -f -- "$f"
+                    deleted=$((deleted + 1))
+                    ephemeral_deleted=$((ephemeral_deleted + 1))
+                else
+                    offerable+=("$f")
+                fi
+            done
+            if [ "${#offerable[@]}" -eq 0 ]; then
+                log_info "Only ephemeral files present — cleaned"
+                continue
+            fi
+            [ "$ephemeral_deleted" -gt 0 ] && \
+                log_info "[ephemeral] auto-cleaned $ephemeral_deleted scratch file(s) (tmpN.md — no confirmation needed by convention)"
+            [ "$KEEP_TMP" -eq 1 ] && \
+                log_info "--keep-tmp: ephemeral tmpN.md files included in the selection (nothing auto-deleted)"
+
+            local selected
+            if selected=$(interactive_select_deletions "$folder" "${offerable[@]}"); then
+                local -a chosen=()
+                while IFS= read -r f; do
+                    [ -n "$f" ] && chosen+=("$f")
+                done <<< "$selected"
+                if [ "${#chosen[@]}" -gt 0 ]; then
+                    delete_files "${chosen[@]}"
+                    deleted=$((deleted + ${#chosen[@]}))
+                    log_info "Deleted ${#chosen[@]} selected file(s)"
+                else
+                    log_info "No files selected — nothing deleted"
+                fi
+            else
+                # fzf missing or cancelled: fall back to family-by-family prompts.
+                log_warn "fzf unavailable or selection cancelled — falling back to family prompts"
+                for family in session working other; do
+                    local -a files=()
+                    while IFS= read -r f; do
+                        [ -n "$f" ] && files+=("$f")
+                    done < <(collect_family "$folder" "$family")
+                    [ "${#files[@]}" -gt 0 ] || continue
+                    if [ "$ASSUME_YES" -eq 1 ]; then
+                        delete_files "${files[@]}"
+                        deleted=$((deleted + ${#files[@]}))
+                        log_info "[$family] deleted ${#files[@]} file(s) (-y)"
+                    else
+                        if confirm_files "[$family]" "${files[@]}"; then
+                            delete_files "${files[@]}"
+                            deleted=$((deleted + ${#files[@]}))
+                            log_info "[$family] deleted ${#files[@]} file(s)"
+                        else
+                            log_info "[$family] skipped"
+                        fi
+                    fi
+                done
+            fi
+            continue
         fi
+
+        # Flag-driven mode: build the family list from the MODE string.
+        [[ "$MODE" == *tmp* ]] && families+=(ephemeral)
+        [[ "$MODE" == *session* ]] && families+=(session)
+        [[ "$MODE" == *working* ]] && families+=(working)
+        [[ "$MODE" == *other* ]] && families+=(other)
 
         for family in "${families[@]}"; do
             local -a files=()
@@ -235,9 +368,21 @@ main() {
 
             case "$family" in
                 ephemeral)
-                    delete_files "${files[@]}"
-                    deleted=$((deleted + ${#files[@]}))
-                    log_info "[$family] deleted ${#files[@]} file(s) (no confirmation needed)"
+                    if [ "$KEEP_TMP" -eq 1 ] && [ "$ASSUME_YES" -ne 1 ] && [ -t 0 ]; then
+                        if confirm_files "[$family] (--keep-tmp)" "${files[@]}"; then
+                            delete_files "${files[@]}"
+                            deleted=$((deleted + ${#files[@]}))
+                            log_info "[$family] deleted ${#files[@]} file(s) (--keep-tmp)"
+                        else
+                            log_info "[$family] skipped"
+                        fi
+                    elif [ "$KEEP_TMP" -eq 1 ] && [ "$ASSUME_YES" -ne 1 ]; then
+                        log_warn "[$family] --keep-tmp set but no TTY/-y: skipped (nothing auto-deleted)"
+                    else
+                        delete_files "${files[@]}"
+                        deleted=$((deleted + ${#files[@]}))
+                        log_info "[$family] deleted ${#files[@]} file(s) (no confirmation needed)"
+                    fi
                     ;;
                 *)
                     if [ "$ASSUME_YES" -eq 1 ]; then
@@ -262,6 +407,8 @@ main() {
 
     if [ "$LIST_ONLY" -eq 1 ]; then
         log_info "List-only mode — nothing deleted"
+    elif [ "$ephemeral_deleted" -gt 0 ]; then
+        log_info "Done. $((deleted - ephemeral_deleted)) file(s) deleted by your selection, plus $ephemeral_deleted ephemeral tmpN.md file(s) auto-cleaned by convention ($deleted total)."
     else
         log_info "Done. $deleted file(s) deleted."
     fi
