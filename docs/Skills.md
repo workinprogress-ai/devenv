@@ -19,6 +19,7 @@ What are you trying to do?
 │
 ├─ 🔍 Explore / think
 │   ├─ Understand a codebase via chat   →  /devenv-chat
+│   ├─ Warm up context before choosing a work skill  →  /devenv-load
 │   ├─ Investigate a question           →  /devenv-research
 │   ├─ Verify / diagnose / fix a bug  →  /devenv-hunt
 │   ├─ Weigh design options (opinionated)→ /devenv-design
@@ -169,6 +170,18 @@ Orients against README, project structure, runtime entry points or primary docum
 **Use for:** understanding an unfamiliar codebase or markdown-first planning/docs repo; cross-repo questions; architecture, behaviour, data flow, dependency, runbook, and specifications/blueprint interrogation  
 **Don't use for:** writing or changing files (→ `/devenv-pair` or `/devenv-delegate`); formal debt findings (→ `/devenv-audit`); architecture design (→ `/devenv-create-blueprint` or `/devenv-design`)  
 **Tool deps:** none (read-only repo interrogation; writes only to session memory)
+
+---
+
+### `/devenv-load`
+
+> **Warm the window before the work begins.**
+
+Pre-loads working context for the current repo (or a directed area of it) into the live session so the next skill invoked starts warm — for the moment you know work is coming but not yet which skill will do it. Read-only orientation only: `skill-orient` census, scoped `TODO:DEVENV` marker discovery, conventions files, and a bounded layout skim (targeted when you name an area). Hands back with one line and zero proposals. Same-session only by design — nothing is written, and worker skills still re-verify state on their own kickoff (load is a head start, never a substitute).
+
+**Use for:** pre-loading context before choosing a work skill; warming up a repo or subsystem while deciding what to do  
+**Don't use for:** durable written docs (→ `/devenv-document`), conversational code Q&A (→ `/devenv-chat`), devenv tooling/config questions (→ `/devenv-help`)  
+**Tool deps:** `skill-orient`, `devenv-marker-check`
 
 ---
 
@@ -487,6 +500,7 @@ what you want, and the skill's interview will fill in the gaps.
 | You want… | Type this |
 |---|---|
 | A skill recommendation — or any question about the devenv itself | `/devenv-help` — bare, with a one-line goal, with a tooling/workflow question, or `/devenv-help 42` to route an issue |
+| To warm up context before deciding what to do | `/devenv-load repos/lib.cs.services.bulk-sync` |
 | To understand a codebase conversationally | `/devenv-chat repos/lib.cs.services.bulk-sync` |
 
 ### The delivery lifecycle, start to finish
