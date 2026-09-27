@@ -92,3 +92,101 @@ teardown() {
   [ "$status" -eq 0 ]
   [[ "$output" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
 }
+
+@test "interactive with fzf: selected working copy deleted, rest untouched, ephemeral auto-cleaned" {
+  # Fake fzf that "selects" the Plan working copy entry (label<TAB>path).
+  mkdir -p "$TEST_TEMP_DIR/bin"
+  cat > "$TEST_TEMP_DIR/bin/fzf" <<'EOF'
+#!/usr/bin/env bash
+while IFS= read -r line; do
+  case "$line" in
+    *"Plan-issue-33-001.md"*) printf '%s\n' "$line" ;;
+  esac
+done
+EOF
+  chmod +x "$TEST_TEMP_DIR/bin/fzf"
+  # --interactive explicitly: bats --jobs workers have no TTY, so the
+  # default-mode TTY heuristic would otherwise pick list-only.
+  run env PATH="$TEST_TEMP_DIR/bin:$PATH" bash "$SCRIPT" --interactive "$WORK_DIR/repo" < /dev/null
+  [ "$status" -eq 0 ]
+  # Ephemeral cleaned without confirmation
+  [ ! -f "$FOLDER/tmp1.md" ]
+  [ ! -f "$FOLDER/tmp2.md" ]
+  # Selected working copy deleted
+  [ ! -f "$FOLDER/Plan-issue-33-001.md" ]
+  # Everything else untouched
+  [ -f "$FOLDER/session_memory-design.md" ]
+  [ -f "$FOLDER/Roadmap-22.md" ]
+  [ -f "$FOLDER/random-notes.md" ]
+  [[ "$output" =~ "Deleted 1 selected file(s)" ]]
+}
+
+@test "interactive with fzf: empty selection deletes nothing beyond ephemeral" {
+  mkdir -p "$TEST_TEMP_DIR/bin"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$TEST_TEMP_DIR/bin/fzf"
+  chmod +x "$TEST_TEMP_DIR/bin/fzf"
+  run env PATH="$TEST_TEMP_DIR/bin:$PATH" bash "$SCRIPT" --interactive "$WORK_DIR/repo" < /dev/null
+  [ "$status" -eq 0 ]
+  [ ! -f "$FOLDER/tmp1.md" ]
+  [ -f "$FOLDER/Plan-issue-33-001.md" ]
+  [ -f "$FOLDER/random-notes.md" ]
+  [[ "$output" =~ "No files selected" ]]
+}
+
+@test "interactive without fzf and without TTY defaults to list-only (never deletes)" {
+  run env PATH="/usr/bin:/bin" bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null
+  [ "$status" -eq 0 ]
+  [ -f "$FOLDER/tmp1.md" ]
+  [[ "$output" =~ "list-only" ]]
+}
+
+@test "fzf invocation carries multi-select and content-preview contract" {
+  # Capture the fzf invocation args to assert the UI contract: multi-select
+  # on, label-only display, and a preview that cats the real file (field 2).
+  mkdir -p "$TEST_TEMP_DIR/bin"
+  cat > "$TEST_TEMP_DIR/bin/fzf" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "$CAPTURE_FILE"
+exit 0
+EOF
+  chmod +x "$TEST_TEMP_DIR/bin/fzf"
+  run env PATH="$TEST_TEMP_DIR/bin:$PATH" CAPTURE_FILE="$TEST_TEMP_DIR/fzf-args.txt" bash "$SCRIPT" --interactive "$WORK_DIR/repo" < /dev/null
+  [ "$status" -eq 0 ]
+  grep -q -- "--preview=cat {2}" "$TEST_TEMP_DIR/fzf-args.txt"
+  grep -q -- "--multi" "$TEST_TEMP_DIR/fzf-args.txt"
+  grep -q -- "--with-nth=1" "$TEST_TEMP_DIR/fzf-args.txt"
+}
+
+@test "--keep-tmp interactive: ephemeral files offered in the picker instead of auto-deleted" {
+  mkdir -p "$TEST_TEMP_DIR/bin"
+  cat > "$TEST_TEMP_DIR/bin/fzf" <<'EOF'
+#!/usr/bin/env bash
+# Select nothing — assert only that nothing was auto-deleted
+exit 0
+EOF
+  chmod +x "$TEST_TEMP_DIR/bin/fzf"
+  run env PATH="$TEST_TEMP_DIR/bin:$PATH" bash "$SCRIPT" --interactive --keep-tmp "$WORK_DIR/repo" < /dev/null
+  [ "$status" -eq 0 ]
+  # Ephemeral files survived — the override held
+  [ -f "$FOLDER/tmp1.md" ]
+  [ -f "$FOLDER/tmp2.md" ]
+  [[ "$output" =~ "--keep-tmp: ephemeral tmpN.md files included in the selection" ]]
+  [[ "$output" =~ "No files selected" ]]
+}
+
+@test "--keep-tmp --tmp without TTY: refuses rather than silently deleting" {
+  run bash "$SCRIPT" --keep-tmp --tmp "$WORK_DIR/repo" < /dev/null
+  [ "$status" -eq 0 ]
+  [ -f "$FOLDER/tmp1.md" ]
+  [ -f "$FOLDER/tmp2.md" ]
+  [[ "$output" =~ "skipped (nothing auto-deleted)" ]]
+}
+
+@test "--keep-tmp --tmp -y: still deletes (explicit confirmation path)" {
+  run bash "$SCRIPT" --keep-tmp --tmp -y "$WORK_DIR/repo" < /dev/null
+  [ "$status" -eq 0 ]
+  [ ! -f "$FOLDER/tmp1.md" ]
+  [ ! -f "$FOLDER/tmp2.md" ]
+  # Working copies untouched — only the tmp family was targeted
+  [ -f "$FOLDER/Plan-issue-33-001.md" ]
+}
