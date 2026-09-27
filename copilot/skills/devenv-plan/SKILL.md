@@ -1,6 +1,6 @@
 ---
 name: devenv-plan
-description: 'Create a structured Plan.md for a user story, task, GitHub-style issue, complete spec/RFC/design doc, or any multi-step objective planned for later execution (code — the default — docs, mechanical file work, runbooks, mixed work). USE WHEN the user says "create a plan", "plan this story", "break this task into phases", "break down this work", "write up a plan for this", "plan from this spec", "convert this issue into a plan", or hands off a GitHub issue / user story / complete spec to be implemented. Interviews the user when needed, scans repo conventions, drafts phased atomic tasks with a plan-declared verification approach, gets explicit approval, writes the file to the target repo's gitignored .local-artifacts/ folder with a numbered suffix, and offers to publish the plan as a GitHub issue artifact comment. For significantly complex code work it offers a plan-encoded Review phase (/devenv-review folds approved findings back in as tasks). DO NOT USE for ad-hoc coding tasks where no plan file is wanted, for pure research/Q&A, or for editing an existing plan (just edit the file directly).'
+description: 'Create a structured Plan.md for a user story, task, GitHub-style issue, complete spec/RFC/design doc, or any multi-step objective planned for later execution (code — the default — docs, mechanical file work, runbooks, mixed work). USE WHEN the user says "create a plan", "plan this story", "break this task into phases", "write up a plan for this", "plan from this spec", "convert this issue into a plan", or hands off an issue/story/spec to be implemented. Also USE WHEN asked for a "micro plan" or "simple plan" for a small standalone piece of work (micro-plan lane). Interviews when needed, scans repo conventions, drafts phased atomic tasks with a plan-declared verification approach, gets approval, writes the file to the target repo''s gitignored .local-artifacts/ folder, and offers to publish it as a GitHub issue artifact comment. For significantly complex code work it offers a plan-encoded Review phase. DO NOT USE for ad-hoc coding tasks where no plan file is wanted, for pure research/Q&A, or for editing an existing plan (just edit the file directly). To execute immediately under delegation, prefer /devenv-delegate''s one-step intake — the plan is the deliverable.'
 argument-hint: '[issue-number[:doc_id] | path-to-story | freeform description]'
 user-invocable: true
 ---
@@ -23,10 +23,12 @@ Trigger phrases:
 - "plan from this spec" / "convert this issue into a plan"
 - An issue URL or number is handed off with intent to implement
 - A pasted user story / specifications blob / complete spec with intent to implement
+- "micro plan" / "simple plan" for a small standalone piece of work (routes to the [micro-plan lane](#4e-micro-plan-lane-standalone-small-deliverables))
 
 Do **not** use for:
 
 - Quick coding tasks where no plan file is desired
+- Small work to execute immediately under delegation — `/devenv-delegate`'s micro commission materializes the minimal ledger in one step; this lane's micro plan is for when the plan itself is the deliverable (persistence, later refinement, issue attachment)
 - Pure research / Q&A
 - Editing an existing plan (edit the file in place)
 - Epic-scale work spanning multiple components — use [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) + [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) first; each roadmap step then gets its own plan
@@ -199,6 +201,40 @@ Encoded shape:
 - `- [ ] **N.M [S|M] Research: <question>**` with `owner: User` — the research session runs in a **separate chat**, user-supervised (`/devenv-research` is empowered: destructive-class experiments, code modification with just-in-time permission), and the executor stops at this task and hands back rather than attempting it inline. The asymmetry with plan-encoded review is deliberate: review is read-only computation (safe to dispatch); research needs a user present.
 - `Additional context:` carries the return route — findings land in the research doc, then `/devenv-refine-plan` folds the answer back into this plan (resolving the open question that spawned it).
 - Downstream tasks that depended on the unknown get `depends on N.M` so the DAG shows the spike is load-bearing.
+
+### 4e. Micro-plan lane (standalone small deliverables)
+
+A degenerate form of this skill for work small enough that the full ceremony exceeds the work itself, but where a durable plan artifact is still wanted. Definition — the shared [incidental implementation protocol](../common/references/incidental-implementation-protocol.md) triplet, verbatim: **one concern, one sitting, observable check**. This lane, delegate's micro commission, and the incidental micro-fix lane are one family: one definition, three consumers.
+
+Micro plan shape (hard caps):
+
+- **Single phase** (hard cap) and at most **one atomic AC** — one checkable statement; a count-1 AC with smuggled sub-conditions does not qualify.
+- **Zero-AC floor** — a micro plan may carry zero ACs only if the verification line fully substitutes for the AC ("script exits 0, diff matches expectation" *is* the acceptance statement) — the same floor as delegate's materialization ("acceptance = task completion conditions + tests pass"), never a weaker form. ACs absent because the goal is *underspecified* is not micro — clarify first. The delegation hand-off mapping: a single atomic AC approximates the aggregate of the ad-hoc materialization's task-completion conditions; at the zero-AC floor the verification line *is* the acceptance, exactly as in delegate's minimal ledger.
+- 2–4 condensed task steps (step entries, not full phase scaffolding); single repo; small file set.
+
+Lane selection — classify silently, confirm explicitly:
+
+- **No universal lane gate.** Full-lane behavior is unchanged when micro is not proposed. When the sizing signals say micro, interrupt once with a one-line sizing statement ("Micro lane: one concern, one sitting, observable check `X` — confirm?") and proceed only on explicit confirmation. When in doubt, full plan — the misclassification risk is asymmetric (false micro silently skips AC inference; false full costs a few questions).
+- **Language:** "micro plan" / "simple plan" is a directive — it names the plan form and forces the micro proposal. "Simple task" / "this should be simple" characterizes the *work*, not the form — leaning signal only, still judged against the work's nature.
+- **Provenance signals** (leaning, never hard gates): an issue attached leans full lane (issue context carries AC/scope weight); ad-hoc origin without an issue leans micro; an **active plan execution in scope** turns the micro proposal into a redirect proposal to [`/devenv-refine-plan`](../devenv-refine-plan/SKILL.md) — extend the live ledger rather than spawning a sibling plan file. An upstream governed artifact (grooming/blueprint/spec) present means never micro.
+- **Unsmuggled impact** — nothing public-API, data-shape, or security-flavored dressed in mechanical wording; such work is not micro regardless of size.
+
+What collapses vs. survives (ceremony collapses; the ledger does not):
+
+| Collapses | Survives (degenerate form) |
+|---|---|
+| Green-policy question (single phase is trivially phase-green) | AC read-back — the one AC, restated for confirmation |
+| Pressure-test offer (4a) | Target-repo confirmation |
+| Scale/risk redivision gate (4b — micro is already at the floor) | Phase-structure approval — the 1-phase outline, confirmed |
+| Plan-encoded review offer (4c) and research-task encoding (4d) | Verification declaration — deterministic and observable; it *is* the observable check |
+| Full code exploration and full conventions scan (light touch: skim the files in scope) | DEVENV marker policy and all approval gates |
+| Issue-artifact publication offer (nothing to publish to by default) | File write + `next-id` naming |
+
+- **The wall survives:** if drafting reveals a second concern, a contract decision, or plan-shaped scope, stop and offer conversion to a full plan. The lane is a door, not a lock; misclassification is recoverable in the cheap direction.
+- **Delegation boundary:** this lane's value is when the plan is the *deliverable* (persistence, later refinement, issue attachment). If the user intends to execute immediately under delegation, delegate's micro commission materializes the minimal ledger in one step — skip this lane. A micro plan that *does* feed delegation routes as a standard (tiny) commission when it carries tasks beyond minimal grade; one that collapses to minimal grade (1 task, verification line only) is the micro commission's ledger directly.
+- **Naming:** follow step 7 with the no-issue base name — `Plan-<topic>-001.md` via `next-id --pattern 'Plan-<topic>-{N}.md'` (topic = a short stable slug for the concern).
+- **Event signal:** with no associated issue, skip `_on_end_planning` (no issue number exists to pass).
+- **Phase rules precedence:** this lane's shape rules (single phase, ≤1 atomic AC, condensed steps) override the Phase Rules summary and phase-rules.md defaults for micro plans; everything else in this skill applies unchanged.
 
 ### 5. Draft the plan in chat
 

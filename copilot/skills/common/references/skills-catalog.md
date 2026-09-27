@@ -89,9 +89,9 @@ Conducts a three-phase architectural interview (context → architecture → con
 
 > **Before any significant work begins.**
 
-Interviews the user, scans repo conventions, drafts phased atomic tasks, and writes a `Plan-*.md` under the repo's `.local-artifacts/` folder (gitignored standard home for local working markdown). The plan is a current-state execution artifact that follows the engineer's real work rather than a contract the engineer must obey. Offers to push the plan into the associated GitHub issue. For significantly complex code work, offers a plan-encoded **Review** phase — a dedicated phase before Cleanup where `/devenv-review` folds approved findings back into the plan, cycling to convergence. The gateway to all build-phase skills.
+Interviews the user, scans repo conventions, drafts phased atomic tasks, and writes a `Plan-*.md` under the repo's `.local-artifacts/` folder (gitignored standard home for local working markdown). The plan is a current-state execution artifact that follows the engineer's real work rather than a contract the engineer must obey. Offers to push the plan into the associated GitHub issue. For significantly complex code work, offers a plan-encoded **Review** phase — a dedicated phase before Cleanup where `/devenv-review` folds approved findings back into the plan, cycling to convergence. A **micro-plan lane** covers standalone small deliverables: one phase, ≤1 atomic AC, condensed steps — for when the plan itself is the deliverable; small work to execute immediately goes to `/devenv-delegate`'s one-step micro commission instead. The gateway to all build-phase skills.
 
-**Use for:** planning a user story, breaking down an issue, writing up work before starting  
+**Use for:** planning a user story, breaking down an issue, writing up work before starting — plus "micro plan" / "simple plan" for small standalone deliverables  
 **Don't use for:** pure research (→ `/devenv-research`), editing an existing plan (→ `/devenv-refine-plan`)  
 **Tool deps:** `issue-get`, `issue-comment-list`, `issue-artifact-upsert`
 
@@ -186,7 +186,7 @@ The inverse of `/devenv-delegate` — this skill provides review assistance for 
 | `/devenv-create-roadmap` | Phased delivery sequencing published as a roadmap artifact on a parent epic + GH issue creation | Blueprint and/or specifications file path (at least one) |
 | `/devenv-refine-roadmap` | Structurally revise a roadmap artifact — split, re-sequence, add; superseded steps deleted clean | Epic number (optionally `:doc_id`) |
 | `/devenv-update-roadmap` | Sync roadmap status from issues + PRs; republish artifact + epic task list | Epic number (optionally `:doc_id`) |
-| `/devenv-plan` | Create a current-state execution plan via interview; any multi-step objective (code default; docs, mechanical file work, runbooks via a plan-declared verification approach); supports direct-plan mode and treats side-stream artifacts as additional (non-directing) context; complex code plans may encode a Review phase | Issue # or description |
+| `/devenv-plan` | Create a current-state execution plan via interview; any multi-step objective (code default; docs, mechanical file work, runbooks via a plan-declared verification approach); supports direct-plan mode and treats side-stream artifacts as additional (non-directing) context; complex code plans may encode a Review phase; micro lane for standalone small deliverables | Issue # or description |
 | `/devenv-refine-plan` | Align a plan with reality from any starting point — surgical edits, structured revision, or staleness assessment with internal routing | Plan file path or issue # |
 | `/devenv-board` | On-demand project management — status answers (incl. roadmap views), hygiene sweeps, recommendations, and consented changes (incl. materializing ratified roadmap steps as backlog issues) across the issue landscape (project members and unprojected tickets); subsumes the former query-progress charter | Question, sweep, or instruction (freeform) |
 
