@@ -25,7 +25,7 @@ Qualifying work is **micro**: one concern, one sitting, directly tied to the ses
 **The wall:** anything past micro — multiple concerns, a chunk list, scope beyond the session's findings, anything plan-shaped — is not done in this lane. Route in one line and proceed:
 
 - interactive, continuing in-session → `/devenv-pair`
-- plan-sized → `/devenv-plan` first
+- plan-sized → `/devenv-plan` first (for a standalone small deliverable that still warrants a durable plan artifact, `/devenv-plan`'s micro-plan lane is the cheap tier — one phase, ≤1 atomic AC; anything bigger is a full plan)
 - commissioned unattended run → `/devenv-delegate`
 
 ## Rules while in the lane
