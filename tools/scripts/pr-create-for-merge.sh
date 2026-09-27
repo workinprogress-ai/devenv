@@ -58,6 +58,11 @@ usage() {
   echo "  --reviewer <handle>  Add a reviewer (can be repeated)" >&2
   echo "  --assignee <handle>  Add an assignee (default: @me)" >&2
   echo "  --label <name>       Add a label (can be repeated)" >&2
+  echo "  --at <hash-or-title> Partial-branch mode: open the PR from a merge" >&2
+  echo "                       branch (merge/<short-hash>-<branch>) created at the" >&2
+  echo "                       chosen commit — for trailing merges of a ready prefix" >&2
+  echo "                       while work continues; interactive commit picker when" >&2
+  echo "                       the value is 'pick'" >&2
   exit "$EXIT_GENERAL_ERROR"
 }
 
@@ -73,6 +78,7 @@ ASSIGNEES=("@me")
 LABELS=()
 ISSUE_NUMBER=""
 NO_ISSUE="false"
+AT_COMMIT=""
 
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
@@ -99,6 +105,8 @@ while [[ $# -gt 0 ]]; do
       ASSIGNEES+=("$2"); shift 2 ;;
     --label)
       LABELS+=("$2"); shift 2 ;;
+    --at)
+      AT_COMMIT="$2"; shift 2 ;;
     -h|--help)
       usage ;;
     *)
@@ -136,7 +144,7 @@ if [ -n "$ISSUE_NUMBER" ]; then
   fi
 fi
 
-CC_REGEX='^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert|merge|patch|minor|major)(\([^)]+\))?(!)?: .+'
+CC_REGEX='^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert|patch|minor|major)(\([^)]+\))?!?: .+'
 if ! [[ "$PR_TITLE" =~ $CC_REGEX ]]; then
   echo "Error: PR title must follow Conventional Commits (e.g., feat(api): add feature)." >&2
   exit "$EXIT_GENERAL_ERROR"
@@ -190,6 +198,70 @@ if [ "$CURRENT_BRANCH" = "$TARGET_BRANCH" ]; then
   exit "$EXIT_GENERAL_ERROR"
 fi
 
+# Fail fast: reject PR creation when the merge range carries WIP commits
+# (docs/Commit-Conventions.md — WIP never reaches master). Partial-branch
+# merge branches (merge/<short-hash>-*) scan their own range instead.
+# Partial-branch mode (--at) skips the feature-branch guard by design: its
+# whole purpose is opening a PR from a ready prefix while WIP continues past
+# it on the feature branch. The merge branch it creates carries only the
+# prefix commits and gets its own strict guard below — a merge branch must
+# never carry WIP (docs/Commit-Conventions.md).
+if [ -z "$AT_COMMIT" ]; then
+  if [[ "$CURRENT_BRANCH" == merge/* ]]; then
+    GUARD_RANGE="${TARGET_BRANCH}..${CURRENT_BRANCH}"
+  else
+    GUARD_RANGE="${TARGET_BRANCH}..HEAD"
+  fi
+  if ! wip_range_guard "$GUARD_RANGE" "PR creation range"; then
+    exit "$EXIT_GENERAL_ERROR"
+  fi
+fi
+
+# --at: open the PR from a merge branch created at the chosen commit
+# (merge/<short-hash>-<branch>), so a ready prefix can merge while work
+# continues on the feature branch.
+if [ -n "$AT_COMMIT" ]; then
+  if [ "$AT_COMMIT" = "pick" ]; then
+    mapfile -t COMMITS < <(git log "${TARGET_BRANCH}..${CURRENT_BRANCH}" --format='%h%x09%s' 2>/dev/null)
+    if [ ${#COMMITS[@]} -eq 0 ]; then
+      echo "No commits found in ${TARGET_BRANCH}..${CURRENT_BRANCH} to pick from." >&2
+      exit "$EXIT_GENERAL_ERROR"
+    fi
+    if [ -t 0 ] && command -v fzf >/dev/null 2>&1; then
+      AT_COMMIT="$(printf '%s\n' "${COMMITS[@]}" | fzf --with-nth=2 --delimiter='\t' --header='Pick the commit to merge up to' | cut -f1)"
+    else
+      echo "Non-interactive mode — pick a commit:" >&2
+      for i in "${!COMMITS[@]}"; do
+        echo "  $((i + 1)). ${COMMITS[$i]}" >&2
+      done
+      echo "Re-run with --at <hash> (non-interactive pick is not supported)." >&2
+      exit "$EXIT_GENERAL_ERROR"
+    fi
+  fi
+  # Resolve hash-or-title to a full hash
+  RESOLVED_HASH="$(git rev-parse --verify --quiet "${AT_COMMIT}^{commit}" || true)"
+  if [ -z "$RESOLVED_HASH" ]; then
+    RESOLVED_HASH="$(git log "${TARGET_BRANCH}..${CURRENT_BRANCH}" --format='%H %s' 2>/dev/null | awk -v t="$AT_COMMIT" 'index($0, t){print $1; exit}')"
+  fi
+  [ -n "$RESOLVED_HASH" ] || { echo "Error: --at '$AT_COMMIT' does not resolve to a commit in ${TARGET_BRANCH}..${CURRENT_BRANCH}." >&2; exit "$EXIT_GENERAL_ERROR"; }
+  # Remember where the user was: after the PR opens we put them back, so
+  # their next commit doesn't silently land on the merge branch.
+  ORIGINAL_BRANCH="$CURRENT_BRANCH"
+  SHORT_HASH="$(git rev-parse --short "$RESOLVED_HASH")"
+  MERGE_BRANCH="merge/${SHORT_HASH}-${CURRENT_BRANCH}"
+  if git show-ref --verify --quiet "refs/heads/${MERGE_BRANCH}"; then
+    echo "Merge branch ${MERGE_BRANCH} already exists — reusing it." >&2
+    git checkout -q "$MERGE_BRANCH"
+  else
+    git checkout -q -b "$MERGE_BRANCH" "$RESOLVED_HASH"
+  fi
+  CURRENT_BRANCH="$MERGE_BRANCH"
+  if ! wip_range_guard "${TARGET_BRANCH}..${CURRENT_BRANCH}" "merge-branch range"; then
+    git checkout -q "${SOURCE_BRANCH:-$(git rev-parse --abbrev-ref HEAD)}" 2>/dev/null || true
+    exit "$EXIT_GENERAL_ERROR"
+  fi
+fi
+
 # Get repo spec
 read -ra repo_spec <<< "$(get_repo_spec)"
 
@@ -241,6 +313,12 @@ if [ -n "$PR_URL" ]; then
   PR_NUM=$(basename "$PR_URL")
   source "$(dirname "$0")/../lib/pr-events.bash" 2>/dev/null || true
   pr_events_signal_for_pr created "$PR_NUM" 2>/dev/null || true
+fi
+
+# --at mode: return the user to the branch they started on — the merge
+# branch is a vehicle for the PR, not a place to keep working.
+if [ -n "${ORIGINAL_BRANCH:-}" ] && [ "$(git rev-parse --abbrev-ref HEAD)" = "$CURRENT_BRANCH" ] && [ "$CURRENT_BRANCH" != "$ORIGINAL_BRANCH" ]; then
+  git checkout -q "$ORIGINAL_BRANCH"
 fi
 
 echo "$PR_URL"

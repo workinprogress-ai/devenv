@@ -296,7 +296,7 @@ Wait for the choice. Do not proceed without one. Do not steer around the estimat
 1. **Write the failing test first** (if applicable). Show it; wait for `y / edit / skip` before creating the file. A RED repro from verify mode may already satisfy this — run it to confirm it fails for the diagnosed reason.
 2. **Apply the fix.** Show each change as a before/after block; wait for `y / n / edit` per change before applying.
 3. **Update docs only if the bug revealed an actual documentation gap.** Never speculatively.
-4. **Offer a commit suggestion** — message text only, following the workspace commitlint convention (`fix(scope): subject`; split `test:` + `fix:` when both substantial). Never run or suggest `git commit`.
+4. **Offer a commit suggestion** — message text only, following the workspace commitlint convention (`fix(scope): subject`; split `test:` + `fix:` when both substantial). Types are master-relative ([Commit Conventions](../../../docs/Commit-Conventions.md)) — each commit must stand alone on master under rebase merges. Never run or suggest `git commit`.
 
 **Scope-growth stop:** if the fix turns out wider than the findings suggested:
 

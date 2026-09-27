@@ -1649,13 +1649,13 @@ These are internal scripts (underscore prefix): they have no depth-1 `tools/` en
 **Trigger points:**
 
 - Skills fire them at lifecycle boundaries (grooming completion, plan approval, implementation kickoff, PR open, review completion)
-- Local PR tooling fires `_on_begin_review` when a PR is created via `pr-create-for-merge` and `_on_merge` when a merge completes via `pr-merge-pull-request` / `pr-complete-merge`
+- Local PR tooling fires `_on_begin_review` when a PR is created via `pr-create-for-merge` and `_on_merge` when a merge completes via `pr-merge`
 - Issues are linked via closing keywords in the PR body (`Closes #N`, `Fixes #N`, …), deduplicated, capped at 10 per PR
 - Everything is local: signals run under your own `gh` authentication (keychain). Web-UI merges fire nothing — status changes you make outside local tooling are your own
 
 **Guarantees:** best-effort (signals exit 0 and never block work), idempotent (re-signaling repairs drift), config-driven (Status values live in `tools/config/skill-events.yml` + `devenv.config [workflows]` — callers never name statuses or projects).
 
-**Which project/PR tools participate:** `pr-create-for-merge` (open), `pr-merge-pull-request` and `pr-complete-merge` (merge, via the shared `merge_pr` path). `pr-create-for-review` does **not** fire signals — its PRs are non-mergeable review artifacts, not a review-lifecycle boundary.
+**Which project/PR tools participate:** `pr-create-for-merge` (open), `pr-merge` (merge, via the shared `merge_pr` path). `pr-create-for-review` does **not** fire signals — its PRs are non-mergeable review artifacts, not a review-lifecycle boundary.
 
 ### `project-add-issue`
 
@@ -2751,7 +2751,7 @@ tools/scripts/repo-update-config.sh <repo-path> [--type <type>]
 This script reads the repository type from either the command-line argument or by querying the provider for repository topics. It then applies the standardized configuration for that type, including:
 
 - **GitHub rulesets** - Branch protection rules (requires GitHub Pro or public repository)
-- **Merge types** - Allowed merge strategies (merge, squash, rebase) per type
+- **Merge types** - Allowed merge strategies (merge, squash, rebase) per type. Org policy configures rebase-only ([Commit Conventions](./Commit-Conventions.md))
 - **Template setting** - Marks template repositories for "Use this template" button
 - **PR branch deletion** - Automatic deletion of PR branches after merge
 - **Repository features** - Wiki, Issues, Discussions, Projects, Auto-merge, Update branch, Forking, and squash PR title settings
@@ -2825,6 +2825,19 @@ service:
 - `yq` (YAML processor)
 
 **Related:** See [repo-create](#repo-create) for initial repository creation details, and [Repo Creation Standards (repo-create.sh)](./Forking.md#repo-creation-standards-repo-createsh) in the Forking Guide for configuration options.
+
+## Special / Rarely-Used Tooling
+
+`tools/special/` holds scripts that are runnable again, on purpose, later — but
+are not part of any daily workflow and are intentionally **not on `PATH`**. Each
+script's entry in [`tools/special/README.md`](../tools/special/README.md) states
+what it does, when to run it, and its blast radius. Invoke by explicit path:
+`bash tools/special/<script>.sh`.
+
+- **`repo-reset-merge-config.sh`** — org-wide re-apply of repo-type rulesets and
+  merge methods (rebase-only policy); dry-run report by default, `--apply` to
+  mutate. Use after config changes or when onboarding a fork with inherited
+  merge settings.
 
 ## Shared Libraries
 

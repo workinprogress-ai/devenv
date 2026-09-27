@@ -67,7 +67,7 @@ load ../test_helper
   local key_scripts=(
     "$PROJECT_ROOT/tools/scripts/repo-get.sh"
     "$PROJECT_ROOT/tools/scripts/repo-update-all.sh"
-    "$PROJECT_ROOT/tools/scripts/pr-complete-merge.sh"
+    "$PROJECT_ROOT/tools/scripts/pr-merge.sh"
   )
   
   for script in "${key_scripts[@]}"; do

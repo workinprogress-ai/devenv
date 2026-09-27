@@ -55,6 +55,42 @@ The important rule is that you do not skip to a lower layer when the uncertainty
 
 Progress note: progress at any layer is a **derived view** over ground truth (task checkboxes, issue state, PRs, labels, git) — never stored. See [Progress Reporting](./Progress-Reporting.md) for the roll-up model, the `Progress:` snapshot-line convention, and `/devenv-board`.
 
+## Merge policy
+
+Org repos merge by **rebase** — every feature-branch commit lands on master as its
+own unit, linearized in order. The full contract (master-relative commit types,
+breaking-change handling, WIP rules) is [Commit Conventions](./Commit-Conventions.md);
+the delivery-flow consequences live here.
+
+**Benefits of rebase over squash:**
+
+- **Durable history** — every commit is a first-class deliverable on master; bugs
+  trace to the commit that introduced them, and `git revert` works per commit
+  (squash made single-commit revert impossible).
+- **Progressive partial merges** — a ready prefix of a branch can merge while work
+  continues (`pr-create-for-merge --at`), instead of waiting for the whole branch.
+- **Honest types** — commit types declare their relation to master, so history
+  reads as what actually happened, not as one averaged blob.
+
+**Consequences you must plan for:**
+
+- **No squash fallback for mid-stack conflicts.** If a middle commit conflicts on
+  rebase, the fix is to rebase — never a squash around it. Recovery:
+  1. `git fetch origin`
+  2. `git rebase origin/master` — stop at the conflicting commit
+  3. Resolve, `git add`, `git rebase --continue` (repeat per commit)
+  4. If the branch becomes unrecoverable mid-rebase, `git rebase --abort` returns
+     it to the pre-rebase state; then restructure locally before retrying.
+  The AI never runs these — the user does (no-mutating-git rule); skills surface
+  the exact commands.
+- **Every commit must stand alone.** Introduce-then-reverse breaking pairs get
+  restructured *before* merge; a commit that only patches its sibling gets squashed
+  into it locally first. `/devenv-commit` assesses this before each commit enters
+  history.
+- **`WIP:` commits never reach master.** The merge tooling hard-rejects WIP-bearing
+  ranges; `git-unwip` soft-resets past them. The `git wip` escape hatch stays
+  available for mid-work saves — it just cannot ride a PR in.
+
 ## Default delivery flow
 
 This is the normal happy path. The artifacts flow through skills; in parallel, the issues carrying them advance through the status column — TBD, To-Groom, Ready, Implementing, Review, Merged, Staging, Production — driven by the signals those same skills and tools fire. The card mechanics (what moves a status, how parents track children) are defined in [Issue Workflow](./Issue-Workflow.md); this page covers the artifact flow.

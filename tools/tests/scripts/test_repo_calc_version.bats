@@ -62,3 +62,35 @@ teardown() {
   [ "$status" -eq 0 ]
   [ "$output" = "2.0.0" ]
 }
+
+@test "repo-calc-version analyzes every commit in a multi-commit merge range" {
+  # Rebase merges land a branch as multiple commits, so the analyzer must
+  # see each one and take the highest bump across the range.
+  git tag v1.2.0
+  echo "feature" >> README.md
+  git add README.md
+  git commit -q -m "feat: add thing"
+  echo "bugfix" >> README.md
+  git add README.md
+  git commit -q -m "fix: repair thing"
+
+  run bash "$PROJECT_ROOT/tools/scripts/repo-calc-version.sh"
+  [ "$status" -eq 0 ]
+  # minor from feat wins over patch from fix — both were seen
+  [ "$output" = "1.3.0" ]
+}
+
+@test "repo-calc-version takes major from breaking commit buried in a multi-commit range" {
+  git tag v1.2.0
+  echo "feature" >> README.md
+  git add README.md
+  git commit -q -m "feat: add thing"
+  git commit -q --allow-empty -m "chore: middle of the branch"
+  echo "breaking" >> README.md
+  git add README.md
+  git commit -q -m "fix!: reworked thing"
+
+  run bash "$PROJECT_ROOT/tools/scripts/repo-calc-version.sh"
+  [ "$status" -eq 0 ]
+  [ "$output" = "2.0.0" ]
+}

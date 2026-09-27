@@ -156,3 +156,68 @@ teardown() {
   [ "$status" -ne 0 ]
   [[ "$output" =~ "cannot be run on a review" ]]
 }
+
+@test "pr-create-for-merge rejects a branch whose range carries WIP commits" {
+  git checkout -b feature/wip-range >/dev/null 2>&1
+  echo "scratch" >> README.md
+  git add README.md
+  git commit -q -m "WIP: mid-work save"
+  echo "done" >> README.md
+  git add README.md
+  git commit -q -m "feat: finished change"
+  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "WIP: commits present in PR creation range" ]]
+  [[ "$output" =~ "WIP: mid-work save" ]]
+}
+
+@test "pr-create-for-merge accepts a clean range without WIP commits" {
+  git checkout -b feature/clean-range >/dev/null 2>&1
+  echo "clean" >> README.md
+  git add README.md
+  git commit -q -m "feat: clean change"
+  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "mock-owner/mock-repo/pull/123" ]]
+}
+
+@test "pr-create-for-merge --at creates a merge branch and opens the PR from it" {
+  git checkout -b feature/partial >/dev/null 2>&1
+  echo "one" >> README.md
+  git add README.md
+  git commit -q -m "feat: ready prefix"
+  local ready_hash
+  ready_hash="$(git rev-parse --short HEAD)"
+  echo "two" >> README.md
+  git add README.md
+  git commit -q -m "WIP: continues"
+
+  # --at picks the ready prefix; the merge branch skips the WIP tip, so the
+  # feature-branch WIP never enters the PR.
+  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: ready prefix" --issue 789 --at "$ready_hash" --repo-dir "$REPO_DIR"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "mock-owner/mock-repo/pull/123" ]]
+  git show-ref --verify --quiet "refs/heads/merge/${ready_hash}-feature/partial"
+  # Success path returns the user to the feature branch: the merge
+  # branch is a PR vehicle, not a place to keep working.
+  [ "$(git rev-parse --abbrev-ref HEAD)" = "feature/partial" ]
+}
+
+@test "pr-create-for-merge --at rejects an unresolvable commit" {
+  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: something" --issue 789 --at "no-such-hash" --repo-dir "$REPO_DIR"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "does not resolve to a commit" ]]
+}
+
+@test "pr-create-for-merge --at pick lists commits non-interactively without consuming input" {
+  git checkout -b feature/pick >/dev/null 2>&1
+  echo "x" >> README.md
+  git add README.md
+  git commit -q -m "feat: pickable"
+  # </dev/null severs stdin so the script cannot see a TTY — it must fall
+  # back to the numbered list and exit rather than launching fzf.
+  run bash -c '"$0" "$@" </dev/null' "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: something" --issue 789 --at pick --repo-dir "$REPO_DIR"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Non-interactive mode" ]]
+  [[ "$output" =~ "feat: pickable" ]]
+}

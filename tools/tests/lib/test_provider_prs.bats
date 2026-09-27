@@ -100,10 +100,10 @@ setup() {
     grep -q "^gh pr create -R org/repo --title T --body B --head h --base main$" "$STUB_CALL_LOG"
 }
 
-@test "prs merge: squash + delete-branch defaults pass through" {
-    run provider_prs_merge org/repo 33 --squash --delete-branch
+@test "prs merge: rebase + delete-branch defaults pass through" {
+    run provider_prs_merge org/repo 33 --rebase --delete-branch
     assert_success
-    grep -q "^gh pr merge 33 -R org/repo --squash --delete-branch$" "$STUB_CALL_LOG"
+    grep -q "^gh pr merge 33 -R org/repo --rebase --delete-branch$" "$STUB_CALL_LOG"
 }
 
 @test "prs merge: not issued when number is missing" {

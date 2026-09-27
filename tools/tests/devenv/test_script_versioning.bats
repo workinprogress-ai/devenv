@@ -65,16 +65,6 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "pr-complete-merge.sh has valid syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pr-complete-merge.sh"
-  [ "$status" -eq 0 ]
-}
-
-@test "pr-complete-merge.sh has set -euo pipefail" {
-  run grep "set -euo pipefail" "$PROJECT_ROOT/tools/scripts/pr-complete-merge.sh"
-  [ "$status" -eq 0 ]
-}
-
 @test "tooling-create-script.sh has valid syntax" {
   run bash -n "$PROJECT_ROOT/tools/scripts/tooling-create-script.sh"
   [ "$status" -eq 0 ]
