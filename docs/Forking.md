@@ -307,6 +307,7 @@ If you use `tools/scripts/repo-create.sh`, configure `tools/config/repo-types.ya
   - This is a repository-level setting that applies globally
   - Should match the ruleset's `allowed_merge_methods` for consistency
   - Both settings work together: this controls UI, ruleset enforces on protected branches
+  - Org policy: rebase-only ([Commit Conventions](./Commit-Conventions.md)) — every type's `allowedMergeTypes` is `[rebase]`
 - **PR branch deletion**: `deletePRBranchOnMerge` (boolean, default: true) - Automatically delete PR branches after merge
 - **Wiki**: `hasWiki` (boolean, default: false) - Enable/disable the Wiki feature
   - Set to `true` for documentation repositories where you want a wiki
@@ -479,7 +480,7 @@ service:
   naming_example: "service.platform.identity"
   mainBranch: master
   allowedMergeTypes:
-    - squash
+    - rebase
   rulesetConfigFile: ruleset-default.json
   post_creation_script: ".repo/post-create.sh"
   access:

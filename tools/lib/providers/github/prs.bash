@@ -89,7 +89,7 @@ provider_prs_create() {
     gh pr create "${repo_args[@]}" "$@"
 }
 
-# Merge a PR (squash default, matching current tooling).
+# Merge a PR (callers pass the method explicitly; the tooling policy default is rebase).
 # Usage: provider_prs_merge [repo] NUMBER [--squash|--merge|--rebase] [--delete-branch]
 provider_prs_merge() {
     local repo=""

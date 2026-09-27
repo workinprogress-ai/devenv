@@ -895,38 +895,31 @@ pr-create-for-review "review latest changes"
 
 ---
 
-### pr-complete-merge
+---
 
-Complete an existing PR from the current branch to the target branch using a Conventional Commits merge message.
+### pr-complete-merge (retired — use pr-merge)
 
-```
-pr-complete-merge [--force] <ISSUE_ID | --select | --no-issue-id> "<CommitMessage>" [REPO_DIR]
-```
-
-Examples:
-
-```bash
-pr-complete-merge 42 "feat(api): add user endpoint"
-pr-complete-merge --select "fix(auth): token refresh"
-pr-complete-merge --force --no-issue-id "chore: merge branch cleanup"
-```
+`pr-complete-merge` was consolidated into `pr-merge` (which carries `--select` and
+`--no-issue-id`); it no longer exists.
 
 ---
 
-### pr-merge-pull-request
+### pr-merge
 
 Merge an open pull request from the current branch.
 
 ```
-pr-merge-pull-request [commit-message] [--issue NUMBER] [--method squash|merge|rebase] [--base BRANCH] [--repo-dir PATH] [--branch NAME] [--force]
+pr-merge [commit-message] [--issue NUMBER | --select | --no-issue-id] [--method squash|merge|rebase] [--base BRANCH] [--repo-dir PATH] [--branch NAME] [--force]
 ```
 
 Examples:
 
 ```bash
-pr-merge-pull-request
-pr-merge-pull-request "feat(api): add user endpoint" --issue 42
-pr-merge-pull-request --method merge --base develop
+pr-merge
+pr-merge "feat(api): add user endpoint" --issue 42
+pr-merge --select "fix(auth): token refresh"
+pr-merge --force --no-issue-id "chore: merge branch cleanup"
+pr-merge --method merge --base develop
 ```
 
 ---

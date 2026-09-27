@@ -113,7 +113,22 @@ Show the proposed title; the user can edit before submission.
 - Throwaway/temporary code: <what scaffolding exists and its removal plan — omit if none>
 ```
 
-Issue references belong in the body, not the title, so the squash commit title stays conventional-commit compliant.
+Issue references belong in the body, not the title, so the PR title stays
+conventional-commit compliant on its own — under rebase merges every branch
+commit lands individually, and the PR title is the human-facing summary of the
+set.
+
+### Branch history gate (pre-flight)
+
+Before showing the draft, review `git log <default-branch>..HEAD` for atomic
+mergeability — under rebase, each commit merges on its own ([Commit
+Conventions](../../../docs/Commit-Conventions.md)):
+- every type is true relative to master, not to sibling commits;
+- no introduce-then-reverse breaking pairs — if found, suggest the restructure
+  (squash/reframe the pair); the **user runs any history mutation** — surface
+  the suggestion, never execute it;
+- no `WIP:` commits in the range (the wrapper's guard will reject the PR
+  anyway — catch it here with a friendlier message and point at `git-unwip`).
 
 Sections with no content get omitted — don't pad. Choose `Closes #N` only when this PR fully resolves the issue; use `Refs #N` for partial work so the issue stays open (never infer `Closes` for incomplete resolution).
 
@@ -131,6 +146,12 @@ User can opt into draft mode explicitly ("open as draft", "draft PR"). If they d
 3. Show the full draft in chat.
 4. Ask for edits / confirmation: "Open this PR? (y/n/edit)"
 5. On `y`: invoke `pr-create-for-merge "<title>" --issue <N> --body-file <draft>` (add `--draft` if requested; use `--no-issue` if no parent issue was found).
+   **Partial-branch mode:** when only a prefix of the branch's commits is
+   merge-ready (the rest is WIP), offer opening from a merge branch via
+   `--at <hash-or-title>` (or `--at pick` to choose interactively) — it creates
+   `merge/<short-hash>-<branch>` at the chosen commit and opens the PR from
+   there while work continues. The wrapper's WIP guard then applies to the
+   merge-branch range only, not the still-WIP feature-branch tip.
 6. On `edit`: incorporate the user's changes, re-show, re-confirm.
 7. On `n`: stop. Print the draft so the user can use it manually if they want.
 

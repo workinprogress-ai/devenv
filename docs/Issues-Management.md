@@ -315,7 +315,7 @@ git checkout -b feature/my-feature
 pr-create-for-merge
 
 # 5. After PR approval, merge via the wrappers — they signal Merged
-pr-complete-merge
+pr-merge
 
 # 6. Deploy to staging
 # (via your deployment process — signals Staging)

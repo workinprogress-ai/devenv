@@ -48,19 +48,12 @@ echo "https://github.com/test-org/test-repo/pull/1"
 EOF
     chmod +x "$TEST_TEMP_DIR/bin/pr-create-for-merge"
 
-    # Mock pr-merge-pull-request
-    cat > "$TEST_TEMP_DIR/bin/pr-merge-pull-request" <<'EOF'
+    # Mock pr-merge
+    cat > "$TEST_TEMP_DIR/bin/pr-merge" <<'EOF'
 #!/usr/bin/env bash
 exit 0
 EOF
-    chmod +x "$TEST_TEMP_DIR/bin/pr-merge-pull-request"
-
-    # Mock pr-complete-merge (end of the wizard's happy path)
-    cat > "$TEST_TEMP_DIR/bin/pr-complete-merge" <<'EOF'
-#!/usr/bin/env bash
-exit 0
-EOF
-    chmod +x "$TEST_TEMP_DIR/bin/pr-complete-merge"
+    chmod +x "$TEST_TEMP_DIR/bin/pr-merge"
 
     cd "$REPO_DIR"
 }

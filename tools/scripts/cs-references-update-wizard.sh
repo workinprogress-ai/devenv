@@ -489,7 +489,7 @@ main() {
         # ── Step 8: Merge PR ───────────────────────────────────────────────
 
         log_info "Merging PR for $repo_name..."
-        if ! (cd "$repo_dir" && pr-complete-merge --force --no-issue-id "$pr_title") 2>&1; then
+        if ! (cd "$repo_dir" && pr-merge --force --no-issue-id "$pr_title") 2>&1; then
             log_error "Failed to merge PR for $repo_name"
             prompt_user "Please merge manually, then press Enter."
             git -C "$repo_dir" checkout "$default_branch" 2>/dev/null || true

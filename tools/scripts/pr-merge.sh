@@ -5,52 +5,52 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 
 ################################################################################
-# pr-merge-pull-request.sh
+# pr-merge.sh
 #
 # Merge (complete) an open pull request from the current branch
 #
 # Usage:
-#   ./pr-merge-pull-request.sh [commit-message] [options]
+#   ./pr-merge.sh [commit-message] [options]
 #
 # Description:
 #   Finds the open PR from the current branch to the target branch (defaults to
-#   the repository's default branch) and merges it. Defaults to squash merge but
-#   supports merge commit and rebase via --method. If no commit message is
-#   provided, uses the PR title. Validates Conventional Commits format on the
-#   commit message. Deletes the source branch after merge.
+#   the repository's default branch) and merges it. The merge method applied
+#   when --method is omitted is policy, not tooling: it comes from the org/fork
+#   configuration. For squash merges the first line of the commit message (or
+#   the PR title when omitted) becomes the squash commit title, so it must
+#   follow Conventional Commits — that is the only method where a title
+#   convention is enforced. Draft PRs are refused unless --force.
 #
 # Options:
 #   [commit-message]      Commit message (first line must be Conventional Commits
 #                         format). If omitted, the PR title is used. Multi-line
 #                         supported: first line is title, remainder is body.
 #   --issue <number>      Issue number this PR addresses (optional)
-#   --method <method>     Merge method: squash (default), merge, rebase
+#   --method <method>     Merge method (provider-supported: squash, merge,
+#                         rebase). Omitted = org/fork policy default.
 #   --base <branch>       Target branch (default: repository's default branch)
 #   --repo-dir <path>     Repository directory (default: current directory)
 #   --force               Force merge even if checks have not passed
 #   --help                Show this help message
 #
 # Examples:
-#   # Squash merge using the PR title as commit message
-#   pr-merge-pull-request
+#   # Merge the open PR from the current branch (policy-default method)
+#   pr-merge
 #
-#   # Squash merge with a custom commit message
-#   pr-merge-pull-request "feat(api): add user endpoint"
+#   # Merge with a custom commit message
+#   pr-merge "feat(api): add user endpoint"
 #
 #   # With an issue reference
-#   pr-merge-pull-request "feat(api): add user endpoint" --issue 42
+#   pr-merge "feat(api): add user endpoint" --issue 42
 #
-#   # Merge commit instead of squash
-#   pr-merge-pull-request --method merge
-#
-#   # Rebase merge
-#   pr-merge-pull-request "fix(auth): token refresh" --method rebase
+#   # Merge commit instead of rebase
+#   pr-merge --method merge
 #
 #   # Force merge even if checks haven't passed
-#   pr-merge-pull-request --force
+#   pr-merge --force
 #
 #   # Target a specific base branch
-#   pr-merge-pull-request "feat: new feature" --issue 7 --base develop
+#   pr-merge "feat: new feature" --issue 7 --base develop
 #
 # Dependencies:
 #   - git
@@ -74,17 +74,22 @@ source "$DEVENV_TOOLS/lib/issue-operations.bash"
 
 usage() {
     cat << 'EOF' >&2
-Usage: pr-merge-pull-request [commit-message] [options]
+Usage: pr-merge [commit-message] [options]
 
 Merge an open pull request from the current branch.
 
 Arguments:
-  [commit-message]        Conventional Commits message (e.g., "feat(api): add endpoint").
-                          If omitted, the PR title is used with no body.
+  [commit-message]        Message whose first line must follow Conventional
+                          Commits for squash merges (e.g., "feat(api): add
+                          endpoint"). If omitted, the PR title is used with
+                          no body.
 
 Options:
   --issue <number>        Issue number this PR addresses (optional)
-  --method <method>       Merge method: squash (default), merge, rebase
+  --select                Pick the issue interactively (uses issue-select)
+  --no-issue-id           Explicitly indicate this PR has no associated issue
+  --method <method>       Merge method (squash, merge, rebase). Omitted =
+                          org/fork policy default.
   --base <branch>         Target branch (default: repository's default branch)
   --repo-dir <path>       Repository directory (default: current directory)
   --branch <name>         Source branch for PR lookup (default: current branch)
@@ -92,17 +97,19 @@ Options:
   --help                  Show this help message
 
 Examples:
-  pr-merge-pull-request
-  pr-merge-pull-request "feat(api): add user endpoint" --issue 42
-  pr-merge-pull-request --method merge
-  pr-merge-pull-request --force
+  pr-merge
+  pr-merge "feat(api): add user endpoint" --issue 42
+  pr-merge --method merge
+  pr-merge --force
 EOF
     exit "$EXIT_GENERAL_ERROR"
 }
 
 COMMIT_MESSAGE=""
 ISSUE_NUMBER=""
-MERGE_METHOD="squash"
+SELECT_ISSUE="false"
+NO_ISSUE_ID="false"
+MERGE_METHOD="rebase"
 TARGET_BRANCH=""
 SOURCE_BRANCH=""
 REPO_DIR="$(pwd)"
@@ -113,6 +120,10 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --issue)
             ISSUE_NUMBER="$2"; shift 2 ;;
+        --select)
+            SELECT_ISSUE="true"; shift ;;
+        --no-issue-id)
+            NO_ISSUE_ID="true"; shift ;;
         --method)
             MERGE_METHOD="$2"; shift 2 ;;
         --base)
@@ -133,6 +144,28 @@ set -- "${POSITIONAL[@]}"
 
 COMMIT_MESSAGE="${1:-}"
 
+if [ "$SELECT_ISSUE" = "true" ] && [ "$NO_ISSUE_ID" = "true" ]; then
+    log_error "Cannot specify both --select and --no-issue-id."
+    exit $EXIT_MISUSE
+fi
+if [ -n "$ISSUE_NUMBER" ] && [ "$NO_ISSUE_ID" = "true" ]; then
+    log_error "Cannot specify both --issue and --no-issue-id."
+    exit $EXIT_MISUSE
+fi
+if [ -n "$ISSUE_NUMBER" ] && [ "$SELECT_ISSUE" = "true" ]; then
+    log_error "Cannot specify both --issue and --select."
+    exit $EXIT_MISUSE
+fi
+
+if [ "$SELECT_ISSUE" = "true" ]; then
+    log_info "Selecting issue interactively..."
+    ISSUE_NUMBER="$("$DEVENV_TOOLS/scripts/issue-select.sh")" || true
+    if [ -z "$ISSUE_NUMBER" ]; then
+        log_error "No issue selected."
+        exit "$EXIT_GENERAL_ERROR"
+    fi
+fi
+
 if [ -n "$ISSUE_NUMBER" ]; then
     if ! validate_issue_number "$ISSUE_NUMBER"; then
         log_error "Issue number must be numeric and positive."
@@ -141,13 +174,10 @@ if [ -n "$ISSUE_NUMBER" ]; then
 fi
 
 # Validate merge method
-case "$MERGE_METHOD" in
-    squash|merge|rebase) ;;
-    *)
-        log_error "Invalid merge method: $MERGE_METHOD (must be squash, merge, or rebase)"
-        exit $EXIT_MISUSE
-        ;;
-esac
+if ! merge_method_allowed "$MERGE_METHOD"; then
+    log_error "Invalid merge method: $MERGE_METHOD (must be one of: $DEVENV_MERGE_METHODS)"
+    exit $EXIT_MISUSE
+fi
 
 # Validate git context
 if ! validate_git_context "$REPO_DIR" "main|master|review/*"; then
@@ -197,19 +227,25 @@ fi
 COMMIT_TITLE="$(printf "%s" "$COMMIT_MESSAGE" | head -n1)"
 COMMIT_BODY="$(printf "%s" "$COMMIT_MESSAGE" | tail -n +2 || true)"
 
-# Validate conventional commits format
-if ! validate_conventional_commits "$COMMIT_TITLE"; then
-    log_error "Commit message must follow Conventional Commits on the first line."
-    log_error "Got: '$COMMIT_TITLE'"
-    exit "$EXIT_GENERAL_ERROR"
-fi
-
-# Check if PR is a draft
+# Check if PR is a draft — refuse before any validation so the operator
+# isn't sent to fix a message on a PR that cannot merge anyway.
 if is_pr_draft "$PR_ID" "${repo_spec[*]}"; then
     if [ "$FORCE" = "true" ]; then
         log_warn "PR #$PR_ID is a draft. Proceeding due to --force."
     else
         log_error "PR #$PR_ID is a draft. Convert it to open before merging, or use --force."
+        exit "$EXIT_GENERAL_ERROR"
+    fi
+fi
+
+# Squash-only title validation: under rebase and merge commits the PR title
+# is discarded and the individual commits control versioning, so nothing is
+# enforced here. For a squash the first line becomes the squash commit title,
+# which must follow Conventional Commits.
+if [ "$MERGE_METHOD" = "squash" ]; then
+    if ! validate_conventional_commits "$COMMIT_TITLE"; then
+        log_error "Squash merge commit message must follow Conventional Commits on the first line."
+        log_error "Got: '$COMMIT_TITLE'"
         exit "$EXIT_GENERAL_ERROR"
     fi
 fi
@@ -225,6 +261,14 @@ fi
 
 # Build merge commit message
 MERGE_COMMIT_MESSAGE=$(build_merge_commit_message "$COMMIT_TITLE" "$COMMIT_BODY" "$PR_ID" "$ISSUE_NUMBER")
+
+# Defense-in-depth: reject WIP-bearing ranges at merge time, warn on
+# breaking markers (docs/Commit-Conventions.md). The create-time guard
+# fails fast; this catches anything that slipped past it.
+if ! wip_range_guard "${TARGET_BRANCH}..${CURRENT_BRANCH}" "merge range for PR #${PR_ID}"; then
+    exit "$EXIT_GENERAL_ERROR"
+fi
+breaking_marker_scan "${TARGET_BRANCH}..${CURRENT_BRANCH}"
 
 # Merge the PR
 if ! merge_pr "$PR_ID" "$MERGE_COMMIT_MESSAGE" "$MERGE_METHOD" "${repo_spec[*]}" "$FORCE"; then

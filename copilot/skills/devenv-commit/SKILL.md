@@ -63,7 +63,24 @@ Judge the staged work as a candidate for the permanent record:
 
 Derive the suggestion from the staged diff, in the target repo's convention:
 
-- **Oracle:** the repo's `commitlint.config.js` — read it; repos extend `@commitlint/config-conventional` and may add custom types (this workspace's own config adds `major`/`minor`/`patch`). The config, not memory, is the authority on legal types. No commitlint config → conventional-commits defaults; say which convention you're following.
+**Master-relative mergeability gate (pre-commit, advisory-hard).** Org repos merge
+by rebase — every commit lands on master as its own unit ([Commit
+Conventions](../../../docs/Commit-Conventions.md)). Before proposing the message,
+assess the commit as if it were merging to master now:
+- **Type is true relative to master** — `fix` means "fixes something on master",
+  not "fixes the previous commit on this branch"; a commit that only exists to
+  patch a sibling isn't mergeable and shouldn't be proposed as-is.
+- **Self-contained** — subject and change stand alone; no dangling references to
+  earlier branch-only commits.
+- **No introduce-then-reverse breaking pair** — if this commit introduces something
+  a later commit must undo (or vice versa), suggest restructuring before the commit
+  enters history (the user runs any rebase; surface the suggestion).
+- **No `WIP:` prefix outside the WIP lane** — WIP never reaches master; the merge
+  tooling hard-rejects it.
+When the assessment fails, propose the re-typed or restructured message (advisory-hard:
+propose concretely, explain why — the user saving the editor remains the permission gate).
+
+- **Oracle:** the repo's `commitlint.config.js` — read it; repos extend `@commit`lint/config-conventional` and may add custom types (this workspace's own config adds `major`/`minor`/`patch`). The config, not memory, is the authority on legal types. No commitlint config → conventional-commits defaults; say which convention you're following.
 - **Subject:** `type(optional-scope): subject` — imperative mood, ≤ 72 chars, no trailing period. Derived from the dominant change.
 - **Body:** short by default. Omit it for most commits — a well-written subject usually suffices. Add bullets only when the subject genuinely can't carry the information (non-obvious rationale, a deliberate trade-off, a follow-up obligation). Never pad; two high-value bullets beat five procedural ones.
 - **Plan context:** when an active plan file exists (`.local-artifacts/Plan-*.md` in the repo), read its goals/ACs so the message describes how the change serves the whole, not just the diff mechanics. The plan informs the *message* — plan task numbers still never appear in it.

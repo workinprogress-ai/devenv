@@ -208,15 +208,37 @@ extract_issue_from_pr() {
 # PR State & Validation Functions
 # ============================================================================
 
+# The canonical conventional-commit type enum, matching commitlint.config.js
+# type-enum (docs/Commit-Conventions.md is the contract). Keep in sync with
+# commitlint.config.js — both derive from the same list.
+DEVENV_COMMIT_TYPES='feat fix chore docs style refactor perf test build ci revert patch minor major'
+
+# Single source for merge methods the tooling may use. Wrappers validate
+# against this list; do not hand-maintain per-script copies.
+DEVENV_MERGE_METHODS='squash merge rebase'
+
 # Validate conventional commits format
 # Args: $1 - commit message title line
 # Returns: 0 if valid, 1 otherwise
 validate_conventional_commits() {
     local title="${1:-}"
     [ -n "$title" ] || return 1
-    
-    local regex='^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert|merge|patch|minor|major)(\([^)]+\))?(!)?: .+'
+
+    local regex
+    regex="^($(echo "$DEVENV_COMMIT_TYPES" | tr ' ' '|'))(\([^)]+\))?(!)?: .+"
     [[ "$title" =~ $regex ]]
+}
+
+# Check a merge method against the whitelist
+# Args: $1 - method name
+# Returns: 0 if allowed, 1 otherwise
+merge_method_allowed() {
+    local method="${1:-}"
+    local m
+    for m in $DEVENV_MERGE_METHODS; do
+        [ "$m" = "$method" ] && return 0
+    done
+    return 1
 }
 
 # Validate git context (repo, clean WD, not on target branch)
@@ -301,7 +323,8 @@ build_merge_commit_message() {
 # PR Merge Operations
 # ============================================================================
 
-# Merge PR with squash
+# Merge PR with squash (legacy single-purpose wrapper retained for callers
+# that explicitly request squash; the policy default is rebase)
 # Args: $1 - PR number
 # Args: $2 - commit message
 # Args: $3 - optional repo spec
@@ -320,27 +343,27 @@ merge_pr_squash() {
     provider_prs_merge "$prov_repo" "$pr_num" --squash --delete-branch --body "$commit_msg" 2>&1
 }
 
-# Merge PR with a specified method (squash, merge, or rebase)
+# Merge PR with a specified method (rebase, merge, or squash)
 # Args: $1 - PR number
 # Args: $2 - commit message
-# Args: $3 - merge method (squash, merge, rebase)
+# Args: $3 - merge method (rebase, merge, squash)
 # Args: $4 - optional repo spec
 # Args: $5 - optional "true" to force merge with --admin (bypass checks)
 # Returns: 0 on success, 1 on failure
 merge_pr() {
     local pr_num="${1:-}"
     local commit_msg="${2:-}"
-    local method="${3:-squash}"
+    local method="${3:-rebase}"
     local repo_spec="${4:-}"
     local force="${5:-false}"
     
     # shellcheck disable=SC2015
     [ -n "$pr_num" ] && [ -n "$commit_msg" ] || { log_error "PR number and commit message required"; return 1; }
     
-    case "$method" in
-        squash|merge|rebase) ;;
-        *) log_error "Invalid merge method: $method (must be squash, merge, or rebase)"; return 1 ;;
-    esac
+    if ! merge_method_allowed "$method"; then
+        log_error "Invalid merge method: $method (must be one of: $DEVENV_MERGE_METHODS)"
+        return 1
+    fi
     
     local subject body
     subject="$(printf "%s" "$commit_msg" | head -n1)"
@@ -370,6 +393,80 @@ merge_pr() {
         pr_body=$(provider_prs_view "${repo_spec#-R }" "$pr_num" --json body --jq '.body' 2>/dev/null || true)
         pr_events_signal merged "$pr_body" || true
     fi
+    return 0
+}
+
+# ============================================================================
+# Merge-range guards (rebase merge policy — docs/Commit-Conventions.md)
+# ============================================================================
+
+# Scan a commit range for WIP: commits (anchored subject prefix, matching
+# git-unwip detection). Prints the offending subjects, one per line.
+# Args: $1 - range (e.g. "master..HEAD", "master..merge/abc123-branch")
+# Returns: 0 if the range is WIP-free, 1 if any WIP: commit is present
+wip_range_scan() {
+    local range="${1:-}"
+    [ -n "$range" ] || { log_error "wip_range_scan: range is required"; return 1; }
+
+    # Match the anchored WIP: prefix on the subject (same model as
+    # wip-gate.sh / git-unwip). Never match on hash-relative offsets:
+    # short-hash length auto-scales with repo size, so an offset regex
+    # would silently stop matching — the gate must not fail open.
+    local offenders
+    offenders=$(git log "$range" --format='%h %s' 2>/dev/null | grep ' WIP:' || true)
+    if [ -n "$offenders" ]; then
+        printf '%s\n' "$offenders"
+        return 1
+    fi
+    return 0
+}
+
+# Hard-reject guard: fail when the merge range contains WIP: commits.
+# The guard range for a merge branch (merge/<short-hash>-<branch>) is
+# master..merge/<hash>-* regardless of feature-branch state — merge
+# branches must never carry WIP.
+# Args: $1 - range; $2 - optional context label for log messages
+# Returns: 0 (range clean) or 1 (WIP present — logged and rejected)
+wip_range_guard() {
+    local range="${1:-}"
+    local context="${2:-merge range}"
+
+    local offenders
+    if ! offenders=$(wip_range_scan "$range"); then
+        log_error "WIP: commits present in ${context} (${range}) — merge rejected."
+        log_error "Offending commits:"
+        printf '%s\n' "$offenders" | while IFS= read -r line; do
+            log_error "  $line"
+        done
+        log_error "Recovery: git-unwip (soft-reset past the WIP) or finish the work into real commits."
+        return 1
+    fi
+    return 0
+}
+
+# Soft warning: list commits in the merge range carrying breaking markers
+# (! before the colon or a BREAKING CHANGE footer). Warns only — the human
+# confirms each breaking claim is real before the merge proceeds.
+# Args: $1 - range
+# Returns: 0 always (warning surface, not a gate)
+breaking_marker_scan() {
+    local range="${1:-}"
+    [ -n "$range" ] || return 0
+
+    local breaking
+    breaking=$(git log "$range" --format='%h %s' 2>/dev/null \
+        | grep -E '^[0-9a-f]{7,} [a-z]+(\([^)]*\))?!:' || true)
+    local footer_hits
+    footer_hits=$(git log "$range" --format='C %h %s%n%b' 2>/dev/null | awk '
+        /^C [0-9a-f]/ { cur = substr($0, 3) }
+        /^BREAKING CHANGE[ :=]/ && cur != "" { print cur " (BREAKING CHANGE footer)"; cur = "" }
+    ' || true)
+    [ -z "$breaking" ] || printf '%s\n' "$breaking" | while IFS= read -r line; do
+        log_warn "Breaking marker in range: $line"
+    done
+    [ -z "$footer_hits" ] || printf '%s\n' "$footer_hits" | while IFS= read -r line; do
+        log_warn "Breaking marker in range: $line"
+    done
     return 0
 }
 

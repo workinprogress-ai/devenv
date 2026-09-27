@@ -45,7 +45,7 @@ Statuses are **revocable current-state**. A merged feature whose review discover
 | To-Groom → Ready | grooming skill closes (`_on_end_grooming`); planning approvals hold Ready |
 | Ready → Implementing | implementation skills begin (`_on_begin_implementation`); **or derived**: first child to activate puts the parent here |
 | Implementing → Review | PR opens (`pr-create-for-merge` → `_on_begin_review`); implementation skills end |
-| Review → Merged | merge completes (`pr-merge-pull-request` / `pr-complete-merge` → `_on_merge`) |
+| Review → Merged | merge completes (`pr-merge` → `_on_merge`) |
 | Merged → Staging → Production | deploys — `workflow-signal` until observers exist |
 
 The full event catalog is `workflow-signal --list`. Manual corrections at any boundary: `workflow-signal <event> <issue>...`, or just `workflow-signal` for the interactive "What happened?" picker.

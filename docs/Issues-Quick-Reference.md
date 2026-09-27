@@ -284,7 +284,7 @@ pr-create-for-merge   # signals Review on open
 
 ```bash
 # After PR approval/merge — merge wrappers signal Merged
-pr-complete-merge
+pr-merge
 
 # After staging validation — deploy process signals Staging
 

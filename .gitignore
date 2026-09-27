@@ -45,9 +45,14 @@ tools/custom/
 !tools/config
 !tools/templates
 !tools/git-hooks/
-DS_Store
+!tools/special/
 
 # Ignore locally produced temporary artifacts
 .prompts/
 .local-artifacts/
 .local-artifacts/*
+
+# Ignore garbage files that MacOS and other systems might produce
+.DS_Store
+Thumbs.db
+Desktop.ini

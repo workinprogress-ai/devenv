@@ -65,7 +65,7 @@ types:
     naming_example: "planning.development.main or planning.roadmap"
     mainBranch: master
     allowedMergeTypes:
-      - squash
+      - rebase
     deletePRBranchOnMerge: true
     hasWiki: false
     hasIssues: true
@@ -95,7 +95,6 @@ types:
     naming_example: "docs.api.reference, docs.user-guide, or docs.architecture"
     mainBranch: master
     allowedMergeTypes:
-      - squash
       - rebase
     deletePRBranchOnMerge: true
     hasWiki: true
@@ -127,7 +126,7 @@ types:
     naming_example: "template.service or template.web-app"
     mainBranch: master
     allowedMergeTypes:
-      - squash
+      - rebase
     deletePRBranchOnMerge: true
     hasWiki: false
     hasIssues: true
@@ -158,7 +157,6 @@ types:
     naming_example: "service.platform.identity or service.deathstar.user-profile"
     mainBranch: master
     allowedMergeTypes:
-      - squash
       - rebase
     deletePRBranchOnMerge: true
     hasWiki: false
@@ -189,7 +187,6 @@ types:
     naming_example: "gateway.platform.main or gateway.deathstar.api"
     mainBranch: master
     allowedMergeTypes:
-      - squash
       - rebase
     deletePRBranchOnMerge: true
     hasWiki: false
@@ -220,7 +217,6 @@ types:
     naming_example: "app.web.portal or app.web.user-dashboard"
     mainBranch: master
     allowedMergeTypes:
-      - squash
       - rebase
     deletePRBranchOnMerge: true
     hasWiki: false
@@ -251,7 +247,6 @@ types:
     naming_example: "lib.cs.common.utilities or lib.cs.platform.auth.core"
     mainBranch: master
     allowedMergeTypes:
-      - squash
       - rebase
     deletePRBranchOnMerge: true
     hasWiki: false
@@ -282,7 +277,6 @@ types:
     naming_example: "pkg.ts.ui-components or pkg.ts.api-client"
     mainBranch: master
     allowedMergeTypes:
-      - squash
       - rebase
     deletePRBranchOnMerge: true
     hasWiki: false

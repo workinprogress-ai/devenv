@@ -221,7 +221,13 @@ Then:
 
 The AI never commits. At the end of the summary (or if the user asks at any point), offer a conventional commit message suggestion.
 
-Follow the workspace's commitlint convention: `type(optional-scope): subject` where type is one of `fix`, `style`, `refactor`, `feat`, `docs`, `perf`, `test`, `chore`.
+Follow the workspace's commitlint convention: `type(optional-scope): subject`
+where the type comes from the repo's `commitlint.config.js` type-enum (this
+workspace: `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`,
+`revert`, `style`, `test`, plus bump types `major`, `minor`, `patch`). Types are
+master-relative — see [Commit Conventions](../../../docs/Commit-Conventions.md).
+Under rebase merges each commit lands individually, so a fix-up of PR feedback
+must stand alone on master, not reference "the previous commit".
 
 **If changes are small and cohesive** (e.g. all nits): suggest a single commit:
 ```

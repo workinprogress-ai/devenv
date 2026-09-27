@@ -90,7 +90,7 @@ Fetch-only and never checks out — cache working copies stay on the default bra
 
 **Plan↔branch convention:** `Plan-issue-<N>-*.md` ↔ branches matching `issue-<N>*` or `<N>-*` in cached repos (the same pattern `/devenv-open-pr` uses to extract parent issues from branch names).
 
-**Merge-style caveat:** the unmerged/landed heuristics assume merge commits preserve branch history. Under squash-merge workflows, PR-based detection (merged PRs referencing the issue) is the merge-style-safe alternative.
+**Merge-style caveat:** the unmerged/landed heuristics assume merge commits preserve branch history. Org repos use rebase merges, which also preserve commits (linearized onto master), so branch-derived heuristics stay valid. Under other merge styles — squash in particular, which collapses the branch into one commit — PR-based detection (merged PRs referencing the issue) is the merge-style-safe alternative.
 
 ## Cross-references
 

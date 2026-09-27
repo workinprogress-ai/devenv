@@ -127,7 +127,7 @@ The `tools/` folder contains workspace-specific wrappers around common CLIs (`gh
 Tool coverage by domain:
 
 - **Issue management — `issue-*` tools exclusively** (see the rule above): reads, writes, search, artifacts, grooming.
-- **PR operations — `pr-*` wrappers**: `pr-get`, `pr-list`, `pr-diff`, `pr-comment`, `pr-review-comment`, `pr-threads-get`, `pr-thread-reply`, `pr-thread-resolve`, `pr-create-for-merge`, `pr-create-for-review`, `pr-complete-merge`, `pr-merge-pull-request`, `pr-cleanup-review-branches`, `pr-get-review-link`, `pr-get-merge-link`. Use them for every PR operation they cover.
+- **PR operations — `pr-*` wrappers**: `pr-get`, `pr-list`, `pr-diff`, `pr-comment`, `pr-review-comment`, `pr-threads-get`, `pr-thread-reply`, `pr-thread-resolve`, `pr-create-for-merge`, `pr-create-for-review`, `pr-merge`, `pr-cleanup-review-branches`, `pr-get-review-link`, `pr-get-merge-link`. Use them for every PR operation they cover.
 - **Project boards — `project-*` wrappers**: `project-add-issue`, `project-update-issue`, `project-list-for-issue`.
 - **CI pipelines — `pipelines-*` wrappers**: status, list, run, rerun, watch, artifacts (route through the provider `actions` domain).
 - **Repository inspection — `release-list`, `policy-export`, `issue-types`, `artifacts-list`**: releases, repository policies, configured issue types, GitHub Packages.
@@ -140,6 +140,18 @@ Full invocation signatures for the wrappers live in the [GitHub protocol referen
 **Issue tooling is unconditional.** The issue-tools rule above applies everywhere — inside skills, outside skills, quick ops, ad-hoc requests mid-session. There is no "gh-direct default" for issues for a skill mandate to override; the mandate runs in the other direction only: a skill may *add* requirements (e.g. grooming's `--no-template` determinism), never relax the wrapper rule.
 
 For `git`: prefer `git-*` wrappers when one exists for a non-trivial operation; for standard read-only inspection use `git log`, `git diff`, `git status` etc. directly. The same applies to `dotnet`/test wrappers.
+
+### Commit and merge policy
+
+Org repos merge by **rebase** — every commit lands on master as its own unit; squash
+is disabled. The canonical contract is [docs/Commit-Conventions.md](docs/Commit-Conventions.md);
+skills cite it rather than restating the rules. The short form: commit types are
+**master-relative** (`fix` = fixes something on master, not "fixes the previous
+commit on this branch"); every commit must be individually mergeable; commit
+granularity follows mergeability, not phase boundaries. History restructuring
+(squashing introduce-then-reverse breaking pairs, rebasing) is **user-run** — the
+AI surfaces suggestions only. `WIP:` commits never reach master (the merge tooling
+enforces this; `git-unwip` recovers).
 
 ### Language policy
 
