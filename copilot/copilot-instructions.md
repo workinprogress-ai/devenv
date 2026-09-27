@@ -153,6 +153,10 @@ granularity follows mergeability, not phase boundaries. History restructuring
 AI surfaces suggestions only. `WIP:` commits never reach master (the merge tooling
 enforces this; `git-unwip` recovers).
 
+### Name the frame before any repository mutation
+
+When a repository-content edit (or any tracker mutation beyond the active skill's own lane) happens under a skill, the governing frame is named in one line at the mutation point — e.g. "That edit is sanctioned by the delegate handback window" or "This is a chat side action: issue metadata only, not repository content." The line is cheap; it forces the frame choice to be *made* rather than assumed, and makes every mutation auditable afterward. Prefer session discipline (docs/Workflow.md — one session, one concern; fork rather than interleave) so this rule rarely has to arbitrate.
+
 ### Language policy
 
 **Internal reasoning (thinking):** the user's language, always. Reason about the work in whatever language the user is writing in.

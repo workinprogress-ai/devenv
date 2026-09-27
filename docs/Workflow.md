@@ -170,6 +170,38 @@ Recommended for work where pre-commit review matters: run **two chat sessions** 
 
 The point is **separation of concerns**: the reviewer session stays unpolluted from partner bias — a session that wrote the code reviewing it itself is adversarially weak. Deep review lives in the reviewer session; the commit skill stays slim (staged-glance + marker gate only). Within a single pairing conversation, ordinary quick looks at each other's changes remain exactly that — conversation, not formal review rounds.
 
+## Session discipline (one session, one concern)
+
+The two-session pattern generalizes: keep sessions separated **by concern**, not just partner-vs-reviewer. Skill instructions do not unload — a skill invoked mid-session leaves its procedure (and any commission it opened) cohabiting with whatever runs next, and that cohabitation is where jurisdiction mistakes happen (a repository edit made under no clearly named frame; a read-only skill's rules silently bent). The discipline:
+
+1. **Fork when context is valuable.** Need something a *different* skill does best while a commission is open? Fork the session — the new session inherits the valuable context but carries **no live commission**. Do the other work there; close the fork when done. Returning to the original commission is explicit: go back to the original session and say "continue".
+2. **Fresh session + `/devenv-load` when context shouldn't travel.** When the prior session's residue would pollute the new work (drastically different skill, different concern, emotionally loaded history like a failed attempt), open clean and let `/devenv-load` rebuild repo context cheaply.
+3. **Keep skill changes clean.** Within one session, switch skills only when the new skill's frame is unambiguous and no open commission claims the action — and when a repository mutation happens under *any* skill, the governing frame gets named in one line (see the frame-naming rule in `copilot-instructions.md` §7).
+
+**The one rule under all of it: one session = one live frame that may mutate the repository or the tracker.** Read-only forks (chat, review, load) are disposable — no bookkeeping needed. Only sessions holding an open commission (pair engagement, delegate commission, an execution skill paused at a boundary) count against your attention.
+
+**The commission never forks.** Forking carries *context*; it never carries *authority*. Two sessions must never run the same plan — delegate's single-writer-per-plan rule is the existing enforcement; this discipline is how you avoid ever testing it.
+
+**Return is explicit.** A paused commission does not resume because you came back to its tab — it resumes when you tell it to ("continue", "proceed to phase 5"). This is the same gate delegation already requires; the discipline just makes it easy instead of requiring willpower against a cohabiting skill frame.
+
+### Worked example — the jurisdiction incident this rule prevents
+
+> 1. Delegate commission (phases 4–6) pauses at a checkpoint boundary in session A.
+> 2. User wants a scoped question answered → old habit: invoke `/devenv-chat` in session A. The commission's handback window and chat's read-only rule now cohabit; neither knows the other is there.
+> 3. User then asks for a code edit (a TODO marker). Which frame governs? The AI must silently pick — and whichever it picks, the user cannot audit it. **This exact ambiguity produced a real diagnostic report.**
+>
+> Under session discipline: at step 2, **fork** — session B answers the chat question read-only, carrying all the useful context from A but zero authority to mutate. A code-edit request in B gets one of two clean answers: "that's the commission's work — session A, handback window" (return to A) or an explicit named-frame fix under B's own rules. At no point does an unauditable mutation happen.
+
+### Choosing the move
+
+| Situation | Move |
+|---|---|
+| Different skill, same context would help, commission open | **Fork** — do the side work in the fork, return to the original explicitly |
+| New task, prior session's frame/history would pollute it | **Fresh session** — optionally warmed by `/devenv-load` |
+| Same concern continues, no commission conflict | Stay in-session; normal skill switching rules apply |
+| Quick question mid-commission, read-only | Either: ask in the commission session (handback windows allow Q&A), or fork if you want the commission tab untouched |
+| Two sessions would touch the same plan | **Never** — the commission never forks; one writer per plan |
+
 ## Alternative delivery flows
 
 There are a few variations on the default flow that are still valid but less common. Some examples:
@@ -556,6 +588,44 @@ Existing-component feature request
 ```
 
 In Devenv, that usually maps to grooming first, with /devenv-design used only when the real need is one focused design question.
+
+### Session discipline scenarios
+
+Visual companions to the [Session discipline](#session-discipline-one-session-one-concern) rules — how the three moves play out in the common situations.
+
+**Scenario 1 — side request while a commission is open (fork).** A delegate commission pauses at a checkpoint; a question comes up that chat answers best. Fork, answer read-only in the fork, return to the commission explicitly:
+
+```mermaid
+flowchart TD
+    A["Session A<br/>delegate commission<br/>(paused at checkpoint)"] -->|"question<br/>best for chat"| F{{"Fork"}}
+    F --> B["Session B (fork)<br/>/devenv-chat<br/>read-only answer"]
+    B -->|"side request:<br/>code edit?"| J{{"Which frame governs?"}}
+    J -->|"commission's work"| RET["Return to Session A<br/>'continue' — handback window<br/>sanctions the minor fix"]
+    J -->|"truly standalone"| NF["Name the frame in one line<br/>then edit under B's own rules"]
+    A -->|"explicit 'continue'"| RES[Commission resumes<br/>phase 5]
+```
+
+The fork carries **context, never authority**: session B has everything useful from A except the commission — so no unauditable mutation is possible, and the "which frame governs?" branch always has a clean answer.
+
+**Scenario 2 — fresh start when context shouldn't travel (new session + load).** The prior session's frame or history would pollute the new work:
+
+```mermaid
+flowchart LR
+    OLD["Old session<br/>concern X done<br/>(or failed / wrong frame)"] -->|"new concern Y"| NS["New session<br/>empty window"]
+    NS --> L["/devenv-load<br/>repo context warm-up<br/>(read-only, writes nothing)"]
+    L --> W["Invoke the work skill<br/>warm, unpolluted start"]
+```
+
+**Scenario 3 — the never-case (two commissions on one plan).** The commission never forks — this is the one move the discipline forbids outright:
+
+```mermaid
+flowchart TD
+    A["Session A<br/>delegate commission<br/>plan P, paused"] -->|"new work item<br/>touches plan P"| FORK{{"Fork?"}}
+    FORK -->|"NO — never"| FIX["Route instead:<br/>return to A and let the<br/>commission's handback window<br/>take the work,<br/>or re-commission explicitly"]
+    FORK -.->|"attempting it anyway"| X["❌ Two writers on plan P<br/>colliding ticks, lost deviations<br/>(delegate single-writer rule<br/>stops this — don't test it)"]
+```
+
+Companion rule of thumb: **read-only forks are disposable** (chat, review, load — open, use, close, no bookkeeping); only sessions holding an open commission count against your attention.
 
 ## Upstream artifact routing
 

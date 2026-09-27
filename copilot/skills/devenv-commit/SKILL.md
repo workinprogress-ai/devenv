@@ -55,7 +55,7 @@ Run `devenv-marker-check` scoped to the staged files before proposing the commit
 
 Judge the staged work as a candidate for the permanent record:
 
-- **Atomic?** One concern per commit. Mixed concerns → suggest splitting: name the groups (files + suggested message each) and let the user stage per group; offer per-group commits through this skill.
+- **Atomic?** One concern per commit. Mixed concerns → suggest splitting: name the groups — each group's files as **full repo-root-relative paths** so the user can stage them directly (`git add <path>`) — plus a suggested message per group; let the user stage per group and offer per-group commits through this skill.
 - **Master-worthy?** Would we want this permanently in the record? Red flags: broken intermediate state, debugging scaffolding, throwaway experiments, changes whose message would have to apologize for them.
 - **Low-value verdict → suggest alternatives, never execute them:** the WIP lane (`git-wip` — a temporary snapshot commit recoverable via `git-unwip`) for not-yet-worthy work; a pairing session (`/devenv-pair`) for work that needs reshaping before it's worth recording. Suggestion only — the user decides and runs the tool.
 
@@ -82,9 +82,9 @@ propose concretely, explain why — the user saving the editor remains the permi
 
 - **Oracle:** the repo's `commitlint.config.js` — read it; repos extend `@commit`lint/config-conventional` and may add custom types (this workspace's own config adds `major`/`minor`/`patch`). The config, not memory, is the authority on legal types. No commitlint config → conventional-commits defaults; say which convention you're following.
 - **Subject:** `type(optional-scope): subject` — imperative mood, ≤ 72 chars, no trailing period. Derived from the dominant change.
-- **Body:** short by default. Omit it for most commits — a well-written subject usually suffices. Add bullets only when the subject genuinely can't carry the information (non-obvious rationale, a deliberate trade-off, a follow-up obligation). Never pad; two high-value bullets beat five procedural ones.
+- **Body:** default is no body — a well-written subject usually suffices. Add bullets only when the subject genuinely can't carry the information the record needs: non-obvious rationale, a deliberate trade-off, a follow-up obligation. Bullets are **high-level pointers, not an inventory**: they exist so a future reader can *locate* the commit (why it exists, which area/subsystem it touches) — never a list of every last thing that was done. The diff is the detail; the body is the why. 1–2 bullets maximum; enumerate nothing.
 - **Plan context:** when an active plan file exists (`.local-artifacts/Plan-*.md` in the repo), read its goals/ACs so the message describes how the change serves the whole, not just the diff mechanics. The plan informs the *message* — plan task numbers still never appear in it.
-- **Mixed changes:** suggest split commits — one message per group, in order.
+- **Mixed changes:** suggest split commits — one message per group, in order, with each group's files listed as full repo-root-relative paths the user can paste straight into `git add`.
 
 ### Ephemeral-reference warning (message hygiene)
 
@@ -113,9 +113,10 @@ Contract of the tool (enforced by the tool, not just this skill):
 - The commit is created from the **existing index only**; unstaged work is never swept in (the `--wip` lane's stage-all is git-wip's documented behavior, chosen explicitly by the user).
 - The user may edit the message freely in the editor; **their saved text is the commit message** — the suggestion is a starting point.
 - Editor emptied or aborted → no commit, staged state untouched. **This is the user declining — do not retry, do not hand back a paste-command.** One structured ask: *"Editor closed without a save — the commit didn't happen. Re-open the editor with the same message?"* (yes, retry / no, stop / edit the message first). Only a yes re-invokes `repo-commit`.
+- **Hook rejection = no commit = stop and surface.** A failing pre-commit hook makes `git commit` (and therefore `repo-commit`) exit non-zero — the tool reports "commit did not complete" and **no commit exists**, even though the editor opened and was saved. When that output (or any hook error text) appears: stop the flow, surface the hook error verbatim to the user, and let them fix it and re-invoke. Never continue narrating the commit as landed, never describe the editor as merely awaiting verification once this output exists, never bypass or work around the hook, never retry without the user's go-ahead.
 - Hooks run normally on the normal lane — the tool never bypasses them (`--no-verify` appears nowhere in its vocabulary; the `--wip` lane's `-n` is git-wip's documented exception, not a flag this skill passes).
 
-After the commit: report the landed `hash subject`, and offer `/devenv-open-pr` if the branch's work is complete.
+After the commit — and only on the tool's own success output ("commit created" plus the `%h %s` line): report the landed `hash subject`, and offer `/devenv-open-pr` if the branch's work is complete. Never fabricate the success line from expectation; the tool's output is the only evidence a commit exists.
 
 ## Checks lane detail (unchanged behavior)
 
@@ -148,6 +149,7 @@ After the commit: report the landed `hash subject`, and offer `/devenv-open-pr` 
 - **Retrying after an editor abort, or handing back a paste-command** — abort is the user declining; one structured ask, then a clean re-invoke only on yes.
 - **Stacking a permanent commit silently on WIP history** — the WIP-predecessor interview runs whenever the last commit is a WIP snapshot.
 - **Treating an empty editor abort as a failure to retry** — it is the user declining the commit; stop (then the single structured ask above applies).
+- **Continuing past a hook rejection** — a failed hook means no commit exists; surface the hook error and stop. Narrating onward ("the editor tab is open for you to verify") after the tool has already reported failure is a false report of the repository state.
 - **Sweeping unstaged changes into the commit** — the tool prevents it on the normal lane; the skill must not route around it.
 - **Skipping the marker gate** because "it's just a small commit."
 - **Ephemeral vocabulary in the message** ("Phase 2 complete, all tests passing") — the permanent record must read as durable history, not session bookkeeping.
