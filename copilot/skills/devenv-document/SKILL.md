@@ -1,6 +1,6 @@
 ---
 name: devenv-document
-description: 'Document an existing system, component, or cross-cutting concern by reading existing docs first and code second. USE WHEN the user says "document this system", "write documentation for", "I need docs for", "create a context brief", "document this codebase", "document this component", "write up how this works", "we need documentation for", or hands off a legacy or underdocumented codebase that needs to be described before AI or humans can work with it effectively. Interviews the user upfront to establish audience, output format, and scope; proposes a session plan before any investigation begins; tracks open questions in a Q-NNN log. DO NOT USE FOR plans (use /devenv-plan), architectural design (use /devenv-create-blueprint), specifications authoring (use /devenv-write-specifications), or conversational Q&A without a written output (use /devenv-chat).'
+description: 'Bootstrap or refresh a repo''s documentation family — the docs/Architecture_and_implementation.md + Usage_guide.md pair and the thin AGENTS.md dispatcher — so AI sessions and humans can find and load the repo''s context by convention. USE WHEN the user says "document this repo", "bootstrap docs for", "create the docs family", "add an AGENTS.md", "refresh the docs", "write up how this works", or hands off a new or underdocumented repo that needs its docs brought into the fold. Also handles the heavier case: documenting a legacy or underdocumented system where a real investigation (multi-session, open-questions log) is warranted. Default shape follows the workspace docs-family convention; every output is draft-first (outline approved before any file is written). DO NOT USE FOR read-only session warm-up (use /devenv-load), conversational Q&A with no written output (use /devenv-chat), planning a larger docs overhaul as execution work (use /devenv-plan), architectural decomposition (use /devenv-create-blueprint), or specs authoring (use /devenv-write-specifications).'
 argument-hint: '[repo path | component name | "what to document"]'
 user-invocable: true
 ---
@@ -19,30 +19,33 @@ Produce a documentation artefact for an existing system or component. The output
 
 Trigger phrases:
 
-- "document this system / component / repo"
-- "write documentation for X"
-- "I need docs for this codebase"
-- "create a context brief" / "AI context file" / "AGENTS.md for this"
+- "document this repo" / "bootstrap docs for this repo"
+- "create the docs family" / "refresh the docs" — the `docs/Architecture_and_implementation.md` + `Usage_guide.md` pair
+- "add an AGENTS.md" — the thin AI/human dispatcher file at repo root
 - "write up how this works"
-- "document this for \[audience\]"
-- A legacy or underdocumented system needs to be described before new work can begin
+- A new or underdocumented repo needs its documentation brought into the fold
+- A legacy system needs a real investigation (docs absent or badly stale — the multi-session machinery below)
 
 Do **not** use for:
 
+- Read-only session warm-up → [`/devenv-load`](../devenv-load/SKILL.md) (load orients and writes nothing; this skill authors durable files)
 - Conversational fact-finding without a written output → [`/devenv-chat`](../devenv-chat/SKILL.md)
+- A docs overhaul large enough to be execution work (multi-repo, phased, needs review rounds) → plan it via [`/devenv-plan`](../devenv-plan/SKILL.md) — this skill is the docs-execution specialist for single-repo bootstrap/refresh
 - Formal architectural decomposition → [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
 - Authoring functional specifications → [`/devenv-write-specifications`](../devenv-write-specifications/SKILL.md)
-- Writing a plan → [`/devenv-plan`](../devenv-plan/SKILL.md)
 - Tech debt assessment → [`/devenv-audit`](../devenv-audit/SKILL.md)
 
 ## Core Principles
 
-1. **Docs before code.** Always read existing documentation (READMEs, design docs, inline comments, changelog, wiki pages) before opening implementation files.
-2. **Recommend depth; don't assume it.** When existing docs are insufficient and code reading is needed, surface the gap explicitly, make a recommendation on how deep to go, and wait for the user to accept or override before proceeding.
-3. **Audience shapes everything.** Language, abstraction level, and output structure are all determined by who will read the document. If the audience is AI, write tightly scoped context. If the audience is developers, write for orientation and ongoing reference. If it's stakeholders, write without jargon.
-4. **Never write without showing a draft first.** Always present the proposed output structure and a skeleton before writing files.
-5. **Ask before touching existing docs.** If a file already documents the subject, ask whether to update it in place, create a new document, or note discrepancies in the new output.
-6. **Cross-component relationships are first-class.** When multiple repos or components are in scope, default to mapping data flow, events, and API contracts between them — not just per-component summaries.
+1. **The family convention is the default shape.** This workspace's repos carry a de facto docs family: `docs/Architecture_and_implementation.md` (purpose, package structure, architecture, request lifecycle, component detail, interface contracts, design decisions, test architecture, extension points — the authoritative reference, written to be loaded as context by humans and AI agents) plus `docs/Usage_guide.md` (how callers consume it: call patterns, endpoint reference, worked examples, shapes). Unless the user says otherwise, bootstrap produces exactly this pair; refresh brings an existing family back to parity with the code. Do not invent a novel structure per repo.
+2. **AGENTS.md is a thin dispatcher, never a second docs layer.** The repo-root `AGENTS.md` exists so standard AI-tool discovery (and this workspace's own skills — plan, load, chat — which all read it "if present") finds the repo's context: build/test/lint commands, one-line layout, and pointers into the docs family. Target ~30 lines. It duplicates nothing — it routes.
+3. **Docs before code; depth is a decision.** Exhaust existing documentation first. When a gap needs code reading, state the question, recommend surface/medium/deep, and get approval for medium-or-deeper.
+4. **Draft-first, always.** Present the proposed structure as a skeleton before writing any file. Existing file touched → ask: update in place or new document.
+5. **Never guess.** Unclear system facts become logged Q-NNN questions, answered by the user or deferred — never invented.
+6. **Cross-component relationships are first-class.** Multi-repo scope means mapping data flow, contracts, and coupling — not per-component summaries.
+7. **Match the exemplars.** When unsure about shape or depth, read an existing family member (e.g. `repos/lib.cs.services.mock-endpoints/docs/`) and match its register: fact-dense, cited, no prose padding.
+
+The heavier legacy-system case (docs absent/stale and the system genuinely needs a multi-session investigation) keeps the full machinery below — session plans, Q-NNN open-questions log, depth gates. The common bootstrap/refresh case runs the same phases in compressed form: Phase 0 shrinks to confirming scope + family assessment, Phase 1 is the discovery sweep, Phases 4–5 are the draft-first write.
 
 ## Personality
 
@@ -76,25 +79,24 @@ Every Q-NNN must reach `resolved` or `deferred` before writing the final output.
 
 ## Procedure
 
-### Phase 0 — Intake Interview
+### Phase 0 — Intake (compressed for the common case)
 
-Begin by interviewing the user. The goal is to understand *what* to document, *for whom*, and *in what form* before touching any files.
+**First, classify the run** — this decides how much ceremony applies:
 
-Ask (combine into one conversational exchange — do not interrogate with a numbered list):
+- **Bootstrap** (no docs family, or an `AGENTS.md`-only gap) → default shape applies: the family pair per Core Principle 1, plus the thin `AGENTS.md` dispatcher per Principle 2. Interview shrinks to three confirmations: scope (whole repo or a component), any known stale areas, and whether the repo already has partial docs to preserve. Present the skeleton (Phase 4) early — bootstrap usually needs no code reading beyond surface orientation.
+- **Refresh** (family exists but drifted from the code) → discovery sweep first, present the drift list (sections stale/missing/contradicted), get the fix list approved, then write in place per the update rules.
+- **Legacy investigation** (docs absent AND the system is genuinely complex, or the user asks for a deep write-up) → full interview below, session plan, Q-NNN machinery, multi-session if needed.
 
-1. **What is the subject?** One component, a set of related components, an entire service, or a cross-cutting concern?
-2. **Who will read this?** Developers new to the codebase? Senior engineers? Operations? AI agents? Non-technical stakeholders? (This determines language and depth.)
-3. **Why is this needed now?** Onboarding? AI context for future sessions? Stakeholder communication? Internal reference? (This determines emphasis.)
-4. **What output do you want?** Options to offer:
-   - A single consolidated reference doc (`ARCHITECTURE.md`, `OVERVIEW.md`, or similar)
-   - A structured `docs/` folder with multiple files
-   - A tightly scoped AI context brief (`CONTEXT.md` or `AGENTS.md`-style)
-   - A README update or addition
-   - Let the skill recommend based on scope
-5. **Where should it live?** Inside a specific repo? In a planning repo? At workspace root?
-6. **Is there a deadline, scope limit, or depth constraint?** (e.g. "just the public API, not internals", "one page max", "skip tests")
+For legacy runs, interview the user (one conversational exchange, not a numbered interrogation):
 
-Record all answers in `session_memory-document.md`. Do not proceed to Phase 1 until you have clear answers to 1, 2, and 3 at minimum.
+1. **What is the subject?** One component, related components, an entire service, or a cross-cutting concern?
+2. **Who will read this?** Developers? AI agents? Operations? Stakeholders? (Language and depth.)
+3. **Why now?** Onboarding? AI context? Reference? (Emphasis.)
+4. **What output?** Default: the docs family (Principle 1). Alternatives when the family doesn't fit: single consolidated doc, README addition, AI context brief.
+5. **Where does it live?** The repo itself (default), or elsewhere for cross-repo scope.
+6. **Scope limits?** ("public API only", "one page", "skip internals")
+
+Record answers in `session_memory-document.md`. Do not proceed until scope, audience, and purpose are clear.
 
 ---
 
@@ -102,10 +104,10 @@ Record all answers in `session_memory-document.md`. Do not proceed to Phase 1 un
 
 **1. Discover existing documentation.** For each component in scope:
 
-- Read `README.md`, `docs/`, `CHANGELOG.md`, `ARCHITECTURE.md`, `ADR/`, `wiki/`, and any linked design documents
-- Read frontmatter, top-level comments, and any `AGENTS.md` or `.context.md` files present
+- Read `README.md`, `docs/` (especially any existing `Architecture_and_implementation.md` / `Usage_guide.md`), `CHANGELOG.md`, `ARCHITECTURE.md`, `ADR/`, and any linked design documents
+- Read any `AGENTS.md` / `copilot-instructions.md` — note whether the dispatcher exists, and whether it points at the docs family
 - Read `package.json` / `*.csproj` / `pyproject.toml` / `Cargo.toml` — project metadata is documentation
-- Record what you found and your assessment: **fresh**, **stale**, or **absent** per component
+- Record what you found and your assessment: **fresh**, **stale**, or **absent** per component — and for the family pair specifically, whether each section still matches the code
 
 **2. Identify gaps.** For each component, note what is undocumented or where docs contradict what you observed. Log these as `Q-NNN` entries.
 
@@ -228,9 +230,8 @@ Rules:
 - Do not write files until the user has approved the outline
 - If writing multiple files, write one at a time and pause for confirmation before proceeding to the next
 
-**AI context brief format** (when audience is AI):
+**AI context brief format** (when the output is a standalone brief rather than the family):
 
-If the output is a context brief for future AI sessions, apply a tight format:
 - `## What this system does` — 3–5 sentences max
 - `## Components and responsibilities` — one paragraph per component
 - `## Key relationships` — bullet list of data flows and contracts
@@ -238,6 +239,31 @@ If the output is a context brief for future AI sessions, apply a tight format:
 - `## Known unknowns` — deferred Q-NNN items
 
 This format is consumed by other skills (e.g. [`/devenv-chat`](../devenv-chat/SKILL.md), [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)) and should be as dense and factual as possible.
+
+**AGENTS.md dispatcher format** (the thin file — Principle 2):
+
+```markdown
+# AGENTS.md — <repo name>
+
+One line: what this repo is.
+
+## Commands
+- Build: <command>
+- Test: <command>
+- Lint/format: <command>
+
+## Layout
+- `src/<...>` — <one line>
+- `tests/<...>` — <one line>
+
+## Repo context
+Read `docs/Architecture_and_implementation.md` for the authoritative system
+reference (purpose, architecture, contracts, design decisions) and
+`docs/Usage_guide.md` for caller-facing usage. Load them at session start when
+working on this repo.
+```
+
+Rules for the dispatcher: it points, it never duplicates — system facts live in the family, commands live here; keep it under ~30 lines; regenerate it whenever build commands or layout change. `copilot-instructions.md` (when a repo has one) is the *workspace-skills* conventions file and stays separate — AGENTS.md is the general AI-tooling entry point.
 
 ---
 
@@ -258,6 +284,8 @@ After writing:
 ## Anti-patterns
 
 - **Reading code before docs.** Always exhaust existing documentation first, even if it looks incomplete.
+- **Inventing a novel structure per repo.** The docs family and the thin AGENTS.md dispatcher are conventions; deviate only when the user explicitly asks.
+- **Duplicating content between AGENTS.md and the docs family.** The dispatcher points; the family carries the facts. An AGENTS.md that restates architecture is a maintenance liability.
 - **Assuming depth.** Never read deeper than surface level without first surfacing the gap and getting the user's go-ahead.
 - **Guessing to fill gaps.** If the documentation is unclear and the code doesn't answer the question, log a Q-NNN and ask. Never invent facts about a system.
 - **Writing before the outline is approved.** The draft-then-write gate exists to prevent rework. Do not skip it.
