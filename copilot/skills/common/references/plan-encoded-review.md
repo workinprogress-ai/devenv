@@ -17,7 +17,7 @@ When a Review-phase task becomes current:
 1. **Resolve the round.** Read the plan's Review phase. The round number is `1 + (number of already-ticked round tasks)`. If the previous round's convergence decision was "converged" (or the user closed the cycle), do not start a new round — the phase is done; tick the current task with a `round skipped — converged` note only if it was left open in error.
 2. **Resolve the diff target.** Cumulative branch diff vs base (the plan's execution branch vs its base), per the plan's Review-phase scope note. If a PR exists for the branch, PR mode may also be used; the computation is the same.
 3. **Dispatch the review subagent** with the self-contained brief below. One subagent per round. Do not review inline.
-4. **Receive findings.** The subagent returns the structured findings report (numbered, severity-grouped hotspots, missing tests, ephemeral-artifact references, questions).
+4. **Receive findings.** The subagent returns the structured findings report (numbered, severity-grouped hotspots, missing tests, ephemeral-artifact references, questions, and the Diagnostics appendix). When the user asks about coverage or where review effort went, cite the report's Diagnostics section.
 5. **Present + fold in.** Write the full findings report to a `.local-artifacts/tmpN.md` working file in the target repo (next free number — the user's reviewable record), and present the findings in chat: every finding's number, severity, and file:line as a one-liner, pointing to the working file for full detail. A chat summary alone is not enough — the user cannot rule on findings they cannot read. Then run the fold-in interview (`vscode_askQuestions`), proposing set approval **by finding number**: blockers, concerns, missing tests; nits only if the user opts in; praise never. Apply approved encodings as normal numeric tasks in the Review phase (round number in the task **title**, never the task ID — plan tooling accepts dotted numeric IDs only); each task's `Additional context:` cites its finding number plus file:line and severity. Record rejected findings (number + reason) in the round summary; they are excluded from future yield counts.
 6. **Convergence decision.** Compute the yield over non-rejected findings: continue while any Blocker or ≥ 3 Concerns; converged at 0 Blockers and ≤ 2 Concerns. The user always confirms continue/stop. Tick the round task, record yield + decision in the round summary. If issue-backed, offer the artifact re-upsert (plan-parse lint first).
 7. **PR alongside (optional).** If a PR exists, offer once per round: post the kept findings as inline PR threads from the round's working file (tmpN). The fold-in and the PR posting are independent channels; either, both, or neither may be used.
@@ -44,19 +44,33 @@ serves the attack; scale it to the diff's blast radius, decided per diff:
   documentation — the component-context service docs (consumer/integration
   sections) and README integration notes — plus local callers within the
   diff's own repo. Docs are the sufficient source here; do not sweep
-  repositories looking for callers the docs don't name.
+  repositories looking for callers the docs don't name. **Hard cap: zero
+  files outside the diff's own repo.**
 - **Escalate to a targeted trace when:** the diff changes a public contract,
   message schema, or behavior another component consumes — then verify the
   consumers the docs actually name (all of them, but only those); or a doc
   names a consumer the diff could break — verify that consumer directly; or
   the user/plan supplies a specific concern, or one of your findings needs
-  one verification to be confirmable — chase that lead.
+  one verification to be confirmable — chase that lead. **Expect ~5 external
+  files or fewer**; if a docs-named consumer set exceeds that, proceed — but
+  declare the overage and why in Diagnostics.
 - **Escalate to a full cross-repo trace only when** a public-surface change is
   real AND the docs are silent or contradicted about who consumes it — that
-  sweep exists for the case docs can't answer, not as a default. When you
-  cannot determine whether a changed surface is public, take the deeper tier —
-  under-exploring a real blast radius is the unrecoverable error; extra
-  verification is cheap.
+  sweep exists for the case docs can't answer, not as a default. **Before
+  sweeping, write the sweep justification into the report** ("sweeping X
+  because Y") — state the cost up front, don't discover it afterward.
+
+WHEN TORN ABOUT A SURFACE — probe, don't reflexively escalate. Uncertainty
+about whether a changed surface is public/contract-bearing is common; do not
+resolve it by defaulting to the deeper tier. Instead run one cheap probe:
+grep the changed symbol across the docs-named repos and this repo, record the
+probe and its result in Diagnostics, and commit to the deeper tier only if
+the probe hits an unexpected consumer. A skipped probe is the unrecoverable
+error — a probe is the cheap unit of verification, a sweep is the expensive
+one; extra verification is cheap per lead and expensive per sweep.
+
+Thoroughness: medium — depth comes from attack quality (how hard you try to
+break each thing), not coverage (how many things you open).
 
 TARGET REPO ROOT: <absolute path>
 DIFF: <branch> vs <base> — run: git -C <repo-root> diff <base>...<branch>
@@ -103,6 +117,13 @@ interview, rejections, and the plan's task encodings all reference it.
 
 ### Missing tests
 - New behavior in the diff lacking test coverage. "(none)" if covered.
+
+### Diagnostics (mandatory — "none" is a valid entry per line)
+**Beyond-diff files examined**: <count> — <capped list, "…" past ~10>
+**External repos swept**: <names | none> — <one-line reason each>
+**Dead ends**: <leads chased that produced nothing>
+**Tier decisions**: <surface → tier chosen → one-line why>
+**Probes**: <symbol greps run and their results, if any>
 
 ### Ephemeral-artifact references in added comments
 - Comments citing finding IDs, plan task numbers, audit filenames — that

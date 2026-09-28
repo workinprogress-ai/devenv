@@ -26,7 +26,7 @@ What are you trying to do?
 │   └─ Triage an incoming issue         →  /devenv-triage
 │
 ├─ 📄 Document
-│   └─ Write docs for an existing system, component, or cross-cutting concern  →  /devenv-document
+│   └─ Bootstrap / refresh the docs family + AGENTS.md dispatcher  →  /devenv-document
 │
 ├─ 📝 Define specifications
 │   ├─ System needs functional definition before planning  →  /devenv-write-specifications
@@ -151,12 +151,12 @@ Investigates a question, builds a throwaway prototype if needed, and produces a 
 
 ### `/devenv-document`
 
-> **Write documentation for an existing system, component, or cross-cutting concern.**
+> **Bring a repo's documentation into the fold — the docs family plus the thin AGENTS.md dispatcher.**
 
-Interviews the user to establish audience, output format, and scope before touching any files. Reads existing docs first (READMEs, design docs, ADRs, inline comments) and falls back to code only where docs are absent or insufficient — always surfacing the gap and recommending a depth level before reading deeper. Tracks open questions as Q-NNN items; resolves or defers all of them before writing. Proposes a session plan upfront for multi-component tasks. Maintains a `session_memory-document.md` for continuity across sessions.
+Defaults to the workspace docs-family convention — `docs/Architecture_and_implementation.md` (the authoritative system reference, written to be loaded by humans and AI agents) + `docs/Usage_guide.md` (caller-facing usage) — plus a thin `AGENTS.md` dispatcher (~30 lines: commands, layout, pointers into the family; routes, never duplicates). Reads existing docs first, code second, depth-by-approval; draft-first (outline approved before any file); refresh runs compare family-to-code and fix drift. The heavier legacy-investigation machinery (session plans, Q-NNN open-questions log, multi-session continuity) engages when docs are absent and the system genuinely needs a deep write-up.
 
-**Use for:** documenting a legacy codebase; writing an onboarding guide; creating AI context briefs for future sessions; cross-cutting documentation that spans multiple repos  
-**Don't use for:** conversational Q&A without a written output (→ `/devenv-chat`); formal architectural decomposition (→ `/devenv-create-blueprint`); tech debt assessment (→ `/devenv-audit`)  
+**Use for:** bootstrapping docs for a new/underdocumented repo; refreshing a stale docs family; adding the AGENTS.md dispatcher; legacy-system investigation with a real write-up at the end  
+**Don't use for:** read-only session warm-up (→ `/devenv-load`); conversational Q&A without a written output (→ `/devenv-chat`); docs overhauls large enough to be execution work (→ plan via `/devenv-plan`); architectural decomposition (→ `/devenv-create-blueprint`); tech debt assessment (→ `/devenv-audit`)  
 **Tool deps:** none
 
 ---
@@ -233,7 +233,7 @@ Answers status/composition/progress questions (board status, epic rollups via th
 |---|---|---|
 | `/devenv-pair` | Collaborative build with bounded autonomy span — the engineer stays in control and reviews every task or small chunk; the AI keeps the plan aligned to actual work as scope/questions emerge; question-shaped prompts default to analysis until explicit implementation direction | Issue # or plan path |
 | `/devenv-delegate` | Commissioned autonomous build run — entered only by explicit invocation; assistant-led execution with user review and ownership, phase by phase, while keeping the plan aligned to actual work | Issue # or plan path |
-| `/devenv-document` | Produce documentation for an existing system or component — audience, format, and scope set by interview | Repo path, component name, or description |
+| `/devenv-document` | Bootstrap or refresh the repo docs family (Architecture_and_implementation + Usage_guide) and the thin AGENTS.md dispatcher; legacy investigations keep the Q-NNN machinery | Repo path, component name, or description |
 | `/devenv-chat` | Conversational fact-finding with source code, markdown-first repos, or a GitHub issue — the repo talks back | Repo path(s), issue #, or nothing for current workspace |
 | `/devenv-research` | Exploratory investigation + findings doc; empowered like `/devenv-hunt` (consented in-repo experiments with recovery route) | Question or issue # |
 | `/devenv-design` | Opinionated, conversation-first thinking partner for design/architecture choices; best for one bounded blocker or design question; writes `Solution_Proposal_<topic>-NNN.md` only on request (as context-rich input to technical design); may draft pattern candidates / knowledge additions when targeted or when a generalization becomes apparent; the only skill that prepares engineering-repo changes as user-merge PRs | Design question or topic |

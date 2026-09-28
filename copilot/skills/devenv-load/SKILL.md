@@ -34,7 +34,7 @@ Do **not** use for:
 ## Core Principles
 
 1. **Read-only.** Load never edits a file, writes an artifact, or creates a note. Session memory is not used either — the window is the storage.
-2. **Same-session only.** No durable output exists by design. If the user wants context that survives the session, name the right door: a context brief is `/devenv-document`'s job; work-in-progress durability is the pairing-state / plan-ify doctrine the executor skills already own. Load never authors either.
+2. **Same-session only.** No durable output exists by design. If the user wants context that survives the session, name the right door: work-in-progress durability is the pairing-state / plan-ify doctrine the executor skills already own. Load never authors either.
 3. **No proposals, no routing.** The handback is one line. No plan suggestions, no findings lists, no "shall I proceed to X". If the user asks "what should I do next?", answer conversationally as the default agent — do not slide into another skill's intake.
 4. **Head start, not ground truth.** Executor skills deliberately re-derive their state on entry (skill-orient, provenance baselines, marker scans). Load's context accelerates that; it never substitutes for it. Never tell the user "already done" about a kickoff step a worker skill will still run.
 5. **Stay tiny.** The skill's value is that it adds almost nothing to the window. No references/ directory, no templates, no optional deep-dive modes that grow the footprint.
@@ -63,6 +63,6 @@ Do **not** use for:
 ## Sibling skills
 
 - [`/devenv-chat`](../devenv-chat/SKILL.md) — conversational Q&A about code; load orients and says nothing.
-- [`/devenv-document`](../devenv-document/SKILL.md) — authored, durable context briefs for a system; load is ephemeral session warm-up.
+- [`/devenv-document`](../devenv-document/SKILL.md) — authors the durable docs family and AGENTS.md dispatcher; load is ephemeral session warm-up.
 - [`/devenv-help`](../devenv-help/SKILL.md) — devenv/tooling/config/docs questions; load handles the repo's working context.
 - [`/devenv-pair`](../devenv-pair/SKILL.md) / [`/devenv-delegate`](../devenv-delegate/SKILL.md) — the executors that typically run next; they re-derive state on kickoff by design.
