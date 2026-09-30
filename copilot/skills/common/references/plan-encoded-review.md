@@ -44,10 +44,10 @@ serves the attack; scale it to the diff's blast radius, decided per diff:
 
 - **Default tier:** the diff is internal (no public contract, schema, or
   shared-behavior surface changes). Derive the reference set from
-  documentation — the component-context service docs (consumer/integration
-  sections) and README integration notes — plus local callers within the
-  diff's own repo. Docs are the sufficient source here; do not sweep
-  repositories looking for callers the docs don't name. **Hard cap: zero
+  documentation — the knowledge repo's consumer/integration documentation (as
+  located by its orchestration file) and README integration notes — plus local
+  callers within the diff's own repo. Docs are the sufficient source here; do
+  not sweep repositories looking for callers the docs don't name. **Hard cap: zero
   files outside the diff's own repo.**
 - **Escalate to a targeted trace when:** the diff changes a public contract,
   message schema, or behavior another component consumes — then verify the

@@ -19,7 +19,7 @@ The session is always in one of these states. Make the state visible.
 
 ### Confirm assignment
 >
-> "Taking 2.1 — adding retry policy to BulkSyncWorker. You're on 2.2?"
+> "Taking 2.1 — adding retry policy to MyWorker. You're on 2.2?"
 
 ### Announce start
 >
@@ -33,9 +33,9 @@ The session is always in one of these states. Make the state visible.
 >
 > "Done with 2.1, ready for review.
 >
-> **Changed**: `BulkSyncWorker.cs` (added `RetryPolicy` field + wired into `PostAsync` call), `BulkSyncWorkerRetryTests.cs` (new file, 4 cases).
+> **Changed**: `MyWorker.cs` (added `RetryPolicy` field + wired into `PostAsync` call), `MyWorkerRetryTests.cs` (new file, 4 cases).
 >
-> **Reasoning**: Used Polly because it's already a transitive dep via `lib.cs.flow.try-chain`. Jitter multiplier is 0.3 — picked it without precedent, please scrutinize.
+> **Reasoning**: Used Polly because it's already a transitive dep via `<try-chain-library>`. Jitter multiplier is 0.3 — picked it without precedent, please scrutinize.
 >
 > **Specifically check**: the 429 vs 5xx branching; the test for `Retry-After` is a happy-path only."
 
@@ -74,7 +74,7 @@ First: actually obtain the changed-file list (e.g. `git diff --name-only` agains
 
 ## Saying "I don't know"
 
-> "I don't know how the existing retry behaviour interacts with the daemon's circuit breaker. Want me to dig into `lib.cs.engine.daemon` first, or do you already know?"
+> "I don't know how the existing retry behaviour interacts with the daemon's circuit breaker. Want me to dig into `<daemon-library>` first, or do you already know?"
 
 ## Wrap-up
 

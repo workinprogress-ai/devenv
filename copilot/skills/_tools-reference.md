@@ -99,7 +99,7 @@ Key flags:
 Examples:
 
 ```bash
-repo-cache-deepen --repo lib.cs.common.essentials
+repo-cache-deepen --repo <your-library>
 repo-cache-deepen --repo service.reqord.identity --depth 500 --branch issue-42-query-progress
 ```
 

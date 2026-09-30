@@ -195,15 +195,9 @@ Ask in this order; skip what the user has already answered (and skip any already
 6. **Existing context.** Does a blueprint or specifications doc exist? If so, read it before going further.
 7. **Repo context.** Is this scoped to one repo or multiple repos? Confirm where relevant context and constraints live.
 
-If the discussion is component-specific, classify the component type before moving to Phase 2:
+If the discussion is component-specific, classify the component type before moving to Phase 2 — per the knowledge repo's `orchestration.md` (resolve the knowledge repo location from `devenv.config` `[copilot]` — `knowledge_repo`, `knowledge_subpath`): classify per its Component taxonomy section, route from the current design question per its Read routing section, and load only the files it names. If the knowledge repo or the orchestration file is absent, continue with general skill rules and explicitly note that specialized org context is pending.
 
-- Service
-- API gateway
-- Frontend application
-
-Then use the `component-context/index.md` file from the configured Copilot knowledge location. Resolve that location from `devenv.config` `[copilot]` (`knowledge_repo`, `knowledge_subpath`) before loading context. For services, route from the current design question using the index's task table and load only the files it names. If context for API gateway/frontend is not yet available, continue with general skill rules and explicitly note that specialized context is pending.
-
-If the discussion is general/system-level and not tied to a specific component implementation concern, skip component-context loading.
+If the discussion is general/system-level and not tied to a specific component implementation concern, skip component-knowledge loading.
 
 If anything is vague, **say so**. "That's not concrete enough — give me a scenario where this breaks today."
 

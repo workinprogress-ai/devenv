@@ -15,6 +15,7 @@ The essentials live in `devenv.config`; repository-creation standards live in `t
 - ✅ (Optional) Update `copilot/copilot-instructions.md` with organization-specific AI coding guidelines
 - ✅ (Optional) Add custom Copilot skills to `copilot/skills/` for domain-specific workflows
 - ✅ (Optional) Configure shared Copilot knowledge sync in `devenv.config` (`[copilot]` section)
+- ✅ (If you use the Copilot knowledge base) Provide the orchestration door in your knowledge repo: `orchestration.md` at the content root with three required sections — Component taxonomy (the component types *your* org builds), Read routing (task → knowledge files), Write placement (candidates flow + fold destinations). Skills enter your knowledge only through this file and classify against your taxonomy, never a devenv-side list. See [Knowledge & Engineering Patterns](./Knowledge-and-Engineering-Patterns.md#the-orchestration-door); the upstream knowledge repo carries the reference implementation.
 - ✅ (Optional) Create `org-custom-bootstrap.sh` and `org-custom-startup.sh` for organization-wide customizations
 - ✅ Create/adjust template repos per type (recommended) so new repos start with CI, CODEOWNERS, and hooks
 
@@ -29,6 +30,7 @@ The devenv keeps a deliberately small set of fork-owned surfaces. **Everything i
 | 3 | Provider modules | `tools/lib/providers/*` | Add or replace per-provider domain modules; set `[provider] name`; manage the token-env allowlist — see the [provider abstraction README](../tools/lib/providers/README.md) |
 | 4 | Provider protocol references | `copilot/skills/_shared/references/provider-protocols/<provider>.md` (transport; `github.md` and `azure.md` ship in-tree) and `copilot/skills/_shared/references/protocol-common.md` (provider-neutral wrapper contract — identical for every fork, do not fork-edit) | A fork **authors** its own `<provider>.md` to the fixed three-part structure (credential lifecycle → repo targeting → provider-visible behavior). Agents resolve the filename from `[provider] name` — no file is ever content-swapped |
 | 5 | Shared references a fork may re-skin | `copilot/skills/common/references/*.md` (e.g. `issue-creation.md`) | Provider-coupled phrasing inside shared skill references |
+| 6 | Knowledge orchestration door | `orchestration.md` at your knowledge repo's content root (repo itself configured via `devenv.config` `[copilot]`) | The door's *contents* are yours: your component taxonomy, read routing, and write placement. The path and required sections are devenv's contract — a fork authors the content, never relocates the file. Omitting it leaves skills running unclassified (they degrade gracefully) |
 
 **One deliberate exception:** `setup` (and the bootstrap flow it feeds) is git-host-oriented by nature. The working assumption is that any fork **rewrites `setup`** rather than adapting it. It is neither fork-stable nor upstream-stable — treat it as fork-replaced, and expect upstream changes to `setup` to need manual reconciliation.
 
@@ -371,7 +373,7 @@ If you use `tools/scripts/repo-create.sh`, configure `tools/config/repo-types.ya
 
 ### Configuration per type
 
-- **Naming**: `naming_pattern` and `naming_example` per type (e.g., `service.<category>.<descriptor>`, `gateway.<category>.<descriptor>`, `app.web.<descriptor>`, `lib.cs.<category>.<descriptor>`)
+- **Naming**: `naming_pattern` and `naming_example` per type (e.g., `service.<category>.<descriptor>`, `gateway.<category>.<descriptor>`, `app.web.<descriptor>`, `lib.<language>.<category>.<descriptor>`)
 - **Templates**: `template` per type (or null) to pre-bake CI, CODEOWNERS, and .repo scripts
 - **Template marking**: `isTemplate` (boolean, default: false) marks the repository as a template, making it available for use with the provider's "use as template" flow
 - **Post-creation**: `post_creation_script`, `delete_post_creation_script`, and `post_creation_commit_handling` (`none|amend|new`)

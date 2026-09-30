@@ -41,7 +41,7 @@ If a task description needs multiple implementation bullets to be understandable
 List every file the task **reads or modifies** (including test files), using paths relative to the **workspace root** (the top-level folder open in VS Code). Example:
 
 ```
-- Files: `repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs`, `repos/lib.cs.services.bulk-sync/tests/BulkSyncWorkerTests.cs`
+- Files: `repos/<your-service>/src/MyWorker.cs`, `repos/<your-service>/tests/MyWorkerTests.cs`
 ```
 
 Rules:
@@ -114,12 +114,12 @@ If a task can't be expressed as one concise step line, it probably needs to be s
 When a task needs more detail than a concise step line can carry, place that depth directly under the task with `Additional context:`:
 
 ```markdown
-- [ ] **2.2 [M] Wire retry policy into BulkSyncWorker**
-  - Files: `repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs`
+- [ ] **2.2 [M] Wire retry policy into MyWorker**
+  - Files: `repos/<your-service>/src/MyWorker.cs`
   - depends on 2.1
   - Additional context:
     - Edge cases: 429 vs 5xx; jittered backoff; honor `Retry-After` header.
-    - Tests to add: `BulkSyncWorkerRetryTests` covering each case.
+    - Tests to add: `MyWorkerRetryTests` covering each case.
 ```
 
 ## Good vs. bad examples
@@ -128,7 +128,7 @@ When a task needs more detail than a concise step line can carry, place that dep
 
 ```markdown
 - [ ] **1.2 [S] Add empty-payload behavior-locking test if existing coverage is insufficient**
-  - Files: `repos/lib.cs.services.bulk-sync/tests/BulkSyncWorkerTests.cs`
+  - Files: `repos/<your-service>/tests/MyWorkerTests.cs`
   - Additional context: Validate behavior for both empty arrays and null payloads.
 ```
 
@@ -136,7 +136,7 @@ Why it's good: bold title, sized, concrete step, files listed, and task context 
 
 ```markdown
 - [ ] **2.3 [M] Choose and implement retry backoff strategy**
-  - Files: `repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs`, `repos/lib.cs.services.bulk-sync/src/IRetryPolicy.cs` (new), `repos/lib.cs.services.bulk-sync/tests/BulkSyncWorkerRetryTests.cs`
+  - Files: `repos/<your-service>/src/MyWorker.cs`, `repos/<your-service>/src/IRetryPolicy.cs` (new), `repos/<your-service>/tests/MyWorkerRetryTests.cs`
   - decision: exponential vs. fixed backoff — need to agree on multiplier before coding
   - depends on 2.2
 ```

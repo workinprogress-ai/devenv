@@ -323,7 +323,7 @@ phase as `[QUESTION] ...` bullets.
 
 ## Notes on filling it in
 
-- **Title** — name the outcome, not the activity. "Add bulk-sync retry policy" beats "Work on bulk-sync".
+- **Title** — name the outcome, not the activity. "Add a retry policy" beats "Work on the service".
 - **Opening paragraph** — assume the reader has zero prior context.
 - **Goals and Acceptance Criteria** — this is the first section a human should be able to use to understand the intended end state and scope boundaries.
 - **Acceptance criteria anchors** — define each AC with an explicit anchor (`<a id="ac-N"></a>`) and link to those anchors everywhere else (`[AC-N](#ac-N)`). Avoid plain-text references like "AC-2" without a link.

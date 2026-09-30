@@ -116,7 +116,7 @@ Identify upfront: **symptom** (what is observed), **suspected area** (optional),
 
    > *"observation: writes succeed, but a read immediately after returns stale data.*
    > *expectation: a read after a successful write returns the written value.*
-   > *Confirm target: `repos/lib.cs.backing.pub-sub`? Oracle accurate?"*
+   > *Confirm target: `repos/<pub-sub-library>`? Oracle accurate?"*
 
 2. **Confirm scope.** Target repo(s) for code changes; related repos may be read. Note where scratch work goes — the target repo normally, the workspace `tmp/` for large scopes.
 
@@ -215,7 +215,7 @@ Trace the symptom to a root cause. Document every step briefly so the user can f
 ─────────────────────────────────────────
 
 Root cause
-  [AuthController.cs:142](repos/lib.cs.services.chassis/src/AuthController.cs#L142)
+  [AuthController.cs:142](repos/<chassis-repo>/src/AuthController.cs#L142)
   JwtBuilder.Sign does not check that the requested expiry is not in the past.
   Any token with a backdated expiry is signed without error.
 

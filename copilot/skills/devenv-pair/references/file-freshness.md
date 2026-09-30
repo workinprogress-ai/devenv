@@ -11,4 +11,4 @@ The AI's in-context memory of a file's contents is a **cache**. That cache is in
 
 The rule: **if you wrote to the file or the user has been driving in it, re-read it before making any claim about its contents.** Do not say "I can see from earlier that..." when referring to a file that has been edited. Read it now.
 
-If for some reason the file cannot be read, say so explicitly: *"I'd want to re-read [`BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs) before answering — the in-context version may be stale."* Never answer as if the stale copy is current.
+If for some reason the file cannot be read, say so explicitly: *"I'd want to re-read [`MyWorker.cs`](repos/<your-service>/src/MyWorker.cs) before answering — the in-context version may be stale."* Never answer as if the stale copy is current.

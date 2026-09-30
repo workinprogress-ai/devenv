@@ -18,16 +18,16 @@ Use this format at the end of every work session (and when aborting mid-session)
 - [path/to/file1.tests.cs](path/to/file1.tests.cs) — 4 new tests
 
 ### Review hotspots
-- [BulkSyncWorker.cs:142](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142) — picked exponential backoff with jitter=0.3 without precedent; sanity-check the multiplier
-- [RetryPolicy.cs:28](repos/lib.cs.services.bulk-sync/src/RetryPolicy.cs#L28) — new error-handling branch for 429 vs 5xx; behavior diverges from the existing `try-chain` pattern
-- [BulkSyncWorkerTests.cs:67](repos/lib.cs.services.bulk-sync/tests/BulkSyncWorkerTests.cs#L67) — `Retry-After` test only covers happy path
+- [MyWorker.cs:142](repos/<your-service>/src/MyWorker.cs#L142) — picked exponential backoff with jitter=0.3 without precedent; sanity-check the multiplier
+- [RetryPolicy.cs:28](repos/<your-service>/src/RetryPolicy.cs#L28) — new error-handling branch for 429 vs 5xx; behavior diverges from the existing `try-chain` pattern
+- [MyWorkerTests.cs:67](repos/<your-service>/tests/MyWorkerTests.cs#L67) — `Retry-After` test only covers happy path
 
 ### Decisions made
-- **Used Polly** instead of writing retry from scratch — already a transitive dep via `lib.cs.flow.try-chain`. Plan didn't specify; flagged this on 2.1.
+- **Used Polly** instead of writing retry from scratch — already a transitive dep via `<try-chain-library>`. Plan didn't specify; flagged this on 2.1.
 - **Did not** honour `Retry-After` headers — plan called for "standard backoff regardless"; confirmed with you mid-session.
 
 ### Open questions / low confidence
-- Not sure whether the daemon's circuit breaker interacts with the new retry policy. Didn't dig into `lib.cs.engine.daemon`. Worth a look before merging.
+- Not sure whether the daemon's circuit breaker interacts with the new retry policy. Didn't dig into `<daemon-library>`. Worth a look before merging.
 
 ### Suggested next session scope
 - Phase 3 (3.1–3.3): wiring the new policy into the remaining workers. All mechanical, well-suited for delegation. ~4 tasks, single session.
