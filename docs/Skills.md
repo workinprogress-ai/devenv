@@ -6,7 +6,7 @@ A complete reference for the Copilot skill suite available in this workspace. Sk
 
 **Not sure which skill to use, or how something in this environment works?** Say `/devenv-help` — it answers questions directly and recommends skills.
 
-> **Provider transport:** skill bodies stay provider-neutral — GitHub-specific wrapper signatures, env vars, config paths, and invocation recipes live in the [GitHub protocol reference](../copilot/skills/_shared/references/provider-protocols/github.md). A provider fork replaces that file; skill bodies don't change.
+> **Provider transport:** skill bodies stay provider-neutral — GitHub-specific wrapper signatures, env vars, config paths, and invocation recipes live in the [protocol-common](../copilot/skills/_shared/references/protocol-common.md) (neutral wrapper contract) and `../copilot/skills/_shared/references/provider-protocols/<provider>.md` (provider transport; `<provider>` from `[provider] name` in `devenv.config`). A provider fork replaces that file; skill bodies don't change.
 
 **Need the full workflow, not just the catalog?** See [Workflow Guide](./Workflow.md).
 

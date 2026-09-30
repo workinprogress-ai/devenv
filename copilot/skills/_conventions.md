@@ -110,7 +110,7 @@ Rules:
 
 - **One glob.** Working-copy probes check `<repo>/.local-artifacts/` (e.g. `.local-artifacts/Plan-issue-42-*.md`), not the repo root.
 - **One ignore.** `.local-artifacts/` is committed to no repo; every repo's `.gitignore` (including all `template.*` repos) carries the entry.
-- **Offer-to-retire at wrap-up.** When an artifact is republished to its issue (`issue-artifact-upsert`) or a skill session that owns local files ends, list the stale `.local-artifacts/` files and offer deletion (y/n) — never auto-delete. Use [`artifact-clean`](./_shared/references/provider-protocols/github.md#artifact-clean) for the sweep: it groups files into the families below, drops `tmpN.md` without confirmation, and confirms everything else. After publication the issue copy is authoritative; see the [issue-backed artifact edit protocol](#issue-backed-artifact-edit-protocol).
+- **Offer-to-retire at wrap-up.** When an artifact is republished to its issue (`issue-artifact-upsert`) or a skill session that owns local files ends, list the stale `.local-artifacts/` files and offer deletion (y/n) — never auto-delete. Use [`artifact-clean`](./_shared/references/protocol-common.md#artifact-clean) for the sweep: it groups files into the families below, drops `tmpN.md` without confirmation, and confirms everything else. After publication the issue copy is authoritative; see the [issue-backed artifact edit protocol](#issue-backed-artifact-edit-protocol).
 - **Out of scope:** deliverable-style docs that are the skill's own product — spike docs (`spike-NNN-*.md`), bug-hunt reports (`bug-hunt-*.md`), and technical-debt audits (`TECH_DEBT_AUDIT*.md`) live in `.local-artifacts/` with everything else but are retained deliverables, not cleanup fodder; specs/blueprints written into planning repos (`docs/Specifications/` etc.) are shipped files. Cleanup sweeps must not touch any of these.
 
 ## Issue-backed artifact edit protocol
@@ -315,7 +315,7 @@ Required behavior before any `issue-*` / `pr-*` / `project-*` / artifact call:
    2. The linked upstream artifact (grooming doc, roadmap, epic): its `doc_id` repo segment (`dv1:<owner>/<repo>:...`) or its own `planning_repo` key.
    3. The `repos/` folder the work lives in: a cloned `planning.*` repo among the work's linked repos — confirm with the user when more than one candidate matches.
    4. Ask the user which planning repo governs the work — then stamp it on the active artifact (`artifact-header --set planning_repo=...`) so it is never re-derived.
-3. **State it, then set it**: set the call's target repo explicitly per the [repository targeting rules](_shared/references/provider-protocols/github.md#repository-targeting) — or `cd` into the target repo root first (the [working-directory guard](#working-directory-guard-required)). Do not rely on inherited terminal state or an env var set for a previous, different target.
+3. **State it, then set it**: set the call's target repo explicitly per the [repository targeting rules](_shared/references/protocol-common.md#repository-targeting) — or `cd` into the target repo root first (the [working-directory guard](#working-directory-guard-required)). Do not rely on inherited terminal state or an env var set for a previous, different target.
 4. **The devenv-repo refusal is a routing signal, not an obstacle.** When a wrapper errors with "the current repository appears to be the devenv repository", the fix is to target the actual project repo — **never** to add `--devenv`. That flag is reserved for work that is genuinely about the devenv repo itself (its skills, tooling, docs); using it to push through the safety check aims the call at the devenv repo and away from the real target.
 5. If the target repo cannot be resolved confidently, ask one direct clarification question before running the call.
 
@@ -338,7 +338,7 @@ If the correct repo root is ambiguous, ask one direct clarification question bef
 When exploring WorkInProgress code, prefer local source under `repos/` before any package decompilation or metadata-only inspection.
 
 - Treat `repos/` as the default home for cloned WorkInProgress libraries, services, and related packages.
-- For service-specific framework/source discovery rules, follow the service architecture knowledge file from configured Copilot knowledge (`component-context/01-Service-Architecture.md`).
+- For service-specific framework/source discovery rules, follow the service architecture knowledge file from configured Copilot knowledge (`component-context/service-architecture.md`).
 - More generally, assume WorkInProgress packages may exist under `repos/` unless proven otherwise.
 - If the needed repo is not present under `repos/`, ask the user to clone it rather than decompiling a NuGet package as the primary exploration path.
 - Use decompilation only as a fallback when source is genuinely unavailable and note that limitation explicitly.
@@ -371,9 +371,28 @@ Recommended snippet references (paths shown as they appear **inside a skill fold
 - **Catalog pointer**: "See the [Skills catalog](./common/references/skills-catalog.md) for the full list and decision tree."
 - **Diagnostic mode**: "When the user requests diagnostics for undesirable output/action, follow the shared [Diagnostic Mode Protocol](common/references/diagnostic-mode-protocol.md) and write `DIAGNOSTIC_REPORT.md` under `.local-artifacts/` at the active project root."
 - **Skill feedback**: "When the user asks how a skill could be improved with no defect alleged, follow the shared [Skill Feedback Protocol](common/references/skill-feedback-protocol.md) and write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root. Zero findings is a valid result."
-- **Provider protocol**: "GitHub transport detail (wrapper signatures, env vars, config paths, prohibitions, invocation recipes) lives in the [GitHub protocol reference](_shared/references/provider-protocols/github.md) — a skill body states intent, never transport. A fork swaps that file; skill bodies are provider-neutral."
+- **Provider protocol**: "The provider-neutral wrapper contract (invocation
+  conventions, repo targeting chain, prohibitions, canonical recipes) lives in
+  the [protocol-common reference](_shared/references/protocol-common.md);
+  provider transport facts (credentials, provider env vars, provider-visible
+  behavior) live in `provider-protocols/<provider>.md`, where `<provider>` is
+  the active `[provider] name` from `devenv.config` — a skill body states
+  intent, never transport."
 
-**Provider-protocol reference** (`copilot/skills/_shared/references/provider-protocols/<provider>.md`): the single definition of provider transport — wrapper signatures, env-var semantics, config paths, prohibitions, and canonical recipes. Skill bodies must not inline this material; they cite the reference instead. Citation depth by location: skill folders use `../_shared/references/provider-protocols/github.md`, `common/references/` uses `../../_shared/references/provider-protocols/github.md`, and files at the `copilot/skills/` level (including `_conventions.md` itself) use `_shared/references/provider-protocols/github.md`. A fork replaces the protocol file; skill bodies stay provider-neutral.
+**Provider-protocol references** (two files): `copilot/skills/_shared/references/protocol-common.md`
+is the single definition of the provider-neutral wrapper contract and is cited
+literally (identical for every fork). `copilot/skills/_shared/references/provider-protocols/<provider>.md`
+is the provider's transport reference — `github.md` and `azure.md` ship
+in-tree; a fork adding a provider authors its own `<provider>.md` to the same
+three-part structure (credential lifecycle → repo targeting →
+provider-visible behavior). **No file is ever content-swapped**: agents resolve
+`<provider>` from `[provider] name` in `devenv.config` (the same config they
+already read). Skill bodies must not inline this material; they cite the
+references instead. Citation depth by location: skill folders use
+`../_shared/references/protocol-common.md` and
+`../_shared/references/provider-protocols/<provider>.md`, `common/references/`
+uses `../../_shared/references/…`, and files at the `copilot/skills/` level
+(including `_conventions.md` itself) use `_shared/references/…`.
 
 When updating existing skills, prefer replacing duplicated boilerplate blocks with a brief reference line to keep token usage tight.
 
@@ -490,6 +509,11 @@ Used by `devenv-delegate`, `devenv-review`, and any skill that asks the human to
 - [<file>:<line>](<workspace-relative-path>#L<line>) — <one-sentence reason this needs eyes>
 ```
 
+**Link location rule (canonical).** A markdown link resolves from the directory of the file containing it, not from the repo or workspace root. Match the prefix to the link's destination surface:
+
+- **Chat output** — workspace-root-relative, no prefix (`[Foo.cs:42](repos/lib.cs.services.bulk-sync/src/Foo.cs#L42)`). Chat renders against the workspace root, so the full path from it is clickable.
+- **Links saved into files** (`.local-artifacts` reports, plans, audits, findings files) — one `../` per directory level between the file's location and the target's root. A file in `<repo-root>/.local-artifacts/` sits one level below the repo root, so repo-relative targets take one prefix: `[Foo.cs:42](../src/Foo.cs#L42)` — and a workspace-level artifact in `<workspace>/.local-artifacts/` linking a repo file takes two: `[Foo.cs:42](../../repos/lib.cs.services.bulk-sync/src/Foo.cs#L42)`. Never emit a bare repo-root-relative or workspace-root-relative path inside a file — it resolves against `.local-artifacts/` and is dead.
+
 Bad (vague):
 
 ```markdown
@@ -562,7 +586,7 @@ Skills maintain GitHub Project issue status as a side effect of their lifecycle 
 - **Placement rule:** invoke at existing lifecycle boundaries (intake confirmation, phase handoffs, wrap-up) — do not create new interactive gates for status updates.
 - **Charter boundary:** events absorb deterministic, content-free, cross-cutting side effects — nothing that requires authored content or judgment. The moment an event handler would need to write prose or decide *whether* to act, that work belongs to the skill, not the event.
 
-Canonical tooling reference: the [GitHub protocol reference](./_shared/references/provider-protocols/github.md#_onevent-skill-event-signals) (`_on_*` entry points, `_on_event_dispatch.sh`, `workflow-signal` for manual/interactive firing). The human-facing model — types, status semantics, parent rollup — is documented canonically in the repo's `docs/Issue-Workflow.md`.
+Canonical tooling reference: the [wrapper protocol reference](./_shared/references/protocol-common.md#_onevent-skill-event-signals) (`_on_*` entry points, `_on_event_dispatch.sh`, `workflow-signal` for manual/interactive firing). The human-facing model — types, status semantics, parent rollup — is documented canonically in the repo's `docs/Issue-Workflow.md`.
 
 ## Open Questions Log (Q-NNN)
 
@@ -644,9 +668,10 @@ Supported component types:
 Required behavior:
 
 1. Classify component type before loading component-context files.
-2. Load only the files needed for the current decision (for services, choose among architecture, implementation, and plugins as needed).
+2. Route from the task: the index maps task-shaped questions to topic files — load only the files the task routes to.
 3. Do not load all component-context files by default.
 4. If context for the selected component type is not yet available, continue with general skill rules and explicitly note that specialized context is pending.
+5. When adding knowledge to `component-context/`, update `index.md` in the same change so the routing table stays accurate.
 
 ## Anti-patterns
 

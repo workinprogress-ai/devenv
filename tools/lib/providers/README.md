@@ -126,14 +126,18 @@ Suite naming is fixed now so a per-provider directory layout later is a pure
 
 ## The docs half of the fork contract
 
-A fork that swaps providers edits this directory plus one skill-side file:
-[`copilot/skills/_shared/references/provider-protocols/github.md`](../../../copilot/skills/_shared/references/provider-protocols/github.md)
-— the protocol reference every skill body cites instead of inlining GitHub
-transport detail. Provider code and skill docs are two halves of one contract:
-swap the provider modules here, replace the protocol reference there, and the
-skill suite (including the decoupling gate in
-`tools/tests/skills/test_provider_protocol_decoupling.bats`) enforces that no
-skill body drifted back toward a hard-coded backend.
+A fork that swaps providers edits this directory plus one skill-side file it
+authors: [`copilot/skills/_shared/references/provider-protocols/<provider>.md`](../../../copilot/skills/_shared/references/provider-protocols/azure.md)
+— the transport reference skill bodies resolve by provider name (`<provider>`
+= `[provider] name` in `devenv.config`), written to the fixed three-part
+structure (credential lifecycle → repo targeting → provider-visible
+behavior). The neutral wrapper contract they both cite is
+[`protocol-common.md`](../../../copilot/skills/_shared/references/protocol-common.md)
+— identical for every fork, never fork-edited. Provider code and skill docs
+are two halves of one contract: swap the provider modules here, author the
+transport reference there, and the skill suite (including the decoupling gate
+in `tools/tests/skills/test_provider_protocol_decoupling.bats`) enforces that
+no skill body drifted back toward a hard-coded backend.
 
 Org-policy decisions (issue types, triage labels, workflow status semantics,
 provider default, org identity) are the other fork surface: they live in

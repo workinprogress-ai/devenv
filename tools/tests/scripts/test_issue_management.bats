@@ -134,7 +134,141 @@ STUB
   [ "$status" -eq 0 ]
   [[ "$output" =~ "blocked-by" ]]
 }
+# ---------------------------------------------------------------------------
+# Deterministic mode + cross-repo enrichment threading (issue #40 saga filing,
+# 2026-09-29): (1) --no-interactive must never launch the fzf type picker;
+# (2) a bogus DEVENV_REPO must fail before any interactive prompt; (3) the
+# post-create type-set must target the same repo the issue was created in,
+# never the cwd repo.
+# ---------------------------------------------------------------------------
 
+# Installs a gh stub plus an fzf stub in $TEST_TEMP_DIR/bin. The fzf stub
+# is the TTY escape hatch: fzf reads the terminal directly (/dev/tty), so
+# cutting stdin cannot stop a wrongly-launched picker — instead the stub
+# fails instantly with a recognizable message, turning a hang into an error
+# the assertions can see. The gh stub records every invocation (argv +
+# GH_REPO env) to $GH_CALL_LOG and serves canned outputs for the provider
+# calls issue-create makes in deterministic mode.
+_issue_mgmt_stub_gh() {
+  mkdir -p "$TEST_TEMP_DIR/bin"
+  GH_CALL_LOG="$TEST_TEMP_DIR/gh-calls.log"
+  : > "$GH_CALL_LOG"
+  export GH_CALL_LOG
+  cat > "$TEST_TEMP_DIR/bin/gh" <<STUB
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'GH_REPO=%s :: %s\n' "\${GH_REPO:-}" "\$*" >> "$GH_CALL_LOG"
+if [ "\${1:-}" = "auth" ]; then exit 0; fi
+case "\$1 \$2" in
+  "repo view")
+    # Discriminate on the POSITIONAL repo arg (gh ≥2.95 dropped -R on the
+    # repo command family; the provider passes it positionally): unknown
+    # repos must fail the pre-prompt probe, the cwd repo answers, and the
+    # DEVENV_REPO target answers with its own identity. The -q filter is
+    # applied here because jq output shaping is delegated by the provider
+    # wrappers. (Plain script variables — a standalone stub script cannot
+    # use `local`.) argv shape: repo view [repo] --json F -q FILTER
+    target=""
+    if [ "\${3:-}" != "" ] && [[ "\${3:-}" != --* ]]; then
+      target="\$3"
+    fi
+    case "\$target" in
+      workinprogress-ai/lib.cs.services.sagas)
+        if [[ "\$*" == *".owner.login"* ]]; then
+          printf 'workinprogress-ai'
+        elif [[ "\$*" == *".name"* ]]; then
+          printf 'lib.cs.services.sagas'
+        else
+          printf '{"owner":{"login":"workinprogress-ai"},"name":"lib.cs.services.sagas"}'
+        fi
+        exit 0 ;;
+      workinprogress-ai/service.reqord.projects)
+        if [[ "\$*" == *".owner.login"* ]]; then
+          printf 'workinprogress-ai'
+        elif [[ "\$*" == *".name"* ]]; then
+          printf 'service.reqord.projects'
+        else
+          printf '{"owner":{"login":"workinprogress-ai"},"name":"service.reqord.projects"}'
+        fi
+        exit 0 ;;
+      "")
+        if [[ "\$*" == *".owner.login"* ]]; then
+          printf 'workinprogress-ai'
+        elif [[ "\$*" == *".name"* ]]; then
+          printf 'service.reqord.projects'
+        else
+          printf '{"owner":{"login":"workinprogress-ai"},"name":"service.reqord.projects"}'
+        fi
+        exit 0 ;;
+      *)
+        echo "Could not resolve to a Repository with the name '\$target'. (repository)" >&2
+        exit 1 ;;
+    esac ;;
+  "issue create")
+    printf 'https://github.com/workinprogress-ai/lib.cs.services.sagas/issues/99'
+    exit 0 ;;
+  "issue edit")
+    # The type-set call: GH_REPO carries the target repo (the F3 assertion
+    # greps the log line recorded above the case).
+    exit 0 ;;
+esac
+echo "unexpected gh call: \$*" >&2
+exit 1
+STUB
+  cat > "$TEST_TEMP_DIR/bin/fzf" <<'FZF'
+#!/usr/bin/env bash
+echo "FZF-LAUNCHED-BY-TEST" >&2
+exit 130
+FZF
+  chmod +x "$TEST_TEMP_DIR/bin/gh" "$TEST_TEMP_DIR/bin/fzf"
+}
+
+@test "deterministic: --no-interactive without --type errors instead of launching fzf" {
+  _issue_mgmt_stub_gh
+  printf '[organization]\norg=workinprogress-ai\n' > "$TEST_TEMP_DIR/devenv.config"
+  # The cwd repo name must match the stub's known cwd repo (the probe and
+  # any fallback resolution derive it from the git toplevel basename).
+  git init -q "$TEST_TEMP_DIR/service.reqord.projects" && cd "$TEST_TEMP_DIR/service.reqord.projects"
+
+  run env -u DEVENV_REPO PATH="$TEST_TEMP_DIR/bin:$PATH" HOME="$TEST_TEMP_DIR" DEVENV_ROOT="$TEST_TEMP_DIR" \
+    bash "$PROJECT_ROOT/tools/scripts/issue-create.sh" \
+    --title "t" --body "b" --no-interactive
+
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"Issue type is required"* ]]
+  [[ "$output" != *"FZF-LAUNCHED"* ]]
+}
+
+@test "deterministic: bogus DEVENV_REPO fails before the type prompt" {
+  _issue_mgmt_stub_gh
+  printf '[organization]\norg=workinprogress-ai\n' > "$TEST_TEMP_DIR/devenv.config"
+  git init -q "$TEST_TEMP_DIR/repo" && cd "$TEST_TEMP_DIR/repo"
+
+  run env DEVENV_REPO="workinprogress-ai/no-such-repo-xyz" PATH="$TEST_TEMP_DIR/bin:$PATH" HOME="$TEST_TEMP_DIR" DEVENV_ROOT="$TEST_TEMP_DIR" \
+    bash "$PROJECT_ROOT/tools/scripts/issue-create.sh" \
+    --title "t" --body "b" --type Bug --no-interactive
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not found"* || "$output" == *"Could not resolve"* ]]
+  [[ "$output" != *"FZF-LAUNCHED"* ]]
+}
+
+@test "deterministic: type-set targets the DEVENV_REPO repo, not the cwd repo" {
+  _issue_mgmt_stub_gh
+  printf '[organization]\norg=workinprogress-ai\n' > "$TEST_TEMP_DIR/devenv.config"
+  git init -q "$TEST_TEMP_DIR/repo" && cd "$TEST_TEMP_DIR/repo"
+
+  run env DEVENV_REPO="workinprogress-ai/lib.cs.services.sagas" PATH="$TEST_TEMP_DIR/bin:$PATH" HOME="$TEST_TEMP_DIR" DEVENV_ROOT="$TEST_TEMP_DIR" \
+    bash "$PROJECT_ROOT/tools/scripts/issue-create.sh" \
+    --title "t" --body "b" --type Bug --no-interactive
+
+  [ "$status" -eq 0 ]
+  # The type-set (gh issue edit --type) must run with GH_REPO pinned to the
+  # DEVENV_REPO target — never empty (falls through to the cwd repo). The
+  # stub records GH_REPO with each call.
+  grep -E "GH_REPO=workinprogress-ai/lib.cs.services.sagas :: .*issue edit" "$GH_CALL_LOG"
+  [ "$(grep -c "issue edit" "$GH_CALL_LOG")" -eq 1 ]
+}
 @test "issue-list.sh supports filtering options" {
   run grep -E "\-\-state|\-\-label|\-\-assignee" "$PROJECT_ROOT/tools/scripts/issue-list.sh"
   [ "$status" -eq 0 ]

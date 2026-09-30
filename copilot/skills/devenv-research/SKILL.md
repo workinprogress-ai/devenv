@@ -154,7 +154,7 @@ If yes:
 5. On confirmation:
 
    **If creating a new issue:**
-   - Run `issue-create` per the [deterministic issue creation recipe](../_shared/references/provider-protocols/github.md#deterministic-issue-creation), resolving the target `<owner>/<repo>` per the [repository targeting rules](../_shared/references/provider-protocols/github.md#repository-targeting). For research findings the type is normally `Task` unless the user says otherwise.
+   - Run `issue-create` per the [deterministic issue creation recipe](../_shared/references/protocol-common.md#deterministic-issue-creation), resolving the target `<owner>/<repo>` per the [repository targeting rules](../_shared/references/protocol-common.md#repository-targeting). For research findings the type is normally `Task` unless the user says otherwise.
    - Note the new issue number.
    - Apply the [Artifact Identity Convention](../_conventions.md#artifact-identity-convention).
    - Write the findings doc to `.local-artifacts/tmpN.md` (next free number) with `doc_id: <value>` in first 256 characters.
@@ -173,7 +173,7 @@ If yes:
 
 Never create an issue or post a comment without explicit "yes" confirmation.
 
-**Upstream-impact discovery:** if the investigation concludes that a specification or blueprint assumption is invalidated (not just a task-level unknown resolved), say so in the findings and offer to file an **upstream-impact issue** in the planning repo instead of (or alongside) the findings issue above, per the [upstream-impact filing recipe](../_shared/references/provider-protocols/github.md#upstream-impact-filing). The refine skills consume this queue in cascade mode.
+**Upstream-impact discovery:** if the investigation concludes that a specification or blueprint assumption is invalidated (not just a task-level unknown resolved), say so in the findings and offer to file an **upstream-impact issue** in the planning repo instead of (or alongside) the findings issue above, per the [upstream-impact filing recipe](../_shared/references/protocol-common.md#upstream-impact-filing). The refine skills consume this queue in cascade mode.
 
 ## Next-step offer
 

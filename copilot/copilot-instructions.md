@@ -133,7 +133,7 @@ Tool coverage by domain:
 - **Repository inspection — `release-list`, `policy-export`, `issue-types`, `artifacts-list`**: releases, repository policies, configured issue types, GitHub Packages.
 - **Lifecycle signals — `workflow-signal`**: fire skill event signals (`_on_*` begin/end pairs) manually or interactively; normally fired by skills at approved boundaries.
 
-Full invocation signatures for the wrappers live in the [GitHub protocol reference](copilot/skills/_shared/references/provider-protocols/github.md) — the complete invocation reference; devenv-neutral tooling is in [`copilot/skills/_tools-reference.md`](copilot/skills/_tools-reference.md); never `--help` at runtime.
+Full invocation signatures for the wrappers live in the [wrapper protocol reference](copilot/skills/_shared/references/protocol-common.md) — the complete invocation reference; provider transport in `copilot/skills/_shared/references/provider-protocols/<provider>.md`; devenv-neutral tooling is in [`copilot/skills/_tools-reference.md`](copilot/skills/_tools-reference.md); never `--help` at runtime.
 
 **The AI never runs the `gh` CLI directly — no exceptions.** All GitHub operations go through the workspace wrappers; the wrapper layer is the workspace's abstraction over GitHub and the backing CLI is an implementation detail that may change. If an operation is not covered by any wrapper, do not fall back to `gh` — surface it to the user as a tooling gap and let them decide (run it themselves, or commission a new wrapper). Using `gh` direct for something a wrapper plausibly should cover is a tooling-gap signal, not a preference.
 
@@ -161,7 +161,7 @@ When a repository-content edit (or any tracker mutation beyond the active skill'
 
 **Internal reasoning (thinking):** the user's language, always. Reason about the work in whatever language the user is writing in.
 
-**Conversation output:** the user's language, exclusively and consistently. Chat replies match the language the user is writing in. Do not switch conversation language mid-session, and do not drift toward the model's source language (for example a Chinese model suddenly producing Chinese output while the user writes in English) — treat the user's language as the single conversation language and self-correct the moment any drift appears.
+**Conversation output:** the user's language, exclusively and consistently. Chat replies match the language the user is writing in. Do not switch conversation language mid-session, and do not drift toward the model's source language (for example a Chinese model suddenly producing Chinese output while the user writes in English) — treat the user's language as the single conversation language and self-correct the moment any drift appears. Long structured outputs are explicit language-check moments, not just "drafts": before emitting a phase handback, a status or diagnostic report, a plan, or any other multi-line structured output, verify the output language is the user's language first — these are exactly the moments where drift toward the model's source language has historically occurred under long context.
 
 **English is the language of the codebase — including markdown.** Everything that lives in a repository is English, no exceptions:
 

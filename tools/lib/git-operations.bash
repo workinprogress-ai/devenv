@@ -349,6 +349,7 @@ merge_pr_squash() {
 # Args: $3 - merge method (rebase, merge, squash)
 # Args: $4 - optional repo spec
 # Args: $5 - optional "true" to force merge with --admin (bypass checks)
+# Args: $6 - optional "true" to keep the source branch (default deletes)
 # Returns: 0 on success, 1 on failure
 merge_pr() {
     local pr_num="${1:-}"
@@ -356,6 +357,7 @@ merge_pr() {
     local method="${3:-rebase}"
     local repo_spec="${4:-}"
     local force="${5:-false}"
+    local keep_branch="${6:-false}"
     
     # shellcheck disable=SC2015
     [ -n "$pr_num" ] && [ -n "$commit_msg" ] || { log_error "PR number and commit message required"; return 1; }
@@ -369,7 +371,13 @@ merge_pr() {
     subject="$(printf "%s" "$commit_msg" | head -n1)"
     body="$(printf "%s" "$commit_msg" | tail -n +2 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
 
-    local merge_args=("$pr_num" --"$method" --delete-branch --subject "$subject" --body "$body")
+    local merge_args=("$pr_num" --"$method" --subject "$subject" --body "$body")
+    # Branch deletion is the default; --delete-branch stays omitted only
+    # for explicit keep requests (providers map the flag to their own
+    # completion semantics; azure reads deleteSourceBranch).
+    if [ "$keep_branch" != "true" ]; then
+        merge_args+=(--delete-branch)
+    fi
     if [ "$force" = "true" ]; then
         merge_args+=(--admin)
         log_info "Merging PR $pr_num with $method (--admin)..."
@@ -511,9 +519,9 @@ repo_url_owner() {
     printf '%s\n' "${path_part%%/*}"
 }
 
-# Resolve the configured GitHub org: GH_ORG env first, then
-# devenv.config [organization] github_org. Prints the org; returns 1 when
-# neither is set (ambiguity — callers treat the repo as foreign).
+# Resolve the configured org: policy chain (POLICY_ORG → provider accessor
+# → config → seed). Prints the org; returns 1 when unresolvable
+# (ambiguity — callers treat the repo as foreign).
 repo_configured_org() {
     # Single org chain: delegate to the policy layer (POLICY_ORG → provider
     # accessor → config → seed). No local re-implementation here.

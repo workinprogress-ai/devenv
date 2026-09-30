@@ -710,6 +710,9 @@ EOF
     [ "$status" -eq 0 ]
     grep -qx -- "-R" "$GH_CALL_LOG"
     grep -qx -- "test-org/test-repo" "$GH_CALL_LOG"
+    # Exactly one -R: a doubled one means the repo leaked into the flag
+    # array instead of the positional slot.
+    [ "$(grep -cx -- '-R' "$GH_CALL_LOG")" -eq 1 ]
 }
 
 @test "find_pr_by_search passes -R and repo as separate gh arguments" {
@@ -719,6 +722,7 @@ EOF
     [ "$status" -eq 0 ]
     grep -qx -- "-R" "$GH_CALL_LOG"
     grep -qx -- "test-org/test-repo" "$GH_CALL_LOG"
+    [ "$(grep -cx -- '-R' "$GH_CALL_LOG")" -eq 1 ]
 }
 
 @test "create_pr passes -R and repo as separate gh arguments" {
@@ -728,4 +732,5 @@ EOF
     [ "$status" -eq 0 ]
     grep -qx -- "-R" "$GH_CALL_LOG"
     grep -qx -- "test-org/test-repo" "$GH_CALL_LOG"
+    [ "$(grep -cx -- '-R' "$GH_CALL_LOG")" -eq 1 ]
 }

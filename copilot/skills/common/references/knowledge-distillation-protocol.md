@@ -34,9 +34,9 @@ The knowledge repo is configured in `devenv.config` under `[copilot]` (`knowledg
 
 Placement within the knowledge files:
 
-- Match an existing file and section first (service wiring → the service implementation reference's wiring/lessons sections; cross-cutting C# → the general C# file; plugin usage → the plugins file).
+- Component-context knowledge is organized as one-topic-per-file behind a task-routed `index.md` (e.g. service wiring → `component-context/service-wiring.md`; operation authoring → `service-operations.md`; plugin usage → the specific file under `component-context/plugins/`; cross-cutting C# → `general-csharp.md`). Match the topic file, not a section inside a larger document.
 - Follow the target file's existing bullet style and granularity.
-- Create a new file/section only when nothing fits, and update that folder's `index.md` in the same change so the load policy stays accurate.
+- Create a new topic file only when the knowledge is a distinct topic that no existing file covers, and update that folder's `index.md` in the same change so the routing table stays accurate — an un-updated index makes the new file undiscoverable.
 
 ## Detection pattern (session mining — runs on explicit request only)
 

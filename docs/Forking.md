@@ -27,7 +27,7 @@ The devenv keeps a deliberately small set of fork-owned surfaces. **Everything i
 | 1 | Data policy (config values) | `devenv.config`, `tools/config/issues-config.yml` | Org identity, provider name, workflow vocabulary, issue types, staleness thresholds, nuget/npm feeds |
 | 2 | Behavior policy (policy overrides) | `tools/lib/policy/*.bash` | Org policy decisions as config-driven knobs (`policy_define` accessors) — see the [policy library README](../tools/lib/policy/README.md) for the full knob catalog |
 | 3 | Provider modules | `tools/lib/providers/*` | Add or replace per-provider domain modules; set `[provider] name`; manage the token-env allowlist — see the [provider abstraction README](../tools/lib/providers/README.md) |
-| 4 | Provider protocol references | `copilot/skills/_shared/references/provider-protocols/<provider>.md` | The concrete wrapper signatures, env vars, config paths, and invocation recipes the skills point at. A fork replaces `github.md` with its own provider's file; skill bodies don't change |
+| 4 | Provider protocol references | `copilot/skills/_shared/references/provider-protocols/<provider>.md` (transport; `github.md` and `azure.md` ship in-tree) and `copilot/skills/_shared/references/protocol-common.md` (provider-neutral wrapper contract — identical for every fork, do not fork-edit) | A fork **authors** its own `<provider>.md` to the fixed three-part structure (credential lifecycle → repo targeting → provider-visible behavior). Agents resolve the filename from `[provider] name` — no file is ever content-swapped |
 | 5 | Shared references a fork may re-skin | `copilot/skills/common/references/*.md` (e.g. `issue-creation.md`) | Provider-coupled phrasing inside shared skill references |
 
 **One deliberate exception:** `setup` (and the bootstrap flow it feeds) is git-host-oriented by nature. The working assumption is that any fork **rewrites `setup`** rather than adapting it. It is neither fork-stable nor upstream-stable — treat it as fork-replaced, and expect upstream changes to `setup` to need manual reconciliation.
@@ -56,6 +56,12 @@ Providers differ in what they support. GH-only surfaces — rulesets, project bo
 
 ## Adapting to Azure DevOps
 
+The full GitHub→Azure translation model — how org/repo/issues/boards/
+rulesets map, and the constraints each mapping carries (one Azure project
+per org, area path per repo, numbering, releases) — lives in the azure
+provider directory: [MAPPING.md](../tools/lib/providers/azure/MAPPING.md)
+(durable provider documentation, versioned with the code it describes).
+
 The ADO path follows the fixed minimal mapping from the provider-agnostic effort (epic #29, slice 7):
 
 | Concept | GitHub (as-built) | Azure DevOps mapping |
@@ -68,12 +74,78 @@ The ADO path follows the fixed minimal mapping from the provider-agnostic effort
 
 Procedure:
 
-1. **Copy the protocol reference** — duplicate `copilot/skills/_shared/references/provider-protocols/github.md` to `ado.md` and adapt the wrapper signatures, env-var names, and invocation recipes to ADO's CLI/API. Skill bodies keep pointing at the reference by name; the file swap is the fork surface.
+1. **Author the protocol reference** — write `copilot/skills/_shared/references/provider-protocols/<provider>.md` to the fixed three-part structure (credential lifecycle → repo targeting → provider-visible behavior), using `azure.md` as the freshest example and `github.md` for the GitHub entries. The provider-neutral wrapper contract (`protocol-common.md`) already covers invocation conventions, targeting chain, prohibitions, and recipes — cite it, don't duplicate it. Agents resolve the filename from `[provider] name`; skill bodies never change.
 2. **Add provider modules** — create `tools/lib/providers/ado/` with domain modules answering the `provider_<domain>_<verb>` calls (`issues`, `prs`, `repos`, `actions`, …). Start from the GitHub modules as templates; replace the transport, keep the function signatures.
 3. **Flip the config key** — set `[provider] name=ado` in `devenv.config`.
 4. **Map the capabilities** — decide which GH-only capabilities your ADO setup substitutes: rulesets → ADO branch policies, project boards → board columns over `status_workflow`, native issue types → ADO work item type map. Gate what you don't support; degrade what you substitute.
 5. **Replace provider-specific config values** — native type IDs in `issues-config.yml` (GitHub `IT_kwDO…` IDs, discovered via the GraphQL recipe in that file's header) and the nuget feed URL (`nuget.pkg.github.com/...`) are GitHub-specific values a fork replaces.
 6. **Rewrite `setup`** — per the contract exception above, credential intake and bootstrap wiring are expected to be fork-replaced for a new provider.
+
+### Azure DevOps: the as-built REST provider
+
+The Azure provider now ships in-tree — no copying GitHub modules required:
+
+- **Modules**: `tools/lib/providers/azure/` — `http.bash` (REST transport:
+  Basic-auth PAT header, `api-version=7.1`, ContinuationToken pagination,
+  429/5xx retry, token redaction), `auth.bash` (PAT file lifecycle), `urls`
+  (URL/spec helpers + the gh list-flags helper), `repos`, `issues`, `prs`,
+  `pipelines`, `projects` (boards), `policies` (branch policies),
+  `releases` (git-tag mapping + Artifacts feeds), `org` (org-level bridge),
+  plus `key-update.sh`, `azure-setup.sh`, `azure-smoke-test.sh`, and
+  `MAPPING.md` (the durable mapping doc).
+  List/view verbs follow gh's `--json`/`-q` semantics so the shared
+  wrappers behave identically under both providers.
+- **No `az` CLI dependency**: the transport is curl + jq (both already hard
+  dependencies). Nothing new to install on any fork.
+- **Config keys** (in `devenv.config` under `[provider]`):
+  - `name=azure` — activates the provider modules.
+  - `azure_org` — the **organization name**: the subdomain in
+    `https://dev.azure.com/{org}/...`. URL-safe characters only — the value
+    interpolates into API URLs raw; a space would need `%20` escaping.
+  - `azure_project` — the **project name**, not the project ID: the URL
+    segment right after the org (`dev.azure.com/{org}/{project}/_git/...`;
+    also visible in Project settings → General → Name). The GUID also works
+    API-wise and is the fallback when the name contains spaces/special
+    characters. The value must agree with your git remotes (`_git` URLs) and
+    drives web links.
+
+  ```ini
+  [provider]
+  name=azure
+  azure_org=your-org-name
+  azure_project=your-project-name
+  ```
+
+- **PAT setup**: run `key-update-azure` (bash function; the script lives at
+  `tools/lib/providers/azure/key-update.sh`). It prompts (hidden input — the
+  token never enters chat, shell history, or argv) and stores the PAT as a
+  **0600 file** in the devenv config area; a piped stdin token also works.
+  Scopes needed: Work Items (Read/Write), Code (Read/Write), Build
+  (Read/Execute); **Packaging (Read)** additionally for Artifacts feeds
+  listing.
+- **What differs from GitHub**: work-item states map to the seam's OPEN/CLOSED
+  dialect (every stock process template provides those states — no board
+  configuration required); labels map to `System.Tags` (semicolon-separated);
+  PR rebase-merge is the Azure three-step (mergeStrategy PATCH → GET the PR →
+  status=completed + deleteSourceBranch + the echoed
+  `lastMergeSourceCommit.commitId`, which is required); pagination is
+  ContinuationToken; issue lists are project-scoped (per-repo scoping via
+  area paths is a provisioning-only convention — see MAPPING.md); releases
+  map to git tags; org rulesets map to per-repo branch policies.
+- **Smoke validation** (manual, opt-in, never in CI):
+  - *Tier 1, read-only*: `AZURE_SMOKE=1 bash tools/lib/providers/azure/azure-smoke-test.sh` —
+    auth, repo list (pagination probe), WIQL, work-item view, PR list.
+  - *Tier 2, destructive*: gated behind `AZURE_SMOKE=write` and a disposable
+    test project — create/comment/close work items, create and rebase-merge a
+    PR. Tokens never appear in output (transport redacts).
+- **One-time project setup**: `AZURE_SETUP=1 bash
+  tools/lib/providers/azure/azure-setup.sh [--dry-run]` — configures the
+  Azure project per MAPPING.md: one area path per repo (provisioning the
+  per-repo convention; the shipped verbs list project-wide), board columns
+  from the `[workflows] status_workflow` vocabulary (renamed only when a
+  board still has stock columns and the vocabulary size matches — never
+  guessed), and prints the fork's `[provider]` config block. Idempotent
+  (re-run converges); manual-only, never in CI.
 
 ## Copilot Instructions
 

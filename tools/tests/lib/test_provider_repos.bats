@@ -113,10 +113,11 @@ SEOF
 # Reads
 # ============================================================================
 
-@test "repos view: -R flag when repo given" {
+@test "repos view: repo passed positionally (gh 2.95 dropped -R here)" {
     run provider_repos_view org/repo --json name
     assert_success
-    grep -q "^gh repo view -R org/repo --json name$" "$STUB_CALL_LOG"
+    grep -q "^gh repo view org/repo --json name$" "$STUB_CALL_LOG"
+    ! grep -q "^gh repo view -R" "$STUB_CALL_LOG"
 }
 
 @test "repos view: no -R when repo omitted (cwd resolution)" {

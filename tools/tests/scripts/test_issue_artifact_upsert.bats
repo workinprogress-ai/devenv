@@ -317,3 +317,23 @@ GH
   [ "$status" -eq 2 ]
   [[ "$output" == *"256"* ]]
 }
+
+# ---------------------------------------------------------------------------
+# Headerless body: a research spike picked from .local-artifacts has neither
+# doc_id nor issue_number. The error must name the file and say why, not
+# blame the missing issue number.
+# ---------------------------------------------------------------------------
+
+@test "headerless body-file fails with artifact-missing message naming the file" {
+  export MOCK_COMMENTS_JSON='[]'
+  printf '# Spike\n\nplain research notes, no artifact header\n' > "$TEST_TEMP_DIR/research-spike.md"
+
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+    --body-file "$TEST_TEMP_DIR/research-spike.md" \
+    --dry-run
+
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"not an upsertable artifact"* ]]
+  [[ "$output" == *"research-spike.md"* ]]
+  [[ "$output" != *"issue_number is required"* ]]
+}

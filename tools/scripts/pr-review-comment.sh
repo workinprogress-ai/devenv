@@ -115,29 +115,7 @@ get_head_sha() {
     echo "$sha"
 }
 
-# Resolve the repository node ID via GraphQL.
-get_repo_node_id() {
-    local owner_repo
-    owner_repo=$(provider_repo_target)
-    if [ -z "$owner_repo" ]; then
-        local repo_spec
-        read -ra repo_spec <<< "$(get_repo_spec)"
-        # get_repo_spec yields -R owner/repo; extract it
-        owner_repo="${repo_spec[1]:-}"
-    fi
-    local node_id
-    if ! node_id=$(provider_api graphql -f query="query { repository(owner: \"${owner_repo%%/*}\", name: \"${owner_repo##*/}\") { id } }" 2>/dev/null | jq -r '.data.repository.id'); then
-        log_error "Failed to resolve repository node ID for $owner_repo"
-        exit $EXIT_API_FAILURE
-    fi
-    if [ -z "$node_id" ] || [ "$node_id" = "null" ]; then
-        log_error "Failed to resolve repository node ID for $owner_repo"
-        exit $EXIT_API_FAILURE
-    fi
-    echo "$node_id"
-}
-
-# Post the inline comment via GraphQL addPullRequestReviewThread.
+# Post the inline comment via the provider thread contract verb.
 post_inline_comment() {
     local repo_spec
     read -ra repo_spec <<< "$(get_repo_spec)"
@@ -163,41 +141,22 @@ post_inline_comment() {
 
     local head_sha
     head_sha=$(get_head_sha)
-    local repo_node_id
-    repo_node_id=$(get_repo_node_id)
 
     log_verbose "Posting inline comment on PR #$PR_NUMBER ($FILE_PATH:$LINE_NUMBER $SIDE, head ${head_sha:0:7})"
 
-    # shellcheck disable=SC2016  # GraphQL variables must not be shell-expanded
-    local query='mutation($pr: ID!, $body: String!, $path: String!, $line: Int!, $side: DiffSide!, $repo: ID!) {
-        addPullRequestReviewThread(input: {
-            pullRequestId: $pr,
-            body: $body,
-            path: $path,
-            line: $line,
-            side: $side,
-            repositoryId: $repo
-        }) {
-            thread { id url comments(first: 1) { nodes { databaseId } } }
-        }
-    }'
-
     local result
-    if ! result=$(provider_api graphql \
-        -f query="$query" \
-        -f pr="$(provider_prs_view "${repo_spec[1]:-}" "$PR_NUMBER" --json id -q .id)" \
-        -f body="$COMMENT_BODY" \
-        -f path="$FILE_PATH" \
-        -F line="$LINE_NUMBER" \
-        -f side="$SIDE" \
-        -f repo="$repo_node_id" 2>&1); then
+    if ! result=$(provider_prs_thread_create "${repo_spec[1]:-}" "$PR_NUMBER" \
+        --body "$COMMENT_BODY" \
+        --path "$FILE_PATH" \
+        --line "$LINE_NUMBER" \
+        --side "$SIDE" 2>&1); then
         log_error "Failed to post inline review comment on PR #$PR_NUMBER"
         echo "$result"
         exit $EXIT_API_FAILURE
     fi
 
     local thread_url
-    thread_url=$(echo "$result" | jq -r '.data.addPullRequestReviewThread.thread.url // empty')
+    thread_url=$(echo "$result" | jq -r '.thread.url // empty')
     local errors
     errors=$(echo "$result" | jq -r '.errors[0].message // empty')
     if [ -n "$errors" ]; then

@@ -170,6 +170,6 @@ main() {
 
 # Org identity gate: fail fast when unresolvable (env override → config → seed).
 # shellcheck disable=SC2034  # ORG validates resolution; downstream tooling re-resolves
-ORG="$(provider_org_get)" || die "Organization identity unresolved. Configure [organization] github_org in devenv.config or run setup." "$EXIT_INVALID_ARGUMENT"
+ORG="$(provider_org_get)" || die "Organization identity unresolved. Configure [organization] org in devenv.config or run setup." "$EXIT_INVALID_ARGUMENT"
 
 main "$@"

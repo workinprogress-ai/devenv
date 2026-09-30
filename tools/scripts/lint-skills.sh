@@ -11,6 +11,9 @@
 #   SK005  all relative ../devenv-*/ links in skill files resolve
 #   SK006  renamed-name history: none of the retired skill names appear in
 #          tracked files
+#   SK007  stale path references: a backticked `(docs|copilot|tools|setup)/…`
+#          path that the repo's git history contains but the working tree no
+#          longer has (renamed/moved without a reference sweep)
 #
 # PATH invocation: lint-skills (via the tools/lint-skills dispatcher).
 # Source lives here; this file is not invoked by path per workspace convention.
@@ -50,6 +53,8 @@ Checks:
   SK004  /devenv-<name> references resolve; registry ↔ filesystem bidirectional
   SK005  relative ../devenv-*/ links resolve
   SK006  no retired skill names in tracked files
+  SK007  no stale backticked repo-rooted path references (in git history,
+         missing from the working tree)
 
 Exit 0 = clean (warnings allowed); exit 1 = any failure.
 EOF
@@ -150,6 +155,34 @@ if [ -d "$repo_root/.git" ]; then
             err "SK006 retired name reintroduced: $name"
         fi
     done
+fi
+
+# --- SK007: stale backticked path references ------------------------------------
+# A backticked `(docs|copilot|tools|setup)/...` path in a markdown file is a
+# reader-facing pointer. If the repo's git history contains the path but the
+# working tree no longer does, the reference is stale (renamed or moved
+# without a reference sweep). Paths never present in this repo's history
+# (consumer-repo template names, placeholders) cannot be validated here and
+# are skipped by design — history is the existence oracle, so no hand-maintained
+# skip list is needed.
+if [ -d "$repo_root/.git" ]; then
+    # --no-renames is required: rename detection (the default) would classify a
+    # renamed path as R, not D, and the deleted-path oracle would never see it.
+    deleted_paths="$(git -C "$repo_root" log --no-renames --diff-filter=D --name-only --pretty=format: -- . 2>/dev/null | sort -u || true)"
+    md_scope=("$skills_dir")
+    if [ -d "$repo_root/docs" ]; then
+        md_scope+=("$repo_root/docs")
+    fi
+    while IFS= read -r -d '' f; do
+        while IFS= read -r p; do
+            case "$p" in
+                *\**|*/|*[\<\>\~\$…]*|*\ *) continue ;; # glob / bare dir / placeholder
+            esac
+            if [ ! -e "$repo_root/$p" ] && printf '%s\n' "$deleted_paths" | grep -qxF -- "$p"; then
+                err "SK007 stale path reference in ${f#$repo_root/}: $p"
+            fi
+        done < <(grep -oE '`((docs|copilot|tools|setup)/[^`]+)`' "$f" 2>/dev/null | sed 's/^`//;s/`$//' | sort -u)
+    done < <(find "${md_scope[@]}" -name "*.md" -not -path "*/node_modules/*" -print0)
 fi
 
 # --- summary --------------------------------------------------------------------

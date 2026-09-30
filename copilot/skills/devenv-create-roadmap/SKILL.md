@@ -172,7 +172,7 @@ Show the draft. Revise. **Do not publish yet.**
 
 Once approved:
 
-1. Create the parent epic in the planning repo: run `issue-create` with title `"Epic: <system> roadmap"` and type `Epic`, targeting `<owner>/<planning-repo>` per the [repository targeting rules](../_shared/references/provider-protocols/github.md#repository-targeting) — exact invocation: [issue-create](../_shared/references/provider-protocols/github.md#issue-create). Use a placeholder body (title, blueprint link, note that the roadmap artifact follows in a comment). Epic is the correct type here by definition — a roadmap's parent coordinates multi-repo delivery, which is exactly what Epic is for (orchestration, not single deliverables).
+1. Create the parent epic in the planning repo: run `issue-create` with title `"Epic: <system> roadmap"` and type `Epic`, targeting `<owner>/<planning-repo>` per the [repository targeting rules](../_shared/references/protocol-common.md#repository-targeting) — exact invocation: [issue-create](../_shared/references/protocol-common.md#issue-create). Use a placeholder body (title, blueprint link, note that the roadmap artifact follows in a comment). Epic is the correct type here by definition — a roadmap's parent coordinates multi-repo delivery, which is exactly what Epic is for (orchestration, not single deliverables).
 2. Publish the roadmap as an artifact comment on the epic: follow the shared [Artifact Identity Convention](../_conventions.md#artifact-identity-convention) with `artifact_type: roadmap` and `artifact_scope: issue-comment`. Resolve the deterministic `doc_id` with `issue-artifact-doc-id --issue <epic-number> --artifact-type roadmap --slug <system>-<NNN>` (form `dv1:<owner>/<repo>:issue-<epic-number>:roadmap:<system>-<NNN>`), stamp it into the scratch copy's `DEVENV_ARTIFACT_V1` header via `artifact-header <scratch-path> --set doc_id=<value>`, and run `issue-artifact-upsert --issue <epic-number> --body-file <scratch-path>`.
 3. Note the epic number and artifact `doc_id` — every later roadmap skill (refine/update) addresses the roadmap by `doc_id`.
 
@@ -206,7 +206,7 @@ issue-create \
   --body-file <temp-body-file>
 ```
 
-Resolve the target `<owner>/<component-repo>` per the [repository targeting rules](../_shared/references/provider-protocols/github.md#repository-targeting) and the [deterministic issue creation recipe](../_shared/references/provider-protocols/github.md#deterministic-issue-creation) — `issue-create` has no `--repo` flag, and valid type values come from the provider's issue-type configuration. Roadmap step issues are normally `Task` and the parent epic is `Epic`, unless the user approves otherwise.
+Resolve the target `<owner>/<component-repo>` per the [repository targeting rules](../_shared/references/protocol-common.md#repository-targeting) and the [deterministic issue creation recipe](../_shared/references/protocol-common.md#deterministic-issue-creation) — `issue-create` has no `--repo` flag, and valid type values come from the provider's issue-type configuration. Roadmap step issues are normally `Task` and the parent epic is `Epic`, unless the user approves otherwise.
 
 The body should reference back to the roadmap artifact and blueprint:
 
@@ -251,7 +251,7 @@ The epic body carries the placeholder plus a markdown task list of every child i
 ...
 ```
 
-Update via `issue-update <epic-number> --body-file <temp-body-file>`, targeted at `<owner>/<planning-repo>` per the [repository targeting rules](../_shared/references/provider-protocols/github.md#repository-targeting) — exact invocation: [issue-update](../_shared/references/provider-protocols/github.md#issue-update).
+Update via `issue-update <epic-number> --body-file <temp-body-file>`, targeted at `<owner>/<planning-repo>` per the [repository targeting rules](../_shared/references/protocol-common.md#repository-targeting) — exact invocation: [issue-update](../_shared/references/protocol-common.md#issue-update).
 
 ### Step C — Update the roadmap artifact with issue links
 

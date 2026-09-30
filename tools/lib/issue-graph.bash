@@ -48,27 +48,6 @@ _issue_graph_repo_spec() {
     fi
 }
 
-# Resolve the repo spec once and split it; callers use the two globals
-# IG_OWNER / IG_REPO instead of invoking _issue_graph_repo_spec repeatedly
-# (each call can spawn gh + git when DEVENV_REPO is unset).
-_issue_graph_repo_parts() {
-    local spec
-    spec="$(_issue_graph_repo_spec)"
-    IG_OWNER="${spec%%/*}"
-    IG_REPO="${spec#*/}"
-}
-
-_issue_graph_node_id() {
-    local issue="$1"
-    local owner repo
-    _issue_graph_repo_parts
-    owner="$IG_OWNER"; repo="$IG_REPO"
-    provider_api graphql \
-        -f "query=query(\$o:String!,\$r:String!,\$n:Int!){repository(owner:\$o,name:\$r){issue(number:\$n){id}}}" \
-        -f o="$owner" -f r="$repo" -F n="$issue" \
-        --jq '.data.repository.issue.id' 2>/dev/null
-}
-
 # Link child to parent via native sub-issues.
 # Usage: issue_link_subissue <parent> <child>
 issue_link_subissue() {
@@ -77,13 +56,7 @@ issue_link_subissue() {
         echo "Usage: issue_link_subissue <parent> <child>" >&2
         return 1
     }
-    local pid cid
-    pid="$(_issue_graph_node_id "$parent")" || return 1
-    cid="$(_issue_graph_node_id "$child")" || return 1
-    [ -n "$pid" ] && [ -n "$cid" ] || return 1
-    provider_api graphql \
-        -f "query=mutation(\$p:ID!,\$c:ID!){addSubIssue(input:{issueId:\$p,subIssueId:\$c}){issue{number}}}" \
-        -f p="$pid" -f c="$cid" >/dev/null 2>&1
+    provider_issue_graph_link "$parent" "$child"
 }
 
 # List a parent's native sub-issue children (numbers, one per line).
@@ -91,15 +64,9 @@ issue_link_subissue() {
 issue_children() {
     local parent="$1"
     [ -n "$parent" ] || return 1
-    local owner repo
-    _issue_graph_repo_parts
-    owner="$IG_OWNER"; repo="$IG_REPO"
-    # Pagination deliberately omitted: 50 children is far beyond any planned
-    # decomposition; larger trees should be split rather than queried deeper.
-    provider_api graphql \
-        -f "query=query(\$o:String!,\$r:String!,\$n:Int!){repository(owner:\$o,name:\$r){issue(number:\$n){subIssues(first:50){nodes{number}}}}}" \
-        -f o="$owner" -f r="$repo" -F n="$parent" \
-        --jq '.data.repository.issue.subIssues.nodes[].number' 2>/dev/null
+    # 50-cap rationale: beyond any planned decomposition; larger trees should
+    # be split rather than queried deeper.
+    provider_issue_graph_children "$parent"
 }
 
 # Resolve an issue's parent: native sub-issue linkage first, legacy
@@ -109,13 +76,8 @@ issue_children() {
 issue_parent() {
     local issue="$1"
     [ -n "$issue" ] || return 1
-    local owner repo native
-    _issue_graph_repo_parts
-    owner="$IG_OWNER"; repo="$IG_REPO"
-    native=$(provider_api graphql \
-        -f "query=query(\$o:String!,\$r:String!,\$n:Int!){repository(owner:\$o,name:\$r){issue(number:\$n){parent{number}}}}" \
-        -f o="$owner" -f r="$repo" -F n="$issue" \
-        --jq '.data.repository.issue.parent.number' 2>/dev/null)
+    local native
+    native=$(provider_issue_graph_parent "$issue" 2>/dev/null)
     if [ -n "$native" ] && [ "$native" != "null" ]; then
         printf '%s' "$native"
         return 0

@@ -585,3 +585,74 @@ provider_user_get() {
     log_error "unable to resolve user identity — set [organization] user in devenv.config (or run setup)"
     return 1
 }
+
+# ============================================================================
+# Repo-target normalization: the neutral owner/repo resolver
+# ============================================================================
+# Hoisted from github/repos.bash: every provider needs repo-target
+# resolution, and the chain is provider-neutral except two legs that
+# providers override via hooks:
+#   - _provider_repo_env_extra     (provider-specific env vars, e.g. the
+#                                  github module consumes GH_REPO here;
+#                                  return the spec or empty)
+#   - _provider_repo_cwd_spec ORG  (cwd leg; github composes ORG/basename,
+#                                  azure composes azure_org/azure_project/
+#                                  basename via its own hook)
+# Resolution order:
+#   1. explicit owner/repo argument (passes through)
+#   2. DEVENV_REPO env (the single devenv override)
+#   3. provider env hook (_provider_repo_env_extra)
+#   4. provider cwd hook (_provider_repo_cwd_spec)
+#   5. empty (caller decides the error)
+#
+# Usage:
+#   repo=$(provider_repo_target org/repo)   # spec
+#   repo=$(provider_repo_target)            # chain, may be empty
+provider_repo_target() {
+    # Repo-targeting env contract: DEVENV_REPO is the single override; no
+    # other devenv env var participates. (Provider-internal env vars are
+    # consumed via the hook below, not as devenv aliases.)
+    local repo="${1:-}"
+    if [ -n "$repo" ]; then
+        echo "$repo"
+        return 0
+    fi
+    if [ -n "${DEVENV_REPO:-}" ]; then
+        echo "$DEVENV_REPO"
+        return 0
+    fi
+    if declare -F _provider_repo_env_extra >/dev/null; then
+        repo=$(_provider_repo_env_extra 2>/dev/null) || repo=""
+        if [ -n "$repo" ]; then
+            echo "$repo"
+            return 0
+        fi
+    fi
+    if declare -F _provider_repo_cwd_spec >/dev/null; then
+        repo=$(_provider_repo_cwd_spec 2>/dev/null) || repo=""
+        if [ -n "$repo" ]; then
+            echo "$repo"
+            return 0
+        fi
+    fi
+    echo ""
+    return 0
+}
+
+# Split a provider repo spec into its first component and the rest.
+# Provider-agnostic about arity: github specs are owner/repo (2 parts),
+# azure specs are org/project/repo (3 parts) — the split is positional
+# (head vs tail), callers interpret the parts per their provider.
+# Fails when the spec has no separator.
+# Usage: provider_repo_split spec HEAD_VAR TAIL_VAR
+provider_repo_split() {
+    local spec="$1" __head="$2" __tail="$3"
+    if [[ "$spec" != */* ]]; then
+        log_error "provider_repo_split: '$spec' is not owner/repo form (or org/project/repo for three-part providers)"
+        return 1
+    fi
+    # printf -v performs the assignment without eval, so spec content can
+    # never be interpreted as shell syntax.
+    printf -v "$__head" '%s' "${spec%%/*}"
+    printf -v "$__tail" '%s' "${spec#*/}"
+}

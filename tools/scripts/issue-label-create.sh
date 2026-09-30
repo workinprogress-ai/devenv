@@ -106,10 +106,7 @@ ensure_label() {
                 return 0
             fi
             local repo="${repo_spec[1]:-}"
-            local api_args=(-X PATCH "repos/${repo}/labels/${name}")
-            [ -n "$color" ] && api_args+=(-F "new_color=$color" -F "color=$color")
-            [ -n "$description" ] && api_args+=(-f "new_description=$description" -f "description=$description")
-            if provider_api "${api_args[0]}" "${api_args[1]}" "${api_args[@]:2}"; then
+            if provider_issues_label_update "$repo" "$name" "$color" "$description"; then
                 log_info "Updated label: $name"
             else
                 log_error "Failed to update label: $name"
@@ -127,11 +124,7 @@ ensure_label() {
     fi
 
     local repo="${repo_spec[1]:-}"
-    local api_args=(-X POST "repos/${repo}/labels")
-    [ -n "$color" ] && api_args+=(-f "color=$color")
-    [ -n "$description" ] && api_args+=(-f "description=$description")
-    api_args+=(-f "name=$name")
-    if provider_api "${api_args[0]}" "${api_args[1]}" "${api_args[@]:2}"; then
+    if provider_issues_label_create "$repo" "$name" "$color" "$description"; then
         log_info "Created label: $name"
     else
         log_error "Failed to create label: $name"

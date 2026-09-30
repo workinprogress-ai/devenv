@@ -71,3 +71,55 @@ teardown() { rm -rf "$WORK_DIR"; }
   [ "$status" -eq 1 ]
   [[ "$output" == *"SK005"* ]]
 }
+
+# --- SK007: stale backticked path references ------------------------------------
+
+# Makes TREE a git repo (SK007 is gated on $repo_root/.git) whose history
+# contains a committed TREE/docs/GitHub-Issues-Management.md that is then
+# renamed (committed) to docs/Issues-History.md. A backticked reference to
+# the old name is stale; references to paths never present in this repo's
+# history are unverifiable and must be skipped.
+setup_git_with_renamed_doc() {
+  git init -q "$TREE"
+  git -C "$TREE" config user.email t@t
+  git -C "$TREE" config user.name t
+  mkdir -p "$TREE/docs"
+  printf 'old doc\n' > "$TREE/docs/GitHub-Issues-Management.md"
+  git -C "$TREE" add -A
+  git -C "$TREE" commit -qm init
+  git -C "$TREE" mv docs/GitHub-Issues-Management.md docs/Issues-History.md
+  git -C "$TREE" add -A
+  git -C "$TREE" commit -qm rename
+}
+
+@test "SK007: stale path (in git history, missing from tree) fails" {
+  printf 'see `docs/GitHub-Issues-Management.md`\n' >> "$TREE/devenv-alpha/SKILL.md"
+  setup_git_with_renamed_doc
+  run bash "$SCRIPT" "$TREE"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"SK007"* ]]
+  [[ "$output" == *"docs/GitHub-Issues-Management.md"* ]]
+}
+
+@test "SK007: globs, bare dirs, placeholders, and never-existed paths pass" {
+  printf 'refs `docs/Decisions/` `tools/lib/providers/*` `docs/SomeFile.md` `docs/Usage_guide.md`\n' >> "$TREE/devenv-alpha/SKILL.md"
+  setup_git_with_renamed_doc
+  run bash "$SCRIPT" "$TREE"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"SK007"* ]]
+}
+
+@test "SK007: current path referenced alongside renamed sibling stays clean" {
+  printf 'now `docs/Issues-History.md`\n' >> "$TREE/devenv-alpha/SKILL.md"
+  setup_git_with_renamed_doc
+  run bash "$SCRIPT" "$TREE"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"SK007"* ]]
+}
+
+@test "SK007: no .git dir — check skipped silently" {
+  printf 'see `docs/anything-old.md`\n' >> "$TREE/devenv-alpha/SKILL.md"
+  run bash "$SCRIPT" "$TREE"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"SK007"* ]]
+}

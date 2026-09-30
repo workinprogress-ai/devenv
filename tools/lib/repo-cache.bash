@@ -53,9 +53,9 @@ readonly REPO_CACHE_PARALLEL="${REPO_CACHE_PARALLEL:-5}"
 #        When omitted, all organization repositories are cached.
 #
 # Org identity resolves via the provider org accessor (GH_ORG env override →
-# config [organization] github_org → seed); no env var is required. Clone
-# URLs are clean https forms — authentication rides gh's credential helper
-# (gh auth setup-git), so no username or token participates in the URL.
+# config [organization] org → seed); no env var is required. Clone URLs are
+# clean https forms — authentication rides the credential helper configured
+# by key-update, so no username or token participates in the URL.
 #
 # Returns:
 #   0 if all matching repos were cached/updated successfully

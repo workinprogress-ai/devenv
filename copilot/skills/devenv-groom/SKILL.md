@@ -114,7 +114,7 @@ Follow the shared [issue-backed artifact edit protocol](../common/references/iss
 - API gateway
 - Frontend application
 
-Then use the `component-context/index.md` file from the configured Copilot knowledge location. Resolve that location from `devenv.config` `[copilot]` (`knowledge_repo`, `knowledge_subpath`) before loading context. For services, choose among `01-Service-Architecture.md`, `02-Service-Implementation.md`, and `03-Service-Plugins.md` as needed.
+Then use the `component-context/index.md` file from the configured Copilot knowledge location. Resolve that location from `devenv.config` `[copilot]` (`knowledge_repo`, `knowledge_subpath`) before loading context. For services, route from the current grooming decision using the index's task table and load only the files it names.
 
 **Step 5 — If input is a returned plan:** determine which kind it is:
 
@@ -207,7 +207,7 @@ When creating child issues from grooming (user-gated):
 	- add optional flags as needed (`--parent`, `--label`, `--assignee`, `--milestone`, `--project`, `--blocked-by`).
 - Type value source is explicit:
 	- if the grooming row already has an approved issue type, pass that exact value to `--type`.
-        - if type is not approved yet, list the allowed issue types (see the [deterministic issue creation recipe](../_shared/references/provider-protocols/github.md#deterministic-issue-creation)), present the allowed list, and ask the user to choose one before running `issue-create`.
+        - if type is not approved yet, list the allowed issue types (see the [deterministic issue creation recipe](../_shared/references/protocol-common.md#deterministic-issue-creation)), present the allowed list, and ask the user to choose one before running `issue-create`.
 - Do not run `issue-create --help` or `gh issue create --help` during child-issue creation flow. If command shape guidance is needed, use this section and `copilot/skills/_tools-reference.md` as the source of truth and proceed with the deterministic forms above.
 - Extract the created issue number from command output and update the matching attack-plan row.
 - Keep `TBD` for any row not created in the current session.
@@ -271,7 +271,7 @@ Before routing onward to planning or execution, verify all of the following:
 
 If any of those checks fail, write or update the grooming document first. Never treat conversational design iteration as a substitute for the written artifact.
 
-**Upstream-impact discovery:** when the session concludes that the root cause of a design problem lives above the plan — a specification item is wrong or missing, or the blueprint's structure no longer matches what implementation needs — offer to file an **upstream-impact issue** in the planning repo per the [upstream-impact filing recipe](../_shared/references/provider-protocols/github.md#upstream-impact-filing). Do not edit the specifications/blueprint from grooming; the refine skills consume this queue in cascade mode. Grooming discovers; refinement executes.
+**Upstream-impact discovery:** when the session concludes that the root cause of a design problem lives above the plan — a specification item is wrong or missing, or the blueprint's structure no longer matches what implementation needs — offer to file an **upstream-impact issue** in the planning repo per the [upstream-impact filing recipe](../_shared/references/protocol-common.md#upstream-impact-filing). Do not edit the specifications/blueprint from grooming; the refine skills consume this queue in cascade mode. Grooming discovers; refinement executes.
 
 ### Decision carry-forward review (required)
 

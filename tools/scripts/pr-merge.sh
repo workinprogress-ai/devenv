@@ -94,6 +94,7 @@ Options:
   --repo-dir <path>       Repository directory (default: current directory)
   --branch <name>         Source branch for PR lookup (default: current branch)
   --force                 Force merge even if checks have not passed
+  --keep-branch           Keep the source branch after merge (deleted by default)
   --help                  Show this help message
 
 Examples:
@@ -114,6 +115,7 @@ TARGET_BRANCH=""
 SOURCE_BRANCH=""
 REPO_DIR="$(pwd)"
 FORCE="false"
+KEEP_BRANCH="false"
 
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
@@ -134,6 +136,8 @@ while [[ $# -gt 0 ]]; do
             SOURCE_BRANCH="$2"; shift 2 ;;
         --force)
             FORCE="true"; shift ;;
+        --keep-branch)
+            KEEP_BRANCH="true"; shift ;;
         -h|--help)
             usage ;;
         *)
@@ -271,7 +275,7 @@ fi
 breaking_marker_scan "${TARGET_BRANCH}..${CURRENT_BRANCH}"
 
 # Merge the PR
-if ! merge_pr "$PR_ID" "$MERGE_COMMIT_MESSAGE" "$MERGE_METHOD" "${repo_spec[*]}" "$FORCE"; then
+if ! merge_pr "$PR_ID" "$MERGE_COMMIT_MESSAGE" "$MERGE_METHOD" "${repo_spec[*]}" "$FORCE" "$KEEP_BRANCH"; then
     log_error "Failed to merge PR #$PR_ID. Check for merge conflicts or branch protection rules."
     exit $EXIT_API_FAILURE
 fi

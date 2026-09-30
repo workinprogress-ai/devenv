@@ -24,9 +24,12 @@ Written to the target repo's `.local-artifacts/` folder (the standard local mark
 
 ### Causal chain
 
-<Step-by-step path from trigger to symptom, with file:line links.>
+<Step-by-step path from trigger to symptom, with file:line links. Links live
+in this report inside the repo's `.local-artifacts/`, one level below the
+repo root — prefix the repo-relative path with `../`:
+[`File.cs:42`](../path/to/File.cs#L42).>
 
-- <[`File.cs:42`](path/to/File.cs#L42) — what happens here>
+- <[`File.cs:42`](../path/to/File.cs#L42) — what happens here>
 - <...>
 
 ### Reproduction

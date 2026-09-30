@@ -350,10 +350,12 @@ find_pr_by_branch() {
         return 1
     fi
 
+    # The repo rides the positional slot (the provider seam contract);
+    # gh-dialect -R inside the flag array is silently dropped by azure's
+    # parsers and doubled by github's CLI.
     local gh_args=(--state "$state" --head "$branch" --json url --jq '.[0].url')
-    [ -n "$repo" ] && gh_args+=(-R "$repo")
     
-    provider_prs_list "${gh_args[@]}" 2>/dev/null || echo ""
+    provider_prs_list "${repo:-}" "${gh_args[@]}" 2>/dev/null || echo ""
 }
 
 # Find PR by search criteria
@@ -395,9 +397,9 @@ find_pr_by_search() {
     local gh_args=(--state "$state" --search "$search")
     # shellcheck disable=SC2054  # gh CLI uses comma-separated fields
     gh_args+=(--json title,url,number)
-    [ -n "$repo" ] && gh_args+=(-R "$repo")
     
-    provider_prs_list "${gh_args[@]}" 2>/dev/null || echo "[]"
+    # Positional repo (seam contract) — see find_pr_by_branch.
+    provider_prs_list "${repo:-}" "${gh_args[@]}" 2>/dev/null || echo "[]"
 }
 
 # Create PR with options
@@ -453,14 +455,14 @@ create_pr() {
         esac
     done
 
-    [ -n "$repo" ] && gh_args+=(-R "$repo")
+    # Positional repo (seam contract) — see find_pr_by_branch.
     [ -n "$title" ] && gh_args+=(--title "$title")
     [ -n "$body" ] && gh_args+=(--body "$body")
     [ "$draft" -eq 1 ] && gh_args+=(--draft)
     [ -n "$head" ] && gh_args+=(--head "$head")
     [ -n "$base" ] && gh_args+=(--base "$base")
 
-    provider_prs_create "${gh_args[@]}" 2>/dev/null || return 1
+    provider_prs_create "${repo:-}" "${gh_args[@]}" 2>/dev/null || return 1
 }
 
 # ============================================================================
@@ -510,7 +512,10 @@ close_issue() {
     fi
 
     for issue_num in "${issue_numbers[@]}"; do
-        local close_args=()
+        # Both arg arrays are rebuilt per issue: gh_args is NOT reset by the
+        # loop, so --reason/--comment would duplicate on every issue after
+        # the first (the provider parser then sees repeated flags).
+        local -a close_args=() gh_args=()
         [ -n "$repo" ] && close_args+=("$repo")
         [ -n "$reason" ] && gh_args+=(--reason "$reason")
         [ -n "$comment" ] && gh_args+=(--comment "$comment")
@@ -658,9 +663,10 @@ set_issue_type() {
         return 1
     fi
 
-    # Dependencies
-    if ! command -v gh >/dev/null 2>&1; then
-        echo "ERROR: gh CLI is required" >&2
+    # Dependencies: auth is the provider seam's concern (the azure provider
+    # needs no provider CLI); only jq is universal here.
+    if ! command -v jq >/dev/null 2>&1; then
+        echo "ERROR: jq is required" >&2
         return 1
     fi
 
@@ -699,8 +705,10 @@ set_issue_type() {
 # Returns: 0 if valid; 1 with error message if not
 validate_comment_id() {
     local id="$1"
-    if [[ ! "$id" =~ ^[0-9]+$ ]]; then
-        log_error "Invalid comment ID: $id — expected a positive integer"
+    # Opaque provider refs: a bare numeric id, or a digits/digits composite
+    # (providers whose comment ids are scoped per issue emit the composite).
+    if [[ ! "$id" =~ ^[0-9]+(/[0-9]+)?$ ]]; then
+        log_error "Invalid comment ID: $id — expected the id from issue-comment-list output"
         return 1
     fi
 }
@@ -776,7 +784,9 @@ check_issue_comment_exists() {
     local comment_id="$1"
     local repo
     repo=$(provider_repo_target)
-    if ! provider_api GET "repos/${repo}/issues/comments/${comment_id}" --silent >/dev/null 2>&1; then
+    # Existence rides the provider contract verb; the comment ref is opaque
+    # (its shape — bare id or issue/id composite — is provider-defined).
+    if ! provider_issues_comment_get "$repo" "$comment_id" >/dev/null 2>&1; then
         log_error "Comment ID $comment_id not found — does it belong to this repository?"
         return 1
     fi
@@ -792,9 +802,8 @@ update_issue_comment() {
     local body="$2"
     local repo
     repo=$(provider_repo_target)
-    if ! provider_api PATCH "repos/${repo}/issues/comments/${comment_id}" \
-            -f "body=${body}" \
-            --silent >/dev/null 2>&1; then
+    if ! provider_issues_comment_edit "$repo" "$comment_id" \
+            --body "$body" >/dev/null 2>&1; then
         log_error "Failed to update comment $comment_id"
         return 1
     fi

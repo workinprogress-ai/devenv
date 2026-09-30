@@ -14,12 +14,15 @@ By the time the Review phase arrives, the executor session (delegate or pair) ha
 
 When a Review-phase task becomes current:
 
-1. **Resolve the round.** Read the plan's Review phase. The round number is `1 + (number of already-ticked round tasks)`. If the previous round's convergence decision was "converged" (or the user closed the cycle), do not start a new round — the phase is done; tick the current task with a `round skipped — converged` note only if it was left open in error.
+1. **Resolve the round.** Read the plan's Review phase. The round number is `1 + (number of already-ticked round tasks)`. If the previous round's convergence decision was "converged and closed" (the user accepted closing the cycle), do not start a new round — the phase is done; tick the current task with a `round skipped — converged` note only if it was left open in error. A hard cap of **4 rounds** bounds the cycle: at the cap, stop and hand back with the yield history instead of offering a further round — warning the user explicitly that the cycle hit the cap and unresolved issues may remain, so the diff still needs their manual attention.
 2. **Resolve the diff target.** Cumulative branch diff vs base (the plan's execution branch vs its base), per the plan's Review-phase scope note. If a PR exists for the branch, PR mode may also be used; the computation is the same.
 3. **Dispatch the review subagent** with the self-contained brief below. One subagent per round. Do not review inline.
 4. **Receive findings.** The subagent returns the structured findings report (numbered, severity-grouped hotspots, missing tests, ephemeral-artifact references, questions, and the Diagnostics appendix). When the user asks about coverage or where review effort went, cite the report's Diagnostics section.
 5. **Present + fold in.** Write the full findings report to a `.local-artifacts/tmpN.md` working file in the target repo (next free number — the user's reviewable record), and present the findings in chat: every finding's number, severity, and file:line as a one-liner, pointing to the working file for full detail. A chat summary alone is not enough — the user cannot rule on findings they cannot read. Then run the fold-in interview (`vscode_askQuestions`), proposing set approval **by finding number**: blockers, concerns, missing tests; nits only if the user opts in; praise never. Apply approved encodings as normal numeric tasks in the Review phase (round number in the task **title**, never the task ID — plan tooling accepts dotted numeric IDs only); each task's `Additional context:` cites its finding number plus file:line and severity. Record rejected findings (number + reason) in the round summary; they are excluded from future yield counts.
-6. **Convergence decision.** Compute the yield over non-rejected findings: continue while any Blocker or ≥ 3 Concerns; converged at 0 Blockers and ≤ 2 Concerns. The user always confirms continue/stop. Tick the round task, record yield + decision in the round summary. If issue-backed, offer the artifact re-upsert (plan-parse lint first).
+6. **Convergence decision.** Compute the yield over non-rejected findings and present BOTH outcomes as a choice — the cycle repeats only with the user's permission, in both directions; it is never self-terminated:
+   - **Below the bar** (any Blocker, or ≥ 3 Concerns): recommend another round on the updated cumulative diff; the user confirms.
+   - **Converged** (0 Blockers and ≤ 2 Concerns): recommend **closing** the phase — but offer another round anyway if the user wants deeper assurance; their explicit choice.
+   - **Anti-spiral guards:** at 4 rounds total, stop and hand back with the yield history rather than offering round 5 — warning the user that unresolved issues may remain and the diff needs their manual attention. And a round that keeps yielding findings at the same severity after fixes landed is churn, not progress — surface it as a handback signal instead of proposing a further round. Tick the round task, record yield + decision in the round summary. If issue-backed, offer the artifact re-upsert (plan-parse lint first).
 7. **PR alongside (optional).** If a PR exists, offer once per round: post the kept findings as inline PR threads from the round's working file (tmpN). The fold-in and the PR posting are independent channels; either, both, or neither may be used.
 
 ## Subagent brief (self-contained prompt template)
@@ -92,6 +95,12 @@ OUTPUT (markdown, exactly this structure):
 **Files changed**: <count> (+<adds> / -<dels>)
 **Exploration basis**: <default: docs + local callers | targeted trace: <which consumers, why> | full cross-repo trace: <why docs were insufficient>>
 
+Every finding link points at the file that will contain this report — the
+target repo's `.local-artifacts/tmpN.md` — so paths are repo-relative with a
+single `../` prefix (the artifact sits one level below the repo root):
+`../path/file.ext#LINE`. A link without the prefix resolves against
+`.local-artifacts/` and is dead when the user opens the file.
+
 ### Summary
 <1–2 sentences: what the change does, overall take.>
 
@@ -103,11 +112,11 @@ interview, rejections, and the plan's task encodings all reference it.
 ### Findings
 
 #### 🛑 Blocker
-- **F1** [path/file.ext:LINE](path/file.ext#LINE) — <reason>
+- **F1** [path/file.ext:LINE](../path/file.ext#LINE) — <reason>
 (empty section header with "(none)" under it if none)
 
 #### ⚠️ Concern
-- **F2** [path/file.ext:LINE](path/file.ext#LINE) — <reason>
+- **F2** [path/file.ext:LINE](../path/file.ext#LINE) — <reason>
 
 #### 💭 Nit
 - Only include nits that materially affect readability or correctness.
@@ -143,7 +152,7 @@ final message.
 - Eligible classes: Blockers, Concerns, Missing tests. Nits opt-in; praise never.
 - Rejected findings: recorded with reason in the round summary and excluded from subsequent yield computation.
 - Task encoding: normal numeric IDs (`4.2`, `4.3`, …); round number in the title; `Additional context:` cites the finding (file:line, severity).
-- Convergence bar: continue while a round yields any non-rejected Blocker or ≥ 3 non-rejected Concerns; converged at 0 Blockers and ≤ 2 Concerns. The user confirms.
+- Convergence bar: 0 Blockers and ≤ 2 non-rejected Concerns. The cycle repeats only with the user's permission in BOTH directions — below the bar the recommendation is another round, at the bar the recommendation is closing, but the user may choose either at any round; the cycle is never self-terminated. Hard cap 4 rounds (hand back at the cap with the yield history and an explicit warning that unresolved issues may remain — the diff needs the user's manual attention); same-severity churn after fixes landed is a handback signal, not a further round.
 - Other plan editing still routes to `/devenv-refine-plan`; the fold-in write is sanctioned only inside this protocol.
 - Plan-encoded review is separate from `/devenv-commit`'s in-line pre-commit review; never start a fold-in cycle from an in-line review.
 - **Conversational micro-reviews are not rounds.** The ordinary back-and-forth of a pair (or delegated) session — reacting to a user's diff, "does this look right?", navigator feedback mid-task — is conversation, works well as-is, and never enters this cycle. This protocol engages only through a plan Review-phase task or an explicit user request for a formal review; never from the mere presence of review-shaped feedback during execution.

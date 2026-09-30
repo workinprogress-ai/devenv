@@ -38,17 +38,17 @@ Read the mapped source (search it, don't guess) before answering. Paths are work
 | Question domain | Primary source(s) | Notes |
 |---|---|---|
 | Skills (pick one, chains, trigger phrases) | [`references/skills-registry.md`](references/skills-registry.md) · `docs/Skills.md` | Registry is routing truth; Skills.md is the user catalog |
-| Wrapper commands (`issue-*`, `pr-*`, `cs-*`, `repo-*`, …) | `copilot/skills/_tools-reference.md` · `docs/Additional-Tooling.md` | tools-reference = invocation reference; Additional-Tooling = deep reference pages |
+| Wrapper commands (`issue-*`, `pr-*`, `cs-*`, `repo-*`, …) | `copilot/skills/_tools-reference.md` · `docs/Additional-Tooling.md` · [wrapper protocol reference](../_shared/references/protocol-common.md) | tools-reference = invocation reference; Additional-Tooling = deep reference pages; protocol reference = canonical recipes (repo targeting, deterministic issue creation, PR ops) |
 | Workflow principles & methodology | `docs/Workflow.md` | Principles section is non-negotiable — quote, don't paraphrase |
 | Tooling standards (bash conventions, script layout) | `docs/Tooling-Standards.md` · `docs/Function-Naming-Conventions.md` | |
-| Container, env vars, folder layout, bootstrap/startup | `docs/Dev-container-environment.md` · `docs/Devenv-Customization.md` · `docs/Bootstrap-Customization.md` | |
-| `devenv.config` keys | `docs/Devenv-Customization.md` § Required: devenv.config · read `devenv.config` itself | |
-| Issue management workflows | `docs/GitHub-Issues-Management.md` · `docs/GitHub-Issues-Quick-Reference.md` | |
+| Container, env vars, folder layout, bootstrap/startup | `docs/Dev-container-environment.md` · `docs/Forking.md` · `docs/Bootstrap-Customization.md` | |
+| `devenv.config` keys | `docs/Forking.md` § Configuring within the surfaces: devenv.config reference · read `devenv.config` itself | |
+| Issue management workflows | `docs/Issues-Management.md` · `docs/Issues-Quick-Reference.md` · `docs/Issue-Workflow.md` | |
 | Ports, forwarding, Tailscale, SMB/SQL servers | `docs/Port-forwarding.md` · `docs/Tailscale-Setup.md` | |
 | Engineering patterns & standards | `~/.copilot/engineering/` (Pattern_Library, Protocols_And_Guides, Standards, FAQ) | Canonical import; read live |
 | Org codebase context (services, components, wiring) | `~/.copilot/knowledge/` (component-context) | Canonical import; read live |
 | Progress / project status practices | `docs/Progress-Reporting.md` | |
-| Repo creation & templates | `docs/Devenv-Customization.md` § Repo Creation Standards · `tools/repo-create` | |
+| Repo creation & templates | `docs/Forking.md` · `tools/config/repo-types.yaml` · `tools/repo-create` | |
 
 Anything not in the map: search `docs/` and `tools/` for it — and if the question exposes a gap worth mapping, note it in the answer ("this wasn't in the source map; adding it would be a `/devenv-skill-maintenance` finding").
 
@@ -85,9 +85,23 @@ Guidance answers stay short: principle + citation + one pointer. This skill summ
 
 - **Answer, then offer.** "You'd use `issue-create`. I can run it for you — give me the title." On the title, run `issue-create --title "..."` (or the tool's real shape) and report the result.
 - **Scope:** built-in wrappers (`issue-*`, `pr-*`, `git-*`/`git-wip` read-only paths, `metrics-*`, …) and ordinary CLI commands (`ls`, `curl`, a `pnpm` script). When the right answer is actually a *skill* (deep work), prefer routing; execution mode is for tool-shaped asks.
+- **Aim every repo-targeted call before running it.** Issue/PR/project/artifact wrappers resolve their target repo from the environment (`DEVENV_REPO` → org identity + the current directory's repo name), so a call from the wrong folder silently hits the wrong repo. Before any such call: resolve the target repo from the work's context (the repo the user named, the `repos/` folder the work lives in, the plan/issue references), state it, and set it explicitly — `DEVENV_REPO=<owner>/<repo>` env-prefix (preferred; works from any cwd) or `cd` into that repo's absolute root first. Never inherit the terminal's current location. If the target can't be resolved confidently, ask one direct question before running the call. Guard: [repo-targeting guard](../_conventions.md#repo-targeting-guard-required-for-issueartifact-calls).
 - **Consent per run.** Confirm before the first execution of a command in a session — "running it now" as part of the offer satisfies this. Never re-run a mutating-class command without a fresh ask.
 - **Prohibitions travel with the skill.** No raw mutating git (read-only git is fine), no `gh` direct, no skill invocation without the user's explicit go-ahead, no tests without cause, no writes outside the working scope. If the ask crosses one, say so and hand back the exact command for the user to run.
 - **Keep the answer attached.** Execution never replaces the explanation — the user asked "how", so the reply always includes the how *and then* the done-it.
+
+### Common execution asks → canonical recipes
+
+For the frequent tool-shaped asks, go straight to the canonical recipe (full command shape, flags, safety gates) instead of reconstructing an invocation; run it as written with the repo target set per the guard above. The hints below orient; the linked recipe is the truth.
+
+| Ask | Recipe |
+|---|---|
+| Log an issue | [Deterministic issue creation](../_shared/references/protocol-common.md#deterministic-issue-creation) — `DEVENV_REPO=<owner>/<repo>` env-prefix required (no `--repo` flag); non-interactive runs add `--type <type> --no-template --no-interactive --body-file <file>` |
+| Comment on an issue | [`issue-comment`](../_shared/references/protocol-common.md#issue-comment) — body via `--body` / `--body-file` (shared source-resolution contract in `_tools-reference.md`) |
+| Update an issue | [`issue-update`](../_shared/references/protocol-common.md#issue-update) — `--title` / `--body` / labels / assignees |
+| Fetch an issue or its comments | `issue-get` · `issue-comment-list [--full]` |
+| Open a PR | [`pr-create-for-merge`](../_shared/references/protocol-common.md#pr-create-for-merge) |
+| Anything else | `_tools-reference.md` for the tool's signature; the [wrapper protocol reference](../_shared/references/protocol-common.md) for the recipe |
 
 ## Boundaries
 

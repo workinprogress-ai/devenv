@@ -89,12 +89,13 @@ watch_run() {
         log_info "Found in-progress run: $run_id"
     fi
 
+    # Repo rides the verb's first positional; the array carries only the
+    # watch flags (same stray-positional hazard as the download path).
     local gh_args=()
-    gh_args+=(-R "$REPO")
     [ "$EXIT_STATUS" -eq 1 ] && gh_args+=(--exit-status)
 
     log_verbose "Watching run $run_id in $REPO"
-    provider_pipelines_run_watch "$REPO" "$run_id" "${gh_args[@]:1}"
+    provider_pipelines_run_watch "$REPO" "$run_id" "${gh_args[@]}"
 }
 
 # ============================================================================

@@ -25,19 +25,22 @@ load ../test_helper
   [ "$status" -ne 0 ]
 }
 
-@test "scripts have no Azure DevOps references in comments" {
-  run grep -ri "Azure DevOps\|azure-devops\|AzDO" "$PROJECT_ROOT/tools/scripts/" --include="*.sh"
+@test "scripts have no stale Azure DevOps references outside the azure provider" {
+  # Azure is a supported provider (#40): key-update-azure legitimately
+  # references it. Forbidden: Azure vocabulary in provider-unrelated scripts.
+  run bash -c "grep -ril 'Azure DevOps\\|azure-devops\\|AzDO' '$PROJECT_ROOT/tools/scripts/' --include='*.sh' | grep -vE '_key-update-azure|providers/azure|providers/github'"
   [ "$status" -ne 0 ]
 }
 
-@test "scripts have no Azure PAT references" {
-  run grep -ri "AZURE.*TOKEN.*PAT\|AZURE_DEVOPS_PAT" "$PROJECT_ROOT/tools/scripts/" --include="*.sh"
+@test "scripts have no Azure PAT references outside the azure provider" {
+  run bash -c "grep -ril 'AZURE.*TOKEN.*PAT\\|AZURE_DEVOPS_PAT' '$PROJECT_ROOT/tools/scripts/' --include='*.sh' | grep -vE '_key-update-azure|providers/azure|providers/github'"
   [ "$status" -ne 0 ]
 }
 
-@test "scripts have no work item references in active code" {
-  # Allow in docs but not in active scripts
-  run grep -r "work.*item\|workitem" "$PROJECT_ROOT/tools/scripts/" --include="*.sh" -i
+@test "scripts have no work item references outside the azure provider" {
+  # Azure work-item mapping lives in the provider domain modules; wrappers
+  # stay transport-blind.
+  run bash -c "grep -ril 'work.*item\\|workitem' '$PROJECT_ROOT/tools/scripts/' --include='*.sh' | grep -vE '_key-update-azure|providers/azure|providers/github'"
   [ "$status" -ne 0 ]
 }
 

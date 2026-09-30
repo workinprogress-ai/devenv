@@ -91,11 +91,21 @@ setup_file_list() {
     fi
 }
 
-@test "decoupling gate: protocol reference exists with required sections" {
-    local ref="copilot/skills/_shared/references/provider-protocols/github.md"
-    [ -f "$ref" ]
-    grep -q "Provider Protocol" "$ref"
-    grep -q "Credential lifecycle" "$ref"
-    grep -q "Canonical recipes" "$ref"
-    grep -q "Prohibitions" "$ref"
+@test "decoupling gate: protocol references exist with required sections" {
+    # Two-file contract: protocol-common.md (neutral) + per-provider transport
+    local common="copilot/skills/_shared/references/protocol-common.md"
+    local gh="copilot/skills/_shared/references/provider-protocols/github.md"
+    local az="copilot/skills/_shared/references/provider-protocols/azure.md"
+    [ -f "$common" ]
+    [ -f "$gh" ]
+    [ -f "$az" ]
+    # Neutral contract carries the shared sections.
+    grep -q "Provider Protocol" "$common"
+    grep -q "Canonical recipes" "$common"
+    grep -q "Prohibitions" "$common"
+    # Each transport file carries its credential lifecycle + the fixed structure.
+    grep -q "Credential lifecycle" "$gh"
+    grep -q "Credential lifecycle" "$az"
+    grep -q "Repository targeting" "$az"
+    grep -q "Provider-visible behavior" "$az"
 }

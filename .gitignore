@@ -28,9 +28,12 @@ playground/
 playground/*
 .installs/
 .installs/*
+*.log
+
 # Copilot knowledge is synced from an external repo during bootstrap/update
 copilot/knowledge/
 copilot/knowledge/*
+
 # Engineering standards are synced from an external repo during bootstrap/update
 copilot/engineering/
 copilot/engineering/*
@@ -51,8 +54,15 @@ tools/custom/
 .prompts/
 .local-artifacts/
 .local-artifacts/*
+# TAP output from bats --reporter tap runs at the repo root (test residue,
+# never a source artifact)
+report.tap
 
 # Ignore garbage files that MacOS and other systems might produce
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Local Azure DevOps PAT — 0600 secret file, never committed (auth.bash
+# (the azure provider resolves its PAT from ~/.keys/azure-devops-pat —
+#  outside every repo tree by design)

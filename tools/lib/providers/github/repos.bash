@@ -31,42 +31,34 @@ if ! declare -F provider_gh_repo_args >/dev/null; then
     }
 fi
 
-# ============================================================================
-# Repo-targeting normalization: the canonical owner/repo resolver
-# ============================================================================
+# Self-heal: the neutral repo-target resolver (provider_repo_target /
+# provider_repo_split) lives in provider-core; source it when this module
+# is loaded standalone (the canonical loader sources core first and the
+# guard is a no-op there).
+if ! declare -F provider_repo_target >/dev/null; then
+    # shellcheck disable=SC1091
+    source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/provider-core.bash"
+fi
 
-# Normalize a repo target to owner/repo (or empty when cwd-resolved).
-# Resolution order:
-#   1. explicit owner/repo argument (passes through)
-#   2. GITHUB_REPO env
-#   3. GH_REPO env (gh's own variable; may be basename-only which is invalid
-#      for -R, so only full owner/repo forms pass through)
-#   4. org identity (provider_org_get) + current git repo basename
-#   5. empty when no git root (caller decides the error)
-#
-# Usage:
-#   repo=$(provider_repo_target org/repo)   # org/repo
-#   repo=$(provider_repo_target)            # env chain, then cwd resolution
-provider_repo_target() {
-    # Repo-targeting env contract: DEVENV_REPO is the single override; no
-    # other devenv env var participates. (GH_REPO below is gh's own variable,
-    # consumed provider-internally, not a devenv alias.)
-    local repo="${1:-}"
-    if [ -n "$repo" ]; then
-        echo "$repo"
-        return 0
-    fi
-    if [ -n "${DEVENV_REPO:-}" ]; then
-        echo "$DEVENV_REPO"
-        return 0
-    fi
+# ============================================================================
+# Repo-target normalization: provider hooks over the core resolver
+# ============================================================================
+# provider_repo_target / provider_repo_split live in provider-core (the
+# neutral chain). GitHub's two provider-specific legs live here as hooks.
+
+# GH's own env variable: consumed provider-internally (not a devenv alias).
+# Only full owner/repo forms pass through; a basename-only GH_REPO is
+# invalid for -R and yields empty.
+_provider_repo_env_extra() {
     if [ -n "${GH_REPO:-}" ] && [[ "$GH_REPO" == */* ]]; then
         echo "$GH_REPO"
         return 0
     fi
-    # Cwd resolution: org identity + git root basename. Both legs must
-    # resolve; a missing git root leaves the result empty (not an error) so
-    # callers keep their own exit semantics.
+    return 0
+}
+
+# Cwd leg: org identity + git root basename, both legs must resolve.
+_provider_repo_cwd_spec() {
     local org repo_name
     org=$(provider_org_get 2>/dev/null) || org=""
     repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
@@ -74,22 +66,7 @@ provider_repo_target() {
         echo "${org}/${repo_name}"
         return 0
     fi
-    echo ""
     return 0
-}
-
-# Split owner/repo into parts. Fails when the spec has no owner part.
-# Usage: provider_repo_split org/repo OWNER_VAR NAME_VAR
-provider_repo_split() {
-    local spec="$1" __owner="$2" __name="$3"
-    if [[ "$spec" != */* ]]; then
-        log_error "provider_repo_split: '$spec' is not owner/repo form"
-        return 1
-    fi
-    # printf -v performs the assignment without eval, so spec content can
-    # never be interpreted as shell syntax.
-    printf -v "$__owner" '%s' "${spec%%/*}"
-    printf -v "$__name" '%s' "${spec#*/}"
 }
 
 # ============================================================================
@@ -98,14 +75,19 @@ provider_repo_split() {
 
 # View a repo.
 # Usage: provider_repos_view [repo] [--json FIELDS]
+# gh ≥2.95 takes the repository positionally on `gh repo view`; `-R` is no
+# longer accepted on the repo command family (it remains valid on the
+# issue/pr/run families).
 provider_repos_view() {
     local repo=""
     if [ $# -gt 0 ] && [[ "$1" != --* ]]; then
         repo="$1"; shift
     fi
-    local repo_args=()
-    provider_gh_repo_args repo_args "$repo"
-    gh repo view "${repo_args[@]}" "$@"
+    if [ -n "$repo" ]; then
+        gh repo view "$repo" "$@"
+    else
+        gh repo view "$@"
+    fi
 }
 
 # List an org's repos.
@@ -119,6 +101,17 @@ provider_repos_list() {
 # Usage: provider_repos_default_branch REPO
 provider_repos_default_branch() {
     gh api "repos/$1" --jq '.default_branch' 2>/dev/null
+}
+
+# Whether a repository has at least one commit (templates may 409 while
+# syncing; the caller polls).
+# Usage: provider_repos_commits_count REPO  -> exit 0 non-empty, 1 empty/unready
+provider_repos_commits_count() {
+    local response
+    response=$(gh api "repos/$1/commits?per_page=1" 2>/dev/null) || return 1
+    # jq locally: gh --jq availability aside, the response is an array whose
+    # length is the page size (<= per_page); >=1 means the repo has commits.
+    [ "$(printf '%s' "$response" | jq 'length' 2>/dev/null)" -ge 1 ]
 }
 
 # ============================================================================
