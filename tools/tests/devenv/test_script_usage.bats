@@ -27,8 +27,8 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "pr-create-for-merge.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" --help 2>&1 || true
+@test "pr-create.sh has --help flag" {
+  run bash "$PROJECT_ROOT/tools/scripts/pr-create.sh" --help 2>&1 || true
   [[ "$output" =~ Usage: ]] || [[ "$output" =~ usage ]]
 }
 

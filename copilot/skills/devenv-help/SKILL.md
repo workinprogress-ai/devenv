@@ -100,7 +100,7 @@ For the frequent tool-shaped asks, go straight to the canonical recipe (full com
 | Comment on an issue | [`issue-comment`](../_shared/references/protocol-common.md#issue-comment) — body via `--body` / `--body-file` (shared source-resolution contract in `_tools-reference.md`) |
 | Update an issue | [`issue-update`](../_shared/references/protocol-common.md#issue-update) — `--title` / `--body` / labels / assignees |
 | Fetch an issue or its comments | `issue-get` · `issue-comment-list [--full]` |
-| Open a PR | [`pr-create-for-merge`](../_shared/references/protocol-common.md#pr-create-for-merge) |
+| Open a PR | [`pr-create`](../_shared/references/protocol-common.md#pr-create) |
 | Anything else | `_tools-reference.md` for the tool's signature; the [wrapper protocol reference](../_shared/references/protocol-common.md) for the recipe |
 
 ## Boundaries

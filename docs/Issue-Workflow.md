@@ -44,7 +44,7 @@ Statuses are **revocable current-state**. A merged feature whose review discover
 | TBD → To-Groom | `issue-triage --triage-complete` (backlog triage wizard/CLI) |
 | To-Groom → Ready | grooming skill closes (`_on_end_grooming`); planning approvals hold Ready |
 | Ready → Implementing | implementation skills begin (`_on_begin_implementation`); **or derived**: first child to activate puts the parent here |
-| Implementing → Review | PR opens (`pr-create-for-merge` → `_on_begin_review`); implementation skills end |
+| Implementing → Review | PR opens (`pr-create` → `_on_begin_review`); implementation skills end |
 | Review → Merged | merge completes (`pr-merge` → `_on_merge`) |
 | Merged → Staging → Production | deploys — `workflow-signal` until observers exist |
 

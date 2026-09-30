@@ -63,7 +63,7 @@ JSON
 }
 
 @test "provider_prs_list --json/--jq apply gh list semantics (scalar select over the array)" {
-    # pr-create-for-merge relies on --jq '.[0].url' returning
+    # pr-create relies on --jq '.[0].url' returning
     # a scalar (empty for no match, the url string for a match).
     printf '{"value":[{"pullRequestId":12,"title":"t","status":"active","isDraft":false,"sourceRefName":"refs/heads/f","targetRefName":"refs/heads/m","repository":{"webUrl":"https://dev.azure.com/org/proj/_git/r"}}]}' > "$TEST_TEMP_DIR/prs.json"
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/prs.json" \

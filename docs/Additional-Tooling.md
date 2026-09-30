@@ -444,12 +444,12 @@ pr-create-for-review
 - Automatically formats title and body
 - Can add reviewers and assignees
 
-### `pr-create-for-merge`
+### `pr-create`
 
 Creates a pull request for merging code into a target branch (defaults to the repository's default branch).
 
 ```bash
-pr-create-for-merge <title> --issue <number> [--base <branch>]
+pr-create <title> --issue <number> [--base <branch>]
 ```
 
 **Required Options:**
@@ -470,13 +470,13 @@ pr-create-for-merge <title> --issue <number> [--base <branch>]
 
 ```bash
 # Create PR for merging to default branch
-pr-create-for-merge "feat: add new feature" --issue 123
+pr-create "feat: add new feature" --issue 123
 
 # Create PR targeting a different branch
-pr-create-for-merge "fix: critical bug" --issue 456 --base develop
+pr-create "fix: critical bug" --issue 456 --base develop
 
 # Create draft PR with reviewer
-pr-create-for-merge "docs: update README" --issue 789 --draft --reviewer @john
+pr-create "docs: update README" --issue 789 --draft --reviewer @john
 ```
 
 **Features:**
@@ -1649,13 +1649,13 @@ These are internal scripts (underscore prefix): they have no depth-1 `tools/` en
 **Trigger points:**
 
 - Skills fire them at lifecycle boundaries (grooming completion, plan approval, implementation kickoff, PR open, review completion)
-- Local PR tooling fires `_on_begin_review` when a PR is created via `pr-create-for-merge` and `_on_merge` when a merge completes via `pr-merge`
+- Local PR tooling fires `_on_begin_review` when a PR is created via `pr-create` and `_on_merge` when a merge completes via `pr-merge`
 - Issues are linked via closing keywords in the PR body (`Closes #N`, `Fixes #N`, …), deduplicated, capped at 10 per PR
 - Everything is local: signals run under your own `gh` authentication (keychain). Web-UI merges fire nothing — status changes you make outside local tooling are your own
 
 **Guarantees:** best-effort (signals exit 0 and never block work), idempotent (re-signaling repairs drift), config-driven (Status values live in `tools/config/skill-events.yml` + `devenv.config [workflows]` — callers never name statuses or projects).
 
-**Which project/PR tools participate:** `pr-create-for-merge` (open), `pr-merge` (merge, via the shared `merge_pr` path). `pr-create-for-review` does **not** fire signals — its PRs are non-mergeable review artifacts, not a review-lifecycle boundary.
+**Which project/PR tools participate:** `pr-create` (open), `pr-merge` (merge, via the shared `merge_pr` path). `pr-create-for-review` does **not** fire signals — its PRs are non-mergeable review artifacts, not a review-lifecycle boundary.
 
 ### `project-add-issue`
 
@@ -3063,7 +3063,7 @@ The following convenience aliases are available in the dev container:
 
 **Pull Request Management:**
 
-- `pr-create-for-merge` - Create PR for merging
+- `pr-create` - Create PR for merging
 - `pr-create-for-review` - Create draft review PR
 - `pr-get-merge-link` - Get PR link for current branch
 - `pr-get-review-link` - Get review PR link

@@ -5,12 +5,12 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 
 ################################################################################
-# pr-create-for-merge.sh
+# pr-create.sh
 #
 # Create a pull request from the current branch to a target branch
 #
 # Usage:
-#   ./pr-create-for-merge.sh <title> --issue <number> [--base <branch>]
+#   ./pr-create.sh <title> --issue <number> [--base <branch>]
 #
 # Description:
 #   Creates a pull request from the current branch into a target branch

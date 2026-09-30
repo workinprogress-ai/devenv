@@ -311,8 +311,8 @@ issue-update $issue_num --add-assignee "@me"
 # 3. Create branch and make changes
 git checkout -b feature/my-feature
 
-# 4. When ready for review, open the PR — pr-create-for-merge signals Review
-pr-create-for-merge
+# 4. When ready for review, open the PR — pr-create signals Review
+pr-create
 
 # 5. After PR approval, merge via the wrappers — they signal Merged
 pr-merge
@@ -652,7 +652,7 @@ git checkout -b feature/stripe-integration
 # ... make changes, commit ...
 
 # 3. Create PR when ready
-pr-create-for-merge "feat: stripe integration" --issue 101
+pr-create "feat: stripe integration" --issue 101
 # This creates the PR for the current branch
 
 # 4. Update status in project
@@ -705,7 +705,7 @@ project-update-issue "Q1 2026" 150 --status "Implementing"
 # 3. Work on fix and create PR
 git checkout -b bugfix/stripe-paypal-support
 # ... fix code ...
-pr-create-for-merge
+pr-create
 
 # 4. Update status
 project-update-issue "Q1 2026" 150 --status "Review"

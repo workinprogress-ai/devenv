@@ -277,7 +277,7 @@ git checkout -b feature/my-feature
 ### Submit PR
 
 ```bash
-pr-create-for-merge   # signals Review on open
+pr-create   # signals Review on open
 ```
 
 ### Merge & Deploy
