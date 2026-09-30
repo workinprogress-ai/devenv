@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for scripts/pr-create-for-merge.sh
+# Tests for scripts/pr-create.sh
 
 bats_require_minimum_version 1.5.0
 
@@ -66,98 +66,98 @@ teardown() {
   test_helper_teardown
 }
 
-@test "pr-create-for-merge requires --issue or --no-issue" {
-  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: new feature" --repo-dir "$REPO_DIR"
+@test "pr-create requires --issue or --no-issue" {
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: new feature" --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Either --issue <number> or --no-issue must be specified" ]]
 }
 
-@test "pr-create-for-merge rejects both --issue and --no-issue" {
-  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: new feature" --issue 123 --no-issue --repo-dir "$REPO_DIR"
+@test "pr-create rejects both --issue and --no-issue" {
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: new feature" --issue 123 --no-issue --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Cannot specify both --issue and --no-issue" ]]
 }
 
-@test "pr-create-for-merge validates issue number is numeric" {
-  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: new feature" --issue abc --repo-dir "$REPO_DIR"
+@test "pr-create validates issue number is numeric" {
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: new feature" --issue abc --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Issue number must be numeric" ]]
 }
 
-@test "pr-create-for-merge accepts valid issue number" {
-  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: new feature" --issue 456 --repo-dir "$REPO_DIR"
+@test "pr-create accepts valid issue number" {
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: new feature" --issue 456 --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "https://github.com/mock-owner/mock-repo/pull/123" ]]
 }
 
-@test "pr-create-for-merge accepts --no-issue flag" {
-  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "fix: minor typo" --no-issue --repo-dir "$REPO_DIR"
+@test "pr-create accepts --no-issue flag" {
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "fix: minor typo" --no-issue --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "https://github.com/mock-owner/mock-repo/pull/123" ]]
 }
 
-@test "pr-create-for-merge enforces Conventional Commits" {
-  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "invalid message" --issue 123 --repo-dir "$REPO_DIR"
+@test "pr-create enforces Conventional Commits" {
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "invalid message" --issue 123 --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Conventional Commits" ]]
 }
 
-@test "pr-create-for-merge shows usage with --help" {
-  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" --help
+@test "pr-create shows usage with --help" {
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" --help
   [ "$status" -eq 1 ]
   [[ "$output" =~ "Usage:" ]]
   [[ "$output" =~ "--issue" ]]
   [[ "$output" =~ "--no-issue" ]]
 }
 
-@test "pr-create-for-merge has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh"
+@test "pr-create has valid bash syntax" {
+  run bash -n "$PROJECT_ROOT/tools/scripts/pr-create.sh"
   [ "$status" -eq 0 ]
 }
 
-@test "pr-create-for-merge fails on dirty working tree" {
+@test "pr-create fails on dirty working tree" {
   cd "$REPO_DIR"
   echo "uncommitted change" >> README.md
-  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "uncommitted or staged changes" ]]
 }
 
-@test "pr-create-for-merge fails when a plan file sits in the repo root" {
+@test "pr-create fails when a plan file sits in the repo root" {
   cd "$REPO_DIR"
   echo "plan content" > Plan-issue-789-001.md
-  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Implementation plan file(s) found in the repo root" ]]
 }
 
-@test "pr-create-for-merge warns but proceeds when a plan file is only in .local-artifacts" {
+@test "pr-create warns but proceeds when a plan file is only in .local-artifacts" {
   cd "$REPO_DIR"
   mkdir -p .local-artifacts
   echo "working copy" > .local-artifacts/Plan-issue-789-001.md
-  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
   [[ "$output" =~ "Warning: Implementation plan file(s) found in .local-artifacts/" ]]
   [[ "$output" =~ "mock-owner/mock-repo/pull/123" ]]
 }
 
-@test "pr-create-for-merge root plan file blocks even when .local-artifacts also has one" {
+@test "pr-create root plan file blocks even when .local-artifacts also has one" {
   cd "$REPO_DIR"
   mkdir -p .local-artifacts
   echo "working copy" > .local-artifacts/Plan-issue-789-001.md
   echo "plan content" > Plan-issue-789-002.md
-  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Implementation plan file(s) found in the repo root" ]]
 }
 
-@test "pr-create-for-merge rejects review branch" {
+@test "pr-create rejects review branch" {
   git checkout -b review/test-123 >/dev/null 2>&1
-  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "cannot be run on a review" ]]
 }
 
-@test "pr-create-for-merge rejects a branch whose range carries WIP commits" {
+@test "pr-create rejects a branch whose range carries WIP commits" {
   git checkout -b feature/wip-range >/dev/null 2>&1
   echo "scratch" >> README.md
   git add README.md
@@ -165,23 +165,23 @@ teardown() {
   echo "done" >> README.md
   git add README.md
   git commit -q -m "feat: finished change"
-  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "WIP: commits present in PR creation range" ]]
   [[ "$output" =~ "WIP: mid-work save" ]]
 }
 
-@test "pr-create-for-merge accepts a clean range without WIP commits" {
+@test "pr-create accepts a clean range without WIP commits" {
   git checkout -b feature/clean-range >/dev/null 2>&1
   echo "clean" >> README.md
   git add README.md
   git commit -q -m "feat: clean change"
-  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "mock-owner/mock-repo/pull/123" ]]
 }
 
-@test "pr-create-for-merge --at creates a merge branch and opens the PR from it" {
+@test "pr-create --at creates a merge branch and opens the PR from it" {
   git checkout -b feature/partial >/dev/null 2>&1
   echo "one" >> README.md
   git add README.md
@@ -194,7 +194,7 @@ teardown() {
 
   # --at picks the ready prefix; the merge branch skips the WIP tip, so the
   # feature-branch WIP never enters the PR.
-  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: ready prefix" --issue 789 --at "$ready_hash" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: ready prefix" --issue 789 --at "$ready_hash" --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "mock-owner/mock-repo/pull/123" ]]
   git show-ref --verify --quiet "refs/heads/merge/${ready_hash}-feature/partial"
@@ -203,20 +203,20 @@ teardown() {
   [ "$(git rev-parse --abbrev-ref HEAD)" = "feature/partial" ]
 }
 
-@test "pr-create-for-merge --at rejects an unresolvable commit" {
-  run "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: something" --issue 789 --at "no-such-hash" --repo-dir "$REPO_DIR"
+@test "pr-create --at rejects an unresolvable commit" {
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: something" --issue 789 --at "no-such-hash" --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "does not resolve to a commit" ]]
 }
 
-@test "pr-create-for-merge --at pick lists commits non-interactively without consuming input" {
+@test "pr-create --at pick lists commits non-interactively without consuming input" {
   git checkout -b feature/pick >/dev/null 2>&1
   echo "x" >> README.md
   git add README.md
   git commit -q -m "feat: pickable"
   # </dev/null severs stdin so the script cannot see a TTY — it must fall
   # back to the numbered list and exit rather than launching fzf.
-  run bash -c '"$0" "$@" </dev/null' "$PROJECT_ROOT/tools/scripts/pr-create-for-merge.sh" "feat: something" --issue 789 --at pick --repo-dir "$REPO_DIR"
+  run bash -c '"$0" "$@" </dev/null' "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: something" --issue 789 --at pick --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Non-interactive mode" ]]
   [[ "$output" =~ "feat: pickable" ]]

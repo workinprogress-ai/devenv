@@ -346,7 +346,7 @@ When exploring the org's code, prefer local source under `repos/` before any pac
 Wrapper inventory (as of authoring):
 
 - Issues: `issue-create`, `issue-create-batch`, `issue-list`, `issue-search`, `issue-update` (incl. `--add-label`/`--remove-label`), `issue-close`, `issue-comment`, `issue-comment-list`, `issue-comment-update`, `issue-get`, `issue-triage`, `issue-select`, `issue-label-create`, `issue-label-list`, `issue-artifact-doc-id`, `issue-artifact-get`, `issue-artifact-list`, `issue-artifact-select`, `issue-artifact-upsert`
-- PRs: `pr-create-for-review`, `pr-create-for-merge`, `pr-merge`, `pr-cleanup-review-branches`, `pr-get-review-link`, `pr-get-merge-link` — plus added: `pr-get`, `pr-comment`, `pr-diff`, `pr-list`, `pr-review-comment`, `pr-threads-get`, `pr-thread-reply`, `pr-thread-resolve`
+- PRs: `pr-create-for-review`, `pr-create`, `pr-merge`, `pr-cleanup-review-branches`, `pr-get-review-link`, `pr-get-merge-link` — plus added: `pr-get`, `pr-comment`, `pr-diff`, `pr-list`, `pr-review-comment`, `pr-threads-get`, `pr-thread-reply`, `pr-thread-resolve`
 - Projects: `project-add-issue`, `project-update-issue`, `project-list-for-issue`
 
 ## Skill-facing wrapper maintenance checklist

@@ -68,7 +68,7 @@ the delivery-flow consequences live here.
   trace to the commit that introduced them, and `git revert` works per commit
   (squash made single-commit revert impossible).
 - **Progressive partial merges** — a ready prefix of a branch can merge while work
-  continues (`pr-create-for-merge --at`), instead of waiting for the whole branch.
+  continues (`pr-create --at`), instead of waiting for the whole branch.
 - **Honest types** — commit types declare their relation to master, so history
   reads as what actually happened, not as one averaged blob.
 

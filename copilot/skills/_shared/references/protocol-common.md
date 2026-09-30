@@ -734,12 +734,12 @@ pr-comment 99 --body-file code-review-notes.md
 
 ---
 
-### pr-create-for-merge
+### pr-create
 
 **Create a standard feature branch PR.** Use this to open a PR from the current branch targeting the default branch.
 
 ```
-pr-create-for-merge <title> --issue NUMBER | --no-issue
+pr-create <title> --issue NUMBER | --no-issue
                     [--base BRANCH] [--branch BRANCH]
                     [--body TEXT] [--body-file FILE]
                     [--draft] [--reviewer HANDLE] [--assignee HANDLE] [--label NAME]
@@ -761,18 +761,18 @@ Examples:
 
 ```bash
 # Open a ready-for-review PR closing issue #42, body from a file
-pr-create-for-merge "feat: add OAuth login (closes #42)" --issue 42 \
+pr-create "feat: add OAuth login (closes #42)" --issue 42 \
   --body-file /tmp/pr-body.md
 
 # Inline body for short descriptions
-pr-create-for-merge "fix: null check in parser" --issue 55 \
+pr-create "fix: null check in parser" --issue 55 \
   --body "Fixes null dereference."
 
 # Draft PR with no issue
-pr-create-for-merge "wip: experimenting with new cache layer" --no-issue --draft
+pr-create "wip: experimenting with new cache layer" --no-issue --draft
 
 # With reviewer
-pr-create-for-merge "feat: add OAuth login" --issue 42 \
+pr-create "feat: add OAuth login" --issue 42 \
   --body-file /tmp/pr-body.md --reviewer alice
 ```
 
@@ -1033,7 +1033,7 @@ Key facts:
 
 - Best-effort: always exit 0 for skill flows; failures warn, never block. Idempotent — re-signaling repairs drift.
 - Skills know only the event name + issue number. Never read the config, never name projects, never contain Status vocabulary (see [_conventions.md](../../_conventions.md#skill-event-signals-_on_)).
-- Trigger points: skill lifecycle boundaries (wired per skill) and local PR tooling (`_on_begin_review` on PR open via `pr-create-for-merge`, `_on_merge` on merge via the merge wrappers). Manual/interactive firing: `workflow-signal` (batching + deploy events). Full model: the repo's `docs/Issue-Workflow.md`.
+- Trigger points: skill lifecycle boundaries (wired per skill) and local PR tooling (`_on_begin_review` on PR open via `pr-create`, `_on_merge` on merge via the merge wrappers). Manual/interactive firing: `workflow-signal` (batching + deploy events). Full model: the repo's `docs/Issue-Workflow.md`.
 
 ---
 

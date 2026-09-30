@@ -127,7 +127,7 @@ The `tools/` folder contains workspace-specific wrappers around common CLIs (`gh
 Tool coverage by domain:
 
 - **Issue management — `issue-*` tools exclusively** (see the rule above): reads, writes, search, artifacts, grooming.
-- **PR operations — `pr-*` wrappers**: `pr-get`, `pr-list`, `pr-diff`, `pr-comment`, `pr-review-comment`, `pr-threads-get`, `pr-thread-reply`, `pr-thread-resolve`, `pr-create-for-merge`, `pr-create-for-review`, `pr-merge`, `pr-cleanup-review-branches`, `pr-get-review-link`, `pr-get-merge-link`. Use them for every PR operation they cover.
+- **PR operations — `pr-*` wrappers**: `pr-get`, `pr-list`, `pr-diff`, `pr-comment`, `pr-review-comment`, `pr-threads-get`, `pr-thread-reply`, `pr-thread-resolve`, `pr-create`, `pr-create-for-review`, `pr-merge`, `pr-cleanup-review-branches`, `pr-get-review-link`, `pr-get-merge-link`. Use them for every PR operation they cover.
 - **Project boards — `project-*` wrappers**: `project-add-issue`, `project-update-issue`, `project-list-for-issue`.
 - **CI pipelines — `pipelines-*` wrappers**: status, list, run, rerun, watch, artifacts (route through the provider `actions` domain).
 - **Repository inspection — `release-list`, `policy-export`, `issue-types`, `artifacts-list`**: releases, repository policies, configured issue types, GitHub Packages.
@@ -191,7 +191,7 @@ If you find yourself about to type `git commit`, `git add`, `git push`, or any o
 
 **Allowed:** read-only inspection only — `git status`, `git log`, `git diff`, `git show`, `git rev-parse`, `git merge-base`, `git blame`, `git ls-files`, `git config --get`, etc.
 
-**Wrappers that internally mutate** (e.g. `pr-create-for-merge` pushes the branch, `git-update` pulls) **are allowed** — wrappers encode the safety. The rule prohibits *raw* git mutations, not named workspace wrapper invocations.
+**Wrappers that internally mutate** (e.g. `pr-create` pushes the branch, `git-update` pulls) **are allowed** — wrappers encode the safety. The rule prohibits *raw* git mutations, not named workspace wrapper invocations.
 
 **Invoke built-in tools on `PATH`, without explicit paths.** Call `issue-create`, `repo-commit`, `git-wip`, etc. by bare name. If a path is ever required, it must point to `tools/` — never `tools/scripts/`. The depth-1 `tools/` entry is the fork customization point: a fork swaps the executor there without touching anything that invokes it. (`tools/scripts/` holds the implementations; referencing it is for source location and tests, not invocation.) **Carve-out — event-signal scripts:** lifecycle event handlers (`_on_<event>`, e.g. `_on_begin_review`) have no depth-1 entry by design; they are invoked with their explicit `tools/scripts/` path and are exempt from this rule.
 

@@ -41,12 +41,12 @@ exit 0
 EOF
     chmod +x "$TEST_TEMP_DIR/bin/cs-references-update"
 
-    # Mock pr-create-for-merge
-    cat > "$TEST_TEMP_DIR/bin/pr-create-for-merge" <<'EOF'
+    # Mock pr-create
+    cat > "$TEST_TEMP_DIR/bin/pr-create" <<'EOF'
 #!/usr/bin/env bash
 echo "https://github.com/test-org/test-repo/pull/1"
 EOF
-    chmod +x "$TEST_TEMP_DIR/bin/pr-create-for-merge"
+    chmod +x "$TEST_TEMP_DIR/bin/pr-create"
 
     # Mock pr-merge
     cat > "$TEST_TEMP_DIR/bin/pr-merge" <<'EOF'
@@ -300,8 +300,8 @@ EOF
     # TFM baseline survives the reset.
     git -C "$REPO_DIR" update-ref refs/remotes/origin/master HEAD
 
-    # Real pr-create-for-merge wrapper is mocked in setup; capture the title
-    cat > "$TEST_TEMP_DIR/bin/pr-create-for-merge" <<'EOF'
+    # Real pr-create wrapper is mocked in setup; capture the title
+    cat > "$TEST_TEMP_DIR/bin/pr-create" <<'EOF'
 #!/usr/bin/env bash
 echo "TITLE: $*" >> "${CAPTURE_FILE:?}"
 echo "https://github.com/test-org/test-repo/pull/1"
@@ -333,7 +333,7 @@ repo_dir="${1:-$PWD}"
 sed -i 's/Version="1\.0\.0"/Version="1.1.0"/' "$repo_dir/src/MyLib.csproj" 2>/dev/null || true
 exit 0
 EOF
-    cat > "$TEST_TEMP_DIR/bin/pr-create-for-merge" <<'EOF'
+    cat > "$TEST_TEMP_DIR/bin/pr-create" <<'EOF'
 #!/usr/bin/env bash
 echo "TITLE: $*" >> "${CAPTURE_FILE:?}"
 echo "https://github.com/test-org/test-repo/pull/1"
@@ -378,7 +378,7 @@ sed -i 's/Version="1\.0\.0"/Version="2.1.0"/' "$repo_dir/tests/MyLib.Tests.cspro
 exit 0
 EOF
 
-    cat > "$TEST_TEMP_DIR/bin/pr-create-for-merge" <<'EOF'
+    cat > "$TEST_TEMP_DIR/bin/pr-create" <<'EOF'
 #!/usr/bin/env bash
 echo "TITLE: $*" >> "${CAPTURE_FILE:?}"
 echo "https://github.com/test-org/test-repo/pull/1"
@@ -424,7 +424,7 @@ sed -i 's/Version="1\.0\.0"/Version="1.1.0"/' "$repo_dir/src/MyLib.csproj" "$rep
 exit 0
 EOF
 
-    cat > "$TEST_TEMP_DIR/bin/pr-create-for-merge" <<'EOF'
+    cat > "$TEST_TEMP_DIR/bin/pr-create" <<'EOF'
 #!/usr/bin/env bash
 echo "TITLE: $*" >> "${CAPTURE_FILE:?}"
 echo "https://github.com/test-org/test-repo/pull/1"

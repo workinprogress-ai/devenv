@@ -1,13 +1,13 @@
 ---
 name: devenv-open-pr
-description: Open a GitHub PR from the current branch — builds a structured title and body from the active plan, git diff, and parent issue, then submits via pr-create-for-merge. USE WHEN the user says "open a PR", "raise a PR", "create a PR", "open a pull request", "raise a pull request", "create a pull request", "let's open a PR", "ship this phase", or "wrap this branch into a PR". Always shows the draft for approval before submitting; defaults to ready-for-review, not draft. DO NOT USE FOR responding to existing PR feedback (use /devenv-address-pr-comments), ending a session mid-plan without shipping (close it via your execution skill's wrap-up), getting a code review without a PR (use /devenv-review), or the GitHub extension's reviewer-suggesting flow (use /create-pull-request).
+description: Open a GitHub PR from the current branch — builds a structured title and body from the active plan, git diff, and parent issue, then submits via pr-create. USE WHEN the user says "open a PR", "raise a PR", "create a PR", "open a pull request", "raise a pull request", "create a pull request", "let's open a PR", "ship this phase", or "wrap this branch into a PR". Always shows the draft for approval before submitting; defaults to ready-for-review, not draft. DO NOT USE FOR responding to existing PR feedback (use /devenv-address-pr-comments), ending a session mid-plan without shipping (close it via your execution skill's wrap-up), getting a code review without a PR (use /devenv-review), or the GitHub extension's reviewer-suggesting flow (use /create-pull-request).
 argument-hint: Optional — branch name or plan path; otherwise uses current branch and detected plan
 user-invocable: true
 ---
 
 # Open PR
 
-Take a committable phase of work from a plan-driven workflow and open a GitHub PR with a structured title and body. Always uses `pr-create-for-merge`; never calls `gh pr create` directly.
+Take a committable phase of work from a plan-driven workflow and open a GitHub PR with a structured title and body. Always uses `pr-create`; never calls `gh pr create` directly.
 
 > Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
 
@@ -31,7 +31,7 @@ When the PR opens successfully, signal `_on_begin_review <issue-number>` — a v
 
 ## Prerequisites
 
-- Branch exists, has at least one commit, and is pushed (or `pr-create-for-merge` will fail).
+- Branch exists, has at least one commit, and is pushed (or `pr-create` will fail).
 - An plan (`Plan-*.md`) is present, OR the user provides title/context to compensate.
 
 If the branch has no commits ahead of base, stop and tell the user — there's nothing to open.
@@ -52,7 +52,7 @@ If any exist:
    ```
    issue-comment <N> --body-file <plan-file>
    ```
-4. **Require deletion.** Ask the user to delete the file(s) before the PR is opened. Do not call `pr-create-for-merge` until they confirm — the script will also refuse to run if a plan file is still present.
+4. **Require deletion.** Ask the user to delete the file(s) before the PR is opened. Do not call `pr-create` until they confirm — the script will also refuse to run if a plan file is still present.
 
 The plan can still be *read* by this skill to build the PR draft (step 1 below). The file just must be gone by the time the PR is submitted.
 
@@ -136,7 +136,7 @@ Sections with no content get omitted — don't pad. Choose `Closes #N` only when
 
 **Default: ready-for-review.** The skill assumes a plan-driven workflow where reaching this point means the work is done and reviewable.
 
-User can opt into draft mode explicitly ("open as draft", "draft PR"). If they do, pass the appropriate flag to `pr-create-for-merge`.
+User can opt into draft mode explicitly ("open as draft", "draft PR"). If they do, pass the appropriate flag to `pr-create`.
 
 ## Flow
 
@@ -145,7 +145,7 @@ User can opt into draft mode explicitly ("open as draft", "draft PR"). If they d
 2. Build draft title and body.
 3. Show the full draft in chat.
 4. Ask for edits / confirmation: "Open this PR? (y/n/edit)"
-5. On `y`: invoke `pr-create-for-merge "<title>" --issue <N> --body-file <draft>` (add `--draft` if requested; use `--no-issue` if no parent issue was found).
+5. On `y`: invoke `pr-create "<title>" --issue <N> --body-file <draft>` (add `--draft` if requested; use `--no-issue` if no parent issue was found).
    **Partial-branch mode:** when only a prefix of the branch's commits is
    merge-ready (the rest is WIP), offer opening from a merge branch via
    `--at <hash-or-title>` (or `--at pick` to choose interactively) — it creates
@@ -159,7 +159,7 @@ After the PR is opened, print the PR URL and number.
 
 ## Anti-patterns
 
-- **Calling `gh pr create` or `pr-create-for-review` directly** — always go through `pr-create-for-merge`. (`pr-create-for-review` is a different tool that creates "REVIEW:" diff PRs between two commits — not for feature branches.)
+- **Calling `gh pr create` or `pr-create-for-review` directly** — always go through `pr-create`. (`pr-create-for-review` is a different tool that creates "REVIEW:" diff PRs between two commits — not for feature branches.)
 - **Auto-submitting without showing the draft** — title and body must be reviewed before submission.
 - **Inventing testing notes** — if the user didn't run tests and you don't see them in CI, ask. Don't write "tested locally" speculatively.
 - **Padding the body** — omit empty sections rather than writing "N/A".

@@ -264,7 +264,7 @@ A few utility scripts have been provided to make life happy.
 * `repo-get` A utility to clone or update a repo in the `repos/` folder. Use `--select` for an interactive selection menu.
 * `repo-update-all` A utility to update all repos in the `repos/` folder.
 * `pr-create-for-review` A utility to create a "progressive" or "final" PR for reviewing all changes.
-* `pr-create-for-merge` A utility to create a PR for merging code to the default branch.
+* `pr-create` A utility to create a PR for merging code to the default branch.
 * `repo-version-list` A utility to list all versions in a repo.
 
 ### Git extensions
