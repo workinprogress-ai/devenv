@@ -136,7 +136,17 @@ select_issue_type() {
         # Type already provided via CLI
         return 0
     fi
-    
+
+    # Deterministic mode never prompts: --no-interactive is the automation
+    # contract (title + type are required there), so a missing type is an
+    # argument error, not an interactive question. fzf reads the terminal
+    # directly, so a wrongly-launched picker blocks automation with no way
+    # for the caller to answer it.
+    if [ "$USE_EDITOR" -eq 0 ]; then
+        log_error "Issue type is required when using --no-interactive (use --type)"
+        return 1
+    fi
+
     check_fzf_installed || {
         log_error "fzf is required for type selection but not installed"
         log_info "Provide type via --type flag or install fzf"
@@ -279,14 +289,8 @@ prepare_template() {
 
 # Validate required dependencies
 check_dependencies() {
-    if ! command -v gh &> /dev/null; then
-        log_error "GitHub CLI (gh) is not installed or not in PATH"
-        log_info "Install from: https://cli.github.com/"
-        exit "$EXIT_GENERAL_ERROR"
-    fi
-
     if ! provider_auth_status &> /dev/null; then
-        log_error "Not authenticated with the provider CLI"
+        log_error "Not authenticated with the active provider"
         log_info "Run: key-update-git"
         exit "$EXIT_GENERAL_ERROR"
     fi
@@ -398,11 +402,15 @@ create_issue() {
     issue_number=$(echo "$issue_url" | grep -oP '/issues/\K\d+')
     
     # Set the issue type via GraphQL (organization-level issue types)
-    # Get repo owner from current repository
+    # Repo identity comes from the same repo_spec the create used — never
+    # re-derived from the cwd: with DEVENV_REPO set, an empty repo arg on the
+    # provider call resolves to the CURRENT repo and would target the type
+    # mutation at the wrong repository (the create and the type-set would
+    # disagree silently).
     local repo_owner
-    repo_owner=$(provider_repos_view "" --json owner -q .owner.login)
+    repo_owner=$(provider_repos_view "${repo_spec[1]:-}" --json owner -q .owner.login)
     local repo_name
-    repo_name=$(provider_repos_view "" --json name -q .name)
+    repo_name=$(provider_repos_view "${repo_spec[1]:-}" --json name -q .name)
     
     # Any requested enrichment that fails to apply is reported loudly and
     # fails the command: callers must be able to detect that a requested
@@ -628,7 +636,22 @@ main() {
     
     # Validate target repository
     check_target_repo
-    
+
+    # Fail fast on a wrong or unreachable target BEFORE any interactive
+    # prompt: the repo the create will use (get_repo_spec resolution) must
+    # exist on the provider, or the user answers prompts for a run that
+    # cannot succeed. get_repo_spec prints "-R owner/repo" or "".
+    local repo_probe=""
+    read -ra repo_probe <<< "$(get_repo_spec)"
+    local probe_repo="${repo_probe[1]:-}"
+    if [ -n "$probe_repo" ]; then
+        if ! provider_repos_view "$probe_repo" --json name -q .name >/dev/null 2>&1; then
+            log_error "Target repository not found or inaccessible: $probe_repo"
+            log_info "Check the DEVENV_REPO value (owner/repo, exact case) and your provider access"
+            exit "$EXIT_GENERAL_ERROR"
+        fi
+    fi
+
     # Select and validate issue type (required)
     if ! select_issue_type; then
         log_error "Issue type selection failed"

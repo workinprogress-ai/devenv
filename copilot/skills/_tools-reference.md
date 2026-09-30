@@ -1,12 +1,11 @@
 # Tools Reference
 
-
 Quick reference for devenv's **provider-neutral** CLI tools used by the skill suite. **Invoke tools by bare name** (`plan-parse`, `next-id`, …) — all wrappers are on `PATH` from any working directory.
 
 **GitHub transport detail (wrapper signatures for `issue-*`, `pr-*`, `project-*`,
 `pipelines-*`, repository-inspection tools; env-var semantics; config paths;
 prohibitions; canonical recipes) lives in the
-[GitHub protocol reference](./_shared/references/provider-protocols/github.md).
+[wrapper protocol reference](./_shared/references/protocol-common.md); provider transport in `./_shared/references/provider-protocols/<provider>.md`.
 This file keeps only provider-neutral tooling and the shared contracts below.**
 
 **The AI never runs the `gh` CLI directly — for any GitHub domain.** All GitHub
@@ -30,7 +29,6 @@ the backing CLI is an implementation detail that may change.
 - Repo targeting for issue/artifact wrappers — env-prefix or cwd resolution;
   see the protocol reference for the resolution order.
 
-
 Tools that ingest a markdown body (`issue-artifact-upsert`, `issue-comment`, `issue-comment-update`, `issue-create`, `issue-update`, `pr-comment`, `pr-thread-reply`) share one source-resolution contract, implemented in `tools/lib/body-source.bash`:
 
 - **Source flags:** `--body TEXT` or `--body-file FILE` — exactly one. Giving both is an error.
@@ -41,12 +39,11 @@ Tools that ingest a markdown body (`issue-artifact-upsert`, `issue-comment`, `is
 
 Per-tool entries below reference this section instead of restating the semantics.
 
-
 ## Repository inspection & plan tooling (provider-neutral)
 
 ### lint-skills
 
-Deterministic contract checker for the `copilot/skills` tree. Checks (named `SK001`–`SK006`): frontmatter validity (`name:`/`description:`/`user-invocable:`), frontmatter-name/directory match, description length limits (warn > 1200, fail > 2000), registry ↔ filesystem bidirectional match (ghosts and orphans), catalog presence, relative-link resolution, and retired-name reintroduction. Accepts a repo root or a direct skills directory; defaults to its own repo.
+Deterministic contract checker for the `copilot/skills` tree. Checks (named `SK001`–`SK007`): frontmatter validity (`name:`/`description:`/`user-invocable:`), frontmatter-name/directory match, description length limits (warn > 1200, fail > 2000), registry ↔ filesystem bidirectional match (ghosts and orphans), catalog presence, relative-link resolution, retired-name reintroduction, and stale backticked path references (a `(docs|copilot|tools|setup)/…` path present in the repo's git history but missing from the working tree — renamed/moved without a reference sweep; paths never present in history are unverifiable and skipped). Accepts a repo root or a direct skills directory; defaults to its own repo.
 
 ```
 lint-skills [<repo-root-or-skills-dir>]

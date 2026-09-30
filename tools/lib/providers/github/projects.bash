@@ -40,15 +40,20 @@ provider_declare_capability project-boards
 
 # List project boards for a repo.
 # Usage: provider_projects_list [repo] [FLAGS...]
+# gh ≥2.95 takes the repository positionally on `gh project list`; `-R` is no
+# longer accepted on the project command family (it remains valid on the
+# issue/pr/run families).
 provider_projects_list() {
     provider_require_capability project-boards || return 1
     local repo=""
     if [ $# -gt 0 ] && [[ "$1" != --* ]]; then
         repo="$1"; shift
     fi
-    local repo_args=()
-    provider_gh_repo_args repo_args "$repo"
-    gh project list "${repo_args[@]}" "$@"
+    if [ -n "$repo" ]; then
+        gh project list "$repo" "$@"
+    else
+        gh project list "$@"
+    fi
 }
 
 # List a project's fields.
@@ -60,9 +65,11 @@ provider_projects_field_list() {
         repo="$1"; shift
     fi
     local project="$1"; shift
-    local repo_args=()
-    provider_gh_repo_args repo_args "$repo"
-    gh project field-list "$project" "${repo_args[@]}"
+    if [ -n "$repo" ]; then
+        gh project field-list "$project" "$repo" "$@"
+    else
+        gh project field-list "$project" "$@"
+    fi
 }
 
 # Add an issue to a project.
@@ -74,9 +81,11 @@ provider_projects_item_add() {
         repo="$1"; shift
     fi
     local project="$1" item="$2"; shift 2
-    local repo_args=()
-    provider_gh_repo_args repo_args "$repo"
-    gh project item-add "$project" "${repo_args[@]}" --url "$item" "$@"
+    if [ -n "$repo" ]; then
+        gh project item-add "$project" "$repo" --url "$item" "$@"
+    else
+        gh project item-add "$project" --url "$item" "$@"
+    fi
 }
 
 # Resolve a project's GraphQL node ID from its title or numeric number.

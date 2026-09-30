@@ -113,7 +113,7 @@ After writing, list what may need follow-up:
 
 - **Status sync**: structural edits don't refresh issue/PR status → suggest [`/devenv-update-roadmap`](../devenv-update-roadmap/SKILL.md)
 - **Plan impact**: plans tied to superseded or split steps may need updating → suggest [`/devenv-refine-plan`](../devenv-refine-plan/SKILL.md) for affected plans
-- **Blueprint drift**: if the structural change reveals a deeper architectural issue, file an **upstream-impact issue** in the planning repo per the [upstream-impact filing recipe](../_shared/references/provider-protocols/github.md#upstream-impact-filing) — then also suggest [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) directly if the user wants to cascade now
+- **Blueprint drift**: if the structural change reveals a deeper architectural issue, file an **upstream-impact issue** in the planning repo per the [upstream-impact filing recipe](../_shared/references/protocol-common.md#upstream-impact-filing) — then also suggest [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) directly if the user wants to cascade now
 
 ## Anti-patterns
 

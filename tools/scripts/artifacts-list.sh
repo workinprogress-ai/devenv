@@ -270,7 +270,7 @@ main() {
 
     # Validate required arguments
     if [ -z "$owner" ]; then
-        log_error "owner is required (use --owner or configure [organization] github_org in devenv.config)"
+        log_error "owner is required (use --owner or configure [organization] org in devenv.config)"
         usage
         return 1
     fi

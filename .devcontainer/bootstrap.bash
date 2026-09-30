@@ -534,8 +534,24 @@ key-update-tailscale() {
     fi
 }
 
-key-update-git() {
-    "$DEVENV_ROOT/tools/scripts/_key-update-git.sh" "$@"
+# Provider credential rotation: dispatch to the active provider's
+# key-update script (tools/lib/providers/<name>/key-update.sh). Falls back
+# to github when no provider is configured; unknown providers fail with
+# the list of providers that ship a script.
+key-update-provider() {
+    local provider="${DEVENV_KEY_UPDATE_PROVIDER:-}"
+    if [ -z "$provider" ]; then
+        provider=$(grep -A3 '^\[provider\]' "$DEVENV_ROOT/devenv.config" 2>/dev/null | grep '^name=' | cut -d= -f2 | tr -d ' ')
+        [ -z "$provider" ] && provider="github"
+    fi
+    local script="$DEVENV_ROOT/tools/lib/providers/$provider/key-update.sh"
+    if [ ! -f "$script" ]; then
+        echo "key-update: provider '$provider' has no key-update script." >&2
+        echo "Available:" >&2
+        ls "$DEVENV_ROOT/tools/lib/providers/"*/key-update.sh 2>/dev/null | sed 's|.*/providers/||; s|/key-update.sh|  —  |; s|^|  |' >&2
+        return 1
+    fi
+    bash "$script" "$@"
     if [ -f "$DEVENV_ROOT/.runtime/env-vars.sh" ]; then
         source "$DEVENV_ROOT/.runtime/env-vars.sh"
     fi

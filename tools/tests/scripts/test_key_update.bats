@@ -81,11 +81,9 @@ EOF
     # resolves their lib sources; the updater stubs above record calls.
     mkdir -p "$FAKE_TOOLS/scripts"
     cp "$PROJECT_ROOT/tools/scripts/_key-update-do.sh" "$FAKE_TOOLS/scripts/"
-    # Copy only when present so a missing script fails just its own tests,
-    # not the whole suite via a failed setup copy.
-    if [ -f "$PROJECT_ROOT/tools/scripts/_key-update-git.sh" ]; then
-        cp "$PROJECT_ROOT/tools/scripts/_key-update-git.sh" "$FAKE_TOOLS/scripts/"
-    fi
+    # The github key-update script needs no copy: $FAKE_TOOLS/lib symlinks
+    # the project lib, so the real script is reachable at its provider path
+    # and self-locates its libs from there.
     cp "$PROJECT_ROOT/tools/scripts/_key-update-tailscale.sh" "$FAKE_TOOLS/scripts/"
 }
 
@@ -107,14 +105,14 @@ EOF
 }
 
 @test "key-update-git: no argument with closed stdin refuses without hanging" {
-    run bash "$PROJECT_ROOT/tools/scripts/_key-update-git.sh" < /dev/null
+    run bash "$PROJECT_ROOT/tools/lib/providers/github/key-update.sh" < /dev/null
     [ "$status" -ne 0 ]
     [[ "$output" == *"No token provided"* ]]
     [ ! -s "$CALL_LOG" ]
 }
 
 @test "key-update-git: argument path rotates via gh keychain and writes no token files" {
-    run bash "$FAKE_TOOLS/scripts/_key-update-git.sh" "ghp_abcdef1234567890"
+    run bash "$DEVENV_TOOLS/lib/providers/github/key-update.sh" "ghp_abcdef1234567890"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Success"* ]]
     grep -q "gh auth login --with-token --hostname github.com" "$CALL_LOG"
@@ -124,15 +122,15 @@ EOF
 }
 
 @test "key-update-git: does not export GH_TOKEN (allowlist-only contract)" {
-    run bash "$FAKE_TOOLS/scripts/_key-update-git.sh" "ghp_abcdef1234567890"
+    run bash "$DEVENV_TOOLS/lib/providers/github/key-update.sh" "ghp_abcdef1234567890"
     [ "$status" -eq 0 ]
     # The script runs in a child shell, so an export could not reach this
     # process; assert the contract at the source instead: no export line.
-    ! grep -q 'export GH_TOKEN=' "$FAKE_TOOLS/scripts/_key-update-git.sh"
+    ! grep -q 'export GH_TOKEN=' "$DEVENV_TOOLS/lib/providers/github/key-update.sh"
 }
 
 @test "key-update-git: gh login failure aborts with no side effects" {
-    STUB_GH_LOGIN_FAIL=1 run bash "$FAKE_TOOLS/scripts/_key-update-git.sh" "ghp_bad"
+    STUB_GH_LOGIN_FAIL=1 run bash "$DEVENV_TOOLS/lib/providers/github/key-update.sh" "ghp_bad"
     [ "$status" -ne 0 ]
     [[ "$output" == *"No changes made"* ]]
     ! grep -q "gh auth setup-git" "$CALL_LOG"
@@ -168,7 +166,7 @@ EOF
 # Existence guard: the key-update family gains members independently;
 # this suite asserts only scripts that are present.
 @test "_key-update-git.sh exists" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/_key-update-git.sh"
+  run bash -n "$PROJECT_ROOT/tools/lib/providers/github/key-update.sh"
   [ "$status" -eq 0 ]
 }
 
@@ -188,7 +186,7 @@ EOF
 }
 
 @test "key-update-git --help exits 0 without prompting" {
-    run bash "$PROJECT_ROOT/tools/scripts/_key-update-git.sh" --help < /dev/null
+    run bash "$PROJECT_ROOT/tools/lib/providers/github/key-update.sh" --help < /dev/null
     [ "$status" -eq 0 ]
     [[ "$output" =~ "Usage: key-update-git" ]]
     # The flag must not reach the credential-import path.
@@ -196,8 +194,12 @@ EOF
 }
 
 @test "key-update family -h short flag also exits 0" {
-    for script in _key-update-do _key-update-tailscale _key-update-git; do
-        run bash "$PROJECT_ROOT/tools/scripts/${script}.sh" -h < /dev/null
+    local script_path
+    for script_path in \
+        "$PROJECT_ROOT/tools/scripts/_key-update-do.sh" \
+        "$PROJECT_ROOT/tools/scripts/_key-update-tailscale.sh" \
+        "$PROJECT_ROOT/tools/lib/providers/github/key-update.sh"; do
+        run bash "$script_path" -h < /dev/null
         [ "$status" -eq 0 ]
         [[ "$output" =~ "Usage:" ]]
     done

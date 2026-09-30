@@ -113,8 +113,8 @@ wait_for_repo_ready() {
     
     while [ "$attempt" -le "$max_attempts" ]; do
         # Check if repo has at least one commit. For newly templated repos,
-        # GitHub may briefly return 409 while template files are still syncing.
-        if provider_api GET "repos/${full_name}/commits?per_page=1" --jq 'length' 2>/dev/null | grep -q '^[1-9][0-9]*$'; then
+        # the provider may briefly return errors while template files sync.
+        if provider_repos_commits_count "$full_name" 2>/dev/null; then
             log_info "✓ Repository is ready"
             return 0
         fi
@@ -553,7 +553,7 @@ main() {
     # Org identity resolves via the provider accessor (env override →
     # config → seed); no env export required. User identity is not
     # consumed by creation itself — gh's authenticated identity carries it.
-    ORG="$(provider_org_get)" || die "Organization identity unresolved. Configure [organization] github_org in devenv.config or run setup." "$EXIT_INVALID_ARGUMENT"
+    ORG="$(provider_org_get)" || die "Organization identity unresolved. Configure [organization] org in devenv.config or run setup." "$EXIT_INVALID_ARGUMENT"
     ensure_gh_login
     
     create_repo "$repo_name" "$visibility" "$description" "$repo_type" "$skip_protection" "$skip_template" "$skip_clone" "$skip_post_creation"

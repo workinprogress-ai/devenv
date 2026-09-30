@@ -23,6 +23,16 @@ test_helper_setup() {
     export DEVENV_ROOT="$PROJECT_ROOT"
     export devenv="$PROJECT_ROOT"
     export DEVENV_TOOLS="$DEVENV_ROOT/tools"
+    # Canary: suites must never write the REAL repo config. Suites that need
+    # a config re-point DEVENV_ROOT at a per-test dir first; if any test
+    # writes through the default DEVENV_ROOT anyway, teardown fails loudly.
+    # The real config's [provider] name is the tripwire (a test config always
+    # sets it to a non-real value like azure/o1/p1; the real file says github
+    # or WorkInProgress.ai).
+    export _REAL_CONFIG_HASH=""
+    if [ -f "$PROJECT_ROOT/devenv.config" ]; then
+        _REAL_CONFIG_HASH=$(md5sum "$PROJECT_ROOT/devenv.config" | cut -d" " -f1)
+    fi
     
     # Identity env vars are deliberately NOT exported (GH_USER/GH_ORG have
     # no effect anywhere); suites needing a polluted env set them locally to
@@ -54,6 +64,7 @@ test_helper_setup() {
     export GIT_SSH_COMMAND="ssh -o BatchMode=yes"
 
     _test_helper_install_gh_guard
+    _test_helper_install_curl_guard
 }
 
 # Install a gh guard for the current test process: a real gh binary on PATH
@@ -94,12 +105,56 @@ _test_helper_install_gh_guard() {
     chmod +x "${GUARD_BIN_DIR}/gh"
 }
 
+# Install a curl guard for azure-transport suites: same doctrine as the gh
+# guard — a real curl keeps working (suites that stub curl shadow it first),
+# but any curl invocation that would touch the network resolves through a
+# recording stub whose API answers empty. Azure provider suites shadow this
+# with stub_curl when they need canned payloads; the guard is only the
+# fallback, never an assertion surface.
+_test_helper_install_curl_guard() {
+    GUARD_BIN_DIR="${TEST_TEMP_DIR}/curl-guard-bin"
+    mkdir -p "$GUARD_BIN_DIR"
+    case ":$PATH:" in
+        *":$GUARD_BIN_DIR:"*) ;;
+        *) PATH="$GUARD_BIN_DIR:$PATH"; export PATH ;;
+    esac
+    export GUARD_BIN_DIR
+    # shellcheck disable=SC2016
+    printf '%s\n' \
+'#!/usr/bin/env bash' \
+'# Test fallback curl: records the URL and answers an empty JSON list.' \
+'# Azure provider suites shadow this with stub_curl; nothing here is an' \
+'# assertion surface.' \
+'url=""' \
+'prev=""' \
+'for arg in "$@"; do' \
+'  case "$arg" in -*) prev="$arg"; continue ;; esac' \
+'  if [[ "$prev" != "-D" && "$prev" != "-o" && "$prev" != "-u" && "$prev" != "-X" && "$prev" != "-d" && "$prev" != "-H" ]]; then url="$arg"; fi' \
+'  prev="$arg"' \
+'done' \
+'echo "curl-guard $url" >> "${STUB_CALL_LOG:?}"' \
+'printf "[]" ; exit 0' > "${GUARD_BIN_DIR}/curl"
+    chmod +x "${GUARD_BIN_DIR}/curl"
+}
+
 setup() {
     test_helper_setup
 }
 
 # Common teardown for tests
 test_helper_teardown() {
+    # Canary: the real repo config must be byte-identical to its setup-time
+    # snapshot. A mismatch means a test wrote through the default
+    # DEVENV_ROOT instead of re-pointing it — fail loudly with the path.
+    if [ -n "${_REAL_CONFIG_HASH:-}" ] && [ -f "$PROJECT_ROOT/devenv.config" ]; then
+        local now
+        now=$(md5sum "$PROJECT_ROOT/devenv.config" | cut -d" " -f1)
+        if [ "$now" != "$_REAL_CONFIG_HASH" ]; then
+            echo "TEST-ISOLATION VIOLATION: $PROJECT_ROOT/devenv.config was modified by a test. Restore it (git checkout -- devenv.config) and re-point the offending suite's DEVENV_ROOT at \$TEST_TEMP_DIR." >&2
+            git -C "$PROJECT_ROOT" checkout -- devenv.config 2>/dev/null || true
+        fi
+    fi
+
     # Clean up test directory
     if [ -d "$TEST_TEMP_DIR" ]; then
         rm -rf "$TEST_TEMP_DIR"

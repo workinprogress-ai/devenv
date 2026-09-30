@@ -571,7 +571,7 @@ load ../test_helper
   [ "$output" = "env-org/env-repo" ]
 }
 
-@test "resolve_target_repo: exports GH_REPO for child gh env resolution" {
+@test "resolve_target_repo: prints the spec and exports no provider-named env" {
   run bash -c "
     set -e
     export PROJECT_ROOT='$PROJECT_ROOT'
@@ -581,10 +581,10 @@ load ../test_helper
     source '$PROJECT_ROOT/tools/lib/git-operations.bash'
     source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
     DEVENV_REPO='env-org/env-repo' resolve_target_repo > /dev/null
-    printf '%s' \"\${GH_REPO:-}\"
+    printf '%s' "\${GH_REPO:-}"
   "
   [ "$status" -eq 0 ]
-  [ "$output" = "env-org/env-repo" ]
+  [ "$output" = "" ]
 }
 
 @test "resolve_target_repo: falls back to org + git root basename" {

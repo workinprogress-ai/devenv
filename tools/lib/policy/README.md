@@ -34,7 +34,7 @@ normalizer does not consume; keep the two lists consistent when overriding.
 | `policy_delivery_segment_anchor` | `POLICY_DELIVERY_SEGMENT_ANCHOR` | `[workflows] delivery_segment_anchor` | `Implementing` |
 | `policy_status_fallback` | `POLICY_STATUS_FALLBACK` | `[workflows] status_fallback` | `Ready` |
 | `policy_default_provider` | `POLICY_DEFAULT_PROVIDER` | `[provider] name` | `github` |
-| `policy_org` | `POLICY_ORG` | `[organization] github_org` (env `GH_ORG` honored first) | fails (rc 1) when unresolvable |
+| `policy_org` | `POLICY_ORG` | `[organization] org` (env `GH_ORG` honored first) | fails (rc 1) when unresolvable |
 
 ## Usage
 

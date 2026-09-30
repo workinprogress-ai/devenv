@@ -85,11 +85,7 @@ Before exploring code, classify the target as one of:
 - API gateway
 - Frontend application
 
-Use the `component-context/index.md` file from the configured Copilot knowledge location. Resolve that location from `devenv.config` `[copilot]` (`knowledge_repo`, `knowledge_subpath`) before loading context. For service work, load only the relevant service file(s) needed for current planning decisions:
-
-- `01-Service-Architecture.md`
-- `02-Service-Implementation.md`
-- `03-Service-Plugins.md`
+Use the `component-context/index.md` file from the configured Copilot knowledge location. Resolve that location from `devenv.config` `[copilot]` (`knowledge_repo`, `knowledge_subpath`) before loading context. For service work, route from the current planning decision using the index's task table (e.g. classifying operations → `service-operation-intents.md`; implementation-planning wiring → `service-wiring.md`; test planning → `service-testing.md`; plugin usage → the specific file under `plugins/`), and load only those files.
 
 If API gateway/frontend context is not yet present, continue using general repository and plan conventions and note that specialized context is pending.
 
@@ -99,9 +95,9 @@ Use the `Explore` subagent (or `search_subagent`) to find existing modules, test
 
 ### 4. Interview the user
 
-Use `vscode_askQuestions` to confirm/fill gaps. Always cover:
+Use `vscode_askQuestions` to confirm/fill gaps. Every interview in this skill follows the shared [referenced-material rule](../_conventions.md#direct-query-style-questions-and-selections): any question that rules on drafted material — AC candidates, the phase outline, trade-off sets — presents that material in chat, fully formatted and labeled, immediately before the ask. A question tool invocation with nothing visible above it is a defect: the user cannot rule on content they were never shown. Always cover:
 
-- Acceptance criteria — **infer these from the goals, scope, and codebase context rather than asking the user to define them directly.** Draft a candidate list and present it for the user to confirm or adjust. Mark each as `*(explicit)*` if it was stated directly in the input, or `*(inferred)*` if you deduced it from goals, "must"/"should" language, or domain context. The user is better positioned to recognise a good AC than to produce one from scratch.
+- Acceptance criteria — **infer these from the goals, scope, and codebase context rather than asking the user to define them directly.** Draft a candidate list, present it in chat labeled AC-1, AC-2, … each marked `*(explicit)*` if it was stated directly in the input or `*(inferred)*` if you deduced it from goals, "must"/"should" language, or domain context — then ask via the structured query, referencing the labels. The user is better positioned to recognise a good AC than to produce one from scratch.
 - Scope boundaries and explicit non-goals
 - Known risks / unknowns
 - Decision points / pending questions — try to resolve as many as possible during planning. Leave questions pending only when they are implementation-level details or the user explicitly asks to defer.

@@ -47,7 +47,7 @@ show_usage() {
 Usage: $SCRIPT_NAME [OPTIONS]
 
 Report GitHub Actions workflow run status across the org.
-Defaults to the latest run per repo. Enumerates repositories for the configured org (devenv.config [organization] github_org).
+Defaults to the latest run per repo. Enumerates repositories for the configured org (devenv.config [organization] org).
 
 Options:
     -h, --help                  Show this help message and exit

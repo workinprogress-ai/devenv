@@ -49,3 +49,49 @@ artifact_header_field() {
     local key="$2"
     printf '%s\n' "$body" | sed -n "s/^[[:space:]]*${key}:[[:space:]]*//p" | head -1
 }
+
+# artifact_body_upsertable BODY
+#   Mirrors issue-artifact-upsert.sh's resolution contract: the body must
+#   carry a doc_id line within the first 256 characters, and an issue number
+#   must be resolvable from the issue_number metadata field (a literal
+#   "none" counts as absent) or from an issue-<N> segment inside the doc_id.
+#   Exits 0 and prints "upsertable" when the body would resolve; on failure
+#   prints the reason and exits 1.
+artifact_body_upsertable() {
+    local body="$1"
+    local prefix="${body:0:256}"
+    local doc_id
+    doc_id=$(artifact_header_field "$prefix" "doc_id")
+    local issue_field
+    issue_field=$(artifact_header_field "$prefix" "issue_number")
+    if [ "$issue_field" = "none" ]; then
+        issue_field=""
+    fi
+    local inferred=""
+    if [ -n "$doc_id" ]; then
+        inferred=$(printf '%s\n' "$doc_id" | sed -nE 's/.*issue[-_:]([0-9]+).*/\1/p' | head -1)
+        case "$inferred" in
+            ''|*[!0-9]*) inferred="" ;;
+        esac
+    fi
+    if [ -z "$doc_id" ]; then
+        echo "no DEVENV_ARTIFACT_V1 header (no doc_id line within the first 256 characters)"
+        return 1
+    fi
+    if [ -z "$issue_field" ] && [ -z "$inferred" ]; then
+        echo "no resolvable issue number (no issue_number metadata line and no issue-<N> in the doc_id)"
+        return 1
+    fi
+    echo "upsertable"
+    return 0
+}
+
+# artifact_file_upsertable FILE
+#   File-based form: reads FILE and applies artifact_body_upsertable to its
+#   contents.
+artifact_file_upsertable() {
+    local file="$1"
+    local body
+    body="$(cat "$file")" || return 1
+    artifact_body_upsertable "$body"
+}

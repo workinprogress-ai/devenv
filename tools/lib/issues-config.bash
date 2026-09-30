@@ -161,14 +161,10 @@ get_planning_type_mappings() {
 fetch_org_issue_type_ids() {
     local org="${1:-$(provider_org_get 2>/dev/null || true)}"
     if [ -z "$org" ]; then
-        echo "ERROR: Organization not specified. Configure [organization] github_org in devenv.config or pass org as parameter" >&2
+        echo "ERROR: Organization not specified. Configure [organization] org in devenv.config or pass org as parameter" >&2
         return 1
     fi
 
-    if ! command -v gh >/dev/null 2>&1; then
-        echo "ERROR: gh CLI is required" >&2
-        return 1
-    fi
     if ! command -v jq >/dev/null 2>&1; then
         echo "ERROR: jq is required" >&2
         return 1
@@ -177,7 +173,8 @@ fetch_org_issue_type_ids() {
     local result
     result=$(provider_org_issue_types "$org" 2>/dev/null) || return 1
 
-    echo "$result" | jq -r '.data.organization.issueTypes.edges[] | "\(.node.name)\t\(.node.id)"'
+    # Neutral seam shape: [{id, name}] entries.
+    echo "$result" | jq -r '.[] | "\(.name)\t\(.id)"'
 }
 
 # Exported functions

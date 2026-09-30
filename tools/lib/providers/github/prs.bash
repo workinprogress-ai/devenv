@@ -139,7 +139,58 @@ provider_prs_thread_reply() {
         "/repos/$owner/$name/pulls/$pr/comments/$comment_id/replies" \
         -f body="$body"
 }
-
+# Create a PR review thread — general comment, or inline when --path/--line
+# are given. Emits gh-shaped JSON ({thread:{url}}); the caller extracts the
+# URL. Absorbs the graphql mutation that used to live in pr-review-comment.
+# Usage: provider_prs_thread_create [repo] PR_NUMBER --body TEXT
+#        [--path FILE --line N --side LEFT|RIGHT]
+provider_prs_thread_create() {
+    local repo=""
+    if [ $# -gt 0 ]; then
+        case "$1" in
+            */*) repo="$1"; shift ;;
+        esac
+    fi
+    local number="$1"; shift
+    local body="" path="" line="" side=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --body) body="$2"; shift 2 ;;
+            --path) path="$2"; shift 2 ;;
+            --line) line="$2"; shift 2 ;;
+            --side) side="$2"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+    [ -n "$body" ] || { log_error "provider_prs_thread_create requires --body"; return 1; }
+    local pr_id repo_node_id
+    pr_id=$(provider_prs_view "$repo" "$number" --json id -q .id) || return 1
+    if [ -n "$repo" ]; then
+        local owner="${repo%%/*}" name="${repo##*/}"
+        repo_node_id=$(gh api graphql -f query="query { repository(owner: \"$owner\", name: \"$name\") { id } }" 2>/dev/null | jq -r '.data.repository.id')
+    else
+        repo_node_id=$(gh api graphql -f query='query { repository(owner: "{owner}", name: "{repo}") { id } }' 2>/dev/null | jq -r '.data.repository.id')
+    fi
+    [ -n "$repo_node_id" ] && [ "$repo_node_id" != "null" ] || { log_error "provider_prs_thread_create: cannot resolve repository node id"; return 1; }
+    # shellcheck disable=SC2016  # GraphQL variables must not be shell-expanded
+    local query='mutation($pr: ID!, $body: String!, $repo: ID!$extra) {
+        addPullRequestReviewThread(input: {
+            pullRequestId: $pr,
+            body: $body,
+            repositoryId: $repo$extra
+        }) { thread { url } }
+    }'
+    local -a args=(gh api graphql -f query="$query" -f pr="$pr_id" -f body="$body" -f repo="$repo_node_id")
+    if [ -n "$path" ]; then
+        [ -n "$line" ] || { log_error "provider_prs_thread_create: --path requires --line"; return 1; }
+        args+=(-f path="$path" -F line="$line" -f side="${side:-RIGHT}")
+    fi
+    # Normalize to the verb's gh-shaped contract ({thread:{url}}) — the raw
+    # graphql envelope stays provider-internal.
+    local raw
+    raw=$("${args[@]}" 2>/dev/null) || return 1
+    printf '%s' "$raw" | jq -c '{thread: {url: (.data.addPullRequestReviewThread.thread.url // "")}}'
+}
 # Resolve a PR review thread (GraphQL surface, per pr-thread-resolve).
 # Usage: provider_prs_thread_resolve THREAD_NODE_ID
 provider_prs_thread_resolve() {

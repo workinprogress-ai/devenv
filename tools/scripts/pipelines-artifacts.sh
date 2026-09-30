@@ -137,9 +137,14 @@ download_artifacts() {
 
     # When downloading all (no --name), warn if total size is large
     if [ -z "$ARTIFACT_NAME" ]; then
-        local total_bytes
-        total_bytes=$(provider_pipelines_run_artifacts "$owner/$repo" "$RUN_ID" 2>/dev/null \
-            --jq '[.artifacts[].size_in_bytes] | add // 0' || echo "0")
+        local artifacts_json total_bytes
+        if artifacts_json=$(provider_pipelines_run_artifacts "$owner/$repo" "$RUN_ID" 2>/dev/null); then
+            # The verb emits one JSON array of artifacts (both providers);
+            # sum sizes wrapper-side — no provider flag dialect involved.
+            total_bytes=$(echo "$artifacts_json" | jq '[.[].size_in_bytes] | add // 0')
+        else
+            total_bytes=0
+        fi
 
         if [ "$total_bytes" -gt "$DOWNLOAD_SIZE_WARN_BYTES" ]; then
             local size_mib=$(( total_bytes / 1048576 ))
@@ -153,14 +158,16 @@ download_artifacts() {
         fi
     fi
 
+    # Repo rides the verb's first positional; the array carries only the
+    # gh-dialect download flags (a stray -R value here would become a second
+    # positional and break gh run download's one-positional contract).
     local gh_args=()
-    gh_args+=(-R "$REPO")
     [ -n "$ARTIFACT_NAME" ] && gh_args+=(-n "$ARTIFACT_NAME")
     gh_args+=(-D "$DEST_DIR")
 
     log_verbose "Downloading artifacts for run $RUN_ID from $REPO to $DEST_DIR"
 
-    if ! provider_pipelines_run_download "$REPO" "$RUN_ID" "${gh_args[@]:1}"; then
+    if ! provider_pipelines_run_download "$REPO" "$RUN_ID" "${gh_args[@]}"; then
         log_error "Failed to download artifacts for run $RUN_ID"
         exit "$EXIT_API_FAILURE"
     fi

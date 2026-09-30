@@ -231,15 +231,18 @@ ensure_gh_login() {
 #   0 if all dependencies are met, exits with error if any are missing
 #
 check_dependencies() {
-    if ! command -v gh &> /dev/null; then
-        log_error "GitHub CLI (gh) is not installed or not in PATH"
-        log_info "Install from: https://cli.github.com/"
+    # The provider-neutral dependency set: auth comes from the provider
+    # seam (PAT file / provider CLI depending on provider); the gh CLI is
+    # only the github provider's transport and is checked there, not here.
+    if ! provider_auth_status &> /dev/null; then
+        log_error "Not authenticated with the active provider (${PROVIDER_NAME:-unknown})"
+        log_info "Run: key-update-git (or the provider's key-update variant)"
         return 1
     fi
 
-    if ! provider_auth_status &> /dev/null; then
-        log_error "Not authenticated with the provider CLI"
-        log_info "Run: key-update-git"
+    if ! command -v curl &> /dev/null; then
+        log_error "curl is not installed or not in PATH"
+        log_info "Install curl for provider REST transports"
         return 1
     fi
 
@@ -414,12 +417,12 @@ ensure_label() {
 # refuses to operate on the devenv repo itself unless ALLOW_DEVENV_REPO=1
 # or DEVENV_REPO explicitly targets it).
 #
-# On success: exports GH_REPO=<owner>/<repo> and prints the resolved
-# "owner/repo". On refusal: exits (gate behavior). Callers that pass the
-# result to `gh -R` can use the printed value directly.
-# GH_REPO ownership: the variable is transport state the provider layer
-# owns (child gh processes resolve it natively); this export propagates the
-# provider's resolution result — callers never set or read it directly.
+# On success: prints the resolved provider repo spec. On refusal: exits
+# (gate behavior).
+# Transport-state note: each provider owns its own env contract. The
+# provider's repo-target hook (not this resolver) exposes the resolution
+# result to transport-specific child processes, so no provider-named
+# variable is exported here.
 resolve_target_repo() {
     local repo_override="${1:-}"
     local repo=""
@@ -454,6 +457,5 @@ resolve_target_repo() {
         unset DEVENV_REPO
     fi
 
-    export GH_REPO="$repo"
     printf '%s\n' "$repo"
 }

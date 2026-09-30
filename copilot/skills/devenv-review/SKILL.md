@@ -120,11 +120,20 @@ Output structure (markdown, in this order). **Number every finding sequentially 
 Every finding is a single bullet in the format:
 
 ```
-- [file:line](workspace-root-relative-path#L42) — <one-line reason>
+- [file:line](../workspace-root-relative-path#L42) — <one-line reason>
   <!-- @post: file=<repo-relative-path> line=42 side=RIGHT -->
 ```
 
-Paths must be **workspace-root-relative** so VS Code renders them as clickable links — e.g. `repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs`, not just `BulkSyncWorker.cs`. Do not emit a path you haven't confirmed exists.
+Display links resolve from the file's own location: this review is saved to
+`.local-artifacts/tmpN.md`, one level below the repo root, so display-link
+paths carry a single `../` prefix in front of the repo-relative path —
+`../src/Foo.cs` for a repo file. (For a workspace-level artifact in
+`<workspace>/.local-artifacts/`, the equivalent is
+`../repos/<repo>/src/Foo.cs`.) VS Code only renders the link clickable when
+the prefix escapes `.local-artifacts/`. The `@post` marker's `file=` value
+stays **repo-relative** with no prefix — it is the PR diff's path and what
+`pr-review-comment --file` expects. Do not emit a path you haven't confirmed
+exists.
 
 The indented `@post` HTML comment under the bullet is the machine-readable posting target — invisible when the markdown renders. Rules:
 
@@ -184,10 +193,11 @@ Announce which plan was resolved before reviewing.
 2. **Fold-in interview.** Then run the set-approval interview via `vscode_askQuestions`: propose the approved findings as plan-task encodings (blockers, concerns, missing tests; nits only when the user opts in — praise never folds in). The user approves, edits, or rejects the proposed set. If the user stops the interview, they may edit the working file directly and tell you to restart the fold-in from the edited file — never fold from memory when they have stopped to edit.
 3. **Edit the plan.** Apply only the approved encodings to the plan file as new tasks in the plan's Review phase, using the plan's normal numeric task numbering (e.g. `4.2`, `4.3` — the Review phase is an ordinary phase; its number is whatever position it holds). Carry the round number in the task title (`Review round 2: fix X`) or a round-summary task, never in the task ID — plan tooling (`plan-parse`, `markdown-plan-complete-task`) only accepts dotted numeric IDs. Each task gets `Files:` where applicable, `depends on` where needed, and an `Additional context:` bullet citing the finding (file:line, severity). Mark each folded finding's origin in the round record (folded / rejected with reason).
 4. **Issue-backed sync.** If the plan was published as an issue artifact comment, offer to re-upsert: run `plan-parse <path> --lint --require-header` first (errors block), then `issue-artifact-upsert --issue <N> --body-file <path>` on explicit confirmation.
-5. **Convergence decision.** Compute the round's yield and present it (rejected findings per the exclusion rule above do not count):
-   - **Continue** — the round found any non-rejected Blocker, or ≥ 3 non-rejected Concerns: offer the next round (user's choice; next round re-runs on the updated cumulative diff).
-   - **Converged** — 0 Blockers and ≤ 2 Concerns: report convergence and offer to close the Review phase in the plan (tick the round's tasks, record the yield summary and decision).
-   - The user always confirms the continue/stop decision; the yield bar informs it, it does not automate it.
+5. **Convergence decision.** Compute the round's yield and present it (rejected findings per the exclusion rule above do not count). The cycle repeats only with the user's permission in both directions — it is never self-terminated:
+   - **Below the bar** — any non-rejected Blocker, or ≥ 3 non-rejected Concerns: offer the next round (recommended; next round re-runs on the updated cumulative diff).
+   - **Converged** — 0 Blockers and ≤ 2 Concerns: recommend closing the Review phase in the plan (tick the round's tasks, record the yield summary and decision), and offer another round anyway if the user wants deeper assurance — their explicit choice.
+   - **Anti-spiral guards:** at 4 rounds total, stop and hand back with the yield history rather than offering round 5 — warning the user that unresolved issues may remain and the diff needs their manual attention; a round that keeps yielding same-severity findings after fixes landed is churn — surface it as a handback signal instead of proposing a further round.
+   - The user always confirms the continue/stop decision; the yield bar informs the recommendation, it does not automate it.
 6. **PR alongside (optional).** If a PR exists, offer once per round to also post the kept findings as inline PR threads from the round's working file. The fold-in and PR posting are independent channels — either, both, or neither.
 
 **Shared rules.** Fold-in eligibility, rejection recording, task encoding, convergence bar, and the separate-from-in-line-review rule are defined once in the shared [plan-encoded review protocol](../common/references/plan-encoded-review.md) — direct invocation and executor runs (delegate/pair) follow the same rules, so behavior does not drift between the two doors.

@@ -500,7 +500,7 @@ log_verbose_stderr() {
 #   the caller's scope) to the file path. Nothing is printed to stdout —
 #   printing would move the trap registration into a subshell where it
 #   dies with the subshell (the same stdout-vs-global channel trap that
-#   body-source F001 hit). Prefix defaults to "devenv-temp".
+#   body-source sourcing hits). Prefix defaults to "devenv-temp".
 #   Usage: create_temp_file TMPFILE my-prefix
 create_temp_file() {
     local var_name="$1"

@@ -79,7 +79,11 @@ provider_org_releases_list() {
 
 # List an org's native issue types.
 # Usage: provider_org_issue_types ORG
+# Returns the neutral seam shape: one JSON array of {id, name} entries.
+# (The raw GraphQL envelope is mapped here — provider wire formats never
+# cross the seam.)
 provider_org_issue_types() {
     provider_require_capability native-issue-types || return 1
-    gh api graphql -f query="query { organization(login: \"$1\") { issueTypes(first: 100) { edges { node { id name } } } } }" 2>/dev/null
+    gh api graphql -f query="query { organization(login: \"$1\") { issueTypes(first: 100) { edges { node { id name } } } } }" 2>/dev/null \
+        | jq -c '[.data.organization.issueTypes.edges[].node | {id: .id, name: .name}]'
 }

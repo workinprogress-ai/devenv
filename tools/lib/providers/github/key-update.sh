@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# key-update-git.sh
+# key-update.sh (github provider)
 # Updates the GitHub personal access token and reloads environment
 # Usage: key-update-git [TOKEN]
 
 set -euo pipefail
 # Resolve the tools root from this script's own location (self-root
 # contract: self-location wins; a foreign exported DEVENV_TOOLS is ignored).
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
+# From lib/providers/<name>/, lib is three levels up.
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/lib/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 
 # Source error handling library
@@ -14,8 +15,11 @@ source "$DEVENV_TOOLS/lib/error-handling.bash"
 
 # Provider auth seam: the credential lifecycle (import + git helper wiring)
 # is the provider's job, not this script's; loaded via the canonical loader.
+# This script lives in the github provider folder and pins its provider — a
+# fork on another backend uses its own provider's key-update.
 # shellcheck disable=SC1091
 source "$DEVENV_TOOLS/lib/providers/provider-core.bash"
+export PROVIDER_NAME="github"
 provider_load auth
 
 echo ">>> 🔐 GitHub Token Update Utility"

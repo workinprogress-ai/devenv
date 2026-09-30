@@ -201,7 +201,7 @@ If the discussion is component-specific, classify the component type before movi
 - API gateway
 - Frontend application
 
-Then use the `component-context/index.md` file from the configured Copilot knowledge location. Resolve that location from `devenv.config` `[copilot]` (`knowledge_repo`, `knowledge_subpath`) before loading context. For services, choose among `01-Service-Architecture.md`, `02-Service-Implementation.md`, and `03-Service-Plugins.md` as needed. If context for API gateway/frontend is not yet available, continue with general skill rules and explicitly note that specialized context is pending.
+Then use the `component-context/index.md` file from the configured Copilot knowledge location. Resolve that location from `devenv.config` `[copilot]` (`knowledge_repo`, `knowledge_subpath`) before loading context. For services, route from the current design question using the index's task table and load only the files it names. If context for API gateway/frontend is not yet available, continue with general skill rules and explicitly note that specialized context is pending.
 
 If the discussion is general/system-level and not tied to a specific component implementation concern, skip component-context loading.
 

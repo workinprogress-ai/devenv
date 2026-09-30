@@ -43,13 +43,13 @@ Usage: $SCRIPT_NAME THREAD_ID [OPTIONS]
 
 Mark a pull request review thread as resolved.
 
-The THREAD_ID is the GraphQL node ID of the review thread (starts with
-"PRRT_" on GitHub). Use `pr-threads-get PR_NUMBER` to list threads
-and find their IDs.
+The THREAD_ID is the opaque thread reference from \`pr-threads-get PR_NUMBER\`
+output (a GraphQL node ID starting with "PRRT_" on GitHub; a
+provider-defined composite under other providers). Providers parse their
+own scope internally — the invocation shape is identical everywhere.
 
 Arguments:
-    THREAD_ID                   GraphQL node ID of the review thread to resolve
-                                (e.g. PRRT_kwDOA...)
+    THREAD_ID                   Opaque thread reference (from pr-threads-get)
 
 Options:
     -h, --help                  Show this help message and exit
@@ -85,7 +85,8 @@ resolve_thread() {
     log_verbose "Resolving review thread: $THREAD_ID"
 
     # Transport + GraphQL handling live in the facade verb; the caller keeps
-    # the outcome interpretation.
+    # the outcome interpretation. THREAD_ID is the opaque ref from
+    # pr-threads-get — providers parse their own scope internally.
     local is_resolved
     if ! is_resolved=$(provider_prs_thread_resolve "$THREAD_ID"); then
         log_error "Failed to resolve thread: $THREAD_ID"
@@ -155,8 +156,9 @@ main() {
         exit $EXIT_MISUSE
     fi
 
-    # Thread IDs are globally unique node IDs — no repo context needed for resolve
-    # but still validate we're in the right environment
+    # Thread IDs are globally unique node IDs on github — no repo context
+    # needed for resolve; azure derives its PR-scoped context in
+    # resolve_thread. Either way, validate we're in the right environment.
     check_target_repo "$ALLOW_DEVENV_REPO"
     resolve_thread
 }

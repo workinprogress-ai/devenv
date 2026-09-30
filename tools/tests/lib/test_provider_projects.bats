@@ -111,22 +111,23 @@ setup() {
 # Happy paths (GitHub provider with capabilities declared)
 # ============================================================================
 
-@test "projects list: gh project list with -R when capability present" {
+@test "projects list: repo passed positionally (gh 2.95 dropped -R here)" {
     run provider_projects_list org/repo
     assert_success
-    grep -q "^gh project list -R org/repo$" "$STUB_CALL_LOG"
+    grep -q "^gh project list org/repo$" "$STUB_CALL_LOG"
+    ! grep -q "gh project list -R" "$STUB_CALL_LOG"
 }
 
 @test "projects item-add: project number, repo, and item url wired" {
     run provider_projects_item_add org/repo 12 https://github.com/org/repo/issues/99
     assert_success
-    grep -q "^gh project item-add 12 -R org/repo --url https://github.com/org/repo/issues/99$" "$STUB_CALL_LOG"
+    grep -q "^gh project item-add 12 org/repo --url https://github.com/org/repo/issues/99$" "$STUB_CALL_LOG"
 }
 
 @test "projects field-list: project number and repo wired" {
     run provider_projects_field_list org/repo 12
     assert_success
-    grep -q "^gh project field-list 12 -R org/repo$" "$STUB_CALL_LOG"
+    grep -q "^gh project field-list 12 org/repo$" "$STUB_CALL_LOG"
 }
 
 @test "rulesets list: paginated REST endpoint with capability present" {

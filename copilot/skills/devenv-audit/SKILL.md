@@ -70,7 +70,7 @@ Write a 1–2 paragraph mental model of the architecture before proceeding. If y
 
 ## Phase 2: Audit across these dimensions
 
-Use `rg`, language-native tooling, and IDE-equivalent analysis to find concrete examples. Cite `repos/<repo>/path/to/file.ext:LINE` as a clickable workspace-root-relative link for every finding (e.g. `[repos/lib.cs.services.chassis/src/Foo.cs:42](repos/lib.cs.services.chassis/src/Foo.cs#L42)`). Apply any dimension overrides or focus areas extracted from the issue body in Phase 1.
+Use `rg`, language-native tooling, and IDE-equivalent analysis to find concrete examples. Cite `repos/<repo>/path/to/file.ext:LINE` as a clickable link for every finding — since the audit is written to `.local-artifacts/` (one level below the repo root, or the workspace root for multi-repo audits), display links resolve from the file's own location: one `../` prefix for a single-repo audit (`[repos/lib.cs.services.chassis/src/Foo.cs:42](../repos/lib.cs.services.chassis/src/Foo.cs#L42)`), `../../` from a workspace-level audit file. A link without the prefix is dead — it resolves against `.local-artifacts/`. Apply any dimension overrides or focus areas extracted from the issue body in Phase 1.
 
 1. **Architectural decay** — circular deps, layering violations, god files (>500 LOC) and god functions, duplicated logic across 3+ sites where an abstraction should exist, abstractions that exist but nobody uses, dead code (unused exports/public types, unreachable branches, stale commented-out blocks).
 2. **Consistency rot** — multiple ways of doing the same thing (HTTP clients, error handling, logging, config loading, validation, date handling). Naming drift. Folder structure that no longer reflects what the code actually does.
@@ -105,7 +105,7 @@ Issue: #NNN  ← only if invoked with an issue number
 ## Findings
 | ID | Category | File:Line | Severity (Critical/High/Medium/Low) | Effort (S/M/L) | Description | Recommendation |
 |----|----------|-----------|--------------------------------------|----------------|-------------|----------------|
-| F001 | ... | [repos/path/src/Foo.cs:42](repos/path/src/Foo.cs#L42) | Critical | L | ... | ... |
+| F001 | ... | [repos/path/src/Foo.cs:42](../repos/path/src/Foo.cs#L42) | Critical | L | ... | ... |
 
 Aim for 30–80 findings. Padding past that is noise.
 

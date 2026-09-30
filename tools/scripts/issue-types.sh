@@ -80,7 +80,7 @@ resolve_org() {
         echo "${DEVENV_REPO%%/*}"
         return 0
     fi
-    log_error "Cannot resolve organization — configure [organization] github_org in devenv.config or set DEVENV_REPO"
+    log_error "Cannot resolve organization — configure [organization] org in devenv.config or set DEVENV_REPO"
     return 1
 }
 
@@ -96,21 +96,21 @@ list_issue_types() {
     fi
 
     local types
-    types=$(echo "$raw" | jq -r '.data.organization.issueTypes.edges')
-    if [ "$types" = "null" ] || [ -z "$types" ]; then
+    types=$(echo "$raw" | jq -c '.')
+    if [ "$types" = "null" ] || [ "$types" = "[]" ] || [ -z "$types" ]; then
         log_error "No issue types returned — is the org configured with issue types? (GitHub org setting: Organization settings → Features → Issue types)"
         exit 1
     fi
 
     case "$OUTPUT_FORMAT" in
         json)
-            echo "$raw" | jq '.data.organization.issueTypes.edges | map(.node)'
+            echo "$raw" | jq '.'
             ;;
         simple)
-            echo "$raw" | jq -r '.data.organization.issueTypes.edges[].node | .name'
+            echo "$raw" | jq -r '.[].name'
             ;;
         table)
-            echo "$raw" | jq -r '.data.organization.issueTypes.edges[].node | "\(.name)\t\(.id)"' | column -t -s $'\t'
+            echo "$raw" | jq -r '.[] | "\(.name)\t\(.id)"' | column -t -s $'\t'
             ;;
         *)
             log_error "Invalid format: $OUTPUT_FORMAT (must be table, json, or simple)"

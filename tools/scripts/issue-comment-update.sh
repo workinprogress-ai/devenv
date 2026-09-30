@@ -44,8 +44,9 @@ show_usage() {
     cat << EOF
 Usage: $SCRIPT_NAME COMMENT_ID [OPTIONS]
 
-Replace the body of an existing GitHub issue comment.  COMMENT_ID is the
-numeric ID returned by issue-comment-list — it is NOT the issue number.
+Replace the body of an existing issue comment.  COMMENT_ID is the opaque
+comment reference returned by issue-comment-list (its shape is
+provider-defined; take it verbatim from list output).
 
 The comment is validated (GET) before the update is attempted; if the ID does
 not exist the tool exits cleanly with an error.
@@ -72,6 +73,9 @@ Environment Variables:
 Examples:
     # Replace a comment body inline
     $SCRIPT_NAME 12345678 --body "Updated content"
+
+    # From list output (works the same on every provider)
+    $SCRIPT_NAME 42 | jq -r '.[].id'   # then pass that id back
 
     # Replace from a markdown file
     $SCRIPT_NAME 12345678 --body-file spike-001-results.md

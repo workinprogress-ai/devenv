@@ -156,3 +156,34 @@ STUB
     run bash -c "source '$GRAPH' && issue_link_subissue 46"
     [ "$status" -ne 0 ]
 }
+
+# ============================================================================
+# Provider-neutrality of the graph surface (azure routing)
+# ============================================================================
+
+@test "issue_link_subissue routes through the provider verb, not raw graphql" {
+    # The public helper must call provider_issue_graph_link; the graphql
+    # composition is provider-internal. A stubbed verb records the numbers.
+    cat > "$STUB_DIR/gh" <<'STUB'
+#!/usr/bin/env bash
+echo "gh $*" >> "$GH_CALL_LOG"
+exit 0
+STUB
+    chmod +x "$STUB_DIR/gh"
+    run bash -c "source '$GRAPH' && provider_issue_graph_link() { echo \"graph_link \$1 \$2\"; } && issue_link_subissue 46 47"
+    [ "$status" -eq 0 ]
+    [ "$output" = "graph_link 46 47" ]
+}
+
+@test "issue_children delegates to provider_issue_graph_children" {
+    run bash -c "source '$GRAPH' && provider_issue_graph_children() { printf '47\n48\n'; } && issue_children 46"
+    [ "$status" -eq 0 ]
+    [ "${lines[0]}" = "47" ]
+    [ "${lines[1]}" = "48" ]
+}
+
+@test "issue_parent delegates to provider_issue_graph_parent (native leg)" {
+    run bash -c "source '$GRAPH' && provider_issue_graph_parent() { printf '46'; } && issue_parent 47"
+    [ "$status" -eq 0 ]
+    [ "$output" = "46" ]
+}

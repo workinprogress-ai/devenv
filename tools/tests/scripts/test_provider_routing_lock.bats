@@ -23,7 +23,7 @@ load ../test_helper
 # lifecycle (import/status) routes through the provider auth seam.
 # shellcheck disable=SC2034
 ALLOWED_EXCEPTIONS=(
-    "key-update-git.sh:gh auth (login|setup-git)"
+    "key-update.sh:gh auth (login|setup-git)"
     "repo-get.sh:gh auth status"
     "issue-create.sh:gh auth status"
     "provider-loader.bash:gh auth status"
@@ -141,13 +141,18 @@ collect_violations() {
         file_pat="${entry%%:*}"
         local found=0
         local t
+        # Recursive search: provider modules nest below the target roots
+        # (e.g. lib/providers/<name>/key-update.sh).
+        shopt -s globstar nullglob
         for t in "${LOCK_TARGETS[@]}"; do
-            if compgen -G "${DEVENV_TOOLS%/tools}/${t#/tools/}/*${file_pat}*" >/dev/null; then
+            local matches=("${DEVENV_TOOLS%/tools}/${t#/tools/}/**/*${file_pat}*")
+            if [ "${#matches[@]}" -gt 0 ]; then
                 found=1
                 break
             fi
         done
-        [ "$found" -eq 1 ] || fail "stale allowlist entry: no file matches '*${file_pat}*'"
+        shopt -u globstar nullglob
+        [ "$found" -eq 1 ] || { echo "stale allowlist entry: no file matches '*${file_pat}*'" >&2; return 1; }
     done
 }
 

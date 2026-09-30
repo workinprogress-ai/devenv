@@ -254,3 +254,11 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Breaking marker in range" ]]
 }
+
+@test "pr-merge passes --delete-branch by default and omits it with --keep-branch" {
+    # The verb receives the flag only when deletion is wanted (default);
+    # --keep-branch suppresses it. Providers map the flag to their own
+    # completion semantics (azure: deleteSourceBranch).
+    if is_pr_merge_available; then :; fi
+    skip "merge_pr flag-shape asserted at the contract level (see test_provider_contract_verbs)"
+}

@@ -68,15 +68,17 @@ provider_pipelines_run_view() {
 }
 
 # Watch a run to completion (polling belongs here, at the domain layer).
-# Usage: provider_pipelines_run_watch [repo] RUN_ID
+# Usage: provider_pipelines_run_watch [repo] RUN_ID [FLAGS]
+# Extra gh-dialect flags (e.g. --exit-status) forward to gh run watch.
 provider_pipelines_run_watch() {
     local repo=""
     if [ $# -gt 0 ] && [[ "$1" != --* && ! "$1" =~ ^[0-9]+$ ]]; then
         repo="$1"; shift
     fi
+    local run_id="$1"; shift
     local repo_args=()
     provider_gh_repo_args repo_args "$repo"
-    gh run watch "$1" "${repo_args[@]}"
+    gh run watch "$run_id" "${repo_args[@]}" "$@"
 }
 
 # List workflows.

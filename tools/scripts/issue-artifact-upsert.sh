@@ -133,7 +133,10 @@ resolve_local_artifacts_dir() {
 
 # Interactive picker over .local-artifacts/*.md (decision D1: TTY-only).
 # tmp*.md are excluded by default (ephemeral per the artifact convention);
-# --all removes the exclusion.
+# --all removes the exclusion. Files that can never resolve an issue number
+# (no DEVENV_ARTIFACT_V1 header, or no resolvable issue in one) are hidden,
+# since upserting them always fails late with a confusing error; the header
+# preview shows what was picked and why it will resolve.
 interactive_pick_artifact() {
     local dir
     dir=$(resolve_local_artifacts_dir)
@@ -143,23 +146,29 @@ interactive_pick_artifact() {
     fi
 
     local files=""
-    local f base
+    local hidden=0
+    local f base reason
     while IFS= read -r f; do
         base=$(basename "$f")
         if [ "$ALL_FILES" -eq 0 ] && [[ "$base" == tmp*.md ]]; then
             continue
         fi
-        files+="${base}"$'\n'
+        if reason=$(artifact_file_upsertable "$f"); then
+            files+="${base}"$'\n'
+        else
+            hidden=$((hidden + 1))
+            log_verbose "Excluded ${base}: ${reason}"
+        fi
     done < <(find "$dir" -maxdepth 1 -name '*.md' -type f | sort)
 
     if [ -z "$files" ]; then
-        log_error "No eligible markdown files in $dir (use --all to include tmp*.md)"
+        log_error "No upsertable artifacts in $dir (${hidden} markdown file(s) hidden: no DEVENV_ARTIFACT_V1 header or no resolvable issue number; use --all to include tmp*.md)"
         return 1
     fi
 
     check_fzf_installed || return 1
     local picked
-    picked=$(fzf_select_single "$files" "Upsert which artifact? ") || return 1
+    picked=$(fzf_select_single "$files" "Upsert which artifact? " "head -c 1024 '$dir/{}'") || return 1
     printf '%s/%s' "$dir" "$picked"
 }
 
@@ -362,6 +371,11 @@ main() {
     fi
 
     if [ -z "$ISSUE_NUMBER" ]; then
+        if [ -z "$doc_id" ]; then
+            local origin="body"
+            [ -n "$COMMENT_FILE" ] && origin="$COMMENT_FILE"
+            invalid_args "${origin} is not an upsertable artifact: no DEVENV_ARTIFACT_V1 header (no doc_id line within the first 256 characters) and no resolvable issue number"
+        fi
         invalid_args "issue_number is required via --issue, body metadata line 'issue_number: <N>', or a doc_id containing issue-<N>"
     fi
 
@@ -429,8 +443,8 @@ main() {
 
         log_verbose "Updating comment ID $comment_id"
         local updated
-        if ! updated=$(provider_api PATCH "repos/${TARGET_REPO}/issues/comments/${comment_id}" \
-            -f "body=${body}" 2>/dev/null); then
+        if ! updated=$(provider_issues_comment_edit "$TARGET_REPO" "$comment_id" \
+            --body "$body" 2>/dev/null); then
             api_failure "Failed to update comment ID $comment_id"
         fi
 
@@ -458,8 +472,8 @@ main() {
 
     log_verbose "Creating new comment on issue #$ISSUE_NUMBER"
     local created
-    if ! created=$(provider_api POST "repos/${TARGET_REPO}/issues/${ISSUE_NUMBER}/comments" \
-        -f "body=${body}" 2>/dev/null); then
+    if ! created=$(provider_issues_comment_add "$TARGET_REPO" "$ISSUE_NUMBER" \
+        --body "$body" 2>/dev/null); then
         api_failure "Failed to create issue comment on issue #$ISSUE_NUMBER"
     fi
 

@@ -312,3 +312,92 @@ EOF
 stub_calls_contain() {
     grep -qF -- "$1" "$STUB_CALL_LOG" 2>/dev/null
 }
+
+# ---------------------------------------------------------------------------
+# curl stub (Azure transport)
+#
+# Modes:
+#   STUB_CURL_RESPONSE      file whose contents are printed as the response body
+#   STUB_CURL_FAIL=1        every invocation exits 7 (connection failure)
+#   STUB_CURL_HTTP_CODE     HTTP status code reported in the fake response
+#                           headers (default 200)
+#   STUB_CURL_RETRY_AFTER   value emitted as a Retry-After header (429 pages)
+#   STUB_CURL_PAGES         file holding a newline-ordered queue of page-file
+#                           paths; each call pops the first entry and prints
+#                           it, also emitting a ContinuationToken header while
+#                           entries remain after the popped one (simulates
+#                           Azure's ContinuationToken pagination)
+#
+# Header capture: azure-http reads response headers with -D <file>; this stub
+# writes a minimal header block (status line + Retry-After/ContinuationToken
+# when configured) there so the transport's parsing is exercised for real.
+# Every invocation is recorded as one "curl <url>" line in $STUB_CALL_LOG.
+# ---------------------------------------------------------------------------
+stub_curl() {
+    _stubs_ensure_bin_dir
+    cat > "$STUB_BIN_DIR/curl" << 'EOF'
+#!/usr/bin/env bash
+url=""
+prev=""
+for arg in "$@"; do
+    if [[ "$prev" == "-D" ]]; then
+        headers_file="$arg"
+    fi
+    prev="$arg"
+done
+# URL is the last non-flag argument
+for arg in "$@"; do
+    case "$arg" in
+        -*) prev="$arg"; continue ;;
+    esac
+    if [[ "$prev" != "-D" && "$prev" != "-o" && "$prev" != "-u" && "$prev" != "-X" && "$prev" != "-d" && "$prev" != "-H" ]]; then
+        url="$arg"
+    fi
+    prev="$arg"
+done
+echo "curl $url" >> "${STUB_CALL_LOG:?}"
+# Capture the request payload when the caller asks for it (asserting on
+# POST/PATCH bodies; the call log records only the URL argv).
+if [[ -n "${STUB_CURL_REQUEST_BODY:-}" ]]; then
+    prev=""
+    for arg in "$@"; do
+        if [[ "$prev" == "-d" ]]; then
+            printf '%s\n' "$arg" >> "$STUB_CURL_REQUEST_BODY"
+        fi
+        prev="$arg"
+    done
+fi
+if [[ "${STUB_CURL_FAIL:-0}" == "1" ]]; then
+    exit 7
+fi
+
+headers_file="${headers_file:-/dev/null}"
+code="${STUB_CURL_HTTP_CODE:-200}"
+
+{
+    printf 'HTTP/1.1 %s OK\r\n' "$code"
+    if [[ "$code" == "429" && -n "${STUB_CURL_RETRY_AFTER:-}" ]]; then
+        printf 'Retry-After: %s\r\n' "$STUB_CURL_RETRY_AFTER"
+    fi
+    printf '\r\n'
+} > "$headers_file"
+
+if [[ -n "${STUB_CURL_PAGES:-}" && -f "${STUB_CURL_PAGES}" ]]; then
+    if [[ -s "$STUB_CURL_PAGES" ]]; then
+        page_file=$(head -n 1 "$STUB_CURL_PAGES")
+        tail -n +2 "$STUB_CURL_PAGES" > "$STUB_CURL_PAGES.tmp" && mv "$STUB_CURL_PAGES.tmp" "$STUB_CURL_PAGES"
+        # A non-empty remaining queue means more pages exist: emit a
+        # ContinuationToken header so the transport keeps going.
+        if [[ -s "$STUB_CURL_PAGES" ]]; then
+            printf 'ContinuationToken: token-page-2\r\n' >> "$headers_file"
+        fi
+        [[ -f "$page_file" ]] && cat "$page_file"
+    fi
+    exit 0
+fi
+
+[[ -f "${STUB_CURL_RESPONSE:-/nonexistent}" ]] && cat "$STUB_CURL_RESPONSE"
+exit 0
+EOF
+    chmod +x "$STUB_BIN_DIR/curl"
+}

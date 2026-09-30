@@ -2834,6 +2834,11 @@ script's entry in [`tools/special/README.md`](../tools/special/README.md) states
 what it does, when to run it, and its blast radius. Invoke by explicit path:
 `bash tools/special/<script>.sh`.
 
+- **`tools/lib/providers/azure/azure-smoke-test.sh`** — Azure provider live validation, two opt-in tiers:
+  `AZURE_SMOKE=1` (read-only: auth, repo list, WIQL, work-item view, PR list)
+  and `AZURE_SMOKE=write` (destructive: create/comment/close work items,
+  create and rebase-merge a PR — disposable test project only). Manual-only;
+  never in tests or CI; output is token-redacted by design.
 - **`repo-reset-merge-config.sh`** — org-wide re-apply of repo-type rulesets and
   merge methods (rebase-only policy); dry-run report by default, `--apply` to
   mutate. Use after config changes or when onboarding a fork with inherited

@@ -29,15 +29,11 @@ provider_load issues prs auth" \
 }
 
 @test "provider_load: absent module is skipped with a warning, not an error" {
-    local out
-    out=$(env DEVENV_ROOT="$DEVENV_ROOT" DEVENV_TOOLS="$DEVENV_TOOLS" \
-        bash -c "source $DEVENV_TOOLS/lib/providers/provider-core.bash && provider_load issues nonexistent_module" 2>&1)
-    [ "$status" -eq 0 ] 2>/dev/null || true
-    # bash -c above runs in a subshell via $(); use run instead for the rc.
+    # bash -c inside run is the real rc carrier — single execution.
     run env DEVENV_ROOT="$DEVENV_ROOT" DEVENV_TOOLS="$DEVENV_TOOLS" \
         bash -c "source $DEVENV_TOOLS/lib/providers/provider-core.bash && provider_load issues nonexistent_module"
     [ "$status" -eq 0 ]
-    [[ "$out" == *"nonexistent_module"*"skipped"* ]]
+    [[ "$output" == *"nonexistent_module"*"skipped"* ]]
 }
 
 @test "loader: provider-loader provides the full facade incl. auth lifecycle" {
