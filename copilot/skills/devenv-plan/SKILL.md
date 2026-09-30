@@ -79,15 +79,9 @@ Read, in this order, if present:
 
 ### 2.1 Classify component type and load context only when needed
 
-Before exploring code, classify the target as one of:
+Before exploring code, classify the target's component type per the knowledge repo's orchestration file. Resolve the knowledge repo location from `devenv.config` `[copilot]` (`knowledge_repo`, `knowledge_subpath`) and read `orchestration.md` at its content root: classify per its Component taxonomy section, route from the current planning decision per its Read routing section, and load only the files the routing names.
 
-- Service
-- API gateway
-- Frontend application
-
-Use the `component-context/index.md` file from the configured Copilot knowledge location. Resolve that location from `devenv.config` `[copilot]` (`knowledge_repo`, `knowledge_subpath`) before loading context. For service work, route from the current planning decision using the index's task table (e.g. classifying operations → `service-operation-intents.md`; implementation-planning wiring → `service-wiring.md`; test planning → `service-testing.md`; plugin usage → the specific file under `plugins/`), and load only those files.
-
-If API gateway/frontend context is not yet present, continue using general repository and plan conventions and note that specialized context is pending.
+If the knowledge repo or `orchestration.md` is absent, continue using general repository and plan conventions and note that specialized org context is pending.
 
 ### 3. Explore related code (read-only)
 

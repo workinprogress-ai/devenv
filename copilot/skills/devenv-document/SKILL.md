@@ -43,7 +43,7 @@ Do **not** use for:
 4. **Draft-first, always.** Present the proposed structure as a skeleton before writing any file. Existing file touched → ask: update in place or new document.
 5. **Never guess.** Unclear system facts become logged Q-NNN questions, answered by the user or deferred — never invented.
 6. **Cross-component relationships are first-class.** Multi-repo scope means mapping data flow, contracts, and coupling — not per-component summaries.
-7. **Match the exemplars.** When unsure about shape or depth, read an existing family member (e.g. `repos/lib.cs.services.mock-endpoints/docs/`) and match its register: fact-dense, cited, no prose padding.
+7. **Match the exemplars.** When unsure about shape or depth, read an existing family member (e.g. `repos/<exemplar-repo>/docs/`) and match its register: fact-dense, cited, no prose padding.
 
 The heavier legacy-system case (docs absent/stale and the system genuinely needs a multi-session investigation) keeps the full machinery below — session plans, Q-NNN open-questions log, depth gates. The common bootstrap/refresh case runs the same phases in compressed form: Phase 0 shrinks to confirming scope + family assessment, Phase 1 is the discovery sweep, Phases 4–5 are the draft-first write.
 

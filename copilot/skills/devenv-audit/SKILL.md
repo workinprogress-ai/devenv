@@ -1,7 +1,7 @@
 ---
 name: devenv-audit
 description: Thorough, opinionated tech debt, architecture, and correctness-risk audit of one or more repos, with optional focus on a specific functional area. Produces TECH_DEBT_AUDIT.md with file-cited findings, severity, effort estimates, a required "Top bug risks" section, and a required "looks bad but is actually fine" section. After writing the audit, offers to create a GitHub issue (findings in a comment; description is a placeholder for a plan). USE WHEN the user says "audit this repo", "tech debt audit", "codebase health check", "architecture review", "code quality assessment", "run a debt audit on", or hands off a repo path or GitHub issue number for audit. Reads the GitHub issue body for guiding instructions when an issue number is given, then posts the executive summary as a comment. Equally tuned for C#/.NET and TypeScript stacks. DO NOT USE FOR reviewing a single PR (use /devenv-review), general pair programming (use /devenv-pair), or producing a plan from findings (use /devenv-plan after the audit is complete).
-argument-hint: Repo path(s) (e.g. repos/lib.cs.services.bulk-sync), an issue number, or repo path(s) followed by a quoted focus area description (e.g. repos/lib.cs.services.chassis "plugin pipeline and built-in plugins")
+argument-hint: Repo path(s) (e.g. repos/<your-service>), an issue number, or repo path(s) followed by a quoted focus area description (e.g. repos/<chassis-repo> "plugin pipeline and built-in plugins")
 user-invocable: true
 ---
 
@@ -43,8 +43,8 @@ Auto-detect the argument left-to-right: **repo path(s)** (`repos/`, `./`, or `/`
 
 | Input example | Repo | Focus area |
 |---|---|---|
-| `repos/lib.cs.services.chassis` | chassis | none |
-| `repos/lib.cs.services.chassis "plugin pipeline"` | chassis | "plugin pipeline" |
+| `repos/<chassis-repo>` | chassis | none |
+| `repos/<chassis-repo> "plugin pipeline"` | chassis | "plugin pipeline" |
 | `repos/foo repos/bar` | foo + bar | none |
 | `42` | from issue body | from issue body |
 | *(nothing)* | ask | ask |
@@ -70,7 +70,7 @@ Write a 1–2 paragraph mental model of the architecture before proceeding. If y
 
 ## Phase 2: Audit across these dimensions
 
-Use `rg`, language-native tooling, and IDE-equivalent analysis to find concrete examples. Cite `repos/<repo>/path/to/file.ext:LINE` as a clickable link for every finding — since the audit is written to `.local-artifacts/` (one level below the repo root, or the workspace root for multi-repo audits), display links resolve from the file's own location: one `../` prefix for a single-repo audit (`[repos/lib.cs.services.chassis/src/Foo.cs:42](../repos/lib.cs.services.chassis/src/Foo.cs#L42)`), `../../` from a workspace-level audit file. A link without the prefix is dead — it resolves against `.local-artifacts/`. Apply any dimension overrides or focus areas extracted from the issue body in Phase 1.
+Use `rg`, language-native tooling, and IDE-equivalent analysis to find concrete examples. Cite `repos/<repo>/path/to/file.ext:LINE` as a clickable link for every finding — since the audit is written to `.local-artifacts/` (one level below the repo root, or the workspace root for multi-repo audits), display links resolve from the file's own location: one `../` prefix for a single-repo audit (`[repos/<chassis-repo>/src/Foo.cs:42](../repos/<chassis-repo>/src/Foo.cs#L42)`), `../../` from a workspace-level audit file. A link without the prefix is dead — it resolves against `.local-artifacts/`. Apply any dimension overrides or focus areas extracted from the issue body in Phase 1.
 
 1. **Architectural decay** — circular deps, layering violations, god files (>500 LOC) and god functions, duplicated logic across 3+ sites where an abstraction should exist, abstractions that exist but nobody uses, dead code (unused exports/public types, unreachable branches, stale commented-out blocks).
 2. **Consistency rot** — multiple ways of doing the same thing (HTTP clients, error handling, logging, config loading, validation, date handling). Naming drift. Folder structure that no longer reflects what the code actually does.

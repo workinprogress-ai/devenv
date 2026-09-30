@@ -110,11 +110,7 @@ Follow the shared [issue-backed artifact edit protocol](../common/references/iss
 
 **Step 4 — Classify component type** (needed for context loading):
 
-- Service
-- API gateway
-- Frontend application
-
-Then use the `component-context/index.md` file from the configured Copilot knowledge location. Resolve that location from `devenv.config` `[copilot]` (`knowledge_repo`, `knowledge_subpath`) before loading context. For services, route from the current grooming decision using the index's task table and load only the files it names.
+Use the knowledge repo's `orchestration.md` (resolve the knowledge repo location from `devenv.config` `[copilot]` — `knowledge_repo`, `knowledge_subpath`): classify the target per its Component taxonomy section, then route from the current grooming decision per its Read routing section and load only the files it names. If the knowledge repo or the orchestration file is absent, continue unclassified and note that specialized org context is pending.
 
 **Step 5 — If input is a returned plan:** determine which kind it is:
 

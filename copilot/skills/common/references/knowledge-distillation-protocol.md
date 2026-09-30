@@ -14,7 +14,7 @@ Copilot knowledge holds **organization-specific implementation specifics** — h
 **In scope:**
 
 - Where things go and how things are wired in this organization's repos.
-- Idioms, invariants, and failure modes of this organization's libraries (`repos/lib.cs.*`, `repos/pkg-*`).
+- Idioms, invariants, and failure modes of this organization's libraries (`repos/<your-library-glob>`, `repos/pkg-*`).
 - Naming, namespace, and layout conventions this organization enforces.
 - Testing conventions specific to the organization's framework.
 
@@ -30,20 +30,20 @@ Rule of thumb: *would a competent engineer new to this organization benefit, and
 
 ## Where knowledge lives
 
-The knowledge repo is configured in `devenv.config` under `[copilot]` (`knowledge_repo`, `knowledge_subpath`); in this workspace that resolves to `repos/docs.copilot-knowledge`, content under `copilot-knowledge/` (e.g. `component-context/`). If the repo is not present under `repos/`, do not guess at another location — surface the gap and ask the user to clone it.
+The knowledge repo is configured in `devenv.config` under `[copilot]` (`knowledge_repo`, `knowledge_subpath`); in this workspace that resolves to `repos/docs.copilot-knowledge`, content under `copilot-knowledge/`. If the repo is not present under `repos/`, do not guess at another location — surface the gap and ask the user to clone it. Everything about how the knowledge is organized — including where new knowledge lands — is declared in the repo's `orchestration.md`; devenv does not carry that structure.
 
 Placement within the knowledge files:
 
-- Component-context knowledge is organized as one-topic-per-file behind a task-routed `index.md` (e.g. service wiring → `component-context/service-wiring.md`; operation authoring → `service-operations.md`; plugin usage → the specific file under `component-context/plugins/`; cross-cutting C# → `general-csharp.md`). Match the topic file, not a section inside a larger document.
+- **Read the placement from the knowledge repo's `orchestration.md`** (at the content root — same resolution as above), § Write placement. That section is authoritative for where knowledge lands: the candidates flow, the general-vs-org-specific classification, and the fold destinations for org-specific content.
 - Follow the target file's existing bullet style and granularity.
-- Create a new topic file only when the knowledge is a distinct topic that no existing file covers, and update that folder's `index.md` in the same change so the routing table stays accurate — an un-updated index makes the new file undiscoverable.
+- Keep routing indexes updated in the same change as any knowledge file change — the orchestration file and the distillation rule agree on this; an un-updated index makes new content undiscoverable.
 
 ## Detection pattern (session mining — runs on explicit request only)
 
 Scan the session for moments where organization-specific truth was learned:
 
 - The user corrected an AI assumption about org practice ("no, that registration goes in `Program.cs`").
-- A framework/library behavior was discovered by reading `repos/lib.cs.*` / `repos/pkg-*` sources or by debugging.
+- A framework/library behavior was discovered by reading `repos/<your-library-glob>` / `repos/pkg-*` sources or by debugging.
 - A convention was applied that is not written anywhere the session read.
 - The user affirmed a pattern as "that's how we do it here".
 

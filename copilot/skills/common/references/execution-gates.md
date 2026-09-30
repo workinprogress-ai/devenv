@@ -11,7 +11,7 @@ Do **not** run an upfront codebase-wide pass to seed forward comments. Instead, 
 - Do not add normal code or document comments referencing plan phases/task numbers; temporary future-work references must use the `FIXME:DEVENV[...]:` / `TODO:DEVENV[...]:` format.
 - At kickoff, run `devenv-marker-check --todo-report` over the working scope and surface existing TODOs as session constraints — a scoped TODO in a file this plan touches is a prior session's message; honor it or explicitly resolve it with the user.
 
-Announce briefly when you drop one: *"Dropped a forward comment — [BulkSyncWorker.cs:142](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142)…"* Skip silently when none are useful.
+Announce briefly when you drop one: *"Dropped a forward comment — [MyWorker.cs:142](repos/<your-service>/src/MyWorker.cs#L142)…"* Skip silently when none are useful.
 
 ---
 

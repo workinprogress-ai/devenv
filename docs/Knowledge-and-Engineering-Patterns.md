@@ -39,6 +39,45 @@ Skills read the standards at runtime from `~/.copilot/engineering/...`.
 - **Cited when material.** When a knowledge entry or a standard materially shapes a decision, skills cite it (file + section) so the trail is followable.
 - **Conflicts surface.** If a standard conflicts with a design choice, the conflict is surfaced explicitly rather than silently resolved.
 
+## The orchestration door
+
+Skills never reference knowledge-internal paths, folders, or component-type
+lists. They enter the knowledge repo through exactly one stable file:
+**`orchestration.md`** at the knowledge content root (`<knowledge_repo>`/
+`knowledge_subpath`/`orchestration.md`).
+
+The ownership split is deliberate — devenv owns the *machinery of work*, the
+knowledge repo owns *facts about the org*:
+
+| Aspect | Owner |
+|---|---|
+| Door path + required sections + absence semantics | devenv (this contract) |
+| Component taxonomy (what component types this org builds) | knowledge repo |
+| Read routing (task/concern → knowledge files) | knowledge repo |
+| Write placement (candidates flow, fold destinations) | knowledge repo |
+| Where the knowledge repo itself lives | `devenv.config` `[copilot]` keys |
+
+**Required sections of `orchestration.md`:**
+
+1. **Component taxonomy** — the component types this org builds, each with
+   availability and routing target. Skills classify targets per this section,
+   never from a devenv-side list.
+2. **Read routing** — how an agent routes from its current task/concern to
+   knowledge files (may delegate to inner indexes).
+3. **Write placement** — where new knowledge lands: the candidates flow, the
+   general-vs-org-specific classification, and fold destinations.
+
+**Absence semantics:** if the knowledge repo or the door is missing, skills
+note that specialized org context is pending, in one line, proceed unclassified
+with general rules, and never fail, block, or improvise a taxonomy. A fork
+whose knowledge repo doesn't provide the door simply runs without org
+specialization until it adds one.
+
+**Fork obligation:** forking devenv includes providing the door in your
+knowledge repo with the three required sections — see
+[Forking Guide](./Forking.md). The reference implementation lives in the
+upstream knowledge repo (`docs.copilot-knowledge`, `orchestration.md`).
+
 ## The shared protocol
 
 The governing rules live in [`copilot/skills/common/references/knowledge-lookup-protocol.md`](../copilot/skills/common/references/knowledge-lookup-protocol.md) (read side), mirrored by the knowledge distillation protocol (write side for org-specific specifics) and the knowledge extraction protocol (write side for emerging general knowledge: practices and patterns → `candidates/`) in the same folder. Skill files reference the protocols rather than duplicating their text.

@@ -83,7 +83,7 @@ Tool automatically extracts `doc_id` from the file header (first 256 characters)
 Use `issue-comment` for freeform discoveries or status notes that are not persisted artifacts.
 
 ```bash
-issue-comment <N> --body "Discovered the retry policy already exists in lib.cs.flow.try-chain — reused it instead of building from scratch."
+issue-comment <N> --body "Discovered the retry policy already exists in <try-chain-library> — reused it instead of building from scratch."
 issue-comment <N> --body-file /tmp/discovery.md
 issue-comment <N> --body-file /tmp/discovery.md --dry-run
 ```

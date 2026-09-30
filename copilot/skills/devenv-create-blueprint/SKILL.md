@@ -115,18 +115,14 @@ If the user provides communications artifacts (transcripts, design discussions, 
 - "What external systems does this integrate with?"
 - "Where is consistency critical? Where is eventual consistency acceptable?"
 
-Classify the primary component type(s) in scope before surveying architecture details:
+Classify the primary component type(s) in scope before surveying architecture details — per the knowledge repo's `orchestration.md` (Component taxonomy section), not any devenv-side list.
 
-- Service
-- API gateway
-- Frontend application
-
-Apply the shared [Component context loading](../_conventions.md#component-context-loading) rules for `component-context/index.md` selection.
+Apply the shared [Component context loading](../_conventions.md#component-context-loading) rules; the orchestration file's Read routing section drives context selection.
 
 #### Step 3 (brownfield only): Survey the existing system
 
 1. Run `repo-cache-update` to get the repo cache path.
-2. Read `/workspaces/devenv/tools/config/repo-types.yaml` for repo naming conventions (`service.*`, `lib.cs.*`, etc.).
+2. Read `/workspaces/devenv/tools/config/repo-types.yaml` for repo naming conventions (`service.*`, `<your-library-glob>`, etc.).
 3. Propose a candidate repo list to the user; confirm before surveying.
 4. Survey only the confirmed list (read-only): purpose, public API, events emitted/consumed, key dependencies.
 

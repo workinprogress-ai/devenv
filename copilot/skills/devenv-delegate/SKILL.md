@@ -133,7 +133,7 @@ Ask if not provided: GH issue # or path to a plan markdown.
       - If user provided `doc_id`, use `issue-artifact-select --issue <N> --doc-id <DOC_ID>`.
       - Otherwise use `issue-artifact-select --issue <N> --artifact-type plan`; if ambiguous, list candidates with `issue-artifact-list --issue <N> --artifact-type plan --pretty` and ask the user which `doc_id` to use.
   3. `mkdir -p <repo-root>/.local-artifacts` (if not already present), then fetch the selected artifact via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --write-body <repo-root>/.local-artifacts/$(next-id --pattern 'Plan-issue-<N>-{N}.md' --dir <repo-root>/.local-artifacts --filename)` — the directory prefix is required because `next-id --filename` returns a bare filename (not a joined path), and the prefix keeps the write location cwd-independent; the tool writes the raw markdown to the next free suffix (never overwrites an existing file). If no plan artifact exists for the issue, the intake gate in step 1 already materialized one — do not reach this step in that case.
-  4. **Work exclusively from the local file from this point on.** Record its workspace-relative path (e.g. `repos/lib.cs.services.bulk-sync/.local-artifacts/Plan-issue-42-001.md`) — this is the `<plan_file>` for `markdown-plan-complete-task` calls throughout the session. Pass it explicitly when running from a directory other than the plan's own — the tool auto-detects `Plan-*.md` only in the current directory and `.local-artifacts/`. Checkbox updates go to the file; issue artifact syncs at phase boundaries upsert the same `doc_id` back to the issue.
+  4. **Work exclusively from the local file from this point on.** Record its workspace-relative path (e.g. `repos/<your-service>/.local-artifacts/Plan-issue-42-001.md`) — this is the `<plan_file>` for `markdown-plan-complete-task` calls throughout the session. Pass it explicitly when running from a directory other than the plan's own — the tool auto-detects `Plan-*.md` only in the current directory and `.local-artifacts/`. Checkbox updates go to the file; issue artifact syncs at phase boundaries upsert the same `doc_id` back to the issue.
   5. **The plan is the session state — no shadow state file.** Delegation keeps its ledger entirely in the plan file: ticks happen at task checkpoints, deviations are recorded at approval time, and the shared stop protocol writes pending deltas on any interruption. After compaction, resume by re-reading this skill plus the plan file — phase structure, `[x]` ticks, `decision:` metadata, `[QUESTION]`s, and pending items are all already durable there. A separate delegation session-state file would duplicate the plan and drift from it (the exact failure that removed the old session-handoff skill); pair needs one only because pairing holds conversational residue (debates, partial intent) that plans deliberately do not.
 - **Plan file**: read it. Then determine whether there is an associated GH issue for artifact sync:
    1. If the user provided an issue number, use it.
@@ -260,10 +260,10 @@ When introducing the phase, summarise the phase goal, intended end state, and an
 Format:
 
 > **📁 Files in scope — Phase 2:**
-> [BulkSyncWorker.cs](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs) · [IBulkSyncStep.cs](repos/lib.cs.services.bulk-sync/src/IBulkSyncStep.cs) · [BulkSyncWorkerTests.cs](repos/lib.cs.services.bulk-sync/tests/BulkSyncWorkerTests.cs)
+> [MyWorker.cs](repos/<your-service>/src/MyWorker.cs) · [IBulkSyncStep.cs](repos/<your-service>/src/IBulkSyncStep.cs) · [MyWorkerTests.cs](repos/<your-service>/tests/MyWorkerTests.cs)
 
 Rules:
-- Paths must be relative to the **workspace root** (the top-level folder open in VS Code), not relative to a repo subdirectory. E.g. `repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs`, not `src/BulkSyncWorker.cs`. VS Code only makes links clickable when the full workspace-root-relative path is used.
+- Paths must be relative to the **workspace root** (the top-level folder open in VS Code), not relative to a repo subdirectory. E.g. `repos/<your-service>/src/MyWorker.cs`, not `src/MyWorker.cs`. VS Code only makes links clickable when the full workspace-root-relative path is used.
 - One line, dot-separated. If there are more than ~8 files, group by subdirectory instead.
 - Repeat at the start of every new phase.
 - Omit files marked `(new)` in the plan — they don't exist yet and broken links are noise.
@@ -286,7 +286,7 @@ Before starting work in any new phase, review the accepted AC list and check off
 - If objectively verifiable by the AI: cite specific evidence before marking complete.
   - Tests: file path + test name/line, or specific test output demonstrating the AC.
   - Implementation: specific files that implement the AC requirement.
-  - Example: ✅ **AC-2** (Empty batches handled gracefully): `BulkSyncWorker_Tests.cs:EmptyBatchReturnsTypedResult` + implementation in [`BulkSyncWorker.cs:142-157`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142)
+  - Example: ✅ **AC-2** (Empty batches handled gracefully): `MyWorkerTests.cs:EmptyBatchReturnsTypedResult` + implementation in [`MyWorker.cs:142-157`](repos/<your-service>/src/MyWorker.cs#L142)
 
 - If verification requires user judgment (e.g., performance meets SLA, UX is intuitive): ask the user explicitly and check it off only after their confirmation. Do not assume.
 

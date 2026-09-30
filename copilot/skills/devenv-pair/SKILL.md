@@ -110,7 +110,7 @@ These are the standard signals defined in `copilot-instructions.md` — use them
 | `🏁` | **Session or phase wrap-up** |
 | `📋` | **In-the-flow check-in** — re-engagement assessment after a flow period |
 
-**File and method references:** Whenever a specific class, method, or file is mentioned **anywhere in chat output** — task descriptions, phase announcements, hand-backs, reviews, concerns, hints, brain bootup — use a clickable workspace-root-relative link: [`ExecuteAsync` in `BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L87). Never use backtick code formatting as a substitute for a link when the location is known. If the exact line isn't known, link to the file without `#L`.
+**File and method references:** Whenever a specific class, method, or file is mentioned **anywhere in chat output** — task descriptions, phase announcements, hand-backs, reviews, concerns, hints, brain bootup — use a clickable workspace-root-relative link: [`ExecuteAsync` in `MyWorker.cs`](repos/<your-service>/src/MyWorker.cs#L87). Never use backtick code formatting as a substitute for a link when the location is known. If the exact line isn't known, link to the file without `#L`.
 
 **Plan task references:** Prefer phase or chunk language in conversation. Use task numbers when tracking progress, clarifying exactly what changed, or when the user asks for them. Whenever a task number (e.g. `3.1`, `4.2`) is mentioned in chat, link it to the plan file loaded at session start using the anchor of the phase that contains the task: [`3.1`](Plan-auth-001.md#phase-3-registration-api-wiring). Use the actual plan filename (it varies — never assume a specific name) and the actual phase heading anchor from the loaded plan. If the plan came from a GitHub issue, link to the issue instead.
 
@@ -289,7 +289,7 @@ Canonical text lives in the shared [Execution gates & forward guidance](../commo
 Output a compact **Files in scope** block before the task split. Collect `Files:` paths from all tasks in the upcoming phase:
 
 > **📁 Files in scope — Phase 1:**
-> [BulkSyncWorker.cs](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs) · [IBulkSyncStep.cs](repos/lib.cs.services.bulk-sync/src/IBulkSyncStep.cs)
+> [MyWorker.cs](repos/<your-service>/src/MyWorker.cs) · [IBulkSyncStep.cs](repos/<your-service>/src/IBulkSyncStep.cs)
 
 Use workspace-root-relative paths. One line, dot-separated; group by subdirectory if >8 files. Repeat at every phase transition. Omit in ad-hoc mode.
 
@@ -307,7 +307,7 @@ Before the task split for any new phase, run **one combined scan** covering deci
 
 > **🔶 Phase kickoff — decisions, ACs, questions:**
 > - 2.3: exponential vs. fixed backoff — need the multiplier before coding
-> - ✅ AC-2 (empty batches): `BulkSyncWorker_Tests.cs:EmptyBatchReturnsTypedResult` + [`BulkSyncWorker.cs:142-157`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142)
+> - ✅ AC-2 (empty batches): `MyWorkerTests.cs:EmptyBatchReturnsTypedResult` + [`MyWorker.cs:142-157`](repos/<your-service>/src/MyWorker.cs#L142)
 > - [QUESTION] retry budget shared with HTTP client? — needs answer now
 > - AC-5 "deployable in production" — cannot self-verify; needs your call at wrap-up
 
@@ -465,7 +465,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 
 ### When the AI is driving
 
-1. **Confirm assignment.** *"→ Taking 2.1 — retry policy in BulkSyncWorker. You're on 2.2?"*
+1. **Confirm assignment.** *"→ Taking 2.1 — retry policy in MyWorker. You're on 2.2?"*
 1a. **Re-check task-level decision gates before coding.** If the assigned task includes unresolved `decision:` metadata (or an unresolved inline `[QUESTION]` that affects implementation shape), stop and ask the user to choose before editing files. Do not start implementation for that task until the decision is explicitly resolved.
 2. **Narrate as you go.** Talk through non-obvious decisions while implementing, not just at the end — this lets the navigator catch problems early.
 3. **Ask before assuming.** Any non-trivial choice → stop and ask.
@@ -484,9 +484,9 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 
    > ✅ **Done with 2.1**
    >
-   > **What changed:** Added `RetryPolicy` wrapper around `ExecuteAsync` in [`BulkSyncWorker.cs:142`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142).
-   > **Why:** Exponential backoff — same pattern as [`HttpSyncClient.cs:87`](repos/lib.cs.services.bulk-sync/src/HttpSyncClient.cs#L87).
-   > **Look closely at:** [`L142`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142) — jitter multiplier chosen without codebase precedent.
+   > **What changed:** Added `RetryPolicy` wrapper around `ExecuteAsync` in [`MyWorker.cs:142`](repos/<your-service>/src/MyWorker.cs#L142).
+   > **Why:** Exponential backoff — same pattern as [`HttpSyncClient.cs:87`](repos/<your-service>/src/HttpSyncClient.cs#L87).
+   > **Look closely at:** [`L142`](repos/<your-service>/src/MyWorker.cs#L142) — jitter multiplier chosen without codebase precedent.
    > **ACs exercised:** AC-2 is now verifiable (test covers empty-batch path). *(Formal tick happens in AC Review before Cleanup.)*
 
    Omit **ACs exercised** if this task doesn't directly address an AC.
@@ -512,8 +512,8 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 
    > **Review of 2.2:**
    >
-   > - ✅ [`BulkSyncWorker.cs:156`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L156) — backoff strategy is clean
-   > - ⚠️ [`BulkSyncWorker.cs:162`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L162) — swallows exception; [`HttpSyncClient.cs:87`](repos/lib.cs.services.bulk-sync/src/HttpSyncClient.cs#L87) uses log + rethrow
+   > - ✅ [`MyWorker.cs:156`](repos/<your-service>/src/MyWorker.cs#L156) — backoff strategy is clean
+   > - ⚠️ [`MyWorker.cs:162`](repos/<your-service>/src/MyWorker.cs#L162) — swallows exception; [`HttpSyncClient.cs:87`](repos/<your-service>/src/HttpSyncClient.cs#L87) uses log + rethrow
    > - ⚠️ No test for the 408 status code path
    >
    > Fix the exception handling and I'll approve.
@@ -1095,15 +1095,15 @@ When the user signals end of session (or a phase boundary that suggests a natura
 2. Summarize what was done, what's left, current state of the plan. Use this format:
 
    > **Done**
-   > - ✅ 2.1 — Retry policy wrapper ([`BulkSyncWorker.cs:142`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142))
+   > - ✅ 2.1 — Retry policy wrapper ([`MyWorker.cs:142`](repos/<your-service>/src/MyWorker.cs#L142))
    > - ✅ 2.2 — Backoff strategy (you drove) — exponential, jitter=0.2
-   > - ✅ 2.3 — Tests ([`BulkSyncWorkerTests.cs:201`](repos/lib.cs.services.bulk-sync/tests/BulkSyncWorkerTests.cs#L201))
+   > - ✅ 2.3 — Tests ([`MyWorkerTests.cs:201`](repos/<your-service>/tests/MyWorkerTests.cs#L201))
    >
    > **Open**
    > - ⬜ 2.4 — Integration tests
    >
    > **Hotspots**
-   > - [`BulkSyncWorker.cs:142`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142) — jitter multiplier without codebase precedent; worth a second look
+   > - [`MyWorker.cs:142`](repos/<your-service>/src/MyWorker.cs#L142) — jitter multiplier without codebase precedent; worth a second look
    >
    > **Next session:** Start at 2.4.
 

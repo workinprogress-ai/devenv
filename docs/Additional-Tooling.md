@@ -392,7 +392,7 @@ WIP commits are an **escape hatch, not a storage format**. Use them to save unfi
 
 **How the block is delivered.** The gate logic lives in `tools/git-hooks/wip-gate.sh` in the devenv repo, and reaches repositories primarily through the **template boilerplate sync** — the same mechanism that distributes any shared boilerplate:
 
-1. **Template sync (primary).** The template repos (`template.service`, `template.cs-library`) carry the gate block in their `.husky/pre-commit`, and their `.repo/update-manifest.json` lists that file for sync. Derived repos receive the block by running their `.repo/update.sh` boilerplate update and committing `chore: update boilerplate` — a visible, reviewable, test-gated commit in the repo itself. `repos/repo-cache-sync-boilerplate.sh` automates that sweep across `lib.cs.*` and `service.*` repos (master-only, clean-tree, tests-gated, per-repo commit + push); run it manually when rolling out boilerplate changes. Repos acquire `.repo/update.sh` on first sync (the script seeds the infrastructure from the template).
+1. **Template sync (primary).** The template repos (`template.service`, `template.cs-library`) carry the gate block in their `.husky/pre-commit`, and their `.repo/update-manifest.json` lists that file for sync. Derived repos receive the block by running their `.repo/update.sh` boilerplate update and committing `chore: update boilerplate` — a visible, reviewable, test-gated commit in the repo itself. `repos/repo-cache-sync-boilerplate.sh` automates that sweep across `<your-library-glob>` and `service.*` repos (master-only, clean-tree, tests-gated, per-repo commit + push); run it manually when rolling out boilerplate changes. Repos acquire `.repo/update.sh` on first sync (the script seeds the infrastructure from the template).
 2. **Global hooks dir (fallback).** Bootstrap points `core.hooksPath` at `tools/git-hooks/` globally, so repos that don't manage their own hooks get the gate without any per-repo file.
 **What a well-formed commit looks like.** A real commit names what changed and why: a conventional type prefix (`feat:`, `fix:`, `docs:`, …) and, in the devenv repo itself, a `Devenv-Action` trailer telling consumers what to do after pulling. If a change can't pass those bars yet, it isn't ready to be a real commit — WIP it, finish the work, then `git-unwip` and commit properly.
 
@@ -400,12 +400,12 @@ WIP commits are an **escape hatch, not a storage format**. Use them to save unfi
 
 #### `repo-cache-sync-boilerplate`
 
-Sweeps the `lib.cs.*` / `service.*` repos in the repo cache: seeds each repo's `.repo/` update infrastructure from its template, runs the template update (which syncs `.husky/pre-commit` and all other manifest boilerplate), runs the repo's `./run-tests` when present, then commits `chore: update boilerplate` and pushes — per repo, on `master` only, and only with a clean working tree:
+Sweeps the `<your-library-glob>` / `service.*` repos in the repo cache: seeds each repo's `.repo/` update infrastructure from its template, runs the template update (which syncs `.husky/pre-commit` and all other manifest boilerplate), runs the repo's `./run-tests` when present, then commits `chore: update boilerplate` and pushes — per repo, on `master` only, and only with a clean working tree:
 
 ```bash
 ./repos/repo-cache-sync-boilerplate.sh --dry-run        # print the plan, touch nothing
 ./repos/repo-cache-sync-boilerplate.sh                  # full sweep (commits + pushes)
-./repos/repo-cache-sync-boilerplate.sh --repo lib.cs.services.sagas   # single repo
+./repos/repo-cache-sync-boilerplate.sh --repo <your-library>   # single repo
 ```
 
 A test failure or update error stops the sweep at that repo; nothing is committed for repos the guards skip.
@@ -2071,7 +2071,7 @@ repo-cache-deepen --repo <name> [--depth N] [--branch <b>]...
 
 ```bash
 # Deepen one repo's history to the default depth
-repo-cache-deepen --repo lib.cs.services.bulk-sync
+repo-cache-deepen --repo <your-service>
 
 # Deepen to 500 commits and fetch two feature branches
 repo-cache-deepen --repo service.reqord.identity --depth 500 \
@@ -2113,7 +2113,7 @@ cs-dependencies-trace [OPTIONS] [TARGET_DIR]
 DEPTH:REPO:PACKAGE
 ```
 
-For example: `0:lib.cs.services.chassis:WorkInProgress.Lib.Services.Chassis.Common`
+For example: `0:<chassis-repo>:WorkInProgress.Lib.Services.Chassis.Common`
 
 **Output format (--by-repo):**
 
@@ -2125,7 +2125,7 @@ DEPTH:REPO
 
 ```bash
 # Show all dependents of the essentials library
-cd repos/lib.cs.common.essentials
+cd repos/<your-library>
 cs-dependencies-trace
 
 # Show only direct dependents, collapsed by repo
@@ -2176,16 +2176,16 @@ If the target repo has an executable `.repo/update.sh`, it is chained after the 
 
 ```bash
 # Plain package update (unchanged legacy behavior)
-cs-references-update ~/repos/lib.cs.common.essentials
+cs-references-update ~/repos/<your-library>
 
 # Retarget the whole repo to .NET 10, bumping pinned LangVersion tags to 14.0
-cs-references-update ~/repos/lib.cs.common.essentials --framework net10.0
+cs-references-update ~/repos/<your-library> --framework net10.0
 
 # Retarget with an explicit language version
-cs-references-update ~/repos/lib.cs.common.essentials --framework net10.0 --lang-version 13.0
+cs-references-update ~/repos/<your-library> --framework net10.0 --lang-version 13.0
 
 # Drop LangVersion pins so the TFM default applies
-cs-references-update ~/repos/lib.cs.common.essentials --lang-default
+cs-references-update ~/repos/<your-library> --lang-default
 ```
 
 ### `cs-references-update-wizard`
@@ -2243,7 +2243,7 @@ cs-references-update-wizard [OPTIONS] [REPO_DIR]
 
 ```bash
 # Update a specific repository
-cs-references-update-wizard ~/repos/lib.cs.services.chassis
+cs-references-update-wizard ~/repos/<chassis-repo>
 
 # Dry run to see what would change
 cs-references-update-wizard --dry-run
@@ -2315,8 +2315,8 @@ cs-dependencies-update-wizard --global 3   # restart from generation 3
 **Examples:**
 
 ```bash
-# Single-target: run after releasing lib.cs.common.essentials
-cd repos/lib.cs.common.essentials
+# Single-target: run after releasing <your-library>
+cd repos/<your-library>
 cs-dependencies-update-wizard
 
 # Global: update every C# repo from scratch
@@ -3039,10 +3039,10 @@ refresh_repo_cache
 ensure_dependency_index
 
 # Show what depends on the essentials library
-get_reverse_dependency_tree "lib.cs.common.essentials"
+get_reverse_dependency_tree "<your-library>"
 
 # Filter to direct dependents only
-get_reverse_dependency_tree "lib.cs.common.essentials" | awk -F'\t' '$1 == 0'
+get_reverse_dependency_tree "<your-library>" | awk -F'\t' '$1 == 0'
 ```
 
 ## Bash Functions and Aliases

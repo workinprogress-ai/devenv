@@ -335,11 +335,11 @@ If the correct repo root is ambiguous, ask one direct clarification question bef
 
 ## Workspace source discovery
 
-When exploring WorkInProgress code, prefer local source under `repos/` before any package decompilation or metadata-only inspection.
+When exploring the org's code, prefer local source under `repos/` before any package decompilation or metadata-only inspection.
 
-- Treat `repos/` as the default home for cloned WorkInProgress libraries, services, and related packages.
-- For service-specific framework/source discovery rules, follow the service architecture knowledge file from configured Copilot knowledge (`component-context/service-architecture.md`).
-- More generally, assume WorkInProgress packages may exist under `repos/` unless proven otherwise.
+- Treat `repos/` as the default home for cloned org libraries, services, and related packages.
+- For service-specific framework/source discovery rules, follow the routing in the knowledge repo's orchestration file (`orchestration.md` at the configured Copilot knowledge location).
+- More generally, assume org packages may exist under `repos/` unless proven otherwise.
 - If the needed repo is not present under `repos/`, ask the user to clone it rather than decompiling a NuGet package as the primary exploration path.
 - Use decompilation only as a fallback when source is genuinely unavailable and note that limitation explicitly.
 
@@ -365,7 +365,7 @@ Do not leave a wrapper usable only via runtime `--help`. If a skill is expected 
 
 For recurring policy text, use short references to shared snippets rather than repeating full prose in each skill.
 
-Recommended snippet references (paths shown as they appear **inside a skill folder** — they resolve after pasting, not in place):
+Recommended snippet references (paths shown as they appear **inside a skill folder** — they resolve after pasting, not in place; as literal text on this line they are examples, not live links):
 
 - **Tool help policy**: "Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`_tools-reference.md`](../_tools-reference.md) instead of running ad-hoc `--help` during execution."
 - **Catalog pointer**: "See the [Skills catalog](./common/references/skills-catalog.md) for the full list and decision tree."
@@ -511,19 +511,19 @@ Used by `devenv-delegate`, `devenv-review`, and any skill that asks the human to
 
 **Link location rule (canonical).** A markdown link resolves from the directory of the file containing it, not from the repo or workspace root. Match the prefix to the link's destination surface:
 
-- **Chat output** — workspace-root-relative, no prefix (`[Foo.cs:42](repos/lib.cs.services.bulk-sync/src/Foo.cs#L42)`). Chat renders against the workspace root, so the full path from it is clickable.
-- **Links saved into files** (`.local-artifacts` reports, plans, audits, findings files) — one `../` per directory level between the file's location and the target's root. A file in `<repo-root>/.local-artifacts/` sits one level below the repo root, so repo-relative targets take one prefix: `[Foo.cs:42](../src/Foo.cs#L42)` — and a workspace-level artifact in `<workspace>/.local-artifacts/` linking a repo file takes two: `[Foo.cs:42](../../repos/lib.cs.services.bulk-sync/src/Foo.cs#L42)`. Never emit a bare repo-root-relative or workspace-root-relative path inside a file — it resolves against `.local-artifacts/` and is dead.
+- **Chat output** — workspace-root-relative, no prefix (`[Foo.cs:42](repos/<your-service>/src/Foo.cs#L42)`). Chat renders against the workspace root, so the full path from it is clickable.
+- **Links saved into files** (`.local-artifacts` reports, plans, audits, findings files) — one `../` per directory level between the file's location and the target's root. A file in `<repo-root>/.local-artifacts/` sits one level below the repo root, so repo-relative targets take one prefix: `[Foo.cs:42](../src/Foo.cs#L42)` — and a workspace-level artifact in `<workspace>/.local-artifacts/` linking a repo file takes two: `[Foo.cs:42](../../repos/<your-service>/src/Foo.cs#L42)`. Never emit a bare repo-root-relative or workspace-root-relative path inside a file — it resolves against `.local-artifacts/` and is dead.
 
 Bad (vague):
 
 ```markdown
-- BulkSyncWorker.cs — please review
+- MyWorker.cs — please review
 ```
 
 Good:
 
 ```markdown
-- [BulkSyncWorker.cs:142](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs#L142) — picked exponential backoff with jitter=0.3 without precedent; sanity-check the multiplier
+- [MyWorker.cs:142](repos/<your-service>/src/MyWorker.cs#L142) — picked exponential backoff with jitter=0.3 without precedent; sanity-check the multiplier
 ```
 
 Hotspot criteria (any of):
@@ -655,23 +655,17 @@ Required behavior:
 
 ## Component context loading
 
-When a skill needs component-specific implementation or architecture guidance, use the shared index at:
+When a skill needs component-specific implementation or architecture guidance, route through the knowledge repo's orchestration file:
 
-- `component-context/index.md` from configured Copilot knowledge location (read `devenv.config` `[copilot]` keys `knowledge_repo` and `knowledge_subpath`).
-
-Supported component types:
-
-- Service
-- API gateway
-- Frontend application
+- `orchestration.md` at the configured Copilot knowledge location's content root (read `devenv.config` `[copilot]` keys `knowledge_repo` and `knowledge_subpath`). The knowledge repo's maintainers own its contents: the org's component taxonomy, read routing, and write placement are declared there — devenv specifies only the file's path and required sections.
 
 Required behavior:
 
-1. Classify component type before loading component-context files.
-2. Route from the task: the index maps task-shaped questions to topic files — load only the files the task routes to.
-3. Do not load all component-context files by default.
-4. If context for the selected component type is not yet available, continue with general skill rules and explicitly note that specialized context is pending.
-5. When adding knowledge to `component-context/`, update `index.md` in the same change so the routing table stays accurate.
+1. Read `orchestration.md` and classify the target per its Component taxonomy section. Never assume a component type from devenv-side knowledge.
+2. Route from the task per the file's Read routing section — load only the files it names.
+3. Do not load all knowledge files by default.
+4. If the knowledge repo or `orchestration.md` is absent, continue unclassified with general skill rules and explicitly note that specialized org context is pending.
+5. When adding knowledge, follow the file's Write placement section; keep the routing index updated in the same change as any knowledge file change.
 
 ## Anti-patterns
 

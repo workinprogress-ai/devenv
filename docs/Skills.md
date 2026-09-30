@@ -500,8 +500,8 @@ what you want, and the skill's interview will fill in the gaps.
 | You want… | Type this |
 |---|---|
 | A skill recommendation — or any question about the devenv itself | `/devenv-help` — bare, with a one-line goal, with a tooling/workflow question, or `/devenv-help 42` to route an issue |
-| To warm up context before deciding what to do | `/devenv-load repos/lib.cs.services.bulk-sync` |
-| To understand a codebase conversationally | `/devenv-chat repos/lib.cs.services.bulk-sync` |
+| To warm up context before deciding what to do | `/devenv-load repos/<your-service>` |
+| To understand a codebase conversationally | `/devenv-chat repos/<your-service>` |
 
 ### The delivery lifecycle, start to finish
 
@@ -577,12 +577,12 @@ what you want, and the skill's interview will fill in the gaps.
 /devenv-design Should reservations expire server-side or client-side?
 /devenv-design 42          (diagnoses a plan with unresolved design questions)
 /devenv-groom Reservation expiry keeps changing scope — help shape this before we plan
-/devenv-groom repos/lib.cs.services.reservations
-/devenv-document repos/lib.cs.services.bulk-sync
+/devenv-groom repos/<your-service>
+/devenv-document repos/<your-service>
 /devenv-document the file-monitor service
-/devenv-audit repos/lib.cs.services.chassis
-/devenv-audit repos/lib.cs.services.chassis "plugin pipeline"
-/devenv-chat repos/lib.cs.services.bulk-sync repos/lib.cs.common.essentials ... How do I create a new sync job?  Does it publish the endpoints automatically? 
+/devenv-audit repos/<chassis-repo>
+/devenv-audit repos/<chassis-repo> "plugin pipeline"
+/devenv-chat repos/<your-service> repos/<your-library> ... How do I create a new sync job?  Does it publish the endpoints automatically? 
 ```
 
 ### Issue and repo hygiene

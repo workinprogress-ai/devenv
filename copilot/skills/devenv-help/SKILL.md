@@ -27,7 +27,7 @@ You are the front door for this devenv. Three question classes arrive here; clas
 
 One to three sentences of answer, then the citation. If the source contradicts the user's premise, say so — the docs are the truth, not the question.
 
-**Scope fence:** "related to the devenv, its tooling, its documentation, or the associated sub repos" is the boundary of direct answering. Questions about *behavior of code inside project repos* (what a service does, why a function misbehaves) route to `/devenv-chat`. "Warm up my context on repo X before I pick a skill" is [`/devenv-load`](../devenv-load/SKILL.md)'s lane — help can say that in one line, not perform the orientation. If a question straddles the line — "how does the bulk-sync repo's test runner work?" — answer the environment half (which wrapper, which docs) and route the code-behavior half; [`devenv-chat`](../devenv-chat/SKILL.md) carries the reciprocal fence on its side.
+**Scope fence:** "related to the devenv, its tooling, its documentation, or the associated sub repos" is the boundary of direct answering. Questions about *behavior of code inside project repos* (what a service does, why a function misbehaves) route to `/devenv-chat`. "Warm up my context on repo X before I pick a skill" is [`/devenv-load`](../devenv-load/SKILL.md)'s lane — help can say that in one line, not perform the orientation. If a question straddles the line — "how does a project repo's test runner work?" — answer the environment half (which wrapper, which docs) and route the code-behavior half; [`devenv-chat`](../devenv-chat/SKILL.md) carries the reciprocal fence on its side.
 
 **Canonical-import caveat:** content under `~/.copilot/engineering/` and `~/.copilot/knowledge/` is machine-managed (read-only clones refreshed from their upstream repos). Answer from it freely, but never edit it — fixes go through the owning repos via the user.
 
@@ -46,7 +46,7 @@ Read the mapped source (search it, don't guess) before answering. Paths are work
 | Issue management workflows | `docs/Issues-Management.md` · `docs/Issues-Quick-Reference.md` · `docs/Issue-Workflow.md` | |
 | Ports, forwarding, Tailscale, SMB/SQL servers | `docs/Port-forwarding.md` · `docs/Tailscale-Setup.md` | |
 | Engineering patterns & standards | `~/.copilot/engineering/` (Pattern_Library, Protocols_And_Guides, Standards, FAQ) | Canonical import; read live |
-| Org codebase context (services, components, wiring) | `~/.copilot/knowledge/` (component-context) | Canonical import; read live |
+| Org codebase context (services, components, wiring) | `~/.copilot/knowledge/` (orchestration file → routed content) | Canonical import; read live |
 | Progress / project status practices | `docs/Progress-Reporting.md` | |
 | Repo creation & templates | `docs/Forking.md` · `tools/config/repo-types.yaml` · `tools/repo-create` | |
 

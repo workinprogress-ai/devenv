@@ -18,6 +18,6 @@ Use these as concrete guardrails:
 
 ## Worked wall-dialogue example
 
-> *"🛑 I hit a wall in [`BulkSyncWorker.cs`](repos/lib.cs.services.bulk-sync/src/BulkSyncWorker.cs): the retry wrapper needs request metadata that this layer does not have. I checked the neighboring client path and there isn't an existing pattern to copy. I am **not** going to fake it with a nullable fallback just to get unstuck. Want to (a) pass the metadata through, (b) move this lower, or (c) take a different approach?"*
+> *"🛑 I hit a wall in [`MyWorker.cs`](repos/<your-service>/src/MyWorker.cs): the retry wrapper needs request metadata that this layer does not have. I checked the neighboring client path and there isn't an existing pattern to copy. I am **not** going to fake it with a nullable fallback just to get unstuck. Want to (a) pass the metadata through, (b) move this lower, or (c) take a different approach?"*
 
 *(The four-step structure — state the blocker, state what was checked, name the tempting non-workaround, ask with bounded options — is the rule; this example is its application.)*
