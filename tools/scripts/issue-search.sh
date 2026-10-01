@@ -115,7 +115,7 @@ search_issues() {
     local gh_args=()
     local repo_spec
     read -ra repo_spec <<< "$(get_repo_spec)"
-    gh_args+=("${repo_spec[@]}")
+    gh_args+=("${repo_spec[0]:-}")
 
     local filter_string
     filter_string=$(build_issue_filters --state "$FILTER_STATE" --type "$FILTER_TYPE" --limit "$FETCH_LIMIT") || exit "$EXIT_GENERAL_ERROR"
@@ -154,7 +154,7 @@ search_issues() {
         | del(.body) + {matchedTerms: $matched, matchCount: ($matched | length)}
     '
 
-    provider_issues_list "" "${gh_args[@]}" \
+    provider_issues_list "${repo_spec[0]:-}" "${gh_args[@]}" \
         | jq -r --args "${jq_program}" -- "${SEARCH_TERMS[@]}" \
         | jq -s --argjson limit "$LIMIT" 'sort_by(-.matchCount) | .[0:$limit]'
 }
@@ -274,7 +274,7 @@ main() {
         exit 0
     fi
 
-    ensure_gh_login
+    ensure_provider_auth
 
     # Run the search and render
     search_issues | render_results

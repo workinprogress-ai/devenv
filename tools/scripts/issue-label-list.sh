@@ -81,7 +81,7 @@ list_labels() {
 
     local raw
     log_verbose "Fetching labels"
-    if ! raw=$(provider_issues_label_list "${repo_spec[1]:-}" --limit 200 --json name,description,color 2>/dev/null); then
+    if ! raw=$(provider_issues_label_list "${repo_spec[0]:-}" --limit 200 --json name,description,color 2>/dev/null); then
         log_error "Failed to list labels"
         exit $EXIT_API_FAILURE
     fi
@@ -143,7 +143,7 @@ main() {
         exit 0
     fi
 
-    ensure_gh_login
+    ensure_provider_auth
 
     list_labels
 }

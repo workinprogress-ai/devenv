@@ -277,7 +277,7 @@ EOF
 @test "sync_copilot_knowledge uses helper functions for subpath and auth header" {
   run bash -c "
     grep -q 'subpath=\$(normalize_copilot_knowledge_subpath \"\$subpath\")' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
-    grep -q 'header=\$(build_github_basic_auth_header \"\$token\")' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
+    grep -q 'header=\$(build_provider_git_auth_header \"\${PROVIDER_NAME:-github}\" \"\$token\")' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
   "
   [ "$status" -eq 0 ]
 }

@@ -31,11 +31,37 @@ provider_web_host() {
 # Clean URL — the PAT never embeds; auth rides the transport's header or the
 # git credential helper.
 # Usage: provider_git_transport_url ORG PROJECT REPO
+#                             or:  provider_git_transport_url ORG REPO
+# The 2-arg form (the shape neutral callers like repo-get use against the
+# github seam) is accepted: the project injects from AZURE_DEVOPS_PROJECT
+# or the configured [provider] azure_project. Callers MAY pass the resolved
+# 3-part spec; providers own arity normalization.
 provider_git_transport_url() {
     local org="$1" project="$2" repo="$3"
-    if [ -z "$org" ] || [ -z "$project" ] || [ -z "$repo" ]; then
-        log_error "provider_git_transport_url requires org, project, repo"
+    if [ -z "$org" ]; then
+        log_error "provider_git_transport_url requires org"
         return 1
+    fi
+    if [ -z "$project" ]; then
+        log_error "provider_git_transport_url requires repo (2-arg form: ORG REPO) or a project (3-arg form: ORG PROJECT REPO)"
+        return 1
+    fi
+    if [ -z "$repo" ]; then
+        # 2-arg form: $2 was the repo; re-slot it and inject the configured
+        # project.
+        repo="$project"
+        project="${AZURE_DEVOPS_PROJECT:-}"
+        if [ -z "$project" ] && [ -f "${DEVENV_TOOLS:-}/lib/config-reader.bash" ] && [ -f "${DEVENV_ROOT:-}/devenv.config" ]; then
+            # shellcheck disable=SC1091
+            source "${DEVENV_TOOLS}/lib/config-reader.bash"
+            if config_init "${DEVENV_ROOT}/devenv.config" 2>/dev/null; then
+                project=$(config_read_value "provider" "azure_project" "" 2>/dev/null)
+            fi
+        fi
+        if [ -z "$project" ]; then
+            log_error "provider_git_transport_url: 2-arg form requires a configured project (AZURE_DEVOPS_PROJECT or [provider] azure_project)"
+            return 1
+        fi
     fi
     printf 'https://dev.azure.com/%s/%s/_git/%s\n' "$org" "$project" "$repo"
 }

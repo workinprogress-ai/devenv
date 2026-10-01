@@ -43,7 +43,7 @@ azure_run() {
 
 pr_payload() {
     cat <<'JSON'
-{"pullRequestId":12,"title":"Add feature","description":"body text","status":"active","isDraft":true,
+{"pullRequestId":12,"title":"Add feature","description":"body text","status":"active","isDraft":true,"mergeStatus":"succeeded",
  "sourceRefName":"refs/heads/feature/x","targetRefName":"refs/heads/master",
  "createdBy":{"displayName":"Alice"},
  "lastMergeSourceCommit":{"commitId":"abc123def456"},
@@ -229,4 +229,18 @@ JSON
 @test "provider_prs_thread_create rejects --path without --line" {
     run azure_run provider_prs_thread_create o1/p1/r1 12 --body "x" --path a/b
     [ "$status" -ne 0 ]
+}
+
+@test "provider_prs_view --json DEFAULT_FIELDS returns zero nulls (projection contract)" {
+    # The zero-null contract: every field pr-get's DEFAULT_FIELDS names must
+    # exist and be non-null in the mapped projection.
+    pr_payload > "$TEST_TEMP_DIR/pr.json"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/pr.json" \
+        run azure_run provider_prs_view "" 12 --json number,title,body,state,isDraft,headRefName,baseRefName,author,labels,assignees,reviewRequests,milestone,mergeable,mergeStateStatus,url,createdAt,updatedAt,closedAt,mergedAt,comments,reviews
+    [ "$status" -eq 0 ]
+    local nulls
+    nulls=$(jq '[.[] | select(. == null)] | length' <<< "$output")
+    [ "$nulls" -eq 0 ]
+    # mergeable/mergeStateStatus map from mergeStatus per the contract.
+    [[ "$(jq -r .mergeable <<< "$output")" == "MERGEABLE" ]]
 }

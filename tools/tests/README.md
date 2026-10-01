@@ -80,6 +80,20 @@ make the suite flaky for everyone.
 
 ## Writing Tests
 
+### Provider Seam vs. CLI Mocking
+
+Neutral-layer libraries (`tools/lib/*.bash`, wrapper scripts) call
+`provider_*` verbs, never a provider CLI directly — and their tests should
+stub at the same seam. Mocking the `gh` binary works only because github is
+the active provider; under any other provider the neutral code path never
+touches `gh` and the mock silently stops firing. Existing suites that mock
+`gh` at the neutral boundary are a known, accepted github-assumption (azure
+correctness is covered by the dedicated `test_provider_azure_*` suites);
+migrate them to `fixtures/provider-seam.bash` (`provider_seam_stub`) as they
+are touched, and write new neutral-layer tests against the provider seam
+from the start. Provider-scoped tests (e.g. `test_provider_github_*`)
+legitimately stub the CLI — that IS their boundary.
+
 ### Basic Test Structure
 
 Test files should follow this structure:

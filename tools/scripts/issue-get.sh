@@ -110,7 +110,7 @@ get_issue() {
 
     local json
     # shellcheck disable=SC2054  # gh CLI uses comma-separated fields, not array expansion
-    if ! json=$(provider_issues_view "${repo_spec[1]:-}" "$ISSUE_NUMBER" \
+    if ! json=$(provider_issues_view "${repo_spec[0]:-}" "$ISSUE_NUMBER" \
             --json "$DEFAULT_FIELDS" 2>/dev/null); then
         log_error "Issue #$ISSUE_NUMBER not found"
         exit $EXIT_API_FAILURE
@@ -153,7 +153,7 @@ main() {
         exit 0
     fi
 
-    ensure_gh_login
+    ensure_provider_auth
 
     while [[ $# -gt 0 ]]; do
         case "$1" in

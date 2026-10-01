@@ -78,6 +78,13 @@ if ! provider_auth_import_token <<< "$NEW_TOKEN"; then
     die "credential import failed — token not accepted. No changes made."
 fi
 
+# 2. Wire git credentials: register the PAT-backed credential helper for
+#    dev.azure.com so clone/push/pull authenticate without embedded URLs.
+echo "    - Wiring git credential helper (dev.azure.com)..."
+if ! provider_auth_setup_git; then
+    log_warn "credential helper registration failed — git transport may prompt for credentials"
+fi
+
 echo "    ✅ Success! Credentials updated (0600 PAT file)."
 echo "    -------------------------------------------------------"
 echo "    The new token is now active for all Azure DevOps REST calls."

@@ -17,6 +17,11 @@ if [ "$cmd" != "-R" ] && [ "${1:-}" = "-R" ]; then
 fi
 sub="$1"; shift || true
 case "$cmd $sub" in
+  "auth status")
+    # repo-operations' provider auth guard resolves through the github
+    # provider's auth-status impl (gh auth status) — answer success.
+    exit 0
+    ;;
   "repo list")
     printf 'repo-alpha\nrepo-beta\n'
     ;;

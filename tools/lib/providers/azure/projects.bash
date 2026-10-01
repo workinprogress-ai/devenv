@@ -22,6 +22,11 @@ if [ -n "${_PROVIDER_AZURE_PROJECTS_LOADED:-}" ]; then
 fi
 _PROVIDER_AZURE_PROJECTS_LOADED=1
 
+# Capability: this module maps the projects seam onto Azure Boards.
+if declare -F provider_declare_capability >/dev/null; then
+    provider_declare_capability project-boards
+fi
+
 if ! declare -F log_error >/dev/null; then
     log_error() { echo "ERROR: $*" >&2; }
 fi

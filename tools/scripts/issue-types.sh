@@ -147,7 +147,7 @@ main() {
     local org
     org=$(resolve_org) || exit 1
 
-    ensure_gh_login
+    ensure_provider_auth
     check_dependencies
 
     list_issue_types "$org"

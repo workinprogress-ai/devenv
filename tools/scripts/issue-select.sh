@@ -119,9 +119,10 @@ select_issues() {
     fi
     
     # Build preview command. fzf executes it in a fresh shell, so it cannot
-    # call provider functions directly; route through gh's own read path is
-    # the sanctioned exception for this viewer-only read (issue-get view).
-    local preview_cmd="gh issue view {1} 2>/dev/null || echo 'Loading...'"
+    # call provider functions directly; route through the issue-get wrapper
+    # (provider-mediated, works under every provider) — the sanctioned
+    # exception for this viewer-only read.
+    local preview_cmd="issue-get {1} --json title,body,state 2>/dev/null || echo 'Loading...'"
     
     # Select using fzf library - use multi or single based on flag
     local selected
@@ -186,7 +187,7 @@ main() {
         exit 0
     fi
 
-    ensure_gh_login
+    ensure_provider_auth
     
     # Continue parsing other arguments
     while [[ $# -gt 0 ]]; do

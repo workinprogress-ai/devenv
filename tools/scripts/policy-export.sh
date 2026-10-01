@@ -86,8 +86,8 @@ resolve_owner_repo() {
     local repo_spec
     read -ra repo_spec <<< "$(get_repo_spec)"
     # get_repo_spec yields -R owner/repo (or empty when resolved from cwd)
-    if [ -n "${repo_spec[1]:-}" ]; then
-        echo "${repo_spec[1]}"
+    if [ -n "${repo_spec[0]:-}" ]; then
+        echo "${repo_spec[0]}"
         return 0
     fi
     log_error "Cannot resolve target repository — set DEVENV_REPO"
@@ -161,7 +161,7 @@ main() {
 
     check_dependencies
     check_target_repo
-    ensure_gh_login
+    ensure_provider_auth
 
     export_ruleset
 }

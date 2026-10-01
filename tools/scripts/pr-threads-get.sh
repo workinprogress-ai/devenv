@@ -116,20 +116,27 @@ fetch_threads() {
     local repo_spec_args=()
     read -ra repo_spec_args <<< "$(get_repo_spec)"
 
-    # Extract owner/repo for GraphQL
+    # Extract owner/repo for GraphQL. Canonical emission is the bare spec;
+    # the legacy `-R <spec>` pair normalizes defensively.
     local repo_owner repo_name
     if [[ "${repo_spec_args[*]}" =~ -R[[:space:]]([^/]+)/([^[:space:]]+) ]]; then
         repo_owner="${BASH_REMATCH[1]}"
         repo_name="${BASH_REMATCH[2]}"
+    elif [[ "${repo_spec_args[*]}" =~ ([^/]+)/([^/[:space:]]+) ]]; then
+        repo_owner="${BASH_REMATCH[1]}"
+        repo_name="${BASH_REMATCH[2]}"
     else
-        # Fall back to current repo from git remote
-        local remote_url
+        # Remote-parse fallback routes through the provider url seam —
+        # provider_remote_to_web returns the web URL whose path form is
+        # host-agnostic after splitting; a github.com regex would never
+        # match azure remotes.
+        local remote_url web_url
         remote_url=$(git remote get-url origin 2>/dev/null || echo "")
-        if [[ "$remote_url" =~ github\.com[:/]([^/]+)/([^/.]+)(\.git)?$ ]]; then
-            repo_owner="${BASH_REMATCH[1]}"
-            repo_name="${BASH_REMATCH[2]}"
+        if [ -n "$remote_url" ] && web_url=$(provider_remote_to_web "$remote_url" 2>/dev/null) \
+            && provider_repo_split "${web_url#*://}" repo_owner repo_name; then
+            repo_name="${repo_name%%.*}"
         else
-            log_error "Cannot determine repository owner/name. Set DEVENV_REPO or run inside a git repo with a GitHub remote."
+            log_error "Cannot determine repository owner/name. Set DEVENV_REPO or run inside a git repo."
             exit "$EXIT_GENERAL_ERROR"
         fi
     fi
@@ -217,7 +224,7 @@ main() {
         exit 0
     fi
 
-    ensure_gh_login
+    ensure_provider_auth
 
     while [[ $# -gt 0 ]]; do
         case "$1" in

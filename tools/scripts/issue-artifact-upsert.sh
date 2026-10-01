@@ -201,7 +201,7 @@ main() {
         exit 0
     fi
 
-    ensure_gh_login
+    ensure_provider_auth
 
     while [[ $# -gt 0 ]]; do
         case "$1" in

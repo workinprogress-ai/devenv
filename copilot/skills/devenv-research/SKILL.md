@@ -169,7 +169,7 @@ If yes:
    - If upsert reports a duplicate `doc_id` conflict, stop and ask the user which comment ID to keep as canonical.
    - Surface the issue URL.
 
-   The local research file is the canonical record; the GH issue comment identified by `doc_id` is a published copy kept in sync via upsert. (Same file-canonical rule as `/devenv-design` per [issue-artifact-integration](../common/references/issue-artifact-integration.md).)
+   The local research file is the canonical record; the issue comment identified by `doc_id` is a published copy kept in sync via upsert. (Same file-canonical rule as `/devenv-design` per [issue-artifact-integration](../common/references/issue-artifact-integration.md).)
 
 Never create an issue or post a comment without explicit "yes" confirmation.
 

@@ -115,3 +115,21 @@ provider_auth_token_impl() {
     token=$(head -n1 "$pat_file")
     printf '%s\n' "$token"
 }
+
+# Wire the PAT-backed credential helper into git config for dev.azure.com so
+# https clone/push/pull authenticate from the 0600 PAT file (never embedded
+# URLs, never a second stored copy). Host-scoped: github.com traffic never
+# consults it. Idempotent — re-running rewrites the same config line.
+# Usage: provider_auth_setup_git_impl
+provider_auth_setup_git_impl() {
+    local helper
+    helper="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/credential-helper.sh"
+    if [ ! -x "$helper" ]; then
+        chmod +x "$helper" 2>/dev/null || true
+    fi
+    if ! git config --global "credential.https://dev.azure.com.helper" "$helper get"; then
+        log_error "failed registering the azure credential helper in git config"
+        return 1
+    fi
+    return 0
+}

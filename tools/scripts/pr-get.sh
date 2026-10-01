@@ -124,7 +124,7 @@ get_pr() {
     log_verbose "Fetching PR #$PR_NUMBER"
 
     local json
-    if ! json=$(provider_prs_view "${repo_spec[1]:-}" "$PR_NUMBER" \
+    if ! json=$(provider_prs_view "${repo_spec[0]:-}" "$PR_NUMBER" \
             --json "$DEFAULT_FIELDS" 2>/dev/null); then
         log_error "PR #$PR_NUMBER not found"
         exit $EXIT_API_FAILURE
@@ -155,7 +155,7 @@ main() {
         exit 0
     fi
 
-    ensure_gh_login
+    ensure_provider_auth
 
     while [[ $# -gt 0 ]]; do
         case "$1" in

@@ -265,7 +265,7 @@ fi
 # Get repo spec
 read -ra repo_spec <<< "$(get_repo_spec)"
 
-existing_url=$(provider_prs_list "${repo_spec[1]:-}" --state open --head "$CURRENT_BRANCH" --json url --jq '.[0].url' 2>/dev/null || true)
+existing_url=$(provider_prs_list "${repo_spec[0]:-}" --state open --head "$CURRENT_BRANCH" --json url --jq '.[0].url' 2>/dev/null || true)
 if [ -n "$existing_url" ]; then
   echo "An open PR already exists for $CURRENT_BRANCH: $existing_url" >&2
   echo "$existing_url"
@@ -298,7 +298,7 @@ done
 
 echo "Creating PR from $CURRENT_BRANCH -> $TARGET_BRANCH..." >&2
 set +e
-PR_URL=$(provider_prs_create "${repo_spec[1]:-}" "${args[@]}" 2>&1 | provider_extract_url)
+PR_URL=$(provider_prs_create "${repo_spec[0]:-}" "${args[@]}" 2>&1 | provider_extract_url)
 status=$?
 set -e
 

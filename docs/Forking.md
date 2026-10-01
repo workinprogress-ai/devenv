@@ -83,6 +83,19 @@ Procedure:
 5. **Replace provider-specific config values** — native type IDs in `issues-config.yml` (GitHub `IT_kwDO…` IDs, discovered via the GraphQL recipe in that file's header) and the nuget feed URL (`nuget.pkg.github.com/...`) are GitHub-specific values a fork replaces.
 6. **Rewrite `setup`** — per the contract exception above, credential intake and bootstrap wiring are expected to be fork-replaced for a new provider.
 
+### Git transport under azure
+
+Git clone/push/pull authenticate without embedded URLs. Rotate with
+`key-update-azure <token>`: it stores the PAT (0600 file) and registers a
+host-scoped git credential helper
+(`credential "https://dev.azure.com"` → the provider's helper script) —
+github.com traffic never consults it. PAT scopes: at minimum
+**Code (Read & Write)** for transport; Boards/Packaging scopes for the
+respective verbs. azure-hosted knowledge/engineering repos are supported:
+bootstrap's sync builds the auth header per active provider
+(RFC-7617 `Basic :PAT` for azure), so `copilot.knowledge_repo` can point
+at a dev.azure.com URL directly.
+
 ### Azure DevOps: the as-built REST provider
 
 The Azure provider now ships in-tree — no copying GitHub modules required:

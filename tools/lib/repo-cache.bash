@@ -52,7 +52,7 @@ readonly REPO_CACHE_PARALLEL="${REPO_CACHE_PARALLEL:-5}"
 #   $1 - Optional grep-compatible regex filter applied to repo names.
 #        When omitted, all organization repositories are cached.
 #
-# Org identity resolves via the provider org accessor (GH_ORG env override →
+# Org identity resolves via the provider org accessor (config →
 # config [organization] org → seed); no env var is required. Clone URLs are
 # clean https forms — authentication rides the credential helper configured
 # by key-update, so no username or token participates in the URL.
@@ -79,8 +79,8 @@ readonly REPO_CACHE_PARALLEL="${REPO_CACHE_PARALLEL:-5}"
 refresh_repo_cache() {
     local filter="${1:-}"
 
-    # Org identity via the provider accessor (GH_ORG env override first,
-    # then config, then seed — resolution errors name the config key).
+    # Org identity via the provider accessor (config-first,
+    # then seed — resolution errors name the config key).
     local org
     org=$(provider_org_get) || return 1
 

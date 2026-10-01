@@ -34,8 +34,17 @@ provider_auth_import_token_impl() {
         log_error "gh auth login failed — token not accepted"
         return 1
     fi
+    provider_auth_setup_git_impl
+    return 0
+}
+
+# Wire gh's credential helper into git config for github.com so https
+# clone/push/pull authenticate through the keychain (never embedded URLs).
+# Usage: provider_auth_setup_git_impl
+provider_auth_setup_git_impl() {
     if ! gh auth setup-git --hostname github.com >/dev/null 2>&1; then
         log_warn "gh auth setup-git failed — git pushes/pulls over https may fail until it is re-run"
+        return 1
     fi
     return 0
 }

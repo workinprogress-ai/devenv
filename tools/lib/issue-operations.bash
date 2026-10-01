@@ -112,8 +112,13 @@ build_issue_filters() {
             --type)
                 type="$2"
                 shift 2
-                ;;
-            --labels)
+                ;;            -R)
+                # Legacy gh-dialect repo flag: normalized into the same
+                # variable the positional slot carries — never re-emitted
+                # as a flag to the provider verb.
+                repo="$2"
+                shift 2
+                ;;            --labels)
                 labels+=("$2")
                 shift 2
                 ;;
@@ -284,11 +289,9 @@ get_issues_for_selection() {
     local gh_args=(--limit 1000)
     # shellcheck disable=SC2054  # gh CLI uses comma-separated fields
     gh_args+=(--json number,title,labels,state,updatedAt)
-    
-    # Add repository if specified
-    if [ -n "$repo" ]; then
-        gh_args+=(-R "$repo")
-    fi
+
+    # Repo targeting rides the positional slot only (see provider_issues_list
+    # call below); no -R flag ever enters the provider arg stream.
 
     # Add filters
     gh_args+=(--state "$state")

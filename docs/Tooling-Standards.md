@@ -34,7 +34,7 @@ through `markdownlint-cli2` **and** `markdown-link-check` in the
 # my-tool.sh - One-line description
 # Version: 1.0.0
 # Description: Fuller description
-# Requirements: Bash 4.0+, jq, gh CLI
+# Requirements: Bash 4.0+, jq, provider CLI (per devenv.config)
 
 set -euo pipefail
 
@@ -103,7 +103,7 @@ Use the constants from `error-handling.bash`. Never invent numbers.
 | `EXIT_GENERAL_ERROR` | 1 | Anything that failed and isn't classified below |
 | `EXIT_MISUSE` | 2 | Invalid arguments, unknown options, missing flag values, bad usage |
 | `EXIT_CONFLICT` | 3 | Duplicate/ambiguous match where exactly one was required |
-| `EXIT_API_FAILURE` | 4 | gh/API operation failed, or the target was not found |
+| `EXIT_API_FAILURE` | 4 | Provider/API operation failed, or the target was not found |
 | `EXIT_AMBIGUOUS` | 5 | Multiple candidates where one was required |
 
 Rules:
@@ -140,8 +140,8 @@ If your tool accepts a markdown/text body:
 ## Repo targeting (provider-seamed tools)
 
 Repo targeting resolves through the provider seam via `provider_repo_target`
-(explicit `--repo` → `DEVENV_REPO` → full-form `GH_REPO` → configured org +
-cwd basename). `DEVENV_REPO` is the only repo-targeting environment variable.
+(explicit `--repo` → `DEVENV_REPO` → provider-specific repo env, if the active
+provider defines one → configured org + cwd basename). `DEVENV_REPO` is the only repo-targeting environment variable.
 Org identity comes from `provider_org_get` (config `[organization] org` →
 seed); a provider module owns the
 equivalent chain for its backend.

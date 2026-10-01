@@ -141,7 +141,10 @@ _workflow_write() {
     # the fan-out wrapper is found (same pattern as WORKFLOW_SIGNAL_TOOLS).
     local tools_root="${WORKFLOW_CORE_TOOLS:-$WORKFLOW_CORE_DIR/..}"
     local wrapper="$tools_root/scripts/project-update-issue.sh"
-    if ! bash "$wrapper" "$issue" --status "$status" --all-projects --safe >/dev/null 2>&1; then
+    # Stdout is suppressed (transport payloads are not log material);
+    # stderr is kept so a refusal names itself instead of surfacing as an
+    # anonymous "workflow write failed".
+    if ! bash "$wrapper" "$issue" --status "$status" --all-projects --safe >/dev/null; then
         echo "WARNING: workflow write '$status' failed for issue #$issue (best-effort, continuing)" >&2
         return 0
     fi

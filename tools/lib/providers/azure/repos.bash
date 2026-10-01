@@ -32,6 +32,10 @@ if ! declare -F azure_apply_gh_list_flags >/dev/null; then
     # shellcheck disable=SC1091
     source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/urls.bash"
 fi
+if ! declare -F azure_repo_flag_spec >/dev/null; then
+    # shellcheck disable=SC1091
+    source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/repo-flag.bash"
+fi
 if ! declare -F azure_http_request >/dev/null; then
     log_error "azure/repos.bash: providers/azure/http.bash failed to load"
     return 1
@@ -499,4 +503,31 @@ provider_repos_list() {
     local mapped
     mapped=$(printf '%s' "$response" | jq -c '[.[] | {name: .name, nameWithOwner: (.project.name + "/" + .name), isPrivate: .isPrivate}]')
     azure_apply_gh_list_flags "$mapped" "$json_fields" "$jq_expr"
+}
+
+# List packages for the org. Azure Artifacts is feed-centric: org packages
+# surface through the packaging feeds API (same source as
+# provider_org_feeds_list). Endpoint argument mirrors the github verb's
+# contract for call-shape parity; azure resolves targeting itself and the
+# argument is advisory only.
+# Usage: provider_org_packages_list [ENDPOINT] [-f KEY=VALUE ...]
+provider_org_packages_list() {
+    local op
+    op=$(azure_org_project) || return 1
+    local org
+    org=$(printf '%s' "$op" | sed -n 1p)
+    local response
+    if ! response=$(azure_http_request GET "https://feeds.dev.azure.com/${org}/_apis/packaging/feeds?api-version=7.1-preview.1"); then
+        return 1
+    fi
+    printf '%s' "$response" | jq -c '[.value[] | {name: .name, package_type: "nuget", id: .id, url: .url}]'
+}
+
+# List versions of one package. Azure Artifacts exposes per-feed package
+# versions; without a feed+package id the neutral layer's GitHub-shaped
+# endpoint cannot resolve — fail defined rather than guessing a feed.
+# Usage: provider_org_package_versions ENDPOINT
+provider_org_package_versions() {
+    log_error "provider_org_package_versions: azure packages versioning is feed-scoped; the GitHub-shaped endpoint has no Azure analog"
+    return 1
 }

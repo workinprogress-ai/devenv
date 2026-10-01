@@ -403,8 +403,13 @@ main() {
     # Check dependencies
     check_dependencies
     
-    # Validate target repo
-    check_target_repo
+    # Validate the target repo by resolving it: an explicit resolution is
+    # what the safety gate exempts (resolve_target_repo applies the same
+    # gate semantics against the resolved spec). A bare devenv-cwd call with
+    # no DEVENV_REPO — the _on_* signal contract — must fail here with
+    # actionable guidance, not at a raw gate that fires before the issue
+    # number can route to its repo.
+    resolve_target_repo >/dev/null || exit 1
     
     # List fields if requested
     if [ "$list_fields" -eq 1 ]; then

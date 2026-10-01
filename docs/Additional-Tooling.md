@@ -427,7 +427,7 @@ git update
 
 ## Pull Request Management
 
-Tools for creating, managing, and working with pull requests. The wrappers are the workspace abstraction over the backing `gh` CLI.
+Tools for creating, managing, and working with pull requests. The wrappers are the workspace abstraction over the backing provider CLI.
 
 ### `pr-create-for-review`
 
@@ -550,7 +550,7 @@ pr-comment PR# (--body TEXT | --body-file FILE | --edit) [--dry-run]
 
 ### `pr-diff`
 
-Outputs a unified diff for a PR (via `gh`) or for a local diff between two
+Outputs a unified diff for a PR (via the provider seam) or for a local diff between two
 refs. Useful for code review and pre-commit workflows.
 
 ```bash
@@ -1651,7 +1651,7 @@ These are internal scripts (underscore prefix): they have no depth-1 `tools/` en
 - Skills fire them at lifecycle boundaries (grooming completion, plan approval, implementation kickoff, PR open, review completion)
 - Local PR tooling fires `_on_begin_review` when a PR is created via `pr-create` and `_on_merge` when a merge completes via `pr-merge`
 - Issues are linked via closing keywords in the PR body (`Closes #N`, `Fixes #N`, …), deduplicated, capped at 10 per PR
-- Everything is local: signals run under your own `gh` authentication (keychain). Web-UI merges fire nothing — status changes you make outside local tooling are your own
+- Everything is local: signals run under your own provider authentication (keychain). Web-UI merges fire nothing — status changes you make outside local tooling are your own
 
 **Guarantees:** best-effort (signals exit 0 and never block work), idempotent (re-signaling repairs drift), config-driven (Status values live in `tools/config/skill-events.yml` + `devenv.config [workflows]` — callers never name statuses or projects).
 
@@ -1890,9 +1890,10 @@ editor .local-artifacts/notes.txt
 # Used automatically by git
 git commit --allow-empty  # Opens in VS Code, waits until tab closes
 
-# Editor-fallback mechanism demonstrated via gh (inside this workspace,
-# issue operations go through `issue-create` — never raw `gh issue`)
-gh issue create --body ''  # Opens in VS Code, waits until tab closes
+# Editor-fallback mechanism demonstrated via the issue wrapper (inside this
+# workspace, issue operations go through `issue-create` — never the raw provider
+# CLI)
+issue-create --title '' --body ''  # Opens the editor, waits until it closes
 
 # Configure fallback
 export FALLBACK_EDITOR=vim
@@ -2821,7 +2822,6 @@ service:
 **Dependencies:**
 
 - `repo-types.bash` (shared library)
-- GitHub CLI (`gh`)
 - `yq` (YAML processor)
 
 **Related:** See [repo-create](#repo-create) for initial repository creation details, and [Repo Creation Standards (repo-create.sh)](./Forking.md#repo-creation-standards-repo-createsh) in the Forking Guide for configuration options.

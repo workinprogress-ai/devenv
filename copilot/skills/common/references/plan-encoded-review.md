@@ -16,7 +16,7 @@ When a Review-phase task becomes current:
 
 1. **Resolve the round.** Read the plan's Review phase. The round number is `1 + (number of already-ticked round tasks)`. If the previous round's convergence decision was "converged and closed" (the user accepted closing the cycle), do not start a new round — the phase is done; tick the current task with a `round skipped — converged` note only if it was left open in error. A hard cap of **4 rounds** bounds the cycle: at the cap, stop and hand back with the yield history instead of offering a further round — warning the user explicitly that the cycle hit the cap and unresolved issues may remain, so the diff still needs their manual attention.
 2. **Resolve the diff target.** Cumulative branch diff vs base (the plan's execution branch vs its base), per the plan's Review-phase scope note. If a PR exists for the branch, PR mode may also be used; the computation is the same.
-3. **Dispatch the review subagent** with the self-contained brief below. One subagent per round. Do not review inline.
+3. **Dispatch the review subagent** with the self-contained brief below. One subagent per round. Do not review inline. **User-run gate:** if the plan's Review phase records **user-run** execution mode (a planning-time choice — see `/devenv-plan` §4c), do not dispatch — stop at the round task and refer the round to the user instead: they may run it themselves (e.g. `/devenv-review` in another session), direct you to dispatch the subagent after all, or skip. The referral is a stop, not a prohibition — the user's choice governs. Absent a recorded mode, AI-autonomous dispatch is the default. **Before dispatching, resolve the two doc roots from `devenv.config` `[copilot]` (`knowledge_repo` + `knowledge_subpath`, `engineering_repo` + `engineering_subpath`) — in this workspace they are `~/.copilot/knowledge` and `~/.copilot/engineering` — and fill them into the brief's `KNOWLEDGE ROOT` / `ENGINEERING ROOT` parameters. The subagent is stateless and cannot resolve these itself.**
 4. **Receive findings.** The subagent returns the structured findings report (numbered, severity-grouped hotspots, missing tests, ephemeral-artifact references, questions, and the Diagnostics appendix). When the user asks about coverage or where review effort went, cite the report's Diagnostics section.
 5. **Present + fold in.** Write the full findings report to a `.local-artifacts/tmpN.md` working file in the target repo (next free number — the user's reviewable record), and present the findings in chat: every finding's number, severity, and file:line as a one-liner, pointing to the working file for full detail. A chat summary alone is not enough — the user cannot rule on findings they cannot read. Then run the fold-in interview (`vscode_askQuestions`), proposing set approval **by finding number**: blockers, concerns, missing tests; nits only if the user opts in; praise never. Apply approved encodings as normal numeric tasks in the Review phase (round number in the task **title**, never the task ID — plan tooling accepts dotted numeric IDs only); each task's `Additional context:` cites its finding number plus file:line and severity. Record rejected findings (number + reason) in the round summary; they are excluded from future yield counts.
 6. **Convergence decision.** Compute the yield over non-rejected findings and present BOTH outcomes as a choice — the cycle repeats only with the user's permission, in both directions; it is never self-terminated:
@@ -76,6 +76,8 @@ Thoroughness: medium — depth comes from attack quality (how hard you try to
 break each thing), not coverage (how many things you open).
 
 TARGET REPO ROOT: <absolute path>
+KNOWLEDGE ROOT: <absolute path of the Copilot knowledge repo, resolved by the dispatcher — read its orchestration.md first for component classification and read routing>
+ENGINEERING ROOT: <absolute path of the engineering repo, resolved by the dispatcher — Standards/Design-Principles/ holds the ratified principles>
 DIFF: <branch> vs <base> — run: git -C <repo-root> diff <base>...<branch>
 (If a PR number is supplied instead: fetch its diff via pr-diff <N>.)
 
@@ -86,6 +88,15 @@ SCOPE RULES:
   order findings by blast radius.
 - Every finding must cite file:line that you have verified exists in the
   current working tree.
+- Read `KNOWLEDGE ROOT`/`orchestration.md` before classifying the diff's
+  surface (it routes which knowledge docs matter). Judge the diff against the
+  ratified patterns in `ENGINEERING ROOT` (e.g. `Standards/Design-Principles/`)
+  the way /devenv-pair and /devenv-delegate apply them: a diff that violates a
+  ratified pattern is a Concern (Blocker when the principle's adherence level
+  makes it mandatory and the violation is structural); cite the pattern name.
+  If either root is missing or its docs are absent, proceed on general skill
+  knowledge and note the gap in Diagnostics — absence is a limitation to
+  report, never a reason to skip the review.
 
 OUTPUT (markdown, exactly this structure):
 
@@ -133,6 +144,7 @@ interview, rejections, and the plan's task encodings all reference it.
 **Dead ends**: <leads chased that produced nothing>
 **Tier decisions**: <surface → tier chosen → one-line why>
 **Probes**: <symbol greps run and their results, if any>
+**Doc roots**: <both read | knowledge root unusable: <why> | engineering root unusable: <why> — one line each>
 
 ### Ephemeral-artifact references in added comments
 - Comments citing finding IDs, plan task numbers, audit filenames — that

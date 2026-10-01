@@ -23,11 +23,6 @@ load ../test_helper
 # lifecycle (import/status) routes through the provider auth seam.
 # shellcheck disable=SC2034
 ALLOWED_EXCEPTIONS=(
-    "key-update.sh:gh auth (login|setup-git)"
-    "repo-get.sh:gh auth status"
-    "issue-create.sh:gh auth status"
-    "provider-loader.bash:gh auth status"
-    "copilot-knowledge.bash:gh auth token"
     "issue-select.sh:gh issue (view|edit)"
 )
 
@@ -134,25 +129,34 @@ collect_violations() {
 }
 
 @test "routing lock: allowlist entries all match real files" {
-    # A renamed/deleted file must not leave a stale exception behind —
-    # stale entries silently widen the lock.
-    local entry file_pat
+    # A renamed/deleted file must not leave a stale exception behind — and
+    # a live file whose excepted pattern no longer matches its content is
+    # equally stale: the exception would silently widen the lock. Both the
+    # file AND the pattern must still exist.
+    local entry file_pat regex t f found matched
     for entry in "${ALLOWED_EXCEPTIONS[@]}"; do
         file_pat="${entry%%:*}"
-        local found=0
-        local t
+        regex="${entry#*:}"
+        found=0
+        matched=0
         # Recursive search: provider modules nest below the target roots
         # (e.g. lib/providers/<name>/key-update.sh).
         shopt -s globstar nullglob
         for t in "${LOCK_TARGETS[@]}"; do
-            local matches=("${DEVENV_TOOLS%/tools}/${t#/tools/}/**/*${file_pat}*")
-            if [ "${#matches[@]}" -gt 0 ]; then
+            for f in "${DEVENV_ROOT}/${t}"/**/*${file_pat}*; do
+                # The machine-managed repo cache mirrors shipped files; it is
+                # not the lock's source of truth — skip it like the scan does.
+                [[ "$f" == *"/tools/cache/"* ]] && continue
                 found=1
-                break
-            fi
+                if grep -Eq "$regex" "$f" 2>/dev/null; then
+                    matched=1
+                    break 2
+                fi
+            done
         done
         shopt -u globstar nullglob
         [ "$found" -eq 1 ] || { echo "stale allowlist entry: no file matches '*${file_pat}*'" >&2; return 1; }
+        [ "$matched" -eq 1 ] || { echo "stale allowlist entry: '*${file_pat}*' exists but pattern '$regex' matches nothing in it" >&2; return 1; }
     done
 }
 

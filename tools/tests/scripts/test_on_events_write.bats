@@ -19,10 +19,6 @@ setup() {
 }
 
 @test "dispatcher invokes the wrapper with resolved status and safe fan-out" {
-    # Record the wrapper invocation via a fake wrapper injected through PATH?
-    # The dispatcher calls the wrapper by absolute DEVENV_TOOLS path, so we
-    # assert on the stubbed gh call chain instead: status resolution + the
-    # wrapper's GraphQL mutation call must both appear.
     cat > "$STUB_DIR/gh" <<'STUB'
 #!/usr/bin/env bash
 echo "gh $*" >> "$STUB_CALLS"
@@ -52,6 +48,54 @@ STUB
     export STUB_CALLS="$stub_dir/calls.log"
     run bash "$DISPATCH" _on_begin_grooming 44
     [ "$status" -eq 0 ]
+    grep -q "updateProjectV2ItemFieldValue" "$STUB_CALLS"
+}
+
+@test "event write fires from the devenv checkout without DEVENV_REPO: wrapper resolves the issue's repo before the safety gate" {
+    # Regression (hunt: workflow status write dead from devenv cwd): the
+    # wrapper used to run the devenv-repo safety gate before repo resolution,
+    # so a signal fired from the devenv checkout — where the _on_* contract
+    # sets no DEVENV_REPO — was refused by the gate before the issue number
+    # could route to its repo. Resolution must supply the target so the gate
+    # sees an explicit override.
+    unset DEVENV_REPO
+    cat > "$STUB_DIR/gh" <<'STUB'
+#!/usr/bin/env bash
+echo "gh $*" >> "$STUB_CALLS"
+prog=""
+prev=""
+for a in "$@"; do
+    if [ "$prev" = "--jq" ]; then prog="$a"; fi
+    prev="$a"
+done
+case "$*" in
+    *"updateProjectV2ItemFieldValue"*) payload='{"data":{"updateProjectV2ItemFieldValue":{"projectV2Item":{"id":"PVTI_x"}}}}' ;;
+    *"projectV2(number"*) payload='{"data":{"organization":{"projectV2":{"id":"PVT_p1"}}}}' ;;
+    *"items(first"*) payload='{"data":{"node":{"items":{"pageInfo":{"hasNextPage":false,"endCursor":""},"nodes":[{"id":"PVTI_x","content":{"number":44,"repository":{"nameWithOwner":"'$RESOLVED_REPO'"}}}]}}}}' ;;
+    *"ProjectV2SingleSelectField"*) payload='{"data":{"node":{"field":{"id":"PVTVF_f","options":[{"id":"PVTFO_o","name":"To-Groom"}]}}}}' ;;
+    *"projectsV2(first"*) payload='{"data":{"organization":{"projectsV2":{"pageInfo":{"hasNextPage":false,"endCursor":""},"nodes":[{"id":"PVT_p1","number":9,"title":"P","owner":{"login":"'$RESOLVED_OWNER'"}}]}}}}' ;;
+    *"resource(url"*) payload='{"data":{"resource":{"projectItems":{"nodes":[{"project":{"id":"PVT_p1","number":9,"title":"P","owner":{"login":"'$RESOLVED_OWNER'"}},"fieldValues":{"nodes":[]}}]}}}}' ;;
+    *) payload='{"data":{}}' ;;
+esac
+if [ -n "$prog" ]; then
+    printf '%s' "$payload" | jq -r "$prog"
+else
+    echo "$payload"
+fi
+STUB
+    # The stub mirrors whatever repo resolution produces (owner from config +
+    # cwd basename in the devenv checkout) — the regression under test is
+    # "resolution completes and the write proceeds", not a specific repo.
+    local resolved_owner resolved_repo
+    resolved_owner="$(grep -oP '^org\s*=\s*\K.*' devenv.config 2>/dev/null | head -1)"
+    resolved_owner="${resolved_owner:-workinprogress-ai}"
+    resolved_repo="${resolved_owner}/$(basename "$(git rev-parse --show-toplevel)")"
+    export RESOLVED_OWNER="$resolved_owner" RESOLVED_REPO="$resolved_repo"
+    export STUB_CALLS="$stub_dir/calls2.log"
+    # cwd is the devenv checkout (test_helper roots it there); no DEVENV_REPO.
+    run bash "$DISPATCH" _on_begin_grooming 44
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"workflow write"* ]]
     grep -q "updateProjectV2ItemFieldValue" "$STUB_CALLS"
 }
 

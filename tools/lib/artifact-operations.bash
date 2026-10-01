@@ -109,7 +109,7 @@ is_supported_package_type() {
 # Query GitHub Packages using the GitHub REST API
 # Usage: query_packages [--owner OWNER] [--type TYPE] [--name NAME] [--repo REPO]
 # Arguments:
-#   --owner OWNER         Repository owner (optional, uses GH_ORG env var if not provided)
+#   --owner OWNER         Repository owner (optional, resolves via the provider org accessor if not provided)
 #   --type TYPE           Filter by package type (npm, nuget, docker, etc.)
 #   --name NAME           Filter by package name (partial match)
 #   --repo REPO           Specific repository path or owner/repo to query
@@ -176,11 +176,11 @@ query_packages() {
         query_params="$query_params -f package_type=$type"
     fi
 
-    # Query packages from GitHub API - capture both exit code and output
+    # Query packages via the provider domain verb (never raw provider API)
     local query_result
     local gh_exit_code=0
     # shellcheck disable=SC2086
-    query_result=$(provider_api_paginate "$endpoint" $query_params 2>&1) || gh_exit_code=$?
+    query_result=$(provider_org_packages_list "$endpoint" $query_params 2>&1) || gh_exit_code=$?
     
     # Distinguish between actual errors and empty results
     if [ $gh_exit_code -ne 0 ]; then
@@ -216,7 +216,7 @@ query_packages() {
 # Get versions for a specific package
 # Usage: get_package_versions [--owner OWNER] --type TYPE --name NAME [--repo REPO]
 # Arguments:
-#   --owner OWNER         Repository owner (optional, uses GH_ORG env var if not provided)
+#   --owner OWNER         Repository owner (optional, resolves via the provider org accessor if not provided)
 #   --type TYPE           Package type (npm, nuget, docker, etc.) (required)
 #   --name NAME           Package name (required)
 #   --repo REPO           Specific repository to query
@@ -277,10 +277,10 @@ get_package_versions() {
         endpoint="/repos/${owner}/${repo}/packages/${type}/${name}/versions"
     fi
 
-    # Query package versions from GitHub API - capture both exit code and output
+    # Query package versions via the provider domain verb (never raw provider API)
     local versions_result
     local gh_exit_code=0
-    versions_result=$(provider_api_paginate "$endpoint" 2>&1) || gh_exit_code=$?
+    versions_result=$(provider_org_package_versions "$endpoint" 2>&1) || gh_exit_code=$?
     
     # Distinguish between actual errors and empty results
     if [ $gh_exit_code -ne 0 ]; then

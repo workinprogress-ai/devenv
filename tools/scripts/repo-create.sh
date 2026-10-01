@@ -548,13 +548,14 @@ main() {
         exit 1
     fi
 
-    require_command gh
+    # Provider auth is checked through the seam below; no specific CLI
+    # binary is required (the active provider owns its transport).
     require_command yq
     # Org identity resolves via the provider accessor (env override →
     # config → seed); no env export required. User identity is not
     # consumed by creation itself — gh's authenticated identity carries it.
     ORG="$(provider_org_get)" || die "Organization identity unresolved. Configure [organization] org in devenv.config or run setup." "$EXIT_INVALID_ARGUMENT"
-    ensure_gh_login
+    ensure_provider_auth
     
     create_repo "$repo_name" "$visibility" "$description" "$repo_type" "$skip_protection" "$skip_template" "$skip_clone" "$skip_post_creation"
 

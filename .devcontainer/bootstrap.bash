@@ -320,7 +320,7 @@ load_setup_credentials() {
     #   keychain empty + seed  -> import once, DELETE the seed (one-shot;
     #                             plaintext must not linger), auth restored
     #   keychain empty, no seed-> AUTH_NEEDED=1; the finish banner tells the
-    #                             user to run key-update-git
+    #                             user to run key-update-provider
     AUTH_NEEDED=0
 
     if provider_auth_status >/dev/null 2>&1; then
@@ -964,6 +964,24 @@ build_github_basic_auth_header() {
     echo "AUTHORIZATION: basic $auth"
 }
 
+# Provider-dispatched auth header for the sync's ephemeral extraheader
+# fetches. Schemes differ per provider: github sends 'x-access-token:PAT';
+# azure sends the RFC-7617 basic form 'Basic base64(":PAT")' (empty user —
+# matches azure/http.bash's transport). Callers build once, use per-fetch.
+build_provider_git_auth_header() {
+    local provider="$1" token="$2"
+    case "$provider" in
+        azure)
+            local auth
+            auth=$(printf ':%s' "$token" | base64 -w0)
+            echo "AUTHORIZATION: Basic $auth"
+            ;;
+        *)
+            build_github_basic_auth_header "$token"
+            ;;
+    esac
+}
+
 # Clone or update a Copilot-side external repo and symlink its content into ~/.copilot/.
 # Shared implementation for the knowledge and engineering standards imports:
 #   sync_copilot_side_repo <repo-url> <subpath> <checkout-dir> <link-path> <label> <backup-dir>
@@ -983,12 +1001,12 @@ sync_copilot_side_repo() {
     # auth seam — never from env, never via raw gh.
     token=$(provider_secret_get token 2>/dev/null) || token=""
     if [ -z "$token" ]; then
-        echo "WARNING: gh is not authenticated; skipping $label sync (run 'key-update-git')"
+        echo "WARNING: gh is not authenticated; skipping $label sync (run 'key-update-provider')"
         return 0
     fi
 
     subpath=$(normalize_copilot_knowledge_subpath "$subpath")
-    header=$(build_github_basic_auth_header "$token")
+    header=$(build_provider_git_auth_header "${PROVIDER_NAME:-github}" "$token")
 
     if [ -d "$repo_dir/.git" ]; then
         git -C "$repo_dir" remote set-url origin "$repo_url"
@@ -1260,7 +1278,7 @@ finish_message() {
     echo "--------------------------------------------------------------"
     if [ "${AUTH_NEEDED:-0}" -eq 1 ]; then
         echo "ACTION REQUIRED: Auth credentials are not configured."
-        echo "Run: key-update-git <new-token>"
+        echo "Run: key-update-provider <new-token>"
     fi
     echo "Please exit out of VS Code and let the container restart."
     echo "Please restart the container to complete the setup."

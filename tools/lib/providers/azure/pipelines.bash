@@ -16,6 +16,11 @@ if [ -n "${_PROVIDER_AZURE_PIPELINES_LOADED:-}" ]; then
 fi
 _PROVIDER_AZURE_PIPELINES_LOADED=1
 
+# Capability: this module maps the pipelines seam onto Azure Pipelines.
+if declare -F provider_declare_capability >/dev/null; then
+    provider_declare_capability pipelines
+fi
+
 if ! declare -F log_error >/dev/null; then
     log_error() { echo "ERROR: $*" >&2; }
 fi
@@ -29,6 +34,10 @@ fi
 if ! declare -F azure_apply_gh_list_flags >/dev/null; then
     # shellcheck disable=SC1091
     source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/urls.bash"
+fi
+if ! declare -F azure_repo_flag_spec >/dev/null; then
+    # shellcheck disable=SC1091
+    source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/repo-flag.bash"
 fi
 if ! declare -F azure_http_request >/dev/null; then
     log_error "azure/pipelines.bash: providers/azure/http.bash failed to load"

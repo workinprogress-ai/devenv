@@ -61,9 +61,13 @@ unset _gh_self_dir
 #   Outputs "-R owner/repo" if repository can be determined, empty string otherwise
 #
 get_repo_spec() {
-    # Repo targeting: DEVENV_REPO is the single override.
+    # Repo targeting: DEVENV_REPO is the single override. Emission is the
+    # canonical bare positional spec (provider-verb arg shape) — no gh
+    # dialect flags; consumers pass repo_spec[0] straight into provider
+    # verbs, and azure's parsers additionally accept a legacy `-R <spec>`
+    # defensively.
     if [ -n "${DEVENV_REPO:-}" ]; then
-        echo "-R" "$DEVENV_REPO"
+        echo "$DEVENV_REPO"
         return
     fi
     
@@ -74,12 +78,12 @@ get_repo_spec() {
         local repo_name
         repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
         if [ -n "$repo_name" ]; then
-            echo "-R" "${policy_org}/${repo_name}"
+            echo "${policy_org}/${repo_name}"
             return
         fi
     fi
     
-    # Fall back to current directory context (no -R flag)
+    # Fall back to current directory context (empty spec)
     echo ""
 }
 
@@ -191,25 +195,25 @@ get_full_repo_name() {
 #
 # This function checks if the user is authenticated with GitHub CLI.
 # The gh credential store (keychain) is the single auth source; there is
-# no env-token login path. Re-authentication is `key-update-git` or the
+# no env-token login path. Re-authentication is `key-update-provider` or the
 # provider's own login flow.
 # (github.com as hostname, ssh as git protocol).
 #
 # Usage:
-#   ensure_gh_login
+#   ensure_provider_auth
 #
 # Returns:
 #   0 if authenticated successfully; 1 if authentication fails. Callers run
 #   under set -e, so an unguarded call terminates the script on failure.
 #
-ensure_gh_login() {
+ensure_provider_auth() {
     # Auth state resolves through the provider seam (the active provider's
     # auth module owns the concrete credential CLI).
     if provider_auth_status &>/dev/null; then
         return 0
     fi
 
-    echo "Error: provider CLI is not authenticated. Run: key-update-git" >&2
+    echo "Error: provider CLI is not authenticated. Run: key-update-provider" >&2
     return 1
 }
 
@@ -236,7 +240,7 @@ check_dependencies() {
     # only the github provider's transport and is checked there, not here.
     if ! provider_auth_status &> /dev/null; then
         log_error "Not authenticated with the active provider (${PROVIDER_NAME:-unknown})"
-        log_info "Run: key-update-git (or the provider's key-update variant)"
+        log_info "Run: key-update-provider (or the provider's key-update variant)"
         return 1
     fi
 
@@ -399,10 +403,14 @@ ensure_label() {
     local -a label_repo_spec=("$@")
 
     # provider_issues_label_ensure is idempotent (list-then-create internal).
-    # It takes [repo] as its first arg; strip a leading -R flag pair.
+    # It takes [repo] as its first arg. Callers now pass the canonical bare
+    # spec (positional canonicalization); a legacy `-R <spec>` pair is
+    # normalized defensively.
     local repo=""
     if [ "${label_repo_spec[0]:-}" = "-R" ]; then
         repo="${label_repo_spec[1]:-}"
+    else
+        repo="${label_repo_spec[0]:-}"
     fi
     provider_issues_label_ensure "$repo" "$label" "ededed" "Automated process" 2>/dev/null || true
 }

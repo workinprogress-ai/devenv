@@ -2,6 +2,10 @@
 
 Shared protocol for extracting **general engineering knowledge** from sessions — emerging practices and engineering patterns — into the copilot knowledge repo's candidates area. The mirror of the [Knowledge Distillation Protocol](knowledge-distillation-protocol.md) (which handles *organization-specific* implementation specifics) and the write-side counterpart to the read rules for candidates in the [Knowledge & Engineering-Pattern Lookup Protocol](knowledge-lookup-protocol.md).
 
+## Where writes land (the two-clone rule)
+
+The knowledge repo resolves from `devenv.config` `[copilot]` (`knowledge_repo`, `knowledge_subpath`); in this workspace that is the working clone `repos/docs.copilot-knowledge`, content under `copilot-knowledge/`. All candidate writes go there — never into `copilot/knowledge/` or `~/.copilot/knowledge`, which are the machine-managed canonical import skills *read* through (`--ff-only` pulls discard local state; work written there is lost on the next refresh). If the working clone is absent under `repos/`, surface the gap and ask the user to clone it — do not fall back to the canonical path. This mirrors the resolution the [Knowledge Distillation Protocol](knowledge-distillation-protocol.md) carries; both write lanes share it.
+
 Like distillation, this runs on **explicit request only** — when the user asks to extract, capture, or distill knowledge from the session. Never offer it unprompted.
 
 ## Why this is separate from distillation
@@ -20,11 +24,12 @@ The engineering repo (name via `config-read copilot engineering_repo_name`, defa
 Run candidates through this cascade in order:
 
 1. **Is it about where/how in *this organization's* code?** (wiring, placement, library idiom of an org-owned library) → **distillation territory** — use the [Knowledge Distillation Protocol](knowledge-distillation-protocol.md), not this one.
-2. **Did the org mandate it?** (it exists in the engineering repo's standards, or the user states it is official) → not extraction material — it is already ratified; at most cite it.
-3. **Is it simply the accepted way — no debate required?** (best practice, usage pattern: the answer never depends on weighing forces) → **practice candidate**.
-4. **Would a competent engineer pick it from a menu of alternatives depending on the forces?** (a bounded problem context, a solution shape, forces that select among several viable options) → **engineering pattern candidate**.
+2. **Does it describe how *this organization* does things?** (a convention, code standard, or house style the org follows — even when it is not tied to a chassis library and not yet written in the engineering repo) → **distillation territory** — org-specific knowledge belongs in the knowledge repo's main body directly (per its `orchestration.md` § Write placement), not staged as a candidate. `candidates/` holds only what is genuinely general.
+3. **Did the org mandate it?** (it exists in the engineering repo's standards, or the user states it is official) → not extraction material — it is already ratified; at most cite it.
+4. **Is it simply the accepted way — no debate required, and org-independent?** (general best practice, usage pattern: the answer never depends on weighing forces and would hold at any organization) → **practice candidate**.
+5. **Would a competent engineer pick it from a menu of alternatives depending on the forces?** (a bounded problem context, a solution shape, forces that select among several viable options) → **engineering pattern candidate**.
 
-The discriminator between 3 and 4: a practice is *the* way; a pattern is *an* way in a category of solutions where any might be chosen given the forces. When unsure, write it as a pattern — the template's Alternatives field will expose whether alternatives actually exist.
+The discriminator between 4 and 5: a practice is *the* way; a pattern is *an* way in a category of solutions where any might be chosen given the forces. When unsure, write it as a pattern — the template's Alternatives field will expose whether alternatives actually exist. The discriminator between 1/2 and 4/5: substitute another organization — if the point would still hold verbatim, it is general; if it names or implies this org's practices, it routes to distillation.
 
 ## Candidate entry shapes
 

@@ -104,14 +104,14 @@ EOF
     grep -q "devenv-add-env-vars.sh DO_TOKEN=d0token1234567890abcdef1234567890" "$CALL_LOG"
 }
 
-@test "key-update-git: no argument with closed stdin refuses without hanging" {
+@test "key-update-provider: no argument with closed stdin refuses without hanging" {
     run bash "$PROJECT_ROOT/tools/lib/providers/github/key-update.sh" < /dev/null
     [ "$status" -ne 0 ]
     [[ "$output" == *"No token provided"* ]]
     [ ! -s "$CALL_LOG" ]
 }
 
-@test "key-update-git: argument path rotates via gh keychain and writes no token files" {
+@test "key-update-provider: argument path rotates via gh keychain and writes no token files" {
     run bash "$DEVENV_TOOLS/lib/providers/github/key-update.sh" "ghp_abcdef1234567890"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Success"* ]]
@@ -121,7 +121,7 @@ EOF
     ! grep -q "devenv-add-env-vars" "$CALL_LOG"
 }
 
-@test "key-update-git: does not export GH_TOKEN (allowlist-only contract)" {
+@test "key-update-provider: does not export GH_TOKEN (allowlist-only contract)" {
     run bash "$DEVENV_TOOLS/lib/providers/github/key-update.sh" "ghp_abcdef1234567890"
     [ "$status" -eq 0 ]
     # The script runs in a child shell, so an export could not reach this
@@ -129,7 +129,7 @@ EOF
     ! grep -q 'export GH_TOKEN=' "$DEVENV_TOOLS/lib/providers/github/key-update.sh"
 }
 
-@test "key-update-git: gh login failure aborts with no side effects" {
+@test "key-update-provider: gh login failure aborts with no side effects" {
     STUB_GH_LOGIN_FAIL=1 run bash "$DEVENV_TOOLS/lib/providers/github/key-update.sh" "ghp_bad"
     [ "$status" -ne 0 ]
     [[ "$output" == *"No changes made"* ]]
@@ -165,7 +165,7 @@ EOF
 
 # Existence guard: the key-update family gains members independently;
 # this suite asserts only scripts that are present.
-@test "_key-update-git.sh exists" {
+@test "_key-update-provider.sh exists" {
   run bash -n "$PROJECT_ROOT/tools/lib/providers/github/key-update.sh"
   [ "$status" -eq 0 ]
 }
@@ -185,10 +185,10 @@ EOF
     [[ "$output" =~ "Usage: key-update-tailscale" ]]
 }
 
-@test "key-update-git --help exits 0 without prompting" {
+@test "key-update-provider --help exits 0 without prompting" {
     run bash "$PROJECT_ROOT/tools/lib/providers/github/key-update.sh" --help < /dev/null
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "Usage: key-update-git" ]]
+    [[ "$output" =~ "Usage: key-update-provider" ]]
     # The flag must not reach the credential-import path.
     [[ ! "$output" =~ "Token Update Utility" ]] || [[ "$output" =~ "Usage:" ]]
 }
@@ -334,7 +334,7 @@ EOF
         finish_message
     "
     [[ "$output" =~ "ACTION REQUIRED" ]]
-    [[ "$output" =~ "key-update-git" ]]
+    [[ "$output" =~ "key-update-provider" ]]
 }
 
 @test "finish_message: banner is silent about auth when AUTH_NEEDED=0" {
@@ -351,7 +351,7 @@ EOF
 
 @test "bootstrap seed: failure path defers to the AUTH_NEEDED banner" {
     # Import failure sets AUTH_NEEDED; the finish banner carries the action
-    # line pointing at key-update-git (the function name).
-    run grep -q 'Run: key-update-git <new-token>' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+    # line pointing at key-update-provider (the function name).
+    run grep -q 'Run: key-update-provider <new-token>' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
     [ "$status" -eq 0 ]
 }

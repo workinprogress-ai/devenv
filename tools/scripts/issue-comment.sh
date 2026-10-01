@@ -138,8 +138,10 @@ post_comment() {
     # first element duplicated into the repo slot scrambled the argument
     # stream into invalid gh invocations in both the with-repo and no-repo
     # shapes. get_repo_spec emits "-R owner/repo"; strip the flag word.
-    local repo="${repo_spec[1]:-}"
-    if [ "${repo_spec[0]:-}" != "-R" ]; then
+    # Canonical emission is the bare spec (positional canonicalization):
+    # repo_spec[0] IS the repo; an empty emission means no repo context.
+    local repo="${repo_spec[0]:-}"
+    if [ "$repo" = "-R" ]; then
         repo=""
     fi
 
@@ -169,7 +171,7 @@ main() {
         exit 0
     fi
 
-    ensure_gh_login
+    ensure_provider_auth
 
     while [[ $# -gt 0 ]]; do
         case "$1" in

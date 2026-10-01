@@ -32,7 +32,7 @@ Trigger phrases:
 - "pair program" / "let's pair on this" / "pair with me"
 - "work on this issue with me" / "implement this together"
 - "let's tackle this plan together" / "work through this plan"
-- A GH issue or plan is handed off **with collaborative intent** (not "just do it")
+- A issue or plan is handed off **with collaborative intent** (not "just do it")
 
 Pairing applies to any plan regardless of its declared verification — code work is the norm, but docs overhauls, mechanical file operations, runbooks, and mixed plans pair the same way: the collaboration model is independent of the work's language.
 
@@ -183,11 +183,11 @@ If the user returns after stepping away and asks where to pick up ("where are we
 
 ### 1. Identify the work source
 
-Ask, if not provided: GH issue number? Path to a plan file? Ad-hoc (no plan)?
+Ask, if not provided: issue number? Path to a plan file? Ad-hoc (no plan)?
 
 ### 2. Load the plan
 
-**If GH issue:** resolve a single plan artifact comment (legacy artifacts are typed implementation-plan) first.
+**If issue:** resolve a single plan artifact comment (legacy artifacts are typed implementation-plan) first.
 
 1. Check for a local `Plan-issue-<N>-*.md` under the target repo's `.local-artifacts/` first — if one exists and the user wants that exact working copy, use it.
 2. Otherwise resolve artifact identity:
@@ -200,7 +200,7 @@ Ask, if not provided: GH issue number? Path to a plan file? Ad-hoc (no plan)?
 
 **If plan file:** read it.
 
-If a plan file is used, determine whether there is an associated GH issue for artifact sync:
+If a plan file is used, determine whether there is an associated issue for artifact sync:
 
 1. If the user provided an issue number, use it.
 2. Else, if filename matches `Plan-issue-<N>-*.md`, infer `<N>`.
@@ -225,7 +225,7 @@ During the same session, assume this working copy is authoritative unless the us
 
 Use this path when a plan is missing or too thin and the user wants to proceed within the same session.
 
-1. **Understand the goal.** Ask for a one-paragraph description if not already given. For a GH issue, read the body; treat its description as the starting brief.
+1. **Understand the goal.** Ask for a one-paragraph description if not already given. For a issue, read the body; treat its description as the starting brief.
 2. **Sketch phases collaboratively.** Propose 2–4 phases — name each with a goal and rough end state. Keep it conversational; one exchange per phase if needed.
 3. **Surface key decisions up front.** Ask: what is the riskiest or most uncertain part? What is already decided? Any constraints (timeline, API compatibility, team skills)?
 4. **Propose acceptance criteria.** Infer from the goal; present with `AC-N` identifiers and `*(inferred)*` markers. Confirm before writing.
@@ -973,9 +973,9 @@ This is the only plan edit the AI makes without prior confirmation. Everything e
 - Before declaring the whole plan complete, confirm there are no unresolved entries left under `## Pending Questions` or attached to any remaining phase/task.
 - If a question is resolved by a material plan change, reflect the resolution in current phase/task/decision text.
 
-### GH issue artifact sync
+### issue artifact sync
 
-If there is an **associated GH issue + plan artifact identity** (`<N>` + `<DOC_ID>` in session context), and you apply a **material/structural plan revision** during the session (phase/task restructuring, AC changes, major sequencing changes, or significant divergence rewrite), sync that artifact comment **immediately after the revision write is confirmed**. Do not wait for phase end in this case.
+If there is an **associated issue + plan artifact identity** (`<N>` + `<DOC_ID>` in session context), and you apply a **material/structural plan revision** during the session (phase/task restructuring, AC changes, major sequencing changes, or significant divergence rewrite), sync that artifact comment **immediately after the revision write is confirmed**. Do not wait for phase end in this case.
 
 For this immediate revision sync:
 
@@ -983,7 +983,7 @@ For this immediate revision sync:
 2. Run the pre-upsert lint gate: `plan-parse <path> --lint --require-header` — errors block the sync until fixed; only an explicit user acceptance of a documented deviation bypasses.
 3. Run `issue-artifact-upsert --issue <N> --body-file <path>`.
 
-If there is an associated GH issue + plan artifact identity (`<N>` + `<DOC_ID>`), sync that artifact comment at the end of each phase. **Do this proactively as part of declaring the phase complete — don't wait for the user to ask.**
+If there is an associated issue + plan artifact identity (`<N>` + `<DOC_ID>`), sync that artifact comment at the end of each phase. **Do this proactively as part of declaring the phase complete — don't wait for the user to ask.**
 
 **Before syncing**, assess whether the phase deviated significantly from the plan — unplanned tasks were added, the approach changed, or the user redirected mid-phase. If the phase plan was already rewritten during the session (e.g. via the "in the flow" divergence handling), skip this check — the plan is already accurate. Otherwise, if a meaningful gap exists, offer to update it before the sync goes out:
 
@@ -1112,7 +1112,7 @@ When the user signals end of session (or a phase boundary that suggests a natura
 5. **If this was the final phase (plan fully executed):** verify the plan file records everything actually done — every approved deviation and added task, in current-state prose — then tell the user the plan is now the as-built record and, if an issue artifact identity exists, offer to sync it with `issue-artifact-upsert` (show what changed since the last sync; wait for confirmation).
 6. **Architectural deviations discovered during execution:** if the session revealed that an upstream design artifact is wrong (a blueprint boundary didn't survive contact with the codebase, a specification item proved unmeasurable), offer to file an **upstream-impact issue** in the planning repo per the [upstream-impact filing recipe](../_shared/references/protocol-common.md#upstream-impact-filing).
 7. **Knowledge distillation (explicit request only).** Following the shared [knowledge distillation protocol](../common/references/knowledge-distillation-protocol.md): when the user explicitly asks to distill this session or calls out a specific point to add, scan for organization-specific implementation lessons (where things are wired in this org's repos, idioms of its libraries, enforced conventions — not procedural workflow rules), summarize the candidates in chat with their proposed target files, and let the user approve before anything is written to `repos/docs.copilot-knowledge`. The user reviews and commits. Never offer distillation unprompted. The same request also covers general knowledge discovered this session (emerging practices, engineering patterns) — those follow the [knowledge extraction protocol](../common/references/knowledge-extraction-protocol.md) into the `candidates/` area instead of the main body.
-8. Offer to post a status comment on the issue (if applicable) — show the draft, wait for confirmation. When a plan file backs the work, the draft ends with the `Progress:` snapshot line (see [GH issue artifact sync](#gh-issue-artifact-sync)): `Progress: <done>/<total> tasks (<pct>%), phase <n> of <N> — <YYYY-MM-DD>`, values from `plan-parse --census`, never hand-counted.
+8. Offer to post a status comment on the issue (if applicable) — show the draft, wait for confirmation. When a plan file backs the work, the draft ends with the `Progress:` snapshot line (see [issue artifact sync](#issue-artifact-sync)): `Progress: <done>/<total> tasks (<pct>%), phase <n> of <N> — <YYYY-MM-DD>`, values from `plan-parse --census`, never hand-counted.
 9. **Offer to retire local working copies** (y/n, never auto-delete): when the plan (or any other issue artifact used this session) was synced via `issue-artifact-upsert` and the session's work on it is done, run `artifact-clean -l <repo>` to inventory `.local-artifacts/` by family, offer deletion (ephemeral `tmpN.md` needs no confirmation; working copies and session memory do), and delete on approval via `artifact-clean`. If the user keeps them (work continues next session), leave them in `.local-artifacts/` — `/devenv-open-pr` still requires them gone before opening a PR.
 10. **Ending mid-plan (phases remain):** update the pairing state file (`pairing-state-<plan-stem>.md` under the repo's `.local-artifacts/`) with current chunk, partial intent, working-tree provenance, and any live debate — then say so in one line. The plan holds task state; the state file holds what the plan can't. If the user wants a human-visible record too, offer the status comment (step 8) instead — never a separate handoff document.
 11. Suggest a starting point for the next session. The state file (if written) is the next session's orientation input — 0b reads it before anything else.
@@ -1189,7 +1189,7 @@ Per the shared [next-step offer](../common/references/execution-gates.md#next-st
 - Auto-running `issue-comment` / `issue-update` / `issue-create` without explicit confirmation.
 - Writing to `repos/docs.copilot-knowledge` without explicit user approval of the specific additions — knowledge suggestions are surfaced in chat first; the user reviews and commits (see the [knowledge distillation protocol](../common/references/knowledge-distillation-protocol.md)).
 - Mining the conversation for extra knowledge candidates after the user explicitly called out a specific point to add — use their point alone.
-- Using `gh` for any GitHub operation — every domain has wrappers (`issue-*`, `pr-*`, `project-*`, `pipelines-*`, inspection tools); uncovered operations are surfaced as tooling gaps, never run via `gh`.
+- Using the raw provider CLI (`gh` for example) for any provider operation — every domain has wrappers (`issue-*`, `pr-*`, `project-*`, `pipelines-*`, inspection tools); uncovered operations are surfaced as tooling gaps, never run via the raw CLI.
 - Suggesting delegation at session start before any collaboration patterns are visible.
 - Missing the re-engagement window — if the user pauses or signals they are done, surface the assessment; don't wait to be explicitly asked.
 
