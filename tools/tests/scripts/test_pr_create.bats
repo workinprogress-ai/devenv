@@ -29,6 +29,7 @@ setup() {
   cat > "$TEST_TEMP_DIR/bin/gh" <<'EOF'
 #!/usr/bin/env bash
 cmd="$1"; shift
+printf 'gh %s\n' "$*" >> "${GH_CALL_LOG:-/dev/null}"
 
 # Handle -R flag if present (skip repo specification)
 if [ "$cmd" != "-R" ] && [ "${1:-}" = "-R" ]; then
@@ -46,9 +47,25 @@ case "$cmd $sub" in
     echo "https://github.com/mock-owner/mock-repo/pull/123"
     ;;
   "repo view")
-    cat <<'JSON'
-{"owner":{"login":"mock-owner"},"name":"mock-repo"}
+    # allowSquashMerge is driven by the test via SQUASH_MODE; default non-squash.
+    # Emulate real gh: -q extracts the field instead of dumping raw JSON.
+    if [ "${2:-}" = "--json" ] && [ "${3:-}" = "allowSquashMerge" ] && [ "${4:-}" = "-q" ]; then
+      echo "${SQUASH_MODE:-false}"
+    else
+      cat <<JSON
+{"owner":{"login":"mock-owner"},"name":"mock-repo","allowSquashMerge":${SQUASH_MODE:-false}}
 JSON
+    fi
+    ;;
+  "issue view")
+    # Emulate real gh: -q .title extracts the title.
+    if [ "${2:-}" = "--json" ] && [ "${3:-}" = "title" ] && [ "${4:-}" = "-q" ]; then
+      echo "Fix the frobnicator alignment"
+    else
+      cat <<'JSON'
+{"title":"Fix the frobnicator alignment"}
+JSON
+    fi
     ;;
   *)
     echo "gh mock received unexpected command: $cmd $sub" >&2
@@ -66,10 +83,10 @@ teardown() {
   test_helper_teardown
 }
 
-@test "pr-create requires --issue or --no-issue" {
+@test "pr-create requires --issue or --no-issue (un-inferable branch errors with guidance)" {
   run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: new feature" --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
-  [[ "$output" =~ "Either --issue <number> or --no-issue must be specified" ]]
+  [[ "$output" =~ "pass --issue <number> or --no-issue" ]]
 }
 
 @test "pr-create rejects both --issue and --no-issue" {
@@ -96,10 +113,60 @@ teardown() {
   [[ "$output" =~ "https://github.com/mock-owner/mock-repo/pull/123" ]]
 }
 
-@test "pr-create enforces Conventional Commits" {
+@test "pr-create enforces Conventional Commits only on squash repos" {
+  # Squash repo: CC required (title becomes the commit subject).
+  export SQUASH_MODE=true
+  GH_CALL_LOG="$TEST_TEMP_DIR/calls.log"
+  export GH_CALL_LOG
+  : > "$GH_CALL_LOG"
   run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "invalid message" --issue 123 --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Conventional Commits" ]]
+  ! grep -q 'pr create' "$GH_CALL_LOG"
+  # Non-squash repo: any non-empty title passes the gate.
+  export SQUASH_MODE=false
+  : > "$GH_CALL_LOG"
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "invalid message" --issue 123 --repo-dir "$REPO_DIR"
+  [ "$status" -eq 0 ]
+}
+
+@test "pr-create defaults PR title to the issue title when omitted on a non-squash repo" {
+  export SQUASH_MODE=false
+  GH_CALL_LOG="$TEST_TEMP_DIR/calls.log"
+  export GH_CALL_LOG
+  : > "$GH_CALL_LOG"
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" --issue 123 --repo-dir "$REPO_DIR"
+  [ "$status" -eq 0 ]
+  grep -q -- '--title Fix the frobnicator alignment' "$GH_CALL_LOG"
+}
+
+@test "pr-create requires a title on a squash repo even without a message" {
+  export SQUASH_MODE=true
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" --issue 123 --repo-dir "$REPO_DIR"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "squash" ]]
+}
+
+@test "pr-create infers the issue number from the branch name" {
+  git checkout -b 42-fix-thing >/dev/null 2>&1
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "some title" --repo-dir "$REPO_DIR"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Inferred issue #42" ]]
+}
+
+@test "pr-create inference skips a type folder prefix" {
+  git checkout -b feat/77-add-widget >/dev/null 2>&1
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "some title" --repo-dir "$REPO_DIR"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Inferred issue #77" ]]
+}
+
+@test "pr-create errors when inference finds no numeric segment" {
+  git checkout -b hotfix-desc-only >/dev/null 2>&1
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "some title" --repo-dir "$REPO_DIR"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "none inferable from branch name" ]]
+  [[ "$output" =~ "--no-issue" ]]
 }
 
 @test "pr-create shows usage with --help" {

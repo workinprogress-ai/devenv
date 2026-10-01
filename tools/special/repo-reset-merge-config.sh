@@ -14,13 +14,14 @@ DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 # the policy can apply cleanly (open PRs, WIP-bearing merge ranges).
 #
 # Usage:
-#   ./repo-reset-merge-config.sh [--apply] [--repo <name>] [--limit <n>] [--help]
+#   ./repo-reset-merge-config.sh [--apply] [--all | <name>...] [--limit <n>] [--help]
 #
 # Options:
 #   --apply            Actually apply the configuration (default is dry-run:
 #                      report only, no mutations)
-#   --repo <name>      Restrict the run to a single repository by name
-#   --limit <n>        Max org repositories to scan (default 1000)
+#   --all              Sweep every repository in the organization
+#   <name>...          Restrict the run to the named repositories (positional)
+#   --limit <n>        Max org repositories to scan in --all mode (default 1000)
 #   --help             Show this help message
 #
 # Dry-run report per repository:
@@ -47,21 +48,25 @@ source "$DEVENV_TOOLS/lib/repo-types.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 
 APPLY="false"
-ONLY_REPO=""
+ALL_REPOS="false"
+TARGET_REPOS=()
 LIMIT="1000"
 
 usage() {
     cat << 'EOF' >&2
-Usage: repo-reset-merge-config [--apply] [--repo <name>] [--limit <n>]
+Usage: repo-reset-merge-config [--apply] [--all | <name>...] [--limit <n>]
 
-One-time org-wide reset of merge configuration to the rebase-only policy.
+One-time reset of merge configuration to the rebase-only policy.
 Default mode is dry-run (report only). --apply performs the configuration.
 
+Target selection (exactly one of):
+  --all              Sweep every repository in the organization
+  <name>...          Restrict to the named repositories (positional)
+
 Options:
-  --apply        Apply the configuration (default: dry-run report only)
-  --repo <name>  Restrict to a single repository by name
-  --limit <n>    Max org repositories to scan (default 1000)
-  --help         Show this help message
+  --apply            Apply the configuration (default: dry-run report only)
+  --limit <n>        Max org repositories to scan in --all mode (default 1000)
+  --help             Show this help message
 EOF
     exit "$EXIT_GENERAL_ERROR"
 }
@@ -69,12 +74,23 @@ EOF
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --apply)  APPLY="true"; shift ;;
-        --repo)   ONLY_REPO="$2"; shift 2 ;;
+        --all)    ALL_REPOS="true"; shift ;;
         --limit)  LIMIT="$2"; shift 2 ;;
         -h|--help) usage ;;
-        *) log_error "Unknown argument: $1"; usage ;;
+        --*) log_error "Unknown argument: $1"; usage ;;
+        *)    TARGET_REPOS+=("$1"); shift ;;
     esac
 done
+
+# Target selection: --all for the org sweep, or positional names for a subset.
+if [ "$ALL_REPOS" = "true" ] && [ ${#TARGET_REPOS[@]} -gt 0 ]; then
+    log_error "Choose one target mode: --all for the org sweep, or positional repo names."
+    usage
+fi
+if [ "$ALL_REPOS" != "true" ] && [ ${#TARGET_REPOS[@]} -eq 0 ]; then
+    log_error "No target selected — pass --all for the org-wide sweep, or positional repo names."
+    usage
+fi
 
 # Org identity resolves through the policy layer (config → seed → provider);
 # there is no GH_ORG env leg.
@@ -92,10 +108,17 @@ MODE_LABEL="dry-run (report only)"
 
 log_info "repo-reset-merge-config — org: ${ORG} — mode: ${MODE_LABEL}"
 
-REPOS_LIST="$(list_organization_repositories "$ORG" "$LIMIT")" || {
-    log_error "Failed to enumerate org repositories."
-    exit "$EXIT_API_FAILURE"
-}
+# Named targeting (positional) bypasses org enumeration entirely:
+# the requested names are the list, so unknown names surface in the per-repo
+# loop as failures rather than aborting the run. --limit is an org-sweep knob.
+if [ ${#TARGET_REPOS[@]} -gt 0 ]; then
+    REPOS_LIST=$(printf '%s\n' "${TARGET_REPOS[@]}")
+else
+    REPOS_LIST="$(list_organization_repositories "$ORG" "$LIMIT")" || {
+        log_error "Failed to enumerate org repositories."
+        exit "$EXIT_API_FAILURE"
+    }
+fi
 
 if [ -z "$REPOS_LIST" ]; then
     log_info "No repositories found in org '${ORG}'."
@@ -111,9 +134,6 @@ APPLIED_COUNT=0
 
 while IFS= read -r repo_name; do
     [ -n "$repo_name" ] || continue
-    if [ -n "$ONLY_REPO" ] && [ "$repo_name" != "$ONLY_REPO" ]; then
-        continue
-    fi
     REPO_COUNT=$((REPO_COUNT + 1))
     FULL_NAME="${ORG}/${repo_name}"
 

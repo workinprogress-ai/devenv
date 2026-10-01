@@ -60,7 +60,7 @@ teardown() {
 }
 
 @test "repo-reset-merge-config dry-run lists repos and flags attention" {
-  DEVENV_ROOT="$PROJECT_ROOT" run bash "$PROJECT_ROOT/tools/special/repo-reset-merge-config.sh"
+  DEVENV_ROOT="$PROJECT_ROOT" run bash "$PROJECT_ROOT/tools/special/repo-reset-merge-config.sh" --all
   [ "$status" -eq 0 ]
   [[ "$output" =~ "org:" ]]
   [[ "$output" =~ "repo-alpha" ]]
@@ -76,15 +76,15 @@ teardown() {
   ! [[ "$output" =~ "Applied rebase-only config" ]]
 }
 
-@test "repo-reset-merge-config --repo restricts the scan" {
-  DEVENV_ROOT="$PROJECT_ROOT" run bash "$PROJECT_ROOT/tools/special/repo-reset-merge-config.sh" --repo repo-beta
+@test "repo-reset-merge-config positional name restricts the scan" {
+  DEVENV_ROOT="$PROJECT_ROOT" run bash "$PROJECT_ROOT/tools/special/repo-reset-merge-config.sh" repo-beta
   [ "$status" -eq 0 ]
   [[ "$output" =~ "repo-beta" ]]
   ! [[ "$output" =~ "repo-alpha" ]]
 }
 
 @test "repo-reset-merge-config --apply configures repos" {
-  DEVENV_ROOT="$PROJECT_ROOT" run bash "$PROJECT_ROOT/tools/special/repo-reset-merge-config.sh" --apply --repo repo-beta
+  DEVENV_ROOT="$PROJECT_ROOT" run bash "$PROJECT_ROOT/tools/special/repo-reset-merge-config.sh" --apply repo-beta
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Applied rebase-only config" ]]
 }
@@ -92,4 +92,29 @@ teardown() {
 @test "repo-reset-merge-config has valid bash syntax" {
   run bash -n "$PROJECT_ROOT/tools/special/repo-reset-merge-config.sh"
   [ "$status" -eq 0 ]
+}
+
+@test "repo-reset-merge-config no target selected: usage error with guidance" {
+  DEVENV_ROOT="$PROJECT_ROOT" run bash "$PROJECT_ROOT/tools/special/repo-reset-merge-config.sh"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "No target selected" ]]
+}
+
+@test "repo-reset-merge-config positional list processes exactly the named repos" {
+  DEVENV_ROOT="$PROJECT_ROOT" run bash "$PROJECT_ROOT/tools/special/repo-reset-merge-config.sh" repo-alpha repo-beta
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "repo-alpha" ]]
+  [[ "$output" =~ "repo-beta" ]]
+}
+
+@test "repo-reset-merge-config --all combined with positionals is a usage error" {
+  DEVENV_ROOT="$PROJECT_ROOT" run bash "$PROJECT_ROOT/tools/special/repo-reset-merge-config.sh" --all repo-alpha
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Choose one target mode" ]]
+}
+
+@test "repo-reset-merge-config --repo is no longer a recognized flag" {
+  DEVENV_ROOT="$PROJECT_ROOT" run bash "$PROJECT_ROOT/tools/special/repo-reset-merge-config.sh" --repo repo-beta
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Unknown argument: --repo" ]]
 }

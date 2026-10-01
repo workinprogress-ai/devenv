@@ -43,11 +43,12 @@ source "$DEVENV_TOOLS/lib/issue-operations.bash"
 
 
 usage() {
-  echo "Usage: $(basename "$0") <title> [options]" >&2
+  echo "Usage: $(basename "$0") [<title>] [options]" >&2
   echo "" >&2
   echo "Options:" >&2
-  echo "  --issue <number>     Issue number this PR addresses (required)" >&2
+  echo "  --issue <number>     Issue number this PR addresses. Omitted: inferred from the branch name ([<type>/]<issue>-<slug>); if not inferable, an error asks for --issue or --no-issue" >&2
   echo "  --no-issue           Explicitly indicate this PR has no associated issue" >&2
+  echo "  <title>              PR title. Optional for non-squash repos without a message (the issue title is used); required for squash-merge repos, where it must follow Conventional Commits" >&2
   echo "  --base <branch>      Target branch for PR (default: repository's default branch)" >&2
   echo "                        Examples: master, main, develop, release/v1.0" >&2
   echo "  --repo-dir <path>    Repository directory (default: current)" >&2
@@ -116,7 +117,29 @@ done
 set -- "${POSITIONAL[@]}"
 
 PR_TITLE="${1:-}"
-[ -n "$PR_TITLE" ] || usage
+# Title is optional: non-squash repos without a supplied message adopt the
+# issue title (validated later, after issue resolution).
+
+PR_TITLE="${1:-}"
+
+# Issue inference: with neither --issue nor --no-issue, derive the number from
+# the branch name — the org's branch convention is [<type>/]<issue>-<slug>
+# (e.g. 29-refactor-allow-non-github-adaptation, feat/29-fix-thing). The first
+# numeric segment after any folder prefix is the issue number. An
+# un-inferable branch is an error, not a silent no-issue: an unintended
+# no-issue PR skips close-out linkage.
+if [ -z "$ISSUE_NUMBER" ] && [ "$NO_ISSUE" != "true" ]; then
+  BRANCH_NAME="$(git -C "$REPO_DIR" branch --show-current 2>/dev/null)"
+  BRANCH_LEAF="${BRANCH_NAME##*/}"
+  INFERRED_ISSUE=""
+  [[ "$BRANCH_LEAF" =~ ^([0-9]+) ]] && INFERRED_ISSUE="${BASH_REMATCH[1]}"
+  if [ -z "$INFERRED_ISSUE" ]; then
+    echo "Error: No issue passed (--issue) and none inferable from branch name '${BRANCH_NAME:-<none>}' — pass --issue <number> or --no-issue." >&2
+    exit "$EXIT_MISUSE"
+  fi
+  ISSUE_NUMBER="$INFERRED_ISSUE"
+  echo "Inferred issue #$ISSUE_NUMBER from branch '$BRANCH_NAME'." >&2
+fi
 
 # Read body from file if --body-file was given
 if [ -n "$BODY_FILE" ]; then
@@ -124,12 +147,8 @@ if [ -n "$BODY_FILE" ]; then
   PR_BODY="$(cat "$BODY_FILE")"
 fi
 
-# Validate issue requirement
-if [ -z "$ISSUE_NUMBER" ] && [ "$NO_ISSUE" != "true" ]; then
-  echo "Error: Either --issue <number> or --no-issue must be specified." >&2
-  echo "" >&2
-  usage
-fi
+# (Issue requirement is enforced above: --issue, --no-issue, or branch-name
+# inference — an un-inferable branch errors with guidance there.)
 
 if [ -n "$ISSUE_NUMBER" ] && [ "$NO_ISSUE" = "true" ]; then
   echo "Error: Cannot specify both --issue and --no-issue." >&2
@@ -144,10 +163,53 @@ if [ -n "$ISSUE_NUMBER" ]; then
   fi
 fi
 
-CC_REGEX='^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert|patch|minor|major)(\([^)]+\))?!?: .+'
-if ! [[ "$PR_TITLE" =~ $CC_REGEX ]]; then
-  echo "Error: PR title must follow Conventional Commits (e.g., feat(api): add feature)." >&2
-  exit "$EXIT_GENERAL_ERROR"
+# Repo spec for provider reads: derived from the target repo's origin remote
+# (pr-create runs with --repo-dir from any cwd, so the cwd-resolution leg of
+# provider_repo_target does not apply). The web URL's host prefix is stripped,
+# leaving the provider spec (owner/repo).
+ORIGIN_URL="$(git -C "$REPO_DIR" remote get-url origin 2>/dev/null)"
+# Guarded pipeline: a provider that can't parse this remote returns 1, and
+# under set -euo pipefail an unguarded failing substitution would kill the
+# script before the provider_repo_target fallback below could engage.
+REPO_SPEC=""
+REPO_SPEC="$(provider_remote_to_web "$ORIGIN_URL" 2>/dev/null | sed -E "s#https?://[^/]+/##; s#\.git\$##" || true)"
+[ -n "$REPO_SPEC" ] || REPO_SPEC="$(provider_repo_target 2>/dev/null || true)"
+
+# Squash detection: the Conventional Commits gate matters only when a squash
+# merge would adopt this title as the commit subject. Live repo settings are
+# ground truth (a fork can flip them after provisioning); a failed read is
+# treated as non-squash — rebase is the org's standard, so permissive is the
+# safe default.
+repo_is_squash() {
+  [ -n "$REPO_SPEC" ] || return 1
+  local enabled
+  enabled="$(provider_repos_view "$REPO_SPEC" --json allowSquashMerge -q .allowSquashMerge 2>/dev/null)" || return 1
+  [ "$enabled" = "true" ]
+}
+
+ISSUE_TITLE=""
+if [ -n "$ISSUE_NUMBER" ] && [ -n "$REPO_SPEC" ]; then
+  ISSUE_TITLE="$(provider_issues_view "$REPO_SPEC" "$ISSUE_NUMBER" --json title -q .title 2>/dev/null)" || ISSUE_TITLE=""
+fi
+
+if [ -z "$PR_TITLE" ]; then
+  # No message given: non-squash repos adopt the issue title as the PR title
+  # (the squash commit path keeps an explicit title mandatory — the title
+  # would become the commit subject).
+  if repo_is_squash; then
+    echo "Error: A PR title is required when the repository uses squash merges (the title becomes the commit subject)." >&2
+    exit "$EXIT_GENERAL_ERROR"
+  fi
+  [ -n "$ISSUE_TITLE" ] || { echo "Error: No PR title given and the issue title could not be fetched — pass a title explicitly." >&2; exit "$EXIT_GENERAL_ERROR"; }
+  PR_TITLE="$ISSUE_TITLE"
+fi
+
+if repo_is_squash; then
+  CC_REGEX='^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert|patch|minor|major)(\([^)]+\))?!?: .+'
+  if ! [[ "$PR_TITLE" =~ $CC_REGEX ]]; then
+    echo "Error: PR title must follow Conventional Commits (e.g., feat(api): add feature) — this repository uses squash merges, so the title becomes the commit subject." >&2
+    exit "$EXIT_GENERAL_ERROR"
+  fi
 fi
 
 cd "$REPO_DIR" 2>/dev/null || { echo "Failed to change directory to $REPO_DIR" >&2; exit "$EXIT_GENERAL_ERROR"; }
