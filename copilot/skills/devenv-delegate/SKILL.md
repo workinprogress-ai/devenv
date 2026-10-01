@@ -70,7 +70,7 @@ At phase kickoff of the first implementation phase, signal `_on_begin_implementa
 
 ## Personality
 
-Slightly more reserved than pair-programming. Less chitchat, more execution focus.
+Slightly more reserved than pair-programming. Less chitchat, more execution focus — the deliberate mirror of pair's personality-forward lane: here the AI's own code is what gets reviewed, so dissent is recorded rather than debated live.
 
 Commit guidance under delegation: commit granularity follows mergeability, not
 phase boundaries ([Commit Conventions](../../../docs/Commit-Conventions.md)) —
@@ -78,10 +78,11 @@ under rebase merges every commit lands on master individually, so a phase-spanni
 blob commit is not an acceptable unit. Hand the commit decision to `/devenv-commit`
 with the split suggestion when one phase's work needs multiple commits.
 
-- Witty when it lands; never theatrical.
-- Push back on bad ideas with a clear reason.
+- Witty when it lands; never theatrical. Humor incidental at most — a dry line at a handback is fine; mid-task banter is overhead.
+- Push back on bad ideas with a clear reason — surfaced at gates and recorded in the handback (Deviation / Challenges / Open questions) rather than argued live.
 - Say *"I don't know"* out loud rather than confabulating.
 - Keep status pings to one line.
+- Written output is strictly business: no snark or jokes in handbacks, plan writes, issue comments, or PR text.
 
 ## Output Signals
 
@@ -113,7 +114,7 @@ Run these in order.
 
 Run `skill-orient` (read-only JSON: active plan + census, scoped TODO markers, staging counts, provenance hint) and surface anything it reports as session context. It replaces hand-deriving plan/staging/marker state; the scoped-TODO discovery below remains the required detailed pass.
 
-**Single-writer rule (per plan file).** One active delegated run per plan file — two commissioned runs sharing a ledger means colliding ticks and lost deviations on the as-built record. If this run observes plan edits it did not make (ticks appearing or changing, sections rewritten, tasks added externally), that is a **stop and surface**, not a re-read-and-continue: ask the user who else is active and whether to continue, adopt their state, or stand down. Two runs on *different* plans in the same repo may coexist — the foreign-changes trigger below is the only safety net between them.
+**Single-writer rule (per plan file).** One active delegated run per plan file — two commissioned runs sharing a ledger means colliding ticks and lost deviations on the as-built record. If this run observes plan edits it did not make (ticks appearing or changing, sections rewritten, tasks added externally), that is a **stop and surface**, not a re-read-and-continue: ask the user who else is active and whether to continue, adopt their state, or stand down — present via the structured interview per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections) (options: continue as-is / adopt their state / stand down). Two runs on *different* plans in the same repo may coexist — the foreign-changes trigger below is the only safety net between them.
 
 **Provenance baseline.** At commissioning, record `git status --porcelain` output as the run's provenance baseline. The mid-run foreign-changes trigger and the handback's working-tree provenance line diff against this baseline — "foreign" means *not in the baseline and not written by this run*, judged by evidence rather than recall.
 
@@ -134,7 +135,7 @@ Ask if not provided: issue # or path to a plan markdown.
       - Otherwise use `issue-artifact-select --issue <N> --artifact-type plan`; if ambiguous, list candidates with `issue-artifact-list --issue <N> --artifact-type plan --pretty` and ask the user which `doc_id` to use.
   3. `mkdir -p <repo-root>/.local-artifacts` (if not already present), then fetch the selected artifact via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --write-body <repo-root>/.local-artifacts/$(next-id --pattern 'Plan-issue-<N>-{N}.md' --dir <repo-root>/.local-artifacts --filename)` — the directory prefix is required because `next-id --filename` returns a bare filename (not a joined path), and the prefix keeps the write location cwd-independent; the tool writes the raw markdown to the next free suffix (never overwrites an existing file). If no plan artifact exists for the issue, the intake gate in step 1 already materialized one — do not reach this step in that case.
   4. **Work exclusively from the local file from this point on.** Record its workspace-relative path (e.g. `repos/<your-service>/.local-artifacts/Plan-issue-42-001.md`) — this is the `<plan_file>` for `markdown-plan-complete-task` calls throughout the session. Pass it explicitly when running from a directory other than the plan's own — the tool auto-detects `Plan-*.md` only in the current directory and `.local-artifacts/`. Checkbox updates go to the file; issue artifact syncs at phase boundaries upsert the same `doc_id` back to the issue.
-  5. **The plan is the session state — no shadow state file.** Delegation keeps its ledger entirely in the plan file: ticks happen at task checkpoints, deviations are recorded at approval time, and the shared stop protocol writes pending deltas on any interruption. After compaction, resume by re-reading this skill plus the plan file — phase structure, `[x]` ticks, `decision:` metadata, `[QUESTION]`s, and pending items are all already durable there. A separate delegation session-state file would duplicate the plan and drift from it (the exact failure that removed the old session-handoff skill); pair needs one only because pairing holds conversational residue (debates, partial intent) that plans deliberately do not.
+  5. **The plan is the session state — no shadow state file.** Delegation keeps its ledger entirely in the plan file: ticks happen at task checkpoints, deviations are recorded at approval time, and the shared stop protocol writes pending deltas on any interruption. After compaction, resume by re-reading this skill plus the plan file — phase structure, `[x]` ticks, `decision:` metadata, `[QUESTION]`s, pending items, and the commissioned boundary mode (see the [mode record](#6a-record-the-commissioned-boundary-mode-required)) are all already durable there. A separate delegation session-state file would duplicate the plan and drift from it (the exact failure that removed the old session-handoff skill); pair needs one only because pairing holds conversational residue (debates, partial intent) that plans deliberately do not.
 - **Plan file**: read it. Then determine whether there is an associated issue for artifact sync:
    1. If the user provided an issue number, use it.
    2. Else, if filename matches `Plan-issue-<N>-*.md`, infer `<N>`.
@@ -161,7 +162,7 @@ After loading, scan for obvious staleness signals before going any further:
 
 **If two or more signals are present**, flag it before continuing:
 
-> *"This plan shows signs of drift: [list the specific signals]. I'd recommend running `/devenv-refine-plan` (assessment mode) before we start to make sure we're working from a plan that matches the current codebase. Want to do that now, or proceed as-is?"*
+> *"This plan shows signs of drift: [list the specific signals]. I'd recommend running `/devenv-refine-plan` (assessment mode) before we start to make sure we're working from a plan that matches the current codebase. Want to do that now, or proceed as-is?"* — present via the structured interview per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections) (options: refresh first / proceed as-is).
 
 Wait for the user's answer. If they say proceed, note the signals in the first phase's completion handback open questions section and continue. If they say refresh, tell them to invoke `/devenv-refine-plan` in assessment mode (new skill invocation required) and stop.
 
@@ -319,7 +320,7 @@ Before execution starts, refresh the current phase task list against reality usi
 - Remove or strike obsolete tasks with a short reason.
 - Add newly required unchecked tasks in the current phase (or add a new phase only if necessary).
 - Keep the phase list concise (typically 3-7 active tasks) and phase-local.
-- Ask for a quick confirm before starting implementation.
+- Ask for a quick confirm before starting implementation — present via the structured interview per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections) when the choice is bounded.
 
 This refreshed phase task list is the execution ledger and must stay current throughout the phase.
 
@@ -337,6 +338,10 @@ If the immediately previous turn raised a `🔶` decision gate, a generic "go ah
 
 The mode is part of the commission — never self-granted or escalated mid-run. In checkpoint mode, the boundary evaluation (below) is conservative; when torn between continuing and handing back, **hand back**. The user may switch modes at any handback; that is a downgrade in trust that needs no justification.
 
+### 6a. Record the commissioned boundary mode (required)
+
+Persist the chosen mode in the plan file's metadata header as `boundary_mode: gate | checkpoint` — `artifact-header <plan_file> --set boundary_mode=<mode>` — immediately after the interview. The header is the durable home: after compaction, the resume path re-reads the plan file and recovers the mode from there, and the boundary close re-checks the mode from the same key. A mode change at a handback updates this key in the same exchange; never rely on session context alone for the mode.
+
 ### 6b. Returning after a gap or status request
 
 If the user returns after stepping away and asks for status (for example: "where are we?", "what finished?", "what's next?"), run a concise **Phase review pass** before proposing next actions.
@@ -349,7 +354,7 @@ When a phase is ready to close, do one final cleanup sweep before marking it com
 
 1. Re-read the phase's changed files and compare them with the phase tasks and ACs.
 2. Tick off tasks that are clearly complete and remove or strike tasks that are now obsolete.
-3. If an important task appears to be left undone, stop and surface it to the user with the concrete choice: complete it now, defer it, or add it as a new task / phase.
+3. If an important task appears to be left undone, stop and surface it to the user with the concrete choice: complete it now, defer it, or add it as a new task / phase — present via the structured interview per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections).
 4. Only when the ledger matches reality should the phase be considered closed and eligible for the phase-completion gate.
 
 For cleanup tasks involving temporary scaffolding/escape-hatch artifacts, run these extra gates before closure:
@@ -448,7 +453,7 @@ Stop the phase and reconvene with the user when **any** of these happen:
 
 Also abort and escalate if the delegation threshold in the shared [decision resolution protocol](../common/references/decision-resolution-protocol.md) is crossed.
 
-When this condition is hit, confirm with the user before executing the escalation handoff: escalate now, defer, or continue with a bounded attempt.
+When this condition is hit, confirm with the user before executing the escalation handoff: escalate now, defer, or continue with a bounded attempt — present via the structured interview per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections).
 
 When aborting, summarize what was completed so far in the same format as a phase completion handback.
 
@@ -469,6 +474,7 @@ Use this canonical pass whenever you hand back a completed phase, abort a phase 
 Default output shape:
 
 > **Done:** [tasks/files completed]
+> **Stop trigger:** [why this handback exists — a defined value from the table below, not freeform prose]
 > **Deviation:** [none or brief note]
 > **Challenges:** [encountered-and-worked-through items, or "none"]
 > **Hotspots:** [file:line items worth review]
@@ -476,6 +482,19 @@ Default output shape:
 > **Working-tree provenance:** [files the run changed vs foreign/pre-existing edits observed — one line; "all changes are the run's" when nothing foreign]
 > **Gate:** [clear/blocked/not yet run + reason]
 > **Next:** [continue to next phase / rework item / plan revision]
+
+**Stop trigger values** — cite this skill's own trigger vocabulary so the reason for stopping is checkable and scope-matched direction is possible:
+
+| Value | Source |
+|---|---|
+| `routine gate-mode boundary — phase complete, awaiting review` | boundary mode ([Confirm and start](#6-confirm-and-start)) |
+| `checkpoint boundary, criterion N fired: <which>` | [boundary evaluation](#phase-boundary-evaluation-checkpoint-mode) |
+| `checkpoint forced stop: <item>` | forced-stop list (boundary evaluation) |
+| `mid-phase stop trigger: <specific bullet>` | [mid-phase stop triggers](#mid-phase-stop-triggers) |
+| `abort: <condition>` | [mid-phase abort conditions](#mid-phase-abort-conditions) |
+| `wall` | the 🛑 blocker format |
+
+Every handback and abort names its trigger; a report without a **Stop trigger** line is malformed. When the trigger is a weak one (a criterion that fired on a technicality), say so explicitly — the user can waive the criterion and direct a continue.
 
 Keep this concise by default (5-8 lines). Expand only when drift is meaningful or the user asks for detail.
 
@@ -487,10 +506,10 @@ Whenever control returns to the user — a gate-mode phase boundary, a mid-phase
 
 A phase boundary always runs its mechanical work regardless of mode: the [Phase Completion Gate](#phase-completion-gate), ledger reconciliation, phase-close cleanup pass, plan sync, and a report. The only variable is whether the report **waits** for the user. In checkpoint mode, after the mechanical work, evaluate:
 
-- Did anything **deviate** from the plan, or get decided without clear codebase precedent?
+- Did anything **materially deviate** from the plan, or was a consequential call made without clear codebase precedent? (Minor judgment calls handled under the stop triggers' "don't stop for" list and reported as Challenges do not count.)
 - Is the **next phase different in character or risk** (new contracts/public surfaces, new repos, different failure modes) than the one just finished?
 - Is the gate **fully clear** — no deferred items, no open `[QUESTION]`s bleeding into the next phase?
-- Did the plan **change** during the phase (added tasks, reworded scope)?
+- Did the plan change **materially or structurally** during the phase (phase/task structure, acceptance criteria, sequencing, or significant divergence)? Routine task-list maintenance — ticks, tightening vague wording, small task additions or strikes under the standard refresh discipline — does not count; the skills-mandated task-list refresh is normal execution, not a boundary event.
 
 Any yes hands back to the user with the report before continuing. When a criterion genuinely applies but its severity is unclear, the [supervision bias](#mid-phase-stop-triggers) applies to this evaluation itself: a false handback costs one exchange; a bad continue compounds silently across the phases that follow. With **all four criteria negative**, checkpoint mode's default action is **continue** — state the pass and proceed with the report as notice. Doubt must be tied to a concrete criterion above; the absence of an explicit all-clear signal is not doubt, and only the forced-stop list below justifies waiting when the criteria are all negative.
 
