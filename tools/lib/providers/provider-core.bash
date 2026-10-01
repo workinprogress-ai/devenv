@@ -52,8 +52,10 @@ fi
 # Detection & dispatch
 # ============================================================================
 
-# Active provider name (set by provider_detect).
-PROVIDER_NAME=""
+# Active provider name (set by provider_detect). Default only when the
+# caller has not already chosen: an exported PROVIDER_NAME (scripts and
+# suites select azure explicitly) must survive sourcing this file.
+PROVIDER_NAME="${PROVIDER_NAME:-}"
 export PROVIDER_NAME
 
 # Escape-hatch allowlist for session-scoped GH_TOKEN exports (AC-2). Ships

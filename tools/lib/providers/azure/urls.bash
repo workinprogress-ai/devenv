@@ -159,6 +159,8 @@ provider_remote_to_web() {
     local remote="${1:-}"
     local parsed
     if ! parsed=$(azure_parse_remote "$remote" 2>/dev/null); then
+        # Not an azure remote — the seam contract: return 1 and let the
+        # caller fall back (provider-hosted repos are the caller's concern).
         return 1
     fi
     local org project repo

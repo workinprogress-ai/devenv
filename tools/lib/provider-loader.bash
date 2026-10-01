@@ -34,6 +34,7 @@ if [ -f "$_gh_self_dir/providers/provider-core.bash" ]; then
     # shellcheck disable=SC1091
     source "$_gh_self_dir/providers/provider-core.bash"
     provider_load issues prs repos pipelines projects org urls auth
+
 fi
 unset _gh_self_dir
 

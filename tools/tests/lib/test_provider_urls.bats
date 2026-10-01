@@ -48,3 +48,26 @@ setup() {
         "$DEVENV_TOOLS/lib/providers/github/urls.bash"
     [ "$output" = "https://github.com/org/repo/pull/9" ]
 }
+
+@test "urls: remote_to_web parses credential-embedded https remotes" {
+    # https://user:token@host/... remotes are common (git stores the PAT
+    # this way); they must parse like clean https remotes.
+    run provider_remote_to_web "https://user:ghp_abc@github.com/owner/repo.git"
+    [ "$status" -eq 0 ]
+    [ "$output" = "https://github.com/owner/repo" ]
+}
+
+@test "urls: azure remote_to_web returns 1 on non-azure remotes (seam contract)" {
+    # The seam contract: each provider answers only for its own host. A
+    # github remote is NOT azure's to parse — callers own cross-host
+    # fallback (pr-create falls back to provider_repo_target).
+    run bash -c "
+        export PROVIDER_NAME=azure
+        source '$DEVENV_TOOLS/lib/error-handling.bash'
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        provider_load urls
+        provider_remote_to_web 'https://user:tok@github.com/owner/repo.git'
+    "
+    [ "$status" -ne 0 ]
+    [ -z "$output" ]
+}

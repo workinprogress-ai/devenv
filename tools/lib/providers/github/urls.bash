@@ -128,15 +128,20 @@ provider_extract_url() {
 provider_remote_to_web() {
     # Matching derives from provider_web_host too — ssh/scp-style, https, and
     # http forms all normalize to the provider's clean https web form.
+    # Embedded credentials (https://user:token@host/...) are stripped first:
+    # credential-embedded https remotes are common and must parse like clean
+    # ones.
     local remote="${1:-}"
+    remote="${remote#https://*:*@}"
+    remote="${remote#ssh://*:*@}"
     local host
     host=$(provider_web_host)
     case "$remote" in
         "git@${host}:"*)
             remote="${remote#git@${host}:}"
             ;;
-        "https://${host}/"*)
-            remote="${remote#https://${host}/}"
+        "https://${host}/"*|"${host}/"*)
+            remote="${remote#https://${host}/}"; remote="${remote#${host}/}"
             ;;
         "http://${host}/"*)
             remote="${remote#http://${host}/}"
