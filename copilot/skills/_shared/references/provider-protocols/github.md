@@ -36,7 +36,9 @@ Credential verbs (provider seam — wrappers call these; do not call gh directly
 - `provider_secret_get token` — print the resolved token. Used by bootstrap
   (nuget/npmrc/copilot syncs).
 
-Rotation: `key-update-git <token>` (or `gh auth login` manually).
+Rotation: `key-update-provider <token>` (dispatches to the provider's
+key-update script; manual path: `gh auth login --with-token` then
+`gh auth setup-git --hostname github.com`).
 
 ## Repository targeting (GitHub entries)
 
@@ -45,3 +47,10 @@ The neutral targeting chain lives in
 GitHub's provider-specific entry: `GH_REPO` (gh's own full-form variable)
 is honored as provider-internal transport state — scripts never read or
 write it.
+
+## Pipelines transport detail (GitHub)
+
+`pipelines-run` under GitHub: `gh workflow run` returns no run ID, so the
+tool polls `gh run list` (~2s) to surface the run URL. This polling
+behavior is github-transport-specific and lives here, not in the shared
+wrapper reference.

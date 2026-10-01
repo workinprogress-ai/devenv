@@ -98,7 +98,7 @@ list_prs() {
     read -ra repo_spec <<< "$(get_repo_spec)"
 
     local gh_args=()
-    gh_args+=("${repo_spec[@]}")
+    gh_args+=("${repo_spec[0]:-}")
     gh_args+=(--state "$STATE")
     gh_args+=(--limit "$LIMIT")
     [ -n "$AUTHOR" ]      && gh_args+=(--author "$AUTHOR")
@@ -109,7 +109,7 @@ list_prs() {
     log_verbose "Listing PRs (state=$STATE limit=$LIMIT)"
 
     if [ "$OUTPUT_FORMAT" = "table" ]; then
-        if ! provider_prs_list "" "${gh_args[@]}"; then
+        if ! provider_prs_list "${repo_spec[0]:-}" "${gh_args[@]}"; then
             log_error "Failed to list PRs"
             exit $EXIT_API_FAILURE
         fi
@@ -117,7 +117,7 @@ list_prs() {
     fi
 
     local json
-    if ! json=$(provider_prs_list "" "${gh_args[@]}" --json "$DEFAULT_FIELDS" 2>/dev/null); then
+    if ! json=$(provider_prs_list "${repo_spec[0]:-}" "${gh_args[@]}" --json "$DEFAULT_FIELDS" 2>/dev/null); then
         log_error "Failed to list PRs"
         exit $EXIT_API_FAILURE
     fi
@@ -142,7 +142,7 @@ main() {
         exit 0
     fi
 
-    ensure_gh_login
+    ensure_provider_auth
 
 
     while [[ $# -gt 0 ]]; do

@@ -37,6 +37,14 @@ if ! declare -F azure_apply_gh_list_flags >/dev/null; then
     # shellcheck disable=SC1091
     source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/urls.bash"
 fi
+if ! declare -F azure_repo_flag_spec >/dev/null; then
+    # shellcheck disable=SC1091
+    source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/repo-flag.bash"
+fi
+if ! declare -F azure_org_project >/dev/null; then
+    # shellcheck disable=SC1091
+    source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/repos.bash"
+fi
 if ! declare -F azure_http_request >/dev/null; then
     log_error "azure/prs.bash: providers/azure/http.bash failed to load"
     return 1
@@ -68,10 +76,17 @@ azure_pr_base() {
 azure_pr_status_filter() {
     case "$1" in
         open) printf 'active' ;;
+        # gh's closed covers both completed and abandoned; 'merged' maps to
+        # completed only (abandoned PRs are not merged).
         closed) printf 'completed' ;;
         merged) printf 'completed' ;;
         all) printf '' ;;
-        *) printf 'active' ;;
+        # Unknown state words fail defined instead of silently degrading to
+        # 'active' — a typo would otherwise read as a filtered list.
+        *)
+            log_error "azure_pr_status_filter: unknown state '$1' (valid: open, closed, merged, all)"
+            return 1
+            ;;
     esac
 }
 
@@ -188,19 +203,40 @@ provider_prs_view() {
         esac
     done
 
+    # Projection contract: every field in pr-get's DEFAULT_FIELDS must be
+    # present and non-null — absent Azure data maps to typed empties
+    # ([] / "" / false), never null. mergeable/mergeStateStatus map from
+    # Azure's mergeStatus: conflicts -> CONFLICTING/DIRTY; succeeded ->
+    # MERGEABLE/CLEAN; not-yet-set -> UNKNOWN/UNKNOWN (per pr-get's docs).
+    # labels ride reviewers (no tag surface on PRs); reviewRequests/milestone/
+    # comments/reviews are typed empties without supplementary fetches
+    # (documented in MAPPING.md — lazy supplementary calls deferred until a
+    # consumer needs real values).
     local mapped
     mapped=$(printf '%s' "$response" | jq -c '{
         number: .pullRequestId,
         id: .pullRequestId,
-        title: .title,
+        title: (.title // ""),
         body: (.description // ""),
         state: (if .status == "active" then "OPEN" elif .status == "completed" then "MERGED" else "CLOSED" end),
-        isDraft: .isDraft,
-        author: {login: (.createdBy.displayName // "unknown")},
+        isDraft: (.isDraft // false),
         headRefName: (.sourceRefName | ltrimstr("refs/heads/")),
         baseRefName: (.targetRefName | ltrimstr("refs/heads/")),
         headRefOid: (.lastMergeSourceCommit.commitId // ""),
-        url: (.repository.webUrl + "/pullrequest/" + (.pullRequestId | tostring))
+        author: {login: (.createdBy.displayName // "unknown")},
+        labels: ([.reviewers[]? // [] | .[]? | {login: (.displayName // .uniqueName)}] // []),
+        assignees: [],
+        reviewRequests: [],
+        milestone: "",
+        mergeable: (if .mergeStatus == "conflicts" then "CONFLICTING" elif .mergeStatus == "succeeded" then "MERGEABLE" else "UNKNOWN" end),
+        mergeStateStatus: (if .mergeStatus == "conflicts" then "DIRTY" elif .mergeStatus == "succeeded" then "CLEAN" else "UNKNOWN" end),
+        url: ((.repository.webUrl // "") + "/pullrequest/" + (.pullRequestId | tostring)),
+        createdAt: (.creationDate // ""),
+        updatedAt: (.closedDate // .creationDate // ""),
+        closedAt: (.closedDate // ""),
+        mergedAt: (if .status == "completed" then (.closedDate // "") else "" end),
+        comments: [],
+        reviews: []
     }')
 
     if [ -n "$jq_expr" ]; then

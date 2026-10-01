@@ -276,7 +276,7 @@ main() {
     fi
 
     # Ensure GitHub CLI authentication
-    ensure_gh_login || return 1
+    ensure_provider_auth || return 1
 
     # List package versions if requested
     if [ "$list_versions" = true ]; then

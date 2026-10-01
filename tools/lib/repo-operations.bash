@@ -68,8 +68,8 @@ list_organization_repositories() {
         return 1
     fi
     
-    if ! command -v gh &> /dev/null; then
-        echo "ERROR: GitHub CLI (gh) is not installed" >&2
+    if ! provider_auth_status; then
+        echo "ERROR: provider CLI is not authenticated" >&2
         return 1
     fi
     

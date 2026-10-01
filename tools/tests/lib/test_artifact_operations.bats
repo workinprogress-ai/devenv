@@ -301,3 +301,45 @@ load ../test_helper
   [ "$status" -eq 0 ]
   [[ "$output" =~ "function" ]]
 }
+
+# ============================================================================
+# Packages domain-verb contract
+# ============================================================================
+
+@test "packages reads ride provider domain verbs, never raw provider_api" {
+  # The neutral artifact layer must consume provider_org_packages_list (and
+  # the versions verb), not github-only provider_api pagination — raw API
+  # access fails defined under providers without a REST-equivalent surface.
+  local body
+  body=$(cat "$PROJECT_ROOT/tools/lib/artifact-operations.bash")
+  [[ "$body" != *"provider_api_paginate"* ]] || {
+    echo "artifact-operations still calls provider_api_paginate" >&2
+    return 1
+  }
+  [[ "$body" != *"provider_api "* ]] || {
+    echo "artifact-operations still calls provider_api" >&2
+    return 1
+  }
+}
+
+@test "github provider implements provider_org_packages_list" {
+  run bash -c "
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
+    PROVIDER_NAME=github
+    provider_load repos
+    type -t provider_org_packages_list
+  "
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "function" ]]
+}
+
+@test "azure provider implements provider_org_packages_list" {
+  run bash -c "
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
+    PROVIDER_NAME=azure
+    provider_load repos
+    type -t provider_org_packages_list
+  "
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "function" ]]
+}

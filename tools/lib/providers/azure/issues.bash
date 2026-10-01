@@ -22,6 +22,13 @@ if [ -n "${_PROVIDER_AZURE_ISSUES_LOADED:-}" ]; then
 fi
 _PROVIDER_AZURE_ISSUES_LOADED=1
 
+# Capability: this module maps the issue seam onto Azure Boards work items,
+# including native work-item types (issue-type queries resolve through
+# provider_org_issue_types below).
+if declare -F provider_declare_capability >/dev/null; then
+    provider_declare_capability native-issue-types
+fi
+
 if ! declare -F log_error >/dev/null; then
     log_error() { echo "ERROR: $*" >&2; }
 fi
@@ -35,6 +42,10 @@ fi
 if ! declare -F azure_apply_gh_list_flags >/dev/null; then
     # shellcheck disable=SC1091
     source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/urls.bash"
+fi
+if ! declare -F azure_repo_flag_spec >/dev/null; then
+    # shellcheck disable=SC1091
+    source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/repo-flag.bash"
 fi
 if ! declare -F azure_http_request >/dev/null; then
     log_error "azure/issues.bash: providers/azure/http.bash failed to load"
@@ -68,15 +79,53 @@ azure_wit_base() {
 # capture strips the trailing newline on read, and the write paths
 # pre-trim one trailing newline (azure_text_normalize) — the pairing keeps
 # round trips byte-stable without per-read newline surgery.
+# jq program for the decode — defined once as a constant; the single-quoted
+# body needs no shell-quote gymnastics at call sites.
+# shellcheck disable=SC2016  # intentional: jq program, not shell expansion
+AZURE_TEXT_DECODE_JQ='gsub("&quot;"; "\u0022")
+| gsub("&apos;"; "\u0027")
+| gsub("&#39;"; "\u0027")
+| gsub("&lt;"; "\u003c")
+| gsub("&gt;"; "\u003e")
+| gsub("&amp;"; "\u0026")'
+
+# Batch variant: decode bodies across an array of mapped items.
+# shellcheck disable=SC2016
+AZURE_DECODE_BATCH_JQ='map(.body |= (
+    @base64d
+    | gsub("&quot;"; "\u0022")
+    | gsub("&apos;"; "\u0027")
+    | gsub("&#39;"; "\u0027")
+    | gsub("&lt;"; "\u003c")
+    | gsub("&gt;"; "\u003e")
+    | gsub("&amp;"; "\u0026")
+))'
+
+# Comment variant: decode comment bodies AND rtim one trailing newline
+# (comments keep their own trailing-newline contract, distinct from items).
+# shellcheck disable=SC2016
+AZURE_COMMENT_DECODE_JQ='map(.body |= (
+    @base64d
+    | gsub("&quot;"; "\u0022")
+    | gsub("&apos;"; "\u0027")
+    | gsub("&#39;"; "\u0027")
+    | gsub("&lt;"; "\u003c")
+    | gsub("&gt;"; "\u003e")
+    | gsub("&amp;"; "\u0026")
+    | if endswith("\n") then .[0:-1] else . end
+))'
 # Usage: azure_text_decode <<< html-ish text -> markdown on stdout
 azure_text_decode() {
-    python3 -c 'import html,sys; sys.stdout.write(html.unescape(sys.stdin.read()))'
+    # jq port of html.unescape over the entity set Azure actually emits
+    # (&quot; &amp; &lt; &gt; &apos;/&#39; + numeric refs) — no python3
+    # dependency. &amp; decodes LAST so &quot; never double-decodes to &.
+    jq -rR "$AZURE_TEXT_DECODE_JQ"
 }
 # Normalize text for storage: drop ONE trailing newline (the store re-adds
 # it), keeping interior formatting untouched. Must pair with decode on read.
 # Usage: azure_text_normalize TEXT -> normalized text on stdout
 azure_text_normalize() {
-    printf '%s' "$1" | python3 -c 'import sys; t=sys.stdin.read(); sys.stdout.write(t[:-1] if t.endswith(chr(10)) else t)'
+    printf '%s' "$1" | jq -rR 'if endswith("\n") then .[0:-1] else . end'
 }
 
 # Web UI base for a work item's page (comments anchor included by callers).
@@ -133,15 +182,33 @@ provider_issues_list() {
         all) : ;;
     esac
     local label_filter=""
-    [ -n "$label" ] && label_filter="AND [System.Tags] CONTAINS '$label'"
+    [ -n "$label" ] && label_filter="@@LABEL@@"
     local type_filter=""
-    [ -n "$type" ] && type_filter="AND [System.WorkItemType] = '$type'"
+    [ -n "$type" ] && type_filter="@@TYPE@@"
 
-    # jq composes the query string: a label containing a single quote must
-    # not be able to break out of the WIQL literal.
+    # jq composes the query string: the label/type values ride as --arg
+    # variables substituted INSIDE the jq program (WIQL single quotes are
+    # doubled per the WIQL escape rule), so a label containing a quote
+    # cannot break out of the literal — shell-level interpolation into the
+    # query string is how that class of breakage happened.
+    # NOTE: the arg names avoid `label` — a reserved word in jq 1.6's
+    # grammar ($label is a syntax error there); $ARGS.named reads them.
     local wiql
-    wiql=$(jq -cn --arg q "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project $state_filter $label_filter $type_filter ORDER BY [System.Id] DESC" \
-        '{query: $q}')
+    # `-n`: the program's data comes from --arg q — jq with no input
+    # redirect would block reading stdin (hangs under bats). The program
+    # reads $q (the --arg), not `.q` (null input has no fields).
+    wiql=$(jq -cn \
+        --arg lbl "$label" \
+        --arg typ "$type" \
+        --arg q "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project $state_filter $label_filter $type_filter ORDER BY [System.Id] DESC" \
+        'def q2: "\u0027";
+         def wiql_str: gsub("\u0027"; "\u0027\u0027");
+         def lbl: $ARGS.named.lbl // "";
+         def typ: $ARGS.named.typ // "";
+         $q
+         | sub("@@LABEL@@"; if lbl != "" then "AND [System.Tags] CONTAINS " + q2 + (lbl | wiql_str) + q2 else "" end)
+         | sub("@@TYPE@@"; if typ != "" then "AND [System.WorkItemType] = " + q2 + (typ | wiql_str) + q2 else "" end)
+         | {query: .}')
 
     local base
     base=$(azure_wit_base) || return 1
@@ -178,29 +245,27 @@ provider_issues_list() {
     local enriched
     enriched=$(printf '%s' "$details" | jq -c '[.value[] | {
         number: .id,
-        title: .fields["System.Title"],
+        title: (.fields["System.Title"] // ""),
         state: (if (.fields["System.State"] == "Closed" or .fields["System.State"] == "Removed" or .fields["System.State"] == "Done") then "CLOSED" else "OPEN" end),
         labels: (.fields["System.Tags"] // "" | if . == "" then [] else split(";") | map({name: .}) end),
         body: ((.fields["System.Description"] // "") | @base64),
         url: ((.url // "") ),
         createdAt: (.fields["System.CreatedDate"] // ""),
         updatedAt: (.fields["System.ChangedDate"] // ""),
+        closedAt: (.fields["Microsoft.VSTS.Common.ClosedDate"] // ""),
         author: {login: (.fields["System.CreatedBy"].displayName // "unknown")},
-        assignees: (if (.fields["System.AssignedTo"] == null) then [] else [{login: .fields["System.AssignedTo"].displayName}] end),
-        milestone: null
+        assignees: (if (.fields["System.AssignedTo"] == null) then [] else [{login: (.fields["System.AssignedTo"].displayName // "unknown")}] end),
+        milestone: (.fields["System.IterationLevel2"] // "" | if . == "" then "" else {title: .} end)
     }]')
     if [ -z "$enriched" ] || [ "$enriched" = "null" ]; then
         enriched='[]'
     fi
     local decoded
-    decoded=$(printf '%s' "$enriched" | python3 -c '
-import base64, html, json, sys
-items = json.load(sys.stdin)
-for obj in items:
-    body = base64.b64decode(obj["body"]).decode("utf-8", "replace")
-    obj["body"] = html.unescape(body)
-sys.stdout.write(json.dumps(items))
-') || return 1
+    # jq port: base64-decode each body, then unescape over the Azure entity
+    # set (same program as azure_text_decode; &amp; last). @base64d tolerates
+    # the padded payloads Azure emits; the decode order prevents
+    # double-unescape.
+    decoded=$(printf '%s' "$enriched" | jq -c "$AZURE_DECODE_BATCH_JQ") || return 1
     [ -n "$decoded" ] || decoded='[]'
     azure_apply_gh_list_flags "$decoded" "$json_fields" "$jq_expr"
 }
@@ -243,13 +308,26 @@ provider_issues_view() {
     local mapped_body
     mapped_body=$(printf '%s' "$decoded_desc" | jq -Rs '.')
     local mapped
+    # Projection contract: every field in issue-get's DEFAULT_FIELDS
+    # (number,title,body,state,labels,assignees,milestone,author,createdAt,
+    # updatedAt,closedAt,url,comments) must be present and non-null —
+    # absent Azure data maps to typed empties ([] / ""), never null.
+    # comments: count lives on the threads resource; without a supplementary
+    # call the typed empty [] is emitted (documented in MAPPING.md).
     mapped=$(printf '%s' "$response" | jq -c --argjson body "$mapped_body" --argjson wid "$number" --arg web "$(azure_web_items_base)" '{
         number: .id,
-        title: .fields["System.Title"],
+        title: (.fields["System.Title"] // ""),
         state: (if (.fields["System.State"] == "Closed" or .fields["System.State"] == "Removed" or .fields["System.State"] == "Done") then "CLOSED" else "OPEN" end),
         body: $body,
+        labels: (.fields["System.Tags"] // "" | if . == "" then [] else split(";") | map({name: .}) end),
+        assignees: (if (.fields["System.AssignedTo"] == null) then [] else [{login: (.fields["System.AssignedTo"].displayName // "unknown")}] end),
+        milestone: (.fields["System.IterationLevel2"] // "" | if . == "" then "" else {title: .} end),
+        author: {login: (.fields["System.CreatedBy"].displayName // "unknown")},
+        createdAt: (.fields["System.CreatedDate"] // ""),
+        updatedAt: (.fields["System.ChangedDate"] // ""),
+        closedAt: (.fields["Microsoft.VSTS.Common.ClosedDate"] // ""),
         url: ($web + ($wid | tostring)),
-        labels: (.fields["System.Tags"] // "" | if . == "" then [] else split(";") | map({name: .}) end)
+        comments: []
     }')
 
     if [ -n "$jq_expr" ]; then
@@ -303,19 +381,7 @@ provider_issues_comments() {
             created_at: .createdDate,
             updated_at: (.modifiedDate // .createdDate)
         }] | .[]' \
-        | python3 -c '
-import base64, html, json, sys
-mapped = []
-for line in sys.stdin:
-    obj = json.loads(line)
-    body = base64.b64decode(obj["body"]).decode("utf-8")
-    body = html.unescape(body)
-    if body.endswith("\n"):
-        body = body[:-1]
-    obj["body"] = body
-    mapped.append(obj)
-sys.stdout.write(json.dumps(mapped) + "\n")
-'
+        | jq -cs "$AZURE_COMMENT_DECODE_JQ"
 }
 
 # ---------------------------------------------------------------------------
@@ -379,16 +445,7 @@ provider_issues_comment_get() {
             body: (.text | @base64)
         }] | .[0]') || return 1
     [ -n "$mapped" ] && [ "$mapped" != "null" ] || return 1
-    printf '%s' "$mapped" | python3 -c '
-import base64, html, json, sys
-obj = json.load(sys.stdin)
-body = base64.b64decode(obj["body"]).decode("utf-8")
-body = html.unescape(body)
-if body.endswith("\n"):
-    body = body[:-1]
-obj["body"] = body
-sys.stdout.write(json.dumps(obj) + "\n")
-'
+    printf '%s' "$mapped" | jq -c "$AZURE_COMMENT_DECODE_JQ" | jq -c '.[0]'
 }
 
 # Replace a comment's body; emits gh-shaped JSON ({id, html_url}).

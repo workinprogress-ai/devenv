@@ -126,6 +126,22 @@ provider_detect() {
         # policy layer, falling back to the historical value when the policy
         # layer itself cannot load (bootstrapping edge).
         name="$(policy_default_provider 2>/dev/null || echo github)"
+    else
+        # A configured name must name a shipped provider — a typo must fail
+        # at detection time (listing what shipped), not degrade to per-module
+        # warnings and call-time errors. Absent config keeps the policy
+        # default path above; validation targets explicit misconfiguration.
+        local _shipped
+        _shipped="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && \
+            for d in */; do printf '%s ' "${d%/}"; done 2>/dev/null || true)"
+        case " $_shipped " in
+            *" $name "*) ;;
+            *)
+                log_error "provider_detect: provider '$name' is not shipped (available: ${_shipped:-none}) — check [provider] name in $config_file"
+                PROVIDER_NAME=""
+                return 1
+                ;;
+        esac
     fi
 
     PROVIDER_NAME="$name"
@@ -459,6 +475,25 @@ provider_auth_import_token() {
     provider_auth_import_token_impl
 }
 
+# Wire git credentials for the active provider's host so clone/push work
+# without embedded URLs. GitHub: wires its existing credential-helper setup;
+# azure: registers the PAT-backed credential helper for dev.azure.com.
+# Idempotent — safe to call after every successful token import (key-update-*
+# does).
+# Usage: provider_auth_setup_git
+provider_auth_setup_git() {
+    if [ -z "${PROVIDER_NAME:-}" ]; then
+        log_error "provider_auth_setup_git: provider_detect has not run"
+        return 1
+    fi
+    # Guard on the _impl function (same reason as import_token above).
+    if ! declare -F provider_auth_setup_git_impl >/dev/null; then
+        log_error "provider '${PROVIDER_NAME}' does not implement auth setup-git (provider_auth_setup_git_impl is not defined)"
+        return 1
+    fi
+    provider_auth_setup_git_impl
+}
+
 # Check whether the provider has a usable credential (exit-code only; no
 # output, no stdout leakage). Gates scripts that require authentication
 # without performing it.
@@ -645,6 +680,12 @@ provider_repo_target() {
 # (head vs tail), callers interpret the parts per their provider.
 # Fails when the spec has no separator.
 # Usage: provider_repo_split spec HEAD_VAR TAIL_VAR
+#
+# Transport-URL arity contract: neutral callers pass the spec shape their
+# resolution produced (repo-get passes ORG REPO); each provider's
+# provider_git_transport_url owns arity normalization for its host — github
+# takes (ORG REPO); azure takes (ORG PROJECT REPO) or (ORG REPO) with the
+# project injected from config. Callers never branch on provider arity.
 provider_repo_split() {
     local spec="$1" __head="$2" __tail="$3"
     if [[ "$spec" != */* ]]; then

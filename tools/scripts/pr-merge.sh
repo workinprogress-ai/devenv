@@ -287,7 +287,7 @@ if [ -n "$policy_org" ]; then
     repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
     PR_URL="$(provider_web_url "${policy_org}/${repo_name}" "pull/$PR_ID")"
 else
-    PR_URL="$(provider_web_url "$(provider_repos_view "${repo_spec[1]:-}" --json owner,name --jq '.owner.login + "/" + .name')" "pull/$PR_ID")"
+    PR_URL="$(provider_web_url "$(provider_repos_view "${repo_spec[0]:-}" --json owner,name --jq '.owner.login + "/" + .name')" "pull/$PR_ID")"
 fi
 
 echo ""

@@ -1,6 +1,6 @@
 ---
 name: devenv-delegate
-description: 'Drive implementation of a pre-existing plan with assistant-led execution and user review. USE WHEN the user says "delegate this to you", "you take this", "run with this", "implement this plan", "work through this plan", or "do this for me" with a plan or GH issue attached, AND the work is mechanical, rote, or low-impact (refactors, rename sweeps, test scaffolding, cleanup, docs). REQUIRES a persistent, validated ledger — a plan file, a GH issue with a plan in the body, an ad-hoc task list (viability audit + materialization), or a bare GH issue (issue intake gate); never a bare in-context list. Runs phase by phase against the plan''s acceptance criteria, stopping only for ambiguity, major decisions, or unexpected obstacles; hands back with a structured completion summary (hotspots, decisions, deviations). Boundary policy set at commissioning: gate mode (default) or checkpoint mode. SUGGESTS /devenv-pair for high-impact phases; respects the user''s decision. DO NOT USE for ad-hoc work without a plan or list (use /devenv-plan first), or collaborative user-driven work (use /devenv-pair).'
+description: 'Drive implementation of a pre-existing plan with assistant-led execution and user review. USE WHEN the user says "delegate this to you", "you take this", "run with this", "implement this plan", "work through this plan", or "do this for me" with a plan or issue attached, AND the work is mechanical, rote, or low-impact (refactors, rename sweeps, test scaffolding, cleanup, docs). REQUIRES a persistent, validated ledger — a plan file, a issue with a plan in the body, an ad-hoc task list (viability audit + materialization), or a bare issue (issue intake gate); never a bare in-context list. Runs phase by phase against the plan''s acceptance criteria, stopping only for ambiguity, major decisions, or unexpected obstacles; hands back with a structured completion summary (hotspots, decisions, deviations). Boundary policy set at commissioning: gate mode (default) or checkpoint mode. SUGGESTS /devenv-pair for high-impact phases; respects the user''s decision. DO NOT USE for ad-hoc work without a plan or list (use /devenv-plan first), or collaborative user-driven work (use /devenv-pair).'
 argument-hint: '<issue-number[:doc_id] | path-to-plan | ad-hoc task list> [phase or task range]'
 user-invocable: true
 ---
@@ -40,7 +40,7 @@ Trigger phrases:
 - "do this for me" — when a plan is attached
 - A plan + intent for assistant-led execution (not collaborative turn-taking)
 - An ad-hoc decomposed task list (pasted in, or carried over from a pair-programming session) + intent for an autonomous run — acceptable via the [ad-hoc intake gate](#ad-hoc-task-list-intake), never as a bare in-context list
-- An issue number with intent for an autonomous run — acceptable via the [issue intake gate](#gh-issue-intake), which materializes a small plan first
+- An issue number with intent for an autonomous run — acceptable via the [issue intake gate](#issue-intake), which materializes a small plan first
 
 Do **not** use for:
 
@@ -123,11 +123,11 @@ Run `devenv-marker-check --todo-report <working-scope>` (target repo, plan-affec
 
 ### 1. Load the plan
 
-Ask if not provided: GH issue # or path to a plan markdown.
+Ask if not provided: issue # or path to a plan markdown.
 
-#### GH issue intake
+#### issue intake
 
-- **GH issue**:
+- **issue**:
   1. **Issue without an existing plan artifact → materialize a plan first (issue intake gate).** If step 2 below finds no plan artifact for the issue (and no local `Plan-issue-<N>-*.md` exists), do not refuse — this is the issue intake gate, sibling to [ad-hoc intake](#ad-hoc-task-list-intake): (a) read the issue body (`issue-get <N>`, repo via `DEVENV_REPO`); (b) run the same suitability judgment as ad-hoc intake (well-suited / borderline / better-as-pair; better-as-pair → recommend `/devenv-pair`); (c) draft a **small plan** from the issue — goal line, acceptance criteria derived from the issue's stated outcome, checkboxed tasks with verifiable completion signals, declared verification approach; keep it genuinely small (an issue-sized plan, typically 1–2 phases — a distinct tier from the plan skill's micro-plan lane, which is the smaller issue-less form); (d) show it for explicit user approval; (e) write it as `Plan-issue-<N>-001.md` in the target repo's `.local-artifacts/` and continue with it as the ledger. The plan may be published to the issue as a plan artifact afterwards per the standard offer.
    2. If no local file exists, resolve one plan artifact comment (legacy artifacts are typed implementation-plan) for this issue:
       - If user provided `doc_id`, use `issue-artifact-select --issue <N> --doc-id <DOC_ID>`.
@@ -135,7 +135,7 @@ Ask if not provided: GH issue # or path to a plan markdown.
   3. `mkdir -p <repo-root>/.local-artifacts` (if not already present), then fetch the selected artifact via `issue-artifact-get --issue <N> --doc-id <DOC_ID> --write-body <repo-root>/.local-artifacts/$(next-id --pattern 'Plan-issue-<N>-{N}.md' --dir <repo-root>/.local-artifacts --filename)` — the directory prefix is required because `next-id --filename` returns a bare filename (not a joined path), and the prefix keeps the write location cwd-independent; the tool writes the raw markdown to the next free suffix (never overwrites an existing file). If no plan artifact exists for the issue, the intake gate in step 1 already materialized one — do not reach this step in that case.
   4. **Work exclusively from the local file from this point on.** Record its workspace-relative path (e.g. `repos/<your-service>/.local-artifacts/Plan-issue-42-001.md`) — this is the `<plan_file>` for `markdown-plan-complete-task` calls throughout the session. Pass it explicitly when running from a directory other than the plan's own — the tool auto-detects `Plan-*.md` only in the current directory and `.local-artifacts/`. Checkbox updates go to the file; issue artifact syncs at phase boundaries upsert the same `doc_id` back to the issue.
   5. **The plan is the session state — no shadow state file.** Delegation keeps its ledger entirely in the plan file: ticks happen at task checkpoints, deviations are recorded at approval time, and the shared stop protocol writes pending deltas on any interruption. After compaction, resume by re-reading this skill plus the plan file — phase structure, `[x]` ticks, `decision:` metadata, `[QUESTION]`s, and pending items are all already durable there. A separate delegation session-state file would duplicate the plan and drift from it (the exact failure that removed the old session-handoff skill); pair needs one only because pairing holds conversational residue (debates, partial intent) that plans deliberately do not.
-- **Plan file**: read it. Then determine whether there is an associated GH issue for artifact sync:
+- **Plan file**: read it. Then determine whether there is an associated issue for artifact sync:
    1. If the user provided an issue number, use it.
    2. Else, if filename matches `Plan-issue-<N>-*.md`, infer `<N>`.
    3. If an issue number is known, resolve artifact identity for sync:
@@ -370,7 +370,7 @@ The AI runs through the phase's tasks without stopping for user review between e
 
 ### Review-phase tasks (plan-encoded review)
 
-When the plan encodes a Review phase (see [`/devenv-plan`](../devenv-plan/SKILL.md) §4c), execute its round task per the shared [plan-encoded review protocol](../common/references/plan-encoded-review.md): dispatch the self-contained review subagent brief (fresh eyes — this session wrote much of the code under review), then run the fold-in interview, apply approved findings as tasks, compute the yield, and tick the round task — all under this skill's own rules and gates. No skill switch: do not invoke `/devenv-review` and do not end the run to have the user run it; the protocol is this task's execution recipe. Review findings that reveal the work is materially off-track route through the normal deviation/stop triggers. Ordinary mid-task review feedback (pings, hotspots, navigator-style comments on fresh code) stays exactly as it is — it is conversation, not a review round, and never triggers this protocol.
+When the plan encodes a Review phase (see [`/devenv-plan`](../devenv-plan/SKILL.md) §4c), execute its round task per the shared [plan-encoded review protocol](../common/references/plan-encoded-review.md): dispatch the self-contained review subagent brief (fresh eyes — this session wrote much of the code under review), then run the fold-in interview, apply approved findings as tasks, compute the yield, and tick the round task — all under this skill's own rules and gates. No skill switch — do not invoke `/devenv-review`; **if the plan's Review phase records user-run execution mode, the protocol's user-run gate governs instead of dispatch: stop at the round task and refer the round to the user** (who may run it themselves, direct you to dispatch after all, or skip). Review findings that reveal the work is materially off-track route through the normal deviation/stop triggers. Ordinary mid-task review feedback (pings, hotspots, navigator-style comments on fresh code) stays exactly as it is — it is conversation, not a review round, and never triggers this protocol.
 
 ### Per-task decision gate (required)
 
@@ -502,9 +502,9 @@ Any yes hands back to the user with the report before continuing. When a criteri
 - Contract, schema, or public-surface changes landed or upcoming in the next phase.
 - A phase flagged `better-as-pair` at kickoff.
 
-### GH issue artifact sync
+### issue artifact sync
 
-If there is an **associated GH issue + plan artifact identity** (`<N>` + `<DOC_ID>` in session context), sync that artifact comment with `issue-artifact-upsert` using the local plan file as source of truth.
+If there is an **associated issue + plan artifact identity** (`<N>` + `<DOC_ID>` in session context), sync that artifact comment with `issue-artifact-upsert` using the local plan file as source of truth.
 
 Required sync points:
 
@@ -517,7 +517,7 @@ Sync procedure (both cases):
 2. Run the pre-upsert lint gate: `plan-parse <path> --lint --require-header` — errors block the sync until fixed (explicit user acceptance of a documented deviation is the only bypass); warnings surface for awareness.
 3. Run `issue-artifact-upsert --issue <N> --body-file <path>`.
 
-**Pre-mutation tool check (all GitHub operations, not just sync):** all GitHub operations go through the workspace wrappers — `issue-*` exclusively for issue operations, `pr-*` / `project-*` / `pipelines-*` / inspection wrappers for the rest. There is no `gh` path for anything; an uncovered operation is surfaced as a tooling gap for the user to resolve. Precedent from earlier in a session does not override this; skill boundaries reset behavioral defaults.
+**Pre-mutation tool check (all provider operations, not just sync):** all provider operations go through the workspace wrappers — `issue-*` exclusively for issue operations, `pr-*` / `project-*` / `pipelines-*` / inspection wrappers for the rest. There is no raw-CLI (`gh` for example) path for anything; an uncovered operation is surfaced as a tooling gap for the user to resolve. Precedent from earlier in a session does not override this; skill boundaries reset behavioral defaults.
 
 Do not perform routine mid-phase syncs beyond the required material-revision exception above. If the session ends mid-phase, offer to sync the completed updates. **User-issued stops are not sync exemptions** — before honoring a stop, run the shared [stop protocol](../_conventions.md#stop-protocol-shared): tick done work, write pending plan deltas, and sync if the stop lands at a boundary or material revisions just landed; note the pending sync otherwise.
 
@@ -533,9 +533,9 @@ Values come from `plan-parse <plan_file> --census` at draft time — never hand-
 
 1. **Verify plan currency.** Confirm every approved deviation, structural change, and added task from the run is reflected in the plan file — not just in phase handbacks. If anything is missing, write it in now (current-state prose).
 2. **Flag the revised plan to the user.** State that the plan was updated during execution and now records the actual implementation.
-3. **Offer the upsert.** If an associated GH issue artifact identity exists (`<N>` + `<DOC_ID>`), offer to sync the final as-built plan with `issue-artifact-upsert --issue <N> --body-file <path>` — the last phase sync ran at that phase's handback and may not include closeout corrections. Follow the same confirm-then-run procedure as above; never upsert without explicit approval.
+3. **Offer the upsert.** If an associated issue artifact identity exists (`<N>` + `<DOC_ID>`), offer to sync the final as-built plan with `issue-artifact-upsert --issue <N> --body-file <path>` — the last phase sync ran at that phase's handback and may not include closeout corrections. Follow the same confirm-then-run procedure as above; never upsert without explicit approval.
 4. **File upstream-impact issues for architectural deviations.** When execution deviated from the plan in ways that indicate the upstream design artifacts are wrong (a blueprint component boundary didn't survive contact with the codebase, a specification item proved unmeasurable or wrong), offer to file an **upstream-impact issue** in the planning repo per the [upstream-impact filing recipe](../_shared/references/protocol-common.md#upstream-impact-filing). Ask the user before filing.
-5. **Knowledge distillation (explicit request only).** Following the shared [knowledge distillation protocol](../common/references/knowledge-distillation-protocol.md): when the user explicitly asks to distill this session or calls out a specific point to add, scan for organization-specific implementation lessons (where things are wired in this org's repos, idioms of its libraries, enforced conventions — not procedural workflow rules), summarize the candidates in chat with their proposed target files, and let the user approve before anything is written to `repos/docs.copilot-knowledge`. The user reviews and commits. Never offer distillation unprompted. The same request also covers general knowledge discovered this session (emerging practices, engineering patterns) — those follow the [knowledge extraction protocol](../common/references/knowledge-extraction-protocol.md) into the `candidates/` area instead of the main body.
+5. **Knowledge distillation (explicit request only).** Following the shared [knowledge distillation protocol](../common/references/knowledge-distillation-protocol.md): when the user explicitly asks to distill this session or calls out a specific point to add, scan for organization-specific knowledge (where things are wired in this org's repos, idioms of its libraries, its conventions and code standards — whether or not already written down — not procedural workflow rules), summarize the candidates in chat with their proposed target files, and let the user approve before anything is written to `repos/docs.copilot-knowledge`. The user reviews and commits. Never offer distillation unprompted. The same request also covers general knowledge discovered this session (emerging practices, engineering patterns that would hold at any organization) — those follow the [knowledge extraction protocol](../common/references/knowledge-extraction-protocol.md) into the `candidates/` area instead of the main body.
 
 ### Failure investigation is bounded by allowed tools
 

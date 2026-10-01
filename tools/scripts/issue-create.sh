@@ -291,7 +291,7 @@ prepare_template() {
 check_dependencies() {
     if ! provider_auth_status &> /dev/null; then
         log_error "Not authenticated with the active provider"
-        log_info "Run: key-update-git"
+        log_info "Run: key-update-provider"
         exit "$EXIT_GENERAL_ERROR"
     fi
 }
@@ -382,13 +382,13 @@ create_issue() {
     
     if [ "$DRY_RUN" -eq 1 ]; then
         log_info "[DRY RUN] Would create issue via provider_issues_create:"
-        echo "provider_issues_create ${repo_spec[1]:-} ${gh_args[*]}"
+        echo "provider_issues_create ${repo_spec[0]:-} ${gh_args[*]}"
         return 0
     fi
     
     # Create the issue and capture the URL
     local issue_url
-    issue_url=$(provider_issues_create "${repo_spec[1]:-}" "${gh_args[@]}")
+    issue_url=$(provider_issues_create "${repo_spec[0]:-}" "${gh_args[@]}")
     
     if [ -z "$issue_url" ]; then
         log_error "Failed to create issue"
@@ -408,9 +408,9 @@ create_issue() {
     # mutation at the wrong repository (the create and the type-set would
     # disagree silently).
     local repo_owner
-    repo_owner=$(provider_repos_view "${repo_spec[1]:-}" --json owner -q .owner.login)
+    repo_owner=$(provider_repos_view "${repo_spec[0]:-}" --json owner -q .owner.login)
     local repo_name
-    repo_name=$(provider_repos_view "${repo_spec[1]:-}" --json name -q .name)
+    repo_name=$(provider_repos_view "${repo_spec[0]:-}" --json name -q .name)
     
     # Any requested enrichment that fails to apply is reported loudly and
     # fails the command: callers must be able to detect that a requested
@@ -507,7 +507,7 @@ main() {
         exit 0
     fi
 
-    ensure_gh_login
+    ensure_provider_auth
     
     # Continue parsing other arguments
     while [[ $# -gt 0 ]]; do

@@ -65,7 +65,7 @@ At plan approval (file written / artifact published), signal `_on_end_planning <
 ### 1. Identify inputs and target repo
 
 - Determine which repo the plan applies to (the plan file is written to **that** repo's `.local-artifacts/` folder, not necessarily the current workspace root). For mechanical cross-repo objectives (updating many repos with new files plus follow-ups), the plan declares its target repo set up front — that set becomes the agreed change-scope for execution; feature delivery spanning multiple components still routes through blueprint/roadmap first.
-- If a GH issue number/URL is provided, fetch the issue body and all comments. Treat comments as first-class source material; design docs often live there. Capture the issue number for later.
+- If a issue number/URL is provided, fetch the issue body and all comments. Treat comments as first-class source material; design docs often live there. Capture the issue number for later.
 - Capture any pasted story / linked docs.
 - Classify the objective type: **code** (default), **docs**, **mechanical file work**, **ops/runbook**, or **mixed**. This drives the verification declaration (step 4).
 
@@ -174,9 +174,10 @@ Do not continue detailed task generation while redivision is unresolved.
 
 ### 4c. Plan-encoded review offer (code plans — always offered)
 
-For code plans, always offer to encode a dedicated **Review** phase into the plan; the user decides per plan. Ask via `vscode_askQuestions` (add Review phase / skip). On acceptance:
+For code plans, always offer to encode a dedicated **Review** phase into the plan; the user decides per plan. Ask via `vscode_askQuestions` (add Review phase / skip; if adding, a second question — **execution mode**: AI-autonomous / user-run). On acceptance:
 
 - **Placement:** the Review phase sits immediately before Cleanup & docs — Cleanup remains the last phase.
+- **Execution mode** (recorded in the Review phase's prose so the executor reads it at kickoff): **AI-autonomous** — the executing session dispatches the review subagent per the protocol (the default and today's shape). **User-run** — each round is executed by the user: the implementor **stops at every round task and refers it to the user** rather than dispatching (the research encoding's `owner: User` shape; here a preference, not a safety wall — review is read-only). On referral the user chooses: run the round themselves (e.g. [`/devenv-review`](../devenv-review/SKILL.md) in another session), direct this session to dispatch the subagent after all, or skip — their option governs; the referral is a stop, not a prohibition.
 - **Default tasks:** run the adversarial review round (cumulative branch diff) → present findings and fold user-approved ones in as tasks (Blockers, Concerns, Missing tests; see [`/devenv-review`](../devenv-review/SKILL.md) plan-encoded mode and the shared [plan-encoded review protocol](../common/references/plan-encoded-review.md)) → fix the approved findings → convergence gate. Task wording is invocation-neutral: whichever session executes the round (executor, or a direct `/devenv-review` run) follows the protocol — the task never names a skill invocation as its method.
 - **Convergence gate:** continue rounds while a round yields any Blocker or ≥ 3 Concerns (findings the user explicitly rejected at fold-in are excluded from the count); the cycle converges at 0 Blockers and ≤ 2 Concerns. The phase records the yield summary and the convergence decision; Cleanup never starts before the Review phase is converged or the user explicitly closes it.
 - **Separate from in-line review:** this phase is a deliberate, plan-encoded adversarial pass with its own cycle — distinct from any in-line reviews `/devenv-commit` performs before committing.
@@ -312,7 +313,7 @@ Concurrent-edit rule:
 
 In the target repo's `.local-artifacts/` (the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts); create it if missing):
 
-- If a GH issue is associated → base name `Plan-issue-<N>`
+- If a issue is associated → base name `Plan-issue-<N>`
 - Otherwise → base name `Plan`
 - Find the next available zero-padded numeric suffix (`-001`, `-002`, ...) via `next-id --pattern 'Plan-issue-<N>-{N}.md' --dir <repo-root>/.local-artifacts` (deterministic; never overwrites):
   - `.local-artifacts/Plan-issue-15-001.md`, `.local-artifacts/Plan-issue-15-002.md`, ...

@@ -226,6 +226,15 @@ cat <<BLOCK
 name=azure
 azure_org=${ORG}
 azure_project=${PROJECT}
+
+# Status-word aliases: fork-local board column name → workflow state.
+# Any column not stock and not aliased fails defined at use time.
+[azure_status_aliases]
+#inprogress=active
+#done=closed
+
+# Iteration stub (sprint path) for milestone lookups:
+#iteration_path=${PROJECT}\\Sprint 1
 BLOCK
 echo
 echo "done."

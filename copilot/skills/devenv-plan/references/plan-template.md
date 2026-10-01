@@ -172,6 +172,8 @@ this section alone.>
 
 Include only when the plan-encoded review offer was accepted. Each round: run an adversarial review of the cumulative branch diff (per the [plan-encoded review protocol](../../common/references/plan-encoded-review.md) — executed by whichever session runs the task, or `/devenv-review` directly), fold user-approved findings in as normal numbered tasks, fix them, then apply the convergence bar (converged at 0 Blockers and ≤ 2 Concerns — explicitly rejected findings don't count). The cycle repeats only with the user's permission in both directions: below the bar another round is recommended; at the bar closing is recommended but the user may request a further round; hard cap 4 rounds, and a cap handback warns the user that unresolved issues may remain and the diff needs manual attention. The round number lives in task titles, never in task IDs — plan tooling only accepts dotted numeric IDs.
 
+**Execution mode** (record at planning time): AI-autonomous — the executing session dispatches the review subagent per the protocol — or **user-run** — the implementor stops at each round task and refers the round to the user (who may run it via `/devenv-review` in another session, direct the agent to dispatch after all, or skip).
+
 **Goal:** Adversarially review the phases' code and converge the review cycle on the plan itself.
 
 **End State:** Findings from every round are folded in or explicitly rejected, approved fixes are implemented and green, and a convergence decision (with yield summary) is recorded in the plan.
@@ -198,7 +200,7 @@ Include only when the plan-encoded review offer was accepted. Each round: run an
 **Tasks:**
 
 - [ ] **4.1 [M] Review round 1 — adversarial review of the cumulative diff per the plan-encoded review protocol; record yield + convergence decision**
-  - Additional context: Fold approved findings in below as `4.2`, `4.3`, … tasks; record rejected findings (with reason) in the round summary. Later rounds repeat this pattern with new task numbers; the round number lives in the title.
+  - Additional context: Fold approved findings in below as `4.2`, `4.3`, … tasks; record rejected findings (with reason) in the round summary. Later rounds repeat this pattern with new task numbers; the round number lives in the title. If this phase records user-run execution mode, stop at this task and refer the round to the user instead of dispatching.
 
 ---
 
@@ -306,7 +308,7 @@ phase as `[QUESTION] ...` bullets.
 
 **Related links:**
 
-- <GH issue, design doc, related PR, external spec, etc.>
+- <issue, design doc, related PR, external spec, etc.>
 - <Link>
 
 **Upstream artifacts (if any):**

@@ -7,7 +7,7 @@ user-invocable: true
 
 # Open PR
 
-Take a committable phase of work from a plan-driven workflow and open a GitHub PR with a structured title and body. Always uses `pr-create`; never calls `gh pr create` directly.
+Take a committable phase of work from a plan-driven workflow and open a GitHub PR with a structured title and body. Always uses `pr-create`; never calls the raw provider CLI (`gh pr create`) directly.
 
 > Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
 
@@ -159,7 +159,7 @@ After the PR is opened, print the PR URL and number.
 
 ## Anti-patterns
 
-- **Calling `gh pr create` or `pr-create-for-review` directly** — always go through `pr-create`. (`pr-create-for-review` is a different tool that creates "REVIEW:" diff PRs between two commits — not for feature branches.)
+- **Calling the raw provider CLI (`gh pr create`) or `pr-create-for-review` directly** — always go through `pr-create`. (`pr-create-for-review` is a different tool that creates "REVIEW:" diff PRs between two commits — not for feature branches.)
 - **Auto-submitting without showing the draft** — title and body must be reviewed before submission.
 - **Inventing testing notes** — if the user didn't run tests and you don't see them in CI, ask. Don't write "tested locally" speculatively.
 - **Padding the body** — omit empty sections rather than writing "N/A".

@@ -19,7 +19,7 @@ Use this as the default intake for **component-level architecture and design dir
 
 Grooming is the **design steward** for a piece of work. It always works with a **grooming document** — a single artifact that tracks design decisions (confirmed, pending, deferred), outstanding questions, and links to any plans spawned from the work.
 
-> **Issue operations during grooming: wrappers only.** Creating or batch-creating child issues uses `issue-create` / `issue-create-batch` — never raw `gh issue create`. Full rules in the child-issue creation section.
+> **Issue operations during grooming: wrappers only.** Creating or batch-creating child issues uses `issue-create` / `issue-create-batch` — never the raw provider CLI (`gh issue create`). Full rules in the child-issue creation section.
 
 Grooming also produces a **suggested issue attack plan** as a set of issues classified as **Feature**, **Fix**, or **Task**. Each suggested issue must:
 
@@ -76,12 +76,12 @@ Before anything else, locate the grooming document for this work.
 
 **Step 2 — Search for an existing grooming document.** A grooming document may live:
 
-- On the same GH issue (as a comment or linked file)
-- Under `.local-artifacts/` in the repository (the standard local markdown folder). Grooming documents are only written to disk while being actively edited, reviewed, or while related work is going on; the intended source of truth is the GH issue.
+- On the same issue (as a comment or linked file)
+- Under `.local-artifacts/` in the repository (the standard local markdown folder). Grooming documents are only written to disk while being actively edited, reviewed, or while related work is going on; the intended source of truth is the issue.
 
 Ask the user if the location is not obvious:
 
-> "Is there an existing grooming document for this work? It may be on a GH issue, or as a `Grooming-*.md` file under `.local-artifacts/` in the repo (a working copy from active related work)."
+> "Is there an existing grooming document for this work? It may be on a issue, or as a `Grooming-*.md` file under `.local-artifacts/` in the repo (a working copy from active related work)."
 
 **Step 3 — Load or create.**
 
@@ -195,7 +195,7 @@ When creating child issues from grooming (user-gated):
 	- fast mode first: repeat `--issue "Title|type=..."`, then add `--create` after preview.
 	- use `--file <manifest>` only when per-row fields are too heterogeneous for fast mode.
 - Do not generate ad-hoc shell orchestration (for example helper functions, inline mini-frameworks, or procedural wrappers) when direct `issue-create`/`issue-create-batch` calls are sufficient.
-- Use workspace issue wrappers for this flow (`issue-create`, `issue-create-batch`). Do not execute raw `gh issue create` commands in grooming child-issue creation.
+- Use workspace issue wrappers for this flow (`issue-create`, `issue-create-batch`). Do not execute raw provider-CLI issue-create commands in grooming child-issue creation.
 - Do not inspect wrapper source (for example `command -v issue-create` followed by `sed/cat` on the script path) during normal child-issue creation.
 - Exception: if wrapper execution fails unexpectedly, perform minimal diagnostics to unblock the run, then resume wrapper-based execution.
 - Use deterministic, non-interactive invocation (no template/editor prompts):
@@ -204,7 +204,7 @@ When creating child issues from grooming (user-gated):
 - Type value source is explicit:
 	- if the grooming row already has an approved issue type, pass that exact value to `--type`.
         - if type is not approved yet, list the allowed issue types (see the [deterministic issue creation recipe](../_shared/references/protocol-common.md#deterministic-issue-creation)), present the allowed list, and ask the user to choose one before running `issue-create`.
-- Do not run `issue-create --help` or `gh issue create --help` during child-issue creation flow. If command shape guidance is needed, use this section and `copilot/skills/_tools-reference.md` as the source of truth and proceed with the deterministic forms above.
+- Do not run `issue-create --help` or the raw provider CLI's issue-create help during child-issue creation flow. If command shape guidance is needed, use this section and `copilot/skills/_tools-reference.md` as the source of truth and proceed with the deterministic forms above.
 - Extract the created issue number from command output and update the matching attack-plan row.
 - Keep `TBD` for any row not created in the current session.
 
@@ -501,7 +501,7 @@ Per the shared [next-step offer](../common/references/execution-gates.md#next-st
 - Treating a completed plan as a fault to diagnose — as-built reconciliation is not plan architectural review; a completed plan is evidence of what was built, not a problem to fix.
 - Confirming inherited complexity without scrutiny — moving artifact-derived mechanisms (hashes, caches, abstractions) into `Confirmed` without asking who consumes their output and what removal would change.
 - Writing "previously/before" design narrative in main document sections instead of `## Revision History`.
-- Creating child issues via raw `gh issue create` — grooming child-issue creation uses `issue-create` / `issue-create-batch` only, every time, regardless of what earlier session phases did. Raw `gh` in this flow loses native type and parent-linkage enrichment.
+- Creating child issues via the raw provider CLI — grooming child-issue creation uses `issue-create` / `issue-create-batch` only, every time, regardless of what earlier session phases did. Raw CLI calls in this flow lose native type and parent-linkage enrichment.
 
 ## Sibling skills
 

@@ -96,7 +96,7 @@ ensure_label() {
     read -ra repo_spec <<< "$(get_repo_spec)"
 
     local exists=0
-    provider_issues_label_list "${repo_spec[1]:-}" --limit 200 --json name 2>/dev/null \
+    provider_issues_label_list "${repo_spec[0]:-}" --limit 200 --json name 2>/dev/null \
         | jq -r --arg n "$name" 'any(.[]; .name == $n)' | grep -q true && exists=1
 
     if [ "$exists" -eq 1 ]; then
@@ -105,7 +105,7 @@ ensure_label() {
                 log_info "[DRY RUN] Would update label: $name (color: ${color:-unchanged}, description: ${description:-unchanged})"
                 return 0
             fi
-            local repo="${repo_spec[1]:-}"
+            local repo="${repo_spec[0]:-}"
             if provider_issues_label_update "$repo" "$name" "$color" "$description"; then
                 log_info "Updated label: $name"
             else
@@ -123,7 +123,7 @@ ensure_label() {
         return 0
     fi
 
-    local repo="${repo_spec[1]:-}"
+    local repo="${repo_spec[0]:-}"
     if provider_issues_label_create "$repo" "$name" "$color" "$description"; then
         log_info "Created label: $name"
     else
@@ -210,7 +210,7 @@ main() {
         exit 0
     fi
 
-    ensure_gh_login
+    ensure_provider_auth
 
     if [ "$SEED" -eq 1 ]; then
         seed_from_config

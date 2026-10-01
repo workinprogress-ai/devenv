@@ -155,7 +155,7 @@ flowchart LR
     propagate -->|"climb on change"| write
 ```
 
-Everything is local: your `gh` authentication, your machine. Signals are best-effort (a failed write never blocks work) and idempotent (re-signaling heals drift). Skills never know status vocabulary, project names, or where cards live — they know event names, and the engine does the rest.
+Everything is local: your provider authentication, your machine. Signals are best-effort (a failed write never blocks work) and idempotent (re-signaling heals drift). Skills never know status vocabulary, project names, or where cards live — they know event names, and the engine does the rest.
 
 ## Related
 

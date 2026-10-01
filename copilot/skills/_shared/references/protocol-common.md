@@ -464,8 +464,8 @@ Create a new issue, optionally from a template. Body source per the [markdown bo
 
 Wrapper policy:
 
-- This wrapper is the **required** path for all issue creation in workspace repos — never raw `gh issue create` (enforces native types, templates, labels; repo selection stays behind the abstraction).
-- No `--repo` flag exists. The target repo is selected via the `DEVENV_REPO` env var (`owner/repo`; the deprecated `GITHUB_REPO` alias still resolves); unset, it falls back to org identity + current repo name, then to the current repo.
+- This wrapper is the **required** path for all issue creation in workspace repos — never the raw provider CLI (enforces native types, templates, labels; repo selection stays behind the abstraction).
+- No `--repo` flag exists. The target repo is selected via the `DEVENV_REPO` env var (`owner/repo`); unset, it falls back to org identity + current repo name, then to the current repo.
 
 ```
 issue-create [--title TITLE] [--body TEXT | --body-file FILE] [--type TYPE]
@@ -504,7 +504,7 @@ Create multiple issues in one pass using preview-first, deterministic, non-inter
 
 Wrapper policy:
 
-- This wrapper is the **required** path for batch issue creation — never raw `gh issue create` loops.
+- This wrapper is the **required** path for batch issue creation — never raw provider-CLI issue-create loops.
 
 ```
 issue-create-batch --issue "TITLE" [--issue "TITLE|key=value|..."] [--create] [defaults...]
@@ -1039,7 +1039,7 @@ Key facts:
 
 ## GitHub Actions tools
 
-Org-wide GitHub Actions operations — views `gh` alone can't replicate in one call.
+Org-wide pipeline operations — views the raw provider CLI alone can't replicate in one call.
 
 **Naming note (D-007):** the `pipelines-*` tools are named provider-neutrally; they route through the `actions` provider domain (`provider_actions_*` verbs) — the GitHub-domain name in the provider facade.
 
@@ -1071,7 +1071,7 @@ Trigger a `workflow_dispatch` run.
 pipelines-run WORKFLOW --repo OWNER/REPO [--ref REF] [--input KEY=VALUE...]
 ```
 
-Key flags: `--repo OWNER/REPO` (required), `--ref REF` (default: repo default branch), `--input KEY=VALUE` (repeatable). Note: `gh workflow run` returns no run ID; the tool polls `gh run list` (~2s) to surface the run URL.
+Key flags: `--repo OWNER/REPO` (required), `--ref REF` (default: repo default branch), `--input KEY=VALUE` (repeatable). Provider transport detail (run-ID polling) lives in the [provider protocol reference](./provider-protocols/) for the active provider.
 
 ### pipelines-rerun
 
@@ -1150,7 +1150,7 @@ Example: `issue-types --format json`
 
 ## Prohibitions
 
-- **Never run the raw provider CLI** (`gh`) — wrappers only; uncovered
+- **Never run the raw provider CLI** (`gh` for example) — wrappers only; uncovered
   operations are tooling gaps to surface, not to bypass.
 - **Never use GitKraken MCP tools** (`mcp_gitkraken_*`) — the workspace does
   not use GitKraken.

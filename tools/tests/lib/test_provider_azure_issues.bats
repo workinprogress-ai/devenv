@@ -231,7 +231,13 @@ JSON
     # the query string (the assertion text avoids nested single quotes).
     local q
     q=$(jq -r '.query' < "$TEST_TEMP_DIR/wiql-body.log")
-    [[ "$q" == *"CONTAINS"* && "$q" == *tagwithquotes* || "$q" == *"tag'with'quotes"* ]]
+    [[ "$q" == *"CONTAINS"* ]] || return 1
+    case "$q" in
+        # Valid shapes: raw label, or WIQL-escaped (single quotes doubled
+        # per the WIQL escape rule — the composition's whole point).
+        *tagwithquotes*|*tag"'"with"'"quotes*|*"tag''with''quotes"*) ;;
+        *) echo "label not intact/escaped in: $q" >&2; return 1 ;;
+    esac
 }
 
 @test "provider_issues_edit with nothing to edit fails defined" {

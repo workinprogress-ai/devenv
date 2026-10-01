@@ -19,6 +19,14 @@
 Facts the implementation depends on; recorded here so planning sessions
 don't re-derive them:
 
+- **Git transport credentials**: `provider_auth_setup_git` registers a
+  host-scoped git credential helper
+  (`credential "https://dev.azure.com"` →
+  `tools/lib/providers/azure/credential-helper.sh get`) backed by the 0600
+  PAT file. `key-update-azure` invokes the wiring after every successful
+  import. `store`/`erase` are refusals-by-no-op — the PAT file is the only
+  durable copy, so git never writes a second one. github.com traffic never
+  consults the helper (host-scoped config).
 - **Two api-version regimes**: most endpoints take `api-version=7.1`;
   work-item **comments** are a preview resource requiring a
   `-preview` version pinned on the URL (plain 7.1 → 400; the code pins
@@ -96,6 +104,13 @@ would need a different provider shape entirely. Constraint, not bug.
 
 ## Issues ↔ Work items
 
+View projection (as-built): `provider_issues_view` / list emit every field
+in issue-get's DEFAULT_FIELDS non-null. Mapping: milestone derives from
+`System.IterationLevel2` (iteration path's leaf — typed "" when unset);
+closedAt from `Microsoft.VSTS.Common.ClosedDate`; comments are typed `[]`
+(the count lives on the threads resource — supplementary fetch deferred).
+
+
 | GitHub shape | Azure shape | Constraint / note |
 |---|---|---|
 | Issue | Work item (type from the config type map) | Type per issue decided at creation; the seam maps Bug/Feature/Task/Epic |
@@ -166,6 +181,15 @@ workflow's column vocabulary (the setup script provisions them).
 
 ## Pull requests ↔ Pull requests
 
+View projection (as-built): `provider_prs_view` emits every field in
+pr-get's DEFAULT_FIELDS non-null. Mapping: mergeable/mergeStateStatus
+derive from Azure's `mergeStatus` (conflicts → CONFLICTING/DIRTY,
+succeeded → MERGEABLE/CLEAN, else UNKNOWN); labels ride reviewers
+(PR objects carry no tag surface); `reviewRequests`, `milestone`,
+`comments`, `reviews` are typed empties — supplementary fetches (threads,
+iterations) are deferred until a consumer needs real values. `isDraft`
+falls back to false.
+
 Direct mapping; already implemented and live-verified (Tier-2 smoke):
 create, comment (threads), rebase-merge two-step with
 `lastMergeSourceCommit` echo, source-branch deletion. Note: PR completion
@@ -175,7 +199,7 @@ review-thread ids are opaque refs emitted by pr-threads-get
 
 ## Pipelines ↔ Pipelines (as-built)
 
-Direct mapping; implemented and stub-pinned (runs list/view with gh
+Direct mapping; implemented live (runs list/view with gh
 --json/-q semantics, trigger with `--field` dispatch inputs → queue
 `parameters` as stringified JSON, artifacts incl. numeric sizes,
 watch with `--exit-status` conclusion mapping, workflow list/run with
@@ -207,17 +231,16 @@ semantics. semantic-release's publish step becomes exec-plugin tag+push
 
 ## Packaging ↔ Azure Artifacts (as-built: decision made)
 
-`artifact-operations.bash`'s GH Packages reads ride
-`provider_api_paginate` — github-only machinery the azure provider
-deliberately does not implement (call sites are being rewritten to
-domain verbs, never raw pagination): under azure those reads **fail
-defined**. The mapped surface is listing:
-`provider_org_feeds_list` reads org-level Artifacts feeds
-(`feeds.dev.azure.com/_apis/packaging/feeds`, PAT needs packaging
-scopes — an environment prerequisite). GH Packages is per-user; azure
-feeds are org-scoped — the shapes differ accordingly (live-verified:
-real feeds listed). Package-version reads remain a documented gap until
-demanded.
+`artifact-operations.bash`'s packages reads ride the domain verbs
+(`provider_org_packages_list` / `provider_org_package_versions`) —
+never raw `provider_api` pagination. Azure implements the list verb
+against org-level Artifacts feeds (`feeds.dev.azure.com/_apis/packaging/feeds`,
+PAT needs packaging scopes — an environment prerequisite), same source as
+`provider_org_feeds_list`. GH Packages is per-user; azure feeds are
+org-scoped — the shapes differ accordingly (live-verified: real feeds
+listed). The versions verb fails defined: azure package versioning is
+feed-scoped and the GitHub-shaped endpoint has no analog — a documented
+gap until demand justifies a feed-scoped verb.
 
 ## Numbering
 

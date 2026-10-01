@@ -106,7 +106,7 @@ list_issues() {
     read -ra repo_spec <<< "$(get_repo_spec)"
     
     # Add repository specification
-    gh_args+=("${repo_spec[@]}")
+    gh_args+=("${repo_spec[0]:-}")
     
     # Build filter arguments using library function
     local filter_string
@@ -154,9 +154,9 @@ list_issues() {
     
     # Execute the list command
     if [ "$OUTPUT_FORMAT" = "simple" ]; then
-        provider_issues_list "" "${gh_args[@]}" | jq -r '.[] | "#\(.number) - \(.title)"'
+        provider_issues_list "${repo_spec[0]:-}" "${gh_args[@]}" | jq -r '.[] | "#\(.number) - \(.title)"'
     else
-        provider_issues_list "" "${gh_args[@]}"
+        provider_issues_list "${repo_spec[0]:-}" "${gh_args[@]}"
     fi
 }
 
@@ -191,7 +191,7 @@ main() {
         exit 0
     fi
 
-    ensure_gh_login
+    ensure_provider_auth
     
     # Continue parsing other arguments
     while [[ $# -gt 0 ]]; do

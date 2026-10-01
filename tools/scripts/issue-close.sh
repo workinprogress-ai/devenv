@@ -96,7 +96,7 @@ verify_issue() {
     local issue_num="$1"
     local repo_spec
     read -ra repo_spec <<< "$(get_repo_spec)"
-    issue_exists --repo "${repo_spec[1]:-}" "$issue_num" 2>/dev/null || {
+    issue_exists --repo "${repo_spec[0]:-}" "$issue_num" 2>/dev/null || {
         log_error "Issue #$issue_num not found"
         return 1
     }
@@ -117,7 +117,7 @@ close_issue_local() {
     fi
     
     log_verbose "Closing issue #$issue_num"
-    close_issue --repo "${repo_spec[1]:-}" --reason "$REASON" --comment "$COMMENT" "$issue_num"
+    close_issue --repo "${repo_spec[0]:-}" --reason "$REASON" --comment "$COMMENT" "$issue_num"
 }
 
 # Reopen an issue (wrapper around library function with dry-run support)
@@ -134,7 +134,7 @@ reopen_issue_local() {
     fi
     
     log_verbose "Reopening issue #$issue_num"
-    reopen_issue --repo "${repo_spec[1]:-}" --comment "$COMMENT" "$issue_num"
+    reopen_issue --repo "${repo_spec[0]:-}" --comment "$COMMENT" "$issue_num"
 }
 
 # Process all issues
@@ -196,7 +196,7 @@ main() {
         exit 0
     fi
 
-    ensure_gh_login
+    ensure_provider_auth
     
     # Check if first arg is an action
     if [[ "$1" =~ ^(close|reopen)$ ]]; then

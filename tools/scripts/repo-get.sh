@@ -207,7 +207,7 @@ fi
 # gh must be authenticated (keychain or session export); clones use clean
 # URLs with git auth via the provider credential helper.
 if ! provider_auth_status >/dev/null 2>&1; then
-    echo "ERROR: provider CLI is not authenticated. Run 'key-update-git' first." >&2
+    echo "ERROR: provider CLI is not authenticated. Run 'key-update-provider' first." >&2
     exit 1
 fi
 

@@ -189,3 +189,22 @@ provider_api_paginate() {
     shift
     gh api "$endpoint" --paginate "$@"
 }
+
+# List packages via a resolved endpoint (org or repo scope). Domain verb for
+# the artifact layer — neutral code never rides provider_api directly; the
+# caller owns endpoint/filter semantics, the provider owns transport.
+# Usage: provider_org_packages_list ENDPOINT [-f KEY=VALUE ...]
+provider_org_packages_list() {
+    local endpoint="${1:?endpoint required}"
+    shift
+    gh api "$endpoint" --paginate --method GET "$@"
+}
+
+# List versions of one package via a resolved endpoint. Same contract as the
+# packages list verb.
+# Usage: provider_org_package_versions ENDPOINT
+provider_org_package_versions() {
+    local endpoint="${1:?endpoint required}"
+    shift
+    gh api "$endpoint" --paginate "$@"
+}

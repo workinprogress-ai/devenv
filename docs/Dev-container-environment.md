@@ -294,14 +294,14 @@ vironment variable.
 These credentials are automatically loaded into the container environment on startup (via `bootstrap.sh`) and are accessible to all scripts that need them. Cred
 entials are **never** stored in the container image itself — they're only loaded at runtime from your host machine.
 
-**Re-authenticating (the keychain path — GitHub today):**
+**Re-authenticating (the keychain path):**
 
-1. Run `gh auth login` and follow the browser/device flow — or pipe a fresh
-   PAT: `gh auth login --with-token --hostname github.com --skip-ssh-key`.
-2. Run `gh auth setup-git --hostname github.com` (the key-update tooling
-   does both steps for you: `key-update-git <token>`).
-3. Verify with `gh auth status` — it should report login sourced from
-   `hosts.yml` (your keychain), not `GH_TOKEN`.
+Credential rotation is provider-dispatched: run `key-update-provider <token>`
+(the container function bootstrap generates). Provider-specific transport
+steps — the exact CLI commands for GitHub or any other provider — live in the
+[provider protocol reference](../copilot/skills/_shared/references/provider-protocols/)
+for the active provider. Verify with `provider_auth_status`-backed tooling
+(any `issue-*` wrapper will surface an auth failure with the rotation hint).
 
 Note: `~/.config/gh` lives on the container's filesystem, so the keychain is
 **wiped on container re-create**. Bootstrap handles this as a one-shot

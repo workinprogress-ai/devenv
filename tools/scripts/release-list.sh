@@ -73,7 +73,7 @@ list_releases() {
     read -ra repo_spec <<< "$(get_repo_spec)"
 
     local raw
-    if ! raw=$(provider_org_releases_list "${repo_spec[1]:-}" --limit "$LIMIT" --json tagName,name,publishedAt,isPrerelease,isDraft 2>/dev/null); then
+    if ! raw=$(provider_org_releases_list "${repo_spec[0]:-}" --limit "$LIMIT" --json tagName,name,publishedAt,isPrerelease,isDraft 2>/dev/null); then
         log_error "Failed to list releases"
         exit 1
     fi
@@ -123,7 +123,7 @@ main() {
 
     check_dependencies
     check_target_repo
-    ensure_gh_login
+    ensure_provider_auth
 
     list_releases
 }

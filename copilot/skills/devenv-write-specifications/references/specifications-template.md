@@ -143,7 +143,7 @@ updated_at_utc: <ISO-8601>
 
 ### Reference Information
 
-- [Link to GH issue, design doc, related PR, or external spec]
+- [Link to issue, design doc, related PR, or external spec]
 
 > **Companion episodes file:** If an `Episodes-<topic>-NNN.md` exists in this folder, it contains narrative illustrations of these specification items. Episodes are not normative — they don't override acceptance criteria.
 ```

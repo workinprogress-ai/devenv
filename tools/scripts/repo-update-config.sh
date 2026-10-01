@@ -51,8 +51,8 @@ source "$DEVENV_TOOLS/lib/provider-loader.bash"
 
 REPO_TYPES_CONFIG="$(repo_types_config_path)"
 
-# Verify dependencies
-require_command "gh" "GitHub CLI (gh) is required. Install with: sudo apt install gh or bootstrap"
+# Verify dependencies — provider auth is checked through the provider layer;
+# no specific CLI binary is required (the active provider owns its transport).
 require_command "yq" "yq is required but not installed. Install with: sudo apt install yq or bootstrap"
 
 usage() {

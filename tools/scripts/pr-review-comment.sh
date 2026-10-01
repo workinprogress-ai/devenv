@@ -108,7 +108,7 @@ get_head_sha() {
     local repo_spec
     read -ra repo_spec <<< "$(get_repo_spec)"
     local sha
-    if ! sha=$(provider_prs_view "${repo_spec[1]:-}" "$PR_NUMBER" --json headRefOid -q .headRefOid 2>/dev/null); then
+    if ! sha=$(provider_prs_view "${repo_spec[0]:-}" "$PR_NUMBER" --json headRefOid -q .headRefOid 2>/dev/null); then
         log_error "Failed to fetch PR #$PR_NUMBER head SHA"
         exit $EXIT_API_FAILURE
     fi
@@ -145,7 +145,7 @@ post_inline_comment() {
     log_verbose "Posting inline comment on PR #$PR_NUMBER ($FILE_PATH:$LINE_NUMBER $SIDE, head ${head_sha:0:7})"
 
     local result
-    if ! result=$(provider_prs_thread_create "${repo_spec[1]:-}" "$PR_NUMBER" \
+    if ! result=$(provider_prs_thread_create "${repo_spec[0]:-}" "$PR_NUMBER" \
         --body "$COMMENT_BODY" \
         --path "$FILE_PATH" \
         --line "$LINE_NUMBER" \
@@ -259,7 +259,7 @@ main() {
 
     validate_pr_number "$PR_NUMBER" || exit $EXIT_MISUSE
 
-    ensure_gh_login
+    ensure_provider_auth
     check_dependencies
     check_target_repo
 

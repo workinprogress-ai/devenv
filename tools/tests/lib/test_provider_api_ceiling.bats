@@ -15,7 +15,7 @@
 
 load ../test_helper
 
-CEILING_PROVIDER_API_CALL_SITES=19
+CEILING_PROVIDER_API_CALL_SITES=0
 
 _count_provider_api_call_sites() {
     grep -rn --include='*.sh' --include='*.bash' -E 'provider_api(_paginate)?[[:space:]]' \

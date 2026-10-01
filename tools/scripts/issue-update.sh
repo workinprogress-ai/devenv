@@ -119,7 +119,7 @@ verify_issue() {
     local repo_spec
     read -ra repo_spec <<< "$(get_repo_spec)"
     
-    if ! provider_issues_exists "${repo_spec[1]:-}" "$issue_num"; then
+    if ! provider_issues_exists "${repo_spec[0]:-}" "$issue_num"; then
         log_error "Issue #$issue_num not found"
         exit $EXIT_API_FAILURE
     fi
@@ -235,10 +235,10 @@ update_issue() {
         local repo_spec
         read -ra repo_spec <<< "$(get_repo_spec)"
         if [ "$DRY_RUN" -eq 1 ]; then
-            log_info "[DRY RUN] Would run: provider_issues_edit ${repo_spec[1]:-} $ISSUE_NUMBER ${gh_args[*]}"
+            log_info "[DRY RUN] Would run: provider_issues_edit ${repo_spec[0]:-} $ISSUE_NUMBER ${gh_args[*]}"
         else
-            log_verbose "Running: provider_issues_edit ${repo_spec[1]:-} $ISSUE_NUMBER ${gh_args[*]}"
-            if provider_issues_edit "${repo_spec[1]:-}" "$ISSUE_NUMBER" "${gh_args[@]}"; then
+            log_verbose "Running: provider_issues_edit ${repo_spec[0]:-} $ISSUE_NUMBER ${gh_args[*]}"
+            if provider_issues_edit "${repo_spec[0]:-}" "$ISSUE_NUMBER" "${gh_args[@]}"; then
                 log_info "Updated issue #$ISSUE_NUMBER"
             else
                 log_error "Failed to update issue #$ISSUE_NUMBER"
@@ -257,7 +257,7 @@ update_issue() {
                     log_info "[DRY RUN] Would close issue #$ISSUE_NUMBER"
                 else
                     log_verbose "Closing issue #$ISSUE_NUMBER"
-                    if provider_issues_close "${repo_spec[1]:-}" "$ISSUE_NUMBER"; then
+                    if provider_issues_close "${repo_spec[0]:-}" "$ISSUE_NUMBER"; then
                         log_info "Closed issue #$ISSUE_NUMBER"
                     else
                         log_error "Failed to close issue #$ISSUE_NUMBER"
@@ -270,7 +270,7 @@ update_issue() {
                     log_info "[DRY RUN] Would reopen issue #$ISSUE_NUMBER"
                 else
                     log_verbose "Reopening issue #$ISSUE_NUMBER"
-                    if provider_issues_reopen "${repo_spec[1]:-}" "$ISSUE_NUMBER"; then
+                    if provider_issues_reopen "${repo_spec[0]:-}" "$ISSUE_NUMBER"; then
                         log_info "Reopened issue #$ISSUE_NUMBER"
                     else
                         log_error "Failed to reopen issue #$ISSUE_NUMBER"
@@ -316,7 +316,7 @@ main() {
         exit 0
     fi
 
-    ensure_gh_login
+    ensure_provider_auth
     
     # First argument should be issue number (unless it's a flag)
     if [[ "$1" =~ ^[0-9]+$ ]]; then

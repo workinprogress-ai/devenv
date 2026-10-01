@@ -8,10 +8,10 @@ prohibitions; canonical recipes) lives in the
 [wrapper protocol reference](./_shared/references/protocol-common.md); provider transport in `./_shared/references/provider-protocols/<provider>.md`.
 This file keeps only provider-neutral tooling and the shared contracts below.**
 
-**The AI never runs the `gh` CLI directly — for any GitHub domain.** All GitHub
-operations go through the workspace wrappers (see the protocol reference for the
+**The AI never runs the raw provider CLI (`gh` for example) directly — for any provider domain.** All
+provider operations go through the workspace wrappers (see the protocol reference for the
 roster). If an operation is not covered by any wrapper, surface it as a tooling
-gap — `gh` is not a fallback. Wrappers are the workspace's abstraction layer;
+gap — the raw CLI is not a fallback. Wrappers are the workspace's abstraction layer;
 the backing CLI is an implementation detail that may change.
 
 **Common flags available on all tools (not repeated per-entry):**

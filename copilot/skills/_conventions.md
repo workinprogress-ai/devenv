@@ -238,7 +238,7 @@ Any command that mutates external state — `issue-comment`, `issue-update`, `is
 1. **Draft** the payload (comment text, body, etc.).
 2. **Show** it in chat.
 3. **Ask** for explicit "yes" (one specific question, not "any objections?").
-4. **Run** the wrapper. Every GitHub operation has a wrapper path (copilot-instructions §7 coverage map); if an operation is not covered, surface it as a tooling gap for the user to resolve — never fall back to `gh`.
+4. **Run** the wrapper. Every provider operation has a wrapper path (copilot-instructions §7 coverage map); if an operation is not covered, surface it as a tooling gap for the user to resolve — never fall back to the raw provider CLI.
 5. **Surface** the result (issue/PR number, URL).
 
 If the command shape or target is genuinely uncertain, prefer `--dry-run` first.
@@ -299,7 +299,7 @@ Not every markdown a skill writes is a persisted artifact. When the user asks fo
 
 ## Tooling discipline
 
-- **The AI never runs `gh` directly — for any GitHub domain.** Issue operations: `issue-*` tools exclusively (unconditional, reads and writes). PR, project, Actions, and repository-inspection operations: their wrappers. If an operation is not covered by any wrapper, surface it as a tooling gap and let the user decide — `gh` is not a fallback.
+- **The AI never runs the raw provider CLI (`gh` for example) directly — for any provider domain.** Issue operations: `issue-*` tools exclusively (unconditional, reads and writes). PR, project, pipelines, and repository-inspection operations: their wrappers. If an operation is not covered by any wrapper, surface it as a tooling gap and let the user decide — the raw CLI is not a fallback.
 
 - Wrapper signatures are standardized in [`_tools-reference.md`](./_tools-reference.md) — it is the complete invocation reference; consult it instead of running ad-hoc `--help` during execution.
 
@@ -320,6 +320,7 @@ Required behavior before any `issue-*` / `pr-*` / `project-*` / artifact call:
 5. If the target repo cannot be resolved confidently, ask one direct clarification question before running the call.
 
 Anti-pattern: running `issue-*` from the workspace root with no `DEVENV_REPO`, then "fixing" the refusal with `--devenv` — the call now queries the wrong repo and the answer is silently misleading (issue not found, empty artifact lists).
+
 ### Working-directory guard (required)
 
 Before running any repo-scoped command (wrappers, `gh`, build/test, or scripts), ensure the terminal is in the correct target repo root.
@@ -672,7 +673,7 @@ Required behavior:
 - **Vague description** that doesn't name trigger phrases — agent won't auto-load it.
 - **Folder/name mismatch** — skill won't load.
 - **Monolithic `SKILL.md`** — push templates and cheatsheets into `references/`.
-- **Running `gh` directly for any GitHub operation** — wrappers are the only path for every GitHub domain; uncovered operations are surfaced as tooling gaps, not run via `gh`.
+- **Running the raw provider CLI (`gh` for example) directly for any provider operation** — wrappers are the only path for every domain; uncovered operations are surfaced as tooling gaps, not run via the raw CLI.
 - **Auto-running write commands** without the confirmation flow.
 - **Cross-linking by absolute paths** or by skill *title* instead of `name`.
 - **Overlapping descriptions** between skills — the model picks one, and you don't get to choose which.

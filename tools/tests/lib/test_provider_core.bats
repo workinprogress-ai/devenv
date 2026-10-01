@@ -80,9 +80,9 @@ write_config() {
 @test "detect: reads [provider] name from devenv.config" {
     source_core
     local cfg
-    cfg=$(write_config "[provider]" "name=ado")
+    cfg=$(write_config "[provider]" "name=azure")
     provider_detect "$cfg"
-    [ "$PROVIDER_NAME" = "ado" ]
+    [ "$PROVIDER_NAME" = "azure" ]
 }
 
 @test "detect: defaults to github when [provider] section is absent" {
@@ -104,11 +104,11 @@ write_config() {
 @test "detect: tolerates comments and blank lines around the key" {
     source_core
     local cfg
-    cfg=$(write_config "# comment" "" "[provider]" "# name comment" "  name = spacename  " "[other]" "name=wrong")
+    cfg=$(write_config "# comment" "" "[provider]" "# name comment" "  name = github  " "[other]" "name=wrong")
     # Direct call: provider_detect sets PROVIDER_NAME in the caller's scope,
     # which `run` (a subshell) would discard.
     provider_detect "$cfg"
-    [ "$PROVIDER_NAME" = "spacename" ]
+    [ "$PROVIDER_NAME" = "github" ]
 }
 
 @test "module_dir: returns provider module path after detection" {
@@ -321,6 +321,34 @@ token_env_allowlist = ghp_cfg_token ghp_other:justification")
     run provider_require_capability project-boards
     assert_failure
     [[ "$output" == *"provider 'github' does not support capability 'project-boards'"* ]]
+}
+
+@test "detection: unknown provider name fails at config time listing shipped providers" {
+    # A typo in [provider] name must fail loudly at detection, not degrade
+    # to per-module warnings and call-time errors. provider_detect logs the
+    # error (stderr) rather than echoing, so assert on the combined stream.
+    local cfg="$TEST_TEMP_DIR/typo.config"
+    {
+        echo "[provider]"
+        echo "name=gitlab"
+    } > "$cfg"
+    run bash -c "
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        provider_detect '$cfg'
+    "
+    assert_failure
+    [[ "$output" == *"gitlab"* ]]
+    [[ "$output" == *"github"* && "$output" == *"azure"* ]]
+}
+
+@test "detection: absent config still falls back to the policy default provider" {
+    run bash -c "
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        provider_detect '$TEST_TEMP_DIR/absent.config'
+        echo \"\$PROVIDER_NAME\"
+    "
+    assert_success
+    [[ "$output" == "github" ]]
 }
 
 # ============================================================================

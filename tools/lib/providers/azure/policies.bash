@@ -32,6 +32,13 @@ if [ -n "${_PROVIDER_AZURE_POLICIES_LOADED:-}" ]; then
 fi
 _PROVIDER_AZURE_POLICIES_LOADED=1
 
+# Capabilities: this module carries the ruleset analog (repo-scoped policy
+# configurations) and native work-item-type administration.
+if declare -F provider_declare_capability >/dev/null; then
+    provider_declare_capability rulesets
+    provider_declare_capability native-issue-types
+fi
+
 if ! declare -F log_error >/dev/null; then
     log_error() { echo "ERROR: $*" >&2; }
 fi

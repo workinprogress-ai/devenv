@@ -1,6 +1,6 @@
 ---
 name: devenv-hunt
-description: 'End-to-end bug hunt with three entry modes. Verify mode: determine with evidence whether a suspected bug exists — formalizes the oracle, enumerates and eliminates hypotheses with aggressive runtime measures, delivers FOUND / NOT-FOUND / INCONCLUSIVE. Diagnose mode: for a bug whose existence is established (GH issue, reported failure) — traces the call chain read-only to the root cause, emits a findings report with confidence level, resolutions, and failing-test-first fix sequence. Fix mode: applies the fix (test-first, per-change confirm, never commits) after the user chooses a path. One invocation carries the whole pipeline: a FOUND verdict flows into diagnosis and fix without re-invocation. USE WHEN the user says "is this a bug?", "I keep seeing X but expected Y", "go on a bug hunt", "hunt this bug", "fix this bug", "investigate this issue", "find the root cause", "why is X broken", "diagnose this", or hands off a GH issue number with a bug report. DO NOT USE for feature work (use /devenv-plan), broad suspicion-less bug surveys (use /devenv-audit), general code exploration (use /devenv-chat), or feasibility research (use /devenv-research).'
+description: 'End-to-end bug hunt with three entry modes. Verify mode: determine with evidence whether a suspected bug exists — formalizes the oracle, enumerates and eliminates hypotheses with aggressive runtime measures, delivers FOUND / NOT-FOUND / INCONCLUSIVE. Diagnose mode: for a bug whose existence is established (issue, reported failure) — traces the call chain read-only to the root cause, emits a findings report with confidence level, resolutions, and failing-test-first fix sequence. Fix mode: applies the fix (test-first, per-change confirm, never commits) after the user chooses a path. One invocation carries the whole pipeline: a FOUND verdict flows into diagnosis and fix without re-invocation. USE WHEN the user says "is this a bug?", "I keep seeing X but expected Y", "go on a bug hunt", "hunt this bug", "fix this bug", "investigate this issue", "find the root cause", "why is X broken", "diagnose this", or hands off a issue number with a bug report. DO NOT USE for feature work (use /devenv-plan), broad suspicion-less bug surveys (use /devenv-audit), general code exploration (use /devenv-chat), or feasibility research (use /devenv-research).'
 argument-hint: '<observation + expectation | bug description | issue-number | bug-hunt-report path>'
 user-invocable: true
 ---
@@ -20,7 +20,7 @@ One skill, three entry modes, one pipeline. The user's starting point differs �
 | Mode | Entry state | Typical phrases |
 |---|---|---|
 | **Verify** (the hunt) | Existence unknown — a suspicion, an observation vs. expectation | "is this a bug?", "I keep seeing X but expected Y", "go hunting" |
-| **Diagnose** | Existence established — GH issue, reported failure, reproduced defect; cause unknown | "fix this bug", "why is X broken", "investigate this issue", GH issue # |
+| **Diagnose** | Existence established — issue, reported failure, reproduced defect; cause unknown | "fix this bug", "why is X broken", "investigate this issue", issue # |
 | **Fix** | Cause known (from either mode above, or a prior hunt report) | "apply the fix", continuing after a findings report |
 
 Classification rules:
@@ -49,7 +49,7 @@ Classification rules:
 Trigger phrases (by mode — see intake table):
 
 - Verify: "is this a bug?" / "can you verify this?" / "something looks off" / "I keep seeing X but expected Y" / "unleash the bug hunter" / "go hunting"
-- Diagnose: "fix this bug" / "investigate this issue" / "find the root cause" / "why is X broken?" / "diagnose this" / a GH issue number referencing a bug
+- Diagnose: "fix this bug" / "investigate this issue" / "find the root cause" / "why is X broken?" / "diagnose this" / a issue number referencing a bug
 - Fix: continuing from this skill's own findings report, or a request to apply a known fix
 
 Do **not** use for:
@@ -96,7 +96,7 @@ One line only — then straight to framing. Never in written artifacts.
 Accept one of:
 
 - **Observation + expectation** (verify entry) → formalize the oracle (below).
-- **GH issue number** → `issue-get <N> --pretty`, read `body` and `comments`. Extract: reported symptoms, affected area, reproduction steps, stack traces, error messages. Classify: does the issue establish the bug's existence (→ diagnose) or merely suspect it (→ verify)?
+- **issue number** → `issue-get <N> --pretty`, read `body` and `comments`. Extract: reported symptoms, affected area, reproduction steps, stack traces, error messages. Classify: does the issue establish the bug's existence (→ diagnose) or merely suspect it (→ verify)?
 - **Free-text description** → use as-is. Same classification question. Ask for reproduction steps or error output if thin.
 - **A prior hunt report** (`bug-hunt-*.md`, typically FOUND) → findings input: skip existence, confirm root cause, go to fix planning.
 

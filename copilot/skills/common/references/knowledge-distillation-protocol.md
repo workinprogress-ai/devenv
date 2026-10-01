@@ -30,7 +30,7 @@ Rule of thumb: *would a competent engineer new to this organization benefit, and
 
 ## Where knowledge lives
 
-The knowledge repo is configured in `devenv.config` under `[copilot]` (`knowledge_repo`, `knowledge_subpath`); in this workspace that resolves to `repos/docs.copilot-knowledge`, content under `copilot-knowledge/`. If the repo is not present under `repos/`, do not guess at another location — surface the gap and ask the user to clone it. Everything about how the knowledge is organized — including where new knowledge lands — is declared in the repo's `orchestration.md`; devenv does not carry that structure.
+The knowledge repo is configured in `devenv.config` under `[copilot]` (`knowledge_repo`, `knowledge_subpath`); in this workspace that resolves to `repos/docs.copilot-knowledge`, content under `copilot-knowledge/`. If the repo is not present under `repos/`, do not guess at another location — surface the gap and ask the user to clone it. Never write into `copilot/knowledge/` or `~/.copilot/knowledge` instead: those are the machine-managed canonical import (read path only; `--ff-only` pulls discard local state). Everything about how the knowledge is organized — including where new knowledge lands — is declared in the repo's `orchestration.md`; devenv does not carry that structure.
 
 Placement within the knowledge files:
 
@@ -53,7 +53,7 @@ Each candidate must pass the knowledge bar above. Expect few — most sessions y
 
 1. **Collect candidates.**
    - *Session-mining mode (explicit request only):* the user asks to distill this session; mine the session per the detection pattern.
-   - *Explicit-callout mode:* the user names the point (mid-session or at wrap-up); use it as the sole candidate — do not mine the conversation for more.
+   - *Explicit-callout mode:* the user names the point (mid-session or at wrap-up); use it as the sole candidate — do not mine the conversation for more. Org scope includes conventions and code standards the org follows even when they are not tied to a chassis library and not yet written in the engineering repo — those go to a main-body/topic-file target directly, never staged under `candidates/`.
 2. **Present a summary in chat:** each candidate as a one-line bullet plus its proposed target file/section. State that the user reviews and approves before anything is written, and that the user commits the knowledge repo.
 3. **On approval (subset or edited):** apply the additions to the knowledge files, matching existing style.
 4. **Hand back for review/commit:** show what changed (file links) and state the commit is the user's. Never commit the knowledge repo.
