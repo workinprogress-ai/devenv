@@ -153,9 +153,14 @@ provider_org_ruleset_create() {
     local created=0
     while IFS= read -r policy; do
         [ -n "$policy" ] || continue
-        if azure_http_request POST "${base}/configurations?api-version=7.1" "$policy" >/dev/null 2>&1; then
-            created=$((created + 1))
+        # Error contract: emit the transport's error JSON on failure —
+        # silent skips made policy 403s indistinguishable from code bugs.
+        local post_response
+        if ! post_response=$(azure_http_request POST "${base}/configurations?api-version=7.1" "$policy"); then
+            printf '%s' "$post_response"
+            return 1
         fi
+        created=$((created + 1))
     done < <(azure_translate_ruleset "$payload" "$repo_guid")
     [ "$created" -gt 0 ]
 }

@@ -230,8 +230,11 @@ provider_repos_patch() {
                 local k="${kv%%=*}" v="${kv#*=}"
                 case "$k" in
                     # Azure has no per-repo merge-strategy toggles (the
-                    # project's merge-strategies policy owns that surface).
-                    allow_merge_commit|allow_squash_merge|allow_rebase_merge|allow_auto_merge|delete_branch_on_merge|allow_update_branch)
+                    # project's merge-strategies policy owns that surface),
+                    # and the repositories PATCH endpoint rejects description
+                    # outright ('The repository change is not supported') —
+                    # both degrade to documented skips.
+                    allow_merge_commit|allow_squash_merge|allow_rebase_merge|allow_auto_merge|delete_branch_on_merge|allow_update_branch|description)
                         skipped+=("$k") ;;
                     *)
                         body_pairs+=("$k" "$v")
@@ -242,10 +245,10 @@ provider_repos_patch() {
         esac
     done
     if [ "${#skipped[@]}" -gt 0 ]; then
-        log_warn "provider_repos_patch: azure repos have no ${skipped[*]} knobs (merge strategies are project-policy) — skipped"
+        log_warn "provider_repos_patch: azure repos have no ${skipped[*]} knobs (merge strategies are project-policy; description is create-time only) — skipped"
     fi
     [ "${#body_pairs[@]}" -gt 0 ] || return 0
-    # Build the update body from k/v pairs (description is the mapped knob).
+    # Build the update body from surviving k/v pairs.
     # Keys are emitted as quoted JSON object keys with $var refs: a key
     # containing jq-special characters (dash, dot) must not be interpolated
     # as a bare {shorthand} identifier.
@@ -373,11 +376,26 @@ azure_acl_grant() {
     local sddl
     sddl=$(azure_identity_sddl "$descriptor") || return 1
     local ns="2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87"   # Git Repositories
+    # ACL security tokens are dataspace-rooted: repoV2/{PROJECT-id}/{repo-id}
+    # — a bare repo guid as the first segment fails with "Could not find
+    # dataspace with category Git" (live-verified).
+    local project_id_response project_id
+    # Capture-then-jq: a transport failure must fail the grant, not
+    # masquerade as "project id unresolvable".
+    project_id_response=$(azure_http_request GET "https://dev.azure.com/${org}/_apis/projects/$(printf '%s' "$op" | sed -n 2p)?api-version=7.1") || return 1
+    project_id=$(printf '%s' "$project_id_response" | jq -r '.id // empty')
+    [ -n "$project_id" ] || { log_error "azure_acl_grant: project id unresolvable"; return 1; }
     local token
-    token=$(printf 'repoV2/%s' "$repo_guid")
+    token=$(printf 'repoV2/%s/%s' "$project_id" "$repo_guid")
     local body
     body=$(jq -cn --arg t "$token" --arg d "$sddl" --argjson a "$bits"         '{token: $t, merge: true, accessControlEntries: [{descriptor: $d, allow: $a, deny: 0}]}')
-    azure_http_request POST "https://dev.azure.com/${org}/_apis/accesscontrolentries/${ns}?api-version=7.1" "$body" >/dev/null
+    # Error contract: emit the transport's error JSON on failure.
+    local response
+    if ! response=$(azure_http_request POST "https://dev.azure.com/${org}/_apis/accesscontrolentries/${ns}?api-version=7.1" "$body"); then
+        printf '%s' "$response"
+        return 1
+    fi
+    printf '%s' "$response"
 }
 
 # View a repo. Output shape mirrors gh: --json fields (name, nameWithOwner,

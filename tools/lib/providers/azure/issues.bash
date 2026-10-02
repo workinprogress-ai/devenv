@@ -634,7 +634,18 @@ provider_issues_reopen() {
         repo="$1"; shift
     fi
     local number="$1"
-    azure_issue_patch_state "$number" "New"
+    # Resolve a state the project's process actually carries: the first
+    # non-closed state from the type's state list ("New" is not universal
+    # — Basic-process projects carry Proposed/Active/Closed). The alias
+    # table stays the override channel via field_option_ids.
+    local op org project states open_state
+    op=$(azure_org_project) || return 1
+    org=$(printf '%s' "$op" | sed -n 1p)
+    project=$(printf '%s' "$op" | sed -n 2p)
+    states=$(azure_http_request GET "https://dev.azure.com/${org}/${project}/_apis/wit/workitemtypes/Issue/states?api-version=7.1" 2>/dev/null | jq -r '.value[] | select(.category != "completed") | .name' | head -1)
+    [ -n "$states" ] || { log_error "provider_issues_reopen: no open state resolvable for the project's process"; return 1; }
+    open_state="$states"
+    azure_issue_patch_state "$number" "$open_state"
 }
 
 # Edit an issue (--title/--body/--add-label).
@@ -683,7 +694,11 @@ azure_issue_patch_state() {
     base=$(azure_wit_base) || return 1
     local patch_body
     patch_body=$(printf '[{"op":"add","path":"/fields/System.State","from":null,"value":"%s"}]' "$state")
-    azure_http_request PATCH "$base/workitems/$number" "$patch_body" "application/json-patch+json" >/dev/null
+    local response
+    if ! response=$(azure_http_request PATCH "$base/workitems/$number" "$patch_body" "application/json-patch+json"); then
+        printf '%s' "$response"
+        return 1
+    fi
 }
 
 # ---------------------------------------------------------------------------

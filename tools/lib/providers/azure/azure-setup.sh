@@ -233,7 +233,9 @@ azure_project=${PROJECT}
 #inprogress=active
 #done=closed
 
-# Iteration stub (sprint path) for milestone lookups:
+# Iteration path: milestone READS resolve per work item
+# (System.IterationLevel2) — no config needed. Reserved for a future
+# milestone WRITE path.
 #iteration_path=${PROJECT}\\Sprint 1
 BLOCK
 echo

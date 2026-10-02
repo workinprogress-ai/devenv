@@ -78,8 +78,10 @@ azure_default_team_id() {
 # Usage: azure_status_alias WORD STATE_LIST -> prints the state name
 azure_status_alias() {
     local word="$1" states="${2:-}"
-    # (1) exact state match passes through.
-    if [ -n "$states" ] && printf '\t%s\t' "$(printf '%s' "$states" | tr '\n' '\t')" | grep -q "\t$word\t"; then
+    # (1) exact state match passes through. Tab-delimited framing (real
+    # tabs via tr) — a literal "\t" in the pattern would be read as the
+    # character 't' by grep and never match.
+    if [ -n "$states" ] && printf '\t%s\t' "$(printf '%s' "$states" | tr '\n' '\t')" | grep -q "$(printf '\t')$word$(printf '\t')"; then
         printf '%s' "$word"
         return 0
     fi

@@ -278,3 +278,59 @@ the same change; when a new constraint is discovered live, record it here
 with the date and evidence. Transport-level facts (api-versions, body
 regimes, merge steps) are verified against
 `https://dev.azure.com` REST api-version 7.1 unless noted otherwise.
+
+## Live smoke suite
+
+`azure-smoke-test.sh` validates every HTTP-touching verb in this provider
+against a LIVE org in one combined flow. Manual invocation only — never
+wired into tests or CI.
+
+How to run:
+
+```
+cd tools/lib/providers/azure
+AZURE_PAT=<token> AZURE_DEVOPS_ORG=<org> AZURE_SMOKE_TEST_PROJECT=<project> \
+    [AZURE_SMOKE_REPORT=<path>] ./azure-smoke-test.sh
+```
+
+Interactive mode prompts for the same three values (PAT input hidden).
+The PAT needs Code, PullRequest, WorkItems, Boards, Build, Packaging and
+Policy management (read+write) rights; the suite never persists it.
+
+Contract:
+
+- **User-provided test project only.** The suite never provisions or
+  deletes projects; every destructive case runs inside the named project
+  and the org outside it is never touched.
+- **Single combined flow:** fixtures first (work item + disposable repo
+  via provider verbs), then every verb, then mandatory reverse-order
+  teardown via an EXIT trap (fires even on a mid-suite death).
+- **Teardown matrix (live-verified):** work items delete with
+  `?destroy=true`; repo DELETE may need the fallback chain
+  name+destroy → GUID+destroy → plain soft-delete; policy DELETEs
+  302-redirect (the transport follows redirects).
+- **Report:** `AZURE_SMOKE_REPORT=<path>` appends per-verb pass/fail
+  lines; the transport redacts the token on every path, so reports are
+  safe to keep in `.local-artifacts/`.
+- **Idempotence note:** `protect_branch` and the ruleset case both create
+  a minimum-reviewers policy on `main`; a duplicate is rejected 403
+  "rejected by policy" — the ruleset case reads a verified equivalent
+  configuration as idempotent success (anything else stays a FAIL).
+
+Live-verified transport facts added by this suite (2026-10-01):
+
+- PR thread routes are repositories-qualified:
+  `/_apis/git/repositories/{repo}/pullrequests/{id}/threads/{id}`. The
+  status PATCH takes the thread object `{"status":2}` under plain
+  `application/json` (json-patch+json → 415; a JSON-Patch array →
+  "Parameter name: commentThread").
+- ACL security tokens are dataspace-rooted:
+  `repoV2/{project-id}/{repo-guid}` — a bare repo guid fails with
+  "Could not find dataspace with category Git".
+- `builds?&$top=…` (empty first query param) is rejected 400; the first
+  parameter owns the separator.
+- `description` is not PATCHable on repositories ("The repository change
+  is not supported") — create-time only.
+- A `builds?&` style empty-param URL, a literal `\t` in a grep pattern,
+  and Basic-auth PAT handling are all covered by regression tests in
+  `tools/tests/lib/test_provider_azure_*.bats`.

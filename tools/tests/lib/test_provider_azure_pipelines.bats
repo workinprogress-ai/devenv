@@ -204,3 +204,48 @@ JSON
         run azure_run provider_pipelines_wait_for_branch o1/p1/r1 main 3
     [ "$status" -eq 0 ]
 }
+
+@test "azure_build_base composes a valid query for both repo forms" {
+    # F-SMOKE-1 regression, live-corrected: neither form carries a bare
+    # trailing '?' (Azure 400s 'builds?&…'); the verb's first param owns
+    # the separator.
+    azure_libs_source
+    local url
+    url=$(azure_build_base "")
+    [[ "$url" == *"build/builds" ]]
+    [[ "$url" != *"builds?" ]]
+    url=$(azure_build_base "o1/p1/r1")
+    [[ "$url" == *"build/builds?repositoryId=r1&repositoryType=TfsGit" ]]
+}
+
+@test "provider_pipelines_run_list composes the project-scoped URL without '?&'" {
+    # Live-verified: 'builds?&$top=…' is rejected 400 by Azure.
+    printf '{"value":[]}' > "$TEST_TEMP_DIR/empty-builds.json"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/empty-builds.json" \
+        run azure_run provider_pipelines_run_list ""
+    [ "$status" -eq 0 ]
+    grep -q 'builds?$top=' "$STUB_CALL_LOG"
+    ! grep -q 'builds?&' "$STUB_CALL_LOG"
+}
+
+@test "provider_pipelines_run_list emits the transport error JSON on failure" {
+    # Error-contract regression: paginate's error JSON lands on stdout — the
+    # verb must not swallow it (rc=1 with empty output was the old bug).
+    printf '{"error":"http","code":404,"message":"list request failed"}' > "$TEST_TEMP_DIR/err.json"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/err.json" STUB_CURL_HTTP_CODE=404 \
+        run azure_run provider_pipelines_run_list ""
+    [ "$status" -ne 0 ]
+    [[ "$output" =~ '"error":"http"' ]]
+}
+
+@test "provider_pipelines_workflow_list resolves the repo filter to a GUID" {
+    # F-SMOKE-7 regression: the definitions filter takes a repository GUID,
+    # not the bare name. Queue: [repo-guid GET, definitions GET].
+    printf '{"id":"guid-1234","name":"r1"}' > "$TEST_TEMP_DIR/repo.json"
+    printf '{"value":[]}' > "$TEST_TEMP_DIR/defs.json"
+    printf '%s\n%s\n' "$TEST_TEMP_DIR/repo.json" "$TEST_TEMP_DIR/defs.json" > "$TEST_TEMP_DIR/wf.queue"
+    STUB_CURL_PAGES="$TEST_TEMP_DIR/wf.queue" \
+        run azure_run provider_pipelines_workflow_list "o1/p1/r1"
+    [ "$status" -eq 0 ]
+    grep -q "repositoryId=guid-1234" "$STUB_CALL_LOG"
+}

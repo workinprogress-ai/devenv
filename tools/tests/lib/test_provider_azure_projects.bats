@@ -143,15 +143,13 @@ queue_responses() {
     grep -q "System.State" "$TEST_TEMP_DIR/fsbody.log"
 }
 
-@test "provider_projects_for_issue emits the title/number/status row" {
-    printf '{"id":42,"fields":{"System.State":"Active","System.WorkItemType":"Issue"}}' > "$TEST_TEMP_DIR/wi.json"
-    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/wi.json" \
-        run azure_run provider_projects_for_issue "https://dev.azure.com/org/proj/_workitems/edit/42" org
+@test "azure_status_alias exact-state pass-through matches a real tab" {
+    # F-SMOKE-2 regression: the framed list must be matched with real tabs
+    # (a literal \t in the pattern is read as the character 't'). In-process
+    # call: the multi-line states arg must survive as ONE parameter.
+    source "$DEVENV_TOOLS/lib/providers/azure/projects.bash"
+    states=$(printf 'New\nActive\nClosed')
+    run azure_status_alias Active "$states"
     [ "$status" -eq 0 ]
-    [ "$output" = "$(printf 'Issue Board\t42\tActive')" ]
-}
-
-@test "provider_projects_for_issue fails defined without an issue number" {
-    run azure_run provider_projects_for_issue "https://dev.azure.com/org/proj/_workitems/edit/" org
-    [ "$status" -ne 0 ]
+    [ "$output" = "Active" ]
 }

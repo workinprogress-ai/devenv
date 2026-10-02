@@ -181,18 +181,53 @@ JSON
     printf '%s\n' "$output" | jq -e '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage == false' >/dev/null
 }
 
-@test "provider_prs_thread_resolve patches status to resolved" {
-    printf '{"id":5,"status":2}' > "$TEST_TEMP_DIR/resolved.json"
-    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/resolved.json" \
-        run azure_run provider_prs_thread_resolve 12/5
-    [ "$status" -eq 0 ]
-    [ "$output" = "true" ]
+@test "provider_prs_thread_resolve without a repo fails defined (routes are repositories-qualified)" {
+    run azure_run provider_prs_thread_resolve 12/5
+    [ "$status" -ne 0 ]
+    [[ "$output" =~ repositories-qualified ]]
 }
 
 @test "provider_prs_thread_resolve without a composite ref fails with guidance" {
-    run azure_run provider_prs_thread_resolve 5
+    run azure_run provider_prs_thread_resolve o1/p1/r1 5
     [ "$status" -ne 0 ]
     [[ "$output" =~ pr-threads-get ]]
+}
+
+@test "provider_prs_thread_resolve builds a repositories-qualified route" {
+    # F-SMOKE-5 regression, live-corrected: thread routes are
+    # repositories-qualified — the project-git base (no repositories
+    # segment) is an MVC 404. Repo form: <repo>/<pr>/<thread>.
+    printf '{"id":5,"status":2}' > "$TEST_TEMP_DIR/resolved2.json"
+    : > "$TEST_TEMP_DIR/resolve2.body"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/resolved2.json" STUB_CURL_REQUEST_BODY="$TEST_TEMP_DIR/resolve2.body" \
+        run azure_run provider_prs_thread_resolve o1/p1/r1 12/5
+    [ "$status" -eq 0 ]
+    grep -q "dev.azure.com/o1/p1/_apis/git/repositories/r1/pullrequests/12/threads/5" "$STUB_CALL_LOG"
+    # Live-verified: the status PATCH takes the thread object {status: 2} —
+    # a JSON-Patch array fails with "Parameter name: commentThread".
+    grep -q '"status"' "$TEST_TEMP_DIR/resolve2.body"
+    ! grep -q '"op"' "$TEST_TEMP_DIR/resolve2.body"
+}
+
+
+@test "provider_prs_thread_reply posts a bare comment object (no threads envelope)" {
+    # F-SMOKE-4 regression: the comments endpoint takes {content,...} —
+    # the threads envelope made the store read empty content.
+    printf '{"id":77}' > "$TEST_TEMP_DIR/reply.json"
+    : > "$TEST_TEMP_DIR/rreqbody.log"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/reply.json" STUB_CURL_REQUEST_BODY="$TEST_TEMP_DIR/rreqbody.log" \
+        run azure_run provider_prs_thread_reply o1/p1/r1 12 5 "reply text"
+    [ "$status" -eq 0 ]
+    grep -q '"content"' "$TEST_TEMP_DIR/rreqbody.log"
+    ! grep -q '"comments"' "$TEST_TEMP_DIR/rreqbody.log"
+}
+
+@test "provider_prs_diff returns empty (not a jq crash) when .changes is null" {
+    printf '{"value":[{"id":1,"changes":null}]}' > "$TEST_TEMP_DIR/nochanges.json"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/nochanges.json" \
+        run azure_run provider_prs_diff o1/p1/r1 12
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
 }
 
 # ============================================================================
@@ -244,3 +279,4 @@ JSON
     # mergeable/mergeStateStatus map from mergeStatus per the contract.
     [[ "$(jq -r .mergeable <<< "$output")" == "MERGEABLE" ]]
 }
+

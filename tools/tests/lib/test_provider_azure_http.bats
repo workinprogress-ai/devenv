@@ -193,3 +193,17 @@ EOF
     ! [[ "$output" =~ "leaky-token-xyz" ]]
     [[ "$output" =~ "REDACTED" ]]
 }
+
+@test "azure-http: paginate follows a body-embedded continuationToken" {
+    # Body-continuation regression: some endpoints embed the token in the
+    # response body instead of a ContinuationToken header - without the
+    # fallback the list silently truncates after one page.
+    printf '{"value":[{"id":1}],"continuationToken":"tok-1"}' > "$TEST_TEMP_DIR/page1.json"
+    printf '{"value":[{"id":2}]}' > "$TEST_TEMP_DIR/page2.json"
+    export STUB_CURL_PAGES="$TEST_TEMP_DIR/pages.queue"
+    printf '%s\n%s\n' "$TEST_TEMP_DIR/page1.json" "$TEST_TEMP_DIR/page2.json" > "$STUB_CURL_PAGES"
+    run bash -c "source '$AZURE_HTTP_LIB' && azure_http_paginate 'https://dev.azure.com/org/proj/_apis/test'"
+    [ "$status" -eq 0 ]
+    [ "$(jq 'length' <<< "$output")" -eq 2 ]
+    [ "$(jq -r '.[1].id' <<< "$output")" = "2" ]
+}

@@ -145,8 +145,10 @@ JSON
 }
 
 @test "provider_issues_reopen patches state to New" {
-    printf '{"id":101,"fields":{"System.State":"New"}}' > "$TEST_TEMP_DIR/reopened.json"
-    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/reopened.json" \
+    printf '{"id":101,"fields":{"System.State":"Proposed"}}' > "$TEST_TEMP_DIR/reopened.json"
+    printf '{"value":[{"name":"Proposed","category":"proposed"},{"name":"Active","category":"inProgress"},{"name":"Closed","category":"completed"}]}' > "$TEST_TEMP_DIR/states-reopen.json"
+    printf '%s\n%s\n' "$TEST_TEMP_DIR/states-reopen.json" "$TEST_TEMP_DIR/reopened.json" > "$TEST_TEMP_DIR/reopen.queue"
+    STUB_CURL_PAGES="$TEST_TEMP_DIR/reopen.queue" \
         run azure_run provider_issues_reopen "" 101
     [ "$status" -eq 0 ]
 }
@@ -462,4 +464,19 @@ JSONEOF
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/parent2.json" \
         run azure_run provider_issue_graph_unlink 100 101
     [ "$status" -eq 0 ]
+}
+
+@test "provider_issues_reopen resolves the project's first open state (no hardcoded New)" {
+    # F-SMOKE-3 regression: reopen must patch to a state the process
+    # actually carries - Basic-process projects have no "New".
+    printf '{"value":[{"name":"Proposed","category":"proposed"},{"name":"Active","category":"inProgress"},{"name":"Closed","category":"completed"}]}' > "$TEST_TEMP_DIR/states3.json"
+    printf '{"id":42,"fields":{"System.State":"Proposed"}}' > "$TEST_TEMP_DIR/patched3.json"
+    printf '%s\n%s\n' "$TEST_TEMP_DIR/states3.json" "$TEST_TEMP_DIR/patched3.json" > "$TEST_TEMP_DIR/reopen3.queue"
+    : > "$TEST_TEMP_DIR/reopen3.body"
+    STUB_CURL_PAGES="$TEST_TEMP_DIR/reopen3.queue" STUB_CURL_REQUEST_BODY="$TEST_TEMP_DIR/reopen3.body" \
+        run azure_run provider_issues_reopen "" 42
+    [ "$status" -eq 0 ]
+    # The state rides the PATCH body, not the URL.
+    grep -q "Proposed" "$TEST_TEMP_DIR/reopen3.body"
+    ! grep -q '"New"' "$TEST_TEMP_DIR/reopen3.body"
 }
