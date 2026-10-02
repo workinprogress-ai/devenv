@@ -174,16 +174,24 @@ provider_pipelines_run_list() {
 
     local base_query
     base_query=$(azure_build_base "$repo") || return 1
-    local query="${base_query}"
+    # First param decides the separator: the base carries no query of its
+    # own anymore (a bare trailing '?' made Azure reject the URL with 400).
+    local sep="?"
+    case "$base_query" in
+        *\?*) sep="&" ;;
+    esac
+    local query="${base_query}${sep}\$top=${limit}&queryOrder=queueTimeDescending"
     [ -n "$branch" ] && query="${query}&branchName=refs/heads/${branch}"
     # gh --workflow filters by workflow name; azure's builds list takes a
     # definitions= name filter (server-side, exact name).
     [ -n "$workflow" ] && query="${query}&definitions=${workflow}"
     [ -n "$status_filter" ] && query="${query}&statusFilter=${status_filter}"
-    query="${query}&\$top=${limit}&queryOrder=queueTimeDescending"
 
     local response
+    # Error contract: paginate's error JSON lands on stdout — emit it, the
+    # caller asserts rc.
     if ! response=$(azure_http_paginate "$query"); then
+        printf '%s' "$response"
         return 1
     fi
     # Map each record (with the optional gh --json projection), assemble one
@@ -304,11 +312,16 @@ provider_pipelines_workflow_list() {
     project=$(printf '%s' "$op" | sed -n 2p)
     local api="https://dev.azure.com/${org}/${project}/_apis/build/definitions"
     if [ -n "$repo" ]; then
-        local repo_name="${repo##*/}"
-        api="${api}?repositoryId=${repo_name}&repositoryType=TfsGit"
+        # The definitions endpoint filters by repository GUID, not name —
+        # specs arrive as org/project/repo, project/repo or bare NAME, so
+        # resolve through azure_repo_guid before composing the filter.
+        local repo_guid
+        repo_guid=$(azure_repo_guid "$repo") || return 1
+        api="${api}?repositoryId=${repo_guid}&repositoryType=TfsGit"
     fi
     local response
     if ! response=$(azure_http_paginate "$api"); then
+        printf '%s' "$response"
         return 1
     fi
     # One JSON array; state maps from the definition's enabled flag (gh's

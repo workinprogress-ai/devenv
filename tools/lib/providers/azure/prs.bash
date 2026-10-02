@@ -141,6 +141,7 @@ provider_prs_list() {
 
     local response
     if ! response=$(azure_http_paginate "$api"); then
+        printf '%s' "$response"
         return 1
     fi
     local mapped
@@ -279,6 +280,11 @@ provider_prs_diff() {
     local changes
     if ! changes=$(azure_http_request GET "${base_url}/pullrequests/${number}/iterations/${latest_iter}/changes"); then
         return 1
+    fi
+    # A PR with no file changes carries null .changes — guard to empty
+    # output (jq would crash iterating null).
+    if [ "$(printf '%s' "$changes" | jq -r '.changes // empty | type' 2>/dev/null)" != "array" ]; then
+        return 0
     fi
     if [ "$name_only" = "true" ]; then
         printf '%s' "$changes" | jq -r '.changes[].item.path'
@@ -518,10 +524,12 @@ provider_prs_thread_reply() {
     local base_url
     base_url=$(azure_pr_base "$repo") || return 1
     local reply_body
-    reply_body=$(jq -n --arg t "$body" --arg tid "$thread_id" \
-        '{comments: [{parentCommentId: 0, content: $t, commentType: 1}], status: 1}')
+    # The comments endpoint takes a bare comment object — the threads
+    # envelope (comments:[…], status) is rejected here as empty content.
+    reply_body=$(jq -n --arg t "$body" '{content: $t, commentType: 1, parentCommentId: 0, format: "markdown"}')
     local response
     if ! response=$(azure_http_request POST "${base_url}/pullrequests/${pr}/threads/${thread_id}/comments" "$reply_body"); then
+        printf '%s' "$response"
         return 1
     fi
     printf '%s' "$response" | jq -c '{id: (.id | tostring)}'
@@ -585,25 +593,64 @@ provider_prs_thread_create() {
 }
 
 # Resolve a review thread. Azure thread status 2 = resolved (fixed).
-# THREAD_REF is the provider-opaque id (<pr>/<thread>) exactly as emitted
-# by pr-threads-get's thread list — no separate PR context is needed.
-# Usage: provider_prs_thread_resolve THREAD_REF
+# THREAD_REF is the provider-opaque id. Two accepted forms:
+#   <pr>/<thread>            — resolved against the configured
+#                              org/project git namespace via the PROJECT
+#                              repo list is ambiguous, so the repo-qualified
+#   <repo>/<pr>/<thread>     — form is preferred (repo = org/project/repo
+#                              or bare name); the suite emits this shape.
+# Usage: provider_prs_thread_resolve [REPO] THREAD_REF
 provider_prs_thread_resolve() {
-    local ref="${1:?thread ref required}"
+    # Accepted shapes:
+    #   <repo>/<pr>/<thread>  (one arg — repo = org/project/repo, project/repo
+    #                          or bare name; the suite and pr-threads-get
+    #                          emit this)
+    #   REPO <pr>/<thread>    (two args)
+    # A bare <pr>/<thread> cannot route (threads are repositories-qualified)
+    # and fails defined with guidance.
+    local repo="" ref
+    if [ $# -eq 1 ]; then
+        ref="$1"
+        # Split the trailing /<pr>/<thread> off the END: repo specs may be
+        # org/project/repo (two slashes) — first-slash parsing would mangle
+        # them.
+        case "$ref" in
+            */*/*)
+                thread_id="${ref##*/}"
+                pr="${ref%/*}"; pr="${pr##*/}"
+                repo="${ref%/*}"; repo="${repo%/*}"
+                ref="${pr}/${thread_id}"
+                ;;
+        esac
+    else
+        repo="$1"; shift
+        ref="$1"
+    fi
+    [ -n "$repo" ] || {
+        log_error "provider_prs_thread_resolve: azure thread routes are repositories-qualified — pass the repo: '<repo>/<pr>/<thread>'"
+        return 1
+    }
     local pr thread_id
     case "$ref" in
         [0-9]*/[0-9]*) pr="${ref%/*}"; thread_id="${ref#*/}" ;;
         *)
-            log_error "provider_prs_thread_resolve: azure thread refs are '<pr>/<thread>' — take the id from pr-threads-get output"
+            log_error "provider_prs_thread_resolve: azure thread refs are '<repo>/<pr>/<thread>' — take the id from pr-threads-get output"
             return 1
             ;;
     esac
+    # Thread routes are repositories-qualified: /_apis/git/repositories/
+    # {repo}/pullrequests/{pr}/threads/{thread}. The project-git base
+    # (no repositories segment) is an MVC 404 — live-verified.
     local base_url
-    base_url=$(azure_pr_base "") || return 1
+    base_url=$(azure_pr_base "$repo") || return 1
     local patch_body
-    patch_body=$(printf '[{"op":"replace","path":"/status","value":2}]')
+    # Threads status PATCH takes the thread object {status: 2} under plain
+    # application/json — a JSON-Patch array fails with "Value cannot be
+    # null. Parameter name: commentThread" (live-verified).
+    patch_body='{"status": 2}'
     local response
     if ! response=$(azure_http_request PATCH "${base_url}/pullrequests/${pr}/threads/${thread_id}" "$patch_body"); then
+        printf '%s' "$response"
         return 1
     fi
     printf '%s' "$response" | jq -r 'if .status == 2 then "true" else "unknown" end'

@@ -137,6 +137,7 @@ azure_http_request() {
 
         local curl_args=(
             -sS
+            -L
             -X "$method"
             -H "$(_azure_auth_header)"
             -D "$headers_file"
@@ -277,7 +278,13 @@ azure_http_paginate() {
             [ -n "$item" ] && items+=("$item")
         done < <(jq -c '.value[]' "$body_file" 2>/dev/null)
 
+        # Continuation: some endpoints carry the token in a response header,
+        # others embed it in the body (continuationToken field) — check the
+        # header first, then the body; missing both ends pagination.
         continuation=$(grep -i '^ContinuationToken:' "$headers_file" | tr -d '\r' | awk '{print $2}')
+        if [ -z "$continuation" ]; then
+            continuation=$(jq -r '.continuationToken // empty' "$body_file" 2>/dev/null)
+        fi
         rm -f "$body_file" "$headers_file"
 
         [ -z "$continuation" ] && break
