@@ -51,9 +51,10 @@ setup() {
 @test "run-devenv-tests.sh runs one bats invocation over collected files" {
     # The single-invocation design is what enables parallel scheduling; the
     # old three-globs shape (three separate `bats "$TESTS_DIR/<dir>"/*.bats`
-    # blocks) would serialize the groups again.
+    # blocks) would serialize the groups again. --verbose-run makes failing
+    # tests print their captured output (root-cause signal in CI).
     ! grep -q 'bats "\$TESTS_DIR/lib"/\*.bats' "$RUNNER"
-    grep -q 'bats "${bats_args\[@\]}" "${test_files\[@\]}"' "$RUNNER"
+    grep -q 'bats --verbose-run "\${bats_args\[@\]}" "\${test_files\[@\]}"' "$RUNNER"
 }
 
 @test "run-devenv-tests.sh echoes total duration" {

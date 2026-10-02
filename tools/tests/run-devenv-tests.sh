@@ -89,7 +89,10 @@ echo "Mode: $mode_label"
 echo "Test files: ${#test_files[@]}"
 start_time=$(date +%s)
 
-if ! bats "${bats_args[@]}" "${test_files[@]}"; then
+# --verbose-run: failing tests print their captured output — without it a
+# failed grep-style assertion hides the actual error text, which is the
+# only root-cause signal for environment-dependent failures.
+if ! bats --verbose-run "${bats_args[@]}" "${test_files[@]}"; then
     end_time=$(date +%s)
     echo "======================================"
     echo "❌ Test suite failed! (duration: $((end_time - start_time))s, mode: $mode_label)"

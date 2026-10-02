@@ -224,7 +224,7 @@ bash .devcontainer/install-extras/tailscale.sh
 
 The dev container includes a "light" and simple graphical desktop environment that can be used as an alternative to the terminal.  This is useful for running graphical applications or for those who prefer a graphical interface.  It is provided by the `desktop-lite` container feature (Fluxbox-based) — intentionally minimal rather than a full desktop environment.  It includes a terminal, file manager, and web browser, plus a few other utilities such as a text editor and a calculator.
 
-To access the desktop environment, you need to [open a browser to port 6090 on the localhost](http://localhost:6090).  The easiest way do this is to open the Ports tab in Vs Code (ctrl+shift+p and type "Ports" and click on the option `View: Toggle Ports`).  Of course, you can also bookmark it in the browser.  The web page will take you to a web-hosted instances of VNC that you can use to access the desktop.  The password is `vscode`.  (It's a super simple interface.  Don't gripe, remember it's running in a container so just use it and be amazed that it works at all.)
+To access the desktop environment, you need to open a browser to port 6090 on the localhost.  The easiest way do this is to open the Ports tab in Vs Code (ctrl+shift+p and type "Ports" and click on the option `View: Toggle Ports`).  Of course, you can also bookmark it in the browser.  The web page will take you to a web-hosted instances of VNC that you can use to access the desktop.  The password is `vscode`.  (It's a super simple interface.  Don't gripe, remember it's running in a container so just use it and be amazed that it works at all.)
 
 ## Container resource tuning
 
