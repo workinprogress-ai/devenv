@@ -149,6 +149,80 @@ The Azure provider now ships in-tree — no copying GitHub modules required:
   guessed), and prints the fork's `[provider]` config block. Idempotent
   (re-run converges); manual-only, never in CI.
 
+## Keeping a Soft Fork in Sync and Contributing Back
+
+For an Azure-hosted soft fork, `[fork]` in `devenv.config` records the
+fetch-only upstream URL and branch:
+
+```ini
+[fork]
+upstream_repo=https://github.com/workinprogress-ai/devenv.git
+upstream_branch=master
+```
+
+Run the one-time setup from inside the fork clone. The dry run reports the
+remote and push protection without changing `.git/config`:
+
+```bash
+bash tools/lib/providers/azure/fork-setup.sh --dry-run
+bash tools/lib/providers/azure/fork-setup.sh
+```
+
+The script adds `upstream` for fetching and sets its push URL to `/dev/null`,
+so an accidental push through that remote fails. It does not contact GitHub
+or require GitHub credentials.
+
+Run `fork-sync.sh` to fetch upstream and inspect ahead/behind counts and
+commit subjects. It does not rebase or push by default. Use `--rebase` only
+when ready to replay the current branch on `upstream/<branch>`; if conflicts
+occur, resolve them or run the printed `git rebase --abort` command. To update
+the same-named branch on `origin`, `--push-to-origin` normally permits only
+a fast-forward. If origin contains commits absent locally, the command
+refuses unless `--rewrite-origin` is also specified; that path uses
+`--force-with-lease` pinned to the fetched origin SHA and can replace those
+origin-only commits. A TTY prompts with a default-no choice; scripted runs
+must pass `--yes`. Use `--dry-run` to inspect the planned operations without
+fetching or changing refs.
+
+```bash
+bash tools/lib/providers/azure/fork-sync.sh --dry-run
+bash tools/lib/providers/azure/fork-sync.sh
+bash tools/lib/providers/azure/fork-sync.sh --rebase
+bash tools/lib/providers/azure/fork-sync.sh --rebase --push-to-origin --yes
+```
+
+To contribute commits to GitHub, use a separate ordinary GitHub clone. Export
+the local commits as a bundle (default), patch series, or both; the base is
+always the merge-base of the selected end ref (default `HEAD`) and
+`upstream/<branch>`. Files are written under
+`.local-artifacts/fork-export/<base-short>-<end-short>/`. `--apply-to` applies
+the export directly into a clean sibling clone that shares the upstream
+base; no GitHub credentials are used by these scripts.
+
+```bash
+bash tools/lib/providers/azure/fork-export.sh
+bash tools/lib/providers/azure/fork-export.sh HEAD~2 --format patch
+bash tools/lib/providers/azure/fork-export.sh --format both
+bash tools/lib/providers/azure/fork-export.sh --apply-to /path/to/github/devenv
+```
+
+An export is a contiguous commit range. To contribute only selected commits
+from a branch that also contains local-only changes, create a separate
+branch at the fetched upstream base and cherry-pick only the commits to
+contribute, in dependency order, then export that branch:
+
+```bash
+bash tools/lib/providers/azure/fork-sync.sh
+git switch -c contribute-upstream upstream/master
+git cherry-pick <commit-to-contribute-1> <commit-to-contribute-2>
+bash tools/lib/providers/azure/fork-export.sh --format bundle
+```
+
+This leaves the original local branch unchanged and exports a new contiguous
+series based on upstream. If a selected commit depends on omitted changes,
+adapt it or resolve the cherry-pick conflict before exporting. A dry run is
+available for setup, sync, and export before applying any operation.
+
 ## Copilot Instructions
 
 The file `copilot/copilot-instructions.md` contains AI coding guidelines that apply to the repository in VS Code (GitHub Copilot reads this file automatically when it exists in the workspace). During bootstrap, `~/.copilot/copilot-instructions.md` is **symlinked** to this file, making the same instructions available as the user-level Copilot instructions file.

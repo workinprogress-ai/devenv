@@ -255,13 +255,17 @@ FZF
 
 @test "deterministic: type-set targets the DEVENV_REPO repo, not the cwd repo" {
   _issue_mgmt_stub_gh
-  printf '[organization]\norg=workinprogress-ai\n' > "$TEST_TEMP_DIR/devenv.config"
+  printf '[provider]\nname=github\n[organization]\norg=workinprogress-ai\n[workflows]\nstatus_workflow=TBD,To-Groom,Ready,Implementing,Review,Merged,Staging,Production\n' > "$TEST_TEMP_DIR/devenv.config"
   git init -q "$TEST_TEMP_DIR/repo" && cd "$TEST_TEMP_DIR/repo"
 
   run env DEVENV_REPO="workinprogress-ai/lib.cs.services.sagas" PATH="$TEST_TEMP_DIR/bin:$PATH" HOME="$TEST_TEMP_DIR" DEVENV_ROOT="$TEST_TEMP_DIR" \
     bash "$PROJECT_ROOT/tools/scripts/issue-create.sh" \
     --title "t" --body "b" --type Bug --no-interactive
 
+  if [ "$status" -ne 0 ]; then
+    printf 'GH calls before failure:\n' >&3
+    cat "$GH_CALL_LOG" >&3
+  fi
   [ "$status" -eq 0 ]
   # The type-set (gh issue edit --type) must run with GH_REPO pinned to the
   # DEVENV_REPO target — never empty (falls through to the cwd repo). The

@@ -137,6 +137,36 @@ EOF
     [ ! -f "$DEVENV_ROOT/.setup/provider_token.txt" ]
 }
 
+@test "key-update-provider: dispatches to the configured provider across comment-padded [provider] sections" {
+    # Regression for a fork devenv.config whose [provider] section carries
+    # more explanatory comment lines than a fixed grep -A window captures.
+    T=$(mktemp -d)
+    mkdir -p "$T/tools/lib/providers/azure" "$T/tools/lib/providers/github"
+    cat > "$T/tools/lib/providers/azure/key-update.sh" << 'EOF'
+#!/usr/bin/env bash
+echo "AZURE_KEY_UPDATE_RAN"
+EOF
+    cat > "$T/tools/lib/providers/github/key-update.sh" << 'EOF'
+#!/usr/bin/env bash
+echo "GITHUB_KEY_UPDATE_RAN"
+EOF
+    cat > "$T/devenv.config" << 'EOF'
+[provider]
+# Active provider backend for the tools layer
+# All provider_* facade calls dispatch to modules under tools/lib/providers/<name>/.
+# Forks adapting to a non-GitHub backend (e.g. Azure DevOps) change this key.
+name=azure
+EOF
+    run bash -c "
+        export DEVENV_ROOT='$T'
+        source <(sed -n '/^key-update-provider()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+        key-update-provider
+    "
+    [[ "$output" == *"AZURE_KEY_UPDATE_RAN"* ]]
+    [[ "$output" != *"GITHUB_KEY_UPDATE_RAN"* ]]
+    rm -rf "$T"
+}
+
 @test "key-update-tailscale: closed stdin refuses without hanging" {
     run bash "$PROJECT_ROOT/tools/scripts/_key-update-tailscale.sh" < /dev/null
     [ "$status" -ne 0 ]

@@ -113,6 +113,18 @@ verify_pnpm_version() {
     return 0
 }
 
+# Reclaim ownership of a stale pre-installed global pnpm module. The node
+# devcontainer feature installs pnpm as root during image build; npm run as
+# the current user then can't rename/replace it in place and fails EACCES.
+# Safe to call even when no such directory exists.
+reclaim_global_pnpm_ownership() {
+    local npm_global_pnpm
+    npm_global_pnpm="$(npm root -g 2>/dev/null)/pnpm"
+    if [ -e "$npm_global_pnpm" ] && [ "$(stat -c '%U' "$npm_global_pnpm" 2>/dev/null)" != "$(whoami)" ]; then
+        sudo chown -R "$(whoami)":"$(whoami)" "$npm_global_pnpm"
+    fi
+}
+
 # Install or update tools to expected versions
 ensure_tool_versions() {
     echo "Checking tool versions..."
@@ -120,6 +132,14 @@ ensure_tool_versions() {
     # Check Node.js
     if ! verify_node_version 2>/dev/null; then
         echo "Installing Node.js $NODE_VERSION..."
+        # nvm is a shell function loaded from nvm.sh, not a PATH executable.
+        # bootstrap.bash only sources it in interactive shells, so load it
+        # here too since ensure_tool_versions may run non-interactively.
+        if ! command -v nvm &> /dev/null; then
+            export NVM_DIR="${NVM_DIR:-/usr/local/share/nvm}"
+            # shellcheck disable=SC1091
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+        fi
         if command -v nvm &> /dev/null; then
             nvm install "$NODE_VERSION"
             nvm use "$NODE_VERSION"
@@ -132,6 +152,7 @@ ensure_tool_versions() {
     # Check PNPM
     if ! verify_pnpm_version 2>/dev/null; then
         echo "Installing PNPM $PNPM_VERSION..."
+        reclaim_global_pnpm_ownership
         npm install -g "pnpm@$PNPM_VERSION" 2>&1 | grep -v 'NODE_TLS_REJECT_UNAUTHORIZED'
     fi
     
@@ -178,6 +199,7 @@ show_tool_versions() {
 if [[ -n "${BASH_VERSION:-}" ]]; then
     export -f verify_node_version
     export -f verify_pnpm_version
+    export -f reclaim_global_pnpm_ownership
     export -f ensure_tool_versions
     export -f show_tool_versions
 fi

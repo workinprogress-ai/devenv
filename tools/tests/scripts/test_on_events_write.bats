@@ -87,7 +87,7 @@ STUB
     # cwd basename in the devenv checkout) — the regression under test is
     # "resolution completes and the write proceeds", not a specific repo.
     local resolved_owner resolved_repo
-    resolved_owner="$(grep -oP '^org\s*=\s*\K.*' devenv.config 2>/dev/null | head -1)"
+    resolved_owner="$(grep -oP '^org\s*=\s*\K.*' "$DEVENV_ROOT/devenv.config" 2>/dev/null | head -1)"
     resolved_owner="${resolved_owner:-workinprogress-ai}"
     resolved_repo="${resolved_owner}/$(basename "$(git rev-parse --show-toplevel)")"
     export RESOLVED_OWNER="$resolved_owner" RESOLVED_REPO="$resolved_repo"

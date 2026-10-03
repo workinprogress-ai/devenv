@@ -196,18 +196,23 @@ load ../test_helper
   [[ "$output" =~ "owner is required" ]]
 }
 
-@test "query_packages: uses GH_ORG when owner not provided" {
+@test "query_packages: uses configured organization when owner not provided" {
   run bash -c "
-    export GH_ORG='test-org'
+    export GH_ORG='conflicting-org'
+    unset POLICY_ORG
+    export DEVENV_ROOT='$TEST_TEMP_DIR/artifact-root' DEVENV_ROOT_SET=1
+    mkdir -p \"\$DEVENV_ROOT\"
+    printf '[provider]\\nname=github\\n[organization]\\norg=test-org\\n' > \"\$DEVENV_ROOT/devenv.config\"
     source '$PROJECT_ROOT/tools/lib/artifact-operations.bash'
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    # Mock gh to produce an error so we can verify owner was set
-    gh() { echo 'HTTP 401: Unauthorized' >&2; return 1; }
+    gh() { printf '%s\\n' \"\$*\" >> '$TEST_TEMP_DIR/gh-args'; echo 'HTTP 401: Unauthorized' >&2; return 1; }
     export -f gh
     query_packages --type npm 2>&1 || true
+    cat '$TEST_TEMP_DIR/gh-args'
   "
-  # Should fail trying to query packages, not fail validation
   [[ "$output" =~ "GitHub API error" ]]
+  [[ "$output" == *"/users/test-org/packages"* ]]
+  [[ "$output" != *"/users/conflicting-org/packages"* ]]
 }
 
 @test "query_packages: rejects unknown options" {
@@ -260,18 +265,23 @@ load ../test_helper
   [[ "$output" =~ "required" ]]
 }
 
-@test "get_package_versions: uses GH_ORG when owner not provided" {
+@test "get_package_versions: uses configured organization when owner not provided" {
   run bash -c "
-    export GH_ORG='test-org'
+    export GH_ORG='conflicting-org'
+    unset POLICY_ORG
+    export DEVENV_ROOT='$TEST_TEMP_DIR/artifact-root' DEVENV_ROOT_SET=1
+    mkdir -p \"\$DEVENV_ROOT\"
+    printf '[provider]\\nname=github\\n[organization]\\norg=test-org\\n' > \"\$DEVENV_ROOT/devenv.config\"
     source '$PROJECT_ROOT/tools/lib/artifact-operations.bash'
     source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    # Mock gh to produce an error so we can verify owner was set
-    gh() { echo 'HTTP 401: Unauthorized' >&2; return 1; }
+    gh() { printf '%s\\n' \"\$*\" >> '$TEST_TEMP_DIR/gh-args'; echo 'HTTP 401: Unauthorized' >&2; return 1; }
     export -f gh
     get_package_versions --type npm --name my-pkg 2>&1 || true
+    cat '$TEST_TEMP_DIR/gh-args'
   "
-  # Should fail trying to query versions, not fail validation
   [[ "$output" =~ "GitHub API error" ]]
+  [[ "$output" == *"/users/test-org/packages/npm/my-pkg/versions"* ]]
+  [[ "$output" != *"/users/conflicting-org/packages"* ]]
 }
 
 # ============================================================================

@@ -2834,6 +2834,9 @@ script's entry in [`tools/special/README.md`](../tools/special/README.md) states
 what it does, when to run it, and its blast radius. Invoke by explicit path:
 `bash tools/special/<script>.sh`.
 
+- **`tools/lib/providers/azure/fork-setup.sh`** — one-time, local setup of the fetch-only `upstream` remote from `[fork]` config. Manual-only; `--dry-run` previews the remote and push guard.
+- **`tools/lib/providers/azure/fork-sync.sh`** — fetches upstream, reports divergence, and optionally rebases or updates the same-named origin branch. Origin rewrites require `--rewrite-origin` and confirmation; use `--dry-run` to preview.
+- **`tools/lib/providers/azure/fork-export.sh`** — exports an upstream-based commit range as a bundle, patch series, or both; optionally applies it to a sibling GitHub clone without GitHub credentials. `--dry-run` previews the operation.
 - **`tools/lib/providers/azure/azure-smoke-test.sh`** — Azure provider live validation, two opt-in tiers:
   `AZURE_SMOKE=1` (read-only: auth, repo list, WIQL, work-item view, PR list)
   and `AZURE_SMOKE=write` (destructive: create/comment/close work items,
@@ -3261,8 +3264,8 @@ plan-parse <PLAN_FILE> --summary | --census | --anchors | --lint [--require-head
 ### `devenv-marker-check`
 
 Deterministic DEVENV-marker and AC-comment scanning for cleanup gates and
-discovery sweeps. Gate mode fails when plan-bounded `FIXME:DEVENV[...]:`
-markers remain (cross-plan `TODO:DEVENV[...]:` markers are sanctioned to ship);
+discovery sweeps. Gate mode fails when plan-bounded FIXME markers remain;
+cross-plan TODO markers are sanctioned to ship;
 `--todo-report` lists scoped TODOs and warns about missing discharge
 conditions; `--all` audits every marker form.
 

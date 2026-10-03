@@ -278,7 +278,7 @@ repo3'
         get_current_repository_name
     "
     [ "$status" -eq 0 ]
-    [[ "$output" == "devenv" ]]
+    [[ "$output" == "$(basename "$(realpath "$PROJECT_ROOT")")" ]]
 }
 
 # ============================================================================
@@ -524,6 +524,7 @@ _make_fake_repoops_checkout() {
     local foreign_root="$TEST_TEMP_DIR/foreign_location"
     _make_fake_repoops_checkout "$fake_root"
     run bash -c "
+        unset DEVENV_ROOT_SET
         export DEVENV_ROOT='$foreign_root'
         source '$fake_root/tools/lib/repo-operations.bash'
         result=\$(get_or_create_repos_directory)
