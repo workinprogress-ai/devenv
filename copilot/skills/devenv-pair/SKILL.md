@@ -46,7 +46,7 @@ Do **not** use for:
 
 1. **Human-first orientation.** Start from goals, context, phase summaries, and acceptance criteria. Keep the task list concise and phase-scoped, while ensuring it always reflects current reality.
 2. **User drives by default — shepherd the steering wheel.** Unless steering is explicitly handed to the AI, assume the human is driving and the AI is navigating/reviewing. Keeping the human in command is the point of this skill, not just its default: when engagement decays (rubber-stamped reviews, abandoned splits, repeated "you do it"), re-anchor — invite the user back into the next chunk, or offer the explicit `/devenv-delegate` off-ramp — and never silently absorb the drift.
-3. **Bounded autonomy span.** The AI never runs more than one explicitly agreed chunk without a human touchpoint — a plan task or a conversational chunk in ad-hoc mode, small enough to review in a single pass. Rhythm: discuss/implement → review → next. A longer unattended run requires the user to explicitly commission it via `/devenv-delegate` (see [Suggesting a Switch to Delegation](#suggesting-a-switch-to-delegation)). If a request bundles multiple chunks or hides decisions inside it, decompose it before executing (see [Task Decomposition](#task-decomposition) and [Ad-Hoc Mode](#ad-hoc-mode-no-plan)). Never become delegation by drift.
+3. **Bounded autonomy span.** The AI never runs more than one explicitly agreed chunk without a human touchpoint — a plan task or a conversational chunk in ad-hoc mode, small enough to review in a single pass. Rhythm: discuss/implement → review → next. A longer unattended run requires the user to explicitly commission it via `/devenv-delegate` (see [Suggesting a Switch to Delegation](#suggesting-a-switch-to-delegation)). If a request bundles multiple chunks or hides decisions inside it, decompose it before executing (see [Task Decomposition](#task-decomposition) and [Ad-Hoc Mode](#ad-hoc-mode-no-plan)). Never become delegation by drift. The one narrow exception is an explicit, user-requested [small-task batch](#small-task-batching) — it still ends in a review, just a coarser one; it is never the AI's default, and insistence never substitutes for actually commissioning `/devenv-delegate`.
 4. **Tight loop over ceremony.** Default loop is: orient on phase -> agree next chunk -> implement/review -> update tracking -> repeat.
 5. **No assumptions.** When in doubt, ask. (See [no-assumptions rule](#no-assumptions-rule) below.)
 6. **Push back honestly.** Disagreement is a feature, not a bug. Always with a reason.
@@ -360,6 +360,7 @@ Rules (always apply):
 - **Never cross phase boundaries** in a task split.
 - Respect `owner:` annotations — not negotiable.
 - Use `[S/M/L]` size labels: user gets `decision:` or `[L]` tasks by default; AI takes `[S]`.
+- Consecutive `[S]` tasks may run as one [small-task batch](#small-task-batching) with a single consolidated checkpoint — but only when the user explicitly asks; never the AI's default.
 - High-impact phases: one task at a time with explicit handoffs.
 - When the human is actively coding in the flow, describe work in terms of chunks, files, and outcomes first. Task numbers remain the bookkeeping layer.
 - If the user covers extra tasks unannounced: *"Looks like you covered 2.4 — happy to skip it. I'll pick up 2.5?"*
@@ -457,6 +458,22 @@ When the plan encodes a Review phase (see [`/devenv-plan`](../devenv-plan/SKILL.
 5. Tick sub-tasks individually via `markdown-plan-complete-task 3.1.1`, `3.1.2`, etc. The `X.Y.Z` format is fully supported. The parent header (3.1) has no checkbox and is never ticked — it is complete when all its sub-tasks are.
 
 **Depth limit:** one level of decomposition only (`X.Y` → `X.Y.Z`). If a sub-task still feels too large, raise a plan revision rather than nesting further.
+
+## Small-Task Batching
+
+The inverse of decomposition: a narrow, explicit exception to one-chunk-at-a-time for genuinely trivial work. **Never the AI's default** — the user has to ask for it (*"just knock out the small ones,"* *"batch the trivial stuff"*). Silent batching is scope creep toward delegation-by-drift and is not allowed.
+
+**Eligibility (all must hold):**
+- Consecutive `[S]` tasks only — a single `[M]`/`[L]` or `decision:`-bearing task in the run breaks the batch back to one-at-a-time.
+- No unresolved `[QUESTION]` on any task in the batch.
+- Same phase, same general area/files — not a grab-bag across the plan.
+- Capped at 3 tasks per batch.
+
+**Execution:** narrate each task as it's written (same as any AI-driven task — see [Task Handoff Protocol](#task-handoff-protocol)) and tick each as it completes, but collapse the stop-and-wait to **one consolidated checkpoint after the batch**, not after each task. The user still sees every change; the checkpoint grain gets coarser, not the visibility.
+
+**Still applies, and breaks the batch immediately if triggered:** per-task decision gates, the workaround-permission and architectural-fidelity principles, and the stop-on-wall rule.
+
+This is not a loosening of [Bounded autonomy span](#core-principles) — it is the one explicit, opt-in, capped exception to it. It never substitutes for `/devenv-delegate`; a user wanting a larger unattended run still needs that off-ramp.
 
 ---
 

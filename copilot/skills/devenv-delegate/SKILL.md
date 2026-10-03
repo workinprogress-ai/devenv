@@ -248,7 +248,7 @@ Work proceeds one phase at a time. Confirm which phase to start with:
 - Default: the first uncompleted phase in the plan.
 - If the user scoped delegation to specific phases, confirm the starting phase.
 
-The AI runs a full phase and hands back at phase completion. No splitting phases into sub-segments by default — the only exception is a phase with an unusually large number of tasks (15+), where proposing two segments is reasonable.
+The AI runs a full phase and hands back at phase completion by default. No splitting phases into sub-segments by default — the only exception is a phase with an unusually large number of tasks (15+), where proposing two segments is reasonable. A user who wants closer review than that can request a finer cadence at any time — see [Task-review granularity](#6c-task-review-granularity-optional).
 
 After each phase handback and user approval, the AI proceeds to the next in-scope phase unless the user redirects.
 
@@ -348,6 +348,28 @@ If the user returns after stepping away and asks for status (for example: "where
 
 This is delegation-specific review: phase acceptance and steering, not pair-programming turn-by-turn checkpointing. It answers status **for the current run only** — cross-plan or cross-issue roll-up questions ("how is the epic going?", "what's the progress across these issues?") route to `/devenv-board` (read-only Answer class; see [Sibling skills](#sibling-skills)).
 
+### 6c. Task-review granularity (optional)
+
+By default, the AI runs a full phase unattended and hands back at phase completion (see ["During a Phase"](#during-a-phase)) — no setup needed. A user who wants closer supervision than that, but not full pairing, can request a finer handback grain at any time, recognized from phrasing like *"one task at a time,"* *"stop after each task,"* *"a couple at a time,"* or *"smaller bits so I can review."*
+
+This is a separate axis from the phase-boundary policy above: boundary mode governs the gap *between* phases (gate vs. checkpoint); task-review granularity governs the gap *within* a phase. The two compose freely — e.g. checkpoint mode across phases with per-task handbacks inside one phase is a valid combination.
+
+**Modes:**
+- **Per-task** — hand back after every task.
+- **Every-N** — hand back every N tasks. If the user says "smaller bits" / "a couple at a time" without a number, use **N=2**.
+
+**Phase boundary always wins.** Never let a batch straddle a phase boundary to fill out N — if fewer than N tasks remain in the phase, hand back with whatever remains (folding into the normal phase-completion handback when it's the last one) rather than waiting to reach N.
+
+**Scope of the request:** if the user doesn't say, ask once whether it applies to just the named phase or the rest of the run. For a run-level choice, persist it in the plan header next to `boundary_mode` — `artifact-header <plan_file> --set task_granularity=<mode>` (`phase`, `per-task`, or `every-N`) — so it survives compaction. A single-phase request is session-only and doesn't need persisting.
+
+**Mechanics when active:**
+- Same driver, same decision gates, same stop/abort triggers, same per-task ticking — only the handback cadence changes.
+- Always gate-like: wait for explicit go-ahead before the next task/batch. A generic "keep going" doesn't satisfy an open gate, same as anywhere else in this skill — there is no checkpoint-style auto-continue at this grain, since the entire point of asking for finer granularity is wanting a touchpoint.
+- Each handback is a compact version of the phase completion handback (what just landed, any concern) — not the full report.
+- The phase still closes with the normal [Phase-close cleanup pass](#phase-close-cleanup-pass) and Phase Completion Gate once its tasks are done; granular handbacks are checkpoints before that close, not a replacement for it.
+
+**Revert:** the user can drop back to phase-level handback at any checkpoint by saying so — no ceremony required, same as switching boundary mode.
+
 ### Phase-close cleanup pass
 
 When a phase is ready to close, do one final cleanup sweep before marking it complete:
@@ -371,7 +393,7 @@ The phase task list must always reflect what was actually done and what remains 
 
 **External knowledge is an execution input (apply the [Knowledge & Engineering-Pattern Lookup Protocol](../common/references/knowledge-lookup-protocol.md) — apply intensity):** copilot knowledge directly shapes how tasks are implemented (wiring, idioms, conventions); consult it when a task touches unfamiliar org specifics, and cite what shaped non-obvious choices in the handback. Engineering standards **apply**: the run implements per the org's standards, including the Design-Principles library and its adherence levels (protocol's Design-Principles adherence section governs the REQUIRED/PREFERRED/ADVISORY gates and the link-before-ask rule).
 
-The AI runs through the phase's tasks without stopping for user review between each one. Task progress pings are brief indicators — not checkpoints. It should execute from the refreshed phase task list and AC intent, and keep that task list current in-place (tick completed work, remove obsolete tasks, add newly required tasks) — ticks happen at every task checkpoint, not only at handbacks. If Phase 1 discovery exposes high-blast-radius assumptions, boundary risks, failure modes, or sequencing hazards, add explicit pressure-test tasks/checkpoints to the current or next appropriate phase. Do not add no-op plan edits that merely say discovery or execution "confirmed" text that was already accurate. Ask before major changes to phases, goals, or ACs.
+By default, the AI runs through the phase's tasks without stopping for user review between each one — see [Task-review granularity](#6c-task-review-granularity-optional) for the opt-in, user-requested exception. Task progress pings are brief indicators — not checkpoints (under task-review granularity, the periodic handback is the checkpoint instead). It should execute from the refreshed phase task list and AC intent, and keep that task list current in-place (tick completed work, remove obsolete tasks, add newly required tasks) — ticks happen at every task checkpoint, not only at handbacks. If Phase 1 discovery exposes high-blast-radius assumptions, boundary risks, failure modes, or sequencing hazards, add explicit pressure-test tasks/checkpoints to the current or next appropriate phase. Do not add no-op plan edits that merely say discovery or execution "confirmed" text that was already accurate. Ask before major changes to phases, goals, or ACs.
 
 ### Review-phase tasks (plan-encoded review)
 
