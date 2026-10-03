@@ -8,6 +8,16 @@ load ../test_helper
 setup() {
     test_helper_setup
 
+    # Sandbox DEVENV_ROOT to a github-provider config: provider_extract_url
+    # resolves through whichever provider the REAL devenv.config names (this
+    # workspace may be an Azure-provider fork), but every pr-create/git mock
+    # below hardcodes github.com URLs. Without this, a non-github real config
+    # makes provider_extract_url never match, and the wizard's PR-retry loop
+    # falls through to its interactive prompt_user — hanging forever.
+    export DEVENV_ROOT="$TEST_TEMP_DIR/devroot"
+    mkdir -p "$DEVENV_ROOT"
+    printf '[provider]\nname=github\n' > "$DEVENV_ROOT/devenv.config"
+
     export REPO_DIR="$TEST_TEMP_DIR/test-repo"
     mkdir -p "$REPO_DIR/src"
 

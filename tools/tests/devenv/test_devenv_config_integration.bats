@@ -65,18 +65,22 @@ EOF
     [[ "$output" =~ Production ]]
 }
 
-@test "devenv.config: copilot section has required knowledge keys" {
-    run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $PROJECT_ROOT/devenv.config && config_validate_required copilot knowledge_repo knowledge_subpath"
+@test "devenv.config: copilot knowledge repository is not configured in this fork" {
+    run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $PROJECT_ROOT/devenv.config && config_read_value copilot knowledge_repo"
     [ "$status" -eq 0 ]
+    [ -z "$output" ]
+    run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $PROJECT_ROOT/devenv.config && config_read_value copilot knowledge_subpath"
+    [ "$status" -eq 0 ]
+    [[ "$output" == "copilot-knowledge/" ]]
 }
 
-@test "devenv.config: copilot section has engineering repo keys" {
+@test "devenv.config: copilot engineering repository is not configured in this fork" {
     run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $PROJECT_ROOT/devenv.config && config_read_value copilot engineering_repo"
     [ "$status" -eq 0 ]
-    [[ "$output" =~ docs.engineering ]]
+    [ -z "$output" ]
     run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $PROJECT_ROOT/devenv.config && config_read_value copilot engineering_subpath"
     [ "$status" -eq 0 ]
-    [[ "$output" =~ docs ]]
+    [[ "$output" == "docs/" ]]
 }
 
 @test "issues-config.yml: has issue types defined" {

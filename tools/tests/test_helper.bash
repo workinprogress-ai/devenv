@@ -20,15 +20,33 @@ test_helper_setup() {
     else
         export PROJECT_ROOT="${BATS_TEST_DIRNAME}/../.."
     fi
-    export DEVENV_ROOT="$PROJECT_ROOT"
-    export devenv="$PROJECT_ROOT"
+    export DEVENV_ROOT="$TEST_TEMP_DIR/devenv-root"
+    mkdir -p "$DEVENV_ROOT"
+    ln -s "$PROJECT_ROOT/tools" "$DEVENV_ROOT/tools"
+    cat > "$DEVENV_ROOT/devenv.config" <<'EOF'
+[provider]
+name=github
+
+[organization]
+name=Test Organization
+org=test-org
+email_domain=test.example.com
+
+[workflows]
+status_workflow=TBD,To-Groom,Ready,Implementing,Review,Merged,Staging,Production
+EOF
+    export DEVENV_ROOT_SET=1
+    export devenv="$DEVENV_ROOT"
     export DEVENV_TOOLS="$DEVENV_ROOT/tools"
+    # Synthetic defaults keep tests independent of fork-specific config.
+    # Real-repo input tests: test_devenv_config_integration.bats,
+    # test_config_reader.bats, test_git_operations.bats,
+    # test_repo_foreign_safety.bats, and test_issue_labels.bats.
     # Canary: suites must never write the REAL repo config. Suites that need
     # a config re-point DEVENV_ROOT at a per-test dir first; if any test
     # writes through the default DEVENV_ROOT anyway, teardown fails loudly.
-    # The real config's [provider] name is the tripwire (a test config always
-    # sets it to a non-real value like azure/o1/p1; the real file says github
-    # or WorkInProgress.ai).
+    # The default config is sandboxed so provider detection cannot inherit a
+    # fork's real provider choice.
     export _REAL_CONFIG_HASH=""
     if [ -f "$PROJECT_ROOT/devenv.config" ]; then
         _REAL_CONFIG_HASH=$(md5sum "$PROJECT_ROOT/devenv.config" | cut -d" " -f1)
@@ -45,7 +63,6 @@ test_helper_setup() {
     # transport is faked with the stub_gh fixture, never real credentials.
     export USER_EMAIL="test@example.com"
     export HUMAN_NAME="Test User"
-    export DEVENV_ROOT="$PROJECT_ROOT"
     export HOME="$TEST_TEMP_DIR"
 
     # No interactive git credential resolution from tests: the askpass
@@ -185,6 +202,60 @@ create_mock_git_repo() {
     git commit -m "Initial commit"
     git branch -M main
     cd "$ORIGINAL_PWD" || return 1
+}
+
+# Three-repo fixture for fork-setup/fork-sync/fork-export suites: a bare
+# upstream (stands in for github.com/workinprogress-ai/devenv), a bare
+# ado-origin cloned from it (stands in for this repo's ADO origin), a
+# working clone of ado-origin (the repo under test — has an `origin` remote
+# but no `upstream` remote yet, so fork-setup.sh has something to add), and
+# a second independent clone of upstream (stands in for the user's own real
+# GitHub clone, used by fork-export.sh --apply-to tests). All share the same
+# base commit since ado-origin and the gh-clone both descend from upstream.
+# Usage: create_fork_fixture_trio <base_dir>
+# Exports: FORK_FIXTURE_UPSTREAM, FORK_FIXTURE_ADO_ORIGIN,
+#          FORK_FIXTURE_WORKING_CLONE, FORK_FIXTURE_GH_CLONE (absolute paths)
+create_fork_fixture_trio() {
+    local base_dir="$1"
+    mkdir -p "$base_dir" || return 1
+
+    local upstream="$base_dir/upstream.git"
+    local ado_origin="$base_dir/ado-origin.git"
+    local working_clone="$base_dir/working-clone"
+    local gh_clone="$base_dir/gh-clone"
+    local seed="$base_dir/_seed"
+
+    git init -q --bare -b master "$upstream" || return 1
+
+    git clone -q "$upstream" "$seed" || return 1
+    cd "$seed" || return 1
+    git config user.email "test@example.com"
+    git config user.name "Test User"
+    touch README.md
+    git add README.md
+    git commit -q -m "Initial commit"
+    git push -q origin HEAD:master
+    cd "$ORIGINAL_PWD" || return 1
+    rm -rf "$seed"
+
+    git clone -q --bare "$upstream" "$ado_origin" || return 1
+
+    git clone -q "$ado_origin" "$working_clone" || return 1
+    cd "$working_clone" || return 1
+    git config user.email "test@example.com"
+    git config user.name "Test User"
+    cd "$ORIGINAL_PWD" || return 1
+
+    git clone -q "$upstream" "$gh_clone" || return 1
+    cd "$gh_clone" || return 1
+    git config user.email "test@example.com"
+    git config user.name "Test User"
+    cd "$ORIGINAL_PWD" || return 1
+
+    export FORK_FIXTURE_UPSTREAM="$upstream"
+    export FORK_FIXTURE_ADO_ORIGIN="$ado_origin"
+    export FORK_FIXTURE_WORKING_CLONE="$working_clone"
+    export FORK_FIXTURE_GH_CLONE="$gh_clone"
 }
 
 # Helper to check if a function exists
