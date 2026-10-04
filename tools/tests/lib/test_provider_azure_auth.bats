@@ -15,9 +15,13 @@ setup() {
     export DEVENV_TOOLS="${BATS_TEST_DIRNAME}/../.."
     export AZURE_PAT_FILE="$TEST_TEMP_DIR/azure.pat"
     export GIT_CONFIG_GLOBAL="$TEST_TEMP_DIR/gitconfig"
+    export GIT_CONFIG_NOSYSTEM=1
+    export GIT_CONFIG_COUNT=0
+    unset GIT_CONFIG_PARAMETERS
     : > "$GIT_CONFIG_GLOBAL"
     printf 'azure-pat-token-abcdefghij0123456789' > "$AZURE_PAT_FILE"
     chmod 600 "$AZURE_PAT_FILE"
+    cd "$TEST_TEMP_DIR"
 }
 
 teardown() {
@@ -55,7 +59,7 @@ teardown() {
     [[ "$output" == *"PAT file not found"* ]]
 }
 
-@test "provider_auth_setup_git: registers a host-scoped helper for dev.azure.com only" {
+@test "provider_auth_setup_git: registers canonical and organization-scoped legacy helpers" {
     run bash -c "
         source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
         PROVIDER_NAME=azure
@@ -67,6 +71,7 @@ teardown() {
     # git writes URL-scoped helpers as a [credential "URL"] section with a
     # helper key, not a dotted credential.<url>.helper line.
     grep -qA2 'credential "https://dev.azure.com"' "$gitcfg"
+    grep -qA2 'credential "https://test-org.visualstudio.com"' "$gitcfg"
     ! grep -q 'credential "https://github.com"' "$gitcfg"
 }
 
@@ -88,7 +93,90 @@ teardown() {
         export GIT_CONFIG_GLOBAL='$GIT_CONFIG_GLOBAL'
         printf 'protocol=https\nhost=github.com\n\n' | git credential fill
     "
+    [[ "$output" != *"username=oauth"* ]]
     [[ "$output" != *"azure-pat-token"* ]]
+}
+
+@test "provider_auth_setup_git: legacy host credential query returns the synthetic PAT" {
+    run bash -c "
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        PROVIDER_NAME=azure
+        provider_load auth
+        provider_auth_setup_git
+        printf 'protocol=https\nhost=test-org.visualstudio.com\n\n' | git credential fill
+    "
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"username=oauth"* ]]
+    [[ "$output" == *"password=azure-pat-token-abcdefghij0123456789"* ]]
+}
+
+@test "provider_auth_setup_git: unrelated legacy hosts never receive Azure credentials" {
+    run bash -c "
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        PROVIDER_NAME=azure
+        provider_load auth
+        provider_auth_setup_git
+        printf 'protocol=https\nhost=other-org.visualstudio.com\n\n' | git credential fill
+        printf 'protocol=https\nhost=test-org.visualstudio.com.example.com\n\n' | git credential fill
+    "
+    [[ "$output" != *"username=oauth"* ]]
+    [[ "$output" != *"azure-pat-token"* ]]
+}
+
+@test "provider_auth_setup_git: configured organization casing is normalized" {
+    sed -i 's/org=test-org/org=MiXeD-OrG/' "$DEVENV_ROOT/devenv.config"
+    run bash -c "
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        PROVIDER_NAME=azure
+        provider_load auth
+        provider_auth_setup_git
+        git config --get-urlmatch credential.helper https://mixed-org.visualstudio.com/
+    "
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"azure/credential-helper.sh get"* ]]
+}
+
+@test "provider_auth_setup_git: repeated registration preserves unrelated configuration" {
+    git config --global credential.https://example.com.username unrelated-user
+    run bash -c "
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        PROVIDER_NAME=azure
+        provider_load auth
+        provider_auth_setup_git
+        provider_auth_setup_git
+    "
+    [ "$status" -eq 0 ]
+    [ "$(git config --get-all credential.https://dev.azure.com.helper | wc -l)" -eq 1 ]
+    [ "$(git config --get-all credential.https://test-org.visualstudio.com.helper | wc -l)" -eq 1 ]
+    [ "$(git config --get credential.https://example.com.username)" = "unrelated-user" ]
+}
+
+@test "provider_auth_setup_git: missing organization keeps canonical support and warns" {
+    sed -i '/^org=/d' "$DEVENV_ROOT/devenv.config"
+    run bash -c "
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        PROVIDER_NAME=azure
+        provider_load auth
+        provider_auth_setup_git
+    "
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"legacy Azure hostname"* ]]
+    git config --get credential.https://dev.azure.com.helper
+    ! grep -q visualstudio.com "$GIT_CONFIG_GLOBAL"
+}
+
+@test "provider_auth_setup_git: wildcard organization never broadens credential scope" {
+    sed -i 's/org=test-org/org=test*/' "$DEVENV_ROOT/devenv.config"
+    run bash -c "
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        PROVIDER_NAME=azure
+        provider_load auth
+        provider_auth_setup_git
+    "
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"invalid organization identity"* ]]
+    git config --get credential.https://dev.azure.com.helper
+    ! grep -q visualstudio.com "$GIT_CONFIG_GLOBAL"
 }
 
 @test "provider_auth_setup_git: key-update-azure invokes the wiring after import" {

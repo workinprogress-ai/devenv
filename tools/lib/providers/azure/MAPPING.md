@@ -20,13 +20,22 @@ Facts the implementation depends on; recorded here so planning sessions
 don't re-derive them:
 
 - **Git transport credentials**: `provider_auth_setup_git` registers a
-  host-scoped git credential helper
-  (`credential "https://dev.azure.com"` →
+  host-scoped git credential helper for `https://dev.azure.com` and the
+  configured organization's `https://<org>.visualstudio.com` legacy host
+  (both scoped entries use
   `tools/lib/providers/azure/credential-helper.sh get`) backed by the 0600
-  PAT file. `key-update-azure` invokes the wiring after every successful
+  PAT file. Organization identity comes from the provider accessor, normalized
+  to lowercase; missing or invalid identity skips only the legacy entry with a
+  warning. `key-update-azure` invokes the wiring after every successful
   import. `store`/`erase` are refusals-by-no-op — the PAT file is the only
-  durable copy, so git never writes a second one. github.com traffic never
-  consults the helper (host-scoped config).
+  durable copy, so git never writes a second one. Unrelated hosts never consult
+  the helper (host-scoped config).
+- **npm credentials remain provider-specific**: bootstrap configures the GitHub
+  npm registry token only for the GitHub provider. Azure PATs are never queried
+  for that registry. npm setup preserves unrelated settings and authentication
+  entries, removes the exact legacy invalid skip-message line, and writes skip
+  status to the console rather than the configuration file. This does not add
+  Azure npm feed configuration.
 - **Two api-version regimes**: most endpoints take `api-version=7.1`;
   work-item **comments** are a preview resource requiring a
   `-preview` version pinned on the URL (plain 7.1 → 400; the code pins

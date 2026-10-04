@@ -1250,12 +1250,46 @@ configure_user_npmrc() {
     ensure_provider_seam
     echo "# Configure user npmrc file"
     echo "#############################################"
-    local gh_token
-    gh_token=$(provider_secret_get token 2>/dev/null) || gh_token=""
-    if [ -n "$gh_token" ]; then
-        echo "//npm.pkg.github.com/:_authToken=$gh_token" > ~/.npmrc
+    local gh_token=""
+    if [ "${PROVIDER_NAME:-}" = "github" ]; then
+        gh_token=$(provider_secret_get token 2>/dev/null) || gh_token=""
+        if [ -z "$gh_token" ]; then
+            echo "Skipping GitHub npm registry authentication (credentials unavailable)"
+        fi
     else
-        echo "Skipping npmrc auth token (gh not authenticated)" > ~/.npmrc
+        echo "Skipping GitHub npm registry authentication (provider ${PROVIDER_NAME:-unknown})"
+    fi
+
+    local npmrc_file="$HOME/.npmrc"
+    local input_file="$npmrc_file"
+    if [ ! -f "$input_file" ]; then
+        [ -n "$gh_token" ] || return 0
+        input_file=/dev/null
+    fi
+    local temporary_file
+    temporary_file=$(mktemp "${npmrc_file}.XXXXXX") || return 1
+    if ! NPM_AUTH_TOKEN="$gh_token" awk '
+        BEGIN { token = ENVIRON["NPM_AUTH_TOKEN"] }
+        $0 == "Skipping npmrc auth token (gh not authenticated)" { next }
+        token != "" && /^[[:space:]]*\/\/npm[.]pkg[.]github[.]com\/:_authToken[[:space:]]*=/ {
+            if (!written) {
+                printf "//npm.pkg.github.com/:_authToken=%s\n", token
+                written = 1
+            }
+            next
+        }
+        { print }
+        END {
+            if (token != "" && !written)
+                printf "//npm.pkg.github.com/:_authToken=%s\n", token
+        }
+    ' "$input_file" > "$temporary_file"; then
+        rm -f "$temporary_file"
+        return 1
+    fi
+    if ! mv "$temporary_file" "$npmrc_file"; then
+        rm -f "$temporary_file"
+        return 1
     fi
 }
 

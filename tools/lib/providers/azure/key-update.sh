@@ -79,8 +79,8 @@ if ! provider_auth_import_token <<< "$NEW_TOKEN"; then
 fi
 
 # 2. Wire git credentials: register the PAT-backed credential helper for
-#    dev.azure.com so clone/push/pull authenticate without embedded URLs.
-echo "    - Wiring git credential helper (dev.azure.com)..."
+#    canonical and organization-scoped legacy Azure hosts without embedded URLs.
+echo "    - Wiring git credential helper (canonical and organization-scoped legacy Azure hosts)..."
 if ! provider_auth_setup_git; then
     log_warn "credential helper registration failed — git transport may prompt for credentials"
 fi
