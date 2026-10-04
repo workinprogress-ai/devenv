@@ -163,9 +163,11 @@ the setup script's column provisioning.
   `<word>=<state>` (e.g. `TBD=New`, `Ready=Active`, `Merged=Closed`).
   A word that already names a state passes through; an unmappable word
   fails defined (`field_option_ids` reports the drift, never guesses).
-- **Setup constraint**: stock columns are renamed 1:1 to state names —
-  never split (cards land non-deterministically in the first
-  same-state column). Forks wanting the full 8-word vocabulary as
+- **Setup constraint**: setup forces board column names and count to the
+  configured workflow, retaining existing mappings and reusing a supported
+  in-progress mapping for new middle columns. Shared-state columns are a
+  layout choice, not distinct settable states; cards can land in the first
+  same-state column. Forks wanting the full 8-word vocabulary as
   settable states must adopt an inherited process with custom states
   (org-level admin, outside project-scope API).
 
@@ -268,16 +270,18 @@ to implement — but the constraint must be documented for fork users:
 
 One-time, idempotent, points at the configured Azure project and applies
 this document: one area path per repo found in the project; board columns
-renamed to the `[workflows] status_workflow` vocabulary ONLY when a board
-still carries stock columns and the vocabulary count matches the column
-count (1:1 rename preserves state mappings — never guessed); emits the
+forced to the `[workflows] status_workflow` vocabulary and count even when
+previously customized. Incoming/outgoing column identities and mappings are
+retained; existing middle columns are reused in order, extras removed, and new
+middle columns inherit a supported in-progress mapping without inventing states.
+An already-converged board is not rewritten. The script emits the
 fork's `[provider]` config block. `--dry-run` prints the plan;
 `AZURE_SETUP=1` gates execution (manual-only). Constraint discovered
 live: creating NEW work-item states is a process-template change the
-script deliberately does not attempt — when the vocabulary size doesn't
-match the board, it reports and leaves the board alone (the fork either
-picks a matching-size vocabulary or customizes the process as an admin
-action).
+script deliberately does not attempt. Shared-state columns do not make each
+workflow word independently settable; that requires process-admin customization.
+If no existing in-progress mapping supports added columns, setup reports the
+unsupported board rather than guessing a work-item state.
 
 ## Change discipline
 

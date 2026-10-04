@@ -144,10 +144,13 @@ The Azure provider now ships in-tree — no copying GitHub modules required:
   tools/lib/providers/azure/azure-setup.sh [--dry-run]` — configures the
   Azure project per MAPPING.md: one area path per repo (provisioning the
   per-repo convention; the shipped verbs list project-wide), board columns
-  from the `[workflows] status_workflow` vocabulary (renamed only when a
-  board still has stock columns and the vocabulary size matches — never
-  guessed), and prints the fork's `[provider]` config block. Idempotent
-  (re-run converges); manual-only, never in CI.
+  forced to the `[workflows] status_workflow` names and count even when
+  customized, and prints the fork's `[provider]` config block. Extra columns
+  are removed; new middle columns reuse supported in-progress mappings.
+  Shared mappings do not create independently settable workflow states:
+  distinct states require an inherited process and process-admin permissions.
+  Existing area paths are retained. Idempotent (re-run converges);
+  manual-only, never in CI. Use `--dry-run` before applying layout changes.
 
 ## Keeping a Soft Fork in Sync and Contributing Back
 
