@@ -38,6 +38,7 @@ EOF
     export DEVENV_ROOT_SET=1
     export devenv="$DEVENV_ROOT"
     export DEVENV_TOOLS="$DEVENV_ROOT/tools"
+    unset PROVIDER_NAME
     # Synthetic defaults keep tests independent of fork-specific config.
     # Real-repo input tests: test_devenv_config_integration.bats,
     # test_config_reader.bats, test_git_operations.bats,
@@ -160,6 +161,8 @@ setup() {
 
 # Common teardown for tests
 test_helper_teardown() {
+    local isolation_violation=0
+
     # Canary: the real repo config must be byte-identical to its setup-time
     # snapshot. A mismatch means a test wrote through the default
     # DEVENV_ROOT instead of re-pointing it — fail loudly with the path.
@@ -167,8 +170,8 @@ test_helper_teardown() {
         local now
         now=$(md5sum "$PROJECT_ROOT/devenv.config" | cut -d" " -f1)
         if [ "$now" != "$_REAL_CONFIG_HASH" ]; then
-            echo "TEST-ISOLATION VIOLATION: $PROJECT_ROOT/devenv.config was modified by a test. Restore it (git checkout -- devenv.config) and re-point the offending suite's DEVENV_ROOT at \$TEST_TEMP_DIR." >&2
-            git -C "$PROJECT_ROOT" checkout -- devenv.config 2>/dev/null || true
+            echo "TEST-ISOLATION VIOLATION: $PROJECT_ROOT/devenv.config was modified by a test; leaving it untouched. Re-point the offending suite's DEVENV_ROOT at \$TEST_TEMP_DIR." >&2
+            isolation_violation=1
         fi
     fi
 
@@ -179,6 +182,8 @@ test_helper_teardown() {
     
     # Return to original directory
     cd "$ORIGINAL_PWD" 2>/dev/null || true
+
+    return "$isolation_violation"
 }
 
 teardown() {

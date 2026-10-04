@@ -116,10 +116,10 @@ provider_auth_token_impl() {
     printf '%s\n' "$token"
 }
 
-# Wire the PAT-backed credential helper into git config for dev.azure.com so
-# https clone/push/pull authenticate from the 0600 PAT file (never embedded
-# URLs, never a second stored copy). Host-scoped: github.com traffic never
-# consults it. Idempotent — re-running rewrites the same config line.
+# Wire the PAT-backed credential helper for dev.azure.com and the configured
+# organization's legacy visualstudio.com host. HTTPS transport uses the 0600
+# PAT file (never embedded URLs, never a second stored copy). Host-scoped:
+# unrelated hosts never consult it. Re-running rewrites the same config lines.
 # Usage: provider_auth_setup_git_impl
 provider_auth_setup_git_impl() {
     local helper
@@ -129,6 +129,20 @@ provider_auth_setup_git_impl() {
     fi
     if ! git config --global "credential.https://dev.azure.com.helper" "$helper get"; then
         log_error "failed registering the azure credential helper in git config"
+        return 1
+    fi
+    local org
+    if ! org=$(provider_org_get 2>/dev/null) || [ -z "$org" ]; then
+        log_warn "organization identity unavailable; skipping legacy Azure hostname credential helper"
+        return 0
+    fi
+    org="${org,,}"
+    if [[ ! "$org" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+        log_warn "invalid organization identity; skipping legacy Azure hostname credential helper"
+        return 0
+    fi
+    if ! git config --global "credential.https://${org}.visualstudio.com.helper" "$helper get"; then
+        log_error "failed registering the legacy Azure hostname credential helper in git config"
         return 1
     fi
     return 0
