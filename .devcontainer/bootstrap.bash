@@ -1174,6 +1174,44 @@ install_copilot_instructions() {
 
 }
 
+# Copy Copilot instructions to ~/.claude/CLAUDE.md and symlink
+# ~/.claude/skills → <devenv>/copilot/skills, so the Claude Code VS Code
+# extension reads the same instructions and skills as GitHub Copilot.
+install_claude_code_integration() {
+    echo "# Install Claude Code integration"
+    echo "#############################################"
+    local src="$toolbox_root/copilot/copilot-instructions.md"
+    local dest="$HOME/.claude/CLAUDE.md"
+    if [ -f "$src" ]; then
+        mkdir -p "$HOME/.claude"
+        if [ -L "$dest" ]; then
+            echo "Claude Code instructions already symlinked at $dest, skipping"
+        else
+            # Remove plain file (or broken symlink) before symlinking
+            rm -f "$dest"
+            ln -s "$src" "$dest"
+            echo "Claude Code instructions symlinked: $dest → $src"
+        fi
+    else
+        echo "WARNING: copilot/copilot-instructions.md not found, skipping"
+    fi
+
+    # Symlink ~/.claude/skills → devenv's skills folder so skills are
+    # available in every VS Code window regardless of which repo is open.
+    local skills_src="$toolbox_root/copilot/skills"
+    local skills_link="$HOME/.claude/skills"
+    if [ -d "$skills_src" ]; then
+        mkdir -p "$HOME/.claude"
+        # Remove stale link or directory before (re)creating
+        rm -rf "$skills_link"
+        ln -s "$skills_src" "$skills_link"
+        echo "Claude Code skills symlinked: $skills_link → $skills_src"
+    else
+        echo "WARNING: copilot/skills not found, skipping skills symlink"
+    fi
+
+}
+
 # Ensure required directories exist and configure system settings
 ensure_directories_and_settings() {
     echo "# Other configuration"
@@ -1381,6 +1419,7 @@ run_bootstrap_tasks() {
         install_node_packages
         configure_git
         install_copilot_instructions
+        install_claude_code_integration
         sync_copilot_knowledge
         sync_copilot_engineering
         ensure_directories_and_settings
@@ -1439,6 +1478,7 @@ run_update_tasks() {
         install_node_packages
         configure_git
         install_copilot_instructions
+        install_claude_code_integration
         sync_copilot_knowledge
         sync_copilot_engineering
         ensure_directories_and_settings

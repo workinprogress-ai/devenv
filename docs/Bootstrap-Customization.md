@@ -60,16 +60,17 @@ The default bootstrap process executes these tasks in order (mirrors `run_bootst
 24. `install_node_packages` - Install Node.js packages
 25. `configure_git` - Configure git globally
 26. `install_copilot_instructions` - Symlink `copilot/copilot-instructions.md` to `~/.copilot/copilot-instructions.md`
-27. `sync_copilot_knowledge` - Clone/pull configured Copilot knowledge repo and link `~/.copilot/knowledge`
-28. `sync_copilot_engineering` - Clone/pull configured engineering standards repo and link `~/.copilot/engineering`
-29. `ensure_directories_and_settings` - Create required directories
-30. `install_repo_dependencies` - Install devenv repo dependencies
-31. `configure_nuget_sources` - Configure NuGet sources
-32. `configure_user_npmrc` - Configure npm registry auth
-33. `run_custom_bootstrap_if_present` - Run custom bootstrap if exists
-34. `cleanup_packages` - Clean up apt packages
-35. `record_bootstrap_run_time` - Record completion time
-36. `finish_message` - Display completion message
+27. `install_claude_code_integration` - Symlink `copilot/copilot-instructions.md` to `~/.claude/CLAUDE.md` and `copilot/skills` to `~/.claude/skills`
+28. `sync_copilot_knowledge` - Clone/pull configured Copilot knowledge repo and link `~/.copilot/knowledge`
+29. `sync_copilot_engineering` - Clone/pull configured engineering standards repo and link `~/.copilot/engineering`
+30. `ensure_directories_and_settings` - Create required directories
+31. `install_repo_dependencies` - Install devenv repo dependencies
+32. `configure_nuget_sources` - Configure NuGet sources
+33. `configure_user_npmrc` - Configure npm registry auth
+34. `run_custom_bootstrap_if_present` - Run custom bootstrap if exists
+35. `cleanup_packages` - Clean up apt packages
+36. `record_bootstrap_run_time` - Record completion time
+37. `finish_message` - Display completion message
 
 ## Update Bootstrap Flow
 
@@ -257,10 +258,11 @@ run_bootstrap_tasks "${TASKS[@]}"
 - `configure_dotnet_tools` - Install .NET global tools
 - `configure_git` - Configure git settings
 - `install_copilot_instructions` - Symlink `copilot/copilot-instructions.md` to `~/.copilot/copilot-instructions.md` (skipped silently if source file absent)
+- `install_claude_code_integration` - Symlink `copilot/copilot-instructions.md` to `~/.claude/CLAUDE.md` and `copilot/skills` to `~/.claude/skills` (skipped silently if source absent), so the Claude Code VS Code extension reads the same instructions and skills as GitHub Copilot
 - `sync_copilot_knowledge` - Clone/pull configured Copilot knowledge repo to `copilot/knowledge` and link `~/.copilot/knowledge`
 - `pull_copilot_knowledge_on_container_start` - Non-blocking knowledge repo pull on container start (`tools/lib/copilot-knowledge.bash`), no-op when `copilot/knowledge` is not a git repo
 - `pull_copilot_engineering_on_container_start` - Non-blocking engineering-standards repo pull on container start (same library), no-op when `copilot/engineering` is not a git repo
-- `sync_copilot_engineering` - Clone/pull configured engineering standards repo and link `~/.copilot/engineering` (bootstrap task 28)
+- `sync_copilot_engineering` - Clone/pull configured engineering standards repo and link `~/.copilot/engineering` (bootstrap task 29)
 - `configure_nuget_sources` - Configure NuGet package sources
 - `configure_user_npmrc` - Configure npm registry authentication
 - `ensure_directories_and_settings` - Create directories and system settings

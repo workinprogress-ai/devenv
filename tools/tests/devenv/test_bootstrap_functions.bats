@@ -548,6 +548,159 @@ EOF
   [ ! -e "$home_dir/.copilot/skills" ]
 }
 
+@test "bootstrap.bash defines install_claude_code_integration function" {
+  run grep "^install_claude_code_integration()" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "install_claude_code_integration copies to ~/.claude/CLAUDE.md" {
+  run grep "CLAUDE.md" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ ".claude/CLAUDE.md" ]]
+}
+
+@test "install_claude_code_integration is included in both default and update task lists" {
+  run bash -c "
+    grep -A55 'local default_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep -q 'install_claude_code_integration' &&
+    grep -A55 'local update_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep -q 'install_claude_code_integration'
+  "
+  [ "$status" -eq 0 ]
+}
+
+@test "install_claude_code_integration symlinks CLAUDE.md when source exists" {
+  local src_dir="$TEST_TEMP_DIR/claude_copilot"
+  local dest_dir="$TEST_TEMP_DIR/claude_home/.claude"
+  mkdir -p "$src_dir"
+  echo "# test instructions" > "$src_dir/copilot-instructions.md"
+
+  cat > "$TEST_TEMP_DIR/test_install_claude.sh" << EOF
+#!/bin/bash
+toolbox_root="$TEST_TEMP_DIR"
+HOME="$TEST_TEMP_DIR/claude_home"
+src="\$toolbox_root/claude_copilot/copilot-instructions.md"
+dest="\$HOME/.claude/CLAUDE.md"
+if [ -f "\$src" ]; then
+  mkdir -p "\$HOME/.claude"
+  rm -f "\$dest"
+  ln -s "\$src" "\$dest"
+  echo "symlinked"
+else
+  echo "skipped"
+fi
+EOF
+  chmod +x "$TEST_TEMP_DIR/test_install_claude.sh"
+  run "$TEST_TEMP_DIR/test_install_claude.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "symlinked" ]]
+  [ -L "$dest_dir/CLAUDE.md" ]
+}
+
+@test "install_claude_code_integration skips gracefully when source missing" {
+  cat > "$TEST_TEMP_DIR/test_install_claude_missing.sh" << EOF
+#!/bin/bash
+toolbox_root="$TEST_TEMP_DIR/no-such-dir"
+HOME="$TEST_TEMP_DIR/claude_home2"
+src="\$toolbox_root/copilot/copilot-instructions.md"
+dest="\$HOME/.claude/CLAUDE.md"
+if [ -f "\$src" ]; then
+  mkdir -p "\$HOME/.claude"
+  ln -s "\$src" "\$dest"
+  echo "symlinked"
+else
+  echo "skipped"
+fi
+EOF
+  chmod +x "$TEST_TEMP_DIR/test_install_claude_missing.sh"
+  run "$TEST_TEMP_DIR/test_install_claude_missing.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "skipped" ]]
+}
+
+@test "install_claude_code_integration creates skills symlink to copilot/skills" {
+  local toolbox="$TEST_TEMP_DIR/toolbox_claude_skills"
+  local home_dir="$TEST_TEMP_DIR/home_claude_skills"
+  mkdir -p "$toolbox/copilot/skills/spike"
+  mkdir -p "$home_dir/.claude"
+
+  cat > "$TEST_TEMP_DIR/test_claude_skills_symlink.sh" << EOF
+#!/bin/bash
+toolbox_root="$toolbox"
+HOME="$home_dir"
+skills_src="\$toolbox_root/copilot/skills"
+skills_link="\$HOME/.claude/skills"
+if [ -d "\$skills_src" ]; then
+  mkdir -p "\$HOME/.claude"
+  rm -rf "\$skills_link"
+  ln -s "\$skills_src" "\$skills_link"
+  echo "symlinked"
+else
+  echo "skipped"
+fi
+EOF
+  chmod +x "$TEST_TEMP_DIR/test_claude_skills_symlink.sh"
+  run "$TEST_TEMP_DIR/test_claude_skills_symlink.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "symlinked" ]]
+  [ -L "$home_dir/.claude/skills" ]
+  [ "$(readlink "$home_dir/.claude/skills")" = "$toolbox/copilot/skills" ]
+}
+
+@test "install_claude_code_integration skills symlink is idempotent" {
+  local toolbox="$TEST_TEMP_DIR/toolbox_claude_skills2"
+  local home_dir="$TEST_TEMP_DIR/home_claude_skills2"
+  mkdir -p "$toolbox/copilot/skills"
+  mkdir -p "$home_dir/.claude"
+  # Pre-create a stale symlink
+  ln -s /tmp/stale "$home_dir/.claude/skills"
+
+  cat > "$TEST_TEMP_DIR/test_claude_skills_symlink_idem.sh" << EOF
+#!/bin/bash
+toolbox_root="$toolbox"
+HOME="$home_dir"
+skills_src="\$toolbox_root/copilot/skills"
+skills_link="\$HOME/.claude/skills"
+if [ -d "\$skills_src" ]; then
+  mkdir -p "\$HOME/.claude"
+  rm -rf "\$skills_link"
+  ln -s "\$skills_src" "\$skills_link"
+  echo "symlinked"
+fi
+EOF
+  chmod +x "$TEST_TEMP_DIR/test_claude_skills_symlink_idem.sh"
+  run "$TEST_TEMP_DIR/test_claude_skills_symlink_idem.sh"
+  [ "$status" -eq 0 ]
+  [ -L "$home_dir/.claude/skills" ]
+  [ "$(readlink "$home_dir/.claude/skills")" = "$toolbox/copilot/skills" ]
+}
+
+@test "install_claude_code_integration skips skills symlink when copilot/skills missing" {
+  local toolbox="$TEST_TEMP_DIR/toolbox_claude_noskills"
+  local home_dir="$TEST_TEMP_DIR/home_claude_noskills"
+  mkdir -p "$toolbox/copilot"
+  # no skills dir
+
+  cat > "$TEST_TEMP_DIR/test_claude_skills_missing.sh" << EOF
+#!/bin/bash
+toolbox_root="$toolbox"
+HOME="$home_dir"
+skills_src="\$toolbox_root/copilot/skills"
+skills_link="\$HOME/.claude/skills"
+if [ -d "\$skills_src" ]; then
+  mkdir -p "\$HOME/.claude"
+  rm -rf "\$skills_link"
+  ln -s "\$skills_src" "\$skills_link"
+  echo "symlinked"
+else
+  echo "skipped"
+fi
+EOF
+  chmod +x "$TEST_TEMP_DIR/test_claude_skills_missing.sh"
+  run "$TEST_TEMP_DIR/test_claude_skills_missing.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "skipped" ]]
+  [ ! -e "$home_dir/.claude/skills" ]
+}
+
 # Idempotency tests
 
 @test "install_dotnet uses ln -sf to allow re-running safely" {
