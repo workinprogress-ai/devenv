@@ -14,16 +14,23 @@ if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
 fork-export.sh — export commits for transfer into a real GitHub clone
 
 Exports from the merge-base with `upstream/<branch>` to `<end-ref>` (default
-`HEAD`); the upstream-derived base is always used. To export selected commits,
-prepare a branch at the upstream base and cherry-pick the desired commits
-before exporting. `--format` selects `bundle` (default), `patch`, or `both`.
-Without `--apply-to`, files go under
-`.local-artifacts/fork-export/<range-slug>/`. `--apply-to <path>` applies the
-export directly into a sibling clone instead. `--dry-run` reports the
-operation without writing files or changing the target clone.
+`HEAD`); the upstream-derived base is always used. With a TTY and no explicit
+refs, fzf lets you choose inclusive start and end commits from the commits not
+in upstream. `--start-ref <commit> <end-ref>` selects a range non-interactively;
+`--all` exports the complete upstream-to-end range without prompting.
+`--format` selects `bundle` (default), `patch`, or `both`.
+Without `--apply-to`, a unique clone under `repos/` whose `origin` matches
+`[fork] upstream_repo` is used automatically. If none matches, files go under
+`.local-artifacts/fork-export/<range-slug>/`; use `--export-only` to force that
+behavior. `--apply-to <path>` explicitly selects a sibling clone.
+`--dry-run` reports the operation without writing files or changing the target.
+When applying an export interactively, the script waits for conflicts to be
+resolved and staged, then continues the queued operation. Without a TTY, it
+prints the manual continuation command and leaves the Git operation intact.
 
 USAGE
-  bash tools/lib/providers/azure/fork-export.sh [<end-ref>] [--format bundle|patch|both] [--apply-to <path>] [--dry-run]
+  bash tools/lib/providers/azure/fork-export.sh [<end-ref>] [--all] [--export-only] [--format bundle|patch|both] [--apply-to <path>] [--dry-run]
+  bash tools/lib/providers/azure/fork-export.sh --start-ref <start-commit> <end-ref> [--export-only] [--format bundle|patch|both] [--apply-to <path>]
 HELP
     exit 0
 fi
@@ -38,11 +45,21 @@ FORK_UPSTREAM_BRANCH="$(config_read_value fork upstream_branch "")"
 
 FORMAT=bundle
 APPLY_TO=""
+EXPORT_ONLY=0
 DRY_RUN=0
 END_REF=HEAD
 END_REF_SET=0
+START_REF=""
+ALL_COMMITS=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    --start-ref)
+      shift
+      [ "$#" -gt 0 ] || die "--start-ref requires a commit" "$EXIT_MISUSE"
+      START_REF="$1"
+      ;;
+    --all) ALL_COMMITS=1 ;;
+    --export-only) EXPORT_ONLY=1 ;;
     --format)
       shift
       [ "$#" -gt 0 ] || die "--format requires bundle, patch, or both" "$EXIT_MISUSE"
@@ -67,11 +84,62 @@ while [ "$#" -gt 0 ]; do
   esac
   shift
 done
+[ "$ALL_COMMITS" -eq 0 ] || [ -z "$START_REF" ] || die "--all cannot be combined with --start-ref" "$EXIT_MISUSE"
+[ "$EXPORT_ONLY" -eq 0 ] || [ -z "$APPLY_TO" ] || die "--export-only cannot be combined with --apply-to" "$EXIT_MISUSE"
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || die "run fork-export.sh from inside a git repository" "$EXIT_GENERAL_ERROR"
 UPSTREAM_URL="$(git -C "$REPO_ROOT" remote get-url upstream 2>/dev/null || true)"
 [ -n "$UPSTREAM_URL" ] || die "upstream remote is missing; run fork-setup.sh first" "$EXIT_GENERAL_ERROR"
 [ "$UPSTREAM_URL" = "$FORK_UPSTREAM_REPO" ] || die "upstream remote URL does not match [fork] upstream_repo" "$EXIT_GENERAL_ERROR"
+
+normalize_git_url() {
+  local url="$1" authority path
+  case "$url" in
+    git@*:*)
+      url="${url#git@}"
+      url="${url/:/\/}"
+      ;;
+    ssh://*|https://*|http://*)
+      url="${url#*://}"
+      authority="${url%%/*}"
+      path="${url#*/}"
+      authority="${authority##*@}"
+      url="$authority/$path"
+      ;;
+    file://*) url="${url#file://}" ;;
+  esac
+  url="${url%/}"
+  url="${url%.git}"
+  printf '%s\n' "${url,,}"
+}
+
+if [ -z "$APPLY_TO" ] && [ "$EXPORT_ONLY" -eq 0 ]; then
+  CONFIGURED_TARGET="$(normalize_git_url "$FORK_UPSTREAM_REPO")"
+  TARGET_MATCHES=()
+  for candidate in "$REPO_ROOT"/repos/*; do
+    [ -d "$candidate" ] || continue
+    candidate_root="$(git -C "$candidate" rev-parse --show-toplevel 2>/dev/null || true)"
+    [ -n "$candidate_root" ] && [ "$candidate_root" != "$REPO_ROOT" ] || continue
+    candidate_origin="$(git -C "$candidate_root" remote get-url origin 2>/dev/null || true)"
+    [ -n "$candidate_origin" ] || continue
+    [ "$(normalize_git_url "$candidate_origin")" = "$CONFIGURED_TARGET" ] || continue
+    match_seen=0
+    for matched_root in "${TARGET_MATCHES[@]}"; do
+      [ "$matched_root" != "$candidate_root" ] || match_seen=1
+    done
+    [ "$match_seen" -eq 1 ] || TARGET_MATCHES+=("$candidate_root")
+  done
+  if [ "${#TARGET_MATCHES[@]}" -eq 1 ]; then
+    APPLY_TO="${TARGET_MATCHES[0]}"
+    echo "detected upstream clone: $APPLY_TO"
+  elif [ "${#TARGET_MATCHES[@]}" -gt 1 ]; then
+    echo "multiple repos/ clones match [fork] upstream_repo; pass --apply-to <path> to choose one:" >&2
+    printf '  %s\n' "${TARGET_MATCHES[@]}" >&2
+    exit "$EXIT_MISUSE"
+  else
+    echo "no matching clone found in repos/; writing export artifacts"
+  fi
+fi
 
 UPSTREAM_REF="refs/remotes/upstream/$FORK_UPSTREAM_BRANCH"
 TARGET_ROOT=""
@@ -109,13 +177,106 @@ BASE_SHA="$(git -C "$REPO_ROOT" merge-base "$UPSTREAM_REF" "$END_SHA" 2>/dev/nul
 RANGE="$BASE_SHA..$END_SHA"
 mapfile -t COMMITS < <(git -C "$REPO_ROOT" rev-list --reverse "$RANGE")
 [ "${#COMMITS[@]}" -gt 0 ] || die "no commits to export from '$END_REF' beyond its upstream merge-base" "$EXIT_MISUSE"
+
+declare -A TARGET_EQUIVALENT_COMMITS=()
+TARGET_DUPLICATE_COUNT=0
+if [ -n "$TARGET_ROOT" ]; then
+  if ! git -C "$TARGET_ROOT" merge-base --is-ancestor "$BASE_SHA" "$TARGET_HEAD"; then
+    die "--apply-to target does not descend from the upstream merge-base $BASE_SHA" "$EXIT_MISUSE"
+  fi
+  TARGET_OBJECTS="$(git -C "$TARGET_ROOT" rev-parse --path-format=absolute --git-path objects)" || die "could not locate target Git object store" "$EXIT_GENERAL_ERROR"
+  ALTERNATE_OBJECTS="$TARGET_OBJECTS"
+  [ -z "${GIT_ALTERNATE_OBJECT_DIRECTORIES:-}" ] || ALTERNATE_OBJECTS+="${ALTERNATE_OBJECTS:+:}${GIT_ALTERNATE_OBJECT_DIRECTORIES}"
+  while read -r status abbreviated_commit _; do
+    [ "$status" = "-" ] || continue
+    commit="$(git -C "$REPO_ROOT" rev-parse --verify --quiet "$abbreviated_commit^{commit}")" || die "git cherry returned an unresolvable commit: $abbreviated_commit" "$EXIT_GENERAL_ERROR"
+    TARGET_EQUIVALENT_COMMITS["$commit"]=1
+  done < <(GIT_ALTERNATE_OBJECT_DIRECTORIES="$ALTERNATE_OBJECTS" git -C "$REPO_ROOT" cherry "$TARGET_HEAD" "$END_SHA" "$BASE_SHA")
+fi
+
+filter_target_commits() {
+  local commit
+  local -a remaining=()
+  TARGET_DUPLICATE_COUNT=0
+  [ -n "$TARGET_ROOT" ] || return 0
+  for commit in "${COMMITS[@]}"; do
+    if [ -n "${TARGET_EQUIVALENT_COMMITS[$commit]:-}" ]; then
+      TARGET_DUPLICATE_COUNT=$((TARGET_DUPLICATE_COUNT + 1))
+      continue
+    fi
+    remaining+=("$commit")
+  done
+  COMMITS=("${remaining[@]}")
+}
+
+filter_target_commits
+if [ "$TARGET_DUPLICATE_COUNT" -gt 0 ]; then
+  echo "excluded ${TARGET_DUPLICATE_COUNT} commit(s) already present in target by patch equivalence"
+fi
+[ "${#COMMITS[@]}" -gt 0 ] || die "all candidate commits are already present in target" "$EXIT_MISUSE"
+
+if [ -z "$START_REF" ] && [ "$END_REF_SET" -eq 0 ] && [ "$ALL_COMMITS" -eq 0 ] && [ -t 0 ] && [ -t 1 ]; then
+  # The common picker returns the selected row; keep the full object ID in
+  # the first tab-separated field so display formatting cannot affect refs.
+  source "$DEVENV_TOOLS/lib/fzf-selection.bash"
+  check_fzf_installed || die "install fzf or pass --all / explicit refs to export without selection" "$EXIT_MISUSE"
+  local_rows=""
+  for commit in "${COMMITS[@]}"; do
+    display="$(git -C "$REPO_ROOT" show -s --format='%h %cs %s' "$commit")"
+    local_rows+="${commit}"$'\t'"${display}"$'\n'
+  done
+  printf -v preview_cmd 'git -C %q show --format=fuller --stat --patch {1}' "$REPO_ROOT"
+  start_row="$(fzf_select_single "$local_rows" "Start commit (inclusive): " "$preview_cmd")" || die "commit range selection cancelled" "$EXIT_MISUSE"
+  START_REF="${start_row%%$'\t'*}"
+  START_SHA="$(git -C "$REPO_ROOT" rev-parse --verify --quiet "$START_REF^{commit}" 2>/dev/null)" || die "selected start commit is invalid" "$EXIT_MISUSE"
+
+  end_rows=""
+  for commit in "${COMMITS[@]}"; do
+    if git -C "$REPO_ROOT" merge-base --is-ancestor "$START_SHA" "$commit" 2>/dev/null; then
+      display="$(git -C "$REPO_ROOT" show -s --format='%h %cs %s' "$commit")"
+      end_rows+="${commit}"$'\t'"${display}"$'\n'
+    fi
+  done
+  end_row="$(fzf_select_single "$end_rows" "End commit (inclusive): " "$preview_cmd")" || die "commit range selection cancelled" "$EXIT_MISUSE"
+  END_REF="${end_row%%$'\t'*}"
+  END_SHA="$(git -C "$REPO_ROOT" rev-parse --verify --quiet "$END_REF^{commit}" 2>/dev/null)" || die "selected end commit is invalid" "$EXIT_MISUSE"
+fi
+
+EXPORT_BASE_SHA="$BASE_SHA"
+if [ -n "$START_REF" ]; then
+  START_SHA="$(git -C "$REPO_ROOT" rev-parse --verify --quiet "$START_REF^{commit}" 2>/dev/null)" || die "start ref '$START_REF' does not resolve to a commit" "$EXIT_MISUSE"
+  [ "$START_SHA" != "$BASE_SHA" ] || die "start commit must be after the upstream merge-base" "$EXIT_MISUSE"
+  git -C "$REPO_ROOT" merge-base --is-ancestor "$BASE_SHA" "$START_SHA" || die "start commit is not based on the upstream merge-base" "$EXIT_MISUSE"
+  git -C "$REPO_ROOT" merge-base --is-ancestor "$START_SHA" "$END_SHA" || die "start commit must be an ancestor of the end commit" "$EXIT_MISUSE"
+  EXPORT_BASE_SHA="$(git -C "$REPO_ROOT" rev-parse --verify --quiet "$START_SHA^" 2>/dev/null)" || die "start commit has no parent" "$EXIT_MISUSE"
+  git -C "$REPO_ROOT" merge-base --is-ancestor "$BASE_SHA" "$EXPORT_BASE_SHA" || die "start commit is not on a contiguous range from upstream" "$EXIT_MISUSE"
+  RANGE="$EXPORT_BASE_SHA..$END_SHA"
+  mapfile -t COMMITS < <(git -C "$REPO_ROOT" rev-list --reverse "$RANGE")
+  filter_target_commits
+  [ "${#COMMITS[@]}" -gt 0 ] && [ "${COMMITS[0]}" = "$START_SHA" ] || die "selected commits do not form a contiguous range; choose a later start or earlier end" "$EXIT_MISUSE"
+  if [ -t 0 ] && [ -t 1 ]; then
+    printf 'Selected range (%d commit(s)):\n' "${#COMMITS[@]}"
+    for commit in "${COMMITS[@]}"; do
+      git -C "$REPO_ROOT" show -s --format='  %h %cs %s' "$commit"
+    done
+    printf 'Export this range? [y/N] ' > /dev/tty
+    IFS= read -r confirmation < /dev/tty || die "commit range confirmation cancelled" "$EXIT_MISUSE"
+    [[ "$confirmation" =~ ^[Yy]([Ee][Ss])?$ ]] || die "commit range export cancelled" "$EXIT_MISUSE"
+  fi
+fi
+
 if [ -n "$APPLY_TO" ] && ! git -C "$TARGET_ROOT" merge-base --is-ancestor "$BASE_SHA" "$TARGET_HEAD"; then
   die "--apply-to target does not descend from the upstream merge-base $BASE_SHA" "$EXIT_MISUSE"
 fi
 
 BASE_SHORT="$(git -C "$REPO_ROOT" rev-parse --short "$BASE_SHA")"
 END_SHORT="$(git -C "$REPO_ROOT" rev-parse --short "$END_SHA")"
-RANGE_SLUG="${BASE_SHORT}-${END_SHORT}"
+if [ -n "$START_REF" ]; then
+  START_SHORT="$(git -C "$REPO_ROOT" rev-parse --short "$START_SHA")"
+  RANGE_SLUG="${BASE_SHORT}-${START_SHORT}-${END_SHORT}"
+else
+  RANGE_SLUG="${BASE_SHORT}-${END_SHORT}"
+fi
 TEMP_REF=""
 TEMP_OUTPUT_ROOT=""
 cleanup() {
@@ -127,6 +288,57 @@ cleanup() {
   fi
 }
 trap cleanup EXIT
+
+wait_for_conflict_resolution() {
+  local target_root="$1" operation="$2" unresolved state_path
+  while :; do
+    case "$operation" in
+      cherry-pick)
+        git -C "$target_root" rev-parse --verify --quiet CHERRY_PICK_HEAD >/dev/null || return 0
+        ;;
+      am)
+        state_path="$(git -C "$target_root" rev-parse --absolute-git-dir)/rebase-apply"
+        [ -d "$state_path" ] || return 0
+        ;;
+    esac
+
+    if [ ! -t 0 ] || [ ! -t 1 ] || [ ! -r /dev/tty ]; then
+      echo "${operation} conflict in $target_root; resolve and stage the conflicted files, then run 'git -C $target_root ${operation} --continue'." >&2
+      return 1
+    fi
+
+    unresolved="$(git -C "$target_root" diff --name-only --diff-filter=U)"
+    if [ -n "$unresolved" ]; then
+      printf 'Conflicts remain in:\n%s\n' "$unresolved" >&2
+    fi
+    printf 'Resolve and stage these files in the target clone, then press Enter to continue (Ctrl-C leaves the operation paused).\n' >&2
+    read -r _ < /dev/tty || return 1
+
+    unresolved="$(git -C "$target_root" diff --name-only --diff-filter=U)"
+    if [ -n "$unresolved" ]; then
+      echo "Unresolved files remain; resolve and stage them before continuing." >&2
+      continue
+    fi
+
+    case "$operation" in
+      cherry-pick)
+        if ! GIT_EDITOR=true git -C "$target_root" cherry-pick --continue; then
+          if git -C "$target_root" rev-parse --verify --quiet CHERRY_PICK_HEAD >/dev/null; then
+            echo "Cherry-pick could not continue; review the target clone and resolve any remaining issue." >&2
+            continue
+          fi
+          return 1
+        fi
+        ;;
+      am)
+        if ! GIT_EDITOR=true git -C "$target_root" am --continue; then
+          [ -d "$state_path" ] || return 1
+          echo "Patch application could not continue; review the target clone and resolve any remaining issue." >&2
+        fi
+        ;;
+    esac
+  done
+}
 
 OUTPUT_ROOT="$REPO_ROOT/.local-artifacts/fork-export/$RANGE_SLUG"
 if [ -n "$APPLY_TO" ]; then
@@ -142,13 +354,19 @@ if [ "$FORMAT" = "bundle" ] || [ "$FORMAT" = "both" ]; then
   BUNDLE_FILE="$OUTPUT_ROOT/commits.bundle"
   TEMP_REF="refs/fork-export/$RANGE_SLUG-$$"
   git -C "$REPO_ROOT" update-ref "$TEMP_REF" "$END_SHA" || die "failed to prepare bundle endpoint" "$EXIT_GENERAL_ERROR"
+  # Include history from the shared upstream base so sibling clones satisfy
+  # bundle prerequisites even when the selected start is later in the range.
   git -C "$REPO_ROOT" bundle create "$BUNDLE_FILE" "$TEMP_REF" "^$BASE_SHA" || die "failed to create git bundle" "$EXIT_GENERAL_ERROR"
   [ -n "$APPLY_TO" ] || echo "Bundle: $BUNDLE_FILE"
 fi
 if [ "$FORMAT" = "patch" ] || [ "$FORMAT" = "both" ]; then
   PATCH_DIR="$OUTPUT_ROOT/patches"
   mkdir -p "$PATCH_DIR" || die "could not create patch directory: $PATCH_DIR" "$EXIT_GENERAL_ERROR"
-  git -C "$REPO_ROOT" format-patch --output-directory "$PATCH_DIR" "$RANGE" >/dev/null || die "failed to create format-patch series" "$EXIT_GENERAL_ERROR"
+  patch_number=1
+  for commit in "${COMMITS[@]}"; do
+    git -C "$REPO_ROOT" format-patch --start-number="$patch_number" --output-directory "$PATCH_DIR" -1 "$commit" >/dev/null || die "failed to create patch series" "$EXIT_GENERAL_ERROR"
+    patch_number=$((patch_number + 1))
+  done
   [ -n "$APPLY_TO" ] || echo "Patches: $PATCH_DIR"
 fi
 echo "Commits: ${#COMMITS[@]}"
@@ -156,29 +374,33 @@ echo "Commits: ${#COMMITS[@]}"
 if [ -n "$APPLY_TO" ]; then
   if [ -n "$BUNDLE_FILE" ]; then
     git -C "$TARGET_ROOT" fetch --no-tags "$BUNDLE_FILE" "$TEMP_REF" || die "failed to fetch the bundle into $TARGET_ROOT" "$EXIT_GENERAL_ERROR"
-    if [ "$TARGET_HEAD" = "$BASE_SHA" ]; then
+    if [ "$TARGET_HEAD" = "$BASE_SHA" ] && [ -z "$START_REF" ]; then
       git -C "$TARGET_ROOT" merge --ff-only FETCH_HEAD || die "could not fast-forward $TARGET_ROOT to the exported commits" "$EXIT_GENERAL_ERROR"
     elif git -C "$TARGET_ROOT" merge-base --is-ancestor "$END_SHA" "$TARGET_HEAD"; then
       echo "Target already contains the exported commits: $TARGET_ROOT"
     elif git -C "$TARGET_ROOT" merge-base --is-ancestor "$BASE_SHA" "$TARGET_HEAD"; then
       if ! git -C "$TARGET_ROOT" cherry-pick --no-edit "${COMMITS[@]}"; then
-        echo "Bundle application conflict. Resolve the conflicts or run:" >&2
-        printf '  git -C %q cherry-pick --abort\n' "$TARGET_ROOT" >&2
-        exit "$EXIT_GENERAL_ERROR"
+        if ! git -C "$TARGET_ROOT" rev-parse --verify --quiet CHERRY_PICK_HEAD >/dev/null; then
+          die "bundle cherry-pick failed without an active conflict" "$EXIT_GENERAL_ERROR"
+        fi
+        wait_for_conflict_resolution "$TARGET_ROOT" cherry-pick || exit "$EXIT_GENERAL_ERROR"
       fi
     else
       die "--apply-to target does not contain the upstream merge-base $BASE_SHORT" "$EXIT_MISUSE"
     fi
-    echo "Applied bundle to $TARGET_ROOT"
+    git -C "$TARGET_ROOT" rev-parse --verify --quiet CHERRY_PICK_HEAD >/dev/null && die "bundle application remains unfinished" "$EXIT_GENERAL_ERROR"
+    echo "Applied bundle to $TARGET_ROOT; cherry-pick sequence finalized"
   else
     shopt -s nullglob
     PATCH_FILES=("$PATCH_DIR"/*.patch)
     shopt -u nullglob
     if ! git -C "$TARGET_ROOT" am "${PATCH_FILES[@]}"; then
-      echo "Patch application conflict. Resolve the conflicts or run:" >&2
-      printf '  git -C %q am --abort\n' "$TARGET_ROOT" >&2
-      exit "$EXIT_GENERAL_ERROR"
+      if [ ! -d "$(git -C "$TARGET_ROOT" rev-parse --absolute-git-dir)/rebase-apply" ]; then
+        die "patch application failed without an active conflict" "$EXIT_GENERAL_ERROR"
+      fi
+      wait_for_conflict_resolution "$TARGET_ROOT" am || exit "$EXIT_GENERAL_ERROR"
     fi
-    echo "Applied patch series to $TARGET_ROOT"
+    [ ! -d "$(git -C "$TARGET_ROOT" rev-parse --absolute-git-dir)/rebase-apply" ] || die "patch application remains unfinished" "$EXIT_GENERAL_ERROR"
+    echo "Applied patch series to $TARGET_ROOT; patch sequence finalized"
   fi
 fi
