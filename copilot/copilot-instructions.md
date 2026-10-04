@@ -201,6 +201,15 @@ If you find yourself about to type `git commit`, `git add`, `git push`, or any o
 
 If a task requires a raw mutation, show the user the exact command and ask them to run it. Never invent a workaround that mutates state directly.
 
+### Long-running commands: wait, don't poll
+
+When a terminal command is run asynchronously, or a synchronous command times out and continues in the background, the tooling notifies the session automatically the moment it completes or needs input. That notification is a structural guarantee, not a hope — trust it instead of checking.
+
+- **Do not actively poll for completion.** Never call a terminal-output tool repeatedly "just to check," and never invent your own wait loop (`sleep`, spin-checking, re-running a status command on a timer) to substitute for the automatic notification.
+- **End the turn and wait.** If a long-running command hasn't finished, stop — don't fill the wait with filler commentary, speculative edits, or unrelated work "to stay busy" while it runs.
+- **If you doubt the notification will come** (e.g. you suspect a process died silently or the harness missed it), say so explicitly and ask the user to check, rather than silently falling back to polling.
+- This rule is model-agnostic: it applies to every session regardless of which model is running it. If you catch yourself reaching for a poll-and-check pattern, that is the signal to stop and let the automatic notification do its job instead.
+
 ### Chat output formatting
 
 **Emoji signals.** Use these consistently across all chat output so users can scan responses at a glance:
