@@ -13,8 +13,8 @@
 #   3. Config block   — prints the devenv.config [provider] block for the
 #                       fork's own config (org/project/name keys).
 #
-# Idempotent: existing area paths/board columns are left untouched (the
-# run reports them as "already present" and converges around them).
+# Idempotent: existing area paths are retained; boards converge to the
+# configured workflow even when their columns were previously customized.
 # Dry-run mode prints the plan without applying anything.
 #
 # Gate: refuses to run without AZURE_SETUP=1 (same opt-in pattern as
@@ -60,13 +60,16 @@ REQUIRED
 
 WHAT IT DOES
   - Area path per repo found in the project (skips existing).
-  - Default team's boards: renames columns to the status_workflow
-    vocabulary where columns are still stock (New/Active/Resolved/Closed).
+    - Default team's boards: replaces customized column names and adjusts
+        the column count to status_workflow, preserving supported state mappings.
+        Extra columns are removed; new middle columns reuse an in-progress mapping.
   - Prints the [provider] config block for the fork's own devenv.config.
 
 SAFETY
   Opt-in gate (AZURE_SETUP=1); idempotent (re-run converges); --dry-run
   prints the plan without applying. Never targets another org.
+    Shared state mappings do not create distinct settable workflow states;
+    those require inherited-process customization by a process administrator.
 HELP
     exit 0
 fi
@@ -165,53 +168,58 @@ echo "  area paths: ${created} created, ${skipped} already present"
 # 3. Board columns — default team's boards get the status vocabulary.
 #    Constraint (MAPPING.md): columns map onto the work-item states the
 #    process provides; custom state CREATION is a process-admin change the
-#    script does not attempt. Stock column names are replaced 1:1 with the
-#    workflow vocabulary; non-stock columns are left alone (idempotency).
+#    script does not attempt. Existing column customization is overwritten
+#    to converge to the configured vocabulary and column count.
 # ---------------------------------------------------------------------------
 boards="$(azure_http_request GET "${BASE}/${TEAM_ID}/_apis/work/boards" 2>/dev/null | jq -r '.value[]?.name // empty' || true)"
 if [ -n "$STATUS_WORKFLOW" ] && [ -n "$boards" ]; then
-    # Stock Agile/Basic column names — the rename targets.
-    # grep -c . counts actual entries (tr ',' emits no trailing newline,
-    # so wc -l undercounts by one).
-    vocab_count="$(printf '%s' "$STATUS_WORKFLOW" | tr ',' '\n' | grep -c .)"
+    new_cols="$(printf '%s' "$STATUS_WORKFLOW" | jq -Rc 'split(",") | map(gsub("^\\s+|\\s+$"; ""))')"
+    if ! printf '%s' "$new_cols" | jq -e 'length >= 2 and all(.[]; length > 0) and (unique | length) == length' >/dev/null; then
+        echo "status_workflow must contain at least two distinct, non-empty column names." >&2
+        exit 1
+    fi
+    vocab_count="$(printf '%s' "$new_cols" | jq 'length')"
     while IFS= read -r board; do
         [ -n "$board" ] || continue
         board_id="$(azure_http_request GET "${BASE}/${TEAM_ID}/_apis/work/boards" 2>/dev/null | jq -r --arg b "$board" '.value[] | select(.name == $b) | .id' || true)"
         [ -n "$board_id" ] || { echo "  warn: board id unresolvable for '$board'" >&2; continue; }
         cols_json="$(azure_http_request GET "${BASE}/${TEAM_ID}/_apis/work/boards/${board_id}/columns" 2>/dev/null || true)"
         col_count="$(printf '%s' "$cols_json" | jq -r '.value | length' 2>/dev/null || echo 0)"
-        # Only rename when the board still has stock columns AND the vocab
-        # count matches the column count (1:1 rename keeps stateMappings).
-        stock_count=0
-        while IFS= read -r cname; do
-            [ -n "$cname" ] || continue
-            # Stock names one per line: grep -x is WHOLE-line, so a single
-            # space-separated line can never match an individual name.
-            printf '%s\n' New Active Resolved Closed | grep -qxF "$cname" && stock_count=$((stock_count + 1))
-        done <<< "$(printf '%s' "$cols_json" | jq -r '.value[].name')"
-        if [ "$stock_count" -eq "$col_count" ] && [ "$col_count" -gt 0 ] && [ "$vocab_count" -eq "$col_count" ]; then
-            if [ "$DRY_RUN" = "1" ]; then
-                echo "  [dry] would rename board '$board' columns to the status_workflow vocabulary"
-                continue
-            fi
-            new_cols="$(printf '%s' "$STATUS_WORKFLOW" | tr ',' '\n' | jq -Rsc 'split("\n") | map(select(length > 0))')"
-            # Explicit range/map form: inside map(.value.name = $names[.key])
-            # the .key reference misbinds under the |= update path (jq
-            # precedence); this form names the index unambiguously. The PUT
-            # body is the BARE column array (a {value: ...} wrapper is a 400
-            # "boardColumns cannot be null" — live-verified).
-            patched="$(printf '%s' "$cols_json" | jq -c --argjson names "$new_cols" \
-                '[.value[]] as $cols | .value = ([range(0; $cols | length)] | map($cols[.] + {name: $names[.]}))')"
-            [ -n "$patched" ] || { echo "  warn: board '$board' column recompute failed" >&2; continue; }
-            payload="$(printf '%s' "$patched" | jq -c '.value')"
-            if azure_http_request PUT "${BASE}/${TEAM_ID}/_apis/work/boards/${board_id}/columns" \
-                "$payload" >/dev/null 2>&1; then
-                echo "  board '$board': columns renamed to status_workflow vocabulary"
+        if ! payload="$(printf '%s' "$cols_json" | jq -c --argjson names "$new_cols" '
+            .value as $columns |
+            if ($columns | length) < 2 then
+                error("board has no reusable incoming/outgoing columns")
             else
-                echo "  warn: board '$board' column rename failed" >&2
-            fi
+                ($columns | map(select(.columnType == "inProgress")) | first) as $template |
+                [range(0; $names | length) | . as $index |
+                    (if $index == 0 then $columns[0]
+                     elif $index == ($names | length) - 1 then $columns[-1]
+                     elif $index < ($columns | length) - 1 then $columns[$index]
+                     elif $template != null then $template + {id: null}
+                     else error("new middle columns require an existing in-progress state mapping")
+                     end) + {name: $names[$index]}
+                ]
+            end
+        ')"; then
+            echo "  warn: board '$board' column configuration could not be constructed" >&2
+            continue
+        fi
+        if printf '%s' "$payload" | jq -e 'map(.stateMappings) | length > (unique | length)' >/dev/null; then
+            echo "  warn: board '$board' shares process-state mappings; its workflow columns are not independently settable states" >&2
+        fi
+        if printf '%s' "$cols_json" | jq -e --argjson columns "$payload" '.value == $columns' >/dev/null; then
+            echo "  board '$board': already configured to status_workflow"
+            continue
+        fi
+        if [ "$DRY_RUN" = "1" ]; then
+            echo "  [dry] would configure board '$board' columns (${col_count} -> ${vocab_count}) to status_workflow"
+            continue
+        fi
+        if azure_http_request PUT "${BASE}/${TEAM_ID}/_apis/work/boards/${board_id}/columns" \
+            "$payload" >/dev/null 2>&1; then
+            echo "  board '$board': columns configured to status_workflow (${col_count} -> ${vocab_count})"
         else
-            echo "  board '$board': columns left as-is (non-stock or count mismatch vs vocabulary)"
+            echo "  warn: board '$board' column configuration failed" >&2
         fi
     done <<< "$boards"
 fi
