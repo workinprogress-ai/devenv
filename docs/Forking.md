@@ -194,13 +194,26 @@ bash tools/lib/providers/azure/fork-sync.sh --rebase
 bash tools/lib/providers/azure/fork-sync.sh --rebase --push-to-origin --yes
 ```
 
-To contribute commits to GitHub, use a separate ordinary GitHub clone. Export
-the local commits as a bundle (default), patch series, or both; the base is
-always the merge-base of the selected end ref (default `HEAD`) and
-`upstream/<branch>`. Files are written under
+To contribute commits to GitHub, use a separate ordinary GitHub clone. By
+default, an interactive terminal uses fzf to choose inclusive start and end
+commits from the local-only commits after the upstream merge-base. The picker
+previews each commit and displays the selected range for confirmation. Use
+`--all` to export the entire range without prompting, or
+`--start-ref <start> <end>` to select an inclusive range in scripts. The base is
+always the merge-base with `upstream/<branch>`. Files are written under
 `.local-artifacts/fork-export/<base-short>-<end-short>/`. `--apply-to` applies
 the export directly into a clean sibling clone that shares the upstream
-base; no GitHub credentials are used by these scripts.
+base; no GitHub credentials are used by these scripts. Without `--apply-to`,
+the exporter matches `[fork] upstream_repo` against `origin` URLs in immediate
+`repos/` clones, ignoring embedded credentials. One match is applied
+automatically; multiple matches fail and list candidates, while no match keeps
+the artifact-output behavior. Use `--export-only` to force artifact output even
+when a matching clone exists. If applying the bundle
+or patch series conflicts in an interactive terminal, the exporter waits for
+you to resolve and stage the files, then continues the queued operation. In a
+non-interactive run it leaves the Git operation intact and prints the matching
+`cherry-pick --continue` or `am --continue` command. Successful runs finalize
+the complete sequence before returning.
 
 ```bash
 bash tools/lib/providers/azure/fork-export.sh

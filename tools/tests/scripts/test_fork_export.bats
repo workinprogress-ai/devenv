@@ -35,6 +35,39 @@ _add_export_commit() {
     git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "$1"
 }
 
+_install_fzf_stub() {
+    mkdir -p "$TEST_TEMP_DIR/bin"
+    cat > "$TEST_TEMP_DIR/bin/fzf" <<'STUB'
+#!/usr/bin/env bash
+prompt=""
+for argument in "$@"; do
+    case "$argument" in
+        --prompt=*) prompt="${argument#--prompt=}" ;;
+    esac
+done
+case "$prompt" in
+    *"Start commit"*) selected="$FORK_EXPORT_START_SELECTION" ;;
+    *"End commit"*) selected="$FORK_EXPORT_END_SELECTION" ;;
+    *) exit 90 ;;
+esac
+printf '%s\n' "$prompt" >> "$FORK_EXPORT_FZF_LOG"
+while IFS= read -r row; do
+    [ -z "${FORK_EXPORT_FZF_INPUT_LOG:-}" ] || printf '%s\t%s\n' "$prompt" "$row" >> "$FORK_EXPORT_FZF_INPUT_LOG"
+    [ "${row%%$'\t'*}" = "$selected" ] || continue
+    printf '%s\n' "$row"
+    exit 0
+done
+exit 1
+STUB
+    chmod +x "$TEST_TEMP_DIR/bin/fzf"
+    export PATH="$TEST_TEMP_DIR/bin:$PATH"
+}
+
+_add_upstream_clone_to_repos() {
+    mkdir -p "$FORK_FIXTURE_WORKING_CLONE/repos"
+    ln -s "$FORK_FIXTURE_GH_CLONE" "$FORK_FIXTURE_WORKING_CLONE/repos/original"
+}
+
 @test "fork-export: script has valid syntax" {
     bash -n "$SCRIPT"
 }
@@ -48,8 +81,12 @@ _add_export_commit() {
     [[ "$output" == *"[<end-ref>]"* ]]
     [[ "$output" == *"--format bundle|patch|both"* ]]
     [[ "$output" == *"--apply-to <path>"* ]]
+    [[ "$output" == *"--start-ref <start-commit> <end-ref>"* ]]
+    [[ "$output" == *"--all"* ]]
     [[ "$output" == *".local-artifacts/fork-export/<range-slug>/"* ]]
     [[ "$output" == *"--dry-run"* ]]
+    [[ "$output" == *"waits for conflicts to be"* ]]
+    [[ "$output" == *"resolved and staged"* ]]
 }
 
 @test "fork-export: requires upstream_repo and upstream_branch in [fork] config" {
@@ -75,7 +112,7 @@ _add_export_commit() {
     mkdir -p "$DEVENV_ROOT"
     printf '[fork]\nupstream_repo=%s\nupstream_branch=master\n' "$FORK_FIXTURE_UPSTREAM" > "$DEVENV_ROOT/devenv.config"
 
-    run bash "$SCRIPT"
+    run bash -c "cd '$FORK_FIXTURE_WORKING_CLONE' && bash '$SCRIPT'"
     [ "$status" -ne 0 ]
     [[ "$output" == *"fork-setup.sh"* ]]
 }
@@ -112,14 +149,52 @@ _add_export_commit() {
     _add_export_commit "Local one"
     _add_export_commit "Local two"
 
-    run bash "$SCRIPT"
+    run bash "$SCRIPT" --all
     [ "$status" -eq 0 ]
     bundle_file="$(sed -n 's/^Bundle: //p' <<< "$output")"
     [ -f "$bundle_file" ]
+    [[ "$output" == *"no matching clone found in repos/"* ]]
     git bundle verify "$bundle_file"
     bundle_heads="$(git bundle list-heads "$bundle_file")"
     [[ "$bundle_heads" == *"$(git rev-parse HEAD)"* ]]
     [ -z "$(git for-each-ref --format='%(refname)' refs/fork-export)" ]
+}
+
+@test "fork-export: auto-detects unique upstream clone under repos" {
+    _setup_fork_export_fixture
+    _add_export_commit "Local one"
+    _add_upstream_clone_to_repos
+
+    run bash "$SCRIPT" --all
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"detected upstream clone: $FORK_FIXTURE_GH_CLONE"* ]]
+    [[ "$output" == *"Applied bundle to $FORK_FIXTURE_GH_CLONE"* ]]
+    [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log -1 --format=%s)" = "Local one" ]
+}
+
+@test "fork-export: ambiguous upstream clones require explicit --apply-to" {
+    _setup_fork_export_fixture
+    _add_export_commit "Local one"
+    _add_upstream_clone_to_repos
+    git clone -q "$FORK_FIXTURE_UPSTREAM" "$FORK_FIXTURE_WORKING_CLONE/repos/second"
+
+    run bash "$SCRIPT" --all
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"multiple repos/ clones match"* ]]
+    [[ "$output" == *"--apply-to <path>"* ]]
+    [ "$(git -C "$FORK_FIXTURE_GH_CLONE" rev-parse HEAD)" = "$(git -C "$FORK_FIXTURE_GH_CLONE" rev-parse origin/master)" ]
+}
+
+@test "fork-export: --export-only bypasses a matching clone and writes bundle" {
+    _setup_fork_export_fixture
+    _add_export_commit "Local one"
+    _add_upstream_clone_to_repos
+
+    run bash "$SCRIPT" --all --export-only
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Bundle:"* ]]
+    [[ "$output" != *"detected upstream clone"* ]]
+    [ "$(git -C "$FORK_FIXTURE_GH_CLONE" rev-parse HEAD)" = "$(git -C "$FORK_FIXTURE_GH_CLONE" rev-parse origin/master)" ]
 }
 
 @test "fork-export: explicit end ref stops the range at that commit" {
@@ -135,6 +210,108 @@ _add_export_commit() {
     bundle_heads="$(git bundle list-heads "$bundle_file")"
     [[ "$bundle_heads" == *"$first_commit"* ]]
     [[ "$bundle_heads" != *"$(git rev-parse HEAD)"* ]]
+}
+
+@test "fork-export: explicit inclusive start and end refs export only that range" {
+    _setup_fork_export_fixture
+    for commit in one two three; do
+        printf '%s\n' "$commit" > "$FORK_FIXTURE_WORKING_CLONE/$commit.txt"
+        git -C "$FORK_FIXTURE_WORKING_CLONE" add "$commit.txt"
+        git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "Commit $commit"
+        case "$commit" in
+            two) start_ref="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)" ;;
+            three) end_ref="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)" ;;
+        esac
+    done
+
+    run bash "$SCRIPT" --start-ref "$start_ref" "$end_ref" --format bundle
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Commits: 2"* ]]
+    bundle_file="$(sed -n 's/^Bundle: //p' <<< "$output")"
+    bundle_heads="$(git -C "$FORK_FIXTURE_WORKING_CLONE" bundle list-heads "$bundle_file")"
+    [[ "$bundle_heads" == *"$end_ref"* ]]
+    ! git -C "$FORK_FIXTURE_WORKING_CLONE" bundle verify "$bundle_file" 2>&1 | grep -q "$start_ref"
+}
+
+@test "fork-export: interactive fzf range applies the selected inclusive commits after confirmation" {
+    _setup_fork_export_fixture
+    for commit in one two three; do
+        printf '%s\n' "$commit" > "$FORK_FIXTURE_WORKING_CLONE/$commit.txt"
+        git -C "$FORK_FIXTURE_WORKING_CLONE" add "$commit.txt"
+        git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "Commit $commit"
+        case "$commit" in
+            one) first_ref="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)" ;;
+            two) start_ref="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)" ;;
+            three) end_ref="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)" ;;
+        esac
+    done
+    _install_fzf_stub
+    export FORK_EXPORT_FZF_LOG="$TEST_TEMP_DIR/fzf-prompts.log"
+    export FORK_EXPORT_START_SELECTION="$start_ref"
+    export FORK_EXPORT_END_SELECTION="$end_ref"
+
+    run bash -c "printf 'y\\n' | script -qfec \"bash '$SCRIPT' --apply-to '$FORK_FIXTURE_GH_CLONE'\" /dev/null"
+    [ "$status" -eq 0 ]
+    [ "$(wc -l < "$FORK_EXPORT_FZF_LOG")" -eq 2 ]
+    grep -q 'Start commit (inclusive)' "$FORK_EXPORT_FZF_LOG"
+    grep -q 'End commit (inclusive)' "$FORK_EXPORT_FZF_LOG"
+    [[ "$output" == *"Selected range (2 commit(s))"* ]]
+    [ ! -e "$FORK_FIXTURE_GH_CLONE/one.txt" ]
+    [ "$(cat "$FORK_FIXTURE_GH_CLONE/two.txt")" = "two" ]
+    [ "$(cat "$FORK_FIXTURE_GH_CLONE/three.txt")" = "three" ]
+    [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log -1 --format=%s)" = "Commit three" ]
+    [ "$first_ref" != "$start_ref" ]
+}
+
+@test "fork-export: excludes patch-equivalent commits already present in the target" {
+    _setup_fork_export_fixture
+    for commit in one two three; do
+        printf '%s\n' "$commit" > "$FORK_FIXTURE_WORKING_CLONE/$commit.txt"
+        git -C "$FORK_FIXTURE_WORKING_CLONE" add "$commit.txt"
+        git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "Commit $commit"
+        case "$commit" in
+            one) already_present_ref="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)" ;;
+            two) start_ref="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)" ;;
+            three) end_ref="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)" ;;
+        esac
+    done
+    printf 'one\n' > "$FORK_FIXTURE_GH_CLONE/one.txt"
+    git -C "$FORK_FIXTURE_GH_CLONE" add one.txt
+    git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "Equivalent patch with different hash"
+    [ "$(git -C "$FORK_FIXTURE_GH_CLONE" rev-parse HEAD)" != "$already_present_ref" ]
+
+    _add_upstream_clone_to_repos
+    _install_fzf_stub
+    export FORK_EXPORT_FZF_LOG="$TEST_TEMP_DIR/fzf-prompts.log"
+    export FORK_EXPORT_FZF_INPUT_LOG="$TEST_TEMP_DIR/fzf-input.log"
+    export FORK_EXPORT_START_SELECTION="$start_ref"
+    export FORK_EXPORT_END_SELECTION="$end_ref"
+
+    run bash -c "printf 'y\\n' | script -qfec \"bash '$SCRIPT' --apply-to '$FORK_FIXTURE_GH_CLONE'\" /dev/null"
+    [ "$status" -eq 0 ]
+    ! grep -q "$already_present_ref" "$FORK_EXPORT_FZF_INPUT_LOG"
+    [[ "$output" == *"excluded 1 commit(s) already present in target"* ]] || {
+        echo "export output: $output" >&2
+        git -C "$FORK_FIXTURE_WORKING_CLONE" cherry -v "$FORK_FIXTURE_GH_CLONE" "$end_ref" "$(git -C "$FORK_FIXTURE_WORKING_CLONE" merge-base refs/remotes/upstream/master "$end_ref")" >&2
+        return 1
+    }
+    [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log --format=%s | grep -c '^Equivalent patch with different hash$')" -eq 1 ]
+    [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log -1 --format=%s)" = "Commit three" ]
+    [ "$(cat "$FORK_FIXTURE_GH_CLONE/two.txt")" = "two" ]
+    [ "$(cat "$FORK_FIXTURE_GH_CLONE/three.txt")" = "three" ]
+}
+
+@test "fork-export: interactive picker cancellation leaves target untouched" {
+    _setup_fork_export_fixture
+    _add_export_commit "Local one"
+    _install_fzf_stub
+    export FORK_EXPORT_START_SELECTION=cancel
+
+    run script -qfec "bash '$SCRIPT' --apply-to '$FORK_FIXTURE_GH_CLONE'" /dev/null
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"commit range selection cancelled"* ]]
+    [ -z "$(git -C "$FORK_FIXTURE_GH_CLONE" status --porcelain)" ]
+    [ "$(git -C "$FORK_FIXTURE_GH_CLONE" rev-parse HEAD)" = "$(git -C "$FORK_FIXTURE_GH_CLONE" rev-parse origin/master)" ]
 }
 
 @test "fork-export: resolves an upstream tracking end ref after fetch" {
@@ -164,7 +341,7 @@ _add_export_commit() {
     _add_export_commit "Local one"
     _add_export_commit "Local two"
 
-    run bash "$SCRIPT" --format patch
+    run bash "$SCRIPT" --all --format patch
     [ "$status" -eq 0 ]
     patch_dir="$(sed -n 's/^Patches: //p' <<< "$output")"
     patch_files=("$patch_dir"/*.patch)
@@ -178,7 +355,7 @@ _add_export_commit() {
     _setup_fork_export_fixture
     _add_export_commit "Local one"
 
-    run bash "$SCRIPT" --format both
+    run bash "$SCRIPT" --all --format both
     [ "$status" -eq 0 ]
     bundle_file="$(sed -n 's/^Bundle: //p' <<< "$output")"
     patch_dir="$(sed -n 's/^Patches: //p' <<< "$output")"
@@ -189,12 +366,91 @@ _add_export_commit() {
 @test "fork-export: --apply-to applies the bundle into a sibling clone" {
     _setup_fork_export_fixture
     _add_export_commit "Local one"
+    _add_export_commit "Local two"
 
-    run bash "$SCRIPT" --apply-to "$FORK_FIXTURE_GH_CLONE"
+    run bash "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -eq 0 ]
-    [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log -1 --format=%s)" = "Local one" ]
-    [ "$(git -C "$FORK_FIXTURE_GH_CLONE" show HEAD:changes.txt)" = "Local one" ]
+    [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log -1 --format=%s)" = "Local two" ]
+    [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log -2 --format=%s | tail -1)" = "Local one" ]
+    [ "$(git -C "$FORK_FIXTURE_GH_CLONE" show HEAD:changes.txt)" = $'Local one\nLocal two' ]
+    ! git -C "$FORK_FIXTURE_GH_CLONE" rev-parse --verify --quiet CHERRY_PICK_HEAD
+    [[ "$output" == *"cherry-pick sequence finalized"* ]]
     [[ "$output" != *"Bundle:"* ]]
+}
+
+@test "fork-export: non-interactive bundle conflict preserves sequencer and prints continuation guidance" {
+    _setup_fork_export_fixture
+    printf 'source version\n' > "$FORK_FIXTURE_WORKING_CLONE/README.md"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add README.md
+    git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "Source edit"
+    printf 'target version\n' > "$FORK_FIXTURE_GH_CLONE/README.md"
+    git -C "$FORK_FIXTURE_GH_CLONE" add README.md
+    git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "Target edit"
+
+    run bash "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"cherry-pick conflict"* ]]
+    [[ "$output" == *"git -C $FORK_FIXTURE_GH_CLONE cherry-pick --continue"* ]]
+    git -C "$FORK_FIXTURE_GH_CLONE" rev-parse --verify --quiet CHERRY_PICK_HEAD
+    [ -n "$(git -C "$FORK_FIXTURE_GH_CLONE" diff --name-only --diff-filter=U)" ]
+}
+
+@test "fork-export: non-interactive patch conflict preserves am state and prints continuation guidance" {
+    _setup_fork_export_fixture
+    printf 'source version\n' > "$FORK_FIXTURE_WORKING_CLONE/README.md"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add README.md
+    git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "Source edit"
+    printf 'target version\n' > "$FORK_FIXTURE_GH_CLONE/README.md"
+    git -C "$FORK_FIXTURE_GH_CLONE" add README.md
+    git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "Target edit"
+
+    run bash "$SCRIPT" --all --format patch --apply-to "$FORK_FIXTURE_GH_CLONE"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"am conflict"* ]]
+    [[ "$output" == *"git -C $FORK_FIXTURE_GH_CLONE am --continue"* ]]
+    am_state="$(git -C "$FORK_FIXTURE_GH_CLONE" rev-parse --absolute-git-dir)/rebase-apply"
+    [ -d "$am_state" ]
+}
+
+@test "fork-export: interactive bundle conflict waits and continues the queued sequence" {
+    _setup_fork_export_fixture
+    printf 'source version\n' > "$FORK_FIXTURE_WORKING_CLONE/README.md"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add README.md
+    git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "Source edit"
+    _add_export_commit "Source follow-up"
+    printf 'target version\n' > "$FORK_FIXTURE_GH_CLONE/README.md"
+    git -C "$FORK_FIXTURE_GH_CLONE" add README.md
+    git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "Target edit"
+
+    coproc EXPORTER { script -qfec "bash '$SCRIPT' --all --apply-to '$FORK_FIXTURE_GH_CLONE'" /dev/null; }
+    local exporter_pid="$EXPORTER_PID"
+    local line prompt_seen=0 output=""
+    while IFS= read -r line <&"${EXPORTER[0]}"; do
+        output+="$line"$'\n'
+        if [[ "$line" == *"Resolve and stage these files"* ]]; then
+            prompt_seen=1
+            break
+        fi
+    done
+    [ "$prompt_seen" -eq 1 ]
+    [ -n "$(git -C "$FORK_FIXTURE_GH_CLONE" diff --name-only --diff-filter=U)" ]
+
+    printf 'resolved version\n' > "$FORK_FIXTURE_GH_CLONE/README.md"
+    git -C "$FORK_FIXTURE_GH_CLONE" add README.md
+    printf '\n' >&"${EXPORTER[1]}"
+
+    while IFS= read -r line <&"${EXPORTER[0]}"; do
+        output+="$line"$'\n'
+    done
+    local exporter_status=0
+    wait "$exporter_pid" || exporter_status=$?
+    [ "$exporter_status" -eq 0 ]
+    [[ "$output" == *"cherry-pick sequence finalized"* ]]
+    [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log -1 --format=%s)" = "Source follow-up" ]
+    [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log -2 --format=%s | tail -1)" = "Source edit" ]
+    [ "$(git -C "$FORK_FIXTURE_GH_CLONE" show HEAD:README.md)" = "resolved version" ]
+    [ "$(git -C "$FORK_FIXTURE_GH_CLONE" show HEAD:changes.txt)" = "Source follow-up" ]
+    ! git -C "$FORK_FIXTURE_GH_CLONE" rev-parse --verify --quiet CHERRY_PICK_HEAD
 }
 
 @test "fork-export: bundle applies to a sibling clone advanced beyond the base" {
@@ -204,7 +460,7 @@ _add_export_commit() {
     git -C "$FORK_FIXTURE_GH_CLONE" add upstream-change.txt
     git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "Target advance"
 
-    run bash "$SCRIPT" --apply-to "$FORK_FIXTURE_GH_CLONE"
+    run bash "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -eq 0 ]
     [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log -1 --format=%s)" = "Local one" ]
     [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log -2 --format=%s | tail -1)" = "Target advance" ]
@@ -215,7 +471,7 @@ _add_export_commit() {
     _setup_fork_export_fixture
     _add_export_commit "Local one"
 
-    run bash "$SCRIPT" --format patch --apply-to "$FORK_FIXTURE_GH_CLONE"
+    run bash "$SCRIPT" --all --format patch --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -eq 0 ]
     [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log -1 --format=%s)" = "Local one" ]
     [ "$(git -C "$FORK_FIXTURE_GH_CLONE" show HEAD:changes.txt)" = "Local one" ]
@@ -241,7 +497,7 @@ _add_export_commit() {
     git -C "$unrelated" add README.md
     git -C "$unrelated" commit -q -m unrelated
 
-    run bash "$SCRIPT" --apply-to "$unrelated"
+    run bash "$SCRIPT" --all --apply-to "$unrelated"
     [ "$status" -ne 0 ]
     [[ "$output" == *"does not descend from the upstream merge-base"* ]]
 }
