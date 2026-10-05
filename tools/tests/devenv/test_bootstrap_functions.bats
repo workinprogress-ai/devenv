@@ -616,89 +616,72 @@ EOF
   [[ "$output" =~ "skipped" ]]
 }
 
-@test "install_claude_code_integration creates skills symlink to copilot/skills" {
-  local toolbox="$TEST_TEMP_DIR/toolbox_claude_skills"
-  local home_dir="$TEST_TEMP_DIR/home_claude_skills"
-  mkdir -p "$toolbox/copilot/skills/spike"
-  mkdir -p "$home_dir/.claude"
 
-  cat > "$TEST_TEMP_DIR/test_claude_skills_symlink.sh" << EOF
-#!/bin/bash
-toolbox_root="$toolbox"
-HOME="$home_dir"
-skills_src="\$toolbox_root/copilot/skills"
-skills_link="\$HOME/.claude/skills"
-if [ -d "\$skills_src" ]; then
-  mkdir -p "\$HOME/.claude"
-  rm -rf "\$skills_link"
-  ln -s "\$skills_src" "\$skills_link"
-  echo "symlinked"
-else
-  echo "skipped"
-fi
-EOF
-  chmod +x "$TEST_TEMP_DIR/test_claude_skills_symlink.sh"
-  run "$TEST_TEMP_DIR/test_claude_skills_symlink.sh"
-  [ "$status" -eq 0 ]
-  [[ "$output" =~ "symlinked" ]]
-  [ -L "$home_dir/.claude/skills" ]
-  [ "$(readlink "$home_dir/.claude/skills")" = "$toolbox/copilot/skills" ]
+setup_claude_fixture() {
+  toolbox="$TEST_TEMP_DIR/claude-toolbox"
+  home_dir="$TEST_TEMP_DIR/claude-home"
+  mkdir -p "$toolbox/copilot/skills/devenv-fixture" "$toolbox/copilot/skills/common"
+  printf '# Instructions\n' > "$toolbox/copilot/copilot-instructions.md"
+  printf '%s\n' '---' 'name: devenv-fixture' 'description: Synthetic test skill' '---' '# Fixture' > "$toolbox/copilot/skills/devenv-fixture/SKILL.md"
+  printf '# Shared reference\n' > "$toolbox/copilot/skills/common/reference.md"
+  printf '# Tools reference\n' > "$toolbox/copilot/skills/_tools-reference.md"
 }
 
-@test "install_claude_code_integration skills symlink is idempotent" {
-  local toolbox="$TEST_TEMP_DIR/toolbox_claude_skills2"
-  local home_dir="$TEST_TEMP_DIR/home_claude_skills2"
-  mkdir -p "$toolbox/copilot/skills"
-  mkdir -p "$home_dir/.claude"
-  # Pre-create a stale symlink
-  ln -s /tmp/stale "$home_dir/.claude/skills"
-
-  cat > "$TEST_TEMP_DIR/test_claude_skills_symlink_idem.sh" << EOF
-#!/bin/bash
-toolbox_root="$toolbox"
-HOME="$home_dir"
-skills_src="\$toolbox_root/copilot/skills"
-skills_link="\$HOME/.claude/skills"
-if [ -d "\$skills_src" ]; then
-  mkdir -p "\$HOME/.claude"
-  rm -rf "\$skills_link"
-  ln -s "\$skills_src" "\$skills_link"
-  echo "symlinked"
-fi
-EOF
-  chmod +x "$TEST_TEMP_DIR/test_claude_skills_symlink_idem.sh"
-  run "$TEST_TEMP_DIR/test_claude_skills_symlink_idem.sh"
-  [ "$status" -eq 0 ]
-  [ -L "$home_dir/.claude/skills" ]
-  [ "$(readlink "$home_dir/.claude/skills")" = "$toolbox/copilot/skills" ]
+run_claude_installer() {
+  local installer
+  installer="$(sed -n '/^install_claude_code_integration()/,/^}/p' "$PROJECT_ROOT/.devcontainer/bootstrap.bash")"
+  run env toolbox_root="$toolbox" HOME="$home_dir" bash -c "$installer; install_claude_code_integration"
 }
 
-@test "install_claude_code_integration skips skills symlink when copilot/skills missing" {
-  local toolbox="$TEST_TEMP_DIR/toolbox_claude_noskills"
-  local home_dir="$TEST_TEMP_DIR/home_claude_noskills"
-  mkdir -p "$toolbox/copilot"
-  # no skills dir
-
-  cat > "$TEST_TEMP_DIR/test_claude_skills_missing.sh" << EOF
-#!/bin/bash
-toolbox_root="$toolbox"
-HOME="$home_dir"
-skills_src="\$toolbox_root/copilot/skills"
-skills_link="\$HOME/.claude/skills"
-if [ -d "\$skills_src" ]; then
-  mkdir -p "\$HOME/.claude"
-  rm -rf "\$skills_link"
-  ln -s "\$skills_src" "\$skills_link"
-  echo "symlinked"
-else
-  echo "skipped"
-fi
-EOF
-  chmod +x "$TEST_TEMP_DIR/test_claude_skills_missing.sh"
-  run "$TEST_TEMP_DIR/test_claude_skills_missing.sh"
+@test "Claude integration creates individual skill and shared-reference links" {
+  setup_claude_fixture
+  run_claude_installer
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "skipped" ]]
-  [ ! -e "$home_dir/.claude/skills" ]
+  [ -d "$home_dir/.claude/skills" ]
+  [ ! -L "$home_dir/.claude/skills" ]
+  [ -L "$home_dir/.claude/skills/devenv-fixture" ]
+  [ -L "$home_dir/.claude/skills/common" ]
+  [ -L "$home_dir/.claude/skills/_tools-reference.md" ]
+  [ "$(readlink "$home_dir/.claude/skills/devenv-fixture")" = "$toolbox/copilot/skills/devenv-fixture" ]
+  [ -f "$home_dir/.claude/skills/devenv-fixture/SKILL.md" ]
+  [ "$(readlink "$home_dir/.claude/CLAUDE.md")" = "$toolbox/copilot/copilot-instructions.md" ]
+}
+
+@test "Claude integration preserves synced and personal skills" {
+  setup_claude_fixture
+  mkdir -p "$home_dir/.claude/skills/synced" "$home_dir/.claude/skills/personal"
+  printf 'keep synced\n' > "$home_dir/.claude/skills/synced/marker"
+  printf '# Personal\n' > "$home_dir/.claude/skills/personal/SKILL.md"
+  run_claude_installer
+  [ "$status" -eq 0 ]
+  [ "$(cat "$home_dir/.claude/skills/synced/marker")" = "keep synced" ]
+  [ "$(cat "$home_dir/.claude/skills/personal/SKILL.md")" = "# Personal" ]
+  [ -L "$home_dir/.claude/skills/devenv-fixture" ]
+}
+
+@test "Claude integration is repeatable and preserves personal name collisions" {
+  setup_claude_fixture
+  mkdir -p "$home_dir/.claude/skills/devenv-fixture"
+  printf '# Personal collision\n' > "$home_dir/.claude/skills/devenv-fixture/SKILL.md"
+  run_claude_installer
+  [ "$status" -eq 0 ]
+  run_claude_installer
+  [ "$status" -eq 0 ]
+  [ ! -L "$home_dir/.claude/skills/devenv-fixture" ]
+  [ "$(cat "$home_dir/.claude/skills/devenv-fixture/SKILL.md")" = "# Personal collision" ]
+  [ "$(readlink "$home_dir/.claude/skills/common")" = "$toolbox/copilot/skills/common" ]
+  [[ "$output" == *"WARNING:"*"devenv-fixture"* ]]
+}
+
+@test "Claude integration skips missing source skills without touching personal skills" {
+  setup_claude_fixture
+  rm -rf "$toolbox/copilot/skills"
+  mkdir -p "$home_dir/.claude/skills/synced"
+  printf 'keep synced\n' > "$home_dir/.claude/skills/synced/marker"
+  run_claude_installer
+  [ "$status" -eq 0 ]
+  [ "$(cat "$home_dir/.claude/skills/synced/marker")" = "keep synced" ]
+  [[ "$output" == *"WARNING: copilot/skills not found"* ]]
 }
 
 # Idempotency tests

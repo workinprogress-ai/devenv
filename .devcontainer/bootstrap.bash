@@ -1174,8 +1174,8 @@ install_copilot_instructions() {
 
 }
 
-# Copy Copilot instructions to ~/.claude/CLAUDE.md and symlink
-# ~/.claude/skills → <devenv>/copilot/skills, so the Claude Code VS Code
+# Link Copilot instructions and individual skills into ~/.claude/, so the
+# Claude Code VS Code
 # extension reads the same instructions and skills as GitHub Copilot.
 install_claude_code_integration() {
     echo "# Install Claude Code integration"
@@ -1196,16 +1196,30 @@ install_claude_code_integration() {
         echo "WARNING: copilot/copilot-instructions.md not found, skipping"
     fi
 
-    # Symlink ~/.claude/skills → devenv's skills folder so skills are
-    # available in every VS Code window regardless of which repo is open.
+    # Link skills and shared references without replacing Claude's personal
+    # skills directory or its synced account skills.
     local skills_src="$toolbox_root/copilot/skills"
     local skills_link="$HOME/.claude/skills"
     if [ -d "$skills_src" ]; then
         mkdir -p "$HOME/.claude"
-        # Remove stale link or directory before (re)creating
-        rm -rf "$skills_link"
-        ln -s "$skills_src" "$skills_link"
-        echo "Claude Code skills symlinked: $skills_link → $skills_src"
+        if [ -L "$skills_link" ]; then
+            echo "WARNING: Claude skills root must be a real directory; leaving it unchanged"
+            return 1
+        fi
+        mkdir -p "$skills_link"
+        local entry entry_name target
+        for entry in "$skills_src"/*; do
+            [ -e "$entry" ] || continue
+            entry_name="${entry##*/}"
+            [ "$entry_name" != "synced" ] || continue
+            target="$skills_link/$entry_name"
+            if [ -e "$target" ] && [ ! -L "$target" ]; then
+                echo "WARNING: existing Claude skills entry preserved: $target"
+                continue
+            fi
+            ln -sfn "$entry" "$target"
+        done
+        echo "Claude Code skill links installed under: $skills_link"
     else
         echo "WARNING: copilot/skills not found, skipping skills symlink"
     fi
