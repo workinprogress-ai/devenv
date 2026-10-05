@@ -224,13 +224,45 @@ _add_upstream_clone_to_repos() {
         esac
     done
 
-    run bash "$SCRIPT" --start-ref "$start_ref" "$end_ref" --format bundle
+    run bash "$SCRIPT" --start-ref "$start_ref" "$end_ref" --format patch
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Commits: 2"* ]]
+    patch_dir="$(sed -n 's/^Patches: //p' <<< "$output")"
+    [ "$(find "$patch_dir" -name '*.patch' | wc -l)" -eq 2 ]
+    grep -q "^From $start_ref " "$patch_dir"/*.patch
+    grep -q "^From $end_ref " "$patch_dir"/*.patch
+    ! grep -q '^Subject: \[PATCH.*\] Commit one$' "$patch_dir"/*.patch
+}
+
+@test "fork-export: partial bundle and both formats reject omitted ancestor commits" {
+    _setup_fork_export_fixture
+    _add_export_commit "Local one"
+    _add_export_commit "Local two"
+    start_ref="$(git rev-parse HEAD)"
+    target_before="$(git -C "$FORK_FIXTURE_GH_CLONE" rev-parse HEAD)"
+
+    for format in bundle both; do
+        run bash "$SCRIPT" --start-ref "$start_ref" HEAD --format "$format" --apply-to "$FORK_FIXTURE_GH_CLONE"
+        [ "$status" -ne 0 ]
+        [[ "$output" == *"partial commit ranges require --format patch"* ]]
+        [ "$(git -C "$FORK_FIXTURE_GH_CLONE" rev-parse HEAD)" = "$target_before" ]
+        [ -z "$(git for-each-ref --format='%(refname)' refs/fork-export)" ]
+        [ ! -d "$FORK_FIXTURE_WORKING_CLONE/.local-artifacts/fork-export" ]
+    done
+}
+
+@test "fork-export: explicit first fork commit permits a full-range bundle" {
+    _setup_fork_export_fixture
+    _add_export_commit "Local one"
+    start_ref="$(git rev-parse HEAD)"
+    _add_export_commit "Local two"
+
+    run bash "$SCRIPT" --start-ref "$start_ref" HEAD --format bundle
     [ "$status" -eq 0 ]
     [[ "$output" == *"Commits: 2"* ]]
     bundle_file="$(sed -n 's/^Bundle: //p' <<< "$output")"
-    bundle_heads="$(git -C "$FORK_FIXTURE_WORKING_CLONE" bundle list-heads "$bundle_file")"
-    [[ "$bundle_heads" == *"$end_ref"* ]]
-    ! git -C "$FORK_FIXTURE_WORKING_CLONE" bundle verify "$bundle_file" 2>&1 | grep -q "$start_ref"
+    [ -f "$bundle_file" ]
+    git bundle verify "$bundle_file"
 }
 
 @test "fork-export: interactive fzf range applies the selected inclusive commits after confirmation" {
@@ -249,8 +281,10 @@ _add_upstream_clone_to_repos() {
     export FORK_EXPORT_FZF_LOG="$TEST_TEMP_DIR/fzf-prompts.log"
     export FORK_EXPORT_START_SELECTION="$start_ref"
     export FORK_EXPORT_END_SELECTION="$end_ref"
+    export TERM=dumb
+    export GIT_PAGER=less
 
-    run bash -c "printf 'y\\n' | script -qfec \"bash '$SCRIPT' --apply-to '$FORK_FIXTURE_GH_CLONE'\" /dev/null"
+    run bash -c "printf 'y\\n' | script -qfec \"bash '$SCRIPT' --format patch --apply-to '$FORK_FIXTURE_GH_CLONE'\" /dev/null"
     [ "$status" -eq 0 ]
     [ "$(wc -l < "$FORK_EXPORT_FZF_LOG")" -eq 2 ]
     grep -q 'Start commit (inclusive)' "$FORK_EXPORT_FZF_LOG"
@@ -286,8 +320,10 @@ _add_upstream_clone_to_repos() {
     export FORK_EXPORT_FZF_INPUT_LOG="$TEST_TEMP_DIR/fzf-input.log"
     export FORK_EXPORT_START_SELECTION="$start_ref"
     export FORK_EXPORT_END_SELECTION="$end_ref"
+    export TERM=dumb
+    export GIT_PAGER=less
 
-    run bash -c "printf 'y\\n' | script -qfec \"bash '$SCRIPT' --apply-to '$FORK_FIXTURE_GH_CLONE'\" /dev/null"
+    run bash -c "printf 'y\\n' | script -qfec \"bash '$SCRIPT' --format patch --apply-to '$FORK_FIXTURE_GH_CLONE'\" /dev/null"
     [ "$status" -eq 0 ]
     ! grep -q "$already_present_ref" "$FORK_EXPORT_FZF_INPUT_LOG"
     [[ "$output" == *"excluded 1 commit(s) already present in target"* ]] || {

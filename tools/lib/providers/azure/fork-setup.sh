@@ -49,7 +49,7 @@ fi
 
 PUSH_URL=""
 if [ -n "$EXISTING_UPSTREAM" ]; then
-    PUSH_URL="$(git -C "$REPO_ROOT" remote get-url --push upstream 2>/dev/null || true)"
+    PUSH_URL="$(git -C "$REPO_ROOT" remote get-url --push --all upstream 2>/dev/null || true)"
 fi
 
 if [ "$DRY_RUN" -eq 1 ]; then

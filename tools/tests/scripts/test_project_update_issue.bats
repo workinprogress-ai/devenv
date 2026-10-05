@@ -142,6 +142,9 @@ EOF
     # Same stub, but the field has no matching option for the requested value.
     cat > "$STUB_DIR/gh" <<'EOF'
 #!/usr/bin/env bash
+if [ "${1:-}" = "auth" ] && [ "${2:-}" = "status" ]; then
+    exit 0
+fi
 prog=""
 prev=""
 for a in "$@"; do
@@ -160,6 +163,9 @@ esac
 printf '%s' "$payload" | jq -r "$prog"
 EOF
     chmod +x "$STUB_DIR/gh"
+    run "$STUB_DIR/gh" auth status
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
     run bash "$SCRIPT" someproject 123 --field "Priority=Nope"
     [ "$status" -ne 0 ]
     [[ "$output" == *"not found"* ]]

@@ -1184,7 +1184,7 @@ install_claude_code_integration() {
     local dest="$HOME/.claude/CLAUDE.md"
     if [ -f "$src" ]; then
         mkdir -p "$HOME/.claude"
-        if [ -L "$dest" ]; then
+        if [ -L "$dest" ] && [ "$(readlink "$dest")" = "$src" ]; then
             echo "Claude Code instructions already symlinked at $dest, skipping"
         else
             # Remove plain file (or broken symlink) before symlinking
@@ -1202,10 +1202,13 @@ install_claude_code_integration() {
     local skills_link="$HOME/.claude/skills"
     if [ -d "$skills_src" ]; then
         mkdir -p "$HOME/.claude"
-        # Remove stale link or directory before (re)creating
-        rm -rf "$skills_link"
-        ln -s "$skills_src" "$skills_link"
-        echo "Claude Code skills symlinked: $skills_link → $skills_src"
+        if [ -e "$skills_link" ] && [ ! -L "$skills_link" ]; then
+            echo "WARNING: $skills_link exists and is not a symlink; preserving it"
+        else
+            rm -f "$skills_link"
+            ln -s "$skills_src" "$skills_link"
+            echo "Claude Code skills symlinked: $skills_link → $skills_src"
+        fi
     else
         echo "WARNING: copilot/skills not found, skipping skills symlink"
     fi

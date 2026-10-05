@@ -78,6 +78,17 @@ _setup_fork_fixture() {
     [ "$(git config --local --list --show-origin | sort)" = "$before_config" ]
 }
 
+@test "fork-setup: replaces additional push URLs after the fetch-only guard" {
+    _setup_fork_fixture
+    git remote add upstream "$FORK_FIXTURE_UPSTREAM"
+    git config --local --add remote.upstream.pushurl /dev/null
+    git config --local --add remote.upstream.pushurl "$FORK_FIXTURE_UPSTREAM"
+
+    run bash "$SCRIPT"
+    [ "$status" -eq 0 ]
+    [ "$(git remote get-url --push --all upstream)" = "/dev/null" ]
+}
+
 @test "fork-setup: refuses to overwrite a conflicting upstream remote" {
     _setup_fork_fixture
     git remote add upstream "$FORK_FIXTURE_ADO_ORIGIN"

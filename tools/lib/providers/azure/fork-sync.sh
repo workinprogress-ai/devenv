@@ -55,7 +55,7 @@ normalize_git_url() {
     esac
     url="${url%/}"
     url="${url%.git}"
-    printf '%s\n' "$url"
+    printf '%s\n' "${url,,}"
 }
 
 DRY_RUN=0
@@ -164,7 +164,7 @@ if [ "$PUSH" -eq 1 ]; then
         echo "WARNING: --rewrite-origin will replace origin-only commits on origin/$CURRENT_BRANCH."
     fi
 
-    if [ "$LOCAL_AHEAD" -eq 0 ]; then
+    if [ "$LOCAL_AHEAD" -eq 0 ] && [ "$ORIGIN_AHEAD" -eq 0 ]; then
         echo "No push needed; origin already contains the current branch."
         exit 0
     fi
