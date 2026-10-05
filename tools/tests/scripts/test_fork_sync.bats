@@ -31,6 +31,12 @@ _setup_sync_fixture() {
     bash -n "$SCRIPT"
 }
 
+@test "fork-sync: normalizes mixed-case GitHub push destinations" {
+    run bash -c 'source <(sed -n "/^normalize_git_url() {/,/^}/p" "$1"); normalize_git_url "$2"' _ "$SCRIPT" "https://GitHub.com/workinprogress-ai/devenv.git"
+    [ "$status" -eq 0 ]
+    [ "$output" = "github.com/workinprogress-ai/devenv" ]
+}
+
 @test "fork-sync: --help documents the sync contract" {
     run bash "$SCRIPT" --help
     [ "$status" -eq 0 ]
@@ -268,6 +274,25 @@ _setup_sync_fixture() {
     [[ "$output" == *"rewrite"* ]]
     [ "$(git -C "$FORK_FIXTURE_ADO_ORIGIN" rev-parse master)" = "$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)" ]
     ! git -C "$FORK_FIXTURE_ADO_ORIGIN" merge-base --is-ancestor "$(git -C "$origin_updater" rev-parse master)" master
+}
+
+@test "fork-sync: --rewrite-origin replaces a strictly-ahead origin" {
+    _setup_sync_fixture
+    origin_updater="$TEST_TEMP_DIR/origin-updater"
+    git clone -q "$FORK_FIXTURE_ADO_ORIGIN" "$origin_updater"
+    git -C "$origin_updater" config user.email test@example.com
+    git -C "$origin_updater" config user.name "Test User"
+    printf 'origin-only change\n' > "$origin_updater/origin.txt"
+    git -C "$origin_updater" add origin.txt
+    git -C "$origin_updater" commit -qm "Origin-only commit"
+    git -C "$origin_updater" push -q origin master
+
+    run bash -c 'bash "$@" </dev/null' _ "$SCRIPT" --rewrite-origin --push-to-origin --yes
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Origin ahead: 1"* ]]
+    [[ "$output" == *"Local ahead of origin: 0"* ]]
+    [[ "$output" == *"Rewrote origin/master"* ]]
+    [ "$(git -C "$FORK_FIXTURE_ADO_ORIGIN" rev-parse master)" = "$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)" ]
 }
 
 @test "fork-sync: TTY rewrite confirmation names origin-only commits and defaults to no" {

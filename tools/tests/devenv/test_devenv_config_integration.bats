@@ -65,19 +65,19 @@ EOF
     [[ "$output" =~ Production ]]
 }
 
-@test "devenv.config: copilot knowledge repository is not configured in this fork" {
+@test "devenv.config: copilot knowledge repository is configured" {
     run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $PROJECT_ROOT/devenv.config && config_read_value copilot knowledge_repo"
     [ "$status" -eq 0 ]
-    [ -z "$output" ]
+    [ "$output" = "https://github.com/workinprogress-ai/docs.copilot-knowledge.git" ]
     run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $PROJECT_ROOT/devenv.config && config_read_value copilot knowledge_subpath"
     [ "$status" -eq 0 ]
     [[ "$output" == "copilot-knowledge/" ]]
 }
 
-@test "devenv.config: copilot engineering repository is not configured in this fork" {
+@test "devenv.config: copilot engineering repository is configured" {
     run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $PROJECT_ROOT/devenv.config && config_read_value copilot engineering_repo"
     [ "$status" -eq 0 ]
-    [ -z "$output" ]
+    [ "$output" = "https://github.com/workinprogress-ai/docs.engineering.git" ]
     run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $PROJECT_ROOT/devenv.config && config_read_value copilot engineering_subpath"
     [ "$status" -eq 0 ]
     [[ "$output" == "docs/" ]]

@@ -151,7 +151,31 @@ teardown() {
     [ "$(git config --get credential.https://example.com.username)" = "unrelated-user" ]
 }
 
+@test "provider_auth_setup_git: organization changes remove only this helper's stale values" {
+    local helper
+    helper="$(cd "$DEVENV_TOOLS/lib/providers/azure" && pwd)/credential-helper.sh get"
+    git config --global --add credential.https://old-org.visualstudio.com.helper "$helper"
+    git config --global --add credential.https://old-org.visualstudio.com.helper unrelated-helper
+    git config --global credential.https://example.com.helper "$helper"
+    git config --global credential.https://other-org.visualstudio.com.helper another-helper
+
+    run bash -c "
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        PROVIDER_NAME=azure
+        provider_load auth
+        provider_auth_setup_git
+    "
+    [ "$status" -eq 0 ]
+    [ "$(git config --get-all credential.https://old-org.visualstudio.com.helper)" = "unrelated-helper" ]
+    [ "$(git config --get credential.https://other-org.visualstudio.com.helper)" = "another-helper" ]
+    [ "$(git config --get credential.https://example.com.helper)" = "$helper" ]
+    [ "$(git config --get credential.https://test-org.visualstudio.com.helper)" = "$helper" ]
+}
+
 @test "provider_auth_setup_git: missing organization keeps canonical support and warns" {
+    local helper
+    helper="$(cd "$DEVENV_TOOLS/lib/providers/azure" && pwd)/credential-helper.sh get"
+    git config --global credential.https://old-org.visualstudio.com.helper "$helper"
     sed -i '/^org=/d' "$DEVENV_ROOT/devenv.config"
     run bash -c "
         source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
@@ -166,6 +190,9 @@ teardown() {
 }
 
 @test "provider_auth_setup_git: wildcard organization never broadens credential scope" {
+    local helper
+    helper="$(cd "$DEVENV_TOOLS/lib/providers/azure" && pwd)/credential-helper.sh get"
+    git config --global credential.https://old-org.visualstudio.com.helper "$helper"
     sed -i 's/org=test-org/org=test*/' "$DEVENV_ROOT/devenv.config"
     run bash -c "
         source '$DEVENV_TOOLS/lib/providers/provider-core.bash'

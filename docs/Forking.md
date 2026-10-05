@@ -201,7 +201,10 @@ previews each commit and displays the selected range for confirmation. Use
 `--all` to export the entire range without prompting, or
 `--start-ref <start> <end>` to select an inclusive range in scripts. The base is
 always the merge-base with `upstream/<branch>`. Files are written under
-`.local-artifacts/fork-export/<base-short>-<end-short>/`. `--apply-to` applies
+`.local-artifacts/fork-export/<base-short>-<end-short>/`. Partial ranges that
+omit earlier fork commits require `--format patch`, including interactive
+selections. The `bundle` and `both` formats are limited to full ranges because
+bundles retain ancestor commits. `--apply-to` applies
 the export directly into a clean sibling clone that shares the upstream
 base; no GitHub credentials are used by these scripts. Without `--apply-to`,
 the exporter matches `[fork] upstream_repo` against `origin` URLs in immediate

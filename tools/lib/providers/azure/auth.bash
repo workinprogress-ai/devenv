@@ -131,6 +131,27 @@ provider_auth_setup_git_impl() {
         log_error "failed registering the azure credential helper in git config"
         return 1
     fi
+    local legacy_keys legacy_key legacy_status
+    legacy_keys="$(git config --global --name-only --get-regexp \
+        '^credential\.https://[^/]+\.visualstudio\.com\.helper$')" || {
+        legacy_status=$?
+        if [ "$legacy_status" -ne 1 ]; then
+            log_error "failed reading legacy Azure credential helpers"
+            return 1
+        fi
+    }
+    while IFS= read -r legacy_key; do
+        [ -n "$legacy_key" ] || continue
+        if git config --global --fixed-value --unset-all "$legacy_key" "$helper get"; then
+            continue
+        else
+            legacy_status=$?
+            if [ "$legacy_status" -ne 5 ]; then
+                log_error "failed removing legacy Azure credential helper"
+                return 1
+            fi
+        fi
+    done <<< "$legacy_keys"
     local org
     if ! org=$(provider_org_get 2>/dev/null) || [ -z "$org" ]; then
         log_warn "organization identity unavailable; skipping legacy Azure hostname credential helper"

@@ -246,8 +246,13 @@ provider_extract_url_from_text() {
     printf '{"value":[{"name":"r1","project":{"name":"p1"}},{"name":"r2","project":{"name":"p1"}}]}' > "$TEST_TEMP_DIR/resp.json"
     printf '[provider]\nname=azure\nazure_org=org\nazure_project=p1\n' > "$DEVENV_ROOT/devenv.config"
 
-    run azure_run provider_repos_list org/p1
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/resp.json" \
+        run azure_run provider_repos_list org/p1
     [ "$status" -eq 0 ]
+    printf '%s' "$output" | jq -e '[.[] | {name, nameWithOwner}] == [
+        {name: "r1", nameWithOwner: "p1/r1"},
+        {name: "r2", nameWithOwner: "p1/r2"}
+    ]' > /dev/null
     # The endpoint hit the project-scoped list API
     grep -q "dev.azure.com/org/p1/_apis/git/repositories" "$STUB_CALL_LOG"
 }

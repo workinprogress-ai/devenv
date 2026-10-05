@@ -19,6 +19,8 @@ refs, fzf lets you choose inclusive start and end commits from the commits not
 in upstream. `--start-ref <commit> <end-ref>` selects a range non-interactively;
 `--all` exports the complete upstream-to-end range without prompting.
 `--format` selects `bundle` (default), `patch`, or `both`.
+Partial ranges that omit earlier fork commits require `--format patch`;
+bundles retain ancestor commits and are supported only for full ranges.
 Without `--apply-to`, a unique clone under `repos/` whose `origin` matches
 `[fork] upstream_repo` is used automatically. If none matches, files go under
 `.local-artifacts/fork-export/<range-slug>/`; use `--export-only` to force that
@@ -257,12 +259,16 @@ if [ -n "$START_REF" ]; then
   if [ -t 0 ] && [ -t 1 ]; then
     printf 'Selected range (%d commit(s)):\n' "${#COMMITS[@]}"
     for commit in "${COMMITS[@]}"; do
-      git -C "$REPO_ROOT" show -s --format='  %h %cs %s' "$commit"
+      git -C "$REPO_ROOT" --no-pager show -s --format='  %h %cs %s' "$commit"
     done
     printf 'Export this range? [y/N] ' > /dev/tty
     IFS= read -r confirmation < /dev/tty || die "commit range confirmation cancelled" "$EXIT_MISUSE"
     [[ "$confirmation" =~ ^[Yy]([Ee][Ss])?$ ]] || die "commit range export cancelled" "$EXIT_MISUSE"
   fi
+fi
+
+if [ "$FORMAT" != "patch" ] && [ "$EXPORT_BASE_SHA" != "$BASE_SHA" ]; then
+  die "partial commit ranges require --format patch; bundles include omitted ancestor commits" "$EXIT_MISUSE"
 fi
 
 if [ -n "$APPLY_TO" ] && ! git -C "$TARGET_ROOT" merge-base --is-ancestor "$BASE_SHA" "$TARGET_HEAD"; then
