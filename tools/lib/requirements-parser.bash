@@ -24,6 +24,23 @@ fi
 # Parsing Functions
 # ============================================================================
 
+# Classify a top-level "## " heading by NAME (an optional leading number is
+# ignored, so section order and numbering are free). Sets _REQ_HEADING_KIND to
+# vision | requirements | implementation | other, or empty for any line that is
+# not a top-level heading.
+_classify_heading() {
+    _REQ_HEADING_KIND=""
+    local re='^##[[:space:]]+([0-9]+\.?[[:space:]]+)?([^#[:space:]].*)$'
+    [[ "$1" =~ $re ]] || return 0
+    local name="${BASH_REMATCH[2],,}"
+    case "$name" in
+        vision*) _REQ_HEADING_KIND=vision ;;
+        requirements*) _REQ_HEADING_KIND=requirements ;;
+        implementation*) _REQ_HEADING_KIND=implementation ;;
+        *) _REQ_HEADING_KIND=other ;;
+    esac
+}
+
 # Parse phases from the implementation plan section of a requirements document.
 #
 # Extracts PHASE-nn entries with their name, goal, included requirements,
@@ -64,14 +81,15 @@ parse_phases() {
         # Strip carriage return for CRLF compatibility
         line="${line%$'\r'}"
 
-        # Detect implementation plan section (## 3. or ## 3 or ## Implementation Plan)
-        if [[ "$line" =~ ^##[[:space:]]+3\.[[:space:]] ]] || [[ "$line" =~ ^##[[:space:]]+3[[:space:]] ]] || [[ "$line" =~ ^##[[:space:]]+[Ii]mplementation ]]; then
+        # Detect the implementation plan section by name (any ordinal)
+        _classify_heading "$line"
+        if [[ "$_REQ_HEADING_KIND" == implementation ]]; then
             in_impl_plan=1
             continue
         fi
 
         # If we hit another top-level ## section after the impl plan, stop
-        if [[ $in_impl_plan -eq 1 ]] && [[ "$line" =~ ^##[[:space:]] ]] && ! [[ "$line" =~ ^###[[:space:]] ]] && ! [[ "$line" =~ ^##[[:space:]]+3 ]]; then
+        if [[ $in_impl_plan -eq 1 && -n "$_REQ_HEADING_KIND" ]]; then
             # Emit the last phase if any
             if [[ $in_phase -eq 1 ]]; then
                 _emit_phase "$phase_id" "$phase_name" "$phase_goal" "$phase_scope" "$phase_prereqs" "$phase_reqs"
@@ -236,14 +254,15 @@ parse_requirements() {
         # Strip carriage return for CRLF compatibility
         line="${line%$'\r'}"
 
-        # Detect requirements section (## 2. or ## 2 or ## Requirements)
-        if [[ "$line" =~ ^##[[:space:]]+2\.[[:space:]] ]] || [[ "$line" =~ ^##[[:space:]]+2[[:space:]] ]] || [[ "$line" =~ ^##[[:space:]]+[Rr]equirements ]]; then
+        # Detect the requirements section by name (any ordinal)
+        _classify_heading "$line"
+        if [[ "$_REQ_HEADING_KIND" == requirements ]]; then
             in_req_section=1
             continue
         fi
 
         # If we hit another top-level ## section after requirements, stop
-        if [[ $in_req_section -eq 1 ]] && [[ "$line" =~ ^##[[:space:]] ]] && ! [[ "$line" =~ ^###[[:space:]] ]] && ! [[ "$line" =~ ^####[[:space:]] ]] && ! [[ "$line" =~ ^##[[:space:]]+2 ]]; then
+        if [[ $in_req_section -eq 1 && -n "$_REQ_HEADING_KIND" ]]; then
             if [[ $in_req -eq 1 ]]; then
                 _emit_requirement "$req_id" "$req_title" "$req_area" "$req_deps"
                 found_any=1
@@ -730,21 +749,21 @@ validate_document() {
     local warnings=0
 
     # Check required sections
-    if grep -qE '^##[[:space:]]+(1[\. ]|[Vv]ision)' "$markdown_file"; then
+    if grep -qE '^##[[:space:]]+([0-9]+\.?[[:space:]]+)?[Vv]ision' "$markdown_file"; then
         log_info "CHECK: ✓ Vision section found"
     else
         log_error "CHECK: Missing Vision section (expected '## 1. Vision' or '## Vision')"
         ((errors++)) || true
     fi
 
-    if grep -qE '^##[[:space:]]+(2[\. ]|[Rr]equirements)' "$markdown_file"; then
+    if grep -qE '^##[[:space:]]+([0-9]+\.?[[:space:]]+)?[Rr]equirements' "$markdown_file"; then
         log_info "CHECK: ✓ Requirements section found"
     else
         log_error "CHECK: Missing Requirements section (expected '## 2. Requirements' or '## Requirements')"
         ((errors++)) || true
     fi
 
-    if grep -qE '^##[[:space:]]+(3[\. ]|[Ii]mplementation)' "$markdown_file"; then
+    if grep -qE '^##[[:space:]]+([0-9]+\.?[[:space:]]+)?[Ii]mplementation' "$markdown_file"; then
         log_info "CHECK: ✓ Implementation Plan section found"
     else
         log_error "CHECK: Missing Implementation Plan section (expected '## 3. Implementation Plan' or '## Implementation Plan')"

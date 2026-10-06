@@ -50,7 +50,7 @@ DEPLOYMENT_NAME=$(resolve_single_match list_deployments --filter "$DEPLOYMENT_NA
     exit "$rc"
 }
 
-confirm_or_fail "Restart deployment '$DEPLOYMENT_NAME' (scale to 0 and back in namespace $NAMESPACE)"
+confirm_or_fail "Restart deployment '$DEPLOYMENT_NAME' (scale to 0 and back in namespace $NAMESPACE)" || exit $?
 
 # Get the current number of replicas using library function
 DEPLOYMENT_INFO=$(get_deployment_info --namespace "$NAMESPACE" "$DEPLOYMENT_NAME")

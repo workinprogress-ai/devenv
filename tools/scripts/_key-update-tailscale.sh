@@ -34,10 +34,15 @@ if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
     exit 0
 fi
 
-# 1. Capture New Key; capture EOF so an empty key reaches the validation
+# 1. Capture New Key: the argument when given (the documented non-interactive
+# form), otherwise prompt. Capture EOF so an empty key reaches the validation
 # below instead of set -e exiting on read's rc.
-read -s -r -p "    Paste new Reusable Auth Key: " NEW_KEY || NEW_KEY=""
-echo "" # Newline
+if [ -n "${1:-}" ]; then
+    NEW_KEY="$1"
+else
+    read -s -r -p "    Paste new Reusable Auth Key: " NEW_KEY || NEW_KEY=""
+    echo "" # Newline
+fi
 
 if [ -z "$NEW_KEY" ]; then
     die "No key provided. Operation cancelled." "$EXIT_MISUSE"

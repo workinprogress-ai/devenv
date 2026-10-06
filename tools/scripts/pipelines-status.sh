@@ -22,7 +22,6 @@ source "$DEVENV_TOOLS/lib/provider-loader.bash"
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Report GitHub Actions run status across the org"
 
 # ============================================================================
 # Global Variables

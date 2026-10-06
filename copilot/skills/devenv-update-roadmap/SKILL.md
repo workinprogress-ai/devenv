@@ -70,9 +70,10 @@ otherwise → not-started; all-closed-unmerged → cancelled.
 
 ### 1. Load and parse the roadmap
 
-- Pull the artifact to a session scratch copy (see Inputs).
-- Run `roadmap-parse <scratch-copy>` to get per-step JSON (issues, status,
-  dependencies). For each `### STEP-NN: ...` heading, read the **Issues** field.
+- Pull the artifact to a session scratch copy: `issue-artifact-get --issue <N> --doc-id "$DOC_ID" --write-body <repo-root>/.local-artifacts/roadmap-sync.md` (see Inputs).
+- Run `roadmap-parse <scratch-copy>` to get per-step JSON (issues, dependencies, and the
+  step's Status as written — `roadmap-parse` passes each step's existing **Status** line through
+  and computes nothing; you derive the new status from issue and PR state below). For each `### STEP-NN: ...` heading, read the **Issues** field.
   Skip the step if it is empty or contains a placeholder — it'll be handled in
   step 4. Normalize any legacy bare `#N` refs and `Issue:` (singular) fields to
   canonical `org/repo#N` lines as you touch them.
@@ -85,7 +86,7 @@ For each step that has a linked issue, run:
 issue-get <issue-number> --pretty
 ```
 
-`issue-get` returns the issue's open/closed state and labels — **not** merge state or linked PRs. Get merge state from `pr-get <PR_NUMBER>` (`mergeStateStatus`, `state`) after locating candidate PRs: scan issue comments for `Closes #N` / `Fixes #N` references and match with `pr-list --state all`.
+`issue-get` returns the issue's open/closed state and labels — **not** merge state or linked PRs. Get merge state from `pr-get <PR_NUMBER>` (`mergeStateStatus`, `state`) after locating candidate PRs: list them with `pr-list --state all`, then `pr-get <PR_NUMBER>` each candidate and scan PR bodies for `Closes #N` / `Fixes #N` references (that is where closing keywords live — not in issue comments; `pr-list` does not return bodies).
 
 Capture for each:
 - `state`: open | closed
@@ -158,7 +159,7 @@ Output a short summary:
 
 Uses existing tooling only:
 
-- `issue-get N --pretty` — fetch issue state, labels, linked PRs
+- `issue-get N --pretty` — fetch issue state and labels (not merge state or linked PRs)
 - `pr-list` / `pr-get` — fetch PR state when needed
 - `issue-create --title <title> --body-file <path>` — create missing issues (resolve the target repo per the [repository targeting rules](../_shared/references/protocol-common.md#repository-targeting); [exact invocation](../_shared/references/protocol-common.md#issue-create))
 - `issue-update <N> --body-file <path>` — update parent epic body

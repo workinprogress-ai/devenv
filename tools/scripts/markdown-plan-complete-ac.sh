@@ -21,8 +21,6 @@ readonly SCRIPT_VERSION="1.0.0"
 # shellcheck disable=SC2155
 readonly SCRIPT_NAME="$(basename "$0")"
 
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Mark one or more acceptance criteria as complete or incomplete"
-
 source "$DEVENV_TOOLS/lib/markdown.bash"
 
 # ============================================================================
@@ -101,6 +99,7 @@ parse_args() {
                 show_usage
                 ;;
             -v|--version)
+                echo "$SCRIPT_VERSION"
                 exit 0
                 ;;
             -V|--verbose)
@@ -194,6 +193,9 @@ resolve_plan_file() {
 # ============================================================================
 
 main() {
+    # --help / --version are answered before any validation or authentication.
+    if handle_global_flag "${1:-}"; then exit 0; fi
+
     parse_args "$@"
 
     [ "$VERBOSE" -eq 1 ] && export ERROR_HANDLING_LOG_LEVEL=0

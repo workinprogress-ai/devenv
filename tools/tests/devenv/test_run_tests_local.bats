@@ -74,3 +74,37 @@ setup() {
     run bash -c "'$RUNNER' --jobs abc >/dev/null 2>&1"
     [ "$status" -eq 1 ]
 }
+
+# The runner is executed here with a stub `bats` first on PATH that only records
+# its arguments, so the real suite never runs but the collected file list is real.
+runner_collected_files() {
+    mkdir -p "$TEST_TEMP_DIR/bin"
+    printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$@" > "%s/bats.args"\n' "$TEST_TEMP_DIR" > "$TEST_TEMP_DIR/bin/bats"
+    chmod +x "$TEST_TEMP_DIR/bin/bats"
+    PATH="$TEST_TEMP_DIR/bin:$PATH" bash "$RUNNER" --sequential >/dev/null
+    cat "$TEST_TEMP_DIR/bats.args"
+}
+
+@test "the runner collects the skills/ suite" {
+    run runner_collected_files
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"/tests/skills/test_provider_protocol_decoupling.bats"* ]]
+}
+
+@test "the runner still collects lib/, scripts/ and devenv/" {
+    run runner_collected_files
+    [[ "$output" == *"/tests/lib/test_error_handling.bats"* ]]
+    [[ "$output" == *"/tests/scripts/test_issue_artifact_readers.bats"* ]]
+    [[ "$output" == *"/tests/devenv/test_run_tests_local.bats"* ]]
+}
+
+@test "the runner never collects the manual-only live/ suite" {
+    run runner_collected_files
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"/tests/live/"* ]]
+}
+
+@test "the tests README documents both the skills/ collection and the manual-only live/ suite" {
+    grep -q 'skills/' "$PROJECT_ROOT/tools/tests/README.md"
+    grep -qiE 'manual-only.*live/|live/.*manual' "$PROJECT_ROOT/tools/tests/README.md"
+}

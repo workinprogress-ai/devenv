@@ -306,9 +306,19 @@ if [ -n "$AT_COMMIT" ]; then
     RESOLVED_HASH="$(git log "${TARGET_BRANCH}..${CURRENT_BRANCH}" --format='%H %s' 2>/dev/null | awk -v t="$AT_COMMIT" 'index($0, t){print $1; exit}')"
   fi
   [ -n "$RESOLVED_HASH" ] || { echo "Error: --at '$AT_COMMIT' does not resolve to a commit in ${TARGET_BRANCH}..${CURRENT_BRANCH}." >&2; exit "$EXIT_GENERAL_ERROR"; }
-  # Remember where the user was: after the PR opens we put them back, so
-  # their next commit doesn't silently land on the merge branch.
+  # Remember where the user was and put them back on EVERY exit path (guard
+  # failure, push failure, existing PR, create failure, success): the merge
+  # branch is a vehicle for the PR, and their next commit must not silently
+  # land on it.
   ORIGINAL_BRANCH="$CURRENT_BRANCH"
+  restore_original_branch() {
+    local now
+    now="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+    if [ -n "$now" ] && [ "$now" != "$ORIGINAL_BRANCH" ]; then
+      git checkout -q "$ORIGINAL_BRANCH" 2>/dev/null || true
+    fi
+  }
+  trap restore_original_branch EXIT
   SHORT_HASH="$(git rev-parse --short "$RESOLVED_HASH")"
   MERGE_BRANCH="merge/${SHORT_HASH}-${CURRENT_BRANCH}"
   if git show-ref --verify --quiet "refs/heads/${MERGE_BRANCH}"; then
@@ -319,8 +329,13 @@ if [ -n "$AT_COMMIT" ]; then
   fi
   CURRENT_BRANCH="$MERGE_BRANCH"
   if ! wip_range_guard "${TARGET_BRANCH}..${CURRENT_BRANCH}" "merge-branch range"; then
-    git checkout -q "${SOURCE_BRANCH:-$(git rev-parse --abbrev-ref HEAD)}" 2>/dev/null || true
-    exit "$EXIT_GENERAL_ERROR"
+    exit "$EXIT_GENERAL_ERROR"   # the EXIT trap restores the original branch
+  fi
+  # The merge branch exists only locally; the provider opens a PR from a
+  # remote head, so it must be pushed first (a PR from an unpushed head fails).
+  if ! git push -q -u origin "$MERGE_BRANCH"; then
+    echo "Error: could not push $MERGE_BRANCH to origin — no PR was created." >&2
+    exit "$EXIT_API_FAILURE"
   fi
 fi
 
@@ -359,16 +374,26 @@ for label in "${LABELS[@]}"; do
 done
 
 echo "Creating PR from $CURRENT_BRANCH -> $TARGET_BRANCH..." >&2
+# The creator's own status decides success, and its stderr never feeds the URL
+# scan: a warning or error text containing a URL must not become "the PR".
+create_err="$(mktemp)"
 set +e
-PR_URL=$(provider_prs_create "${repo_spec[0]:-}" "${args[@]}" 2>&1 | provider_extract_url)
+create_out="$(provider_prs_create "${repo_spec[0]:-}" "${args[@]}" 2>"$create_err")"
 status=$?
 set -e
+if [ $status -eq 0 ]; then
+  PR_URL="$(printf '%s\n' "$create_out" | provider_extract_url)" || status=$?
+  [ $status -eq 0 ] || echo "The provider reported success but printed no PR URL." >&2
+fi
 
 if [ $status -ne 0 ]; then
-  echo "$PR_URL" >&2
+  cat "$create_err" >&2
+  [ -z "${create_out:-}" ] || echo "$create_out" >&2
+  rm -f "$create_err"
   echo "Failed to create PR." >&2
   exit $status
 fi
+rm -f "$create_err"
 
 # Fire skill event signals for issues linked in the PR body (best-effort).
 if [ -n "$PR_URL" ]; then
@@ -377,10 +402,6 @@ if [ -n "$PR_URL" ]; then
   pr_events_signal_for_pr created "$PR_NUM" 2>/dev/null || true
 fi
 
-# --at mode: return the user to the branch they started on — the merge
-# branch is a vehicle for the PR, not a place to keep working.
-if [ -n "${ORIGINAL_BRANCH:-}" ] && [ "$(git rev-parse --abbrev-ref HEAD)" = "$CURRENT_BRANCH" ] && [ "$CURRENT_BRANCH" != "$ORIGINAL_BRANCH" ]; then
-  git checkout -q "$ORIGINAL_BRANCH"
-fi
+# --at mode: the EXIT trap returns the user to the branch they started on.
 
 echo "$PR_URL"

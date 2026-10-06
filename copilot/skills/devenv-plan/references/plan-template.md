@@ -314,7 +314,7 @@ phase as `[QUESTION] ...` bullets.
 **Upstream artifacts (if any):**
 
 - <Grooming artifact link>
-- <Design discussion / spike / blueprint / roadmap artifact link>
+- <Design discussion / research / blueprint / roadmap artifact link>
 
 **Coordination context (optional when this plan is one slice of a larger groomed attack plan):**
 
@@ -343,7 +343,7 @@ phase as `[QUESTION] ...` bullets.
 - **Task headers** — bold, with size label, optional inline `(additional context)` link.
 - **Step-first tasks** — each task line should be a concrete step. Include `Files:` for execution-facing plans by default; include `decision:` and `depends on` only when needed. Keep additional context directly under each task.
 - **Reference table** — prefer a "key files" table with a relevance column over a flat link list. Add a separate **Related links** sub-list for issues/docs/PRs.
-- **Upstream artifacts** — when a grooming/design/spike/blueprint/roadmap artifact exists, include explicit links in the `Upstream artifacts` block.
+- **Upstream artifacts** — when a grooming/design/research/blueprint/roadmap artifact exists, include explicit links in the `Upstream artifacts` block.
 - **Planning-repo header key** — set `planning_repo: <owner>/<planning-repo>` in the `DEVENV_ARTIFACT_V1` header whenever this plan descends from a governed hierarchy (roadmap step, grooming attack-plan row, epic child): the planning repo is project-dependent and the header key is the durable back-link (see the [Artifact Identity Convention](../../_conventions.md#artifact-identity-convention)). Set `none` (or omit) for ungoverned standalone work.
 - **Coordination context** — when this plan is one slice of a larger groomed issue attack plan, fill the coordination fields (parent grooming artifact, slice type, independent target statement).
 - **No Revision History section** — plans are living documents describing current state; revision history is never created. Superseded tasks and criteria are deleted clean (git and, when significant, ADRs hold the why).

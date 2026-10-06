@@ -32,7 +32,7 @@ POD_NAME=$(resolve_single_match list_pods --filter "$POD_NAME_PART" --namespace 
     exit "$rc"
 }
 
-confirm_or_fail "Delete pod '$POD_NAME' in namespace $NAMESPACE"
+confirm_or_fail "Delete pod '$POD_NAME' in namespace $NAMESPACE" || exit $?
 
 echo "Deleting pod: $POD_NAME"
 

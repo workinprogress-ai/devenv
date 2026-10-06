@@ -46,7 +46,7 @@ After pulling, the update script determines what action — if any — is requir
 
 ### Devenv-Action commit trailer
 
-Every commit to this repository **must** include a `Devenv-Action` trailer in the commit body. This trailer tells the update script what the consumer needs to do after pulling the change. The commit hook will reject commits that omit it.
+Every commit to this repository **must** include a `Devenv-Action` trailer in the commit body. This trailer tells the update script what the consumer needs to do after pulling the change. The commit hook will reject commits that omit it, and so will the `commit-messages` CI job on every pull request (both run `tools/scripts/check-commit-trailers.sh`, so a clone without hooks cannot land a trailer-less commit).
 
 Valid values, in ascending order of severity:
 
@@ -286,7 +286,7 @@ authenticates clean `https://github.com/...` remotes. Nothing exports
 Other credentials are stored in the `.setup` folder on your host machine:
 
 * **Provider username** (`.setup/provider_user.txt`): Your username on the git host (GitHub today). Not exported as an environment variable — tools resolve identity through the provider accessors (config-first).
-* **Provider organization** (`.setup/provider_org.txt`): The organization on the git host that owns your repositories. Not exported — resolved through the provider org accessor (config `[organization] github_org` first).
+* **Provider organization** (`.setup/provider_org.txt`): The organization on the git host that owns your repositories. Not exported — resolved through the provider org accessor (config `[organization] org` first, then the `.setup/provider_org.txt` seed).
 * **Digital Ocean API Token** (`.setup/digitalocean_token.txt`): Used for infrastructure operations via Digital Ocean. Automatically loaded as `DO_API_TOKEN` en
 vironment variable.
 * **SSH Key** (`.setup/ssh_key_path.txt`): Path to your SSH private key for secure repository access.
@@ -308,14 +308,14 @@ Note: `~/.config/gh` lives on the container's filesystem, so the keychain is
 consume: if the keychain is empty and `.setup/provider_token.txt` exists, it
 imports the token and **deletes the file** (plaintext must not linger). If
 the keychain is empty and no seed exists, bootstrap finishes with an
-**ACTION REQUIRED** banner — run `key-update-git <new-token>`  to authenticate. An authenticated keychain leaves the seed
+**ACTION REQUIRED** banner — run `key-update-provider <new-token>`  to authenticate. An authenticated keychain leaves the seed
 untouched with an info message.
 
 Trade-off (accepted): convenience over at-rest minimization — the seed gives zero-touch recovery on the first bootstrap after a re-create, at the cost of one plaintext token on the workspace mount until consumed (the same exposure family as issue #31).
 
 **To update credentials:**
 
-* Git host credential: Run `key-update-git <token>` (rotates the keychain and
+* Git host credential: Run `key-update-provider <token>` (rotates the keychain and
   re-wires the git credential helper), or run `gh auth login` manually
 * Digital Ocean Token: Run `./setup` and choose the Digital Ocean setup option
 * SSH Key: Configure via the initial setup or re-run the setup script

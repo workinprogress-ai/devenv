@@ -39,7 +39,7 @@ Trigger phrases:
 - "implement this plan" / "work through this plan"
 - "do this for me" — when a plan is attached
 - A plan + intent for assistant-led execution (not collaborative turn-taking)
-- An ad-hoc decomposed task list (pasted in, or carried over from a pair-programming session) + intent for an autonomous run — acceptable via the [ad-hoc intake gate](#ad-hoc-task-list-intake), never as a bare in-context list
+- An ad-hoc decomposed task list (pasted in, or carried over from a pair-programming session) + intent for an autonomous run — acceptable via the [ad-hoc intake gate](#2a-ad-hoc-task-list-intake), never as a bare in-context list
 - An issue number with intent for an autonomous run — acceptable via the [issue intake gate](#issue-intake), which materializes a small plan first
 
 Do **not** use for:
@@ -50,7 +50,7 @@ Do **not** use for:
 
 ## Core Principles
 
-1. **Plan required.** No plan, no delegation. Refuse and redirect. The requirement is for a **persistent, validated ledger** — normally an `Plan-*.md` from the planning skills, but an ad-hoc task list is acceptable **input** if it passes the ad-hoc intake gate (see [Ad-Hoc Task List Intake](#ad-hoc-task-list-intake)) and gets materialized into a plan file first. An in-context list (pasted or carried from a pair-programming session) is never the ledger itself.
+1. **Plan required.** No plan, no delegation. Refuse and redirect. The requirement is for a **persistent, validated ledger** — normally an `Plan-*.md` from the planning skills, but an ad-hoc task list is acceptable **input** if it passes the ad-hoc intake gate (see [Ad-Hoc Task List Intake](#2a-ad-hoc-task-list-intake)) and gets materialized into a plan file first. An in-context list (pasted or carried from a pair-programming session) is never the ledger itself.
 2. **Engagement floor — the AI is the principal driver.** The human stays in the loop with brief task pings, inline concern surfacing, and a structured end-of-session summary with **review hotspots**. This is the mirror image of pair-programming's user-drives default: here the AI drives and the user supervises from the handback gates — phase completions, mid-phase stops, and aborts are all handback points. Handbacks exist to make that supervision cheap — surface hotspots, deviations, and decisions so a supervisor can review without re-reading the whole diff.
 3. **Phase-first, AC-first review.** Use acceptance criteria plus goals, context, and phase summaries as the source of truth; the phase task list is the authoritative current-state execution ledger.
 4. **Local working copies live in `.local-artifacts/`.** The plan working copy is pulled to and kept under the target repo's `.local-artifacts/` (see the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)); at wrap-up points, offer to retire files whose issue artifact has been synced (y/n, never auto-delete) — inventory and delete via `artifact-clean` (see the [artifact-clean entry](../_shared/references/protocol-common.md#artifact-clean)).
@@ -66,7 +66,7 @@ Do **not** use for:
 
 ## Event signal
 
-At phase kickoff of the first implementation phase, signal `_on_begin_implementation <issue-number>`; at PR open (or equivalent review handoff), signal `_on_begin_review <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals-on). Never surface event-signal output as a task ping.
+At phase kickoff of the first implementation phase, signal `_on_begin_implementation <issue-number>`; at PR open (or equivalent review handoff), signal `_on_begin_review <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals). Never surface event-signal output as a task ping.
 
 ## Personality
 
@@ -129,7 +129,7 @@ Ask if not provided: issue # or path to a plan markdown.
 #### issue intake
 
 - **issue**:
-  1. **Issue without an existing plan artifact → materialize a plan first (issue intake gate).** If step 2 below finds no plan artifact for the issue (and no local `Plan-issue-<N>-*.md` exists), do not refuse — this is the issue intake gate, sibling to [ad-hoc intake](#ad-hoc-task-list-intake): (a) read the issue body (`issue-get <N>`, repo via `DEVENV_REPO`); (b) run the same suitability judgment as ad-hoc intake (well-suited / borderline / better-as-pair; better-as-pair → recommend `/devenv-pair`); (c) draft a **small plan** from the issue — goal line, acceptance criteria derived from the issue's stated outcome, checkboxed tasks with verifiable completion signals, declared verification approach; keep it genuinely small (an issue-sized plan, typically 1–2 phases — a distinct tier from the plan skill's micro-plan lane, which is the smaller issue-less form); (d) show it for explicit user approval; (e) write it as `Plan-issue-<N>-001.md` in the target repo's `.local-artifacts/` and continue with it as the ledger. The plan may be published to the issue as a plan artifact afterwards per the standard offer.
+  1. **Issue without an existing plan artifact → materialize a plan first (issue intake gate).** If step 2 below finds no plan artifact for the issue (and no local `Plan-issue-<N>-*.md` exists), do not refuse — this is the issue intake gate, sibling to [ad-hoc intake](#2a-ad-hoc-task-list-intake): (a) read the issue body (`issue-get <N>`, repo via `DEVENV_REPO`); (b) run the same suitability judgment as ad-hoc intake (well-suited / borderline / better-as-pair; better-as-pair → recommend `/devenv-pair`); (c) draft a **small plan** from the issue — goal line, acceptance criteria derived from the issue's stated outcome, checkboxed tasks with verifiable completion signals, declared verification approach; keep it genuinely small (an issue-sized plan, typically 1–2 phases — a distinct tier from the plan skill's micro-plan lane, which is the smaller issue-less form); (d) show it for explicit user approval; (e) write it as `Plan-issue-<N>-001.md` in the target repo's `.local-artifacts/` and continue with it as the ledger. The plan may be published to the issue as a plan artifact afterwards per the standard offer.
    2. If no local file exists, resolve one plan artifact comment (legacy artifacts are typed implementation-plan) for this issue:
       - If user provided `doc_id`, use `issue-artifact-select --issue <N> --doc-id <DOC_ID>`.
       - Otherwise use `issue-artifact-select --issue <N> --artifact-type plan`; if ambiguous, list candidates with `issue-artifact-list --issue <N> --artifact-type plan --pretty` and ask the user which `doc_id` to use.
@@ -407,6 +407,14 @@ Before starting each task, re-check whether that specific task has unresolved `d
 - If no: proceed normally.
 
 This per-task gate is mandatory even after phase kickoff decisions were reviewed. Do not assume prior "go-ahead" applies to unresolved task-level decisions.
+
+### Per-task owner / research gate (required)
+
+The same pre-task check covers ownership. A task with `owner: User`, or a `Research: <question>` task (plans encode research with `owner: User`; see the plan skill's research-task shape), is not the executor's to take:
+
+- Stop and hand it back to the user; do not attempt it inline and do not tick it. A research task runs in a **separate, user-supervised chat** (`/devenv-research` is empowered — destructive-class experiments, code changes with just-in-time permission); its findings return through `/devenv-refine-plan`.
+- Continue with later tasks only if none `depends on` the handed-back task; otherwise end the run at that point with the hand-back as the stop trigger.
+- `owner: AI`, or no `owner:` bullet, proceeds normally.
 
 ### Task progress pings
 

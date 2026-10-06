@@ -33,7 +33,7 @@ Do **not** use for:
 - Editing an existing plan (edit the file in place)
 - Epic-scale work spanning multiple components — use [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) + [`/devenv-create-roadmap`](../devenv-create-roadmap/SKILL.md) first; each roadmap step then gets its own plan
 
-If the primary upstream artifact is a design artifact (see [`/devenv-design`](../devenv-design/SKILL.md)) or spike output and there is no grooming artifact yet, route through [`/devenv-groom`](../devenv-groom/SKILL.md) first (unless the user explicitly asks to bypass grooming).
+If the primary upstream artifact is a design artifact (see [`/devenv-design`](../devenv-design/SKILL.md)) or research output and there is no grooming artifact yet, route through [`/devenv-groom`](../devenv-groom/SKILL.md) first (unless the user explicitly asks to bypass grooming).
 
 Exception: direct-plan mode is valid when the user intentionally wants to create a plan without grooming (for example from thin-air context, mixed pasted notes, unclassified artifacts, or a complete spec/RFC/design doc). In this mode, the skill disambiguates from user input and available sources.
 
@@ -50,7 +50,7 @@ Exception: direct-plan mode is valid when the user intentionally wants to create
 
 Source precedence rule:
 
-- Side-stream artifacts (design discussion docs, spike output, copied text, issue comments, and other upstream artifacts) may be present with or without grooming. They are additional informational inputs and do not direct plan scope.
+- Side-stream artifacts (design discussion docs, research output, copied text, issue comments, and other upstream artifacts) may be present with or without grooming. They are additional informational inputs and do not direct plan scope.
 - If a grooming artifact exists for this work, it is the directing source for plan scope, slice boundaries, and coordination context.
 - If no grooming artifact exists, the plan skill disambiguates scope from user-provided context and confirmation gates, using side-stream artifacts as supporting evidence.
 
@@ -60,7 +60,7 @@ Source precedence rule:
 
 ### Event signal
 
-At plan approval (file written / artifact published), signal `_on_end_planning <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals-on).
+At plan approval (file written / artifact published), signal `_on_end_planning <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals).
 
 ### 1. Identify inputs and target repo
 
@@ -185,13 +185,13 @@ For code plans, always offer to encode a dedicated **Review** phase into the pla
 
 ### 4d. Research-task encoding (feasibility-shaped unknowns — offered)
 
-When an interview answer would rest on an **empirical unknown** — "can we do X at all?", "what's actually true about Y?" — offer to encode it as a research task instead of a guess or an open question. Ask via `vscode_askQuestions` (add research task / leave as open question / resolve by assumption). Scope rule: feasibility-shaped questions only — preference or approach choices route to `/devenv-design`'s existing round trip, not research. Cap research tasks at 2–3 per plan; more than that is a grooming signal (the scope needs a spike before planning).
+When an interview answer would rest on an **empirical unknown** — "can we do X at all?", "what's actually true about Y?" — offer to encode it as a research task instead of a guess or an open question. Ask via `vscode_askQuestions` (add research task / leave as open question / resolve by assumption). Scope rule: feasibility-shaped questions only — preference or approach choices route to `/devenv-design`'s existing round trip, not research. Cap research tasks at 2–3 per plan; more than that is a grooming signal (the scope needs research before planning).
 
 Encoded shape:
 
 - `- [ ] **N.M [S|M] Research: <question>**` with `owner: User` — the research session runs in a **separate chat**, user-supervised (`/devenv-research` is empowered: destructive-class experiments, code modification with just-in-time permission), and the executor stops at this task and hands back rather than attempting it inline. The asymmetry with plan-encoded review is deliberate: review is read-only computation (safe to dispatch); research needs a user present.
 - `Additional context:` carries the return route — findings land in the research doc, then `/devenv-refine-plan` folds the answer back into this plan (resolving the open question that spawned it).
-- Downstream tasks that depended on the unknown get `depends on N.M` so the DAG shows the spike is load-bearing.
+- Downstream tasks that depended on the unknown get `depends on N.M` so the DAG shows the research task is load-bearing.
 
 ### 4e. Micro-plan lane (standalone small deliverables)
 
@@ -261,7 +261,7 @@ Use the [plan template](./references/plan-template.md). Follow:
 - If the same rationale already appears in `## Phases` or `## Reference Information`, do not repeat it in the appendix; link instead.
 - `## Pending Questions` is optional and sits immediately above `## Reference Information`. Use it only for unresolved plan-level questions that matter to execution; task- or phase-specific questions should be placed inline below the relevant task/phase using `[QUESTION] ...`
 - Reference Information uses a **table** of key files with a relevance column, plus a separate links sub-list
-- If upstream artifacts exist (grooming doc, design discussion, spike, blueprint, roadmap issue), link them explicitly in `## Reference Information` and include the parent grooming artifact when this plan is one slice of a larger issue attack plan.
+- If upstream artifacts exist (grooming doc, design discussion, research, blueprint, roadmap issue), link them explicitly in `## Reference Information` and include the parent grooming artifact when this plan is one slice of a larger issue attack plan.
 - Mark dependencies as `depends on N.N` inline; readers infer parallelism
 - Every task with non-obvious context should include an `Additional context:` bullet directly under the task
 - If Phase 1 discovery causes plan changes, make those edits only when they materially improve or alter the plan. Do not add wording that merely says discovery "confirmed" or "completed" what the plan already encoded.

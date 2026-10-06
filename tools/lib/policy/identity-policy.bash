@@ -6,8 +6,8 @@
 #       Provider assumed when devenv.config has no [provider] name.
 #   policy_org POLICY_ORG
 #       The org owning the workspace's repos. Resolution order (see
-#       policy_resolve): POLICY_ORG env -> GH_ORG env -> config
-#       [organization] org -> fail. policy_default_provider is a
+#       policy_resolve): POLICY_ORG env -> config [organization] org -> fail
+#       (GH_ORG is not read). policy_default_provider is a
 #       declared knob (see policy_define below); policy_org is implemented
 #       directly because its chain predates the policy core and has two env
 #       steps.

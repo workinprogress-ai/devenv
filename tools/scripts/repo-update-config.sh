@@ -154,7 +154,8 @@ main() {
     configure_template_setting_for_type "$full_name" "$repo_type" "$REPO_TYPES_CONFIG"
     
     # Configure merge types
-    configure_merge_types_for_type "$full_name" "$repo_type" "$REPO_TYPES_CONFIG"
+    configure_merge_types_for_type "$full_name" "$repo_type" "$REPO_TYPES_CONFIG" \
+        || log_error "Failed to configure merge types"
     
     # Configure PR branch deletion on merge
     configure_pr_branch_deletion_for_type "$full_name" "$repo_type" "$REPO_TYPES_CONFIG"
@@ -170,6 +171,6 @@ main() {
 
 # Org identity gate: fail fast when unresolvable (env override → config → seed).
 # shellcheck disable=SC2034  # ORG validates resolution; downstream tooling re-resolves
-ORG="$(provider_org_get)" || die "Organization identity unresolved. Configure [organization] org in devenv.config or run setup." "$EXIT_INVALID_ARGUMENT"
+ORG="$(provider_org_get)" || die "Organization identity unresolved. Configure [organization] org in devenv.config or run setup." "$EXIT_MISUSE"
 
 main "$@"

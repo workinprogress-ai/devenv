@@ -21,7 +21,6 @@ source "$DEVENV_TOOLS/lib/git-operations.bash"
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "List GitHub pull requests with filters"
 
 # ============================================================================
 # Global Variables
@@ -97,8 +96,9 @@ list_prs() {
     local repo_spec
     read -ra repo_spec <<< "$(get_repo_spec)"
 
+    # The repo travels in provider_prs_list's own first slot only; repeating it
+    # here forwarded a second bare positional, which `gh pr list` rejects.
     local gh_args=()
-    gh_args+=("${repo_spec[0]:-}")
     gh_args+=(--state "$STATE")
     gh_args+=(--limit "$LIMIT")
     [ -n "$AUTHOR" ]      && gh_args+=(--author "$AUTHOR")

@@ -63,10 +63,27 @@ workflow_order() {
     fi
     local cfg
     cfg="${DEVENV_ROOT:-$(cd "$WORKFLOW_CORE_DIR/../.." && pwd)}/devenv.config"
+    # config_init selects the config file through a process-wide variable, so a
+    # caller that had picked its own config would find devenv.config selected
+    # after this returns. Hand the caller's selection back (it may have been
+    # unset, hence the +x test); the read's status is captured instead of
+    # exiting early so the restore below runs on every path.
+    local had_config=0 saved_config=""
+    if [ "${CONFIG_FILE+x}" = "x" ]; then
+        had_config=1
+        saved_config="$CONFIG_FILE"
+    fi
     # shellcheck source=../config-reader.bash
     source "$WORKFLOW_CORE_DIR/config-reader.bash"
     config_init "$cfg" 2>/dev/null || true
-    config_read_array workflows status_workflow
+    local read_status=0
+    config_read_array workflows status_workflow || read_status=$?
+    if [ "$had_config" -eq 1 ]; then
+        CONFIG_FILE="$saved_config"
+    else
+        unset CONFIG_FILE
+    fi
+    return "$read_status"
 }
 
 # Resolve a status token's position in the configured workflow order.

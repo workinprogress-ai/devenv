@@ -34,7 +34,7 @@ normalizer does not consume; keep the two lists consistent when overriding.
 | `policy_delivery_segment_anchor` | `POLICY_DELIVERY_SEGMENT_ANCHOR` | `[workflows] delivery_segment_anchor` | `Implementing` |
 | `policy_status_fallback` | `POLICY_STATUS_FALLBACK` | `[workflows] status_fallback` | `Ready` |
 | `policy_default_provider` | `POLICY_DEFAULT_PROVIDER` | `[provider] name` | `github` |
-| `policy_org` | `POLICY_ORG` | `[organization] org` (env `GH_ORG` honored first) | fails (rc 1) when unresolvable |
+| `policy_org` | `POLICY_ORG` | `[organization] org` (`GH_ORG` is not read) | fails (rc 1) when unresolvable |
 
 ## Usage
 
@@ -47,8 +47,8 @@ types="$(policy_issue_types)"
 ```
 
 `policy_core_init` must run before domain accessors. `policy_org` is
-self-contained (it carries its own env-first chain: `POLICY_ORG` → `GH_ORG` →
-config).
+self-contained (it carries its own chain: `POLICY_ORG` → config `[organization] org`;
+`GH_ORG` is not read).
 
 ## Adding a knob
 

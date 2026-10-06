@@ -14,9 +14,23 @@ Tests are written using [BATS (Bash Automated Testing System)](https://github.co
 ./tools/tests/run-devenv-tests.sh
 ```
 
-The runner executes the whole suite (`lib/`, `scripts/`, `devenv/`) in a single
+The runner executes the whole suite (`lib/`, `scripts/`, `devenv/`, `skills/`) in a single
 `bats --jobs` invocation. Jobs default to `nproc`, capped by `MAX_PARALLEL_JOBS`
 (currently 8).
+
+`skills/` holds the provider-neutral skill-prose gate (skill bodies must not
+name a provider's transport), so it runs with everything else.
+
+### Manual-only: `live/`
+
+`live/` is **not** collected by the runner and never runs in `pnpm test`: it
+exercises real provider APIs against an org scratch project and needs
+credentials. Run it by hand, gated on `RUN_LIVE_TESTS=1` (see the header of
+`live/project_tools.live.bats` for the full invocation):
+
+```bash
+RUN_LIVE_TESTS=1 SCRATCH_PROJECT=tooling-scratch DEVENV_REPO=<org>/<repo> bats tools/tests/live/
+```
 
 ### Runner flags
 
@@ -196,7 +210,6 @@ The following environment variables are available in tests:
 - `test_config.bats` - Configuration management
 - `test_git_config.bats` - Git configuration utilities
 - `test_versioning.bats` - Version parsing and comparison
-- `test_retry_logic.bats` - Retry logic surface checks
 - `test_editor.bats` - Editor function and VS Code fallback behavior (with mocked code command)
 - `test_issues_config.bats` - GitHub issue type configuration and management functions
 

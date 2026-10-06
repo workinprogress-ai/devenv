@@ -4,7 +4,7 @@
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 # issue-update.sh - Update GitHub issue fields
-# Version: 1.0.0
+# Version: 1.1.0
 # Description: Update issue title, body, labels, assignees, milestone, and state
 # Requirements: Bash 4.0+, gh CLI
 # Author: WorkInProgress.ai
@@ -335,7 +335,7 @@ main() {
                 ;;
             --select)
                 # Interactive selection (show all issues by default)
-                ISSUE_NUMBER=$("$PROJECT_TOOLS/issue-select.sh" --state all)
+                ISSUE_NUMBER=$("$DEVENV_TOOLS/scripts/issue-select.sh" --state all)
                 if [ -z "$ISSUE_NUMBER" ]; then
                     log_error "No issue selected"
                     exit "$EXIT_GENERAL_ERROR"

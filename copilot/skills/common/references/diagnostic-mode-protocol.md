@@ -96,3 +96,7 @@ Do **not** expose hidden internal chain-of-thought. Provide a concise, user-faci
 - If no real erratum or only weak evidence emerged, did I say exactly that instead of inventing findings?
 - Is the file self-contained for `/devenv-skill-maintenance`?
 - Did I avoid outputting the full diagnostic body in chat by default?
+
+## See also
+
+- [Diagnostic Mode Quick Start](diagnostic-mode-quickstart.md) — the one-liner blockquotes to add to a skill so this protocol is discoverable from it.

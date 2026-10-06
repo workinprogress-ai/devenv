@@ -4,7 +4,7 @@
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 # issue-artifact-upsert.sh - Deterministically create/update an issue comment by doc_id
-# Version: 1.1.0
+# Version: 1.2.0
 # Description: Upserts an issue comment by matching the exact metadata line
 #              "doc_id: <doc_id>" within the first 256 characters.
 # Concurrency: single-writer per doc_id is assumed. The fetch-match-update
@@ -29,7 +29,6 @@ source "$DEVENV_TOOLS/lib/body-source.bash"
 readonly SCRIPT_VERSION="1.2.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Deterministically upsert a GitHub issue comment by doc_id"
 
 ISSUE_NUMBER=""
 COMMENT_BODY=""

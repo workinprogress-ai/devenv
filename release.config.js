@@ -25,16 +25,12 @@ module.exports = {
         noteKeywords: ['BREAKING CHANGE', 'BREAKING CHANGES', 'BREAKING']
       }
     }],
-    [
-      '@semantic-release/exec',
-      {
-          publishCmd:
-              "./.azuredevops/prepare-release-version.sh '${nextRelease.version}'",
-      }
-    ]
-    // You can add release-notes, github, etc. as needed
-    // ['@semantic-release/release-notes-generator'],
-    // ['@semantic-release/git'],
-    // ['@semantic-release/github']
+    // Release notes feed the GitHub release body.
+    '@semantic-release/release-notes-generator',
+    // Creates the GitHub release. semantic-release itself pushes the version tag
+    // (it needs full history/tags and contents: write — see publish-release.yml).
+    // No @semantic-release/git: it would push a version-bump commit to a protected
+    // master (rebase-only ruleset), which the ruleset rejects.
+    '@semantic-release/github'
   ]
 }

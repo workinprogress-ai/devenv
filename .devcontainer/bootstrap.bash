@@ -20,14 +20,55 @@ _BOOTSTRAP_LOADED=1
 
 # Error handler function
 on_error() {
-  echo "An error occurred. Running cleanup."
-  exit 1;
+  local status=$?
+  echo "An error occurred (exit status $status)${bootstrap_log:+; see $bootstrap_log}."
+  exit 1
 }
 
 # NPM helper that filters out TLS warnings
 call_npm() {
     npm "$@" 2>&1 | grep -v 'NODE_TLS_REJECT_UNAUTHORIZED is set to 0'
     return "${PIPESTATUS[0]}"
+}
+
+# Make sure a version constant from tool-versions.bash is set, loading that file
+# (a sibling of this script) when it has not been: top-level sourcing of it
+# no-ops when this library is sourced before initialize_paths sets DEVENV_ROOT.
+# Usage: require_tool_version YQ_VERSION || return 1
+require_tool_version() {
+    local var_name="$1"
+    if [ -z "${!var_name:-}" ]; then
+        local _tv="${BASH_SOURCE[0]%/*}/tool-versions.bash"
+        # shellcheck disable=SC1090 # source path is runtime-derived (sibling of this script)
+        [ -f "$_tv" ] && source "$_tv"
+    fi
+    if [ -z "${!var_name:-}" ]; then
+        echo "ERROR: $var_name is not set - tool-versions.bash could not be resolved" >&2
+        return 1
+    fi
+}
+
+# Download a file and verify its sha256 before anything uses it: on any failure
+# or digest mismatch the file is removed and 1 is returned, so a caller can
+# never act on unverified content. The pins live in tool-versions.bash.
+# Usage: download_verified <url> <dest_file> <expected_sha256>
+download_verified() {
+    local url="$1" dest="$2" expected="$3" actual
+    if [ -z "$expected" ]; then
+        echo "ERROR: no sha256 pin for $url; refusing to download it unverified" >&2
+        return 1
+    fi
+    if ! wget -q -O "$dest" "$url"; then
+        rm -f "$dest"
+        echo "ERROR: Failed to download $url" >&2
+        return 1
+    fi
+    actual=$(sha256sum "$dest" | cut -d' ' -f1)
+    if [ "$actual" != "$expected" ]; then
+        rm -f "$dest"
+        echo "ERROR: sha256 mismatch for $url (expected $expected, got $actual); refusing to use it. If this is a deliberate version bump, update the pin in tool-versions.bash." >&2
+        return 1
+    fi
 }
 
 # Add NuGet source if it doesn't already exist
@@ -166,6 +207,10 @@ ensure_bash_is_default_shell() {
 }
 
 # Load version information from git tags
+# Sets VERSION and MAJOR/MINOR/PATCH_VERSION from the latest git tag, for the
+# custom bootstrap scripts that run after this task (docs/Bootstrap-Customization.md);
+# nothing in this library reads them, hence the SC2034 waiver.
+# shellcheck disable=SC2034
 load_version_info() {
     VERSION=$(git tag -l 'v*' | sort -V | tail -n 1)
     if [[ $VERSION =~ ([0-9]+)\.([0-9]+)\.([0-9]+)(-([a-zA-Z0-9]+)\.([0-9]+))? ]]; then
@@ -215,24 +260,26 @@ install_yq() {
         yq_arch="arm64"
     fi
     
-    # Get latest version
-    local yq_version
-    yq_version=$(curl -s https://api.github.com/repos/mikefarah/yq/releases/latest | grep -oP '"tag_name": "\K[^"]*')
-    
-    if [ -z "$yq_version" ]; then
-        echo "WARNING: Could not determine yq version, using v4.35.1"
-        yq_version="v4.35.1"
-    fi
-    
+    require_tool_version YQ_VERSION || return 1
+    local yq_version="$YQ_VERSION"
+    local yq_sha_var="YQ_SHA256_${yq_arch^^}"
+    require_tool_version "$yq_sha_var" || return 1
+
     local yq_url="https://github.com/mikefarah/yq/releases/download/${yq_version}/yq_linux_${yq_arch}"
     
     echo "Downloading yq ${yq_version}..."
-    if wget -q -O /tmp/yq "$yq_url"; then
-        sudo chmod +x /tmp/yq
-        sudo mv /tmp/yq /usr/local/bin/yq
+    # A private temp file, not a fixed /tmp path: a predictable name in a
+    # world-writable directory can be pre-created or swapped by another user
+    # between the download and the move into /usr/local/bin.
+    local yq_tmp
+    yq_tmp=$(mktemp) || return 1
+    if download_verified "$yq_url" "$yq_tmp" "${!yq_sha_var}"; then
+        sudo chmod +x "$yq_tmp"
+        sudo mv "$yq_tmp" /usr/local/bin/yq
         echo "✓ yq installed successfully"
     else
-        echo "ERROR: Failed to download yq from $yq_url"
+        # download_verified has already said why (download failure or digest mismatch)
+        rm -f "$yq_tmp"
         exit 1
     fi
 }
@@ -264,9 +311,10 @@ add_specialized_repositories() {
     https://apt.releases.hashicorp.com $(lsb_release -cs) main" | \
     sudo tee /etc/apt/sources.list.d/hashicorp.list
 
-    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | sudo gpg --dearmor --yes -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    require_tool_version K8S_APT_TRACK || return 1
+    curl -fsSL "https://pkgs.k8s.io/core:/stable:/${K8S_APT_TRACK}/deb/Release.key" | sudo gpg --dearmor --yes -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
     sudo chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-    echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+    echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/${K8S_APT_TRACK}/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
     sudo chmod 644 /etc/apt/sources.list.d/kubernetes.list
 }
 
@@ -285,10 +333,13 @@ install_dotnet() {
     echo "#############################################"
 
     if ! command -v dotnet >/dev/null 2>&1; then
+        require_tool_version DOTNET_CHANNELS || return 1
         wget https://dot.net/v1/dotnet-install.sh
         chmod +x ./dotnet-install.sh
-        sudo ./dotnet-install.sh -c 8.0 -i /usr/share/dotnet
-        sudo ./dotnet-install.sh -c 9.0 -i /usr/share/dotnet
+        local dotnet_channel
+        for dotnet_channel in $DOTNET_CHANNELS; do
+            sudo ./dotnet-install.sh -c "$dotnet_channel" -i /usr/share/dotnet
+        done
         sudo ln -sf /usr/share/dotnet/dotnet /usr/bin/dotnet
         rm -f dotnet-install.sh
     else
@@ -670,12 +721,8 @@ export DO_REGION="${DO_REGION:-}"
 # User identity
 export USER_EMAIL="${USER_EMAIL:-}"
 
-# Version placeholders
+# Update-check interval
 export DEVENV_UPDATE_INTERVAL="${DEVENV_UPDATE_INTERVAL:-7200}"
-export INSTALL_VERSION="${INSTALL_VERSION:-v0.0.0}"
-export MAJOR_VERSION="${MAJOR_VERSION:-0}"
-export MINOR_VERSION="${MINOR_VERSION:-0}"
-export PATCH_VERSION="${PATCH_VERSION:-0}"
 
 # Convenience paths 
 export repos="$toolbox_root/repos"
@@ -689,7 +736,9 @@ export PREF_EDITOR="${PREF_EDITOR:-${FALLBACK_EDITOR}}"
 export EDITOR="${EDITOR:-$toolbox_root/tools/editor}"
 export VISUAL="${VISUAL:-$toolbox_root/tools/editor}"
 EOF
-    chmod +x "$toolbox_root/.runtime/env-vars.sh"
+    # Sourced, never executed, and it accumulates secrets (tokens, auth keys):
+    # owner-only, not executable.
+    chmod 600 "$toolbox_root/.runtime/env-vars.sh"
 }
 
 # Create tool entry points (stubs) via the idempotent sync script
@@ -858,12 +907,36 @@ install_or_configure_nvm() {
     local marker_start="### nvm start"
     local marker_end="### nvm end"
 
+    # NODE_VERSION lives in tool-versions.bash. Top-level sourcing of it can
+    # no-op when this library is sourced before initialize_paths sets
+    # DEVENV_ROOT, so resolve it here relative to this script's own location
+    # (same guard as install_node_packages).
+    if [ -z "${NODE_VERSION:-}" ]; then
+        local _tv="${BASH_SOURCE[0]%/*}/tool-versions.bash"
+        # shellcheck disable=SC1090 # source path is runtime-derived (sibling of this script)
+        [ -f "$_tv" ] && source "$_tv"
+    fi
+
     echo "# Install nvm"
     echo "#############################################"
 
     export NVM_DIR="/usr/local/share/nvm"
     if [ ! -f "$NVM_DIR/nvm.sh" ]; then
-        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
+        if [ -z "${NODE_VERSION:-}" ]; then
+            echo "ERROR: NODE_VERSION is not set - tool-versions.bash could not be resolved" >&2
+            return 1
+        fi
+        require_tool_version NVM_VERSION || return 1
+        require_tool_version NVM_INSTALL_SHA256 || return 1
+        # Download, verify, then run: never pipe a remote script into a shell.
+        local nvm_installer
+        nvm_installer=$(mktemp) || return 1
+        if ! download_verified "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh" "$nvm_installer" "$NVM_INSTALL_SHA256"; then
+            rm -f "$nvm_installer"
+            return 1
+        fi
+        bash "$nvm_installer"
+        rm -f "$nvm_installer"
 
         sudo mkdir -p $NVM_DIR
         sudo chown -R "$(whoami)":"$(whoami)" "$NVM_DIR"
@@ -934,12 +1007,13 @@ install_node_packages() {
         echo "ERROR: PNPM_VERSION is not set - tool-versions.bash could not be resolved" >&2
         return 1
     fi
+    require_tool_version TURBO_VERSION || return 1
     echo "# Node packages"
     echo "#############################################"
     call_npm install -g zx
     reclaim_global_pnpm_ownership
     call_npm install -g "pnpm@$PNPM_VERSION"
-    call_npm install -g turbo@2.0.6
+    call_npm install -g "turbo@$TURBO_VERSION"
 }
 
 # Configure git globally
@@ -1319,6 +1393,8 @@ configure_user_npmrc() {
         input_file=/dev/null
     fi
     local temporary_file
+    # mktemp creates the file 0600, and the rename below carries that mode
+    # over: ~/.npmrc ends up owner-only even if it was wider before.
     temporary_file=$(mktemp "${npmrc_file}.XXXXXX") || return 1
     if ! NPM_AUTH_TOKEN="$gh_token" awk '
         BEGIN { token = ENVIRON["NPM_AUTH_TOKEN"] }

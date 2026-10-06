@@ -20,7 +20,6 @@ source "$DEVENV_TOOLS/lib/git-operations.bash"
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "List projects containing an issue"
 
 ISSUE_NUMBER=""
 # shellcheck disable=SC2034  # read by check_target_repo in git-operations.bash
@@ -29,7 +28,7 @@ DRY_RUN=0
 # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 
-usage() {
+show_usage() {
     cat <<EOF
 Usage: $SCRIPT_NAME ISSUE_NUMBER [OPTIONS]
 
@@ -62,14 +61,17 @@ EOF
 }
 
 main() {
+    # --help / --version are answered before any validation or authentication.
+    if handle_global_flag "${1:-}"; then exit 0; fi
+
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -h|--help)
-                usage
+                show_usage
                 exit 0
                 ;;
             -v|--version)
-                echo "$SCRIPT_NAME version $SCRIPT_VERSION"
+                echo "$SCRIPT_VERSION"
                 exit 0
                 ;;
             -V|--verbose)

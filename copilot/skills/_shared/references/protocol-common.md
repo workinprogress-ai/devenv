@@ -60,22 +60,24 @@ hard-code the host literal.
 ### Markdown body input (shared contract)
 
 Body-taking wrappers (`issue-comment`, `issue-comment-update`,
-`issue-create`, `issue-edit`, `pr-comment`, and siblings) accept body text
-in one uniform way: `--body TEXT`, `--body-file FILE` (`-` reads stdin),
-piped stdin with no flag, or — when stdin is a TTY and no flag is given —
-an interactive `fzf` picker over `.local-artifacts/*.md` resolved from the
-git repo root (`tmp*.md` excluded unless the tool's `--all`; an empty
-directory errors). Prefer `--body-file` over shell-quoted `--body` for
-multi-line text.
+`issue-create`, `issue-update`, `pr-comment`, `pr-thread-reply`,
+`issue-artifact-upsert`) accept body text in one uniform way: `--body TEXT`,
+`--body-file FILE` (`-` reads stdin), or piped stdin with no flag. When stdin is
+a TTY and no flag is given, only `issue-artifact-upsert` offers an interactive
+`fzf` picker (over `.local-artifacts/*.md` resolved from the git repo root;
+`tmp*.md` excluded unless `--all`; an empty directory errors) — the other
+wrappers error with "a comment source is required" (`issue-create` instead opens
+the editor unless `--no-interactive`). Prefer `--body-file` over shell-quoted
+`--body` for multi-line text.
 
 ## Issue tools
 
 ### artifact-clean
 
-Clean up `.local-artifacts/` folders by artifact family (ephemeral tmpN.md, session memory, issue-artifact working copies, other).
+Clean up `.local-artifacts/` folders by artifact family (ephemeral tmpN.md, session memory, issue-artifact working copies, other). Retained deliverables (`research-*.md`, `bug-hunt-*.md`, `TECH_DEBT_AUDIT*`) are kept out of every sweep — not by `--all`, not by `-y` — unless `--include-deliverables` is passed.
 
 ```
-artifact-clean [PATH...] [--tmp | --session | --working | --all] [-y] [-l]
+artifact-clean [PATH...] [--tmp | --session | --working | --all] [--include-deliverables] [-y] [-l]
 ```
 
 With no family flags and a TTY, runs interactively (family-by-family selection). `--tmp` deletes `tmpN.md` scratch files without confirmation; every other family requires `-y` or an interactive confirm — never silently deletes. `-l` lists what would be cleaned and deletes nothing. Without a TTY and without flags, degrades to list-only. Use this for every offer-to-retire / cleanup sweep instead of hand-run `rm` lists.
@@ -142,7 +144,7 @@ Examples:
 ```bash
 devenv-marker-check .                       # cleanup gate
 devenv-marker-check --ac repos/my-service   # AC review finder
-devenv-marker-check --marker 'DEVENV\\[bug-hunt\\]' repos/my-service
+devenv-marker-check --marker 'DEVENV\[bug-hunt\]' repos/my-service
 ```
 
 ### plan-parse
@@ -364,7 +366,7 @@ issue-artifact-doc-id --issue N --artifact-type TYPE (--slug TEXT | --source-fil
 Key flags:
 
 - `--issue N` — issue number (required)
-- `--artifact-type TYPE` — one of: `spike`, `redesign`, `design`, `blueprint`, `requirements`, `specifications`, `grooming`, `roadmap`, `plan` (current for plans); `implementation-plan` (accepted as legacy alias for pre-rename artifacts), `solution-proposal`
+- `--artifact-type TYPE` — one of: `spike` (legacy), `research`, `redesign`, `design`, `blueprint`, `requirements`, `specifications`, `grooming`, `roadmap`, `plan` (current for plans); `implementation-plan` (accepted as legacy alias for pre-rename artifacts), `solution-proposal`
 - `--slug TEXT` — slug source text (normalized to kebab-case), or `--source-file FILE` — basename without extension
 
 Output: `dv1:<owner>/<repo>:issue-<N>:<type>:<slug>` on stdout.
@@ -1032,7 +1034,7 @@ tools/scripts/_on_begin_grooming.sh 43
 Key facts:
 
 - Best-effort: always exit 0 for skill flows; failures warn, never block. Idempotent — re-signaling repairs drift.
-- Skills know only the event name + issue number. Never read the config, never name projects, never contain Status vocabulary (see [_conventions.md](../../_conventions.md#skill-event-signals-_on_)).
+- Skills know only the event name + issue number. Never read the config, never name projects, never contain Status vocabulary (see [_conventions.md](../../_conventions.md#skill-event-signals)).
 - Trigger points: skill lifecycle boundaries (wired per skill) and local PR tooling (`_on_begin_review` on PR open via `pr-create`, `_on_merge` on merge via the merge wrappers). Manual/interactive firing: `workflow-signal` (batching + deploy events). Full model: the repo's `docs/Issue-Workflow.md`.
 
 ---
@@ -1171,8 +1173,8 @@ DEVENV_REPO=<owner>/<repo> issue-create --no-template --no-interactive \
   exists.
 - Types come from `tools/config/issues-config.yml` (Bug/Feature/Task/Epic);
   `--type` must match configured names.
-- Without `--no-template`/`--no-interactive` the wrapper opens an interactive
-  editor and blocks.
+- Without `--no-interactive` the wrapper opens an editor and blocks. No template
+  is used by default; `--no-template` is accepted as a no-op for legacy scripts.
 
 ### Upstream-impact filing
 

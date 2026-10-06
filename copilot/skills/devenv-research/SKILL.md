@@ -1,6 +1,6 @@
 ---
 name: devenv-research
-description: Run a timeboxed exploratory investigation of an open question — throwaway by design: a structured findings + recommendation doc, and a prototype under playground/research--/ only if code was needed to answer the question. All artifacts are NOT FOR PRODUCTION; the skill ends at the findings handback (next steps route to /devenv-plan). Empowered like /devenv-hunt: may create code to prove something and run destructive-class experiments with just-in-time user permission (user-run git reset as recovery). USE WHEN the user says "research X", "spike on X", "investigate whether we can Y", "explore the feasibility of Z", "do a quick proof-of-concept", or hands off an open question that needs research before any plan exists. Input: a free-form question or an issue number. Produces a research-NNN-<topic>.md findings doc and a chat summary; optionally offers a draft issue. DO NOT USE for writing production code (use /devenv-pair or /devenv-delegate), for executing an approved plan (use /devenv-pair or /devenv-delegate), for verifying a specific suspected bug (use /devenv-hunt), or for work intended to ship — if it should survive into production, it is not research.
+description: Run a timeboxed exploratory investigation of an open question — throwaway by design: a structured findings + recommendation doc, and a prototype under playground/devenv-research-<topic>-<date>/ if code is needed to answer the question. All artifacts are NOT FOR PRODUCTION; the skill ends at the findings handback (next steps route to /devenv-plan). Empowered like /devenv-hunt: may create code to prove something and run destructive-class experiments with just-in-time user permission (user-run git reset as recovery). USE WHEN the user says "research X", "spike on X", "investigate whether we can Y", "explore the feasibility of Z", "do a quick proof-of-concept", or hands off an open question that needs research before any plan exists. Input: a free-form question or an issue number. Produces a research-NNN-<topic>.md findings doc and a chat summary; optionally offers a draft issue. DO NOT USE for writing production code (use /devenv-pair or /devenv-delegate), for executing an approved plan (use /devenv-pair or /devenv-delegate), for verifying a specific suspected bug (use /devenv-hunt), or for work intended to ship — if it should survive into production, it is not research.
 argument-hint: A question / problem statement to investigate, OR an issue number containing the question
 user-invocable: true
 ---
@@ -55,7 +55,7 @@ Inline in chat, list 2–4 angles you'll explore:
 - Try approach B (if A doesn't work)
 - Measure / compare
 
-Keep it loose. Spikes are non-linear by nature.
+Keep it loose. Research is non-linear by nature.
 
 ### 3. Investigate
 
@@ -82,12 +82,12 @@ Do the work:
 
 ### 4. Write the findings doc
 
-Write `research-NNN-<topic>.md` under the target repo's `.local-artifacts/` folder (the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts); use the workspace's `.local-artifacts/` when no single target repo is active), where `NNN` comes from `next-id --pattern 'research-{N}-*' --width 3 --dir <artifacts-folder> --filename` (never overwrites an existing research doc). Structure:
+Write `research-NNN-<topic>.md` under the target repo's `.local-artifacts/` folder (the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts); use the workspace's `.local-artifacts/` when no single target repo is active), where `NNN` is the number printed by `next-id --pattern 'research-{N}-*' --width 3 --dir <artifacts-folder>` (number only — `next-id` replaces just `{N}`, so `--filename` would print a literal `*`; compose the filename yourself, which never overwrites an existing research doc). Structure:
 
 ```markdown
-# ⚠️ SPIKE — NOT FOR PRODUCTION
+# ⚠️ RESEARCH — NOT FOR PRODUCTION
 
-# Spike: <one-line topic>
+# Research: <one-line topic>
 
 **Date**: YYYY-MM-DD
 **Source**: free-form question (or `issue #42`)
@@ -133,11 +133,11 @@ If yes:
 1. **New issue or existing?** Ask whether to create a new issue or use an existing one. If the user provides an issue number, skip to step 4.
 
 2. **Draft the issue title** — propose and ask the user to confirm or adjust:
-   - `Spike: <one-line topic> — <YYYY-MM-DD>`
+   - `Research: <one-line topic> — <YYYY-MM-DD>`
 
 3. **Draft the issue body** (placeholder only — findings go in the comment):
    ```
-   Spike findings are in a comment identified by artifact doc_id.
+   Research findings are in a comment identified by artifact doc_id.
 
    Next step depends on the scope of work the research revealed:
    - System-level architectural work → `/devenv-create-blueprint`
@@ -156,20 +156,18 @@ If yes:
    **If creating a new issue:**
    - Run `issue-create` per the [deterministic issue creation recipe](../_shared/references/protocol-common.md#deterministic-issue-creation), resolving the target `<owner>/<repo>` per the [repository targeting rules](../_shared/references/protocol-common.md#repository-targeting). For research findings the type is normally `Task` unless the user says otherwise.
    - Note the new issue number.
-   - Apply the [Artifact Identity Convention](../_conventions.md#artifact-identity-convention).
-   - Write the findings doc to `.local-artifacts/tmpN.md` (next free number) with `doc_id: <value>` in first 256 characters.
-   - `issue-artifact-upsert --issue <N> --body-file <that-file>`
+   - Apply the [Artifact Identity Convention](../_conventions.md#artifact-identity-convention): derive the `doc_id` with `issue-artifact-doc-id --issue <N> --artifact-type research --source-file <research-NNN-<topic>.md>` and put `doc_id: <value>` in the first 256 characters of the findings file itself (`research-NNN-<topic>.md`, written in step 4 — never a `tmpN.md` copy, which carries no `doc_id` and is never upserted).
+   - `issue-artifact-upsert --issue <N> --body-file <path to research-NNN-<topic>.md>`
    - Surface the issue URL.
 
    **If posting to an existing issue:**
-   - Apply the [Artifact Identity Convention](../_conventions.md#artifact-identity-convention).
-    - If the issue may already contain one or more research artifacts, resolve the canonical artifact first with `issue-artifact-select` or `issue-artifact-list`, then read it with `issue-artifact-get` before republishing.
-   - Write the findings doc to `.local-artifacts/tmpN.md` (next free number) with `doc_id: <value>` in first 256 characters.
-   - `issue-artifact-upsert --issue <N> --body-file <that-file>`
+   - Apply the [Artifact Identity Convention](../_conventions.md#artifact-identity-convention) (`issue-artifact-doc-id … --artifact-type research`; `doc_id: <value>` in the first 256 characters of `research-NNN-<topic>.md` itself).
+   - If the issue may already contain one or more research artifacts, resolve the canonical artifact first with `issue-artifact-select` or `issue-artifact-list`, then read it with `issue-artifact-get` before republishing.
+   - `issue-artifact-upsert --issue <N> --body-file <path to research-NNN-<topic>.md>`
    - If upsert reports a duplicate `doc_id` conflict, stop and ask the user which comment ID to keep as canonical.
    - Surface the issue URL.
 
-   The local research file is the canonical record; the issue comment identified by `doc_id` is a published copy kept in sync via upsert. (Same file-canonical rule as `/devenv-design` per [issue-artifact-integration](../common/references/issue-artifact-integration.md).)
+   The local research file is the canonical record; the issue comment identified by `doc_id` is a published copy kept in sync via upsert. (Same file-canonical rule as `/devenv-design`, per the [source-of-truth rule](../common/references/issue-backed-artifact-edit-protocol.md#source-of-truth-rule).)
 
 Never create an issue or post a comment without explicit "yes" confirmation.
 

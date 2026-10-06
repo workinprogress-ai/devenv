@@ -193,21 +193,6 @@ load ../test_helper
 # Context operations tests
 # ============================================================================
 
-@test "list_contexts function exists" {
-    source "$DEVENV_ROOT/tools/lib/kube-selection.bash"
-    declare -f list_contexts > /dev/null
-}
-
-@test "get_current_context function exists" {
-    source "$DEVENV_ROOT/tools/lib/kube-selection.bash"
-    declare -f get_current_context > /dev/null
-}
-
-@test "select_context_interactive function exists" {
-    source "$DEVENV_ROOT/tools/lib/kube-selection.bash"
-    declare -f select_context_interactive > /dev/null
-}
-
 # ============================================================================
 # Integration tests
 # ============================================================================

@@ -113,10 +113,9 @@ refresh_repo_cache() {
         return 1
     }
 
-    # Clean URL via the provider transport seam: auth rides gh's credential
-    # helper, never embedded.
-    local git_url_prefix
-    git_url_prefix="$(provider_git_remote_base "$org")" || return 1
+    # Clean URLs come from the provider's per-repo transport URL (auth rides the
+    # provider's credential helper, never embedded). Not "<org base>/<repo>.git":
+    # that shape is only valid on GitHub — Azure needs <org>/<project>/_git/<repo>.
     local count=0
     local repo_name
 
@@ -141,7 +140,12 @@ refresh_repo_cache() {
     while IFS= read -r repo_name; do
         [ -z "$repo_name" ] && continue
         local repo_dir="$cache_dir/$repo_name"
-        local git_url="${git_url_prefix}/${repo_name}.git"
+        local git_url
+        git_url="$(provider_git_transport_url "$org" "$repo_name")" || {
+            log_error "Cannot build a clone URL for $repo_name"
+            echo "$repo_name" >> "$fail_file"
+            continue
+        }
 
         # Throttle: wait for a slot when at max parallelism
         if [ "$running" -ge "$REPO_CACHE_PARALLEL" ]; then

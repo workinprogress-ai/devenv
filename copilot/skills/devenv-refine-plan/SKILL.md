@@ -61,7 +61,7 @@ For issue-backed plan refinement, follow the shared [issue-backed artifact edit 
 
 ### Event signal
 
-After a refinement that unblocks implementation (approvals gained, decisions recorded), signal `_on_end_planning <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals-on).
+After a refinement that unblocks implementation (approvals gained, decisions recorded), signal `_on_end_planning <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals).
 
 ### 0. Mode dispatch
 

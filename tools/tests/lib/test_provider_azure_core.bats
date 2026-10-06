@@ -171,7 +171,7 @@ teardown() {
     export AZURE_DEVOPS_ORG=o1 AZURE_DEVOPS_PROJECT=p1
     printf 'test-pat\n' > "$AZURE_PAT_FILE"
     chmod 600 "$AZURE_PAT_FILE"
-    printf '{"value":[{"name":"refs/tags/v1.0.0","creator":{"date":"2026-09-01T10:00:00Z"}},{"name":"refs/tags/v2.0.0-beta.1","creator":{"date":"2026-09-02T10:00:00Z"}}]}' > "$TEST_TEMP_DIR/tags.json"
+    printf '{"value":[{"name":"refs/tags/v1.0.0","objectId":"A1","creator":{"displayName":"Tagger"}},{"name":"refs/tags/v2.0.0-beta.1","objectId":"B2","creator":{"displayName":"Tagger"}}]}' > "$TEST_TEMP_DIR/tags.json"
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/tags.json" \
         run bash -c "$AZURE_TEST_LIBS; provider_load repos releases; provider_org_releases_list o1/p1/r1 --json tagName,isPrerelease"
     [ "$status" -eq 0 ]

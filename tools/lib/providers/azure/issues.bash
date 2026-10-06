@@ -627,13 +627,20 @@ provider_issues_close() {
 }
 
 # Reopen an issue.
-# Usage: provider_issues_reopen [repo] NUMBER
+# Usage: provider_issues_reopen [repo] NUMBER [--comment TEXT]
 provider_issues_reopen() {
     local repo=""
     if [ $# -gt 0 ] && [[ "$1" != --* ]]; then
         repo="$1"; shift
     fi
-    local number="$1"
+    local number="$1"; shift
+    local comment=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --comment) comment="$2"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
     # Resolve a state the project's process actually carries: the first
     # non-closed state from the type's state list ("New" is not universal
     # — Basic-process projects carry Proposed/Active/Closed). The alias
@@ -645,6 +652,9 @@ provider_issues_reopen() {
     states=$(azure_http_request GET "https://dev.azure.com/${org}/${project}/_apis/wit/workitemtypes/Issue/states?api-version=7.1" 2>/dev/null | jq -r '.value[] | select(.category != "completed") | .name' | head -1)
     [ -n "$states" ] || { log_error "provider_issues_reopen: no open state resolvable for the project's process"; return 1; }
     open_state="$states"
+    if [ -n "$comment" ]; then
+        provider_issues_comment "$repo" "$number" --comment-body "$comment" >/dev/null || return 1
+    fi
     azure_issue_patch_state "$number" "$open_state"
 }
 

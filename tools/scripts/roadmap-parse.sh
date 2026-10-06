@@ -28,8 +28,6 @@ source "$DEVENV_TOOLS/lib/versioning.bash"
 
 enable_strict_mode
 
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Parse roadmap artifact into per-step JSON"
-
 show_usage() {
     cat << EOF
 Usage: $SCRIPT_NAME ROADMAP_FILE [--plan-dir DIR] [--plan-file FILE]...
@@ -38,12 +36,9 @@ Emit per-STEP JSON for a roadmap markdown file. Each step object contains:
   step, phase, title, status, issues[], progress {done,total,pct}|null,
   dependencies[], plan_file (when plan data matched)
 
-Status precedence (first match wins):
-  1. all linked issues closed via merge  -> done
-  2. any linked issue blocked/paused     -> paused
-  3. any open with PR or plan pct > 0    -> in-progress
-  4. else                                -> not-started
-  5. all closed without merge            -> cancelled
+status is the step's **Status** line as written in the roadmap, passed through
+unchanged; this tool does not compute or recompute status (reconciling it with
+issue and PR state is the update-roadmap skill's job).
 
 Options:
     --plan-dir DIR    Directory of plan files (.local-artifacts) scanned for

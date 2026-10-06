@@ -11,6 +11,10 @@
 #   SK005  all relative ../devenv-*/ links in skill files resolve
 #   SK006  renamed-name history: none of the retired skill names appear in
 #          tracked files
+#   SK009  every file under a references/ folder is mentioned (by file name)
+#          somewhere else in the skill tree or docs — no orphaned references
+#   SK008  cross-file markdown links whose #anchor matches no heading in the
+#          target file (same-file anchors are skipped: prose examples abound)
 #   SK007  stale path references: a backticked `(docs|copilot|tools|setup)/…`
 #          path that the repo's git history contains but the working tree no
 #          longer has (renamed/moved without a reference sweep)
@@ -55,6 +59,8 @@ Checks:
   SK006  no retired skill names in tracked files
   SK007  no stale backticked repo-rooted path references (in git history,
          missing from the working tree)
+  SK008  cross-file markdown link anchors match a heading in the target
+  SK009  every references/ file is linked from somewhere (no orphans)
 
 Exit 0 = clean (warnings allowed); exit 1 = any failure.
 EOF
@@ -123,12 +129,14 @@ else
     done
 fi
 
-# --- SK004b: catalog presence (shared catalog must list every skill) ----------
-catalog="$skills_dir/common/references/skills-catalog.md"
-if [ -f "$catalog" ]; then
+# --- SK004b: docs/Skills.md must list every skill ------------------------------
+# docs/Skills.md is the canonical full listing (reached through the shared docs
+# symlink); the shared catalog file is only a pointer and carries no skill names.
+skills_doc="$skills_dir/_shared/docs/Skills.md"
+if [ -f "$skills_doc" ]; then
     for d in "$skills_dir"/devenv-*/; do
         n="$(basename "$d")"
-        grep -q "$n" "$catalog" || err "SK004 catalog orphan: $n missing from skills-catalog.md"
+        grep -q "$n" "$skills_doc" || err "SK004 skill listing: $n missing from docs/Skills.md"
     done
 fi
 
@@ -147,6 +155,59 @@ while IFS= read -r -d '' f; do
     done < <(grep -oE '\]\((\.\./)+(devenv-[a-z-]+|common|_shared)/[^)#]+' "$f" 2>/dev/null | sed 's/^](//' || true)
 done < <(find "$skills_dir" -name "*.md" -not -path "*/node_modules/*" -not -name "_conventions.md" -print0)
 [ "$link_failures" -eq 0 ] || true  # counted via err()
+
+# --- SK008: cross-file anchors resolve ------------------------------------------
+# A link `](path/to/file.md#anchor)` must name a heading that exists in the
+# target (GitHub slug rules: lowercase, punctuation dropped except - and _,
+# spaces to hyphens, -N suffix on repeated headings). Same-file anchors and
+# anything in a fenced block are not checked: skill prose carries many
+# illustrative examples (`[AC-N](#ac-N)`).
+declare -A _heading_slugs=()
+heading_slugs_of() {
+    awk '
+        /^```/ { fence = !fence; next }
+        fence { next }
+        /^#+[[:space:]]+/ {
+            t = $0
+            sub(/^#+[[:space:]]+/, "", t)
+            sub(/[[:space:]]*#*[[:space:]]*$/, "", t)
+            t = tolower(t)
+            gsub(/[^a-z0-9_ -]/, "", t)
+            gsub(/ /, "-", t)
+            n = seen[t]++
+            print (n == 0 ? t : t "-" n)
+        }
+    ' "$1"
+}
+while IFS= read -r -d '' f; do
+    base="$(dirname "$f")"
+    while IFS= read -r link; do
+        rel="${link%%#*}"
+        anchor="${link#*#}"
+        [ -n "$rel" ] || continue
+        target="$base/$rel"
+        [ -f "$target" ] || continue   # a missing file is SK005's finding
+        if [ -z "${_heading_slugs[$target]+x}" ]; then
+            _heading_slugs[$target]="$(heading_slugs_of "$target")"
+        fi
+        printf '%s\n' "${_heading_slugs[$target]}" | grep -qxF -- "${anchor,,}" \
+            || err "SK008 broken anchor in ${f#"$repo_root"/}: $rel#$anchor"
+    done < <(awk '/^```/ { fence = !fence; next } !fence' "$f" \
+                 | grep -oE '\]\([^)#[:space:]]+\.md#[^)[:space:]]+\)' | sed 's/^](//;s/)$//' | sort -u || true)
+done < <(find "$skills_dir" -name "*.md" -not -path "*/node_modules/*" -print0)
+
+# --- SK009: no orphaned reference files ------------------------------------------
+# A file under a `references/` folder exists to be read from somewhere. If no
+# other markdown file in the skill tree (or docs/) mentions its file name, it is
+# dead weight that drifts silently.
+while IFS= read -r -d '' ref; do
+    ref_name="$(basename "$ref")"
+    scope=("$skills_dir")
+    [ -d "$repo_root/docs" ] && scope+=("$repo_root/docs")
+    if ! grep -rlF --include='*.md' -- "$ref_name" "${scope[@]}" 2>/dev/null | grep -qvxF -- "$ref"; then
+        err "SK009 orphaned reference: ${ref#"$repo_root"/} is not linked from anywhere"
+    fi
+done < <(find "$skills_dir" -path '*/references/*' -name '*.md' -not -path '*/node_modules/*' -print0)
 
 # --- SK006: retired names -------------------------------------------------------
 if [ -d "$repo_root/.git" ]; then

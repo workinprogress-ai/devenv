@@ -24,6 +24,24 @@ build_github_basic_auth_header() {
     echo "AUTHORIZATION: basic $auth"
 }
 
+# Provider-dispatched basic-auth header for git HTTPS operations: the shape differs
+# by provider (GitHub: x-access-token user; Azure DevOps: empty user + PAT). Keep in
+# step with .devcontainer/bootstrap.bash's builder (a test compares the two).
+# Usage: build_provider_git_auth_header <provider> <token>
+build_provider_git_auth_header() {
+    local provider="$1" token="$2"
+    case "$provider" in
+        azure)
+            local auth
+            auth=$(printf ':%s' "$token" | base64 -w0)
+            echo "AUTHORIZATION: Basic $auth"
+            ;;
+        *)
+            build_github_basic_auth_header "$token"
+            ;;
+    esac
+}
+
 # Background non-blocking --ff-only pull for one synced Copilot-side repo.
 # No-op when the checkout dir is not an initialized git repository.
 # Usage: pull_copilot_side_repo_on_container_start <repo-dir> <label>
@@ -50,7 +68,7 @@ pull_copilot_side_repo_on_container_start() {
         # and the nohup env keeps it for the fetch duration — same
         # container-local mitigations as the bootstrap sync site.
         local header
-        header=$(build_github_basic_auth_header "$token")
+        header=$(build_provider_git_auth_header "${PROVIDER_NAME:-github}" "$token")
         nohup env REPO_DIR="$repo_dir" BRANCH="$branch" HEADER="$header" bash -c '
             git -C "$REPO_DIR" -c http.extraheader="$HEADER" fetch --prune origin >/dev/null 2>&1 || exit 0
             git -C "$REPO_DIR" -c http.extraheader="$HEADER" pull --ff-only origin "$BRANCH" >/dev/null 2>&1 || true

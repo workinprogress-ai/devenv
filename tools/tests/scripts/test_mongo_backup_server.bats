@@ -27,8 +27,8 @@ setup() {
     [ "$(grep -c -- '--db appdb' "$STUB_MONGODUMP_LOG")" -eq 1 ]
     [ "$(grep -c -- '--db auditdb' "$STUB_MONGODUMP_LOG")" -eq 1 ]
     # Built-ins were never dumped
-    ! grep -q -- '--db admin' "$STUB_MONGODUMP_LOG"
-    ! grep -q -- '--db local' "$STUB_MONGODUMP_LOG"
+    [ "$(grep -c -- '--db admin' "$STUB_MONGODUMP_LOG" || true)" -eq 0 ]
+    [ "$(grep -c -- '--db local' "$STUB_MONGODUMP_LOG" || true)" -eq 0 ]
     [[ "$output" == *"Backup completed"* ]]
 }
 

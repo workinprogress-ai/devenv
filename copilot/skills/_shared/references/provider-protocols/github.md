@@ -28,8 +28,9 @@ session-scoped env token honored only via the allowlist
 
 Credential verbs (provider seam — wrappers call these; do not call gh directly):
 
-- `provider_auth_import_token TOKEN` — store a credential and wire the git
-  credential helper. Used by `key-update-git` (bash function dispatching to `tools/lib/providers/github/key-update.sh`) and the bootstrap seed-file
+- `provider_auth_import_token <<< "$TOKEN"` — store a credential and wire the git
+  credential helper; the token is read from stdin by contract (an argv token
+  would land in process listings). Used by `key-update-provider` (bash function dispatching to `tools/lib/providers/github/key-update.sh`) and the bootstrap seed-file
   import.
 - `provider_auth_status` — authenticated check (exit code only). Used by
   `repo-get.sh` gates.

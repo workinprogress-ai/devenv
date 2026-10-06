@@ -29,8 +29,9 @@ enforcement surface derives from it:
 | Surface | Mechanism |
 | --- | --- |
 | Local commitlint | `type-enum` in `commitlint.config.js` — the single source |
-| Repository ruleset | `commit_message_pattern` in `tools/config/ruleset-default.json` — generated to match the enum |
-| Wrapper validation | `validate_conventional_commits` in `tools/lib/git-operations.bash` — regex built from the enum |
+| Repository ruleset | `commit_message_pattern` in `tools/config/ruleset-default.json` — must equal the enum (enforced by a drift test, `test_repo_metadata.bats`) |
+| Wrapper validation | `validate_conventional_commits` in `tools/lib/git-operations.bash` — regex built from `DEVENV_COMMIT_TYPES`, which a drift test keeps equal to the enum |
+| CI | the `commit-messages` job in `.github/workflows/test.yml` runs commitlint (this enum) over every pull-request commit |
 | Skills / prose | Skills cite this document; they do not restate type lists |
 
 The enum is the conventional types plus the explicit bump types:
@@ -45,6 +46,14 @@ or a `BREAKING CHANGE:` footer. Because every commit is individually mergeable, 
 introduce-then-reverse breaking pair must be **restructured before merge**: squash
 the pair locally (the user runs this), then merge the single corrected commit. An
 introduce-then-reverse pair reaching `master` would momentarily break it.
+
+## Devenv-Action trailer
+
+Every commit also carries a `Devenv-Action` trailer (see
+[Dev-container-environment.md](Dev-container-environment.md#devenv-action-commit-trailer)).
+It is enforced twice from one script, `tools/scripts/check-commit-trailers.sh`: locally by
+the commit-msg hook, and in CI by the `commit-messages` job — the check a clone without
+hooks cannot bypass.
 
 ## WIP commits
 

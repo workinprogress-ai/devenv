@@ -237,37 +237,6 @@ repo3'
 }
 
 # ============================================================================
-# find_repository_by_name Tests
-# ============================================================================
-
-@test "repo-operations: find_repository_by_name requires repo name" {
-    run bash -c "
-        source '$PROJECT_ROOT/tools/lib/repo-operations.bash'
-        find_repository_by_name '' '$TEST_REPOS_DIR' 2>&1
-    "
-    [ "$status" -eq 1 ]
-}
-
-@test "repo-operations: find_repository_by_name finds exact match" {
-    mkdir -p "$TEST_REPOS_DIR/exact-name"
-    
-    run bash -c "
-        source '$PROJECT_ROOT/tools/lib/repo-operations.bash'
-        find_repository_by_name 'exact-name' '$TEST_REPOS_DIR'
-    "
-    [ "$status" -eq 0 ]
-    [[ "$output" == *"exact-name"* ]]
-}
-
-@test "repo-operations: find_repository_by_name returns not found for missing repo" {
-    run bash -c "
-        source '$PROJECT_ROOT/tools/lib/repo-operations.bash'
-        find_repository_by_name 'missing' '$TEST_REPOS_DIR'
-    "
-    [ "$status" -eq 1 ]
-}
-
-# ============================================================================
 # get_current_repository_name Tests
 # ============================================================================
 

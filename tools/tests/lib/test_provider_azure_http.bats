@@ -50,7 +50,7 @@ EOF
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/resp.json" \
         bash -c "source '$AZURE_HTTP_LIB' && azure_http_request GET 'https://dev.azure.com/org/proj/_apis/test'" > /dev/null
     # The PAT itself never appears in any curl argument (process listings)
-    ! grep -q "test-pat-secret" "$TEST_TEMP_DIR/curl-argv.log"
+    run ! grep -q "test-pat-secret" "$TEST_TEMP_DIR/curl-argv.log"
     # Auth travels as an Authorization: Basic header built off-argv
     local expected_b64
     expected_b64=$(printf ':%s' "$AZURE_PAT" | base64 | tr -d '\r\n')
@@ -190,7 +190,7 @@ EOF
 @test "azure-http: redaction strips the PAT from logged text" {
     run bash -c "source '$AZURE_HTTP_LIB' && AZURE_PAT='leaky-token-xyz' azure_redact 'error at https://dev.azure.com/org?token=leaky-token-xyz'"
     [ "$status" -eq 0 ]
-    ! [[ "$output" =~ "leaky-token-xyz" ]]
+    [[ ! "$output" =~ "leaky-token-xyz" ]]
     [[ "$output" =~ "REDACTED" ]]
 }
 

@@ -109,9 +109,8 @@ list_issues() {
     gh_args+=("${repo_spec[0]:-}")
     
     # Build filter arguments using library function
-    local filter_string
-    filter_string=$(build_issue_filters --state "$FILTER_STATE" --type "$FILTER_TYPE" --limit "$LIMIT") || exit "$EXIT_GENERAL_ERROR"
-    read -ra filter_args <<< "$filter_string"
+    local filter_args=()
+    build_issue_filters filter_args --state "$FILTER_STATE" --type "$FILTER_TYPE" --limit "$LIMIT" || exit "$EXIT_GENERAL_ERROR"
     gh_args+=("${filter_args[@]}")
     
     # Add label filters (not in library function yet - custom handling)

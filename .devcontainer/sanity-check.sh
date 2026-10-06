@@ -1,28 +1,31 @@
 #!/bin/bash
+# sanity-check.sh - startup sanity checks.
+#
+# Sourced by the generated shell rc at every shell start (and executed by
+# startup.sh). Plain bash throughout: nothing in this file is eval-expanded. A
+# failing check prints a loud warning but never blocks the shell. Helpers are
+# unset at the end so nothing leaks into the caller's shell.
 
-# shellcheck disable=SC2034 # May be used in future enhancements
-script_path=$(readlink -f "$0")
-
-function get_run_time() {
-    if [ ! -f \$1 ]; then
+_sanity_run_time() {
+    if [ ! -f "$1" ]; then
         echo "0"
     else
-        cat \$1
+        cat "$1"
     fi
 }
 
-$DEVENV_ROOT/.devcontainer/check-update-devenv-repo.sh
+"$DEVENV_ROOT/.devcontainer/check-update-devenv-repo.sh"
 
-# shellcheck disable=SC2050  # literal \$ is intentional: this file is written to be eval-expanded (see header note); under plain source this branch degrades to a no-op
-if [ "\$(get_run_time \$container_bootstrap_run_file)" != "\$(get_run_time \$repo_bootstrap_run_file)" ]; then
+# The container's bootstrap run time must match the repo's; a difference means
+# the environment needs rebuilding.
+if [ "$(_sanity_run_time "$HOME/.bootstrap_container_time")" != "$(_sanity_run_time "$DEVENV_ROOT/.runtime/.bootstrap_run_time")" ]; then
     echo "WARNING!!!!!  The container bootstrap run time does not match the repo bootstrap run time."
     echo "Please rebuild dev env!!!!!!!!!"
 fi
+unset -f _sanity_run_time
 
 # ============================================================================
-# Tool smoke checks — this file is sourced at shell startup (plain source, no
-# eval), so plain $ expansion applies. Failures print a loud warning but never
-# block the shell.
+# Tool smoke checks. Failures print a loud warning but never block the shell.
 # ============================================================================
 
 # Declared tool versions must match reality (node/npm/pnpm; see

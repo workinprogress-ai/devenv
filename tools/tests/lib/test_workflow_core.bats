@@ -34,20 +34,32 @@ setup() {
 }
 
 @test "on_event resolves configured event and invokes the write path" {
-    # Assert via the gh call log: the fan-out write must occur for the
-    # resolved status token of the configured event.
-    cat > "$STUB_DIR/gh" <<'STUB'
+    # Assert on what the fan-out wrapper was actually asked to write: the
+    # resolved status token of the configured event, for the given issue. The
+    # WORKFLOW_CORE_TOOLS seam swaps only where the wrapper is found.
+    local wf="$STUB_DIR/wf/scripts"
+    mkdir -p "$wf"
+    cat > "$wf/project-update-issue.sh" <<STUB
 #!/usr/bin/env bash
-echo "gh $*" >> "${STUB_CALLS:-/dev/null}"
-case "$*" in
-    *"project-item-update"*|*"project"*) exit 0 ;;
-    *) exit 0 ;;
-esac
+echo "WF-WRITE \$*" >> "$STUB_DIR/calls.log"
+exit 0
 STUB
-    chmod +x "$STUB_DIR/gh"
-    export STUB_CALLS="$STUB_DIR/calls.log"
-    run bash -c "source '$LIB' && workflow_on_event _on_begin_grooming 44"
+    chmod +x "$wf/project-update-issue.sh"
+    : > "$STUB_DIR/calls.log"
+    run bash -c "source '$LIB' && WORKFLOW_CORE_TOOLS='$STUB_DIR/wf' workflow_on_event _on_begin_grooming 44"
     [ "$status" -eq 0 ]
+    grep -qx "WF-WRITE 44 --status To-Groom --all-projects --safe" "$STUB_DIR/calls.log"
+}
+
+@test "on_event for an unknown event performs no write" {
+    local wf="$STUB_DIR/wf/scripts"
+    mkdir -p "$wf"
+    printf '#!/usr/bin/env bash\necho "WF-WRITE $*" >> "%s/calls.log"\n' "$STUB_DIR" > "$wf/project-update-issue.sh"
+    chmod +x "$wf/project-update-issue.sh"
+    : > "$STUB_DIR/calls.log"
+    run bash -c "source '$LIB' && WORKFLOW_CORE_TOOLS='$STUB_DIR/wf' workflow_on_event _on_bogus 44"
+    [ "$status" -eq 0 ]
+    [ ! -s "$STUB_DIR/calls.log" ]
 }
 
 @test "apply_status without status is a usage error" {
@@ -127,4 +139,67 @@ STUB
     [ "$status" -eq 0 ]
     grep -q "WF-WRITE 44 --status Production" "$STUB_DIR/calls.log"
     [ "$(grep -c "WF-WRITE" "$STUB_DIR/calls.log")" -eq 1 ]
+}
+
+# ============================================================================
+# workflow_order must not leave the caller's config selection changed
+# ============================================================================
+
+@test "workflow_order leaves the caller's own config file selected" {
+    # A wrapper that initialized its own config used to find devenv.config
+    # selected after calling anything that reached workflow_order.
+    printf '[wrapper]\nkey=mine\n' > "$TEST_TEMP_DIR/own.config"
+    run bash -c "
+        source '$LIB'
+        config_init '$TEST_TEMP_DIR/own.config'
+        workflow_order >/dev/null
+        config_read_value wrapper key
+    "
+    [ "$status" -eq 0 ]
+    [ "$output" = "mine" ]
+}
+
+@test "workflow_order still returns the configured vocabulary" {
+    run bash -c "source '$LIB'; workflow_order"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"TBD"* ]]
+    [[ "$output" == *"Production"* ]]
+}
+
+@test "workflow_order leaves CONFIG_FILE unset when the caller had none" {
+    run bash -c "
+        source '$LIB'
+        unset CONFIG_FILE
+        workflow_order >/dev/null
+        echo \"state=\${CONFIG_FILE+set}\"
+    "
+    [ "$status" -eq 0 ]
+    [ "$output" = "state=" ]
+}
+
+@test "workflow_order restores the caller's config even when its own read fails" {
+    printf '[wrapper]\nkey=mine\n' > "$TEST_TEMP_DIR/own.config"
+    mkdir -p "$TEST_TEMP_DIR/empty-root"
+    printf '[other]\nx=1\n' > "$TEST_TEMP_DIR/empty-root/devenv.config"
+    run bash -c "
+        source '$LIB'
+        config_init '$TEST_TEMP_DIR/own.config'
+        DEVENV_ROOT='$TEST_TEMP_DIR/empty-root' workflow_order >/dev/null 2>&1 || true
+        config_read_value wrapper key
+    "
+    [ "$status" -eq 0 ]
+    [ "$output" = "mine" ]
+}
+
+@test "workflow_order with an override does not touch the caller's config" {
+    printf '[wrapper]\nkey=mine\n' > "$TEST_TEMP_DIR/own.config"
+    run bash -c "
+        source '$LIB'
+        config_init '$TEST_TEMP_DIR/own.config'
+        WORKFLOW_ORDER_OVERRIDE='A,B,C' workflow_order
+        echo
+        config_read_value wrapper key
+    "
+    [ "$status" -eq 0 ]
+    [ "$output" = $'A B C\nmine' ]
 }

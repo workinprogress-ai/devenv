@@ -14,27 +14,18 @@ DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 #
 # Description:
 #   Finds the open PR from the current branch to the target branch (defaults to
-#   the repository's default branch) and merges it. The merge method applied
-#   when --method is omitted is policy, not tooling: it comes from the org/fork
-#   configuration. For squash merges the first line of the commit message (or
-#   the PR title when omitted) becomes the squash commit title, so it must
-#   follow Conventional Commits — that is the only method where a title
-#   convention is enforced. Draft PRs are refused unless --force.
+#   the repository's default branch) and merges it. The merge method is rebase
+#   unless --method says otherwise (the default is fixed in this script — no
+#   policy is read). Only a squash merge enforces a title convention: its commit
+#   title (the first line of the commit message, or the PR title when omitted)
+#   must follow Conventional Commits. Draft PRs are refused unless --force.
 #
 # Options:
-#   [commit-message]      Commit message (first line must be Conventional Commits
-#                         format). If omitted, the PR title is used. Multi-line
-#                         supported: first line is title, remainder is body.
-#   --issue <number>      Issue number this PR addresses (optional)
-#   --method <method>     Merge method (provider-supported: squash, merge,
-#                         rebase). Omitted = org/fork policy default.
-#   --base <branch>       Target branch (default: repository's default branch)
-#   --repo-dir <path>     Repository directory (default: current directory)
-#   --force               Force merge even if checks have not passed
-#   --help                Show this help message
+#   The option list is maintained once, in usage() below — see
+#   `pr-merge --help`.
 #
 # Examples:
-#   # Merge the open PR from the current branch (policy-default method)
+#   # Merge the open PR from the current branch (rebase)
 #   pr-merge
 #
 #   # Merge with a custom commit message
@@ -88,8 +79,7 @@ Options:
   --issue <number>        Issue number this PR addresses (optional)
   --select                Pick the issue interactively (uses issue-select)
   --no-issue-id           Explicitly indicate this PR has no associated issue
-  --method <method>       Merge method (squash, merge, rebase). Omitted =
-                          org/fork policy default.
+  --method <method>       Merge method (squash, merge, rebase; default: rebase)
   --base <branch>         Target branch (default: repository's default branch)
   --repo-dir <path>       Repository directory (default: current directory)
   --branch <name>         Source branch for PR lookup (default: current branch)
@@ -103,7 +93,7 @@ Examples:
   pr-merge --method merge
   pr-merge --force
 EOF
-    exit "$EXIT_GENERAL_ERROR"
+    exit "${1:-$EXIT_GENERAL_ERROR}"
 }
 
 COMMIT_MESSAGE=""
@@ -139,7 +129,7 @@ while [[ $# -gt 0 ]]; do
         --keep-branch)
             KEEP_BRANCH="true"; shift ;;
         -h|--help)
-            usage ;;
+            usage 0 ;;
         *)
             POSITIONAL+=("$1"); shift ;;
     esac

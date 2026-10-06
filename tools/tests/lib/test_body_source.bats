@@ -253,3 +253,61 @@ setup() {
     "
     [ "$status" -eq 2 ]
 }
+
+# ============================================================================
+# Probe timeout: a slow producer is not "empty stdin"
+# ============================================================================
+
+# Feed the capture function from a producer that writes after a delay.
+delayed_capture() {
+    local delay="$1"; shift
+    bash -c "
+        $*
+        source '$PROJECT_ROOT/tools/lib/body-source.bash'
+        ( sleep $delay; printf 'late body\n' ) | body_source_capture_stdin
+    "
+}
+
+@test "capture: a producer slower than one second is still read under the default" {
+    # The first-byte probe used to give up after 1s and call a slow producer
+    # (a gh round-trip, a generator behind fzf) empty stdin.
+    run delayed_capture 2 ""
+    [ "$status" -eq 0 ]
+    [ "$output" = "late body" ]
+}
+
+@test "capture: BODY_SOURCE_PROBE_TIMEOUT shortens the wait and the slow producer is refused" {
+    run delayed_capture 3 "export BODY_SOURCE_PROBE_TIMEOUT=1"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"Refusing empty stdin body"* ]]
+}
+
+@test "capture: BODY_SOURCE_PROBE_TIMEOUT lengthens the wait" {
+    run delayed_capture 2 "export BODY_SOURCE_PROBE_TIMEOUT=4"
+    [ "$status" -eq 0 ]
+    [ "$output" = "late body" ]
+}
+
+@test "capture: an invalid BODY_SOURCE_PROBE_TIMEOUT falls back to the default" {
+    run delayed_capture 2 "export BODY_SOURCE_PROBE_TIMEOUT=soon"
+    [ "$status" -eq 0 ]
+    [ "$output" = "late body" ]
+    run delayed_capture 2 "export BODY_SOURCE_PROBE_TIMEOUT=0"
+    [ "$status" -eq 0 ]
+}
+
+@test "capture: an open but silent pipe is still refused, after the configured wait" {
+    # Elapsed time is measured inside the consumer: a pipeline always waits for
+    # its producer, so timing the whole command would only measure the producer.
+    run bash -c "
+        export BODY_SOURCE_PROBE_TIMEOUT=1
+        source '$PROJECT_ROOT/tools/lib/body-source.bash'
+        ( sleep 4 ) | {
+            start=\$SECONDS
+            body_source_capture_stdin 2>/dev/null
+            echo \"rc=\$? elapsed=\$((SECONDS - start))\"
+        }
+    "
+    [ "$status" -eq 0 ]
+    [[ "$output" == "rc=2 elapsed=1" || "$output" == "rc=2 elapsed=2" ]]
+}

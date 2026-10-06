@@ -7,6 +7,8 @@
 # tools/tests/run-devenv-tests.sh also gets a depth-1 entry. Stubs exec the
 # real scripts/ file. Foreign depth-1 files are not ours and are untouched.
 
+bats_require_minimum_version 1.5.0
+
 load ../test_helper
 
 SYNC_SCRIPT=""   # set in setup: path to the real sync script inside the mock
@@ -82,7 +84,7 @@ _make_stub() {
     [ "$status" -eq 0 ]
 
     grep -q 'scripts/alpha.sh' "$root/tools/alpha"
-    ! grep -q 'drifted stale content' "$root/tools/alpha"
+    run ! grep -q 'drifted stale content' "$root/tools/alpha"
     rm -rf "$root"
 }
 

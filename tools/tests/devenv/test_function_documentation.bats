@@ -34,12 +34,6 @@ load ../test_helper
   [ "$output" -gt 5 ]
 }
 
-@test "lib/retry.bash functions have comprehensive documentation" {
-  run grep -c "# Arguments:" "$PROJECT_ROOT/tools/lib/retry.bash"
-  [ "$status" -eq 0 ]
-  [ "$output" -gt 5 ]
-}
-
 @test "script template includes documentation examples" {
   run grep "# Arguments:" "$DEVENV_TOOLS/templates/script-template.sh"
   [ "$status" -eq 0 ]
@@ -71,8 +65,3 @@ load ../test_helper
   fi
 }
 
-@test "retry functions have usage examples in comments" {
-  run bash -c "grep -c '# Example:' $PROJECT_ROOT/tools/lib/retry.bash"
-  [ "$status" -eq 0 ]
-  [ "$output" -gt 3 ]
-}

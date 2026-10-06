@@ -51,7 +51,7 @@ Produce a block like this for each issue:
 **Type:** bug | feature | question | docs | chore
 **Priority:** P0 (critical) | P1 (high) | P2 (normal) | P3 (low)
   Reasoning: <one line>
-**Size:** S (<1d) | M (1–3d) | L (>3d) | XL (needs spike)
+**Size:** S (<1d) | M (1–3d) | L (>3d) | XL (needs research)
   Reasoning: <one line>
 **Suggested labels:** `bug`, `area/X`, `priority/P2`, `size/M`
 **Possible duplicates:** #45 (similar repro), #87 (same root cause) — or "none found"

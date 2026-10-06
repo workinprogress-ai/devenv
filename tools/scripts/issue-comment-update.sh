@@ -4,7 +4,7 @@
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 # issue-comment-update.sh - Replace the body of an existing GitHub issue comment
-# Version: 1.0.0
+# Version: 1.1.0
 # Description: Updates a comment identified by its numeric ID (as returned by
 #              issue-comment-list).  Supports inline text, a file, and --dry-run.
 # Requirements: Bash 4.0+, gh CLI, jq
@@ -22,7 +22,6 @@ source "$DEVENV_TOOLS/lib/body-source.bash"
 readonly SCRIPT_VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Replace the body of an existing GitHub issue comment"
 
 # ============================================================================
 # Global Variables
@@ -74,8 +73,8 @@ Examples:
     # Replace a comment body inline
     $SCRIPT_NAME 12345678 --body "Updated content"
 
-    # From list output (works the same on every provider)
-    $SCRIPT_NAME 42 | jq -r '.[].id'   # then pass that id back
+    # Find the comment id first: list issue 42's comments (works the same on every provider)
+    issue-comment-list 42 | jq -r '.[].id'   # then pass that id back to $SCRIPT_NAME
 
     # Replace from a markdown file
     $SCRIPT_NAME 12345678 --body-file spike-001-results.md

@@ -33,7 +33,6 @@ source "$DEVENV_TOOLS/lib/versioning.bash"
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Manually signal workflow events"
 
 show_usage() {
     cat <<EOF

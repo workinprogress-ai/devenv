@@ -75,7 +75,7 @@ Use the full protocol in [guided-user-drive-mode.md](./references/guided-user-dr
 
 ## Event signal
 
-At phase kickoff of the first implementation phase, signal `_on_begin_implementation <issue-number>`; at PR open (or equivalent review handoff), signal `_on_begin_review <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals-_on_).
+At phase kickoff of the first implementation phase, signal `_on_begin_implementation <issue-number>`; at PR open (or equivalent review handoff), signal `_on_begin_review <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals).
 
 ## Personality
 
@@ -159,7 +159,7 @@ Run `skill-orient` (read-only JSON: active plan + census, scoped TODO markers, s
 
 Run `devenv-marker-check --todo-report <working-scope>` (target repo, plan-affected paths; see [`_tools-reference.md`](../_tools-reference.md)). Every reported TODO is a prior session's cross-plan message: surface each as a session constraint in chat (file + condition), and honor it or explicitly resolve it with the user before the affected file is touched. A TODO whose condition is already satisfied is removed in the same pass; a TODO flagged as missing its discharge condition is resolved with the user in the same pass.
 
-### 0b. Resuming or returning after a gap?
+### 0c. Resuming or returning after a gap?
 
 If resuming from a compacted context:
 
@@ -332,7 +332,7 @@ When triggered:
 2. **🧠 Observe** — one or two non-obvious observations about the specific code.
 3. **🧠 Question** — one synthesis question that surfaces the problem this phase addresses.
 
-Explore conversationally if the user engages. Move to step 7 when ready (or immediately if they don't engage).
+Explore conversationally if the user engages. Move to step 6 when ready (or immediately if they don't engage).
 
 ### 5c. Refresh forward comments for this phase
 
@@ -481,12 +481,15 @@ This is not a loosening of [Bounded autonomy span](#core-principles) — it is t
 
 This is the heart of the skill. The model is **driver / navigator**: the driver writes, the navigator stays active.
 
-> **Precondition:** these steps begin only after the split from Step 7 is explicitly agreed. Do not start step 1 while still waiting for the user to confirm the split.
+> **Precondition:** these steps begin only after the split from Step 6 is explicitly agreed. Do not start step 1 while still waiting for the user to confirm the split.
+
+Concrete example phrasings for every handoff state (AI implementing, AI reviewing, pushback, "I don't know", wrap-up) are in [`references/handoff-protocol.md`](./references/handoff-protocol.md).
 
 ### When the AI is driving
 
 1. **Confirm assignment.** *"→ Taking 2.1 — retry policy in MyWorker. You're on 2.2?"*
 1a. **Re-check task-level decision gates before coding.** If the assigned task includes unresolved `decision:` metadata (or an unresolved inline `[QUESTION]` that affects implementation shape), stop and ask the user to choose before editing files. Do not start implementation for that task until the decision is explicitly resolved.
+1b. **Re-check task ownership before coding.** A task with `owner: User` is the user's to drive — hand over the driver seat instead of implementing it. A `Research: <question>` task (plans encode research with `owner: User`) is not done inside a pairing session at all: stop and hand it back — research runs in a separate, user-supervised chat via `/devenv-research`, and its findings return through `/devenv-refine-plan`. `owner: AI`, or no `owner:` bullet, proceeds normally.
 2. **Narrate as you go.** Talk through non-obvious decisions while implementing, not just at the end — this lets the navigator catch problems early.
 3. **Ask before assuming.** Any non-trivial choice → stop and ask.
 4. **If you hit a wall, stop immediately.** A wall means the intended approach is no longer clear, repeated local attempts are not converging, or the next move would be workaround, placeholder, fallback, or other garbage code whose real purpose is just to get unstuck. Do **not** add hack code to preserve momentum.
@@ -1031,6 +1034,13 @@ Values come from `plan-parse <plan_file> --census` at draft time — never hand-
 
 See the shared [Issue Artifact Integration](../common/references/issue-artifact-integration.md) reference for exact CLI invocations.
 
+Pairing-specific notes:
+
+- While a phase is in progress, the local plan file remains the session source of truth.
+- When the plan came from an issue artifact comment, republish only to the same `doc_id`.
+- Do not auto-publish progress mid-discussion; wait for the explicit confirmation points defined in this skill.
+- For freeform discoveries, status notes, and adjacent bug discussion, use the normal `issue-comment` / `issue-create` confirmation flow from the shared reference.
+
 **Offer** (don't auto-run) to document when:
 
 - A non-obvious design decision was made.
@@ -1072,7 +1082,7 @@ During execution:
 
 If the pair has spent 3+ exchanges on a single decision without converging, offer an escape valve — gently, not as a warning:
 
-> *"We've been circling this one for a bit — want to make a call and move on, or park it as a spike?"*
+> *"We've been circling this one for a bit — want to make a call and move on, or park it as a research question?"*
 
 Never implies the discussion isn't worth having. The user decides. If they want to keep going, keep going.
 

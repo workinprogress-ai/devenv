@@ -117,9 +117,8 @@ search_issues() {
     read -ra repo_spec <<< "$(get_repo_spec)"
     gh_args+=("${repo_spec[0]:-}")
 
-    local filter_string
-    filter_string=$(build_issue_filters --state "$FILTER_STATE" --type "$FILTER_TYPE" --limit "$FETCH_LIMIT") || exit "$EXIT_GENERAL_ERROR"
-    read -ra filter_args <<< "$filter_string"
+    local filter_args=()
+    build_issue_filters filter_args --state "$FILTER_STATE" --type "$FILTER_TYPE" --limit "$FETCH_LIMIT" || exit "$EXIT_GENERAL_ERROR"
     gh_args+=("${filter_args[@]}")
 
     for label in "${FILTER_LABELS[@]}"; do

@@ -181,6 +181,9 @@ get_used_version() {
 # ============================================================================
 
 main() {
+    # --help / --version are answered before any validation or authentication.
+    if handle_global_flag "${1:-}"; then exit 0; fi
+
     local target_dir=""
     local skip_refresh=0
     local dry_run=0
@@ -197,7 +200,7 @@ main() {
                 show_usage
                 ;;
             -v|--version)
-                echo "$SCRIPT_NAME version $SCRIPT_VERSION"
+                echo "$SCRIPT_VERSION"
                 exit 0
                 ;;
             --no-refresh)

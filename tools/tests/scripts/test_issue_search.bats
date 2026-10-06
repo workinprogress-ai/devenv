@@ -110,7 +110,7 @@ MATCHER='
   run jq -r --args "$MATCHER" -- "ledger" \
     <<< '[{"number":11,"title":"Audit","body":"append-only ledger detail"}]'
   [ "$status" -eq 0 ]
-  ! [[ "$output" =~ "append-only ledger detail" ]]
+  [[ ! "$output" =~ "append-only ledger detail" ]]
   [[ "$output" =~ '"matchedTerms"' ]]
   [[ "$output" =~ '"matchCount"' ]]
 }

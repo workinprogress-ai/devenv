@@ -100,8 +100,13 @@ EOF
 
 # Get issues with formatted display using library function
 get_issues() {
-    # Use library function to get formatted issues
-    get_issues_for_selection "$FILTER_STATE" "$FILTER_TYPE" "$FILTER_LABEL" "$FILTER_MILESTONE"
+    # Use library function to get formatted issues. Filters go as options (the
+    # library takes no positionals); only the ones that are set are passed.
+    local filter_args=(--state "$FILTER_STATE")
+    [ -z "$FILTER_TYPE" ] || filter_args+=(--type "$FILTER_TYPE")
+    [ -z "$FILTER_LABEL" ] || filter_args+=(--labels "$FILTER_LABEL")
+    [ -z "$FILTER_MILESTONE" ] || filter_args+=(--milestone "$FILTER_MILESTONE")
+    get_issues_for_selection "${filter_args[@]}"
 }
 
 # Interactive selection with fzf
@@ -122,7 +127,10 @@ select_issues() {
     # call provider functions directly; route through the issue-get wrapper
     # (provider-mediated, works under every provider) — the sanctioned
     # exception for this viewer-only read.
-    local preview_cmd="issue-get {1} --json title,body,state 2>/dev/null || echo 'Loading...'"
+    # {1} is the issue as listed ("#123") and issue-get takes the bare number;
+    # --pretty is its supported full-detail mode (there is no --json option,
+    # which made every preview fall through to "Loading...").
+    local preview_cmd="issue-get \"\$(printf '%s' {1} | tr -d '#')\" --pretty 2>/dev/null || echo 'Loading...'"
     
     # Select using fzf library - use multi or single based on flag
     local selected

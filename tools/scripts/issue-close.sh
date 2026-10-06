@@ -22,7 +22,6 @@ source "$DEVENV_TOOLS/lib/issue-operations.bash"
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Close/reopen GitHub issues"
 
 # ============================================================================
 # Global Variables
@@ -232,7 +231,7 @@ main() {
                 fi
                 
                 local selected_issues
-                selected_issues=$("$PROJECT_TOOLS/issue-select" --state "$state_filter" --multi)
+                selected_issues=$("$DEVENV_TOOLS/scripts/issue-select.sh" --state "$state_filter" --multi)
                 if [ -z "$selected_issues" ]; then
                     log_error "No issue selected"
                     exit "$EXIT_GENERAL_ERROR"

@@ -21,7 +21,6 @@ source "$DEVENV_TOOLS/lib/git-operations.bash"
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Fetch a PR or branch diff as text"
 
 # ============================================================================
 # Global Variables

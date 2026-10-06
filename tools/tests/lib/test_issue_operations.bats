@@ -3,6 +3,8 @@
 # Test suite for issue-operations.bash library
 # Tests common GitHub issue and PR operations
 
+bats_require_minimum_version 1.5.0
+
 load ../test_helper
 
 # Setup function for all tests
@@ -53,78 +55,148 @@ EOF
 
 @test "build_issue_filters with default state" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    result=$(build_issue_filters)
-    [[ "$result" =~ --state ]] && [[ "$result" =~ open ]]
+    build_issue_filters result
+    [[ "${result[*]}" =~ --state ]] && [[ "${result[*]}" =~ open ]]
 }
 
 @test "build_issue_filters with closed state" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    result=$(build_issue_filters --state closed)
-    [[ "$result" =~ --state ]] && [[ "$result" =~ closed ]]
+    build_issue_filters result --state closed
+    [[ "${result[*]}" =~ --state ]] && [[ "${result[*]}" =~ closed ]]
 }
 
 @test "build_issue_filters with type Epic" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    result=$(build_issue_filters --type Epic)
-    [[ "$result" =~ --type ]] && [[ "$result" =~ "Epic" ]]
+    build_issue_filters result --type Epic
+    [[ "${result[*]}" =~ --type ]] && [[ "${result[*]}" =~ "Epic" ]]
 }
 
 @test "build_issue_filters with type Feature" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    result=$(build_issue_filters --type Feature)
-    [[ "$result" =~ --type ]] && [[ "$result" =~ "Feature" ]]
+    build_issue_filters result --type Feature
+    [[ "${result[*]}" =~ --type ]] && [[ "${result[*]}" =~ "Feature" ]]
 }
 
 @test "build_issue_filters rejects legacy alias story (alias removed per policy)" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    ! build_issue_filters --type story
+    run ! build_issue_filters result --type story
 }
 
 @test "build_issue_filters with legacy alias bug maps to Bug" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    result=$(build_issue_filters --type bug)
-    [[ "$result" =~ --type ]] && [[ "$result" =~ "Bug" ]]
+    build_issue_filters result --type bug
+    [[ "${result[*]}" =~ --type ]] && [[ "${result[*]}" =~ "Bug" ]]
 }
 
 @test "build_issue_filters with invalid type" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    ! build_issue_filters --type invalid
+    run ! build_issue_filters result --type invalid
 }
 
 @test "build_issue_filters with single label" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    result=$(build_issue_filters --labels urgent)
-    [[ "$result" =~ --label ]] && [[ "$result" =~ urgent ]]
+    build_issue_filters result --labels urgent
+    [[ "${result[*]}" =~ --label ]] && [[ "${result[*]}" =~ urgent ]]
 }
 
 @test "build_issue_filters with multiple labels" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    result=$(build_issue_filters --labels urgent --labels blocked)
-    [[ "$result" =~ urgent ]] && [[ "$result" =~ blocked ]]
+    build_issue_filters result --labels urgent --labels blocked
+    [[ "${result[*]}" =~ urgent ]] && [[ "${result[*]}" =~ blocked ]]
 }
 
 @test "build_issue_filters with assignee" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    result=$(build_issue_filters --assignee alice)
-    [[ "$result" =~ --assignee ]] && [[ "$result" =~ alice ]]
+    build_issue_filters result --assignee alice
+    [[ "${result[*]}" =~ --assignee ]] && [[ "${result[*]}" =~ alice ]]
 }
 
 @test "build_issue_filters with milestone" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    result=$(build_issue_filters --milestone v1.0)
-    [[ "$result" =~ --milestone ]] && [[ "$result" =~ v1.0 ]]
+    build_issue_filters result --milestone v1.0
+    [[ "${result[*]}" =~ --milestone ]] && [[ "${result[*]}" =~ v1.0 ]]
 }
 
 @test "build_issue_filters with custom limit" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    result=$(build_issue_filters --limit 50)
-    [[ "$result" =~ --limit ]] && [[ "$result" =~ 50 ]]
+    build_issue_filters result --limit 50
+    [[ "${result[*]}" =~ --limit ]] && [[ "${result[*]}" =~ 50 ]]
 }
 
 @test "build_issue_filters with all options" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    result=$(build_issue_filters --state closed --type Bug --labels urgent --assignee alice --milestone v1.0 --limit 25)
-    [[ "$result" =~ closed ]] && [[ "$result" =~ "Bug" ]] && [[ "$result" =~ urgent ]] && [[ "$result" =~ alice ]] && [[ "$result" =~ v1.0 ]] && [[ "$result" =~ 25 ]]
+    build_issue_filters result --state closed --type Bug --labels urgent --assignee alice --milestone v1.0 --limit 25
+    [[ "${result[*]}" =~ closed ]] && [[ "${result[*]}" =~ "Bug" ]] && [[ "${result[*]}" =~ urgent ]] && [[ "${result[*]}" =~ alice ]] && [[ "${result[*]}" =~ v1.0 ]] && [[ "${result[*]}" =~ 25 ]]
+}
+
+@test "build_issue_filters returns one array element per argument" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    build_issue_filters result --state all --limit 7
+    [ "${#result[@]}" -eq 4 ]
+    [ "${result[0]}" = "--state" ]
+    [ "${result[1]}" = "all" ]
+    [ "${result[2]}" = "--limit" ]
+    [ "${result[3]}" = "7" ]
+}
+
+@test "build_issue_filters keeps a label and a milestone with spaces as single elements" {
+    # The filters used to come back as one space-joined string that every
+    # caller re-split, so "good first issue" became three separate arguments.
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    build_issue_filters result --labels "good first issue" --milestone "Sprint 5"
+    local found_label=0 found_milestone=0 i
+    for i in "${!result[@]}"; do
+        [ "${result[$i]}" = "--label" ] && [ "${result[$((i + 1))]}" = "good first issue" ] && found_label=1
+        [ "${result[$i]}" = "--milestone" ] && [ "${result[$((i + 1))]}" = "Sprint 5" ] && found_milestone=1
+    done
+    [ "$found_label" -eq 1 ]
+    [ "$found_milestone" -eq 1 ]
+}
+
+@test "build_issue_filters fills a caller array that is named like its own internals" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    build_issue_filters filters --state closed
+    [ "${filters[0]}" = "--state" ]
+    [ "${filters[1]}" = "closed" ]
+}
+
+@test "build_issue_filters rejects an unknown option instead of ignoring it" {
+    # A typo such as --tpye used to be skipped silently and the unfiltered
+    # list came back as if the filter had been applied.
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    run build_issue_filters result --tpye Bug
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"Unknown option: --tpye"* ]]
+}
+
+@test "build_issue_filters requires the output array name" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    run build_issue_filters
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"output array name"* ]]
+}
+
+@test "list_issues_formatted rejects an unknown option" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    run list_issues_formatted --tpye Bug
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"Unknown option: --tpye"* ]]
+}
+
+@test "get_issues_for_selection forwards a milestone filter as separate arguments" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    create_recording_gh_mock
+    run get_issues_for_selection --milestone "Sprint 5"
+    [ "$status" -eq 0 ]
+    grep -qx -- "--milestone" "$GH_CALL_LOG"
+    grep -qx -- "Sprint 5" "$GH_CALL_LOG"
+}
+
+@test "get_issues_for_selection rejects an unknown option" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    run get_issues_for_selection --tpye Bug
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"Unknown option: --tpye"* ]]
 }
 
 # ============================================================================
@@ -322,10 +394,10 @@ YML
 # Parameter validation tests
 # ============================================================================
 
-@test "build_issue_filters handles unknown parameters gracefully" {
+@test "build_issue_filters rejects unknown parameters rather than skipping them" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    result=$(build_issue_filters --unknown-param value)
-    [[ "$result" =~ --state ]]
+    run build_issue_filters result --unknown-param value
+    [ "$status" -eq 2 ]
 }
 
 @test "close_issue accepts repo parameter" {
@@ -387,14 +459,14 @@ YML
 
 @test "build_issue_filters with empty values" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    result=$(build_issue_filters --state "" --type "")
+    build_issue_filters result --state "" --type ""
     # Should handle empty values gracefully
-    [[ "$result" =~ --state ]]
+    [[ "${result[*]}" =~ --state ]]
 }
 
 @test "validate_issue_number rejects whitespace" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    ! validate_issue_number "123 "
+    run ! validate_issue_number "123 "
     ! validate_issue_number " 123"
 }
 @test "issue-operations: library can be sourced" {
@@ -676,12 +748,20 @@ EOF
     grep -qx -- "test-org/test-repo" "$GH_CALL_LOG"
 }
 
+@test "reopen_issue does not accumulate --comment across multiple issues (T001)" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    create_recording_gh_mock
+    run reopen_issue --repo test-org/test-repo --comment "hello" 123 124
+    [ "$status" -eq 0 ]
+    [ "$(grep -cx -- "--comment" "$GH_CALL_LOG")" -eq 2 ]
+}
+
 @test "close_issue does not pass flags unsupported by gh issue close" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
     create_recording_gh_mock
     run close_issue --repo test-org/test-repo 123
     [ "$status" -eq 0 ]
-    ! grep -qx -- "--state" "$GH_CALL_LOG"
+    run ! grep -qx -- "--state" "$GH_CALL_LOG"
     ! grep -qx -- "closed" "$GH_CALL_LOG"
 }
 

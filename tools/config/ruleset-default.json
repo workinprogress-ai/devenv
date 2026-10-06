@@ -53,7 +53,7 @@
       "type": "commit_message_pattern",
       "parameters": {
         "operator": "regex",
-        "pattern": "^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert|merge|patch|minor|major)(\\([^)]+\\))?!?:\\s.+",
+        "pattern": "^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert|patch|minor|major)(\\([^)]+\\))?!?:\\s.+",
         "negate": false,
         "name": ""
       }
@@ -72,15 +72,6 @@
       "parameters": {
         "operator": "ends_with",
         "pattern": "@{{email_domain}}",
-        "negate": false,
-        "name": ""
-      }
-    },
-    {
-      "type": "branch_name_pattern",
-      "parameters": {
-        "operator": "regex",
-        "pattern": "^(feature|bugfix|hotfix|docs)\\/[a-z0-9-]+$",
         "negate": false,
         "name": ""
       }

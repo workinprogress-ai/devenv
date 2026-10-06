@@ -175,8 +175,12 @@ build_dependency_index() {
             # Only record org package dependencies
             if [[ "$ref" == ${CS_DEP_ORG_PREFIX}* ]]; then
                 # Exclude self-references (packages from the same repo)
+                # Exact match on the package column: a substring match would
+                # attribute Org.Lib.Core to the repo that makes
+                # Org.Lib.Core.Common (or to a repo whose name contains it),
+                # inventing a dependency edge for a package nothing produces.
                 local ref_repo
-                ref_repo=$(grep -F "$ref" "$pkg_to_repo" 2>/dev/null | head -1 | cut -f2)
+                ref_repo=$(awk -F'\t' -v pkg="$ref" '$1 == pkg { print $2; exit }' "$pkg_to_repo" 2>/dev/null)
                 if [ -n "$ref_repo" ] && [ "$ref_repo" != "$repo_name" ]; then
                     printf '%s\t%s\t%s\n' "$repo_name" "$ref" "$ver" >> "$repo_deps"
                 fi
@@ -355,7 +359,9 @@ get_reverse_dependency_tree() {
     done
 
     # Verify the root repo is known
-    if ! grep -q "^${root_repo}"$'\t' "$repo_pkgs"; then
+    # Literal match on the repo column (a repo name such as "lib.core" holds
+    # regex metacharacters, so grep would treat the dot as a wildcard).
+    if ! awk -F'\t' -v repo="$root_repo" '$1 == repo { found = 1 } END { exit !found }' "$repo_pkgs"; then
         log_error "Repository '$root_repo' not found in package index"
         return 1
     fi

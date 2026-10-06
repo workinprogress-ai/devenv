@@ -68,7 +68,7 @@ provider_load issues prs auth" \
         provider_issues_list provider_issues_set_type
 }
 
-@test "loader: key-update-git sources the auth lifecycle via provider_load" {
+@test "loader: key-update-provider sources the auth lifecycle via provider_load" {
     compose_functions_defined \
         "source $DEVENV_TOOLS/lib/providers/provider-core.bash
 provider_load auth" \

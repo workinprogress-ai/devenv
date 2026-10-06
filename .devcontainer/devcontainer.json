@@ -4,7 +4,13 @@
 	"name": "WorkInProgress.ai Dev Environment",
 
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-	"image": "mcr.microsoft.com/devcontainers/base:bookworm",
+	// Pinned by digest (the multi-arch index for the bookworm tag), so every
+	// build starts from the same image. To pick up base-image updates, resolve the
+	// tag again and replace the digest in one reviewed change:
+	//   curl -sI -H 'Accept: application/vnd.oci.image.index.v1+json' \
+	//     https://mcr.microsoft.com/v2/devcontainers/base/manifests/bookworm
+	// and read the Docker-Content-Digest header.
+	"image": "mcr.microsoft.com/devcontainers/base:bookworm@sha256:3aacff4130e6cf04709f9cab1d7a6d3e1cc4bff6202bc61611831a18d3755673",
     "remoteEnv": {
         //"NODE_TLS_REJECT_UNAUTHORIZED": "0",
 		"DEVCONTAINER": "true"
@@ -16,6 +22,9 @@
 	// ],
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// Only the desktop's noVNC web port (6090) is forwarded: that is how the desktop
+	// is reached, in a browser (docs/Dev-container-environment.md). The raw VNC port
+	// (5091, below) is deliberately not forwarded.
 	"forwardPorts": [6090],
 	"portsAttributes": {
 			"6090": {
@@ -33,6 +42,9 @@
 	
     "remoteUser": "vscode",
 	"postStartCommand": "/bin/bash .devcontainer/container-start.sh",
+	// `file` is needed before bootstrap has installed anything: the CRLF self-heal
+	// preamble of bootstrap.sh and setup calls it, and bootstrap's own package list
+	// does not include it.
 	"postCreateCommand": "sudo apt update -y; sudo apt install file -y",
 
     // Docker extra run args
@@ -71,7 +83,6 @@
 				"k--kato.docomment",
 				"streetsidesoftware.code-spell-checker",
 				"ms-vscode-remote.remote-containers",
-				"ms-vscode-remote.remote-ssh",
 				"eamodio.gitlens",
 				"tintoy.msbuild-project-tools",
 				"quicktype.quicktype",

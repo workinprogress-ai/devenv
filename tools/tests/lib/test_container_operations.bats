@@ -17,43 +17,6 @@ teardown() {
   declare -f is_docker_available >/dev/null
 }
 
-# Test get_docker_compose_file
-@test "get_docker_compose_file finds docker-compose.yml" {
-  source "${DEVENV_ROOT}/tools/lib/container-operations.bash"
-  
-  tmpdir=$(mktemp -d)
-  touch "$tmpdir/docker-compose.yml"
-  
-  result=$(get_docker_compose_file "$tmpdir")
-  [[ "$result" == "$tmpdir/docker-compose.yml" ]]
-  
-  rm -rf "$tmpdir"
-}
-
-@test "get_docker_compose_file finds docker-compose.yaml" {
-  source "${DEVENV_ROOT}/tools/lib/container-operations.bash"
-  
-  tmpdir=$(mktemp -d)
-  touch "$tmpdir/docker-compose.yaml"
-  
-  result=$(get_docker_compose_file "$tmpdir")
-  [[ "$result" == "$tmpdir/docker-compose.yaml" ]]
-  
-  rm -rf "$tmpdir"
-}
-
-@test "get_docker_compose_file with existing file" {
-  source "${DEVENV_ROOT}/tools/lib/container-operations.bash"
-  
-  tmpdir=$(mktemp -d)
-  touch "$tmpdir/docker-compose.yml"
-  
-  result=$(get_docker_compose_file "$tmpdir")
-  [[ "$result" == "$tmpdir/docker-compose.yml" ]]
-  
-  rm -rf "$tmpdir"
-}
-
 # Test Docker image operations
 @test "docker_image_exists function exists" {
   source "${DEVENV_ROOT}/tools/lib/container-operations.bash"
@@ -100,12 +63,22 @@ teardown() {
   declare -f docker_disable_debugger >/dev/null
 }
 
+# Regression (T002): error_msg was undefined in error-handling.bash, so any
+# error path through these libs died with "command not found" (exit 127)
+# instead of the function's own return code.
+@test "docker_get_image_id with empty image name emits error_msg and returns 1, not 127" {
+  source "${DEVENV_ROOT}/tools/lib/container-operations.bash"
+
+  run docker_get_image_id ""
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"Image name is required"* ]]
+}
+
 # Test library exports
 @test "all container-operations functions are exported" {
   source "${DEVENV_ROOT}/tools/lib/container-operations.bash"
   
   declare -f is_docker_available >/dev/null
-  declare -f get_docker_compose_file >/dev/null
   declare -f docker_build_image >/dev/null
   declare -f docker_container_exists >/dev/null
 }

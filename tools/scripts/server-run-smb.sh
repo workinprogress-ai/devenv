@@ -5,7 +5,6 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 source "$DEVENV_TOOLS/lib/error-handling.bash"
-source "$DEVENV_TOOLS/lib/server-operations.bash"
 
 # shellcheck disable=SC2034 # debug is defined from DEVENV_ROOT  
 debug="${DEVENV_ROOT}/.debug"

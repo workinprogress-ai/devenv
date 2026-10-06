@@ -55,8 +55,10 @@ artifact_header_field() {
 #   carry a doc_id line within the first 256 characters, and an issue number
 #   must be resolvable from the issue_number metadata field (a literal
 #   "none" counts as absent) or from an issue-<N> segment inside the doc_id.
-#   Exits 0 and prints "upsertable" when the body would resolve; on failure
-#   prints the reason and exits 1.
+#   A present issue_number must be all digits, as the upsert requires: it
+#   rejects anything else after selection, so it is refused here instead of
+#   being advertised. Exits 0 and prints "upsertable" when the body would
+#   resolve; on failure prints the reason and exits 1.
 artifact_body_upsertable() {
     local body="$1"
     local prefix="${body:0:256}"
@@ -66,6 +68,12 @@ artifact_body_upsertable() {
     issue_field=$(artifact_header_field "$prefix" "issue_number")
     if [ "$issue_field" = "none" ]; then
         issue_field=""
+    fi
+    # Same rule as validate_issue_number in the upsert (this library stands
+    # alone, so the check is repeated here): digits only, nothing else.
+    if [ -n "$issue_field" ] && ! [[ "$issue_field" =~ ^[0-9]+$ ]]; then
+        echo "issue_number '${issue_field}' is not a number (must be digits only)"
+        return 1
     fi
     local inferred=""
     if [ -n "$doc_id" ]; then

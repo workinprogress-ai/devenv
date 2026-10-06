@@ -19,7 +19,6 @@ source "$DEVENV_TOOLS/lib/issue-operations.bash"
 readonly SCRIPT_VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Generate deterministic artifact doc_id values"
 
 ISSUE_NUMBER=""
 ARTIFACT_TYPE=""
@@ -38,7 +37,7 @@ Generate a deterministic doc_id in this format:
 
 Required Inputs:
   --issue N                    Issue number
-  --artifact-type TYPE         One of: spike, redesign, design, blueprint,
+  --artifact-type TYPE         One of: spike, research, redesign, design, blueprint,
                                requirements, specifications, grooming, roadmap,
                                plan, implementation-plan, solution-proposal
 

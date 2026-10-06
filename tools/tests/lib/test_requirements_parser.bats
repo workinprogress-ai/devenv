@@ -972,3 +972,84 @@ HEREDOC
     output=$(parse_requirements "$TEST_TEMP_DIR/no-number-req.md")
     [[ "$output" == "REQ-001|Widget|Core|None" ]]
 }
+
+# ============================================================================
+# Sections are recognised by name, not by their position or number
+# ============================================================================
+
+@test "sections numbered in a different order than assumed are still found by name" {
+    cat > "$TEST_TEMP_DIR/swapped.md" <<'DOC'
+# Doc
+
+## 1. Vision
+Why.
+
+## 2. Implementation Plan
+
+### PHASE-01: Foundations — Get the base going
+
+**Goal:** Build the base
+**Requirements:** REQ-001
+
+## 3. Requirements
+
+### Core Area
+
+#### REQ-001: First thing
+
+Details.
+DOC
+    run parse_phases "$TEST_TEMP_DIR/swapped.md"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"PHASE-01"* ]]
+    run parse_requirements "$TEST_TEMP_DIR/swapped.md"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"REQ-001"* ]]
+}
+
+@test "a later top-level section whose number merely starts with the same digit ends the plan" {
+    cat > "$TEST_TEMP_DIR/appendix.md" <<'DOC'
+# Doc
+
+## 1. Vision
+Why.
+
+## 2. Requirements
+
+### Area
+
+#### REQ-001: Real
+
+## 3. Implementation Plan
+
+### PHASE-01: Real phase — Does the work
+
+**Goal:** Do it
+**Requirements:** REQ-001
+
+## 30. Appendix
+
+### PHASE-99: Not a phase — appendix text
+DOC
+    run parse_phases "$TEST_TEMP_DIR/appendix.md"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"PHASE-01"* ]]
+    [[ "$output" != *"PHASE-99"* ]]
+}
+
+@test "validate_document does not accept an unrelated numbered heading as a required section" {
+    cat > "$TEST_TEMP_DIR/nameless.md" <<'DOC'
+# Doc
+
+## 1. Vision
+Why.
+
+## 2. Roadmap
+Not a requirements section.
+
+## 3. Implementation Plan
+Plan.
+DOC
+    run validate_document "$TEST_TEMP_DIR/nameless.md"
+    [[ "$output" == *"Missing Requirements section"* ]]
+}

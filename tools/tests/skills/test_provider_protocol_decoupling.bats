@@ -29,14 +29,11 @@ ALLOWED_PATHS=(
     "copilot/skills/_tools-reference.md"
     "copilot/skills/_shared/docs/"
     "tools/tests/skills/"
-    "copilot/copilot-instructions.md"
 )
 
 # Forbidden transport tokens in skill bodies.
 FORBIDDEN_PATTERNS=(
-    "GITHUB_REPO="
     "GITHUB_REPO"
-    "GITHUB_REPO=workinprogress"
     "workinprogress-ai"
     "issues-config.yml"
     "provider_token.txt"
@@ -72,23 +69,48 @@ setup_file_list() {
     [ "$(echo "$files" | grep -c .)" -ge 20 ]
 }
 
-@test "decoupling gate: no forbidden transport tokens in skill bodies" {
-    local violations=""
+# scan_violations: reads file paths on stdin, prints one VIOLATION line per
+# offending line (a line matching several patterns is reported once). Comment
+# lines are scanned like any other: the gate has no skip-comments carve-out.
+scan_violations() {
+    local f pat hit
     while IFS= read -r f; do
         [ -z "$f" ] && continue
-        for pat in "${FORBIDDEN_PATTERNS[@]}"; do
-            while IFS= read -r hit; do
-                [ -z "$hit" ] && continue
-                # Skip comment lines — prose documentation of the gate itself.
-                violations+="VIOLATION $f: $hit"$'\n'
-            done < <(grep -n -- "$pat" "$f" 2>/dev/null)
-        done
-    done < <(setup_file_list)
+        while IFS= read -r hit; do
+            [ -z "$hit" ] && continue
+            echo "VIOLATION $f: $hit"
+        done < <(
+            for pat in "${FORBIDDEN_PATTERNS[@]}"; do grep -n -- "$pat" "$f" 2>/dev/null; done | sort -t: -k1,1n -u
+        )
+    done
+}
+
+@test "decoupling gate: no forbidden transport tokens in skill bodies" {
+    local violations
+    violations=$(setup_file_list | scan_violations)
     if [ -n "$violations" ]; then
         printf '%s\n' "$violations" >&2
         echo "GitHub-specific transport tokens found in skill bodies (move to provider-protocols/github.md)" >&2
         return 1
     fi
+}
+
+@test "decoupling gate: copilot-instructions.md is actually scanned" {
+    setup_file_list | grep -qx "copilot/copilot-instructions.md"
+}
+
+@test "decoupling gate: a line matching overlapping patterns is reported once" {
+    local f="$BATS_TEST_TMPDIR/overlap.md"
+    echo 'export GITHUB_REPO=workinprogress-ai/x' > "$f"
+    local out
+    out=$(echo "$f" | scan_violations)
+    [ "$(echo "$out" | grep -c VIOLATION)" -eq 1 ]
+}
+
+@test "decoupling gate: a comment line is not exempt" {
+    local f="$BATS_TEST_TMPDIR/comment.md"
+    echo '# GITHUB_REPO is documented here' > "$f"
+    [ "$(echo "$f" | scan_violations | grep -c VIOLATION)" -eq 1 ]
 }
 
 @test "decoupling gate: protocol references exist with required sections" {

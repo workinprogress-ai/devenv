@@ -272,7 +272,7 @@ Issues in GitHub Projects use a Status field with 8 states:
 - No further work on original issue
 - New bugs created as separate issues
 
-**Note:** Issues are closed when moved to Production. Don't reopen for Production bugs—create new bug issues instead.
+**Note:** Don't reopen an issue for a Production bug — create a new bug issue instead.
 
 ## Common Workflows
 
@@ -287,26 +287,25 @@ issue-update 123 --milestone "Sprint 6"
 issue-update 124 --milestone "Sprint 6"
 issue-update 125 --milestone "Sprint 6"
 
-# 4. Add issues to project
+# 3. Add issues to project
 project-add-issue "Q1 2026" 123 124 125
 
-# 5. Move TBD issues to To-Groom via the triage signal (workflow states
+# 4. Move TBD issues to To-Groom via the triage signal (workflow states
 #    advance by their own signals — see Issue-Workflow.md "Forcing")
 issue-triage --triage-complete 123 124 125
-# (Manual escape hatch: project-update-issue "Q1 2026" 123 --status "Ready")
 ```
 
 ### Development Workflow
 
-Workflow states advance by their own signals (see [Issue Workflow](./Issue-Workflow.md)): assignments, PR events, and merge/deploy wrappers move cards — the examples below show what fires each transition. `project-update-issue --status` is the manual escape hatch, not the primary mechanism.
+Workflow states advance by their own signals (see [Issue Workflow](./Issue-Workflow.md)): PR events, the merge/deploy wrappers, and explicit `workflow-signal` calls move cards (assigning an issue does not) — the examples below show what fires each transition. `project-update-issue --status` is for delivery states only (Merged, Staging, Production).
 
 ```bash
 # 1. Select an issue to work on
 issue_num=$(issue-select --milestone "Sprint 6")
 
-# 2. Start implementing — assigning yourself signals Implementing
+# 2. Start implementing — assign yourself, then signal the transition
 issue-update $issue_num --add-assignee "@me"
-# (Escape hatch: project-update-issue "Q1 2026" $issue_num --status "Implementing")
+workflow-signal begin-implementation $issue_num   # → Implementing
 
 # 3. Create branch and make changes
 git checkout -b feature/my-feature
@@ -347,7 +346,7 @@ issue-triage
 
 # 4. After grooming, move to project
 project-add-issue "Q1 2026" 42 43 44 45
-project-update-issue "Q1 2026" 42 --status "To-Groom"
+workflow-signal triage-complete 42   # TBD → To-Groom
 ```
 
 ### Finding and Filtering Issues
@@ -507,7 +506,7 @@ issue-comment ISSUE# --edit
 issue-artifact-upsert [--issue ISSUE#] [--body TEXT | --body-file FILE | piped stdin | interactive] [--all] [--dry-run]
 ```
 
-Use this when posting skill artifacts (spike/redesign/design/blueprint/specifications/roadmap/plan) to an issue so re-runs update the same comment instead of creating duplicates.
+Use this when posting skill artifacts (research/redesign/design/blueprint/specifications/roadmap/plan) to an issue so re-runs update the same comment instead of creating duplicates.
 
 Body source: `--body`, `--body-file` (use `-` for stdin), piped stdin with no flag, or — interactively — an fzf picker over `.local-artifacts/*.md` (`tmp*.md` excluded unless `--all`).
 
@@ -635,8 +634,8 @@ issue-create --title "PayPal Integration" --type Task \
 project-add-issue "Q1 2026" 100 101 102
 
 # 4. Set statuses
-project-update-issue "Q1 2026" 100 --status "To-Groom"
-project-update-issue "Q1 2026" 101 --status "Ready"
+workflow-signal triage-complete 100 101   # TBD → To-Groom
+workflow-signal end-planning 101          # → Ready
 ```
 
 ### Example 2: Development Workflow
@@ -645,7 +644,7 @@ project-update-issue "Q1 2026" 101 --status "Ready"
 # 1. Start work on an issue
 issue_num=101
 issue-update $issue_num --add-assignee "@me"
-project-update-issue "Q1 2026" $issue_num --status "Implementing"
+workflow-signal begin-implementation $issue_num   # → Implementing
 
 # 2. Create branch and work
 git checkout -b feature/stripe-integration
@@ -655,8 +654,7 @@ git checkout -b feature/stripe-integration
 pr-create "feat: stripe integration" --issue 101
 # This creates the PR for the current branch
 
-# 4. Update status in project
-project-update-issue "Q1 2026" $issue_num --status "Review"
+# 4. pr-create already signalled Review on open; nothing to set by hand
 
 # 5. After PR approval and merge
 project-update-issue "Q1 2026" $issue_num --status "Merged"
@@ -700,15 +698,14 @@ Charge fails with generic error" \
 
 # 2. Start work
 issue-update 150 --add-assignee "@me"
-project-update-issue "Q1 2026" 150 --status "Implementing"
+workflow-signal begin-implementation 150   # → Implementing
 
 # 3. Work on fix and create PR
 git checkout -b bugfix/stripe-paypal-support
 # ... fix code ...
 pr-create
 
-# 4. Update status
-project-update-issue "Q1 2026" 150 --status "Review"
+# 4. pr-create signalled Review on open
 
 # 5. After merge
 project-update-issue "Q1 2026" 150 --status "Merged"

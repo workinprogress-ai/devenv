@@ -107,18 +107,3 @@ load ../test_helper
 
 # Existence guard: wrapper scripts are added independently; this suite
 # asserts only scripts that are present.
-@test "policy-export.sh exists with valid syntax and --help" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/policy-export.sh"
-  [ "$status" -eq 0 ]
-  run bash "$PROJECT_ROOT/tools/scripts/policy-export.sh" --help
-  [ "$status" -eq 0 ]
-  [[ "$output" =~ "Usage:" ]]
-}
-
-@test "issue-types.sh exists with valid syntax and --help" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/issue-types.sh"
-  [ "$status" -eq 0 ]
-  run bash "$PROJECT_ROOT/tools/scripts/issue-types.sh" --help
-  [ "$status" -eq 0 ]
-  [[ "$output" =~ "Usage:" ]]
-}

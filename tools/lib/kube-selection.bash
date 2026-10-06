@@ -163,7 +163,7 @@ resolve_namespace() {
         elif [ "$match_count" -gt 1 ]; then
             if _kube_interactive; then
                 local picked
-                picked=$(printf '%s' "$matches" | fzf_select_single "Ambiguous namespace (matched $match_count, pick one): ")
+                picked=$(fzf_select_single "$matches" "Ambiguous namespace (matched $match_count, pick one): ")
                 if [ -n "$picked" ]; then
                     echo "$picked"
                     return 0
@@ -183,7 +183,7 @@ resolve_namespace() {
     # Nothing given: interactive picker on a TTY.
     if _kube_interactive; then
         local picked
-        picked=$(printf '%s\n' "$all_ns" | fzf_select_single "Select namespace: ")
+        picked=$(fzf_select_single "$all_ns" "Select namespace: ")
         if [ -n "$picked" ]; then
             echo "$picked"
             return 0
@@ -608,63 +608,6 @@ get_deployment_info() {
     kubectl get deployment "$deployment" $ns_flag -o json
 }
 
-# ============================================================================
-# Context Operations
-# ============================================================================
-
-# List available contexts
-# Usage: list_contexts
-# Returns: List of context names
-# Example:
-#   contexts=$(list_contexts)
-list_contexts() {
-    kubectl config get-contexts --no-headers | awk '{print $1}'
-}
-
-# Get current context
-# Usage: get_current_context
-# Returns: Current context name
-# Example:
-#   context=$(get_current_context)
-get_current_context() {
-    kubectl config current-context
-}
-
-# Select context with fzf
-# Usage: select_context_interactive
-# Returns: Selected context name
-# Example:
-#   context=$(select_context_interactive)
-select_context_interactive() {
-    check_fzf_installed || {
-        log_error "fzf is required for interactive selection"
-        return 1
-    }
-
-    local contexts
-    contexts=$(list_contexts)
-    
-    if [ -z "$contexts" ]; then
-        log_error "No contexts found"
-        return 1
-    fi
-
-    if [ "$(echo "$contexts" | wc -l)" -eq 1 ]; then
-        echo "$contexts"
-        return 0
-    fi
-
-    # Multiple contexts - use fzf for selection
-    local selected
-    selected=$(fzf_select_single "$contexts" "Select context: ")
-    
-    if ! fzf_validate_selection "$selected" "context"; then
-        return 1
-    fi
-    
-    echo "$selected"
-}
-
 # Export functions
 export -f get_namespace_option
 export -f list_namespaces
@@ -678,18 +621,25 @@ export -f pod_exists
 export -f deployment_exists
 export -f get_pod_info
 export -f get_deployment_info
-export -f list_contexts
-export -f get_current_context
-export -f select_context_interactive
 
 # ============================================================================
 # Destructive-action confirmation
 # ============================================================================
 
+# Status for a confirmation the user declined: distinct from success (0) so
+# calling automation can tell "nothing was done because it was declined" from
+# "done"; 130 is the code this repo's tools already use for a user-initiated
+# stop (tunnel-ports.sh, devenv-memory-watch.sh).
+readonly KUBE_CONFIRM_DECLINED_STATUS=130
+
 # confirm_or_fail ACTION_DESCRIPTION
 #   Confirms a destructive action on the terminal, or fails fast when
 #   non-interactive unless the caller opted out via YES=1 / FORCE_YES=1.
 #   Shared by kube-pod-delete / kube-pod-scale / kube-pod-restart.
+#   Returns 0 to proceed; 130 when the user declines; 2 when there is no
+#   terminal to ask on. It RETURNS rather than exits so it cannot end a
+#   sourcing caller's shell; the caller must stop on a non-zero status:
+#       confirm_or_fail "Delete pod x" || exit $?
 confirm_or_fail() {
     local action="$1"
     if [ "${YES:-0}" = "1" ] || [ "${FORCE_YES:-0}" = "1" ]; then
@@ -699,9 +649,12 @@ confirm_or_fail() {
         printf "%s? [y/N] " "$action"
         local answer=""
         read -r answer < /dev/tty || true
-        [[ "${answer:-}" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; }
+        if ! [[ "${answer:-}" =~ ^[Yy]$ ]]; then
+            echo "Aborted."
+            return "$KUBE_CONFIRM_DECLINED_STATUS"
+        fi
     else
         echo "Refusing to proceed without confirmation (set YES=1 to skip the prompt): $action" >&2
-        exit 2
+        return 2
     fi
 }

@@ -249,3 +249,34 @@ JSON
     [ "$status" -eq 0 ]
     grep -q "repositoryId=guid-1234" "$STUB_CALL_LOG"
 }
+
+# URL shape of the builds list: the query separator is '?' when the base carries no
+# query (project-wide, no repo) and '&' when it does (repo-scoped). A wrong choice
+# yields ".../builds&$top=..." (404) or a doubled '?'.
+
+builds_url_for() {   # builds_url_for [repo-args...] -> the URL the verb requested
+    build_page > "$TEST_TEMP_DIR/builds.json"
+    : > "$STUB_CALL_LOG"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/builds.json" azure_run provider_pipelines_run_list "$@" >/dev/null
+    grep -m1 '_apis/build/builds' "$STUB_CALL_LOG"
+}
+
+@test "run_list with no repo requests builds?\$top=… (separator '?', never 'builds&')" {
+    url="$(builds_url_for --limit 7)"
+    [[ "$url" == *'/_apis/build/builds?$top=7&queryOrder=queueTimeDescending'* ]]
+    [[ "$url" != *'builds&'* ]]
+}
+
+@test "run_list with a repo appends \$top after the existing query with '&'" {
+    url="$(builds_url_for proj/repo1 --limit 7)"
+    [[ "$url" == *'/_apis/build/builds?repositoryId=repo1&repositoryType=TfsGit&$top=7'* ]]
+}
+
+@test "run_list URLs contain exactly one '?' before the api-version is appended" {
+    for args in "--limit 3" "proj/repo1 --limit 3" "--branch main --limit 3" "proj/repo1 --branch main --status in_progress"; do
+        # shellcheck disable=SC2086
+        url="$(builds_url_for $args)"
+        base="${url%%&api-version*}"
+        [ "$(grep -o '?' <<<"$base" | wc -l)" -eq 1 ]
+    done
+}

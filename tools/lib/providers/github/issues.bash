@@ -184,15 +184,16 @@ provider_issues_close() {
 }
 
 # Reopen an issue.
-# Usage: provider_issues_reopen [repo] NUMBER
+# Usage: provider_issues_reopen [repo] NUMBER [gh-args...]
 provider_issues_reopen() {
     local repo=""
     if [ $# -gt 0 ] && [[ "$1" != --* ]]; then
         repo="$1"; shift
     fi
+    local number="$1"; shift
     local repo_args=()
     provider_gh_repo_args repo_args "$repo"
-    gh issue reopen "$1" "${repo_args[@]}"
+    gh issue reopen "$number" "${repo_args[@]}" "$@"
 }
 
 # Edit an issue.

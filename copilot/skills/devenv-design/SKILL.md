@@ -269,7 +269,7 @@ Before writing anything down (or wrapping up only when explicitly requested), ch
 - [ ] Each option has honest drawbacks (not "this option has no downsides")
 - [ ] Recommendation is explicit, not implied
 - [ ] Assumptions that could invalidate the recommendation are named, with a sketch of how to check them
-- [ ] Follow-up work is identified — does this need a spike? a blueprint? a plan?
+- [ ] Follow-up work is identified — does this need research? a blueprint? a plan?
 
 Any open question not explicitly kept open by the user should be converted into a decision, recommendation, or concrete follow-up before wrap-up.
 

@@ -25,10 +25,15 @@ This design allows anyone forking this repository to:
    - Runs all default bootstrap tasks
    - Can accept specific task names as arguments
 
-3. **`.devcontainer/custom-bootstrap.sh`** (optional)
-   - Run automatically at the end of default bootstrap
-   - For organization-specific customizations
-   - Not tracked in git (add to `.gitignore`)
+3. **`.devcontainer/org-custom-bootstrap.sh`** (optional)
+   - Run by `run_custom_bootstrap_if_present` near the end of the bootstrap (before cleanup)
+   - For organization-wide customizations
+   - Committed to the repository
+
+4. **`.devcontainer/user-custom-bootstrap.sh`** (optional)
+   - Run by `run_custom_bootstrap_if_present` right after the org script
+   - For personal customizations (created by `devenv-add-custom-bootstrap`)
+   - Not tracked in git (ignored)
 
 ## Default Bootstrap Flow
 

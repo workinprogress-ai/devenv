@@ -62,3 +62,53 @@ artifact_header_status() {
   [ "$status" -eq 1 ]
   [[ "$output" == *"no resolvable issue number"* ]]
 }
+
+# The picker advertises what artifact_file_upsertable accepts, and the upsert
+# then rejects any issue_number that is not all digits (exit 2) — so a value
+# like "abc" used to be offered and then fail after selection.
+
+make_header_file() {
+  # make_header_file NAME DOC_ID ISSUE_NUMBER_LINE
+  printf '<!-- DEVENV_ARTIFACT_V1\ndoc_id: %s\n%s\n-->\n\nbody\n' "$2" "$3" > "$TEST_TEMP_DIR/$1"
+}
+
+@test "a non-numeric issue_number is not upsertable, even when the doc_id names an issue" {
+  make_header_file bad.md 'dv1:org/repo:issue-42:plan:x' 'issue_number: abc'
+  run artifact_header_status "$TEST_TEMP_DIR/bad.md"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"issue_number"* ]]
+  [[ "$output" == *"'abc'"* ]]
+  [[ "$output" == *"not a number"* ]]
+}
+
+@test "numeric-looking but malformed issue_number values are rejected" {
+  local value
+  for value in '42x' '-3' '4 2' '#42' '4.2' '0x2A'; do
+    make_header_file odd.md 'dv1:org/repo:local:plan:x' "issue_number: $value"
+    run artifact_header_status "$TEST_TEMP_DIR/odd.md"
+    [ "$status" -eq 1 ] || { echo "accepted: '$value'"; return 1; }
+  done
+}
+
+@test "a malformed issue_number is rejected even with no doc_id fallback" {
+  make_header_file bad2.md 'dv1:org/repo:local:plan:x' 'issue_number: twelve'
+  run artifact_header_status "$TEST_TEMP_DIR/bad2.md"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not a number"* ]]
+}
+
+@test "digits-only issue_number values still resolve (including a leading zero)" {
+  local value
+  for value in '42' '7' '007'; do
+    make_header_file ok.md 'dv1:org/repo:local:plan:x' "issue_number: $value"
+    run artifact_header_status "$TEST_TEMP_DIR/ok.md"
+    [ "$status" -eq 0 ] || { echo "rejected: '$value'"; return 1; }
+    [[ "$output" == *"upsertable"* ]]
+  done
+}
+
+@test "issue_number none still counts as absent and falls back to the doc_id" {
+  make_header_file none.md 'dv1:org/repo:issue-42:plan:x' 'issue_number: none'
+  run artifact_header_status "$TEST_TEMP_DIR/none.md"
+  [ "$status" -eq 0 ]
+}

@@ -4,7 +4,7 @@
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 # project-add-issue.sh - Add issues to GitHub Projects (v2)
-# Version: 1.0.0
+# Version: 1.1.0
 # Description: Add one or more issues to a GitHub Project with optional field values
 # Requirements: Bash 4.0+, gh CLI
 # Author: WorkInProgress.ai
@@ -24,7 +24,6 @@ source "$DEVENV_TOOLS/lib/fzf-selection.bash"
 
 readonly SCRIPT_VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Add issues to GitHub Projects"
 readonly SCRIPT_NAME
 
 # ============================================================================
@@ -236,6 +235,9 @@ process_issues() {
 # ============================================================================
 
 main() {
+    # --help / --version are answered before any validation or authentication.
+    if handle_global_flag "${1:-}"; then exit 0; fi
+
     # Parse command-line arguments
     if [ $# -eq 0 ]; then
         log_error "Project name and at least one issue number are required"

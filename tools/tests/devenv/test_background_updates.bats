@@ -52,11 +52,6 @@ teardown() {
   [ "$status" -eq 0 ]
 }
 
-@test "background-check-devenv-updates.sh defines SCRIPT_VERSION" {
-  run grep "readonly SCRIPT_VERSION=" "$PROJECT_ROOT/.devcontainer/background-check-devenv-updates.sh"
-  [ "$status" -eq 0 ]
-}
-
 @test "background-check-devenv-updates.sh has cleanup function" {
   run grep "^cleanup()" "$PROJECT_ROOT/.devcontainer/background-check-devenv-updates.sh"
   [ "$status" -eq 0 ]

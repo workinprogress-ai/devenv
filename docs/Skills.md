@@ -225,7 +225,7 @@ Answers status/composition/progress questions (board status, epic rollups via th
 | `/devenv-update-roadmap` | Sync roadmap status from issues + PRs; republish artifact + epic task list | Epic number (optionally `:doc_id`) |
 | `/devenv-plan` | Create a current-state execution plan via interview or from a complete spec/RFC/doc; complex code plans may encode a Review phase; micro lane for standalone small deliverables | Issue #, description, or complete spec |
 | `/devenv-refine-plan` | Align a plan with reality from any starting point — surgical edits, structured revision, or staleness assessment with internal routing | Plan file path or issue # |
-| `/devenv-board` | On-demand project management — status answers, hygiene sweeps, recommendations, and consented changes across the issue landscape (project members and unprojected tickets) | Question, sweep, or instruction (freeform) |
+| `/devenv-board` | On-demand project management — status answers (incl. roadmap views), hygiene sweeps, recommendations, and consented changes (incl. materializing ratified roadmap steps as backlog issues) across the issue landscape (project members and unprojected tickets); subsumes the former query-progress charter | Question, sweep, or instruction (freeform) |
 
 ### Working modes
 
@@ -234,6 +234,7 @@ Answers status/composition/progress questions (board status, epic rollups via th
 | `/devenv-pair` | Collaborative build with bounded autonomy span — the engineer stays in control and reviews every task or small chunk; the AI keeps the plan aligned to actual work as scope/questions emerge; question-shaped prompts default to analysis until explicit implementation direction | Issue # or plan path |
 | `/devenv-delegate` | Commissioned autonomous build run — entered only by explicit invocation; assistant-led execution with user review and ownership, phase by phase, while keeping the plan aligned to actual work | Issue # or plan path |
 | `/devenv-document` | Bootstrap or refresh the repo docs family (Architecture_and_implementation + Usage_guide) and the thin AGENTS.md dispatcher; legacy investigations keep the Q-NNN machinery | Repo path, component name, or description |
+| `/devenv-load` | Read-only session warm-up — `skill-orient` census, marker discovery, conventions and a bounded layout skim so the next skill starts warm; nothing is written | Optional area or path to target |
 | `/devenv-chat` | Conversational fact-finding with source code, markdown-first repos, or a GitHub issue — the repo talks back | Repo path(s), issue #, or nothing for current workspace |
 | `/devenv-research` | Exploratory investigation + findings doc; empowered like `/devenv-hunt` (consented in-repo experiments with recovery route) | Question or issue # |
 | `/devenv-design` | Opinionated, conversation-first thinking partner for design/architecture choices; best for one bounded blocker or design question; writes `Solution_Proposal_<topic>-NNN.md` only on request (as context-rich input to technical design); may draft pattern candidates / knowledge additions when targeted or when a generalization becomes apparent; the only skill that prepares engineering-repo changes as user-merge PRs | Design question or topic |
@@ -253,7 +254,7 @@ Answers status/composition/progress questions (board status, epic rollups via th
 | `/devenv-hunt` | End-to-end bug skill — verify (aggressive hypothesis hunt, verdict) / diagnose (root-cause trace) / fix (test-first, confirmed changes) | Observation+expectation, bug description, issue #, or hunt report |
 | `/devenv-review` | Review assistance for your changes; "review uncommitted" targets staged + working-tree changes; `--plan` folds approved findings into the plan's Review phase | PR #, refs, `--plan <path>`, or nothing |
 | `/devenv-commit` | Commit via repo-commit — glance + marker gate + message craft; WIP lane on choice; deep review → `/devenv-review` | "commit this", "wip this" (`--wip`), or nothing |
-| `/devenv-audit` | Opinionated codebase audit — file-cited findings across debt + correctness/bug risks, severity, effort; optional focus area; offers to create a issue after the audit | Repo path(s), optionally + focus area description; or issue # |
+| `/devenv-audit` | Opinionated codebase audit — file-cited findings across debt + correctness/bug risks, severity, effort; optional focus area; offers to create an issue after the audit | Repo path(s), optionally + focus area description; or issue # |
 
 ### Meta
 
@@ -423,7 +424,7 @@ Component design changed
 | `/devenv-chat` vs `/devenv-design` | /devenv-chat surfaces facts about existing code. /devenv-design weighs trade-offs and drives to a recommendation for what to build or change. |
 | `/devenv-document` vs `/devenv-create-blueprint` | Document describes an *existing* system as it is (reference, orientation, context). Blueprint *designs* how a system should be structured (architecture, new components, deltas). Use document to understand the present; use blueprint to plan the future. |
 | `/devenv-document` vs `/devenv-audit` | Document aims to produce useful reference material. /devenv-audit aims to surface problems and prioritise remediation. |
-| `/devenv-design` vs `/devenv-research` | /devenv-design narrows options by reasoning. Spike answers feasibility questions that require running code. |
+| `/devenv-design` vs `/devenv-research` | /devenv-design narrows options by reasoning. Research answers feasibility questions that require running code. |
 | `/devenv-design` vs `/devenv-create-blueprint` | /devenv-design is exploratory and focused — picks between approaches. Blueprint is formal and broad — decomposes a chosen approach into domains, services, events, components. /devenv-design typically *precedes* a blueprint, or is invoked *after* one to settle a specific question. |
 | `/devenv-design` vs `/devenv-plan` | Use /devenv-design when the approach is still unclear or one bounded blocker needs deeper option-weighing. Use /devenv-plan when the approach is already chosen and you need executable tasks. |
 | `/devenv-board` vs `/devenv-update-roadmap` | Board truth vs roadmap sync. /devenv-board **answers and corrects** issue/board state (writes only on explicit instruction or consented batch); update-roadmap **syncs** roadmap step status from issues and republishes the artifact. |

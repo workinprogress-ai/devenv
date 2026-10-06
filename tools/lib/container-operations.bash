@@ -12,10 +12,7 @@
 #
 # Functions exported:
 #   - is_docker_available()
-#   - get_docker_compose_file()
 #   - docker_is_running()
-#   - docker_compose_up()
-#   - docker_compose_down()
 #   - docker_build_image()
 #   - docker_get_image_id()
 #   - docker_image_exists()
@@ -53,88 +50,8 @@ is_docker_available() {
   command -v docker &>/dev/null && docker info >/dev/null 2>&1
 }
 
-# shellcheck disable=SC2120
-get_docker_compose_file() {
-  local search_dir="${1:-.}"
-  
-  if [[ -f "${search_dir}/docker-compose.yml" ]]; then
-    echo "${search_dir}/docker-compose.yml"
-  elif [[ -f "${search_dir}/docker-compose.yaml" ]]; then
-    echo "${search_dir}/docker-compose.yaml"
-  elif [[ -f "docker-compose.yml" ]]; then
-    echo "docker-compose.yml"
-  elif [[ -f "docker-compose.yaml" ]]; then
-    echo "docker-compose.yaml"
-  else
-    return 1
-  fi
-}
-
 docker_is_running() {
   docker ps >/dev/null 2>&1
-}
-
-################################################################################
-# Docker Compose Operations
-################################################################################
-
-docker_compose_up() {
-  # shellcheck disable=SC2119
-  local compose_file="${1:-$(get_docker_compose_file)}"
-  local detach="${2:-true}"
-  
-  if [[ ! -f "$compose_file" ]]; then
-    error_msg "Docker compose file not found: $compose_file"
-    return 1
-  fi
-  
-  if ! is_docker_available; then
-    error_msg "Docker is not available"
-    return 1
-  fi
-  
-  log_info "Starting Docker containers from: $compose_file"
-  
-  local compose_args=("-f" "$compose_file")
-  
-  if [[ "$detach" == "true" ]]; then
-    compose_args+=("up" "-d")
-  else
-    compose_args+=("up")
-  fi
-  
-  if docker compose "${compose_args[@]}" >/dev/null 2>&1; then
-    log_success "Docker containers started successfully"
-    return 0
-  else
-    error_msg "Failed to start Docker containers"
-    return 1
-  fi
-}
-
-docker_compose_down() {
-  # shellcheck disable=SC2119
-  local compose_file="${1:-$(get_docker_compose_file)}"
-  
-  if [[ ! -f "$compose_file" ]]; then
-    error_msg "Docker compose file not found: $compose_file"
-    return 1
-  fi
-  
-  if ! is_docker_available; then
-    error_msg "Docker is not available"
-    return 1
-  fi
-  
-  log_info "Stopping Docker containers from: $compose_file"
-  
-  if docker compose -f "$compose_file" down >/dev/null 2>&1; then
-    log_success "Docker containers stopped successfully"
-    return 0
-  else
-    error_msg "Failed to stop Docker containers"
-    return 1
-  fi
 }
 
 ################################################################################
@@ -331,10 +248,7 @@ docker_disable_debugger() {
 
 # Export all functions
 export -f is_docker_available
-export -f get_docker_compose_file
 export -f docker_is_running
-export -f docker_compose_up
-export -f docker_compose_down
 export -f docker_build_image
 export -f docker_get_image_id
 export -f docker_image_exists

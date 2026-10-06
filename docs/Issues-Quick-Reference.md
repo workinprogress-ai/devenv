@@ -107,12 +107,12 @@ issue-comment 123 --edit                # Open $EDITOR
 
 ```bash
 issue-artifact-upsert \
-    --body-file spike-001-topic.md
+    --body-file research-001-topic.md
 
 issue-artifact-upsert --issue 123 \
-    --body-file spike-001-topic.md --dry-run
+    --body-file research-001-topic.md --dry-run
 
-cat spike-001-topic.md | issue-artifact-upsert --issue 123   # piped stdin
+cat research-001-topic.md | issue-artifact-upsert --issue 123   # piped stdin
 issue-artifact-upsert                                        # interactive picker over .local-artifacts/
 ```
 
@@ -127,7 +127,7 @@ issue-artifact-upsert                                        # interactive picke
 ### Generate Artifact `doc_id`
 
 ```bash
-issue-artifact-doc-id --issue 123 --artifact-type spike --slug "Retry Strategy"
+issue-artifact-doc-id --issue 123 --artifact-type research --slug "Retry Strategy"
 issue-artifact-doc-id --issue 123 --artifact-type redesign --source-file Redesign--003-Auth-Flow.md
 issue-artifact-doc-id --issue 123 --artifact-type plan --source-file Plan-issue-123-001.md
 ```
@@ -197,7 +197,7 @@ project-add-issue "Q1 2026" 123
 Workflow states advance by their own signals (see [Issue Workflow](./Issue-Workflow.md)); manual writes are the escape hatch:
 
 ```bash
-project-update-issue "Q1 2026" 123 --status "Ready"   # escape hatch
+workflow-signal end-planning 123   # → Ready (planning approved)
 ```
 
 ## Status Workflow
@@ -220,7 +220,7 @@ workflow-signal                             # interactive: pick "what happened"
 ### Set Status directly (forced writes; delivery states only)
 
 ```bash
-project-update-issue 123 --status "Implementing" --all-projects
+project-update-issue 123 --status "Staging" --all-projects
 ```
 
 Workflow states cannot be forced — they advance only by their own signals.
@@ -270,7 +270,8 @@ issue-triage --triage-complete 123   # fires the TBD→To-Groom signal
 ### Start Development
 
 ```bash
-issue-update 123 --add-assignee "@me"   # assignment signals Implementing
+issue-update 123 --add-assignee "@me"   # assignment alone does not move the card
+workflow-signal begin-implementation 123   # → Implementing
 git checkout -b feature/my-feature
 ```
 
@@ -292,6 +293,7 @@ pr-merge
 
 # Closing stays explicit:
 issue-close 123 --reason completed
+```
 
 ## Filtering Cheatsheet
 
@@ -377,7 +379,6 @@ issue-create    # Create issue (batch: issue-create-batch)
 issue-list      # List issues
 issue-search    # Search issues
 issue-get       # Fetch issue as JSON
-issue-get       # Fetch issue as JSON
 issue-update    # Update issue
 issue-close     # Close issue
 issue-select    # Interactive picker
@@ -395,7 +396,7 @@ Use `alias` in shell to see all available aliases.
 
 ## Environment Variables
 
-- `GH_TOKEN` - Not used day-to-day: tokens live in the keychain (via `key-update-git`), and an exported `GH_TOKEN` is honored only when the provider allowlist opts in. Never required.
+- `GH_TOKEN` - Not used day-to-day: tokens live in the keychain (via `key-update-provider`), and an exported `GH_TOKEN` is honored only when the provider allowlist opts in. Never required.
 - `DEVENV_REPO` - Target repo override (`owner/repo`); auto-detected from the cwd when unset
 
 ## Get Help

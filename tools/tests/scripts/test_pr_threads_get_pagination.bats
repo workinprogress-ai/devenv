@@ -117,7 +117,7 @@ EOF
     run bash "$PROJECT_ROOT/tools/scripts/pr-threads-get.sh" 42
     [ "$status" -eq 0 ]
     [[ "$output" == *'"id":"T_OPEN"'* ]]
-    ! grep -q "T_RESOLVED" <<< "$output"
+    [[ "$output" != *"T_RESOLVED"* ]]
 
     # Re-fill the queue (the first run consumed the page), then --all keeps
     # both threads.

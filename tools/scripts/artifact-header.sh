@@ -19,7 +19,6 @@ source "$DEVENV_TOOLS/lib/artifact-header.bash"
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Parse and stamp DEVENV_ARTIFACT_V1 headers in local files"
 
 FILE=""
 FIELD=""

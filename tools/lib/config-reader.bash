@@ -3,6 +3,9 @@
 # Library for reading INI-style configuration files with environment variable expansion
 # Provides: config_read_value(), config_read_array(), config_validate_required()
 # Duplicate keys: last occurrence wins; repeats warn on stderr.
+# Section and key names are matched literally (never as regular expressions).
+# A key that is present but empty (k=) reads the same as an absent key: the
+# caller's default is returned (present-but-empty is not distinguishable).
 
 # Guard against multiple sourcing
 if [ -n "${_CONFIG_READER_LOADED:-}" ]; then return 0; fi
@@ -37,10 +40,10 @@ config_read_value() {
     
     local value
     value=$(awk -v section="$section" -v key="$key" -v conffile="$CONFIG_FILE" '
-        /^\['"$section"'\]/ { in_section=1; next }
+        index($0, "[" section "]") == 1 { in_section=1; next }
         /^\[/ { in_section=0; next }
-        in_section && /^'"$key"'=/ {
-            sub(/^'"$key"'=/, "")
+        in_section && index($0, key "=") == 1 {
+            $0 = substr($0, length(key) + 2)
             # Duplicate keys: last occurrence wins; the repeat is warned on
             # stderr so a stale edit is visible instead of silently ambiguous.
             if (seen++) {
@@ -148,7 +151,7 @@ config_list_section() {
     fi
     
     awk -v section="$section" '
-        /^\['"$section"'\]/ { in_section=1; next }
+        index($0, "[" section "]") == 1 { in_section=1; next }
         /^\[/ { in_section=0; next }
         in_section && /^[^#=]+=[^=]*$/ {
             sub(/=.*/, "")
@@ -171,7 +174,7 @@ config_dump() {
     fi
     
     awk -v section="$section" '
-        /^\['"$section"'\]/ { in_section=1; next }
+        index($0, "[" section "]") == 1 { in_section=1; next }
         /^\[/ { in_section=0; next }
         in_section && /^[^#=]+=[^=]*$/ {
             print
@@ -219,7 +222,7 @@ config_read_value_raw() {
         $0 == "[" section "]" { in_section=1; next }
         /^\[/ { in_section=0; next }
         in_section && index($0, key "=") == 1 {
-            sub("^" key "=", "")
+            $0 = substr($0, length(key) + 2)
             val=$0
         }
         END { if (val != "") print val }

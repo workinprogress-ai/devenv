@@ -213,8 +213,12 @@ fi
 
 TARGET_DIR="$repos_dir/$REPO_NAME"
 # Clean URL: authentication flows through gh's credential helper
-# (gh auth setup-git), never embedded in the remote.
-GIT_URL="$(provider_git_transport_url "$ORG" "$REPO_NAME")"
+# (gh auth setup-git), never embedded in the remote. --all has no single repo
+# here (REPO_NAME is empty); it builds each URL in its own loop.
+GIT_URL=""
+if [ "$ALL_MODE" != true ]; then
+    GIT_URL="$(provider_git_transport_url "$ORG" "$REPO_NAME")"
+fi
 
 detect_default_branch() {
     local ref
@@ -258,8 +262,11 @@ update_existing_repo() {
 
 clone_repo() {
     echo "Repository '$REPO_NAME' does not exist. Attempting to clone..." >&2
-    git clone "$GIT_URL" "$TARGET_DIR"
-    cd "$TARGET_DIR"
+    # Explicit returns: --all calls this inside `if !`, where set -e is
+    # suppressed — without them a failed clone would fall through and run the
+    # configure/fetch steps in the caller's directory, reporting success.
+    git clone "$GIT_URL" "$TARGET_DIR" || return 1
+    cd "$TARGET_DIR" || return 1
     configure_git_repo "." "$GIT_URL"
     git fetch --all --tags -f
 

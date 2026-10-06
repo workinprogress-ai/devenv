@@ -20,5 +20,35 @@ source "$(dirname "${BASH_SOURCE[0]}")/bootstrap.bash"
 # (sourced by bootstrap.bash below). Do not re-declare them here — duplicate
 # defaults drift, which is exactly how node/pnpm version skew happened before.
 
+# Serialize every entry path (container start, devenv-update, a manual run) on
+# one lock file. container-start.sh already holds it when it launches this
+# script and says so via DEVENV_BOOTSTRAP_LOCK_HELD; a second flock on the
+# same file from the child would otherwise wait on its own parent forever.
+if [ -z "${DEVENV_BOOTSTRAP_LOCK_HELD:-}" ]; then
+    bootstrap_lock_file="${HOME:-/tmp}/.bootstrap.lock"
+    exec 201>"$bootstrap_lock_file"
+    if ! flock -n 201; then
+        echo "Bootstrap is already running (lock: $bootstrap_lock_file); not starting a second run. Try again when it finishes." >&2
+        exit 1
+    fi
+fi
+
+# Report top-level failures through the library's handler. No errtrace (-E) on
+# purpose: tasks keep their own tolerant semantics and run_bootstrap_tasks
+# already stops on a failing task; this covers the entry path itself (same
+# pattern as container-start.sh).
+trap on_error ERR
+
+# Keep a durable log of every run next to the other runtime state. Piped
+# through tee rather than `exec > >(tee ...)`: the shell then waits for the log
+# to be flushed, and pipefail preserves the task runner's exit status. The log
+# can echo secrets, so it is owner-only like the other generated files.
+bootstrap_root="$(dirname "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")")"
+bootstrap_log="$bootstrap_root/.runtime/bootstrap.log"
+mkdir -p "$bootstrap_root/.runtime"
+(umask 077; touch "$bootstrap_log")
+chmod 600 "$bootstrap_log"
+
 # Run bootstrap tasks (all default tasks or specific tasks passed as arguments)
-run_bootstrap_tasks "$@"
+set -o pipefail
+run_bootstrap_tasks "$@" 2>&1 | tee -a "$bootstrap_log"

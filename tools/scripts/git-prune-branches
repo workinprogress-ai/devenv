@@ -14,9 +14,10 @@ trap 'rm -f "$scratch"' EXIT
 echo "Running git fetch, just a moment..."
 git fetch -p
 
-# Branches whose upstream is gone: "(refname:short)\t[gone]" — the track
-# token is exactly "[gone]" only when the remote ref no longer exists.
-git for-each-ref --format='%(refname:short)%(if)%(upstream:track,trackshort)%(then)|%(upstream:track)%(end)' refs/heads \
+# Branches whose upstream is gone: "<refname:short>|[gone]" — the track
+# token is exactly "[gone]" only when the remote ref no longer exists. (Do not
+# guard on upstream:trackshort: it is empty for a gone upstream.)
+git for-each-ref --format='%(refname:short)|%(upstream:track)' refs/heads \
   | grep -F '|[gone]' | cut -d'|' -f1 > "$scratch" || true
 
 count=$(wc -l < "$scratch")

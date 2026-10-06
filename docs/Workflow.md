@@ -239,7 +239,7 @@ Or ...
                       [ downstream steps ]
 ```
 
-### One or more spikes are needed to understand something that will go into grooming
+### One or more research tasks are needed to understand something that will go into grooming
 
 ```text
             [ upstream steps ]
@@ -248,7 +248,7 @@ Or ...
                 Blueprint
                     |
                     v
-**Spike(s)** -> Grooming
+**Research** -> Grooming
                     |
                     v
             [ downstream steps ]
@@ -256,10 +256,10 @@ Or ...
 
 ### A bug or isolated feature leads directly to grooming
 
-Usually fed by a spike (see the section above); when the spike answered everything, this is a short stop:
+Usually fed by research (see the section above); when the research answered everything, this is a short stop:
 
 ```text
-**Spike(s)** -> Grooming
+**Research** -> Grooming
                     |
                     v
             [ downstream steps ]
@@ -267,10 +267,10 @@ Usually fed by a spike (see the section above); when the spike answered everythi
 
 ### A bug or *small* feature directly leads to a plan
 
-Optionally with or without a spike or design discussion:
+Optionally with or without research or a design discussion:
 
 ```text
-**Spike(s)** -> Plan
+**Research** -> Plan
                     |
                     v
             [ Implementation ]
@@ -446,7 +446,7 @@ Specifications and/or blueprint changed (initiated change)
   -> downstream artifacts are NOT edited here;
      they pick the change up via staleness checks at their next start
 
-Discovered change (execution/grooming/spike finds upstream is wrong)
+Discovered change (execution/grooming/research finds upstream is wrong)
   -> file an upstream-impact issue (label: upstream-impact) in the planning repo
   -> refine skills consume the queue in cascade mode
   -> reply + close the issue from the refine session
@@ -459,7 +459,7 @@ Component design changed
 
 The key idea is that downstream artifacts are not independent, but the cascade does not reach into them. If the upstream design changed materially, the plan should be refreshed (its own skill, its own session) rather than quietly carried forward.
 
-**Discoverer/executor separation.** Many skills can *discover* that an upstream artifact is wrong (grooming at its artifact gate, execution skills at closeout, spikes, plan refinement); none of them edit specifications or blueprints directly. They file `upstream-impact` issues in the planning repo instead. Only the refine skills — `/devenv-refine-specifications` and `/devenv-refine-blueprint`, in cascade mode — execute those changes and drain the queue. This keeps repo access, change approval, and session scope in one place.
+**Discoverer/executor separation.** Many skills can *discover* that an upstream artifact is wrong (grooming at its artifact gate, execution skills at closeout, research, plan refinement); none of them edit specifications or blueprints directly. They file `upstream-impact` issues in the planning repo instead. Only the refine skills — `/devenv-refine-specifications` and `/devenv-refine-blueprint`, in cascade mode — execute those changes and drain the queue. This keeps repo access, change approval, and session scope in one place.
 
 Supporting view with common skill mapping:
 
@@ -471,7 +471,7 @@ Specifications changed
 Blueprint changed
   -> /devenv-refine-blueprint (cascade mode covers specifications edits too)
 
-Upstream found wrong during execution/grooming/spike
+Upstream found wrong during execution/grooming/research
   -> file upstream-impact issue (any discoverer skill)
   -> /devenv-refine-specifications or /devenv-refine-blueprint
      (issue intake -> cascade mode -> reply + close issue)
@@ -530,7 +530,7 @@ When execution discovers the upstream design is wrong — discovered change flow
 
 ```mermaid
 flowchart TD
-    EX[Execution / grooming / spike<br/>discovers upstream is wrong] --> FILE[File upstream-impact issue<br/>label: upstream-impact]
+    EX[Execution / grooming / research<br/>discovers upstream is wrong] --> FILE[File upstream-impact issue<br/>label: upstream-impact]
     FILE --> QUEUE[(Upstream-impact queue<br/>planning repo)]
     QUEUE --> REF["Refine session<br/>/devenv-refine-specifications or /devenv-refine-blueprint<br/>issue intake, cascade mode"]
     REF -->|reply + close| QUEUE
@@ -629,10 +629,10 @@ Companion rule of thumb: **read-only forks are disposable** (chat, review, load 
 
 ## Upstream artifact routing
 
-/devenv-design and spike artifacts should normally flow through grooming before planning.
+/devenv-design and research artifacts should normally flow through grooming before planning.
 
 ```text
-Design discussion or spike artifact
+Design discussion or research artifact
   -> Grooming (capture design delta + produce issue attack plan)
   -> Plan for one selected issue slice
   -> Execution

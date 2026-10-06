@@ -109,6 +109,17 @@ teardown() {
   declare -f restore_mongo_database >/dev/null
 }
 
+# Regression (T002): error_msg was undefined in error-handling.bash, so any
+# error path through these libs died with "command not found" (exit 127)
+# instead of the function's own return code.
+@test "backup_mongo_database with empty database name emits error_msg and returns 1, not 127" {
+  source "${DEVENV_ROOT}/tools/lib/database-operations.bash"
+
+  run backup_mongo_database ""
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"Database name is required"* ]]
+}
+
 # Test library exports
 @test "all database-operations functions are exported" {
   source "${DEVENV_ROOT}/tools/lib/database-operations.bash"

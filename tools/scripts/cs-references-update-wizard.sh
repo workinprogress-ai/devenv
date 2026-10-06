@@ -179,6 +179,9 @@ detect_major_bumps() {
 # ============================================================================
 
 main() {
+    # --help / --version are answered before any validation or authentication.
+    if handle_global_flag "${1:-}"; then exit 0; fi
+
     local repo_dir=""
     local update_branch="$DEFAULT_UPDATE_BRANCH"
     local dry_run=0
@@ -194,7 +197,7 @@ main() {
                 show_usage
                 ;;
             -v|--version)
-                echo "$SCRIPT_NAME version $SCRIPT_VERSION"
+                echo "$SCRIPT_VERSION"
                 exit 0
                 ;;
             --branch)

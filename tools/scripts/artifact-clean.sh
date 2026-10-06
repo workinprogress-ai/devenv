@@ -4,11 +4,14 @@
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 # artifact-clean.sh - Clean up `.local-artifacts/` folders by artifact family
-# Version: 1.2.0
+# Version: 1.3.0
 # Description: Interactive (default) or flag-driven cleanup of local artifact
 #              folders. Files are grouped into the three convention families
 #              from _conventions.md (ephemeral tmpN.md, session memory,
-#              issue-artifact working copies) plus an "other" bucket. Deletion
+#              issue-artifact working copies) plus an "other" bucket. A fifth
+#              family, deliverables (research-*, bug-hunt-*, TECH_DEBT_AUDIT*),
+#              is retained work product: no sweep touches it unless
+#              --include-deliverables says so. Deletion
 #              confidence matches family: ephemeral needs no confirmation;
 #              working/session/other require an explicit -y/--yes or
 #              interactive confirmation. Never touches anything outside
@@ -24,7 +27,7 @@ DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 # Source Required Libraries
 # ============================================================================
 
-readonly SCRIPT_VERSION="1.2.0"
+readonly SCRIPT_VERSION="1.3.0"
 readonly FOLDER_NAME=".local-artifacts"
 SCRIPT_NAME="$(basename "$0")"
 
@@ -39,8 +42,6 @@ source "$DEVENV_TOOLS/lib/fzf-selection.bash"
 
 # Enable strict error handling (sets -euo pipefail and ERR trap)
 enable_strict_mode
-
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Clean local artifact folders by family"
 
 # ============================================================================
 # Helpers
@@ -62,6 +63,10 @@ Families (per the .local-artifacts convention):
                 issue-published artifacts (confirm or -y)
     other       anything else in the folder (confirm or -y; never silently
                 deleted)
+    deliverable research-*.md / bug-hunt-*.md / TECH_DEBT_AUDIT* — retained
+                work product, not cleanup fodder. NEVER swept (not by --all,
+                not by -y, not offered in interactive selection) unless
+                --include-deliverables is passed; reported as "kept" instead
 
 Options:
     -i, --interactive   Interactive selection (default when no family flags
@@ -73,7 +78,12 @@ Options:
     --tmp               Ephemeral family only
     --session           Session-memory family only
     --working           Issue working-copy family only
-    --all               Every family, including other
+    --all               Every family, including other (deliverables only
+                        with --include-deliverables)
+    --include-deliverables
+                        Explicit override: with --all or interactive
+                        selection, also sweep the deliverable family. The
+                        usual rules still apply (-y or a confirmation).
     --keep-tmp          Override: do NOT auto-delete ephemeral tmpN.md files.
                         They flow through normal confirmation/selection like
                         every other family — nothing is deleted without an
@@ -94,7 +104,8 @@ Examples:
     $SCRIPT_NAME --tmp                # drop scratch files, no prompts
     $SCRIPT_NAME --working -y         # clear working copies, no prompts
     $SCRIPT_NAME repos/foo -l         # list-only for a specific repo
-    $SCRIPT_NAME --all -y             # full sweep, no prompts
+    $SCRIPT_NAME --all -y             # full sweep, no prompts (deliverables kept)
+    $SCRIPT_NAME --all -y --include-deliverables   # ...deliverables too
 EOF
     exit 0
 }
@@ -117,8 +128,9 @@ classify() {
     local f="$1"
     case "$f" in
         tmp[0-9]*.md) echo "ephemeral" ;;
-        session_memory-*.md) echo "session" ;;
+        session_memory-*.md|pairing-state-*.md) echo "session" ;;
         Plan-issue-*.md|Grooming-*.md|Specifications-*.md|Blueprint-*.md|Roadmap-*.md) echo "working" ;;
+        research-*.md|bug-hunt-*.md|TECH_DEBT_AUDIT*) echo "deliverable" ;;
         *) echo "other" ;;
     esac
 }
@@ -135,6 +147,16 @@ collect_family() {
             echo "$f"
         fi
     done
+}
+
+# Say which protected deliverables a sweep is leaving alone, so the protection
+# is visible rather than silent.
+report_kept_deliverables() {
+    local folder="$1" count
+    count=$(collect_family "$folder" deliverable | wc -l)
+    if [ "$count" -gt 0 ]; then
+        log_info "[deliverable] kept $count protected file(s) (retained work product, never swept; pass --include-deliverables to include them)"
+    fi
 }
 
 delete_files() {
@@ -209,7 +231,7 @@ interactive_select_deletions() {
 # ============================================================================
 
 main() {
-    local MODE="" ASSUME_YES=0 LIST_ONLY=0 KEEP_TMP=0
+    local MODE="" ASSUME_YES=0 LIST_ONLY=0 KEEP_TMP=0 INCLUDE_DELIVERABLES=0
     local -a USER_PATHS=()
 
     while [[ $# -gt 0 ]]; do
@@ -222,6 +244,7 @@ main() {
             --working) MODE="${MODE}working"; shift ;;
             --all) MODE="tmp session working other"; shift ;;
             --keep-tmp) KEEP_TMP=1; shift ;;
+            --include-deliverables) INCLUDE_DELIVERABLES=1; shift ;;
             -y|--yes) ASSUME_YES=1; shift ;;
             -l|--list) LIST_ONLY=1; shift ;;
             --*) invalid_args "Unknown option: $1" ;;
@@ -268,13 +291,20 @@ main() {
     for root in "${roots[@]}"; do
         folder="$root/$FOLDER_NAME"
         log_info "Scanning $folder"
+        if [ "$INCLUDE_DELIVERABLES" -eq 0 ]; then
+            report_kept_deliverables "$folder"
+        fi
 
         local -a families=()
         if [ "$MODE" = "interactive" ]; then
             # Interactive mode: clean ephemeral unconditionally, then offer
             # every remaining candidate in one multi-select with preview.
             local -a deletable=()
-            for family in ephemeral session working other; do
+            local -a sweep_families=(ephemeral session working other)
+            if [ "$INCLUDE_DELIVERABLES" -eq 1 ]; then
+                sweep_families+=(deliverable)
+            fi
+            for family in "${sweep_families[@]}"; do
                 while IFS= read -r f; do
                     [ -n "$f" ] && deletable+=("$f")
                 done < <(collect_family "$folder" "$family")
@@ -323,7 +353,8 @@ main() {
             else
                 # fzf missing or cancelled: fall back to family-by-family prompts.
                 log_warn "fzf unavailable or selection cancelled — falling back to family prompts"
-                for family in session working other; do
+                # (ephemeral, the first entry, was already cleaned above)
+                for family in "${sweep_families[@]:1}"; do
                     local -a files=()
                     while IFS= read -r f; do
                         [ -n "$f" ] && files+=("$f")
@@ -352,6 +383,11 @@ main() {
         [[ "$MODE" == *session* ]] && families+=(session)
         [[ "$MODE" == *working* ]] && families+=(working)
         [[ "$MODE" == *other* ]] && families+=(other)
+        # Deliverables join only when explicitly asked for, and only in a
+        # full (--all) sweep; no other flag combination reaches them.
+        if [ "$INCLUDE_DELIVERABLES" -eq 1 ] && [[ "$MODE" == *other* ]]; then
+            families+=(deliverable)
+        fi
 
         for family in "${families[@]}"; do
             local -a files=()

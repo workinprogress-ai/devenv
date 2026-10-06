@@ -4,7 +4,7 @@
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 # issue-create.sh - Create a new GitHub issue with labels, assignees, and project assignment
-# Version: 1.0.0
+# Version: 1.1.0
 # Description: Creates GitHub issues with GitHub native type field (Bug/Feature/Task),
 #              milestones, assignees, and automatic project assignment
 # Requirements: Bash 4.0+, gh CLI
@@ -32,6 +32,8 @@ readonly SCRIPT_NAME
 
 ISSUE_TITLE=""
 ISSUE_BODY=""
+BODY_ARG_TEXT=""
+BODY_ARG_FILE=""
 ISSUE_TYPE=""
 ISSUE_LABELS=()
 ISSUE_ASSIGNEES=()
@@ -318,24 +320,27 @@ build_labels() {
 # Prepend parent reference to body if specified
 build_body() {
     local body=""
+    local nl=$'\n'
     
     # Add parent reference if specified
     if [ -n "$PARENT_ISSUE" ]; then
-        body="Part of #${PARENT_ISSUE}\n\n"
+        body="Part of #${PARENT_ISSUE}${nl}${nl}"
     fi
 
     # Add blocked-by references if specified
     if [ ${#BLOCKED_BY_ISSUES[@]} -gt 0 ]; then
         for blocker in "${BLOCKED_BY_ISSUES[@]}"; do
-            body+="Blocked by #${blocker}\n"
+            body+="Blocked by #${blocker}${nl}"
         done
-        body+="\n"
+        body+="$nl"
     fi
 
-    # Add main body content
+    # Add main body content. printf '%s', never echo -e: the body is the
+    # user's text, and echo -e would turn their backslash sequences (a Windows
+    # path, a regex, a literal \n) into control characters.
     body+="$ISSUE_BODY"
     
-    echo -e "$body"
+    printf '%s' "$body"
 }
 
 # Create the issue
@@ -484,32 +489,15 @@ create_issue() {
 # ============================================================================
 
 main() {
-    # Parse command-line arguments
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            -h|--help)
-                show_usage
-                ;;
-            -v|--version)
-                echo "$SCRIPT_VERSION"
-                exit 0
-                ;;
-            *)
-                break
-                ;;
-        esac
-    done
-    
-    # Ensure GitHub CLI authentication
-    # Global flags before auth/validation: --help must work without
-    # a valid GitHub session or any positional args.
+    # Global flags before auth/validation: --help / --version must work without
+    # a valid provider session or any positional args.
     if handle_global_flag "${1:-}"; then
         exit 0
     fi
 
     ensure_provider_auth
     
-    # Continue parsing other arguments
+    # Parse command-line arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -h|--help)
@@ -533,31 +521,11 @@ main() {
                 shift 2
                 ;;
             -b|--body)
-                if [ -n "$ISSUE_BODY" ]; then
-                    log_error "Only one of --body or --body-file may be specified"
-                    exit "$EXIT_GENERAL_ERROR"
-                fi
-                ISSUE_BODY="$2"
+                BODY_ARG_TEXT="$2"
                 shift 2
                 ;;
             -f|--body-file)
-                if [ -n "$ISSUE_BODY" ]; then
-                    log_error "Only one of --body or --body-file may be specified"
-                    exit "$EXIT_GENERAL_ERROR"
-                fi
-                if [ "$2" = "-" ]; then
-                    if body_source_stdin_is_tty; then
-                        log_error "--body-file - requires piped stdin (refusing to read the terminal)"
-                        exit "$EXIT_GENERAL_ERROR"
-                    fi
-                    ISSUE_BODY=$(cat)
-                else
-                    if [ ! -f "$2" ]; then
-                        log_error "Body file not found: $2"
-                        exit $EXIT_API_FAILURE
-                    fi
-                    ISSUE_BODY=$(cat "$2")
-                fi
+                BODY_ARG_FILE="$2"
                 shift 2
                 ;;
             --type)
@@ -622,6 +590,17 @@ main() {
                 ;;
         esac
     done
+
+    # --body / --body-file go through the shared body-source resolver (one
+    # implementation of "which source wins and what is an error" for every tool
+    # that ingests markdown); a usage error from it exits 2 like any other.
+    if [ -n "$BODY_ARG_TEXT" ] || [ -n "$BODY_ARG_FILE" ]; then
+        if [ "$BODY_ARG_FILE" = "-" ] && body_source_stdin_is_tty; then
+            log_error "--body-file - requires piped stdin (refusing to read the terminal)"
+            exit "$EXIT_MISUSE"
+        fi
+        ISSUE_BODY=$(body_source_resolve "$BODY_ARG_TEXT" "$BODY_ARG_FILE") || exit "$EXIT_MISUSE"
+    fi
     
     # Validate required arguments
     # Title is required only if using --no-interactive mode

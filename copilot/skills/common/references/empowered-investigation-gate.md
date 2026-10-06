@@ -11,7 +11,7 @@ The skill is empowered to answer its question by doing: adding code, removing co
 - **Destructive-class actions need a category announcement first** (code removal, behavior-altering edits, anything beyond temporary probing) — get a go-ahead, including the warning that afterward the user should be prepared to `git reset` the affected repo.
 - **Disapproval rejects the measure, not the investigation.** Continue via alternate routes (read-only evidence, a scoped scratch prototype, a different experiment design). An alternate that is itself aggressive passes through this same gate before use; only when alternate routes are exhausted is the trail blocked / the question unanswerable as scoped.
 - **The skill NEVER runs mutating git commands itself** — restore is always the user's hands.
-- **All temporary in-repo modifications carry the skill's own `FIXME:DEVENV[<skill-key>]:: ...` markers** so nothing empowered blends into permanent code unnoticed.
+- **All temporary in-repo modifications carry the skill's own `FIXME:DEVENV[<skill-key>]: ...` markers** so nothing empowered blends into permanent code unnoticed.
 
 ## Recovery-route rule
 

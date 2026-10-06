@@ -4,6 +4,19 @@ on:
     branches:
       - master
 
+# Releases tag and publish from master; two overlapping runs would race on the
+# same tag, so they queue instead of cancelling an in-flight release.
+concurrency:
+  group: publish-release-${{ github.ref }}
+  cancel-in-progress: false
+
+# semantic-release pushes the version tag (contents), creates the GitHub release
+# (contents) and comments on released issues/PRs (issues, pull-requests).
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
 env:
   GH_TOKEN: ${{ github.token }}
   GITHUB_TOKEN: ${{ github.token }}
@@ -11,20 +24,21 @@ jobs:
   tag:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          # semantic-release derives the next version from the full commit
+          # history and existing tags; a shallow clone cannot.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: "20.14.0"
-          
-      - name: "Install pnpm"
-        if: github.ref == 'refs/heads/master'
-        run: |
-          npm install -g pnpm@8.7.1
 
-      - name: "Apply tag"
-        if: github.ref == 'refs/heads/master'
-        run: |
-          CURRENT_TAG=$(git tag -l 'v*' | sort -V | tail -n 1)
-          pnpm install
-          pnpm run ci:release
+      - name: "Enable the pinned pnpm"
+        run: corepack enable   # version comes from package.json "packageManager"
+
+      - name: "Install dependencies"
+        run: pnpm install --frozen-lockfile
+
+      - name: "Release"
+        run: pnpm run ci:release
 # EOF

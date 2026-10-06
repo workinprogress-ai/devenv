@@ -81,6 +81,9 @@ EOF
 # ============================================================================
 
 main() {
+    # --help / --version are answered before any validation or authentication.
+    if handle_global_flag "${1:-}"; then exit 0; fi
+
     local repo=""
     local depth="$DEFAULT_DEPTH"
     local branches=()
@@ -91,7 +94,7 @@ main() {
                 show_usage
                 ;;
             -v|--version)
-                echo "$SCRIPT_NAME version $SCRIPT_VERSION"
+                echo "$SCRIPT_VERSION"
                 exit 0
                 ;;
             --repo)

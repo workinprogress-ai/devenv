@@ -18,7 +18,6 @@ source "$DEVENV_TOOLS/lib/versioning.bash"
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Validate specifications dependency graph and anchors"
 
 FILES=()
 
@@ -116,7 +115,8 @@ main() {
     fi
 
     # ---- Pass 2: jq-based graph validation ----
-    echo "$tsv" | jq -R -s '
+    local result
+    result=$(echo "$tsv" | jq -R -s '
         split("\n") | map(select(length > 0)) | map(split("\t")) as $rows |
         # sequential index per row; index by id
         ([range(0; $rows | length)] | map({id: $rows[.][0], group: $rows[.][1], deps: ($rows[.][2] | if . == "" then [] else split(",") end), file: $rows[.][3], idx: .})) as $specs |
@@ -135,24 +135,25 @@ main() {
             {type: "group-order", detail: ("\($s.id) (group \($s.group)) depends on \($d) in a later group (\(.group))")}
         ] as $groupviol |
 
-        # cycle detection: DFS with colors
+        # cycle detection: DFS with colors. The state is threaded through the
+        # recursion (visit returns the updated state); capturing it once per start
+        # node would hide the colors set during recursion and never terminate on a
+        # cycle.
         ($specs | map(.id)) as $allids |
-        reduce $allids[] as $start ({color: {}, stack: [], cycles: []};
-            . as $st |
-            def walk($id):
-                ($st.color[$id] // 0) as $c |
-                if $c == 1 then
-                    .cycles += [{type: "cycle", detail: (($st.stack + [$id]) | join(" -> "))}]
-                elif $c == 0 and ($index[$id] != null) then
-                    .color[$id] = 1 |
-                    .stack += [$id] |
-                    ($index[$id].deps[]) as $dep | walk($dep) |
-                    .stack |= .[0:length-1] |
-                    .color[$id] = 2
-                else .
+        def visit($id; $st):
+            ($st.color[$id] // 0) as $c |
+            if $c == 1 then
+                $st | .cycles += [{type: "cycle", detail: (($st.stack + [$id]) | join(" -> "))}]
+            elif $c == 2 or ($index[$id] == null) then
+                $st
+            else
+                ($st | .color[$id] = 1 | .stack += [$id]) as $entered |
+                reduce $index[$id].deps[] as $dep ($entered; visit($dep; .))
+                | .stack |= .[0:length-1]
+                | .color[$id] = 2
             end;
-            walk($start)
-        ) | .cycles as $cycles |
+        (reduce $allids[] as $start ({color: {}, stack: [], cycles: []}; visit($start; .)))
+        | .cycles as $cycles |
 
         # anchor link check needs file text — handled outside jq for simplicity
 
@@ -164,22 +165,40 @@ main() {
             edges: $ecount,
             ok: ($errors | length == 0)
         }
-    '
+    ')
+    echo "$result"
 
     # ---- Pass 3 (warnings): anchor links per file ----
     for f in "${FILES[@]}"; do
-        # collect links [SPEC-NNN](#anchor) and heading-derived anchors
-        local broken
-        broken=$(paste -d'\t' \
-            <(grep -oE '\[SPEC-[0-9]+\]\(#[^)]+\)' "$f" | sort -u | sed -E 's/^\[([^]]+)\]\(#([^)]+)\)$/\1\t\2/') \
-            <(true) 2>/dev/null | while IFS=$'\t' read -r label _; do
-                [ -z "$label" ] && continue
-                if ! grep -qiE "^#+.*${label}" "$f"; then
-                    echo "warning: link target heading for $label not found in $f"
-                fi
-            done)
-        [ -n "$broken" ] && echo "$broken" >&2
+        # Heading slugs the way GitHub generates them: lowercase, punctuation
+        # dropped (letters, digits, space, - and _ kept), spaces to hyphens, and
+        # a -N suffix on the Nth repeat of the same slug.
+        local slugs
+        slugs=$(awk '
+            /^#+[[:space:]]+/ {
+                t = $0
+                sub(/^#+[[:space:]]+/, "", t)
+                t = tolower(t)
+                gsub(/[^a-z0-9 _-]/, "", t)
+                gsub(/ /, "-", t)
+                n = seen[t]++
+                print (n == 0 ? t : t "-" n)
+            }
+        ' "$f")
+
+        local label anchor
+        while IFS=$'\t' read -r label anchor; do
+            [ -z "$label" ] && continue
+            if ! grep -qiE "^#+.*${label}" "$f"; then
+                echo "warning: link target heading for $label not found in $f" >&2
+            elif ! grep -qxF -- "${anchor,,}" <<<"$slugs"; then
+                echo "warning: link anchor #$anchor for $label does not match any heading in $f" >&2
+            fi
+        done < <(grep -oE '\[SPEC-[0-9]+\]\(#[^)]+\)' "$f" | sort -u | sed -E 's/^\[([^]]+)\]\(#([^)]+)\)$/\1\t\2/')
     done
+
+    # Documented contract: exit 1 when errors were found (warnings never count).
+    [ "$(jq -r '.ok' <<<"$result")" = "true" ] || exit 1
 }
 
 main "$@"

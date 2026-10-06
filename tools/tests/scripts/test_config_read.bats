@@ -53,3 +53,31 @@ teardown() { rm -rf "$WORK_DIR"; }
   run bash "$SCRIPT" copilot
   [ "$status" -eq 1 ]
 }
+
+# --help prints usage; the heredoc is unquoted, so an unescaped ${PROVIDER_ORG}
+# in it was expanded under set -u and the script died before printing.
+
+@test "--help prints usage and exits 0" {
+  run bash "$SCRIPT" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Usage:"* ]]
+  [[ "$output" != *"unbound variable"* ]]
+}
+
+@test "-h behaves the same as --help" {
+  run bash "$SCRIPT" -h
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Usage:"* ]]
+}
+
+@test "--help shows the template variable literally, not an expansion of it" {
+  run env -u PROVIDER_ORG bash "$SCRIPT" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'${PROVIDER_ORG}'* ]]
+}
+
+@test "--help still shows the default config path as written" {
+  run bash "$SCRIPT" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'$DEVENV_ROOT/devenv.config'* ]]
+}

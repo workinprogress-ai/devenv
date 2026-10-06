@@ -17,13 +17,68 @@ setup() {
     printf -- '---\nname: %s\ndescription: x\nuser-invocable: true\n---\n# %s\n' "$1" "$1" > "$TREE/$1/SKILL.md"
   }
   write_skill devenv-alpha; write_skill devenv-beta; write_skill devenv-help
+  # the registry and catalog are referenced from the help skill (SK009 requires every reference file be linked)
+  printf 'See references/skills-registry.md and ../common/references/skills-catalog.md\n' >> "$TREE/devenv-help/SKILL.md"
   printf '| `/devenv-alpha` | x | x | x |\n| `/devenv-beta` | x | x | x |\n| `/devenv-help` | x | x | x |\n' > "$TREE/devenv-help/references/skills-registry.md"
-  printf 'devenv-alpha devenv-beta devenv-help\n' > "$TREE/common/references/skills-catalog.md"
+  # The catalog is a pointer (no skill names); docs/Skills.md (reached through
+  # the shared symlink) is the canonical full listing the lint checks.
+  mkdir -p "$TREE/_shared/docs"
+  printf 'See ../../_shared/docs/Skills.md\n' > "$TREE/common/references/skills-catalog.md"
+  printf 'devenv-alpha devenv-beta devenv-help\n' > "$TREE/_shared/docs/Skills.md"
 }
 
 teardown() { rm -rf "$WORK_DIR"; }
 
 @test "golden tree passes" {
+  run bash "$SCRIPT" "$TREE"
+  [ "$status" -eq 0 ]
+}
+
+@test "SK004: a skill missing from docs/Skills.md fails" {
+  printf 'devenv-alpha devenv-help\n' > "$TREE/_shared/docs/Skills.md"
+  run bash "$SCRIPT" "$TREE"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"SK004"*"devenv-beta"*"Skills.md"* ]]
+}
+
+@test "SK004: a pointer-only catalog is fine when Skills.md lists every skill" {
+  run bash "$SCRIPT" "$TREE"
+  [ "$status" -eq 0 ]
+}
+
+@test "SK008: a cross-file link to a missing heading anchor fails" {
+  printf '# Target\n\n## Real Heading\n' > "$TREE/common/references/target.md"
+  printf -- '---\nname: devenv-alpha\ndescription: x\nuser-invocable: true\n---\nSee [x](../common/references/target.md#no-such-heading).\n' > "$TREE/devenv-alpha/SKILL.md"
+  run bash "$SCRIPT" "$TREE"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"SK008"*"no-such-heading"* ]]
+}
+
+@test "SK008: a cross-file anchor matching a heading slug passes (punctuation, repeats)" {
+  printf '# T\n\n## Skill `_on_<event>` (signals)\n\n## Same\n\n## Same\n' > "$TREE/common/references/target.md"
+  printf -- '---\nname: devenv-alpha\ndescription: x\nuser-invocable: true\n---\n[a](../common/references/target.md#skill-_on_event-signals) [b](../common/references/target.md#same-1)\n' > "$TREE/devenv-alpha/SKILL.md"
+  run bash "$SCRIPT" "$TREE"
+  [ "$status" -eq 0 ]
+}
+
+@test "SK008: same-file example anchors and fenced examples are not checked" {
+  printf -- '---\nname: devenv-alpha\ndescription: x\nuser-invocable: true\n---\nExample [AC-N](#ac-N).\n\n```\n[x](../common/references/target.md#nope)\n```\n' > "$TREE/devenv-alpha/SKILL.md"
+  printf '# Target\n' > "$TREE/common/references/target.md"
+  run bash "$SCRIPT" "$TREE"
+  [ "$status" -eq 0 ]
+}
+
+@test "SK009: a references/ file that nothing links to fails" {
+  printf '# Lonely\n' > "$TREE/devenv-alpha/references/lonely.md" 2>/dev/null || { mkdir -p "$TREE/devenv-alpha/references"; printf '# Lonely\n' > "$TREE/devenv-alpha/references/lonely.md"; }
+  run bash "$SCRIPT" "$TREE"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"SK009"*"lonely.md"* ]]
+}
+
+@test "SK009: a references/ file linked from its skill passes" {
+  mkdir -p "$TREE/devenv-alpha/references"
+  printf '# Used\n' > "$TREE/devenv-alpha/references/used.md"
+  printf -- '---\nname: devenv-alpha\ndescription: x\nuser-invocable: true\n---\nSee [used](./references/used.md).\n' > "$TREE/devenv-alpha/SKILL.md"
   run bash "$SCRIPT" "$TREE"
   [ "$status" -eq 0 ]
 }

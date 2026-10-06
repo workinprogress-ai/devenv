@@ -20,9 +20,9 @@ source "$DEVENV_TOOLS/lib/versioning.bash"
 readonly SCRIPT_VERSION="1.3.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Scan for DEVENV markers and AC comments"
 
 MARKER='DEVENV\['
+CUSTOM_MARKER=0
 AC_MODE=0
 TODO_REPORT=0
 ALL_MARKERS=0
@@ -104,7 +104,7 @@ main() {
             --all) ALL_MARKERS=1; shift ;;
             --marker)
                 [ -z "${2:-}" ] && invalid_args "Missing value for --marker"
-                MARKER="$2"; shift 2 ;;
+                MARKER="$2"; CUSTOM_MARKER=1; shift 2 ;;
             --require) REQUIRE=1; shift ;;
             --no-exclude) NO_EXCLUDE=1; shift ;;
             --include-copilot) INCLUDE_COPILOT=1; shift ;;
@@ -138,6 +138,10 @@ main() {
         regex='TODO:?\(DEVENV|TODO:DEVENV\['
     elif [ "$ALL_MARKERS" -eq 1 ]; then
         regex='(FIXME|TODO):?\(DEVENV|(FIXME|TODO):DEVENV\[|DEVENV\['
+    elif [ "$CUSTOM_MARKER" -eq 1 ]; then
+        # --marker REGEX: scan for exactly that pattern (gate: any match
+        # fails; with --require: at least one match must exist)
+        regex="$MARKER"
     else
         # PR-blocking gate: plan-bounded FIXME markers only (colon form
         # canonical, paren form detected) — cross-plan TODOs must not block
@@ -202,10 +206,16 @@ main() {
     fi
 
     if [ "$hits" -gt 0 ]; then
-        log_error "$hits plan-bounded FIXME marker(s) found — remove or convert them before completion"
+        if [ "$CUSTOM_MARKER" -eq 1 ]; then
+            log_error "$hits marker(s) matching '$MARKER' found — remove them before completion"
+        else
+            log_error "$hits plan-bounded FIXME marker(s) found — remove or convert them before completion"
+        fi
         exit 1
     fi
-    if [ "$ALL_MARKERS" -eq 1 ]; then
+    if [ "$CUSTOM_MARKER" -eq 1 ]; then
+        echo "Clean: no markers matching '$MARKER' under: ${PATHS[*]}"
+    elif [ "$ALL_MARKERS" -eq 1 ]; then
         echo "Clean: no DEVENV markers of any form under: ${PATHS[*]}"
     else
         echo "Clean: no FIXME(DEVENV markers under: ${PATHS[*]} (use --all to audit TODO/legacy forms)"

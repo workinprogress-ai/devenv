@@ -218,3 +218,35 @@ write_file() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"swap"* ]]
 }
+
+# ---------------------------------------------------------------------------
+# --marker REGEX: the custom marker is what gets scanned (it used to be parsed
+# and then ignored, so a hunt cleanup sweep checked FIXME markers instead).
+# ---------------------------------------------------------------------------
+
+@test "--marker: a matching custom marker fails the gate" {
+  write_file "a.cs" "int x; // DEVENV[bug-hunt] instrumentation"
+  run bash "$SCRIPT" --marker 'DEVENV\[bug-hunt\]' "$WORK_DIR"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"a.cs:1:"* ]]
+}
+
+@test "--marker: a FIXME marker with a different key does not trip the custom sweep" {
+  write_file "a.cs" "int x; // FIXME:DEVENV[other-plan]: unrelated"
+  run bash "$SCRIPT" --marker 'DEVENV\[bug-hunt\]' "$WORK_DIR"
+  [ "$status" -eq 0 ]
+}
+
+@test "--marker with --require succeeds only when the custom marker is present" {
+  write_file "a.cs" "int x; // DEVENV[bug-hunt] here"
+  run bash "$SCRIPT" --marker 'DEVENV\[bug-hunt\]' --require "$WORK_DIR"
+  [ "$status" -eq 0 ]
+  run bash "$SCRIPT" --marker 'DEVENV\[absent-key\]' --require "$WORK_DIR"
+  [ "$status" -eq 1 ]
+}
+
+@test "--marker: the default gate (no --marker) still scans FIXME markers only" {
+  write_file "a.cs" "int x; // DEVENV[bug-hunt] bare form"
+  run bash "$SCRIPT" "$WORK_DIR"
+  [ "$status" -eq 0 ]
+}

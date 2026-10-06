@@ -289,7 +289,7 @@ _add_upstream_clone_to_repos() {
 
     run bash -c "printf 'y\\n' | script -qfec \"bash '$SCRIPT' --apply-to '$FORK_FIXTURE_GH_CLONE'\" /dev/null"
     [ "$status" -eq 0 ]
-    ! grep -q "$already_present_ref" "$FORK_EXPORT_FZF_INPUT_LOG"
+    [ "$(grep -c "$already_present_ref" "$FORK_EXPORT_FZF_INPUT_LOG" || true)" -eq 0 ]
     [[ "$output" == *"excluded 1 commit(s) already present in target"* ]] || {
         echo "export output: $output" >&2
         git -C "$FORK_FIXTURE_WORKING_CLONE" cherry -v "$FORK_FIXTURE_GH_CLONE" "$end_ref" "$(git -C "$FORK_FIXTURE_WORKING_CLONE" merge-base refs/remotes/upstream/master "$end_ref")" >&2
@@ -373,7 +373,7 @@ _add_upstream_clone_to_repos() {
     [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log -1 --format=%s)" = "Local two" ]
     [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log -2 --format=%s | tail -1)" = "Local one" ]
     [ "$(git -C "$FORK_FIXTURE_GH_CLONE" show HEAD:changes.txt)" = $'Local one\nLocal two' ]
-    ! git -C "$FORK_FIXTURE_GH_CLONE" rev-parse --verify --quiet CHERRY_PICK_HEAD
+    [ -z "$(git -C "$FORK_FIXTURE_GH_CLONE" rev-parse --verify --quiet CHERRY_PICK_HEAD)" ]
     [[ "$output" == *"cherry-pick sequence finalized"* ]]
     [[ "$output" != *"Bundle:"* ]]
 }

@@ -87,6 +87,51 @@ teardown() {
 # git-unwip
 # ---------------------------------------------------------------------------
 
+# --file: the arm used to record the path but shift only once, so the path was
+# then read as a positional message and the mutual-exclusion check always failed.
+@test "git-wip --file uses the file's content verbatim after the WIP: prefix" {
+  echo "change" >> file.txt
+  printf 'saved the parser work\n\nwith a body line' > "$TEST_REPO/msg.txt"
+  run "$PROJECT_ROOT/tools/scripts/git-wip" --file "$TEST_REPO/msg.txt"
+  [ "$status" -eq 0 ]
+  [ "$(git log -1 --format=%s)" = "WIP: saved the parser work" ]
+  [[ "$(git log -1 --format=%B)" == *"with a body line"* ]]
+}
+
+@test "git-wip --file together with a positional message is still rejected" {
+  echo "change" >> file.txt
+  printf 'msg' > "$TEST_REPO/msg.txt"
+  run "$PROJECT_ROOT/tools/scripts/git-wip" --file "$TEST_REPO/msg.txt" "extra words"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"mutually exclusive"* ]]
+}
+
+@test "git-wip --file with a missing file fails clearly" {
+  run "$PROJECT_ROOT/tools/scripts/git-wip" --file "$TEST_REPO/nope.txt"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"not found"* ]]
+}
+
+# A failed push used to be invisible: the script went on to update refs/wip/last and
+# exit 0, and /devenv-commit trusts the tool's own success.
+@test "git-wip: a failed push exits non-zero and does not move refs/wip/last" {
+  echo "change" >> file.txt
+  git update-ref refs/wip/last HEAD
+  before="$(git rev-parse refs/wip/last)"
+  rm -rf "$REMOTE_REPO"   # remote gone: the push cannot succeed
+  run "$PROJECT_ROOT/tools/scripts/git-wip" "scratch"
+  [ "$status" -ne 0 ]
+  [ "$(git rev-parse refs/wip/last)" = "$before" ]
+}
+
+@test "git-wip: nothing to commit exits non-zero instead of re-pushing an old commit" {
+  git update-ref refs/wip/last HEAD
+  before="$(git rev-parse refs/wip/last)"
+  run "$PROJECT_ROOT/tools/scripts/git-wip" "nothing changed"
+  [ "$status" -ne 0 ]
+  [ "$(git rev-parse refs/wip/last)" = "$before" ]
+}
+
 @test "git-unwip script exists and is executable" {
   [ -x "$DEVENV_TOOLS/scripts/git-unwip" ]
 }

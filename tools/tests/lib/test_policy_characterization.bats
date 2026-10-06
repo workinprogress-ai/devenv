@@ -72,7 +72,7 @@ load ../test_helper
     # issue-policy.bash. The script itself never sources policy-core.
     local triage="$PROJECT_ROOT/tools/scripts/issue-triage.sh"
     grep -q 'issue-policy.bash' "$triage"
-    ! grep -q 'policy-core.bash' "$triage"
+    run ! grep -q 'policy-core.bash' "$triage"
     grep -q 'LABEL_NEEDS_GROOMING' "$triage"
     grep -q 'LABEL_STATUS_READY' "$triage"
     grep -q 'needs-grooming' "$PROJECT_ROOT/tools/lib/policy/issue-policy.bash"

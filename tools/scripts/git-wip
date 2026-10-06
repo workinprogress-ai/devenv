@@ -12,6 +12,12 @@
 # pre-written message (long messages arrive unmangled; the file content is
 # used verbatim after the WIP: prefix). --file and positional args are
 # mutually exclusive.
+#
+# Failure is loud: a failed commit or push exits non-zero, and refs/wip/last
+# moves only after the push succeeded (the commit skill trusts this tool's own
+# success output).
+
+set -euo pipefail
 
 STAGED_ONLY=false
 MSG_FILE=""
@@ -38,6 +44,7 @@ while [ $# -gt 0 ]; do
     --file)
       [ -n "${2:-}" ] || { echo "Error: --file requires a path" >&2; exit 1; }
       MSG_FILE="$2"
+      shift   # consume the path too (the loop's trailing shift consumes --file)
       ;;
     -h|--help)
       print_usage
@@ -73,7 +80,13 @@ if [ "$STAGED_ONLY" = false ]; then
   git add -A
 fi
 
-git commit -m "WIP: ${MSG}" -n
-git push
+if ! git commit -m "WIP: ${MSG}" -n; then
+  echo "git-wip: commit failed (nothing to commit?) — no WIP snapshot was saved." >&2
+  exit 1
+fi
+if ! git push; then
+  echo "git-wip: push failed — the WIP commit exists locally but was NOT saved to the remote; refs/wip/last is unchanged." >&2
+  exit 1
+fi
 git update-ref refs/wip/last HEAD
 

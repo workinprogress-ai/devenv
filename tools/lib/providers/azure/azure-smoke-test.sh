@@ -57,6 +57,11 @@ source "$DEVENV_TOOLS/lib/providers/azure/projects.bash"
 source "$DEVENV_TOOLS/lib/providers/azure/releases.bash"
 source "$DEVENV_TOOLS/lib/providers/azure/repo-flag.bash"
 
+# From here on an unset variable is an error: a typo'd name must die loudly rather
+# than fabricate empty-project URLs and malformed payloads. (After the sourced
+# libraries, which are not written for nounset.)
+set -u
+
 # ---------------------------------------------------------------------------
 # CASE CHECKLIST (first-hand sweep 2026-10-01 — derived from current module
 # bodies, not the earlier audit; re-derive when modules change).
@@ -129,6 +134,11 @@ smoke_teardown_run() {
 # provider verb exits the shell, bypassing the tail of the script): the
 # EXIT trap re-runs the stack. The guard above makes re-entry a no-op.
 trap smoke_teardown_run EXIT
+# An interrupt or termination must tear down too: without these, Ctrl-C or a kill
+# leaves the repo, work items and policies behind (EXIT alone does not run on a
+# signal death).
+trap 'smoke_teardown_run; exit 130' INT
+trap 'smoke_teardown_run; exit 143' TERM
 # Contract note: org + PAT arrive via env/config at invocation and are never
 # persisted by this script (no config writes, no report secrets — the
 # transport redacts).
@@ -192,6 +202,22 @@ HELP
     exit 0
 fi
 
+# --- Safety gate (two tiers) ------------------------------------------------
+# The suite talks to a LIVE org; it never runs by accident.
+#   AZURE_SMOKE=1      read-only tier: no fixtures are created, nothing is written.
+#   AZURE_SMOKE=write  destructive tier: creates and tears down fixtures inside the
+#                      test project, and additionally needs an explicit confirmation
+#                      (AZURE_SMOKE_CONFIRM=<test project name>, or typed at a prompt).
+case "${AZURE_SMOKE:-}" in
+    1)     SMOKE_TIER="read" ;;
+    write) SMOKE_TIER="write" ;;
+    *)
+        echo "azure-smoke-test refuses to run: it exercises a LIVE Azure DevOps org." >&2
+        echo "  AZURE_SMOKE=1      read-only tier" >&2
+        echo "  AZURE_SMOKE=write  destructive tier (also needs AZURE_SMOKE_CONFIRM=<test project>)" >&2
+        exit 2 ;;
+esac
+
 smoke_ask AZURE_DEVOPS_ORG "Azure DevOps org (the live org — only the test project is touched): "
 # devenv.config fallback: only meaningful when the config actually selects
 # the azure provider — a github-provider config carries no azure_org, so
@@ -210,6 +236,17 @@ export AZURE_DEVOPS_ORG
 
 smoke_ask AZURE_SMOKE_TEST_PROJECT "Test project for the suite (must be blank/disposable): "
 [ -n "$AZURE_SMOKE_TEST_PROJECT" ] || { echo "no test project." >&2; exit 2; }
+
+# Destructive tier: the user must name the project they are about to have written to.
+if [ "$SMOKE_TIER" = "write" ] && [ "${AZURE_SMOKE_CONFIRM:-}" != "$AZURE_SMOKE_TEST_PROJECT" ]; then
+    if [ -t 0 ]; then
+        read -rp "AZURE_SMOKE=write will create and delete fixtures in project '$AZURE_SMOKE_TEST_PROJECT'. Type the project name to confirm: " AZURE_SMOKE_CONFIRM
+    fi
+    if [ "${AZURE_SMOKE_CONFIRM:-}" != "$AZURE_SMOKE_TEST_PROJECT" ]; then
+        echo "destructive tier not confirmed: set AZURE_SMOKE_CONFIRM=$AZURE_SMOKE_TEST_PROJECT (the exact test project name)." >&2
+        exit 2
+    fi
+fi
 
 smoke_ask AZURE_PAT "PAT (input hidden; needs Code/PR/WorkItems/Boards/Build/Packaging AND Policy management read+write): " secret
 
@@ -231,7 +268,7 @@ SMOKE_REPO="${AZURE_SMOKE_TEST_REPO:-smoke-repo-$$}"  # AZURE_SMOKE_TEST_REPO: o
 
 echo "azure smoke — combined suite"
 echo "=============================="
-echo "target: org=$AZURE_DEVOPS_ORG test-project=$AZURE_SMOKE_TEST_PROJECT"
+echo "target: org=$AZURE_DEVOPS_ORG test-project=$AZURE_SMOKE_TEST_PROJECT tier=$SMOKE_TIER"
 
 # Pre-flight: the test project must exist (fail fast with a real diagnosis
 # instead of a 404 cascade through every case). AZURE_PAT may not be set
@@ -292,6 +329,12 @@ fi
 # One work item + one disposable repo, created through the provider verbs.
 # Everything created here is torn down at the end of the suite.
 first_id=""
+first_repo=""
+if [ "$SMOKE_TIER" != "write" ]; then
+    echo "SKIP  fixture provisioning (read-only tier: AZURE_SMOKE=1)"
+    # Read probes below use an existing repo, if the project has one.
+    first_repo="$(printf '%s' "$repos_json" | jq -r '.[0].name // empty' 2>/dev/null || true)"
+else
 if wi_resp="$(azure_http_request POST "$(azure_wit_base)/workitems/\$Issue" '[{"op":"add","path":"/fields/System.Title","from":null,"value":"[SMOKE-DELETEME] fixture item"}]' "application/json-patch+json" 2>/dev/null)"; then
     first_id="$(printf '%s' "$wi_resp" | jq -r '.id')"
     smoke_on_teardown "azure_http_request DELETE \"$(azure_wit_base)/workitems/$first_id?destroy=true\""
@@ -303,10 +346,17 @@ fi
 first_repo="$SMOKE_REPO"
 if provider_repos_create "$first_repo" >/dev/null 2>&1 || provider_repos_create "$first_repo" --private >/dev/null 2>&1; then
     probe "fixture repo ($first_repo)" 0
-    # Deleted at teardown (stack is LIFO — policies sweep runs first; repo
-    # DELETE cascades branches/PRs; work items are deleted independently).
+    # Register the repo's teardown NOW, the moment it exists, so a death at any
+    # later point still removes it. The stack is LIFO: the repo DELETE is
+    # registered first and the policy sweep second, so the sweep runs while the
+    # repo still exists (reversed, no policy the suite created is ever found).
+    # Repo DELETE: live-observed matrix — name+destroy can 400, GUID+destroy can
+    # 400, plain DELETE (soft-delete) always works; fall through all three.
+    smoke_on_teardown "azure_http_request DELETE \"https://dev.azure.com/${org}/${project}/_apis/git/repositories/${first_repo}?destroy=true\" || azure_http_request DELETE \"https://dev.azure.com/${org}/${project}/_apis/git/repositories/\$(azure_repo_guid \"$first_repo\" 2>/dev/null)?destroy=true\" || azure_http_request DELETE \"https://dev.azure.com/${org}/${project}/_apis/git/repositories/\$(azure_repo_guid \"$first_repo\" 2>/dev/null)\""
+    smoke_on_teardown "for pid in \$(provider_org_rulesets_list \"$first_repo\" 2>/dev/null | jq -r '.[].id' 2>/dev/null); do azure_http_request DELETE \"https://dev.azure.com/${org}/${project}/_apis/policy/configurations/\$pid\"; done"
 else
     probe "fixture repo ($first_repo)" 1
+fi
 fi
 
 # --- 5. Reads on the fixtures (thorough: rc + shape) ------------------------
@@ -409,6 +459,9 @@ if [ -n "$_smoke_first_state" ] && _foi=$(provider_projects_field_option_ids "$p
 else
     probe "provider_projects_field_option_ids" 1 "$(head -c 120 <<< "$_foi")"
 fi
+if [ "$SMOKE_TIER" != "write" ]; then
+    echo "SKIP  write/destructive tier (AZURE_SMOKE=1 is read-only; use AZURE_SMOKE=write)"
+else
 echo "write/destructive coverage — test project: $AZURE_SMOKE_TEST_PROJECT"
 
     # SAFETY: this tier runs exclusively inside the user-provided test
@@ -458,8 +511,12 @@ echo "write/destructive coverage — test project: $AZURE_SMOKE_TEST_PROJECT"
     # pushing an initial commit to 'main' (the repo's init default), then
     # resolve the branch (post-push the view reports it).
     default_branch="main"
-    tmpclone=$(mktemp -d)
-    askpass_bin="$tmpclone.askpass.sh"
+    # One scratch directory for the clone, the askpass helper and the payload
+    # files; registered FIRST so it is removed LAST (after every step that uses it).
+    SMOKE_TMP="$(mktemp -d)"
+    smoke_on_teardown "rm -rf '$SMOKE_TMP'"
+    tmpclone="$SMOKE_TMP/clone"
+    askpass_bin="$SMOKE_TMP/askpass.sh"
     cat > "$askpass_bin" <<'ASKPASS'
 #!/usr/bin/env bash
 printf '%s\n' "$AZURE_PAT"
@@ -469,6 +526,8 @@ ASKPASS
     # push-by-URL seed leaves no remote to push the source branch through,
     # which silently starves every PR case downstream.
     remote_url="https://dev.azure.com/${org}/${project}/_git/${SMOKE_REPO}"
+    seed_ok=0
+    branch_pushed=0
     if GIT_ASKPASS="$askpass_bin" GIT_TERMINAL_PROMPT=0 \
        git init -q -b "$default_branch" "$tmpclone" 2>/dev/null \
        && (cd "$tmpclone" \
@@ -479,13 +538,14 @@ ASKPASS
            && GIT_ASKPASS="$askpass_bin" GIT_TERMINAL_PROMPT=0 \
               git push -q origin "$default_branch" 2>/dev/null); then
         probe "default branch seed (main)" 0
+        seed_ok=1
     else
         probe "default branch seed (main)" 1 "push failed — PAT needs Code Write on the test project"
-        rm -rf "$tmpclone" "$askpass_bin"
     fi
     # The seed block left tmpclone as a working clone pointed at the repo —
-    # reuse it: branch off the seeded main, commit, push, PR, merge.
-    if [ -d "$tmpclone/.git" ] || [ -n "${default_branch:-}" ]; then
+    # reuse it: branch off the seeded main, commit, push, PR, merge. Only when
+    # the seed actually landed: a seed that failed leaves nothing to branch from.
+    if [ "$seed_ok" = "1" ]; then
         if (
             cd "$tmpclone" || exit 1
             git fetch -q origin 2>/dev/null || true
@@ -496,6 +556,7 @@ ASKPASS
             GIT_ASKPASS="$askpass_bin" GIT_TERMINAL_PROMPT=0 git push -q origin "$src_branch" 2>/dev/null
         ); then
             probe "branch push ($src_branch)" 0
+            branch_pushed=1
         else
             probe "branch push ($src_branch)" 1 "push failed — head branch absent server-side; PR cases will fail"
         fi
@@ -506,14 +567,23 @@ ASKPASS
         fi
 
         # 3. Create PR via the seam verb, rebase-merge, verify branch deletion.
+        # Only when the head branch really reached the server — otherwise the 400
+        # would blame the provider for a precondition the harness itself failed.
         pr_json=""
-        if pr_json=$(provider_prs_create "$SMOKE_REPO" --title "chore: smoke destructive probe" --body "smoke" --head "$src_branch" --base "$default_branch" 2>&1); then
-            pr_id=$(printf '%s' "$pr_json" | grep -oE 'pullrequest/[0-9]+' | grep -oE '[0-9]+')
-            probe "PR create (id $pr_id)" 0
-            if provider_prs_merge "$SMOKE_REPO" "$pr_id" --rebase --delete-branch >/dev/null 2>&1; then
-                probe "PR rebase-merge + branch delete" 0
+        pr_id=""
+        if [ "$branch_pushed" != "1" ]; then
+            probe "PR create" 1 "skipped: the head branch was not pushed (see the branch push probe)"
+        elif pr_json=$(provider_prs_create "$SMOKE_REPO" --title "chore: smoke destructive probe" --body "smoke" --head "$src_branch" --base "$default_branch" 2>&1); then
+            pr_id=$(printf '%s' "$pr_json" | grep -oE 'pullrequest/[0-9]+' | grep -oE '[0-9]+' | head -1 || true)
+            if [ -n "$pr_id" ]; then
+                probe "PR create (id $pr_id)" 0
+                if provider_prs_merge "$SMOKE_REPO" "$pr_id" --rebase --delete-branch >/dev/null 2>&1; then
+                    probe "PR rebase-merge + branch delete" 0
+                else
+                    probe "PR rebase-merge + branch delete" 1
+                fi
             else
-                probe "PR rebase-merge + branch delete" 1
+                probe "PR create" 1 "reported success but no PR id could be parsed from: $(printf '%s' "$pr_json" | head -c 120)"
             fi
         else
             # pr_json holds stderr here (2>&1 capture) — surface it.
@@ -522,8 +592,8 @@ ASKPASS
     else
         probe "branch push (clone)" 1 "seed block failed — no working clone"
     fi
-    # tmpclone/askpass survive until the second-PR block reuses them; the
-    # repos-write section below and the final cleanup remove them.
+    # tmpclone/askpass live until teardown (SMOKE_TMP) — they serve both PR flows
+    # and the payload files below.
 
     # --- Extended write/destructive coverage (issue-edit/comment verbs,
     # graph, set_type, tags, thread verbs, pipelines, policies, projects) ---
@@ -628,24 +698,29 @@ ASKPASS
     # PR: push a dedicated branch up front (origin is real now), create,
     # and leave it active for the thread verbs; abandon at case end.
     pr2_json=""
+    pr2_id=""
     src2="smoke2-$$"
-    (
+    if (
         cd "$tmpclone" 2>/dev/null || exit 1
         git checkout -q -b "$src2" "origin/$default_branch" 2>/dev/null || git checkout -q -b "$src2"
         echo "smoke2 $$" > SMOKE2.md
         git add SMOKE2.md 2>/dev/null
         git commit -q -m "chore: smoke thread PR" 2>/dev/null
         GIT_ASKPASS="$askpass_bin" GIT_TERMINAL_PROMPT=0 git push -q origin "$src2" 2>/dev/null
-    )
-    if pr2_json=$(provider_prs_create "$SMOKE_REPO" --title "smoke: thread lifecycle" --body "smoke" --head "$src2" --base "$default_branch" 2>&1); then
-        pr2_id=$(printf '%s' "$pr2_json" | grep -oE 'pullrequest/[0-9]+' | grep -oE '[0-9]+')
-        probe "second PR create" 0
+    ); then
+        if pr2_json=$(provider_prs_create "$SMOKE_REPO" --title "smoke: thread lifecycle" --body "smoke" --head "$src2" --base "$default_branch" 2>&1); then
+            pr2_id=$(printf '%s' "$pr2_json" | grep -oE 'pullrequest/[0-9]+' | grep -oE '[0-9]+' | head -1 || true)
+            if [ -n "$pr2_id" ]; then
+                probe "second PR create" 0
+            else
+                probe "second PR create" 1 "reported success but no PR id could be parsed"
+            fi
+        else
+            probe "second PR create" 1 "$(head -c 120 <<< "$pr2_json")"
+        fi
     else
-        probe "second PR create" 1 "$(head -c 120 <<< "$pr2_json")"
-        pr2_id=""
+        probe "second PR create" 1 "skipped: the head branch was not pushed"
     fi
-    # The clone has served both PR flows — clean it before the repos writes.
-    rm -rf "$tmpclone" "$askpass_bin" "$tmpclone".* 2>/dev/null || true
     if [ -n "${pr2_id:-}" ]; then
         if th_json=$(provider_prs_comment "$SMOKE_REPO" "$pr2_id" --body "smoke thread" 2>/dev/null); then
             probe "provider_prs_comment" 0
@@ -703,7 +778,7 @@ ASKPASS
     fi
     # protect_branch needs a GH-shaped payload file (the review count rides
     # it); the created policy configurations are swept at teardown.
-    protect_payload="$tmpclone.protect.json"
+    protect_payload="$SMOKE_TMP/protect.json"
     printf '%s' '{"required_pull_request_reviews":{"required_approving_review_count":1}}' > "$protect_payload" 2>/dev/null || true
     if provider_repos_protect_branch "$SMOKE_REPO" "$default_branch" "$protect_payload" >/dev/null 2>&1; then
         probe "provider_repos_protect_branch" 0
@@ -741,7 +816,7 @@ ASKPASS
     # Policies: ruleset create → update (delete+recreate) → list. The
     # payload is GH-ruleset-shaped — translate maps the pull_request rule
     # onto a minimum-reviewers policy configuration.
-    policy_payload="$tmpclone.policy.json"
+    policy_payload="$SMOKE_TMP/policy.json"
     # The translate pins refs/heads/main; protect_branch already created a
     # minimum-reviewers policy on main — an identical blocking configuration
     # is rejected 403 'rejected by policy'. The ruleset case targets the
@@ -781,17 +856,10 @@ ASKPASS
     else
         probe "provider_org_rulesets_list (post-write)" 1
     fi
-    # Repo-scoped policy sweep MUST be registered BEFORE the repo DELETE:
-    # the stack executes LIFO, so the sweep runs first (with the repo still
-    # present) and the DELETE runs last. Reversed, the sweep can never find
-    # the repo's configurations and every policy the suite created survives
-    # teardown (observed live).
-    smoke_on_teardown "for pid in \$(provider_org_rulesets_list \"$SMOKE_REPO\" 2>/dev/null | jq -r '.[].id' 2>/dev/null); do azure_http_request DELETE \"https://dev.azure.com/${org}/${project}/_apis/policy/configurations/\$pid\"; done"
-    # Repo DELETE: live-observed matrix — name+destroy can 400, GUID+destroy
-    # can 400, plain DELETE (soft-delete) always works. Fall through all
-    # three so teardown never strands a repo (the orphans this suite left
-    # in early rounds needed a manual sweep).
-    smoke_on_teardown "azure_http_request DELETE \"https://dev.azure.com/${org}/${project}/_apis/git/repositories/${first_repo}?destroy=true\" || azure_http_request DELETE \"https://dev.azure.com/${org}/${project}/_apis/git/repositories/\$(azure_repo_guid \"$first_repo\" 2>/dev/null)?destroy=true\" || azure_http_request DELETE \"https://dev.azure.com/${org}/${project}/_apis/git/repositories/\$(azure_repo_guid \"$first_repo\" 2>/dev/null)\""
+    # (The repo DELETE and the policy sweep were registered when the fixture repo
+    # was created — see the fixture section.)
+
+fi   # write tier
 
 # Teardown: reverse-order cleanup of everything the suite created inside
 # the user's test project (the project itself is the user's — never

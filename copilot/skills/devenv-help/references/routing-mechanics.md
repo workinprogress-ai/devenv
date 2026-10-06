@@ -102,7 +102,7 @@ apply guardrails before finalizing:
   current approach is wrong" → `/devenv-groom`, not refine. One bounded
   blocker → `/devenv-design`; accumulating questions / sweeping
   redesign → `/devenv-groom`.
-- **Upstream artifacts** — planning from a design/spike artifact with no
+- **Upstream artifacts** — planning from a design/research artifact with no
   grooming artifact → `/devenv-groom` first unless explicitly bypassed.
   Where a grooming artifact exists, it directs scope/slice boundaries;
   side-stream artifacts are informational, never scope-directing.

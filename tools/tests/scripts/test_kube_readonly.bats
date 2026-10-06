@@ -31,9 +31,9 @@ setup() {
 echo "jq $*" >> "${CALL_LOG:?}"
 exec /usr/bin/jq "$@"
 EOF
-    cat > "$BIN/kube-pod-select.sh" << 'EOF'
+    cat > "$BIN/kube-pod-select" << 'EOF'
 #!/usr/bin/env bash
-echo "kube-pod-select.sh $*" >> "${CALL_LOG:?}"
+echo "kube-pod-select $*" >> "${CALL_LOG:?}"
 # Deterministic selection: emit the filter's first stub-pod match.
 while IFS= read -r pod; do
     case "$pod" in
@@ -53,7 +53,7 @@ case "$1" in
     *) exit 0 ;;
 esac
 EOF
-    chmod +x "$BIN/jq" "$BIN/kube-pod-select.sh" "$BIN/telepresence"
+    chmod +x "$BIN/jq" "$BIN/kube-pod-select" "$BIN/telepresence"
     export PATH="$BIN:$PATH"
     export CALL_LOG="$TEST_TEMP_DIR/calls.log"
     : > "$CALL_LOG"
@@ -118,7 +118,7 @@ EOF
     run bash "$PROJECT_ROOT/tools/scripts/kube-forward-ports.sh" "web=abc" < /dev/null
     [ "$status" -eq 1 ]
     [[ "$output" == *"Ports must be numeric"* ]]
-    ! grep -q "kube-pod-select.sh" "$CALL_LOG"
+    run ! grep -q "kube-pod-select" "$CALL_LOG"
 }
 
 @test "kube-intercept: invalid mapping format is refused before any telepresence call" {

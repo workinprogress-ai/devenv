@@ -16,11 +16,14 @@ check_fzf_installed || exit 1
 
 # Namespace: -n|--namespace <ns> (forwarded to kube-list-pods), or resolver default.
 argv=("$@")
-FILTER="${1:-}"
 
 source "$DEVENV_TOOLS/lib/kube-selection.bash"
 parse_namespace_flag argv || true
 NS=$(resolve_namespace "${NAMESPACE_FLAG_VALUE:-}")
+
+# The filter is what is left once -n/--namespace has been stripped; reading $1
+# before that would take the flag itself ("-n") for the filter.
+FILTER="${argv[0]:-}"
 
 # Set header prompt
 HEADER="Select a pod (ns: $NS)"
@@ -29,7 +32,7 @@ if [ -n "${argv[1]:-}" ]; then
 fi
 
 # Run kube-list-pods.sh with the resolved namespace + filter
-POD_LIST=$(kube-list-pods.sh -n "$NS" "$FILTER")
+POD_LIST=$(kube-list-pods -n "$NS" "$FILTER")
 
 # Handle empty results
 if [ -z "$POD_LIST" ]; then

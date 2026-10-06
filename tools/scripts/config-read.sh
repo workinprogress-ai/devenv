@@ -34,14 +34,12 @@ source "$DEVENV_TOOLS/lib/config-reader.bash"
 
 enable_strict_mode
 
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Read a value from devenv.config"
-
 show_usage() {
     cat << EOF
 Usage: $SCRIPT_NAME SECTION KEY [DEFAULT] [--config FILE]
 
 Read one value from devenv.config (INI-style: [section] + key=value).
-Template variables (${PROVIDER_ORG} etc.) are expanded. Prints the value, or
+Template variables (\${PROVIDER_ORG} etc.) are expanded. Prints the value, or
 DEFAULT when the key is absent.
 
 Options:

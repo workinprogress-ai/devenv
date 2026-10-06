@@ -54,7 +54,6 @@ devenv=$(dirname "$script_folder")
 # Uncommitted changes — refuse to update.
 if ! git diff --quiet || ! git diff --cached --quiet; then
     echo "There are uncommitted changes in the devenv repo. Please commit or stash them before updating."
-    cd - > /dev/null || return
     exit 1
 fi
 
@@ -65,13 +64,11 @@ BASE_HASH=$(git merge-base "$CURRENT_BRANCH" "origin/$CURRENT_BRANCH" 2>/dev/nul
 
 # Up to date — nothing to do.
 if [ "$LOCAL_HASH" == "$REMOTE_HASH" ]; then
-    cd - > /dev/null || return
     exit 0
 fi
 
 # Local is ahead of or has diverged from remote — don't offer to update.
 if [ "$LOCAL_HASH" != "$BASE_HASH" ]; then
-    cd - > /dev/null || return
     exit 0
 fi
 
@@ -88,7 +85,6 @@ read -rp "Do you want to update? (y/n): " answer
 case $answer in
     [Yy]* ) ;;
     * )
-        cd - > /dev/null || return
         exit 1;;
 esac
 
@@ -97,7 +93,6 @@ PRE_UPDATE_HASH=$(git rev-parse HEAD)
 
 $devenv/tools/git-update
 if [ $? -ne 0 ]; then
-    cd - > /dev/null || return
     echo "Error updating the repository. Please update manually (e.g., run 'git pull')."
     echo "You may also need to rebuild the dev container or re-run the bootstrap."
     exit 1
@@ -137,5 +132,4 @@ case "$ACTION" in
         ;;
 esac
 
-cd - > /dev/null || return
 exit 0

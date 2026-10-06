@@ -39,7 +39,7 @@ parse_namespace_flag argv || true
 NAMESPACE=$(resolve_namespace "${NAMESPACE_FLAG_VALUE:-}")
 
 # Find matching pods
-POD_NAME=$(NAMESPACE="$NAMESPACE" kube-pod-select.sh "$POD_NAME_PART")
+POD_NAME=$(NAMESPACE="$NAMESPACE" kube-pod-select "$POD_NAME_PART")
 
 # Check if a pod was found
 if [ -z "$POD_NAME" ]; then

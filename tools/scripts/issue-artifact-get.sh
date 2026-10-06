@@ -20,7 +20,6 @@ source "$DEVENV_TOOLS/lib/issue-operations.bash"
 readonly SCRIPT_VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Retrieve an issue artifact comment by deterministic doc_id"
 
 ISSUE_NUMBER=""
 DOC_ID=""

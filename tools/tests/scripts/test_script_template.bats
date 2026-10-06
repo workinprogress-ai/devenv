@@ -83,11 +83,6 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "template sources retry library" {
-  run grep "source.*lib/retry.bash" "$DEVENV_TOOLS/templates/script-template.sh"
-  [ "$status" -eq 0 ]
-}
-
 @test "template includes --help flag parsing" {
   run grep "\-h|--help" "$DEVENV_TOOLS/templates/script-template.sh"
   [ "$status" -eq 0 ]

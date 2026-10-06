@@ -141,7 +141,7 @@ repo-create --interactive                  # prompts for type and name
 
 **Key options:**
 
-- `--type <type>`: Required (planning|service|gateway|app-web|cs-library|ts-package|none)
+- `--type <type>`: Required (planning|documentation|template|service|gateway|app-web|cs-library|ts-package|none)
 - `--interactive` / `-i`: fzf-driven type picker + name prompt
 - `--public` | `--private`: Visibility (default: private)
 - `--description <text>`: Repository description
@@ -664,7 +664,7 @@ artifacts-list --owner <org> [--type <type>] [--name <pattern>] [--format <forma
 
 **Required Options:**
 
-- `--owner <org>`: Repository owner or organization name (resolved from devenv.config `[organization] github_org` when omitted)
+- `--owner <org>`: Repository owner or organization name (resolved from devenv.config `[organization] org` when omitted)
 
 **Optional Filters:**
 
@@ -766,14 +766,17 @@ Never hand-parse the header — use this tool so format changes stay encapsulate
 Clean up `.local-artifacts/` folders by artifact family (ephemeral `tmpN.md`,
 session memory, issue-artifact working copies, other). Interactive by default;
 `--tmp` deletes scratch files without confirmation while every other family
-requires `-y` or an interactive confirm. `-l` lists per family and deletes
+requires `-y` or an interactive confirm. Retained deliverables (`research-*.md`,
+`bug-hunt-*.md`, `TECH_DEBT_AUDIT*`) are never swept — not by `--all`, not by
+`-y`, not offered interactively — unless `--include-deliverables` is passed;
+sweeps report them as "kept". `-l` lists per family and deletes
 nothing. See the [local artifacts convention](../copilot/skills/_conventions.md)
 for the family definitions.
 
 **Usage:**
 
 ```bash
-artifact-clean [PATH...] [--tmp | --session | --working | --all] [-y] [-l]
+artifact-clean [PATH...] [--tmp | --session | --working | --all] [--include-deliverables] [-y] [-l]
 ```
 
 ## CI Pipelines
@@ -1394,14 +1397,14 @@ If neither source provides an issue number, the command fails with invalid argum
 **Examples:**
 
 ```bash
-# Create or update spike findings comment by doc_id
+# Create or update a research findings comment by doc_id
 issue-artifact-upsert \
-  --body-file spike-001-retry-strategy.md
+  --body-file research-001-retry-strategy.md
 
 # Preview action without writing
 issue-artifact-upsert \
   --issue 123 \
-  --body-file spike-001-retry-strategy.md \
+  --body-file research-001-retry-strategy.md \
   --dry-run
 ```
 
@@ -1416,7 +1419,7 @@ issue-artifact-doc-id --issue ISSUE_NUMBER --artifact-type TYPE [--slug TEXT | -
 **Required Arguments:**
 
 - `--issue ISSUE_NUMBER`: Target issue number
-- `--artifact-type TYPE`: One of `spike`, `redesign`, `design`, `blueprint`, `specifications`, `roadmap`, `plan` (`implementation-plan` accepted as legacy alias for pre-rename artifacts)
+- `--artifact-type TYPE`: One of `spike` (legacy), `research`, `redesign`, `design`, `blueprint`, `specifications`, `roadmap`, `plan` (`implementation-plan` accepted as legacy alias for pre-rename artifacts)
 
 **Slug Source (exactly one required):**
 
@@ -1433,7 +1436,7 @@ issue-artifact-doc-id --issue ISSUE_NUMBER --artifact-type TYPE [--slug TEXT | -
 # From a free-text slug
 issue-artifact-doc-id \
   --issue 123 \
-  --artifact-type spike \
+  --artifact-type research \
   --slug "Retry Strategy" \
   --repo example-org/devenv
 
@@ -1712,12 +1715,12 @@ project-update-issue PROJECT_NAME ISSUE_NUMBER [OPTIONS]
 **Examples:**
 
 ```bash
-# Move issue to Ready
-project-update-issue "Q1 2026" 123 --status "Ready"
+# Workflow states (TBD..Review) advance by their own signals, not by direct writes
+workflow-signal end-planning 123           # → Ready
+workflow-signal begin-implementation 123   # → Implementing
+workflow-signal begin-review 123           # → Review (pr-create also fires this)
 
-# Track progress through workflow
-project-update-issue "Sprint 5" 123 --status "Implementing"
-project-update-issue "Sprint 5" 123 --status "Review"
+# Delivery states (Merged, Staging, Production) may be written directly
 project-update-issue "Sprint 5" 123 --status "Merged"
 
 # Set custom fields
@@ -2598,14 +2601,14 @@ devenv-add-custom-startup "echo 'Container started'" "export MY_VAR=value"
 
 ### Function-backed commands (function vs script)
 
-`key-update-git`, `key-update-do`, and `key-update-tailscale` are **bash functions** that wrap `tools/scripts/_key-update-*.sh` and re-source `.runtime/env-vars.sh` afterward, so the current shell sees refreshed values. The underscore-prefixed scripts have no depth-1 `tools/` entry by design — always invoke the bare function name. (`repo-get` is the deliberate counter-example: its depth-1 stub has real value for non-interactive use, so it is a plain script plus stub.)
+`key-update-provider`, `key-update-do`, and `key-update-tailscale` are **bash functions**: `key-update-do` and `key-update-tailscale` wrap `tools/scripts/_key-update-*.sh`, `key-update-provider` dispatches to the active provider's `tools/lib/providers/<name>/key-update.sh`, and all of them re-source `.runtime/env-vars.sh` afterward, so the current shell sees refreshed values. The underscore-prefixed scripts have no depth-1 `tools/` entry by design — always invoke the bare function name. (`repo-get` is the deliberate counter-example: its depth-1 stub has real value for non-interactive use, so it is a plain script plus stub.)
 
-### `key-update-git`
+### `key-update-provider`
 
 Rotates the git provider credential: imports the new token through the provider auth seam into the keychain (the single source of truth) and re-wires the git credential helper. No token is written to env files, remote URLs, or `.setup/` — the seed file `.setup/provider_token.txt` is a bootstrap-input one-shot, not the store.
 
 ```bash
-key-update-git [new-token]
+key-update-provider [new-token]
 ```
 
 **Interactive mode:** If no token is provided, prompts for input.
@@ -2878,7 +2881,7 @@ Clones or updates all organization repositories into `$DEVENV_TOOLS/cache/repo_c
 - Writes a `.cache_timestamp` file (ISO timestamp + content hash) for staleness detection by downstream tools
 - Outputs the cache directory path on success
 
-**Required configuration:** `[organization] github_org` in devenv.config (identity resolves via provider accessors; authentication resolves via the provider keychain — no token env var)
+**Required configuration:** `[organization] org` in devenv.config (identity resolves via provider accessors; authentication resolves via the provider keychain — no token env var)
 
 **Example:**
 
@@ -3115,7 +3118,7 @@ The following convenience aliases are available in the dev container:
 **Utilities:**
 
 - `get-public-ip` - Get current public IP
-- `key-update-git` - Rotate the git provider credential (keychain import + credential helper)
+- `key-update-provider` - Rotate the git provider credential (keychain import + credential helper)
 - `key-update-tailscale` - Update Tailscale auth key
 - `key-update-do` - Update Digital Ocean API token
 - `devenv-vscode-fix-sockets` - Fix stale VS Code IPC sockets (see [Troubleshooting](./Dev-container-environment.md#troubleshooting))
@@ -3331,7 +3334,7 @@ issue/PR.
 
 The following environment variables should be configured for full functionality:
 
-- `GH_TOKEN`: not required day-to-day — tokens live in the keychain, imported via `key-update-git` or the provider auth seam. When you mint a token (bootstrap provisioning or rotation), give it these scopes:
+- `GH_TOKEN`: not required day-to-day — tokens live in the keychain, imported via `key-update-provider` or the provider auth seam. When you mint a token (bootstrap provisioning or rotation), give it these scopes:
   - `repo` (full control of private repositories)
   - `workflow` (update CI pipeline workflows)
   - `read:packages` (download packages from the provider package registry)

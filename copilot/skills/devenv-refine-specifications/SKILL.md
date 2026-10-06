@@ -1,6 +1,6 @@
 ---
 name: devenv-refine-specifications
-description: 'Revise an existing Specifications-*.md after stakeholder priorities shift, new actors or scenarios surface, a spike invalidates an assumption, or implementation discovery exposes gaps. USE WHEN the user says "refine/update the specifications", "the specifications need updating", hands off a stale specifications doc, hands off issue number(s) describing a needed specifications change (upstream-impact work orders or issues from any source) or asks to work the upstream-impact queue, or a change spans specifications and blueprint (cascade mode — one session edits both). Preserves SPEC-NNN IDs and dependency links, appends rather than reflows, deletes superseded items clean (the why lives in ADRs; the document carries target state only). If intake reveals a non-surgical change, stop and recommend /devenv-write-specifications continuation mode. DO NOT USE for creating a specifications doc (use /devenv-write-specifications), brainstorming broad changes (use /devenv-write-specifications continuation mode), ad-hoc one-line edits (just edit the file), or blueprint-only revision (use /devenv-refine-blueprint — cascade mode here covers changes spanning both).'
+description: 'Revise an existing Specifications-*.md after stakeholder priorities shift, new actors or scenarios surface, a research finding invalidates an assumption, or implementation discovery exposes gaps. USE WHEN the user says "refine/update the specifications", "the specifications need updating", hands off a stale specifications doc, hands off issue number(s) describing a needed specifications change (upstream-impact work orders or issues from any source) or asks to work the upstream-impact queue, or a change spans specifications and blueprint (cascade mode — one session edits both). Preserves SPEC-NNN IDs and dependency links, appends rather than reflows, deletes superseded items clean (the why lives in ADRs; the document carries target state only). If intake reveals a non-surgical change, stop and recommend /devenv-write-specifications continuation mode. DO NOT USE for creating a specifications doc (use /devenv-write-specifications), brainstorming broad changes (use /devenv-write-specifications continuation mode), ad-hoc one-line edits (just edit the file), or blueprint-only revision (use /devenv-refine-blueprint — cascade mode here covers changes spanning both).'
 argument-hint: 'Path to a Specifications-*.md file'
 user-invocable: true
 ---
@@ -11,7 +11,7 @@ user-invocable: true
 
 > **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 
-Revise an existing specifications document based on new information — stakeholder priorities that shifted, new actors or scenarios that surfaced, a spike that invalidated an assumption, or implementation discovery that exposed gaps. Preserve every prior decision and ID; never silently rewrite history.
+Revise an existing specifications document based on new information — stakeholder priorities that shifted, new actors or scenarios that surfaced, a research finding that invalidated an assumption, or implementation discovery that exposed gaps. Preserve every prior decision and ID; never silently rewrite history.
 
 **This skill is how specifications stay living.** Specifications are not point-in-time artifacts gathered once and frozen — they are the system's current functional truth, kept accurate as reality moves. Refinement is the normal, expected maintenance path for that truth: when the world changes, the specifications change with it (surgically, with IDs stable and history recorded), so downstream artifacts — blueprints, roadmaps, plans — can trust what they read. A specifications document that no longer matches reality is a defect in the document, not a footnote.
 
@@ -21,7 +21,7 @@ Write specification items body sections as the current target behaviour and cons
 
 - The user has a `Specifications-*.md` that needs new specifications, revised acceptance criteria, new actors/scenarios, scope adjustments, or re-grouped priorities
 - A previous `/devenv-write-specifications` run is now out of date
-- A spike, blueprint, or implementation discovery surfaced specification items facts the doc didn't anticipate
+- A research finding, blueprint, or implementation discovery surfaced specification items facts the doc didn't anticipate
 - New human communications (transcripts, emails, meeting notes) arrived after the original interview
 
 Use this skill when the user already knows the intended change direction and wants that change applied safely.
@@ -35,7 +35,7 @@ If no specifications doc exists, stop and redirect to [`/devenv-write-specificat
 The user provides one of:
 
 - **A file path** — e.g. `docs/Specifications/Specifications-orders-001.md`.
-- **Issue number(s)** — any issue whose body describes a needed specifications change, whatever its origin. Queue work orders (`upstream-impact` label, filed by grooming, execution closeouts, spikes, plan refinement) carry the predictable body format ("what changed, why, affected sections") and load straight in via `issue-get <N> --pretty`. Issues from any other source (users, stakeholders, ad-hoc) are equally valid input — read the body, extract the intended change, and confirm the direction with the reporter if it's ambiguous. Either way, follow the [cross-artifact cascade protocol](../common/references/cross-artifact-cascade.md)'s issue-intake loop.
+- **Issue number(s)** — any issue whose body describes a needed specifications change, whatever its origin. Queue work orders (`upstream-impact` label, filed by grooming, execution closeouts, research, plan refinement) carry the predictable body format ("what changed, why, affected sections") and load straight in via `issue-get <N> --pretty`. Issues from any other source (users, stakeholders, ad-hoc) are equally valid input — read the body, extract the intended change, and confirm the direction with the reporter if it's ambiguous. Either way, follow the [cross-artifact cascade protocol](../common/references/cross-artifact-cascade.md)'s issue-intake loop.
 - **The upstream-impact queue** — "work the queue" / no specific issue: `issue-list --label upstream-impact`, present, let the architect pick all/some, then loop per issue.
 
 Plus optionally the file path when an issue references a specific doc.

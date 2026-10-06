@@ -57,12 +57,14 @@ if [ "$parallel_jobs" -gt "$MAX_PARALLEL_JOBS" ]; then
     parallel_jobs=$MAX_PARALLEL_JOBS
 fi
 
-# Collect every test file across the three directories. A single bats
+# Collect every test file across the four directories (live/ is deliberately
+# absent: it needs real credentials and a scratch project — manual-only, see
+# tools/tests/README.md). A single bats
 # invocation over the whole set is what makes the run parallel: bats --jobs
 # schedules files across a worker pool; three separate invocations would
 # serialize the groups.
 test_files=()
-for dir in lib scripts devenv; do
+for dir in lib scripts devenv skills; do
     if [ -d "$TESTS_DIR/$dir" ]; then
         while IFS= read -r -d '' f; do
             test_files+=("$f")

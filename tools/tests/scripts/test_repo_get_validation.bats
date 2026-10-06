@@ -63,12 +63,6 @@ assert_output_contains() {
     assert_failure
 }
 
-@test "repo-get: strips trailing slash from input" {
-    run bash -c 'input_repo="my-repo/"; input_repo="${input_repo%/}"; echo "$input_repo"'
-    assert_success
-    [ "$output" = "my-repo" ]
-}
-
 @test "repo-get: requires alphanumeric start" {
     run "$PROJECT_ROOT/tools/scripts/repo-get.sh" "-repo" 2>&1
     assert_failure
@@ -96,41 +90,89 @@ assert_output_contains() {
     assert_success
 }
 
-@test "repo-get: --all mode exits cleanly when no repos are available to clone" {
-    # Simulate get_available_repos returning empty (everything already cloned)
-    run bash -c '
-        ALL_MODE=true
-        available=""
-        if [ -z "$available" ]; then
-            echo "All organization repositories are already cloned" >&2
-            exit 0
-        fi
-        exit 1
-    '
-    assert_success
-    assert_output_contains "already cloned"
+# ============================================================================
+# Real runs of repo-get.sh against a stubbed provider CLI and stubbed git
+# ============================================================================
+
+# Stubs: `gh auth status` succeeds and `gh repo list` prints $STUB_ORG_REPOS;
+# git records every call, and `git clone <url> <dir>` creates <dir> (failing
+# for the repo named in $STUB_CLONE_FAIL). The org is the sandboxed config's.
+setup_repo_get_world() {
+    mkdir -p "$TEST_TEMP_DIR/bin" "$DEVENV_ROOT/repos"
+    export STUB_LOG="$TEST_TEMP_DIR/calls.log"
+    : > "$STUB_LOG"
+    cat > "$TEST_TEMP_DIR/bin/gh" <<'STUB'
+#!/usr/bin/env bash
+echo "gh $*" >> "$STUB_LOG"
+case "$1" in
+  repo) printf '%b' "${STUB_ORG_REPOS:-}" ;;
+esac
+exit 0
+STUB
+    cat > "$TEST_TEMP_DIR/bin/git" <<'STUB'
+#!/usr/bin/env bash
+echo "git $*" >> "$STUB_LOG"
+if [ "$1" = clone ]; then
+    case "$2" in *"/${STUB_CLONE_FAIL:-@none@}.git"|*"/${STUB_CLONE_FAIL:-@none@}") exit 1 ;; esac
+    mkdir -p "$3"
+fi
+exit 0
+STUB
+    chmod +x "$TEST_TEMP_DIR/bin/gh" "$TEST_TEMP_DIR/bin/git"
 }
 
-@test "repo-get: --all mode iterates repos and clones each" {
-    # Simulate cloning two repos in --all mode
-    mkdir -p "$TEST_TEMP_DIR/repos"
-    run bash -c "
-        repos_dir='$TEST_TEMP_DIR/repos'
-        GIT_URL_PREFIX='https://user:token@github.com/myorg'
-        available=\$'repo-alpha\nrepo-beta'
-        failed=()
-        cloned=()
-        clone_repo() { cloned+=(\"\$REPO_NAME\"); }
-        while IFS= read -r repo; do
-            [ -z \"\$repo\" ] && continue
-            REPO_NAME=\"\$repo\"
-            TARGET_DIR=\"\$repos_dir/\$REPO_NAME\"
-            GIT_URL=\"\${GIT_URL_PREFIX}/\${REPO_NAME}.git\"
-            clone_repo
-        done <<< \"\$available\"
-        echo \"\${cloned[*]}\"
-    "
-    assert_success
-    assert_output_contains "repo-alpha"
-    assert_output_contains "repo-beta"
+run_repo_get() {
+    PATH="$TEST_TEMP_DIR/bin:$PATH" bash "$PROJECT_ROOT/tools/scripts/repo-get.sh" "$@"
+}
+
+@test "repo-get --all exits 0 without cloning when every org repo is already local" {
+    setup_repo_get_world
+    mkdir -p "$DEVENV_ROOT/repos/repo-alpha" "$DEVENV_ROOT/repos/repo-beta"
+    export STUB_ORG_REPOS='repo-alpha\nrepo-beta\n'
+    run run_repo_get --all
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"already cloned"* ]]
+    run ! grep -q '^git clone' "$STUB_LOG"
+}
+
+@test "repo-get --all clones exactly the org repos that are not yet local" {
+    setup_repo_get_world
+    mkdir -p "$DEVENV_ROOT/repos/repo-beta"
+    export STUB_ORG_REPOS='repo-alpha\nrepo-beta\nrepo-gamma\n'
+    run run_repo_get --all
+    [ "$status" -eq 0 ]
+    [ -d "$DEVENV_ROOT/repos/repo-alpha" ]
+    [ -d "$DEVENV_ROOT/repos/repo-gamma" ]
+    [ "$(grep -c '^git clone' "$STUB_LOG")" -eq 2 ]
+    grep '^git clone' "$STUB_LOG" | grep -q 'test-org/repo-alpha'
+    grep '^git clone' "$STUB_LOG" | grep -q 'test-org/repo-gamma'
+    [ "$(grep '^git clone' "$STUB_LOG" | grep -c 'repo-beta')" -eq 0 ]
+}
+
+@test "repo-get --all reports a failed clone, exits 1, and still clones the rest" {
+    setup_repo_get_world
+    export STUB_ORG_REPOS='repo-alpha\nrepo-gamma\n'
+    export STUB_CLONE_FAIL=repo-alpha
+    run run_repo_get --all
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Failed to clone repo-alpha"* ]]
+    [ -d "$DEVENV_ROOT/repos/repo-gamma" ]
+}
+
+@test "repo-get --all: a failed clone does not go on to configure or fetch anything" {
+    setup_repo_get_world
+    export STUB_ORG_REPOS='repo-alpha\n'
+    export STUB_CLONE_FAIL=repo-alpha
+    run run_repo_get --all
+    [ "$status" -eq 1 ]
+    run ! grep -qE '^git (config|fetch|remote)' "$STUB_LOG"
+}
+
+@test "repo-get strips a trailing slash before validating and updating an existing repo" {
+    setup_repo_get_world
+    mkdir -p "$DEVENV_ROOT/repos/my-repo"
+    run run_repo_get "my-repo/"
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"Invalid repository name"* ]]
+    grep -q '^git fetch' "$STUB_LOG"
 }

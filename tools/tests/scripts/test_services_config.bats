@@ -11,8 +11,23 @@ load ../test_helper
 }
 
 @test "get-services-config.sh has --help flag" {
-  skip "Script requires repo URL as argument, doesn't support --help"
   run bash "$PROJECT_ROOT/tools/scripts/get-services-config.sh" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Usage:" ]]
+}
+
+@test "get-services-config.sh --help leaves an existing config folder untouched" {
+  # Without --help handling the flag was taken as a repo URL and the existing
+  # target folder was deleted before the clone failed.
+  mkdir -p "$TEST_TEMP_DIR/cfg"
+  echo keep > "$TEST_TEMP_DIR/cfg/marker"
+  run env CONFIG_FOLDER="$TEST_TEMP_DIR/cfg" bash "$PROJECT_ROOT/tools/scripts/get-services-config.sh" --help
+  [ "$status" -eq 0 ]
+  [ -f "$TEST_TEMP_DIR/cfg/marker" ]
+}
+
+@test "get-services-config.sh -h is the same as --help" {
+  run bash "$PROJECT_ROOT/tools/scripts/get-services-config.sh" -h
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }

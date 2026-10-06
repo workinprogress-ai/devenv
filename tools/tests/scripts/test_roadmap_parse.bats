@@ -88,3 +88,11 @@ teardown() { rm -rf "$WORK_DIR"; }
   run bash "$SCRIPT" "$WORK_DIR/nope.md"
   [ "$status" -eq 2 ]
 }
+
+@test "--help describes pass-through status, not a precedence engine it does not have" {
+  run bash "$PROJECT_ROOT/tools/scripts/roadmap-parse.sh" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Status precedence"* ]]
+  [[ "$output" == *"as written"* ]]
+  [[ "$output" == *"does not compute"* ]]
+}

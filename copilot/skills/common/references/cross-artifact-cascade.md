@@ -64,7 +64,7 @@ Cross-issue batching: when several queued discoveries (see intake, below) stem f
 
 ## Issue intake (the upstream-impact queue)
 
-Skills that discover upstream-material changes from below — grooming, execution closeouts, spikes, plan refinement — file an `upstream-impact` labeled issue in the planning repo rather than editing the living documents themselves. Each issue is a work order: what changed, why, affected sections, and enough context/alternatives that the executor can later write the ADR faithfully.
+Skills that discover upstream-material changes from below — grooming, execution closeouts, research, plan refinement — file an `upstream-impact` labeled issue in the planning repo rather than editing the living documents themselves. Each issue is a work order: what changed, why, affected sections, and enough context/alternatives that the executor can later write the ADR faithfully.
 
 Either refine skill can be invoked with:
 

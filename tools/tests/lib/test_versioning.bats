@@ -66,19 +66,6 @@ load ../test_helper
     [[ "$output" =~ ERROR ]]
 }
 
-@test "script_version outputs when SHOW_VERSION set" {
-    run bash -c "export SHOW_VERSION=1 && source $PROJECT_ROOT/tools/lib/versioning.bash && script_version 'test.sh' '1.0.0' 'Test script'"
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "test.sh version 1.0.0" ]]
-    [[ "$output" =~ "Test script" ]]
-}
-
-@test "script_version silent when SHOW_VERSION not set" {
-    run bash -c "source $PROJECT_ROOT/tools/lib/versioning.bash && script_version 'test.sh' '1.0.0' 'Test script'"
-    [ "$status" -eq 0 ]
-    [ -z "$output" ]
-}
-
 @test "require_script_version enforces minimums" {
     run bash -c "source $PROJECT_ROOT/tools/lib/versioning.bash && require_script_version '2.0.0' '1.5.0' 'test.sh'"
     [ "$status" -eq 0 ]
@@ -95,4 +82,33 @@ load ../test_helper
     run bash -c "source $PROJECT_ROOT/tools/lib/versioning.bash; echo \$MIN_GIT_VERSION"
     [ "$status" -eq 0 ]
     [[ "$output" =~ ^[0-9]+\.[0-9]+ ]]
+}
+
+# Pre-release / build suffixes ("-rc.1", "+build5") are ignored: versions compare
+# by their numeric MAJOR.MINOR.PATCH core.
+
+@test "compare_versions: a pre-release suffix on the patch compares by its numeric core" {
+    run bash -c "source $PROJECT_ROOT/tools/lib/versioning.bash; compare_versions 1.2.4-rc.1 1.2.3 2>&1; echo \"rc=\$?\""
+    [[ "$output" == "rc=1" ]]
+    run bash -c "source $PROJECT_ROOT/tools/lib/versioning.bash; compare_versions 1.2.2-rc.1 1.2.3 2>&1; echo \"rc=\$?\""
+    [[ "$output" == "rc=2" ]]
+}
+
+@test "compare_versions: a version equals its own pre-release (numeric core only)" {
+    run bash -c "source $PROJECT_ROOT/tools/lib/versioning.bash; compare_versions 1.2.3-rc.1 1.2.3 2>&1; echo \"rc=\$?\""
+    [[ "$output" == "rc=0" ]]
+}
+
+@test "compare_versions: a build suffix on any segment is ignored without noise" {
+    run bash -c "source $PROJECT_ROOT/tools/lib/versioning.bash; compare_versions 2.0.0+build5 1.9.9 2>&1; echo \"rc=\$?\""
+    [[ "$output" == "rc=1" ]]
+    run bash -c "source $PROJECT_ROOT/tools/lib/versioning.bash; compare_versions 1.2-beta 1.2.0 2>&1; echo \"rc=\$?\""
+    [[ "$output" == "rc=0" ]]
+}
+
+@test "version_gte works with a pre-release suffix" {
+    run bash -c "source $PROJECT_ROOT/tools/lib/versioning.bash; version_gte 2.1.0-rc.2 2.0.0"
+    [ "$status" -eq 0 ]
+    run bash -c "source $PROJECT_ROOT/tools/lib/versioning.bash; version_gte 1.9.0-rc.2 2.0.0"
+    [ "$status" -ne 0 ]
 }

@@ -122,7 +122,7 @@ EOF
 get_grooming_issues() {
     log_info "Fetching issues for grooming..."
     # Use library function to list issues, filtered for open state
-    list_issues_formatted "open" "" "" ""
+    list_issues_formatted --state open
 }
 
 # Display issue details
@@ -185,7 +185,6 @@ groom_issue() {
                 provider_issues_view "${repo_spec[0]:-}" "$issue_num" --json body -q .body > "$tmpfile"
                 "${EDITOR:-nano}" "$tmpfile"
                 provider_issues_edit "${repo_spec[0]:-}" "$issue_num" --body-file "$tmpfile"
-                log_info "Updated description"
                 log_info "Updated description"
                 ;;
             4)
@@ -486,6 +485,13 @@ main() {
         exit $rc
     fi
     
+    # The wizard is a menu driven by read: without a terminal on stdin it would
+    # block or consume the wrong input. Scripted use is the bundle mode above.
+    if [ ! -t 0 ]; then
+        log_error "The grooming wizard needs an interactive terminal (stdin is not a TTY). For scripted use pass issue number(s) with bundle options, e.g. $SCRIPT_NAME 123 --label bug"
+        exit "$EXIT_MISUSE"
+    fi
+
     # Welcome message
     clear
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

@@ -133,7 +133,7 @@ EOF
     STUB_GH_LOGIN_FAIL=1 run bash "$DEVENV_TOOLS/lib/providers/github/key-update.sh" "ghp_bad"
     [ "$status" -ne 0 ]
     [[ "$output" == *"No changes made"* ]]
-    ! grep -q "gh auth setup-git" "$CALL_LOG"
+    run ! grep -q "gh auth setup-git" "$CALL_LOG"
     [ ! -f "$DEVENV_ROOT/.setup/provider_token.txt" ]
 }
 
@@ -191,6 +191,39 @@ EOF
     [[ "$output" == *"Success"* ]]
     grep -q "sudo tailscale up --authkey=tskey-abc123def456" "$CALL_LOG"
     grep -q "devenv-add-env-vars.sh TS_AUTHKEY=tskey-abc123def456" "$CALL_LOG"
+}
+
+# The documented non-interactive form is `key-update-tailscale AUTH_KEY`; the
+# script used to read the terminal regardless and never look at $1, so it hung
+# waiting for a key that had already been given.
+
+@test "key-update-tailscale: a positional key is used without prompting, even if stdin never answers" {
+    run timeout 8 bash -c "bash '$FAKE_TOOLS/scripts/_key-update-tailscale.sh' tskey-posarg123 < <(sleep 20 >/dev/null 2>&1)"
+    # 124 would mean it sat waiting on the silent stdin.
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Success"* ]]
+    grep -q "sudo tailscale up --authkey=tskey-posarg123" "$CALL_LOG"
+    grep -q "devenv-add-env-vars.sh TS_AUTHKEY=tskey-posarg123" "$CALL_LOG"
+}
+
+@test "key-update-tailscale: a positional key works with closed stdin" {
+    run bash "$FAKE_TOOLS/scripts/_key-update-tailscale.sh" tskey-posarg123 < /dev/null
+    [ "$status" -eq 0 ]
+    grep -q "sudo tailscale up --authkey=tskey-posarg123" "$CALL_LOG"
+}
+
+@test "key-update-tailscale: a positional key wins over anything on stdin" {
+    run bash -c "printf 'tskey-fromstdin\n' | bash '$FAKE_TOOLS/scripts/_key-update-tailscale.sh' tskey-fromarg"
+    [ "$status" -eq 0 ]
+    grep -q "sudo tailscale up --authkey=tskey-fromarg" "$CALL_LOG"
+    run ! grep -q "tskey-fromstdin" "$CALL_LOG"
+}
+
+@test "key-update-tailscale: a positional key is validated like a prompted one" {
+    run bash "$FAKE_TOOLS/scripts/_key-update-tailscale.sh" not-a-tskey < /dev/null
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Invalid key format"* ]]
+    run ! grep -q "sudo tailscale up" "$CALL_LOG"
 }
 
 # Existence guard: the key-update family gains members independently;

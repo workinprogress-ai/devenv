@@ -85,7 +85,7 @@ Source only what you use. All paths are `$DEVENV_TOOLS/lib/`.
 | Library | Provides | When to source |
 |---|---|---|
 | `error-handling.bash` | Logging (`log_debug/info/warn/error/fatal`, `success`), exit-code constants, `die`, `invalid_args`, `require_option_value`, `api_failure`, `handle_global_flag`, `enable_strict_mode`, `require_command`, `safe_remove` | **Always.** Non-negotiable. |
-| `versioning.bash` | `script_version` (power `-v/--version`) | Always |
+| `versioning.bash` | Version parsing and comparison (`parse_version`, `compare_versions`, `version_gte`), environment requirement checks (`check_bash_version`, `check_git_version`, `check_environment_requirements`), `require_script_version` | When a tool needs version comparison or environment checks. `-v/--version` comes from `handle_global_flag` and `SCRIPT_VERSION`, not from this library. |
 | `provider-loader.bash` | `ensure_gh_login`, `get_repo_spec`, `resolve_target_repo` | Any GitHub-facing tool (superseded by `tools/lib/providers/` for new work — see the [provider abstraction](../tools/lib/providers/README.md)) |
 | `git-operations.bash` | `check_target_repo` (devenv-repo safety gate) | Tools operating on the cwd's repo; required by `resolve_target_repo` |
 | `issue-operations.bash` | Issue CRUD wrappers | Issue tools |
@@ -155,8 +155,8 @@ equivalent chain for its backend.
 
 ## Temp files and cleanup
 
-- Use `create_temp_file VARNAME [DIRECTORY]` / `create_temp_dir` and
-  `register_cleanup` from `error-handling.bash`. The helper registers an EXIT
+- Use `create_temp_file VARNAME [DIRECTORY]` and `register_cleanup` from
+  `error-handling.bash`. The helper registers an EXIT
   trap in the caller's shell — do not wrap it in `$( )`.
 - Happy-path `rm` is not cleanup; early exits leak.
 

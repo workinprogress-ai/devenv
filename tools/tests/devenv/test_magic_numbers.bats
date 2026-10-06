@@ -62,15 +62,6 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "lib/retry.bash defines default constants" {
-  run grep "readonly DEFAULT_MAX_RETRIES=" "$PROJECT_ROOT/tools/lib/retry.bash"
-  [ "$status" -eq 0 ]
-  run grep "readonly DEFAULT_INITIAL_DELAY=" "$PROJECT_ROOT/tools/lib/retry.bash"
-  [ "$status" -eq 0 ]
-  run grep "readonly DEFAULT_MAX_DELAY=" "$PROJECT_ROOT/tools/lib/retry.bash"
-  [ "$status" -eq 0 ]
-}
-
 @test "script template shows constant definition pattern" {
   run grep "readonly DEFAULT_TIMEOUT=" "$DEVENV_TOOLS/templates/script-template.sh"
   [ "$status" -eq 0 ]

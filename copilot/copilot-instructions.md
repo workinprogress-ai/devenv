@@ -166,7 +166,7 @@ When a repository-content edit (or any tracker mutation beyond the active skill'
 **English is the language of the codebase — including markdown.** Everything that lives in a repository is English, no exceptions:
 
 - **Code in all forms** — identifiers, variable/function/class/test names, code comments, and inline documentation.
-- **Markdown and documentation** — READMEs, docs, ADRs, and planning artifacts (plans, blueprints, roadmaps, specifications docs, spike results, pairing state notes).
+- **Markdown and documentation** — READMEs, docs, ADRs, and planning artifacts (plans, blueprints, roadmaps, specifications docs, research findings, pairing state notes).
 - **Commit messages and issue/PR text** — commit titles/bodies, issue bodies, titles, comments, and PR descriptions posted via tools (the tracker's provider-specific vocabulary — e.g. "GitHub issue" — is fine where the protocol reference defines it).
 
 **Translation copies of artifacts:** if the user asks for a translation of an artifact, a copy of it may be output in the user's language (typically to a temp or scratch file). The principal artifact in the repository remains in English.
@@ -191,7 +191,7 @@ If you find yourself about to type `git commit`, `git add`, `git push`, or any o
 
 **Allowed:** read-only inspection only — `git status`, `git log`, `git diff`, `git show`, `git rev-parse`, `git merge-base`, `git blame`, `git ls-files`, `git config --get`, etc.
 
-**Wrappers that internally mutate** (e.g. `pr-create` pushes the branch, `git-update` pulls) **are allowed** — wrappers encode the safety. The rule prohibits *raw* git mutations, not named workspace wrapper invocations.
+**Wrappers that internally mutate** (e.g. `pr-create --at` pushes the merge branch it creates, `git-update` pulls) **are allowed** — wrappers encode the safety. The rule prohibits *raw* git mutations, not named workspace wrapper invocations.
 
 **Invoke built-in tools on `PATH`, without explicit paths.** Call `issue-create`, `repo-commit`, `git-wip`, etc. by bare name. If a path is ever required, it must point to `tools/` — never `tools/scripts/`. The depth-1 `tools/` entry is the fork customization point: a fork swaps the executor there without touching anything that invokes it. (`tools/scripts/` holds the implementations; referencing it is for source location and tests, not invocation.) **Carve-out — event-signal scripts:** lifecycle event handlers (`_on_<event>`, e.g. `_on_begin_review`) have no depth-1 entry by design; they are invoked with their explicit `tools/scripts/` path and are exempt from this rule.
 
@@ -276,6 +276,6 @@ When the user asks to write markdown to a temporary file, or asks for markdown w
 - Check existing `tmp*.md` files in `.local-artifacts/` first and use the next free number. Do not overwrite an existing tmp markdown unless it is clearly safe to do so.
 - These files are routinely deleted or modified by the user between sessions — never assume you know what a `tmpN.md` contains; re-read it before any overwrite or reuse.
 - Ephemeral files are not persisted artifacts: no `DEVENV_ARTIFACT_V1` header, no `doc_id`.
-- This rule covers only clearly ephemeral content. Durable artifacts (plans, grooming documents, spike findings, roadmaps) follow their own skill conventions.
+- This rule covers only clearly ephemeral content. Durable artifacts (plans, grooming documents, research findings, roadmaps) follow their own skill conventions.
 
 This is a sibling rule to the DEVENV remove-before-ship rule above, covering the distinct class of **permanent unmarked** provenance comments: DEVENV markers are tracked temporaries (removed on schedule); ephemeral references in unmarked comments are untracked permanents (never valid in shipped code).

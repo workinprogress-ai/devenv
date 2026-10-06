@@ -640,3 +640,52 @@ SCRIPT
     captured=$(cat "$TEST_TEMP_DIR/clone_urls.txt")
     [ "$captured" = "CLONE_URL: https://github.com/url-org/url-repo.git" ]
 }
+
+# Clone/update URLs come from the provider's per-repo transport URL — not from
+# "<org base>/<repo>.git", which is only a valid shape on GitHub. Azure needs
+# https://dev.azure.com/<org>/<project>/_git/<repo>.
+run_cache_clone_urls() {   # run_cache_clone_urls <config-text> -> clone URLs, one per line
+    local script="$TEST_TEMP_DIR/url_run.sh"
+    : > "$TEST_TEMP_DIR/clone_urls.txt"
+    cat > "$script" <<SCRIPT
+export DEVENV_TOOLS='$DEVENV_TOOLS'
+export DEVENV_ROOT='$TEST_TEMP_DIR'
+export DEVENV_ROOT_SET=1
+export REPO_CACHE_DIR='$TEST_TEMP_DIR/cache/repo_cache'
+unset GH_TOKEN AZURE_DEVOPS_ORG AZURE_DEVOPS_PROJECT
+printf '$1' > '$TEST_TEMP_DIR/devenv.config'
+source "\$DEVENV_TOOLS/lib/repo-cache.bash"
+list_organization_repositories() { printf 'url-repo\nother-repo\n'; }
+git() {
+    if [ "\$1" = 'clone' ]; then
+        local a url
+        for a in "\$@"; do
+            case "\$a" in https://*) url="\$a" ;; esac
+        done
+        echo "\$url" >> '$TEST_TEMP_DIR/clone_urls.txt'
+        local dir="\${@: -1}"
+        mkdir -p "\$dir/.git"
+        return 0
+    fi
+    command git "\$@"
+}
+refresh_repo_cache >/dev/null 2>&1
+SCRIPT
+    bash "$script"
+    sort "$TEST_TEMP_DIR/clone_urls.txt"
+}
+
+@test "repo-cache: under azure, clone URLs are https://dev.azure.com/<org>/<project>/_git/<repo>" {
+    run run_cache_clone_urls '[organization]\nname=t\norg=url-org\n[provider]\nname=azure\nazure_org=url-org\nazure_project=proj\n'
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"https://dev.azure.com/url-org/proj/_git/url-repo"* ]]
+    [[ "$output" == *"https://dev.azure.com/url-org/proj/_git/other-repo"* ]]
+    [[ "$output" != *"dev.azure.com/url-org/url-repo"* ]]
+}
+
+@test "repo-cache: under github the clone URLs are unchanged (https://github.com/<org>/<repo>.git)" {
+    run run_cache_clone_urls '[organization]\nname=t\norg=url-org\n'
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"https://github.com/url-org/url-repo.git"* ]]
+    [[ "$output" == *"https://github.com/url-org/other-repo.git"* ]]
+}

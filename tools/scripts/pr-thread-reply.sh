@@ -4,7 +4,7 @@
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 # pr-thread-reply.sh - Reply to an inline review comment on a GitHub PR
-# Version: 1.0.0
+# Version: 1.1.0
 # Description: Posts a reply to an existing review comment (not a top-level PR comment)
 # Requirements: Bash 4.0+, gh CLI, jq
 # Author: WorkInProgress.ai
@@ -22,7 +22,6 @@ source "$DEVENV_TOOLS/lib/body-source.bash"
 readonly SCRIPT_VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Reply to an inline review comment on a GitHub PR"
 
 # ============================================================================
 # Global Variables
@@ -159,10 +158,13 @@ post_reply() {
     # Extract owner/repo for REST API. Canonical emission is the bare spec;
     # the legacy `-R <spec>` pair normalizes defensively.
     local repo_owner repo_name
-    if [[ "${repo_spec_args[*]}" =~ -R[[:space:]]([^/]+)/([^[:space:]]+) ]]; then
+    # owner = the first component; name = EVERYTHING after it, so an Azure
+    # org/project/repo spec keeps its project/repo remainder (the earlier two-part
+    # capture took org/project and dropped the repo).
+    if [[ "${repo_spec_args[*]}" =~ -R[[:space:]]([^/[:space:]]+)/([^[:space:]]+) ]]; then
         repo_owner="${BASH_REMATCH[1]}"
         repo_name="${BASH_REMATCH[2]}"
-    elif [[ "${repo_spec_args[*]}" =~ ([^/]+)/([^/[:space:]]+) ]]; then
+    elif [[ "${repo_spec_args[*]}" =~ ^([^/[:space:]]+)/([^[:space:]]+)$ ]]; then
         repo_owner="${BASH_REMATCH[1]}"
         repo_name="${BASH_REMATCH[2]}"
     else

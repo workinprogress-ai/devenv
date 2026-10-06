@@ -554,7 +554,7 @@ main() {
     # Org identity resolves via the provider accessor (env override →
     # config → seed); no env export required. User identity is not
     # consumed by creation itself — gh's authenticated identity carries it.
-    ORG="$(provider_org_get)" || die "Organization identity unresolved. Configure [organization] org in devenv.config or run setup." "$EXIT_INVALID_ARGUMENT"
+    ORG="$(provider_org_get)" || die "Organization identity unresolved. Configure [organization] org in devenv.config or run setup." "$EXIT_MISUSE"
     ensure_provider_auth
     
     create_repo "$repo_name" "$visibility" "$description" "$repo_type" "$skip_protection" "$skip_template" "$skip_clone" "$skip_post_creation"

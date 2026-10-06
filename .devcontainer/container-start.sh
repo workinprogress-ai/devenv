@@ -52,8 +52,11 @@ run_bootstrap() {
     # Run bootstrap
     sed -i 's/\r//g' $toolbox_root/.devcontainer/bootstrap.sh
     chmod +x $toolbox_root/.devcontainer/bootstrap.sh
+    # bootstrap.sh takes the same lock for its other entry paths; tell it this
+    # run already holds it so it does not wait on its own parent.
+    export DEVENV_BOOTSTRAP_LOCK_HELD=1
     $toolbox_root/.devcontainer/bootstrap.sh
-    
+
     echo "Bootstrap script executed"
     
     # Lock is automatically released when fd 200 is closed

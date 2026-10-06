@@ -4,7 +4,6 @@ repos/*
 .debug/*
 .setup/
 .setup/*
-.update-time
 node_modules/
 .pnpm-store/
 .cache/

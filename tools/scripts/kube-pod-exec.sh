@@ -39,7 +39,7 @@ POD_NAME_PART="${argv[0]}"
 COMMAND=("${argv[@]:1}")
 
 # Find matching pods
-POD_NAME=$(NAMESPACE="$NS" kube-pod-select.sh "$POD_NAME_PART")
+POD_NAME=$(NAMESPACE="$NS" kube-pod-select "$POD_NAME_PART")
 
 # Check if a pod was found
 if [ -z "$POD_NAME" ]; then

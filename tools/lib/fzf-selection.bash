@@ -104,9 +104,12 @@ fzf_select_single() {
     fi
     
     local selected
-    selected=$(echo -e "$items" | fzf "${fzf_args[@]}") || return 1
+    # printf '%s\n', never echo -e: item text is data (titles, paths, branch
+    # names), and echo -e would turn a backslash sequence in it into a control
+    # character; echo "$selected" would also swallow an item such as "-n".
+    selected=$(printf '%s\n' "$items" | fzf "${fzf_args[@]}") || return 1
     
-    echo "$selected"
+    printf '%s\n' "$selected"
     return 0
 }
 
@@ -177,9 +180,12 @@ fzf_select_multi() {
     fi
     
     local selected
-    selected=$(echo -e "$items" | fzf "${fzf_args[@]}") || return 1
+    # printf '%s\n', never echo -e: item text is data (titles, paths, branch
+    # names), and echo -e would turn a backslash sequence in it into a control
+    # character; echo "$selected" would also swallow an item such as "-n".
+    selected=$(printf '%s\n' "$items" | fzf "${fzf_args[@]}") || return 1
     
-    echo "$selected"
+    printf '%s\n' "$selected"
     return 0
 }
 
@@ -224,9 +230,13 @@ fzf_select_smart() {
         return 1
     fi
     
-    # Count items
-    local item_count
-    item_count=$(echo -e "$items" | grep -c ".")
+    # The items are the non-blank lines. grep exits 1 when it finds none, which
+    # would kill a caller running under set -e before the friendly error below.
+    local lines item_count=0
+    lines=$(printf '%s\n' "$items" | grep -v '^$' || true)
+    if [ -n "$lines" ]; then
+        item_count=$(printf '%s\n' "$lines" | wc -l)
+    fi
     
     if [ "$item_count" -eq 0 ]; then
         echo "ERROR: No items to select from" >&2
@@ -234,13 +244,13 @@ fzf_select_smart() {
     fi
     
     if [ "$item_count" -eq 1 ]; then
-        # Auto-select single item
-        echo "$items"
+        # Auto-select the single item (not the raw list, which may carry blanks)
+        printf '%s\n' "$lines"
         return 0
     fi
     
     # Multiple items: show menu
-    fzf_select_single "$items" "$prompt" "$preview_cmd"
+    fzf_select_single "$lines" "$prompt" "$preview_cmd"
 }
 
 # ============================================================================
@@ -292,7 +302,7 @@ fzf_select_filtered() {
     # Filter items by pattern
     local filtered
     # shellcheck disable=SC2086  # grep_opts intentionally unquoted for option expansion
-    filtered=$(echo -e "$items" | grep $grep_opts "$pattern")
+    filtered=$(printf '%s\n' "$items" | grep $grep_opts "$pattern")
     
     if [ -z "$filtered" ]; then
         echo "ERROR: No items matching pattern: $pattern" >&2
@@ -306,36 +316,6 @@ fzf_select_filtered() {
 # ============================================================================
 # List Building Helpers
 # ============================================================================
-
-# Build a formatted menu list for fzf
-#
-# Creates a tab-separated menu where each line has:
-# - Display name (column 1)
-# - Full path/value (column 2, hidden by default)
-#
-# Useful for menus where display names differ from actual values.
-#
-# Usage:
-#   menu=$(fzf_build_menu "name1\tpath1\nname2\tpath2")
-#   echo "$menu" > /tmp/menu_file
-#   selected=$(fzf --with-nth=1 < /tmp/menu_file | awk -F '\t' '{print $2}')
-#
-# Arguments:
-#   $1 - Menu items (tab-separated name\tvalue, newline-separated rows)
-#
-# Returns:
-#   0 always
-#   Outputs formatted menu
-#
-fzf_build_menu() {
-    local items="${1:-}"
-    
-    if [ -z "$items" ]; then
-        return 0
-    fi
-    
-    echo -e "$items"
-}
 
 # Extract a field from fzf selection (for tab-separated fields)
 #

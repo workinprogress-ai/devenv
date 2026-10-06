@@ -190,3 +190,83 @@ EOF
   # Working copies untouched — only the tmp family was targeted
   [ -f "$FOLDER/Plan-issue-33-001.md" ]
 }
+
+# ---------------------------------------------------------------------------
+# Deliverables are retained work product, never cleanup fodder
+# ---------------------------------------------------------------------------
+
+make_deliverables() {
+  touch "$FOLDER/research-001-claude-code-interop.md" \
+        "$FOLDER/bug-hunt-azure-git-npm-auth.md" \
+        "$FOLDER/TECH_DEBT_AUDIT.md"
+}
+
+@test "--all -y never deletes deliverables (research, bug-hunt, tech-debt audit)" {
+  make_deliverables
+  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null --all -y
+  [ "$status" -eq 0 ]
+  [ -f "$FOLDER/research-001-claude-code-interop.md" ]
+  [ -f "$FOLDER/bug-hunt-azure-git-npm-auth.md" ]
+  [ -f "$FOLDER/TECH_DEBT_AUDIT.md" ]
+  # The rest of the sweep still happens.
+  [ ! -f "$FOLDER/random-notes.md" ]
+  [ ! -f "$FOLDER/Plan-issue-33-001.md" ]
+}
+
+@test "the sweep says which deliverables it kept and how to include them" {
+  make_deliverables
+  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null --all -y
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[deliverable] kept 3 protected file(s)"* ]]
+  [[ "$output" == *"--include-deliverables"* ]]
+}
+
+@test "--list reports deliverables as protected, not as cleanable 'other'" {
+  make_deliverables
+  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null -l
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[other] would clean 1"* ]]
+  [[ "$output" == *"[deliverable] kept 3 protected file(s)"* ]]
+  [ -f "$FOLDER/TECH_DEBT_AUDIT.md" ]
+}
+
+@test "--all -y --include-deliverables is the explicit override that deletes them" {
+  make_deliverables
+  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null --all -y --include-deliverables
+  [ "$status" -eq 0 ]
+  [ ! -f "$FOLDER/research-001-claude-code-interop.md" ]
+  [ ! -f "$FOLDER/bug-hunt-azure-git-npm-auth.md" ]
+  [ ! -f "$FOLDER/TECH_DEBT_AUDIT.md" ]
+}
+
+@test "--include-deliverables alone does not delete without -y or a confirmation" {
+  make_deliverables
+  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null --all --include-deliverables
+  [ "$status" -eq 0 ]
+  [ -f "$FOLDER/TECH_DEBT_AUDIT.md" ]
+  [ -f "$FOLDER/random-notes.md" ]
+}
+
+@test "family-only sweeps (--working, --session, --tmp) leave deliverables alone" {
+  make_deliverables
+  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null --tmp --session --working -y
+  [ "$status" -eq 0 ]
+  [ -f "$FOLDER/research-001-claude-code-interop.md" ]
+  [ -f "$FOLDER/bug-hunt-azure-git-npm-auth.md" ]
+  [ -f "$FOLDER/TECH_DEBT_AUDIT.md" ]
+}
+
+@test "pair's pairing-state files are session memory, swept with --session" {
+  touch "$FOLDER/pairing-state-issue-7.md"
+  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null -l
+  [[ "$output" == *"[session] would clean 2"* ]]
+  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null --session -y
+  [ "$status" -eq 0 ]
+  [ ! -f "$FOLDER/pairing-state-issue-7.md" ]
+  [ ! -f "$FOLDER/session_memory-design.md" ]
+}
+
+@test "an unknown option is still rejected" {
+  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null --include-deliverable
+  [ "$status" -eq 2 ]
+}

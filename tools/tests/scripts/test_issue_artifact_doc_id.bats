@@ -67,3 +67,26 @@ load ../test_helper
 
   [ "$status" -eq 2 ]
 }
+
+@test "issue-artifact-doc-id.sh accepts the research artifact type" {
+  run "$PROJECT_ROOT/tools/scripts/issue-artifact-doc-id.sh" \
+    --issue 12 \
+    --artifact-type research \
+    --source-file research-003-retry-strategy.md \
+    --repo workinprogress-ai/devenv
+
+  [ "$status" -eq 0 ]
+  [ "$output" = "dv1:workinprogress-ai/devenv:issue-12:research:research-003-retry-strategy" ]
+}
+
+@test "issue-artifact-doc-id.sh lists research among the allowed types in help" {
+  run "$PROJECT_ROOT/tools/scripts/issue-artifact-doc-id.sh" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"research"* ]]
+}
+
+@test "issue-artifact-doc-id.sh still accepts the legacy spike type" {
+  run "$PROJECT_ROOT/tools/scripts/issue-artifact-doc-id.sh" \
+    --issue 12 --artifact-type spike --slug "old finding" --repo o/r
+  [ "$status" -eq 0 ]
+}

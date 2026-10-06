@@ -4,7 +4,7 @@
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 # project-update-issue.sh - Update issue fields in GitHub Projects (v2)
-# Version: 1.0.0
+# Version: 1.1.0
 # Description: Update project-specific field values for issues using GraphQL API
 # Requirements: Bash 4.0+, gh CLI, jq
 # Author: WorkInProgress.ai
@@ -24,7 +24,6 @@ source "$DEVENV_TOOLS/lib/config-reader.bash"
 readonly SCRIPT_VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Update GitHub Project issues"
 
 # ============================================================================
 # Global Variables

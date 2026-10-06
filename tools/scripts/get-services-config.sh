@@ -13,6 +13,21 @@ set -euo pipefail
 # shellcheck source=lib/error-handling.bash
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 
+show_usage() {
+    echo "Usage: get-services-config.sh [repo-url] [branch]"
+    echo ""
+    echo "Clone a configuration repository and extract it into the local config"
+    echo "folder (CONFIG_FOLDER, default \$DEVENV_ROOT/.debug/config). An existing"
+    echo "config folder is replaced."
+    echo ""
+    echo "  repo-url   Repository to clone (default: \$SERVICES_CONFIG_REPO)"
+    echo "  branch     Branch to check out (default: the repository default)"
+}
+
+case "${1:-}" in
+    -h|--help) show_usage; exit 0 ;;
+esac
+
 repo_url="${1:-${SERVICES_CONFIG_REPO:-}}"
 branch="${2:-}"
 target_folder="${CONFIG_FOLDER:-$DEVENV_ROOT/.debug/config}"

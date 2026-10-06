@@ -40,10 +40,18 @@ fi
 sub="$1"; shift || true
 case "$cmd $sub" in
   "pr list")
-    echo ""  # No existing PRs
+    echo "${EXISTING_PR_URL:-}"  # empty = no existing PR
     ;;
   "pr create")
-    # Echo back the arguments for verification
+    if [ -n "${PR_CREATE_FAIL:-}" ]; then
+      # A failing create whose error text happens to contain a URL.
+      echo "error: could not create the PR; see https://github.com/mock-owner/mock-repo/issues/9" >&2
+      exit 1
+    fi
+    if [ -n "${PR_CREATE_WARN:-}" ]; then
+      # A successful create that also warns on stderr, with a URL in the warning.
+      echo "warning: see https://github.com/mock-owner/mock-repo/wiki/rate-limits" >&2
+    fi
     echo "https://github.com/mock-owner/mock-repo/pull/123"
     ;;
   "repo view")
@@ -122,7 +130,7 @@ teardown() {
   run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "invalid message" --issue 123 --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Conventional Commits" ]]
-  ! grep -q 'pr create' "$GH_CALL_LOG"
+  [ "$(grep -c 'pr create' "$GH_CALL_LOG" || true)" -eq 0 ]
   # Non-squash repo: any non-empty title passes the gate.
   export SQUASH_MODE=false
   : > "$GH_CALL_LOG"
@@ -249,22 +257,15 @@ teardown() {
 }
 
 @test "pr-create --at creates a merge branch and opens the PR from it" {
-  git checkout -b feature/partial >/dev/null 2>&1
-  echo "one" >> README.md
-  git add README.md
-  git commit -q -m "feat: ready prefix"
-  local ready_hash
-  ready_hash="$(git rev-parse --short HEAD)"
-  echo "two" >> README.md
-  git add README.md
-  git commit -q -m "WIP: continues"
+  # A real (local) remote: the merge branch is pushed before the PR opens.
+  at_fixture
 
   # --at picks the ready prefix; the merge branch skips the WIP tip, so the
   # feature-branch WIP never enters the PR.
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: ready prefix" --issue 789 --at "$ready_hash" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: ready prefix" --issue 789 --at "$READY_HASH" --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "mock-owner/mock-repo/pull/123" ]]
-  git show-ref --verify --quiet "refs/heads/merge/${ready_hash}-feature/partial"
+  git show-ref --verify --quiet "refs/heads/merge/${READY_HASH}-feature/partial"
   # Success path returns the user to the feature branch: the merge
   # branch is a PR vehicle, not a place to keep working.
   [ "$(git rev-parse --abbrev-ref HEAD)" = "feature/partial" ]
@@ -287,4 +288,82 @@ teardown() {
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Non-interactive mode" ]]
   [[ "$output" =~ "feat: pickable" ]]
+}
+
+
+# ---------------------------------------------------------------------------
+# --at against a real (local) remote: the merge branch must be pushed, and the
+# user must be put back on their branch on EVERY exit path.
+# ---------------------------------------------------------------------------
+
+# at_fixture: a feature branch with a ready commit and a WIP tip, plus a local
+# bare remote standing in for the https origin. Sets READY_HASH and REMOTE.
+at_fixture() {
+  REMOTE="$TEST_TEMP_DIR/remote.git"
+  git init -q --bare -b main "$REMOTE"
+  git config url."$REMOTE".insteadOf "https://github.com/mock-owner/mock-repo.git"
+  git push -q origin main 2>/dev/null
+  git checkout -b feature/partial >/dev/null 2>&1
+  echo "one" >> README.md; git add README.md; git commit -q -m "feat: ready prefix"
+  READY_HASH="$(git rev-parse --short HEAD)"
+  echo "two" >> README.md; git add README.md; git commit -q -m "WIP: continues"
+}
+
+@test "pr-create --at pushes the merge branch to the remote before opening the PR" {
+  at_fixture
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: ready prefix" --issue 789 --at "$READY_HASH" --repo-dir "$REPO_DIR"
+  [ "$status" -eq 0 ]
+  git -C "$REMOTE" show-ref --verify --quiet "refs/heads/merge/${READY_HASH}-feature/partial"
+}
+
+@test "pr-create --at: a failed push stops before creating the PR and restores the branch" {
+  at_fixture
+  rm -rf "$REMOTE"   # remote vanishes: the push cannot succeed
+  export GH_CALL_LOG="$TEST_TEMP_DIR/gh.log"; : > "$GH_CALL_LOG"
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: ready prefix" --issue 789 --at "$READY_HASH" --repo-dir "$REPO_DIR"
+  [ "$status" -ne 0 ]
+  [ "$(grep -c '^gh pr create' "$GH_CALL_LOG" || true)" -eq 0 ]
+  [ "$(git rev-parse --abbrev-ref HEAD)" = "feature/partial" ]
+}
+
+@test "pr-create --at restores the original branch when the merge-branch WIP guard rejects" {
+  at_fixture
+  wip_hash="$(git rev-parse --short HEAD)"   # the WIP tip itself
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: x" --issue 789 --at "$wip_hash" --repo-dir "$REPO_DIR"
+  [ "$status" -ne 0 ]
+  [ "$(git rev-parse --abbrev-ref HEAD)" = "feature/partial" ]
+}
+
+@test "pr-create --at restores the original branch when an open PR already exists" {
+  at_fixture
+  export EXISTING_PR_URL="https://github.com/mock-owner/mock-repo/pull/55"
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: ready prefix" --issue 789 --at "$READY_HASH" --repo-dir "$REPO_DIR"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"pull/55"* ]]
+  [ "$(git rev-parse --abbrev-ref HEAD)" = "feature/partial" ]
+}
+
+@test "pr-create --at restores the original branch when PR creation fails" {
+  at_fixture
+  export PR_CREATE_FAIL=1
+  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: ready prefix" --issue 789 --at "$READY_HASH" --repo-dir "$REPO_DIR"
+  [ "$status" -ne 0 ]
+  [ "$(git rev-parse --abbrev-ref HEAD)" = "feature/partial" ]
+}
+
+@test "pr-create reports the creator's failure, not the URL extractor's, and keeps stderr out of the URL" {
+  # The error text contains a URL; folded into the extractor's input it used to
+  # masquerade as the created PR's URL with exit 0.
+  export PR_CREATE_FAIL=1
+  run --separate-stderr "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  [ "$status" -ne 0 ]
+  [[ "$output" != *"issues/9"* ]]
+  [[ "$stderr" == *"Failed to create PR"* ]]
+}
+
+@test "pr-create returns the PR URL from stdout even when stderr carries an earlier URL" {
+  export PR_CREATE_WARN=1
+  run --separate-stderr "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  [ "$status" -eq 0 ]
+  [ "$output" = "https://github.com/mock-owner/mock-repo/pull/123" ]
 }

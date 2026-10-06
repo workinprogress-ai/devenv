@@ -36,19 +36,6 @@ fi
 # Issue Listing and Filtering
 # ============================================================================
 
-# Build filter arguments for gh issue list
-# Usage: build_issue_filters [--state STATE] [--type TYPE] [--labels LABEL...] [--assignee USER] [--milestone NAME] [--limit NUM]
-# Arguments:
-#   --state STATE         Filter by state (open, closed, all) - default: open
-#   --type TYPE           Filter by native issue type (Bug, Feature, Task, Epic; legacy aliases accepted)
-#   --labels LABEL        Add label filter (can be multiple)
-#   --assignee USER       Filter by assignee
-#   --milestone NAME      Filter by milestone
-#   --limit NUM           Limit results - default: 100
-# Returns: Filter arguments as space-separated string
-# Example:
-#   filters=$(build_issue_filters --state closed --type Bug --limit 50)
-#   gh issue list ${filters}
 # Normalize an issue type value to the canonical native spelling.
 # The valid type set (and any aliases) is org policy: resolved from
 # tools/lib/policy (config-driven, POLICY_* overridable) -- not hardcoded
@@ -94,81 +81,108 @@ _ensure_issue_policy_loaded() {
     ISSUE_POLICY_ALIASES="$(policy_issue_aliases)"
 }
 
+# Build filter arguments for the provider's issue list verb
+# Usage: build_issue_filters OUT_ARRAY [--state STATE] [--type TYPE] [--labels LABEL...] [--assignee USER] [--milestone NAME] [--limit NUM]
+# Arguments:
+#   OUT_ARRAY             Name of the caller's array to fill, one element per
+#                         argument (a value with spaces stays one element)
+#   --state STATE         Filter by state (open, closed, all) - default: open
+#   --type TYPE           Filter by native issue type (Bug, Feature, Task, Epic; legacy aliases accepted)
+#   --labels LABEL        Add label filter (can be multiple)
+#   --assignee USER       Filter by assignee
+#   --milestone NAME      Filter by milestone
+#   --limit NUM           Limit results - default: 100
+# Returns: 0 and fills OUT_ARRAY; 2 on a missing array name or an unknown
+#          option (nothing is guessed at or skipped); 1 on an invalid --type
+# Example:
+#   build_issue_filters filters --state closed --type Bug --limit 50
+#   provider_issues_list "$repo" "${filters[@]}"
 build_issue_filters() {
-    local filters=()
-    local state="open"
-    local type=""
-    local labels=()
-    local assignee=""
-    local milestone=""
-    local limit="100"
+    if ! [[ "${1:-}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+        log_error "build_issue_filters: output array name required as the first argument (got '${1:-}')"
+        return "$EXIT_MISUSE"
+    fi
+    # The internals are _bif_-prefixed so the caller may name its array
+    # anything: a nameref to a same-named local would be circular.
+    local -n _bif_out="$1"
+    shift
+    local _bif_filters=()
+    local _bif_state="open"
+    local _bif_type=""
+    local _bif_labels=()
+    local _bif_assignee=""
+    local _bif_milestone=""
+    local _bif_limit="100"
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --state)
-                state="$2"
+                _bif_state="$2"
                 shift 2
                 ;;
             --type)
-                type="$2"
+                _bif_type="$2"
                 shift 2
-                ;;            -R)
-                # Legacy gh-dialect repo flag: normalized into the same
-                # variable the positional slot carries — never re-emitted
-                # as a flag to the provider verb.
-                repo="$2"
+                ;;
+            -R)
+                # Legacy gh-dialect repo flag: accepted and ignored — repo
+                # targeting rides the provider verb's positional slot and
+                # never enters the filter arguments.
                 shift 2
-                ;;            --labels)
-                labels+=("$2")
+                ;;
+            --labels)
+                _bif_labels+=("$2")
                 shift 2
                 ;;
             --assignee)
-                assignee="$2"
+                _bif_assignee="$2"
                 shift 2
                 ;;
             --milestone)
-                milestone="$2"
+                _bif_milestone="$2"
                 shift 2
                 ;;
             --limit)
-                limit="$2"
+                _bif_limit="$2"
                 shift 2
                 ;;
             *)
-                shift
+                log_error "Unknown option: $1"
+                return "$EXIT_MISUSE"
                 ;;
         esac
     done
 
     # State filter
-    filters+=(--state "$state")
+    _bif_filters+=(--state "$_bif_state")
 
     # Type filter (native GitHub issue type; legacy lowercase aliases accepted)
-    if [ -n "$type" ]; then
-        local normalized
-        normalized=$(normalize_issue_type "$type") || return 1
-        filters+=(--type "$normalized")
+    if [ -n "$_bif_type" ]; then
+        local _bif_normalized
+        _bif_normalized=$(normalize_issue_type "$_bif_type") || return 1
+        _bif_filters+=(--type "$_bif_normalized")
     fi
 
     # Label filters
-    for label in "${labels[@]}"; do
-        filters+=(--label "$label")
+    local _bif_label
+    for _bif_label in "${_bif_labels[@]}"; do
+        _bif_filters+=(--label "$_bif_label")
     done
 
     # Assignee filter
-    if [ -n "$assignee" ]; then
-        filters+=(--assignee "$assignee")
+    if [ -n "$_bif_assignee" ]; then
+        _bif_filters+=(--assignee "$_bif_assignee")
     fi
 
     # Milestone filter
-    if [ -n "$milestone" ]; then
-        filters+=(--milestone "$milestone")
+    if [ -n "$_bif_milestone" ]; then
+        _bif_filters+=(--milestone "$_bif_milestone")
     fi
 
     # Limit
-    filters+=(--limit "$limit")
+    _bif_filters+=(--limit "$_bif_limit")
 
-    echo "${filters[@]}"
+    _bif_out=("${_bif_filters[@]}")
 }
 
 # List issues with formatting
@@ -206,7 +220,8 @@ list_issues_formatted() {
                 shift 2
                 ;;
             *)
-                shift
+                log_error "Unknown option: $1"
+                return "$EXIT_MISUSE"
                 ;;
         esac
     done
@@ -218,9 +233,8 @@ list_issues_formatted() {
     [ -n "$repo" ] && repo_arg="$repo"
 
     # Build filters
-    local filter_str
-    filter_str=$(build_issue_filters --state "$state" --type "$type") || return 1
-    read -ra filter_args <<< "$filter_str"
+    local filter_args=()
+    build_issue_filters filter_args --state "$state" --type "$type" || return $?
     gh_args+=("${filter_args[@]}")
 
     # Set output format
@@ -246,11 +260,12 @@ list_issues_formatted() {
 }
 
 # Get issues as tab-separated for fzf selection
-# Usage: get_issues_for_selection [--state STATE] [--type TYPE] [--labels LABEL...] [--repo REPO]
+# Usage: get_issues_for_selection [--state STATE] [--type TYPE] [--labels LABEL...] [--milestone NAME] [--repo REPO]
 # Arguments:
 #   --state STATE         Filter by state
 #   --type TYPE           Filter by native issue type (Bug, Feature, Task, Epic; legacy aliases accepted)
 #   --labels LABEL        Add label filter (can be multiple)
+#   --milestone NAME      Filter by milestone
 #   --repo REPO           Repository (owner/repo)
 # Returns: Tab-separated issue list (number, title, labels)
 # Example:
@@ -260,6 +275,7 @@ get_issues_for_selection() {
     local state="open"
     local type=""
     local labels=()
+    local milestone=""
     local repo=""
 
     while [[ $# -gt 0 ]]; do
@@ -276,12 +292,17 @@ get_issues_for_selection() {
                 labels+=("$2")
                 shift 2
                 ;;
+            --milestone)
+                milestone="$2"
+                shift 2
+                ;;
             --repo)
                 repo="$2"
                 shift 2
                 ;;
             *)
-                shift
+                log_error "Unknown option: $1"
+                return "$EXIT_MISUSE"
                 ;;
         esac
     done
@@ -305,6 +326,10 @@ get_issues_for_selection() {
     for label in "${labels[@]}"; do
         gh_args+=(--label "$label")
     done
+
+    if [ -n "$milestone" ]; then
+        gh_args+=(--milestone "$milestone")
+    fi
 
     # Get issues and format for fzf (tab-separated)
     local repo_arg=""
@@ -564,7 +589,10 @@ reopen_issue() {
     fi
 
     for issue_num in "${issue_numbers[@]}"; do
-        local reopen_repo_args=()
+        # Both arg arrays are rebuilt per issue: gh_args is NOT reset by the
+        # loop, so --comment would duplicate on every issue after the first
+        # (the provider parser then sees repeated flags).
+        local -a reopen_repo_args=() gh_args=()
         [ -n "$repo" ] && reopen_repo_args+=("$repo")
         [ -n "$comment" ] && gh_args+=(--comment "$comment")
         
@@ -861,11 +889,11 @@ generate_artifact_doc_id() {
     fi
 
     case "$artifact_type" in
-        spike|redesign|design|blueprint|requirements|specifications|grooming|roadmap|plan|implementation-plan|solution-proposal)
+        spike|research|redesign|design|blueprint|requirements|specifications|grooming|roadmap|plan|implementation-plan|solution-proposal)
             ;;
         *)
             log_error "Invalid artifact type: $artifact_type"
-            log_error "Allowed values: spike, redesign, design, blueprint, requirements, specifications, grooming, roadmap, plan, implementation-plan, solution-proposal"
+            log_error "Allowed values: spike, research, redesign, design, blueprint, requirements, specifications, grooming, roadmap, plan, implementation-plan, solution-proposal"
             return 1
             ;;
     esac

@@ -142,3 +142,39 @@ source_namespace_lib() {
     [ "$status" -eq 1 ]
     [[ "$stderr" == *"No namespaces returned"* ]]
 }
+
+# ----------------------------------------------------------------------------
+# Interactive pickers: items go in as ITEMS, the prompt as PROMPT
+# ----------------------------------------------------------------------------
+# The pickers used to pipe the namespaces to stdin and pass the prompt as the
+# first argument, so fzf_select_single treated the prompt text as the only
+# item and "picked" it.
+
+@test "ambiguous partial match picks one of the matching namespaces, not the prompt" {
+    source_namespace_lib
+    _kube_interactive() { return 0; }
+    run --separate-stderr resolve_namespace "dev"
+    [ "$status" -eq 0 ]
+    [ "$output" = "development" ]
+    [[ "$output" != *"Ambiguous"* ]]
+}
+
+@test "ambiguous picker offers every matching namespace to fzf" {
+    source_namespace_lib
+    _kube_interactive() { return 0; }
+    printf '%s\n' '#!/usr/bin/env bash' 'cat > "$FZF_STDIN_LOG"' 'tail -n 1 "$FZF_STDIN_LOG"' > "$TEST_TEMP_DIR/bin/fzf"
+    export FZF_STDIN_LOG="$TEST_TEMP_DIR/fzf-in.log"
+    run --separate-stderr resolve_namespace "dev"
+    [ "$status" -eq 0 ]
+    [ "$output" = "development-eu" ]
+    [ "$(cat "$FZF_STDIN_LOG")" = $'development\ndevelopment-eu' ]
+}
+
+@test "no namespace given: the picker lists the namespaces and returns the chosen one" {
+    source_namespace_lib
+    _kube_interactive() { return 0; }
+    run --separate-stderr resolve_namespace ""
+    [ "$status" -eq 0 ]
+    [ "$output" = "default" ]
+    [[ "$output" != *"Select namespace"* ]]
+}

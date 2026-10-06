@@ -132,6 +132,65 @@ setup() {
 }
 
 # =========================================================================
+# Declining the confirmation: distinct status, no destructive call
+# =========================================================================
+
+# Run a kube script on a pseudo-terminal so confirm_or_fail takes its prompt
+# path, answering the prompt with ANSWER.
+run_on_tty() {
+    local answer="$1" script_name="$2"; shift 2
+    local cmd="env TERM=xterm bash '$DEVENV_TOOLS/scripts/$script_name'" a
+    for a in "$@"; do cmd+=" '$a'"; done
+    run bash -c "printf '%s\n' '$answer' | script -qefc \"$cmd\" /dev/null"
+}
+
+@test "kube-pod-delete: declining the prompt exits 130, not 0, and deletes nothing" {
+    export STUB_KUBECTL_PODS="api-1"
+    run_on_tty n kube-pod-delete.sh api
+    # Exit 0 would tell calling automation that the deletion happened.
+    [ "$status" -eq 130 ]
+    [[ "$output" == *"Aborted."* ]]
+    [ ! -s "$STUB_KUBECTL_DELETED" ]
+}
+
+@test "kube-pod-scale: declining the prompt exits 130, not 0, and scales nothing" {
+    export STUB_KUBECTL_DEPLOYS="api"
+    run_on_tty n kube-pod-scale.sh api 3
+    [ "$status" -eq 130 ]
+    [[ "$output" == *"Aborted."* ]]
+    [ ! -s "$STUB_KUBECTL_SCALED" ]
+}
+
+@test "kube-pod-restart: declining the prompt exits 130, not 0, and restarts nothing" {
+    export STUB_KUBECTL_DEPLOYS="api"
+    run_on_tty n kube-pod-restart.sh api
+    [ "$status" -eq 130 ]
+    [[ "$output" == *"Aborted."* ]]
+    [ ! -s "$STUB_KUBECTL_SCALED" ]
+}
+
+@test "kube-pod-delete: answering y at the prompt still deletes" {
+    export STUB_KUBECTL_PODS="api-1"
+    run_on_tty y kube-pod-delete.sh api
+    [ "$status" -eq 0 ]
+    grep -qx "api-1" "$STUB_KUBECTL_DELETED"
+}
+
+@test "kube-selection: confirm_or_fail returns its status instead of exiting its caller" {
+    source "$DEVENV_TOOLS/lib/error-handling.bash"
+    run bash -c "
+        source '$DEVENV_TOOLS/lib/error-handling.bash'
+        source '$DEVENV_TOOLS/lib/kube-selection.bash'
+        confirm_or_fail 'Delete things' < /dev/null
+        echo \"still-running rc=\$?\"
+    "
+    # The non-interactive refusal used to exit the whole shell; it now returns
+    # 2 and leaves the caller in charge of stopping.
+    [[ "$output" == *"Refusing to proceed without confirmation"* ]]
+    [[ "$output" == *"still-running rc=2"* ]]
+}
+
+# =========================================================================
 # Namespace flag (-n|--namespace) wiring
 # =========================================================================
 

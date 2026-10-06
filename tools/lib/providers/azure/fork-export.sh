@@ -257,7 +257,9 @@ if [ -n "$START_REF" ]; then
   if [ -t 0 ] && [ -t 1 ]; then
     printf 'Selected range (%d commit(s)):\n' "${#COMMITS[@]}"
     for commit in "${COMMITS[@]}"; do
-      git -C "$REPO_ROOT" show -s --format='  %h %cs %s' "$commit"
+      # --no-pager: stdout is a terminal here, and a pager would stall on its
+      # own prompt and swallow the confirmation input read below.
+      git --no-pager -C "$REPO_ROOT" show -s --format='  %h %cs %s' "$commit"
     done
     printf 'Export this range? [y/N] ' > /dev/tty
     IFS= read -r confirmation < /dev/tty || die "commit range confirmation cancelled" "$EXIT_MISUSE"

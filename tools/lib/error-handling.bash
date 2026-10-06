@@ -88,6 +88,7 @@ log_message() {
     case "$level" in
         DEBUG) level_num=$LOG_LEVEL_DEBUG ;;
         INFO)  level_num=$LOG_LEVEL_INFO ;;
+        SUCCESS) level_num=$LOG_LEVEL_INFO ;;
         WARN)  level_num=$LOG_LEVEL_WARN ;;
         ERROR) level_num=$LOG_LEVEL_ERROR ;;
         FATAL) level_num=$LOG_LEVEL_FATAL ;;
@@ -106,6 +107,7 @@ log_message() {
         case "$level" in
             DEBUG) color="$COLOR_GRAY" ;;
             INFO)  color="$COLOR_BLUE" ;;
+            SUCCESS) color="$COLOR_GREEN" ;;
             WARN)  color="$COLOR_YELLOW" ;;
             ERROR) color="$COLOR_RED" ;;
             FATAL) color="$COLOR_RED" ;;
@@ -134,6 +136,19 @@ log_error() {
 
 log_fatal() {
     log_message "FATAL" "$@"
+}
+
+# Aliases: several libs (container/database/infrastructure/release/server-
+# operations) call error_msg/log_success as if they were part of this
+# library's convenience set; they were never defined, so every call failed
+# with "command not found" (exit 127) under set -e — including on success
+# paths, silently turning successful operations into reported failures.
+log_success() {
+    log_message "SUCCESS" "$@"
+}
+
+error_msg() {
+    log_error "$@"
 }
 
 # Print error message and exit with code
@@ -250,19 +265,6 @@ run_or_die() {
     return "$exit_code"
 }
 
-# Assert a condition is true, exit if false
-# Args:
-#   $1 - Condition to test (as string that will be eval'd)
-#   $2 - Error message if condition is false
-assert() {
-    local condition="$1"
-    local message="$2"
-    
-    if ! eval "$condition"; then
-        die "Assertion failed: $message" "$EXIT_GENERAL_ERROR"
-    fi
-}
-
 # Print a success message
 # Args:
 #   $1 - Message
@@ -291,17 +293,6 @@ warn() {
 #   $1 - Message
 info() {
     log_info "$@"
-}
-
-# Create a temporary directory
-# Returns: Path to temp directory (via stdout)
-# Note: Caller is responsible for cleanup
-create_temp_dir() {
-    local temp_dir
-    temp_dir=$(mktemp -d) || die "Failed to create temporary directory" "$EXIT_GENERAL_ERROR"
-    
-    log_debug "Created temporary directory: $temp_dir" >&2
-    echo "$temp_dir"
 }
 
 # Retry a command with exponential backoff

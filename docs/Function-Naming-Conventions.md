@@ -19,14 +19,14 @@ All bash functions MUST use **snake_case** naming convention for consistency and
 | Prefix | Purpose | Example |
 |--------|---------|---------|
 | `get_` | Retrieve a value | `get_bash_version()` |
-| `set_` | Assign a value | `config_set()` |
+| `set_` | Assign a value | `set_issue_type()` |
 | `check_` | Verify condition (returns 0/1) | `check_bash_version()` |
 | `validate_` | Check input validity | `validate_positive_integer()` |
 | `require_` | Assert specification item or fail | `require_command()` |
 | `is_` | Boolean check | `is_strict_mode_enabled()` |
-| `has_` | Check for existence | `config_has()` |
+| `has_` | Check for existence | `has_existing_issue()` |
 | `add_` | Add an item | `add_git_safe_directory()` |
-| `create_` | Create something new | `create_temp_dir()` |
+| `create_` | Create something new | `create_temp_file()` |
 | `remove_` | Remove something | `safe_remove()` |
 | `enable_` | Turn on a feature | `enable_strict_mode()` |
 | `configure_` | Set up configuration | `configure_git_repo()` |
@@ -39,7 +39,7 @@ All bash functions MUST use **snake_case** naming convention for consistency and
 
 For library functions, use a consistent namespace prefix:
 
-- `config_*` - Configuration management (lib/config.bash)
+- `config_*` - Configuration management (lib/config-reader.bash)
 - `log_*` - Logging functions (lib/error-handling.bash)
 - `version_*` - Version utilities (lib/versioning.bash)
 

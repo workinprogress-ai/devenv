@@ -345,3 +345,65 @@ EOTXT
     [ "$status" -eq 0 ]
     [ "$output" = "github" ]
 }
+
+# ============================================================================
+# Section and key names are matched literally, never as regular expressions
+# ============================================================================
+
+read_cfg() {
+    # read_cfg 'function args' — runs a config-reader function against TEST_CONFIG_FILE
+    run bash -c "source '$PROJECT_ROOT/tools/lib/config-reader.bash'; config_init '$TEST_CONFIG_FILE'; $1"
+}
+
+@test "a key containing a dot matches only that key, not any single-character lookalike" {
+    printf '[s]\nkey.name=right\nkeyXname=wrong\n' > "$TEST_CONFIG_FILE"
+    read_cfg "config_read_value s key.name"
+    [ "$status" -eq 0 ]
+    [ "$output" = "right" ]
+}
+
+@test "a key containing brackets is read as written" {
+    printf '[s]\na1=wrong\na[1]=right\n' > "$TEST_CONFIG_FILE"
+    read_cfg "config_read_value s 'a[1]'"
+    [ "$output" = "right" ]
+}
+
+@test "a section name containing a dot does not also match its lookalikes" {
+    printf '[a.b]\nk=right\n[aXb]\nk=wrong\n' > "$TEST_CONFIG_FILE"
+    read_cfg "config_read_value a.b k"
+    [ "$output" = "right" ]
+}
+
+@test "listing and dumping a dotted section ignores its lookalike sections" {
+    printf '[a.b]\nmine=1\n[aXb]\ntheirs=2\n' > "$TEST_CONFIG_FILE"
+    read_cfg "config_list_section a.b"
+    [ "$output" = "mine" ]
+    read_cfg "config_dump a.b"
+    [ "$output" = "mine=1" ]
+}
+
+@test "the raw reader returns the value (not the whole line) for a key with regex characters" {
+    printf '[s]\na+b=value\n' > "$TEST_CONFIG_FILE"
+    read_cfg "config_read_value_raw s 'a+b'"
+    [ "$output" = "value" ]
+}
+
+@test "text after a section header's closing bracket is still tolerated" {
+    printf '[s] # a note\nk=v\n' > "$TEST_CONFIG_FILE"
+    read_cfg "config_read_value s k"
+    [ "$output" = "v" ]
+}
+
+@test "a key that is present but empty reads as the default (documented semantics)" {
+    printf '[s]\nk=\n' > "$TEST_CONFIG_FILE"
+    read_cfg "config_read_value s k fallback"
+    [ "$output" = "fallback" ]
+    read_cfg "config_read_value s k"
+    [ -z "$output" ]
+}
+
+@test "the header documents how an empty value reads" {
+    run grep -n -i "empty" "$PROJECT_ROOT/tools/lib/config-reader.bash"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"present but empty"* || "$output" == *"present-but-empty"* ]]
+}

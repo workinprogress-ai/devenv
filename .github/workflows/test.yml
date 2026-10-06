@@ -6,23 +6,58 @@ on:
     paths:
       - 'tools/**'
       - '.devcontainer/**'
+      - 'copilot/**'
+      - 'docs/**'
+      - 'setup'
+      - 'devenv.config'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'commitlint.config.js'
+      - 'release.config.js'
+      - '.husky/**'
+      - '.github/workflows/**'
   pull_request:
     branches: [ main, master, release/*, beta/* ]
     paths:
       - 'tools/**'
       - '.devcontainer/**'
+      - 'copilot/**'
+      - 'docs/**'
+      - 'setup'
+      - 'devenv.config'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'commitlint.config.js'
+      - 'release.config.js'
+      - '.husky/**'
+      - '.github/workflows/**'
   workflow_dispatch:
+
+# A newer push to the same ref supersedes an in-flight test run.
+concurrency:
+  group: devenv-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+        with:
+          # lint-skills' SK007 compares paths against the repository's git
+          # history; a shallow clone makes that check vacuous.
+          fetch-depth: 0
+
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y bats shellcheck git parallel
+          # yq: the suites invoke it. Same pinned, checksum-verified binary the
+          # dev container installs (versions live in .devcontainer/tool-versions.bash).
+          source .devcontainer/tool-versions.bash
+          curl -fsSL -o /tmp/yq "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
+          echo "${YQ_SHA256_AMD64}  /tmp/yq" | sha256sum -c -
+          sudo install -m 0755 /tmp/yq /usr/local/bin/yq
       
       - name: Set environment variables
         run: |
@@ -66,25 +101,56 @@ jobs:
 
           printf 'Markdown files to lint:\n%s\n' "$CHANGED_FILES"
 
-      - name: Install markdownlint-cli2
+      - uses: actions/setup-node@v4
         if: steps.changed.outputs.files != ''
-        run: npm install -g markdownlint-cli2
+        with:
+          node-version: "20.14.0"
+
+      - name: Install the pinned linters
+        if: steps.changed.outputs.files != ''
+        run: |
+          corepack enable   # pnpm version comes from package.json "packageManager"
+          pnpm install --frozen-lockfile
 
       - name: Run markdownlint on changed files
         if: steps.changed.outputs.files != ''
         run: |
-          echo "${{ steps.changed.outputs.files }}" | xargs -r markdownlint-cli2
+          echo "${{ steps.changed.outputs.files }}" | xargs -r pnpm exec markdownlint-cli2
 
       - name: Check links on changed files
         if: steps.changed.outputs.files != ''
         run: |
           # Blocking gate. Per-file invocation with a timeout: a bare/piped
           # markdown-link-check run can hang.
-          npm install -g markdown-link-check
-          fail=0
           echo "${{ steps.changed.outputs.files }}" | while read -r file; do
-            timeout 60 npx --no-install markdown-link-check --config .markdownlinkcheck.json "$file" || {
+            timeout 60 pnpm exec markdown-link-check --config .markdownlinkcheck.json "$file" || {
               echo "::error::broken or unreachable links in $file"
               exit 1
             }
           done
+
+  commit-messages:
+    name: Commit messages
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.14.0"
+
+      - name: Install the pinned linters
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+
+      # The local hooks are the first line of defense; this job is the one a
+      # clone without hooks cannot bypass.
+      - name: Conventional Commits
+        run: pnpm exec commitlint --from "${{ github.event.pull_request.base.sha }}" --to "${{ github.event.pull_request.head.sha }}"
+
+      - name: Devenv-Action trailer
+        run: ./tools/scripts/check-commit-trailers.sh "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"

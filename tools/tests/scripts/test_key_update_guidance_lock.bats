@@ -34,3 +34,24 @@ teardown() {
         return 1
     }
 }
+
+@test "no retired key-update-git name remains in the docs or the skill/protocol references" {
+    local offenders
+    offenders=$(grep -rn "key-update-git" \
+        "$DEVENV_ROOT/docs" \
+        "$DEVENV_ROOT/copilot" \
+        2>/dev/null || true)
+    [ -z "$offenders" ] || {
+        echo "retired key-update-git guidance found in docs:" >&2
+        echo "$offenders" >&2
+        return 1
+    }
+}
+
+@test "the provider protocol documents provider_auth_import_token as stdin-fed, never argv" {
+    # The token must stay out of process lists: the verb reads stdin by contract.
+    local f="$DEVENV_ROOT/copilot/skills/_shared/references/provider-protocols/github.md"
+    run grep -nE 'provider_auth_import_token[[:space:]]+TOKEN' "$f"
+    [ "$status" -ne 0 ]
+    grep -qE 'provider_auth_import_token[^`]*(<<<|<)' "$f"
+}

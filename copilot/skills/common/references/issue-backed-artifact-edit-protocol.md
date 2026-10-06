@@ -30,6 +30,7 @@ Keep issue artifacts editable, reviewable, and stable by treating the issue trac
 
 ## Revision history
 
+- **Exception — current-state artifacts:** plans and roadmaps carry target/current state only. Do not add revision-history entries to them (the plan skills forbid it; the issue comment's edit history records when a change happened). The rules below apply to artifacts that keep a revision log (for example specifications and blueprints).
 - Record one revision-history entry per user-visible editing effort.
 - Do not add a separate revision-history entry for each intermediate draft/iteration while converging locally.
 - The revision log should describe the final net effect of the effort, not the path taken through internal drafts.
@@ -56,6 +57,13 @@ If parity is missing in any dimension, keep the artifact in progress and reconci
 If the artifact changed concurrently during iteration, run one final section-level reread of the touched decision/question sections and repeat parity verification before publication.
 
 ## Source-of-truth rule
+
+Two models exist; the artifact's type decides which applies:
+
+- **File-canonical** — research and design artifacts. The local file is the canonical record; the issue comment (identified by `doc_id`) is a published copy kept in sync via `issue-artifact-upsert`. The local file is not disposable.
+- **Issue-canonical** — plans, roadmaps, specifications, blueprints, and other types whose skill does not say otherwise. During editing the local working copy is authoritative; after publication the issue-hosted artifact is the published truth again and the local copy is disposable (see the offer to retire it above).
+
+For the issue-canonical model:
 
 - During editing: the local working copy is authoritative.
 - After publication: the issue-hosted artifact becomes the published copy again, and the local working copy is disposable.

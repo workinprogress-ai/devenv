@@ -19,11 +19,6 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "versioning library defines script_version function" {
-  run grep "script_version()" "$PROJECT_ROOT/tools/lib/versioning.bash"
-  [ "$status" -eq 0 ]
-}
-
 @test "versioning library defines check_environment_requirements function" {
   run grep "check_environment_requirements()" "$PROJECT_ROOT/tools/lib/versioning.bash"
   [ "$status" -eq 0 ]
@@ -47,12 +42,6 @@ load ../test_helper
 @test "repo-bump-version.sh sources git-operations library" {
   run grep "source.*lib/git-operations.bash" "$PROJECT_ROOT/tools/scripts/repo-bump-version.sh"
   [ "$status" -eq 0 ]
-}
-
-@test "version display works with SHOW_VERSION=1" {
-  run bash -c "export SHOW_VERSION=1 && source $PROJECT_ROOT/tools/lib/versioning.bash && script_version 'test.sh' '1.0.0' 'Test script'"
-  [ "$status" -eq 0 ]
-  [[ "$output" =~ "test.sh version 1.0.0" ]]
 }
 
 @test "repo-calc-version.sh has valid syntax" {

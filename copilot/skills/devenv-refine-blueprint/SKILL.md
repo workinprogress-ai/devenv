@@ -32,7 +32,7 @@ If no blueprint exists, stop and redirect to [`/devenv-create-blueprint`](../dev
 The user provides one of:
 
 - **A file path** — e.g. `docs/Architecture/Blueprint-orders-001.md`.
-- **Issue number(s)** — any issue whose body describes a needed blueprint change, whatever its origin. Queue work orders (`upstream-impact` label, filed by grooming, execution closeouts, spikes, plan refinement) carry the predictable body format ("what changed, why, affected sections") and load straight in via `issue-get <N> --pretty`. Issues from any other source (users, stakeholders, ad-hoc) are equally valid input — read the body, extract the intended change, and confirm the direction with the reporter if it's ambiguous. Either way, follow the [cross-artifact cascade protocol](../common/references/cross-artifact-cascade.md)'s issue-intake loop.
+- **Issue number(s)** — any issue whose body describes a needed blueprint change, whatever its origin. Queue work orders (`upstream-impact` label, filed by grooming, execution closeouts, research, plan refinement) carry the predictable body format ("what changed, why, affected sections") and load straight in via `issue-get <N> --pretty`. Issues from any other source (users, stakeholders, ad-hoc) are equally valid input — read the body, extract the intended change, and confirm the direction with the reporter if it's ambiguous. Either way, follow the [cross-artifact cascade protocol](../common/references/cross-artifact-cascade.md)'s issue-intake loop.
 - **The upstream-impact queue** — "work the queue" / no specific issue: `issue-list --label upstream-impact`, present, let the architect pick all/some, then loop per issue.
 
 Plus optionally the file path when an issue references a specific blueprint.

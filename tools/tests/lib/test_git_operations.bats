@@ -200,9 +200,50 @@ teardown() {
     ! validate_git_context "$TEST_REPO"
 }
 
-@test "validate_git_context fails on excluded branch" {
-    git checkout -q -b main
-    validate_git_context "$TEST_REPO" "main" && false || true
+# The excluded-branch guard: a branch matching any '|'-separated glob is refused.
+# (It used to rely on extglob, which nothing in tools/ enables, so it never fired.)
+guard_status() {  # guard_status <branch> <exclude-pattern>
+    git checkout -q -B "$1" 2>/dev/null
+    validate_git_context "$TEST_REPO" "$2" >/dev/null 2>&1
+}
+
+@test "validate_git_context refuses an excluded branch (main)" {
+    touch file.txt; git add file.txt; git commit -q -m init
+    run guard_status main "main|master|review/*"
+    [ "$status" -eq 1 ]
+}
+
+@test "validate_git_context refuses every alternative in the exclude list" {
+    touch file.txt; git add file.txt; git commit -q -m init
+    run guard_status master "main|master|review/*"
+    [ "$status" -eq 1 ]
+    run guard_status review/123-x "main|master|review/*"
+    [ "$status" -eq 1 ]
+}
+
+@test "validate_git_context allows a branch that matches none of the patterns" {
+    touch file.txt; git add file.txt; git commit -q -m init
+    run guard_status feature/ok "main|master|review/*"
+    [ "$status" -eq 0 ]
+}
+
+@test "validate_git_context treats the exclude list as globs, not substrings" {
+    touch file.txt; git add file.txt; git commit -q -m init
+    run guard_status mainline "main|master"
+    [ "$status" -eq 0 ]
+}
+
+@test "validate_git_context needs no extglob to enforce the guard" {
+    touch file.txt; git add file.txt; git commit -q -m init
+    shopt -u extglob
+    run guard_status main "main|master"
+    [ "$status" -eq 1 ]
+}
+
+@test "validate_git_context with an empty exclude list excludes nothing" {
+    touch file.txt; git add file.txt; git commit -q -m init
+    run guard_status main ""
+    [ "$status" -eq 0 ]
 }
 
 @test "build_merge_commit_message formats message correctly" {
@@ -431,4 +472,91 @@ body" "789")
     run bash -c "source $PROJECT_ROOT/tools/lib/git-operations.bash && set_repo_setting"
     [ "$status" -ne 0 ]
     [[ "$output" =~ "required" ]]
+}
+
+
+# ----------------------------------------------------------------------------
+# delete_branch reports what actually happened (it used to return 0 always, so
+# every caller's error branch was dead code)
+# ----------------------------------------------------------------------------
+
+@test "delete_branch returns failure when the local branch cannot be deleted" {
+    touch file.txt; git add file.txt; git commit -q -m init
+    git checkout -q -b doomed
+    # the checked-out branch cannot be deleted
+    run delete_branch doomed
+    [ "$status" -ne 0 ]
+    git show-ref --verify --quiet refs/heads/doomed
+}
+
+@test "delete_branch returns failure when the remote deletion fails" {
+    touch file.txt; git add file.txt; git commit -q -m init
+    git branch -q doomed
+    git remote add origin "$TEST_TEMP_DIR/no-such-remote.git"
+    # branch_exists_remote consults the remote ref; fake the tracking ref so the push is attempted
+    git update-ref refs/remotes/origin/doomed HEAD
+    run delete_branch doomed
+    [ "$status" -ne 0 ]
+}
+
+@test "delete_branch still removes the local branch when the remote leg fails, and reports it" {
+    touch file.txt; git add file.txt; git commit -q -m init
+    git branch -q doomed
+    git remote add origin "$TEST_TEMP_DIR/no-such-remote.git"
+    git update-ref refs/remotes/origin/doomed HEAD
+    run delete_branch doomed
+    [ "$status" -ne 0 ]
+    run git show-ref --verify --quiet refs/heads/doomed
+    [ "$status" -ne 0 ]
+}
+
+@test "delete_branch returns success when both legs succeed" {
+    touch file.txt; git add file.txt; git commit -q -m init
+    git branch -q doomed
+    run delete_branch doomed
+    [ "$status" -eq 0 ]
+    run git show-ref --verify --quiet refs/heads/doomed
+    [ "$status" -ne 0 ]
+}
+
+# ----------------------------------------------------------------------------
+# Global git config hygiene
+# ----------------------------------------------------------------------------
+
+run_configure_git_global() {
+    bash -c "source '$PROJECT_ROOT/tools/lib/git-operations.bash' >/dev/null 2>&1; configure_git_global 'Test User' 'test@example.com'"
+}
+
+@test "configure_git_global never installs the plaintext credential store helper" {
+    run run_configure_git_global
+    [ "$status" -eq 0 ]
+    run bash -c "git config --global --get-all credential.helper"
+    [[ "$output" != *"store"* ]]
+}
+
+@test "configure_git_global bounds any credential cache to a working day (it was ~31 years)" {
+    run run_configure_git_global
+    [ "$status" -eq 0 ]
+    helpers="$(git config --global --get-all credential.helper || true)"
+    for h in $(grep -oE 'timeout=[0-9]+' <<<"$helpers" | cut -d= -f2); do
+        [ "$h" -le 86400 ]
+    done
+}
+
+@test "configure_git_global sets the identity it was given" {
+    run run_configure_git_global
+    [ "$(git config --global user.name)" = "Test User" ]
+    [ "$(git config --global user.email)" = "test@example.com" ]
+}
+
+@test "configure_git_repo registers a repo's safe.directory in global config once, idempotently" {
+    touch file.txt; git add file.txt; git commit -q -m init
+    bash -c "source '$PROJECT_ROOT/tools/lib/git-operations.bash' >/dev/null 2>&1; configure_git_repo '$TEST_REPO'; configure_git_repo '$TEST_REPO'"
+    [ "$(git config --global --get-all safe.directory | grep -cFx "$TEST_REPO")" -eq 1 ]
+}
+
+@test "configure_git_repo documents that it writes global safe.directory (git honors it only there)" {
+    block="$(sed -n '/^# Configure repository-specific git settings/,/^configure_git_repo()/p' "$PROJECT_ROOT/tools/lib/git-operations.bash")"
+    [ -n "$block" ] || block="$(grep -B14 '^configure_git_repo()' "$PROJECT_ROOT/tools/lib/git-operations.bash")"
+    [[ "$block" == *"safe.directory"* && "$block" == *"global"* ]]
 }

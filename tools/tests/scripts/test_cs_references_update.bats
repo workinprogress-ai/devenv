@@ -158,7 +158,7 @@ CSPROJ
 @test "--lang-default removes existing tags and never adds them" {
     run bash "$SCRIPT_UNDER_TEST" "$REPO_DIR" --lang-default
     [ "$status" -eq 0 ]
-    ! grep -q '<LangVersion>' "$REPO_DIR/src/MyLib.csproj"
+    run ! grep -q '<LangVersion>' "$REPO_DIR/src/MyLib.csproj"
     grep -q '<TargetFramework>net8.0</TargetFramework>' "$REPO_DIR/src/MyLib.csproj"
 }
 

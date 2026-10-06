@@ -26,7 +26,6 @@ source "$DEVENV_TOOLS/lib/git-operations.bash"
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "List the GitHub organization's issue types"
 
 # ============================================================================
 # Global Variables

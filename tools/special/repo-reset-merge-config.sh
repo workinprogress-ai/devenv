@@ -30,9 +30,17 @@ DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 #   - WIP-bearing merge ranges among open PRs (local clone required; repos
 #     without a local clone under repos/ are reported as unscannable)
 #
+# --apply is gated, never blind. A repository is applied only when ALL hold:
+#   - its type was detected (an undetected name resolves to the permissive 'none'
+#     type, which enables every merge method — the opposite of this policy);
+#   - the type's allowedMergeTypes in repo-types.yaml is rebase-only;
+#   - the attention report is clear (no open PRs, no WIP in the checked-out range).
+# Anything else is reported as NOT applied, with the reason, and the run exits 1.
+#
 # Exit codes:
-#   0 — completed (dry-run report produced, or apply finished)
-#   1 — environment failure (no org identity, provider unavailable)
+#   0 — completed (dry-run report produced, or apply finished with nothing skipped)
+#   1 — environment failure (no org identity, provider unavailable), or --apply
+#       left one or more repositories not applied (skipped or failed)
 #
 ################################################################################
 
@@ -131,6 +139,7 @@ trap 'rm -f "$REPORT_FILE"' EXIT
 REPO_COUNT=0
 ATTENTION_COUNT=0
 APPLIED_COUNT=0
+NOT_APPLIED_COUNT=0
 
 while IFS= read -r repo_name; do
     [ -n "$repo_name" ] || continue
@@ -166,6 +175,18 @@ while IFS= read -r repo_name; do
 
     [ "$open_prs" != "0" ] && [ "$open_prs" != "?" ] && attention="yes"
 
+    # --apply gate (see the header): decide before writing the report line.
+    apply_note=""
+    if [ "$APPLY" = "true" ]; then
+        if [ "$repo_type" = "none" ]; then
+            apply_note="NOT APPLIED: type undetected (resolved to 'none', which allows every merge method)"
+        elif [ "$(get_type_allowed_merge_types "$repo_type")" != '["rebase"]' ]; then
+            apply_note="NOT APPLIED: type '${repo_type}' is not rebase-only in repo-types.yaml"
+        elif [ -n "$attention" ]; then
+            apply_note="NOT APPLIED: needs attention first (open PRs or WIP — see the line above)"
+        fi
+    fi
+
     line="${FULL_NAME}: type=${repo_type} open_prs=${open_prs} wip(checked-out)=${wip_note}"
     if [ -n "$attention" ]; then
         echo "ATTENTION ${line}" >> "$REPORT_FILE"
@@ -175,12 +196,18 @@ while IFS= read -r repo_name; do
     fi
 
     if [ "$APPLY" = "true" ]; then
-        if configure_rulesets_for_type "$FULL_NAME" "$repo_type" && \
-           configure_merge_types_for_type "$FULL_NAME" "$repo_type"; then
+        if [ -n "$apply_note" ]; then
+            echo "          ${apply_note}" >> "$REPORT_FILE"
+            log_error "${FULL_NAME}: ${apply_note}"
+            NOT_APPLIED_COUNT=$((NOT_APPLIED_COUNT + 1))
+        elif configure_rulesets_for_type "$FULL_NAME" "$repo_type" && \
+             configure_merge_types_for_type "$FULL_NAME" "$repo_type"; then
             APPLIED_COUNT=$((APPLIED_COUNT + 1))
             log_info "Applied rebase-only config to ${FULL_NAME} (type: ${repo_type})"
         else
+            echo "          NOT APPLIED: Failed to apply (provider call failed)" >> "$REPORT_FILE"
             log_warn "Failed to apply config to ${FULL_NAME} — check provider connectivity and type mapping."
+            NOT_APPLIED_COUNT=$((NOT_APPLIED_COUNT + 1))
         fi
     fi
 done <<< "$REPOS_LIST"
@@ -188,7 +215,12 @@ done <<< "$REPOS_LIST"
 echo ""
 echo "=== repo-reset-merge-config report (${MODE_LABEL}) ==="
 sort "$REPORT_FILE"
-echo "=== end report — repos: ${REPO_COUNT}, attention: ${ATTENTION_COUNT}, applied: ${APPLIED_COUNT} ==="
+echo "=== end report — repos: ${REPO_COUNT}, attention: ${ATTENTION_COUNT}, applied: ${APPLIED_COUNT}, not applied: ${NOT_APPLIED_COUNT} ==="
+
+if [ "$APPLY" = "true" ] && [ "$NOT_APPLIED_COUNT" -gt 0 ]; then
+    log_error "${NOT_APPLIED_COUNT} repositor$([ "$NOT_APPLIED_COUNT" -eq 1 ] && echo y || echo ies) not applied — see the report above."
+    exit "$EXIT_GENERAL_ERROR"
+fi
 
 if [ "$APPLY" = "false" ]; then
     log_info "Dry-run only — re-run with --apply to enforce the rebase-only policy."

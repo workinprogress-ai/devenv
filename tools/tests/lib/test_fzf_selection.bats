@@ -81,15 +81,22 @@ setup() {
 }
 
 @test "fzf-selection: fzf_select_single uses default prompt" {
-    run bash -c "
-        echo 'item1' | fzf --version &>/dev/null
-        if [ \$? -ne 0 ]; then exit 77; fi
-        source '$PROJECT_ROOT/tools/lib/fzf-selection.bash'
-        # Just verify the function is callable with default prompt
-        true
-    "
-    # Skip if fzf not available
-    [ "$status" -eq 0 ] || [ "$status" -eq 77 ]
+    # fzf stand-in that records its argv; the function is really called, once
+    # without a prompt (default) and once with one.
+    mkdir -p "$TEST_TEMP_DIR/bin"
+    export FZF_ARGS_LOG="$TEST_TEMP_DIR/fzf-args.log"
+    printf '%s\n' '#!/usr/bin/env bash' \
+        'printf "%s\n" "$@" > "$FZF_ARGS_LOG"' \
+        'head -n 1' > "$TEST_TEMP_DIR/bin/fzf"
+    chmod +x "$TEST_TEMP_DIR/bin/fzf"
+    export PATH="$TEST_TEMP_DIR/bin:$PATH"
+    run bash -c "source '$PROJECT_ROOT/tools/lib/fzf-selection.bash'; fzf_select_single 'item1'"
+    [ "$status" -eq 0 ]
+    [ "$output" = "item1" ]
+    grep -qxF -- "--prompt=Select: " "$FZF_ARGS_LOG"
+    run bash -c "source '$PROJECT_ROOT/tools/lib/fzf-selection.bash'; fzf_select_single 'item1' 'Pick one: '"
+    [ "$status" -eq 0 ]
+    grep -qxF -- "--prompt=Pick one: " "$FZF_ARGS_LOG"
 }
 
 # ============================================================================
@@ -259,25 +266,69 @@ cherry'
 }
 
 # ============================================================================
-# fzf_build_menu Tests
+# Item text is data: no escape processing, blank-safe counting
 # ============================================================================
 
-@test "fzf-selection: fzf_build_menu returns menu items" {
-    run bash -c "
-        source '$PROJECT_ROOT/tools/lib/fzf-selection.bash'
-        menu='name1\tvalue1
-name2\tvalue2'
-        fzf_build_menu \"\$menu\"
-    "
-    [ "$status" -eq 0 ]
-    [[ "$output" == *"name1"* ]]
-    [[ "$output" == *"name2"* ]]
+# fzf stand-in: records what it is fed and "selects" the first line.
+install_recording_fzf() {
+    mkdir -p "$TEST_TEMP_DIR/bin"
+    export FZF_STDIN_LOG="$TEST_TEMP_DIR/fzf-stdin.log"
+    : > "$FZF_STDIN_LOG"
+    printf '%s\n' '#!/usr/bin/env bash' \
+        'cat > "$FZF_STDIN_LOG"' \
+        'head -n 1 "$FZF_STDIN_LOG"' > "$TEST_TEMP_DIR/bin/fzf"
+    chmod +x "$TEST_TEMP_DIR/bin/fzf"
+    export PATH="$TEST_TEMP_DIR/bin:$PATH"
 }
 
-@test "fzf-selection: fzf_build_menu handles empty input" {
-    run bash -c "
-        source '$PROJECT_ROOT/tools/lib/fzf-selection.bash'
-        fzf_build_menu ''
-    "
+@test "fzf-selection: fzf_select_single feeds item text to fzf without escape processing" {
+    install_recording_fzf
+    local items=$'C:\\new\\table\nsecond \\\\ item\nwith a \\t literal'
+    run bash -c "source '$PROJECT_ROOT/tools/lib/fzf-selection.bash'; fzf_select_single \"\$1\" 'Pick:'" _ "$items"
     [ "$status" -eq 0 ]
+    [ "$(cat "$FZF_STDIN_LOG")" = "$items" ]
+    [ "$output" = 'C:\new\table' ]
+}
+
+@test "fzf-selection: fzf_select_single returns an item that looks like an echo option" {
+    install_recording_fzf
+    run bash -c "source '$PROJECT_ROOT/tools/lib/fzf-selection.bash'; fzf_select_single \$'-n\nother' 'Pick:'"
+    [ "$status" -eq 0 ]
+    [ "$output" = "-n" ]
+}
+
+@test "fzf-selection: fzf_select_multi feeds item text to fzf without escape processing" {
+    install_recording_fzf
+    local items=$'a\\nb\nc\\\\d'
+    run bash -c "source '$PROJECT_ROOT/tools/lib/fzf-selection.bash'; fzf_select_multi \"\$1\" 'Pick:'" _ "$items"
+    [ "$status" -eq 0 ]
+    [ "$(cat "$FZF_STDIN_LOG")" = "$items" ]
+}
+
+@test "fzf-selection: fzf_select_smart auto-selects the one real item, not the whole blob" {
+    # A blank line around the only item (and a backslash in it) used to make
+    # the "single item" path print the entire raw list.
+    run bash -c "source '$PROJECT_ROOT/tools/lib/fzf-selection.bash'; fzf_select_smart \$'\n'\"only\\\\item\"\$'\n' 'Pick:'"
+    [ "$status" -eq 0 ]
+    [ "$output" = 'only\item' ]
+}
+
+@test "fzf-selection: fzf_select_smart counts only non-blank lines and shows the menu without blanks" {
+    install_recording_fzf
+    run bash -c "source '$PROJECT_ROOT/tools/lib/fzf-selection.bash'; fzf_select_smart \$'a\n\nb\n' 'Pick:'"
+    [ "$status" -eq 0 ]
+    [ "$(cat "$FZF_STDIN_LOG")" = $'a\nb' ]
+}
+
+@test "fzf-selection: fzf_select_smart reports an all-blank list instead of dying under set -e" {
+    run bash -c "set -e; source '$PROJECT_ROOT/tools/lib/fzf-selection.bash'; fzf_select_smart \$'\n\n' 'Pick:'"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"No items to select from"* ]]
+}
+
+@test "fzf-selection: fzf_select_filtered passes matching items through verbatim" {
+    install_recording_fzf
+    run bash -c "source '$PROJECT_ROOT/tools/lib/fzf-selection.bash'; fzf_select_filtered \$'keep \\\\n one\nskip\nkeep two' 'keep' 'Pick:'"
+    [ "$status" -eq 0 ]
+    [ "$(cat "$FZF_STDIN_LOG")" = $'keep \\n one\nkeep two' ]
 }

@@ -598,3 +598,139 @@ EOF
   # Should return empty array when not specified
   [ "$output" = "[]" ]
 }
+
+# ============================================================================
+# Ruleset payload building: tokens are data, never part of a sed expression
+# ============================================================================
+
+# Types config whose "service" type carries characters that break a sed
+# replacement ("&" expands to the match, "/" ends the expression) and JSON
+# ('"' and a backslash).
+create_awkward_types_config() {
+  cat > "$1" <<'EOF2'
+types:
+  service:
+    description: "Tom & \"Jerry\" a/b \\ c {{owner}} done"
+    rulesetConfigFile: rs.json
+EOF2
+}
+
+run_builder() {
+  # run_builder RULESET_FILE [FULL_NAME] — prints the payload on stdout
+  bash -c "
+    export DEVENV_TOOLS='$PROJECT_ROOT/tools'
+    source '$PROJECT_ROOT/tools/lib/repo-types.bash'
+    build_ruleset_payload_from_file '$1' '${2:-acme/my-repo}' service '$TEST_TEMP_DIR/types.yaml'
+  "
+}
+
+@test "build_ruleset_payload_from_file keeps awkward characters in a token value intact" {
+  create_awkward_types_config "$TEST_TEMP_DIR/types.yaml"
+  printf '%s' '{"name":"R-{{repo_name}}","description":"{{type_description}}","owner":"{{owner}}"}' > "$TEST_TEMP_DIR/rs.json"
+  run run_builder "$TEST_TEMP_DIR/rs.json"
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s' "$output" | jq -r '.description')" = 'Tom & "Jerry" a/b \ c {{owner}} done' ]
+  [ "$(printf '%s' "$output" | jq -r '.name')" = 'R-my-repo' ]
+  [ "$(printf '%s' "$output" | jq -r '.owner')" = 'acme' ]
+}
+
+@test "build_ruleset_payload_from_file replaces every occurrence and leaves unknown tokens alone" {
+  create_awkward_types_config "$TEST_TEMP_DIR/types.yaml"
+  printf '%s' '{"a":"{{repo_name}}/{{repo_name}}","b":"{{type_name}}","c":"{{not_a_token}}","d":["x-{{owner}}"]}' > "$TEST_TEMP_DIR/rs.json"
+  run run_builder "$TEST_TEMP_DIR/rs.json"
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s' "$output" | jq -r '.a')" = 'my-repo/my-repo' ]
+  [ "$(printf '%s' "$output" | jq -r '.b')" = 'service' ]
+  [ "$(printf '%s' "$output" | jq -r '.c')" = '{{not_a_token}}' ]
+  [ "$(printf '%s' "$output" | jq -r '.d[0]')" = 'x-acme' ]
+}
+
+@test "build_ruleset_payload_from_file substitutes in a single pass" {
+  # The description itself contains "{{owner}}"; it must come out literally,
+  # not be expanded by a later replacement.
+  create_awkward_types_config "$TEST_TEMP_DIR/types.yaml"
+  printf '%s' '{"d":"{{type_description}}"}' > "$TEST_TEMP_DIR/rs.json"
+  run run_builder "$TEST_TEMP_DIR/rs.json"
+  [ "$status" -eq 0 ]
+  [[ "$(printf '%s' "$output" | jq -r '.d')" == *'{{owner}} done' ]]
+}
+
+@test "build_ruleset_payload_from_file reports why an invalid template yields no payload" {
+  create_awkward_types_config "$TEST_TEMP_DIR/types.yaml"
+  printf '%s' '{ this is not json' > "$TEST_TEMP_DIR/rs.json"
+  run --separate-stderr run_builder "$TEST_TEMP_DIR/rs.json"
+  [ "$status" -eq 1 ]
+  [ "$output" = "{}" ]
+  [[ "$stderr" == *"did not produce valid JSON"* ]]
+}
+
+@test "configure_rulesets_for_type names the repo type and description when it skips" {
+  mkdir -p "$TEST_TEMP_DIR/tools/config"
+  printf '%s' '{ this is not json' > "$TEST_TEMP_DIR/tools/config/rs.json"
+  create_awkward_types_config "$TEST_TEMP_DIR/types.yaml"
+  run bash -c "
+    source '$PROJECT_ROOT/tools/lib/repo-types.bash'
+    export DEVENV_TOOLS='$TEST_TEMP_DIR/tools'
+    configure_rulesets_for_type acme/my-repo service '$TEST_TEMP_DIR/types.yaml'
+  "
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Failed to generate valid ruleset payload"* ]]
+  [[ "$output" == *"repo type 'service'"* ]]
+  [[ "$output" == *'Tom & "Jerry" a/b \ c'* ]]
+}
+
+# ---------------------------------------------------------------------------
+# The shipped default ruleset, rendered for real
+# ---------------------------------------------------------------------------
+
+run_default_ruleset() {
+  # run_default_ruleset EMAIL_DOMAIN — renders tools/config/ruleset-default.json
+  printf '[organization]\nname=t\norg=acme\nemail_domain=%s\n' "$1" > "$DEVENV_ROOT/devenv.config"
+  create_awkward_types_config "$TEST_TEMP_DIR/types.yaml"
+  bash -c "
+    export DEVENV_TOOLS='$PROJECT_ROOT/tools' DEVENV_ROOT='$DEVENV_ROOT'
+    source '$PROJECT_ROOT/tools/lib/repo-types.bash'
+    build_ruleset_payload_from_file '$PROJECT_ROOT/tools/config/ruleset-default.json' acme/my-repo service '$TEST_TEMP_DIR/types.yaml'
+  "
+}
+
+@test "default ruleset: an empty email_domain emits no email rules (it used to require ends_with '@')" {
+  run run_default_ruleset ""
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s' "$output" | jq '[.rules[] | select(.type | test("email_pattern"))] | length')" -eq 0 ]
+  # no rule anywhere ends up demanding a bare "@"
+  [ "$(printf '%s' "$output" | jq '[.. | strings | select(. == "@")] | length')" -eq 0 ]
+}
+
+@test "default ruleset: a configured email_domain keeps both email rules, with the domain" {
+  run run_default_ruleset "example.com"
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s' "$output" | jq -r '[.rules[] | select(.type == "commit_author_email_pattern") | .parameters.pattern][0]')" = "@example.com" ]
+  [ "$(printf '%s' "$output" | jq -r '[.rules[] | select(.type == "committer_email_pattern") | .parameters.pattern][0]')" = "@example.com" ]
+}
+
+@test "default ruleset: the other rules are unaffected by dropping the email rules" {
+  run run_default_ruleset ""
+  [ "$status" -eq 0 ]
+  types="$(printf '%s' "$output" | jq -r '[.rules[].type] | join(",")')"
+  [[ "$types" == *"pull_request"* && "$types" == *"commit_message_pattern"* && "$types" == *"required_linear_history"* ]]
+}
+
+@test "default ruleset: no branch_name_pattern rule (it targets only the default branch, where it can never apply)" {
+  run run_default_ruleset "example.com"
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s' "$output" | jq '[.rules[] | select(.type == "branch_name_pattern")] | length')" -eq 0 ]
+}
+
+@test "configure_merge_types_for_type returns failure when the API call fails (it used to return 0)" {
+  mkdir -p "$TEST_TEMP_DIR/bin"
+  printf '#!/usr/bin/env bash\necho "HTTP 403" >&2\nexit 1\n' > "$TEST_TEMP_DIR/bin/gh"
+  chmod +x "$TEST_TEMP_DIR/bin/gh"
+  create_awkward_types_config "$TEST_TEMP_DIR/types.yaml"
+  run env PATH="$TEST_TEMP_DIR/bin:$PATH" bash -c "
+    export DEVENV_TOOLS='$PROJECT_ROOT/tools'
+    source '$PROJECT_ROOT/tools/lib/repo-types.bash'
+    configure_merge_types_for_type acme/my-repo service '$TEST_TEMP_DIR/types.yaml'
+  "
+  [ "$status" -ne 0 ]
+}

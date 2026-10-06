@@ -109,7 +109,7 @@ repo-commit "<message>"             # short messages only — long argv strings 
 
 Contract of the tool (enforced by the tool, not just this skill):
 
-- The suggested message is pre-loaded into the **git editor, which always opens** (normal lane) — `repo-commit` prefers VS Code (`code --wait`) with nano as fallback; it has no non-interactive path and refuses `-m`, `--yes`, option-shaped arguments, and known non-interactive editors (`true`, `:`, `echo`, `cat`, …).
+- The suggested message is pre-loaded into the **git editor, which always opens** (normal lane) — `repo-commit` uses the first usable editor from this chain: `GIT_EDITOR` → `core.editor` → `code --wait` → `nano` → `VISUAL` → `EDITOR`. A non-interactive value (`true`, `:`, `echo`, `cat`, … — automation hosts inject these) is treated as unset and the chain falls through; the tool refuses only when every source resolves non-interactive. It has no non-interactive path and refuses `-m`, `--yes`, and option-shaped arguments.
 - The commit is created from the **existing index only**; unstaged work is never swept in (the `--wip` lane's stage-all is git-wip's documented behavior, chosen explicitly by the user).
 - The user may edit the message freely in the editor; **their saved text is the commit message** — the suggestion is a starting point.
 - Editor emptied or aborted → no commit, staged state untouched. **This is the user declining — do not retry, do not hand back a paste-command.** One structured ask: *"Editor closed without a save — the commit didn't happen. Re-open the editor with the same message?"* (yes, retry / no, stop / edit the message first). Only a yes re-invokes `repo-commit`.

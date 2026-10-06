@@ -150,6 +150,17 @@ teardown() {
   [[ "$result" == "1.2.3" ]]
 }
 
+# Regression (T002): error_msg was undefined in error-handling.bash, so any
+# error path through these libs died with "command not found" (exit 127)
+# instead of the function's own return code.
+@test "bump_semver with invalid change type emits error_msg and returns 1, not 127" {
+  source "${DEVENV_ROOT}/tools/lib/release-operations.bash"
+
+  run bump_semver "1.2.3" "bogus"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"Invalid change type: bogus"* ]]
+}
+
 # Test library exports
 @test "all release-operations functions are exported" {
   source "${DEVENV_ROOT}/tools/lib/release-operations.bash"

@@ -11,7 +11,6 @@ toolbox_root=$(dirname "$script_folder")
 cd "$script_folder" || exit 1
 
 # Configuration constants
-readonly SCRIPT_VERSION="1.0.0"
 readonly CHECK_INTERVAL_SECONDS=600  # Check every 10 minutes
 readonly SLEEP_CHUNK_SECONDS=10      # Sleep in small chunks for responsive signal handling
 
@@ -19,9 +18,6 @@ readonly SLEEP_CHUNK_SECONDS=10      # Sleep in small chunks for responsive sign
 if [ -f "$toolbox_root/tools/lib/versioning.bash" ]; then
     # shellcheck source=../tools/lib/versioning.bash
     source "$toolbox_root/tools/lib/versioning.bash"
-    
-    # Display version if requested
-    script_version "background-check-devenv-updates.sh" "$SCRIPT_VERSION" "Background git update checker"
     
     # Check environment compatibility
     if ! check_environment_requirements; then

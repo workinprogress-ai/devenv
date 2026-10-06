@@ -318,6 +318,78 @@ resolve_issue_array_csv() {
     yq eval ".issues[$index].$field // [] | join(\",\")" "$MANIFEST_FILE"
 }
 
+# assemble_issue_command INDEX TITLE TYPE PARENT MILESTONE PROJECT BODY BODY_FILE
+#                        SIZE TARGET LABELS_CSV ASSIGNEES_CSV BLOCKED_CSV
+#   The one place an issue entry becomes an `issue-create` command, shared by
+#   the manifest and fast builders (each resolves its own fields from its own
+#   source; everything from here on is identical). Applies the command-line
+#   list defaults to labels/assignees/blocked-by when the entry has none,
+#   validates body_file once the fields are fully resolved, writes the body
+#   file (inline body, else a generated one) and fills BUILT_CMD_ARRAY.
+#   Returns 1 (with the error logged) if body_file does not exist.
+assemble_issue_command() {
+    local index="$1" title="$2" type="$3" parent="$4" milestone="$5" project="$6"
+    local body="$7" body_file="$8" size="$9" target="${10}"
+    local labels_csv="${11}" assignees_csv="${12}" blocked_csv="${13}"
+
+    if [ -z "$labels_csv" ] && [ "${#DEFAULT_LABELS[@]}" -gt 0 ]; then
+        labels_csv="$(IFS=','; echo "${DEFAULT_LABELS[*]}")"
+    fi
+    if [ -z "$assignees_csv" ] && [ "${#DEFAULT_ASSIGNEES[@]}" -gt 0 ]; then
+        assignees_csv="$(IFS=','; echo "${DEFAULT_ASSIGNEES[*]}")"
+    fi
+    if [ -z "$blocked_csv" ] && [ "${#DEFAULT_BLOCKED_BY[@]}" -gt 0 ]; then
+        blocked_csv="$(IFS=','; echo "${DEFAULT_BLOCKED_BY[*]}")"
+    fi
+
+    local final_body_file="$body_file"
+    if [ -n "$final_body_file" ] && [ ! -f "$final_body_file" ]; then
+        log_error "Issue[$index] body_file not found: $final_body_file"
+        return 1
+    fi
+    if [ -z "$final_body_file" ]; then
+        final_body_file="$TEMP_DIR/issue-$index-body.md"
+        if [ -n "$body" ]; then
+            printf "%s\n" "$body" > "$final_body_file"
+        else
+            build_generated_body "$title" "$size" "$target" > "$final_body_file"
+        fi
+    fi
+
+    BUILT_CMD_ARRAY=(issue-create --title "$title" --type "$type" --body-file "$final_body_file" --no-template)
+    if [ -n "$parent" ]; then
+        BUILT_CMD_ARRAY+=(--parent "$parent")
+    fi
+    if [ -n "$milestone" ]; then
+        BUILT_CMD_ARRAY+=(--milestone "$milestone")
+    fi
+    if [ -n "$project" ]; then
+        BUILT_CMD_ARRAY+=(--project "$project")
+    fi
+    local -a csv_parts=()
+    local part
+    split_csv_to_array "$labels_csv" csv_parts
+    for part in "${csv_parts[@]}"; do
+        if [ -n "$part" ]; then
+            BUILT_CMD_ARRAY+=(--label "$part")
+        fi
+    done
+    csv_parts=()
+    split_csv_to_array "$assignees_csv" csv_parts
+    for part in "${csv_parts[@]}"; do
+        if [ -n "$part" ]; then
+            BUILT_CMD_ARRAY+=(--assignee "$part")
+        fi
+    done
+    csv_parts=()
+    split_csv_to_array "$blocked_csv" csv_parts
+    for part in "${csv_parts[@]}"; do
+        if [ -n "$part" ]; then
+            BUILT_CMD_ARRAY+=(--blocked-by "$part")
+        fi
+    done
+}
+
 build_issue_command_for_manifest() {
     local index="$1"
 
@@ -403,68 +475,14 @@ build_issue_command_for_manifest() {
         blocked_csv="$(resolve_manifest_array_csv "blocked_by")"
     fi
 
-    if [ -z "$labels_csv" ] && [ "${#DEFAULT_LABELS[@]}" -gt 0 ]; then
-        labels_csv="$(IFS=','; echo "${DEFAULT_LABELS[*]}")"
-    fi
-    if [ -z "$assignees_csv" ] && [ "${#DEFAULT_ASSIGNEES[@]}" -gt 0 ]; then
-        assignees_csv="$(IFS=','; echo "${DEFAULT_ASSIGNEES[*]}")"
-    fi
-    if [ -z "$blocked_csv" ] && [ "${#DEFAULT_BLOCKED_BY[@]}" -gt 0 ]; then
-        blocked_csv="$(IFS=','; echo "${DEFAULT_BLOCKED_BY[*]}")"
-    fi
 
     if [ -z "$BUILT_TITLE" ]; then
         log_error "Issue[$index] missing title"
         return 1
     fi
 
-    local final_body_file="$body_file"
-    if [ -n "$final_body_file" ] && [ ! -f "$final_body_file" ]; then
-        log_error "Issue[$index] body_file not found: $final_body_file"
-        return 1
-    fi
-
-    if [ -z "$final_body_file" ]; then
-        final_body_file="$TEMP_DIR/issue-$index-body.md"
-        if [ -n "$body" ]; then
-            printf "%s\n" "$body" > "$final_body_file"
-        else
-            build_generated_body "$BUILT_TITLE" "$size" "$target" > "$final_body_file"
-        fi
-    fi
-
-    BUILT_CMD_ARRAY=(issue-create --title "$BUILT_TITLE" --type "$type" --body-file "$final_body_file" --no-template)
-    if [ -n "$parent" ]; then
-        BUILT_CMD_ARRAY+=(--parent "$parent")
-    fi
-    if [ -n "$milestone" ]; then
-        BUILT_CMD_ARRAY+=(--milestone "$milestone")
-    fi
-    if [ -n "$project" ]; then
-        BUILT_CMD_ARRAY+=(--project "$project")
-    fi
-    local -a csv_parts=()
-    local part
-    split_csv_to_array "$labels_csv" csv_parts
-    for part in "${csv_parts[@]}"; do
-        if [ -n "$part" ]; then
-            BUILT_CMD_ARRAY+=(--label "$part")
-        fi
-    done
-    csv_parts=()
-    split_csv_to_array "$assignees_csv" csv_parts
-    for part in "${csv_parts[@]}"; do
-        if [ -n "$part" ]; then
-            BUILT_CMD_ARRAY+=(--assignee "$part")
-        fi
-    done
-    csv_parts=()
-    split_csv_to_array "$blocked_csv" csv_parts
-    for part in "${csv_parts[@]}"; do
-        if [ -n "$part" ]; then
-            BUILT_CMD_ARRAY+=(--blocked-by "$part")
-        fi
-    done
+    assemble_issue_command "$index" "$BUILT_TITLE" "$type" "$parent" "$milestone" "$project" \
+        "$body" "$body_file" "$size" "$target" "$labels_csv" "$assignees_csv" "$blocked_csv"
 }
 
 build_issue_command_for_fast() {
@@ -491,62 +509,9 @@ build_issue_command_for_fast() {
     local assignees_csv="${PARSED_ASSIGNEES:-}"
     local blocked_csv="${PARSED_BLOCKED_BY:-}"
 
-    if [ -z "$labels_csv" ] && [ "${#DEFAULT_LABELS[@]}" -gt 0 ]; then
-        labels_csv="$(IFS=','; echo "${DEFAULT_LABELS[*]}")"
-    fi
-    if [ -z "$assignees_csv" ] && [ "${#DEFAULT_ASSIGNEES[@]}" -gt 0 ]; then
-        assignees_csv="$(IFS=','; echo "${DEFAULT_ASSIGNEES[*]}")"
-    fi
-    if [ -z "$blocked_csv" ] && [ "${#DEFAULT_BLOCKED_BY[@]}" -gt 0 ]; then
-        blocked_csv="$(IFS=','; echo "${DEFAULT_BLOCKED_BY[*]}")"
-    fi
 
-    local final_body_file="$body_file"
-    if [ -n "$final_body_file" ] && [ ! -f "$final_body_file" ]; then
-        log_error "Issue[$index] body_file not found: $final_body_file"
-        return 1
-    fi
-    if [ -z "$final_body_file" ]; then
-        final_body_file="$TEMP_DIR/issue-$index-body.md"
-        if [ -n "$body" ]; then
-            printf "%s\n" "$body" > "$final_body_file"
-        else
-            build_generated_body "$BUILT_TITLE" "$size" "$target" > "$final_body_file"
-        fi
-    fi
-
-    BUILT_CMD_ARRAY=(issue-create --title "$BUILT_TITLE" --type "$type" --body-file "$final_body_file" --no-template)
-    if [ -n "$parent" ]; then
-        BUILT_CMD_ARRAY+=(--parent "$parent")
-    fi
-    if [ -n "$milestone" ]; then
-        BUILT_CMD_ARRAY+=(--milestone "$milestone")
-    fi
-    if [ -n "$project" ]; then
-        BUILT_CMD_ARRAY+=(--project "$project")
-    fi
-    local -a csv_parts=()
-    local part
-    split_csv_to_array "$labels_csv" csv_parts
-    for part in "${csv_parts[@]}"; do
-        if [ -n "$part" ]; then
-            BUILT_CMD_ARRAY+=(--label "$part")
-        fi
-    done
-    csv_parts=()
-    split_csv_to_array "$assignees_csv" csv_parts
-    for part in "${csv_parts[@]}"; do
-        if [ -n "$part" ]; then
-            BUILT_CMD_ARRAY+=(--assignee "$part")
-        fi
-    done
-    csv_parts=()
-    split_csv_to_array "$blocked_csv" csv_parts
-    for part in "${csv_parts[@]}"; do
-        if [ -n "$part" ]; then
-            BUILT_CMD_ARRAY+=(--blocked-by "$part")
-        fi
-    done
+    assemble_issue_command "$index" "$BUILT_TITLE" "$type" "$parent" "$milestone" "$project" \
+        "$body" "$body_file" "$size" "$target" "$labels_csv" "$assignees_csv" "$blocked_csv"
 }
 
 get_issue_count() {
@@ -599,7 +564,6 @@ create_batch() {
                 return 1
             }
         fi
-        :
 
         log_verbose "Creating issue[$index] from $BUILT_MODE mode: $BUILT_TITLE"
         local output
@@ -613,10 +577,18 @@ create_batch() {
             return 1
         fi
 
-        local issue_url
-        local issue_number
-        issue_url=$(echo "$output" | tac | provider_extract_url 'issues/[0-9]+' || true)
-        issue_number=$(echo "$issue_url" | grep -Eo '[0-9]+$' || true)
+        # The creation result is the LAST non-empty line issue-create prints: a URL on
+        # some providers, a bare issue id on others (the child's log lines share the
+        # stream, so earlier lines — even ones containing URLs — are not the result).
+        # The number is read provider-neutrally: the whole line when it is an id,
+        # otherwise the trailing digit run of the URL path.
+        local issue_url issue_number=""
+        issue_url=$(printf '%s\n' "$output" | sed '/^[[:space:]]*$/d' | tail -n 1 | tr -d '\r')
+        if [[ "$issue_url" =~ ^[0-9]+$ ]]; then
+            issue_number="$issue_url"
+        elif [[ "$issue_url" =~ ^https?://[^[:space:]?#]*/([0-9]+)/?([?#][^[:space:]]*)?$ ]]; then
+            issue_number="${BASH_REMATCH[1]}"
+        fi
         if [ -z "$issue_url" ] || [ -z "$issue_number" ]; then
             log_error "Issue[$index] created but could not parse URL/number"
             echo "$output"

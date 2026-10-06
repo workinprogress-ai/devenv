@@ -19,7 +19,7 @@ email_domain=test.example.com
 feed_url=https://nuget.pkg.github.com/${PROVIDER_ORG}/index.json
 
 [workflows]
-status_workflow=TBD,Ready,In Progress,Done
+status_workflow=TBD,To-Groom,Ready,Implementing,Review,Merged,Staging,Production
 issue_types=story,bug
 
 [copilot]
@@ -40,9 +40,8 @@ EOF
 }
 
 @test "devenv.config: organization section has required keys" {
-    # Org identity: the neutral "org" key is canonical; the deprecated
-    # "github_org" fallback satisfies the requirement on legacy configs.
-    run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $PROJECT_ROOT/devenv.config && { config_validate_required organization name org email_domain 2>/dev/null || config_validate_required organization name github_org email_domain; }"
+    # Org identity: the neutral "org" key is the only one read (github_org is not).
+    run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $PROJECT_ROOT/devenv.config && config_validate_required organization name org email_domain"
     [ "$status" -eq 0 ]
 }
 
@@ -174,4 +173,17 @@ EOF
 @test "test_helper.bash: does not use hardcoded organization email" {
     run grep '@workinprogress.ai' "$PROJECT_ROOT/tools/tests/test_helper.bash"
     [ "$status" -ne 0 ]
+}
+
+@test "the test fixture's status_workflow matches the shipped config" {
+    run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $TEST_CONFIG_FILE && config_read_value workflows status_workflow"
+    fixture="$output"
+    run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $PROJECT_ROOT/devenv.config && config_read_value workflows status_workflow"
+    [ "$status" -eq 0 ]
+    [ "$fixture" = "$output" ]
+}
+
+@test "the test fixture's workflow states are single tokens (config_read_array splits on whitespace)" {
+    run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && config_init $TEST_CONFIG_FILE && config_read_value workflows status_workflow"
+    [[ "$output" != *" "* ]]
 }

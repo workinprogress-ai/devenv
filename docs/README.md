@@ -73,6 +73,8 @@ Complete workflow for managing issues, projects, and sprints (as-built on GitHub
   - Required skeleton, library catalog, exit-code contract
   - Argument parsing, stdin/body handling, repo targeting
   - Testing requirements and common pitfalls
+- **[Commit Conventions](./Commit-Conventions.md)**
+  - The canonical contract for commit messages: types, rebase-merge policy, `WIP:` rules
 
 - **[Function Naming Conventions](./Function-Naming-Conventions.md)**
   - Bash function naming rules
@@ -148,6 +150,9 @@ Complete workflow for managing issues, projects, and sprints (as-built on GitHub
 
 **...write a new tool for the tools/ suite**
 → [Tooling Standards](./Tooling-Standards.md)
+
+**...write a commit message**
+→ [Commit Conventions](./Commit-Conventions.md)
 
 **...save unfinished work safely (WIP commits)**
 → [WIP-commit convention](./Additional-Tooling.md#the-wip-commit-convention)

@@ -117,18 +117,29 @@ delete_branch() {
     local remote="${2:-origin}"
     
     [ -n "$branch" ] || { log_error "Branch name required"; return 1; }
-    
+
+    # Both legs are always attempted (a failed remote delete must not strand the
+    # local branch), and the result reports whether either failed: callers branch
+    # on this status, so returning 0 unconditionally made their error handling dead.
+    local rc=0
+
     # Delete remote branch
     if branch_exists_remote "$branch" "$remote"; then
-        git push "$remote" :"$branch" &>/dev/null || log_warn "Failed to delete remote branch $remote/$branch"
+        if ! git push "$remote" :"$branch" &>/dev/null; then
+            log_warn "Failed to delete remote branch $remote/$branch"
+            rc=1
+        fi
     fi
-    
+
     # Delete local branch
     if branch_exists_local "$branch"; then
-        git branch -D "$branch" &>/dev/null || log_warn "Failed to delete local branch $branch"
+        if ! git branch -D "$branch" &>/dev/null; then
+            log_warn "Failed to delete local branch $branch"
+            rc=1
+        fi
     fi
-    
-    return 0
+
+    return "$rc"
 }
 
 # ============================================================================
@@ -267,10 +278,20 @@ validate_git_context() {
     if [ -n "$exclude_branches" ]; then
         local current_branch
         current_branch=$(get_current_branch)
-        if [[ "$current_branch" == @($exclude_branches) ]]; then
-            log_error "Cannot run this script on $current_branch branch"
-            return 1
-        fi
+        # '|'-separated globs, matched with case: no extglob (and so no
+        # dependence on shell options or on how a given bash parses @(...)).
+        local excluded_pattern
+        local -a excluded_patterns
+        IFS='|' read -ra excluded_patterns <<< "$exclude_branches"
+        for excluded_pattern in "${excluded_patterns[@]}"; do
+            # shellcheck disable=SC2254  # the unquoted pattern is the point: it is a glob
+            case "$current_branch" in
+                $excluded_pattern)
+                    log_error "Cannot run this script on $current_branch branch"
+                    return 1
+                    ;;
+            esac
+        done
     fi
     
     return 0
@@ -322,26 +343,6 @@ build_merge_commit_message() {
 # ============================================================================
 # PR Merge Operations
 # ============================================================================
-
-# Merge PR with squash (legacy single-purpose wrapper retained for callers
-# that explicitly request squash; the policy default is rebase)
-# Args: $1 - PR number
-# Args: $2 - commit message
-# Args: $3 - optional repo spec
-# Returns: 0 on success, 1 on failure
-merge_pr_squash() {
-    local pr_num="${1:-}"
-    local commit_msg="${2:-}"
-    local repo_spec="${3:-}"
-    
-    # shellcheck disable=SC2015
-    [ -n "$pr_num" ] && [ -n "$commit_msg" ] || { log_error "PR number and commit message required"; return 1; }
-    
-    log_info "Merging PR $pr_num with squash..."
-    local prov_repo=""
-    [ -n "$repo_spec" ] && prov_repo="$(echo "$repo_spec" | sed 's/^-R //')"
-    provider_prs_merge "$prov_repo" "$pr_num" --squash --delete-branch --body "$commit_msg" 2>&1
-}
 
 # Merge PR with a specified method (rebase, merge, or squash)
 # Args: $1 - PR number
@@ -551,7 +552,12 @@ repo_is_org_member() {
     [ "$owner" = "$org" ]
 }
 
-# Configure git settings for a local repository
+# Configure git settings for a local repository.
+# Side effect (deliberate): this registers the repository in the GLOBAL
+# safe.directory list. git honors safe.directory only from system/global config
+# (never repo-local), so a per-repo setting cannot achieve it; the entry is added
+# once (idempotent) via add_git_safe_directory. Everything else it writes is
+# repo-local.
 # Args:
 #   $1 - Repository directory path (optional, defaults to current directory)
 #   $2 - Remote URL (optional, if provided will update origin with embedded credentials)
@@ -569,10 +575,8 @@ configure_git_repo() {
     local abs_dir
     abs_dir="$(pwd)"
     
-    # Check if the directory is already in the safe.directory list
-    if ! git config --global --get-all safe.directory | grep -Fxq "$abs_dir"; then
-        git config --global --add safe.directory "$abs_dir"
-    fi
+    # Global safe.directory entry (see the header): one shared, idempotent helper.
+    add_git_safe_directory "$abs_dir"
     
     # Configure local repository settings
     git config core.autocrlf false
@@ -621,9 +625,11 @@ configure_git_global() {
     git config --global diff.tool vscode
     git config --global difftool.vscode.cmd "code --wait --diff \$LOCAL \$REMOTE"
     
-    # Credential management
-    git config --global credential.helper store
-    git config --global credential.helper 'cache --timeout=999999999'
+    # Credential management. No plaintext 'store' helper (it would persist tokens
+    # in ~/.git-credentials), and none is needed: provider auth import wires the
+    # provider's own, host-scoped credential helper. This cache only spares repeat
+    # prompts for hosts without one, and is bounded to a working day.
+    git config --global credential.helper 'cache --timeout=28800'
     
     # User identity (if provided)
     if [ -n "$user_name" ]; then
@@ -865,7 +871,6 @@ export -f extract_issue_from_pr
 export -f validate_conventional_commits
 export -f validate_git_context
 export -f build_merge_commit_message
-export -f merge_pr_squash
 export -f merge_pr
 export -f configure_git_repo
 export -f configure_git_global

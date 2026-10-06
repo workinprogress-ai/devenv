@@ -153,12 +153,6 @@ EOF
   ! [[ "$output" =~ "Conventional Commits" ]]
 }
 
-@test "pr-merge help text states no configured default method" {
-  run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" --help
-  [[ "$output" =~ "org/fork policy default" ]]
-  ! [[ "$output" =~ "(default)" ]]
-}
-
 @test "pr-merge uses PR title when no message is given" {
   run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
@@ -259,6 +253,22 @@ EOF
     # The verb receives the flag only when deletion is wanted (default);
     # --keep-branch suppresses it. Providers map the flag to their own
     # completion semantics (azure: deleteSourceBranch).
-    if is_pr_merge_available; then :; fi
     skip "merge_pr flag-shape asserted at the contract level (see test_provider_contract_verbs)"
+}
+
+@test "pr-merge --help states the real default method (rebase), not a policy lookup" {
+  run bash "$PROJECT_ROOT/tools/scripts/pr-merge.sh" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"rebase"* ]]
+  [[ "$output" == *"default"* ]]
+  [[ "$output" != *"policy default"* ]]
+}
+
+@test "pr-merge header documents the rebase default and defers options to --help" {
+  header="$(sed -n '1,60p' "$PROJECT_ROOT/tools/scripts/pr-merge.sh")"
+  [[ "$header" == *"rebase"* ]]
+  [[ "$header" != *"org/fork"* ]]
+  [[ "$header" == *"pr-merge --help"* ]]
+  # single source: the option list lives in usage(), not duplicated in the header
+  [[ "$header" != *"--keep-branch"* ]]
 }

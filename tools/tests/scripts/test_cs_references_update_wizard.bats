@@ -363,7 +363,7 @@ EOF
         "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" "$REPO_DIR"
     [ "$status" -eq 0 ]
     grep -q "patch: update references" "$TEST_TEMP_DIR/pr.args"
-    ! grep -q "and target framework" "$TEST_TEMP_DIR/pr.args"
+    run ! grep -q "and target framework" "$TEST_TEMP_DIR/pr.args"
     rm -f "$TEST_TEMP_DIR/bin/git"
 }
 
@@ -408,8 +408,8 @@ EOF
         "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" "$REPO_DIR"
     [ "$status" -eq 0 ]
     grep -q "chore(tests): update references" "$TEST_TEMP_DIR/pr.args"
-    ! grep -q "major:" "$TEST_TEMP_DIR/pr.args"
-    ! grep -q "patch:" "$TEST_TEMP_DIR/pr.args"
+    run ! grep -q "major:" "$TEST_TEMP_DIR/pr.args"
+    run ! grep -q "patch:" "$TEST_TEMP_DIR/pr.args"
     # The commit on the update branch carries the same message
     grep -q "chore(tests): update references" <(git -C "$REPO_DIR" log --format=%s -1 "$REPO_DIR" 2>/dev/null) || true
     rm -f "$TEST_TEMP_DIR/bin/git"
@@ -454,6 +454,6 @@ EOF
         "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" "$REPO_DIR"
     [ "$status" -eq 0 ]
     grep -q "patch: update references" "$TEST_TEMP_DIR/pr.args"
-    ! grep -q "chore(tests)" "$TEST_TEMP_DIR/pr.args"
+    run ! grep -q "chore(tests)" "$TEST_TEMP_DIR/pr.args"
     rm -f "$TEST_TEMP_DIR/bin/git"
 }

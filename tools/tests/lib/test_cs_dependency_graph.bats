@@ -706,3 +706,339 @@ teardown() {
     a_count=$(echo "$output" | awk -F'\t' '$2 == "cycle-a"' | wc -l)
     [ "$a_count" -eq 0 ]
 }
+
+# ============================================================================
+# Package lookups are exact matches, not substring/regex matches
+# ============================================================================
+
+# Fixture: "producer" only makes the long-named Org.Lib.Core.Common; nothing
+# makes Org.Lib.Core. "consumer" references both, plus Org.Unrelated, which is
+# made by a repo whose *name* happens to contain "Org.Lib.Core".
+create_prefix_sibling_fixture() {
+    local cache_dir="$TEST_TEMP_DIR/cache/repo_cache"
+    _make_csproj "$cache_dir/producer/src/Org.Lib.Core.Common/Org.Lib.Core.Common.csproj" ""
+    _make_csproj "$cache_dir/holds-Org.Lib.Core-name/src/Org.Unrelated/Org.Unrelated.csproj" ""
+    _make_csproj "$cache_dir/consumer/src/Org.App.Consumer/Org.App.Consumer.csproj" \
+        '<PackageReference Include="Org.Lib.Core" Version="1.0.0" />
+    <PackageReference Include="Org.Lib.Core.Common" Version="2.0.0" />'
+    printf '%s\n%s\n' "2026-03-29T00:00:00Z" "abc123" > "$cache_dir/.cache_timestamp"
+}
+
+run_dep_lib() {
+    bash -c "
+        export DEVENV_TOOLS='$DEVENV_TOOLS' REPO_CACHE_DIR='$REPO_CACHE_DIR'
+        export CS_DEP_ORG_PREFIX='Org.' CS_DEP_INDEX_DIR='$CS_DEP_INDEX_DIR'
+        source '$DEVENV_TOOLS/lib/cs-dependency-graph.bash'
+        $1
+    "
+}
+
+@test "cs-dep-graph: a reference to an absent package is not attributed to a longer-named sibling" {
+    create_prefix_sibling_fixture
+    run run_dep_lib "build_dependency_index"
+    [ "$status" -eq 0 ]
+    local deps="$CS_DEP_INDEX_DIR/repo_dependencies.tsv"
+    # Org.Lib.Core is made by no cached repo: it must produce no edge at all,
+    # not one pointing at whichever repo made Org.Lib.Core.Common.
+    run ! grep -qP '\tOrg\.Lib\.Core\t' "$deps"
+}
+
+@test "cs-dep-graph: a reference is not matched through a repo name that contains it" {
+    # Only a repo whose NAME contains "Org.Lib.Core" exists (it makes an
+    # unrelated package); nothing makes Org.Lib.Core, so no edge may appear.
+    local cache_dir="$TEST_TEMP_DIR/cache/repo_cache"
+    _make_csproj "$cache_dir/holds-Org.Lib.Core-name/src/Org.Unrelated/Org.Unrelated.csproj" ""
+    _make_csproj "$cache_dir/consumer/src/Org.App.Consumer/Org.App.Consumer.csproj" \
+        '<PackageReference Include="Org.Lib.Core" Version="1.0.0" />'
+    printf '%s\n%s\n' "2026-03-29T00:00:00Z" "abc123" > "$cache_dir/.cache_timestamp"
+    run run_dep_lib "build_dependency_index"
+    [ "$status" -eq 0 ]
+    [ ! -s "$CS_DEP_INDEX_DIR/repo_dependencies.tsv" ]
+}
+
+@test "cs-dep-graph: an exact package reference still produces its edge" {
+    create_prefix_sibling_fixture
+    run run_dep_lib "build_dependency_index"
+    [ "$status" -eq 0 ]
+    grep -qP '^consumer\tOrg\.Lib\.Core\.Common\t2\.0\.0$' "$CS_DEP_INDEX_DIR/repo_dependencies.tsv"
+}
+
+@test "cs-dep-graph: the root repo is matched literally, not as a regex" {
+    # "producer" exists; "pr.ducer" would match it if '.' were a wildcard.
+    create_prefix_sibling_fixture
+    run --separate-stderr run_dep_lib "build_dependency_index >/dev/null 2>&1; get_reverse_dependency_tree 'pr.ducer'"
+    [ "$status" -eq 1 ]
+    [[ "$stderr" == *"not found in package index"* ]]
+}
+
+@test "cs-dep-graph: a real root repo with regex characters in its name is still found" {
+    local cache_dir="$TEST_TEMP_DIR/cache/repo_cache"
+    _make_csproj "$cache_dir/lib.core+x/src/Org.Dotted/Org.Dotted.csproj" ""
+    _make_csproj "$cache_dir/user/src/Org.User/Org.User.csproj" \
+        '<PackageReference Include="Org.Dotted" Version="1.0.0" />'
+    printf '%s\n%s\n' "2026-03-29T00:00:00Z" "abc123" > "$cache_dir/.cache_timestamp"
+    run --separate-stderr run_dep_lib "build_dependency_index >/dev/null 2>&1; get_reverse_dependency_tree 'lib.core+x'"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"user"* ]]
+}
+
+# ============================================================================
+# get_topological_generations (merged from the former scripts/ suite; these run
+# in-process against a fresh empty index, built by topo_init)
+# ============================================================================
+
+# Create a minimal fake repo dir containing one .csproj so it appears as a
+# C# repo to get_topological_generations
+create_repo() {
+    local name="$1"
+    mkdir -p "$REPO_CACHE_DIR/$name/src"
+    touch "$REPO_CACHE_DIR/$name/src/${name}.csproj"
+}
+
+# Index helpers — append rows to the relevant TSV files
+add_pkg()      { printf '%s\t%s\n'     "$1" "$2"      >> "$REPO_CACHE_DIR/.index/package_to_repo.tsv"; }
+add_repo_pkg() { printf '%s\t%s\n'     "$1" "$2"      >> "$REPO_CACHE_DIR/.index/repo_packages.tsv"; }
+add_dep()      { printf '%s\t%s\t%s\n' "$1" "$2" "${3:-1.0.0}" >> "$REPO_CACHE_DIR/.index/repo_dependencies.tsv"; }
+
+topo_init() {
+    # The shared setup() points these at the other tests' cache; this section
+    # needs the library defaults derived from its own REPO_CACHE_DIR.
+    unset CS_DEP_INDEX_DIR CS_DEP_ORG_PREFIX
+    export REPO_CACHE_DIR="$TEST_TEMP_DIR/cache"
+    mkdir -p "$REPO_CACHE_DIR/.index"
+
+    # Initialise empty index files
+    : > "$REPO_CACHE_DIR/.index/package_to_repo.tsv"
+    : > "$REPO_CACHE_DIR/.index/repo_packages.tsv"
+    : > "$REPO_CACHE_DIR/.index/repo_dependencies.tsv"
+
+    # Write matching timestamps so ensure_dependency_index treats index as fresh
+    echo "test-ts" > "$REPO_CACHE_DIR/.cache_timestamp"
+    echo "test-ts" > "$REPO_CACHE_DIR/.index/.index_timestamp"
+
+    # Source the libraries — CS_DEP_INDEX_DIR is derived from REPO_CACHE_DIR at
+    # source time, so REPO_CACHE_DIR must be set first.
+    # shellcheck source=../../lib/error-handling.bash
+    source "$PROJECT_ROOT/tools/lib/error-handling.bash"
+    # shellcheck source=../../lib/repo-cache.bash
+    source "$PROJECT_ROOT/tools/lib/repo-cache.bash"
+    # shellcheck source=../../lib/cs-dependency-graph.bash
+    source "$PROJECT_ROOT/tools/lib/cs-dependency-graph.bash"
+}
+
+# ---------------------------------------------------------------------------
+# Syntax check
+# ---------------------------------------------------------------------------
+
+@test "cs-dependency-graph.bash has valid bash syntax" {
+    topo_init
+    run bash -n "$PROJECT_ROOT/tools/lib/cs-dependency-graph.bash"
+    [ "$status" -eq 0 ]
+}
+
+# ---------------------------------------------------------------------------
+# get_topological_generations — basic cases
+# ---------------------------------------------------------------------------
+
+@test "get_topological_generations - empty cache returns nothing" {
+    topo_init
+    run get_topological_generations
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "get_topological_generations - single repo with no org deps is generation 0" {
+    topo_init
+    create_repo "repo-a"
+
+    run get_topological_generations
+    [ "$status" -eq 0 ]
+    [[ "$output" == "0"$'\t'"repo-a" ]]
+}
+
+@test "get_topological_generations - repo with no csproj is excluded" {
+    topo_init
+    # This dir has no csproj files so should not appear in output
+    mkdir -p "$REPO_CACHE_DIR/not-a-cs-repo"
+    create_repo "repo-a"
+
+    run get_topological_generations
+    [ "$status" -eq 0 ]
+    [[ "$output" == "0"$'\t'"repo-a" ]]
+    [[ "$output" != *"not-a-cs-repo"* ]]
+}
+
+# ---------------------------------------------------------------------------
+# Linear chain
+# ---------------------------------------------------------------------------
+
+@test "get_topological_generations - linear chain A->B->C produces three generations" {
+    topo_init
+    create_repo "repo-a"   # gen 0: produces WorkInProgress.A, no org deps
+    create_repo "repo-b"   # gen 1: produces WorkInProgress.B, depends on WorkInProgress.A
+    create_repo "repo-c"   # gen 2: no org packages, depends on WorkInProgress.B
+
+    add_pkg      "WorkInProgress.A" "repo-a"
+    add_repo_pkg "repo-a"           "WorkInProgress.A"
+    add_pkg      "WorkInProgress.B" "repo-b"
+    add_repo_pkg "repo-b"           "WorkInProgress.B"
+    add_dep      "repo-b"           "WorkInProgress.A"
+    add_dep      "repo-c"           "WorkInProgress.B"
+
+    run get_topological_generations
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "0"$'\t'"repo-a" ]]
+    [[ "$output" =~ "1"$'\t'"repo-b" ]]
+    [[ "$output" =~ "2"$'\t'"repo-c" ]]
+}
+
+@test "get_topological_generations - linear chain preserves order across lines" {
+    topo_init
+    create_repo "repo-a"
+    create_repo "repo-b"
+    create_repo "repo-c"
+
+    add_pkg      "WorkInProgress.A" "repo-a"
+    add_repo_pkg "repo-a"           "WorkInProgress.A"
+    add_pkg      "WorkInProgress.B" "repo-b"
+    add_repo_pkg "repo-b"           "WorkInProgress.B"
+    add_dep      "repo-b"           "WorkInProgress.A"
+    add_dep      "repo-c"           "WorkInProgress.B"
+
+    run get_topological_generations
+    [ "$status" -eq 0 ]
+
+    # Extract generations for each repo from output
+    gen_a=$(echo "$output" | awk -F'\t' '$2=="repo-a"{print $1}')
+    gen_b=$(echo "$output" | awk -F'\t' '$2=="repo-b"{print $1}')
+    gen_c=$(echo "$output" | awk -F'\t' '$2=="repo-c"{print $1}')
+
+    [ "$gen_a" -lt "$gen_b" ]
+    [ "$gen_b" -lt "$gen_c" ]
+}
+
+# ---------------------------------------------------------------------------
+# Diamond graph
+# ---------------------------------------------------------------------------
+
+@test "get_topological_generations - diamond A->(B,C)->D places B and C in same generation" {
+    topo_init
+    create_repo "repo-a"
+    create_repo "repo-b"
+    create_repo "repo-c"
+    create_repo "repo-d"
+
+    add_pkg      "WorkInProgress.A" "repo-a"
+    add_repo_pkg "repo-a"           "WorkInProgress.A"
+    add_pkg      "WorkInProgress.B" "repo-b"
+    add_repo_pkg "repo-b"           "WorkInProgress.B"
+    add_pkg      "WorkInProgress.C" "repo-c"
+    add_repo_pkg "repo-c"           "WorkInProgress.C"
+
+    add_dep "repo-b" "WorkInProgress.A"
+    add_dep "repo-c" "WorkInProgress.A"
+    add_dep "repo-d" "WorkInProgress.B"
+    add_dep "repo-d" "WorkInProgress.C"
+
+    run get_topological_generations
+    [ "$status" -eq 0 ]
+
+    gen_a=$(echo "$output" | awk -F'\t' '$2=="repo-a"{print $1}')
+    gen_b=$(echo "$output" | awk -F'\t' '$2=="repo-b"{print $1}')
+    gen_c=$(echo "$output" | awk -F'\t' '$2=="repo-c"{print $1}')
+    gen_d=$(echo "$output" | awk -F'\t' '$2=="repo-d"{print $1}')
+
+    [ "$gen_a" -eq 0 ]
+    [ "$gen_b" -eq "$gen_c" ]    # same generation — both depend only on repo-a
+    [ "$gen_d" -gt "$gen_b" ]
+}
+
+# ---------------------------------------------------------------------------
+# Repos with no org packages (only external deps)
+# ---------------------------------------------------------------------------
+
+@test "get_topological_generations - repo with only external deps is generation 0" {
+    topo_init
+    create_repo "repo-lib"      # produces WorkInProgress.Lib
+    create_repo "repo-service"  # has csproj but only Microsoft.* deps — no org packages
+
+    add_pkg      "WorkInProgress.Lib" "repo-lib"
+    add_repo_pkg "repo-lib"           "WorkInProgress.Lib"
+    # repo-service has no entries in any index file
+
+    run get_topological_generations
+    [ "$status" -eq 0 ]
+
+    gen_lib=$(echo "$output" | awk -F'\t' '$2=="repo-lib"{print $1}')
+    gen_svc=$(echo "$output" | awk -F'\t' '$2=="repo-service"{print $1}')
+
+    [ "$gen_lib" -eq 0 ]
+    [ "$gen_svc" -eq 0 ]
+}
+
+# ---------------------------------------------------------------------------
+# Alphabetical ordering within a generation
+# ---------------------------------------------------------------------------
+
+@test "get_topological_generations - repos within a generation are sorted alphabetically" {
+    topo_init
+    create_repo "repo-z"
+    create_repo "repo-a"
+    create_repo "repo-m"
+    # No org-internal deps → all land in generation 0
+
+    run get_topological_generations
+    [ "$status" -eq 0 ]
+
+    gen0_repos=$(echo "$output" | awk -F'\t' '$1==0{print $2}')
+    expected=$'repo-a\nrepo-m\nrepo-z'
+    [ "$gen0_repos" = "$expected" ]
+}
+
+# ---------------------------------------------------------------------------
+# Cycle detection
+# ---------------------------------------------------------------------------
+
+@test "get_topological_generations - cycle emits warning and exits 0" {
+    topo_init
+    create_repo "repo-x"
+    create_repo "repo-y"
+
+    add_pkg      "WorkInProgress.X" "repo-x"
+    add_repo_pkg "repo-x"           "WorkInProgress.X"
+    add_pkg      "WorkInProgress.Y" "repo-y"
+    add_repo_pkg "repo-y"           "WorkInProgress.Y"
+
+    # Create a cycle: x depends on y, y depends on x
+    add_dep "repo-x" "WorkInProgress.Y"
+    add_dep "repo-y" "WorkInProgress.X"
+
+    run get_topological_generations
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "Cycle detected" ]]
+}
+
+@test "get_topological_generations - cycle does not hang or loop forever" {
+    topo_init
+    create_repo "repo-x"
+    create_repo "repo-y"
+
+    add_pkg      "WorkInProgress.X" "repo-x"
+    add_repo_pkg "repo-x"           "WorkInProgress.X"
+    add_pkg      "WorkInProgress.Y" "repo-y"
+    add_repo_pkg "repo-y"           "WorkInProgress.Y"
+
+    add_dep "repo-x" "WorkInProgress.Y"
+    add_dep "repo-y" "WorkInProgress.X"
+
+    # Should complete within 5 seconds
+    run timeout 5 bash -c "
+        export REPO_CACHE_DIR=\"$REPO_CACHE_DIR\"
+        export DEVENV_TOOLS=\"$DEVENV_TOOLS\"
+        source \"\$DEVENV_TOOLS/lib/error-handling.bash\"
+        source \"\$DEVENV_TOOLS/lib/repo-cache.bash\"
+        source \"\$DEVENV_TOOLS/lib/cs-dependency-graph.bash\"
+        get_topological_generations
+    "
+    [ "$status" -ne 124 ]  # 124 = timeout
+}

@@ -54,7 +54,7 @@ DEPLOYMENT_NAME=$(resolve_single_match list_deployments --filter "$DEPLOYMENT_NA
     exit "$rc"
 }
 
-confirm_or_fail "Scale deployment '$DEPLOYMENT_NAME' to $REPLICAS replicas in namespace $NAMESPACE"
+confirm_or_fail "Scale deployment '$DEPLOYMENT_NAME' to $REPLICAS replicas in namespace $NAMESPACE" || exit $?
 
 echo "Scaling deployment: $DEPLOYMENT_NAME to $REPLICAS replicas..."
 

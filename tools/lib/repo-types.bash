@@ -430,7 +430,10 @@ configure_rulesets_for_type() {
     payload_json=$(build_ruleset_payload_from_file "$ruleset_json_path" "$full_name" "$repo_type" "$config_path")
     
     if [ -z "$payload_json" ] || [ "$payload_json" = "{}" ]; then
-        log_warn "Failed to generate valid ruleset payload from ${ruleset_file}"
+        # Name what was being stamped: a skipped ruleset is otherwise a silent
+        # loss of branch protection, and the type's description is the usual
+        # carrier of whatever broke the template.
+        log_warn "Failed to generate valid ruleset payload from ${ruleset_file} for repo type '${repo_type}' (type description: '$(get_type_description "$repo_type" "$config_path" 2>/dev/null)')"
         return 0
     fi
 
@@ -519,18 +522,37 @@ build_ruleset_payload_from_file() {
         config_init "${DEVENV_ROOT:-}/devenv.config" 2>/dev/null || true
     fi
     email_domain=$(config_read_value "organization" "email_domain" "" 2>/dev/null || true)
-    payload=$(cat "$ruleset_file" | \
-        sed "s/{{repo_name}}/${repo_name}/g" | \
-        sed "s/{{owner}}/${owner}/g" | \
-        sed "s/{{email_domain}}/${email_domain}/g" | \
-        sed "s/{{type_name}}/${repo_type}/g" | \
-        sed "s/{{type_description}}/${type_description}/g" | \
-        jq -c . 2>/dev/null)
+    # Tokens are filled by jq itself (values arrive as --arg data), in one pass
+    # over every string in the template. Interpolating the values into a sed
+    # expression instead breaks on exactly the characters a description is
+    # likely to hold: "&" expands to the match, "/" ends the expression, and a
+    # quote or backslash corrupts the JSON string. An unknown {{token}} is left
+    # as written, and a substituted value is never re-expanded.
+    local jq_err_file
+    jq_err_file=$(mktemp) || return 1
+    payload=$(jq -c \
+        --arg repo_name "$repo_name" \
+        --arg owner "$owner" \
+        --arg email_domain "$email_domain" \
+        --arg type_name "$repo_type" \
+        --arg type_description "$type_description" \
+        'walk(if type == "string"
+              then gsub("\\{\\{(?<k>[a-z_]+)\\}\\}"; ($ARGS.named[.k] // "{{\(.k)}}"))
+              else . end)
+        # An empty email_domain means "accept any valid email" (devenv.config).
+        # Dropping the email-pattern rules is the only faithful rendering: kept,
+        # they would read ends_with "@" and reject every commit author.
+        | if $email_domain == "" and (.rules | type) == "array"
+          then .rules |= map(select((.type | test("email_pattern")) | not))
+          else . end' "$ruleset_file" 2>"$jq_err_file") || true
     
     if [ -z "$payload" ] || [ "$payload" = "null" ]; then
+        log_warn "Ruleset template ${ruleset_file} did not produce valid JSON: $(head -c 300 "$jq_err_file")"
+        rm -f "$jq_err_file"
         echo "{}"
         return 1
     fi
+    rm -f "$jq_err_file"
     
     echo "$payload"
 }
@@ -587,7 +609,7 @@ configure_merge_types_for_type() {
         return 0
     else
         log_warn "Could not configure merge types (may require admin access or Pro account)"
-        return 0
+        return 1
     fi
 }
 # Configure repository template setting

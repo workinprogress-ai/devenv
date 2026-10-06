@@ -27,6 +27,68 @@ export NPM_VERSION="11.16.0"
 export PNPM_VERSION="11.9.0"
 
 # ============================================================================
+# Runtime-fetched tool versions
+# ============================================================================
+# Everything bootstrap downloads or installs by version is declared here, so a
+# version bump is one edit in one file (and reviewable as such), never a hunt
+# through install scripts.
+
+# yq (YAML processor), a GitHub release tag. Pinned instead of resolving the
+# latest release at install time, so every container gets the same binary.
+export YQ_VERSION="v4.54.1"
+
+# nvm installer tag (nvm-sh/nvm)
+export NVM_VERSION="v0.39.5"
+
+# turbo (npm package version)
+export TURBO_VERSION="2.0.6"
+
+# .NET SDK channels installed side by side (space-separated, passed to
+# dotnet-install.sh one at a time)
+export DOTNET_CHANNELS="8.0 9.0"
+
+# Kubernetes apt repository track (pkgs.k8s.io minor release line); this
+# decides which kubectl minor version apt offers
+export K8S_APT_TRACK="v1.31"
+
+# ============================================================================
+# Download verification pins (sha256)
+# ============================================================================
+# Downloads of deterministic artifacts (a versioned URL whose content does not
+# change) are verified against these digests before they are used; a mismatch
+# aborts the install (see download_verified in bootstrap.bash). Bumping a
+# version above means re-deriving its digest below in the same edit. Each pin
+# records where its digest came from.
+
+# yq ${YQ_VERSION} linux binaries. Source: the release's own `checksums` file
+# (https://github.com/mikefarah/yq/releases/download/v4.54.1/checksums, the
+# SHA-256 column per `checksums_hashes_order`); also equal to the hash of the
+# downloaded binaries.
+export YQ_SHA256_AMD64="8e34fc298390875de416e6a4afcb8cabeceb25d9aa8506c1a2f9353cf702ea5f"
+export YQ_SHA256_ARM64="189088da0c6429ec5178dfaab1a114805f6cab0b61b165ab236efedf1d57a71b"
+
+# nvm ${NVM_VERSION} install.sh. nvm publishes no checksum; this is the hash
+# of https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh, equal to
+# the hash from an independent mirror
+# (https://cdn.jsdelivr.net/gh/nvm-sh/nvm@v0.39.5/install.sh).
+export NVM_INSTALL_SHA256="69da4f89f430cd5d6e591c2ccfa2e9e3ad55564ba60f651f00da85e04010c640"
+
+# Accepted exceptions: downloads that are NOT hash-verified, because their
+# content changes at a stable URL, so a pinned digest would break the install
+# the next time the publisher updates the file (a pin would have to be bumped
+# by hand, with nothing to say what the new content is):
+#   - tailscale: https://tailscale.com/install.sh (extras/tailscale.sh), the
+#     vendor's install script, updated in place
+#   - get.docker.com: the convenience script run by setup, updated in place
+#   - dotnet-install: https://dot.net/v1/dotnet-install.sh, updated in place
+#   - getvsdbg: https://aka.ms/getvsdbgsh (download-csharp-debugger.sh), a
+#     redirect to the current debugger installer
+#   - minikube: the `releases/latest` .deb (extras/minikube.sh), a moving
+#     "latest" target; verifiable only once it is version-pinned
+# Revisit an exception when its publisher offers a versioned URL or a
+# published checksum.
+
+# ============================================================================
 # Tool Paths and Aliases
 # ============================================================================
 

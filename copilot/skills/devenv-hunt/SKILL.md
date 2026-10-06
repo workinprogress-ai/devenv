@@ -42,7 +42,7 @@ Classification rules:
 
 > **Scoped-TODO discovery (all modes, before investigation).** Run `devenv-marker-check --todo-report <target-scope>` before the hunt begins. Every reported TODO is a prior session's cross-plan message: surface it in chat and honor its condition — or explicitly resolve it with the user — before touching that file. A condition-satisfied TODO is removed in the same pass.
 
-> **Aggressive-measures gate, recovery-route rule, scope fence.** The hunter runs under the shared [Empowered-Investigation Gate](../common/references/empowered-investigation-gate.md): just-in-time consent outlining what/why, category announcement before destructive-class actions, disapproval rejects the measure not the hunt, and no self-run mutating git commands. Mode-scoped deltas: scratch harnesses go in the workspace `tmp/`; temporary in-repo code carries `FIXME:DEVENV[bug-hunt]:: ...` markers; exhausted alternates end the trail as **blocked**.
+> **Aggressive-measures gate, recovery-route rule, scope fence.** The hunter runs under the shared [Empowered-Investigation Gate](../common/references/empowered-investigation-gate.md): just-in-time consent outlining what/why, category announcement before destructive-class actions, disapproval rejects the measure not the hunt, and no self-run mutating git commands. Mode-scoped deltas: scratch harnesses go in the workspace `tmp/`; temporary in-repo code carries `FIXME:DEVENV[bug-hunt]: ...` markers; exhausted alternates end the trail as **blocked**.
 
 ## When to Use
 

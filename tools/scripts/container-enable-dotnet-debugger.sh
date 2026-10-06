@@ -19,7 +19,9 @@ source "$DEVENV_TOOLS/lib/error-handling.bash"
 #
 ################################################################################
 
-if [[ -z "$1" ]]; then
+# set -u is on: read $1 as ${1:-} so a bare invocation reaches this message
+# instead of dying on bash's raw unbound-variable error.
+if [[ -z "${1:-}" ]]; then
     echo "Provide the container name to enable debugging"
     exit 1
 fi;

@@ -143,7 +143,7 @@ Along the way, a defect review sends the web page back to Implementing — the F
 flowchart LR
     subgraph sources [who fires events]
         skills[Skills: grooming, planning,<br/>implementation, review]
-        prtools[PR tools: create-for-merge,<br/>merge wrappers]
+        prtools[PR tools: pr-create (--at),<br/>pr-create-for-review,<br/>merge wrappers]
         triage[issue-triage CLI/wizard]
         manual[workflow-signal<br/>manual + interactive]
         deployobs[deploy observers<br/>future]

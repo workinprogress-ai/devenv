@@ -34,17 +34,11 @@ source "$DEVENV_TOOLS/lib/versioning.bash"
 # Enable strict error handling (sets -euo pipefail and ERR trap)
 enable_strict_mode
     
-# Display version if requested
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Brief description"
-    
 # Check environment compatibility
 if ! check_environment_requirements; then
     log_fatal "Environment does not meet minimum requirements"
     exit "$EXIT_GENERAL_ERROR"
 fi
-
-# shellcheck source=../lib/retry.bash
-source "$DEVENV_TOOLS/lib/retry.bash"
 
 # Optional: source git-config.bash if working with git repos
 # shellcheck source=../lib/git-config.bash
@@ -227,7 +221,7 @@ validate_arguments() {
     
     # For pattern validation:
     # if [[ ! "$arg1" =~ ^[0-9]+$ ]]; then
-    #     die "Argument must be a number, got: $arg1" "$EXIT_INVALID_ARGUMENT"
+    #     die "Argument must be a number, got: $arg1" "$EXIT_MISUSE"
     # fi
     
     # Use require_file/require_directory for path validation:
@@ -330,11 +324,11 @@ main() {
                     option_value="$2"
                     shift 2
                 else
-                    die "--option requires a value" "$EXIT_INVALID_ARGUMENT"
+                    die "--option requires a value" "$EXIT_MISUSE"
                 fi
                 ;;
             -*-)
-                die "Unknown option: $1. Use --help for usage information" "$EXIT_INVALID_ARGUMENT"
+                die "Unknown option: $1. Use --help for usage information" "$EXIT_MISUSE"
                 ;;
             *)
                 # Positional arguments
@@ -343,7 +337,7 @@ main() {
                 elif [ -z "$arg2" ]; then
                     arg2="$1"
                 else
-                    die "Too many arguments" "$EXIT_INVALID_ARGUMENT"
+                    die "Too many arguments" "$EXIT_MISUSE"
                 fi
                 shift
                 ;;

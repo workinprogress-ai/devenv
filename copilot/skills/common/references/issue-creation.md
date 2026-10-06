@@ -23,8 +23,6 @@ If the user says no, skip to session wrap-up.
 
 5. On confirmation:
 
-    - If the issue may already host one or more artifacts of the same type, resolve the canonical artifact first with `issue-artifact-select` or `issue-artifact-list`, then load it with `issue-artifact-get` before regenerating or republishing.
-
    **If creating a new issue:**
    - Run `issue-create` per the [deterministic issue creation recipe](../../_shared/references/protocol-common.md#deterministic-issue-creation), resolving the target `<owner>/<repo>` per the [repository targeting rules](../../_shared/references/protocol-common.md#repository-targeting); ask the user if the type is not obvious.
    - Note the new issue number.

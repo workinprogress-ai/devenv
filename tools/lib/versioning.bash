@@ -24,7 +24,8 @@ parse_version() {
     echo "$version" | tr '.' ' '
 }
 
-# Compare two version strings
+# Compare two version strings (numeric MAJOR.MINOR.PATCH core; pre-release and
+# build suffixes such as -rc.1 or +build5 are ignored)
 # Returns: 0 if equal, 1 if v1 > v2, 2 if v1 < v2
 # Usage: compare_versions "1.2.3" "1.2.0"
 compare_versions() {
@@ -36,6 +37,17 @@ compare_versions() {
     # shellcheck disable=SC2046,SC2086  # Word splitting intentional for read
     read -r v2_major v2_minor v2_patch <<< $(parse_version "$v2")
     
+    # Keep only each part's leading digits: a pre-release or build suffix
+    # ("3-rc", "0+build5") is ignored, so versions compare by their numeric
+    # MAJOR.MINOR.PATCH core. (read leaves any remainder in the last variable,
+    # e.g. "1.2.3-rc.1" gives patch="3-rc 1".)
+    v1_major=${v1_major%%[!0-9]*}
+    v1_minor=${v1_minor%%[!0-9]*}
+    v1_patch=${v1_patch%%[!0-9]*}
+    v2_major=${v2_major%%[!0-9]*}
+    v2_minor=${v2_minor%%[!0-9]*}
+    v2_patch=${v2_patch%%[!0-9]*}
+
     # Default missing parts to 0
     v1_major=${v1_major:-0}
     v1_minor=${v1_minor:-0}
@@ -136,19 +148,6 @@ check_environment_requirements() {
     fi
     
     return "$failed"
-}
-
-# Display script version header
-# Usage: script_version "my-script.sh" "1.2.3" "Script description"
-script_version() {
-    local script_name="$1"
-    local version="$2"
-    local description="${3:-}"
-    
-    if [ "${SHOW_VERSION:-}" = "1" ] || [ "${SHOW_VERSION:-}" = "true" ]; then
-        echo "$script_name version $version"
-        [ -n "$description" ] && echo "$description"
-    fi
 }
 
 # Check if script version is compatible with minimum required version

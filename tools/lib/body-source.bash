@@ -12,6 +12,10 @@ if [ -n "${_BODY_SOURCE_LOADED:-}" ]; then
 fi
 readonly _BODY_SOURCE_LOADED=1
 
+# Seconds the stdin probe waits for a first byte before calling the pipe empty.
+# Override per call with BODY_SOURCE_PROBE_TIMEOUT.
+readonly _BODY_SOURCE_PROBE_TIMEOUT_DEFAULT=5
+
 # Body-source resolution outcomes (returned via BODY_SOURCE_RESULT):
 #   text          - plain text given via --body
 #   file          - file contents read from a named path
@@ -50,7 +54,8 @@ body_source_stdin_is_tty() {
 #   Empty stdin (0 bytes piped), whitespace-only stdin, and a closed stdin
 #   are all hard errors (exit 2, "Refusing empty stdin body"): an empty
 #   body is never valid, and silence is how caller bugs hide. The probe
-#   never blocks — the 1s read timeout only fires on a stalled pipe.
+#   never blocks — the first-byte timeout (BODY_SOURCE_PROBE_TIMEOUT, 5s by
+#   default) only fires on a stalled pipe.
 #
 #   Returns non-zero (2) for: empty/whitespace-only/closed stdin, both flags
 #   given, or a missing file. Returns 0 for all resolution outcomes.
@@ -109,16 +114,26 @@ body_source_resolve() {
 #   the temp file. rc=0 = content on stdout; capture it with $( ) freely —
 #   it is already validated. rc=2 with "Refusing empty stdin body" on
 #   stderr: empty, whitespace-only, or closed stdin are all hard errors,
-#   and the probe never blocks — the 1s read timeout only fires on a
-#   stalled (open but silent) pipe.
+#   and the probe never blocks — the first-byte read timeout
+#   (BODY_SOURCE_PROBE_TIMEOUT, 5s by default) only fires on a stalled (open
+#   but silent) pipe. A producer that is merely slow, such as a provider
+#   round-trip or a generator behind another tool, gets that long to write its
+#   first byte before the pipe is called empty.
 #
 #   Whitespace is judged on the WHOLE stream, not the first byte: a body may
 #   legitimately start with a blank line.
 body_source_capture_stdin() {
     BODY_SOURCE_CAPTURE_FILE=$(mktemp "${TMPDIR:-/tmp}/body-source.XXXXXX")
 
+    # How long to wait for the first byte. A positive number (fractions
+    # allowed); anything else — unset, garbage, zero — uses the default.
+    local probe_timeout="${BODY_SOURCE_PROBE_TIMEOUT:-$_BODY_SOURCE_PROBE_TIMEOUT_DEFAULT}"
+    if ! [[ "$probe_timeout" =~ ^[0-9]+([.][0-9]+)?$ ]] || [[ "$probe_timeout" =~ ^0+([.]0+)?$ ]]; then
+        probe_timeout="$_BODY_SOURCE_PROBE_TIMEOUT_DEFAULT"
+    fi
+
     local probe=""
-    if ! IFS= read -r -t 1 -n 1 probe 2>/dev/null; then
+    if ! IFS= read -r -t "$probe_timeout" -n 1 probe 2>/dev/null; then
         rm -f "$BODY_SOURCE_CAPTURE_FILE"
         echo "Refusing empty stdin body (pipe content or use --body/--body-file)" >&2
         return 2

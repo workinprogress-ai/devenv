@@ -4,7 +4,7 @@
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 # pr-comment.sh - Add a comment to a GitHub pull request
-# Version: 1.0.0
+# Version: 1.1.0
 # Description: Posts a top-level conversation comment to a PR from text, file, or interactive editor
 # Requirements: Bash 4.0+, gh CLI
 # Author: WorkInProgress.ai
@@ -22,7 +22,6 @@ source "$DEVENV_TOOLS/lib/body-source.bash"
 readonly SCRIPT_VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-script_version "$SCRIPT_NAME" "$SCRIPT_VERSION" "Add a comment to a GitHub pull request"
 
 # ============================================================================
 # Global Variables

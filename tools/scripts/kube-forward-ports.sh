@@ -82,7 +82,7 @@ for mapping in "${mappings[@]}"; do
     exit 1
   fi
 
-  pod_name=$(kube-pod-select.sh -n "$NS" "$pod_identifier" "Pick a pod for $mapping")
+  pod_name=$(kube-pod-select -n "$NS" "$pod_identifier" "Pick a pod for $mapping")
   echo "Mapping: local port $local_port to pod '$pod_name' on port $pod_port."
   mapping_details+=("$pod_name:$local_port:$pod_port")
 done

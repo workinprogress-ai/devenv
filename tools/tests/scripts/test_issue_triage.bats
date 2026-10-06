@@ -65,3 +65,27 @@ STUB
     [ "$status" -eq 0 ]
     [ "$(grep -c "add-label bug" "$STUB_DIR/calls.log")" -eq 2 ]
 }
+
+@test "wizard: refuses to start without an interactive terminal" {
+    # The wizard is a menu driven by read; with no TTY on stdin it would block
+    # or consume the wrong input. Scripted use goes through the bundle mode.
+    run bash "$SCRIPT"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"interactive terminal"* ]]
+    [[ "$output" == *"issue number"* ]]
+    [ "$(grep -c "issue list" "$STUB_DIR/calls.log" 2>/dev/null || true)" -eq 0 ]
+}
+
+@test "wizard: fetches open issues using the flag form of list_issues_formatted" {
+    # The call used to pass positional arguments, which the library skipped
+    # silently; run under a pty (so the TTY guard passes) against a gh stub
+    # that returns no issues, so the wizard ends without opening the menu.
+    run bash -c "script -qefc 'env TERM=xterm bash \"$SCRIPT\"' /dev/null < /dev/null"
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"Unknown option"* ]]
+    grep -q "issue list.*--state open" "$STUB_DIR/calls.log"
+}
+
+@test "grooming menu logs the description update once" {
+    [ "$(grep -c 'log_info "Updated description"' "$SCRIPT")" -eq 1 ]
+}

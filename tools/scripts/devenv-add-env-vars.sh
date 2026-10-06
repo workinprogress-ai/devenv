@@ -54,8 +54,11 @@ for env_var in "$@"; do
         added_count=$((added_count + 1))
     fi
     
-    # Add the new export line
-    echo "export ${var_name}=${var_value}" >> "$ENV_VARS_FILE"
+    # Add the new export line. The file is sourced by every shell, so the value
+    # is written with %q (bash quoting): spaces, quotes, $(...) and newlines
+    # come back exactly as given and nothing in it is ever executed. A plain
+    # token such as a key is still written unquoted.
+    printf 'export %s=%q\n' "$var_name" "$var_value" >> "$ENV_VARS_FILE"
 done
 
 if [ $updated_count -gt 0 ] && [ $added_count -gt 0 ]; then

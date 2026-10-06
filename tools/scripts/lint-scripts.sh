@@ -20,11 +20,13 @@ SHELLCHECK_SEVERITY="${SHELLCHECK_SEVERITY:-warning}"
 OUTPUT_FORMAT="${OUTPUT_FORMAT:-tty}"
 
 # Colors
-readonly RED='\033[0;31m'
-readonly GREEN='\033[0;32m'
-readonly YELLOW='\033[1;33m'
-readonly BLUE='\033[0;34m'
-readonly NC='\033[0m' # No Color
+# Not readonly: --no-color blanks them (assigning to a readonly variable aborts the
+# script mid-parse).
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
 # Statistics
 total_files=0
@@ -99,7 +101,9 @@ check_dependencies() {
 find_shell_scripts() {
     local search_dir="${1:-$project_root}"
     
-    # Find all .sh files, excluding certain directories
+    # Find all .sh files, excluding certain directories. repos/ holds clones of other
+    # repositories (not ours to lint), but the scripts directly in repos/ are this
+    # workspace's own top-level infra and are included.
     # Note: find may return non-zero on permission errors; use || true to prevent
     # set -e from aborting when pipefail is enabled
     find "$search_dir" -type f \( -name "*.sh" -o -name "*.bash" \) \
@@ -108,8 +112,8 @@ find_shell_scripts() {
         ! -path "*/tmp/*" \
         ! -path "*/.debug/*" \
         ! -path "*/playground/*" \
-        ! -path "*/repos/*" \
         ! -path "*/tools/cache/*" \
+        \( ! -path "$search_dir/repos/*" -o \( -path "$search_dir/repos/*.sh" ! -path "$search_dir/repos/*/*" \) \) \
         2>/dev/null | sort || true
 }
 
@@ -191,6 +195,9 @@ print_summary() {
 }
 
 main() {
+    # --help / --version are answered before any validation or authentication.
+    if handle_global_flag "${1:-}"; then exit 0; fi
+
     local search_dir="$project_root"
     
     # Parse arguments
@@ -200,7 +207,7 @@ main() {
                 show_usage
                 ;;
             -v|--version)
-                echo "lint-scripts.sh version $SCRIPT_VERSION"
+                echo "$SCRIPT_VERSION"
                 exit 0
                 ;;
             -f|--format)

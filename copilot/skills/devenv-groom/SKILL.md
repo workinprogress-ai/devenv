@@ -128,7 +128,7 @@ Ask only what is missing (the grooming document may already answer some of these
 
 ### Event signal
 
-When grooming completes for an issue (routing confirmed / decisions closed), signal `_on_end_grooming <issue-number>`. Fire-and-forget per the [event-signal convention](../_conventions.md#skill-event-signals-on) — never block on its result.
+When grooming completes for an issue (routing confirmed / decisions closed), signal `_on_end_grooming <issue-number>`. Fire-and-forget per the [event-signal convention](../_conventions.md#skill-event-signals) — never block on its result.
 
 ### Phase 2: Route with rationale
 
@@ -212,10 +212,10 @@ When creating child issues from grooming (user-gated):
 
 **External knowledge lookup (apply the [Knowledge & Engineering-Pattern Lookup Protocol](../common/references/knowledge-lookup-protocol.md) — consult intensity):** when constructing the grooming document and issue attack plan, consult copilot knowledge (org implementation specifics) and the engineering standards (canonical import at `~/.copilot/engineering`) so the plan names the patterns to use and practices to apply, citing their sources.
 
-/devenv-design and spike artifacts should normally flow through grooming before planning.
+/devenv-design and research artifacts should normally flow through grooming before planning.
 
 - For straightforward cases, grooming may be brief: capture key decisions/constraints from the upstream artifact, generate the issue attack plan, and then hand off to plan generation.
-- Do not route /devenv-design/spike output directly to planning unless the user explicitly asks to bypass grooming.
+- Do not route /devenv-design/research output directly to planning unless the user explicitly asks to bypass grooming.
 
 ### As-built reconciliation from a completed plan
 

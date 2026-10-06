@@ -17,11 +17,8 @@
 #   - get_public_ip()
 #   - check_host_connectivity()
 #   - is_port_open()
-#   - forward_local_port()
 #   - check_service_health()
 #   - wait_for_service()
-#   - setup_tunnel()
-#   - teardown_tunnel()
 #
 ################################################################################
 
@@ -30,6 +27,12 @@ if [[ "${_INFRASTRUCTURE_UTILITIES_LOADED:-}" == "true" ]]; then
   return
 fi
 _INFRASTRUCTURE_UTILITIES_LOADED="true"
+
+# Network probes (get_public_ip, check_service_health) are bounded so they can
+# sit inside retry loops. Seconds; override per call with
+# INFRA_CURL_CONNECT_TIMEOUT / INFRA_CURL_MAX_TIME.
+readonly INFRA_CURL_CONNECT_TIMEOUT_DEFAULT=5
+readonly INFRA_CURL_MAX_TIME_DEFAULT=10
 
 # Source dependencies
 # Self-locate this checkout (self-root contract: self-location wins;
@@ -101,16 +104,20 @@ get_local_ip() {
 }
 
 get_public_ip() {
-  # Try multiple public IP services with fallback
+  # Try multiple public IP services with fallback. Every probe is bounded: a
+  # blackholed route would otherwise hang the first one and the fallbacks
+  # behind it would never run.
+  local -a curl_limits=(--connect-timeout "${INFRA_CURL_CONNECT_TIMEOUT:-$INFRA_CURL_CONNECT_TIMEOUT_DEFAULT}" --max-time "${INFRA_CURL_MAX_TIME:-$INFRA_CURL_MAX_TIME_DEFAULT}")
   if command -v curl &>/dev/null; then
-    curl -s https://api.ipify.org 2>/dev/null && return 0
-    curl -s https://checkip.amazonaws.com 2>/dev/null && return 0
-    curl -s http://icanhazip.com 2>/dev/null && return 0
+    curl -s "${curl_limits[@]}" https://api.ipify.org 2>/dev/null && return 0
+    curl -s "${curl_limits[@]}" https://checkip.amazonaws.com 2>/dev/null && return 0
+    curl -s "${curl_limits[@]}" http://icanhazip.com 2>/dev/null && return 0
   fi
   
   if command -v wget &>/dev/null; then
-    wget -qO- https://api.ipify.org 2>/dev/null && return 0
-    wget -qO- https://checkip.amazonaws.com 2>/dev/null && return 0
+    local wget_limit="${INFRA_CURL_MAX_TIME:-$INFRA_CURL_MAX_TIME_DEFAULT}"
+    wget -qO- --timeout="$wget_limit" --tries=1 https://api.ipify.org 2>/dev/null && return 0
+    wget -qO- --timeout="$wget_limit" --tries=1 https://checkip.amazonaws.com 2>/dev/null && return 0
   fi
   
   error_msg "Could not determine public IP"
@@ -169,8 +176,10 @@ check_service_health() {
   fi
   
   if command -v curl &>/dev/null; then
+    # Bounded, so a blackholed route cannot hang wait_for_service's retry loop:
+    # each attempt costs at most INFRA_CURL_MAX_TIME seconds.
     local status
-    status=$(curl -s -o /dev/null -w "%{http_code}" "$service_url" 2>/dev/null)
+    status=$(curl -s --connect-timeout "${INFRA_CURL_CONNECT_TIMEOUT:-$INFRA_CURL_CONNECT_TIMEOUT_DEFAULT}" --max-time "${INFRA_CURL_MAX_TIME:-$INFRA_CURL_MAX_TIME_DEFAULT}" -o /dev/null -w "%{http_code}" "$service_url" 2>/dev/null)
     [[ "$status" == "$expected_status" ]]
   else
     return 1
@@ -206,88 +215,6 @@ wait_for_service() {
   return 1
 }
 
-################################################################################
-# Port Forwarding & Tunneling
-################################################################################
-
-forward_local_port() {
-  local local_port="$1"
-  local remote_host="$2"
-  local remote_port="$3"
-  local bind_address="${4:-127.0.0.1}"
-  
-  if [[ -z "$local_port" ]] || [[ -z "$remote_host" ]] || [[ -z "$remote_port" ]]; then
-    error_msg "Local port, remote host, and remote port are required"
-    return 1
-  fi
-  
-  if is_port_in_use "$local_port"; then
-    error_msg "Local port is already in use: $local_port"
-    return 1
-  fi
-  
-  if ! command -v socat &>/dev/null && ! command -v nc &>/dev/null; then
-    error_msg "Port forwarding requires socat or nc"
-    return 1
-  fi
-  
-  log_info "Forwarding local port $local_port -> $remote_host:$remote_port"
-  
-  if command -v socat &>/dev/null; then
-    socat "TCP-LISTEN:${local_port},bind=${bind_address},reuseaddr,fork" \
-      "TCP:${remote_host}:${remote_port}" &
-    echo $!
-    return 0
-  fi
-  
-  error_msg "No suitable port forwarding tool found"
-  return 1
-}
-
-setup_tunnel() {
-  local tunnel_type="$1"
-  local local_port="$2"
-  local remote_host="$3"
-  local remote_port="$4"
-  
-  if [[ -z "$tunnel_type" ]] || [[ -z "$local_port" ]] || [[ -z "$remote_host" ]] || [[ -z "$remote_port" ]]; then
-    error_msg "Tunnel type, local port, remote host, and remote port are required"
-    return 1
-  fi
-  
-  case "$tunnel_type" in
-    ssh)
-      log_info "Setting up SSH tunnel: localhost:$local_port -> $remote_host:$remote_port"
-      ssh -N -L "${local_port}:${remote_host}:${remote_port}" &
-      echo $!
-      ;;
-    http)
-      forward_local_port "$local_port" "$remote_host" "$remote_port"
-      ;;
-    *)
-      error_msg "Unknown tunnel type: $tunnel_type"
-      return 1
-      ;;
-  esac
-}
-
-teardown_tunnel() {
-  local pid="$1"
-  
-  if [[ -z "$pid" ]]; then
-    error_msg "Process ID is required"
-    return 1
-  fi
-  
-  if kill "$pid" 2>/dev/null; then
-    log_info "Tunnel process terminated: $pid"
-    return 0
-  else
-    error_msg "Failed to terminate tunnel process: $pid"
-    return 1
-  fi
-}
-
 # Export all functions
 export -f is_port_in_use
 export -f find_free_port
@@ -297,6 +224,3 @@ export -f check_host_connectivity
 export -f is_port_open
 export -f check_service_health
 export -f wait_for_service
-export -f forward_local_port
-export -f setup_tunnel
-export -f teardown_tunnel

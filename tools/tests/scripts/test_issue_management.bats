@@ -336,6 +336,38 @@ EOF
   [ "$(grep -cx -- "test-org/test-repo" "$GH_CALL_LOG")" -ge 2 ]
 }
 
+# Regression (T004): issue-close.sh/issue-update.sh --select used to resolve
+# the selector via an unbound $PROJECT_TOOLS, crashing under set -u before
+# gh was ever invoked. Both scripts now resolve the shared entry point via
+# $DEVENV_TOOLS/scripts/issue-select.sh; an empty gh issue list makes
+# issue-select.sh fail cleanly ("no issues found") instead of crashing, so
+# the smoke test exercises --select non-interactively without needing fzf.
+@test "issue-close.sh --select resolves the selector without an unbound-variable crash" {
+  create_gh_mock_for_issue_close
+  create_mock_git_repo "$TEST_TEMP_DIR/test-repo"
+  cd "$TEST_TEMP_DIR/test-repo"
+  DEVENV_REPO="test-org/test-repo" run bash "$PROJECT_ROOT/tools/scripts/issue-close.sh" --select
+  cd "$ORIGINAL_PWD"
+  [[ "$output" != *"PROJECT_TOOLS"* ]]
+  [[ "$output" != *"unbound variable"* ]]
+}
+
+@test "issue-update.sh --select resolves the selector without an unbound-variable crash" {
+  create_gh_mock_for_issue_close
+  create_mock_git_repo "$TEST_TEMP_DIR/test-repo"
+  cd "$TEST_TEMP_DIR/test-repo"
+  DEVENV_REPO="test-org/test-repo" run bash "$PROJECT_ROOT/tools/scripts/issue-update.sh" --select
+  cd "$ORIGINAL_PWD"
+  [[ "$output" != *"PROJECT_TOOLS"* ]]
+  [[ "$output" != *"unbound variable"* ]]
+}
+
+@test "issue-close.sh and issue-update.sh invoke issue-select.sh via DEVENV_TOOLS (no .sh drift)" {
+  run grep -E '\$DEVENV_TOOLS/scripts/issue-select\.sh' "$PROJECT_ROOT/tools/scripts/issue-close.sh" "$PROJECT_ROOT/tools/scripts/issue-update.sh"
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s\n' "$output" | wc -l)" -eq 2 ]
+}
+
 
 # Birth-rule orchestration: issue-create's post-create block must link the
 # sub-issue, then write the birth status via the workflow library's choke

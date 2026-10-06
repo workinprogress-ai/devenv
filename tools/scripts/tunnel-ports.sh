@@ -7,6 +7,10 @@ DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/infrastructure-utilities.bash"
 
+# Declared before the SIGINT trap is installed: the trap's cleanup reads it, and
+# a Ctrl-C arriving earlier would otherwise hit an unbound variable.
+declare -a SSH_PIDS=()
+
 cleanup() {
     # Kill all SSH processes to close the tunnels
     for PID in "${SSH_PIDS[@]}"; do
@@ -26,30 +30,36 @@ handle_control_c() {
 
 trap handle_control_c SIGINT
 
-if [ -z "$1" ]; then
+usage() {
     echo "Usage: $0 [-p <ssh port>] [-i <path to ssh key>] <user@target> <port1:destination1> [<port2:destination2> ...]"
     exit 1
+}
+
+# set -u is on: every positional is read as ${N:-} so a missing argument
+# reaches usage instead of dying on bash's raw unbound-variable error.
+[ -n "${1:-}" ] || usage
+
+# Defaults before parsing, so a run without -p / -i never reads an unset name.
+SSH_PORT=22
+SSH_CERT=""
+
+if [ "${1:-}" == "-p" ]; then
+    shift
+    SSH_PORT="${1:-}"
+    [ -n "$SSH_PORT" ] || usage
+    shift
 fi
 
-if [ "$1" == "-p" ]; then
+if [ "${1:-}" == "-i" ]; then
     shift
-    SSH_PORT=$1
-    shift
-else
-    SSH_PORT=22
-fi
-
-if [ "$1" == "-i" ]; then
-    shift
-    SSH_CERT="$1"
+    SSH_CERT="${1:-}"
+    [ -n "$SSH_CERT" ] || usage
     shift
 fi
 
-SSH_TARGET=$1
+SSH_TARGET="${1:-}"
+[ -n "$SSH_TARGET" ] || usage
 shift  # Shift the arguments so we can loop through the port:destination pairs
-
-# Array to keep track of SSH PIDs
-declare -a SSH_PIDS=()
 
 # Loop through the remaining arguments assuming they are in the form port:destination
 for TUNNEL in "$@"
@@ -60,7 +70,7 @@ do
     # Construct and run the SSH command in the background
     echo "Opening tunnel: Local port $PORT to $DESTINATION through $SSH_TARGET"
     if [ -n "$SSH_CERT" ]; then
-        ssh -i $SSH_CERT -NTC -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -L "${PORT}:${DESTINATION}:${PORT}" -p "$SSH_PORT" "$SSH_TARGET" &
+        ssh -i "$SSH_CERT" -NTC -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -L "${PORT}:${DESTINATION}:${PORT}" -p "$SSH_PORT" "$SSH_TARGET" &
     else 
         ssh -NTC -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -L "${PORT}:${DESTINATION}:${PORT}" -p "$SSH_PORT" "$SSH_TARGET" &
     fi
