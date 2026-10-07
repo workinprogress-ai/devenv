@@ -385,7 +385,7 @@ See [phase-rules.md](./references/phase-rules.md) for the full checklist.
 - Each phase must be **atomic and committable**: the plan's declared verification gates pass, deliverable stands alone (code default: tests pass, coverage does not regress)
 - Include verification tasks alongside work tasks in every phase (code default: test tasks with code tasks) — never defer all verification to a final phase
 - TDD red-green cycles must close within the same phase (code declaration)
-- When legacy and new code mix across phases, prefer a dedicated early legacy cleanup phase — see [phase-rules.md](./references/phase-rules.md) for patterns
+- When old and new code mix across phases, prefer a dedicated early old-code cleanup phase — see [phase-rules.md](./references/phase-rules.md) for patterns
 - **Coverage escape hatch** (Form A/B): see [phase-rules.md](./references/phase-rules.md); flag candidates at plan creation
 - Tasks with no `depends on` between them may be done in parallel
 

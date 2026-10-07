@@ -4,8 +4,7 @@
         "distro",
         "frontmatter",
         "tock",
-        "unstaging",
-        "workinprogress"
+        "unstaging"
     ],
     "workbench.colorCustomizations": {
         "activityBar.background": "#0F2A38",

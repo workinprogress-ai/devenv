@@ -159,6 +159,7 @@ teardown() {
     mkdir -p "$REPO_CACHE_DIR" "$CS_DEP_INDEX_DIR"
     printf '2026-03-29T00:00:00Z\nabc123\n' > "$REPO_CACHE_DIR/.cache_timestamp"
     printf '2026-03-29T00:00:00Z\nabc123\n' > "$CS_DEP_INDEX_DIR/.index_timestamp"
+    printf 'Org.' > "$CS_DEP_INDEX_DIR/.index_prefix"
 
     run bash -c "
         export DEVENV_TOOLS='$DEVENV_TOOLS'
@@ -169,6 +170,38 @@ teardown() {
         is_index_stale
     "
     [ "$status" -eq 1 ]
+}
+
+@test "cs-dep-graph: is_index_stale returns 0 when the index was built with a different prefix" {
+    mkdir -p "$REPO_CACHE_DIR" "$CS_DEP_INDEX_DIR"
+    printf '2026-03-29T00:00:00Z\nabc123\n' > "$REPO_CACHE_DIR/.cache_timestamp"
+    printf '2026-03-29T00:00:00Z\nabc123\n' > "$CS_DEP_INDEX_DIR/.index_timestamp"
+    printf 'Old.' > "$CS_DEP_INDEX_DIR/.index_prefix"
+    run bash -c "
+        export DEVENV_TOOLS='$DEVENV_TOOLS' REPO_CACHE_DIR='$REPO_CACHE_DIR' CS_DEP_ORG_PREFIX='Org.' CS_DEP_INDEX_DIR='$CS_DEP_INDEX_DIR'
+        source '$DEVENV_TOOLS/lib/cs-dependency-graph.bash'
+        is_index_stale
+    "
+    [ "$status" -eq 0 ]
+}
+
+@test "cs-dep-graph: building the index records its prefix, and a later prefix change makes it stale" {
+    mkdir -p "$REPO_CACHE_DIR"
+    printf '2026-03-29T00:00:00Z\nabc123\n' > "$REPO_CACHE_DIR/.cache_timestamp"
+    run bash -c "
+        export DEVENV_TOOLS='$DEVENV_TOOLS' REPO_CACHE_DIR='$REPO_CACHE_DIR' CS_DEP_ORG_PREFIX='Org.' CS_DEP_INDEX_DIR='$CS_DEP_INDEX_DIR'
+        source '$DEVENV_TOOLS/lib/cs-dependency-graph.bash'
+        build_dependency_index >/dev/null 2>&1
+        is_index_stale && echo STALE || echo FRESH
+    "
+    [ "$(tail -n1 <<< "$output")" = "FRESH" ]
+    [ "$(cat "$CS_DEP_INDEX_DIR/.index_prefix")" = "Org." ]
+    run bash -c "
+        export DEVENV_TOOLS='$DEVENV_TOOLS' REPO_CACHE_DIR='$REPO_CACHE_DIR' CS_DEP_ORG_PREFIX='Other.' CS_DEP_INDEX_DIR='$CS_DEP_INDEX_DIR'
+        source '$DEVENV_TOOLS/lib/cs-dependency-graph.bash'
+        is_index_stale && echo STALE || echo FRESH
+    "
+    [ "$(tail -n1 <<< "$output")" = "STALE" ]
 }
 
 @test "cs-dep-graph: is_index_stale returns 0 when timestamps differ" {
@@ -1041,4 +1074,44 @@ topo_init() {
         get_topological_generations
     "
     [ "$status" -ne 124 ]  # 124 = timeout
+}
+
+# ============================================================================
+# Organization package prefix: configured, never built in
+# ============================================================================
+
+_prefix_probe() {   # <config body or ""> -> prints CS_DEP_ORG_PREFIX after loading the lib
+    local root="$TEST_TEMP_DIR/prefix-root"
+    rm -rf "$root"; mkdir -p "$root/tools"
+    cp -r "$PROJECT_ROOT/tools/lib" "$root/tools/lib"
+    [ -z "$1" ] || printf '%s\n' "$1" > "$root/devenv.config"
+    env -u CS_DEP_ORG_PREFIX DEVENV_ROOT="$root" DEVENV_TOOLS="$root/tools" REPO_CACHE_DIR="$TEST_TEMP_DIR/pc" \
+        bash -c "source '$root/tools/lib/cs-dependency-graph.bash'; printf '%s' \"\$CS_DEP_ORG_PREFIX\""
+}
+
+@test "cs-dep-graph: the org package prefix comes from [nuget] package_prefix" {
+    run _prefix_probe $'[nuget]\npackage_prefix=Acme.'
+    [ "$output" = "Acme." ]
+}
+
+@test "cs-dep-graph: the CS_DEP_ORG_PREFIX override wins over config" {
+    local root="$TEST_TEMP_DIR/prefix-root2"; mkdir -p "$root/tools"; cp -r "$PROJECT_ROOT/tools/lib" "$root/tools/lib"
+    printf '[nuget]\npackage_prefix=Acme.\n' > "$root/devenv.config"
+    run env CS_DEP_ORG_PREFIX="Other." DEVENV_ROOT="$root" DEVENV_TOOLS="$root/tools" REPO_CACHE_DIR="$TEST_TEMP_DIR/pc" \
+        bash -c "source '$root/tools/lib/cs-dependency-graph.bash'; printf '%s' \"\$CS_DEP_ORG_PREFIX\""
+    [ "$output" = "Other." ]
+}
+
+@test "cs-dep-graph: with no prefix configured there is no built-in default, and the index build refuses" {
+    run _prefix_probe $'[organization]\nname=x'
+    [ -z "$output" ]
+    local root="$TEST_TEMP_DIR/prefix-root"
+    run env -u CS_DEP_ORG_PREFIX DEVENV_ROOT="$root" DEVENV_TOOLS="$root/tools" REPO_CACHE_DIR="$TEST_TEMP_DIR/pc" \
+        bash -c "mkdir -p \$REPO_CACHE_DIR; source '$root/tools/lib/cs-dependency-graph.bash'; build_dependency_index"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"package_prefix"* ]]
+}
+
+@test "cs-dep-graph: no organization name is built into the library" {
+    run ! grep -n '^[^#]*WorkInProgress' "$PROJECT_ROOT/tools/lib/cs-dependency-graph.bash"
 }

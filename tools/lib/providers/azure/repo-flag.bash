@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# azure/repo-flag.bash — defensive gh-dialect repo-flag translation.
+# azure/repo-flag.bash — defensive seam-dialect repo-flag translation.
 #
 # Canonical repo targeting is positional (provider_repo_target / get_repo_spec
-# emit a bare `org/repo` or `org/project/repo` spec). Legacy neutral callers
-# may still hand a verb a `-R <spec>` pair; azure's parsers normalize it
+# emit a bare `org/repo` or `org/project/repo` spec). Neutral callers
+# may hand a verb a `-R <spec>` pair; azure's parsers normalize it
 # here instead of dropping or mis-parsing it.
 #
 # azure_repo_flag_spec: scan the arg array for a leading `-R <spec>` /

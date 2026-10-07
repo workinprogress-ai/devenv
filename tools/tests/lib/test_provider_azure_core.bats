@@ -153,16 +153,23 @@ teardown() {
     [[ "$output" =~ "Azure DevOps personal access token" ]]
 }
 
-@test "key-update-azure stores a token passed as argument" {
-    run bash "$DEVENV_TOOLS/lib/providers/azure/key-update.sh" "arg-pat-xyz" < /dev/null
+@test "key-update-azure stores a token piped on stdin" {
+    run bash -c "printf 'stdin-pat-xyz\n' | bash '$DEVENV_TOOLS/lib/providers/azure/key-update.sh'"
     [ "$status" -eq 0 ]
     [ -f "$AZURE_PAT_FILE" ]
     [ "$(stat -c '%a' "$AZURE_PAT_FILE")" = "600" ]
-    grep -q "arg-pat-xyz" "$AZURE_PAT_FILE"
+    grep -q "stdin-pat-xyz" "$AZURE_PAT_FILE"
+}
+
+@test "key-update-azure refuses a token passed as an argument and stores nothing" {
+    run bash "$DEVENV_TOOLS/lib/providers/azure/key-update.sh" "arg-pat-xyz" < /dev/null
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"stdin"* ]]
+    [ ! -f "$AZURE_PAT_FILE" ]
 }
 
 @test "key-update-azure rejects an empty token" {
-    run bash "$DEVENV_TOOLS/lib/providers/azure/key-update.sh" "" < /dev/null
+    run bash "$DEVENV_TOOLS/lib/providers/azure/key-update.sh" < /dev/null
     [ "$status" -ne 0 ]
 }
 
@@ -177,5 +184,6 @@ teardown() {
     [ "$status" -eq 0 ]
     # One JSON array; table mode's .[] select works over it; the projection
     # keeps exactly the requested fields.
-    jq -e 'length == 2 and .[0].tagName == "v1.0.0" and .[0].isPrerelease == false and .[1].isPrerelease == true and (.[0] | keys | sort) == ["isPrerelease","tagName"]' <<< "$output" >/dev/null
+    # newest first: the 2.0.0 prerelease comes before 1.0.0
+    jq -e 'length == 2 and .[1].tagName == "v1.0.0" and .[1].isPrerelease == false and .[0].isPrerelease == true and (.[0] | keys | sort) == ["isPrerelease","tagName"]' <<< "$output" >/dev/null
 }

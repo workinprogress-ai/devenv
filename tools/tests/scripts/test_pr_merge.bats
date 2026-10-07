@@ -272,3 +272,35 @@ EOF
   # single source: the option list lives in usage(), not duplicated in the header
   [[ "$header" != *"--keep-branch"* ]]
 }
+
+# ---------------------------------------------------------------------------
+# Argument discipline: a merge is destructive, so a token that is not a known option
+# is never taken as the commit message.
+# ---------------------------------------------------------------------------
+
+@test "an unknown option is refused before anything runs" {
+  run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" --dry-run --repo-dir "$REPO_DIR"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Unknown option"* ]]
+  [ ! -s "$MERGE_CALLS" ]
+}
+
+@test "a mistyped option is not merged with the typo as the commit message" {
+  run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" --keep-branches --repo-dir "$REPO_DIR"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Unknown option"* ]]
+  [ ! -s "$MERGE_CALLS" ]
+}
+
+@test "more than one positional argument is refused" {
+  run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" "feat: one" "feat: two" --repo-dir "$REPO_DIR"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"one commit message"* ]]
+  [ ! -s "$MERGE_CALLS" ]
+}
+
+@test "a missing origin/HEAD does not stop the merge before it looks for the PR" {
+  git symbolic-ref --delete refs/remotes/origin/HEAD
+  run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" --repo-dir "$REPO_DIR"
+  [[ "$output" == *"-> 'main'"* ]]
+}

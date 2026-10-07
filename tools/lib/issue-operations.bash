@@ -87,7 +87,7 @@ _ensure_issue_policy_loaded() {
 #   OUT_ARRAY             Name of the caller's array to fill, one element per
 #                         argument (a value with spaces stays one element)
 #   --state STATE         Filter by state (open, closed, all) - default: open
-#   --type TYPE           Filter by native issue type (Bug, Feature, Task, Epic; legacy aliases accepted)
+#   --type TYPE           Filter by native issue type (Bug, Feature, Task, Epic; aliases accepted)
 #   --labels LABEL        Add label filter (can be multiple)
 #   --assignee USER       Filter by assignee
 #   --milestone NAME      Filter by milestone
@@ -125,7 +125,7 @@ build_issue_filters() {
                 shift 2
                 ;;
             -R)
-                # Legacy gh-dialect repo flag: accepted and ignored — repo
+                # gh-dialect repo flag: accepted and ignored — repo
                 # targeting rides the provider verb's positional slot and
                 # never enters the filter arguments.
                 shift 2
@@ -156,7 +156,7 @@ build_issue_filters() {
     # State filter
     _bif_filters+=(--state "$_bif_state")
 
-    # Type filter (native GitHub issue type; legacy lowercase aliases accepted)
+    # Type filter (native GitHub issue type; lowercase aliases accepted)
     if [ -n "$_bif_type" ]; then
         local _bif_normalized
         _bif_normalized=$(normalize_issue_type "$_bif_type") || return 1
@@ -189,7 +189,7 @@ build_issue_filters() {
 # Usage: list_issues_formatted [--state STATE] [--type TYPE] [--format FORMAT] [--repo REPO]
 # Arguments:
 #   --state STATE         Filter by state (open, closed, all)
-#   --type TYPE           Filter by native issue type (Bug, Feature, Task, Epic; legacy aliases accepted)
+#   --type TYPE           Filter by native issue type (Bug, Feature, Task, Epic; aliases accepted)
 #   --format FORMAT       Output format (table, json, simple) - default: table
 #   --repo REPO           Repository (owner/repo)
 # Returns: Formatted list of issues
@@ -263,7 +263,7 @@ list_issues_formatted() {
 # Usage: get_issues_for_selection [--state STATE] [--type TYPE] [--labels LABEL...] [--milestone NAME] [--repo REPO]
 # Arguments:
 #   --state STATE         Filter by state
-#   --type TYPE           Filter by native issue type (Bug, Feature, Task, Epic; legacy aliases accepted)
+#   --type TYPE           Filter by native issue type (Bug, Feature, Task, Epic; aliases accepted)
 #   --labels LABEL        Add label filter (can be multiple)
 #   --milestone NAME      Filter by milestone
 #   --repo REPO           Repository (owner/repo)
@@ -336,161 +336,6 @@ get_issues_for_selection() {
     [ -n "$repo" ] && repo_arg="$repo"
     provider_issues_list "$repo_arg" "${gh_args[@]}" | jq -r '.[] | 
         "#\(.number)\t\(.title)\t[\(.labels | map(.name) | join(", "))]"'
-}
-
-# ============================================================================
-# Pull Request Operations
-# ============================================================================
-
-# Find PR by branch
-# Usage: find_pr_by_branch [--repo REPO] [--state STATE] BRANCH_NAME
-# Arguments:
-#   --repo REPO           Repository (owner/repo)
-#   --state STATE         PR state (open, closed, merged, all) - default: open
-#   BRANCH_NAME           Git branch name
-# Returns: PR URL if found, empty string if not found
-# Example:
-#   pr_url=$(find_pr_by_branch --repo myorg/myrepo feature/new-feature)
-find_pr_by_branch() {
-    local repo=""
-    local state="open"
-    local branch=""
-
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --repo)
-                repo="$2"
-                shift 2
-                ;;
-            --state)
-                state="$2"
-                shift 2
-                ;;
-            *)
-                branch="$1"
-                shift
-                ;;
-        esac
-    done
-
-    if [ -z "$branch" ]; then
-        log_error "Branch name is required"
-        return 1
-    fi
-
-    # The repo rides the positional slot (the provider seam contract);
-    # gh-dialect -R inside the flag array is silently dropped by azure's
-    # parsers and doubled by github's CLI.
-    local gh_args=(--state "$state" --head "$branch" --json url --jq '.[0].url')
-    
-    provider_prs_list "${repo:-}" "${gh_args[@]}" 2>/dev/null || echo ""
-}
-
-# Find PR by search criteria
-# Usage: find_pr_by_search [--repo REPO] [--state STATE] SEARCH_QUERY
-# Arguments:
-#   --repo REPO           Repository (owner/repo)
-#   --state STATE         PR state (open, closed, merged, all) - default: open
-#   SEARCH_QUERY          Search string (e.g., "REVIEW:", "head:feature/")
-# Returns: PR data as JSON
-# Example:
-#   pr=$(find_pr_by_search --repo myorg/myrepo "REVIEW:")
-find_pr_by_search() {
-    local repo=""
-    local state="open"
-    local search=""
-
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --repo)
-                repo="$2"
-                shift 2
-                ;;
-            --state)
-                state="$2"
-                shift 2
-                ;;
-            *)
-                search="$1"
-                shift
-                ;;
-        esac
-    done
-
-    if [ -z "$search" ]; then
-        log_error "Search query is required"
-        return 1
-    fi
-
-    local gh_args=(--state "$state" --search "$search")
-    # shellcheck disable=SC2054  # gh CLI uses comma-separated fields
-    gh_args+=(--json title,url,number)
-    
-    # Positional repo (seam contract) — see find_pr_by_branch.
-    provider_prs_list "${repo:-}" "${gh_args[@]}" 2>/dev/null || echo "[]"
-}
-
-# Create PR with options
-# Usage: create_pr [--repo REPO] [--title TITLE] [--body BODY] [--draft] [--head BRANCH] [--base BRANCH]
-# Arguments:
-#   --repo REPO           Repository (owner/repo)
-#   --title TITLE         PR title
-#   --body BODY           PR description
-#   --draft               Create as draft PR
-#   --head BRANCH         Source branch
-#   --base BRANCH         Target branch
-# Returns: PR URL
-# Example:
-#   pr_url=$(create_pr --repo myorg/myrepo --title "New Feature" --head feature/new-feature)
-create_pr() {
-    local repo=""
-    local title=""
-    local body=""
-    local draft=0
-    local head=""
-    local base=""
-    local gh_args=()
-
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --repo)
-                repo="$2"
-                shift 2
-                ;;
-            --title)
-                title="$2"
-                shift 2
-                ;;
-            --body)
-                body="$2"
-                shift 2
-                ;;
-            --draft)
-                draft=1
-                shift
-                ;;
-            --head)
-                head="$2"
-                shift 2
-                ;;
-            --base)
-                base="$2"
-                shift 2
-                ;;
-            *)
-                shift
-                ;;
-        esac
-    done
-
-    # Positional repo (seam contract) — see find_pr_by_branch.
-    [ -n "$title" ] && gh_args+=(--title "$title")
-    [ -n "$body" ] && gh_args+=(--body "$body")
-    [ "$draft" -eq 1 ] && gh_args+=(--draft)
-    [ -n "$head" ] && gh_args+=(--head "$head")
-    [ -n "$base" ] && gh_args+=(--base "$base")
-
-    provider_prs_create "${repo:-}" "${gh_args[@]}" 2>/dev/null || return 1
 }
 
 # ============================================================================
@@ -754,7 +599,7 @@ fetch_issue_comments() {
     local raw
     local repo
     repo=$(provider_repo_target)
-    if ! raw=$(provider_issues_comments "$issue_number" "$repo"); then
+    if ! raw=$(provider_issues_comments "$repo" "$issue_number"); then
         log_error "Failed to fetch comments for issue #$issue_number — does the issue exist?"
         return 1
     fi
@@ -796,7 +641,7 @@ format_issue_comments() {
         createdAt: .created_at,
         updatedAt: .updated_at,
         '"$body_field"',
-        url: .html_url
+        url: .url
     }]')
 
     if [ -n "$pretty" ]; then
@@ -864,11 +709,29 @@ normalize_doc_id_slug() {
 # Validate owner/repo shape for doc_id format, preserving the slash.
 # Usage: normalize_doc_id_repo "owner/repo"
 # Returns: owner/repo (unchanged; slash is part of the enforced doc_id format)
+# Print the issue number from a provider's creation result: either a bare id, or the
+# trailing digit run of an issue URL path (GitHub .../issues/17, Azure
+# .../_workitems/edit/17). Returns 1, printing nothing, when the text holds neither.
+# Usage: issue_number_from_ref REF
+issue_number_from_ref() {
+    local ref="${1:-}"
+    ref="$(printf '%s' "$ref" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+    if [[ "$ref" =~ ^[0-9]+$ ]]; then
+        printf '%s\n' "$ref"
+        return 0
+    fi
+    if [[ "$ref" =~ ^https?://[^[:space:]?#]*/([0-9]+)/?([?#][^[:space:]]*)?$ ]]; then
+        printf '%s\n' "${BASH_REMATCH[1]}"
+        return 0
+    fi
+    return 1
+}
+
 normalize_doc_id_repo() {
     local repo="${1:-}"
 
     if [[ ! "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
-        log_error "Invalid repository format: $repo (expected owner/repo)"
+        log_error "Invalid repository format: $repo (expected owner/repo, or project/repo on Azure)"
         return 1
     fi
 
@@ -912,9 +775,6 @@ export -f set_issue_type
 export -f build_issue_filters
 export -f list_issues_formatted
 export -f get_issues_for_selection
-export -f find_pr_by_branch
-export -f find_pr_by_search
-export -f create_pr
 export -f close_issue
 export -f reopen_issue
 export -f validate_issue_number

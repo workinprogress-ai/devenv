@@ -169,7 +169,7 @@ collect_violations() {
 # ============================================================================
 
 # Residue patterns: executable reads of the branded identity vars.
-# GITHUB_REPO joins the list as the deprecated repo-targeting alias: reads
+# GITHUB_REPO joins the list as a repo-targeting alias: reads
 # are confined to the provider layer (the alias leg in provider_repo_target)
 # and provider-loader (get_repo_spec's alias leg). New code reads DEVENV_REPO.
 # shellcheck disable=SC2034

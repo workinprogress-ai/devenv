@@ -78,6 +78,20 @@ main() {
 main "$@"
 ```
 
+## Where a tool lives
+
+A tool's script lives in one of three folders, and `.devcontainer/entry-stubs-sync.sh`
+generates the bare-name stub in `tools/` from the winning file:
+
+- `tools/scripts/` — the provided tools.
+- `tools/fork/` — a fork's own or overriding tools (committed in the fork).
+- `tools/custom/` — a user's own or overriding tools (gitignored, machine-local).
+
+A same-named file in a higher folder wins: custom over fork over provided. The sync
+runs at bootstrap; re-run it after adding or removing an override. Underscore-prefixed
+scripts have no stub and cannot be overridden this way. See
+[Forking](./Forking.md#adding-and-overriding-tools-toolsfork-and-toolscustom).
+
 ## Library catalog
 
 Source only what you use. All paths are `$DEVENV_TOOLS/lib/`.
@@ -86,7 +100,7 @@ Source only what you use. All paths are `$DEVENV_TOOLS/lib/`.
 |---|---|---|
 | `error-handling.bash` | Logging (`log_debug/info/warn/error/fatal`, `success`), exit-code constants, `die`, `invalid_args`, `require_option_value`, `api_failure`, `handle_global_flag`, `enable_strict_mode`, `require_command`, `safe_remove` | **Always.** Non-negotiable. |
 | `versioning.bash` | Version parsing and comparison (`parse_version`, `compare_versions`, `version_gte`), environment requirement checks (`check_bash_version`, `check_git_version`, `check_environment_requirements`), `require_script_version` | When a tool needs version comparison or environment checks. `-v/--version` comes from `handle_global_flag` and `SCRIPT_VERSION`, not from this library. |
-| `provider-loader.bash` | `ensure_gh_login`, `get_repo_spec`, `resolve_target_repo` | Any GitHub-facing tool (superseded by `tools/lib/providers/` for new work — see the [provider abstraction](../tools/lib/providers/README.md)) |
+| `provider-loader.bash` | `ensure_gh_login`, `get_repo_spec`, `resolve_target_repo` | Any GitHub-facing tool (new work uses `tools/lib/providers/` — see the [provider abstraction](../tools/lib/providers/README.md)) |
 | `git-operations.bash` | `check_target_repo` (devenv-repo safety gate) | Tools operating on the cwd's repo; required by `resolve_target_repo` |
 | `issue-operations.bash` | Issue CRUD wrappers | Issue tools |
 | `body-source.bash` | `body_source_resolve`, `body_source_capture_stdin`, `body_source_stdin_is_tty` | Tools that accept markdown/text bodies |

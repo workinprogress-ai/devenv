@@ -196,14 +196,19 @@ main() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -f|--file)
+                require_option_value "$1" "${2:-}"
                 FILE_PATH="$2"; shift 2 ;;
             -l|--line)
+                require_option_value "$1" "${2:-}"
                 LINE_NUMBER="$2"; shift 2 ;;
             -s|--side)
+                require_option_value "$1" "${2:-}"
                 SIDE="$2"; shift 2 ;;
             -b|--body)
+                require_option_value "$1" "${2:-}"
                 COMMENT_BODY="$2"; shift 2 ;;
             -F|--body-file)
+                require_option_value "$1" "${2:-}"
                 COMMENT_FILE="$2"; shift 2 ;;
             -n|--dry-run)
                 DRY_RUN=1; shift ;;

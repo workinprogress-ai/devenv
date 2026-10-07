@@ -1,0 +1,99 @@
+{
+  "id": 101036,
+  "rev": 1,
+  "fields": {
+    "System.Id": 101036,
+    "System.AreaId": 1474,
+    "System.AreaPath": "Example-Project",
+    "System.TeamProject": "Example-Project",
+    "System.NodeName": "Example-Project",
+    "System.AreaLevel1": "Example-Project",
+    "System.Rev": 1,
+    "System.AuthorizedDate": "2026-10-06T19:31:43.52Z",
+    "System.RevisedDate": "9999-01-01T00:00:00Z",
+    "System.IterationId": 1469,
+    "System.IterationPath": "Example-Project",
+    "System.IterationLevel1": "Example-Project",
+    "System.WorkItemType": "User Story",
+    "System.State": "New",
+    "System.Reason": "New",
+    "System.CreatedDate": "2026-10-06T19:31:43.52Z",
+    "System.CreatedBy": {
+      "displayName": "Example User",
+      "url": "https://spsprodcus3.vssps.visualstudio.com/A00000000-0000-4000-8000-000000000004/_apis/Identities/00000000-0000-4000-8000-000000000005",
+      "_links": {
+        "avatar": {
+          "href": "https://dev.azure.com/example-org/_apis/GraphProfile/MemberAvatars/aad.EXAMPLE"
+        }
+      },
+      "id": "00000000-0000-4000-8000-000000000005",
+      "uniqueName": "user@example.test",
+      "imageUrl": "https://example.test/avatar",
+      "descriptor": "aad.EXAMPLE"
+    },
+    "System.ChangedDate": "2026-10-06T19:31:43.52Z",
+    "System.ChangedBy": {
+      "displayName": "Example User",
+      "url": "https://spsprodcus3.vssps.visualstudio.com/A00000000-0000-4000-8000-000000000004/_apis/Identities/00000000-0000-4000-8000-000000000005",
+      "_links": {
+        "avatar": {
+          "href": "https://dev.azure.com/example-org/_apis/GraphProfile/MemberAvatars/aad.EXAMPLE"
+        }
+      },
+      "id": "00000000-0000-4000-8000-000000000005",
+      "uniqueName": "user@example.test",
+      "imageUrl": "https://example.test/avatar",
+      "descriptor": "aad.EXAMPLE"
+    },
+    "System.AuthorizedAs": {
+      "displayName": "Example User",
+      "url": "https://spsprodcus3.vssps.visualstudio.com/A00000000-0000-4000-8000-000000000004/_apis/Identities/00000000-0000-4000-8000-000000000005",
+      "_links": {
+        "avatar": {
+          "href": "https://dev.azure.com/example-org/_apis/GraphProfile/MemberAvatars/aad.EXAMPLE"
+        }
+      },
+      "id": "00000000-0000-4000-8000-000000000005",
+      "uniqueName": "user@example.test",
+      "imageUrl": "https://example.test/avatar",
+      "descriptor": "aad.EXAMPLE"
+    },
+    "System.PersonId": 84007510,
+    "System.Watermark": 806309,
+    "System.CommentCount": 0,
+    "System.Title": "[SMOKE-DELETEME] board story",
+    "System.BoardColumn": "TBD",
+    "System.BoardColumnDone": false,
+    "Microsoft.VSTS.Common.StateChangeDate": "2026-10-06T19:31:43.52Z",
+    "Microsoft.VSTS.Common.Priority": 2,
+    "Microsoft.VSTS.Common.ValueArea": "Business",
+    "WEF_2BEC57FFC7CC407EABEB76E022EDCA35_System.ExtensionMarker": true,
+    "WEF_2BEC57FFC7CC407EABEB76E022EDCA35_Kanban.Column": "TBD",
+    "WEF_2BEC57FFC7CC407EABEB76E022EDCA35_Kanban.Column.Done": false
+  },
+  "multilineFieldsFormat": {},
+  "_links": {
+    "self": {
+      "href": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/wit/workItems/101036"
+    },
+    "workItemUpdates": {
+      "href": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/wit/workItems/101036/updates"
+    },
+    "workItemRevisions": {
+      "href": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/wit/workItems/101036/revisions"
+    },
+    "workItemComments": {
+      "href": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/wit/workItems/101036/comments"
+    },
+    "html": {
+      "href": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_workitems/edit/101036"
+    },
+    "workItemType": {
+      "href": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/wit/workItemTypes/User%20Story"
+    },
+    "fields": {
+      "href": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/wit/fields"
+    }
+  },
+  "url": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/wit/workItems/101036"
+}

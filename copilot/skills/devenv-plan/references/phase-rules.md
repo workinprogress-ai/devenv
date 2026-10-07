@@ -6,7 +6,7 @@ Phases exist so that work can be **paused, reviewed, and shipped** at clean boun
 
 Every plan carries a **verification declaration** — set at planning time and approved with the phase outline — stating how its phases prove committable. The **code preset is the default** and its rules below apply verbatim to code work. Non-code objectives (docs overhauls, mechanical file operations, runbooks, mixed work) declare a different instrument, subject to a minimum bar: **deterministic, observable, and runnable at phase end**. A declaration that cannot be run as a check does not qualify. All safety rails (decision gates, git prohibitions, handbacks, marker hygiene) are independent of the declaration and never relax.
 
-**Precedence rule:** the plan's declaration wins everywhere. When the declaration is not `code`, the test/coverage/build items in these rules and in executor gates **do not apply** — run the declared gates instead. A plan with no `**Verification**` line (all legacy plans) is treated as `code`.
+**Precedence rule:** the plan's declaration wins everywhere. When the declaration is not `code`, the test/coverage/build items in these rules and in executor gates **do not apply** — run the declared gates instead. A plan with no `**Verification**` line (all older plans) is treated as `code`.
 
 Typical non-code declarations: docs — lint + link-check + consistency pass against a stated source of truth; mechanical file work — script exit 0, input/output counts match, spot-check diff shown in handback; ops/runbook — each stage's own checks (expected command outputs, expected states) plus a stated rollback path.
 
@@ -63,25 +63,25 @@ Choosing `milestone-green` removes the need for the coverage escape hatch (Hard 
 - Temporary scaffolding code (mocks, fakes, test doubles, temporary endpoints) is fine as long as Phase N (Cleanup) explicitly removes the scaffolding code. Tests themselves are not scaffolding; they stay.
 - Discovery-oriented Phase 1 work is often a good `owner: AI` default when it is read-only, seam-mapping, or coverage-inventory work. Switch to `owner: User` only when the task requires domain or product judgment.
 
-## Legacy cleanup strategies
+## Old-code cleanup strategies
 
-The default approach is surgical: leave legacy code in place and incrementally introduce the new implementation. This keeps every phase committable and avoids coverage dips. However, when the two implementations would share the same files across multiple phases, the resulting **mixed code** is hard to review and reason about. A dedicated cleanup phase near the start of the plan is often cleaner than tolerating the mix.
+The default approach is surgical: leave the old code in place and incrementally introduce the new implementation. This keeps every phase committable and avoids coverage dips. However, when the two implementations would share the same files across multiple phases, the resulting **mixed code** is hard to review and reason about. A dedicated cleanup phase near the start of the plan is often cleaner than tolerating the mix.
 
 ### Signals that a clean-slate phase is warranted
 
 - The same method, class, or module will contain both old and new logic simultaneously for more than one phase.
 - Reviewers would need to understand both implementations to assess any single diff.
-- The legacy code's complexity actively obscures what the new implementation is doing.
+- The old code's complexity actively obscures what the new implementation is doing.
 
 ### Available patterns
 
 #### Pattern 1 — Demolition (delete code and its tests together)
 
-Delete the legacy implementation and its dedicated tests in one phase. Nothing hangs around.
+Delete the old implementation and its dedicated tests in one phase. Nothing hangs around.
 
 - The next phase introduces the new implementation and new tests from scratch — TDD green from the start.
 - **Coverage**: maintained — the deleted lines and their tests are removed together; nothing is left uncovered.
-- **Best when**: the legacy code is self-contained (a class, a service, a namespace) and callers can be updated in the same phase or do not yet exist.
+- **Best when**: the old code is self-contained (a class, a service, a namespace) and callers can be updated in the same phase or do not yet exist.
 
 #### Pattern 2 — Hollow-out (keep surface, replace internals with a deliberate stub)
 
@@ -91,9 +91,9 @@ Preserve method/class signatures; replace bodies with `throw new NotImplementedE
 - Use `return default` (or an empty/identity value) when callers must not throw during the transition, but update tests to assert the stub's behaviour explicitly, not the old behaviour.
 - **Best when**: the API surface must stay intact for callers that cannot be changed yet.
 
-#### Pattern 3 — Rename-then-replace (legacy suffix)
+#### Pattern 3 — Rename-then-replace (old suffix)
 
-Rename `FooService` → `LegacyFooService` in one phase. Build the new clean `FooService` alongside it. Migrate callers in a later phase. Remove `LegacyFooService` in Cleanup.
+Rename `FooService` → `FooServiceOld` in one phase. Build the new clean `FooService` alongside it. Migrate callers in a later phase. Remove `FooServiceOld` in Cleanup.
 
 - The rename makes "this is old" intent visible at every callsite — it appears explicitly in every diff until it is gone.
 - Both implementations are fully functional and covered throughout the plan.
@@ -101,7 +101,7 @@ Rename `FooService` → `LegacyFooService` in one phase. Build the new clean `Fo
 
 #### Pattern 4 — Branch by abstraction
 
-Extract an interface over the legacy code; both legacy and new implementations implement it; calling code depends on the interface. Swap the wiring in a later phase.
+Extract an interface over the old code; both old and new implementations implement it; calling code depends on the interface. Swap the wiring in a later phase.
 
 - Higher effort but maximally testable. The transitional abstraction is removed in Cleanup.
 - **Best when**: calling code is tightly coupled across many sites and cannot be changed in a single phase.
@@ -110,7 +110,7 @@ Extract an interface over the legacy code; both legacy and new implementations i
 
 | Situation | Pattern |
 | --- | --- |
-| Legacy code is self-contained and callers can update in the same phase | **1 — demolition** |
+| Old code is self-contained and callers can update in the same phase | **1 — demolition** |
 | API surface must stay; callers can't change yet | **2 — hollow-out** |
 | Callers are numerous; migration spans multiple phases | **3 — rename suffix** |
 | Calling code is tightly coupled across many sites | **4 — branch by abstraction** |
@@ -119,7 +119,7 @@ When two or more patterns are viable, surface the options and a recommendation d
 
 **Whichever pattern is used:**
 
-- The Cleanup phase must include an explicit task to remove all transitional scaffolding — stubs, `LegacyFoo` classes, transitional interfaces.
+- The Cleanup phase must include an explicit task to remove all transitional scaffolding — stubs, `FooOld` classes, transitional interfaces.
 - No phase may end with tests failing due to stub behaviour — stubs and their corresponding test updates go in the same phase.
 
 ## Committability checklist (use at end of each phase)
@@ -143,6 +143,6 @@ When two or more patterns are viable, surface the options and a recommendation d
 - Proposing a phase outline where Phase 1 is described as "add failing coverage for new behaviour" (or equivalent) under phase-green — phase proposals must describe committable deliverables, not deferred red-state work (milestone-green intermediate phases declare their reds in the register instead).
 - Adding Phase 1 tests by default when existing coverage already locks the relevant current behaviour — this creates noise without improving the plan.
 - DEVENV markers left in committed code — any `// DEVENV[...]` temporary comment introduced during the plan must be removed in the Cleanup phase. The Cleanup phase must include an explicit removal task if any markers were added. `devenv-marker-check .` must pass (zero markers) before the plan is complete.
-- Legacy and new implementations coexisting across multiple phases with no cleanup task — if `LegacyFooService` or a hollow-out stub is introduced, the Cleanup phase must have an explicit task to remove it.
+- Old and new implementations coexisting across multiple phases with no cleanup task — if `FooServiceOld` or a hollow-out stub is introduced, the Cleanup phase must have an explicit task to remove it.
 - Phases that consist entirely of intermediate steps (add-stub → implement → remove-stub, each as a separate phase) existing only to keep the build green — these are a sign the phase boundary is in the wrong place. Merge them into one deliverable phase. If keeping green between steps is genuinely difficult, use the escape hatch rather than creating hollow phases.
 - Coverage escape hatch used without a cleanup task in the finalization phase — an exclusion annotation or documented floor drop that has no corresponding cleanup task is an open debt with no scheduled repayment.

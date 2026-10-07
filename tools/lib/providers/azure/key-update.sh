@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # key-update.sh (azure provider)
 # Updates the Azure DevOps personal access token and reloads environment
-# Usage: key-update-azure [TOKEN]
+# Usage: key-update-azure   (token on the prompt, or piped on stdin)
 
 set -euo pipefail
 # Resolve the tools root from this script's own location (self-root
@@ -27,8 +27,7 @@ echo "    This will update your Azure DevOps personal access token"
 echo "    (stored 0600 in the devenv config area)."
 echo ""
 
-# --help / -h must never be interpreted as a token: an unrecognized flag
-# would otherwise fall through to the token path and fail at import.
+# --help / -h must never be interpreted as a token.
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
     echo "Usage: key-update-azure | --help"
     echo ""
@@ -40,17 +39,15 @@ if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
     exit 0
 fi
 
-if [ -n "${1:-}" ]; then
-    # Legacy argv form: the token would sit on the process listing. Accept
-    # for compatibility but steer to the stdin/prompt path.
-    log_warn "passing the token as an argument exposes it in the process listing — pipe it via stdin or use the prompt instead"
+# The token is never an argument: it would sit on the process listing and in
+# shell history.
+if [ $# -gt 0 ]; then
+    die "the token is not accepted as an argument (it would appear in the process list); paste it at the prompt or pipe it on stdin: key-update-azure < token-file" "$EXIT_MISUSE"
 fi
 
 # Get token from stdin (pipe or terminal prompt); capture EOF so an empty
 # token reaches the validation below instead of set -e exiting on read's rc.
-if [ -n "${1:-}" ]; then
-    NEW_TOKEN="$1"
-elif [ ! -t 0 ]; then
+if [ ! -t 0 ]; then
     read -r NEW_TOKEN || NEW_TOKEN=""
 else
     read -s -r -p "    Paste Azure DevOps personal access token: " NEW_TOKEN || NEW_TOKEN=""
@@ -78,12 +75,7 @@ if ! provider_auth_import_token <<< "$NEW_TOKEN"; then
     die "credential import failed — token not accepted. No changes made."
 fi
 
-# 2. Wire git credentials: register the PAT-backed credential helper for
-#    canonical and organization-scoped legacy Azure hosts without embedded URLs.
-echo "    - Wiring git credential helper (canonical and organization-scoped legacy Azure hosts)..."
-if ! provider_auth_setup_git; then
-    log_warn "credential helper registration failed — git transport may prompt for credentials"
-fi
+# 2. The provider verb wired the git credential helper during import.
 
 echo "    ✅ Success! Credentials updated (0600 PAT file)."
 echo "    -------------------------------------------------------"

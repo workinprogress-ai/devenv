@@ -48,7 +48,9 @@ Usage: $SCRIPT_NAME PR_NUMBER --comment-id COMMENT_ID [OPTIONS]
 
 Reply to an existing inline review comment on a GitHub pull request.
 
-The COMMENT_ID is the numeric REST API comment ID from the review thread.
+The COMMENT_ID is the comment id from the review thread, exactly as
+`pr-threads-get` prints it (a number, or <thread>/<comment> where the host
+needs the thread to place a reply).
 Use `pr-threads-get PR_NUMBER` to list threads and find comment IDs.
 
 This is distinct from \`pr-comment\` (top-level PR conversation comments).
@@ -61,7 +63,7 @@ Options:
     -v, --version               Show version information and exit
     -V, --verbose               Enable verbose output
     -n, --dry-run               Show what would be posted without posting
-    --comment-id COMMENT_ID     The numeric ID of the comment to reply to (required)
+    --comment-id COMMENT_ID     The ID of the comment to reply to, from pr-threads-get (required)
     --devenv                    Safety override to reply on devenv repo PRs
 
 Reply Source (one required):
@@ -106,8 +108,8 @@ validate_pr_number() {
 
 validate_comment_id() {
     local cid="$1"
-    if ! [[ "$cid" =~ ^[0-9]+$ ]]; then
-        log_error "Invalid comment ID: $cid (must be numeric)"
+    if ! [[ "$cid" =~ ^[0-9]+(/[0-9]+)?$ ]]; then
+        log_error "Invalid comment ID: $cid (must be the id from pr-threads-get: numeric, or <thread>/<comment>)"
         return 1
     fi
 }
@@ -132,11 +134,7 @@ resolve_body() {
         compose_in_editor
     elif [ -n "$COMMENT_FILE" ]; then
         if [ "$COMMENT_FILE" = "-" ]; then
-            if body_source_stdin_is_tty; then
-                log_error "--body-file - requires piped stdin (refusing to read the terminal)"
-                exit "$EXIT_GENERAL_ERROR"
-            fi
-            COMMENT_BODY=$(cat)
+            COMMENT_BODY=$(body_source_read_dash) || exit "$EXIT_GENERAL_ERROR"
         else
             if [ ! -f "$COMMENT_FILE" ]; then
                 log_error "File not found: $COMMENT_FILE"
@@ -156,7 +154,7 @@ post_reply() {
     read -ra repo_spec_args <<< "$(get_repo_spec)"
 
     # Extract owner/repo for REST API. Canonical emission is the bare spec;
-    # the legacy `-R <spec>` pair normalizes defensively.
+    # a `-R <spec>` pair normalizes defensively.
     local repo_owner repo_name
     # owner = the first component; name = EVERYTHING after it, so an Azure
     # org/project/repo spec keeps its project/repo remainder (the earlier two-part
@@ -201,7 +199,7 @@ post_reply() {
     fi
 
     local reply_url
-    reply_url=$(echo "$response" | jq -r '.html_url // empty')
+    reply_url=$(echo "$response" | jq -r '.url // empty')
     log_info "Reply posted: ${reply_url:-PR #$PR_NUMBER}"
 }
 
@@ -236,9 +234,9 @@ main() {
                 ;;
             -n|--dry-run)      DRY_RUN=1; shift ;;
             --devenv)          ALLOW_DEVENV_REPO=1; shift ;;
-            --comment-id)      COMMENT_ID="$2"; shift 2 ;;
-            -b|--body)         COMMENT_BODY="$2"; shift 2 ;;
-            -f|--body-file)    COMMENT_FILE="$2"; shift 2 ;;
+            --comment-id)      require_option_value "$1" "${2:-}"; COMMENT_ID="$2"; shift 2 ;;
+            -b|--body)         require_option_value "$1" "${2:-}"; COMMENT_BODY="$2"; shift 2 ;;
+            -f|--body-file)    require_option_value "$1" "${2:-}"; COMMENT_FILE="$2"; shift 2 ;;
             -e|--edit)         USE_EDITOR=1; shift ;;
             -*)
                 log_error "Unknown option: $1"

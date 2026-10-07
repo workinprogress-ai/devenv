@@ -124,7 +124,7 @@ After the commit — and only on the tool's own success output ("commit created"
 
 **Checks, all run, all reported together:** format → lint → type-check → tests. Per-tool failure sections with file:line links; suggest auto-fixes, apply only with confirm (one confirm per tool), re-run only the fixed tool.
 
-**Compatibility Layer Gate** (checks lane and commit lane both): scan changed files for shim-like markers (`shim`, `compat`, `adapter`, `legacy`, `bridge`); newly added test-only compatibility shapes require explicit user approval of the workaround path — unapproved, the gate is not clear. Shared [workaround decision policy](../common/references/workaround-decision-policy.md).
+**Compatibility Layer Gate** (checks lane and commit lane both): scan changed files for shim-like markers (`shim`, `compat`, `adapter`, `bridge`); newly added test-only compatibility shapes require explicit user approval of the workaround path — unapproved, the gate is not clear. Shared [workaround decision policy](../common/references/workaround-decision-policy.md).
 
 **Sequence with the commit lane:** if the user wants both checks and a commit, run the checks first; any failure blocks the commit proposal until fixed or explicitly waived by the user.
 

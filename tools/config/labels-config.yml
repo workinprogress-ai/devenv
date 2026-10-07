@@ -1,4 +1,4 @@
-# Standard issue-label vocabulary for WorkInProgress repos.
+# Standard issue-label vocabulary for the organization's repos.
 #
 # Consumed by `issue-label-create --seed` to bootstrap the triage label set
 # in a repository. Idempotent: existing labels are skipped.

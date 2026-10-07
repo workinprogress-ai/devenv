@@ -1,0 +1,15 @@
+{
+  "count": 2,
+  "value": [
+    {
+      "name": "Active",
+      "color": "007acc",
+      "category": "InProgress"
+    },
+    {
+      "name": "Closed",
+      "color": "339933",
+      "category": "Completed"
+    }
+  ]
+}

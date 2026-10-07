@@ -173,6 +173,7 @@ main() {
                 shift
                 ;;
             --format)
+                require_option_value "$1" "${2:-}"
                 FORMAT_FIELD="$2"
                 shift 2
                 ;;

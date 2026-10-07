@@ -299,24 +299,6 @@ check_dependencies() {
 }
 
 # Build label list - exclude type label since type is set via GraphQL mutation
-build_labels() {
-    local labels=()
-    
-    # Note: Type label is NOT added here since issue type is set via GraphQL mutation after creation
-    # This avoids issues with the label not existing in the repository
-    
-    # Add explicit labels
-    for label in "${ISSUE_LABELS[@]}"; do
-        labels+=("$label")
-    done
-    
-    # Return space-separated list
-    if [ ${#labels[@]} -gt 0 ]; then
-        echo "${labels[@]}"
-    fi
-}
-
-
 # Prepend parent reference to body if specified
 build_body() {
     local body=""
@@ -343,6 +325,20 @@ build_body() {
     printf '%s' "$body"
 }
 
+# Fail fast on a wrong or unreachable target: the repo the create will use
+# (get_repo_spec resolution) must exist on the provider, or the user answers prompts
+# for a run that cannot succeed. An empty spec (nothing resolvable) is not probed.
+probe_target_repo() {
+    local probe_repo
+    probe_repo="$(get_repo_spec)"
+    [ -n "$probe_repo" ] || return 0
+    if ! provider_repos_view "$probe_repo" --json name -q .name >/dev/null 2>&1; then
+        log_error "Target repository not found or inaccessible: $probe_repo"
+        log_info "Check the DEVENV_REPO value and your provider access"
+        exit "$EXIT_GENERAL_ERROR"
+    fi
+}
+
 # Create the issue
 create_issue() {
     local gh_args=()
@@ -361,14 +357,11 @@ create_issue() {
     final_body=$(build_body)
     gh_args+=(--body "$final_body")
     
-    # Optional: labels
-    local labels
-    labels=$(build_labels)
-    if [ -n "$labels" ]; then
-        for label in $labels; do
-            gh_args+=(--label "$label")
-        done
-    fi
+    # Optional: labels (one argument each: a label may contain spaces)
+    local label
+    for label in "${ISSUE_LABELS[@]}"; do
+        gh_args+=(--label "$label")
+    done
     
     # Optional: assignees
     for assignee in "${ISSUE_ASSIGNEES[@]}"; do
@@ -402,9 +395,12 @@ create_issue() {
     
     log_info "Created issue: $issue_url"
     
-    # Extract issue number from URL
+    # The creation result is an issue URL or a bare id, depending on the provider
     local issue_number
-    issue_number=$(echo "$issue_url" | grep -oP '/issues/\K\d+')
+    if ! issue_number=$(issue_number_from_ref "$issue_url"); then
+        log_error "Issue created, but its number could not be read from the provider's answer: $issue_url"
+        return 1
+    fi
     
     # Set the issue type via GraphQL (organization-level issue types)
     # Repo identity comes from the same repo_spec the create used — never
@@ -460,7 +456,7 @@ create_issue() {
 
     # Workflow integration: native sub-issue link + parent recompute +
     # birth-status write. All best-effort; failures never block creation.
-    local issue_num="${issue_url##*/}"
+    local issue_num="$issue_number"
     local wf_lib
     wf_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/workflow-core.bash"
     if [ -f "$wf_lib" ]; then
@@ -517,46 +513,57 @@ main() {
                 shift
                 ;;
             -t|--title)
+                require_option_value "$1" "${2:-}"
                 ISSUE_TITLE="$2"
                 shift 2
                 ;;
             -b|--body)
+                require_option_value "$1" "${2:-}"
                 BODY_ARG_TEXT="$2"
                 shift 2
                 ;;
             -f|--body-file)
+                require_option_value "$1" "${2:-}"
                 BODY_ARG_FILE="$2"
                 shift 2
                 ;;
             --type)
+                require_option_value "$1" "${2:-}"
                 ISSUE_TYPE="$2"
                 shift 2
                 ;;
             -l|--label)
+                require_option_value "$1" "${2:-}"
                 ISSUE_LABELS+=("$2")
                 shift 2
                 ;;
             -a|--assignee)
+                require_option_value "$1" "${2:-}"
                 ISSUE_ASSIGNEES+=("$2")
                 shift 2
                 ;;
             -m|--milestone)
+                require_option_value "$1" "${2:-}"
                 ISSUE_MILESTONE="$2"
                 shift 2
                 ;;
             -p|--project)
+                require_option_value "$1" "${2:-}"
                 ISSUE_PROJECT="$2"
                 shift 2
                 ;;
             --parent)
+                require_option_value "$1" "${2:-}"
                 PARENT_ISSUE="$2"
                 shift 2
                 ;;
             --blocked-by)
+                require_option_value "$1" "${2:-}"
                 BLOCKED_BY_ISSUES+=("$2")
                 shift 2
                 ;;
             --template)
+                require_option_value "$1" "${2:-}"
                 TEMPLATE_FILE="$2"
                 USE_TEMPLATE=1
                 shift 2
@@ -616,20 +623,8 @@ main() {
     # Validate target repository
     check_target_repo
 
-    # Fail fast on a wrong or unreachable target BEFORE any interactive
-    # prompt: the repo the create will use (get_repo_spec resolution) must
-    # exist on the provider, or the user answers prompts for a run that
-    # cannot succeed. get_repo_spec prints "-R owner/repo" or "".
-    local repo_probe=""
-    read -ra repo_probe <<< "$(get_repo_spec)"
-    local probe_repo="${repo_probe[1]:-}"
-    if [ -n "$probe_repo" ]; then
-        if ! provider_repos_view "$probe_repo" --json name -q .name >/dev/null 2>&1; then
-            log_error "Target repository not found or inaccessible: $probe_repo"
-            log_info "Check the DEVENV_REPO value (owner/repo, exact case) and your provider access"
-            exit "$EXIT_GENERAL_ERROR"
-        fi
-    fi
+    # Fail fast on a wrong or unreachable target BEFORE any interactive prompt.
+    probe_target_repo
 
     # Select and validate issue type (required)
     if ! select_issue_type; then

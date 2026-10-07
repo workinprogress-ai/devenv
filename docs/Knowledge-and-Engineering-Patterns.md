@@ -15,7 +15,7 @@ The engineering repo is imported with the same machinery as knowledge, so the st
 
 ```ini
 [copilot]
-engineering_repo=https://<git-host>/<org>/docs.engineering.git   # e.g. github.com/workinprogress-ai/docs.engineering.git
+engineering_repo=https://<git-host>/<org>/docs.engineering.git   # e.g. github.com/<org>/docs.engineering.git
 engineering_subpath=docs/
 ```
 

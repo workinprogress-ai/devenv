@@ -6,7 +6,7 @@ DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 # plan-parse.sh - Deterministic plan structure parsing
 # Version: 1.2.0
 # Description: Extracts phases, tasks, completion state, and file-path anchors
-#              from Plan-*.md (or legacy Implementation_plan-*.md) as JSON — replaces model-side
+#              from Plan-*.md (or Implementation_plan-*.md) as JSON — replaces model-side
 #              heading/checkbox/Files-bullet harvesting and staleness scans.
 # Requirements: Bash 4.0+, jq, grep
 
@@ -28,7 +28,7 @@ show_usage() {
     cat << EOF
 Usage: $SCRIPT_NAME FILE [OPTIONS]
 
-Parse a Plan-*.md (or legacy Implementation_plan-*.md) deterministically.
+Parse a Plan-*.md (or Implementation_plan-*.md) deterministically.
 
 Modes:
     --structure  (default) Phases with tasks and completion state:

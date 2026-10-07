@@ -24,7 +24,7 @@ Run after all implementation phases, before Cleanup. The `[AC-N]` DEVENV comment
 - **Requires judgment:** present to user: *"AC-3 — [text]: can you confirm this is satisfied?"*; tick after confirmation.
 - **No matching comment:** surface it: *"AC-4 has no implementation comment — was it addressed?"*; let user decide (tick, defer, or new task).
 
-All ACs must be `[x]` or explicitly deferred/deprecated before Cleanup. See full protocol in [phase-gates.md](../../devenv-pair/references/phase-gates.md).
+All ACs must be `[x]` or explicitly deferred/retired before Cleanup. See full protocol in [phase-gates.md](../../devenv-pair/references/phase-gates.md).
 
 ---
 
@@ -43,7 +43,7 @@ Coverage drops are blockers — surface and resolve before declaring complete. I
 
 Pending questions are also blockers unless they have been explicitly deferred or externalized. A phase is not complete while it still contains unresolved `[QUESTION]` items that affect execution of that phase.
 
-If this is the **final implementation phase**, no AC may remain unchecked. Before declaring final-phase completion, verify every AC is either `[x]` or explicitly deferred/deprecated. If any AC remains undone, the gate is blocked and final-phase completion cannot be declared.
+If this is the **final implementation phase**, no AC may remain unchecked. Before declaring final-phase completion, verify every AC is either `[x]` or explicitly deferred/retired. If any AC remains undone, the gate is blocked and final-phase completion cannot be declared.
 
 ## Next-step offer (wrap-up convention)
 

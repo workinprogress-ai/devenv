@@ -411,7 +411,7 @@ issue-create --title "Title"
 # Opt in to a specific template
 issue-create --title "Title" --template FILE
 
-# Explicit no-template (accepted no-op for backward compatibility)
+# Explicit no-template (accepted no-op)
 issue-create --title "Title" --no-template [--body TEXT]
 
 # Template without editor (for automation)
@@ -428,7 +428,7 @@ issue-create --title "Title" [--type Bug|Task|Feature|Epic] [--parent ISSUE#] \
 
 - Default behavior: **no template** — pass `--template FILE` to opt in (or `--select-template` to pick interactively from `.github/ISSUE_TEMPLATE/`)
 - Selected template opens in `$EDITOR` for customization
-- `--no-template`: Accepted as a no-op for backward compatibility (default is already no-template)
+- `--no-template`: Accepted as a no-op (default is already no-template)
 - `--no-interactive`: Use template without editor (for scripts/automation)
 
 **`issue-create-batch`** - Create multiple issues in one command (preview-first)
@@ -526,7 +526,7 @@ issue-artifact-doc-id --issue ISSUE# --artifact-type TYPE [--slug TEXT | --sourc
 
 Use this to generate the exact `doc_id` value before composing the metadata block for `issue-artifact-upsert`.
 
-For plans stored as issue artifacts, prefer `--artifact-type plan` (`implementation-plan` remains valid as a legacy alias for pre-rename artifacts) `--source-file Plan-...md` so the same plan file always resolves to the same artifact comment.
+For plans stored as issue artifacts, prefer `--artifact-type plan` (`implementation-plan` is accepted as an alias of `plan`) `--source-file Plan-...md` so the same plan file always resolves to the same artifact comment.
 
 **`issue-artifact-get`** - Retrieve one artifact comment by exact `doc_id`
 

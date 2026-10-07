@@ -19,6 +19,7 @@ source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
 source "$DEVENV_TOOLS/lib/provider-loader.bash"
 
+# shellcheck disable=SC2034  # read by handle_global_flag (error-handling.bash)
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
@@ -35,7 +36,7 @@ OUTPUT_FORMAT="table" # table | json | pretty
 # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
 VERBOSE=0
 
-readonly RUN_FIELDS="workflowName,status,conclusion,headBranch,updatedAt,url,databaseId"
+readonly RUN_FIELDS="workflowName,status,conclusion,headBranch,updatedAt,url,id"
 
 # ============================================================================
 # Helper Functions
@@ -57,7 +58,7 @@ Options:
 
 Filters:
     -r, --repo REGEX            Filter repos by name (extended regex, e.g. 'lib\.cs\.')
-    -s, --status STATUS         Filter by conclusion: success, failure, cancelled, skipped
+    -s, --status STATUS         Filter by conclusion: success, failure, cancelled (skipped only where the provider reports it)
     -w, --workflow NAME         Filter by workflow name (exact match)
     --limit N                   Runs per repo to fetch (default: 1)
 
@@ -171,8 +172,6 @@ list_action_runs() {
 # ============================================================================
 
 main() {
-
-
     # Global flags before auth: --help/--version must work without a
     # valid GitHub session.
     if handle_global_flag "${1:-}"; then
@@ -184,8 +183,7 @@ main() {
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            -h|--help)    show_usage ;;
-            -v|--version) echo "$SCRIPT_VERSION"; exit 0 ;;
+            -h|--help|-v|--version) handle_global_flag "$1" ;;
             -V|--verbose)
                 # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
                 VERBOSE=1
@@ -194,12 +192,16 @@ main() {
             --json)       OUTPUT_FORMAT="json"; shift ;;
             --pretty)     OUTPUT_FORMAT="pretty"; shift ;;
             -r|--repo)
+                require_option_value "$1" "${2:-}"
                 REPO_REGEX="$2"; shift 2 ;;
             -s|--status)
+                require_option_value "$1" "${2:-}"
                 STATUS_FILTER="$2"; shift 2 ;;
             -w|--workflow)
+                require_option_value "$1" "${2:-}"
                 WORKFLOW_FILTER="$2"; shift 2 ;;
             --limit)
+                require_option_value "$1" "${2:-}"
                 if ! [[ "$2" =~ ^[0-9]+$ ]]; then
                     log_error "Invalid limit: $2 (must be a positive integer)"
                     exit 1

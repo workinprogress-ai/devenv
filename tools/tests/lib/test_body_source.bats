@@ -174,60 +174,6 @@ setup() {
 # body_source_validate_sources Tests
 # ============================================================================
 
-@test "validate: zero sources errors" {
-    run bash -c "
-        source '$PROJECT_ROOT/tools/lib/body-source.bash'
-        BODY_SOURCE_TEXT=''
-        BODY_SOURCE_FILE=''
-        body_source_validate_sources none
-    "
-    [ "$status" -eq 2 ]
-    [[ "$output" == *"A body source is required"* ]]
-}
-
-@test "validate: exactly one source passes" {
-    run bash -c "
-        source '$PROJECT_ROOT/tools/lib/body-source.bash'
-        BODY_SOURCE_TEXT='hello'
-        BODY_SOURCE_FILE=''
-        body_source_validate_sources none && echo 'ok'
-    "
-    [ "$status" -eq 0 ]
-    [[ "$output" == *"ok"* ]]
-}
-
-@test "validate: extra mode counts as a source" {
-    run bash -c "
-        source '$PROJECT_ROOT/tools/lib/body-source.bash'
-        BODY_SOURCE_TEXT=''
-        BODY_SOURCE_FILE=''
-        body_source_validate_sources edit
-    "
-    [ "$status" -eq 0 ]
-}
-
-@test "validate: two sources conflict" {
-    run bash -c "
-        source '$PROJECT_ROOT/tools/lib/body-source.bash'
-        BODY_SOURCE_TEXT='hello'
-        BODY_SOURCE_FILE='/tmp/x.md'
-        body_source_validate_sources none
-    "
-    [ "$status" -eq 2 ]
-    [[ "$output" == *"Only one body source"* ]]
-}
-
-@test "validate: three sources conflict" {
-    run bash -c "
-        source '$PROJECT_ROOT/tools/lib/body-source.bash'
-        BODY_SOURCE_TEXT='hello'
-        BODY_SOURCE_FILE='/tmp/x.md'
-        body_source_validate_sources edit
-    "
-    [ "$status" -eq 2 ]
-    [[ "$output" == *"Only one body source"* ]]
-}
-
 # ============================================================================
 # body_source_capture_stdin Tests (tech-debt plan: F001 defect signal)
 # ============================================================================
@@ -310,4 +256,54 @@ delayed_capture() {
     "
     [ "$status" -eq 0 ]
     [[ "$output" == "rc=2 elapsed=1" || "$output" == "rc=2 elapsed=2" ]]
+}
+
+# ---------------------------------------------------------------------------
+# --body-file - goes through the same empty-stdin refusal as every other stdin read
+# ---------------------------------------------------------------------------
+
+@test "body_source_resolve: --body-file - with empty stdin is refused" {
+  run bash -c "source '$PROJECT_ROOT/tools/lib/body-source.bash'; printf '' | body_source_resolve '' -"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"Refusing empty stdin body"* ]]
+}
+
+@test "body_source_resolve: --body-file - with whitespace-only stdin is refused" {
+  run bash -c "source '$PROJECT_ROOT/tools/lib/body-source.bash'; printf '  \n\t\n' | body_source_resolve '' -"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"Refusing empty stdin body"* ]]
+}
+
+@test "body_source_resolve: --body-file - with content returns it and reports stdin" {
+  run bash -c "source '$PROJECT_ROOT/tools/lib/body-source.bash'; printf 'hello\n' | { body_source_resolve '' - ; echo \"src=\$BODY_SOURCE_RESULT\"; }"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"hello"* ]]
+}
+
+@test "body_source_read_dash refuses a terminal" {
+  # no controlling terminal under bats: simulate by overriding the TTY probe
+  run bash -c "source '$PROJECT_ROOT/tools/lib/body-source.bash'; body_source_stdin_is_tty() { return 0; }; body_source_read_dash"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"requires piped stdin"* ]]
+}
+
+@test "body_source_read_dash reads piped content and refuses empty content" {
+  run bash -c "source '$PROJECT_ROOT/tools/lib/body-source.bash'; printf 'x y\n' | body_source_read_dash"
+  [ "$status" -eq 0 ]
+  [ "$output" = "x y" ]
+  run bash -c "source '$PROJECT_ROOT/tools/lib/body-source.bash'; printf '' | body_source_read_dash"
+  [ "$status" -eq 2 ]
+}
+
+@test "issue-artifact-upsert: --body-file - with empty stdin is refused rather than posting an empty comment" {
+  local fn; fn="$(sed -n '/^load_comment_body()/,/^}/p' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh")"
+  run bash -c "
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/body-source.bash'
+    COMMENT_FILE=-; COMMENT_BODY=''
+    $fn
+    printf '' | load_comment_body
+  "
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Refusing empty stdin body"* ]]
 }

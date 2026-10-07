@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for lib/providers/azure/fork-sync.sh — on-demand upstream sync.
+# Tests for scripts/fork-sync.sh — on-demand upstream sync.
 #
 # Contract tests for on-demand upstream sync.
 
@@ -10,7 +10,7 @@ load ../test_helper
 setup() {
     test_helper_setup
     export DEVENV_TOOLS="${BATS_TEST_DIRNAME}/../.."
-    SCRIPT="$DEVENV_TOOLS/lib/providers/azure/fork-sync.sh"
+    SCRIPT="$DEVENV_TOOLS/scripts/fork-sync.sh"
 }
 
 teardown() {
@@ -376,4 +376,44 @@ _setup_sync_fixture() {
     [[ "$output" == *"Proceed with push? [y/N]"* ]]
     [[ "$output" == *"Push cancelled"* ]]
     [ "$(git -C "$FORK_FIXTURE_ADO_ORIGIN" rev-parse master)" = "$before_origin_tip" ]
+}
+
+@test "fork-sync: lists local commits that look already upstream (patch-equivalent and same-subject)" {
+    _setup_sync_fixture
+    git -C "$FORK_FIXTURE_WORKING_CLONE" checkout -q -b contribute
+    echo a > "$FORK_FIXTURE_WORKING_CLONE/a.txt"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add a.txt
+    git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "feat: add a"
+    echo b > "$FORK_FIXTURE_WORKING_CLONE/b.txt"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add b.txt
+    git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "feat: add b"
+    echo own > "$FORK_FIXTURE_WORKING_CLONE/own.txt"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add own.txt
+    git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "fork: only here"
+    # Upstream gets the "add a" patch under another message and "add b" edited (same subject, other content).
+    echo a > "$FORK_FIXTURE_GH_CLONE/a.txt"
+    git -C "$FORK_FIXTURE_GH_CLONE" add a.txt
+    git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "feat: add a (reworded upstream)"
+    printf 'b\nedited\n' > "$FORK_FIXTURE_GH_CLONE/b.txt"
+    git -C "$FORK_FIXTURE_GH_CLONE" add b.txt
+    git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "feat: add b"
+    git -C "$FORK_FIXTURE_GH_CLONE" push -q origin HEAD:master
+
+    run bash "$SCRIPT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"look already upstream"* ]]
+    [[ "$output" == *"feat: add a"* ]]
+    [[ "$output" == *"feat: add b"* ]]
+    # the fork-only commit is not in the already-upstream list
+    ! sed -n '/look already upstream/,/A rebase drops/p' <<< "$output" | grep -q "fork: only here"
+}
+
+@test "fork-sync: names no already-upstream commits when there are none" {
+    _setup_sync_fixture
+    echo own > "$FORK_FIXTURE_WORKING_CLONE/own.txt"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add own.txt
+    git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "fork: only here"
+    run bash "$SCRIPT"
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"look already upstream"* ]]
 }

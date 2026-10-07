@@ -86,7 +86,7 @@ refs_lightweight='{"value":[{"name":"refs/tags/v2.0.0-beta.1","objectId":"BBB","
 @test "a mixed list resolves each tag by its own kind" {
     export REFS_JSON='{"value":[{"name":"refs/tags/v1.0.0","objectId":"AAA","creator":{"displayName":"T"}},{"name":"refs/tags/v2.0.0-beta.1","objectId":"BBB","creator":{"displayName":"T"}}]}'
     run releases
-    [ "$(jq -r '[.[].publishedAt] | join(",")' <<<"$output")" = "2026-09-01T10:00:00Z,2026-09-02T11:30:00Z" ]
+    [ "$(jq -r '[.[].publishedAt] | join(",")' <<<"$output")" = "2026-09-02T11:30:00Z,2026-09-01T10:00:00Z" ]
 }
 
 @test "no per-tag date lookups are made when publishedAt is not requested" {
@@ -101,4 +101,32 @@ refs_lightweight='{"value":[{"name":"refs/tags/v2.0.0-beta.1","objectId":"BBB","
     export REFS_JSON="$refs_annotated"
     run releases --json tagName,publishedAt
     [ "$(jq -c '.[0] | keys' <<<"$output")" = '["publishedAt","tagName"]' ]
+}
+
+# ---------------------------------------------------------------------------
+# Order and prerelease detection
+# ---------------------------------------------------------------------------
+
+tag_refs() {   # tag_refs name... -> a refs response with those tags
+    local n out=""
+    for n in "$@"; do out="${out:+$out,}{\"name\":\"refs/tags/$n\",\"objectId\":\"X$n\"}"; done
+    printf '{"value":[%s]}' "$out"
+}
+
+@test "releases come newest first by version, not alphabetically, and a release is above its own prereleases" {
+    REFS_JSON="$(tag_refs v1.9.0 v1.10.0 v1.10.0-rc.1 v0.5.0 v2.0.0)" run releases --json tagName
+    [ "$status" -eq 0 ]
+    [ "$(jq -r '[.[].tagName] | join(",")' <<<"$output")" = "v2.0.0,v1.10.0,v1.10.0-rc.1,v1.9.0,v0.5.0" ]
+}
+
+@test "--limit keeps the newest tags, not the alphabetically first" {
+    REFS_JSON="$(tag_refs v1.0.0 v1.1.0 v1.2.0 v1.3.0)" run releases --limit 2 --json tagName
+    [ "$status" -eq 0 ]
+    [ "$(jq -r '[.[].tagName] | join(",")' <<<"$output")" = "v1.3.0,v1.2.0" ]
+}
+
+@test "only a semver prerelease suffix marks a prerelease; other hyphenated tags are not" {
+    REFS_JSON="$(tag_refs v1.0.0-rc.1 release-2026-09 v1.0.0)" run releases --json tagName,isPrerelease
+    [ "$status" -eq 0 ]
+    [ "$(jq -c 'map({(.tagName): .isPrerelease}) | add' <<<"$output")" = '{"v1.0.0":false,"v1.0.0-rc.1":true,"release-2026-09":false}' ]
 }

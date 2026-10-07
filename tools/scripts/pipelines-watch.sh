@@ -77,8 +77,8 @@ watch_run() {
         run_id=$(provider_pipelines_run_list "$REPO" \
             --status in_progress \
             --limit 1 \
-            --json databaseId \
-            -q '.[0].databaseId' 2>/dev/null || echo "")
+            --json id \
+            -q '.[0].id' 2>/dev/null || echo "")
 
         if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
             log_error "No in-progress runs found for $REPO"
@@ -123,6 +123,7 @@ main() {
                 shift
                 ;;
             --repo)
+                require_option_value "$1" "${2:-}"
                 REPO="$2"; shift 2 ;;
             --exit-status)
                 EXIT_STATUS=1; shift ;;

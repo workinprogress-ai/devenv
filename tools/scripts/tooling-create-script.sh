@@ -53,6 +53,7 @@ main() {
                 show_usage
                 ;;
             -d|--dir)
+                require_option_value "$1" "${2:-}"
                 output_dir="$2"
                 shift 2
                 ;;

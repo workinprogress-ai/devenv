@@ -34,7 +34,8 @@ Commits the existing index only if the editor session yields a non-empty message
 
 Refuses (normal lane):
   - any option other than --file (there is no -m, no --yes, no non-interactive path)
-  - a finally resolved editor that is a non-interactive command (true, :, echo, cat, exit)
+  - a finally resolved editor that is a non-interactive command (true, :, echo, cat, exit),
+    also behind a wrapper (env, nice, timeout, ...) or a shell (sh -c ...)
   - an empty index (nothing staged)
 
 A non-interactive GIT_EDITOR/core.editor value inherited from the environment is
@@ -54,16 +55,41 @@ die() {
     exit 1
 }
 
-# True when the editor's BASE command is a known non-interactive no-op (an env
-# sentinel or config value that would bypass the editor gate entirely).
+# True when the editor command is a known non-interactive no-op (an env sentinel
+# or config value that would bypass the editor gate entirely). Wrappers are looked
+# through, so "env true" or "nice -n 5 true" is judged by the command they run;
+# a shell as the editor (sh -c ...) can only be a scripted bypass.
 editor_is_noninteractive() {
-    local editor_base
-    editor_base="$(printf '%s' "${1:-}" | awk '{print $1}')"
-    editor_base="$(basename "${editor_base:-}")"
-    case "$editor_base" in
-        true|':'|'.'|exit|echo|cat|tee|touch|rm|sleep) return 0 ;;
-        *) return 1 ;;
-    esac
+    local word base
+    local -a words
+    read -r -a words <<< "${1:-}"
+    local i=0
+    while [ "$i" -lt "${#words[@]}" ]; do
+        word="${words[$i]}"
+        i=$((i + 1))
+        # leading VAR=value assignments belong to the command's environment
+        case "$word" in
+            [A-Za-z_]*=*) continue ;;
+        esac
+        base="$(basename "$word")"
+        case "$base" in
+            env|command|exec|nice|nohup|timeout|setsid|stdbuf|time)
+                # skip the wrapper's own options and numeric operands
+                while [ "$i" -lt "${#words[@]}" ]; do
+                    case "${words[$i]}" in
+                        -*|[0-9]*|[A-Za-z_]*=*) i=$((i + 1)) ;;
+                        *) break ;;
+                    esac
+                done
+                continue
+                ;;
+            sh|bash|dash|zsh|ksh|ash) return 0 ;;
+            true|':'|'.'|exit|echo|cat|tee|touch|rm|sleep) return 0 ;;
+            *) return 1 ;;
+        esac
+    done
+    # nothing left to run
+    return 0
 }
 
 # --- Argument parsing: message via argv or --file; --wip delegates to git-wip. -

@@ -158,10 +158,16 @@ _workflow_write() {
     # the fan-out wrapper is found (same pattern as WORKFLOW_SIGNAL_TOOLS).
     local tools_root="${WORKFLOW_CORE_TOOLS:-$WORKFLOW_CORE_DIR/..}"
     local wrapper="$tools_root/scripts/project-update-issue.sh"
+    # A signal's contract sets no DEVENV_REPO. Fired from the devenv checkout it
+    # therefore targets the devenv repo's own issues on purpose, so the write
+    # carries the wrapper's explicit --devenv override in that case (and only
+    # then: an exported DEVENV_REPO already names its target).
+    local override=()
+    [ -z "${DEVENV_REPO:-}" ] && override=(--devenv)
     # Stdout is suppressed (transport payloads are not log material);
     # stderr is kept so a refusal names itself instead of surfacing as an
     # anonymous "workflow write failed".
-    if ! bash "$wrapper" "$issue" --status "$status" --all-projects --safe >/dev/null; then
+    if ! bash "$wrapper" "$issue" --status "$status" --all-projects --safe ${override[@]+"${override[@]}"} >/dev/null; then
         echo "WARNING: workflow write '$status' failed for issue #$issue (best-effort, continuing)" >&2
         return 0
     fi

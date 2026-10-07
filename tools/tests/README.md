@@ -200,7 +200,7 @@ The following environment variables are available in tests:
 - `GH_TOKEN` - Mock GitHub token
 - `USER_EMAIL` - Mock user email
 - `HUMAN_NAME` - Mock user name
-- `PROJECT_ROOT` - Legacy alias for DEVENV_ROOT (backward compatibility)
+- `PROJECT_ROOT` - alias of DEVENV_ROOT
 
 ## Test Coverage Areas
 

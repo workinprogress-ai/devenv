@@ -109,8 +109,15 @@ main() {
     fi
 
     # Step 2: Ensure the dependency index is current
-    log_info "Building dependency index..."
-    ensure_dependency_index || die "Failed to build dependency index"
+    # The index covers the organization's own C# packages, identified by a prefix
+    # from [nuget] package_prefix. A fork with no C# packages sets none: the cache
+    # refresh is complete without an index, so say so and carry on.
+    if [ -z "${CS_DEP_ORG_PREFIX:-}" ]; then
+        log_warn "Skipping the dependency index: no organization package prefix (set [nuget] package_prefix in devenv.config to build it); an index built earlier is left as it is"
+    else
+        log_info "Building dependency index..."
+        ensure_dependency_index || die "Failed to build dependency index"
+    fi
 
     # Step 3: Print the cache directory path
     echo "$REPO_CACHE_DIR"

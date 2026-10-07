@@ -77,19 +77,24 @@ main() {
                 ;;
             -V|--verbose) shift ;;  # flag accepted for CLI consistency
             --pattern)
+                require_option_value "$1" "${2:-}"
                 [ -z "${2:-}" ] && invalid_args "Missing value for --pattern"
                 PATTERN="$2"; shift 2 ;;
             --dir)
+                require_option_value "$1" "${2:-}"
                 [ -z "${2:-}" ] && invalid_args "Missing value for --dir"
                 DIR="$2"; shift 2 ;;
             --width)
+                require_option_value "$1" "${2:-}"
                 [ -z "${2:-}" ] && invalid_args "Missing value for --width"
                 WIDTH="$2"; shift 2 ;;
             --filename) PRINT_FILENAME=1; shift ;;
             --file)
+                require_option_value "$1" "${2:-}"
                 [ -z "${2:-}" ] && invalid_args "Missing value for --file"
                 FILE="$2"; shift 2 ;;
             --prefix)
+                require_option_value "$1" "${2:-}"
                 [ -z "${2:-}" ] && invalid_args "Missing value for --prefix"
                 PREFIX="$2"; shift 2 ;;
             --full) FULL=1; shift ;;

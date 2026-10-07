@@ -270,7 +270,7 @@ Medium-complexity triggers:
 
 - Three or more phases with non-trivial dependencies.
 - Multiple external integrations or interface boundaries affected.
-- Significant legacy/new-code coexistence requiring transition strategy.
+- Significant old/new-code coexistence requiring transition strategy.
 - Performance/SLO constraints that influence architecture or sequencing.
 - More than one major design alternative rejected for explicit reasons.
 

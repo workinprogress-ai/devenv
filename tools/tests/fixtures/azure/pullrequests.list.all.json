@@ -1,0 +1,112 @@
+{
+  "value": [
+    {
+      "repository": {
+        "id": "00000000-0000-4000-8000-000000000025",
+        "name": "smoke-repo-1685774",
+        "url": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/git/repositories/00000000-0000-4000-8000-000000000025",
+        "project": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "name": "Example-Project",
+          "state": "unchanged",
+          "visibility": "unchanged",
+          "lastUpdateTime": "0001-01-01T00:00:00"
+        }
+      },
+      "pullRequestId": 11913,
+      "codeReviewId": 11913,
+      "status": "abandoned",
+      "createdBy": {
+        "displayName": "Example User",
+        "url": "https://spsprodcus3.vssps.visualstudio.com/A00000000-0000-4000-8000-000000000004/_apis/Identities/00000000-0000-4000-8000-000000000005",
+        "_links": {
+          "avatar": {
+            "href": "https://dev.azure.com/example-org/_apis/GraphProfile/MemberAvatars/aad.EXAMPLE"
+          }
+        },
+        "id": "00000000-0000-4000-8000-000000000005",
+        "uniqueName": "user@example.test",
+        "imageUrl": "https://example.test/avatar",
+        "descriptor": "aad.EXAMPLE"
+      },
+      "creationDate": "2026-10-06T19:31:54.9564866Z",
+      "closedDate": "2026-10-06T19:31:59.588762Z",
+      "title": "smoke: thread lifecycle",
+      "description": "smoke",
+      "sourceRefName": "refs/heads/smoke2-1685774",
+      "targetRefName": "refs/heads/main",
+      "isDraft": false,
+      "mergeId": "00000000-0000-4000-8000-000000000026",
+      "lastMergeSourceCommit": {
+        "commitId": "6ffc6fbf564554c3924296a876dff37ac7f6aaeb",
+        "url": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/git/repositories/00000000-0000-4000-8000-000000000025/commits/6ffc6fbf564554c3924296a876dff37ac7f6aaeb"
+      },
+      "lastMergeTargetCommit": {
+        "commitId": "f64b60a09094342a9ae8f6ebdbceba2f5ca50b3c",
+        "url": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/git/repositories/00000000-0000-4000-8000-000000000025/commits/f64b60a09094342a9ae8f6ebdbceba2f5ca50b3c"
+      },
+      "reviewers": [],
+      "url": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/git/repositories/00000000-0000-4000-8000-000000000025/pullRequests/11913",
+      "supportsIterations": true
+    },
+    {
+      "repository": {
+        "id": "00000000-0000-4000-8000-000000000025",
+        "name": "smoke-repo-1685774",
+        "url": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/git/repositories/00000000-0000-4000-8000-000000000025",
+        "project": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "name": "Example-Project",
+          "state": "unchanged",
+          "visibility": "unchanged",
+          "lastUpdateTime": "0001-01-01T00:00:00"
+        }
+      },
+      "pullRequestId": 11912,
+      "codeReviewId": 11912,
+      "status": "completed",
+      "createdBy": {
+        "displayName": "Example User",
+        "url": "https://spsprodcus3.vssps.visualstudio.com/A00000000-0000-4000-8000-000000000004/_apis/Identities/00000000-0000-4000-8000-000000000005",
+        "_links": {
+          "avatar": {
+            "href": "https://dev.azure.com/example-org/_apis/GraphProfile/MemberAvatars/aad.EXAMPLE"
+          }
+        },
+        "id": "00000000-0000-4000-8000-000000000005",
+        "uniqueName": "user@example.test",
+        "imageUrl": "https://example.test/avatar",
+        "descriptor": "aad.EXAMPLE"
+      },
+      "creationDate": "2026-10-06T19:31:23.915365Z",
+      "closedDate": "2026-10-06T19:31:26.0247525Z",
+      "title": "chore: smoke destructive probe",
+      "description": "smoke",
+      "sourceRefName": "refs/heads/smoke-1685774",
+      "targetRefName": "refs/heads/main",
+      "mergeStatus": "succeeded",
+      "isDraft": false,
+      "mergeId": "00000000-0000-4000-8000-000000000024",
+      "lastMergeSourceCommit": {
+        "commitId": "054b0b11beebc60ec6ba3bbe9abaef7e7d3ef5b7",
+        "url": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/git/repositories/00000000-0000-4000-8000-000000000025/commits/054b0b11beebc60ec6ba3bbe9abaef7e7d3ef5b7"
+      },
+      "lastMergeTargetCommit": {
+        "commitId": "be5e918695676e9a91dab54d44512f3d9cce7d99",
+        "url": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/git/repositories/00000000-0000-4000-8000-000000000025/commits/be5e918695676e9a91dab54d44512f3d9cce7d99"
+      },
+      "lastMergeCommit": {
+        "commitId": "f64b60a09094342a9ae8f6ebdbceba2f5ca50b3c",
+        "url": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/git/repositories/00000000-0000-4000-8000-000000000025/commits/f64b60a09094342a9ae8f6ebdbceba2f5ca50b3c"
+      },
+      "reviewers": [],
+      "url": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/git/repositories/00000000-0000-4000-8000-000000000025/pullRequests/11912",
+      "completionOptions": {
+        "mergeStrategy": "noFastForward"
+      },
+      "supportsIterations": true,
+      "completionQueueTime": "2026-10-06T19:31:25.1542397Z"
+    }
+  ],
+  "count": 2
+}

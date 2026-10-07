@@ -38,10 +38,10 @@ provider_declare_capability native-issue-types
 # ---------------------------------------------------------------------------
 
 # Build the repo-target args array for gh. Accepts:
-#   provider_gh_repo_args VARNAME [owner/repo]
+#   provider_repo_args VARNAME [owner/repo]
 # Sets VARNAME as a bash array: (-R owner/repo) or empty. Use
 # "${VARNAME[@]}" at the gh call site.
-provider_gh_repo_args() {
+provider_repo_args() {
     # nameref + printf -v: inert by construction — repo content is never
     # re-parsed as shell syntax (the historical eval form executed $(...)
     # embedded in repo values).
@@ -53,6 +53,12 @@ provider_gh_repo_args() {
         __arr=()
     fi
 }
+
+if ! declare -F _gh_repo_vars >/dev/null; then
+    # shellcheck disable=SC1091
+    source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/repos.bash"
+fi
+
 
 # ---------------------------------------------------------------------------
 # Reads
@@ -86,7 +92,7 @@ provider_issues_list() {
             *) repo="$1"; shift ;;
         esac
     done
-    provider_gh_repo_args repo_args "$repo"
+    provider_repo_args repo_args "$repo"
     gh issue list "${repo_args[@]}" "${args[@]}"
 }
 
@@ -98,7 +104,7 @@ provider_issues_view() {
         repo="$1"; shift
     fi
     local repo_args=()
-    provider_gh_repo_args repo_args "$repo"
+    provider_repo_args repo_args "$repo"
     gh issue view "$@" "${repo_args[@]}"
 }
 
@@ -110,23 +116,21 @@ provider_issues_exists() {
         repo="$1"; shift
     fi
     local repo_args=()
-    provider_gh_repo_args repo_args "$repo"
+    provider_repo_args repo_args "$repo"
     gh issue view "$1" "${repo_args[@]}" --json number >/dev/null 2>&1
 }
 
 # List issue comments (paginated JSON).
-# Usage: provider_issues_comments [repo] NUMBER
+# Usage: provider_issues_comments REPO NUMBER   (REPO may be "")
 provider_issues_comments() {
-    local number="$1"
-    local repo=""
-    if [ $# -gt 1 ] && [[ "$2" != --* ]]; then
-        repo="$2"
-    fi
+    local repo="${1-}" number="${2:?issue number required}"
     if [ -n "$repo" ]; then
-        gh api "repos/${repo}/issues/${number}/comments" --paginate 2>/dev/null
+        gh api "repos/${repo}/issues/${number}/comments" --paginate 2>/dev/null | _gh_neutral_comment
     else
-        gh api "repos/{owner}/{repo}/issues/${number}/comments" --paginate 2>/dev/null
+        gh api "repos/{owner}/{repo}/issues/${number}/comments" --paginate 2>/dev/null | _gh_neutral_comment
     fi
+    # the status that matters is gh's, not the filter's
+    return "${PIPESTATUS[0]}"
 }
 
 # List milestones.
@@ -153,7 +157,7 @@ provider_issues_create() {
         repo="$1"; shift
     fi
     local repo_args=()
-    provider_gh_repo_args repo_args "$repo"
+    provider_repo_args repo_args "$repo"
     gh issue create "${repo_args[@]}" "$@"
 }
 
@@ -166,7 +170,7 @@ provider_issues_comment() {
     fi
     local number="$1"; shift
     local repo_args=()
-    provider_gh_repo_args repo_args "$repo"
+    provider_repo_args repo_args "$repo"
     gh issue comment "$number" "${repo_args[@]}" "$@"
 }
 
@@ -179,7 +183,7 @@ provider_issues_close() {
     fi
     local number="$1"; shift
     local repo_args=()
-    provider_gh_repo_args repo_args "$repo"
+    provider_repo_args repo_args "$repo"
     gh issue close "$number" "${repo_args[@]}" "$@"
 }
 
@@ -192,7 +196,7 @@ provider_issues_reopen() {
     fi
     local number="$1"; shift
     local repo_args=()
-    provider_gh_repo_args repo_args "$repo"
+    provider_repo_args repo_args "$repo"
     gh issue reopen "$number" "${repo_args[@]}" "$@"
 }
 
@@ -205,7 +209,7 @@ provider_issues_edit() {
     fi
     local number="$1"; shift
     local repo_args=()
-    provider_gh_repo_args repo_args "$repo"
+    provider_repo_args repo_args "$repo"
     gh issue edit "$number" "${repo_args[@]}" "$@"
 }
 
@@ -233,7 +237,7 @@ provider_issues_set_type() {
 # Usage: provider_issues_label_list [repo]
 provider_issues_label_list() {
     local repo_args=()
-    provider_gh_repo_args repo_args "$1"
+    provider_repo_args repo_args "$1"
     shift
     # Pure pass-through: callers own their --json field list. (The verb used
     # to append "--json name", silently corrupting caller-specified field
@@ -248,42 +252,42 @@ provider_issues_label_ensure() {
     local repo="$1"; shift
     local name="$1" color="${2:-ededed}" desc="${3:-Automated process}"
     local repo_args=()
-    provider_gh_repo_args repo_args "$repo"
+    provider_repo_args repo_args "$repo"
     # Distinguish "cannot list" from "not listed": a permissions failure
     # must not masquerade as absent-label and produce a confusing create
     # failure downstream.
     local listed
-    if ! listed=$(gh label list "${repo_args[@]}" --json name --jq '.[].name' 2>/dev/null); then
+    # gh lists 30 labels unless told otherwise; a repository with more would have
+    # an existing label look absent and the create then fail "already exists".
+    if ! listed=$(gh label list "${repo_args[@]}" --limit 1000 --json name --jq '.[].name' 2>/dev/null); then
         log_error "provider_issues_label_ensure: cannot list labels in '${repo:-cwd repo}' — check credentials/permissions"
         return 1
     fi
-    if printf '%s\n' "$listed" | grep -qx "$name"; then
+    # Fixed-string, whole-line match: a name is text, not a pattern.
+    if printf '%s\n' "$listed" | grep -Fqx -- "$name"; then
         return 0
     fi
-    gh label create "$name" "${repo_args[@]}" --color "$color" --description "$desc" 2>/dev/null
+    gh label create "$name" "${repo_args[@]}" --color "$color" --description "$desc"
 }
 
 # ---------------------------------------------------------------------------
 # Comment + label contract verbs (call sites use these instead of raw REST)
 # ---------------------------------------------------------------------------
 
-# Fetch one issue comment as gh-shaped JSON ({id, html_url, body, ...}).
+# Fetch one issue comment as seam-shaped JSON ({id, url, body, ...}).
 # Fails defined when the comment does not exist. COMMENT_REF is the
 # provider-opaque id (a bare numeric id under GitHub).
 # Usage: provider_issues_comment_get [repo] COMMENT_REF
 provider_issues_comment_get() {
-    local repo=""
-    if [ $# -gt 0 ]; then
-        case "$1" in
-            */*) repo="$1"; shift ;;
-        esac
-    fi
+    local repo="${1-}"
+    [ $# -gt 0 ] && shift
     local comment_id="$1"
     if [ -n "$repo" ]; then
-        gh api "repos/${repo}/issues/comments/${comment_id}" 2>/dev/null
+        gh api "repos/${repo}/issues/comments/${comment_id}" 2>/dev/null | _gh_neutral_comment
     else
-        gh api "repos/{owner}/{repo}/issues/comments/${comment_id}" 2>/dev/null
+        gh api "repos/{owner}/{repo}/issues/comments/${comment_id}" 2>/dev/null | _gh_neutral_comment
     fi
+    return "${PIPESTATUS[0]}"
 }
 
 # ---------------------------------------------------------------------------
@@ -291,78 +295,89 @@ provider_issues_comment_get() {
 # ---------------------------------------------------------------------------
 
 # Link a child issue under a parent via native sub-issues.
-# Usage: provider_issue_graph_link PARENT CHILD  (issue numbers)
+# Usage: provider_issue_graph_link REPO PARENT CHILD  (issue numbers; REPO may be "")
 provider_issue_graph_link() {
-    local parent="${1:?parent number required}" child="${2:?child number required}"
+    local repo="${1-}" parent="${2:?parent number required}" child="${3:?child number required}"
     local pid cid
-    pid=$(_gh_issue_node_id "$parent") || return 1
-    cid=$(_gh_issue_node_id "$child") || return 1
-    [ -n "$pid" ] && [ -n "$cid" ] || return 1
+    pid=$(_gh_issue_node_id "$parent" "$repo") || return 1
+    cid=$(_gh_issue_node_id "$child" "$repo") || return 1
+    [ -n "$pid" ] && [ -n "$cid" ] || { log_error "provider_issue_graph_link: could not resolve the issue node ids"; return 1; }
+    # shellcheck disable=SC2016  # GraphQL variables must not be shell-expanded
     provider_api graphql \
         -f "query=mutation(\$p:ID!,\$c:ID!){addSubIssue(input:{issueId:\$p,subIssueId:\$c}){issue{number}}}" \
-        -f p="$pid" -f c="$cid" >/dev/null 2>&1
+        -f p="$pid" -f c="$cid" >/dev/null
 }
 
 # Unlink a child issue from its parent.
-# Usage: provider_issue_graph_unlink PARENT CHILD
+# Usage: provider_issue_graph_unlink REPO PARENT CHILD
 provider_issue_graph_unlink() {
-    local parent="${1:?parent number required}" child="${2:?child number required}"
+    local repo="${1-}" parent="${2:?parent number required}" child="${3:?child number required}"
     local pid cid
-    pid=$(_gh_issue_node_id "$parent") || return 1
-    cid=$(_gh_issue_node_id "$child") || return 1
-    [ -n "$pid" ] && [ -n "$cid" ] || return 1
+    pid=$(_gh_issue_node_id "$parent" "$repo") || return 1
+    cid=$(_gh_issue_node_id "$child" "$repo") || return 1
+    [ -n "$pid" ] && [ -n "$cid" ] || { log_error "provider_issue_graph_unlink: could not resolve the issue node ids"; return 1; }
+    # shellcheck disable=SC2016  # GraphQL variables must not be shell-expanded
     provider_api graphql \
         -f "query=mutation(\$p:ID!,\$c:ID!){removeSubIssue(input:{issueId:\$p,subIssueId:\$c}){issue{number}}}" \
-        -f p="$pid" -f c="$cid" >/dev/null 2>&1
+        -f p="$pid" -f c="$cid" >/dev/null
 }
 
-# List a parent's sub-issue children (numbers, one per line).
-# Usage: provider_issue_graph_children PARENT
+# List a parent's sub-issue children (numbers, one per line). Up to 50: beyond any
+# planned decomposition; a larger tree should be split rather than queried deeper.
+# Usage: provider_issue_graph_children REPO PARENT
 provider_issue_graph_children() {
-    local parent="${1:?parent number required}"
+    local repo="${1-}" parent="${2:?parent number required}"
+    local vars owner name
+    vars=$(_gh_repo_vars "$repo") || return 1
+    owner=$(printf '%s' "$vars" | sed -n 1p); name=$(printf '%s' "$vars" | sed -n 2p)
+    # shellcheck disable=SC2016  # GraphQL variables must not be shell-expanded
     provider_api graphql \
-        -f "query=query(\$n:Int!){repository(owner:\"{owner}\",name:\"{repo}\"){issue(number:\$n){subIssues(first:50){nodes{number}}}}}" \
-        -F n="$parent" \
-        --jq '.data.repository.issue.subIssues.nodes[].number' 2>/dev/null
+        -f 'query=query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){subIssues(first:50){nodes{number}}}}}' \
+        -f o="$owner" -f r="$name" -F n="$parent" \
+        --jq '.data.repository.issue.subIssues.nodes[].number'
 }
 
 # Resolve an issue's native parent (number) or empty.
-# Usage: provider_issue_graph_parent ISSUE
+# Usage: provider_issue_graph_parent REPO ISSUE
 provider_issue_graph_parent() {
-    local issue="${1:?issue number required}"
+    local repo="${1-}" issue="${2:?issue number required}"
+    local vars owner name
+    vars=$(_gh_repo_vars "$repo") || return 1
+    owner=$(printf '%s' "$vars" | sed -n 1p); name=$(printf '%s' "$vars" | sed -n 2p)
+    # shellcheck disable=SC2016  # GraphQL variables must not be shell-expanded
     provider_api graphql \
-        -f "query=query(\$n:Int!){repository(owner:\"{owner}\",name:\"{repo}\"){issue(number:\$n){parent{number}}}}" \
-        -F n="$issue" \
-        --jq '.data.repository.issue.parent.number' 2>/dev/null
+        -f 'query=query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){parent{number}}}}' \
+        -f o="$owner" -f r="$name" -F n="$issue" \
+        --jq '.data.repository.issue.parent.number'
 }
 
-# Resolve an issue's graphql node id (owner/repo from gh's {owner}/{repo}).
-# Usage: _gh_issue_node_id NUMBER -> prints node id
+# Resolve an issue's graphql node id in the target repository.
+# Usage: _gh_issue_node_id NUMBER [REPO] -> prints node id
 _gh_issue_node_id() {
-    local issue="$1"
+    local issue="$1" repo="${2:-}"
+    local vars owner name
+    vars=$(_gh_repo_vars "$repo") || return 1
+    owner=$(printf '%s' "$vars" | sed -n 1p); name=$(printf '%s' "$vars" | sed -n 2p)
+    # shellcheck disable=SC2016  # GraphQL variables must not be shell-expanded
     provider_api graphql \
-        -f "query=query(\$n:Int!){repository(owner:\"{owner}\",name:\"{repo}\"){issue(number:\$n){id}}}" \
-        -F n="$issue" \
-        --jq '.data.repository.issue.id' 2>/dev/null
+        -f 'query=query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){id}}}' \
+        -f o="$owner" -f r="$name" -F n="$issue" \
+        --jq '.data.repository.issue.id'
 }
 
 # Replace a comment's body; emits the updated gh comment JSON. COMMENT_REF
 # is the provider-opaque id (bare numeric under GitHub).
 # Usage: provider_issues_comment_edit [repo] COMMENT_REF --body TEXT
 provider_issues_comment_edit() {
-    local repo=""
-    if [ $# -gt 0 ]; then
-        case "$1" in
-            */*) repo="$1"; shift ;;
-        esac
-    fi
+    local repo="${1-}"
+    [ $# -gt 0 ] && shift
     local comment_id="$1"; shift
     local body=""
     while [ $# -gt 0 ]; do
         case "$1" in
-            --body) body="$2"; shift 2 ;;
-            --body-file) body=$(cat "$2"); shift 2 ;;
-            *) shift ;;
+            --body) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; body="$2"; shift 2 ;;
+            --body-file) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; body=$(cat "$2"); shift 2 ;;
+            *) provider_unknown_option "${FUNCNAME[0]}" "$1"; return 1 ;;
         esac
     done
     [ -n "$body" ] || { log_error "provider_issues_comment_edit requires --body"; return 1; }
@@ -372,25 +387,24 @@ provider_issues_comment_edit() {
     else
         endpoint="repos/{owner}/{repo}/issues/comments/${comment_id}"
     fi
-    gh api -X PATCH "$endpoint" -f "body=${body}" 2>/dev/null
+    gh api -X PATCH "$endpoint" -f "body=${body}" 2>/dev/null | _gh_neutral_comment
+    return "${PIPESTATUS[0]}"
 }
 
 # Create a comment on an issue; emits the created gh comment JSON
-# ({id, html_url, ...}) — unlike provider_issues_comment, which emits the
+# ({id, url, ...}) — unlike provider_issues_comment, which emits the
 # bare id for interactive callers.
 # Usage: provider_issues_comment_add [repo] ISSUE_NUMBER --body TEXT
 provider_issues_comment_add() {
-    local repo=""
-    if [ $# -gt 1 ] && [[ "$2" != --* ]]; then
-        repo="$1"; shift
-    fi
+    local repo="${1-}"
+    [ $# -gt 0 ] && shift
     local number="$1"; shift
     local body=""
     while [ $# -gt 0 ]; do
         case "$1" in
-            --body) body="$2"; shift 2 ;;
-            --body-file) body=$(cat "$2"); shift 2 ;;
-            *) shift ;;
+            --body) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; body="$2"; shift 2 ;;
+            --body-file) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; body=$(cat "$2"); shift 2 ;;
+            *) provider_unknown_option "${FUNCNAME[0]}" "$1"; return 1 ;;
         esac
     done
     [ -n "$body" ] || { log_error "provider_issues_comment_add requires --body"; return 1; }
@@ -400,7 +414,8 @@ provider_issues_comment_add() {
     else
         endpoint="repos/{owner}/{repo}/issues/${number}/comments"
     fi
-    gh api -X POST "$endpoint" -f "body=${body}" 2>/dev/null
+    gh api -X POST "$endpoint" -f "body=${body}" 2>/dev/null | _gh_neutral_comment
+    return "${PIPESTATUS[0]}"
 }
 
 # Create a label (fails defined when it already exists or on API error).
@@ -408,17 +423,11 @@ provider_issues_comment_add() {
 # unsupported fields per their mapping.
 # Usage: provider_issues_label_create [repo] NAME [COLOR] [DESCRIPTION]
 provider_issues_label_create() {
-    local repo=""
-    if [ $# -gt 0 ] && [[ "$1" != -* ]] && [ "$#" -gt 1 ]; then
-        # Heuristic: a repo spec contains no color-hex-shaped first arg when
-        # NAME follows; callers pass repo first when non-empty.
-        case "$1" in
-            */*) repo="$1"; shift ;;
-        esac
-    fi
+    local repo="${1-}"
+    [ $# -gt 0 ] && shift
     local name="${1:?name required}" color="${2:-ededed}" desc="${3:-}"
     local repo_args=()
-    provider_gh_repo_args repo_args "$repo"
+    provider_repo_args repo_args "$repo"
     local args=(gh label create "$name" "${repo_args[@]}" --color "$color")
     [ -n "$desc" ] && args+=(--description "$desc")
     "${args[@]}" 2>/dev/null
@@ -427,15 +436,11 @@ provider_issues_label_create() {
 # Update an existing label's color/description.
 # Usage: provider_issues_label_update [repo] NAME [COLOR] [DESCRIPTION]
 provider_issues_label_update() {
-    local repo=""
-    if [ $# -gt 0 ]; then
-        case "$1" in
-            */*) repo="$1"; shift ;;
-        esac
-    fi
+    local repo="${1-}"
+    [ $# -gt 0 ] && shift
     local name="${1:?name required}" color="${2:-}" desc="${3:-}"
     local repo_args=()
-    provider_gh_repo_args repo_args "$repo"
+    provider_repo_args repo_args "$repo"
     local args=(gh label edit "$name" "${repo_args[@]}")
     [ -n "$color" ] && args+=(--color "$color")
     [ -n "$desc" ] && args+=(--description "$desc")

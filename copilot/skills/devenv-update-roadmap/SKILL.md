@@ -75,7 +75,7 @@ otherwise → not-started; all-closed-unmerged → cancelled.
   step's Status as written — `roadmap-parse` passes each step's existing **Status** line through
   and computes nothing; you derive the new status from issue and PR state below). For each `### STEP-NN: ...` heading, read the **Issues** field.
   Skip the step if it is empty or contains a placeholder — it'll be handled in
-  step 4. Normalize any legacy bare `#N` refs and `Issue:` (singular) fields to
+  step 4. Normalize any bare `#N` refs and `Issue:` (singular) fields to
   canonical `org/repo#N` lines as you touch them.
 
 ### 2. Fetch issue and PR state

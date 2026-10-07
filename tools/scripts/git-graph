@@ -17,4 +17,4 @@
 #
 ################################################################################
 
-git log --decorate --oneline --graph $@
+git log --decorate --oneline --graph "$@"

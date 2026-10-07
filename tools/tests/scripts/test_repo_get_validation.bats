@@ -105,7 +105,8 @@ setup_repo_get_world() {
 #!/usr/bin/env bash
 echo "gh $*" >> "$STUB_LOG"
 case "$1" in
-  repo) printf '%b' "${STUB_ORG_REPOS:-}" ;;
+  # real gh answers --json with a JSON array: one {name} per line of $STUB_ORG_REPOS
+  repo) printf '%b' "${STUB_ORG_REPOS:-}" | jq -R -s -c 'split("\n") | map(select(length > 0)) | map({name: .})' ;;
 esac
 exit 0
 STUB

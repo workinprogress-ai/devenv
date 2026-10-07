@@ -31,7 +31,7 @@ if ! declare -F azure_http_request >/dev/null; then
     # shellcheck disable=SC1091
     source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/http.bash"
 fi
-if ! declare -F azure_apply_gh_list_flags >/dev/null; then
+if ! declare -F azure_apply_list_flags >/dev/null; then
     # shellcheck disable=SC1091
     source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/urls.bash"
 fi
@@ -39,33 +39,45 @@ if ! declare -F azure_repo_flag_spec >/dev/null; then
     # shellcheck disable=SC1091
     source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/repo-flag.bash"
 fi
+if ! declare -F azure_repo_parts >/dev/null; then
+    # shellcheck disable=SC1091
+    source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/repos.bash"
+fi
 if ! declare -F azure_http_request >/dev/null; then
     log_error "azure/pipelines.bash: providers/azure/http.bash failed to load"
     return 1
 fi
 
-# Build API base for org/project/repo (repo forms: org/project/repo,
-# project/repo with config org, or empty for project-wide).
-# Usage: azure_build_base REPO -> prints base URL
-azure_build_base() {
-    local repo="${1:-}"
-    local op
-    op=$(azure_org_project) || return 1
-    local org project
-    org=$(printf '%s' "$op" | sed -n 1p)
-    project=$(printf '%s' "$op" | sed -n 2p)
-    if [ -n "$repo" ]; then
-        case "$repo" in
-            */*/*) org="${repo%%/*}"; local rest="${repo#*/}"; project="${rest%%/*}"; repo="${rest#*/}" ;;
-            */*) project="${repo%%/*}"; repo="${repo#*/}" ;;
-        esac
-        printf 'https://dev.azure.com/%s/%s/_apis/build/builds?repositoryId=%s&repositoryType=TfsGit' "$org" "$project" "$repo"
-    else
-        printf 'https://dev.azure.com/%s/%s/_apis/build/builds' "$org" "$project"
-    fi
+# Build API root for a repo spec's org and project (org/project/repo,
+# project/repo, a bare repo name, or empty for the configured project), every
+# component encoded.
+# Usage: azure_build_root SPEC -> https://dev.azure.com/<org>/<project>/_apis/build
+azure_build_root() {
+    local parts org project
+    parts=$(azure_repo_parts "${1:-}") || return 1
+    org=$(printf '%s' "$parts" | sed -n 1p); project=$(printf '%s' "$parts" | sed -n 2p)
+    printf 'https://dev.azure.com/%s/%s/_apis/build' "$(azure_uri "$org")" "$(azure_uri "$project")"
 }
 
-# Map an Azure build status to the seam's status dialect (gh-shaped).
+# Resolve a pipeline (build definition) to its numeric id(s): a number is the id
+# already; a name is looked up (the definitions API filters by name, and the
+# match here is exact). Several definitions may share a name across folders, so
+# the ids come back comma-joined, the form the builds filter takes.
+# Usage: azure_definition_ids SPEC NAME_OR_ID -> prints ids
+azure_definition_ids() {
+    local spec="$1" name="$2" root response ids
+    if [[ "$name" =~ ^[0-9]+$ ]]; then
+        printf '%s' "$name"
+        return 0
+    fi
+    root=$(azure_build_root "$spec") || return 1
+    response=$(azure_http_request GET "${root}/definitions?name=$(azure_uri "$name")") || return 1
+    ids=$(printf '%s' "$response" | jq -r --arg n "$name" '[.value[]? | select(.name == $n) | .id | tostring] | join(",")')
+    [ -n "$ids" ] || { log_error "no pipeline named '$name' in this project"; return 1; }
+    printf '%s' "$ids"
+}
+
+# Map an Azure build status to the seam's status dialect (seam-shaped).
 azure_build_status_to_seam() {
     case "$1" in
         inProgress) printf 'in_progress' ;;
@@ -87,15 +99,33 @@ azure_build_result_to_seam() {
     esac
 }
 
-# Map one Azure build record to the seam's run shape (gh-shaped fields,
-# including the gh alias fields consumers project: headBranch, updatedAt,
-# databaseId). Optional argv: FIELD_LIST (comma-separated gh dialect) —
-# when present, the projection emits only those keys (gh --json shape).
+# The fields a run record carries (the seam's run dialect). A --json list naming
+# anything else is an error, as on gh, never a null.
+readonly AZURE_BUILD_FIELDS="id workflowName name event status conclusion headBranch headSha createdAt updatedAt url"
+
+# Check a --json field list against the run record's fields.
+# Usage: azure_build_fields_check VERB FIELDS   (returns 1 with a named error)
+azure_build_fields_check() {
+    local verb="$1" fields="$2" f
+    [ -n "$fields" ] || return 0
+    azure_json_fields_check "$verb" "$fields" || return 1
+    local IFS=','
+    for f in $fields; do
+        case " $AZURE_BUILD_FIELDS " in
+            *" $f "*) ;;
+            *) log_error "$verb: unknown JSON field '$f'"; return 1 ;;
+        esac
+    done
+}
+
+# Map one Azure build record to the seam's run shape (seam-shaped fields,
+# including the alias fields consumers project: headBranch, updatedAt,
+# id). Optional argv: FIELD_LIST (comma-separated seam dialect) —
+# when present, the projection emits only those keys (--json shape).
 azure_map_build() {
     local field_list="${1:-}"
     local base='{
-        id: (.id | tostring),
-        databaseId: .id,
+        id: .id,
         workflowName: (.definition.name // ""),
         name: (.buildNumber // ""),
         event: (.reason // ""),
@@ -109,7 +139,6 @@ azure_map_build() {
                      elif .result == "failed" then "failure"
                      elif .result == "canceled" then "cancelled"
                      else "unknown" end),
-        branch: (.sourceBranch | ltrimstr("refs/heads/")),
         headBranch: (.sourceBranch | ltrimstr("refs/heads/")),
         headSha: (.sourceVersion // ""),
         createdAt: (.queueTime // ""),
@@ -118,7 +147,7 @@ azure_map_build() {
     }'
     local prog="$base"
     if [ -n "$field_list" ]; then
-        # Project to the requested gh-dialect keys (unknown keys -> null).
+        # Project to the requested seam-dialect keys (unknown keys -> null).
         local keys
         keys=$(printf '%s' "$field_list" | tr ',' '\n' | sed 's/^ *//;s/ *$//' | awk '{printf "%s%s", (NR>1 ? "," : ""), $0}')
         prog="($base) | {$keys}"
@@ -131,7 +160,7 @@ azure_map_build() {
 # ---------------------------------------------------------------------------
 
 # List workflow runs (builds). Supports --branch, --workflow, --limit,
-# --json, --status (gh dialect: -L is --limit's shorthand).
+# --json, --status (seam dialect: -L is --limit's shorthand).
 # Usage: provider_pipelines_run_list [repo] [--branch B] [--workflow W] [--limit N] [FLAGS]
 provider_pipelines_run_list() {
     local repo=""
@@ -143,59 +172,64 @@ provider_pipelines_run_list() {
     local jq_filter=""
     while [ $# -gt 0 ]; do
         case "$1" in
-            --branch) branch="$2"; shift 2 ;;
-            --workflow) workflow="$2"; shift 2 ;;
-            --limit|-L) limit="$2"; shift 2 ;;
-            --json)
-                shift
-                if [[ ${1:-} != --* ]] && [ $# -gt 0 ]; then field_list="$1"; shift; fi
-                ;;
-            --status)
-                shift
-                if [[ ${1:-} != --* ]] && [ $# -gt 0 ]; then status="$1"; shift; fi
-                ;;
-            -q|--jq)
-                shift
-                if [[ ${1:-} != --* ]] && [ $# -gt 0 ]; then jq_filter="$1"; shift; fi
-                ;;
-            *) shift ;;
+            --branch) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; branch="$2"; shift 2 ;;
+            --workflow) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; workflow="$2"; shift 2 ;;
+            --limit|-L) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; provider_need_count "${FUNCNAME[0]}" "$1" "$2" || return 1; limit="$2"; shift 2 ;;
+            --json) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; field_list="$2"; shift 2 ;;
+            --status) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; status="$2"; shift 2 ;;
+            -q|--jq) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; jq_filter="$2"; shift 2 ;;
+            *) provider_unknown_option "${FUNCNAME[0]}" "$1"; return 1 ;;
         esac
     done
 
-    # gh --status words map onto Azure's statusFilter vocabulary.
-    local status_filter=""
+    azure_build_fields_check "${FUNCNAME[0]}" "$field_list" || return 1
+
+    # --status takes the gh vocabulary and maps onto Azure's statusFilter and
+    # resultFilter: a status word (in_progress, queued, completed) or a conclusion
+    # (success, failure, cancelled). A word with no Azure analog is an error: an
+    # unfiltered list would answer "is the latest run failing?" with the wrong runs.
+    local status_filter="" result_filter=""
     case "$status" in
         in_progress) status_filter="inProgress" ;;
-        queued) status_filter="notStarted" ;;
+        queued|requested|waiting|pending) status_filter="notStarted" ;;
         completed) status_filter="completed" ;;
+        success) status_filter="completed"; result_filter="succeeded" ;;
+        failure|timed_out|startup_failure) status_filter="completed"; result_filter="failed" ;;
+        cancelled) status_filter="completed"; result_filter="canceled" ;;
         "") : ;;
-        *) log_warn "run_list: --status '$status' has no azure statusFilter analog — unfiltered" ;;
+        *) log_error "run_list: --status '$status' has no Azure analog (use in_progress, queued, completed, success, failure or cancelled)"; return 1 ;;
     esac
 
-    local base_query
-    base_query=$(azure_build_base "$repo") || return 1
-    # First param decides the separator: the base carries no query of its
-    # own anymore (a bare trailing '?' made Azure reject the URL with 400).
-    local sep="?"
-    case "$base_query" in
-        *\?*) sep="&" ;;
-    esac
-    local query="${base_query}${sep}\$top=${limit}&queryOrder=queueTimeDescending"
-    [ -n "$branch" ] && query="${query}&branchName=refs/heads/${branch}"
-    # gh --workflow filters by workflow name; azure's builds list takes a
-    # definitions= name filter (server-side, exact name).
-    [ -n "$workflow" ] && query="${query}&definitions=${workflow}"
+    local root
+    root=$(azure_build_root "$repo") || return 1
+    local query="${root}/builds?\$top=${limit}&queryOrder=queueTimeDescending"
+    # The builds filter takes the repository's GUID, not its name.
+    if [ -n "$repo" ]; then
+        local repo_guid
+        repo_guid=$(azure_repo_guid "$repo") || return 1
+        [ -n "$repo_guid" ] || { log_error "run_list: repository '$repo' not found"; return 1; }
+        query="${query}&repositoryId=${repo_guid}&repositoryType=TfsGit"
+    fi
+    [ -n "$branch" ] && query="${query}&branchName=$(azure_uri "refs/heads/${branch}")"
+    # --workflow names a workflow; Azure's builds filter takes definition ids.
+    if [ -n "$workflow" ]; then
+        local def_ids
+        def_ids=$(azure_definition_ids "$repo" "$workflow") || return 1
+        query="${query}&definitions=${def_ids}"
+    fi
     [ -n "$status_filter" ] && query="${query}&statusFilter=${status_filter}"
+    [ -n "$result_filter" ] && query="${query}&resultFilter=${result_filter}"
 
     local response
     # Error contract: paginate's error JSON lands on stdout — emit it, the
-    # caller asserts rc.
-    if ! response=$(azure_http_paginate "$query"); then
+    # caller asserts rc. $top pages the server; --limit stops the paging, so a
+    # long build history is not read to the end.
+    if ! response=$(azure_http_paginate "$query" "$limit"); then
         printf '%s' "$response"
         return 1
     fi
-    # Map each record (with the optional gh --json projection), assemble one
-    # JSON array, then apply -q/--jq ONCE over the whole array — gh list
+    # Map each record (with the optional --json projection), assemble one
+    # JSON array, then apply -q/--jq ONCE over the whole array — list
     # semantics ('[.[] | select(...)] | length' filters the list, not each
     # record).
     local -a mapped=()
@@ -206,39 +240,45 @@ provider_pipelines_run_list() {
     if [ "${#mapped[@]}" -gt 0 ]; then
         assembled=$(printf '%s\n' "${mapped[@]}" | jq -s '.')
     fi
-    azure_apply_gh_list_flags "$assembled" "" "$jq_filter"
+    azure_apply_list_flags "$assembled" "" "$jq_filter"
 }
 
 # View a workflow run (build).
-# Usage: provider_pipelines_run_view [repo] RUN_ID
+# Usage: provider_pipelines_run_view [repo] RUN_ID [--json FIELDS] [-q JQ]
 provider_pipelines_run_view() {
     local repo=""
     if [ $# -gt 0 ] && [[ "$1" != --* ]] && ! [[ "$1" =~ ^[0-9]+$ ]]; then
         repo="$1"; shift
     fi
     local run_id="$1"; shift
-
-    local op
-    op=$(azure_org_project) || return 1
-    local org project
-    org=$(printf '%s' "$op" | sed -n 1p)
-    project=$(printf '%s' "$op" | sed -n 2p)
-    if [ -n "$repo" ]; then
-        case "$repo" in
-            */*/*) org="${repo%%/*}"; local rest="${repo#*/}"; project="${rest%%/*}" ;;
-            */*) project="${repo%%/*}" ;;
+    local fields="" jq_expr=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --json) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; fields="${2:-}"; shift 2 ;;
+            -q|--jq) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; jq_expr="${2:-}"; shift 2 ;;
+            *) provider_unknown_option "${FUNCNAME[0]}" "$1"; return 1 ;;
         esac
-    fi
+    done
+    azure_build_fields_check "${FUNCNAME[0]}" "$fields" || return 1
+
+    local root
+    root=$(azure_build_root "$repo") || return 1
     local response
-    if ! response=$(azure_http_request GET "https://dev.azure.com/${org}/${project}/_apis/build/builds/${run_id}"); then
+    if ! response=$(azure_http_request GET "${root}/builds/${run_id}"); then
         return 1
     fi
-    printf '%s' "$response" | azure_map_build
+    local mapped
+    mapped=$(printf '%s' "$response" | azure_map_build "$fields") || return 1
+    if [ -n "$jq_expr" ]; then
+        printf '%s' "$mapped" | azure_jq_query "$jq_expr"
+    else
+        printf '%s\n' "$mapped"
+    fi
 }
 
 # Watch a run to completion (polling at the domain layer, matching the seam).
 # Usage: provider_pipelines_run_watch [repo] RUN_ID [--exit-status]
-# Polls to completion. With --exit-status (gh dialect), a completed run
+# Polls to completion. With --exit-status (seam dialect), a completed run
 # whose conclusion is not success exits non-zero — the CI semantic.
 provider_pipelines_run_watch() {
     local repo=""
@@ -250,7 +290,7 @@ provider_pipelines_run_watch() {
     while [ $# -gt 0 ]; do
         case "$1" in
             --exit-status) exit_status=1; shift ;;
-            *) shift ;;
+            *) provider_unknown_option "${FUNCNAME[0]}" "$1"; return 1 ;;
         esac
     done
 
@@ -283,8 +323,8 @@ provider_pipelines_run_watch() {
     return 1
 }
 
-# List workflows (build definitions). Supports --json FIELDS / -q J (gh
-# dialect); every definition is active unless disabled (gh's state field).
+# List workflows (build definitions). Supports --json FIELDS / -q J (seam
+# dialect); every definition is active unless disabled (the seam's state field).
 # Usage: provider_pipelines_workflow_list [repo] [--json F] [-q J]
 provider_pipelines_workflow_list() {
     local repo=""
@@ -294,23 +334,13 @@ provider_pipelines_workflow_list() {
     local json_fields="" jq_expr=""
     while [ $# -gt 0 ]; do
         case "$1" in
-            --json)
-                shift
-                if [[ ${1:-} != --* ]] && [ $# -gt 0 ]; then json_fields="$1"; shift; fi
-                ;;
-            -q|--jq)
-                shift
-                if [[ ${1:-} != --* ]] && [ $# -gt 0 ]; then jq_expr="$1"; shift; fi
-                ;;
-            *) shift ;;
+            --json) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; json_fields="$2"; shift 2 ;;
+            -q|--jq) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; jq_expr="$2"; shift 2 ;;
+            *) provider_unknown_option "${FUNCNAME[0]}" "$1"; return 1 ;;
         esac
     done
-    local op
-    op=$(azure_org_project) || return 1
-    local org project
-    org=$(printf '%s' "$op" | sed -n 1p)
-    project=$(printf '%s' "$op" | sed -n 2p)
-    local api="https://dev.azure.com/${org}/${project}/_apis/build/definitions"
+    local api
+    api="$(azure_build_root "$repo")/definitions" || return 1
     if [ -n "$repo" ]; then
         # The definitions endpoint filters by repository GUID, not name —
         # specs arrive as org/project/repo, project/repo or bare NAME, so
@@ -324,27 +354,24 @@ provider_pipelines_workflow_list() {
         printf '%s' "$response"
         return 1
     fi
-    # One JSON array; state maps from the definition's enabled flag (gh's
+    # One JSON array; state maps from the definition's enabled flag (the seam's
     # active/disabled vocabulary).
     local mapped
     mapped=$(printf '%s' "$response" | jq -c '[.[] | {id: (.id | tostring), name: .name, path: .path, state: (if .enabled == false then "disabled" else "active" end)}]')
-    azure_apply_gh_list_flags "$mapped" "$json_fields" "$jq_expr"
+    azure_apply_list_flags "$mapped" "$json_fields" "$jq_expr"
 }
 
 # Fetch run artifacts metadata.
 # Usage: provider_pipelines_run_artifacts REPO RUN_ID
 provider_pipelines_run_artifacts() {
     local repo="$1" run_id="$2"
-    local op
-    op=$(azure_org_project) || return 1
-    local org project
-    org=$(printf '%s' "$op" | sed -n 1p)
-    project=$(printf '%s' "$op" | sed -n 2p)
+    local root
+    root=$(azure_build_root "$repo") || return 1
     local response
-    if ! response=$(azure_http_request GET "https://dev.azure.com/${org}/${project}/_apis/build/builds/${run_id}/artifacts"); then
+    if ! response=$(azure_http_request GET "${root}/builds/${run_id}/artifacts"); then
         return 1
     fi
-    # size_in_bytes must be a number, not the download URL (gh artifact
+    # size_in_bytes must be a number, not the download URL (the seam's artifact
     # shape); the download link survives under url; created_at carries the
     # artifact's date (the shared table mode splits it on "T").
     printf '%s' "$response" | jq -c '[.value[] | {id: (.id | tostring), name: .name, size_in_bytes: (.resource.properties."file Size" | tonumber? // 0), created_at: (.createdDate // ""), url: .resource.downloadUrl}]'
@@ -366,16 +393,16 @@ provider_pipelines_workflow_run() {
     local -a run_inputs=()
     while [ $# -gt 0 ]; do
         case "$1" in
-            --ref) ref="$2"; shift 2 ;;
+            --ref) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; ref="$2"; shift 2 ;;
             # pipelines-run sends dispatch inputs as --field k=v; azure
             # queues take parameters{} — collected here, applied below.
-            --field|-f|-F) run_inputs+=("$2"); shift 2 ;;
-            *) shift ;;
+            --field|-f|-F) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; run_inputs+=("$2"); shift 2 ;;
+            *) provider_unknown_option "${FUNCNAME[0]}" "$1"; return 1 ;;
         esac
     done
     [ -n "$workflow" ] || { log_error "provider_pipelines_workflow_run requires a workflow (definition id or name)"; return 1; }
 
-    # gh's default is the repo's default branch — resolve it instead of
+    # The default is the repo's default branch — resolve it instead of
     # guessing a ref name (a main-default fork would queue on a
     # nonexistent branch).
     if [ -z "$ref" ]; then
@@ -385,11 +412,8 @@ provider_pipelines_workflow_run() {
         }
     fi
 
-    local op
-    op=$(azure_org_project) || return 1
-    local org project
-    org=$(printf '%s' "$op" | sed -n 1p)
-    project=$(printf '%s' "$op" | sed -n 2p)
+    local root
+    root=$(azure_build_root "$repo") || return 1
 
     local body
     # Dispatch inputs (--field k=v) become the queue's parameters. The REST
@@ -407,13 +431,14 @@ provider_pipelines_workflow_run() {
     body=$(jq -n --arg workflow_id "$workflow" --arg ref "refs/heads/${ref}" --argjson params "$params_json" \
         '{definition: {id: ($workflow_id | tonumber? // null), name: (if ($workflow_id | tonumber?) != null then null else $workflow_id end)}, sourceBranch: $ref} + (if ($params | length) > 0 then {parameters: ($params | tostring)} else {} end)')
     local response
-    if ! response=$(azure_http_request POST "https://dev.azure.com/${org}/${project}/_apis/build/builds" "$body"); then
+    if ! response=$(azure_http_request POST "${root}/builds" "$body"); then
         return 1
     fi
     printf '%s' "$response" | jq -r '.id'
 }
 
-# Rerun a workflow run.
+# Rerun a run: Azure retries the build in place with PATCH ?retry=true (a POST
+# to the build's own URL is not a retry).
 # Usage: provider_pipelines_run_rerun [repo] RUN_ID
 provider_pipelines_run_rerun() {
     local repo=""
@@ -421,26 +446,22 @@ provider_pipelines_run_rerun() {
         repo="$1"; shift
     fi
     local run_id="$1"; shift
+    # Azure retries the whole build in place; there is no failed-jobs-only or debug rerun.
+    [ $# -eq 0 ] || { provider_unknown_option "${FUNCNAME[0]}" "$1"; return 1; }
 
-    local op
-    op=$(azure_org_project) || return 1
-    local org project
-    org=$(printf '%s' "$op" | sed -n 1p)
-    project=$(printf '%s' "$op" | sed -n 2p)
-    azure_http_request POST "https://dev.azure.com/${org}/${project}/_apis/build/builds/${run_id}" >/dev/null
+    local root
+    root=$(azure_build_root "$repo") || return 1
+    azure_http_request PATCH "${root}/builds/${run_id}?retry=true" '{}' >/dev/null
 }
 
 # Cancel a run.
 # Usage: provider_pipelines_run_cancel REPO RUN_ID
 provider_pipelines_run_cancel() {
     local repo="$1" run_id="$2"
-    local op
-    op=$(azure_org_project) || return 1
-    local org project
-    org=$(printf '%s' "$op" | sed -n 1p)
-    project=$(printf '%s' "$op" | sed -n 2p)
+    local root
+    root=$(azure_build_root "$repo") || return 1
     local patch_body='{"status":"cancelling"}'
-    azure_http_request PATCH "https://dev.azure.com/${org}/${project}/_apis/build/builds/${run_id}" "$patch_body" >/dev/null
+    azure_http_request PATCH "${root}/builds/${run_id}" "$patch_body" >/dev/null
 }
 
 # Download run artifacts. Azure serves artifacts as zip downloads; this verb
@@ -453,61 +474,46 @@ provider_pipelines_run_download() {
     fi
     local run_id="$1"; shift
 
-    # gh-dialect flags: -n NAME downloads only that artifact; -D DIR is the
+    # seam-dialect flags: -n NAME downloads only that artifact; -D DIR is the
     # destination directory (created when missing). Defaults: all artifacts
     # to the current directory.
     local only_name="" dest_dir="."
     while [ $# -gt 0 ]; do
         case "$1" in
-            -n) only_name="$2"; shift 2 ;;
-            -D) dest_dir="$2"; shift 2 ;;
-            *) shift ;;
+            -n) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; only_name="$2"; shift 2 ;;
+            -D) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; dest_dir="$2"; shift 2 ;;
+            *) provider_unknown_option "${FUNCNAME[0]}" "$1"; return 1 ;;
         esac
     done
     [ -d "$dest_dir" ] || mkdir -p "$dest_dir" || return 1
 
-    local op
-    op=$(azure_org_project) || return 1
-    local org project
-    org=$(printf '%s' "$op" | sed -n 1p)
-    project=$(printf '%s' "$op" | sed -n 2p)
+    local root
+    root=$(azure_build_root "$repo") || return 1
     local response
-    if ! response=$(azure_http_request GET "https://dev.azure.com/${org}/${project}/_apis/build/builds/${run_id}/artifacts"); then
+    if ! response=$(azure_http_request GET "${root}/builds/${run_id}/artifacts"); then
         return 1
     fi
-    local name url
+    local name url downloaded=0
     while IFS=$'\t' read -r name url; do
         [ -n "$name" ] || continue
-        # -n restricts the download to the named artifact (gh dialect).
+        # -n restricts the download to the named artifact (seam dialect).
         [ -n "$only_name" ] && [ "$name" != "$only_name" ] && continue
-        # Artifact download goes through the same authenticated transport
-        # contract as every other call (Authorization header; the PAT never
-        # rides curl argv) — binary body, so the JSON transport is bypassed
-        # but the auth + api-version rules are identical.
-        if ! curl -sS -H "$(printf 'Authorization: Basic %s' "$(printf ':%s' "${AZURE_PAT}" | base64 | tr -d '\r\n')")" \
-            -o "${dest_dir}/${name}.zip" "${url}?api-version=7.1"; then
+        # The zip is a binary body: the transport's download helper applies the
+        # same authentication (credential off argv) and api-version rules and
+        # checks the status.
+        if ! azure_http_download "$url" "${dest_dir}/${name}.zip" >/dev/null; then
             log_error "failed downloading artifact $name"
             return 1
         fi
+        downloaded=$((downloaded + 1))
     done < <(printf '%s' "$response" | jq -r '.value[] | [.name, .resource.downloadUrl] | @tsv')
-}
-
-# Wait until no runs are queued/in_progress on a branch (GH polling
-# semantics; azure statuses map to the same vocabulary).
-# Usage: provider_pipelines_wait_for_branch REPO BRANCH [TIMEOUT_POLLS]
-provider_pipelines_wait_for_branch() {
-    local repo="${1:?repo required}" branch="${2:?branch required}" max_polls="${3:-30}"
-    local poll active
-    for ((poll = 1; poll <= max_polls; poll++)); do
-        # run_list emits one JSON array; select over it directly.
-        active=$(provider_pipelines_run_list "$repo" --branch "$branch" --limit 10 2>/dev/null \
-            | jq '[.[] | select(.status == "queued" or .status == "in_progress")] | length') || {
-            log_error "provider_pipelines_wait_for_branch: could not query runs for $repo@$branch"
-            return 1
-        }
-        [ "${active:-0}" -eq 0 ] && return 0
-        sleep 2
-    done
-    log_error "provider_pipelines_wait_for_branch: $repo@$branch did not settle within $max_polls polls"
-    return 1
+    # Like gh, a run with nothing to download (or no artifact of the requested name) fails.
+    if [ "$downloaded" -eq 0 ]; then
+        if [ -n "$only_name" ]; then
+            log_error "run_download: run $run_id has no artifact named '$only_name'"
+        else
+            log_error "run_download: run $run_id has no artifacts"
+        fi
+        return 1
+    fi
 }

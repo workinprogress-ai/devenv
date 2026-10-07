@@ -9,8 +9,8 @@
 #     never changes. There is no registry.
 #   - Detection is config-driven: the `[provider] name` key in devenv.config
 #     (default: github).
-#   - Auth seam: all credential handling goes through provider_auth_env /
-#     provider_secret_get. Domain modules and scripts never read GH_TOKEN
+#   - Auth seam: all credential handling goes through provider_secret_get and the
+#     provider_auth_* lifecycle verbs. Domain modules and scripts never read GH_TOKEN
 #     directly, so the credential backing store swaps in behind these
 #     functions without touching callers.
 #   - Token resolution order: env-if-allowlisted → provider credential
@@ -66,10 +66,6 @@ export PROVIDER_NAME
 PROVIDER_TOKEN_ENV_ALLOWLIST="${PROVIDER_TOKEN_ENV_ALLOWLIST:-}"
 export PROVIDER_TOKEN_ENV_ALLOWLIST
 
-# Token source kinds, in resolution order.
-PROVIDER_TOKEN_ENV="env"
-PROVIDER_TOKEN_KEYCHAIN="keychain"
-
 # Resolve the active provider from devenv.config [provider] name, defaulting
 # to github. Sets PROVIDER_NAME (exported) so domain modules can be sourced
 # from "${DEVENV_TOOLS}/lib/providers/${PROVIDER_NAME}/".
@@ -87,11 +83,22 @@ if ! declare -F policy_default_provider >/dev/null; then
     if [ -n "$_policy_dir" ] && [ -f "$_policy_dir/policy-core.bash" ]; then
         # shellcheck disable=SC1090,SC1091
         source "$_policy_dir/policy-core.bash"
-        policy_core_init "${DEVENV_ROOT:-}/devenv.config" 2>/dev/null || true
+        # no argument when DEVENV_ROOT is unset: the policy core then uses this
+        # checkout's own devenv.config (an empty root would name /devenv.config)
+        policy_core_init ${DEVENV_ROOT:+"$DEVENV_ROOT/devenv.config"} 2>/dev/null || true
         # shellcheck disable=SC1090,SC1091
         source "$_policy_dir/identity-policy.bash"
     fi
 fi
+
+# The one INI reader (lib/config-reader.bash, beside this lib's parent directory).
+# Anchored on this file's own location, so it loads whatever DEVENV_TOOLS says.
+_provider_config_reader() {
+    declare -F config_get_raw >/dev/null && return 0
+    # shellcheck disable=SC1091
+    source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/config-reader.bash"
+}
+
 
 provider_detect() {
     local config_file="${1:-}"
@@ -102,25 +109,8 @@ provider_detect() {
 
     local name=""
     if [ -f "$config_file" ]; then
-        # Prefer config-reader when it is actually loadable; otherwise use the
-        # minimal INI fallback. Availability is decided by loadability (guarded
-        # source), not by an exported flag, so the fallback engages correctly
-        # in stripped environments.
-        name=""
-        if [ -f "${DEVENV_TOOLS:-}/lib/config-reader.bash" ]; then
-            # shellcheck disable=SC1091
-            source "${DEVENV_TOOLS}/lib/config-reader.bash"
-            config_init "$config_file" && name=$(config_read_value "provider" "name" "" 2>/dev/null)
-        fi
-        if [ -z "$name" ]; then
-            # Minimal INI read: value in the [provider] section. Tolerates
-            # comments, blank lines, and padded keys/values; first match wins.
-            name=$(awk -F= '
-                /^\[provider\]$/ { in_provider = 1; next }
-                /^\[/ { in_provider = 0; next }
-                in_provider && $1 ~ /^[ \t]*name[ \t]*$/ { v=$2; gsub(/^[ \t]+|[ \t]+$/, "", v); print v; exit }
-            ' "$config_file")
-        fi
+        _provider_config_reader
+        name=$(config_get_raw "$config_file" "provider" "name" "")
     fi
 
     if [ -z "$name" ]; then
@@ -156,21 +146,8 @@ provider_detect() {
     # is authoritative.
     if [ -f "$config_file" ]; then
         local allow=""
-        if [ -f "${DEVENV_TOOLS:-}/lib/config-reader.bash" ]; then
-            # shellcheck disable=SC1091
-            source "${DEVENV_TOOLS}/lib/config-reader.bash"
-            if config_init "$config_file"; then
-                allow=$(config_read_value "provider" "token_env_allowlist" "" 2>/dev/null)
-            fi
-        fi
-        if [ -z "$allow" ]; then
-            # Same minimal INI fallback as the name key above.
-            allow=$(awk -F= '
-                /^\[provider\]$/ { in_provider = 1; next }
-                /^\[/ { in_provider = 0; next }
-                in_provider && $1 ~ /^[ \t]*token_env_allowlist[ \t]*$/ { v=$2; gsub(/^[ \t]+|[ \t]+$/, "", v); print v; exit }
-            ' "$config_file")
-        fi
+        _provider_config_reader
+        allow=$(config_get_raw "$config_file" "provider" "token_env_allowlist" "")
         PROVIDER_TOKEN_ENV_ALLOWLIST="$allow"
     fi
     export PROVIDER_TOKEN_ENV_ALLOWLIST
@@ -211,16 +188,14 @@ provider_module_dir() {
 #   provider_load                          # core only (detect + no modules)
 #
 # Returns:
-#   0 when detection ran (or was already done); 1 when detection fails.
+#   0 when detection ran (or was already done); 1 when detection fails, with the
+#   reason on stderr and the provider name left empty.
 provider_load() {
     if [ -z "$PROVIDER_NAME" ]; then
-        provider_detect "${DEVENV_ROOT:-}/devenv.config" 2>/dev/null
-        if [ -z "$PROVIDER_NAME" ]; then
-            # Policy-layer default with historical fallback for stripped
-            # bootstrapping environments.
-            PROVIDER_NAME="$(policy_default_provider 2>/dev/null || echo github)"
-            export PROVIDER_NAME
-        fi
+        # Detection reports its own failure (an unshipped [provider] name, with the
+        # names that are shipped); it is not silenced, and there is no fallback to
+        # another provider: a typo must stop here, not become a call-time 127.
+        provider_detect "${DEVENV_ROOT:-}/devenv.config" || return 1
     fi
     if [ -z "${_PROVIDER_CORE_MODULE_DIR:-}" ]; then
         _PROVIDER_CORE_MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -239,23 +214,51 @@ provider_load() {
     return 0
 }
 
-# Dispatch guard for a domain verb: verifies the active provider implements
-# provider_<domain>_<verb>. Domain code calls this before first use of an
-# optional verb, or relies on the module defining all inventory verbs.
+# A provider verb the active provider does not define is a defined error, never
+# bash's bare 127: under `set -e` a missing verb would otherwise end the script
+# with "command not found" and no hint that the provider lacks it. Bash calls this
+# for any command it cannot find; provider_* names get the provider-aware message
+# and status 1, everything else keeps the standard failure.
+command_not_found_handle() {
+    case "$1" in
+        provider_*)
+            if declare -F log_error >/dev/null; then
+                log_error "provider '${PROVIDER_NAME:-unset}' does not implement ${1#provider_} ($1 is not defined)"
+            else
+                echo "ERROR: provider '${PROVIDER_NAME:-unset}' does not implement ${1#provider_} ($1 is not defined)" >&2
+            fi
+            return 1
+            ;;
+        *)
+            printf '%s: command not found\n' "$1" >&2
+            return 127
+            ;;
+    esac
+}
+
+# Run a provider's bootstrap hook. The main bootstrap and `setup` call hooks and
+# never branch on the provider name: each provider's bootstrap.bash (container
+# side) and setup.bash (host side) define the hooks it implements; a hook the
+# provider does not define is a no-op success. See the "Bootstrap and setup hooks"
+# section of providers/README.md for the hook list and their contracts.
 #
 # Usage:
-#   provider_dispatch issues list || return 1
+#   provider_bootstrap_call HOOK [ARGS...]    # runs provider_bootstrap_<HOOK> ARGS...
 #
 # Returns:
-#   0 if the function provider_<domain>_<verb> exists; 1 otherwise (logged).
-provider_dispatch() {
-    local domain="$1"
-    local verb="$2"
-    if ! declare -F "provider_${domain}_${verb}" >/dev/null; then
-        log_error "provider '${PROVIDER_NAME}' does not implement ${domain} ${verb} (provider_${domain}_${verb} is not defined)"
+#   the hook's status; 0 when the provider defines no such hook; 1 without a name.
+provider_bootstrap_call() {
+    local hook="${1:-}"
+    if [ -z "$hook" ]; then
+        log_error "provider_bootstrap_call requires a hook name"
         return 1
     fi
-    return 0
+    shift
+    if declare -F "provider_bootstrap_${hook}" >/dev/null; then
+        "provider_bootstrap_${hook}" "$@"
+    else
+        return 0
+    fi
 }
 
 # ============================================================================
@@ -294,65 +297,8 @@ _provider_keychain_available() {
     provider_auth_token_impl >/dev/null 2>&1
 }
 
-# Resolve the token source kind in order: env-if-allowlisted → keychain →
-# failure. Prints the kind; returns 1 when no source is available.
-provider_token_kind() {
-    if [ -n "${GH_TOKEN:-}" ]; then
-        if provider_token_env_allowed "$GH_TOKEN"; then
-            printf '%s\n' "$PROVIDER_TOKEN_ENV"
-            return 0
-        fi
-        provider_token_env_denied_warning
-    fi
-    if _provider_keychain_available; then
-        printf '%s\n' "$PROVIDER_TOKEN_KEYCHAIN"
-        return 0
-    fi
-    return 1
-}
-
-# Emit the environment assignments domain modules need for auth, without
-# exposing the token value. Resolution order: env-if-allowlisted → provider
-# credential store → error. The keychain branch emits no token export —
-# the provider CLI resolves natively from its own credential store.
-#
-# Usage:
-#   eval "$(provider_auth_env)"   # or inspect PROVIDER_AUTH_KIND
-#
-# Returns:
-#   Prints export lines; returns 1 if no credential source is available.
-provider_auth_env() {
-    local kind
-    kind=$(provider_token_kind) || {
-        log_error "no credential source available (GH_TOKEN not allowlisted and the ${PROVIDER_NAME:-active} provider credential store has no token) — provider auth seam cannot resolve"
-        return 1
-    }
-    case "$kind" in
-        "$PROVIDER_TOKEN_ENV")
-            # PROVIDER_AUTH_KIND is exported via the emitted script (not set
-            # directly) because the emitted output may be captured through
-            # command substitution, which runs the function in a subshell
-            # where direct assignments would be lost.
-            printf 'export GH_TOKEN=%q\n' "$GH_TOKEN"
-            printf 'export PROVIDER_AUTH_KIND=%q\n' "$PROVIDER_TOKEN_ENV"
-            return 0
-            ;;
-        "$PROVIDER_TOKEN_KEYCHAIN")
-            # No token export: the provider CLI resolves natively from its
-            # own credential store.
-            # Emit `unset GH_TOKEN` so a leftover (ignored) env token cannot
-            # outrank the credential store in child provider-CLI processes.
-            printf 'unset GH_TOKEN\n'
-            printf 'export PROVIDER_AUTH_KIND=%q\n' "$PROVIDER_TOKEN_KEYCHAIN"
-            return 0
-            ;;
-    esac
-    log_error "unknown token kind '$kind' resolved by the auth seam"
-    return 1
-}
-
 # Read a named secret through the seam. Scope: single secret kind today
-# ("token"); resolution follows the same order as provider_auth_env.
+# ("token"); resolution is env-if-allowlisted, then the provider credential store.
 #
 # Usage:
 #   token=$(provider_secret_get token) || exit
@@ -432,6 +378,51 @@ provider_has_capability() {
     [[ " $PROVIDER_CAPABILITIES " == *" $cap "* ]]
 }
 
+# An option no verb accepts is an error, never a silent drop: ignoring it would
+# return a result the caller did not ask for (a filter that does nothing, a flag
+# that never reached the host). Used by every verb's option loop.
+# Usage: provider_unknown_option VERB OPTION   (returns 1)
+provider_unknown_option() {
+    if declare -F log_error >/dev/null; then
+        log_error "${1:-provider}: unknown or unsupported option '${2:-}' — see tools/lib/providers/CONTRACT.md"
+    else
+        echo "ERROR: ${1:-provider}: unknown or unsupported option '${2:-}' — see tools/lib/providers/CONTRACT.md" >&2
+    fi
+    return 1
+}
+
+# Fail a value-taking option that was given no value ("--state" as the last
+# argument). Without this check, `shift 2` with one argument left shifts nothing
+# and an option loop never ends (or aborts on an unbound variable under set -u).
+# Usage: provider_need_value VERB OPTION ARGC   (ARGC is "$#" at the option; returns 1)
+provider_need_value() {
+    if [ "${3:-0}" -ge 2 ]; then
+        return 0
+    fi
+    if declare -F log_error >/dev/null; then
+        log_error "${1:-provider}: option '${2:-}' requires a value — see tools/lib/providers/CONTRACT.md"
+    else
+        echo "ERROR: ${1:-provider}: option '${2:-}' requires a value — see tools/lib/providers/CONTRACT.md" >&2
+    fi
+    return 1
+}
+
+
+# Fail a limit that is not a positive integer: "--limit abc" must be an error, never
+# a silent empty result.
+# Usage: provider_need_count VERB OPTION VALUE   (returns 1)
+provider_need_count() {
+    if [[ "${3:-}" =~ ^[1-9][0-9]*$ ]]; then
+        return 0
+    fi
+    if declare -F log_error >/dev/null; then
+        log_error "${1:-provider}: option '${2:-}' needs a positive number, got '${3:-}' — see tools/lib/providers/CONTRACT.md"
+    else
+        echo "ERROR: ${1:-provider}: option '${2:-}' needs a positive number, got '${3:-}' — see tools/lib/providers/CONTRACT.md" >&2
+    fi
+    return 1
+}
+
 # Defined degradation gate (AC-3): fail with the canonical
 # "provider does not support this" error when the capability is absent.
 # Returns non-zero; the caller (script) decides whether to exit.
@@ -466,7 +457,7 @@ provider_auth_import_token() {
         log_error "provider_auth_import_token: provider_detect has not run"
         return 1
     fi
-    # Guard on the _impl function, not this wrapper: provider_dispatch auth
+    # Guard on the _impl function, not this wrapper: a dispatch on auth
     # import_token would find this very function and always pass, so a
     # provider missing its auth module would crash on the missing impl
     # instead of failing with the defined error.
@@ -549,25 +540,10 @@ _provider_identity_raw_read() {
     local key="$2"
     local config_file="${PROVIDER_IDENTITY_CONFIG:-${DEVENV_ROOT:-}/devenv.config}"
     [ -f "$config_file" ] || return 1
-    local value=""
-    if [ -f "${DEVENV_TOOLS:-}/lib/config-reader.bash" ]; then
-        # shellcheck disable=SC1091
-        source "${DEVENV_TOOLS}/lib/config-reader.bash"
-        if config_init "$config_file" 2>/dev/null; then
-            # Raw read: config_read_value would interpolate ${GH_ORG}/
-            # ${GH_USER} templates, re-entering this accessor.
-            value=$(config_read_value_raw "$section" "$key" "")
-            printf '%s\n' "$value"
-            return 0
-        fi
-    fi
-    # Minimal INI fallback: same shape as provider_detect's name read.
-    awk -F= -v section="$section" -v key="$key" '
-        $0 ~ "^\\[" section "\\]" { in_section=1; next }
-        /^\[/ { in_section=0; next }
-        in_section && $1 ~ "^[ \\t]*" key "[ \\t]*$" { v=$2; gsub(/^[ \\t]+|[ \\t]+$/, "", v); print v; exit }
-    ' "$config_file"
-    return 0
+    _provider_config_reader
+    # Raw read: an expanding read would interpolate ${PROVIDER_ORG}/${PROVIDER_USER}
+    # templates, re-entering the accessor that calls this.
+    config_get_raw "$config_file" "$section" "$key" ""
 }
 
 # Resolve org identity: config [organization] org → seed file

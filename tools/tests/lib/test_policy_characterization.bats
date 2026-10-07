@@ -47,7 +47,7 @@ load ../test_helper
     [ "$output" = "Epic" ]
 }
 
-@test "policy: normalize_issue_type rejects legacy story alias (dropped)" {
+@test "policy: normalize_issue_type rejects the story alias" {
     source "$PROJECT_ROOT/tools/lib/issue-operations.bash"
     run normalize_issue_type "story"
     [ "$status" -eq 1 ]

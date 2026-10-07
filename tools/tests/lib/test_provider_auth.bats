@@ -98,6 +98,52 @@ setup() {
     [ "$output" = "tok123" ]
 }
 
+# gh prefers GH_TOKEN over its keychain, so the impls must strip the env tokens: an
+# env token that is not on the allowlist must never come back as "the keychain token".
+gh_env_aware_stub() {
+    mkdir -p "$TEST_TEMP_DIR/envbin"
+    cat > "$TEST_TEMP_DIR/envbin/gh" <<'STUB'
+#!/usr/bin/env bash
+case "$*" in
+  "auth token"|"auth status")
+    if [ -n "${GH_TOKEN:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
+        [ "$*" = "auth token" ] && echo "${GH_TOKEN:-$GITHUB_TOKEN}"; exit 0
+    fi
+    if [ -n "${KEYCHAIN_TOKEN:-}" ]; then
+        [ "$*" = "auth token" ] && echo "$KEYCHAIN_TOKEN"; exit 0
+    fi
+    exit 1 ;;
+esac
+exit 0
+STUB
+    chmod +x "$TEST_TEMP_DIR/envbin/gh"
+    export PATH="$TEST_TEMP_DIR/envbin:$PATH"
+}
+
+@test "auth module: the token impl returns the keychain token even when GH_TOKEN is set" {
+    gh_env_aware_stub
+    GH_TOKEN=env-token KEYCHAIN_TOKEN=keychain-token run provider_auth_token_impl
+    assert_success
+    [ "$output" = "keychain-token" ]
+}
+
+@test "auth module: an env GH_TOKEN alone is not a credential-store token" {
+    gh_env_aware_stub
+    GH_TOKEN=env-token run provider_auth_token_impl
+    assert_failure
+    [[ "$output" != *"env-token"* ]]
+    GITHUB_TOKEN=env-token run provider_auth_token_impl
+    assert_failure
+}
+
+@test "auth module: status impl does not treat an env GH_TOKEN as authenticated" {
+    gh_env_aware_stub
+    GH_TOKEN=env-token run provider_auth_status_impl
+    assert_failure
+    KEYCHAIN_TOKEN=keychain-token run provider_auth_status_impl
+    assert_success
+}
+
 @test "core: token kind delegates keychain probe to the provider impl" {
     # With the github auth module loaded, the keychain leg is available.
     # shellcheck disable=SC1091

@@ -1,6 +1,6 @@
 ---
 name: devenv-document
-description: 'Bootstrap or refresh a repo''s documentation family — the docs/Architecture_and_implementation.md + Usage_guide.md pair and the thin AGENTS.md dispatcher — so AI sessions and humans can find and load the repo''s context by convention. USE WHEN the user says "document this repo", "bootstrap docs for", "create the docs family", "add an AGENTS.md", "refresh the docs", "write up how this works", or hands off a new or underdocumented repo that needs its docs brought into the fold. Also handles the heavier case: documenting a legacy or underdocumented system where a real investigation (multi-session, open-questions log) is warranted. Default shape follows the workspace docs-family convention; every output is draft-first (outline approved before any file is written). DO NOT USE FOR read-only session warm-up (use /devenv-load), conversational Q&A with no written output (use /devenv-chat), planning a larger docs overhaul as execution work (use /devenv-plan), architectural decomposition (use /devenv-create-blueprint), or specs authoring (use /devenv-write-specifications).'
+description: 'Bootstrap or refresh a repo''s documentation family — the docs/Architecture_and_implementation.md + Usage_guide.md pair and the thin AGENTS.md dispatcher — so AI sessions and humans can find and load the repo''s context by convention. USE WHEN the user says "document this repo", "bootstrap docs for", "create the docs family", "add an AGENTS.md", "refresh the docs", "write up how this works", or hands off a new or underdocumented repo that needs its docs brought into the fold. Also handles the heavier case: documenting an undocumented or poorly documented system where a real investigation (multi-session, open-questions log) is warranted. Default shape follows the workspace docs-family convention; every output is draft-first (outline approved before any file is written). DO NOT USE FOR read-only session warm-up (use /devenv-load), conversational Q&A with no written output (use /devenv-chat), planning a larger docs overhaul as execution work (use /devenv-plan), architectural decomposition (use /devenv-create-blueprint), or specs authoring (use /devenv-write-specifications).'
 argument-hint: '[repo path | component name | "what to document"]'
 user-invocable: true
 ---
@@ -24,7 +24,7 @@ Trigger phrases:
 - "add an AGENTS.md" — the thin AI/human dispatcher file at repo root
 - "write up how this works"
 - A new or underdocumented repo needs its documentation brought into the fold
-- A legacy system needs a real investigation (docs absent or badly stale — the multi-session machinery below)
+- An undocumented or poorly documented system needs a real investigation (docs absent or badly stale — the multi-session machinery below)
 
 Do **not** use for:
 
@@ -45,7 +45,7 @@ Do **not** use for:
 6. **Cross-component relationships are first-class.** Multi-repo scope means mapping data flow, contracts, and coupling — not per-component summaries.
 7. **Match the exemplars.** When unsure about shape or depth, read an existing family member (e.g. `repos/<exemplar-repo>/docs/`) and match its register: fact-dense, cited, no prose padding.
 
-The heavier legacy-system case (docs absent/stale and the system genuinely needs a multi-session investigation) keeps the full machinery below — session plans, Q-NNN open-questions log, depth gates. The common bootstrap/refresh case runs the same phases in compressed form: Phase 0 shrinks to confirming scope + family assessment, Phase 1 is the discovery sweep, Phases 4–5 are the draft-first write.
+The heavier undocumented-system case (docs absent/stale and the system genuinely needs a multi-session investigation) keeps the full machinery below — session plans, Q-NNN open-questions log, depth gates. The common bootstrap/refresh case runs the same phases in compressed form: Phase 0 shrinks to confirming scope + family assessment, Phase 1 is the discovery sweep, Phases 4–5 are the draft-first write.
 
 ## Personality
 
@@ -85,9 +85,9 @@ Every Q-NNN must reach `resolved` or `deferred` before writing the final output.
 
 - **Bootstrap** (no docs family, or an `AGENTS.md`-only gap) → default shape applies: the family pair per Core Principle 1, plus the thin `AGENTS.md` dispatcher per Principle 2. Interview shrinks to three confirmations: scope (whole repo or a component), any known stale areas, and whether the repo already has partial docs to preserve. Present the skeleton (Phase 4) early — bootstrap usually needs no code reading beyond surface orientation.
 - **Refresh** (family exists but drifted from the code) → discovery sweep first, present the drift list (sections stale/missing/contradicted), get the fix list approved, then write in place per the update rules.
-- **Legacy investigation** (docs absent AND the system is genuinely complex, or the user asks for a deep write-up) → full interview below, session plan, Q-NNN machinery, multi-session if needed.
+- **System investigation** (docs absent AND the system is genuinely complex, or the user asks for a deep write-up) → full interview below, session plan, Q-NNN machinery, multi-session if needed.
 
-For legacy runs, interview the user (one conversational exchange, not a numbered interrogation):
+For investigation runs, interview the user (one conversational exchange, not a numbered interrogation):
 
 1. **What is the subject?** One component, related components, an entire service, or a cross-cutting concern?
 2. **Who will read this?** Developers? AI agents? Operations? Stakeholders? (Language and depth.)

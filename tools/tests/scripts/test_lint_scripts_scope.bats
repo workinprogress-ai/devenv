@@ -56,3 +56,30 @@ run_lint() {
     [[ "$output" != *"readonly variable"* ]]
     [[ "$output" != *$'\033['* ]]
 }
+
+# Extensionless scripts (tools/scripts/git-*, the root setup) carry a shell shebang
+# instead of a .sh suffix; those are shellchecked too, and a file with no shell
+# shebang is not.
+@test "lint-scripts shellchecks an extensionless script that has a shell shebang" {
+    printf '#!/bin/bash\ncd /nonexistent-dir\necho done\n' > "$ROOT/tools/git-thing"
+    run run_lint
+    [[ "$output" == *"tools/git-thing"* ]]
+    [ "$status" -ne 0 ]
+}
+
+@test "an extensionless script with an env-style shell shebang is shellchecked" {
+    printf '#!/usr/bin/env bash\ncd /nonexistent-dir\n' > "$ROOT/setup"
+    run run_lint
+    [[ "$output" == *"setup"* ]]
+    [ "$status" -ne 0 ]
+}
+
+@test "an extensionless file without a shell shebang is left alone" {
+    printf 'just some notes\ncd /nonexistent-dir\n' > "$ROOT/tools/NOTES"
+    printf '#!/usr/bin/env python3\nprint(1)\n' > "$ROOT/tools/pytool"
+    printf '#!/bin/bash\necho fine\n' > "$ROOT/repos/top-level.sh"
+    run run_lint
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"tools/NOTES"* ]]
+    [[ "$output" != *"tools/pytool"* ]]
+}

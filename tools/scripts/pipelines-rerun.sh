@@ -72,14 +72,14 @@ EOF
 }
 
 rerun_workflow() {
+    # The repository goes to the verb as its own argument; it adds -R itself.
     local gh_args=()
-    gh_args+=(-R "$REPO")
     [ "$FAILED_ONLY" -eq 1 ] && gh_args+=(--failed)
     [ "$DEBUG_MODE" -eq 1 ]  && gh_args+=(-d)
 
     log_verbose "Re-running run $RUN_ID in $REPO (failed-only=$FAILED_ONLY debug=$DEBUG_MODE)"
 
-    if ! provider_pipelines_run_rerun "$REPO" "$RUN_ID" "${gh_args[@]}"; then
+    if ! provider_pipelines_run_rerun "$REPO" "$RUN_ID" ${gh_args[@]+"${gh_args[@]}"}; then
         log_error "Failed to re-run workflow run: $RUN_ID"
         exit "$EXIT_API_FAILURE"
     fi
@@ -120,6 +120,7 @@ main() {
                 shift
                 ;;
             --repo)
+                require_option_value "$1" "${2:-}"
                 REPO="$2"; shift 2 ;;
             --failed)
                 FAILED_ONLY=1; shift ;;

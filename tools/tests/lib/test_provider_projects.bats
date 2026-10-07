@@ -111,23 +111,50 @@ setup() {
 # Happy paths (GitHub provider with capabilities declared)
 # ============================================================================
 
-@test "projects list: repo passed positionally (gh 2.95 dropped -R here)" {
-    run provider_projects_list org/repo
+# gh project commands are owner-scoped: they take --owner and no repository
+# positional ("accepts at most 1 arg"), so the seam's repo argument is accepted and
+# never reaches gh.
+
+@test "projects list: a repo argument is accepted but not passed to gh" {
+    run provider_projects_list org/repo --owner org
     assert_success
-    grep -q "^gh project list org/repo$" "$STUB_CALL_LOG"
-    ! grep -q "gh project list -R" "$STUB_CALL_LOG"
+    grep -q "^gh project list --owner org$" "$STUB_CALL_LOG"
 }
 
-@test "projects item-add: project number, repo, and item url wired" {
-    run provider_projects_item_add org/repo 12 https://github.com/org/repo/issues/99
+@test "projects list: flags only" {
+    run provider_projects_list --owner org
     assert_success
-    grep -q "^gh project item-add 12 org/repo --url https://github.com/org/repo/issues/99$" "$STUB_CALL_LOG"
+    grep -q "^gh project list --owner org$" "$STUB_CALL_LOG"
 }
 
-@test "projects field-list: project number and repo wired" {
-    run provider_projects_field_list org/repo 12
+@test "projects item-add: project number and item url wired; the repo argument is not a gh positional" {
+    run provider_projects_item_add org/repo 12 https://github.com/org/repo/issues/99 --owner org
     assert_success
-    grep -q "^gh project field-list 12 org/repo$" "$STUB_CALL_LOG"
+    grep -q "^gh project item-add 12 --url https://github.com/org/repo/issues/99 --owner org$" "$STUB_CALL_LOG"
+}
+
+@test "projects item-add: an empty repo argument (the callers' form) behaves the same" {
+    run provider_projects_item_add "" 12 https://github.com/org/repo/issues/99 --owner org
+    assert_success
+    grep -q "^gh project item-add 12 --url https://github.com/org/repo/issues/99 --owner org$" "$STUB_CALL_LOG"
+}
+
+@test "projects field-list: project number wired; the repo argument is not a gh positional" {
+    run provider_projects_field_list org/repo 12 --owner org
+    assert_success
+    grep -q "^gh project field-list 12 --owner org$" "$STUB_CALL_LOG"
+}
+
+@test "projects field-list: a bare project number followed by flags is the number, not a repository" {
+    run provider_projects_field_list 12 --owner org
+    assert_success
+    grep -q "^gh project field-list 12 --owner org$" "$STUB_CALL_LOG"
+}
+
+@test "projects item-add: a bare project number first is the number, not a repository" {
+    run provider_projects_item_add 12 https://github.com/org/repo/issues/99 --owner org
+    assert_success
+    grep -q "^gh project item-add 12 --url https://github.com/org/repo/issues/99 --owner org$" "$STUB_CALL_LOG"
 }
 
 @test "rulesets list: paginated REST endpoint with capability present" {
@@ -150,10 +177,12 @@ setup() {
     grep -q "POST" "$STUB_GH_MUTATIONS"
 }
 
-@test "org issue types: GraphQL query issued with org interpolated" {
-    run provider_org_issue_types myorg
+@test "org issue types: GraphQL query issued with the org as a variable" {
+    printf '{"data":{"organization":{"issueTypes":{"edges":[],"pageInfo":{"hasNextPage":false}}}}}' > "$TEST_TEMP_DIR/types.json"
+    STUB_GH_API_RESPONSE="$TEST_TEMP_DIR/types.json" run provider_org_issue_types myorg
     assert_success
     grep -q "gh api graphql" "$STUB_CALL_LOG"
+    grep -q -- "-f o=myorg" "$STUB_CALL_LOG"
 }
 
 @test "releases list: -R form, ungated (portable domain)" {
@@ -241,7 +270,8 @@ EOF
 }
 
 @test "projects for_issue: graphql issued with issue url" {
-    run provider_projects_for_issue "https://github.com/myorg/r/issues/1" myorg
+    printf '{"data":{"resource":{"projectItems":{"pageInfo":{"hasNextPage":false},"nodes":[]}}}}' > "$TEST_TEMP_DIR/items.json"
+    STUB_GH_API_RESPONSE="$TEST_TEMP_DIR/items.json" run provider_projects_for_issue "https://github.com/myorg/r/issues/1" myorg
     assert_success
     grep -q "gh api graphql" "$STUB_CALL_LOG"
 }

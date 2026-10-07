@@ -324,7 +324,7 @@ stub_calls_contain() {
 #   STUB_CURL_RETRY_AFTER   value emitted as a Retry-After header (429 pages)
 #   STUB_CURL_PAGES         file holding a newline-ordered queue of page-file
 #                           paths; each call pops the first entry and prints
-#                           it, also emitting a ContinuationToken header while
+#                           it, also emitting an x-ms-continuationtoken header while
 #                           entries remain after the popped one (simulates
 #                           Azure's ContinuationToken pagination)
 #
@@ -339,18 +339,26 @@ stub_curl() {
 #!/usr/bin/env bash
 url=""
 prev=""
+out_file=""
+write_fmt=""
 for arg in "$@"; do
     if [[ "$prev" == "-D" ]]; then
         headers_file="$arg"
     fi
+    [[ "$prev" == "-o" ]] && out_file="$arg"
+    [[ "$prev" == "-w" ]] && write_fmt="$arg"
     prev="$arg"
+done
+# A credential header passed on stdin (-H @-) is consumed like curl would.
+for arg in "$@"; do
+    [[ "$arg" == "@-" ]] && { cat > /dev/null; break; }
 done
 # URL is the last non-flag argument
 for arg in "$@"; do
     case "$arg" in
         -*) prev="$arg"; continue ;;
     esac
-    if [[ "$prev" != "-D" && "$prev" != "-o" && "$prev" != "-u" && "$prev" != "-X" && "$prev" != "-d" && "$prev" != "-H" ]]; then
+    if [[ "$prev" != "-D" && "$prev" != "-o" && "$prev" != "-u" && "$prev" != "-X" && "$prev" != "-d" && "$prev" != "-H" && "$prev" != "-w" ]]; then
         url="$arg"
     fi
     prev="$arg"
@@ -374,6 +382,17 @@ fi
 headers_file="${headers_file:-/dev/null}"
 code="${STUB_CURL_HTTP_CODE:-200}"
 
+# The body goes to -o FILE when given, else stdout (as curl does); -w's
+# %{http_code} is printed to stdout after it.
+emit_body() {
+    [[ -f "$1" ]] || { [[ -n "$out_file" ]] && : > "$out_file"; return 0; }
+    if [[ -n "$out_file" ]]; then cat "$1" > "$out_file"; else cat "$1"; fi
+}
+emit_write_out() {
+    [[ -n "$write_fmt" ]] || return 0
+    printf '%b' "${write_fmt//%\{http_code\}/$code}"
+}
+
 {
     printf 'HTTP/1.1 %s OK\r\n' "$code"
     if [[ "$code" == "429" && -n "${STUB_CURL_RETRY_AFTER:-}" ]]; then
@@ -389,14 +408,16 @@ if [[ -n "${STUB_CURL_PAGES:-}" && -f "${STUB_CURL_PAGES}" ]]; then
         # A non-empty remaining queue means more pages exist: emit a
         # ContinuationToken header so the transport keeps going.
         if [[ -s "$STUB_CURL_PAGES" ]]; then
-            printf 'ContinuationToken: token-page-2\r\n' >> "$headers_file"
+            printf 'x-ms-continuationtoken: token-page-2\r\n' >> "$headers_file"
         fi
-        [[ -f "$page_file" ]] && cat "$page_file"
+        emit_body "$page_file"
     fi
+    emit_write_out
     exit 0
 fi
 
-[[ -f "${STUB_CURL_RESPONSE:-/nonexistent}" ]] && cat "$STUB_CURL_RESPONSE"
+emit_body "${STUB_CURL_RESPONSE:-/nonexistent}"
+emit_write_out
 exit 0
 EOF
     chmod +x "$STUB_BIN_DIR/curl"

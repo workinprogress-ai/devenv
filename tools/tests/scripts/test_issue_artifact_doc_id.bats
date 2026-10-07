@@ -85,7 +85,7 @@ load ../test_helper
   [[ "$output" == *"research"* ]]
 }
 
-@test "issue-artifact-doc-id.sh still accepts the legacy spike type" {
+@test "issue-artifact-doc-id.sh still accepts the spike type" {
   run "$PROJECT_ROOT/tools/scripts/issue-artifact-doc-id.sh" \
     --issue 12 --artifact-type spike --slug "old finding" --repo o/r
   [ "$status" -eq 0 ]

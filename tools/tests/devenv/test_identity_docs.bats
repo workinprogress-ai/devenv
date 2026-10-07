@@ -18,7 +18,7 @@ load ../test_helper
 }
 
 @test "a config carrying only github_org does not resolve an org" {
-    printf '[organization]\nname=t\ngithub_org=legacy-org\n' > "$TEST_TEMP_DIR/devenv.config"
+    printf '[organization]\nname=t\ngithub_org=old-org\n' > "$TEST_TEMP_DIR/devenv.config"
     run bash -c "
         export DEVENV_ROOT='$TEST_TEMP_DIR'
         unset POLICY_ORG GH_ORG
@@ -43,4 +43,12 @@ load ../test_helper
     "
     [ "$status" -eq 0 ]
     [ "$output" = "cfg-org" ]
+}
+
+@test "no functional file hard-codes the upstream organization's name (attribution headers and LICENSE aside)" {
+    cd "$PROJECT_ROOT"
+    run bash -c "grep -rniI 'workinprogress' tools/lib tools/scripts tools/config tools/templates .devcontainer .vscode copilot docs README.md package.json 2>/dev/null \
+        | grep -viE '# Author:|\"author\"|work-in-progress|work in progress|workinprogress-ai/devenv.git\"' \
+        | grep -v 'tools/cache'"
+    [ -z "$output" ] || { echo "$output"; false; }
 }

@@ -12,8 +12,8 @@ Provides shared Copilot knowledge sync helpers.
 
 Public functions:
 
-- `build_github_basic_auth_header <token>`
-  - Builds the provider-compatible `http.extraheader` value using `x-access-token` basic auth (GitHub form today).
+- `build_provider_git_auth_header <token>`
+  - Prints the active provider's `http.extraheader` value for git HTTPS operations, from the provider's `git_auth_header` bootstrap hook.
 - `pull_copilot_knowledge_on_container_start <toolbox_root>`
   - Runs a non-blocking background `git fetch/pull` for `<toolbox_root>/copilot/knowledge`.
   - No-op when `copilot/knowledge` is not an initialized git repository.
@@ -42,7 +42,7 @@ Tests: `tools/tests/lib/test_workflow_core.bats`, `test_workflow_rollup.bats`.
 
 ### `issue-graph.bash`
 
-All issue-hierarchy I/O behind helpers: native sub-issue graph plus legacy body-text parent fallback.
+All issue-hierarchy I/O behind helpers: native sub-issue graph plus body-text parent fallback.
 
 Public functions:
 
@@ -1419,7 +1419,7 @@ issue-artifact-doc-id --issue ISSUE_NUMBER --artifact-type TYPE [--slug TEXT | -
 **Required Arguments:**
 
 - `--issue ISSUE_NUMBER`: Target issue number
-- `--artifact-type TYPE`: One of `spike` (legacy), `research`, `redesign`, `design`, `blueprint`, `specifications`, `roadmap`, `plan` (`implementation-plan` accepted as legacy alias for pre-rename artifacts)
+- `--artifact-type TYPE`: One of `spike`, `research`, `redesign`, `design`, `blueprint`, `specifications`, `roadmap`, `plan` (`implementation-plan` is accepted as an alias of `plan`)
 
 **Slug Source (exactly one required):**
 
@@ -1596,7 +1596,7 @@ issue-types [OPTIONS]
 
 ### `issue-triage`
 
-Issue triage for backlog management: an interactive wizard for humans, plus a fully scriptable CLI apply mode for skills and automation. (Formerly `issue-groom` — renamed; triage is the honest name for metadata-level backlog work, distinct from the `/devenv-groom` design skill.)
+Issue triage for backlog management: an interactive wizard for humans, plus a fully scriptable CLI apply mode for skills and automation. (Triage is the name for metadata-level backlog work, distinct from the `/devenv-groom` design skill.)
 
 **Interactive wizard:**
 
@@ -2117,7 +2117,7 @@ cs-dependencies-trace [OPTIONS] [TARGET_DIR]
 DEPTH:REPO:PACKAGE
 ```
 
-For example: `0:<chassis-repo>:WorkInProgress.Lib.Services.Chassis.Common`
+For example: `0:<chassis-repo>:Acme.Lib.Services.Chassis.Common`
 
 **Output format (--by-repo):**
 
@@ -2179,7 +2179,7 @@ If the target repo has an executable `.repo/update.sh`, it is chained after the 
 **Examples:**
 
 ```bash
-# Plain package update (unchanged legacy behavior)
+# Plain package update (default behavior)
 cs-references-update ~/repos/<your-library>
 
 # Retarget the whole repo to .NET 10, bumping pinned LangVersion tags to 14.0
@@ -2601,17 +2601,18 @@ devenv-add-custom-startup "echo 'Container started'" "export MY_VAR=value"
 
 ### Function-backed commands (function vs script)
 
-`key-update-provider`, `key-update-do`, and `key-update-tailscale` are **bash functions**: `key-update-do` and `key-update-tailscale` wrap `tools/scripts/_key-update-*.sh`, `key-update-provider` dispatches to the active provider's `tools/lib/providers/<name>/key-update.sh`, and all of them re-source `.runtime/env-vars.sh` afterward, so the current shell sees refreshed values. The underscore-prefixed scripts have no depth-1 `tools/` entry by design — always invoke the bare function name. (`repo-get` is the deliberate counter-example: its depth-1 stub has real value for non-interactive use, so it is a plain script plus stub.)
+`key-update-provider`, `key-update-do`, and `key-update-tailscale` are **bash functions**: `key-update-do` and `key-update-tailscale` wrap `tools/scripts/_key-update-*.sh`, `key-update-provider` dispatches to the active provider's `tools/lib/providers/<name>/key-update.sh` (bootstrap also generates one `key-update-<provider>` command per provider that ships a script, for example `key-update-azure`, to rotate that provider's credential regardless of which is active), and all of them re-source `.runtime/env-vars.sh` afterward, so the current shell sees refreshed values. The underscore-prefixed scripts have no depth-1 `tools/` entry by design — always invoke the bare function name. (`repo-get` is the deliberate counter-example: its depth-1 stub has real value for non-interactive use, so it is a plain script plus stub.)
 
 ### `key-update-provider`
 
 Rotates the git provider credential: imports the new token through the provider auth seam into the keychain (the single source of truth) and re-wires the git credential helper. No token is written to env files, remote URLs, or `.setup/` — the seed file `.setup/provider_token.txt` is a bootstrap-input one-shot, not the store.
 
 ```bash
-key-update-provider [new-token]
+key-update-provider              # prompts for the token (hidden input)
+key-update-provider < token-file # or pipe it on stdin
 ```
 
-**Interactive mode:** If no token is provided, prompts for input.
+The token is never accepted as an argument: it would appear in the process list and in shell history.
 
 ### `key-update-tailscale`
 
@@ -2829,6 +2830,14 @@ service:
 
 **Related:** See [repo-create](#repo-create) for initial repository creation details, and [Repo Creation Standards (repo-create.sh)](./Forking.md#repo-creation-standards-repo-createsh) in the Forking Guide for configuration options.
 
+## Fork Tooling
+
+Three tools keep a soft fork connected to its upstream (see [Keeping a Soft Fork in Sync and Contributing Back](./Forking.md#keeping-a-soft-fork-in-sync-and-contributing-back)). They are ordinary tools on `PATH`, and manual-only: none runs on its own.
+
+- **`fork-setup`**: one-time, local setup of the fetch-only `upstream` remote from `[fork]` config; `--dry-run` previews the remote and the push guard.
+- **`fork-sync`**: fetches upstream, reports divergence and the local commits that look already upstream, and optionally rebases or updates the same-named origin branch. Origin rewrites require `--rewrite-origin` and confirmation; use `--dry-run` to preview.
+- **`fork-export`**: exports an upstream-based, linear commit range as a bundle, patch series, or both (a range with a merge commit is refused with guidance); optionally applies it to a sibling clone of the upstream repository without upstream credentials. `--dry-run` previews the operation.
+
 ## Special / Rarely-Used Tooling
 
 `tools/special/` holds scripts that are runnable again, on purpose, later — but
@@ -2837,9 +2846,6 @@ script's entry in [`tools/special/README.md`](../tools/special/README.md) states
 what it does, when to run it, and its blast radius. Invoke by explicit path:
 `bash tools/special/<script>.sh`.
 
-- **`tools/lib/providers/azure/fork-setup.sh`** — one-time, local setup of the fetch-only `upstream` remote from `[fork]` config. Manual-only; `--dry-run` previews the remote and push guard.
-- **`tools/lib/providers/azure/fork-sync.sh`** — fetches upstream, reports divergence, and optionally rebases or updates the same-named origin branch. Origin rewrites require `--rewrite-origin` and confirmation; use `--dry-run` to preview.
-- **`tools/lib/providers/azure/fork-export.sh`** — exports an upstream-based commit range as a bundle, patch series, or both; optionally applies it to a sibling GitHub clone without GitHub credentials. `--dry-run` previews the operation.
 - **`tools/lib/providers/azure/azure-smoke-test.sh`** — Azure provider live validation, two opt-in tiers:
   `AZURE_SMOKE=1` (read-only: auth, repo list, WIQL, work-item view, PR list)
   and `AZURE_SMOKE=write` (destructive: create/comment/close work items,
@@ -2989,7 +2995,7 @@ Builds and queries a reverse dependency graph across all cached C# organization 
 
 **Configuration:**
 
-- `CS_DEP_ORG_PREFIX` (default: `WorkInProgress.`): Only packages matching this prefix are considered org-internal
+- `CS_DEP_ORG_PREFIX` (default: `[nuget] package_prefix` in `devenv.config`; no built-in value): Only packages matching this prefix are considered org-internal. The index is not built until one of them is set.
 - `REPO_CACHE_DIR`: Inherited from `repo-cache.bash`
 - `CS_DEP_INDEX_DIR`: Index storage location (default: `$REPO_CACHE_DIR/.index`)
 
@@ -3201,7 +3207,7 @@ markdown-plan-complete-ac [OPTIONS] AC_NUMBER... [FILE]
 
 - `AC_NUMBER...`: One or more AC numbers to update (`AC-N`, `AC-N.N`, `AC-N.N.N`).
 - `FILE`: Path to the markdown file. Defaults to the first `Plan-*.md`
-  (or legacy `Implementation_plan-*.md`) found in `.local-artifacts/`, then in
+  (or `Implementation_plan-*.md`) found in `.local-artifacts/`, then in
   the current directory — plans are the only artifact with checkable ACs.
   Other files (e.g. `Specifications-*.md`) are updated only when named
   explicitly. As with `markdown-plan-complete-task`,

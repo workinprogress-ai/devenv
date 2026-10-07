@@ -86,6 +86,10 @@ add_nuget_source_if_not_exists() {
             $dotnet_cmd nuget add source "$sourceUrl" -n "$sourceName"
             echo "NuGet source $sourceName added."
         fi
+    elif [ -n "$username" ] && [ -n "$password" ]; then
+        # The source exists, but its stored password may predate a token rotation.
+        $dotnet_cmd nuget update source "$sourceName" -s "$sourceUrl" -u "$username" -p "$password" --store-password-in-clear-text
+        echo "NuGet source $sourceName credentials refreshed."
     else
         echo "NuGet source $sourceName already exists."
     fi
@@ -289,12 +293,21 @@ install_os_packages_round1() {
     echo "# OS packages update and install - First round"
     echo "#############################################"
     sudo apt update
-    sudo apt upgrade -y
     sudo apt install -y \
-        curl wget gnupg bash-completion iputils-ping uuid fzf gcc g++ make gh \
+        curl wget gnupg bash-completion iputils-ping uuid fzf gcc g++ make \
         xmlstarlet redis-tools cifs-utils xmlstarlet software-properties-common \
         sshfs apt-transport-https ca-certificates bats shellcheck ripgrep \
         parallel
+
+    # Packages the active provider's tooling needs (its CLI, for instance)
+    ensure_provider_seam
+    local provider_packages
+    provider_packages=$(provider_bootstrap_call apt_packages)
+    if [ -n "$provider_packages" ]; then
+        # Intentional word-splitting: the hook prints a space-separated package list.
+        # shellcheck disable=SC2086
+        sudo apt install -y $provider_packages
+    fi
 }
 
 # Add specialized package repositories (HashiCorp, Kubernetes)
@@ -351,14 +364,6 @@ install_dotnet() {
     $dotnet_cmd tool list -g | grep -q "dotnet-format" || $dotnet_cmd tool install -g dotnet-format
 }
 
-# Download container helper scripts
-download_container_scripts() {
-    echo "# Get container scripts"
-    echo "#############################################"
-    wget -O "$HOME/.git-completion.bash" https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash
-    chmod +x "$HOME/.git-completion.bash"
-}
-
 # Load credentials from .setup directory
 load_setup_credentials() {
     if [ -f "$email_file" ]; then
@@ -373,6 +378,18 @@ load_setup_credentials() {
         echo "WARNING!!!  No human name found in $name_file"
     fi
 
+    # A missing identity seed is reported in the finish banner, not a failure: the
+    # rest of the environment is still worth building, and 'setup' on the host
+    # (or the provider accessors' config fallback) supplies the value later.
+    SETUP_SEEDS_MISSING=""
+    [ -f "$setup_dir/provider_user.txt" ] || SETUP_SEEDS_MISSING="$SETUP_SEEDS_MISSING provider_user.txt"
+    [ -f "$setup_dir/provider_org.txt" ] || SETUP_SEEDS_MISSING="$SETUP_SEEDS_MISSING provider_org.txt"
+    if [ -n "$SETUP_SEEDS_MISSING" ]; then
+        echo "WARNING: missing seed file(s) in $setup_dir:$SETUP_SEEDS_MISSING"
+    fi
+    # No exports — the provider accessors read the seeds (and config) themselves
+    # when identity is needed.
+
     # Auth state machine (Plan-issue-55-001 final contract):
     #   keychain OK            -> info only, seed left alone
     #   keychain empty + seed  -> import once, DELETE the seed (one-shot;
@@ -382,7 +399,7 @@ load_setup_credentials() {
     AUTH_NEEDED=0
 
     if provider_auth_status >/dev/null 2>&1; then
-        echo "GitHub credential store is authenticated."
+        echo "Provider credential store is authenticated."
         if [ -f "$setup_dir/provider_token.txt" ]; then
             echo "Seed file $setup_dir/provider_token.txt is no longer needed while authenticated; remove it to reduce plaintext exposure."
         fi
@@ -392,31 +409,30 @@ load_setup_credentials() {
     ensure_provider_seam
 
     if [ -f "$setup_dir/provider_token.txt" ]; then
-        if provider_auth_import_token < "$setup_dir/provider_token.txt" >/dev/null 2>&1; then
-            rm -f "$setup_dir/provider_token.txt"
-            echo "Seed file imported into the provider credential store and deleted (one-shot; re-add only if you want replay-ability)."
-        else
-            echo "WARNING: provider_token.txt could not be imported (expired or invalid?)."
+        # Ask the provider whether the seed token is good before it is imported and the
+        # plaintext deleted: 0 accepted, 1 rejected, 2 could not be verified (offline).
+        # A provider with no validate hook counts as accepting.
+        local seed_validation=0
+        provider_bootstrap_call validate_token < "$setup_dir/provider_token.txt" || seed_validation=$?
+        if [ "$seed_validation" -eq 1 ]; then
+            echo "WARNING: provider_token.txt was rejected by the provider (expired or invalid?); it is kept so you can correct it."
             AUTH_NEEDED=1
+        else
+            if [ "$seed_validation" -ne 0 ]; then
+                echo "WARNING: could not verify provider_token.txt with the provider (unreachable); importing it unverified."
+            fi
+            if provider_auth_import_token < "$setup_dir/provider_token.txt" >/dev/null 2>&1; then
+                rm -f "$setup_dir/provider_token.txt"
+                echo "Seed file imported into the provider credential store and deleted (one-shot; re-add only if you want replay-ability)."
+            else
+                echo "WARNING: provider_token.txt could not be imported (expired or invalid?)."
+                AUTH_NEEDED=1
+            fi
         fi
     else
         echo "Provider credential store is empty and no seed file found in $setup_dir."
         AUTH_NEEDED=1
     fi
-
-    if [ ! -f "$setup_dir/provider_user.txt" ]; then
-        echo "ERROR: No GitHub user found in $setup_dir/provider_user.txt"
-        echo "Run 'setup' to configure your GitHub username"
-        exit 1
-    fi
-
-    if [ ! -f "$setup_dir/provider_org.txt" ]; then
-        echo "ERROR: No GitHub organization found in $setup_dir/provider_org.txt"
-        echo "Run 'setup' to configure your GitHub organization"
-        exit 1
-    fi
-    # Seed presence validated above; no exports — the provider accessors read
-    # the seeds (and config) themselves when identity is needed.
 
     if [ -f "$setup_dir/digitalocean_token.txt" ]; then
         DO_API_TOKEN=$(cat "$setup_dir/digitalocean_token.txt")
@@ -459,8 +475,7 @@ repos() {
 }
 
 devenv-update() {
-    local current_dir pre_update_hash post_update_hash action best_pri trailer_action pri
-    local restart_now recreate_choice run_bootstrap_now
+    local current_dir pre_update_hash rc=0
     current_dir=$(pwd)
     cd "$DEVENV_ROOT" || return
     pre_update_hash=$(git rev-parse HEAD 2>/dev/null)
@@ -471,118 +486,12 @@ devenv-update() {
     fi
 
     "$DEVENV_ROOT/.devcontainer/bootstrap.sh" run_update_tasks
-    post_update_hash=$(git rev-parse HEAD 2>/dev/null)
-
-    action="nothing"
-    best_pri=0
-    if [ -n "$pre_update_hash" ] && [ -n "$post_update_hash" ] && [ "$pre_update_hash" != "$post_update_hash" ]; then
-        while IFS= read -r trailer_action; do
-            [ -z "$trailer_action" ] && continue
-            case "$trailer_action" in
-                recreate)  pri=3 ;;
-                bootstrap) pri=2 ;;
-                restart)   pri=1 ;;
-                nothing)   pri=0 ;;
-                *)         pri=-1 ;;
-            esac
-            if [ "$pri" -gt "$best_pri" ]; then
-                action="$trailer_action"
-                best_pri="$pri"
-            fi
-        done < <(git log "${pre_update_hash}..${post_update_hash}" --format='%(trailers:key=Devenv-Action,valueonly)' 2>/dev/null \
-                 | tr '[:upper:]' '[:lower:]' \
-                 | grep -v '^$')
-    fi
-
-    case "$action" in
-        recreate)
-            echo "Post-update action: recreate container"
-            echo "Choose an option:"
-            echo "  1) Recreate container now (recommended)"
-            echo "  2) Restart container now"
-            echo "  3) Skip"
-            read -rp "Enter choice (1/2/3): " recreate_choice
-            case "$recreate_choice" in
-                1)
-                    echo "Run 'Dev Containers: Rebuild Container' in VS Code to recreate the container."
-                    ;;
-                2)
-                    read -rp "Do you want to restart the dev container now? (y/n): " restart_now
-                    case "$restart_now" in
-                        [Yy]*)
-                            if command -v docker >/dev/null 2>&1; then
-                                echo "Restarting dev container now..."
-                                nohup bash -c 'sleep 1; docker restart "$(hostname)"' >/dev/null 2>&1 &
-                            else
-                                echo "Docker CLI not found. Run: docker restart \"\$(hostname)\""
-                            fi
-                            ;;
-                        *)
-                            echo "Skipping restart. Run: docker restart \"\$(hostname)\""
-                            ;;
-                    esac
-                    ;;
-                *)
-                    echo "Skipping recreate/restart."
-                    ;;
-            esac
-            ;;
-        bootstrap)
-            echo "Post-update action: run bootstrap and restart container"
-            read -rp "Do you want to run bootstrap now? (y/n): " run_bootstrap_now
-            case "$run_bootstrap_now" in
-                [Yy]*)
-                    if "$DEVENV_ROOT/.devcontainer/bootstrap.sh"; then
-                        echo "Bootstrap completed successfully."
-                        echo "Recommendation: restart the dev container to apply bootstrap changes."
-                        read -rp "Do you want to restart the dev container now? (y/n): " restart_now
-                        case "$restart_now" in
-                            [Yy]*)
-                                if command -v docker >/dev/null 2>&1; then
-                                    echo "Restarting dev container now..."
-                                    nohup bash -c 'sleep 1; docker restart "$(hostname)"' >/dev/null 2>&1 &
-                                else
-                                    echo "Docker CLI not found. Run: docker restart \"\$(hostname)\""
-                                fi
-                                ;;
-                            *)
-                                echo "Skipping restart. Run: docker restart \"\$(hostname)\""
-                                ;;
-                        esac
-                    else
-                        echo "Bootstrap failed. Please run $DEVENV_ROOT/.devcontainer/bootstrap.sh manually."
-                        cd "$current_dir" || return
-                        return 1
-                    fi
-                    ;;
-                *)
-                    echo "Skipping bootstrap. Run $DEVENV_ROOT/.devcontainer/bootstrap.sh when ready."
-                    ;;
-            esac
-            ;;
-        restart)
-            echo "Post-update action: restart container"
-            read -rp "Do you want to restart the dev container now? (y/n): " restart_now
-            case "$restart_now" in
-                [Yy]*)
-                    if command -v docker >/dev/null 2>&1; then
-                        echo "Restarting dev container now..."
-                        nohup bash -c 'sleep 1; docker restart "$(hostname)"' >/dev/null 2>&1 &
-                    else
-                        echo "Docker CLI not found. Run: docker restart \"\$(hostname)\""
-                    fi
-                    ;;
-                *)
-                    echo "Skipping restart. Run: docker restart \"\$(hostname)\""
-                    ;;
-            esac
-            ;;
-        nothing|*)
-            echo "Post-update action: nothing"
-            ;;
-    esac
+    # shellcheck source=/dev/null
+    source "$DEVENV_ROOT/.devcontainer/post-update.bash"
+    devenv_post_update "$pre_update_hash" || rc=$?
 
     cd "$current_dir" || return
+    return "$rc"
 }
 
 key-update-tailscale() {
@@ -592,23 +501,12 @@ key-update-tailscale() {
     fi
 }
 
-# Provider credential rotation: dispatch to the active provider's
-# key-update script (tools/lib/providers/<name>/key-update.sh). Falls back
-# to github when no provider is configured; unknown providers fail with
-# the list of providers that ship a script.
-key-update-provider() {
-    local provider="${DEVENV_KEY_UPDATE_PROVIDER:-}"
-    if [ -z "$provider" ]; then
-        # Same INI parse as provider_detect (provider-core.bash): tolerant of
-        # comments and blank lines, not a fixed grep -A window that drifts
-        # out of sync whenever [provider] gains or loses comment lines.
-        provider=$(awk -F= '
-            /^\[provider\]$/ { in_provider = 1; next }
-            /^\[/ { in_provider = 0; next }
-            in_provider && $1 ~ /^[ \t]*name[ \t]*$/ { v=$2; gsub(/^[ \t]+|[ \t]+$/, "", v); print v; exit }
-        ' "$DEVENV_ROOT/devenv.config" 2>/dev/null)
-        [ -z "$provider" ] && provider="github"
-    fi
+# Run one provider's key-update script (tools/lib/providers/<name>/key-update.sh)
+# and reload the environment afterwards. Unknown providers fail with the list of
+# providers that ship a script.
+_key_update_run() {
+    local provider="$1"
+    shift
     local script="$DEVENV_ROOT/tools/lib/providers/$provider/key-update.sh"
     if [ ! -f "$script" ]; then
         echo "key-update: provider '$provider' has no key-update script." >&2
@@ -617,10 +515,42 @@ key-update-provider() {
         return 1
     fi
     bash "$script" "$@"
+    local rc=$?
     if [ -f "$DEVENV_ROOT/.runtime/env-vars.sh" ]; then
         source "$DEVENV_ROOT/.runtime/env-vars.sh"
     fi
+    return $rc
 }
+
+# Provider credential rotation: run the active provider's key-update script. The
+# provider is the [provider] name in devenv.config, read with the one INI reader
+# the tools use (tolerant of spaces, CRLF, comments and blank lines).
+key-update-provider() {
+    local provider="${DEVENV_KEY_UPDATE_PROVIDER:-}"
+    if [ -z "$provider" ]; then
+        local reader="$DEVENV_ROOT/tools/lib/config-reader.bash"
+        # shellcheck disable=SC1090
+        [ -f "$reader" ] && source "$reader" && provider=$(config_get_raw "$DEVENV_ROOT/devenv.config" provider name "" 2>/dev/null)
+    fi
+    if [ -z "$provider" ]; then
+        echo "key-update-provider: no [provider] name in $DEVENV_ROOT/devenv.config (or set DEVENV_KEY_UPDATE_PROVIDER)." >&2
+        return 1
+    fi
+    _key_update_run "$provider" "$@"
+}
+
+# One key-update-<provider> command per provider that ships a key-update script
+# (for example key-update-azure): rotate that provider's credential directly,
+# whichever provider is active.
+_key_update_define_provider_commands() {
+    local script name
+    for script in "$DEVENV_ROOT"/tools/lib/providers/*/key-update.sh; do
+        [ -f "$script" ] || continue
+        name="$(basename "$(dirname "$script")")"
+        eval "key-update-${name}() { _key_update_run '${name}' \"\$@\"; }"
+    done
+}
+_key_update_define_provider_commands
 
 key-update-do() {
     "$DEVENV_ROOT/tools/scripts/_key-update-do.sh" "$@"
@@ -715,7 +645,7 @@ export DIGITALOCEAN_REGISTRY="${DIGITALOCEAN_REGISTRY:-}"
 export DO_APP_NAME="${DO_APP_NAME:-}"
 export DO_REGION="${DO_REGION:-}"
 
-# GitHub identity: no GH_* exports — tools resolve identity via the
+# Provider identity: no GH_* exports — tools resolve identity via the
 # provider accessors (config → seed); no env var participates.
 
 # User identity
@@ -777,25 +707,36 @@ DEVENVRC_HEADER
 export DEVENV_TOOLS="${DEVENV_ROOT}/tools"
 export devenv="${DEVENV_ROOT}"
 
-# Core PATH entries
-export PATH="${PATH}:${DEVENV_ROOT}/.debug/scripts:/home/vscode/.dotnet/tools"
+# Append a directory to PATH once: this file is sourced by every nested shell, so
+# an unconditional append would grow PATH on each one.
+_devenv_path_add() {
+    case ":${PATH}:" in
+        *":$1:"*) ;;
+        *) PATH="${PATH}:$1" ;;
+    esac
+}
+
+# Order: devenv tools first, then tool-local entries, then each repo's scripts, so
+# a repo script can never shadow a devenv tool of the same name.
+_devenv_path_add "${DEVENV_ROOT}/tools"
+_devenv_path_add "${DEVENV_ROOT}/.debug/scripts"
+_devenv_path_add "/home/vscode/.dotnet/tools"
 
 # Add repo scripts to PATH (best-effort for both bash and zsh)
 if [ -d "${DEVENV_ROOT}/repos" ]; then
     for dir in "${DEVENV_ROOT}/repos"/*/; do
         [ -d "$dir" ] || continue
         if [ -d "${dir}scripts" ]; then
-            PATH="${PATH}:${dir}scripts"
+            _devenv_path_add "${dir%/}/scripts"
         fi
     done
 fi
-
-# Add devenv tools
-export PATH="${PATH}:${DEVENV_ROOT}/tools"
+export PATH
 
 # Shell-specific helpers
-if [ -n "${BASH_VERSION:-}" ] && [ -f "$HOME/.git-completion.bash" ]; then
-    source "$HOME/.git-completion.bash"
+# git-completion.bash is vendored in .devcontainer/ (see tool-versions.bash)
+if [ -n "${BASH_VERSION:-}" ] && [ -f "${DEVENV_ROOT}/.devcontainer/git-completion.bash" ]; then
+    source "${DEVENV_ROOT}/.devcontainer/git-completion.bash"
 fi
 
 # Core devenv environment
@@ -946,6 +887,7 @@ install_or_configure_nvm() {
         source "$NVM_DIR/nvm.sh"
         nvm install "$NODE_VERSION"
         nvm use "$NODE_VERSION"
+        nvm alias default "$NODE_VERSION"
         sudo chown -R "$(whoami)":"$(whoami)" "$NVM_DIR/versions"
 
         # Remove the NVM lines added by the installer script itself
@@ -1047,38 +989,6 @@ normalize_copilot_knowledge_subpath() {
     echo "$subpath"
 }
 
-# Build GitHub-compatible basic auth header for git HTTPS operations.
-# Accepted-risk note: the resulting header rides git's argv
-# via `-c http.extraheader=...`, so it is briefly visible in process listings
-# (ps) to local container users. Mitigations: container-local scope, header
-# lives only for the fetch/pull duration, token is the provider credential
-# store's own. Hardening (credential-helper transport) is deferred to the
-# multi-provider epic.
-build_github_basic_auth_header() {
-    local token="$1"
-    local auth
-    auth=$(printf 'x-access-token:%s' "$token" | base64 -w0)
-    echo "AUTHORIZATION: basic $auth"
-}
-
-# Provider-dispatched auth header for the sync's ephemeral extraheader
-# fetches. Schemes differ per provider: github sends 'x-access-token:PAT';
-# azure sends the RFC-7617 basic form 'Basic base64(":PAT")' (empty user —
-# matches azure/http.bash's transport). Callers build once, use per-fetch.
-build_provider_git_auth_header() {
-    local provider="$1" token="$2"
-    case "$provider" in
-        azure)
-            local auth
-            auth=$(printf ':%s' "$token" | base64 -w0)
-            echo "AUTHORIZATION: Basic $auth"
-            ;;
-        *)
-            build_github_basic_auth_header "$token"
-            ;;
-    esac
-}
-
 # Clone or update a Copilot-side external repo and symlink its content into ~/.copilot/.
 # Shared implementation for the knowledge and engineering standards imports:
 #   sync_copilot_side_repo <repo-url> <subpath> <checkout-dir> <link-path> <label> <backup-dir>
@@ -1098,12 +1008,15 @@ sync_copilot_side_repo() {
     # auth seam — never from env, never via raw gh.
     token=$(provider_secret_get token 2>/dev/null) || token=""
     if [ -z "$token" ]; then
-        echo "WARNING: gh is not authenticated; skipping $label sync (run 'key-update-provider')"
+        echo "WARNING: provider credentials are not available; skipping $label sync (run 'key-update-provider')"
         return 0
     fi
 
     subpath=$(normalize_copilot_knowledge_subpath "$subpath")
-    header=$(build_provider_git_auth_header "${PROVIDER_NAME:-github}" "$token")
+    # The header scheme is the provider's own (its bootstrap hook). It rides git's
+    # argv via -c http.extraheader, so it is briefly visible in process listings to
+    # local container users; it lives only for the fetch or pull.
+    header=$(provider_bootstrap_call git_auth_header "$token")
 
     if [ -d "$repo_dir/.git" ]; then
         git -C "$repo_dir" remote set-url origin "$repo_url"
@@ -1148,7 +1061,8 @@ ensure_provider_seam() {
         # not imply the active provider's auth module is loaded; the
         # credential lifecycle verbs below need that module.
         if declare -F provider_auth_status >/dev/null && \
-           declare -F provider_auth_status_impl >/dev/null; then
+           declare -F provider_auth_status_impl >/dev/null && \
+           declare -F provider_bootstrap_validate_token >/dev/null; then
             return 0
         fi
     fi
@@ -1156,7 +1070,12 @@ ensure_provider_seam() {
     if [ -f "$seam_lib" ]; then
         # shellcheck disable=SC1090
         source "$seam_lib"
-        provider_detect "$toolbox_root/devenv.config" 2>/dev/null || PROVIDER_NAME="${PROVIDER_NAME:-github}"
+        # A [provider] name that is not shipped stops bootstrap with the reason, rather than
+        # carrying on as another provider.
+        provider_detect "$toolbox_root/devenv.config" || {
+            echo "ERROR: cannot determine the provider from $toolbox_root/devenv.config (see above)"
+            exit 1
+        }
         local auth_mod
         # seam_lib already resides in providers/, so the per-provider module
         # is a direct child dir — not providers/providers/<name>.
@@ -1164,6 +1083,13 @@ ensure_provider_seam() {
         # shellcheck disable=SC1090,SC1091
         if [ -f "$auth_mod" ]; then
             source "$auth_mod"
+        fi
+        # The provider's bootstrap hooks (validation, package feeds).
+        local hooks_mod
+        hooks_mod="$(dirname "$seam_lib")/${PROVIDER_NAME}/bootstrap.bash"
+        # shellcheck disable=SC1090,SC1091
+        if [ -f "$hooks_mod" ]; then
+            source "$hooks_mod"
         fi
     fi
 }
@@ -1213,6 +1139,25 @@ sync_copilot_engineering() {
 # Copy Copilot instructions to ~/.copilot/copilot-instructions.md
 # and symlink ~/.copilot/skills → <devenv>/copilot/skills so that
 # Copilot's default user-home skills path picks them up in every workspace.
+# Point DEST at SRC. A symlink at DEST is (re)pointed; anything that is not a
+# symlink (a real file or directory the user keeps there) is left untouched with
+# a warning and never deleted.
+#
+# Usage: link_replacing_symlink_only SRC DEST
+link_replacing_symlink_only() {
+    local src="$1" dest="$2"
+    if [ -L "$dest" ]; then
+        [ "$(readlink "$dest")" = "$src" ] && return 0
+        ln -sfn "$src" "$dest"
+    elif [ -e "$dest" ]; then
+        echo "WARNING: $dest exists and is not a symlink; left in place (move it aside to link it to $src)"
+        return 0
+    else
+        ln -s "$src" "$dest"
+    fi
+    echo "Linked: $dest → $src"
+}
+
 install_copilot_instructions() {
     echo "# Install Copilot instructions"
     echo "#############################################"
@@ -1220,14 +1165,7 @@ install_copilot_instructions() {
     local dest="$HOME/.copilot/copilot-instructions.md"
     if [ -f "$src" ]; then
         mkdir -p "$HOME/.copilot"
-        if [ -L "$dest" ]; then
-            echo "Copilot instructions already symlinked at $dest, skipping"
-        else
-            # Remove plain file (or broken symlink) before symlinking
-            rm -f "$dest"
-            ln -s "$src" "$dest"
-            echo "Copilot instructions symlinked: $dest → $src"
-        fi
+        link_replacing_symlink_only "$src" "$dest"
     else
         echo "WARNING: copilot/copilot-instructions.md not found, skipping"
     fi
@@ -1238,10 +1176,7 @@ install_copilot_instructions() {
     local skills_link="$HOME/.copilot/skills"
     if [ -d "$skills_src" ]; then
         mkdir -p "$HOME/.copilot"
-        # Remove stale link or directory before (re)creating
-        rm -rf "$skills_link"
-        ln -s "$skills_src" "$skills_link"
-        echo "Copilot skills symlinked: $skills_link → $skills_src"
+        link_replacing_symlink_only "$skills_src" "$skills_link"
     else
         echo "WARNING: copilot/skills not found, skipping skills symlink"
     fi
@@ -1258,14 +1193,7 @@ install_claude_code_integration() {
     local dest="$HOME/.claude/CLAUDE.md"
     if [ -f "$src" ]; then
         mkdir -p "$HOME/.claude"
-        if [ -L "$dest" ]; then
-            echo "Claude Code instructions already symlinked at $dest, skipping"
-        else
-            # Remove plain file (or broken symlink) before symlinking
-            rm -f "$dest"
-            ln -s "$src" "$dest"
-            echo "Claude Code instructions symlinked: $dest → $src"
-        fi
+        link_replacing_symlink_only "$src" "$dest"
     else
         echo "WARNING: copilot/copilot-instructions.md not found, skipping"
     fi
@@ -1333,10 +1261,15 @@ ensure_directories_and_settings() {
 install_repo_dependencies() {
     echo "# Configure local devenv repo hooks"
     echo "#############################################"
-    CI=1 pnpm install
+    PNPM_INSTALL_FAILED=0
+    if ! CI=1 pnpm install; then
+        PNPM_INSTALL_FAILED=1
+        echo "WARNING: pnpm install failed; the repo's git hooks and node tooling may be missing"
+    fi
 }
 
-# Configure NuGet sources
+# Configure NuGet sources: the local development source here, the provider's own
+# package feed through its bootstrap hook (a provider with no feed registers nothing).
 configure_nuget_sources() {
     ensure_provider_seam
     echo "# Configure nuget"
@@ -1346,79 +1279,23 @@ configure_nuget_sources() {
     mkdir -p $local_nuget_dev
 
     add_nuget_source_if_not_exists "dev" $local_nuget_dev
-    
-    # Load NuGet feed URL from config with environment variable expansion
-    if [ -z "${NUGET_FEED_URL:-}" ]; then
-        NUGET_FEED_URL=$(config_read_value "nuget" "feed_url" "")
-    fi
-    
-    # Identity for the feed URL and the source registration comes from the
-    # provider accessors (config → seed) — no env exports.
-    local feed_org feed_user
-    feed_org=$(provider_org_get 2>/dev/null) || feed_org=""
-    feed_user=$(provider_user_get 2>/dev/null) || feed_user=""
-    
-    # Expand template variables in feed URL
-    NUGET_FEED_URL=$(echo "$NUGET_FEED_URL" | sed "s|\${PROVIDER_ORG}|${feed_org}|g")
-    NUGET_FEED_URL=$(echo "$NUGET_FEED_URL" | sed "s|\${PROVIDER_USER}|${feed_user}|g")
-    
-    local gh_token
-    gh_token=$(provider_secret_get token 2>/dev/null) || gh_token=""
-    if [ -n "$gh_token" ] && [ -n "$feed_user" ] && [ -n "$feed_org" ] && [ -n "${NUGET_FEED_URL:-}" ]; then
-        add_nuget_source_if_not_exists "github" "$NUGET_FEED_URL" $feed_user $gh_token
-    else
-        echo "Skipping GitHub NuGet feed: org/user identity, gh-auth, or feed_url not fully configured"
-    fi
+
+    provider_bootstrap_call configure_nuget
 }
 
-# Configure user npmrc file
+# Configure user npmrc file: keep it owner-only, and let the provider authenticate
+# its own registry through its bootstrap hook.
 configure_user_npmrc() {
     ensure_provider_seam
     echo "# Configure user npmrc file"
     echo "#############################################"
-    local gh_token=""
-    if [ "${PROVIDER_NAME:-}" = "github" ]; then
-        gh_token=$(provider_secret_get token 2>/dev/null) || gh_token=""
-        if [ -z "$gh_token" ]; then
-            echo "Skipping GitHub npm registry authentication (credentials unavailable)"
-        fi
-    else
-        echo "Skipping GitHub npm registry authentication (provider ${PROVIDER_NAME:-unknown})"
-    fi
-
     local npmrc_file="$HOME/.npmrc"
-    local input_file="$npmrc_file"
-    if [ ! -f "$input_file" ]; then
-        [ -n "$gh_token" ] || return 0
-        input_file=/dev/null
+    if [ -f "$npmrc_file" ]; then
+        chmod 600 "$npmrc_file"
+        # Drop an exact status line that ended up in the file as if it were a setting.
+        sed -i '/^Skipping npmrc auth token (gh not authenticated)$/d' "$npmrc_file"
     fi
-    local temporary_file
-    # mktemp creates the file 0600, and the rename below carries that mode
-    # over: ~/.npmrc ends up owner-only even if it was wider before.
-    temporary_file=$(mktemp "${npmrc_file}.XXXXXX") || return 1
-    if ! NPM_AUTH_TOKEN="$gh_token" awk '
-        BEGIN { token = ENVIRON["NPM_AUTH_TOKEN"] }
-        $0 == "Skipping npmrc auth token (gh not authenticated)" { next }
-        token != "" && /^[[:space:]]*\/\/npm[.]pkg[.]github[.]com\/:_authToken[[:space:]]*=/ {
-            if (!written) {
-                printf "//npm.pkg.github.com/:_authToken=%s\n", token
-                written = 1
-            }
-            next
-        }
-        { print }
-        END {
-            if (token != "" && !written)
-                printf "//npm.pkg.github.com/:_authToken=%s\n", token
-        }
-    ' "$input_file" > "$temporary_file"; then
-        rm -f "$temporary_file"
-        return 1
-    fi
-    if ! mv "$temporary_file" "$npmrc_file"; then
-        rm -f "$temporary_file"
-        return 1
-    fi
+    provider_bootstrap_call configure_npmrc "$npmrc_file"
 }
 
 # Run custom bootstrap scripts if present
@@ -1444,18 +1321,24 @@ cleanup_packages() {
     sudo apt autoremove -y
 }
 
-# Initialize bootstrap run time tracking
+# Initialize bootstrap run time tracking: both markers are removed so a run that
+# fails before record_bootstrap_run_time leaves the container reporting
+# "bootstrap not completed" rather than a stale or half-written marker.
 init_bootstrap_run_time() {
-    date +%s > $container_bootstrap_run_file
-    rm -f $repo_bootstrap_run_file
+    # The marker paths come from initialize_paths; resolving them here lets this task
+    # run first, so no failure in a later task can leave the previous run's markers
+    # behind to read as "completed".
+    initialize_paths
+    rm -f "$container_bootstrap_run_file" "$repo_bootstrap_run_file"
 }
 
 # Record bootstrap completion time
 record_bootstrap_run_time() {
     echo "# Record bootstrap run time"
     echo "#############################################"
-    date +%s > $container_bootstrap_run_file
-    cp $container_bootstrap_run_file $repo_bootstrap_run_file
+    mkdir -p "$(dirname "$repo_bootstrap_run_file")"
+    date +%s > "$container_bootstrap_run_file"
+    cp "$container_bootstrap_run_file" "$repo_bootstrap_run_file"
     echo "Bootstrap run time recorded"
 }
 
@@ -1465,7 +1348,14 @@ finish_message() {
     echo "--------------------------------------------------------------"
     if [ "${AUTH_NEEDED:-0}" -eq 1 ]; then
         echo "ACTION REQUIRED: Auth credentials are not configured."
-        echo "Run: key-update-provider <new-token>"
+        echo "Run: key-update-provider   (paste the token at the prompt)"
+    fi
+    if [ "${PNPM_INSTALL_FAILED:-0}" -eq 1 ]; then
+        echo "ACTION REQUIRED: 'pnpm install' failed during bootstrap. Run it in $toolbox_root and check the output."
+    fi
+    if [ -n "${SETUP_SEEDS_MISSING:-}" ]; then
+        echo "ACTION REQUIRED: setup answers are missing:${SETUP_SEEDS_MISSING}"
+        echo "Run 'setup' on the host machine, then rebuild or re-run bootstrap."
     fi
     echo "Please exit out of VS Code and let the container restart."
     echo "Please restart the container to complete the setup."
@@ -1483,8 +1373,8 @@ finish_message() {
 run_bootstrap_tasks() {
     local tasks=("$@")
     local default_tasks=(
-        initialize_paths
         init_bootstrap_run_time
+        initialize_paths
         detect_architecture
         ensure_home_is_set
         ensure_bash_is_default_shell
@@ -1497,7 +1387,6 @@ run_bootstrap_tasks() {
         add_specialized_repositories
         install_os_packages_round2
         install_dotnet
-        download_container_scripts
         load_setup_credentials
         write_bash_functions_file
         generate_env_vars_file
@@ -1556,7 +1445,6 @@ run_update_tasks() {
         add_specialized_repositories
         install_os_packages_round2
         install_dotnet
-        download_container_scripts
         load_setup_credentials
         write_bash_functions_file
         generate_env_vars_file

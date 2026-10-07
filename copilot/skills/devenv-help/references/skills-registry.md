@@ -12,7 +12,7 @@ Skills for producing written documentation of existing systems and components.
 
 | Skill | One-line purpose | USE WHEN triggers | NOT FOR |
 | --- | --- | --- | --- |
-| `/devenv-document` | Bootstrap or refresh a repo's documentation family (docs/Architecture_and_implementation.md + Usage_guide.md) and the thin AGENTS.md dispatcher — docs-first, draft-first, family convention as default shape; heavier legacy investigations keep the session-plan + Q-NNN machinery | "document this repo", "bootstrap docs for", "create the docs family", "add an AGENTS.md", "refresh the docs", "write up how this works", "we need documentation for" | read-only session warm-up → `/devenv-load`; conversational Q&A without a written output → `/devenv-chat`; docs overhaul large enough to be execution work → plan it via `/devenv-plan`; architectural design → `/devenv-create-blueprint`; specifications → `/devenv-write-specifications`; tech debt → `/devenv-audit` |
+| `/devenv-document` | Bootstrap or refresh a repo's documentation family (docs/Architecture_and_implementation.md + Usage_guide.md) and the thin AGENTS.md dispatcher — docs-first, draft-first, family convention as default shape; heavier system investigations keep the session-plan + Q-NNN machinery | "document this repo", "bootstrap docs for", "create the docs family", "add an AGENTS.md", "refresh the docs", "write up how this works", "we need documentation for" | read-only session warm-up → `/devenv-load`; conversational Q&A without a written output → `/devenv-chat`; docs overhaul large enough to be execution work → plan it via `/devenv-plan`; architectural design → `/devenv-create-blueprint`; specifications → `/devenv-write-specifications`; tech debt → `/devenv-audit` |
 
 ---
 
@@ -232,7 +232,7 @@ For building a single new component identified in a blueprint. The grooming step
 
 ### Chain F — Document an existing system, then plan future work
 
-For legacy or underdocumented systems that need to be understood before any new work begins. Document first, then use the output to bootstrap planning.
+For undocumented or poorly documented systems that need to be understood before any new work begins. Document first, then use the output to bootstrap planning.
 
 ```
 /devenv-document                     (understand and write up the existing system)

@@ -66,7 +66,7 @@ queue_responses() {
 
 @test "provider_projects_list lists boards with gh-shaped entries" {
     printf '{"value":[{"id":"b1","name":"Stories"},{"id":"b2","name":"Epics"}]}' > "$TEST_TEMP_DIR/boards.json"
-    printf '{"value":[{"id":"guid-proj","name":"proj"}]}' > "$TEST_TEMP_DIR/projects.json"
+    printf '{"id":"guid-proj","name":"proj"}' > "$TEST_TEMP_DIR/projects.json"
     printf '{"value":[{"id":"guid-team","name":"proj Team"}]}' > "$TEST_TEMP_DIR/teams.json"
     queue_responses "$TEST_TEMP_DIR/projects.json" "$TEST_TEMP_DIR/teams.json" "$TEST_TEMP_DIR/boards.json"
     run azure_run provider_projects_list
@@ -76,7 +76,7 @@ queue_responses() {
 
 @test "provider_projects_id_by_name resolves a board by name" {
     printf '{"value":[{"id":"b1","name":"Stories"}]}' > "$TEST_TEMP_DIR/boards.json"
-    printf '{"value":[{"id":"guid-proj","name":"proj"}]}' > "$TEST_TEMP_DIR/projects.json"
+    printf '{"id":"guid-proj","name":"proj"}' > "$TEST_TEMP_DIR/projects.json"
     printf '{"value":[{"id":"guid-team","name":"proj Team"}]}' > "$TEST_TEMP_DIR/teams.json"
     queue_responses "$TEST_TEMP_DIR/projects.json" "$TEST_TEMP_DIR/teams.json" "$TEST_TEMP_DIR/boards.json"
     run azure_run provider_projects_id_by_name org Stories
@@ -86,7 +86,7 @@ queue_responses() {
 
 @test "provider_projects_id_by_name fails defined for an unknown board" {
     printf '{"value":[{"id":"b1","name":"Stories"}]}' > "$TEST_TEMP_DIR/boards.json"
-    printf '{"value":[{"id":"guid-proj","name":"proj"}]}' > "$TEST_TEMP_DIR/projects.json"
+    printf '{"id":"guid-proj","name":"proj"}' > "$TEST_TEMP_DIR/projects.json"
     printf '{"value":[{"id":"guid-team","name":"proj Team"}]}' > "$TEST_TEMP_DIR/teams.json"
     queue_responses "$TEST_TEMP_DIR/projects.json" "$TEST_TEMP_DIR/teams.json" "$TEST_TEMP_DIR/boards.json"
     run azure_run provider_projects_id_by_name org NoSuch
@@ -104,12 +104,15 @@ queue_responses() {
     [ "$output" = "100999" ]
 }
 
-@test "provider_projects_field_list emits states as the Status options" {
-    printf '{"value":[{"name":"New","category":"propose"},{"name":"Active","category":"inProgress"},{"name":"Closed","category":"completed"}]}' > "$TEST_TEMP_DIR/states.json"
-    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/states.json" \
-        run azure_run provider_projects_field_list "" 1
+@test "provider_projects_field_list emits the board columns as the Status options" {
+    printf '{"name":"proj","id":"G1"}' > "$TEST_TEMP_DIR/projects.json"
+    printf '{"value":[{"id":"T1"}]}' > "$TEST_TEMP_DIR/teams.json"
+    printf '{"value":[{"id":"b1","name":"Stories"},{"id":"b2","name":"Features"}]}' > "$TEST_TEMP_DIR/boards.json"
+    printf '%s\n%s\n%s\n%s\n%s\n' "$TEST_TEMP_DIR/projects.json" "$TEST_TEMP_DIR/teams.json" "$TEST_TEMP_DIR/boards.json" \
+        "$BATS_TEST_DIRNAME/../fixtures/azure/board.columns.Stories.json" "$BATS_TEST_DIRNAME/../fixtures/azure/board.columns.Features.json" > "$TEST_TEMP_DIR/pages.queue"
+    STUB_CURL_PAGES="$TEST_TEMP_DIR/pages.queue" run azure_run provider_projects_field_list "" 1
     [ "$status" -eq 0 ]
-    [ "$(printf '%s\n' "$output" | jq -r '.option' | tr '\n' ' ')" = "New Active Closed " ]
+    [ "$(printf '%s\n' "$output" | jq -r '.option' | tr '\n' ' ')" = "TBD To-Groom Ready Implementing Review Merged Staging Production " ]
 }
 
 @test "provider_projects_field_option_ids passes a state word through" {
@@ -119,11 +122,10 @@ queue_responses() {
     [ "$output" = "$(printf 'Status\tActive')" ]
 }
 
-@test "provider_projects_field_option_ids fails defined on an unmappable word" {
-    printf '{"value":[{"name":"New"},{"name":"Closed"}]}' > "$TEST_TEMP_DIR/states.json"
-    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/states.json" \
-        run azure_run provider_projects_field_option_ids pid Status To-Groom
-    [ "$status" -ne 0 ]
+@test "provider_projects_field_option_ids passes a column word through; the board validates it when it is written" {
+    run azure_run provider_projects_field_option_ids pid Status To-Groom
+    [ "$status" -eq 0 ]
+    [ "$output" = "$(printf 'Status\tTo-Groom')" ]
 }
 
 @test "provider_projects_field_option_ids resolves config aliases" {
@@ -134,11 +136,11 @@ queue_responses() {
     [ "$output" = "$(printf 'Status\tNew')" ]
 }
 
-@test "provider_projects_field_set patches System.State" {
-    printf '{"id":42,"fields":{"System.State":"Active"}}' > "$TEST_TEMP_DIR/patched.json"
+@test "provider_projects_field_set on an item with no board column patches System.State" {
+    printf '{"id":42,"fields":{"System.State":"Active","System.WorkItemType":"Issue"}}' > "$TEST_TEMP_DIR/patched.json"
     : > "$TEST_TEMP_DIR/fsbody.log"
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/patched.json" STUB_CURL_REQUEST_BODY="$TEST_TEMP_DIR/fsbody.log" \
-        run azure_run provider_projects_field_set pid 42 Status Active
+        run azure_run provider_projects_field_set pid 42 Status Closed
     [ "$status" -eq 0 ]
     grep -q "System.State" "$TEST_TEMP_DIR/fsbody.log"
 }
@@ -152,4 +154,16 @@ queue_responses() {
     run azure_status_alias Active "$states"
     [ "$status" -eq 0 ]
     [ "$output" = "Active" ]
+}
+
+@test "the default team lookup resolves the project by the configured value, a name or a GUID" {
+    printf '[provider]\nname=azure\nazure_org=org\nazure_project=my proj\n' > "$DEVENV_ROOT/devenv.config"
+    printf '{"id":"guid-proj","name":"my proj"}' > "$TEST_TEMP_DIR/project.json"
+    printf '{"value":[{"id":"guid-team","name":"T"}]}' > "$TEST_TEMP_DIR/teams.json"
+    queue_responses "$TEST_TEMP_DIR/project.json" "$TEST_TEMP_DIR/teams.json"
+    run azure_run azure_default_team_id
+    [ "$status" -eq 0 ]
+    [ "$output" = "guid-team" ]
+    grep -q '_apis/projects/my%20proj?' "$STUB_CALL_LOG"
+    grep -q '_apis/projects/guid-proj/teams' "$STUB_CALL_LOG"
 }

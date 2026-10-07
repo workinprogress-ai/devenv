@@ -36,6 +36,8 @@ teardown() {
     cat > "$STUB_BIN_DIR/curl" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$@" > "$TEST_TEMP_DIR/curl-argv.log"
+# The credential header arrives on stdin (-H @-), as a real curl would read it.
+cat > "$TEST_TEMP_DIR/curl-stdin.log"
 # Emit a minimal 200 into the -D headers file so the transport succeeds.
 prev=""
 for arg in "$@"; do
@@ -51,10 +53,11 @@ EOF
         bash -c "source '$AZURE_HTTP_LIB' && azure_http_request GET 'https://dev.azure.com/org/proj/_apis/test'" > /dev/null
     # The PAT itself never appears in any curl argument (process listings)
     run ! grep -q "test-pat-secret" "$TEST_TEMP_DIR/curl-argv.log"
-    # Auth travels as an Authorization: Basic header built off-argv
+    # Auth travels as an Authorization: Basic header on stdin, not in argv
     local expected_b64
     expected_b64=$(printf ':%s' "$AZURE_PAT" | base64 | tr -d '\r\n')
-    grep -q "Authorization: Basic $expected_b64" "$TEST_TEMP_DIR/curl-argv.log"
+    grep -q "Authorization: Basic $expected_b64" "$TEST_TEMP_DIR/curl-stdin.log"
+    run ! grep -qi "Authorization" "$TEST_TEMP_DIR/curl-argv.log"
 }
 
 @test "azure-http: request injects api-version=7.1" {
@@ -206,4 +209,130 @@ EOF
     [ "$status" -eq 0 ]
     [ "$(jq 'length' <<< "$output")" -eq 2 ]
     [ "$(jq -r '.[1].id' <<< "$output")" = "2" ]
+}
+
+# ---------------------------------------------------------------------------
+# Status resolution, auth errors, retry rules, pagination, downloads
+# ---------------------------------------------------------------------------
+
+no_sleep() { printf '#!/usr/bin/env bash\nexit 0\n' > "$STUB_BIN_DIR/sleep"; chmod +x "$STUB_BIN_DIR/sleep"; }
+http_run() { run bash -c "source '$AZURE_HTTP_LIB' && \"\$@\"" _ "$@"; }
+calls() { grep -c '^curl ' "$STUB_CALL_LOG"; }
+
+@test "azure-http: the status is the final hop's, not the redirect's" {
+    # curl -L dumps every hop's headers; the first line is the 302, the last the real answer
+    cat > "$STUB_BIN_DIR/curl" <<'STUB'
+#!/usr/bin/env bash
+prev=""; for arg in "$@"; do [[ "$prev" == "-D" ]] && printf 'HTTP/1.1 302 Found\r\n\r\nHTTP/1.1 200 OK\r\n\r\n' > "$arg"; prev="$arg"; done
+printf '{"value":[1]}'
+STUB
+    chmod +x "$STUB_BIN_DIR/curl"
+    http_run azure_http_request GET "https://dev.azure.com/org/_apis/projects"
+    [ "$status" -eq 0 ]
+    [ "$(jq -c . <<< "$output")" = '{"value":[1]}' ]
+}
+
+@test "azure-http: curl's own -w status is used and stripped from the body" {
+    cat > "$STUB_BIN_DIR/curl" <<'STUB'
+#!/usr/bin/env bash
+prev=""; for arg in "$@"; do [[ "$prev" == "-D" ]] && printf 'HTTP/1.1 302 Found\r\n\r\n' > "$arg"; prev="$arg"; done
+printf '{"value":[1]}\n__azure_http_code=200'
+STUB
+    chmod +x "$STUB_BIN_DIR/curl"
+    http_run azure_http_request GET "https://dev.azure.com/org/_apis/projects"
+    [ "$status" -eq 0 ]
+    [ "$(jq -c . <<< "$output")" = '{"value":[1]}' ]
+}
+
+@test "azure-http: a sign-in page served with 200 is an auth error, not malformed JSON" {
+    printf '<html><title>Sign in to your account</title></html>' > "$TEST_TEMP_DIR/signin.html"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/signin.html" http_run azure_http_request GET "https://dev.azure.com/org/_apis/projects"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *'"error":"auth"'* ]]
+    [[ "$output" == *"key-update-azure"* ]]
+}
+
+@test "azure-http: a 429 is retried even for a POST" {
+    no_sleep
+    printf '{"message":"slow down"}' > "$TEST_TEMP_DIR/429.json"
+    STUB_CURL_HTTP_CODE=429 STUB_CURL_RESPONSE="$TEST_TEMP_DIR/429.json" http_run azure_http_request POST "https://dev.azure.com/org/proj/_apis/wit/workitems/\$Bug" '{"a":1}'
+    [ "$status" -ne 0 ]
+    [ "$(calls)" -eq 3 ]
+}
+
+@test "azure-http: a POST the caller marks idempotent (a read-only query) is retried on a 5xx" {
+    no_sleep
+    printf '{"message":"unavailable"}' > "$TEST_TEMP_DIR/503.json"
+    STUB_CURL_HTTP_CODE=503 STUB_CURL_RESPONSE="$TEST_TEMP_DIR/503.json" http_run azure_http_request POST "https://dev.azure.com/org/proj/_apis/wit/wiql" '{"query":"q"}' application/json idempotent
+    [ "$status" -ne 0 ]
+    [ "$(calls)" -eq 3 ]
+}
+
+@test "azure-http: a PATCH that fails at the connection level is not re-sent" {
+    no_sleep
+    STUB_CURL_FAIL=1 http_run azure_http_request PATCH "https://dev.azure.com/org/proj/_apis/git/pullrequests/1" '{"a":1}'
+    [ "$status" -ne 0 ]
+    [ "$(calls)" -eq 1 ]
+}
+
+page_files() {   # page_files <n>: n pages of one item each, queued
+    local i; : > "$TEST_TEMP_DIR/queue"
+    for ((i = 1; i <= $1; i++)); do
+        printf '{"value":[{"i":%s}]}' "$i" > "$TEST_TEMP_DIR/page$i.json"
+        printf '%s\n' "$TEST_TEMP_DIR/page$i.json" >> "$TEST_TEMP_DIR/queue"
+    done
+}
+
+@test "azure-http: paginate follows the x-ms-continuationtoken header through every page" {
+    page_files 3
+    STUB_CURL_PAGES="$TEST_TEMP_DIR/queue" http_run azure_http_paginate "https://dev.azure.com/org/proj/_apis/build/builds"
+    [ "$status" -eq 0 ]
+    [ "$(jq -c '[.[].i]' <<< "$output")" = "[1,2,3]" ]
+    [ "$(calls)" -eq 3 ]
+}
+
+@test "azure-http: paginate with max_items stops paging once it has enough and returns exactly that many" {
+    page_files 5
+    STUB_CURL_PAGES="$TEST_TEMP_DIR/queue" http_run azure_http_paginate "https://dev.azure.com/org/proj/_apis/build/builds" 2
+    [ "$status" -eq 0 ]
+    [ "$(jq -c '[.[].i]' <<< "$output")" = "[1,2]" ]
+    [ "$(calls)" -eq 2 ]
+}
+
+@test "azure-http: paginate URL-encodes a continuation token taken from the body" {
+    cat > "$STUB_BIN_DIR/curl" <<'STUB'
+#!/usr/bin/env bash
+prev=""; for arg in "$@"; do [[ "$prev" == "-D" ]] && printf 'HTTP/1.1 200 OK\r\n\r\n' > "$arg"; prev="$arg"; url="$arg"; done
+echo "curl $url" >> "$STUB_CALL_LOG"
+if [[ "$url" == *continuationToken=* ]]; then printf '{"value":[{"i":2}]}'; else printf '{"value":[{"i":1}],"continuationToken":"a b/c+d"}'; fi
+STUB
+    chmod +x "$STUB_BIN_DIR/curl"
+    http_run azure_http_paginate "https://dev.azure.com/org/proj/_apis/build/builds"
+    [ "$status" -eq 0 ]
+    [ "$(jq -c '[.[].i]' <<< "$output")" = "[1,2]" ]
+    grep -q 'continuationToken=a%20b%2Fc%2Bd' "$STUB_CALL_LOG"
+}
+
+@test "azure-http: paginate retries a 429 page instead of failing the listing at once" {
+    no_sleep
+    printf '{"message":"slow"}' > "$TEST_TEMP_DIR/429.json"
+    STUB_CURL_HTTP_CODE=429 STUB_CURL_RESPONSE="$TEST_TEMP_DIR/429.json" http_run azure_http_paginate "https://dev.azure.com/org/proj/_apis/build/builds"
+    [ "$status" -ne 0 ]
+    [ "$(calls)" -eq 3 ]
+}
+
+@test "azure-http: download writes the binary body to the destination" {
+    printf 'PK\003\004zipbytes' > "$TEST_TEMP_DIR/artifact.bin"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/artifact.bin" http_run azure_http_download "https://dev.azure.com/org/proj/_apis/build/builds/9/artifacts?artifactName=a" "$TEST_TEMP_DIR/out.zip"
+    [ "$status" -eq 0 ]
+    cmp "$TEST_TEMP_DIR/artifact.bin" "$TEST_TEMP_DIR/out.zip"
+    grep -q 'api-version=7.1' "$STUB_CALL_LOG"
+}
+
+@test "azure-http: a failed download leaves no partial file and a 401 is the typed auth error" {
+    printf 'nope' > "$TEST_TEMP_DIR/body"
+    STUB_CURL_HTTP_CODE=401 STUB_CURL_RESPONSE="$TEST_TEMP_DIR/body" http_run azure_http_download "https://dev.azure.com/org/x" "$TEST_TEMP_DIR/out.zip"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"key-update-azure"* ]]
+    [ ! -e "$TEST_TEMP_DIR/out.zip" ]
 }

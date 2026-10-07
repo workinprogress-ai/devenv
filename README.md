@@ -172,7 +172,7 @@ The [setup script](./setup) will ask you a few questions about your environment 
 The script will ask you for the following information:
 
 - Your human name:  This is the name by which you will be identified in all commits.  This is YOUR NAME AS A HUMAN BEING, not your username.  The name your mother calls you when she's angry.
-- Your email address:  This identifies you by email in all commits. The setup script reads the expected email domain from `devenv.config` (`email_domain`, currently `workinprogress.ai`) and validates your address against it. Forks should set their own domain there.
+- Your email address:  This identifies you by email in all commits. The setup script reads the expected email domain from `devenv.config` (`email_domain`) and validates your address against it. Forks should set their own domain there.
 - Your timezone:  This is in order to correctly display your local time within the container.  By default, the script will attempt to determine your time zone.  If it does so correctly, then you can just hit ENTER and accept the default.
 - A PAT:  The Personal Access Token is what allows package access and other functions from the dev environment.  The recommended note should be 'DEVENV_TOKEN'.  This token should have the following permissions:
   - repo (all)

@@ -55,7 +55,7 @@ setup() {
 }
 
 @test "rejects status values not in the configured workflow" {
-    # The hyphenated 8-state kanban is canonical; legacy values must fail.
+    # The hyphenated 8-state kanban is canonical; other values must fail.
     run bash "$SCRIPT" someproject 123 --status "Done" --dry-run
     [ "$status" -ne 0 ]
     [[ "$output" == *"Invalid status"* ]]

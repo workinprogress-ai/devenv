@@ -14,16 +14,16 @@ Before staleness analysis, check whether the plan matches the current plan shape
 - `## Phases` with tasks embedded under each phase (via `**Tasks:**` and task checkboxes)
 - `## Reference Information`
 
-Legacy-format signals:
+Older-format signals:
 
 - `## Detailed Task List` section exists.
 - `## Additional Task Context` section exists.
 - `## Phase TOC` is missing.
 - Phase sections have no embedded tasks while tasks exist elsewhere.
 
-If any legacy-format signal is present, offer a format normalization pass first:
+If any older-format signal is present, offer a format normalization pass first:
 
-> *"This plan looks like a legacy format. I can reorganize it to the current structure (phase TOC + tasks and task context co-located under each phase) before I run the staleness assessment. Do you want me to normalize format first? (recommended: yes)"*
+> *"This plan looks like an older format. I can reorganize it to the current structure (phase TOC + tasks and task context co-located under each phase) before I run the staleness assessment. Do you want me to normalize format first? (recommended: yes)"*
 
 If **yes**: reorganize structure only (no semantic edits) — move each phase's tasks under that phase, move per-task context under the corresponding task, add `## Phase TOC` with phase anchors, keep Appendix / Pending Questions / Reference Information in place, keep all checkbox states and task/AC numbering unchanged. No changelog edits; structural only. Continue the assessment on the normalized plan.
 
@@ -69,7 +69,7 @@ Synthesize signals into one classification and present the evidence report:
 - ⚠️  Git log: 8 commits to `SyncEngine.cs` since plan was written — significant rework
 - ⚠️  Task 2.3 ("extract orchestration from DocumentSyncOrchestrator") appears already done
 - ✅  Tasks 1.x all [x] — Phase 1 is complete and still looks accurate
-- ⚠️  Format drift present (legacy plan structure)
+- ⚠️  Format drift present (older plan structure)
 
 **Summary:** The plan's Phase 1 is clean. Phase 2 has a broken class reference and one phantom task. Phase 3+ are speculative given the SyncEngine rework.
 ```

@@ -1,0 +1,36 @@
+{
+  "id": "00000000-0000-4000-8000-000000000001",
+  "name": "Example-Project",
+  "url": "https://dev.azure.com/example-org/_apis/projects/00000000-0000-4000-8000-000000000001",
+  "state": "wellFormed",
+  "capabilities": {
+    "processTemplate": {
+      "templateName": "Agile",
+      "templateTypeId": "00000000-0000-4000-8000-000000000022"
+    },
+    "versioncontrol": {
+      "sourceControlType": "Git",
+      "gitEnabled": "True",
+      "tfvcEnabled": "False"
+    }
+  },
+  "revision": 577,
+  "_links": {
+    "self": {
+      "href": "https://dev.azure.com/example-org/_apis/projects/00000000-0000-4000-8000-000000000001"
+    },
+    "collection": {
+      "href": "https://dev.azure.com/example-org/_apis/projectCollections/00000000-0000-4000-8000-000000000023"
+    },
+    "web": {
+      "href": "https://dev.azure.com/example-org/Example-Project"
+    }
+  },
+  "visibility": "private",
+  "defaultTeam": {
+    "id": "00000000-0000-4000-8000-000000000007",
+    "name": "Example-Project Team",
+    "url": "https://dev.azure.com/example-org/_apis/projects/00000000-0000-4000-8000-000000000001/teams/00000000-0000-4000-8000-000000000007"
+  },
+  "lastUpdateTime": "2026-10-02T13:17:41.457Z"
+}

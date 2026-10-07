@@ -407,3 +407,160 @@ read_cfg() {
     [ "$status" -eq 0 ]
     [[ "$output" == *"present but empty"* || "$output" == *"present-but-empty"* ]]
 }
+
+# ============================================================================
+# One reader: every path agrees on the same file
+# ============================================================================
+# The same text, in shapes people actually write, read through every reader in the
+# tooling. They used to disagree (header and key matching, trimming, CR handling),
+# so `name = azure` read as empty on one path and `azure` on another.
+
+PROVIDER_VARIANTS=(
+    $'[provider]\nname=azure\n'
+    $'[provider]\nname = azure\n'
+    $'  [provider]  \n  name  =  azure  \n'
+    $'[provider]\r\nname=azure\r\n'
+    $'# a comment\n; another\n\n[provider]\n# note\nname=azure\n'
+    $'[other]\nname=wrong\n[provider]\nname=azure\n'
+    $'[provider-extra]\nname=wrong\n[provider]\nname=azure\n'
+    $'[provider]\nname=github\nname=azure\n'
+)
+
+write_variant() { printf '%s' "$1" > "$TEST_CONFIG_FILE"; }
+
+@test "config_get_raw reads the value from every variant, without a prior config_init" {
+    local v
+    for v in "${PROVIDER_VARIANTS[@]}"; do
+        write_variant "$v"
+        run bash -c "source '$PROJECT_ROOT/tools/lib/config-reader.bash'; config_get_raw '$TEST_CONFIG_FILE' provider name"
+        [ "$status" -eq 0 ]
+        [ "$output" = "azure" ] || { echo "variant: $(printf '%q' "$v") -> [$output]"; return 1; }
+    done
+}
+
+@test "config_get (the expanding reader) agrees on every variant" {
+    local v
+    for v in "${PROVIDER_VARIANTS[@]}"; do
+        write_variant "$v"
+        run bash -c "source '$PROJECT_ROOT/tools/lib/config-reader.bash'; config_get '$TEST_CONFIG_FILE' provider name 2>/dev/null"
+        [ "$output" = "azure" ] || { echo "variant: $(printf '%q' "$v") -> [$output]"; return 1; }
+    done
+}
+
+@test "config_read_value and config_read_value_raw agree on every variant" {
+    local v
+    for v in "${PROVIDER_VARIANTS[@]}"; do
+        write_variant "$v"
+        run bash -c "source '$PROJECT_ROOT/tools/lib/config-reader.bash'; config_init '$TEST_CONFIG_FILE'; echo \"\$(config_read_value provider name 2>/dev/null)|\$(config_read_value_raw provider name)\""
+        [ "$output" = "azure|azure" ] || { echo "variant: $(printf '%q' "$v") -> [$output]"; return 1; }
+    done
+}
+
+@test "provider_detect agrees on every variant" {
+    local v
+    for v in "${PROVIDER_VARIANTS[@]}"; do
+        write_variant "$v"
+        run bash -c "
+            export DEVENV_TOOLS='$PROJECT_ROOT/tools'
+            source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+            source '$PROJECT_ROOT/tools/lib/providers/provider-core.bash'
+            provider_detect '$TEST_CONFIG_FILE'
+            echo \"\$PROVIDER_NAME\"
+        "
+        [ "$output" = "azure" ] || { echo "variant: $(printf '%q' "$v") -> [$output]"; return 1; }
+    done
+}
+
+@test "the provider identity accessor agrees on every variant" {
+    local v
+    for v in "${PROVIDER_VARIANTS[@]}"; do
+        write_variant "$v"
+        run bash -c "
+            export DEVENV_TOOLS='$PROJECT_ROOT/tools' PROVIDER_IDENTITY_CONFIG='$TEST_CONFIG_FILE'
+            source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+            source '$PROJECT_ROOT/tools/lib/providers/provider-core.bash'
+            _provider_identity_raw_read provider name
+        "
+        [ "$output" = "azure" ] || { echo "variant: $(printf '%q' "$v") -> [$output]"; return 1; }
+    done
+}
+
+@test "policy_resolve agrees on every variant" {
+    local v
+    for v in "${PROVIDER_VARIANTS[@]}"; do
+        write_variant "$v"
+        run bash -c "
+            source '$PROJECT_ROOT/tools/lib/policy/policy-core.bash'
+            policy_core_init '$TEST_CONFIG_FILE'
+            policy_resolve NONE provider name fallback 2>/dev/null
+        "
+        [ "$output" = "azure" ] || { echo "variant: $(printf '%q' "$v") -> [$output]"; return 1; }
+    done
+}
+
+@test "a value that contains = keeps everything after the first =" {
+    printf '[x]\nurl = https://h/p?a=b&c=d\n' > "$TEST_CONFIG_FILE"
+    run bash -c "source '$PROJECT_ROOT/tools/lib/config-reader.bash'; config_get_raw '$TEST_CONFIG_FILE' x url"
+    [ "$output" = "https://h/p?a=b&c=d" ]
+}
+
+@test "an absent key reads as the default, and an absent file is a failure with no output" {
+    printf '[x]\nk=v\n' > "$TEST_CONFIG_FILE"
+    run bash -c "source '$PROJECT_ROOT/tools/lib/config-reader.bash'; config_get_raw '$TEST_CONFIG_FILE' x missing fallback"
+    [ "$output" = "fallback" ]
+    run bash -c "source '$PROJECT_ROOT/tools/lib/config-reader.bash'; config_get_raw '$TEST_TEMP_DIR/none.config' x k fallback"
+    [ "$status" -ne 0 ]
+    [ -z "$output" ]
+}
+
+# ---------------------------------------------------------------------------
+# Reading another file never re-points the global
+# ---------------------------------------------------------------------------
+
+@test "provider_detect on another file leaves the initialised CONFIG_FILE alone" {
+    printf '[a]\nk=from-a\n' > "$TEST_TEMP_DIR/a.config"
+    printf '[provider]\nname=github\n' > "$TEST_TEMP_DIR/b.config"
+    run bash -c "
+        export DEVENV_TOOLS='$PROJECT_ROOT/tools'
+        source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+        source '$PROJECT_ROOT/tools/lib/providers/provider-core.bash'
+        config_init '$TEST_TEMP_DIR/a.config'
+        provider_detect '$TEST_TEMP_DIR/b.config'
+        echo \"\$CONFIG_FILE\"
+        config_read_value a k
+    "
+    [ "${lines[0]}" = "$TEST_TEMP_DIR/a.config" ]
+    [ "${lines[1]}" = "from-a" ]
+}
+
+@test "policy values keep reading the policy file after another file is initialised" {
+    printf '[provider]\nname=azure\n' > "$TEST_TEMP_DIR/policy.config"
+    printf '[provider]\nname=other\n' > "$TEST_TEMP_DIR/elsewhere.config"
+    run bash -c "
+        source '$PROJECT_ROOT/tools/lib/policy/policy-core.bash'
+        policy_core_init '$TEST_TEMP_DIR/policy.config'
+        source '$PROJECT_ROOT/tools/lib/config-reader.bash'
+        config_init '$TEST_TEMP_DIR/elsewhere.config'
+        policy_resolve NONE provider name fallback
+    "
+    [ "$output" = "azure" ]
+}
+
+@test "policy_core_init with no argument and no DEVENV_ROOT uses the checkout's own devenv.config" {
+    run env -u DEVENV_ROOT bash -c "
+        source '$PROJECT_ROOT/tools/lib/policy/policy-core.bash'
+        policy_core_init
+        echo \"\$POLICY_CONFIG_FILE\"
+    "
+    [ "$output" = "$(cd "$PROJECT_ROOT" && pwd)/devenv.config" ]
+}
+
+@test "loading provider-core with DEVENV_ROOT unset does not point the policy layer at /devenv.config" {
+    run env -u DEVENV_ROOT DEVENV_TOOLS="$PROJECT_ROOT/tools" bash -c "
+        source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+        source '$PROJECT_ROOT/tools/lib/providers/provider-core.bash'
+        echo \"\$POLICY_CONFIG_FILE\"
+    "
+    [ "$output" != "/devenv.config" ]
+    [[ "$output" == */devenv.config ]]
+}

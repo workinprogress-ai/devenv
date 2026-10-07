@@ -1,5 +1,16 @@
 #!/bin/bash
 
+usage() {
+  echo "Usage: git-update"
+  echo "Fetch tags and pull the current branch when it is strictly behind its upstream."
+  echo "Takes no arguments."
+}
+case "${1:-}" in
+  "") ;;
+  -h|--help) usage; exit 0 ;;
+  *) echo "git-update: unknown argument: $1" >&2; usage >&2; exit 2 ;;
+esac
+
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo "Error: This is not a Git repository. Please navigate to a valid Git repo and try again."
   exit 1
@@ -12,7 +23,7 @@ current_branch=$(git rev-parse --abbrev-ref HEAD)
 echo "On branch '$current_branch'."
 
 # Check if the current branch has an upstream branch set
-if ! git rev-parse --abbrev-ref @{u} >/dev/null 2>&1; then
+if ! git rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then
   echo "Error: No upstream branch is set for '$current_branch'."
   echo "Please set the upstream branch (e.g., 'git branch --set-upstream-to=origin/$current_branch') or switch branches."
   exit 1
@@ -20,8 +31,8 @@ fi
 
 # Determine the commit differences between local and upstream
 LOCAL=$(git rev-parse @)
-REMOTE=$(git rev-parse @{u})
-BASE=$(git merge-base @ @{u})
+REMOTE=$(git rev-parse '@{u}')
+BASE=$(git merge-base @ '@{u}')
 
 if [ "$LOCAL" = "$REMOTE" ]; then
   echo "Your branch is up to date with the remote."

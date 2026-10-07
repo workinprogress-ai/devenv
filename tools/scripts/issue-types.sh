@@ -133,7 +133,7 @@ main() {
                 shift
                 ;;
             # (no --devenv flag: org-level query, no target-repo ambiguity)
-            -f|--format)  OUTPUT_FORMAT="$2"; shift 2 ;;
+            -f|--format)  require_option_value "$1" "${2:-}"; OUTPUT_FORMAT="$2"; shift 2 ;;
             *)
                 log_error "Unknown option: $1"
                 echo "Use --help for usage information"

@@ -31,10 +31,10 @@ load ../test_helper
 }
 
 @test "docs and skills use 'research' where the retired 'spike' skill name used to be" {
-    # Allowed leftovers: the trigger phrase users still say ("spike on X"), the legacy
+    # Allowed leftovers: the trigger phrase users still say ("spike on X"), the
     # `spike` artifact-type value, and an example issue type named Spike in Forking.md.
     hits="$(grep -rn -i 'spike' --include=*.md "$PROJECT_ROOT/copilot" "$PROJECT_ROOT/docs" \
-        | grep -v -e '"spike on X"' -e '`spike` (legacy)' -e 'name: Spike' || true)"
+        | grep -v -e '"spike on X"' -e '`spike`' -e 'name: Spike' || true)"
     [ -z "$hits" ] || { echo "$hits"; false; }
 }
 

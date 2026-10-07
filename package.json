@@ -1,9 +1,9 @@
 {
   "name": "devenv",
   "version": "1.4.0",
-  "description": "Developer environment for WorkInProgress.ai (MIT License)",
+  "description": "Developer environment (MIT License)",
   "private": true,
-  "packageManager": "pnpm@9.15.9",
+  "packageManager": "pnpm@11.9.0",
   "scripts": {
     "prepare": "husky",
     "ci:release": "semantic-release",

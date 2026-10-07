@@ -25,8 +25,19 @@ if [ -z "${_REPO_CACHE_LOADED:-}" ] && [ -f "${DEVENV_TOOLS}/lib/repo-cache.bash
     source "${DEVENV_TOOLS}/lib/repo-cache.bash"
 fi
 
-# Organization package prefix used to filter org packages from third-party ones
-readonly CS_DEP_ORG_PREFIX="${CS_DEP_ORG_PREFIX:-WorkInProgress.}"
+# Organization package prefix used to filter org packages from third-party ones:
+# the CS_DEP_ORG_PREFIX override, else [nuget] package_prefix in devenv.config
+# (for example "Acme."). Empty when neither is set; build_dependency_index then
+# refuses to run rather than treat every package as org-internal.
+_cs_dep_configured_prefix() {
+    local reader="${DEVENV_TOOLS}/lib/config-reader.bash" root="${DEVENV_ROOT:-$(dirname "${DEVENV_TOOLS}")}"
+    [ -f "$reader" ] && [ -f "$root/devenv.config" ] || return 0
+    # shellcheck disable=SC1090
+    source "$reader"
+    config_get_raw "$root/devenv.config" nuget package_prefix ""
+}
+CS_DEP_ORG_PREFIX="${CS_DEP_ORG_PREFIX:-$(_cs_dep_configured_prefix)}"
+readonly CS_DEP_ORG_PREFIX
 
 # Index directory inside the cache
 readonly CS_DEP_INDEX_DIR="${REPO_CACHE_DIR}/.index"
@@ -42,6 +53,7 @@ readonly CS_DEP_INDEX_DIR="${REPO_CACHE_DIR}/.index"
 #   - The cache timestamp file does not exist (cache never built)
 #   - The index timestamp file does not exist (index never built)
 #   - The two timestamps differ (cache was refreshed since last index build)
+#   - The index was built with a different organization package prefix
 #
 # Usage:
 #   if is_index_stale; then
@@ -62,6 +74,11 @@ is_index_stale() {
 
     if [ ! -f "$index_ts_file" ]; then
         log_debug "No index timestamp found — index is stale"
+        return 0
+    fi
+
+    if [ "$(cat "$CS_DEP_INDEX_DIR/.index_prefix" 2>/dev/null || true)" != "$CS_DEP_ORG_PREFIX" ]; then
+        log_debug "Index was built with a different organization package prefix — index is stale"
         return 0
     fi
 
@@ -101,6 +118,11 @@ is_index_stale() {
 #   0 on success, 1 on error
 #
 build_dependency_index() {
+    if [ -z "$CS_DEP_ORG_PREFIX" ]; then
+        log_error "No organization package prefix: set [nuget] package_prefix in devenv.config (for example \"Acme.\"), or CS_DEP_ORG_PREFIX"
+        return 1
+    fi
+
     if [ ! -d "$REPO_CACHE_DIR" ]; then
         log_error "Repo cache directory does not exist: $REPO_CACHE_DIR"
         return 1
@@ -193,6 +215,9 @@ build_dependency_index() {
     if [ -f "$cache_ts_file" ]; then
         cp "$cache_ts_file" "$CS_DEP_INDEX_DIR/.index_timestamp"
     fi
+    # The index depends on the prefix it was built with: record it, so a changed prefix
+    # reads as stale without waiting for the next cache refresh.
+    printf '%s' "$CS_DEP_ORG_PREFIX" > "$CS_DEP_INDEX_DIR/.index_prefix"
 
     local pkg_count dep_count
     pkg_count=$(wc -l < "$pkg_to_repo")

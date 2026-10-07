@@ -33,7 +33,7 @@ normalizer does not consume; keep the two lists consistent when overriding.
 | `policy_triage_label <key>` | — | (looks up the vocabulary above) | rc 1 for unknown keys |
 | `policy_delivery_segment_anchor` | `POLICY_DELIVERY_SEGMENT_ANCHOR` | `[workflows] delivery_segment_anchor` | `Implementing` |
 | `policy_status_fallback` | `POLICY_STATUS_FALLBACK` | `[workflows] status_fallback` | `Ready` |
-| `policy_default_provider` | `POLICY_DEFAULT_PROVIDER` | `[provider] name` | `github` |
+| `policy_default_provider` | `POLICY_DEFAULT_PROVIDER` | (none — env or built-in) | `github` |
 | `policy_org` | `POLICY_ORG` | `[organization] org` (`GH_ORG` is not read) | fails (rc 1) when unresolvable |
 
 ## Usage

@@ -20,6 +20,7 @@ setup() {
     unset GIT_CONFIG_PARAMETERS
     : > "$GIT_CONFIG_GLOBAL"
     printf 'azure-pat-token-abcdefghij0123456789' > "$AZURE_PAT_FILE"
+    sed -i 's/^name=github/name=azure\nazure_org=test-org\nazure_project=test-proj/' "$DEVENV_ROOT/devenv.config"
     chmod 600 "$AZURE_PAT_FILE"
     cd "$TEST_TEMP_DIR"
 }
@@ -59,7 +60,7 @@ teardown() {
     [[ "$output" == *"PAT file not found"* ]]
 }
 
-@test "provider_auth_setup_git: registers canonical and organization-scoped legacy helpers" {
+@test "provider_auth_setup_git: registers canonical and organization-scoped helpers" {
     run bash -c "
         source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
         PROVIDER_NAME=azure
@@ -97,7 +98,7 @@ teardown() {
     [[ "$output" != *"azure-pat-token"* ]]
 }
 
-@test "provider_auth_setup_git: legacy host credential query returns the synthetic PAT" {
+@test "provider_auth_setup_git: visualstudio.com host credential query returns the synthetic PAT" {
     run bash -c "
         source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
         PROVIDER_NAME=azure
@@ -110,7 +111,7 @@ teardown() {
     [[ "$output" == *"password=azure-pat-token-abcdefghij0123456789"* ]]
 }
 
-@test "provider_auth_setup_git: unrelated legacy hosts never receive Azure credentials" {
+@test "provider_auth_setup_git: unrelated visualstudio.com hosts never receive Azure credentials" {
     run bash -c "
         source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
         PROVIDER_NAME=azure
@@ -151,8 +152,8 @@ teardown() {
     [ "$(git config --get credential.https://example.com.username)" = "unrelated-user" ]
 }
 
-@test "provider_auth_setup_git: missing organization keeps canonical support and warns" {
-    sed -i '/^org=/d' "$DEVENV_ROOT/devenv.config"
+@test "provider_auth_setup_git: missing azure_org keeps canonical support and warns" {
+    sed -i '/^azure_org=/d' "$DEVENV_ROOT/devenv.config"
     run bash -c "
         source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
         PROVIDER_NAME=azure
@@ -160,13 +161,13 @@ teardown() {
         provider_auth_setup_git
     "
     [ "$status" -eq 0 ]
-    [[ "$output" == *"legacy Azure hostname"* ]]
+    [[ "$output" == *"visualstudio.com host"* ]]
     git config --get credential.https://dev.azure.com.helper
     ! grep -q visualstudio.com "$GIT_CONFIG_GLOBAL"
 }
 
 @test "provider_auth_setup_git: wildcard organization never broadens credential scope" {
-    sed -i 's/org=test-org/org=test*/' "$DEVENV_ROOT/devenv.config"
+    sed -i 's/^azure_org=test-org/azure_org=test*/' "$DEVENV_ROOT/devenv.config"
     run bash -c "
         source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
         PROVIDER_NAME=azure
@@ -179,8 +180,35 @@ teardown() {
     ! grep -q visualstudio.com "$GIT_CONFIG_GLOBAL"
 }
 
-@test "provider_auth_setup_git: key-update-azure invokes the wiring after import" {
-    # Contract check: the rotation script's wiring step exists and runs the
-    # seam verb (full rotation flow is covered by test_key_update.bats).
-    grep -q "provider_auth_setup_git" "$DEVENV_TOOLS/lib/providers/azure/key-update.sh"
+@test "provider_auth_setup_git: the visualstudio.com host derives from azure_org, not [organization] org" {
+    sed -i 's/^org=test-org/org=display-org/' "$DEVENV_ROOT/devenv.config"
+    run bash -c "
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        PROVIDER_NAME=azure
+        provider_load auth
+        provider_auth_setup_git
+    "
+    [ "$status" -eq 0 ]
+    git config --get credential.https://test-org.visualstudio.com.helper
+    run ! git config --get credential.https://display-org.visualstudio.com.helper
+}
+
+@test "provider_auth_import_token: wires the git credential helper after storing the PAT" {
+    rm -f "$AZURE_PAT_FILE"
+    run bash -c "
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        PROVIDER_NAME=azure
+        provider_load auth
+        printf 'imported-pat-0123456789' | provider_auth_import_token
+    "
+    [ "$status" -eq 0 ]
+    [ "$(stat -c '%a' "$AZURE_PAT_FILE")" = "600" ]
+    git config --get credential.https://dev.azure.com.helper
+    git config --get credential.https://test-org.visualstudio.com.helper
+}
+
+@test "key-update-azure leaves the git helper wiring to the credential import" {
+    # The import verb wires the helper (see the import test above); the rotation
+    # script must not wire it a second time.
+    run ! grep -q "provider_auth_setup_git" "$DEVENV_TOOLS/lib/providers/azure/key-update.sh"
 }

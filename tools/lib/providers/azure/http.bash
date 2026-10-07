@@ -2,14 +2,15 @@
 # providers/azure/http.bash - Thin HTTP transport for the Azure DevOps provider.
 #
 # Everything HTTP lives here once: Basic-auth header from the PAT,
-# api-version injection, ContinuationToken pagination, 429/Retry-After and
-# transient-5xx retry with backoff, jq response validation, and token
-# redaction on every log/error path. Domain modules (providers/azure/*)
+# api-version injection, continuation-token pagination, 429/Retry-After and
+# transient-5xx retry (idempotent requests only) with backoff, typed auth errors,
+# jq response validation, and token redaction on every log/error path. Domain modules (providers/azure/*)
 # call azure_http_request / azure_http_paginate; they never touch curl.
 #
 # Contract:
-#   - PAT travels ONLY as an Authorization header. Query-string tokens are
-#     forbidden (they leak into logs and process listings).
+#   - PAT travels ONLY as an Authorization header, passed to curl on stdin
+#     (-H @-) so it is never in argv. Query-string tokens are forbidden (they
+#     leak into logs and process listings).
 #   - All log/error output passes through azure_redact, so the token can
 #     never reach a terminal or a file.
 #   - Errors are typed: azure_http_request returns non-zero and emits a JSON
@@ -103,20 +104,52 @@ _azure_pat_ensure() {
     return 1
 }
 
-# Build the Authorization header value off-argv. The PAT never appears in a
-# curl argument (process listings) — only inside this header string.
+# The Authorization header value. It reaches curl through stdin (-H @-), never
+# argv, so the PAT is not visible in process listings.
 _azure_auth_header() {
     printf 'Authorization: Basic %s' "$(printf ':%s' "${AZURE_PAT}" | base64 | tr -d '\r\n')"
 }
-azure_http_request() {
-    local method="$1"
-    local url="$2"
-    local body="${3:-}"
-    local content_type="${4:-application/json}"
 
-    if ! _azure_pat_ensure; then
-        return 1
+# Typed auth error: the credential was not accepted (401, or the 203/redirect
+# sign-in page Azure answers an unauthenticated call with).
+# Usage: _azure_auth_error HTTP_CODE
+_azure_auth_error() {
+    printf '{"error":"auth","code":%s,"message":"Azure DevOps did not accept the stored credential (HTTP %s) — run key-update-azure to store a valid token"}' "${1:-0}" "${1:-0}"
+}
+
+# Resolve the response status of the last curl run: curl's own -w line when it
+# printed one (the final hop, after redirects), else the last status line of the
+# header dump. Strips the -w line from the body file.
+# Usage: _azure_response_code BODY_FILE HEADERS_FILE -> prints the code
+_azure_response_code() {
+    local body_file="$1" headers_file="$2" last code=""
+    last=$(tail -n 1 "$body_file" 2>/dev/null || true)
+    if [[ "$last" == __azure_http_code=* ]]; then
+        code="${last#__azure_http_code=}"
+        # drop the marker line and the newline -w put before it
+        head -c "-$(( ${#last} + 1 ))" "$body_file" > "$body_file.trim" 2>/dev/null && mv "$body_file.trim" "$body_file"
+    else
+        code=$(grep -E '^HTTP/' "$headers_file" | tail -n 1 | tr -d '\r' | awk '{print $2}')
     fi
+    printf '%s' "$code"
+}
+
+# One request attempt loop shared by azure_http_request and azure_http_paginate.
+# On success (2xx, JSON body) returns 0 with the body in $_AZ_BODY and the
+# response headers in $_AZ_HEADERS; the caller removes both. On failure prints a
+# typed JSON error object, removes its files and returns 1.
+#
+# Retries: a 429 is retried for every verb (Azure rejected the request before
+# acting on it, and Retry-After says when); a 5xx or a connection failure only
+# for an idempotent request — a GET, PUT or DELETE, or any request the caller
+# marks idempotent (a read-only POST such as a WIQL query). A POST or PATCH that
+# may already have taken effect is never re-sent.
+# Usage: _azure_http_exec METHOD URL [BODY] [CONTENT_TYPE] [idempotent]
+_azure_http_exec() {
+    local method="$1" url="$2" body="${3:-}" content_type="${4:-application/json}" idem="${5:-}"
+    local retry_ok=false
+    case "$method" in GET|HEAD|PUT|DELETE) retry_ok=true ;; esac
+    [ "$idem" = "idempotent" ] && retry_ok=true
 
     # Append the default api-version unless the URL pins its own (preview
     # resources like work-item comments require a -preview version).
@@ -127,100 +160,129 @@ azure_http_request() {
         *) full_url="${url}?api-version=${AZURE_API_VERSION}" ;;
     esac
 
-    local attempt=0
-    local http_code retry_after body_file headers_file
-    body_file=$(mktemp)
-    headers_file=$(mktemp)
+    local attempt=0 http_code retry_after curl_exit
+    _AZ_BODY=$(mktemp)
+    _AZ_HEADERS=$(mktemp)
 
     while :; do
         attempt=$((attempt + 1))
+        : > "$_AZ_BODY"
 
         local curl_args=(
             -sS
             -L
             -X "$method"
-            -H "$(_azure_auth_header)"
-            -D "$headers_file"
+            -H @-
+            -D "$_AZ_HEADERS"
+            -w '\n__azure_http_code=%{http_code}'
             --max-time 60
         )
         [ -n "$body" ] && curl_args+=(-H "Content-Type: ${content_type}" -d "$body")
 
-        # Body is captured via stdout redirection rather than curl's -o: the
-        # captured file is then guaranteed to hold exactly what this function
-        # validates and emits (works with any curl, stubbed or real).
-        curl "${curl_args[@]}" "$full_url" > "$body_file"
-        local curl_exit=$?
+        # Body goes to stdout (-> file) and the credential header in through a
+        # here-string, so it never rides argv or a pipe that could SIGPIPE.
+        curl "${curl_args[@]}" "$full_url" > "$_AZ_BODY" <<< "$(_azure_auth_header)"
+        curl_exit=$?
 
         if [ "$curl_exit" -ne 0 ]; then
-            # Transport-level failure (DNS, timeout, connection). Retry only
-            # if attempts remain.
-            if [ "$attempt" -lt "$AZURE_HTTP_MAX_RETRIES" ]; then
+            if [ "$retry_ok" = true ] && [ "$attempt" -lt "$AZURE_HTTP_MAX_RETRIES" ]; then
                 sleep $((attempt * 2))
                 continue
             fi
             printf '{"error":"transport","message":"curl failed after %d attempts (exit %d)"}' "$attempt" "$curl_exit"
-            rm -f "$body_file" "$headers_file"
+            rm -f "$_AZ_BODY" "$_AZ_HEADERS"
             return 1
         fi
 
-        http_code=$(head -n1 "$headers_file" | tr -d '\r' | awk '{print $2}')
+        http_code=$(_azure_response_code "$_AZ_BODY" "$_AZ_HEADERS")
 
         case "$http_code" in
+            203|401)
+                _azure_auth_error "$http_code"
+                rm -f "$_AZ_BODY" "$_AZ_HEADERS"
+                return 1
+                ;;
             2*)
-                # Success. Validate JSON when the body is non-empty.
-                if [ -s "$body_file" ] && ! jq -e . "$body_file" >/dev/null 2>&1; then
-                    printf '{"error":"malformed-json","message":"response was not valid JSON"}'
-                    rm -f "$body_file" "$headers_file"
+                if [ -s "$_AZ_BODY" ] && ! jq -e . "$_AZ_BODY" >/dev/null 2>&1; then
+                    # A sign-in page served as a 200 (an unauthenticated call
+                    # that was redirected to the login form) is an auth failure,
+                    # not a malformed response.
+                    if grep -qiE 'sign in|_signin|login\.microsoftonline' "$_AZ_BODY"; then
+                        _azure_auth_error "$http_code"
+                    else
+                        printf '{"error":"malformed-json","message":"response was not valid JSON"}'
+                    fi
+                    rm -f "$_AZ_BODY" "$_AZ_HEADERS"
                     return 1
                 fi
-                cat "$body_file"
-                rm -f "$body_file" "$headers_file"
                 return 0
                 ;;
             429|500|502|503|504)
-                # Retryable. Honor Retry-After for 429, exponential otherwise.
-                if [ "$attempt" -ge "$AZURE_HTTP_MAX_RETRIES" ]; then
-                    printf '{"error":"http","code":%s,"message":"gave up after %d attempts"}' "${http_code:-0}" "$attempt"
-                    rm -f "$body_file" "$headers_file"
-                    return 1
+                if [ "$http_code" != "429" ] && [ "$retry_ok" != true ]; then
+                    : # a 5xx on a request that may have taken effect is surfaced, not re-sent
+                elif [ "$attempt" -lt "$AZURE_HTTP_MAX_RETRIES" ]; then
+                    retry_after=$(grep -i '^Retry-After:' "$_AZ_HEADERS" | tr -d '\r' | awk '{print $2}')
+                    if [ -n "$retry_after" ] && [ "$http_code" = "429" ]; then
+                        sleep "$retry_after"
+                    else
+                        sleep $((attempt * 2))
+                    fi
+                    continue
                 fi
-                retry_after=$(grep -i '^Retry-After:' "$headers_file" | tr -d '\r' | awk '{print $2}')
-                if [ -n "$retry_after" ] && [ "$http_code" = "429" ]; then
-                    sleep "$retry_after"
-                else
-                    sleep $((attempt * 2))
-                fi
-                continue
+                printf '{"error":"http","code":%s,"message":"gave up after %d attempt(s)"}' "${http_code:-0}" "$attempt"
+                rm -f "$_AZ_BODY" "$_AZ_HEADERS"
+                return 1
                 ;;
             *)
-                # Non-retryable HTTP error (400/401/403/404...). Surface the
-                # Azure error payload when present; redact regardless.
+                # Non-retryable HTTP error (400/403/404...). Surface the Azure
+                # error payload when present; redact regardless.
                 local err_message
-                err_message=$(jq -r '.message // empty' "$body_file" 2>/dev/null || true)
+                err_message=$(jq -r '.message // empty' "$_AZ_BODY" 2>/dev/null || true)
                 # Server-controlled text: strip any token material (C2).
                 err_message=$(azure_redact "${err_message:-HTTP $http_code}")
                 printf '{"error":"http","code":%s,"message":%s}' \
                     "${http_code:-0}" \
                     "$(jq -Rn --arg m "${err_message:-HTTP $http_code}" '$m')"
-                rm -f "$body_file" "$headers_file"
+                rm -f "$_AZ_BODY" "$_AZ_HEADERS"
                 return 1
                 ;;
         esac
     done
 }
 
+azure_http_request() {
+    local method="$1"
+    local url="$2"
+    local body="${3:-}"
+    local content_type="${4:-application/json}"
+    local idem="${5:-}"
+
+    if ! _azure_pat_ensure; then
+        return 1
+    fi
+    _azure_http_exec "$method" "$url" "$body" "$content_type" "$idem" || return 1
+    cat "$_AZ_BODY"
+    rm -f "$_AZ_BODY" "$_AZ_HEADERS"
+    return 0
+}
+
 # ============================================================================
 # Pagination
 # ============================================================================
 
-# Fetch all pages of a list endpoint and print one combined JSON array.
-# Usage: azure_http_paginate URL
-#   URL   list endpoint without api-version; the ContinuationToken parameter
-#         is appended here as pages are consumed.
-# Returns: 0 and prints a single JSON array of all items; 1 on any failure.
+# Fetch the pages of a list endpoint and print one combined JSON array.
+# Usage: azure_http_paginate URL [MAX_ITEMS]
+#   URL        list endpoint without api-version; the continuation token is
+#              appended (URL-encoded) as pages are consumed.
+#   MAX_ITEMS  optional: stop paging once this many items are in hand and
+#              return exactly that many (without it every page is read).
+# The token comes from the x-ms-continuationtoken response header, else the
+# body's continuationToken field. Pages are fetched with the same retry rules as
+# a GET (including 429 backoff).
+# Returns: 0 and prints a single JSON array of items; 1 on any failure.
 azure_http_paginate() {
-    local url="$1"
-    local continuation=""
+    local url="$1" max_items="${2:-}"
+    local continuation="" count=0
     local -a items=()
 
     if ! _azure_pat_ensure; then
@@ -230,71 +292,99 @@ azure_http_paginate() {
     while :; do
         local page_url="$url"
         if [ -n "$continuation" ]; then
+            local enc
+            enc=$(jq -rn --arg t "$continuation" '$t|@uri')
             case "$page_url" in
-                *\?*) page_url="${page_url}&continuationToken=${continuation}" ;;
-                *) page_url="${page_url}?continuationToken=${continuation}" ;;
+                *\?*) page_url="${page_url}&continuationToken=${enc}" ;;
+                *) page_url="${page_url}?continuationToken=${enc}" ;;
             esac
         fi
 
-        local headers_file body_file
-        headers_file=$(mktemp)
-        body_file=$(mktemp)
-
-        local page_separator='?'
-        case "$page_url" in
-            *\?*) page_separator='&' ;;
-        esac
-
-        # stdout capture (see azure_http_request): the validated file is
-        # exactly what curl emitted.
-        if ! curl -sS -H "$(_azure_auth_header)" -D "$headers_file" --max-time 60 \
-            "${page_url}${page_separator}api-version=${AZURE_API_VERSION}" > "$body_file"; then
-            printf '{"error":"transport","message":"curl failed during pagination"}'
-            rm -f "$body_file" "$headers_file"
-            return 1
-        fi
-
-        if ! jq -e . "$body_file" >/dev/null 2>&1; then
-            printf '{"error":"malformed-json","message":"page response was not valid JSON"}'
-            rm -f "$body_file" "$headers_file"
-            return 1
-        fi
-
-        # Status gate: a non-2xx page (401/404/429/5xx) is an error, not an
-        # empty page — without this the loop silently yields "[]".
-        local page_code
-        page_code=$(head -n1 "$headers_file" | tr -d '\r' | awk '{print $2}')
-        case "$page_code" in
-            2*) : ;;
-            *)
-                printf '{"error":"http","code":%s,"message":"list request failed"}' "${page_code:-0}"
-                rm -f "$body_file" "$headers_file"
-                return 1
-                ;;
-        esac
+        _azure_http_exec GET "$page_url" || return 1
 
         # Collect this page's items (list endpoints return {"value": [...]}).
+        local item
         while IFS= read -r item; do
-            [ -n "$item" ] && items+=("$item")
-        done < <(jq -c '.value[]' "$body_file" 2>/dev/null)
+            [ -n "$item" ] || continue
+            items+=("$item")
+            count=$((count + 1))
+        done < <(jq -c '.value[]' "$_AZ_BODY" 2>/dev/null)
 
-        # Continuation: some endpoints carry the token in a response header,
-        # others embed it in the body (continuationToken field) — check the
-        # header first, then the body; missing both ends pagination.
-        continuation=$(grep -i '^ContinuationToken:' "$headers_file" | tr -d '\r' | awk '{print $2}')
+        continuation=$(grep -iE '^(x-ms-)?continuationtoken:' "$_AZ_HEADERS" | tr -d '\r' | awk '{print $2}' | head -n 1)
         if [ -z "$continuation" ]; then
-            continuation=$(jq -r '.continuationToken // empty' "$body_file" 2>/dev/null)
+            continuation=$(jq -r '.continuationToken // empty' "$_AZ_BODY" 2>/dev/null)
         fi
-        rm -f "$body_file" "$headers_file"
+        rm -f "$_AZ_BODY" "$_AZ_HEADERS"
 
         [ -z "$continuation" ] && break
+        if [ -n "$max_items" ] && [ "$count" -ge "$max_items" ]; then
+            break
+        fi
     done
 
-    # Emit one combined array.
     if [ "${#items[@]}" -eq 0 ]; then
         printf '[]'
+    elif [ -n "$max_items" ]; then
+        printf '%s\n' "${items[@]}" | jq -s --argjson n "$max_items" '.[0:$n]'
     else
         printf '%s\n' "${items[@]}" | jq -s '.'
     fi
     return 0
+}
+
+# ============================================================================
+# Binary download
+# ============================================================================
+
+# Download a binary resource (a build artifact zip) to a file, with the same
+# authentication and api-version rules as every other call. The JSON transport
+# cannot carry a zip, so this bypasses its body validation; the status is still
+# checked, and a failed download leaves no partial file.
+# Usage: azure_http_download URL DEST_FILE
+# Whether a URL is one the PAT may be sent to: https on Azure DevOps' own hosts
+# (dev.azure.com, *.dev.azure.com, *.visualstudio.com). A download URL comes from
+# a server response, so the host is checked before the credential is attached.
+# Usage: azure_url_is_provider_host URL
+azure_url_is_provider_host() {
+    local host="${1#https://}"
+    [ "$host" != "$1" ] || return 1
+    host="${host%%/*}"
+    host="${host##*@}"
+    host="${host%%:*}"
+    host="${host,,}"
+    case "$host" in
+        dev.azure.com|*.dev.azure.com|*.visualstudio.com) return 0 ;;
+    esac
+    return 1
+}
+
+azure_http_download() {
+    local url="$1" dest="$2" code
+    [ -n "$url" ] && [ -n "$dest" ] || { printf '{"error":"usage","message":"azure_http_download needs a URL and a destination"}'; return 1; }
+    if ! azure_url_is_provider_host "$url"; then
+        printf '{"error":"host","message":"refusing to send the PAT to a host outside Azure DevOps"}'
+        return 1
+    fi
+    if ! _azure_pat_ensure; then
+        return 1
+    fi
+    case "$url" in
+        *api-version=*) : ;;
+        *\?*) url="${url}&api-version=${AZURE_API_VERSION}" ;;
+        *) url="${url}?api-version=${AZURE_API_VERSION}" ;;
+    esac
+    local headers_file
+    headers_file=$(mktemp)
+    code=$(curl -sS -L -H @- -D "$headers_file" -o "$dest" -w '%{http_code}' --max-time 600 "$url" <<< "$(_azure_auth_header)") || {
+        rm -f "$dest" "$headers_file"
+        printf '{"error":"transport","message":"curl failed downloading the artifact"}'
+        return 1
+    }
+    [ -n "$code" ] || code=$(grep -E '^HTTP/' "$headers_file" | tail -n 1 | tr -d '\r' | awk '{print $2}')
+    rm -f "$headers_file"
+    case "$code" in
+        203|401) rm -f "$dest"; _azure_auth_error "$code"; return 1 ;;
+        2*) return 0 ;;
+        *) rm -f "$dest"; printf '{"error":"http","code":%s,"message":"artifact download failed"}' "${code:-0}"; return 1 ;;
+    esac
 }

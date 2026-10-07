@@ -20,6 +20,7 @@ parallel_jobs=$DEFAULT_PARALLEL_JOBS
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -j|--jobs)
+            require_option_value "$1" "${2:-}"
             [[ -n "${2:-}" && "$2" =~ ^[0-9]+$ ]] || { echo "ERROR: --jobs requires a numeric argument" >&2; exit 1; }
             parallel_jobs="$2"; shift 2 ;;
         -h|--help)
@@ -63,6 +64,9 @@ update_single_repo() {
     
     echo "[$repo_name] Starting update..." >&2
     if cd "$repo_path" 2>/dev/null; then
+        # pipefail is not inherited through `bash -c`, so set it here: the pipe
+        # must report repo-get's status, not sed's.
+        set -o pipefail
         if "$REPO_GET_SCRIPT" 2>&1 | sed "s/^/[$repo_name] /"; then
             echo "[$repo_name] ✓ Update completed" >&2
             return 0
@@ -80,8 +84,8 @@ export REPO_GET_SCRIPT
 export repos_dir
 export -f update_single_repo
 
-echo "$repo_list" | xargs -P "$parallel_jobs" -I {} bash -c 'update_single_repo "$1" "$2"' _ {} "$repos_dir"
-exit_code=$?
+exit_code=0
+echo "$repo_list" | xargs -P "$parallel_jobs" -I {} bash -c 'update_single_repo "$1" "$2"' _ {} "$repos_dir" || exit_code=$?
 
 end_time=$(date +%s)
 echo "" >&2

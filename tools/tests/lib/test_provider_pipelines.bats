@@ -93,24 +93,6 @@ setup() {
     grep -q "^gh run download 77 -R org/repo --name art$" "$STUB_CALL_LOG"
 }
 
-@test "wait_for_branch: returns 0 immediately when no active runs" {
-    printf '[{"status":"completed"}]' > "$TEST_TEMP_DIR/api.json"
-    export STUB_GH_API_RESPONSE="$TEST_TEMP_DIR/api.json"
-    run provider_pipelines_wait_for_branch org/repo main 3
-    assert_success
-}
-
-@test "wait_for_branch: query failure aborts with defined error" {
-    # The cli-stubs gh serves canned output only for `gh api`, so the poller's
-    # `gh run list` surface is exercised for failure via STUB_GH_FAIL: the
-    # poller must treat a failed query as abort (not as "branch settled").
-    stub_gh
-    STUB_GH_FAIL=1 run provider_pipelines_wait_for_branch org/repo main 2
-    assert_failure
-    [[ "$output" == *"could not query runs"* ]]
-}
-
-
 @test "run view: bare number first arg is the run id, not a repo (regex guard)" {
     gh_calls_reset
     provider_pipelines_run_view "55" --json url

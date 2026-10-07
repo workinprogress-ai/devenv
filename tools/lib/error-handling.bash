@@ -15,13 +15,7 @@ _ERROR_HANDLING_LOADED=1
 #   match where exactly one was required | 4 gh/API failure or target not
 #   found | 5 multiple candidates where one was required | 124 timeout
 #   | 127 command missing | 128 invalid exit
-#
-# Deprecated aliases (Plan: exit-code contract consolidation) - do NOT use in
-# new code; they remain only until the last migrated call site is swept:
-#   EXIT_INVALID_ARGUMENT -> use EXIT_MISUSE (usage errors) or
-#   EXIT_API_FAILURE (not-found conditions)
-#   EXIT_NOT_FOUND        -> use EXIT_API_FAILURE (same value, 4)
-#   EXIT_PERMISSION_DENIED -> use EXIT_GENERAL_ERROR
+# Each value has one name; there are no aliases for it.
 # shellcheck disable=SC2034  # Variables exported for use by sourcing scripts
 export EXIT_SUCCESS=0
 export EXIT_GENERAL_ERROR=1
@@ -32,10 +26,6 @@ export EXIT_AMBIGUOUS=5
 export EXIT_TIMEOUT=124
 export EXIT_COMMAND_NOT_FOUND=127
 export EXIT_INVALID_EXIT=128
-# Deprecated aliases - collide with the canonical 3/4/5 meanings; do not use.
-export EXIT_INVALID_ARGUMENT=3
-export EXIT_NOT_FOUND=4
-export EXIT_PERMISSION_DENIED=5
 
 # Track if strict mode is enabled
 ERROR_HANDLING_STRICT_MODE_ENABLED=0
@@ -194,7 +184,7 @@ require_env() {
     
     # Check if variable is set (not if it's non-empty)
     if [ -z "${!var_name+x}" ]; then
-        die "$message" "$EXIT_INVALID_ARGUMENT"
+        die "$message" "$EXIT_MISUSE"
     fi
 }
 
@@ -207,7 +197,7 @@ require_file() {
     local message="${2:-Required file not found: $file_path}"
     
     if [ ! -f "$file_path" ]; then
-        die "$message" "$EXIT_NOT_FOUND"
+        die "$message" "$EXIT_API_FAILURE"
     fi
 }
 
@@ -220,7 +210,7 @@ require_directory() {
     local message="${2:-Required directory not found: $dir_path}"
     
     if [ ! -d "$dir_path" ]; then
-        die "$message" "$EXIT_NOT_FOUND"
+        die "$message" "$EXIT_API_FAILURE"
     fi
 }
 
@@ -377,13 +367,13 @@ safe_remove() {
     # Check if path is empty
     if [ -z "$path" ]; then
         log_error "safe_remove: path is empty, refusing to remove"
-        return "$EXIT_INVALID_ARGUMENT"
+        return "$EXIT_MISUSE"
     fi
     
     # Check if path is just / or ~ or other dangerous patterns
     if [[ "$path" =~ ^(/|~|/home|/usr|/var|/etc)$ ]]; then
         log_error "safe_remove: refusing to remove protected path: $path"
-        return "$EXIT_PERMISSION_DENIED"
+        return "$EXIT_GENERAL_ERROR"
     fi
     
     # If expected parent is provided, validate path is within it
@@ -395,7 +385,7 @@ safe_remove() {
         
         if [[ "$real_path" != "$real_parent"* ]]; then
             log_error "safe_remove: path '$path' is not within expected parent '$expected_parent'"
-            return "$EXIT_PERMISSION_DENIED"
+            return "$EXIT_GENERAL_ERROR"
         fi
     fi
     
@@ -425,14 +415,20 @@ invalid_args() {
 }
 
 # require_option_value OPTION_NAME VALUE
-#   Validates that VALUE is non-empty; exits 2 via invalid_args otherwise.
-#   Callers must pass "${2:-}" (never a raw "$2") so a missing value reaches
-#   this helper as an empty string instead of crashing on set -u.
+#   Validates that VALUE is present: non-empty, and not itself the name of an option
+#   (a bare --word), which would mean the option's value was left out and the next flag
+#   is being swallowed (`--base --force`). Exits 2 via invalid_args otherwise. Free text
+#   that merely starts with dashes ("-- a note", "---") and "-" (stdin) are values.
+#   Callers must pass "${2:-}" (never a raw "$2") so a missing value reaches this helper
+#   as an empty string instead of crashing on set -u.
 require_option_value() {
     local option_name="$1"
     local value="${2:-}"
     if [ -z "$value" ]; then
         invalid_args "Missing value for $option_name"
+    fi
+    if [[ "$value" =~ ^--[A-Za-z][A-Za-z0-9-]*$ ]]; then
+        invalid_args "Missing value for $option_name (found the option '$value' where a value was expected)"
     fi
 }
 

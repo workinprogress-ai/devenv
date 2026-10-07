@@ -136,7 +136,7 @@ Update AI_Progress.md:
    - Commit
    - Repeat
 3. Track migration progress in AI_Progress.md
-4. Plan deprecation timeline for old pattern
+4. Plan retirement timeline for old pattern
 
 #### Migration Notes Pattern
 
@@ -157,7 +157,7 @@ For significant interface changes, document the migration pattern:
 ### Phase D: Cleanup
 
 1. Remove any temporary compatibility layers
-2. Delete deprecated code that was kept for transition
+2. Delete superseded code that was kept for transition
 3. Update or remove obsolete tests
 4. Final test count confirmation
 5. **Delete AI_Progress.md before merge**

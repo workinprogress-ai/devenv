@@ -20,3 +20,11 @@ load ../test_helper
 @test "the repo-wide runtime directory pattern is present" {
     grep -qx '\.runtime/' "$PROJECT_ROOT/.gitignore"
 }
+
+@test "tools/fork/ is tracked (a fork commits it) while tools/custom/ stays ignored" {
+    cd "$PROJECT_ROOT"
+    run git check-ignore -q tools/fork/example.sh
+    [ "$status" -eq 1 ]
+    run git check-ignore -q tools/custom/example.sh
+    [ "$status" -eq 0 ]
+}

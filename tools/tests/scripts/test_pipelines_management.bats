@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for pipelines-* (formerly actions-*) management scripts
+# Tests for pipelines-* management scripts
 #
 # GH CLI Actions API field inventory (from 'gh run list --json'):
 #   attempt, conclusion, createdAt, databaseId, displayTitle, event,

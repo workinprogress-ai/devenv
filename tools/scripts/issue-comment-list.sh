@@ -149,6 +149,7 @@ main() {
                 shift
                 ;;
             --repo)
+                require_option_value "$1" "${2:-}"
                 # shellcheck disable=SC2034  # Read by library functions via ${DEVENV_REPO:-}
                 DEVENV_REPO="$2"
                 shift 2

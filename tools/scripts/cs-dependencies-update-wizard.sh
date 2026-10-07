@@ -208,11 +208,13 @@ main() {
                 shift
                 ;;
             --framework)
+                require_option_value "$1" "${2:-}"
                 [[ $# -ge 2 && -n "${2:-}" ]] || die "--framework requires a value (e.g. net10.0)" "$EXIT_MISUSE"
                 framework="$2"
                 shift 2
                 ;;
             --lang-version)
+                require_option_value "$1" "${2:-}"
                 [[ $# -ge 2 && -n "${2:-}" ]] || die "--lang-version requires a value (e.g. 14.0)" "$EXIT_MISUSE"
                 lang_version="$2"
                 shift 2

@@ -71,7 +71,7 @@ else
 fi
 
 # Filter out session memory files (e.g. session_memory-*.md, session_*memory*.md)
-# and plan files (Plan-*.md or legacy Implementation_plan-*.md) which contain
+# and plan files (Plan-*.md or Implementation_plan-*.md) which contain
 # free-form AI-generated content that does not conform to doc lint rules.
 FILTERED_FILES=()
 for f in "${FILES[@]}"; do

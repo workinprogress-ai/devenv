@@ -75,3 +75,14 @@ load ../test_helper
   run grep -E "set -e|trap.*ERR" "$PROJECT_ROOT/tools/scripts/project-add-issue.sh"
   [ "$status" -eq 0 ]
 }
+
+@test "project-list-for-issue.sh documents and accepts the --devenv override like its sibling wrappers" {
+  run bash "$PROJECT_ROOT/tools/scripts/project-list-for-issue.sh" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"--devenv"* ]]
+}
+
+@test "project-list-for-issue.sh leaves the devenv-repo gate to resolve_target_repo (no second raw gate call)" {
+  run grep -nE '^[[:space:]]*check_target_repo[[:space:]]*$' "$PROJECT_ROOT/tools/scripts/project-list-for-issue.sh"
+  [ "$status" -ne 0 ]
+}

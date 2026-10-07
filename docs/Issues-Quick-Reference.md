@@ -16,7 +16,7 @@ issue-create --title "Title" --select-template
 # With specific template
 issue-create --title "Title" --template .github/ISSUE_TEMPLATE/feature_request.md
 
-# Explicit no-template (accepted no-op for backward compatibility)
+# Explicit no-template (accepted no-op)
 issue-create --title "Title" --no-template
 
 # Template without editor (automation)

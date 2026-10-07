@@ -25,13 +25,13 @@ if ! declare -F log_warn >/dev/null; then
     log_warn() { echo "WARN: $*" >&2; }
 fi
 
-if ! declare -F provider_dispatch >/dev/null; then
+if ! declare -F provider_load >/dev/null; then
     # Self-heal: source provider-core directly when loaded outside the
     # canonical loader (e.g. ad-hoc tooling that sources one module).
     # shellcheck disable=SC1091
     source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../provider-core.bash"
 fi
-if ! declare -F provider_dispatch >/dev/null; then
+if ! declare -F provider_load >/dev/null; then
     log_error "azure/auth.bash: providers/provider-core.bash failed to load"
     return 1
 fi
@@ -82,6 +82,9 @@ provider_auth_import_token_impl() {
         return 1
     fi
     log_info "Azure DevOps PAT stored ($pat_file)"
+    # Wire the git credential helper too, as the other provider's import does: git's global
+    # config lives in the container home, so a recreated container needs it again.
+    provider_auth_setup_git_impl || log_warn "git credential helper wiring failed — git pushes/pulls over https may fail until it is re-run"
     return 0
 }
 
@@ -116,8 +119,8 @@ provider_auth_token_impl() {
     printf '%s\n' "$token"
 }
 
-# Wire the PAT-backed credential helper for dev.azure.com and the configured
-# organization's legacy visualstudio.com host. HTTPS transport uses the 0600
+# Wire the PAT-backed credential helper for dev.azure.com and the
+# <azure_org>.visualstudio.com host of the configured organization. HTTPS transport uses the 0600
 # PAT file (never embedded URLs, never a second stored copy). Host-scoped:
 # unrelated hosts never consult it. Re-running rewrites the same config lines.
 # Usage: provider_auth_setup_git_impl
@@ -131,18 +134,21 @@ provider_auth_setup_git_impl() {
         log_error "failed registering the azure credential helper in git config"
         return 1
     fi
+    # The Azure organization ([provider] azure_org) is the one the API and the git
+    # remotes use, so the visualstudio.com host derives from it, not from the
+    # generic [organization] org.
     local org
-    if ! org=$(provider_org_get 2>/dev/null) || [ -z "$org" ]; then
-        log_warn "organization identity unavailable; skipping legacy Azure hostname credential helper"
+    if ! org=$(config_read_value "provider" "azure_org" "" 2>/dev/null) || [ -z "$org" ]; then
+        log_warn "organization identity unavailable; skipping visualstudio.com host credential helper"
         return 0
     fi
     org="${org,,}"
     if [[ ! "$org" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
-        log_warn "invalid organization identity; skipping legacy Azure hostname credential helper"
+        log_warn "invalid organization identity; skipping visualstudio.com host credential helper"
         return 0
     fi
     if ! git config --global "credential.https://${org}.visualstudio.com.helper" "$helper get"; then
-        log_error "failed registering the legacy Azure hostname credential helper in git config"
+        log_error "failed registering the visualstudio.com host credential helper in git config"
         return 1
     fi
     return 0

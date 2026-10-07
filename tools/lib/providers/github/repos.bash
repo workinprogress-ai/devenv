@@ -19,8 +19,8 @@ if ! declare -F log_error >/dev/null; then
     log_error() { echo "ERROR: $*" >&2; }
 fi
 
-if ! declare -F provider_gh_repo_args >/dev/null; then
-    provider_gh_repo_args() {
+if ! declare -F provider_repo_args >/dev/null; then
+    provider_repo_args() {
         local -n __arr="$1"
         local __repo="${2:-}"
         if [ -n "$__repo" ]; then
@@ -30,6 +30,23 @@ if ! declare -F provider_gh_repo_args >/dev/null; then
         fi
     }
 fi
+
+# The repository as GraphQL variables. gh fills {owner}/{repo} placeholders only
+# in an endpoint or a -F field — never inside a -f query — so a query that embeds
+# them asks GitHub for a repository literally named "{repo}". The target is the
+# explicit argument, else DEVENV_REPO, else the working directory's repository
+# (provider_repo_target, the one resolver); it prints owner and name, one per
+# line, for the caller to pass as `-f o=… -f r=…`.
+# Usage: _gh_repo_vars [REPO_SPEC]
+_gh_repo_vars() {
+    local spec
+    spec=$(provider_repo_target "${1:-}")
+    if [[ "$spec" != */* ]]; then
+        log_error "cannot resolve the target repository (got '${spec:-nothing}') — pass owner/repo or set DEVENV_REPO"
+        return 1
+    fi
+    printf '%s\n%s\n' "${spec%%/*}" "${spec#*/}"
+}
 
 # Self-heal: the neutral repo-target resolver (provider_repo_target /
 # provider_repo_split) lives in provider-core; source it when this module
@@ -70,11 +87,61 @@ _provider_repo_cwd_spec() {
 }
 
 # ============================================================================
+# Seam field names
+# ============================================================================
+
+# Run a gh command whose --json fields and -q program use the seam's names, not
+# gh's: the names are mapped to gh's on the way out, renamed back on the way in,
+# and -q is applied here, to the neutral records. Without --json the command passes
+# straight through.
+#   MAP: a JSON object, seam name -> gh name, e.g. {"repoSpec":"nameWithOwner"}
+# Usage: _gh_json_run MAP gh-args...   (gh-args may carry --json FIELDS and -q/--jq EXPR)
+_gh_json_run() {
+    local map="$1"; shift
+    local fields="" expr="" have_expr=false
+    local -a pass=()
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --json) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; fields="${2:-}"; shift 2 ;;
+            -q|--jq) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; expr="${2:-}"; have_expr=true; shift 2 ;;
+            *) pass+=("$1"); shift ;;
+        esac
+    done
+    if [ -z "$fields" ]; then
+        [ "$have_expr" = true ] && pass+=(--jq "$expr")
+        gh "${pass[@]}"
+        return
+    fi
+    local mapped inverse out
+    mapped=$(jq -rn --argjson m "$map" --arg f "$fields" '$f | split(",") | map($m[.] // .) | join(",")')
+    inverse=$(jq -c 'with_entries({key: .value, value: .key})' <<< "$map")
+    out=$(gh "${pass[@]}" --json "$mapped") || return $?
+    out=$(jq -c --argjson inv "$inverse" '
+        def ren: with_entries(.key |= ($inv[.] // .));
+        if type == "array" then map(ren) else ren end' <<< "$out") || return 1
+    if [ "$have_expr" = true ]; then
+        # gh prints nothing for a null result; keep that
+        jq -r "($expr) | select(. != null)" <<< "$out"
+    else
+        printf '%s\n' "$out"
+    fi
+}
+
+# A REST comment record in the seam's shape: the web address of a comment is `url`
+# (REST calls it html_url, and uses `url` for its own API address). Applies to each
+# JSON value on stdin, a record or an array of records.
+_gh_neutral_comment() {
+    jq -c 'def r: if type == "array" then map(r)
+                  elif type == "object" and has("html_url") then (.url = .html_url) | del(.html_url)
+                  else . end; r'
+}
+
+# ============================================================================
 # Reads
 # ============================================================================
 
 # View a repo.
-# Usage: provider_repos_view [repo] [--json FIELDS]
+# Usage: provider_repos_view [repo] [--json FIELDS] [-q JQ]   (fields: name, repoSpec, ...)
 # gh ≥2.95 takes the repository positionally on `gh repo view`; `-R` is no
 # longer accepted on the repo command family (it remains valid on the
 # issue/pr/run families).
@@ -84,17 +151,17 @@ provider_repos_view() {
         repo="$1"; shift
     fi
     if [ -n "$repo" ]; then
-        gh repo view "$repo" "$@"
+        _gh_json_run '{"repoSpec":"nameWithOwner"}' repo view "$repo" "$@"
     else
-        gh repo view "$@"
+        _gh_json_run '{"repoSpec":"nameWithOwner"}' repo view "$@"
     fi
 }
 
 # List an org's repos.
-# Usage: provider_repos_list ORG [--limit N] [--json FIELDS]
+# Usage: provider_repos_list ORG [--limit N] [--json FIELDS] [-q JQ]
 provider_repos_list() {
     local org="$1"; shift
-    gh repo list "$org" "$@"
+    _gh_json_run '{"repoSpec":"nameWithOwner"}' repo list "$org" "$@"
 }
 
 # Probe default branch (returns non-zero when the repo is unreachable).

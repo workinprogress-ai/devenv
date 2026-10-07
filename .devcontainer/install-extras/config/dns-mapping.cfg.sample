@@ -2,5 +2,5 @@
 # You should copy it to dns-mapping.cfg and edit it to suit your needs
 # Remove the comments and add your own mappings below
 
-server=/workinprogress.local/192.168.1.201
-server=/workinprogress.net/192.168.1.201
+server=/example.local/192.168.1.201
+server=/example.net/192.168.1.201

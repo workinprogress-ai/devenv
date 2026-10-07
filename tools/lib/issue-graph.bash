@@ -1,6 +1,6 @@
 #!/bin/bash
-# issue-graph.bash - Native sub-issue hierarchy reads/writes + legacy
-# body-text parent resolution.
+# issue-graph.bash - Native sub-issue hierarchy reads/writes + body-text
+# parent resolution.
 #
 # All I/O lives here (and in the wrappers it invokes); workflow-core.bash
 # stays policy-only by calling THESE helpers.
@@ -14,10 +14,10 @@
 #   parent:        repository(owner,name){ issue(number){ parent{ number } } }
 #
 # Parent resolution reads the native sub-issue graph FIRST (Issue.parent is
-# live-verified to reflect addSubIssue linkage); the legacy 'Part of #N'
-# body text is the fallback for issues linked before native linking. Keep
+# live-verified to reflect addSubIssue linkage); the 'Part of #N'
+# body text is the fallback for issues without native linking. Keep
 # the fallback: existing subtrees may rely on it. Removing the body-text
-# line on a legacy issue silently stops parent rollup for that subtree.
+# line on such an issue silently stops parent rollup for that subtree.
 
 # Prevent multiple sourcing
 if [ -n "${_ISSUE_GRAPH_LOADED:-}" ]; then return 0; fi
@@ -56,7 +56,7 @@ issue_link_subissue() {
         echo "Usage: issue_link_subissue <parent> <child>" >&2
         return 1
     }
-    provider_issue_graph_link "$parent" "$child"
+    provider_issue_graph_link "" "$parent" "$child"
 }
 
 # List a parent's native sub-issue children (numbers, one per line).
@@ -66,18 +66,18 @@ issue_children() {
     [ -n "$parent" ] || return 1
     # 50-cap rationale: beyond any planned decomposition; larger trees should
     # be split rather than queried deeper.
-    provider_issue_graph_children "$parent"
+    provider_issue_graph_children "" "$parent"
 }
 
-# Resolve an issue's parent: native sub-issue linkage first, legacy
-# 'Part of #N' body text as fallback for pre-native-linking issues. Empty
+# Resolve an issue's parent: native sub-issue linkage first, 'Part of #N'
+# body text as fallback for issues without native linking. Empty
 # output when no parent is recorded either way.
 # Usage: issue_parent <issue>
 issue_parent() {
     local issue="$1"
     [ -n "$issue" ] || return 1
     local native
-    native=$(provider_issue_graph_parent "$issue" 2>/dev/null)
+    native=$(provider_issue_graph_parent "" "$issue" 2>/dev/null)
     if [ -n "$native" ] && [ "$native" != "null" ]; then
         printf '%s' "$native"
         return 0
@@ -97,6 +97,10 @@ issue_read_status() {
     [ -n "$issue" ] || return 1
     local spec st
     spec="$(_issue_graph_repo_spec)"
+    # Same rule as the status write: an unset DEVENV_REPO means the work targets the
+    # checkout it runs in, so the read carries the explicit override too.
+    local override=()
+    [ -z "${DEVENV_REPO:-}" ] && override=(--devenv)
     while IFS=$'\t' read -r _proj _num st; do
         # Skip values outside the configured vocabulary: boards with a
         # foreign Status field (or dash/unset) must not shadow a canonical
@@ -105,7 +109,7 @@ issue_read_status() {
             printf '%s' "$st"
             return 0
         fi
-    done < <(bash "${ISSUE_GRAPH_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/scripts/project-list-for-issue.sh" "$issue" 2>/dev/null)
+    done < <(bash "${ISSUE_GRAPH_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/scripts/project-list-for-issue.sh" "$issue" ${override[@]+"${override[@]}"} 2>/dev/null)
     return 0
 }
 

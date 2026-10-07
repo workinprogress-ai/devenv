@@ -19,8 +19,8 @@ if ! declare -F log_error >/dev/null; then
     log_error() { echo "ERROR: $*" >&2; }
 fi
 
-if ! declare -F provider_gh_repo_args >/dev/null; then
-    provider_gh_repo_args() {
+if ! declare -F provider_repo_args >/dev/null; then
+    provider_repo_args() {
         local -n __arr="$1"
         local __repo="${2:-}"
         if [ -n "$__repo" ]; then
@@ -38,58 +38,45 @@ fi
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/provider-core.bash"
 provider_declare_capability project-boards
 
-# List project boards for a repo.
+# Project boards belong to an owner (a user or organization), not a repository:
+# gh project commands take --owner and accept no repository positional. The seam's
+# optional leading repo argument is accepted for call-shape parity and dropped;
+# callers pass --owner.
+
+# List project boards.
 # Usage: provider_projects_list [repo] [FLAGS...]
-# gh ≥2.95 takes the repository positionally on `gh project list`; `-R` is no
-# longer accepted on the project command family (it remains valid on the
-# issue/pr/run families).
 provider_projects_list() {
     provider_require_capability project-boards || return 1
-    local repo=""
-    if [ $# -gt 0 ] && [[ "$1" != --* ]]; then
-        repo="$1"; shift
+    if [ $# -gt 0 ] && [[ "$1" != -* ]]; then
+        shift   # repo: not a gh argument
     fi
-    if [ -n "$repo" ]; then
-        gh project list "$repo" "$@"
-    else
-        gh project list "$@"
-    fi
+    gh project list "$@"
 }
 
 # List a project's fields.
-# Usage: provider_projects_field_list [repo] PROJECT_NUMBER
+# Usage: provider_projects_field_list [repo] PROJECT_NUMBER [FLAGS...]
 provider_projects_field_list() {
     provider_require_capability project-boards || return 1
-    local repo=""
-    if [ $# -gt 1 ] && [[ "$1" != --* && "$1" != ^[0-9]*$ ]]; then
-        repo="$1"; shift
+    if [ $# -gt 1 ] && [[ "$1" != -* ]] && ! [[ "$1" =~ ^[0-9]+$ ]]; then
+        shift   # repo: not a gh argument
     fi
     local project="$1"; shift
-    if [ -n "$repo" ]; then
-        gh project field-list "$project" "$repo" "$@"
-    else
-        gh project field-list "$project" "$@"
-    fi
+    gh project field-list "$project" "$@"
 }
 
 # Add an issue to a project.
-# Usage: provider_projects_item_add [repo] PROJECT_NUMBER ISSUE_URL_OR_ID
+# Usage: provider_projects_item_add [repo] PROJECT_NUMBER ISSUE_URL_OR_ID [FLAGS...]
 provider_projects_item_add() {
     provider_require_capability project-boards || return 1
-    local repo=""
-    if [ $# -gt 2 ] && [[ "$1" != --* && "$1" != ^[0-9]*$ ]]; then
-        repo="$1"; shift
+    if [ $# -gt 2 ] && [[ "$1" != -* ]] && ! [[ "$1" =~ ^[0-9]+$ ]]; then
+        shift   # repo: not a gh argument
     fi
     local project="$1" item="$2"; shift 2
-    if [ -n "$repo" ]; then
-        gh project item-add "$project" "$repo" --url "$item" "$@"
-    else
-        gh project item-add "$project" --url "$item" "$@"
-    fi
+    gh project item-add "$project" --url "$item" "$@"
 }
 
 # Resolve a project's GraphQL node ID from its title or numeric number.
-# Counterpart to provider-loader's legacy project_id_by_name.
+# Counterpart to provider-loader's project_id_by_name.
 # Usage: provider_projects_id_by_name OWNER PROJECT-NAME-OR-NUMBER
 # stdout: project node ID (PVT_...)  |  rc=1 when not found
 provider_projects_id_by_name() {
@@ -156,7 +143,7 @@ provider_projects_id_by_name() {
 }
 
 # Resolve the project item ID for an issue inside a project.
-# Counterpart to provider-loader's legacy project_item_id_for_issue.
+# Counterpart to provider-loader's project_item_id_for_issue.
 # Repo-strict: issue numbers are only unique per repository, so the owner/name
 # pair must match exactly — a board holding cards from several repos can carry
 # the same issue number many times, and resolving those ambiguously either
@@ -241,7 +228,7 @@ provider_projects_item_id_for_issue() {
 }
 
 # Resolve the single-select field ID and option ID for a field/value pair.
-# Counterpart to provider-loader's legacy project_field_and_option_ids.
+# Counterpart to provider-loader's project_field_and_option_ids.
 # Usage: provider_projects_field_option_ids PROJECT-ID FIELD-NAME OPTION-NAME
 # stdout: "<field-id> <option-id>"  |  rc=1 when field or option not found
 provider_projects_field_option_ids() {
@@ -281,7 +268,7 @@ provider_projects_field_option_ids() {
 }
 
 # Set a single-select field value on a project item.
-# Counterpart to provider-loader's legacy update_project_item_field.
+# Counterpart to provider-loader's update_project_item_field.
 # Usage: provider_projects_field_set PROJECT-ID ITEM-ID FIELD-ID OPTION-ID
 # rc=0 on success (idempotent same-value writes succeed silently)
 provider_projects_field_set() {
@@ -306,7 +293,7 @@ provider_projects_field_set() {
 }
 
 # List projects containing an issue, with the issue's current Status in each.
-# Counterpart to provider-loader's legacy projects_for_issue.
+# Counterpart to provider-loader's projects_for_issue.
 # Usage: provider_projects_for_issue ISSUE-URL OWNER
 # stdout: "<project-title>\t<project-number>\t<status-or-dash>" per project
 # rc=0 always; empty output when the issue is in no projects (read path)
@@ -326,9 +313,11 @@ provider_projects_for_issue() {
         resource(url:$u){
             ... on Issue {
                 projectItems(first:20){
+                    pageInfo{ hasNextPage }
                     nodes{
                         project{ id number title owner{ ... on Organization{ login } ... on User{ login } } }
                         fieldValues(first:20){
+                            pageInfo{ hasNextPage }
                             nodes{
                                 __typename
                                 ... on ProjectV2ItemFieldSingleSelectValue{
@@ -344,18 +333,29 @@ provider_projects_for_issue() {
     }'
 
     local json
-    if ! json=$(gh api graphql -f "query=$query" -f u="$issue_url" 2>/dev/null); then
-        log_error "provider_projects_for_issue: GraphQL query failed for $issue_url"
+    if ! json=$(gh api graphql -f "query=$query" -f u="$issue_url" 2>&1); then
+        log_error "provider_projects_for_issue: GraphQL query failed for $issue_url: $json"
         return 1
+    fi
+    if printf '%s' "$json" | jq -e '.errors' >/dev/null 2>&1; then
+        log_error "provider_projects_for_issue: GraphQL error for $issue_url: $(printf '%s' "$json" | jq -r '.errors[0].message // "unknown"')"
+        return 1
+    fi
+    # The query reads a fixed number of projects and field values; more than that
+    # truncates silently, so say so.
+    if [ "$(printf '%s' "$json" | jq -r '.data.resource.projectItems.pageInfo.hasNextPage // false')" = "true" ]; then
+        log_warn "provider_projects_for_issue: $issue_url is on more projects than the query returns (20); the list is incomplete"
+    fi
+    if printf '%s' "$json" | jq -e '[.data.resource.projectItems.nodes[]?.fieldValues.pageInfo.hasNextPage // false] | any' >/dev/null 2>&1; then
+        log_warn "provider_projects_for_issue: a project item of $issue_url has more field values than the query returns (20); its Status may be missing"
     fi
 
     # Extract per-project: title, number, and the Status single-select value.
-    # (jq extraction shared with the provider-loader legacy implementation.)
     jq -r --arg owner "$owner" '
         .data.resource.projectItems.nodes[]
         | select(.project.owner.login == $owner)
         | .project as $p
         | ([.fieldValues.nodes[] | select(.__typename == "ProjectV2ItemFieldSingleSelectValue" and .field.name == "Status") | .name] | first // "-") as $status
         | "\($p.title)\t\($p.number)\t\($status)"
-    ' <<< "$json" 2>/dev/null
+    ' <<< "$json"
 }

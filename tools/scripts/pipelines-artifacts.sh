@@ -200,6 +200,7 @@ main() {
                 shift
                 ;;
             --repo)
+                require_option_value "$1" "${2:-}"
                 REPO="$2"; shift 2 ;;
             --json)
                 OUTPUT_FORMAT="json"; shift ;;
@@ -208,8 +209,10 @@ main() {
             --download)
                 DOWNLOAD=1; shift ;;
             --name)
+                require_option_value "$1" "${2:-}"
                 ARTIFACT_NAME="$2"; shift 2 ;;
             --dir)
+                require_option_value "$1" "${2:-}"
                 DEST_DIR="$2"; shift 2 ;;
             -*)
                 log_error "Unknown option: $1"

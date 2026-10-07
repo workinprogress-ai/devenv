@@ -111,8 +111,8 @@ EOF
     [ ! -s "$CALL_LOG" ]
 }
 
-@test "key-update-provider: argument path rotates via gh keychain and writes no token files" {
-    run bash "$DEVENV_TOOLS/lib/providers/github/key-update.sh" "ghp_abcdef1234567890"
+@test "key-update-provider: a token piped on stdin rotates via gh keychain and writes no token files" {
+    run bash -c "printf 'ghp_abcdef1234567890\n' | bash '$DEVENV_TOOLS/lib/providers/github/key-update.sh'"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Success"* ]]
     grep -q "gh auth login --with-token --hostname github.com" "$CALL_LOG"
@@ -122,15 +122,22 @@ EOF
 }
 
 @test "key-update-provider: does not export GH_TOKEN (allowlist-only contract)" {
-    run bash "$DEVENV_TOOLS/lib/providers/github/key-update.sh" "ghp_abcdef1234567890"
+    run bash -c "printf 'ghp_abcdef1234567890\n' | bash '$DEVENV_TOOLS/lib/providers/github/key-update.sh'"
     [ "$status" -eq 0 ]
     # The script runs in a child shell, so an export could not reach this
     # process; assert the contract at the source instead: no export line.
     ! grep -q 'export GH_TOKEN=' "$DEVENV_TOOLS/lib/providers/github/key-update.sh"
 }
 
+@test "key-update-provider: a token passed as an argument is refused and nothing is rotated" {
+    run bash "$DEVENV_TOOLS/lib/providers/github/key-update.sh" "ghp_abcdef1234567890" < /dev/null
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"stdin"* ]]
+    run ! grep -q "gh auth login" "$CALL_LOG"
+}
+
 @test "key-update-provider: gh login failure aborts with no side effects" {
-    STUB_GH_LOGIN_FAIL=1 run bash "$DEVENV_TOOLS/lib/providers/github/key-update.sh" "ghp_bad"
+    STUB_GH_LOGIN_FAIL=1 run bash -c "printf 'ghp_bad\n' | bash '$DEVENV_TOOLS/lib/providers/github/key-update.sh'"
     [ "$status" -ne 0 ]
     [[ "$output" == *"No changes made"* ]]
     run ! grep -q "gh auth setup-git" "$CALL_LOG"
@@ -142,6 +149,7 @@ EOF
     # more explanatory comment lines than a fixed grep -A window captures.
     T=$(mktemp -d)
     mkdir -p "$T/tools/lib/providers/azure" "$T/tools/lib/providers/github"
+    cp "$PROJECT_ROOT/tools/lib/config-reader.bash" "$T/tools/lib/"
     cat > "$T/tools/lib/providers/azure/key-update.sh" << 'EOF'
 #!/usr/bin/env bash
 echo "AZURE_KEY_UPDATE_RAN"
@@ -159,11 +167,39 @@ name=azure
 EOF
     run bash -c "
         export DEVENV_ROOT='$T'
-        source <(sed -n '/^key-update-provider()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+        source <(sed -n '/^_key_update_run()/,/^}/p;/^key-update-provider()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
         key-update-provider
     "
     [[ "$output" == *"AZURE_KEY_UPDATE_RAN"* ]]
     [[ "$output" != *"GITHUB_KEY_UPDATE_RAN"* ]]
+    rm -rf "$T"
+}
+
+# One key-update-<provider> command per provider that ships a key-update script;
+# key-update-provider runs the active provider's.
+define_key_update_commands() {   # <fake devenv root> -> runs the generated function definitions
+    sed -n '/^_key_update_run()/,/^}/p;/^key-update-provider()/,/^}/p;/^_key_update_define_provider_commands()/,/^}/p' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+}
+
+@test "key-update-azure and key-update-github exist as commands and run their own provider's script" {
+    T=$(mktemp -d)
+    mkdir -p "$T/tools/lib/providers/azure" "$T/tools/lib/providers/github"
+    cp "$PROJECT_ROOT/tools/lib/config-reader.bash" "$T/tools/lib/"
+    printf '#!/usr/bin/env bash\necho "AZURE_RAN args=$*"\n' > "$T/tools/lib/providers/azure/key-update.sh"
+    printf '#!/usr/bin/env bash\necho "GITHUB_RAN args=$*"\n' > "$T/tools/lib/providers/github/key-update.sh"
+    printf '[provider]\nname=github\n' > "$T/devenv.config"
+    run bash -c "
+        export DEVENV_ROOT='$T'
+        $(define_key_update_commands)
+        _key_update_define_provider_commands
+        key-update-azure --help
+        key-update-github --help
+        key-update-provider
+    "
+    [[ "$output" == *"AZURE_RAN args=--help"* ]]
+    [[ "$output" == *"GITHUB_RAN args=--help"* ]]
+    # key-update-provider still follows the configured provider (github here)
+    [ "$(grep -c GITHUB_RAN <<< "$output")" -eq 2 ]
     rm -rf "$T"
 }
 
@@ -415,6 +451,21 @@ EOF
 @test "bootstrap seed: failure path defers to the AUTH_NEEDED banner" {
     # Import failure sets AUTH_NEEDED; the finish banner carries the action
     # line pointing at key-update-provider (the function name).
-    run grep -q 'Run: key-update-provider <new-token>' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+    run grep -q 'Run: key-update-provider   (paste the token at the prompt)' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
     [ "$status" -eq 0 ]
+}
+
+@test "key-update-provider with no configured provider fails and names the fix instead of guessing" {
+    T=$(mktemp -d)
+    mkdir -p "$T/tools/lib"
+    cp "$PROJECT_ROOT/tools/lib/config-reader.bash" "$T/tools/lib/"
+    printf '[organization]\nname=x\n' > "$T/devenv.config"
+    run bash -c "
+        export DEVENV_ROOT='$T'; unset DEVENV_KEY_UPDATE_PROVIDER
+        source <(sed -n '/^_key_update_run()/,/^}/p;/^key-update-provider()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+        key-update-provider
+    "
+    rm -rf "$T"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"no [provider] name"* ]]
 }

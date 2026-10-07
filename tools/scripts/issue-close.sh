@@ -19,6 +19,7 @@ source "$DEVENV_TOOLS/lib/provider-loader.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"
 
+# shellcheck disable=SC2034  # read by handle_global_flag (error-handling.bash)
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
@@ -177,17 +178,6 @@ main() {
         exit $EXIT_MISUSE
     fi
     
-    # Check for help/version first
-    case "$1" in
-        -h|--help)
-            show_usage
-            ;;
-        -v|--version)
-            echo "$SCRIPT_VERSION"
-            exit 0
-            ;;
-    esac
-    
     # Ensure GitHub CLI authentication
     # Global flags before auth/validation: --help must work without
     # a valid GitHub session or any positional args.
@@ -205,12 +195,8 @@ main() {
     
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            -h|--help)
-                show_usage
-                ;;
-            -v|--version)
-                echo "$SCRIPT_VERSION"
-                exit 0
+            -h|--help|-v|--version)
+                handle_global_flag "$1"
                 ;;
             -V|--verbose)
                 # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
@@ -245,10 +231,12 @@ main() {
                 shift
                 ;;
             -c|--comment)
+                require_option_value "$1" "${2:-}"
                 COMMENT="$2"
                 shift 2
                 ;;
             -r|--reason)
+                require_option_value "$1" "${2:-}"
                 REASON="$2"
                 shift 2
                 ;;

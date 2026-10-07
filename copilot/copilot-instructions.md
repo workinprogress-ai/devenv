@@ -92,9 +92,9 @@ Reground identity guardrails:
 
 This section is the single home for workspace-specific rules. Add new conventions here rather than scattering them across skills.
 
-### WorkInProgress library repos
+### Organization library repos
 
-WorkInProgress library and service repos (owned by the org configured in `devenv.config` `[organization]`) are cloned into the `repos/` folder of this workspace. When a task requires reading or editing one of these repos, look there first (e.g. `repos/lib.cs.services.bulk-sync/`).
+The organization's library and service repos (owned by the org configured in `devenv.config` `[organization]`) are cloned into the `repos/` folder of this workspace. When a task requires reading or editing one of these repos, look there first (e.g. `repos/lib.cs.services.bulk-sync/`).
 
 If the needed repo is not present in `repos/`, ask the user to clone it before proceeding — do not guess at paths or attempt to work without the source.
 
@@ -120,7 +120,7 @@ Some workspace paths are the same content reachable through multiple routes; aut
 
 The `tools/` folder contains workspace-specific wrappers around common CLIs (`gh`, `git`, `dotnet`, `kubectl`, MongoDB, etc.) — they are the workspace's abstraction layer over those backends. All tools are on `PATH`, so invoke them by bare name from any working directory.
 
-**`DEVENV_REPO` is the repo-targeting environment variable** (`owner/repo` format). It is the only one — no deprecated aliases exist.
+**`DEVENV_REPO` is the repo-targeting environment variable** (`owner/repo` format). It is the only one — no aliases exist.
 
 **Issue management goes through the `issue-*` tools exclusively — reads and writes.** `issue-get`, `issue-list`, `issue-select`, `issue-search`, `issue-create`, `issue-create-batch`, `issue-update` (incl. native `--type`), `issue-comment`, `issue-comment-list`, `issue-comment-update`, `issue-close`, `issue-triage`, `issue-label-list`, `issue-label-create`, and the `issue-artifact-*` suite are the workspace's abstraction layer over issue management; the backing provider CLI is an implementation detail that may change. Never run the raw provider CLI (`gh` for example) for any issue operation — reading, listing, creating, updating, commenting, or closing — regardless of whether a skill is active. The wrappers also enforce workspace conventions (native types from the provider's issue-type configuration, templates, labels, close reasons) that raw CLI calls silently skip.
 
@@ -193,7 +193,7 @@ If you find yourself about to type `git commit`, `git add`, `git push`, or any o
 
 **Wrappers that internally mutate** (e.g. `pr-create --at` pushes the merge branch it creates, `git-update` pulls) **are allowed** — wrappers encode the safety. The rule prohibits *raw* git mutations, not named workspace wrapper invocations.
 
-**Invoke built-in tools on `PATH`, without explicit paths.** Call `issue-create`, `repo-commit`, `git-wip`, etc. by bare name. If a path is ever required, it must point to `tools/` — never `tools/scripts/`. The depth-1 `tools/` entry is the fork customization point: a fork swaps the executor there without touching anything that invokes it. (`tools/scripts/` holds the implementations; referencing it is for source location and tests, not invocation.) **Carve-out — event-signal scripts:** lifecycle event handlers (`_on_<event>`, e.g. `_on_begin_review`) have no depth-1 entry by design; they are invoked with their explicit `tools/scripts/` path and are exempt from this rule.
+**Invoke built-in tools on `PATH`, without explicit paths.** Call `issue-create`, `repo-commit`, `git-wip`, etc. by bare name. If a path is ever required, it must point to `tools/` — never `tools/scripts/`. The depth-1 `tools/` entry is the fork customization point: a fork or a user swaps the executor there without touching anything that invokes it, by placing a same-named script in `tools/fork/` (committed in the fork) or `tools/custom/` (gitignored, machine-local); the stub is generated from the winning file, custom over fork over provided (`tools/scripts/`), and `entry-stubs-sync` re-run after a change picks it up. (`tools/scripts/` holds the provided implementations; referencing it is for source location and tests, not invocation.) **Carve-out — event-signal scripts:** lifecycle event handlers (`_on_<event>`, e.g. `_on_begin_review`) have no depth-1 entry by design; they are invoked with their explicit `tools/scripts/` path and are exempt from this rule.
 
 **`repo-commit` — the sole sanctioned commit wrapper.** The one and only path for creating a commit is the `repo-commit` tool, and **only the `/devenv-commit` skill may invoke it** (governance rule — bash cannot verify its caller, so this binds like the `gh` prohibition above: culturally, not technically). Its safety is structural, not aspirational: `repo-commit` has no non-interactive path — it always opens the user's configured git editor pre-loaded with the suggested message, commits the existing index only, and a commit exists only if the user saves the editor with a non-empty message. The editor save is the permission gate. It never stages, never bypasses hooks, never runs tests. Every other skill — pair, delegate, review, research, all of them — never commits; they hand off to `/devenv-commit` when the user says "commit this".
 
@@ -226,7 +226,7 @@ When a terminal command is run asynchronously, or a synchronous command times ou
 | `🧠` | **Brain bootup** — orientation summary (Navigate / Observe / Question steps) |
 | `📋` | **In-the-flow check-in** — re-engagement assessment after a flow period |
 
-**File and method references.** Whenever a specific class, method, or file is mentioned **anywhere in chat output** — task descriptions, phase announcements, hand-backs, reviews, concerns, hints, or brain bootup — use a clickable workspace-root-relative link: [`IncomingSyncDaemon`](repos/lib.cs.services.bulk-sync/src/WorkInProgress.Lib.Services.BulkSync/Daemon/IncomingSyncDaemon.cs#L15). Never use backtick code formatting as a substitute for a link when the location is known. If the exact line isn't known, link to the file without `#L`.
+**File and method references.** Whenever a specific class, method, or file is mentioned **anywhere in chat output** — task descriptions, phase announcements, hand-backs, reviews, concerns, hints, or brain bootup — use a clickable workspace-root-relative link: [`IncomingSyncDaemon`](repos/lib.cs.services.bulk-sync/src/Lib.Services.BulkSync/Daemon/IncomingSyncDaemon.cs#L15). Never use backtick code formatting as a substitute for a link when the location is known. If the exact line isn't known, link to the file without `#L`.
 
 ### Temporary code comments (DEVENV markers)
 
@@ -263,10 +263,10 @@ When writing temporary comments into code during implementation sessions, use th
 **Never reference ephemeral workflow artifacts in durable code comments.** Finding IDs (`F006`), plan task numbers (`2.3`), audit filenames (`TECH_DEBT_AUDIT.md`), plan filenames, decision dates, and similar workflow vocabulary belong in the artifacts whose job is history — the plan, the audit document, commit messages, PR descriptions — never in source files. A durable code comment states the invariant itself, readable without any external document:
 
 ```csharp
-// BAD:  // F006 (2026-08-31): legacy OpBulkUpsert fallback removed per gate decision — string _id is guaranteed.
+// BAD:  // F006 (2026-08-31): OpBulkUpsert fallback removed per gate decision — string _id is guaranteed.
 // BAD:  // --help must never be treated as a token (adversarial-review F1: the flag used to fall through).
 // GOOD: // --help must never be treated as a token: an unrecognized flag would otherwise fall through to the token path.
-// GOOD: // _id is guaranteed to be a string by the ingest layer; no legacy fallback path is required.
+// GOOD: // _id is guaranteed to be a string by the ingest layer; no fallback path is required.
 ```
 
 ### Ephemeral markdown files (`tmpN.md`)

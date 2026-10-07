@@ -304,7 +304,7 @@ SEOF
 @test "repo target: DEVENV_REPO is the single env override" {
     # shellcheck disable=SC1091
     source "$DEVENV_TOOLS/lib/providers/github/repos.bash"
-    run env DEVENV_REPO="new/repo" GITHUB_REPO="legacy/repo" bash -c 'source "$0" && provider_repo_target' "$DEVENV_TOOLS/lib/providers/github/repos.bash"
+    run env DEVENV_REPO="new/repo" GITHUB_REPO="old/repo" bash -c 'source "$0" && provider_repo_target' "$DEVENV_TOOLS/lib/providers/github/repos.bash"
     [ "$output" = "new/repo" ]
 }
 
@@ -315,7 +315,7 @@ SEOF
     # shellcheck disable=SC1091
     local isolated_root="$TEST_TEMP_DIR/no-seed-root"
     mkdir -p "$isolated_root"
-    run env -u DEVENV_REPO DEVENV_ROOT="$isolated_root" GITHUB_REPO="legacy/repo" bash -c 'source "$0" && provider_repo_target' "$DEVENV_TOOLS/lib/providers/github/repos.bash"
+    run env -u DEVENV_REPO DEVENV_ROOT="$isolated_root" GITHUB_REPO="old/repo" bash -c 'source "$0" && provider_repo_target' "$DEVENV_TOOLS/lib/providers/github/repos.bash"
     [ "$status" -eq 0 ]
     [ -z "$output" ]
 }

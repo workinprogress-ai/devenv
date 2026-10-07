@@ -34,6 +34,9 @@ show_usage() {
 Usage: pr-cleanup-review-branches [--dry-run] [REPO_DIR] [DAYS_OLD]
 
 Delete remote review branches (origin/review/*) older than DAYS_OLD days.
+Remote branches that no longer exist are pruned from the local tracking refs
+first. A branch that cannot be deleted is reported and the rest are still
+processed; the run then exits non-zero.
 Only branches named exactly as pr-create-for-review creates them are
 considered: review/<8-hex-id>-YYYY-MM-DD-target or -source. The age comes from
 that date. Any other name under review/ is left untouched, reported as an
@@ -87,7 +90,7 @@ fi
 
 cd "$REPO_DIR" || explode "Failed to change to repository directory $REPO_DIR."
 
-git fetch origin || explode "Failed to fetch branches from the remote."
+git fetch --prune origin || explode "Failed to fetch branches from the remote."
 
 REVIEW_BRANCHES=$(git branch -r --list "origin/review/*")
 if [ -z "$REVIEW_BRANCHES" ]; then
@@ -106,6 +109,7 @@ CURRENT_DATE=$(date +%s)
 # as a date: deleting a branch on a guess is the one thing this tool must not do.
 REVIEW_BRANCH_RE='^review/[0-9a-f]{8}-([0-9]{4})-([0-9]{2})-([0-9]{2})-(target|source)$'
 UNRECOGNIZED=0
+DELETE_FAILED=0
 
 while IFS= read -r BRANCH; do
   BRANCH="${BRANCH#"${BRANCH%%[![:space:]]*}"}"
@@ -130,8 +134,13 @@ while IFS= read -r BRANCH; do
     if [ "$DRY_RUN" = true ]; then
       echo "Would delete remote branch $BRANCH (last updated $DIFF_DAYS days ago)"
     else
-      delete_branch "$BRANCH" origin || explode "Failed to delete remote branch $BRANCH"
-      echo "Deleted remote branch $BRANCH"
+      # One branch the remote refuses to delete must not strand the rest.
+      if delete_branch "$BRANCH" origin; then
+        echo "Deleted remote branch $BRANCH"
+      else
+        echo "ERROR: Failed to delete remote branch $BRANCH" >&2
+        DELETE_FAILED=$((DELETE_FAILED + 1))
+      fi
     fi
   else
     echo "Skipping branch $BRANCH, last updated $DIFF_DAYS days ago."
@@ -140,6 +149,11 @@ done <<< "$REVIEW_BRANCHES"
 
 if [ "$UNRECOGNIZED" -gt 0 ]; then
   echo "Review branch cleanup finished with $UNRECOGNIZED branch(es) left untouched (see errors above)." >&2
+  exit "$EXIT_GENERAL_ERROR"
+fi
+
+if [ "$DELETE_FAILED" -gt 0 ]; then
+  echo "Review branch cleanup finished with $DELETE_FAILED branch(es) that could not be deleted (see errors above)." >&2
   exit "$EXIT_GENERAL_ERROR"
 fi
 

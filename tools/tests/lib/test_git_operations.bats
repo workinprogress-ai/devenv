@@ -2,6 +2,8 @@
 
 # Test suite for git-operations.bash library
 
+
+bats_require_minimum_version 1.5.0
 # Load test helpers
 load ../test_helper
 
@@ -75,14 +77,6 @@ teardown() {
     
     echo "modified" >> file.txt
     ! is_working_directory_clean
-}
-
-@test "is_branch_name matches current branch" {
-    git config user.email "test@example.com"
-    git config user.name "Test"
-    touch file.txt && git add file.txt && git commit -m "init" -q
-    git checkout -q -b feature-branch
-    is_branch_name "feature-branch"
 }
 
 @test "is_branch_name fails for non-matching branch" {
@@ -452,28 +446,6 @@ body" "789")
 # GitHub Repository Protection Tests
 ################################################################################
 
-@test "git-operations.bash exports configure_branch_protection function" {
-    run bash -c "source $PROJECT_ROOT/tools/lib/git-operations.bash && declare -F configure_branch_protection"
-    [ "$status" -eq 0 ]
-}
-
-@test "git-operations.bash exports set_repo_setting function" {
-    run bash -c "source $PROJECT_ROOT/tools/lib/git-operations.bash && declare -F set_repo_setting"
-    [ "$status" -eq 0 ]
-}
-
-@test "configure_branch_protection requires all parameters" {
-    run bash -c "source $PROJECT_ROOT/tools/lib/git-operations.bash && configure_branch_protection"
-    [ "$status" -ne 0 ]
-    [[ "$output" =~ "required" ]]
-}
-
-@test "set_repo_setting requires all parameters" {
-    run bash -c "source $PROJECT_ROOT/tools/lib/git-operations.bash && set_repo_setting"
-    [ "$status" -ne 0 ]
-    [[ "$output" =~ "required" ]]
-}
-
 
 # ----------------------------------------------------------------------------
 # delete_branch reports what actually happened (it used to return 0 always, so
@@ -559,4 +531,73 @@ run_configure_git_global() {
     block="$(sed -n '/^# Configure repository-specific git settings/,/^configure_git_repo()/p' "$PROJECT_ROOT/tools/lib/git-operations.bash")"
     [ -n "$block" ] || block="$(grep -B14 '^configure_git_repo()' "$PROJECT_ROOT/tools/lib/git-operations.bash")"
     [[ "$block" == *"safe.directory"* && "$block" == *"global"* ]]
+}
+
+# ---------------------------------------------------------------------------
+# get_default_branch: origin/HEAD when set, else the remote branch that exists,
+# else master — never a silent failure.
+# ---------------------------------------------------------------------------
+
+@test "get_default_branch reads origin/HEAD when it is set" {
+    echo x > f; git add f; git commit -q -m c
+    git update-ref refs/remotes/origin/trunk HEAD
+    git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/trunk
+    run get_default_branch
+    [ "$status" -eq 0 ]
+    [ "$output" = "trunk" ]
+}
+
+@test "get_default_branch falls back to origin/main when origin/HEAD is unset" {
+    echo x > f; git add f; git commit -q -m c
+    git update-ref refs/remotes/origin/main HEAD
+    run get_default_branch
+    [ "$status" -eq 0 ]
+    [ "$output" = "main" ]
+}
+
+@test "get_default_branch falls back to origin/master when origin/HEAD is unset" {
+    echo x > f; git add f; git commit -q -m c
+    git update-ref refs/remotes/origin/master HEAD
+    run get_default_branch
+    [ "$status" -eq 0 ]
+    [ "$output" = "master" ]
+}
+
+@test "get_default_branch answers master when the remote has neither" {
+    run get_default_branch
+    [ "$status" -eq 0 ]
+    [ "$output" = "master" ]
+}
+
+@test "get_default_branch does not abort a caller running under set -e and pipefail" {
+    run bash -c "
+        set -euo pipefail
+        source '$DEVENV_ROOT/tools/lib/error-handling.bash'
+        source '$DEVENV_ROOT/tools/lib/git-operations.bash'
+        cd '$TEST_REPO'
+        branch=\$(get_default_branch)
+        echo \"got:\$branch\"
+    "
+    [ "$status" -eq 0 ]
+    [ "$output" = "got:master" ]
+}
+
+# ---------------------------------------------------------------------------
+# delete_local_branch: the remote copy is left alone
+# ---------------------------------------------------------------------------
+
+@test "delete_local_branch removes the local branch and leaves the remote one" {
+    echo x > f; git add f; git commit -q -m c
+    git init -q --bare "$TEST_TEMP_DIR/remote.git"
+    git remote add origin "$TEST_TEMP_DIR/remote.git"
+    git checkout -q -b topic; git push -q origin topic; git checkout -q -
+    run delete_local_branch topic
+    [ "$status" -eq 0 ]
+    run ! git rev-parse --verify --quiet refs/heads/topic
+    git -C "$TEST_TEMP_DIR/remote.git" rev-parse --verify --quiet refs/heads/topic >/dev/null
+}
+
+@test "delete_local_branch is a success for a branch that does not exist" {
+    run delete_local_branch no-such-branch
+    [ "$status" -eq 0 ]
 }

@@ -39,8 +39,8 @@ This design allows anyone forking this repository to:
 
 The default bootstrap process executes these tasks in order (mirrors `run_bootstrap_tasks` in `.devcontainer/bootstrap.bash` — that function is the source of truth):
 
-1. `initialize_paths` - Set up core path variables
-2. `init_bootstrap_run_time` - Initialize timing tracking
+1. `init_bootstrap_run_time` - Clear the run-time markers, so a failed run is never read as completed
+2. `initialize_paths` - Set up core path variables
 3. `detect_architecture` - Detect ARM vs x86
 4. `ensure_home_is_set` - Ensure HOME variable is set
 5. `ensure_bash_is_default_shell` - Verify bash is the login shell
@@ -53,29 +53,28 @@ The default bootstrap process executes these tasks in order (mirrors `run_bootst
 12. `add_specialized_repositories` - Add HashiCorp, Kubernetes repos
 13. `install_os_packages_round2` - Install specialized packages
 14. `install_dotnet` - Install .NET SDK
-15. `download_container_scripts` - Download helper scripts
-16. `load_setup_credentials` - Load credentials from .setup/
-17. `write_bash_functions_file` - Create bash functions
-18. `generate_env_vars_file` - Generate environment variables
-19. `create_tool_symlinks` - Create tool symlinks
-20. `write_devenvrc` - Write shell configuration
-21. `append_bashrc` - Update .bashrc
-22. `install_or_configure_nvm` - Install/configure nvm
-23. `configure_dotnet_tools` - Configure .NET tools
-24. `install_node_packages` - Install Node.js packages
-25. `configure_git` - Configure git globally
-26. `install_copilot_instructions` - Symlink `copilot/copilot-instructions.md` to `~/.copilot/copilot-instructions.md`
-27. `install_claude_code_integration` - Symlink `copilot/copilot-instructions.md` to `~/.claude/CLAUDE.md` and `copilot/skills` to `~/.claude/skills`
-28. `sync_copilot_knowledge` - Clone/pull configured Copilot knowledge repo and link `~/.copilot/knowledge`
-29. `sync_copilot_engineering` - Clone/pull configured engineering standards repo and link `~/.copilot/engineering`
-30. `ensure_directories_and_settings` - Create required directories
-31. `install_repo_dependencies` - Install devenv repo dependencies
-32. `configure_nuget_sources` - Configure NuGet sources
-33. `configure_user_npmrc` - Configure npm registry auth
-34. `run_custom_bootstrap_if_present` - Run custom bootstrap if exists
-35. `cleanup_packages` - Clean up apt packages
-36. `record_bootstrap_run_time` - Record completion time
-37. `finish_message` - Display completion message
+15. `load_setup_credentials` - Load credentials from .setup/
+16. `write_bash_functions_file` - Create bash functions
+17. `generate_env_vars_file` - Generate environment variables
+18. `create_tool_symlinks` - Create tool symlinks
+19. `write_devenvrc` - Write shell configuration
+20. `append_bashrc` - Update .bashrc
+21. `install_or_configure_nvm` - Install/configure nvm
+22. `configure_dotnet_tools` - Configure .NET tools
+23. `install_node_packages` - Install Node.js packages
+24. `configure_git` - Configure git globally
+25. `install_copilot_instructions` - Symlink `copilot/copilot-instructions.md` to `~/.copilot/copilot-instructions.md`
+26. `install_claude_code_integration` - Symlink `copilot/copilot-instructions.md` to `~/.claude/CLAUDE.md` and `copilot/skills` to `~/.claude/skills`
+27. `sync_copilot_knowledge` - Clone/pull configured Copilot knowledge repo and link `~/.copilot/knowledge`
+28. `sync_copilot_engineering` - Clone/pull configured engineering standards repo and link `~/.copilot/engineering`
+29. `ensure_directories_and_settings` - Create required directories
+30. `install_repo_dependencies` - Install devenv repo dependencies
+31. `configure_nuget_sources` - Configure NuGet sources
+32. `configure_user_npmrc` - Configure npm registry auth
+33. `run_custom_bootstrap_if_present` - Run custom bootstrap if exists
+34. `cleanup_packages` - Clean up apt packages
+35. `record_bootstrap_run_time` - Record completion time
+36. `finish_message` - Display completion message
 
 ## Update Bootstrap Flow
 
@@ -276,7 +275,6 @@ run_bootstrap_tasks "${TASKS[@]}"
 
 - `call_npm` - Run npm with output filtering
 - `add_nuget_source_if_not_exists` - Add NuGet source if not present
-- `download_container_scripts` - Download helper scripts
 - `cleanup_packages` - Clean up apt packages
 - `on_error` - Error handler
 
@@ -295,13 +293,13 @@ To test your organization-level bootstrap without rebuilding the container:
 
 ```bash
 # Run your organization bootstrap script directly
-bash /workspaces/devenv/.devcontainer/org-custom-bootstrap.sh
+bash $DEVENV_ROOT/.devcontainer/org-custom-bootstrap.sh
 
 # Or test user-level bootstrap
-bash /workspaces/devenv/.devcontainer/user-custom-bootstrap.sh
+bash $DEVENV_ROOT/.devcontainer/user-custom-bootstrap.sh
 
 # Run specific tasks from bootstrap.bash
-cd /workspaces/devenv/.devcontainer
+cd $DEVENV_ROOT/.devcontainer
 source bootstrap.bash
 configure_git
 install_my_tools
@@ -396,7 +394,7 @@ run_bootstrap_tasks \
 Run tasks individually to isolate the issue:
 
 ```bash
-source /workspaces/devenv/.devcontainer/bootstrap.bash
+source $DEVENV_ROOT/.devcontainer/bootstrap.bash
 initialize_paths
 load_config
 # Run tasks one at a time

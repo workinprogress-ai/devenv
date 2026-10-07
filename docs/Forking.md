@@ -7,7 +7,10 @@ The essentials live in `devenv.config`; repository-creation standards live in `t
 ## Quick Checklist
 
 - ✅ Read [The fork-stable surfaces contract](#the-fork-stable-surfaces-contract) below — it defines what you may change without carrying maintenance burden
-- ✅ Update `devenv.config` for org identity (the neutral `org` key; the old `github_org`/`github_user` keys are not read), provider name, container name, workflows, and bootstrap defaults
+- ✅ Update `devenv.config` for org identity (the neutral `org` key), provider name, workflows, and bootstrap defaults
+- ✅ (If you use the C# dependency tools) Set `[nuget] package_prefix` in `devenv.config` to your organization's package prefix (for example `Acme.`); the tools have no built-in value
+- ✅ Edit `package.json` once: `repository.url` is a fork-owned value (it names where your fork lives), and `author` stays as the attribution it is. `devcontainer.json` `name` and `package.json` `description` are neutral wording you may rename
+- ✅ (Optional) Put your fork's own or overriding tools in `tools/fork/` — see [Adding and overriding tools](#adding-and-overriding-tools-toolsfork-and-toolscustom)
 - ✅ (If you customize the issue workflow) Read [Issue Workflow](./Issue-Workflow.md) first — the `[workflows]` vocabulary carries engine contracts, documented in its section below. You will need to re-write [Issue Workflow](./Issue-Workflow.md) to reflect your workflow.
 - ✅ (If you use issue creation tooling) Update `tools/config/issues-config.yml` with your organization's issue types and provider issue-type IDs
 - ✅ (If you adapt to a non-GitHub provider) Follow [Adapting to Azure DevOps](#adapting-to-azure-devops) — provider modules, protocol reference, and config keys
@@ -43,12 +46,10 @@ The tools layer talks to the git host and work-item provider through an abstract
 ```ini
 [provider]
 name=github
-# token_env_allowlist=  # escape hatch: space-separated env-var names honored
-                         # as token sources despite the keychain-first policy
 ```
 
 - **name**: Which module set under `tools/lib/providers/<name>/` answers the `provider_<domain>_<verb>` facade calls. Default `github`; forks adapting to another backend change this key (see [Adapting to Azure DevOps](#adapting-to-azure-devops)).
-- **token_env_allowlist**: Session-scoped token exports are ignored by default — credentials resolve env-if-allowlisted → keychain → error. The allowlist ships empty; add entries only with a documented justification (see the [provider abstraction README](../tools/lib/providers/README.md)).
+- **Credentials**: session-scoped token exports are ignored — credentials resolve from the provider credential store. The `[provider] token_env_allowlist` key is not supported: nothing uses it, and the code matches token values rather than variable names (see the [provider abstraction README](../tools/lib/providers/README.md)).
 
 Dispatch is by naming convention with no registry: adding a provider means adding module files — the core never changes. Domain modules and scripts never read token env vars directly; they call `provider_secret_get`, so the credential backing store swaps in behind the seam. Rotation runs through `key-update-provider` (imports via the provider auth seam into the keychain and wires the git credential helper — no token ever lands in env files or remote URLs).
 
@@ -58,56 +59,62 @@ Providers differ in what they support. GH-only surfaces — rulesets, project bo
 
 ## Adapting to Azure DevOps
 
-The full GitHub→Azure translation model — how org/repo/issues/boards/
-rulesets map, and the constraints each mapping carries (one Azure project
-per org, area path per repo, numbering, releases) — lives in the azure
-provider directory: [MAPPING.md](../tools/lib/providers/azure/MAPPING.md)
-(durable provider documentation, versioned with the code it describes).
+The full GitHub-to-Azure translation model (how org, repo, issues, boards and
+rulesets map, and the constraints each mapping carries: one Azure project per
+org, area path per repo, numbering, releases) lives in the azure provider
+directory: [MAPPING.md](../tools/lib/providers/azure/MAPPING.md), versioned with
+the code it describes. The provider-neutral contract every provider implements is
+[CONTRACT.md](../tools/lib/providers/CONTRACT.md).
 
-The ADO path follows the fixed minimal mapping from the provider-agnostic effort (epic #29, slice 7):
-
-| Concept | GitHub (as-built) | Azure DevOps mapping |
-| ------- | ----------------- | -------------------- |
+| Concept | GitHub | Azure DevOps |
+| ------- | ------ | ------------ |
 | Project scope | Organization → repos | **Single project** per devenv instance |
-| Work item types | Native issue types (Bug/Feature/Task/Epic) | **Type map**: ADO work item types via `[issues]`/`issues-config.yml` values |
-| Repo ↔ area | Org-wide area paths | **area-path = repo** (one area path per repository) |
-| Board states | Project Status field | **board columns = `status_workflow`** — the `[workflows]` vocabulary drives column names |
-| Auth | PAT in keychain via credential helper | **PAT auth** — same keychain-first seam, ADO token store behind `provider_auth_import_token` |
+| Work item types | Native issue types (Bug/Feature/Task/Epic) | **Type map**: Azure work item types via `[issues]`/`issues-config.yml` values |
+| Repo ↔ area | Org-wide area paths | **area path = repo** (one area path per repository) |
+| Board states | Project Status field | **Board columns = `status_workflow`**: the `[workflows]` vocabulary drives column names |
+| Auth | PAT in keychain via credential helper | **PAT auth**: the same keychain-first seam, with the Azure token store behind `provider_auth_import_token` |
 
-Procedure:
+The Azure provider ships in-tree. To move a fork onto it:
 
-1. **Author the protocol reference** — write `copilot/skills/_shared/references/provider-protocols/<provider>.md` to the fixed three-part structure (credential lifecycle → repo targeting → provider-visible behavior), using `azure.md` as the freshest example and `github.md` for the GitHub entries. The provider-neutral wrapper contract (`protocol-common.md`) already covers invocation conventions, targeting chain, prohibitions, and recipes — cite it, don't duplicate it. Agents resolve the filename from `[provider] name`; skill bodies never change.
-2. **Add provider modules** — create `tools/lib/providers/ado/` with domain modules answering the `provider_<domain>_<verb>` calls (`issues`, `prs`, `repos`, `actions`, …). Start from the GitHub modules as templates; replace the transport, keep the function signatures.
-3. **Flip the config key** — set `[provider] name=ado` in `devenv.config`.
-4. **Map the capabilities** — decide which GH-only capabilities your ADO setup substitutes: rulesets → ADO branch policies, project boards → board columns over `status_workflow`, native issue types → ADO work item type map. Gate what you don't support; degrade what you substitute.
-5. **Replace provider-specific config values** — native type IDs in `issues-config.yml` (GitHub `IT_kwDO…` IDs, discovered via the GraphQL recipe in that file's header) and the nuget feed URL (`nuget.pkg.github.com/...`) are GitHub-specific values a fork replaces.
-6. **Rewrite `setup`** — per the contract exception above, credential intake and bootstrap wiring are expected to be fork-replaced for a new provider.
+1. **Set the provider** and its target in `devenv.config` (the keys are below).
+2. **Set up the credential**: run `key-update-azure`.
+3. **Prepare the project**: run `azure-setup.sh` (below) against an Agile project.
+4. **Replace provider-specific config values**: native type IDs in `issues-config.yml` (GitHub `IT_kwDO…` IDs) and the nuget feed URL (`nuget.pkg.github.com/...`) are GitHub values a fork replaces.
+5. **Keep the protocol reference current**: agents resolve `copilot/skills/_shared/references/provider-protocols/<provider>.md` from `[provider] name` (`azure.md` for this provider). The provider-neutral wrapper contract (`protocol-common.md`) covers invocation conventions, targeting, prohibitions and recipes.
+6. **Rewrite `setup`** if your intake differs: provider-specific prompts and checks come from the provider's `setup.bash` hooks, so a provider with its own credential flow adds hooks rather than editing `setup`.
 
-### Azure DevOps: the as-built REST provider
+### A provider of your own
 
-The Azure provider now ships in-tree — no copying GitHub modules required:
+A provider is a directory `tools/lib/providers/<name>/` of domain modules that answer the `provider_<domain>_<verb>` calls (`issues`, `prs`, `repos`, `pipelines`, `projects`, `org`, …), plus two hook libraries the bootstrap uses:
 
-- **Modules**: `tools/lib/providers/azure/` — `http.bash` (REST transport:
+- `setup.bash`: host-side prompts and checks, sourced by `setup` (bash 3.2 compatible).
+- `bootstrap.bash`: container-side hooks the bootstrap calls through `provider_bootstrap_call` (token validation, package feeds, the git auth header, OS packages).
+
+Start from the GitHub or Azure modules, replace the transport, and keep the verbs and shapes in [CONTRACT.md](../tools/lib/providers/CONTRACT.md); the parity test derives from that contract, so a verb added there is checked on every provider. [The providers README](../tools/lib/providers/README.md) lists the hooks.
+
+### Azure DevOps: the REST provider
+
+- **Modules**: `tools/lib/providers/azure/`: `http.bash` (REST transport:
   Basic-auth PAT header, `api-version=7.1`, ContinuationToken pagination,
   429/5xx retry, token redaction), `auth.bash` (PAT file lifecycle), `urls`
-  (URL/spec helpers + the gh list-flags helper), `repos`, `issues`, `prs`,
+  (URL/spec helpers and the gh list-flags helper), `repos`, `issues`, `prs`,
   `pipelines`, `projects` (boards), `policies` (branch policies),
-  `releases` (git-tag mapping + Artifacts feeds), `org` (org-level bridge),
-  plus `key-update.sh`, `azure-setup.sh`, `azure-smoke-test.sh`, and
-  `MAPPING.md` (the durable mapping doc).
-  List/view verbs follow gh's `--json`/`-q` semantics so the shared
+  `releases` (git-tag mapping and Artifacts feeds), `org` (org-level bridge),
+  `setup.bash` and `bootstrap.bash` (the hook libraries), plus
+  `key-update.sh`, `azure-setup.sh`, `azure-smoke-test.sh` and `MAPPING.md`.
+  List and view verbs follow gh's `--json`/`-q` semantics so the shared
   wrappers behave identically under both providers.
 - **No `az` CLI dependency**: the transport is curl + jq (both already hard
   dependencies). Nothing new to install on any fork.
 - **Config keys** (in `devenv.config` under `[provider]`):
-  - `name=azure` — activates the provider modules.
-  - `azure_org` — the **organization name**: the subdomain in
-    `https://dev.azure.com/{org}/...`. URL-safe characters only — the value
-    interpolates into API URLs raw; a space would need `%20` escaping.
-  - `azure_project` — the **project name**, not the project ID: the URL
+  - `name=azure`: activates the provider modules.
+  - `azure_org`: the **organization name**, the subdomain in
+    `https://dev.azure.com/{org}/...`. URL-safe characters only: the value
+    interpolates into API URLs raw.
+  - `azure_project`: the **project name**, not the project ID: the URL
     segment right after the org (`dev.azure.com/{org}/{project}/_git/...`;
     also visible in Project settings → General → Name). The GUID also works
-    API-wise and is the fallback when the name contains spaces/special
+    API-wise and is the fallback when the name contains spaces or special
     characters. The value must agree with your git remotes (`_git` URLs) and
     drives web links.
 
@@ -118,39 +125,43 @@ The Azure provider now ships in-tree — no copying GitHub modules required:
   azure_project=your-project-name
   ```
 
-- **PAT setup**: run `key-update-azure` (bash function; the script lives at
-  `tools/lib/providers/azure/key-update.sh`). It prompts (hidden input — the
-  token never enters chat, shell history, or argv) and stores the PAT as a
+- **PAT setup**: run `key-update-azure` (a shell function; the script lives at
+  `tools/lib/providers/azure/key-update.sh`). It prompts (hidden input: the
+  token never enters chat, shell history or argv) and stores the PAT as a
   **0600 file** in the devenv config area; a piped stdin token also works.
   Scopes needed: Work Items (Read/Write), Code (Read/Write), Build
   (Read/Execute); **Packaging (Read)** additionally for Artifacts feeds
   listing.
 - **What differs from GitHub**: work-item states map to the seam's OPEN/CLOSED
-  dialect (every stock process template provides those states — no board
-  configuration required); labels map to `System.Tags` (semicolon-separated);
-  PR rebase-merge is the Azure three-step (mergeStrategy PATCH → GET the PR →
-  status=completed + deleteSourceBranch + the echoed
-  `lastMergeSourceCommit.commitId`, which is required); pagination is
-  ContinuationToken; issue lists are project-scoped (per-repo scoping via
-  area paths is a provisioning-only convention — see MAPPING.md); releases
+  dialect (every stock process template provides those states); status is the
+  work item's Kanban column field; labels map to `System.Tags`
+  (semicolon-separated); PR rebase-merge is the Azure three-step
+  (mergeStrategy PATCH → GET the PR → status=completed + deleteSourceBranch +
+  the echoed `lastMergeSourceCommit.commitId`, which is required); pagination
+  is ContinuationToken; issue lists are project-scoped (per-repo scoping via
+  area paths is a provisioning-only convention, see MAPPING.md); releases
   map to git tags; org rulesets map to per-repo branch policies.
 - **Smoke validation** (manual, opt-in, never in CI):
-  - *Tier 1, read-only*: `AZURE_SMOKE=1 bash tools/lib/providers/azure/azure-smoke-test.sh` —
+  - *Tier 1, read-only*: `AZURE_SMOKE=1 bash tools/lib/providers/azure/azure-smoke-test.sh`:
     auth, repo list (pagination probe), WIQL, work-item view, PR list.
   - *Tier 2, destructive*: gated behind `AZURE_SMOKE=write` and a disposable
-    test project — create/comment/close work items, create and rebase-merge a
-    PR. Tokens never appear in output (transport redacts).
+    test project: create/comment/close work items, create and rebase-merge a
+    PR. Tokens never appear in output (the transport redacts).
 - **One-time project setup**: `AZURE_SETUP=1 bash
-  tools/lib/providers/azure/azure-setup.sh [--dry-run]` — configures the
-  Azure project per MAPPING.md: one area path per repo (provisioning the
-  per-repo convention; the shipped verbs list project-wide), board columns
-  forced to the `[workflows] status_workflow` names and count even when
-  customized, and prints the fork's `[provider]` config block. Extra columns
-  are removed; new middle columns reuse supported in-progress mappings.
-  Shared mappings do not create independently settable workflow states:
-  distinct states require an inherited process and process-admin permissions.
-  Existing area paths are retained. Idempotent (re-run converges);
-  manual-only, never in CI. Use `--dry-run` before applying layout changes.
+  tools/lib/providers/azure/azure-setup.sh [--dry-run]` configures the
+  Azure project per MAPPING.md. Before writing anything it checks that the
+  project's process is Agile and that the PAT can read what the setup reads
+  (a missing write scope shows up as a warning at the first write that needs
+  it). It then creates one area path per repo (the per-repo convention; the
+  shipped verbs list project-wide), forces the board columns to the
+  `[workflows] status_workflow` names and count even when customized, and
+  prints the fork's `[provider]` config block. Extra columns are removed; new
+  middle columns reuse supported in-progress mappings. Columns that share a
+  process state are still distinct statuses (a work item's status is its
+  Kanban column field). Setup also sets the default team's Bugs behavior to
+  "requirements", so Bugs sit on the Stories board. Existing area paths are
+  retained. Idempotent (re-run converges); manual-only, never in CI. Use
+  `--dry-run` before applying layout changes.
 
 ## Keeping a Soft Fork in Sync and Contributing Back
 
@@ -159,7 +170,7 @@ fetch-only upstream URL and branch:
 
 ```ini
 [fork]
-upstream_repo=https://github.com/workinprogress-ai/devenv.git
+upstream_repo=https://github.com/<upstream-org>/devenv.git   # the repository you forked from
 upstream_branch=master
 ```
 
@@ -167,15 +178,15 @@ Run the one-time setup from inside the fork clone. The dry run reports the
 remote and push protection without changing `.git/config`:
 
 ```bash
-bash tools/lib/providers/azure/fork-setup.sh --dry-run
-bash tools/lib/providers/azure/fork-setup.sh
+fork-setup --dry-run
+fork-setup
 ```
 
 The script adds `upstream` for fetching and sets its push URL to `/dev/null`,
 so an accidental push through that remote fails. It does not contact GitHub
 or require GitHub credentials.
 
-Run `fork-sync.sh` to fetch upstream and inspect ahead/behind counts and
+Run `fork-sync` to fetch upstream and inspect ahead/behind counts and
 commit subjects. It does not rebase or push by default. Use `--rebase` only
 when ready to replay the current branch on `upstream/<branch>`; if conflicts
 occur, resolve them or run the printed `git rebase --abort` command. To update
@@ -188,11 +199,35 @@ must pass `--yes`. Use `--dry-run` to inspect the planned operations without
 fetching or changing refs.
 
 ```bash
-bash tools/lib/providers/azure/fork-sync.sh --dry-run
-bash tools/lib/providers/azure/fork-sync.sh
-bash tools/lib/providers/azure/fork-sync.sh --rebase
-bash tools/lib/providers/azure/fork-sync.sh --rebase --push-to-origin --yes
+fork-sync --dry-run
+fork-sync
+fork-sync --rebase
+fork-sync --rebase --push-to-origin --yes
 ```
+
+Before it rewrites anything, `fork-sync` names the local commits that look as if
+upstream already has them: a commit whose patch is already on upstream (a rebase
+drops it by itself) or one whose subject also appears on upstream since the merge base
+(a contribution upstream may have edited, which can conflict on rebase; drop it by hand
+if upstream has it).
+
+### What a rebase and push means for the team
+
+The sync model rebases the fork's branch onto upstream and pushes it with
+`--force-with-lease`, so the fork's `master` is rewritten on every sync that brings in
+upstream changes. Plan for that:
+
+- **Everyone else's clones diverge.** After a rewrite, a teammate's clone has the old
+  history and `origin` has the new one. The start-of-shell update check says so ("the
+  remote history of master was rewritten") instead of offering a pull.
+- **A clone with no local work to keep** resets to the remote:
+  `git fetch origin && git reset --hard origin/master`.
+- **A clone with local commits** moves them onto the new history:
+  `git rebase origin/master`. Commits that were already contributed upstream and came
+  back through the sync are dropped by the rebase or show up as conflicts to skip.
+- **Do the rewrite deliberately:** one person syncs, tells the team, and pushes with
+  `--rewrite-origin`; the lease refuses the push if someone pushed to `origin` in the
+  meantime.
 
 To contribute commits to GitHub, use a separate ordinary GitHub clone. By
 default, an interactive terminal uses fzf to choose inclusive start and end
@@ -216,11 +251,17 @@ non-interactive run it leaves the Git operation intact and prints the matching
 the complete sequence before returning.
 
 ```bash
-bash tools/lib/providers/azure/fork-export.sh
-bash tools/lib/providers/azure/fork-export.sh HEAD~2 --format patch
-bash tools/lib/providers/azure/fork-export.sh --format both
-bash tools/lib/providers/azure/fork-export.sh --apply-to /path/to/github/devenv
+fork-export
+fork-export HEAD~2 --format patch
+fork-export --format both
+fork-export --apply-to /path/to/github/devenv
 ```
+
+An export is a linear, contiguous commit range: a range that contains a merge commit
+is refused with the commit named (rebase the branch onto upstream with
+`fork-sync --rebase` first, or pick a range that excludes it). Patch series are applied
+with `git am -3`, so context that has drifted since the fork diverged falls back to a
+three-way merge instead of failing.
 
 An export is a contiguous commit range. To contribute only selected commits
 from a branch that also contains local-only changes, create a separate
@@ -228,10 +269,10 @@ branch at the fetched upstream base and cherry-pick only the commits to
 contribute, in dependency order, then export that branch:
 
 ```bash
-bash tools/lib/providers/azure/fork-sync.sh
+fork-sync
 git switch -c contribute-upstream upstream/master
 git cherry-pick <commit-to-contribute-1> <commit-to-contribute-2>
-bash tools/lib/providers/azure/fork-export.sh --format bundle
+fork-export --format bundle
 ```
 
 This leaves the original local branch unchanged and exports a new contiguous
@@ -423,6 +464,37 @@ fi
 
 **Important:** These scripts should be committed to the repository so all team members benefit from the customizations.
 
+## Adding and overriding tools (`tools/fork/` and `tools/custom/`)
+
+The tools you call by bare name (`issue-get`, `fork-sync`, ...) are stubs in
+`tools/`, each one pointing at a script. Three folders feed them, and a file with the
+same name in a higher folder replaces the one below it:
+
+| Folder | Who owns it | Committed? | Precedence |
+|---|---|---|---|
+| `tools/custom/` | one user, on one machine | no (gitignored) | highest |
+| `tools/fork/` | the fork, for everyone on it | yes | middle |
+| `tools/scripts/` | the provided tools (upstream) | yes | lowest |
+
+- **Add a tool:** put `my-tool.sh` in `tools/fork/` (for the whole fork) or
+  `tools/custom/` (for you only). It gets a `my-tool` stub like any provided tool.
+- **Override a tool:** give your file the same name as the provided one
+  (`tools/fork/issue-get.sh` replaces `tools/scripts/issue-get.sh`). The stub then runs
+  yours. Remove the file and the stub points back at the next folder down.
+- **Re-run the sync after adding or removing a file.** Each stub is written at sync
+  time and names the winning file, so the change shows up after
+  `entry-stubs-sync` runs. Bootstrap runs it; run it yourself to see a change at once.
+- **Underscore-prefixed scripts cannot be overridden this way.** Scripts such as
+  `_on_begin_review.sh` have no stub (they are called by path), so a copy in `tools/fork/`
+  or `tools/custom/` is never picked up.
+- A script in `tools/fork/` or `tools/custom/` follows the same conventions as a
+  provided tool ([Tooling Standards](./Tooling-Standards.md)): the self-root header,
+  `--help`, and tests for anything non-trivial.
+
+Keep an override small. The provided tool keeps receiving upstream changes that your
+copy does not, so prefer a config key or a policy knob (see
+[What stays upstream](#what-stays-upstream)) when the surfaces can express the difference.
+
 ## User-Level Customizations
 
 Individual developers can add their own customizations using:
@@ -454,17 +526,7 @@ email_domain=yourorg.com
 
 - **name**: Organization name (for docs/branding)
 - **org**: Neutral org key — Git host org/user used for cloning and feeds
-- ~~github_org~~: no longer read — use `org` (GitHub-branded identity keys are ignored)
 - **email_domain**: Enforced commit email domain (empty = any valid email)
-
-### [container]
-
-```ini
-[container]
-name=YourOrg Dev Environment
-```
-
-- **name**: Display name for the dev container
 
 ### [workflows]
 
@@ -508,9 +570,9 @@ Do not duplicate states, and do not interleave the two halves — status derivat
 
 ```ini
 [copilot]
-knowledge_repo=https://github.com/workinprogress-ai/docs.copilot-knowledge.git   # ← your fork's repo
+knowledge_repo=https://github.com/<your-org>/docs.copilot-knowledge.git   # ← your fork's repo
 knowledge_subpath=copilot-knowledge/
-engineering_repo=https://github.com/workinprogress-ai/docs.engineering.git       # ← your fork's repo
+engineering_repo=https://github.com/<your-org>/docs.engineering.git       # ← your fork's repo
 engineering_repo_name=docs.engineering
 ```
 
@@ -531,7 +593,7 @@ These three keys wire the whole repo constellation — the machine-managed knowl
 
 ## Repo Creation Standards (repo-create.sh)
 
-> **Provider capability note:** rulesets, templates, merge-button control, Discussions, and most of the toggles below are GitHub-provider capabilities (gated by `provider_require_capability` in the modules). A fork on a provider without them either substitutes (ADO branch policies for rulesets) or leaves them unset — creation degrades with a warning, not a failure.
+> **Provider capability note:** rulesets, templates, merge-button control, Discussions, and most of the toggles below are GitHub-provider capabilities (gated by `provider_require_capability` in the modules). A fork on a provider without them either substitutes (Azure branch policies for rulesets) or leaves them unset — creation degrades with a warning, not a failure.
 
 If you use `tools/scripts/repo-create.sh`, configure `tools/config/repo-types.yaml`:
 
@@ -781,9 +843,6 @@ name=Acme Corp
 org=acme-corp
 email_domain=acme.com
 
-[container]
-name=Acme Dev Environment
-
 [workflows]
 status_workflow=TBD,To-Groom,Ready,Implementing,Review,Merged
 ```
@@ -795,9 +854,6 @@ status_workflow=TBD,To-Groom,Ready,Implementing,Review,Merged
 name=Mega Corp
 org=mega-corp-dev
 email_domain=megacorp.com
-
-[container]
-name=Mega Corp Development Environment
 
 [workflows]
 status_workflow=TBD,To-Groom,Ready,Implementing,Review,Testing,Merged,Staging,Production
@@ -840,7 +896,7 @@ Scripts live in `tools/scripts/<name>.sh`. Depth-1 entries at `tools/<name>` (wi
 
 1. **Start from the template**: `tooling-create-script <name>` scaffolds the file from `tools/templates/script-template.sh`.
 2. **File location**: `tools/scripts/<group>-<action>.sh`, following the existing `group-action` naming pattern (e.g. `markdown-plan-complete-task.sh`).
-3. **Entry point**: none needed by hand — run `.devcontainer/entry-stubs-sync.sh` (or bootstrap) and the `tools/<name>` stub is generated automatically.
+3. **Entry point**: none needed by hand — run `.devcontainer/entry-stubs-sync.sh` (or bootstrap) and the `tools/<name>` stub is generated automatically. A fork's own tool goes in `tools/fork/` instead, and a machine-local one in `tools/custom/` (see [Adding and overriding tools](#adding-and-overriding-tools-toolsfork-and-toolscustom)).
 
 4. **Standard structure** (in order):
    - Shebang + header comment (name, version, description, specifications)

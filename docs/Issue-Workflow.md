@@ -57,7 +57,7 @@ When work is decomposed, the parent card is **computed from its children and wri
 1. **All children pre-delivery** (TBD/To-Groom/Ready): the parent keeps its own workflow state. A freshly groomed Feature sits at Ready while its tasks wait.
 2. **Any child in delivery** (Implementing and beyond): the parent equals the **minimum child state**, where pre-delivery children count as Implementing.
 
-Parent resolution reads the **native sub-issue graph** first, falling back to the legacy `Part of #N` body-text line for issues linked before native linking existed. On those older subtrees the body-text line is load-bearing: removing it from an issue's body silently stops parent rollup for that subtree.
+Parent resolution reads the **native sub-issue graph** first, falling back to the `Part of #N` body-text line for issues linked by text rather than the native graph. On those subtrees the body-text line is load-bearing: removing it from an issue's body silently stops parent rollup for that subtree.
 
 The rule is stateless, so every edge falls out of it:
 

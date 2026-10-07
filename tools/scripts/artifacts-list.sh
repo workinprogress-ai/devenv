@@ -224,26 +224,32 @@ main() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --owner)
+                require_option_value "$1" "${2:-}"
                 owner="$2"
                 shift 2
                 ;;
             --type)
+                require_option_value "$1" "${2:-}"
                 type="$2"
                 shift 2
                 ;;
             --name)
+                require_option_value "$1" "${2:-}"
                 name="$2"
                 shift 2
                 ;;
             --format)
+                require_option_value "$1" "${2:-}"
                 format="$2"
                 shift 2
                 ;;
             --repo)
+                require_option_value "$1" "${2:-}"
                 repo="$2"
                 shift 2
                 ;;
             --sort)
+                require_option_value "$1" "${2:-}"
                 sort_field="$2"
                 shift 2
                 ;;

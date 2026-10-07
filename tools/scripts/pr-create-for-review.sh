@@ -76,7 +76,7 @@ explode() {
   exit "$EXIT_GENERAL_ERROR"
 }
 
-random_name() { uuidgen | cut -c1-8; }
+random_name() { od -An -N4 -tx1 /dev/urandom | tr -d ' \n'; }
 get_date() { date +"%Y-%m-%d"; }
 
 script_folder=$(dirname "$(readlink -f "$0")")
@@ -184,7 +184,10 @@ if [ $status -ne 0 ]; then
 fi
 
 git checkout "$CURRENT_BRANCH" &>/dev/null || explode "Failed to switch back to the current branch"
-delete_branch "$TARGET_BRANCH" origin &>/dev/null || echo "Failed to delete the review branch $TARGET_BRANCH" >&2
-delete_branch "$SOURCE_BRANCH" origin &>/dev/null || echo "Failed to delete the review branch $SOURCE_BRANCH" >&2
+# The two branches are the PR's base and head: they stay on the remote while the
+# review is open (pr-cleanup-review-branches retires them later). Only the local
+# scaffolding goes.
+delete_local_branch "$TARGET_BRANCH" || echo "Failed to delete the local review branch $TARGET_BRANCH" >&2
+delete_local_branch "$SOURCE_BRANCH" || echo "Failed to delete the local review branch $SOURCE_BRANCH" >&2
 
 echo "$PR_URL"

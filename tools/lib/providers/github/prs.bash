@@ -18,11 +18,14 @@ _PROVIDER_GITHUB_PRS_LOADED=1
 if ! declare -F log_error >/dev/null; then
     log_error() { echo "ERROR: $*" >&2; }
 fi
+if ! declare -F log_warn >/dev/null; then
+    log_warn() { echo "WARN: $*" >&2; }
+fi
 
 # Reuse the shared repo-args helper from the issues module when present; define
 # it locally otherwise so modules are independently sourceable.
-if ! declare -F provider_gh_repo_args >/dev/null; then
-    provider_gh_repo_args() {
+if ! declare -F provider_repo_args >/dev/null; then
+    provider_repo_args() {
         local -n __arr="$1"
         local __repo="${2:-}"
         if [ -n "$__repo" ]; then
@@ -31,6 +34,11 @@ if ! declare -F provider_gh_repo_args >/dev/null; then
             __arr=()
         fi
     }
+fi
+
+if ! declare -F _gh_repo_vars >/dev/null; then
+    # shellcheck disable=SC1091
+    source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/repos.bash"
 fi
 
 # ---------------------------------------------------------------------------
@@ -45,7 +53,7 @@ provider_prs_list() {
         repo="$1"; shift
     fi
     local repo_args=()
-    provider_gh_repo_args repo_args "$repo"
+    provider_repo_args repo_args "$repo"
     gh pr list "${repo_args[@]}" "$@"
 }
 
@@ -57,7 +65,7 @@ provider_prs_view() {
         repo="$1"; shift
     fi
     local repo_args=()
-    provider_gh_repo_args repo_args "$repo"
+    provider_repo_args repo_args "$repo"
     gh pr view "$@" "${repo_args[@]}"
 }
 
@@ -69,7 +77,7 @@ provider_prs_diff() {
         repo="$1"; shift
     fi
     local repo_args=()
-    provider_gh_repo_args repo_args "$repo"
+    provider_repo_args repo_args "$repo"
     gh pr diff "$1" "${repo_args[@]}"
 }
 
@@ -85,7 +93,7 @@ provider_prs_create() {
         repo="$1"; shift
     fi
     local repo_args=()
-    provider_gh_repo_args repo_args "$repo"
+    provider_repo_args repo_args "$repo"
     gh pr create "${repo_args[@]}" "$@"
 }
 
@@ -103,7 +111,7 @@ provider_prs_merge() {
         return 1
     fi
     local repo_args=()
-    provider_gh_repo_args repo_args "$repo"
+    provider_repo_args repo_args "$repo"
     gh pr merge "$number" "${repo_args[@]}" "$@"
 }
 
@@ -116,15 +124,15 @@ provider_prs_comment() {
     fi
     local number="$1"; shift
     local repo_args=()
-    provider_gh_repo_args repo_args "$repo"
+    provider_repo_args repo_args "$repo"
     gh pr comment "$number" "${repo_args[@]}" "$@"
 }
 
 # Reply to a PR review comment thread (REST surface, per pr-thread-reply).
 # Usage: provider_prs_thread_reply REPO PR_NUMBER COMMENT_ID BODY
 provider_prs_thread_reply() {
-    # Reply to a PR review comment thread. Emits the raw REST response JSON
-    # on stdout (callers extract html_url etc.); fails defined.
+    # Reply to a PR review comment thread. Emits the created comment as seam-shaped
+    # JSON ({id, url, ...}) on stdout; fails defined.
     local repo="$1" pr="$2" comment_id="$3" body="$4"
     if [ -z "$repo" ] || [[ "$repo" != */* ]]; then
         log_error "provider_prs_thread_reply: repo must be owner/repo form"
@@ -137,7 +145,8 @@ provider_prs_thread_reply() {
     local owner="${repo%%/*}" name="${repo##*/}"
     gh api -X POST \
         "/repos/$owner/$name/pulls/$pr/comments/$comment_id/replies" \
-        -f body="$body"
+        -f body="$body" | _gh_neutral_comment
+    return "${PIPESTATUS[0]}"
 }
 # Create a PR review thread — general comment, or inline when --path/--line
 # are given. Emits gh-shaped JSON ({thread:{url}}); the caller extracts the
@@ -145,32 +154,28 @@ provider_prs_thread_reply() {
 # Usage: provider_prs_thread_create [repo] PR_NUMBER --body TEXT
 #        [--path FILE --line N --side LEFT|RIGHT]
 provider_prs_thread_create() {
-    local repo=""
-    if [ $# -gt 0 ]; then
-        case "$1" in
-            */*) repo="$1"; shift ;;
-        esac
-    fi
+    local repo="${1-}"
+    [ $# -gt 0 ] && shift
     local number="$1"; shift
     local body="" path="" line="" side=""
     while [ $# -gt 0 ]; do
         case "$1" in
-            --body) body="$2"; shift 2 ;;
-            --path) path="$2"; shift 2 ;;
-            --line) line="$2"; shift 2 ;;
-            --side) side="$2"; shift 2 ;;
-            *) shift ;;
+            --body) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; body="$2"; shift 2 ;;
+            --path) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; path="$2"; shift 2 ;;
+            --line) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; line="$2"; shift 2 ;;
+            --side) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; side="$2"; shift 2 ;;
+            *) provider_unknown_option "${FUNCNAME[0]}" "$1"; return 1 ;;
         esac
     done
     [ -n "$body" ] || { log_error "provider_prs_thread_create requires --body"; return 1; }
-    local pr_id repo_node_id
+    local pr_id repo_node_id vars owner name
     pr_id=$(provider_prs_view "$repo" "$number" --json id -q .id) || return 1
-    if [ -n "$repo" ]; then
-        local owner="${repo%%/*}" name="${repo##*/}"
-        repo_node_id=$(gh api graphql -f query="query { repository(owner: \"$owner\", name: \"$name\") { id } }" 2>/dev/null | jq -r '.data.repository.id')
-    else
-        repo_node_id=$(gh api graphql -f query='query { repository(owner: "{owner}", name: "{repo}") { id } }' 2>/dev/null | jq -r '.data.repository.id')
-    fi
+    # The repository rides GraphQL variables: gh does not fill {owner}/{repo}
+    # placeholders inside a -f query.
+    vars=$(_gh_repo_vars "$repo") || return 1
+    owner=$(printf '%s' "$vars" | sed -n 1p); name=$(printf '%s' "$vars" | sed -n 2p)
+    # shellcheck disable=SC2016  # GraphQL variables must not be shell-expanded
+    repo_node_id=$(gh api graphql -f 'query=query($o:String!,$r:String!){repository(owner:$o,name:$r){id}}' -f o="$owner" -f r="$name" --jq '.data.repository.id')
     [ -n "$repo_node_id" ] && [ "$repo_node_id" != "null" ] || { log_error "provider_prs_thread_create: cannot resolve repository node id"; return 1; }
     # shellcheck disable=SC2016  # GraphQL variables must not be shell-expanded
     local query='mutation($pr: ID!, $body: String!, $repo: ID!$extra) {
@@ -241,7 +246,17 @@ provider_prs_threads_page() {
     gh_args+=(-f repo="$name")
     gh_args+=(-F pr="$pr")
     [ -n "$cursor" ] && gh_args+=(-f cursor="$cursor")
-    gh api graphql "${gh_args[@]}"
+    local response
+    response=$(gh api graphql "${gh_args[@]}") || return 1
+    # A thread's comments are read 50 at a time; more than that truncates silently.
+    if printf '%s' "$response" | jq -e '[.data.repository.pullRequest.reviewThreads.nodes[]?.comments.pageInfo.hasNextPage // false] | any' >/dev/null 2>&1; then
+        log_warn "provider_prs_threads_page: a thread of PR #$pr has more comments than the query returns (50); its conversation is incomplete"
+    fi
+    # Comment ids in the seam's shape: `id` is the id a reply addresses (GitHub's
+    # databaseId) and `nodeId` the GraphQL node id.
+    printf '%s' "$response" | jq -c '
+        .data.repository.pullRequest.reviewThreads.nodes |= map(
+            .comments.nodes |= map({id: .databaseId, nodeId: .id} + del(.id, .databaseId)))'
 }
 
 # The threads-page query document (single definition; the verb passes it as
@@ -259,6 +274,7 @@ QUERY_PR_THREADS='query($owner: String!, $repo: String!, $pr: Int!, $cursor: Str
           startLine
           diffSide
           comments(first: 50) {
+            pageInfo { hasNextPage }
             nodes {
               id
               databaseId

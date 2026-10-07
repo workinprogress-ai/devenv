@@ -1,0 +1,89 @@
+{
+  "count": 8,
+  "value": [
+    {
+      "id": "00000000-0000-4000-8000-000000000012",
+      "name": "TBD",
+      "itemLimit": 0,
+      "stateMappings": {
+        "Feature": "New"
+      },
+      "columnType": "incoming"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000016",
+      "name": "To-Groom",
+      "itemLimit": 5,
+      "stateMappings": {
+        "Feature": "Active"
+      },
+      "isSplit": false,
+      "description": "",
+      "columnType": "inProgress"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000018",
+      "name": "Ready",
+      "itemLimit": 5,
+      "stateMappings": {
+        "Feature": "Resolved"
+      },
+      "isSplit": false,
+      "description": "",
+      "columnType": "inProgress"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000017",
+      "name": "Implementing",
+      "itemLimit": 5,
+      "stateMappings": {
+        "Feature": "Active"
+      },
+      "isSplit": false,
+      "description": "",
+      "columnType": "inProgress"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000019",
+      "name": "Review",
+      "itemLimit": 5,
+      "stateMappings": {
+        "Feature": "Active"
+      },
+      "isSplit": false,
+      "description": "",
+      "columnType": "inProgress"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000015",
+      "name": "Merged",
+      "itemLimit": 5,
+      "stateMappings": {
+        "Feature": "Active"
+      },
+      "isSplit": false,
+      "description": "",
+      "columnType": "inProgress"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000014",
+      "name": "Staging",
+      "itemLimit": 5,
+      "stateMappings": {
+        "Feature": "Active"
+      },
+      "isSplit": false,
+      "description": "",
+      "columnType": "inProgress"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000013",
+      "name": "Production",
+      "itemLimit": 0,
+      "stateMappings": {
+        "Feature": "Closed"
+      },
+      "columnType": "outgoing"
+    }
+  ]
+}

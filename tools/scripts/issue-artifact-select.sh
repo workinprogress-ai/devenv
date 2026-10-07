@@ -40,7 +40,7 @@ Required Inputs:
     --issue, --issue-number N     Issue number
 
 Optional Filters:
-    --artifact-type TYPE          Filter by artifact type (for example: plan; legacy implementation-plan also accepted)
+    --artifact-type TYPE          Filter by artifact type (for example: plan; implementation-plan also accepted)
     --doc-id ID                   Select a specific artifact by doc_id
     --latest                      If multiple matches, select the most recently updated
 

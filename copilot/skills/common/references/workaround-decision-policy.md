@@ -13,7 +13,7 @@ Workaround code is only permitted with explicit user agreement.
 Workaround code includes shims, compatibility wrappers, adapters, temporary bridges, and other hack-style patches whose primary purpose is to make tests or builds pass without addressing the intended underlying change, for example:
 
 - Test-only compatibility extensions recreating removed APIs.
-- Wrappers that preserve legacy call shapes only to avoid updating callers.
+- Wrappers that preserve old call shapes only to avoid updating callers.
 - Temporary bridges that mask architectural drift.
 - Fallback branches or stub behavior added only to force green checks.
 

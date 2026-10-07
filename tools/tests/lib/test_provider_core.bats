@@ -124,316 +124,12 @@ write_config() {
 }
 
 # ============================================================================
-# Dispatch guard
-# ============================================================================
-
-@test "dispatch: succeeds when the provider module defines the verb" {
-    source_core
-    provider_detect "$TEST_TEMP_DIR/absent.config"
-    provider_issues_list() { echo "stub-impl"; }
-    run provider_dispatch issues list
-    assert_success
-}
-
-@test "dispatch: fails with defined error when verb is not implemented" {
-    source_core
-    provider_detect "$TEST_TEMP_DIR/absent.config"
-    run provider_dispatch rulesets export
-    assert_failure
-    [[ "$output" == *"does not implement rulesets export"* ]]
-}
-
-# ============================================================================
-# Auth seam (AC-4)
-# ============================================================================
-
-@test "auth: emits GH_TOKEN and auth-kind exports when set and allowlisted" {
-    source_core
-    provider_detect "$TEST_TEMP_DIR/absent.config"
-    GH_TOKEN=ghp_test123 run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && PROVIDER_TOKEN_ENV_ALLOWLIST=ghp_test123 && eval "$(GH_TOKEN=ghp_test123 provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "env" ] && [ "$GH_TOKEN" = "ghp_test123" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
-    assert_success
-}
-
-@test "auth: fails with defined error when no credential source exists" {
-    stub_gh
-    source_core
-    provider_detect "$TEST_TEMP_DIR/absent.config"
-    GH_TOKEN= run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && provider_auth_env' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
-    assert_failure
-    [[ "$output" == *"no credential source available"* ]]
-}
-
-@test "resolution: allowlisted env token outranks keychain" {
-    stub_gh
-    source_core
-    provider_detect "$TEST_TEMP_DIR/absent.config"
-    run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && PROVIDER_TOKEN_ENV_ALLOWLIST=ghp_abc123 && eval "$(GH_TOKEN=ghp_abc123 provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "env" ] && [ "$GH_TOKEN" = "ghp_abc123" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
-    assert_success
-}
-
-@test "secret_get: fails for unknown secret kinds" {
-    source_core
-    provider_detect "$TEST_TEMP_DIR/absent.config"
-    GH_TOKEN=x run provider_secret_get password
-    assert_failure
-    [[ "$output" == *"unknown secret kind 'password'"* ]]
-}
-
-@test "secret_get: never echoes the token into the error path" {
-    source_core
-    provider_detect "$TEST_TEMP_DIR/absent.config"
-    GH_TOKEN=ghp_supersecret run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && { provider_secret_get token >/dev/null 2>"$2/err.txt" || true; } && { grep -q supersecret "$2/err.txt" && exit 1 || exit 0; }' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
-    assert_success
-}
-
-# ============================================================================
-# Token resolution order (AC-1) & escape-hatch allowlist (AC-2)
-# ============================================================================
-
-@test "resolution: keychain kind when no env token and the provider credential store works" {
-    stub_gh
-    source_core
-    # The keychain leg lives in the active provider's auth module; load it
-    # exactly as every real caller does (core + provider_load auth).
-    # shellcheck disable=SC1091
-    source "${DEVENV_TOOLS}/lib/providers/github/auth.bash"
-    provider_detect "$TEST_TEMP_DIR/absent.config"
-    unset GH_TOKEN
-    STUB_GH_AUTH_TOKEN=ghp_keychain123 run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && eval "$(provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "keychain" ] && [ -z "${GH_TOKEN:-}" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
-    assert_success
-}
-
-@test "resolution: secret_get delegates to the provider credential store when env is unset" {
-    stub_gh
-    source_core
-    # shellcheck disable=SC1091
-    source "${DEVENV_TOOLS}/lib/providers/github/auth.bash"
-    provider_detect "$TEST_TEMP_DIR/absent.config"
-    unset GH_TOKEN
-    STUB_GH_AUTH_TOKEN=ghp_keychain456 run provider_secret_get token
-    assert_success
-    [ "$output" = "ghp_keychain456" ]
-}
-
-@test "secret_get: returns the allowlisted env token via stdout" {
-    source_core
-    provider_detect "$TEST_TEMP_DIR/absent.config"
-    run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && PROVIDER_TOKEN_ENV_ALLOWLIST=ghp_abc123 && GH_TOKEN=ghp_abc123 provider_secret_get token' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
-    assert_success
-    [ "$output" = "ghp_abc123" ]
-}
-
-@test "resolution: env token outside the allowlist warns and falls through to the provider credential store" {
-    stub_gh
-    source_core
-    # shellcheck disable=SC1091
-    source "${DEVENV_TOOLS}/lib/providers/github/auth.bash"
-    provider_detect "$TEST_TEMP_DIR/absent.config"
-    STUB_GH_AUTH_TOKEN=ghp_keychain789 run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && GH_TOKEN=ghp_ignored; out=$(provider_auth_env 2>"$2/warn.txt"); eval "$out"; [ "$PROVIDER_AUTH_KIND" = "keychain" ] && grep -q "not on the env allowlist" "$2/warn.txt"' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR" "$TEST_TEMP_DIR"
-    assert_success
-}
-
-@test "resolution: non-allowlisted env token is never emitted nor leaked by secret_get" {
-    stub_gh
-    source_core
-    # shellcheck disable=SC1091
-    source "${DEVENV_TOOLS}/lib/providers/github/auth.bash"
-    provider_detect "$TEST_TEMP_DIR/absent.config"
-    STUB_GH_AUTH_TOKEN=ghp_keychain999 GH_TOKEN=ghp_env_secret123 run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && tok=$(provider_secret_get token 2>/dev/null) && [ "$tok" = "ghp_keychain999" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
-    assert_success
-}
-
-@test "resolution: fails with defined error when env is unallowlisted and keychain is down" {
-    stub_gh
-    source_core
-    provider_detect "$TEST_TEMP_DIR/absent.config"
-    GH_TOKEN=ghp_notlisted run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && provider_auth_env' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
-    assert_failure
-    [[ "$output" == *"no credential source available"* ]]
-    [[ "$output" == *"not allowlisted"* ]]
-}
-
-@test "allowlist: env token on the allowlist is honored with kind env" {
-    source_core
-    provider_detect "$TEST_TEMP_DIR/absent.config"
-    run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && PROVIDER_TOKEN_ENV_ALLOWLIST=ghp_escape_token && eval "$(GH_TOKEN=ghp_escape_token provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "env" ] && [ "$GH_TOKEN" = "ghp_escape_token" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
-    assert_success
-}
-
-@test "allowlist: loads from [provider] token_env_allowlist config key" {
-    local cfg
-    cfg=$(write_config "
-[provider]
-name = github
-token_env_allowlist = ghp_cfg_token ghp_other:justification")
-    source_core
-    provider_detect "$cfg"
-    [ "$PROVIDER_TOKEN_ENV_ALLOWLIST" = "ghp_cfg_token ghp_other:justification" ]
-    run bash -c 'source "$0" && provider_detect "$1" && eval "$(GH_TOKEN=ghp_cfg_token provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "env" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$cfg"
-    assert_success
-}
-
-@test "allowlist: caller-provided value survives detection without a config file" {
-    source_core
-    PROVIDER_TOKEN_ENV_ALLOWLIST="ghp_pre_exported"
-    provider_detect "$TEST_TEMP_DIR/absent.config"
-    [ "$PROVIDER_TOKEN_ENV_ALLOWLIST" = "ghp_pre_exported" ]
-}
-
-@test "allowlist: ships empty by default" {
-    source_core
-    provider_detect "$TEST_TEMP_DIR/absent.config"
-    [ -z "$PROVIDER_TOKEN_ENV_ALLOWLIST" ]
-}
-
-@test "allowlist: matching is on value, colon reason suffix tolerated" {
-    source_core
-    provider_detect "$TEST_TEMP_DIR/absent.config"
-    run bash -c 'source "$0" && source "${DEVENV_TOOLS}/lib/providers/github/auth.bash" && provider_detect "$1/absent.config" && PROVIDER_TOKEN_ENV_ALLOWLIST="ghp_with_reason:legacy-deployer" && eval "$(GH_TOKEN=ghp_with_reason provider_auth_env)" && [ "$PROVIDER_AUTH_KIND" = "env" ]' "$DEVENV_TOOLS/lib/providers/provider-core.bash" "$TEST_TEMP_DIR"
-    assert_success
-}
-
-# ============================================================================
-# Capability flags (AC-3)
-# ============================================================================
-
-@test "capabilities: query returns 0 only for declared capabilities" {
-    source_core
-    provider_detect "$TEST_TEMP_DIR/absent.config"
-    PROVIDER_CAPABILITIES="rulesets releases"
-    provider_has_capability rulesets
-    run bash -c 'source "$0" && PROVIDER_CAPABILITIES="rulesets releases" && provider_has_capability project-boards' "$DEVENV_TOOLS/lib/providers/provider-core.bash"
-    assert_failure
-}
-
-@test "require_capability: passes for declared capability" {
-    source_core
-    provider_detect "$TEST_TEMP_DIR/absent.config"
-    PROVIDER_CAPABILITIES="rulesets"
-    run provider_require_capability rulesets
-    assert_success
-}
-
-@test "require_capability: defined degradation error for undeclared capability" {
-    source_core
-    provider_detect "$TEST_TEMP_DIR/absent.config"
-    PROVIDER_CAPABILITIES=""
-    run provider_require_capability project-boards
-    assert_failure
-    [[ "$output" == *"provider 'github' does not support capability 'project-boards'"* ]]
-}
-
-@test "detection: unknown provider name fails at config time listing shipped providers" {
-    # A typo in [provider] name must fail loudly at detection, not degrade
-    # to per-module warnings and call-time errors. provider_detect logs the
-    # error (stderr) rather than echoing, so assert on the combined stream.
-    local cfg="$TEST_TEMP_DIR/typo.config"
-    {
-        echo "[provider]"
-        echo "name=gitlab"
-    } > "$cfg"
-    run bash -c "
-        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
-        provider_detect '$cfg'
-    "
-    assert_failure
-    [[ "$output" == *"gitlab"* ]]
-    [[ "$output" == *"github"* && "$output" == *"azure"* ]]
-}
-
-@test "detection: absent config still falls back to the policy default provider" {
-    run bash -c "
-        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
-        provider_detect '$TEST_TEMP_DIR/absent.config'
-        echo \"\$PROVIDER_NAME\"
-    "
-    assert_success
-    [[ "$output" == "github" ]]
-}
-
-# ============================================================================
-# Error contract
-# ============================================================================
-
-@test "error contract: provider-core never exits the sourcing shell" {
-    source_core
-    provider_detect "$TEST_TEMP_DIR/absent.config"
-    # Every failure path above returned instead of exiting; reaching here with
-    # a live shell and a re-sourceable guard proves the no-exit contract.
-    _PROVIDER_CORE_LOADED=""
-    source_core
-    [ -n "${_PROVIDER_CORE_LOADED:-}" ]
-}
-
-# ============================================================================
-# Declared red-test register (closes by Phase 4 end)
-# ============================================================================
-
-@test "github module: issues facade is loadable and implements the inventory verbs" {
-    # shellcheck disable=SC1091
-    source "$DEVENV_TOOLS/lib/providers/github/issues.bash"
-    for verb in list view exists create close reopen edit comment set_type label_list label_ensure milestones; do
-        declare -F "provider_issues_${verb}" >/dev/null || fail "missing provider_issues_${verb}"
-    done
-}
-
-@test "github module: prs facade is loadable and implements the inventory verbs" {
-    # shellcheck disable=SC1091
-    source "$DEVENV_TOOLS/lib/providers/github/issues.bash"
-    # shellcheck disable=SC1091
-    source "$DEVENV_TOOLS/lib/providers/github/prs.bash"
-    for verb in list view create merge comment diff thread_reply thread_resolve threads_page; do
-        declare -F "provider_prs_${verb}" >/dev/null || fail "missing provider_prs_${verb}"
-    done
-}
-
-@test "github module: repos facade is loadable and implements the inventory verbs" {
-    # shellcheck disable=SC1091
-    source "$DEVENV_TOOLS/lib/providers/github/repos.bash"
-    for verb in view list create edit default_branch protect_branch team_put collaborator_put patch; do
-        declare -F "provider_repos_${verb}" >/dev/null || fail "missing provider_repos_${verb}"
-    done
-    declare -F provider_repo_target >/dev/null || fail "missing provider_repo_target"
-}
-
-@test "github module: actions facade is loadable and implements the inventory verbs" {
-    # shellcheck disable=SC1091
-    source "$DEVENV_TOOLS/lib/providers/github/pipelines.bash"
-    for verb in run_list run_view run_watch run_rerun run_cancel run_download run_artifacts workflow_list workflow_run wait_for_branch; do
-        declare -F "provider_pipelines_${verb}" >/dev/null || fail "missing provider_pipelines_${verb}"
-    done
-}
-
-@test "github module: projects facade declares project-boards capability" {
-    # shellcheck disable=SC1091
-    source "$DEVENV_TOOLS/lib/providers/provider-core.bash"
-    # shellcheck disable=SC1091
-    source "$DEVENV_TOOLS/lib/providers/github/projects.bash"
-    for verb in list field_list item_add; do
-        declare -F "provider_projects_${verb}" >/dev/null || fail "missing provider_projects_${verb}"
-    done
-    provider_has_capability project-boards
-}
-
-@test "github module: org facade declares rulesets and native-issue-types capabilities" {
-    # shellcheck disable=SC1091
-    source "$DEVENV_TOOLS/lib/providers/provider-core.bash"
-    # shellcheck disable=SC1091
-    source "$DEVENV_TOOLS/lib/providers/github/org.bash"
-    for verb in rulesets_list ruleset_get ruleset_create ruleset_update releases_list issue_types; do
-        declare -F "provider_org_${verb}" >/dev/null || fail "missing provider_org_${verb}"
-    done
-    provider_has_capability rulesets
-    provider_has_capability native-issue-types
-}
-
-# ============================================================================
 # Credential lifecycle seam (auth import/status)
 # ============================================================================
 
 @test "lifecycle: import_token fails defined when provider module is absent" {
-    # core without any auth module loaded: provider_dispatch auth import_token
-    # finds no impl and fails with the defined error.
+    # core without any auth module loaded: the import has no implementation and
+    # fails with the defined error.
     source_core
     provider_detect "$TEST_TEMP_DIR/absent.config"
     run provider_auth_import_token <<< "tok"
@@ -576,4 +272,111 @@ provider_accessor_setup() {
     provider_declare_capability pipelines
     provider_has_capability pipelines
     ! provider_has_capability releases
+}
+
+# ============================================================================
+# A misconfigured provider name fails, loudly, at load time (F051)
+# ============================================================================
+
+load_provider_in_subshell() {   # load_provider_in_subshell <config-file>: runs provider_load, echoing status
+    run bash -c "
+        export DEVENV_TOOLS='$DEVENV_TOOLS' DEVENV_ROOT='$TEST_TEMP_DIR'
+        source '$DEVENV_TOOLS/lib/error-handling.bash'
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        provider_load issues
+        echo \"load-status=\$? name=[\${PROVIDER_NAME:-}]\"
+    "
+}
+
+@test "provider_load with an unshipped [provider] name fails and shows why" {
+    printf '[provider]\nname=azrue\n' > "$TEST_TEMP_DIR/devenv.config"
+    load_provider_in_subshell
+    [[ "$output" == *"azrue"* ]]
+    [[ "$output" == *"not shipped"* ]]
+    [[ "$output" == *"azure"* && "$output" == *"github"* ]]
+    [[ "$output" == *"load-status=1"* ]]
+    [[ "$output" == *"name=[]"* ]]
+}
+
+@test "provider_load does not fall back to the typo it was given" {
+    printf '[provider]\nname=azrue\n' > "$TEST_TEMP_DIR/devenv.config"
+    load_provider_in_subshell
+    [[ "$output" != *"does not implement"* ]]
+    [[ "$output" != *"command not found"* ]]
+}
+
+@test "provider_load with a shipped name still succeeds" {
+    printf '[provider]\nname=github\n' > "$TEST_TEMP_DIR/devenv.config"
+    load_provider_in_subshell
+    [[ "$output" == *"load-status=0"* ]]
+    [[ "$output" == *"name=[github]"* ]]
+}
+
+@test "provider_load with no [provider] name uses the default provider" {
+    printf '[workflows]\nstatus_workflow=A,B\n' > "$TEST_TEMP_DIR/devenv.config"
+    load_provider_in_subshell
+    [[ "$output" == *"load-status=0"* ]]
+    [[ "$output" == *"name=[github]"* ]]
+}
+
+@test "the default provider is not read from the configured name (no circular binding)" {
+    printf '[provider]\nname=azrue\n' > "$TEST_TEMP_DIR/devenv.config"
+    run bash -c "
+        export DEVENV_TOOLS='$DEVENV_TOOLS' DEVENV_ROOT='$TEST_TEMP_DIR'
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        policy_default_provider
+    "
+    [ "$output" = "github" ]
+}
+
+@test "POLICY_DEFAULT_PROVIDER still overrides the default" {
+    printf '[workflows]\nstatus_workflow=A,B\n' > "$TEST_TEMP_DIR/devenv.config"
+    run bash -c "
+        export DEVENV_TOOLS='$DEVENV_TOOLS' DEVENV_ROOT='$TEST_TEMP_DIR' POLICY_DEFAULT_PROVIDER=azure
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        policy_default_provider
+    "
+    [ "$output" = "azure" ]
+}
+
+# ============================================================================
+# A verb the provider lacks is a defined error, not bash's 127 (F052)
+# ============================================================================
+
+@test "calling a provider verb that is not defined returns 1 and names the provider and verb" {
+    run bash -c "
+        export DEVENV_TOOLS='$DEVENV_TOOLS'
+        source '$DEVENV_TOOLS/lib/error-handling.bash'
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        PROVIDER_NAME=github
+        provider_made_up_verb arg
+        echo \"rc=\$?\"
+    "
+    [[ "$output" == *"rc=1"* ]]
+    [[ "$output" == *"github"* ]]
+    [[ "$output" == *"provider_made_up_verb"* ]]
+    [[ "$output" == *"does not implement"* ]]
+}
+
+@test "a missing verb does not kill a set -e script before it can report" {
+    run bash -c "
+        set -e
+        export DEVENV_TOOLS='$DEVENV_TOOLS'
+        source '$DEVENV_TOOLS/lib/error-handling.bash'
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        PROVIDER_NAME=azure
+        if ! provider_made_up_verb; then echo 'handled'; fi
+    "
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"handled"* ]]
+}
+
+@test "an ordinary missing command is still bash's 127" {
+    run bash -c "
+        export DEVENV_TOOLS='$DEVENV_TOOLS'
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        not_a_provider_command_xyz
+    "
+    [ "$status" -eq 127 ]
+    [[ "$output" == *"not_a_provider_command_xyz"* ]]
 }

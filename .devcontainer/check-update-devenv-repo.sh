@@ -1,61 +1,14 @@
 #!/bin/bash
 # check-update-devenv-repo.sh - Checks for updates and, if found, interacts with the user to perform an update.
 #
-# After pulling, the required post-update action is determined from the highest-priority
-# "Devenv-Action" trailer found across all new commits:
-#
-#   Devenv-Action: nothing    — no further action needed (default when trailer is absent)
-#   Devenv-Action: restart    — dev container needs to be restarted
-#   Devenv-Action: bootstrap  — re-run bootstrap (implies restart)
-#   Devenv-Action: recreate   — rebuild/recreate the dev container (implies bootstrap + restart)
-#
-# These are progressive: the highest-ranked action across all pulled commits wins.
-
-# ── Action priority ────────────────────────────────────────────────────────
-# Returns an integer priority for a given action label (higher = more severe).
-action_priority() {
-    case "$1" in
-        recreate)  echo 3 ;;
-        bootstrap) echo 2 ;;
-        restart)   echo 1 ;;
-        nothing)   echo 0 ;;
-        *)         echo -1 ;;   # unrecognised — ignored
-    esac
-}
-
-# Scan git log from OLD_REF..HEAD for Devenv-Action trailers and return the
-# highest-priority action found. Prints "nothing" if no trailers are present.
-highest_devenv_action() {
-    local old_ref="$1"
-    local best="nothing"
-    local best_pri=0
-
-    while IFS= read -r action; do
-        [ -z "$action" ] && continue
-        local pri
-        pri=$(action_priority "$action")
-        if [ "$pri" -gt "$best_pri" ] 2>/dev/null; then
-            best="$action"
-            best_pri="$pri"
-        fi
-    done < <(git log "${old_ref}..HEAD" --format='%(trailers:key=Devenv-Action,valueonly)' 2>/dev/null \
-             | tr '[:upper:]' '[:lower:]' \
-             | grep -v '^$')
-
-    echo "$best"
-}
+# After pulling, the required post-update action comes from the "Devenv-Action"
+# trailers on the new commits; see post-update.bash, shared with devenv-update.
 
 # ── Setup ──────────────────────────────────────────────────────────────────
 script_path=$(readlink -f "$0")
 script_folder=$(dirname "$script_path")
 cd "$script_folder" || exit 1
 devenv=$(dirname "$script_folder")
-
-# Uncommitted changes — refuse to update.
-if ! git diff --quiet || ! git diff --cached --quiet; then
-    echo "There are uncommitted changes in the devenv repo. Please commit or stash them before updating."
-    exit 1
-fi
 
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 LOCAL_HASH=$(git rev-parse "$CURRENT_BRANCH")
@@ -67,8 +20,34 @@ if [ "$LOCAL_HASH" == "$REMOTE_HASH" ]; then
     exit 0
 fi
 
-# Local is ahead of or has diverged from remote — don't offer to update.
+# Local is ahead of the remote: nothing to pull, nothing to say.
+if [ "$REMOTE_HASH" == "$BASE_HASH" ]; then
+    exit 0
+fi
+
+# Both sides moved. Say so only when the remote's history was rewritten (a
+# force-pushed fork master): an earlier tip of the remote-tracking branch (from its
+# reflog) is still reachable from the local branch but no longer from the remote.
+# Local commits that were never on the remote (ordinary divergence) have no such tip
+# and stay silent: that is normal for a fork, and the check runs from every new shell.
+# Objects missing from a shallow clone make the reachability test fail, which reads as
+# "not rewritten".
 if [ "$LOCAL_HASH" != "$BASE_HASH" ]; then
+    REWRITTEN=0
+    while IFS= read -r PAST_REMOTE_HASH; do
+        [ -n "$PAST_REMOTE_HASH" ] && [ "$PAST_REMOTE_HASH" != "$REMOTE_HASH" ] || continue
+        if git merge-base --is-ancestor "$PAST_REMOTE_HASH" "$LOCAL_HASH" 2>/dev/null \
+            && ! git merge-base --is-ancestor "$PAST_REMOTE_HASH" "$REMOTE_HASH" 2>/dev/null \
+            && git cat-file -e "${PAST_REMOTE_HASH}^{commit}" 2>/dev/null; then
+            REWRITTEN=1
+            break
+        fi
+    done < <(git reflog show --format=%H "origin/${CURRENT_BRANCH}" 2>/dev/null | head -n 50)
+    if [ "$REWRITTEN" -eq 1 ]; then
+        echo "The remote history of ${CURRENT_BRANCH} was rewritten: your branch and origin/${CURRENT_BRANCH} have diverged."
+        echo "If you have no local commits to keep, reset to the remote: git fetch origin && git reset --hard origin/${CURRENT_BRANCH}"
+        echo "If you do, move them onto the new history: git rebase origin/${CURRENT_BRANCH}  (see docs/Forking.md)."
+    fi
     exit 0
 fi
 
@@ -80,6 +59,14 @@ if [ "$CURRENT_BRANCH" != "master" ]; then
 fi
 
 # ── Master branch ──────────────────────────────────────────────────────────
+# Uncommitted changes: refuse only now that an update is actually on offer, so a
+# dirty tree does not nag on every start while the repo is up to date.
+if ! git diff --quiet || ! git diff --cached --quiet; then
+    echo "Changes are available on the remote master branch, but there are uncommitted changes in the devenv repo."
+    echo "Please commit or stash them before updating."
+    exit 1
+fi
+
 echo "Changes detected on the remote master branch for the development environment."
 read -rp "Do you want to update? (y/n): " answer
 case $answer in
@@ -91,45 +78,15 @@ esac
 # Capture HEAD before pulling so we can scan only the new commits.
 PRE_UPDATE_HASH=$(git rev-parse HEAD)
 
-$devenv/tools/git-update
-if [ $? -ne 0 ]; then
+if ! "$devenv/tools/git-update"; then
     echo "Error updating the repository. Please update manually (e.g., run 'git pull')."
     echo "You may also need to rebuild the dev container or re-run the bootstrap."
     exit 1
 fi
 
-# Determine required action from the new commits.
-ACTION=$(highest_devenv_action "$PRE_UPDATE_HASH")
-
-case "$ACTION" in
-    recreate)
-        echo
-        echo "********************************************************"
-        echo "  Dev container must be RECREATED."
-        echo "  Please rebuild / recreate your dev container."
-        echo "********************************************************"
-        echo
-        ;;
-    bootstrap)
-        "$script_folder/bootstrap.sh"
-        echo
-        echo "********************************************************"
-        echo "  Bootstrap complete.  Please RESTART the dev container."
-        echo "********************************************************"
-        echo
-        ;;
-    restart)
-        echo
-        echo "********************************************************"
-        echo "  Please RESTART the dev container."
-        echo "********************************************************"
-        echo
-        ;;
-    nothing | *)
-        echo
-        echo "Update complete."
-        echo
-        ;;
-esac
+# Carry out the action the new commits call for.
+# shellcheck source=./post-update.bash
+source "$script_folder/post-update.bash"
+devenv_post_update "$PRE_UPDATE_HASH" || exit 1
 
 exit 0

@@ -48,10 +48,10 @@ accessor chain (config → seed) only; bootstrap never produces GH_* exports.
 
 ## URL / host seam
 
-All provider-host URL work lives in `github/urls.bash`:
-`provider_git_transport_url`, `provider_git_remote_base`, `provider_web_url`,
-`provider_extract_url`, `provider_remote_to_web`. Generic scripts never
-hard-code the host literal.
+All provider-host URL work lives in the active provider's `urls.bash`
+(`tools/lib/providers/<name>/urls.bash`): `provider_git_transport_url`,
+`provider_git_remote_base`, `provider_web_url`, `provider_extract_url`,
+`provider_remote_to_web`. Generic scripts never hard-code the host literal.
 
 ---
 
@@ -125,7 +125,7 @@ Examples:
 ```bash
 artifact-header Plan-issue-42-001.md --field doc_id
 artifact-header Plan-issue-42-001.md --field planning_repo
-artifact-header Grooming-orders-001.md --set planning_repo=workinprogress-ai/planning.development.main
+artifact-header Grooming-orders-001.md --set planning_repo=<org>/planning.development.main
 artifact-header Grooming-orders-001.md --stamp
 ```
 
@@ -137,7 +137,7 @@ Deterministic DEVENV-marker and AC-comment scanning (replaces hand-run grep swee
 devenv-marker-check [PATH...] [--all] [--ac] [--todo-report] [--marker REGEX] [--require]
 ```
 
-Gate mode (default): exit 1 when any plan-bounded `FIXME:DEVENV[` marker remains — cross-plan `TODO:DEVENV[` markers are sanctioned to ship and do not block. `--all` widens the gate to ALL marker forms (FIXME, TODO, and bare `DEVENV[`) for cleanup audits. `--ac` lists `[AC-N]:` comments for the AC review gate (always exit 0). `--todo-report` lists scoped `TODO:DEVENV[` markers (legacy paren form included) with file:line:match, warns about missing discharge conditions and paren-form / no-plan-key `TODO(DEVENV)` forms (detected, not canonical) — supports the kickoff Scoped-TODO discovery rule (always exit 0). `--marker` scans a custom pattern (e.g. `DEVENV\\[bug-hunt\\]`). `--require` inverts the gate — pass only when at least one match exists. `--include-copilot` makes gate/`--all` modes also scan `copilot/` (devenv's own skill files carry example markers by design and are excluded from gate/audit modes by default; `--todo-report` and `--ac` always scan it). `--ac`/`--todo-report` are mutually exclusive; `--all` cannot be combined with either.
+Gate mode (default): exit 1 when any plan-bounded `FIXME:DEVENV[` marker remains — cross-plan `TODO:DEVENV[` markers are sanctioned to ship and do not block. `--all` widens the gate to ALL marker forms (FIXME, TODO, and bare `DEVENV[`) for cleanup audits. `--ac` lists `[AC-N]:` comments for the AC review gate (always exit 0). `--todo-report` lists scoped `TODO:DEVENV[` markers (paren form included) with file:line:match, warns about missing discharge conditions and paren-form / no-plan-key `TODO(DEVENV)` forms (detected, not canonical) — supports the kickoff Scoped-TODO discovery rule (always exit 0). `--marker` scans a custom pattern (e.g. `DEVENV\\[bug-hunt\\]`). `--require` inverts the gate — pass only when at least one match exists. `--include-copilot` makes gate/`--all` modes also scan `copilot/` (devenv's own skill files carry example markers by design and are excluded from gate/audit modes by default; `--todo-report` and `--ac` always scan it). `--ac`/`--todo-report` are mutually exclusive; `--all` cannot be combined with either.
 
 Examples:
 
@@ -223,7 +223,7 @@ issue-list [--state open|closed|all] [--type TYPE] [--label LABEL] [--assignee U
 Key flags:
 
 - `-s, --state` — `open` (default), `closed`, `all`
-- `-t, --type` — native issue type: `Bug`, `Feature`, `Task`, `Epic` (case-insensitive; same vocabulary as `issue-create`; legacy lowercase aliases `epic`/`story`/`bug` still accepted, `story` → `Task`)
+- `-t, --type` — native issue type: `Bug`, `Feature`, `Task`, `Epic` (case-insensitive; same vocabulary as `issue-create`; lowercase aliases `epic`/`story`/`bug` are accepted, `story` → `Task`)
 - `-l, --label` — repeatable
 - `-a, --assignee` — use `none` for unassigned, `@me` for self
 - `-f, --format` — `table` (default), `json`, `simple`
@@ -366,7 +366,7 @@ issue-artifact-doc-id --issue N --artifact-type TYPE (--slug TEXT | --source-fil
 Key flags:
 
 - `--issue N` — issue number (required)
-- `--artifact-type TYPE` — one of: `spike` (legacy), `research`, `redesign`, `design`, `blueprint`, `requirements`, `specifications`, `grooming`, `roadmap`, `plan` (current for plans); `implementation-plan` (accepted as legacy alias for pre-rename artifacts), `solution-proposal`
+- `--artifact-type TYPE` — one of: `spike`, `research`, `redesign`, `design`, `blueprint`, `requirements`, `specifications`, `grooming`, `roadmap`, `plan` (current for plans); `implementation-plan` (accepted as an alias of `plan`), `solution-proposal`
 - `--slug TEXT` — slug source text (normalized to kebab-case), or `--source-file FILE` — basename without extension
 
 Output: `dv1:<owner>/<repo>:issue-<N>:<type>:<slug>` on stdout.
@@ -479,7 +479,7 @@ issue-create [--title TITLE] [--body TEXT | --body-file FILE] [--type TYPE]
 Key flags:
 
 - `--type TYPE` — GitHub native issue type; **required for deterministic runs** (validated against `tools/config/issues-config.yml`: Bug, Feature, Task, Epic). Without it the tool prompts via `fzf`. Type semantics: Epic is reserved for long-lived orchestration issues coordinating multiple repos/efforts — single deliverables are Feature or Task.
-- **No template by default** — the issue is created with the body you supply; template selection is opt-in via `--template FILE` (fixed template) or `--select-template` (interactive fzf over `.github/ISSUE_TEMPLATE/`). `--no-template` is still accepted as a no-op (legacy scripted calls).
+- **No template by default** — the issue is created with the body you supply; template selection is opt-in via `--template FILE` (fixed template) or `--select-template` (interactive fzf over `.github/ISSUE_TEMPLATE/`). `--no-template` is accepted as a no-op.
 - `--parent ISSUE_NUM` — links as child of an epic
 - `--blocked-by ISSUE_NUM` — repeatable
 
@@ -609,7 +609,7 @@ issue-select [--state STATE] [--type TYPE] [--milestone NAME] [--label LABEL] [-
 Key flags:
 
 - `-s, --state STATE` — `open`, `closed`, or `all` (default: `open`)
-- `-t, --type TYPE` — native issue type: `Bug`, `Feature`, `Task`, `Epic` (case-insensitive; legacy lowercase aliases `epic`/`story`/`bug` still accepted, `story` → `Task`)
+- `-t, --type TYPE` — native issue type: `Bug`, `Feature`, `Task`, `Epic` (case-insensitive; lowercase aliases `epic`/`story`/`bug` are accepted, `story` → `Task`)
 - `--milestone NAME` — filter by milestone
 - `--label LABEL` — filter by label
 - `--multi` — enable multi-select mode
@@ -1039,11 +1039,11 @@ Key facts:
 
 ---
 
-## GitHub Actions tools
+## Pipeline tools
 
 Org-wide pipeline operations — views the raw provider CLI alone can't replicate in one call.
 
-**Naming note (D-007):** the `pipelines-*` tools are named provider-neutrally; they route through the `actions` provider domain (`provider_actions_*` verbs) — the GitHub-domain name in the provider facade.
+The `pipelines-*` tools are provider-neutral: they route through the `pipelines` provider domain (`provider_pipelines_*` verbs, listed in `tools/lib/providers/CONTRACT.md`).
 
 ### pipelines-status
 
@@ -1174,7 +1174,7 @@ DEVENV_REPO=<owner>/<repo> issue-create --no-template --no-interactive \
 - Types come from `tools/config/issues-config.yml` (Bug/Feature/Task/Epic);
   `--type` must match configured names.
 - Without `--no-interactive` the wrapper opens an editor and blocks. No template
-  is used by default; `--no-template` is accepted as a no-op for legacy scripts.
+  is used by default; `--no-template` is accepted as a no-op.
 
 ### Upstream-impact filing
 

@@ -42,9 +42,11 @@ azure_run() {
     "$@"
 }
 
+# A list page that also carries a top-level id, so one stubbed response answers both the
+# repository lookup (whose GUID the builds filter takes) and the builds list itself.
 build_page() {
     cat <<'JSON'
-{"value":[
+{"id":"guid-1234","value":[
   {"id":9001,"buildNumber":"20260927.1","status":"completed","result":"succeeded",
    "sourceBranch":"refs/heads/master","sourceVersion":"abc123","queueTime":"2026-09-27T09:00:00Z",
    "definition":{"name":"CI"},"url":"https://dev.azure.com/org/proj/_apis/build/builds/9001"},
@@ -64,10 +66,10 @@ JSON
     # pipelines-run/status wrappers select .[0].url).
     local mapped="$output"
     [[ "$(jq 'length' <<< "$mapped")" == "2" ]]
-    jq -e '.[0].id == "9001" and .[0].status == "completed" and .[0].conclusion == "success" and .[0].branch == "master"' <<< "$mapped" >/dev/null
-    jq -e '.[1].id == "9002" and .[1].status == "in_progress" and .[1].conclusion == null and .[1].branch == "feature/x"' <<< "$mapped" >/dev/null
+    jq -e '.[0].id == 9001 and .[0].status == "completed" and .[0].conclusion == "success" and .[0].headBranch == "master"' <<< "$mapped" >/dev/null
+    jq -e '.[1].id == 9002 and .[1].status == "in_progress" and .[1].conclusion == null and .[1].headBranch == "feature/x"' <<< "$mapped" >/dev/null
     # Branch filter and limit became query params
-    grep -q "branchName=refs/heads/feature/x" "$STUB_CALL_LOG"
+    grep -q "branchName=refs%2Fheads%2Ffeature%2Fx" "$STUB_CALL_LOG"
     grep -q 'top=5' "$STUB_CALL_LOG"
 }
 
@@ -104,7 +106,7 @@ JSON
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/one.json" \
         run azure_run provider_pipelines_run_view "" 9001
     [ "$status" -eq 0 ]
-    printf '%s\n' "$output" | jq -e '.id == "9001" and .conclusion == "failure"' >/dev/null
+    printf '%s\n' "$output" | jq -e '.id == 9001 and .conclusion == "failure"' >/dev/null
 }
 
 @test "provider_pipelines_workflow_list maps definitions" {
@@ -171,11 +173,13 @@ JSON
     [[ "$output" =~ "definition" ]]
 }
 
-@test "provider_pipelines_run_rerun posts to the build endpoint" {
+@test "provider_pipelines_run_rerun PATCHes the build with retry=true" {
     printf '{"id":9001}' > "$TEST_TEMP_DIR/rerun.json"
-    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/rerun.json" \
+    : > "$TEST_TEMP_DIR/rerun.body"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/rerun.json" STUB_CURL_REQUEST_BODY="$TEST_TEMP_DIR/rerun.body" \
         run azure_run provider_pipelines_run_rerun "" 9001
     [ "$status" -eq 0 ]
+    grep -q 'builds/9001?retry=true' "$STUB_CALL_LOG"
 }
 
 @test "provider_pipelines_run_cancel patches status=cancelling" {
@@ -195,27 +199,11 @@ JSON
     grep -q "builds/9001/artifacts" "$STUB_CALL_LOG"
 }
 
-@test "provider_pipelines_wait_for_branch settles when no active runs" {
-    # wait_for_branch consumes run_list's array output — feed the stub a
-    # builds-shaped page so the mapping path runs end to end.
-    printf '{"value":[{"id":1,"status":"completed","result":"succeeded","sourceBranch":"refs/heads/main","definition":{"name":"CI"}}]}' > "$TEST_TEMP_DIR/runs.json"
-    printf '[provider]\nname=azure\nazure_org=o1\nazure_project=p1\n' > "$DEVENV_ROOT/devenv.config"
-    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/runs.json" \
-        run azure_run provider_pipelines_wait_for_branch o1/p1/r1 main 3
-    [ "$status" -eq 0 ]
-}
-
-@test "azure_build_base composes a valid query for both repo forms" {
-    # F-SMOKE-1 regression, live-corrected: neither form carries a bare
-    # trailing '?' (Azure 400s 'builds?&…'); the verb's first param owns
-    # the separator.
+@test "azure_build_root is the project's build API root, with the org and project of the spec, encoded" {
     azure_libs_source
-    local url
-    url=$(azure_build_base "")
-    [[ "$url" == *"build/builds" ]]
-    [[ "$url" != *"builds?" ]]
-    url=$(azure_build_base "o1/p1/r1")
-    [[ "$url" == *"build/builds?repositoryId=r1&repositoryType=TfsGit" ]]
+    [ "$(azure_build_root "")" = "https://dev.azure.com/org/proj/_apis/build" ]
+    [ "$(azure_build_root "o1/p1/r1")" = "https://dev.azure.com/o1/p1/_apis/build" ]
+    [ "$(azure_build_root "my proj/r1")" = "https://dev.azure.com/org/my%20proj/_apis/build" ]
 }
 
 @test "provider_pipelines_run_list composes the project-scoped URL without '?&'" {
@@ -267,9 +255,9 @@ builds_url_for() {   # builds_url_for [repo-args...] -> the URL the verb request
     [[ "$url" != *'builds&'* ]]
 }
 
-@test "run_list with a repo appends \$top after the existing query with '&'" {
+@test "run_list with a repo filters by the repository's GUID, joined to the query with '&'" {
     url="$(builds_url_for proj/repo1 --limit 7)"
-    [[ "$url" == *'/_apis/build/builds?repositoryId=repo1&repositoryType=TfsGit&$top=7'* ]]
+    [[ "$url" == *'/_apis/build/builds?$top=7&queryOrder=queueTimeDescending&repositoryId=guid-1234&repositoryType=TfsGit'* ]]
 }
 
 @test "run_list URLs contain exactly one '?' before the api-version is appended" {
@@ -279,4 +267,139 @@ builds_url_for() {   # builds_url_for [repo-args...] -> the URL the verb request
         base="${url%%&api-version*}"
         [ "$(grep -o '?' <<<"$base" | wc -l)" -eq 1 ]
     done
+}
+
+# --workflow names a pipeline; the builds filter takes definition ids.
+@test "run_list --workflow NAME looks the definition up and filters by its id" {
+    printf '{"value":[{"id":42,"name":"CI"},{"id":43,"name":"CI-nightly"}]}' > "$TEST_TEMP_DIR/defs.json"
+    build_page > "$TEST_TEMP_DIR/builds.json"
+    printf '%s\n%s\n' "$TEST_TEMP_DIR/defs.json" "$TEST_TEMP_DIR/builds.json" > "$TEST_TEMP_DIR/queue"
+    STUB_CURL_PAGES="$TEST_TEMP_DIR/queue" run azure_run provider_pipelines_run_list --workflow CI
+    [ "$status" -eq 0 ]
+    grep -q 'definitions?name=CI' "$STUB_CALL_LOG"
+    grep -qE 'definitions=42(&| |$)' "$STUB_CALL_LOG"
+    run ! grep -q 'definitions=43' "$STUB_CALL_LOG"
+}
+
+@test "run_list --workflow with a numeric id uses it directly" {
+    build_page > "$TEST_TEMP_DIR/builds.json"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/builds.json" run azure_run provider_pipelines_run_list --workflow 42
+    [ "$status" -eq 0 ]
+    grep -qE 'definitions=42(&|$| )' "$STUB_CALL_LOG"
+    run ! grep -q 'definitions?name' "$STUB_CALL_LOG"
+}
+
+@test "run_list --workflow with an unknown name fails and says so" {
+    printf '{"value":[]}' > "$TEST_TEMP_DIR/none.json"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/none.json" run azure_run provider_pipelines_run_list --workflow nope
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"no pipeline named 'nope'"* ]]
+}
+
+@test "run_list stops paging at --limit instead of reading the whole history" {
+    local i; : > "$TEST_TEMP_DIR/queue"
+    for i in 1 2 3 4 5; do
+        printf '{"value":[{"id":%s,"status":"completed","result":"succeeded","sourceBranch":"refs/heads/m","definition":{"name":"CI"}}]}' "$i" > "$TEST_TEMP_DIR/b$i.json"
+        printf '%s\n' "$TEST_TEMP_DIR/b$i.json" >> "$TEST_TEMP_DIR/queue"
+    done
+    STUB_CURL_PAGES="$TEST_TEMP_DIR/queue" run azure_run provider_pipelines_run_list --limit 2
+    [ "$status" -eq 0 ]
+    [ "$(jq 'length' <<< "$output")" -eq 2 ]
+    [ "$(grep -c '^curl ' "$STUB_CALL_LOG")" -eq 2 ]
+}
+
+@test "run_download fetches each artifact through the transport's download helper" {
+    printf '{"value":[{"name":"drop","resource":{"downloadUrl":"https://dev.azure.com/org/proj/_apis/build/builds/9/artifacts?artifactName=drop&%%24format=zip"}}]}' > "$TEST_TEMP_DIR/arts.json"
+    printf 'PKzip' > "$TEST_TEMP_DIR/zip.bin"
+    printf '%s\n%s\n' "$TEST_TEMP_DIR/arts.json" "$TEST_TEMP_DIR/zip.bin" > "$TEST_TEMP_DIR/queue"
+    STUB_CURL_PAGES="$TEST_TEMP_DIR/queue" run azure_run provider_pipelines_run_download "" 9 -D "$TEST_TEMP_DIR/dl"
+    [ "$status" -eq 0 ]
+    [ "$(cat "$TEST_TEMP_DIR/dl/drop.zip")" = "PKzip" ]
+}
+
+@test "provider_pipelines_run_list maps the gh conclusions onto Azure's status and result filters" {
+    build_page > "$TEST_TEMP_DIR/builds.json"
+    local word expect_result
+    for pair in "failure:failed" "success:succeeded" "cancelled:canceled"; do
+        word="${pair%%:*}"; expect_result="${pair##*:}"
+        : > "$STUB_CALL_LOG"
+        STUB_CURL_RESPONSE="$TEST_TEMP_DIR/builds.json" \
+            run azure_run provider_pipelines_run_list proj/repo1 --status "$word"
+        [ "$status" -eq 0 ]
+        grep -q 'statusFilter=completed' "$STUB_CALL_LOG"
+        grep -q "resultFilter=${expect_result}" "$STUB_CALL_LOG"
+    done
+}
+
+@test "provider_pipelines_run_list rejects a status word with no Azure analog" {
+    build_page > "$TEST_TEMP_DIR/builds.json"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/builds.json" \
+        run azure_run provider_pipelines_run_list proj/repo1 --status banana
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"--status 'banana'"* || "$output" == *"status 'banana'"* ]]
+}
+
+@test "run_download fails when no artifact has the requested name" {
+    printf '{"value":[{"name":"drop","resource":{"downloadUrl":"https://dev.azure.com/org/proj/_apis/build/builds/9/artifacts?artifactName=drop&%%24format=zip"}}]}' > "$TEST_TEMP_DIR/arts.json"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/arts.json" run azure_run provider_pipelines_run_download "" 9 -n missing -D "$TEST_TEMP_DIR/dl2"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"no artifact named 'missing'"* ]]
+}
+
+@test "run_download fails when the run has no artifacts at all" {
+    printf '{"value":[]}' > "$TEST_TEMP_DIR/none.json"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/none.json" run azure_run provider_pipelines_run_download "" 9 -D "$TEST_TEMP_DIR/dl3"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"no artifacts"* ]]
+}
+
+@test "run_download never sends the PAT to a host outside Azure DevOps" {
+    printf '{"value":[{"name":"drop","resource":{"downloadUrl":"https://evil.example.com/steal.zip"}}]}' > "$TEST_TEMP_DIR/evil.json"
+    printf '%s\n' "$TEST_TEMP_DIR/evil.json" > "$TEST_TEMP_DIR/queue2"
+    : > "$STUB_CALL_LOG"
+    STUB_CURL_PAGES="$TEST_TEMP_DIR/queue2" run azure_run provider_pipelines_run_download "" 9 -D "$TEST_TEMP_DIR/dl4"
+    [ "$status" -ne 0 ]
+    run ! grep -q 'evil.example.com' "$STUB_CALL_LOG"
+}
+
+@test "azure_url_is_provider_host accepts only https on Azure DevOps hosts" {
+    source "$DEVENV_TOOLS/lib/error-handling.bash"
+    source "$DEVENV_TOOLS/lib/providers/azure/http.bash"
+    azure_url_is_provider_host "https://dev.azure.com/o/p"
+    azure_url_is_provider_host "https://vsblob.dev.azure.com/x"
+    azure_url_is_provider_host "https://acme.visualstudio.com/p"
+    run azure_url_is_provider_host "http://dev.azure.com/o/p"
+    [ "$status" -ne 0 ]
+    run azure_url_is_provider_host "https://dev.azure.com.evil.example/o"
+    [ "$status" -ne 0 ]
+    run azure_url_is_provider_host "https://evil.example/dev.azure.com/o"
+    [ "$status" -ne 0 ]
+    run azure_url_is_provider_host "https://dev.azure.com@evil.example/o"
+    [ "$status" -ne 0 ]
+}
+
+@test "run_list rejects an unknown, malformed or trailing-comma --json field by name instead of returning []" {
+    build_page > "$TEST_TEMP_DIR/builds.json"
+    local bad
+    for bad in "id,bogus" "id-x" "id," ",id"; do
+        STUB_CURL_RESPONSE="$TEST_TEMP_DIR/builds.json" run azure_run provider_pipelines_run_list proj/repo1 --json "$bad"
+        [ "$status" -ne 0 ] || { echo "accepted --json '$bad'"; false; }
+        [[ "$output" == *"--json"* || "$output" == *"JSON field"* ]] || { echo "no named error for '$bad': $output"; false; }
+    done
+}
+
+@test "run_view rejects an unknown --json field, and treats a null -q result as empty" {
+    printf '{"id":9001,"status":"completed","result":"succeeded","sourceBranch":"refs/heads/m","definition":{"name":"ci"}}' > "$TEST_TEMP_DIR/b1.json"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/b1.json" run azure_run provider_pipelines_run_view proj/repo1 9001 --json id,bogus
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"unknown JSON field 'bogus'"* ]]
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/b1.json" run azure_run provider_pipelines_run_view proj/repo1 9001 --json conclusion -q '.nothing'
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "the run fields the tools ask for are all accepted" {
+    build_page > "$TEST_TEMP_DIR/builds.json"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/builds.json" run azure_run provider_pipelines_run_list proj/repo1 --json workflowName,status,conclusion,headBranch,updatedAt,url,id
+    [ "$status" -eq 0 ]
 }

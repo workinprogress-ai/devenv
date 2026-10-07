@@ -37,8 +37,8 @@ Credential verbs (provider seam — wrappers call these; do not call gh directly
 - `provider_secret_get token` — print the resolved token. Used by bootstrap
   (nuget/npmrc/copilot syncs).
 
-Rotation: `key-update-provider <token>` (dispatches to the provider's
-key-update script; manual path: `gh auth login --with-token` then
+Rotation: `key-update-provider` (token at the prompt or on stdin, never an argument;
+dispatches to the provider's key-update script; manual path: `gh auth login --with-token` then
 `gh auth setup-git --hostname github.com`).
 
 ## Repository targeting (GitHub entries)

@@ -177,7 +177,7 @@ setup() {
     local arr=()
     local probe_file="$TEST_TEMP_DIR/pwned-marker"
     rm -f "$probe_file"
-    provider_gh_repo_args arr "a\$(touch '$probe_file')b"
+    provider_repo_args arr "a\$(touch '$probe_file')b"
     [ "${arr[0]}" = "-R" ]
     [ "${arr[1]}" = "a\$(touch '$probe_file')b" ]
     [ ! -f "$probe_file" ]

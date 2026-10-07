@@ -21,7 +21,7 @@ if ! declare -F log_warn >/dev/null; then
     log_warn() { echo "WARN: $*" >&2; }
 fi
 
-if ! declare -F provider_dispatch >/dev/null; then
+if ! declare -F provider_load >/dev/null; then
     log_error "github/auth.bash: provider-core must be sourced first"
     return 1
 fi
@@ -52,7 +52,9 @@ provider_auth_setup_git_impl() {
 # Authenticated check (exit-code only; never emits the token).
 # Usage: provider_auth_status_impl
 provider_auth_status_impl() {
-    gh auth status >/dev/null 2>&1
+    # gh prefers GH_TOKEN/GITHUB_TOKEN over its keychain; strip them so an env
+    # token cannot make an empty credential store look authenticated.
+    env -u GH_TOKEN -u GITHUB_TOKEN gh auth status >/dev/null 2>&1
 }
 
 # Print the keychain token for the neutral core's auth seam. Single
@@ -60,5 +62,7 @@ provider_auth_status_impl() {
 # resolution order (env-if-allowlisted → credential store) stays neutral.
 # Usage: provider_auth_token_impl   (prints the token on stdout)
 provider_auth_token_impl() {
-    gh auth token
+    # Same reason as the status check: gh would hand back the env token. An
+    # allowlisted env token never reaches this impl (the core resolves it first).
+    env -u GH_TOKEN -u GITHUB_TOKEN gh auth token
 }

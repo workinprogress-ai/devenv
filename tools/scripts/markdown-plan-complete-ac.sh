@@ -49,7 +49,7 @@ appear in specifications or plan documents.
 Positional arguments are classified automatically: any argument matching the
 AC-N / AC-N.N / AC-N.N.N pattern is treated as an AC number; anything else is
 treated as the file path.  At most one file may be given.  If no file is given,
-the first Plan-*.md (or legacy Implementation_plan-*.md) found in .local-artifacts/
+the first Plan-*.md (or Implementation_plan-*.md) found in .local-artifacts/
 and then the current directory is used.  Other files (e.g. Specifications) can
 be updated only by naming them explicitly.
 
@@ -157,7 +157,7 @@ parse_args() {
 
 # Resolve the file: use the explicit argument if given, otherwise auto-detect.
 # Plans are the only artifact with checkable AC checkboxes: look for Plan-*.md
-# (or legacy Implementation_plan-*.md) in .local-artifacts/, then the current
+# (or Implementation_plan-*.md) in .local-artifacts/, then the current
 # directory. Other files (e.g. Specifications) are usable only when the user
 # names them explicitly.
 resolve_plan_file() {
@@ -179,7 +179,7 @@ resolve_plan_file() {
     done
 
     if [ -z "$found" ]; then
-        log_error "No Plan-*.md (or legacy Implementation_plan-*.md) file found in .local-artifacts/ or the current directory."
+        log_error "No Plan-*.md (or Implementation_plan-*.md) file found in .local-artifacts/ or the current directory."
         log_info "Specify the file explicitly as one of the arguments."
         exit "$EXIT_API_FAILURE"
     fi

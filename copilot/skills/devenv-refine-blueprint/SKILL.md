@@ -13,7 +13,7 @@ user-invocable: true
 
 Revise an existing blueprint based on new information — architectural decisions that changed, specifications that arrived after the original blueprint, or implementation discovery that exposed gaps. Preserve section numbering and cross-references; supersede structure deliberately.
 
-Write the blueprint body as the current target architecture. Keep historical change narrative out of the document entirely — the document is target state, period. Rationale for significant changes lives in ADRs (`docs/Decisions/`, see the shared [ADR template](../common/references/adr-template.md)); git records when. If a legacy `## Revision History` section exists from an older workflow version, migrate its still-relevant entries into ADRs and delete the section.
+Write the blueprint body as the current target architecture. Keep historical change narrative out of the document entirely — the document is target state, period. Rationale for significant changes lives in ADRs (`docs/Decisions/`, see the shared [ADR template](../common/references/adr-template.md)); git records when. If a `## Revision History` section exists, migrate its still-relevant entries into ADRs and delete the section.
 
 ## When to Use
 

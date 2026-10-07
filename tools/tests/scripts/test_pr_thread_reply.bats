@@ -52,8 +52,29 @@ reply_api_path() {   # the REST path the reply was POSTed to
     [[ "$path" != /repos/acme/proj/* ]]
 }
 
-@test "the legacy -R spec form is still understood" {
+@test "the -R spec form is still understood" {
     DEVENV_REPO="-R acme/widgets" run bash "$SCRIPT" 7 --comment-id 99 --body "hi"
     [ "$status" -eq 0 ]
     [ "$(reply_api_path)" = "/repos/acme/widgets/pulls/7/comments/99/replies" ]
+}
+
+# A provider's comment id may be a composite token (Azure: <thread>/<comment>); the
+# wrapper accepts the numeric form and the composite form, and nothing else.
+@test "validate_comment_id accepts a numeric id and a <thread>/<comment> token, and nothing else" {
+    local body; body="$(sed -n '/^validate_comment_id()/,/^}/p' "$SCRIPT")"
+    run bash -c "
+        log_error() { echo \"\$*\" >&2; }
+        $body
+        validate_comment_id 456 && validate_comment_id 62644/2
+    "
+    [ "$status" -eq 0 ]
+    local bad
+    for bad in abc 12/ /3 12/3/4 "12 3" ""; do
+        run bash -c "
+            log_error() { echo \"\$*\" >&2; }
+            $body
+            validate_comment_id \"\$1\"
+        " _ "$bad"
+        [ "$status" -ne 0 ] || { echo "accepted: [$bad]"; return 1; }
+    done
 }

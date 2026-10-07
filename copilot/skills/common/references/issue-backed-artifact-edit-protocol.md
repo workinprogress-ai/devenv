@@ -1,6 +1,6 @@
 # Issue-backed artifact edit protocol
 
-Use this protocol whenever a skill must modify an artifact that already lives in an issue comment (or a legacy issue body artifact being migrated).
+Use this protocol whenever a skill must modify an artifact that already lives in an issue comment (or an issue body artifact being migrated).
 
 ## Goal
 

@@ -108,8 +108,8 @@ main() {
                 VERBOSE=1
                 shift
                 ;;
-            -f|--format)  OUTPUT_FORMAT="$2"; shift 2 ;;
-            -n|--limit)   LIMIT="$2"; shift 2 ;;
+            -f|--format)  require_option_value "$1" "${2:-}"; OUTPUT_FORMAT="$2"; shift 2 ;;
+            -n|--limit)   require_option_value "$1" "${2:-}"; LIMIT="$2"; shift 2 ;;
             --devenv)     # shellcheck disable=SC2034  # Used by check_target_repo
                           ALLOW_DEVENV_REPO=1; shift ;;
             *)

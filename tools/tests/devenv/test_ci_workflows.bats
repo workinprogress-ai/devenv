@@ -19,8 +19,9 @@ setup() {
     [[ "$pm" =~ ^pnpm@([0-9]+)\. ]]
     major="${BASH_REMATCH[1]}"
     lock="$(grep -m1 '^lockfileVersion:' "$PROJECT_ROOT/pnpm-lock.yaml" | grep -oE "[0-9]+\.[0-9]+")"
-    # pnpm 9 writes lockfileVersion 9.0
-    [ "$major" = "9" ] && [ "$lock" = "9.0" ]
+    # pnpm 11 still writes lockfileVersion 9.0: regenerating the lockfile under
+    # 11.9.0 leaves it unchanged
+    [ "$major" = "11" ] && [ "$lock" = "9.0" ]
 }
 
 @test "publish workflow installs the pinned pnpm, not a different hardcoded major" {

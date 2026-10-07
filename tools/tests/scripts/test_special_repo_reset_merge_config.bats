@@ -24,7 +24,7 @@ case "$cmd $sub" in
     exit 0
     ;;
   "repo list")
-    printf 'repo-alpha\nrepo-beta\n'
+    printf '[{"name":"repo-alpha"},{"name":"repo-beta"}]'
     ;;
   "pr list")
     # Real gh applies --jq before printing; emulate that contract.

@@ -177,8 +177,10 @@ main() {
             --json)       OUTPUT_FORMAT="json"; shift ;;
             --pretty)     OUTPUT_FORMAT="pretty"; shift ;;
             -r|--repo)
+                require_option_value "$1" "${2:-}"
                 REPO_REGEX="$2"; shift 2 ;;
             --state)
+                require_option_value "$1" "${2:-}"
                 STATE_FILTER="$2"; shift 2 ;;
             -*)
                 log_error "Unknown option: $1"

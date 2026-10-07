@@ -1,6 +1,18 @@
 #!/bin/bash
 set -euo pipefail
 
+usage() {
+  echo "Usage: git-unwip"
+  echo "Soft-reset the current branch to its last non-WIP commit and, when the"
+  echo "remote tip is itself a WIP commit, force-push with a lease."
+  echo "Takes no arguments."
+}
+case "${1:-}" in
+  "") ;;
+  -h|--help) usage; exit 0 ;;
+  *) echo "git-unwip: unknown argument: $1" >&2; usage >&2; exit 2 ;;
+esac
+
 # Guard 1: refuse to force-push on protected branches
 branch=$(git rev-parse --abbrev-ref HEAD)
 if [[ "$branch" =~ ^(main|master|develop)$ ]]; then

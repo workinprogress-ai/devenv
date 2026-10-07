@@ -93,8 +93,8 @@ STUB
     [ -z "$output" ]
 }
 
-@test "issue_parent resolves 'Part of #N' body-text links (legacy convention)" {
-    # Native linkage absent (pre-native sub-issue issue): the body-text
+@test "issue_parent resolves 'Part of #N' body-text links (body-text convention)" {
+    # Native linkage absent (an issue without native sub-issue linkage): the body-text
     # fallback is what resolves the parent.
     cat > "$STUB_DIR/gh" <<'STUB'
 #!/usr/bin/env bash
@@ -170,9 +170,9 @@ echo "gh $*" >> "$GH_CALL_LOG"
 exit 0
 STUB
     chmod +x "$STUB_DIR/gh"
-    run bash -c "source '$GRAPH' && provider_issue_graph_link() { echo \"graph_link \$1 \$2\"; } && issue_link_subissue 46 47"
+    run bash -c "source '$GRAPH' && provider_issue_graph_link() { echo \"graph_link repo=[\$1] \$2 \$3\"; } && issue_link_subissue 46 47"
     [ "$status" -eq 0 ]
-    [ "$output" = "graph_link 46 47" ]
+    [ "$output" = "graph_link repo=[] 46 47" ]
 }
 
 @test "issue_children delegates to provider_issue_graph_children" {
@@ -186,4 +186,115 @@ STUB
     run bash -c "source '$GRAPH' && provider_issue_graph_parent() { printf '46'; } && issue_parent 47"
     [ "$status" -eq 0 ]
     [ "$output" = "46" ]
+}
+
+# ---------------------------------------------------------------------------
+# issue_read_status: a status read inside a signal flow follows the same rule as the
+# status write — an unset DEVENV_REPO means the signal targets the checkout it runs
+# in, so the read script gets the explicit --devenv override; an exported DEVENV_REPO
+# already names the target.
+# ---------------------------------------------------------------------------
+
+read_status_args() {   # read_status_args <DEVENV_REPO or empty> -> the args the read script got
+    local tools="$STUB_DIR/graph-tools"
+    mkdir -p "$tools/scripts"
+    cat > "$tools/scripts/project-list-for-issue.sh" <<STUB
+#!/usr/bin/env bash
+echo "ARGS \$*" >> "$STUB_DIR/read-args.log"
+printf 'Board\t1\tReady\n'
+STUB
+    chmod +x "$tools/scripts/project-list-for-issue.sh"
+    : > "$STUB_DIR/read-args.log"
+    if [ -n "$1" ]; then
+        run env DEVENV_REPO="$1" ISSUE_GRAPH_TOOLS="$tools" bash -c "source '$GRAPH' && issue_read_status 44"
+    else
+        run env -u DEVENV_REPO ISSUE_GRAPH_TOOLS="$tools" bash -c "source '$GRAPH' && issue_read_status 44"
+    fi
+}
+
+@test "issue_read_status passes --devenv when DEVENV_REPO is unset" {
+    read_status_args ""
+    [ "$status" -eq 0 ]
+    grep -qx "ARGS 44 --devenv" "$STUB_DIR/read-args.log"
+}
+
+@test "issue_read_status passes no override when DEVENV_REPO names the target" {
+    read_status_args "other-org/other-repo"
+    [ "$status" -eq 0 ]
+    grep -qx "ARGS 44" "$STUB_DIR/read-args.log"
+}
+
+@test "issue_read_status returns each of the workflow's words as itself, never a coarser state" {
+    local tools="$STUB_DIR/graph-tools" word
+    mkdir -p "$tools/scripts"
+    for word in TBD To-Groom Ready Implementing Review Merged Staging Production; do
+        cat > "$tools/scripts/project-list-for-issue.sh" <<STUB
+#!/usr/bin/env bash
+printf 'Stories\t44\t$word\n'
+STUB
+        chmod +x "$tools/scripts/project-list-for-issue.sh"
+        run env DEVENV_REPO=o/r ISSUE_GRAPH_TOOLS="$tools" bash -c "source '$GRAPH' && issue_read_status 44"
+        [ "$status" -eq 0 ]
+        [ "$output" = "$word" ] || { echo "$word read as: $output"; return 1; }
+    done
+}
+
+# ---------------------------------------------------------------------------
+# The repository rides GraphQL variables (-f o= -f r=). gh fills {owner}/{repo}
+# placeholders only in the endpoint and -F fields, never inside a -f query, so a
+# query that embeds them asks GitHub for a repository literally named "{repo}".
+# ---------------------------------------------------------------------------
+
+graphql_calls() { grep ' graphql ' "$GH_CALL_LOG"; }
+
+@test "issue_children passes the target repository as GraphQL variables, not placeholders" {
+    run bash -c "source '$GRAPH' && issue_children 46"
+    [ "$status" -eq 0 ]
+    graphql_calls | grep -q -- '-f o=test-org'
+    graphql_calls | grep -q -- '-f r=test-repo'
+    run ! grep -F '{owner}' "$GH_CALL_LOG"
+    run ! grep -F '{repo}' "$GH_CALL_LOG"
+}
+
+@test "issue_parent passes the target repository as GraphQL variables" {
+    run bash -c "source '$GRAPH' && issue_parent 46"
+    graphql_calls | grep -q -- '-f o=test-org'
+    graphql_calls | grep -q -- '-f r=test-repo'
+    run ! grep -F '{owner}' "$GH_CALL_LOG"
+}
+
+@test "issue_link_subissue resolves both node ids in the target repository" {
+    run bash -c "source '$GRAPH' && issue_link_subissue 46 47"
+    [ "$status" -eq 0 ]
+    # two node-id lookups, each carrying the repository, then the mutation
+    [ "$(graphql_calls | grep -c -- '-f o=test-org')" -ge 2 ]
+    [ "$(graphql_calls | grep -c -- '-f r=test-repo')" -ge 2 ]
+}
+
+@test "the sub-issue verbs follow DEVENV_REPO, not whatever repository gh would pick" {
+    run env DEVENV_REPO=other-org/other-repo bash -c "source '$GRAPH' && issue_children 46"
+    [ "$status" -eq 0 ]
+    graphql_calls | grep -q -- '-f o=other-org'
+    graphql_calls | grep -q -- '-f r=other-repo'
+}
+
+@test "provider_issue_graph_children takes the repository as its first argument" {
+    run bash -c "source '$GRAPH' && provider_issue_graph_children third-org/third-repo 46"
+    [ "$status" -eq 0 ]
+    graphql_calls | grep -q -- '-f o=third-org'
+    graphql_calls | grep -q -- '-f r=third-repo'
+}
+
+@test "provider_issue_graph_unlink resolves node ids in the target repository too" {
+    run bash -c "source '$GRAPH' && provider_issue_graph_unlink '' 46 47"
+    [ "$status" -eq 0 ]
+    [ "$(graphql_calls | grep -c -- '-f o=test-org')" -ge 2 ]
+    grep -q removeSubIssue "$GH_CALL_LOG"
+}
+
+@test "a failing gh makes the sub-issue link fail and say why" {
+    printf '#!/usr/bin/env bash\necho "gh $*" >> "$GH_CALL_LOG"\necho "boom: not authorized" >&2\nexit 1\n' > "$STUB_DIR/gh"
+    run bash -c "source '$GRAPH' && issue_link_subissue 46 47"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"not authorized"* ]]
 }

@@ -86,7 +86,7 @@ At phase kickoff of the first implementation phase, signal `_on_begin_implementa
 - Say *"I don't know"* out loud rather than confabulating.
 - First-person plural where natural: *"let's…"*, *"we should…"*.
 - Earned praise is fine and human — if something is genuinely well done, say what specifically makes it good. *"That's a clean approach — extracting that early avoids the whole re-entracy problem."* Hollow praise is not fine. *"Great work!"* is not an acceptable review.
-- Humor is a session tool, not garnish: deploy it freely at natural moments — transitions between chunks, the end of a debugging slog, a well-earned groan at legacy weirdness — whenever it aids clarity or morale. This is the personality-forward lane; [`/devenv-delegate`](../devenv-delegate/SKILL.md) runs reserved by design.
+- Humor is a session tool, not garnish: deploy it freely at natural moments — transitions between chunks, the end of a debugging slog, a well-earned groan at old-code weirdness — whenever it aids clarity or morale. This is the personality-forward lane; [`/devenv-delegate`](../devenv-delegate/SKILL.md) runs reserved by design.
 - Moderate sarcasm, snark, and dry humor are welcome in live conversation when they help clarity and keep momentum: *"We could just parse HTML with regex — I hear that always goes well."*
 - Prefer jokes about bad patterns, complexity theater, and architecture folklore — not the user.
 - Do not force jokes; if the setup is weak, skip humor and stay direct. A bigger humor budget means better judgment about when *not* to spend it — never more jokes per message for their own sake.
@@ -190,7 +190,7 @@ Ask, if not provided: issue number? Path to a plan file? Ad-hoc (no plan)?
 
 ### 2. Load the plan
 
-**If issue:** resolve a single plan artifact comment (legacy artifacts are typed implementation-plan) first.
+**If issue:** resolve a single plan artifact comment (artifacts may be typed `implementation-plan`) first.
 
 1. Check for a local `Plan-issue-<N>-*.md` under the target repo's `.local-artifacts/` first — if one exists and the user wants that exact working copy, use it.
 2. Otherwise resolve artifact identity:
@@ -973,7 +973,7 @@ The task list is a live ledger. At all times it must reflect current state:
 
 - `[x]` tasks = done and reviewed.
 - `[ ]` tasks = still needed now.
-- Deprecated tasks = removed or struck with a short reason.
+- Retired tasks = removed or struck with a short reason.
 - Newly discovered required work = added as new unchecked tasks in the correct phase (or a new phase when needed).
 
 ### Checkbox updates
@@ -1109,7 +1109,7 @@ What is **not** an option: quietly becoming delegation for the run while this sk
 
 ## AC Review Gate
 
-Canonical text lives in the shared [Execution gates & forward guidance](../common/references/execution-gates.md) protocol (§ AC review gate). Run it after all implementation phases, before Cleanup: scan `[AC-` comments with `devenv-marker-check --ac`, tick objectively-verifiable ACs with cited evidence, present judgment ACs to the user, surface ACs with no matching comment. All ACs `[x]` or explicitly deferred/deprecated before Cleanup.
+Canonical text lives in the shared [Execution gates & forward guidance](../common/references/execution-gates.md) protocol (§ AC review gate). Run it after all implementation phases, before Cleanup: scan `[AC-` comments with `devenv-marker-check --ac`, tick objectively-verifiable ACs with cited evidence, present judgment ACs to the user, surface ACs with no matching comment. All ACs `[x]` or explicitly deferred/retired before Cleanup.
 
 ## Phase Completion Gate
 

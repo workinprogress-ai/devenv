@@ -85,28 +85,38 @@ POSITIONAL=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --issue)
+      require_option_value "$1" "${2:-}"
       ISSUE_NUMBER="$2"; shift 2 ;;
     --no-issue)
       NO_ISSUE="true"; shift ;;
     --repo-dir)
+      require_option_value "$1" "${2:-}"
       REPO_DIR="$2"; shift 2 ;;
     --branch)
+      require_option_value "$1" "${2:-}"
       SOURCE_BRANCH="$2"; shift 2 ;;
     --base)
+      require_option_value "$1" "${2:-}"
       TARGET_BRANCH="$2"; shift 2 ;;
     --body)
+      require_option_value "$1" "${2:-}"
       PR_BODY="$2"; shift 2 ;;
     --body-file)
+      require_option_value "$1" "${2:-}"
       BODY_FILE="$2"; shift 2 ;;
     --draft)
       DRAFT="true"; shift ;;
     --reviewer)
+      require_option_value "$1" "${2:-}"
       REVIEWERS+=("$2"); shift 2 ;;
     --assignee)
+      require_option_value "$1" "${2:-}"
       ASSIGNEES+=("$2"); shift 2 ;;
     --label)
+      require_option_value "$1" "${2:-}"
       LABELS+=("$2"); shift 2 ;;
     --at)
+      require_option_value "$1" "${2:-}"
       AT_COMMIT="$2"; shift 2 ;;
     -h|--help)
       usage ;;
@@ -165,14 +175,14 @@ fi
 
 # Repo spec for provider reads: derived from the target repo's origin remote
 # (pr-create runs with --repo-dir from any cwd, so the cwd-resolution leg of
-# provider_repo_target does not apply). The web URL's host prefix is stripped,
-# leaving the provider spec (owner/repo).
+# provider_repo_target does not apply). The provider turns the remote into its own
+# spec form (GitHub owner/repo, Azure project/repo).
 ORIGIN_URL="$(git -C "$REPO_DIR" remote get-url origin 2>/dev/null)"
 # Guarded pipeline: a provider that can't parse this remote returns 1, and
 # under set -euo pipefail an unguarded failing substitution would kill the
 # script before the provider_repo_target fallback below could engage.
 REPO_SPEC=""
-REPO_SPEC="$(provider_remote_to_web "$ORIGIN_URL" 2>/dev/null | sed -E "s#https?://[^/]+/##; s#\.git\$##" || true)"
+REPO_SPEC="$(provider_remote_to_spec "$ORIGIN_URL" 2>/dev/null || true)"
 [ -n "$REPO_SPEC" ] || REPO_SPEC="$(provider_repo_target 2>/dev/null || true)"
 
 # Squash detection: the Conventional Commits gate matters only when a squash
@@ -248,8 +258,7 @@ if [[ "$CURRENT_BRANCH" == "review/"* ]]; then
 fi
 
 if [ -z "$TARGET_BRANCH" ]; then
-  TARGET_BRANCH=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')
-  TARGET_BRANCH=${TARGET_BRANCH:-main}
+  TARGET_BRANCH=$(get_default_branch)
 fi
 if ! git show-ref --quiet "refs/remotes/origin/$TARGET_BRANCH"; then
   echo "Target branch origin/$TARGET_BRANCH not found." >&2

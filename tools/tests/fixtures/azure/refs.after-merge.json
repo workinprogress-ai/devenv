@@ -1,0 +1,23 @@
+{
+  "value": [
+    {
+      "name": "refs/heads/smoke-1685774",
+      "objectId": "054b0b11beebc60ec6ba3bbe9abaef7e7d3ef5b7",
+      "creator": {
+        "displayName": "Example User",
+        "url": "https://spsprodcus3.vssps.visualstudio.com/A00000000-0000-4000-8000-000000000004/_apis/Identities/00000000-0000-4000-8000-000000000005",
+        "_links": {
+          "avatar": {
+            "href": "https://dev.azure.com/example-org/_apis/GraphProfile/MemberAvatars/aad.EXAMPLE"
+          }
+        },
+        "id": "00000000-0000-4000-8000-000000000005",
+        "uniqueName": "user@example.test",
+        "imageUrl": "https://example.test/avatar",
+        "descriptor": "aad.EXAMPLE"
+      },
+      "url": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/git/repositories/00000000-0000-4000-8000-000000000025/refs?filter=heads%2Fsmoke-1685774"
+    }
+  ],
+  "count": 1
+}

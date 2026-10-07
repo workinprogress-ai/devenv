@@ -203,7 +203,7 @@ run_on_tty() {
     grep -qx "api-1" "$STUB_KUBECTL_DELETED"
 }
 
-@test "kube-pod-delete: legacy positional namespace still works" {
+@test "kube-pod-delete: positional namespace is accepted" {
     export STUB_KUBECTL_PODS="api-1"
     export YES=1
     export KUBE_NO_INTERACTIVE=1

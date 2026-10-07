@@ -69,7 +69,7 @@ Output:
         startLine       Start of multi-line comment range (or null)
         diffSide        LEFT or RIGHT
         comments        Array of comment objects:
-            id          Numeric REST API comment ID / databaseId (for replying via pr-thread-reply)
+            id          Comment id, as the host addresses a reply (for pr-thread-reply)
             author      {login}
             body        Comment text (markdown)
             createdAt   ISO 8601 timestamp
@@ -116,7 +116,7 @@ fetch_threads() {
     read -ra repo_spec_args <<< "$(get_repo_spec)"
 
     # Extract owner/repo for GraphQL. Canonical emission is the bare spec;
-    # the legacy `-R <spec>` pair normalizes defensively.
+    # a `-R <spec>` pair normalizes defensively.
     local repo_owner repo_name
     if [[ "${repo_spec_args[*]}" =~ -R[[:space:]]([^/]+)/([^[:space:]]+) ]]; then
         repo_owner="${BASH_REMATCH[1]}"
@@ -153,7 +153,7 @@ fetch_threads() {
         # Per-page transport lives in the facade verb; this loop owns only
         # the cursor walk and extraction.
         local response
-        response=$(provider_prs_threads_page "$repo_owner/$repo_name" "$PR_NUMBER" "$([ "$cursor" != "null" ] && echo "$cursor" || true)" 2>/dev/null || true)
+        response=$(provider_prs_threads_page "$repo_owner/$repo_name" "$PR_NUMBER" "$([ "$cursor" != "null" ] && echo "$cursor" || true)" || true)
 
         if [ -z "$response" ]; then
             log_error "GraphQL query returned empty response"
@@ -195,7 +195,7 @@ fetch_threads() {
         line: .line,
         startLine: .startLine,
         diffSide: .diffSide,
-        comments: (.comments.nodes | map({id: .databaseId, nodeId: .id, author: .author, body: .body, createdAt: .createdAt, url: .url}))
+        comments: (.comments.nodes | map({id: .id, nodeId: .nodeId, author: .author, body: .body, createdAt: .createdAt, url: .url}))
     }) | sort_by(.path, .line)")
 
     if [ "$OUTPUT_FORMAT" = "pretty" ]; then

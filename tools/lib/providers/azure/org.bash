@@ -1,7 +1,7 @@
 #!/bin/bash
 # azure/org.bash - org-surface verbs for azure.
 #
-# The GH org module carries the ruleset surface; azure's analog is the
+# The org module of the other provider carries the ruleset surface; azure's analog is the
 # repo-scoped policy configuration set (azure/policies.bash). This thin
 # module keeps the canonical loader name ('org') provider-neutral:
 # provider_load org resolves here and the ruleset verbs load through it.

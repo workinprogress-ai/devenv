@@ -1,0 +1,28 @@
+{
+  "queryType": "flat",
+  "queryResultType": "workItem",
+  "asOf": "2026-10-06T19:31:05.727Z",
+  "columns": [
+    {
+      "referenceName": "System.Id",
+      "name": "ID",
+      "url": "https://dev.azure.com/example-org/_apis/wit/fields/System.Id"
+    }
+  ],
+  "sortColumns": [
+    {
+      "field": {
+        "referenceName": "System.Id",
+        "name": "ID",
+        "url": "https://dev.azure.com/example-org/_apis/wit/fields/System.Id"
+      },
+      "descending": true
+    }
+  ],
+  "workItems": [
+    {
+      "id": 100959,
+      "url": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/wit/workItems/100959"
+    }
+  ]
+}

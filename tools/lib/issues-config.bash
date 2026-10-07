@@ -171,7 +171,9 @@ fetch_org_issue_type_ids() {
     fi
 
     local result
-    result=$(provider_org_issue_types "$org" 2>/dev/null) || return 1
+    # The provider's own error message is left visible: a failed lookup must not
+    # read as "the organization has no types".
+    result=$(provider_org_issue_types "$org") || return 1
 
     # Neutral seam shape: [{id, name}] entries.
     echo "$result" | jq -r '.[] | "\(.name)\t\(.id)"'

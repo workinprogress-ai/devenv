@@ -10,7 +10,7 @@
 # 3. Fork this script and call specific bootstrap functions from bootstrap.bash
 
 # Ensure that the script is not run with CRLF line endings
-scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"; scriptfile="$0"; if [[ "$(file ${scriptdir}/${scriptfile})" =~ "CRLF" && -f "${scriptdir}/${scriptfile}" && "$(head -n 100 ${scriptdir}/${scriptfile} | grep "^scriptdir.\+dg4MbsIfhbv4-Bash-CRLF-selfheal_Written_By_Kenneth_Lutzke-8Nds9NclkU4sgE" > /dev/null 2>&1 ; echo "$?" )" == "0" ]]; then echo "$(cat ${scriptdir}/${scriptfile} | sed 's/\r$//')" > ${scriptdir}/${scriptfile} ; bash ${scriptdir}/${scriptfile} "$@" ; exit ; fi ; echo "" > /dev/null 2>&1
+_self="$(readlink -f "${BASH_SOURCE[0]}")"; if [ -f "$_self" ] && LC_ALL=C grep -q $'\r' "$_self" 2>/dev/null; then sed -i 's/\r$//' "$_self" && exec bash "$_self" "$@"; fi; unset _self
 
 # Source the bootstrap library
 # shellcheck source=./bootstrap.bash
@@ -46,6 +46,9 @@ trap on_error ERR
 bootstrap_root="$(dirname "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")")"
 bootstrap_log="$bootstrap_root/.runtime/bootstrap.log"
 mkdir -p "$bootstrap_root/.runtime"
+# Relative paths in the tasks resolve against the toolbox root, not wherever the
+# caller happened to be standing.
+cd "$bootstrap_root" || exit 1
 (umask 077; touch "$bootstrap_log")
 chmod 600 "$bootstrap_log"
 

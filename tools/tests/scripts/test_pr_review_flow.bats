@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for legacy pr-* review-flow scripts (after --help fixes)
+# Tests for pr-* review-flow scripts (after --help fixes)
 
 bats_require_minimum_version 1.5.0
 

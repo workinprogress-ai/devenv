@@ -77,8 +77,8 @@ body_source_resolve() {
 
     if [ -n "$body_file" ]; then
         if [ "$body_file" = "-" ]; then
+            body_source_read_dash || return 2
             BODY_SOURCE_RESULT="stdin"
-            cat
             return 0
         fi
         if [ ! -f "$body_file" ]; then
@@ -107,6 +107,18 @@ body_source_resolve() {
 # ============================================================================
 # Stdin capture core
 # ============================================================================
+
+# body_source_read_dash
+#   The one implementation of `--body-file -`: refuses a terminal, then reads and
+#   validates stdin exactly as an unflagged pipe is (empty, whitespace-only or closed
+#   stdin is refused). Prints the content; rc 2 with the reason on stderr otherwise.
+body_source_read_dash() {
+    if body_source_stdin_is_tty; then
+        echo "--body-file - requires piped stdin (refusing to read the terminal)" >&2
+        return 2
+    fi
+    body_source_capture_stdin
+}
 
 # body_source_capture_stdin
 #   Reads all of stdin (never a TTY — callers must TTY-check first) into a
@@ -154,32 +166,3 @@ body_source_capture_stdin() {
     return 0
 }
 
-
-
-# ============================================================================
-# Common option-loop helper
-# ============================================================================
-
-# body_source_register_option KEY VALUE
-# body_source_validate_sources EXTRA_MODE
-#   Validates that exactly one source is set. EXTRA_MODE is the tool's own
-#   additional source channel (e.g. "edit" for --edit) or "none".
-#   Prints an error and returns 2 when zero or multiple sources are present.
-body_source_validate_sources() {
-    local extra_mode="${1:-none}"
-    local count=0
-
-    [ -n "$BODY_SOURCE_TEXT" ] && count=$((count + 1))
-    [ -n "$BODY_SOURCE_FILE" ] && count=$((count + 1))
-    [ "$extra_mode" != "none" ] && [ -n "$extra_mode" ] && count=$((count + 1))
-
-    if [ "$count" -eq 0 ]; then
-        echo "A body source is required" >&2
-        return 2
-    fi
-    if [ "$count" -gt 1 ]; then
-        echo "Only one body source may be specified" >&2
-        return 2
-    fi
-    return 0
-}

@@ -30,7 +30,7 @@ provider CLI directly; Azure has none):
 
 - `provider_auth_import_token` (stdin) — write the PAT file at 0600. Used
   by `key-update-azure` (prompt with hidden input, or piped stdin; argv
-  form is deprecated and warns).
+  form warns).
 - `provider_auth_status` — authenticated check (exit code only).
 - `provider_secret_get token` — print the resolved token (env-if-allowlisted
   → PAT file). Used by bootstrap syncs; the azure transport also

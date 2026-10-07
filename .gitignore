@@ -40,6 +40,7 @@ copilot/engineering/*
 # Ignore symlinks in tools/ but keep subdirectories
 tools/*
 tools/custom/
+!tools/fork/
 !tools/lib/
 !tools/scripts/
 !tools/other/

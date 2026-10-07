@@ -1,6 +1,6 @@
 ---
 name: devenv-refine-plan
-description: Align an existing Plan-*.md (or an issue containing a plan artifact comment; legacy artifacts are typed implementation-plan) with reality — one skill entered from three starting points. Surgical mode for small known edits ("mark 3.4 done", "tick off task 2.1", "add a note to task X", "answer that open question", "add one more task to phase 3" — max 3 edits, per-edit confirm). Revision mode for known broader changes ("refine the plan", "update the plan", "rework the plan based on what we learned", tasks reworded, scope adjusted). Assessment mode when staleness is unknown ("refresh the plan", "is this plan still valid?", "the plan might be out of date", returning after a gap) — runs a staleness assessment against the current codebase and routes internally. Auto-detects file path vs GitHub issue number, preserves all existing [x] checkbox state, appends new tasks by default, supports task reflow for structural insertion, and creates new phases when the target phase is fully complete. DO NOT USE for creating a brand-new plan from scratch (use /devenv-plan) or for executing the plan (use /devenv-pair or /devenv-delegate).
+description: Align an existing Plan-*.md (or an issue containing a plan artifact comment; artifacts may be typed `implementation-plan`) with reality — one skill entered from three starting points. Surgical mode for small known edits ("mark 3.4 done", "tick off task 2.1", "add a note to task X", "answer that open question", "add one more task to phase 3" — max 3 edits, per-edit confirm). Revision mode for known broader changes ("refine the plan", "update the plan", "rework the plan based on what we learned", tasks reworded, scope adjusted). Assessment mode when staleness is unknown ("refresh the plan", "is this plan still valid?", "the plan might be out of date", returning after a gap) — runs a staleness assessment against the current codebase and routes internally. Auto-detects file path vs GitHub issue number, preserves all existing [x] checkbox state, appends new tasks by default, supports task reflow for structural insertion, and creates new phases when the target phase is fully complete. DO NOT USE for creating a brand-new plan from scratch (use /devenv-plan) or for executing the plan (use /devenv-pair or /devenv-delegate).
 argument-hint: Path to a Plan-*.md OR github-issue-number[:doc_id], plus what changed (or nothing for assessment)
 user-invocable: true
 ---
@@ -32,7 +32,7 @@ Classification rules:
 
 ## When to Use
 
-- The user has a `Plan-*.md` (or an issue with a plan artifact comment; legacy artifacts are typed implementation-plan) that needs small surgical edits, broader revision, or staleness assessment — in any combination.
+- The user has a `Plan-*.md` (or an issue with a plan artifact comment; artifacts may be typed `implementation-plan`) that needs small surgical edits, broader revision, or staleness assessment — in any combination.
 - A previous `/devenv-plan` run needs alignment with what actually happened.
 - Execution (pair-programming / delegation) surfaced drift signals and suggested an assessment.
 
@@ -48,8 +48,8 @@ The user provides exactly one of:
 Issue artifact selection rules:
 
 - If `<doc_id>` is provided, use that exact artifact.
-- If no `<doc_id>` is provided and exactly one `plan` artifact exists (or one legacy `implementation-plan` artifact from before the type rename), use it.
-- If multiple artifacts exist, list candidates via `issue-artifact-list --issue <N> --artifact-type plan --pretty` (legacy artifacts were published as `implementation-plan`; list both types if an old artifact is suspected) and ask the user which `doc_id` to refine.
+- If no `<doc_id>` is provided and exactly one `plan` artifact exists (or one `implementation-plan` artifact), use it.
+- If multiple artifacts exist, list candidates via `issue-artifact-list --issue <N> --artifact-type plan --pretty` (artifacts may be typed `implementation-plan`; list both types if one is suspected) and ask the user which `doc_id` to refine.
 
 **Auto-detection rule:** if the argument matches `^[0-9]+$`, treat as issue number; otherwise treat as a file path. If both could plausibly apply, ask the user which they meant.
 
@@ -120,7 +120,7 @@ In revision mode, use `vscode_askQuestions` to gather:
 - **What's wrong** — tasks whose descriptions are now misleading or whose scope changed.
 - **What's done outside the plan** — work completed that should be marked `[x]` retroactively.
 - **What's no longer relevant** — tasks to delete clean or replace (the plan carries current target state only)
-- **Acceptance criteria changes** — whether any ACs need to be added, revised, or deprecated as a result of the scope change. Infer candidate changes from the new specifications and present them for the user to confirm rather than asking the user to define them from scratch. See AC rules in Step 3.
+- **Acceptance criteria changes** — whether any ACs need to be added, revised, or retired as a result of the scope change. Infer candidate changes from the new specifications and present them for the user to confirm rather than asking the user to define them from scratch. See AC rules in Step 3.
 - **Upstream design changes** — whether a design doc/RFC/Blueprint/Redesign decision changed and should be reflected in `## Appendix`.
 - **Grooming carry-forward** — if a grooming artifact is present, confirm which `Confirmed` / `Deferred` / still-relevant `Pending` items must now be represented in the plan's phase watch-outs, task `decision:` metadata, `## Pending Questions`, appendix, or explicit scope boundaries.
 - **Pending questions** — whether any unresolved questions should be added, answered, moved inline under a task/phase, or spun out into a follow-up issue.
@@ -133,7 +133,7 @@ In revision mode, use `vscode_askQuestions` to gather:
   **File an upstream-impact issue** for confirmed architectural findings that originate above the plan (specification or blueprint level), per the [upstream-impact filing recipe](../_shared/references/protocol-common.md#upstream-impact-filing) and the repo-targeting guard. This puts the finding on the queue that `/devenv-refine-specifications` and `/devenv-refine-blueprint` consume in cascade mode.
 
   Do not continue plan refinement for architectural items until the design question is resolved.
-- **Legacy code exposure** — if new tasks will introduce implementations that coexist with existing legacy code in the same files across multiple phases, flag the issue: the plan likely needs an early cleanup phase. See [phase-rules.md](../devenv-plan/references/phase-rules.md) for available patterns (demolition, hollow-out, rename suffix, branch by abstraction). Surface the viable options and a recommendation before writing new tasks; don't silently pick one.
+- **Old code exposure** — if new tasks will introduce implementations that coexist with existing old code in the same files across multiple phases, flag the issue: the plan likely needs an early cleanup phase. See [phase-rules.md](../devenv-plan/references/phase-rules.md) for available patterns (demolition, hollow-out, rename suffix, branch by abstraction). Surface the viable options and a recommendation before writing new tasks; don't silently pick one.
 
 Do not assume. If the new specifications imply renumbering or reordering, flag it and ask before proceeding.
 

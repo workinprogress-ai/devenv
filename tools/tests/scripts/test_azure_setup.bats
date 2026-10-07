@@ -31,10 +31,11 @@ mock_setup_board() {
     export SETUP_FIXTURES="$TEST_TEMP_DIR/setup-fixtures"
     mkdir -p "$SETUP_FIXTURES"
     printf '%s' '{"value":[{"id":"project-id","name":"proj"}]}' > "$SETUP_FIXTURES/projects"
-    printf '%s' '{"defaultTeam":{"id":"team-id"}}' > "$SETUP_FIXTURES/team"
+    printf '%s' '{"defaultTeam":{"id":"team-id"},"capabilities":{"processTemplate":{"templateName":"Agile"}}}' > "$SETUP_FIXTURES/team"
     printf '%s' '{"children":[{"name":"repo"}]}' > "$SETUP_FIXTURES/areas"
     printf '%s' '{"value":[{"name":"repo"}]}' > "$SETUP_FIXTURES/repos"
     printf '%s' '{"value":[{"id":"board-id","name":"Issues"}]}' > "$SETUP_FIXTURES/boards"
+    printf '%s' '{"bugsBehavior":"asRequirements"}' > "$SETUP_FIXTURES/teamsettings"
     printf '%s' '{"value":[{"id":"first","name":"Custom backlog","columnType":"incoming","stateMappings":{"Issue":"To Do"}},{"id":"middle","name":"Custom doing","columnType":"inProgress","itemLimit":4,"stateMappings":{"Issue":"Doing"}},{"id":"last","name":"Custom done","columnType":"outgoing","stateMappings":{"Issue":"Done"}}]}' > "$SETUP_FIXTURES/columns"
     mv "$STUB_BIN_DIR/curl" "$STUB_BIN_DIR/curl-response"
     cat > "$STUB_BIN_DIR/curl" <<'MOCK'
@@ -54,6 +55,7 @@ case "$url" in
             jq -n --argjson columns "$body" '{value: ($columns | to_entries | map(.value + {id: (.value.id // ("generated-" + (.key | tostring)))}))}' > "$SETUP_FIXTURES/columns"
         fi
         export STUB_CURL_RESPONSE="$SETUP_FIXTURES/columns" ;;
+    */_apis/work/teamsettings*) export STUB_CURL_RESPONSE="$SETUP_FIXTURES/teamsettings" ;;
     */_apis/work/boards\?*) export STUB_CURL_RESPONSE="$SETUP_FIXTURES/boards" ;;
     */_apis/git/repositories\?*) export STUB_CURL_RESPONSE="$SETUP_FIXTURES/repos" ;;
     */classificationnodes\?*) export STUB_CURL_RESPONSE="$SETUP_FIXTURES/areas" ;;
@@ -174,4 +176,105 @@ MOCK
     [ "$status" -eq 0 ]
     [[ "$output" == *"existing in-progress state mapping"* ]]
     [ ! -s "$STUB_CURL_REQUEST_BODY" ]
+}
+
+@test "azure-setup: a team that manages Bugs as tasks is switched to requirements so Bugs get a board column" {
+    mock_setup_board 'TBD,Ready,Implementing,Review,Production'
+    printf '%s' '{"bugsBehavior":"asTasks"}' > "$SETUP_FIXTURES/teamsettings"
+    run bash "$SETUP_SCRIPT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"asTasks -> asRequirements"* ]]
+    jq -s -e 'any(.[]; type == "object" and .bugsBehavior == "asRequirements")' "$STUB_CURL_REQUEST_BODY" >/dev/null
+}
+
+@test "azure-setup: a team that already manages Bugs as requirements is left alone" {
+    mock_setup_board 'TBD,Ready,Implementing,Review,Production'
+    run bash "$SETUP_SCRIPT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"already managed as requirements"* ]]
+    run ! jq -s -e 'any(.[]; type == "object" and has("bugsBehavior"))' "$STUB_CURL_REQUEST_BODY"
+}
+
+@test "azure-setup: dry run reports the Bugs change without writing it" {
+    mock_setup_board 'TBD,Ready,Implementing,Review,Production'
+    printf '%s' '{"bugsBehavior":"asTasks"}' > "$SETUP_FIXTURES/teamsettings"
+    run bash "$SETUP_SCRIPT" --dry-run
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[dry] would set the team's bugsBehavior"* ]]
+    [ ! -s "$STUB_CURL_REQUEST_BODY" ]
+}
+
+@test "azure-setup: with Bugs on the board, each column of a User Story board also maps Bug" {
+    mock_setup_board 'TBD,Review,Production'
+    printf '%s' '{"value":[{"id":"first","name":"New","columnType":"incoming","stateMappings":{"User Story":"New"}},{"id":"middle","name":"Doing","columnType":"inProgress","stateMappings":{"User Story":"Active"}},{"id":"last","name":"Done","columnType":"outgoing","stateMappings":{"User Story":"Closed"}}]}' > "$SETUP_FIXTURES/columns"
+    run bash "$SETUP_SCRIPT"
+    [ "$status" -eq 0 ]
+    jq -s -e 'any(.[]; type == "array" and all(.[]; .stateMappings.Bug == .stateMappings["User Story"] and .stateMappings.Bug != null))' "$STUB_CURL_REQUEST_BODY" >/dev/null
+}
+
+@test "azure-setup: a board whose columns carry no User Story mapping gets no Bug mapping" {
+    mock_setup_board 'TBD,Implementing,Production'
+    run bash "$SETUP_SCRIPT"
+    [ "$status" -eq 0 ]
+    jq -s -e 'any(.[]; type == "array" and all(.[]; (.stateMappings | has("Bug")) | not))' "$STUB_CURL_REQUEST_BODY" >/dev/null
+}
+
+@test "azure-setup: preflight confirms the Agile process and says so" {
+    mock_setup_board 'TBD,Implementing,Production'
+    run bash "$SETUP_SCRIPT" --dry-run
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"process: Agile"* ]]
+}
+
+@test "azure-setup: a project on another process is refused before any write" {
+    mock_setup_board 'TBD,Implementing,Production'
+    printf '%s' '{"defaultTeam":{"id":"team-id"},"capabilities":{"processTemplate":{"templateName":"Scrum"}}}' > "$SETUP_FIXTURES/team"
+    run bash "$SETUP_SCRIPT"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"'Scrum' process"* ]]
+    [ ! -s "$STUB_CURL_REQUEST_BODY" ] || { echo "a write happened: $(cat "$STUB_CURL_REQUEST_BODY")"; false; }
+}
+
+@test "azure-setup: an unreadable process warns that Agile is not confirmed and continues" {
+    mock_setup_board 'TBD,Implementing,Production'
+    printf '%s' '{"defaultTeam":{"id":"team-id"}}' > "$SETUP_FIXTURES/team"
+    run bash "$SETUP_SCRIPT" --dry-run
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Agile not confirmed"* ]]
+}
+
+@test "azure-setup: a PAT that cannot read a needed area stops before any write and names the scope" {
+    mock_setup_board 'TBD,Implementing,Production'
+    # the area-path read answers 403
+    mv "$STUB_BIN_DIR/curl" "$STUB_BIN_DIR/curl-inner"
+    cat > "$STUB_BIN_DIR/curl" <<'DENY'
+#!/usr/bin/env bash
+case "${@: -1}" in
+    */classificationnodes*) printf '{"message":"denied"}\n403'; exit 0 ;;
+esac
+exec "$(dirname "$0")/curl-inner" "$@"
+DENY
+    chmod +x "$STUB_BIN_DIR/curl"
+    run bash "$SETUP_SCRIPT"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"cannot read area paths"* ]]
+    [[ "$output" == *"Work Items: Read"* ]]
+}
+
+@test "azure-setup: an unknown option is refused, not ignored" {
+    mock_setup_board 'TBD,Implementing,Production'
+    run bash "$SETUP_SCRIPT" --dry-runn
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"unknown option: --dry-runn"* ]]
+}
+
+@test "azure-setup: --help works anywhere in the arguments and without the gate" {
+    run bash "$SETUP_SCRIPT" --dry-run --help
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"USAGE"* ]]
+}
+
+@test "azure-setup: JSON request bodies are built with jq, not printf" {
+    run grep -nE '"\{\\"name\\"' "$SETUP_SCRIPT"
+    [ "$status" -ne 0 ]
 }

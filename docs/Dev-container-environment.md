@@ -4,16 +4,16 @@ The dev container is a fully functional development environment.  It has all the
 
 When you first bring up the dev environment, it only contains the code that is in the `devenv` repo.  You will need to clone the other repos that you want to work on.  You can do this in the terminal in the dev container.  
 
-When you first open a terminal in the dev container, the current folder will be `/workspaces/devenv/repos` (the workspace's repo cache).  The prompt will look something like this:
+When you first open a terminal in the dev container, the current folder will be `/workspaces/<REPO>/repos` (the workspace's repo cache).  The prompt will look something like this:
 
 ```bash
-@toochevere ➜ /workspaces/devenv/repos (<>) $
+@toochevere ➜ /workspaces/<REPO>/repos (<>) $
 ```
 
 Any repos cloned should be put under the `repos/` folder.  A command line alias (actually it's a bash function but let's not be picky) exists in order to make this easy:  `repo-get`.  Simply use `repo-get` command with the name of the repo you wish to clone:
 
 ```bash
-@toochevere ➜ /workspaces/devenv/repos (<>) $ repo-get devops
+@toochevere ➜ /workspaces/<REPO>/repos (<>) $ repo-get devops
 ```
 
 If the repos is not yet present under the `repos/` folder then it will be cloned.  If it is present, it will be updated.   If the newly cloned repos has a `scripts` folder, then it will be automatically added to the `PATH` variable and any scripts will be available.
@@ -21,7 +21,7 @@ If the repos is not yet present under the `repos/` folder then it will be cloned
 You can also use `repo-get --select` to see an interactive menu of all repositories in your organization (excluding those already cloned), making it easy to discover and clone new repositories:
 
 ```bash
-@toochevere ➜ /workspaces/devenv/repos (<>) $ repo-get --select
+@toochevere ➜ /workspaces/<REPO>/repos (<>) $ repo-get --select
 ```  
 
 **Note** that part of the setup script asked for an SSH key.  This key is used to clone the private repos.  If you did not provide a key, you will not be able to clone the private repos.
@@ -85,7 +85,7 @@ The dev containers extension that is used to run the dev environment has a speci
 
 Within this repository, there are a few folders of note:
 
-### `/workspaces/devenv` repository folders
+### `/workspaces/<REPO>` repository folders
 
 * `.devcontainer` This folder contains the configuration for the dev container itself.  It is where the `bootstrap.sh` and `devcontainer.json` files are located.  It also contains a few temporary files that are used by the dev environment to manage the container.
 * `tools` This folder contains the workspace's wrapper tools and utility scripts that are intended to be used by the user (depth-1 entry points; implementations in `tools/scripts/`).
@@ -99,7 +99,7 @@ Within this repository, there are a few folders of note:
 
 Because the dev environment is a Linux os in a container, it has a folder structure that reflects this as well.  The dev environment is based on Debian, so it has a Debian-like folder structure.  The home folder is `/home/vscode`.  Any processes that run in the container will run as the `vscode` user.
 
-**NOTE:**  On rare occasions, some apps get confused about the symlinking.  You can also just open repos or other folders directly from `/workspaces/devenv/repos/<REPO>` folder.  
+**NOTE:**  On rare occasions, some apps get confused about the symlinking.  You can also just open repos or other folders directly from `/workspaces/<REPO>/repos/<REPO>` folder.  
 
 ### `.bashrc` file
 
@@ -296,8 +296,8 @@ entials are **never** stored in the container image itself — they're only load
 
 **Re-authenticating (the keychain path):**
 
-Credential rotation is provider-dispatched: run `key-update-provider <token>`
-(the container function bootstrap generates). Provider-specific transport
+Credential rotation is provider-dispatched: run `key-update-provider` and paste the token at the prompt (or pipe it on
+stdin; the token is never an argument), using the container function bootstrap generates. Provider-specific transport
 steps — the exact CLI commands for GitHub or any other provider — live in the
 [provider protocol reference](../copilot/skills/_shared/references/provider-protocols/)
 for the active provider. Verify with `provider_auth_status`-backed tooling
@@ -308,14 +308,14 @@ Note: `~/.config/gh` lives on the container's filesystem, so the keychain is
 consume: if the keychain is empty and `.setup/provider_token.txt` exists, it
 imports the token and **deletes the file** (plaintext must not linger). If
 the keychain is empty and no seed exists, bootstrap finishes with an
-**ACTION REQUIRED** banner — run `key-update-provider <new-token>`  to authenticate. An authenticated keychain leaves the seed
+**ACTION REQUIRED** banner — run `key-update-provider` to authenticate. An authenticated keychain leaves the seed
 untouched with an info message.
 
 Trade-off (accepted): convenience over at-rest minimization — the seed gives zero-touch recovery on the first bootstrap after a re-create, at the cost of one plaintext token on the workspace mount until consumed (the same exposure family as issue #31).
 
 **To update credentials:**
 
-* Git host credential: Run `key-update-provider <token>` (rotates the keychain and
+* Git host credential: Run `key-update-provider` (prompts for the token; rotates the keychain and
   re-wires the git credential helper), or run `gh auth login` manually
 * Digital Ocean Token: Run `./setup` and choose the Digital Ocean setup option
 * SSH Key: Configure via the initial setup or re-run the setup script

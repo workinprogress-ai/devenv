@@ -44,16 +44,16 @@ write_file() {
 }
 
 # ---------------------------------------------------------------------------
-# --all audit mode: FIXME, TODO, and legacy bare forms are all reported.
+# --all audit mode: FIXME, TODO, and bare forms are all reported.
 # ---------------------------------------------------------------------------
 
-@test "--all: reports FIXME and TODO and legacy bare forms" {
-  printf '// FIXME(DEVENV[p1]): a\n// TODO(DEVENV[p1]): b — remove when x\n// DEVENV[p1]: legacy bare\n' > "$WORK_DIR/a.cs"
+@test "--all: reports FIXME and TODO and bare forms" {
+  printf '// FIXME(DEVENV[p1]): a\n// TODO(DEVENV[p1]): b — remove when x\n// DEVENV[p1]: bare\n' > "$WORK_DIR/a.cs"
   run bash "$SCRIPT" --all "$WORK_DIR"
   [ "$status" -eq 1 ]
   [[ "$output" == *"FIXME(DEVENV[p1]): a"* ]]
   [[ "$output" == *"TODO(DEVENV[p1]): b"* ]]
-  [[ "$output" == *"DEVENV[p1]: legacy bare"* ]]
+  [[ "$output" == *"DEVENV[p1]: bare"* ]]
 }
 
 @test "--all: clean tree passes" {

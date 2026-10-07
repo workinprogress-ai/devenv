@@ -60,6 +60,31 @@ provider_extract_url_from_text() {
     [ "$output" = "myorg/myproj/myrepo" ]
 }
 
+@test "azure_parse_remote decodes percent-escapes so a name with a space is encoded exactly once" {
+    azure_libs_source
+    run azure_parse_remote 'https://dev.azure.com/myorg/My%20Project/_git/r%C3%A9po'
+    [ "$status" -eq 0 ]
+    [ "$output" = "myorg/My Project/répo" ]
+    # the request builders encode the decoded name once
+    spec="$(provider_remote_to_spec 'https://dev.azure.com/myorg/My%20Project/_git/myrepo')"
+    [ "$spec" = "My Project/myrepo" ]
+    [ "$(azure_uri 'My Project')" = "My%20Project" ]
+}
+
+@test "provider_remote_to_web re-encodes a decoded name for the web form" {
+    azure_libs_source
+    run provider_remote_to_web 'https://dev.azure.com/myorg/My%20Project/_git/myrepo'
+    [ "$output" = "https://dev.azure.com/myorg/My%20Project/_git/myrepo" ]
+}
+
+@test "azure_uri_decode leaves a stray percent sign alone" {
+    azure_libs_source
+    run azure_uri_decode '100%'
+    [ "$output" = "100%" ]
+    run azure_uri_decode 'a%2Fb%zz'
+    [ "$output" = 'a/b%zz' ]
+}
+
 @test "azure_parse_remote handles https form without suffix" {
     azure_libs_source
     run azure_parse_remote 'https://dev.azure.com/myorg/myproj/_git/myrepo' 
@@ -116,12 +141,12 @@ provider_extract_url_from_text() {
 # provider_repos_view / provider_repos_list
 # ===========================================================================
 
-@test "provider_repos_view returns nameWithOwner in project/repo form" {
+@test "provider_repos_view returns repoSpec in project/repo form" {
     printf '{"name":"myrepo","project":{"name":"myproj"},"isPrivate":true}' > "$TEST_TEMP_DIR/resp.json"
     printf '[provider]\nname=azure\nazure_org=myorg\nazure_project=myproj\n' > "$DEVENV_ROOT/devenv.config"
 
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/resp.json" \
-        run azure_run provider_repos_view myorg/myproj/myrepo --json nameWithOwner
+        run azure_run provider_repos_view myorg/myproj/myrepo --json repoSpec
     [ "$status" -eq 0 ]
     [ "$output" = "myproj/myrepo" ]
     # Correct API endpoint was called
@@ -154,12 +179,12 @@ provider_extract_url_from_text() {
     printf '[provider]\nname=azure\nazure_org=myorg\nazure_project=myproj\n' > "$DEVENV_ROOT/devenv.config"
 
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/resp.json" \
-        run azure_run provider_repos_view myrepo --json name,nameWithOwner,defaultBranchRef
+        run azure_run provider_repos_view myrepo --json name,repoSpec,defaultBranchRef
     [ "$status" -eq 0 ]
-    # The object must be valid JSON (nameWithOwner stays a quoted string).
+    # The object must be valid JSON (repoSpec stays a quoted string).
     run jq -e . <<<"$output"
     [ "$status" -eq 0 ]
-    run jq -r '.name + "|" + .nameWithOwner + "|" + .defaultBranchRef.name' <<<"$output"
+    run jq -r '.name + "|" + .repoSpec + "|" + .defaultBranchRef.name' <<<"$output"
     [ "$output" = "myrepo|myproj/myrepo|refs/heads/dev" ]
 }
 
@@ -185,7 +210,7 @@ provider_extract_url_from_text() {
     [ "$status" -ne 0 ]
 }
 
-@test "repo-target cwd hook composes org/project/basename" {
+@test "repo-target cwd hook composes the two-part project/basename" {
     printf '[provider]\nname=azure\nazure_org=myorg\nazure_project=myproj\n' > "$DEVENV_ROOT/devenv.config"
     # Simulate a git root: run inside the (git-init'd) test dir tree.
     run bash -c "cd '$TEST_TEMP_DIR' && git init -q azure-cwd 2>/dev/null; cd azure-cwd && \
@@ -193,21 +218,21 @@ provider_extract_url_from_text() {
         PROVIDER_NAME=azure && source '$DEVENV_TOOLS/lib/providers/azure/repos.bash' && \
         provider_repo_target"
     [ "$status" -eq 0 ]
-    [ "$output" = "myorg/myproj/azure-cwd" ]
+    [ "$output" = "myproj/azure-cwd" ]
 }
 
-@test "provider_gh_repo_args passes an explicit spec through untouched" {
+@test "provider_repo_args passes an explicit spec through untouched" {
     azure_libs_source
     local args=()
-    provider_gh_repo_args args "myorg/myproj/myrepo"
+    provider_repo_args args "myorg/myproj/myrepo"
     [ "${#args[@]}" -eq 1 ]
     [ "${args[0]}" = "myorg/myproj/myrepo" ]
 }
 
-@test "provider_gh_repo_args with no spec yields an empty arg list" {
+@test "provider_repo_args with no spec yields an empty arg list" {
     azure_libs_source
     local args=("sentinel")
-    provider_gh_repo_args args ""
+    provider_repo_args args ""
     [ "${#args[@]}" -eq 0 ]
 }
 
@@ -230,7 +255,7 @@ provider_extract_url_from_text() {
     printf '[provider]\nname=azure\nazure_org=cfgorg\nazure_project=cfgproj\n' > "$DEVENV_ROOT/devenv.config"
 
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/resp.json" \
-        run azure_run provider_repos_view cfgrepo --json nameWithOwner
+        run azure_run provider_repos_view cfgrepo --json repoSpec
     [ "$status" -eq 0 ]
     [ "$output" = "cfgproj/cfgrepo" ]
 }
@@ -242,7 +267,7 @@ provider_extract_url_from_text() {
     [[ "$output" =~ "azure_org" ]]
 }
 
-@test "provider_repos_list returns gh-shaped name/nameWithOwner entries" {
+@test "provider_repos_list returns gh-shaped name/repoSpec entries" {
     printf '{"value":[{"name":"r1","project":{"name":"p1"}},{"name":"r2","project":{"name":"p1"}}]}' > "$TEST_TEMP_DIR/resp.json"
     printf '[provider]\nname=azure\nazure_org=org\nazure_project=p1\n' > "$DEVENV_ROOT/devenv.config"
 
@@ -366,3 +391,113 @@ azure_project=p1
     [ "$status" -ne 0 ]
 }
 
+
+# ---------------------------------------------------------------------------
+# protect_branch idempotence, ACL identity match, repos_view -q
+# ---------------------------------------------------------------------------
+
+# A curl that answers by URL/method: the repository, the existing policy list,
+# and (for the ACL grant) the project, the graph identities and the ACE POST.
+policy_curl() {
+    cat > "$STUB_BIN_DIR/curl" <<'STUB'
+#!/usr/bin/env bash
+method=GET; url=""; prev=""
+for arg in "$@"; do
+    [[ "$prev" == "-D" ]] && printf 'HTTP/1.1 200 OK\r\n\r\n' > "$arg"
+    [[ "$prev" == "-X" ]] && method="$arg"
+    prev="$arg"; url="$arg"
+done
+echo "$method $url" >> "$CALLS"
+case "$url" in
+    *policy/configurations*) cat "$CONFIGS" ;;
+    *graph/groups*) cat "$GROUPS_JSON" ;;
+    *_apis/projects/*) printf '{"id":"proj-guid"}' ;;
+    *accesscontrolentries*) printf '{"value":[]}' ;;
+    *repositories*) printf '{"id":"g3","name":"r3","defaultBranch":"refs/heads/master"}' ;;
+    *) printf '{}' ;;
+esac
+STUB
+    chmod +x "$STUB_BIN_DIR/curl"
+    export CALLS="$TEST_TEMP_DIR/calls.log"; : > "$CALLS"
+}
+
+@test "provider_repos_protect_branch updates the policy already on that branch instead of creating a duplicate" {
+    printf '{"required_pull_request_reviews":{"required_approving_review_count":2}}' > "$TEST_TEMP_DIR/protection.json"
+    printf '{"value":[{"id":11,"type":{"id":"fa4e907d-c16b-4a4c-9dfa-4906e5d171dd"},"settings":{"scope":[{"repositoryId":"g3","refName":"refs/heads/main"}]}}]}' > "$TEST_TEMP_DIR/configs.json"
+    export CONFIGS="$TEST_TEMP_DIR/configs.json"
+    policy_curl
+    run azure_run provider_repos_protect_branch o1/p1/r3 main "$TEST_TEMP_DIR/protection.json"
+    [ "$status" -eq 0 ]
+    grep -q '^PUT .*policy/configurations/11' "$CALLS"
+    run ! grep -q '^POST .*policy/configurations' "$CALLS"
+}
+
+@test "provider_repos_protect_branch creates the policy when the branch has none" {
+    printf '{}' > "$TEST_TEMP_DIR/protection.json"
+    printf '{"value":[]}' > "$TEST_TEMP_DIR/configs.json"
+    export CONFIGS="$TEST_TEMP_DIR/configs.json"
+    policy_curl
+    run azure_run provider_repos_protect_branch o1/p1/r3 main "$TEST_TEMP_DIR/protection.json"
+    [ "$status" -eq 0 ]
+    grep -q '^POST .*policy/configurations' "$CALLS"
+}
+
+@test "azure_acl_grant matches a group by its project-scoped principal name, not by display name alone" {
+    cat > "$TEST_TEMP_DIR/groups.json" <<'JSON'
+{"value":[
+ {"displayName":"Contributors","principalName":"[other]\\Contributors","descriptor":"vssgp.OTHER"},
+ {"displayName":"Contributors","principalName":"[p1]\\Contributors","descriptor":"vssgp.MINE"}]}
+JSON
+    printf '{"value":[]}' > "$TEST_TEMP_DIR/configs.json"
+    export GROUPS_JSON="$TEST_TEMP_DIR/groups.json" CONFIGS="$TEST_TEMP_DIR/configs.json"
+    policy_curl
+    run azure_run azure_acl_grant groups Contributors o1/p1/r3 push
+    [ "$status" -eq 0 ]
+    # the ACE is written for the descriptor of the matching project's group
+    grep -q '^POST .*accesscontrolentries' "$CALLS"
+}
+
+@test "azure_acl_grant refuses a name that matches more than one identity" {
+    cat > "$TEST_TEMP_DIR/groups.json" <<'JSON'
+{"value":[
+ {"displayName":"Readers","principalName":"[p1]\\Readers","descriptor":"vssgp.A"},
+ {"displayName":"Readers","principalName":"[p1]\\Readers","descriptor":"vssgp.B"}]}
+JSON
+    export GROUPS_JSON="$TEST_TEMP_DIR/groups.json" CONFIGS="$TEST_TEMP_DIR/groups.json"
+    policy_curl
+    run azure_run azure_acl_grant groups Readers o1/p1/r3 push
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"more than one identity"* ]]
+}
+
+@test "azure_acl_grant fails when no identity matches" {
+    printf '{"value":[{"displayName":"Other","principalName":"[p1]\\\\Other","descriptor":"vssgp.X"}]}' > "$TEST_TEMP_DIR/groups.json"
+    export GROUPS_JSON="$TEST_TEMP_DIR/groups.json" CONFIGS="$TEST_TEMP_DIR/groups.json"
+    policy_curl
+    run azure_run azure_acl_grant groups Missing o1/p1/r3 push
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"not found"* ]]
+}
+
+@test "provider_repos_view applies -q to the projected object" {
+    printf '{"name":"r1","project":{"name":"p1"},"defaultBranch":"refs/heads/main"}' > "$TEST_TEMP_DIR/repo.json"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/repo.json" run azure_run provider_repos_view o1/p1/r1 --json name,defaultBranchRef -q '.defaultBranchRef.name'
+    [ "$status" -eq 0 ]
+    [ "$output" = "refs/heads/main" ]
+}
+
+@test "provider_repos_view of an empty repository (no default branch) fails instead of printing null" {
+    printf '{"name":"r1","project":{"name":"p1"}}' > "$TEST_TEMP_DIR/empty-repo.json"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/empty-repo.json" run azure_run provider_repos_view o1/p1/r1 --json defaultBranchRef
+    [ "$status" -ne 0 ]
+    [[ "$output" != *null* ]]
+}
+
+@test "provider_repos_view takes the two-part project/repo spec, the org coming from config" {
+    printf '[provider]\nname=azure\nazure_org=org\nazure_project=cfgproj\n' > "$DEVENV_ROOT/devenv.config"
+    printf '{"name":"r1","project":{"name":"p1"}}' > "$TEST_TEMP_DIR/repo.json"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/repo.json" run azure_run provider_repos_view p1/r1 --json name
+    [ "$status" -eq 0 ]
+    [ "$output" = "r1" ]
+    grep -q 'org/p1/_apis/git/repositories/r1' "$STUB_CALL_LOG"
+}

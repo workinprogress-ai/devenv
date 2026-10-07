@@ -85,6 +85,7 @@ Options:
   --branch <name>         Source branch for PR lookup (default: current branch)
   --force                 Force merge even if checks have not passed
   --keep-branch           Keep the source branch after merge (deleted by default)
+  --                      End of options: what follows is the commit message
   --help                  Show this help message
 
 Examples:
@@ -111,18 +112,23 @@ POSITIONAL=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --issue)
+            require_option_value "$1" "${2:-}"
             ISSUE_NUMBER="$2"; shift 2 ;;
         --select)
             SELECT_ISSUE="true"; shift ;;
         --no-issue-id)
             NO_ISSUE_ID="true"; shift ;;
         --method)
+            require_option_value "$1" "${2:-}"
             MERGE_METHOD="$2"; shift 2 ;;
         --base)
+            require_option_value "$1" "${2:-}"
             TARGET_BRANCH="$2"; shift 2 ;;
         --repo-dir)
+            require_option_value "$1" "${2:-}"
             REPO_DIR="$2"; shift 2 ;;
         --branch)
+            require_option_value "$1" "${2:-}"
             SOURCE_BRANCH="$2"; shift 2 ;;
         --force)
             FORCE="true"; shift ;;
@@ -130,11 +136,23 @@ while [[ $# -gt 0 ]]; do
             KEEP_BRANCH="true"; shift ;;
         -h|--help)
             usage 0 ;;
+        --)
+            # everything after -- is the commit message, even if it starts with a dash
+            shift
+            POSITIONAL+=("$@")
+            break ;;
+        -*)
+            log_error "Unknown option: $1"
+            usage "$EXIT_MISUSE" ;;
         *)
             POSITIONAL+=("$1"); shift ;;
     esac
 done
-set -- "${POSITIONAL[@]}"
+if [ "${#POSITIONAL[@]}" -gt 1 ]; then
+    log_error "pr-merge takes at most one commit message (got ${#POSITIONAL[@]} arguments); quote a message that contains spaces."
+    exit $EXIT_MISUSE
+fi
+set -- ${POSITIONAL[@]+"${POSITIONAL[@]}"}
 
 COMMIT_MESSAGE="${1:-}"
 
@@ -182,8 +200,7 @@ CURRENT_BRANCH=${SOURCE_BRANCH:-$(get_current_branch)}
 
 # Resolve target branch
 if [ -z "$TARGET_BRANCH" ]; then
-    TARGET_BRANCH=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')
-    TARGET_BRANCH=${TARGET_BRANCH:-master}
+    TARGET_BRANCH=$(get_default_branch)
 fi
 
 if ! git show-ref --quiet "refs/remotes/origin/$TARGET_BRANCH"; then
@@ -271,14 +288,8 @@ if ! merge_pr "$PR_ID" "$MERGE_COMMIT_MESSAGE" "$MERGE_METHOD" "${repo_spec[*]}"
 fi
 
 # Build PR URL for output
-# Web-UI link built through the provider URL seam (host lives in the provider).
-policy_org="$(provider_org_get 2>/dev/null || true)"
-if [ -n "$policy_org" ]; then
-    repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
-    PR_URL="$(provider_web_url "${policy_org}/${repo_name}" "pull/$PR_ID")"
-else
-    PR_URL="$(provider_web_url "$(provider_repos_view "${repo_spec[0]:-}" --json owner,name --jq '.owner.login + "/" + .name')" "pull/$PR_ID")"
-fi
+# Web-UI link built through the provider URL seam (host and path live in the provider).
+PR_URL="$(provider_pr_web_url "${repo_spec[0]:-$(provider_repo_target)}" "$PR_ID")"
 
 echo ""
 echo "Pull request #$PR_ID merged successfully ($MERGE_METHOD)."

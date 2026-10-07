@@ -168,26 +168,32 @@ main() {
                 shift
                 ;;
             -s|--state)
+                require_option_value "$1" "${2:-}"
                 STATE="$2"
                 shift 2
                 ;;
             -a|--author)
+                require_option_value "$1" "${2:-}"
                 AUTHOR="$2"
                 shift 2
                 ;;
             -l|--label)
+                require_option_value "$1" "${2:-}"
                 LABEL="$2"
                 shift 2
                 ;;
             --base)
+                require_option_value "$1" "${2:-}"
                 BASE_BRANCH="$2"
                 shift 2
                 ;;
             --head)
+                require_option_value "$1" "${2:-}"
                 HEAD_BRANCH="$2"
                 shift 2
                 ;;
             --limit)
+                require_option_value "$1" "${2:-}"
                 if ! [[ "$2" =~ ^[0-9]+$ ]]; then
                     log_error "Invalid limit: $2 (must be numeric)"
                     exit $EXIT_MISUSE

@@ -100,11 +100,13 @@ while [[ $# -gt 0 ]]; do
             show_usage
             ;;
         --framework)
+            require_option_value "$1" "${2:-}"
             [[ $# -ge 2 && -n "${2:-}" ]] || { echo "ERROR: --framework requires a value (e.g. net10.0)" >&2; exit "$EXIT_MISUSE"; }
             framework="$2"
             shift 2
             ;;
         --lang-version)
+            require_option_value "$1" "${2:-}"
             [[ $# -ge 2 && -n "${2:-}" ]] || { echo "ERROR: --lang-version requires a value (e.g. 14.0)" >&2; exit "$EXIT_MISUSE"; }
             lang_version="$2"
             shift 2

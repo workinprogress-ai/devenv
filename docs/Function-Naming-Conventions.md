@@ -156,12 +156,12 @@ Function names should be tested in unit tests:
 For existing code with non-compliant names:
 
 1. Create new function with correct name
-2. Mark old function as deprecated with comment
+2. Mark the old function as superseded by a comment naming its replacement
 3. Have old function call new function
 4. Update documentation
-5. Create issue to remove deprecated function
+5. Create issue to remove the superseded function
 6. Update all call sites in separate commit
-7. Remove deprecated function
+7. Remove the superseded function
 
 Example:
 
@@ -171,7 +171,7 @@ invoke_npm_quietly() {
     npm "$@" 2>&1 | grep -v 'NODE_TLS_REJECT_UNAUTHORIZED is set to 0'
 }
 
-# Deprecated - remove in v2.0.0
+# Superseded - remove in v2.0.0
 # Use invoke_npm_quietly() instead
 call_npm() {
     invoke_npm_quietly "$@"

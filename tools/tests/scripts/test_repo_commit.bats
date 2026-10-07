@@ -189,3 +189,29 @@ EOF
     [[ "$output" == *"staged.txt"* ]]
     [[ "$output" != *"unstaged.txt"* ]]
 }
+
+# A wrapper around a no-op is still a no-op: the gate looks through env, assignments,
+# nice/timeout/nohup/command/exec and refuses a shell used as the editor.
+@test "refuses a no-op editor hidden behind a wrapper or a shell" {
+    stage_one_file
+    shadow_path_without_editors
+    local editor
+    for editor in "sh -c true" "bash -c ':'" "env true" "env FOO=1 true" "/usr/bin/env sh -c exit" \
+                  "nice -n 5 true" "timeout 5 true" "nohup true" "command true" "exec true" "FOO=1 true"; do
+        run env -u VISUAL -u EDITOR PATH="$SHADOW_BIN" GIT_EDITOR="$editor" \
+            bash "$REPO_COMMIT" "should be refused"
+        [ "$status" -ne 0 ] || { echo "accepted: $editor"; return 1; }
+        [[ "$output" == *"refusing non-interactive editor"* ]] || { echo "not refused for: $editor"; return 1; }
+    done
+    [ "$(git -C "$TESTREPO" log -1 --format=%s)" = "init" ]
+}
+
+@test "a real editor behind env still passes the gate" {
+    stage_one_file
+    SAVE_EDITOR="$TESTREPO/save-editor.sh"
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$SAVE_EDITOR"
+    chmod +x "$SAVE_EDITOR"
+    GIT_EDITOR="env FOO=1 $SAVE_EDITOR" run bash "$REPO_COMMIT" "wrapped real editor"
+    [ "$status" -eq 0 ]
+    [ "$(git -C "$TESTREPO" log -1 --format=%s)" = "wrapped real editor" ]
+}

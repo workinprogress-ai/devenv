@@ -147,7 +147,7 @@ main() {
                 VERBOSE=1
                 shift
                 ;;
-            -o|--output)  OUTPUT_FILE="$2"; shift 2 ;;
+            -o|--output)  require_option_value "$1" "${2:-}"; OUTPUT_FILE="$2"; shift 2 ;;
             --devenv)     # shellcheck disable=SC2034  # Used by check_target_repo
                           ALLOW_DEVENV_REPO=1; shift ;;
             *)

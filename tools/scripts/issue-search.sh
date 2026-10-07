@@ -198,34 +198,42 @@ main() {
                 shift
                 ;;
             -s|--state)
+                require_option_value "$1" "${2:-}"
                 FILTER_STATE="$2"
                 shift 2
                 ;;
             -t|--type)
+                require_option_value "$1" "${2:-}"
                 FILTER_TYPE="$2"
                 shift 2
                 ;;
             -l|--label)
+                require_option_value "$1" "${2:-}"
                 FILTER_LABELS+=("$2")
                 shift 2
                 ;;
             -a|--assignee)
+                require_option_value "$1" "${2:-}"
                 FILTER_ASSIGNEE="$2"
                 shift 2
                 ;;
             -m|--milestone)
+                require_option_value "$1" "${2:-}"
                 FILTER_MILESTONE="$2"
                 shift 2
                 ;;
             -f|--format)
+                require_option_value "$1" "${2:-}"
                 OUTPUT_FORMAT="$2"
                 shift 2
                 ;;
             -n|--limit)
+                require_option_value "$1" "${2:-}"
                 LIMIT="$2"
                 shift 2
                 ;;
             --fetch-limit)
+                require_option_value "$1" "${2:-}"
                 FETCH_LIMIT="$2"
                 shift 2
                 ;;

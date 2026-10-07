@@ -15,7 +15,7 @@ Revise an existing specifications document based on new information — stakehol
 
 **This skill is how specifications stay living.** Specifications are not point-in-time artifacts gathered once and frozen — they are the system's current functional truth, kept accurate as reality moves. Refinement is the normal, expected maintenance path for that truth: when the world changes, the specifications change with it (surgically, with IDs stable and history recorded), so downstream artifacts — blueprints, roadmaps, plans — can trust what they read. A specifications document that no longer matches reality is a defect in the document, not a footnote.
 
-Write specification items body sections as the current target behaviour and constraints. Keep historical change narrative out of the document entirely — the document is target state, period. Rationale for significant changes lives in ADRs (`docs/Decisions/`, see the shared [ADR template](../common/references/adr-template.md)); git records when. If a legacy `## Revision History` section exists from an older workflow version, migrate its still-relevant entries into ADRs and delete the section.
+Write specification items body sections as the current target behaviour and constraints. Keep historical change narrative out of the document entirely — the document is target state, period. Rationale for significant changes lives in ADRs (`docs/Decisions/`, see the shared [ADR template](../common/references/adr-template.md)); git records when. If a `## Revision History` section exists, migrate its still-relevant entries into ADRs and delete the section.
 
 ## When to Use
 

@@ -165,10 +165,12 @@ main() {
                 shift
                 ;;
             --base)
+                require_option_value "$1" "${2:-}"
                 BASE_REF="$2"
                 shift 2
                 ;;
             --head)
+                require_option_value "$1" "${2:-}"
                 HEAD_REF="$2"
                 shift 2
                 ;;

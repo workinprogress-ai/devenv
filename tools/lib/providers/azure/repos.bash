@@ -6,7 +6,7 @@
 # provider_repos_default_branch (used by workflow helpers), plus the
 # azure cwd-spec hook for the core repo-target resolver and the
 # repo-args shim for shared -R-style call sites. Output shapes
-# mirror the gh-backed fields callers consume (--json name, --json
+# mirror the seam fields callers consume (--json name, --json
 # nameWithOwner, -q '.owner.login', etc.) so wrappers stay transport-blind.
 #
 # Transport: azure_http_request / azure_http_paginate (providers/azure/http).
@@ -28,7 +28,7 @@ if ! declare -F azure_http_request >/dev/null; then
     # shellcheck disable=SC1091
     source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/http.bash"
 fi
-if ! declare -F azure_apply_gh_list_flags >/dev/null; then
+if ! declare -F azure_apply_list_flags >/dev/null; then
     # shellcheck disable=SC1091
     source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/urls.bash"
 fi
@@ -40,25 +40,6 @@ if ! declare -F azure_http_request >/dev/null; then
     log_error "azure/repos.bash: providers/azure/http.bash failed to load"
     return 1
 fi
-if ! declare -F azure_repo_guid >/dev/null; then
-    azure_repo_guid() {
-        local repo="${1:?repo required}"
-        local op org project repo_name
-        op=$(azure_org_project) || return 1
-        org=$(printf '%s' "$op" | sed -n 1p)
-        project=$(printf '%s' "$op" | sed -n 2p)
-        repo_name="$repo"
-        case "$repo" in
-            */*) repo_name="${repo##*/}" ;;
-        esac
-        local response
-        if ! response=$(azure_http_request GET "https://dev.azure.com/${org}/${project}/_apis/git/repositories/${repo_name}?api-version=7.1"); then
-            return 1
-        fi
-        printf '%s' "$response" | jq -r '.id // empty'
-    }
-fi
-
 # Resolve org/project for API paths. Order: explicit env overrides
 # (AZURE_DEVOPS_ORG/AZURE_DEVOPS_PROJECT, session-scoped) → devenv.config
 # [provider] azure_org/azure_project.
@@ -68,15 +49,8 @@ azure_org_project() {
     local org="${AZURE_DEVOPS_ORG:-}"
     local project="${AZURE_DEVOPS_PROJECT:-}"
     if [ -z "$org" ] || [ -z "$project" ]; then
-        local config_file="${DEVENV_ROOT:-}/devenv.config"
-        if [ -f "${DEVENV_TOOLS:-}/lib/config-reader.bash" ] && [ -f "$config_file" ]; then
-            # shellcheck disable=SC1091
-            source "${DEVENV_TOOLS}/lib/config-reader.bash"
-            if config_init "$config_file" 2>/dev/null; then
-                [ -z "$org" ] && org=$(config_read_value "provider" "azure_org" "" 2>/dev/null)
-                [ -z "$project" ] && project=$(config_read_value "provider" "azure_project" "" 2>/dev/null)
-            fi
-        fi
+        [ -n "$org" ] || org=$(azure_config_get provider azure_org)
+        [ -n "$project" ] || project=$(azure_config_get provider azure_project)
     fi
     if [ -z "$org" ] || [ -z "$project" ]; then
         log_error "azure org/project unresolved — set [provider] azure_org and azure_project in devenv.config"
@@ -85,30 +59,76 @@ azure_org_project() {
     printf '%s\n%s\n' "$org" "$project"
 }
 
-# Cwd leg for the core repo-target resolver: azure specs are three-part
-# (org/project/repo), composed from config org/project + git root basename.
-# Both legs must resolve; empty (not error) when they don't — the core
-# resolver's contract decides what empty means.
+# Split a repo spec into org, project and repo, one per line. Specs are
+# org/project/repo, project/repo (the canonical form) or a bare repo name; the
+# configured org and project fill whatever the spec leaves out. An empty spec
+# yields an empty repo. Returns 1 when org or project cannot be resolved.
+# Usage: azure_repo_parts SPEC -> prints org, project, repo
+azure_repo_parts() {
+    local spec="${1:-}" org="" project="" repo=""
+    case "$spec" in
+        */*/*) org="${spec%%/*}"; local rest="${spec#*/}"; project="${rest%%/*}"; repo="${rest#*/}" ;;
+        */*) project="${spec%%/*}"; repo="${spec#*/}" ;;
+        "") : ;;
+        *) repo="$spec" ;;
+    esac
+    # the configuration supplies only what the spec leaves out
+    if [ -z "$org" ] || [ -z "$project" ]; then
+        local op
+        op=$(azure_org_project) || return 1
+        [ -n "$org" ] || org=$(printf '%s' "$op" | sed -n 1p)
+        [ -n "$project" ] || project=$(printf '%s' "$op" | sed -n 2p)
+    fi
+    printf '%s\n%s\n%s\n' "$org" "$project" "$repo"
+}
+
+# The git API root of a repo spec, every component encoded:
+# https://dev.azure.com/<org>/<project>/_apis/git/repositories/<repo>
+# (the repositories collection when the spec names no repo).
+# Usage: azure_git_repo_url SPEC
+azure_git_repo_url() {
+    local parts org project repo
+    parts=$(azure_repo_parts "${1:-}") || return 1
+    org=$(printf '%s' "$parts" | sed -n 1p); project=$(printf '%s' "$parts" | sed -n 2p); repo=$(printf '%s' "$parts" | sed -n 3p)
+    local url
+    url="https://dev.azure.com/$(azure_uri "$org")/$(azure_uri "$project")/_apis/git/repositories"
+    [ -n "$repo" ] && url="${url}/$(azure_uri "$repo")"
+    printf '%s' "$url"
+}
+
+# The repository's GUID (the form several APIs filter on), resolved from a repo
+# spec through the repository's own org and project.
+# Usage: azure_repo_guid SPEC -> prints the id
+azure_repo_guid() {
+    local spec="${1:?repo required}" url response
+    url=$(azure_git_repo_url "$spec") || return 1
+    response=$(azure_http_request GET "$url") || return 1
+    printf '%s' "$response" | jq -r '.id // empty'
+}
+
+# Cwd leg for the core repo-target resolver: the canonical Azure spec is the
+# two-part project/repo (the organization always comes from config), composed from
+# the configured project + git root basename. Both legs must resolve; empty (not
+# error) when they don't — the core resolver's contract decides what empty means.
 _provider_repo_cwd_spec() {
     local op
     op=$(azure_org_project 2>/dev/null) || return 0
-    local org project repo_name
-    org=$(printf '%s' "$op" | sed -n 1p)
+    local project repo_name
     project=$(printf '%s' "$op" | sed -n 2p)
     repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
-    if [ -n "$org" ] && [ -n "$project" ] && [ -n "$repo_name" ]; then
-        echo "${org}/${project}/${repo_name}"
+    if [ -n "$project" ] && [ -n "$repo_name" ]; then
+        echo "${project}/${repo_name}"
         return 0
     fi
     return 0
 }
 
-# Repo-args shim for shared call sites that build gh-style -R owner/repo
+# Repo-args shim for shared call sites that build flag-style -R owner/repo
 # specs. Azure carries no -R flag; the shim emits an azure-shaped
 # project/repo spec so argument arrays stay resolvable, and github-only
 # call sites (all current consumers) never take this path.
-# Usage: provider_gh_repo_args ARR_VAR [repo]
-provider_gh_repo_args() {
+# Usage: provider_repo_args ARR_VAR [repo]
+provider_repo_args() {
     local -n __arr="$1"
     local __repo="${2:-}"
     if [ -n "$__repo" ]; then
@@ -140,34 +160,26 @@ provider_repos_default_branch() {
 
 # Whether a repository has at least one commit (newly created repos may be
 # unready while init completes; the caller polls).
-# Usage: provider_repos_commits_count [org/project/repo]  -> exit 0 non-empty
+# Usage: provider_repos_commits_count [SPEC]  -> exit 0 non-empty
 provider_repos_commits_count() {
     local repo="${1:-}"
-    local op org project repo_name
-    if [ -n "$repo" ]; then
-        case "$repo" in
-            */*/*) org="${repo%%/*}"; local rest="${repo#*/}"; project="${rest%%/*}"; repo_name="${rest#*/}" ;;
-            *) log_error "provider_repos_commits_count: '$repo' is ambiguous for Azure — use org/project/repo"; return 1 ;;
-        esac
-    else
-        op=$(azure_org_project) || return 1
-        org=$(printf '%s' "$op" | sed -n 1p)
-        project=$(printf '%s' "$op" | sed -n 2p)
-        repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
-        [ -n "$repo_name" ] || { log_error "provider_repos_commits_count: no repo argument and no git context"; return 1; }
+    if [ -z "$repo" ]; then
+        repo=$(_provider_repo_cwd_spec)
+        [ -n "$repo" ] || { log_error "provider_repos_commits_count: no repo argument and no git context"; return 1; }
     fi
-    local response
-    if ! response=$(azure_http_request GET "https://dev.azure.com/${org}/${project}/_apis/git/repositories/${repo_name}/commits?\$top=1&api-version=7.1"); then
+    local url response
+    url=$(azure_git_repo_url "$repo") || return 1
+    if ! response=$(azure_http_request GET "${url}/commits?\$top=1&api-version=7.1"); then
         return 1
     fi
     [ "$(printf '%s' "$response" | jq -r '.count // 0')" -ge 1 ]
 }
 
-# Create a repo. GH dialect flags translated: --description maps
+# Create a repo. Seam dialect flags translated: --description maps
 # directly; --template maps to parentRepository (fork-in-project);
 # visibility flags are accepted and ignored (azure repos are
 # project-scoped and private by default — documented degrade).
-# Usage: provider_repos_create NAME [GH-DIALECT FLAGS...]
+# Usage: provider_repos_create NAME [SEAM-DIALECT FLAGS...]
 provider_repos_create() {
     local name="${1:?repo name required}"; shift
     name="${name##*/}"   # accept full specs; azure wants the bare name
@@ -175,14 +187,13 @@ provider_repos_create() {
     while [ $# -gt 0 ]; do
         case "$1" in
             --public|--private|--internal) shift ;;
-            --description) description="$2"; shift 2 ;;
-            --template) template="$2"; shift 2 ;;
-            *) shift ;;
+            --description) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; description="$2"; shift 2 ;;
+            --template) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; template="$2"; shift 2 ;;
+            *) provider_unknown_option "${FUNCNAME[0]}" "$1"; return 1 ;;
         esac
     done
-    local op base
-    op=$(azure_org_project) || return 1
-    base="https://dev.azure.com/$(printf '%s' "$op" | sed -n 1p)/$(printf '%s' "$op" | sed -n 2p)/_apis/git/repositories"
+    local base
+    base=$(azure_git_repo_url "") || return 1
     local body
     body=$(jq -n --arg n "$name" --arg d "$description" '{name: $n} + (if $d != "" then {description: $d} else {} end)')
     if [ -n "$template" ]; then
@@ -194,7 +205,7 @@ provider_repos_create() {
     if ! response=$(azure_http_request POST "${base}?api-version=7.1" "$body"); then
         return 1
     fi
-    printf '%s' "$response" | jq -c '{name, id, nameWithOwner: .name}'
+    printf '%s' "$response" | jq -c '{name, id, repoSpec: ((.project.name // "") + "/" + .name)}'
 }
 
 # Edit a repo (settings flips). Azure repos have fewer knobs: --template
@@ -206,26 +217,23 @@ provider_repos_edit() {
     while [ $# -gt 0 ]; do
         case "$1" in
             --template) log_warn "azure repos cannot switch template post-create (create-time parentRepository only) — ignored"; shift ;;
-            *) shift ;;
+            *) provider_unknown_option "${FUNCNAME[0]}" "$1"; return 1 ;;
         esac
     done
     return 0
 }
 
-# Patch repo settings via the GH -F k=v dialect. Consumed settings map
+# Patch repo settings via the -F k=v dialect. Consumed settings map
 # onto the repo update PATCH; unmapped keys degrade to documented skips.
 # Usage: provider_repos_patch REPO -F k=v [-F k=v...]
 provider_repos_patch() {
     local repo="${1:?repo required}"; shift
-    local op org project repo_name
-    op=$(azure_org_project) || return 1
-    org=$(printf '%s' "$op" | sed -n 1p); project=$(printf '%s' "$op" | sed -n 2p)
-    repo_name="${repo##*/}"
     local -a body_pairs=()
     local -a skipped=()
     while [ $# -gt 0 ]; do
         case "$1" in
             -F|-f)
+                provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1
                 local kv="$2"
                 local k="${kv%%=*}" v="${kv#*=}"
                 case "$k" in
@@ -241,7 +249,7 @@ provider_repos_patch() {
                         ;;
                 esac
                 shift 2 ;;
-            *) shift ;;
+            *) provider_unknown_option "${FUNCNAME[0]}" "$1"; return 1 ;;
         esac
     done
     if [ "${#skipped[@]}" -gt 0 ]; then
@@ -262,25 +270,30 @@ provider_repos_patch() {
     done
     local body
     body=$("${jq_argv[@]}" "{${key_refs[*]}}") || return 1
-    azure_http_request PATCH "https://dev.azure.com/${org}/${project}/_apis/git/repositories/${repo_name}?api-version=7.1" "$body" >/dev/null
+    local repo_url
+    repo_url=$(azure_git_repo_url "$repo") || return 1
+    azure_http_request PATCH "${repo_url}?api-version=7.1" "$body" >/dev/null
 }
 
-# Protect a branch: the GH-shaped protection payload translates to a
+# Protect a branch: the seam-shaped protection payload translates to a
 # minimum-reviewers policy configuration on the branch ref (the azure
-# analog surface; other payload keys degrade with a log line).
+# analog surface; other payload keys degrade with a log line). Idempotent: a
+# policy already on that repo and branch is updated in place (re-provisioning
+# would otherwise be rejected as a duplicate).
 # Usage: provider_repos_protect_branch REPO BRANCH PAYLOAD_FILE
 provider_repos_protect_branch() {
     local repo="${1:?repo required}" branch="${2:?branch required}" payload_file="${3:?payload file required}"
     local repo_guid
     repo_guid=$(azure_repo_guid "$repo") || return 1
-    local op base
-    op=$(azure_org_project) || return 1
-    base="https://dev.azure.com/$(printf '%s' "$op" | sed -n 1p)/$(printf '%s' "$op" | sed -n 2p)/_apis/policy"
+    local parts base
+    parts=$(azure_repo_parts "$repo") || return 1
+    base="https://dev.azure.com/$(azure_uri "$(printf '%s' "$parts" | sed -n 1p)")/$(azure_uri "$(printf '%s' "$parts" | sed -n 2p)")/_apis/policy"
     local reviewers
     reviewers=$(jq -r '.required_pull_request_reviews.required_approving_review_count // 1' "$payload_file" 2>/dev/null) || reviewers=1
+    local type_id="fa4e907d-c16b-4a4c-9dfa-4906e5d171dd"
     local body
-    body=$(jq -cn --arg rg "$repo_guid" --arg ref "refs/heads/$branch" --argjson mr "$reviewers" '{
-        type: {id: "fa4e907d-c16b-4a4c-9dfa-4906e5d171dd"},
+    body=$(jq -cn --arg rg "$repo_guid" --arg ref "refs/heads/$branch" --argjson mr "$reviewers" --arg t "$type_id" '{
+        type: {id: $t},
         isEnabled: true,
         isBlocking: true,
         settings: {
@@ -291,7 +304,15 @@ provider_repos_protect_branch() {
             resetOnSourcePush: false
         }
     }')
-    azure_http_request POST "${base}/configurations?api-version=7.1" "$body" >/dev/null
+    local existing existing_id
+    existing=$(azure_http_request GET "${base}/configurations?api-version=7.1") || return 1
+    existing_id=$(printf '%s' "$existing" | jq -r --arg rg "$repo_guid" --arg ref "refs/heads/$branch" --arg t "$type_id" \
+        '[.value[]? | select(.type.id == $t and .settings.scope[0].repositoryId == $rg and .settings.scope[0].refName == $ref) | .id][0] // empty')
+    if [ -n "$existing_id" ]; then
+        azure_http_request PUT "${base}/configurations/${existing_id}?api-version=7.1" "$body" >/dev/null
+    else
+        azure_http_request POST "${base}/configurations?api-version=7.1" "$body" >/dev/null
+    fi
 }
 
 # ---------------------------------------------------------------------------
@@ -315,7 +336,7 @@ azure_identity_sddl() {
     printf 'Microsoft.TeamFoundation.Identity;%s' "$decoded"
 }
 
-# Map a GH permission word to the Git Repositories allow-bits mask
+# Map a seam permission word to the Git Repositories allow-bits mask
 # (live-verified values; triage = read + work-items bits per owner
 # decision).
 # Usage: azure_grant_bits PERM -> prints numeric mask
@@ -345,8 +366,8 @@ provider_repos_collaborator_put() {
     local perm="push"
     while [ $# -gt 0 ]; do
         case "$1" in
-            --permission) perm="$2"; shift 2 ;;
-            *) shift ;;
+            --permission) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; perm="$2"; shift 2 ;;
+            *) provider_unknown_option "${FUNCNAME[0]}" "$1"; return 1 ;;
         esac
     done
     azure_acl_grant "users" "$user" "$repo" "$perm"
@@ -357,21 +378,35 @@ provider_repos_collaborator_put() {
 # Usage: azure_acl_grant KIND NAME REPO PERM  (kind: groups|users)
 azure_acl_grant() {
     local kind="$1" name="$2" repo="$3" perm="$4"
-    local op org
-    op=$(azure_org_project) || return 1
-    org=$(printf '%s' "$op" | sed -n 1p)
+    local parts org project org_enc
+    parts=$(azure_repo_parts "$repo") || return 1
+    org=$(printf '%s' "$parts" | sed -n 1p); project=$(printf '%s' "$parts" | sed -n 2p)
+    org_enc=$(azure_uri "$org")
     local repo_guid
     repo_guid=$(azure_repo_guid "$repo") || return 1
     local bits
     bits=$(azure_grant_bits "$perm") || return 1
-    # Resolve the identity descriptor via the graph API (vssps host).
-    # Capture-then-jq: a transport failure must fail the grant, not
-    # masquerade as "identity not found".
+    # Resolve the identity descriptor via the graph API (vssps host). The list is
+    # org-wide and paged, and display names repeat across projects (every project
+    # has a "Contributors"): a group matches on its principal name,
+    # "[<project>]\\<name>", in this repo's project; a user on principal name
+    # (the sign-in address) or, failing that, exact display name. Exactly one
+    # identity must match.
     local descriptor_response
-    descriptor_response=$(azure_http_request GET "https://vssps.dev.azure.com/${org}/_apis/graph/${kind}?api-version=7.1-preview.1") || return 1
-    local descriptor
-    descriptor=$(printf '%s' "$descriptor_response" | jq -r --arg n "$name" \
-        'if .value then (.value[] | select((.displayName // .principalName // "") == $n) | .descriptor) else empty end') || return 1
+    descriptor_response=$(azure_http_paginate "https://vssps.dev.azure.com/${org_enc}/_apis/graph/${kind}?api-version=7.1-preview.1") || return 1
+    local descriptor matches
+    matches=$(printf '%s' "$descriptor_response" | jq -c --arg n "$name" --arg p "$project" --arg kind "$kind" '
+        [.[] | select(
+            if $kind == "groups" then
+                ((.principalName // "") == $n) or ((.principalName // "") == ("[" + $p + "]\\" + $n))
+            else
+                ((.principalName // "") == $n) or ((.displayName // "") == $n)
+            end) | .descriptor]') || return 1
+    case "$(printf '%s' "$matches" | jq 'length')" in
+        0) descriptor="" ;;
+        1) descriptor=$(printf '%s' "$matches" | jq -r '.[0]') ;;
+        *) log_error "azure_acl_grant: ${kind%s} '$name' matches more than one identity — pass its principal name"; return 1 ;;
+    esac
     [ -n "$descriptor" ] || { log_error "azure_acl_grant: ${kind%@*} '$name' not found"; return 1; }
     local sddl
     sddl=$(azure_identity_sddl "$descriptor") || return 1
@@ -382,7 +417,7 @@ azure_acl_grant() {
     local project_id_response project_id
     # Capture-then-jq: a transport failure must fail the grant, not
     # masquerade as "project id unresolvable".
-    project_id_response=$(azure_http_request GET "https://dev.azure.com/${org}/_apis/projects/$(printf '%s' "$op" | sed -n 2p)?api-version=7.1") || return 1
+    project_id_response=$(azure_http_request GET "https://dev.azure.com/${org_enc}/_apis/projects/$(azure_uri "$project")?api-version=7.1") || return 1
     project_id=$(printf '%s' "$project_id_response" | jq -r '.id // empty')
     [ -n "$project_id" ] || { log_error "azure_acl_grant: project id unresolvable"; return 1; }
     local token
@@ -391,16 +426,16 @@ azure_acl_grant() {
     body=$(jq -cn --arg t "$token" --arg d "$sddl" --argjson a "$bits"         '{token: $t, merge: true, accessControlEntries: [{descriptor: $d, allow: $a, deny: 0}]}')
     # Error contract: emit the transport's error JSON on failure.
     local response
-    if ! response=$(azure_http_request POST "https://dev.azure.com/${org}/_apis/accesscontrolentries/${ns}?api-version=7.1" "$body"); then
+    if ! response=$(azure_http_request POST "https://dev.azure.com/${org_enc}/_apis/accesscontrolentries/${ns}?api-version=7.1" "$body"); then
         printf '%s' "$response"
         return 1
     fi
     printf '%s' "$response"
 }
 
-# View a repo. Output shape mirrors gh: --json fields (name, nameWithOwner,
-# owner.login, defaultBranchRef.name) via a gh-compatible projection.
-# Usage: provider_repos_view [org/project/repo] [--json FIELDS] [-q JQ]
+# View a repo. Output shape follows the seam: --json fields (name, nameWithOwner,
+# owner.login, defaultBranchRef.name) via a seam-compatible projection.
+# Usage: provider_repos_view [SPEC] [--json FIELDS] [-q JQ]
 provider_repos_view() {
     local repo="${1:-}"
     # if-form shift: the && chain would return 1 under `set -e` when the
@@ -409,77 +444,71 @@ provider_repos_view() {
         shift
     fi
 
-    local org project repo_name
-    if [ -n "$repo" ]; then
-        # Accept "org/project/repo" (Azure-native) or bare "repo" (config
-        # supplies org/project).
-        case "$repo" in
-            */*/*) org="${repo%%/*}"; local rest="${repo#*/}"; project="${rest%%/*}"; repo_name="${rest#*/}" ;;
-            */*) log_error "provider_repos_view: 'org/repo' is ambiguous for Azure — use org/project/repo or configure [provider] azure_org/azure_project"; return 1 ;;
-            *) repo_name="$repo"
-               local op
-               op=$(azure_org_project) || return 1
-               org=$(printf '%s' "$op" | sed -n 1p)
-               project=$(printf '%s' "$op" | sed -n 2p)
-               ;;
-        esac
-    else
-        local op
-        op=$(azure_org_project) || return 1
-        org=$(printf '%s' "$op" | sed -n 1p)
-        project=$(printf '%s' "$op" | sed -n 2p)
-        repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
-        [ -n "$repo_name" ] || { log_error "provider_repos_view: no repo argument and no git context"; return 1; }
+    if [ -z "$repo" ]; then
+        repo=$(_provider_repo_cwd_spec)
+        [ -n "$repo" ] || { log_error "provider_repos_view: no repo argument and no git context"; return 1; }
     fi
-
-    local api="https://dev.azure.com/${org}/${project}/_apis/git/repositories/${repo_name}"
+    local api
+    api=$(azure_git_repo_url "$repo") || return 1
     local response
     if ! response=$(azure_http_request GET "$api"); then
         return 1
     fi
 
-    # Field projection: honor --json/-q in the gh dialect callers use.
-    # Azure repo objects differ from gh's shape, so each gh field maps to
-    # its Azure source field; unknown fields fail defined (empty jq output
-    # must not read as success at call sites).
-    if [ "${1:-}" = "--json" ]; then
-        local fields="$2"
-        local projected=""
-        case "$fields" in
-            name) projected="$(jq -r '.name' <<< "$response" 2>/dev/null)" ;;
-            nameWithOwner) jq -r '"\(.project.name)/\(.name)"' <<< "$response" 2>/dev/null && return 0 ;;
-            owner) jq -r '.project.name' <<< "$response" 2>/dev/null && return 0 ;;
-            defaultBranchRef) projected="$(jq -r '.defaultBranch' <<< "$response" 2>/dev/null)" ;;
-            *)
-                # Comma-separated gh field lists: map each, emit one JSON
-                # object in the gh shape.
-                local flist f out_json=""
-                local any=0
-                IFS=',' read -ra flist <<< "$fields"
-                for f in "${flist[@]}"; do
-                    any=1
-                    case "$f" in
-                        name) out_json+="$( [ -n "$out_json" ] && printf , )\"name\":$(jq -c '.name' <<< "$response" 2>/dev/null)" ;;
-                        nameWithOwner) out_json+="$( [ -n "$out_json" ] && printf , )\"nameWithOwner\":$(jq -c '"\(.project.name)/\(.name)"' <<< "$response" 2>/dev/null)" ;;
-                        owner) out_json+="$( [ -n "$out_json" ] && printf , )\"owner\":$(jq -c '{login: .project.name}' <<< "$response" 2>/dev/null)" ;;
-                        defaultBranchRef) out_json+="$( [ -n "$out_json" ] && printf , )\"defaultBranchRef\":$(jq -c '{name: .defaultBranch}' <<< "$response" 2>/dev/null)" ;;
-                        *) log_error "provider_repos_view: unsupported --json field '$f'"; return 1 ;;
-                    esac
-                done
-                [ "$any" -eq 1 ] || { log_error "provider_repos_view: empty --json field list"; return 1; }
-                printf '{%s}\n' "$out_json"
-                return 0
-                ;;
+    # Field projection: honor --json/-q in the seam dialect callers use. Azure repo
+    # objects differ from the seam's shape, so each seam field maps to its Azure source
+    # field; unknown fields fail defined, and a field the repo has no value for
+    # (an empty repo has no default branch) fails rather than reading as "null".
+    local fields="" jq_expr=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --json) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; fields="${2:-}"; shift 2 ;;
+            -q|--jq) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; jq_expr="${2:-}"; shift 2 ;;
+            *) provider_unknown_option "${FUNCNAME[0]}" "$1"; return 1 ;;
         esac
-        [ -n "$projected" ] || { log_error "provider_repos_view: field '$fields' missing from response"; return 1; }
-        printf '%s\n' "$projected"
-        return 0
+    done
+    if [ -z "$fields" ]; then
+        if [ -n "$jq_expr" ]; then
+            azure_jq_query "$jq_expr" <<< "$response"
+        else
+            printf '%s\n' "$response"
+        fi
+        return
     fi
-    printf '%s\n' "$response"
+    local flist f obj="{}" val
+    IFS=',' read -ra flist <<< "$fields"
+    [ "${#flist[@]}" -gt 0 ] || { log_error "provider_repos_view: empty --json field list"; return 1; }
+    for f in "${flist[@]}"; do
+        case "$f" in
+            name) val=$(jq -c '.name // null' <<< "$response") ;;
+            repoSpec) val=$(jq -c 'if .name then "\(.project.name)/\(.name)" else null end' <<< "$response") ;;
+            owner) val=$(jq -c 'if .project.name then {login: .project.name} else null end' <<< "$response") ;;
+            defaultBranchRef) val=$(jq -c 'if .defaultBranch then {name: .defaultBranch} else null end' <<< "$response") ;;
+            *) log_error "provider_repos_view: unsupported --json field '$f'"; return 1 ;;
+        esac
+        [ "$val" != "null" ] || { log_error "provider_repos_view: field '$f' has no value for this repository"; return 1; }
+        obj=$(jq -c --arg k "$f" --argjson v "$val" '. + {($k): $v}' <<< "$obj")
+    done
+    if [ -n "$jq_expr" ]; then
+        azure_jq_query "$jq_expr" <<< "$obj"
+        return
+    fi
+    # Without -q a single scalar field prints as raw text (the form the
+    # default-branch lookup reads); several fields print as one object.
+    if [ "${#flist[@]}" -eq 1 ]; then
+        case "${flist[0]}" in
+            name) jq -r '.name' <<< "$obj" ;;
+            repoSpec) jq -r '.repoSpec' <<< "$obj" ;;
+            owner) jq -r '.owner.login' <<< "$obj" ;;
+            defaultBranchRef) jq -r '.defaultBranchRef.name' <<< "$obj" ;;
+        esac
+    else
+        printf '%s\n' "$obj"
+    fi
 }
 
-# List an org-project's repos. Output: one JSON array of gh-shaped
-# {name, nameWithOwner, isPrivate} objects; --json/-q apply gh list
+# List an org-project's repos. Output: one JSON array of seam-shaped
+# {name, nameWithOwner, isPrivate} objects; --json/-q apply list
 # semantics (projection per record, jq over the whole array — callers use
 # `--json name -q '.[].name'` to iterate repo names).
 # Usage: provider_repos_list ORG/PROJECT [--limit N] [--json FIELDS] [-q J]
@@ -488,15 +517,9 @@ provider_repos_list() {
     local json_fields="" jq_expr=""
     while [ $# -gt 0 ]; do
         case "$1" in
-            --json)
-                shift
-                if [[ ${1:-} != --* ]] && [ $# -gt 0 ]; then json_fields="$1"; shift; fi
-                ;;
-            -q|--jq)
-                shift
-                if [[ ${1:-} != --* ]] && [ $# -gt 0 ]; then jq_expr="$1"; shift; fi
-                ;;
-            *) shift ;;
+            --json) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; json_fields="$2"; shift 2 ;;
+            -q|--jq) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; jq_expr="$2"; shift 2 ;;
+            *) provider_unknown_option "${FUNCNAME[0]}" "$1"; return 1 ;;
         esac
     done
     local org project
@@ -517,10 +540,10 @@ provider_repos_list() {
         return 1
     fi
 
-    # Map to gh's repo shape, then apply gh list semantics for --json/-q.
+    # Map to the seam's repo shape, then apply list semantics for --json/-q.
     local mapped
-    mapped=$(printf '%s' "$response" | jq -c '[.[] | {name: .name, nameWithOwner: (.project.name + "/" + .name), isPrivate: .isPrivate}]')
-    azure_apply_gh_list_flags "$mapped" "$json_fields" "$jq_expr"
+    mapped=$(printf '%s' "$response" | jq -c '[.[] | {name: .name, repoSpec: (.project.name + "/" + .name), isPrivate: .isPrivate}]')
+    azure_apply_list_flags "$mapped" "$json_fields" "$jq_expr"
 }
 
 # List packages for the org. Azure Artifacts is feed-centric: org packages

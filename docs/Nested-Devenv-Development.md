@@ -28,7 +28,7 @@ Scripts resolve their tools root from their own location (the self-root
 contract: self-location wins; an exported `DEVENV_TOOLS`/`DEVENV_ROOT` is
 honored only when it points at the same checkout). This means the commands
 above always exercise **this checkout**, even though the outer environment
-exports `DEVENV_ROOT=/workspaces/devenv`.
+exports `DEVENV_ROOT` pointing at the running environment (`/workspaces/<REPO>`).
 
 ## Tool entry points: stubs, not symlinks
 
@@ -38,7 +38,7 @@ The short-name commands in `tools/` (e.g. `issue-get`, `plan-parse`) are **gener
 exec bash "$(dirname "$0")/scripts/issue-get.sh" "$@"
 ```
 
-They are owned by the idempotent `.devcontainer/entry-stubs-sync.sh`, which bootstrap runs: it creates a stub for every `tools/scripts/` script except underscore-prefixed internal scripts (`_*.sh` — those are invoked via their `tools/scripts/` path directly and get no depth-1 entry; stale stubs for them are removed), converts stale symlinks, links the test runner as `tools/run-devenv-tests`, and is a no-op when everything is in sync. Never hand-edit a stub — edit the real script in `tools/scripts/` and re-run the sync if you added a new script.
+They are owned by the idempotent `.devcontainer/entry-stubs-sync.sh`, which bootstrap runs: it creates a stub for every script in `tools/scripts/` (the provided tools), `tools/fork/` (a fork's own or overriding tools) and `tools/custom/` (a user's machine-local tools), with a same-named file in a higher folder winning (custom over fork over provided). It skips underscore-prefixed internal scripts (`_*.sh`: those are invoked via their path directly and get no depth-1 entry, and stale stubs for them are removed), skips a name that is not a plain tool name or that is an existing `tools/` directory (with a warning), replaces stale symlinks, links the test runner as `tools/run-devenv-tests`, and is a no-op when everything is in sync. Never hand-edit a stub: edit the real script and re-run the sync after adding or removing one.
 
 ## Committing
 
@@ -67,12 +67,12 @@ issue-get 42 --devenv          # or pass the tool's --devenv flag
 ```
 
 Exception: when working inside a devenv clone nested below a `repos/`
-directory (e.g. `/workspaces/devenv/repos/devenv`), the guard is satisfied automatically — no `--devenv` flag needed. Being cd'ed into a nested clone is itself the deliberate devenv-target signal.
+directory (e.g. `$DEVENV_ROOT/repos/devenv`), the guard is satisfied automatically — no `--devenv` flag needed. Being cd'ed into a nested clone is itself the deliberate devenv-target signal.
 
 ## Skill and knowledge development caveat
 
 The live Copilot session reads skills and knowledge through `~/.copilot`
-symlinks pointing at the **running** environment (`/workspaces/devenv/copilot`),
+symlinks pointing at the **running** environment (`$DEVENV_ROOT/copilot` of the outer shell),
 not your clone. Edits to `copilot/skills/` or `copilot/knowledge/` inside
 `repos/devenv/` are invisible to the running assistant until they merge and
 the canonical copy refreshes (container restart/rebuild). To preview skill
@@ -82,10 +82,10 @@ changes, temporarily copy them into the running tree — and revert afterwards.
 
 - **Update gate prompts target the running environment.** The
   "uncommitted changes / do you want to update?" messages on new shells refer
-  to `/workspaces/devenv`, not your clone.
-- **Credentials in clone remotes.** Clones made by the environment's tooling
-  embed a token in the remote URL so unattended push works. Treat `.git/config`
-  as sensitive.
+  to the running environment (`/workspaces/<REPO>`), not your clone.
+- **Credentials stay out of clone remotes.** Clones made by the environment's
+  tooling use clean remote URLs; the token comes from the provider's credential
+  helper (`key-update-provider` wires it), so `.git/config` holds no secret.
 - **Never set a global `core.hooksPath`** pointing at devenv's tools — it
   overrides every repo's own hooks. Repos opt into the wip-gate via the block
   in their own `.husky/pre-commit` instead.

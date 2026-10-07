@@ -241,23 +241,6 @@ EOF
   [ "$output" = "copilot-knowledge" ]
 }
 
-@test "bootstrap.bash defines build_github_basic_auth_header helper" {
-  run grep "^build_github_basic_auth_header()" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
-  [ "$status" -eq 0 ]
-}
-
-@test "build_github_basic_auth_header uses x-access-token basic auth payload" {
-  run bash -c "
-    source '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
-    h=\$(build_github_basic_auth_header 'ghp_testtoken')
-    echo \"\$h\" | grep -q '^AUTHORIZATION: basic '
-    enc=\$(echo \"\$h\" | cut -d' ' -f3)
-    dec=\$(printf '%s' \"\$enc\" | base64 -d)
-    [ \"\$dec\" = 'x-access-token:ghp_testtoken' ]
-  "
-  [ "$status" -eq 0 ]
-}
-
 @test "install_copilot_instructions copies to ~/.copilot/copilot-instructions.md" {
   run grep "copilot-instructions.md" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
   [ "$status" -eq 0 ]
@@ -274,10 +257,10 @@ EOF
   [ "$status" -eq 0 ]
 }
 
-@test "sync_copilot_knowledge uses helper functions for subpath and auth header" {
+@test "sync_copilot_knowledge uses the subpath helper and the provider hook for the auth header" {
   run bash -c "
     grep -q 'subpath=\$(normalize_copilot_knowledge_subpath \"\$subpath\")' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
-    grep -q 'header=\$(build_provider_git_auth_header \"\${PROVIDER_NAME:-github}\" \"\$token\")' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
+    grep -q 'header=\$(provider_bootstrap_call git_auth_header \"\$token\")' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
   "
   [ "$status" -eq 0 ]
 }
@@ -352,12 +335,46 @@ EOF
 }
 
 @test "devenv-update parses Devenv-Action trailers from pulled commit range" {
-  run grep -E 'git log "\$\{pre_update_hash\}\.\.\$\{post_update_hash\}" --format=.*Devenv-Action' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  run grep -E 'git log "\$\{old_ref\}\.\.\$\{new_ref\}" --format=.*Devenv-Action' "$PROJECT_ROOT/.devcontainer/post-update.bash"
   [ "$status" -eq 0 ]
 }
 
 @test "devenv-update always prints a post-update action recommendation" {
-  run grep 'Post-update action: nothing' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  run grep 'Update complete\.' "$PROJECT_ROOT/.devcontainer/post-update.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "devenv-update offers to run bootstrap when bootstrap action is recommended" {
+  run grep 'Do you want to run bootstrap now? (y/n):' "$PROJECT_ROOT/.devcontainer/post-update.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "devenv-update includes explicit bootstrap follow-up paths" {
+  run bash -c "
+    grep -q 'Bootstrap completed successfully\.' '$PROJECT_ROOT/.devcontainer/post-update.bash' &&
+    grep -q 'Recommendation: restart the dev container to apply bootstrap changes\.' '$PROJECT_ROOT/.devcontainer/post-update.bash' &&
+    grep -q 'Skipping bootstrap\. Run .* when ready\.' '$PROJECT_ROOT/.devcontainer/post-update.bash'
+  "
+  [ "$status" -eq 0 ]
+}
+
+@test "devenv-update restart action prompts for full container restart" {
+  run grep 'Do you want to restart the dev container now? (y/n):' "$PROJECT_ROOT/.devcontainer/post-update.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "devenv-update uses docker restart hostname for container restart" {
+  run grep 'docker restart "$(hostname)"' "$PROJECT_ROOT/.devcontainer/post-update.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "devenv-update recreate action offers recreate restart skip options" {
+  run bash -c "
+    grep -q 'Choose an option:' '$PROJECT_ROOT/.devcontainer/post-update.bash' &&
+    grep -q '1) Recreate container now (recommended)' '$PROJECT_ROOT/.devcontainer/post-update.bash' &&
+    grep -q '2) Restart container now' '$PROJECT_ROOT/.devcontainer/post-update.bash' &&
+    grep -q '3) Skip' '$PROJECT_ROOT/.devcontainer/post-update.bash'
+  "
   [ "$status" -eq 0 ]
 }
 
@@ -365,40 +382,6 @@ EOF
   run bash -c "
     grep -q 'run_update_tasks()' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
     grep -q 'run_update_tasks' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
-  "
-  [ "$status" -eq 0 ]
-}
-
-@test "devenv-update offers to run bootstrap when bootstrap action is recommended" {
-  run grep 'Do you want to run bootstrap now? (y/n):' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
-  [ "$status" -eq 0 ]
-}
-
-@test "devenv-update includes explicit bootstrap follow-up paths" {
-  run bash -c "
-    grep -q 'Bootstrap completed successfully\.' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
-    grep -q 'Recommendation: restart the dev container to apply bootstrap changes\.' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
-    grep -q 'Skipping bootstrap\. Run .*bootstrap\.sh when ready\.' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
-  "
-  [ "$status" -eq 0 ]
-}
-
-@test "devenv-update restart action prompts for full container restart" {
-  run grep 'Do you want to restart the dev container now? (y/n):' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
-  [ "$status" -eq 0 ]
-}
-
-@test "devenv-update uses docker restart hostname for container restart" {
-  run grep 'docker restart "$(hostname)"' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
-  [ "$status" -eq 0 ]
-}
-
-@test "devenv-update recreate action offers recreate restart skip options" {
-  run bash -c "
-    grep -q 'Choose an option:' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
-    grep -q '1) Recreate container now (recommended)' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
-    grep -q '2) Restart container now' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
-    grep -q '3) Skip' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
   "
   [ "$status" -eq 0 ]
 }
@@ -629,7 +612,7 @@ setup_claude_fixture() {
 
 run_claude_installer() {
   local installer
-  installer="$(sed -n '/^install_claude_code_integration()/,/^}/p' "$PROJECT_ROOT/.devcontainer/bootstrap.bash")"
+  installer="$(sed -n '/^link_replacing_symlink_only()/,/^}/p;/^install_claude_code_integration()/,/^}/p' "$PROJECT_ROOT/.devcontainer/bootstrap.bash")"
   run env toolbox_root="$toolbox" HOME="$home_dir" bash -c "$installer; install_claude_code_integration"
 }
 
@@ -751,17 +734,169 @@ run_claude_installer() {
   [ "$(stat -c '%a' "$toolbox/.runtime/env-vars.sh")" = "600" ]
 }
 
+# Runs bootstrap's configure_* functions against a provider's real hooks, with the
+# credential, identity and dotnet seams stubbed. DOTNET_LOG records every dotnet call.
+run_feed_config() {   # run_feed_config <provider> <function> [args...]
+  local provider="$1" fn="$2"; shift 2
+  local home_dir="$TEST_TEMP_DIR/feed-home"
+  mkdir -p "$home_dir" "$TEST_TEMP_DIR/dotnet-bin"
+  export DOTNET_LOG="$TEST_TEMP_DIR/dotnet.log"; : > "$DOTNET_LOG"
+  cat > "$TEST_TEMP_DIR/dotnet-bin/dotnet" <<'STUB'
+#!/usr/bin/env bash
+if [ "$1 $2 $3" = "nuget list source" ]; then printf '%s\n' "${DOTNET_LIST:-}"; exit 0; fi
+printf '%s\n' "$*" >> "$DOTNET_LOG"
+exit 0
+STUB
+  chmod +x "$TEST_TEMP_DIR/dotnet-bin/dotnet"
+  local funcs
+  funcs="$(sed -n '/^add_nuget_source_if_not_exists()/,/^}/p;/^configure_nuget_sources()/,/^}/p;/^configure_user_npmrc()/,/^}/p' "$PROJECT_ROOT/.devcontainer/bootstrap.bash")"
+  run env HOME="$home_dir" DOTNET_LOG="$DOTNET_LOG" DOTNET_LIST="${DOTNET_LIST:-}" toolbox_root="$TEST_TEMP_DIR/toolbox" \
+      dotnet_cmd="$TEST_TEMP_DIR/dotnet-bin/dotnet" DEVENV_TOOLS="$PROJECT_ROOT/tools" \
+      bash -c "
+        source \"\$DEVENV_TOOLS/lib/providers/provider-core.bash\"
+        PROVIDER_NAME=$provider
+        provider_load bootstrap
+        ensure_provider_seam() { :; }
+        provider_secret_get() { echo feed-token-123; }
+        provider_org_get() { echo the-org; }
+        provider_user_get() { echo the-user; }
+        config_read_value() { echo 'https://nuget.pkg.github.com/the-org/index.json'; }
+        $funcs
+        $fn $*
+      "
+}
+
+@test "finish_message does not tell the user to put a token on the command line" {
+  local fn
+  fn="$(sed -n '/^finish_message()/,/^}/p' "$PROJECT_ROOT/.devcontainer/bootstrap.bash")"
+  run env AUTH_NEEDED=1 bash -c "$fn; finish_message"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"key-update-provider"* ]]
+  [[ "$output" != *"<new-token>"* ]]
+  [[ "$output" != *"<token>"* ]]
+}
+
+# Runs bootstrap's load_setup_credentials with a seed token and a stubbed validator.
+# VALIDATE_RC is what the provider's validate hook returns (unset = no hook defined).
+run_seed_flow() {
+  local setup_dir="$TEST_TEMP_DIR/seed-setup"
+  mkdir -p "$setup_dir"
+  printf 'seed-token-abc' > "$setup_dir/provider_token.txt"
+  printf 'the-user' > "$setup_dir/provider_user.txt"
+  printf 'the-org' > "$setup_dir/provider_org.txt"
+  export IMPORT_LOG="$TEST_TEMP_DIR/import.log"; : > "$IMPORT_LOG"
+  local funcs hook=""
+  funcs="$(sed -n '/^load_setup_credentials()/,/^}/p' "$PROJECT_ROOT/.devcontainer/bootstrap.bash")"
+  if [ -n "${VALIDATE_RC:-}" ]; then
+    hook="provider_bootstrap_validate_token() { cat >/dev/null; return $VALIDATE_RC; }"
+  fi
+  run env DEVENV_TOOLS="$PROJECT_ROOT/tools" setup_dir="$setup_dir" IMPORT_LOG="$IMPORT_LOG" \
+      email_file=/nonexistent name_file=/nonexistent IMPORT_RC="${IMPORT_RC:-0}" bash -c "
+        source \"\$DEVENV_TOOLS/lib/providers/provider-core.bash\"
+        ensure_provider_seam() { :; }
+        provider_auth_status() { return 1; }
+        provider_auth_import_token() { cat > \"\$IMPORT_LOG\"; return \$IMPORT_RC; }
+        $hook
+        $funcs
+        load_setup_credentials
+        echo \"AUTH_NEEDED=\$AUTH_NEEDED\"
+      "
+}
+
+@test "load_setup_credentials: a seed the provider accepts is imported and deleted" {
+  VALIDATE_RC=0 run_seed_flow
+  [ "$status" -eq 0 ]
+  [ "$(cat "$IMPORT_LOG")" = "seed-token-abc" ]
+  [ ! -f "$TEST_TEMP_DIR/seed-setup/provider_token.txt" ]
+  [[ "$output" == *"AUTH_NEEDED=0"* ]]
+}
+
+@test "load_setup_credentials: a seed the provider rejects is neither imported nor deleted" {
+  VALIDATE_RC=1 run_seed_flow
+  [ "$status" -eq 0 ]
+  [ ! -s "$IMPORT_LOG" ]
+  [ -f "$TEST_TEMP_DIR/seed-setup/provider_token.txt" ]
+  [[ "$output" == *"AUTH_NEEDED=1"* ]]
+  [[ "$output" == *"rejected"* ]]
+}
+
+@test "load_setup_credentials: an unverifiable seed (provider unreachable) is imported with a warning" {
+  VALIDATE_RC=2 run_seed_flow
+  [ "$status" -eq 0 ]
+  [ "$(cat "$IMPORT_LOG")" = "seed-token-abc" ]
+  [ ! -f "$TEST_TEMP_DIR/seed-setup/provider_token.txt" ]
+  [[ "$output" == *"could not verify"* ]]
+}
+
+@test "load_setup_credentials: a provider with no validate hook imports the seed as before" {
+  run_seed_flow
+  [ "$status" -eq 0 ]
+  [ "$(cat "$IMPORT_LOG")" = "seed-token-abc" ]
+  [ ! -f "$TEST_TEMP_DIR/seed-setup/provider_token.txt" ]
+}
+
+@test "load_setup_credentials: a seed that cannot be imported is kept and auth is flagged" {
+  VALIDATE_RC=0 IMPORT_RC=1 run_seed_flow
+  [ "$status" -eq 0 ]
+  [ -f "$TEST_TEMP_DIR/seed-setup/provider_token.txt" ]
+  [[ "$output" == *"AUTH_NEEDED=1"* ]]
+}
+
+@test "configure_nuget_sources registers no GitHub feed and sends no token under azure" {
+  run_feed_config azure configure_nuget_sources
+  [ "$status" -eq 0 ]
+  run grep -q 'nuget.pkg.github.com' "$DOTNET_LOG"
+  [ "$status" -ne 0 ]
+  run grep -q 'feed-token-123' "$DOTNET_LOG"
+  [ "$status" -ne 0 ]
+  # the local development source is still registered
+  grep -q 'local-nuget-dev' "$DOTNET_LOG"
+}
+
+@test "configure_nuget_sources registers the GitHub feed with the provider credential under github" {
+  run_feed_config github configure_nuget_sources
+  [ "$status" -eq 0 ]
+  grep -q 'nuget.pkg.github.com/the-org' "$DOTNET_LOG"
+  grep -q -- '-u the-user' "$DOTNET_LOG"
+}
+
+@test "configure_nuget_sources refreshes the credentials of a source that already exists (token rotation)" {
+  DOTNET_LIST="  1.  github [Enabled]
+      https://nuget.pkg.github.com/the-org/index.json" run_feed_config github configure_nuget_sources
+  [ "$status" -eq 0 ]
+  grep -q 'nuget update source github' "$DOTNET_LOG"
+  grep -q 'feed-token-123' "$DOTNET_LOG"
+  run grep -q 'nuget add source github' "$DOTNET_LOG"
+  [ "$status" -ne 0 ]
+}
+
 @test "configure_user_npmrc leaves ~/.npmrc with owner-only permissions" {
-  local home_dir="$TEST_TEMP_DIR/npmrc-home"
+  local home_dir="$TEST_TEMP_DIR/feed-home"
   mkdir -p "$home_dir"
   printf '//npm.pkg.github.com/:_authToken=old-token\n' > "$home_dir/.npmrc"
   chmod 644 "$home_dir/.npmrc"
-  local configurer
-  configurer="$(sed -n '/^configure_user_npmrc()/,/^}/p' "$PROJECT_ROOT/.devcontainer/bootstrap.bash")"
-  run env HOME="$home_dir" PROVIDER_NAME=azure bash -c "ensure_provider_seam() { :; }; $configurer; configure_user_npmrc"
+  run_feed_config azure configure_user_npmrc
   [ "$status" -eq 0 ]
   [ "$(stat -c '%a' "$home_dir/.npmrc")" = "600" ]
   grep -q 'old-token' "$home_dir/.npmrc"
+}
+
+@test "configure_user_npmrc under azure never writes the provider token into the npmrc" {
+  run_feed_config azure configure_user_npmrc
+  [ "$status" -eq 0 ]
+  [ ! -f "$TEST_TEMP_DIR/feed-home/.npmrc" ] || run ! grep -q 'feed-token-123' "$TEST_TEMP_DIR/feed-home/.npmrc"
+}
+
+@test "configure_user_npmrc under github writes the registry token and keeps the file owner-only" {
+  local home_dir="$TEST_TEMP_DIR/feed-home"
+  mkdir -p "$home_dir"
+  printf 'registry=https://registry.example.test/\n' > "$home_dir/.npmrc"
+  chmod 644 "$home_dir/.npmrc"
+  run_feed_config github configure_user_npmrc
+  [ "$status" -eq 0 ]
+  grep -q '^//npm.pkg.github.com/:_authToken=feed-token-123$' "$home_dir/.npmrc"
+  grep -q '^registry=https://registry.example.test/$' "$home_dir/.npmrc"
+  [ "$(stat -c '%a' "$home_dir/.npmrc")" = "600" ]
 }
 
 @test "install_or_configure_nvm resolves NODE_VERSION when sourced before DEVENV_ROOT is set" {
@@ -1085,7 +1220,7 @@ stub_runner() {
   [ "$status" -eq 1 ]
   [[ "$output" == *"Task failed: install_dotnet"* ]]
   grep -qx install_dotnet "$TEST_TEMP_DIR/calls"
-  run ! grep -qx download_container_scripts "$TEST_TEMP_DIR/calls"
+  run ! grep -qx load_setup_credentials "$TEST_TEMP_DIR/calls"
 }
 
 @test "a failing task stops run_update_tasks: exit 1, later tasks never run" {
@@ -1093,7 +1228,7 @@ stub_runner() {
   run stub_runner run_update_tasks install_dotnet
   [ "$status" -eq 1 ]
   [[ "$output" == *"Task failed: install_dotnet"* ]]
-  run ! grep -qx download_container_scripts "$TEST_TEMP_DIR/calls"
+  run ! grep -qx load_setup_credentials "$TEST_TEMP_DIR/calls"
 }
 
 @test "run_bootstrap_tasks with explicit names runs only those, in the order given" {
@@ -1122,4 +1257,134 @@ stub_runner() {
 @test "Bootstrap-Customization.md does not list a custom-bootstrap.sh hook that is never run" {
   run grep -n '\.devcontainer/custom-bootstrap\.sh' "$PROJECT_ROOT/docs/Bootstrap-Customization.md"
   [ "$status" -ne 0 ]
+}
+
+# key-update-provider picks the provider through the one INI reader: a config written
+# `name = azure`, or with CRLF line endings, selects azure just as `name=azure` does.
+@test "key-update-provider reads the provider name with spaces around =, or with CRLF" {
+  local funcs variant root
+  funcs="$(sed -n '/^_key_update_run()/,/^}/p;/^key-update-provider()/,/^}/p' "$PROJECT_ROOT/.devcontainer/bootstrap.bash")"
+  for variant in $'[provider]\nname=azure\n' $'[provider]\nname = azure\n' $'[provider]\r\nname=azure\r\n'; do
+    root="$(mktemp -d)"
+    mkdir -p "$root/tools/lib/providers/azure" "$root/tools/lib"
+    cp "$PROJECT_ROOT/tools/lib/config-reader.bash" "$root/tools/lib/"
+    printf '#!/bin/bash\necho "rotated:azure"\n' > "$root/tools/lib/providers/azure/key-update.sh"
+    printf '%s' "$variant" > "$root/devenv.config"
+    run bash -c "unset DEVENV_KEY_UPDATE_PROVIDER; DEVENV_ROOT='$root'; $funcs; key-update-provider"
+    rm -rf "$root"
+    [ "$status" -eq 0 ] || { echo "variant $(printf '%q' "$variant"): $output"; return 1; }
+    [[ "$output" == *"rotated:azure"* ]] || { echo "variant $(printf '%q' "$variant"): $output"; return 1; }
+  done
+}
+
+@test "record_bootstrap_run_time writes both markers, and they agree" {
+  local d="$TEST_TEMP_DIR/markers"; mkdir -p "$d/runtime"
+  run bash -c "
+    source <(sed -n '/^record_bootstrap_run_time()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+    container_bootstrap_run_file='$d/container'; repo_bootstrap_run_file='$d/runtime/repo'
+    record_bootstrap_run_time >/dev/null
+    [ -s \"\$container_bootstrap_run_file\" ] && cmp -s \"\$container_bootstrap_run_file\" \"\$repo_bootstrap_run_file\"
+  "
+  [ "$status" -eq 0 ]
+}
+
+# ---------------------------------------------------------------------------
+# Robustness: symlink installs, PATH, missing seeds (functions sourced from
+# the real bootstrap.bash)
+# ---------------------------------------------------------------------------
+
+@test "link_replacing_symlink_only creates a link, repoints a stale one, and is idempotent" {
+  local d="$TEST_TEMP_DIR/lk"; mkdir -p "$d"; echo a > "$d/src"
+  run bash -c "
+    source <(sed -n '/^link_replacing_symlink_only()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+    link_replacing_symlink_only '$d/src' '$d/dest' && [ \"\$(readlink '$d/dest')\" = '$d/src' ] || exit 11
+    ln -sfn /nonexistent '$d/dest'
+    link_replacing_symlink_only '$d/src' '$d/dest' && [ \"\$(readlink '$d/dest')\" = '$d/src' ] || exit 12
+    link_replacing_symlink_only '$d/src' '$d/dest'
+  "
+  [ "$status" -eq 0 ]
+}
+
+@test "link_replacing_symlink_only never deletes a real file or directory" {
+  local d="$TEST_TEMP_DIR/lk2"; mkdir -p "$d/realdir"; echo keep > "$d/realdir/f"; echo keepfile > "$d/realfile"; echo a > "$d/src"
+  run bash -c "
+    source <(sed -n '/^link_replacing_symlink_only()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+    link_replacing_symlink_only '$d/src' '$d/realdir'
+    link_replacing_symlink_only '$d/src' '$d/realfile'
+  "
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"not a symlink"* ]]
+  [ ! -L "$d/realdir" ] && [ "$(cat "$d/realdir/f")" = "keep" ]
+  [ ! -L "$d/realfile" ] && [ "$(cat "$d/realfile")" = "keepfile" ]
+}
+
+@test "install_copilot_instructions leaves a real ~/.copilot/skills directory in place" {
+  local toolbox="$TEST_TEMP_DIR/tb"; local home_dir="$TEST_TEMP_DIR/hm"
+  mkdir -p "$toolbox/copilot/skills" "$home_dir/.copilot/skills"
+  echo mine > "$home_dir/.copilot/skills/my-skill"
+  echo i > "$toolbox/copilot/copilot-instructions.md"
+  run bash -c "
+    HOME='$home_dir'; toolbox_root='$toolbox'
+    source <(sed -n '/^link_replacing_symlink_only()/,/^}/p;/^install_copilot_instructions()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+    install_copilot_instructions
+  "
+  [ "$status" -eq 0 ]
+  [ "$(cat "$home_dir/.copilot/skills/my-skill")" = "mine" ]
+  [ -L "$home_dir/.copilot/copilot-instructions.md" ]
+}
+
+@test "the generated devenvrc puts tools before repo scripts and does not grow PATH when sourced twice" {
+  local toolbox="$TEST_TEMP_DIR/tbpath"; local home_dir="$TEST_TEMP_DIR/hmpath"
+  mkdir -p "$toolbox/tools" "$toolbox/repos/r1/scripts" "$home_dir"
+  run bash -c "
+    HOME='$home_dir'; toolbox_root='$toolbox'
+    source <(sed -n '/^write_devenvrc()/,/^DEVENVRC_EOF\$/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'; echo '}')
+    write_devenvrc >/dev/null
+    export DEVENV_ROOT='$toolbox'
+    . '$home_dir/.devenvrc' 2>/dev/null; first=\"\$PATH\"
+    . '$home_dir/.devenvrc' 2>/dev/null
+    [ \"\$PATH\" = \"\$first\" ] || { echo 'PATH grew'; exit 11; }
+    case \"\$PATH\" in *'$toolbox/tools:'*'$toolbox/repos/r1/scripts'*) ;; *) echo \"order: \$PATH\"; exit 12 ;; esac
+  "
+  [ "$status" -eq 0 ]
+}
+
+@test "load_setup_credentials reports missing identity seeds in the banner instead of exiting" {
+  local d="$TEST_TEMP_DIR/seeds"; mkdir -p "$d"
+  run bash -c "
+    setup_dir='$d'; email_file='$d/email.txt'; name_file='$d/name.txt'
+    provider_auth_status() { return 0; }
+    source <(sed -n '/^load_setup_credentials()/,/^}/p;/^finish_message()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+    load_setup_credentials
+    echo 'still-running'
+    finish_message
+  "
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"still-running"* ]]
+  [[ "$output" == *"setup answers are missing"* ]]
+}
+
+@test "git-completion is vendored in the repo and sourced from there, not downloaded at bootstrap" {
+  [ -s "$PROJECT_ROOT/.devcontainer/git-completion.bash" ]
+  run ! grep -n 'git-completion.bash.*raw.githubusercontent\|raw.githubusercontent.*git-completion' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  grep -q '\.devcontainer/git-completion.bash' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  run ! grep -n '\.git-completion\.bash' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+}
+
+@test "the OS package round does not upgrade every installed package" {
+  run ! grep -n 'apt upgrade\|apt-get upgrade' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+}
+
+@test "bootstrap.bash code names no provider: provider-specific work comes from the bootstrap hooks" {
+  # Third-party download hosts (yq, nvm) are not provider logic.
+  run ! grep -nE '^[^#]*(azure|ghp_|x-access-token)' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  run ! grep -nE '^[^#]*[[:space:]]gh[[:space:]\\]' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  run ! grep -nE '^[^#]*PROVIDER_NAME:-github' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+}
+
+@test "each provider declares its OS packages through a hook: gh for github, none for azure" {
+  run bash -c "source '$PROJECT_ROOT/tools/lib/providers/github/bootstrap.bash' 2>/dev/null; provider_bootstrap_apt_packages"
+  [ "$output" = "gh" ]
+  run bash -c "source '$PROJECT_ROOT/tools/lib/providers/azure/bootstrap.bash' 2>/dev/null; provider_bootstrap_apt_packages"
+  [ -z "$output" ]
 }

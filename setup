@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Ensure that the script is not run with CRLF line endings
-scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"; scriptfile="$0"; if [[ "$(file ${scriptdir}/${scriptfile})" =~ "CRLF" && -f "${scriptdir}/${scriptfile}" && "$(head -n 100 ${scriptdir}/${scriptfile} | grep "^scriptdir.\+dg4MbsIfhbv4-Bash-CRLF-selfheal_Written_By_Kenneth_Lutzke-8Nds9NclkU4sgE" > /dev/null 2>&1 ; echo "$?" )" == "0" ]]; then echo "$(cat ${scriptdir}/${scriptfile} | sed 's/\r$//')" > ${scriptdir}/${scriptfile} ; bash ${scriptdir}/${scriptfile} $@ ; exit ; fi ; echo "" > /dev/null 2>&1
+scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"; scriptfile="${scriptdir}/$(basename "${BASH_SOURCE[0]}")"; if [ -f "$scriptfile" ] && grep -q "$(printf '\r')" "$scriptfile" 2>/dev/null && head -n 100 "$scriptfile" | grep -q "^scriptdir.\+dg4MbsIfhbv4-Bash-CRLF-selfheal_Written_By_Kenneth_Lutzke-8Nds9NclkU4sgE"; then tr -d '\r' < "$scriptfile" > "$scriptfile.crlf-fix" && cat "$scriptfile.crlf-fix" > "$scriptfile" && rm -f "$scriptfile.crlf-fix" && exec bash "$scriptfile" "$@"; fi ; echo "" > /dev/null 2>&1
 
 get_script_path() {
   # Check if realpath is available (Linux or installed on Mac)
@@ -11,13 +11,13 @@ get_script_path() {
     # Fallback to using readlink and python for Mac
     target_file="$0"
 
-    cd "$(dirname "$target_file")"
+    cd "$(dirname "$target_file")" || exit 1
     target_file=$(basename "$target_file")
 
     # Iterate down a (possible) chain of symlinks
     while [ -L "$target_file" ]; do
       target_file=$(readlink "$target_file")
-      cd "$(dirname "$target_file")"
+      cd "$(dirname "$target_file")" || exit 1
       target_file=$(basename "$target_file")
     done
 
@@ -44,76 +44,65 @@ save_response() {
   fi
 }
 
-validate_github_pat() {
-  local token_file="$SETUP_DIR/provider_token.txt"
+# Collect, check and live-validate the provider token and organization. The
+# provider hooks (provider_setup_*) supply every provider-specific prompt and
+# check; this function names no provider.
+validate_provider_token() {
+  local token_file="$SETUP_DIR/provider_token.txt" label token detected_org org_answer reason rc
+  label="$(provider_setup_label)"
 
   while true; do
-  if [ ! -s "$token_file" ]; then
-    echo "Paste a GitHub PAT (must start with ghp_ and include: repo, workflow, read:packages, read:org, write:discussion, project):"
-    read -r new_token
-    if [ -n "$new_token" ]; then
-      echo "$new_token" > "$token_file"
-      chmod 600 "$token_file"
+    if [ ! -s "$token_file" ]; then
+      provider_setup_token_prompt
+      read -r new_token
+      if [ -n "$new_token" ]; then
+        echo "$new_token" > "$token_file"
+        chmod 600 "$token_file"
       else
         continue
-    fi
-  fi
-
-  # Prompt for GitHub organization if not already set
-  if [ ! -f "$SETUP_DIR/provider_org.txt" ]; then
-    # Try to extract organization from git remote URL
-    detected_org=""
-    if git remote get-url origin &>/dev/null; then
-      remote_url=$(git remote get-url origin)
-      # Extract org from SSH URL: git@github.com:org/repo.git
-      if [[ "$remote_url" =~ git@github\.com:([^/]+)/ ]]; then
-        detected_org="${BASH_REMATCH[1]}"
-      # Extract org from HTTPS URL: https://github.com/org/repo.git
-      elif [[ "$remote_url" =~ github\.com[:/]([^/]+)/ ]]; then
-        detected_org="${BASH_REMATCH[1]}"
       fi
     fi
-    
-    if [ -n "$detected_org" ]; then
-      echo "Enter your GitHub organization name [default: $detected_org]:"
-    else
-      echo "Enter your GitHub organization name:"
-    fi
-    read -r github_org
-    
-    # Use detected org as default if user presses enter without input
-    if [ -z "$github_org" ] && [ -n "$detected_org" ]; then
-      github_org="$detected_org"
-    fi
-    
-    if [ -n "$github_org" ]; then
-      echo "$github_org" > "$SETUP_DIR/provider_org.txt"
-      chmod 600 "$SETUP_DIR/provider_org.txt"
-      echo "GitHub organization set to: $github_org"
-    fi
-  fi
 
-  GH_TOKEN=$(cat "$token_file")
+    # Prompt for the organization if not already set
+    if [ ! -f "$SETUP_DIR/provider_org.txt" ]; then
+      detected_org="$(provider_setup_detect_org)"
+      if [ -n "$detected_org" ]; then
+        echo "Enter your $label organization name [default: $detected_org]:"
+      else
+        echo "Enter your $label organization name:"
+      fi
+      read -r org_answer
+      # Use detected org as default if user presses enter without input
+      if [ -z "$org_answer" ] && [ -n "$detected_org" ]; then
+        org_answer="$detected_org"
+      fi
+      if [ -n "$org_answer" ]; then
+        echo "$org_answer" > "$SETUP_DIR/provider_org.txt"
+        chmod 600 "$SETUP_DIR/provider_org.txt"
+        echo "$label organization set to: $org_answer"
+      fi
+    fi
 
-  if [[ "$GH_TOKEN" != ghp_* ]]; then
-    echo "Token must start with ghp_. Please create a new token and paste it."
-    : > "$token_file"
-    continue
-  fi
+    token=$(cat "$token_file")
 
-  # Verify the token live: one /user call. The header travels on stdin so the
-  # secret never appears in the process arguments. A rejection (any HTTP status
-  # other than 200) clears the token and re-prompts; an unreachable API (no
-  # status at all) must not trap offline users, so it warns and keeps the
-  # prefix-valid token.
-  http_code=$(printf 'Authorization: Bearer %s\n' "$GH_TOKEN" | curl -s -o /dev/null -w '%{http_code}' -H @- "https://api.github.com/user" 2>/dev/null)
-  if [ "$http_code" = "000" ] || [ -z "$http_code" ]; then
-    echo "Could not verify the token against GitHub (API unreachable); keeping it."
-  elif [ "$http_code" != "200" ]; then
-    echo "GitHub rejected the token (HTTP $http_code). Please create a new token and paste it."
-    : > "$token_file"
-    continue
-  fi
+    if ! reason=$(printf '%s' "$token" | provider_setup_check_token_format); then
+      [ -n "$reason" ] && echo "$reason"
+      : > "$token_file"
+      continue
+    fi
+
+    # Verify the token live. A rejection clears the token and re-prompts; an
+    # unreachable service (no status at all) must not trap offline users, so it
+    # warns and keeps the shape-valid token.
+    rc=0
+    printf '%s' "$token" | provider_setup_validate_token "$(cat "$SETUP_DIR/provider_org.txt" 2>/dev/null)" || rc=$?
+    if [ "$rc" -eq 2 ]; then
+      echo "Could not verify the token against $label (service unreachable); keeping it."
+    elif [ "$rc" -ne 0 ]; then
+      echo "$label rejected the token. Please create a new token and paste it."
+      : > "$token_file"
+      continue
+    fi
     chmod 600 "$token_file"
     break
   done
@@ -159,15 +148,31 @@ SETUP_DIR="$toolbox_root/.setup"
 mkdir -p "$SETUP_DIR"
 chmod 700 "$SETUP_DIR"
 
+# Select the provider named in devenv.config and load its host-side hooks.
+# (setup runs on the host, possibly bash 3.2: the hooks stay 3.2 compatible.)
+# shellcheck disable=SC1091
+source "$toolbox_root/tools/lib/config-reader.bash"
+provider_name="$(config_get_raw "$toolbox_root/devenv.config" provider name "")"
+if [ -z "$provider_name" ]; then
+  echo "No [provider] name in devenv.config."
+  exit 1
+fi
+provider_hooks="$toolbox_root/tools/lib/providers/$provider_name/setup.bash"
+if [ ! -f "$provider_hooks" ]; then
+  echo "No setup hooks for provider '$provider_name' ($provider_hooks). Check [provider] name in devenv.config."
+  exit 1
+fi
+# shellcheck disable=SC1090
+source "$provider_hooks"
+
 # Asking questions
 save_response "What is your HUMAN name?" "name.txt"
-save_response "What is your github user (just the USER, not your email)?" "provider_user.txt"
-echo "For the next step, you will need a GitHub PAT (personal access token)."
-echo "Create a classic token at: https://github.com/settings/tokens/new"
-echo "Required scopes: repo, read:packages, read:org, write:discussion, project"
-echo "See the README for detailed instructions."
-save_response "Paste your GitHub PAT (starts with ghp_):" "provider_token.txt"
-validate_github_pat
+provider_user_label="$(provider_setup_label)"
+save_response "What is your $provider_user_label user (just the USER, not your email)?" "provider_user.txt"
+echo "For the next step, you will need a $provider_user_label personal access token (PAT)."
+provider_setup_token_help
+save_response "$(provider_setup_token_prompt)" "provider_token.txt"
+validate_provider_token
 
 echo ""
 echo "Optionally, configure your Digital Ocean API token for infrastructure operations."
@@ -176,7 +181,15 @@ if [[ "$setup_do" == "yes" ]] || [[ "$setup_do" == "y" ]]; then
   validate_digitalocean_token
 fi
 
-timezone=$(cat /etc/timezone)
+# /etc/timezone exists on Debian-style Linux only; macOS and others expose the
+# zone through the /etc/localtime symlink.
+if [ -r /etc/timezone ]; then
+  timezone=$(cat /etc/timezone)
+elif [ -L /etc/localtime ]; then
+  timezone=$(readlink /etc/localtime | sed 's|.*/zoneinfo/||')
+else
+  timezone="${TZ:-UTC}"
+fi
 save_response "What is your timezone?  Hit ENTER for $timezone" "timezone.txt"
 if [ ! -f "$SETUP_DIR/timezone.txt" ]; then
     echo "$timezone" > "$SETUP_DIR/timezone.txt"
@@ -189,7 +202,7 @@ if [ ! -f "$SETUP_DIR/email.txt" ]; then
     EMAIL_DOMAIN=""
     
     if [ -f "$CONFIG_FILE" ]; then
-        EMAIL_DOMAIN=$(grep -E '^\s*email_domain\s*=' "$CONFIG_FILE" | cut -d'=' -f2 | xargs)
+        EMAIL_DOMAIN=$(config_get_raw "$CONFIG_FILE" organization email_domain "")
     fi
     
     while true; do
@@ -326,16 +339,14 @@ fi
 # Check write permission
 if [ ! -w "$toolbox_root" ]; then
   echo "You do NOT have write permission on '$toolbox_root'."
-  echo -n "Do you want to set write permission for all users (chmod -R a+w)? [y/N] "
+  echo -n "Do you want to make it writable for your group (chmod -R g+w)? [y/N] "
   read -r response
   if [[ "$response" =~ ^[Yy]$ ]]; then
-    chmod -R a+w "$toolbox_root"
-    if [ $? -eq 0 ]; then
+    if chmod -R g+w "$toolbox_root"; then
       echo "Permissions updated."
     else
       echo "Failed to change permissions. Retrying with sudo..."
-      sudo chmod -R a+w "$toolbox_root"
-      if [ $? -eq 0 ]; then
+      if sudo chmod -R g+w "$toolbox_root"; then
         echo "Permissions updated with sudo."
       else
         echo "Failed to change permissions with sudo. Please check your permissions manually."
@@ -387,31 +398,31 @@ fi
 echo ""
 echo "=== Post-Setup Configuration ==="
 
-# Initialize git configuration if not already done
+# Initialize git identity only where none is set: an existing global identity
+# is the user's own and is never overwritten.
 if [ -n "${email:-}" ]; then
-  git config --global user.email "$email" 2>/dev/null || true
-  git config --global user.name "$HUMAN_NAME" 2>/dev/null || true
+  human_name=""
+  [ -f "$SETUP_DIR/name.txt" ] && human_name=$(cat "$SETUP_DIR/name.txt")
+  if [ -z "$(git config --global user.email 2>/dev/null)" ]; then
+    git config --global user.email "$email" 2>/dev/null || true
+  fi
+  if [ -n "$human_name" ] && [ -z "$(git config --global user.name 2>/dev/null)" ]; then
+    git config --global user.name "$human_name" 2>/dev/null || true
+  fi
   echo "Git configuration initialized."
 fi
 
-# Create .npmrc if GitHub token is available
-if [ -f "$SETUP_DIR/provider_token.txt" ]; then
-  github_token=$(cat "$SETUP_DIR/provider_token.txt")
-  npmrc_file="$HOME/.npmrc"
-  if [ ! -f "$npmrc_file" ] || ! grep -q "_authToken" "$npmrc_file"; then
-    echo "//npm.pkg.github.com/:_authToken=$github_token" >> "$npmrc_file"
-    echo ".npmrc configured for GitHub npm packages."
-  fi
-fi
+# Provider-specific host steps that depend on the credential
+provider_setup_post_hook "$SETUP_DIR"
 
 # Validation checks
 echo ""
 echo "=== Configuration Summary ==="
 echo "Setup directory: $SETUP_DIR"
 [ -f "$SETUP_DIR/name.txt" ] && echo "✓ User name configured"
-[ -f "$SETUP_DIR/provider_user.txt" ] && echo "✓ GitHub user configured"
-[ -f "$SETUP_DIR/provider_token.txt" ] && echo "✓ GitHub token configured"
-[ -f "$SETUP_DIR/provider_org.txt" ] && echo "✓ GitHub organization configured"
+[ -f "$SETUP_DIR/provider_user.txt" ] && echo "✓ $provider_user_label user configured"
+[ -f "$SETUP_DIR/provider_token.txt" ] && echo "✓ $provider_user_label token configured"
+[ -f "$SETUP_DIR/provider_org.txt" ] && echo "✓ $provider_user_label organization configured"
 [ -f "$SETUP_DIR/digitalocean_token.txt" ] && echo "✓ Digital Ocean token configured"
 [ -f "$SETUP_DIR/email.txt" ] && echo "✓ Email configured"
 [ -f "$SETUP_DIR/timezone.txt" ] && echo "✓ Timezone configured"

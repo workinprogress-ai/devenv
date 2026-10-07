@@ -14,6 +14,7 @@ set -euo pipefail
 # shellcheck disable=SC2034  # VERBOSE is written here; read by log_verbose in error-handling.bash
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
+source "$DEVENV_TOOLS/lib/issue-operations.bash"
 
 readonly SCRIPT_VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
@@ -580,15 +581,10 @@ create_batch() {
         # The creation result is the LAST non-empty line issue-create prints: a URL on
         # some providers, a bare issue id on others (the child's log lines share the
         # stream, so earlier lines — even ones containing URLs — are not the result).
-        # The number is read provider-neutrally: the whole line when it is an id,
-        # otherwise the trailing digit run of the URL path.
+        # The number is read provider-neutrally (issue_number_from_ref).
         local issue_url issue_number=""
         issue_url=$(printf '%s\n' "$output" | sed '/^[[:space:]]*$/d' | tail -n 1 | tr -d '\r')
-        if [[ "$issue_url" =~ ^[0-9]+$ ]]; then
-            issue_number="$issue_url"
-        elif [[ "$issue_url" =~ ^https?://[^[:space:]?#]*/([0-9]+)/?([?#][^[:space:]]*)?$ ]]; then
-            issue_number="${BASH_REMATCH[1]}"
-        fi
+        issue_number=$(issue_number_from_ref "$issue_url") || issue_number=""
         if [ -z "$issue_url" ] || [ -z "$issue_number" ]; then
             log_error "Issue[$index] created but could not parse URL/number"
             echo "$output"
@@ -637,46 +633,57 @@ main() {
                 shift
                 ;;
             --type)
+                require_option_value "$1" "${2:-}"
                 DEFAULT_TYPE="$2"
                 shift 2
                 ;;
             --parent)
+                require_option_value "$1" "${2:-}"
                 DEFAULT_PARENT="$2"
                 shift 2
                 ;;
             --label)
+                require_option_value "$1" "${2:-}"
                 DEFAULT_LABELS+=("$2")
                 shift 2
                 ;;
             --assignee)
+                require_option_value "$1" "${2:-}"
                 DEFAULT_ASSIGNEES+=("$2")
                 shift 2
                 ;;
             --blocked-by)
+                require_option_value "$1" "${2:-}"
                 DEFAULT_BLOCKED_BY+=("$2")
                 shift 2
                 ;;
             --milestone)
+                require_option_value "$1" "${2:-}"
                 DEFAULT_MILESTONE="$2"
                 shift 2
                 ;;
             --project)
+                require_option_value "$1" "${2:-}"
                 DEFAULT_PROJECT="$2"
                 shift 2
                 ;;
             --body)
+                require_option_value "$1" "${2:-}"
                 DEFAULT_BODY="$2"
                 shift 2
                 ;;
             --body-file)
+                require_option_value "$1" "${2:-}"
                 DEFAULT_BODY_FILE="$2"
                 shift 2
                 ;;
             -f|--file)
+                require_option_value "$1" "${2:-}"
                 MANIFEST_FILE="$2"
                 shift 2
                 ;;
             -i|--issue)
+                require_option_value "$1" "${2:-}"
                 ISSUE_ENTRIES+=("$2")
                 shift 2
                 ;;

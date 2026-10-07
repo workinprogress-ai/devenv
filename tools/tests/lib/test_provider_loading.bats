@@ -119,7 +119,8 @@ provider_load auth" \
         "$DEVENV_TOOLS/lib/providers/github/prs.bash" | wc -l)
     [ "$src" -eq 2 ]
     local leading
-    leading=$(grep -hE 'gh (issue|pr|run|workflow|label) [a-z]+ "\$\{repo_args\[@\]\}"' \
+    # run verbs translate their JSON through _gh_json_run MAP gh-args...
+    leading=$(grep -hE '(gh|_gh_json_run '"'"'[^'"'"']*'"'"') (issue|pr|run|workflow|label) [a-z]+ "\$\{repo_args\[@\]\}"' \
         "$DEVENV_TOOLS/lib/providers/github/"*.bash | wc -l)
     [ "$leading" -ge 8 ]
 }

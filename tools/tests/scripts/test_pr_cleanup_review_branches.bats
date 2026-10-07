@@ -106,3 +106,29 @@ remote_has() {
   [ "$status" -eq 2 ]
   remote_has "review/a1b2c3d4-2020-01-15-target"
 }
+
+@test "a review branch deleted on the remote is pruned from the local tracking refs" {
+  make_remote_branch "review/a1b2c3d4-2020-01-15-target"
+  git -C "$WORK" fetch -q origin
+  git -C "$REMOTE" branch -q -D "review/a1b2c3d4-2020-01-15-target"
+  run bash "$SCRIPT" --dry-run "$WORK" 30
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"No review branches found."* ]]
+}
+
+@test "a branch that cannot be deleted does not stop the others; the run fails at the end" {
+  make_remote_branch "review/a1b2c3d4-2020-01-15-source"
+  make_remote_branch "review/b1b2c3d4-2020-01-15-source"
+  make_remote_branch "review/c1b2c3d4-2020-01-15-source"
+  # the remote refuses to delete the middle branch
+  mkdir -p "$REMOTE/hooks"
+  printf '#!/bin/sh\nwhile read old new ref; do [ "$ref" = "refs/heads/review/b1b2c3d4-2020-01-15-source" ] && [ "$new" = "0000000000000000000000000000000000000000" ] && exit 1; done; exit 0\n' > "$REMOTE/hooks/pre-receive"
+  chmod +x "$REMOTE/hooks/pre-receive"
+  run bash "$SCRIPT" "$WORK" 30
+  [ "$status" -ne 0 ]
+  local cleanup_output="$output"
+  run ! remote_has "review/a1b2c3d4-2020-01-15-source"
+  run ! remote_has "review/c1b2c3d4-2020-01-15-source"
+  remote_has "review/b1b2c3d4-2020-01-15-source"
+  [[ "$cleanup_output" == *"b1b2c3d4-2020-01-15-source"* ]]
+}

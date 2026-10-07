@@ -49,14 +49,3 @@ run_sync() {
     run grep -F "$github" "$GIT_ARGS_LOG"
     [ "$status" -ne 0 ]
 }
-
-@test "the library's provider header builder matches bootstrap's for both providers" {
-    # bootstrap.bash carries its own copy (it runs before the tools tree is guaranteed);
-    # the two must not drift.
-    for provider in github azure; do
-        lib="$(bash -c "source '$DEVENV_TOOLS/lib/copilot-knowledge.bash' >/dev/null 2>&1; build_provider_git_auth_header $provider tok123")"
-        boot="$(bash -c "source '$PROJECT_ROOT/.devcontainer/bootstrap.bash' >/dev/null 2>&1; build_provider_git_auth_header $provider tok123")"
-        [ -n "$lib" ]
-        [ "$lib" = "$boot" ]
-    done
-}

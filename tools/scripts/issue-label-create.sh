@@ -88,8 +88,9 @@ EOF
 }
 
 # Ensure a single label exists (create, or skip/update per flags).
-# Usage: ensure_label NAME COLOR DESCRIPTION
-ensure_label() {
+# Usage: ensure_one_label NAME COLOR DESCRIPTION
+# (not ensure_label: provider-loader.bash defines that name with another signature)
+ensure_one_label() {
     local name="$1" color="$2" description="$3"
     local repo_spec
     read -ra repo_spec <<< "$(get_repo_spec)"
@@ -151,7 +152,7 @@ seed_from_config() {
         name=$(yq ".labels[$i].name" "$config")
         color=$(yq ".labels[$i].color // \"\"" "$config")
         description=$(yq ".labels[$i].description // \"\"" "$config")
-        ensure_label "$name" "$color" "$description" || exit "$EXIT_GENERAL_ERROR"
+        ensure_one_label "$name" "$color" "$description" || exit "$EXIT_GENERAL_ERROR"
     done
     log_info "Seed complete"
 }
@@ -171,8 +172,8 @@ main() {
                 shift
                 ;;
             -n|--dry-run)       DRY_RUN=1; shift ;;
-            -c|--color)         LABEL_COLOR="$2"; shift 2 ;;
-            -d|--description)   LABEL_DESCRIPTION="$2"; shift 2 ;;
+            -c|--color)         require_option_value "$1" "${2:-}"; LABEL_COLOR="$2"; shift 2 ;;
+            -d|--description)   require_option_value "$1" "${2:-}"; LABEL_DESCRIPTION="$2"; shift 2 ;;
             --update)           UPDATE=1; shift ;;
             --seed)             SEED=1; shift ;;
             --devenv)
@@ -214,7 +215,7 @@ main() {
     if [ "$SEED" -eq 1 ]; then
         seed_from_config
     else
-        ensure_label "$LABEL_NAME" "$LABEL_COLOR" "$LABEL_DESCRIPTION"
+        ensure_one_label "$LABEL_NAME" "$LABEL_COLOR" "$LABEL_DESCRIPTION"
     fi
 }
 

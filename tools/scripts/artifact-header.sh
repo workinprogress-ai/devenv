@@ -71,10 +71,12 @@ main() {
                 ;;
             -V|--verbose) shift ;;  # verbosity handled via log level env; flag accepted for CLI consistency
             --field)
+                require_option_value "$1" "${2:-}"
                 [ -z "${2:-}" ] && invalid_args "Missing value for --field"
                 FIELD="$2"; shift 2 ;;
             --stamp) STAMP=1; shift ;;
             --set)
+                require_option_value "$1" "${2:-}"
                 [ -z "${2:-}" ] && invalid_args "Missing value for --set (KEY=VALUE)"
                 SETS+=("$2"); shift 2 ;;
             *) FILE="$1"; shift ;;

@@ -93,6 +93,26 @@ setup() {
     grep -q "DISPATCH _on_staging_deploy 101" "$FAKE/log"
 }
 
+@test "a signal whose status write failed is reported as failed, with the warning shown" {
+    # the dispatcher is best-effort (exit 0) but names the failed write on stderr
+    cat > "$FAKE/scripts/_on_production_deploy.sh" <<'STUB'
+#!/usr/bin/env bash
+echo "WARNING: workflow write 'Production' failed for issue #105 (best-effort, continuing)" >&2
+exit 0
+STUB
+    chmod +x "$FAKE/scripts/_on_production_deploy.sh"
+    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/scripts" bash "$SCRIPT" production-deploy 105
+    [ "$status" -ne 0 ]
+    [[ "$output" != *"signalled _on_production_deploy for issue #105"* ]]
+    [[ "$output" == *"workflow write 'Production' failed"* ]]
+}
+
+@test "a signal whose status write succeeded is reported as signalled" {
+    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/scripts" bash "$SCRIPT" staging-deploy 101
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"signalled _on_staging_deploy for issue #101"* ]]
+}
+
 @test "zero args enters interactive mode (fallback menu, scripted input)" {
     # No fzf in test env -> numbered-menu fallback; feed a selection + issues.
     run bash -c "printf '2\n101 102\n' | env WORKFLOW_SIGNAL_TOOLS=\"$FAKE/scripts\" bash \"$SCRIPT\""

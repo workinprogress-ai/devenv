@@ -16,30 +16,13 @@ if [ -f "$_ck_lib_dir/providers/provider-core.bash" ]; then
 fi
 unset _ck_lib_dir
 
-# Build GitHub-compatible basic auth header for git HTTPS operations.
-build_github_basic_auth_header() {
-    local token="$1"
-    local auth
-    auth=$(printf 'x-access-token:%s' "$token" | base64 -w0)
-    echo "AUTHORIZATION: basic $auth"
-}
-
-# Provider-dispatched basic-auth header for git HTTPS operations: the shape differs
-# by provider (GitHub: x-access-token user; Azure DevOps: empty user + PAT). Keep in
-# step with .devcontainer/bootstrap.bash's builder (a test compares the two).
-# Usage: build_provider_git_auth_header <provider> <token>
+# The provider's http.extraheader value for git HTTPS operations, from its
+# bootstrap hook (the scheme differs per provider). Prints nothing when the
+# provider defines no hook.
+# Usage: build_provider_git_auth_header <token>
 build_provider_git_auth_header() {
-    local provider="$1" token="$2"
-    case "$provider" in
-        azure)
-            local auth
-            auth=$(printf ':%s' "$token" | base64 -w0)
-            echo "AUTHORIZATION: Basic $auth"
-            ;;
-        *)
-            build_github_basic_auth_header "$token"
-            ;;
-    esac
+    provider_load bootstrap 2>/dev/null
+    provider_bootstrap_call git_auth_header "$1"
 }
 
 # Background non-blocking --ff-only pull for one synced Copilot-side repo.
@@ -68,7 +51,7 @@ pull_copilot_side_repo_on_container_start() {
         # and the nohup env keeps it for the fetch duration — same
         # container-local mitigations as the bootstrap sync site.
         local header
-        header=$(build_provider_git_auth_header "${PROVIDER_NAME:-github}" "$token")
+        header=$(build_provider_git_auth_header "$token")
         nohup env REPO_DIR="$repo_dir" BRANCH="$branch" HEADER="$header" bash -c '
             git -C "$REPO_DIR" -c http.extraheader="$HEADER" fetch --prune origin >/dev/null 2>&1 || exit 0
             git -C "$REPO_DIR" -c http.extraheader="$HEADER" pull --ff-only origin "$BRANCH" >/dev/null 2>&1 || true

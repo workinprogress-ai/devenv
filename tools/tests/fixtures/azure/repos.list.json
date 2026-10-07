@@ -1,0 +1,43 @@
+[
+  {
+    "id": "00000000-0000-4000-8000-000000000003",
+    "name": "Example-Project",
+    "url": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/git/repositories/00000000-0000-4000-8000-000000000003",
+    "project": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "Example-Project",
+      "url": "https://dev.azure.com/example-org/_apis/projects/00000000-0000-4000-8000-000000000001",
+      "state": "wellFormed",
+      "revision": 577,
+      "visibility": "private",
+      "lastUpdateTime": "2026-10-02T13:17:41.457Z"
+    },
+    "size": 0,
+    "remoteUrl": "https://user@example.test/example-org/Example-Project/_git/Example-Project",
+    "sshUrl": "user@example.test:v3/example-org/Example-Project/Example-Project",
+    "webUrl": "https://dev.azure.com/example-org/Example-Project/_git/Example-Project",
+    "isDisabled": false,
+    "isInMaintenance": false
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000002",
+    "name": "devenv.omsnic.beta",
+    "url": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/git/repositories/00000000-0000-4000-8000-000000000002",
+    "project": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "Example-Project",
+      "url": "https://dev.azure.com/example-org/_apis/projects/00000000-0000-4000-8000-000000000001",
+      "state": "wellFormed",
+      "revision": 577,
+      "visibility": "private",
+      "lastUpdateTime": "2026-10-02T13:17:41.457Z"
+    },
+    "defaultBranch": "refs/heads/master",
+    "size": 3495472,
+    "remoteUrl": "https://user@example.test/example-org/Example-Project/_git/devenv.omsnic.beta",
+    "sshUrl": "user@example.test:v3/example-org/Example-Project/devenv.omsnic.beta",
+    "webUrl": "https://dev.azure.com/example-org/Example-Project/_git/devenv.omsnic.beta",
+    "isDisabled": false,
+    "isInMaintenance": false
+  }
+]

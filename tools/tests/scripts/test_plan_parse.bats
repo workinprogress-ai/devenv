@@ -40,8 +40,8 @@ setup() {
 - [ ] **4.1 [L] large open task**
 EOF
 
-    LEGACY_FILE="$PLAN_DIR/Implementation_plan-issue-7-001.md"
-    cp "$PLAN_FILE" "$LEGACY_FILE"
+    STEM_FILE="$PLAN_DIR/Implementation_plan-issue-7-001.md"
+    cp "$PLAN_FILE" "$STEM_FILE"
 }
 
 # ---------------------------------------------------------------------------
@@ -132,8 +132,8 @@ EOF
     [ "$(echo "$output" | jq -r '.plan_file')" = "Plan-issue-42-001.md" ]
 }
 
-@test "plan-parse --summary accepts legacy Implementation_plan stem" {
-    run bash "$DEVENV_TOOLS/scripts/plan-parse.sh" "$LEGACY_FILE" --summary
+@test "plan-parse --summary accepts the Implementation_plan stem" {
+    run bash "$DEVENV_TOOLS/scripts/plan-parse.sh" "$STEM_FILE" --summary
     [ "$status" -eq 0 ]
     [ "$(echo "$output" | jq -r '.plan_file')" = "Implementation_plan-issue-7-001.md" ]
     [ "$(echo "$output" | jq -r '.tasks_total')" = "6" ]

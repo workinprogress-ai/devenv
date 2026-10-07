@@ -60,3 +60,27 @@ script_version_constant() {
     done
     [ -z "$bad" ] || { printf '%s' "$bad"; return 1; }
 }
+
+@test "package.json packageManager names the pnpm version tool-versions.bash declares" {
+    local declared pinned
+    declared="$(grep -m1 -E '^export PNPM_VERSION=' "$PROJECT_ROOT/.devcontainer/tool-versions.bash" | sed -E 's/.*="([^"]*)".*/\1/')"
+    pinned="$(jq -r '.packageManager' "$PROJECT_ROOT/package.json")"
+    [ "$pinned" = "pnpm@$declared" ]
+}
+
+@test "bootstrap and tool-versions make the declared node the nvm default" {
+    grep -q 'nvm alias default "\$NODE_VERSION"' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+    grep -q 'nvm alias default "\$NODE_VERSION"' "$PROJECT_ROOT/.devcontainer/tool-versions.bash"
+}
+
+@test "install_repo_dependencies reports a failed pnpm install in the finish banner and does not abort" {
+    run bash -c "
+        toolbox_root='$PROJECT_ROOT'
+        pnpm() { return 1; }
+        source <(sed -n '/^install_repo_dependencies()/,/^}/p;/^finish_message()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+        install_repo_dependencies
+        finish_message
+    "
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"pnpm install' failed"* ]]
+}

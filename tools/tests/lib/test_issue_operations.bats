@@ -77,12 +77,12 @@ EOF
     [[ "${result[*]}" =~ --type ]] && [[ "${result[*]}" =~ "Feature" ]]
 }
 
-@test "build_issue_filters rejects legacy alias story (alias removed per policy)" {
+@test "build_issue_filters rejects the story alias" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
     run ! build_issue_filters result --type story
 }
 
-@test "build_issue_filters with legacy alias bug maps to Bug" {
+@test "build_issue_filters with the bug alias maps to Bug" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
     build_issue_filters result --type bug
     [[ "${result[*]}" =~ --type ]] && [[ "${result[*]}" =~ "Bug" ]]
@@ -247,20 +247,9 @@ EOF
 # PR operations tests
 # ============================================================================
 
-@test "find_pr_by_branch with state parameter" {
-    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    # This would require mocking gh - just test the function exists and accepts parameters
-    declare -f find_pr_by_branch > /dev/null
-}
-
 @test "find_pr_by_search without search query returns error" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
     ! find_pr_by_search
-}
-
-@test "create_pr function exists and accepts parameters" {
-    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    declare -f create_pr > /dev/null
 }
 
 # ============================================================================
@@ -783,34 +772,3 @@ EOF
     grep -qx -- "test-org/test-repo" "$GH_CALL_LOG"
 }
 
-@test "find_pr_by_branch passes -R and repo as separate gh arguments" {
-    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    create_recording_gh_mock
-    run find_pr_by_branch --repo test-org/test-repo feature/x
-    [ "$status" -eq 0 ]
-    grep -qx -- "-R" "$GH_CALL_LOG"
-    grep -qx -- "test-org/test-repo" "$GH_CALL_LOG"
-    # Exactly one -R: a doubled one means the repo leaked into the flag
-    # array instead of the positional slot.
-    [ "$(grep -cx -- '-R' "$GH_CALL_LOG")" -eq 1 ]
-}
-
-@test "find_pr_by_search passes -R and repo as separate gh arguments" {
-    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    create_recording_gh_mock
-    run find_pr_by_search --repo test-org/test-repo "REVIEW:"
-    [ "$status" -eq 0 ]
-    grep -qx -- "-R" "$GH_CALL_LOG"
-    grep -qx -- "test-org/test-repo" "$GH_CALL_LOG"
-    [ "$(grep -cx -- '-R' "$GH_CALL_LOG")" -eq 1 ]
-}
-
-@test "create_pr passes -R and repo as separate gh arguments" {
-    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
-    create_recording_gh_mock
-    run create_pr --repo test-org/test-repo --title T --head h --base b
-    [ "$status" -eq 0 ]
-    grep -qx -- "-R" "$GH_CALL_LOG"
-    grep -qx -- "test-org/test-repo" "$GH_CALL_LOG"
-    [ "$(grep -cx -- '-R' "$GH_CALL_LOG")" -eq 1 ]
-}

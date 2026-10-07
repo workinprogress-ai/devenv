@@ -304,16 +304,8 @@ main() {
     # Materialize `-` (stdin) into COMMENT_BODY before posting so both the
     # dry-run preview and the real post show the same content.
     if [ "$COMMENT_FILE" = "-" ]; then
-        if body_source_stdin_is_tty; then
-            log_error "--body-file - requires piped stdin (refusing to read the terminal)"
-            exit "$EXIT_GENERAL_ERROR"
-        fi
-        COMMENT_BODY=$(cat)
+        COMMENT_BODY=$(body_source_read_dash) || exit "$EXIT_GENERAL_ERROR"
         COMMENT_FILE=""
-        if [ -z "$(printf '%s' "$COMMENT_BODY" | tr -d '[:space:]')" ]; then
-            log_error "Refusing empty stdin body (pipe content or use --body/--body-file)"
-            exit "$EXIT_GENERAL_ERROR"
-        fi
     fi
 
     post_comment

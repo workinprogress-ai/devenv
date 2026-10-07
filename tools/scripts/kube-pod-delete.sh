@@ -7,7 +7,7 @@ source "$DEVENV_TOOLS/lib/kube-selection.bash"
 # Ensure a search string is provided
 if [ -z "${1:-}" ]; then
     echo "Usage: $0 <partial-pod-name> [-n|--namespace <ns>]"
-    echo "  (legacy form: <partial-pod-name> <namespace> also works)"
+    echo "  (<partial-pod-name> <namespace> is also accepted)"
     echo "Environment: YES=1 skips the confirmation prompt."
     exit "$EXIT_MISUSE"
 fi
@@ -15,12 +15,12 @@ fi
 # shellcheck disable=SC2034  # argv is consumed via nameref by parse_namespace_flag
 argv=("$@")
 POD_NAME_PART="$1"
-LEGACY_NS="${2:-}"
+POSITIONAL_NS="${2:-}"
 shift
 
-# Backward compat: a bare second positional is treated as the namespace.
+# A bare second positional is treated as the namespace.
 parse_namespace_flag argv || true
-NAMESPACE="${NAMESPACE_FLAG_VALUE:-$LEGACY_NS}"
+NAMESPACE="${NAMESPACE_FLAG_VALUE:-$POSITIONAL_NS}"
 
 NAMESPACE=$(resolve_namespace "$NAMESPACE")
 

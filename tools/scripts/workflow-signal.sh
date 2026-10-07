@@ -190,9 +190,15 @@ signal_from_args() {
                         exit 1
                     fi
                     did_any=1
-                    if bash "$SIGNAL_TOOLS_ROOT/$current_event.sh" "$arg" >/dev/null 2>&1; then
+                    # The entry scripts are best-effort (exit 0 even when the status write
+                    # failed) but name a failed write on stderr; read that, so a failed
+                    # write is never reported as "signalled".
+                    local signal_out signal_rc=0
+                    signal_out="$(bash "$SIGNAL_TOOLS_ROOT/$current_event.sh" "$arg" 2>&1 >/dev/null)" || signal_rc=$?
+                    if [ "$signal_rc" -eq 0 ] && [[ "$signal_out" != *"workflow write "*" failed"* ]]; then
                         echo "signalled $current_event for issue #$arg"
                     else
+                        [ -n "$signal_out" ] && printf '%s\n' "$signal_out" >&2
                         echo "WARNING: signal $current_event failed for issue #$arg (best-effort, continuing)" >&2
                         rc=1
                     fi

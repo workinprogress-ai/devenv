@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for lib/providers/azure/fork-export.sh — export commits for transfer
+# Tests for scripts/fork-export.sh — export commits for transfer
 # into a real GitHub clone.
 #
 # Contract tests for exporting commits into a real GitHub clone.
@@ -11,7 +11,7 @@ load ../test_helper
 setup() {
     test_helper_setup
     export DEVENV_TOOLS="${BATS_TEST_DIRNAME}/../.."
-    SCRIPT="$DEVENV_TOOLS/lib/providers/azure/fork-export.sh"
+    SCRIPT="$DEVENV_TOOLS/scripts/fork-export.sh"
 }
 
 teardown() {
@@ -519,4 +519,97 @@ _add_upstream_clone_to_repos() {
     run bash "$SCRIPT" --format zip
     [ "$status" -ne 0 ]
     [[ "$output" == *"choose bundle, patch, or both"* ]]
+}
+
+@test "fork-export: refuses a range that contains a merge commit and names it" {
+    _setup_fork_export_fixture
+    _add_export_commit "first"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" checkout -q -b side
+    printf 'side\n' > "$FORK_FIXTURE_WORKING_CLONE/side.txt"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add side.txt
+    git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "side work"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" checkout -q master
+    _add_export_commit "second"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" merge -q --no-ff -m "merge side" side
+
+    run bash "$SCRIPT" --all --export-only --format patch
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"merge commit"* ]]
+    [[ "$output" == *"merge side"* ]]
+    [[ "$output" == *"fork-sync --rebase"* ]]
+}
+
+@test "fork-export: a linear range is not refused" {
+    _setup_fork_export_fixture
+    _add_export_commit "first"
+    run bash "$SCRIPT" --all --export-only --format patch
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"merge commit"* ]]
+}
+
+@test "fork-export: patch mode applies with git am -3 so context drift falls back to a three-way merge" {
+    grep -q 'am -3 "\${PATCH_FILES\[@\]}"' "$SCRIPT"
+    _setup_fork_export_fixture
+    # The target clone's file differs in context from the fork's: plain git am would fail.
+    printf 'l1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\nl9\n' > "$FORK_FIXTURE_GH_CLONE/ctx.txt"
+    git -C "$FORK_FIXTURE_GH_CLONE" add ctx.txt && git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "ctx base"
+    git -C "$FORK_FIXTURE_GH_CLONE" push -q origin HEAD:master
+    git -C "$FORK_FIXTURE_WORKING_CLONE" fetch -q upstream
+    git -C "$FORK_FIXTURE_WORKING_CLONE" merge -q --ff-only upstream/master
+    printf 'l1\nl2\nl3\nl4\nl5\nL6-fork\nl7\nl8\nl9\n' > "$FORK_FIXTURE_WORKING_CLONE/ctx.txt"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" commit -qam "fork edit l6"
+    # In the target, a line inside the patch's context changed (l3), l6 itself untouched.
+    printf 'l1\nl2\nX3\nl4\nl5\nl6\nl7\nl8\nl9\n' > "$FORK_FIXTURE_GH_CLONE/ctx.txt"
+    git -C "$FORK_FIXTURE_GH_CLONE" commit -qam "target drift"
+    git -C "$FORK_FIXTURE_GH_CLONE" push -q origin HEAD:master
+    run bash "$SCRIPT" --all --format patch --apply-to "$FORK_FIXTURE_GH_CLONE"
+    [ "$status" -eq 0 ]
+    grep -q 'L6-fork' "$FORK_FIXTURE_GH_CLONE/ctx.txt"
+}
+
+@test "fork-export: a start after the merge commit exports the linear tail; a start before it is refused" {
+    _setup_fork_export_fixture
+    _add_export_commit "first"
+    local first
+    first="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" checkout -q -b side
+    printf 'side\n' > "$FORK_FIXTURE_WORKING_CLONE/side.txt"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add side.txt
+    git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "side work"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" checkout -q master
+    _add_export_commit "second"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" merge -q --no-ff -m "merge side" side
+    _add_export_commit "after the merge"
+    local tail
+    tail="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)"
+
+    run bash "$SCRIPT" --start-ref "$tail" HEAD --export-only --format patch
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"merge commit"* ]]
+
+    run bash "$SCRIPT" --start-ref "$first" HEAD --export-only --format patch
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"merge side"* ]]
+}
+
+@test "fork-export --dry-run: a merge in the range is refused when the range is fixed, but not when the picker will choose it" {
+    _setup_fork_export_fixture
+    _add_export_commit "first"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" checkout -q -b side
+    printf 'side\n' > "$FORK_FIXTURE_WORKING_CLONE/side.txt"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add side.txt
+    git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "side work"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" checkout -q master
+    _add_export_commit "second"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" merge -q --no-ff -m "merge side" side
+
+    # no TTY: the whole range is exported, so the dry run refuses like the real run
+    run bash "$SCRIPT" --dry-run
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"merge commit"* ]]
+
+    # a TTY with no refs: the picker narrows the range, so the dry run does not refuse
+    command -v script >/dev/null || skip "script(1) not available to provide a TTY"
+    run script -qec "bash '$SCRIPT' --dry-run" /dev/null
+    [[ "$output" != *"merge commit"* ]]
 }

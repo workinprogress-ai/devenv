@@ -1,0 +1,89 @@
+{
+  "count": 8,
+  "value": [
+    {
+      "id": "00000000-0000-4000-8000-000000000021",
+      "name": "TBD",
+      "itemLimit": 0,
+      "stateMappings": {
+        "Epic": "New"
+      },
+      "columnType": "incoming"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000020",
+      "name": "To-Groom",
+      "itemLimit": 5,
+      "stateMappings": {
+        "Epic": "Active"
+      },
+      "isSplit": false,
+      "description": "",
+      "columnType": "inProgress"
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000001e",
+      "name": "Ready",
+      "itemLimit": 5,
+      "stateMappings": {
+        "Epic": "Resolved"
+      },
+      "isSplit": false,
+      "description": "",
+      "columnType": "inProgress"
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000001a",
+      "name": "Implementing",
+      "itemLimit": 5,
+      "stateMappings": {
+        "Epic": "Active"
+      },
+      "isSplit": false,
+      "description": "",
+      "columnType": "inProgress"
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000001b",
+      "name": "Review",
+      "itemLimit": 5,
+      "stateMappings": {
+        "Epic": "Active"
+      },
+      "isSplit": false,
+      "description": "",
+      "columnType": "inProgress"
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000001f",
+      "name": "Merged",
+      "itemLimit": 5,
+      "stateMappings": {
+        "Epic": "Active"
+      },
+      "isSplit": false,
+      "description": "",
+      "columnType": "inProgress"
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000001c",
+      "name": "Staging",
+      "itemLimit": 5,
+      "stateMappings": {
+        "Epic": "Active"
+      },
+      "isSplit": false,
+      "description": "",
+      "columnType": "inProgress"
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000001d",
+      "name": "Production",
+      "itemLimit": 0,
+      "stateMappings": {
+        "Epic": "Closed"
+      },
+      "columnType": "outgoing"
+    }
+  ]
+}

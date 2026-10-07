@@ -90,37 +90,15 @@ EOF
     exit 0
 }
 
-# Get the owner (org or user)
-get_owner() {
-    local policy_org
-    policy_org="$(provider_org_get 2>/dev/null || true)"
-    if [ -n "$policy_org" ]; then
-        echo "$policy_org"
-    else
-        local repo_name
-        repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
-        if [ -n "$repo_name" ]; then
-            provider_repos_view "$repo_name" --json owner -q .owner.login
-        fi
-    fi
-}
-
 # Get issue URL
-# Repo resolution follows the suite's canonical order via resolve_target_repo:
-#   explicit override > DEVENV_REPO env > config org + cwd git root > error.
-# This script previously ignored DEVENV_REPO here and resolved from the
-# current directory, silently adding wrong-repo issues with matching numbers.
+# Repo resolution follows the suite's one resolver, provider_repo_target:
+#   DEVENV_REPO env > the active provider's working-directory spec.
+# Resolving from the working directory alone would add a same-numbered issue
+# from the wrong repository when DEVENV_REPO names another.
 get_issue_url() {
     local issue_num="$1"
-    local repo=""
-    policy_org="$(provider_org_get 2>/dev/null || true)"
-    if [ -n "$policy_org" ]; then
-        local repo_name
-        repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
-        if [ -n "$repo_name" ]; then
-            repo="${policy_org}/${repo_name}"
-        fi
-    fi
+    local repo
+    repo="$(provider_repo_target)"
     provider_issues_view "$repo" "$issue_num" --json url -q .url
 }
 
@@ -146,7 +124,8 @@ add_issue_to_project() {
     log_verbose "Adding issue #$issue_num to project '$PROJECT_NAME'"
     
     # Add issue to project
-    if provider_projects_item_add "" "$PROJECT_NAME" "$issue_url" --owner "$owner" &> /dev/null; then
+    local add_stderr=""
+    if add_stderr=$(provider_projects_item_add "" "$PROJECT_NAME" "$issue_url" --owner "$owner" 2>&1); then
         log_info "Added issue #$issue_num to project '$PROJECT_NAME'"
         
         # Set field values if provided
@@ -157,7 +136,7 @@ add_issue_to_project() {
         return 0
     else
         log_error "Failed to add issue #$issue_num to project '$PROJECT_NAME'"
-        [ -n "$add_stderr" ] && log_error "gh: $add_stderr"
+        [ -n "$add_stderr" ] && log_error "provider: $add_stderr"
         log_info "Check that the project exists, you have permissions, and DEVENV_REPO points at the issue's repository"
         return 1
     fi
@@ -268,6 +247,7 @@ main() {
                 shift
                 ;;
             --field)
+                require_option_value "$1" "${2:-}"
                 FIELD_VALUES+=("$2")
                 shift 2
                 ;;

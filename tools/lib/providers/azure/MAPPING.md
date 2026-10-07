@@ -21,11 +21,11 @@ don't re-derive them:
 
 - **Git transport credentials**: `provider_auth_setup_git` registers a
   host-scoped git credential helper for `https://dev.azure.com` and the
-  configured organization's `https://<org>.visualstudio.com` legacy host
+  configured organization's `<org>.visualstudio.com` host
   (both scoped entries use
   `tools/lib/providers/azure/credential-helper.sh get`) backed by the 0600
   PAT file. Organization identity comes from the provider accessor, normalized
-  to lowercase; missing or invalid identity skips only the legacy entry with a
+  to lowercase; missing or invalid identity skips only the `<org>.visualstudio.com` entry with a
   warning. `key-update-azure` invokes the wiring after every successful
   import. `store`/`erase` are refusals-by-no-op — the PAT file is the only
   durable copy, so git never writes a second one. Unrelated hosts never consult
@@ -33,7 +33,7 @@ don't re-derive them:
 - **npm credentials remain provider-specific**: bootstrap configures the GitHub
   npm registry token only for the GitHub provider. Azure PATs are never queried
   for that registry. npm setup preserves unrelated settings and authentication
-  entries, removes the exact legacy invalid skip-message line, and writes skip
+  entries, removes the exact `Skipping npmrc auth token (gh not authenticated)` line, and writes skip
   status to the console rather than the configuration file. This does not add
   Azure npm feed configuration.
 - **Two api-version regimes**: most endpoints take `api-version=7.1`;
@@ -48,7 +48,7 @@ don't re-derive them:
 - **Long text is stored HTML-ish — except comments written via the markdown
   route**: comment create/edit at `api-version=7.2-preview.4` accept
   `?format=markdown` as a QUERY parameter (a body `format` field is
-  silently ignored — verified live), storing real markdown:
+  silently ignored — observed against the live API), storing real markdown:
   `format: "markdown"` metadata + portal rendering via `renderedText`.
   Without it the portal shows raw markdown as unrendered text. Even on
   the markdown route, comment `.text` and `System.Description` come back
@@ -122,10 +122,14 @@ closedAt from `Microsoft.VSTS.Common.ClosedDate`; comments are typed `[]`
 
 | GitHub shape | Azure shape | Constraint / note |
 |---|---|---|
-| Issue | Work item (type from the config type map) | Type per issue decided at creation; the seam maps Bug/Feature/Task/Epic |
-| Open/closed | New/Active vs Closed/Done/Removed | Mapped inline in the list/view projections |
-| Labels | `System.Tags` (semicolon-separated) | No colors/descriptions — flat strings only |
-| Issue types (Bug/Feature/Task/Epic) | Work-item types (native) | Richer than GH types; the config type map decides the default |
+| Issue | Work item, on a board-backed type | Born as the Azure type mapped for its devenv type (see [Work item types](#work-item-types)) |
+| Open/closed | Every state but Closed/Done/Removed is open | `Resolved` is open; `close` moves to the item's own Completed-category state, `reopen` to its first Proposed (else InProgress) state, both read from the type |
+| Close reason | — | Azure has no close reason; `--reason` is accepted and dropped |
+| Labels | `System.Tags` (`a; b`, trimmed on read) | No colors/descriptions — flat strings only; `edit --remove-label` reads, filters and writes back; label list reads the tags endpoint, else the project's work items |
+| Issue types (Bug/Feature/Task/Epic) | Work-item types | Richer than GH types; a type change is a `System.WorkItemType` replace |
+| Edit flags | `--title`, `--body`, `--add-label`, `--remove-label` | Any other flag (`--milestone`, `--add-assignee`) has no Azure write path and fails rather than being dropped |
+| Descriptions | `System.Description` with the markdown multiline format | Items last edited in the portal hold HTML; the read path un-escapes entities for them |
+| Comments | Work-item comments, paged by continuation token | Posted with `?format=markdown` |
 | Per-repo issue list | Project-wide WIQL | **As-built constraint**: lists are project-scoped (`TeamProject = @project`), not per-repo — see [Area-path convention](#area-path-convention-as-built-provisioning-only) |
 | Milestones | Iterations | Config-mapped (existing `[azure] iteration` keys); no API parity claimed |
 | Sub-issue graph (parent/child) | Work-item links (parent/child, relates-to) | Replaces the GH sub-issue graphql; `issue-graph.bash` maps onto relation queries |
@@ -147,6 +151,18 @@ Constraint (if adopted): repo names must be valid area-path node names
 (no `/`, no leading/trailing spaces). Violation → work items land in the
 project root area; lists silently miss them.
 
+### Work item types
+
+A devenv issue type maps onto the Azure work item type that sits on a board:
+`Epic` → `Epic`, `Feature` → `Feature`, `Bug` → `Bug`, and `Task` (and an
+untyped issue) → `User Story`; the provider creates no plain `Issue` items.
+An `[azure_issue_types]` block in `devenv.config` overrides or extends the map
+(`<devenv type, lower-case>=<Azure type>`); a type with no mapping fails and
+names the key to add. The Agile process's `User Story`, `Bug`, `Feature` and
+`Epic` carry the states New, Active, Resolved, Closed (and Removed); an `Issue`
+has only Active and Closed and sits on no board. Whether `Bug` sits on the
+Stories board is a team setting, which the Tier 2 smoke confirms.
+
 ## Projects (boards) ↔ Azure Boards
 
 ### Board status vocabulary (single source)
@@ -155,21 +171,25 @@ The board vocabulary is defined once here and consumed by three
 surfaces: the `provider_projects_*` verbs, the board workflow docs, and
 the setup script's column provisioning.
 
-- **Settable surface**: `System.State` only — `System.BoardColumn` is
-  ReadOnly (TF401326, verified live even with split columns). The board
-  column follows the state mapping automatically.
-- **Vocabulary mapping**: the fork's `status_workflow` words alias onto
-  process states via config aliases — `[azure_status_aliases]`
-  `<word>=<state>` (e.g. `TBD=New`, `Ready=Active`, `Merged=Closed`).
-  A word that already names a state passes through; an unmappable word
-  fails defined (`field_option_ids` reports the drift, never guesses).
+- **Status storage**: a work item's status is its board column, stored in the
+  Kanban column field `WEF_<guid>_Kanban.Column` (the guid is the board's, so
+  the field is found on the item itself; `System.BoardColumn` mirrors it and is
+  read-only). Writing the column moves `System.State` by the board's
+  column-to-state mapping, so each of the 8 `status_workflow` words is distinct
+  even though the process has four states (`Merged` and `Staging` sit on
+  `Resolved`, `Production` on `Closed`). Reading returns the column, so every
+  word reads back as itself. An item whose type has no board (an `Issue`) has no
+  column: its status is its `System.State`.
+- **Boards by type**: `User Story` and `Bug` share the Stories board, `Feature`
+  the Features board, `Epic` the Epics board.
+- **Vocabulary mapping**: the `status_workflow` words are the board's column
+  names. A fork-local column name that differs maps through the
+  `[azure_status_aliases]` block (`<word>=<column>`). `field_option_ids` passes a
+  word through (or its alias); Azure rejects a value the board does not carry
+  when it is written.
 - **Setup constraint**: setup forces board column names and count to the
-  configured workflow, retaining existing mappings and reusing a supported
-  in-progress mapping for new middle columns. Shared-state columns are a
-  layout choice, not distinct settable states; cards can land in the first
-  same-state column. Forks wanting the full 8-word vocabulary as
-  settable states must adopt an inherited process with custom states
-  (org-level admin, outside project-scope API).
+  configured workflow on each board, retaining existing mappings and reusing a
+  supported in-progress mapping for new middle columns.
 
 GitHub Projects (the `project-*` wrapper surface) map onto Azure Boards —
 natively and, under the one-project constraint, arguably better than GH
@@ -178,35 +198,68 @@ Projects fits:
 | GitHub shape | Azure shape | Constraint / note |
 |---|---|---|
 | Project (board) | Board (per team, per work-item type) | Boards are native, project-level, cross-repo |
-| Status field (column) | Board column (Kanban) / state | The board workflow's status-column vocabulary maps directly |
+| Status field (column) | Board column (the Kanban column field) | The board workflow's status-column vocabulary maps directly; the column field is the status |
 | Project item | Work item | Already on the board by existing — no "add to project" step |
 | Field (single-select) | Board column or field | Field-option ids → column names |
 | Views | Board / backlog / query views | — |
 
 The GH `projects_*` verb surface (8 verbs, as-built) translates to
 Boards reads/updates: `projects_list` → boards list; `field_set` (Status) →
-state/column move; `item_add` → no-op-success (work items are born on the
+Kanban column write; `field_list` → the boards' column names; `item_add` → no-op-success (work items are born on the
 board); `item_id_for_issue` → work-item id (identity). Constraint: the
 fork standardizes **one board per work-item type** with the board
 workflow's column vocabulary (the setup script provisions them).
 
 ## Pull requests ↔ Pull requests
 
-View projection (as-built): `provider_prs_view` emits every field in
-pr-get's DEFAULT_FIELDS non-null. Mapping: mergeable/mergeStateStatus
-derive from Azure's `mergeStatus` (conflicts → CONFLICTING/DIRTY,
-succeeded → MERGEABLE/CLEAN, else UNKNOWN); labels ride reviewers
-(PR objects carry no tag surface); `reviewRequests`, `milestone`,
+View projection: `provider_prs_view` emits every field in pr-get's
+DEFAULT_FIELDS non-null. Mapping: mergeable/mergeStateStatus derive from
+Azure's `mergeStatus` (conflicts → CONFLICTING/DIRTY, succeeded →
+MERGEABLE/CLEAN, else UNKNOWN); `labels` are the PR's own labels (removed
+ones are inactive and left out); `reviewRequests`, `milestone`,
 `comments`, `reviews` are typed empties — supplementary fetches (threads,
-iterations) are deferred until a consumer needs real values. `isDraft`
-falls back to false.
+iterations) wait until a consumer needs real values. `isDraft` falls back
+to false.
 
-Direct mapping; already implemented and live-verified (Tier-2 smoke):
-create, comment (threads), rebase-merge two-step with
-`lastMergeSourceCommit` echo, source-branch deletion. Note: PR completion
-requires echoing `lastMergeSourceCommit.commitId` (fetch-then-PATCH);
-review-thread ids are opaque refs emitted by pr-threads-get
-(`<pr>/<thread>` composite under azure); resolve takes the ref verbatim.
+**List.** `--state open` is `status=active`, `merged` is `completed`, and
+`closed` fetches `all` and drops the active PRs, so it covers abandoned PRs
+as well. The list pages with `$top`/`$skip` (the API has no continuation
+token) until a short page, and `--limit` stops the paging early.
+
+**Merge.** One completion PATCH carries `lastMergeSourceCommit` (fetched
+first; without it Azure leaves the PR active) and `completionOptions`:
+`mergeStrategy`, `deleteSourceBranch`, `mergeCommitMessage` (subject and
+body) and, for `--admin`, `bypassPolicy`. Completion is asynchronous — right
+after the PATCH the PR is `active` with `mergeStatus: queued` — so the verb
+polls (`AZURE_PR_MERGE_POLL_ATTEMPTS`, default 30, every
+`AZURE_PR_MERGE_POLL_INTERVAL` seconds, default 2) until the PR is
+`completed`, and reports `mergeFailureMessage` when the merge fails or the PR
+is abandoned.
+
+**Create.** `--label` becomes PR labels. `--reviewer` takes an identity
+GUID as is; an email, account or display name is looked up through the
+identities API on the `vssps` host and must match exactly one identity, else
+the reviewer is reported and skipped while the PR stands. Azure pull requests
+have no assignee, so `--assignee` is reported as ignored. A description past
+Azure's 4000-character limit is cut and the full text is posted as the PR's
+first comment.
+
+**Diff.** Azure has no endpoint that returns patch text. `provider_prs_diff`
+lists the changed files of the latest iteration: one path per line with
+`--name-only`, otherwise one `{"path","changeType"}` object per line. A
+caller that needs patch text diffs the two commits in a local clone.
+
+**Review threads.** `pr-threads-get` emits thread ids as `<pr>/<thread>` and
+comment ids as `<thread>/<comment>`; system threads (Azure's own notes) and
+deleted threads are left out, and a thread is resolved when its status is
+anything but `active` or `pending`. `pr-thread-resolve` takes the thread id
+verbatim and routes it to the resolved repository (`DEVENV_REPO`, else the
+working directory's repository); a `<repo>/<pr>/<thread>` form names the repo
+explicitly. `pr-thread-reply` takes the comment id verbatim: the reply nests
+under that comment (`parentCommentId`), and a bare thread id nests it under
+the thread's first comment. Resolving sets the thread status to `fixed`.
+
+The Tier 2 smoke exercises create, comment, merge and the thread verbs against a disposable repository and records their responses under `tools/tests/fixtures/azure/`; the outcome tests in `test_provider_azure_register.bats` assert against those recordings.
 
 ## Pipelines ↔ Pipelines (as-built)
 
@@ -237,8 +290,9 @@ releases are git tags; `provider_org_releases_list` reads
 publishedAt ← tagger date, isPrerelease ← semver-heuristic,
 isDraft ← false — azure has no draft tags). `--json`/`-q` follow gh list
 semantics. semantic-release's publish step becomes exec-plugin tag+push
-(fork-side concern, outside this provider). Live-verified end-to-end
-(tag create → list → cleanup).
+(fork-side concern, outside this provider). The smoke lists releases of a
+real repository; ordering, prerelease detection and dates are asserted by
+`test_provider_azure_releases.bats`.
 
 ## Packaging ↔ Azure Artifacts (as-built: decision made)
 
@@ -248,8 +302,8 @@ never raw `provider_api` pagination. Azure implements the list verb
 against org-level Artifacts feeds (`feeds.dev.azure.com/_apis/packaging/feeds`,
 PAT needs packaging scopes — an environment prerequisite), same source as
 `provider_org_feeds_list`. GH Packages is per-user; azure feeds are
-org-scoped — the shapes differ accordingly (live-verified: real feeds
-listed). The versions verb fails defined: azure package versioning is
+org-scoped — the shapes differ accordingly (the smoke lists the org's
+feeds). The versions verb fails defined: azure package versioning is
 feed-scoped and the GitHub-shaped endpoint has no analog — a documented
 gap until demand justifies a feed-scoped verb.
 
@@ -278,8 +332,11 @@ An already-converged board is not rewritten. The script emits the
 fork's `[provider]` config block. `--dry-run` prints the plan;
 `AZURE_SETUP=1` gates execution (manual-only). Constraint discovered
 live: creating NEW work-item states is a process-template change the
-script deliberately does not attempt. Shared-state columns do not make each
-workflow word independently settable; that requires process-admin customization.
+script deliberately does not attempt. Several columns may share one process state:
+each column is still a distinct status, because a work item's status is its
+Kanban column field and `System.State` follows the board's column-to-state
+mapping. The script also sets the default team's `bugsBehavior` to
+`asRequirements`, so a Bug sits on the Stories board and carries a column.
 If no existing in-progress mapping supports added columns, setup reports the
 unsupported board rather than guessing a work-item state.
 
@@ -318,7 +375,7 @@ Contract:
 - **Single combined flow:** fixtures first (work item + disposable repo
   via provider verbs), then every verb, then mandatory reverse-order
   teardown via an EXIT trap (fires even on a mid-suite death).
-- **Teardown matrix (live-verified):** work items delete with
+- **Teardown matrix (as implemented in the smoke's teardown):** work items delete with
   `?destroy=true`; repo DELETE may need the fallback chain
   name+destroy → GUID+destroy → plain soft-delete; policy DELETEs
   302-redirect (the transport follows redirects).
@@ -330,11 +387,12 @@ Contract:
   "rejected by policy" — the ruleset case reads a verified equivalent
   configuration as idempotent success (anything else stays a FAIL).
 
-Live-verified transport facts added by this suite (2026-10-01):
+Transport facts the smoke established (the regression tests in
+`tools/tests/lib/test_provider_azure_*.bats` cover them):
 
 - PR thread routes are repositories-qualified:
   `/_apis/git/repositories/{repo}/pullrequests/{id}/threads/{id}`. The
-  status PATCH takes the thread object `{"status":2}` under plain
+  status PATCH takes the thread object `{"status":"fixed"}` under plain
   `application/json` (json-patch+json → 415; a JSON-Patch array →
   "Parameter name: commentThread").
 - ACL security tokens are dataspace-rooted:

@@ -234,21 +234,41 @@ detect_default_branch() {
 }
 
 update_existing_repo() {
-    local default_branch
-    default_branch=$(detect_default_branch)
-
     echo "Repository '$REPO_NAME' already exists. Fetching latest changes..." >&2
     cd "$TARGET_DIR"
     configure_git_repo "." "$GIT_URL"
     git fetch --all --tags -f
 
-    local current_branch
+    # Resolved inside the clone: the default branch is a property of this repo.
+    local default_branch current_branch
+    default_branch=$(detect_default_branch)
     current_branch=$(git rev-parse --abbrev-ref HEAD)
+
+    if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+        echo "Skipping '$REPO_NAME': uncommitted changes in the working tree." >&2
+        cd - &>/dev/null
+        return 0
+    fi
+
     if [ "$current_branch" != "$default_branch" ]; then
-        git branch -f "$default_branch" "origin/$default_branch" || true
-        git pull --rebase
+        # Fast-forward the local default branch only; one carrying unpushed
+        # commits is left alone.
+        if git merge-base --is-ancestor "$default_branch" "origin/$default_branch" 2>/dev/null; then
+            git branch -f "$default_branch" "origin/$default_branch"
+        else
+            echo "Leaving local '$default_branch' of '$REPO_NAME' as is: it has unpushed commits." >&2
+        fi
+        if git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' >/dev/null 2>&1; then
+            git pull --rebase
+        else
+            echo "Branch '$current_branch' of '$REPO_NAME' has no upstream; not pulling it." >&2
+        fi
+    elif [ "$(git rev-list --count "origin/$default_branch..HEAD")" -gt 0 ]; then
+        echo "Skipping '$REPO_NAME': unpushed commits on '$default_branch'." >&2
+        cd - &>/dev/null
+        return 0
     else
-        git reset --hard "origin/$default_branch"
+        git merge --ff-only "origin/$default_branch"
     fi
 
     local update_script=".repo/update.sh"

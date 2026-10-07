@@ -1,9 +1,7 @@
 #!/usr/bin/env bats
 # Contract tests for the GitHub Projects GraphQL verbs (provider_projects_*).
 # Stubbed gh; each test asserts the call shape the implementations must
-# honor (ID resolution, mutation naming, query presence). Formerly aimed at
-# the provider-loader legacy delegates; retargeted to the verbs when the
-# delegates were retired.
+# honor (ID resolution, mutation naming, query presence).
 
 bats_require_minimum_version 1.5.0
 
@@ -92,7 +90,7 @@ STUB
     [[ "$output" == PVTI_* ]]
 }
 
-@test "projects item_id_for_issue rejects the legacy 2-arg call" {
+@test "projects item_id_for_issue rejects the 2-arg call" {
     run bash -c "source '$LIB' && provider_projects_item_id_for_issue PVT_test1 42"
     [ "$status" -ne 0 ]
     [[ "$output" == *"owner and repo required"* ]]

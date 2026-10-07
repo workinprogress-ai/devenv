@@ -155,8 +155,8 @@ exercise_lib_call() {
     grep -q -- "--json number" "$capfile"
 }
 
-@test "conformance: azure parsers translate a legacy -R spec defensively (task 2.4)" {
-    # Contract under test: the PARSER accepts the legacy `-R <spec>` shape
+@test "conformance: azure parsers translate a -R spec defensively (task 2.4)" {
+    # Contract under test: the PARSER accepts the `-R <spec>` shape
     # (normalizes it into targeting) — not that transport succeeds. Assert
     # via the translation helper the parsers share, plus a parse-level
     # exercise of prs_list's flag loop (transport failure is the guards'

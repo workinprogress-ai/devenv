@@ -112,13 +112,13 @@ JSON
     [ "$status" -ne 0 ]
 }
 
-@test "provider_issues_create posts a title-and-tags patch and prints the id" {
+@test "provider_issues_create posts a title-and-tags patch to the User Story type and prints the id" {
     printf '{"id":301,"fields":{}}' > "$TEST_TEMP_DIR/created.json"
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/created.json" \
         run azure_run provider_issues_create --title "New work" --label bug --label infra
     [ "$status" -eq 0 ]
     [ "$output" = "301" ]
-    grep -q "workitems/\$Issue" "$STUB_CALL_LOG"
+    grep -q 'workitems/\$User%20Story' "$STUB_CALL_LOG"
 }
 
 @test "provider_issues_create without a title fails defined" {
@@ -136,21 +136,57 @@ JSON
     grep -q "workitems/101/comments" "$STUB_CALL_LOG"
 }
 
-@test "provider_issues_close patches state to Closed" {
-    printf '{"id":101,"fields":{"System.State":"Closed"}}' > "$TEST_TEMP_DIR/closed.json"
-    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/closed.json" \
+# close and reopen read the item's own type, then that type's states by category
+# (the shapes are the recorded ones: categories Proposed, InProgress, Resolved,
+# Completed, Removed).
+item_type_page() { printf '{"id":%s,"fields":{"System.WorkItemType":"%s"}}' "$1" "$2" > "$TEST_TEMP_DIR/type-$1.json"; }
+page_queue() { : > "$TEST_TEMP_DIR/pages.queue"; local f; for f in "$@"; do printf '%s\n' "$f" >> "$TEST_TEMP_DIR/pages.queue"; done; }
+FIXDIR="$BATS_TEST_DIRNAME/../fixtures/azure"
+
+@test "provider_issues_close moves the item to the Completed state of its own type" {
+    item_type_page 101 "User Story"
+    printf '{"id":101}' > "$TEST_TEMP_DIR/patched.json"
+    page_queue "$TEST_TEMP_DIR/type-101.json" "$FIXDIR/workitemtypes.user-story.states.json" "$TEST_TEMP_DIR/patched.json"
+    : > "$TEST_TEMP_DIR/close.body"
+    STUB_CURL_PAGES="$TEST_TEMP_DIR/pages.queue" STUB_CURL_REQUEST_BODY="$TEST_TEMP_DIR/close.body" \
         run azure_run provider_issues_close "" 101
     [ "$status" -eq 0 ]
-    grep -q "workitems/101" "$STUB_CALL_LOG"
+    grep -q 'workitemtypes/User%20Story/states' "$STUB_CALL_LOG"
+    jq -s -e 'any(.[][]?; .path == "/fields/System.State" and .value == "Closed")' "$TEST_TEMP_DIR/close.body" >/dev/null
 }
 
-@test "provider_issues_reopen patches state to New" {
-    printf '{"id":101,"fields":{"System.State":"Proposed"}}' > "$TEST_TEMP_DIR/reopened.json"
-    printf '{"value":[{"name":"Proposed","category":"proposed"},{"name":"Active","category":"inProgress"},{"name":"Closed","category":"completed"}]}' > "$TEST_TEMP_DIR/states-reopen.json"
-    printf '%s\n%s\n' "$TEST_TEMP_DIR/states-reopen.json" "$TEST_TEMP_DIR/reopened.json" > "$TEST_TEMP_DIR/reopen.queue"
-    STUB_CURL_PAGES="$TEST_TEMP_DIR/reopen.queue" \
+@test "provider_issues_close accepts and drops --reason (Azure has no close reason)" {
+    item_type_page 101 "Issue"
+    printf '{"id":101}' > "$TEST_TEMP_DIR/patched.json"
+    page_queue "$TEST_TEMP_DIR/type-101.json" "$FIXDIR/workitemtypes.issue.states.json" "$TEST_TEMP_DIR/patched.json"
+    : > "$TEST_TEMP_DIR/close.body"
+    STUB_CURL_PAGES="$TEST_TEMP_DIR/pages.queue" STUB_CURL_REQUEST_BODY="$TEST_TEMP_DIR/close.body" \
+        run azure_run provider_issues_close "" 101 --reason "not planned"
+    [ "$status" -eq 0 ]
+    run ! grep -q 'not planned' "$TEST_TEMP_DIR/close.body"
+    grep -q 'Closed' "$TEST_TEMP_DIR/close.body"
+}
+
+@test "provider_issues_reopen moves the item to the first Proposed state of its own type" {
+    item_type_page 101 "User Story"
+    printf '{"id":101}' > "$TEST_TEMP_DIR/patched.json"
+    page_queue "$TEST_TEMP_DIR/type-101.json" "$FIXDIR/workitemtypes.user-story.states.json" "$TEST_TEMP_DIR/patched.json"
+    : > "$TEST_TEMP_DIR/reopen.body"
+    STUB_CURL_PAGES="$TEST_TEMP_DIR/pages.queue" STUB_CURL_REQUEST_BODY="$TEST_TEMP_DIR/reopen.body" \
         run azure_run provider_issues_reopen "" 101
     [ "$status" -eq 0 ]
+    jq -s -e 'any(.[][]?; .path == "/fields/System.State" and .value == "New")' "$TEST_TEMP_DIR/reopen.body" >/dev/null
+}
+
+@test "provider_issues_reopen on an Issue (states Active and Closed only) uses its InProgress state" {
+    item_type_page 101 "Issue"
+    printf '{"id":101}' > "$TEST_TEMP_DIR/patched.json"
+    page_queue "$TEST_TEMP_DIR/type-101.json" "$FIXDIR/workitemtypes.issue.states.json" "$TEST_TEMP_DIR/patched.json"
+    : > "$TEST_TEMP_DIR/reopen.body"
+    STUB_CURL_PAGES="$TEST_TEMP_DIR/pages.queue" STUB_CURL_REQUEST_BODY="$TEST_TEMP_DIR/reopen.body" \
+        run azure_run provider_issues_reopen "" 101
+    [ "$status" -eq 0 ]
+    jq -s -e 'any(.[][]?; .path == "/fields/System.State" and .value == "Active")' "$TEST_TEMP_DIR/reopen.body" >/dev/null
 }
 
 @test "provider_issues_edit patches title and tags" {
@@ -253,7 +289,7 @@ JSON
 {"comments":[{"createdBy":{"displayName":"Alice"},"text":"first","createdDate":"2026-09-26T10:00:00Z"},{"createdBy":{"displayName":"Bob"},"text":"second","createdDate":"2026-09-26T11:00:00Z"}]}
 JSON
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/comments.json" \
-        run azure_run provider_issues_comments 101 ""
+        run azure_run provider_issues_comments "" 101
     [ "$status" -eq 0 ]
     jq -e 'any(.[]; .user.login == "Alice" and .body == "first") and any(.[]; .user.login == "Bob")' <<< "$output" >/dev/null
 }
@@ -272,19 +308,28 @@ JSON
     grep -q "workitems/101/comments" "$STUB_CALL_LOG"
 }
 
-@test "provider_issues_label_list derives distinct tags" {
+@test "provider_issues_label_list reads the project's tags from the tags endpoint" {
+    printf '{"count":3,"value":[{"id":"1","name":"bug"},{"id":"2","name":" infra"},{"id":"3","name":"triage"}]}' > "$TEST_TEMP_DIR/tags.json"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/tags.json" run azure_run provider_issues_label_list
+    [ "$status" -eq 0 ]
+    [ "$(jq -c '[.[].name]' <<< "$output")" = '["bug","infra","triage"]' ]
+    grep -q '/_apis/wit/tags' "$STUB_CALL_LOG"
+}
+
+@test "provider_issues_label_list falls back to the distinct tags of the work items when the tags endpoint is unavailable" {
+    printf '{}' > "$TEST_TEMP_DIR/no-tags.json"
     printf '{"workItems":[{"id":1},{"id":2}]}' > "$TEST_TEMP_DIR/wiql.json"
     cat > "$TEST_TEMP_DIR/details.json" <<'JSON'
 {"value":[
-  {"id":1,"fields":{"System.Tags":"bug;infra"}},
-  {"id":2,"fields":{"System.Tags":"bug;triage"}}
+  {"id":1,"fields":{"System.Tags":"bug; infra"}},
+  {"id":2,"fields":{"System.Tags":"bug; triage"}}
 ]}
 JSON
-    printf '%s\n%s\n' "$TEST_TEMP_DIR/wiql.json" "$TEST_TEMP_DIR/details.json" > "$TEST_TEMP_DIR/pages.queue"
+    printf '%s\n%s\n%s\n' "$TEST_TEMP_DIR/no-tags.json" "$TEST_TEMP_DIR/wiql.json" "$TEST_TEMP_DIR/details.json" > "$TEST_TEMP_DIR/pages.queue"
     STUB_CURL_PAGES="$TEST_TEMP_DIR/pages.queue" \
         run azure_run provider_issues_label_list
     [ "$status" -eq 0 ]
-    [[ "$(printf '%s\n' "$output" | jq -r '.[].name' | sort | tr '\n' ' ')" == "bug infra triage " ]]
+    [ "$(jq -c '[.[].name]' <<< "$output")" = '["bug","infra","triage"]' ]
 }
 
 # ============================================================================
@@ -313,7 +358,7 @@ JSON
         run azure_run provider_issues_comment_add o1/p1/r1 42 --body "hello"
     [ "$status" -eq 0 ]
     [ "$(printf '%s' "$output" | jq -r '.id')" = "42/777001" ]
-    [[ "$(printf '%s' "$output" | jq -r '.html_url')" =~ _workitems/edit/42 ]]
+    [[ "$(printf '%s' "$output" | jq -r '.url')" =~ _workitems/edit/42 ]]
 }
 
 @test "provider_issues_comment_edit patches the comment body" {
@@ -326,12 +371,12 @@ JSON
     [ "$(printf '%s' "$output" | jq -r '.id')" = "42/777001" ]
 }
 
-@test "provider_issues_comment_get finds the comment and reports html_url" {
+@test "provider_issues_comment_get finds the comment and reports its url" {
     printf '{"totalCount":1,"count":1,"comments":[{"id":777001,"workItemId":42,"text":"found"}]}' > "$TEST_TEMP_DIR/list.json"
     printf '[provider]\nname=azure\nazure_org=o1\nazure_project=p1\n' > "$DEVENV_ROOT/devenv.config"
 
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/list.json" \
-        run azure_run provider_issues_comment_get 42/777001
+        run azure_run provider_issues_comment_get "" 42/777001
     [ "$status" -eq 0 ]
 }
 
@@ -340,7 +385,7 @@ JSON
     printf '[provider]\nname=azure\nazure_org=o1\nazure_project=p1\n' > "$DEVENV_ROOT/devenv.config"
 
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/empty.json" \
-        run azure_run provider_issues_comment_get 42/999
+        run azure_run provider_issues_comment_get "" 42/999
     [ "$status" -ne 0 ]
 }
 
@@ -354,7 +399,7 @@ JSONEOF
     printf '[provider]\nname=azure\nazure_org=o1\nazure_project=p1\n' > "$DEVENV_ROOT/devenv.config"
 
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/list.json" \
-        run azure_run provider_issues_comments 42
+        run azure_run provider_issues_comments "" 42
     [ "$status" -eq 0 ]
     [ "$(jq -j '.[0].body' <<< "$output")" = $'fenced block "with quotes"\n```' ]
 }
@@ -373,15 +418,15 @@ JSONEOF
     [ "$(jq -j '.text' < "$TEST_TEMP_DIR/curlbody.log")" = "line" ]
 }
 
-@test "provider_issues_comments emits id and html_url for artifact matching" {
+@test "provider_issues_comments emits id and url for artifact matching" {
     printf '{"totalCount":1,"count":1,"comments":[{"id":777001,"workItemId":42,"text":"b","createdBy":{"displayName":"a"},"createdDate":"2026-01-01"}]}' > "$TEST_TEMP_DIR/list.json"
     printf '[provider]\nname=azure\nazure_org=o1\nazure_project=p1\n' > "$DEVENV_ROOT/devenv.config"
 
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/list.json" \
-        run azure_run provider_issues_comments 42
+        run azure_run provider_issues_comments "" 42
     [ "$status" -eq 0 ]
     [ "$(jq -r '.[0].id' <<< "$output")" = "42/777001" ]
-    [[ "$(jq -r '.[0].html_url' <<< "$output")" =~ _workitems/edit/42 ]]
+    [[ "$(jq -r '.[0].url' <<< "$output")" =~ _workitems/edit/42 ]]
 }
 
 @test "provider_issues_add_tag appends to existing tags and is idempotent" {
@@ -415,7 +460,7 @@ JSONEOF
     printf '[provider]\nname=azure\nazure_org=o1\nazure_project=p1\n' > "$DEVENV_ROOT/devenv.config"
 
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/parent.json" \
-        run azure_run provider_issue_graph_children 100
+        run azure_run provider_issue_graph_children "" 100
     [ "$status" -eq 0 ]
     [ "${lines[0]}" = "101" ]
     [ "${lines[1]}" = "102" ]
@@ -428,7 +473,7 @@ JSONEOF
     printf '[provider]\nname=azure\nazure_org=o1\nazure_project=p1\n' > "$DEVENV_ROOT/devenv.config"
 
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/child.json" \
-        run azure_run provider_issue_graph_parent 101
+        run azure_run provider_issue_graph_parent "" 101
     [ "$status" -eq 0 ]
     [ "$output" = "100" ]
 }
@@ -438,7 +483,7 @@ JSONEOF
     printf '[provider]\nname=azure\nazure_org=o1\nazure_project=p1\n' > "$DEVENV_ROOT/devenv.config"
 
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/bare.json" \
-        run azure_run provider_issue_graph_parent 101
+        run azure_run provider_issue_graph_parent "" 101
     [ "$status" -eq 0 ]
     [ -z "$output" ]
 }
@@ -449,7 +494,7 @@ JSONEOF
 
     : > "$TEST_TEMP_DIR/reqbody.log"
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/linked.json" STUB_CURL_REQUEST_BODY="$TEST_TEMP_DIR/reqbody.log" \
-        run azure_run provider_issue_graph_link 100 101
+        run azure_run provider_issue_graph_link "" 100 101
     [ "$status" -eq 0 ]
     grep -q "System.LinkTypes.Hierarchy-Forward" "$TEST_TEMP_DIR/reqbody.log"
     grep -q "workItems/101" "$TEST_TEMP_DIR/reqbody.log"
@@ -462,21 +507,61 @@ JSONEOF
     printf '[provider]\nname=azure\nazure_org=o1\nazure_project=p1\n' > "$DEVENV_ROOT/devenv.config"
 
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/parent2.json" \
-        run azure_run provider_issue_graph_unlink 100 101
+        run azure_run provider_issue_graph_unlink "" 100 101
     [ "$status" -eq 0 ]
 }
 
-@test "provider_issues_reopen resolves the project's first open state (no hardcoded New)" {
-    # F-SMOKE-3 regression: reopen must patch to a state the process
-    # actually carries - Basic-process projects have no "New".
-    printf '{"value":[{"name":"Proposed","category":"proposed"},{"name":"Active","category":"inProgress"},{"name":"Closed","category":"completed"}]}' > "$TEST_TEMP_DIR/states3.json"
-    printf '{"id":42,"fields":{"System.State":"Proposed"}}' > "$TEST_TEMP_DIR/patched3.json"
-    printf '%s\n%s\n' "$TEST_TEMP_DIR/states3.json" "$TEST_TEMP_DIR/patched3.json" > "$TEST_TEMP_DIR/reopen3.queue"
-    : > "$TEST_TEMP_DIR/reopen3.body"
-    STUB_CURL_PAGES="$TEST_TEMP_DIR/reopen3.queue" STUB_CURL_REQUEST_BODY="$TEST_TEMP_DIR/reopen3.body" \
-        run azure_run provider_issues_reopen "" 42
+# A custom curl: PATCH answers 409 with the given message; GET answers the parent's relations.
+_graph_link_conflict_curl() {   # <message> <relations json>
+    printf '{"message":"%s"}' "$1" > "$TEST_TEMP_DIR/conflict.json"
+    printf '%s' "$2" > "$TEST_TEMP_DIR/parent-rel.json"
+    printf '[provider]\nname=azure\nazure_org=o1\nazure_project=p1\n' > "$DEVENV_ROOT/devenv.config"
+    stub_curl
+    mv "$STUB_BIN_DIR/curl" "$STUB_BIN_DIR/curl-inner"
+    cat > "$STUB_BIN_DIR/curl" <<MOCK
+#!/usr/bin/env bash
+if [[ " \$* " == *" PATCH "* ]]; then
+    export STUB_CURL_RESPONSE="$TEST_TEMP_DIR/conflict.json" STUB_CURL_HTTP_CODE=409
+else
+    export STUB_CURL_RESPONSE="$TEST_TEMP_DIR/parent-rel.json"
+fi
+exec "\$(dirname "\$0")/curl-inner" "\$@"
+MOCK
+    chmod +x "$STUB_BIN_DIR/curl"
+}
+
+@test "provider_issue_graph_link: a conflict is success only when the parent already lists the child" {
+    _graph_link_conflict_curl "Relation already exists" '{"id":100,"relations":[{"rel":"System.LinkTypes.Hierarchy-Forward","url":"https://dev.azure.com/o1/p1/_apis/wit/workItems/101"}]}'
+    run azure_run provider_issue_graph_link "" 100 101
     [ "$status" -eq 0 ]
-    # The state rides the PATCH body, not the URL.
-    grep -q "Proposed" "$TEST_TEMP_DIR/reopen3.body"
-    ! grep -q '"New"' "$TEST_TEMP_DIR/reopen3.body"
+}
+
+@test "provider_issue_graph_link: a failure whose text contains 'already' but whose link is absent stays a failure" {
+    _graph_link_conflict_curl "Child already has a parent link" '{"id":100,"relations":[]}'
+    run azure_run provider_issue_graph_link "" 100 101
+    [ "$status" -ne 0 ]
+}
+
+@test "provider_issues_view leaves a markdown description undecoded and decodes an HTML one" {
+    printf '%s' '{"id":101,"fields":{"System.Title":"t","System.State":"New","System.Description":"use &lt;div&gt; and &amp; literally"},"multilineFieldsFormat":{"System.Description":"markdown"}}' > "$TEST_TEMP_DIR/md.json"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/md.json" \
+        run azure_run provider_issues_view "" 101 --json body -q .body
+    [ "$status" -eq 0 ]
+    [ "$output" = 'use &lt;div&gt; and &amp; literally' ]
+
+    printf '%s' '{"id":101,"fields":{"System.Title":"t","System.State":"New","System.Description":"say &quot;hi&quot; &amp; bye"},"multilineFieldsFormat":{}}' > "$TEST_TEMP_DIR/html.json"
+    STUB_CURL_RESPONSE="$TEST_TEMP_DIR/html.json" \
+        run azure_run provider_issues_view "" 101 --json body -q .body
+    [ "$output" = 'say "hi" & bye' ]
+}
+
+@test "provider_issues_list applies the same markdown rule per item" {
+    printf '%s' '{"workItems":[{"id":1},{"id":2}]}' > "$TEST_TEMP_DIR/wiql.json"
+    printf '%s' '{"value":[{"id":1,"fields":{"System.Title":"a","System.State":"New","System.Description":"a &lt; b"},"multilineFieldsFormat":{"System.Description":"markdown"}},{"id":2,"fields":{"System.Title":"b","System.State":"New","System.Description":"a &lt; b"}}]}' > "$TEST_TEMP_DIR/batch.json"
+    printf '%s\n%s\n' "$TEST_TEMP_DIR/wiql.json" "$TEST_TEMP_DIR/batch.json" > "$TEST_TEMP_DIR/pages.q"
+    STUB_CURL_PAGES="$TEST_TEMP_DIR/pages.q" \
+        run azure_run provider_issues_list "" --json number,body
+    [ "$status" -eq 0 ]
+    [ "$(printf '%s' "$output" | jq -r '.[] | select(.number == 1) | .body')" = 'a &lt; b' ]
+    [ "$(printf '%s' "$output" | jq -r '.[] | select(.number == 2) | .body')" = 'a < b' ]
 }

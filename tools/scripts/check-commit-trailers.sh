@@ -122,6 +122,7 @@ main() {
             -v|--version) echo "$SCRIPT_VERSION"; exit 0 ;;
             -V|--verbose) shift ;;
             --message-file)
+                require_option_value "$1" "${2:-}"
                 [ -z "${2:-}" ] && invalid_args "Missing value for --message-file"
                 message_file="$2"; shift 2 ;;
             --*) invalid_args "Unknown option: $1" ;;

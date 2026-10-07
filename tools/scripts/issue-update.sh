@@ -70,7 +70,7 @@ Updates:
     -f, --body-file FILE        Read new body from file (markdown; '-' reads
                                 stdin; piped stdin with no other update is auto-read)
     --type TYPE                Set native issue type: Bug, Feature, Task, or Epic
-                               (case-insensitive; legacy aliases accepted)
+                               (case-insensitive; aliases accepted)
     --remove-type               Remove the issue type
     --add-label LABEL           Add label (can be specified multiple times)
     --remove-label LABEL        Remove label (can be specified multiple times)
@@ -157,16 +157,8 @@ update_issue() {
         log_verbose "Will update body"
     elif [ -n "$NEW_BODY_FILE" ]; then
         if [ "$NEW_BODY_FILE" = "-" ]; then
-            if body_source_stdin_is_tty; then
-                log_error "--body-file - requires piped stdin (refusing to read the terminal)"
-                exit "$EXIT_GENERAL_ERROR"
-            fi
             local stdin_body
-            stdin_body=$(cat)
-            if [ -z "$stdin_body" ]; then
-                log_error "Refusing empty stdin body (pipe content or use --body/--body-file)"
-                exit "$EXIT_GENERAL_ERROR"
-            fi
+            stdin_body=$(body_source_read_dash) || exit "$EXIT_GENERAL_ERROR"
             gh_args+=(--body "$stdin_body")
         else
             gh_args+=(--body-file "$NEW_BODY_FILE")
@@ -357,7 +349,7 @@ main() {
                 shift 2
                 ;;
             --type)
-                require_option_value "--type)" "$2"
+                require_option_value "$1" "${2:-}"
                 NEW_TYPE="$2"
                 shift 2
                 ;;
@@ -383,18 +375,22 @@ main() {
                 shift 2
                 ;;
             --add-label)
+                require_option_value "$1" "${2:-}"
                 ADD_LABELS+=("$2")
                 shift 2
                 ;;
             --remove-label)
+                require_option_value "$1" "${2:-}"
                 REMOVE_LABELS+=("$2")
                 shift 2
                 ;;
             --add-assignee)
+                require_option_value "$1" "${2:-}"
                 ADD_ASSIGNEES+=("$2")
                 shift 2
                 ;;
             --remove-assignee)
+                require_option_value "$1" "${2:-}"
                 REMOVE_ASSIGNEES+=("$2")
                 shift 2
                 ;;

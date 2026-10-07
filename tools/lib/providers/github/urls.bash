@@ -82,6 +82,28 @@ provider_web_url() {
     printf 'https://github.com/%s/%s\n' "$repo" "$path"
 }
 
+# Web page of a pull request. SPEC is owner/repo.
+# Usage: provider_pr_web_url SPEC NUMBER
+provider_pr_web_url() {
+    local spec="${1:-}" number="${2:-}"
+    if [ -z "$spec" ] || [ -z "$number" ]; then
+        log_error "provider_pr_web_url requires a repo spec (owner/repo) and a PR number"
+        return 1
+    fi
+    provider_web_url "$spec" "pull/$number"
+}
+
+# Web page of an issue. SPEC is owner/repo.
+# Usage: provider_issue_web_url SPEC NUMBER
+provider_issue_web_url() {
+    local spec="${1:-}" number="${2:-}"
+    if [ -z "$spec" ] || [ -z "$number" ]; then
+        log_error "provider_issue_web_url requires a repo spec (owner/repo) and an issue number"
+        return 1
+    fi
+    provider_web_url "$spec" "issues/$number"
+}
+
 # ============================================================================
 # URL extraction & host detection
 # ============================================================================
@@ -152,4 +174,18 @@ provider_remote_to_web() {
     esac
     remote="${remote%.git}"
     printf 'https://%s/%s\n' "$host" "$remote"
+}
+
+# A git remote URL as this provider's repo spec (owner/repo), whatever the transport
+# form (https, ssh, credential-embedded). Returns 1 when the remote is not this
+# provider's host.
+#
+# Usage:
+#   spec=$(provider_remote_to_spec "$remote_url") || echo "not ours"
+provider_remote_to_spec() {
+    local web
+    web=$(provider_remote_to_web "${1:-}") || return 1
+    web="${web#https://"$(provider_web_host)"/}"
+    web="${web%.git}"
+    printf '%s\n' "$web"
 }

@@ -414,7 +414,8 @@ case "\$*" in
         echo "https://github.com/test-org/test-repo/issues/777"
         ;;
     *"repo view"*)
-        if [[ "\$*" == *"owner"* ]]; then echo "test-org"; else echo "test-repo"; fi
+        # real gh answers --json with JSON; the verb applies -q to it
+        if [[ "\$*" == *"owner"* ]]; then echo '{"owner":{"login":"test-org"}}'; else echo '{"name":"test-repo"}'; fi
         ;;
     *"graphql"*)
         echo '{"data":{"repository":{"issue":{"id":"I_stub"}}}}'

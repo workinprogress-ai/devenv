@@ -1,13 +1,15 @@
-#!/usr/bin/env bash
-# fork-sync.sh (azure provider) - On-demand sync against the configured
+#!/bin/bash
+# Resolve the tools root from this script's own location (self-root
+# contract: self-location wins; a foreign exported DEVENV_TOOLS is ignored).
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
+DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
+# fork-sync.sh - On-demand sync against the configured
 # upstream remote (see docs/Forking.md).
 #
 set -euo pipefail
-# shellcheck source=../../self-root.bash
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/lib/self-root.bash"
-DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
+source "$DEVENV_TOOLS/lib/fork.bash"
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
     cat <<'HELP'
@@ -24,39 +26,13 @@ otherwise a TTY gets a `y/N` prompt and non-TTY use fails closed.
 `--dry-run` reports the planned operations.
 
 USAGE
-    bash tools/lib/providers/azure/fork-sync.sh [--dry-run] [--rebase] [--push-to-origin [--rewrite-origin]] [--yes]
+    fork-sync [--dry-run] [--rebase] [--push-to-origin [--rewrite-origin]] [--yes]
 HELP
     exit 0
 fi
 
 devenv_ensure_root "${BASH_SOURCE[0]}"
-source "$DEVENV_TOOLS/lib/config-reader.bash"
-config_init "$DEVENV_ROOT/devenv.config" || die "could not read $DEVENV_ROOT/devenv.config" "$EXIT_GENERAL_ERROR"
-FORK_UPSTREAM_REPO="$(config_read_value fork upstream_repo "")"
-FORK_UPSTREAM_BRANCH="$(config_read_value fork upstream_branch "")"
-[ -n "$FORK_UPSTREAM_REPO" ] || die "missing required [fork] upstream_repo in $DEVENV_ROOT/devenv.config" "$EXIT_GENERAL_ERROR"
-[ -n "$FORK_UPSTREAM_BRANCH" ] || die "missing required [fork] upstream_branch in $DEVENV_ROOT/devenv.config" "$EXIT_GENERAL_ERROR"
-
-normalize_git_url() {
-    local url="$1" authority path
-    case "$url" in
-        git@*:*)
-            url="${url#git@}"
-            url="${url/:/\/}"
-            ;;
-        ssh://*|https://*|http://*)
-            url="${url#*://}"
-            authority="${url%%/*}"
-            path="${url#*/}"
-            authority="${authority##*@}"
-            url="$authority/$path"
-            ;;
-        file://*) url="${url#file://}" ;;
-    esac
-    url="${url%/}"
-    url="${url%.git}"
-    printf '%s\n' "$url"
-}
+fork_load_config
 
 DRY_RUN=0
 REBASE=0
@@ -84,7 +60,7 @@ fi
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || die "run fork-sync.sh from inside a git repository" "$EXIT_GENERAL_ERROR"
 UPSTREAM_URL="$(git -C "$REPO_ROOT" remote get-url upstream 2>/dev/null || true)"
 [ -n "$UPSTREAM_URL" ] || die "upstream remote is missing; run fork-setup.sh first" "$EXIT_GENERAL_ERROR"
-[ "$UPSTREAM_URL" = "$FORK_UPSTREAM_REPO" ] || die "upstream remote URL does not match [fork] upstream_repo" "$EXIT_GENERAL_ERROR"
+fork_upstream_matches "$REPO_ROOT" || die "upstream remote URL does not match [fork] upstream_repo" "$EXIT_GENERAL_ERROR"
 
 UPSTREAM_REF="refs/remotes/upstream/$FORK_UPSTREAM_BRANCH"
 if [ "$DRY_RUN" -eq 1 ]; then
@@ -100,6 +76,34 @@ fi
 
 git -C "$REPO_ROOT" fetch upstream || die "failed to fetch upstream" "$EXIT_GENERAL_ERROR"
 git -C "$REPO_ROOT" show-ref --verify --quiet "$UPSTREAM_REF" || die "upstream branch '$FORK_UPSTREAM_BRANCH' was not fetched" "$EXIT_GENERAL_ERROR"
+
+# Local commits that look as if upstream already has them: a patch-equivalent
+# commit (git cherry marks it "-"), or one whose subject also appears on upstream
+# since the merge base (a contributed commit upstream may have edited). A rebase
+# drops the first kind on its own; the second kind stays and may conflict, so it
+# is named before anything is rewritten.
+report_likely_upstreamed() {
+    local base sha subject upstream_subjects found=0 line
+    base="$(git -C "$REPO_ROOT" merge-base "$UPSTREAM_REF" HEAD 2>/dev/null)" || return 0
+    upstream_subjects="$(git -C "$REPO_ROOT" log --format=%s "$base..$UPSTREAM_REF")"
+    while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        sha="${line#* }"
+        subject="$(git -C "$REPO_ROOT" log -1 --format=%s "$sha")"
+        if [ "${line%% *}" = "-" ] || grep -qxF -- "$subject" <<< "$upstream_subjects"; then
+            if [ "$found" -eq 0 ]; then
+                echo "Local commits that look already upstream (patch-equivalent, or the same subject on upstream):"
+                found=1
+            fi
+            printf '  %s %s\n' "$(git -C "$REPO_ROOT" rev-parse --short "$sha")" "$subject"
+        fi
+    done < <(git -C "$REPO_ROOT" cherry "$UPSTREAM_REF" HEAD)
+    if [ "$found" -eq 1 ]; then
+        echo "  A rebase drops patch-equivalent commits itself; for the others, drop them by hand if upstream has them."
+    fi
+}
+
+report_likely_upstreamed
 
 if [ "$PUSH" -eq 1 ] && [ "$REBASE" -eq 0 ]; then
     PUSH_COUNTS="$(git -C "$REPO_ROOT" rev-list --left-right --count "$UPSTREAM_REF...HEAD")" || die "failed to compare HEAD with upstream/$FORK_UPSTREAM_BRANCH" "$EXIT_GENERAL_ERROR"
@@ -139,10 +143,10 @@ if [ "$PUSH" -eq 1 ]; then
     [ "$CURRENT_BRANCH" != "HEAD" ] || die "cannot push while HEAD is detached" "$EXIT_GENERAL_ERROR"
     ORIGIN_URL="$(git -C "$REPO_ROOT" remote get-url origin 2>/dev/null || true)"
     [ -n "$ORIGIN_URL" ] || die "origin remote is missing" "$EXIT_GENERAL_ERROR"
-    UPSTREAM_DESTINATION="$(normalize_git_url "$FORK_UPSTREAM_REPO")"
+    UPSTREAM_DESTINATION="$(fork_normalize_git_url "$FORK_UPSTREAM_REPO")"
     while IFS= read -r origin_push_url; do
         [ -n "$origin_push_url" ] || continue
-        if [ "$(normalize_git_url "$origin_push_url")" = "$UPSTREAM_DESTINATION" ]; then
+        if [ "$(fork_normalize_git_url "$origin_push_url")" = "$UPSTREAM_DESTINATION" ]; then
             die "origin push destination matches configured upstream; refusing to push" "$EXIT_MISUSE"
         fi
     done < <(git -C "$REPO_ROOT" remote get-url --push --all origin)

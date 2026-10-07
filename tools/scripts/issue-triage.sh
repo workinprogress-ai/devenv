@@ -29,6 +29,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib/policy" && pwd)/issue-policy
 LABEL_NEEDS_GROOMING="$(policy_triage_label needs-grooming 2>/dev/null || echo needs-grooming)"
 LABEL_STATUS_READY="$(policy_triage_label status:ready 2>/dev/null || echo status:ready)"
 
+# shellcheck disable=SC2034  # read by handle_global_flag (error-handling.bash)
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
@@ -209,8 +210,8 @@ groom_issue() {
                 if [[ "$parent" =~ ^[0-9]+$ ]]; then
                     local current_body
                     current_body=$(provider_issues_view "${repo_spec[0]:-}" "$issue_num" --json body -q .body)
-                    local new_body="Part of #${parent}\n\n${current_body}"
-                    echo -e "$new_body" | provider_issues_edit "${repo_spec[0]:-}" "$issue_num" --body-file -
+                    # printf keeps a body with backslashes unchanged (echo would interpret them)
+                    printf '%s\n\n%s\n' "Part of #${parent}" "$current_body" | provider_issues_edit "${repo_spec[0]:-}" "$issue_num" --body-file -
                     log_info "Linked to parent #$parent"
                 fi
                 ;;
@@ -288,21 +289,11 @@ set_milestone() {
     local issue_num="$1"
     local repo_spec
     read -ra repo_spec <<< "$(get_repo_spec)"
-    
-    # Determine owner and repo
-    local owner repo
-    owner="$(policy_org 2>/dev/null || true)"
-    if [ -n "$owner" ]; then
-        repo=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
-    else
-        owner=$(git remote get-url origin 2>/dev/null | sed -E 's|.*[:/]([^/]+)/([^/]+)\.git|\1|')
-        repo=$(git remote get-url origin 2>/dev/null | sed -E 's|.*[:/]([^/]+)/([^/]+)\.git|\2|')
-    fi
-    
-    # List available milestones
+
+    # List available milestones for the resolved repository
     echo ""
     echo "Available milestones:"
-    provider_issues_milestones "${owner}/${repo}" --jq '.[] | "\(.number)) \(.title) (due: \(.due_on // "no date"))"'
+    provider_issues_milestones "${repo_spec[0]:-}" --jq '.[] | "\(.number)) \(.title) (due: \(.due_on // "no date"))"'
     echo ""
     read -rp "Milestone title or number: " milestone_choice
     
@@ -325,18 +316,23 @@ apply_issue_bundle() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --title)
+                require_option_value "$1" "${2:-}"
                 provider_issues_edit "${repo_spec[0]:-}" "$issue" --title "$2" >/dev/null 2>&1 || { log_error "title update failed"; failed=1; }
                 did_any=1; shift 2 ;;
             --body-file)
+                require_option_value "$1" "${2:-}"
                 provider_issues_edit "${repo_spec[0]:-}" "$issue" --body-file "$2" >/dev/null 2>&1 || { log_error "body update failed"; failed=1; }
                 did_any=1; shift 2 ;;
             --milestone)
+                require_option_value "$1" "${2:-}"
                 provider_issues_edit "${repo_spec[0]:-}" "$issue" --milestone "$2" >/dev/null 2>&1 || { log_error "milestone update failed"; failed=1; }
                 did_any=1; shift 2 ;;
             --assignee)
+                require_option_value "$1" "${2:-}"
                 provider_issues_edit "${repo_spec[0]:-}" "$issue" --add-assignee "$2" >/dev/null 2>&1 || { log_error "assignee update failed"; failed=1; }
                 did_any=1; shift 2 ;;
             --label)
+                require_option_value "$1" "${2:-}"
                 provider_issues_edit "${repo_spec[0]:-}" "$issue" --add-label "$2" >/dev/null 2>&1 || { log_error "label update failed for '$2'"; failed=1; }
                 did_any=1; shift 2 ;;
             --triage-complete)
@@ -375,13 +371,14 @@ run_grooming_session() {
     log_info "Found $issue_count issue(s) for grooming"
     echo ""
     
-    # Process each issue
-    echo "$issues" | while read -r issue_line; do
-        local issue_num
-        issue_num=$(echo "$issue_line" | grep -oP '#\K\d+')
-        
+    # Process each issue. The list comes in on fd 3 so the menus inside
+    # groom_issue read the terminal rather than the lines of this list.
+    local issue_line issue_num
+    while read -r issue_line <&3; do
+        issue_num=$(grep -oE '#?[0-9]+' <<< "$issue_line" | head -n1 | tr -d '#')
+        [ -n "$issue_num" ] || continue
         groom_issue "$issue_num"
-    done
+    done 3<<< "$issues"
     
     log_info "Grooming session complete!"
 }
@@ -391,22 +388,6 @@ run_grooming_session() {
 # ============================================================================
 
 main() {
-    # Parse command-line arguments
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            -h|--help)
-                show_usage
-                ;;
-            -v|--version)
-                echo "$SCRIPT_VERSION"
-                exit 0
-                ;;
-            *)
-                break
-                ;;
-        esac
-    done
-    
     # Ensure GitHub CLI authentication
     # Global flags before auth/validation: --help must work without
     # a valid GitHub session or any positional args.
@@ -419,12 +400,8 @@ main() {
     # Continue parsing other arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            -h|--help)
-                show_usage
-                ;;
-            -v|--version)
-                echo "$SCRIPT_VERSION"
-                exit 0
+            -h|--help|-v|--version)
+                handle_global_flag "$1"
                 ;;
             -V|--verbose)
                 # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
@@ -432,11 +409,13 @@ main() {
                 shift
                 ;;
             -p|--project)
+                require_option_value "$1" "${2:-}"
                 # shellcheck disable=SC2034  # May be used in future feature
                 PROJECT_NAME="$2"
                 shift 2
                 ;;
             -m|--milestone)
+                require_option_value "$1" "${2:-}"
                 # CLI bundle mode applies it; wizard filtering is a future use.
                 # shellcheck disable=SC2034  # read by the wizard filter pass
                 MILESTONE="$2"
@@ -452,6 +431,7 @@ main() {
                 BUNDLE_OPTS+=("$1"); shift
                 ;;
             --title|--body-file|--assignee|--label)
+                require_option_value "$1" "${2:-}"
                 BUNDLE_OPTS+=("$1" "$2"); shift 2
                 ;;
             *)

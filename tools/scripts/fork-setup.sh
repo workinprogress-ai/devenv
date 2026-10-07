@@ -1,13 +1,15 @@
-#!/usr/bin/env bash
-# fork-setup.sh (azure provider) - One-time setup for this repo's upstream
+#!/bin/bash
+# Resolve the tools root from this script's own location (self-root
+# contract: self-location wins; a foreign exported DEVENV_TOOLS is ignored).
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
+DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
+# fork-setup.sh - One-time setup for this repo's upstream
 # relationship (see docs/Forking.md).
 #
 set -euo pipefail
-# shellcheck source=../../self-root.bash
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/lib/self-root.bash"
-DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
+source "$DEVENV_TOOLS/lib/fork.bash"
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
     cat <<'HELP'
@@ -19,18 +21,13 @@ Idempotently adds a fetch-only `upstream` git remote and confirms the
 See docs/Forking.md.
 
 USAGE
-  bash tools/lib/providers/azure/fork-setup.sh [--dry-run]
+  fork-setup [--dry-run]
 HELP
     exit 0
 fi
 
 devenv_ensure_root "${BASH_SOURCE[0]}"
-source "$DEVENV_TOOLS/lib/config-reader.bash"
-config_init "$DEVENV_ROOT/devenv.config" || die "could not read $DEVENV_ROOT/devenv.config" "$EXIT_GENERAL_ERROR"
-FORK_UPSTREAM_REPO="$(config_read_value fork upstream_repo "")"
-FORK_UPSTREAM_BRANCH="$(config_read_value fork upstream_branch "")"
-[ -n "$FORK_UPSTREAM_REPO" ] || die "missing required [fork] upstream_repo in $DEVENV_ROOT/devenv.config" "$EXIT_GENERAL_ERROR"
-[ -n "$FORK_UPSTREAM_BRANCH" ] || die "missing required [fork] upstream_branch in $DEVENV_ROOT/devenv.config" "$EXIT_GENERAL_ERROR"
+fork_load_config
 
 DRY_RUN=0
 while [ "$#" -gt 0 ]; do
@@ -43,7 +40,7 @@ done
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || die "run fork-setup.sh from inside a git repository" "$EXIT_GENERAL_ERROR"
 EXISTING_UPSTREAM="$(git -C "$REPO_ROOT" remote get-url upstream 2>/dev/null || true)"
-if [ -n "$EXISTING_UPSTREAM" ] && [ "$EXISTING_UPSTREAM" != "$FORK_UPSTREAM_REPO" ]; then
+if [ -n "$EXISTING_UPSTREAM" ] && ! fork_upstream_matches "$REPO_ROOT"; then
     die "upstream remote already points to a different URL: $EXISTING_UPSTREAM" "$EXIT_GENERAL_ERROR"
 fi
 

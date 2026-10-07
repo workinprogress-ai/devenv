@@ -1,17 +1,19 @@
-#!/usr/bin/env bash
-# fork-export.sh (azure provider) - Export a commit range for transfer to a
-# real GitHub clone (see docs/Forking.md).
+#!/bin/bash
+# Resolve the tools root from this script's own location (self-root
+# contract: self-location wins; a foreign exported DEVENV_TOOLS is ignored).
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
+DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
+# fork-export.sh - Export a commit range for transfer to a
+# clone of the upstream repository (see docs/Forking.md).
 #
 set -euo pipefail
-# shellcheck source=../../self-root.bash
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/lib/self-root.bash"
-DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
+source "$DEVENV_TOOLS/lib/fork.bash"
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
     cat <<'HELP'
-fork-export.sh — export commits for transfer into a real GitHub clone
+fork-export.sh — export commits for transfer into a clone of the upstream repository
 
 Exports from the merge-base with `upstream/<branch>` to `<end-ref>` (default
 `HEAD`); the upstream-derived base is always used. With a TTY and no explicit
@@ -27,21 +29,19 @@ behavior. `--apply-to <path>` explicitly selects a sibling clone.
 When applying an export interactively, the script waits for conflicts to be
 resolved and staged, then continues the queued operation. Without a TTY, it
 prints the manual continuation command and leaves the Git operation intact.
+A range that contains merge commits is refused with guidance (rebase onto upstream
+first); patches are applied with `git am -3` so a context drift falls back to a
+three-way merge.
 
 USAGE
-  bash tools/lib/providers/azure/fork-export.sh [<end-ref>] [--all] [--export-only] [--format bundle|patch|both] [--apply-to <path>] [--dry-run]
-  bash tools/lib/providers/azure/fork-export.sh --start-ref <start-commit> <end-ref> [--export-only] [--format bundle|patch|both] [--apply-to <path>]
+  fork-export [<end-ref>] [--all] [--export-only] [--format bundle|patch|both] [--apply-to <path>] [--dry-run]
+  fork-export --start-ref <start-commit> <end-ref> [--export-only] [--format bundle|patch|both] [--apply-to <path>]
 HELP
     exit 0
 fi
 
 devenv_ensure_root "${BASH_SOURCE[0]}"
-source "$DEVENV_TOOLS/lib/config-reader.bash"
-config_init "$DEVENV_ROOT/devenv.config" || die "could not read $DEVENV_ROOT/devenv.config" "$EXIT_GENERAL_ERROR"
-FORK_UPSTREAM_REPO="$(config_read_value fork upstream_repo "")"
-FORK_UPSTREAM_BRANCH="$(config_read_value fork upstream_branch "")"
-[ -n "$FORK_UPSTREAM_REPO" ] || die "missing required [fork] upstream_repo in $DEVENV_ROOT/devenv.config" "$EXIT_GENERAL_ERROR"
-[ -n "$FORK_UPSTREAM_BRANCH" ] || die "missing required [fork] upstream_branch in $DEVENV_ROOT/devenv.config" "$EXIT_GENERAL_ERROR"
+fork_load_config
 
 FORMAT=bundle
 APPLY_TO=""
@@ -54,15 +54,15 @@ ALL_COMMITS=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --start-ref)
+      require_option_value "--start-ref" "${2:-}"
       shift
-      [ "$#" -gt 0 ] || die "--start-ref requires a commit" "$EXIT_MISUSE"
       START_REF="$1"
       ;;
     --all) ALL_COMMITS=1 ;;
     --export-only) EXPORT_ONLY=1 ;;
     --format)
+      require_option_value "--format" "${2:-}"
       shift
-      [ "$#" -gt 0 ] || die "--format requires bundle, patch, or both" "$EXIT_MISUSE"
       FORMAT="$1"
       case "$FORMAT" in
         bundle|patch|both) ;;
@@ -70,8 +70,8 @@ while [ "$#" -gt 0 ]; do
       esac
       ;;
     --apply-to)
+      require_option_value "--apply-to" "${2:-}"
       shift
-      [ "$#" -gt 0 ] || die "--apply-to requires a target repository path" "$EXIT_MISUSE"
       APPLY_TO="$1"
       ;;
     --dry-run) DRY_RUN=1 ;;
@@ -87,34 +87,20 @@ done
 [ "$ALL_COMMITS" -eq 0 ] || [ -z "$START_REF" ] || die "--all cannot be combined with --start-ref" "$EXIT_MISUSE"
 [ "$EXPORT_ONLY" -eq 0 ] || [ -z "$APPLY_TO" ] || die "--export-only cannot be combined with --apply-to" "$EXIT_MISUSE"
 
+# Whether the range will be chosen interactively (the picker narrows it). The dry
+# run and the real run must agree on this, so it is decided once, here.
+PICKER_WILL_RUN=0
+if [ -z "$START_REF" ] && [ "$END_REF_SET" -eq 0 ] && [ "$ALL_COMMITS" -eq 0 ] && [ -t 0 ] && [ -t 1 ]; then
+  PICKER_WILL_RUN=1
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || die "run fork-export.sh from inside a git repository" "$EXIT_GENERAL_ERROR"
 UPSTREAM_URL="$(git -C "$REPO_ROOT" remote get-url upstream 2>/dev/null || true)"
 [ -n "$UPSTREAM_URL" ] || die "upstream remote is missing; run fork-setup.sh first" "$EXIT_GENERAL_ERROR"
-[ "$UPSTREAM_URL" = "$FORK_UPSTREAM_REPO" ] || die "upstream remote URL does not match [fork] upstream_repo" "$EXIT_GENERAL_ERROR"
-
-normalize_git_url() {
-  local url="$1" authority path
-  case "$url" in
-    git@*:*)
-      url="${url#git@}"
-      url="${url/:/\/}"
-      ;;
-    ssh://*|https://*|http://*)
-      url="${url#*://}"
-      authority="${url%%/*}"
-      path="${url#*/}"
-      authority="${authority##*@}"
-      url="$authority/$path"
-      ;;
-    file://*) url="${url#file://}" ;;
-  esac
-  url="${url%/}"
-  url="${url%.git}"
-  printf '%s\n' "${url,,}"
-}
+fork_upstream_matches "$REPO_ROOT" || die "upstream remote URL does not match [fork] upstream_repo" "$EXIT_GENERAL_ERROR"
 
 if [ -z "$APPLY_TO" ] && [ "$EXPORT_ONLY" -eq 0 ]; then
-  CONFIGURED_TARGET="$(normalize_git_url "$FORK_UPSTREAM_REPO")"
+  CONFIGURED_TARGET="$(fork_normalize_git_url "$FORK_UPSTREAM_REPO")"
   TARGET_MATCHES=()
   for candidate in "$REPO_ROOT"/repos/*; do
     [ -d "$candidate" ] || continue
@@ -122,7 +108,7 @@ if [ -z "$APPLY_TO" ] && [ "$EXPORT_ONLY" -eq 0 ]; then
     [ -n "$candidate_root" ] && [ "$candidate_root" != "$REPO_ROOT" ] || continue
     candidate_origin="$(git -C "$candidate_root" remote get-url origin 2>/dev/null || true)"
     [ -n "$candidate_origin" ] || continue
-    [ "$(normalize_git_url "$candidate_origin")" = "$CONFIGURED_TARGET" ] || continue
+    [ "$(fork_normalize_git_url "$candidate_origin")" = "$CONFIGURED_TARGET" ] || continue
     match_seen=0
     for matched_root in "${TARGET_MATCHES[@]}"; do
       [ "$matched_root" != "$candidate_root" ] || match_seen=1
@@ -152,12 +138,35 @@ if [ -n "$APPLY_TO" ]; then
   TARGET_HEAD="$(git -C "$TARGET_ROOT" rev-parse HEAD)" || die "could not resolve --apply-to target HEAD" "$EXIT_GENERAL_ERROR"
 fi
 
+# A range with merge commits cannot be exported: format-patch skips merges and a
+# bundle replayed by cherry-pick has no single parent to apply them against.
+# Refuse, name them, and say how to get a linear range.
+#
+# Usage: refuse_merge_commits RANGE
+refuse_merge_commits() {
+  local merges
+  merges="$(git -C "$REPO_ROOT" --no-pager log --merges --format='  %h %s' "$1")"
+  [ -z "$merges" ] && return 0
+  {
+    echo "the range $1 contains merge commit(s), which cannot be exported:"
+    echo "$merges"
+    echo "Rebase the branch onto upstream first (fork-sync --rebase) so the range is linear,"
+    echo "or choose a start and end commit that exclude the merge."
+  } >&2
+  exit "$EXIT_MISUSE"
+}
+
 if [ "$DRY_RUN" -eq 1 ]; then
   END_SHA="$(git -C "$REPO_ROOT" rev-parse --verify --quiet "$END_REF^{commit}" 2>/dev/null)" || die "end ref '$END_REF' does not resolve to a commit" "$EXIT_MISUSE"
   echo "dry run: would fetch upstream/$FORK_UPSTREAM_BRANCH and export $END_REF as $FORMAT"
   if git -C "$REPO_ROOT" show-ref --verify --quiet "$UPSTREAM_REF"; then
     BASE_SHA="$(git -C "$REPO_ROOT" merge-base "$UPSTREAM_REF" "$END_SHA" 2>/dev/null)" || die "upstream/$FORK_UPSTREAM_BRANCH and '$END_REF' have no common history" "$EXIT_GENERAL_ERROR"
     COMMIT_COUNT="$(git -C "$REPO_ROOT" rev-list --count "$BASE_SHA..$END_SHA")" || die "could not resolve commits to export" "$EXIT_GENERAL_ERROR"
+    # With --start-ref, or the interactive picker, the range is narrowed later; only
+    # the selected range matters.
+    if [ -z "$START_REF" ] && [ "$PICKER_WILL_RUN" -eq 0 ]; then
+        refuse_merge_commits "$BASE_SHA..$END_SHA"
+    fi
     echo "dry run: would export $COMMIT_COUNT commit(s) from $(git -C "$REPO_ROOT" rev-parse --short "$BASE_SHA") to $(git -C "$REPO_ROOT" rev-parse --short "$END_SHA")"
   else
     echo "dry run: upstream ref is not fetched; range will be resolved after fetch"
@@ -175,6 +184,11 @@ git -C "$REPO_ROOT" show-ref --verify --quiet "$UPSTREAM_REF" || die "upstream b
 END_SHA="$(git -C "$REPO_ROOT" rev-parse --verify --quiet "$END_REF^{commit}" 2>/dev/null)" || die "end ref '$END_REF' does not resolve to a commit after fetching upstream" "$EXIT_MISUSE"
 BASE_SHA="$(git -C "$REPO_ROOT" merge-base "$UPSTREAM_REF" "$END_SHA" 2>/dev/null)" || die "upstream/$FORK_UPSTREAM_BRANCH and '$END_REF' have no common history" "$EXIT_GENERAL_ERROR"
 RANGE="$BASE_SHA..$END_SHA"
+# The whole range is checked here only when nothing narrows it later: an explicit
+# --start-ref, or the interactive picker, selects the range that is checked below.
+if [ -z "$START_REF" ] && [ "$PICKER_WILL_RUN" -eq 0 ]; then
+  refuse_merge_commits "$RANGE"
+fi
 mapfile -t COMMITS < <(git -C "$REPO_ROOT" rev-list --reverse "$RANGE")
 [ "${#COMMITS[@]}" -gt 0 ] || die "no commits to export from '$END_REF' beyond its upstream merge-base" "$EXIT_MISUSE"
 
@@ -215,7 +229,7 @@ if [ "$TARGET_DUPLICATE_COUNT" -gt 0 ]; then
 fi
 [ "${#COMMITS[@]}" -gt 0 ] || die "all candidate commits are already present in target" "$EXIT_MISUSE"
 
-if [ -z "$START_REF" ] && [ "$END_REF_SET" -eq 0 ] && [ "$ALL_COMMITS" -eq 0 ] && [ -t 0 ] && [ -t 1 ]; then
+if [ "$PICKER_WILL_RUN" -eq 1 ]; then
   # The common picker returns the selected row; keep the full object ID in
   # the first tab-separated field so display formatting cannot affect refs.
   source "$DEVENV_TOOLS/lib/fzf-selection.bash"
@@ -251,6 +265,7 @@ if [ -n "$START_REF" ]; then
   EXPORT_BASE_SHA="$(git -C "$REPO_ROOT" rev-parse --verify --quiet "$START_SHA^" 2>/dev/null)" || die "start commit has no parent" "$EXIT_MISUSE"
   git -C "$REPO_ROOT" merge-base --is-ancestor "$BASE_SHA" "$EXPORT_BASE_SHA" || die "start commit is not on a contiguous range from upstream" "$EXIT_MISUSE"
   RANGE="$EXPORT_BASE_SHA..$END_SHA"
+  refuse_merge_commits "$RANGE"
   mapfile -t COMMITS < <(git -C "$REPO_ROOT" rev-list --reverse "$RANGE")
   filter_target_commits
   [ "${#COMMITS[@]}" -gt 0 ] && [ "${COMMITS[0]}" = "$START_SHA" ] || die "selected commits do not form a contiguous range; choose a later start or earlier end" "$EXIT_MISUSE"
@@ -396,7 +411,7 @@ if [ -n "$APPLY_TO" ]; then
     shopt -s nullglob
     PATCH_FILES=("$PATCH_DIR"/*.patch)
     shopt -u nullglob
-    if ! git -C "$TARGET_ROOT" am "${PATCH_FILES[@]}"; then
+    if ! git -C "$TARGET_ROOT" am -3 "${PATCH_FILES[@]}"; then
       if [ ! -d "$(git -C "$TARGET_ROOT" rev-parse --absolute-git-dir)/rebase-apply" ]; then
         die "patch application failed without an active conflict" "$EXIT_GENERAL_ERROR"
       fi

@@ -20,7 +20,7 @@ There are no stored percentages, no `percent complete` headers in plans, and no 
 
 **Canonical chain: issue → plans.** A parent issue's plan set is:
 
-- its **direct plans** (plan artifacts on the issue, plus legacy `implementation-plan` artifacts), plus
+- its **direct plans** (plan artifacts on the issue, plus `implementation-plan` artifacts, an alias of `plan`), plus
 - all **descendant issues' plans** (children found via `--parent` linkage / task-list references).
 
 **Roadmap status is an alternative view, never summed.** Roadmap step status is itself derived from issues — combining it with the issue→plans roll-up double-counts the same work. They are reported side by side, never aggregated.

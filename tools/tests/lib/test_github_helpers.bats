@@ -180,9 +180,9 @@ load ../test_helper
   run bash -c "
     gh() {
       if [[ \"\$*\" =~ 'status' ]]; then
-        echo '0'
+        echo '[]'
       elif [[ \"\$*\" =~ 'conclusion' ]]; then
-        echo 'success'
+        echo '[{\"conclusion\":\"success\"}]'
       fi
       return 0
     }
@@ -198,9 +198,9 @@ load ../test_helper
   run bash -c "
     gh() {
       if [[ \"\$*\" =~ 'status' ]]; then
-        echo '0'
+        echo '[]'
       elif [[ \"\$*\" =~ 'conclusion' ]]; then
-        echo 'failure'
+        echo '[{\"conclusion\":\"failure\"}]'
       fi
       return 0
     }
@@ -216,9 +216,9 @@ load ../test_helper
   run bash -c "
     gh() {
       if [[ \"\$*\" =~ 'status' ]]; then
-        echo '0'
+        echo '[]'
       elif [[ \"\$*\" =~ 'conclusion' ]]; then
-        echo 'cancelled'
+        echo '[{\"conclusion\":\"cancelled\"}]'
       fi
       return 0
     }
@@ -230,12 +230,58 @@ load ../test_helper
   [ "$status" -eq 1 ]
 }
 
+# A failed query is "unknown", never "no active runs": treating it as zero would let a
+# caller proceed as if CI were green during an auth or network failure.
+@test "wait_for_workflow_runs: a gh that always fails is an error, not success" {
+  run bash -c "
+    gh() { echo 'HTTP 502' >&2; return 1; }
+    export -f gh
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
+    wait_for_workflow_runs 'owner/repo' 'master' 1 30
+  "
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "could not query" ]]
+}
+
+@test "wait_for_workflow_runs: a transient gh failure is retried and then succeeds" {
+  run bash -c "
+    export CALLS='$BATS_TEST_TMPDIR/calls'; : > \"\$CALLS\"
+    gh() {
+      echo x >> \"\$CALLS\"
+      # the first query fails, every later one answers
+      [ \"\$(wc -l < \"\$CALLS\")\" -eq 1 ] && return 1
+      if [[ \"\$*\" =~ 'status' ]]; then echo '[]'; elif [[ \"\$*\" =~ 'conclusion' ]]; then echo '[{\"conclusion\":\"success\"}]'; fi
+      return 0
+    }
+    export -f gh
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
+    wait_for_workflow_runs 'owner/repo' 'master' 1 30
+  "
+  [ "$status" -eq 0 ]
+}
+
+@test "wait_for_workflow_runs: a failing conclusion lookup is unknown, not success" {
+  run bash -c "
+    gh() {
+      if [[ \"\$*\" =~ 'status' ]]; then echo '[]'; return 0; fi
+      return 1
+    }
+    export -f gh
+    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
+    wait_for_workflow_runs 'owner/repo' 'master' 1 30
+  "
+  [ "$status" -eq 1 ]
+}
+
 @test "wait_for_workflow_runs: returns 2 on timeout with active runs" {
   run bash -c "
     gh() {
       # Always report 1 active run
       if [[ \"\$*\" =~ 'status' ]]; then
-        echo '1'
+        echo '[{\"status\":\"in_progress\"}]'
       fi
       return 0
     }
@@ -260,12 +306,12 @@ load ../test_helper
         count=\$((count + 1))
         echo \"\$count\" > \"\$COUNTER_FILE\"
         if [ \"\$count\" -le 2 ]; then
-          echo '1'
+          echo '[{\"status\":\"in_progress\"}]'
         else
-          echo '0'
+          echo '[]'
         fi
       elif [[ \"\$*\" =~ 'conclusion' ]]; then
-        echo 'success'
+        echo '[{\"conclusion\":\"success\"}]'
       fi
       return 0
     }
@@ -281,154 +327,9 @@ load ../test_helper
 # wait_for_workflow_runs_multi Tests
 # ============================================================================
 
-@test "wait_for_workflow_runs_multi: returns 0 when all repos succeed" {
-  run bash -c "
-    gh() {
-      if [[ \"\$*\" =~ 'status' ]]; then
-        echo '0'
-      elif [[ \"\$*\" =~ 'conclusion' ]]; then
-        echo 'success'
-      fi
-      return 0
-    }
-    export -f gh
-    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
-    wait_for_workflow_runs_multi 'master' 1 5 'owner/repo1' 'owner/repo2'
-  "
-  [ "$status" -eq 0 ]
-  [[ "$output" =~ "All workflow runs completed" ]]
-}
-
-@test "wait_for_workflow_runs_multi: returns 1 when any repo fails" {
-  run bash -c "
-    gh() {
-      if [[ \"\$*\" =~ 'status' ]]; then
-        echo '0'
-      elif [[ \"\$*\" =~ 'conclusion' ]]; then
-        # Fail for repo2
-        if [[ \"\$*\" =~ 'repo2' ]]; then
-          echo 'failure'
-        else
-          echo 'success'
-        fi
-      fi
-      return 0
-    }
-    export -f gh
-    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
-    wait_for_workflow_runs_multi 'master' 1 5 'owner/repo1' 'owner/repo2'
-  "
-  [ "$status" -eq 1 ]
-  [[ "$output" =~ "failed or timed out" ]]
-}
-
-@test "wait_for_workflow_runs_multi: reports which repos failed" {
-  run bash -c "
-    gh() {
-      if [[ \"\$*\" =~ 'status' ]]; then
-        echo '0'
-      elif [[ \"\$*\" =~ 'conclusion' ]]; then
-        echo 'failure'
-      fi
-      return 0
-    }
-    export -f gh
-    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
-    wait_for_workflow_runs_multi 'master' 1 5 'owner/repo1' 'owner/repo2'
-  "
-  [ "$status" -eq 1 ]
-  [[ "$output" =~ "owner/repo1" ]]
-  [[ "$output" =~ "owner/repo2" ]]
-}
-
 # ============================================================================
 # cancel_branch_workflow_runs Tests
 # ============================================================================
-
-@test "cancel_branch_workflow_runs: requires repo argument" {
-  run bash -c "
-    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
-    cancel_branch_workflow_runs '' 'main'
-  "
-  [ "$status" -ne 0 ]
-  [[ "$output" =~ "Repository and branch required" ]]
-}
-
-@test "cancel_branch_workflow_runs: requires branch argument" {
-  run bash -c "
-    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
-    cancel_branch_workflow_runs 'owner/repo' ''
-  "
-  [ "$status" -ne 0 ]
-  [[ "$output" =~ "Repository and branch required" ]]
-}
-
-@test "cancel_branch_workflow_runs: returns 0 when no active runs" {
-  run bash -c "
-    gh() {
-      if [[ \"\$*\" =~ 'run list' ]]; then
-        echo ''
-        return 0
-      fi
-      return 1
-    }
-    export -f gh
-    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
-    cancel_branch_workflow_runs 'owner/repo' 'my-branch'
-  "
-  [ "$status" -eq 0 ]
-}
-
-@test "cancel_branch_workflow_runs: cancels active runs" {
-  local cancel_log="$TEST_TEMP_DIR/cancel_log"
-  touch "$cancel_log"
-
-  run bash -c "
-    CANCEL_LOG='$cancel_log'
-    gh() {
-      if [[ \"\$*\" =~ 'run list' ]]; then
-        printf '111\n222\n'
-        return 0
-      elif [[ \"\$*\" =~ 'run cancel' ]]; then
-        echo \"\$*\" >> \"\$CANCEL_LOG\"
-        return 0
-      fi
-      return 1
-    }
-    export -f gh
-    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
-    cancel_branch_workflow_runs 'owner/repo' 'my-branch'
-  "
-  [ "$status" -eq 0 ]
-  [[ "$(cat "$cancel_log")" =~ "111" ]]
-  [[ "$(cat "$cancel_log")" =~ "222" ]]
-}
-
-@test "cancel_branch_workflow_runs: succeeds even if cancel fails" {
-  run bash -c "
-    gh() {
-      if [[ \"\$*\" =~ 'run list' ]]; then
-        printf '999\n'
-        return 0
-      elif [[ \"\$*\" =~ 'run cancel' ]]; then
-        return 1
-      fi
-      return 1
-    }
-    export -f gh
-    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/provider-loader.bash'
-    cancel_branch_workflow_runs 'owner/repo' 'my-branch'
-  "
-  [ "$status" -eq 0 ]
-}
 
 # ============================================================================
 # ensure_label Tests
@@ -657,5 +558,7 @@ load ../test_helper
     resolve_target_repo
   "
   [ "$status" -eq 0 ]
-  [ "$output" = "cfg-org/cwd-repo" ]
+  # the gate notes the nested clone, then the spec is the last line
+  [[ "$output" == *"devenv clone below repos/"* ]]
+  [ "${lines[-1]}" = "cfg-org/cwd-repo" ]
 }

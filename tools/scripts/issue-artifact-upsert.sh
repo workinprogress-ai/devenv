@@ -102,10 +102,7 @@ EOF
 load_comment_body() {
     if [ -n "$COMMENT_FILE" ]; then
         if [ "$COMMENT_FILE" = "-" ]; then
-            if body_source_stdin_is_tty; then
-                invalid_args "--body-file - requires piped stdin (refusing to read the terminal)"
-            fi
-            cat
+            body_source_read_dash || exit "$EXIT_MISUSE"
             return
         fi
         if [ ! -f "$COMMENT_FILE" ]; then
@@ -393,7 +390,7 @@ main() {
 
     log_verbose "Fetching comments for issue #$ISSUE_NUMBER"
     local comments_raw
-    if ! comments_raw=$(provider_issues_comments "$ISSUE_NUMBER" "$TARGET_REPO" 2>/dev/null); then
+    if ! comments_raw=$(provider_issues_comments "$TARGET_REPO" "$ISSUE_NUMBER" 2>/dev/null); then
         api_failure "Failed to fetch comments for issue #$ISSUE_NUMBER"
     fi
 
@@ -404,7 +401,7 @@ main() {
                             | any((select(test("^[[:space:]]*doc_id:[[:space:]]*"))
                                         | sub("^[[:space:]]*doc_id:[[:space:]]*"; "")
                                         | sub("[[:space:]]+$"; "")) == $doc_id)))
-          | {id: .id, url: .html_url}
+          | {id: .id, url: .url}
         ]
     ' 2>/dev/null); then
         api_failure "Failed to parse issue comments"
@@ -425,16 +422,19 @@ main() {
     fi
 
     if [ "$match_count" -eq 1 ]; then
-        local comment_id
+        local comment_id comment_id_json
         local comment_url
-        comment_id=$(echo "$matches" | jq '.[0].id') || api_failure "Failed to extract comment id"
+        # The verb takes the id as plain text (an Azure id is a string); the JSON
+        # output keeps the id's own type (number on GitHub, string on Azure).
+        comment_id=$(echo "$matches" | jq -r '.[0].id') || api_failure "Failed to extract comment id"
+        comment_id_json=$(echo "$matches" | jq -c '.[0].id') || api_failure "Failed to extract comment id"
         comment_url=$(echo "$matches" | jq -r '.[0].url') || api_failure "Failed to extract comment url"
 
         if [ "$DRY_RUN" -eq 1 ]; then
             jq -n \
                 --arg action "updated" \
                 --argjson issue_number "$ISSUE_NUMBER" \
-                --argjson comment_id "$comment_id" \
+                --argjson comment_id "$comment_id_json" \
                 --arg comment_url "$comment_url" \
                 '{action: $action, issue_number: $issue_number, comment_id: $comment_id, comment_url: $comment_url}'
             exit 0
@@ -450,7 +450,7 @@ main() {
         local out_id
         local out_url
         out_id=$(echo "$updated" | jq '.id') || api_failure "Failed to extract updated comment id"
-        out_url=$(echo "$updated" | jq -r '.html_url') || api_failure "Failed to extract updated comment url"
+        out_url=$(echo "$updated" | jq -r '.url') || api_failure "Failed to extract updated comment url"
 
         jq -n \
             --arg action "updated" \
@@ -479,7 +479,7 @@ main() {
     local created_id
     local created_url
     created_id=$(echo "$created" | jq '.id') || api_failure "Failed to extract created comment id"
-    created_url=$(echo "$created" | jq -r '.html_url') || api_failure "Failed to extract created comment url"
+    created_url=$(echo "$created" | jq -r '.url') || api_failure "Failed to extract created comment url"
 
     jq -n \
         --arg action "created" \

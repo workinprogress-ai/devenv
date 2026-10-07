@@ -143,21 +143,6 @@ EOF
     exit 0
 }
 
-# Get the owner (org or user)
-get_owner() {
-    local policy_org
-    policy_org="$(provider_org_get 2>/dev/null || true)"
-    if [ -n "$policy_org" ]; then
-        echo "$policy_org"
-    else
-        local repo_name
-        repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
-        if [ -n "$repo_name" ]; then
-            provider_repos_view "$repo_name" --json owner -q .owner.login
-        fi
-    fi
-}
-
 # Validate status value
 validate_status() {
     local status="$1"
@@ -180,11 +165,10 @@ validate_status() {
 update_status_all_projects() {
     local status="$1"
 
-    local repo_spec owner repo issue_url
+    local repo_spec owner issue_url
     repo_spec=$(resolve_target_repo) || return 1
     owner="${repo_spec%%/*}"
-    repo="${repo_spec#*/}"
-    issue_url="$(provider_web_url "$owner/$repo" "issues/$ISSUE_NUMBER")"
+    issue_url="$(provider_issue_web_url "$repo_spec" "$ISSUE_NUMBER")"
 
     # Reverse lookup: all containing projects + current status.
     # A lookup FAILURE is distinct from zero membership: fail the run
@@ -253,7 +237,7 @@ update_status() {
     repo_spec=$(resolve_target_repo) || return 1
     owner="${repo_spec%%/*}"
     repo="${repo_spec#*/}"
-    issue_url="$(provider_web_url "$owner/$repo" "issues/$ISSUE_NUMBER")"
+    issue_url="$(provider_issue_web_url "$repo_spec" "$ISSUE_NUMBER")"
 
     local project_id item_id field_id option_id
     project_id=$(provider_projects_id_by_name "$owner" "$PROJECT_NAME") || {
@@ -345,6 +329,7 @@ main() {
                 shift
                 ;;
             --status)
+                require_option_value "$1" "${2:-}"
                 status_value="$2"
                 shift 2
                 ;;
@@ -357,6 +342,7 @@ main() {
                 shift
                 ;;
             --field)
+                require_option_value "$1" "${2:-}"
                 FIELD_UPDATES+=("$2")
                 shift 2
                 ;;

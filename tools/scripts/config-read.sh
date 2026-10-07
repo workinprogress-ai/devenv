@@ -67,6 +67,7 @@ main() {
             -h|--help) show_usage ;;
             -v|--version) echo "$SCRIPT_VERSION"; exit 0 ;;
             --config)
+                require_option_value "$1" "${2:-}"
                 [ -z "${2:-}" ] && { log_error "Missing value for --config"; exit 1; }
                 config_file="$2"; shift 2 ;;
             --*) { log_error "Unknown option: $1"; exit 1; } ;;

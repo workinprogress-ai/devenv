@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # key-update.sh (github provider)
 # Updates the GitHub personal access token and reloads environment
-# Usage: key-update-provider [TOKEN]
+# Usage: key-update-provider   (token on the prompt, or piped on stdin)
 
 set -euo pipefail
 # Resolve the tools root from this script's own location (self-root
@@ -27,20 +27,26 @@ echo "    -------------------------------------------------------"
 echo "    This will update your GitHub personal access token."
 echo ""
 
-# --help / -h must never be interpreted as a token: an unrecognized flag
-# would otherwise fall through to the token path and fail at import.
+# --help / -h must never be interpreted as a token.
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-    echo "Usage: key-update-provider [TOKEN] | --help"
+    echo "Usage: key-update-provider | --help"
     echo ""
     echo "Rotate the provider credential-store token used for git https auth."
-    echo "With TOKEN: non-interactive rotation. Without: prompts on the terminal."
+    echo "Prompts for the token on the terminal (hidden input); a piped stdin"
+    echo "token also works: key-update-provider < token-file."
     exit 0
 fi
 
-# Get token from argument or prompt user; capture EOF so an empty token
-# reaches the validation below instead of set -e exiting on read's rc.
-if [ -n "${1:-}" ]; then
-    NEW_TOKEN="$1"
+# The token is never an argument: it would sit on the process listing and in
+# shell history.
+if [ $# -gt 0 ]; then
+    die "the token is not accepted as an argument (it would appear in the process list); paste it at the prompt or pipe it on stdin: key-update-provider < token-file" "$EXIT_MISUSE"
+fi
+
+# Get the token from stdin (pipe) or the terminal prompt; capture EOF so an
+# empty token reaches the validation below instead of set -e exiting on read's rc.
+if [ ! -t 0 ]; then
+    read -r NEW_TOKEN || NEW_TOKEN=""
 else
     read -s -r -p "    Paste GitHub personal access token (classic) with repo scope: " NEW_TOKEN || NEW_TOKEN=""
     echo "" # Newline

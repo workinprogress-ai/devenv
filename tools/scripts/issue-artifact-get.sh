@@ -167,7 +167,7 @@ main() {
 
     local comments_raw
     log_verbose "Fetching comments for issue #$ISSUE_NUMBER"
-    if ! comments_raw=$(provider_issues_comments "$ISSUE_NUMBER" "$TARGET_REPO" 2>/dev/null); then
+    if ! comments_raw=$(provider_issues_comments "$TARGET_REPO" "$ISSUE_NUMBER" 2>/dev/null); then
         api_failure "Failed to fetch comments for issue #$ISSUE_NUMBER"
     fi
 
@@ -192,7 +192,7 @@ main() {
               author: ($c.user.login // null),
               createdAt: $c.created_at,
               updatedAt: $c.updated_at,
-              url: $c.html_url,
+              url: $c.url,
               bodyPreview: (($c.body // "") | .[0:256]),
               body: ($c.body // "")
             }

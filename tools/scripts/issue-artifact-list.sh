@@ -39,7 +39,7 @@ Required Inputs:
     --issue, --issue-number N     Issue number
 
 Optional Filters:
-    --artifact-type TYPE          Filter by artifact type (for example: plan; legacy implementation-plan also accepted)
+    --artifact-type TYPE          Filter by artifact type (for example: plan; implementation-plan also accepted)
 
 Options:
     --full                        Return full body as "body" (default: bodyPreview only)
@@ -144,7 +144,7 @@ main() {
 
     local comments_raw
     log_verbose "Fetching comments for issue #$ISSUE_NUMBER"
-    if ! comments_raw=$(provider_issues_comments "$ISSUE_NUMBER" "$TARGET_REPO" 2>/dev/null); then
+    if ! comments_raw=$(provider_issues_comments "$TARGET_REPO" "$ISSUE_NUMBER" 2>/dev/null); then
         api_failure "Failed to fetch comments for issue #$ISSUE_NUMBER"
     fi
 
@@ -169,7 +169,7 @@ main() {
               author: ($c.user.login // null),
               createdAt: $c.created_at,
               updatedAt: $c.updated_at,
-              url: $c.html_url,
+              url: $c.url,
               bodyPreview: ($body | .[0:256]),
               body: $body
             }

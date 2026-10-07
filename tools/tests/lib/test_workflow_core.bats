@@ -51,6 +51,28 @@ STUB
     grep -qx "WF-WRITE 44 --status To-Groom --all-projects --safe" "$STUB_DIR/calls.log"
 }
 
+# A signal's contract sets no DEVENV_REPO, so a signal fired from the devenv checkout
+# targets the devenv repo's own issues on purpose: the write path carries the explicit
+# override for that case, and only for that case.
+@test "the status write passes --devenv only when DEVENV_REPO is unset" {
+    local wf="$STUB_DIR/wf/scripts"
+    mkdir -p "$wf"
+    cat > "$wf/project-update-issue.sh" <<STUB
+#!/usr/bin/env bash
+echo "ARGS \$*" >> "$STUB_DIR/env.log"
+exit 0
+STUB
+    chmod +x "$wf/project-update-issue.sh"
+    : > "$STUB_DIR/env.log"
+    run env -u DEVENV_REPO bash -c "source '$LIB' && WORKFLOW_CORE_TOOLS='$STUB_DIR/wf' workflow_on_event _on_begin_grooming 44"
+    [ "$status" -eq 0 ]
+    grep -qx "ARGS 44 --status To-Groom --all-projects --safe --devenv" "$STUB_DIR/env.log"
+    : > "$STUB_DIR/env.log"
+    run env DEVENV_REPO=other-org/other-repo bash -c "source '$LIB' && WORKFLOW_CORE_TOOLS='$STUB_DIR/wf' workflow_on_event _on_begin_grooming 44"
+    [ "$status" -eq 0 ]
+    grep -qx "ARGS 44 --status To-Groom --all-projects --safe" "$STUB_DIR/env.log"
+}
+
 @test "on_event for an unknown event performs no write" {
     local wf="$STUB_DIR/wf/scripts"
     mkdir -p "$wf"

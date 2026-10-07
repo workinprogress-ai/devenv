@@ -100,15 +100,7 @@ update_comment() {
     local body
     if [ -n "$COMMENT_FILE" ]; then
         if [ "$COMMENT_FILE" = "-" ]; then
-            if body_source_stdin_is_tty; then
-                log_error "--body-file - requires piped stdin (refusing to read the terminal)"
-                exit "$EXIT_GENERAL_ERROR"
-            fi
-            body=$(cat)
-            if [ -z "$(printf '%s' "$body" | tr -d '[:space:]')" ]; then
-                log_error "Refusing empty stdin body (pipe content or use --body/--body-file)"
-                exit "$EXIT_GENERAL_ERROR"
-            fi
+            body=$(body_source_read_dash) || exit "$EXIT_GENERAL_ERROR"
         else
             body=$(cat "$COMMENT_FILE")
         fi
@@ -192,6 +184,7 @@ main() {
                 shift
                 ;;
             --repo)
+                require_option_value "$1" "${2:-}"
                 # shellcheck disable=SC2034  # Read by library functions via ${DEVENV_REPO:-}
                 DEVENV_REPO="$2"
                 shift 2

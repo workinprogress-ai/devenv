@@ -78,7 +78,7 @@ _make_stub() {
     root="$(mktemp -d)"
     _make_mock_checkout "$root"
     _make_script "$root" "alpha.sh"
-    printf ' drifted stale content\n' > "$root/tools/alpha"
+    printf '#!/bin/bash\n# drifted stale content\n' > "$root/tools/alpha"
 
     run bash "$SYNC_SCRIPT"
     [ "$status" -eq 0 ]
@@ -262,4 +262,297 @@ _make_stub() {
         printf '%s' "$broken" >&2
         return 1
     }
+}
+
+@test "a stub for an extensionless script whose target is gone is purged" {
+    local root
+    root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_script "$root" "alpha.sh"
+    # git-style tools have no .sh suffix: their stale stubs must go too
+    _make_stub "$root" "git-old-tool" "git-old-tool"
+
+    run bash "$SYNC_SCRIPT"
+    [ "$status" -eq 0 ]
+
+    [ ! -e "$root/tools/git-old-tool" ]
+    [ -f "$root/tools/alpha" ]
+    rm -rf "$root"
+}
+
+@test "a stub for an extensionless script that still exists is kept" {
+    local root
+    root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    printf '#!/bin/bash\necho git-live\n' > "$root/tools/scripts/git-live"
+    chmod +x "$root/tools/scripts/git-live"
+    _make_stub "$root" "git-live" "git-live"
+
+    run bash "$SYNC_SCRIPT"
+    [ "$status" -eq 0 ]
+
+    [ -f "$root/tools/git-live" ]
+    rm -rf "$root"
+}
+
+# ---------------------------------------------------------------------------
+# Override layers: tools/custom/ over tools/fork/ over tools/scripts/
+# ---------------------------------------------------------------------------
+
+_make_layer_script() {
+    local root="$1" layer="$2" name="$3"
+    mkdir -p "$root/tools/$layer"
+    printf '#!/bin/bash\necho "ran-%s-%s"\n' "$layer" "$name" > "$root/tools/$layer/$name"
+}
+
+@test "a tools/fork/ script gets a depth-1 stub that runs it" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_layer_script "$root" fork "own-tool.sh"
+    run bash "$SYNC_SCRIPT"
+    [ "$status" -eq 0 ]
+    grep -q 'fork/own-tool.sh' "$root/tools/own-tool"
+    run bash "$root/tools/own-tool"
+    [ "$output" = "ran-fork-own-tool.sh" ]
+    rm -rf "$root"
+}
+
+@test "a tools/custom/ script gets a depth-1 stub that runs it" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_layer_script "$root" custom "mine.sh"
+    run bash "$SYNC_SCRIPT"
+    grep -q 'custom/mine.sh' "$root/tools/mine"
+    rm -rf "$root"
+}
+
+@test "precedence: custom beats fork beats provided for the same name" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_script "$root" "shared.sh"
+    _make_layer_script "$root" fork "shared.sh"
+    run bash "$SYNC_SCRIPT"
+    grep -q 'fork/shared.sh' "$root/tools/shared"
+    _make_layer_script "$root" custom "shared.sh"
+    run bash "$SYNC_SCRIPT"
+    grep -q 'custom/shared.sh' "$root/tools/shared"
+    run bash "$root/tools/shared"
+    [ "$output" = "ran-custom-shared.sh" ]
+    rm -rf "$root"
+}
+
+@test "removing an override and re-syncing points the stub back at the next layer" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_script "$root" "shared.sh"
+    _make_layer_script "$root" custom "shared.sh"
+    bash "$SYNC_SCRIPT" >/dev/null
+    grep -q 'custom/shared.sh' "$root/tools/shared"
+    rm "$root/tools/custom/shared.sh"
+    run bash "$SYNC_SCRIPT"
+    [ "$status" -eq 0 ]
+    grep -q 'scripts/shared.sh' "$root/tools/shared"
+    rm -rf "$root"
+}
+
+@test "removing a pure custom tool purges its stub" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_layer_script "$root" custom "temp.sh"
+    bash "$SYNC_SCRIPT" >/dev/null
+    [ -f "$root/tools/temp" ]
+    rm "$root/tools/custom/temp.sh"
+    run bash "$SYNC_SCRIPT"
+    [[ "$output" == *"removed=1"* ]]
+    [ ! -e "$root/tools/temp" ]
+    rm -rf "$root"
+}
+
+@test "underscore-prefixed scripts in fork/ and custom/ get no depth-1 entry" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_layer_script "$root" fork "_internal.sh"
+    _make_layer_script "$root" custom "_hidden.sh"
+    run bash "$SYNC_SCRIPT"
+    [ ! -e "$root/tools/_internal" ]
+    [ ! -e "$root/tools/_hidden" ]
+    [ ! -e "$root/tools/_internal.sh" ]
+    rm -rf "$root"
+}
+
+@test "a stale extensionless git-* stub is purged along with the .sh ones" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_stub "$root" "git-gone" "git-gone"
+    run bash "$SYNC_SCRIPT"
+    [ ! -e "$root/tools/git-gone" ]
+    rm -rf "$root"
+}
+
+@test "a fork-layer git-* tool overrides the provided one" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    printf '#!/bin/bash\necho provided\n' > "$root/tools/scripts/git-thing"
+    mkdir -p "$root/tools/fork"; printf '#!/bin/bash\necho forked\n' > "$root/tools/fork/git-thing"
+    bash "$SYNC_SCRIPT" >/dev/null
+    run bash "$root/tools/git-thing"
+    [ "$output" = "forked" ]
+    rm -rf "$root"
+}
+
+@test "a re-run with no changes in any layer is a no-op" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_script "$root" "a.sh"
+    _make_layer_script "$root" fork "b.sh"
+    _make_layer_script "$root" custom "a.sh"
+    bash "$SYNC_SCRIPT" >/dev/null
+    run bash "$SYNC_SCRIPT"
+    [[ "$output" == *"created=0 converted=0"* ]]
+    [[ "$output" == *"removed=0"* ]]
+    rm -rf "$root"
+}
+
+@test "a custom tool named like a tools/ directory is skipped with a warning and the rest still sync" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    mkdir -p "$root/tools/config"
+    _make_layer_script "$root" custom "lib.sh"
+    _make_layer_script "$root" custom "config.sh"
+    _make_layer_script "$root" custom "fine.sh"
+    run bash "$SYNC_SCRIPT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"tools/lib is a directory"* ]]
+    [[ "$output" == *"tools/config is a directory"* ]]
+    [ -d "$root/tools/lib" ] && [ -d "$root/tools/config" ]
+    [ -f "$root/tools/fine" ]
+    rm -rf "$root"
+}
+
+@test "a filename the stub could interpret is skipped, never written into a stub" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    mkdir -p "$root/tools/custom"
+    printf '#!/bin/bash\necho x\n' > "$root/tools/custom/"'$(touch PWNED).sh'
+    printf '#!/bin/bash\necho x\n' > "$root/tools/custom/"'back`tick.sh'
+    printf '#!/bin/bash\necho x\n' > "$root/tools/custom/"'my tool.sh'
+    printf '#!/bin/bash\necho x\n' > "$root/tools/custom/"'ok-name.sh'
+    run bash "$SYNC_SCRIPT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"not a plain tool name"* ]]
+    [ -f "$root/tools/ok-name" ]
+    run bash "$root/tools/ok-name"
+    [ ! -e "$root/PWNED" ] && [ ! -e "$root/tools/PWNED" ]
+    # nothing but the one plain name was created
+    [ "$(find "$root/tools" -maxdepth 1 -type f | wc -l)" -eq 1 ]
+    rm -rf "$root"
+}
+
+@test "a dangling symlink and a directory named like a script are ignored" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    mkdir -p "$root/tools/custom/dir.sh"
+    ln -s /nonexistent/target "$root/tools/custom/dangling.sh"
+    _make_layer_script "$root" custom "real.sh"
+    run bash "$SYNC_SCRIPT"
+    [ "$status" -eq 0 ]
+    [ -f "$root/tools/real" ]
+    [ ! -e "$root/tools/dir" ] && [ ! -e "$root/tools/dangling" ]
+    rm -rf "$root"
+}
+
+@test "a document or data file that shares a tool's name is left alone with a warning" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_script "$root" "README.sh"
+    printf 'my notes\n' > "$root/tools/README"
+    run bash "$SYNC_SCRIPT"
+    [ "$status" -eq 0 ]
+    [ "$(cat "$root/tools/README")" = "my notes" ]
+    [[ "$output" == *"leaving tools/README alone"* ]]
+    rm -rf "$root"
+}
+
+@test "a drifted script copy or a stub for an old source is still converted to the winning stub" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_script "$root" "tool.sh"
+    printf '#!/bin/bash\necho an old copy\n' > "$root/tools/tool"
+    chmod +x "$root/tools/tool"
+    run bash "$SYNC_SCRIPT"
+    grep -q 'scripts/tool.sh' "$root/tools/tool"
+    rm -rf "$root"
+}
+
+@test "a hardlinked entry is replaced, and the source script it shares an inode with is untouched" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_script "$root" "alpha.sh"
+    local before; before="$(cat "$root/tools/scripts/alpha.sh")"
+    ln "$root/tools/scripts/alpha.sh" "$root/tools/alpha"
+    run bash "$SYNC_SCRIPT"
+    [ "$status" -eq 0 ]
+    [ "$(cat "$root/tools/scripts/alpha.sh")" = "$before" ]
+    grep -q 'scripts/alpha.sh' "$root/tools/alpha"
+    [ "$(stat -c %i "$root/tools/alpha")" != "$(stat -c %i "$root/tools/scripts/alpha.sh")" ]
+    rm -rf "$root"
+}
+
+@test "a hardlinked runner entry leaves the runner script untouched" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    mkdir -p "$root/tools/tests"
+    printf '#!/bin/bash\necho runner\n' > "$root/tools/tests/run-devenv-tests.sh"
+    ln "$root/tools/tests/run-devenv-tests.sh" "$root/tools/run-devenv-tests"
+    run bash "$SYNC_SCRIPT"
+    [ "$status" -eq 0 ]
+    [ "$(cat "$root/tools/tests/run-devenv-tests.sh")" = $'#!/bin/bash\necho runner' ]
+    rm -rf "$root"
+}
+
+@test "a stub is written with mode 755 whatever the umask, and no temporary file is left behind" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_script "$root" "alpha.sh"
+    run bash -c "umask 077; bash '$SYNC_SCRIPT'"
+    [ "$status" -eq 0 ]
+    [ "$(stat -c %a "$root/tools/alpha")" = "755" ]
+    [ -z "$(find "$root/tools" -maxdepth 1 -name '*.tmp.*')" ]
+    rm -rf "$root"
+}
+
+@test "a stub that cannot be written leaves the old entry in place and says so" {
+    [ "$(id -u)" -ne 0 ] || skip "directory permissions do not bind root"
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_script "$root" "alpha.sh"
+    printf '#!/bin/bash\necho old entry\n' > "$root/tools/alpha"
+    chmod +x "$root/tools/alpha"
+    chmod a-w "$root/tools"
+    run bash "$SYNC_SCRIPT"
+    chmod u+w "$root/tools"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"could not write"* ]]
+    [ "$(cat "$root/tools/alpha")" = $'#!/bin/bash\necho old entry' ]
+    rm -rf "$root"
+}
+
+@test "the entry never goes missing while the sync replaces it" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_script "$root" "alpha.sh"
+    printf '#!/bin/bash\necho old\n' > "$root/tools/alpha"
+    chmod +x "$root/tools/alpha"
+    # a watcher checks for the entry in a tight loop while the sync runs
+    ( while [ ! -e "$root/.stop" ]; do [ -e "$root/tools/alpha" ] || { touch "$root/.missing"; break; }; done ) &
+    local watcher=$!
+    local i
+    for i in 1 2 3 4 5 6 7 8; do
+        printf '#!/bin/bash\necho old %s\n' "$i" > "$root/tools/alpha.stale"
+        mv -f "$root/tools/alpha.stale" "$root/tools/alpha"
+        bash "$SYNC_SCRIPT" >/dev/null 2>&1
+    done
+    touch "$root/.stop"; wait "$watcher" 2>/dev/null || true
+    [ ! -e "$root/.missing" ]
+    rm -rf "$root"
 }

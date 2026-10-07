@@ -98,6 +98,7 @@ main() {
                 exit 0
                 ;;
             --repo)
+                require_option_value "$1" "${2:-}"
                 [ $# -ge 2 ] || die "--repo requires a value" "$EXIT_MISUSE"
                 repo="$2"
                 shift 2
@@ -107,6 +108,7 @@ main() {
                 shift
                 ;;
             --depth)
+                require_option_value "$1" "${2:-}"
                 [ $# -ge 2 ] || die "--depth requires a value" "$EXIT_MISUSE"
                 depth="$2"
                 shift 2
@@ -116,6 +118,7 @@ main() {
                 shift
                 ;;
             --branch)
+                require_option_value "$1" "${2:-}"
                 [ $# -ge 2 ] || die "--branch requires a value" "$EXIT_MISUSE"
                 branches+=("$2")
                 shift 2

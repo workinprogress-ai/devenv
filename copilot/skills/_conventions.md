@@ -272,7 +272,7 @@ updated_at_utc: <ISO-8601>
 4. For local-file artifacts (no issue comment target), use this deterministic format in file header:
     - `dv1:<owner>/<repo>:local:<artifact-type>:<artifact-slug>`
     - `<artifact-slug>` should be derived from the artifact filename stem.
-5. **Legacy dashed keys.** Artifacts published before 2026-09-11 may carry dashed-form doc_ids (`dv1:<owner-repo>:...`). They remain valid — `issue-artifact-upsert`/`get`/`select` treat doc_id as an opaque exact-string key — but never generate new doc_ids in that form; `issue-artifact-doc-id` emits the slash form only.
+5. **Dashed keys.** Artifacts may carry dashed-form doc_ids (`dv1:<owner-repo>:...`). They are valid — `issue-artifact-upsert`/`get`/`select` treat doc_id as an opaque exact-string key — but never generate new doc_ids in that form; `issue-artifact-doc-id` emits the slash form only.
 6. For issue-comment publication, post via `issue-artifact-upsert` (not manual `issue-comment-list` / `issue-comment-update` matching). Tool automatically extracts `doc_id` from file header.
 7. If upsert reports duplicate `doc_id` conflict, stop and ask the user which comment ID is canonical before continuing.
 8. **Planning-repo key (optional, for work governed by a planning repo).** The workspace has multiple planning repos — one per project — so artifacts that participate in a governed hierarchy (epics, roadmaps, grooming documents, and plans/grooming slices created from them) carry the back-link in their header:

@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
-# The deprecated exit-code aliases (EXIT_INVALID_ARGUMENT=3, EXIT_NOT_FOUND=4,
-# EXIT_PERMISSION_DENIED=5) collide with canonical meanings: 3 is "ambiguous
-# match", not "invalid argument". Nothing outside their definition may use them.
+# Each exit-code value has one name. The former aliases (EXIT_INVALID_ARGUMENT=3,
+# EXIT_NOT_FOUND=4, EXIT_PERMISSION_DENIED=5) collided with canonical meanings (3 is
+# "ambiguous match", not "invalid argument") and are gone: nothing defines or uses them.
 
 bats_require_minimum_version 1.5.0
 
@@ -38,11 +38,20 @@ run_unconfigured() {
     [[ "$output" == *"Organization identity unresolved"* ]]
 }
 
-@test "no script, library or template uses the deprecated exit-code aliases" {
+@test "no script, library or template defines or uses the retired exit-code aliases" {
     run grep -rnE 'EXIT_INVALID_ARGUMENT|EXIT_NOT_FOUND|EXIT_PERMISSION_DENIED' \
         "$PROJECT_ROOT/tools/scripts" "$PROJECT_ROOT/tools/lib" "$PROJECT_ROOT/tools/templates" \
-        "$PROJECT_ROOT/.devcontainer" "$PROJECT_ROOT/setup" \
-        --exclude=error-handling.bash
+        "$PROJECT_ROOT/.devcontainer" "$PROJECT_ROOT/setup"
     # grep exits 1 when it finds nothing: that is the passing outcome.
     [ "$status" -eq 1 ] || { echo "$output"; return 1; }
+}
+
+@test "every exit-code name has its own value (no two names share one)" {
+    run bash -c "source '$PROJECT_ROOT/tools/lib/error-handling.bash'; env | grep '^EXIT_' | sort -t= -k2 | awk -F= '{print \$2}' | uniq -d"
+    [ -z "$output" ]
+}
+
+@test "issue-label-create does not redefine the library's ensure_label" {
+    run grep -n '^ensure_label()' "$PROJECT_ROOT/tools/scripts/issue-label-create.sh"
+    [ "$status" -ne 0 ]
 }

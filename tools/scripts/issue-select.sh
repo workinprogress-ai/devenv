@@ -19,6 +19,7 @@ source "$DEVENV_TOOLS/lib/fzf-selection.bash"
 source "$DEVENV_TOOLS/lib/git-operations.bash"
 source "$DEVENV_TOOLS/lib/issue-operations.bash"
 
+# shellcheck disable=SC2034  # read by handle_global_flag (error-handling.bash)
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
@@ -55,7 +56,7 @@ Options:
 Filters:
     -s, --state STATE           Filter by state: open, closed, or all (default: open)
     -t, --type TYPE             Filter by native issue type: Bug, Feature, Task, or Epic
-                                (case-insensitive; legacy lowercase aliases accepted)
+                                (case-insensitive; lowercase aliases accepted)
     -m, --milestone NAME        Filter by milestone
     -l, --label LABEL           Filter by label
 
@@ -172,22 +173,6 @@ select_issues() {
 # ============================================================================
 
 main() {
-    # Parse command-line arguments
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            -h|--help)
-                show_usage
-                ;;
-            -v|--version)
-                echo "$SCRIPT_VERSION"
-                exit 0
-                ;;
-            *)
-                break
-                ;;
-        esac
-    done
-    
     # Ensure GitHub CLI authentication
     # Global flags before auth/validation: --help must work without
     # a valid GitHub session or any positional args.
@@ -200,12 +185,8 @@ main() {
     # Continue parsing other arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            -h|--help)
-                show_usage
-                ;;
-            -v|--version)
-                echo "$SCRIPT_VERSION"
-                exit 0
+            -h|--help|-v|--version)
+                handle_global_flag "$1"
                 ;;
             -V|--verbose)
                 # shellcheck disable=SC2034  # read by log_verbose in error-handling.bash
@@ -213,18 +194,22 @@ main() {
                 shift
                 ;;
             -s|--state)
+                require_option_value "$1" "${2:-}"
                 FILTER_STATE="$2"
                 shift 2
                 ;;
             -t|--type)
+                require_option_value "$1" "${2:-}"
                 FILTER_TYPE="$2"
                 shift 2
                 ;;
             -m|--milestone)
+                require_option_value "$1" "${2:-}"
                 FILTER_MILESTONE="$2"
                 shift 2
                 ;;
             -l|--label)
+                require_option_value "$1" "${2:-}"
                 FILTER_LABEL="$2"
                 shift 2
                 ;;
@@ -233,6 +218,7 @@ main() {
                 shift
                 ;;
             -f|--format)
+                require_option_value "$1" "${2:-}"
                 OUTPUT_FORMAT="$2"
                 shift 2
                 ;;

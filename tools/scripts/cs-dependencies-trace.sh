@@ -49,7 +49,7 @@ dependencies on the target, directly or transitively.
 The target directory must contain a .sln file and/or .csproj file(s).
 
 Default output format:
-    DEPTH:REPO:PACKAGE   e.g. 0:lib.cs.services.sagas:WorkInProgress.Lib.Services.Sagas.Common
+    DEPTH:REPO:PACKAGE   e.g. 0:lib.cs.services.sagas:Acme.Lib.Services.Sagas.Common
 
 With --by-repo:
     DEPTH:REPO           e.g. 0:lib.cs.services.chassis

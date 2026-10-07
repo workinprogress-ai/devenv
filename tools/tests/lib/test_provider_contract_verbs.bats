@@ -19,6 +19,7 @@ gh_libs_source() {
     source "$DEVENV_TOOLS/lib/providers/github/issues.bash"
     source "$DEVENV_TOOLS/lib/providers/github/prs.bash"
     source "$DEVENV_TOOLS/lib/providers/github/org.bash"
+    source "$DEVENV_TOOLS/lib/providers/github/pipelines.bash"
 }
 
 gh_run() {
@@ -138,7 +139,8 @@ JSONEOF
         run provider_org_releases_list o1/p1/r1 --limit 10
     [ "$status" -eq 0 ]
     # One JSON array of gh-shaped release records.
-    jq -e 'length == 2 and .[0].tagName == "v1.2.3" and .[1].isPrerelease == true and .[0].isDraft == false' \
+    # newest first: the 2.0.0 prerelease is above 1.2.3
+    jq -e 'length == 2 and .[1].tagName == "v1.2.3" and .[0].isPrerelease == true and .[1].isDraft == false' \
         <<< "$output" >/dev/null
 }
 
@@ -161,7 +163,7 @@ JSONEOF
     [ "$(printf '%s' "$output" | jq -r '.[0].name')" = "main-feed" ]
 }
 
-@test "azure provider_issues_set_type patches System.WorkItemType" {
+@test "azure provider_issues_set_type replaces System.WorkItemType with the mapped Azure type" {
     stub_curl
     export STUB_CALL_LOG AZURE_PAT="test-pat"
     export DEVENV_ROOT="$TEST_TEMP_DIR/devenv-root"
@@ -173,12 +175,12 @@ JSONEOF
     source "$DEVENV_TOOLS/lib/providers/azure/repos.bash"
     source "$DEVENV_TOOLS/lib/providers/azure/issues.bash"
     printf '[provider]\nname=azure\nazure_org=o1\nazure_project=p1\n' > "$DEVENV_ROOT/devenv.config"
-    printf '{"id":42,"fields":{}}' > "$TEST_TEMP_DIR/typed.json"
+    printf '{"id":42,"fields":{"System.WorkItemType":"Bug"}}' > "$TEST_TEMP_DIR/typed.json"
     : > "$TEST_TEMP_DIR/typebody.log"
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/typed.json" STUB_CURL_REQUEST_BODY="$TEST_TEMP_DIR/typebody.log" \
         run provider_issues_set_type o p 42 Task
     [ "$status" -eq 0 ]
-    jq -e '.[0].value == "Task"' < <(cat "$TEST_TEMP_DIR/typebody.log") >/dev/null
+    jq -s -e 'any(.[][]?; .path == "/fields/System.WorkItemType" and .value == "User Story")' "$TEST_TEMP_DIR/typebody.log" >/dev/null
 }
 
 @test "merge_pr deletes by default and keeps the branch on request" {
@@ -200,4 +202,53 @@ JSONEOF
         echo "keep_branch did not suppress --delete-branch: $out2" >&2
         return 1
     fi
+}
+
+@test "github provider_prs_thread_create looks the repository up through GraphQL variables, not embedded placeholders" {
+    printf '{"data":{"repository":{"id":"R_1"}}}' > "$TEST_TEMP_DIR/node.json"
+    printf '{"data":{"addPullRequestReviewThread":{"thread":{"url":"https://github.o/r/pull/1#discussion_r1"}}}}' > "$TEST_TEMP_DIR/thread.json"
+    printf '%s\n%s\n' "$TEST_TEMP_DIR/node.json" "$TEST_TEMP_DIR/thread.json" > "$TEST_TEMP_DIR/pages.queue"
+    : > "$TEST_TEMP_DIR/stub-calls.log"
+    STUB_GH_PAGES="$TEST_TEMP_DIR/pages.queue" \
+        run gh_run provider_prs_thread_create myorg/myrepo 1 --body "note"
+    [ "$status" -eq 0 ]
+    grep -q -- '-f o=myorg' "$TEST_TEMP_DIR/stub-calls.log"
+    grep -q -- '-f r=myrepo' "$TEST_TEMP_DIR/stub-calls.log"
+    run ! grep -F '{owner}' "$TEST_TEMP_DIR/stub-calls.log"
+}
+
+# ---------------------------------------------------------------------------
+# pipelines: the flags a caller passes must reach gh
+# ---------------------------------------------------------------------------
+
+@test "github provider_pipelines_run_rerun forwards --failed and --debug to gh run rerun" {
+    : > "$TEST_TEMP_DIR/stub-calls.log"
+    run gh_run provider_pipelines_run_rerun o/r 123 --failed --debug
+    [ "$status" -eq 0 ]
+    grep -q 'run rerun 123' "$TEST_TEMP_DIR/stub-calls.log"
+    grep -q -- '--failed' "$TEST_TEMP_DIR/stub-calls.log"
+    grep -q -- '--debug' "$TEST_TEMP_DIR/stub-calls.log"
+}
+
+@test "github provider_pipelines_run_rerun still reruns a bare run id" {
+    : > "$TEST_TEMP_DIR/stub-calls.log"
+    run gh_run provider_pipelines_run_rerun 123
+    [ "$status" -eq 0 ]
+    grep -q 'run rerun 123' "$TEST_TEMP_DIR/stub-calls.log"
+}
+
+@test "github provider_pipelines_workflow_list forwards --json and -q so a JSON consumer gets JSON" {
+    : > "$TEST_TEMP_DIR/stub-calls.log"
+    run gh_run provider_pipelines_workflow_list o/r --json id,name,path,state -q '.[].name'
+    [ "$status" -eq 0 ]
+    grep -q 'workflow list' "$TEST_TEMP_DIR/stub-calls.log"
+    grep -q -- '--json id,name,path,state' "$TEST_TEMP_DIR/stub-calls.log"
+    grep -q -- "-q .\[\].name" "$TEST_TEMP_DIR/stub-calls.log"
+}
+
+@test "github provider_pipelines_workflow_list takes the repository first, as before" {
+    : > "$TEST_TEMP_DIR/stub-calls.log"
+    run gh_run provider_pipelines_workflow_list o/r
+    [ "$status" -eq 0 ]
+    grep -q -- '-R o/r' "$TEST_TEMP_DIR/stub-calls.log"
 }

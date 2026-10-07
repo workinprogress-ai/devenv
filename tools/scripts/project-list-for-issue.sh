@@ -43,6 +43,7 @@ Options:
     -v, --version            Show version information and exit
     -V, --verbose            Enable verbose output
     -n, --dry-run            No-op for symmetry with sibling wrappers
+    --devenv                 Safety override to read from the devenv repo itself
 
 Output (one line per project):
     <project-title>\t<project-number>\t<status-or-dash>
@@ -84,6 +85,11 @@ main() {
                 DRY_RUN=1
                 shift
                 ;;
+            --devenv)
+                # shellcheck disable=SC2034  # read by check_target_repo in git-operations.bash
+                ALLOW_DEVENV_REPO=1
+                shift
+                ;;
             -*)
                 log_error "Unknown option: $1"
                 echo "Use --help for usage information"
@@ -105,13 +111,12 @@ main() {
     fi
 
     check_dependencies
-    check_target_repo
 
-    local repo_spec owner repo issue_url
+    # resolve_target_repo applies the devenv-repo gate to an implicit target.
+    local repo_spec owner issue_url
     repo_spec=$(resolve_target_repo) || exit 1
     owner="${repo_spec%%/*}"
-    repo="${repo_spec#*/}"
-    issue_url="$(provider_web_url "$owner/$repo" "issues/$ISSUE_NUMBER")"
+    issue_url="$(provider_issue_web_url "$repo_spec" "$ISSUE_NUMBER")"
 
     log_verbose "Looking up projects for $issue_url"
     provider_projects_for_issue "$issue_url" "$owner"

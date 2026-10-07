@@ -178,6 +178,7 @@ main() {
             -h|--help) show_usage ;;
             -v|--version) echo "$SCRIPT_VERSION"; exit 0 ;;
             --plan-dir)
+                require_option_value "$1" "${2:-}"
                 [ -z "${2:-}" ] && invalid_args "Missing value for --plan-dir"
                 local pf
                 for pf in "$2"/*.md; do
@@ -185,12 +186,15 @@ main() {
                 done
                 shift 2 ;;
             --plan-file)
+                require_option_value "$1" "${2:-}"
                 [ -z "${2:-}" ] && invalid_args "Missing value for --plan-file"
                 plan_files+=("$2"); shift 2 ;;
             --org)
+                require_option_value "$1" "${2:-}"
                 [ -z "${2:-}" ] && invalid_args "Missing value for --org"
                 default_org="$2"; shift 2 ;;
             --repo)
+                require_option_value "$1" "${2:-}"
                 [ -z "${2:-}" ] && invalid_args "Missing value for --repo"
                 default_repo="$2"; shift 2 ;;
             --*) invalid_args "Unknown option: $1" ;;

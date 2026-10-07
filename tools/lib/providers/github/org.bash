@@ -84,6 +84,20 @@ provider_org_releases_list() {
 # cross the seam.)
 provider_org_issue_types() {
     provider_require_capability native-issue-types || return 1
-    gh api graphql -f query="query { organization(login: \"$1\") { issueTypes(first: 100) { edges { node { id name } } } } }" 2>/dev/null \
-        | jq -c '[.data.organization.issueTypes.edges[].node | {id: .id, name: .name}]'
+    # Capture gh's own status first: piping straight into jq reports jq's, so an
+    # auth or network failure would read as an empty list.
+    local response
+    # shellcheck disable=SC2016  # GraphQL variables must not be shell-expanded
+    if ! response=$(gh api graphql -f 'query=query($o:String!){organization(login:$o){issueTypes(first:100){edges{node{id name}} pageInfo{hasNextPage}}}}' -f o="$1" 2>&1); then
+        log_error "provider_org_issue_types: gh failed for '$1': $response"
+        return 1
+    fi
+    if printf '%s' "$response" | jq -e '.errors' >/dev/null 2>&1; then
+        log_error "provider_org_issue_types: GraphQL error for '$1': $(printf '%s' "$response" | jq -r '.errors[0].message // "unknown"')"
+        return 1
+    fi
+    if [ "$(printf '%s' "$response" | jq -r '.data.organization.issueTypes.pageInfo.hasNextPage // false')" = "true" ]; then
+        log_warn "provider_org_issue_types: '$1' has more than 100 issue types; only the first 100 are listed"
+    fi
+    printf '%s' "$response" | jq -c '[.data.organization.issueTypes.edges[].node | {id: .id, name: .name}]'
 }

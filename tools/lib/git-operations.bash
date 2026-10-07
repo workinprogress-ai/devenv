@@ -55,14 +55,6 @@ is_working_directory_clean() {
     git diff-index --quiet HEAD -- 2>/dev/null
 }
 
-# Check if current branch matches pattern
-# Args: $1 - branch name to check
-# Returns: 0 if matches, 1 otherwise
-is_branch_name() {
-    local branch="${1:-}"
-    [ -n "$branch" ] && [ "$(get_current_branch)" = "$branch" ]
-}
-
 # Check if branch name matches pattern (glob)
 # Args: $1 - pattern (e.g., "review/*")
 # Returns: 0 if matches, 1 otherwise
@@ -84,10 +76,22 @@ get_repo_root() {
     git rev-parse --show-toplevel 2>/dev/null || pwd
 }
 
-# Get default branch (main or master)
+# Get the remote's default branch: origin/HEAD when it is set, else whichever of
+# origin/main and origin/master exists, else master. Never fails, so a caller running
+# under set -e / pipefail is not aborted by a repository whose origin/HEAD is unset.
 # Returns: Default branch name
 get_default_branch() {
-    git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##' || echo "main"
+    local ref
+    ref=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null) || ref=""
+    ref="${ref#origin/}"
+    if [ -z "$ref" ]; then
+        if git show-ref --quiet refs/remotes/origin/main; then
+            ref="main"
+        else
+            ref="master"
+        fi
+    fi
+    printf '%s\n' "$ref"
 }
 
 # Check if branch exists locally
@@ -106,6 +110,21 @@ branch_exists_remote() {
     local branch="${1:-}"
     local remote="${2:-origin}"
     [ -n "$branch" ] && git rev-parse --verify --quiet "refs/remotes/$remote/$branch" >/dev/null 2>&1
+}
+
+# Delete a branch locally only; the remote copy is left alone.
+# Args: $1 - branch name
+# Returns: 0 on success (or when the branch does not exist locally), 1 on failure
+delete_local_branch() {
+    local branch="${1:-}"
+    [ -n "$branch" ] || { log_error "Branch name required"; return 1; }
+    if branch_exists_local "$branch"; then
+        if ! git branch -D "$branch" &>/dev/null; then
+            log_warn "Failed to delete local branch $branch"
+            return 1
+        fi
+    fi
+    return 0
 }
 
 # Delete branch locally and remotely
@@ -724,132 +743,6 @@ check_target_repo() {
 }
 
 # ============================================================================
-# GitHub Repository Protection
-# ============================================================================
-
-# Configure branch protection for a GitHub repository
-#
-# Applies branch protection rules to a specified branch (typically master/main)
-# using the GitHub API via gh CLI. Supports comprehensive protection settings
-# including PR requirements, reviews, status checks, and merge restrictions.
-#
-# Usage:
-#   configure_branch_protection "owner/repo" "master" '{...protection settings...}'
-#   configure_branch_protection "$full_repo_name" "$branch_name" "$protection_json"
-#
-# Arguments:
-#   $1 - Full repository name (owner/repo format, required)
-#   $2 - Branch name to protect (required, e.g., "master", "main")
-#   $3 - JSON protection payload with settings (required)
-#
-# Protection Payload Fields:
-#   required_status_checks         - Status checks configuration (object or null)
-#   enforce_admins                 - Whether to enforce rules for admins (bool)
-#   required_pull_request_reviews  - PR review requirements (object)
-#   restrictions                   - Push restrictions (object or null)
-#   allow_force_pushes             - Allow force pushes (bool)
-#   allow_deletions                - Allow branch deletion (bool)
-#   required_conversation_resolution - Require conversation resolution (bool)
-#
-# Returns:
-#   0 on success, 1 on failure
-#   Outputs success/warning message to stdout
-#
-# Examples:
-#   protection_payload='{
-#     "required_status_checks": null,
-#     "enforce_admins": false,
-#     "required_pull_request_reviews": {
-#       "required_approving_review_count": 1,
-#       "require_code_owner_reviews": true,
-#       "dismiss_stale_reviews": true
-#     },
-#     "restrictions": null,
-#     "allow_force_pushes": false,
-#     "allow_deletions": false,
-#     "required_conversation_resolution": true
-#   }'
-#   configure_branch_protection "myorg/myrepo" "master" "$protection_payload"
-#
-# Notes:
-#   - Requires gh CLI authentication with repo admin permissions
-#   - Branch must exist before protection can be applied
-#   - Settings are applied atomically; partial updates not supported
-#
-configure_branch_protection() {
-    local full_name="$1"
-    local branch_name="$2"
-    local protection_payload="$3"
-    
-    if [ -z "$full_name" ] || [ -z "$branch_name" ] || [ -z "$protection_payload" ]; then
-        echo "ERROR: full_name, branch_name, and protection_payload are required" >&2
-        return 1
-    fi
-    
-    # Apply branch protection (provider verb consumes a payload file)
-    local payload_file
-    payload_file=$(mktemp)
-    printf '%s' "$protection_payload" > "$payload_file"
-    if provider_repos_protect_branch "$full_name" "$branch_name" "$payload_file"; then
-        rm -f "$payload_file"
-        echo "  ✓ Branch protection configured for $branch_name"
-        return 0
-    else
-        echo "  WARNING: Could not configure branch protection (branch may not exist yet)"
-        echo "  Run this after pushing your first commit to $branch_name"
-        rm -f "$payload_file"
-        return 1
-    fi
-}
-
-# Set repository-level settings via GitHub API
-#
-# Updates repository-level settings such as delete_branch_on_merge, wikis,
-# issues, projects, etc. using the GitHub API via gh CLI.
-#
-# Usage:
-#   set_repo_setting "owner/repo" "delete_branch_on_merge" "true"
-#   set_repo_setting "$full_repo_name" "has_wiki" "false"
-#
-# Arguments:
-#   $1 - Full repository name (owner/repo format, required)
-#   $2 - Setting name (required, see GitHub API docs for valid fields)
-#   $3 - Setting value (required, typically "true"/"false" or string)
-#
-# Returns:
-#   0 on success, 1 on failure
-#   Outputs success/warning message to stdout
-#
-# Examples:
-#   set_repo_setting "myorg/myrepo" "delete_branch_on_merge" "true"
-#   set_repo_setting "myorg/myrepo" "has_issues" "true"
-#   set_repo_setting "myorg/myrepo" "default_branch" "main"
-#
-# Notes:
-#   - Requires gh CLI authentication with repo admin permissions
-#   - Uses PATCH method to update only specified fields
-#   - See GitHub API docs for complete list of available settings
-#
-set_repo_setting() {
-    local full_name="$1"
-    local setting_name="$2"
-    local setting_value="$3"
-    
-    if [ -z "$full_name" ] || [ -z "$setting_name" ] || [ -z "$setting_value" ]; then
-        echo "ERROR: full_name, setting_name, and setting_value are required" >&2
-        return 1
-    fi
-    
-    if provider_repos_patch "$full_name" -f "${setting_name}=${setting_value}" >/dev/null 2>&1; then
-        echo "  ✓ Repository setting '$setting_name' set to '$setting_value'"
-        return 0
-    else
-        echo "  WARNING: Could not set repository setting '$setting_name'"
-        return 1
-    fi
-}
-
-# ============================================================================
 # Export Functions
 # ============================================================================
 
@@ -857,7 +750,6 @@ set_repo_setting() {
 export -f get_current_branch
 export -f is_in_git_repo
 export -f is_working_directory_clean
-export -f is_branch_name
 export -f branch_matches_pattern
 export -f get_repo_root
 export -f get_default_branch
@@ -876,5 +768,3 @@ export -f configure_git_repo
 export -f configure_git_global
 export -f add_git_safe_directory
 export -f check_target_repo
-export -f configure_branch_protection
-export -f set_repo_setting

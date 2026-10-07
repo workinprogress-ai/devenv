@@ -39,11 +39,12 @@ POLICY_KNOBS=()
 policy_core_init() {
     # Default config path: env root, else the devenv root this lib lives in
     # (script-relative — no caller-path coupling).
-    local config_file="${1:-${DEVENV_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/devenv.config}"
+    local config_file="${1:-${DEVENV_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)}/devenv.config}"
     POLICY_CONFIG_FILE="$config_file"
 
-    # config-reader provides the INI reading primitives (config_init /
-    # config_read_value); source it lazily against our config file.
+    # config-reader is the one INI reader; policy values are read from POLICY_CONFIG_FILE
+    # explicitly (config_get), so initialising another file elsewhere never changes
+    # what a policy accessor reads.
     local lib_dir
     lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
     # shellcheck disable=SC1090,SC1091
@@ -89,8 +90,9 @@ policy_resolve() {
         return 0
     fi
     local value
-    if [ -n "$POLICY_CONFIG_FILE" ] && [ -f "$POLICY_CONFIG_FILE" ]; then
-        value=$(config_read_value "$section" "$key" "")
+    # A knob with no config key (env or built-in only) never reads the file.
+    if [ -n "$section" ] && [ -n "$key" ] && [ -n "$POLICY_CONFIG_FILE" ] && [ -f "$POLICY_CONFIG_FILE" ]; then
+        value=$(config_get "$POLICY_CONFIG_FILE" "$section" "$key" "")
     fi
     echo "${value:-$fallback}"
 }

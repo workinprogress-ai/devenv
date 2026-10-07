@@ -101,20 +101,33 @@ check_dependencies() {
 find_shell_scripts() {
     local search_dir="${1:-$project_root}"
     
-    # Find all .sh files, excluding certain directories. repos/ holds clones of other
+    # Find all shell scripts, excluding certain directories: files named *.sh or
+    # *.bash, plus extensionless files whose first line is a shell shebang (the
+    # git-* tools, the root setup script). repos/ holds clones of other
     # repositories (not ours to lint), but the scripts directly in repos/ are this
     # workspace's own top-level infra and are included.
     # Note: find may return non-zero on permission errors; use || true to prevent
     # set -e from aborting when pipefail is enabled
-    find "$search_dir" -type f \( -name "*.sh" -o -name "*.bash" \) \
-        ! -path "*/node_modules/*" \
-        ! -path "*/.git/*" \
-        ! -path "*/tmp/*" \
-        ! -path "*/.debug/*" \
-        ! -path "*/playground/*" \
-        ! -path "*/tools/cache/*" \
-        \( ! -path "$search_dir/repos/*" -o \( -path "$search_dir/repos/*.sh" ! -path "$search_dir/repos/*/*" \) \) \
-        2>/dev/null | sort || true
+    local -a scope=(
+        ! -path "*/node_modules/*"
+        ! -path "*/.git/*"
+        ! -path "*/tmp/*"
+        ! -path "*/.debug/*"
+        ! -path "*/.husky/_/*"
+        ! -path "*/.devcontainer/git-completion.bash"
+        ! -path "*/playground/*"
+        ! -path "*/tools/cache/*"
+        \( ! -path "$search_dir/repos/*" -o \( -path "$search_dir/repos/*.sh" ! -path "$search_dir/repos/*/*" \) \)
+    )
+    {
+        find "$search_dir" -type f \( -name "*.sh" -o -name "*.bash" \) "${scope[@]}" 2>/dev/null || true
+        local candidate
+        while IFS= read -r candidate; do
+            if head -n 1 "$candidate" 2>/dev/null | grep -qE '^#!.*sh'; then
+                printf '%s\n' "$candidate"
+            fi
+        done < <(find "$search_dir" -type f ! -name "*.*" "${scope[@]}" 2>/dev/null || true)
+    } | sort
 }
 
 lint_script() {
@@ -211,10 +224,12 @@ main() {
                 exit 0
                 ;;
             -f|--format)
+                require_option_value "$1" "${2:-}"
                 OUTPUT_FORMAT="$2"
                 shift 2
                 ;;
             -s|--severity)
+                require_option_value "$1" "${2:-}"
                 SHELLCHECK_SEVERITY="$2"
                 shift 2
                 ;;
@@ -223,6 +238,7 @@ main() {
                 shift
                 ;;
             -d|--dir)
+                require_option_value "$1" "${2:-}"
                 search_dir="$2"
                 shift 2
                 ;;

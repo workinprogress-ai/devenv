@@ -1,0 +1,52 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "reviewThreads": {
+          "pageInfo": {
+            "hasNextPage": false,
+            "endCursor": null
+          },
+          "nodes": [
+            {
+              "id": "11913/null",
+              "isResolved": false,
+              "path": null,
+              "line": 0,
+              "comments": {
+                "nodes": [
+                  {
+                    "id": "1",
+                    "nodeId": null,
+                    "body": "smoke thread",
+                    "author": {
+                      "login": "Paul Zoulin"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "11913/null",
+              "isResolved": false,
+              "path": null,
+              "line": 0,
+              "comments": {
+                "nodes": [
+                  {
+                    "id": "1",
+                    "nodeId": null,
+                    "body": "smoke thread b",
+                    "author": {
+                      "login": "Paul Zoulin"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

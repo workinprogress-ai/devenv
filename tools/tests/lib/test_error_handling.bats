@@ -117,3 +117,42 @@ teardown() {
     assert_success
     assert_output --partial "strict mode enabled"
 }
+
+# ---------------------------------------------------------------------------
+# require_option_value: a missing value, or a value that is itself an option name,
+# is a usage error — so `--base --force` cannot swallow the next flag
+# ---------------------------------------------------------------------------
+
+rov() {   # rov <option> <value...>: run require_option_value in a fresh shell
+  local args=("$@")
+  run bash -c "source '$PROJECT_ROOT/tools/lib/error-handling.bash'; require_option_value \"\$@\"; echo accepted" _ "${args[@]}"
+}
+
+@test "require_option_value: an empty or absent value is a usage error (exit 2)" {
+  rov --base ""
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"Missing value for --base"* ]]
+  run bash -c "source '$PROJECT_ROOT/tools/lib/error-handling.bash'; require_option_value --base; echo accepted"
+  [ "$status" -eq 2 ]
+}
+
+@test "require_option_value: a value that is another option name is refused" {
+  rov --base --force
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"--base"* && "$output" == *"--force"* ]]
+}
+
+@test "require_option_value: ordinary values are accepted, including - and text that starts with dashes" {
+  local v
+  for v in main 5 - "-- a note" "--- front matter" "-1" "some text" "a=b"; do
+    rov --opt "$v"
+    [ "$status" -eq 0 ] || { echo "refused: [$v] $output"; return 1; }
+    [[ "$output" == *"accepted"* ]]
+  done
+}
+
+@test "require_option_value: set -u does not crash when the value is absent" {
+  run bash -c "set -u; source '$PROJECT_ROOT/tools/lib/error-handling.bash'; require_option_value --x \"\${2:-}\"; echo accepted"
+  [ "$status" -eq 2 ]
+  [[ "$output" != *"unbound variable"* ]]
+}

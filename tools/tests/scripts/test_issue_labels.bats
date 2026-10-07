@@ -87,7 +87,7 @@ load ../test_helper
   run bash -c "source '$PROJECT_ROOT/tools/lib/issue-operations.bash'; normalize_issue_type bug"
   [ "$status" -eq 0 ]
   [ "$output" = "Bug" ]
-  # Legacy alias 'story' was removed from the policy alias set.
+  # 'story' is not in the policy alias set.
   run bash -c "source '$PROJECT_ROOT/tools/lib/issue-operations.bash'; normalize_issue_type story"
   [ "$status" -eq 1 ]
 }

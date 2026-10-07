@@ -10,6 +10,8 @@ setup() {
 
   export PATH="$TEST_TEMP_DIR/bin:$PATH"
   mkdir -p "$TEST_TEMP_DIR/bin"
+  # An explicit target: from the devenv checkout the safety gate refuses an inferred one.
+  export DEVENV_REPO="test-org/test-repo"
 
   cat > "$TEST_TEMP_DIR/bin/gh" <<'EOF'
 #!/usr/bin/env bash
@@ -122,6 +124,25 @@ teardown() {
   [ "$status" -eq 0 ]
   [ "$(echo "$output" | jq -r '.action')" = "updated" ]
   [ "$(echo "$output" | jq -r '.comment_id')" = "333" ]
+}
+
+@test "an existing match whose comment id is a JSON string is updated by its plain id" {
+  # Azure comment ids are strings ("<item>/<comment>" there); the id handed to the
+  # edit verb must be the plain text, not the JSON-quoted form.
+  export MOCK_COMMENTS_JSON='[
+    {
+      "id": "333",
+      "html_url": "https://example.test/issues/42#issuecomment-333",
+      "body": "<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:org/repo:issue-42:spike:test\nartifact_type: spike\n-->\ncontent"
+    }
+  ]'
+
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+    --issue 42 \
+    --body $'<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:org/repo:issue-42:spike:test\n-->'
+
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq -r '.action')" = "updated" ]
 }
 
 @test "indented metadata header creates comment" {
@@ -275,7 +296,7 @@ exit 0
 GH
   chmod +x "$TEST_TEMP_DIR/bin/gh"
 
-  run env -u DEVENV_REPO -u GH_REPO PATH="$TEST_TEMP_DIR/bin:$PATH" \
+  run env -u GH_REPO DEVENV_REPO=test-org/test-repo PATH="$TEST_TEMP_DIR/bin:$PATH" \
     bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
     --issue 42 \
     --body $'doc_id: dv1:org/repo:issue-42:plan:createlock\nartifact_type: plan\nissue_number: 42'

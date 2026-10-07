@@ -73,6 +73,13 @@ export YQ_SHA256_ARM64="189088da0c6429ec5178dfaab1a114805f6cab0b61b165ab236efedf
 # (https://cdn.jsdelivr.net/gh/nvm-sh/nvm@v0.39.5/install.sh).
 export NVM_INSTALL_SHA256="69da4f89f430cd5d6e591c2ccfa2e9e3ad55564ba60f651f00da85e04010c640"
 
+# .devcontainer/git-completion.bash is vendored, not downloaded: it is the
+# unmodified contrib/completion/git-completion.bash from the git v2.55.0 tag
+# (GPL-2.0, header kept), sha256
+# cdb0883002cf02e2e9f3c6888341c7213eddb0b56729ef706719cd3d716fb753. To update it,
+# replace the file from a newer tag in one reviewed change and update this note.
+# It is excluded from lint-scripts: it is upstream code.
+
 # Accepted exceptions: downloads that are NOT hash-verified, because their
 # content changes at a stable URL, so a pinned digest would break the install
 # the next time the publisher updates the file (a pin would have to be bumped
@@ -205,6 +212,7 @@ ensure_tool_versions() {
         if command -v nvm &> /dev/null; then
             nvm install "$NODE_VERSION"
             nvm use "$NODE_VERSION"
+            nvm alias default "$NODE_VERSION"
         else
             echo "ERROR: nvm not found, cannot install Node.js" >&2
             return 1

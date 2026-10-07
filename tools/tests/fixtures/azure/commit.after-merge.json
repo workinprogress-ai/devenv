@@ -1,0 +1,54 @@
+{
+  "treeId": "2e420ec0ff553258b5c75286a7c095caa1e6e2a7",
+  "commitId": "f64b60a09094342a9ae8f6ebdbceba2f5ca50b3c",
+  "author": {
+    "name": "Paul Zoulin",
+    "email": "user@example.test",
+    "date": "2026-10-06T19:31:25Z",
+    "imageUrl": "https://example.test/avatar"
+  },
+  "committer": {
+    "name": "Paul Zoulin",
+    "email": "user@example.test",
+    "date": "2026-10-06T19:31:25Z",
+    "imageUrl": "https://example.test/avatar"
+  },
+  "comment": "Merge pull request 11912 from smoke-1685774 into main",
+  "parents": [
+    "be5e918695676e9a91dab54d44512f3d9cce7d99",
+    "054b0b11beebc60ec6ba3bbe9abaef7e7d3ef5b7"
+  ],
+  "url": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/git/repositories/00000000-0000-4000-8000-000000000025/commits/f64b60a09094342a9ae8f6ebdbceba2f5ca50b3c",
+  "remoteUrl": "https://dev.azure.com/example-org/Example-Project/_git/smoke-repo-1685774/commit/f64b60a09094342a9ae8f6ebdbceba2f5ca50b3c",
+  "_links": {
+    "self": {
+      "href": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/git/repositories/00000000-0000-4000-8000-000000000025/commits/f64b60a09094342a9ae8f6ebdbceba2f5ca50b3c"
+    },
+    "repository": {
+      "href": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/git/repositories/00000000-0000-4000-8000-000000000025"
+    },
+    "web": {
+      "href": "https://dev.azure.com/example-org/Example-Project/_git/smoke-repo-1685774/commit/f64b60a09094342a9ae8f6ebdbceba2f5ca50b3c"
+    },
+    "changes": {
+      "href": "https://dev.azure.com/example-org/00000000-0000-4000-8000-000000000001/_apis/git/repositories/00000000-0000-4000-8000-000000000025/commits/f64b60a09094342a9ae8f6ebdbceba2f5ca50b3c/changes"
+    }
+  },
+  "push": {
+    "pushedBy": {
+      "displayName": "Example User",
+      "url": "https://spsprodcus3.vssps.visualstudio.com/A00000000-0000-4000-8000-000000000004/_apis/Identities/00000000-0000-4000-8000-000000000005",
+      "_links": {
+        "avatar": {
+          "href": "https://dev.azure.com/example-org/_apis/GraphProfile/MemberAvatars/aad.EXAMPLE"
+        }
+      },
+      "id": "00000000-0000-4000-8000-000000000005",
+      "uniqueName": "user@example.test",
+      "imageUrl": "https://example.test/avatar",
+      "descriptor": "aad.EXAMPLE"
+    },
+    "pushId": 150316,
+    "date": "2026-10-06T19:31:25.4950953Z"
+  }
+}

@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for lib/providers/azure/fork-setup.sh — one-time upstream setup.
+# Tests for scripts/fork-setup.sh — one-time upstream setup.
 #
 # Contract tests for one-time upstream setup.
 
@@ -10,7 +10,7 @@ load ../test_helper
 setup() {
     test_helper_setup
     export DEVENV_TOOLS="${BATS_TEST_DIRNAME}/../.."
-    SCRIPT="$DEVENV_TOOLS/lib/providers/azure/fork-setup.sh"
+    SCRIPT="$DEVENV_TOOLS/scripts/fork-setup.sh"
 }
 
 teardown() {

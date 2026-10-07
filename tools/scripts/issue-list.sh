@@ -57,7 +57,7 @@ Options:
 Filters:
     -s, --state STATE           Filter by state: open, closed, or all (default: open)
     -t, --type TYPE             Filter by native issue type: Bug, Feature, Task, or Epic
-                                (case-insensitive; legacy lowercase aliases accepted)
+                                (case-insensitive; lowercase aliases accepted)
     -l, --label LABEL           Filter by label (can be specified multiple times)
     -a, --assignee USER         Filter by assignee (use "none" for unassigned)
     -m, --milestone NAME        Filter by milestone (use "none" for no milestone)
@@ -208,38 +208,47 @@ main() {
                 shift
                 ;;
             -s|--state)
+                require_option_value "$1" "${2:-}"
                 FILTER_STATE="$2"
                 shift 2
                 ;;
             -t|--type)
+                require_option_value "$1" "${2:-}"
                 FILTER_TYPE="$2"
                 shift 2
                 ;;
             -l|--label)
+                require_option_value "$1" "${2:-}"
                 FILTER_LABELS+=("$2")
                 shift 2
                 ;;
             -a|--assignee)
+                require_option_value "$1" "${2:-}"
                 FILTER_ASSIGNEE="$2"
                 shift 2
                 ;;
             -m|--milestone)
+                require_option_value "$1" "${2:-}"
                 FILTER_MILESTONE="$2"
                 shift 2
                 ;;
             --author)
+                require_option_value "$1" "${2:-}"
                 extra_args+=(--author "$2")
                 shift 2
                 ;;
             --mention)
+                require_option_value "$1" "${2:-}"
                 extra_args+=(--mention "$2")
                 shift 2
                 ;;
             -f|--format)
+                require_option_value "$1" "${2:-}"
                 OUTPUT_FORMAT="$2"
                 shift 2
                 ;;
             -n|--limit)
+                require_option_value "$1" "${2:-}"
                 LIMIT="$2"
                 shift 2
                 ;;

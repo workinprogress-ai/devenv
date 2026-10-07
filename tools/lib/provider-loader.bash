@@ -44,11 +44,10 @@ unset _gh_self_dir
 
 # Build repository specification for gh CLI commands
 # 
-# This function determines the appropriate repository specification for gh CLI
-# commands that accept the -R flag. It tries multiple sources in order:
-#   1. DEVENV_REPO environment variable (explicit override)
-#   2. config org + current repository name (constructed from context)
-#   3. Empty (falls back to git context)
+# This function is a thin wrapper over provider_repo_target, the one resolver for
+# every wrapper: an explicit DEVENV_REPO first, then the active provider's own
+# resolution (GitHub: org/repo from the working directory; Azure: project/repo).
+# It prints an empty string when no repository can be determined.
 #
 # Usage:
 #   local repo_spec
@@ -62,30 +61,9 @@ unset _gh_self_dir
 #   Outputs "-R owner/repo" if repository can be determined, empty string otherwise
 #
 get_repo_spec() {
-    # Repo targeting: DEVENV_REPO is the single override. Emission is the
-    # canonical bare positional spec (provider-verb arg shape) — no gh
-    # dialect flags; consumers pass repo_spec[0] straight into provider
-    # verbs, and azure's parsers additionally accept a legacy `-R <spec>`
-    # defensively.
-    if [ -n "${DEVENV_REPO:-}" ]; then
-        echo "$DEVENV_REPO"
-        return
-    fi
-    
-    # Otherwise, try to construct from the policy org and current repo
-    local policy_org
-    policy_org=$(policy_org 2>/dev/null || true)
-    if [ -n "$policy_org" ]; then
-        local repo_name
-        repo_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
-        if [ -n "$repo_name" ]; then
-            echo "${policy_org}/${repo_name}"
-            return
-        fi
-    fi
-    
-    # Fall back to current directory context (empty spec)
-    echo ""
+    # Emission is the canonical bare positional spec (provider-verb arg shape)
+    # that consumers pass straight into provider verbs.
+    provider_repo_target ""
 }
 
 # Get GitHub repository owner (organization or user)
@@ -158,7 +136,7 @@ get_full_repo_name() {
 
     # Use gh to get the full repo name in owner/repo format
     local full_name
-    full_name=$(provider_repos_view "" --json nameWithOwner -q .nameWithOwner 2>/dev/null) || {
+    full_name=$(provider_repos_view "" --json repoSpec -q .repoSpec 2>/dev/null) || {
         # Fallback: try to parse from git remote URL
         local git_url
         git_url=$(git config --get remote.origin.url 2>/dev/null || echo "")
@@ -288,18 +266,42 @@ wait_for_workflow_runs() {
     [ -n "$repo" ] || { log_error "Repository (owner/repo) required"; return 1; }
 
     local elapsed=0
+    # A failed query means the state is UNKNOWN (auth, network, rate limit), not
+    # "no active runs": it is retried, and after this many consecutive failures
+    # the wait fails rather than letting the caller proceed as if CI were green.
+    local query_failures=0 max_query_failures=3
 
     while [ "$elapsed" -lt "$timeout" ]; do
         local active_count
-        active_count=$(provider_pipelines_run_list "$repo" --branch "$branch" --limit 10 \
-            --json status --jq '[.[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "pending" or .status == "requested")] | length' 2>/dev/null) || active_count=0
+        if ! active_count=$(provider_pipelines_run_list "$repo" --branch "$branch" --limit 10 \
+            --json status --jq '[.[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "pending" or .status == "requested")] | length' 2>/dev/null) \
+            || ! [[ "$active_count" =~ ^[0-9]+$ ]]; then
+            query_failures=$((query_failures + 1))
+            if [ "$query_failures" -ge "$max_query_failures" ]; then
+                log_error "wait_for_workflow_runs: could not query workflow runs on $repo ($branch) after $query_failures attempts"
+                return 1
+            fi
+            log_warn "could not query workflow runs on $repo ($branch); retrying ($query_failures/$max_query_failures)"
+            sleep "$interval"
+            elapsed=$((elapsed + interval))
+            continue
+        fi
 
         if [ "$active_count" -eq 0 ]; then
             # No active runs — check if the most recent run succeeded
             local latest_conclusion
-            latest_conclusion=$(provider_pipelines_run_list "$repo" --branch "$branch" --limit 1 \
-                --json conclusion --jq '.[0].conclusion // empty' 2>/dev/null) ||
- true
+            if ! latest_conclusion=$(provider_pipelines_run_list "$repo" --branch "$branch" --limit 1 \
+                --json conclusion --jq '.[0].conclusion // empty' 2>/dev/null); then
+                query_failures=$((query_failures + 1))
+                if [ "$query_failures" -ge "$max_query_failures" ]; then
+                    log_error "wait_for_workflow_runs: could not read the latest run's conclusion on $repo ($branch) after $query_failures attempts"
+                    return 1
+                fi
+                log_warn "could not read the latest run's conclusion on $repo ($branch); retrying ($query_failures/$max_query_failures)"
+                sleep "$interval"
+                elapsed=$((elapsed + interval))
+                continue
+            fi
 
             if [ "$latest_conclusion" = "failure" ] || [ "$latest_conclusion" = "cancelled" ]; then
                 log_warn "Latest workflow run on $repo ($branch) concluded: $latest_conclusion"
@@ -307,6 +309,7 @@ wait_for_workflow_runs() {
             fi
             return 0
         fi
+        query_failures=0
 
         log_info "Waiting for $active_count workflow run(s) on $repo ($branch)... [${elapsed}s/${timeout}s]"
         sleep "$interval"
@@ -315,76 +318,6 @@ wait_for_workflow_runs() {
 
     log_warn "Timeout (${timeout}s) waiting for workflow runs on $repo ($branch)"
     return 2
-}
-
-# Wait for workflow runs to complete across multiple repositories.
-#
-# Calls wait_for_workflow_runs for each repo. Collects failures and reports
-# a summary at the end.
-#
-# Arguments:
-#   $1 - Branch to monitor (default: master)
-#   $2 - Poll interval in seconds (default: 15)
-#   $3 - Timeout in seconds (default: 600)
-#   $4..N - Repositories in "owner/repo" format
-#
-# Returns:
-#   0 if all repos' runs completed successfully
-#   1 if any failed
-#
-wait_for_workflow_runs_multi() {
-    local branch="${1:-master}"
-    local interval="${2:-15}"
-    local timeout="${3:-600}"
-    shift 3
-
-    local -a repos=("$@")
-    local -a failed=()
-
-    for repo in "${repos[@]}"; do
-        log_info "Monitoring workflow runs for $repo..."
-        if ! wait_for_workflow_runs "$repo" "$branch" "$interval" "$timeout"; then
-            failed+=("$repo")
-        fi
-    done
-
-    if [ "${#failed[@]}" -gt 0 ]; then
-        log_warn "Workflow runs failed or timed out for: ${failed[*]}"
-        return 1
-    fi
-
-    log_info "All workflow runs completed successfully"
-    return 0
-}
-
-# Cancel any active GitHub Actions workflow runs on a branch.
-#
-# Finds all queued/in-progress/pending runs on the given branch and cancels
-# them. Silently ignores failures — this is best-effort.
-#
-# Arguments:
-#   $1 - Repository in "owner/repo" format (required)
-#   $2 - Branch to cancel runs on (required)
-#
-# Returns:
-#   0 always (best-effort, failures are silently ignored)
-#
-cancel_branch_workflow_runs() {
-    local repo="${1:-}"
-    local branch="${2:-}"
-
-    [ -n "$repo" ] && [ -n "$branch" ] || { log_error "Repository and branch required"; return 1; }
-
-    local run_ids
-    run_ids=$(provider_pipelines_run_list "$repo" --branch "$branch" --limit 10 \
-        --json databaseId,status \
-        --jq '[.[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "pending" or .status == "requested")] | .[].databaseId' 2>/dev/null) || return 0
-
-    local id
-    for id in $run_ids; do
-        provider_pipelines_run_cancel "$repo" "$id" 2>/dev/null && \
-            log_info "Cancelled workflow run $id on $branch" || true
-    done
 }
 
 # Ensure a label exists in a GitHub repository, creating it if absent.
@@ -405,7 +338,7 @@ ensure_label() {
 
     # provider_issues_label_ensure is idempotent (list-then-create internal).
     # It takes [repo] as its first arg. Callers now pass the canonical bare
-    # spec (positional canonicalization); a legacy `-R <spec>` pair is
+    # spec (positional canonicalization); a `-R <spec>` pair is
     # normalized defensively.
     local repo=""
     if [ "${label_repo_spec[0]:-}" = "-R" ]; then
@@ -422,9 +355,10 @@ ensure_label() {
 #   1. REPO_OVERRIDE argument (maps a --repo flag)
 #   2. DEVENV_REPO environment variable
 #   3. config org + current git repo basename
-# Then applies the devenv-repo safety gate (check_target_repo semantics:
-# refuses to operate on the devenv repo itself unless ALLOW_DEVENV_REPO=1
-# or DEVENV_REPO explicitly targets it).
+# Then applies the devenv-repo safety gate to an IMPLICIT target (check_target_repo
+# semantics: refuses to operate on the devenv repo itself unless ALLOW_DEVENV_REPO=1).
+# An explicit target — an argument or DEVENV_REPO — is exempt: it names another
+# repository on purpose.
 #
 # On success: prints the resolved provider repo spec. On refusal: exits
 # (gate behavior).
@@ -435,6 +369,14 @@ ensure_label() {
 resolve_target_repo() {
     local repo_override="${1:-}"
     local repo=""
+
+    # Was the target named on purpose (argument or DEVENV_REPO) rather than
+    # inferred from the working directory? The gate judges that intent, not the
+    # resolved value.
+    local explicit=0
+    if [ -n "$repo_override" ] || [ -n "${DEVENV_REPO:-}" ]; then
+        explicit=1
+    fi
 
     # Resolution delegates to the provider layer (provider_repo_target):
     # explicit arg → DEVENV_REPO → full-form GH_REPO → org + cwd basename.
@@ -455,15 +397,10 @@ resolve_target_repo() {
         log_error "resolve_target_repo requires git-operations.bash (safety gate); source it before calling"
         exit 1
     fi
-    # The gate needs the override visible to check_target_repo; restore the
-    # caller's value afterward so a non-subshell caller inherits no leak.
-    local saved_repo="${DEVENV_REPO:-}"
-    DEVENV_REPO="$repo"
-    check_target_repo
-    if [ -n "$saved_repo" ]; then
-        DEVENV_REPO="$saved_repo"
-    else
-        unset DEVENV_REPO
+    # check_target_repo keys on an empty DEVENV_REPO (an implicit target), so it
+    # runs only when the target was inferred, with the caller's own value in place.
+    if [ "$explicit" -eq 0 ]; then
+        check_target_repo
     fi
 
     printf '%s\n' "$repo"

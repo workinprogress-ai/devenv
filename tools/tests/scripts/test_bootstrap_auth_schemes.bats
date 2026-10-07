@@ -9,13 +9,6 @@ load ../test_helper
 setup() {
     test_helper_setup
     export DEVENV_ROOT="${BATS_TEST_DIRNAME}/../../.."
-    # Extract the two builder functions from bootstrap.bash without
-    # executing it (bootstrap is an entry script, not a library).
-    BUILDERS=$(bash -c "
-        sed -n '/^build_github_basic_auth_header()/,/^}/p; /^build_provider_git_auth_header()/,/^}/p' \
-            '$DEVENV_ROOT/.devcontainer/bootstrap.bash'
-    ")
-    export BUILDERS
     NPMRC_SETUP=$(sed -n '/^configure_user_npmrc()/,/^}/p' "$DEVENV_ROOT/.devcontainer/bootstrap.bash")
     export NPMRC_SETUP
     export PROVIDER_NAME=github
@@ -29,6 +22,10 @@ teardown() {
 
 run_npmrc_setup() {
     run bash -c "
+        provider=\"\$PROVIDER_NAME\"
+        source \"$DEVENV_ROOT/tools/lib/providers/provider-core.bash\"
+        PROVIDER_NAME=\"\$provider\"
+        provider_load bootstrap 2>/dev/null
         $NPMRC_SETUP
         ensure_provider_seam() { :; }
         provider_secret_get() {
@@ -40,11 +37,17 @@ run_npmrc_setup() {
     "
 }
 
-@test "github scheme: x-access-token basic header" {
-    run bash -c "
-        $BUILDERS
-        build_provider_git_auth_header github secret-token-1
+git_header() {   # provider token
+    bash -c "
+        source '$DEVENV_ROOT/tools/lib/providers/provider-core.bash'
+        PROVIDER_NAME=$1
+        provider_load bootstrap 2>/dev/null
+        provider_bootstrap_call git_auth_header '$2'
     "
+}
+
+@test "github scheme: x-access-token basic header" {
+    run git_header github secret-token-1
     [ "$status" -eq 0 ]
     local expected
     expected=$(printf 'x-access-token:%s' "secret-token-1" | base64 -w0)
@@ -52,10 +55,7 @@ run_npmrc_setup() {
 }
 
 @test "azure scheme: RFC-7617 basic with empty user (':PAT')" {
-    run bash -c "
-        $BUILDERS
-        build_provider_git_auth_header azure secret-token-1
-    "
+    run git_header azure secret-token-1
     [ "$status" -eq 0 ]
     local expected
     expected=$(printf ':%s' "secret-token-1" | base64 -w0)
@@ -63,27 +63,11 @@ run_npmrc_setup() {
 }
 
 @test "schemes differ for the same token (the dispatch is real)" {
-    local gh azure
-    gh=$(bash -c "
-        $BUILDERS
-        build_provider_git_auth_header github secret-token-1
-    ")
-    azure=$(bash -c "
-        $BUILDERS
-        build_provider_git_auth_header azure secret-token-1
-    ")
-    [ "$gh" != "$azure" ]
+    [ "$(git_header github secret-token-1)" != "$(git_header azure secret-token-1)" ]
 }
 
-@test "unknown provider falls back to the github leg (policy default)" {
-    run bash -c "
-        $BUILDERS
-        build_provider_git_auth_header gitlab secret-token-1
-    "
-    [ "$status" -eq 0 ]
-    local expected
-    expected=$(printf 'x-access-token:%s' "secret-token-1" | base64 -w0)
-    [[ "$output" == "AUTHORIZATION: basic $expected" ]]
+@test "bootstrap.bash and the copilot-knowledge library name no provider for the git header" {
+    run ! grep -nE '^[^#]*(azure\)|x-access-token)' "$DEVENV_ROOT/.devcontainer/bootstrap.bash" "$DEVENV_ROOT/tools/lib/copilot-knowledge.bash"
 }
 
 @test "npm setup: missing token prints status without creating invalid configuration" {

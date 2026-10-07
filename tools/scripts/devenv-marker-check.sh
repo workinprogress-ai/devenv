@@ -48,7 +48,7 @@ file:line:match.
 
 Options:
     --all                        Audit mode: report ALL DEVENV markers
-                                 (FIXME, TODO, and bare/malformed legacy
+                                 (FIXME, TODO, and bare/malformed
                                  forms) instead of FIXME-only; same exit
                                  semantics as the gate.
     --ac                         Finder mode: list [AC-N] DEVENV comments with
@@ -103,6 +103,7 @@ main() {
             --todo-report) TODO_REPORT=1; shift ;;
             --all) ALL_MARKERS=1; shift ;;
             --marker)
+                require_option_value "$1" "${2:-}"
                 [ -z "${2:-}" ] && invalid_args "Missing value for --marker"
                 MARKER="$2"; CUSTOM_MARKER=1; shift 2 ;;
             --require) REQUIRE=1; shift ;;
@@ -218,7 +219,7 @@ main() {
     elif [ "$ALL_MARKERS" -eq 1 ]; then
         echo "Clean: no DEVENV markers of any form under: ${PATHS[*]}"
     else
-        echo "Clean: no FIXME(DEVENV markers under: ${PATHS[*]} (use --all to audit TODO/legacy forms)"
+        echo "Clean: no FIXME(DEVENV markers under: ${PATHS[*]} (use --all to audit TODO/bare forms)"
     fi
     exit 0
 }
