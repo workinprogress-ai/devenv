@@ -110,3 +110,48 @@ commit() { # commit <subject> [trailer-line]
     run grep -n 'nothing|restart|bootstrap|recreate' "$PROJECT_ROOT/.husky/commit-msg"
     [ "$status" -ne 0 ]
 }
+
+@test "range mode warns, without failing, about a commit that has no Change-Id" {
+    commit "feat: no id" "Devenv-Action: nothing"
+    run bash "$SCRIPT" "$BASE" HEAD
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"no id"*"no Change-Id trailer"* ]]
+    [[ "$output" == *"1 commit(s) have no Change-Id trailer"* ]]
+}
+
+@test "range mode stays quiet about Change-Id when every commit has one" {
+    echo x >> f && git add f
+    git commit -q -m "feat: with id" -m $'Devenv-Action: nothing\nChange-Id: Abc123Abc123'
+    run bash "$SCRIPT" "$BASE" HEAD
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"Change-Id"* ]]
+}
+
+@test "range mode still fails on a missing Devenv-Action and warns about the Change-Id too" {
+    commit "fix: neither"
+    run bash "$SCRIPT" "$BASE" HEAD
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"missing or invalid Devenv-Action"* ]]
+    [[ "$output" == *"no Change-Id trailer"* ]]
+}
+
+@test "message-file mode warns, without failing, when the Change-Id is missing" {
+    printf 'feat: x\n\nDevenv-Action: nothing\n' > "$TEST_TEMP_DIR/msg"
+    run bash "$SCRIPT" --message-file "$TEST_TEMP_DIR/msg"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"no Change-Id trailer"* ]]
+}
+
+@test "message-file mode sees a Change-Id that is followed by the editor's comment block" {
+    printf 'feat: x\n\nDevenv-Action: nothing\nChange-Id: Abc123Abc123\n# Please enter the commit message\n#\n' > "$TEST_TEMP_DIR/msg"
+    run bash "$SCRIPT" --message-file "$TEST_TEMP_DIR/msg"
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"Change-Id"* ]]
+}
+
+@test "message-file mode does not warn about a WIP commit" {
+    printf 'WIP: scratch\n' > "$TEST_TEMP_DIR/msg"
+    run bash "$SCRIPT" --message-file "$TEST_TEMP_DIR/msg"
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"Change-Id"* ]]
+}

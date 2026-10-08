@@ -1,0 +1,4 @@
+#!/bin/sh
+# Add the Change-Id trailer (and an empty Devenv-Action when an editor opens).
+# The rule lives in one place: tools/scripts/prepare-commit-msg.sh
+bash "$(dirname "$0")/../tools/scripts/prepare-commit-msg.sh" "$@"

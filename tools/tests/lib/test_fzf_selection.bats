@@ -332,3 +332,61 @@ install_recording_fzf() {
     [ "$status" -eq 0 ]
     [ "$(cat "$FZF_STDIN_LOG")" = $'keep \\n one\nkeep two' ]
 }
+
+# fzf stand-in: records its arguments and answers like `--expect` does (key line, then item).
+install_expect_fzf() {
+    mkdir -p "$TEST_TEMP_DIR/bin"
+    export FZF_ARGS_LOG="$TEST_TEMP_DIR/fzf-args.log"
+    printf '%s\n' '#!/usr/bin/env bash' \
+        'printf "%s\n" "$@" > "$FZF_ARGS_LOG"' \
+        'cat > /dev/null' \
+        'printf "ctrl-x\nfirst\n"' > "$TEST_TEMP_DIR/bin/fzf"
+    chmod +x "$TEST_TEMP_DIR/bin/fzf"
+    export PATH="$TEST_TEMP_DIR/bin:$PATH"
+}
+
+@test "fzf-selection: fzf_select_multi passes --expect and returns the key line first when keys are given" {
+    install_expect_fzf
+    run bash -c "source '$PROJECT_ROOT/tools/lib/fzf-selection.bash'; fzf_select_multi \$'first\nsecond' 'Pick:' '' 'ctrl-x'"
+    [ "$status" -eq 0 ]
+    [ "$output" = $'ctrl-x\nfirst' ]
+    grep -qx -- '--expect=ctrl-x' "$FZF_ARGS_LOG"
+}
+
+@test "fzf-selection: fzf_select_multi passes no --expect without keys" {
+    install_expect_fzf
+    run bash -c "source '$PROJECT_ROOT/tools/lib/fzf-selection.bash'; fzf_select_multi \$'first\nsecond' 'Pick:'"
+    [ "$status" -eq 0 ]
+    run grep -c -- '--expect' "$FZF_ARGS_LOG"
+    [ "$output" = "0" ]
+}
+
+# ============================================================================
+# fzf_select_multi_or_action Tests
+# ============================================================================
+
+@test "fzf-selection: fzf_select_multi_or_action returns 0 and items on a plain Enter selection" {
+    mkdir -p "$TEST_TEMP_DIR/bin"
+    printf '%s\n' '#!/usr/bin/env bash' 'cat > /dev/null' 'printf "\nfirst\n"' > "$TEST_TEMP_DIR/bin/fzf"
+    chmod +x "$TEST_TEMP_DIR/bin/fzf"
+    export PATH="$TEST_TEMP_DIR/bin:$PATH"
+    run bash -c "source '$PROJECT_ROOT/tools/lib/fzf-selection.bash'; fzf_select_multi_or_action \$'first\nsecond' 'Pick:' '' 'ctrl-x'"
+    [ "$status" -eq 0 ]
+    [ "$output" = "first" ]
+}
+
+@test "fzf-selection: fzf_select_multi_or_action returns 2 and items when the action key is pressed" {
+    install_expect_fzf
+    run bash -c "source '$PROJECT_ROOT/tools/lib/fzf-selection.bash'; fzf_select_multi_or_action \$'first\nsecond' 'Pick:' '' 'ctrl-x'"
+    [ "$status" -eq 2 ]
+    [ "$output" = "first" ]
+}
+
+@test "fzf-selection: fzf_select_multi_or_action returns 1 on cancel (ctrl-c/esc), distinct from the action key" {
+    mkdir -p "$TEST_TEMP_DIR/bin"
+    printf '%s\n' '#!/usr/bin/env bash' 'cat > /dev/null' 'exit 1' > "$TEST_TEMP_DIR/bin/fzf"
+    chmod +x "$TEST_TEMP_DIR/bin/fzf"
+    export PATH="$TEST_TEMP_DIR/bin:$PATH"
+    run bash -c "source '$PROJECT_ROOT/tools/lib/fzf-selection.bash'; fzf_select_multi_or_action \$'first\nsecond' 'Pick:' '' 'ctrl-x'"
+    [ "$status" -eq 1 ]
+}

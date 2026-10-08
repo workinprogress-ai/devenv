@@ -153,3 +153,34 @@ _upstream_repo_with_remote() {   # <stored url> <configured url> [base=replaceme
     _upstream_repo_with_remote 'git@ssh.dev.azure.com:v3/Org/Proj X/Repo' 'https://dev.azure.com/Org/Proj%20X/_git/Repo'
     fork_upstream_matches "$UP_REPO"
 }
+
+_selection_repo() {
+    SEL_REPO="$TEST_TEMP_DIR/sel"
+    git init -q -b main "$SEL_REPO"
+    git -C "$SEL_REPO" config user.email t@t
+    git -C "$SEL_REPO" config user.name t
+    for n in base a b c; do
+        echo "$n" > "$SEL_REPO/$n"
+        git -C "$SEL_REPO" add "$n"
+        git -C "$SEL_REPO" commit -q -m "$n"
+    done
+    SEL_BASE="$(git -C "$SEL_REPO" rev-parse HEAD~3)"
+    SEL_END="$(git -C "$SEL_REPO" rev-parse HEAD)"
+}
+
+@test "fork_get_selection_slug is stable and differs for different selections" {
+    source "$DEVENV_TOOLS/lib/fork.bash"
+    one="$(fork_get_selection_slug aaa1111 bbb2222 1111 2222)"
+    [ "$one" = "$(fork_get_selection_slug aaa1111 bbb2222 1111 2222)" ]
+    [ "$one" != "$(fork_get_selection_slug aaa1111 bbb2222 1111 3333)" ]
+    [[ "$one" =~ ^aaa1111-sel[0-9a-f]{7}-bbb2222$ ]]
+}
+
+@test "fork_is_full_range_selection is true only for every commit of base..end" {
+    source "$DEVENV_TOOLS/lib/fork.bash"
+    _selection_repo
+    mapfile -t all < <(git -C "$SEL_REPO" rev-list "$SEL_BASE..$SEL_END")
+    fork_is_full_range_selection "$SEL_REPO" "$SEL_BASE" "$SEL_END" "${all[@]}"
+    run ! fork_is_full_range_selection "$SEL_REPO" "$SEL_BASE" "$SEL_END" "${all[0]}" "${all[2]}"
+    ! fork_is_full_range_selection "$SEL_REPO" "$SEL_BASE" "$SEL_END" "${all[0]}" "${all[1]}" "$SEL_BASE" "${all[2]}"
+}

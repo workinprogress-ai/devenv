@@ -130,6 +130,9 @@ fzf_select_single() {
 #   $1 - List of items (newline-separated, required)
 #   $2 - Prompt text shown to user (optional, default: "Select items: ")
 #   $3 - Preview command to run for each item (optional)
+#   $4 - Comma-separated keys fzf accepts as an alternative to Enter (optional); when
+#        given, the first output line is the key pressed (empty for Enter) and the
+#        selected items follow it
 #
 # Returns:
 #   0 if user selected at least one item, 1 if cancelled or no items available
@@ -155,6 +158,7 @@ fzf_select_multi() {
     local items="${1:-}"
     local prompt="${2:-Select items: }"
     local preview_cmd="${3:-}"
+    local expect_keys="${4:-}"
     
     if [ -z "$items" ]; then
         echo "ERROR: Items list is required" >&2
@@ -174,6 +178,10 @@ fzf_select_multi() {
         "--header=TAB to select | Shift-Tab to toggle all | Enter to confirm"
     )
     
+    if [ -n "$expect_keys" ]; then
+        fzf_args+=("--expect=$expect_keys")
+    fi
+
     if [ -n "$preview_cmd" ]; then
         fzf_args+=("--preview=$preview_cmd")
         fzf_args+=("--preview-window=right:50%")
@@ -186,6 +194,56 @@ fzf_select_multi() {
     selected=$(printf '%s\n' "$items" | fzf "${fzf_args[@]}") || return 1
     
     printf '%s\n' "$selected"
+    return 0
+}
+
+# ============================================================================
+# Multi-Selection with a distinct action key (fzf)
+# ============================================================================
+
+# Like fzf_select_multi, but with one extra key bound to a named action that
+# is kept out of band from cancellation. Plain fzf_select_multi's --expect
+# mechanism reports the pressed key as the first output line, which forces a
+# caller to parse it back out itself and leaves the action key's "accept"
+# return status (0) indistinguishable from a real Enter-driven selection;
+# this wrapper gives each outcome (select / action / cancel) its own exit
+# code instead, so ctrl-c/esc unambiguously means cancel.
+#
+# Usage:
+#   fzf_select_multi_or_action "$items" "Prompt: " "preview_cmd" "ctrl-x"
+#   rc=$?
+#   case "$rc" in
+#       0) ;; # selected via Enter; items on stdout
+#       2) ;; # action key pressed; items (possibly none) on stdout
+#       *) ;; # 1: cancelled (ctrl-c/esc) or no items to select from
+#   esac
+#
+# Arguments:
+#   $1 - List of items (newline-separated, required)
+#   $2 - Prompt text shown to user (optional, default: "Select items: ")
+#   $3 - Preview command to run for each item (optional)
+#   $4 - The single fzf key name bound to the action (required, e.g. "ctrl-x")
+#
+# Returns:
+#   0 - selection confirmed via Enter; items on stdout
+#   2 - the action key was pressed; items (possibly none) on stdout
+#   1 - cancelled (ctrl-c/esc) or no items to select from
+#
+fzf_select_multi_or_action() {
+    local items="${1:-}"
+    local prompt="${2:-Select items: }"
+    local preview_cmd="${3:-}"
+    local action_key="${4:?fzf_select_multi_or_action: action key is required}"
+
+    local raw
+    raw=$(fzf_select_multi "$items" "$prompt" "$preview_cmd" "$action_key") || return 1
+
+    local key="${raw%%$'\n'*}"
+    local rest="${raw#*$'\n'}"
+    [ "$rest" = "$raw" ] && rest=""
+
+    printf '%s\n' "$rest"
+    [ "$key" = "$action_key" ] && return 2
     return 0
 }
 

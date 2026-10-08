@@ -230,13 +230,14 @@ upstream changes. Plan for that:
   meantime.
 
 To contribute commits to GitHub, use a separate ordinary GitHub clone. By
-default, an interactive terminal uses fzf to choose inclusive start and end
-commits from the local-only commits after the upstream merge-base. The picker
-previews each commit and displays the selected range for confirmation. Use
-`--all` to export the entire range without prompting, or
-`--start-ref <start> <end>` to select an inclusive range in scripts. The base is
+default, an interactive terminal uses fzf to select the commits to export from
+the local-only commits after the upstream merge-base: TAB marks each commit (they
+need not be contiguous), the picker previews each one, and the marked commits are
+shown for confirmation. Use `--all` to export the entire range without prompting,
+or `--start-ref <start> <end>` to select an inclusive range in scripts. The base is
 always the merge-base with `upstream/<branch>`. Files are written under
-`.local-artifacts/fork-export/<base-short>-<end-short>/`. `--apply-to` applies
+`.local-artifacts/fork-export/<base-short>-<end-short>/`, or
+`<base-short>-sel<hash>-<end-short>/` when the export is a subset of the range. `--apply-to` applies
 the export directly into a clean sibling clone that shares the upstream
 base; no GitHub credentials are used by these scripts. Without `--apply-to`,
 the exporter matches `[fork] upstream_repo` against `origin` URLs in immediate
@@ -257,28 +258,49 @@ fork-export --format both
 fork-export --apply-to /path/to/github/devenv
 ```
 
-An export is a linear, contiguous commit range: a range that contains a merge commit
-is refused with the commit named (rebase the branch onto upstream with
-`fork-sync --rebase` first, or pick a range that excludes it). Patch series are applied
-with `git am -3`, so context that has drifted since the fork diverged falls back to a
-three-way merge instead of failing.
+A range that contains a merge commit is refused with the commit named (rebase the
+branch onto upstream with `fork-sync --rebase` first, or pick a range that excludes it).
+In the picker an unselected merge commit between selected commits is fine; a selected
+merge commit is refused. Patch series are applied with `git am -3`, so context that has
+drifted since the fork diverged falls back to a three-way merge instead of failing.
 
-An export is a contiguous commit range. To contribute only selected commits
-from a branch that also contains local-only changes, create a separate
-branch at the fetched upstream base and cherry-pick only the commits to
-contribute, in dependency order, then export that branch:
+### Commit identity, Fork-Only commits and the skip list
 
-```bash
-fork-sync
-git switch -c contribute-upstream upstream/master
-git cherry-pick <commit-to-contribute-1> <commit-to-contribute-2>
-fork-export --format bundle
-```
+`fork-export` decides what to offer by commit identity, not by patch content:
 
-This leaves the original local branch unchanged and exports a new contiguous
-series based on upstream. If a selected commit depends on omitted changes,
-adapt it or resolve the cherry-pick conflict before exporting. A dry run is
-available for setup, sync, and export before applying any operation.
+- **`Change-Id` trailer.** The `prepare-commit-msg` hook (husky) gives every new commit a
+  `Change-Id` of 12 random base62 characters. It survives amend, rebase, cherry-pick and
+  `format-patch`/`am`, so a commit keeps its identity across rebases and when it lands
+  upstream. An existing ID is never replaced. Any `Change-Id` of 8 to 64 characters from
+  `A-Za-z0-9._-` (for example a Gerrit ID) also counts as an identity; the hook warns
+  once about one that is unusable. CI warns about commits without an ID but does not
+  fail them.
+- **Commits without an ID are hidden and counted**, so a commit made without the hook
+  never goes upstream by accident. `--include-untracked` shows them.
+- **`Fork-Only: yes`** in a commit message keeps that commit out of every export. The
+  decision travels with the commit, so use it for changes that belong to the fork alone.
+- **The skip list** records a decision made after the fact: `--skip <commit>` skips a
+  commit for good (stored by Change-Id and SHA), `--unskip <commit-or-change-id>` reverses
+  it, and `--list-skipped` lists the entries and drops stale ones. In the picker, ctrl-x
+  skips the marked (or highlighted) commits and reopens the picker, and after an export
+  the commits you left unselected can be excluded from future exports. The list lives in
+  the git directory (`fork-export-skip`), is shared by worktrees, and is local to the
+  clone: it is never committed. `--include-skipped` shows skipped commits again.
+- **Commits the target already has are not offered again**: by Change-Id, by patch
+  equivalence, or because the same commit is in the target's history. Two commits in the
+  range sharing a Change-Id are reported, and the ID is not matched against the target
+  for them.
+
+A bundle is a transport container: it carries history from the upstream base up to its
+endpoints (the newest exported commit of each independent branch), so commits you
+skipped in between travel with it. `--apply-to` and the patch format replay exactly the
+selected commits; use `--format patch` when only the selected changes may leave the fork.
+
+To contribute selected commits from a branch that also holds fork-only changes, select
+them in the picker (or mark the rest `Fork-Only`). Selected commits are applied in
+order; if one depends on an omitted change, resolve the cherry-pick conflict when the
+exporter pauses. A dry run is available for setup, sync, and export before applying any
+operation.
 
 ## Keeping a Soft Fork in Sync and Contributing Back
 

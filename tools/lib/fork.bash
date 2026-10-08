@@ -109,3 +109,24 @@ fork_load_config() {
     [ -n "$FORK_UPSTREAM_REPO" ] || die "missing required [fork] upstream_repo in $DEVENV_ROOT/devenv.config" "$EXIT_GENERAL_ERROR"
     [ -n "$FORK_UPSTREAM_BRANCH" ] || die "missing required [fork] upstream_branch in $DEVENV_ROOT/devenv.config" "$EXIT_GENERAL_ERROR"
 }
+
+# Output-directory slug for a multi-select export. A selection is not a range, so a
+# hash of the selected SHAs keeps two different selections from sharing a directory.
+#
+# Usage: fork_get_selection_slug BASE_SHORT END_SHORT SHA...
+fork_get_selection_slug() {
+    local base="$1" end="$2" hash
+    shift 2
+    hash="$(printf '%s\n' "$@" | git hash-object --stdin)"
+    printf '%s-sel%s-%s\n' "$base" "${hash:0:7}" "$end"
+}
+
+# Whether the selected full SHAs are exactly every commit in BASE..END: only then may
+# an export fast-forward the target.
+#
+# Usage: fork_is_full_range_selection REPO BASE END SHA...
+fork_is_full_range_selection() {
+    local repo="$1" base="$2" end="$3"
+    shift 3
+    [ "$(git -C "$repo" rev-list "$base..$end" | sort)" = "$(printf '%s\n' "$@" | sort)" ]
+}

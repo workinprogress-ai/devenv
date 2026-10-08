@@ -14,6 +14,7 @@ set -euo pipefail
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
 source "$DEVENV_TOOLS/lib/versioning.bash"
+source "$DEVENV_TOOLS/lib/change-id.bash"
 
 readonly SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
@@ -84,10 +85,13 @@ check_message_file() {
         print_guidance
         return 1
     fi
+    if ! change_id_get_from_message "$message" > /dev/null; then
+        echo "warning: no Change-Id trailer; fork-export will not export this commit." >&2
+    fi
 }
 
 check_range() {
-    local base="$1" head="$2" failures=0 sha subject message
+    local base="$1" head="$2" failures=0 missing_ids=0 sha subject message
     git rev-parse --verify --quiet "$base^{commit}" >/dev/null || invalid_args "Unknown revision: $base"
     git rev-parse --verify --quiet "$head^{commit}" >/dev/null || invalid_args "Unknown revision: $head"
     while IFS= read -r sha; do
@@ -104,7 +108,14 @@ check_range() {
             echo "${sha:0:12} $subject — missing or invalid Devenv-Action trailer" >&2
             failures=$((failures + 1))
         fi
+        if ! change_id_get_from_message "$message" > /dev/null; then
+            echo "${sha:0:12} $subject — warning: no Change-Id trailer (fork-export will not export it)" >&2
+            missing_ids=$((missing_ids + 1))
+        fi
     done < <(git rev-list --reverse "$base..$head")
+    if [ "$missing_ids" -gt 0 ]; then
+        echo "warning: $missing_ids commit(s) have no Change-Id trailer." >&2
+    fi
     if [ "$failures" -gt 0 ]; then
         echo "$failures commit(s) failed the Devenv-Action trailer check." >&2
         return 1

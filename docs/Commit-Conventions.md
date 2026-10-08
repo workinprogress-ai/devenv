@@ -55,6 +55,18 @@ It is enforced twice from one script, `tools/scripts/check-commit-trailers.sh`: 
 the commit-msg hook, and in CI by the `commit-messages` job — the check a clone without
 hooks cannot bypass.
 
+## Change-Id trailer
+
+The `prepare-commit-msg` hook adds a `Change-Id` trailer (12 random base62 characters)
+to every new commit and, when an editor opens, an empty `Devenv-Action:` line to fill
+in. The ID is the commit's stable identity for `fork-export` (see
+[Forking.md](Forking.md#commit-identity-fork-only-commits-and-the-skip-list)): it
+survives amend, rebase and cherry-pick, and an existing ID is never replaced.
+`check-commit-trailers.sh` only warns about commits without one, locally and in CI; it
+never fails them. A `Fork-Only: yes` trailer keeps a commit out of every `fork-export`.
+A `WIP:` commit gets no `Change-Id`: it is temporary, and the commit made when it is
+unwound with `git-unwip` receives one.
+
 ## WIP commits
 
 `WIP:` (anchored to the start of the subject, matching `git-unwip` detection) is the
