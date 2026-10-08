@@ -79,6 +79,7 @@ _setup_sync_fixture() {
     [[ "$output" == *"Behind: 0"* ]]
     [[ "$output" == *"Ahead: 0"* ]]
     [[ "$output" == *"No divergent commits"* ]]
+    [[ "$output" == *"nothing to sync"* ]]
 }
 
 @test "fork-sync: reports ahead and behind counts with both commit lists" {
@@ -98,6 +99,7 @@ _setup_sync_fixture() {
     [[ "$output" == *"Ahead: 1"* ]]
     [[ "$output" == *"< "*"Upstream ahead commit"* ]]
     [[ "$output" == *"> "*"Local ahead commit"* ]]
+    [[ "$output" == *"Action needed"*"run 'fork-sync --rebase'"* ]]
 }
 
 @test "fork-sync: reports behind-only upstream divergence" {
@@ -112,6 +114,7 @@ _setup_sync_fixture() {
     [[ "$output" == *"Behind: 1"* ]]
     [[ "$output" == *"Ahead: 0"* ]]
     [[ "$output" == *"< "*"Upstream ahead commit"* ]]
+    [[ "$output" == *"Action needed"*"run 'fork-sync --rebase'"* ]]
 }
 
 @test "fork-sync: reports ahead-only local divergence" {
@@ -125,6 +128,7 @@ _setup_sync_fixture() {
     [[ "$output" == *"Behind: 0"* ]]
     [[ "$output" == *"Ahead: 1"* ]]
     [[ "$output" == *"> "*"Local ahead commit"* ]]
+    [[ "$output" == *"No action needed"* ]]
 }
 
 @test "fork-sync: --dry-run does not fetch upstream" {
@@ -416,4 +420,140 @@ _setup_sync_fixture() {
     run bash "$SCRIPT"
     [ "$status" -eq 0 ]
     [[ "$output" != *"look already upstream"* ]]
+}
+
+@test "fork-sync: a local commit sharing Change-Id with an upstream commit is recognized despite different subject and content" {
+    _setup_sync_fixture
+    echo mine > "$FORK_FIXTURE_WORKING_CLONE/mine.txt"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add mine.txt
+    git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "feat: my contribution" -m $'Change-Id: Abc123Abc123'
+
+    echo theirs > "$FORK_FIXTURE_GH_CLONE/theirs.txt"
+    git -C "$FORK_FIXTURE_GH_CLONE" add theirs.txt
+    git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "chore: squashed contribution" -m $'Change-Id: Abc123Abc123'
+    git -C "$FORK_FIXTURE_GH_CLONE" push -q origin HEAD:master
+
+    run bash "$SCRIPT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"same Change-Id"* ]]
+    [[ "$output" == *"look already upstream"* ]]
+    [[ "$output" == *"feat: my contribution"* ]]
+}
+
+@test "fork-sync: an upstream commit sharing Change-Id with a local commit is not flagged as action needed" {
+    _setup_sync_fixture
+    echo mine > "$FORK_FIXTURE_WORKING_CLONE/mine.txt"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add mine.txt
+    git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "feat: my contribution" -m $'Change-Id: Abc123Abc123'
+
+    echo theirs > "$FORK_FIXTURE_GH_CLONE/theirs.txt"
+    git -C "$FORK_FIXTURE_GH_CLONE" add theirs.txt
+    git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "chore: squashed contribution" -m $'Change-Id: Abc123Abc123'
+    git -C "$FORK_FIXTURE_GH_CLONE" push -q origin HEAD:master
+
+    run bash "$SCRIPT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Behind: 1"* ]]
+    [[ "$output" == *"Upstream commits that look like your own work"* ]]
+    [[ "$output" == *"chore: squashed contribution"* ]]
+    [[ "$output" == *"No urgent action needed"* ]]
+    [[ "$output" != *"Action needed:"* ]]
+}
+
+@test "fork-sync: a genuinely new upstream commit still triggers action needed alongside a recognized one" {
+    _setup_sync_fixture
+    echo mine > "$FORK_FIXTURE_WORKING_CLONE/mine.txt"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add mine.txt
+    git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "feat: my contribution" -m $'Change-Id: Abc123Abc123'
+
+    echo theirs > "$FORK_FIXTURE_GH_CLONE/theirs.txt"
+    git -C "$FORK_FIXTURE_GH_CLONE" add theirs.txt
+    git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "chore: squashed contribution" -m $'Change-Id: Abc123Abc123'
+    echo new > "$FORK_FIXTURE_GH_CLONE/new.txt"
+    git -C "$FORK_FIXTURE_GH_CLONE" add new.txt
+    git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "feat: brand new upstream work"
+    git -C "$FORK_FIXTURE_GH_CLONE" push -q origin HEAD:master
+
+    run bash "$SCRIPT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Behind: 2"* ]]
+    [[ "$output" == *"Action needed: upstream has 1 commit(s)"* ]]
+}
+
+@test "fork-sync: an upstream commit dropped from local HEAD by a history rewrite is recognized via a surviving local tag" {
+    _setup_sync_fixture
+    echo legacy > "$FORK_FIXTURE_WORKING_CLONE/legacy.txt"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add legacy.txt
+    git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "fix: generic legacy fix"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" tag legacy-tag
+    # upstream has the exact same commit object (pushed before the local rewrite)...
+    git -C "$FORK_FIXTURE_WORKING_CLONE" push -q upstream HEAD:master
+    # ...but a local history rewrite dropped it from HEAD's ancestry; only the tag holds it now.
+    git -C "$FORK_FIXTURE_WORKING_CLONE" reset --hard -q HEAD~1
+
+    run bash "$SCRIPT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Behind: 1"* ]]
+    [[ "$output" == *"already reachable from a local branch/tag"* ]]
+    [[ "$output" == *"fix: generic legacy fix"* ]]
+    [[ "$output" == *"No urgent action needed"* ]]
+    [[ "$output" != *"Action needed:"* ]]
+}
+
+@test "fork-sync: --rebase refuses local history with a merge commit since the upstream merge-base" {
+    _setup_sync_fixture
+    git -C "$FORK_FIXTURE_WORKING_CLONE" checkout -qb side
+    echo side > "$FORK_FIXTURE_WORKING_CLONE/side.txt"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add side.txt
+    git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "Side commit"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" checkout -q master
+    git -C "$FORK_FIXTURE_WORKING_CLONE" merge -q --no-ff -m "Merge side" side
+    before_head="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)"
+
+    run bash "$SCRIPT" --rebase
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"contains merge commit(s)"* ]]
+    [[ "$output" == *"Merge side"* ]]
+    [ "$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)" = "$before_head" ]
+}
+
+@test "fork-sync: --rebase refuses a dirty working tree before fetching" {
+    _setup_sync_fixture
+    echo dirty > "$FORK_FIXTURE_WORKING_CLONE/dirty.txt"
+    before_ref="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse --verify refs/remotes/upstream/master 2>/dev/null || true)"
+
+    run bash "$SCRIPT" --rebase
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"uncommitted changes"* ]]
+    [ "$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse --verify refs/remotes/upstream/master 2>/dev/null || true)" = "$before_ref" ]
+}
+
+@test "fork-sync: refuses to start on top of an unfinished rebase" {
+    _setup_sync_fixture
+    printf 'local version\n' > "$FORK_FIXTURE_WORKING_CLONE/README.md"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add README.md
+    git -C "$FORK_FIXTURE_WORKING_CLONE" commit -qm "Local conflicting commit"
+    printf 'upstream version\n' > "$FORK_FIXTURE_GH_CLONE/README.md"
+    git -C "$FORK_FIXTURE_GH_CLONE" add README.md
+    git -C "$FORK_FIXTURE_GH_CLONE" commit -qm "Upstream conflicting commit"
+    git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
+    bash "$SCRIPT" --rebase || true
+    git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse --verify REBASE_HEAD >/dev/null
+
+    run bash "$SCRIPT"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"rebase"*"already in progress"* ]]
+}
+
+@test "fork-sync: refuses when HEAD and upstream share no common history" {
+    _setup_sync_fixture
+    git -C "$FORK_FIXTURE_WORKING_CLONE" checkout -q --orphan unrelated
+    git -C "$FORK_FIXTURE_WORKING_CLONE" rm -rq --cached . >/dev/null 2>&1 || true
+    echo unrelated > "$FORK_FIXTURE_WORKING_CLONE/unrelated.txt"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add unrelated.txt
+    git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "Unrelated root commit"
+
+    run bash "$SCRIPT"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"share no common history"* ]]
 }
