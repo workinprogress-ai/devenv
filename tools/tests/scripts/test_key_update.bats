@@ -305,155 +305,126 @@ define_key_update_commands() {   # <fake devenv root> -> runs the generated func
 }
 
 # ============================================================================
-# Bootstrap seed contract (Plan-issue-55-001 final): consume-on-use.
-#   authed            -> info only; seed left alone
+# Bootstrap PAT gate (require_provider_token):
+#   authed            -> leave the stored token and any seed alone, no prompt
 #   empty + seed      -> import once, DELETE the seed (plaintext must not linger)
-#   empty + no seed   -> AUTH_NEEDED=1; finish banner carries the action
+#   otherwise         -> prompt (terminal only) and import; no token -> fail
 # ============================================================================
 
-@test "bootstrap seed: authed keychain -> info only, seed left alone" {
+# Runs require_provider_token with stubs. Knobs (env): AUTHED=0|1, INTERACTIVE=0|1,
+# SEED=<token or empty>, ANSWER=<prompt answer>, VALIDATE_RC=<0|1|2>, IMPORT_RC=<0|1>.
+# Prints the exit status as "RC=<n>", whether the seed survived, and what was imported.
+pat_gate_run() {
     T=$(mktemp -d)
     mkdir -p "$T/.setup"
-    echo seed > "$T/.setup/provider_token.txt"
-    printf 'test-user\n' > "$T/.setup/provider_user.txt"
-    printf 'test-org\n' > "$T/.setup/provider_org.txt"
-    printf 'Test User\n' > "$T/.setup/name.txt"
-    printf 'test@user.dev\n' > "$T/.setup/email.txt"
-    printf 'optional-do-token\n' > "$T/.setup/digitalocean_token.txt"
+    [ -n "${SEED:-}" ] && printf '%s\n' "$SEED" > "$T/.setup/provider_token.txt"
     run bash -c "
-        export email_file='$T/.setup/email.txt'
-        export name_file='$T/.setup/name.txt'
-        export setup_dir='$T/.setup'
-        export toolbox_root='$T'
-        export PROJECT_ROOT='$PROJECT_ROOT'
-        export AUTH_NEEDED=1
-        provider_auth_status() { return 0; }
-        provider_auth_import_token() { echo SHOULD-NOT-RUN; return 0; }
+        setup_dir='$T/.setup'
+        toolbox_root='$T'
+        provider_auth_status() { return $([ "${AUTHED:-0}" = 1 ] && echo 0 || echo 1); }
+        provider_auth_import_token() { local t; t=\$(cat); echo \"\$t\" > '$T/imported'; return ${IMPORT_RC:-0}; }
+        provider_bootstrap_call() { local t; t=\$(cat); [ \"\$t\" = bad-seed ] && return 1; return ${VALIDATE_RC:-0}; }
         ensure_provider_seam() { :; }
-        source <(sed -n '/^load_setup_credentials()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
-        load_setup_credentials
+        _bootstrap_is_interactive() { return $([ "${INTERACTIVE:-0}" = 1 ] && echo 0 || echo 1); }
+        source <(sed -n '/^require_provider_token()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+        printf '%s\n' \"\${ANSWER:-}\" | require_provider_token
+        rc=\$?
+        echo \"RC=\$rc seed=\$([ -f '$T/.setup/provider_token.txt' ] && echo kept || echo gone) imported=\$([ -f '$T/imported' ] && cat '$T/imported' || echo none)\"
     "
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "authenticated" ]]
-    [[ ! "$output" =~ "Seed file imported" ]]
-    [ -f "$T/.setup/provider_token.txt" ]
+}
+
+@test "PAT gate: authenticated store -> continues, no prompt, seed left alone" {
+    AUTHED=1 INTERACTIVE=1 SEED=seed-tok pat_gate_run
+    [[ "$output" == *"RC=0 seed=kept imported=none"* ]]
     rm -rf "$T"
 }
 
-@test "bootstrap seed: empty keychain + seed -> import once, seed deleted, no AUTH_NEEDED" {
-    T=$(mktemp -d)
-    mkdir -p "$T/.setup"
-    printf 'seed\n' > "$T/.setup/provider_token.txt"
-    printf 'test-user\n' > "$T/.setup/provider_user.txt"
-    printf 'test-org\n' > "$T/.setup/provider_org.txt"
-    printf 'Test User\n' > "$T/.setup/name.txt"
-    printf 'test@user.dev\n' > "$T/.setup/email.txt"
-    printf 'optional-do-token\n' > "$T/.setup/digitalocean_token.txt"
-    run bash -c "
-        export email_file='$T/.setup/email.txt'
-        export name_file='$T/.setup/name.txt'
-        export setup_dir='$T/.setup'
-        export toolbox_root='$T'
-        export PROJECT_ROOT='$PROJECT_ROOT'
-        export AUTH_NEEDED=1
-        provider_auth_status() { return 1; }
-        provider_auth_import_token() { echo imported; return 0; }
-        ensure_provider_seam() { :; }
-        source <(sed -n '/^load_setup_credentials()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
-        load_setup_credentials
-        if [ -f '$T/.setup/provider_token.txt' ]; then post_seed=yes; else post_seed=no; fi
-        echo \"POST: seed_exists=\$post_seed auth_needed=\$AUTH_NEEDED\"
-    "
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "imported into the provider credential store and deleted" ]]
-    [[ "$output" =~ "POST: seed_exists=no auth_needed=0" ]]
+@test "PAT gate: empty store + seed -> imported once and seed deleted" {
+    SEED=seed-tok pat_gate_run
+    [[ "$output" == *"RC=0 seed=gone imported=seed-tok"* ]]
     rm -rf "$T"
 }
 
-@test "bootstrap seed: import failure keeps seed + sets AUTH_NEEDED" {
-    T=$(mktemp -d)
-    mkdir -p "$T/.setup"
-    echo seed > "$T/.setup/provider_token.txt"
-    printf 'test-user\n' > "$T/.setup/provider_user.txt"
-    printf 'test-org\n' > "$T/.setup/provider_org.txt"
-    printf 'Test User\n' > "$T/.setup/name.txt"
-    printf 'test@user.dev\n' > "$T/.setup/email.txt"
-    printf 'optional-do-token\n' > "$T/.setup/digitalocean_token.txt"
-    run bash -c "
-        export email_file='$T/.setup/email.txt'
-        export name_file='$T/.setup/name.txt'
-        export setup_dir='$T/.setup'
-        export toolbox_root='$T'
-        export PROJECT_ROOT='$PROJECT_ROOT'
-        provider_auth_status() { return 1; }
-        provider_auth_import_token() { return 1; }
-        ensure_provider_seam() { :; }
-        source <(sed -n '/^load_setup_credentials()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
-        load_setup_credentials
-        if [ -f '$T/.setup/provider_token.txt' ]; then post_seed=yes; else post_seed=no; fi
-        echo \"POST: seed_exists=\$post_seed auth_needed=\$AUTH_NEEDED\"
-    "
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "could not be imported" ]]
-    [[ "$output" =~ "POST: seed_exists=yes auth_needed=1" ]]
+@test "PAT gate: seed that cannot be imported + no terminal -> fails, seed kept" {
+    SEED=seed-tok IMPORT_RC=1 pat_gate_run
+    [[ "$output" == *"RC=1 seed=kept"* ]]
     rm -rf "$T"
 }
 
-@test "bootstrap seed: empty keychain + no seed -> AUTH_NEEDED=1" {
-    T=$(mktemp -d)
-    mkdir -p "$T/.setup"
-    printf 'test-user\n' > "$T/.setup/provider_user.txt"
-    printf 'test-org\n' > "$T/.setup/provider_org.txt"
-    printf 'Test User\n' > "$T/.setup/name.txt"
-    printf 'test@user.dev\n' > "$T/.setup/email.txt"
-    printf 'optional-do-token\n' > "$T/.setup/digitalocean_token.txt"
-    run bash -c "
-        export email_file='$T/.setup/email.txt'
-        export name_file='$T/.setup/name.txt'
-        export setup_dir='$T/.setup'
-        export toolbox_root='$T'
-        export PROJECT_ROOT='$PROJECT_ROOT'
-        provider_auth_status() { return 1; }
-        ensure_provider_seam() { :; }
-        source <(sed -n '/^load_setup_credentials()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
-        load_setup_credentials
-        echo \"POST: auth_needed=\$AUTH_NEEDED\"
-    "
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "no seed file found" ]]
-    [[ "$output" =~ "POST: auth_needed=1" ]]
+@test "PAT gate: rejected seed + terminal -> prompts, imports the typed token, keeps the bad seed" {
+    SEED=bad-seed INTERACTIVE=1 ANSWER=typed-tok pat_gate_run
+    [[ "$output" == *"RC=0 seed=kept imported=typed-tok"* ]]
     rm -rf "$T"
 }
 
-@test "finish_message: banner carries the key-update action when AUTH_NEEDED" {
-    run bash -c "
-        AUTH_NEEDED=1
-        finish_message() { :; }
-        source <(sed -n '/^finish_message()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
-        finish_message
-    "
-    [[ "$output" =~ "ACTION REQUIRED" ]]
-    [[ "$output" =~ "key-update-provider" ]]
+@test "PAT gate: rejected seed + no terminal -> fails, bad seed kept" {
+    SEED=bad-seed pat_gate_run
+    [[ "$output" == *"RC=1 seed=kept imported=none"* ]]
+    rm -rf "$T"
 }
 
-@test "finish_message: banner is silent about auth when AUTH_NEEDED=0" {
+@test "PAT gate: no seed + terminal + token typed -> imported, succeeds" {
+    INTERACTIVE=1 ANSWER=typed-tok pat_gate_run
+    [[ "$output" == *"RC=0 seed=gone imported=typed-tok"* ]]
+    rm -rf "$T"
+}
+
+@test "PAT gate: offline validation (status 2) imports the typed token unverified" {
+    INTERACTIVE=1 ANSWER=typed-tok VALIDATE_RC=2 pat_gate_run
+    [[ "$output" == *"RC=0 seed=gone imported=typed-tok"* ]]
+    rm -rf "$T"
+}
+
+@test "PAT gate: no seed + terminal + empty answer -> fails, nothing imported" {
+    INTERACTIVE=1 ANSWER= pat_gate_run
+    [[ "$output" == *"RC=1 seed=gone imported=none"* ]]
+    rm -rf "$T"
+}
+
+@test "PAT gate: typed token rejected by the provider -> fails, nothing imported" {
+    INTERACTIVE=1 ANSWER=typed-tok VALIDATE_RC=1 pat_gate_run
+    [[ "$output" == *"RC=1 seed=gone imported=none"* ]]
+    rm -rf "$T"
+}
+
+@test "PAT gate: typed token whose import fails -> fails" {
+    INTERACTIVE=1 ANSWER=typed-tok IMPORT_RC=1 pat_gate_run
+    [[ "$output" == *"RC=1 "* ]]
+    rm -rf "$T"
+}
+
+@test "PAT gate: no seed + no terminal -> fails and names the fixes" {
+    pat_gate_run
+    [[ "$output" == *"RC=1 seed=gone imported=none"* ]]
+    [[ "$output" == *"key-update-provider"* ]]
+    [[ "$output" == *"provider_token.txt"* ]]
+    rm -rf "$T"
+}
+
+@test "PAT gate: a typed or seeded token never appears in the output" {
+    INTERACTIVE=1 ANSWER=typed-secret-value pat_gate_run
+    [[ "$output" != *"typed-secret-value"*"typed-secret-value"* ]]
+    # only the test harness's own 'imported=' echo may carry it, never the gate's messages
+    [[ "$(echo "$output" | grep -v 'imported=')" != *"typed-secret-value"* ]]
+    rm -rf "$T"
+    SEED=seed-secret-value pat_gate_run
+    [[ "$(echo "$output" | grep -v 'imported=')" != *"seed-secret-value"* ]]
+    rm -rf "$T"
+}
+
+@test "PAT gate: both task lists run it right after load_config, and AUTH_NEEDED is gone" {
     run bash -c "
-        AUTH_NEEDED=0
-        source <(sed -n '/^finish_message()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
-        finish_message
+        f='$PROJECT_ROOT/.devcontainer/bootstrap.bash'
+        for fn in run_bootstrap_tasks run_update_tasks; do
+            sed -n \"/^\$fn()/,/^}/p\" \"\$f\" | grep -A1 '^ *load_config\$' | tail -1 | grep -q 'require_provider_token' || { echo \"\$fn: not wired\"; exit 1; }
+        done
+        ! grep -q 'AUTH_NEEDED' \"\$f\"
     "
-    [[ ! "$output" =~ "ACTION REQUIRED" ]]
+    [ "$status" -eq 0 ]
 }
 
 # ============================================================================
 
-
-@test "bootstrap seed: failure path defers to the AUTH_NEEDED banner" {
-    # Import failure sets AUTH_NEEDED; the finish banner carries the action
-    # line pointing at key-update-provider (the function name).
-    run grep -q 'Run: key-update-provider   (paste the token at the prompt)' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
-    [ "$status" -eq 0 ]
-}
 
 @test "key-update-provider with no configured provider fails and names the fix instead of guessing" {
     T=$(mktemp -d)

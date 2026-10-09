@@ -364,39 +364,45 @@ install_dotnet() {
     $dotnet_cmd tool list -g | grep -q "dotnet-format" || $dotnet_cmd tool install -g dotnet-format
 }
 
-# Load credentials from .setup directory
-load_setup_credentials() {
-    if [ -f "$email_file" ]; then
-        USER_EMAIL=$(cat "$email_file")
+# Fail fast and loudly when the host `setup` answers are missing: nothing below can
+# build a usable environment without them, and discovering that after the long
+# install tasks wastes the whole run. timezone.txt and digitalocean_token.txt are
+# optional and not checked here.
+require_setup_files() {
+    local required=(name.txt email.txt provider_org.txt provider_user.txt)
+    local missing=() f
+    if [ ! -d "$setup_dir" ]; then
+        missing=("${required[@]}")
     else
-        echo "WARNING!!!  No email found in $email_file"
+        for f in "${required[@]}"; do
+            [ -f "$setup_dir/$f" ] || missing+=("$f")
+        done
     fi
+    [ "${#missing[@]}" -eq 0 ] && return 0
 
-    if [ -f "$name_file" ]; then
-        HUMAN_NAME="$(cat "$name_file")"
-    else
-        echo "WARNING!!!  No human name found in $name_file"
-    fi
+    {
+        echo "##############################################################"
+        echo "ERROR: devenv setup has not been run (or is incomplete)."
+        echo "Missing in $setup_dir: ${missing[*]}"
+        echo "Run 'setup' on the host machine, then rebuild the container or re-run bootstrap."
+        echo "##############################################################"
+    } >&2
+    return 1
+}
 
-    # A missing identity seed is reported in the finish banner, not a failure: the
-    # rest of the environment is still worth building, and 'setup' on the host
-    # (or the provider accessors' config fallback) supplies the value later.
-    SETUP_SEEDS_MISSING=""
-    [ -f "$setup_dir/provider_user.txt" ] || SETUP_SEEDS_MISSING="$SETUP_SEEDS_MISSING provider_user.txt"
-    [ -f "$setup_dir/provider_org.txt" ] || SETUP_SEEDS_MISSING="$SETUP_SEEDS_MISSING provider_org.txt"
-    if [ -n "$SETUP_SEEDS_MISSING" ]; then
-        echo "WARNING: missing seed file(s) in $setup_dir:$SETUP_SEEDS_MISSING"
-    fi
-    # No exports — the provider accessors read the seeds (and config) themselves
-    # when identity is needed.
+# True when a person can answer a prompt: bootstrap also runs from non-interactive
+# container-start hooks, where there is nobody to ask.
+_bootstrap_is_interactive() {
+    [ -t 0 ]
+}
 
-    # Auth state machine (Plan-issue-55-001 final contract):
-    #   keychain OK            -> info only, seed left alone
-    #   keychain empty + seed  -> import once, DELETE the seed (one-shot;
-    #                             plaintext must not linger), auth restored
-    #   keychain empty, no seed-> AUTH_NEEDED=1; the finish banner tells the
-    #                             user to run key-update-provider
-    AUTH_NEEDED=0
+# The provider token must exist before the long install tasks run:
+#   already authenticated  -> keep the stored token (and any seed file) untouched
+#   seed file present      -> import it once and delete the plaintext seed
+#   otherwise              -> ask for the token; no token (or no terminal) fails
+# The token is read hidden, passed on stdin only, and never printed.
+require_provider_token() {
+    ensure_provider_seam
 
     if provider_auth_status >/dev/null 2>&1; then
         echo "Provider credential store is authenticated."
@@ -406,8 +412,6 @@ load_setup_credentials() {
         return 0
     fi
 
-    ensure_provider_seam
-
     if [ -f "$setup_dir/provider_token.txt" ]; then
         # Ask the provider whether the seed token is good before it is imported and the
         # plaintext deleted: 0 accepted, 1 rejected, 2 could not be verified (offline).
@@ -416,7 +420,6 @@ load_setup_credentials() {
         provider_bootstrap_call validate_token < "$setup_dir/provider_token.txt" || seed_validation=$?
         if [ "$seed_validation" -eq 1 ]; then
             echo "WARNING: provider_token.txt was rejected by the provider (expired or invalid?); it is kept so you can correct it."
-            AUTH_NEEDED=1
         else
             if [ "$seed_validation" -ne 0 ]; then
                 echo "WARNING: could not verify provider_token.txt with the provider (unreachable); importing it unverified."
@@ -424,15 +427,54 @@ load_setup_credentials() {
             if provider_auth_import_token < "$setup_dir/provider_token.txt" >/dev/null 2>&1; then
                 rm -f "$setup_dir/provider_token.txt"
                 echo "Seed file imported into the provider credential store and deleted (one-shot; re-add only if you want replay-ability)."
-            else
-                echo "WARNING: provider_token.txt could not be imported (expired or invalid?)."
-                AUTH_NEEDED=1
+                return 0
             fi
+            echo "WARNING: provider_token.txt could not be imported (expired or invalid?)."
         fi
     else
         echo "Provider credential store is empty and no seed file found in $setup_dir."
-        AUTH_NEEDED=1
     fi
+
+    if ! _bootstrap_is_interactive; then
+        {
+            echo "ERROR: no provider token is available and there is no terminal to ask for one."
+            echo "Run 'key-update-provider' (paste the token at the prompt), or put the token in $setup_dir/provider_token.txt, then re-run bootstrap."
+        } >&2
+        return 1
+    fi
+
+    local token=""
+    read -r -s -p "Paste the provider access token (PAT): " token || token=""
+    echo ""
+    if [ -z "$token" ]; then
+        echo "ERROR: no token provided; bootstrap cannot continue without a provider token." >&2
+        return 1
+    fi
+
+    local typed_validation=0
+    provider_bootstrap_call validate_token <<< "$token" || typed_validation=$?
+    if [ "$typed_validation" -eq 1 ]; then
+        echo "ERROR: the provider rejected that token (expired, invalid, or missing scopes); nothing was stored." >&2
+        return 1
+    fi
+    if [ "$typed_validation" -ne 0 ]; then
+        echo "WARNING: could not verify the token with the provider (unreachable); importing it unverified."
+    fi
+    if ! provider_auth_import_token <<< "$token" >/dev/null 2>&1; then
+        echo "ERROR: the token could not be imported into the provider credential store." >&2
+        return 1
+    fi
+    echo "Token imported into the provider credential store."
+}
+
+# Load credentials from .setup directory
+load_setup_credentials() {
+    # require_setup_files has already guaranteed the identity seed files exist.
+    USER_EMAIL=$(cat "$email_file")
+    HUMAN_NAME="$(cat "$name_file")"
+
+    # No exports — the provider accessors read the seeds (and config) themselves
+    # when identity is needed.
 
     if [ -f "$setup_dir/digitalocean_token.txt" ]; then
         DO_API_TOKEN=$(cat "$setup_dir/digitalocean_token.txt")
@@ -1346,16 +1388,8 @@ record_bootstrap_run_time() {
 finish_message() {
     echo "Bootstrap complete"
     echo "--------------------------------------------------------------"
-    if [ "${AUTH_NEEDED:-0}" -eq 1 ]; then
-        echo "ACTION REQUIRED: Auth credentials are not configured."
-        echo "Run: key-update-provider   (paste the token at the prompt)"
-    fi
     if [ "${PNPM_INSTALL_FAILED:-0}" -eq 1 ]; then
         echo "ACTION REQUIRED: 'pnpm install' failed during bootstrap. Run it in $toolbox_root and check the output."
-    fi
-    if [ -n "${SETUP_SEEDS_MISSING:-}" ]; then
-        echo "ACTION REQUIRED: setup answers are missing:${SETUP_SEEDS_MISSING}"
-        echo "Run 'setup' on the host machine, then rebuild or re-run bootstrap."
     fi
     echo "Please exit out of VS Code and let the container restart."
     echo "Please restart the container to complete the setup."
@@ -1375,11 +1409,13 @@ run_bootstrap_tasks() {
     local default_tasks=(
         init_bootstrap_run_time
         initialize_paths
+        require_setup_files
         detect_architecture
         ensure_home_is_set
         ensure_bash_is_default_shell
         load_version_info
         load_config
+        require_provider_token
         prepare_install_directories
         reset_bashrc_to_original
         install_yq
@@ -1434,11 +1470,13 @@ run_bootstrap_tasks() {
 run_update_tasks() {
     local update_tasks=(
         initialize_paths
+        require_setup_files
         detect_architecture
         ensure_home_is_set
         ensure_bash_is_default_shell
         load_version_info
         load_config
+        require_provider_token
         prepare_install_directories
         install_yq
         install_os_packages_round1

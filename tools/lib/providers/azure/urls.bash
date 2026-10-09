@@ -59,7 +59,7 @@ provider_web_host() {
 # or the configured [provider] azure_project. Callers MAY pass the resolved
 # 3-part spec; providers own arity normalization.
 provider_git_transport_url() {
-    local org="$1" project="$2" repo="$3"
+    local org="${1:-}" project="${2:-}" repo="${3:-}"
     if [ -z "$org" ]; then
         log_error "provider_git_transport_url requires org"
         return 1

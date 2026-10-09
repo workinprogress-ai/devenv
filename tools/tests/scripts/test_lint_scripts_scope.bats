@@ -51,6 +51,17 @@ run_lint() {
     [[ "$output" == *"repos/top-level.sh"* ]]
 }
 
+@test "lint-scripts does not descend into .local-artifacts (local scratch, never committed)" {
+    mkdir -p "$ROOT/.local-artifacts/work" "$ROOT/tools/sub/.local-artifacts"
+    printf '#!/bin/bash\ncd /nonexistent-dir\n' > "$ROOT/.local-artifacts/work/scratch.sh"
+    printf '#!/bin/bash\ncd /nonexistent-dir\n' > "$ROOT/tools/sub/.local-artifacts/nested.sh"
+    printf '#!/bin/bash\ncd /nonexistent-dir\n' > "$ROOT/.local-artifacts/extensionless"
+    run run_lint
+    [[ "$output" != *"scratch.sh"* ]]
+    [[ "$output" != *"nested.sh"* ]]
+    [[ "$output" != *".local-artifacts/extensionless"* ]]
+}
+
 @test "--no-color works (it used to abort assigning to readonly colour variables)" {
     run run_lint
     [[ "$output" != *"readonly variable"* ]]

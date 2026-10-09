@@ -105,7 +105,8 @@ find_shell_scripts() {
     # *.bash, plus extensionless files whose first line is a shell shebang (the
     # git-* tools, the root setup script). repos/ holds clones of other
     # repositories (not ours to lint), but the scripts directly in repos/ are this
-    # workspace's own top-level infra and are included.
+    # workspace's own top-level infra and are included. .local-artifacts/ holds
+    # git-ignored local scratch (plans, migration work clones), never linted.
     # Note: find may return non-zero on permission errors; use || true to prevent
     # set -e from aborting when pipefail is enabled
     local -a scope=(
@@ -117,6 +118,8 @@ find_shell_scripts() {
         ! -path "*/.devcontainer/git-completion.bash"
         ! -path "*/playground/*"
         ! -path "*/tools/cache/*"
+        ! -path "$search_dir/.local-artifacts/*"
+        ! -path "$search_dir/*/.local-artifacts/*"
         \( ! -path "$search_dir/repos/*" -o \( -path "$search_dir/repos/*.sh" ! -path "$search_dir/repos/*/*" \) \)
     )
     {

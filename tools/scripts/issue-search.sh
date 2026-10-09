@@ -115,7 +115,8 @@ search_issues() {
     local gh_args=()
     local repo_spec
     read -ra repo_spec <<< "$(get_repo_spec)"
-    gh_args+=("${repo_spec[0]:-}")
+    # The repository is passed as the leading positional argument of provider_issues_list
+    # (below), never inside gh_args: a provider accepts it exactly once.
 
     local filter_args=()
     build_issue_filters filter_args --state "$FILTER_STATE" --type "$FILTER_TYPE" --limit "$FETCH_LIMIT" || exit "$EXIT_GENERAL_ERROR"

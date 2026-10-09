@@ -766,17 +766,7 @@ STUB
       "
 }
 
-@test "finish_message does not tell the user to put a token on the command line" {
-  local fn
-  fn="$(sed -n '/^finish_message()/,/^}/p' "$PROJECT_ROOT/.devcontainer/bootstrap.bash")"
-  run env AUTH_NEEDED=1 bash -c "$fn; finish_message"
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"key-update-provider"* ]]
-  [[ "$output" != *"<new-token>"* ]]
-  [[ "$output" != *"<token>"* ]]
-}
-
-# Runs bootstrap's load_setup_credentials with a seed token and a stubbed validator.
+# Runs bootstrap's require_provider_token (no terminal) with a seed token and a stubbed validator.
 # VALIDATE_RC is what the provider's validate hook returns (unset = no hook defined).
 run_seed_flow() {
   local setup_dir="$TEST_TEMP_DIR/seed-setup"
@@ -786,7 +776,7 @@ run_seed_flow() {
   printf 'the-org' > "$setup_dir/provider_org.txt"
   export IMPORT_LOG="$TEST_TEMP_DIR/import.log"; : > "$IMPORT_LOG"
   local funcs hook=""
-  funcs="$(sed -n '/^load_setup_credentials()/,/^}/p' "$PROJECT_ROOT/.devcontainer/bootstrap.bash")"
+  funcs="$(sed -n '/^_bootstrap_is_interactive()/,/^}/p;/^require_provider_token()/,/^}/p' "$PROJECT_ROOT/.devcontainer/bootstrap.bash")"
   if [ -n "${VALIDATE_RC:-}" ]; then
     hook="provider_bootstrap_validate_token() { cat >/dev/null; return $VALIDATE_RC; }"
   fi
@@ -798,48 +788,45 @@ run_seed_flow() {
         provider_auth_import_token() { cat > \"\$IMPORT_LOG\"; return \$IMPORT_RC; }
         $hook
         $funcs
-        load_setup_credentials
-        echo \"AUTH_NEEDED=\$AUTH_NEEDED\"
+        require_provider_token </dev/null
+        echo \"RC=\$?\"
       "
 }
 
-@test "load_setup_credentials: a seed the provider accepts is imported and deleted" {
+@test "require_provider_token: a seed the provider accepts is imported and deleted" {
   VALIDATE_RC=0 run_seed_flow
-  [ "$status" -eq 0 ]
   [ "$(cat "$IMPORT_LOG")" = "seed-token-abc" ]
   [ ! -f "$TEST_TEMP_DIR/seed-setup/provider_token.txt" ]
-  [[ "$output" == *"AUTH_NEEDED=0"* ]]
+  [[ "$output" == *"RC=0"* ]]
 }
 
-@test "load_setup_credentials: a seed the provider rejects is neither imported nor deleted" {
+@test "require_provider_token: a seed the provider rejects is neither imported nor deleted, and bootstrap fails without a terminal" {
   VALIDATE_RC=1 run_seed_flow
-  [ "$status" -eq 0 ]
   [ ! -s "$IMPORT_LOG" ]
   [ -f "$TEST_TEMP_DIR/seed-setup/provider_token.txt" ]
-  [[ "$output" == *"AUTH_NEEDED=1"* ]]
+  [[ "$output" == *"RC=1"* ]]
   [[ "$output" == *"rejected"* ]]
 }
 
-@test "load_setup_credentials: an unverifiable seed (provider unreachable) is imported with a warning" {
+@test "require_provider_token: an unverifiable seed (provider unreachable) is imported with a warning" {
   VALIDATE_RC=2 run_seed_flow
-  [ "$status" -eq 0 ]
   [ "$(cat "$IMPORT_LOG")" = "seed-token-abc" ]
   [ ! -f "$TEST_TEMP_DIR/seed-setup/provider_token.txt" ]
   [[ "$output" == *"could not verify"* ]]
+  [[ "$output" == *"RC=0"* ]]
 }
 
-@test "load_setup_credentials: a provider with no validate hook imports the seed as before" {
+@test "require_provider_token: a provider with no validate hook imports the seed as before" {
   run_seed_flow
-  [ "$status" -eq 0 ]
   [ "$(cat "$IMPORT_LOG")" = "seed-token-abc" ]
   [ ! -f "$TEST_TEMP_DIR/seed-setup/provider_token.txt" ]
+  [[ "$output" == *"RC=0"* ]]
 }
 
-@test "load_setup_credentials: a seed that cannot be imported is kept and auth is flagged" {
+@test "require_provider_token: a seed that cannot be imported is kept and bootstrap fails without a terminal" {
   VALIDATE_RC=0 IMPORT_RC=1 run_seed_flow
-  [ "$status" -eq 0 ]
   [ -f "$TEST_TEMP_DIR/seed-setup/provider_token.txt" ]
-  [[ "$output" == *"AUTH_NEEDED=1"* ]]
+  [[ "$output" == *"RC=1"* ]]
 }
 
 @test "configure_nuget_sources registers no GitHub feed and sends no token under azure" {
@@ -1349,21 +1336,6 @@ stub_runner() {
   [ "$status" -eq 0 ]
 }
 
-@test "load_setup_credentials reports missing identity seeds in the banner instead of exiting" {
-  local d="$TEST_TEMP_DIR/seeds"; mkdir -p "$d"
-  run bash -c "
-    setup_dir='$d'; email_file='$d/email.txt'; name_file='$d/name.txt'
-    provider_auth_status() { return 0; }
-    source <(sed -n '/^load_setup_credentials()/,/^}/p;/^finish_message()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
-    load_setup_credentials
-    echo 'still-running'
-    finish_message
-  "
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"still-running"* ]]
-  [[ "$output" == *"setup answers are missing"* ]]
-}
-
 @test "git-completion is vendored in the repo and sourced from there, not downloaded at bootstrap" {
   [ -s "$PROJECT_ROOT/.devcontainer/git-completion.bash" ]
   run ! grep -n 'git-completion.bash.*raw.githubusercontent\|raw.githubusercontent.*git-completion' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
@@ -1387,4 +1359,79 @@ stub_runner() {
   [ "$output" = "gh" ]
   run bash -c "source '$PROJECT_ROOT/tools/lib/providers/azure/bootstrap.bash' 2>/dev/null; provider_bootstrap_apt_packages"
   [ -z "$output" ]
+}
+
+# ============================================================================
+# require_setup_files: bootstrap refuses to run when the host `setup` answers
+# are missing (fail fast, before any install work).
+# ============================================================================
+
+require_setup_files_run() {
+  local setup_dir="$1"
+  run bash -c "
+    setup_dir='$setup_dir'
+    source <(sed -n '/^require_setup_files()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+    require_setup_files
+  "
+}
+
+make_setup_dir() {
+  local dir="$TEST_TEMP_DIR/.setup"
+  mkdir -p "$dir"
+  local f
+  for f in name.txt email.txt provider_org.txt provider_user.txt; do
+    echo value > "$dir/$f"
+  done
+  echo "$dir"
+}
+
+@test "require_setup_files: all required seed files present passes" {
+  require_setup_files_run "$(make_setup_dir)"
+  [ "$status" -eq 0 ]
+}
+
+@test "require_setup_files: optional timezone and digitalocean files are not required" {
+  local dir
+  dir="$(make_setup_dir)"
+  [ ! -e "$dir/timezone.txt" ] && [ ! -e "$dir/digitalocean_token.txt" ]
+  require_setup_files_run "$dir"
+  [ "$status" -eq 0 ]
+}
+
+@test "require_setup_files: missing .setup directory fails and tells the user to run setup" {
+  require_setup_files_run "$TEST_TEMP_DIR/no-such-setup"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"setup"* ]]
+  [[ "$output" == *"host"* ]]
+}
+
+@test "require_setup_files: each missing required file fails and is named" {
+  local f dir
+  for f in name.txt email.txt provider_org.txt provider_user.txt; do
+    dir="$(make_setup_dir)"
+    rm -f "$dir/$f"
+    require_setup_files_run "$dir"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"$f"* ]]
+  done
+}
+
+@test "require_setup_files: several missing files are all named in one message" {
+  local dir
+  dir="$(make_setup_dir)"
+  rm -f "$dir/name.txt" "$dir/provider_org.txt"
+  require_setup_files_run "$dir"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"name.txt"* ]]
+  [[ "$output" == *"provider_org.txt"* ]]
+}
+
+@test "bootstrap task lists run require_setup_files right after initialize_paths" {
+  run bash -c "
+    f='$PROJECT_ROOT/.devcontainer/bootstrap.bash'
+    for fn in run_bootstrap_tasks run_update_tasks; do
+      sed -n \"/^\$fn()/,/^}/p\" \"\$f\" | grep -A1 '^ *initialize_paths\$' | tail -1 | grep -q 'require_setup_files' || { echo \"\$fn: not wired\"; exit 1; }
+    done
+  "
+  [ "$status" -eq 0 ]
 }

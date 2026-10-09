@@ -514,14 +514,18 @@ provider_repos_view() {
 # Usage: provider_repos_list ORG/PROJECT [--limit N] [--json FIELDS] [-q J]
 provider_repos_list() {
     local org_project="$1"; shift
-    local json_fields="" jq_expr=""
+    local json_fields="" jq_expr="" limit=""
     while [ $# -gt 0 ]; do
         case "$1" in
             --json) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; json_fields="$2"; shift 2 ;;
             -q|--jq) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; jq_expr="$2"; shift 2 ;;
+            --limit|-L) provider_need_value "${FUNCNAME[0]}" "$1" "$#" || return 1; limit="$2"; shift 2 ;;
             *) provider_unknown_option "${FUNCNAME[0]}" "$1"; return 1 ;;
         esac
     done
+    case "$limit" in
+        ''|*[!0-9]*) [ -z "$limit" ] || { log_error "provider_repos_list: --limit requires a number"; return 1; } ;;
+    esac
     local org project
     case "$org_project" in
         */*) org="${org_project%%/*}"; project="${org_project#*/}" ;;
@@ -542,7 +546,7 @@ provider_repos_list() {
 
     # Map to the seam's repo shape, then apply list semantics for --json/-q.
     local mapped
-    mapped=$(printf '%s' "$response" | jq -c '[.[] | {name: .name, repoSpec: (.project.name + "/" + .name), isPrivate: .isPrivate}]')
+    mapped=$(printf '%s' "$response" | jq -c --arg n "$limit" '[.[] | {name: .name, repoSpec: (.project.name + "/" + .name), isPrivate: .isPrivate}] | if $n == "" then . else .[:($n|tonumber)] end')
     azure_apply_list_flags "$mapped" "$json_fields" "$jq_expr"
 }
 

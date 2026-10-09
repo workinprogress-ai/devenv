@@ -214,14 +214,15 @@ validate() {   # validate <provider> <org> <token> -> runs the host-side validat
 }
 
 # ---------------------------------------------------------------------------
-# Azure registers no package feeds: the GitHub feed must never see an Azure PAT
+# Azure registers only an Azure Artifacts [nuget] feed_url: no other host may see an Azure PAT
 # ---------------------------------------------------------------------------
 
-@test "azure package-feed hooks register nothing and say so" {
+@test "azure package-feed hooks register nothing and say so without a configured feed" {
     run bash -c '
         source "$DEVENV_TOOLS/lib/providers/provider-core.bash"
         PROVIDER_NAME=azure
         provider_load bootstrap
+        config_read_value() { echo ""; }
         add_nuget_source_if_not_exists() { echo "UNEXPECTED nuget add: $*"; }
         provider_bootstrap_configure_nuget
         provider_bootstrap_configure_npmrc "$HOME/.npmrc"
@@ -229,4 +230,48 @@ validate() {   # validate <provider> <org> <token> -> runs the host-side validat
     [ "$status" -eq 0 ]
     [[ "$output" != *"UNEXPECTED"* ]]
     [[ "$output" == *"Skipping"* ]]
+}
+
+@test "azure configure_nuget registers the configured Azure Artifacts feed with the provider token" {
+    run bash -c '
+        source "$DEVENV_TOOLS/lib/providers/provider-core.bash"
+        PROVIDER_NAME=azure
+        provider_load bootstrap
+        config_read_value() { [ "$2" = feed_url ] && echo "https://pkgs.dev.azure.com/o/_packaging/f/nuget/v3/index.json"; }
+        provider_secret_get() { echo "tok-123"; }
+        add_nuget_source_if_not_exists() { echo "ADD: $1|$2|$3|$4"; }
+        provider_bootstrap_configure_nuget
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ADD: azure|https://pkgs.dev.azure.com/o/_packaging/f/nuget/v3/index.json|"*"|tok-123"* ]]
+}
+
+@test "azure configure_nuget skips without registering when the token is unavailable" {
+    run bash -c '
+        source "$DEVENV_TOOLS/lib/providers/provider-core.bash"
+        PROVIDER_NAME=azure
+        provider_load bootstrap
+        config_read_value() { [ "$2" = feed_url ] && echo "https://pkgs.dev.azure.com/o/_packaging/f/nuget/v3/index.json"; }
+        provider_secret_get() { return 1; }
+        add_nuget_source_if_not_exists() { echo "UNEXPECTED nuget add: $*"; }
+        provider_bootstrap_configure_nuget
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"UNEXPECTED"* ]]
+    [[ "$output" == *"Skipping"* ]]
+}
+
+@test "azure configure_nuget never sends the Azure token to a non-Azure feed_url" {
+    run bash -c '
+        source "$DEVENV_TOOLS/lib/providers/provider-core.bash"
+        PROVIDER_NAME=azure
+        provider_load bootstrap
+        config_read_value() { [ "$2" = feed_url ] && echo "https://nuget.pkg.github.com/some-org/index.json"; }
+        provider_secret_get() { echo "tok-123"; }
+        add_nuget_source_if_not_exists() { echo "UNEXPECTED nuget add: $*"; }
+        provider_bootstrap_configure_nuget
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"UNEXPECTED"* ]]
+    [[ "$output" == *"not an Azure Artifacts URL"* ]]
 }

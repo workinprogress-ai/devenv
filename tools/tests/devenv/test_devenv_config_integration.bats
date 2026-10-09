@@ -46,7 +46,7 @@ EOF
 }
 
 @test "devenv.config: nuget section has feed_url configured" {
-    run bash -c "source \$PROJECT_ROOT/tools/lib/config-reader.bash && config_init \$PROJECT_ROOT/devenv.config && config_read_value nuget feed_url | grep -q 'nuget.pkg.github.com'"
+    run bash -c "source \$PROJECT_ROOT/tools/lib/config-reader.bash && config_init \$PROJECT_ROOT/devenv.config && config_read_value nuget feed_url | grep -qE '^https://[^ ]+\$'"
     [ "$status" -eq 0 ]
 }
 
