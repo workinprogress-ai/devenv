@@ -170,6 +170,27 @@ Recommended for work where pre-commit review matters: run **two chat sessions** 
 
 The point is **separation of concerns**: the reviewer session stays unpolluted from partner bias — a session that wrote the code reviewing it itself is adversarially weak. Deep review lives in the reviewer session; the commit skill stays slim (staged-glance + marker gate only). Within a single pairing conversation, ordinary quick looks at each other's changes remain exactly that — conversation, not formal review rounds.
 
+### Context pollution (why the separation works)
+
+**Everything fed to an agent shapes its subsequent output.** A session that has seen the implementer's reasoning, dead ends, and justifications can no longer judge the result neutrally — it is anchored on *what was done* instead of *what should be*. The separation above is the working cure: the reviewer never drinks the implementer's context.
+
+This generalizes beyond partner/reviewer. Sessions fall into categories by what they do and how much pollution they can tolerate:
+
+| Category | Skills | Pollutes itself? | Pollution sensitivity |
+|---|---|---|---|
+| **Implement** (partner) | pair, delegate | yes, heavily | medium — execution tolerates residue better than judgment |
+| **Review** (critique) | review, commit | — | **highest** — bias here silently corrupts the safety net |
+| **Plan / design** | plan, groom, design, write-specifications | yes | high — decisions inherit polluted framing |
+| **Explore** (read-only) | chat, load, research, board | disposable by design | none — these run as read-only forks and are thrown away |
+| **Maintain** (meta) | skill-maintenance, document, audit | self-contained | low-medium |
+
+Two rules fall out of the table:
+
+- **Scope the reviewer's inputs.** Hand the reviewer session the plan and the diff — not the partner chat transcript. A reviewer that has read the implementer's reasoning acquires the same bias the subagent brief avoids by scoping its inputs.
+- **Watch for reviewer drift-into-fixing.** If the reviewer session starts *fixing* findings, it becomes a second implementer — and the next tick's review is self-review again. Findings go back to the partner session to work; the reviewer critiques, it does not repair.
+
+Automated review solves the bias structurally — the plan-encoded review dispatches a self-contained **subagent** with fresh eyes precisely because the session may have written the code under review. A human splitting partner/reviewer tabs is applying the same principle by hand.
+
 ## Session discipline (one session, one concern)
 
 The two-session pattern generalizes: keep sessions separated **by concern**, not just partner-vs-reviewer. Skill instructions do not unload — a skill invoked mid-session leaves its procedure (and any commission it opened) cohabiting with whatever runs next, and that cohabitation is where jurisdiction mistakes happen (a repository edit made under no clearly named frame; a read-only skill's rules silently bent). The discipline:
@@ -201,6 +222,23 @@ The two-session pattern generalizes: keep sessions separated **by concern**, not
 | Same concern continues, no commission conflict | Stay in-session; normal skill switching rules apply |
 | Quick question mid-commission, read-only | Either: ask in the commission session (handback windows allow Q&A), or fork if you want the commission tab untouched |
 | Two sessions would touch the same plan | **Never** — the commission never forks; one writer per plan |
+
+### Fork or restore: sizing the tangent
+
+Forks carry context forward; **restores rewind it away**. Chat sessions in VS Code can be restored to an earlier request (checkpoint restore) — the turns after the checkpoint are discarded from that session. Sizing rule — what matters is how *valuable* the current context is and how *large* the tangent is:
+
+- **Valuable context + large new direction → fork.** The fork inherits everything valuable; the new direction becomes the fork's line (or the fork *becomes* the main line, and the original pauses). A reliable signal that you have crossed into this case: **you invoke a different skill.**
+- **Valuable context + small, short tangent → restore.** Take the tangent in the same session, then **restore to the checkpoint before the tangent** — the tangent's turns are discarded and the main line's context stays as if it never happened.
+- **Couldn't tell until mid-tangent → fork from before.** Fork the session back to the checkpoint *preceding* the tangent. That fork — clean of the tangent — becomes the place to resume the original effort; the tangent continues in the original session (or a fresh one) if it is still worth finishing.
+
+Worked example — **the explanation rabbit hole** (the most common tangent of this kind): the user asks for an explanation of something; a simple explanation turns into a long discussion; the valuable pre-discussion context is now buried under a pile of tangential turns. The move: fork from *before* the explanation began, resume the main work on the fork. (Scope note: `copilot-instructions.md` §5b governs the explanation's *output register* — that ends when work resumes. Session discipline governs its *context* — the tangent's turns still pollute even after the simple-register posture ends. Forking is how the second problem gets solved.)
+
+### Context hygiene
+
+- **State lives in files, so forks and restores are cheap.** The plan, `pairing-state-*.md`, and session memory hold the durable context; the chat transcript is disposable. Never let durable context live only in the chat — that is what makes a fork reconstruct in seconds instead of being a loss.
+- **Pollution is asymmetric.** Judgment surfaces (review, planning decisions) are corrupted by residue far more easily than execution is; that is why the table above rates sensitivity, not just exposure.
+- **Compaction is a pollution event too.** Long sessions auto-compact lossy; a single tab ridden across days of mixed work degrades quietly. If a session has been through several compactions or a context restore, prefer starting fresh with `/devenv-load` over trusting the surviving summary.
+- **Agent mistakes from missing knowledge are posterity issues.** When an agent errs because it *didn't know* what it should do (an org convention, a wiring fact), that is fixable for every future agent: file the gap as an issue in `repos/docs.copilot-knowledge` — never edit `copilot/knowledge/` directly (two-clone model). Mistakes from *wrong or missing instructions* are devenv issues instead. Diagnose which kind before filing.
 
 ## Alternative delivery flows
 
@@ -626,6 +664,28 @@ flowchart TD
 ```
 
 Companion rule of thumb: **read-only forks are disposable** (chat, review, load — open, use, close, no bookkeeping); only sessions holding an open commission count against your attention.
+
+**Scenario 4 — session categories and their pollution stakes.** Why the reviewer tab stays innocent: each category of session both generates and tolerates context pollution differently. The dashed edges are the flows that must not happen.
+
+```mermaid
+flowchart LR
+    subgraph LANES["Session categories"]
+        direction TB
+        IMPL["Implement<br/>pair · delegate<br/>pollutes itself heavily"]
+        PLAN["Plan / design<br/>plan · groom · design<br/>decisions inherit framing"]
+        REV["Review<br/>review · commit<br/>highest sensitivity"]
+        EXPL["Explore<br/>chat · load · research · board<br/>read-only, disposable"]
+        MNT["Maintain<br/>skill-maintenance · document · audit<br/>self-contained"]
+    end
+    IMPL -->|"plan + diff only<br/>never the transcript"| REV
+    IMPL -->|"as-built state"| PLAN
+    PLAN -->|"goal + ACs"| IMPL
+    REV -.->|"❌ findings go back<br/>to the partner —<br/>reviewer never fixes"| IMPL
+    EXPL -.->|"❌ exploration context<br/>never feeds judgment lanes"| REV
+    MNT -.->|own lane| MNT
+```
+
+Reading the diagram: solid arrows are sanctioned hand-offs (artifacts travel, chat transcripts don't); dashed edges mark the two pollution traps — a reviewer that fixes its own findings becomes a second implementer, and exploration residue in a judgment lane is how bias sneaks past the two-tab discipline.
 
 ## Upstream artifact routing
 
