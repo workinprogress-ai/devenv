@@ -38,12 +38,26 @@ Before declaring a phase complete, run the committability checklist (see [phase-
 - [ ] No blocking TODOs
 - [ ] No straggler plan-bounded DEVENV markers for completed work — `devenv-marker-check <phase-files>` fails only on FIXME:DEVENV[...]:; condition-bearing `TODO:DEVENV[...]:` markers that deliberately survive the phase are acceptable and must be surfaced in the handback
 - [ ] No plan-vocabulary references in comments or test headers of changed files — grep them for `Plan-[0-9]+`, `task [0-9]+\.[0-9]+`, and `Phase [0-9]+`; a comment citing the plan, a phase, or a task number is ephemeral bookkeeping and must be rewritten to state the durable invariant (what the code guarantees), matching the forward-guidance rule above. Allowed: the same references inside `FIXME:DEVENV[...]:`/`TODO:DEVENV[...]:` markers, and plan-file subject matter in the plan tooling itself (its tests, fixtures, and usage docs)
+- [ ] Foreign comments swept in changed files — grep them for `FIXME`/`TODO` comments **not** carrying `:DEVENV[` (the user may have left review comments before or during the run); route each per the [foreign-comment scan](#foreign-comment-scan-user-fixmetodo-sweep) below
 
 Coverage drops are blockers — surface and resolve before declaring complete. If the gate passes: *"✅ Gate clear — phase is committable."*
 
 Pending questions are also blockers unless they have been explicitly deferred or externalized. A phase is not complete while it still contains unresolved `[QUESTION]` items that affect execution of that phase.
 
 If this is the **final implementation phase**, no AC may remain unchecked. Before declaring final-phase completion, verify every AC is either `[x]` or explicitly deferred/retired. If any AC remains undone, the gate is blocked and final-phase completion cannot be declared.
+
+## Foreign-comment scan (user FIXME/TODO sweep)
+
+Run as part of the phase-close cleanup pass, on the phase's changed files. The plan's own markers are already covered by `devenv-marker-check` (it reports only `:DEVENV[`-keyed markers) — this scan catches the **user's** comments: plain `FIXME`/`TODO` comments the user dropped in the working tree while reviewing, before or during the run. Detect them by grepping the phase's changed files for `FIXME` and `TODO`, excluding hits that carry `:DEVENV[`. Never silently delete, rewrite, or overwrite a user comment.
+
+Route each hit:
+
+- **User `TODO`** — a TODO may validly stay in code; it is not a blocker by default. Address it when it plainly relates to the work at hand; otherwise leave it in place and note it in the handback.
+- **User `FIXME`** — a FIXME is assumed to demand a fix with the current effort. Fix it now when small. When the run believes it should not (or cannot) be fixed within this plan, propose a resolution to the user instead of deciding silently (for example: convert to plan work, defer with an owner, or make the case that it is out of scope).
+- **Incorporate into the plan** (either kind, when the fix outgrows "small" or the user directs it): convert the comment in place to `FIXME:DEVENV[<plan-key>]: <the user's words, kept>` so it gains plan tracking, and add a plan task naming where the work will be resolved.
+- **Unclear intent** — ask the user (structured interview per the shared [direct query style](../../_conventions.md#direct-query-style-questions-and-selections)).
+
+The scan result is reported in the phase handback: what was found, what was fixed, what was incorporated, what was left.
 
 ## Next-step offer (wrap-up convention)
 

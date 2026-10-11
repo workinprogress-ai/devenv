@@ -103,7 +103,7 @@ All local markdown that is NOT a shipped repo file lives in `.local-artifacts/` 
 | Family | Examples | Source of truth after the session |
 |---|---|---|
 | **Working copies of issue-published artifacts** | `Plan-issue-<N>-*.md`, `Grooming-*.md`, roadmap/spec scratch copies pulled via `issue-artifact-get --write-body` | The GitHub issue artifact — the local file is disposable once published |
-| **Session memory** | `session_memory-*.md` (all planning-skill suffixes), `pairing-state-*.md` (pair's session notes) | None — never published; retired when the skill's work completes |
+| **Session memory** | `session_memory-*.md` (all planning-skill suffixes) | None — never published; retired when the skill's work completes |
 | **Ephemeral markdown** | `tmpN.md` scratch files | None — consume-and-forget |
 
 Rules:
@@ -111,7 +111,7 @@ Rules:
 - **One glob.** Working-copy probes check `<repo>/.local-artifacts/` (e.g. `.local-artifacts/Plan-issue-42-*.md`), not the repo root.
 - **One ignore.** `.local-artifacts/` is committed to no repo; every repo's `.gitignore` (including all `template.*` repos) carries the entry.
 - **Offer-to-retire at wrap-up.** When an artifact is republished to its issue (`issue-artifact-upsert`) or a skill session that owns local files ends, list the stale `.local-artifacts/` files and offer deletion (y/n) — never auto-delete. Use [`artifact-clean`](./_shared/references/protocol-common.md#artifact-clean) for the sweep: it groups files into the families below, drops `tmpN.md` without confirmation, and confirms everything else. After publication the issue copy is authoritative; see the [issue-backed artifact edit protocol](#issue-backed-artifact-edit-protocol).
-- **Out of scope:** deliverable-style docs that are the skill's own product — research reports (`research-*.md`), bug-hunt reports (`bug-hunt-*.md`), and technical-debt audits (`TECH_DEBT_AUDIT*`) live in `.local-artifacts/` with everything else but are retained deliverables, not cleanup fodder; specs/blueprints written into planning repos (`docs/Specifications/` etc.) are shipped files. Cleanup sweeps must not touch any of these. `artifact-clean` enforces this: the deliverable names form a protected family that no sweep touches (not `--all`, not `-y`, not the interactive list) unless `--include-deliverables` is passed explicitly.
+- **Out of scope:** deliverable-style docs that are the skill's own product — spike docs (`spike-NNN-*.md`), bug-hunt reports (`bug-hunt-*.md`), and technical-debt audits (`TECH_DEBT_AUDIT*.md`) live in `.local-artifacts/` with everything else but are retained deliverables, not cleanup fodder; specs/blueprints written into planning repos (`docs/Specifications/` etc.) are shipped files. Cleanup sweeps must not touch any of these.
 
 ## Issue-backed artifact edit protocol
 
@@ -272,7 +272,7 @@ updated_at_utc: <ISO-8601>
 4. For local-file artifacts (no issue comment target), use this deterministic format in file header:
     - `dv1:<owner>/<repo>:local:<artifact-type>:<artifact-slug>`
     - `<artifact-slug>` should be derived from the artifact filename stem.
-5. **Dashed keys.** Artifacts may carry dashed-form doc_ids (`dv1:<owner-repo>:...`). They are valid — `issue-artifact-upsert`/`get`/`select` treat doc_id as an opaque exact-string key — but never generate new doc_ids in that form; `issue-artifact-doc-id` emits the slash form only.
+5. **Legacy dashed keys.** Artifacts published before 2026-09-11 may carry dashed-form doc_ids (`dv1:<owner-repo>:...`). They remain valid — `issue-artifact-upsert`/`get`/`select` treat doc_id as an opaque exact-string key — but never generate new doc_ids in that form; `issue-artifact-doc-id` emits the slash form only.
 6. For issue-comment publication, post via `issue-artifact-upsert` (not manual `issue-comment-list` / `issue-comment-update` matching). Tool automatically extracts `doc_id` from file header.
 7. If upsert reports duplicate `doc_id` conflict, stop and ask the user which comment ID is canonical before continuing.
 8. **Planning-repo key (optional, for work governed by a planning repo).** The workspace has multiple planning repos — one per project — so artifacts that participate in a governed hierarchy (epics, roadmaps, grooming documents, and plans/grooming slices created from them) carry the back-link in their header:
@@ -295,7 +295,7 @@ Not every markdown a skill writes is a persisted artifact. When the user asks fo
 - Check existing `tmp*.md` files in `.local-artifacts/` first and use the next free number. Do not overwrite an existing tmp markdown unless it is clearly safe to do so.
 - These files are routinely deleted or modified by the user between sessions — never assume you know what a `tmpN.md` contains; re-read it before any overwrite or reuse.
 - Ephemeral files are not persisted artifacts: no `DEVENV_ARTIFACT_V1` header, no `doc_id`, and they are not republished via `issue-artifact-upsert`.
-- Boundary with the Artifact Identity Convention: if the content will outlive the immediate exchange (plans, grooming documents, research findings, roadmaps, pairing state files), it is a persisted artifact and follows that convention instead. When classification is ambiguous, ask the user one direct question.
+- Boundary with the Artifact Identity Convention: if the content will outlive the immediate exchange (plans, grooming documents, spike findings, roadmaps, pairing state files), it is a persisted artifact and follows that convention instead. When classification is ambiguous, ask the user one direct question.
 
 ## Tooling discipline
 
@@ -346,7 +346,7 @@ When exploring the org's code, prefer local source under `repos/` before any pac
 Wrapper inventory (as of authoring):
 
 - Issues: `issue-create`, `issue-create-batch`, `issue-list`, `issue-search`, `issue-update` (incl. `--add-label`/`--remove-label`), `issue-close`, `issue-comment`, `issue-comment-list`, `issue-comment-update`, `issue-get`, `issue-triage`, `issue-select`, `issue-label-create`, `issue-label-list`, `issue-artifact-doc-id`, `issue-artifact-get`, `issue-artifact-list`, `issue-artifact-select`, `issue-artifact-upsert`
-- PRs: `pr-create` (incl. `--at`), `pr-create-for-review`, `pr-merge`, `pr-cleanup-review-branches`, `pr-get-review-link`, `pr-get-merge-link` — plus added: `pr-get`, `pr-comment`, `pr-diff`, `pr-list`, `pr-review-comment`, `pr-threads-get`, `pr-thread-reply`, `pr-thread-resolve`
+- PRs: `pr-create-for-review`, `pr-create-for-merge`, `pr-merge`, `pr-cleanup-review-branches`, `pr-get-review-link`, `pr-get-merge-link` — plus added: `pr-get`, `pr-comment`, `pr-diff`, `pr-list`, `pr-review-comment`, `pr-threads-get`, `pr-thread-reply`, `pr-thread-resolve`
 - Projects: `project-add-issue`, `project-update-issue`, `project-list-for-issue`
 
 ## Skill-facing wrapper maintenance checklist
@@ -512,7 +512,7 @@ Used by `devenv-delegate`, `devenv-review`, and any skill that asks the human to
 **Link location rule (canonical).** A markdown link resolves from the directory of the file containing it, not from the repo or workspace root. Match the prefix to the link's destination surface:
 
 - **Chat output** — workspace-root-relative, no prefix (`[Foo.cs:42](repos/<your-service>/src/Foo.cs#L42)`). Chat renders against the workspace root, so the full path from it is clickable.
-- **Links saved into files** (`.local-artifacts` reports, plans, audits, findings files) — one `../` per directory level between the file's location and the target's root. A file in `<repo-root>/.local-artifacts/` sits one level below the repo root, so repo-relative targets take one prefix: `[Foo.cs:42](../src/Foo.cs#L42)` — and a workspace-level artifact in `<workspace>/.local-artifacts/` is also one level below its root (the workspace), so a repo file under `repos/` takes the same single prefix: `[Foo.cs:42](../repos/<your-service>/src/Foo.cs#L42)`. Never emit a bare repo-root-relative or workspace-root-relative path inside a file — it resolves against `.local-artifacts/` and is dead.
+- **Links saved into files** (`.local-artifacts` reports, plans, audits, findings files) — one `../` per directory level between the file's location and the target's root. A file in `<repo-root>/.local-artifacts/` sits one level below the repo root, so repo-relative targets take one prefix: `[Foo.cs:42](../src/Foo.cs#L42)` — and a workspace-level artifact in `<workspace>/.local-artifacts/` linking a repo file takes two: `[Foo.cs:42](../../repos/<your-service>/src/Foo.cs#L42)`. Never emit a bare repo-root-relative or workspace-root-relative path inside a file — it resolves against `.local-artifacts/` and is dead.
 
 Bad (vague):
 
@@ -574,7 +574,7 @@ Use relative paths (as they appear inside a skill folder): `[/devenv-pair](../de
 
 Also add a one-liner to each `SKILL.md` — usually in the Sibling skills section (the fleet-standard position): "See the [Skills catalog](./common/references/skills-catalog.md) for the full list and decision tree."
 
-## Skill Event Signals
+## Skill Event Signals (`_on_*`)
 
 Skills maintain GitHub Project issue status as a side effect of their lifecycle by invoking deterministic **event-signal scripts**. This is a tooling class distinct from the CRUD wrappers:
 

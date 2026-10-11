@@ -60,7 +60,7 @@ Source precedence rule:
 
 ### Event signal
 
-At plan approval (file written / artifact published), signal `_on_end_planning <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals).
+At plan approval (file written / artifact published), signal `_on_end_planning <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals-_on_).
 
 ### 1. Identify inputs and target repo
 

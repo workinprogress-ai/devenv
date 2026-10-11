@@ -75,7 +75,7 @@ Use the full protocol in [guided-user-drive-mode.md](./references/guided-user-dr
 
 ## Event signal
 
-At phase kickoff of the first implementation phase, signal `_on_begin_implementation <issue-number>`; at PR open (or equivalent review handoff), signal `_on_begin_review <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals).
+At phase kickoff of the first implementation phase, signal `_on_begin_implementation <issue-number>`; at PR open (or equivalent review handoff), signal `_on_begin_review <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals-_on_).
 
 ## Personality
 
@@ -563,7 +563,8 @@ When a phase is ready to close, do one final review sweep before marking it comp
 2. Remove, strike, or add task entries so the phase task list accurately reflects real work progress at close.
 3. If Phase 1 discovery exposed high-blast-radius assumptions, boundary risks, failure modes, or sequencing hazards, add explicit pressure-test tasks/checkpoints to the current or next appropriate phase instead of leaving that risk only in narration.
 4. If an important task appears to be left undone, stop and surface it to the user with the concrete choice: complete it now, defer it, or add it as a new task / phase.
-5. Only when the ledger matches reality should the phase be considered closed and eligible for the phase-completion gate.
+5. Run the shared [foreign-comment scan](../common/references/execution-gates.md#foreign-comment-scan-user-fixmetodo-sweep) over the phase's changed files — the user may have left `FIXME`/`TODO` review comments while reviewing between turns; sweep, route, and report them per that protocol.
+6. Only when the ledger matches reality should the phase be considered closed and eligible for the phase-completion gate.
 
 For cleanup tasks involving temporary scaffolding/escape-hatch artifacts, run these extra gates before closure:
 
@@ -732,7 +733,7 @@ The AI's in-context view of a file is a **cache** — invalidated the moment any
 
 The working tree is **shared state**: the user may be editing between or during turns, and that is normal pair behavior, not a disruption. Doctrine:
 
-- **Provenance scan.** At the start of each working turn (and before editing any file not already touched this session), classify working-tree changes three ways: **ours** (the session's own edits), **user territory** (in the user's declared parallel area — see Parallel mode below; leave alone, review only when asked or landed), **another commissioned session's territory** (an active `/devenv-delegate` run edits per its own ledger and holds single-writer on its plan file — re-read before touching its files, surface overlap as coordination, never overwrite silently), or **unexpected** (outside all of these — surface in one line: what it is, which task it might belong to). Never treat a fresh edit as noise to overwrite.
+- **Provenance scan.** At the start of each working turn (and before editing any file not already touched this session), classify working-tree changes four ways: **ours** (the session's own edits), **user territory** (in the user's declared parallel area — see Parallel mode below; leave alone, review only when asked or landed), **another commissioned session's territory** (an active `/devenv-delegate` run edits per its own ledger and holds single-writer on its plan file — re-read before touching its files, surface overlap as coordination, never overwrite silently), or **unexpected** (outside all of these — surface in one line: what it is, which task it might belong to). **Own edits first:** before classifying a change as unexpected, re-check the session's own edit trail — re-reading a file this session just edited can surface its own diff as if foreign; an edit attributable to the session is "ours", and uncertain attribution is surfaced as a question, never silently overwritten and never treated as an unexpected-changes verdict. Never treat a fresh edit as noise to overwrite.
 - **Never clobber.** User uncommitted edits are a colleague's in-flight work. Re-read before editing any file the user just touched; overlapping intent surfaces as a coordination moment ("we both touched `X` — want me to rebase my chunk on yours?"), never a silent overwrite or a git-based fixup.
 - **Commits are master-relative units.** Under rebase merges, each commit lands on master individually ([Commit Conventions](../../../docs/Commit-Conventions.md)) — steer chunk boundaries by mergeability: every chunk should be typeable relative to master (`fix` = fixes master, not "fixes the last chunk"), self-contained, and free of introduce-then-reverse breaking pairs.
 - **Review duty extends to fresh user edits.** "Review the actual diff" applies to every file the user touched — whether handed over as a driver swap or edited concurrently.
@@ -1113,7 +1114,7 @@ Canonical text lives in the shared [Execution gates & forward guidance](../commo
 
 ## Phase Completion Gate
 
-Canonical text lives in the shared [Execution gates & forward guidance](../common/references/execution-gates.md) protocol (§ Phase completion gate). Run the committability checklist (via [phase-gates.md](./references/phase-gates.md)) before declaring a phase complete and handing back: declared verification gates pass, coverage not regressed, no blocking TODOs, no remaining plan-bounded `FIXME:DEVENV[...]:` markers, no condition-less `TODO:DEVENV[...]:` markers. Under milestone-green, registered reds don't fail non-milestone phases; red-past-closure or unregistered reds block. Coverage drops block.
+Canonical text lives in the shared [Execution gates & forward guidance](../common/references/execution-gates.md) protocol (§ Phase completion gate). Run the committability checklist (via [phase-gates.md](./references/phase-gates.md)) before declaring a phase complete and handing back: declared verification gates pass, coverage not regressed, no blocking TODOs, no remaining plan-bounded `FIXME:DEVENV[...]:` markers, no condition-less `TODO:DEVENV[...]:` markers, and no unresolved foreign FIXME comments ([foreign-comment scan](../common/references/execution-gates.md#foreign-comment-scan-user-fixmetodo-sweep)). Under milestone-green, registered reds don't fail non-milestone phases; red-past-closure or unregistered reds block. Coverage drops block.
 
 ## Session Wrap-Up
 
