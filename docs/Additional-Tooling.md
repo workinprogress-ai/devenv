@@ -1419,7 +1419,7 @@ issue-artifact-doc-id --issue ISSUE_NUMBER --artifact-type TYPE [--slug TEXT | -
 **Required Arguments:**
 
 - `--issue ISSUE_NUMBER`: Target issue number
-- `--artifact-type TYPE`: One of `spike`, `research`, `redesign`, `design`, `blueprint`, `specifications`, `roadmap`, `plan` (`implementation-plan` is accepted as an alias of `plan`)
+- `--artifact-type TYPE`: One of `spike`, `research`, `redesign`, `design`, `blueprint`, `specifications`, `roadmap`, `plan` (`implementation-plan` is accepted as a read-side alias; generated doc_ids always carry `plan`, never the alias)
 
 **Slug Source (exactly one required):**
 

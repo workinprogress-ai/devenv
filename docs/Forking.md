@@ -7,7 +7,7 @@ The essentials live in `devenv.config`; repository-creation standards live in `t
 ## Quick Checklist
 
 - ✅ Read [The fork-stable surfaces contract](#the-fork-stable-surfaces-contract) below — it defines what you may change without carrying maintenance burden
-- ✅ Update `devenv.config` for org identity (the neutral `org` key; the legacy `github_org` still works as a fallback), provider name, container name, workflows, and bootstrap defaults
+- ✅ Update `devenv.config` for org identity (`org` key), provider name, container name, workflows, and bootstrap defaults
 - ✅ (If you customize the issue workflow) Read [Issue Workflow](./Issue-Workflow.md) first — the `[workflows]` vocabulary carries engine contracts, documented in its section below. You will need to re-write [Issue Workflow](./Issue-Workflow.md) to reflect your workflow.
 - ✅ (If you use issue creation tooling) Update `tools/config/issues-config.yml` with your organization's issue types and provider issue-type IDs
 - ✅ (If you adapt to a non-GitHub provider) Follow [Adapting to Azure DevOps](#adapting-to-azure-devops) — provider modules, protocol reference, and config keys
@@ -50,7 +50,7 @@ name=github
 - **name**: Which module set under `tools/lib/providers/<name>/` answers the `provider_<domain>_<verb>` facade calls. Default `github`; forks adapting to another backend change this key (see [Adapting to Azure DevOps](#adapting-to-azure-devops)).
 - **token_env_allowlist**: Session-scoped token exports are ignored by default — credentials resolve env-if-allowlisted → keychain → error. The allowlist ships empty; add entries only with a documented justification (see the [provider abstraction README](../tools/lib/providers/README.md)).
 
-Dispatch is by naming convention with no registry: adding a provider means adding module files — the core never changes. Domain modules and scripts never read token env vars directly; they call `provider_secret_get`, so the credential backing store swaps in behind the seam. Rotation runs through `key-update-git` (imports via the provider auth seam into the keychain and wires the git credential helper — no token ever lands in env files or remote URLs).
+Dispatch is by naming convention with no registry: adding a provider means adding module files — the core never changes. Domain modules and scripts never read token env vars directly; they call `provider_secret_get`, so the credential backing store swaps in behind the seam. Rotation runs through `key-update-provider` (imports via the provider auth seam into the keychain and wires the git credential helper — no token ever lands in env files or remote URLs).
 
 ### Capability flags
 
@@ -290,7 +290,6 @@ email_domain=yourorg.com
 
 - **name**: Organization name (for docs/branding)
 - **org**: Neutral org key — Git host org/user used for cloning and feeds
-- **github_org**: Legacy alias for `org` (still resolves; prefer `org`)
 - **email_domain**: Enforced commit email domain (empty = any valid email)
 
 ### [container]

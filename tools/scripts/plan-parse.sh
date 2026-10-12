@@ -206,7 +206,7 @@ lint_plan() {
                 errors+=("doc_id not within the first 256 characters of the file")
             fi
             if [ "$h_type" != "null" ] && [ "$h_type" != "plan" ]; then
-                errors+=("artifact_type is '$h_type' — expected 'plan' for a plan artifact")
+                errors+=("artifact_type is '$h_type' — expected 'plan' for a plan artifact; set the header to 'artifact_type: plan' (legacy 'implementation-plan' headers must be corrected, not published)")
             fi
             if [ "$h_planning" != "null" ] && [ "$h_planning" != "none" ] && ! printf '%s' "$h_planning" | grep -qE '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'; then
                 errors+=("planning_repo '$h_planning' is not in owner/repo form — a malformed value misroutes issue/artifact calls silently")

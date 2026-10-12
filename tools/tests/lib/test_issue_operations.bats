@@ -437,6 +437,12 @@ YML
     ! generate_artifact_doc_id "123" "unknown" "test" "workinprogress-ai/devenv"
 }
 
+@test "generate_artifact_doc_id canonicalizes implementation-plan alias to plan" {
+    source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
+    result=$(generate_artifact_doc_id "123" "implementation-plan" "retry strategy" "workinprogress-ai/devenv")
+    [ "$result" = "dv1:workinprogress-ai/devenv:issue-123:plan:retry-strategy" ]
+}
+
 @test "issue_exists accepts repo parameter" {
     source "$DEVENV_ROOT/tools/lib/issue-operations.bash"
     declare -f issue_exists > /dev/null

@@ -526,7 +526,7 @@ issue-artifact-doc-id --issue ISSUE# --artifact-type TYPE [--slug TEXT | --sourc
 
 Use this to generate the exact `doc_id` value before composing the metadata block for `issue-artifact-upsert`.
 
-For plans stored as issue artifacts, prefer `--artifact-type plan` (`implementation-plan` is accepted as an alias of `plan`) `--source-file Plan-...md` so the same plan file always resolves to the same artifact comment.
+For plans stored as issue artifacts, always write `--artifact-type plan` (`implementation-plan` is tolerated when *reading* existing artifacts, but new doc_ids/headers always carry `plan`) `--source-file Plan-...md` so the same plan file always resolves to the same artifact comment.
 
 **`issue-artifact-get`** - Retrieve one artifact comment by exact `doc_id`
 

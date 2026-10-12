@@ -62,6 +62,22 @@ run_lint() {
     [[ "$output" != *".local-artifacts/extensionless"* ]]
 }
 
+@test "lint-scripts does not descend into .pnpm-store (pnpm package store, vendored scripts)" {
+    mkdir -p "$ROOT/.pnpm-store/v10/files/08"
+    printf '#!/bin/bash\ncd /nonexistent-dir\n' > "$ROOT/.pnpm-store/v10/files/08/vendor.sh"
+    printf '#!/usr/bin/env sh\ncd /nonexistent-dir\n' > "$ROOT/.pnpm-store/v10/files/08/runner-exec"
+    # pnpm ships PowerShell launchers with this exact shebang shape; a pwsh
+    # shebang also matches the extensionless scanner's '^#!.*sh' grep, so the
+    # store exclusion is what keeps it out — not shebang detection.
+    printf '#!/usr/bin/env pwsh\nif (-not (Test-Path $NODE_EXE)) { exit 1 }\n' > "$ROOT/.pnpm-store/v10/files/08/pwsh-launcher"
+    printf '#!/bin/bash\necho fine\n' > "$ROOT/repos/top-level.sh"
+    run run_lint
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"vendor.sh"* ]]
+    [[ "$output" != *"runner-exec"* ]]
+    [[ "$output" != *"pwsh-launcher"* ]]
+}
+
 @test "--no-color works (it used to abort assigning to readonly colour variables)" {
     run run_lint
     [[ "$output" != *"readonly variable"* ]]

@@ -10,12 +10,21 @@ Load this protocol when a design or planning workflow needs a bounded challenge 
 
 - **User-gated only.** Never run automatically. Always ask first.
 - **Conversation-first.** A pressure-test pass is analysis, not implementation.
-- **Bounded iterations.** Run at most two passes per artifact state.
+- **Bounded iterations.** Run at most three passes per artifact state — unless the consuming skill declares a convergence loop (see [Convergence expectations](#convergence-expectations-per-consumer-class) below).
   - Pass 1: baseline challenge
   - Pass 2: optional re-check after substantive updates
 - **Stop conditions are explicit.** End as soon as no blocker-class risks remain for the current decision horizon.
 
 If uncertainty remains after two passes, stop escalating depth and route to the appropriate upstream workflow (for example grooming or blueprint revision).
+
+## Convergence expectations (per consumer class)
+
+Every consumer states its stop condition explicitly; two classes exist:
+
+- **Conversation-embedded passes** (design discussion, grooming, blueprint drafting, plan drafting, refine-plan, pair architecture discussions): the default class. **Max three passes** per artifact state; stop as soon as no blocker-class findings remain for the current decision horizon. Diminishing returns past two passes are the signal to route upstream — not to probe harder in place.
+- **AI-consumed artifacts** (specifications that will drive blueprints and AI execution — the class where ambiguity converts directly into unpredictable AI output): a **convergence loop** with an explicit bar — loop until a round yields **0 blocking findings and ≤ 3 minor**, cap at **5 rounds**, then present the best state with residual findings for the user to decide. The write-specifications Stability Audit is the canonical form.
+
+When adding a new consumer, name its class in the consuming skill and state its bar there. Never leave the stop condition implicit — a pressure test without a stated end is a process, not a check.
 
 ---
 

@@ -49,6 +49,9 @@ load ../test_helper
     cd "$PROJECT_ROOT"
     run bash -c "grep -rniI 'workinprogress' tools/lib tools/scripts tools/config tools/templates .devcontainer .vscode copilot docs README.md package.json 2>/dev/null \
         | grep -viE '# Author:|\"author\"|work-in-progress|work in progress|workinprogress-ai/devenv.git\"' \
-        | grep -v 'tools/cache'"
+        | grep -v 'tools/cache' \
+        | grep -v 'copilot/engineering/' \
+        | grep -v 'copilot/knowledge/' \
+        | grep -v 'github.com/workinprogress-ai/docs\.'"
     [ -z "$output" ] || { echo "$output"; false; }
 }

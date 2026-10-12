@@ -335,7 +335,7 @@ Ask, verbatim:
 
 Only after explicit confirmation:
 
-1. Verify the plan file has `DEVENV_ARTIFACT_V1` header with `doc_id: <value>` in first 256 characters.
+1. Verify the plan file has `DEVENV_ARTIFACT_V1` header with `doc_id: <value>` in first 256 characters and `artifact_type: plan`.
 2. Run the pre-upsert lint gate: `plan-parse <path-to-plan> --lint --require-header` — errors block the upsert until fixed (the user may explicitly accept publishing with errors as a documented deviation; never silently). Warnings surface for awareness.
 3. Upsert the artifact comment:
 

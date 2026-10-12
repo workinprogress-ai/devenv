@@ -53,7 +53,7 @@ setup() {
     # old three-globs shape (three separate `bats "$TESTS_DIR/<dir>"/*.bats`
     # blocks) would serialize the groups again. --verbose-run makes failing
     # tests print their captured output (root-cause signal in CI).
-    ! grep -q 'bats "\$TESTS_DIR/lib"/\*.bats' "$RUNNER"
+    run ! grep -q 'bats "\$TESTS_DIR/lib"/\*.bats' "$RUNNER"
     grep -q 'bats --verbose-run "\${bats_args\[@\]}" "\${test_files\[@\]}"' "$RUNNER"
 }
 

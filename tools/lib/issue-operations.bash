@@ -767,6 +767,13 @@ generate_artifact_doc_id() {
     local normalized_repo
     normalized_repo=$(normalize_doc_id_repo "$owner_repo") || return 1
 
+    # Canonicalize legacy aliases: plans are always 'plan' in generated ids —
+    # 'implementation-plan' is accepted as input but must never appear in a new
+    # doc_id or artifact header (plan-parse --lint rejects it).
+    if [ "$artifact_type" = "implementation-plan" ]; then
+        artifact_type="plan"
+    fi
+
     echo "dv1:${normalized_repo}:issue-${issue_number}:${artifact_type}:${normalized_slug}"
 }
 

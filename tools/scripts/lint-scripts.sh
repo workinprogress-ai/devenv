@@ -107,10 +107,13 @@ find_shell_scripts() {
     # repositories (not ours to lint), but the scripts directly in repos/ are this
     # workspace's own top-level infra and are included. .local-artifacts/ holds
     # git-ignored local scratch (plans, migration work clones), never linted.
+    # .pnpm-store/ is pnpm's content-addressable package store: vendored
+    # third-party scripts (sh and pwsh), never this workspace's code to lint.
     # Note: find may return non-zero on permission errors; use || true to prevent
     # set -e from aborting when pipefail is enabled
     local -a scope=(
         ! -path "*/node_modules/*"
+        ! -path "*/.pnpm-store/*"
         ! -path "*/.git/*"
         ! -path "*/tmp/*"
         ! -path "*/.debug/*"

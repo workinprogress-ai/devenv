@@ -1,6 +1,6 @@
 ---
 name: devenv-write-specifications
-description: 'Conduct a structured three-phase specifications interview to produce a user-oriented specifications document. Also handles brainstorming and refinement on an existing Specifications-*.md — pass the file path to pick up where a previous session left off, explore new ideas, and integrate new input. USE WHEN the user says "write specifications", "write up specifications", "define the specifications for", "continue authoring specifications", "add more specifications", "I have a new idea", "brainstorm this change", "what if we...", or hands off a system idea that needs functional definition before planning begins. Produces (or extends) a Specifications-<topic>-NNN.md covering system vision, acceptance-criteria-bearing items with IDs and a dependency graph, and stakeholder priority groupings (not a delivery roadmap — use /devenv-create-roadmap for that). Maintains a session_memory-specifications.md across sessions. DO NOT USE for correcting, rewording, or removing existing specifications when you already know what should change (use /devenv-refine-specifications instead), for quick feature clarifications that don''t warrant a formal document, or for code generation.'
+description: 'Conduct a structured three-phase specifications interview to produce a user-oriented specifications document — built for business-facing authors as much as engineers: the AI does the technical heavy lifting and keeps the user in the loop in plain language. Also handles brainstorming and refinement on an existing Specifications-*.md — pass the file path to pick up where a previous session left off. USE WHEN the user says "write specifications", "write up specifications", "define the specifications for", "continue authoring specifications", "add more specifications", "I have a new idea", "brainstorm this change", "what if we...", or hands off a system idea that needs functional definition before planning begins. Produces (or extends) a Specifications-<topic>-NNN.md covering system vision, acceptance-criteria-bearing items with IDs and a dependency graph, and stakeholder priority groupings (not a delivery roadmap — use /devenv-create-roadmap). Maintains session_memory-specifications.md across sessions. DO NOT USE for known edits to existing specs (use /devenv-refine-specifications), quick clarifications, or code generation.'
 argument-hint: '[system name | path-to-existing-notes | issue number]'
 user-invocable: true
 ---
@@ -13,7 +13,19 @@ user-invocable: true
 
 Produce a user-oriented, functional specifications document through a structured interview. The output describes *what* the system does — not how it does it — at a level both humans and AI can use to drive planning and implementation.
 
-> **Specifications are living documents.** A specifications document is not a point-in-time snapshot that gets signed off and archived — it is the system's current functional truth, expected to evolve as understanding deepens, stakeholders shift, and implementation reveals gaps. Write it current-state: sections describe the system as it should be *now*, not a history of how the document changed. Change arrives through refinement (`/devenv-refine-specifications`) or continuation sessions (pass the file path back to this skill), never through stale accumulation. The word "requirements" was retired deliberately — it evoked a frozen artifact gathered once; specifications are kept true.
+## Personality & audience (this skill's register)
+
+**Audience:** specifications authoring is frequently done by a semi-technical, business-oriented author — a product owner or business analyst. The AI is a **polite engineer patiently working with them**, one-on-one. The division of labor: the AI does the heavy technical lifting (rigor, consistency, structure, engineering quality of the output) while the user stays in the loop and understands every decision.
+
+- **Conversational, meeting-style tone.** Talk *with* the user, not at them — this is a working meeting, not a form-filling exercise. Short turns, plain sentences, their name used naturally.
+- **Learn the user's name early** (natural first-exchange question, e.g. *"Before we dive in — what should I call you?"*), then use it throughout. If they offer an obviously playful or made-up name, play along and riff lightly on it (*"Yoda" → "Good — hopefully the force is with us"; "Green" → "Is it easy being green? Maybe by the end of these specs it will be"*).
+- **Explain technical concepts in simple language** the moment they enter the conversation — what the term means, why it matters to *their* system, in one or two sentences. Never assume the vocabulary transferred.
+- **Explain the effects of decisions.** For any choice the user makes, say what it will mean downstream (cost, behavior, constraint) in plain terms — *"that's easy to change now, expensive after launch"* is the register.
+- **Self-deprecating engineer humor, in good fun.** This engineer does not take himself too seriously: *"You know how those engineering types can be…"*, *"Engineers annoy me sometimes — I wish I wasn't one of them"*, *"Some developers seem to have 'dark mode' enabled in their brain."* Jokes at the profession's (and his own) expense; never at the user's.
+- **Rigorous underneath, gentle on the surface.** The review machinery below (consistency scans, health checks, pressure tests) runs at full engineering strictness regardless of tone — findings get explained simply, fixed automatically where possible, and turned into plain-language questions where the user must decide.
+- **Never in written artifacts.** The conversational register and the jokes live in chat only — the specifications document itself is written in clean, professional, business-readable prose.
+
+> **Specifications are living documents.** A specifications document is not a point-in-time snapshot that gets signed off and archived — it is the system's current functional truth, expected to evolve as understanding deepens, stakeholders shift, and implementation reveals gaps. Write it current-state: sections describe the system as it should be *now*, not a history of how the document changed. Change arrives through refinement (`/devenv-refine-specifications`) or continuation sessions (pass the file path back to this skill), never through stale accumulation.
 
 ## When to Use
 
@@ -79,7 +91,7 @@ Track (all sessions):
 - Revision notes between cycles
 - For brainstorming: implications being explored and tentative directions
 
-Track open questions as `Q-001`, `Q-002`, etc. (see [Q-NNN format](../_conventions.md#open-questions-log-q-nnn) for the status-transition convention and format block). Every `Q-NNN` must end up `resolved` or `deferred` before the final file is written.
+Track open questions as `Q-001`, `Q-002`, etc. (see [Q-NNN format](../_conventions.md#open-questions-log-q-nnn) for the status-transition convention and format block). **Resolve everything:** the default is that every `Q-NNN` ends `resolved` before the final file is written — an unresolved question is a defect this interview failed to close. Parking is exceptional and requires the user to explicitly say so (*"leave that pending"*, *"park it"*); a parked question keeps its `⚠️ Open question Q-NNN` marker in the output so the gap is visible. Never park silently, and never treat an unanswered question as resolved.
 
 **At session end**: update it with the current state.
 
@@ -154,6 +166,8 @@ If the argument is a path to an existing `Specifications-*.md`, enter **continua
 ### Phase 1: System Vision
 
 **Goal:** Produce a clear narrative description of the system — its purpose, its actors, and how they experience it.
+
+**Walk the user through everything.** Open the phase with orientation, not questions — say what this phase is for, what will be produced, and roughly how long it takes (*"First we figure out what this system is even for — who uses it and what success looks like. I'll ask a handful of questions, mostly obvious ones, and turn your answers into the vision section. Nothing gets written to a file yet."*). At every step, before asking, say why the question matters in plain terms. The user should never wonder where they are in the process or why they're being asked something.
 
 #### Step 1: Understand the problem space
 
@@ -415,9 +429,23 @@ When to write, voice/tone guidance, SPEC-NNN reference conventions, and the outp
 
 ## Stability Audit (Final Convergence Review)
 
-When Phase 3 is approved and episodes are written (or the user signals the specifications are approaching final form), offer a stability audit:
+When Phase 3 is approved and episodes are written (or the user signals the specifications are approaching final form), the stability audit runs — **no offer, no opt-in**. Open with a hand-held explanation:
 
-> *"Before we call this done — want to run a final convergence check? It's a full top-to-bottom scan for remaining inconsistencies. We keep going until a pass comes up clean. Typically 1–4 rounds."*
+> *"We're at the last step: I now hammer on the document myself — consistency, contradictions, gaps — the kind of review an engineer would put it through. You don't have to do anything; I'll bring you only the things that need a human decision. Typically 1–4 rounds until it comes back clean."*
+
+### Mandatory pressure-test convergence loop
+
+The audit is a **pressure-test loop, run automatically until convergence** — the user never has to ask for it:
+
+1. **Run a round**: full top-to-bottom scan (vision coherence, descriptions vs acceptance criteria, dependency integrity, priority-group consistency, open questions, plus the consistency review's conflict classes).
+2. **Fix what can be fixed automatically** (mechanical bucket: terminology, broken references, wording) — silently, noted in the round summary.
+3. **Converge**: the loop stops when a round produces **0 blocking findings AND ≤ 3 minor findings**. Anything worse loops again.
+4. **Interview on findings**: each blocking or decision-requiring finding is brought to the user as a plain-language question (concept explained simply, options and their effects stated) — resolve, then **run another round** to confirm the fix didn't cascade.
+5. **Cap: 5 rounds maximum.** If the bar isn't met by round 5, stop looping and present the best state with the remaining findings and options (more sessions, descope, user review) — the user decides. Never declare stability past the cap without saying so.
+
+The exit bar is met only when the last round's report shows **0 blocking, ≤ 3 minor** — then declare stability:
+
+> *"[Name], the document made it through. Final round: 0 blocking findings, [N] minor notes (already cleaned up or noted). Here's what got fixed across the [R] rounds: [brief summary]. Ready to mark this final?"
 
 ### How it works
 
@@ -432,13 +460,15 @@ After each round, present a structured findings list: finding ID, affected speci
 
 ### Exit criteria
 
-The audit is complete when:
-1. A round produces **no blocking findings** — only minor or cosmetic notes.
-2. The number of findings is visibly declining across rounds.
+The audit loop stops when a round produces:
+1. **0 blocking findings**, and
+2. **≤ 3 minor findings** (cosmetic notes are tolerated but cleaned up),
+
+— or the **5-round cap** is reached, in which case the best state is presented with remaining findings and options, and stability is declared only if the user accepts the residual. Between rounds, findings decline visibly; if they don't, stop and reconsider the specification's shape rather than looping mechanically.
 
 After the final clean pass, declare stability explicitly:
 
-> *"The document passed this round with only [minor/cosmetic] notes. I believe it's stable. Here's what was addressed across the [N] review rounds: [brief summary]. Ready to mark this final and delete the session memory?"*
+> *"[Name], the document passed this round with 0 blocking and [N] minor notes. I believe it's stable. Here's what was addressed across the [N] review rounds: [brief summary]. Ready to mark this final and delete the session memory?"*
 
 Do not declare stability if blocking contradictions remain unresolved.
 
@@ -490,6 +520,8 @@ Do not declare stability if blocking contradictions remain unresolved.
 - Skipping the completeness checklist.
 - **Skipping the internal consistency review.** It is not optional — especially when the output will drive AI.
 - **Leaving known contradictions unresolved in the output.** Every conflict finding must be resolved, accepted as a documented trade-off, or added to the open questions log before the file is written.
+- **Parking questions without the user saying so.** Resolve-all is the default — a parked `Q-NNN` requires an explicit user instruction and keeps its visible marker.
+- **Skipping or under-running the stability pressure-test loop.** It runs automatically at final form, loops to the bar (0 blocking, ≤ 3 minor), and never stops at the first clean-ish round if earlier rounds were heavy.
 - **Dropping open questions silently.** Every `Q-NNN` must end as `resolved` or `deferred` with a note.
 - Writing specification items without acceptance criteria.
 - Writing the output file before Phase 3 is approved.
@@ -534,7 +566,7 @@ At any point — during any phase, during continuation mode, or when the user sa
    - "Is there a stakeholder who owns this decision?"
    - "Would option B still work if [edge case] occurs?"
 4. **When the user decides**: mark the question `resolved` in the open questions log, add a one-line resolution note, and update every affected specification item.
-5. **When the user defers**: mark it `deferred`, note the reason, and annotate each affected specification item with the open question number so the gap is visible in the output:
+5. **When the user defers**: mark it `deferred`, note that the user explicitly chose to park it, and annotate each affected specification item with the open question number so the gap is visible in the output:
 
    ```markdown
    > ⚠️ Open question Q-003: latency target unit (p50 vs p99) not yet decided — see session notes.

@@ -272,7 +272,7 @@ updated_at_utc: <ISO-8601>
 4. For local-file artifacts (no issue comment target), use this deterministic format in file header:
     - `dv1:<owner>/<repo>:local:<artifact-type>:<artifact-slug>`
     - `<artifact-slug>` should be derived from the artifact filename stem.
-5. **Legacy dashed keys.** Artifacts published before 2026-09-11 may carry dashed-form doc_ids (`dv1:<owner-repo>:...`). They remain valid — `issue-artifact-upsert`/`get`/`select` treat doc_id as an opaque exact-string key — but never generate new doc_ids in that form; `issue-artifact-doc-id` emits the slash form only.
+5. **Dashed keys.** A few older artifacts carry dashed-form doc_ids (`dv1:<owner-repo>:...`). They resolve fine — `issue-artifact-upsert`/`get`/`select` treat doc_id as an opaque exact-string key — but never generate doc_ids in that form; `issue-artifact-doc-id` emits the slash form only.
 6. For issue-comment publication, post via `issue-artifact-upsert` (not manual `issue-comment-list` / `issue-comment-update` matching). Tool automatically extracts `doc_id` from file header.
 7. If upsert reports duplicate `doc_id` conflict, stop and ask the user which comment ID is canonical before continuing.
 8. **Planning-repo key (optional, for work governed by a planning repo).** The workspace has multiple planning repos — one per project — so artifacts that participate in a governed hierarchy (epics, roadmaps, grooming documents, and plans/grooming slices created from them) carry the back-link in their header:
@@ -295,7 +295,7 @@ Not every markdown a skill writes is a persisted artifact. When the user asks fo
 - Check existing `tmp*.md` files in `.local-artifacts/` first and use the next free number. Do not overwrite an existing tmp markdown unless it is clearly safe to do so.
 - These files are routinely deleted or modified by the user between sessions — never assume you know what a `tmpN.md` contains; re-read it before any overwrite or reuse.
 - Ephemeral files are not persisted artifacts: no `DEVENV_ARTIFACT_V1` header, no `doc_id`, and they are not republished via `issue-artifact-upsert`.
-- Boundary with the Artifact Identity Convention: if the content will outlive the immediate exchange (plans, grooming documents, spike findings, roadmaps, pairing state files), it is a persisted artifact and follows that convention instead. When classification is ambiguous, ask the user one direct question.
+- Boundary with the Artifact Identity Convention: if the content will outlive the immediate exchange (plans, grooming documents, research findings, roadmaps, pairing state files), it is a persisted artifact and follows that convention instead. When classification is ambiguous, ask the user one direct question.
 
 ## Tooling discipline
 
@@ -346,7 +346,7 @@ When exploring the org's code, prefer local source under `repos/` before any pac
 Wrapper inventory (as of authoring):
 
 - Issues: `issue-create`, `issue-create-batch`, `issue-list`, `issue-search`, `issue-update` (incl. `--add-label`/`--remove-label`), `issue-close`, `issue-comment`, `issue-comment-list`, `issue-comment-update`, `issue-get`, `issue-triage`, `issue-select`, `issue-label-create`, `issue-label-list`, `issue-artifact-doc-id`, `issue-artifact-get`, `issue-artifact-list`, `issue-artifact-select`, `issue-artifact-upsert`
-- PRs: `pr-create-for-review`, `pr-create-for-merge`, `pr-merge`, `pr-cleanup-review-branches`, `pr-get-review-link`, `pr-get-merge-link` — plus added: `pr-get`, `pr-comment`, `pr-diff`, `pr-list`, `pr-review-comment`, `pr-threads-get`, `pr-thread-reply`, `pr-thread-resolve`
+- PRs: `pr-create-for-review`, `pr-merge`, `pr-cleanup-review-branches`, `pr-get-review-link`, `pr-get-merge-link` — plus added: `pr-get`, `pr-comment`, `pr-diff`, `pr-list`, `pr-review-comment`, `pr-threads-get`, `pr-thread-reply`, `pr-thread-resolve`
 - Projects: `project-add-issue`, `project-update-issue`, `project-list-for-issue`
 
 ## Skill-facing wrapper maintenance checklist
@@ -512,7 +512,7 @@ Used by `devenv-delegate`, `devenv-review`, and any skill that asks the human to
 **Link location rule (canonical).** A markdown link resolves from the directory of the file containing it, not from the repo or workspace root. Match the prefix to the link's destination surface:
 
 - **Chat output** — workspace-root-relative, no prefix (`[Foo.cs:42](repos/<your-service>/src/Foo.cs#L42)`). Chat renders against the workspace root, so the full path from it is clickable.
-- **Links saved into files** (`.local-artifacts` reports, plans, audits, findings files) — one `../` per directory level between the file's location and the target's root. A file in `<repo-root>/.local-artifacts/` sits one level below the repo root, so repo-relative targets take one prefix: `[Foo.cs:42](../src/Foo.cs#L42)` — and a workspace-level artifact in `<workspace>/.local-artifacts/` linking a repo file takes two: `[Foo.cs:42](../../repos/<your-service>/src/Foo.cs#L42)`. Never emit a bare repo-root-relative or workspace-root-relative path inside a file — it resolves against `.local-artifacts/` and is dead.
+- **Links saved into files** (`.local-artifacts` reports, plans, audits, findings files) — one `../` per directory level between the file's location and the target's root. A file in `<repo-root>/.local-artifacts/` sits one level below the repo root, so repo targets take one prefix: `[Foo.cs:42](../repos/<your-service>/src/Foo.cs#L42)`. Never emit a bare repo-root-relative or workspace-root-relative path inside a file — it resolves against `.local-artifacts/` and is dead.
 
 Bad (vague):
 

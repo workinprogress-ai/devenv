@@ -514,8 +514,10 @@ provider_auth_status() {
 # ============================================================================
 
 # Config file used by the identity accessors. Set via provider_identity_init;
-# defaults to DEVENV_ROOT/devenv.config on first accessor use.
-PROVIDER_IDENTITY_CONFIG=""
+# defaults to DEVENV_ROOT/devenv.config on first accessor use. An inherited
+# (exported) PROVIDER_IDENTITY_CONFIG is honored — accessor calls may bind the
+# file via the environment alone, without a provider_identity_init call.
+PROVIDER_IDENTITY_CONFIG="${PROVIDER_IDENTITY_CONFIG:-}"
 
 # Bind the identity accessors to a config file. Optional: accessors fall back
 # to DEVENV_ROOT/devenv.config. provider_detect callers that pass an explicit
