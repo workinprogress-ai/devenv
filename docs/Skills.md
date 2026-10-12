@@ -4,7 +4,7 @@ A complete reference for the Copilot skill suite available in this workspace. Sk
 
 > **Authority note:** each skill's `SKILL.md` frontmatter (`copilot/skills/<name>/SKILL.md`) is the authoritative description of that skill — its trigger phrases and boundaries. This catalog summarizes the suite for browsing; when a summary and a frontmatter disagree, the frontmatter wins.
 
-**Not sure which skill to use, or how something in this environment works?** Say `/devenv-help` — it answers questions directly and recommends skills.
+**Not sure which skill to use, how something in this environment works, or how you should be working (sessions, modes, review setup)?** Say `/devenv-help` — it answers questions directly, recommends skills, and advises on working style.
 
 > **Provider transport:** skill bodies stay provider-neutral — GitHub-specific wrapper signatures, env vars, config paths, and invocation recipes live in the [protocol-common](../copilot/skills/_shared/references/protocol-common.md) (neutral wrapper contract) and `../copilot/skills/_shared/references/provider-protocols/<provider>.md` (provider transport; `<provider>` from `[provider] name` in `devenv.config`). A provider fork replaces that file; skill bodies don't change.
 
@@ -260,7 +260,7 @@ Answers status/composition/progress questions (board status, epic rollups via th
 
 | Skill | Purpose | Argument |
 |---|---|---|
-| `/devenv-help` | Answer questions about the devenv — its skills, tooling, scripts, docs, config, and the engineering/knowledge repos — directly with citations; also picks the right skill or chain for workflow intents (offers to start, never starts unprompted) | Any question about the environment, a problem description, or issue # (optional) |
+| `/devenv-help` | Answer questions about the devenv — its skills, tooling, scripts, docs, config, and the engineering/knowledge repos — directly with citations; also picks the right skill or chain for workflow intents and advises on working style (sessions, execution modes, review setup) grounded in the workflow docs (offers to start, never starts unprompted) | Any question about the environment, a working-style question ("how should I manage my sessions?"), a problem description, or issue # (optional) |
 | `/devenv-skill-maintenance` | Correct and synchronize the custom skill system (skills, devenv-help routing, registry, and related docs) while preserving workflow principles; files validated findings as devenv issues and fixes from them | Skill problems to fix, plus optional target skill names, file paths, diagnostic output, an `IMPROVEMENT_REPORT.md`, or devenv issue numbers |
 
 ---

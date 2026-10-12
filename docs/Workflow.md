@@ -240,6 +240,21 @@ Worked example — **the explanation rabbit hole** (the most common tangent of t
 - **Compaction is a pollution event too.** Long sessions auto-compact lossy; a single tab ridden across days of mixed work degrades quietly. If a session has been through several compactions or a context restore, prefer starting fresh with `/devenv-load` over trusting the surviving summary.
 - **Agent mistakes from missing knowledge are posterity issues.** When an agent errs because it *didn't know* what it should do (an org convention, a wiring fact), that is fixable for every future agent: file the gap as an issue in `repos/docs.copilot-knowledge` — never edit `copilot/knowledge/` directly (two-clone model). Mistakes from *wrong or missing instructions* are devenv issues instead. Diagnose which kind before filing.
 
+### Managing multiple sessions (human attention advice)
+
+Running two or more agent sessions at once is normal — these rules keep it from turning into churn:
+
+- **One session, one thing at a time.** Session discipline already pushes this way; keep it true on the human side too. A session that is halfway between concerns is the one that produces jurisdiction mistakes.
+- **Budget demanding sessions, not open tabs.** The right number depends on what is in flight — a long-running delegate in the background is free until it hands back. What actually costs attention is **switching**, so aim to keep at most **two sessions actively trading the ball with you**; three is the yellow zone where things start slipping. Two background delegations can legitimately coexist with two pairing sessions — as long as the delegations are running, not paused.
+- **Follow each handback through.** When a session pauses and hands back to you, stay with *it* until the ball is back in the agent's court and it will be busy for a while. Rapid-switching between sessions that are all waiting on you is how every session gets half-answers.
+- **Prefer sessions within the same project.** Cross-project sessions work, but every switch pays a context-reload tax twice — once per project. Same-project sessions share the mental model, and the tab labels stay meaningful.
+- **Match commission modes to your attention budget.** Commissioning is attention scheduling: a checkpoint-mode delegate that stops at every boundary is a queue of interruptions. If you are about to go heads-down in a pairing session, commission background work in a mode whose stopping rhythm matches the attention you actually have.
+- **Pausing is free — use it.** A paused session loses nothing: the plan and state file hold its context, nothing decays while it waits. Drain one handback to completion before touching the next; the others can wait as long as they need. Feeling obligated to answer three waiting sessions "in parallel" produces three half-answers.
+- **Route inter-session information through artifacts, not through your head.** If you find yourself relaying findings from session B into session C, that is human-as-message-bus — expensive and lossy. Hand state over as a plan, an issue comment, or a state file; if it cannot be an artifact, the work probably belongs in one session.
+- **Name your tabs by frame.** "pair auth-2.4", "reviewer — uncommitted", "delegate #72". The *which tab was the reviewer?* mixup is exactly the confusion the pollution doctrine warns about; a label kills it cheaply.
+- **Park deliberately at boundaries.** End of day or a context switch: wrap up or state-file-park each open session rather than leaving several half-open overnight. Stale half-open sessions are both a resume cost and a compaction-pollution risk.
+- **Same repo, multiple sessions: same plan or clear boundaries.** Two sessions in one working tree with no declared relationship is provenance chaos. The legitimate shape is sessions that **relate to the same plan** — delegating one phase while noodling through a later task, for example — where the plan is the shared boundary and the single-writer rule tells you who owns what. When sessions drift apart in scope or touch overlapping files without territories, harden the boundary: declared territories (pair's parallel mode) or separate clones.
+
 ## Alternative delivery flows
 
 There are a few variations on the default flow that are still valid but less common. Some examples:
