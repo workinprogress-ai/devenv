@@ -180,7 +180,8 @@ When a repository-content edit (or any tracker mutation beyond the active skill'
 
 - **Code in all forms** — identifiers, variable/function/class/test names, code comments, and inline documentation.
 - **Markdown and documentation** — READMEs, docs, ADRs, and planning artifacts (plans, blueprints, roadmaps, specifications docs, research findings, pairing state notes).
-- **Commit messages and issue/PR text** — commit titles/bodies, issue bodies, titles, comments, and PR descriptions posted via tools (the tracker's provider-specific vocabulary — e.g. "GitHub issue" — is fine where the protocol reference defines it).
+- **Commit messages and issue/PR text** — commit titles/bodies, issue bodies, titles, comments, and PR descriptions posted via tools (the tracker's provider-specific vocabulary — e.g. "GitHub issue" — is fine where the protocol reference defines it). This covers every skill's posted output — issue comments, review threads, plan artifacts, closeout summaries — not just direct requests.
+- **Seamless translation of posted text.** When the user phrases a request in another language and the action produces posted/durable text (post a comment, create an issue, open a PR, upsert an artifact), translate the content to English silently and post it in English — no confirmation, no mixed-language output, no draft shown in the user's language first. The conversation reply stays in the user's language; only the durable text switches.
 
 **Translation copies of artifacts:** if the user asks for a translation of an artifact, a copy of it may be output in the user's language (typically to a temp or scratch file). The principal artifact in the repository remains in English.
 
