@@ -1,8 +1,25 @@
 #!/bin/bash
 
+# Locate the rewrite-detect library relative to this script's own location
+# (self-root contract). The script lives in tools/ in the devenv repo but gets
+# copied to <clone>/tools/git-update in test fixtures; whichever root it sits
+# in, the lib is at <script dir>/lib — and as a final fallback, next to the
+# repo's own tools root.
+for _gu_lib in "$(dirname "$(readlink -f "$0")")/lib/rewrite-detect.bash" \
+               "$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)/lib/rewrite-detect.bash"; do
+    if [ -f "$_gu_lib" ]; then
+        # shellcheck source=../lib/rewrite-detect.bash
+        source "$_gu_lib"
+        break
+    fi
+done
+unset _gu_lib
+
 usage() {
   echo "Usage: git-update"
   echo "Fetch tags and pull the current branch when it is strictly behind its upstream."
+  echo "When the remote history was rewritten (a fork sync), reset to it when the clone"
+  echo "has nothing unique, or replay local commits with rebase when it has."
   echo "Takes no arguments."
 }
 case "${1:-}" in
@@ -16,7 +33,10 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 1
 fi
 
-git fetch --tags -f
+if ! git fetch --tags; then
+  echo "Error: git fetch failed; cannot safely classify a rewritten remote."
+  exit 1
+fi
 
 # Determine the current branch
 current_branch=$(git rev-parse --abbrev-ref HEAD)
@@ -33,6 +53,8 @@ fi
 LOCAL=$(git rev-parse @)
 REMOTE=$(git rev-parse '@{u}')
 BASE=$(git merge-base @ '@{u}')
+# Every action below targets the same ref the classification used.
+UPSTREAM_REF="$REMOTE"
 
 if [ "$LOCAL" = "$REMOTE" ]; then
   echo "Your branch is up to date with the remote."
@@ -44,10 +66,70 @@ elif [ "$REMOTE" = "$BASE" ]; then
   echo "Please push your local commits before pulling new changes."
   exit 1
 else
-  echo "Warning: Your branch and the remote have diverged."
-  echo "Manual intervention is required."
-  echo "Suggestion: run 'git pull --rebase' or manually merge your changes."
-  exit 1
+  # Diverged. A rewritten remote (fork sync) makes this the normal case;
+  # classify it before asking for manual intervention.
+  STATE="$(rewrite_detect_state "$current_branch")"
+  VERDICT="${STATE%% *}"
+  case "$VERDICT" in
+    none)
+      echo "Warning: Your branch and the remote have diverged."
+      echo "Manual intervention is required."
+      echo "Suggestion: run 'git pull --rebase' or manually merge your changes."
+      exit 1
+      ;;
+    clean|diverged)
+      PAST_TIP="${STATE#* }"
+      # Uncommitted changes first: a reset would destroy them, and a rebase
+      # refuses them anyway. Same refusal the update check makes.
+      if [ -n "$(git status --porcelain)" ]; then
+        echo "The remote history of branch '$current_branch' was rewritten."
+        echo "Uncommitted changes detected. Commit or discard them first, then re-run git-update."
+        exit 1
+      fi
+      if [ "$VERDICT" = "clean" ]; then
+        echo "The remote history of branch '$current_branch' was rewritten; this clone has no unique commits."
+        echo "Resetting to the rewritten origin/$current_branch..."
+        if ! git reset --hard "$UPSTREAM_REF"; then
+          echo "Error: reset failed. Recovery: re-run git-update, or 'git reset --hard origin/$current_branch' manually."
+          exit 1
+        fi
+        export GIT_UPDATE_SCAN_BASE="$PAST_TIP"
+        echo "Reset to origin/$current_branch complete."
+        exit 0
+      fi
+      # diverged: unique local commits exist. A rebase replays them on the
+      # rewritten history; refuse when the local side has merge commits
+      # (a plain rebase would linearize that structure).
+      if git log --merges --format='%H' "$PAST_TIP..HEAD" | grep -q .; then
+        echo "The remote history of branch '$current_branch' was rewritten, and local history"
+        echo "contains merge commit(s), which a rebase would not preserve."
+        echo "Manual intervention is required: rebase onto origin/$current_branch yourself"
+        echo "(consider --rebase-merges) or reset if the local work is disposable."
+        exit 1
+      fi
+      echo "The remote history of branch '$current_branch' was rewritten; replaying local commits on it..."
+      # --onto transplants exactly PAST_TIP..HEAD (the local work): a plain
+      # rebase against the upstream would replay merge-base..HEAD, which on a
+      # second rewrite resurrects upstream commits the rewrite discarded.
+      if ! git rebase --onto "$UPSTREAM_REF" "$PAST_TIP"; then
+        # Only abort when a rebase is actually in progress (a pre-rebase
+        # failure would otherwise print "No rebase in progress" noise).
+        if [ -d "$(git rev-parse --git-path rebase-merge)" ] || [ -d "$(git rev-parse --git-path rebase-apply)" ]; then
+          git rebase --abort
+          echo "Rebase onto the rewritten origin/$current_branch conflicted; the rebase was aborted."
+          echo "Your branch is unchanged. Resolve manually:"
+          echo "  git rebase --onto origin/$current_branch $PAST_TIP   (resolve conflicts as they appear)"
+          echo "  or discard local commits: git reset --hard origin/$current_branch"
+        else
+          echo "Rebase onto the rewritten origin/$current_branch failed to start; nothing changed."
+        fi
+        exit 1
+      fi
+      export GIT_UPDATE_SCAN_BASE="$PAST_TIP"
+      echo "Replayed local commits on the rewritten origin/$current_branch."
+      exit 0
+      ;;
+  esac
 fi
 
 # Check for uncommitted changes

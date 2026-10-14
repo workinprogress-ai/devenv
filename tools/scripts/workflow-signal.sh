@@ -19,9 +19,9 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 # Entry-point root: real tools by default; test seam overrides ONLY where
 # events are looked up (libs above still load from the real tree). Event
-# entry points live in <root>/scripts as _on_<event>.sh — underscore-
+# entry points live in <root>/internal as _on_<event>.sh — underscore-
 # prefixed scripts are internal by contract and get no depth-1 tools/ entry.
-SIGNAL_TOOLS_ROOT="$DEVENV_TOOLS/scripts"
+SIGNAL_TOOLS_ROOT="$DEVENV_TOOLS/internal"
 if [ -n "${WORKFLOW_SIGNAL_TOOLS:-}" ]; then
     SIGNAL_TOOLS_ROOT="$WORKFLOW_SIGNAL_TOOLS"
 fi
@@ -113,7 +113,7 @@ normalize_event() {
 }
 
 # Resolve the entry point for an event; empty string when it does not exist.
-# Entry points are underscore-prefixed scripts in tools/scripts/ (no depth-1
+# Entry points are underscore-prefixed scripts in tools/internal/ (no depth-1
 # entries by contract); the dispatcher itself is not an event.
 entry_point_for() {
     local event="$1"

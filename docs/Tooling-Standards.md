@@ -88,9 +88,18 @@ generates the bare-name stub in `tools/` from the winning file:
 - `tools/custom/` — a user's own or overriding tools (gitignored, machine-local).
 
 A same-named file in a higher folder wins: custom over fork over provided. The sync
-runs at bootstrap; re-run it after adding or removing an override. Underscore-prefixed
-scripts have no stub and cannot be overridden this way. See
+runs at bootstrap; re-run it after adding or removing an override. See
 [Forking](./Forking.md#adding-and-overriding-tools-toolsfork-and-toolscustom).
+
+A fourth folder, `tools/internal/`, is **not** part of that override chain:
+it holds machinery scripts that the devenv or githook machinery invokes —
+scripts a user would generally never run by hand (lifecycle event entry
+points `_on_*.sh`, the `prepare-commit-msg` githook backing script, the
+CI commit-message checker). Internal scripts get no depth-1 stub, are not
+on `PATH`, are excluded from the `tools/*` gitignore whitelist via
+`!tools/internal/`, and are not overridden by `tools/fork/` or
+`tools/custom/`. See
+[Additional Tooling — Internal machinery scripts](./Additional-Tooling.md#internal-machinery-scripts-toolsinternal).
 
 ## Library catalog
 

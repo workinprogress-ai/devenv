@@ -8,7 +8,7 @@ load ../test_helper
 
 setup() {
     test_helper_setup
-    DISPATCH="$PROJECT_ROOT/tools/scripts/_on_event_dispatch.sh"
+    DISPATCH="$PROJECT_ROOT/tools/internal/_on_event_dispatch.sh"
     stub_dir="$(mktemp -d)"
     export STUB_DIR="$stub_dir"
     printf '#!/usr/bin/env bash\nexit 0\n' > "$stub_dir/gh"

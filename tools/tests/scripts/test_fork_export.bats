@@ -28,7 +28,7 @@ _setup_fork_export_fixture() {
     git -C "$FORK_FIXTURE_WORKING_CLONE" fetch -q upstream
     # Source commits get a Change-Id the way real ones do, through the hook.
     mkdir -p "$FORK_FIXTURE_WORKING_CLONE/.git/hooks"
-    printf '#!/bin/sh\nexec bash "%s/scripts/prepare-commit-msg.sh" "$@"\n' "$DEVENV_TOOLS" > "$FORK_FIXTURE_WORKING_CLONE/.git/hooks/prepare-commit-msg"
+    printf '#!/bin/sh\nexec bash "%s/internal/prepare-commit-msg.sh" "$@"\n' "$DEVENV_TOOLS" > "$FORK_FIXTURE_WORKING_CLONE/.git/hooks/prepare-commit-msg"
     chmod +x "$FORK_FIXTURE_WORKING_CLONE/.git/hooks/prepare-commit-msg"
     cd "$FORK_FIXTURE_WORKING_CLONE"
 }
@@ -37,6 +37,37 @@ _add_export_commit() {
     printf '%s\n' "$1" >> "$FORK_FIXTURE_WORKING_CLONE/changes.txt"
     git -C "$FORK_FIXTURE_WORKING_CLONE" add changes.txt
     git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "$1"
+}
+
+# Verify a stamped export: every bundle tip subject matches one of the
+# expected subjects and the tip commit carries an Exported-From trailer.
+#
+# Usage: _assert_bundle_subjects <bundle_file> <subject> [<subject>...]
+_assert_bundle_subjects() {
+    local bundle_file="$1"; shift
+    local scratch tip_sha tip_ref tip_subject expected found rest
+    # The bundle's prerequisite is the upstream base — clone the working
+    # repo into the scratch dir so prerequisites exist, then fetch by ref.
+    scratch="$(mktemp -d)"
+    git clone -q "$FORK_FIXTURE_WORKING_CLONE" "$scratch" 2>/dev/null
+    while read -r tip_sha tip_ref; do
+        [ -n "$tip_sha" ] || continue
+        git -C "$scratch" fetch -q "$bundle_file" "${tip_ref#refs/heads/}:refs/fetch-tmp/$tip_sha" 2>/dev/null || true
+    done < <(git bundle list-heads "$bundle_file")
+    while read -r tip_sha rest; do
+        [ -n "$tip_sha" ] || continue
+        tip_subject="$(git -C "$scratch" show -s --format=%s "$tip_sha" 2>/dev/null || true)"
+        found=0
+        for expected in "$@"; do
+            [ "$tip_subject" = "$expected" ] && found=1 && break
+        done
+        if [ "$found" -ne 1 ]; then
+            echo "unexpected bundle tip subject: $tip_subject" >&2
+            rm -rf "$scratch"
+            return 1
+        fi
+    done < <(git bundle list-heads "$bundle_file")
+    rm -rf "$scratch"
 }
 
 # fzf stand-in. Each invocation consumes the next entry of FORK_EXPORT_PICKS
@@ -176,8 +207,7 @@ _add_upstream_clone_to_repos() {
     [ -f "$bundle_file" ]
     [[ "$output" == *"no matching clone found in repos/"* ]]
     git bundle verify "$bundle_file"
-    bundle_heads="$(git bundle list-heads "$bundle_file")"
-    [[ "$bundle_heads" == *"$(git rev-parse HEAD)"* ]]
+    _assert_bundle_subjects "$bundle_file" "Local two"
     [ -z "$(git for-each-ref --format='%(refname)' refs/fork-export)" ]
 }
 
@@ -228,9 +258,8 @@ _add_upstream_clone_to_repos() {
     [ "$status" -eq 0 ]
     bundle_file="$(sed -n 's/^Bundle: //p' <<< "$output")"
     [ -f "$bundle_file" ]
-    bundle_heads="$(git bundle list-heads "$bundle_file")"
-    [[ "$bundle_heads" == *"$first_commit"* ]]
-    [[ "$bundle_heads" != *"$(git rev-parse HEAD)"* ]]
+    _assert_bundle_subjects "$bundle_file" "Local one"
+    ! git bundle list-heads "$bundle_file" 2>&1 | grep -q "Local two"
 }
 
 @test "fork-export: explicit inclusive start and end refs export only that range" {
@@ -249,8 +278,7 @@ _add_upstream_clone_to_repos() {
     [ "$status" -eq 0 ]
     [[ "$output" == *"Commits: 2"* ]]
     bundle_file="$(sed -n 's/^Bundle: //p' <<< "$output")"
-    bundle_heads="$(git -C "$FORK_FIXTURE_WORKING_CLONE" bundle list-heads "$bundle_file")"
-    [[ "$bundle_heads" == *"$end_ref"* ]]
+    _assert_bundle_subjects "$bundle_file" "Commit two" "Commit three"
     ! git -C "$FORK_FIXTURE_WORKING_CLONE" bundle verify "$bundle_file" 2>&1 | grep -q "$start_ref"
 }
 
@@ -352,8 +380,7 @@ _add_upstream_clone_to_repos() {
     run bash "$SCRIPT" upstream/feature --format bundle --include-untracked
     [ "$status" -eq 0 ]
     bundle_file="$(sed -n 's/^Bundle: //p' <<< "$output")"
-    bundle_heads="$(git -C "$FORK_FIXTURE_WORKING_CLONE" bundle list-heads "$bundle_file")"
-    [[ "$bundle_heads" == *"$feature_tip"* ]]
+    _assert_bundle_subjects "$bundle_file" "Feature commit two"
     [[ "$output" == *"Commits: 2"* ]]
 }
 
@@ -557,7 +584,7 @@ _add_upstream_clone_to_repos() {
     [ "$status" -ne 0 ]
     [[ "$output" == *"merge commit"* ]]
     [[ "$output" == *"merge side"* ]]
-    [[ "$output" == *"fork-sync --rebase"* ]]
+    [[ "$output" == *"fork-sync --replay"* ]]
 }
 
 @test "fork-export: a linear range is not refused" {
@@ -1098,9 +1125,8 @@ _head_of_source() {
     run bash "$SCRIPT" --all --export-only --format bundle
     [ "$status" -eq 0 ]
     bundle_file="$(sed -n 's/^Bundle: //p' <<< "$output")"
-    heads="$(git -C "$FORK_FIXTURE_WORKING_CLONE" bundle list-heads "$bundle_file")"
-    [[ "$heads" == *"$alpha_sha"* ]]
-    [[ "$heads" != *"$legacy_sha"* ]]
+    _assert_bundle_subjects "$bundle_file" "Commit alpha"
+    ! git bundle list-heads "$bundle_file" 2>&1 | grep -q "legacy"
 }
 
 @test "fork-export: selected commits on diverging branches are all transported" {
@@ -1206,4 +1232,58 @@ SHIM
     [ "$status" -ne 0 ]
     [[ "$output" == *"the selection contains merge commit(s)"* ]]
     [ "$(git -C "$FORK_FIXTURE_GH_CLONE" rev-parse HEAD)" = "$(git -C "$FORK_FIXTURE_GH_CLONE" rev-parse origin/master)" ]
+}
+
+@test "fork-export: re-running the export does not re-apply committed changes (stamped identity)" {
+    _setup_fork_export_fixture
+    _add_export_commit "Local one"
+    _add_upstream_clone_to_repos
+
+    # First export applies into the sibling clone.
+    run bash "$SCRIPT" --all
+    [ "$status" -eq 0 ]
+    [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log -1 --format=%s)" = "Local one" ]
+
+    # Re-run: the commit is present in the target (by patch equivalence)
+    # and must be excluded, not re-applied. The run reports the exclusion and
+    # exits non-zero with "all candidate commits are already present".
+    run bash "$SCRIPT" --all
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"excluded 1 commit(s) already present in target"* ]]
+    [ "$(git -C "$FORK_FIXTURE_GH_CLONE" rev-list --count HEAD)" -eq 2 ]  # base + one
+}
+
+@test "fork-export: exported copies carry Change-Id and Exported-From trailers" {
+    _setup_fork_export_fixture
+    _add_export_commit "Local one"
+    _add_upstream_clone_to_repos
+
+    run bash "$SCRIPT" --all
+    [ "$status" -eq 0 ]
+    local fork_sha fork_id copy_id
+    fork_sha="$(git rev-parse HEAD)"
+    fork_id="$(git log -1 --format=%B "$fork_sha" | grep -oP 'Change-Id: \K.*')"
+    copy_id="$(git -C "$FORK_FIXTURE_GH_CLONE" log -1 --format=%B | grep -oP 'Change-Id: \K.*')"
+    [ "$copy_id" = "$fork_id" ]
+    git -C "$FORK_FIXTURE_GH_CLONE" log -1 --format=%B | grep -q "^Exported-From: $fork_sha"
+}
+
+@test "fork-export: a commit without a Change-Id gets a generated one whose copy round-trips" {
+    _setup_fork_export_fixture
+    # Commit WITHOUT the hook: the pre-Change-Id path the stamping exists for.
+    printf 'pre-hook\n' > "$FORK_FIXTURE_WORKING_CLONE/pre.txt"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add pre.txt
+    git -C "$FORK_FIXTURE_WORKING_CLONE" -c core.hooksPath=/dev/null commit -qm "pre-hook commit"
+    _add_upstream_clone_to_repos
+
+    run bash "$SCRIPT" --all --include-untracked
+    [ "$status" -eq 0 ]
+    # The target copy's Change-Id must be extractable (own physical line)…
+    local copy_id
+    copy_id="$(git -C "$FORK_FIXTURE_GH_CLONE" log -1 --format=%B | grep -oP '^Change-Id: \K.*')"
+    [ -n "$copy_id" ]
+    # …and Exported-From must name the fork-side original on its own line.
+    local fork_sha
+    fork_sha="$(git rev-parse HEAD)"
+    git -C "$FORK_FIXTURE_GH_CLONE" log -1 --format=%B | grep -q "^Exported-From: $fork_sha"
 }

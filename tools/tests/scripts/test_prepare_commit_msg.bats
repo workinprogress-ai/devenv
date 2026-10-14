@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# scripts/prepare-commit-msg.sh: the Change-Id (and Devenv-Action placeholder) hook.
+# internal/prepare-commit-msg.sh: the Change-Id (and Devenv-Action placeholder) hook.
 
 bats_require_minimum_version 1.5.0
 
@@ -8,7 +8,7 @@ load ../test_helper
 setup() {
     test_helper_setup
     export DEVENV_TOOLS="${BATS_TEST_DIRNAME}/../.."
-    SCRIPT="$DEVENV_TOOLS/scripts/prepare-commit-msg.sh"
+    SCRIPT="$DEVENV_TOOLS/internal/prepare-commit-msg.sh"
     source "$DEVENV_TOOLS/lib/change-id.bash"
     MSG="$TEST_TEMP_DIR/COMMIT_EDITMSG"
 }
@@ -33,7 +33,7 @@ _message_of() {
 
 @test "prepare-commit-msg: script has valid syntax and the husky hook delegates to it" {
     bash -n "$SCRIPT"
-    grep -q 'tools/scripts/prepare-commit-msg.sh' "$PROJECT_ROOT/.husky/prepare-commit-msg"
+    grep -q 'tools/internal/prepare-commit-msg.sh' "$PROJECT_ROOT/.husky/prepare-commit-msg"
 }
 
 @test "prepare-commit-msg: --help and --version succeed" {

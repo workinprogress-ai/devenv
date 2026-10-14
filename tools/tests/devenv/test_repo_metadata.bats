@@ -265,7 +265,7 @@ load ../test_helper
 
 @test "Commit-Conventions documents the CI enforcement of commit messages and the trailer" {
     doc="$PROJECT_ROOT/docs/Commit-Conventions.md"
-    grep -q 'check-commit-trailers' "$doc"
+    grep -q 'commit-action-check' "$doc"
     grep -qi 'commit-messages' "$doc"
 }
 

@@ -52,7 +52,7 @@ STUB
 }
 
 @test "CLI mode: --triage-complete fires the event entry point for the issue" {
-    # The event signal goes through tools/scripts/_on_triage_complete.sh
+    # The event signal goes through tools/internal/_on_triage_complete.sh
     # -> dispatcher -> wrapper; under a no-op gh stub the observable is the
     # wrapper's reverse-lookup call for the target issue.
     run bash "$SCRIPT" 44 --triage-complete
@@ -69,7 +69,9 @@ STUB
 @test "wizard: refuses to start without an interactive terminal" {
     # The wizard is a menu driven by read; with no TTY on stdin it would block
     # or consume the wrong input. Scripted use goes through the bundle mode.
-    run bash "$SCRIPT"
+    # </dev/null makes the non-TTY condition explicit — bats inherits the
+    # invoking terminal's stdin, which IS a TTY in interactive runs.
+    run bash "$SCRIPT" </dev/null
     [ "$status" -eq 2 ]
     [[ "$output" == *"interactive terminal"* ]]
     [[ "$output" == *"issue number"* ]]

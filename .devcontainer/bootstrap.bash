@@ -522,15 +522,33 @@ devenv-update() {
     cd "$DEVENV_ROOT" || return
     pre_update_hash=$(git rev-parse HEAD 2>/dev/null)
 
+    # git-update exports GIT_UPDATE_SCAN_BASE when the update crossed a
+    # rewritten remote (fork sync): the scan then covers exactly the new
+    # upstream commits, not the whole rewritten span. Capture and unset it
+    # immediately — the export would otherwise leak into the user's shell and
+    # mis-scope a later update's scan (a stale base can mask real trailers).
+    local scan_base=""
+    if [ -n "${GIT_UPDATE_SCAN_BASE:-}" ]; then
+        scan_base="$GIT_UPDATE_SCAN_BASE"
+        unset GIT_UPDATE_SCAN_BASE
+    fi
     if ! git-update; then
         cd "$current_dir" || return
         return 1
+    fi
+    if [ -n "${GIT_UPDATE_SCAN_BASE:-}" ]; then
+        scan_base="$GIT_UPDATE_SCAN_BASE"
+        unset GIT_UPDATE_SCAN_BASE
     fi
 
     "$DEVENV_ROOT/.devcontainer/bootstrap.sh" run_update_tasks
     # shellcheck source=/dev/null
     source "$DEVENV_ROOT/.devcontainer/post-update.bash"
-    devenv_post_update "$pre_update_hash" || rc=$?
+    if [ -n "$scan_base" ]; then
+        devenv_post_update "$pre_update_hash" "HEAD" "$scan_base" || rc=$?
+    else
+        devenv_post_update "$pre_update_hash" || rc=$?
+    fi
 
     cd "$current_dir" || return
     return "$rc"

@@ -2,9 +2,9 @@
 # Enforce Devenv-Action trailer.
 # Every commit to this repo must declare what action consumers need to take
 # after pulling. The rule (valid values, WIP exemption, guidance text) lives in
-# one place, shared with CI: tools/scripts/check-commit-trailers.sh
+# one place, shared with CI: tools/internal/commit-action-check.sh
 commit_file="$1"
 
-bash "$(dirname "$0")/../tools/scripts/check-commit-trailers.sh" --message-file "$commit_file" || exit 1
+bash "$(dirname "$0")/../tools/internal/commit-action-check.sh" --message-file "$commit_file" || exit 1
 
 npx --no-install commitlint --edit "$1"

@@ -42,11 +42,13 @@ The configuration for the dev container includes an instance of Docker running w
 
 The dev environment will check for updates to its code. This happens periodically. If it finds an update has happened (a new commit has been pushed to `master` in the `devenv` repo) then it will warn the user when a command line is opened. The user is given the option to pull the latest changes in `master`.
 
-After pulling, the update script determines what action — if any — is required from the user. It does this by reading a `Devenv-Action` trailer from the body of every new commit. The highest-priority trailer across all pulled commits wins.
+Because this repository is a soft fork (see [Forking](./Forking.md)), a maintainer sync brings upstream history into `master` and force-pushes it — the remote history is rewritten. The update check recognizes this shape and still offers the same y/n update: when your clone has no commits of its own, the update resets onto the rewritten `origin/master`; when it does, your commits are replayed on top with rebase (a conflicting rebase aborts with your branch untouched). A dirty working tree is always refused first, and ordinary divergence — local commits that were never on the remote — stays silent, as normal for a fork.
+
+After updating, the update script determines what action — if any — is required from the user. It does this by reading a `Devenv-Action` trailer from the body of every new upstream commit. The highest-priority trailer across all pulled commits wins.
 
 ### Devenv-Action commit trailer
 
-Every commit to this repository **must** include a `Devenv-Action` trailer in the commit body. This trailer tells the update script what the consumer needs to do after pulling the change. The commit hook will reject commits that omit it, and so will the `commit-messages` CI job on every pull request (both run `tools/scripts/check-commit-trailers.sh`, so a clone without hooks cannot land a trailer-less commit).
+Every commit to this repository **must** include a `Devenv-Action` trailer in the commit body. This trailer tells the update script what the consumer needs to do after pulling the change. The commit hook will reject commits that omit it, and so will the `commit-messages` CI job on every pull request (both run `tools/internal/commit-action-check.sh`, so a clone without hooks cannot land a trailer-less commit).
 
 Valid values, in ascending order of severity:
 
@@ -57,7 +59,10 @@ Valid values, in ascending order of severity:
 | `bootstrap` | Re-run bootstrap (implies a restart) |
 | `recreate` | Rebuild / recreate the dev container (implies bootstrap + restart) |
 
-When multiple commits are pulled at once, the highest-ranked action across all of them is applied.
+When multiple commits are pulled at once, the highest-ranked action across all of
+them is applied. The scan range after a rewritten-history update is bounded by the
+pre-rewrite tip (recorded in the reflog), so a trailer from a commit the rewrite
+replaced cannot fire a second time.
 
 **Format** — add the trailer as a standalone line at the end of the commit body, separated from the subject by a blank line:
 

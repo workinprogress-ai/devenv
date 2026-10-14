@@ -579,7 +579,7 @@ Also add a one-liner to each `SKILL.md` — usually in the Sibling skills sectio
 Skills maintain GitHub Project issue status as a side effect of their lifecycle by invoking deterministic **event-signal scripts**. This is a tooling class distinct from the CRUD wrappers:
 
 - **Skills know only the event name and the issue number.** Never read `tools/config/skill-events.yml`, never name projects, never contain Status vocabulary (hyphenated tokens like `To-Groom` live only in config and the wrappers).
-- **Invocation:** `_on_<event> <issue-number>` — thin entry points delegating to `tools/scripts/_on_event_dispatch.sh`.
+- **Invocation:** `_on_<event> <issue-number>` — thin entry points delegating to `tools/internal/_on_event_dispatch.sh`. Event scripts live in `tools/internal/` (machinery-invoked; no depth-1 stub).
 - **Events** (begin/end pairs per lifecycle phase): `_on_begin_grooming`, `_on_end_grooming`, `_on_begin_planning`, `_on_end_planning`, `_on_begin_implementation`, `_on_end_implementation`, `_on_begin_review`, `_on_end_review`, `_on_merge`.
 - **Best-effort guarantee:** event scripts always exit 0 for skill flows; failures print warnings and never block skill work. Transitions are idempotent — a later signal repairs drift.
 - **Visible, not gated:** the event signal is a side effect of a boundary the user already approved (opening the PR, completing the merge, closing the plan) — it never prompts for its own permission. But it is not silent: skills state the signal in their normal output (one line, e.g. `→ signalled _on_begin_review for #43`).

@@ -149,6 +149,186 @@ The Azure provider now ships in-tree — no copying GitHub modules required:
   guessed), and prints the fork's `[provider]` config block. Idempotent
   (re-run converges); manual-only, never in CI.
 
+## Keeping a Soft Fork in Sync and Contributing Back
+
+For a soft fork, `[fork]` in `devenv.config` records the fetch-only upstream URL and branch:
+
+```ini
+[fork]
+upstream_repo=https://github.com/workinprogress-ai/devenv.git
+upstream_branch=master
+```
+
+Run the one-time setup from inside the fork clone. The dry run reports the remote and push protection without changing `.git/config`:
+
+```bash
+fork-setup --dry-run
+fork-setup
+```
+
+The script adds `upstream` for fetching and sets its push URL to `/dev/null`, so an accidental push through that remote fails. It contacts no host and requires no credentials — it only writes local git config.
+
+Run `fork-sync` to fetch upstream and inspect the divergence report: ahead/behind counts, commit subjects, and the local commits that look already upstream (matched by Change-Id trailer, patch-equivalence, or subject). It does not change history or push by default. Use `--replay` when ready to replay the branch's fork-only commits on top of `upstream/<branch>` (commits upstream already has are dropped; it refuses a dirty working tree); if conflicts occur, resolve them or run the printed `git rebase --abort` command. To update the same-named branch on `origin`, `--push-to-origin` normally permits only a fast-forward. If origin contains commits absent locally, the command refuses unless `--rewrite-origin` is also specified; that path uses `--force-with-lease` pinned to the fetched origin SHA and can replace those origin-only commits. A TTY prompts with a default-no choice; scripted runs must pass `--yes`. Use `--dry-run` to inspect the planned operations without fetching or changing refs.
+
+```bash
+fork-sync --dry-run
+fork-sync
+fork-sync --replay
+fork-sync --replay --push-to-origin --yes
+```
+
+To contribute commits upstream, use a separate ordinary GitHub clone. `fork-export` exports an upstream-based, linear commit range as a bundle (default), patch series, or both; the base is always the merge-base of the selected end ref (default `HEAD`) and `upstream/<branch>`. A range containing merge commits is refused with guidance — replay the branch on top of upstream first so the range is linear. Files are written under `.local-artifacts/fork-export/<base-short>-<end-short>/`. Without `--apply-to`, the tool applies the export directly into a unique clone under `repos/` whose `origin` matches `[fork] upstream_repo` (if none or several match, it says so); `--apply-to <path>` selects an explicit sibling clone. No GitHub credentials are used by these scripts. Non-interactive selection is available with `--start-ref <commit> <end-ref>`; `--all` exports the complete upstream-to-end range; `--export-only` writes the files without applying; `--dry-run` previews.
+
+```bash
+fork-export
+fork-export --start-ref <commit> HEAD --format patch
+fork-export --format both
+fork-export --apply-to /path/to/github/devenv
+```
+
+The interactive picker (with a TTY) can mark individual commits (TAB), and `--skip <commit>` permanently excludes commits recorded by Change-Id and SHA — `--list-skipped`, `--unskip`, and `--include-skipped` manage that list, and `--include-untracked` extends the export to matching untracked files. These are the tools for the selective-contribution case: to contribute only some commits from a branch that also carries local-only changes, either mark the wanted commits in the picker, or create a branch at the fetched upstream base, cherry-pick only the commits to contribute in dependency order, and export that branch:
+
+```bash
+fork-sync
+git switch -c contribute-upstream upstream/master
+git cherry-pick <commit-to-contribute-1> <commit-to-contribute-2>
+fork-export --format bundle
+```
+
+This leaves the original local branch unchanged and exports a new linear series based on upstream. If a selected commit depends on omitted changes, adapt it or resolve the cherry-pick conflict before exporting. A dry run is available for setup, sync, and export before applying any operation.
+
+### The intended loop: export promptly, sync promptly
+
+The failure mode this tooling guards against is a fork that accumulates
+exported-but-unmatched copies: commits leave the fork, land upstream under new
+SHAs, and a later sync then replays them as if they were new work. Two habits
+prevent it:
+
+1. **Export promptly.** Export a contribution as soon as it is ready, and sync
+   right after the upstream merge lands. The shorter the window, the fewer
+   edits accumulate on either side, and the more reliably twin matching
+   recognizes the pair.
+2. **Sync promptly after upstream moves.** `fork-sync --replay --yes` performs
+   a *classified replay*: every local commit is matched against upstream — by
+   a recorded adoption link, by Change-Id trailer, by patch-id, or by subject
+   — and only genuinely fork-only commits are replayed onto upstream's tip.
+   Commits upstream already has are dropped; where a dropped twin's patch
+   differs from upstream's copy (a hand edit made at the target), the residue
+   is named with a diff so it can be reviewed rather than silently lost.
+
+3. **Consumers update through the normal devenv prompt.** When the fork's master
+   is force-pushed, every consumer clone diverges from `origin/master` by SHA. The
+   shell-start update check recognizes the rewritten history and still offers the
+   y/n update: clones with no unique commits are reset onto the new master; clones
+   with local commits get them replayed on top (a conflicting rebase aborts, leaving
+   the branch untouched). See
+   [Updating the dev environment](./Dev-container-environment.md#updating-the-dev-environment).
+
+`fork-sync --dry-run --replay` prints the classified plan (per-commit verdicts,
+twins, residues) without fetching or changing refs:
+
+```bash
+fork-sync --dry-run --replay
+fork-sync --replay --yes
+```
+
+### Pre-Change-Id history: the adoption map
+
+Commits exported before the Change-Id hook existed carry no trailer and cannot
+be matched automatically. `fork-sync` records confirmed local↔upstream SHA
+pairs in an adoption map (a plain file in the git directory, sibling of the
+export skip list) and treats recorded pairs as authoritative twins:
+
+```bash
+# Rank candidate pairs by subject, author date, and file set; on a TTY each
+# pair is confirmed with y/N. Without a TTY it prints the exact --link commands.
+fork-sync --propose-links
+
+# Record one confirmed pair explicitly.
+fork-sync --link <local-sha> <upstream-sha>
+```
+
+### Exported copies carry their identity
+
+`fork-export` stamps every exported copy with a `Change-Id` (generated when the
+fork-side original lacks one) and an `Exported-From: <fork-side-sha>` trailer,
+so the upstream copy and the original pair mechanically. A target copy that was
+deliberately adapted while applying gets `Fork-Adapted: yes` (the tool declares
+it automatically when an apply lands through conflict resolution); a
+`Fork-Adapted` copy's Change-Id match is then authoritative even though its
+patch differs from the original. Re-running an export detects what the target
+already has — by Change-Id, patch-id, and the existing skip/duplicate checks —
+and refuses to re-apply it.
+
+### Commit identity, Fork-Only commits and the skip list
+
+`fork-export` decides what to offer by commit identity, not by patch content:
+
+- **`Change-Id` trailer.** The `prepare-commit-msg` hook (husky) gives every new commit a
+  `Change-Id` of 12 random base62 characters. It survives amend, rebase, cherry-pick and
+  `format-patch`/`am`, so a commit keeps its identity across rebases and when it lands
+  upstream. An existing ID is never replaced. Any `Change-Id` of 8 to 64 characters from
+  `A-Za-z0-9._-` (for example a Gerrit ID) also counts as an identity; the hook warns
+  once about one that is unusable. CI warns about commits without an ID but does not
+  fail them.
+- **Commits without an ID are hidden and counted**, so a commit made without the hook
+  never goes upstream by accident. `--include-untracked` shows them.
+- **`Fork-Only: yes`** in a commit message keeps that commit out of every export. The
+  decision travels with the commit, so use it for changes that belong to the fork alone.
+- **The skip list** records a decision made after the fact: `--skip <commit>` skips a
+  commit for good (stored by Change-Id and SHA), `--unskip <commit-or-change-id>` reverses
+  it, and `--list-skipped` lists the entries and drops stale ones. In the picker, ctrl-x
+  skips the marked (or highlighted) commits and reopens the picker, and after an export
+  the commits you left unselected can be excluded from future exports. The list lives in
+  the git directory (`fork-export-skip`), is shared by worktrees, and is local to the
+  clone: it is never committed. `--include-skipped` shows skipped commits again.
+- **Commits the target already has are not offered again**: by Change-Id, by patch
+  equivalence, or because the same commit is in the target's history. Two commits in the
+  range sharing a Change-Id are reported, and the ID is not matched against the target
+  for them.
+
+A bundle is a transport container: it carries history from the upstream base up to its
+endpoints (the newest exported commit of each independent branch), so commits you
+skipped in between travel with it. `--apply-to` and the patch format replay exactly the
+selected commits; use `--format patch` when only the selected changes may leave the fork.
+
+To contribute selected commits from a branch that also holds fork-only changes, select
+them in the picker (or mark the rest `Fork-Only`). Selected commits are applied in
+order; if one depends on an omitted change, resolve the cherry-pick conflict when the
+exporter pauses. A dry run is available for setup, sync, and export before applying any
+operation.
+
+## Adding and overriding tools (`tools/fork/` and `tools/custom/`)
+
+The tools you call by bare name (`issue-get`, `fork-sync`, ...) are stubs in
+`tools/`, each one pointing at a script. Three folders feed them, and a file with the
+same name in a higher folder replaces the one below it:
+
+| Folder | Who owns it | Committed? | Precedence |
+|---|---|---|---|
+| `tools/custom/` | one user, on one machine | no (gitignored) | highest |
+| `tools/fork/` | the fork, for everyone on it | yes | middle |
+| `tools/scripts/` | the provided tools (upstream) | yes | lowest |
+
+- **Add a tool:** put `my-tool.sh` in `tools/fork/` (for the whole fork) or
+  `tools/custom/` (for you only). It gets a `my-tool` stub like any provided tool.
+- **Override a tool:** give your file the same name as the provided one
+  (`tools/fork/issue-get.sh` replaces `tools/scripts/issue-get.sh`). The stub then runs
+  yours. Remove the file and the stub points back at the next folder down.
+- **Re-run the sync after adding or removing a file.** Each stub is written at sync
+  time and names the winning file, so the change shows up after
+  `entry-stubs-sync` runs. Bootstrap runs it; run it yourself to see a change at once.
+- **Underscore-prefixed scripts cannot be overridden this way.** Scripts such as
+  `_on_begin_review.sh` have no stub (they are called by path), so a copy in `tools/fork/`
+  or `tools/custom/` is never picked up.
+- A script in `tools/fork/` or `tools/custom/` follows the same conventions as a
+  provided tool ([Tooling Standards](./Tooling-Standards.md)): the self-root header,
+  `--help`, and tests for anything non-trivial.
+
+Keep an override small. The provided tool keeps receiving upstream changes that your
+copy does not, so prefer a config key or a policy knob (see
+[What stays upstream](#what-stays-upstream)) when the surfaces can express the difference.
+
 ## Copilot Instructions
 
 The file `copilot/copilot-instructions.md` contains AI coding guidelines that apply to the repository in VS Code (GitHub Copilot reads this file automatically when it exists in the workspace). During bootstrap, `~/.copilot/copilot-instructions.md` is **symlinked** to this file, making the same instructions available as the user-level Copilot instructions file.
@@ -671,7 +851,9 @@ For the current shared-library catalog, see [Additional Tooling](./Additional-To
 
 ### Adding a new script
 
-Scripts live in `tools/scripts/<name>.sh`. Depth-1 entries at `tools/<name>` (without the `.sh` extension) are generated — not hand-made: `.devcontainer/entry-stubs-sync.sh` (run by bootstrap and by the test runner) creates a stub for every `tools/scripts/` script except underscore-prefixed internal scripts (`_*.sh` get no depth-1 entry — call them via their `tools/scripts/` path). Never hand-edit or hand-create a stub.
+Scripts live in `tools/scripts/<name>.sh`. Depth-1 entries at `tools/<name>` (without the `.sh` extension) are generated — not hand-made: `.devcontainer/entry-stubs-sync.sh` (run by bootstrap and by the test runner) creates a stub for every `tools/scripts/` script. Never hand-edit or hand-create a stub.
+
+Scripts that only the devenv or githook machinery invokes (never run by users) belong in `tools/internal/` instead — they get no stub, are not on `PATH`, and are not part of the custom-over-fork-over-provided override chain. See [Additional Tooling — Internal machinery scripts](./Additional-Tooling.md#internal-machinery-scripts-toolsinternal).
 
 1. **Start from the template**: `tooling-create-script <name>` scaffolds the file from `tools/templates/script-template.sh`.
 2. **File location**: `tools/scripts/<group>-<action>.sh`, following the existing `group-action` naming pattern (e.g. `markdown-plan-complete-task.sh`).

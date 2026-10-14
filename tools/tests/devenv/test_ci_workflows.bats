@@ -103,5 +103,5 @@ setup() {
 }
 
 @test "CI validates the Devenv-Action trailer on pull-request commits" {
-    grep -q 'check-commit-trailers' "$TESTWF"
+    grep -q 'commit-action-check' "$TESTWF"
 }

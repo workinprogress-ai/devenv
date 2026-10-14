@@ -41,6 +41,7 @@ copilot/engineering/*
 tools/*
 tools/custom/
 !tools/fork/
+!tools/internal/
 !tools/lib/
 !tools/scripts/
 !tools/other/

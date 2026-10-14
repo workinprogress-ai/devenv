@@ -263,6 +263,111 @@ create_fork_fixture_trio() {
     export FORK_FIXTURE_GH_CLONE="$gh_clone"
 }
 
+# ---------------------------------------------------------------------------
+# Fork divergence scenario builders
+#
+# Each builder reproduces one failure class from the fork-sync incident: a
+# fork exported commits upstream (new SHAs there), after which naive replay
+# collides with upstream's copies of the same work.
+#
+# All builders take no arguments and operate on the exported FORK_FIXTURE_*
+# paths; they must run after create_fork_fixture_trio. Commits are
+# deterministic: fixed author/committer identity and dates, so patch-ids and
+# subjects are stable across runs. Variable: each appends a distinct file so
+# scenarios compose.
+#
+#   fork_scenario_pre_change_id_backlog N
+#       N commits with no Change-Id trailer (pre-hook-era history) on the
+#       working clone.
+#   fork_scenario_export_and_edit_twin
+#       Working clone commits file_twin.txt with a Change-Id, exports it into
+#       the gh-clone (upstream copy), then AMENDS the upstream copy with a
+#       one-line difference — breaking patch-id equivalence while keeping the
+#       Change-Id. Prints the twin SHAs: "local=<sha> upstream=<sha>".
+#   fork_scenario_double_applied_export
+#       The ca70f36 class: the same change lands upstream twice — once in a
+#       full commit, once re-applied as a docs-only remainder at a different
+#       offset. Prints: "local=<sha> upstream_first=<sha> upstream_dup=<sha>".
+#   fork_scenario_upstream_evolved
+#       Upstream adds further commits touching the same lines the fork's
+#       twin-edited file has, so a replay of the twin would conflict.
+# ---------------------------------------------------------------------------
+
+_fork_scenario_commit() {
+    # Deterministic commit on the working clone: fork_scenario_commit <file> <line> <subject> <date>
+    local file="$1" line="$2" subject="$3" date="$4"
+    printf '%s\n' "$line" >> "$FORK_FIXTURE_WORKING_CLONE/$file"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add "$file"
+    GIT_AUTHOR_DATE="$date" GIT_COMMITTER_DATE="$date" \
+        git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "$subject"
+}
+
+_fork_scenario_install_change_id_hook() {
+    # Commits with Change-Ids the way real ones get them: the hook.
+    mkdir -p "$FORK_FIXTURE_WORKING_CLONE/.git/hooks"
+    printf '#!/bin/sh\nexec bash "%s/internal/prepare-commit-msg.sh" "$@"\n' "$DEVENV_TOOLS" \
+        > "$FORK_FIXTURE_WORKING_CLONE/.git/hooks/prepare-commit-msg"
+    chmod +x "$FORK_FIXTURE_WORKING_CLONE/.git/hooks/prepare-commit-msg"
+}
+
+fork_scenario_pre_change_id_backlog() {
+    local count="${1:-2}" i date
+    for ((i = 1; i <= count; i++)); do
+        date="$(printf '2026-09-01T10:%02d:00' "$i")"
+        _fork_scenario_commit "backlog.txt" "backlog line $i" "backlog: pre-change-id commit $i" "$date"
+    done
+}
+
+fork_scenario_export_and_edit_twin() {
+    _fork_scenario_install_change_id_hook
+    _fork_scenario_commit "file_twin.txt" "twin base line" "feat: twin commit for export" "2026-09-02T10:00:00"
+
+    # Export into the gh-clone (upstream side): apply the patch there.
+    local local_sha upstream_sha
+    local_sha="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" format-patch -1 --stdout HEAD \
+        | git -C "$FORK_FIXTURE_GH_CLONE" am -q
+    # One-line difference at the target: same Change-Id, patch-ids now differ.
+    printf 'target adaptation line\n' >> "$FORK_FIXTURE_GH_CLONE/file_twin.txt"
+    git -C "$FORK_FIXTURE_GH_CLONE" add file_twin.txt
+    git -C "$FORK_FIXTURE_GH_CLONE" commit -q --amend --no-edit
+    upstream_sha="$(git -C "$FORK_FIXTURE_GH_CLONE" rev-parse HEAD)"
+    printf 'local=%s upstream=%s\n' "$local_sha" "$upstream_sha"
+}
+
+fork_scenario_double_applied_export() {
+    _fork_scenario_install_change_id_hook
+    _fork_scenario_commit "docs_double.txt" "the section content" "docs: add the section" "2026-09-03T10:00:00"
+
+    local local_sha first_sha dup_sha
+    local_sha="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" format-patch -1 --stdout HEAD \
+        | git -C "$FORK_FIXTURE_GH_CLONE" am -q
+    first_sha="$(git -C "$FORK_FIXTURE_GH_CLONE" rev-parse HEAD)"
+    # Re-apply the same hunk again, at a different offset (the ca70f36 class):
+    # the exporter-side duplicate that no current check catches. A second
+    # identical patch would add/add-conflict with itself, so the duplicate
+    # lands as the real-world shape: the same content appended again (new
+    # hunk offset), committed under the same subject.
+    printf 'the section content\n' >> "$FORK_FIXTURE_GH_CLONE/docs_double.txt"
+    git -C "$FORK_FIXTURE_GH_CLONE" add docs_double.txt
+    GIT_AUTHOR_DATE="2026-09-03T10:00:00" GIT_COMMITTER_DATE="2026-09-06T10:00:00" \
+        git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "docs: add the section"
+    dup_sha="$(git -C "$FORK_FIXTURE_GH_CLONE" rev-parse HEAD)"
+    printf 'local=%s upstream_first=%s upstream_dup=%s\n' "$local_sha" "$first_sha" "$dup_sha"
+}
+
+fork_scenario_upstream_evolved() {
+    local i date
+    for ((i = 1; i <= 2; i++)); do
+        date="$(printf '2026-09-04T10:%02d:00' "$i")"
+        printf 'upstream evolution %s\n' "$i" >> "$FORK_FIXTURE_GH_CLONE/file_twin.txt"
+        git -C "$FORK_FIXTURE_GH_CLONE" add file_twin.txt
+        GIT_AUTHOR_DATE="$date" GIT_COMMITTER_DATE="$date" \
+            git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "upstream: evolve the twin file $i"
+    done
+}
+
 # Helper to check if a function exists
 function_exists() {
     declare -f -F "$1" > /dev/null

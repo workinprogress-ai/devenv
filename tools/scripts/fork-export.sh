@@ -225,7 +225,7 @@ refuse_merge_commits() {
   {
     echo "the range $1 contains merge commit(s), which cannot be exported:"
     echo "$merges"
-    echo "Rebase the branch onto upstream first (fork-sync --rebase) so the range is linear,"
+    echo "Replay the branch on top of upstream first (fork-sync --replay) so the range is linear,"
     echo "or choose commits that exclude the merge (--start-ref, or the picker)."
   } >&2
   exit "$EXIT_MISUSE"
@@ -609,6 +609,21 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Amend `Fork-Adapted: yes` onto the commit the target just resolved from a
+# conflict (only when the copy does not already declare it). Best-effort: a
+# failure leaves the commit unstamped and matching falls back to residue
+# reporting.
+#
+# Usage: stamp_fork_adapted TARGET_ROOT
+stamp_fork_adapted() {
+  local target_root="$1" sha message
+  sha="$(git -C "$target_root" rev-parse -q --verify HEAD 2>/dev/null)" || return 0
+  message="$(git -C "$target_root" log -1 --format=%B "$sha")"
+  change_id_is_fork_adapted "$message" && return 0
+  printf '%s\n' "$message" | git -C "$target_root" interpret-trailers \
+    --trailer "Fork-Adapted: yes" | git -C "$target_root" commit --amend -q --no-edit -F - || true
+}
+
 wait_for_conflict_resolution() {
   local target_root="$1" operation="$2" unresolved state_path
   while :; do
@@ -648,17 +663,97 @@ wait_for_conflict_resolution() {
             continue
           fi
           return 1
+        else
+          # A conflict-resolved copy carries target-side adaptation: declare
+          # it so twin matching treats the Change-Id as authoritative.
+          stamp_fork_adapted "$target_root"
         fi
         ;;
       am)
         if ! GIT_EDITOR=true git -C "$target_root" am --continue; then
           [ -d "$state_path" ] || return 1
           echo "Patch application could not continue; review the target clone and resolve any remaining issue." >&2
+        else
+          # A conflict-resolved copy carries target-side adaptation: declare
+          # it so twin matching treats the Change-Id as authoritative.
+          stamp_fork_adapted "$target_root"
         fi
         ;;
     esac
   done
 }
+
+# Build the stamped export copy of one commit: same tree/parents/author,
+# message amended to carry a Change-Id (generated when absent — the copy
+# gets identity even when the fork-side original predates the hook) and an
+# Exported-From trailer pointing at the fork-side SHA. Prints the new SHA.
+#
+# Usage: build_stamped_commit_with_parents COMMIT [-p PARENT]...
+build_stamped_commit_with_parents() {
+  local commit="$1"; shift
+  local tree an ae ad new_message message id stamped
+  tree="$(git -C "$REPO_ROOT" rev-parse "$commit^{tree}")"
+  message="$(git -C "$REPO_ROOT" log -1 --format=%B "$commit")"
+  id="$(change_id_get_from_message "$message" || true)"
+  if [ -z "$id" ]; then
+    # interpret-trailers --parse misses a Change-Id glued to the subject (no
+    # blank line before the trailer block). Reuse such a buried id rather
+    # than generating a second one that breaks twin matching.
+    id="$(printf '%s\n' "$message" | grep -oP '^Change-Id: \K.*' | tail -1)"
+  fi
+  # Normalize: command substitution strips trailing newlines, so rebuild the
+  # message deterministically — body paragraph, blank line, trailer block.
+  # printf interprets \n in the FORMAT string (a plain assignment would leave
+  # a literal backslash-n and fold both trailers onto one line).
+  new_message="${message%"${message##*[![:space:]]}"}"   # strip trailing whitespace
+  if [ -z "$id" ]; then
+    id="$(change_id_generate)" || die "could not generate a Change-Id for $commit" "$EXIT_GENERAL_ERROR"
+    new_message="$(printf '%s\n\nChange-Id: %s\nExported-From: %s' "$new_message" "$id" "$commit")"
+  else
+    new_message="$(printf '%s\n\nExported-From: %s' "$new_message" "$commit")"
+  fi
+  an="$(git -C "$REPO_ROOT" log -1 --format=%an "$commit")"
+  ae="$(git -C "$REPO_ROOT" log -1 --format=%ae "$commit")"
+  ad="$(git -C "$REPO_ROOT" log -1 --format=%aI "$commit")"
+  stamped="$(printf '%s\n' "$new_message" | GIT_AUTHOR_NAME="$an" GIT_AUTHOR_EMAIL="$ae" GIT_AUTHOR_DATE="$ad" \
+    git -C "$REPO_ROOT" commit-tree "$tree" "$@")" || die "could not build the stamped export copy of $commit" "$EXIT_GENERAL_ERROR"
+  [ -n "$stamped" ] || die "could not build the stamped export copy of $commit" "$EXIT_GENERAL_ERROR"
+  printf '%s\n' "$stamped"
+}
+
+# Convenience wrapper: stamped copy with the commit's own parents.
+#
+# Usage: build_stamped_commit COMMIT
+build_stamped_commit() {
+  local commit="$1" parents=() psha
+  for psha in $(git -C "$REPO_ROOT" rev-list --parents -1 "$commit" | awk '{for (i = 2; i <= NF; i++) print $i}'); do
+    parents+=(-p "$psha")
+  done
+  build_stamped_commit_with_parents "$commit" "${parents[@]}"
+}
+
+# Stamp the exported copies: every exported commit carries a Change-Id
+# (generated when the fork-side original lacks one) and an Exported-From
+# trailer naming the fork-side SHA, so the upstream copy and the original
+# pair mechanically later. Runs after the final selection, before any output
+# is produced, so bundle, patch, and apply paths all carry the stamps.
+if [ "${#COMMITS[@]}" -gt 0 ]; then
+  # Stamp oldest-first (COMMITS is oldest→newest) so each commit's stamped
+  # parents reference already-stamped in-range ancestors; parents outside the
+  # range keep their original SHAs (the shared upstream base).
+  declare -A STAMP_MAP=()
+  STAMPED_COMMITS=()
+  for commit in "${COMMITS[@]}"; do
+    parents=()
+    for psha in $(git -C "$REPO_ROOT" rev-list --parents -1 "$commit" | awk '{for (i = 2; i <= NF; i++) print $i}'); do
+      parents+=(-p "${STAMP_MAP[$psha]:-$psha}")
+    done
+    stamped="$(build_stamped_commit_with_parents "$commit" "${parents[@]}")"
+    STAMP_MAP["$commit"]="$stamped"
+    STAMPED_COMMITS+=("$stamped")
+  done
+  COMMITS=("${STAMPED_COMMITS[@]}")
+fi
 
 OUTPUT_ROOT="$REPO_ROOT/.local-artifacts/fork-export/$RANGE_SLUG"
 if [ -n "$APPLY_TO" ]; then
@@ -699,6 +794,7 @@ if [ "$FORMAT" = "patch" ] || [ "$FORMAT" = "both" ]; then
   done
   [ -n "$APPLY_TO" ] || echo "Patches: $PATCH_DIR"
 fi
+# Stamp the exported copies: every exported commit carries a Change-Id
 echo "Commits: ${#COMMITS[@]}"
 
 if [ -n "$APPLY_TO" ]; then

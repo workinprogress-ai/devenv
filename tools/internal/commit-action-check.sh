@@ -3,11 +3,13 @@
 # contract: self-location wins; a foreign exported DEVENV_TOOLS is ignored).
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
-# check-commit-trailers.sh - Enforce the Devenv-Action commit trailer
-# Version: 1.0.0
+# commit-action-check.sh - Enforce the Devenv-Action commit trailer
+# Version: 1.1.0
 # Description: One home for the Devenv-Action rule. Message-file mode serves the
 #              local commit-msg hook; commit-range mode serves CI, so a clone
 #              without hooks cannot land trailer-less commits on master.
+#              INTERNAL tooling: invoked by .husky/commit-msg and the CI
+#              commit-messages job — not part of the user-facing tool surface.
 # Requirements: Bash 4.0+, git
 
 set -euo pipefail
@@ -131,7 +133,6 @@ main() {
         case "$1" in
             -h|--help) show_usage ;;
             -v|--version) echo "$SCRIPT_VERSION"; exit 0 ;;
-            -V|--verbose) shift ;;
             --message-file)
                 require_option_value "$1" "${2:-}"
                 [ -z "${2:-}" ] && invalid_args "Missing value for --message-file"

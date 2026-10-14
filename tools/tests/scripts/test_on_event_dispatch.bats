@@ -9,7 +9,7 @@ load ../test_helper
 
 setup() {
     test_helper_setup
-    DISPATCH="$PROJECT_ROOT/tools/scripts/_on_event_dispatch.sh"
+    DISPATCH="$PROJECT_ROOT/tools/internal/_on_event_dispatch.sh"
 }
 
 @test "dispatcher: no args is a usage error" {

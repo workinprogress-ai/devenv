@@ -73,13 +73,20 @@ _devenv_offer_restart() {
 
 # Carry out the post-update action for the commits pulled since OLD_REF.
 #
-# Usage: devenv_post_update OLD_REF [NEW_REF]
+# Usage: devenv_post_update OLD_REF [NEW_REF] [SCAN_BASE]
+#
+# NEW_REF defaults to HEAD. SCAN_BASE, when given, replaces OLD_REF as the
+# scan range's lower bound: after an update onto a rewritten remote (a fork
+# sync reset/rebase), OLD..HEAD would span the ENTIRE rewritten span —
+# including months-old trailers — while SCAN_BASE is the pre-rewrite tip, so
+# SCAN_BASE..NEW_REF covers exactly the new upstream commits.
 #
 # Returns 1 when a bootstrap the user asked for failed, 0 otherwise.
 devenv_post_update() {
     local action bootstrap_script recreate_choice run_bootstrap_now
+    local old_ref="$1" new_ref="${2:-HEAD}" scan_base="${3:-}"
     bootstrap_script="$_DEVENV_POST_UPDATE_ROOT/.devcontainer/bootstrap.sh"
-    action=$(devenv_highest_action "$@")
+    action=$(devenv_highest_action "${scan_base:-$old_ref}" "$new_ref")
 
     case "$action" in
         recreate)

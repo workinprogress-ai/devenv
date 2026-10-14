@@ -1,6 +1,6 @@
 # Skill Event Configuration
 # Maps skill lifecycle events to GitHub Project Status transitions.
-# Consumed by the _on_* event scripts (tools/scripts/_on_event_dispatch.sh);
+# Consumed by the _on_* event scripts (tools/internal/_on_event_dispatch.sh);
 # skills call the events and never read this file or know Status vocabulary.
 #
 # Event names follow the begin/end pair convention, one event per lifecycle

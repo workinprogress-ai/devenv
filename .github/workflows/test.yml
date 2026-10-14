@@ -112,10 +112,13 @@ jobs:
           corepack enable   # pnpm version comes from package.json "packageManager"
           pnpm install --frozen-lockfile
 
-      - name: Run markdownlint on changed files
+      - name: Lint documentation (markdown + relative links/anchors)
         if: steps.changed.outputs.files != ''
         run: |
-          echo "${{ steps.changed.outputs.files }}" | xargs -r pnpm exec markdownlint-cli2
+          # lint-documentation runs markdownlint AND checks that relative .md
+          # links resolve — including in-page anchors (GitHub-style heading
+          # fragments), the stale-write failure class.
+          ./tools/scripts/lint-documentation.sh ${{ steps.changed.outputs.files }}
 
       - name: Check links on changed files
         if: steps.changed.outputs.files != ''
@@ -128,6 +131,8 @@ jobs:
               exit 1
             }
           done
+
+
 
   commit-messages:
     name: Commit messages
@@ -142,6 +147,7 @@ jobs:
         with:
           node-version: "20.14.0"
 
+
       - name: Install the pinned linters
         run: |
           corepack enable
@@ -153,4 +159,4 @@ jobs:
         run: pnpm exec commitlint --from "${{ github.event.pull_request.base.sha }}" --to "${{ github.event.pull_request.head.sha }}"
 
       - name: Devenv-Action trailer
-        run: ./tools/scripts/check-commit-trailers.sh "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"
+        run: ./tools/internal/commit-action-check.sh "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"

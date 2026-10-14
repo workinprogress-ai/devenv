@@ -36,7 +36,7 @@ _setup_sync_fixture() {
     [ "$status" -eq 0 ]
     [[ "$output" == *"fork-sync.sh"* ]]
     [[ "$output" == *"ahead/behind"* ]]
-    [[ "$output" == *"--rebase"* ]]
+    [[ "$output" == *"--replay"* ]]
     [[ "$output" == *"git rebase --abort"* ]]
     [[ "$output" == *"--push-to-origin"* ]]
     [[ "$output" == *"--rewrite-origin"* ]]
@@ -99,7 +99,7 @@ _setup_sync_fixture() {
     [[ "$output" == *"Ahead: 1"* ]]
     [[ "$output" == *"< "*"Upstream ahead commit"* ]]
     [[ "$output" == *"> "*"Local ahead commit"* ]]
-    [[ "$output" == *"Action needed"*"run 'fork-sync --rebase'"* ]]
+    [[ "$output" == *"Action needed"*"run 'fork-sync --replay'"* ]]
 }
 
 @test "fork-sync: reports behind-only upstream divergence" {
@@ -114,7 +114,7 @@ _setup_sync_fixture() {
     [[ "$output" == *"Behind: 1"* ]]
     [[ "$output" == *"Ahead: 0"* ]]
     [[ "$output" == *"< "*"Upstream ahead commit"* ]]
-    [[ "$output" == *"Action needed"*"run 'fork-sync --rebase'"* ]]
+    [[ "$output" == *"Action needed"*"run 'fork-sync --replay'"* ]]
 }
 
 @test "fork-sync: reports ahead-only local divergence" {
@@ -135,14 +135,14 @@ _setup_sync_fixture() {
     _setup_sync_fixture
     before_ref="$(git rev-parse --verify refs/remotes/upstream/master 2>/dev/null || true)"
 
-    run bash "$SCRIPT" --dry-run --rebase
+    run bash "$SCRIPT" --dry-run --replay
     [ "$status" -eq 0 ]
     [[ "$output" == *"dry run: would fetch upstream"* ]]
-    [[ "$output" == *"dry run: would rebase the current branch"* ]]
+    [[ "$output" == *"dry run: would replay the branch"* ]]
     [ "$(git rev-parse --verify refs/remotes/upstream/master 2>/dev/null || true)" = "$before_ref" ]
 }
 
-@test "fork-sync: --rebase rebases local commits onto upstream without merge commits" {
+@test "fork-sync: --replay replays local commits on top of upstream without merge commits" {
     _setup_sync_fixture
     printf 'local change\n' > "$FORK_FIXTURE_WORKING_CLONE/local.txt"
     git -C "$FORK_FIXTURE_WORKING_CLONE" add local.txt
@@ -153,7 +153,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_GH_CLONE" commit -qm "Upstream ahead commit"
     git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
 
-    run bash "$SCRIPT" --rebase
+    run bash "$SCRIPT" --replay
     [ "$status" -eq 0 ]
     git -C "$FORK_FIXTURE_WORKING_CLONE" merge-base --is-ancestor refs/remotes/upstream/master HEAD
     [ -z "$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-list --merges refs/remotes/upstream/master..HEAD)" ]
@@ -162,7 +162,7 @@ _setup_sync_fixture() {
     [[ "$output" == *"Ahead: 1"* ]]
 }
 
-@test "fork-sync: --rebase conflict prints exact abort guidance and leaves recoverable state" {
+@test "fork-sync: --replay conflict prints exact abort guidance and leaves recoverable state" {
     _setup_sync_fixture
     printf 'local version\n' > "$FORK_FIXTURE_WORKING_CLONE/README.md"
     git -C "$FORK_FIXTURE_WORKING_CLONE" add README.md
@@ -173,14 +173,14 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_GH_CLONE" commit -qm "Upstream conflicting commit"
     git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
 
-    run bash "$SCRIPT" --rebase
+    run bash "$SCRIPT" --replay
     [ "$status" -ne 0 ]
     [[ "$output" == *"Rebase conflict"* ]]
     [[ "$output" == *"git -C $FORK_FIXTURE_WORKING_CLONE rebase --abort"* ]]
     git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse --verify REBASE_HEAD >/dev/null
 }
 
-@test "fork-sync: non-TTY --push-to-origin without --yes fails before fetch, rebase, or push" {
+@test "fork-sync: non-TTY --push-to-origin without --yes fails before fetch, replay, or push" {
     _setup_sync_fixture
     printf 'upstream change\n' > "$FORK_FIXTURE_GH_CLONE/upstream.txt"
     git -C "$FORK_FIXTURE_GH_CLONE" add upstream.txt
@@ -192,7 +192,7 @@ _setup_sync_fixture() {
     before_origin_ref="$(git rev-parse --verify refs/remotes/origin/master 2>/dev/null || true)"
     before_origin_tip="$(git -C "$FORK_FIXTURE_ADO_ORIGIN" rev-parse master)"
 
-    run bash -c 'bash "$@" </dev/null' _ "$SCRIPT" --rebase --push-to-origin
+    run bash -c 'bash "$@" </dev/null' _ "$SCRIPT" --replay --push-to-origin
     [ "$status" -ne 0 ]
     [[ "$output" == *"--yes"* ]]
     [ "$(git rev-parse HEAD)" = "$before_head" ]
@@ -201,7 +201,7 @@ _setup_sync_fixture() {
     [ "$(git -C "$FORK_FIXTURE_ADO_ORIGIN" rev-parse master)" = "$before_origin_tip" ]
 }
 
-@test "fork-sync: --push-to-origin refuses a branch behind upstream unless --rebase is requested" {
+@test "fork-sync: --push-to-origin refuses a branch behind upstream unless --replay is requested" {
     _setup_sync_fixture
     printf 'upstream change\n' > "$FORK_FIXTURE_GH_CLONE/upstream.txt"
     git -C "$FORK_FIXTURE_GH_CLONE" add upstream.txt
@@ -211,7 +211,7 @@ _setup_sync_fixture() {
 
     run bash -c 'bash "$@" </dev/null' _ "$SCRIPT" --push-to-origin --yes
     [ "$status" -ne 0 ]
-    [[ "$output" == *"--rebase"* ]]
+    [[ "$output" == *"--replay"* ]]
     [ "$(git -C "$FORK_FIXTURE_ADO_ORIGIN" rev-parse master)" = "$before_origin_tip" ]
 }
 
@@ -409,7 +409,7 @@ _setup_sync_fixture() {
     [[ "$output" == *"feat: add a"* ]]
     [[ "$output" == *"feat: add b"* ]]
     # the fork-only commit is not in the already-upstream list
-    ! sed -n '/look already upstream/,/A rebase drops/p' <<< "$output" | grep -q "fork: only here"
+    ! sed -n '/look already upstream/,/The replay drops/p' <<< "$output" | grep -q "fork: only here"
 }
 
 @test "fork-sync: names no already-upstream commits when there are none" {
@@ -500,7 +500,7 @@ _setup_sync_fixture() {
     [[ "$output" != *"Action needed:"* ]]
 }
 
-@test "fork-sync: --rebase refuses local history with a merge commit since the upstream merge-base" {
+@test "fork-sync: --replay refuses local history with a merge commit since the upstream merge-base" {
     _setup_sync_fixture
     git -C "$FORK_FIXTURE_WORKING_CLONE" checkout -qb side
     echo side > "$FORK_FIXTURE_WORKING_CLONE/side.txt"
@@ -510,19 +510,19 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_WORKING_CLONE" merge -q --no-ff -m "Merge side" side
     before_head="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)"
 
-    run bash "$SCRIPT" --rebase
+    run bash "$SCRIPT" --replay
     [ "$status" -ne 0 ]
     [[ "$output" == *"contains merge commit(s)"* ]]
     [[ "$output" == *"Merge side"* ]]
     [ "$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)" = "$before_head" ]
 }
 
-@test "fork-sync: --rebase refuses a dirty working tree before fetching" {
+@test "fork-sync: --replay refuses a dirty working tree before fetching" {
     _setup_sync_fixture
     echo dirty > "$FORK_FIXTURE_WORKING_CLONE/dirty.txt"
     before_ref="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse --verify refs/remotes/upstream/master 2>/dev/null || true)"
 
-    run bash "$SCRIPT" --rebase
+    run bash "$SCRIPT" --replay
     [ "$status" -ne 0 ]
     [[ "$output" == *"uncommitted changes"* ]]
     [ "$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse --verify refs/remotes/upstream/master 2>/dev/null || true)" = "$before_ref" ]
@@ -537,7 +537,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_GH_CLONE" add README.md
     git -C "$FORK_FIXTURE_GH_CLONE" commit -qm "Upstream conflicting commit"
     git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
-    bash "$SCRIPT" --rebase || true
+    bash "$SCRIPT" --replay || true
     git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse --verify REBASE_HEAD >/dev/null
 
     run bash "$SCRIPT"
@@ -556,4 +556,59 @@ _setup_sync_fixture() {
     run bash "$SCRIPT"
     [ "$status" -ne 0 ]
     [[ "$output" == *"share no common history"* ]]
+}
+
+# ---------------------------------------------------------------------------
+# Twin-aware sync contract tests: the classified replay scenario (fork
+# commits exported upstream, then synced back down).
+# ---------------------------------------------------------------------------
+
+# Report §5 shape: backlog (no Change-Id) + twin-exported-and-edited + double
+# application upstream, then upstream evolves the same lines. The classified
+# replay must complete conflict-free and leave only genuinely fork-only
+# commits on top of upstream's tip.
+@test "fork-sync: --replay --yes completes conflict-free when upstream already holds exported twins" {
+    _setup_sync_fixture
+    fork_scenario_pre_change_id_backlog 2
+    fork_scenario_export_and_edit_twin
+    fork_scenario_double_applied_export
+    fork_scenario_upstream_evolved
+    # Land upstream's evolved state so the working clone can sync down to it.
+    git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
+
+    run bash "$SCRIPT" --replay --yes
+    [ "$status" -eq 0 ]
+    # Upstream tip is an ancestor (synced onto it) and no merge commits exist.
+    git -C "$FORK_FIXTURE_WORKING_CLONE" merge-base --is-ancestor refs/remotes/upstream/master HEAD
+    [ -z "$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-list --merges refs/remotes/upstream/master..HEAD)" ]
+    # Only genuinely fork-only commits remain: the two backlog commits. The
+    # twin (edited at the target) and its downstream shadow must not replay.
+    local remaining
+    remaining="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-list --count refs/remotes/upstream/master..HEAD)"
+    [ "$remaining" -eq 2 ]
+    git -C "$FORK_FIXTURE_WORKING_CLONE" log --format=%s "refs/remotes/upstream/master..HEAD" > "$TEST_TEMP_DIR/subjects.txt"
+    grep -q "pre-change-id commit 1" "$TEST_TEMP_DIR/subjects.txt"
+    grep -q "pre-change-id commit 2" "$TEST_TEMP_DIR/subjects.txt"
+    ! grep -q "twin commit for export" "$TEST_TEMP_DIR/subjects.txt"
+}
+
+@test "fork-sync: --dry-run classifies exported twins as already-upstream and names the residue" {
+    _setup_sync_fixture
+    fork_scenario_pre_change_id_backlog 2
+    fork_scenario_export_and_edit_twin
+    fork_scenario_upstream_evolved
+    git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
+    # Dry-run does not fetch; the plan classifies against the last fetch.
+    git fetch -q upstream
+
+    run bash "$SCRIPT" --dry-run --replay
+    [ "$status" -eq 0 ]
+    # The twin commit is classified as already upstream…
+    [[ "$output" == *"twin commit for export"*"already upstream"* ]]
+    # …and the residue — the one-line target adaptation — is named, not silent.
+    [[ "$output" == *"residue"*"file_twin.txt"* ]]
+    # The pre-Change-Id backlog commits are classified via recorded links or
+    # reported as needing adoption, never silently replayed as new work.
+    [[ "$output" == *"pre-change-id commit 1"* ]]
+    [[ "$output" == *"pre-change-id commit 2"* ]]
 }

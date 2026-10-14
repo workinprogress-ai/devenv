@@ -26,7 +26,9 @@ while [ "$#" -gt 0 ]; do
             echo "Usage: $(basename "$0") [--fix] [file ...]"
             echo ""
             echo "Without file arguments, lints README.md and docs/**/*.md"
-            echo "--fix    Apply autofixes where possible"
+            echo "Also checks relative .md links and their in-page anchors"
+            echo "(GitHub-style fragments) in the linted files."
+            echo "--fix    Apply markdown autofixes where possible"
             exit 0
             ;;
         *)
@@ -120,27 +122,89 @@ if [ "$FIX_MODE" = true ]; then
 fi
 
 ( cd "$TARGET_ROOT" && "${CMD[@]}" )
-if [ "$?" -eq 0 ]; then
-    if [ "$FIX_MODE" = true ]; then
-        # compare hashes after
-        ( cd "$TARGET_ROOT" && for f in "${FILES[@]}"; do 
-            if [ -f "$f" ]; then 
-                AFTER=$(md5sum "$f" | awk '{print $1}') 
-                if [ "${BEFORE_HASH[$f]:-}x" != "${AFTER}x" ]; then FIXED_ANY=true; fi 
-            fi 
-        done )
-    fi
+LINT_STATUS=$?
+if [ "$FIX_MODE" = true ]; then
+    # compare hashes after
+    ( cd "$TARGET_ROOT" && for f in "${FILES[@]}"; do 
+        if [ -f "$f" ]; then 
+            AFTER=$(md5sum "$f" | awk '{print $1}') 
+            if [ "${BEFORE_HASH[$f]:-}x" != "${AFTER}x" ]; then FIXED_ANY=true; fi 
+        fi 
+    done )
+fi
 
-    echo ""
-    echo "✓ Markdown linting completed successfully!"
-    if [ "$FIX_MODE" = true ] && [ "$FIXED_ANY" = true ]; then
-        echo ""
-        echo "Review the changes with: git -C '$TARGET_ROOT' diff"
-        echo "Stage the changes with: git -C '$TARGET_ROOT' add -A"
-    fi
-else
+if [ "$LINT_STATUS" -ne 0 ]; then
     echo ""
     echo "⚠ Some linting issues could not be auto-fixed."
     echo "Please review the errors above and fix them manually."
     exit 1
 fi
+
+echo ""
+echo "✓ Markdown linting completed successfully!"
+if [ "$FIX_MODE" = true ] && [ "$FIXED_ANY" = true ]; then
+    echo ""
+    echo "Review the changes with: git -C '$TARGET_ROOT' diff"
+    echo "Stage the changes with: git -C '$TARGET_ROOT' add -A"
+fi
+
+# ---------------------------------------------------------------------------
+# Relative .md link + anchor check
+#
+# A stale editor write once removed sections from docs/Forking.md while links
+# to their headings survived elsewhere: the file resolved, the anchors dangled.
+# For every relative .md link in the linted files, verify the target file
+# exists and — when the link carries a #fragment — that a heading matching the
+# anchor (GitHub-style: lowercased, spaces as dashes, punctuation stripped)
+# exists in the target. External URLs are markdown-link-check's job (CI), not
+# ours.
+# ---------------------------------------------------------------------------
+
+# GitHub-style anchor for a heading line.
+anchor_of_heading() {
+    local heading="$1"
+    heading="${heading%%|*}"                 # strip table-row remainder
+    heading="${heading#*# }"                 # strip leading hashes+space
+    heading="${heading##* ]}"                # strip leading list markers
+    heading="${heading##*> }"                # strip blockquote markers
+    heading="${heading,,}"
+    heading="${heading// /-}"
+    # shellcheck disable=SC1112  # unicode dashes/quotes are the point here
+    heading="$(printf '%s' "$heading" | tr -d '`*_.,:;!?()[]&/—–“”‘’#')"
+    printf '%s' "$heading"
+}
+
+link_failures=0
+links_checked=0
+for md_file in "${FILES[@]}"; do
+    [ -f "$TARGET_ROOT/$md_file" ] || continue
+    file_rel="${md_file#./}"
+    rel_dir="$(dirname "$file_rel")"
+    while IFS= read -r -d '' link; do
+        target="${link%%#*}"
+        anchor=""
+        case "$link" in
+            *"#"*) anchor="${link#*#}" ;;
+        esac
+        [ -n "$target" ] || continue
+        resolved="$(cd "$TARGET_ROOT/$rel_dir" 2>/dev/null && realpath -m --relative-to="$TARGET_ROOT" "$target" 2>/dev/null)" || continue
+        links_checked=$((links_checked + 1))
+        if [ ! -f "$TARGET_ROOT/$resolved" ]; then
+            printf 'BROKEN LINK: %s -> %s (file not found)\n' "$file_rel" "$link" >&2
+            link_failures=$((link_failures + 1))
+            continue
+        fi
+        [ -n "$anchor" ] || continue
+        found=0
+        while IFS= read -r heading_line; do
+            [ "$anchor" = "$(anchor_of_heading "$heading_line")" ] && found=1 && break
+        done < <(grep -E "^#{1,6} " "$TARGET_ROOT/$resolved" 2>/dev/null)
+        if [ "$found" -ne 1 ]; then
+            printf 'DANGLING ANCHOR: %s -> %s#%s\n' "$file_rel" "$resolved" "$anchor" >&2
+            link_failures=$((link_failures + 1))
+        fi
+    done < <(grep -oE '\]\([^)]+\.md[^)]*\)' "$TARGET_ROOT/$md_file" 2>/dev/null | sed 's/^](//; s/)$//' | sort -u | tr '\n' '\0')
+done
+
+echo "Checked $links_checked relative .md link(s); $link_failures failure(s)."
+[ "$link_failures" -eq 0 ] || exit 1

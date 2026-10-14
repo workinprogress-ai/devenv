@@ -1,12 +1,12 @@
 #!/usr/bin/env bats
-# Tests for scripts/check-commit-trailers.sh: the Devenv-Action trailer gate used
+# Tests for internal/commit-action-check.sh: the Devenv-Action trailer gate used
 # by the commit-msg hook (message-file mode) and by CI (commit-range mode).
 
 bats_require_minimum_version 1.5.0
 
 load ../test_helper
 
-SCRIPT="$BATS_TEST_DIRNAME/../../scripts/check-commit-trailers.sh"
+SCRIPT="$BATS_TEST_DIRNAME/../../internal/commit-action-check.sh"
 
 setup() {
     test_helper_setup
@@ -30,7 +30,7 @@ commit() { # commit <subject> [trailer-line]
     if [ -n "${2:-}" ]; then git commit -q -m "$1" -m "$2"; else git commit -q -m "$1"; fi
 }
 
-@test "check-commit-trailers.sh has valid bash syntax" {
+@test "commit-action-check.sh has valid bash syntax" {
     run bash -n "$SCRIPT"
     [ "$status" -eq 0 ]
 }
@@ -105,7 +105,7 @@ commit() { # commit <subject> [trailer-line]
 }
 
 @test "the commit-msg hook delegates to this script (single source for the valid values)" {
-    run grep -n 'check-commit-trailers' "$PROJECT_ROOT/.husky/commit-msg"
+    run grep -n 'commit-action-check' "$PROJECT_ROOT/.husky/commit-msg"
     [ "$status" -eq 0 ]
     run grep -n 'nothing|restart|bootstrap|recreate' "$PROJECT_ROOT/.husky/commit-msg"
     [ "$status" -ne 0 ]

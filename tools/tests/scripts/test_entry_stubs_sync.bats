@@ -155,8 +155,9 @@ _make_stub() {
     root="$(mktemp -d)"
     _make_mock_checkout "$root"
     _make_script "$root" "alpha.sh"
-    printf '#!/bin/bash\nexec bash "$(dirname "$0")/scripts/_on_event_dispatch.sh" "_on_merge" "$@"\n' > "$root/tools/scripts/_on_merge.sh"
-    chmod +x "$root/tools/scripts/_on_merge.sh"
+    mkdir -p "$root/tools/internal"
+    printf '#!/bin/bash\nexec bash "$(dirname "$0")/internal/_on_event_dispatch.sh" "_on_merge" "$@"\n' > "$root/tools/internal/_on_merge.sh"
+    chmod +x "$root/tools/internal/_on_merge.sh"
 
     run bash "$SYNC_SCRIPT"
     [ "$status" -eq 0 ]

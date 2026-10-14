@@ -58,6 +58,14 @@ change_id_get_from_commit() {
     change_id_get_from_message "$message"
 }
 
+# Whether a commit message carries `Fork-Adapted: yes` — the target-side
+# declaration that a Change-Id match is authoritative despite patch drift.
+change_id_is_fork_adapted() {
+    local value
+    value="$(change_id_get_trailer "$1" "Fork-Adapted")"
+    [ "${value,,}" = "yes" ]
+}
+
 # Whether a commit message carries `Fork-Only: yes`.
 change_id_is_fork_only() {
     local value

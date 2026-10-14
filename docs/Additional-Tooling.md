@@ -19,6 +19,16 @@ Public functions:
   - No-op when `copilot/knowledge` is not an initialized git repository.
   - Used by `.devcontainer/startup.sh` so each container start refreshes Copilot knowledge when available.
 
+### `rewrite-detect.bash`
+
+Shared classifier for the devenv self-update flow: given the current branch, decides
+whether its divergence from `origin/<branch>` is a rewritten remote (a fork sync
+force-push) and, if so, whether the clone can be safely reset (`clean` — local HEAD
+is a past remote tip from the reflog) or needs a rebase (`diverged` — unique local
+work). Returns the pre-rewrite tip so the `Devenv-Action` trailer scan can be
+bounded to genuinely new upstream commits. Consumers: `git-update`,
+`check-update-devenv-repo.sh`, `devenv-update`.
+
 ### `workflow-core.bash`
 
 The workflow state engine: policy and orchestration for issue status. Zero direct I/O — all reads go through `issue-graph.bash`, all writes through the `project-update-issue` fan-out (grep-enforced by test). Sourced by `_on_event_dispatch.sh`, `issue-create.sh`, and the status tooling.
@@ -231,7 +241,7 @@ repo-create.sh --interactive
 **Config file:** `tools/config/repo-types.yaml` controls types, templates, naming patterns, rulesets, post-creation scripts, and commit handling.
 
 **Note on rulesets:**
-If repository rulesets cannot be applied during creation (e.g., your organization is not on GitHub Pro or the repo is private), use `repo-update-config.sh` later to apply the rulesets to an already-created repository. See the [Internal Scripts](#internal-scripts) section for details.
+If repository rulesets cannot be applied during creation (e.g., your organization is not on GitHub Pro or the repo is private), use `repo-update-config.sh` later to apply the rulesets to an already-created repository. See the [repo-update-config](#repo-update-configsh) section for details.
 
 ### `repo-update-all`
 
@@ -1641,8 +1651,8 @@ Event names accept bare, underscore, hyphen, or full forms (`staging-deploy` = `
 Deterministic lifecycle-event scripts that keep provider project-board status in sync as work moves through the workflow. Both local tooling and skills fire them; nobody has to think about project status unless they choose to.
 
 ```bash
-tools/scripts/_on_begin_grooming.sh 43   # one entry point per lifecycle event
-tools/scripts/_on_merge.sh 43            # fired by merge tooling after a successful merge
+tools/internal/_on_begin_grooming.sh 43 # one entry point per lifecycle event
+tools/internal/_on_merge.sh 43          # fired by merge tooling after a successful merge
 ```
 
 These are internal scripts (underscore prefix): they have no depth-1 `tools/` entry and are invoked via their `tools/scripts/` path. Interactive/batch firing goes through `workflow-signal` instead.
@@ -2524,7 +2534,10 @@ install-extras dns-hijack
 
 ### `devenv-update`
 
-Updates the devenv repository to the latest version from the git host.
+Updates the devenv repository to the latest version from the git host. Uses
+`git-update` internally, so a rewritten fork master (a maintainer fork sync) is
+handled the same way as the shell-start update check: reset when the clone has
+nothing unique, replay via rebase when it does.
 
 ```bash
 devenv-update
@@ -2730,11 +2743,57 @@ keep their consent gates regardless of how the namespace was supplied.
 
 Per-repo Compose file (when a repo ships one at its root) for running development dependencies — databases, message queues, and similar services alongside the dev container. Not a devenv-managed file: each repo owns its own. `container-*` tools target the devenv container itself, not these dependency stacks.
 
-## Internal Scripts
+## Internal machinery scripts (`tools/internal/`)
 
-Internal utility scripts located in `tools/scripts/` that are not exposed on the global `PATH`. These scripts are designed to support other tools and workflows but may also be run directly when specialized configuration management is needed.
+`tools/internal/` holds **machinery scripts** — scripts invoked by the devenv
+machinery itself (lifecycle event dispatch, git hooks) rather than by a person
+at a shell. The folder is the workspace's convention for "the user would
+generally not run this"; it answers the placement question that
+`tools/scripts/`, `tools/fork/`, and `tools/custom/` do not: those three are
+the override chain for user-facing tools, while `tools/internal/` sits outside
+it entirely.
+
+**What belongs here:** scripts whose only caller is other tooling —
+githook backing scripts, CI-only checkers, lifecycle event entry points.
+**What does not:** anything a user might legitimately invoke (that belongs in
+`tools/scripts/` and gets a `PATH` stub), and user-extensible machinery
+(githooks themselves live in `.husky/` and delegate here).
+
+**Contract:**
+
+- No depth-1 `tools/<name>` stub is generated for scripts in this folder
+  (`.devcontainer/entry-stubs-sync.sh` skips it).
+- Not on `PATH`; invoke by explicit path (`tools/internal/<name>.sh`).
+- Excluded from the `tools/*` gitignore whitelist via the `!tools/internal/`
+  entry in `.gitignore`, so the folder is tracked by git.
+- Not overridden by `tools/fork/` or `tools/custom/` — machinery behavior is
+  not user-replaceable through the override chain.
+- Tests live in `tools/tests/scripts/` like any other tool.
+
+**Current contents:**
+
+- **`prepare-commit-msg.sh`** — backing script for the `.husky/prepare-commit-msg`
+  githook; generates `Change-Id` trailers used by fork export/sync twin detection.
+- **`commit-action-check.sh`** — commit-message trailer linter run by the
+  `commit-messages` CI job (`.github/workflows/test.yml`) and the
+  `.husky/commit-msg` hook.
+- **`_on_*.sh`** — lifecycle event entry points fired by
+  `workflow-signal` / `pr-events.bash` via `_on_event_dispatch.sh` (begin/end
+  planning, implementation, review, grooming; merge; triage-complete; staging
+  and production deploy). Events are configured in
+  `tools/config/skill-events.yml`.
+
+**When to add here vs `tools/scripts/`:** ask "who is the caller?" If the
+caller is always machinery (a hook, CI, the event dispatcher), use
+`tools/internal/`. If a human might ever run it — even rarely — use
+`tools/scripts/` so it gets a `PATH` stub and enters the override chain.
+Scripts that are runnable later but outside any daily workflow belong in
+`tools/special/` instead (see below).
 
 ### `repo-update-config.sh`
+
+Off-`PATH` but user-runnable maintenance script (unlike the machinery scripts
+above): applies repository configuration after the fact.
 
 Applies or updates GitHub repository configuration to an existing cloned repository. This is useful when configuration could not be applied during initial repository creation due to account limitations (e.g., GitHub Pro specification item for private repos) or if the configuration has changed and needs to be reapplied.
 
@@ -2835,8 +2894,9 @@ service:
 Three tools keep a soft fork connected to its upstream (see [Keeping a Soft Fork in Sync and Contributing Back](./Forking.md#keeping-a-soft-fork-in-sync-and-contributing-back)). They are ordinary tools on `PATH`, and manual-only: none runs on its own.
 
 - **`fork-setup`**: one-time, local setup of the fetch-only `upstream` remote from `[fork]` config; `--dry-run` previews the remote and the push guard.
-- **`fork-sync`**: fetches upstream, reports divergence and the local commits that look already upstream, and optionally rebases or updates the same-named origin branch. Origin rewrites require `--rewrite-origin` and confirmation; use `--dry-run` to preview.
-- **`fork-export`**: exports an upstream-based, linear commit range as a bundle, patch series, or both (a range with a merge commit is refused with guidance); optionally applies it to a sibling clone of the upstream repository without upstream credentials. `--dry-run` previews the operation.
+- **`fork-sync`**: fetches upstream, reports divergence, classifies each local commit against upstream (adoption link, Change-Id, patch-id, or subject — `--dry-run --replay` prints the classified plan), and replays only genuinely fork-only commits on top of upstream's tip with `--replay` (twins are dropped, not re-applied). `--link <local> <upstream>` records a confirmed pre-Change-Id twin pair; `--propose-links` ranks candidates and asks for confirmation. Origin rewrites require `--rewrite-origin` and confirmation. See [Forking.md](Forking.md#the-intended-loop-export-promptly-sync-promptly).
+- **`fork-export`**: exports an upstream-based, linear commit range as a bundle, patch series, or both (a range with a merge commit is refused with guidance); optionally applies it to a sibling clone of the upstream repository without upstream credentials. Exported copies are stamped with `Change-Id` (generated when absent) and `Exported-From: <fork-side-sha>`; a conflict-resolved copy is declared `Fork-Adapted: yes`. Re-runs detect what the target already has and refuse to re-apply it. `--dry-run` previews the operation. See [Forking.md](Forking.md#the-intended-loop-export-promptly-sync-promptly).
+- **`lint-documentation`**: runs markdownlint over `README.md` and `docs/**/*.md` (`--fix` applies autofixes) and checks that relative `.md` links resolve — including in-page anchors (GitHub-style heading fragments). Run before committing docs changes; CI runs it on changed docs.
 
 ## Special / Rarely-Used Tooling
 
