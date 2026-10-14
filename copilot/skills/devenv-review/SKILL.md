@@ -183,7 +183,7 @@ Announce which plan was resolved before reviewing.
 
 **Concurrent-writer guard:** if an active execution session (pair or delegation) holds this plan as its ledger, do not fold in silently — either fold in while that session is paused/between phases, or re-read the plan immediately before writing and reconcile so the fold-in does not clobber ticks or task-state changes the executor made in the meantime. Surface the concurrent session to the user before the plan edit.
 
-**Round scope:** each round reviews the **cumulative** diff (branch vs base) — including fixes from earlier rounds — so later rounds also verify earlier fixes held and catch regressions they introduced. `--plan` combines with any diff source (PR, refs, or default).
+**Round scope:** in a terminal-only plan, each round reviews the **cumulative** diff (branch vs base) — including fixes from earlier rounds — so later rounds also verify earlier fixes held and catch regressions they introduced. In an **incremental** plan (interim Review phases per `/devenv-plan` §4c), an interim phase's rounds review the **delta since the previous review's marker commit** (recorded in the plan; `git diff <marker-SHA>`), while the terminal round stays cumulative — cross-delta interaction defects surface only there, and carried-forward findings are re-checked at the terminal round, counting toward the yield bar wherever they surface. **Marker-commit gate:** if the previous review's marker commit is missing from the plan, stop and ask the user to commit and record it — never guess a baseline. `--plan` combines with any diff source (PR, refs, or default).
 
 **Rejected-findings exclusion:** findings the user explicitly rejected at fold-in are recorded (with reason) in the round record and excluded from subsequent rounds' yield computation — a still-unfixed rejected finding may appear in a later round's diff, but it does not count toward the Blocker/Concern thresholds. Without this exclusion, a rejected Blocker would keep the yield bar high forever and the cycle could never converge.
 
@@ -207,6 +207,11 @@ Announce which plan was resolved before reviewing.
 ## Next-step offer
 
 Per the shared [next-step offer](../common/references/execution-gates.md#next-step-offer-wrap-up-convention) convention (one offer, mode-conditional): in plan-encoded mode the offer is the next round or the convergence close (user's choice); in PR mode it is `/devenv-address-pr-comments` (if a PR exists); otherwise back to `/devenv-pair` for the rework.
+
+Two wrap-up riders, both offered — never executed unilaterally:
+
+- **Commit reminder (uncommitted-diff reviews).** When the review ran on uncommitted changes (no-args uncommitted mode) or the user says they are reviewing incrementally, remind them: commit this work ("real" or `WIP:` — their choice) so the next incremental review has a findable delta boundary. The AI never commits. (In plan-encoded mode this is the marker-commit close already defined in the shared protocol — no separate reminder.)
+- **Ad-hoc-review disposition.** When findings exist and the review was **not** plan-encoded, offer both destinations: fix now (supervised, small — the ordinary minor-work window), or **fold into the plan** — new tasks or a threaded-in new Review/delivery phase via [`/devenv-refine-plan`](../devenv-refine-plan/SKILL.md) structural revision, so the plan stays the as-built record and the fixes gain phase-level reviewability. Fold-in requires the plan to be identifiable (in context, by path, or by issue number); otherwise point at the refine-plan route instead of offering inline. Small/supervised findings favor fix-now; large or cross-phase findings favor fold-in — the user chooses.
 
 ## Anti-patterns
 
