@@ -75,14 +75,15 @@ while [ "$#" -gt 0 ]; do
         --rewrite-origin) REWRITE_ORIGIN=1 ;;
         --yes) YES=1 ;;
         --link)
-            [ -n "${2:-}" ] && [ -n "${3:-}" ] || die "--link needs <local-commit> <upstream-commit>" "$EXIT_MISUSE"
+            require_option_value "$1" "${2:-}"
+            require_option_value "$1" "${3:-}"
             LINK_LOCAL="$2"
             LINK_UPSTREAM="$3"
             shift 2
             ;;
         --propose-links) PROPOSE_LINKS=1 ;;
         --unlink)
-            [ -n "${2:-}" ] || die "--unlink needs <local-or-upstream-sha>" "$EXIT_MISUSE"
+            require_option_value "$1" "${2:-}"
             UNLINK_SHA="$2"
             shift
             ;;

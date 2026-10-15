@@ -565,3 +565,50 @@ MOCK
     [ "$(printf '%s' "$output" | jq -r '.[] | select(.number == 1) | .body')" = 'a &lt; b' ]
     [ "$(printf '%s' "$output" | jq -r '.[] | select(.number == 2) | .body')" = 'a < b' ]
 }
+# ============================================================================
+# Artifact marker transformation (azure_marker_transform)
+# Azure DevOps strips HTML comments from markdown comments at write time,
+# so the DEVENV_ARTIFACT_V1/doc_id header dies on the wire and upsert's
+# doc_id search can never match. The provider transform surfaces a bare
+# doc_id line that survives storage.
+# ============================================================================
+
+@test "azure_marker_transform prepends a bare doc_id line and strips HTML comments" {
+    azure_run azure_marker_transform '<!-- DEVENV_ARTIFACT_V1
+doc_id: dv1:r:i-1:plan:x-001
+artifact_type: plan
+-->
+
+# Title' > "$TEST_TEMP_DIR/out.txt"
+    [ "$(head -1 "$TEST_TEMP_DIR/out.txt")" = 'doc_id: dv1:r:i-1:plan:x-001' ]
+    # Negations run last (suite negation guard): comment content must be gone,
+    # the real body must survive.
+    [ "$(grep -c 'DEVENV_ARTIFACT_V1' "$TEST_TEMP_DIR/out.txt")" = 0 ]
+    [ "$(grep -c 'artifact_type' "$TEST_TEMP_DIR/out.txt")" = 0 ]
+    grep -q '# Title' "$TEST_TEMP_DIR/out.txt"
+}
+
+@test "azure_marker_transform is idempotent when a bare doc_id line already exists" {
+    azure_run azure_marker_transform 'doc_id: dv1:r:i-1:plan:x-001
+
+body text' > "$TEST_TEMP_DIR/out2.txt"
+    [ "$(cat "$TEST_TEMP_DIR/out2.txt")" = 'doc_id: dv1:r:i-1:plan:x-001
+
+body text' ]
+}
+
+@test "azure_marker_transform leaves bodies without a doc_id untouched" {
+    azure_run azure_marker_transform 'just a comment' > "$TEST_TEMP_DIR/out3.txt"
+    [ "$(cat "$TEST_TEMP_DIR/out3.txt")" = 'just a comment' ]
+}
+
+@test "transformed body matches the upsert doc_id search within the first 256 characters" {
+    # The exact jq the wrapper runs; a transformed body must yield exactly 1 match.
+    azure_run azure_marker_transform '<!-- DEVENV_ARTIFACT_V1
+doc_id: dv1:r:i-1:plan:x-001
+-->
+
+# Grooming' > "$TEST_TEMP_DIR/transformed.txt"
+    matches=$(jq -Rs --arg doc_id 'dv1:r:i-1:plan:x-001' '([.] | map(select(((. // "")[0:256] | split("\n") | any((select(test("^[[:space:]]*doc_id:[[:space:]]*")) | sub("^[[:space:]]*doc_id:[[:space:]]*"; "") | sub("[[:space:]]+$"; "")) == $doc_id)))) | length)' < "$TEST_TEMP_DIR/transformed.txt")
+    [ "$matches" = 1 ]
+}

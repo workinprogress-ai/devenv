@@ -677,3 +677,45 @@ provider_repo_split() {
     printf -v "$__head" '%s' "${spec%%/*}"
     printf -v "$__tail" '%s' "${spec#*/}"
 }
+
+# ============================================================================
+# Issue-domain capability hooks: provider-shaped requirements answered by the
+# provider seam. Callers ask; they never branch on PROVIDER_NAME, and they
+# never assume one provider's resource shape (GitHub: work items live in a
+# repository; Azure: they live in org/project and the repository field is
+# seam filler). Overrides go in the provider's own modules; these core
+# defaults encode the GitHub shape, which is the contract's reference shape.
+# ============================================================================
+
+# Whether the provider's issue verbs require a repository identity to resolve
+# before a tool may act (probe/validation). Prints "yes" or "no".
+#
+# GitHub: yes — an issue belongs to owner/repo and the transport needs it.
+# Azure: no — work items resolve to org/project from config; the repo field
+# in the verb signature is accepted for seam shape and ignored.
+#
+# Usage: [ "$(provider_issues_target_required)" = yes ] && probe_target_repo
+provider_issues_target_required() {
+    if declare -F _provider_issues_target_required >/dev/null; then
+        _provider_issues_target_required
+        return 0
+    fi
+    echo "yes"
+}
+
+# The owner/name context the set-type verb's positional signature expects.
+#
+# Core default (GitHub shape): resolve owner and name from the repo spec via
+# provider_repos_view. Providers whose set-type verb ignores these fields
+# override this to emit their configured identity without a repo lookup
+# (azure emits [provider] azure_org and azure_project).
+#
+# Usage: read -r owner name <<< "$(provider_issues_set_type_context SPEC)"
+# Emits: "<owner> <name>" on stdout; non-zero when resolution fails.
+provider_issues_set_type_context() {
+    local spec="${1:-}"
+    local owner name
+    owner=$(provider_repos_view "$spec" --json owner -q .owner.login) || return 1
+    name=$(provider_repos_view "$spec" --json name -q .name) || return 1
+    printf '%s %s\n' "$owner" "$name"
+}

@@ -52,9 +52,9 @@ If any exist:
    ```
    issue-comment <N> --body-file <plan-file>
    ```
-4. **Require deletion.** Ask the user to delete the file(s) before the PR is opened. Do not call `pr-create` until they confirm — the script will also refuse to run if a plan file is still present.
+4. **Offer cleanup (optional).** Ask whether to remove the local file(s) now. Deletion is never required and never blocks `pr-create` — if the user keeps them, continue.
 
-The plan can still be *read* by this skill to build the PR draft (step 1 below). The file just must be gone by the time the PR is submitted.
+The plan can still be *read* by this skill to build the PR draft (step 1 below). Its presence has no effect on PR submission.
 
 ## Sources
 
@@ -140,7 +140,7 @@ User can opt into draft mode explicitly ("open as draft", "draft PR"). If they d
 
 ## Flow
 
-0. **Pre-flight** — check for `Plan-*.md` under `.local-artifacts/` per the section above. Read and use any found plan as a source, but do not proceed past step 4 until the user has deleted it.
+0. **Pre-flight** — check for `Plan-*.md` under `.local-artifacts/` per the section above. Read and use any found plan as a source; offer cleanup if files remain, but a kept plan never gates PR creation.
 1. Detect branch, plan, parent issue.
 2. Build draft title and body.
 3. Show the full draft in chat.

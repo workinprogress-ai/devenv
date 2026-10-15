@@ -141,6 +141,41 @@ azure_text_normalize() {
     printf '%s' "$1" | jq -rR 'if endswith("\n") then .[0:-1] else . end'
 }
 
+# Artifact-marker survival transform. Azure DevOps strips HTML comments from
+# markdown comments at write time, so a doc_id carried inside the
+# DEVENV_ARTIFACT_V1 comment header never reaches storage and the upsert
+# doc_id search cannot match. Emit the doc_id as a bare first line (which
+# survives storage and matches the search) and drop the HTML comments ADO
+# would drop anyway. Idempotent: a body already carrying a bare doc_id line
+# passes through unchanged. Bodies without a doc_id pass through untouched.
+# Usage: azure_marker_transform BODY -> transformed body on stdout
+azure_marker_transform() {
+    local body="$1"
+    local doc_id
+    doc_id=$(printf '%s\n' "$body" | sed -nE 's/^[[:space:]]*doc_id:[[:space:]]*//p' | head -1 | sed -e 's/[[:space:]]*$//')
+    [ -n "$doc_id" ] || { printf '%s' "$body"; return 0; }
+    local doc_id_re
+    doc_id_re=$(printf '%s' "$doc_id" | sed 's/[][][\\.*^$/]/\\&/g')
+    # Comment-stripped view (multi-line aware): drop whole <!-- ... --> lines,
+    # keep everything else. This mirrors what the write path must remove for
+    # the doc_id to become findable.
+    local stripped
+    stripped=$(awk 'BEGIN{inc=0} /^<!--/{inc=1; next} /^-->/{inc=0; next} !inc' <<< "$body")
+    # Idempotency: if a bare doc_id line already survives outside comments,
+    # the body passes through unchanged.
+    if grep -qE "^[[:space:]]*doc_id:[[:space:]]*${doc_id_re}[[:space:]]*\$" <<< "$stripped"; then
+        printf '%s' "$body"; return 0
+    fi
+    printf 'doc_id: %s\n%s' "$doc_id" "$stripped"
+}
+
+# Upsert-hook shape: issue-artifact-upsert calls this before its doc_id search
+# and post so the marker it needs survives Azure storage. See
+# azure_marker_transform above.
+provider_issues_artifact_body_transform() {
+    azure_marker_transform "$1"
+}
+
 # Tag handling. System.Tags is one string, "a; b" as Azure returns it (a space
 # after each separator); every read trims each tag, and writes join with "; ".
 # Usage: azure_tags_split STRING -> JSON array of trimmed, non-empty tags
@@ -586,7 +621,7 @@ provider_issues_comment_edit() {
     base=$(azure_wit_base) || return 1
     web=$(azure_web_items_base) || return 1
     local payload
-    payload=$(jq -n --arg t "$(azure_text_normalize "$body")" '{text: $t}')
+    payload=$(jq -n --arg t "$(azure_text_normalize "$(azure_marker_transform "$body")")" '{text: $t}')
     local response
     if ! response=$(azure_http_request PATCH "$base/workitems/$number/comments/$comment_id?format=markdown&api-version=${AZURE_COMMENTS_API_VERSION}" "$payload"); then
         return 1
@@ -619,7 +654,7 @@ provider_issues_comment_add() {
     base=$(azure_wit_base) || return 1
     web=$(azure_web_items_base) || return 1
     local payload
-    payload=$(jq -n --arg t "$(azure_text_normalize "$body")" '{text: $t}')
+    payload=$(jq -n --arg t "$(azure_text_normalize "$(azure_marker_transform "$body")")" '{text: $t}')
     local response
     if ! response=$(azure_http_request POST "$base/workitems/$number/comments?format=markdown&api-version=${AZURE_COMMENTS_API_VERSION}" "$payload"); then
         return 1
@@ -1133,4 +1168,25 @@ provider_issues_milestones() {
         esac
     done
     azure_apply_list_flags '[]' "" "$jq_expr"
+}
+
+# Capability overrides: Azure's issue domain is project-scoped. Work items
+# resolve to org/project from config; the repository field in the verb
+# signatures is seam filler (CONTRACT.md: work items belong to a project, not
+# a repository).
+
+# No repo identity is required to act on issues: the probe/validation callers
+# skip repo resolution entirely when nothing resolves.
+_provider_issues_target_required() {
+    echo "no"
+}
+
+# The set-type verb ignores owner/name (org/project come from config), so the
+# context emits the configured identity without any repository lookup.
+provider_issues_set_type_context() {
+    local op org project
+    op=$(azure_org_project) || return 1
+    org=$(printf '%s' "$op" | sed -n 1p)
+    project=$(printf '%s' "$op" | sed -n 2p)
+    printf '%s %s\n' "$org" "$project"
 }

@@ -17,7 +17,12 @@ load ../test_helper
 load ../fixtures/cli-stubs
 
 CONTRACT="${BATS_TEST_DIRNAME}/../../lib/providers/CONTRACT.md"
+# Capability hooks (provider_issues_target_required / provider_issues_set_type_context)
+# are seam functions with core defaults and per-provider overrides — deliberately
+# not both-provider verbs, so they are excluded from the verb-parity inventory
+# (they live in the contract's seam-functions table, like provider_repo_target).
 DOMAIN_VERB_RE='^provider_(repos|issues|issue|prs|pipelines|projects|org)_'
+CAPABILITY_HOOK_RE='^provider_issues_(target_required|set_type_context|artifact_body_transform)$'
 
 setup() {
     test_helper_setup
@@ -91,7 +96,7 @@ provider_defined() {
     for prov in github azure; do
         while read -r verb; do
             contract_verbs all | grep -qx "$verb" || extra="$extra $prov:$verb"
-        done < <(provider_defined "$prov" | grep -E "$DOMAIN_VERB_RE")
+        done < <(provider_defined "$prov" | grep -E "$DOMAIN_VERB_RE" | grep -Ev "$CAPABILITY_HOOK_RE")
     done
     [ -z "$extra" ] || { echo "undocumented verbs:$extra"; false; }
 }

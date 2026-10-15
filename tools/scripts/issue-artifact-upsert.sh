@@ -388,6 +388,13 @@ main() {
         invalid_args "doc_id metadata line must appear within first 256 characters"
     fi
 
+    # Providers whose comment storage mangles the HTML-comment artifact header
+    # expose provider_issues_artifact_body_transform; give them one chance to
+    # make the doc_id findable before search and post. Absent hook: passthrough.
+    if declare -F provider_issues_artifact_body_transform >/dev/null; then
+        body=$(provider_issues_artifact_body_transform "$body")
+    fi
+
     log_verbose "Fetching comments for issue #$ISSUE_NUMBER"
     local comments_raw
     if ! comments_raw=$(provider_issues_comments "$TARGET_REPO" "$ISSUE_NUMBER" 2>/dev/null); then

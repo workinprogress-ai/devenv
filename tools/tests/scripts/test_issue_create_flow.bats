@@ -128,6 +128,7 @@ run_create() {   # run_create <create output>: runs create_issue against stubbed
     run bash -c "
         source '$PROJECT_ROOT/tools/lib/error-handling.bash'
         $(sed -n '/^probe_target_repo()/,/^}/p' "$CREATE")
+        provider_issues_target_required() { echo yes; }
         get_repo_spec() { echo my-proj/missing-repo; }
         provider_repos_view() { return 1; }
         probe_target_repo
@@ -140,6 +141,7 @@ run_create() {   # run_create <create output>: runs create_issue against stubbed
     run bash -c "
         source '$PROJECT_ROOT/tools/lib/error-handling.bash'
         $(sed -n '/^probe_target_repo()/,/^}/p' "$CREATE")
+        provider_issues_target_required() { echo yes; }
         get_repo_spec() { echo my-proj/repo; }
         provider_repos_view() { echo repo; }
         probe_target_repo
@@ -149,6 +151,19 @@ run_create() {   # run_create <create output>: runs create_issue against stubbed
         source '$PROJECT_ROOT/tools/lib/error-handling.bash'
         $(sed -n '/^probe_target_repo()/,/^}/p' "$CREATE")
         get_repo_spec() { echo ''; }
+        provider_repos_view() { echo SHOULD-NOT-BE-CALLED; return 1; }
+        probe_target_repo
+    "
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"SHOULD-NOT-BE-CALLED"* ]]
+}
+
+@test "probe_target_repo: a provider that does not require a repo target skips the probe" {
+    run bash -c "
+        source '$PROJECT_ROOT/tools/lib/error-handling.bash'
+        $(sed -n '/^probe_target_repo()/,/^}/p' "$CREATE")
+        provider_issues_target_required() { echo no; }
+        get_repo_spec() { echo my-proj/whatever; }
         provider_repos_view() { echo SHOULD-NOT-BE-CALLED; return 1; }
         probe_target_repo
     "

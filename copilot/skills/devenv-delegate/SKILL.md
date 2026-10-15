@@ -149,6 +149,7 @@ Ask if not provided: issue # or path to a plan markdown.
    2. Compare with the local `<plan_file>` via `diff /tmp/artifact-fresh.md <plan_file>` — identical output means fresh; any difference is drift to review.
    3. If materially different, reconcile before execution (ask user whether to adopt remote, keep local, or merge).
    4. During the same session, treat the local working copy as authoritative unless the user indicates external edits occurred.
+- **Unpublished plan with an associated issue — resolve publication state at kickoff.** If the plan carries an issue number but no published plan artifact (the planning-time publish offer was skipped or left unanswered), that is a pending first publication — a pending obligation, not settled state. Under the commissioned sync policy: `artifact_sync: auto` publishes immediately at kickoff (the plan is user-approved content at that point — lint gate + `issue-artifact-upsert`, same as any boundary sync); `artifact_sync: off` leaves it unpublished with the user's opt-out recorded in the Sync line. Never read "no remote artifact" as "nothing to sync" — freshness check and sync obligation are different things.
 - **No plan or too thin**: refuse delegation. Redirect to `/devenv-plan` to draft one first, or `/devenv-refine-plan` if the plan exists but lacks the human-facing sections. Exception: a genuinely micro commission (below) materializes a minimal ledger instead of refusing.
 
 ### 1b. Quick drift check
@@ -334,13 +335,15 @@ If the immediately previous turn raised a `🔶` decision gate, a generic "go ah
 
 > *"How should phase boundaries behave for this run?
 > - **Gate mode** (default): I stop at every phase boundary and hand back for your review before continuing.
-> - **Checkpoint mode**: I run the full boundary protocol (gates, ledger reconciliation, plan sync, report) but continue into the next phase without waiting, unless the boundary evaluation says something needs your eyes. You can interject on any report — the pair-like window applies in both directions."*
+> - **Checkpoint mode**: I run the full boundary protocol (gates, ledger reconciliation, plan sync, report) but continue into the next phase without waiting, unless the boundary evaluation says something needs your eyes. You can interject on any report — the pair-like window applies in both directions.
+>
+> And: keep the plan synced to issue #N as the run progresses? **Auto-sync is the default** — a lint-gated `issue-artifact-upsert` at each phase boundary and after material plan revisions, with no per-boundary asking (every handback's Sync line reports what happened). Say "local-only" to opt out; nothing is posted without the standing grant."*
 
-The mode is part of the commission — never self-granted or escalated mid-run. In checkpoint mode, the boundary evaluation (below) is conservative; when torn between continuing and handing back, **hand back**. The user may switch modes at any handback; that is a downgrade in trust that needs no justification.
+The mode is part of the commission — never self-granted or escalated mid-run. Auto-sync is the same kind of decision: **standing consent granted at commissioning, recorded in the header, revocable at any handback.** It authorizes exactly one remote action — the plan's own upsert; it is never license for other unconfirmed provider writes. In checkpoint mode, the boundary evaluation (below) is conservative; when torn between continuing and handing back, **hand back**. The user may switch modes at any handback; that is a downgrade in trust that needs no justification.
 
 ### 6a. Record the commissioned boundary mode (required)
 
-Persist the chosen mode in the plan file's metadata header as `boundary_mode: gate | checkpoint` — `artifact-header <plan_file> --set boundary_mode=<mode>` — immediately after the interview. The header is the durable home: after compaction, the resume path re-reads the plan file and recovers the mode from there, and the boundary close re-checks the mode from the same key. A mode change at a handback updates this key in the same exchange; never rely on session context alone for the mode.
+Persist the chosen mode in the plan file's metadata header as `boundary_mode: gate | checkpoint` — `artifact-header <plan_file> --set boundary_mode=<mode>` — immediately after the interview. Persist the sync answer the same way, next to it: `artifact_sync: auto | off` (default `auto` when an issue is associated). The header is the durable home: after compaction, the resume path re-reads the plan file and recovers the mode and sync policy from there, and the boundary close re-checks them from the same keys. A mode or sync-policy change at a handback updates these keys in the same exchange; never rely on session context alone for either.
 
 ### 6b. Returning after a gap or status request
 
@@ -499,8 +502,9 @@ Use this canonical pass whenever you hand back a completed phase, abort a phase 
 1. **Verify current reality first.** Re-read changed files and compare against the plan tasks for the phase.
 2. **Map execution to plan.** Identify what is complete, partial, off-plan, and untouched.
 3. **Run gate status check.** State whether the [Phase Completion Gate](#phase-completion-gate) is clear, blocked, or not yet run.
-4. **Surface review hotspots, decisions, and challenges.** Include non-blocking concerns, notable trade-offs, decisions made, and challenges that were worked through without a stop.
-5. **Close the boundary — the wait is mode-conditional.** Present the prose report first (the default output shape below — the user must be able to read hotspots, deviations, and challenges). What happens next depends on the boundary mode: **Gate mode** asks whether to accept and continue, request changes, or revise the plan via the structured interview per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections) (options: approve and continue / request changes / revise plan; freeform allowed for specifics), and waits for an explicit choice. **Checkpoint mode** does not ask — it states that the boundary evaluation passed and execution is continuing into the next phase (the report is an interjectable notice, not a question), then proceeds, unless a forced-stop condition or a negative boundary-evaluation criterion applies. Structured approval queries at phase handbacks belong to gate mode and mid-phase stops, never to a passed checkpoint boundary. **Mode-switch hazard:** the two obligations are exact inverses, and the known failure path is carrying the prior run's boundary reflex across a mode switch — before closing any boundary, re-check which mode *this* run was commissioned under. A gate-mode close is always the three-option interview (approve and continue / request changes / revise plan) — never collapsed to a yes/no *"approve and continue?"*, which buries the first-class change paths. A passed checkpoint boundary never asks.
+4. **Run the issue-artifact sync step.** Execute the [issue artifact sync](#issue-artifact-sync) obligations for this boundary (phase-complete sync point, or first publication if the plan was never published) — confirm, lint gate, upsert — and record the outcome for the report's Sync line. This is mechanical boundary work in every mode; only the *wait* is mode-conditional, never the sync.
+5. **Surface review hotspots, decisions, and challenges.** Include non-blocking concerns, notable trade-offs, decisions made, and challenges that were worked through without a stop.
+6. **Close the boundary — the wait is mode-conditional.** Present the prose report first (the default output shape below — the user must be able to read hotspots, deviations, and challenges). What happens next depends on the boundary mode: **Gate mode** asks whether to accept and continue, request changes, or revise the plan via the structured interview per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections) (options: approve and continue / request changes / revise plan; freeform allowed for specifics), and waits for an explicit choice. **Checkpoint mode** does not ask — it states that the boundary evaluation passed and execution is continuing into the next phase (the report is an interjectable notice, not a question), then proceeds, unless a forced-stop condition or a negative boundary-evaluation criterion applies. Structured approval queries at phase handbacks belong to gate mode and mid-phase stops, never to a passed checkpoint boundary. **Mode-switch hazard:** the two obligations are exact inverses, and the known failure path is carrying the prior run's boundary reflex across a mode switch — before closing any boundary, re-check which mode *this* run was commissioned under. A gate-mode close is always the three-option interview (approve and continue / request changes / revise plan) — never collapsed to a yes/no *"approve and continue?"*, which buries the first-class change paths. A passed checkpoint boundary never asks.
 
 Default output shape:
 
@@ -512,6 +516,7 @@ Default output shape:
 > **Open questions:** [[QUESTION] items, unresolved choices, or "none"]
 > **Working-tree provenance:** [files the run changed vs foreign/pre-existing edits observed — one line; "all changes are the run's" when nothing foreign]
 > **Gate:** [clear/blocked/not yet run + reason]
+> **Sync:** [synced / offered (awaiting user) / declined by user / not applicable (no associated issue) — one line; a plan with an issue number but no published artifact reports "pending first publication" here, not "not applicable"]
 > **Next:** [continue to next phase / rework item / plan revision]
 
 **Stop trigger values** — cite this skill's own trigger vocabulary so the reason for stopping is checkable and scope-matched direction is possible:
@@ -556,16 +561,18 @@ Any yes hands back to the user with the report before continuing. When a criteri
 
 If there is an **associated issue + plan artifact identity** (`<N>` + `<DOC_ID>` in session context), sync that artifact comment with `issue-artifact-upsert` using the local plan file as source of truth.
 
+**First publication is the same obligation.** A plan with a known `<N>` but **no published artifact** (the planning-time publish offer was skipped or left unanswered) is a pending first publication, not a non-obligation — the freshness check at kickoff has nothing to compare and does not apply, but this section still does. Under `artifact_sync: auto` the first publish fires at kickoff; under `off` the plan stays local and the Sync line records the opt-out.
+
 Required sync points:
 
 1. **End of each completed phase (proactive):** run sync as part of the phase-complete handback flow; do not wait for the user to ask.
 2. **Immediately after material/structural plan revisions (mid-phase exception):** if a confirmed plan edit changes phase/task structure, acceptance criteria, sequencing, or reflects significant divergence, sync right after the plan write is confirmed.
 
-Sync procedure (both cases):
+Sync procedure — policy-conditional per the commissioned `artifact_sync` key:
 
-1. Confirm with the user.
-2. Run the pre-upsert lint gate: `plan-parse <path> --lint --require-header` — errors block the sync until fixed (explicit user acceptance of a documented deviation is the only bypass); warnings surface for awareness.
-3. Run `issue-artifact-upsert --issue <N> --body-file <path>`.
+1. **`auto` (default): no per-sync confirm** — the commissioning grant covers it. Run the pre-upsert lint gate: `plan-parse <path> --lint --require-header` — errors block the sync until fixed (**the lint-gate bypass — publishing with errors as a documented deviation — always requires explicit user acceptance; standing auto-sync consent never covers it**); warnings surface for awareness. Then run `issue-artifact-upsert --issue <N> --body-file <path>` and report the outcome in the handback's Sync line.
+2. **`off` (user opted out):** nothing fires; the Sync line reports `local-only (user opted out)`. A material plan revision under `off` is noted for the handback, not synced.
+3. **No commissioned key (single-phase runs, pre-policy plans):** the legacy behavior applies — confirm with the user, lint gate, upsert.
 
 **Pre-mutation tool check (all provider operations, not just sync):** all provider operations go through the workspace wrappers — `issue-*` exclusively for issue operations, `pr-*` / `project-*` / `pipelines-*` / inspection wrappers for the rest. There is no raw-CLI (`gh` for example) path for anything; an uncovered operation is surfaced as a tooling gap for the user to resolve. Precedent from earlier in a session does not override this; skill boundaries reset behavioral defaults.
 

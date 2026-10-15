@@ -80,7 +80,7 @@ Procedure:
 2. **Add provider modules** — create `tools/lib/providers/ado/` with domain modules answering the `provider_<domain>_<verb>` calls (`issues`, `prs`, `repos`, `actions`, …). Start from the GitHub modules as templates; replace the transport, keep the function signatures.
 3. **Flip the config key** — set `[provider] name=ado` in `devenv.config`.
 4. **Map the capabilities** — decide which GH-only capabilities your ADO setup substitutes: rulesets → ADO branch policies, project boards → board columns over `status_workflow`, native issue types → ADO work item type map. Gate what you don't support; degrade what you substitute.
-5. **Replace provider-specific config values** — native type IDs in `issues-config.yml` (GitHub `IT_kwDO…` IDs, discovered via the GraphQL recipe in that file's header) and the nuget feed URL (`nuget.pkg.github.com/...`) are GitHub-specific values a fork replaces.
+5. **Replace provider-specific config values** — native type IDs in `issues-config.yml` (GitHub `IT_kwDO…` IDs, discovered via the GraphQL recipe in that file's header), the nuget feed URL (`[nuget] feed_url`, `nuget.pkg.github.com/...`), and the npm feed URL (`[npm] feed_url`, an Azure Artifacts npm registry when on the Azure provider; the matching `[npm] scope` routes a package scope to it) are provider-specific values a fork replaces.
 6. **Rewrite `setup`** — per the contract exception above, credential intake and bootstrap wiring are expected to be fork-replaced for a new provider.
 
 ### Azure DevOps: the as-built REST provider
@@ -155,7 +155,7 @@ For a soft fork, `[fork]` in `devenv.config` records the fetch-only upstream URL
 
 ```ini
 [fork]
-upstream_repo=https://github.com/workinprogress-ai/devenv.git
+upstream_repo=<upstream-url>
 upstream_branch=master
 ```
 

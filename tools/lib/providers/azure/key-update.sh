@@ -77,9 +77,30 @@ fi
 
 # 2. The provider verb wired the git credential helper during import.
 
+# 3. Re-wire the package feeds: a rotated PAT invalidates the credentials in
+#    ~/.npmrc and the nuget source, so both wiring hooks re-run. Configured
+#    feeds are refreshed with the new PAT; unconfigured ones skip cleanly
+#    (same messages as bootstrap). A wiring failure is reported but does not
+#    undo the rotation — the credential store is already updated.
+provider_load bootstrap
+wiring_failed=0
+echo "    - Refreshing package feed credentials..."
+if [ -n "${HOME:-}" ] && ! provider_bootstrap_call configure_npmrc "$HOME/.npmrc"; then
+    echo "    ⚠ npm feed re-wiring failed — run bootstrap or configure_user_npmrc to retry."
+    wiring_failed=1
+fi
+if ! provider_bootstrap_call configure_nuget; then
+    echo "    ⚠ NuGet feed re-wiring failed — run bootstrap or configure_nuget_sources to retry."
+    wiring_failed=1
+fi
+
 echo "    ✅ Success! Credentials updated (0600 PAT file)."
 echo "    -------------------------------------------------------"
 echo "    The new token is now active for all Azure DevOps REST calls."
 echo "    No token is stored in env files; the 0600 PAT file is the only"
 echo "    durable credential copy."
+if [ "$wiring_failed" -eq 1 ]; then
+    echo "    One or more package feed re-wiring steps failed; see above."
+    exit 1
+fi
 echo ""

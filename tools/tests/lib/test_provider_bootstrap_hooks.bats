@@ -275,3 +275,159 @@ validate() {   # validate <provider> <org> <token> -> runs the host-side validat
     [[ "$output" != *"UNEXPECTED"* ]]
     [[ "$output" == *"not an Azure Artifacts URL"* ]]
 }
+
+# ---------------------------------------------------------------------------
+# Azure npm hook: [npm] feed_url registers an Azure Artifacts npm feed in the
+# user-level npmrc (Microsoft-documented credential triple on both the
+# .../npm/registry/ and .../npm/ prefixes). Credential safety: host allowlist
+# before the secret is read; PAT never in output; file ends 0600.
+# ---------------------------------------------------------------------------
+
+# azure_npm_hook_run CONFIG_STDLIB... runs the hook with config_read_value
+# answering from a section/key lookup and provider_secret_get from SECRET.
+# Config is passed as "section:key=value" words.
+azure_npm_hook_run() {
+    run bash -c '
+        cfg="$AZURE_NPM_CFG_FILE"
+        source "$DEVENV_TOOLS/lib/providers/provider-core.bash"
+        PROVIDER_NAME=azure
+        provider_load bootstrap
+        config_read_value() {
+            local section="$1" key="$2" line want
+            want="$section:$key="
+            while IFS= read -r line; do
+                case "$line" in
+                    "$want"*) printf "%s" "${line#"$want"}"; return 0 ;;
+                esac
+            done < "$cfg"
+            return 1
+        }
+        provider_secret_get() { [ -n "$AZURE_NPM_SECRET" ] && printf "%s" "$AZURE_NPM_SECRET"; }
+        provider_bootstrap_configure_npmrc "$AZURE_NPMRC"
+    '
+}
+
+setup_azure_npm() {
+    export AZURE_NPMRC="$TEST_TEMP_DIR/home/.npmrc"
+    mkdir -p "$TEST_TEMP_DIR/home"
+    export AZURE_NPM_CFG_FILE="$TEST_TEMP_DIR/cfg"
+    export AZURE_NPM_SECRET="$1"; shift
+    printf '%s\n' "$@" > "$AZURE_NPM_CFG_FILE"
+}
+
+@test "azure configure_npmrc writes the credential triple for both prefixes (scope set)" {
+    setup_azure_npm "tok-123" "npm:feed_url=https://pkgs.dev.azure.com/o/_packaging/f/npm/registry/" "npm:scope=@acme"
+    azure_npm_hook_run
+    [ "$status" -eq 0 ]
+    local p1="//pkgs.dev.azure.com/o/_packaging/f/npm/registry/" p2="//pkgs.dev.azure.com/o/_packaging/f/npm/"
+    for p in "$p1" "$p2"; do
+        grep -q "^$p:username=" "$AZURE_NPMRC"
+        grep -q "^$p:_password=$(printf %s tok-123 | base64 -w0)$" "$AZURE_NPMRC"
+        grep -q "^$p:email=" "$AZURE_NPMRC"
+    done
+    grep -q "^@acme:registry=https://pkgs.dev.azure.com/o/_packaging/f/npm/registry/$" "$AZURE_NPMRC"
+}
+
+@test "azure configure_npmrc omits the scope mapping when [npm] scope is empty" {
+    setup_azure_npm "tok-123" "npm:feed_url=https://pkgs.dev.azure.com/o/_packaging/f/npm/registry/" "npm:scope="
+    azure_npm_hook_run
+    [ "$status" -eq 0 ]
+    grep -q "^//pkgs.dev.azure.com/o/_packaging/f/npm/registry/:_password=" "$AZURE_NPMRC"
+    ! grep -q ":registry=" "$AZURE_NPMRC"
+}
+
+@test "azure configure_npmrc skips a non-Azure feed_url and never reads the token" {
+    setup_azure_npm "" "npm:feed_url=https://registry.npmjs.org/"
+    azure_npm_hook_run
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"not an Azure Artifacts URL"* ]]
+    [ ! -e "$AZURE_NPMRC" ]
+}
+
+@test "azure configure_npmrc skips when no credential is available" {
+    setup_azure_npm "" "npm:feed_url=https://pkgs.dev.azure.com/o/_packaging/f/npm/registry/"
+    azure_npm_hook_run
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Skipping"* ]]
+    [ ! -e "$AZURE_NPMRC" ]
+}
+
+@test "azure configure_npmrc skips with a message when [npm] feed_url is unset" {
+    setup_azure_npm "tok-123" "npm:feed_url="
+    azure_npm_hook_run
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Skipping"* ]]
+    [ ! -e "$AZURE_NPMRC" ]
+}
+
+@test "azure configure_npmrc is idempotent: a second run converges to one entry set" {
+    setup_azure_npm "tok-123" "npm:feed_url=https://pkgs.dev.azure.com/o/_packaging/f/npm/registry/" "npm:scope=@acme"
+    azure_npm_hook_run
+    [ "$status" -eq 0 ]
+    azure_npm_hook_run
+    [ "$status" -eq 0 ]
+    [ "$(grep -c "^//pkgs.dev.azure.com/o/_packaging/f/npm/registry/:_password=" "$AZURE_NPMRC")" -eq 1 ]
+    [ "$(grep -c "^//pkgs.dev.azure.com/o/_packaging/f/npm/:_password=" "$AZURE_NPMRC")" -eq 1 ]
+    [ "$(grep -c "^@acme:registry=" "$AZURE_NPMRC")" -eq 1 ]
+}
+
+@test "azure configure_npmrc rotation: a new token replaces the stored password" {
+    setup_azure_npm "old-token" "npm:feed_url=https://pkgs.dev.azure.com/o/_packaging/f/npm/registry/"
+    azure_npm_hook_run
+    AZURE_NPM_SECRET="fresh-token"
+    azure_npm_hook_run
+    [ "$status" -eq 0 ]
+    grep -q "_password=$(printf %s fresh-token | base64 -w0)$" "$AZURE_NPMRC"
+    ! grep -q "$(printf %s old-token | base64 -w0)" "$AZURE_NPMRC"
+}
+
+@test "azure configure_npmrc preserves unrelated lines" {
+    setup_azure_npm "tok-123" "npm:feed_url=https://pkgs.dev.azure.com/o/_packaging/f/npm/registry/"
+    printf 'registry=https://registry.npmjs.org/\n//other.registry/:_authToken=keepme\ninit-author-name=Someone\n' > "$AZURE_NPMRC"
+    azure_npm_hook_run
+    grep -q "^registry=https://registry.npmjs.org/$" "$AZURE_NPMRC"
+    grep -q "^//other.registry/:_authToken=keepme$" "$AZURE_NPMRC"
+    grep -q "^init-author-name=Someone$" "$AZURE_NPMRC"
+}
+
+@test "azure configure_npmrc leaves the file 0600 even when it was wider before" {
+    setup_azure_npm "tok-123" "npm:feed_url=https://pkgs.dev.azure.com/o/_packaging/f/npm/registry/"
+    printf 'init-author-name=Someone\n' > "$AZURE_NPMRC"
+    chmod 644 "$AZURE_NPMRC"
+    azure_npm_hook_run
+    [ "$(stat -c %a "$AZURE_NPMRC")" = "600" ]
+}
+
+@test "azure configure_npmrc never prints the PAT" {
+    setup_azure_npm "super-secret-pat-value" "npm:feed_url=https://pkgs.dev.azure.com/o/_packaging/f/npm/registry/"
+    azure_npm_hook_run
+    [[ "$output" != *"super-secret-pat-value"* ]]
+}
+
+# ---------------------------------------------------------------------------
+# Rotation wiring: key-update must re-run the feed wiring hooks (npm + nuget)
+# after a successful import, so a rotated PAT refreshes ~/.npmrc and the nuget
+# source instead of leaving stale credentials behind.
+# ---------------------------------------------------------------------------
+
+@test "azure key-update re-runs the feed wiring hooks after a successful import" {
+    # Interception happens in-process: source provider-core (arming its load
+    # guard), override the two seams, then SOURCE the real key-update.sh —
+    # its own provider-core source becomes a no-op, so the overrides survive.
+    # Sourcing runs the script's main flow; the wiring calls land in the log.
+    local wiring_log="$TEST_TEMP_DIR/keyupdate-wiring.log"
+    run bash -c '
+        source "$DEVENV_TOOLS/lib/providers/provider-core.bash"
+        PROVIDER_NAME=azure
+        provider_load auth
+        provider_auth_import_token() { return 0; }
+        provider_bootstrap_call() {
+            printf "%s %s\n" "$1" "${2:-}" >> "'"$TEST_TEMP_DIR"'/keyupdate-wiring.log"
+            return 0
+        }
+        printf "tok-rotated-value\n" | source "$DEVENV_TOOLS/lib/providers/azure/key-update.sh"
+    '
+    [ "$status" -eq 0 ]
+    grep -q "^configure_npmrc " "$wiring_log"
+    grep -q "^configure_nuget" "$wiring_log"
+}

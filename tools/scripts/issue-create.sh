@@ -325,13 +325,18 @@ build_body() {
     printf '%s' "$body"
 }
 
-# Fail fast on a wrong or unreachable target: the repo the create will use
-# (get_repo_spec resolution) must exist on the provider, or the user answers prompts
-# for a run that cannot succeed. An empty spec (nothing resolvable) is not probed.
+# Fail fast on a wrong or unreachable target — but only when the provider's
+# issue verbs actually use a repository (capability hook): on providers whose
+# issues resolve to org/project from config, the repo field is seam filler, so
+# an empty or repo-shaped spec is not probed there. Where a spec IS present it
+# is probed on every provider: a wrong explicit target is an error either way.
 probe_target_repo() {
     local probe_repo
     probe_repo="$(get_repo_spec)"
     [ -n "$probe_repo" ] || return 0
+    if [ "$(provider_issues_target_required)" != yes ]; then
+        return 0
+    fi
     if ! provider_repos_view "$probe_repo" --json name -q .name >/dev/null 2>&1; then
         log_error "Target repository not found or inaccessible: $probe_repo"
         log_info "Check the DEVENV_REPO value and your provider access"
@@ -402,16 +407,16 @@ create_issue() {
         return 1
     fi
     
-    # Set the issue type via GraphQL (organization-level issue types)
-    # Repo identity comes from the same repo_spec the create used — never
-    # re-derived from the cwd: with DEVENV_REPO set, an empty repo arg on the
-    # provider call resolves to the CURRENT repo and would target the type
-    # mutation at the wrong repository (the create and the type-set would
-    # disagree silently).
-    local repo_owner
-    repo_owner=$(provider_repos_view "${repo_spec[0]:-}" --json owner -q .owner.login)
-    local repo_name
-    repo_name=$(provider_repos_view "${repo_spec[0]:-}" --json name -q .name)
+    # Set the issue type via the provider's set-type route. The owner/name
+    # context comes from the provider seam (capability hook): GitHub resolves
+    # it from the same repo_spec the create used — never re-derived from the
+    # cwd, so the create and the type-set cannot disagree silently; Azure
+    # emits its configured org/project (its verb ignores the fields).
+    local repo_owner repo_name
+    read -r repo_owner repo_name <<< "$(provider_issues_set_type_context "${repo_spec[0]:-}")" || {
+        log_error "Could not resolve the issue-type context from the repo spec"
+        exit "$EXIT_GENERAL_ERROR"
+    }
     
     # Any requested enrichment that fails to apply is reported loudly and
     # fails the command: callers must be able to detect that a requested

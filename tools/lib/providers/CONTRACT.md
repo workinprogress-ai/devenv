@@ -195,6 +195,8 @@ Projects (GitHub) and boards (Azure) belong to an owner or project, not a reposi
 | `provider_repo_target [SPEC]` | The one repository resolver: argument, `DEVENV_REPO`, the provider's environment, the working directory. |
 | `provider_repo_split SPEC HEAD TAIL` | Split a spec on its first separator. |
 | `provider_has_capability`, `provider_require_capability`, `provider_declare_capability` | Capabilities a provider declares (`project-boards`, `rulesets`, `native-issue-types`, `pipelines`). |
+| `provider_issues_target_required` | Whether the provider's issue verbs need a repository identity resolved before a tool acts (`yes`/`no`). Core default `yes` (GitHub); Azure overrides to `no` — work items resolve to org/project from config. Callers gate repo probing/validation on this. |
+| `provider_issues_set_type_context SPEC` | The `owner name` context the set-type verb's positional signature expects. Core default resolves both from `SPEC` via `provider_repos_view`; Azure emits its configured org/project without a repository lookup (its verb ignores the fields). |
 | `provider_unknown_option VERB OPTION` | The error every verb returns for an option it does not accept. |
 | `provider_auth_status`, `provider_auth_import_token`, `provider_auth_setup_git`, `provider_secret_get`, `provider_user_get` | Credentials. |
 | `provider_git_transport_url`, `provider_remote_to_spec`, `provider_remote_to_web`, `provider_pr_web_url`, `provider_issue_web_url`, `provider_web_url`, `provider_web_host`, `provider_extract_url` | Addresses. |

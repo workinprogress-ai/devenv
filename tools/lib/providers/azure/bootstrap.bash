@@ -66,7 +66,85 @@ provider_bootstrap_configure_nuget() {
     add_nuget_source_if_not_exists "azure" "$feed_url" "azure" "$token"
 }
 
+# Register the Azure Artifacts npm feed in the user-level npmrc with the
+# provider PAT. Microsoft's documented credential form (user-level npmrc):
+#   //host/path/:username=<any non-empty value>
+#   //host/path/:_password=<base64-encoded PAT>
+#   //host/path/:email=<any value, required by npm but unused>
+# Credentials are written for both the feed's own prefix and its sibling
+# .../npm/ prefix when feed_url ends in /npm/registry/ (Microsoft's snippet
+# writes both; single-prefix credentials are a known 401 source). The scope
+# mapping rides along when [npm] scope is set. Unrelated lines are preserved;
+# re-runs converge to one entry set per prefix; the file ends 0600.
+#
+# Usage: provider_bootstrap_configure_npmrc FILE
 provider_bootstrap_configure_npmrc() {
-    echo "Skipping npm registry authentication (azure provider: no package feed configured)"
-    return 0
+    local npmrc_file="${1:?npmrc path required}"
+    local feed_url scope token
+    feed_url=$(config_read_value "npm" "feed_url" "")
+    case "$feed_url" in
+        https://pkgs.dev.azure.com/* | https://*.pkgs.visualstudio.com/*) ;;
+        "")
+            echo "Skipping npm registry authentication (azure provider: [npm] feed_url not configured)"
+            return 0
+            ;;
+        *)
+            echo "Skipping npm registry authentication (azure provider: [npm] feed_url is not an Azure Artifacts URL)"
+            return 0
+            ;;
+    esac
+    scope=$(config_read_value "npm" "scope" "")
+    token=$(provider_secret_get token 2>/dev/null) || token=""
+    if [ -z "$token" ]; then
+        echo "Skipping npm registry authentication (azure provider: credentials unavailable)"
+        return 0
+    fi
+
+    # Registry prefixes are host+path without the scheme (npmrc form). A
+    # .../npm/registry/ feed also serves .../npm/: write both, deduplicated.
+    local prefixes=() prefix
+    prefix="${feed_url#https://}"
+    prefix="${prefix%/}"
+    prefixes+=("$prefix")
+    if [[ "$prefix" == */npm/registry ]]; then
+        prefixes+=("${prefix%/registry}")
+    fi
+
+    # The PAT is base64-encoded up front (npmrc _password form); the raw
+    # token is handed to awk only through the environment, never the program
+    # text, and the encoded form is what lands in the file.
+    local token_b64
+    token_b64=$(printf '%s' "$token" | base64 -w0)
+    NPM_B64="$token_b64" NPM_SCOPE="$scope" awk -v prefixes="${prefixes[*]}" '
+        BEGIN {
+            n = split(prefixes, pfx, " ")
+            b64 = ENVIRON["NPM_B64"]
+            scope = ENVIRON["NPM_SCOPE"]
+        }
+        # Replace-or-keep: drop existing lines for our prefixes (and the scope
+        # mapping) so the append at END converges instead of duplicating.
+        !/^[[:space:]]*@[^:]+:registry=/ {
+            keep = 1
+            for (i = 1; i <= n; i++)
+                if (index($0, "//" pfx[i] "/:") == 1) { keep = 0; break }
+            if (keep) print
+            next
+        }
+        scope != "" && /^[[:space:]]*@[^:]+:registry=/ { next }
+        { print }
+        END {
+            for (i = 1; i <= n; i++) {
+                printf "//%s/:username=notempty\n", pfx[i]
+                printf "//%s/:_password=%s\n", pfx[i], b64
+                printf "//%s/:email=npm-requires-email@example.invalid\n", pfx[i]
+            }
+            if (scope != "")
+                printf "%s:registry=https://%s/\n", scope, pfx[1]
+        }
+    ' "$( [ -f "$npmrc_file" ] && printf '%s' "$npmrc_file" || printf '/dev/null' )" \
+        > "${npmrc_file}.tmp" || {
+        rm -f "${npmrc_file}.tmp"
+        return 1
+    }
+    mv "${npmrc_file}.tmp" "${npmrc_file}" && chmod 600 "${npmrc_file}"
 }

@@ -30,12 +30,14 @@ don't re-derive them:
   import. `store`/`erase` are refusals-by-no-op — the PAT file is the only
   durable copy, so git never writes a second one. Unrelated hosts never consult
   the helper (host-scoped config).
-- **npm credentials remain provider-specific**: bootstrap configures the GitHub
-  npm registry token only for the GitHub provider. Azure PATs are never queried
-  for that registry. npm setup preserves unrelated settings and authentication
-  entries, removes the exact `Skipping npmrc auth token (gh not authenticated)` line, and writes skip
-  status to the console rather than the configuration file. This does not add
-  Azure npm feed configuration.
+- **npm credentials follow the same seam**: with `[npm] feed_url` set to an Azure
+  Artifacts npm registry, bootstrap writes the user-level `~/.npmrc` credential
+  triple (`username` / `_password` (base64 PAT) / `email`) for the feed's registry
+  prefixes, plus the `[npm] scope` mapping when one is set; `key-update-azure`
+  re-runs the wiring after every successful import. npm setup preserves unrelated
+  settings and authentication entries, removes the exact `Skipping npmrc auth token (gh not authenticated)` line, and writes skip
+  status to the console rather than the configuration file. Only
+  `pkgs.dev.azure.com` and `*.pkgs.visualstudio.com` hosts ever receive the PAT.
 - **Two api-version regimes**: most endpoints take `api-version=7.1`;
   work-item **comments** are a preview resource requiring a
   `-preview` version pinned on the URL (plain 7.1 → 400; the code pins

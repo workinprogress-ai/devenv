@@ -334,6 +334,8 @@ Ask, verbatim:
 
 > Publish this plan to issue #N as a plan artifact comment?
 
+If the user doesn't answer and moves on (for example straight into `/devenv-delegate`), the question is not dead: the delegate commissioning interview defaults `artifact_sync: auto`, which publishes at kickoff and keeps every boundary synced — so "move on" resolves to yes-and-keep-synced unless the user opts out there. Only a decline here *or* an opt-out at commissioning leaves the plan permanently local.
+
 Only after explicit confirmation:
 
 1. Verify the plan file has `DEVENV_ARTIFACT_V1` header with `doc_id: <value>` in first 256 characters and `artifact_type: plan`.
@@ -347,7 +349,7 @@ issue-artifact-upsert --issue <N> --body-file <path-to-plan>
 The tool automatically extracts `doc_id` from the file header and creates or updates the comment accordingly.
 
 4. If upsert reports duplicate `doc_id` conflict, stop and ask the user which comment ID is canonical before continuing.
-5. **Offer to retire the local file** (y/n) — after publication the issue artifact is the sole source of truth; see the [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md). Never auto-delete; if the user keeps it, note that `/devenv-open-pr` requires working copies gone before opening a PR.
+5. **Offer to retire the local file** (y/n) — after publication the issue artifact is the sole source of truth; see the [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md). Never auto-delete; if the user keeps it, note that `/devenv-open-pr` may offer cleanup at PR time but never requires it.
 
 Execution posture for this step:
 
@@ -376,6 +378,8 @@ Format:
 | 4 — Cleanup & docs | `/devenv-delegate` | rote removal + doc sync |
 
 Recommend, don't decide: state that the user picks the invocation (`/devenv-pair` for collaborative execution, `/devenv-delegate` for a commissioned run) and may mix modes per phase. If every phase rates pair-worthy, say so and recommend starting with `/devenv-pair` rather than a mixed commission.
+
+If step 9's publish offer was never answered (the user moved straight to execution), re-surface it here in one line: an unpublished plan loses issue-artifact sync during execution; the offer is cheapest to settle now, before the run starts.
 
 ## Phase Rules (summary)
 
