@@ -76,6 +76,9 @@ Complete workflow for managing issues, projects, and sprints (as-built on GitHub
 - **[Commit Conventions](./Commit-Conventions.md)**
   - The canonical contract for commit messages: types, rebase-merge policy, `WIP:` rules
 
+- **[Rebase Commit Guide](./Rebase-Commit-Guide.md)**
+  - Day-to-day rebase workflow: commit shaping, worked scenarios, costs and mitigations
+
 - **[Function Naming Conventions](./Function-Naming-Conventions.md)**
   - Bash function naming rules
   - Verb prefixes and patterns
@@ -154,8 +157,11 @@ Complete workflow for managing issues, projects, and sprints (as-built on GitHub
 **...write a commit message**
 → [Commit Conventions](./Commit-Conventions.md)
 
+**...understand how rebase merging works day-to-day**
+→ [Rebase Commit Guide](./Rebase-Commit-Guide.md)
+
 **...save unfinished work safely (WIP commits)**
-→ [WIP-commit convention](./Additional-Tooling.md#the-wip-commit-convention)
+→ [WIP-commit convention](./Additional-Tooling.md#the-wip-commit-convention) — lifecycle and constraints in the [Rebase Commit Guide](./Rebase-Commit-Guide.md#the-escape-hatch-wip-commits)
 
 **...access remote services**
 → [Port Forwarding](./Port-forwarding.md)

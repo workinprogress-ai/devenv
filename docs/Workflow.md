@@ -60,7 +60,8 @@ Progress note: progress at any layer is a **derived view** over ground truth (ta
 Org repos merge by **rebase** — every feature-branch commit lands on master as its
 own unit, linearized in order. The full contract (master-relative commit types,
 breaking-change handling, WIP rules) is [Commit Conventions](./Commit-Conventions.md);
-the delivery-flow consequences live here.
+the delivery-flow consequences live here. Day-to-day judgment — commit shaping,
+worked scenarios, cost mitigations — is the [Rebase Commit Guide](./Rebase-Commit-Guide.md).
 
 **Benefits of rebase over squash:**
 

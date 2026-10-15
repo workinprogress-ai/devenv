@@ -396,7 +396,7 @@ A global `pre-commit` hook (applied via `core.hooksPath` during bootstrap) preve
 
 #### The WIP-commit convention
 
-WIP commits are an **escape hatch, not a storage format**. Use them to save unfinished work when you must switch context or protect in-flight changes — never as a place where work lives. The intent is that WIP state is **short-lived**: as soon as you can, run `git-unwip` and make a real, well-formed commit.
+WIP commits are an **escape hatch, not a storage format**. Use them to save unfinished work when you must switch context or protect in-flight changes — never as a place where work lives. The intent is that WIP state is **short-lived**: as soon as you can, run `git-unwip` and make a real, well-formed commit. The full lifecycle — stacking saves, un-wipping, and where WIP fits in the rebase-merge policy — is in the [Rebase Commit Guide](Rebase-Commit-Guide.md#the-escape-hatch-wip-commits).
 
 **The rule: only a WIP commit may follow a WIP commit.** A normal commit on top of a WIP commit is blocked — by design — so in-progress work can't silently become permanent history disguised as a finished commit. The block fires when `HEAD` is a `WIP:` commit or a `WIP:` commit is buried in the branch's unpushed history.
 

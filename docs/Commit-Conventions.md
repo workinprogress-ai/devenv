@@ -82,4 +82,6 @@ Merges to `master` are **rebase merges**. On protected branches the ruleset
 offers rebase only — squash and merge-commit are withdrawn there. The wrapper
 retains `--method squash|merge` flags for provider-level support on unprotected
 targets, but org policy and the wrappers default to rebase. Rationale and
-recovery guidance live in [Workflow.md](Workflow.md#merge-policy).
+recovery guidance live in [Workflow.md](Workflow.md#merge-policy); day-to-day
+guidance, worked scenarios, and cost mitigations live in the
+[Rebase Commit Guide](Rebase-Commit-Guide.md).
