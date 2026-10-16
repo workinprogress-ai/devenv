@@ -96,7 +96,7 @@ Before proposing the message, scan the draft for ephemeral workflow vocabulary: 
 
 ## Executing the commit — `repo-commit` only
 
-When the craft is done, present the suggested message, then **confirm via structured interview** (never chat prose): *"Run repo-commit with this message?"* (run it — I'll edit in the editor / run it, WIP lane instead / edit the message first — freeform / stop). Only on confirmation, run:
+When the craft is done, present the suggested message in chat, then invoke `repo-commit` directly — **no pre-run confirmation interview**: the git editor opens pre-loaded with the suggestion, and the editor save is the permission gate. The user can edit the message freely there, empty it to decline, or abort — a confirm step would only duplicate the choice the editor already provides.
 
 ```bash
 repo-commit --file <message-file>   # preferred: write the message to a temp file, pass the path
@@ -105,7 +105,7 @@ repo-commit "<message>"             # short messages only — long argv strings 
 
 **`--file` is the default shape for anything longer than a one-line subject**: write the suggested message to a temp file and pass the path — the file content becomes the editor's pre-load verbatim, immune to quoting/terminal mangling.
 
-**WIP lane** (`repo-commit --wip [--file <file>] [--staged-only] [--message-words…]`): chosen explicitly by the user (from the confirm interview or the WIP-predecessor interview). It delegates to `git-wip` — stages everything (unless `--staged-only`), bypasses hooks (the documented WIP exception), prefixes `WIP: `, pushes, and records `refs/wip/last`. The message produced has no conventional-commit prefix by design. There is no editor step on this lane — the user's choice of the WIP lane IS the confirmation, so make sure the interview answer is unambiguous before invoking.
+**WIP lane** (`repo-commit --wip [--file <file>] [--staged-only] [--message-words…]`): chosen explicitly by the user — their own words (`wip this`), the WIP-predecessor interview, or an accepted low-value-verdict suggestion. It delegates to `git-wip` — stages everything (unless `--staged-only`), bypasses hooks (the documented WIP exception), prefixes `WIP: `, pushes, and records `refs/wip/last`. The message produced has no conventional-commit prefix by design. There is no editor step on this lane — the user's explicit choice of the WIP lane IS the confirmation, so make sure the choice is unambiguous before invoking.
 
 Contract of the tool (enforced by the tool, not just this skill):
 
