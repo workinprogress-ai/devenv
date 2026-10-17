@@ -446,3 +446,121 @@ fork_twin_map_propose() {
         done < <(git -C "$upstream_repo" log --format='%H %s' "$upstream_range")
     done < <(git -C "$local_repo" rev-list "$local_range")
 }
+
+# ---------------------------------------------------------------------------
+# Upstream-side pick-plan classification (the sync's input under the
+# apply-upstream-onto-branch direction): classify each upstream commit in the
+# pick range merge-base..upstream as pick or drop.
+#
+# Drop precedence (first match wins):
+#   1. change-id — the upstream commit's Change-Id trailer exists on a local
+#      commit (the org's rebase merges preserve trailers, so this is the
+#      cheap, authoritative signal)
+#   2. adoption-link — the adoption map already records this upstream SHA
+#      as the twin of a local commit
+#   3. patch-id — patch-equivalence against local commits (the expensive
+#      fallback, bounded to the pick range; covers pre-Change-Id history)
+# Everything else is a pick.
+#
+# Verdicts printed per line: "<upstream_sha> pick|drop <signal>".
+# PICK-only mode appends picks in reverse order (git cherry-pick wants the
+# oldest first, which rev-list --reverse already provides).
+# ---------------------------------------------------------------------------
+
+readonly PICK_VERDICT_PICK="pick"
+readonly PICK_VERDICT_DROP="drop"
+
+# Classify the pick range. CALLER MUST SET FORK_TWIN_LOCAL_REPO (the fork
+# working clone) and FORK_TWIN_UPSTREAM_REPO (a repo with upstream's objects:
+# the discovered clone, or the fork itself as fallback). Range arguments may
+# use any revision syntax the CALLER's repo understands — they are resolved
+# to SHAs in the fork working clone first (where remote-tracking refs like
+# upstream/master live), then walked in FORK_TWIN_UPSTREAM_REPO (which shares
+# upstream's objects but not necessarily its refs). Prints one verdict line
+# per upstream commit, oldest first.
+#
+# Usage: fork_twin_classify_pick_range UPSTREAM_RANGE LOCAL_RANGE
+#   UPSTREAM_RANGE — e.g. "$BASE_SHA..upstream/master"
+#   LOCAL_RANGE    — e.g. "$BASE_SHA..HEAD"
+fork_twin_classify_pick_range() {
+    local upstream_range="$1" local_range="$2"
+    local upstream_repo="${FORK_TWIN_UPSTREAM_REPO:?}"
+    local local_repo="${FORK_TWIN_LOCAL_REPO:?}"
+
+    # Resolve both ranges to plain SHAs in the caller's repo: the walk
+    # happens in FORK_TWIN_UPSTREAM_REPO, which shares upstream's objects but
+    # may lack the caller's remote-tracking refs. Endpoints are resolved
+    # individually — git rev-parse on a range expression prints two lines,
+    # not one revision.
+    local u_from u_to l_from l_to
+    # Both ranges must be exactly <rev>..<rev>: an empty side or a second ..
+    # would mis-slice here, so each endpoint must re-resolve to a non-empty
+    # SHA or the call fails with a named message.
+    u_from="$(git -C "$local_repo" rev-parse "${upstream_range%%..*}")" || { echo "fork-twin: cannot resolve range start of '$upstream_range'" >&2; return 1; }
+    u_to="$(git -C "$local_repo" rev-parse "${upstream_range#*..}")" || { echo "fork-twin: cannot resolve range end of '$upstream_range'" >&2; return 1; }
+    l_from="$(git -C "$local_repo" rev-parse "${local_range%%..*}")" || { echo "fork-twin: cannot resolve range start of '$local_range'" >&2; return 1; }
+    l_to="$(git -C "$local_repo" rev-parse "${local_range#*..}")" || { echo "fork-twin: cannot resolve range end of '$local_range'" >&2; return 1; }
+
+    # Build the local signals once, outside the per-commit loop:
+    #   - Change-Id index: "<id> <sha>" lines over the local range
+    #   - adoption-map upstream SHAs (second column of the map file)
+    #   - patch-id set of local commits
+    local id_index
+    id_index="$(mktemp "${TMPDIR:-/tmp}/fork-twin-idindex.XXXXXX")"
+    # Both temp files must not leak on any exit path below.
+    trap 'rm -f "$id_index" "$patch_ids"' RETURN
+    local sha
+    while read -r sha; do
+        [ -n "$sha" ] || continue
+        local id
+        id="$(change_id_get_from_commit "$local_repo" "$sha" 2>/dev/null || true)"
+        [ -n "$id" ] && printf '%s %s\n' "$id" "$sha"
+    done < <(git -C "$local_repo" rev-list "$l_to" --not "$l_from") > "$id_index"
+
+    local patch_ids
+    patch_ids="$(mktemp "${TMPDIR:-/tmp}/fork-twin-patchids.XXXXXX")"
+    while read -r sha; do
+        [ -n "$sha" ] || continue
+        fork_twin_patch_id "$local_repo" "$sha" >> "$patch_ids"
+    done < <(git -C "$local_repo" rev-list "$l_to" --not "$l_from")
+
+    local map_path upstream_sha
+    map_path="$(fork_twin_map_get_path "$local_repo" 2>/dev/null || true)"
+
+    local u_sha u_id verdict signal
+    while read -r u_sha; do
+        [ -n "$u_sha" ] || continue
+        verdict="$PICK_VERDICT_PICK"
+        signal=""
+
+        # 1. Change-Id set intersection.
+        u_id="$(change_id_get_from_commit "$upstream_repo" "$u_sha" 2>/dev/null || true)"
+        if [ -n "$u_id" ] && grep -qxF -- "$u_id" <(awk '{print $1}' "$id_index"); then
+            verdict="$PICK_VERDICT_DROP"
+            signal="change-id"
+        fi
+
+        # 2. Recorded adoption link naming this upstream SHA.
+        if [ "$verdict" = "$PICK_VERDICT_PICK" ] && [ -n "$map_path" ] && [ -f "$map_path" ]; then
+            upstream_sha="$(fork_twin_map_lookup_upstream "$map_path" "$u_sha" 2>/dev/null || true)"
+            if [ -n "$upstream_sha" ]; then
+                verdict="$PICK_VERDICT_DROP"
+                signal="adoption-link"
+            fi
+        fi
+
+        # 3. Patch-id equivalence, bounded to the pick range's local side.
+        if [ "$verdict" = "$PICK_VERDICT_PICK" ]; then
+            local pid
+            pid="$(fork_twin_patch_id "$upstream_repo" "$u_sha")"
+            if [ -n "$pid" ] && grep -qxF -- "$pid" "$patch_ids"; then
+                verdict="$PICK_VERDICT_DROP"
+                signal="patch-id"
+            fi
+        fi
+
+        printf '%s %s %s\n' "$u_sha" "$verdict" "${signal:--}"
+    done < <(git -C "$upstream_repo" rev-list --reverse "$u_to" --not "$u_from")
+
+    rm -f "$id_index" "$patch_ids"
+}

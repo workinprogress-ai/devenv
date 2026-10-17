@@ -245,3 +245,109 @@ _export_commit_to_upstream() {
     run bash -c "source '$DEVENV_TOOLS/lib/change-id.bash' && change_id_is_fork_adapted \$'subject\n\nFork-Adapted: no\n'"
     [ "$status" -ne 0 ]
 }
+
+@test "fork-twin: pick-range classify — own exported twin drops via change-id, new upstream work picks" {
+    # Fork commits one Change-Id'd commit and exports it; upstream also gains
+    # an independent commit the fork has never seen.
+    _fork_scenario_install_change_id_hook
+    printf 'local work\n' > "$FORK_FIXTURE_WORKING_CLONE/local_work.txt"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add local_work.txt
+    git -C "$FORK_FIXTURE_WORKING_CLONE" commit -qm "feat: local work for export"
+    _export_commit_to_upstream "feat: local work for export"
+    printf 'unseen\n' > "$FORK_FIXTURE_GH_CLONE/unseen.txt"
+    git -C "$FORK_FIXTURE_GH_CLONE" add unseen.txt
+    git -C "$FORK_FIXTURE_GH_CLONE" commit -qm "feat: unseen upstream work"
+
+    BASE="$(git -C "$FORK_FIXTURE_WORKING_CLONE" merge-base upstream/master HEAD)"
+    # Land upstream's commits so the working clone's upstream/master sees them.
+    git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
+    git -C "$FORK_FIXTURE_WORKING_CLONE" fetch -q upstream
+    run bash -c "
+        source '$DEVENV_TOOLS/lib/fork-twin.bash'
+        FORK_TWIN_LOCAL_REPO='$FORK_FIXTURE_WORKING_CLONE'
+        FORK_TWIN_UPSTREAM_REPO='$FORK_FIXTURE_GH_CLONE'
+        fork_twin_classify_pick_range '$BASE..upstream/master' '$BASE..HEAD'
+    "
+    [ "$status" -eq 0 ]
+    # Exactly two upstream commits: the exported twin drops, the unseen work picks.
+    [ "$(grep -c ' drop ' <<< "$output")" -eq 1 ]
+    [ "$(grep -c ' pick ' <<< "$output")" -eq 1 ]
+    grep -q " drop change-id" <<< "$output"
+}
+
+@test "fork-twin: pick-range classify — recorded adoption link drops the upstream side" {
+    # Pre-Change-Id local commit, exported (so upstream's copy has a Change-Id
+    # or not — irrelevant), then the pair recorded manually in the map.
+    printf 'legacy work\n' > "$FORK_FIXTURE_WORKING_CLONE/legacy.txt"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add legacy.txt
+    GIT_AUTHOR_DATE="2026-09-08T10:00:00" GIT_COMMITTER_DATE="2026-09-08T10:00:00" \
+        git -C "$FORK_FIXTURE_WORKING_CLONE" commit -qm "feat: legacy local work"
+    _export_commit_to_upstream "feat: legacy local work"
+    local local_sha upstream_sha
+    local_sha="$(git -C "$FORK_FIXTURE_WORKING_CLONE" log --format=%H --grep="legacy local work" -1)"
+    upstream_sha="$(git -C "$FORK_FIXTURE_GH_CLONE" log --format=%H --grep="legacy local work" -1)"
+    fork_twin_map_add "$FORK_FIXTURE_WORKING_CLONE" "$local_sha" "$upstream_sha" "recorded"
+
+    BASE="$(git -C "$FORK_FIXTURE_WORKING_CLONE" merge-base upstream/master HEAD)"
+    # Land upstream's commits so the working clone's upstream/master sees them.
+    git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
+    git -C "$FORK_FIXTURE_WORKING_CLONE" fetch -q upstream
+    run bash -c "
+        source '$DEVENV_TOOLS/lib/fork-twin.bash'
+        FORK_TWIN_LOCAL_REPO='$FORK_FIXTURE_WORKING_CLONE'
+        FORK_TWIN_UPSTREAM_REPO='$FORK_FIXTURE_GH_CLONE'
+        fork_twin_classify_pick_range '$BASE..upstream/master' '$BASE..HEAD'
+    "
+    [ "$status" -eq 0 ]
+    grep -q "$upstream_sha drop adoption-link" <<< "$output"
+}
+
+@test "fork-twin: pick-range classify — patch-id fallback drops without trailers, bounded to range" {
+    # Local commit with NO Change-Id, byte-identical copy upstream: only the
+    # patch-id signal can catch it. Both sides commit the identical file
+    # content and message.
+    printf 'identical\n' > "$FORK_FIXTURE_WORKING_CLONE/identical.txt"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add identical.txt
+    GIT_AUTHOR_DATE="2026-09-09T10:00:00" GIT_COMMITTER_DATE="2026-09-09T10:00:00" \
+        git -C "$FORK_FIXTURE_WORKING_CLONE" commit -qm "feat: identical on both sides"
+    printf 'identical\n' > "$FORK_FIXTURE_GH_CLONE/identical.txt"
+    git -C "$FORK_FIXTURE_GH_CLONE" add identical.txt
+    GIT_AUTHOR_DATE="2026-09-09T10:00:00" GIT_COMMITTER_DATE="2026-09-09T10:00:00" \
+        git -C "$FORK_FIXTURE_GH_CLONE" commit -qm "feat: identical on both sides"
+
+    BASE="$(git -C "$FORK_FIXTURE_WORKING_CLONE" merge-base upstream/master HEAD)"
+    # Land upstream's commits so the working clone's upstream/master sees them.
+    git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
+    git -C "$FORK_FIXTURE_WORKING_CLONE" fetch -q upstream
+    run bash -c "
+        source '$DEVENV_TOOLS/lib/fork-twin.bash'
+        FORK_TWIN_LOCAL_REPO='$FORK_FIXTURE_WORKING_CLONE'
+        FORK_TWIN_UPSTREAM_REPO='$FORK_FIXTURE_GH_CLONE'
+        fork_twin_classify_pick_range '$BASE..upstream/master' '$BASE..HEAD'
+    "
+    [ "$status" -eq 0 ]
+    grep -q " drop patch-id" <<< "$output"
+}
+
+@test "fork-twin: pick-range classify — picks come back oldest-first" {
+    fork_scenario_scale_history 1 3
+    # Land upstream's commits so the working clone's upstream/master sees them.
+    git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
+    git -C "$FORK_FIXTURE_WORKING_CLONE" fetch -q upstream
+    BASE="$(git -C "$FORK_FIXTURE_WORKING_CLONE" merge-base upstream/master HEAD)"
+    run bash -c "
+        source '$DEVENV_TOOLS/lib/fork-twin.bash'
+        FORK_TWIN_LOCAL_REPO='$FORK_FIXTURE_WORKING_CLONE'
+        FORK_TWIN_UPSTREAM_REPO='$FORK_FIXTURE_GH_CLONE'
+        fork_twin_classify_pick_range '$BASE..upstream/master' '$BASE..HEAD'
+    "
+    [ "$status" -eq 0 ]
+    [ "$(wc -l <<< "$output")" -eq 3 ]
+    # rev-list --reverse: first line is the oldest upstream commit (1, not 3).
+    [[ "$output" == *1*pick* ]]
+    local first last
+    first="$(head -1 <<< "$output")"
+    last="$(tail -1 <<< "$output")"
+    git -C "$FORK_FIXTURE_GH_CLONE" log --format=%s -1 "${first%% *}" | grep -q "scale upstream commit 1"
+    git -C "$FORK_FIXTURE_GH_CLONE" log --format=%s -1 "${last%% *}" | grep -q "scale upstream commit 3"
+}

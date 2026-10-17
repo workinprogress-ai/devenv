@@ -302,6 +302,13 @@ _fork_scenario_commit() {
         git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "$subject"
 }
 
+_fork_scenario_install_change_id_hook_gh() {
+    mkdir -p "$FORK_FIXTURE_GH_CLONE/.git/hooks"
+    printf '#!/bin/sh\nexec bash "%s/internal/prepare-commit-msg.sh" "$@"\n' "$DEVENV_TOOLS" \
+        > "$FORK_FIXTURE_GH_CLONE/.git/hooks/prepare-commit-msg"
+    chmod +x "$FORK_FIXTURE_GH_CLONE/.git/hooks/prepare-commit-msg"
+}
+
 _fork_scenario_install_change_id_hook() {
     # Commits with Change-Ids the way real ones get them: the hook.
     mkdir -p "$FORK_FIXTURE_WORKING_CLONE/.git/hooks"
@@ -366,6 +373,53 @@ fork_scenario_upstream_evolved() {
         GIT_AUTHOR_DATE="$date" GIT_COMMITTER_DATE="$date" \
             git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "upstream: evolve the twin file $i"
     done
+}
+
+# ---------------------------------------------------------------------------
+#   fork_scenario_scale_history LOCAL_COUNT UPSTREAM_COUNT
+#       Deterministic many-commit history for timing baselines and perf
+#       guards: LOCAL_COUNT Change-Id commits on the working clone (one file
+#       per commit, disjoint from upstream's files) and UPSTREAM_COUNT
+#       independent commits on the gh-clone. Prints
+#       "local=<tip> upstream=<tip>".
+#   fork_scenario_local_merge_commit
+#       A single --no-ff merge commit on the working clone's master (merge
+#       commit refusal scenarios). Prints the merge commit's subject.
+# ---------------------------------------------------------------------------
+
+fork_scenario_scale_history() {
+    local local_count="$1" upstream_count="$2"
+    local i date
+    _fork_scenario_install_change_id_hook
+    for ((i = 1; i <= local_count; i++)); do
+        date="$(printf '2026-09-05T%02d:%02d:00' "$((10 + i / 60))" "$((i % 60))")"
+        printf 'scale local line %s\n' "$i" > "$FORK_FIXTURE_WORKING_CLONE/scale_local_$i.txt"
+        git -C "$FORK_FIXTURE_WORKING_CLONE" add "scale_local_$i.txt"
+        GIT_AUTHOR_DATE="$date" GIT_COMMITTER_DATE="$date" \
+            git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "feat: scale local commit $i"
+    done
+    for ((i = 1; i <= upstream_count; i++)); do
+        date="$(printf '2026-09-06T%02d:%02d:00' "$((10 + i / 60))" "$((i % 60))")"
+        printf 'scale upstream line %s\n' "$i" > "$FORK_FIXTURE_GH_CLONE/scale_upstream_$i.txt"
+        git -C "$FORK_FIXTURE_GH_CLONE" add "scale_upstream_$i.txt"
+        GIT_AUTHOR_DATE="$date" GIT_COMMITTER_DATE="$date" \
+            git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "feat: scale upstream commit $i"
+    done
+    printf 'local=%s upstream=%s\n' \
+        "$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)" \
+        "$(git -C "$FORK_FIXTURE_GH_CLONE" rev-parse HEAD)"
+}
+
+fork_scenario_local_merge_commit() {
+    git -C "$FORK_FIXTURE_WORKING_CLONE" checkout -qb scale-side
+    printf 'side content\n' > "$FORK_FIXTURE_WORKING_CLONE/scale_side.txt"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" add scale_side.txt
+    GIT_AUTHOR_DATE="2026-09-07T10:00:00" GIT_COMMITTER_DATE="2026-09-07T10:00:00" \
+        git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "Side commit for merge"
+    git -C "$FORK_FIXTURE_WORKING_CLONE" checkout -q master
+    GIT_AUTHOR_DATE="2026-09-07T10:01:00" GIT_COMMITTER_DATE="2026-09-07T10:01:00" \
+        git -C "$FORK_FIXTURE_WORKING_CLONE" merge -q --no-ff -m "Merge scale-side" scale-side
+    git -C "$FORK_FIXTURE_WORKING_CLONE" log -1 --format=%s master
 }
 
 # Helper to check if a function exists

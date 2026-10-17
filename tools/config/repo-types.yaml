@@ -53,6 +53,12 @@
 #           * maintain (Maintain) - Push + manage releases and some settings
 #           * admin (Admin) - Full access including settings, webhooks, and team management
 #       If not specified, no default permissions are applied (repository remains with org defaults)
+#
+#   - docs_first: Content-is-the-product repository (specs, ADRs, plans,
+#       conventions): commits use the explicit bump types major/minor/patch to
+#       drive releases — a plain `docs:` commit triggers no release there.
+#       Read via get_type_docs_first (default: false); classification
+#       guidelines in docs/Commit-Conventions.md ("Docs-first repos").
 
 types:
   # Planning and repositories
@@ -60,6 +66,7 @@ types:
   # Examples: planning.development.main, planning.roadmap
   planning:
     description: Planning repositories
+    docs_first: true
     template: template.planning
     naming_pattern: '^planning(\.[a-z0-9-]+)+$'
     naming_example: "planning.development.main or planning.roadmap"
@@ -90,6 +97,7 @@ types:
   # Examples: docs.api.reference, docs.user-guide, docs.architecture
   documentation:
     description: Documentation repositories
+    docs_first: true
     template: template.docs
     naming_pattern: '^docs(\.[a-z0-9-]+)+$'
     naming_example: "docs.api.reference, docs.user-guide, or docs.architecture"

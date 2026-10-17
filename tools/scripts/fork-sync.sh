@@ -15,18 +15,21 @@ source "$DEVENV_TOOLS/lib/fork-twin.bash"
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
     cat <<'HELP'
-fork-sync.sh — report or replay fork-only commits against the configured upstream
+fork-sync.sh — report or apply upstream's new commits against the configured upstream
 
 Fetches `upstream` and reports ahead/behind counts and commits by default;
 it does not change history or push unless explicitly requested. `--replay`
-replays the current branch's fork-only commits on top of `upstream/<branch>`
-(commits upstream already has are dropped, not re-applied). On a conflict,
-it prints `git rebase --abort` guidance and exits without pushing.
+applies `upstream/<branch>`'s new commits on top of the branch (commits the
+branch already has are skipped, not re-applied; the branch's own SHAs never
+move, so `--push-to-origin` stays a fast-forward). On a conflict, it prints
+`git cherry-pick --abort` guidance and exits without pushing — abort returns
+the branch to its exact pre-sync state.
 `--push-to-origin` uses a normal fast-forward push. If `origin` has commits
 missing locally, it refuses unless paired with `--rewrite-origin`; that
-explicit path uses `--force-with-lease`. `--yes` confirms without a prompt;
-otherwise a TTY gets a `y/N` prompt and non-TTY use fails closed.
-`--dry-run` reports the planned operations.
+explicit path uses `--force-with-lease`. Applying commits requires
+confirmation: `--yes` confirms without a prompt; otherwise a TTY gets a
+`y/N` prompt and non-TTY use fails closed. `--dry-run` reports the planned
+operations.
 
 Divergent commits are matched against the other side by Change-Id trailer,
 patch-equivalence, subject, or (for upstream-only commits) already being reachable
@@ -50,6 +53,7 @@ USAGE
     fork-sync [--dry-run] [--replay] [--push-to-origin [--rewrite-origin]] [--yes]
     fork-sync --link <local-commit> <upstream-commit>
     fork-sync --unlink <local-or-upstream-sha>
+    fork-sync --drift
     fork-sync --propose-links
 HELP
     exit 0
@@ -67,6 +71,7 @@ LINK_LOCAL=""
 LINK_UPSTREAM=""
 UNLINK_SHA=""
 PROPOSE_LINKS=0
+DRIFT=0
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --dry-run) DRY_RUN=1 ;;
@@ -82,12 +87,13 @@ while [ "$#" -gt 0 ]; do
             shift 2
             ;;
         --propose-links) PROPOSE_LINKS=1 ;;
+        --drift) DRIFT=1 ;;
         --unlink)
             require_option_value "$1" "${2:-}"
             UNLINK_SHA="$2"
             shift
             ;;
-        --rebase) die "--rebase was renamed --replay (the sync replays fork-only commits on top of upstream; it no longer describes itself as a rebase)" "$EXIT_MISUSE" ;;
+        --rebase) die "--rebase was renamed --replay (the sync applies upstream's commits on top of the branch; it no longer describes itself as a rebase)" "$EXIT_MISUSE" ;;
         *) die "unknown option: $1" "$EXIT_MISUSE" ;;
     esac
     shift
@@ -96,6 +102,7 @@ done
 [ "$YES" -eq 0 ] || { [ "$PUSH" -eq 1 ] || [ "$REPLAY" -eq 1 ]; } || die "--yes requires --push-to-origin or --replay" "$EXIT_MISUSE"
 [ -z "$LINK_LOCAL" ] || { [ "$REPLAY" -eq 0 ] && [ "$PUSH" -eq 0 ] && [ "$DRY_RUN" -eq 0 ] && [ "$PROPOSE_LINKS" -eq 0 ] && [ -z "$UNLINK_SHA" ]; } || die "--link runs alone" "$EXIT_MISUSE"
 [ "$PROPOSE_LINKS" -eq 0 ] || { [ "$REPLAY" -eq 0 ] && [ "$PUSH" -eq 0 ] && [ "$DRY_RUN" -eq 0 ] && [ -z "$LINK_LOCAL" ] && [ -z "$UNLINK_SHA" ]; } || die "--propose-links runs alone" "$EXIT_MISUSE"
+[ "$DRIFT" -eq 0 ] || { [ "$REPLAY" -eq 0 ] && [ "$PUSH" -eq 0 ] && [ "$DRY_RUN" -eq 0 ] && [ "$PROPOSE_LINKS" -eq 0 ] && [ -z "$LINK_LOCAL" ] && [ -z "$UNLINK_SHA" ]; } || die "--drift runs alone" "$EXIT_MISUSE"
 [ -z "$UNLINK_SHA" ] || { [ "$REPLAY" -eq 0 ] && [ "$PUSH" -eq 0 ] && [ "$DRY_RUN" -eq 0 ] && [ -z "$LINK_LOCAL" ] && [ "$PROPOSE_LINKS" -eq 0 ]; } || die "--unlink runs alone" "$EXIT_MISUSE"
 [ "$REWRITE_ORIGIN" -eq 0 ] || [ "$PUSH" -eq 1 ] || die "--rewrite-origin requires --push-to-origin" "$EXIT_MISUSE"
 if [ "$PUSH" -eq 1 ] && [ "$YES" -eq 0 ] && [ ! -t 0 ]; then
@@ -202,6 +209,53 @@ if [ -n "$LINK_LOCAL" ] || [ "$PROPOSE_LINKS" -eq 1 ]; then
     exit 0
 fi
 
+# --drift: standing drift inventory. Reports fork-local modifications on
+# upstream-stable paths — maintenance cost the fork carries by choice. Read-only;
+# fetches nothing. A path matching no declared surface is upstream-stable by
+# default, so only paths matching a fork-stable or fork-replaced glob are
+# excluded from the inventory.
+if [ "$DRIFT" -eq 1 ]; then
+    source "$DEVENV_TOOLS/lib/fork-surfaces.bash"
+    fork_surfaces_validate >/dev/null || die "fork-surfaces declaration is invalid" "$EXIT_GENERAL_ERROR"
+
+    UPSTREAM_URL="$(git -C "$REPO_ROOT" remote get-url upstream 2>/dev/null || true)"
+    [ -n "$UPSTREAM_URL" ] || die "upstream remote is missing; run fork-setup.sh first" "$EXIT_GENERAL_ERROR"
+    fork_upstream_matches "$REPO_ROOT" || die "upstream remote URL does not match [fork] upstream_repo" "$EXIT_GENERAL_ERROR"
+
+    # Compare local vs upstream tip without fetching: drift is about local
+    # edits vs the last-known upstream state; a stale tip says so.
+    local_drift_ref="refs/remotes/upstream/$FORK_UPSTREAM_BRANCH"
+    if ! git -C "$REPO_ROOT" show-ref --verify --quiet "$local_drift_ref"; then
+        die "upstream branch not fetched yet; run fork-sync (without --drift) once to fetch" "$EXIT_GENERAL_ERROR"
+    fi
+
+    BASE_DRIFT="$(git -C "$REPO_ROOT" merge-base "$local_drift_ref" HEAD 2>/dev/null)" || die "cannot compute the drift base — is upstream/$FORK_UPSTREAM_BRANCH still fetched and related to HEAD? run fork-sync once to refresh" "$EXIT_GENERAL_ERROR"
+
+    echo "Drift inventory: fork-local edits on upstream-stable paths"
+    echo "  (compared against the last-fetched upstream/$FORK_UPSTREAM_BRANCH)"
+    DRIFT_COUNT=0
+    # Every file the fork side changed since the merge-base.
+    while IFS= read -r path; do
+        [ -n "$path" ] || continue
+        class="$(fork_surfaces_classify "$path")"
+        [ "$class" = "upstream-stable" ] || continue
+        DRIFT_COUNT=$((DRIFT_COUNT + 1))
+        if [ "$DRIFT_COUNT" -eq 1 ]; then
+            echo ""
+        fi
+        echo "  $path"
+    done < <(git -C "$REPO_ROOT" diff --name-only "$BASE_DRIFT" HEAD -- . | sort -u)
+    if [ "$DRIFT_COUNT" -eq 0 ]; then
+        echo "  none — no fork-local edits on upstream-stable paths."
+    else
+        echo ""
+        echo "  $DRIFT_COUNT upstream-stable path(s) carry fork-local edits."
+        echo "  These are maintained at the fork's own cost; upstream changes to"
+        echo "  them may conflict at sync time."
+    fi
+    exit 0
+fi
+
 # Refuse to start on top of an unfinished git operation: a prior rebase/am, merge, or
 # cherry-pick left state a fresh fetch/replay/push would not account for.
 git -C "$REPO_ROOT" rev-parse --verify --quiet MERGE_HEAD >/dev/null && die "a merge is already in progress; finish it (git -C $REPO_ROOT merge --continue) or abort it (--abort) before syncing" "$EXIT_GENERAL_ERROR"
@@ -218,184 +272,175 @@ fork_upstream_matches "$REPO_ROOT" || die "upstream remote URL does not match [f
 CURRENT_BRANCH="$(git -C "$REPO_ROOT" symbolic-ref --quiet --short HEAD 2>/dev/null || printf 'HEAD')"
 
 # ---------------------------------------------------------------------------
-# Classified replay support
+# Pick-plan support (apply-upstream-onto-branch direction): classify each
+# upstream commit in the pick range merge-base..upstream as apply or skip.
+# Upstream commits whose Change-Id already exists on the branch are skipped
+# (org rebase merges preserve trailers); adoption-map entries and bounded
+# patch-id equivalence cover the rest. Local SHAs never move.
 # ---------------------------------------------------------------------------
 
-# Classify every local commit since the merge-base against upstream. Fills:
-#   VERDICT_SHA[], VERDICT_KIND[], VERDICT_TWIN[], VERDICT_SIGNAL[]
-#   TWIN_DROP_COUNT (plain twins: safe to drop), RESIDUE_COUNT/RESIDUE_COMMITS
-#   (twins with a differing patch: user decision), REPLAY_COUNT (fork-only),
-#   SUSPECT_COUNT (subject-only matches: replayed, named).
+# Compose the pick plan. Fills:
+#   PICK_SHAS[]/PICK_VERDICTS[]/PICK_SIGNALS[] — per upstream commit
+#   PICK_COUNT (to apply), DROP_COUNT (already on the branch)
+#   RESIDUE_LINES[] — divergence notes for skipped upstream commits whose
+#     local twin carries a differing patch (local copy stays authoritative;
+#     the divergence is named, never silently absorbed)
 # Requires BASE_SHA and UPSTREAM_REF; sets FORK_TWIN_LOCAL_REPO/UPSTREAM_REPO.
 #
-# Usage: classify_local_commits BASE_SHA UPSTREAM_REF
-classify_local_commits() {
-    local base="$1" upstream_ref="$2" sha verdict
+# Usage: build_pick_plan BASE_SHA
+build_pick_plan() {
+    local base="$1"
     export FORK_TWIN_LOCAL_REPO="$REPO_ROOT"
     FORK_TWIN_UPSTREAM_REPO="${FORK_UPSTREAM_CLONE:-$(discover_upstream_clone)}"
     FORK_TWIN_UPSTREAM_REPO="${FORK_TWIN_UPSTREAM_REPO:-$REPO_ROOT}"
-    CLASSIFY_SHAS=()
-    VERDICT_KIND=()
-    VERDICT_TWIN=()
-    VERDICT_SIGNAL=()
-    TWIN_DROP_COUNT=0
+    PICK_SHAS=()
+    PICK_VERDICTS=()
+    PICK_SIGNALS=()
+    PICK_COUNT=0
+    DROP_COUNT=0
     RESIDUE_COUNT=0
-    RESIDUE_SHAS=()
-    RESIDUE_COMMITS=()
-    REPLAY_COUNT=0
-    SUSPECT_COUNT=0
-    while read -r sha; do
-        [ -n "$sha" ] || continue
-        verdict="$(fork_twin_classify_commit "$sha" "$(git -C "$REPO_ROOT" rev-parse "$upstream_ref")" "$(fork_twin_map_get_path "$REPO_ROOT")" || true)"
-        read -r kind _ twin signal <<< "$verdict"
-        CLASSIFY_SHAS+=("$sha")
-        VERDICT_KIND+=("$kind")
-        VERDICT_TWIN+=("$twin")
-        VERDICT_SIGNAL+=("$signal")
-        case "$kind" in
-            "$TWIN_VERDICT_TWIN" | "$TWIN_VERDICT_TWIN_RESIDUE")
-                TWIN_DROP_COUNT=$((TWIN_DROP_COUNT + 1))
-                if [ "$kind" = "$TWIN_VERDICT_TWIN_RESIDUE" ]; then
-                    RESIDUE_COUNT=$((RESIDUE_COUNT + 1))
-                    RESIDUE_SHAS+=("$sha")
-                    RESIDUE_COMMITS+=("$(git -C "$REPO_ROOT" log -1 --format='  %h %s' "$sha")")
+    RESIDUE_LINES=()
+    local line u_sha verdict signal u_id l_sha l_id subject local_twin
+    while read -r line; do
+        [ -n "$line" ] || continue
+        read -r u_sha verdict signal <<< "$line"
+        PICK_SHAS+=("$u_sha")
+        PICK_VERDICTS+=("$verdict")
+        PICK_SIGNALS+=("$signal")
+        if [ "$verdict" = "$PICK_VERDICT_PICK" ]; then
+            PICK_COUNT=$((PICK_COUNT + 1))
+            continue
+        fi
+        DROP_COUNT=$((DROP_COUNT + 1))
+        # Residue: the skipped upstream commit's local twin differs in patch
+        # content — name the divergence for review.
+        u_id="$(change_id_get_from_commit "${FORK_TWIN_UPSTREAM_REPO}" "$u_sha" 2>/dev/null || true)"
+        local_twin=""
+        if [ -n "$u_id" ]; then
+            while read -r l_sha; do
+                [ -n "$l_sha" ] || continue
+                l_id="$(change_id_get_from_commit "$REPO_ROOT" "$l_sha" 2>/dev/null || true)"
+                if [ "$l_id" = "$u_id" ]; then
+                    local_twin="$l_sha"
+                    break
                 fi
-                ;;
-            "$TWIN_VERDICT_SUSPECT") SUSPECT_COUNT=$((SUSPECT_COUNT + 1)); REPLAY_COUNT=$((REPLAY_COUNT + 1)) ;;
-            *) REPLAY_COUNT=$((REPLAY_COUNT + 1)) ;;
-        esac
-    done < <(git -C "$REPO_ROOT" rev-list --reverse "$base..HEAD")
+            done < <(git -C "$REPO_ROOT" rev-list "HEAD")
+        fi
+        if [ -n "$local_twin" ] && ! fork_twin_patches_identical "$local_twin" "$u_sha"; then
+            RESIDUE_COUNT=$((RESIDUE_COUNT + 1))
+            subject="$(git -C "$REPO_ROOT" log -1 --format='  %h %s' "$u_sha")"
+            RESIDUE_LINES+=("$subject — upstream copy differs from your local version (local kept)")
+        fi
+    done < <(fork_twin_classify_pick_range "$base..$UPSTREAM_REF" "$base..HEAD")
 }
 
-# Print the plan: every local commit with its verdict, twin, and signal, plus
-# a residue diff for twins whose patch drifted. Used by --dry-run and by the
-# pre-replay report.
+# Print the pick plan: every upstream commit with its verdict and twin
+# signal, plus divergence notes and the per-surface-class forecast — what the
+# applied work touches, bucketed by the fork-stable surfaces contract (AC:
+# the sync reports upstream changes per surface class before anything
+# merges). Used by --dry-run and the pre-apply report.
 #
-# Usage: print_classification_plan
-print_classification_plan() {
-    local i sha kind twin signal
-    for i in "${!VERDICT_KIND[@]}"; do
-        kind="${VERDICT_KIND[$i]}"
-        twin="${VERDICT_TWIN[$i]}"
-        signal="${VERDICT_SIGNAL[$i]}"
-        sha="${CLASSIFY_SHAS[$i]}"
-        local line
-        line="$(git -C "$REPO_ROOT" log -1 --format='%h %s' "$sha")"
-        case "$kind" in
-            "$TWIN_VERDICT_TWIN")
-                echo "  $line — already upstream (twin $twin via $signal), will be dropped"
-                ;;
-            "$TWIN_VERDICT_TWIN_RESIDUE")
-                echo "  $line — already upstream with residue (twin $twin via $signal); upstream copy kept, local drift dropped"
-                echo "    residue in $(git -C "$REPO_ROOT" show --name-only --format= "$sha" | tr '\n' ' '):"
-                fork_twin_residue_diff "$sha" "$twin" 2>/dev/null | sed 's/^/      /'
-                ;;
-            "$TWIN_VERDICT_SUSPECT")
-                echo "  suspect twin (subject match only — will be replayed): $line (twin $twin)"
+# Usage: print_pick_plan
+print_pick_plan() {
+    local i u_sha verdict signal line
+    for i in "${!PICK_SHAS[@]}"; do
+        u_sha="${PICK_SHAS[$i]}"
+        verdict="${PICK_VERDICTS[$i]}"
+        signal="${PICK_SIGNALS[$i]}"
+        line="$(git -C "$REPO_ROOT" log -1 --format='%h %s' "$u_sha")"
+        case "$verdict" in
+            "$PICK_VERDICT_PICK")
+                echo "  $line — new upstream work, will be applied"
                 ;;
             *)
-                echo "  fork-only (will be replayed): $line"
+                echo "  $line — already on your branch (via $signal), skipped"
                 ;;
         esac
     done
-}
-
-# The GIT_SEQUENCE_EDITOR filter: reads the todo, drops lines whose commit is
-# a classified plain twin, converts twin-residue lines to edit when --yes
-# (replay as-is would be pick; residue needs the user's eyes — with --yes we
-# replay them as pick and report afterwards), writes the todo back.
-#
-# The editor receives the todo path; classification arrives via the
-# CLASSIFY_TWIN_SHAS space-separated list (plain twins: dropped).
-_write_classify_editor() {
-    cat > "$CLASSIFY_EDITOR_PATH" <<'EDITOR_SCRIPT'
-#!/bin/bash
-todo="$1"
-drop_shas="$CLASSIFY_TWIN_SHAS"
-filtered="$todo.filtered"
-: > "$filtered"
-while IFS= read -r line; do
-    drop=0
-    line_sha=""
-    # A todo action line looks like "pick <sha> <subject>" (or "d <sha> ...").
-    case "$line" in
-        pick\ *|d\ *|p\ *) line_sha=$(printf '%s' "$line" | awk '{print $2}') ;;
-    esac
-    if [ -n "$line_sha" ]; then
-        for sha in $drop_shas; do
-            # The todo abbreviates SHAs; the drop list is full SHAs. Match
-            # when the todo's short SHA is a prefix of a drop-list SHA (git
-            # todo SHAs are unambiguous within the repo by construction).
-            case "$sha" in
-                "$line_sha"*) drop=1; break ;;
-            esac
-        done
+    if [ "$RESIDUE_COUNT" -gt 0 ]; then
+        echo "Divergence on skipped commit(s) — your local copy kept:"
+        printf '%s\n' "${RESIDUE_LINES[@]}"
     fi
-    [ "$drop" -eq 1 ] || printf '%s
-' "$line" >> "$filtered"
-done < "$todo"
-mv "$filtered" "$todo"
-EDITOR_SCRIPT
-    chmod +x "$CLASSIFY_EDITOR_PATH"
 }
 
-# Run the classified replay: build the twin-drop list from the classification,
-# install the todo filter, then let git's interactive-rebase machinery apply
-# the filtered todo (non-interactively: the editor does all the work).
+# Forecast which surface classes the applied work touches. Requires
+# FORK_TWIN_UPSTREAM_REPO set (the pick plan's upstream repo) and a populated
+# pick plan. Prints one "  <count> file(s) — <class>" line per touched class,
+# ordered fork-replaced (manual reconciliation expected) first, then
+# fork-stable, then upstream-stable. Classifies every applied commit's
+# changed paths against the fork-surfaces declaration.
 #
-# Usage: fork_replay_classified
-fork_replay_classified() {
-    local i sha
-    CLASSIFY_TWIN_SHAS=""
-    for i in "${!VERDICT_KIND[@]}"; do
-        case "${VERDICT_KIND[$i]}" in
-            "$TWIN_VERDICT_TWIN" | "$TWIN_VERDICT_TWIN_RESIDUE")
-                CLASSIFY_TWIN_SHAS+=" ${CLASSIFY_SHAS[$i]}"
-                ;;
-        esac
+# Usage: print_surface_forecast BASE_SHA
+print_surface_forecast() {
+    # shellcheck source=lib/fork-surfaces.bash
+    source "$DEVENV_TOOLS/lib/fork-surfaces.bash"
+    fork_surfaces_validate >/dev/null || die "fork-surfaces declaration is invalid; cannot forecast surface classes" "$EXIT_GENERAL_ERROR"
+    local base="$1" i u_sha path class
+    local fr=0 fs=0 us=0
+    local -A fr_paths=() fs_paths=() us_paths=()
+    for i in "${!PICK_SHAS[@]}"; do
+        [ "${PICK_VERDICTS[$i]}" = "$PICK_VERDICT_PICK" ] || continue
+        u_sha="${PICK_SHAS[$i]}"
+        while IFS= read -r path; do
+            [ -n "$path" ] || continue
+            class="$(fork_surfaces_classify "$path")"
+            case "$class" in
+                fork-replaced) fr=$((fr + 1)); fr_paths["$path"]=1 ;;
+                fork-stable)   fs=$((fs + 1)); fs_paths["$path"]=1 ;;
+                *)             us=$((us + 1)); us_paths["$path"]=1 ;;
+            esac
+        done < <(git -C "${FORK_TWIN_UPSTREAM_REPO:?}" diff --name-only "${u_sha}^" "$u_sha" 2>/dev/null)
     done
-    export CLASSIFY_TWIN_SHAS
-    CLASSIFY_EDITOR_PATH="$(mktemp "${TMPDIR:-/tmp}/fork-sync-editor.XXXXXX")"
-    _write_classify_editor
-    GIT_SEQUENCE_EDITOR="$CLASSIFY_EDITOR_PATH" git -C "$REPO_ROOT" rebase -i "$UPSTREAM_REF"
-    local status=$?
-    rm -f "$CLASSIFY_EDITOR_PATH"
-    return "$status"
+    if [ "$fr" -eq 0 ] && [ "$fs" -eq 0 ] && [ "$us" -eq 0 ]; then
+        return 0
+    fi
+    echo "Surface forecast for the applied work:"
+    [ "$fr" -gt 0 ] && echo "  $fr fork-replaced path(s) — expect manual reconciliation (setup):"
+    for path in "${!fr_paths[@]}"; do echo "    $path"; done
+    [ "$fs" -gt 0 ] && echo "  $fs fork-stable path(s) — yours to keep, no reconciliation needed:"
+    for path in "${!fs_paths[@]}"; do echo "    $path"; done
+    [ "$us" -gt 0 ] && echo "  $us upstream-stable path(s) — should merge cleanly:"
+    for path in "${!us_paths[@]}"; do echo "    $path"; done
 }
 
-# Conflict guidance: name the conflicting commit's verdict and the exact
-# skip/abort commands.
+# Conflict guidance: name the conflicting commit's classification and the
+# exact skip/abort commands. Under the pick direction the conflicting commit
+# is an upstream commit being applied onto the branch; abort returns the
+# branch to its exact pre-sync state (nothing was rewritten).
 #
-# Usage: replay_conflict_guidance
-replay_conflict_guidance() {
-    if git -C "$REPO_ROOT" rev-parse --verify --quiet REBASE_HEAD >/dev/null; then
-        local conflicting
-        conflicting="$(git -C "$REPO_ROOT" rev-parse --short REBASE_HEAD)"
+# Usage: pick_conflict_guidance
+pick_conflict_guidance() {
+    if git -C "$REPO_ROOT" rev-parse --verify --quiet CHERRY_PICK_HEAD >/dev/null; then
+        local conflicting verdict signal i
+        conflicting="$(git -C "$REPO_ROOT" rev-parse --short CHERRY_PICK_HEAD)"
         {
-            echo "Rebase conflict while replaying $conflicting."
-            if [ -n "${VERDICT_KIND+x}" ]; then
-                # If the conflicting commit has a twin, say so: the resolution
-                # may be "skip" (upstream already evolved this change).
-                local i
-                for i in "${!CLASSIFY_SHAS[@]}"; do
-                    if [ "${CLASSIFY_SHAS[$i]}" = "$(git -C "$REPO_ROOT" rev-parse REBASE_HEAD)" ]; then
-                        echo "This commit was classified: ${VERDICT_KIND[$i]} (twin: ${VERDICT_TWIN[$i]:-none}, signal: ${VERDICT_SIGNAL[$i]:-none})."
-                        break
+            echo "Conflict while applying upstream commit $conflicting."
+            for i in "${!PICK_SHAS[@]}"; do
+                if [ "${PICK_SHAS[$i]}" = "$(git -C "$REPO_ROOT" rev-parse CHERRY_PICK_HEAD)" ]; then
+                    verdict="${PICK_VERDICTS[$i]}"
+                    signal="${PICK_SIGNALS[$i]}"
+                    if [ "$verdict" = "$PICK_VERDICT_PICK" ]; then
+                        echo "This commit was classified: pick (signal: ${signal:--})."
+                    else
+                        echo "This commit was classified: $verdict (signal: ${signal:--}) — it may already exist on your branch; skipping it may be the resolution."
                     fi
-                done
-            fi
-            echo "Resolve the conflicts and continue, skip this replayed commit, or return to the pre-replay state:"
-            printf '  git -C %q rebase --continue\n' "$REPO_ROOT"
-            printf '  git -C %q rebase --skip\n' "$REPO_ROOT"
-            printf '  git -C %q rebase --abort\n' "$REPO_ROOT"
+                    break
+                fi
+            done
+            echo "Resolve the conflicts and continue, skip this commit, or return to the exact pre-sync state:"
+            printf '  git -C %q cherry-pick --continue\n' "$REPO_ROOT"
+            printf '  git -C %q cherry-pick --skip\n' "$REPO_ROOT"
+            printf '  git -C %q cherry-pick --abort\n' "$REPO_ROOT"
         } >&2
     else
-        die "replay onto upstream/$FORK_UPSTREAM_BRANCH failed" "$EXIT_GENERAL_ERROR"
+        die "apply of upstream/$FORK_UPSTREAM_BRANCH onto $CURRENT_BRANCH failed" "$EXIT_GENERAL_ERROR"
     fi
 }
 
 if [ "$REPLAY" -eq 1 ]; then
     [ "$CURRENT_BRANCH" != "HEAD" ] || die "cannot replay while HEAD is detached" "$EXIT_GENERAL_ERROR"
+    # Dry-run enforces the same precondition as the real run: a plan computed
+    # from a tree that could never sync would be a false promise.
     [ -z "$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null)" ] || die "working tree has uncommitted changes; commit, stash, or discard them before --replay" "$EXIT_GENERAL_ERROR"
 fi
 
@@ -403,17 +448,18 @@ UPSTREAM_REF="refs/remotes/upstream/$FORK_UPSTREAM_BRANCH"
 if [ "$DRY_RUN" -eq 1 ]; then
     echo "dry run: would fetch upstream and compare HEAD with upstream/$FORK_UPSTREAM_BRANCH"
     if [ "$REPLAY" -eq 1 ]; then
-        echo "dry run: would replay the branch's fork-only commits on top of upstream/$FORK_UPSTREAM_BRANCH"
+        echo "dry run: would apply upstream/$FORK_UPSTREAM_BRANCH's new commits onto the branch (local history unchanged)"
         # No fetch on a dry run (existing contract): the plan classifies
         # against the last-fetched upstream state.
         if git -C "$REPO_ROOT" show-ref --verify --quiet "$UPSTREAM_REF"; then
             BASE_SHA="$(git -C "$REPO_ROOT" merge-base "$UPSTREAM_REF" HEAD 2>/dev/null)" || die "dry run: HEAD and upstream/$FORK_UPSTREAM_BRANCH share no common history" "$EXIT_GENERAL_ERROR"
-            echo "dry run: classified replay plan (as of the last fetch):"
-            classify_local_commits "$BASE_SHA" "$UPSTREAM_REF"
-            print_classification_plan
-            echo "dry run: would drop $TWIN_DROP_COUNT already-upstream commit(s), replay $REPLAY_COUNT fork-only commit(s)."
+            echo "dry run: pick plan (as of the last fetch):"
+            build_pick_plan "$BASE_SHA"
+            print_pick_plan
+            print_surface_forecast "$BASE_SHA"
+            echo "dry run: would apply $PICK_COUNT new upstream commit(s), skip $DROP_COUNT already present."
         else
-            echo "dry run: upstream/$FORK_UPSTREAM_BRANCH not fetched yet; fetch first to see the classified plan"
+            echo "dry run: upstream/$FORK_UPSTREAM_BRANCH not fetched yet; fetch first to see the pick plan"
         fi
     fi
     if [ "$REWRITE_ORIGIN" -eq 1 ]; then
@@ -517,71 +563,143 @@ if [ "$PUSH" -eq 1 ] && [ "$REPLAY" -eq 0 ]; then
     [ "$PUSH_BEHIND" -eq 0 ] || die "branch is behind upstream; pass --replay before --push-to-origin" "$EXIT_MISUSE"
 fi
 
-# Print the residue diff for every dropped twin-with-residue, so the drift is
-# reviewable as the dry-run plan promises. Uses the classification arrays.
-#
-# Usage: print_residue_diffs
-print_residue_diffs() {
-    echo "Residue on dropped twin(s) — upstream copy kept, local drift NOT replayed:"
-    printf '%s\n' "${RESIDUE_COMMITS[@]}"
-    local i j
-    for i in "${!RESIDUE_SHAS[@]}"; do
-        # RESIDUE_SHAS packs residue commits; find their position in the
-        # classification arrays (which index every local commit).
-        for j in "${!CLASSIFY_SHAS[@]}"; do
-            [ "${CLASSIFY_SHAS[$j]}" = "${RESIDUE_SHAS[$i]}" ] || continue
-            if [ -n "${VERDICT_TWIN[$j]}" ]; then
-                echo "  residue diff for ${RESIDUE_COMMITS[$i]}:"
-                fork_twin_residue_diff "${RESIDUE_SHAS[$i]}" "${VERDICT_TWIN[$j]}" 2>/dev/null | sed 's/^/    /'
-            fi
-            break
-        done
-    done
-}
 
 if [ "$REPLAY" -eq 1 ]; then
     merges="$(git -C "$REPO_ROOT" --no-pager log --merges --format='  %h %s' "$BASE_SHA..HEAD")"
     if [ -n "$merges" ]; then
         {
-            echo "local history since the upstream merge-base contains merge commit(s); the replay only handles linear history:"
+            echo "local history since the upstream merge-base contains merge commit(s); the sync only handles linear history"
+            echo "(the result must stay exportable by fork-export, which refuses merge-bearing ranges):"
             echo "$merges"
-            echo "Restructure the branch (e.g. rebase it yourself with --rebase-merges) before replaying."
+            echo "Restructure the branch (e.g. rebase it yourself with --rebase-merges) before syncing."
         } >&2
         exit "$EXIT_MISUSE"
     fi
-    # Classified replay: twins upstream already has are dropped from the
-    # rebase todo; genuinely fork-only commits replay on top of upstream's
-    # tip. See docs/Forking.md.
-    classify_local_commits "$BASE_SHA" "$UPSTREAM_REF"
-    if [ "$TWIN_DROP_COUNT" -eq 0 ]; then
-        echo "No commits classified as already-upstream; replaying all local commits on top of upstream."
-        git -C "$REPO_ROOT" rebase "$UPSTREAM_REF" || {
-            replay_conflict_guidance
+    # Snapshot fork-owned surface state before the picks run: a tree commit on
+    # refs/fork-sync/snapshot holding every fork-stable/fork-replaced path the
+    # branch currently has. Verify/reapply after the picks compares this tree
+    # against the new HEAD; a ref survives an aborted sync untouched, and the
+    # next sync overwrites it (the previous snapshot's moment has passed).
+    source "$DEVENV_TOOLS/lib/fork-surfaces.bash"
+    this_run_snapshotted=0
+    snapshot_index="$(mktemp "${TMPDIR:-/tmp}/fork-sync-snapidx.XXXXXX")"
+    # The temp index must not leak if anything below fails before the rm.
+    trap 'rm -f "$snapshot_index"' RETURN
+    GIT_INDEX_FILE="$snapshot_index" git -C "$REPO_ROOT" read-tree HEAD
+    snapshot_paths=()
+    while IFS= read -r snap_glob; do
+        [ -n "$snap_glob" ] || continue
+        # feed the declared glob verbatim; git pathspec expands it.
+        snapshot_paths+=("${snap_glob#* }")
+    done < <(fork_surfaces_list)
+    if [ "${#snapshot_paths[@]}" -gt 0 ]; then
+        # Note: read-tree HEAD then re-add the declared paths captures their
+        # current worktree/index state; paths absent from the worktree drop out
+        # of the snapshot tree, which is the truth of the current state.
+        if ! GIT_INDEX_FILE="$snapshot_index" git -C "$REPO_ROOT" add -A -- "${snapshot_paths[@]}" 2>/dev/null; then
+            echo "WARNING: could not stage some fork-owned paths; the snapshot may be incomplete" >&2
+        fi
+        snapshot_tree="$(GIT_INDEX_FILE="$snapshot_index" git -C "$REPO_ROOT" write-tree)"
+        snapshot_commit="$(git -C "$REPO_ROOT" commit-tree "$snapshot_tree" -p HEAD -m "fork-sync: pre-sync snapshot of fork-owned surfaces")"
+        git -C "$REPO_ROOT" update-ref -m "fork-sync: pre-sync snapshot" "refs/fork-sync/snapshot" "$snapshot_commit"
+        echo "Snapshot of fork-owned surfaces: $snapshot_commit (refs/fork-sync/snapshot)"
+        this_run_snapshotted=1
+    fi
+    rm -f "$snapshot_index"
+
+    # Apply-upstream-onto-branch: classify upstream's new commits, skip the
+    # ones the branch already has, cherry-pick the rest in order. Local SHAs
+    # never move; origin pushes stay fast-forwards. See docs/Forking.md.
+    build_pick_plan "$BASE_SHA"
+    if [ "$PICK_COUNT" -eq 0 ]; then
+        # Nothing to apply — either every new upstream commit is already on
+        # the branch (immediate re-sync) or the plan is empty. No ref
+        # movement, no confirmation: changing nothing needs no permission.
+        echo "Nothing to apply from upstream/$FORK_UPSTREAM_BRANCH (skipped $DROP_COUNT already-present commit(s))."
+    elif [ "$PICK_COUNT" -gt 0 ] && [ "$DROP_COUNT" -eq 0 ] && [ "$(git -C "$REPO_ROOT" rev-list --count "$BASE_SHA..HEAD")" -eq 0 ]; then
+        # No local commits at all: fast-forward — upstream SHAs preserved verbatim.
+        git -C "$REPO_ROOT" merge --ff-only "$UPSTREAM_REF" || {
+            pick_conflict_guidance
             exit "$EXIT_GENERAL_ERROR"
         }
-    elif [ "$REPLAY_COUNT" -eq 0 ]; then
-        # Everything local is already upstream: the fork branch is fully
-        # contained — move it to upstream's tip without an (empty, failing)
-        # interactive rebase. The expected old-value is the current branch
-        # tip (read BEFORE the move) so a concurrent update fails the swap.
-        branch_tip="$(git -C "$REPO_ROOT" rev-parse HEAD)"
-        git -C "$REPO_ROOT" update-ref -m "fork-sync: fully merged upstream" \
-            "refs/heads/$CURRENT_BRANCH" "$(git -C "$REPO_ROOT" rev-parse "$UPSTREAM_REF")" "$branch_tip"
-        echo "Every local commit is already upstream; moved $CURRENT_BRANCH to upstream/$FORK_UPSTREAM_BRANCH."
+        echo "No local commits; fast-forwarded to upstream/$FORK_UPSTREAM_BRANCH."
     else
-        # Upstream's copies are authoritative: twins (including drifted ones)
-        # drop; their residue is named for manual follow-up. Fork-only and
-        # suspect commits replay.
         if [ "$RESIDUE_COUNT" -gt 0 ]; then
-            print_residue_diffs
+            echo "Divergence on skipped commit(s) — your local copy kept:"
+            printf '%s\n' "${RESIDUE_LINES[@]}"
         fi
-        if ! fork_replay_classified; then
-            replay_conflict_guidance
+        print_pick_plan
+        print_surface_forecast "$BASE_SHA"
+        # Confirmation gate: applying upstream commits changes the branch, so
+        # without --yes a TTY confirms and anything else fails closed (same
+        # contract as --push-to-origin). Pure no-op paths above stay
+        # prompt-free: they change nothing the user would veto.
+        if [ "$YES" -eq 0 ]; then
+            # A TTY is both required and sufficient: with one, read prompts
+            # and gets an answer; without one, read fails immediately and the
+            # run fails closed (never hangs waiting on input that cannot come).
+            if [ ! -t 0 ]; then
+                die "non-TTY --replay requires --yes" "$EXIT_MISUSE"
+            fi
+            APPLY_CONFIRM=""
+            read -r -p "Apply $PICK_COUNT upstream commit(s) onto $CURRENT_BRANCH? [y/N] " APPLY_CONFIRM < /dev/tty || APPLY_CONFIRM=""
+            case "$APPLY_CONFIRM" in
+                [Yy]*) ;;
+                *) echo "Apply cancelled."; exit 0 ;;
+            esac
+        fi
+        # Record each clean pick's adoption pair as it lands: applied upstream
+        # SHAs map to their new local SHAs, so future classifications match by
+        # the strongest signal. Conflict-resolved picks are named afterwards,
+        # never auto-linked (their patch drifted).
+        _record_pick_link() {
+            if ! fork_twin_map_add "$REPO_ROOT" "$2" "$1" "fork-sync auto-record" 2>/dev/null; then
+                echo "WARNING: could not record adoption link for $1 — the next sync may re-apply it" >&2
+            fi
+        }
+        apply_status=0
+        while read -r u_sha; do
+            [ -n "$u_sha" ] || continue
+            if ! git -C "$REPO_ROOT" cherry-pick "$u_sha" >/dev/null 2>&1; then
+                echo "Conflict while applying $u_sha." >&2
+                pick_conflict_guidance
+                apply_status=1
+                break
+            fi
+            _record_pick_link "$u_sha" "$(git -C "$REPO_ROOT" rev-parse HEAD)"
+        done < <(for i in "${!PICK_SHAS[@]}"; do [ "${PICK_VERDICTS[$i]}" = "$PICK_VERDICT_PICK" ] && printf '%s\n' "${PICK_SHAS[$i]}"; done)
+        if [ "$apply_status" -ne 0 ]; then
             exit "$EXIT_GENERAL_ERROR"
         fi
-        echo "Classified replay: dropped $TWIN_DROP_COUNT twin commit(s), replayed $REPLAY_COUNT fork-only commit(s)."
+        echo "Applied $PICK_COUNT upstream commit(s) onto $CURRENT_BRANCH (skipped $DROP_COUNT already present)."
     fi
-    echo "Replayed $CURRENT_BRANCH on top of upstream/$FORK_UPSTREAM_BRANCH"
+
+    # Verify fork-owned surfaces against the pre-sync snapshot: report any
+    # fork-owned path the applied work changed. Reapply is a conscious user
+    # act (the snapshot ref stays for inspection) — never auto-merged. Gated
+    # on THIS run having taken a snapshot: a ref left by an earlier (aborted)
+    # run must not be diffed against today's HEAD.
+    if [ "${this_run_snapshotted:-0}" -eq 1 ]; then
+        changed_owned=0
+        # The declared globs word-split into pathspecs (SC2046 by design).
+        # shellcheck disable=SC2046
+        while IFS= read -r owned_path; do
+            [ -n "$owned_path" ] || continue
+            changed_owned=$((changed_owned + 1))
+            if [ "$changed_owned" -eq 1 ]; then
+                echo "Fork-owned paths touched by the applied work:"
+            fi
+            echo "  $owned_path"
+        done < <(git -C "$REPO_ROOT" diff --name-only refs/fork-sync/snapshot HEAD -- $(fork_surfaces_list | awk '{print $2}'))
+        if [ "$changed_owned" -gt 0 ]; then
+            echo "  Review before continuing: diff with"
+            echo "    git -C $REPO_ROOT diff refs/fork-sync/snapshot HEAD -- ${snapshot_paths[*]}"
+            echo "  The pre-sync state remains at refs/fork-sync/snapshot."
+        else
+            echo "Fork-owned surfaces verified: untouched by the applied work."
+        fi
+    fi
+    echo "Synced upstream/$FORK_UPSTREAM_BRANCH onto $CURRENT_BRANCH — local history unchanged."
 fi
 
 COUNTS="$(git -C "$REPO_ROOT" rev-list --left-right --count "$UPSTREAM_REF...HEAD")" || die "failed to compare HEAD with upstream/$FORK_UPSTREAM_BRANCH" "$EXIT_GENERAL_ERROR"

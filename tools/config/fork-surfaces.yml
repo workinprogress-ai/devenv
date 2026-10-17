@@ -1,0 +1,51 @@
+# Fork-stable surfaces declaration
+#
+# Machine-readable form of docs/Forking.md § The fork-stable surfaces contract.
+# docs/Forking.md remains the human contract; this file is what tools parse
+# (fork-sync forecast, drift inventory, snapshot/reapply — and future fork
+# lifecycle tooling). When the contract changes, update BOTH — the sync-time
+# forecast reads this file, the prose explains it.
+#
+# Classes:
+#   fork-stable      — fork-owned; changes here never need reconciliation
+#   upstream-stable  — everything NOT listed; upstream changes should merge cleanly
+#   fork-replaced    — fork rewrites wholesale; upstream changes always need
+#                      manual reconciliation (today: setup)
+#
+# Path globs are relative to the repo root. A path matching no entry is
+# upstream-stable by the default rule.
+#
+version: 1
+
+classes:
+  fork-stable:
+    - description: Data policy (config values) — org identity, workflow vocabulary, feeds
+      paths:
+        - devenv.config
+        - tools/config/issues-config.yml
+    - description: Behavior policy (policy overrides) — policy_define knob catalog
+      paths:
+        - tools/lib/policy/*.bash
+    - description: Provider modules — per-provider domain modules
+      paths:
+        - tools/lib/providers/*
+    - description: Provider protocol references — per-provider transport docs
+      paths:
+        - copilot/skills/_shared/references/provider-protocols/github.md
+        - copilot/skills/_shared/references/provider-protocols/azure.md
+    - description: Shared references a fork may re-skin — provider-coupled phrasing
+      paths:
+        - copilot/skills/common/references/*.md
+    - description: Knowledge orchestration door — fork authors the content, never relocates the file
+      paths:
+        - orchestration.md
+
+  fork-replaced:
+    - description: setup is git-host-oriented; a fork rewrites it wholesale
+      paths:
+        - setup
+
+  # upstream-stable has no entries: it is the default rule for any path no
+  # entry above matches. The explicit key documents the default; the parser
+  # treats upstream-stable lookups as the fallback class.
+  upstream-stable: []

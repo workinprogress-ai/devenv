@@ -118,6 +118,13 @@ get_type_is_template() {
     yq eval -r ".types.${repo_type}.isTemplate // false" "$config_path" 2>/dev/null || echo "false"
 }
 
+get_type_docs_first() {
+    local repo_type="$1"
+    local config_path
+    config_path=$(load_repo_types_config "${2:-}") || return 1
+    yq eval -r ".types.${repo_type}.docs_first // false" "$config_path" 2>/dev/null || echo "false"
+}
+
 get_type_post_creation_script() {
     local repo_type="$1"
     local config_path

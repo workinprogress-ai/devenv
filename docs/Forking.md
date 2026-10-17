@@ -168,7 +168,7 @@ fork-setup
 
 The script adds `upstream` for fetching and sets its push URL to `/dev/null`, so an accidental push through that remote fails. It contacts no host and requires no credentials — it only writes local git config.
 
-Run `fork-sync` to fetch upstream and inspect the divergence report: ahead/behind counts, commit subjects, and the local commits that look already upstream (matched by Change-Id trailer, patch-equivalence, or subject). It does not change history or push by default. Use `--replay` when ready to replay the branch's fork-only commits on top of `upstream/<branch>` (commits upstream already has are dropped; it refuses a dirty working tree); if conflicts occur, resolve them or run the printed `git rebase --abort` command. To update the same-named branch on `origin`, `--push-to-origin` normally permits only a fast-forward. If origin contains commits absent locally, the command refuses unless `--rewrite-origin` is also specified; that path uses `--force-with-lease` pinned to the fetched origin SHA and can replace those origin-only commits. A TTY prompts with a default-no choice; scripted runs must pass `--yes`. Use `--dry-run` to inspect the planned operations without fetching or changing refs.
+Run `fork-sync` to fetch upstream and inspect the divergence report: ahead/behind counts, commit subjects, and the upstream commits that look like your own work coming back (matched by Change-Id trailer, patch-equivalence, or subject). It does not change history or push by default. Use `--replay` when ready to apply upstream's new commits on top of the branch: upstream commits whose Change-Id already exists on the branch are skipped (a rebase merge upstream preserves the trailer), the rest are cherry-picked in order, so the branch's own commits keep their SHAs and `--push-to-origin` stays a normal fast-forward. Where an upstream commit's twin exists locally with a differing patch (a hand edit made at the target), the divergence is named so it can be reviewed rather than silently absorbed; a pick that conflicts stops with guidance naming the commit's classification, and `git cherry-pick --abort` returns the branch to its exact pre-sync state. Applying commits requires confirmation — a TTY prompts with a default-no choice, and scripted runs must pass `--yes`. To update the same-named branch on `origin`, `--push-to-origin` normally permits only a fast-forward. If origin contains commits absent locally, the command refuses unless `--rewrite-origin` is also specified; that path uses `--force-with-lease` pinned to the fetched origin SHA and can replace those origin-only commits. Use `--dry-run` to inspect the planned operations without fetching or changing refs. Use `--drift` for the standing drift inventory: fork-local edits on upstream-stable paths (per the fork-surfaces declaration), the maintenance cost the fork carries by choice.
 
 ```bash
 fork-sync --dry-run
@@ -177,7 +177,7 @@ fork-sync --replay
 fork-sync --replay --push-to-origin --yes
 ```
 
-To contribute commits upstream, use a separate ordinary GitHub clone. `fork-export` exports an upstream-based, linear commit range as a bundle (default), patch series, or both; the base is always the merge-base of the selected end ref (default `HEAD`) and `upstream/<branch>`. A range containing merge commits is refused with guidance — replay the branch on top of upstream first so the range is linear. Files are written under `.local-artifacts/fork-export/<base-short>-<end-short>/`. Without `--apply-to`, the tool applies the export directly into a unique clone under `repos/` whose `origin` matches `[fork] upstream_repo` (if none or several match, it says so); `--apply-to <path>` selects an explicit sibling clone. No GitHub credentials are used by these scripts. Non-interactive selection is available with `--start-ref <commit> <end-ref>`; `--all` exports the complete upstream-to-end range; `--export-only` writes the files without applying; `--dry-run` previews.
+To contribute commits upstream, use a separate ordinary GitHub clone. `fork-export` exports an upstream-based, linear commit range as a bundle (default), patch series, or both; the base is always the merge-base of the selected end ref (default `HEAD`) and `upstream/<branch>`. A range containing merge commits is refused with guidance — sync the branch (`fork-sync --replay`) first so the range is linear. Files are written under `.local-artifacts/fork-export/<base-short>-<end-short>/`. Without `--apply-to`, the tool applies the export directly into a unique clone under `repos/` whose `origin` matches `[fork] upstream_repo` (if none or several match, it says so); `--apply-to <path>` selects an explicit sibling clone. No GitHub credentials are used by these scripts. Non-interactive selection is available with `--start-ref <commit> <end-ref>`; `--all` exports the complete upstream-to-end range; `--export-only` writes the files without applying; `--dry-run` previews.
 
 ```bash
 fork-export
@@ -201,31 +201,39 @@ This leaves the original local branch unchanged and exports a new linear series 
 
 The failure mode this tooling guards against is a fork that accumulates
 exported-but-unmatched copies: commits leave the fork, land upstream under new
-SHAs, and a later sync then replays them as if they were new work. Two habits
-prevent it:
+SHAs, and a later sync then applies them again as if they were new work. Two
+habits prevent it:
 
 1. **Export promptly.** Export a contribution as soon as it is ready, and sync
    right after the upstream merge lands. The shorter the window, the fewer
    edits accumulate on either side, and the more reliably twin matching
    recognizes the pair.
-2. **Sync promptly after upstream moves.** `fork-sync --replay --yes` performs
-   a *classified replay*: every local commit is matched against upstream — by
-   a recorded adoption link, by Change-Id trailer, by patch-id, or by subject
-   — and only genuinely fork-only commits are replayed onto upstream's tip.
-   Commits upstream already has are dropped; where a dropped twin's patch
-   differs from upstream's copy (a hand edit made at the target), the residue
-   is named with a diff so it can be reviewed rather than silently lost.
+2. **Sync promptly after upstream moves.** `fork-sync --replay --yes` applies
+   upstream's new commits on top of the branch: every upstream commit is
+   matched against the branch — by Change-Id trailer (a rebase merge upstream
+   preserves it), by a recorded adoption link, or by bounded patch-id
+   equivalence — and commits the branch already has are skipped while the
+   rest are cherry-picked in order. The branch's own SHAs never move, so
+   origin pushes stay fast-forwards and consumer clones keep matching. Where
+   a skipped commit's twin differs locally (a hand edit made at the target),
+   the divergence is named so it can be reviewed rather than silently lost;
+   each cleanly applied commit is recorded in the adoption map. Fork-owned
+   surface state is snapshotted to `refs/fork-sync/snapshot` before the picks
+   and verified after — touched fork-owned paths are surfaced for review,
+   never auto-merged.
 
-3. **Consumers update through the normal devenv prompt.** When the fork's master
-   is force-pushed, every consumer clone diverges from `origin/master` by SHA. The
-   shell-start update check recognizes the rewritten history and still offers the
-   y/n update: clones with no unique commits are reset onto the new master; clones
-   with local commits get them replayed on top (a conflicting rebase aborts, leaving
-   the branch untouched). See
+3. **Consumers update through the normal devenv prompt.** Because the sync no
+   longer rewrites the fork's history, `--push-to-origin` is a fast-forward in
+   the normal case and consumer clones stay SHA-compatible — most updates are
+   ordinary pulls. When a rewrite does happen (a legacy fix, an explicit
+   `--rewrite-origin`), the shell-start update check recognizes the diverged
+   history and still offers the y/n update: clones with no unique commits are
+   reset onto the new master; clones with local commits get them replayed on
+   top (a conflicting rebase aborts, leaving the branch untouched). See
    [Updating the dev environment](./Dev-container-environment.md#updating-the-dev-environment).
 
-`fork-sync --dry-run --replay` prints the classified plan (per-commit verdicts,
-twins, residues) without fetching or changing refs:
+`fork-sync --dry-run --replay` prints the pick plan (per-commit verdicts,
+signals, divergences) without fetching or changing refs:
 
 ```bash
 fork-sync --dry-run --replay
