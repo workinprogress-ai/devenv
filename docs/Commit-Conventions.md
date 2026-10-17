@@ -39,6 +39,33 @@ The enum is the conventional types plus the explicit bump types:
 `build` · `chore` · `ci` · `docs` · `feat` · `fix` · `perf` · `refactor` ·
 `revert` · `style` · `test` · `major` · `minor` · `patch`
 
+## Docs-first repos
+
+In a docs-first repo — specs, ADRs, plans, conventions: the content is the
+product — a plain `docs:` commit triggers no release. The explicit bump types
+are the version driver there: the repo's `release.config.js` releaseRules map
+`major`/`minor`/`patch` commits straight to releases (the `docs(README)` →
+patch rule stands).
+
+Which repos are docs-first is discoverable, not guessed (skills apply this
+order): the repo's type in `tools/config/repo-types.yaml` carrying
+`docs_first: true` — resolve the type from the repo name via
+`detect_repo_type` (`tools/lib/repo-types.bash`, silent mode), then read the
+flag with `get_type_docs_first` (org-owned, fork-adjustable); then the
+in-repo `package.json` `"docs-repo"` marker; then the `planning.*`/`docs.*`
+name pattern.
+
+Classification principle: can work that follows the old content safely keep
+following it after this commit? `major` — no: live guidance reversed, removed,
+or superseded; canonical paths or sections consumers reference moved or
+renamed; deletion of live guidance. `minor` — yes, extended: new documents,
+sections, or additive guidance. `patch` — yes, meaning preserved: rewordings,
+clarifications, typo/grammar/link/format fixes, restructuring that keeps
+everything findable. Known-breaking work declares it explicitly (`major!` or a
+`BREAKING CHANGE:` footer); a commit qualifying at two levels takes the
+higher; genuinely ambiguous after that — ask the author, since the
+classification publishes a version.
+
 ## Breaking changes
 
 Breaking changes are declared with a `!` before the colon (e.g. `refactor!: ...`)
