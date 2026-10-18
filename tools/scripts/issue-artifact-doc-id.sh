@@ -37,7 +37,7 @@ Generate a deterministic doc_id in this format:
 
 Required Inputs:
   --issue N                    Issue number
-  --artifact-type TYPE         One of: spike, research, redesign, design, blueprint,
+  --artifact-type TYPE         One of: research, redesign, design, blueprint,
                                requirements, specifications, grooming, roadmap,
                                plan, implementation-plan, solution-proposal
 

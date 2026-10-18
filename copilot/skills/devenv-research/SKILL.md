@@ -12,6 +12,10 @@ user-invocable: true
 > **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 
 > **Aggressive-measures gate, recovery-route rule, scope fence.** The research session runs under the shared [Empowered-Investigation Gate](../common/references/empowered-investigation-gate.md): just-in-time consent outlining what/why, category announcement before destructive-class actions, disapproval rejects the measure not the investigation, and no self-run mutating git commands. Mode-scoped deltas: the default lane is read-only plus a `playground/` prototype; temporary in-repo modifications carry `FIXME:DEVENV[research]: ...` markers; exhausted alternates end the run with the question reported **unanswerable as scoped**, reframed inside `playground/`.
+>
+> **Scratchpad lane (preferred for in-repo experiments).** When the workspace provides the sandbox, propose entering it once — declaring the experiment classes (patching call paths, swapping dependency versions, deleting modules, instrumenting hot paths) — and run in-repo experiments under the gate's [scratchpad lane](../common/references/empowered-investigation-gate.md): within the declared scope, individual experiments don't re-ask, and `repo-scratchpad reset` restores the tree between experiments AI-safe. Dirty target repo: surface `git wip` to the USER (their hands — it commits a `WIP:` snapshot on the originating branch and pushes) or a normal commit before entering; the sandbox refuses dirty entry. Inside the sandbox raw git stays forbidden — `repo-scratchpad commit/reset/promote/exit` are the only unlocked wrappers. Anything worth keeping flows through `repo-scratchpad promote <sha>` (staged-uncommitted on the base branch, trailers re-acquired) at closeout, feeding the decide-modified-code-fate step below.
+>
+> **Mid-scratchpad refusal UX.** `git-wip` / `repo-commit` / `pr-create` refuse (exit 3) while a scratchpad is active — first line: `Error: <tool> is blocked while a scratchpad is active (...)`. That refusal is the sandbox working, not an error to route around: salvage via `repo-scratchpad promote`, or `repo-scratchpad exit` to leave the mode; never bypass by raw git.
 
 Run a focused, exploratory investigation of an open question. Output is a structured findings doc and (optionally) throwaway prototype code — never production code. The goal is to reduce uncertainty before committing to a real plan.
 
@@ -55,7 +59,10 @@ Inline in chat, list 2–4 angles you'll explore:
 - Try approach B (if A doesn't work)
 - Measure / compare
 
-Keep it loose. Research is non-linear by nature.
+Keep it loose. Research is non-linear by nature. Two pre-commitments are mandatory, though:
+
+- **Timebox:** a budget stated at framing in **wall-clock time** (e.g. "45 real minutes", "this session, capped at ~2 hours") — not estimated man-hours, which measure a human's imaginary effort rather than this session's actual clock. Budgets set in session-agnostic units get renegotiated implicitly; a wall-clock number can be checked against `date` at the futility checkpoint. When the budget burns out, checkpoint (`🔶`): the user may **extend the budget** (stated in wall-clock again — "another 30 minutes"), reframe, or receive unanswerable-as-scoped. Extension is the user's call, never the session's own; one extension is normal, repeated extensions are a scope signal worth naming.
+- **Kill criteria:** before building a prototype, declare what kills each approach — "approach B is dead if X" (a measurement threshold, a missing API, a hard blocker). Declared in advance, they are evidence; discovered afterward, they are rationalization.
 
 ### 3. Investigate
 
@@ -72,9 +79,12 @@ Do the work:
   may have shortcuts, and is **not** intended to be merged or maintained.
   ```
 
-- **In-repo experiments (empowered lane):** when the question can only be answered by touching real code — patching a call path, swapping a dependency version, deleting a module to see what breaks, instrumenting a hot path — propose the specific edit, why it is needed, its aggression class, and the recovery route first:
+- **In-repo experiments (empowered lane):** prefer the **scratchpad lane** when the workspace provides the sandbox (see the gate blockquote above): enter once with declared experiment classes, run in-repo experiments AI-safe (`repo-scratchpad reset` between them), salvage keepers with `repo-scratchpad promote`. Without the sandbox, the per-measure flow applies — propose the specific edit, why it is needed, its aggression class, and the recovery route first:
   > *"To answer this, I need to [specific modification] in `repos/<target>`. That's a behavior-altering edit — afterward you'd `git reset` this repo (your hands, not mine). I'll mark it `FIXME:DEVENV[research]: ...`. Proceed?"*
   On approval: make the minimal change, mark it, run the experiment, capture results. Never widen beyond what was approved.
+- **Benchmark protocol (perf claims).** Any "which is faster / what's the cost" answer follows a fixed micro-protocol: measure a **baseline first**, run **N ≥ 5** iterations after warmup, report **variance** (min/median/max — not a single number), and keep the environment fixed across compared options. A number without spread is an anecdote, not a finding — label it accordingly or re-measure.
+- **Real debuggers (answering behavioral questions).** When the question is "what does this code *actually* do at runtime" — `csharp-debug` (C#: drives the bootstrap-installed vsdbg; launch/attach → breakpoints, step, watch, evaluate), `node --inspect-brk` + js-debugger (TS/Node), debugpy (Python). All Rung-3-safe, scratchpad-compatible; observation only, unless the declared experiment classes say otherwise.
+- **Ladder pointer.** Hunt's [escalation ladder](../devenv-hunt/SKILL.md) is the menu of investigation moves when behavioral questions stall — cheapest-discriminating-first, and the axes (isolation, visibility, destruction, realism) apply to research questions as much as to defects.
 - Run experiments. Capture commands, outputs, and observations as you go (you'll need them for the findings doc).
 - If the research grows beyond rough exploration, stop and recommend `/devenv-plan` instead.
 
@@ -103,7 +113,7 @@ Write `research-NNN-<topic>.md` under the target repo's `.local-artifacts/` fold
 
 ## Findings
 
-<What was learned. Each finding is a bullet with evidence — code snippet, perf number, file link, or external reference. Distinguish "verified by trying" from "inferred from docs".>
+<What was learned. Each finding is a bullet with evidence — code snippet, perf number, file link, or external reference. Every finding carries an explicit evidence class: **verified-by-execution** (ran and observed), **measured-with-spread** (benchmark protocol: baseline, N runs, variance), or **inferred-from-docs** (not tried — stated as such). A perf claim without its measurement spread is an anecdote, not a finding. When comparing options, emit a decision matrix — a criteria × options table with the criteria that actually drove the answer (e.g. correctness risk, integration cost, perf, maintainability), each cell backed by its evidence class; grooming and design consume this shape directly.>
 
 ## Recommendation
 

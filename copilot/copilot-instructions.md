@@ -191,6 +191,8 @@ When a repository-content edit (or any tracker mutation beyond the active skill'
 
 If you find yourself about to type `git commit`, `git add`, `git push`, or any other mutating git command — stop. Print the exact command the user needs to run and ask them to run it. Never run it yourself.
 
+**Scratchpad carve-out (sandbox mode only):** while a scratchpad is active (`repo-scratchpad enter`), the `repo-scratchpad` wrapper family is unlocked — the AI may run `repo-scratchpad commit/reset/promote/exit` per the [empowered-investigation gate](copilot/skills/common/references/empowered-investigation-gate.md) scratchpad lane. This licenses the wrapper family and nothing else: **raw git commands stay forbidden inside the sandbox** exactly as everywhere else. One rule, zero exceptions — the mode unlocks wrappers, never raw git.
+
 **Forbidden** (no exceptions, no "since the tests passed", no "I'll just stash this"):
 
 - `git commit`, `git add`, `git rm`, `git mv`

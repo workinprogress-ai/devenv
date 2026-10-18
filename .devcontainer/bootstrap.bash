@@ -1307,6 +1307,26 @@ ensure_directories_and_settings() {
             echo "INFO: download-csharp-debugger.sh not found (optional)"
         fi
     fi
+    # Sanity: the C# debugger must actually work after install (Plan-004
+    # follow-up: hunts drive it via tools/csharp-debug). A downloaded-but-
+    # broken vsdbg fails LATE (mid-hunt) instead of early — verify here.
+    if [ -x "$toolbox_root/.debug/remote_debugger/vsdbg" ]; then
+        if ! "$toolbox_root/.debug/remote_debugger/vsdbg" --help >/dev/null 2>&1; then
+            echo "WARN: vsdbg downloaded but not executable-functional — C# debugging unavailable this session" >&2
+        fi
+    else
+        echo "INFO: vsdbg not installed (optional; C# debugger attach unavailable)"
+    fi
+    # dotnet diagnostic optics (hunt Rung-5/6: traces, counters, dumps) —
+    # installed as local dotnet tools, best-effort (network-independent boot).
+    if command -v dotnet >/dev/null 2>&1; then
+        for _diag_tool in dotnet-trace dotnet-counters dotnet-dump; do
+            if ! dotnet tool list --global 2>/dev/null | grep -q "$_diag_tool"; then
+                dotnet tool install --global "$_diag_tool" >/dev/null 2>&1 \
+                    || echo "INFO: $_diag_tool not installed (optional diagnostic optic)"
+            fi
+        done
+    fi
     if ! grep -qF 'fs.inotify.max_user_instances=524288' /etc/sysctl.conf 2>/dev/null; then
         echo fs.inotify.max_user_instances=524288 | sudo tee -a /etc/sysctl.conf &>/dev/null
     fi

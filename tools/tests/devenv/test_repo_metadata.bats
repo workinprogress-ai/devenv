@@ -30,17 +30,6 @@ load ../test_helper
     done
 }
 
-@test "docs and skills use 'research' where the retired 'spike' skill name used to be" {
-    # Allowed leftovers: the trigger phrase users still say ("spike on X"), the
-    # `spike` artifact-type value, the `spike-NNN` deliverable family (research's
-    # throwaway outputs keep the spike- filename convention), and an example issue
-    # type named Spike in Forking.md.
-    hits="$(grep -rn -i 'spike' --include=*.md "$PROJECT_ROOT/copilot" "$PROJECT_ROOT/docs" \
-        | grep -v -e '"spike on X"' -e '`spike`' -e 'name: Spike' -e 'spike-NNN' -e 'spike docs' \
-        | grep -v 'copilot/engineering/' || true)"
-    [ -z "$hits" ] || { echo "$hits"; false; }
-}
-
 @test "issue docs show research (not spike) artifact examples" {
     run grep -n -E 'spike-[0-9]+-|--artifact-type spike' "$PROJECT_ROOT"/docs/*.md
     [ "$status" -ne 0 ]

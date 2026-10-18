@@ -339,6 +339,8 @@ git repo <repository-name>
 
 The single sanctioned commit wrapper (source: `tools/scripts/repo-commit.sh`; invoke via the `tools/repo-commit` entry on `PATH`). Interactive-only by design: the suggested message arrives on argv or via `--file <path>` (preferred for anything longer than a one-line subject — immune to shell mangling), and the user's configured git editor always opens with it — a commit is created from the existing index only if the user saves the editor with a non-empty message. Refuses options (`-m`, `--yes`), non-interactive editors, and an empty index. Never stages (except via `--wip`), never bypasses hooks on the normal lane, never runs tests.
 
+Scratchpad refusal: blocked (exit 3) while a scratchpad is active in the repo — sandbox commits belong on the scratch branch via `repo-scratchpad commit`; salvage via `repo-scratchpad promote`.
+
 The `--wip` lane delegates to `git-wip`: stages everything (unless `--staged-only`), bypasses hooks (the documented WIP exception), prefixes `WIP:`, pushes, and records `refs/wip/last`. WIP commit shape lives in `git-wip` alone; there is no editor step — invoking `--wip` is the confirmation.
 
 ```bash
@@ -354,6 +356,7 @@ Governance: only the `/devenv-commit` skill invokes this tool (see `copilot-inst
 Work-in-progress commit management:
 
 - `git-wip`: Stages all changes, creates a `WIP: <message>` commit (message via positional words or `--file <path>`), pushes it to the remote, and records the commit in `refs/wip/last` for later recovery.
+  - Push-path scratchpad refusal: blocked (exit 3) while a scratchpad is active in the repo, or on any `scratchpad/*` branch — scratch commits bypass hooks and carry no `Devenv-Action`/`Change-Id` trailers; they must never reach shared history.
   - `--staged-only`: Skip `git add -A` and commit only what is already staged.
 - `git-unwip`: Soft-resets to the last non-WIP commit (restaging your changes) and safely force-pushes to clear the WIP commit from the remote. Does **not** delete `refs/wip/last`, so the WIP commit remains recoverable.
 - `git-wip-recover`: Inspect or restore the most recently saved WIP commit from `refs/wip/last`.
@@ -458,6 +461,8 @@ pr-create-for-review
 
 Creates a pull request for merging code into a target branch (defaults to the repository's default branch).
 
+Scratchpad refusal (push-path): blocked (exit 3) while a scratchpad is active in the repo, or on any `scratchpad/*` branch — scratch commits carry no `Devenv-Action`/`Change-Id` trailers and must never reach shared history. Salvage via `repo-scratchpad promote`.
+
 ```bash
 pr-create <title> --issue <number> [--base <branch>]
 ```
@@ -496,6 +501,36 @@ pr-create "docs: update README" --issue 789 --draft --reviewer @john
 - Supports targeting any branch via `--base` option
 - Can add reviewers, assignees, and labels
 - Generates PR description from commits
+
+### `repo-scratchpad`
+
+Governed experiment sandbox Cuts a `scratchpad/<slug>` branch from the current HEAD; hook-bypassing, `scratch:`-branded commits are permitted on it; `reset` returns to base AI-safe; `promote` salvages one scratch commit onto the base branch staged-uncommitted (trailers re-acquire on the normal commit flow); `exit` tears the branch down. State lives in git refs (`refs/scratchpad/{base,state,origin-branch}`) — no loose files, detached-HEAD-safe.
+
+**Safety invariants:** entry is fail-closed on ANY dirty tree (tracked or untracked) — save work first with `git wip` (recommended; it pushes) or a normal commit; `--carry` overrides with a loud warning + best-effort snapshot into `.local-artifacts/tmp/scratchpad/` (carried work is DESTROYED by `reset`). The destructive surface only ever touches scratch-created content. Scratch commits carry no `Devenv-Action`/`Change-Id` trailers and must never reach shared history — push-path tools refuse on scratchpad branches. While a scratchpad is active, `repo-commit`, `git-wip`, and `pr-create` refuse (exit 3).
+
+```bash
+repo-scratchpad enter [slug] [--carry]
+repo-scratchpad status
+repo-scratchpad commit "<title>"
+repo-scratchpad reset
+repo-scratchpad promote <sha>
+repo-scratchpad exit
+repo-scratchpad resume        # return HEAD to the scratch branch after a promote pause
+```
+
+**Exit codes:** 0 success · 1 safety refusal / general error · 2 invalid arguments · 3 already-active/conflict · 4 promote target not on the scratch branch.
+
+### `repo-bisect`
+
+First-bad-commit identification over a commit range (the hunt skill's time-travel mode). Walks `git bisect` with a probe command (exit 0 = good, non-zero = bad) and delivers the culprit with evidence. Works on **any branch** — no scratchpad requirement in the tool (bisect is non-destructive: read-only detached-HEAD visits); outside a scratchpad it prints a soft notice pointing AI hunts at `repo-scratchpad enter`. Refuses on a dirty tree. An all-skip walk (probe exiting 125 everywhere) answers **AMBIGUOUS** rather than fabricating a culprit from the candidate set.
+
+```bash
+repo-bisect <bad-ref> <good-ref> -- <probe command...>
+repo-bisect status
+repo-bisect reset
+```
+
+**Exit codes:** 0 first-bad identified · 1 dirty refusal / probe never discriminated / probe-execution failure (exit 126/127 class) · 2 invalid arguments or degenerate range (bad == good) · 4 unresolvable ref.
 
 ### `pr-get-merge-link`
 
@@ -1429,7 +1464,7 @@ issue-artifact-doc-id --issue ISSUE_NUMBER --artifact-type TYPE [--slug TEXT | -
 **Required Arguments:**
 
 - `--issue ISSUE_NUMBER`: Target issue number
-- `--artifact-type TYPE`: One of `spike`, `research`, `redesign`, `design`, `blueprint`, `specifications`, `roadmap`, `plan` (`implementation-plan` is accepted as a read-side alias; generated doc_ids always carry `plan`, never the alias)
+- `--artifact-type TYPE`: One of `research`, `redesign`, `design`, `blueprint`, `specifications`, `roadmap`, `plan` (`implementation-plan` is accepted as a read-side alias; generated doc_ids always carry `plan`, never the alias)
 
 **Slug Source (exactly one required):**
 
@@ -2782,6 +2817,14 @@ githook backing scripts, CI-only checkers, lifecycle event entry points.
   planning, implementation, review, grooming; merge; triage-complete; staging
   and production deploy). Events are configured in
   `tools/config/skill-events.yml`.
+- **`csharp-debug.sh`** — drives the bootstrap-installed vsdbg .NET debugger
+  (`.debug/remote_debugger/`): `launch <app.dll>` / `attach <pid>` enter DAP
+  mode (`--interpreter=vscode`) for breakpoints, stepping, watch, and
+  expression evaluation; `version` prints the debugger version. Invoked by
+  path from the hunt and pair skills' Rung-3 debugging lanes — not a
+  user-facing CLI (the DAP session is driven by the AI or a DAP client, not
+  by hand). Scratchpad-safe: observes and controls execution, never mutates
+  the working tree.
 
 **When to add here vs `tools/scripts/`:** ask "who is the caller?" If the
 caller is always machinery (a hook, CI, the event dispatcher), use

@@ -19,6 +19,29 @@
 
 set -euo pipefail
 
+# Scratchpad refusal (Plan-004 Phase 3): git-wip is a push-path operation.
+# Layer 1 — state: blocked while a scratchpad is active in this repo (the WIP
+# commit would land on the scratch branch and be pushed) — state sentinel.
+# Layer 2 — branch: blocked on any scratchpad/* branch even without state
+# refs (defense-in-depth; scratch commits carry no trailers) — push sentinel.
+# Each layer emits its own ratified message. Needs a repo first; outside a
+# repo the tool fails later on its own git calls.
+_TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    set +e
+    source "$_TOOLS_DIR/lib/error-handling.bash"
+    source "$_TOOLS_DIR/lib/scratchpad.bash"
+    if is_scratchpad_active; then
+        scratchpad_refuse "git-wip"
+        exit $?
+    fi
+    if scratchpad_on_scratch_branch; then
+        scratchpad_refuse_push "git-wip"
+        exit $?
+    fi
+    set -e
+fi
+
 STAGED_ONLY=false
 MSG_FILE=""
 

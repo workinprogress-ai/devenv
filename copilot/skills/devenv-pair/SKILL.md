@@ -157,6 +157,16 @@ When execution uncovers a bug that was not already documented in the plan's know
 
 **Core rule: Stop, explain, ask. Never silently encode or mask a bug.**
 
+### Debugging lane
+
+When a pairing session needs to *investigate* rather than implement — reproducing a defect, stepping through unfamiliar behavior, answering "why is it broken?" — these hunt-built powers are available inline:
+
+- **Real debuggers (Rung-3-safe).** C#: [`csharp-debug`](../../tools/internal/csharp-debug.sh) drives the bootstrap-installed vsdbg (`launch <app.dll>` / `attach <pid>` — breakpoints, stepping, watch, evaluate over DAP). TS/Node: `node --inspect-brk <script>` + VS Code's built-in js-debugger. Python: debugpy. Scratchpad-compatible, no working-tree mutation.
+- **Scratchpad probes.** When mid-implementation calls for "what if I temporarily change X," the [scratchpad sandbox](../devenv-hunt/SKILL.md) makes it AI-safe: `repo-scratchpad enter` → probe → `commit`/`reset` — destructive experiments without endangering the working tree.
+- **Ladder pointer.** When debugging stalls, don't freelance: the [escalation ladder](../devenv-hunt/SKILL.md) in hunt's verify mode (read → synthetic inputs → instrument → bisect → throwaway repro → …) is the menu of next moves, cheapest-discriminating-first.
+
+**Route to hunt, don't duplicate:** actual bug hunts ("why is it broken?" with a verdict needed), `repo-bisect` first-bad-commit runs, and sibling-sweeps are [`/devenv-hunt`](../devenv-hunt/SKILL.md) activities — offer the handoff rather than running the machinery inline. Pair implements; hunt adjudicates.
+
 ## Session Kickoff
 
 Run these in order. Don't skip.
@@ -435,8 +445,11 @@ When the plan encodes a Review phase (see [`/devenv-plan`](../devenv-plan/SKILL.
 - The AI is about to drive an `[L]` task and can identify at least two meaningfully separate sub-concerns.
 - The user signals the task feels too big (*"this one is huge"*, *"where do we even start"*, *"can we break this down?"*).
 - The task has a `decision:` item that would branch the remaining work significantly.
+- The user hands a task over wholesale (*"go do 2.1"*, *"handle this one"*, *"get it done"*) without claiming a part of it. A wholesale handoff of a large or multi-concern task is the moment cooperation most quietly dies into solo execution — offer before accepting the whole thing. The test is complexity, not raw size: an `[L]` task or one spanning several distinct concerns warrants the offer; a small or purely mechanical handoff — even a wholesale one — carries no offer. Just take those and go.
 
 **Never decompose silently.** Always propose and wait for explicit approval.
+
+**The proposal doubles as a cooperation offer.** Decomposition exists to keep the work shared, not just the plan tidy: when proposing sub-tasks, ask who takes what — the user may claim a chunk (*"want 3.1.1? it's the shape-setting one — I'd run 3.1.2 and 3.1.3 and you review"*), or the parties alternate. If the user declines every split and insists the AI take it all, accede gracefully — one offer, no nagging — and the normal bounded-autonomy and handback machinery governs the solo run.
 
 **How to decompose:**
 
@@ -497,7 +510,7 @@ Concrete example phrasings for every handoff state (AI implementing, AI reviewin
 
 ### When the AI is driving
 
-1. **Confirm assignment.** *"→ Taking 2.1 — retry policy in MyWorker. You're on 2.2?"*
+1. **Confirm assignment.** *"→ Taking 2.1 — retry policy in MyWorker. You're on 2.2?"* If the assignment is a wholesale handoff of a large or multi-concern task, make the cooperation offer first (see [Task Decomposition](#task-decomposition)) — accepting the whole task solo without offering is how a pair session quietly becomes delegation.
 1a. **Re-check task-level decision gates before coding.** If the assigned task includes unresolved `decision:` metadata (or an unresolved inline `[QUESTION]` that affects implementation shape), stop and ask the user to choose before editing files. Do not start implementation for that task until the decision is explicitly resolved.
 1b. **Re-check task ownership before coding.** A task with `owner: User` is the user's to drive — hand over the driver seat instead of implementing it. A `Research: <question>` task (plans encode research with `owner: User`) is not done inside a pairing session at all: stop and hand it back — research runs in a separate, user-supervised chat via `/devenv-research`, and its findings return through `/devenv-refine-plan`. `owner: AI`, or no `owner:` bullet, proceeds normally.
 2. **Narrate as you go.** Talk through non-obvious decisions while implementing, not just at the end — this lets the navigator catch problems early.
@@ -895,6 +908,8 @@ Don't unilaterally edit the plan. Don't continue as if the plan is still correct
 | **Structural** — reorder phases, change ACs, split/merge, reflect significant divergence | Stop implementation → draft full revised section → confirm → write → re-orient |
 
 When the change is "do this code work **and** capture it in the plan", do both — but keep the plan edit in the same cycle. Finish the agreed chunk, then draft the plan change before moving on.
+
+**Draft revisions as current state, not as revision notes.** Rewrite the affected sections to describe the plan as it now stands — never append provenance annotations ("(user direction, <date>)", "revised <date>", "As-designed revisions:", "[resolved <date>]"), even when existing plan text carries dated precedent. Who directed a change and when lives in the conversation (and, for design decisions, the grooming artifact's decision table) — not in plan prose. Full rule: [Editing conventions](#editing-conventions).
 
 ### When the user steps outside the plan
 

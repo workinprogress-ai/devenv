@@ -92,6 +92,20 @@ editor_is_noninteractive() {
     return 0
 }
 
+# --- Scratchpad refusal (Plan-004 Phase 3): repo-commit is blocked while a
+# scratchpad is active in this repo — sandbox commits belong on the scratch
+# branch via `repo-scratchpad commit`, and the WIP lane would push. Standalone
+# implementation (this script has no lib deps): same sentinel text as the
+# scratchpad_refuse contract in tools/lib/scratchpad.bash, exit EXIT_CONFLICT.
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    if git show-ref --verify --quiet refs/scratchpad/state; then
+        _sp_branch="$(git for-each-ref --format='%(refname:short)' refs/heads/scratchpad/ | head -1)"
+        echo "Error: repo-commit is blocked while a scratchpad is active (${_sp_branch:-scratchpad branch})." >&2
+        echo "Salvage: repo-scratchpad promote <sha> · or leave the mode: repo-scratchpad exit" >&2
+        exit 3
+    fi
+fi
+
 # --- Argument parsing: message via argv or --file; --wip delegates to git-wip. -
 msgfile_arg=""
 wip_lane=false

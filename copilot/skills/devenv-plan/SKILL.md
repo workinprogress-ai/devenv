@@ -280,6 +280,7 @@ Before final approval and file write, run a carry-forward check in chat so impor
 
 - Build a compact checklist from upstream inputs (especially grooming `Confirmed`/`Pending`/`Deferred` decisions when present, plus critical constraints/non-goals from issue text, comments, specs, or design docs).
 - For each point, map it to its location in the draft plan: phase `Watch Outs / Decisions`, task-level `decision:` metadata, `## Pending Questions`, `## Appendix`, or explicit non-goal/scope text.
+- **Record every carried point as current state** — the decision's content and its reason, never provenance annotations: no "(revised <date>)", "(resolved <date>)", "(user direction, <date>)", or similar in decision/question/AC text. The grooming artifact holds the decision lineage (history is its job); the conversation holds who decided and when; the plan states only what is now true.
 - If a point is intentionally not carried into the plan, mark it `excluded` and include a one-line reason.
 
 If any high-impact point has no destination, update the draft before asking for final approval. Ask explicitly: "Any missing important point before I write the file?"

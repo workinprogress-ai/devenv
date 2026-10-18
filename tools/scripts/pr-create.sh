@@ -4,6 +4,18 @@
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 
+# Scratchpad refusal (Plan-004 Phase 3): PR creation is a push-path operation —
+# blocked while a scratchpad is active in this repo, and blocked on any
+# scratchpad/* branch (defense-in-depth: scratch commits bypass hooks and
+# carry no Devenv-Action/Change-Id trailers; they must never reach shared
+# history). Two-layer design ratified at kickoff.
+source "$DEVENV_TOOLS/lib/error-handling.bash"
+source "$DEVENV_TOOLS/lib/scratchpad.bash"
+if is_scratchpad_active || scratchpad_on_scratch_branch; then
+    scratchpad_refuse_push "pr-create"
+    exit $?
+fi
+
 ################################################################################
 # pr-create.sh
 #
