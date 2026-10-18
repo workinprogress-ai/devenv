@@ -295,7 +295,7 @@ Not every markdown a skill writes is a persisted artifact. When the user asks fo
 - Check existing `tmp*.md` files in `.local-artifacts/` first and use the next free number. Do not overwrite an existing tmp markdown unless it is clearly safe to do so.
 - These files are routinely deleted or modified by the user between sessions — never assume you know what a `tmpN.md` contains; re-read it before any overwrite or reuse.
 - Ephemeral files are not persisted artifacts: no `DEVENV_ARTIFACT_V1` header, no `doc_id`, and they are not republished via `issue-artifact-upsert`.
-- Boundary with the Artifact Identity Convention: if the content will outlive the immediate exchange (plans, grooming documents, research findings, roadmaps, pairing state files), it is a persisted artifact and follows that convention instead. When classification is ambiguous, ask the user one direct question.
+- Boundary with the Artifact Identity Convention: if the content will outlive the immediate exchange (plans, grooming documents, research findings, roadmaps, session coordination registry files), it is a persisted artifact and follows that convention instead. When classification is ambiguous, ask the user one direct question.
 
 ## Tooling discipline
 

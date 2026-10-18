@@ -128,7 +128,9 @@ classify() {
     local f="$1"
     case "$f" in
         tmp[0-9]*.md) echo "ephemeral" ;;
-        session_memory-*.md|pairing-state-*.md) echo "session" ;;
+        # session-state-* is the canonical coordination-registry name; pairing-state-* kept for
+        # orphaned files from before the rename — they retire as their plans close
+        session_memory-*.md|session-state-*.md|pairing-state-*.md) echo "session" ;;
         Plan-issue-*.md|Grooming-*.md|Specifications-*.md|Blueprint-*.md|Roadmap-*.md) echo "working" ;;
         research-*.md|bug-hunt-*.md|TECH_DEBT_AUDIT*) echo "deliverable" ;;
         *) echo "other" ;;

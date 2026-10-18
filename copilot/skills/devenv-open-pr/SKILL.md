@@ -21,7 +21,7 @@ Take a committable phase of work from a plan-driven workflow and open a GitHub P
 - The branch has commits, the work is reviewable, and you want a PR opened with a proper body.
 - You want the PR description auto-built from the plan + git history rather than typed by hand.
 
-If a PR already exists and you're responding to feedback, use `/devenv-address-pr-comments`. If you're ending a session without opening a PR yet, close it via your execution skill's own wrap-up (pair writes the pairing state file). If you want a code review and don't need a PR opened, use `/devenv-review`. If you want the GitHub extension's flow with reviewer suggestions and richer integration, use `/create-pull-request`.
+If a PR already exists and you're responding to feedback, use `/devenv-address-pr-comments`. If you're ending a session without opening a PR yet, close it via your execution skill's own wrap-up (pair updates its section in the session coordination registry). If you want a code review and don't need a PR opened, use `/devenv-review`. If you want the GitHub extension's flow with reviewer suggestions and richer integration, use `/create-pull-request`.
 
 > **Micro-fix lane:** a small fix requested just before shipping ("fix that typo, then open the PR") may run in-session under the shared [incidental implementation protocol](../common/references/incidental-implementation-protocol.md) — micro ceiling, supervised handback; anything bigger routes to `/devenv-pair` first.
 

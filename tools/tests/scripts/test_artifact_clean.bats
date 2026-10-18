@@ -266,6 +266,16 @@ make_deliverables() {
   [ ! -f "$FOLDER/session_memory-design.md" ]
 }
 
+@test "session-state registry files classify as session and sweep with --session" {
+  touch "$FOLDER/session-state-Plan-issue-42-001.md" "$FOLDER/session-state-adhoc-debugging.md"
+  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null -l
+  [[ "$output" == *"[session] would clean 3"* ]]
+  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null --session -y
+  [ "$status" -eq 0 ]
+  [ ! -f "$FOLDER/session-state-Plan-issue-42-001.md" ]
+  [ ! -f "$FOLDER/session-state-adhoc-debugging.md" ]
+}
+
 @test "an unknown option is still rejected" {
   run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null --include-deliverable
   [ "$status" -eq 2 ]

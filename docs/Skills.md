@@ -478,12 +478,12 @@ At any point you can say "I'll take this one" or "you take this one" and the AI 
 
 ### Saving and resuming state
 
-Pair keeps a small state note for the current plan (current chunk, open questions, next step) under the repo's `.local-artifacts/` folder, so a session can pick up exactly where the last one ended. It updates automatically at phase boundaries and hand-backs — you never have to think about it. Two phrases put you in control:
+Pair keeps a small state note for the current plan (current chunk, open questions, next step) in a shared coordination registry under the repo's `.local-artifacts/` folder — `session-state-<plan-stem>.md` — so a session can pick up exactly where the last one ended. It updates automatically at phase boundaries and hand-backs — you never have to think about it. Delegated runs write their own section in the same file, so when you run pair and delegate side by side on one plan, each sees the other's presence and recent activity without you relaying anything. Two phrases put you in control:
 
 - **"save state"** / **"checkpoint this"** — write the state note right now, even mid-task. Useful before context gets long, before a break, or at any moment you want a restorable snapshot.
 - **"resume"** / **"pick up where we left off"** — reload the state note and propose the next chunk. If there's no saved state (new plan, nothing written yet), the AI says so plainly and orients from the plan and working tree instead.
 
-For ad-hoc sessions (no plan), state lives only in the current conversation by default. If you explicitly want a durable note anyway, say "save state" and insist — the AI writes `pairing-state-adhoc-<topic>.md` (it picks a recognizable topic name). Resuming an ad-hoc note later is always on you: name the file or paste its contents when you start the new session — the AI never scans for or guesses among ad-hoc notes. If you find yourself wanting durability repeatedly, that's the signal to plan the work instead (`/devenv-plan`).
+For ad-hoc sessions (no plan), state lives only in the current conversation by default. If you explicitly want a durable note anyway, say "save state" and insist — the AI writes `session-state-adhoc-<topic>.md` (it picks a recognizable topic name). Resuming an ad-hoc note later is always on you: name the file or paste its contents when you start the new session — the AI never scans for or guesses among ad-hoc notes. If you find yourself wanting durability repeatedly, that's the signal to plan the work instead (`/devenv-plan`).
 
 ---
 

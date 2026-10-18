@@ -366,7 +366,7 @@ issue-artifact-doc-id --issue N --artifact-type TYPE (--slug TEXT | --source-fil
 Key flags:
 
 - `--issue N` — issue number (required)
-- `--artifact-type TYPE` — one of: `spike`, `research`, `redesign`, `design`, `blueprint`, `requirements`, `specifications`, `grooming`, `roadmap`, `plan` (current for plans; the only value a *new* plan artifact may carry); `implementation-plan` (accepted as a read-side alias of `plan`; never written — generated doc_ids canonicalize it to `plan`, and `plan-parse --lint` rejects a header carrying it), `solution-proposal`
+- `--artifact-type TYPE` — one of: `research`, `redesign`, `design`, `blueprint`, `requirements`, `specifications`, `grooming`, `roadmap`, `plan` (current for plans; the only value a *new* plan artifact may carry); `implementation-plan` (accepted as a read-side alias of `plan`; never written — generated doc_ids canonicalize it to `plan`, and `plan-parse --lint` rejects a header carrying it), `solution-proposal`
 - `--slug TEXT` — slug source text (normalized to kebab-case), or `--source-file FILE` — basename without extension
 
 Output: `dv1:<owner>/<repo>:issue-<N>:<type>:<slug>` on stdout.
