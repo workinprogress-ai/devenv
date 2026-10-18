@@ -4,6 +4,7 @@
         "distro",
         "frontmatter",
         "tock",
+        "touchpoints",
         "unstaging"
     ],
     "workbench.colorCustomizations": {

@@ -83,6 +83,28 @@ check_message_file() {
         WIP:*) return 0 ;;
     esac
     message="$(cat "$file")"
+    # Subject-presence guard (commit-msg hook only): prepare-commit-msg
+    # pre-fills trailers into the editor buffer. If the author closes the
+    # editor without typing a subject, the surviving message is trailers-
+    # only — git strips the comments and the trailers become the "subject",
+    # an accidental garbage commit. The first non-comment line must be a
+    # subject that is NOT a known trailer (Conventional Commit subjects are
+    # shaped "type: ..." and must not be excluded as trailers).
+    local first_content
+    first_content="$(grep -m1 -vE '^[[:space:]]*(#|$)' "$file")"
+    case "$first_content" in
+        ""|Change-Id:*|Devenv-Action:*|"<type>: <subject>")
+            cat >&2 <<'EOG'
+
+error: commit message has no subject.
+
+  The editor closed without a commit message — only the pre-filled trailers
+  and comments remained. Type a subject line in the editor before saving.
+
+EOG
+            return 1
+            ;;
+    esac
     if ! has_valid_trailer "$message"; then
         print_guidance
         return 1

@@ -28,7 +28,7 @@ Usage: $SCRIPT_NAME MESSAGE_FILE [SOURCE [SHA]]
 Add a Change-Id trailer to the commit message in MESSAGE_FILE. SOURCE is the second
 argument git passes to prepare-commit-msg:
 
-    (empty), template     an editor will open: also add an empty Devenv-Action
+    (empty), template     an editor will open: also add Devenv-Action: nothing
     message, commit       -m/-F, cherry-pick, rebase pick, amend, reword: Change-Id only
     merge, squash         left untouched
     WIP: subject          left untouched (temporary by design)
@@ -61,6 +61,11 @@ main() {
         WIP:*) return 0 ;;
     esac
 
+    # NOTE: no comment-only guard here. The editor flow pre-fills trailers
+    # (below) even into the bare `-e -n` scaffold; commit-action-check's
+    # subject-presence guard then fails the commit at commit-msg time if
+    # the author closes without typing a subject. Removing the prefill
+    # instead would break the editor-populates-footers flow.
     message="$(cat "$file")"
     existing="$(change_id_get_trailer "$message" "Change-Id")"
     if [ -z "$existing" ]; then
@@ -70,9 +75,25 @@ main() {
     fi
     case "$source_kind" in
         ""|template)
-            [ -n "$(change_id_get_trailer "$message" "Devenv-Action")" ] || trailers+=(--trailer "Devenv-Action:")
+            # A no-op editor (':'/'true'/'.') means git never opens anything: the
+            # author never sees the buffer, and the prefilled trailers ship
+            # as-is as the message. Warn loudly so the failure is visible at
+            # the moment it happens instead of a mystery in the commit log.
+            local editor
+            editor="$(git var GIT_EDITOR 2>/dev/null || true)"
+            case "$editor" in
+                ":"|"true"|".")
+                    echo "warning: the effective editor is '$editor' (a no-op) — no editor will open and the prefilled trailers will be committed as the message; unset the GIT_EDITOR/core.editor override to restore the interactive flow" >&2
+                    ;;
+            esac
+            [ -n "$(change_id_get_trailer "$message" "Devenv-Action")" ] || trailers+=(--trailer "Devenv-Action: nothing")
             ;;
     esac
+    # NOTE: no subject-placeholder seeding here. Seeding a placeholder line
+    # (`<type>: <subject>`) into the editor buffer made lazy closes commit it
+    # as the literal subject — the editor shows it, the author closes, and
+    # the placeholder ships as a garbage commit subject. The editor pops with
+    # the prefilled trailers only; the author types the subject.
     [ "${#trailers[@]}" -eq 0 ] && return 0
     git interpret-trailers --in-place --if-exists doNothing "${trailers[@]}" "$file"
 }

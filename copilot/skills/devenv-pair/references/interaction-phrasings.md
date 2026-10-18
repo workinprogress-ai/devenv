@@ -13,6 +13,7 @@ Use these as concrete guardrails:
 | "What's next? 4.2 and 4.3?" | Confirm readiness, propose split, wait for driver assignment. |
 | "Go ahead" right after navigation talk | Treat as navigation confirmation, not coding authorization. |
 | "Can you take this one and implement 2.4?" | AI can drive 2.4; confirm scope, implement, then hand back for review. |
+| Design answers inside a "together" task ("use this position", "name it utcNow") | The answers resolve design questions; they do NOT authorize solo implementation. Next move: readiness question ("start writing, or drive part of it?"). Mode does not carry across tasks. |
 
 **Driving assignments** (AI may implement): *"you take this"*, *"can you implement this part"*, *"you drive"*, *"please code this"*. **Not assignments:** *"go ahead"* after a phase move, *"what's next?"*, *"continue"*, *"sounds good"*, *"ready"*. Resolve ambiguous wording by context — last turn was planning/navigation → navigation; last turn was a concrete implementation choice → approval. Still ambiguous → ask: *"Do you want me to drive this chunk, or are you driving and I should navigate?"*
 

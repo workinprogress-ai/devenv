@@ -60,13 +60,16 @@ _message_of() {
     [ "$output" = "0" ]
 }
 
-@test "prepare-commit-msg: an editor-bound message gets an empty Devenv-Action as well" {
+@test "prepare-commit-msg: an editor-bound message gets a pre-filled Devenv-Action: nothing" {
     for kind in "" template; do
         printf '\n' > "$MSG"
         run bash "$SCRIPT" "$MSG" "$kind"
         [ "$status" -eq 0 ]
         change_id_get_from_message "$(cat "$MSG")" > /dev/null
-        grep -qE '^Devenv-Action:[[:space:]]*$' "$MSG"
+        # Pre-filled with a VALID action (nothing): commit-action-check
+        # requires a complete value, so an empty placeholder would fail the
+        # commit-msg hook — saving the editor unchanged must succeed.
+        grep -qE '^Devenv-Action: nothing$' "$MSG"
     done
 }
 
@@ -129,7 +132,7 @@ EOF
     GIT_EDITOR="$TEST_TEMP_DIR/editor.sh" git -C "$REPO" commit -q
     [ "$(_message_of | head -n1)" = "feat: typed subject" ]
     change_id_get_from_message "$(_message_of)" > /dev/null
-    git -C "$REPO" log -1 --format=%B | grep -qE '^Devenv-Action:$'
+    git -C "$REPO" log -1 --format=%B | grep -qE '^Devenv-Action: nothing$'
 }
 
 @test "prepare-commit-msg: amend, cherry-pick and rebase keep the Change-Id" {
@@ -193,4 +196,38 @@ EOF
     [[ "$output" == *"the Change-Id 'short' is not usable"* ]]
     [ "$(grep -c '^Change-Id:' "$MSG")" -eq 1 ]
     grep -q '^Change-Id: short$' "$MSG"
+}
+
+@test "prepare-commit-msg: -e -n editor flow — typed subject commits with trailers (the restored prefill contract)" {
+    _hooked_repo
+    echo a > "$REPO/a"
+    git -C "$REPO" add a
+    printf '#!/bin/sh\nprintf %s "$2" > "$1"\n' "$TEST_TEMP_DIR" > /dev/null # no-op guard
+    printf '#!/bin/sh\nprintf "feat: typed subject\\n" > "$1"\n' > "$TEST_TEMP_DIR/editor2.sh"
+    chmod +x "$TEST_TEMP_DIR/editor2.sh"
+    GIT_EDITOR="$TEST_TEMP_DIR/editor2.sh" git -C "$REPO" commit -e -n
+    [ "$(_message_of | head -n1)" = "feat: typed subject" ]
+    git -C "$REPO" commit -q --amend -m "feat: typed subject, amended"
+    change_id_get_from_message "$(git -C "$REPO" log -1 --format=%B)" > /dev/null
+}
+
+@test "prepare-commit-msg: editor flow warns loudly when the effective editor is a no-op" {
+    _hooked_repo
+    printf '' > "$MSG"
+    cd "$REPO"
+    run env GIT_EDITOR=: bash "$SCRIPT" "$MSG" ""
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"no editor will open"* ]]
+    [[ "$output" == *"unset the GIT_EDITOR/core.editor override"* ]]
+    grep -q 'Devenv-Action: nothing' "$MSG"
+}
+
+@test "prepare-commit-msg: editor flow stays silent when a real editor resolves" {
+    _hooked_repo
+    printf '' > "$MSG"
+    cd "$REPO"
+    run bash "$SCRIPT" "$MSG" ""
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"no editor will open"* ]]
+    grep -q 'Devenv-Action: nothing' "$MSG"
 }
