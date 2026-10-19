@@ -34,7 +34,7 @@ EOF
 
 @test "task tool auto-detect prefers .local-artifacts/ over cwd" {
     cd "$WORK_DIR"
-    run bash "$DEVENV_TOOLS/scripts/markdown-plan-complete-task.sh" 1.1
+    run "$DEVENV_TOOLS/markdown-plan-complete-task" 1.1
     [ "$status" -eq 0 ]
     [[ "$output" == *".local-artifacts/Plan-issue-9-001.md"* ]]
     # cwd copy untouched
@@ -54,7 +54,7 @@ EOF
 
 - [ ] **AC-1** cwd copy criterion
 EOF
-    run bash "$DEVENV_TOOLS/scripts/markdown-plan-complete-ac.sh" AC-1
+    run "$DEVENV_TOOLS/markdown-plan-complete-ac" AC-1
     [ "$status" -eq 0 ]
     grep -q "\[x\] \*\*AC-1\*\* artifact copy criterion" "$ART_DIR/Plan-issue-9-001.md"
     grep -q "\[ \] \*\*AC-1\*\* cwd copy criterion" "$WORK_DIR/Plan-issue-9-001.md"
@@ -63,14 +63,14 @@ EOF
 @test "task tool falls back to cwd when .local-artifacts/ has no plan" {
     rm "$ART_DIR/Plan-issue-9-001.md"
     cd "$WORK_DIR"
-    run bash "$DEVENV_TOOLS/scripts/markdown-plan-complete-task.sh" 1.1
+    run "$DEVENV_TOOLS/markdown-plan-complete-task" 1.1
     [ "$status" -eq 0 ]
     grep -q "\[x\] \*\*1.1" "$WORK_DIR/Plan-issue-9-001.md"
 }
 
 @test "explicit file argument beats auto-detect in task tool" {
     cd "$WORK_DIR"
-    run bash "$DEVENV_TOOLS/scripts/markdown-plan-complete-task.sh" 1.1 "$WORK_DIR/Plan-issue-9-001.md"
+    run "$DEVENV_TOOLS/markdown-plan-complete-task" 1.1 "$WORK_DIR/Plan-issue-9-001.md"
     [ "$status" -eq 0 ]
     grep -q "\[x\] \*\*1.1" "$WORK_DIR/Plan-issue-9-001.md"
     grep -q "\[ \] \*\*1.1" "$ART_DIR/Plan-issue-9-001.md"

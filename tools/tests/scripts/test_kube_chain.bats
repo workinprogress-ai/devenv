@@ -33,20 +33,20 @@ STUB
 }
 
 @test "kube-list-pods: -n <ns> before the filter filters by the name, not by the flag" {
-    run --separate-stderr bash "$PROJECT_ROOT/tools/scripts/kube-list-pods.sh" -n prod myapp
+    run --separate-stderr bash "$PROJECT_ROOT/tools/kube-list-pods" -n prod myapp
     [ "$status" -eq 0 ]
     [ "$output" = $'myapp-1\nmyapp-3' ]
     grep -q "get pods -n prod" "$KUBECTL_LOG"
 }
 
 @test "kube-list-pods: the filter alone still works" {
-    run --separate-stderr bash "$PROJECT_ROOT/tools/scripts/kube-list-pods.sh" other
+    run --separate-stderr bash "$PROJECT_ROOT/tools/kube-list-pods" other
     [ "$status" -eq 0 ]
     [ "$output" = "other-2" ]
 }
 
 @test "kube-pod-select: -n <ns> before the filter reaches the listing and selects the match" {
-    run --separate-stderr bash "$PROJECT_ROOT/tools/scripts/kube-pod-select.sh" -n prod other
+    run --separate-stderr bash "$PROJECT_ROOT/tools/kube-pod-select" -n prod other
     [ "$status" -eq 0 ]
     [ "$output" = "other-2" ]
     grep -q "get pods -n prod" "$KUBECTL_LOG"
@@ -55,7 +55,7 @@ STUB
 @test "kube-pod-select: finds its sibling by the entry-point name and filters correctly" {
     # With -n first the filter used to be read as "-n", and the sibling was
     # invoked as kube-list-pods.sh, a name no PATH entry provides.
-    run --separate-stderr bash "$PROJECT_ROOT/tools/scripts/kube-pod-select.sh" -n staging myapp
+    run --separate-stderr bash "$PROJECT_ROOT/tools/kube-pod-select" -n staging myapp
     [ "$status" -eq 0 ]
     [ "$output" = "myapp-1" ]
     [[ "$stderr" != *"command not found"* ]]

@@ -19,18 +19,18 @@ setup() {
 }
 
 @test "usage error when no arguments given" {
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -ne 0 ]
     [[ "$output" == *"ISSUE_NUMBER is required"* ]]
 }
 
 @test "usage error when issue number is not numeric" {
-    run bash "$SCRIPT" notanumber
+    run "$SCRIPT" notanumber
     [ "$status" -ne 0 ]
 }
 
 @test "help exits 0 and shows usage" {
-    run bash "$SCRIPT" --help
+    run "$SCRIPT" --help
     [ "$status" -eq 0 ]
     [[ "$output" == *"List every GitHub Project"* ]]
 }
@@ -41,7 +41,7 @@ setup() {
 echo '{"data":{"resource":{"projectItems":{"nodes":[]}}}}'
 STUB
     chmod +x "$STUB_DIR/gh"
-    run bash "$SCRIPT" 42
+    run "$SCRIPT" 42
     [ "$status" -eq 0 ]
     [ -z "$output" ]
 }
@@ -60,7 +60,7 @@ cat <<'JSON'
 JSON
 STUB
     chmod +x "$STUB_DIR/gh"
-    run bash "$SCRIPT" 42
+    run "$SCRIPT" 42
     [ "$status" -eq 0 ]
     [ "${#lines[@]}" -eq 1 ]
     [[ "${lines[0]}" == $'Alpha\t1\tTo-Groom' ]]
@@ -79,7 +79,7 @@ cat <<'JSON'
 JSON
 STUB
     chmod +x "$STUB_DIR/gh"
-    run bash "$SCRIPT" 42
+    run "$SCRIPT" 42
     [ "$status" -eq 0 ]
     [[ "$output" == *"Beta"* ]]
     local dash_line
@@ -99,7 +99,7 @@ case "$1" in
 esac
 STUB
     chmod +x "$STUB_DIR/gh"
-    run bash "$SCRIPT" 42
+    run "$SCRIPT" 42
     [ "$status" -ne 0 ]
     [[ "$output" == *"GraphQL query failed"* ]]
 }

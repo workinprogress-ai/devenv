@@ -24,7 +24,7 @@ assert_output_contains() {
 }
 
 @test "repo-get: has valid bash syntax" {
-    run bash -n "$PROJECT_ROOT/tools/scripts/repo-get.sh"
+    run bash -n "$PROJECT_ROOT/tools/repo-get"
     assert_success
 }
 
@@ -40,31 +40,31 @@ assert_output_contains() {
 
 @test "repo-get: fails when repository name is missing and no git context" {
     cd "$TEST_TEMP_DIR"  # Run from non-git directory
-    run "$PROJECT_ROOT/tools/scripts/repo-get.sh" 2>/dev/null
+    run "$PROJECT_ROOT/tools/repo-get" 2>/dev/null
     assert_failure
     assert_output_contains "Usage:"
 }
 
 @test "repo-get: rejects invalid characters in repo name" {
-    run "$PROJECT_ROOT/tools/scripts/repo-get.sh" "repo@name" 2>&1
+    run "$PROJECT_ROOT/tools/repo-get" "repo@name" 2>&1
     assert_failure
     assert_output_contains "Invalid repository name"
 
-    run "$PROJECT_ROOT/tools/scripts/repo-get.sh" "repo name" 2>&1
+    run "$PROJECT_ROOT/tools/repo-get" "repo name" 2>&1
     assert_failure
 }
 
 @test "repo-get: rejects reserved names" {
-    run "$PROJECT_ROOT/tools/scripts/repo-get.sh" "repos" 2>&1
+    run "$PROJECT_ROOT/tools/repo-get" "repos" 2>&1
     assert_failure
     assert_output_contains "Invalid repository name"
 
-    run "$PROJECT_ROOT/tools/scripts/repo-get.sh" "." 2>&1
+    run "$PROJECT_ROOT/tools/repo-get" "." 2>&1
     assert_failure
 }
 
 @test "repo-get: requires alphanumeric start" {
-    run "$PROJECT_ROOT/tools/scripts/repo-get.sh" "-repo" 2>&1
+    run "$PROJECT_ROOT/tools/repo-get" "-repo" 2>&1
     assert_failure
     assert_output_contains "Invalid repository name"
 }

@@ -11,13 +11,13 @@ load ../test_helper
 }
 
 @test "repo-create.sh supports --help" {
-  run bash "$PROJECT_ROOT/tools/scripts/repo-create.sh" --help
+  run "$PROJECT_ROOT/tools/repo-create" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ Usage: ]]
 }
 
 @test "repo-update-all.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/repo-update-all.sh" --help
+  run "$PROJECT_ROOT/tools/repo-update-all" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ Usage: ]]
 }
@@ -28,62 +28,62 @@ load ../test_helper
 }
 
 @test "pr-create.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-create.sh" --help 2>&1 || true
+  run "$PROJECT_ROOT/tools/pr-create" --help 2>&1 || true
   [[ "$output" =~ Usage: ]] || [[ "$output" =~ usage ]]
 }
 
 @test "pr-create-for-review.sh has --help flag" {
   skip "Script uses inline comments for documentation"
-  run bash "$PROJECT_ROOT/tools/scripts/pr-create-for-review.sh" --help 2>&1 || true
+  run "$PROJECT_ROOT/tools/pr-create-for-review" --help 2>&1 || true
   [[ "$output" =~ Usage: ]] || [[ "$output" =~ usage ]]
 }
 
 @test "tooling-create-script.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/tooling-create-script.sh" --help
+  run "$PROJECT_ROOT/tools/tooling-create-script" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ Usage: ]]
 }
 
 @test "tooling-create-script.sh help describes --dir option" {
-  run bash "$PROJECT_ROOT/tools/scripts/tooling-create-script.sh" --help
+  run "$PROJECT_ROOT/tools/tooling-create-script" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ --dir ]]
 }
 
 @test "tooling-create-script.sh help describes --force option" {
-  run bash "$PROJECT_ROOT/tools/scripts/tooling-create-script.sh" --help
+  run "$PROJECT_ROOT/tools/tooling-create-script" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ --force ]]
 }
 
 @test "lint-scripts.sh has valid syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/lint-scripts.sh"
+  run bash -n "$PROJECT_ROOT/tools/lint-scripts"
   [ "$status" -eq 0 ]
 }
 
 @test "repo-version-list.sh has valid syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/repo-version-list.sh"
+  run bash -n "$PROJECT_ROOT/tools/repo-version-list"
   [ "$status" -eq 0 ]
 }
 
 @test "issue-create.sh has usage output" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-create.sh" --help 2>&1 || true
+  run "$PROJECT_ROOT/tools/issue-create" --help 2>&1 || true
   [[ "$output" =~ Usage: ]] || [[ "$output" =~ usage ]]
 }
 
 @test "issue-list.sh has usage output" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-list.sh" --help 2>&1 || true
+  run "$PROJECT_ROOT/tools/issue-list" --help 2>&1 || true
   [[ "$output" =~ Usage: ]] || [[ "$output" =~ usage ]]
 }
 
 @test "kube-forward-ports.sh has usage output" {
   skip "Script uses inline comments for documentation"
-  run bash "$PROJECT_ROOT/tools/scripts/kube-forward-ports.sh" --help 2>&1 || true
+  run "$PROJECT_ROOT/tools/kube-forward-ports" --help 2>&1 || true
   [[ "$output" =~ Usage: ]] || [[ "$output" =~ usage ]]
 }
 
 @test "kube-logs.sh has usage output" {
   skip "Script uses inline comments for documentation"
-  run bash "$PROJECT_ROOT/tools/scripts/kube-logs.sh" --help 2>&1 || true
+  run "$PROJECT_ROOT/tools/kube-logs" --help 2>&1 || true
   [[ "$output" =~ Usage: ]] || [[ "$output" =~ usage ]]
 }

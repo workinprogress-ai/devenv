@@ -9,7 +9,7 @@ bats_require_minimum_version 1.5.0
 
 load ../test_helper
 
-SCRIPT="$BATS_TEST_DIRNAME/../../scripts/pr-create-for-review.sh"
+SCRIPT="$BATS_TEST_DIRNAME/../../pr-create-for-review"
 
 setup() {
     test_helper_setup
@@ -50,7 +50,7 @@ remote_review_branches() { git -C "$ORIGIN" for-each-ref --format='%(refname:sho
 local_review_branches()  { git -C "$CLONE"  for-each-ref --format='%(refname:short)' 'refs/heads/review/'; }
 
 @test "a successful run leaves both review branches on the remote, because the PR needs them" {
-    run bash "$SCRIPT" "check the changes" "$CLONE" "$FROM" "$TO"
+    run "$SCRIPT" "check the changes" "$CLONE" "$FROM" "$TO"
     [ "$status" -eq 0 ]
     [[ "$output" == *"https://github.com/o/r/pull/9"* ]]
     [ "$(remote_review_branches | wc -l)" -eq 2 ]
@@ -59,14 +59,14 @@ local_review_branches()  { git -C "$CLONE"  for-each-ref --format='%(refname:sho
 }
 
 @test "a successful run removes the temporary local branches and returns to the original branch" {
-    run bash "$SCRIPT" "check the changes" "$CLONE" "$FROM" "$TO"
+    run "$SCRIPT" "check the changes" "$CLONE" "$FROM" "$TO"
     [ "$status" -eq 0 ]
     [ -z "$(local_review_branches)" ]
     [ "$(git -C "$CLONE" rev-parse --abbrev-ref HEAD)" = "master" ]
 }
 
 @test "a run whose PR could not be created takes its pushed branches back off the remote" {
-    FAKE_GH_FAIL=1 run bash "$SCRIPT" "check the changes" "$CLONE" "$FROM" "$TO"
+    FAKE_GH_FAIL=1 run "$SCRIPT" "check the changes" "$CLONE" "$FROM" "$TO"
     [ "$status" -ne 0 ]
     [ -z "$(remote_review_branches)" ]
     [ -z "$(local_review_branches)" ]

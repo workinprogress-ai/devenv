@@ -6,24 +6,24 @@ bats_require_minimum_version 1.5.0
 load ../test_helper
 
 @test "project-add-issue.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/project-add-issue.sh"
+  run bash -n "$PROJECT_ROOT/tools/project-add-issue"
   [ "$status" -eq 0 ]
 }
 
 @test "project-add-issue.sh has --help flag" {
   skip "Script uses inline documentation instead of --help flag"
-  run bash "$PROJECT_ROOT/tools/scripts/project-add-issue.sh" --help
+  run "$PROJECT_ROOT/tools/project-add-issue" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "project-update-issue.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/project-update-issue.sh"
+  run bash -n "$PROJECT_ROOT/tools/project-update-issue"
   [ "$status" -eq 0 ]
 }
 
 @test "project-update-issue.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/project-update-issue.sh" --help
+  run "$PROJECT_ROOT/tools/project-update-issue" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
@@ -77,7 +77,7 @@ load ../test_helper
 }
 
 @test "project-list-for-issue.sh documents and accepts the --devenv override like its sibling wrappers" {
-  run bash "$PROJECT_ROOT/tools/scripts/project-list-for-issue.sh" --help
+  run "$PROJECT_ROOT/tools/project-list-for-issue" --help
   [ "$status" -eq 0 ]
   [[ "$output" == *"--devenv"* ]]
 }

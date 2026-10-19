@@ -6,7 +6,7 @@ bats_require_minimum_version 1.5.0
 
 load ../test_helper
 
-SCRIPT="$BATS_TEST_DIRNAME/../../scripts/git-prune-branches"
+SCRIPT="$BATS_TEST_DIRNAME/../../git-prune-branches"
 
 setup() {
     test_helper_setup
@@ -48,7 +48,7 @@ branches() { git for-each-ref --format='%(refname:short)' refs/heads | sort | tr
 }
 
 @test "with no gone upstream it reports nothing to prune and never prompts" {
-    run bash "$SCRIPT" </dev/null
+    run "$SCRIPT" </dev/null
     [ "$status" -eq 0 ]
     [[ "$output" == *"Nothing to prune"* ]]
     [ "$(branches)" = "main " ]

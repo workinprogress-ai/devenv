@@ -6,12 +6,12 @@ bats_require_minimum_version 1.5.0
 load ../test_helper
 
 @test "repo-create.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/repo-create.sh"
+  run bash -n "$PROJECT_ROOT/tools/repo-create"
   [ "$status" -eq 0 ]
 }
 
 @test "repo-create.sh passes shellcheck" {
-  run shellcheck -S warning "$PROJECT_ROOT/tools/scripts/repo-create.sh"
+  run shellcheck -S warning "$PROJECT_ROOT/tools/repo-create"
   [ "$status" -eq 0 ]
 }
 
@@ -22,7 +22,7 @@ load ../test_helper
 }
 
 @test "repo-create.sh shows help with --help" {
-  run "$PROJECT_ROOT/tools/scripts/repo-create.sh" --help
+  run "$PROJECT_ROOT/tools/repo-create" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
   [[ "$output" =~ "Repository Types:" ]]

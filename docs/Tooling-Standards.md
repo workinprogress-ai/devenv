@@ -27,6 +27,63 @@ through `markdownlint-cli2` **and** `markdown-link-check` in the
 5. **`--help` must work without auth, network, or positional arguments** —
    handle global flags before any validation or `ensure_gh_login`.
 
+## TypeScript standards
+
+All new tooling is TypeScript executed natively by Node type-stripping
+(no build step, no tsx/ts-node). The root `package.json` carries
+`"type": "module"` (ESM everywhere); legacy `.js` configs are ESM
+(`export default`). `.ts` sources use `import` syntax and run via
+`exec node <script>.ts` from the bash stub layer. `tsconfig.json` is strict
+(`noEmit` — `tsc --noEmit` is the CI type gate; Node strips types without
+checking). Node ≥23.6 is the floor (24.18.0 pinned).
+
+**Library tree:** TypeScript modules live in `tools/lib/` — the tree is
+organized by role, never by language.
+
+- `lib/core/` — runtime seams. Imports nothing internal.
+- `lib/ui/` — the only interaction surface (clack-based prompts, progress,
+  panels). Interactive calls must declare a non-TTY fallback; picker flows
+  use clack (fzf is not a dependency of TS tooling).
+- `lib/providers/` — the provider facade implementing `CONTRACT.md`.
+- `lib/domain/` — headless pure logic (issues, repos, fork, markdown, …).
+  Never imports `ui/`; only tool scripts orchestrate interaction.
+
+Dependency direction: `core` ← `ui`/`providers` ← `domain` ← tools. A layer
+imports only from layers to its left; `domain` never imports `ui` (tools
+are the only orchestration point where interaction happens); `core` imports
+no internal module. PRs that add cross-layer imports against this direction
+are rejected in review.
+
+**Module catalog (as built):**
+
+| Module | Role |
+|--------|------|
+| `lib/core/self-root.ts` | locate the workspace root regardless of CWD |
+| `lib/core/exit-codes.ts` | suite-wide exit-code contract (2 misuse, 3 conflict, 4 API failure) |
+| `lib/core/logging.ts` | log prefixes and levels |
+| `lib/core/spawn.ts` | child-process seam (typed argv, no shell) |
+| `lib/core/node-floor.ts` | Node ≥23.6 guard |
+| `lib/core/config.ts` | devenv.config parsing (raw vs expanding values) |
+| `lib/core/boundary.ts` | input-validation result types (`{ok}`/`{ok:false,error}`) |
+| `lib/core/args.ts` | option/argument parsing and requirement checks |
+| `lib/core/versioning.ts` | version comparison (numeric core, suffixes ignored) |
+| `lib/core/change-id.ts` | Change-Id trailer generation/parsing + O_EXCL locking |
+| `lib/core/editor.ts` | editor selection (PREF_EDITOR → FALLBACK_EDITOR → nano) |
+| `lib/core/git.ts` | git plumbing (state, branches, WIP guards, rewrite detection) |
+| `lib/core/events.ts` | lifecycle event signals (PR + skill events) |
+| `lib/ui/` | prompts, progress, panels (clack + picocolors) |
+
+New tools use the TS template and this section. Gaps in the catalog are
+filled as modules land; when a module's role changes, update its row here.
+
+**Interprocess locking:** serialize access to shared local files with an
+`O_EXCL` lockfile: atomic create, wait-with-deadline, reclaim a lock older
+than 30s (crashed writer). Kernel locks (`flock`) are unavailable to
+TypeScript — fd numbers do not survive process spawn — so bash `flock`
+patterns translate to lockfile protocols. Reference implementation:
+`lib/core/change-id.ts` (`locked()`). Extract a shared `lib/core/lock.ts`
+when a second consumer appears; do not create it speculatively.
+
 ## Script skeleton (required structure)
 
 ```bash

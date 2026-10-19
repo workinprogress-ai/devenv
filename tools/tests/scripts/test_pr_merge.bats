@@ -84,46 +84,46 @@ teardown() {
 }
 
 @test "pr-merge defaults to rebase merge" {
-  run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-merge" --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "merged successfully (rebase)" ]]
   grep -q -- "--rebase" "$TEST_TEMP_DIR/merge-calls.log"
 }
 
 @test "pr-merge accepts --method rebase" {
-  run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" --method rebase --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-merge" --method rebase --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "merged successfully (rebase)" ]]
   grep -q -- "--rebase" "$TEST_TEMP_DIR/merge-calls.log"
 }
 
 @test "pr-merge accepts --method squash" {
-  run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" --method squash --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-merge" --method squash --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "merged successfully (squash)" ]]
   grep -q -- "--squash" "$TEST_TEMP_DIR/merge-calls.log"
 }
 
 @test "pr-merge accepts --method merge" {
-  run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" --method merge --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-merge" --method merge --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "merged successfully (merge)" ]]
   grep -q -- "--merge" "$TEST_TEMP_DIR/merge-calls.log"
 }
 
 @test "pr-merge rejects invalid merge method" {
-  run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" --method bogus --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-merge" --method bogus --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Invalid merge method" ]]
 }
 
 @test "pr-merge enforces Conventional Commits on squash merges only" {
   # Non-conventional title blocks a squash…
-  run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" "invalid message" --method squash --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-merge" "invalid message" --method squash --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Squash merge commit message must follow Conventional Commits" ]]
   # …but passes under rebase and merge, where individual commits control versioning
-  run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" "invalid message" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-merge" "invalid message" --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "merged successfully" ]]
 }
@@ -147,20 +147,20 @@ case "$cmd $sub" in
 esac
 EOF
   chmod +x "$TEST_TEMP_DIR/bin/gh"
-  run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-merge" --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "is a draft" ]]
   ! [[ "$output" =~ "Conventional Commits" ]]
 }
 
 @test "pr-merge uses PR title when no message is given" {
-  run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-merge" --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Using PR title as commit message" ]]
 }
 
 @test "pr-merge has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pr-merge.sh"
+  run bash -n "$PROJECT_ROOT/tools/pr-merge"
   [ "$status" -eq 0 ]
 }
 
@@ -173,7 +173,7 @@ EOF
   echo "d" >> README.md
   git add README.md
   git commit -q -m "feat: completed change"
-  run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-merge" --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "WIP: commits present" ]]
   [[ "$output" =~ "WIP: buried save" ]]
@@ -233,7 +233,7 @@ EOF
   echo "d" >> README.md
   git add README.md
   git commit -q -m "feat: completed change"
-  run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-merge" --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "WIP: commits present" ]]
   [[ "$output" =~ "WIP: long-hash save" ]]
@@ -244,7 +244,7 @@ EOF
   cd "$REPO_DIR"
   git checkout -q -B feature/breaking main >/dev/null 2>&1
   git commit -q --allow-empty -m "refactor!: restructured API"
-  run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-merge" --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Breaking marker in range" ]]
 }
@@ -257,7 +257,7 @@ EOF
 }
 
 @test "pr-merge --help states the real default method (rebase), not a policy lookup" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-merge.sh" --help
+  run "$PROJECT_ROOT/tools/pr-merge" --help
   [ "$status" -eq 0 ]
   [[ "$output" == *"rebase"* ]]
   [[ "$output" == *"default"* ]]
@@ -279,21 +279,21 @@ EOF
 # ---------------------------------------------------------------------------
 
 @test "an unknown option is refused before anything runs" {
-  run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" --dry-run --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-merge" --dry-run --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" == *"Unknown option"* ]]
   [ ! -s "$MERGE_CALLS" ]
 }
 
 @test "a mistyped option is not merged with the typo as the commit message" {
-  run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" --keep-branches --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-merge" --keep-branches --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" == *"Unknown option"* ]]
   [ ! -s "$MERGE_CALLS" ]
 }
 
 @test "more than one positional argument is refused" {
-  run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" "feat: one" "feat: two" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-merge" "feat: one" "feat: two" --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" == *"one commit message"* ]]
   [ ! -s "$MERGE_CALLS" ]
@@ -301,6 +301,6 @@ EOF
 
 @test "a missing origin/HEAD does not stop the merge before it looks for the PR" {
   git symbolic-ref --delete refs/remotes/origin/HEAD
-  run "$PROJECT_ROOT/tools/scripts/pr-merge.sh" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-merge" --repo-dir "$REPO_DIR"
   [[ "$output" == *"-> 'main'"* ]]
 }

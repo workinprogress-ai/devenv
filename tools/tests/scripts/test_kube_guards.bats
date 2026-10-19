@@ -66,14 +66,14 @@ setup() {
 
 @test "kube-pod-delete: refuses multi-match without deleting anything" {
     export STUB_KUBECTL_PODS=$'api-1\napi-2'
-    run bash "$DEVENV_TOOLS/scripts/kube-pod-delete.sh" api <<< ""
+    run "$DEVENV_TOOLS/kube-pod-delete" api <<< ""
     [ "$status" -eq 3 ]
     [ ! -s "$STUB_KUBECTL_DELETED" ]
 }
 
 @test "kube-pod-delete: refuses non-interactive run without YES" {
     export STUB_KUBECTL_PODS="api-1"
-    run bash "$DEVENV_TOOLS/scripts/kube-pod-delete.sh" api < /dev/null
+    run "$DEVENV_TOOLS/kube-pod-delete" api < /dev/null
     [ "$status" -eq 2 ]
     [ ! -s "$STUB_KUBECTL_DELETED" ]
 }
@@ -81,28 +81,28 @@ setup() {
 @test "kube-pod-delete: deletes the single match with YES=1" {
     export STUB_KUBECTL_PODS="api-1"
     export YES=1
-    run bash "$DEVENV_TOOLS/scripts/kube-pod-delete.sh" api < /dev/null
+    run "$DEVENV_TOOLS/kube-pod-delete" api < /dev/null
     assert_success
     grep -qx "api-1" "$STUB_KUBECTL_DELETED"
 }
 
 @test "kube-pod-scale: validates replicas are numeric before kubectl" {
     export STUB_KUBECTL_DEPLOYS="api"
-    run bash "$DEVENV_TOOLS/scripts/kube-pod-scale.sh" api abc < /dev/null
+    run "$DEVENV_TOOLS/kube-pod-scale" api abc < /dev/null
     [ "$status" -eq 2 ]
     [ ! -s "$STUB_KUBECTL_SCALED" ]
 }
 
 @test "kube-pod-scale: refuses multi-match without scaling" {
     export STUB_KUBECTL_DEPLOYS=$'api-1\napi-2'
-    run bash "$DEVENV_TOOLS/scripts/kube-pod-scale.sh" api 3 < /dev/null
+    run "$DEVENV_TOOLS/kube-pod-scale" api 3 < /dev/null
     [ "$status" -eq 3 ]
     [ ! -s "$STUB_KUBECTL_SCALED" ]
 }
 
 @test "kube-pod-scale: refuses non-interactive run without YES" {
     export STUB_KUBECTL_DEPLOYS="api"
-    run bash "$DEVENV_TOOLS/scripts/kube-pod-scale.sh" api 3 < /dev/null
+    run "$DEVENV_TOOLS/kube-pod-scale" api 3 < /dev/null
     [ "$status" -eq 2 ]
     [ ! -s "$STUB_KUBECTL_SCALED" ]
 }
@@ -110,7 +110,7 @@ setup() {
 @test "kube-pod-scale: scales the single match with YES=1" {
     export STUB_KUBECTL_DEPLOYS="api"
     export YES=1
-    run bash "$DEVENV_TOOLS/scripts/kube-pod-scale.sh" api 3 < /dev/null
+    run "$DEVENV_TOOLS/kube-pod-scale" api 3 < /dev/null
     assert_success
     grep -qx "api" "$STUB_KUBECTL_SCALED"
 }
@@ -118,7 +118,7 @@ setup() {
 @test "kube-pod-restart: refuses multi-match without restarting" {
     export STUB_KUBECTL_DEPLOYS=$'api-1\napi-2'
     export YES=1
-    run bash "$DEVENV_TOOLS/scripts/kube-pod-restart.sh" api < /dev/null
+    run "$DEVENV_TOOLS/kube-pod-restart" api < /dev/null
     [ "$status" -eq 3 ]
     # No scale-to-0 may have been issued for any candidate
     [ ! -s "$STUB_KUBECTL_SCALED" ]
@@ -126,7 +126,7 @@ setup() {
 
 @test "kube-pod-restart: refuses non-interactive run without YES" {
     export STUB_KUBECTL_DEPLOYS="api"
-    run bash "$DEVENV_TOOLS/scripts/kube-pod-restart.sh" api < /dev/null
+    run "$DEVENV_TOOLS/kube-pod-restart" api < /dev/null
     [ "$status" -eq 2 ]
     [ ! -s "$STUB_KUBECTL_SCALED" ]
 }
@@ -198,7 +198,7 @@ run_on_tty() {
     export STUB_KUBECTL_PODS="api-1"
     export YES=1
     export KUBE_NO_INTERACTIVE=1
-    run bash "$DEVENV_TOOLS/scripts/kube-pod-delete.sh" api -n web < /dev/null
+    run "$DEVENV_TOOLS/kube-pod-delete" api -n web < /dev/null
     assert_success
     grep -qx "api-1" "$STUB_KUBECTL_DELETED"
 }
@@ -207,7 +207,7 @@ run_on_tty() {
     export STUB_KUBECTL_PODS="api-1"
     export YES=1
     export KUBE_NO_INTERACTIVE=1
-    run bash "$DEVENV_TOOLS/scripts/kube-pod-delete.sh" api web < /dev/null
+    run "$DEVENV_TOOLS/kube-pod-delete" api web < /dev/null
     assert_success
     grep -qx "api-1" "$STUB_KUBECTL_DELETED"
 }
@@ -216,7 +216,7 @@ run_on_tty() {
     export STUB_KUBECTL_DEPLOYS="api"
     export YES=1
     export KUBE_NO_INTERACTIVE=1
-    run bash "$DEVENV_TOOLS/scripts/kube-pod-scale.sh" api 3 -n web < /dev/null
+    run "$DEVENV_TOOLS/kube-pod-scale" api 3 -n web < /dev/null
     assert_success
     grep -qx "api" "$STUB_KUBECTL_SCALED"
 }
@@ -226,7 +226,7 @@ run_on_tty() {
     export YES=1
     export NAMESPACE=web
     export KUBE_NO_INTERACTIVE=1
-    run bash "$DEVENV_TOOLS/scripts/kube-pod-scale.sh" api 3 < /dev/null
+    run "$DEVENV_TOOLS/kube-pod-scale" api 3 < /dev/null
     assert_success
     grep -qx "api" "$STUB_KUBECTL_SCALED"
 }
@@ -235,7 +235,7 @@ run_on_tty() {
     export STUB_KUBECTL_DEPLOYS="api"
     export YES=1
     export KUBE_NO_INTERACTIVE=1
-    run bash "$DEVENV_TOOLS/scripts/kube-pod-restart.sh" api -n web < /dev/null
+    run "$DEVENV_TOOLS/kube-pod-restart" api -n web < /dev/null
     # The stub cannot satisfy get_deployment_info's single-item JSON shape,
     # so restart reports it cannot determine replicas (exit 1) — the guard
     # itself (match + confirm) passed, which is what this test pins.

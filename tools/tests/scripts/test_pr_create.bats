@@ -92,31 +92,31 @@ teardown() {
 }
 
 @test "pr-create requires --issue or --no-issue (un-inferable branch errors with guidance)" {
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: new feature" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "feat: new feature" --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "pass --issue <number> or --no-issue" ]]
 }
 
 @test "pr-create rejects both --issue and --no-issue" {
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: new feature" --issue 123 --no-issue --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "feat: new feature" --issue 123 --no-issue --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Cannot specify both --issue and --no-issue" ]]
 }
 
 @test "pr-create validates issue number is numeric" {
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: new feature" --issue abc --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "feat: new feature" --issue abc --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Issue number must be numeric" ]]
 }
 
 @test "pr-create accepts valid issue number" {
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: new feature" --issue 456 --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "feat: new feature" --issue 456 --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "https://github.com/mock-owner/mock-repo/pull/123" ]]
 }
 
 @test "pr-create accepts --no-issue flag" {
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "fix: minor typo" --no-issue --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "fix: minor typo" --no-issue --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "https://github.com/mock-owner/mock-repo/pull/123" ]]
 }
@@ -127,14 +127,14 @@ teardown() {
   GH_CALL_LOG="$TEST_TEMP_DIR/calls.log"
   export GH_CALL_LOG
   : > "$GH_CALL_LOG"
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "invalid message" --issue 123 --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "invalid message" --issue 123 --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Conventional Commits" ]]
   [ "$(grep -c 'pr create' "$GH_CALL_LOG" || true)" -eq 0 ]
   # Non-squash repo: any non-empty title passes the gate.
   export SQUASH_MODE=false
   : > "$GH_CALL_LOG"
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "invalid message" --issue 123 --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "invalid message" --issue 123 --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
 }
 
@@ -143,42 +143,42 @@ teardown() {
   GH_CALL_LOG="$TEST_TEMP_DIR/calls.log"
   export GH_CALL_LOG
   : > "$GH_CALL_LOG"
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" --issue 123 --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" --issue 123 --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   grep -q -- '--title Fix the frobnicator alignment' "$GH_CALL_LOG"
 }
 
 @test "pr-create requires a title on a squash repo even without a message" {
   export SQUASH_MODE=true
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" --issue 123 --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" --issue 123 --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "squash" ]]
 }
 
 @test "pr-create infers the issue number from the branch name" {
   git checkout -b 42-fix-thing >/dev/null 2>&1
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "some title" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "some title" --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Inferred issue #42" ]]
 }
 
 @test "pr-create inference skips a type folder prefix" {
   git checkout -b feat/77-add-widget >/dev/null 2>&1
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "some title" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "some title" --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Inferred issue #77" ]]
 }
 
 @test "pr-create errors when inference finds no numeric segment" {
   git checkout -b hotfix-desc-only >/dev/null 2>&1
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "some title" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "some title" --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "none inferable from branch name" ]]
   [[ "$output" =~ "--no-issue" ]]
 }
 
 @test "pr-create shows usage with --help" {
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" --help
+  run "$PROJECT_ROOT/tools/pr-create" --help
   [ "$status" -eq 1 ]
   [[ "$output" =~ "Usage:" ]]
   [[ "$output" =~ "--issue" ]]
@@ -186,14 +186,14 @@ teardown() {
 }
 
 @test "pr-create has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pr-create.sh"
+  run bash -n "$PROJECT_ROOT/tools/pr-create"
   [ "$status" -eq 0 ]
 }
 
 @test "pr-create fails on dirty working tree" {
   cd "$REPO_DIR"
   echo "uncommitted change" >> README.md
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "uncommitted or staged changes" ]]
 }
@@ -201,7 +201,7 @@ teardown() {
 @test "pr-create proceeds when a plan file sits in the repo root" {
   cd "$REPO_DIR"
   echo "plan content" > Plan-issue-789-001.md
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
   [[ "$output" =~ "mock-owner/mock-repo/pull/123" ]]
 }
 
@@ -209,14 +209,14 @@ teardown() {
   cd "$REPO_DIR"
   mkdir -p .local-artifacts
   echo "working copy" > .local-artifacts/Plan-issue-789-001.md
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
   [[ "$output" =~ "Warning: Implementation plan file(s) found in .local-artifacts/" ]]
   [[ "$output" =~ "mock-owner/mock-repo/pull/123" ]]
 }
 
 @test "pr-create rejects review branch" {
   git checkout -b review/test-123 >/dev/null 2>&1
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "cannot be run on a review" ]]
 }
@@ -229,7 +229,7 @@ teardown() {
   echo "done" >> README.md
   git add README.md
   git commit -q -m "feat: finished change"
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "WIP: commits present in PR creation range" ]]
   [[ "$output" =~ "WIP: mid-work save" ]]
@@ -240,7 +240,7 @@ teardown() {
   echo "clean" >> README.md
   git add README.md
   git commit -q -m "feat: clean change"
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "mock-owner/mock-repo/pull/123" ]]
 }
@@ -251,7 +251,7 @@ teardown() {
 
   # --at picks the ready prefix; the merge branch skips the WIP tip, so the
   # feature-branch WIP never enters the PR.
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: ready prefix" --issue 789 --at "$READY_HASH" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "feat: ready prefix" --issue 789 --at "$READY_HASH" --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "mock-owner/mock-repo/pull/123" ]]
   git show-ref --verify --quiet "refs/heads/merge/${READY_HASH}-feature/partial"
@@ -261,7 +261,7 @@ teardown() {
 }
 
 @test "pr-create --at rejects an unresolvable commit" {
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: something" --issue 789 --at "no-such-hash" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "feat: something" --issue 789 --at "no-such-hash" --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "does not resolve to a commit" ]]
 }
@@ -273,7 +273,7 @@ teardown() {
   git commit -q -m "feat: pickable"
   # </dev/null severs stdin so the script cannot see a TTY — it must fall
   # back to the numbered list and exit rather than launching fzf.
-  run bash -c '"$0" "$@" </dev/null' "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: something" --issue 789 --at pick --repo-dir "$REPO_DIR"
+  run bash -c '"$0" "$@" </dev/null' "$PROJECT_ROOT/tools/pr-create" "feat: something" --issue 789 --at pick --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Non-interactive mode" ]]
   [[ "$output" =~ "feat: pickable" ]]
@@ -300,7 +300,7 @@ at_fixture() {
 
 @test "pr-create --at pushes the merge branch to the remote before opening the PR" {
   at_fixture
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: ready prefix" --issue 789 --at "$READY_HASH" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "feat: ready prefix" --issue 789 --at "$READY_HASH" --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   git -C "$REMOTE" show-ref --verify --quiet "refs/heads/merge/${READY_HASH}-feature/partial"
 }
@@ -309,7 +309,7 @@ at_fixture() {
   at_fixture
   rm -rf "$REMOTE"   # remote vanishes: the push cannot succeed
   export GH_CALL_LOG="$TEST_TEMP_DIR/gh.log"; : > "$GH_CALL_LOG"
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: ready prefix" --issue 789 --at "$READY_HASH" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "feat: ready prefix" --issue 789 --at "$READY_HASH" --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [ "$(grep -c '^gh pr create' "$GH_CALL_LOG" || true)" -eq 0 ]
   [ "$(git rev-parse --abbrev-ref HEAD)" = "feature/partial" ]
@@ -318,7 +318,7 @@ at_fixture() {
 @test "pr-create --at restores the original branch when the merge-branch WIP guard rejects" {
   at_fixture
   wip_hash="$(git rev-parse --short HEAD)"   # the WIP tip itself
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: x" --issue 789 --at "$wip_hash" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "feat: x" --issue 789 --at "$wip_hash" --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [ "$(git rev-parse --abbrev-ref HEAD)" = "feature/partial" ]
 }
@@ -326,7 +326,7 @@ at_fixture() {
 @test "pr-create --at restores the original branch when an open PR already exists" {
   at_fixture
   export EXISTING_PR_URL="https://github.com/mock-owner/mock-repo/pull/55"
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: ready prefix" --issue 789 --at "$READY_HASH" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "feat: ready prefix" --issue 789 --at "$READY_HASH" --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" == *"pull/55"* ]]
   [ "$(git rev-parse --abbrev-ref HEAD)" = "feature/partial" ]
@@ -335,7 +335,7 @@ at_fixture() {
 @test "pr-create --at restores the original branch when PR creation fails" {
   at_fixture
   export PR_CREATE_FAIL=1
-  run "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: ready prefix" --issue 789 --at "$READY_HASH" --repo-dir "$REPO_DIR"
+  run "$PROJECT_ROOT/tools/pr-create" "feat: ready prefix" --issue 789 --at "$READY_HASH" --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [ "$(git rev-parse --abbrev-ref HEAD)" = "feature/partial" ]
 }
@@ -344,7 +344,7 @@ at_fixture() {
   # The error text contains a URL; folded into the extractor's input it used to
   # masquerade as the created PR's URL with exit 0.
   export PR_CREATE_FAIL=1
-  run --separate-stderr "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  run --separate-stderr "$PROJECT_ROOT/tools/pr-create" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" != *"issues/9"* ]]
   [[ "$stderr" == *"Failed to create PR"* ]]
@@ -352,7 +352,7 @@ at_fixture() {
 
 @test "pr-create returns the PR URL from stdout even when stderr carries an earlier URL" {
   export PR_CREATE_WARN=1
-  run --separate-stderr "$PROJECT_ROOT/tools/scripts/pr-create.sh" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
+  run --separate-stderr "$PROJECT_ROOT/tools/pr-create" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   [ "$output" = "https://github.com/mock-owner/mock-repo/pull/123" ]
 }

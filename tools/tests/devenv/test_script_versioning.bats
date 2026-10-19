@@ -45,7 +45,7 @@ load ../test_helper
 }
 
 @test "repo-calc-version.sh has valid syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/repo-calc-version.sh"
+  run bash -n "$PROJECT_ROOT/tools/repo-calc-version"
   [ "$status" -eq 0 ]
 }
 
@@ -55,7 +55,7 @@ load ../test_helper
 }
 
 @test "tooling-create-script.sh has valid syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/tooling-create-script.sh"
+  run bash -n "$PROJECT_ROOT/tools/tooling-create-script"
   [ "$status" -eq 0 ]
 }
 

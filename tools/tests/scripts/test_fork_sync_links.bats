@@ -8,7 +8,7 @@ load ../test_helper
 setup() {
     test_helper_setup
     export DEVENV_TOOLS="${BATS_TEST_DIRNAME}/../.."
-    SCRIPT="$DEVENV_TOOLS/scripts/fork-sync.sh"
+    SCRIPT="$DEVENV_TOOLS/fork-sync"
     create_fork_fixture_trio "$TEST_TEMP_DIR/fork-fixture"
     export FORK_TWIN_LOCAL_REPO="$FORK_FIXTURE_WORKING_CLONE"
     export FORK_TWIN_UPSTREAM_REPO="$FORK_FIXTURE_GH_CLONE"
@@ -33,7 +33,7 @@ teardown() {
     git format-patch -1 --stdout "$local_l" | git -C "$FORK_FIXTURE_GH_CLONE" am -q
     local_u="$(git -C "$FORK_FIXTURE_GH_CLONE" log --format=%H --grep='backlog: pre-change-id commit 1' -1)"
 
-    run bash "$SCRIPT" --link "$local_l" "$local_u"
+    run "$SCRIPT" --link "$local_l" "$local_u"
     [ "$status" -eq 0 ]
     [[ "$output" == *"recorded adoption pair"* ]]
     MAP="$(fork_twin_map_get_path "$FORK_FIXTURE_WORKING_CLONE")"
@@ -47,7 +47,7 @@ teardown() {
         git format-patch -1 --stdout "$c" | git -C "$FORK_FIXTURE_GH_CLONE" am -q
     done
 
-    run bash "$SCRIPT" --propose-links
+    run "$SCRIPT" --propose-links
     [ "$status" -eq 0 ]
     [[ "$output" == *"fork-sync --link"* ]]
     l2="$(git log --format=%H --grep='backlog: pre-change-id commit 2' -1)"
@@ -56,13 +56,13 @@ teardown() {
 }
 
 @test "fork-sync: --link refuses to combine with --replay" {
-    run bash "$SCRIPT" --link a b --replay
+    run "$SCRIPT" --link a b --replay
     [ "$status" -ne 0 ]
     [[ "$output" == *"--link runs alone"* ]]
 }
 
 @test "fork-sync: --propose-links reports no candidates when nothing matches" {
-    run bash "$SCRIPT" --propose-links
+    run "$SCRIPT" --propose-links
     [ "$status" -eq 0 ]
     [[ "$output" == *"no adoption candidates"* ]]
 }

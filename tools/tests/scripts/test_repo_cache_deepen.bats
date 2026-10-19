@@ -38,28 +38,28 @@ teardown() {
 }
 
 @test "repo-cache-deepen script exists and is executable" {
-    [ -x "$DEVENV_TOOLS/scripts/repo-cache-deepen.sh" ]
+    [ -x "$DEVENV_TOOLS/repo-cache-deepen" ]
 }
 
 @test "repo-cache-deepen script has valid bash syntax" {
-    run bash -n "$DEVENV_TOOLS/scripts/repo-cache-deepen.sh"
+    run bash -n "$DEVENV_TOOLS/repo-cache-deepen"
     [ "$status" -eq 0 ]
 }
 
 @test "repo-cache-deepen requires --repo" {
-    run bash "$DEVENV_TOOLS/scripts/repo-cache-deepen.sh"
+    run "$DEVENV_TOOLS/repo-cache-deepen"
     [ "$status" -ne 0 ]
     [[ "$output" == *"--repo is required"* ]]
 }
 
 @test "repo-cache-deepen fails on unknown repo" {
-    run bash "$DEVENV_TOOLS/scripts/repo-cache-deepen.sh" --repo does-not-exist
+    run "$DEVENV_TOOLS/repo-cache-deepen" --repo does-not-exist
     [ "$status" -eq 1 ]
     [[ "$output" == *"not found in cache"* ]]
 }
 
 @test "repo-cache-deepen rejects non-numeric depth" {
-    run bash "$DEVENV_TOOLS/scripts/repo-cache-deepen.sh" --repo repo-alpha --depth abc
+    run "$DEVENV_TOOLS/repo-cache-deepen" --repo repo-alpha --depth abc
     [ "$status" -eq 2 ]
     [[ "$output" == *"--depth must be a positive integer"* ]]
 }
@@ -67,20 +67,20 @@ teardown() {
 @test "repo-cache-deepen deepens history (more commits reachable)" {
     local before after
     before=$(git -C "$REPO_CACHE_DIR/repo-alpha" rev-list --count HEAD)
-    run bash "$DEVENV_TOOLS/scripts/repo-cache-deepen.sh" --repo repo-alpha --depth 10
+    run "$DEVENV_TOOLS/repo-cache-deepen" --repo repo-alpha --depth 10
     [ "$status" -eq 0 ]
     after=$(git -C "$REPO_CACHE_DIR/repo-alpha" rev-list --count HEAD)
     [ "$after" -gt "$before" ]
 }
 
 @test "repo-cache-deepen never checks out (working copy stays on master)" {
-    run bash "$DEVENV_TOOLS/scripts/repo-cache-deepen.sh" --repo repo-alpha --branch issue-42-feature
+    run "$DEVENV_TOOLS/repo-cache-deepen" --repo repo-alpha --branch issue-42-feature
     [ "$status" -eq 0 ]
     [ "$(git -C "$REPO_CACHE_DIR/repo-alpha" branch --show-current)" = "master" ]
 }
 
 @test "repo-cache-deepen fetches branch as remote ref" {
-    run bash "$DEVENV_TOOLS/scripts/repo-cache-deepen.sh" --repo repo-alpha --branch issue-42-feature
+    run "$DEVENV_TOOLS/repo-cache-deepen" --repo repo-alpha --branch issue-42-feature
     [ "$status" -eq 0 ]
     git -C "$REPO_CACHE_DIR/repo-alpha" rev-parse --verify refs/remotes/origin/issue-42-feature > /dev/null
 }
@@ -90,29 +90,29 @@ teardown() {
     git -C "$SOURCE_REPO" commit -q --allow-empty -m "audit work"
     git -C "$SOURCE_REPO" push -q "$REMOTE_REPO" issue-57-audit
 
-    run bash "$DEVENV_TOOLS/scripts/repo-cache-deepen.sh" --repo repo-alpha --branch issue-42-feature --branch issue-57-audit
+    run "$DEVENV_TOOLS/repo-cache-deepen" --repo repo-alpha --branch issue-42-feature --branch issue-57-audit
     [ "$status" -eq 0 ]
     git -C "$REPO_CACHE_DIR/repo-alpha" rev-parse --verify refs/remotes/origin/issue-42-feature > /dev/null
     git -C "$REPO_CACHE_DIR/repo-alpha" rev-parse --verify refs/remotes/origin/issue-57-audit > /dev/null
 }
 
 @test "repo-cache-deepen is idempotent (re-run succeeds)" {
-    run bash "$DEVENV_TOOLS/scripts/repo-cache-deepen.sh" --repo repo-alpha --branch issue-42-feature
+    run "$DEVENV_TOOLS/repo-cache-deepen" --repo repo-alpha --branch issue-42-feature
     [ "$status" -eq 0 ]
-    run bash "$DEVENV_TOOLS/scripts/repo-cache-deepen.sh" --repo repo-alpha --branch issue-42-feature
+    run "$DEVENV_TOOLS/repo-cache-deepen" --repo repo-alpha --branch issue-42-feature
     [ "$status" -eq 0 ]
 }
 
 @test "repo-cache-deepen fails on fetch failure (bad remote)" {
     # Point the cached repo's origin at a nonexistent path
     git -C "$REPO_CACHE_DIR/repo-alpha" remote set-url origin "$TEST_TEMP_DIR/no-such-remote.git"
-    run bash "$DEVENV_TOOLS/scripts/repo-cache-deepen.sh" --repo repo-alpha
+    run "$DEVENV_TOOLS/repo-cache-deepen" --repo repo-alpha
     [ "$status" -eq 1 ]
     [[ "$output" == *"Failed to deepen history"* ]]
 }
 
 @test "repo-cache-deepen fails on unknown branch" {
-    run bash "$DEVENV_TOOLS/scripts/repo-cache-deepen.sh" --repo repo-alpha --branch no-such-branch
+    run "$DEVENV_TOOLS/repo-cache-deepen" --repo repo-alpha --branch no-such-branch
     [ "$status" -eq 1 ]
     [[ "$output" == *"Failed to fetch branch"* ]]
 }

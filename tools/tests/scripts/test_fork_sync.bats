@@ -10,7 +10,7 @@ load ../test_helper
 setup() {
     test_helper_setup
     export DEVENV_TOOLS="${BATS_TEST_DIRNAME}/../.."
-    SCRIPT="$DEVENV_TOOLS/scripts/fork-sync.sh"
+    SCRIPT="$DEVENV_TOOLS/fork-sync"
 }
 
 teardown() {
@@ -32,7 +32,7 @@ _setup_sync_fixture() {
 }
 
 @test "fork-sync: --help documents the sync contract" {
-    run bash "$SCRIPT" --help
+    run "$SCRIPT" --help
     [ "$status" -eq 0 ]
     [[ "$output" == *"fork-sync.sh"* ]]
     [[ "$output" == *"ahead/behind"* ]]
@@ -51,7 +51,7 @@ _setup_sync_fixture() {
 @test "fork-sync: rejects the superseded --push flag" {
     _setup_sync_fixture
 
-    run bash "$SCRIPT" --push
+    run "$SCRIPT" --push
     [ "$status" -ne 0 ]
     [[ "$output" == *"unknown option: --push"* ]]
 }
@@ -62,12 +62,12 @@ _setup_sync_fixture() {
     mkdir -p "$DEVENV_ROOT"
 
     printf '[fork]\nupstream_repo=https://example.invalid/devenv.git\n' > "$DEVENV_ROOT/devenv.config"
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -ne 0 ]
     [[ "$output" == *"upstream_branch"* ]]
 
     printf '[fork]\nupstream_branch=master\n' > "$DEVENV_ROOT/devenv.config"
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -ne 0 ]
     [[ "$output" == *"upstream_repo"* ]]
 }
@@ -75,7 +75,7 @@ _setup_sync_fixture() {
 @test "fork-sync: fetches upstream and reports no divergence" {
     _setup_sync_fixture
 
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Behind: 0"* ]]
     [[ "$output" == *"Ahead: 0"* ]]
@@ -94,7 +94,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_GH_CLONE" commit -qm "Upstream ahead commit"
     git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
 
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Behind: 1"* ]]
     [[ "$output" == *"Ahead: 1"* ]]
@@ -110,7 +110,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_GH_CLONE" commit -qm "Upstream ahead commit"
     git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
 
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Behind: 1"* ]]
     [[ "$output" == *"Ahead: 0"* ]]
@@ -124,7 +124,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_WORKING_CLONE" add local.txt
     git -C "$FORK_FIXTURE_WORKING_CLONE" commit -qm "Local ahead commit"
 
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Behind: 0"* ]]
     [[ "$output" == *"Ahead: 1"* ]]
@@ -136,7 +136,7 @@ _setup_sync_fixture() {
     _setup_sync_fixture
     before_ref="$(git rev-parse --verify refs/remotes/upstream/master 2>/dev/null || true)"
 
-    run bash "$SCRIPT" --dry-run --replay
+    run "$SCRIPT" --dry-run --replay
     [ "$status" -eq 0 ]
     [[ "$output" == *"dry run: would fetch upstream"* ]]
     [[ "$output" == *"dry run: would apply upstream"* ]]
@@ -154,7 +154,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_GH_CLONE" commit -qm "Upstream ahead commit"
     git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
 
-    run bash "$SCRIPT" --replay --yes
+    run "$SCRIPT" --replay --yes
     [ "$status" -eq 0 ]
     # The upstream commit was applied ON TOP of the local one: the applied
     # commit is the new tip, the local commit sits beneath it untouched.
@@ -183,7 +183,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_GH_CLONE" commit -qm "Upstream conflicting commit"
     git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
 
-    run bash "$SCRIPT" --replay --yes
+    run "$SCRIPT" --replay --yes
     [ "$status" -ne 0 ]
     [[ "$output" == *"Conflict while applying"* ]]
     [[ "$output" == *"git -C $FORK_FIXTURE_WORKING_CLONE cherry-pick --abort"* ]]
@@ -257,7 +257,7 @@ _setup_sync_fixture() {
 @test "fork-sync: --rewrite-origin requires --push-to-origin" {
     _setup_sync_fixture
 
-    run bash "$SCRIPT" --rewrite-origin
+    run "$SCRIPT" --rewrite-origin
     [ "$status" -ne 0 ]
     [[ "$output" == *"--rewrite-origin requires --push-to-origin"* ]]
 }
@@ -413,7 +413,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "feat: add b"
     git -C "$FORK_FIXTURE_GH_CLONE" push -q origin HEAD:master
 
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 0 ]
     [[ "$output" == *"look already upstream"* ]]
     [[ "$output" == *"feat: add a"* ]]
@@ -427,7 +427,7 @@ _setup_sync_fixture() {
     echo own > "$FORK_FIXTURE_WORKING_CLONE/own.txt"
     git -C "$FORK_FIXTURE_WORKING_CLONE" add own.txt
     git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "fork: only here"
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 0 ]
     [[ "$output" != *"look already upstream"* ]]
 }
@@ -443,7 +443,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "chore: squashed contribution" -m $'Change-Id: Abc123Abc123'
     git -C "$FORK_FIXTURE_GH_CLONE" push -q origin HEAD:master
 
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 0 ]
     [[ "$output" == *"same Change-Id"* ]]
     [[ "$output" == *"look already upstream"* ]]
@@ -461,7 +461,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "chore: squashed contribution" -m $'Change-Id: Abc123Abc123'
     git -C "$FORK_FIXTURE_GH_CLONE" push -q origin HEAD:master
 
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Behind: 1"* ]]
     [[ "$output" == *"Upstream commits that look like your own work"* ]]
@@ -484,7 +484,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "feat: brand new upstream work"
     git -C "$FORK_FIXTURE_GH_CLONE" push -q origin HEAD:master
 
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Behind: 2"* ]]
     [[ "$output" == *"Action needed: upstream has 1 commit(s)"* ]]
@@ -501,7 +501,7 @@ _setup_sync_fixture() {
     # ...but a local history rewrite dropped it from HEAD's ancestry; only the tag holds it now.
     git -C "$FORK_FIXTURE_WORKING_CLONE" reset --hard -q HEAD~1
 
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Behind: 1"* ]]
     [[ "$output" == *"already reachable from a local branch/tag"* ]]
@@ -520,7 +520,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_WORKING_CLONE" merge -q --no-ff -m "Merge side" side
     before_head="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)"
 
-    run bash "$SCRIPT" --replay
+    run "$SCRIPT" --replay
     [ "$status" -ne 0 ]
     [[ "$output" == *"contains merge commit(s)"* ]]
     [[ "$output" == *"Merge side"* ]]
@@ -532,7 +532,7 @@ _setup_sync_fixture() {
     echo dirty > "$FORK_FIXTURE_WORKING_CLONE/dirty.txt"
     before_ref="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse --verify refs/remotes/upstream/master 2>/dev/null || true)"
 
-    run bash "$SCRIPT" --replay
+    run "$SCRIPT" --replay
     [ "$status" -ne 0 ]
     [[ "$output" == *"uncommitted changes"* ]]
     [ "$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse --verify refs/remotes/upstream/master 2>/dev/null || true)" = "$before_ref" ]
@@ -553,7 +553,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_WORKING_CLONE" rebase upstream/master || true
     git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse --verify REBASE_HEAD >/dev/null
 
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -ne 0 ]
     [[ "$output" == *"rebase"*"already in progress"* ]]
 }
@@ -566,7 +566,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_WORKING_CLONE" add unrelated.txt
     git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "Unrelated root commit"
 
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -ne 0 ]
     [[ "$output" == *"share no common history"* ]]
 }
@@ -589,7 +589,7 @@ _setup_sync_fixture() {
     # Land upstream's evolved state so the working clone can sync down to it.
     git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
 
-    run bash "$SCRIPT" --replay --yes
+    run "$SCRIPT" --replay --yes
     # The evolution commits touch file_twin.txt, whose upstream copy carries
     # the target-side adaptation the fork's copy lacks: picking them onto the
     # fork's diverged file is a REAL conflict, honestly surfaced — not forced
@@ -624,7 +624,7 @@ _setup_sync_fixture() {
     # Dry-run does not fetch; the plan classifies against the last fetch.
     git fetch -q upstream
 
-    run bash "$SCRIPT" --dry-run --replay
+    run "$SCRIPT" --dry-run --replay
     [ "$status" -eq 0 ]
     # The exported twin is classified as already on the branch (skipped)…
     [[ "$output" == *"twin commit for export"*"already on your branch"* ]]
@@ -653,7 +653,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_WORKING_CLONE" cherry-pick upstream/master || true
     git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse --verify CHERRY_PICK_HEAD >/dev/null
 
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -ne 0 ]
     [[ "$output" == *"cherry-pick"*"already in progress"* ]]
 }
@@ -668,14 +668,14 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_GH_CLONE" commit -qm "Upstream ahead commit"
     git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
 
-    run bash "$SCRIPT" --replay --yes
+    run "$SCRIPT" --replay --yes
     [ "$status" -eq 0 ]
     local tip_after_first
     tip_after_first="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)"
 
     # Second sync: the applied copy carries the upstream commit's Change-Id,
     # so the pick plan skips it — nothing to apply, no ref movement.
-    run bash "$SCRIPT" --replay --yes
+    run "$SCRIPT" --replay --yes
     [ "$status" -eq 0 ]
     [ "$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)" = "$tip_after_first" ]
     [[ "$output" == *"Nothing to apply from upstream"* ]]
@@ -702,14 +702,14 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_GH_CLONE" commit -qm "feat: upstream b"
     git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
 
-    run bash "$SCRIPT" --replay --yes
+    run "$SCRIPT" --replay --yes
     [ "$status" -eq 0 ]
 
     # Export the branch for upstream transfer: the pick direction keeps the
     # range linear, so fork-export runs without its merge-commit refusal —
     # the interplay seam this test pins. Range = merge-base..HEAD, which now
     # spans the applied upstream copies plus the fork-only work.
-    run bash "$DEVENV_TOOLS/scripts/fork-export.sh" --export-only --all
+    run "$DEVENV_TOOLS/fork-export" --export-only --all
     [ "$status" -eq 0 ]
 
     # No duplication on the branch: each upstream subject appears exactly
@@ -755,7 +755,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_GH_CLONE" commit -qm "feat: new upstream work"
     git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
 
-    run bash "$SCRIPT" --replay --yes
+    run "$SCRIPT" --replay --yes
     [ "$status" -eq 0 ]
     # The fork-only commit survives untouched; upstream's new work arrived.
     git -C "$FORK_FIXTURE_WORKING_CLONE" log --format=%s | grep -q "legacy fork work"
@@ -770,7 +770,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_WORKING_CLONE" fetch -q upstream
     local start end elapsed
     start="$(date +%s%N)"
-    run bash "$SCRIPT" --replay --yes
+    run "$SCRIPT" --replay --yes
     end="$(date +%s%N)"
     [ "$status" -eq 0 ]
     elapsed=$(( (end - start) / 1000000 ))
@@ -811,7 +811,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
     git fetch -q upstream
 
-    run bash "$SCRIPT" --dry-run --replay
+    run "$SCRIPT" --dry-run --replay
     [ "$status" -eq 0 ]
     [[ "$output" == *"Surface forecast"* ]]
     [[ "$output" == *"fork-replaced path"*"setup"* ]]
@@ -834,7 +834,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_WORKING_CLONE" add tools/lib/providers/README.md
     git -C "$FORK_FIXTURE_WORKING_CLONE" commit -qm "feat: fork-stable provider tweak"
 
-    run bash "$SCRIPT" --drift
+    run "$SCRIPT" --drift
     [ "$status" -eq 0 ]
     [[ "$output" == *"Drift inventory"* ]]
     [[ "$output" == *"tools/scripts/fork-sync.sh"* ]]
@@ -852,14 +852,14 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_WORKING_CLONE" add tools/lib/providers/mine.md
     git -C "$FORK_FIXTURE_WORKING_CLONE" commit -qm "feat: fork-stable only"
 
-    run bash "$SCRIPT" --drift
+    run "$SCRIPT" --drift
     [ "$status" -eq 0 ]
     [[ "$output" == *"none"*"no fork-local edits on upstream-stable paths"* ]]
 }
 
 @test "fork-sync: --drift refuses to combine with other modes" {
     _setup_sync_fixture
-    run bash "$SCRIPT" --drift --replay
+    run "$SCRIPT" --drift --replay
     [ "$status" -ne 0 ]
     [[ "$output" == *"--drift runs alone"* ]]
 }
@@ -878,7 +878,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_GH_CLONE" commit -qm "feat: upstream work"
     git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
 
-    run bash "$SCRIPT" --replay --yes
+    run "$SCRIPT" --replay --yes
     [ "$status" -eq 0 ]
     [[ "$output" == *"Snapshot of fork-owned surfaces"* ]]
     [[ "$output" == *"Fork-owned surfaces verified: untouched"* ]]
@@ -897,7 +897,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_GH_CLONE" commit -qm "feat: upstream touches providers"
     git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
 
-    run bash "$SCRIPT" --replay --yes
+    run "$SCRIPT" --replay --yes
     [ "$status" -eq 0 ]
     [[ "$output" == *"Snapshot of fork-owned surfaces"* ]]
     [[ "$output" == *"Fork-owned paths touched by the applied work"* ]]
@@ -921,7 +921,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_GH_CLONE" commit -qm "feat: conflicting upstream"
     git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
 
-    run bash "$SCRIPT" --replay --yes
+    run "$SCRIPT" --replay --yes
     [ "$status" -ne 0 ]
     [[ "$output" == *"Conflict while applying"* ]]
     # Snapshot was taken before the picks and survives the abort.
@@ -940,7 +940,7 @@ _setup_sync_fixture() {
     git -C "$FORK_FIXTURE_GH_CLONE" commit -qm "feat: upstream work to be recorded"
     git -C "$FORK_FIXTURE_GH_CLONE" push -q origin master
 
-    run bash "$SCRIPT" --replay --yes
+    run "$SCRIPT" --replay --yes
     [ "$status" -eq 0 ]
 
     local up_sha local_twin
@@ -957,7 +957,7 @@ _setup_sync_fixture() {
     found="$(fork_twin_map_lookup_upstream "$MAP" "$up_sha")"
     [ "$found" = "$local_twin" ]
     # And an immediate re-sync drops the commit as already present.
-    run bash "$SCRIPT" --replay --yes
+    run "$SCRIPT" --replay --yes
     [ "$status" -eq 0 ]
     [[ "$output" == *"Nothing to apply from upstream"* ]]
 }
@@ -974,7 +974,7 @@ _setup_sync_fixture() {
     before_tip="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)"
     # Stdin closed (what a non-TTY environment actually provides — CI, cron,
     # a runner without a terminal): the gate must refuse, not prompt, not apply.
-    run bash "$SCRIPT" --replay < /dev/null
+    run "$SCRIPT" --replay < /dev/null
     [ "$status" -ne 0 ]
     [[ "$output" == *"non-TTY --replay requires --yes"* ]]
     [ "$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)" = "$before_tip" ]

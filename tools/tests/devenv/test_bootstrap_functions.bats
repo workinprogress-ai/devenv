@@ -100,14 +100,14 @@ EOF
 }
 
 @test "bootstrap.bash backs up .bashrc file" {
-  run grep "\.bashrc\.original" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  run grep "\.bashrc\.original" "$PROJECT_ROOT/.devcontainer/provision-legacy.bash"
   [ "$status" -eq 0 ]
 }
 
 @test "reset_bashrc_to_original preserves user bashrc unless forced" {
   run bash -c "
-    grep -q 'PRESERVE_BASHRC:-0' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
-    grep -q 'cp ~/.bashrc.original ~/.bashrc' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
+    grep -q 'PRESERVE_BASHRC:-0' '$PROJECT_ROOT/.devcontainer/provision-legacy.bash' &&
+    grep -q 'cp ~/.bashrc.original ~/.bashrc' '$PROJECT_ROOT/.devcontainer/provision-legacy.bash'
   "
   [ "$status" -eq 0 ]
 }
@@ -215,34 +215,34 @@ EOF
 }
 
 @test "bootstrap.bash defines install_copilot_instructions function" {
-  run grep "^install_copilot_instructions()" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  run grep "^install_copilot_instructions()" "$PROJECT_ROOT/.devcontainer/provision-legacy.bash"
   [ "$status" -eq 0 ]
 }
 
 @test "bootstrap.bash defines sync_copilot_knowledge function" {
-  run grep "^sync_copilot_knowledge()" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  run grep "^sync_copilot_knowledge()" "$PROJECT_ROOT/.devcontainer/provision-legacy.bash"
   [ "$status" -eq 0 ]
 }
 
 @test "bootstrap.bash defines normalize_copilot_knowledge_subpath helper" {
-  run grep "^normalize_copilot_knowledge_subpath()" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  run grep "^normalize_copilot_knowledge_subpath()" "$PROJECT_ROOT/.devcontainer/provision-legacy.bash"
   [ "$status" -eq 0 ]
 }
 
 @test "normalize_copilot_knowledge_subpath defaults empty to repo root" {
-  run bash -c "source '$PROJECT_ROOT/.devcontainer/bootstrap.bash'; normalize_copilot_knowledge_subpath ''"
+  run bash -c "source '$PROJECT_ROOT/.devcontainer/provision-legacy.bash'; normalize_copilot_knowledge_subpath ''"
   [ "$status" -eq 0 ]
   [ "$output" = "." ]
 }
 
 @test "normalize_copilot_knowledge_subpath trims leading ./ and trailing /" {
-  run bash -c "source '$PROJECT_ROOT/.devcontainer/bootstrap.bash'; normalize_copilot_knowledge_subpath './copilot-knowledge/'"
+  run bash -c "source '$PROJECT_ROOT/.devcontainer/provision-legacy.bash'; normalize_copilot_knowledge_subpath './copilot-knowledge/'"
   [ "$status" -eq 0 ]
   [ "$output" = "copilot-knowledge" ]
 }
 
 @test "install_copilot_instructions copies to ~/.copilot/copilot-instructions.md" {
-  run grep "copilot-instructions.md" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  run grep "copilot-instructions.md" "$PROJECT_ROOT/.devcontainer/provision-legacy.bash"
   [ "$status" -eq 0 ]
   [[ "$output" =~ ".copilot/copilot-instructions.md" ]]
 }
@@ -259,8 +259,8 @@ EOF
 
 @test "sync_copilot_knowledge uses the subpath helper and the provider hook for the auth header" {
   run bash -c "
-    grep -q 'subpath=\$(normalize_copilot_knowledge_subpath \"\$subpath\")' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
-    grep -q 'header=\$(provider_bootstrap_call git_auth_header \"\$token\")' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
+    grep -q 'subpath=\$(normalize_copilot_knowledge_subpath \"\$subpath\")' '$PROJECT_ROOT/.devcontainer/provision-legacy.bash' &&
+    grep -q 'header=\$(provider_bootstrap_call git_auth_header \"\$token\")' '$PROJECT_ROOT/.devcontainer/provision-legacy.bash'
   "
   [ "$status" -eq 0 ]
 }
@@ -271,31 +271,31 @@ EOF
 
 @test "sync_copilot_knowledge stores pre-sync backups under runtime path" {
   run bash -c "
-    grep -q 'copilot-knowledge-backups' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
-    grep -q 'copilot-engineering-backups' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'
+    grep -q 'copilot-knowledge-backups' '$PROJECT_ROOT/.devcontainer/provision-legacy.bash' &&
+    grep -q 'copilot-engineering-backups' '$PROJECT_ROOT/.devcontainer/provision-legacy.bash'
   "
   [ "$status" -eq 0 ]
 }
 
 @test "sync_copilot_side_repo is the shared parametric sync used by both imports" {
   run bash -c "
-    grep -q 'sync_copilot_side_repo()' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
-    grep -A3 -F 'sync_copilot_side_repo' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep -q 'copilot/knowledge' &&
-    grep -A3 -F 'sync_copilot_side_repo' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep -q 'copilot/engineering'
+    grep -q 'sync_copilot_side_repo()' '$PROJECT_ROOT/.devcontainer/provision-legacy.bash' &&
+    grep -A3 -F 'sync_copilot_side_repo' '$PROJECT_ROOT/.devcontainer/provision-legacy.bash' | grep -q 'copilot/knowledge' &&
+    grep -A3 -F 'sync_copilot_side_repo' '$PROJECT_ROOT/.devcontainer/provision-legacy.bash' | grep -q 'copilot/engineering'
   "
   [ "$status" -eq 0 ]
 }
 
 @test "sync_copilot_engineering is defined and registered in both task runners" {
   run bash -c "
-    grep -q 'sync_copilot_engineering()' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' &&
+    grep -q 'sync_copilot_engineering()' '$PROJECT_ROOT/.devcontainer/provision-legacy.bash' &&
     grep -cE '^[[:space:]]+sync_copilot_engineering$' '$PROJECT_ROOT/.devcontainer/bootstrap.bash' | grep -q '^2$'
   "
   [ "$status" -eq 0 ]
 }
 
 @test "engineering sync skips gracefully when engineering_repo unconfigured" {
-  run grep 'No \[copilot\] engineering_repo configured; skipping' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  run grep 'No \[copilot\] engineering_repo configured; skipping' "$PROJECT_ROOT/.devcontainer/provision-legacy.bash"
   [ "$status" -eq 0 ]
 }
 
@@ -532,12 +532,12 @@ EOF
 }
 
 @test "bootstrap.bash defines install_claude_code_integration function" {
-  run grep "^install_claude_code_integration()" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  run grep "^install_claude_code_integration()" "$PROJECT_ROOT/.devcontainer/provision-legacy.bash"
   [ "$status" -eq 0 ]
 }
 
 @test "install_claude_code_integration copies to ~/.claude/CLAUDE.md" {
-  run grep "CLAUDE.md" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  run grep "CLAUDE.md" "$PROJECT_ROOT/.devcontainer/provision-legacy.bash"
   [ "$status" -eq 0 ]
   [[ "$output" =~ ".claude/CLAUDE.md" ]]
 }
@@ -612,7 +612,7 @@ setup_claude_fixture() {
 
 run_claude_installer() {
   local installer
-  installer="$(sed -n '/^link_replacing_symlink_only()/,/^}/p;/^install_claude_code_integration()/,/^}/p' "$PROJECT_ROOT/.devcontainer/bootstrap.bash")"
+  installer="$(sed -n '/^link_replacing_symlink_only()/,/^}/p;/^install_claude_code_integration()/,/^}/p' "$PROJECT_ROOT/.devcontainer/provision-legacy.bash")"
   run env toolbox_root="$toolbox" HOME="$home_dir" bash -c "$installer; install_claude_code_integration"
 }
 
@@ -698,7 +698,7 @@ run_claude_installer() {
 }
 
 @test "ensure_directories_and_settings guards sysctl.conf append to prevent duplicates" {
-  run grep "grep.*sysctl.conf\|sysctl.conf.*grep" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  run grep "grep.*sysctl.conf\|sysctl.conf.*grep" "$PROJECT_ROOT/.devcontainer/provision-legacy.bash"
   [ "$status" -eq 0 ]
 }
 
@@ -725,7 +725,7 @@ run_claude_installer() {
   local toolbox="$TEST_TEMP_DIR/envvars-toolbox"
   mkdir -p "$toolbox/.setup"
   local generator
-  generator="$(sed -n '/^generate_env_vars_file()/,/^}/p' "$PROJECT_ROOT/.devcontainer/bootstrap.bash")"
+  generator="$(sed -n '/^generate_env_vars_file()/,/^}/p' "$PROJECT_ROOT/.devcontainer/provision-legacy.bash")"
   run env toolbox_root="$toolbox" setup_dir="$toolbox/.setup" bash -c "$generator; generate_env_vars_file"
   [ "$status" -eq 0 ]
   [ -f "$toolbox/.runtime/env-vars.sh" ]
@@ -749,7 +749,7 @@ exit 0
 STUB
   chmod +x "$TEST_TEMP_DIR/dotnet-bin/dotnet"
   local funcs
-  funcs="$(sed -n '/^add_nuget_source_if_not_exists()/,/^}/p;/^configure_nuget_sources()/,/^}/p;/^configure_user_npmrc()/,/^}/p' "$PROJECT_ROOT/.devcontainer/bootstrap.bash")"
+  funcs="$(sed -n '/^add_nuget_source_if_not_exists()/,/^}/p;/^configure_nuget_sources()/,/^}/p;/^configure_user_npmrc()/,/^}/p' "$PROJECT_ROOT/.devcontainer/provision-legacy.bash")"
   run env HOME="$home_dir" DOTNET_LOG="$DOTNET_LOG" DOTNET_LIST="${DOTNET_LIST:-}" toolbox_root="$TEST_TEMP_DIR/toolbox" \
       dotnet_cmd="$TEST_TEMP_DIR/dotnet-bin/dotnet" DEVENV_TOOLS="$PROJECT_ROOT/tools" \
       bash -c "
@@ -1234,7 +1234,7 @@ stub_runner() {
 
 @test "Bootstrap-Customization.md lists exactly the hook files run_custom_bootstrap_if_present runs" {
   doc="$PROJECT_ROOT/docs/Bootstrap-Customization.md"
-  hooks="$(sed -n '/^run_custom_bootstrap_if_present()/,/^}/p' "$PROJECT_ROOT/.devcontainer/bootstrap.bash" | grep -oE '[a-z]+-custom-bootstrap\.sh' | sort -u)"
+  hooks="$(sed -n '/^run_custom_bootstrap_if_present()/,/^}/p' "$PROJECT_ROOT/.devcontainer/provision-legacy.bash" | grep -oE '[a-z]+-custom-bootstrap\.sh' | sort -u)"
   [ "$(echo "$hooks" | wc -l)" -eq 2 ]
   for h in $hooks; do
     grep -qF "\`.devcontainer/$h\`" "$doc"
@@ -1250,7 +1250,7 @@ stub_runner() {
 # `name = azure`, or with CRLF line endings, selects azure just as `name=azure` does.
 @test "key-update-provider reads the provider name with spaces around =, or with CRLF" {
   local funcs variant root
-  funcs="$(sed -n '/^_key_update_run()/,/^}/p;/^key-update-provider()/,/^}/p' "$PROJECT_ROOT/.devcontainer/bootstrap.bash")"
+  funcs="$(sed -n '/^_key_update_run()/,/^}/p;/^key-update-provider()/,/^}/p' "$PROJECT_ROOT/.devcontainer/provision-legacy.bash")"
   for variant in $'[provider]\nname=azure\n' $'[provider]\nname = azure\n' $'[provider]\r\nname=azure\r\n'; do
     root="$(mktemp -d)"
     mkdir -p "$root/tools/lib/providers/azure" "$root/tools/lib"
@@ -1283,7 +1283,7 @@ stub_runner() {
 @test "link_replacing_symlink_only creates a link, repoints a stale one, and is idempotent" {
   local d="$TEST_TEMP_DIR/lk"; mkdir -p "$d"; echo a > "$d/src"
   run bash -c "
-    source <(sed -n '/^link_replacing_symlink_only()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+    source <(sed -n '/^link_replacing_symlink_only()/,/^}/p' '$PROJECT_ROOT/.devcontainer/provision-legacy.bash')
     link_replacing_symlink_only '$d/src' '$d/dest' && [ \"\$(readlink '$d/dest')\" = '$d/src' ] || exit 11
     ln -sfn /nonexistent '$d/dest'
     link_replacing_symlink_only '$d/src' '$d/dest' && [ \"\$(readlink '$d/dest')\" = '$d/src' ] || exit 12
@@ -1295,7 +1295,7 @@ stub_runner() {
 @test "link_replacing_symlink_only never deletes a real file or directory" {
   local d="$TEST_TEMP_DIR/lk2"; mkdir -p "$d/realdir"; echo keep > "$d/realdir/f"; echo keepfile > "$d/realfile"; echo a > "$d/src"
   run bash -c "
-    source <(sed -n '/^link_replacing_symlink_only()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+    source <(sed -n '/^link_replacing_symlink_only()/,/^}/p' '$PROJECT_ROOT/.devcontainer/provision-legacy.bash')
     link_replacing_symlink_only '$d/src' '$d/realdir'
     link_replacing_symlink_only '$d/src' '$d/realfile'
   "
@@ -1312,7 +1312,7 @@ stub_runner() {
   echo i > "$toolbox/copilot/copilot-instructions.md"
   run bash -c "
     HOME='$home_dir'; toolbox_root='$toolbox'
-    source <(sed -n '/^link_replacing_symlink_only()/,/^}/p;/^install_copilot_instructions()/,/^}/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash')
+    source <(sed -n '/^link_replacing_symlink_only()/,/^}/p;/^install_copilot_instructions()/,/^}/p' '$PROJECT_ROOT/.devcontainer/provision-legacy.bash')
     install_copilot_instructions
   "
   [ "$status" -eq 0 ]
@@ -1325,7 +1325,7 @@ stub_runner() {
   mkdir -p "$toolbox/tools" "$toolbox/repos/r1/scripts" "$home_dir"
   run bash -c "
     HOME='$home_dir'; toolbox_root='$toolbox'
-    source <(sed -n '/^write_devenvrc()/,/^DEVENVRC_EOF\$/p' '$PROJECT_ROOT/.devcontainer/bootstrap.bash'; echo '}')
+    source <(sed -n '/^write_devenvrc()/,/^DEVENVRC_EOF\$/p' '$PROJECT_ROOT/.devcontainer/provision-legacy.bash'; echo '}')
     write_devenvrc >/dev/null
     export DEVENV_ROOT='$toolbox'
     . '$home_dir/.devenvrc' 2>/dev/null; first=\"\$PATH\"
@@ -1338,9 +1338,10 @@ stub_runner() {
 
 @test "git-completion is vendored in the repo and sourced from there, not downloaded at bootstrap" {
   [ -s "$PROJECT_ROOT/.devcontainer/git-completion.bash" ]
-  run ! grep -n 'git-completion.bash.*raw.githubusercontent\|raw.githubusercontent.*git-completion' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
-  grep -q '\.devcontainer/git-completion.bash' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
-  run ! grep -n '\.git-completion\.bash' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  run ! grep -n 'git-completion.bash.*raw.githubusercontent\|raw.githubusercontent.*git-completion' "$PROJECT_ROOT/.devcontainer/bootstrap.bash" "$PROJECT_ROOT/.devcontainer/provision-legacy.bash"
+  # append_bashrc (provisioning half) sources the vendored file
+  grep -q '\.devcontainer/git-completion\.bash' "$PROJECT_ROOT/.devcontainer/provision-legacy.bash"
+  run ! grep -n '\.git-completion\.bash' "$PROJECT_ROOT/.devcontainer/bootstrap.bash" "$PROJECT_ROOT/.devcontainer/provision-legacy.bash"
 }
 
 @test "the OS package round does not upgrade every installed package" {

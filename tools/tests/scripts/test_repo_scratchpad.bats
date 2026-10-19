@@ -16,7 +16,7 @@ setup() {
     git commit -q --allow-empty -m "base"
     export SP_BASE="$(git rev-parse HEAD)"
     export SP_BASE_BRANCH="$(git symbolic-ref --short HEAD)"
-    export SP_SCRIPT="$DEVENV_TOOLS/scripts/repo-scratchpad.sh"
+    export SP_SCRIPT="$DEVENV_TOOLS/repo-scratchpad"
 }
 
 sp() {
@@ -206,7 +206,7 @@ sp() {
 @test "lib: dirty-entry refusal text is stable (P3 contract consumer)" {
     echo dirt > x.txt
     local out
-    out="$(bash "$DEVENV_TOOLS/scripts/repo-scratchpad.sh" enter 2>&1)" || true
+    out="$(bash "$DEVENV_TOOLS/repo-scratchpad" enter 2>&1)" || true
     [[ "$out" == *"Error: working tree is dirty"* ]]
     [[ "$out" == *"git wip"* ]]
 }
@@ -215,7 +215,7 @@ sp() {
 
 @test "refusal contract: git-wip blocked while scratchpad active (exit 3, sentinel)" {
     sp enter >/dev/null
-    run bash "$DEVENV_TOOLS/git-wip" "wip msg"
+    run "$DEVENV_TOOLS/git-wip" "wip msg"
     [ "$status" -eq 3 ]
     [[ "$output" == *"git-wip is blocked while a scratchpad is active"* ]]
     [[ "$output" == *"repo-scratchpad promote"* ]]
@@ -224,39 +224,39 @@ sp() {
 @test "refusal contract: repo-commit blocked while scratchpad active (exit 3, sentinel)" {
     sp enter >/dev/null
     echo x >> README.md && git add README.md
-    run bash "$DEVENV_TOOLS/repo-commit" "some message"
+    run "$DEVENV_TOOLS/repo-commit" "some message"
     [ "$status" -eq 3 ]
     [[ "$output" == *"repo-commit is blocked while a scratchpad is active"* ]]
 }
 
 @test "refusal contract: pr-create blocked while scratchpad active (exit 3, push sentinel)" {
     sp enter >/dev/null
-    run bash "$DEVENV_TOOLS/scripts/pr-create.sh" "title" --no-issue
+    run "$DEVENV_TOOLS/pr-create" "title" --no-issue
     [ "$status" -eq 3 ]
     [[ "$output" == *"pr-create push is blocked on a scratchpad branch"* ]]
 }
 
 @test "refusal contract: restricted tools work normally when no scratchpad (no false positives)" {
     # repo-commit proceeds past the refusal gate (reaches its own option refusal).
-    run bash "$DEVENV_TOOLS/repo-commit" -m "opt"
+    run "$DEVENV_TOOLS/repo-commit" -m "opt"
     [ "$status" -eq 1 ]
     [[ "$output" == *"options are refused by design"* ]]
     # pr-create gets past the scratchpad gate (reaches its own arg validation).
-    run bash "$DEVENV_TOOLS/scripts/pr-create.sh"
+    run "$DEVENV_TOOLS/pr-create"
     [ "$status" -ne 3 ]
 }
 
 @test "push-path defense-in-depth: bare scratchpad/* branch (no state refs) blocks push tools" {
     # Simulate orphaned state: branch under the prefix, no scratchpad refs.
     git checkout -q -b scratchpad/orphan
-    run bash "$DEVENV_TOOLS/git-wip" "wip msg"
+    run "$DEVENV_TOOLS/git-wip" "wip msg"
     [ "$status" -eq 3 ]
     [[ "$output" == *"push is blocked on a scratchpad branch"* ]]
-    run bash "$DEVENV_TOOLS/scripts/pr-create.sh" "t" --no-issue
+    run "$DEVENV_TOOLS/pr-create" "t" --no-issue
     [ "$status" -eq 3 ]
     # Normal branch is unaffected.
     git checkout -q "$SP_BASE_BRANCH"
-    run bash "$DEVENV_TOOLS/git-wip" --definitely-not-a-flag
+    run "$DEVENV_TOOLS/git-wip" --definitely-not-a-flag
     [ "$status" -eq 1 ]
 }
 

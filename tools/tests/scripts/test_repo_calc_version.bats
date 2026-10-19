@@ -25,7 +25,7 @@ teardown() {
 }
 
 @test "repo-calc-version returns default start when no tags" {
-  run bash "$PROJECT_ROOT/tools/scripts/repo-calc-version.sh"
+  run "$PROJECT_ROOT/tools/repo-calc-version"
   [ "$status" -eq 0 ]
   [ "$output" = "1.0.0" ]
 }
@@ -36,7 +36,7 @@ teardown() {
   git add README.md
   git commit -q -m "fix: bug"
 
-  run bash "$PROJECT_ROOT/tools/scripts/repo-calc-version.sh"
+  run "$PROJECT_ROOT/tools/repo-calc-version"
   [ "$status" -eq 0 ]
   [ "$output" = "1.2.1" ]
 }
@@ -47,7 +47,7 @@ teardown() {
   git add README.md
   git commit -q -m "feat: add thing"
 
-  run bash "$PROJECT_ROOT/tools/scripts/repo-calc-version.sh"
+  run "$PROJECT_ROOT/tools/repo-calc-version"
   [ "$status" -eq 0 ]
   [ "$output" = "1.3.0" ]
 }
@@ -58,7 +58,7 @@ teardown() {
   git add README.md
   git commit -q -m "feat!: breaking change"
 
-  run bash "$PROJECT_ROOT/tools/scripts/repo-calc-version.sh"
+  run "$PROJECT_ROOT/tools/repo-calc-version"
   [ "$status" -eq 0 ]
   [ "$output" = "2.0.0" ]
 }
@@ -74,7 +74,7 @@ teardown() {
   git add README.md
   git commit -q -m "fix: repair thing"
 
-  run bash "$PROJECT_ROOT/tools/scripts/repo-calc-version.sh"
+  run "$PROJECT_ROOT/tools/repo-calc-version"
   [ "$status" -eq 0 ]
   # minor from feat wins over patch from fix — both were seen
   [ "$output" = "1.3.0" ]
@@ -90,7 +90,7 @@ teardown() {
   git add README.md
   git commit -q -m "fix!: reworked thing"
 
-  run bash "$PROJECT_ROOT/tools/scripts/repo-calc-version.sh"
+  run "$PROJECT_ROOT/tools/repo-calc-version"
   [ "$status" -eq 0 ]
   [ "$output" = "2.0.0" ]
 }

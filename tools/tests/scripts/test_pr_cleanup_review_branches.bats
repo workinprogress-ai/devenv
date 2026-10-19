@@ -39,7 +39,7 @@ remote_has() {
   make_remote_branch "review/a1b2c3d4-2020-01-15-target"
   make_remote_branch "review/a1b2c3d4-2020-01-15-source"
   make_remote_branch "review/e5f6a7b8-${TODAY}-target"
-  run bash "$SCRIPT" "$WORK" 30
+  run "$SCRIPT" "$WORK" 30
   [ "$status" -eq 0 ]
   run ! remote_has "review/a1b2c3d4-2020-01-15-target"
   run ! remote_has "review/a1b2c3d4-2020-01-15-source"
@@ -50,7 +50,7 @@ remote_has() {
   # The date used to be pulled out with an unanchored grep, so the issue number
   # and day in this name read as the date 2024-11-30 and the branch was deleted.
   make_remote_branch "review/issue-24-11-30"
-  run bash "$SCRIPT" "$WORK" 30
+  run "$SCRIPT" "$WORK" 30
   [ "$status" -ne 0 ]
   remote_has "review/issue-24-11-30"
   [[ "$output" == *"review/issue-24-11-30"* ]]
@@ -59,7 +59,7 @@ remote_has() {
 
 @test "a name with two date-like parts is refused, not guessed at" {
   make_remote_branch "review/a1b2c3d4-2020-01-15-2024-11-30-target"
-  run bash "$SCRIPT" "$WORK" 30
+  run "$SCRIPT" "$WORK" 30
   [ "$status" -ne 0 ]
   remote_has "review/a1b2c3d4-2020-01-15-2024-11-30-target"
   [[ "$output" == *"not a recognized review branch name"* ]]
@@ -68,7 +68,7 @@ remote_has() {
 @test "an impossible date is refused without aborting the rest of the cleanup" {
   make_remote_branch "review/a1b2c3d4-2020-13-45-target"
   make_remote_branch "review/b2c3d4e5-2020-01-15-target"
-  run bash "$SCRIPT" "$WORK" 30
+  run "$SCRIPT" "$WORK" 30
   [ "$status" -ne 0 ]
   [[ "$output" == *"review/a1b2c3d4-2020-13-45-target carries an invalid date"* ]]
   remote_has "review/a1b2c3d4-2020-13-45-target"
@@ -79,7 +79,7 @@ remote_has() {
 @test "--dry-run prints the deletion plan and deletes nothing" {
   make_remote_branch "review/a1b2c3d4-2020-01-15-target"
   make_remote_branch "review/e5f6a7b8-${TODAY}-target"
-  run bash "$SCRIPT" --dry-run "$WORK" 30
+  run "$SCRIPT" --dry-run "$WORK" 30
   [ "$status" -eq 0 ]
   [[ "$output" == *"Would delete remote branch review/a1b2c3d4-2020-01-15-target"* ]]
   [[ "$output" != *"Would delete remote branch review/e5f6a7b8-${TODAY}-target"* ]]
@@ -89,20 +89,20 @@ remote_has() {
 
 @test "--dry-run is accepted after the positional arguments too" {
   make_remote_branch "review/a1b2c3d4-2020-01-15-target"
-  run bash "$SCRIPT" "$WORK" 30 --dry-run
+  run "$SCRIPT" "$WORK" 30 --dry-run
   [ "$status" -eq 0 ]
   remote_has "review/a1b2c3d4-2020-01-15-target"
 }
 
 @test "an unknown option is an error, not a repository path" {
-  run bash "$SCRIPT" --dry-rn "$WORK"
+  run "$SCRIPT" --dry-rn "$WORK"
   [ "$status" -eq 2 ]
   [[ "$output" == *"Unknown option"*"--dry-rn"* ]]
 }
 
 @test "a non-numeric day count is rejected before anything is touched" {
   make_remote_branch "review/a1b2c3d4-2020-01-15-target"
-  run bash "$SCRIPT" "$WORK" thirty
+  run "$SCRIPT" "$WORK" thirty
   [ "$status" -eq 2 ]
   remote_has "review/a1b2c3d4-2020-01-15-target"
 }
@@ -111,7 +111,7 @@ remote_has() {
   make_remote_branch "review/a1b2c3d4-2020-01-15-target"
   git -C "$WORK" fetch -q origin
   git -C "$REMOTE" branch -q -D "review/a1b2c3d4-2020-01-15-target"
-  run bash "$SCRIPT" --dry-run "$WORK" 30
+  run "$SCRIPT" --dry-run "$WORK" 30
   [ "$status" -eq 0 ]
   [[ "$output" == *"No review branches found."* ]]
 }
@@ -124,7 +124,7 @@ remote_has() {
   mkdir -p "$REMOTE/hooks"
   printf '#!/bin/sh\nwhile read old new ref; do [ "$ref" = "refs/heads/review/b1b2c3d4-2020-01-15-source" ] && [ "$new" = "0000000000000000000000000000000000000000" ] && exit 1; done; exit 0\n' > "$REMOTE/hooks/pre-receive"
   chmod +x "$REMOTE/hooks/pre-receive"
-  run bash "$SCRIPT" "$WORK" 30
+  run "$SCRIPT" "$WORK" 30
   [ "$status" -ne 0 ]
   local cleanup_output="$output"
   run ! remote_has "review/a1b2c3d4-2020-01-15-source"

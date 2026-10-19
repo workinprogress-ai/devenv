@@ -27,7 +27,7 @@ STUB
 }
 
 @test "issue-select passes its filters to the listing as options, not positionals" {
-    run bash "$SCRIPT" --state closed --type Bug --label "good first issue" --milestone "Sprint 5"
+    run "$SCRIPT" --state closed --type Bug --label "good first issue" --milestone "Sprint 5"
     [[ "$output" != *"Unknown option"* ]]
     grep -q "issue list" "$STUB_DIR/calls.log"
     grep -q -- "--state closed" "$STUB_DIR/calls.log"
@@ -73,7 +73,7 @@ GH
 
 @test "issue-select's preview command shows the highlighted issue's details" {
     install_previewing_fzf
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 0 ]
     [ "$output" = "123" ]
     [ -s "$PREVIEW_OUT" ]
@@ -84,7 +84,7 @@ GH
 
 @test "issue-select's preview command uses only options issue-get supports" {
     install_previewing_fzf
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 0 ]
     run ! grep -q -- "--json" "$PREVIEW_CMD_LOG"
     [[ "$(cat "$PREVIEW_OUT")" != *"Unknown option"* ]]

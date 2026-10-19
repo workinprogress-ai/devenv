@@ -26,19 +26,19 @@ write_file() {
 
 @test "gate mode: FIXME(DEVENV[ marker fails the gate" {
   write_file "a.cs" "// FIXME(DEVENV[Plan-issue-1-001]): temporary stub"
-  run bash "$SCRIPT" "$WORK_DIR"
+  run "$SCRIPT" "$WORK_DIR"
   [ "$status" -eq 1 ]
 }
 
 @test "gate mode: condition-bearing TODO(DEVENV[ marker does NOT block" {
   write_file "a.cs" "// TODO(DEVENV[Plan-issue-1-001]): swap provider — remove when #40 is merged"
-  run bash "$SCRIPT" "$WORK_DIR"
+  run "$SCRIPT" "$WORK_DIR"
   [ "$status" -eq 0 ]
 }
 
 @test "gate mode: clean tree passes" {
   write_file "a.cs" "int x = 1;"
-  run bash "$SCRIPT" "$WORK_DIR"
+  run "$SCRIPT" "$WORK_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" == *"Clean:"* ]]
 }
@@ -49,7 +49,7 @@ write_file() {
 
 @test "--all: reports FIXME and TODO and bare forms" {
   printf '// FIXME(DEVENV[p1]): a\n// TODO(DEVENV[p1]): b — remove when x\n// DEVENV[p1]: bare\n' > "$WORK_DIR/a.cs"
-  run bash "$SCRIPT" --all "$WORK_DIR"
+  run "$SCRIPT" --all "$WORK_DIR"
   [ "$status" -eq 1 ]
   [[ "$output" == *"FIXME(DEVENV[p1]): a"* ]]
   [[ "$output" == *"TODO(DEVENV[p1]): b"* ]]
@@ -58,7 +58,7 @@ write_file() {
 
 @test "--all: clean tree passes" {
   write_file "a.cs" "int x = 1;"
-  run bash "$SCRIPT" --all "$WORK_DIR"
+  run "$SCRIPT" --all "$WORK_DIR"
   [ "$status" -eq 0 ]
 }
 
@@ -69,7 +69,7 @@ write_file() {
 
 @test "--todo-report: lists conditioned TODO and exits 0 with no warning" {
   write_file "a.cs" "// TODO(DEVENV[p1]): swap provider — remove when #40 is merged"
-  run bash "$SCRIPT" --todo-report "$WORK_DIR"
+  run "$SCRIPT" --todo-report "$WORK_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" == *"TODO(DEVENV[p1]): swap provider"* ]]
   [[ "$output" != *"missing a discharge condition"* ]]
@@ -77,28 +77,28 @@ write_file() {
 
 @test "--todo-report: warns when a TODO lacks a discharge condition" {
   write_file "a.cs" "// TODO(DEVENV[p1]): swap provider once #40 lands"
-  run bash "$SCRIPT" --todo-report "$WORK_DIR"
+  run "$SCRIPT" --todo-report "$WORK_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" == *"missing a discharge condition"* ]]
 }
 
 @test "--todo-report: warns on malformed TODO(DEVENV) without a plan key" {
   write_file "a.cs" "// TODO(DEVENV) Review for changes"
-  run bash "$SCRIPT" --todo-report "$WORK_DIR"
+  run "$SCRIPT" --todo-report "$WORK_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" == *"without a plan key"* ]]
 }
 
 @test "--todo-report: no markers yields a clean message" {
   write_file "a.cs" "int x = 1;"
-  run bash "$SCRIPT" --todo-report "$WORK_DIR"
+  run "$SCRIPT" --todo-report "$WORK_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" == *"No scoped TODO(DEVENV markers found"* ]]
 }
 
 @test "--todo-report: FIXME(DEVENV markers are not reported" {
   write_file "a.cs" "// FIXME(DEVENV[p1]): stub"
-  run bash "$SCRIPT" --todo-report "$WORK_DIR"
+  run "$SCRIPT" --todo-report "$WORK_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" == *"No scoped TODO(DEVENV markers found"* ]]
 }
@@ -108,15 +108,15 @@ write_file() {
 # ---------------------------------------------------------------------------
 
 @test "--ac and --todo-report are mutually exclusive" {
-  run bash "$SCRIPT" --ac --todo-report "$WORK_DIR"
+  run "$SCRIPT" --ac --todo-report "$WORK_DIR"
   [ "$status" -eq 2 ]
   [[ "$output" == *"mutually exclusive"* ]]
 }
 
 @test "--all cannot be combined with finder modes" {
-  run bash "$SCRIPT" --all --todo-report "$WORK_DIR"
+  run "$SCRIPT" --all --todo-report "$WORK_DIR"
   [ "$status" -eq 2 ]
-  run bash "$SCRIPT" --all --ac "$WORK_DIR"
+  run "$SCRIPT" --all --ac "$WORK_DIR"
   [ "$status" -eq 2 ]
 }
 
@@ -132,7 +132,7 @@ write_file() {
   write_file "repos/devenv/a.cs" "// FIXME(DEVENV[p1]): repo clone copy"
   write_file "node_modules/pkg/a.cs" "// FIXME(DEVENV[p1]): vendored copy"
   write_file ".git/hooks/pre-commit" "// FIXME(DEVENV[p1]): vcs internals"
-  run bash "$SCRIPT" "$WORK_DIR"
+  run "$SCRIPT" "$WORK_DIR"
   [ "$status" -eq 1 ]
   [[ "$output" == *"src/a.cs"* ]]
   [[ "$output" != *"cache/devenv"* ]]
@@ -144,7 +144,7 @@ write_file() {
 @test "--todo-report also honors exclusions" {
   mkdir -p "$WORK_DIR/repos/devenv"
   write_file "repos/devenv/a.cs" "// TODO(DEVENV[p1]): clone copy — remove when x"
-  run bash "$SCRIPT" --todo-report "$WORK_DIR"
+  run "$SCRIPT" --todo-report "$WORK_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" == *"No scoped TODO(DEVENV markers found"* ]]
 }
@@ -152,7 +152,7 @@ write_file() {
 @test "--no-exclude scans excluded dirs too" {
   mkdir -p "$WORK_DIR/cache/devenv"
   write_file "cache/devenv/a.cs" "// FIXME(DEVENV[p1]): cache clone copy"
-  run bash "$SCRIPT" --no-exclude "$WORK_DIR"
+  run "$SCRIPT" --no-exclude "$WORK_DIR"
   [ "$status" -eq 1 ]
   [[ "$output" == *"cache/devenv/a.cs"* ]]
 }
@@ -160,7 +160,7 @@ write_file() {
 @test "--no-exclude --all audits every form everywhere" {
   mkdir -p "$WORK_DIR/repos/devenv"
   write_file "repos/devenv/a.cs" "// TODO(DEVENV[p1]): clone copy — remove when x"
-  run bash "$SCRIPT" --no-exclude --all "$WORK_DIR"
+  run "$SCRIPT" --no-exclude --all "$WORK_DIR"
   [ "$status" -eq 1 ]
   [[ "$output" == *"TODO(DEVENV[p1]): clone copy"* ]]
 }
@@ -168,18 +168,18 @@ write_file() {
 @test "explicitly naming an excluded path still scans it" {
   mkdir -p "$WORK_DIR/repos/devenv"
   write_file "repos/devenv/a.cs" "// FIXME(DEVENV[p1]): explicit target"
-  run bash "$SCRIPT" "$WORK_DIR/repos/devenv"
+  run "$SCRIPT" "$WORK_DIR/repos/devenv"
   [ "$status" -eq 1 ]
   [[ "$output" == *"explicit target"* ]]
 }
 
 @test "plain TODO/FIXME comments never match in any mode" {
   printf '// TODO: normal todo\n# FIXME: normal fixme\n// TODO no colon\n' > "$WORK_DIR/a.cs"
-  run bash "$SCRIPT" "$WORK_DIR"
+  run "$SCRIPT" "$WORK_DIR"
   [ "$status" -eq 0 ]
-  run bash "$SCRIPT" --all "$WORK_DIR"
+  run "$SCRIPT" --all "$WORK_DIR"
   [ "$status" -eq 0 ]
-  run bash "$SCRIPT" --todo-report "$WORK_DIR"
+  run "$SCRIPT" --todo-report "$WORK_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" == *"No scoped TODO(DEVENV markers found"* ]]
 }
@@ -193,28 +193,28 @@ write_file() {
 @test "gate mode: markers under copilot/ are ignored by default" {
   mkdir -p "$WORK_DIR/copilot"
   write_file "copilot/skill.md" "// FIXME:DEVENV[p1]: example marker in docs"
-  run bash "$SCRIPT" "$WORK_DIR"
+  run "$SCRIPT" "$WORK_DIR"
   [ "$status" -eq 0 ]
 }
 
 @test "gate mode: markers under docs/ still block (not exempt)" {
   mkdir -p "$WORK_DIR/docs"
   write_file "docs/real.md" "// FIXME:DEVENV[p1]: real marker in docs"
-  run bash "$SCRIPT" "$WORK_DIR"
+  run "$SCRIPT" "$WORK_DIR"
   [ "$status" -eq 1 ]
 }
 
 @test "gate mode: --include-copilot restores blocking under copilot/" {
   mkdir -p "$WORK_DIR/copilot"
   write_file "copilot/skill.md" "// FIXME:DEVENV[p1]: example marker in docs"
-  run bash "$SCRIPT" --include-copilot "$WORK_DIR"
+  run "$SCRIPT" --include-copilot "$WORK_DIR"
   [ "$status" -eq 1 ]
 }
 
 @test "--todo-report always scans copilot/ (colon form detected)" {
   mkdir -p "$WORK_DIR/copilot"
   write_file "copilot/skill.md" "// TODO:DEVENV[p1]: swap — remove when #40 merged"
-  run bash "$SCRIPT" --todo-report "$WORK_DIR"
+  run "$SCRIPT" --todo-report "$WORK_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" == *"swap"* ]]
 }
@@ -226,27 +226,27 @@ write_file() {
 
 @test "--marker: a matching custom marker fails the gate" {
   write_file "a.cs" "int x; // DEVENV[bug-hunt] instrumentation"
-  run bash "$SCRIPT" --marker 'DEVENV\[bug-hunt\]' "$WORK_DIR"
+  run "$SCRIPT" --marker 'DEVENV\[bug-hunt\]' "$WORK_DIR"
   [ "$status" -eq 1 ]
   [[ "$output" == *"a.cs:1:"* ]]
 }
 
 @test "--marker: a FIXME marker with a different key does not trip the custom sweep" {
   write_file "a.cs" "int x; // FIXME:DEVENV[other-plan]: unrelated"
-  run bash "$SCRIPT" --marker 'DEVENV\[bug-hunt\]' "$WORK_DIR"
+  run "$SCRIPT" --marker 'DEVENV\[bug-hunt\]' "$WORK_DIR"
   [ "$status" -eq 0 ]
 }
 
 @test "--marker with --require succeeds only when the custom marker is present" {
   write_file "a.cs" "int x; // DEVENV[bug-hunt] here"
-  run bash "$SCRIPT" --marker 'DEVENV\[bug-hunt\]' --require "$WORK_DIR"
+  run "$SCRIPT" --marker 'DEVENV\[bug-hunt\]' --require "$WORK_DIR"
   [ "$status" -eq 0 ]
-  run bash "$SCRIPT" --marker 'DEVENV\[absent-key\]' --require "$WORK_DIR"
+  run "$SCRIPT" --marker 'DEVENV\[absent-key\]' --require "$WORK_DIR"
   [ "$status" -eq 1 ]
 }
 
 @test "--marker: the default gate (no --marker) still scans FIXME markers only" {
   write_file "a.cs" "int x; // DEVENV[bug-hunt] bare form"
-  run bash "$SCRIPT" "$WORK_DIR"
+  run "$SCRIPT" "$WORK_DIR"
   [ "$status" -eq 0 ]
 }

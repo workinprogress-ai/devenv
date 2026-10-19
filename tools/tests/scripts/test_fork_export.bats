@@ -11,7 +11,7 @@ load ../test_helper
 setup() {
     test_helper_setup
     export DEVENV_TOOLS="${BATS_TEST_DIRNAME}/../.."
-    SCRIPT="$DEVENV_TOOLS/scripts/fork-export.sh"
+    SCRIPT="$DEVENV_TOOLS/fork-export"
 }
 
 teardown() {
@@ -125,7 +125,7 @@ _add_upstream_clone_to_repos() {
 }
 
 @test "fork-export: --help prints usage without implementing logic" {
-    run bash "$SCRIPT" --help
+    run "$SCRIPT" --help
     [ "$status" -eq 0 ]
     [[ "$output" == *"fork-export.sh"* ]]
     [[ "$output" == *"merge-base"* ]]
@@ -147,12 +147,12 @@ _add_upstream_clone_to_repos() {
     mkdir -p "$DEVENV_ROOT"
 
     printf '[fork]\nupstream_repo=https://example.invalid/devenv.git\n' > "$DEVENV_ROOT/devenv.config"
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -ne 0 ]
     [[ "$output" == *"upstream_branch"* ]]
 
     printf '[fork]\nupstream_branch=master\n' > "$DEVENV_ROOT/devenv.config"
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -ne 0 ]
     [[ "$output" == *"upstream_repo"* ]]
 }
@@ -173,7 +173,7 @@ _add_upstream_clone_to_repos() {
     _setup_fork_export_fixture
     printf '[fork]\nupstream_repo=%s\nupstream_branch=missing\n' "$FORK_FIXTURE_UPSTREAM" > "$DEVENV_ROOT/devenv.config"
 
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -ne 0 ]
     [[ "$output" == *"upstream branch 'missing' was not fetched"* ]]
 }
@@ -181,7 +181,7 @@ _add_upstream_clone_to_repos() {
 @test "fork-export: invalid end ref is rejected before export" {
     _setup_fork_export_fixture
 
-    run bash "$SCRIPT" missing-end-ref
+    run "$SCRIPT" missing-end-ref
     [ "$status" -ne 0 ]
     [[ "$output" == *"does not resolve to a commit"* ]]
 }
@@ -191,7 +191,7 @@ _add_upstream_clone_to_repos() {
     empty_tree="$(git mktree </dev/null)"
     unrelated_commit="$(printf 'Unrelated root\n' | git commit-tree "$empty_tree")"
 
-    run bash "$SCRIPT" "$unrelated_commit"
+    run "$SCRIPT" "$unrelated_commit"
     [ "$status" -ne 0 ]
     [[ "$output" == *"have no common history"* ]]
 }
@@ -201,7 +201,7 @@ _add_upstream_clone_to_repos() {
     _add_export_commit "Local one"
     _add_export_commit "Local two"
 
-    run bash "$SCRIPT" --all
+    run "$SCRIPT" --all
     [ "$status" -eq 0 ]
     bundle_file="$(sed -n 's/^Bundle: //p' <<< "$output")"
     [ -f "$bundle_file" ]
@@ -216,7 +216,7 @@ _add_upstream_clone_to_repos() {
     _add_export_commit "Local one"
     _add_upstream_clone_to_repos
 
-    run bash "$SCRIPT" --all
+    run "$SCRIPT" --all
     [ "$status" -eq 0 ]
     [[ "$output" == *"detected upstream clone: $FORK_FIXTURE_GH_CLONE"* ]]
     [[ "$output" == *"Applied bundle to $FORK_FIXTURE_GH_CLONE"* ]]
@@ -229,7 +229,7 @@ _add_upstream_clone_to_repos() {
     _add_upstream_clone_to_repos
     git clone -q "$FORK_FIXTURE_UPSTREAM" "$FORK_FIXTURE_WORKING_CLONE/repos/second"
 
-    run bash "$SCRIPT" --all
+    run "$SCRIPT" --all
     [ "$status" -ne 0 ]
     [[ "$output" == *"multiple repos/ clones match"* ]]
     [[ "$output" == *"--apply-to <path>"* ]]
@@ -241,7 +241,7 @@ _add_upstream_clone_to_repos() {
     _add_export_commit "Local one"
     _add_upstream_clone_to_repos
 
-    run bash "$SCRIPT" --all --export-only
+    run "$SCRIPT" --all --export-only
     [ "$status" -eq 0 ]
     [[ "$output" == *"Bundle:"* ]]
     [[ "$output" != *"detected upstream clone"* ]]
@@ -254,7 +254,7 @@ _add_upstream_clone_to_repos() {
     first_commit="$(git rev-parse HEAD)"
     _add_export_commit "Local two"
 
-    run bash "$SCRIPT" "$first_commit" --format bundle
+    run "$SCRIPT" "$first_commit" --format bundle
     [ "$status" -eq 0 ]
     bundle_file="$(sed -n 's/^Bundle: //p' <<< "$output")"
     [ -f "$bundle_file" ]
@@ -274,7 +274,7 @@ _add_upstream_clone_to_repos() {
         esac
     done
 
-    run bash "$SCRIPT" --start-ref "$start_ref" "$end_ref" --format bundle
+    run "$SCRIPT" --start-ref "$start_ref" "$end_ref" --format bundle
     [ "$status" -eq 0 ]
     [[ "$output" == *"Commits: 2"* ]]
     bundle_file="$(sed -n 's/^Bundle: //p' <<< "$output")"
@@ -309,7 +309,7 @@ _add_upstream_clone_to_repos() {
     [ "$(cat "$FORK_FIXTURE_GH_CLONE/three.txt")" = "three" ]
     [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log -1 --format=%s)" = "Commit three" ]
     [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log --format=%s | grep -c '^Commit two$')" -eq 0 ]
-    run bash "$SCRIPT" --list-skipped
+    run "$SCRIPT" --list-skipped
     [ "$output" = "no skipped commits" ]
 }
 
@@ -377,7 +377,7 @@ _add_upstream_clone_to_repos() {
     git -C "$FORK_FIXTURE_WORKING_CLONE" update-ref refs/remotes/upstream/feature "$base"
     feature_tip="$(git -C "$FORK_FIXTURE_GH_CLONE" rev-parse HEAD)"
 
-    run bash "$SCRIPT" upstream/feature --format bundle --include-untracked
+    run "$SCRIPT" upstream/feature --format bundle --include-untracked
     [ "$status" -eq 0 ]
     bundle_file="$(sed -n 's/^Bundle: //p' <<< "$output")"
     _assert_bundle_subjects "$bundle_file" "Feature commit two"
@@ -389,7 +389,7 @@ _add_upstream_clone_to_repos() {
     _add_export_commit "Local one"
     _add_export_commit "Local two"
 
-    run bash "$SCRIPT" --all --format patch
+    run "$SCRIPT" --all --format patch
     [ "$status" -eq 0 ]
     patch_dir="$(sed -n 's/^Patches: //p' <<< "$output")"
     patch_files=("$patch_dir"/*.patch)
@@ -403,7 +403,7 @@ _add_upstream_clone_to_repos() {
     _setup_fork_export_fixture
     _add_export_commit "Local one"
 
-    run bash "$SCRIPT" --all --format both
+    run "$SCRIPT" --all --format both
     [ "$status" -eq 0 ]
     bundle_file="$(sed -n 's/^Bundle: //p' <<< "$output")"
     patch_dir="$(sed -n 's/^Patches: //p' <<< "$output")"
@@ -416,7 +416,7 @@ _add_upstream_clone_to_repos() {
     _add_export_commit "Local one"
     _add_export_commit "Local two"
 
-    run bash "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
+    run "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -eq 0 ]
     [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log -1 --format=%s)" = "Local two" ]
     [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log -2 --format=%s | tail -1)" = "Local one" ]
@@ -435,7 +435,7 @@ _add_upstream_clone_to_repos() {
     git -C "$FORK_FIXTURE_GH_CLONE" add README.md
     git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "Target edit"
 
-    run bash "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
+    run "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -ne 0 ]
     [[ "$output" == *"cherry-pick conflict"* ]]
     [[ "$output" == *"git -C $FORK_FIXTURE_GH_CLONE cherry-pick --continue"* ]]
@@ -452,7 +452,7 @@ _add_upstream_clone_to_repos() {
     git -C "$FORK_FIXTURE_GH_CLONE" add README.md
     git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "Target edit"
 
-    run bash "$SCRIPT" --all --format patch --apply-to "$FORK_FIXTURE_GH_CLONE"
+    run "$SCRIPT" --all --format patch --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -ne 0 ]
     [[ "$output" == *"am conflict"* ]]
     [[ "$output" == *"git -C $FORK_FIXTURE_GH_CLONE am --continue"* ]]
@@ -508,7 +508,7 @@ _add_upstream_clone_to_repos() {
     git -C "$FORK_FIXTURE_GH_CLONE" add upstream-change.txt
     git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "Target advance"
 
-    run bash "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
+    run "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -eq 0 ]
     [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log -1 --format=%s)" = "Local one" ]
     [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log -2 --format=%s | tail -1)" = "Target advance" ]
@@ -519,7 +519,7 @@ _add_upstream_clone_to_repos() {
     _setup_fork_export_fixture
     _add_export_commit "Local one"
 
-    run bash "$SCRIPT" --all --format patch --apply-to "$FORK_FIXTURE_GH_CLONE"
+    run "$SCRIPT" --all --format patch --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -eq 0 ]
     [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log -1 --format=%s)" = "Local one" ]
     [ "$(git -C "$FORK_FIXTURE_GH_CLONE" show HEAD:changes.txt)" = "Local one" ]
@@ -529,7 +529,7 @@ _add_upstream_clone_to_repos() {
     _setup_fork_export_fixture
     _add_export_commit "Local one"
 
-    run bash "$SCRIPT" --apply-to "$TEST_TEMP_DIR/not-a-repository"
+    run "$SCRIPT" --apply-to "$TEST_TEMP_DIR/not-a-repository"
     [ "$status" -ne 0 ]
     [[ "$output" == *"not a git repository"* ]]
 }
@@ -545,7 +545,7 @@ _add_upstream_clone_to_repos() {
     git -C "$unrelated" add README.md
     git -C "$unrelated" commit -q -m unrelated
 
-    run bash "$SCRIPT" --all --apply-to "$unrelated"
+    run "$SCRIPT" --all --apply-to "$unrelated"
     [ "$status" -ne 0 ]
     [[ "$output" == *"does not descend from the upstream merge-base"* ]]
 }
@@ -554,7 +554,7 @@ _add_upstream_clone_to_repos() {
     _setup_fork_export_fixture
     _add_export_commit "Local one"
 
-    run bash "$SCRIPT" --dry-run
+    run "$SCRIPT" --dry-run
     [ "$status" -eq 0 ]
     [[ "$output" == *"dry run"* ]]
     [ -z "$(find "$FORK_FIXTURE_WORKING_CLONE/.local-artifacts" -type f -print -quit 2>/dev/null)" ]
@@ -564,7 +564,7 @@ _add_upstream_clone_to_repos() {
 @test "fork-export: rejects an unknown format" {
     _setup_fork_export_fixture
 
-    run bash "$SCRIPT" --format zip
+    run "$SCRIPT" --format zip
     [ "$status" -ne 0 ]
     [[ "$output" == *"choose bundle, patch, or both"* ]]
 }
@@ -580,7 +580,7 @@ _add_upstream_clone_to_repos() {
     _add_export_commit "second"
     git -C "$FORK_FIXTURE_WORKING_CLONE" merge -q --no-ff -m "merge side" side
 
-    run bash "$SCRIPT" --all --export-only --format patch
+    run "$SCRIPT" --all --export-only --format patch
     [ "$status" -ne 0 ]
     [[ "$output" == *"merge commit"* ]]
     [[ "$output" == *"merge side"* ]]
@@ -590,13 +590,13 @@ _add_upstream_clone_to_repos() {
 @test "fork-export: a linear range is not refused" {
     _setup_fork_export_fixture
     _add_export_commit "first"
-    run bash "$SCRIPT" --all --export-only --format patch
+    run "$SCRIPT" --all --export-only --format patch
     [ "$status" -eq 0 ]
     [[ "$output" != *"merge commit"* ]]
 }
 
 @test "fork-export: patch mode applies with git am -3 so context drift falls back to a three-way merge" {
-    grep -q 'am -3 "\${PATCH_FILES\[@\]}"' "$SCRIPT"
+    grep -q 'am -3 "\${PATCH_FILES\[@\]}"' "$DEVENV_TOOLS/scripts/fork-export.sh"
     _setup_fork_export_fixture
     # The target clone's file differs in context from the fork's: plain git am would fail.
     printf 'l1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\nl9\n' > "$FORK_FIXTURE_GH_CLONE/ctx.txt"
@@ -610,7 +610,7 @@ _add_upstream_clone_to_repos() {
     printf 'l1\nl2\nX3\nl4\nl5\nl6\nl7\nl8\nl9\n' > "$FORK_FIXTURE_GH_CLONE/ctx.txt"
     git -C "$FORK_FIXTURE_GH_CLONE" commit -qam "target drift"
     git -C "$FORK_FIXTURE_GH_CLONE" push -q origin HEAD:master
-    run bash "$SCRIPT" --all --format patch --apply-to "$FORK_FIXTURE_GH_CLONE"
+    run "$SCRIPT" --all --format patch --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -eq 0 ]
     grep -q 'L6-fork' "$FORK_FIXTURE_GH_CLONE/ctx.txt"
 }
@@ -631,11 +631,11 @@ _add_upstream_clone_to_repos() {
     local tail
     tail="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)"
 
-    run bash "$SCRIPT" --start-ref "$tail" HEAD --export-only --format patch
+    run "$SCRIPT" --start-ref "$tail" HEAD --export-only --format patch
     [ "$status" -eq 0 ]
     [[ "$output" != *"merge commit"* ]]
 
-    run bash "$SCRIPT" --start-ref "$first" HEAD --export-only --format patch
+    run "$SCRIPT" --start-ref "$first" HEAD --export-only --format patch
     [ "$status" -ne 0 ]
     [[ "$output" == *"merge side"* ]]
 }
@@ -652,7 +652,7 @@ _add_upstream_clone_to_repos() {
     git -C "$FORK_FIXTURE_WORKING_CLONE" merge -q --no-ff -m "merge side" side
 
     # no TTY: the whole range is exported, so the dry run refuses like the real run
-    run bash "$SCRIPT" --dry-run
+    run "$SCRIPT" --dry-run
     [ "$status" -ne 0 ]
     [[ "$output" == *"merge commit"* ]]
 
@@ -689,12 +689,12 @@ _head_of_source() {
     _add_export_commit "Tracked one"
     _add_untracked_commit "Legacy two"
 
-    run bash "$SCRIPT" --all --export-only
+    run "$SCRIPT" --all --export-only
     [ "$status" -eq 0 ]
     [[ "$output" == *"1 commit(s) without a Change-Id hidden (--include-untracked shows them)"* ]]
     [[ "$output" == *"Commits: 1"* ]]
 
-    run bash "$SCRIPT" --all --export-only --include-untracked
+    run "$SCRIPT" --all --export-only --include-untracked
     [ "$status" -eq 0 ]
     [[ "$output" != *"hidden"* ]]
     [[ "$output" == *"Commits: 2"* ]]
@@ -704,7 +704,7 @@ _head_of_source() {
     _setup_fork_export_fixture
     _add_untracked_commit "Legacy only"
 
-    run bash "$SCRIPT" --all --export-only
+    run "$SCRIPT" --all --export-only
     [ "$status" -ne 0 ]
     [[ "$output" == *"1 commit(s) without a Change-Id hidden"* ]]
     [[ "$output" == *"no exportable commits remain"* ]]
@@ -717,12 +717,12 @@ _head_of_source() {
     git -C "$FORK_FIXTURE_WORKING_CLONE" add fork.txt
     git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "Fork thing" -m "Fork-Only: yes"
 
-    run bash "$SCRIPT" --all --export-only
+    run "$SCRIPT" --all --export-only
     [ "$status" -eq 0 ]
     [[ "$output" == *"skipped 1 commit(s) marked Fork-Only or in the skip list"* ]]
     [[ "$output" == *"Commits: 1"* ]]
 
-    run bash "$SCRIPT" --all --export-only --include-skipped
+    run "$SCRIPT" --all --export-only --include-skipped
     [ "$status" -eq 0 ]
     [[ "$output" == *"Commits: 2"* ]]
 }
@@ -736,12 +736,12 @@ _head_of_source() {
     _add_export_commit "Skip by sha"
     skip_list_add "$FORK_FIXTURE_WORKING_CLONE" sha HEAD
 
-    run bash "$SCRIPT" --all --export-only
+    run "$SCRIPT" --all --export-only
     [ "$status" -eq 0 ]
     [[ "$output" == *"skipped 2 commit(s)"* ]]
     [[ "$output" == *"Commits: 1"* ]]
 
-    run bash "$SCRIPT" --all --export-only --include-skipped
+    run "$SCRIPT" --all --export-only --include-skipped
     [[ "$output" == *"Commits: 3"* ]]
 }
 
@@ -757,7 +757,7 @@ _head_of_source() {
     git -C "$FORK_FIXTURE_GH_CLONE" add other.txt
     git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "Reworked copy" -m "Change-Id: $shared_id"
 
-    run bash "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
+    run "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -eq 0 ]
     [[ "$output" == *"excluded 1 commit(s) already present in target by Change-Id"* ]]
     [[ "$output" == *"Commits: 1"* ]]
@@ -770,12 +770,12 @@ _head_of_source() {
     _add_export_commit "Tracked"
     _add_untracked_commit "Legacy"
 
-    run bash "$SCRIPT" --dry-run
+    run "$SCRIPT" --dry-run
     [ "$status" -eq 0 ]
     [[ "$output" == *"would export 1 commit(s)"* ]]
     [[ "$output" == *"1 commit(s) without a Change-Id hidden"* ]]
 
-    run bash "$SCRIPT" --all --export-only
+    run "$SCRIPT" --all --export-only
     [[ "$output" == *"Commits: 1"* ]]
 }
 
@@ -784,25 +784,25 @@ _head_of_source() {
     _add_export_commit "One"
     sha="$(_head_of_source)"
 
-    run bash "$SCRIPT" --skip "$sha"
+    run "$SCRIPT" --skip "$sha"
     [ "$status" -eq 0 ]
     [[ "$output" == *"skipped"*"One"* ]]
 
-    run bash "$SCRIPT" --list-skipped
+    run "$SCRIPT" --list-skipped
     [ "$status" -eq 0 ]
     [[ "$output" == *"sha $sha"* ]]
     [[ "$output" == *"change-id "* ]]
 
-    run bash "$SCRIPT" --all --export-only
+    run "$SCRIPT" --all --export-only
     [ "$status" -ne 0 ]
     [[ "$output" == *"skipped 1 commit(s)"* ]]
 
-    run bash "$SCRIPT" --unskip "$sha"
+    run "$SCRIPT" --unskip "$sha"
     [ "$status" -eq 0 ]
-    run bash "$SCRIPT" --list-skipped
+    run "$SCRIPT" --list-skipped
     [ "$output" = "no skipped commits" ]
 
-    run bash "$SCRIPT" --all --export-only
+    run "$SCRIPT" --all --export-only
     [ "$status" -eq 0 ]
     [[ "$output" == *"Commits: 1"* ]]
 }
@@ -811,11 +811,11 @@ _head_of_source() {
     _setup_fork_export_fixture
     _add_export_commit "One"
 
-    run bash "$SCRIPT" --skip not-a-commit
+    run "$SCRIPT" --skip not-a-commit
     [ "$status" -ne 0 ]
     [[ "$output" == *"not a commit"* ]]
 
-    run bash "$SCRIPT" --unskip "$(_head_of_source)"
+    run "$SCRIPT" --unskip "$(_head_of_source)"
     [ "$status" -ne 0 ]
     [[ "$output" == *"no skip-list entry matches"* ]]
 }
@@ -837,11 +837,11 @@ _head_of_source() {
     [[ "$output" == *"One"* ]]
     [[ "$output" != *"Two"* ]]
 
-    run bash "$SCRIPT" --list-skipped
+    run "$SCRIPT" --list-skipped
     [[ "$output" == *"sha $one_sha"* ]]
     [[ "$output" != *"$two_sha"* ]]
 
-    run bash "$SCRIPT" --all --export-only
+    run "$SCRIPT" --all --export-only
     [[ "$output" == *"Commits: 1"* ]]
 }
 
@@ -849,7 +849,7 @@ _head_of_source() {
     _setup_fork_export_fixture
     _add_export_commit "One"
 
-    run bash "$SCRIPT" --skip < /dev/null
+    run "$SCRIPT" --skip < /dev/null
     [ "$status" -ne 0 ]
     [[ "$output" == *"needs an explicit commit"* ]]
 }
@@ -859,7 +859,7 @@ _head_of_source() {
     source "$DEVENV_TOOLS/lib/change-id.bash"
     printf 'sha 0000000000000000000000000000000000000000 # gone\n' >> "$(skip_list_get_path "$FORK_FIXTURE_WORKING_CLONE")"
 
-    run bash "$SCRIPT" --list-skipped
+    run "$SCRIPT" --list-skipped
     [ "$status" -eq 0 ]
     [[ "$output" == *"pruned stale entry"* ]]
     [[ "$output" == *"no skipped commits"* ]]
@@ -871,7 +871,7 @@ _head_of_source() {
     _add_file_commit legacy untracked
     _add_file_commit beta
 
-    run bash "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
+    run "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -eq 0 ]
     [[ "$output" == *"cherry-pick sequence finalized"* ]]
     [ "$(cat "$FORK_FIXTURE_GH_CLONE/alpha.txt")" = "alpha" ]
@@ -885,12 +885,12 @@ _head_of_source() {
     _add_file_commit legacy untracked
     _add_file_commit beta
 
-    run bash "$SCRIPT" --all --export-only
+    run "$SCRIPT" --all --export-only
     [ "$status" -eq 0 ]
     subset_dir="$(sed -n 's/^Bundle: //p' <<< "$output")"
     [[ "$subset_dir" == *"-sel"* ]]
 
-    run bash "$SCRIPT" --all --export-only --include-untracked
+    run "$SCRIPT" --all --export-only --include-untracked
     [ "$status" -eq 0 ]
     full_dir="$(sed -n 's/^Bundle: //p' <<< "$output")"
     [[ "$full_dir" != *"-sel"* ]]
@@ -903,7 +903,7 @@ _head_of_source() {
     legacy_sha="$(_head_of_source)"
     _add_file_commit beta
 
-    run bash "$SCRIPT" --start-ref "$legacy_sha" HEAD --export-only
+    run "$SCRIPT" --start-ref "$legacy_sha" HEAD --export-only
     [ "$status" -ne 0 ]
     [[ "$output" == *"the start commit is not exportable"* ]]
 }
@@ -929,7 +929,7 @@ _head_of_source() {
     [ "$(cat "$FORK_FIXTURE_GH_CLONE/one.txt")" = "one" ]
     [ "$(cat "$FORK_FIXTURE_GH_CLONE/three.txt")" = "three" ]
     [ ! -e "$FORK_FIXTURE_GH_CLONE/two.txt" ]
-    run bash "$SCRIPT" --list-skipped
+    run "$SCRIPT" --list-skipped
     [[ "$output" == *"sha $two_sha"* ]]
     [[ "$output" != *"sha $one_sha"* ]]
 }
@@ -948,7 +948,7 @@ _head_of_source() {
     run bash -c "printf 'y\\na\\n' | script -qfec \"bash '$SCRIPT' --apply-to '$FORK_FIXTURE_GH_CLONE'\" /dev/null"
     [ "$status" -eq 0 ]
     [[ "$output" == *"excluded 2 commit(s) from future exports"* ]]
-    run bash "$SCRIPT" --list-skipped
+    run "$SCRIPT" --list-skipped
     [[ "$output" == *"sha $two_sha"* ]]
     [[ "$output" == *"sha $three_sha"* ]]
     [[ "$output" != *"sha $one_sha"* ]]
@@ -970,7 +970,7 @@ _head_of_source() {
     [ "$status" -eq 0 ]
     grep -q 'Commits to exclude for good' "$FORK_EXPORT_FZF_LOG"
     [[ "$output" == *"excluded 1 commit(s) from future exports"* ]]
-    run bash "$SCRIPT" --list-skipped
+    run "$SCRIPT" --list-skipped
     [[ "$output" == *"sha $two_sha"* ]]
     [[ "$output" != *"sha $three_sha"* ]]
 }
@@ -986,7 +986,7 @@ _head_of_source() {
     run bash -c "printf 'n\\na\\n' | script -qfec \"bash '$SCRIPT' --apply-to '$FORK_FIXTURE_GH_CLONE'\" /dev/null"
     [ "$status" -ne 0 ]
     [[ "$output" == *"commit export cancelled"* ]]
-    run bash "$SCRIPT" --list-skipped
+    run "$SCRIPT" --list-skipped
     [ "$output" = "no skipped commits" ]
 }
 
@@ -1016,12 +1016,12 @@ _head_of_source() {
     git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "Fork thing" -m "Fork-Only: yes"
     _add_file_commit three
 
-    run bash "$SCRIPT" --start-ref "$one_sha" HEAD --export-only --format patch --include-skipped
+    run "$SCRIPT" --start-ref "$one_sha" HEAD --export-only --format patch --include-skipped
     [ "$status" -eq 0 ]
     all_dir="$(sed -n 's/^Patches: //p' <<< "$output")"
     [ "$(find "$all_dir" -name '*.patch' | wc -l)" -eq 3 ]
 
-    run bash "$SCRIPT" --start-ref "$one_sha" HEAD --export-only --format patch
+    run "$SCRIPT" --start-ref "$one_sha" HEAD --export-only --format patch
     [ "$status" -eq 0 ]
     filtered_dir="$(sed -n 's/^Patches: //p' <<< "$output")"
     [ "$filtered_dir" != "$all_dir" ]
@@ -1038,11 +1038,11 @@ _head_of_source() {
         [ "$name" != "first" ] || first_sha="$(_head_of_source)"
     done
 
-    run bash "$SCRIPT" "$first_sha" --apply-to "$FORK_FIXTURE_GH_CLONE"
+    run "$SCRIPT" "$first_sha" --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -eq 0 ]
     [ -f "$FORK_FIXTURE_GH_CLONE/first.txt" ]
 
-    run bash "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
+    run "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -eq 0 ]
     [[ "$output" == *"warning: Change-Id Dup123Dup123 is carried by 2 commits"* ]]
     [ "$(cat "$FORK_FIXTURE_GH_CLONE/second.txt")" = "second" ]
@@ -1054,13 +1054,13 @@ _head_of_source() {
     _add_export_commit "One"
     id="$(change_id_get_from_commit "$FORK_FIXTURE_WORKING_CLONE" HEAD)"
 
-    run bash "$SCRIPT" --skip HEAD
+    run "$SCRIPT" --skip HEAD
     [ "$status" -eq 0 ]
-    run bash "$SCRIPT" --unskip "$id"
+    run "$SCRIPT" --unskip "$id"
     [ "$status" -eq 0 ]
-    run bash "$SCRIPT" --list-skipped
+    run "$SCRIPT" --list-skipped
     [ "$output" = "no skipped commits" ]
-    run bash "$SCRIPT" --all --export-only
+    run "$SCRIPT" --all --export-only
     [ "$status" -eq 0 ]
     [[ "$output" == *"Commits: 1"* ]]
 }
@@ -1069,12 +1069,12 @@ _head_of_source() {
     _setup_fork_export_fixture
     _add_export_commit "One"
 
-    run bash "$SCRIPT" --dry-run --skip HEAD
+    run "$SCRIPT" --dry-run --skip HEAD
     [ "$status" -ne 0 ]
     [[ "$output" == *"--dry-run cannot be combined with --skip"* ]]
-    run bash "$SCRIPT" --list-skipped
+    run "$SCRIPT" --list-skipped
     [ "$output" = "no skipped commits" ]
-    run bash "$SCRIPT" --dry-run --list-skipped
+    run "$SCRIPT" --dry-run --list-skipped
     [ "$status" -ne 0 ]
 }
 
@@ -1088,12 +1088,12 @@ _head_of_source() {
     git -C "$FORK_FIXTURE_GH_CLONE" add other.txt
     git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "Reworked copy" -m "Change-Id: $shared_id"
 
-    run bash "$SCRIPT" --dry-run --apply-to "$FORK_FIXTURE_GH_CLONE"
+    run "$SCRIPT" --dry-run --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -eq 0 ]
     [[ "$output" == *"excluded 1 commit(s) already present in target by Change-Id"* ]]
     [[ "$output" == *"would export 1 commit(s)"* ]]
 
-    run bash "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
+    run "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
     [[ "$output" == *"Commits: 1"* ]]
 }
 
@@ -1122,7 +1122,7 @@ _head_of_source() {
     _add_file_commit legacy untracked
     legacy_sha="$(_head_of_source)"
 
-    run bash "$SCRIPT" --all --export-only --format bundle
+    run "$SCRIPT" --all --export-only --format bundle
     [ "$status" -eq 0 ]
     bundle_file="$(sed -n 's/^Bundle: //p' <<< "$output")"
     _assert_bundle_subjects "$bundle_file" "Commit alpha"
@@ -1160,7 +1160,7 @@ _head_of_source() {
         "exec $real_git \"\$@\"" > "$TEST_TEMP_DIR/shim/git"
     chmod +x "$TEST_TEMP_DIR/shim/git"
 
-    run env PATH="$TEST_TEMP_DIR/shim:$PATH" bash "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
+    run env PATH="$TEST_TEMP_DIR/shim:$PATH" "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -ne 0 ]
     [[ "$output" == *"could not read the target's history"* ]]
     [ ! -e "$FORK_FIXTURE_GH_CLONE/alpha.txt" ]
@@ -1197,7 +1197,7 @@ SHIM
     _add_file_commit alpha
     _install_git_shim merge-base --independent
 
-    run env PATH="$TEST_TEMP_DIR/shim:$PATH" bash "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
+    run env PATH="$TEST_TEMP_DIR/shim:$PATH" "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -ne 0 ]
     [[ "$output" == *"could not determine the bundle endpoints"* ]]
     [ -z "$(git -C "$FORK_FIXTURE_WORKING_CLONE" for-each-ref --format='%(refname)' refs/fork-export)" ]
@@ -1209,7 +1209,7 @@ SHIM
     _add_file_commit alpha
     _install_git_shim fetch --no-tags
 
-    run env PATH="$TEST_TEMP_DIR/shim:$PATH" bash "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
+    run env PATH="$TEST_TEMP_DIR/shim:$PATH" "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -ne 0 ]
     [[ "$output" == *"failed to fetch the bundle into"* ]]
     [ -z "$(git -C "$FORK_FIXTURE_WORKING_CLONE" for-each-ref --format='%(refname)' refs/fork-export)" ]
@@ -1240,14 +1240,14 @@ SHIM
     _add_upstream_clone_to_repos
 
     # First export applies into the sibling clone.
-    run bash "$SCRIPT" --all
+    run "$SCRIPT" --all
     [ "$status" -eq 0 ]
     [ "$(git -C "$FORK_FIXTURE_GH_CLONE" log -1 --format=%s)" = "Local one" ]
 
     # Re-run: the commit is present in the target (by patch equivalence)
     # and must be excluded, not re-applied. The run reports the exclusion and
     # exits non-zero with "all candidate commits are already present".
-    run bash "$SCRIPT" --all
+    run "$SCRIPT" --all
     [ "$status" -ne 0 ]
     [[ "$output" == *"excluded 1 commit(s) already present in target"* ]]
     [ "$(git -C "$FORK_FIXTURE_GH_CLONE" rev-list --count HEAD)" -eq 2 ]  # base + one
@@ -1258,7 +1258,7 @@ SHIM
     _add_export_commit "Local one"
     _add_upstream_clone_to_repos
 
-    run bash "$SCRIPT" --all
+    run "$SCRIPT" --all
     [ "$status" -eq 0 ]
     local fork_sha fork_id copy_id
     fork_sha="$(git rev-parse HEAD)"
@@ -1276,7 +1276,7 @@ SHIM
     git -C "$FORK_FIXTURE_WORKING_CLONE" -c core.hooksPath=/dev/null commit -qm "pre-hook commit"
     _add_upstream_clone_to_repos
 
-    run bash "$SCRIPT" --all --include-untracked
+    run "$SCRIPT" --all --include-untracked
     [ "$status" -eq 0 ]
     # The target copy's Change-Id must be extractable (own physical line)…
     local copy_id

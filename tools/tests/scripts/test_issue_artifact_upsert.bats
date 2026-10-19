@@ -92,14 +92,14 @@ teardown() {
 }
 
 @test "issue-artifact-upsert.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh"
+  run bash -n "$PROJECT_ROOT/tools/issue-artifact-upsert"
   [ "$status" -eq 0 ]
 }
 
 @test "no existing doc_id match creates comment" {
   export MOCK_COMMENTS_JSON='[]'
 
-  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/issue-artifact-upsert" \
     --issue 42 \
     --body $'<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:org/repo:issue-42:spike:test\n-->'
 
@@ -117,7 +117,7 @@ teardown() {
     }
   ]'
 
-  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/issue-artifact-upsert" \
     --issue 42 \
     --body $'<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:org/repo:issue-42:spike:test\n-->'
 
@@ -137,7 +137,7 @@ teardown() {
     }
   ]'
 
-  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/issue-artifact-upsert" \
     --issue 42 \
     --body $'<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:org/repo:issue-42:spike:test\n-->'
 
@@ -148,7 +148,7 @@ teardown() {
 @test "indented metadata header creates comment" {
   export MOCK_COMMENTS_JSON='[]'
 
-  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/issue-artifact-upsert" \
     --issue 42 \
     --body $'<!-- DEVENV_ARTIFACT_V1\n doc_id: dv1:org/repo:issue-42:spike:test\n artifact_type: spike\n-->'
 
@@ -163,7 +163,7 @@ teardown() {
     {"id": 202, "html_url": "https://example.test/issues/42#issuecomment-202", "body": "doc_id: dv1:org/repo:issue-42:spike:test"}
   ]'
 
-  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/issue-artifact-upsert" \
     --issue 42 \
     --body $'doc_id: dv1:org/repo:issue-42:spike:test'
 
@@ -177,7 +177,7 @@ teardown() {
     {"id": 300, "html_url": "https://example.test/issues/42#issuecomment-300", "body": "doc_id: dv1:org/repo:issue-42:spike:other"}
   ]'
 
-  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/issue-artifact-upsert" \
     --issue 42 \
     --body $'doc_id: dv1:org/repo:issue-42:spike:test'
 
@@ -194,7 +194,7 @@ teardown() {
     }
   ]'
 
-  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/issue-artifact-upsert" \
     --issue 42 \
     --body $'doc_id: dv1:org/repo:issue-42:spike:test'
 
@@ -205,7 +205,7 @@ teardown() {
 @test "issue number is inferred from doc_id when no explicit issue metadata is present" {
   export MOCK_COMMENTS_JSON='[]'
 
-  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/issue-artifact-upsert" \
     --body $'<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:org/repo:issue-42:spike:test\n-->'
 
   [ "$status" -eq 0 ]
@@ -216,7 +216,7 @@ teardown() {
 @test "dry-run shows intended action without write" {
   export MOCK_COMMENTS_JSON='[]'
 
-  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/issue-artifact-upsert" \
     --issue 42 \
     --body $'doc_id: dv1:org/repo:issue-42:spike:test' \
     --dry-run
@@ -236,7 +236,7 @@ teardown() {
 
   # stdin is isolated from the bats TTY: with no source flag and non-TTY
   # stdin the tool auto-reads, gets EOF, and errors on the empty body.
-  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" --issue 42
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/issue-artifact-upsert" --issue 42
 
   [ "$status" -eq 2 ]
   [[ "$output" == *"Refusing empty stdin body"* ]]
@@ -246,7 +246,7 @@ teardown() {
   export MOCK_COMMENTS_JSON='[]'
   printf '<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:org/repo:issue-42:plan:filetest\nartifact_type: plan\nissue_number: 42\n-->\n\nbody text\n' > "$TEST_TEMP_DIR/body.md"
 
-  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/issue-artifact-upsert" \
     --issue 42 \
     --body-file "$TEST_TEMP_DIR/body.md" \
     --dry-run
@@ -259,7 +259,7 @@ teardown() {
   export MOCK_COMMENTS_JSON='[]'
   printf 'doc_id: dv1:org/repo:issue-42:spike:test\n' > "$TEST_TEMP_DIR/body.md"
 
-  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/issue-artifact-upsert" \
     --issue 42 \
     --body $'doc_id: dv1:org/repo:issue-42:spike:test' \
     --body-file "$TEST_TEMP_DIR/body.md"
@@ -317,7 +317,7 @@ GH
   pad=$(printf 'p%.0s' $(seq 1 200))
   export MOCK_COMMENTS_JSON='[]'
 
-  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/issue-artifact-upsert" \
     --issue 42 \
     --body "doc_id: dv1:org/repo:issue-42:spike:test\n${pad}"
 
@@ -331,7 +331,7 @@ GH
   pad=$(printf 'p%.0s' $(seq 1 300))
   export MOCK_COMMENTS_JSON='[]'
 
-  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/issue-artifact-upsert" \
     --issue 42 \
     --body "${pad}\ndoc_id: dv1:org/repo:issue-42:spike:test"
 
@@ -349,7 +349,7 @@ GH
   export MOCK_COMMENTS_JSON='[]'
   printf '# Spike\n\nplain research notes, no artifact header\n' > "$TEST_TEMP_DIR/research-spike.md"
 
-  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh" \
+  run bash -c 'exec 0</dev/null; "$0" "$@"' "$PROJECT_ROOT/tools/issue-artifact-upsert" \
     --body-file "$TEST_TEMP_DIR/research-spike.md" \
     --dry-run
 

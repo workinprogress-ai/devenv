@@ -4,11 +4,15 @@
   "description": "Developer environment (MIT License)",
   "private": true,
   "packageManager": "pnpm@11.9.0",
+  "type": "module",
   "scripts": {
     "prepare": "husky",
     "ci:release": "semantic-release",
     "test": "bash tools/tests/run-devenv-tests.sh",
+    "test:ts": "vitest run",
+    "typecheck": "tsc --noEmit",
     "lint": "bash tools/scripts/lint-scripts.sh",
+    "lint:ts": "eslint tools",
     "lint:skills": "lint-skills"
   },
   "repository": {
@@ -18,7 +22,7 @@
   "keywords": [
     "devcontainer",
     "development-environment",
-    "bash",
+    "typescript",
     "github",
     "docker",
     "podman"
@@ -26,14 +30,22 @@
   "author": "WorkInProgress.ai",
   "license": "MIT",
   "devDependencies": {
+    "@clack/prompts": "^1.8.1",
     "@commitlint/cli": "^19.3.0",
     "@commitlint/config-conventional": "^19.2.2",
     "@semantic-release/commit-analyzer": "^13.0.0",
     "@semantic-release/github": "^11.0.0",
     "@semantic-release/release-notes-generator": "^14.0.0",
+    "@types/node": "^26.6.5",
+    "eslint": "^10.13.0",
     "husky": "^9.0.11",
     "markdown-link-check": "^3.12.2",
     "markdownlint-cli2": "^0.17.0",
-    "semantic-release": "^24.0.0"
+    "picocolors": "^1.1.1",
+    "semantic-release": "^24.0.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.2",
+    "vitest": "^5.0.5",
+    "zod": "^4.6.7"
   }
 }

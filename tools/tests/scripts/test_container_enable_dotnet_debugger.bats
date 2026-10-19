@@ -18,7 +18,7 @@ setup() {
 }
 
 @test "a bare invocation prints the message and exits 1 instead of an unbound-variable error" {
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 1 ]
     [[ "$output" == *"Provide the container name"* ]]
     [[ "$output" != *"unbound variable"* ]]
@@ -26,14 +26,14 @@ setup() {
 }
 
 @test "an empty container name is refused the same way" {
-    run bash "$SCRIPT" ""
+    run "$SCRIPT" ""
     [ "$status" -eq 1 ]
     [[ "$output" == *"Provide the container name"* ]]
     [ ! -s "$DOCKER_LOG" ]
 }
 
 @test "a container name is passed through to every docker exec" {
-    run bash "$SCRIPT" mycontainer
+    run "$SCRIPT" mycontainer
     [ "$status" -eq 0 ]
     [ "$(grep -c '^docker exec mycontainer ' "$DOCKER_LOG")" -eq 4 ]
     grep -q 'docker exec mycontainer mkdir -p /remote_debugger' "$DOCKER_LOG"

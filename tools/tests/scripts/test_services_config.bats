@@ -6,12 +6,12 @@ bats_require_minimum_version 1.5.0
 load ../test_helper
 
 @test "get-services-config.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/get-services-config.sh"
+  run bash -n "$PROJECT_ROOT/tools/get-services-config"
   [ "$status" -eq 0 ]
 }
 
 @test "get-services-config.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/get-services-config.sh" --help
+  run "$PROJECT_ROOT/tools/get-services-config" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
@@ -21,13 +21,13 @@ load ../test_helper
   # target folder was deleted before the clone failed.
   mkdir -p "$TEST_TEMP_DIR/cfg"
   echo keep > "$TEST_TEMP_DIR/cfg/marker"
-  run env CONFIG_FOLDER="$TEST_TEMP_DIR/cfg" bash "$PROJECT_ROOT/tools/scripts/get-services-config.sh" --help
+  run env CONFIG_FOLDER="$TEST_TEMP_DIR/cfg" "$PROJECT_ROOT/tools/get-services-config" --help
   [ "$status" -eq 0 ]
   [ -f "$TEST_TEMP_DIR/cfg/marker" ]
 }
 
 @test "get-services-config.sh -h is the same as --help" {
-  run bash "$PROJECT_ROOT/tools/scripts/get-services-config.sh" -h
+  run "$PROJECT_ROOT/tools/get-services-config" -h
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }

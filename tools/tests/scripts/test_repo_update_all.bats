@@ -6,19 +6,19 @@ bats_require_minimum_version 1.5.0
 load ../test_helper
 
 @test "repo-update-all.sh has valid syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/repo-update-all.sh"
+  run bash -n "$PROJECT_ROOT/tools/repo-update-all"
   [ "$status" -eq 0 ]
 }
 
 @test "repo-update-all.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/repo-update-all.sh" --help
+  run "$PROJECT_ROOT/tools/repo-update-all" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ Usage: ]]
   [[ "$output" =~ parallel ]]
 }
 
 @test "repo-update-all.sh documents --jobs option" {
-  run bash "$PROJECT_ROOT/tools/scripts/repo-update-all.sh" --help
+  run "$PROJECT_ROOT/tools/repo-update-all" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ --jobs ]]
 }
@@ -41,13 +41,13 @@ load ../test_helper
 }
 
 @test "repo-update-all.sh validates --jobs argument" {
-  run bash "$PROJECT_ROOT/tools/scripts/repo-update-all.sh" --jobs abc 2>&1
+  run "$PROJECT_ROOT/tools/repo-update-all" --jobs abc 2>&1
   [ "$status" -ne 0 ]
   [[ "$output" =~ ERROR ]]
 }
 
 @test "repo-update-all.sh handles unknown options" {
-  run bash "$PROJECT_ROOT/tools/scripts/repo-update-all.sh" --invalid-option 2>&1
+  run "$PROJECT_ROOT/tools/repo-update-all" --invalid-option 2>&1
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Unknown option" ]]
 }

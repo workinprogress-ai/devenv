@@ -22,7 +22,7 @@ teardown() {
 }
 
 @test "--list reports all four families and deletes nothing" {
-  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null -l
+  run "$SCRIPT" "$WORK_DIR/repo" < /dev/null -l
   [ "$status" -eq 0 ]
   [[ "$output" == *"[ephemeral] would clean 2"* ]]
   [[ "$output" == *"[session] would clean 1"* ]]
@@ -32,7 +32,7 @@ teardown() {
 }
 
 @test "--tmp deletes ephemeral files without confirmation, nothing else" {
-  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null --tmp
+  run "$SCRIPT" "$WORK_DIR/repo" < /dev/null --tmp
   [ "$status" -eq 0 ]
   [ ! -f "$FOLDER/tmp1.md" ]
   [ ! -f "$FOLDER/tmp2.md" ]
@@ -41,7 +41,7 @@ teardown() {
 }
 
 @test "--working -y deletes working copies only" {
-  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null --working -y
+  run "$SCRIPT" "$WORK_DIR/repo" < /dev/null --working -y
   [ "$status" -eq 0 ]
   [ ! -f "$FOLDER/Plan-issue-33-001.md" ]
   [ ! -f "$FOLDER/Roadmap-22.md" ]
@@ -50,20 +50,20 @@ teardown() {
 }
 
 @test "--working without -y and without TTY refuses to delete" {
-  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null --working
+  run "$SCRIPT" "$WORK_DIR/repo" < /dev/null --working
   [ "$status" -eq 0 ]
   [[ "$output" == *"need confirmation"* ]]
   [ -f "$FOLDER/Plan-issue-33-001.md" ]
 }
 
 @test "--all -y clears every family including other" {
-  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null --all -y
+  run "$SCRIPT" "$WORK_DIR/repo" < /dev/null --all -y
   [ "$status" -eq 0 ]
   [ -z "$(ls -A "$FOLDER")" ]
 }
 
 @test "no flags with no TTY defaults to list-only (never prompts, never deletes)" {
-  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null
+  run "$SCRIPT" "$WORK_DIR/repo" < /dev/null
   [ "$status" -eq 0 ]
   [[ "$output" == *"list-only"* ]]
   [ -f "$FOLDER/tmp1.md" ]
@@ -72,23 +72,23 @@ teardown() {
 
 @test "path without an artifact folder exits 2" {
   mkdir -p "$WORK_DIR/plain"
-  run bash "$SCRIPT" "$WORK_DIR/plain"
+  run "$SCRIPT" "$WORK_DIR/plain"
   [ "$status" -eq 2 ]
 }
 
 @test "accepts the .local-artifacts folder itself as target" {
-  run bash "$SCRIPT" "$FOLDER" -l < /dev/null
+  run "$SCRIPT" "$FOLDER" -l < /dev/null
   [ "$status" -eq 0 ]
   [[ "$output" == *"[ephemeral] would clean 2"* ]]
 }
 
 @test "unknown option exits 2 (canonical invalid-args contract)" {
-  run bash "$SCRIPT" --bogus "$WORK_DIR/repo" < /dev/null
+  run "$SCRIPT" --bogus "$WORK_DIR/repo" < /dev/null
   [ "$status" -eq 2 ]
 }
 
 @test "--version prints version" {
-  run bash "$SCRIPT" --version < /dev/null
+  run "$SCRIPT" --version < /dev/null
   [ "$status" -eq 0 ]
   [[ "$output" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
 }
@@ -107,7 +107,7 @@ EOF
   chmod +x "$TEST_TEMP_DIR/bin/fzf"
   # --interactive explicitly: bats --jobs workers have no TTY, so the
   # default-mode TTY heuristic would otherwise pick list-only.
-  run env PATH="$TEST_TEMP_DIR/bin:$PATH" bash "$SCRIPT" --interactive "$WORK_DIR/repo" < /dev/null
+  run env PATH="$TEST_TEMP_DIR/bin:$PATH" "$SCRIPT" --interactive "$WORK_DIR/repo" < /dev/null
   [ "$status" -eq 0 ]
   # Ephemeral cleaned without confirmation
   [ ! -f "$FOLDER/tmp1.md" ]
@@ -125,7 +125,7 @@ EOF
   mkdir -p "$TEST_TEMP_DIR/bin"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$TEST_TEMP_DIR/bin/fzf"
   chmod +x "$TEST_TEMP_DIR/bin/fzf"
-  run env PATH="$TEST_TEMP_DIR/bin:$PATH" bash "$SCRIPT" --interactive "$WORK_DIR/repo" < /dev/null
+  run env PATH="$TEST_TEMP_DIR/bin:$PATH" "$SCRIPT" --interactive "$WORK_DIR/repo" < /dev/null
   [ "$status" -eq 0 ]
   [ ! -f "$FOLDER/tmp1.md" ]
   [ -f "$FOLDER/Plan-issue-33-001.md" ]
@@ -134,7 +134,7 @@ EOF
 }
 
 @test "interactive without fzf and without TTY defaults to list-only (never deletes)" {
-  run env PATH="/usr/bin:/bin" bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null
+  run env PATH="/usr/bin:/bin" "$SCRIPT" "$WORK_DIR/repo" < /dev/null
   [ "$status" -eq 0 ]
   [ -f "$FOLDER/tmp1.md" ]
   [[ "$output" =~ "list-only" ]]
@@ -150,7 +150,7 @@ printf '%s\n' "$@" > "$CAPTURE_FILE"
 exit 0
 EOF
   chmod +x "$TEST_TEMP_DIR/bin/fzf"
-  run env PATH="$TEST_TEMP_DIR/bin:$PATH" CAPTURE_FILE="$TEST_TEMP_DIR/fzf-args.txt" bash "$SCRIPT" --interactive "$WORK_DIR/repo" < /dev/null
+  run env PATH="$TEST_TEMP_DIR/bin:$PATH" CAPTURE_FILE="$TEST_TEMP_DIR/fzf-args.txt" "$SCRIPT" --interactive "$WORK_DIR/repo" < /dev/null
   [ "$status" -eq 0 ]
   grep -q -- "--preview=cat {2}" "$TEST_TEMP_DIR/fzf-args.txt"
   grep -q -- "--multi" "$TEST_TEMP_DIR/fzf-args.txt"
@@ -165,7 +165,7 @@ EOF
 exit 0
 EOF
   chmod +x "$TEST_TEMP_DIR/bin/fzf"
-  run env PATH="$TEST_TEMP_DIR/bin:$PATH" bash "$SCRIPT" --interactive --keep-tmp "$WORK_DIR/repo" < /dev/null
+  run env PATH="$TEST_TEMP_DIR/bin:$PATH" "$SCRIPT" --interactive --keep-tmp "$WORK_DIR/repo" < /dev/null
   [ "$status" -eq 0 ]
   # Ephemeral files survived — the override held
   [ -f "$FOLDER/tmp1.md" ]
@@ -175,7 +175,7 @@ EOF
 }
 
 @test "--keep-tmp --tmp without TTY: refuses rather than silently deleting" {
-  run bash "$SCRIPT" --keep-tmp --tmp "$WORK_DIR/repo" < /dev/null
+  run "$SCRIPT" --keep-tmp --tmp "$WORK_DIR/repo" < /dev/null
   [ "$status" -eq 0 ]
   [ -f "$FOLDER/tmp1.md" ]
   [ -f "$FOLDER/tmp2.md" ]
@@ -183,7 +183,7 @@ EOF
 }
 
 @test "--keep-tmp --tmp -y: still deletes (explicit confirmation path)" {
-  run bash "$SCRIPT" --keep-tmp --tmp -y "$WORK_DIR/repo" < /dev/null
+  run "$SCRIPT" --keep-tmp --tmp -y "$WORK_DIR/repo" < /dev/null
   [ "$status" -eq 0 ]
   [ ! -f "$FOLDER/tmp1.md" ]
   [ ! -f "$FOLDER/tmp2.md" ]
@@ -203,7 +203,7 @@ make_deliverables() {
 
 @test "--all -y never deletes deliverables (research, bug-hunt, tech-debt audit)" {
   make_deliverables
-  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null --all -y
+  run "$SCRIPT" "$WORK_DIR/repo" < /dev/null --all -y
   [ "$status" -eq 0 ]
   [ -f "$FOLDER/research-001-claude-code-interop.md" ]
   [ -f "$FOLDER/bug-hunt-azure-git-npm-auth.md" ]
@@ -215,7 +215,7 @@ make_deliverables() {
 
 @test "the sweep says which deliverables it kept and how to include them" {
   make_deliverables
-  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null --all -y
+  run "$SCRIPT" "$WORK_DIR/repo" < /dev/null --all -y
   [ "$status" -eq 0 ]
   [[ "$output" == *"[deliverable] kept 3 protected file(s)"* ]]
   [[ "$output" == *"--include-deliverables"* ]]
@@ -223,7 +223,7 @@ make_deliverables() {
 
 @test "--list reports deliverables as protected, not as cleanable 'other'" {
   make_deliverables
-  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null -l
+  run "$SCRIPT" "$WORK_DIR/repo" < /dev/null -l
   [ "$status" -eq 0 ]
   [[ "$output" == *"[other] would clean 1"* ]]
   [[ "$output" == *"[deliverable] kept 3 protected file(s)"* ]]
@@ -232,7 +232,7 @@ make_deliverables() {
 
 @test "--all -y --include-deliverables is the explicit override that deletes them" {
   make_deliverables
-  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null --all -y --include-deliverables
+  run "$SCRIPT" "$WORK_DIR/repo" < /dev/null --all -y --include-deliverables
   [ "$status" -eq 0 ]
   [ ! -f "$FOLDER/research-001-claude-code-interop.md" ]
   [ ! -f "$FOLDER/bug-hunt-azure-git-npm-auth.md" ]
@@ -241,7 +241,7 @@ make_deliverables() {
 
 @test "--include-deliverables alone does not delete without -y or a confirmation" {
   make_deliverables
-  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null --all --include-deliverables
+  run "$SCRIPT" "$WORK_DIR/repo" < /dev/null --all --include-deliverables
   [ "$status" -eq 0 ]
   [ -f "$FOLDER/TECH_DEBT_AUDIT.md" ]
   [ -f "$FOLDER/random-notes.md" ]
@@ -249,7 +249,7 @@ make_deliverables() {
 
 @test "family-only sweeps (--working, --session, --tmp) leave deliverables alone" {
   make_deliverables
-  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null --tmp --session --working -y
+  run "$SCRIPT" "$WORK_DIR/repo" < /dev/null --tmp --session --working -y
   [ "$status" -eq 0 ]
   [ -f "$FOLDER/research-001-claude-code-interop.md" ]
   [ -f "$FOLDER/bug-hunt-azure-git-npm-auth.md" ]
@@ -258,9 +258,9 @@ make_deliverables() {
 
 @test "pair's pairing-state files are session memory, swept with --session" {
   touch "$FOLDER/pairing-state-issue-7.md"
-  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null -l
+  run "$SCRIPT" "$WORK_DIR/repo" < /dev/null -l
   [[ "$output" == *"[session] would clean 2"* ]]
-  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null --session -y
+  run "$SCRIPT" "$WORK_DIR/repo" < /dev/null --session -y
   [ "$status" -eq 0 ]
   [ ! -f "$FOLDER/pairing-state-issue-7.md" ]
   [ ! -f "$FOLDER/session_memory-design.md" ]
@@ -268,15 +268,15 @@ make_deliverables() {
 
 @test "session-state registry files classify as session and sweep with --session" {
   touch "$FOLDER/session-state-Plan-issue-42-001.md" "$FOLDER/session-state-adhoc-debugging.md"
-  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null -l
+  run "$SCRIPT" "$WORK_DIR/repo" < /dev/null -l
   [[ "$output" == *"[session] would clean 3"* ]]
-  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null --session -y
+  run "$SCRIPT" "$WORK_DIR/repo" < /dev/null --session -y
   [ "$status" -eq 0 ]
   [ ! -f "$FOLDER/session-state-Plan-issue-42-001.md" ]
   [ ! -f "$FOLDER/session-state-adhoc-debugging.md" ]
 }
 
 @test "an unknown option is still rejected" {
-  run bash "$SCRIPT" "$WORK_DIR/repo" < /dev/null --include-deliverable
+  run "$SCRIPT" "$WORK_DIR/repo" < /dev/null --include-deliverable
   [ "$status" -eq 2 ]
 }
