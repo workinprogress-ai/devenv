@@ -5,7 +5,7 @@ bats_require_minimum_version 1.5.0
 
 load ../test_helper
 
-SCRIPT="$BATS_TEST_DIRNAME/../../scripts/spec-dependency-check.sh"
+SCRIPT="$BATS_TEST_DIRNAME/../../spec-dependency-check"
 
 setup() {
     test_helper_setup
@@ -29,36 +29,36 @@ spec_file() {
 }
 
 @test "--help exits 0 and lists the checks" {
-    run bash "$SCRIPT" --help
+    run "$SCRIPT" --help
     [ "$status" -eq 0 ]
     [[ "$output" == *"Usage:"* ]]
     [[ "$output" == *"group-order"* ]]
 }
 
 @test "--version exits 0 and prints the version" {
-    run bash "$SCRIPT" --version
+    run "$SCRIPT" --version
     [ "$status" -eq 0 ]
     [[ "$output" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
 }
 
 @test "no arguments is a usage error (exit 2)" {
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 2 ]
 }
 
 @test "an unknown option is a usage error (exit 2)" {
-    run bash "$SCRIPT" --bogus
+    run "$SCRIPT" --bogus
     [ "$status" -eq 2 ]
 }
 
 @test "a missing file is a usage error (exit 2)" {
-    run bash "$SCRIPT" "$TEST_TEMP_DIR/absent.md"
+    run "$SCRIPT" "$TEST_TEMP_DIR/absent.md"
     [ "$status" -eq 2 ]
 }
 
 @test "a consistent document is ok with its edge count" {
     f="$(spec_file ok.md '## SPEC-001' 'Dependencies: SPEC-002' '## SPEC-002' 'Dependencies:')"
-    run bash "$SCRIPT" "$f"
+    run "$SCRIPT" "$f"
     [ "$status" -eq 0 ]
     [ "$(jq -r '.ok' <<<"$output")" = "true" ]
     [ "$(jq -r '.edges' <<<"$output")" = "1" ]
@@ -66,55 +66,55 @@ spec_file() {
 
 @test "a dependency on an undefined SPEC-ID is an 'unknown' error (exit 1)" {
     f="$(spec_file unknown.md '## SPEC-001' 'Dependencies: SPEC-099')"
-    run bash "$SCRIPT" "$f"
+    run "$SCRIPT" "$f"
     [ "$status" -eq 1 ]
     [ "$(jq -r '.errors[0].type' <<<"$output")" = "unknown" ]
 }
 
 @test "a dependency cycle is reported (exit 1)" {
     f="$(spec_file cycle.md '## SPEC-001' 'Dependencies: SPEC-002' '## SPEC-002' 'Dependencies: SPEC-001')"
-    run bash "$SCRIPT" "$f"
+    run "$SCRIPT" "$f"
     [ "$status" -eq 1 ]
     [ "$(jq -r '[.errors[].type] | index("cycle") != null' <<<"$output")" = "true" ]
 }
 
 @test "a transitive cycle is reported" {
     f="$(spec_file tcycle.md '## SPEC-001' 'Dependencies: SPEC-002' '## SPEC-002' 'Dependencies: SPEC-003' '## SPEC-003' 'Dependencies: SPEC-001')"
-    run bash "$SCRIPT" "$f"
+    run "$SCRIPT" "$f"
     [ "$status" -eq 1 ]
     [ "$(jq -r '[.errors[].type] | index("cycle") != null' <<<"$output")" = "true" ]
 }
 
 @test "depending on an item in a later group is a 'group-order' error" {
     f="$(spec_file group.md '## SPEC-001' 'Group: 1' 'Dependencies: SPEC-002' '## SPEC-002' 'Group: 2')"
-    run bash "$SCRIPT" "$f"
+    run "$SCRIPT" "$f"
     [ "$status" -eq 1 ]
     [ "$(jq -r '.errors[0].type' <<<"$output")" = "group-order" ]
 }
 
 @test "depending on an item in an earlier group is fine" {
     f="$(spec_file group-ok.md '## SPEC-001' 'Group: 2' 'Dependencies: SPEC-002' '## SPEC-002' 'Group: 1')"
-    run bash "$SCRIPT" "$f"
+    run "$SCRIPT" "$f"
     [ "$status" -eq 0 ]
 }
 
 @test "multiple files resolve cross-file dependencies" {
     a="$(spec_file a.md '## SPEC-001' 'Dependencies: SPEC-002')"
     b="$(spec_file b.md '## SPEC-002')"
-    run bash "$SCRIPT" "$a" "$b"
+    run "$SCRIPT" "$a" "$b"
     [ "$status" -eq 0 ]
     [ "$(jq -r '.edges' <<<"$output")" = "1" ]
 }
 
 @test "the same cross-file dependency is unknown when the other file is not given" {
     a="$(spec_file a2.md '## SPEC-001' 'Dependencies: SPEC-002')"
-    run bash "$SCRIPT" "$a"
+    run "$SCRIPT" "$a"
     [ "$status" -eq 1 ]
 }
 
 @test "a document without any SPEC heading fails with a no-spec-ids error" {
     f="$(spec_file empty.md '# Just a title' 'no specs here')"
-    run bash "$SCRIPT" "$f"
+    run "$SCRIPT" "$f"
     [ "$status" -eq 1 ]
     [[ "$output" == *"no-spec-ids"* ]]
 }

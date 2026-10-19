@@ -30,7 +30,7 @@ teardown() {
 rerun_call() { grep -m1 'gh run rerun' "$GH_CALL_LOG"; }
 
 @test "pipelines-rerun --failed --debug reaches gh run rerun" {
-    run bash "$PROJECT_ROOT/tools/scripts/pipelines-rerun.sh" 123 --repo acme/widgets --failed --debug
+    run "$PROJECT_ROOT/tools/pipelines-rerun" 123 --repo acme/widgets --failed --debug
     [ "$status" -eq 0 ]
     local call; call="$(rerun_call)"
     [[ "$call" == *"--failed"* ]]
@@ -38,14 +38,14 @@ rerun_call() { grep -m1 'gh run rerun' "$GH_CALL_LOG"; }
 }
 
 @test "pipelines-rerun names the repository once, not twice" {
-    run bash "$PROJECT_ROOT/tools/scripts/pipelines-rerun.sh" 123 --repo acme/widgets --failed
+    run "$PROJECT_ROOT/tools/pipelines-rerun" 123 --repo acme/widgets --failed
     [ "$status" -eq 0 ]
     local call; call="$(rerun_call)"
     [ "$(grep -o -- '-R acme/widgets' <<< "$call" | wc -l)" -eq 1 ]
 }
 
 @test "pipelines-rerun without flags reruns the whole run" {
-    run bash "$PROJECT_ROOT/tools/scripts/pipelines-rerun.sh" 123 --repo acme/widgets
+    run "$PROJECT_ROOT/tools/pipelines-rerun" 123 --repo acme/widgets
     [ "$status" -eq 0 ]
     local call; call="$(rerun_call)"
     [[ "$call" != *"--failed"* ]]

@@ -27,12 +27,12 @@ load ../test_helper
 # ============================================================================
 
 @test "pipelines-status.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pipelines-status.sh"
+  run bash -n "$PROJECT_ROOT/tools/pipelines-status"
   [ "$status" -eq 0 ]
 }
 
 @test "pipelines-status.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/pipelines-status.sh" --help
+  run "$PROJECT_ROOT/tools/pipelines-status" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
@@ -52,12 +52,12 @@ load ../test_helper
 # ============================================================================
 
 @test "pipelines-list.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pipelines-list.sh"
+  run bash -n "$PROJECT_ROOT/tools/pipelines-list"
   [ "$status" -eq 0 ]
 }
 
 @test "pipelines-list.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/pipelines-list.sh" --help
+  run "$PROJECT_ROOT/tools/pipelines-list" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
@@ -77,12 +77,12 @@ load ../test_helper
 # ============================================================================
 
 @test "pipelines-run.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pipelines-run.sh"
+  run bash -n "$PROJECT_ROOT/tools/pipelines-run"
   [ "$status" -eq 0 ]
 }
 
 @test "pipelines-run.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/pipelines-run.sh" --help
+  run "$PROJECT_ROOT/tools/pipelines-run" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
@@ -102,12 +102,12 @@ load ../test_helper
 # ============================================================================
 
 @test "pipelines-rerun.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pipelines-rerun.sh"
+  run bash -n "$PROJECT_ROOT/tools/pipelines-rerun"
   [ "$status" -eq 0 ]
 }
 
 @test "pipelines-rerun.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/pipelines-rerun.sh" --help
+  run "$PROJECT_ROOT/tools/pipelines-rerun" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
@@ -127,12 +127,12 @@ load ../test_helper
 # ============================================================================
 
 @test "pipelines-watch.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pipelines-watch.sh"
+  run bash -n "$PROJECT_ROOT/tools/pipelines-watch"
   [ "$status" -eq 0 ]
 }
 
 @test "pipelines-watch.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/pipelines-watch.sh" --help
+  run "$PROJECT_ROOT/tools/pipelines-watch" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
@@ -152,12 +152,12 @@ load ../test_helper
 # ============================================================================
 
 @test "pipelines-artifacts.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pipelines-artifacts.sh"
+  run bash -n "$PROJECT_ROOT/tools/pipelines-artifacts"
   [ "$status" -eq 0 ]
 }
 
 @test "pipelines-artifacts.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/pipelines-artifacts.sh" --help
+  run "$PROJECT_ROOT/tools/pipelines-artifacts" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
@@ -180,49 +180,49 @@ load ../test_helper
 # ============================================================================
 
 @test "pipelines-status.sh exists with valid syntax and --help" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pipelines-status.sh"
+  run bash -n "$PROJECT_ROOT/tools/pipelines-status"
   [ "$status" -eq 0 ]
-  run bash "$PROJECT_ROOT/tools/scripts/pipelines-status.sh" --help
+  run "$PROJECT_ROOT/tools/pipelines-status" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "pipelines-list.sh exists with valid syntax and --help" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pipelines-list.sh"
+  run bash -n "$PROJECT_ROOT/tools/pipelines-list"
   [ "$status" -eq 0 ]
-  run bash "$PROJECT_ROOT/tools/scripts/pipelines-list.sh" --help
+  run "$PROJECT_ROOT/tools/pipelines-list" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "pipelines-run.sh exists with valid syntax and --help" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pipelines-run.sh"
+  run bash -n "$PROJECT_ROOT/tools/pipelines-run"
   [ "$status" -eq 0 ]
-  run bash "$PROJECT_ROOT/tools/scripts/pipelines-run.sh" --help
+  run "$PROJECT_ROOT/tools/pipelines-run" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "pipelines-rerun.sh exists with valid syntax and --help" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pipelines-rerun.sh"
+  run bash -n "$PROJECT_ROOT/tools/pipelines-rerun"
   [ "$status" -eq 0 ]
-  run bash "$PROJECT_ROOT/tools/scripts/pipelines-rerun.sh" --help
+  run "$PROJECT_ROOT/tools/pipelines-rerun" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "pipelines-watch.sh exists with valid syntax and --help" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pipelines-watch.sh"
+  run bash -n "$PROJECT_ROOT/tools/pipelines-watch"
   [ "$status" -eq 0 ]
-  run bash "$PROJECT_ROOT/tools/scripts/pipelines-watch.sh" --help
+  run "$PROJECT_ROOT/tools/pipelines-watch" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "pipelines-artifacts.sh exists with valid syntax and --help" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pipelines-artifacts.sh"
+  run bash -n "$PROJECT_ROOT/tools/pipelines-artifacts"
   [ "$status" -eq 0 ]
-  run bash "$PROJECT_ROOT/tools/scripts/pipelines-artifacts.sh" --help
+  run "$PROJECT_ROOT/tools/pipelines-artifacts" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }

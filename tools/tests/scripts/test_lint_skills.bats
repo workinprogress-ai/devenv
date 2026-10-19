@@ -30,26 +30,26 @@ setup() {
 teardown() { rm -rf "$WORK_DIR"; }
 
 @test "golden tree passes" {
-  run bash "$SCRIPT" "$TREE"
+  run "$SCRIPT" "$TREE"
   [ "$status" -eq 0 ]
 }
 
 @test "SK004: a skill missing from docs/Skills.md fails" {
   printf 'devenv-alpha devenv-help\n' > "$TREE/_shared/docs/Skills.md"
-  run bash "$SCRIPT" "$TREE"
+  run "$SCRIPT" "$TREE"
   [ "$status" -eq 1 ]
   [[ "$output" == *"SK004"*"devenv-beta"*"Skills.md"* ]]
 }
 
 @test "SK004: a pointer-only catalog is fine when Skills.md lists every skill" {
-  run bash "$SCRIPT" "$TREE"
+  run "$SCRIPT" "$TREE"
   [ "$status" -eq 0 ]
 }
 
 @test "SK008: a cross-file link to a missing heading anchor fails" {
   printf '# Target\n\n## Real Heading\n' > "$TREE/common/references/target.md"
   printf -- '---\nname: devenv-alpha\ndescription: x\nuser-invocable: true\n---\nSee [x](../common/references/target.md#no-such-heading).\n' > "$TREE/devenv-alpha/SKILL.md"
-  run bash "$SCRIPT" "$TREE"
+  run "$SCRIPT" "$TREE"
   [ "$status" -eq 1 ]
   [[ "$output" == *"SK008"*"no-such-heading"* ]]
 }
@@ -57,20 +57,20 @@ teardown() { rm -rf "$WORK_DIR"; }
 @test "SK008: a cross-file anchor matching a heading slug passes (punctuation, repeats)" {
   printf '# T\n\n## Skill `_on_<event>` (signals)\n\n## Same\n\n## Same\n' > "$TREE/common/references/target.md"
   printf -- '---\nname: devenv-alpha\ndescription: x\nuser-invocable: true\n---\n[a](../common/references/target.md#skill-_on_event-signals) [b](../common/references/target.md#same-1)\n' > "$TREE/devenv-alpha/SKILL.md"
-  run bash "$SCRIPT" "$TREE"
+  run "$SCRIPT" "$TREE"
   [ "$status" -eq 0 ]
 }
 
 @test "SK008: same-file example anchors and fenced examples are not checked" {
   printf -- '---\nname: devenv-alpha\ndescription: x\nuser-invocable: true\n---\nExample [AC-N](#ac-N).\n\n```\n[x](../common/references/target.md#nope)\n```\n' > "$TREE/devenv-alpha/SKILL.md"
   printf '# Target\n' > "$TREE/common/references/target.md"
-  run bash "$SCRIPT" "$TREE"
+  run "$SCRIPT" "$TREE"
   [ "$status" -eq 0 ]
 }
 
 @test "SK009: a references/ file that nothing links to fails" {
   printf '# Lonely\n' > "$TREE/devenv-alpha/references/lonely.md" 2>/dev/null || { mkdir -p "$TREE/devenv-alpha/references"; printf '# Lonely\n' > "$TREE/devenv-alpha/references/lonely.md"; }
-  run bash "$SCRIPT" "$TREE"
+  run "$SCRIPT" "$TREE"
   [ "$status" -eq 1 ]
   [[ "$output" == *"SK009"*"lonely.md"* ]]
 }
@@ -79,20 +79,20 @@ teardown() { rm -rf "$WORK_DIR"; }
   mkdir -p "$TREE/devenv-alpha/references"
   printf '# Used\n' > "$TREE/devenv-alpha/references/used.md"
   printf -- '---\nname: devenv-alpha\ndescription: x\nuser-invocable: true\n---\nSee [used](./references/used.md).\n' > "$TREE/devenv-alpha/SKILL.md"
-  run bash "$SCRIPT" "$TREE"
+  run "$SCRIPT" "$TREE"
   [ "$status" -eq 0 ]
 }
 
 @test "SK001: missing description fails" {
   printf -- '---\nname: devenv-alpha\nuser-invocable: true\n---\n' > "$TREE/devenv-alpha/SKILL.md"
-  run bash "$SCRIPT" "$TREE"
+  run "$SCRIPT" "$TREE"
   [ "$status" -eq 1 ]
   [[ "$output" == *"SK001"* ]]
 }
 
 @test "SK002: name mismatch fails" {
   printf -- '---\nname: devenv-something-else\ndescription: x\nuser-invocable: true\n---\n' > "$TREE/devenv-alpha/SKILL.md"
-  run bash "$SCRIPT" "$TREE"
+  run "$SCRIPT" "$TREE"
   [ "$status" -eq 1 ]
   [[ "$output" == *"SK002"* ]]
 }
@@ -100,14 +100,14 @@ teardown() { rm -rf "$WORK_DIR"; }
 @test "SK003: over-length description fails" {
   local long; long=$(printf 'y%.0s' $(seq 1 2100))
   printf -- '---\nname: devenv-alpha\ndescription: %s\nuser-invocable: true\n---\n' "$long" > "$TREE/devenv-alpha/SKILL.md"
-  run bash "$SCRIPT" "$TREE"
+  run "$SCRIPT" "$TREE"
   [ "$status" -eq 1 ]
   [[ "$output" == *"SK003"* ]]
 }
 
 @test "SK004: registry ghost (reference with no directory) fails" {
   printf '| `/devenv-ghost` | x | x | x |\n' >> "$TREE/devenv-help/references/skills-registry.md"
-  run bash "$SCRIPT" "$TREE"
+  run "$SCRIPT" "$TREE"
   [ "$status" -eq 1 ]
   [[ "$output" == *"SK004"*"ghost"* ]]
 }
@@ -115,14 +115,14 @@ teardown() { rm -rf "$WORK_DIR"; }
 @test "SK004: orphan skill directory (not in registry) fails" {
   mkdir -p "$TREE/devenv-orphan"
   printf -- '---\nname: devenv-orphan\ndescription: x\nuser-invocable: true\n---\n' > "$TREE/devenv-orphan/SKILL.md"
-  run bash "$SCRIPT" "$TREE"
+  run "$SCRIPT" "$TREE"
   [ "$status" -eq 1 ]
   [[ "$output" == *"SK004"*"orphan"* ]]
 }
 
 @test "SK005: broken relative link fails" {
   printf -- '---\nname: devenv-alpha\ndescription: x\nuser-invocable: true\n---\n# A\n[bad](../devenv-nonexistent/SKILL.md)\n' > "$TREE/devenv-alpha/SKILL.md"
-  run bash "$SCRIPT" "$TREE"
+  run "$SCRIPT" "$TREE"
   [ "$status" -eq 1 ]
   [[ "$output" == *"SK005"* ]]
 }
@@ -150,7 +150,7 @@ setup_git_with_renamed_doc() {
 @test "SK007: stale path (in git history, missing from tree) fails" {
   printf 'see `docs/GitHub-Issues-Management.md`\n' >> "$TREE/devenv-alpha/SKILL.md"
   setup_git_with_renamed_doc
-  run bash "$SCRIPT" "$TREE"
+  run "$SCRIPT" "$TREE"
   [ "$status" -eq 1 ]
   [[ "$output" == *"SK007"* ]]
   [[ "$output" == *"docs/GitHub-Issues-Management.md"* ]]
@@ -159,7 +159,7 @@ setup_git_with_renamed_doc() {
 @test "SK007: globs, bare dirs, placeholders, and never-existed paths pass" {
   printf 'refs `docs/Decisions/` `tools/lib/providers/*` `docs/SomeFile.md` `docs/Usage_guide.md`\n' >> "$TREE/devenv-alpha/SKILL.md"
   setup_git_with_renamed_doc
-  run bash "$SCRIPT" "$TREE"
+  run "$SCRIPT" "$TREE"
   [ "$status" -eq 0 ]
   [[ "$output" != *"SK007"* ]]
 }
@@ -167,14 +167,14 @@ setup_git_with_renamed_doc() {
 @test "SK007: current path referenced alongside renamed sibling stays clean" {
   printf 'now `docs/Issues-History.md`\n' >> "$TREE/devenv-alpha/SKILL.md"
   setup_git_with_renamed_doc
-  run bash "$SCRIPT" "$TREE"
+  run "$SCRIPT" "$TREE"
   [ "$status" -eq 0 ]
   [[ "$output" != *"SK007"* ]]
 }
 
 @test "SK007: no .git dir — check skipped silently" {
   printf 'see `docs/anything-old.md`\n' >> "$TREE/devenv-alpha/SKILL.md"
-  run bash "$SCRIPT" "$TREE"
+  run "$SCRIPT" "$TREE"
   [ "$status" -eq 0 ]
   [[ "$output" != *"SK007"* ]]
 }

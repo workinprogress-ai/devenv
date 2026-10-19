@@ -13,7 +13,7 @@ setup() {
   test_helper_setup
   # Resolve after test_helper_setup has exported DEVENV_TOOLS — a load-time
   # assignment here captured an empty env on CI and broke every test.
-  SCRIPT_PATH="$DEVENV_TOOLS/scripts/devenv-memory-watch.sh"
+  SCRIPT_PATH="$DEVENV_TOOLS/devenv-memory-watch"
 }
 
 @test "devenv-memory-watch.sh exists" {
@@ -30,7 +30,7 @@ setup() {
 }
 
 @test "devenv-memory-watch.sh exposes useful options" {
-  run bash "$SCRIPT_PATH" --help
+  run "$SCRIPT_PATH" --help
   [ "$status" -eq 0 ]
   [[ "$output" == *"--interval-minutes"* ]]
   [[ "$output" == *"--state-dir"* ]]
@@ -40,14 +40,14 @@ setup() {
 @test "devenv-memory-watch.sh persists samples across runs" {
   state_dir="$TEST_TEMP_DIR/memory-watch-state"
 
-  run bash "$SCRIPT_PATH" --once --state-dir "$state_dir" --max-processes 5 --top 3 --interval-minutes 1
+  run "$SCRIPT_PATH" --once --state-dir "$state_dir" --max-processes 5 --top 3 --interval-minutes 1
   [ "$status" -eq 0 ]
   [[ "$output" == *"Captured sample #1"* ]]
   [[ -f "$state_dir/samples.tsv" ]]
   [[ -f "$state_dir/processes.tsv" ]]
   [[ -f "$state_dir/current-culprits.tsv" ]]
 
-  run bash "$SCRIPT_PATH" --once --state-dir "$state_dir" --max-processes 5 --top 3 --interval-minutes 1
+  run "$SCRIPT_PATH" --once --state-dir "$state_dir" --max-processes 5 --top 3 --interval-minutes 1
   [ "$status" -eq 0 ]
   [[ "$output" == *"Captured sample #2"* ]]
   [[ "$output" == *"Current culprit summary:"* ]]
@@ -56,7 +56,7 @@ setup() {
 @test "devenv-memory-watch.sh writes a current culprit summary" {
   state_dir="$TEST_TEMP_DIR/memory-watch-compact-state"
 
-  run bash "$SCRIPT_PATH" --once --state-dir "$state_dir" --max-processes 5 --top 3 --interval-minutes 1
+  run "$SCRIPT_PATH" --once --state-dir "$state_dir" --max-processes 5 --top 3 --interval-minutes 1
   [ "$status" -eq 0 ]
   [[ "$output" == *"Current culprit summary:"* ]]
   [[ "$output" == *"Top current culprit:"* ]]
@@ -72,11 +72,11 @@ setup() {
 @test "devenv-memory-watch.sh reset clears persisted history" {
   state_dir="$TEST_TEMP_DIR/memory-watch-reset-state"
 
-  run bash "$SCRIPT_PATH" --once --state-dir "$state_dir" --max-processes 5 --top 3 --interval-minutes 1
+  run "$SCRIPT_PATH" --once --state-dir "$state_dir" --max-processes 5 --top 3 --interval-minutes 1
   [ "$status" -eq 0 ]
   [[ "$output" == *"Captured sample #1"* ]]
 
-  run bash "$SCRIPT_PATH" --once --state-dir "$state_dir" --reset --max-processes 5 --top 3 --interval-minutes 1
+  run "$SCRIPT_PATH" --once --state-dir "$state_dir" --reset --max-processes 5 --top 3 --interval-minutes 1
   [ "$status" -eq 0 ]
   [[ "$output" == *"Captured sample #1"* ]]
   run awk -F '\t' '$1 == "S" { count++ } END { print count + 0 }' "$state_dir/samples.tsv"

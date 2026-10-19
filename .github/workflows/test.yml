@@ -64,6 +64,29 @@ jobs:
           echo "DEVENV_ROOT=$GITHUB_WORKSPACE" >> $GITHUB_ENV
           echo "PROJECT_ROOT=$GITHUB_WORKSPACE" >> $GITHUB_ENV
       
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          # Keep in lockstep with NODE_VERSION in .devcontainer/tool-versions.bash
+          node-version: '24.18.0'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
+      - name: Install node dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck (TS gate)
+        run: pnpm typecheck
+
+      - name: Lint TS (eslint gate)
+        run: pnpm lint:ts
+
+      - name: TS tests (vitest)
+        run: pnpm test:ts
+
       - name: Run tests
         run: ./tools/tests/run-devenv-tests.sh
 

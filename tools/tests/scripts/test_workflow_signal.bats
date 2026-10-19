@@ -30,38 +30,38 @@ setup() {
             fail "configured event '$ev' has no executable script (tools/internal/$ev.sh missing)"
         }
     done <<< "$configured"
-    run bash "$SCRIPT" --list
+    run "$SCRIPT" --list
     [ "$status" -eq 0 ]
     listed="$(printf '%s\n' "$output" | sort)"
     [ "$listed" = "$(printf '%s\n' "$configured" | sort)" ]
 }
 
 @test "bare event name is normalized to _on_<name>" {
-    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" bash "$SCRIPT" staging-deploy 101
+    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" "$SCRIPT" staging-deploy 101
     [ "$status" -eq 0 ]
     grep -q "DISPATCH _on_staging_deploy 101" "$FAKE/log"
 }
 
 @test "underscores accepted without _on_ prefix" {
-    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" bash "$SCRIPT" begin_review 105
+    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" "$SCRIPT" begin_review 105
     [ "$status" -eq 0 ]
     grep -q "DISPATCH _on_begin_review 105" "$FAKE/log"
 }
 
 @test "full _on_ form passes through unchanged" {
-    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" bash "$SCRIPT" _on_production_deploy 7
+    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" "$SCRIPT" _on_production_deploy 7
     [ "$status" -eq 0 ]
     grep -q "DISPATCH _on_production_deploy 7" "$FAKE/log"
 }
 
 @test "batch: multiple issues per event in one call" {
-    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" bash "$SCRIPT" staging-deploy 101 102 103
+    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" "$SCRIPT" staging-deploy 101 102 103
     [ "$status" -eq 0 ]
     [ "$(grep -c "DISPATCH _on_staging_deploy" "$FAKE/log")" -eq 3 ]
 }
 
 @test "mixed batch: repeated event/issue groups" {
-    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" bash "$SCRIPT" staging-deploy 101 production-deploy 105 106
+    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" "$SCRIPT" staging-deploy 101 production-deploy 105 106
     [ "$status" -eq 0 ]
     grep -q "DISPATCH _on_staging_deploy 101" "$FAKE/log"
     grep -q "DISPATCH _on_production_deploy 105" "$FAKE/log"
@@ -69,26 +69,26 @@ setup() {
 }
 
 @test "unknown event is a hard error with normalized name shown" {
-    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" bash "$SCRIPT" bogus-event 1
+    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" "$SCRIPT" bogus-event 1
     [ "$status" -ne 0 ]
     [[ "$output" == *"Unknown event"* ]]
 }
 
 @test "issue number before any event is a usage error" {
-    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" bash "$SCRIPT" 101
+    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" "$SCRIPT" 101
     [ "$status" -ne 0 ]
     [[ "$output" == *"before any event"* ]]
 }
 
 @test "event without issues is a usage error" {
-    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" bash "$SCRIPT" staging-deploy
+    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" "$SCRIPT" staging-deploy
     [ "$status" -ne 0 ]
 }
 
 @test "one failing issue does not block the rest (best-effort batch)" {
     printf '#!/usr/bin/env bash\nexit 1\n' > "$FAKE/internal/_on_production_deploy.sh"
     chmod +x "$FAKE/internal/_on_production_deploy.sh"
-    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" bash "$SCRIPT" staging-deploy 101 production-deploy 105 106
+    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" "$SCRIPT" staging-deploy 101 production-deploy 105 106
     [ "$status" -ne 0 ]
     grep -q "DISPATCH _on_staging_deploy 101" "$FAKE/log"
 }
@@ -101,14 +101,14 @@ echo "WARNING: workflow write 'Production' failed for issue #105 (best-effort, c
 exit 0
 STUB
     chmod +x "$FAKE/internal/_on_production_deploy.sh"
-    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" bash "$SCRIPT" production-deploy 105
+    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" "$SCRIPT" production-deploy 105
     [ "$status" -ne 0 ]
     [[ "$output" != *"signalled _on_production_deploy for issue #105"* ]]
     [[ "$output" == *"workflow write 'Production' failed"* ]]
 }
 
 @test "a signal whose status write succeeded is reported as signalled" {
-    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" bash "$SCRIPT" staging-deploy 101
+    run env WORKFLOW_SIGNAL_TOOLS="$FAKE/internal" "$SCRIPT" staging-deploy 101
     [ "$status" -eq 0 ]
     [[ "$output" == *"signalled _on_staging_deploy for issue #101"* ]]
 }

@@ -14,7 +14,7 @@ load ../test_helper
 }
 
 @test "install-extras.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/install-extras.sh"
+  run bash -n "$PROJECT_ROOT/tools/install-extras"
   [ "$status" -eq 0 ]
 }
 

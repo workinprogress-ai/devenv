@@ -22,7 +22,7 @@ setup() {
 
 @test "backup: valid DB list dumps each non-built-in database once" {
     export STUB_MONGOSH_DATABASES=$'admin\nappdb\nauditdb\nconfig\nlocal'
-    run bash "$DEVENV_TOOLS/scripts/mongo-backup-server.sh" "mongodb://user:pass@localhost:27017" "$BACKUP_DIR" < /dev/null
+    run "$DEVENV_TOOLS/mongo-backup-server" "mongodb://user:pass@localhost:27017" "$BACKUP_DIR" < /dev/null
     [ "$status" -eq 0 ]
     [ "$(grep -c -- '--db appdb' "$STUB_MONGODUMP_LOG")" -eq 1 ]
     [ "$(grep -c -- '--db auditdb' "$STUB_MONGODUMP_LOG")" -eq 1 ]
@@ -34,7 +34,7 @@ setup() {
 
 @test "backup: garbage database name aborts before any mongodump" {
     export STUB_MONGOSH_DATABASES=$'gooddb\nWARNING: auth failed\ngooddb2'
-    run bash "$DEVENV_TOOLS/scripts/mongo-backup-server.sh" "mongodb://localhost:27017" "$BACKUP_DIR" < /dev/null
+    run "$DEVENV_TOOLS/mongo-backup-server" "mongodb://localhost:27017" "$BACKUP_DIR" < /dev/null
     [ "$status" -ne 0 ]
     [[ "$output" == *"invalid database name"* ]]
     [[ "$output" == *"WARNING: auth failed"* ]]
@@ -43,7 +43,7 @@ setup() {
 
 @test "backup: mongosh failure aborts with API-failure exit" {
     export STUB_MONGOSH_FAIL=1
-    run bash "$DEVENV_TOOLS/scripts/mongo-backup-server.sh" "mongodb://localhost:27017" "$BACKUP_DIR" < /dev/null
+    run "$DEVENV_TOOLS/mongo-backup-server" "mongodb://localhost:27017" "$BACKUP_DIR" < /dev/null
     [ "$status" -eq 4 ]
     [ ! -s "$STUB_MONGODUMP_LOG" ]
 }
@@ -51,7 +51,7 @@ setup() {
 @test "backup: mongodump failure is reported non-zero" {
     export STUB_MONGOSH_DATABASES=$'crashdb'
     export STUB_MONGODUMP_FAIL=1
-    run bash "$DEVENV_TOOLS/scripts/mongo-backup-server.sh" "mongodb://localhost:27017" "$BACKUP_DIR" < /dev/null
+    run "$DEVENV_TOOLS/mongo-backup-server" "mongodb://localhost:27017" "$BACKUP_DIR" < /dev/null
     [ "$status" -ne 0 ]
     [[ "$output" == *"Backup failed for database: crashdb"* ]]
 }

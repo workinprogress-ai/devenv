@@ -76,49 +76,49 @@ teardown() {
 # ── Syntax and basic contract ──────────────────────────────────────────────
 
 @test "cs-references-update-wizard.sh has valid bash syntax" {
-    run bash -n "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh"
+    run bash -n "$PROJECT_ROOT/tools/cs-references-update-wizard"
     [ "$status" -eq 0 ]
 }
 
 @test "cs-references-update-wizard.sh shows usage with --help" {
-    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --help
+    run "$PROJECT_ROOT/tools/cs-references-update-wizard" --help
     [ "$status" -eq 0 ]
     [[ "$output" =~ "Usage:" ]]
     [[ "$output" =~ "REPO_DIR" ]]
 }
 
 @test "cs-references-update-wizard.sh shows version with --version" {
-    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --version
+    run "$PROJECT_ROOT/tools/cs-references-update-wizard" --version
     [ "$status" -eq 0 ]
     [[ "$output" =~ "1.0.0" ]]
 }
 
 @test "cs-references-update-wizard.sh rejects unknown options" {
-    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --unknown-flag
+    run "$PROJECT_ROOT/tools/cs-references-update-wizard" --unknown-flag
     [ "$status" -ne 0 ]
 }
 
 @test "cs-references-update-wizard.sh rejects too many arguments" {
-    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" "$REPO_DIR" extra-arg
+    run "$PROJECT_ROOT/tools/cs-references-update-wizard" "$REPO_DIR" extra-arg
     [ "$status" -ne 0 ]
 }
 
 @test "cs-references-update-wizard.sh fails on non-existent directory" {
-    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" /this/does/not/exist
+    run "$PROJECT_ROOT/tools/cs-references-update-wizard" /this/does/not/exist
     [ "$status" -ne 0 ]
 }
 
 # ── Dry-run ────────────────────────────────────────────────────────────────
 
 @test "cs-references-update-wizard.sh dry-run prints repo name and exits 0" {
-    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --dry-run "$REPO_DIR"
+    run "$PROJECT_ROOT/tools/cs-references-update-wizard" --dry-run "$REPO_DIR"
     [ "$status" -eq 0 ]
     [[ "$output" =~ "DRY RUN" ]]
     [[ "$output" =~ "test-repo" ]]
 }
 
 @test "cs-references-update-wizard.sh dry-run does not modify git state" {
-    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --dry-run "$REPO_DIR"
+    run "$PROJECT_ROOT/tools/cs-references-update-wizard" --dry-run "$REPO_DIR"
     [ "$status" -eq 0 ]
     # Still on master, no extra branches
     run git -C "$REPO_DIR" branch
@@ -130,12 +130,12 @@ teardown() {
 
 @test "cs-references-update-wizard.sh exits 10 when cs-references-update makes no changes" {
     # cs-references-update mock does nothing → no diff → should exit 10
-    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" "$REPO_DIR"
+    run "$PROJECT_ROOT/tools/cs-references-update-wizard" "$REPO_DIR"
     [ "$status" -eq 10 ]
 }
 
 @test "cs-references-update-wizard.sh cleans up branch on no-op" {
-    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" "$REPO_DIR"
+    run "$PROJECT_ROOT/tools/cs-references-update-wizard" "$REPO_DIR"
     [ "$status" -eq 10 ]
     # Branch should have been deleted; master should be current
     run git -C "$REPO_DIR" branch
@@ -149,7 +149,7 @@ teardown() {
 #!/usr/bin/env bash
 exit 1
 EOF
-    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" "$REPO_DIR"
+    run "$PROJECT_ROOT/tools/cs-references-update-wizard" "$REPO_DIR"
     [ "$status" -eq 21 ]
 }
 
@@ -158,7 +158,7 @@ EOF
 #!/usr/bin/env bash
 exit 1
 EOF
-    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" "$REPO_DIR"
+    run "$PROJECT_ROOT/tools/cs-references-update-wizard" "$REPO_DIR"
     [ "$status" -eq 21 ]
     run git -C "$REPO_DIR" branch
     [[ ! "$output" =~ "auto-update-references" ]]
@@ -188,7 +188,7 @@ exec "$real_git" "\$@"
 EOF
     chmod +x "$TEST_TEMP_DIR/bin/git"
 
-    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --dry-run --branch custom-branch "$REPO_DIR"
+    run "$PROJECT_ROOT/tools/cs-references-update-wizard" --dry-run --branch custom-branch "$REPO_DIR"
     [ "$status" -eq 0 ]
     [[ "$output" =~ "DRY RUN" ]]
 }
@@ -281,7 +281,7 @@ EOF
 }
 
 @test "cs-references-update-wizard.sh shows framework flags in usage" {
-    run "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --help
+    run "$PROJECT_ROOT/tools/cs-references-update-wizard" --help
     [ "$status" -eq 0 ]
     [[ "$output" =~ "--framework" ]]
     [[ "$output" =~ "--lang-version" ]]

@@ -6,34 +6,34 @@ bats_require_minimum_version 1.5.0
 load ../test_helper
 
 @test "pr-create-for-review.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pr-create-for-review.sh"
+  run bash -n "$PROJECT_ROOT/tools/pr-create-for-review"
   [ "$status" -eq 0 ]
 }
 
 @test "pr-create-for-review.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-create-for-review.sh" --help
+  run "$PROJECT_ROOT/tools/pr-create-for-review" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "pr-get-review-link.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pr-get-review-link.sh"
+  run bash -n "$PROJECT_ROOT/tools/pr-get-review-link"
   [ "$status" -eq 0 ]
 }
 
 @test "pr-get-review-link.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-get-review-link.sh" --help
+  run "$PROJECT_ROOT/tools/pr-get-review-link" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "pr-cleanup-review-branches.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pr-cleanup-review-branches.sh"
+  run bash -n "$PROJECT_ROOT/tools/pr-cleanup-review-branches"
   [ "$status" -eq 0 ]
 }
 
 @test "pr-cleanup-review-branches.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-cleanup-review-branches.sh" --help
+  run "$PROJECT_ROOT/tools/pr-cleanup-review-branches" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }

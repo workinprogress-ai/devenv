@@ -6,23 +6,23 @@ bats_require_minimum_version 1.5.0
 load ../test_helper
 
 @test "pr-get.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pr-get.sh"
+  run bash -n "$PROJECT_ROOT/tools/pr-get"
   [ "$status" -eq 0 ]
 }
 
 @test "pr-get.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-get.sh" --help
+  run "$PROJECT_ROOT/tools/pr-get" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "pr-comment.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pr-comment.sh"
+  run bash -n "$PROJECT_ROOT/tools/pr-comment"
   [ "$status" -eq 0 ]
 }
 
 @test "pr-comment.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-comment.sh" --help
+  run "$PROJECT_ROOT/tools/pr-comment" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
@@ -33,18 +33,18 @@ load ../test_helper
 }
 
 @test "pr-diff.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-diff.sh" --help
+  run "$PROJECT_ROOT/tools/scripts/pr-diff.sh" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "pr-list.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pr-list.sh"
+  run bash -n "$PROJECT_ROOT/tools/pr-list"
   [ "$status" -eq 0 ]
 }
 
 @test "pr-list.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-list.sh" --help
+  run "$PROJECT_ROOT/tools/pr-list" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
@@ -64,17 +64,17 @@ load ../test_helper
 }
 
 @test "pr-get rejects non-numeric PR number" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-get.sh" abc
+  run "$PROJECT_ROOT/tools/pr-get" abc
   [ "$status" -ne 0 ]
 }
 
 @test "pr-comment rejects missing comment source" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-comment.sh" 1
+  run "$PROJECT_ROOT/tools/pr-comment" 1
   [ "$status" -ne 0 ]
 }
 
 @test "pr-diff rejects mixing PR and ref modes" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-diff.sh" 1 --base master --head feature
+  run "$PROJECT_ROOT/tools/scripts/pr-diff.sh" 1 --base master --head feature
   [ "$status" -ne 0 ]
 }
 
@@ -83,28 +83,28 @@ load ../test_helper
 # ============================================================================
 
 @test "pr-threads-get.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pr-threads-get.sh"
+  run bash -n "$PROJECT_ROOT/tools/pr-threads-get"
   [ "$status" -eq 0 ]
 }
 
 @test "pr-threads-get.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-threads-get.sh" --help
+  run "$PROJECT_ROOT/tools/pr-threads-get" --help
   [ "$status" -eq 0 ]
   [[  "$output" =~ "Usage:" ]]
 }
 
 @test "pr-threads-get.sh rejects non-numeric PR number" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-threads-get.sh" abc
+  run "$PROJECT_ROOT/tools/pr-threads-get" abc
   [ "$status" -ne 0 ]
 }
 
 @test "pr-threads-get.sh rejects missing PR number" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-threads-get.sh"
+  run "$PROJECT_ROOT/tools/pr-threads-get"
   [ "$status" -ne 0 ]
 }
 
 @test "pr-threads-get.sh rejects unknown option" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-threads-get.sh" 123 --not-a-flag
+  run "$PROJECT_ROOT/tools/pr-threads-get" 123 --not-a-flag
   [ "$status" -ne 0 ]
 }
 
@@ -138,7 +138,7 @@ exit 1
 EOF
   chmod +x "$TEST_TEMP_DIR/bin/gh"
 
-  run bash "$PROJECT_ROOT/tools/scripts/pr-threads-get.sh" 29 --devenv
+  run "$PROJECT_ROOT/tools/pr-threads-get" 29 --devenv
   [ "$status" -eq 0 ]
   json_output=$(echo "$output" | tail -n 1)
   [ "$(echo "$json_output" | jq 'length')" -eq 1 ]
@@ -149,23 +149,23 @@ EOF
 # ============================================================================
 
 @test "pr-thread-reply.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pr-thread-reply.sh"
+  run bash -n "$PROJECT_ROOT/tools/pr-thread-reply"
   [ "$status" -eq 0 ]
 }
 
 @test "pr-thread-reply.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-thread-reply.sh" --help
+  run "$PROJECT_ROOT/tools/pr-thread-reply" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "pr-thread-reply.sh rejects missing comment-id" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-thread-reply.sh" 123 --body "hi"
+  run "$PROJECT_ROOT/tools/pr-thread-reply" 123 --body "hi"
   [ "$status" -ne 0 ]
 }
 
 @test "pr-thread-reply.sh rejects missing body source" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-thread-reply.sh" 123 --comment-id 456
+  run "$PROJECT_ROOT/tools/pr-thread-reply" 123 --comment-id 456
   [ "$status" -ne 0 ]
 }
 
@@ -174,18 +174,18 @@ EOF
 # ============================================================================
 
 @test "pr-thread-resolve.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pr-thread-resolve.sh"
+  run bash -n "$PROJECT_ROOT/tools/pr-thread-resolve"
   [ "$status" -eq 0 ]
 }
 
 @test "pr-thread-resolve.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-thread-resolve.sh" --help
+  run "$PROJECT_ROOT/tools/pr-thread-resolve" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "pr-thread-resolve.sh rejects missing thread ID" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-thread-resolve.sh"
+  run "$PROJECT_ROOT/tools/pr-thread-resolve"
   [ "$status" -ne 0 ]
 }
 
@@ -200,11 +200,11 @@ EOF
 
 
 @test "pr-list rejects invalid state" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-list.sh" --state bogus
+  run "$PROJECT_ROOT/tools/pr-list" --state bogus
   [ "$status" -ne 0 ]
 }
 
 @test "pr-list rejects non-numeric limit" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-list.sh" --limit abc
+  run "$PROJECT_ROOT/tools/pr-list" --limit abc
   [ "$status" -ne 0 ]
 }

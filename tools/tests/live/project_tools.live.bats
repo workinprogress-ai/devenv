@@ -34,7 +34,7 @@ load ../live/helpers
     # Round trip: add issue 43, look it up, remove it.
     gh project item-add "$proj_num" --owner "${GH_ORG:-workinprogress-ai}" \
         --url "$issue_url" >/dev/null
-    run bash "$BATS_TEST_DIRNAME/../../scripts/project-list-for-issue.sh" 43
+    run "$BATS_TEST_DIRNAME/../../project-list-for-issue" 43
     [ "$status" -eq 0 ]
     [[ "$output" == *"$SCRATCH_PROJECT"* ]]
     local item_id

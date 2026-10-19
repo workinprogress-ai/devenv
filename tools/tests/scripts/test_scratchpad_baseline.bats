@@ -7,24 +7,24 @@ bats_require_minimum_version 1.5.0
 load ../test_helper
 
 @test "baseline: repo-commit refuses option-shaped args (exit 1, refusal message)" {
-    run bash "$DEVENV_TOOLS/repo-commit" -m "should be refused"
+    run "$DEVENV_TOOLS/repo-commit" -m "should be refused"
     [ "$status" -eq 1 ]
     [[ "$output" == *"options are refused by design"* ]]
 }
 
 @test "baseline: repo-commit refuses --yes (exit 1)" {
-    run bash "$DEVENV_TOOLS/repo-commit" --yes
+    run "$DEVENV_TOOLS/repo-commit" --yes
     [ "$status" -eq 1 ]
 }
 
 @test "baseline: git-wip refuses unknown flags (exit 1)" {
-    run bash "$DEVENV_TOOLS/git-wip" --definitely-not-a-flag
+    run "$DEVENV_TOOLS/git-wip" --definitely-not-a-flag
     [ "$status" -eq 1 ]
     [[ "$output" == *"unknown flag"* ]]
 }
 
 @test "baseline: pr-create refuses unknown flags (exit 2)" {
-    run bash "$DEVENV_TOOLS/pr-create" --definitely-not-a-flag
+    run "$DEVENV_TOOLS/pr-create" --definitely-not-a-flag
     [ "$status" -eq 2 ]
 }
 
@@ -45,7 +45,7 @@ load ../test_helper
     git add README.md
     local before
     before=$(git rev-list --count HEAD)
-    run env GIT_EDITOR="$mock_editor" bash "$DEVENV_TOOLS/repo-commit" "msg"
+    run env GIT_EDITOR="$mock_editor" "$DEVENV_TOOLS/repo-commit" "msg"
     [ "$status" -ne 0 ]
     local after
     after=$(git rev-list --count HEAD)

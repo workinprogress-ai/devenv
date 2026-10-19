@@ -6,7 +6,7 @@ bats_require_minimum_version 1.5.0
 
 load ../test_helper
 
-SCRIPT="$BATS_TEST_DIRNAME/../../scripts/lint-scripts.sh"
+SCRIPT="$BATS_TEST_DIRNAME/../../lint-scripts"
 
 setup() {
     test_helper_setup

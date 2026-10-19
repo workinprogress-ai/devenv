@@ -156,31 +156,31 @@ load ../test_helper
 }
 
 @test "tooling-create-script.sh exists" {
-  [ -f "$DEVENV_TOOLS/scripts/tooling-create-script.sh" ]
+  [ -f "$DEVENV_TOOLS/tooling-create-script" ]
 }
 
 @test "tooling-create-script.sh is executable" {
-  [ -x "$DEVENV_TOOLS/scripts/tooling-create-script.sh" ]
+  [ -x "$DEVENV_TOOLS/tooling-create-script" ]
 }
 
 @test "tooling-create-script.sh has valid bash syntax" {
-  run bash -n "$DEVENV_TOOLS/scripts/tooling-create-script.sh"
+  run bash -n "$DEVENV_TOOLS/tooling-create-script"
   [ "$status" -eq 0 ]
 }
 
 @test "tooling-create-script.sh has --help flag" {
-  run bash "$DEVENV_TOOLS/scripts/tooling-create-script.sh" --help
+  run "$DEVENV_TOOLS/tooling-create-script" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ Usage: ]]
 }
 
 @test "tooling-create-script.sh supports custom directory" {
-  run bash "$DEVENV_TOOLS/scripts/tooling-create-script.sh" --help
+  run "$DEVENV_TOOLS/tooling-create-script" --help
   [[ "$output" =~ --dir ]]
 }
 
 @test "tooling-create-script.sh supports force overwrite" {
-  run bash "$DEVENV_TOOLS/scripts/tooling-create-script.sh" --help
+  run "$DEVENV_TOOLS/tooling-create-script" --help
   [[ "$output" =~ --force ]]
 }
 

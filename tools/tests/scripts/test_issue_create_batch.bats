@@ -36,7 +36,7 @@ STUB
 # Preview output with the per-run temp directory made stable.
 norm() { sed -E 's#[^ |]*/issue-create-batch\.[A-Za-z0-9]+/#<TMP>/#g'; }
 
-preview() { run bash "$SCRIPT" "$@"; }
+preview() { run "$SCRIPT" "$@"; }
 
 @test "fast: every field becomes the right option, in order" {
     preview --issue "First thing|type=Bug|parent=12|labels=a,b|assignees=u1|blocked_by=7,9|milestone=M1|project=P1|size=M|target=2026-Q1"
@@ -53,12 +53,12 @@ preview() { run bash "$SCRIPT" "$@"; }
 }
 
 @test "fast: an inline body is written to the body file" {
-    run bash "$SCRIPT" --create --type Task --issue "With body|body=Hello there"
+    run "$SCRIPT" --create --type Task --issue "With body|body=Hello there"
     grep -qx "Hello there" "$CREATE_LOG"
 }
 
 @test "fast: with no body a generated body is written, carrying the title" {
-    run bash "$SCRIPT" --create --type Task --issue "No body given|size=L|target=2026-Q2"
+    run "$SCRIPT" --create --type Task --issue "No body given|size=L|target=2026-Q2"
     sed -n '/^BODY<</,/^>>BODY/p' "$CREATE_LOG" | grep -q "No body given"
 }
 
@@ -121,7 +121,7 @@ YAML
 
 @test "manifest: item body beats the manifest default body, and both reach the body file" {
     write_manifest
-    run bash "$SCRIPT" --create --continue-on-error --file "$TEST_TEMP_DIR/m.yaml"
+    run "$SCRIPT" --create --continue-on-error --file "$TEST_TEMP_DIR/m.yaml"
     grep -qx "Default body" "$CREATE_LOG"
     grep -qx "Own body" "$CREATE_LOG"
 }
@@ -158,7 +158,7 @@ YAML
 }
 
 @test "--continue-on-error skips a bad entry and still creates the rest" {
-    run bash "$SCRIPT" --create --continue-on-error --type Task --issue "|labels=x" --issue "Good one"
+    run "$SCRIPT" --create --continue-on-error --type Task --issue "|labels=x" --issue "Good one"
     [ "$(grep -c '^CALL' "$CREATE_LOG")" -eq 1 ]
     grep -qx "ARG:Good one" "$CREATE_LOG"
 }
@@ -173,46 +173,46 @@ YAML
 # ---------------------------------------------------------------------------
 
 @test "create: a GitHub issue URL result is a success with the number parsed" {
-    FAKE_CREATE_OUT="https://github.com/acme/widgets/issues/321" run bash "$SCRIPT" --create --type Task --issue "One"
+    FAKE_CREATE_OUT="https://github.com/acme/widgets/issues/321" run "$SCRIPT" --create --type Task --issue "One"
     [ "$status" -eq 0 ]
     [[ "$output" == *"0|321|One|https://github.com/acme/widgets/issues/321"* ]]
     [[ "$output" != *"could not parse"* ]]
 }
 
 @test "create: an Azure bare work-item id result is a success" {
-    FAKE_CREATE_OUT="4821" run bash "$SCRIPT" --create --type Task --issue "One"
+    FAKE_CREATE_OUT="4821" run "$SCRIPT" --create --type Task --issue "One"
     [ "$status" -eq 0 ]
     [[ "$output" == *"0|4821|One|"* ]]
 }
 
 @test "create: an Azure work-item URL result is a success with the id parsed" {
-    FAKE_CREATE_OUT="https://dev.azure.com/acme/proj/_workitems/edit/4821" run bash "$SCRIPT" --create --type Task --issue "One"
+    FAKE_CREATE_OUT="https://dev.azure.com/acme/proj/_workitems/edit/4821" run "$SCRIPT" --create --type Task --issue "One"
     [ "$status" -eq 0 ]
     [[ "$output" == *"0|4821|One|"* ]]
 }
 
 @test "create: log lines (even ones containing URLs) before the result do not masquerade as it" {
     FAKE_CREATE_OUT="[t] INFO: Created issue: https://github.com/acme/widgets/issues/9\n[t] WARN: see https://github.com/acme/widgets/issues/10\nhttps://github.com/acme/widgets/issues/42" \
-        run bash "$SCRIPT" --create --type Task --issue "One"
+        run "$SCRIPT" --create --type Task --issue "One"
     [ "$status" -eq 0 ]
     [[ "$output" == *"0|42|One|"* ]]
 }
 
 @test "create: output with no result line is still reported as a parse failure" {
-    FAKE_CREATE_OUT="[t] INFO: nothing useful here" run bash "$SCRIPT" --create --type Task --issue "One"
+    FAKE_CREATE_OUT="[t] INFO: nothing useful here" run "$SCRIPT" --create --type Task --issue "One"
     [ "$status" -ne 0 ]
     [[ "$output" == *"could not parse"* ]]
 }
 
 @test "create: a batch of successes exits 0 and reports each created issue once" {
-    FAKE_CREATE_OUT="https://github.com/acme/widgets/issues/7" run bash "$SCRIPT" --create --type Task --issue "A" --issue "B"
+    FAKE_CREATE_OUT="https://github.com/acme/widgets/issues/7" run "$SCRIPT" --create --type Task --issue "A" --issue "B"
     [ "$status" -eq 0 ]
     [[ "$output" == *"created=2 failed=0"* ]]
     [ "$(grep -c '^CALL' "$CREATE_LOG")" -eq 2 ]
 }
 
 @test "create: preview needs no provider seam (nothing is looked up)" {
-    run bash "$SCRIPT" --type Task --issue "One"
+    run "$SCRIPT" --type Task --issue "One"
     [ "$status" -eq 0 ]
     [[ "$output" != *"command not found"* ]]
 }

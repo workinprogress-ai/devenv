@@ -8,7 +8,7 @@ bats_require_minimum_version 1.5.0
 
 load ../test_helper
 
-SCRIPT="$BATS_TEST_DIRNAME/../../scripts/git-update"
+SCRIPT="$BATS_TEST_DIRNAME/../../git-update"
 
 setup() {
     test_helper_setup
@@ -39,20 +39,20 @@ advance_origin() {
 
 @test "git-update: --help prints usage without touching the repo" {
     cd "$CLONE"
-    run bash "$SCRIPT" --help
+    run "$SCRIPT" --help
     [ "$status" -eq 0 ]
     [[ "$output" == *"Usage: git-update"* ]]
 }
 
 @test "git-update: unknown argument is refused" {
     cd "$CLONE"
-    run bash "$SCRIPT" --frobnicate
+    run "$SCRIPT" --frobnicate
     [ "$status" -eq 2 ]
 }
 
 @test "git-update: up to date reports so and exits 0" {
     cd "$CLONE"
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 0 ]
     [[ "$output" == *"up to date"* ]]
 }
@@ -60,7 +60,7 @@ advance_origin() {
 @test "git-update: strictly behind pulls and exits 0" {
     advance_origin "new upstream commit"
     cd "$CLONE"
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 0 ]
     [ "$(git -C "$CLONE" rev-parse HEAD)" = "$(git -C "$CLONE" rev-parse origin/master)" ]
 }
@@ -68,7 +68,7 @@ advance_origin() {
 @test "git-update: ahead of remote refuses with push guidance" {
     git -C "$CLONE" commit -q --allow-empty -m "local work"
     cd "$CLONE"
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 1 ]
     [[ "$output" == *"ahead of the remote"* ]]
 }
@@ -77,7 +77,7 @@ advance_origin() {
     advance_origin "new upstream commit"
     git -C "$CLONE" commit -q --allow-empty -m "local work"
     cd "$CLONE"
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 1 ]
     [[ "$output" == *"diverged"* ]]
     [[ "$output" == *"Manual intervention"* ]]
@@ -161,7 +161,7 @@ rewrite_origin() {
 @test "git-update: rewritten remote + nothing unique resets to origin" {
     rewrite_origin
     cd "$CLONE"
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 0 ]
     [ "$(git -C "$CLONE" rev-parse master)" = "$(git -C "$CLONE" rev-parse origin/master)" ]
     [[ "$output" == *"rewritten"* ]]
@@ -172,7 +172,7 @@ rewrite_origin() {
     rewrite_origin
     git -C "$CLONE" commit -q --allow-empty -m "consumer note"
     cd "$CLONE"
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 0 ]
     # origin/master is fully contained in master (rebased ON TOP of it).
     git -C "$CLONE" merge-base --is-ancestor origin/master master
@@ -186,7 +186,7 @@ rewrite_origin() {
     printf 'uncommitted\n' > "$CLONE/dirty.txt"
     git -C "$CLONE" add dirty.txt
     cd "$CLONE"
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 1 ]
     [[ "$output" == *"Commit or discard"* ]]
     # Local HEAD unchanged: still on the pre-rewrite tip.
@@ -202,7 +202,7 @@ rewrite_origin() {
     git -C "$CLONE" commit -q --allow-empty -m "main work"
     git -C "$CLONE" merge -q --no-ff side -m "local merge"
     cd "$CLONE"
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 1 ]
     [[ "$output" == *"merge commit"* ]]
     # Untouched: still on the local merge.
@@ -227,7 +227,7 @@ rewrite_origin() {
     git -C "$CLONE" add note.txt
     git -C "$CLONE" commit -q -m "local note"
     cd "$CLONE"
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 1 ]
     [[ "$output" == *"aborted"* ]]
     [[ "$output" == *"git rebase --onto origin/master"* ]]
