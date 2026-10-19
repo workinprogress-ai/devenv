@@ -7,18 +7,18 @@ bats_require_minimum_version 1.5.0
 load ../test_helper
 
 @test "pr-review-comment.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/pr-review-comment.sh"
+  run bash -n "$PROJECT_ROOT/tools/pr-review-comment"
   [ "$status" -eq 0 ]
 }
 
 @test "pr-review-comment.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-review-comment.sh" --help
+  run "$PROJECT_ROOT/tools/pr-review-comment" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "pr-review-comment.sh help documents required flags and side semantics" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-review-comment.sh" --help
+  run "$PROJECT_ROOT/tools/pr-review-comment" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "--file" ]]
   [[ "$output" =~ "--line" ]]
@@ -27,36 +27,36 @@ load ../test_helper
 }
 
 @test "pr-review-comment.sh rejects missing --file" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-review-comment.sh" 123 --line 5 --body x --dry-run
+  run "$PROJECT_ROOT/tools/pr-review-comment" 123 --line 5 --body x --dry-run
   [ "$status" -ne 0 ]
   [[ "$output" =~ "--file is required" ]]
 }
 
 @test "pr-review-comment.sh rejects non-numeric line" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-review-comment.sh" 123 --file a.ts --line abc --body x --dry-run
+  run "$PROJECT_ROOT/tools/pr-review-comment" 123 --file a.ts --line abc --body x --dry-run
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Invalid line number" ]]
 }
 
 @test "pr-review-comment.sh rejects invalid side" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-review-comment.sh" 123 --file a.ts --line 5 --side UP --body x --dry-run
+  run "$PROJECT_ROOT/tools/pr-review-comment" 123 --file a.ts --line 5 --side UP --body x --dry-run
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Invalid side" ]]
 }
 
 @test "pr-review-comment.sh rejects missing body" {
-  run bash "$PROJECT_ROOT/tools/scripts/pr-review-comment.sh" 123 --file a.ts --line 5 --dry-run
+  run "$PROJECT_ROOT/tools/pr-review-comment" 123 --file a.ts --line 5 --dry-run
   [ "$status" -ne 0 ]
   [[ "$output" =~ "body" ]]
 }
 
 @test "release-list.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/release-list.sh"
+  run bash -n "$PROJECT_ROOT/tools/release-list"
   [ "$status" -eq 0 ]
 }
 
 @test "release-list.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/release-list.sh" --help
+  run "$PROJECT_ROOT/tools/release-list" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
@@ -69,29 +69,29 @@ load ../test_helper
 }
 
 @test "policy-export.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/policy-export.sh"
+  run bash -n "$PROJECT_ROOT/tools/policy-export"
   [ "$status" -eq 0 ]
 }
 
 @test "policy-export.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/policy-export.sh" --help
+  run "$PROJECT_ROOT/tools/policy-export" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "policy-export.sh rejects non-numeric ruleset ID" {
-  run bash "$PROJECT_ROOT/tools/scripts/policy-export.sh" abcdef
+  run "$PROJECT_ROOT/tools/policy-export" abcdef
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Invalid ruleset ID" ]]
 }
 
 @test "issue-types.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/issue-types.sh"
+  run bash -n "$PROJECT_ROOT/tools/issue-types"
   [ "$status" -eq 0 ]
 }
 
 @test "issue-types.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-types.sh" --help
+  run "$PROJECT_ROOT/tools/issue-types" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }

@@ -6,29 +6,29 @@ bats_require_minimum_version 1.5.0
 load ../test_helper
 
 @test "issue-create.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/issue-create.sh"
+  run bash -n "$PROJECT_ROOT/tools/issue-create"
   [ "$status" -eq 0 ]
 }
 
 @test "issue-create.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-create.sh" --help
+  run "$PROJECT_ROOT/tools/issue-create" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "issue-create-batch.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/issue-create-batch.sh"
+  run bash -n "$PROJECT_ROOT/tools/issue-create-batch"
   [ "$status" -eq 0 ]
 }
 
 @test "issue-create-batch.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-create-batch.sh" --help
+  run "$PROJECT_ROOT/tools/issue-create-batch" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "issue-create-batch.sh help documents fast mode and preview/create" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-create-batch.sh" --help
+  run "$PROJECT_ROOT/tools/issue-create-batch" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "--issue" ]]
   [[ "$output" =~ "--create" ]]
@@ -36,45 +36,45 @@ load ../test_helper
 }
 
 @test "issue-list.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/issue-list.sh"
+  run bash -n "$PROJECT_ROOT/tools/issue-list"
   [ "$status" -eq 0 ]
 }
 
 @test "issue-list.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-list.sh" --help
+  run "$PROJECT_ROOT/tools/issue-list" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "issue-update.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/issue-update.sh"
+  run bash -n "$PROJECT_ROOT/tools/issue-update"
   [ "$status" -eq 0 ]
 }
 
 @test "issue-update.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-update.sh" --help
+  run "$PROJECT_ROOT/tools/issue-update" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "issue-close.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/issue-close.sh"
+  run bash -n "$PROJECT_ROOT/tools/issue-close"
   [ "$status" -eq 0 ]
 }
 
 @test "issue-close.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-close.sh" --help
+  run "$PROJECT_ROOT/tools/issue-close" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "issue-select.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/issue-select.sh"
+  run bash -n "$PROJECT_ROOT/tools/issue-select"
   [ "$status" -eq 0 ]
 }
 
 @test "issue-select.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-select.sh" --help
+  run "$PROJECT_ROOT/tools/issue-select" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
@@ -102,7 +102,7 @@ STUB
   # Stdin under bats may be a TTY (interactive: "A comment source is
   # required") or closed/piped (auto-stdin path: "Refusing empty stdin
   # body") — both are valid no-source failures with exit 2.
-  PATH="$TEST_TEMP_DIR/bin:$PATH" run bash "$PROJECT_ROOT/tools/scripts/issue-comment.sh" 42
+  PATH="$TEST_TEMP_DIR/bin:$PATH" run "$PROJECT_ROOT/tools/issue-comment" 42
   [ "$status" -eq 2 ]
   [[ "$output" == *"A comment source is required"* || "$output" == *"Refusing empty stdin body"* ]]
 }
@@ -130,7 +130,7 @@ STUB
 }
 
 @test "issue-create.sh help documents --blocked-by" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-create.sh" --help
+  run "$PROJECT_ROOT/tools/issue-create" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "blocked-by" ]]
 }
@@ -326,7 +326,7 @@ EOF
   unset DEVENV_REPO
   mkdir -p "$TEST_TEMP_DIR/mock-root/.setup"
   printf 'test-org\n' > "$TEST_TEMP_DIR/mock-root/.setup/provider_org.txt"
-  DEVENV_ROOT="$TEST_TEMP_DIR/mock-root" DEVENV_ROOT_SET=1 run bash "$PROJECT_ROOT/tools/scripts/issue-close.sh" 5
+  DEVENV_ROOT="$TEST_TEMP_DIR/mock-root" DEVENV_ROOT_SET=1 run "$PROJECT_ROOT/tools/issue-close" 5
   [ -n "$saved_devenv_repo" ] && export DEVENV_REPO="$saved_devenv_repo"
   [ -n "$saved_devenv_root" ] && export DEVENV_ROOT="$saved_devenv_root"
   cd "$ORIGINAL_PWD"
@@ -346,7 +346,7 @@ EOF
   create_gh_mock_for_issue_close
   create_mock_git_repo "$TEST_TEMP_DIR/test-repo"
   cd "$TEST_TEMP_DIR/test-repo"
-  DEVENV_REPO="test-org/test-repo" run bash "$PROJECT_ROOT/tools/scripts/issue-close.sh" --select
+  DEVENV_REPO="test-org/test-repo" run "$PROJECT_ROOT/tools/issue-close" --select
   cd "$ORIGINAL_PWD"
   [[ "$output" != *"PROJECT_TOOLS"* ]]
   [[ "$output" != *"unbound variable"* ]]
@@ -356,7 +356,7 @@ EOF
   create_gh_mock_for_issue_close
   create_mock_git_repo "$TEST_TEMP_DIR/test-repo"
   cd "$TEST_TEMP_DIR/test-repo"
-  DEVENV_REPO="test-org/test-repo" run bash "$PROJECT_ROOT/tools/scripts/issue-update.sh" --select
+  DEVENV_REPO="test-org/test-repo" run "$PROJECT_ROOT/tools/issue-update" --select
   cd "$ORIGINAL_PWD"
   [[ "$output" != *"PROJECT_TOOLS"* ]]
   [[ "$output" != *"unbound variable"* ]]
@@ -430,7 +430,7 @@ STUB
 
 @test "issue-create: Task with parent is born Ready" {
     setup_birth_rule_harness
-    run bash "$PROJECT_ROOT/tools/scripts/issue-create.sh" \
+    run "$PROJECT_ROOT/tools/issue-create" \
         --title "birth rule probe" --type Task --parent 42 --no-interactive
     [ "$status" -eq 0 ]
     [[ "$output" == *"https://github.com/test-org/test-repo/issues/777"* ]]
@@ -444,7 +444,7 @@ STUB
 
 @test "issue-create: standalone issue is born TBD" {
     setup_birth_rule_harness
-    run bash "$PROJECT_ROOT/tools/scripts/issue-create.sh" \
+    run "$PROJECT_ROOT/tools/issue-create" \
         --title "birth rule probe standalone" --type Task --no-interactive
     [ "$status" -eq 0 ]
     [[ "$output" == *"https://github.com/test-org/test-repo/issues/777"* ]]
@@ -461,7 +461,7 @@ STUB
     # someone else's change) start Ready under a parent; deliverables start
     # at TBD regardless of nesting.
     setup_birth_rule_harness
-    run bash "$PROJECT_ROOT/tools/scripts/issue-create.sh" \
+    run "$PROJECT_ROOT/tools/issue-create" \
         --title "birth rule probe bug" --type Bug --parent 42 --no-interactive
     [ "$status" -eq 0 ]
     grep -q "addSubIssue" "$GH_CALL_LOG"

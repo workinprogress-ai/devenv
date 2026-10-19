@@ -6,12 +6,12 @@ bats_require_minimum_version 1.5.0
 load ../test_helper
 
 @test "issue-artifact-doc-id.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/issue-artifact-doc-id.sh"
+  run bash -n "$PROJECT_ROOT/tools/issue-artifact-doc-id"
   [ "$status" -eq 0 ]
 }
 
 @test "issue-artifact-doc-id.sh generates expected doc_id from slug" {
-  run "$PROJECT_ROOT/tools/scripts/issue-artifact-doc-id.sh" \
+  run "$PROJECT_ROOT/tools/issue-artifact-doc-id" \
     --issue 123 \
     --artifact-type spike \
     --slug "Retry Strategy" \
@@ -22,7 +22,7 @@ load ../test_helper
 }
 
 @test "issue-artifact-doc-id.sh generates expected doc_id from source file" {
-  run "$PROJECT_ROOT/tools/scripts/issue-artifact-doc-id.sh" \
+  run "$PROJECT_ROOT/tools/issue-artifact-doc-id" \
     --issue 77 \
     --artifact-type redesign \
     --source-file Redesign--003-Auth-Flow.md \
@@ -36,7 +36,7 @@ load ../test_helper
   # Regression guard: generated doc_id must satisfy the exact regex
   # plan-parse --lint --require-header enforces, so a freshly derived
   # doc_id passes the upsert gate without manual edits.
-  run "$PROJECT_ROOT/tools/scripts/issue-artifact-doc-id.sh" \
+  run "$PROJECT_ROOT/tools/issue-artifact-doc-id" \
     --issue 91 \
     --artifact-type plan \
     --slug plan-issue-91-001 \
@@ -47,7 +47,7 @@ load ../test_helper
 }
 
 @test "issue-artifact-doc-id.sh fails when both slug and source-file are passed" {
-  run "$PROJECT_ROOT/tools/scripts/issue-artifact-doc-id.sh" \
+  run "$PROJECT_ROOT/tools/issue-artifact-doc-id" \
     --issue 123 \
     --artifact-type spike \
     --slug "one" \
@@ -59,7 +59,7 @@ load ../test_helper
 }
 
 @test "issue-artifact-doc-id.sh fails on invalid artifact type" {
-  run "$PROJECT_ROOT/tools/scripts/issue-artifact-doc-id.sh" \
+  run "$PROJECT_ROOT/tools/issue-artifact-doc-id" \
     --issue 123 \
     --artifact-type invalid \
     --slug "thing" \
@@ -69,7 +69,7 @@ load ../test_helper
 }
 
 @test "issue-artifact-doc-id.sh accepts the research artifact type" {
-  run "$PROJECT_ROOT/tools/scripts/issue-artifact-doc-id.sh" \
+  run "$PROJECT_ROOT/tools/issue-artifact-doc-id" \
     --issue 12 \
     --artifact-type research \
     --source-file research-003-retry-strategy.md \
@@ -80,13 +80,13 @@ load ../test_helper
 }
 
 @test "issue-artifact-doc-id.sh lists research among the allowed types in help" {
-  run "$PROJECT_ROOT/tools/scripts/issue-artifact-doc-id.sh" --help
+  run "$PROJECT_ROOT/tools/issue-artifact-doc-id" --help
   [ "$status" -eq 0 ]
   [[ "$output" == *"research"* ]]
 }
 
 @test "issue-artifact-doc-id.sh still accepts the spike type" {
-  run "$PROJECT_ROOT/tools/scripts/issue-artifact-doc-id.sh" \
+  run "$PROJECT_ROOT/tools/issue-artifact-doc-id" \
     --issue 12 --artifact-type spike --slug "old finding" --repo o/r
   [ "$status" -eq 0 ]
 }

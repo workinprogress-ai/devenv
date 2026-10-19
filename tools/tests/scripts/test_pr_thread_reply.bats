@@ -5,6 +5,8 @@ bats_require_minimum_version 1.5.0
 
 load ../test_helper
 
+# The path stays at the .sh source: this suite checks and greps the script's
+# content (bash -n) and extracts functions from it; it is not stub-invoked.
 SCRIPT="$BATS_TEST_DIRNAME/../../scripts/pr-thread-reply.sh"
 
 setup() {
@@ -36,7 +38,7 @@ reply_api_path() {   # the REST path the reply was POSTed to
 }
 
 @test "a two-part owner/repo spec posts to that repo" {
-    DEVENV_REPO="acme/widgets" run bash "$SCRIPT" 7 --comment-id 99 --body "hi"
+    DEVENV_REPO="acme/widgets" run "$SCRIPT" 7 --comment-id 99 --body "hi"
     [ "$status" -eq 0 ]
     [ "$(reply_api_path)" = "/repos/acme/widgets/pulls/7/comments/99/replies" ]
 }
@@ -45,7 +47,7 @@ reply_api_path() {   # the REST path the reply was POSTed to
 # components (org/project) and dropped the repo, so the reply went to the project
 # name as if it were the repository.
 @test "a three-part org/project/repo spec keeps the repo component (not org/project)" {
-    DEVENV_REPO="acme/proj/widgets" run bash "$SCRIPT" 7 --comment-id 99 --body "hi"
+    DEVENV_REPO="acme/proj/widgets" run "$SCRIPT" 7 --comment-id 99 --body "hi"
     [ "$status" -eq 0 ]
     path="$(reply_api_path)"
     [[ "$path" == /repos/acme/widgets/* ]]
@@ -53,7 +55,7 @@ reply_api_path() {   # the REST path the reply was POSTed to
 }
 
 @test "the -R spec form is still understood" {
-    DEVENV_REPO="-R acme/widgets" run bash "$SCRIPT" 7 --comment-id 99 --body "hi"
+    DEVENV_REPO="-R acme/widgets" run "$SCRIPT" 7 --comment-id 99 --body "hi"
     [ "$status" -eq 0 ]
     [ "$(reply_api_path)" = "/repos/acme/widgets/pulls/7/comments/99/replies" ]
 }

@@ -23,7 +23,7 @@ setup() {
     git add probe.txt
     git commit -qm "introduce defect"
     git tag bad-ref
-    export BS_SCRIPT="$DEVENV_TOOLS/scripts/repo-bisect.sh"
+    export BS_SCRIPT="$DEVENV_TOOLS/repo-bisect"
 }
 
 bs() {
@@ -48,7 +48,7 @@ bs() {
 }
 
 @test "bisect: no notice inside an active scratchpad" {
-    bash "$DEVENV_TOOLS/scripts/repo-scratchpad.sh" enter >/dev/null
+    bash "$DEVENV_TOOLS/repo-scratchpad" enter >/dev/null
     run bs bad-ref good-ref -- sh -c "! grep -q 'broken' probe.txt"
     [ "$status" -eq 0 ]
     [[ "$output" != *"notice: operating on"* ]]
@@ -83,13 +83,13 @@ bs() {
 }
 
 @test "bisect: probe commits via scratchpad commit compose (the P2 extension point)" {
-    bash "$DEVENV_TOOLS/scripts/repo-scratchpad.sh" enter >/dev/null
+    bash "$DEVENV_TOOLS/repo-scratchpad" enter >/dev/null
     # Make a scratch commit that breaks the probe, then hunt from it. The good
     # anchor is the mock init commit — strictly below the scratch base, so the
     # range is non-degenerate even though the scratch tip is one commit tall.
     echo "worse" > probe.txt
     git add -A
-    bash "$DEVENV_TOOLS/scripts/repo-scratchpad.sh" commit "make it worse" >/dev/null
+    bash "$DEVENV_TOOLS/repo-scratchpad" commit "make it worse" >/dev/null
     run bs HEAD "$(git rev-list --max-parents=0 HEAD)" -- sh -c "! grep -q 'worse' probe.txt"
     [ "$status" -eq 0 ]
     [[ "$output" == *"FIRST-BAD:"* ]]

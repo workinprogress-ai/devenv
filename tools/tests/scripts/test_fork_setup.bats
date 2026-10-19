@@ -10,7 +10,7 @@ load ../test_helper
 setup() {
     test_helper_setup
     export DEVENV_TOOLS="${BATS_TEST_DIRNAME}/../.."
-    SCRIPT="$DEVENV_TOOLS/scripts/fork-setup.sh"
+    SCRIPT="$DEVENV_TOOLS/fork-setup"
 }
 
 teardown() {
@@ -31,7 +31,7 @@ _setup_fork_fixture() {
 }
 
 @test "fork-setup: --help prints usage without implementing logic" {
-    run bash "$SCRIPT" --help
+    run "$SCRIPT" --help
     [ "$status" -eq 0 ]
     [[ "$output" == *"fork-setup.sh"* ]]
     [[ "$output" == *"fetch-only"* ]]
@@ -46,12 +46,12 @@ _setup_fork_fixture() {
     mkdir -p "$DEVENV_ROOT"
 
     printf '[fork]\nupstream_repo=https://example.invalid/devenv.git\n' > "$DEVENV_ROOT/devenv.config"
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -ne 0 ]
     [[ "$output" == *"upstream_branch"* ]]
 
     printf '[fork]\nupstream_branch=master\n' > "$DEVENV_ROOT/devenv.config"
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -ne 0 ]
     [[ "$output" == *"upstream_repo"* ]]
 }
@@ -59,7 +59,7 @@ _setup_fork_fixture() {
 @test "fork-setup: adds a fetch-only upstream remote" {
     _setup_fork_fixture
 
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 0 ]
     [ "$(git remote get-url upstream)" = "$FORK_FIXTURE_UPSTREAM" ]
     [ "$(git remote get-url --push upstream)" = "/dev/null" ]
@@ -69,10 +69,10 @@ _setup_fork_fixture() {
 @test "fork-setup: repeated setup is idempotent" {
     _setup_fork_fixture
 
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 0 ]
     before_config="$(git config --local --list --show-origin | sort)"
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 0 ]
     [[ "$output" == *"already configured"* ]]
     [ "$(git config --local --list --show-origin | sort)" = "$before_config" ]
@@ -82,7 +82,7 @@ _setup_fork_fixture() {
     _setup_fork_fixture
     git remote add upstream "$FORK_FIXTURE_ADO_ORIGIN"
 
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -ne 0 ]
     [[ "$output" == *"already points to a different URL"* ]]
     [ "$(git remote get-url upstream)" = "$FORK_FIXTURE_ADO_ORIGIN" ]
@@ -91,7 +91,7 @@ _setup_fork_fixture() {
 @test "fork-setup: --dry-run leaves remotes unchanged" {
     _setup_fork_fixture
 
-    run bash "$SCRIPT" --dry-run
+    run "$SCRIPT" --dry-run
     [ "$status" -eq 0 ]
     [[ "$output" == *"dry run"* ]]
     [ -z "$(git remote get-url upstream 2>/dev/null || true)" ]

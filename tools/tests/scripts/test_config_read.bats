@@ -16,7 +16,7 @@ setup() {
 teardown() { rm -rf "$WORK_DIR"; }
 
 @test "reads a value by section and key" {
-  run bash "$SCRIPT" copilot engineering_repo --config "$CONF"
+  run "$SCRIPT" copilot engineering_repo --config "$CONF"
   [ "$status" -eq 0 ]
   [ "$output" = "my-standards" ]
 }
@@ -33,24 +33,24 @@ teardown() { rm -rf "$WORK_DIR"; }
 }
 
 @test "returns the default when key is absent" {
-  run bash "$SCRIPT" copilot nope "fallback" --config "$CONF"
+  run "$SCRIPT" copilot nope "fallback" --config "$CONF"
   [ "$status" -eq 0 ]
   [ "$output" = "fallback" ]
 }
 
 @test "reads array-style values verbatim" {
-  run bash "$SCRIPT" workflows status_workflow --config "$CONF"
+  run "$SCRIPT" workflows status_workflow --config "$CONF"
   [ "$status" -eq 0 ]
   [ "$output" = "A,B" ]
 }
 
 @test "missing config file exits 1" {
-  run bash "$SCRIPT" copilot engineering_repo --config "$WORK_DIR/none.config"
+  run "$SCRIPT" copilot engineering_repo --config "$WORK_DIR/none.config"
   [ "$status" -eq 1 ]
 }
 
 @test "missing section/key arguments exit 1" {
-  run bash "$SCRIPT" copilot
+  run "$SCRIPT" copilot
   [ "$status" -eq 1 ]
 }
 
@@ -58,26 +58,26 @@ teardown() { rm -rf "$WORK_DIR"; }
 # in it was expanded under set -u and the script died before printing.
 
 @test "--help prints usage and exits 0" {
-  run bash "$SCRIPT" --help
+  run "$SCRIPT" --help
   [ "$status" -eq 0 ]
   [[ "$output" == *"Usage:"* ]]
   [[ "$output" != *"unbound variable"* ]]
 }
 
 @test "-h behaves the same as --help" {
-  run bash "$SCRIPT" -h
+  run "$SCRIPT" -h
   [ "$status" -eq 0 ]
   [[ "$output" == *"Usage:"* ]]
 }
 
 @test "--help shows the template variable literally, not an expansion of it" {
-  run env -u PROVIDER_ORG bash "$SCRIPT" --help
+  run env -u PROVIDER_ORG "$SCRIPT" --help
   [ "$status" -eq 0 ]
   [[ "$output" == *'${PROVIDER_ORG}'* ]]
 }
 
 @test "--help still shows the default config path as written" {
-  run bash "$SCRIPT" --help
+  run "$SCRIPT" --help
   [ "$status" -eq 0 ]
   [[ "$output" == *'$DEVENV_ROOT/devenv.config'* ]]
 }

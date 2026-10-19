@@ -46,7 +46,7 @@ MD
 teardown() { rm -rf "$WORK_DIR"; }
 
 @test "parses steps with phase, title, status" {
-  run bash "$SCRIPT" "$ROADMAP" --org workinprogress-ai
+  run "$SCRIPT" "$ROADMAP" --org workinprogress-ai
   [ "$status" -eq 0 ]
   [ "$(echo "$output" | jq -r '[.steps[].step] | join(",")')" = "STEP-01,STEP-02" ]
   [ "$(echo "$output" | jq -r '[.steps[].phase] | unique | join(",")')" = "PHASE-01" ]
@@ -54,7 +54,7 @@ teardown() { rm -rf "$WORK_DIR"; }
 }
 
 @test "canonicalizes bare #N and repo#N refs to org/repo#N" {
-  run bash "$SCRIPT" "$ROADMAP" --org workinprogress-ai
+  run "$SCRIPT" "$ROADMAP" --org workinprogress-ai
   [ "$status" -eq 0 ]
   [[ "$output" == *'"workinprogress-ai/service.foo#101"'* ]]
   [[ "$output" == *'"workinprogress-ai/service.foo#102"'* ]]
@@ -62,13 +62,13 @@ teardown() { rm -rf "$WORK_DIR"; }
 }
 
 @test "bare #N without --repo is flagged UNRESOLVED" {
-  run bash "$SCRIPT" "$ROADMAP" --org workinprogress-ai
+  run "$SCRIPT" "$ROADMAP" --org workinprogress-ai
   [ "$status" -eq 0 ]
   [[ "$output" == *'UNRESOLVED:#999'* ]]
 }
 
 @test "STEP-02 extracts both issues and the STEP-01 dependency" {
-  run bash "$SCRIPT" "$ROADMAP" --org workinprogress-ai
+  run "$SCRIPT" "$ROADMAP" --org workinprogress-ai
   [ "$status" -eq 0 ]
   local step2
   step2=$(echo "$output" | jq -c '.steps[] | select(.step == "STEP-02")')
@@ -77,7 +77,7 @@ teardown() { rm -rf "$WORK_DIR"; }
 }
 
 @test "STEP-01 status is preserved from the artifact" {
-  run bash "$SCRIPT" "$ROADMAP" --org workinprogress-ai
+  run "$SCRIPT" "$ROADMAP" --org workinprogress-ai
   [ "$status" -eq 0 ]
   local step1
   step1=$(echo "$output" | jq -c '.steps[] | select(.step == "STEP-01")')
@@ -85,12 +85,12 @@ teardown() { rm -rf "$WORK_DIR"; }
 }
 
 @test "missing roadmap file exits 2 (canonical invalid-args contract)" {
-  run bash "$SCRIPT" "$WORK_DIR/nope.md"
+  run "$SCRIPT" "$WORK_DIR/nope.md"
   [ "$status" -eq 2 ]
 }
 
 @test "--help describes pass-through status, not a precedence engine it does not have" {
-  run bash "$PROJECT_ROOT/tools/scripts/roadmap-parse.sh" --help
+  run "$PROJECT_ROOT/tools/roadmap-parse" --help
   [ "$status" -eq 0 ]
   [[ "$output" != *"Status precedence"* ]]
   [[ "$output" == *"as written"* ]]

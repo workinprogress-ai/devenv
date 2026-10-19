@@ -9,7 +9,7 @@ load ../test_helper
 
 setup() {
     test_helper_setup
-    REPO_COMMIT="$DEVENV_TOOLS/scripts/repo-commit.sh"
+    REPO_COMMIT="$DEVENV_TOOLS/repo-commit"
     TESTREPO="$(mktemp -d)"
     git -C "$TESTREPO" init -q
     git -C "$TESTREPO" config user.email test@example.com
@@ -53,40 +53,40 @@ shadow_path_without_editors() {
 }
 
 @test "--help exits 0 and mentions the interactive contract" {
-    run bash "$REPO_COMMIT" --help
+    run "$REPO_COMMIT" --help
     [ "$status" -eq 0 ]
     [[ "$output" == *"interactive"* ]]
 }
 
 @test "refuses invocation with no arguments" {
-    run bash "$REPO_COMMIT"
+    run "$REPO_COMMIT"
     [ "$status" -ne 0 ]
     [[ "$output" == *"only argument"* || "$output" == *"suggested commit message"* ]]
 }
 
 @test "refuses -m (no non-interactive path)" {
-    run bash "$REPO_COMMIT" -m "sneaky message"
+    run "$REPO_COMMIT" -m "sneaky message"
     [ "$status" -ne 0 ]
     [[ "$output" == *"refused"* ]]
 }
 
 @test "refuses --yes and any option-shaped first argument" {
-    run bash "$REPO_COMMIT" --yes
+    run "$REPO_COMMIT" --yes
     [ "$status" -ne 0 ]
-    run bash "$REPO_COMMIT" --message "x"
+    run "$REPO_COMMIT" --message "x"
     [ "$status" -ne 0 ]
 }
 
 @test "refuses more than one argument" {
     stage_one_file
-    run bash "$REPO_COMMIT" "msg one" "extra"
+    run "$REPO_COMMIT" "msg one" "extra"
     [ "$status" -ne 0 ]
     [[ "$output" == *"exactly one argument"* ]]
 }
 
 @test "refuses when nothing is staged" {
     unset GIT_EDITOR
-    run bash "$REPO_COMMIT" "orphan message"
+    run "$REPO_COMMIT" "orphan message"
     [ "$status" -ne 0 ]
     [[ "$output" == *"nothing is staged"* ]]
 }
@@ -99,7 +99,7 @@ shadow_path_without_editors() {
     printf '#!/usr/bin/env bash\nexit 0\n' > "$SAVE_EDITOR"
     chmod +x "$SAVE_EDITOR"
     git config core.editor "$SAVE_EDITOR"
-    GIT_EDITOR=: run bash "$REPO_COMMIT" "sentinel overridden by config"
+    GIT_EDITOR=: run "$REPO_COMMIT" "sentinel overridden by config"
     [ "$status" -eq 0 ]
     [ "$(git -C "$TESTREPO" log -1 --format=%s)" = "sentinel overridden by config" ]
 }
@@ -142,7 +142,7 @@ shadow_path_without_editors() {
     SAVE_EDITOR="$TESTREPO/save-editor.sh"
     printf '#!/usr/bin/env bash\ncp "$1" "$1" 2>/dev/null || true\nexit 0\n' > "$SAVE_EDITOR"
     chmod +x "$SAVE_EDITOR"
-    GIT_EDITOR="$SAVE_EDITOR" run bash "$REPO_COMMIT" "add greeting file"
+    GIT_EDITOR="$SAVE_EDITOR" run "$REPO_COMMIT" "add greeting file"
     [ "$status" -eq 0 ]
     commit_subject="$(git -C "$TESTREPO" log -1 --format=%s)"
     [ "$commit_subject" = "add greeting file" ]
@@ -158,7 +158,7 @@ shadow_path_without_editors() {
 printf 'user-edited subject\n' > "$1"
 EOF
     chmod +x "$EDIT_EDITOR"
-    GIT_EDITOR="$EDIT_EDITOR" run bash "$REPO_COMMIT" "suggested subject"
+    GIT_EDITOR="$EDIT_EDITOR" run "$REPO_COMMIT" "suggested subject"
     [ "$status" -eq 0 ]
     [ "$(git -C "$TESTREPO" log -1 --format=%s)" = "user-edited subject" ]
 }
@@ -168,7 +168,7 @@ EOF
     EMPTY_EDITOR="$TESTREPO/empty-editor.sh"
     printf '#!/usr/bin/env bash\n: > "$1"\nexit 0\n' > "$EMPTY_EDITOR"
     chmod +x "$EMPTY_EDITOR"
-    GIT_EDITOR="$EMPTY_EDITOR" run bash "$REPO_COMMIT" "do not commit me"
+    GIT_EDITOR="$EMPTY_EDITOR" run "$REPO_COMMIT" "do not commit me"
     [ "$status" -ne 0 ]
     # Nothing committed; staged state preserved.
     run git -C "$TESTREPO" diff --cached --quiet
@@ -183,7 +183,7 @@ EOF
     SAVE_EDITOR="$TESTREPO/save-editor.sh"
     printf '#!/usr/bin/env bash\nexit 0\n' > "$SAVE_EDITOR"
     chmod +x "$SAVE_EDITOR"
-    GIT_EDITOR="$SAVE_EDITOR" run bash "$REPO_COMMIT" "only staged file"
+    GIT_EDITOR="$SAVE_EDITOR" run "$REPO_COMMIT" "only staged file"
     [ "$status" -eq 0 ]
     run git -C "$TESTREPO" show --name-only --format= HEAD
     [[ "$output" == *"staged.txt"* ]]
@@ -211,7 +211,7 @@ EOF
     SAVE_EDITOR="$TESTREPO/save-editor.sh"
     printf '#!/usr/bin/env bash\nexit 0\n' > "$SAVE_EDITOR"
     chmod +x "$SAVE_EDITOR"
-    GIT_EDITOR="env FOO=1 $SAVE_EDITOR" run bash "$REPO_COMMIT" "wrapped real editor"
+    GIT_EDITOR="env FOO=1 $SAVE_EDITOR" run "$REPO_COMMIT" "wrapped real editor"
     [ "$status" -eq 0 ]
     [ "$(git -C "$TESTREPO" log -1 --format=%s)" = "wrapped real editor" ]
 }

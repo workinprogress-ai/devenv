@@ -63,7 +63,7 @@ teardown() {
     printf '%s\n%s\n' "$p1" "$p2" > "$TEST_TEMP_DIR/pages.txt"
     export STUB_GH_PAGES="$TEST_TEMP_DIR/pages.txt"
 
-    run bash "$PROJECT_ROOT/tools/scripts/pr-threads-get.sh" 42
+    run "$PROJECT_ROOT/tools/pr-threads-get" 42
     [ "$status" -eq 0 ]
     [[ "$output" == *'"id":"T1"'* ]]
     [[ "$output" == *'"id":"T2"'* ]]
@@ -79,7 +79,7 @@ teardown() {
     printf '%s\n' "$p1" > "$TEST_TEMP_DIR/pages.txt"
     export STUB_GH_PAGES="$TEST_TEMP_DIR/pages.txt"
 
-    run bash "$PROJECT_ROOT/tools/scripts/pr-threads-get.sh" 42
+    run "$PROJECT_ROOT/tools/pr-threads-get" 42
     [ "$status" -eq 0 ]
     [[ "$output" == *'"id":"T1"'* ]]
     [ "$(api_call_count)" -eq 1 ]
@@ -96,7 +96,7 @@ teardown() {
     printf '%s\n' "$p1" > "$TEST_TEMP_DIR/pages.txt"
     export STUB_GH_PAGES="$TEST_TEMP_DIR/pages.txt"
 
-    run bash "$PROJECT_ROOT/tools/scripts/pr-threads-get.sh" 42
+    run "$PROJECT_ROOT/tools/pr-threads-get" 42
     [ "$status" -ne 0 ]
 }
 
@@ -114,7 +114,7 @@ EOF
     printf '%s\n' "$p1" > "$TEST_TEMP_DIR/pages.txt"
     export STUB_GH_PAGES="$TEST_TEMP_DIR/pages.txt"
 
-    run bash "$PROJECT_ROOT/tools/scripts/pr-threads-get.sh" 42
+    run "$PROJECT_ROOT/tools/pr-threads-get" 42
     [ "$status" -eq 0 ]
     [[ "$output" == *'"id":"T_OPEN"'* ]]
     [[ "$output" != *"T_RESOLVED"* ]]
@@ -122,7 +122,7 @@ EOF
     # Re-fill the queue (the first run consumed the page), then --all keeps
     # both threads.
     printf '%s\n' "$p1" > "$TEST_TEMP_DIR/pages.txt"
-    run bash "$PROJECT_ROOT/tools/scripts/pr-threads-get.sh" --all 42
+    run "$PROJECT_ROOT/tools/pr-threads-get" --all 42
     [ "$status" -eq 0 ]
     [[ "$output" == *'"id":"T_RESOLVED"'* ]]
     [[ "$output" == *'"id":"T_OPEN"'* ]]

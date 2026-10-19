@@ -5,7 +5,7 @@ bats_require_minimum_version 1.5.0
 
 load ../test_helper
 
-SCRIPT="$BATS_TEST_DIRNAME/../../scripts/pr-list.sh"
+SCRIPT="$BATS_TEST_DIRNAME/../../pr-list"
 
 setup() {
     test_helper_setup
@@ -51,7 +51,7 @@ teardown() {
 }
 
 @test "pr-list passes the repo exactly once (a doubled positional makes gh pr list fail)" {
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 0 ]
     [ "$output" = "[]" ]
     call="$(grep '^gh pr list' "$GH_CALL_LOG" | head -1)"
@@ -59,7 +59,7 @@ teardown() {
 }
 
 @test "pr-list forwards the filters it was given" {
-    run bash "$SCRIPT" --state merged --limit 5 --head feature/x
+    run "$SCRIPT" --state merged --limit 5 --head feature/x
     [ "$status" -eq 0 ]
     call="$(grep '^gh pr list' "$GH_CALL_LOG" | head -1)"
     [[ "$call" == *"--state merged"* && "$call" == *"--limit 5"* && "$call" == *"--head feature/x"* ]]
@@ -67,6 +67,6 @@ teardown() {
 
 @test "pr-list reports a provider failure with the API-failure exit code" {
     printf '#!/usr/bin/env bash\n[ "$1" = auth ] && exit 0\nexit 1\n' > "$TEST_TEMP_DIR/bin/gh"
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -ne 0 ]
 }

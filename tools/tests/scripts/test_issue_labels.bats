@@ -6,36 +6,36 @@ bats_require_minimum_version 1.5.0
 load ../test_helper
 
 @test "issue-label-list.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/issue-label-list.sh"
+  run bash -n "$PROJECT_ROOT/tools/issue-label-list"
   [ "$status" -eq 0 ]
 }
 
 @test "issue-label-list.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-label-list.sh" --help
+  run "$PROJECT_ROOT/tools/issue-label-list" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "issue-label-list.sh help documents formats and search" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-label-list.sh" --help
+  run "$PROJECT_ROOT/tools/issue-label-list" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "--search" ]]
   [[ "$output" =~ "--format" ]]
 }
 
 @test "issue-label-create.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/issue-label-create.sh"
+  run bash -n "$PROJECT_ROOT/tools/issue-label-create"
   [ "$status" -eq 0 ]
 }
 
 @test "issue-label-create.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-label-create.sh" --help
+  run "$PROJECT_ROOT/tools/issue-label-create" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "issue-label-create.sh help documents seed and update modes" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-label-create.sh" --help
+  run "$PROJECT_ROOT/tools/issue-label-create" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "--seed" ]]
   [[ "$output" =~ "--update" ]]
@@ -43,13 +43,13 @@ load ../test_helper
 }
 
 @test "issue-label-create.sh requires NAME or --seed" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-label-create.sh"
+  run "$PROJECT_ROOT/tools/issue-label-create"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "NAME is required" ]]
 }
 
 @test "issue-label-create.sh rejects invalid color" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-label-create.sh" test-label --color "nothex"
+  run "$PROJECT_ROOT/tools/scripts/issue-label-create.sh" test-label --color "nothex"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Invalid color" ]]
 }
@@ -63,12 +63,12 @@ load ../test_helper
 }
 
 @test "issue-update.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/issue-update.sh"
+  run bash -n "$PROJECT_ROOT/tools/issue-update"
   [ "$status" -eq 0 ]
 }
 
 @test "issue-update.sh help documents --type and --remove-type" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-update.sh" --help
+  run "$PROJECT_ROOT/tools/issue-update" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "--type TYPE" ]]
   [[ "$output" =~ "--remove-type" ]]

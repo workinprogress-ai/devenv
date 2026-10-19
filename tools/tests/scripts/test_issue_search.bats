@@ -6,18 +6,18 @@ bats_require_minimum_version 1.5.0
 load ../test_helper
 
 @test "issue-search.sh has valid bash syntax" {
-  run bash -n "$PROJECT_ROOT/tools/scripts/issue-search.sh"
+  run bash -n "$PROJECT_ROOT/tools/issue-search"
   [ "$status" -eq 0 ]
 }
 
 @test "issue-search.sh has --help flag" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-search.sh" --help
+  run "$PROJECT_ROOT/tools/issue-search" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "issue-search.sh help documents search semantics and key flags" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-search.sh" --help
+  run "$PROJECT_ROOT/tools/issue-search" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "--fetch-limit" ]]
   [[ "$output" =~ "--state" ]]
@@ -25,13 +25,13 @@ load ../test_helper
 }
 
 @test "issue-search.sh requires at least one search term" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-search.sh"
+  run "$PROJECT_ROOT/tools/issue-search"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "At least one search term" ]]
 }
 
 @test "issue-search.sh --version prints version" {
-  run bash "$PROJECT_ROOT/tools/scripts/issue-search.sh" --version
+  run "$PROJECT_ROOT/tools/issue-search" --version
   [ "$status" -eq 0 ]
   [[ "$output" =~ ^1\.0\.0$ ]]
 }

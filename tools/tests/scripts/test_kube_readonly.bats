@@ -61,7 +61,7 @@ EOF
 
 @test "kube-list-pods: prints the pod list from the stub" {
     export STUB_KUBECTL_PODS=$'web-1\nweb-2\ndb-1'
-    run bash "$PROJECT_ROOT/tools/scripts/kube-list-pods.sh"
+    run "$PROJECT_ROOT/tools/kube-list-pods"
     [ "$status" -eq 0 ]
     [[ "$output" == *"web-1"* ]]
     [[ "$output" == *"web-2"* ]]
@@ -70,7 +70,7 @@ EOF
 
 @test "kube-list-pods: filter keeps only matching names" {
     export STUB_KUBECTL_PODS=$'web-1\nweb-2\ndb-1'
-    run bash "$PROJECT_ROOT/tools/scripts/kube-list-pods.sh" web
+    run "$PROJECT_ROOT/tools/kube-list-pods" web
     [ "$status" -eq 0 ]
     [[ "$output" == *"web-1"* ]]
     ! grep -q "^db-1$" <<< "$output"
@@ -78,7 +78,7 @@ EOF
 
 @test "kube-logs: fetches logs for the first-match pod" {
     export STUB_KUBECTL_PODS=$'web-1\nweb-2'
-    run bash "$PROJECT_ROOT/tools/scripts/kube-logs.sh" web
+    run "$PROJECT_ROOT/tools/kube-logs" web
     [ "$status" -eq 0 ]
     [[ "$output" == *"Fetching logs for pod: web-1"* ]]
     stub_calls_contain "kubectl logs web-1"
@@ -86,14 +86,14 @@ EOF
 
 @test "kube-logs: no match is refused before kubectl logs" {
     export STUB_KUBECTL_PODS=$'web-1'
-    run bash "$PROJECT_ROOT/tools/scripts/kube-logs.sh" nomatch < /dev/null
+    run "$PROJECT_ROOT/tools/kube-logs" nomatch < /dev/null
     [ "$status" -ne 0 ]
     ! stub_calls_contain "kubectl logs web-1"
 }
 
 @test "kube-pod-exec: executes the command on the first-match pod" {
     export STUB_KUBECTL_PODS=$'web-1\nweb-2'
-    run bash "$PROJECT_ROOT/tools/scripts/kube-pod-exec.sh" web -- ls -la
+    run "$PROJECT_ROOT/tools/kube-pod-exec" web -- ls -la
     [ "$status" -eq 0 ]
     [[ "$output" == *"Executing command for pod: web-1"* ]]
     stub_calls_contain "kubectl exec web-1"
@@ -101,28 +101,28 @@ EOF
 
 @test "kube-pod-console: defaults to /bin/bash on the first-match pod" {
     export STUB_KUBECTL_PODS=$'web-1\nweb-2'
-    run bash "$PROJECT_ROOT/tools/scripts/kube-pod-console.sh" web
+    run "$PROJECT_ROOT/tools/kube-pod-console" web
     [ "$status" -eq 0 ]
     [[ "$output" == *"Executing command on console for pod: web-1"* ]]
     stub_calls_contain "kubectl exec -it web-1"
 }
 
 @test "kube-forward-ports: usage refusal with no mappings issues no forward" {
-    run bash "$PROJECT_ROOT/tools/scripts/kube-forward-ports.sh" < /dev/null
+    run "$PROJECT_ROOT/tools/kube-forward-ports" < /dev/null
     [ "$status" -eq 1 ]
     [[ "$output" == *"Usage:"* ]]
     ! stub_calls_contain "kubectl port-forward"
 }
 
 @test "kube-forward-ports: non-numeric port is refused before selection" {
-    run bash "$PROJECT_ROOT/tools/scripts/kube-forward-ports.sh" "web=abc" < /dev/null
+    run "$PROJECT_ROOT/tools/kube-forward-ports" "web=abc" < /dev/null
     [ "$status" -eq 1 ]
     [[ "$output" == *"Ports must be numeric"* ]]
     run ! grep -q "kube-pod-select" "$CALL_LOG"
 }
 
 @test "kube-intercept: invalid mapping format is refused before any telepresence call" {
-    run bash "$PROJECT_ROOT/tools/scripts/kube-intercept.sh" "nonsense" < /dev/null
+    run "$PROJECT_ROOT/tools/kube-intercept" "nonsense" < /dev/null
     [ "$status" -eq 1 ]
     [[ "$output" == *"Invalid mapping format"* ]]
     ! grep -q "^telepresence " "$CALL_LOG"

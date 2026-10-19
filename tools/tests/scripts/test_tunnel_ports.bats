@@ -39,7 +39,7 @@ run_tunnels() {
 }
 
 @test "no arguments prints the usage line instead of an unbound-variable error" {
-    run bash "$SCRIPT"
+    run "$SCRIPT"
     [ "$status" -eq 1 ]
     [[ "$output" == *"Usage:"* ]]
     [[ "$output" != *"unbound variable"* ]]
@@ -83,7 +83,7 @@ run_tunnels() {
 }
 
 @test "options without a target print usage instead of an unbound-variable error" {
-    run bash "$SCRIPT" -p 2222
+    run "$SCRIPT" -p 2222
     [ "$status" -eq 1 ]
     [[ "$output" == *"Usage:"* ]]
     [[ "$output" != *"unbound variable"* ]]

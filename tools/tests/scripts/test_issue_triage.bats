@@ -28,24 +28,24 @@ STUB
 }
 
 @test "CLI mode: no bundle options is an error" {
-    run bash "$SCRIPT" 44
+    run "$SCRIPT" 44
     [ "$status" -ne 0 ]
 }
 
 @test "CLI mode: non-numeric positional is rejected" {
-    run bash "$SCRIPT" notanumber --label bug
+    run "$SCRIPT" notanumber --label bug
     [ "$status" -ne 0 ]
     [[ "$output" == *"Unknown option"* ]]
 }
 
 @test "CLI mode: --label applies via gh issue edit" {
-    run bash "$SCRIPT" 44 --label bug
+    run "$SCRIPT" 44 --label bug
     [ "$status" -eq 0 ]
     grep -q "issue edit.*--add-label bug" "$STUB_DIR/calls.log"
 }
 
 @test "CLI mode: bundle of label + assignee applies both in one call" {
-    run bash "$SCRIPT" 44 --label bug --label "priority: high" --assignee someuser
+    run "$SCRIPT" 44 --label bug --label "priority: high" --assignee someuser
     [ "$status" -eq 0 ]
     [ "$(grep -c "add-label" "$STUB_DIR/calls.log")" -eq 2 ]
     grep -q "add-assignee someuser" "$STUB_DIR/calls.log"
@@ -55,13 +55,13 @@ STUB
     # The event signal goes through tools/internal/_on_triage_complete.sh
     # -> dispatcher -> wrapper; under a no-op gh stub the observable is the
     # wrapper's reverse-lookup call for the target issue.
-    run bash "$SCRIPT" 44 --triage-complete
+    run "$SCRIPT" 44 --triage-complete
     [ "$status" -eq 0 ]
     grep -q "issues/44" "$STUB_DIR/calls.log"
 }
 
 @test "CLI mode: bulk - multiple issue numbers each get the bundle" {
-    run bash "$SCRIPT" 44 45 --label bug
+    run "$SCRIPT" 44 45 --label bug
     [ "$status" -eq 0 ]
     [ "$(grep -c "add-label bug" "$STUB_DIR/calls.log")" -eq 2 ]
 }
@@ -71,7 +71,7 @@ STUB
     # or consume the wrong input. Scripted use goes through the bundle mode.
     # </dev/null makes the non-TTY condition explicit — bats inherits the
     # invoking terminal's stdin, which IS a TTY in interactive runs.
-    run bash "$SCRIPT" </dev/null
+    run "$SCRIPT" </dev/null
     [ "$status" -eq 2 ]
     [[ "$output" == *"interactive terminal"* ]]
     [[ "$output" == *"issue number"* ]]
