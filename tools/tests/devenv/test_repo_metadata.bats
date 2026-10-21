@@ -176,7 +176,7 @@ load ../test_helper
 
 @test "ruleset commit-message pattern allows exactly the commitlint type enum" {
     command -v node >/dev/null || skip "node not installed"
-    enum="$(node -e "console.log(require('$PROJECT_ROOT/commitlint.config.js').rules['type-enum'][2].slice().sort().join('|'))")"
+    enum="$(node --input-type=module -e "const c=(await import('file://$PROJECT_ROOT/commitlint.config.js')).default; console.log(c.rules['type-enum'][2].slice().sort().join('|'))")"
     pattern="$(jq -r '.. | objects | select(.type? == "commit_message_pattern") | .parameters.pattern' "$PROJECT_ROOT/tools/config/ruleset-default.json")"
     ruleset="$(printf '%s' "$pattern" | sed -E 's/^\^\(([^)]*)\).*/\1/' | tr '|' '\n' | sort | paste -sd'|')"
     [ -n "$enum" ]
@@ -246,7 +246,7 @@ load ../test_helper
 
 @test "the wrapper's DEVENV_COMMIT_TYPES equals the commitlint type enum" {
     command -v node >/dev/null || skip "node not installed"
-    enum="$(node -e "console.log(require('$PROJECT_ROOT/commitlint.config.js').rules['type-enum'][2].slice().sort().join(' '))")"
+    enum="$(node --input-type=module -e "const c=(await import('file://$PROJECT_ROOT/commitlint.config.js')).default; console.log(c.rules['type-enum'][2].slice().sort().join(' '))")"
     wrapper="$(bash -c "source '$PROJECT_ROOT/tools/lib/git-operations.bash' >/dev/null 2>&1; echo \$DEVENV_COMMIT_TYPES" | tr ' ' '\n' | sort | paste -sd' ')"
     [ -n "$enum" ]
     [ "$wrapper" = "$enum" ]

@@ -22,8 +22,11 @@ load ../test_helper
 # NOTE: .devcontainer/bootstrap.bash has NO entries — all credential
 # lifecycle (import/status) routes through the provider auth seam.
 # shellcheck disable=SC2034
+# The TS ports route all transport through the provider facade; the exception
+# list retains the bash provider module's sanctioned gh usage (the scan skips
+# provider dirs, but the allowlist-staleness check still needs a live match).
 ALLOWED_EXCEPTIONS=(
-    "issue-select.sh:gh issue (view|edit)"
+    "issues.bash:gh issue (view|edit)"
 )
 
 # Transport patterns: any of these in executable code is a violation unless

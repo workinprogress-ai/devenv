@@ -184,6 +184,24 @@ _make_stub() {
     rm -rf "$root"
 }
 
+@test "stale node stubs (deleted .ts source) are purged too" {
+    local root
+    root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    printf '#!/bin/bash\necho ran-sh\n' > "$root/tools/scripts/alpha.sh"
+    # A node stub whose .ts source was deleted: same purge contract as bash.
+    printf '#!/bin/bash\nexec node "$(dirname "$0")/scripts/gone.ts" "$@"\n' \
+        > "$root/tools/gone"
+    chmod +x "$root/tools/gone"
+
+    run bash "$SYNC_SCRIPT"
+    [ "$status" -eq 0 ]
+
+    [ ! -e "$root/tools/gone" ]
+    [ -f "$root/tools/alpha" ]
+    rm -rf "$root"
+}
+
 @test "stale underscore stubs from the old contract are purged" {
     local root
     root="$(mktemp -d)"
@@ -555,5 +573,66 @@ _make_layer_script() {
     done
     touch "$root/.stop"; wait "$watcher" 2>/dev/null || true
     [ ! -e "$root/.missing" ]
+    rm -rf "$root"
+}
+
+@test "a .ts source gets a node stub that executes it" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    printf '#!/usr/bin/env node\nconsole.log("ran-ts");\n' > "$root/tools/scripts/ts-tool.ts"
+    run bash "$SYNC_SCRIPT"
+    [ "$status" -eq 0 ]
+    [ -f "$root/tools/ts-tool" ]
+    grep -q 'exec node "$(dirname "$0")/scripts/ts-tool.ts"' "$root/tools/ts-tool"
+    run "$root/tools/ts-tool"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ran-ts"* ]]
+    rm -rf "$root"
+}
+
+@test "a custom .ts overrides a provided .sh (mixed-extension chain: node wins)" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    printf '#!/bin/bash\necho ran-sh\n' > "$root/tools/scripts/duo.sh"
+    mkdir -p "$root/tools/custom"
+    printf '#!/usr/bin/env node\nconsole.log("ran-custom-ts");\n' > "$root/tools/custom/duo.ts"
+    run bash "$SYNC_SCRIPT"
+    [ "$status" -eq 0 ]
+    grep -q 'exec node "$(dirname "$0")/custom/duo.ts"' "$root/tools/duo"
+    run "$root/tools/duo"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ran-custom-ts"* ]]
+    rm -rf "$root"
+}
+
+@test "a fork .sh overrides a provided .ts (mixed-extension chain: bash wins)" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    printf '#!/usr/bin/env node\nconsole.log("ran-ts");\n' > "$root/tools/scripts/duo.ts"
+    mkdir -p "$root/tools/fork"
+    printf '#!/bin/bash\necho ran-fork-sh\n' > "$root/tools/fork/duo.sh"
+    run bash "$SYNC_SCRIPT"
+    [ "$status" -eq 0 ]
+    grep -q 'exec bash "$(dirname "$0")/fork/duo.sh"' "$root/tools/duo"
+    run "$root/tools/duo"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ran-fork-sh"* ]]
+    rm -rf "$root"
+}
+
+@test "a runner-language change converts the existing stub in place" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    printf '#!/bin/bash\necho old-sh\n' > "$root/tools/scripts/conv.sh"
+    run bash "$SYNC_SCRIPT"
+    grep -q 'exec bash' "$root/tools/conv"
+    # the tool migrates to TS: .sh source removed, .ts source arrives
+    rm "$root/tools/scripts/conv.sh"
+    printf '#!/usr/bin/env node\nconsole.log("new-ts");\n' > "$root/tools/scripts/conv.ts"
+    run bash "$SYNC_SCRIPT"
+    [ "$status" -eq 0 ]
+    grep -q 'exec node "$(dirname "$0")/scripts/conv.ts"' "$root/tools/conv"
+    run "$root/tools/conv"
+    [[ "$output" == *"new-ts"* ]]
     rm -rf "$root"
 }

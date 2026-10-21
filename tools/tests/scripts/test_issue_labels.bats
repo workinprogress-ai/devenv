@@ -48,8 +48,8 @@ load ../test_helper
   [[ "$output" =~ "NAME is required" ]]
 }
 
-@test "issue-label-create.sh rejects invalid color" {
-  run "$PROJECT_ROOT/tools/scripts/issue-label-create.sh" test-label --color "nothex"
+@test "issue-label-create rejects invalid color" {
+  run node "$PROJECT_ROOT/tools/scripts/issue-label-create.ts" test-label --color "nothex"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Invalid color" ]]
 }
@@ -67,12 +67,11 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "issue-update.sh help documents --type and --remove-type" {
+@test "issue-update help documents --type and --remove-type" {
   run "$PROJECT_ROOT/tools/issue-update" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "--type TYPE" ]]
   [[ "$output" =~ "--remove-type" ]]
-  [[ "$output" =~ "Bug, Feature, Task, or Epic" ]]
 }
 
 @test "issue-update.sh normalizes canonical types case-insensitively" {

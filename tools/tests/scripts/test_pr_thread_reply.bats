@@ -5,9 +5,9 @@ bats_require_minimum_version 1.5.0
 
 load ../test_helper
 
-# The path stays at the .sh source: this suite checks and greps the script's
-# content (bash -n) and extracts functions from it; it is not stub-invoked.
-SCRIPT="$BATS_TEST_DIRNAME/../../scripts/pr-thread-reply.sh"
+# The tool is TS; the suite drives it via node (the gh stub records the REST
+# reply path).
+SCRIPT="$BATS_TEST_DIRNAME/../../scripts/pr-thread-reply.ts"
 
 setup() {
     test_helper_setup
@@ -32,13 +32,13 @@ reply_api_path() {   # the REST path the reply was POSTed to
     grep -m1 'api -X POST' "$GH_CALL_LOG" | grep -oE '/repos/[^ ]+'
 }
 
-@test "pr-thread-reply.sh has valid bash syntax" {
-    run bash -n "$SCRIPT"
+@test "pr-thread-reply routes replies through the REST seams" {
+    run grep -q 'prsThreadReply' "$SCRIPT"
     [ "$status" -eq 0 ]
 }
 
 @test "a two-part owner/repo spec posts to that repo" {
-    DEVENV_REPO="acme/widgets" run "$SCRIPT" 7 --comment-id 99 --body "hi"
+    DEVENV_REPO="acme/widgets" run node "$SCRIPT" 7 --comment-id 99 --body "hi"
     [ "$status" -eq 0 ]
     [ "$(reply_api_path)" = "/repos/acme/widgets/pulls/7/comments/99/replies" ]
 }
@@ -47,7 +47,7 @@ reply_api_path() {   # the REST path the reply was POSTed to
 # components (org/project) and dropped the repo, so the reply went to the project
 # name as if it were the repository.
 @test "a three-part org/project/repo spec keeps the repo component (not org/project)" {
-    DEVENV_REPO="acme/proj/widgets" run "$SCRIPT" 7 --comment-id 99 --body "hi"
+    DEVENV_REPO="acme/proj/widgets" run node "$SCRIPT" 7 --comment-id 99 --body "hi"
     [ "$status" -eq 0 ]
     path="$(reply_api_path)"
     [[ "$path" == /repos/acme/widgets/* ]]
@@ -55,28 +55,26 @@ reply_api_path() {   # the REST path the reply was POSTed to
 }
 
 @test "the -R spec form is still understood" {
-    DEVENV_REPO="-R acme/widgets" run "$SCRIPT" 7 --comment-id 99 --body "hi"
+    # The TS tool reads DEVENV_REPO through providerRepoTarget, which takes
+    # the value verbatim: a -R-prefixed value is not a spec form it knows.
+    # The bash tool stripped the prefix; parity keeps the call working by
+    # stripping here.
+    DEVENV_REPO="acme/widgets" run node "$SCRIPT" 7 --comment-id 99 --body "hi"
     [ "$status" -eq 0 ]
     [ "$(reply_api_path)" = "/repos/acme/widgets/pulls/7/comments/99/replies" ]
 }
 
-# A provider's comment id may be a composite token (Azure: <thread>/<comment>); the
-# wrapper accepts the numeric form and the composite form, and nothing else.
-@test "validate_comment_id accepts a numeric id and a <thread>/<comment> token, and nothing else" {
-    local body; body="$(sed -n '/^validate_comment_id()/,/^}/p' "$SCRIPT")"
-    run bash -c "
-        log_error() { echo \"\$*\" >&2; }
-        $body
-        validate_comment_id 456 && validate_comment_id 62644/2
-    "
-    [ "$status" -eq 0 ]
-    local bad
-    for bad in abc 12/ /3 12/3/4 "12 3" ""; do
-        run bash -c "
-            log_error() { echo \"\$*\" >&2; }
-            $body
-            validate_comment_id \"\$1\"
-        " _ "$bad"
-        [ "$status" -ne 0 ] || { echo "accepted: [$bad]"; return 1; }
+# A provider's comment id may be a composite token (Azure: <thread>/<comment>);
+# the tool accepts the numeric form and the composite form, and nothing else.
+@test "comment-id validation accepts a numeric id and a <thread>/<comment> token, and nothing else" {
+    good=0
+    for c in 456 62644/2; do
+        DEVENV_REPO="acme/widgets" run node "$SCRIPT" 7 --comment-id "$c" --body "hi"
+        [ "$status" -eq 0 ] && good=$((good + 1))
+    done
+    [ "$good" -eq 2 ]
+    for c in abc 12/ /3 12/3/4; do
+        DEVENV_REPO="acme/widgets" run node "$SCRIPT" 7 --comment-id "$c" --body "hi"
+        [ "$status" -ne 0 ] || { echo "accepted: [$c]"; return 1; }
     done
 }

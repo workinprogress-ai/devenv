@@ -265,11 +265,12 @@ EOF
 }
 
 @test "pr-merge header documents the rebase default and defers options to --help" {
-  header="$(sed -n '1,60p' "$PROJECT_ROOT/tools/scripts/pr-merge.sh")"
+  # The file header comment (through the first blank line): the default is
+  # stated there once; the option list lives only in usage().
+  header="$(sed -n '/^\/\/ pr-merge.ts/,/^$/p' "$PROJECT_ROOT/tools/scripts/pr-merge.ts")"
   [[ "$header" == *"rebase"* ]]
   [[ "$header" != *"org/fork"* ]]
-  [[ "$header" == *"pr-merge --help"* ]]
-  # single source: the option list lives in usage(), not duplicated in the header
+  [[ "$header" == *"usage()"* ]]
   [[ "$header" != *"--keep-branch"* ]]
 }
 
