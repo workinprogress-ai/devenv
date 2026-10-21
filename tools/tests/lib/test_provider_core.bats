@@ -372,7 +372,9 @@ load_provider_in_subshell() {   # load_provider_in_subshell <config-file>: runs 
 }
 
 @test "an ordinary missing command is still bash's 127" {
-    run bash -c "
+    # 127 is the expected outcome — declare it so bats does not flag BW01
+    # (which the parallel runner escalates) on the pass.
+    run -127 bash -c "
         export DEVENV_TOOLS='$DEVENV_TOOLS'
         source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
         not_a_provider_command_xyz

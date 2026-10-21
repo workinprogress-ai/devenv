@@ -40,9 +40,14 @@ arms_missing_check() {
 # script-level behavior: the missing value is named, and nothing crashes on set -u
 @test "a script reports a missing option value as a usage error, not an unbound variable" {
     local pair script opt
-    for pair in issue-select:--state issue-list:--state pr-list:--state pipelines-status:--status; do
+    for pair in issue-list:--state pr-list:--state pipelines-status:--status; do
         script="${pair%%:*}"; opt="${pair#*:}"
-        run bash "$SCRIPTS/$script.sh" "$opt"
+        if [[ "$script" == pipelines-status ]]; then
+            # still a bash tool (pipelines family converts later)
+            run bash "$SCRIPTS/$script.sh" "$opt"
+        else
+            run node "$SCRIPTS/$script.ts" "$opt"
+        fi
         [ "$status" -eq 2 ] || { echo "$script $opt: status $status: $output"; return 1; }
         [[ "$output" != *"unbound variable"* ]] || { echo "$script: $output"; return 1; }
         [[ "$output" == *"$opt"* ]] || { echo "$script: option not named: $output"; return 1; }
@@ -50,13 +55,13 @@ arms_missing_check() {
 }
 
 @test "issue-select: --state --type does not take --type as the state" {
-    run bash "$SCRIPTS/issue-select.sh" --state --type Bug
+    run node "$SCRIPTS/issue-select.ts" --state --type Bug
     [ "$status" -eq 2 ]
-    [[ "$output" == *"--state"* ]]
+    [[ "$output" == *"'--state'"* ]]
 }
 
 @test "pr-create: --issue with no value is a usage error naming the option" {
-    run bash "$SCRIPTS/pr-create.sh" --issue
+    run node "$SCRIPTS/pr-create.ts" --issue
     [ "$status" -eq 2 ]
     [[ "$output" == *"--issue"* ]]
     [[ "$output" != *"unbound variable"* ]]

@@ -167,7 +167,7 @@ name=azure
 EOF
     run bash -c "
         export DEVENV_ROOT='$T'
-        source <(sed -n '/^_key_update_run()/,/^}/p;/^key-update-provider()/,/^}/p' '$PROJECT_ROOT/.devcontainer/provision-legacy.bash')
+        source <(sed -n '/^_key_update_run()/,/^}/p;/^key-update-provider()/,/^}/p' '$PROJECT_ROOT/tools/lib/provision.bash')
         key-update-provider
     "
     [[ "$output" == *"AZURE_KEY_UPDATE_RAN"* ]]
@@ -178,7 +178,7 @@ EOF
 # One key-update-<provider> command per provider that ships a key-update script;
 # key-update-provider runs the active provider's.
 define_key_update_commands() {   # <fake devenv root> -> runs the generated function definitions
-    sed -n '/^_key_update_run()/,/^}/p;/^key-update-provider()/,/^}/p;/^_key_update_define_provider_commands()/,/^}/p' "$PROJECT_ROOT/.devcontainer/provision-legacy.bash"
+    sed -n '/^_key_update_run()/,/^}/p;/^key-update-provider()/,/^}/p;/^_key_update_define_provider_commands()/,/^}/p' "$PROJECT_ROOT/tools/lib/provision.bash"
 }
 
 @test "key-update-azure and key-update-github exist as commands and run their own provider's script" {
@@ -433,7 +433,7 @@ pat_gate_run() {
     printf '[organization]\nname=x\n' > "$T/devenv.config"
     run bash -c "
         export DEVENV_ROOT='$T'; unset DEVENV_KEY_UPDATE_PROVIDER
-        source <(sed -n '/^_key_update_run()/,/^}/p;/^key-update-provider()/,/^}/p' '$PROJECT_ROOT/.devcontainer/provision-legacy.bash')
+        source <(sed -n '/^_key_update_run()/,/^}/p;/^key-update-provider()/,/^}/p' '$PROJECT_ROOT/tools/lib/provision.bash')
         key-update-provider
     "
     rm -rf "$T"

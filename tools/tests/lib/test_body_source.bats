@@ -296,14 +296,12 @@ delayed_capture() {
 }
 
 @test "issue-artifact-upsert: --body-file - with empty stdin is refused rather than posting an empty comment" {
-  local fn; fn="$(sed -n '/^load_comment_body()/,/^}/p' "$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.sh")"
-  run bash -c "
-    source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-    source '$PROJECT_ROOT/tools/lib/body-source.bash'
-    COMMENT_FILE=-; COMMENT_BODY=''
-    $fn
-    printf '' | load_comment_body
-  "
+  # The TS port reads stdin through readFileSync(0); an empty piped stdin is
+  # the same named refusal as the bash implementation had.
+  mkdir -p "$TEST_TEMP_DIR/bin"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$TEST_TEMP_DIR/bin/gh"
+  chmod +x "$TEST_TEMP_DIR/bin/gh"
+  run bash -c "printf '' | env PATH='$TEST_TEMP_DIR/bin:$PATH' DEVENV_REPO='org/repo' node '$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.ts' --issue 42 --body-file -"
   [ "$status" -ne 0 ]
   [[ "$output" == *"Refusing empty stdin body"* ]]
 }

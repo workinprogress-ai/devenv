@@ -1,7 +1,8 @@
 #!/usr/bin/env bats
-# issue-list and issue-search must hand the repo to provider_issues_list exactly once, as the
-# leading positional argument. The Azure provider consumes only that first positional, so a
-# second copy reaches its flag loop and fails as an unknown option.
+# issue-list.ts and issue-search.ts must hand the repo to the provider list
+# verb exactly once, as the leading positional argument. The Azure provider
+# consumes only that first positional, so a second copy reaches its flag loop
+# and fails as an unknown option.
 
 bats_require_minimum_version 1.5.0
 
@@ -9,41 +10,43 @@ load ../test_helper
 
 REPO="Devenv-test/service.atlantis.claims"
 
-# Runs <function> from <script> with stubbed collaborators. The stub provider records every
-# argument it receives, one per line, in $ARGS_LOG and answers with an empty issue list.
-run_script_function() {
-  local script="$1" fn="$2"
+# Runs the TS tool against a stubbed gh that records every argument it
+# receives, pipe-joined, one call per line, in $ARGS_LOG.
+run_ts_list_tool() {
+  local tool="$1"; shift
   export ARGS_LOG="$TEST_TEMP_DIR/provider-args.log"
   : > "$ARGS_LOG"
-  run bash -c "
-    log_verbose() { :; }
-    get_repo_spec() { echo '$REPO'; }
-    build_issue_filters() { local -n out=\$1; out+=(--state all --limit 30); }
-    provider_issues_list() { printf '%s\n' \"\$@\" > \"\$ARGS_LOG\"; echo '[]'; }
-    FILTER_STATE=all FILTER_TYPE='' FILTER_LABELS=() FILTER_ASSIGNEE='' FILTER_MILESTONE=''
-    OUTPUT_FORMAT=table LIMIT=30 FETCH_LIMIT=30 SEARCH_TERMS=(term)
-    source <(sed -n '/^$fn()/,/^}/p' '$PROJECT_ROOT/tools/scripts/$script')
-    $fn
-  "
+  mkdir -p "$TEST_TEMP_DIR/bin"
+  cat > "$TEST_TEMP_DIR/bin/gh" <<GHSTUB
+#!/usr/bin/env bash
+{ printf '%s|' "\$@"; printf '\n'; } >> "$ARGS_LOG"
+case "\$*" in
+  "issue list"*) echo '[]' ;;
+  *) echo '{}' ;;
+esac
+GHSTUB
+  chmod +x "$TEST_TEMP_DIR/bin/gh"
+  run env PATH="$TEST_TEMP_DIR/bin:$PATH" DEVENV_REPO="$REPO" node "$tool" "$@"
+  [ "$status" -eq 0 ] || { echo "tool failed: $output"; return 1; }
 }
 
-@test "issue-list passes the repo to provider_issues_list exactly once, first" {
-  run_script_function issue-list.sh list_issues
+@test "issue-list passes the repo to the provider list verb exactly once, first" {
+  run_ts_list_tool "$PROJECT_ROOT/tools/scripts/issue-list.ts" --state all --limit 30
   [ "$status" -eq 0 ]
-  [ "$(head -1 "$ARGS_LOG")" = "$REPO" ]
-  [ "$(grep -cxF "$REPO" "$ARGS_LOG")" -eq 1 ]
+  grep -q "issue|list|-R|$REPO|" "$ARGS_LOG"
+  [ "$(grep -o -- "-R|$REPO" "$ARGS_LOG" | wc -l)" -eq 1 ]
 }
 
-@test "issue-search passes the repo to provider_issues_list exactly once, first" {
-  run_script_function issue-search.sh search_issues
+@test "issue-search passes the repo to the provider list verb exactly once, first" {
+  run_ts_list_tool "$PROJECT_ROOT/tools/scripts/issue-search.ts" term
   [ "$status" -eq 0 ]
-  [ "$(head -1 "$ARGS_LOG")" = "$REPO" ]
-  [ "$(grep -cxF "$REPO" "$ARGS_LOG")" -eq 1 ]
+  grep -q "issue|list|-R|$REPO|" "$ARGS_LOG"
+  [ "$(grep -o -- "-R|$REPO" "$ARGS_LOG" | wc -l)" -eq 1 ]
 }
 
 @test "issue-list keeps its filter flags after the repo" {
-  run_script_function issue-list.sh list_issues
+  run_ts_list_tool "$PROJECT_ROOT/tools/scripts/issue-list.ts" --state all --limit 30
   [ "$status" -eq 0 ]
-  grep -qxF -- "--state" "$ARGS_LOG"
-  grep -qxF -- "--limit" "$ARGS_LOG"
+  grep -q -- "--state|all" "$ARGS_LOG"
+  grep -q -- "--limit|30" "$ARGS_LOG"
 }

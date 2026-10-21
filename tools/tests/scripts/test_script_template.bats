@@ -185,7 +185,7 @@ load ../test_helper
 }
 
 @test "tooling-create-script.sh references template file" {
-  run grep "TEMPLATE_FILE=" "$DEVENV_TOOLS/scripts/tooling-create-script.sh"
+  run grep "TEMPLATE_TS=" "$DEVENV_TOOLS/scripts/tooling-create-script.sh"
   [ "$status" -eq 0 ]
 }
 

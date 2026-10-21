@@ -9,7 +9,7 @@ load ../test_helper
 setup() {
     test_helper_setup
     export DEVENV_ROOT="${BATS_TEST_DIRNAME}/../../.."
-    NPMRC_SETUP=$(sed -n '/^configure_user_npmrc()/,/^}/p' "$DEVENV_ROOT/.devcontainer/provision-legacy.bash")
+    NPMRC_SETUP=$(sed -n '/^configure_user_npmrc()/,/^}/p' "$DEVENV_ROOT/tools/lib/provision.bash")
     export NPMRC_SETUP
     export PROVIDER_NAME=github
     export STUB_NPM_TOKEN=synthetic-github-npm-token

@@ -226,7 +226,9 @@ EOF
     _hooked_repo
     printf '' > "$MSG"
     cd "$REPO"
-    run bash "$SCRIPT" "$MSG" ""
+    # Ambient sessions may export a no-op GIT_EDITOR (AI shells do); the test
+    # owns its inputs — unset the override so a real editor resolves.
+    run env -u GIT_EDITOR bash "$SCRIPT" "$MSG" ""
     [ "$status" -eq 0 ]
     [[ "$output" != *"no editor will open"* ]]
     grep -q 'Devenv-Action: nothing' "$MSG"

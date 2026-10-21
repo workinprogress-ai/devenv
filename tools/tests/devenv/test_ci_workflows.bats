@@ -49,7 +49,7 @@ setup() {
 
 @test "every semantic-release plugin in release.config.js is a declared devDependency" {
     command -v node >/dev/null || skip "node not installed"
-    plugins="$(node -e "const c=require('$PROJECT_ROOT/release.config.js'); console.log(c.plugins.map(p=>Array.isArray(p)?p[0]:p).join('\n'))")"
+    plugins="$(node --input-type=module -e "const c=(await import('file://$PROJECT_ROOT/release.config.js')).default; console.log(c.plugins.map(p=>Array.isArray(p)?p[0]:p).join('\n'))")"
     [ -n "$plugins" ]
     for p in $plugins; do
         [ "$(jq -r --arg p "$p" '.devDependencies[$p] // empty' "$PROJECT_ROOT/package.json")" ] \
@@ -59,7 +59,7 @@ setup() {
 
 @test "the release pipeline actually publishes: a plugin that creates the release is configured" {
     command -v node >/dev/null || skip "node not installed"
-    plugins="$(node -e "const c=require('$PROJECT_ROOT/release.config.js'); console.log(c.plugins.map(p=>Array.isArray(p)?p[0]:p).join('\n'))")"
+    plugins="$(node --input-type=module -e "const c=(await import('file://$PROJECT_ROOT/release.config.js')).default; console.log(c.plugins.map(p=>Array.isArray(p)?p[0]:p).join('\n'))")"
     [[ "$plugins" == *"@semantic-release/github"* ]]
     [[ "$plugins" == *"@semantic-release/release-notes-generator"* ]]
 }

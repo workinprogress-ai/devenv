@@ -67,17 +67,12 @@ load ../test_helper
 # ============================================================================
 
 @test "policy: triage labels resolve through the policy layer" {
-    # Post-collapse (Plan-002): the script sources issue-policy.bash, which
-    # self-sources the guarded policy core; the literals live in
-    # issue-policy.bash. The script itself never sources policy-core.
-    local triage="$PROJECT_ROOT/tools/scripts/issue-triage.sh"
-    grep -q 'issue-policy.bash' "$triage"
-    run ! grep -q 'policy-core.bash' "$triage"
-    grep -q 'LABEL_NEEDS_GROOMING' "$triage"
-    grep -q 'LABEL_STATUS_READY' "$triage"
+    # The triage tool is TS now; its wizard (the only consumer of the triage
+    # labels) is deferred, so the policy literals stay in issue-policy.bash
+    # for the wizard's return. The TS tool must not hardcode them.
     grep -q 'needs-grooming' "$PROJECT_ROOT/tools/lib/policy/issue-policy.bash"
     grep -q 'status:ready' "$PROJECT_ROOT/tools/lib/policy/issue-policy.bash"
-    ! grep -qE 'add-label "(needs-grooming|status:ready)"' "$triage"
+    ! grep -qE 'needs-grooming|status:ready' "$PROJECT_ROOT/tools/scripts/issue-triage.ts"
 }
 
 @test "policy: labels-config.yml declares status:ready (honesty gap closed)" {
