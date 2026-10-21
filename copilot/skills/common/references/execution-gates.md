@@ -52,6 +52,12 @@ Run as part of the phase-close cleanup pass, on the phase's changed files. The p
 
 Route each hit:
 
+- **`FIXME:REVIEW:` (user review feedback)** — the user's structured review marker; treat each item as review feedback and classify it before acting. The standard dispositions:
+  - **Agree, clear what to do** → fix it now (size rules unchanged — small now, outgrown fixes convert per the Incorporate rule below); note the fix in the handback and remove the marker.
+  - **Agree, but the user is unsure of their position** → resolve it: apply the fix and respond with why their doubt was or wasn't founded; if the correct resolution is genuinely non-obvious, escalate to the discussion disposition instead of guessing.
+  - **Discussion needed** → do not fix; return with discussion points at the next checkpoint (pair) or in the phase handback (delegate), then act on the resolved direction.
+  - **Praise** (the marker records something done well, not a defect) → no code change; note the pattern for reuse, and if it generalizes beyond this repo and is not already in copilot knowledge, offer it per the [knowledge distillation protocol](../common/references/knowledge-distillation-protocol.md); remove the marker once noted.
+  - Anything else (question, out-of-scope observation, unclear text) → ask or propose a disposition per the Unclear intent rule; never fix on inference and never delete a REVIEW marker without a disposition.
 - **User `TODO`** — a TODO may validly stay in code; it is not a blocker by default. Address it when it plainly relates to the work at hand; otherwise leave it in place and note it in the handback.
 - **User `FIXME`** — a FIXME is assumed to demand a fix with the current effort. Fix it now when small. When the run believes it should not (or cannot) be fixed within this plan, propose a resolution to the user instead of deciding silently (for example: convert to plan work, defer with an owner, or make the case that it is out of scope).
 - **Incorporate into the plan** (either kind, when the fix outgrows "small" or the user directs it): convert the comment in place to `FIXME:DEVENV[<plan-key>]: <the user's words, kept>` so it gains plan tracking, and add a plan task naming where the work will be resolved.

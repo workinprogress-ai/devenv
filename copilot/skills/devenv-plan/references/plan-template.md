@@ -108,6 +108,11 @@ this section alone.>
 
 <Prefer at least two concrete deliverables per phase when scope allows.>
 
+**Phase Notes:** *(optional — reproduction-grade execution knowledge for this phase; seed when the work has non-obvious implementation requirements, add to as execution discovers more)*
+
+- <How this phase's work is (or will be) implemented where the how is non-obvious: approaches chosen and why alternatives are not viable, pathways, gotchas, precedent locations, constraint interactions>
+- <Write present-tense state only — no edit dates, run-scoped test/build/coverage counts, or per-run narration; see the [Appendix boundary](#appendix-optional-unless-required-by-source-complexity)>
+
 **Tasks:**
 
 - [ ] **1.1 [S] <Task title>**
@@ -150,6 +155,10 @@ this section alone.>
 **Deliverables:**
 
 - <Deliverable>
+
+**Phase Notes:** *(optional — as above; seed only when this phase carries non-obvious implementation knowledge)*
+
+- <Reproduction-grade execution detail for this phase's tasks, present-tense state only>
 
 **Tasks:**
 
@@ -332,6 +341,7 @@ phase as `[QUESTION] ...` bullets.
 - **Context and Orientation** — write this so it still helps a human who never reads past it. Aim for concise depth (usually 2-4 sentences per subsection) and repo-specific details over generic phrasing.
 - **Phase TOC** — keep it concise and place it directly before `## Phases` so users can jump between phases quickly.
 - **Phases** — this is the human-oriented breakdown and execution surface. Include tasks directly under each phase so readers do not need to jump to a separate task-list section. Prefer at least two concrete strategy bullets and two concrete deliverables per phase when scope allows.
+- **Phase Notes** — per-phase, reproduction-grade execution knowledge: how the work is or will be implemented where the how is non-obvious (chosen approaches and why alternatives fail, pathways, gotchas, precedents, constraint interactions). Governed by two tests: the **reproduction test** (would someone redoing this work from scratch — a fork, a re-plan, a redo after revert — need this to reproduce the outcome?) and the **currency test** (every sentence still true the day the plan completes — present-tense state, never edit dates, run-scoped test/build/coverage counts, or per-run narration; those belong in the phase handback). Scope is phase- and task-specific: the `## Appendix` stays plan-level (upstream design context, plan-wide contracts and constraints), `## Pending Questions` stays plan-level unresolved questions. Planners seed it; execution skills add to and rewrite it in place as discovery lands — current state, never appended history.
 - **Decision placement** — unresolved execution decisions should appear in both places: phase-level under **Watch Outs / Decisions** and task-level as `decision:` metadata on the earliest affected task.
 - **Pending questions** — resolve as many as possible during planning. Keep unresolved items only for implementation-level details or explicit user-requested deferral.
 - **Question placement** — phase/task-specific unresolved questions stay inline as `[QUESTION] ...`; `## Pending Questions` is only for plan-level unresolved items.
