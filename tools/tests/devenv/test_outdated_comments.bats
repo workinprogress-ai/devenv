@@ -61,7 +61,9 @@ load ../test_helper
 }
 
 @test "lib files have no outdated comments" {
-  run grep -i "can be deleted later\|TODO\|FIXME" "$PROJECT_ROOT/tools/lib/"*.bash
+  # DEVENV markers are tracked temporaries governed by devenv-marker-check,
+  # not stale comments — excluded from this stale-comment gate.
+  run bash -c "grep -i 'can be deleted later\|TODO\|FIXME' '$PROJECT_ROOT/tools/lib/'*.bash | grep -v 'DEVENV\['"
   [ "$status" -ne 0 ]
 }
 

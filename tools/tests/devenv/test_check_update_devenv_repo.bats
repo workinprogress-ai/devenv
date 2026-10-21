@@ -145,10 +145,12 @@ run_check() {
 
 @test "devenv-update and the update check share one post-update routine" {
     grep -q 'post-update.bash' "$PROJECT_ROOT/.devcontainer/check-update-devenv-repo.sh"
-    grep -q 'post-update.bash' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+    # The bootstrap chain consumes the routine through the provisioning
+    # library (run_setup_first_run task sources tools/lib/provision.bash).
+    grep -q 'post-update.bash' "$PROJECT_ROOT/tools/lib/provision.bash"
     run ! grep -q 'action_priority()' "$PROJECT_ROOT/.devcontainer/check-update-devenv-repo.sh"
     # Both consumers pass the rewritten-update scan base the same way.
-    grep -q 'GIT_UPDATE_SCAN_BASE' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+    grep -q 'GIT_UPDATE_SCAN_BASE' "$PROJECT_ROOT/tools/lib/provision.bash"
     grep -q 'GIT_UPDATE_SCAN_BASE' "$PROJECT_ROOT/.devcontainer/check-update-devenv-repo.sh"
 }
 

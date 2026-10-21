@@ -94,7 +94,7 @@ runner_collected_files() {
 @test "the runner still collects lib/, scripts/ and devenv/" {
     run runner_collected_files
     [[ "$output" == *"/tests/lib/test_error_handling.bats"* ]]
-    [[ "$output" == *"/tests/scripts/test_issue_artifact_readers.bats"* ]]
+    [[ "$output" == *"/tests/scripts/test_issue_repo_argument.bats"* ]]
     [[ "$output" == *"/tests/devenv/test_run_tests_local.bats"* ]]
 }
 

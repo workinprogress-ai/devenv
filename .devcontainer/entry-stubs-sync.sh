@@ -43,7 +43,7 @@ already=0
 removed=0
 
 make_stub() {
-    local entry="$1" target_rel="$2" tmp
+    local entry="$1" target_rel="$2" runner="${3:-bash}" tmp
     # Write a temporary file and rename it over the entry. The rename replaces the
     # directory entry without ever writing through the old inode (a hardlink to a source
     # script shares it), leaves no moment with the entry missing, and keeps the old entry
@@ -51,7 +51,7 @@ make_stub() {
     tmp="$entry.tmp.$$"
     if ! { cat > "$tmp" <<EOF
 #!/bin/bash
-exec bash "\$(dirname "\$0")/$target_rel" "\$@"
+exec $runner "\$(dirname "\$0")/$target_rel" "\$@"
 EOF
     } || ! chmod 755 "$tmp" || ! mv -f "$tmp" "$entry"; then
         rm -f "$tmp"
@@ -64,8 +64,9 @@ EOF
 # these directories is support content. Layers are applied lowest first so a
 # higher layer's file replaces the same-named one below it.
 declare -A winner=()
+declare -A runner_of=()
 for layer in scripts fork custom; do
-    for script in "$tools_dir/$layer"/*.sh "$tools_dir/$layer"/git-*; do
+    for script in "$tools_dir/$layer"/*.sh "$tools_dir/$layer"/*.ts "$tools_dir/$layer"/git-*; do
         [ -f "$script" ] || continue
         base=$(basename "$script")
         # Internal tooling: underscore-prefixed scripts never get depth-1
@@ -75,8 +76,13 @@ for layer in scripts fork custom; do
         esac
         # Depth-1 entry name = script stem for .sh files (alpha.sh -> alpha);
         # non-.sh files (git-*) keep their full name.
-        if [[ "$base" == *.sh ]]; then
-            name="${base%.sh}"
+        if [[ "$base" == *.sh || "$base" == *.ts ]]; then
+            name="${base%.*}"
+            if [[ "$base" == *.ts ]]; then
+                runner_of["$name"]="node"
+            else
+                runner_of["$name"]="bash"
+            fi
         else
             name="$base"
         fi
@@ -93,6 +99,15 @@ for layer in scripts fork custom; do
             echo "entry-stubs-sync: skipping $layer/$base: tools/$name is a directory" >&2
             continue
         fi
+        if [ -n "${winner[$name]:-}" ]; then
+            # Same stem won twice: the higher layer silently replaces the
+            # lower one (that is the override chain working), but a same-layer
+            # collision (foo.sh + foo.ts side by side) is invisible ambiguity —
+            # say so instead of resolving quietly to the last glob entry.
+            if [ "${winner[$name]%%/*}" = "$layer" ]; then
+                echo "entry-stubs-sync: warning: '$name' won twice in $layer (${winner[$name]} and $base) — dispatching to $base" >&2
+            fi
+        fi
         winner["$name"]="$layer/$base"
     done
 done
@@ -100,26 +115,27 @@ done
 for name in "${!winner[@]}"; do
     target_rel="${winner[$name]}"
     entry="$tools_dir/$name"
-    expected_stub_line="exec bash \"\$(dirname \"\$0\")/$target_rel\" \"\$@\""
+    runner="${runner_of[$name]:-bash}"
+    expected_stub_line="exec $runner \"\$(dirname \"\$0\")/$target_rel\" \"\$@\""
 
     if [ -L "$entry" ]; then
         rm -f "$entry"
-        make_stub "$entry" "$target_rel"
+        make_stub "$entry" "$target_rel" "$runner"
         converted=$((converted + 1))
     elif [ -f "$entry" ]; then
         if grep -qF "$expected_stub_line" "$entry" 2>/dev/null; then
             already=$((already + 1))
-        elif grep -qE '^exec bash ' "$entry" 2>/dev/null || [ "$(head -c 2 "$entry" 2>/dev/null)" = "#!" ]; then
+        elif grep -qE '^exec (bash|node) ' "$entry" 2>/dev/null || [ "$(head -c 2 "$entry" 2>/dev/null)" = "#!" ]; then
             # a stub for a source that no longer wins, or a drifted copy of a script —
             # the winning source is canonical
-            make_stub "$entry" "$target_rel"
+            make_stub "$entry" "$target_rel" "$runner"
             converted=$((converted + 1))
         else
             # a document or data file that happens to share the tool's name is not ours
             echo "entry-stubs-sync: leaving tools/$name alone: it is a file that is not a script or stub" >&2
         fi
     else
-        make_stub "$entry" "$target_rel"
+        make_stub "$entry" "$target_rel" "$runner"
         created=$((created + 1))
     fi
 done
@@ -135,7 +151,10 @@ for entry in "$tools_dir"/*; do
     # one stub line, nothing else). Multi-line hand-rolled wrappers are
     # foreign and left alone even when their target has vanished.
     [ "$(wc -l < "$entry")" -le 2 ] || continue
-    grep -qE '^exec bash "\$\(dirname "\$0"\)/(scripts|fork|custom)/[^"]+" "\$@"$' "$entry" 2>/dev/null || continue
+    # Both runner forms count as generated stubs: bash scripts and the node
+    # stubs generated for .ts sources. A node stub whose .ts vanished must
+    # purge like its bash counterpart.
+    grep -qE '^exec (bash|node) "\$\(dirname "\$0"\)/(scripts|fork|custom)/[^"]+" "\$@"$' "$entry" 2>/dev/null || continue
     target_rel=$(grep -oE '(scripts|fork|custom)/[^"]+' "$entry" | head -n 1)
     [ -n "$target_rel" ] || continue
     if [ ! -f "$tools_dir/$target_rel" ] || [[ "$(basename "$target_rel")" == _* ]]; then

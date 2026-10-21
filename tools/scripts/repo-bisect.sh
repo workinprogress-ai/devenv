@@ -130,12 +130,13 @@ cmd_run() {
     echo "$first_bad" | tail -12
     echo "--- summary ---"
 
-    if echo "$first_bad" | grep -qi "first bad commit" &&
+    if echo "$first_bad" | grep -qiE "first ('?)bad('?) commit" &&
        ! echo "$first_bad" | grep -q "could be any of"; then
-        # The definitive line is "<sha> is the first bad commit"; fall back to
+        # The definitive line is "<sha> is the first bad commit" (newer git
+        # quotes the verdict word: "first 'bad' commit"); fall back to
         # "bisect found first bad commit" + the shown culprit.
         local sha
-        sha="$(echo "$first_bad" | grep -oE '^[0-9a-f]{7,} is the first bad commit' | awk '{print $1}' | head -1)"
+        sha="$(echo "$first_bad" | grep -oE "^[0-9a-f]{7,} is the first ('?)bad('?) commit" | awk '{print $1}' | head -1)"
         if [ -z "$sha" ]; then
             sha="$(echo "$first_bad" | grep -oE '[0-9a-f]{7,}' | tail -1)"
         fi

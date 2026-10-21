@@ -24,7 +24,15 @@ load ../test_helper
 }
 
 @test "baseline: pr-create refuses unknown flags (exit 2)" {
-    run "$DEVENV_TOOLS/pr-create" --definitely-not-a-flag
+    # The refusal fires after branch-issue inference: run in a neutral repo
+    # (no inferable branch issue, clean tree) so the flag error is the first
+    # exit. The devenv checkout names an issue in its branch and is dirty
+    # during work, so it must not host this baseline.
+    test_helper_setup
+    local repo="$TEST_TEMP_DIR/neutral-repo"
+    mkdir -p "$repo"
+    git -C "$repo" init -q
+    run bash -c "cd '$repo' && '$DEVENV_TOOLS/pr-create' --definitely-not-a-flag"
     [ "$status" -eq 2 ]
 }
 

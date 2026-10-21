@@ -10,7 +10,7 @@ bats_require_minimum_version 1.5.0
 load ../test_helper
 
 ADD_ISSUE="$BATS_TEST_DIRNAME/../../scripts/project-add-issue.sh"
-TRIAGE="$BATS_TEST_DIRNAME/../../scripts/issue-triage.sh"
+TRIAGE="$BATS_TEST_DIRNAME/../../scripts/issue-triage.ts"
 
 setup() {
     test_helper_setup
@@ -81,30 +81,34 @@ extract() {
 }
 
 # ---------------------------------------------------------------------------
-# issue-triage
+# issue-triage (TypeScript port)
 # ---------------------------------------------------------------------------
 
-@test "issue-triage: the milestone list targets the resolved repo spec" {
-    run bash -c "
-        set -u
-        source '$PROJECT_ROOT/tools/lib/error-handling.bash'
-        $(extract "$TRIAGE" set_milestone)
-        get_repo_spec() { echo my-proj/my-repo; }
-        provider_issues_milestones() { echo \"milestones-for=\$1\"; }
-        provider_issues_edit() { echo \"edit repo=\$1 issue=\$2 \$3 \$4\"; }
-        printf '7\n' | set_milestone 42
-    "
+@test "issue-triage: bundle edits target the resolved repo spec" {
+    mkdir -p "$TEST_TEMP_DIR/bin"
+    cat > "$TEST_TEMP_DIR/bin/gh" <<'STUB'
+#!/usr/bin/env bash
+echo "gh $*" >> "$TRIAGE_LOG"
+exit 0
+STUB
+    # The bundle path runs the target-repo guard first; answer the toplevel
+    # probe with a non-devenv directory so the run reaches the provider call.
+    cat > "$TEST_TEMP_DIR/bin/git" <<GITSTUB
+#!/usr/bin/env bash
+[ "\$1" = "rev-parse" ] && { echo "$TEST_TEMP_DIR"; exit 0; }
+exit 0
+GITSTUB
+    chmod +x "$TEST_TEMP_DIR/bin/gh" "$TEST_TEMP_DIR/bin/git"
+    export TRIAGE_LOG="$TEST_TEMP_DIR/gh-calls.log"
+    : > "$TRIAGE_LOG"
+    export DEVENV_REPO="my-proj/my-repo"
+    run env PATH="$TEST_TEMP_DIR/bin:$PATH" node "$PROJECT_ROOT/tools/scripts/issue-triage.ts" 42 --milestone 7
     [ "$status" -eq 0 ]
-    [[ "$output" == *"milestones-for=my-proj/my-repo"* ]]
-    [[ "$output" == *"edit repo=my-proj/my-repo issue=42 --milestone 7"* ]]
+    grep -q "issue edit 42 -R my-proj/my-repo --milestone 7" "$TRIAGE_LOG"
 }
 
-@test "issue-triage: the wizard's menus read the terminal, not the issue list it iterates" {
-    # a pipe into the loop feeds its lines to every `read` inside it
-    run ! grep -nE 'echo "\$issues" \| while' "$TRIAGE"
-}
-
-@test "issue-triage: link-to-parent writes the existing body unchanged (no backslash interpretation)" {
-    run grep -nE 'echo -e' "$TRIAGE"
-    [ "$status" -ne 0 ]
+@test "issue-triage: the interactive wizard is refused without a TTY" {
+    run env DEVENV_REPO="my-proj/my-repo" node "$PROJECT_ROOT/tools/scripts/issue-triage.ts" < /dev/null
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"interactive terminal"* ]]
 }

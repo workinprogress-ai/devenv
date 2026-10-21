@@ -57,7 +57,12 @@ case "$cmd $sub" in
   "repo view")
     # allowSquashMerge is driven by the test via SQUASH_MODE; default non-squash.
     # Emulate real gh: -q extracts the field instead of dumping raw JSON.
-    if [ "${2:-}" = "--json" ] && [ "${3:-}" = "allowSquashMerge" ] && [ "${4:-}" = "-q" ]; then
+    has_squash=0; has_repo_jq=0
+    for a in "$@"; do
+      [ "$a" = "allowSquashMerge" ] && has_squash=1
+      { [ "$a" = "-q" ] || [ "$a" = "--jq" ]; } && has_repo_jq=1
+    done
+    if [ "$has_squash" -eq 1 ] && [ "$has_repo_jq" -eq 1 ]; then
       echo "${SQUASH_MODE:-false}"
     else
       cat <<JSON
@@ -66,8 +71,15 @@ JSON
     fi
     ;;
   "issue view")
-    # Emulate real gh: -q .title extracts the title.
-    if [ "${2:-}" = "--json" ] && [ "${3:-}" = "title" ] && [ "${4:-}" = "-q" ]; then
+    # Emulate real gh: --json title + -q/--jq .title extracts the title.
+    # Match flags position-independently: gh accepts -R anywhere, and the
+    # two transports (bash/TS) order it differently.
+    has_title=0; has_jq=0
+    for a in "$@"; do
+      [ "$a" = "title" ] && has_title=1
+      { [ "$a" = "-q" ] || [ "$a" = "--jq" ]; } && has_jq=1
+    done
+    if [ "$has_title" -eq 1 ] && [ "$has_jq" -eq 1 ]; then
       echo "Fix the frobnicator alignment"
     else
       cat <<'JSON'
@@ -355,4 +367,31 @@ at_fixture() {
   run --separate-stderr "$PROJECT_ROOT/tools/pr-create" "feat: something" --issue 789 --repo-dir "$REPO_DIR"
   [ "$status" -eq 0 ]
   [ "$output" = "https://github.com/mock-owner/mock-repo/pull/123" ]
+}
+
+# --assignee APPENDS to the @me default (bash ASSIGNEES+=("$2")): an extra
+# assignee never drops the author from the assignment.
+@test "--assignee appends to the @me default on the create argv" {
+  GH_CALL_LOG="$TEST_TEMP_DIR/calls.log"
+  export GH_CALL_LOG
+  : > "$GH_CALL_LOG"
+  run "$PROJECT_ROOT/tools/pr-create" "feat: something" --issue 789 --repo-dir "$REPO_DIR" --assignee bob
+  [ "$status" -eq 0 ]
+  local create_line
+  create_line="$(grep 'gh create' "$GH_CALL_LOG")"
+  [[ "$create_line" == *"--assignee @me"* ]]
+  [[ "$create_line" == *"--assignee bob"* ]]
+}
+
+# Labels reach the create argv even when the label-ensure lookup fails
+# (bash's `ensure_label || true` semantics).
+@test "--label rides the create argv even when the ensure lookup fails" {
+  GH_CALL_LOG="$TEST_TEMP_DIR/calls.log"
+  export GH_CALL_LOG
+  : > "$GH_CALL_LOG"
+  run "$PROJECT_ROOT/tools/pr-create" "feat: something" --issue 789 --repo-dir "$REPO_DIR" --label ci
+  [ "$status" -eq 0 ]
+  local create_line
+  create_line="$(grep 'gh create' "$GH_CALL_LOG")"
+  [[ "$create_line" == *"--label ci"* ]]
 }

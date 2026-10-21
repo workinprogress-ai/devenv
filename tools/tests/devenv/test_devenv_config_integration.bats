@@ -143,13 +143,12 @@ EOF
     [ "$status" -eq 0 ]
 }
 
-@test "issue-triage.sh: sources config-reader library" {
-    run grep 'source.*config-reader.bash' "$PROJECT_ROOT/tools/scripts/issue-triage.sh"
+@test "issue-triage: consumes the config+operations seams via the TS facade" {
+    # The bash tool sourced config-reader + issue-operations; the TS port
+    # gets the same seams from the provider facade imports.
+    run grep 'provider-core.ts' "$PROJECT_ROOT/tools/scripts/issue-triage.ts"
     [ "$status" -eq 0 ]
-}
-
-@test "issue-triage.sh: sources issue-operations library" {
-    run grep 'source.*issue-operations.bash' "$PROJECT_ROOT/tools/scripts/issue-triage.sh"
+    run grep 'github/issues.ts' "$PROJECT_ROOT/tools/scripts/issue-triage.ts"
     [ "$status" -eq 0 ]
 }
 

@@ -557,7 +557,9 @@ JSON
     STUB_CURL_RESPONSE="$TEST_TEMP_DIR/thread4.json" \
         run azure_run provider_prs_thread_create o1/p1/r1 12 --body "note" --path a.cs --line 3
     [ "$status" -eq 0 ]
-    grep -q "thread.url // empty" "$PROJECT_ROOT/tools/scripts/pr-review-comment.sh"
+    # The TS pr-review-comment reads parsed.thread?.url (optional-chained,
+    # empty-string default) — the provider JSON's .thread.url satisfies it.
+    grep -q 'thread?: { url?: string }' "$PROJECT_ROOT/tools/scripts/pr-review-comment.ts"
     [ -n "$(printf '%s' "$output" | jq -r '.thread.url // empty')" ]
 }
 

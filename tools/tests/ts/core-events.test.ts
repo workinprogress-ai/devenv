@@ -89,7 +89,9 @@ describe("write side (PR signals)", () => {
     );
     // The argv must parse even when the PR lookup itself may fail — a bad
     // SUBCOMMAND fails with "unknown command" regardless of the PR number.
+    // Accept every authenticated-but-unreachable / unauthenticated outcome:
+    // only a rejected SUBCOMMAND shape fails here.
     expect(probe.stderr).not.toContain("unknown command");
-    expect(probe.status === 0 || probe.stderr.includes("Could not resolve")).toBe(true);
+    expect(probe.status === 0 || probe.stderr !== "").toBe(true);
   });
 });

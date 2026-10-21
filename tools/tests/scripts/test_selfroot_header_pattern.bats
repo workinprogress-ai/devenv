@@ -15,9 +15,20 @@ SCRIPTS_DIR="${BATS_TEST_DIRNAME}/../../scripts"
 TOOLS_DIR="${BATS_TEST_DIRNAME}/../../.."
 
 @test "pattern setup: canonical header matches a known converted file" {
-    local line
-    line=$(grep -m1 "self-root.bash" "$SCRIPTS_DIR/issue-get.sh")
-    [ "$line" = "$CANONICAL_LINE" ]
+    # The first .sh still carrying the self-root header proves the pattern;
+    # all issue-* wrappers are TS now, so probe any surviving wrapper.
+    local probe
+    # Probe a file KNOWN to carry the header (not the first .sh alphabetically:
+    # underscore-prefixed event handlers predate the canonical header).
+    probe="$SCRIPTS_DIR/artifact-header.sh"
+    [ -f "$probe" ] || probe=$(grep -rl 'self-root.bash' "$SCRIPTS_DIR" --include='*.sh' | head -1)
+    if [ -n "$probe" ]; then
+        local line
+        line=$(grep -m1 "self-root.bash" "$probe")
+        [ "$line" = "$CANONICAL_LINE" ]
+    else
+        skip "no .sh wrappers remain in tools/scripts"
+    fi
 }
 
 @test "pattern: every tools/scripts file with self-root uses the canonical line" {

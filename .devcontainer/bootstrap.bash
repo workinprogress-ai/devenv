@@ -18,12 +18,56 @@
 if [ -n "${_BOOTSTRAP_LOADED:-}" ]; then return 0; fi
 _BOOTSTRAP_LOADED=1
 
-# Provisioning bridge (temporary): the extracted provisioning half
-# runs unchanged from provision-legacy.bash until the TypeScript
-# first-time setup replaces it. Sourced, not exec'd — same shell,
-# same exports, same behavior.
-# FIXME:DEVENV[Plan-issue-72-001]: remove this bridge when the TS first-time setup (Phase 5) retires it
-source "$(dirname "${BASH_SOURCE[0]}")/provision-legacy.bash"
+# Reset .bashrc to the captured original on fresh install (destructive:
+# bootstrap-list only, never the convergent update runner).
+reset_bashrc_to_original() {
+    if [ ! -f ~/.bashrc.original ]; then
+        cp ~/.bashrc ~/.bashrc.original
+    fi
+    # Reset .bashrc to the captured original by default.
+    # Set PRESERVE_BASHRC=1 to skip the reset and keep any direct edits.
+    if [ "${PRESERVE_BASHRC:-0}" != "1" ]; then
+        cp ~/.bashrc.original ~/.bashrc
+    fi
+}
+
+# Provider seam: the provider-layer modules stay bash (bootstrap-chain rule);
+# the slim chain needs the seam for its token gate, so the loader lives here.
+ensure_provider_seam() {
+    if declare -F provider_secret_get >/dev/null; then
+        # The core defines provider_secret_get itself, so its presence does
+        # not imply the active provider's auth module is loaded; the
+        # credential lifecycle verbs below need that module.
+        if declare -F provider_auth_status >/dev/null && \
+           declare -F provider_auth_status_impl >/dev/null && \
+           declare -F provider_bootstrap_validate_token >/dev/null; then
+            return 0
+        fi
+    fi
+    local seam_lib="$toolbox_root/tools/lib/providers/provider-core.bash"
+    if [ -f "$seam_lib" ]; then
+        # shellcheck disable=SC1090
+        source "$seam_lib"
+        # A [provider] name that is not shipped stops bootstrap with the reason,
+        # rather than carrying on as another provider.
+        provider_detect "$toolbox_root/devenv.config" || {
+            echo "ERROR: cannot determine the provider from $toolbox_root/devenv.config (see above)"
+            exit 1
+        }
+        local auth_mod
+        auth_mod="$(dirname "$seam_lib")/${PROVIDER_NAME}/auth.bash"
+        # shellcheck disable=SC1090,SC1091
+        if [ -f "$auth_mod" ]; then
+            source "$auth_mod"
+        fi
+        local hooks_mod
+        hooks_mod="$(dirname "$seam_lib")/${PROVIDER_NAME}/bootstrap.bash"
+        # shellcheck disable=SC1090,SC1091
+        if [ -f "$hooks_mod" ]; then
+            source "$hooks_mod"
+        fi
+    fi
+}
 
 # Error handler function
 on_error() {
@@ -604,6 +648,28 @@ finish_message() {
     echo "Please restart the container to complete the setup."
 }
 
+# Provisioning handoff: run the TypeScript first-time setup non-interactively
+# (idempotent steps, safe unattended). When node deps are absent (broken
+# install), print the manual recovery path instead of failing obscurely.
+run_setup_first_run() {
+    local setup_tool="$toolbox_root/tools/scripts/setup-first-run.ts"
+    if [ ! -f "$setup_tool" ]; then
+        echo "setup-first-run tool missing: $setup_tool"
+        return 1
+    fi
+    if ! command -v node >/dev/null 2>&1; then
+        echo "node not available — cannot run the TS provisioning setup."
+        echo "Manual recovery:"
+        echo "  1. install node (see .devcontainer/tool-versions.bash)"
+        echo "  2. node tools/scripts/setup-first-run.ts --all"
+        return 1
+    fi
+    # The tool composes its own prelude from DEVENV_TOOLBOX_ROOT; hand the
+    # bootstrap-resolved root over explicitly so a cross-checkout invocation
+    # (or a relocated tool) cannot mis-target the toolbox.
+    DEVENV_TOOLBOX_ROOT="$toolbox_root" node "$setup_tool" --all
+}
+
 # Fresh-install task runner. Runs the full bootstrap sequence including
 # destructive steps (bashrc reset, cleanup) appropriate for a new container.
 # Usage: run_bootstrap_tasks [task1 task2 ...] or run_bootstrap_tasks (for default tasks)
@@ -626,26 +692,11 @@ run_bootstrap_tasks() {
         add_specialized_repositories
         install_os_packages_round2
         install_dotnet
-        load_setup_credentials
-        write_bash_functions_file
-        generate_env_vars_file
-        create_tool_symlinks
-        write_devenvrc
-        append_bashrc
         install_or_configure_nvm
         configure_dotnet_tools
         install_node_packages
-        configure_git
-        install_copilot_instructions
-        install_claude_code_integration
-        sync_copilot_knowledge
-        sync_copilot_engineering
-        ensure_directories_and_settings
         install_repo_dependencies
-        configure_nuget_sources
-        configure_user_npmrc
-        run_custom_bootstrap_if_present
-        cleanup_packages
+        run_setup_first_run
         record_bootstrap_run_time
         finish_message
     )
@@ -686,25 +737,11 @@ run_update_tasks() {
         add_specialized_repositories
         install_os_packages_round2
         install_dotnet
-        load_setup_credentials
-        write_bash_functions_file
-        generate_env_vars_file
-        create_tool_symlinks
-        write_devenvrc
-        append_bashrc
         install_or_configure_nvm
         configure_dotnet_tools
         install_node_packages
-        configure_git
-        install_copilot_instructions
-        install_claude_code_integration
-        sync_copilot_knowledge
-        sync_copilot_engineering
-        ensure_directories_and_settings
         install_repo_dependencies
-        configure_nuget_sources
-        configure_user_npmrc
-        run_custom_bootstrap_if_present
+        run_setup_first_run
         record_bootstrap_run_time
     )
     for task in "${update_tasks[@]}"; do
