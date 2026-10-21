@@ -383,7 +383,8 @@ When a phase is ready to close, do one final cleanup sweep before marking it com
 2. Tick off tasks that are clearly complete and remove or strike tasks that are now obsolete.
 3. If an important task appears to be left undone, stop and surface it to the user with the concrete choice: complete it now, defer it, or add it as a new task / phase — present via the structured interview per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections).
 4. Run the shared [foreign-comment scan](../common/references/execution-gates.md#foreign-comment-scan-user-fixmetodo-sweep) over the phase's changed files — the user may have left `FIXME`/`TODO` review comments before or during the run; sweep, route, and report them per that protocol.
-5. Only when the ledger matches reality should the phase be considered closed and eligible for the phase-completion gate.
+5. Re-check the plan delta written this phase against the living-record rule before syncing: dated headings, run-scoped test/build/coverage counts, and per-run narration must be rewritten as current state (or moved to the handback) — the sanctioned shape and failure example are at [Recording approved deviations in the plan](#recording-approved-deviations-in-the-plan). This check exists because the write itself was sanctioned; only its shape can drift.
+6. Only when the ledger matches reality should the phase be considered closed and eligible for the phase-completion gate.
 
 For cleanup tasks involving temporary scaffolding/escape-hatch artifacts, run these extra gates before closure:
 
@@ -458,6 +459,17 @@ When stopping mid-phase, state what the situation is, why it's a trigger, and wh
 **Interview style for simple queries.** Any bounded decision moment — a mid-phase stop, a phase handback's accept/redirect/revise decision, or another gate whose choice fits a short option set — prefers the structured interview (`vscode_askQuestions`) over outputting prose and waiting for a typed response. Present the situation (or the handback report) briefly in chat first so the questions have context, then ask. Reserve prose-and-wait for moments that genuinely need discussion (trade-offs to talk through, walls needing explanation); the interview is for answers, not conversations. (Shared rule: [direct query style](../_conventions.md#direct-query-style-questions-and-selections).)
 
 **Recording approved deviations in the plan:** if the user's direction approves a deviation from the plan — a different approach, a scope change, a structural change — update the plan file to record it in the same exchange, using current-state writing. The plan must not keep describing the superseded path while execution follows a new one; that gap is exactly how a plan stops being the as-built record. Minor decisions that did not trigger a stop stay in the phase handback (`Deviation`/`Challenges`) and do not require a plan edit.
+
+**Sanctioned shape for plan writes (current state vs record log).** Deviation recording and discovery notes land in the plan's existing current sections — phase strategies/watch-outs, task `Additional context:`, or the phase's **Phase Notes** block (the per-phase home for reproduction-grade execution knowledge — what someone redoing this work from scratch would need). Current-state prose looks like:
+
+> - Reverse rule must register after the forward rule or mappings silently no-op.
+> - LifecycleState is gone; status transitions validate via the enum guard on the entity.
+
+A record log — the failure shape — looks like:
+
+> - **As-built (Phase 4 remainder, 2026-10-20):** 226 green + 1 declared red. Coverage 98.14%.
+
+Dated headings, run-scoped test/build/coverage counts, and per-run narration are history, not state: a redoing agent re-runs the suite rather than needing last run's numbers. Counts, dates, and run framing go in the phase handback, which is where the record log belongs.
 
 If this stop includes a `🔶` decision gate, direction must be explicit and scope-matched before any further mutating action.
 
