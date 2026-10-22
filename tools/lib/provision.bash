@@ -539,13 +539,70 @@ sync_copilot_side_repo() {
 
     if [ -d "$repo_dir/.git" ]; then
         git -C "$repo_dir" remote set-url origin "$repo_url"
-        git -C "$repo_dir" -c http.extraheader="$header" fetch --prune origin
+        if ! git -C "$repo_dir" -c http.extraheader="$header" fetch --prune origin; then
+            echo "WARNING: $label fetch failed; keeping the existing clone (it may be stale). Not a bootstrap blocker."
+            return 0
+        fi
         default_branch=$(git -C "$repo_dir" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')
         if [ -z "$default_branch" ]; then
             default_branch=$(git -C "$repo_dir" rev-parse --abbrev-ref HEAD)
         fi
         git -C "$repo_dir" checkout "$default_branch" >/dev/null 2>&1 || true
-        git -C "$repo_dir" -c http.extraheader="$header" pull --ff-only origin "$default_branch"
+        if git -C "$repo_dir" -c http.extraheader="$header" pull --ff-only origin "$default_branch"; then
+            :
+        else
+            # Local modifications blocked the fast-forward. These clones are
+            # machine-managed views; the sync must never block bootstrap on
+            # them. Recovery ladder: stash the local edits, retry, and re-apply
+            # when the stashed work is not superseded by upstream. A conflicted
+            # stash stays in the stash stack (nothing is lost) with a loud
+            # warning; the clone updates regardless.
+            local stash_ref=""
+            local dirty
+            dirty=$(git -C "$repo_dir" status --porcelain)
+            if [ -n "$dirty" ]; then
+                if git -C "$repo_dir" stash push -m "pre-sync auto-stash $(date +%Y-%m-%dT%H:%M:%S)" >/dev/null 2>&1 && stash_ref=$(git -C "$repo_dir" rev-parse -q --verify refs/stash); then
+                    echo "$label: local changes stashed to make the fast-forward possible"
+                else
+                    echo "WARNING: $label has local changes that could not be stashed; the clone may be stale. Not a bootstrap blocker."
+                    return 0
+                fi
+            fi
+            if git -C "$repo_dir" -c http.extraheader="$header" pull --ff-only origin "$default_branch"; then
+                if [ -n "$stash_ref" ]; then
+                    # Re-apply the stashed edits unless upstream already made
+                    # them. Redundancy is judged per changed file: a stash whose
+                    # post-image matches the updated HEAD content is a no-op
+                    # (the common "same rename made upstream" case) and is
+                    # dropped; anything else re-applies via apply --check, and
+                    # a true conflict stays in the stash stack, never lost.
+                    local redundant=true
+                    local f
+                    while IFS= read -r f; do
+                        [ -n "$f" ] || continue
+                        if ! git -C "$repo_dir" diff --quiet "$stash_ref^" "$stash_ref" -- "$f" 2>/dev/null; then
+                            if ! git -C "$repo_dir" show "$stash_ref":"$f" 2>/dev/null | \
+                               git -C "$repo_dir" hash-object --stdin 2>/dev/null | \
+                               grep -qFx "$(git -C "$repo_dir" rev-parse "$default_branch:$f" 2>/dev/null)"; then
+                                redundant=false
+                                break
+                            fi
+                        fi
+                    done < <(git -C "$repo_dir" diff --name-only "$stash_ref^" "$stash_ref" 2>/dev/null)
+                    if [ "$redundant" = true ]; then
+                        git -C "$repo_dir" stash drop "$stash_ref" >/dev/null 2>&1 || true
+                        echo "$label: stashed local changes were already made upstream; dropped as redundant"
+                    elif git -C "$repo_dir" stash show -p "$stash_ref" 2>/dev/null | git -C "$repo_dir" apply --check --quiet 2>/dev/null; then
+                        git -C "$repo_dir" stash pop >/dev/null 2>&1 || true
+                        echo "$label: stashed local changes re-applied on top of the updated clone"
+                    else
+                        echo "WARNING: $label local changes could not be re-applied onto the updated clone (upstream reworked the same areas); they are preserved in the stash stack — recover with 'git stash pop' in $repo_dir. Not a bootstrap blocker."
+                    fi
+                fi
+            else
+                echo "WARNING: $label could not be fast-forwarded (non-fast-forwardable state); the clone may be stale. Not a bootstrap blocker."
+            fi
+        fi
     else
         if [ -d "$repo_dir" ] && [ -n "$(ls -A "$repo_dir" 2>/dev/null)" ]; then
             local backup_dir

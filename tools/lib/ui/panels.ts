@@ -41,3 +41,28 @@ export function box(lines: string[]): string {
   const body = lines.map((l) => `${pc.dim("│")} ${l.padEnd(width)} ${pc.dim("│")}`);
   return [top, ...body, bottom].join("\n");
 }
+
+export interface TableRow {
+  cells: string[];
+}
+
+/**
+ * Column-aligned data table: every column as wide as its widest cell
+ * (header included), two spaces between columns. gh's table shape without
+ * gh's no-TTY fallback (which emits unaligned tab-separated fields when
+ * stdout is not a terminal — the reason tools render their own tables).
+ */
+export function formatTable(headers: string[], rows: TableRow[]): string {
+  if (headers.length === 0) return "";
+  const widths = headers.map((h, i) =>
+    Math.max(h.length, ...rows.map((r) => (r.cells[i] ?? "").length)),
+  );
+  const render = (cells: string[]): string =>
+    cells
+      .map((c, i) => (c ?? "").padEnd(widths[i] ?? 0))
+      .join("  ")
+      .trimEnd();
+  const headerLine = pc.bold(render(headers));
+  const bodyLines = rows.map((r) => render(r.cells));
+  return [headerLine, ...bodyLines].join("\n");
+}

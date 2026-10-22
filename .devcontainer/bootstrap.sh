@@ -9,12 +9,16 @@
 # 2. User level: Use devenv-add-custom-bootstrap to create user-custom-bootstrap.sh
 # 3. Fork this script and call specific bootstrap functions from bootstrap.bash
 
-# Ensure that the script is not run with CRLF line endings
-_self="$(readlink -f "${BASH_SOURCE[0]}")"; if [ -f "$_self" ] && LC_ALL=C grep -q $'\r' "$_self" 2>/dev/null; then sed -i 's/\r$//' "$_self" && exec bash "$_self" "$@"; fi; unset _self
+# Ensure that the script is not run with CRLF line endings. _self stays
+# exported: the bootstrap library's initialize_paths resolves the toolbox
+# root from it, because $0 is unusable there — this wrapper cds to the repo
+# root before running the tasks, so a relative $0 ("./bootstrap.sh") would
+# re-resolve against the new cwd and land one directory too high.
+_self="$(readlink -f "${BASH_SOURCE[0]}")"; if [ -f "$_self" ] && LC_ALL=C grep -q $'\r' "$_self" 2>/dev/null; then sed -i 's/\r$//' "$_self" && exec bash "$_self" "$@"; fi; export _self
 
 # Source the bootstrap library
 # shellcheck source=./bootstrap.bash
-source "$(dirname "${BASH_SOURCE[0]}")/bootstrap.bash"
+source "$(dirname "$_self")/bootstrap.bash"
 
 # Tool versions are declared in ONE place: .devcontainer/tool-versions.bash
 # (sourced by bootstrap.bash below). Do not re-declare them here — duplicate

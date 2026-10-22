@@ -20,6 +20,7 @@ import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { isDevenvRepoGated, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { formatTable } from "../lib/ui/panels.ts";
 import { issuesList } from "../lib/providers/github/issues.ts";
 import { normalizeIssueType } from "../lib/domain/issues/types.ts";
 
@@ -70,6 +71,21 @@ function checkTargetRepo(allowDevenv: boolean): void {
   console.log("To target a project repo, prefix the command with DEVENV_REPO=<owner>/<repo>");
   console.log("To override this safety check (devenv-repo work only), pass the --devenv flag");
   process.exit(1);
+}
+
+/** Compact relative age for list output: "today", "3 days ago", "2 months
+ * ago" — coarse by design; the exact timestamp lives in --json output. */
+function relativeDay(iso: string): string {
+  const then = Date.parse(iso);
+  if (Number.isNaN(then)) return iso;
+  const days = Math.floor((Date.now() - then) / 86_400_000);
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 31) return `about ${days} days ago`;
+  const months = Math.floor(days / 30.44);
+  if (months < 12) return `about ${months} month${months === 1 ? "" : "s"} ago`;
+  const years = Math.floor(days / 365.25);
+  return `about ${years} year${years === 1 ? "" : "s"} ago`;
 }
 
 async function main(argv: string[]): Promise<number> {
@@ -168,15 +184,35 @@ async function main(argv: string[]): Promise<number> {
       ...(author !== "" ? { author } : {}),
       ...(mention !== "" ? { mention } : {}),
       limit,
-      ...(format === "json"
-        ? { json: "number,title,state,labels,assignees,milestone,createdAt,updatedAt,url" }
-        : format === "simple"
-          ? { json: "number,title" }
-          : {}),
+      ...(format === "table"
+        ? { json: "number,title,labels,updatedAt" }
+        : format === "json"
+          ? { json: "number,title,state,labels,assignees,milestone,createdAt,updatedAt,url" }
+          : { json: "number,title" }),
     });
     if (format === "simple") {
       const items = JSON.parse(out) as Array<{ number: number; title: string }>;
       for (const i of items) console.log(`#${i.number} - ${i.title}`);
+    } else if (format === "table") {
+      const items = JSON.parse(out) as Array<{
+        number: number;
+        title: string;
+        labels: Array<{ name?: string }>;
+        updatedAt: string;
+      }>;
+      console.log(
+        formatTable(
+          ["ID", "TITLE", "LABELS", "UPDATED"],
+          items.map((i) => ({
+            cells: [
+              `#${i.number}`,
+              i.title,
+              (i.labels ?? []).map((l) => l.name ?? "").join(", "),
+              relativeDay(i.updatedAt),
+            ],
+          })),
+        ),
+      );
     } else {
       console.log(out);
     }
