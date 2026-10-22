@@ -124,7 +124,13 @@ download_verified() {
 
 # Initialize core paths used throughout bootstrap
 initialize_paths() {
-    script_path=$(readlink -f "$0")
+    # The entry wrapper exports _self (its own absolute path) before sourcing
+    # this library. $0 cannot be used: the wrapper cds to the repo root
+    # before the tasks run, so a relative $0 would re-resolve against the
+    # new cwd and put the toolbox root one directory too high. Fall back to
+    # $0 only when _self is absent (direct `bash bootstrap.bash` use).
+    local self="${_self:-$(readlink -f "$0")}"
+    script_path=$(readlink -f "$self")
     script_folder=$(dirname "$script_path")
     toolbox_root=$(dirname "$script_folder")
     devenv=$toolbox_root
