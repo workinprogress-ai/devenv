@@ -45,7 +45,7 @@ export TURBO_VERSION="2.0.6"
 
 # .NET SDK channels installed side by side (space-separated, passed to
 # dotnet-install.sh one at a time)
-export DOTNET_CHANNELS="8.0 9.0"
+export DOTNET_CHANNELS="8.0 9.0 10.0"
 
 # Kubernetes apt repository track (pkgs.k8s.io minor release line); this
 # decides which kubectl minor version apt offers
