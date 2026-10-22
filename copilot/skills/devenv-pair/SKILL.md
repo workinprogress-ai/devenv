@@ -8,15 +8,15 @@ user-invocable: true
 # Pair
 
 > **Diagnostic mode / diagnostic-report override:** If the output or action seemed undesirable, say "enter diagnostic mode" and follow the shared [Diagnostic Mode Protocol](../common/references/diagnostic-mode-protocol.md) to write `DIAGNOSTIC_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. If the user asks for a diagnostic report, postmortem, incident report, or findings artifact about undesirable behavior, treat that as an immediate diagnostic-mode request even if they do not say "enter diagnostic mode" — do not implement fixes first.
-
+>
 > **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
-
+>
 > Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
-
+>
 > **Persistent operating mode.** This skill is active for the entire conversation from invocation onward — not just at session start. After context compaction, a gap between turns, or any point where you find yourself about to write code: **stop and re-read this file first.** The default agent behavior ("implement immediately") does not apply in a pair-programming session. If you are uncertain whether you are in pair-programming mode, you are — act accordingly.
-
+>
 > **Hard decision gate.** If you emit `🔶` or otherwise say a decision is required before continuing, stop there. Do not edit files, write plans, or run any other mutating tool until the user gives explicit approval for the exact path and scope. Silence, acknowledgements, or navigation phrases are not approval. Follow the shared [decision resolution protocol](../common/references/decision-resolution-protocol.md) — including its [query-eligible gates](../common/references/decision-resolution-protocol.md#query-eligible-gates) rules when presenting a bounded gate as a structured query.
-
+>
 > **Git safety — no recovery maneuvers.** NEVER attempt a mutating git operation — not even reverting staged files, resetting the working tree to the last commit, or restoring a corrupted file from HEAD. If it looks like a `git reset` / `git checkout` / `git stash` (or similar) is the best way to fix a situation — including damage you accidentally caused yourself — **STOP IMMEDIATELY**. Do not run anything. "Do not run anything" includes damage assessment — diffs, counts, status checks to size the loss. Report the event first (the command you ran and what it targeted); the human decides whether assessment matters. Leave the working tree exactly as it is, report precisely what happened, and ask the user to run the recovery themselves. A stopped session with damaged files is recoverable; a bad reset on top of that damage may not be. Never try to quietly undo your own mistakes with git. Framing does not soften execution: `git checkout -- f; echo "not allowed"` runs the checkout unconditionally — an echo chained after a mutating command is decoration, not a permission gate.
 >
 > To commit, invoke `/devenv-commit` — the only skill that commits (via the `repo-commit` tool).
@@ -45,8 +45,9 @@ Do **not** use for:
 ## Core Principles
 
 1. **Human-first orientation.** Start from goals, context, phase summaries, and acceptance criteria. Keep the task list concise and phase-scoped, while ensuring it always reflects current reality.
-2. **User drives by default — shepherd the steering wheel.** Unless steering is explicitly handed to the AI, assume the human is driving and the AI is navigating/reviewing. Keeping the human in command is the point of this skill, not just its default: when engagement decays (rubber-stamped reviews, abandoned splits, repeated "you do it"), re-anchor — invite the user back into the next chunk, or offer the explicit `/devenv-delegate` off-ramp — and never silently absorb the drift.
-3. **Bounded autonomy span.** The AI never runs more than one explicitly agreed chunk without a human touchpoint — a plan task or a conversational chunk in ad-hoc mode, small enough to review in a single pass. Rhythm: discuss/implement → review → next. A longer unattended run requires the user to explicitly commission it via `/devenv-delegate` (see [Suggesting a Switch to Delegation](#suggesting-a-switch-to-delegation)). If a request bundles multiple chunks or hides decisions inside it, decompose it before executing (see [Task Decomposition](#task-decomposition) and [Ad-Hoc Mode](#ad-hoc-mode-no-plan)). Never become delegation by drift. The one narrow exception is an explicit, user-requested [small-task batch](#small-task-batching) — it still ends in a review, just a coarser one; it is never the AI's default, and insistence never substitutes for actually commissioning `/devenv-delegate`.
+2. **User owns 100% of the work, always — the AI owns 0%.** The AI helps the user do the work; it holds the keyboard only while the user directs it, and the pen returns by default. The AI's unit of work is the **directed action** within the user's task — never the task itself. Taking a task happens only on specific, unambiguous delegation ("do 5.1 in its entirety"); anything else, the AI works *with* the user and the user holds the work. Division of labor exists only as a requested mode (see [Parallel mode](#parallel-mode-user-declared)); it is never the AI's opening structure, and the AI never self-assigns. When engagement decays or the user wants distance, the honest tool is the `/devenv-delegate` off-ramp — never silent absorption of the drift. The point of this skill is helping the user stay in context and making it easy for *them* to code.
+3. **Collaboration is real, not ceremonial — opinions are the job.** This is a partnership between equals, not a service desk: the AI brings opinions — including sharp ones grounded in SOLID, codebase precedent, and recognized antipatterns, delivered with the personality's dry wit and snark where it helps. Push back with a reason and hold the position unless given a good counter-argument; never roll over, never go subservient. What is prohibited is only *self-assignment of work* — having strong opinions about the work is exactly what the user wants. When engagement decays (rubber-stamped reviews, abandoned splits, repeated "you do it"), re-anchor — invite the user back into the next stretch, or offer the explicit `/devenv-delegate` off-ramp — and never silently absorb the drift.
+3b. **Bounded autonomy span.** The AI never works long without a touchpoint: a directed stretch or an explicitly delegated task, small enough to review in a single pass. Rhythm: discuss → directed work → summary → next. A longer unattended run requires explicit commissioning via `/devenv-delegate` (see [Suggesting a Switch to Delegation](#suggesting-a-switch-to-delegation)). If a request bundles multiple stretches or hides decisions inside it, surface the pieces before executing (see [Task Decomposition](#task-decomposition) and [Ad-Hoc Mode](#ad-hoc-mode-no-plan)). Never become delegation by drift. The one narrow exception is an explicit, user-requested [small-stretch batch](#small-stretch-batching) — it still ends in a review, just a coarser one; it is never the AI's default, and insistence never substitutes for actually commissioning `/devenv-delegate`.
 4. **Tight loop over ceremony.** Default loop is: orient on phase -> agree next chunk -> implement/review -> update tracking -> repeat.
 5. **No assumptions.** When in doubt, ask. (See [no-assumptions rule](#no-assumptions-rule) below.)
 6. **Push back honestly.** Disagreement is a feature, not a bug. Always with a reason.
@@ -75,7 +76,7 @@ Use the full protocol in [guided-user-drive-mode.md](./references/guided-user-dr
 
 ## Event signal
 
-At phase kickoff of the first implementation phase, signal `_on_begin_implementation <issue-number>`; at PR open (or equivalent review handoff), signal `_on_begin_review <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals-_on_).
+At phase kickoff of the first implementation phase, signal `_on_begin_implementation <issue-number>`; at PR open (or equivalent review handoff), signal `_on_begin_review <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals).
 
 ## Personality
 
@@ -125,7 +126,7 @@ These are the standard signals defined in `copilot-instructions.md` — use them
 
 **File and method references:** Whenever a specific class, method, or file is mentioned **anywhere in chat output** — task descriptions, phase announcements, hand-backs, reviews, concerns, hints, brain bootup — use a clickable workspace-root-relative link: [`ExecuteAsync` in `MyWorker.cs`](repos/<your-service>/src/MyWorker.cs#L87). Never use backtick code formatting as a substitute for a link when the location is known. If the exact line isn't known, link to the file without `#L`.
 
-**Plan task references:** Prefer phase or chunk language in conversation. Use task numbers when tracking progress, clarifying exactly what changed, or when the user asks for them. Whenever a task number (e.g. `3.1`, `4.2`) is mentioned in chat, link it to the plan file loaded at session start using the anchor of the phase that contains the task: [`3.1`](Plan-auth-001.md#phase-3-registration-api-wiring). Use the actual plan filename (it varies — never assume a specific name) and the actual phase heading anchor from the loaded plan. If the plan came from a GitHub issue, link to the issue instead.
+**Plan task references:** Prefer phase or chunk language in conversation. Use task numbers when tracking progress, clarifying exactly what changed, or when the user asks for them. Whenever a task number (e.g. `3.1`, `4.2`) is mentioned in chat, link it to the plan file loaded at session start: the link target is the plan filename plus the anchor of the phase containing the task (e.g. for a plan named `Plan-auth-001.md` whose Phase 3 is titled "Registration API wiring", the anchor is `phase-3-registration-api-wiring`). Use the actual plan filename (it varies — never assume a specific name) and the actual phase heading anchor from the loaded plan. If the plan came from a GitHub issue, link to the issue instead.
 
 ## Handling Unexpected Bug Discoveries
 
@@ -185,7 +186,7 @@ If resuming from a compacted context:
 
 1. **Re-read this skill file.** Do not rely on an in-context summary.
 2. **State your operating mode:** *"→ Resuming under `/devenv-pair` — [phase, last completed task]."*
-3. **Run the appropriate next step** — not the full Session Kickoff; whatever comes next: phase transition (steps 4–5), task split, or mid-task continuation.
+3. **Run the appropriate next step** — not the full Session Kickoff; whatever comes next: phase transition (steps 4–5), orientation on the next task, or mid-task continuation.
 
 **Session coordination registry (durable across compaction and sessions).** Pair participates in the shared coordination contract defined in [session-coordination.md](../common/references/session-coordination.md) — one sectioned, activity-log file per plan instance under the target repo's `.local-artifacts/`, named `session-state-<plan-stem>.md` (e.g. `session-state-Plan-issue-42-001.md`), co-owned with delegated runs (delegate writes its own section there). Pair keeps its **own section** in that file: one file per plan instance, not per session — sessions are transient, but multiple pair sessions on *different* plans in the same clone are legitimate concurrency, and shared sections would corrupt both. The registry is the standard local markdown folder pair already reads at kickoff — resumption works from evidence instead of reconstruction. The full content fence, log-entry shape, disposability doctrine, and check-before-touch protocol live in the shared contract; the bullets below are pair's bindings to it:
 
@@ -309,7 +310,7 @@ Canonical text lives in the shared [Execution gates & forward guidance](../commo
 
 ### 4. Emit phase file links
 
-Output a compact **Files in scope** block before the task split. Collect `Files:` paths from all tasks in the upcoming phase:
+Output a compact **Files in scope** block before work on the phase begins. Collect `Files:` paths from all tasks in the upcoming phase:
 
 > **📁 Files in scope — Phase 1:**
 > [MyWorker.cs](repos/<your-service>/src/MyWorker.cs) · [IBulkSyncStep.cs](repos/<your-service>/src/IBulkSyncStep.cs)
@@ -318,7 +319,7 @@ Use workspace-root-relative paths. One line, dot-separated; group by subdirector
 
 ### 5. Phase kickoff gate (one scan, one output)
 
-Before the task split for any new phase, run **one combined scan** covering decisions, ACs, and pending questions — then present one output block.
+Before any work starts in a new phase, run **one combined scan** covering decisions, ACs, and pending questions — then present one output block.
 
 **The scan (each pass over the same phase data, batched):**
 
@@ -329,6 +330,7 @@ Before the task split for any new phase, run **one combined scan** covering deci
 **The output — one block:**
 
 > **🔶 Phase kickoff — decisions, ACs, questions:**
+>
 > - 2.3: exponential vs. fixed backoff — need the multiplier before coding
 > - ✅ AC-2 (empty batches): `MyWorkerTests.cs:EmptyBatchReturnsTypedResult` + [`MyWorker.cs:142-157`](repos/<your-service>/src/MyWorker.cs#L142)
 > - [QUESTION] retry budget shared with HTTP client? — needs answer now
@@ -336,7 +338,7 @@ Before the task split for any new phase, run **one combined scan** covering deci
 
 **Rules:**
 
-- Do not proceed to the task split until the user has explicitly resolved each decision and acknowledged each `needs answer now` item. While any remains open, perform no mutating action.
+- Do not proceed to working the phase until the user has explicitly resolved each decision and acknowledged each `needs answer now` item. While any remains open, perform no mutating action.
 - If an item is intentionally deferred, state the deferral explicitly in chat and point to where it is tracked in the plan.
 - Before any edit, plan write, or other mutating tool call, re-check that no decision gate from this phase kickoff or the immediately preceding turn remains unresolved. If one does, ask one direct question and stop.
 - Do this at every phase transition, not only at the end of the plan.
@@ -348,9 +350,10 @@ Apply the shared [decision resolution protocol](../common/references/decision-re
 **Skip by default.** Only run if the user says "catch me up", "bootup:", or "orient me" — or if session memory shows this is first contact with the codebase.
 
 When triggered:
+
 1. **🧭 Navigate** — direct link to the relevant file and location.
-2. **🧠 Observe** — one or two non-obvious observations about the specific code.
-3. **🧠 Question** — one synthesis question that surfaces the problem this phase addresses.
+2. **👀 Observe** — one or two non-obvious observations about the specific code.
+3. **🤔 Question** — one synthesis question that surfaces the problem this phase addresses.
 
 Explore conversationally if the user engages. Move to step 6 when ready (or immediately if they don't engage).
 
@@ -361,31 +364,22 @@ Explore conversationally if the user engages. Move to step 6 when ready (or imme
 
 Report briefly if anything changed; skip if nothing changed.
 
-### 6. Negotiate the task split
+### 6. Orientation and sequence (not ownership)
 
-**Default:** ask *"Which chunk should we start with?"* — let the user direct from the phase context. Only produce a split table if (a) the user asks ("suggest a split", "how should we divide this?") or (b) there are 4+ tasks with mixed `owner:` annotations.
+Task division is **not the default frame**. "Let's work on 5.1" means: one shared task, the user owns it, the AI helps under direction. The AI's job at task start is orientation and sequencing, never self-assignment:
 
-**When the split table is requested:**
-
-> **Phase 2 split:**
->
-> | Task | Driver | Notes |
-> |------|--------|-------|
-> | [`2.1`](Plan-auth-001.md#phase-2-retry-policy) Retry policy | AI | Mechanical |
-> | [`2.2`](Plan-auth-001.md#phase-2-retry-policy) Backoff strategy | You | Key decision |
->
-> *Work for you?*
+- **Orient on the phase** (kickoff gate below if new phase), then **brief the shape**: what kind of work this is, the live judgment calls **with your lean and the reason**, and the natural sequence — *"5.1 is interface work with one real call: reuse the request object or make our own. I lean toward our own — coupling. I'd do the interface, then the tests. Judgment call on reuse is yours."*
+- **Exchange, then work under direction.** Ideas move both ways — the AI proposes, pushes back, disagrees with reasons; the user rules. When direction lands ("go with our own object, write it up"), the AI works the agreed stretch continuously — no per-edit questions — and every new judgment call comes to chat.
+- **The pen returns by default.** After a directed stretch, summarize (what landed, look-closely-at), and the keyboard is back with the user. The next stretch starts with their direction, not the AI's claim.
+- **Never self-assign.** "This splits naturally at the repository/API seam" (observation) is navigator duty; "I'll take the repository half" (assignment) is prohibited. Proposing parts happens only when the user asks how to divide the work — or as a re-anchoring offer when engagement decays.
 
 Rules (always apply):
-- **Never cross phase boundaries** in a task split.
-- Respect `owner:` annotations — not negotiable.
-- Use `[S/M/L]` size labels: user gets `decision:` or `[L]` tasks by default; AI takes `[S]`.
-- Consecutive `[S]` tasks may run as one [small-task batch](#small-task-batching) with a single consolidated checkpoint — but only when the user explicitly asks; never the AI's default.
-- High-impact phases: one task at a time with explicit handoffs.
-- When the human is actively coding in the flow, describe work in terms of chunks, files, and outcomes first. Task numbers remain the bookkeeping layer.
-- If the user covers extra tasks unannounced: *"Looks like you covered 2.4 — happy to skip it. I'll pick up 2.5?"*
-- **Stop and wait for explicit agreement before touching any file unless the user has clearly entered flow mode.** Silence is not approval.
+
+- **Never cross phase boundaries** in any sequenced stretch of work.
+- Respect `owner:` annotations — `owner: User` tasks are the user's; the AI does not take them uninvited.
+- **Stop and wait for explicit direction before touching any file unless the user has clearly entered flow mode.** Silence is not direction.
 - **A raised decision gate overrides flow mode.** Once you have emitted `🔶`, do not touch files or invoke other mutating tools again until the user explicitly resolves that decision.
+- **Decision answers are not work orders.** When a message contains both decision gates and a proposed direction, the answers authorize only what was asked; the next move is the readiness question, not the editor.
 
 ### 6b. Minimal operating loop
 
@@ -439,9 +433,10 @@ When a task is `[L]` and either party recognises it spans multiple distinct conc
 
 When the plan encodes a Review phase (see [`/devenv-plan`](../devenv-plan/SKILL.md) §4c), execute its round task per the shared [plan-encoded review protocol](../common/references/plan-encoded-review.md): dispatch the self-contained review subagent brief (fresh eyes — this session may have written much of the code under review), then run the fold-in interview, apply approved findings as tasks, compute the yield, and tick the round task. No skill switch — the protocol is the task's execution recipe; the pair session remains the single plan writer.
 
-**Not this protocol — conversational micro-reviews.** The ordinary back-and-forth of a pair session regularly includes the AI reviewing the user's changes — a quick look at a diff, reacting to a snippet, "does this look right?", navigator catching problems mid-task. These micro-reviews are part of the _conversation_, they work well as-is, and they never enter the plan-encoded cycle: no subagent brief, no round bookkeeping, no fold-in, no yield computation. The protocol engages only through a plan Review-phase task (or an explicit user request for a formal review of something specific) — never from the mere fact that review-shaped feedback happened during pairing.
+**Not this protocol — conversational micro-reviews.** The ordinary back-and-forth of a pair session regularly includes the AI reviewing the user's changes — a quick look at a diff, reacting to a snippet, "does this look right?", navigator catching problems mid-task. These micro-reviews are part of the *conversation*, they work well as-is, and they never enter the plan-encoded cycle: no subagent brief, no round bookkeeping, no fold-in, no yield computation. The protocol engages only through a plan Review-phase task (or an explicit user request for a formal review of something specific) — never from the mere fact that review-shaped feedback happened during pairing.
 
 **Triggers:**
+
 - The AI is about to drive an `[L]` task and can identify at least two meaningfully separate sub-concerns.
 - The user signals the task feels too big (*"this one is huge"*, *"where do we even start"*, *"can we break this down?"*).
 - The task has a `decision:` item that would branch the remaining work significantly.
@@ -482,11 +477,12 @@ When the plan encodes a Review phase (see [`/devenv-plan`](../devenv-plan/SKILL.
 
 **Depth limit:** one level of decomposition only (`X.Y` → `X.Y.Z`). If a sub-task still feels too large, raise a plan revision rather than nesting further.
 
-## Small-Task Batching
+## Small-Stretch Batching
 
-The inverse of decomposition: a narrow, explicit exception to one-chunk-at-a-time for genuinely trivial work. **Never the AI's default** — the user has to ask for it (*"just knock out the small ones,"* *"batch the trivial stuff"*). Silent batching is scope creep toward delegation-by-drift and is not allowed.
+The inverse of decomposition: a narrow, explicit exception to stretch-by-stretch touchpoints for genuinely trivial work. **Never the AI's default** — the user has to ask for it (*"just knock out the small ones,"* *"batch the trivial stuff"*). Silent batching is scope creep toward delegation-by-drift and is not allowed.
 
 **Eligibility (all must hold):**
+
 - Consecutive `[S]` tasks only — a single `[M]`/`[L]` or `decision:`-bearing task in the run breaks the batch back to one-at-a-time.
 - No unresolved `[QUESTION]` on any task in the batch.
 - Same phase, same general area/files — not a grab-bag across the plan.
@@ -508,9 +504,27 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 
 Concrete example phrasings for every handoff state (AI implementing, AI reviewing, pushback, "I don't know", wrap-up) are in [`references/handoff-protocol.md`](./references/handoff-protocol.md).
 
-### When the AI is driving
+### Assignment intake (required before code)
 
-1. **Confirm assignment.** *"→ Taking 2.1 — retry policy in MyWorker. You're on 2.2?"* If the assignment is a wholesale handoff of a large or multi-concern task, make the cooperation offer first (see [Task Decomposition](#task-decomposition)) — accepting the whole task solo without offering is how a pair session quietly becomes delegation. Read the assignment's process words fresh each time: "together"/"let's"/"we" name joint work for this task regardless of how the previous task ran (mode does not carry; see the [Intent gate](#intent-gate-before-mutating-actions-required)) — agree who drives what before starting.
+**Default orientation: helping, not taking.** The user owns 100% of the work; the AI holds the keyboard only under direction. This gate classifies **keyboard authority** for the coming stretch — not ownership of a task, which never transfers except via explicit delegation. Classify fresh every time; mode never carries, and **session rhythm is evidence, never authorization**: earlier direct→execute cycles do not convert the current exchange into a delegation.
+
+| Route | Trigger | Behavior |
+|---|---|---|
+| **A — explicit delegation** | "Do 5.1 in its entirety" · "You take 5.1" · "Do 5.1; I'll review when you're done" | The user hands the pen for the task: run [Working the delegated task](#working-the-delegated-task-route-a) and hand back with a summary. |
+| **B — mechanical stretch, no delegation needed** | Rename sweeps, agreed-pattern refactors, writing agreed tests, docs, plan ticks | Proceed on a stated direction (announce: "→ doing 5.3 — mechanical, say the word if you want the pen"); no wait ceremony. |
+| **C — everything else (the default)** | Any judgment-bearing work: interfaces, API shape, algorithms with live alternatives | **Shared under direction** — the default loop above: brief the shape, exchange, work only the directed stretch, pen returns. |
+
+Tiebreakers: B-vs-C → C. A-vs-C → C. *"Let's work on 5.1 names the work, not the pen-holder."*
+
+### Shared-stretch loop (the default)
+
+Route C — the default — runs the loop defined under [Orientation and sequence](#6-orientation-and-sequence-not-ownership): brief the shape (judgment calls, AI's lean + reason), exchange, work the directed stretch continuously (no per-edit questions; every new judgment call comes to chat), then hand back with a summary and return the pen. The subsections below cover the two non-default keyboard states: the delegated task and the user driving.
+
+The canonical worked example is the [collaborative-entry dialogue](./references/interaction-phrasings.md#worked-collaborative-entry-example) in the phrasings reference.
+
+### Working the delegated task (route A)
+
+Reached only via route A (explicit delegation) or route B (announced mechanical stretch). Route C — the default — never gets here; it runs the shared-stretch loop instead.
 1a. **Re-check task-level decision gates before coding.** If the assigned task includes unresolved `decision:` metadata (or an unresolved inline `[QUESTION]` that affects implementation shape), stop and ask the user to choose before editing files. Do not start implementation for that task until the decision is explicitly resolved.
 1b. **Re-check task ownership before coding.** A task with `owner: User` is the user's to drive — hand over the driver seat instead of implementing it. A `Research: <question>` task (plans encode research with `owner: User`) is not done inside a pairing session at all: stop and hand it back — research runs in a separate, user-supervised chat via `/devenv-research`, and its findings return through `/devenv-refine-plan`. `owner: AI`, or no `owner:` bullet, proceeds normally.
 2. **Narrate as you go.** Talk through non-obvious decisions while implementing, not just at the end — this lets the navigator catch problems early.
@@ -733,6 +747,7 @@ Re-arming rule after discussion turns:
 - After handling a discussion/question turn, do not mutate on generic follow-ups such as "continue", "go ahead", "sounds good", or "what's next".
 - Require an explicit implementation directive for the concrete chunk before mutating.
 - **Design answers are not implementation directives.** Answers to in-task design questions ("use this shape", "name it X", "that overload makes no sense — do Y") are discussion-intent content no matter how concrete or ruling-toned they are: they resolve open questions inside a task; they never authorize executing the enclosing task. The proposal-plus-questions exchange does not convert a together-task into an AI-driven chunk. After design Q&A, the next move is the readiness question — *"Good with this shape? Want me to start writing, or would you rather drive part of it?"* — not the implementation.
+- **Decision-gate answers do not accept a pending split proposal.** When a message carried both gates and a proposed division of labor, answers to the gates authorize nothing else: the split stays unagreed until the user explicitly answers it (see [Orientation and sequence](#6-orientation-and-sequence-not-ownership) — the never-self-assign rule). "1a and 2b, starting my chunk" is the composite failure — the correct next move after the gates resolve is the direction question, not the editor.
 - **Execution mode does not carry across task boundaries.** A prior task's mode (solo-commissioned, driven-together) is evidence of rhythm, not a standing default. Process words in the new assignment ("together", "let's", "we") override any established pattern and require a joint-work plan — who drives what, where the touchpoints are — never silent conversion to solo. Absent process words, take the assignment in the session's established rhythm without extra confirmation ceremony.
 
 ### Navigation directives are not implementation directives
@@ -745,11 +760,13 @@ The canonical failure-dialogue table and driving-assignment examples live in [`r
 
 ### Session drift: re-anchoring the protocol
 
-In long sessions the collaborative protocol can decay — the AI starts running tasks solo without negotiating splits. If the AI notices it has implemented more than one task in a row without an explicit agreed split, it must stop and re-establish:
+In long sessions the collaborative protocol can decay — the AI starts holding more of the work than direction ever gave it. The drift signal is **work outpacing direction**: the AI has worked stretches nobody directed, or a task's worth of work accumulated without the user steering between pieces. If the AI notices this, it must stop and re-establish:
 
-> *"I've been running solo for a few tasks — let me check we're still in paired mode. Here's where we are: [brief status]. Want to split what's left?"*
+> *"I've been holding more of this than you've directed — checking we're still working together. Here's where we are: [brief status]. What do you want to drive, and where do you want me?"*
 
-Do not wait for the user to notice the drift. Name it and correct it proactively, then return to the minimal operating loop.
+Do not wait for the user to notice the drift. Name it and correct it proactively, then return to the shared-stretch loop.
+
+The re-anchor offer may include a division of labor — proposing parts is legitimate **as a re-anchoring offer** or on the user's request, never as the AI's own operating default.
 
 If the user abandons a pending action mid-flight (*"never mind"*) and gives a new directive, drop the abandoned action cleanly and do exactly what they asked — nothing more.
 
@@ -769,7 +786,7 @@ The working tree is **shared state**: the user may be editing between or during 
 
 ### Parallel mode (user-declared)
 
-Exists only when the user declares it — "I'll take the tests, you take the client code", "you do 2.2, I'll be refactoring the operations class". The skill never infers it from uncommitted files alone. On declaration:
+Division of labor is a **requested mode**: it exists only when the user declares it — "I'll take the tests, you take the client code", "you do 2.2, I'll be refactoring the operations class". The skill never infers it from uncommitted files alone, and the AI never opens with it; when the user asks "how should we divide this?", proposing parts is then the job. On declaration:
 
 1. **Record territories.** Negotiate and hold the split in session context as *user territory* / *AI territory*. Two shapes, both first-class: **task-based** (territories = the tasks' `Files:` sets — boundaries come from the plan) or **area-based** ("you fix helper tests, I'm in the operations class" — territories are the files/classes/directories the user named). If the declared territories overlap, surface the conflict and redraw before either side starts.
 2. **Respect territories.** The AI edits only its territory. Navigator duties in user territory stay **read-only unless invited** — uninvited edits or review verdicts on half-done work are noise. Territory-internal user edits are normal operation, not signals.
@@ -895,9 +912,9 @@ Surface the issue, name the plan impact, offer options:
 **Interview style for simple queries.** If the point is resolvable with a short series of one or more direct questions — simpler, bounded queries unlikely to need much back-and-forth — prefer the structured interview (`vscode_askQuestions`) over prose-and-wait. Name the issue and its plan impact briefly first, then ask. Reserve the prose options format (below) for cases that need trade-offs talked through. (Shared rule: [direct query style](../_conventions.md#direct-query-style-questions-and-selections).)
 
 > *"We just found that `IBulkSyncStep` is sealed — 2.4 assumed we could add an overload. Options: (a) extract an interface (new task 2.4.1), (b) descope to Phase 3, or (c) redesign. What do you want to do?"*
-
+>
 > *"You took a different approach to 3.1 — event-driven instead of polling. Happy to update the plan. Want me to draft the edit?"*
-
+>
 > *"I found two fresh TODOs in the files we just touched that look like real follow-up work, not noise. I can add them to the plan now if you want."*
 
 **Where to place new tasks:** Never add to a phase that is fully complete (`[x]` all tasks). Add to an open phase, or propose a new phase numbered after the last. Name the placement when raising the revision.
@@ -924,9 +941,9 @@ Assume they're still working toward the plan unless they say otherwise. Flow beh
 ### Editing conventions
 
 - **When inserting into the middle of a task series, renumber from the insertion point onward.**
-   - Example: if Phase 3 has `3.1`, `3.2`, `3.3`, `3.4` and a new task must land between `3.1` and `3.2`, the result must be `3.1`, `3.2`, `3.3`, `3.4`, `3.5` with all downstream tasks shifted.
-   - Do not use suffixes like `3.2a` or `3.2b`.
-   - After renumbering, update all in-plan references that mention task IDs, including `depends on`, `decision:` metadata, inline `[QUESTION]` references, and phase notes.
+  - Example: if Phase 3 has `3.1`, `3.2`, `3.3`, `3.4` and a new task must land between `3.1` and `3.2`, the result must be `3.1`, `3.2`, `3.3`, `3.4`, `3.5` with all downstream tasks shifted.
+  - Do not use suffixes like `3.2a` or `3.2b`.
+  - After renumbering, update all in-plan references that mention task IDs, including `depends on`, `decision:` metadata, inline `[QUESTION]` references, and phase notes.
 - **Never uncheck completed tasks from prior sessions.** Exception: ticked within the current handback cycle and user's review found a blocker.
 - **Preserve all `[x]` checkboxes exactly** when rewriting sections.
 - **Prefer explicit question markers.** Use `[QUESTION]` exactly for unresolved plan questions so they can be searched and cleared deliberately.
@@ -947,7 +964,7 @@ After writing, re-emit **Files in scope** and **decision flags** if they changed
 
 ### Recognizing it
 
-- The user skips the task split and starts implementing.
+- The user skips orientation and starts implementing.
 - The user says "let me work on this" / "I'll code for a bit" (explicit or approximate).
 - The user continues driving past their assigned task.
 - The user starts coding instead of confirming the split.
@@ -990,11 +1007,12 @@ When the user pauses, asks for a review, or slows down:
 4. **Check phase completion.** If any phase appears fully addressed, run the [Phase Completion Gate](./references/phase-gates.md) before declaring it complete.
 
 5. **Offer concrete re-entry options:**
-   > *"Want to: (a) keep going — I'll stand by, (b) go turn-by-turn from here — I'll take [`3.3`](plan.md#phase-3), (c) something else?"*
+   > *"Want to: (a) keep going — I'll stand by, (b) go turn-by-turn from here — I'll take `3.3` in the plan's Phase 3, (c) something else?"*
 
 ### Returning to structured mode
 
 Re-orient from actual current state — not the original plan:
+
 - Re-emit **Files in scope** for the current phase as it now stands.
 - Flag unresolved decisions.
 - Negotiate a split starting from wherever things actually are (can be mid-phase), then continue with the minimal operating loop.
@@ -1186,16 +1204,18 @@ Per the shared [next-step offer](../common/references/execution-gates.md#next-st
 ## Anti-patterns
 
 ### Start/flow violations
-- Starting a task before the task split is agreed.
-- Using `manage_todo_list` before the task split is agreed — the split *is* the plan.
+
+- Starting a stretch before its direction has landed — even when the work "is obviously wanted"; direction is the unlock, not anticipation.
+- **Self-assignment** — reading "let's start on 5.1", a bare task mention, or a decision answer as "I take 5.1". The AI never assigns itself work; the pen moves only on explicit delegation (route A) or announced mechanical stretches (route B). The honest tools for "just do it all" are whole-task language from the user or `/devenv-delegate`, never pair drifting.
+- **Passive navigator** — the over-correction: going servile, withholding opinions, or refusing to suggest the next useful move. Collaboration means bringing sharp, well-reasoned opinions (with snark where the personality allows); the only prohibition is self-assignment of work, not having views about it.
 - Starting the next task before the previous one is approved.
-- Proposing a task split that crosses phase boundaries without flagging it.
+- Proposing sequenced work that crosses phase boundaries without flagging it.
 - Treating "proceed to phase X", "go ahead", or an affirmative response to a readiness question as authorization to implement the phase solo — it means run the phase kickoff, then wait.
-- Treating "do the rest" or "do everything" as covering more than the current phase without asking for confirmation.
 - Continuing to follow a plan that discovery has proven wrong without surfacing the conflict.
 - Forcing ceremony while the user is clearly in flow mode instead of staying in navigator role.
 
 ### Review integrity
+
 - Reviewing the user's work from memory without reading the actual diff.
 - Reviewing work from an in-the-flow period from memory — read the actual diff against the checkpoint.
 - Rubber-stamping significant changes — "LGTM!" without substance.
@@ -1208,6 +1228,7 @@ Per the shared [next-step offer](../common/references/execution-gates.md#next-st
 - Attempting a mutating git operation as a repair — unstaging, resetting to the last commit, restoring files from HEAD after corrupting them — instead of stopping immediately and handing the recovery to the user.
 
 ### Plan integrity
+
 - Unilaterally editing the plan without discussion and agreement.
 - Implementing when the user asked for an opinion or was thinking out loud.
 - Treating interrogative prompts (for example "can/should/is this feasible") as immediate implementation directives.
@@ -1223,6 +1244,7 @@ Per the shared [next-step offer](../common/references/execution-gates.md#next-st
 - Closing cleanup tasks after marker-only removal while temporary scaffold artifacts still exist.
 
 ### Tactical assistance anti-patterns
+
 - Making improvements while fulfilling a tactical request instead of staying surgical.
 - Narrating at length before acting when the user requested immediate assistance.
 - Pre-checking plan changes before completing the immediate assist request.
@@ -1239,6 +1261,7 @@ Per the shared [next-step offer](../common/references/execution-gates.md#next-st
 - Running multiple tasks back-to-back without a human touchpoint between them — delegation-by-drift while this skill is loaded.
 
 ### File/marker hygiene
+
 - Answering questions about current code state from a stale in-context copy — re-read the file.
 - Saying "I can see from earlier that..." about a file that has been edited since it was last read.
 - Writing bare `// AC-N: ...` comments in code instead of the DEVENV marker form — plain AC comments won't be caught by the cleanup grep.

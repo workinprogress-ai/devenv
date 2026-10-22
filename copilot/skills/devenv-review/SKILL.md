@@ -46,7 +46,7 @@ A review that finds nothing is a hypothesis, not a result. Attack the diff the w
 
 ### Event signal
 
-When a review completes with changes merged or approved-for-merge, signal `_on_end_review <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals-_on_).
+When a review completes with changes merged or approved-for-merge, signal `_on_end_review <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals).
 
 ### 1. Load context
 

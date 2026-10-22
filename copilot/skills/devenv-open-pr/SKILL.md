@@ -27,7 +27,7 @@ If a PR already exists and you're responding to feedback, use `/devenv-address-p
 
 ## Event signal
 
-When the PR opens successfully, signal `_on_begin_review <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals-_on_). (The PR-events workflow also fires this; double-signaling is safe.)
+When the PR opens successfully, signal `_on_begin_review <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals). (The PR-events workflow also fires this; double-signaling is safe.)
 
 ## Prerequisites
 

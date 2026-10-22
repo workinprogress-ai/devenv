@@ -31,7 +31,7 @@ bounded to genuinely new upstream commits. Consumers: `git-update`,
 
 ### `workflow-core.bash`
 
-The workflow state engine: policy and orchestration for issue status. Zero direct I/O — all reads go through `issue-graph.bash`, all writes through the `project-update-issue` fan-out (grep-enforced by test). Sourced by `_on_event_dispatch.sh`, `issue-create.sh`, and the status tooling.
+The workflow state engine: policy and orchestration for issue status. Zero direct I/O — all reads go through `issue-graph.bash`, all writes through the `project-update-issue` fan-out (grep-enforced by test). Sourced by `_on_event_dispatch.sh`, `workflow-signal.sh`, and the status tooling.
 
 Public functions:
 
@@ -61,7 +61,7 @@ Public functions:
 - `issue_parent <issue>` — native `Issue.parent` first, `Part of #N` body-text fallback for pre-native issues.
 - `issue_read_status <issue>` — first vocabulary-valid Status across the issue's projects; foreign-board values count as unreadable.
 
-Test seam: `ISSUE_GRAPH_TOOLS` overrides where the board-reading script is found. Tests: `tools/tests/lib/test_issue_graph.bats`.
+Test seam: `ISSUE_GRAPH_TOOLS` overrides where the board-reading script is found. Tests: `tools/tests/lib/test_provider_loading.bats` (sources `issue-graph.bash`), `tools/tests/lib/test_workflow_core.bats`.
 
 ## Diagnostics
 
