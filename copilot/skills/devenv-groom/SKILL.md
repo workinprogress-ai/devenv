@@ -128,7 +128,7 @@ Ask only what is missing (the grooming document may already answer some of these
 
 ### Event signal
 
-When grooming completes for an issue (routing confirmed / decisions closed), signal `_on_end_grooming <issue-number>`. Fire-and-forget per the [event-signal convention](../_conventions.md#skill-event-signals-_on_) — never block on its result.
+When grooming completes for an issue (routing confirmed / decisions closed), signal `_on_end_grooming <issue-number>`. Fire-and-forget per the [event-signal convention](../_conventions.md#skill-event-signals) — never block on its result.
 
 ### Phase 2: Route with rationale
 

@@ -574,7 +574,7 @@ Use relative paths (as they appear inside a skill folder): `[/devenv-pair](../de
 
 Also add a one-liner to each `SKILL.md` — usually in the Sibling skills section (the fleet-standard position): "See the [Skills catalog](./common/references/skills-catalog.md) for the full list and decision tree."
 
-## Skill Event Signals (`_on_*`)
+## Skill event signals
 
 Skills maintain GitHub Project issue status as a side effect of their lifecycle by invoking deterministic **event-signal scripts**. This is a tooling class distinct from the CRUD wrappers:
 

@@ -321,7 +321,7 @@ same name in a higher folder replaces the one below it:
 - **Add a tool:** put `my-tool.sh` in `tools/fork/` (for the whole fork) or
   `tools/custom/` (for you only). It gets a `my-tool` stub like any provided tool.
 - **Override a tool:** give your file the same name as the provided one
-  (`tools/fork/issue-get.sh` replaces `tools/scripts/issue-get.sh`). The stub then runs
+  (`tools/fork/issue-get.ts` replaces `tools/scripts/issue-get.ts`). The stub then runs
   yours. Remove the file and the stub points back at the next folder down.
 - **Re-run the sync after adding or removing a file.** Each stub is written at sync
   time and names the winning file, so the change shows up after
@@ -513,14 +513,14 @@ This is **not a free-form list**: the engine derives behavior from the vocabular
 
 1. **Two ordered halves.** Workflow states first (planning and implementation states), delivery states after (merge/deploy states). The split is the delivery boundary.
 2. **`Implementing` is the load-bearing boundary token.** The engine locates the delivery boundary by looking up `Implementing` in this list — it drives the rollup floor (pre-delivery children of an active parent count as Implementing) and the "workflow states cannot be forced" gate. Keep the token name, or update both lookups in `tools/lib/workflow-core.bash`.
-3. **`TBD` and `Ready` are the birth tokens.** New issues are born at `TBD`; a Task created under a parent is born `Ready`. Renaming either requires updating the birth rule in `tools/scripts/issue-create.sh`.
+3. **`TBD` and `Ready` are the birth tokens.** New issues are born at `TBD`; a Task created under a parent is born `Ready`. Renaming either requires updating the birth rule in `tools/scripts/issue-create.ts`.
 4. **`tools/config/skill-events.yml` names statuses too.** Every event's `status:` value must exist in `status_workflow` — rename there in the same change or signals will write statuses no board defines.
 
 Safe rename/reorder procedure:
 
 1. Edit `status_workflow` in `devenv.config`.
 2. Update the matching `status:` values in `tools/config/skill-events.yml`.
-3. If you renamed `Implementing`, `Ready`, or `TBD`, update the boundary lookups in `tools/lib/workflow-core.bash` and the birth rule in `tools/scripts/issue-create.sh`.
+3. If you renamed `Implementing`, `Ready`, or `TBD`, update the boundary lookups in `tools/lib/workflow-core.bash` and the birth rule in `tools/scripts/issue-create.ts`.
 4. Migrate live board cards to the new names (project fields hold the old strings — the engine treats foreign values as unreadable).
 5. Run the test suites (`bats tools/tests/lib tools/tests/scripts`) — the workflow suites fail loudly on contract breaks.
 6. Re-write [Issue Workflow](./Issue-Workflow.md) to reflect the updated status workflow.
