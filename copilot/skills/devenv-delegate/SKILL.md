@@ -128,6 +128,8 @@ Run `devenv-marker-check --todo-report <working-scope>` (target repo, plan-affec
 
 Ask if not provided: issue # or path to a plan markdown.
 
+> **Plan-location rule.** A plan known or said to exist is located by direct check of the canonical path (`ls <repo-root>/.local-artifacts/`) or via `skill-orient` — step 0's output already reports the active plan path — never by workspace search alone: `.local-artifacts/` is gitignored and invisible to default search, so an empty search result there is *unknown*, not *absent* (see the one-probe rule in the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)).
+
 #### issue intake
 
 - **issue**:
