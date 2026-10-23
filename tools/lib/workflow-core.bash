@@ -157,7 +157,7 @@ _workflow_write() {
     # Entry-point root: real tools by default; test seam overrides ONLY where
     # the fan-out wrapper is found (same pattern as WORKFLOW_SIGNAL_TOOLS).
     local tools_root="${WORKFLOW_CORE_TOOLS:-$WORKFLOW_CORE_DIR/..}"
-    local wrapper="$tools_root/scripts/project-update-issue.sh"
+    local wrapper="$tools_root/project-update-issue"
     # A signal's contract sets no DEVENV_REPO. Fired from the devenv checkout it
     # therefore targets the devenv repo's own issues on purpose, so the write
     # carries the wrapper's explicit --devenv override in that case (and only

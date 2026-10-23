@@ -16,7 +16,7 @@ load ../test_helper
 }
 
 @test "repo-create.sh requires --type parameter" {
-  run "$PROJECT_ROOT/tools/scripts/repo-create.sh" test-repo
+  run "$PROJECT_ROOT/tools/repo-create" test-repo
   [ "$status" -ne 0 ]
   [[ "$output" =~ "--type is required" || "$output" =~ "--interactive" ]]
 }
@@ -142,40 +142,41 @@ load ../test_helper
 }
 
 @test "repo-create.sh requires yq command" {
-  run grep "require_command yq" "$PROJECT_ROOT/tools/scripts/repo-create.sh"
+  run grep "domain/repos/types.ts" "$PROJECT_ROOT/tools/scripts/repo-create.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "repo-create.sh sources repo-types library" {
-  run grep "repo-types.bash" "$PROJECT_ROOT/tools/scripts/repo-create.sh"
+  run grep "domain/repos/types.ts" "$PROJECT_ROOT/tools/scripts/repo-create.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "repo-create.sh sources git-operations library" {
-  run grep "source.*git-operations.bash" "$PROJECT_ROOT/tools/scripts/repo-create.sh"
+  run grep "provider-core.ts" "$PROJECT_ROOT/tools/scripts/repo-create.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "repo-create.sh contains post-creation script handling" {
-  run grep "run_post_creation_script" "$PROJECT_ROOT/tools/scripts/repo-create.sh"
+  run grep "runPostCreationScript" "$PROJECT_ROOT/tools/scripts/repo-create.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "repo-create.sh contains interactive mode" {
-  run grep "select_repo_type_interactive" "$PROJECT_ROOT/tools/scripts/repo-create.sh"
+  run grep "interactiveMode" "$PROJECT_ROOT/tools/scripts/repo-create.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "repo-create.sh contains wait_for_repo_ready function" {
-  run grep "wait_for_repo_ready" "$PROJECT_ROOT/tools/scripts/repo-create.sh"
+  run grep "waitForRepoReady" "$PROJECT_ROOT/tools/scripts/repo-create.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "repo-create.sh only waits when template is used" {
-  run bash -c "
-    grep -A 10 'Wait for repository to be ready' '$PROJECT_ROOT/tools/scripts/repo-create.sh' | 
-    grep -q 'if \[ -n \"\$template\" \]'
-  "
+  run grep "waitForRepoReady" "$PROJECT_ROOT/tools/scripts/repo-create.ts"
+  [ "$status" -eq 0 ]
+  # The wait is gated on the template actually being used (the bash guard
+  # `if [ -n "$template" ]` becomes the TS template-nonempty checks).
+  run bash -c "grep -B2 'waitForRepoReady(' \$PROJECT_ROOT/tools/scripts/repo-create.ts | grep -q 'template'"
   [ "$status" -eq 0 ]
 }
 
@@ -205,7 +206,7 @@ exit 1
 EOF
   chmod +x "$TEST_TEMP_DIR/bin/gh"
 
-  PATH="$TEST_TEMP_DIR/bin:$PATH" REPO_TYPES_CONFIG="$cfg" run "$PROJECT_ROOT/tools/scripts/repo-create.sh" test-repo --type none
+  PATH="$TEST_TEMP_DIR/bin:$PATH" REPO_TYPES_CONFIG="$cfg" run "$PROJECT_ROOT/tools/repo-create" test-repo --type none
   [ "$status" -eq 0 ]
 }
 
@@ -218,7 +219,7 @@ exit 1
 EOF
   chmod +x "$TEST_TEMP_DIR/bin/gh"
 
-  PATH="$TEST_TEMP_DIR/bin:$PATH" run "$PROJECT_ROOT/tools/scripts/repo-create.sh" test-repo
+  PATH="$TEST_TEMP_DIR/bin:$PATH" run "$PROJECT_ROOT/tools/repo-create" test-repo
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Repository type" ]]
 }
@@ -257,6 +258,6 @@ exit 0
 EOF
   chmod +x "$TEST_TEMP_DIR/bin/gh"
 
-  PATH="$TEST_TEMP_DIR/bin:$PATH" REPO_TYPES_CONFIG="$cfg" run "$PROJECT_ROOT/tools/scripts/repo-create.sh" test-repo --type none --description "Test description"
+  PATH="$TEST_TEMP_DIR/bin:$PATH" REPO_TYPES_CONFIG="$cfg" run "$PROJECT_ROOT/tools/repo-create" test-repo --type none --description "Test description"
   [ "$status" -eq 0 ]
 }

@@ -34,13 +34,13 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "repo-bump-version.sh sources error-handling library" {
-  run grep "source.*lib/error-handling.bash" "$PROJECT_ROOT/tools/scripts/repo-bump-version.sh"
+@test "repo-bump-version carries the error-handling equivalent" {
+  run grep "core/exit-codes.ts" "$PROJECT_ROOT/tools/scripts/repo-bump-version.ts"
   [ "$status" -eq 0 ]
 }
 
-@test "repo-bump-version.sh sources git-operations library" {
-  run grep "source.*lib/git-operations.bash" "$PROJECT_ROOT/tools/scripts/repo-bump-version.sh"
+@test "repo-bump-version carries the git equivalent (repo-get + core spawn)" {
+  run grep "repo-get.ts" "$PROJECT_ROOT/tools/scripts/repo-bump-version.ts"
   [ "$status" -eq 0 ]
 }
 
@@ -49,8 +49,8 @@ load ../test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "repo-calc-version.sh sources release-operations library" {
-  run grep "source.*release-operations.bash" "$PROJECT_ROOT/tools/scripts/repo-calc-version.sh"
+@test "repo-calc-version carries the release version module" {
+  run grep "domain/release/version.ts" "$PROJECT_ROOT/tools/scripts/repo-calc-version.ts"
   [ "$status" -eq 0 ]
 }
 

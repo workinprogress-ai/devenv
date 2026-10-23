@@ -99,9 +99,12 @@ exercise_lib_call() {
     # under azure (3 mandatory args) it hard-fails. The contract after
     # Phase 2: repo-get resolves a provider-shaped spec via
     # provider_repo_target and the seam accepts its arity.
-    local arity
-    arity=$(grep -c 'provider_git_transport_url "' "$DEVENV_TOOLS/scripts/repo-get.sh")
-    [ "$arity" -eq 2 ]
+    # The call site is now the TS source; the seam's 2-arg arity is enforced
+    # by gitTransportUrl's signature and the tool imports it.
+    run grep -q 'gitTransportUrl' "$PROJECT_ROOT/tools/scripts/repo-get.ts"
+    [ "$status" -eq 0 ]
+    run grep -q 'gitTransportUrl(org: string, repo: string)' "$PROJECT_ROOT/tools/lib/providers/github/urls.ts"
+    [ "$status" -eq 0 ]
 }
 
 @test "conformance: azure transport URL accepts both arities (2-arg injects the configured project)" {

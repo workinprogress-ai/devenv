@@ -53,12 +53,14 @@ import type * as facadeCore from "../../lib/providers/provider-core.ts";
 import type * as facadeIssues from "../../lib/providers/github/issues.ts";
 import type * as facadeArtifacts from "../../lib/domain/artifacts.ts";
 import type * as facadePrs from "../../lib/providers/github/prs.ts";
+import type * as facadePipelines from "../../lib/providers/github/pipelines.ts";
 
 interface Loaded {
   core: typeof facadeCore;
   issues: typeof facadeIssues;
   artifacts: typeof facadeArtifacts;
   prs: typeof facadePrs;
+  pipelines: typeof facadePipelines;
 }
 
 /** Fresh-import the facade modules under a controlled env. Module state
@@ -76,7 +78,8 @@ async function loadFacade(opts: { provider?: string; org?: string } = {}): Promi
   const issues = await import("../../lib/providers/github/issues.ts");
   const artifacts = await import("../../lib/domain/artifacts.ts");
   const prs = await import("../../lib/providers/github/prs.ts");
-  return { core, issues, artifacts, prs };
+  const pipelines = await import("../../lib/providers/github/pipelines.ts");
+  return { core, issues, artifacts, prs, pipelines };
 }
 
 describe("provider-core (TS facade core)", () => {
@@ -427,5 +430,46 @@ describe("prs verbs (call-shape contract over the gh stub)", () => {
     const all = ghCalls().join("\n");
     // Only one cursor occurrence overall (the second call sent none).
     expect(all.split("-f cursor=").length - 1).toBe(1);
+  });
+});
+
+describe("pipelines verbs (seam projection contract over the gh stub)", () => {
+  beforeEach(() => {
+    stubDir = mkdtempSync(join(tmpdir(), "facade-stub-"));
+    callLog = join(stubDir, "calls.log");
+    responses = join(stubDir, "responses.tsv");
+    installGhStub();
+    process.env.PATH = `${stubDir}:${process.env.PATH ?? ""}`;
+  });
+
+  afterEach(() => {
+    for (const r of configRoots.splice(0)) rmSync(r, { recursive: true, force: true });
+    rmSync(stubDir, { recursive: true, force: true });
+    delete process.env.DEVENV_REPO;
+  });
+
+  it("runList json+jq: seam rename happens first, the jq projection applies to renamed records", async () => {
+    const { pipelines } = await loadFacade();
+    // gh returns databaseId (the seam map's gh-side name); the seam renames it
+    // back to id BEFORE the caller's jq program applies (bash _gh_json_run order).
+    writeFileSync(responses, `run list\t[{"databaseId":987,"url":"u1"}]\n`);
+    const out = await pipelines.pipelinesRunList("o/r", { json: "id,url", jq: ".[0].id" });
+    expect(out).toBe("987");
+  });
+
+  it("runList json only: renamed records returned, no projection", async () => {
+    const { pipelines } = await loadFacade();
+    writeFileSync(responses, `run list\t[{"databaseId":5}]\n`);
+    const out = await pipelines.pipelinesRunList("o/r", { json: "id" });
+    expect(JSON.parse(out)).toEqual([{ id: 5 }]);
+  });
+
+  it("runList forwards --status when asked (watch auto-detect contract)", async () => {
+    const { pipelines } = await loadFacade();
+    writeFileSync(responses, `run list\t[{"databaseId":9}]\n`);
+    await pipelines.pipelinesRunList("o/r", { json: "id", jq: ".[0].id", status: "in_progress" });
+    const call = ghCalls().find((c) => c.includes("run list")) ?? "";
+    expect(call).toContain("--status in_progress");
+    expect(call).toContain("--json databaseId");
   });
 });
