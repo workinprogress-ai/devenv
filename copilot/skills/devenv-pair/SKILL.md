@@ -213,7 +213,7 @@ Ask, if not provided: issue number? Path to a plan file? Ad-hoc (no plan)?
 
 **If issue:** resolve a single plan artifact comment (artifacts may be typed `implementation-plan`) first.
 
-1. Check for a local `Plan-issue-<N>-*.md` under the target repo's `.local-artifacts/` first — if one exists and the user wants that exact working copy, use it.
+1. Check for a local `Plan-issue-<N>-*.md` under the target repo's `.local-artifacts/` first — if one exists and the user wants that exact working copy, use it. Check by direct `ls`/`test -f` of the canonical path or via `skill-orient` (step 0's output already reports the active plan path) — never by workspace search alone: `.local-artifacts/` is gitignored and invisible to default search, so an empty search result is *unknown*, not *absent* (see the one-probe rule in the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)).
 2. Otherwise resolve artifact identity:
    - If the user provided `doc_id`, use `issue-artifact-select --issue <N> --doc-id <DOC_ID>`.
    - If not, try `issue-artifact-select --issue <N> --artifact-type plan`.

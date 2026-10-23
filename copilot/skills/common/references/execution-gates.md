@@ -38,7 +38,8 @@ Before declaring a phase complete, run the committability checklist (see [phase-
 - [ ] No blocking TODOs
 - [ ] No straggler plan-bounded DEVENV markers for completed work — `devenv-marker-check <phase-files>` fails only on FIXME:DEVENV[...]:; condition-bearing `TODO:DEVENV[...]:` markers that deliberately survive the phase are acceptable and must be surfaced in the handback
 - [ ] No plan-vocabulary references in comments or test headers of changed files — grep them for `Plan-[0-9]+`, `task [0-9]+\.[0-9]+`, and `Phase [0-9]+`; a comment citing the plan, a phase, or a task number is ephemeral bookkeeping and must be rewritten to state the durable invariant (what the code guarantees), matching the forward-guidance rule above. Allowed: the same references inside `FIXME:DEVENV[...]:`/`TODO:DEVENV[...]:` markers, and plan-file subject matter in the plan tooling itself (its tests, fixtures, and usage docs)
-- [ ] Foreign comments swept in changed files — grep them for `FIXME`/`TODO` comments **not** carrying `:DEVENV[` (the user may have left review comments before or during the run); route each per the [foreign-comment scan](#foreign-comment-scan-user-fixmetodo-sweep) below
+- [ ] Foreign comments swept in changed files — grep them for `FIXME`/`TODO` comments **not** carrying `:DEVENV[` (the user may have left review comments before or during the run); route each per the [foreign-comment scan](#foreign-comment-scan-user-fixmetodo-sweep) below (typed forms `FIXME:REVIEW:` and `FIXME:USER:` route by their type — see the scan's first disposition)
+- [ ] `FIXME:USER` markers acknowledged: `FIXME:USER:` marks the user's own note — never fix, rewrite, or remove it, and never block on it. Surface a one-line advisory at each phase close and at plan close that it remains (the user may have forgotten it); never act on it beyond that advisory
 
 Coverage drops are blockers — surface and resolve before declaring complete. If the gate passes: *"✅ Gate clear — phase is committable."*
 
@@ -52,6 +53,7 @@ Run as part of the phase-close cleanup pass, on the phase's changed files. The p
 
 Route each hit:
 
+- **`FIXME:USER:` (the user's own note)** — the user is telling the AI (and any human reviewer) this comment is theirs and deliberate: something pending *their* attention, not a work order. Never fix it, rewrite it, or remove it, and never block on it. The only duty is the advisory: at each phase close and at plan close, surface a one-line note that a `FIXME:USER` marker remains (the user may have forgotten it) and nothing more. The user removes it when done with it.
 - **`FIXME:REVIEW:` (user review feedback)** — the user's structured review marker; treat each item as review feedback and classify it before acting. The standard dispositions:
   - **Agree, clear what to do** → fix it now (size rules unchanged — small now, outgrown fixes convert per the Incorporate rule below); note the fix in the handback and remove the marker.
   - **Agree, but the user is unsure of their position** → resolve it: apply the fix and respond with why their doubt was or wasn't founded; if the correct resolution is genuinely non-obvious, escalate to the discussion disposition instead of guessing.
