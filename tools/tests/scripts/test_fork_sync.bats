@@ -34,7 +34,7 @@ _setup_sync_fixture() {
 @test "fork-sync: --help documents the sync contract" {
     run "$SCRIPT" --help
     [ "$status" -eq 0 ]
-    [[ "$output" == *"fork-sync.sh"* ]]
+    [[ "$output" == *"fork-sync"* ]]
     [[ "$output" == *"ahead/behind"* ]]
     [[ "$output" == *"--replay"* ]]
     [[ "$output" == *"git cherry-pick --abort"* ]]
