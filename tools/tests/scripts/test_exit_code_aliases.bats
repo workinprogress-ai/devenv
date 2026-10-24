@@ -9,31 +9,40 @@ load ../test_helper
 
 # A throwaway checkout of just what these scripts need: the libraries
 # self-locate, so the only way to give them a config without an organization
-# is to run copies from inside a tree that has one.
+# is to run copies from inside a tree that has one. Migrated tools are .ts
+# behind a stub: the stub + TS + lib all ride into the sandbox tree.
 make_unconfigured_tree() {
     TREE="$TEST_TEMP_DIR/tree"
     mkdir -p "$TREE/tools/scripts" "$TREE/tools/lib" "$TREE/tools/config" "$TREE/.setup" "$TREE/.runtime"
     cp -r "$PROJECT_ROOT/tools/lib/." "$TREE/tools/lib/"
-    cp "$PROJECT_ROOT/tools/scripts/$1" "$TREE/tools/scripts/"
+    local base="${1%.sh}"; base="${base%.ts}"
+    if [ -f "$PROJECT_ROOT/tools/scripts/$base.ts" ]; then
+        cp "$PROJECT_ROOT/tools/$base" "$TREE/tools/"
+        cp "$PROJECT_ROOT/tools/scripts/$base.ts" "$TREE/tools/scripts/"
+    else
+        cp "$PROJECT_ROOT/tools/scripts/$1" "$TREE/tools/scripts/"
+    fi
     cp "$PROJECT_ROOT/tools/config/repo-types.yaml" "$TREE/tools/config/"
+    ln -s "$PROJECT_ROOT/node_modules" "$TREE/node_modules"
     printf '[workflows]\nstatus_workflow=A,B\n' > "$TREE/devenv.config"
 }
 
 run_unconfigured() {
+    local base="${1%.sh}"; base="${base%.ts}"
     ( cd "$TREE" && env -u GH_ORG -u PROVIDER_ORG -u DEVENV_REPO -u DEVENV_ROOT -u DEVENV_ROOT_SET -u DEVENV_TOOLS \
-        bash "$TREE/tools/scripts/$1" svc.x.y --type service )
+        bash "$TREE/tools/$base" svc.x.y --type service )
 }
 
 @test "repo-update-config: an unresolved organization exits 2 (missing required input), not 3" {
-    make_unconfigured_tree repo-update-config.sh
-    run run_unconfigured repo-update-config.sh
+    make_unconfigured_tree repo-update-config.ts
+    run run_unconfigured repo-update-config.ts
     [ "$status" -eq 2 ]
     [[ "$output" == *"Organization identity unresolved"* ]]
 }
 
 @test "repo-create: an unresolved organization exits 2 (missing required input), not 3" {
-    make_unconfigured_tree repo-create.sh
-    run run_unconfigured repo-create.sh
+    make_unconfigured_tree repo-create.ts
+    run run_unconfigured repo-create.ts
     [ "$status" -eq 2 ]
     [[ "$output" == *"Organization identity unresolved"* ]]
 }

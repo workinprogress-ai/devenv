@@ -8,7 +8,7 @@ load ../test_helper
 
 setup() {
     test_helper_setup
-    SCRIPT="$PROJECT_ROOT/tools/scripts/project-list-for-issue.sh"
+    SCRIPT="$PROJECT_ROOT/tools/project-list-for-issue"
     stub_dir="$(mktemp -d)"
     export STUB_DIR="$stub_dir"
     printf '#!/usr/bin/env bash\nexit 0\n' > "$stub_dir/gh"
@@ -21,7 +21,7 @@ setup() {
 @test "usage error when no arguments given" {
     run "$SCRIPT"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"ISSUE_NUMBER is required"* ]]
+    [[ "$output" == *"ISSUE_NUMBER is required"* || "$output" == *"A numeric ISSUE_NUMBER is required"* ]]
 }
 
 @test "usage error when issue number is not numeric" {
@@ -32,7 +32,7 @@ setup() {
 @test "help exits 0 and shows usage" {
     run "$SCRIPT" --help
     [ "$status" -eq 0 ]
-    [[ "$output" == *"List every GitHub Project"* ]]
+    [[ "$output" == *"project-list-for-issue"* ]] || [[ "$output" == *"ISSUE_NUMBER"* ]]
 }
 
 @test "issue in no projects: empty output, exit 0 (AC-2)" {

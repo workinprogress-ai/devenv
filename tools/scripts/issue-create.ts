@@ -333,7 +333,7 @@ function addToProject(issueUrl: string, project: string): boolean {
  */
 function applyBirthStatus(issue: number, status: string): void {
   const toolsRoot = process.env["WORKFLOW_CORE_TOOLS"] ?? TOOLS_ROOT;
-  const wrapper = join(toolsRoot, "scripts", "project-update-issue.sh");
+  const wrapper = join(toolsRoot, "project-update-issue");
   if (!existsSync(wrapper)) {
     logWarn(`workflow write '${status}' skipped: wrapper not found at ${wrapper}`);
     return;

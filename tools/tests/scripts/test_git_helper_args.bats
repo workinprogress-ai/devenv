@@ -8,7 +8,9 @@ bats_require_minimum_version 1.5.0
 
 load ../test_helper
 
-SCRIPTS="$BATS_TEST_DIRNAME/../../scripts"
+SCRIPTS="$BATS_TEST_DIRNAME/../../"
+# git-repo's "next to it" dispatch contract: the TS source spawns its
+# same-directory sibling (repo-get.ts), so the fake-tools fixture mirrors that.
 
 setup() {
     test_helper_setup
@@ -27,7 +29,7 @@ teardown() {
 
 @test "git-unwip --help prints usage and leaves history alone" {
     cd "$REPO"
-    run bash "$SCRIPTS/git-unwip" --help
+    run "$PROJECT_ROOT/tools/git-unwip" --help
     [ "$status" -eq 0 ]
     [[ "$output" == *"Usage"* ]]
     [ "$(git rev-parse HEAD)" = "$HEAD_BEFORE" ]
@@ -35,7 +37,7 @@ teardown() {
 
 @test "git-unwip refuses an unknown argument and leaves history alone" {
     cd "$REPO"
-    run bash "$SCRIPTS/git-unwip" --bogus
+    run "$PROJECT_ROOT/tools/git-unwip" --bogus
     [ "$status" -ne 0 ]
     [[ "$output" == *"Usage"* ]]
     [ "$(git rev-parse HEAD)" = "$HEAD_BEFORE" ]
@@ -43,25 +45,30 @@ teardown() {
 
 @test "git-update --help prints usage without touching the repository" {
     cd "$REPO"
-    run bash "$SCRIPTS/git-update" --help
+    run "$PROJECT_ROOT/tools/git-update" --help
     [ "$status" -eq 0 ]
     [[ "$output" == *"Usage"* ]]
 }
 
 @test "git-update refuses an unknown argument" {
     cd "$REPO"
-    run bash "$SCRIPTS/git-update" --bogus
+    run "$PROJECT_ROOT/tools/git-update" --bogus
     [ "$status" -ne 0 ]
     [[ "$output" == *"Usage"* ]]
 }
 
 @test "git-repo hands its arguments to the repo-get script next to it, not to whatever is on PATH" {
+    # The port dispatches to its same-layer sibling (spawn node
+    # <own-tools>/scripts/repo-get.ts) — never a PATH lookup. Fake tools root
+    # carries the lib tree so the copied source runs; its repo-get.ts wins
+    # over any PATH repo-get.
     local fake="$TEST_TEMP_DIR/fake"; mkdir -p "$fake/scripts" "$fake/path"
-    cp "$SCRIPTS/git-repo" "$fake/scripts/git-repo"
-    printf '#!/bin/bash\necho "next-to-it: $*"\n' > "$fake/scripts/repo-get.sh"
-    printf '#!/bin/bash\necho "from-path: $*"\n' > "$fake/path/repo-get.sh"
-    chmod +x "$fake/scripts/"* "$fake/path/"*
-    PATH="$fake/path:$PATH" run bash "$fake/scripts/git-repo" some-repo
+    cp -r "$PROJECT_ROOT/tools/lib" "$fake/lib"
+    cp "$PROJECT_ROOT/tools/scripts/git-repo.ts" "$fake/scripts/"
+    printf 'const { spawnSync } = await import("node:child_process");\nconst r = spawnSync("echo", ["next-to-it", ...process.argv.slice(2)], { stdio: "inherit" });\nprocess.exit(r.status ?? 1);\n' > "$fake/scripts/repo-get.ts"
+    printf '#!/bin/bash\necho "from-path: $*"\n' > "$fake/path/repo-get"
+    chmod +x "$fake/path/"*
+    PATH="$fake/path:$PATH" run node "$fake/scripts/git-repo.ts" some-repo
     [ "$status" -eq 0 ]
-    [ "$output" = "next-to-it: some-repo" ]
+    [ "$output" = "next-to-it some-repo" ]
 }

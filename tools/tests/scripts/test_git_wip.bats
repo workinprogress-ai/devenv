@@ -32,18 +32,18 @@ teardown() {
 # ---------------------------------------------------------------------------
 
 @test "git-wip script exists and is executable" {
-  [ -x "$DEVENV_TOOLS/scripts/git-wip" ]
+  [ -x "$DEVENV_TOOLS/git-wip" ]
 }
 
 @test "git-wip script has valid bash syntax" {
-  run bash -n "$DEVENV_TOOLS/scripts/git-wip"
+  run bash -n "$DEVENV_TOOLS/git-wip"
   [ "$status" -eq 0 ]
 }
 
 @test "git-wip creates a WIP commit" {
   cd "$TEST_REPO"
   echo "work" > work.txt
-  run bash "$DEVENV_TOOLS/scripts/git-wip" "my note"
+  run bash "$DEVENV_TOOLS/git-wip" "my note"
   [ "$status" -eq 0 ]
   msg=$(git log -1 --format=%s)
   [[ "$msg" == WIP:* ]]
@@ -52,7 +52,7 @@ teardown() {
 @test "git-wip stages all untracked files" {
   cd "$TEST_REPO"
   echo "untracked" > new_file.txt
-  run bash "$DEVENV_TOOLS/scripts/git-wip"
+  run bash "$DEVENV_TOOLS/git-wip"
   [ "$status" -eq 0 ]
   # new_file.txt should now be in the last commit
   run git show --name-only HEAD
@@ -62,7 +62,7 @@ teardown() {
 @test "git-wip sets refs/wip/last to HEAD after pushing" {
   cd "$TEST_REPO"
   echo "work" > work.txt
-  bash "$DEVENV_TOOLS/scripts/git-wip" "save" 2>/dev/null || true
+  bash "$DEVENV_TOOLS/git-wip" "save" 2>/dev/null || true
   wip_ref=$(git rev-parse refs/wip/last 2>/dev/null)
   head_ref=$(git rev-parse HEAD)
   [ "$wip_ref" = "$head_ref" ]
@@ -71,11 +71,11 @@ teardown() {
 @test "git-wip overwrites refs/wip/last on subsequent calls" {
   cd "$TEST_REPO"
   echo "first" > first.txt
-  bash "$DEVENV_TOOLS/scripts/git-wip" "first" 2>/dev/null || true
+  bash "$DEVENV_TOOLS/git-wip" "first" 2>/dev/null || true
   first_ref=$(git rev-parse refs/wip/last)
 
   echo "second" > second.txt
-  bash "$DEVENV_TOOLS/scripts/git-wip" "second" 2>/dev/null || true
+  bash "$DEVENV_TOOLS/git-wip" "second" 2>/dev/null || true
   second_ref=$(git rev-parse refs/wip/last)
   head_ref=$(git rev-parse HEAD)
 
@@ -92,7 +92,7 @@ teardown() {
 @test "git-wip --file uses the file's content verbatim after the WIP: prefix" {
   echo "change" >> file.txt
   printf 'saved the parser work\n\nwith a body line' > "$TEST_REPO/msg.txt"
-  run "$PROJECT_ROOT/tools/scripts/git-wip" --file "$TEST_REPO/msg.txt"
+  run "$PROJECT_ROOT/tools/git-wip" --file "$TEST_REPO/msg.txt"
   [ "$status" -eq 0 ]
   [ "$(git log -1 --format=%s)" = "WIP: saved the parser work" ]
   [[ "$(git log -1 --format=%B)" == *"with a body line"* ]]
@@ -101,13 +101,13 @@ teardown() {
 @test "git-wip --file together with a positional message is still rejected" {
   echo "change" >> file.txt
   printf 'msg' > "$TEST_REPO/msg.txt"
-  run "$PROJECT_ROOT/tools/scripts/git-wip" --file "$TEST_REPO/msg.txt" "extra words"
+  run "$PROJECT_ROOT/tools/git-wip" --file "$TEST_REPO/msg.txt" "extra words"
   [ "$status" -ne 0 ]
   [[ "$output" == *"mutually exclusive"* ]]
 }
 
 @test "git-wip --file with a missing file fails clearly" {
-  run "$PROJECT_ROOT/tools/scripts/git-wip" --file "$TEST_REPO/nope.txt"
+  run "$PROJECT_ROOT/tools/git-wip" --file "$TEST_REPO/nope.txt"
   [ "$status" -ne 0 ]
   [[ "$output" == *"not found"* ]]
 }
@@ -119,7 +119,7 @@ teardown() {
   git update-ref refs/wip/last HEAD
   before="$(git rev-parse refs/wip/last)"
   rm -rf "$REMOTE_REPO"   # remote gone: the push cannot succeed
-  run "$PROJECT_ROOT/tools/scripts/git-wip" "scratch"
+  run "$PROJECT_ROOT/tools/git-wip" "scratch"
   [ "$status" -ne 0 ]
   [ "$(git rev-parse refs/wip/last)" = "$before" ]
 }
@@ -127,17 +127,17 @@ teardown() {
 @test "git-wip: nothing to commit exits non-zero instead of re-pushing an old commit" {
   git update-ref refs/wip/last HEAD
   before="$(git rev-parse refs/wip/last)"
-  run "$PROJECT_ROOT/tools/scripts/git-wip" "nothing changed"
+  run "$PROJECT_ROOT/tools/git-wip" "nothing changed"
   [ "$status" -ne 0 ]
   [ "$(git rev-parse refs/wip/last)" = "$before" ]
 }
 
 @test "git-unwip script exists and is executable" {
-  [ -x "$DEVENV_TOOLS/scripts/git-unwip" ]
+  [ -x "$DEVENV_TOOLS/git-unwip" ]
 }
 
 @test "git-unwip script has valid bash syntax" {
-  run bash -n "$DEVENV_TOOLS/scripts/git-unwip"
+  run bash -n "$DEVENV_TOOLS/git-unwip"
   [ "$status" -eq 0 ]
 }
 
@@ -145,8 +145,8 @@ teardown() {
   cd "$TEST_REPO"
   git checkout -q -b feature/test-unwip
   echo "work" > work.txt
-  bash "$DEVENV_TOOLS/scripts/git-wip" "temp" 2>/dev/null || true
-  run bash "$DEVENV_TOOLS/scripts/git-unwip"
+  bash "$DEVENV_TOOLS/git-wip" "temp" 2>/dev/null || true
+  run bash "$DEVENV_TOOLS/git-unwip"
   [ "$status" -eq 0 ]
   # HEAD should no longer be a WIP commit
   msg=$(git log -1 --format=%s)
@@ -157,8 +157,8 @@ teardown() {
   cd "$TEST_REPO"
   git checkout -q -b feature/test-restage
   echo "work" > work.txt
-  bash "$DEVENV_TOOLS/scripts/git-wip" "temp" 2>/dev/null || true
-  bash "$DEVENV_TOOLS/scripts/git-unwip" 2>/dev/null || true
+  bash "$DEVENV_TOOLS/git-wip" "temp" 2>/dev/null || true
+  bash "$DEVENV_TOOLS/git-unwip" 2>/dev/null || true
   # work.txt should be staged (index has changes vs HEAD)
   run git diff --cached --name-only
   [[ "$output" == *"work.txt"* ]]
@@ -172,8 +172,8 @@ teardown() {
     skip "test repo default branch is not master"
   fi
   echo "work" > work.txt
-  bash "$DEVENV_TOOLS/scripts/git-wip" "temp" 2>/dev/null || true
-  run bash "$DEVENV_TOOLS/scripts/git-unwip"
+  bash "$DEVENV_TOOLS/git-wip" "temp" 2>/dev/null || true
+  run bash "$DEVENV_TOOLS/git-unwip"
   [ "$status" -eq 1 ]
   [[ "$output" == *"protected branch"* ]]
 }
@@ -188,7 +188,7 @@ teardown() {
   git push -q 2>/dev/null || true
   # Now reset locally to simulate a stale WIP scenario where remote is not WIP
   git reset --soft HEAD~1
-  run bash "$DEVENV_TOOLS/scripts/git-unwip"
+  run bash "$DEVENV_TOOLS/git-unwip"
   [[ "$output" == *"not a WIP commit"* ]] || [ "$status" -eq 0 ]
 }
 
@@ -197,17 +197,17 @@ teardown() {
 # ---------------------------------------------------------------------------
 
 @test "git-wip-recover script exists and is executable" {
-  [ -x "$DEVENV_TOOLS/scripts/git-wip-recover" ]
+  [ -x "$DEVENV_TOOLS/git-wip-recover" ]
 }
 
 @test "git-wip-recover script has valid bash syntax" {
-  run bash -n "$DEVENV_TOOLS/scripts/git-wip-recover"
+  run bash -n "$DEVENV_TOOLS/git-wip-recover"
   [ "$status" -eq 0 ]
 }
 
 @test "git-wip-recover fails gracefully when no ref exists" {
   cd "$TEST_REPO"
-  run bash "$DEVENV_TOOLS/scripts/git-wip-recover" --show
+  run bash "$DEVENV_TOOLS/git-wip-recover" --show
   [ "$status" -eq 1 ]
   [[ "$output" == *"no saved WIP commit"* ]]
 }
@@ -215,8 +215,8 @@ teardown() {
 @test "git-wip-recover --show prints saved WIP commit summary" {
   cd "$TEST_REPO"
   echo "recover-me" > recover.txt
-  bash "$DEVENV_TOOLS/scripts/git-wip" "recovery test" 2>/dev/null || true
-  run bash "$DEVENV_TOOLS/scripts/git-wip-recover" --show
+  bash "$DEVENV_TOOLS/git-wip" "recovery test" 2>/dev/null || true
+  run bash "$DEVENV_TOOLS/git-wip-recover" --show
   [ "$status" -eq 0 ]
   [[ "$output" == *"Saved WIP commit"* ]]
   [[ "$output" == *"WIP: recovery test"* ]]
@@ -225,14 +225,14 @@ teardown() {
 @test "git-wip-recover --branch creates a branch at the WIP commit" {
   cd "$TEST_REPO"
   echo "recover-branch" > recover2.txt
-  bash "$DEVENV_TOOLS/scripts/git-wip" "branch test" 2>/dev/null || true
+  bash "$DEVENV_TOOLS/git-wip" "branch test" 2>/dev/null || true
   wip_commit=$(git rev-parse refs/wip/last)
   # unwip so HEAD moves away from the WIP commit
   git checkout -q -b feature/recover-test
   git push -q -u origin HEAD 2>/dev/null || true
-  bash "$DEVENV_TOOLS/scripts/git-unwip" 2>/dev/null || true
+  bash "$DEVENV_TOOLS/git-unwip" 2>/dev/null || true
   # now recover into a new branch
-  run bash "$DEVENV_TOOLS/scripts/git-wip-recover" --branch recovered-test
+  run bash "$DEVENV_TOOLS/git-wip-recover" --branch recovered-test
   [ "$status" -eq 0 ]
   [[ "$output" == *"recovered-test"* ]]
   recovered_tip=$(git rev-parse recovered-test)
@@ -242,11 +242,11 @@ teardown() {
 @test "git-wip-recover --branch uses default name when none supplied" {
   cd "$TEST_REPO"
   echo "default-name" > default.txt
-  bash "$DEVENV_TOOLS/scripts/git-wip" "default name test" 2>/dev/null || true
+  bash "$DEVENV_TOOLS/git-wip" "default name test" 2>/dev/null || true
   git checkout -q -b feature/default-name-test
   git push -q -u origin HEAD 2>/dev/null || true
-  bash "$DEVENV_TOOLS/scripts/git-unwip" 2>/dev/null || true
-  run bash "$DEVENV_TOOLS/scripts/git-wip-recover" --branch
+  bash "$DEVENV_TOOLS/git-unwip" 2>/dev/null || true
+  run bash "$DEVENV_TOOLS/git-wip-recover" --branch
   [ "$status" -eq 0 ]
   [[ "$output" == *"wip-recovered"* ]]
 }
@@ -256,9 +256,9 @@ teardown() {
   git checkout -q -b feature/survive-test
   git push -q -u origin HEAD 2>/dev/null || true
   echo "survive" > survive.txt
-  bash "$DEVENV_TOOLS/scripts/git-wip" "survive test" 2>/dev/null || true
+  bash "$DEVENV_TOOLS/git-wip" "survive test" 2>/dev/null || true
   wip_commit=$(git rev-parse refs/wip/last)
-  bash "$DEVENV_TOOLS/scripts/git-unwip" 2>/dev/null || true
+  bash "$DEVENV_TOOLS/git-unwip" 2>/dev/null || true
   # ref must still exist and point to the WIP commit
   surviving_ref=$(git rev-parse refs/wip/last 2>/dev/null)
   [ "$surviving_ref" = "$wip_commit" ]

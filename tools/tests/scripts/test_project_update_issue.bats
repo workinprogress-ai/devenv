@@ -17,7 +17,7 @@ setup() {
     chmod +x "$stub_dir/gh"
     export PATH="$stub_dir:$PATH"
     STUB_DIR="$stub_dir"
-    SCRIPT="$PROJECT_ROOT/tools/scripts/project-update-issue.sh"
+    SCRIPT="$PROJECT_ROOT/tools/project-update-issue"
     # Deterministic repo targeting per the wrapper's documented env contract:
     # the suite environment must not leak GH_ORG either way.
     export DEVENV_REPO="test-org/test-repo"

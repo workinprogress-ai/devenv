@@ -139,7 +139,8 @@ setup() {
 # path, answering the prompt with ANSWER.
 run_on_tty() {
     local answer="$1" script_name="$2"; shift 2
-    local cmd="env TERM=xterm bash '$DEVENV_TOOLS/scripts/$script_name'" a
+    # The stub entry point (bash no longer exists for converted tools).
+    local cmd="env TERM=xterm '$DEVENV_TOOLS/${script_name%.sh}'" a
     for a in "$@"; do cmd+=" '$a'"; done
     run bash -c "printf '%s\n' '$answer' | script -qefc \"$cmd\" /dev/null"
 }

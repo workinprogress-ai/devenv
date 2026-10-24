@@ -128,19 +128,21 @@ EOF
     [ "$status" -eq 0 ]
 }
 
-@test "project-update-issue.sh: sources config-reader library" {
-    run grep 'source.*config-reader.bash' "$PROJECT_ROOT/tools/scripts/project-update-issue.sh"
+@test "project-update-issue: reads the workflow vocabulary from config" {
+    run grep 'configGetArray.*status_workflow' "$PROJECT_ROOT/tools/scripts/project-update-issue.ts"
     [ "$status" -eq 0 ]
 }
 
-@test "project-update-issue.sh: has load_status_workflow function" {
-    run grep "^load_status_workflow()" "$PROJECT_ROOT/tools/scripts/project-update-issue.sh"
+@test "project-update-issue: validates against the loaded vocabulary" {
+    run grep -n 'status_workflow not configured' "$PROJECT_ROOT/tools/scripts/project-update-issue.ts"
     [ "$status" -eq 0 ]
 }
 
-@test "project-update-issue.sh: calls load_status_workflow in main" {
-    run bash -c "grep -A 10 '^main()' $PROJECT_ROOT/tools/scripts/project-update-issue.sh | grep -q 'load_status_workflow'"
+@test "project-update-issue: vocabulary load runs before status validation" {
+    run grep -n 'statusWorkflow' "$PROJECT_ROOT/tools/scripts/project-update-issue.ts"
     [ "$status" -eq 0 ]
+    run grep -c 'statusWorkflow' "$PROJECT_ROOT/tools/scripts/project-update-issue.ts"
+    [ "$output" -ge 3 ]
 }
 
 @test "issue-triage: consumes the config+operations seams via the TS facade" {

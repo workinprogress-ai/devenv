@@ -102,7 +102,7 @@ export async function readStatus(
 /** Shell to the project-list-for-issue wrapper (tab-separated rows). */
 async function listForIssue(issue: number, toolsRoot?: string): Promise<ProjectStatusRow[]> {
   const root = (toolsRoot ?? process.env["ISSUE_GRAPH_TOOLS"] ?? fileURLToPath(new URL("../../../..", import.meta.url))).replace(/\/$/, "");
-  const wrapper = `${root.replace(/\/$/, "")}/scripts/project-list-for-issue.sh`;
+  const wrapper = `${root.replace(/\/$/, "")}/project-list-for-issue`;
   const override = process.env["DEVENV_REPO"] === undefined || process.env["DEVENV_REPO"] === "" ? ["--devenv"] : [];
   const { spawnSync } = await import("node:child_process");
   const r = spawnSync("bash", [wrapper, String(issue), ...override], { encoding: "utf8" });

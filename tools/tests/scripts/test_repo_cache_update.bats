@@ -11,7 +11,7 @@ setup() {
     test_helper_setup
     export REPO_CACHE_DIR="$TEST_TEMP_DIR/cache"
     mkdir -p "$REPO_CACHE_DIR"
-    SCRIPT="$PROJECT_ROOT/tools/scripts/repo-cache-update.sh"
+    SCRIPT="$PROJECT_ROOT/tools/repo-cache-update"
 }
 
 teardown() {

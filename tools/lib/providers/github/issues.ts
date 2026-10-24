@@ -290,8 +290,12 @@ export async function issuesCommentAdd(
   opts: { body?: string; bodyFile?: string },
 ): Promise<string> {
   const body = await readCommentBody(opts, "provider_issues_comment_add");
+  // Large bodies exceed the exec argv limit (E2BIG at ~128KB): body on
+  // stdin via --input as the request JSON, same as comment-edit.
+  const json = JSON.stringify({ body });
   const r = await ghApi(
-    ["api", "-X", "POST", commentEndpoint(spec, `issues/${number}/comments`), "-f", `body=${body}`],
+    ["api", "-X", "POST", commentEndpoint(spec, `issues/${number}/comments`), "--input", "-"],
+    { input: json },
   );
   return JSON.stringify(neutralComment(JSON.parse(r.stdout)));
 }
@@ -314,14 +318,21 @@ export async function issuesCommentEdit(
   opts: { body?: string; bodyFile?: string },
 ): Promise<string> {
   const body = await readCommentBody(opts, "provider_issues_comment_edit");
-  const r = await ghApi([
-    "api",
-    "-X",
-    "PATCH",
-    commentEndpoint(spec, `issues/comments/${commentRef}`),
-    "-f",
-    `body=${body}`,
-  ]);
+  // Large bodies exceed the exec argv limit (E2BIG at ~128KB): hand gh the
+  // body on stdin via --input instead of an inline -f arg. --input expects
+  // the request's JSON shape: {"body": "..."}.
+  const json = JSON.stringify({ body });
+  const r = await ghApi(
+    [
+      "api",
+      "-X",
+      "PATCH",
+      commentEndpoint(spec, `issues/comments/${commentRef}`),
+      "--input",
+      "-",
+    ],
+    { input: json },
+  );
   return JSON.stringify(neutralComment(JSON.parse(r.stdout)));
 }
 

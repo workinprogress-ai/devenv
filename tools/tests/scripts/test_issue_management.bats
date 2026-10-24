@@ -406,21 +406,21 @@ setup_birth_rule_harness() {
     : > "$GH_CALL_LOG"
     # Wrapper seam: record the fan-out argv instead of running the real
     # project-update-issue.sh (its gh traffic is irrelevant here).
-    local wf_tools="$TEST_TEMP_DIR/wf-tools/scripts"
+    local wf_tools="$TEST_TEMP_DIR/wf-tools"
     mkdir -p "$wf_tools"
-    cat > "$wf_tools/project-update-issue.sh" <<EOF
+    cat > "$wf_tools/project-update-issue" <<EOF
 #!/usr/bin/env bash
 echo "WF-WRITE \$*" >> "$GH_CALL_LOG"
 exit 0
 EOF
-    chmod +x "$wf_tools/project-update-issue.sh"
+    chmod +x "$wf_tools/project-update-issue"
     export WORKFLOW_CORE_TOOLS="$TEST_TEMP_DIR/wf-tools"
     # Workflow libraries read the board via project-list-for-issue; stub it
     # to report no cards so status reads are empty (no rollup interference).
     local ig_tools="$TEST_TEMP_DIR/ig-tools/scripts"
     mkdir -p "$ig_tools"
-    printf '#!/usr/bin/env bash\nexit 0\n' > "$ig_tools/project-list-for-issue.sh"
-    chmod +x "$ig_tools/project-list-for-issue.sh"
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$ig_tools/project-list-for-issue"
+    chmod +x "$ig_tools/project-list-for-issue"
     export ISSUE_GRAPH_TOOLS="$TEST_TEMP_DIR/ig-tools"
     # gh stub: create returns a URL; repo view answers owner/name; graphql
     # (node id lookups for the link) succeeds; everything else succeeds.

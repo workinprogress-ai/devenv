@@ -34,14 +34,14 @@ teardown() {
 }
 
 @test "recover: --show prints the saved WIP commit summary" {
-    run bash "$PROJECT_ROOT/tools/scripts/git-wip-recover" --show
+    run bash "$PROJECT_ROOT/tools/git-wip-recover" --show
     [ "$status" -eq 0 ]
     [[ "$output" == *"Saved WIP commit: $WIP_COMMIT"* ]]
     [[ "$output" == *"WIP: checkpoint"* ]]
 }
 
 @test "recover: --branch creates a branch at the saved ref" {
-    run bash "$PROJECT_ROOT/tools/scripts/git-wip-recover" --branch rescue-1
+    run bash "$PROJECT_ROOT/tools/git-wip-recover" --branch rescue-1
     [ "$status" -eq 0 ]
     [[ "$output" == *"checked out 'rescue-1'"* ]]
     [ "$(git rev-parse refs/heads/rescue-1)" = "$WIP_COMMIT" ]
@@ -50,26 +50,26 @@ teardown() {
 }
 
 @test "recover: --branch defaults to wip-recovered" {
-    run bash "$PROJECT_ROOT/tools/scripts/git-wip-recover" --branch
+    run bash "$PROJECT_ROOT/tools/git-wip-recover" --branch
     [ "$status" -eq 0 ]
     [ "$(git rev-parse refs/heads/wip-recovered)" = "$WIP_COMMIT" ]
 }
 
 @test "recover: unknown option is refused" {
-    run bash "$PROJECT_ROOT/tools/scripts/git-wip-recover" --bogus
+    run bash "$PROJECT_ROOT/tools/git-wip-recover" --bogus
     [ "$status" -eq 1 ]
     [[ "$output" == *"unknown option"* ]]
 }
 
 @test "recover: missing ref is refused" {
     git update-ref -d refs/wip/last
-    run bash "$PROJECT_ROOT/tools/scripts/git-wip-recover" --show
+    run bash "$PROJECT_ROOT/tools/git-wip-recover" --show
     [ "$status" -eq 1 ]
     [[ "$output" == *"no saved WIP commit"* ]]
 }
 
 @test "recover: --help exits cleanly" {
-    run bash "$PROJECT_ROOT/tools/scripts/git-wip-recover" --help
+    run bash "$PROJECT_ROOT/tools/git-wip-recover" --help
     [ "$status" -eq 0 ]
     [[ "$output" == *"Usage:"* ]]
 }

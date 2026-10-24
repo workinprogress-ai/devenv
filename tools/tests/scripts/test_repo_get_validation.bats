@@ -28,13 +28,13 @@ assert_output_contains() {
     assert_success
 }
 
-@test "repo-get: sources git-operations library" {
-    run bash -c "grep -q 'source.*lib/git-operations.bash' $PROJECT_ROOT/tools/scripts/repo-get.sh"
+@test "repo-get: carries the git/core library equivalent" {
+    run bash -c "grep -q 'provider-core.ts' $PROJECT_ROOT/tools/scripts/repo-get.ts"
     assert_success
 }
 
-@test "repo-get: sources error-handling library if present" {
-    run bash -c "grep -q 'source.*lib/error-handling.bash' $PROJECT_ROOT/tools/scripts/repo-get.sh"
+@test "repo-get: carries the error-handling equivalent" {
+    run bash -c "grep -q 'core/exit-codes.ts' $PROJECT_ROOT/tools/scripts/repo-get.ts"
     assert_success
 }
 
@@ -70,23 +70,23 @@ assert_output_contains() {
 }
 
 @test "repo-get: --all flag is present in usage help" {
-    run bash -c "grep -q '\-\-all' $PROJECT_ROOT/tools/scripts/repo-get.sh"
+    run bash -c "grep -q '\-\-all' $PROJECT_ROOT/tools/scripts/repo-get.ts"
     assert_success
 }
 
 @test "repo-get: usage mentions --all option" {
-    run bash -c "grep 'Usage' $PROJECT_ROOT/tools/scripts/repo-get.sh"
+    run bash -c "grep 'Usage' $PROJECT_ROOT/tools/scripts/repo-get.ts"
     assert_success
     assert_output_contains "\-\-all"
 }
 
 @test "repo-get: defines get_available_repos function" {
-    run bash -c "grep -q '^get_available_repos()' $PROJECT_ROOT/tools/scripts/repo-get.sh"
+    run bash -c "grep -q 'filterAvailableRepositories' $PROJECT_ROOT/tools/scripts/repo-get.ts"
     assert_success
 }
 
 @test "repo-get: --all mode sets ALL_MODE=true" {
-    run bash -c "grep -q 'ALL_MODE=true' $PROJECT_ROOT/tools/scripts/repo-get.sh"
+    run bash -c "grep -q 'allMode = true' $PROJECT_ROOT/tools/scripts/repo-get.ts"
     assert_success
 }
 
@@ -123,7 +123,7 @@ STUB
 }
 
 run_repo_get() {
-    PATH="$TEST_TEMP_DIR/bin:$PATH" bash "$PROJECT_ROOT/tools/scripts/repo-get.sh" "$@"
+    PATH="$TEST_TEMP_DIR/bin:$PATH" "$PROJECT_ROOT/tools/repo-get" "$@"
 }
 
 @test "repo-get --all exits 0 without cloning when every org repo is already local" {

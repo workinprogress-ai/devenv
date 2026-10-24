@@ -90,9 +90,9 @@ describe("domain/issues/graph", () => {
     stubDir = mkdtempSync(join(tmpdir(), "grx-stub-"));
     repoRoot = mkdtempSync(join(tmpdir(), "grx-repo-"));
     workDir = mkdtempSync(join(tmpdir(), "grx-work-"));
-    mkdirSync(join(workDir, "ig-tools", "scripts"), { recursive: true });
+    mkdirSync(join(workDir, "ig-tools"), { recursive: true });
     writeFileSync(
-      join(workDir, "ig-tools", "scripts", "project-list-for-issue.sh"),
+      join(workDir, "ig-tools", "project-list-for-issue"),
       "#!/usr/bin/env bash\nprintf 'proj1\\t1\\tReady\\nproj2\\t2\\t-\\n'\n",
       { mode: 0o755 },
     );
@@ -148,7 +148,7 @@ describe("domain/issues/graph", () => {
 
   it("readStatus ignores values outside the configured vocabulary", async () => {
     writeFileSync(
-      join(workDir, "ig-tools", "scripts", "project-list-for-issue.sh"),
+      join(workDir, "ig-tools", "project-list-for-issue"),
       "#!/usr/bin/env bash\nprintf 'proj1\\t1\\tOn Deck\\n'\n",
       { mode: 0o755 },
     );
