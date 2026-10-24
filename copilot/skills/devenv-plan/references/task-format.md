@@ -7,6 +7,7 @@
   - Files: `workspace-root-relative/path/File.cs`, `workspace-root-relative/path/FileTests.cs`
   - decision: <the choice to make, and why it's non-obvious> (only if applicable)
   - owner: User | AI  (omit when either party can take it — that's the default)
+  - commit: `<suggested conventional subject>` (unit: N.M–N.M) (only if applicable)
   - depends on N.N (only if applicable)
   - Additional context: <task-specific nuance, edge case, or execution note>
 ```
@@ -85,6 +86,23 @@ Rules:
 - `User` tasks are surfaced by pair-programming when proposing the task split; the AI will not unilaterally take them.
 - Pair-programming and delegation both respect this annotation when proposing splits.
 
+### `commit:` bullet
+
+Under a plan declaring `commit_alignment: commit-aligned` (see the plan header field; `commit-free` plans carry none), add a `commit:` bullet on the task that **closes an intended commit unit**:
+
+```
+- commit: `feat: sync schema types` (unit: 3.1–3.3)
+```
+
+Rules:
+
+- The subject is a suggestion in conventional form; [`/devenv-commit`](../devenv-commit/SKILL.md) crafts the real message at commit time and aligns with it when the staged work matches the unit.
+- The optional `(unit: N.M–N.M)` span names the task range the commit closes; omit it when the unit is the single task carrying the bullet.
+- Place it on the unit's **last** task — the point where the unit is complete and the declared gates are green. A unit that spans a phase boundary closes at its end, wherever that lands.
+- The `.100` phase-gate task may carry one for the phase-closing commit (see [phase-rules.md](./phase-rules.md) for the interaction rules).
+- Individually mergeable is not created by this bullet — it is already the law under rebase merges ([Commit Conventions](../../../../docs/Commit-Conventions.md)). The bullet declares, ahead of time, where the planner judges those mergeable units to sit. Reality may split one declared unit into multiple commits or defer a point; that is a deviation recorded at the handback, not an error.
+- Under `commit-free`, no `commit:` bullets are written; [`/devenv-commit`](../devenv-commit/SKILL.md) judges granularity from the diff post-hoc, as it always has.
+
 ## Numbering
 
 - First number = phase. `1.x` = Phase 1, `2.x` = Phase 2, ...
@@ -101,6 +119,7 @@ Each task should be:
 - **Discrete** — one clear deliverable.
 - **Implementable as a whole** — no "and then..." that hides a second deliverable.
 - **Verifiable** — the executor knows when it's done (passing test, file exists, command succeeds, etc.).
+- **Discovery deliverables state the write, not the topic** — when a task's output is findings, phrase the completion signal as an immediate plan write ("record in Phase Notes on confirmation"), never the deferral-ambiguous "record findings as phase notes";  findings are what passes the reproduction test (a redoing agent would need them); a finding held only in working memory until phase close is lost to compaction or a long phase.
 
 If a task can't be expressed as one concise step line, it probably needs to be split, or its detail belongs in `Additional context:` under that task.
 

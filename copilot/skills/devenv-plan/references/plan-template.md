@@ -11,6 +11,7 @@ issue_number: <N | none>
 planning_repo: <owner>/<planning-repo | none>
 source_file: <workspace-relative file path>
 updated_at_utc: <ISO-8601>
+commit_alignment: <commit-aligned | commit-free>
 -->
 
 # <Plan Title — short and specific>
@@ -22,6 +23,8 @@ human or AI to understand the goal without opening other documents.>
 docs | mechanical file work | ops-runbook | custom — how phases in this plan prove
 committable; see phase-rules.md. Must be deterministic, observable, runnable at
 phase end.>
+
+**Commit alignment**: `commit-aligned` (code-plan default — tasks that close intended commit units carry a `commit:` bullet per [task-format.md](./task-format.md); composition concentrates related changes into individually mergeable units) or `commit-free` (no declared points; `/devenv-commit` judges granularity from the diff post-hoc). Non-code plans may declare either.
 
 ## Goals and Acceptance Criteria
 
