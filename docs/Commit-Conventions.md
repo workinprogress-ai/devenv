@@ -18,7 +18,7 @@ relative to the sibling commits around it. A commit is a unit of change destined
 
 Every commit must be **individually mergeable** to `master`: self-contained subject,
 self-contained change, and a type that is true at the moment it lands. Commit
-granularity follows mergeability, not phase boundaries.
+granularity follows mergeability, not phase boundaries. Plans may declare that granularity ahead of time — a plan whose header carries `commit_alignment: commit-aligned` marks its intended unit boundaries with `commit:` task metadata (doctrine owned by the plan skill); declaring it early does not change the rule, only when it is decided.
 
 ## Type enum
 

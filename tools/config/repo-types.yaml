@@ -123,7 +123,99 @@ types:
         type: team
         permission: push
 
-  # Backend microservices
+  # DevOps infrastructure repositories
+  # Format: devops.<app>
+  # Examples: devops.reqord, devops.deathstar
+  devops:
+    description: Per-application DevOps infrastructure (Terraform, cluster lifecycle tooling, secrets layout)
+    template: template.devops
+    naming_pattern: '^devops\.[a-z0-9-]+$'
+    naming_example: "devops.reqord or devops.deathstar"
+    mainBranch: master
+    allowedMergeTypes:
+      - rebase
+    deletePRBranchOnMerge: true
+    hasWiki: false
+    hasIssues: true
+    hasDiscussions: false
+    hasProjects: false
+    allowAutoMerge: false
+    allowUpdateBranch: true
+    allowForking: false
+    squashMergeCommitTitle: PR_TITLE
+    squashMergeCommitMessage: COMMIT_MESSAGES
+    post_creation_script: ".repo/post-create.sh"
+    delete_post_creation_script: true
+    post_creation_commit_handling: amend
+    rulesetConfigFile: ruleset-default.json
+    access:
+      - name: Engineering
+        type: team
+        permission: push
+
+  # GitOps deployment-record repositories
+  # Format: gitops.<app>
+  # Examples: gitops.reqord, gitops.deathstar
+  # Note: records are the product; no semantic-release and no conventional-commit
+  # enforcement in this family (commits are tool-written or freeform).
+  gitops:
+    description: Per-application GitOps deployment records (SRS snapshots, environment records, future manifests)
+    template: template.gitops
+    naming_pattern: '^gitops\.[a-z0-9-]+$'
+    naming_example: "gitops.reqord or gitops.deathstar"
+    mainBranch: master
+    allowedMergeTypes:
+      - rebase
+    deletePRBranchOnMerge: true
+    hasWiki: false
+    hasIssues: true
+    hasDiscussions: false
+    hasProjects: false
+    allowAutoMerge: false
+    allowUpdateBranch: true
+    allowForking: false
+    squashMergeCommitTitle: PR_TITLE
+    squashMergeCommitMessage: COMMIT_MESSAGES
+    post_creation_script: ".repo/post-create.sh"
+    delete_post_creation_script: true
+    post_creation_commit_handling: amend
+    rulesetConfigFile: ruleset-default.json
+    access:
+      - name: Engineering
+        type: team
+        permission: push
+
+  # Internal tooling repositories
+  # Format: tool.<name> (singular — one repo per tool)
+  # Examples: tool.srs, tool.cluster-up
+  # Language-neutral: a tool's repo chooses its own stack; no language is implied.
+  tool:
+    description: App-agnostic internal tooling (language-neutral — stack chosen per tool)
+    template: template.tool
+    naming_pattern: '^tool\.[a-z0-9-]+$'
+    naming_example: "tool.srs or tool.cluster-up"
+    mainBranch: master
+    allowedMergeTypes:
+      - rebase
+    deletePRBranchOnMerge: true
+    hasWiki: false
+    hasIssues: true
+    hasDiscussions: false
+    hasProjects: false
+    allowAutoMerge: false
+    allowUpdateBranch: true
+    allowForking: false
+    squashMergeCommitTitle: PR_TITLE
+    squashMergeCommitMessage: COMMIT_MESSAGES
+    post_creation_script: ".repo/post-create.sh"
+    delete_post_creation_script: true
+    post_creation_commit_handling: amend
+    rulesetConfigFile: ruleset-default.json
+    access:
+      - name: Engineering
+        type: team
+        permission: push
+
   # Template repositories
   # Format: template.<descriptor>
   # Examples: template.service, template.web-app, template.cs-library

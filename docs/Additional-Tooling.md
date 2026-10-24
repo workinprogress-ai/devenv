@@ -151,7 +151,7 @@ repo-create --interactive                  # prompts for type and name
 
 **Key options:**
 
-- `--type <type>`: Required (planning|documentation|template|service|gateway|app-web|cs-library|ts-package|none)
+- `--type <type>`: Required (planning|documentation|devops|gitops|tool|template|service|gateway|app-web|cs-library|ts-package|none)
 - `--interactive` / `-i`: fzf-driven type picker + name prompt
 - `--public` | `--private`: Visibility (default: private)
 - `--description <text>`: Repository description
