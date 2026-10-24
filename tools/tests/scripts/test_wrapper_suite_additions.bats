@@ -64,7 +64,7 @@ load ../test_helper
 @test "release-list.sh rejects unknown format" {
   # format validation lives in list_releases; without auth the run may exit
   # earlier — accept either the validation message or skip.
-  result=$(bash "$PROJECT_ROOT/tools/scripts/release-list.sh" --format yaml 2>&1 || true)
+  result=$("$PROJECT_ROOT/tools/release-list" --format yaml 2>&1 || true)
   [[ "$result" =~ "Invalid format" ]] || skip "format validation unreachable without auth"
 }
 

@@ -19,6 +19,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { configGetRaw } from "../core/config.ts";
+import { EXIT_GENERAL_ERROR } from "../core/exit-codes.ts";
 import { selfRoot } from "../core/self-root.ts";
 
 /** The devenv checkout root this module operates on. Derived from this
@@ -112,6 +113,25 @@ export function providerOrgGet(): string {
   const seedFile = process.env.DEVENV_ROOT
     ? join(process.env.DEVENV_ROOT, ".setup", "provider_org.txt")
     : join(TOOLS_ROOT, "..", ".setup", "provider_org.txt");
+  if (existsSync(seedFile)) {
+    const value = execFileSync("tr", ["-d", "[:space:]"], {
+      input: execFileSync("cat", [seedFile], { encoding: "utf8" }),
+      encoding: "utf8",
+    }).trim();
+    if (value !== "") return value;
+  }
+  return "";
+}
+
+/** User identity: devenv.config `[organization] user` → the setup seed file.
+ * Same chain and empty-on-failure contract as `providerOrgGet` (mirrors
+ * `provider_user_get`). */
+export function providerUserGet(): string {
+  const raw = configGetRaw(providerConfigPath(), "organization", "user") ?? "";
+  if (raw !== "") return raw;
+  const seedFile = process.env.DEVENV_ROOT
+    ? join(process.env.DEVENV_ROOT, ".setup", "provider_user.txt")
+    : join(TOOLS_ROOT, "..", ".setup", "provider_user.txt");
   if (existsSync(seedFile)) {
     const value = execFileSync("tr", ["-d", "[:space:]"], {
       input: execFileSync("cat", [seedFile], { encoding: "utf8" }),
@@ -291,6 +311,43 @@ export function ghApiSync(args: string[], opts: GhOptions = {}): GhResult {
 /** Paginated GET for REST surfaces that page (comments lists etc.). */
 export async function ghApiPaginate(args: string[]): Promise<GhResult> {
   return ghApi([...args, "--paginate"]);
+}
+
+/** Auth pre-flight (ensure_provider_auth parity): one cheap gh auth probe;
+ * exits with guidance instead of letting the first API call die with a raw
+ * unhandled ProviderError. Sync so plain top-level scripts can call it. */
+export function ensureProviderAuth(): void {
+  const name: string = providerDetect();
+  const authed = name === "azure" ? azureAuthProbe() : ghAuthProbe();
+  if (authed) return;
+  console.error("Error: provider CLI is not authenticated. Run: key-update-provider");
+  process.exit(EXIT_GENERAL_ERROR);
+}
+
+/** gh auth probe — the github provider's auth seam (gh owns its own
+ * credential store; the facade never reads tokens). lives inside the
+ * provider layer so no tool ever shells to gh directly. */
+function ghAuthProbe(): boolean {
+  try {
+    execFileSync("gh", ["auth", "status"], { stdio: ["ignore", "ignore", "ignore"] });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** azure auth probe — mirrors azure/auth.bash's `provider_auth_status_impl`:
+ * a resolvable token with sane file mode means the provider can operate.
+ * Never reads the token's value into this process beyond existence. */
+function azureAuthProbe(): boolean {
+  const patFile = process.env.AZURE_PAT_FILE || join(process.env.HOME ?? "", ".keys", "azure-devops-pat");
+  if (!existsSync(patFile)) return false;
+  try {
+    const mode = execFileSync("stat", ["-c", "%a", patFile], { encoding: "utf8" }).trim();
+    return mode === "600";
+  } catch {
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------------------

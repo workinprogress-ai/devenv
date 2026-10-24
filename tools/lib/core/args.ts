@@ -26,6 +26,12 @@ export function requireOptionValue(optionName: string, value: string | undefined
   if (value === undefined || value === "") {
     invalidArgs(`Missing value for ${optionName}`);
   }
+  if (typeof value === "boolean") {
+    // parseArgs({ strict: false }) turns a bare `--opt` into boolean true —
+    // the option's value was left out. Exit 2 rather than silently treating
+    // "true" as the value (bash require_option_value parity).
+    invalidArgs(`Missing value for ${optionName}`);
+  }
   if (/^--[A-Za-z][A-Za-z0-9-]*$/.test(value)) {
     invalidArgs(
       `Missing value for ${optionName} (found the option '${value}' where a value was expected)`,
@@ -80,3 +86,16 @@ export function requirePermission(
 }
 
 export { parseArgs };
+
+/**
+ * Coerce a parseArgs({ strict: false }) valued-option result to a string,
+ * exiting 2 when the option was given bare (boolean true — the value was
+ * left out and the next flag would be swallowed). Use at the read site:
+ * `repo = requireString(values.repo, "--repo")`.
+ */
+export function requireString(value: string | boolean | undefined, optionName: string): string {
+  if (typeof value === "boolean") {
+    invalidArgs(`Missing value for ${optionName}`);
+  }
+  return requireOptionValue(optionName, value);
+}

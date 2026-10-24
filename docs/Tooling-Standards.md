@@ -76,6 +76,38 @@ are rejected in review.
 New tools use the TS template and this section. Gaps in the catalog are
 filled as modules land; when a module's role changes, update its row here.
 
+## Bash vs TypeScript: which tools stay bash
+
+The deciding question for every tool: **must this script run when node
+is absent or broken?** Yes → stays bash. Everything else is TypeScript
+behind the standard stub. Tiny pure shims (a single CLI pass-through with
+no data logic) may also stay bash — standardization gains nothing there.
+
+The stay-bash set (the working tree is authoritative; this table names the
+kinds and the current members):
+
+| Kind | Members | Reason |
+|---|---|---|
+| test harness | `run-devenv-tests` | validates the TS toolchain; cannot depend on what it validates |
+| editor entry | `editor` | `EDITOR`/`VISUAL` target — the plain-`git commit` recovery hatch must open with node broken |
+| bootstrap repair | `devenv-add-custom-bootstrap`, `devenv-add-custom-startup`, `devenv-add-env-vars` | used precisely when the toolchain is broken |
+| credential rotation | `_key-update-do`, `_key-update-tailscale` | emergency path; off-PATH internal contract |
+| bash quality gate | `lint-scripts` | stays independent of the TS toolchain it co-gates |
+| tiny CLI shims | `dependencies-up`, `dependencies-down`, `docker-restart`, `get-public-ip`, `container-enable-dotnet-debugger` | single-command pass-throughs; no logic to standardize |
+
+Adding a tool to this list is a deliberate act: name the reason in the table,
+not just the tool. Anything not listed and not a tiny shim is TypeScript.
+
+`tools/internal/` machinery (`_on_*.sh`, git-hook helpers, `csharp-debug.sh`)
+stays bash: hook paths and event signals run pre-toolchain by design. The
+`tools/run-devenv-tests` wrapper is bash for the same reason (it execs the
+stay-bash harness). TS tools that drive these entry points (for example
+`workflow-signal` invoking `tools/internal/_on_*`) spawn them as external
+commands.
+
+**Test format:** suites exercising fzf pickers, real TTY flows, or
+hook/signal machinery stay bats; other tool suites are vitest.
+
 **Interprocess locking:** serialize access to shared local files with an
 `O_EXCL` lockfile: atomic create, wait-with-deadline, reclaim a lock older
 than 30s (crashed writer). Kernel locks (`flock`) are unavailable to

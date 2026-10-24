@@ -193,61 +193,14 @@ EOF
     [[ "$output" =~ "DRY RUN" ]]
 }
 
-# ── snapshot_versions / detect_major_bumps helpers (sourced) ──────────────
+# ── snapshot_versions / detect_major_bumps helpers ─────────────────────
+# snapshot_versions / detect_major_bumps helper coverage lives in
+# tools/tests/ts/cs-references-update-wizard-helpers.test.ts (the helpers
+# are internal to the TS tool).
 
-@test "snapshot_versions finds PackageReference versions in src csprojs" {
-    source "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh"
-    result=$(snapshot_versions "$REPO_DIR")
-    [[ "$result" =~ "WorkInProgress.Lib.Common 1.0.0" ]]
-}
 
-@test "detect_major_bumps detects a major version increase" {
-    source "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh"
 
-    local before_file after_file
-    before_file=$(mktemp)
-    after_file=$(mktemp)
-    echo "WorkInProgress.Lib.Common 1.0.0" > "$before_file"
-    echo "WorkInProgress.Lib.Common 2.0.0" > "$after_file"
 
-    run detect_major_bumps "$before_file" "$after_file"
-    rm -f "$before_file" "$after_file"
-
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "MAJOR" ]]
-}
-
-@test "detect_major_bumps does not flag a minor version increase" {
-    source "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh"
-
-    local before_file after_file
-    before_file=$(mktemp)
-    after_file=$(mktemp)
-    echo "WorkInProgress.Lib.Common 1.0.0" > "$before_file"
-    echo "WorkInProgress.Lib.Common 1.2.0" > "$after_file"
-
-    run detect_major_bumps "$before_file" "$after_file"
-    rm -f "$before_file" "$after_file"
-
-    [ "$status" -ne 0 ]
-    [[ ! "$output" =~ "MAJOR" ]]
-}
-
-@test "detect_major_bumps does not flag a patch version increase" {
-    source "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh"
-
-    local before_file after_file
-    before_file=$(mktemp)
-    after_file=$(mktemp)
-    echo "WorkInProgress.Lib.Common 1.0.0" > "$before_file"
-    echo "WorkInProgress.Lib.Common 1.0.5" > "$after_file"
-
-    run detect_major_bumps "$before_file" "$after_file"
-    rm -f "$before_file" "$after_file"
-
-    [ "$status" -ne 0 ]
-    [[ ! "$output" =~ "MAJOR" ]]
-}
 
 # ── Framework / language flags ─────────────────────────────────────────────
 
@@ -258,7 +211,7 @@ echo "ARGS: $*" > "${CAPTURE_FILE:?}"
 exit 0
 EOF
     run env CAPTURE_FILE="$TEST_TEMP_DIR/captured.args" \
-        "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --framework net10.0 "$REPO_DIR"
+        "$PROJECT_ROOT/tools/cs-references-update-wizard" --framework net10.0 "$REPO_DIR"
     [ "$status" -eq 10 ]  # mock changes nothing → no-op exit, but flags were forwarded
     grep -q -- "--framework net10.0" "$TEST_TEMP_DIR/captured.args"
 }
@@ -270,12 +223,12 @@ echo "ARGS: $*" > "${CAPTURE_FILE:?}"
 exit 0
 EOF
     run env CAPTURE_FILE="$TEST_TEMP_DIR/captured.args" \
-        "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --lang-version 14.0 "$REPO_DIR"
+        "$PROJECT_ROOT/tools/cs-references-update-wizard" --lang-version 14.0 "$REPO_DIR"
     [ "$status" -eq 10 ]
     grep -q -- "--lang-version 14.0" "$TEST_TEMP_DIR/captured.args"
 
     run env CAPTURE_FILE="$TEST_TEMP_DIR/captured2.args" \
-        "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --lang-default "$REPO_DIR"
+        "$PROJECT_ROOT/tools/cs-references-update-wizard" --lang-default "$REPO_DIR"
     [ "$status" -eq 10 ]
     grep -q -- "--lang-default" "$TEST_TEMP_DIR/captured2.args"
 }
@@ -288,12 +241,6 @@ EOF
     [[ "$output" =~ "--lang-default" ]]
 }
 
-@test "snapshot_versions captures TFM lines from src csprojs" {
-    sed -i 's|<ItemGroup>|<PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup>\n  <ItemGroup>|' "$REPO_DIR/src/MyLib.csproj"
-    source "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh"
-    result=$(snapshot_versions "$REPO_DIR")
-    [[ "$result" =~ "__TFM__ net8.0" ]]
-}
 
 @test "wizard forces major + framework PR title when TFM changes" {
     # Mock cs-references-update to retarget the csproj TFM (like the real one does)
@@ -330,7 +277,7 @@ EOF
 
     # No run-tests script → tests skipped
     run env CAPTURE_FILE="$TEST_TEMP_DIR/pr.args" \
-        "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" --framework net10.0 "$REPO_DIR"
+        "$PROJECT_ROOT/tools/cs-references-update-wizard" --framework net10.0 "$REPO_DIR"
     [ "$status" -eq 0 ]
     grep -q "major: update references and target framework" "$TEST_TEMP_DIR/pr.args"
     rm -f "$TEST_TEMP_DIR/bin/git"
@@ -360,7 +307,7 @@ EOF
     chmod +x "$TEST_TEMP_DIR/bin/git"
 
     run env CAPTURE_FILE="$TEST_TEMP_DIR/pr.args" \
-        "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" "$REPO_DIR"
+        "$PROJECT_ROOT/tools/cs-references-update-wizard" "$REPO_DIR"
     [ "$status" -eq 0 ]
     grep -q "patch: update references" "$TEST_TEMP_DIR/pr.args"
     run ! grep -q "and target framework" "$TEST_TEMP_DIR/pr.args"
@@ -405,7 +352,7 @@ EOF
     chmod +x "$TEST_TEMP_DIR/bin/git"
 
     run env CAPTURE_FILE="$TEST_TEMP_DIR/pr.args" \
-        "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" "$REPO_DIR"
+        "$PROJECT_ROOT/tools/cs-references-update-wizard" "$REPO_DIR"
     [ "$status" -eq 0 ]
     grep -q "chore(tests): update references" "$TEST_TEMP_DIR/pr.args"
     run ! grep -q "major:" "$TEST_TEMP_DIR/pr.args"
@@ -451,7 +398,7 @@ EOF
     chmod +x "$TEST_TEMP_DIR/bin/git"
 
     run env CAPTURE_FILE="$TEST_TEMP_DIR/pr.args" \
-        "$PROJECT_ROOT/tools/scripts/cs-references-update-wizard.sh" "$REPO_DIR"
+        "$PROJECT_ROOT/tools/cs-references-update-wizard" "$REPO_DIR"
     [ "$status" -eq 0 ]
     grep -q "patch: update references" "$TEST_TEMP_DIR/pr.args"
     run ! grep -q "chore(tests)" "$TEST_TEMP_DIR/pr.args"

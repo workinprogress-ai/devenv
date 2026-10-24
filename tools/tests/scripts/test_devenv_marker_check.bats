@@ -8,7 +8,7 @@ load ../test_helper
 setup() {
   test_helper_setup
   WORK_DIR=$(mktemp -d)
-  SCRIPT="$DEVENV_ROOT/tools/scripts/devenv-marker-check.sh"
+  SCRIPT="$DEVENV_ROOT/tools/devenv-marker-check"
 }
 
 teardown() {

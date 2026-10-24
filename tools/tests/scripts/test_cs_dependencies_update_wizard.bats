@@ -52,7 +52,7 @@ setup_two_gen_cache() {
 setup() {
     test_helper_setup
 
-    WIZARD="$PROJECT_ROOT/tools/scripts/cs-dependencies-update-wizard.sh"
+    WIZARD="$PROJECT_ROOT/tools/cs-dependencies-update-wizard"
     export REPO_CACHE_DIR="$TEST_TEMP_DIR/cache"
 }
 
@@ -65,7 +65,7 @@ teardown() {
 # Syntax and basic contract
 # ---------------------------------------------------------------------------
 
-@test "cs-dependencies-update-wizard.sh has valid bash syntax" {
+@test "cs-dependencies-update-wizard stub dispatches (entry-point contract)" {
     run bash -n "$WIZARD"
     [ "$status" -eq 0 ]
 }

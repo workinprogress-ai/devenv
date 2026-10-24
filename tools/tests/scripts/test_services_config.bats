@@ -33,52 +33,52 @@ load ../test_helper
 }
 
 @test "get-services-config.sh uses error handling library" {
-  run grep 'source.*error-handling.bash' "$PROJECT_ROOT/tools/scripts/get-services-config.sh"
+  run grep 'lib/core/logging' "$PROJECT_ROOT/tools/scripts/get-services-config.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "get-services-config.sh uses DEVENV_ROOT variable" {
-  run grep -E '\$DEVENV_ROOT/' "$PROJECT_ROOT/tools/scripts/get-services-config.sh"
+  run grep -E '\$DEVENV_ROOT/' "$PROJECT_ROOT/tools/scripts/get-services-config.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "get-services-config.sh validates service argument" {
-  run grep -E "repo_url|SERVICES_CONFIG_REPO" "$PROJECT_ROOT/tools/scripts/get-services-config.sh"
+  run grep -E "repo_url|SERVICES_CONFIG_REPO" "$PROJECT_ROOT/tools/scripts/get-services-config.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "get-services-config.sh has cleanup function" {
-  run grep -q "rm -rf.*target_folder" "$PROJECT_ROOT/tools/scripts/get-services-config.sh"
+  run grep -q "rmSync(targetFolder" "$PROJECT_ROOT/tools/scripts/get-services-config.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "get-services-config.sh clones git repository" {
-  run grep "git clone" "$PROJECT_ROOT/tools/scripts/get-services-config.sh"
+  run grep "git clone" "$PROJECT_ROOT/tools/scripts/get-services-config.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "get-services-config.sh supports branch checkout" {
-  run grep "git checkout" "$PROJECT_ROOT/tools/scripts/get-services-config.sh"
+  run grep "git checkout" "$PROJECT_ROOT/tools/scripts/get-services-config.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "get-services-config.sh removes git artifacts" {
-  run grep 'rm -rf.*\.git' "$PROJECT_ROOT/tools/scripts/get-services-config.sh"
+  run grep '"\.git"' "$PROJECT_ROOT/tools/scripts/get-services-config.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "get-services-config.sh creates info.txt metadata" {
-  run grep "info.txt" "$PROJECT_ROOT/tools/scripts/get-services-config.sh"
+  run grep "info.txt" "$PROJECT_ROOT/tools/scripts/get-services-config.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "get-services-config.sh creates default.env template" {
-  run grep "default.env" "$PROJECT_ROOT/tools/scripts/get-services-config.sh"
+  run grep "default.env" "$PROJECT_ROOT/tools/scripts/get-services-config.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "get-services-config.sh handles missing repo URL" {
-  run grep -A2 'if \[ -z "$repo_url" \]' "$PROJECT_ROOT/tools/scripts/get-services-config.sh"
+  run grep -A2 'repoUrl === ""' "$PROJECT_ROOT/tools/scripts/get-services-config.ts"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "log_error" ]]
+  [[ "$output" =~ "logError" ]]
 }

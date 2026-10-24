@@ -306,8 +306,11 @@ rewrite_origin() {
     rewrite_origin
     # Replace the stand-in with the real tool (its rewritten path needs the
     # lib), as a committed change — the real tool refuses a dirty tree.
-    cp "$PROJECT_ROOT/tools/scripts/git-update" "$CLONE/tools/git-update"
-    git -C "$CLONE" add tools/git-update
+    cp "$PROJECT_ROOT/tools/git-update" "$CLONE/tools/git-update"
+    mkdir -p "$CLONE/tools/scripts" "$CLONE/tools/lib"
+    cp "$PROJECT_ROOT/tools/scripts/git-update.ts" "$CLONE/tools/scripts/"
+    cp -r "$PROJECT_ROOT/tools/lib/." "$CLONE/tools/lib/"
+    git -C "$CLONE" add tools/git-update tools/scripts/git-update.ts tools/lib
     git -C "$CLONE" commit -q -m "tools: use real git-update"
     run run_check "y"
     [ "$status" -eq 0 ]
@@ -325,8 +328,10 @@ rewrite_origin() {
 
 setup_e2e_clone() {
     mkdir -p "$CLONE/tools/lib"
-    cp "$PROJECT_ROOT/tools/scripts/git-update" "$CLONE/tools/git-update"
-    cp "$PROJECT_ROOT/tools/lib/rewrite-detect.bash" "$CLONE/tools/lib/"
+    cp "$PROJECT_ROOT/tools/git-update" "$CLONE/tools/git-update"
+    mkdir -p "$CLONE/tools/scripts"
+    cp "$PROJECT_ROOT/tools/scripts/git-update.ts" "$CLONE/tools/scripts/"
+    cp -r "$PROJECT_ROOT/tools/lib/." "$CLONE/tools/lib/"
     git -C "$CLONE" add -A
     git -C "$CLONE" commit -q -m "tools: real git-update"
 }

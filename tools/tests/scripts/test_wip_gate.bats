@@ -98,7 +98,11 @@ DISPATCH
 }
 
 @test "global thin-caller pre-commit delegates to the shared gate" {
-    run bash "$DEVENV_TOOLS/git-hooks/pre-commit"
+    # Run from inside the fixture repo: the hook inspects the CWD's repo, so
+    # running it from the devenv checkout would be environment-sensitive (a
+    # WIP HEAD there — a normal developer state — would correctly block).
+    local repo="$WORKSPACE/repos/alpha"
+    run bash -c "cd '$repo' && bash '$DEVENV_TOOLS/git-hooks/pre-commit'"
     [ "$status" -eq 0 ]
     local repo="$WORKSPACE/repos/alpha"
     (cd "$repo" && echo b > f && git add f && git commit -q -m "WIP: thin" -n)

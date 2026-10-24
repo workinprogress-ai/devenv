@@ -7,7 +7,7 @@ load ../test_helper
 
 setup() {
   test_helper_setup
-  SCRIPT="$DEVENV_ROOT/tools/scripts/roadmap-parse.sh"
+  SCRIPT="$DEVENV_ROOT/tools/roadmap-parse"  # stub-dispatched (stub+TS convention)
   WORK_DIR=$(mktemp -d)
   ROADMAP="$WORK_DIR/roadmap.md"
   cat > "$ROADMAP" << 'MD'
