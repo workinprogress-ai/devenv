@@ -21,6 +21,7 @@ import { execSync } from "node:child_process";
 
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_CONFLICT } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
+import { select } from "../lib/ui/prompts.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { providerRepoTarget, isDevenvRepoGated } from "../lib/providers/provider-core.ts";
 import { issuesComments, issuesCommentAdd, issuesCommentEdit } from "../lib/providers/github/issues.ts";
@@ -202,7 +203,7 @@ export function findMatches(comments: CommentRecord[], docId: string): Array<{ i
 
 /** Interactive picker over .local-artifacts (TTY-only; D1). Returns the
  * picked file path, or null when no candidates exist. */
-function interactivePickArtifact(all: boolean): string | null {
+async function interactivePickArtifact(all: boolean): Promise<string | null> {
   let dir = process.cwd();
   try {
     const root = execSync("git rev-parse --show-toplevel 2>/dev/null", { encoding: "utf8" }).trim();
@@ -227,24 +228,15 @@ function interactivePickArtifact(all: boolean): string | null {
       return docId !== "" && (issue !== "" && issue !== "none" ? true : inferIssueNumberFromDocId(docId) !== null);
     });
   if (files.length === 0) return null;
-  // Non-interactive fallback is a named refusal: the picker needs a TTY and
-  // fzf; the parent process decided this branch only when stdin IS a TTY,
-  // so reaching here means fzf selection was cancelled or unavailable.
-  const fzf = readdirSync("/usr/bin").includes("fzf");
-  if (!fzf) {
-    logError("fzf is required for the interactive picker; pass --body or --body-file explicitly");
-    return null;
-  }
-  try {
-    const preview = `head -c 1024 '${artifactsDir}/{}'`;
-    const picked = execSync(
-      `fzf --prompt 'Upsert which artifact? ' --preview ${JSON.stringify(preview)}`,
-      { cwd: artifactsDir, encoding: "utf8", stdio: ["inherit", "pipe", "inherit"] },
-    ).trim();
-    return picked === "" ? null : join(artifactsDir, picked);
-  } catch {
-    return null;
-  }
+  // The parent process decided this branch only when stdin IS a TTY; clack's
+  // non-interactive fallback (null) doubles as the cancelled outcome.
+  const picked = await select({
+    message: "Upsert which artifact?",
+    options: files.map((f) => ({ value: f, label: f })),
+    fallback: null as unknown as string,
+  });
+  if (picked === null) return null;
+  return join(artifactsDir, picked);
 }
 
 async function main(argv: string[]): Promise<number> {
@@ -264,7 +256,7 @@ async function main(argv: string[]): Promise<number> {
   let body = "";
   if (sources === 0) {
     if (process.stdin.isTTY) {
-      const picked = interactivePickArtifact(args.all);
+      const picked = await interactivePickArtifact(args.all);
       if (picked === null) {
         logError("One comment source is required: --body or --body-file");
         return EXIT_MISUSE;

@@ -1,12 +1,13 @@
 // fork-export — export a commit range for transfer into a clone of the
 // upstream repository. Port of fork-export.sh over lib/domain/fork.ts and
-// lib/core/change-id.ts. Non-interactive paths are fully supported; the fzf
+// lib/core/change-id.ts. Non-interactive paths are fully supported; the fzf-based
 // pickers map to clack multiselect on a TTY and fail closed without one.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { confirm, multiSelect } from "../lib/ui/prompts.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import {
@@ -18,26 +19,32 @@ import { forkConfigFromEnv, getSelectionSlug, normalizeGitUrl, upstreamMatches }
 
 assertNodeFloor();
 
-/** fzf multi-select with optional expect keys (fzf_select_multi[_or_action]
- * parity). Rows are tab-separated `ref\tdisplay`; returns the picked rows and
- * whether the action key fired. Rejects (null) on cancel/no-fzf. */
-function fzfMulti(rows: string[], prompt: string, preview: string, expectKeys = ""): { rows: string[]; action: boolean } | null {
-  const args = [
-    `--prompt=${prompt}`,
-    "--height=40%", "--border", "--multi",
-    "--bind=tab:toggle+down",
-    "--header=TAB to select | Shift-Tab to toggle all | Enter to confirm",
-  ];
-  if (expectKeys !== "") args.push(`--expect=${expectKeys}`);
-  if (preview !== "") args.push(`--preview=${preview}`, "--preview-window=right:50%");
-  const r = spawnSync("fzf", args, { input: `${rows.join("\n")}\n`, encoding: "utf8" });
-  if (r.status === 130) return null;
-  const out = r.stdout ?? "";
-  const nl = out.indexOf("\n");
-  const key = expectKeys !== "" && nl >= 0 ? out.slice(0, nl) : "";
-  const body = expectKeys !== "" && nl >= 0 ? out.slice(nl + 1) : out;
-  const picked = body.split("\n").filter((l) => l !== "");
-  return { rows: picked, action: key === expectKeys && expectKeys !== "" };
+interface PickerResult { rows: string[]; action: boolean }
+
+/**
+ * Multi-select picker over tab-separated `ref\tdisplay` rows via lib/ui.
+ * When `actionKey` is given and rows were marked, a yes/no "skip instead"
+ * question follows submit; yes resolves as the action outcome (the ctrl-x
+ * skip-for-good path). Resolves null on cancel (non-interactive counts as
+ * cancel — the callers fail closed on it).
+ */
+async function pickRows(
+  rows: string[], prompt: string, actionKey = "",
+): Promise<PickerResult | null> {
+  const options = rows.map((row) => {
+    const display = row.split("\t").slice(1).join("\t") || row;
+    return { value: row, label: display };
+  });
+  const picked = await multiSelect({ message: prompt, options, fallback: null as unknown as string[] });
+  if (picked === null) return null;
+  if (actionKey !== "" && picked.length > 0) {
+    const skipInstead = await confirm({
+      message: `${actionKey}: skip the marked commit(s) for good instead of exporting?`,
+      fallback: false,
+    });
+    if (skipInstead) return { rows: picked, action: true };
+  }
+  return { rows: picked, action: false };
 }
 
 /** Interactive conflict loop (wait_for_conflict_resolution parity). */
@@ -107,7 +114,7 @@ const g = (args: string[]): { out: string; ok: boolean } => {
 };
 
 function usage(): never {
-  console.log(`fork-export.sh — export commits for transfer into a clone of the upstream repository
+  console.log(`fork-export — export commits for transfer into a clone of the upstream repository
 
 Exports from the merge-base with \`upstream/<branch>\` to \`[<end-ref>]\` (default
 HEAD); the upstream-derived base is always used. With a TTY and no explicit
@@ -238,7 +245,7 @@ const config = forkConfigFromEnv();
 const upstreamRef = `refs/remotes/upstream/${config.upstreamBranch}`;
 
 const upstreamUrl = g(["-C", repoRoot, "remote", "get-url", "upstream"]).out;
-if (upstreamUrl === "") die("upstream remote is missing; run fork-setup.sh first", EXIT_GENERAL_ERROR);
+if (upstreamUrl === "") die("upstream remote is missing; run fork-setup first", EXIT_GENERAL_ERROR);
 if (!upstreamMatches(repoRoot, config.upstreamRepo)) {
   die("upstream remote URL does not match [fork] upstream_repo", EXIT_GENERAL_ERROR);
 }
@@ -433,9 +440,8 @@ if (commits.length === 0) {
 
 // --- interactive skip picker ---
 if (skipInteractive && skipInteractiveAllowed) {
-  const preview = `git -C ${repoRoot} show --format=fuller --stat --patch {1}`;
   const rows = commits.map((c) => `${c}\t${g(["-C", repoRoot, "show", "-s", "--format=%h %cs %s", c]).out}`);
-  const picked = fzfMulti(rows, "Commits to skip for good (TAB marks): ", preview);
+  const picked = await pickRows(rows, "Commits to skip for good (TAB marks): ");
   if (picked === null) { console.error("ERROR: commit selection cancelled"); process.exit(EXIT_MISUSE); }
   if (picked.rows.length === 0) die("no commits selected", EXIT_MISUSE);
   for (const row of picked.rows) {
@@ -452,8 +458,7 @@ if (skipInteractive && skipInteractiveAllowed) {
 
 // --- interactive export picker ---
 if (pickerWillRun) {
-  const preview = `git -C ${repoRoot} show --format=fuller --stat --patch {1}`;
-  const offerExclusion = (unselected: string[]): void => {
+  const offerExclusion = async (unselected: string[]): Promise<void> => {
     if (unselected.length === 0) return;
     console.log(`${unselected.length} commit(s) were not selected:`);
     for (const c of unselected) {
@@ -473,7 +478,7 @@ if (pickerWillRun) {
       console.log(`excluded ${unselected.length} commit(s) from future exports`);
     } else if (choice === "c" || choice === "choose") {
       const rows = unselected.map((c) => `${c}\t${g(["-C", repoRoot, "show", "-s", "--format=%h %cs %s", c]).out}`);
-      const pickedRows = fzfMulti(rows, "Commits to exclude for good (TAB marks): ", preview);
+      const pickedRows = await pickRows(rows, "Commits to exclude for good (TAB marks): ");
       if (pickedRows === null) return;
       for (const row of pickedRows.rows) {
         const c = row.split("\t")[0] as string;
@@ -488,7 +493,7 @@ if (pickerWillRun) {
 
   for (;;) {
     const rows = commits.map((c) => `${c}\t${g(["-C", repoRoot, "show", "-s", "--format=%h %cs %s", c]).out}`);
-    const picked = fzfMulti(rows, "Commits to export (TAB marks, ctrl-x skips for good): ", preview, "ctrl-x");
+    const picked = await pickRows(rows, "Commits to export (TAB marks): ", "ctrl-x");
     if (picked === null) { console.error("ERROR: commit selection cancelled"); process.exit(EXIT_MISUSE); }
     if (picked.rows.length === 0) die("no commits selected", EXIT_MISUSE);
     const selected = picked.rows.map((row) => row.split("\t")[0] as string);
@@ -503,7 +508,7 @@ if (pickerWillRun) {
       process.stdout.write("Export these commits? [y/N] ");
       const conf = spawnSync("bash", ["-c", 'read -r y < /dev/tty || true; printf "%s" "$y"'], { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] });
       if (!/^[Yy]([Ee][Ss])?$/.test((conf.stdout ?? "").trim())) die("commit export cancelled", EXIT_MISUSE);
-      offerExclusion(unselected);
+      await offerExclusion(unselected);
       break;
     }
     // ctrl-x: skip the selected for good and reopen without them.

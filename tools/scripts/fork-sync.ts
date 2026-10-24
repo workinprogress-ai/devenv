@@ -28,7 +28,7 @@ const g = (args: string[]): { out: string; ok: boolean } => {
 };
 
 if (process.argv[2] === "--help" || process.argv[2] === "-h") {
-  console.log(`fork-sync.sh — report or apply upstream's new commits against the configured upstream
+  console.log(`fork-sync — report or apply upstream's new commits against the configured upstream
 
 Fetches \`upstream\` and reports ahead/behind counts and commits by default;
 it does not change history or push unless explicitly requested. \`--replay\`
@@ -99,7 +99,7 @@ if (push && !yes && process.stdin.isTTY !== true) {
 }
 
 const repoRoot = g(["rev-parse", "--show-toplevel"]).out;
-if (repoRoot === "") die("run fork-sync.sh from inside a git repository", EXIT_GENERAL_ERROR);
+if (repoRoot === "") die("run fork-sync from inside a git repository", EXIT_GENERAL_ERROR);
 
 // --- adoption-map support ---
 function discoverUpstreamClone(): string {
@@ -132,7 +132,7 @@ const upstreamRef = `refs/remotes/upstream/${config.upstreamBranch}`;
 // --- --unlink ---
 if (unlinkSha !== "") {
   if (!g(["-C", repoRoot, "remote", "get-url", "upstream"]).ok) {
-    die("upstream remote is missing; run fork-setup.sh first", EXIT_GENERAL_ERROR);
+    die("upstream remote is missing; run fork-setup first", EXIT_GENERAL_ERROR);
   }
   if (mapRemove(repoRoot, unlinkSha)) {
     console.log(`removed adoption pair(s) naming ${unlinkSha}`);
@@ -145,7 +145,7 @@ if (unlinkSha !== "") {
 // --- --link / --propose-links ---
 if (linkLocal !== "" || proposeLinks) {
   if (!g(["-C", repoRoot, "remote", "get-url", "upstream"]).ok) {
-    die("upstream remote is missing; run fork-setup.sh first", EXIT_GENERAL_ERROR);
+    die("upstream remote is missing; run fork-setup first", EXIT_GENERAL_ERROR);
   }
   const upstreamClone = discoverUpstreamClone();
   if (upstreamClone === "") {
@@ -210,7 +210,7 @@ void linkUpstream;
 if (drift) {
   if (surfacesValidate().length > 0) die("fork-surfaces declaration is invalid", EXIT_GENERAL_ERROR);
   if (!g(["-C", repoRoot, "remote", "get-url", "upstream"]).ok) {
-    die("upstream remote is missing; run fork-setup.sh first", EXIT_GENERAL_ERROR);
+    die("upstream remote is missing; run fork-setup first", EXIT_GENERAL_ERROR);
   }
   const localDriftRef = upstreamRef;
   if (!g(["-C", repoRoot, "show-ref", "--verify", "--quiet", localDriftRef]).ok) {
@@ -262,7 +262,7 @@ for (const stateDir of ["rebase-merge", "rebase-apply"]) {
   }
 }
 if (!g(["-C", repoRoot, "remote", "get-url", "upstream"]).ok) {
-  die("upstream remote is missing; run fork-setup.sh first", EXIT_GENERAL_ERROR);
+  die("upstream remote is missing; run fork-setup first", EXIT_GENERAL_ERROR);
 }
 if (!upstreamMatches(repoRoot, config.upstreamRepo)) {
   die("upstream remote URL does not match [fork] upstream_repo", EXIT_GENERAL_ERROR);

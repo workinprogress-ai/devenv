@@ -33,7 +33,7 @@ _setup_fork_fixture() {
 @test "fork-setup: --help prints usage without implementing logic" {
     run "$SCRIPT" --help
     [ "$status" -eq 0 ]
-    [[ "$output" == *"fork-setup.sh"* ]]
+    [[ "$output" == *"fork-setup"* ]]
     [[ "$output" == *"fetch-only"* ]]
     [[ "$output" == *"upstream_repo"* ]]
     [[ "$output" == *"upstream_branch"* ]]

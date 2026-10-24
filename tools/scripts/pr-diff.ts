@@ -12,7 +12,7 @@ import { spawnSync } from "node:child_process";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { isDevenvRepoGated, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { checkTargetRepo, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsDiff } from "../lib/providers/github/prs.ts";
 
 assertNodeFloor();
@@ -51,22 +51,6 @@ Examples:
     ${SCRIPT_NAME} 123 | less
 `);
   process.exit(0);
-}
-
-function checkTargetRepo(allowDevenv: boolean): void {
-  const r = spawnSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" });
-  if (r.status !== 0) {
-    logError("Not in a git repository");
-    process.exit(1);
-  }
-  if (!isDevenvRepoGated()) return;
-  if (process.env["DEVENV_REPO"] !== undefined && process.env["DEVENV_REPO"] !== "") return;
-  if (allowDevenv) return;
-  logError("The current repository appears to be the devenv repository itself");
-  console.log("Operations should be performed in target project repositories, not in devenv");
-  console.log("To target a project repo, prefix the command with DEVENV_REPO=<owner>/<repo>");
-  console.log("To override this safety check (devenv-repo work only), pass the --devenv flag");
-  process.exit(1);
 }
 
 function gitOk(args: string[]): boolean {

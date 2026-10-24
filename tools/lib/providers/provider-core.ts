@@ -143,6 +143,37 @@ export function providerUserGet(): string {
 }
 
 /**
+ * Shared tool prologue (identical in 21 issue/pr scripts): refuse to run
+ * outside a git repository, then refuse to operate on the devenv repository
+ * itself unless the caller overrides (--devenv flag) or DEVENV_REPO targets
+ * another repo explicitly.
+ */
+export function checkTargetRepo(allowDevenv: boolean): void {
+  let inRepo = false;
+  try {
+    execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    inRepo = true;
+  } catch {
+    inRepo = false;
+  }
+  if (!inRepo) {
+    console.error("ERROR: Not in a git repository");
+    process.exit(EXIT_GENERAL_ERROR);
+  }
+  if (!isDevenvRepoGated()) return;
+  if (process.env["DEVENV_REPO"] !== undefined && process.env["DEVENV_REPO"] !== "") return;
+  if (allowDevenv) return;
+  console.error("ERROR: The current repository appears to be the devenv repository itself");
+  console.log("Operations should be performed in target project repositories, not in devenv");
+  console.log("To target a project repo, prefix the command with DEVENV_REPO=<owner>/<repo>");
+  console.log("To override this safety check (devenv-repo work only), pass the --devenv flag");
+  process.exit(EXIT_GENERAL_ERROR);
+}
+
+/**
  * The devenv-repo gate (port of `is_devenv_repo` + `is_nested_devenv_clone`):
  * true when the cwd repo is a devenv checkout (bootstrap script present or
  * directory named devenv), with the nested-clone auto-allow for clones below
