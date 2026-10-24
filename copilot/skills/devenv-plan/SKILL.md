@@ -113,6 +113,8 @@ Present the final confirmation question via the shared [direct query style](../_
 
 **Green-policy question (code plans — always asked, phase-green recommended).** Still in the same interview: *"Green policy: every phase ends green and PR-ready — or milestone-green, where named checkpoint phases end green and intermediate phases may carry declared red work (TDD reds and contract tests that close in a later phase)? Reviews/PRs then concentrate at milestone phases."* Phase-green is the default and correct for most work; offer milestone-green when the work genuinely spans phases with contract-first or TDD-across-boundary shape. The answer stamps the `**Verification**` line as `code (phase-green)` or `code (milestone-green)` (with milestone phases named).
 
+**Commit-alignment question (code plans — always asked; `commit-aligned` default).** Still in the same interview, right after green policy: *"Commit alignment: declare commit points — tasks that close intended commit units carry a `commit:` bullet, and task composition concentrates related changes into individually mergeable units? — or commit-free, leaving granularity to `/devenv-commit`'s judgment on the finished diff?"* `commit-aligned` is the default: individually mergeable is already required under rebase merges ([Commit Conventions](../../../docs/Commit-Conventions.md)), so declaring points surfaces an existing obligation earlier, at planning time where unit boundaries are best known. Offer `commit-free` when the user prefers post-hoc granularity judgment. Non-code plans may declare either — offer the question only when the objective is naturally chunked (a doc set landing in stages, runbook phases). The answer stamps the header's `commit_alignment:` field as `commit-aligned` or `commit-free`; under `commit-aligned`, draft tasks so each declared unit compiles and passes its gates standalone (see [task-format.md](./references/task-format.md) § `commit:` bullet and [phase-rules.md](./references/phase-rules.md) § Commit points and green policy).
+
 Do **not** propose Phase 1 as "add failing tests for new behaviour" or any equivalent wording when the plan is phase-green — a phase proposal is invalid unless each phase is independently committable — its declared verification gates pass and the phase has a clear standalone deliverable (for code plans: tests pass, coverage does not regress). Under `milestone-green`, intermediate phases may describe declared-red deliverables per the plan's red-test register (see phase-rules.md, Code regimes).
 
 Bias toward defining important contracts early, before broad implementation begins. For medium/large work, initial phases should usually lock down the core interfaces, API shapes, message contracts, plugin seams, or persistence boundaries that the rest of the plan depends on. This improves shared understanding and exposes design problems earlier.
@@ -325,6 +327,8 @@ In the target repo's `.local-artifacts/` (the [standard local markdown folder](.
 
 Write the approved plan to `<target-repo>/.local-artifacts/<resolved-filename>.md`.
 
+Header stamping at write time: set `commit_alignment:` per the interview answer — `commit-aligned` (code default) or `commit-free`. A `commit-free` declaration records the user's explicit opt-out, the same pattern as `artifact_sync: off`; under `commit-free`, no `commit:` bullets appear anywhere in the plan.
+
 Revision policy: do not create, append, or normalize `## Revision History` in the plan. If an existing plan already contains that section, leave it unchanged unless the user explicitly asks to edit it.
 
 Confirm the path back to the user.
@@ -389,6 +393,7 @@ See [phase-rules.md](./references/phase-rules.md) for the full checklist.
 - **Phase 1 is always**: Baseline establishment — for code plans (default) this is Discovery & test scaffolding; other declarations use their own baseline instrument
 - **Last phase is always**: Cleanup & docs (an optional plan-encoded Review phase may sit immediately before it; Cleanup is never displaced)
 - Each phase must be **atomic and committable**: the plan's declared verification gates pass, deliverable stands alone (code default: tests pass, coverage does not regress)
+- **Commit-aligned composition** (`commit_alignment: commit-aligned` plans): order and group tasks so related changes concentrate into individually mergeable units — each unit compiles and passes its gates standalone, mirroring phase-committability at unit scale; mark each unit-closing task with a `commit:` bullet per [task-format.md](./references/task-format.md). Granularity follows mergeability, not phase boundaries ([Commit Conventions](../../../docs/Commit-Conventions.md)) — a phase may hold several units; a unit may span a phase boundary
 - Include verification tasks alongside work tasks in every phase (code default: test tasks with code tasks) — never defer all verification to a final phase
 - TDD red-green cycles must close within the same phase (code declaration)
 - When old and new code mix across phases, prefer a dedicated early old-code cleanup phase — see [phase-rules.md](./references/phase-rules.md) for patterns

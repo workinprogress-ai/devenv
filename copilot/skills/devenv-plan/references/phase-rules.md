@@ -17,6 +17,30 @@ Typical non-code declarations: docs — lint + link-check + consistency pass aga
 
 Choosing `milestone-green` removes the need for the coverage escape hatch (Hard rule 4) in most plans — one declared instrument instead of scattered workarounds. Hard rule 5's in-phase red-green ban applies only under `phase-green`.
 
+### Commit points and green policy
+
+A plan declaring `commit_alignment: commit-aligned` (header field; the bullet
+format lives in [task-format.md](./task-format.md)) interacts with the green
+policy as follows:
+
+- **Commit points sit only at committable states** — a `commit:` bullet marks
+  where a unit is complete and its gates pass. Under `code (phase-green)` that
+  is any task boundary; under `code (milestone-green)` intermediate phases carry
+  declared-red work, so **no commit point may sit at a declared-red state** —
+  the unit closes at the next green state, typically the milestone phase's
+  `.100` gate.
+- **The `.100` phase-gate task may carry a `commit:` bullet** for the
+  phase-closing commit — the gate's green run is the unit's committable proof.
+- **Drift is a deviation, not an error.** Reality may split one declared unit
+  into multiple commits (each still individually mergeable per
+  [Commit Conventions](../../../../docs/Commit-Conventions.md)) or defer a point to
+  a later task. Record the divergence in the phase handback and rewrite the
+  plan's `commit:` bullets to current state.
+- Granularity follows mergeability, not phase boundaries — a phase may hold
+  several declared units, and a unit may span a phase boundary, closing at its
+  end wherever that lands.
+
+
 ## Hard rules
 
 1. **Phase 1 is always: Baseline establishment** — understand and verify what exists before changing it. For code work (the default declaration) this is **Discovery & test scaffolding**:
