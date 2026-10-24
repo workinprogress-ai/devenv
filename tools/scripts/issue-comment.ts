@@ -20,7 +20,7 @@ import { spawnSync } from "node:child_process";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { isDevenvRepoGated, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { checkTargetRepo, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesComment } from "../lib/providers/github/issues.ts";
 
 assertNodeFloor();
@@ -135,24 +135,6 @@ function composeInEditor(): string {
 
 /** The devenv-repo safety gate (check_target_repo): operating on the devenv
  * checkout itself needs DEVENV_REPO or the --devenv override. */
-function checkTargetRepo(allowDevenv: boolean): void {
-  const r = spawnSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" });
-  if (r.status !== 0) {
-    logError("Not in a git repository");
-    process.exit(1);
-  }
-  if (!isDevenvRepoGated()) return;
-  if (process.env["DEVENV_REPO"] !== undefined && process.env["DEVENV_REPO"] !== "") return;
-  if (allowDevenv) {
-    logInfo("Performing operation in devenv repository (safety override enabled)");
-    return;
-  }
-  logError("The current repository appears to be the devenv repository itself");
-  console.log("Operations should be performed in target project repositories, not in devenv");
-  console.log("To target a project repo, prefix the command with DEVENV_REPO=<owner>/<repo>");
-  console.log("To override this safety check (devenv-repo work only), pass the --devenv flag");
-  process.exit(1);
-}
 
 async function main(argv: string[]): Promise<number> {
   const { parsed: args, positional } = parseCliArgs(argv);

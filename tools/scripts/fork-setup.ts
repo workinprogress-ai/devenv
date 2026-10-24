@@ -16,7 +16,7 @@ const die = (msg: string, code: number): never => {
 };
 
 if (process.argv[2] === "--help" || process.argv[2] === "-h") {
-  console.log(`fork-setup.sh — one-time setup of this repo's upstream relationship
+  console.log(`fork-setup — one-time setup of this repo's upstream relationship
 
 Idempotently adds a fetch-only \`upstream\` git remote and confirms the
 \`upstream_repo\` and \`upstream_branch\` values from the \`[fork]\` section in

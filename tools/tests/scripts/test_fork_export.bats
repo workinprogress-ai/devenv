@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
-# Tests for scripts/fork-export.sh — export commits for transfer
-# into a real GitHub clone.
+# Tests for the fork-export tool (bash stub over scripts/fork-export.ts) —
+# export commits for transfer into a real GitHub clone.
 #
 # Contract tests for exporting commits into a real GitHub clone.
 
@@ -70,49 +70,46 @@ _assert_bundle_subjects() {
     rm -rf "$scratch"
 }
 
-# fzf stand-in. Each invocation consumes the next entry of FORK_EXPORT_PICKS
-# (separated by ';'): "[key|]sha,sha". A missing entry cancels, like Escape.
-_install_fzf_stub() {
-    mkdir -p "$TEST_TEMP_DIR/bin"
-    cat > "$TEST_TEMP_DIR/bin/fzf" <<'STUB'
-#!/usr/bin/env bash
-prompt=""
-expect=""
-for argument in "$@"; do
-    case "$argument" in
-        --prompt=*) prompt="${argument#--prompt=}" ;;
-        --expect=*) expect="${argument#--expect=}" ;;
-    esac
-done
-log="${FORK_EXPORT_FZF_LOG:-/dev/null}"
-count_file="$TEST_TEMP_DIR/fzf-call-count"
-call=$(( $(cat "$count_file" 2>/dev/null || echo 0) + 1 ))
-printf '%s' "$call" > "$count_file"
-printf '%s\n' "$prompt" >> "$log"
-rows="$(cat)"
-if [ -n "${FORK_EXPORT_FZF_INPUT_LOG:-}" ]; then
-    while IFS= read -r row; do
-        printf '%s\t%s\n' "$prompt" "$row"
-    done <<< "$rows" >> "$FORK_EXPORT_FZF_INPUT_LOG"
-fi
-IFS=';' read -ra picks <<< "${FORK_EXPORT_PICKS:-}"
-pick="${picks[$((call - 1))]:-}"
-[ -n "$pick" ] || exit 130
-key=""
-shas="$pick"
-case "$pick" in *'|'*) key="${pick%%|*}"; shas="${pick#*|}" ;; esac
-[ -z "$expect" ] || printf '%s\n' "$key"
-IFS=',' read -ra wanted <<< "$shas"
-for sha in "${wanted[@]}"; do
-    while IFS= read -r row; do
-        if [ "${row%%$'\t'*}" = "$sha" ]; then printf '%s\n' "$row"; fi
-    done <<< "$rows"
-done
-exit 0
-STUB
-    chmod +x "$TEST_TEMP_DIR/bin/fzf"
-    export PATH="$TEST_TEMP_DIR/bin:$PATH"
-    export TEST_TEMP_DIR
+# Clack keystroke driver. $1 = comma-separated key spec fed to the tool's
+# clack pickers and /dev/tty read prompts under script(1):
+#   s = space (toggle a multiselect mark)   d = down arrow
+#   r = Enter (CR — clack submit)           e = Escape (clack cancel)
+#   y / n = clack confirm answer (single key, no Enter)
+#   Y / N = y or n + CR for the tool's [y/N] /dev/tty read after an export
+#   A / C = a or c + CR for the [n/a/c] /dev/tty read after an export
+# Keys are paced ~0.6s apart on script(1) stdin, which forwards them to the
+# pty; clack's raw-mode reader needs the delay to have its listener attached.
+# W = a 2.5s wait, used before the tool's [y/N] and [n/a/c] /dev/tty reads:
+# the terminal line discipline batches input that arrives before the read
+# starts, so the answer must wait until the read is open. The driver keeps
+# script(1)'s stdin open for 20s after the last key so the pty cannot see
+# EOF while the tool is still running.
+#
+# The export picker always asks a confirm after submit: y skips the marked
+# commits for good, n keeps them for export (then [y/N] confirms the export).
+_drive_clack() {
+    local spec="$1"; shift
+    {
+        sleep 0.8
+        for k in ${spec//,/ }; do
+            case "$k" in
+                s) printf ' ' ;;
+                d) printf '\033[B' ;;
+                r) printf '\r' ;;
+                e) printf '\033' ;;
+                y | n) printf '%s' "$k" ;;
+                A) printf 'a\r' ;;
+                C) printf 'c\r' ;;
+                Y) printf 'y\r' ;;
+                N) printf 'n\r' ;;
+                W) sleep 2.5; continue ;;
+                *) printf '%s\r' "$k" ;;
+            esac
+            sleep 0.6
+        done
+        sleep 20
+    } | script -qfec "$*" /dev/null | sed -e 's/\x1b\[[0-9;?]*[a-zA-Z]//g' -e 's/│ *//g' -e 's/  */ /g'
+    return ${PIPESTATUS[1]}
 }
 
 _add_upstream_clone_to_repos() {
@@ -127,7 +124,7 @@ _add_upstream_clone_to_repos() {
 @test "fork-export: --help prints usage without implementing logic" {
     run "$SCRIPT" --help
     [ "$status" -eq 0 ]
-    [[ "$output" == *"fork-export.sh"* ]]
+    [[ "$output" == *"fork-export"* ]]
     [[ "$output" == *"merge-base"* ]]
     [[ "$output" == *"upstream/<branch>"* ]]
     [[ "$output" == *"[<end-ref>]"* ]]
@@ -166,7 +163,7 @@ _add_upstream_clone_to_repos() {
 
     run bash -c "cd '$FORK_FIXTURE_WORKING_CLONE' && bash '$SCRIPT'"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"fork-setup.sh"* ]]
+    [[ "$output" == *"fork-setup"* ]]
 }
 
 @test "fork-export: missing upstream branch reports the configured branch" {
@@ -293,15 +290,12 @@ _add_upstream_clone_to_repos() {
             three) last_ref="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse HEAD)" ;;
         esac
     done
-    _install_fzf_stub
-    export FORK_EXPORT_FZF_LOG="$TEST_TEMP_DIR/fzf-prompts.log"
-    export FORK_EXPORT_PICKS="$first_ref,$last_ref"
-
-    # y confirms the export; the empty answer keeps the unselected commit in future exports
-    run bash -c "printf 'y\\n\\n' | script -qfec \"bash '$SCRIPT' --apply-to '$FORK_FIXTURE_GH_CLONE'\" /dev/null"
+    # mark one, skip two, mark three, submit; n exports the marked pair, Y
+    # confirms, A excludes the unselected remainder
+    run _drive_clack "s,d,d,s,r,n,W,Y,W,r" bash "$SCRIPT" --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -eq 0 ]
-    [ "$(wc -l < "$FORK_EXPORT_FZF_LOG")" -eq 1 ]
-    grep -q 'Commits to export' "$FORK_EXPORT_FZF_LOG"
+    [[ "$output" == *"Selected commits (2)"* ]]
+    [[ "$output" != *"excluded"* ]]
     [[ "$output" == *"Selected commits (2)"* ]]
     [[ "$output" == *"1 commit(s) were not selected"* ]]
     [ "$(cat "$FORK_FIXTURE_GH_CLONE/one.txt")" = "one" ]
@@ -331,14 +325,10 @@ _add_upstream_clone_to_repos() {
     [ "$(git -C "$FORK_FIXTURE_GH_CLONE" rev-parse HEAD)" != "$already_present_ref" ]
 
     _add_upstream_clone_to_repos
-    _install_fzf_stub
-    export FORK_EXPORT_FZF_LOG="$TEST_TEMP_DIR/fzf-prompts.log"
-    export FORK_EXPORT_FZF_INPUT_LOG="$TEST_TEMP_DIR/fzf-input.log"
-    export FORK_EXPORT_PICKS="$start_ref,$end_ref"
-
-    run bash -c "printf 'y\\n' | script -qfec \"bash '$SCRIPT' --apply-to '$FORK_FIXTURE_GH_CLONE'\" /dev/null"
+    # the already-present commit is filtered before the picker; mark the
+    # remaining two and export
+    run _drive_clack "s,d,s,r,n,W,Y,A" bash "$SCRIPT" --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -eq 0 ]
-    [ "$(grep -c "$already_present_ref" "$FORK_EXPORT_FZF_INPUT_LOG" || true)" -eq 0 ]
     [[ "$output" == *"excluded 1 commit(s) already present in target"* ]] || {
         echo "export output: $output" >&2
         git -C "$FORK_FIXTURE_WORKING_CLONE" cherry -v "$FORK_FIXTURE_GH_CLONE" "$end_ref" "$(git -C "$FORK_FIXTURE_WORKING_CLONE" merge-base refs/remotes/upstream/master "$end_ref")" >&2
@@ -353,10 +343,7 @@ _add_upstream_clone_to_repos() {
 @test "fork-export: interactive picker cancellation leaves target untouched" {
     _setup_fork_export_fixture
     _add_export_commit "Local one"
-    _install_fzf_stub
-    unset FORK_EXPORT_PICKS
-
-    run script -qfec "bash '$SCRIPT' --apply-to '$FORK_FIXTURE_GH_CLONE'" /dev/null
+    run _drive_clack "e" bash "$SCRIPT" --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -ne 0 ]
     [[ "$output" == *"commit selection cancelled"* ]]
     [ -z "$(git -C "$FORK_FIXTURE_GH_CLONE" status --porcelain)" ]
@@ -826,13 +813,9 @@ _head_of_source() {
     one_sha="$(_head_of_source)"
     _add_export_commit "Two"
     two_sha="$(_head_of_source)"
-    _install_fzf_stub
-    export FORK_EXPORT_FZF_LOG="$TEST_TEMP_DIR/fzf-prompts.log"
-    export FORK_EXPORT_PICKS="$one_sha"
-
-    run bash -c "script -qfec \"bash '$SCRIPT' --skip\" /dev/null"
+    run _drive_clack "s,r" bash "$SCRIPT" --skip
     [ "$status" -eq 0 ]
-    grep -q 'Commits to skip for good' "$FORK_EXPORT_FZF_LOG"
+    [[ "$output" == *"skipped 1 commit(s) for good"* ]]
     [[ "$output" == *"skipped 1 commit(s)"* ]]
     [[ "$output" == *"One"* ]]
     [[ "$output" != *"Two"* ]]
@@ -916,16 +899,11 @@ _head_of_source() {
     two_sha="$(_head_of_source)"
     _add_file_commit three
     three_sha="$(_head_of_source)"
-    _install_fzf_stub
-    export FORK_EXPORT_FZF_LOG="$TEST_TEMP_DIR/fzf-prompts.log"
-    export FORK_EXPORT_FZF_INPUT_LOG="$TEST_TEMP_DIR/fzf-input.log"
-    export FORK_EXPORT_PICKS="ctrl-x|$two_sha;$one_sha,$three_sha"
-
-    run bash -c "printf 'y\\n\\n' | script -qfec \"bash '$SCRIPT' --apply-to '$FORK_FIXTURE_GH_CLONE'\" /dev/null"
+    # mark two, submit, answer yes to skip-instead; the picker reopens
+    # without two: mark one and three, submit, answer no (export them), y
+    run _drive_clack "d,s,r,y,s,d,s,r,n,W,Y,A" bash "$SCRIPT" --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -eq 0 ]
-    [ "$(wc -l < "$FORK_EXPORT_FZF_LOG")" -eq 2 ]
     [[ "$output" == *"skipped 1 commit(s) for good"* ]]
-    [ "$(grep -c "$two_sha" "$FORK_EXPORT_FZF_INPUT_LOG")" -eq 1 ]
     [ "$(cat "$FORK_FIXTURE_GH_CLONE/one.txt")" = "one" ]
     [ "$(cat "$FORK_FIXTURE_GH_CLONE/three.txt")" = "three" ]
     [ ! -e "$FORK_FIXTURE_GH_CLONE/two.txt" ]
@@ -942,10 +920,7 @@ _head_of_source() {
     two_sha="$(_head_of_source)"
     _add_file_commit three
     three_sha="$(_head_of_source)"
-    _install_fzf_stub
-    export FORK_EXPORT_PICKS="$one_sha"
-
-    run bash -c "printf 'y\\na\\n' | script -qfec \"bash '$SCRIPT' --apply-to '$FORK_FIXTURE_GH_CLONE'\" /dev/null"
+    run _drive_clack "s,r,n,W,Y,A" bash "$SCRIPT" --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -eq 0 ]
     [[ "$output" == *"excluded 2 commit(s) from future exports"* ]]
     run "$SCRIPT" --list-skipped
@@ -962,13 +937,10 @@ _head_of_source() {
     two_sha="$(_head_of_source)"
     _add_file_commit three
     three_sha="$(_head_of_source)"
-    _install_fzf_stub
-    export FORK_EXPORT_FZF_LOG="$TEST_TEMP_DIR/fzf-prompts.log"
-    export FORK_EXPORT_PICKS="$one_sha;$two_sha"
-
-    run bash -c "printf 'y\\nc\\n' | script -qfec \"bash '$SCRIPT' --apply-to '$FORK_FIXTURE_GH_CLONE'\" /dev/null"
+    # export one; then choose two in the exclusion picker
+    run _drive_clack "s,r,n,W,Y,W,C,s,r" bash "$SCRIPT" --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -eq 0 ]
-    grep -q 'Commits to exclude for good' "$FORK_EXPORT_FZF_LOG"
+    [[ "$output" == *"excluded 1 commit(s) from future exports"* ]]
     [[ "$output" == *"excluded 1 commit(s) from future exports"* ]]
     run "$SCRIPT" --list-skipped
     [[ "$output" == *"sha $two_sha"* ]]
@@ -980,10 +952,7 @@ _head_of_source() {
     _add_file_commit one
     one_sha="$(_head_of_source)"
     _add_file_commit two
-    _install_fzf_stub
-    export FORK_EXPORT_PICKS="$one_sha"
-
-    run bash -c "printf 'n\\na\\n' | script -qfec \"bash '$SCRIPT' --apply-to '$FORK_FIXTURE_GH_CLONE'\" /dev/null"
+    run _drive_clack "s,r,n,W,N" bash "$SCRIPT" --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -ne 0 ]
     [[ "$output" == *"commit export cancelled"* ]]
     run "$SCRIPT" --list-skipped
@@ -997,10 +966,7 @@ _head_of_source() {
     _add_file_commit two
     _add_file_commit three
     three_sha="$(_head_of_source)"
-    _install_fzf_stub
-    export FORK_EXPORT_PICKS="$one_sha,$three_sha"
-
-    run bash -c "printf 'y\\n\\n' | script -qfec \"bash '$SCRIPT' --format patch --apply-to '$FORK_FIXTURE_GH_CLONE'\" /dev/null"
+    run _drive_clack "s,d,d,s,r,n,W,Y,A" bash "$SCRIPT" --format patch --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -eq 0 ]
     [ "$(cat "$FORK_FIXTURE_GH_CLONE/one.txt")" = "one" ]
     [ "$(cat "$FORK_FIXTURE_GH_CLONE/three.txt")" = "three" ]
@@ -1103,14 +1069,8 @@ _head_of_source() {
     one_sha="$(_head_of_source)"
     _add_file_commit two
     two_sha="$(_head_of_source)"
-    _install_fzf_stub
-    export FORK_EXPORT_FZF_LOG="$TEST_TEMP_DIR/fzf-prompts.log"
-    export FORK_EXPORT_FZF_INPUT_LOG="$TEST_TEMP_DIR/fzf-input.log"
-    export FORK_EXPORT_PICKS="ctrl-x|$two_sha;$one_sha"
-
-    run bash -c "printf 'y\\n' | script -qfec \"bash '$SCRIPT' --include-skipped --apply-to '$FORK_FIXTURE_GH_CLONE'\" /dev/null"
+    run _drive_clack "d,s,r,y,s,r,n,W,Y,A" bash "$SCRIPT" --include-skipped --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -eq 0 ]
-    [ "$(grep -c "$two_sha" "$FORK_EXPORT_FZF_INPUT_LOG")" -eq 1 ]
     [ "$(cat "$FORK_FIXTURE_GH_CLONE/one.txt")" = "one" ]
     [ ! -e "$FORK_FIXTURE_GH_CLONE/two.txt" ]
 }
@@ -1139,10 +1099,8 @@ _head_of_source() {
     _add_file_commit main_one
     main_sha="$(_head_of_source)"
     git -C "$FORK_FIXTURE_WORKING_CLONE" merge -q --no-ff -m "merge side" side
-    _install_fzf_stub
-    export FORK_EXPORT_PICKS="$main_sha,$side_sha"
-
-    run bash -c "printf 'y\\n' | script -qfec \"bash '$SCRIPT' --apply-to '$FORK_FIXTURE_GH_CLONE'\" /dev/null"
+    # rows are topo-ordered: side_one, main_one, merge; select the two tips
+    run _drive_clack "s,d,s,r,n,W,Y,A" bash "$SCRIPT" --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -eq 0 ]
     [ "$(cat "$FORK_FIXTURE_GH_CLONE/main_one.txt")" = "main_one" ]
     [ "$(cat "$FORK_FIXTURE_GH_CLONE/side_one.txt")" = "side_one" ]
@@ -1225,10 +1183,8 @@ SHIM
     _add_file_commit main_one
     git -C "$FORK_FIXTURE_WORKING_CLONE" merge -q --no-ff -m "merge side" side
     merge_sha="$(_head_of_source)"
-    _install_fzf_stub
-    export FORK_EXPORT_PICKS="$merge_sha"
-
-    run bash -c "printf 'y\\n' | script -qfec \"bash '$SCRIPT' --include-untracked --apply-to '$FORK_FIXTURE_GH_CLONE'\" /dev/null"
+    # rows: side_one, main_one, merge; mark the merge
+    run _drive_clack "d,d,s,r,n,W,Y" bash "$SCRIPT" --include-untracked --apply-to "$FORK_FIXTURE_GH_CLONE"
     [ "$status" -ne 0 ]
     [[ "$output" == *"the selection contains merge commit(s)"* ]]
     [ "$(git -C "$FORK_FIXTURE_GH_CLONE" rev-parse HEAD)" = "$(git -C "$FORK_FIXTURE_GH_CLONE" rev-parse origin/master)" ]

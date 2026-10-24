@@ -25,7 +25,7 @@ import { logDebug, logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { openInEditor } from "../lib/core/editor.ts";
 import { isInteractive } from "../lib/ui/prompts.ts";
-import { isDevenvRepoGated, providerRepoSplit, providerRepoTarget, ghApiSync } from "../lib/providers/provider-core.ts";
+import { checkTargetRepo, ghApiSync, providerRepoSplit, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesCreate, issuesSetType, issueGraphLink } from "../lib/providers/github/issues.ts";
 
 assertNodeFloor();
@@ -83,22 +83,6 @@ Examples:
 }
 
 // --- Target-repo guard (same contract as the other issue tools) -----------
-
-function checkTargetRepo(allowDevenv: boolean): void {
-  const r = spawnSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" });
-  if (r.status !== 0) {
-    logError("Not in a git repository");
-    process.exit(1);
-  }
-  if (!isDevenvRepoGated()) return;
-  if (process.env["DEVENV_REPO"] !== undefined && process.env["DEVENV_REPO"] !== "") return;
-  if (allowDevenv) return;
-  logError("The current repository appears to be the devenv repository itself");
-  console.log("Operations should be performed in target project repositories, not in devenv");
-  console.log("To target a project repo, prefix the command with DEVENV_REPO=<owner>/<repo>");
-  console.log("To override this safety check (devenv-repo work only), pass the --devenv flag");
-  process.exit(1);
-}
 
 // --- Body-source resolution (shared markdown-body contract) ---------------
 
