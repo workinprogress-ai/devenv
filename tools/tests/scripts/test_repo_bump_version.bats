@@ -23,7 +23,7 @@ load ../test_helper
 }
 
 @test "repo-bump-version.sh requires repository list" {
-  run bash -c "$PROJECT_ROOT/tools/scripts/repo-bump-version.sh patch < /dev/null 2>&1"
+  run bash -c "$PROJECT_ROOT/tools/repo-bump-version patch < /dev/null 2>&1"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "No repositories provided" ]]
 }

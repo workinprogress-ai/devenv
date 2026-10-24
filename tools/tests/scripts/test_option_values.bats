@@ -25,7 +25,7 @@ arms_missing_check() {
 
 @test "every option arm that reads \$2 checks it with require_option_value" {
     local offenders
-    offenders="$(arms_missing_check "$SCRIPTS"/*.sh)"
+    offenders="$(arms_missing_check "$SCRIPTS"/*.sh 2>/dev/null)"
     [ -z "$offenders" ] || { echo "option arms without require_option_value:"; echo "$offenders"; false; }
 }
 
@@ -42,12 +42,7 @@ arms_missing_check() {
     local pair script opt
     for pair in issue-list:--state pr-list:--state pipelines-status:--status; do
         script="${pair%%:*}"; opt="${pair#*:}"
-        if [[ "$script" == pipelines-status ]]; then
-            # still a bash tool (pipelines family converts later)
-            run bash "$SCRIPTS/$script.sh" "$opt"
-        else
-            run node "$SCRIPTS/$script.ts" "$opt"
-        fi
+        run "$PROJECT_ROOT/tools/$script" "$opt"
         [ "$status" -eq 2 ] || { echo "$script $opt: status $status: $output"; return 1; }
         [[ "$output" != *"unbound variable"* ]] || { echo "$script: $output"; return 1; }
         [[ "$output" == *"$opt"* ]] || { echo "$script: option not named: $output"; return 1; }

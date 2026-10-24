@@ -8,7 +8,7 @@ load ../test_helper
 
 setup() {
     test_helper_setup
-    SCRIPT="$PROJECT_ROOT/tools/scripts/tunnel-ports.sh"
+    SCRIPT="$PROJECT_ROOT/tools/tunnel-ports"
     mkdir -p "$TEST_TEMP_DIR/bin"
     export SSH_LOG="$TEST_TEMP_DIR/ssh-args.log"
     export SSH_PID_LOG="$TEST_TEMP_DIR/ssh-pids.log"
@@ -35,7 +35,7 @@ run_tunnels() {
             sleep 0.1
         done
         printf 'x'
-    } | bash "$SCRIPT" "$@"
+    } | "$SCRIPT" "$@"
 }
 
 @test "no arguments prints the usage line instead of an unbound-variable error" {

@@ -109,7 +109,7 @@ issue_read_status() {
             printf '%s' "$st"
             return 0
         fi
-    done < <(bash "${ISSUE_GRAPH_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/scripts/project-list-for-issue.sh" "$issue" ${override[@]+"${override[@]}"} 2>/dev/null)
+    done < <(bash "${ISSUE_GRAPH_TOOLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/project-list-for-issue" "$issue" ${override[@]+"${override[@]}"} 2>/dev/null)
     return 0
 }
 

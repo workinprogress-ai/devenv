@@ -596,7 +596,7 @@ _add_upstream_clone_to_repos() {
 }
 
 @test "fork-export: patch mode applies with git am -3 so context drift falls back to a three-way merge" {
-    grep -q 'am -3 "\${PATCH_FILES\[@\]}"' "$DEVENV_TOOLS/scripts/fork-export.sh"
+    grep -q '"-C", targetRoot, "am", "-3"' "$DEVENV_TOOLS/scripts/fork-export.ts"
     _setup_fork_export_fixture
     # The target clone's file differs in context from the fork's: plain git am would fail.
     printf 'l1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\nl9\n' > "$FORK_FIXTURE_GH_CLONE/ctx.txt"

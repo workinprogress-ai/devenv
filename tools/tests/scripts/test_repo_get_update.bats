@@ -8,8 +8,8 @@ bats_require_minimum_version 1.5.0
 
 load ../test_helper
 
-SCRIPT="$BATS_TEST_DIRNAME/../../scripts/repo-get.sh"
-UPDATE_ALL="$BATS_TEST_DIRNAME/../../scripts/repo-update-all.sh"
+SCRIPT="$BATS_TEST_DIRNAME/../../repo-get"
+UPDATE_ALL="$BATS_TEST_DIRNAME/../../repo-update-all"
 
 setup() {
     test_helper_setup
@@ -41,15 +41,18 @@ advance_origin() {   # a new commit on origin's main
     git -C "$SEED" push -q origin main
 }
 
-# update_clone: run repo-get's update_existing_repo against $CLONE
+# update_clone: run the real repo-get against $CLONE — no-arg context mode
+# from inside the clone (DEVENV_ROOT sandbox places repos/clone at $CLONE).
 update_clone() {
-    run bash -c "
-        set -euo pipefail
-        configure_git_repo() { :; }
-        REPO_NAME=clone TARGET_DIR='$CLONE' GIT_URL=unused
-        $(sed -n '/^detect_default_branch()/,/^}/p;/^update_existing_repo()/,/^}/p' "$SCRIPT")
-        update_existing_repo
-    "
+    local root="$TEST_TEMP_DIR/getroot"
+    mkdir -p "$root/repos" "$root/bin"
+    printf '[organization]\norg=test-org\n' > "$root/devenv.config"
+    # gh auth-status stub: the update path's provider gates run before any
+    # git work; only `auth status` is answered, everything else fails loud.
+    printf '#!/bin/sh\n[ "$1" = auth ] && exit 0\nexit 1\n' > "$root/bin/gh"
+    chmod +x "$root/bin/gh"
+    ln -sfn "$CLONE" "$root/repos/clone"
+    run bash -c "cd '$CLONE' && DEVENV_ROOT='$root' PATH='$root/bin:$PROJECT_ROOT/tools:$PATH' '$SCRIPT'"
 }
 
 @test "a clean clone on the default branch fast-forwards to origin" {
@@ -111,10 +114,10 @@ update_clone() {
     local fake="$TEST_TEMP_DIR/tools"
     mkdir -p "$fake/scripts"
     cp -r "$BATS_TEST_DIRNAME/../../lib" "$fake/lib"
-    printf '#!/bin/bash\necho nope >&2\nexit 1\n' > "$fake/scripts/repo-get.sh"
-    chmod +x "$fake/scripts/repo-get.sh"
-    cp "$UPDATE_ALL" "$fake/scripts/repo-update-all.sh"
-    run bash "$fake/scripts/repo-update-all.sh" --jobs 1
+    printf '#!/bin/bash\necho nope >&2\nexit 1\n' > "$fake/scripts/repo-get.ts"
+    chmod +x "$fake/scripts/repo-get.ts"
+    cp "$BATS_TEST_DIRNAME/../../scripts/repo-update-all.ts" "$fake/scripts/"
+    run node "$fake/scripts/repo-update-all.ts" --jobs 1
     [ "$status" -ne 0 ]
     [[ "$output" == *"Update failed"* ]]
 }

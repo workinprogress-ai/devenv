@@ -5,8 +5,8 @@ bats_require_minimum_version 1.5.0
 
 load ../test_helper
 
-@test "repo-get.sh has --help or usage function" {
-  run grep -E "(show_usage|usage\(\)|--help)" "$PROJECT_ROOT/tools/scripts/repo-get.sh"
+@test "repo-get has --help or usage" {
+  run grep -E "(show_usage|usage\(|--help)" "$PROJECT_ROOT/tools/scripts/repo-get.ts"
   [ "$status" -eq 0 ]
 }
 
@@ -22,8 +22,8 @@ load ../test_helper
   [[ "$output" =~ Usage: ]]
 }
 
-@test "repo-bump-version.sh has usage function" {
-  run grep "usage()" "$PROJECT_ROOT/tools/scripts/repo-bump-version.sh"
+@test "repo-bump-version has usage function" {
+  run grep "function usage" "$PROJECT_ROOT/tools/scripts/repo-bump-version.ts"
   [ "$status" -eq 0 ]
 }
 

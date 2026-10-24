@@ -37,14 +37,14 @@ setup() {
     # Assert on what the fan-out wrapper was actually asked to write: the
     # resolved status token of the configured event, for the given issue. The
     # WORKFLOW_CORE_TOOLS seam swaps only where the wrapper is found.
-    local wf="$STUB_DIR/wf/scripts"
+    local wf="$STUB_DIR/wf"
     mkdir -p "$wf"
-    cat > "$wf/project-update-issue.sh" <<STUB
+    cat > "$wf/project-update-issue" <<STUB
 #!/usr/bin/env bash
 echo "WF-WRITE \$*" >> "$STUB_DIR/calls.log"
 exit 0
 STUB
-    chmod +x "$wf/project-update-issue.sh"
+    chmod +x "$wf/project-update-issue"
     : > "$STUB_DIR/calls.log"
     run bash -c "source '$LIB' && WORKFLOW_CORE_TOOLS='$STUB_DIR/wf' workflow_on_event _on_begin_grooming 44"
     [ "$status" -eq 0 ]
@@ -55,14 +55,14 @@ STUB
 # targets the devenv repo's own issues on purpose: the write path carries the explicit
 # override for that case, and only for that case.
 @test "the status write passes --devenv only when DEVENV_REPO is unset" {
-    local wf="$STUB_DIR/wf/scripts"
+    local wf="$STUB_DIR/wf"
     mkdir -p "$wf"
-    cat > "$wf/project-update-issue.sh" <<STUB
+    cat > "$wf/project-update-issue" <<STUB
 #!/usr/bin/env bash
 echo "ARGS \$*" >> "$STUB_DIR/env.log"
 exit 0
 STUB
-    chmod +x "$wf/project-update-issue.sh"
+    chmod +x "$wf/project-update-issue"
     : > "$STUB_DIR/env.log"
     run env -u DEVENV_REPO bash -c "source '$LIB' && WORKFLOW_CORE_TOOLS='$STUB_DIR/wf' workflow_on_event _on_begin_grooming 44"
     [ "$status" -eq 0 ]
@@ -74,10 +74,10 @@ STUB
 }
 
 @test "on_event for an unknown event performs no write" {
-    local wf="$STUB_DIR/wf/scripts"
+    local wf="$STUB_DIR/wf"
     mkdir -p "$wf"
-    printf '#!/usr/bin/env bash\necho "WF-WRITE $*" >> "%s/calls.log"\n' "$STUB_DIR" > "$wf/project-update-issue.sh"
-    chmod +x "$wf/project-update-issue.sh"
+    printf '#!/usr/bin/env bash\necho "WF-WRITE $*" >> "%s/calls.log"\n' "$STUB_DIR" > "$wf/project-update-issue"
+    chmod +x "$wf/project-update-issue"
     : > "$STUB_DIR/calls.log"
     run bash -c "source '$LIB' && WORKFLOW_CORE_TOOLS='$STUB_DIR/wf' workflow_on_event _on_bogus 44"
     [ "$status" -eq 0 ]
@@ -111,15 +111,15 @@ STUB
 @test "cascade: write failure on a child does not stop the fan-out (best-effort)" {
     # The choke point warns and returns 0 on a failed write; the cascade
     # must still attempt every remaining child.
-    local wf="$STUB_DIR/wf/scripts"
+    local wf="$STUB_DIR/wf"
     mkdir -p "$wf"
-    cat > "$wf/project-update-issue.sh" <<STUB
+    cat > "$wf/project-update-issue" <<STUB
 #!/usr/bin/env bash
 echo "WF-WRITE \$*" >> "$STUB_DIR/calls.log"
 [ "\$1" = "48" ] && exit 1
 exit 0
 STUB
-    chmod +x "$wf/project-update-issue.sh"
+    chmod +x "$wf/project-update-issue"
     # jq-aware gh stub: answers the subIssues query with three children so
     # the real issue-graph reader drives the cascade.
     cat > "$STUB_DIR/gh" <<'STUB'
@@ -146,14 +146,14 @@ STUB
 @test "cascade: children read failure leaves parent written, no fan-out" {
     # issue_children failing (gh flake) must not block the parent's own
     # write; the cascade is skipped for this call.
-    local wf="$STUB_DIR/wf/scripts"
+    local wf="$STUB_DIR/wf"
     mkdir -p "$wf"
-    cat > "$wf/project-update-issue.sh" <<STUB
+    cat > "$wf/project-update-issue" <<STUB
 #!/usr/bin/env bash
 echo "WF-WRITE \$*" >> "$STUB_DIR/calls.log"
 exit 0
 STUB
-    chmod +x "$wf/project-update-issue.sh"
+    chmod +x "$wf/project-update-issue"
     printf '#!/usr/bin/env bash\nexit 1\n' > "$STUB_DIR/gh"
     chmod +x "$STUB_DIR/gh"
     : > "$STUB_DIR/calls.log"

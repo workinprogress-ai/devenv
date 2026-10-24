@@ -7,7 +7,7 @@ load ../test_helper
 
 setup() {
   test_helper_setup
-  SCRIPT="$DEVENV_ROOT/tools/scripts/config-read.sh"
+  SCRIPT="$DEVENV_ROOT/tools/config-read"
   WORK_DIR=$(mktemp -d)
   CONF="$WORK_DIR/devenv.config"
   printf '[copilot]\nengineering_repo=my-standards\nknowledge_subpath=${PROVIDER_ORG}/k/\n[workflows]\nstatus_workflow=A,B\n' > "$CONF"
@@ -27,7 +27,7 @@ teardown() { rm -rf "$WORK_DIR"; }
   mkdir -p "$TEST_TEMP_DIR/ident/.setup"
   printf 'acme\n' > "$TEST_TEMP_DIR/ident/.setup/provider_org.txt"
   run env DEVENV_ROOT="$TEST_TEMP_DIR/ident" DEVENV_ROOT_SET=1 \
-      bash "$SCRIPT" copilot knowledge_subpath --config "$CONF"
+      bash "$DEVENV_TOOLS/config-read" copilot knowledge_subpath --config "$CONF"
   [ "$status" -eq 0 ]
   [ "$output" = "acme/k/" ]
 }

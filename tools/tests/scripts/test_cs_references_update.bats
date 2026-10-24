@@ -9,7 +9,7 @@ load ../test_helper
 setup() {
     test_helper_setup
 
-    export SCRIPT_UNDER_TEST="$PROJECT_ROOT/tools/scripts/cs-references-update.sh"
+    export SCRIPT_UNDER_TEST="$PROJECT_ROOT/tools/cs-references-update"
     export REPO_DIR="$TEST_TEMP_DIR/test-repo"
     mkdir -p "$REPO_DIR/src"
 

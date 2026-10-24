@@ -28,51 +28,52 @@ load ../test_helper
   [[ "$output" =~ "Usage:" ]]
 }
 
-@test "project scripts use error handling library" {
-  for script in project-add-issue.sh project-update-issue.sh; do
-    run grep 'source.*error-handling.bash' "$PROJECT_ROOT/tools/scripts/$script"
+@test "project scripts carry the error-handling equivalent" {
+  for script in project-add-issue.ts project-update-issue.ts; do
+    run grep -E 'core/(exit-codes|logging)\.ts' "$PROJECT_ROOT/tools/scripts/$script"
     [ "$status" -eq 0 ]
   done
 }
 
-@test "project scripts call shared check_dependencies" {
-  for script in project-add-issue.sh project-update-issue.sh; do
-    run grep "check_dependencies" "$PROJECT_ROOT/tools/scripts/$script"
+@test "project scripts validate their dependencies up front" {
+  for script in project-add-issue.ts project-update-issue.ts; do
+    run grep -E "providerOrgGet|assertNodeFloor" "$PROJECT_ROOT/tools/scripts/$script"
     [ "$status" -eq 0 ]
   done
 }
 
 @test "project-add-issue.sh validates issue number argument" {
-  run grep -E "issue.*number|ISSUE_NUMBER" "$PROJECT_ROOT/tools/scripts/project-add-issue.sh"
+  run grep -E "issue.*[Nn]umber|issueNumbers" "$PROJECT_ROOT/tools/scripts/project-add-issue.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "project-add-issue.sh validates project argument" {
-  run grep -E "project|PROJECT" "$PROJECT_ROOT/tools/scripts/project-add-issue.sh"
+  run grep -E "project|Project" "$PROJECT_ROOT/tools/scripts/project-add-issue.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "project scripts have version information" {
-  for script in project-add-issue.sh project-update-issue.sh; do
-    run grep "SCRIPT_VERSION=" "$PROJECT_ROOT/tools/scripts/$script"
+  for script in project-add-issue.ts project-update-issue.ts; do
+    run grep -E 'Version: 1\.' "$PROJECT_ROOT/tools/scripts/$script"
     [ "$status" -eq 0 ]
   done
 }
 
-@test "project scripts source versioning library" {
-  for script in project-add-issue.sh project-update-issue.sh; do
-    run grep 'source.*versioning.bash' "$PROJECT_ROOT/tools/scripts/$script"
-    [ "$status" -eq 0 ]
-  done
-}
-
-@test "project-update-issue.sh validates issue number argument" {
-  run grep -E "issue.*number|ISSUE_NUMBER" "$PROJECT_ROOT/tools/scripts/project-update-issue.sh"
+@test "project scripts carry the status-workflow vocabulary loader" {
+  # The vocabulary loader (configGetArray over [workflows] status_workflow)
+  # is load-bearing only in project-update-issue; project-add-issue takes
+  # field values directly.
+  run grep -E 'status_workflow|configGetArray' "$PROJECT_ROOT/tools/scripts/project-update-issue.ts"
   [ "$status" -eq 0 ]
 }
 
-@test "project-add-issue.sh handles gh CLI errors gracefully" {
-  run grep -E "set -e|trap.*ERR" "$PROJECT_ROOT/tools/scripts/project-add-issue.sh"
+@test "project-update-issue.sh validates issue number argument" {
+  run grep -E "issue.*[Nn]umber|issueNumber" "$PROJECT_ROOT/tools/scripts/project-update-issue.ts"
+  [ "$status" -eq 0 ]
+}
+
+@test "project-add-issue handles provider errors gracefully (typed failures, no stack traces)" {
+  run grep -E "catch \(err\)|catch \{" "$PROJECT_ROOT/tools/scripts/project-add-issue.ts"
   [ "$status" -eq 0 ]
 }
 

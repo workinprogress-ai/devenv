@@ -23,20 +23,17 @@ load ../test_helper
   [[ "$output" =~ --jobs ]]
 }
 
-@test "repo-update-all.sh defines parallel job constants" {
-  run grep "readonly MAX_PARALLEL_JOBS" "$PROJECT_ROOT/tools/scripts/repo-update-all.sh"
+@test "repo-update-all defines parallel job constants" {
+  run grep "MAX_PARALLEL_JOBS" "$PROJECT_ROOT/tools/scripts/repo-update-all.ts"
   [ "$status" -eq 0 ]
-  run grep "readonly DEFAULT_PARALLEL_JOBS" "$PROJECT_ROOT/tools/scripts/repo-update-all.sh"
-  [ "$status" -eq 0 ]
-}
-
-@test "repo-update-all.sh uses xargs -P for parallelism" {
-  run grep "xargs -P" "$PROJECT_ROOT/tools/scripts/repo-update-all.sh"
+  run grep "DEFAULT_PARALLEL_JOBS" "$PROJECT_ROOT/tools/scripts/repo-update-all.ts"
   [ "$status" -eq 0 ]
 }
 
-@test "repo-update-all.sh exports update_single_repo" {
-  run grep "export -f update_single_repo" "$PROJECT_ROOT/tools/scripts/repo-update-all.sh"
+@test "repo-update-all runs updates in parallel (spawn pool, the xargs -P analogue)" {
+  run grep "updateSingleRepo" "$PROJECT_ROOT/tools/scripts/repo-update-all.ts"
+  [ "$status" -eq 0 ]
+  run grep "parallelJobs" "$PROJECT_ROOT/tools/scripts/repo-update-all.ts"
   [ "$status" -eq 0 ]
 }
 

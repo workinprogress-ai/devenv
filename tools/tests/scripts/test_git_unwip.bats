@@ -35,7 +35,7 @@ teardown() {
 @test "unwip: resets to the last non-WIP commit" {
   git commit -q --allow-empty -m "fix: real work"
   git commit -q --allow-empty -m "WIP: snapshot"
-  run bash "$DEVENV_TOOLS/scripts/git-unwip"
+  run bash "$DEVENV_TOOLS/git-unwip"
   [ "$status" -eq 0 ]
   [ "$(git log -1 --format=%s)" = "fix: real work" ]
 }
@@ -43,7 +43,7 @@ teardown() {
 @test "unwip: subject containing 'wip:' mid-message is NOT skipped" {
   git commit -q --allow-empty -m "fix: handle wip: items gracefully"
   git commit -q --allow-empty -m "WIP: snapshot"
-  run bash "$DEVENV_TOOLS/scripts/git-unwip"
+  run bash "$DEVENV_TOOLS/git-unwip"
   [ "$status" -eq 0 ]
   [ "$(git log -1 --format=%s)" = "fix: handle wip: items gracefully" ]
 }
@@ -52,7 +52,7 @@ teardown() {
   git commit -q --allow-empty -m "feat: base work"
   git commit -q --allow-empty -m "WIP: a"
   git commit -q --allow-empty -m "WIP: b"
-  run bash "$DEVENV_TOOLS/scripts/git-unwip"
+  run bash "$DEVENV_TOOLS/git-unwip"
   [ "$status" -eq 0 ]
   [ "$(git log -1 --format=%s)" = "feat: base work" ]
 }
@@ -63,7 +63,7 @@ teardown() {
   # a repo where even root is WIP-titled: re-init without non-WIP commits.
   git checkout -q --orphan wiponly
   git commit -q --allow-empty -m "WIP: only commit"
-  run bash "$DEVENV_TOOLS/scripts/git-unwip"
+  run bash "$DEVENV_TOOLS/git-unwip"
   [ "$status" -eq 1 ]
   [[ "$output" == *"no non-WIP commit"* ]]
 }
@@ -71,7 +71,7 @@ teardown() {
 @test "unwip: refuses on protected branch" {
   git commit -q --allow-empty -m "WIP: snapshot"
   git checkout -q master 2>/dev/null || git checkout -q main
-  run bash "$DEVENV_TOOLS/scripts/git-unwip"
+  run bash "$DEVENV_TOOLS/git-unwip"
   [ "$status" -eq 1 ]
   [[ "$output" == *"protected branch"* ]]
 }
@@ -85,7 +85,7 @@ teardown() {
   git push -q --force origin feature/x
   git reset -q --hard HEAD~1 2>/dev/null || true
 
-  run bash "$DEVENV_TOOLS/scripts/git-unwip"
+  run bash "$DEVENV_TOOLS/git-unwip"
   [ "$status" -eq 0 ]
   [[ "$output" == *"skipping force-push"* ]]
 }
