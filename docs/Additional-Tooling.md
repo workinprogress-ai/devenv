@@ -222,13 +222,13 @@ Examples:
 
 ```bash
 # Create a service with description and custom visibility
-repo-create.sh service.platform.auth --type service --description "Authentication service" --public
+repo-create service.platform.auth --type service --description "Authentication service" --public
 
 # Create a web app with custom description
-repo-create.sh app.web.dashboard --type app-web --description "User dashboard application"
+repo-create app.web.dashboard --type app-web --description "User dashboard application"
 
 # Interactive mode
-repo-create.sh --interactive
+repo-create --interactive
 ```
 
 **Interactive mode:**
@@ -337,7 +337,7 @@ git repo <repository-name>
 
 ### `repo-commit`
 
-The single sanctioned commit wrapper (source: `tools/scripts/repo-commit.sh`; invoke via the `tools/repo-commit` entry on `PATH`). Interactive-only by design: the suggested message arrives on argv or via `--file <path>` (preferred for anything longer than a one-line subject — immune to shell mangling), and the user's configured git editor always opens with it — a commit is created from the existing index only if the user saves the editor with a non-empty message. Refuses options (`-m`, `--yes`), non-interactive editors, and an empty index. Never stages (except via `--wip`), never bypasses hooks on the normal lane, never runs tests.
+The single sanctioned commit wrapper (source: `tools/scripts/repo-commit.ts`; invoke via the `tools/repo-commit` entry on `PATH`). Interactive-only by design: the suggested message arrives on argv or via `--file <path>` (preferred for anything longer than a one-line subject — immune to shell mangling), and the user's configured git editor always opens with it — a commit is created from the existing index only if the user saves the editor with a non-empty message. Refuses options (`-m`, `--yes`), non-interactive editors, and an empty index. Never stages (except via `--wip`), never bypasses hooks on the normal lane, never runs tests.
 
 Scratchpad refusal: blocked (exit 3) while a scratchpad is active in the repo — sandbox commits belong on the scratch branch via `repo-scratchpad commit`; salvage via `repo-scratchpad promote`.
 
@@ -2931,7 +2931,7 @@ service:
 - `repo-types.bash` (shared library)
 - `yq` (YAML processor)
 
-**Related:** See [repo-create](#repo-create) for initial repository creation details, and [Repo Creation Standards (repo-create.sh)](./Forking.md#repo-creation-standards-repo-createsh) in the Forking Guide for configuration options.
+**Related:** See [repo-create](#repo-create) for initial repository creation details, and [Repo Creation Standards (repo-create.ts)](./Forking.md#repo-creation-standards-repo-createts) in the Forking Guide for configuration options.
 
 ## Fork Tooling
 
