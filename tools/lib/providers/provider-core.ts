@@ -4,8 +4,9 @@
 //
 // Contract (tools/lib/providers/CONTRACT.md):
 //   - Detection is config-driven: the `[provider] name` key in devenv.config,
-//     defaulting to github. Only github ships in TS; azure bridges
-//     through the bash seam.
+//     defaulting to github. Both providers ship TS domain verbs
+//     (providers/{github,azure}/*.ts); azure's setup/credential scripts stay
+//     bash (bootstrap chain rule).
 //   - The repository is the first argument of every repo-scoped verb; an
 //     empty string means "the resolved target": DEVENV_REPO, then the
 //     working directory's repository.
@@ -40,10 +41,10 @@ export function providerConfigPath(): string {
     : join(TOOLS_ROOT, "..", "devenv.config");
 }
 
-/** Providers with a TS implementation. The bash azure provider has no TS
- * module; requesting it throws a named error pointing at the bridge
- * decision (the migration order document owns when azure lands in TS). */
-export const TS_PROVIDERS = ["github"] as const;
+/** Providers with a TS implementation. Azure's domain verbs shipped in TS
+ * (providers/azure/*.ts); its setup/credential scripts stay bash (bootstrap
+ * chain rule). */
+export const TS_PROVIDERS = ["github", "azure"] as const;
 export type ProviderName = (typeof TS_PROVIDERS)[number];
 
 /** Thrown by facade verbs on contract violations and transport failures.
@@ -58,15 +59,17 @@ export class ProviderError extends Error {
 let detected: ProviderName | undefined;
 
 /** Resolve the active provider from devenv.config `[provider] name`,
- * defaulting to github (org policy). Cached; `force` re-reads. */
+ * defaulting to github (org policy). Cached; `force` re-reads. Throws a
+ * named error for a provider name that ships neither TS verbs nor a bash
+ * seam (a typo, not a supported provider). */
 export function providerDetect(force = false): ProviderName {
   if (detected !== undefined && !force) return detected;
   const raw = configGetRaw(providerConfigPath(), "provider", "name") ?? "";
   const name = raw.trim() === "" ? "github" : (raw.trim() as ProviderName);
   if (!TS_PROVIDERS.includes(name)) {
     throw new ProviderError(
-      `provider '${name}' has no TypeScript implementation (shipped: ${TS_PROVIDERS.join(", ")}) — ` +
-        `azure-domain work must go through the bash provider seam`,
+      `provider '${name}' is not shipped (shipped: ${TS_PROVIDERS.join(", ")}) — ` +
+        `check [provider] name in devenv.config`,
     );
   }
   detected = name;
