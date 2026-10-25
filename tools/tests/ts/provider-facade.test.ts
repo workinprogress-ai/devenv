@@ -104,9 +104,14 @@ describe("provider-core (TS facade core)", () => {
     expect(core.providerDetect()).toBe("github");
   });
 
-  it("a provider without a TS module throws a named error (azure bridge decision)", async () => {
+  it("a provider name that ships nothing throws a named error", async () => {
+    const { core } = await loadFacade({ provider: "gitea" });
+    expect(() => core.providerDetect(true)).toThrow(/is not shipped/);
+  });
+
+  it("azure is a shipped provider (domain verbs in TS) — detection succeeds", async () => {
     const { core } = await loadFacade({ provider: "azure" });
-    expect(() => core.providerDetect(true)).toThrow(/no TypeScript implementation/);
+    expect(core.providerDetect(true)).toBe("azure");
   });
 
   it("providerRepoSplit throws the bash seam's defined error on an unresolvable spec", async () => {

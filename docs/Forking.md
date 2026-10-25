@@ -552,11 +552,11 @@ Behavior:
 
 These three keys wire the whole repo constellation — the machine-managed knowledge clone, its `repos/` modification workspace, and the engineering-standards clone. For the full relationship map (who manages which copy, what refreshes when, where edits go), see [How devenv relates to the sub-repos](./Knowledge-and-Engineering-Patterns.md#how-devenv-relates-to-the-sub-repos).
 
-## Repo Creation Standards (repo-create.sh)
+## Repo Creation Standards (repo-create)
 
 > **Provider capability note:** rulesets, templates, merge-button control, Discussions, and most of the toggles below are GitHub-provider capabilities (gated by `provider_require_capability` in the modules). A fork on a provider without them either substitutes (ADO branch policies for rulesets) or leaves them unset — creation degrades with a warning, not a failure.
 
-If you use `tools/scripts/repo-create.sh`, configure `tools/config/repo-types.yaml`:
+If you use `tools/repo-create`, configure `tools/config/repo-types.yaml`:
 
 ### Configuration per type
 
