@@ -133,7 +133,7 @@ Ask if not provided: issue # or path to a plan markdown.
 #### issue intake
 
 - **issue**:
-  1. **Issue without an existing plan artifact → materialize a plan first (issue intake gate).** If step 2 below finds no plan artifact for the issue (and no local `Plan-issue-<N>-*.md` exists), do not refuse — this is the issue intake gate, sibling to [ad-hoc intake](#2a-ad-hoc-task-list-intake): (a) read the issue body (`issue-get <N>`, repo via `DEVENV_REPO`); (b) run the same suitability judgment as ad-hoc intake (well-suited / borderline / better-as-pair; better-as-pair → recommend `/devenv-pair`); (c) draft a **small plan** from the issue — goal line, acceptance criteria derived from the issue's stated outcome, checkboxed tasks with verifiable completion signals, declared verification approach; keep it genuinely small (an issue-sized plan, typically 1–2 phases — a distinct tier from the plan skill's micro-plan lane, which is the smaller issue-less form); (d) show it for explicit user approval; (e) write it as `Plan-issue-<N>-001.md` in the target repo's `.local-artifacts/` and continue with it as the ledger. The plan may be published to the issue as a plan artifact afterwards per the standard offer.
+  1. **Issue without an existing plan artifact → materialize a plan first (issue intake gate).** If step 2 below finds no plan artifact for the issue (and no local `Plan-issue-<N>-*.md` exists), do not refuse — this is the issue intake gate, sibling to [ad-hoc intake](#2a-ad-hoc-task-list-intake): (a) read the issue body (`issue-get <N>`, repo via `DEVENV_REPO`); (b) run the same suitability judgment as ad-hoc intake (Delegation / Supervised / Pairing; Pairing → recommend `/devenv-pair`); (c) draft a **small plan** from the issue — goal line, acceptance criteria derived from the issue's stated outcome, checkboxed tasks with verifiable completion signals, declared verification approach; keep it genuinely small (an issue-sized plan, typically 1–2 phases — a distinct tier from the plan skill's micro-plan lane, which is the smaller issue-less form); (d) show it for explicit user approval; (e) write it as `Plan-issue-<N>-001.md` in the target repo's `.local-artifacts/` and continue with it as the ledger. The plan may be published to the issue as a plan artifact afterwards per the standard offer.
    2. If no local file exists, resolve one plan artifact comment (artifacts may be typed `implementation-plan`) for this issue:
       - If user provided `doc_id`, use `issue-artifact-select --issue <N> --doc-id <DOC_ID>`.
       - Otherwise use `issue-artifact-select --issue <N> --artifact-type plan`; if ambiguous, list candidates with `issue-artifact-list --issue <N> --artifact-type plan --pretty` and ask the user which `doc_id` to use.
@@ -197,7 +197,7 @@ Ask: *"Delegating the entire plan, specific phases, or a task range?"* — a bou
 ### 2a. Ad-Hoc Task List Intake
 
 When handed an ad-hoc decomposed task list — pasted into chat or carried over from a pair-programming session — treat it as **input, never as the ledger**. An in-context list cannot be refreshed, ticked, drift-checked, or survive context compaction; delegation's machinery requires a persistent plan file. Run this gate in order:
-1. **Suitability first, as always.** Rate the *work* well-suited / borderline / better-as-pair below. Ad-hoc provenance changes nothing — high-impact is high-impact.
+1. **Suitability first, as always.** Rate the *work* Delegation / Supervised / Pairing (the Phase TOC Handling terms; criteria below). Ad-hoc provenance changes nothing — high-impact is high-impact.
 2. **Viability audit** of the list itself. It passes only if **every** condition holds:
    - **Bounded** — each task is single-concern and pass/fail-able without judgment calls. A monolith wrapped as one line fails.
    - **Decision-free** — no unresolved choices hiding inside tasks. Pair chunk lists legitimately defer decisions because a human reviews between chunks; an autonomous run has no such net.
@@ -228,21 +228,23 @@ Invariants that do **not** relax:
 
 ### 3. Suitability analysis
 
-For the in-scope phases, rate each phase as one of. Suitability is judged against the work's nature, not its language: mechanical file operations, runbook stages, and document work delegate as well as code does.
+For the in-scope phases, rate each phase as one of the ratings below. When the plan's Phase TOC table carries Handling and Complexity recommendations, read them as the planner's input — confirm them with the user during commissioning (they are recommendations, not bindings; the user's commissioning answers govern) and rate independently when the plan carries no table. Suitability is judged against the work's nature, not its language: mechanical file operations, runbook stages, and document work delegate as well as code does.
 
 | Rating | Criteria |
 |---|---|
-| **well-suited** | Mechanical refactors, rename sweeps, test scaffolding, cleanup, docs, boilerplate generation — and any mechanically-executable non-code work: file operations, runbook stages with explicit checks, scriptable transforms |
-| **borderline** | Mixed — some mechanical, some judgment calls. Surface reasoning; let user decide. |
-| **better-as-pair** | High-impact / public API changes / data shape changes / security / novel architecture / non-trivial concurrency |
+| **Delegation** (well-suited) | Mechanical refactors, rename sweeps, test scaffolding, cleanup, docs, boilerplate generation — and any mechanically-executable non-code work: file operations, runbook stages with explicit checks, scriptable transforms |
+| **Supervised** (borderline) | Mixed — some mechanical, some judgment calls. Surface reasoning; let user decide. |
+| **Pairing** (better-as-pair) | High-impact / public API changes / data shape changes / security / novel architecture / non-trivial concurrency |
+
+Ratings use the same Handling vocabulary as the plan's Phase TOC table (Delegation / Supervised / Pairing) so chat output, the table, and the commissioning answer all speak one language; the parenthesized legacy terms remain readable in older plans.
 
 Present the ratings in a short table with one-line reasoning per phase.
 
 **Decision rules**:
 
-- If any in-scope phase is `better-as-pair`, flag it clearly: explain the risk and recommend switching to `/devenv-pair` for that phase. Then wait for the user's response. If the user wants to proceed with delegation anyway, accept it — note the concern in that phase's completion handback and proceed.
-- If **all** in-scope phases are `better-as-pair`, recommend switching to `/devenv-pair` entirely. If the user declines and wants to continue with delegation, accept that and proceed.
-- For `borderline`, note the concern in the suitability table and proceed. Surface it again in that phase's completion handback so the user can assess it after reviewing the work.
+- If any in-scope phase rates **Pairing**, flag it clearly: explain the risk and recommend switching to `/devenv-pair` for that phase. Then wait for the user's response. If the user wants to proceed with delegation anyway, accept it — note the concern in that phase's completion handback and proceed.
+- If **all** in-scope phases rate **Pairing**, recommend switching to `/devenv-pair` entirely. If the user declines and wants to continue with delegation, accept that and proceed.
+- For **Supervised** (borderline), note the concern in the suitability table and proceed. Surface it again in that phase's completion handback so the user can assess it after reviewing the work.
 
 > **Skill-switching requires a new invocation.** If the user agrees to switch to pair-programming for any phase, they must start a **new chat and invoke `/devenv-pair`** (or type `/devenv-pair` in the current chat to re-invoke it). Simply saying "switch" in this session does not load the pair-programming skill rules. Make this explicit in the recommendation.
 
@@ -529,6 +531,7 @@ Default output shape:
 > **Deviation:** [none or brief note]
 > **Challenges:** [encountered-and-worked-through items, or "none"]
 > **Hotspots:** [file:line items worth review]
+> **Complexity warning:** [when the stopped-at or upcoming phase is rated Complex or Very Complex: one line saying so and that delegation risk is elevated - confirm unattended execution is intended; "none" otherwise]
 > **Open questions:** [[QUESTION] items, unresolved choices, or "none"]
 > **Working-tree provenance:** [files the run changed vs foreign/pre-existing edits observed — one line; "all changes are the run's" when nothing foreign]
 > **Gate:** [clear/blocked/not yet run + reason]
@@ -571,7 +574,8 @@ Any yes hands back to the user with the report before continuing. When a criteri
 - A judgment call made without codebase precedent.
 - A blocked or not-yet-run gate.
 - Contract, schema, or public-surface changes landed or upcoming in the next phase.
-- A phase flagged `better-as-pair` at kickoff.
+- A phase rated **Pairing** (`better-as-pair`) at kickoff.
+- A phase rated **Complex** or **Very Complex** in the plan's Phase TOC (or by this run's independent rating) - complexity is a planning-time risk flag; the stop re-derives nothing, it surfaces the rating for an informed continue/redirect decision.
 
 ### issue artifact sync
 

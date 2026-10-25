@@ -96,12 +96,12 @@ Under a plan declaring `commit_alignment: commit-aligned` (see the plan header f
 
 Rules:
 
-- The subject is a suggestion in conventional form; [`/devenv-commit`](../devenv-commit/SKILL.md) crafts the real message at commit time and aligns with it when the staged work matches the unit.
+- The subject is a suggestion in conventional form; [`/devenv-commit`](../../devenv-commit/SKILL.md) crafts the real message at commit time and aligns with it when the staged work matches the unit.
 - The optional `(unit: N.M–N.M)` span names the task range the commit closes; omit it when the unit is the single task carrying the bullet.
 - Place it on the unit's **last** task — the point where the unit is complete and the declared gates are green. A unit that spans a phase boundary closes at its end, wherever that lands.
 - The `.100` phase-gate task may carry one for the phase-closing commit (see [phase-rules.md](./phase-rules.md) for the interaction rules).
 - Individually mergeable is not created by this bullet — it is already the law under rebase merges ([Commit Conventions](../../../../docs/Commit-Conventions.md)). The bullet declares, ahead of time, where the planner judges those mergeable units to sit. Reality may split one declared unit into multiple commits or defer a point; that is a deviation recorded at the handback, not an error.
-- Under `commit-free`, no `commit:` bullets are written; [`/devenv-commit`](../devenv-commit/SKILL.md) judges granularity from the diff post-hoc, as it always has.
+- Under `commit-free`, no `commit:` bullets are written; [`/devenv-commit`](../../devenv-commit/SKILL.md) judges granularity from the diff post-hoc, as it always has.
 
 ## Numbering
 

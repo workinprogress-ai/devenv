@@ -242,7 +242,8 @@ Use the [plan template](./references/plan-template.md). Follow:
 - `## Goals and Acceptance Criteria` must include an end-state paragraph plus important scope boundaries before the AC checklist
 - `## Context and Orientation` must be useful on its own to a human who may never read the task list
 - `## Context and Orientation` should be concise but substantive: each subsection should usually be 2-4 sentences with concrete repo-specific details (affected components, current behaviour, target behaviour, and constraints), not placeholder-style one-liners
-- `## Phase TOC` must appear immediately before `## Phases` and provide short anchor links for quick navigation across phases
+- `## Phase TOC` must appear immediately
+before `## Phases` as a table: one row per phase with anchor-linked name, the planner's **Handling** recommendation (Delegation | Supervised | Pairing), **Complexity** (Simple / Straightforward / Moderate / Complex / Very Complex), and a one-line Focus. Vocabulary and per-phase mirroring live in the [template](./references/plan-template.md); the executing session confirms the recommendations with the user at commissioning.
 - `## Phases` is the human-facing execution section: each phase gets goal, end-state vision, suggested strategies, AC links, watch-outs / decisions, deliverables, its task list, and an optional **Phase Notes** block
 - **Phase Notes** is per-phase, reproduction-grade execution knowledge — how the work is or will be implemented where the how is non-obvious (chosen approaches and why alternatives fail, pathways, gotchas, precedents, constraint interactions). Include only what passes the reproduction test (needed to redo the work from scratch — a fork, a re-plan, a redo after revert) and the currency test (still true at plan completion — present-tense state; never edit dates, run-scoped test/build/coverage counts, or per-run narration — those belong in execution handbacks). It is phase- and task-scoped: the `## Appendix` remains plan-level (upstream design context, plan-wide contracts and constraints), and `## Pending Questions` remains plan-level unresolved questions. Resolve pending questions as early as possible during plan creation. Unresolved items are allowed only for implementation-level details or explicit user deferral.
 - Once the target repository is known, run `devenv-marker-check --todo-report <repo>` during the convention scan and surface any scoped `TODO:DEVENV[plan-key]:` markers with their discharge conditions in the plan's orientation/context section — execution will be required to honor them.
@@ -443,7 +444,7 @@ Human-oriented context loading section. Useful even if the reader stops here.
 
 ## Phase TOC
 
-Short navigable links to each phase.
+Table: anchor-linked phase name | Handling (Delegation / Supervised / Pairing) | Complexity (Simple ... Very Complex) | one-line Focus. Mirrored in each phase header; confirmed with the user at commissioning.
 
 ## Phases
 
