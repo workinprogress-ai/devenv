@@ -210,6 +210,9 @@ ensure_tool_versions() {
             [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
         fi
         if command -v nvm &> /dev/null; then
+            # Converge the `current` symlink onto the repaired version so
+            # login shells resolving node via the symlink see the fix.
+            export NVM_SYMLINK_CURRENT=true
             nvm install "$NODE_VERSION"
             nvm use "$NODE_VERSION"
             nvm alias default "$NODE_VERSION"
