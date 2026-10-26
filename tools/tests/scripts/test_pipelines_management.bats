@@ -38,12 +38,12 @@ load ../test_helper
 }
 
 @test "pipelines-status.sh sources error-handling library" {
-  run grep -E 'core/(exit-codes|logging)\.ts' "$PROJECT_ROOT/tools/scripts/pipelines-status.ts"
+  run grep -E 'core/(exit-codes|logging)\.ts' "$PROJECT_ROOT/tools/ts/pipelines-status.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "pipelines-status.sh sources provider-loader library" {
-  run grep 'provider-core.ts' "$PROJECT_ROOT/tools/scripts/pipelines-status.ts"
+  run grep 'provider-core.ts' "$PROJECT_ROOT/tools/ts/pipelines-status.ts"
   [ "$status" -eq 0 ]
 }
 
@@ -63,12 +63,12 @@ load ../test_helper
 }
 
 @test "pipelines-list.sh sources error-handling library" {
-  run grep -E 'core/(exit-codes|logging)\.ts' "$PROJECT_ROOT/tools/scripts/pipelines-list.ts"
+  run grep -E 'core/(exit-codes|logging)\.ts' "$PROJECT_ROOT/tools/ts/pipelines-list.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "pipelines-list.sh sources provider-loader library" {
-  run grep 'provider-core.ts' "$PROJECT_ROOT/tools/scripts/pipelines-list.ts"
+  run grep 'provider-core.ts' "$PROJECT_ROOT/tools/ts/pipelines-list.ts"
   [ "$status" -eq 0 ]
 }
 
@@ -88,12 +88,12 @@ load ../test_helper
 }
 
 @test "pipelines-run.sh sources error-handling library" {
-  run grep -E 'core/(exit-codes|logging)\.ts' "$PROJECT_ROOT/tools/scripts/pipelines-run.ts"
+  run grep -E 'core/(exit-codes|logging)\.ts' "$PROJECT_ROOT/tools/ts/pipelines-run.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "pipelines-run.sh sources provider-loader library" {
-  run grep 'provider-core.ts' "$PROJECT_ROOT/tools/scripts/pipelines-run.ts"
+  run grep 'provider-core.ts' "$PROJECT_ROOT/tools/ts/pipelines-run.ts"
   [ "$status" -eq 0 ]
 }
 
@@ -113,12 +113,12 @@ load ../test_helper
 }
 
 @test "pipelines-rerun.sh sources error-handling library" {
-  run grep -E 'core/(exit-codes|logging)\.ts' "$PROJECT_ROOT/tools/scripts/pipelines-rerun.ts"
+  run grep -E 'core/(exit-codes|logging)\.ts' "$PROJECT_ROOT/tools/ts/pipelines-rerun.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "pipelines-rerun.sh sources provider-loader library" {
-  run grep 'provider-core.ts' "$PROJECT_ROOT/tools/scripts/pipelines-rerun.ts"
+  run grep 'provider-core.ts' "$PROJECT_ROOT/tools/ts/pipelines-rerun.ts"
   [ "$status" -eq 0 ]
 }
 
@@ -138,12 +138,12 @@ load ../test_helper
 }
 
 @test "pipelines-watch.sh sources error-handling library" {
-  run grep -E 'core/(exit-codes|logging)\.ts' "$PROJECT_ROOT/tools/scripts/pipelines-watch.ts"
+  run grep -E 'core/(exit-codes|logging)\.ts' "$PROJECT_ROOT/tools/ts/pipelines-watch.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "pipelines-watch.sh sources provider-loader library" {
-  run grep 'provider-core.ts' "$PROJECT_ROOT/tools/scripts/pipelines-watch.ts"
+  run grep 'provider-core.ts' "$PROJECT_ROOT/tools/ts/pipelines-watch.ts"
   [ "$status" -eq 0 ]
 }
 
@@ -163,12 +163,12 @@ load ../test_helper
 }
 
 @test "pipelines-artifacts.sh sources error-handling library" {
-  run grep -E 'core/(exit-codes|logging)\.ts' "$PROJECT_ROOT/tools/scripts/pipelines-artifacts.ts"
+  run grep -E 'core/(exit-codes|logging)\.ts' "$PROJECT_ROOT/tools/ts/pipelines-artifacts.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "pipelines-artifacts.sh sources provider-loader library" {
-  run grep 'provider-core.ts' "$PROJECT_ROOT/tools/scripts/pipelines-artifacts.ts"
+  run grep 'provider-core.ts' "$PROJECT_ROOT/tools/ts/pipelines-artifacts.ts"
   [ "$status" -eq 0 ]
 }
 

@@ -97,10 +97,10 @@ refresh_repo_cache() {
     fi
 
     # Apply filter if provided
-    local repos="$all_repos"
+    local repos_list="$all_repos"
     if [ -n "$filter" ]; then
-        repos=$(echo "$all_repos" | grep -E "$filter") || true
-        if [ -z "$repos" ]; then
+        repos_list=$(echo "$all_repos" | grep -E "$filter") || true
+        if [ -z "$repos_list" ]; then
             log_error "No repositories matched filter: $filter"
             return 1
         fi
@@ -123,7 +123,7 @@ refresh_repo_cache() {
     while IFS= read -r repo_name; do
         [ -z "$repo_name" ] && continue
         count=$((count + 1))
-    done <<< "$repos"
+    done <<< "$repos_list"
 
     if [ "$count" -eq 0 ]; then
         log_error "No repositories to process"
@@ -164,7 +164,7 @@ refresh_repo_cache() {
             fi
         ) &
         running=$((running + 1))
-    done <<< "$repos"
+    done <<< "$repos_list"
 
     # Wait for all remaining background jobs
     wait
@@ -185,13 +185,13 @@ refresh_repo_cache() {
 
     if [ "${#failed[@]}" -gt 0 ]; then
         log_warn "Failed to cache ${#failed[@]} of $count repositories: ${failed[*]}"
-        _write_cache_timestamp "$cache_dir" "$repos"
+        _write_cache_timestamp "$cache_dir" "$repos_list"
         echo "$cache_dir"
         return 2
     fi
 
     # Write cache timestamp for staleness detection by downstream tools
-    _write_cache_timestamp "$cache_dir" "$repos"
+    _write_cache_timestamp "$cache_dir" "$repos_list"
 
     log_info "Successfully cached $count repositories in $cache_dir"
     echo "$cache_dir"
@@ -258,9 +258,9 @@ _update_cached_repo() {
 #   $2 - newline-separated repo list that was cached
 _write_cache_timestamp() {
     local cache_dir="$1"
-    local repos="$2"
+    local repos_list="$2"
     local timestamp_file="$cache_dir/.cache_timestamp"
     local repo_hash
-    repo_hash=$(echo "$repos" | sort | md5sum | cut -d' ' -f1)
+    repo_hash=$(echo "$repos_list" | sort | md5sum | cut -d' ' -f1)
     printf '%s\n%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$repo_hash" > "$timestamp_file"
 }

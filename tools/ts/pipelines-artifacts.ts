@@ -12,6 +12,7 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { ensureProviderAuth, providerRequireCapability } from "../lib/providers/provider-core.ts";
+import { formatTable } from "../lib/ui/panels.ts";
 import {
   pipelinesRunArtifacts,
   pipelinesRunDownload,
@@ -135,10 +136,7 @@ if (!download) {
       String(a.id ?? ""),
       (a.created_at ?? "").split("T")[0] ?? "",
     ]);
-    const widths = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => (r[i] ?? "").length)));
-    const line = (cells: string[]): string => cells.map((c, i) => (c ?? "").padEnd(widths[i] ?? 0)).join("  ");
-    console.log(line(headers));
-    for (const r of rows) console.log(line(r));
+      console.log(formatTable(headers, rows.map((cells) => ({ cells }))));
   }
   process.exit(0);
 }

@@ -93,7 +93,7 @@ async function applyIssueBundle(
   if (bundle.triageComplete === true) {
     didAny = true;
     // Resolve the dispatcher relative to this script (../../internal/ from
-    // tools/scripts/) so it fires from any cwd.
+    // tools/ts/) so it fires from any cwd.
     const scriptDir = fileURLToPath(new URL(".", import.meta.url));
     const dispatcher = join(scriptDir, "..", "internal", "_on_triage_complete.sh");
     if (existsSync(dispatcher)) {

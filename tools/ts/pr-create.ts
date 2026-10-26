@@ -17,11 +17,11 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { EXIT_API_FAILURE, EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { providerRepoTarget, ghApi } from "../lib/providers/provider-core.ts";
 import { prsCreate, prsList } from "../lib/providers/github/prs.ts";
 import { issuesView, issuesLabelEnsure } from "../lib/providers/github/issues.ts";
 import { extractUrl, remoteToSpec } from "../lib/providers/github/urls.ts";
-import { signalPrEventsForPr } from "../lib/core/events.ts";
+import { signalPrEventsForPr } from "../lib/domain/events.ts";
 
 assertNodeFloor();
 
@@ -202,11 +202,12 @@ async function main(argv: string[]): Promise<number> {
   let repoSpec = originUrl.status === 0 ? (remoteToSpec((originUrl.stdout ?? "").trim()) ?? "") : "";
   if (repoSpec === "") repoSpec = providerRepoTarget("");
 
-  // allowSquashMerge rides gh repo view (the provider repos seam).
+  // allowSquashMerge rides the provider repos seam (jq kept in argv: the
+  // field decision uses gh's own projection, matching the bash-era shape).
   const squashEnabled = async (): Promise<boolean> => {
     if (repoSpec === "") return false;
-    const r = spawnSync("gh", ["repo", "view", repoSpec, "--json", "allowSquashMerge", "-q", ".allowSquashMerge"], { encoding: "utf8" });
-    return r.status === 0 && (r.stdout ?? "").trim() === "true";
+    const r = await ghApi(["repo", "view", repoSpec, "--json", "allowSquashMerge", "-q", ".allowSquashMerge"], { tolerateFailure: true });
+    return r.status === 0 && r.stdout.trim() === "true";
   };
 
   // Issue title (used when no PR title was given).

@@ -1,6 +1,6 @@
 # Additional Tooling
 
-This document provides comprehensive documentation for all additional tooling available in the development environment. These tools are located in the `tools/scripts/` folder and are automatically added to the `PATH` when the development environment is set up.
+This document provides comprehensive documentation for all additional tooling available in the development environment. These tools live in the `tools/scripts/` (bash) and `tools/ts/` (TypeScript) folders and are automatically added to the `PATH` when the development environment is set up.
 
 ## Shared Bash Libraries
 
@@ -337,7 +337,7 @@ git repo <repository-name>
 
 ### `repo-commit`
 
-The single sanctioned commit wrapper (source: `tools/scripts/repo-commit.ts`; invoke via the `tools/repo-commit` entry on `PATH`). Interactive-only by design: the suggested message arrives on argv or via `--file <path>` (preferred for anything longer than a one-line subject — immune to shell mangling), and the user's configured git editor always opens with it — a commit is created from the existing index only if the user saves the editor with a non-empty message. Refuses options (`-m`, `--yes`), non-interactive editors, and an empty index. Never stages (except via `--wip`), never bypasses hooks on the normal lane, never runs tests.
+The single sanctioned commit wrapper (source: `tools/ts/repo-commit.ts`; invoke via the `tools/repo-commit` entry on `PATH`). Interactive-only by design: the suggested message arrives on argv or via `--file <path>` (preferred for anything longer than a one-line subject — immune to shell mangling), and the user's configured git editor always opens with it — a commit is created from the existing index only if the user saves the editor with a non-empty message. Refuses options (`-m`, `--yes`), non-interactive editors, and an empty index. Never stages (except via `--wip`), never bypasses hooks on the normal lane, never runs tests.
 
 Scratchpad refusal: blocked (exit 3) while a scratchpad is active in the repo — sandbox commits belong on the scratch branch via `repo-scratchpad commit`; salvage via `repo-scratchpad promote`.
 
@@ -1690,7 +1690,7 @@ tools/internal/_on_begin_grooming.sh 43 # one entry point per lifecycle event
 tools/internal/_on_merge.sh 43          # fired by merge tooling after a successful merge
 ```
 
-These are internal scripts (underscore prefix): they have no depth-1 `tools/` entry and are invoked via their `tools/scripts/` path. Interactive/batch firing goes through `workflow-signal` instead.
+These are internal scripts (underscore prefix): they have no depth-1 `tools/` entry and are invoked via their `tools/internal/` path. Interactive/batch firing goes through `workflow-signal` instead.
 
 **Events**: `_on_triage_complete` (backlog triage done → candidate for design grooming), then begin/end pairs per phase: `_on_begin_grooming`, `_on_end_grooming`, `_on_begin_planning`, `_on_end_planning`, `_on_begin_implementation`, `_on_end_implementation`, `_on_begin_review`, `_on_end_review`, `_on_merge`, plus deploy-sourced `_on_staging_deploy` and `_on_production_deploy` (no automatic observer — fire via `workflow-signal`).
 
@@ -2784,14 +2784,14 @@ Per-repo Compose file (when a repo ships one at its root) for running developmen
 machinery itself (lifecycle event dispatch, git hooks) rather than by a person
 at a shell. The folder is the workspace's convention for "the user would
 generally not run this"; it answers the placement question that
-`tools/scripts/`, `tools/fork/`, and `tools/custom/` do not: those three are
-the override chain for user-facing tools, while `tools/internal/` sits outside
+`tools/scripts/`, `tools/ts/`, `tools/fork/`, and `tools/custom/` do not:
+those four are the override chain for user-facing tools, while `tools/internal/` sits outside
 it entirely.
 
 **What belongs here:** scripts whose only caller is other tooling —
 githook backing scripts, CI-only checkers, lifecycle event entry points.
 **What does not:** anything a user might legitimately invoke (that belongs in
-`tools/scripts/` and gets a `PATH` stub), and user-extensible machinery
+`tools/scripts/` or `tools/ts/` and gets a `PATH` stub), and user-extensible machinery
 (githooks themselves live in `.husky/` and delegate here).
 
 **Contract:**
@@ -2829,7 +2829,8 @@ githook backing scripts, CI-only checkers, lifecycle event entry points.
 **When to add here vs `tools/scripts/`:** ask "who is the caller?" If the
 caller is always machinery (a hook, CI, the event dispatcher), use
 `tools/internal/`. If a human might ever run it — even rarely — use
-`tools/scripts/` so it gets a `PATH` stub and enters the override chain.
+`tools/scripts/` (bash) or `tools/ts/` (TypeScript) so it gets a `PATH` stub
+and enters the override chain.
 Scripts that are runnable later but outside any daily workflow belong in
 `tools/special/` instead (see below).
 
@@ -2843,7 +2844,7 @@ Applies or updates GitHub repository configuration to an existing cloned reposit
 **Usage:**
 
 ```bash
-tools/scripts/repo-update-config.sh <repo-path> [--type <type>]
+repo-update-config <repo-path> [--type <type>]
 ```
 
 **Arguments:**
@@ -2875,10 +2876,10 @@ This script reads the repository type from either the command-line argument or b
 
 ```bash
 # Auto-detect type from GitHub repository topics
-tools/scripts/repo-update-config.sh ~/repos/my-service
+repo-update-config ~/repos/my-service
 
 # Explicitly specify repository type
-tools/scripts/repo-update-config.sh ~/repos/my-docs --type documentation
+repo-update-config ~/repos/my-docs --type documentation
 ```
 
 **Configuration per type:**
@@ -2931,7 +2932,7 @@ service:
 - `repo-types.bash` (shared library)
 - `yq` (YAML processor)
 
-**Related:** See [repo-create](#repo-create) for initial repository creation details, and [Repo Creation Standards (repo-create.ts)](./Forking.md#repo-creation-standards-repo-createts) in the Forking Guide for configuration options.
+**Related:** See [repo-create](#repo-create) for initial repository creation details, and [Repo Creation Standards (repo-create.ts)](./Forking.md#repo-creation-standards-repo-create) in the Forking Guide for configuration options.
 
 ## Fork Tooling
 
@@ -3451,7 +3452,7 @@ The following environment variables should be configured for full functionality:
   - `read:org` (read org and team membership, read org projects)
   - `project` (full control of projects)
 - `DEVENV_ROOT`: Path to devenv root directory (auto-set)
-- `DEVENV_TOOLS`: Path to the `tools/` directory (auto-set; scripts live under `tools/scripts/`, libs under `tools/lib/`)
+- `DEVENV_TOOLS`: Path to the `tools/` directory (auto-set; bash sources under `tools/scripts/`, TS tools under `tools/ts/`, libs under `tools/lib/`)
 - `DEVENV_REPO`: Canonical (and only) repo target for repo-scoped wrappers, `owner/repo` form. Preferred for cross-repo operations. See [Tooling Standards](./Tooling-Standards.md) for the full resolution order.
 - `devenv`: Lowercase alias for DEVENV_ROOT (auto-set)
 - `SSH_AUTH_SOCK`: SSH agent socket (auto-configured with host forwarding)

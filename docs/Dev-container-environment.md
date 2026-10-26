@@ -93,7 +93,7 @@ Within this repository, there are a few folders of note:
 ### `/workspaces/<REPO>` repository folders
 
 * `.devcontainer` This folder contains the configuration for the dev container itself.  It is where the `bootstrap.sh` and `devcontainer.json` files are located.  It also contains a few temporary files that are used by the dev environment to manage the container.
-* `tools` This folder contains the workspace's wrapper tools and utility scripts that are intended to be used by the user (depth-1 entry points; implementations in `tools/scripts/`).
+* `tools` This folder contains the workspace's wrapper tools and utility scripts that are intended to be used by the user (depth-1 entry points; implementations in `tools/scripts/` for bash and `tools/ts/` for TypeScript).
 * `docs` This folder contains documentation for the dev environment.  It is where you are reading this file right now.
 * `repos` This folder is where the user should clone any repositories they wish to work on.  It is the default folder that the terminal opens to.  When calling the `repo-get` utility, the repo will be cloned here.  This folder is excluded from the repository of the dev environment itself.  
 * `.debug` This folder is where the utility scripts will place any files needed for debugging or other development purposes.  It is excluded from the repository of the dev environment itself.  The services configuration is placed in a subfolder of this folder, as well as the services data folder.

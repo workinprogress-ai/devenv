@@ -275,7 +275,7 @@ EOF
 }
 
 @test "[provisioning step] sync_copilot_knowledge is included in default task list" {
-  run node "$PROJECT_ROOT/tools/scripts/setup-first-run.ts" --list
+  run node "$PROJECT_ROOT/tools/ts/setup-first-run.ts" --list
   [ "$status" -eq 0 ]
   [[ "$output" =~ knowledge-sync ]]
   run awk -v fn=run_bootstrap_tasks -v arr=default_tasks '
@@ -319,7 +319,7 @@ EOF
 @test "[provisioning step] sync_copilot_engineering is defined and registered in both task runners" {
   # The engineering sync is a setup-first-run step (knowledge-sync/engineering-
   # sync); the bootstrap runners reference it only through the handoff task.
-  run node "$PROJECT_ROOT/tools/scripts/setup-first-run.ts" --list
+  run node "$PROJECT_ROOT/tools/ts/setup-first-run.ts" --list
   [ "$status" -eq 0 ]
   [[ "$output" =~ engineering-sync ]]
   run awk -v fn=run_update_tasks -v arr=update_tasks '
@@ -426,7 +426,7 @@ EOF
 @test "[provisioning step] load_setup_credentials runs before sync_copilot_knowledge" {
   # Ordering now lives inside setup-first-run's step list: credentials
   # precedes knowledge-sync.
-  run node "$PROJECT_ROOT/tools/scripts/setup-first-run.ts" --list
+  run node "$PROJECT_ROOT/tools/ts/setup-first-run.ts" --list
   [ "$status" -eq 0 ]
   cred_line=$(echo "$output" | grep -n 'credentials' | head -1 | cut -d: -f1)
   sync_line=$(echo "$output" | grep -n 'knowledge-sync' | head -1 | cut -d: -f1)
@@ -581,7 +581,7 @@ EOF
 @test "[provisioning step] install_claude_code_integration is included in both default and update task lists" {
   # The claude integration is a setup-first-run step; the handoff task is in
   # both bootstrap runners.
-  run node "$PROJECT_ROOT/tools/scripts/setup-first-run.ts" --list
+  run node "$PROJECT_ROOT/tools/ts/setup-first-run.ts" --list
   [ "$status" -eq 0 ]
   [[ "$output" =~ claude-integration ]]
   extract_tasks() {

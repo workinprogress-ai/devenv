@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../scripts/artifact-clean.ts");
+const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/artifact-clean.ts");
 
 let workDir: string;
 let folder: string;

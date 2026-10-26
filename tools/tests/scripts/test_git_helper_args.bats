@@ -64,7 +64,7 @@ teardown() {
     # over any PATH repo-get.
     local fake="$TEST_TEMP_DIR/fake"; mkdir -p "$fake/scripts" "$fake/path"
     cp -r "$PROJECT_ROOT/tools/lib" "$fake/lib"
-    cp "$PROJECT_ROOT/tools/scripts/git-repo.ts" "$fake/scripts/"
+    cp "$PROJECT_ROOT/tools/ts/git-repo.ts" "$fake/scripts/"
     printf 'const { spawnSync } = await import("node:child_process");\nconst r = spawnSync("echo", ["next-to-it", ...process.argv.slice(2)], { stdio: "inherit" });\nprocess.exit(r.status ?? 1);\n' > "$fake/scripts/repo-get.ts"
     printf '#!/bin/bash\necho "from-path: $*"\n' > "$fake/path/repo-get"
     chmod +x "$fake/path/"*

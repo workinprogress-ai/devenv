@@ -8,7 +8,7 @@ bats_require_minimum_version 1.5.0
 
 load ../test_helper
 
-SCRIPTS="$BATS_TEST_DIRNAME/../../scripts"
+SCRIPTS="$BATS_TEST_DIRNAME/../../ts"
 
 # arms_missing_check FILE...: file:line of each option arm that reads "$2" without the check
 arms_missing_check() {
@@ -25,7 +25,9 @@ arms_missing_check() {
 
 @test "every option arm that reads \$2 checks it with require_option_value" {
     local offenders
-    offenders="$(arms_missing_check "$SCRIPTS"/*.sh 2>/dev/null)"
+    # The bash-era wrappers live in scripts/ (the .sh layer); the TS
+    # tools use requireString/parseArgs, not the $2 arms convention.
+    offenders="$(arms_missing_check "$BATS_TEST_DIRNAME/../../scripts"/*.sh 2>/dev/null)"
     [ -z "$offenders" ] || { echo "option arms without require_option_value:"; echo "$offenders"; false; }
 }
 

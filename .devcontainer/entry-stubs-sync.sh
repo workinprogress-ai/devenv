@@ -1,17 +1,17 @@
 #!/bin/bash
 # entry-stubs-sync.sh — single idempotent owner of the tools/ depth-1 entries.
 #
-# Contract: every script in tools/scripts/, tools/fork/ and tools/custom/ gets a
-# depth-1 stub in tools/, and every depth-1 entry backed by one of them is a stub.
+# Contract: every script in tools/scripts/, tools/ts/, tools/fork/ and
+# tools/custom/ gets a depth-1 stub in tools/, and every depth-1 entry backed by
+# one of them is a stub.
 #
-# Override model: the three directories are three layers of one tool set.
-#   tools/scripts/  the provided tools
+# Override model: the four directories are four layers of one tool set.
+#   tools/scripts/  the provided bash-era tools (unmigrated .sh stay here)
+#   tools/ts/       the provided TypeScript tool bodies
 #   tools/fork/     a fork's own or overriding tools (committed in the fork)
 #   tools/custom/   a user's own or overriding tools (gitignored, machine-local)
 # A file with the same name in a higher layer replaces the lower one:
-# custom over fork over provided. Each stub is written at sync time and points at
-# the winning file, so adding or removing an override needs a re-run of this
-# script (bootstrap runs it).
+# custom over fork over ts over scripts.
 #
 # Exceptions:
 #   - Underscore-prefixed scripts (_*.sh) are internal: NO depth-1 entry is
@@ -22,9 +22,11 @@
 #     non-scripts/ script with a public entry point).
 # Anything else at depth-1 is not ours and is left untouched.
 #
-# Stub template (one line of dispatch, then exec; <dir> is scripts, fork or custom):
+# Stub template (one line of dispatch, then exec; <dir> is scripts, ts, fork or
+# custom):
 #   #!/bin/bash
 #   exec bash "$(dirname "$0")/<dir>/<file>" "$@"
+#   exec node "$(dirname "$0")/<dir>/<file>" "$@"
 #
 # Idempotent: a re-run on a synchronized tree changes nothing (verified no-op).
 # Handles: missing entries (created), stale symlinks (converted), drifted
@@ -60,14 +62,20 @@ EOF
     fi
 }
 
-# Only .sh scripts and git-* scripts get depth-1 entries; everything else in
-# these directories is support content. Layers are applied lowest first so a
-# higher layer's file replaces the same-named one below it.
+# Only .sh scripts, .ts scripts and git-* scripts get depth-1 entries;
+# everything else in these directories is support content. A git-* source with
+# an extension is already matched by the extensioned globs (and would
+# double-process with an identical name+runner), so it is skipped here.
+# Layers are applied lowest first so a higher layer's file replaces the
+# same-named one below it.
 declare -A winner=()
 declare -A runner_of=()
-for layer in scripts fork custom; do
+for layer in scripts ts fork custom; do
     for script in "$tools_dir/$layer"/*.sh "$tools_dir/$layer"/*.ts "$tools_dir/$layer"/git-*; do
         [ -f "$script" ] || continue
+        case "$script" in
+            */git-*.ts|*/git-*.sh) continue ;;
+        esac
         base=$(basename "$script")
         # Internal tooling: underscore-prefixed scripts never get depth-1
         # entries — callers reference tools/scripts/<name>.sh directly.
@@ -154,8 +162,8 @@ for entry in "$tools_dir"/*; do
     # Both runner forms count as generated stubs: bash scripts and the node
     # stubs generated for .ts sources. A node stub whose .ts vanished must
     # purge like its bash counterpart.
-    grep -qE '^exec (bash|node) "\$\(dirname "\$0"\)/(scripts|fork|custom)/[^"]+" "\$@"$' "$entry" 2>/dev/null || continue
-    target_rel=$(grep -oE '(scripts|fork|custom)/[^"]+' "$entry" | head -n 1)
+    grep -qE '^exec (bash|node) "\$\(dirname "\$0"\)/(scripts|ts|fork|custom)/[^"]+" "\$@"$' "$entry" 2>/dev/null || continue
+    target_rel=$(grep -oE '(scripts|ts|fork|custom)/[^"]+' "$entry" | head -n 1)
     [ -n "$target_rel" ] || continue
     if [ ! -f "$tools_dir/$target_rel" ] || [[ "$(basename "$target_rel")" == _* ]]; then
         rm -f "$entry"

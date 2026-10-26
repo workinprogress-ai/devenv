@@ -38,17 +38,17 @@ load ../test_helper
 }
 
 @test "repo-update-all.sh defines MAX_PARALLEL_JOBS constant" {
-  run grep "MAX_PARALLEL_JOBS = " "$PROJECT_ROOT/tools/scripts/repo-update-all.ts"
+  run grep "MAX_PARALLEL_JOBS = " "$PROJECT_ROOT/tools/ts/repo-update-all.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "repo-update-all.sh defines DEFAULT_PARALLEL_JOBS constant" {
-  run grep "DEFAULT_PARALLEL_JOBS = " "$PROJECT_ROOT/tools/scripts/repo-update-all.ts"
+  run grep "DEFAULT_PARALLEL_JOBS = " "$PROJECT_ROOT/tools/ts/repo-update-all.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "repo-calc-version carries the release version module" {
-  run grep "domain/release/version.ts" "$PROJECT_ROOT/tools/scripts/repo-calc-version.ts"
+  run grep "domain/release/version.ts" "$PROJECT_ROOT/tools/ts/repo-calc-version.ts"
   [ "$status" -eq 0 ]
 }
 

@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 // The tool executes as a child process; resolve its path from this suite's
 // location (tests/ts/ → scripts/), the same derivation every sibling uses.
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../scripts/issue-artifact-get.ts");
+const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/issue-artifact-get.ts");
 
 let stubDir = "";
 let responses = "";
