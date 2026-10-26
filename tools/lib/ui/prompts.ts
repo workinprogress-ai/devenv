@@ -116,19 +116,20 @@ export async function multiSelect<T>(
     options: opts.options.map((o) => ({ value: [o.value, o.label] as [T, string], disabled: false })),
     required,
     render(this: MultiSelectPrompt<{ value: [T, string] }>) {
-      // The renderer reads state/cursor/options and the private selected
-      // set; those internals are reached through a cast (clack's render
-      // contract hands `this` as the full prompt instance).
+      // The renderer reads state/cursor/options and the SELECTION. The
+      // selection is the public `value` (all toggled tuples) — `_value` is
+      // clack's focused-option getter and holds exactly one entry; reading
+      // it here rendered only the cursor row as checked.
       const self = this as unknown as {
         state: string;
         cursor: number;
+        value: [T, string][];
         _enabledOptions: Array<{ value: [T, string]; disabled?: boolean }>;
-        _value: [T, string][];
       };
       return multiselectFrame(
         opts.message,
         self._enabledOptions,
-        self._value ?? [],
+        self.value ?? [],
         self.cursor,
         self.state === "submit" ? "submit" : self.state === "cancel" ? "cancel" : "idle",
       );
