@@ -74,21 +74,21 @@ this section alone.>
 
 ## Phase TOC
 
-<One row per phase - navigation plus the planning-time handling and complexity recommendations. The **Handling** and **Complexity** values are the planner's recommendations, mirrored in each phase header; the executing session confirms them with the user at commissioning.>
+<One row per phase - navigation plus the planner's complexity rating and handling recommendation. Both are mirrored in each phase header; the executing session confirms them with the user at commissioning.>
 
-| Phase | Handling | Complexity | Focus |
+| Phase | Complexity | Recommendation | Focus |
 |---|---|---|---|
-| [Phase 1 - Baseline establishment](#phase-1---baseline-establishment-discovery--test-scaffolding-for-code) | Delegation | Straightforward | Lock current behavior; scaffold tests |
-| [Phase 2 - <Phase name>](#phase-2---phase-name) | <Delegation \| Supervised \| Pairing> | <Simple \| Straightforward \| Moderate \| Complex \| Very Complex> | <one-line deliverable> |
-| [Phase N - Cleanup & docs](#phase-n---cleanup--docs) | Delegation | Simple | Remove scaffolding; update docs |
+| [Phase 1 - Baseline establishment](#phase-1---baseline-establishment-discovery--test-scaffolding-for-code) | Straightforward | Delegation | Lock current behavior; scaffold tests |
+| [Phase 2 - <Phase name>](#phase-2---phase-name) | <Simple \| Straightforward \| Moderate \| Complex \| Very Complex> | <Delegation \| Supervised \| Pairing> | <one-line deliverable> |
+| [Phase N - Cleanup & docs](#phase-n---cleanup--docs) | Simple | Delegation | Remove scaffolding; update docs |
 
-<Handling vocabulary: **Delegation** - mechanical enough for assistant-led execution; **Supervised** - delegable but with closer supervision (gate boundaries plus task-level handbacks, or the user reviews each unit); **Pairing** - collaborative or high-impact, work turns are user-driven. Complexity vocabulary - planner's judgment, no arithmetic; five calibration anchors, each named by its dominant signal:
+<Recommendation vocabulary (the recommended handling): **Delegation** - mechanical enough for assistant-led execution; **Supervised** - delegable but with closer supervision (gate boundaries plus task-level handbacks, or the user reviews each unit); **Pairing** - collaborative or high-impact, work turns are user-driven. Complexity vocabulary - planner's judgment, no arithmetic; five calibration anchors, each named by its dominant signal:
   - **Simple** - mechanical, no unknowns: renames, moves, boilerplate; the failure mode is obvious and local.
   - **Straightforward** - a known pattern applied to known surfaces; judgment calls are minor and reversible.
   - **Moderate** - several moving parts or one genuine unknown; judgment calls have real but bounded consequences.
   - **Complex** - non-obvious interactions (contracts, concurrency, data shape, migration) or a consequential unknown; wrong calls are expensive to unwind.
   - **Very Complex** - novel architecture or compounding unknowns across boundaries; outcomes are hard to predict even with discovery.
-  State what drives the rating when it is Complex or above. When torn between two ratings, let Handling constrain the answer - Pairing work rates at least Complex, and purely mechanical work does not rate Complex without an explanation. Rate honestly: a Complex-or-above phase forces a delegation stop for user review before it runs, so work the user wants delegated unattended belongs at Moderate or below.>
+  State what drives the rating when it is Complex or above. When torn between two ratings, let the Recommendation constrain the answer - Pairing work rates at least Complex, and purely mechanical work does not rate Complex without an explanation. Rate honestly: a Complex-or-above phase forces a delegation stop for user review before it runs, so work the user wants delegated unattended belongs at Moderate or below.>
 
 ## Phases
 
@@ -98,8 +98,8 @@ this section alone.>
 
 **End State:** <What should be true when this phase is complete.>
 
-**Handling:** <Delegation | Supervised | Pairing> - <one clause: why this handling>
 **Complexity:** <Simple | Straightforward | Moderate | Complex | Very Complex> - <what drives it, when Complex or above>
+**Recommendation:** <Delegation | Supervised | Pairing> - <one clause: why this handling>
 
 **Suggested Strategies:**
 

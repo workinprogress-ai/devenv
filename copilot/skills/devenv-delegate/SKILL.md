@@ -197,7 +197,7 @@ Ask: *"Delegating the entire plan, specific phases, or a task range?"* — a bou
 ### 2a. Ad-Hoc Task List Intake
 
 When handed an ad-hoc decomposed task list — pasted into chat or carried over from a pair-programming session — treat it as **input, never as the ledger**. An in-context list cannot be refreshed, ticked, drift-checked, or survive context compaction; delegation's machinery requires a persistent plan file. Run this gate in order:
-1. **Suitability first, as always.** Rate the *work* Delegation / Supervised / Pairing (the Phase TOC Handling terms; criteria below). Ad-hoc provenance changes nothing — high-impact is high-impact.
+1. **Suitability first, as always.** Rate the *work* Delegation / Supervised / Pairing (the Phase TOC Recommendation terms; criteria below). Ad-hoc provenance changes nothing — high-impact is high-impact.
 2. **Viability audit** of the list itself. It passes only if **every** condition holds:
    - **Bounded** — each task is single-concern and pass/fail-able without judgment calls. A monolith wrapped as one line fails.
    - **Decision-free** — no unresolved choices hiding inside tasks. Pair chunk lists legitimately defer decisions because a human reviews between chunks; an autonomous run has no such net.
@@ -228,7 +228,7 @@ Invariants that do **not** relax:
 
 ### 3. Suitability analysis
 
-For the in-scope phases, rate each phase as one of the ratings below. When the plan's Phase TOC table carries Handling and Complexity recommendations, read them as the planner's input — confirm them with the user during commissioning (they are recommendations, not bindings; the user's commissioning answers govern) and rate independently when the plan carries no table. Suitability is judged against the work's nature, not its language: mechanical file operations, runbook stages, and document work delegate as well as code does.
+For the in-scope phases, rate each phase as one of the ratings below. When the plan's Phase TOC table carries Complexity and Recommendation recommendations, read them as the planner's input — confirm them with the user during commissioning (they are recommendations, not bindings; the user's commissioning answers govern) and rate independently when the plan carries no table. Suitability is judged against the work's nature, not its language: mechanical file operations, runbook stages, and document work delegate as well as code does.
 
 | Rating | Criteria |
 |---|---|
@@ -236,7 +236,7 @@ For the in-scope phases, rate each phase as one of the ratings below. When the p
 | **Supervised** (borderline) | Mixed — some mechanical, some judgment calls. Surface reasoning; let user decide. |
 | **Pairing** (better-as-pair) | High-impact / public API changes / data shape changes / security / novel architecture / non-trivial concurrency |
 
-Ratings use the same Handling vocabulary as the plan's Phase TOC table (Delegation / Supervised / Pairing) so chat output, the table, and the commissioning answer all speak one language; the parenthesized legacy terms remain readable in older plans.
+Ratings use the same vocabulary as the plan's Phase TOC Recommendation column (Delegation / Supervised / Pairing) so chat output, the table, and the commissioning answer all speak one language; the parenthesized legacy terms remain readable in older plans.
 
 Present the ratings in a short table with one-line reasoning per phase.
 

@@ -14,7 +14,7 @@
 
 The task title is **bolded** and is the primary execution step. Keep task lines concise and concrete. Include `Files:` by default for execution-facing plans. Use `decision:` and `depends on` only when they materially improve execution clarity.
 
-`Additional context:` lives directly under the task it describes. Keep it short and practical so readers do not need to jump to another section to understand the task.
+`Additional context:` lives directly under the task it describes. Keep it short and practical so readers do not need to jump to another section to understand the task. When it carries more than one point, use the indented-bullet form shown in [Writing additional context](#writing-additional-context) — one point per sub-bullet; never fold several points into one running paragraph.
 
 ### Size labels `[S/M/L]`
 
@@ -131,7 +131,7 @@ If a task can't be expressed as one concise step line, it probably needs to be s
 
 ## Writing additional context
 
-When a task needs more detail than a concise step line can carry, place that depth directly under the task with `Additional context:`:
+When a task needs more detail than a concise step line can carry, place that depth directly under the task with `Additional context:`. One point per indented sub-bullet — multiple points never merge into a single paragraph:
 
 ```markdown
 - [ ] **2.2 [M] Wire retry policy into MyWorker**
