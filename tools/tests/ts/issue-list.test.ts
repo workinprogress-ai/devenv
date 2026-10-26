@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../scripts/issue-list.ts");
+const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/issue-list.ts");
 
 let stubDir = "";
 let repoRoot = "";

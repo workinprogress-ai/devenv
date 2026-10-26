@@ -13,12 +13,12 @@ load ../test_helper
 # behind a stub: the stub + TS + lib all ride into the sandbox tree.
 make_unconfigured_tree() {
     TREE="$TEST_TEMP_DIR/tree"
-    mkdir -p "$TREE/tools/scripts" "$TREE/tools/lib" "$TREE/tools/config" "$TREE/.setup" "$TREE/.runtime"
+    mkdir -p "$TREE/tools/scripts" "$TREE/tools/ts" "$TREE/tools/lib" "$TREE/tools/config" "$TREE/.setup" "$TREE/.runtime"
     cp -r "$PROJECT_ROOT/tools/lib/." "$TREE/tools/lib/"
     local base="${1%.sh}"; base="${base%.ts}"
-    if [ -f "$PROJECT_ROOT/tools/scripts/$base.ts" ]; then
+    if [ -f "$PROJECT_ROOT/tools/ts/$base.ts" ]; then
         cp "$PROJECT_ROOT/tools/$base" "$TREE/tools/"
-        cp "$PROJECT_ROOT/tools/scripts/$base.ts" "$TREE/tools/scripts/"
+        cp "$PROJECT_ROOT/tools/ts/$base.ts" "$TREE/tools/ts/"
     else
         cp "$PROJECT_ROOT/tools/scripts/$1" "$TREE/tools/scripts/"
     fi

@@ -185,11 +185,11 @@ load ../test_helper
 }
 
 @test "tooling-create-script.sh references template file" {
-  run grep "script-template" "$DEVENV_TOOLS/scripts/tooling-create-script.ts"
+  run grep "script-template" "$DEVENV_TOOLS/ts/tooling-create-script.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "tooling-create-script.sh makes created script executable" {
-  run grep "chmodSync" "$DEVENV_TOOLS/scripts/tooling-create-script.ts"
+  run grep "chmodSync" "$DEVENV_TOOLS/ts/tooling-create-script.ts"
   [ "$status" -eq 0 ]
 }

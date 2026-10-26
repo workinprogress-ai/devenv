@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../scripts/issue-search.ts");
+const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/issue-search.ts");
 
 let stubDir = "";
 let responses = "";

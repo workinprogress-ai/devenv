@@ -29,12 +29,12 @@ assert_output_contains() {
 }
 
 @test "repo-get: carries the git/core library equivalent" {
-    run bash -c "grep -q 'provider-core.ts' $PROJECT_ROOT/tools/scripts/repo-get.ts"
+    run bash -c "grep -q 'provider-core.ts' $PROJECT_ROOT/tools/ts/repo-get.ts"
     assert_success
 }
 
 @test "repo-get: carries the error-handling equivalent" {
-    run bash -c "grep -q 'core/exit-codes.ts' $PROJECT_ROOT/tools/scripts/repo-get.ts"
+    run bash -c "grep -q 'core/exit-codes.ts' $PROJECT_ROOT/tools/ts/repo-get.ts"
     assert_success
 }
 
@@ -70,23 +70,23 @@ assert_output_contains() {
 }
 
 @test "repo-get: --all flag is present in usage help" {
-    run bash -c "grep -q '\-\-all' $PROJECT_ROOT/tools/scripts/repo-get.ts"
+    run bash -c "grep -q '\-\-all' $PROJECT_ROOT/tools/ts/repo-get.ts"
     assert_success
 }
 
 @test "repo-get: usage mentions --all option" {
-    run bash -c "grep 'Usage' $PROJECT_ROOT/tools/scripts/repo-get.ts"
+    run bash -c "grep 'Usage' $PROJECT_ROOT/tools/ts/repo-get.ts"
     assert_success
     assert_output_contains "\-\-all"
 }
 
 @test "repo-get: defines get_available_repos function" {
-    run bash -c "grep -q 'filterAvailableRepositories' $PROJECT_ROOT/tools/scripts/repo-get.ts"
+    run bash -c "grep -q 'filterAvailableRepositories' $PROJECT_ROOT/tools/ts/repo-get.ts"
     assert_success
 }
 
 @test "repo-get: --all mode sets ALL_MODE=true" {
-    run bash -c "grep -q 'allMode = true' $PROJECT_ROOT/tools/scripts/repo-get.ts"
+    run bash -c "grep -q 'allMode = true' $PROJECT_ROOT/tools/ts/repo-get.ts"
     assert_success
 }
 

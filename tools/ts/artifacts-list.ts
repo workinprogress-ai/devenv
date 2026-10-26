@@ -11,6 +11,7 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { ensureProviderAuth, ghApiSync, providerOrgGet } from "../lib/providers/provider-core.ts";
+import { formatTable } from "../lib/ui/panels.ts";
 
 assertNodeFloor();
 
@@ -163,10 +164,7 @@ function queryPackageVersions(): PackageRecord[] {
 }
 
 function renderTable(headers: string[], rows: string[][]): void {
-  const widths = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => (r[i] ?? "").length)));
-  const line = (cells: string[]): string => cells.map((c, i) => (c ?? "").padEnd(widths[i] ?? 0)).join("  ");
-  console.log(line(headers));
-  for (const r of rows) console.log(line(r));
+  console.log(formatTable(headers, rows.map((cells) => ({ cells }))));
 }
 
 if (listVersions) {

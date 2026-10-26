@@ -50,6 +50,7 @@ dotnet-install.*
 !/tools/special/
 !/tools/templates
 !/tools/tests/
+!/tools/ts/
 
 # Ignore locally produced temporary artifacts
 .prompts/

@@ -101,7 +101,7 @@ exercise_lib_call() {
     # provider_repo_target and the seam accepts its arity.
     # The call site is now the TS source; the seam's 2-arg arity is enforced
     # by gitTransportUrl's signature and the tool imports it.
-    run grep -q 'gitTransportUrl' "$PROJECT_ROOT/tools/scripts/repo-get.ts"
+    run grep -q 'gitTransportUrl' "$PROJECT_ROOT/tools/ts/repo-get.ts"
     [ "$status" -eq 0 ]
     run grep -q 'gitTransportUrl(org: string, repo: string)' "$PROJECT_ROOT/tools/lib/providers/github/urls.ts"
     [ "$status" -eq 0 ]

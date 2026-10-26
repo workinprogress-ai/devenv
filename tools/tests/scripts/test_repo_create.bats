@@ -142,41 +142,41 @@ load ../test_helper
 }
 
 @test "repo-create.sh requires yq command" {
-  run grep "domain/repos/types.ts" "$PROJECT_ROOT/tools/scripts/repo-create.ts"
+  run grep "domain/repos/types.ts" "$PROJECT_ROOT/tools/ts/repo-create.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "repo-create.sh sources repo-types library" {
-  run grep "domain/repos/types.ts" "$PROJECT_ROOT/tools/scripts/repo-create.ts"
+  run grep "domain/repos/types.ts" "$PROJECT_ROOT/tools/ts/repo-create.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "repo-create.sh sources git-operations library" {
-  run grep "provider-core.ts" "$PROJECT_ROOT/tools/scripts/repo-create.ts"
+  run grep "provider-core.ts" "$PROJECT_ROOT/tools/ts/repo-create.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "repo-create.sh contains post-creation script handling" {
-  run grep "runPostCreationScript" "$PROJECT_ROOT/tools/scripts/repo-create.ts"
+  run grep "runPostCreationScript" "$PROJECT_ROOT/tools/ts/repo-create.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "repo-create.sh contains interactive mode" {
-  run grep "interactiveMode" "$PROJECT_ROOT/tools/scripts/repo-create.ts"
+  run grep "interactiveMode" "$PROJECT_ROOT/tools/ts/repo-create.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "repo-create.sh contains wait_for_repo_ready function" {
-  run grep "waitForRepoReady" "$PROJECT_ROOT/tools/scripts/repo-create.ts"
+  run grep "waitForRepoReady" "$PROJECT_ROOT/tools/ts/repo-create.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "repo-create.sh only waits when template is used" {
-  run grep "waitForRepoReady" "$PROJECT_ROOT/tools/scripts/repo-create.ts"
+  run grep "waitForRepoReady" "$PROJECT_ROOT/tools/ts/repo-create.ts"
   [ "$status" -eq 0 ]
   # The wait is gated on the template actually being used (the bash guard
   # `if [ -n "$template" ]` becomes the TS template-nonempty checks).
-  run bash -c "grep -B2 'waitForRepoReady(' \$PROJECT_ROOT/tools/scripts/repo-create.ts | grep -q 'template'"
+  run bash -c "grep -B2 'waitForRepoReady(' \$PROJECT_ROOT/tools/ts/repo-create.ts | grep -q 'template'"
   [ "$status" -eq 0 ]
 }
 

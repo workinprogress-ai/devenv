@@ -559,7 +559,7 @@ JSON
     [ "$status" -eq 0 ]
     # The TS pr-review-comment reads parsed.thread?.url (optional-chained,
     # empty-string default) — the provider JSON's .thread.url satisfies it.
-    grep -q 'thread?: { url?: string }' "$PROJECT_ROOT/tools/scripts/pr-review-comment.ts"
+    grep -q 'thread?: { url?: string }' "$PROJECT_ROOT/tools/ts/pr-review-comment.ts"
     [ -n "$(printf '%s' "$output" | jq -r '.thread.url // empty')" ]
 }
 

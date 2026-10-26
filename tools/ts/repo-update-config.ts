@@ -15,7 +15,7 @@ import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
-import { providerOrgGet } from "../lib/providers/provider-core.ts";
+import { providerOrgGet, ghApiSync } from "../lib/providers/provider-core.ts";
 import {
   loadRepoTypesConfig,
   validateRepoType,
@@ -146,14 +146,14 @@ configureRepositoryPermissionsForType(fullName, repoType, config);
 
 logInfo("✓ Configuration applied");
 
-/** owner/repo from gh (provider view), falling back to the git remote URL
- * (SSH and HTTPS forms) — get_full_repo_name's chain. */
+/** owner/repo from the provider view (gh repo view, cwd seam), falling back
+ * to the git remote URL (SSH and HTTPS forms) — get_full_repo_name's chain. */
 function getFullRepoName(repoDir: string): string | null {
-  const gh = spawnSync("gh", ["repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"], {
-    encoding: "utf8",
+  const gh = ghApiSync(["repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"], {
     cwd: repoDir,
+    tolerateFailure: true,
   });
-  if (gh.status === 0 && (gh.stdout ?? "").trim() !== "") return gh.stdout.trim();
+  if (gh.status === 0 && gh.stdout.trim() !== "") return gh.stdout.trim();
 
   const git = spawnSync("git", ["config", "--get", "remote.origin.url"], { encoding: "utf8", cwd: repoDir });
   const gitUrl = git.status === 0 ? (git.stdout ?? "").trim() : "";

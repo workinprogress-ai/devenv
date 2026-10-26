@@ -116,7 +116,7 @@ update_clone() {
     cp -r "$BATS_TEST_DIRNAME/../../lib" "$fake/lib"
     printf '#!/bin/bash\necho nope >&2\nexit 1\n' > "$fake/scripts/repo-get.ts"
     chmod +x "$fake/scripts/repo-get.ts"
-    cp "$BATS_TEST_DIRNAME/../../scripts/repo-update-all.ts" "$fake/scripts/"
+    cp "$BATS_TEST_DIRNAME/../../ts/repo-update-all.ts" "$fake/scripts/"
     run node "$fake/scripts/repo-update-all.ts" --jobs 1
     [ "$status" -ne 0 ]
     [[ "$output" == *"Update failed"* ]]

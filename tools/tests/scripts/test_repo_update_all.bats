@@ -24,16 +24,16 @@ load ../test_helper
 }
 
 @test "repo-update-all defines parallel job constants" {
-  run grep "MAX_PARALLEL_JOBS" "$PROJECT_ROOT/tools/scripts/repo-update-all.ts"
+  run grep "MAX_PARALLEL_JOBS" "$PROJECT_ROOT/tools/ts/repo-update-all.ts"
   [ "$status" -eq 0 ]
-  run grep "DEFAULT_PARALLEL_JOBS" "$PROJECT_ROOT/tools/scripts/repo-update-all.ts"
+  run grep "DEFAULT_PARALLEL_JOBS" "$PROJECT_ROOT/tools/ts/repo-update-all.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "repo-update-all runs updates in parallel (spawn pool, the xargs -P analogue)" {
-  run grep "updateSingleRepo" "$PROJECT_ROOT/tools/scripts/repo-update-all.ts"
+  run grep "updateSingleRepo" "$PROJECT_ROOT/tools/ts/repo-update-all.ts"
   [ "$status" -eq 0 ]
-  run grep "parallelJobs" "$PROJECT_ROOT/tools/scripts/repo-update-all.ts"
+  run grep "parallelJobs" "$PROJECT_ROOT/tools/ts/repo-update-all.ts"
   [ "$status" -eq 0 ]
 }
 
