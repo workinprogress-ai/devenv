@@ -511,6 +511,9 @@ install_or_configure_nvm() {
     echo "#############################################"
 
     export NVM_DIR="/usr/local/share/nvm"
+    # Converge the `current` symlink onto the declared version; a stale one
+    # leaves login shells resolving node from the image's version.
+    export NVM_SYMLINK_CURRENT=true
     if [ ! -f "$NVM_DIR/nvm.sh" ]; then
         if [ -z "${NODE_VERSION:-}" ]; then
             echo "ERROR: NODE_VERSION is not set - tool-versions.bash could not be resolved" >&2
@@ -563,7 +566,15 @@ EOF
 
     else
         echo "=> NVM already installed"
-
+        # nvm existing is not enough: downstream tasks (install_node_packages)
+        # run `npm install -g` against the ACTIVE node. Activate the declared
+        # version every run (idempotent) so global packages land on the
+        # declared node instead of whatever the ambient PATH carries.
+        # shellcheck disable=SC1090 # source path is runtime-derived (sibling of this script)
+        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+        nvm install "$NODE_VERSION"
+        nvm use "$NODE_VERSION"
+        nvm alias default "$NODE_VERSION"
     fi    
 }
 
