@@ -669,7 +669,7 @@ finish_message() {
 # (idempotent steps, safe unattended). When node deps are absent (broken
 # install), print the manual recovery path instead of failing obscurely.
 run_setup_first_run() {
-    local setup_tool="$toolbox_root/tools/scripts/setup-first-run.ts"
+    local setup_tool="$toolbox_root/tools/ts/setup-first-run.ts"
     if [ ! -f "$setup_tool" ]; then
         echo "setup-first-run tool missing: $setup_tool"
         return 1
@@ -678,7 +678,7 @@ run_setup_first_run() {
         echo "node not available — cannot run the TS provisioning setup."
         echo "Manual recovery:"
         echo "  1. install node (see .devcontainer/tool-versions.bash)"
-        echo "  2. node tools/scripts/setup-first-run.ts --all"
+        echo "  2. node tools/ts/setup-first-run.ts --all"
         return 1
     fi
     # The tool composes its own prelude from DEVENV_TOOLBOX_ROOT; hand the

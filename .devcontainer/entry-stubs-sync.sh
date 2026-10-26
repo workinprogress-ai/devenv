@@ -63,9 +63,11 @@ EOF
 }
 
 # Only .sh scripts, .ts scripts and git-* scripts get depth-1 entries;
-# everything else in these directories is support content. A git-* source with
-# an extension is already matched by the extensioned globs (and would
-# double-process with an identical name+runner), so it is skipped here.
+# everything else in these directories is support content. Extensioned
+# git-* sources (git-wip.ts) are matched by the extensioned globs; a bare
+# git-* name (no extension) is only claimed when no extensioned source won
+# it already — the check happens at winner-map time, not by skipping the
+# file here (a skip here would drop git-*.ts sources entirely).
 # Layers are applied lowest first so a higher layer's file replaces the
 # same-named one below it.
 declare -A winner=()
@@ -73,9 +75,6 @@ declare -A runner_of=()
 for layer in scripts ts fork custom; do
     for script in "$tools_dir/$layer"/*.sh "$tools_dir/$layer"/*.ts "$tools_dir/$layer"/git-*; do
         [ -f "$script" ] || continue
-        case "$script" in
-            */git-*.ts|*/git-*.sh) continue ;;
-        esac
         base=$(basename "$script")
         # Internal tooling: underscore-prefixed scripts never get depth-1
         # entries — callers reference tools/scripts/<name>.sh directly.
@@ -108,11 +107,16 @@ for layer in scripts ts fork custom; do
             continue
         fi
         if [ -n "${winner[$name]:-}" ]; then
-            # Same stem won twice: the higher layer silently replaces the
-            # lower one (that is the override chain working), but a same-layer
-            # collision (foo.sh + foo.ts side by side) is invisible ambiguity —
-            # say so instead of resolving quietly to the last glob entry.
+            # Same stem won twice in the same layer: extensioned git-* sources
+            # match both the extensioned glob and the git-* glob — an
+            # identical name+runner re-assignment is noise, skip it quietly.
+            # A genuinely different same-layer collision (foo.sh + foo.ts
+            # side by side) is invisible ambiguity — say so instead of
+            # resolving quietly to the last glob entry.
             if [ "${winner[$name]%%/*}" = "$layer" ]; then
+                if [ "${winner[$name]}" = "$layer/$base" ]; then
+                    continue
+                fi
                 echo "entry-stubs-sync: warning: '$name' won twice in $layer (${winner[$name]} and $base) — dispatching to $base" >&2
             fi
         fi
