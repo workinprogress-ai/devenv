@@ -7,7 +7,7 @@ load ../test_helper
 
 # The tool is TS; the suite drives it via node (the gh stub records the REST
 # reply path).
-SCRIPT="$BATS_TEST_DIRNAME/../../scripts/pr-thread-reply.ts"
+SCRIPT="$BATS_TEST_DIRNAME/../../ts/pr-thread-reply.ts"
 
 setup() {
     test_helper_setup

@@ -2,7 +2,7 @@
 # provision.bash — the provisioning library: env vars, bashrc, credentials,
 # tool symlinks, copilot/claude integration, side-repo syncs, package
 # sources. Invoked by the bootstrap's run_setup_first_run task THROUGH
-# tools/scripts/setup-first-run.ts, which sources this file and calls the
+# tools/ts/setup-first-run.ts, which sources this file and calls the
 # step functions in bootstrap order. Function-by-function this library
 # retires as its steps port to TypeScript in the migration's cleanup phase.
 #

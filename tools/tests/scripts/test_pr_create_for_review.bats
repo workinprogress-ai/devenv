@@ -9,7 +9,7 @@ bats_require_minimum_version 1.5.0
 
 load ../test_helper
 
-SCRIPT="$BATS_TEST_DIRNAME/../../scripts/pr-create-for-review.ts"
+SCRIPT="$BATS_TEST_DIRNAME/../../ts/pr-create-for-review.ts"
 
 setup() {
     test_helper_setup

@@ -35,12 +35,12 @@ load ../test_helper
 }
 
 @test "repo-bump-version carries the error-handling equivalent" {
-  run grep "core/exit-codes.ts" "$PROJECT_ROOT/tools/scripts/repo-bump-version.ts"
+  run grep "core/exit-codes.ts" "$PROJECT_ROOT/tools/ts/repo-bump-version.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "repo-bump-version carries the git equivalent (repo-get + core spawn)" {
-  run grep "repo-get.ts" "$PROJECT_ROOT/tools/scripts/repo-bump-version.ts"
+  run grep "repo-get.ts" "$PROJECT_ROOT/tools/ts/repo-bump-version.ts"
   [ "$status" -eq 0 ]
 }
 
@@ -50,7 +50,7 @@ load ../test_helper
 }
 
 @test "repo-calc-version carries the release version module" {
-  run grep "domain/release/version.ts" "$PROJECT_ROOT/tools/scripts/repo-calc-version.ts"
+  run grep "domain/release/version.ts" "$PROJECT_ROOT/tools/ts/repo-calc-version.ts"
   [ "$status" -eq 0 ]
 }
 
@@ -60,6 +60,6 @@ load ../test_helper
 }
 
 @test "tooling-create-script.sh references template file" {
-  run grep "template" "$PROJECT_ROOT/tools/scripts/tooling-create-script.ts"
+  run grep "template" "$PROJECT_ROOT/tools/ts/tooling-create-script.ts"
   [ "$status" -eq 0 ]
 }

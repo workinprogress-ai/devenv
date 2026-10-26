@@ -11,7 +11,7 @@ load ../test_helper
 }
 
 @test "pr-get.sh has --help flag" {
-  run node "$PROJECT_ROOT/tools/scripts/pr-get.ts" --help
+  run node "$PROJECT_ROOT/tools/ts/pr-get.ts" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
@@ -22,18 +22,18 @@ load ../test_helper
 }
 
 @test "pr-comment.sh has --help flag" {
-  run node "$PROJECT_ROOT/tools/scripts/pr-comment.ts" --help
+  run node "$PROJECT_ROOT/tools/ts/pr-comment.ts" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "pr-diff has valid syntax (facade import present)" {
-  run grep -q 'prsDiff' "$PROJECT_ROOT/tools/scripts/pr-diff.ts"
+  run grep -q 'prsDiff' "$PROJECT_ROOT/tools/ts/pr-diff.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "pr-diff has --help flag" {
-  run node "$PROJECT_ROOT/tools/scripts/pr-diff.ts" --help
+  run node "$PROJECT_ROOT/tools/ts/pr-diff.ts" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
@@ -44,7 +44,7 @@ load ../test_helper
 }
 
 @test "pr-list.sh has --help flag" {
-  run node "$PROJECT_ROOT/tools/scripts/pr-list.ts" --help
+  run node "$PROJECT_ROOT/tools/ts/pr-list.ts" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
@@ -52,30 +52,30 @@ load ../test_helper
 @test "pr scripts use the core error contract" {
   # The bash error-handling library became core/logging + core/exit-codes.
   for script in pr-get.ts pr-comment.ts pr-diff.ts pr-list.ts; do
-    run grep 'core/exit-codes.ts' "$PROJECT_ROOT/tools/scripts/$script"
+    run grep 'core/exit-codes.ts' "$PROJECT_ROOT/tools/ts/$script"
     [ "$status" -eq 0 ]
   done
 }
 
 @test "pr scripts source the provider facade" {
   for script in pr-get.ts pr-comment.ts pr-diff.ts pr-list.ts; do
-    run grep 'providers/github' "$PROJECT_ROOT/tools/scripts/$script"
+    run grep 'providers/github' "$PROJECT_ROOT/tools/ts/$script"
     [ "$status" -eq 0 ]
   done
 }
 
 @test "pr-get rejects non-numeric PR number" {
-  run node "$PROJECT_ROOT/tools/scripts/pr-get.ts" abc
+  run node "$PROJECT_ROOT/tools/ts/pr-get.ts" abc
   [ "$status" -ne 0 ]
 }
 
 @test "pr-comment rejects missing comment source" {
-  run node "$PROJECT_ROOT/tools/scripts/pr-comment.ts" 1
+  run node "$PROJECT_ROOT/tools/ts/pr-comment.ts" 1
   [ "$status" -ne 0 ]
 }
 
 @test "pr-diff rejects mixing PR and ref modes" {
-  run node "$PROJECT_ROOT/tools/scripts/pr-diff.ts" 1 --base master --head feature
+  run node "$PROJECT_ROOT/tools/ts/pr-diff.ts" 1 --base master --head feature
   [ "$status" -ne 0 ]
 }
 
@@ -89,23 +89,23 @@ load ../test_helper
 }
 
 @test "pr-threads-get.sh has --help flag" {
-  run node "$PROJECT_ROOT/tools/scripts/pr-threads-get.ts" --help
+  run node "$PROJECT_ROOT/tools/ts/pr-threads-get.ts" --help
   [ "$status" -eq 0 ]
   [[  "$output" =~ "Usage:" ]]
 }
 
 @test "pr-threads-get.sh rejects non-numeric PR number" {
-  run node "$PROJECT_ROOT/tools/scripts/pr-threads-get.ts" abc
+  run node "$PROJECT_ROOT/tools/ts/pr-threads-get.ts" abc
   [ "$status" -ne 0 ]
 }
 
 @test "pr-threads-get.sh rejects missing PR number" {
-  run node "$PROJECT_ROOT/tools/scripts/pr-threads-get.ts"
+  run node "$PROJECT_ROOT/tools/ts/pr-threads-get.ts"
   [ "$status" -ne 0 ]
 }
 
 @test "pr-threads-get.sh rejects unknown option" {
-  run node "$PROJECT_ROOT/tools/scripts/pr-threads-get.ts" 123 --not-a-flag
+  run node "$PROJECT_ROOT/tools/ts/pr-threads-get.ts" 123 --not-a-flag
   [ "$status" -ne 0 ]
 }
 
@@ -139,7 +139,7 @@ exit 1
 EOF
   chmod +x "$TEST_TEMP_DIR/bin/gh"
 
-  run node "$PROJECT_ROOT/tools/scripts/pr-threads-get.ts" 29 --devenv
+  run node "$PROJECT_ROOT/tools/ts/pr-threads-get.ts" 29 --devenv
   [ "$status" -eq 0 ]
   json_output=$(echo "$output" | tail -n 1)
   [ "$(echo "$json_output" | jq 'length')" -eq 1 ]
@@ -155,18 +155,18 @@ EOF
 }
 
 @test "pr-thread-reply.sh has --help flag" {
-  run node "$PROJECT_ROOT/tools/scripts/pr-thread-reply.ts" --help
+  run node "$PROJECT_ROOT/tools/ts/pr-thread-reply.ts" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "pr-thread-reply.sh rejects missing comment-id" {
-  run node "$PROJECT_ROOT/tools/scripts/pr-thread-reply.ts" 123 --body "hi"
+  run node "$PROJECT_ROOT/tools/ts/pr-thread-reply.ts" 123 --body "hi"
   [ "$status" -ne 0 ]
 }
 
 @test "pr-thread-reply.sh rejects missing body source" {
-  run node "$PROJECT_ROOT/tools/scripts/pr-thread-reply.ts" 123 --comment-id 456
+  run node "$PROJECT_ROOT/tools/ts/pr-thread-reply.ts" 123 --comment-id 456
   [ "$status" -ne 0 ]
 }
 
@@ -180,21 +180,21 @@ EOF
 }
 
 @test "pr-thread-resolve.sh has --help flag" {
-  run node "$PROJECT_ROOT/tools/scripts/pr-thread-resolve.ts" --help
+  run node "$PROJECT_ROOT/tools/ts/pr-thread-resolve.ts" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
 }
 
 @test "pr-thread-resolve.sh rejects missing thread ID" {
-  run node "$PROJECT_ROOT/tools/scripts/pr-thread-resolve.ts"
+  run node "$PROJECT_ROOT/tools/ts/pr-thread-resolve.ts"
   [ "$status" -ne 0 ]
 }
 
 @test "new pr-thread scripts use the core error contract and the facade" {
   for script in pr-threads-get.ts pr-thread-reply.ts pr-thread-resolve.ts; do
-    run grep 'core/exit-codes.ts' "$PROJECT_ROOT/tools/scripts/$script"
+    run grep 'core/exit-codes.ts' "$PROJECT_ROOT/tools/ts/$script"
     [ "$status" -eq 0 ]
-    run grep 'providers/github' "$PROJECT_ROOT/tools/scripts/$script"
+    run grep 'providers/github' "$PROJECT_ROOT/tools/ts/$script"
     [ "$status" -eq 0 ]
   done
 }
@@ -211,23 +211,23 @@ EOF
   # Each tool gets arguments that pass its own arg validation, so the run
   # reaches the gate (arg-misuse refusal would mask it).
   for cmd in "pr-threads-get.ts 1" "pr-thread-reply.ts 1 --comment-id 2 --body x" "pr-thread-resolve.ts abc123" "pr-review-comment.ts 1 --file a.ts --line 1 --body x"; do
-    run env -u DEVENV_REPO HOME="$TEST_TEMP_DIR" PATH="$TEST_TEMP_DIR/bin:$PATH" bash -c "cd '$fake_devenv' && node $PROJECT_ROOT/tools/scripts/$cmd" </dev/null
+    run env -u DEVENV_REPO HOME="$TEST_TEMP_DIR" PATH="$TEST_TEMP_DIR/bin:$PATH" bash -c "cd '$fake_devenv' && node $PROJECT_ROOT/tools/ts/$cmd" </dev/null
     [ "$status" -ne 0 ]
     [[ "$output" == *"devenv repository itself"* ]]
   done
   # --devenv exempts: the run proceeds past the gate (fails later on the
   # missing provider auth, never with the gate message).
-  run env -u DEVENV_REPO HOME="$TEST_TEMP_DIR" PATH="$TEST_TEMP_DIR/bin:$PATH" bash -c "cd '$fake_devenv' && node $PROJECT_ROOT/tools/scripts/pr-thread-resolve.ts abc123 --devenv" </dev/null
+  run env -u DEVENV_REPO HOME="$TEST_TEMP_DIR" PATH="$TEST_TEMP_DIR/bin:$PATH" bash -c "cd '$fake_devenv' && node $PROJECT_ROOT/tools/ts/pr-thread-resolve.ts abc123 --devenv" </dev/null
   [ "$status" -ne 0 ]
   [[ "$output" != *"devenv repository itself"* ]]
 }
 
 @test "pr-list rejects invalid state" {
-  run node "$PROJECT_ROOT/tools/scripts/pr-list.ts" --state bogus
+  run node "$PROJECT_ROOT/tools/ts/pr-list.ts" --state bogus
   [ "$status" -ne 0 ]
 }
 
 @test "pr-list rejects non-numeric limit" {
-  run node "$PROJECT_ROOT/tools/scripts/pr-list.ts" --limit abc
+  run node "$PROJECT_ROOT/tools/ts/pr-list.ts" --limit abc
   [ "$status" -ne 0 ]
 }

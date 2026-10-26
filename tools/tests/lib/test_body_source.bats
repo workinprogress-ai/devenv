@@ -301,7 +301,7 @@ delayed_capture() {
   mkdir -p "$TEST_TEMP_DIR/bin"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$TEST_TEMP_DIR/bin/gh"
   chmod +x "$TEST_TEMP_DIR/bin/gh"
-  run bash -c "printf '' | env PATH='$TEST_TEMP_DIR/bin:$PATH' DEVENV_REPO='org/repo' node '$PROJECT_ROOT/tools/scripts/issue-artifact-upsert.ts' --issue 42 --body-file -"
+  run bash -c "printf '' | env PATH='$TEST_TEMP_DIR/bin:$PATH' DEVENV_REPO='org/repo' node '$PROJECT_ROOT/tools/ts/issue-artifact-upsert.ts' --issue 42 --body-file -"
   [ "$status" -ne 0 ]
   [[ "$output" == *"Refusing empty stdin body"* ]]
 }

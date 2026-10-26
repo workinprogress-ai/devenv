@@ -289,6 +289,8 @@ export interface GhOptions {
   input?: string;
   /** Extra env (e.g. GH_REPO for set-type). */
   env?: Record<string, string>;
+  /** Working directory for the gh invocation (cwd-inferred repo views). */
+  cwd?: string;
   /** Tolerated failure: return the result instead of throwing on non-zero. */
   tolerateFailure?: boolean;
 }
@@ -305,6 +307,7 @@ export async function ghApi(args: string[], opts: GhOptions = {}): Promise<GhRes
   const result = await run(ghArgs(args), {
     ...(opts.input !== undefined ? { input: opts.input } : {}),
     ...(opts.env !== undefined ? { env: opts.env } : {}),
+    ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
   });
   if (result.status !== 0 && !opts.tolerateFailure) {
     // Name the gh subcommand ("issue list", "api graphql"), not just the
@@ -327,6 +330,7 @@ export function ghApiSync(args: string[], opts: GhOptions = {}): GhResult {
       input: opts.input,
       env: opts.env ? { ...process.env, ...opts.env } : process.env,
       stdio: ["pipe", "pipe", "pipe"],
+      ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
     });
     return { stdout, stderr: "", status: 0 };
   } catch (err) {

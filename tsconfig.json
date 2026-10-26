@@ -15,6 +15,6 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["tools/lib/**/*.ts", "tools/tests/ts/**/*.ts", "tools/scripts/**/*.ts"],
+  "include": ["tools/lib/**/*.ts", "tools/tests/ts/**/*.ts", "tools/scripts/**/*.ts", "tools/ts/**/*.ts"],
   "exclude": ["node_modules", "tmp", "playground", "write_file"]
 }

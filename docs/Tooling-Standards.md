@@ -43,7 +43,10 @@ organized by role, never by language.
 - `lib/core/` — runtime seams. Imports nothing internal.
 - `lib/ui/` — the only interaction surface (clack-based prompts, progress,
   panels). Interactive calls must declare a non-TTY fallback; picker flows
-  use clack (fzf is not a dependency of TS tooling).
+  use clack (fzf is not a dependency of TS tooling). Multi-select rendering
+  goes through `lib/ui`'s own frame (on `@clack/core`): the focused row is
+  marked with a `❯` cursor column — never by color alone, which dies in
+  color-less profiles; checked/unchecked stay `◼`/`◻`.
 - `lib/providers/` — the provider facade implementing `CONTRACT.md`.
 - `lib/domain/` — headless pure logic (issues, repos, fork, markdown, …).
   Never imports `ui/`; only tool scripts orchestrate interaction.
@@ -70,8 +73,18 @@ are rejected in review.
 | `lib/core/change-id.ts` | Change-Id trailer generation/parsing + O_EXCL locking |
 | `lib/core/editor.ts` | editor selection (PREF_EDITOR → FALLBACK_EDITOR → nano) |
 | `lib/core/git.ts` | git plumbing (state, branches, WIP guards, rewrite detection) |
-| `lib/core/events.ts` | lifecycle event signals (PR + skill events) |
 | `lib/ui/` | prompts, progress, panels (clack + picocolors) |
+| `lib/domain/events.ts` | lifecycle event signals (PR + skill events); reads the PR body through the provider facade |
+| `lib/domain/issues/` | issue type/label config model + issue graph |
+| `lib/domain/repos/` | repo-type config model (zod) |
+| `lib/domain/release/` | release/PR version plumbing |
+| `lib/domain/kube/` | kubectl listing/state helpers |
+| `lib/domain/cs/` | .NET dependency graph |
+| `lib/domain/markdown.ts` | markdown read/manipulate + body resolution |
+| `lib/domain/fork*.ts` | fork URI/config, patch identity, surfaces |
+| `lib/domain/scratchpad.ts` | sandbox lifecycle state |
+| `lib/domain/artifacts.ts` | issue-artifact header/census model |
+| `lib/domain/desktop-menu.ts` | desktop menu entries |
 
 New tools use the TS template and this section. Gaps in the catalog are
 filled as modules land; when a module's role changes, update its row here.
@@ -169,15 +182,17 @@ main "$@"
 
 ## Where a tool lives
 
-A tool's script lives in one of three folders, and `.devcontainer/entry-stubs-sync.sh`
+A tool's source lives in one of four folders, and `.devcontainer/entry-stubs-sync.sh`
 generates the bare-name stub in `tools/` from the winning file:
 
-- `tools/scripts/` — the provided tools.
+- `tools/scripts/` — the provided bash-era tools (unmigrated `.sh` stay here).
+- `tools/ts/` — the provided TypeScript tool bodies (the Node ≥ 23.6
+  type-stripping sources the node stubs dispatch to).
 - `tools/fork/` — a fork's own or overriding tools (committed in the fork).
 - `tools/custom/` — a user's own or overriding tools (gitignored, machine-local).
 
-A same-named file in a higher folder wins: custom over fork over provided. The sync
-runs at bootstrap; re-run it after adding or removing an override. See
+A same-named file in a higher folder wins: custom over fork over ts over scripts.
+The sync runs at bootstrap; re-run it after adding or removing an override. See
 [Forking](./Forking.md#adding-and-overriding-tools-toolsfork-and-toolscustom).
 
 A fourth folder, `tools/internal/`, is **not** part of that override chain:
@@ -307,7 +322,8 @@ log_error "Failed to connect to database"
 log_fatal "Cannot proceed without valid credentials"   # exits
 ```
 
-Enable debug output for a single run with `DEBUG=1 ./tools/scripts/my-tool.sh`.
+Enable debug output for a single run with `DEBUG=1 my-tool` (the depth-1
+runner; the flag reaches the source under `scripts/` or `ts/`).
 
 ### Usage conventions
 
@@ -343,7 +359,7 @@ environment: `env -u DEVENV_REPO -u GH_REPO ...`).
 
 ## Static analysis
 
-`bash tools/scripts/lint-scripts.sh --dir tools/scripts` must report 0
+`lint-scripts --dir tools/scripts` must report 0
 failures. Fix shellcheck errors; do not add disables without a comment
 explaining why.
 

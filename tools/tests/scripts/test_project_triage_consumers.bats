@@ -9,7 +9,7 @@ bats_require_minimum_version 1.5.0
 
 load ../test_helper
 
-TRIAGE="$BATS_TEST_DIRNAME/../../scripts/issue-triage.ts"
+TRIAGE="$BATS_TEST_DIRNAME/../../ts/issue-triage.ts"
 
 setup() {
     test_helper_setup
@@ -55,13 +55,13 @@ GITSTUB
     export TRIAGE_LOG="$TEST_TEMP_DIR/gh-calls.log"
     : > "$TRIAGE_LOG"
     export DEVENV_REPO="my-proj/my-repo"
-    run env PATH="$TEST_TEMP_DIR/bin:$PATH" node "$PROJECT_ROOT/tools/scripts/issue-triage.ts" 42 --milestone 7
+    run env PATH="$TEST_TEMP_DIR/bin:$PATH" node "$PROJECT_ROOT/tools/ts/issue-triage.ts" 42 --milestone 7
     [ "$status" -eq 0 ]
     grep -q "issue edit 42 -R my-proj/my-repo --milestone 7" "$TRIAGE_LOG"
 }
 
 @test "issue-triage: the interactive wizard is refused without a TTY" {
-    run env DEVENV_REPO="my-proj/my-repo" node "$PROJECT_ROOT/tools/scripts/issue-triage.ts" < /dev/null
+    run env DEVENV_REPO="my-proj/my-repo" node "$PROJECT_ROOT/tools/ts/issue-triage.ts" < /dev/null
     [ "$status" -eq 2 ]
     [[ "$output" == *"interactive terminal"* ]]
 }

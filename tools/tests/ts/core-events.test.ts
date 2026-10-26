@@ -1,4 +1,4 @@
-// Behavioral tests for core/events: the config read side and the PR write side.
+// Behavioral tests for domain/events: the config read side and the PR write side.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import {
@@ -7,7 +7,7 @@ import {
   prEventFor,
   parseLinkedIssues,
   signalPrEvents,
-} from "../../lib/core/events.ts";
+} from "../../lib/domain/events.ts";
 
 describe("read side (config)", () => {
   it("reads the Status token for a configured event", () => {

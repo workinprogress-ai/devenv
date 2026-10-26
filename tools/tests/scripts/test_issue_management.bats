@@ -6,7 +6,7 @@ bats_require_minimum_version 1.5.0
 load ../test_helper
 
 @test "issue-create has valid syntax" {
-  run grep -q 'issuesCreate' "$PROJECT_ROOT/tools/scripts/issue-create.ts"
+  run grep -q 'issuesCreate' "$PROJECT_ROOT/tools/ts/issue-create.ts"
   [ "$status" -eq 0 ]
 }
 
@@ -17,7 +17,7 @@ load ../test_helper
 }
 
 @test "issue-create-batch has valid syntax" {
-  run grep -q 'issue-create' "$PROJECT_ROOT/tools/scripts/issue-create-batch.ts"
+  run grep -q 'issue-create' "$PROJECT_ROOT/tools/ts/issue-create-batch.ts"
   [ "$status" -eq 0 ]
 }
 
@@ -47,7 +47,7 @@ load ../test_helper
 }
 
 @test "issue-update has valid syntax" {
-  run bash -c "grep -q 'issuesEdit' '$PROJECT_ROOT/tools/scripts/issue-update.ts'"
+  run bash -c "grep -q 'issuesEdit' '$PROJECT_ROOT/tools/ts/issue-update.ts'"
   [ "$status" -eq 0 ]
 }
 
@@ -83,14 +83,14 @@ load ../test_helper
   # Bash sources keep importing error-handling; migrated .ts tools carry the
   # equivalent core (logging/exit-codes) imports.
   for script in issue-create.ts; do
-    run grep 'exit-codes' "$PROJECT_ROOT/tools/scripts/$script"
+    run grep 'exit-codes' "$PROJECT_ROOT/tools/ts/$script"
     [ "$status" -eq 0 ]
   done
-  run grep 'core/exit-codes.ts' "$PROJECT_ROOT/tools/scripts/issue-close.ts"
+  run grep 'core/exit-codes.ts' "$PROJECT_ROOT/tools/ts/issue-close.ts"
   [ "$status" -eq 0 ]
-  run grep 'core/exit-codes.ts' "$PROJECT_ROOT/tools/scripts/issue-list.ts"
+  run grep 'core/exit-codes.ts' "$PROJECT_ROOT/tools/ts/issue-list.ts"
   [ "$status" -eq 0 ]
-  run grep 'core/exit-codes.ts' "$PROJECT_ROOT/tools/scripts/issue-update.ts"
+  run grep 'core/exit-codes.ts' "$PROJECT_ROOT/tools/ts/issue-update.ts"
   [ "$status" -eq 0 ]
 }
 
@@ -119,27 +119,27 @@ STUB
   # check_dependencies is a bash-library call; the migrated .ts tool asserts
   # its node floor instead (the same run-environment gate).
   for script in issue-create.ts; do
-    run grep "assertNodeFloor" "$PROJECT_ROOT/tools/scripts/$script"
+    run grep "assertNodeFloor" "$PROJECT_ROOT/tools/ts/$script"
     [ "$status" -eq 0 ]
   done
-  run grep 'assertNodeFloor' "$PROJECT_ROOT/tools/scripts/issue-close.ts"
+  run grep 'assertNodeFloor' "$PROJECT_ROOT/tools/ts/issue-close.ts"
   [ "$status" -eq 0 ]
-  run grep 'assertNodeFloor' "$PROJECT_ROOT/tools/scripts/issue-list.ts"
+  run grep 'assertNodeFloor' "$PROJECT_ROOT/tools/ts/issue-list.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "issue-select documents its picker (clack per D4)" {
-  run grep -i "clack" "$PROJECT_ROOT/tools/scripts/issue-select.ts"
+  run grep -i "clack" "$PROJECT_ROOT/tools/ts/issue-select.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "issue-create has template support" {
-  run grep -E "template|TEMPLATE" "$PROJECT_ROOT/tools/scripts/issue-create.ts"
+  run grep -E "template|TEMPLATE" "$PROJECT_ROOT/tools/ts/issue-create.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "issue-create supports --blocked-by flag" {
-  run grep -E "blocked-by|blockedBy" "$PROJECT_ROOT/tools/scripts/issue-create.ts"
+  run grep -E "blocked-by|blockedBy" "$PROJECT_ROOT/tools/ts/issue-create.ts"
   [ "$status" -eq 0 ]
 }
 
@@ -245,7 +245,7 @@ FZF
   git init -q "$TEST_TEMP_DIR/service.reqord.projects" && cd "$TEST_TEMP_DIR/service.reqord.projects"
 
   run env -u DEVENV_REPO PATH="$TEST_TEMP_DIR/bin:$PATH" HOME="$TEST_TEMP_DIR" DEVENV_ROOT="$TEST_TEMP_DIR" ISSUES_CONFIG="$PROJECT_ROOT/tools/config/issues-config.yml" WORKFLOW_CORE_TOOLS="$TEST_TEMP_DIR" \
-    node "$PROJECT_ROOT/tools/scripts/issue-create.ts" \
+    node "$PROJECT_ROOT/tools/ts/issue-create.ts" \
     --title "t" --body "b" --no-interactive
 
   [ "$status" -eq 2 ]
@@ -259,7 +259,7 @@ FZF
   git init -q "$TEST_TEMP_DIR/repo" && cd "$TEST_TEMP_DIR/repo"
 
   run env DEVENV_REPO="workinprogress-ai/no-such-repo-xyz" PATH="$TEST_TEMP_DIR/bin:$PATH" HOME="$TEST_TEMP_DIR" DEVENV_ROOT="$TEST_TEMP_DIR" ISSUES_CONFIG="$PROJECT_ROOT/tools/config/issues-config.yml" WORKFLOW_CORE_TOOLS="$TEST_TEMP_DIR" \
-    node "$PROJECT_ROOT/tools/scripts/issue-create.ts" \
+    node "$PROJECT_ROOT/tools/ts/issue-create.ts" \
     --title "t" --body "b" --type Bug --no-interactive
 
   [ "$status" -eq 1 ]
@@ -273,7 +273,7 @@ FZF
   git init -q "$TEST_TEMP_DIR/repo" && cd "$TEST_TEMP_DIR/repo"
 
   run env DEVENV_REPO="workinprogress-ai/lib.cs.services.sagas" PATH="$TEST_TEMP_DIR/bin:$PATH" HOME="$TEST_TEMP_DIR" DEVENV_ROOT="$TEST_TEMP_DIR" ISSUES_CONFIG="$PROJECT_ROOT/tools/config/issues-config.yml" WORKFLOW_CORE_TOOLS="$TEST_TEMP_DIR" \
-    node "$PROJECT_ROOT/tools/scripts/issue-create.ts" \
+    node "$PROJECT_ROOT/tools/ts/issue-create.ts" \
     --title "t" --body "b" --type Bug --no-interactive
 
   if [ "$status" -ne 0 ]; then
@@ -288,12 +288,12 @@ FZF
   [ "$(grep -c "issue edit" "$GH_CALL_LOG")" -eq 1 ]
 }
 @test "issue-list supports filtering options" {
-  run grep -E "state|label|assignee" "$PROJECT_ROOT/tools/scripts/issue-list.ts"
+  run grep -E "state|label|assignee" "$PROJECT_ROOT/tools/ts/issue-list.ts"
   [ "$status" -eq 0 ]
 }
 
 @test "issue-update supports status updates" {
-  run grep -E "issuesClose|issuesReopen" "$PROJECT_ROOT/tools/scripts/issue-update.ts"
+  run grep -E "issuesClose|issuesReopen" "$PROJECT_ROOT/tools/ts/issue-update.ts"
   [ "$status" -eq 0 ]
 }
 
@@ -304,7 +304,7 @@ FZF
 
 @test "all issue scripts have version information" {
   for ts in issue-close.ts issue-list.ts issue-update.ts issue-triage.ts issue-create.ts issue-create-batch.ts; do
-    run grep "SCRIPT_VERSION" "$PROJECT_ROOT/tools/scripts/$ts"
+    run grep "SCRIPT_VERSION" "$PROJECT_ROOT/tools/ts/$ts"
     [ "$status" -eq 0 ]
   done
 }
@@ -313,7 +313,7 @@ FZF
   # The .ts ports carry the version constant directly (core versioning is
   # consumed by the shared lib-core, not per-tool sourcing).
   for ts in issue-close.ts issue-triage.ts issue-create.ts issue-create-batch.ts; do
-    run grep "SCRIPT_VERSION" "$PROJECT_ROOT/tools/scripts/$ts"
+    run grep "SCRIPT_VERSION" "$PROJECT_ROOT/tools/ts/$ts"
     [ "$status" -eq 0 ]
   done
 }
@@ -382,9 +382,9 @@ EOF
   # issue-select.sh; the migrated .ts tool defers the interactive picker to
   # the ui layer (D4) and refuses --select without a TTY — a defined error,
   # same no-drift intent.
-  run grep -E 'interactive terminal' "$PROJECT_ROOT/tools/scripts/issue-close.ts"
+  run grep -E 'interactive terminal' "$PROJECT_ROOT/tools/ts/issue-close.ts"
   [ "$status" -eq 0 ]
-  run grep -E 'issue-select' "$PROJECT_ROOT/tools/scripts/issue-update.ts"
+  run grep -E 'issue-select' "$PROJECT_ROOT/tools/ts/issue-update.ts"
   [ "$status" -eq 0 ]
 }
 

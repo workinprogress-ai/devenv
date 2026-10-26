@@ -72,7 +72,7 @@ load ../test_helper
     # for the wizard's return. The TS tool must not hardcode them.
     grep -q 'needs-grooming' "$PROJECT_ROOT/tools/lib/policy/issue-policy.bash"
     grep -q 'status:ready' "$PROJECT_ROOT/tools/lib/policy/issue-policy.bash"
-    ! grep -qE 'needs-grooming|status:ready' "$PROJECT_ROOT/tools/scripts/issue-triage.ts"
+    ! grep -qE 'needs-grooming|status:ready' "$PROJECT_ROOT/tools/ts/issue-triage.ts"
 }
 
 @test "policy: labels-config.yml declares status:ready (honesty gap closed)" {

@@ -20,7 +20,7 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsList, prsMerge, prsView } from "../lib/providers/github/prs.ts";
 import { prWebUrl } from "../lib/providers/github/urls.ts";
-import { signalPrEvents } from "../lib/core/events.ts";
+import { signalPrEvents } from "../lib/domain/events.ts";
 
 assertNodeFloor();
 

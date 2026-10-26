@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../scripts/issue-artifact-doc-id.ts");
+const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/issue-artifact-doc-id.ts");
 
 function runTool(args: string[], env: Record<string, string> = {}): { status: number; stdout: string; stderr: string; output: string } {
   const r = spawnSync("node", [TOOL, ...args], {

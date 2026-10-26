@@ -33,7 +33,7 @@ load ../test_helper
 }
 
 @test "pr-review-comment rejects non-numeric line" {
-  run node "$PROJECT_ROOT/tools/scripts/pr-review-comment.ts" 123 --file a.ts --line abc --body x --dry-run
+  run node "$PROJECT_ROOT/tools/ts/pr-review-comment.ts" 123 --file a.ts --line abc --body x --dry-run
   [ "$status" -ne 0 ]
   [[ "$output" =~ "--line is required and must be numeric" ]]
 }
@@ -97,14 +97,14 @@ load ../test_helper
 }
 
 @test "issue-types resolves org from DEVENV_REPO owner part" {
-  run env DEVENV_REPO=some-org/some-repo node "$PROJECT_ROOT/tools/scripts/issue-types.ts" --org-only
+  run env DEVENV_REPO=some-org/some-repo node "$PROJECT_ROOT/tools/ts/issue-types.ts" --org-only
   # The TS port prints the resolved org (or its type list) against the
   # DEVENV_REPO owner; a non-empty run proves the resolution path fired.
   if [ "$status" -eq 0 ]; then
     [[ "$output" == *"some-org"* ]]
   else
     # --org-only may not exist; fall back to grepping the source.
-    grep -q 'DEVENV_REPO' "$PROJECT_ROOT/tools/scripts/issue-types.ts"
+    grep -q 'DEVENV_REPO' "$PROJECT_ROOT/tools/ts/issue-types.ts"
   fi
 }
 

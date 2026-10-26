@@ -11,7 +11,7 @@ setup() {
   test_helper_setup
   export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.invalid
   export GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.invalid
-  SCRIPT="$PROJECT_ROOT/tools/scripts/pr-cleanup-review-branches.ts"
+  SCRIPT="$PROJECT_ROOT/tools/ts/pr-cleanup-review-branches.ts"
   REMOTE="$TEST_TEMP_DIR/remote.git"
   WORK="$TEST_TEMP_DIR/work"
   git init -q --bare "$REMOTE"

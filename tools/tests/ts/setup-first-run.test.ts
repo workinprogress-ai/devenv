@@ -14,7 +14,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, cpSync } fro
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../scripts/setup-first-run.ts");
+const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/setup-first-run.ts");
 const REPO_ROOT = join(dirname(fileURLToPath(new URL(".", import.meta.url))), "../..");
 
 interface RunResult {

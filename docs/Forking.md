@@ -309,19 +309,20 @@ operation.
 ## Adding and overriding tools (`tools/fork/` and `tools/custom/`)
 
 The tools you call by bare name (`issue-get`, `fork-sync`, ...) are stubs in
-`tools/`, each one pointing at a script. Three folders feed them, and a file with the
+`tools/`, each one pointing at a script. Four folders feed them, and a file with the
 same name in a higher folder replaces the one below it:
 
 | Folder | Who owns it | Committed? | Precedence |
 |---|---|---|---|
 | `tools/custom/` | one user, on one machine | no (gitignored) | highest |
 | `tools/fork/` | the fork, for everyone on it | yes | middle |
-| `tools/scripts/` | the provided tools (upstream) | yes | lowest |
+| `tools/ts/` | the provided TypeScript tools (upstream) | yes | lower |
+| `tools/scripts/` | the provided bash tools (upstream) | yes | lowest |
 
 - **Add a tool:** put `my-tool.sh` in `tools/fork/` (for the whole fork) or
   `tools/custom/` (for you only). It gets a `my-tool` stub like any provided tool.
 - **Override a tool:** give your file the same name as the provided one
-  (`tools/fork/issue-get.ts` replaces `tools/scripts/issue-get.ts`). The stub then runs
+  (`tools/fork/issue-get.ts` replaces `tools/ts/issue-get.ts`). The stub then runs
   yours. Remove the file and the stub points back at the next folder down.
 - **Re-run the sync after adding or removing a file.** Each stub is written at sync
   time and names the winning file, so the change shows up after
@@ -513,14 +514,14 @@ This is **not a free-form list**: the engine derives behavior from the vocabular
 
 1. **Two ordered halves.** Workflow states first (planning and implementation states), delivery states after (merge/deploy states). The split is the delivery boundary.
 2. **`Implementing` is the load-bearing boundary token.** The engine locates the delivery boundary by looking up `Implementing` in this list — it drives the rollup floor (pre-delivery children of an active parent count as Implementing) and the "workflow states cannot be forced" gate. Keep the token name, or update both lookups in `tools/lib/workflow-core.bash`.
-3. **`TBD` and `Ready` are the birth tokens.** New issues are born at `TBD`; a Task created under a parent is born `Ready`. Renaming either requires updating the birth rule in `tools/scripts/issue-create.ts`.
+3. **`TBD` and `Ready` are the birth tokens.** New issues are born at `TBD`; a Task created under a parent is born `Ready`. Renaming either requires updating the birth rule in `tools/ts/issue-create.ts`.
 4. **`tools/config/skill-events.yml` names statuses too.** Every event's `status:` value must exist in `status_workflow` — rename there in the same change or signals will write statuses no board defines.
 
 Safe rename/reorder procedure:
 
 1. Edit `status_workflow` in `devenv.config`.
 2. Update the matching `status:` values in `tools/config/skill-events.yml`.
-3. If you renamed `Implementing`, `Ready`, or `TBD`, update the boundary lookups in `tools/lib/workflow-core.bash` and the birth rule in `tools/scripts/issue-create.ts`.
+3. If you renamed `Implementing`, `Ready`, or `TBD`, update the boundary lookups in `tools/lib/workflow-core.bash` and the birth rule in `tools/ts/issue-create.ts`.
 4. Migrate live board cards to the new names (project fields hold the old strings — the engine treats foreign values as unreadable).
 5. Run the test suites (`bats tools/tests/lib tools/tests/scripts`) — the workflow suites fail loudly on contract breaks.
 6. Re-write [Issue Workflow](./Issue-Workflow.md) to reflect the updated status workflow.
@@ -859,12 +860,13 @@ For the current shared-library catalog, see [Additional Tooling](./Additional-To
 
 ### Adding a new script
 
-Scripts live in `tools/scripts/<name>.sh`. Depth-1 entries at `tools/<name>` (without the `.sh` extension) are generated — not hand-made: `.devcontainer/entry-stubs-sync.sh` (run by bootstrap and by the test runner) creates a stub for every `tools/scripts/` script. Never hand-edit or hand-create a stub.
+Scripts live in `tools/scripts/<name>.sh` (bash) or `tools/ts/<name>.ts`
+(TypeScript). Depth-1 entries at `tools/<name>` (without the `.sh` extension) are generated — not hand-made: `.devcontainer/entry-stubs-sync.sh` (run by bootstrap and by the test runner) creates a stub for every `tools/scripts/` and `tools/ts/` script. Never hand-edit or hand-create a stub.
 
 Scripts that only the devenv or githook machinery invokes (never run by users) belong in `tools/internal/` instead — they get no stub, are not on `PATH`, and are not part of the custom-over-fork-over-provided override chain. See [Additional Tooling — Internal machinery scripts](./Additional-Tooling.md#internal-machinery-scripts-toolsinternal).
 
 1. **Start from the template**: `tooling-create-script <name>` scaffolds the file from `tools/templates/script-template.sh`.
-2. **File location**: `tools/scripts/<group>-<action>.sh`, following the existing `group-action` naming pattern (e.g. `markdown-plan-complete-task.sh`).
+2. **File location**: `tools/scripts/<group>-<action>.sh` (bash) or `tools/ts/<group>-<action>.ts` (TypeScript), following the existing `group-action` naming pattern (e.g. `markdown-plan-complete-task`).
 3. **Entry point**: none needed by hand — run `.devcontainer/entry-stubs-sync.sh` (or bootstrap) and the `tools/<name>` stub is generated automatically.
 
 4. **Standard structure** (in order):

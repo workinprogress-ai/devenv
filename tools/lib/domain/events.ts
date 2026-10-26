@@ -13,7 +13,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { resolveToolsRoot } from "./self-root.ts";
+import { ghApiSync } from "../providers/provider-core.ts";
+import { resolveToolsRoot } from "../core/self-root.ts";
 
 // ---------------------------------------------------------------------------
 // read side: the event → Status map (config/skill-events.yml)
@@ -169,10 +170,9 @@ function spawnSignal(script: string, issue: string): boolean {
 
 /**
  * One seam for every provider CLI call in this module: tests assert the argv
- * through this function's contract, and the eventual provider facade ports
- * behind it.
+ * through this function's contract, and the provider facade sits behind it.
  */
 export function spawnSyncCli(subcommand: string, args: string[]): string | null {
-  const r = spawnSync("gh", [subcommand, ...args], { encoding: "utf8" });
+  const r = ghApiSync([subcommand, ...args], { tolerateFailure: true });
   return r.status === 0 ? r.stdout : null;
 }

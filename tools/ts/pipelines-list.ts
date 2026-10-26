@@ -11,6 +11,7 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logWarn } from "../lib/core/logging.ts";
 import { ensureProviderAuth, providerOrgGet, providerRequireCapability } from "../lib/providers/provider-core.ts";
+import { formatTable } from "../lib/ui/panels.ts";
 import { reposList } from "../lib/providers/github/repos.ts";
 import { pipelinesWorkflowList } from "../lib/providers/github/pipelines.ts";
 
@@ -151,8 +152,5 @@ if (outputFormat === "json") {
 } else {
   const headers = ["REPO", "WORKFLOW NAME", "FILE", "STATE"];
   const rows = workflows.map((w) => [w.repo, w.name, w.path.split("/").pop() ?? "", w.state]);
-  const widths = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => (r[i] ?? "").length)));
-  const line = (cells: string[]): string => cells.map((c, i) => (c ?? "").padEnd(widths[i] ?? 0)).join("  ");
-  console.log(line(headers));
-  for (const r of rows) console.log(line(r));
+  console.log(formatTable(headers, rows.map((cells) => ({ cells }))));
 }

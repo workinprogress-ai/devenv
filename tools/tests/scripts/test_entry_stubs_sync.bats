@@ -14,14 +14,19 @@ load ../test_helper
 SYNC_SCRIPT=""   # set in setup: path to the real sync script inside the mock
 
 # Build a minimal mock checkout: .devcontainer/ (sync script) + tools/scripts/
-# + tools/lib (resolver deps). Echoes the mock root.
+# + tools/ts/ + tools/lib (resolver deps). Echoes the mock root.
 _make_mock_checkout() {
     local root="$1"
-    mkdir -p "$root/.devcontainer" "$root/tools/scripts" "$root/tools/lib"
+    mkdir -p "$root/.devcontainer" "$root/tools/scripts" "$root/tools/ts" "$root/tools/lib"
     cp "$PROJECT_ROOT/.devcontainer/entry-stubs-sync.sh" "$root/.devcontainer/"
     cp "$PROJECT_ROOT/tools/lib/self-root.bash" "$root/tools/lib/"
     cp "$PROJECT_ROOT/tools/lib/error-handling.bash" "$root/tools/lib/"
     SYNC_SCRIPT="$root/.devcontainer/entry-stubs-sync.sh"
+}
+
+_make_ts_script() {
+    local root="$1" name="$2"
+    printf 'console.log("ran-ts-%s");\n' "$name" > "$root/tools/ts/$name.ts"
 }
 
 _make_script() {
@@ -345,6 +350,38 @@ _make_layer_script() {
     rm -rf "$root"
 }
 
+@test "a tools/ts/ source gets a node stub that runs it" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_ts_script "$root" "ts-tool"
+    run bash "$SYNC_SCRIPT"
+    [ "$status" -eq 0 ]
+    grep -q 'exec node .*ts/ts-tool.ts' "$root/tools/ts-tool"
+    run bash "$root/tools/ts-tool"
+    [ "$output" = "ran-ts-ts-tool" ]
+    rm -rf "$root"
+}
+
+@test "precedence: ts beats scripts for the same name (extensioned source wins the stub)" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_script "$root" "shared.sh"
+    _make_ts_script "$root" "shared"
+    run bash "$SYNC_SCRIPT"
+    grep -q 'exec node .*ts/shared.ts' "$root/tools/shared"
+    rm -rf "$root"
+}
+
+@test "precedence: fork beats ts for the same name" {
+    local root; root="$(mktemp -d)"
+    _make_mock_checkout "$root"
+    _make_ts_script "$root" "shared"
+    _make_layer_script "$root" fork "shared.ts"
+    run bash "$SYNC_SCRIPT"
+    grep -q 'exec node .*fork/shared.ts' "$root/tools/shared"
+    rm -rf "$root"
+}
+
 @test "precedence: custom beats fork beats provided for the same name" {
     local root; root="$(mktemp -d)"
     _make_mock_checkout "$root"
@@ -579,11 +616,11 @@ _make_layer_script() {
 @test "a .ts source gets a node stub that executes it" {
     local root; root="$(mktemp -d)"
     _make_mock_checkout "$root"
-    printf '#!/usr/bin/env node\nconsole.log("ran-ts");\n' > "$root/tools/scripts/ts-tool.ts"
+    printf '#!/usr/bin/env node\nconsole.log("ran-ts");\n' > "$root/tools/ts/ts-tool.ts"
     run bash "$SYNC_SCRIPT"
     [ "$status" -eq 0 ]
     [ -f "$root/tools/ts-tool" ]
-    grep -q 'exec node "$(dirname "$0")/scripts/ts-tool.ts"' "$root/tools/ts-tool"
+    grep -q 'exec node "$(dirname "$0")/ts/ts-tool.ts"' "$root/tools/ts-tool"
     run "$root/tools/ts-tool"
     [ "$status" -eq 0 ]
     [[ "$output" == *"ran-ts"* ]]
@@ -608,7 +645,7 @@ _make_layer_script() {
 @test "a fork .sh overrides a provided .ts (mixed-extension chain: bash wins)" {
     local root; root="$(mktemp -d)"
     _make_mock_checkout "$root"
-    printf '#!/usr/bin/env node\nconsole.log("ran-ts");\n' > "$root/tools/scripts/duo.ts"
+    printf '#!/usr/bin/env node\nconsole.log("ran-ts");\n' > "$root/tools/ts/duo.ts"
     mkdir -p "$root/tools/fork"
     printf '#!/bin/bash\necho ran-fork-sh\n' > "$root/tools/fork/duo.sh"
     run bash "$SYNC_SCRIPT"
@@ -628,10 +665,10 @@ _make_layer_script() {
     grep -q 'exec bash' "$root/tools/conv"
     # the tool migrates to TS: .sh source removed, .ts source arrives
     rm "$root/tools/scripts/conv.sh"
-    printf '#!/usr/bin/env node\nconsole.log("new-ts");\n' > "$root/tools/scripts/conv.ts"
+    printf '#!/usr/bin/env node\nconsole.log("new-ts");\n' > "$root/tools/ts/conv.ts"
     run bash "$SYNC_SCRIPT"
     [ "$status" -eq 0 ]
-    grep -q 'exec node "$(dirname "$0")/scripts/conv.ts"' "$root/tools/conv"
+    grep -q 'exec node "$(dirname "$0")/ts/conv.ts"' "$root/tools/conv"
     run "$root/tools/conv"
     [[ "$output" == *"new-ts"* ]]
     rm -rf "$root"

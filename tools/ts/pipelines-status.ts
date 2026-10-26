@@ -8,6 +8,7 @@
 import { parseArgs } from "node:util";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { requireString } from "../lib/core/args.ts";
+import { formatTable } from "../lib/ui/panels.ts";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logWarn } from "../lib/core/logging.ts";
 import { ensureProviderAuth, providerOrgGet, providerRequireCapability } from "../lib/providers/provider-core.ts";
@@ -184,8 +185,5 @@ if (outputFormat === "json") {
     r.updatedAt.split("T")[0] ?? "",
     r.url,
   ]);
-  const widths = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => (r[i] ?? "").length)));
-  const line = (cells: string[]): string => cells.map((c, i) => (c ?? "").padEnd(widths[i] ?? 0)).join("  ");
-  console.log(line(headers));
-  for (const r of rows) console.log(line(r));
+  console.log(formatTable(headers, rows.map((cells) => ({ cells }))));
 }

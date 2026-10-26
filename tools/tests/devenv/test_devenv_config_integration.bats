@@ -129,28 +129,28 @@ EOF
 }
 
 @test "project-update-issue: reads the workflow vocabulary from config" {
-    run grep 'configGetArray.*status_workflow' "$PROJECT_ROOT/tools/scripts/project-update-issue.ts"
+    run grep 'configGetArray.*status_workflow' "$PROJECT_ROOT/tools/ts/project-update-issue.ts"
     [ "$status" -eq 0 ]
 }
 
 @test "project-update-issue: validates against the loaded vocabulary" {
-    run grep -n 'status_workflow not configured' "$PROJECT_ROOT/tools/scripts/project-update-issue.ts"
+    run grep -n 'status_workflow not configured' "$PROJECT_ROOT/tools/ts/project-update-issue.ts"
     [ "$status" -eq 0 ]
 }
 
 @test "project-update-issue: vocabulary load runs before status validation" {
-    run grep -n 'statusWorkflow' "$PROJECT_ROOT/tools/scripts/project-update-issue.ts"
+    run grep -n 'statusWorkflow' "$PROJECT_ROOT/tools/ts/project-update-issue.ts"
     [ "$status" -eq 0 ]
-    run grep -c 'statusWorkflow' "$PROJECT_ROOT/tools/scripts/project-update-issue.ts"
+    run grep -c 'statusWorkflow' "$PROJECT_ROOT/tools/ts/project-update-issue.ts"
     [ "$output" -ge 3 ]
 }
 
 @test "issue-triage: consumes the config+operations seams via the TS facade" {
     # The bash tool sourced config-reader + issue-operations; the TS port
     # gets the same seams from the provider facade imports.
-    run grep 'provider-core.ts' "$PROJECT_ROOT/tools/scripts/issue-triage.ts"
+    run grep 'provider-core.ts' "$PROJECT_ROOT/tools/ts/issue-triage.ts"
     [ "$status" -eq 0 ]
-    run grep 'github/issues.ts' "$PROJECT_ROOT/tools/scripts/issue-triage.ts"
+    run grep 'github/issues.ts' "$PROJECT_ROOT/tools/ts/issue-triage.ts"
     [ "$status" -eq 0 ]
 }
 

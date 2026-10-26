@@ -49,7 +49,7 @@ load ../test_helper
 }
 
 @test "issue-label-create rejects invalid color" {
-  run node "$PROJECT_ROOT/tools/scripts/issue-label-create.ts" test-label --color "nothex"
+  run node "$PROJECT_ROOT/tools/ts/issue-label-create.ts" test-label --color "nothex"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Invalid color" ]]
 }

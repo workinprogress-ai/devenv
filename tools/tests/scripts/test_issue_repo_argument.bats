@@ -31,21 +31,21 @@ GHSTUB
 }
 
 @test "issue-list passes the repo to the provider list verb exactly once, first" {
-  run_ts_list_tool "$PROJECT_ROOT/tools/scripts/issue-list.ts" --state all --limit 30
+  run_ts_list_tool "$PROJECT_ROOT/tools/ts/issue-list.ts" --state all --limit 30
   [ "$status" -eq 0 ]
   grep -q "issue|list|-R|$REPO|" "$ARGS_LOG"
   [ "$(grep -o -- "-R|$REPO" "$ARGS_LOG" | wc -l)" -eq 1 ]
 }
 
 @test "issue-search passes the repo to the provider list verb exactly once, first" {
-  run_ts_list_tool "$PROJECT_ROOT/tools/scripts/issue-search.ts" term
+  run_ts_list_tool "$PROJECT_ROOT/tools/ts/issue-search.ts" term
   [ "$status" -eq 0 ]
   grep -q "issue|list|-R|$REPO|" "$ARGS_LOG"
   [ "$(grep -o -- "-R|$REPO" "$ARGS_LOG" | wc -l)" -eq 1 ]
 }
 
 @test "issue-list keeps its filter flags after the repo" {
-  run_ts_list_tool "$PROJECT_ROOT/tools/scripts/issue-list.ts" --state all --limit 30
+  run_ts_list_tool "$PROJECT_ROOT/tools/ts/issue-list.ts" --state all --limit 30
   [ "$status" -eq 0 ]
   grep -q -- "--state|all" "$ARGS_LOG"
   grep -q -- "--limit|30" "$ARGS_LOG"
