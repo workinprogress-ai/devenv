@@ -1,9 +1,9 @@
-repos/
-repos/*
-.debug/
-.debug/*
-.setup/
-.setup/*
+/repos/
+/repos/*
+/.debug/
+/.debug/*
+/.setup/
+/.setup/*
 node_modules/
 .pnpm-store/
 .cache/
@@ -17,39 +17,39 @@ dotnet-install.*
 # Runtime-generated files
 .runtime/
 .runtime/*
-temp/
-temp/*
-tmp/
-tmp/*
-mnt/
-mnt/*
-playground/
-playground/*
-.installs/
-.installs/*
+/temp/
+/temp/*
+/tmp/
+/tmp/*
+/mnt/
+/mnt/*
+/playground/
+/playground/*
+/.installs/
+/.installs/*
 *.log
 
 # Copilot knowledge is synced from an external repo during bootstrap/update
-copilot/knowledge/
-copilot/knowledge/*
+/copilot/knowledge/
+/copilot/knowledge/*
 
 # Engineering standards are synced from an external repo during bootstrap/update
-copilot/engineering/
-copilot/engineering/*
+/copilot/engineering/
+/copilot/engineering/*
 
 # Ignore symlinks in tools/ but keep subdirectories
-tools/*
-tools/custom/
-!tools/fork/
-!tools/internal/
-!tools/lib/
-!tools/scripts/
-!tools/other/
-!tools/tests/
-!tools/config
-!tools/templates
-!tools/git-hooks/
-!tools/special/
+/tools/*
+/tools/custom/
+!/tools/config
+!/tools/fork/
+!/tools/git-hooks/
+!/tools/internal/
+!/tools/lib/
+!/tools/other/
+!/tools/scripts/
+!/tools/special/
+!/tools/templates
+!/tools/tests/
 
 # Ignore locally produced temporary artifacts
 .prompts/

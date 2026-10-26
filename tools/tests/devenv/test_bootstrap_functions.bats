@@ -948,6 +948,37 @@ run_seed_flow() {
   [[ "$output" =~ NODE_VERSION=[0-9]+\.[0-9]+\.[0-9]+ ]]
 }
 
+@test "install_or_configure_nvm activates the declared node when nvm is already installed" {
+  [ -f /usr/local/share/nvm/nvm.sh ] || skip "nvm is not installed here"
+  . "$PROJECT_ROOT/.devcontainer/tool-versions.bash"
+  [ -d "/usr/local/share/nvm/versions/node/v$NODE_VERSION" ] || skip "declared node v$NODE_VERSION not installed here"
+  # Regression: with nvm present, the task skipped activation, so npm -g
+  # installs landed on the ambient (image) node and pnpm/turbo went missing
+  # from the declared install. A decoy node shadows the real one; the task
+  # must converge node onto the declared version despite it.
+  local decoy="$TEST_TEMP_DIR/decoy-bin"
+  mkdir -p "$decoy"
+  printf '#!/usr/bin/env bash\necho "v99.99.99-decoy"\n' > "$decoy/node"
+  chmod +x "$decoy/node"
+  run env "PATH=$decoy:/usr/bin:/bin" bash -c '
+    . "$0/.devcontainer/bootstrap.bash"
+    install_or_configure_nvm >/dev/null 2>&1
+    node -v
+  ' "$PROJECT_ROOT"
+  [ "$status" -eq 0 ]
+  [ "${lines[-1]}" = "v$NODE_VERSION" ]
+}
+
+@test "install_or_configure_nvm sets NVM_SYMLINK_CURRENT=true to converge the current symlink" {
+  run grep -q 'NVM_SYMLINK_CURRENT=true' "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
+  [ "$status" -eq 0 ]
+}
+
+@test "ensure_tool_versions sets NVM_SYMLINK_CURRENT=true in the node repair path" {
+  run grep -q 'NVM_SYMLINK_CURRENT=true' "$PROJECT_ROOT/.devcontainer/tool-versions.bash"
+  [ "$status" -eq 0 ]
+}
+
 # Scratch toolbox holding the real bootstrap.sh/bootstrap.bash plus two stub
 # tasks, so the entry path can be run end to end without touching the machine.
 setup_bootstrap_entry_fixture() {
