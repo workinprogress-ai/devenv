@@ -121,7 +121,7 @@ spec_file() {
 
 @test "a link to a SPEC without a heading warns on stderr but does not fail" {
     f="$(spec_file links.md '## SPEC-001' 'See [SPEC-077](#spec-077)')"
-    run --separate-stderr bash "$SCRIPT" "$f"
+    run --separate-stderr "$SCRIPT" "$f"
     [ "$status" -eq 0 ]
     [[ "$stderr" == *"SPEC-077"* ]]
 }
@@ -132,32 +132,32 @@ spec_file() {
 
 @test "a link whose anchor matches the heading slug produces no warning" {
     f="$(spec_file anchor-ok.md '## SPEC-001: Order Intake' 'See [SPEC-001](#spec-001-order-intake)')"
-    run --separate-stderr bash "$SCRIPT" "$f"
+    run --separate-stderr "$SCRIPT" "$f"
     [ "$status" -eq 0 ]
     [ -z "$stderr" ]
 }
 
 @test "a link to an existing SPEC with a wrong anchor warns about the anchor" {
     f="$(spec_file anchor-bad.md '## SPEC-001: Order Intake' 'See [SPEC-001](#completely-wrong)')"
-    run --separate-stderr bash "$SCRIPT" "$f"
+    run --separate-stderr "$SCRIPT" "$f"
     [ "$status" -eq 0 ]
     [[ "$stderr" == *"completely-wrong"* ]]
 }
 
 @test "heading punctuation is dropped when slugging (colon, parentheses, slash)" {
     f="$(spec_file anchor-punct.md '## SPEC-002: Pay (card/cash) now!' 'See [SPEC-002](#spec-002-pay-cardcash-now)')"
-    run --separate-stderr bash "$SCRIPT" "$f"
+    run --separate-stderr "$SCRIPT" "$f"
     [ -z "$stderr" ]
 }
 
 @test "a repeated heading gets the -1 suffix GitHub assigns" {
     f="$(spec_file anchor-dup.md '## SPEC-003: Same' '### SPEC-003: Same' 'See [SPEC-003](#spec-003-same-1)')"
-    run --separate-stderr bash "$SCRIPT" "$f"
+    run --separate-stderr "$SCRIPT" "$f"
     [ -z "$stderr" ]
 }
 
 @test "an anchor wrong in case-only is accepted (anchors are lowercase slugs)" {
     f="$(spec_file anchor-case.md '## SPEC-004: Mixed Case' 'See [SPEC-004](#spec-004-mixed-case)')"
-    run --separate-stderr bash "$SCRIPT" "$f"
+    run --separate-stderr "$SCRIPT" "$f"
     [ -z "$stderr" ]
 }

@@ -4,8 +4,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
-import { configGetRaw } from "../core/config.ts";
-import { selfRoot } from "../core/self-root.ts";
+import { configGetRaw } from "../../core/config.ts";
+import { selfRoot } from "../../core/self-root.ts";
 
 export interface ForkConfig {
   upstreamRepo: string;

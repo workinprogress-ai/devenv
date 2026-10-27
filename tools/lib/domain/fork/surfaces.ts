@@ -3,7 +3,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { selfRoot } from "../core/self-root.ts";
+import { selfRoot } from "../../core/self-root.ts";
 
 export interface SurfaceEntry { description: string; paths: string[] }
 export interface SurfacesDecl {
