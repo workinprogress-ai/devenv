@@ -15,7 +15,7 @@ async function loadGraph(): Promise<Graph> {
 }
 
 let cacheDir = "";
-let savedEnv: { cache?: string | undefined; prefix?: string | undefined; root?: string | undefined } = {};
+const savedEnv: { cache?: string | undefined; prefix?: string | undefined; root?: string | undefined } = {};
 
 function touch(path: string, content = "ts"): void {
   mkdirSync(join(path, ".."), { recursive: true });

@@ -15,7 +15,7 @@ import {
   changeIdIsForkAdapted, changeIdIsForkOnly, skipListAdd, skipListHasCommit,
   skipListList, skipListLoad, skipListRemove,
 } from "../lib/core/change-id.ts";
-import { forkConfigFromEnv, getSelectionSlug, normalizeGitUrl, upstreamMatches } from "../lib/domain/fork.ts";
+import { forkConfigFromEnv, getSelectionSlug, normalizeGitUrl, upstreamMatches } from "../lib/domain/fork/index.ts";
 
 assertNodeFloor();
 

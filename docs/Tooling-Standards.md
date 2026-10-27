@@ -1,9 +1,11 @@
 # Tooling Standards Guide
 
 How to write, structure, and test tools in this repo's `tools/` suite. These
-standards are enforced by review and (where noted) by `lint-scripts.sh` and the
-bats suite. New tools should start from `tools/templates/script-template.sh`
-(via `tooling-create-script <name>`), which embodies most of this guide.
+standards are enforced by review and (where noted) by the type gate, eslint,
+`lint-scripts.sh`, and the test suites. New TypeScript tools start from
+`tools/templates/script-template.ts` (via `tooling-create-script <name>`);
+stay-bash tools start from `script-template.sh` — each embodies its half of
+this guide.
 
 Related docs: [Function Naming Conventions](Function-Naming-Conventions.md),
 [Additional Tooling](Additional-Tooling.md).
@@ -57,6 +59,14 @@ are the only orchestration point where interaction happens); `core` imports
 no internal module. PRs that add cross-layer imports against this direction
 are rejected in review.
 
+**Dependency allowlist (npm):** the suite runs from the two published UI
+libraries plus their supported core — `@clack/prompts`, `@clack/core` (the
+multi-select frame), `picocolors` — and `zod` for config-model validation.
+Adding a production dependency is a deliberate act: it ships to every tool
+invocation, so name what it replaces and why the standard library or an
+existing module cannot do the job. Everything else is `node:` builtins and
+workspace modules.
+
 **Module catalog (as built):**
 
 | Module | Role |
@@ -81,7 +91,7 @@ are rejected in review.
 | `lib/domain/kube/` | kubectl listing/state helpers |
 | `lib/domain/cs/` | .NET dependency graph |
 | `lib/domain/markdown.ts` | markdown read/manipulate + body resolution |
-| `lib/domain/fork*.ts` | fork URI/config, patch identity, surfaces |
+| `lib/domain/fork/` | fork family: config/URI basics (`index`), patch identity (`twin`), surfaces |
 | `lib/domain/scratchpad.ts` | sandbox lifecycle state |
 | `lib/domain/artifacts.ts` | issue-artifact header/census model |
 | `lib/domain/desktop-menu.ts` | desktop menu entries |
@@ -185,7 +195,7 @@ main "$@"
 A tool's source lives in one of four folders, and `.devcontainer/entry-stubs-sync.sh`
 generates the bare-name stub in `tools/` from the winning file:
 
-- `tools/scripts/` — the provided bash-era tools (unmigrated `.sh` stay here).
+- `tools/scripts/` — the provided bash sources (the stay-bash set).
 - `tools/ts/` — the provided TypeScript tool bodies (the Node ≥ 23.6
   type-stripping sources the node stubs dispatch to).
 - `tools/fork/` — a fork's own or overriding tools (committed in the fork).
@@ -252,6 +262,16 @@ Rules:
 - Unknown options: `die "Unknown option: $1. Use --help for usage information" "$EXIT_MISUSE"`.
 - Two-stage parsers (flags-after-positional) are acceptable for tools with a
   leading positional, but both stages must handle the global flags.
+
+## JSON output contract
+
+Tools emitting JSON follow gh's shapes: `--pretty` (or a pretty default)
+prints two-space-indented `JSON.stringify(v, null, 2)` for a whole record or
+a records array; compact `JSON.stringify(v)` stays for one-object-per-line
+(NDJSON) streams, `--jq` projections, and summaries a script consumes —
+anything a consumer splits on newlines or parses positionally must not
+change shape. Choose per surface: human reading gets pretty, machine
+piping keeps its contract.
 
 ## Body/stdin input
 
@@ -344,7 +364,25 @@ runner; the flag reaches the source under `scripts/` or `ts/`).
 
 ## Testing requirements
 
-Every tool gets a bats file at `tools/tests/scripts/test_<tool>.bats`:
+TypeScript tools get vitest coverage at `tools/tests/ts/<name>.test.ts`:
+
+- Unit tests for lib modules alongside behavioral tests that spawn the tool
+  and assert on status/output (black-box port pattern — see
+  `family-repos.test.ts`)
+- Exit-code assertions for each error class the tool emits
+- Stub external CLIs on `PATH` (see the provider-stub pattern in
+  `test_helper.bash`) — never call a live provider from a test
+
+Bash suites stay where they validate stay-bash behavior or drive real
+git/pty machinery (`tools/tests/scripts/`, `tools/tests/lib/`,
+`tools/tests/devenv/`): the stay-bats set is the fixture-heavy suites that
+would need the world rebuilt to port (fork-export's git machinery, the
+provider stub dispatch harnesses). A bats file for a migrated tool is a
+delete candidate once its coverage exists in vitest; a bats file backing a
+stay-bash tool stays.
+
+Every tool gets a bats file at `tools/tests/scripts/test_<tool>.bats` while
+while its older bats coverage remains:
 
 - Syntax test (`bash -n`), `--help` test (rc 0, prints "Usage:")
 - At least one behavioral test per mode, using stub commands on `PATH` for

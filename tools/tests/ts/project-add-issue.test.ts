@@ -73,6 +73,7 @@ describe("project-add-issue", () => {
       'if [ "$1 $2" = "auth status" ]; then exit 0; fi',
       "case \"$*\" in",
       '  *"issue view"*) echo "https://example.test/issues/42"; exit 0;;',
+      '  *"projectsV2"*) echo "false "; echo "9";;',
       '  *"item-add"*) echo "provider said: no such project" >&2; exit 1;;',
       "esac",
     ]);
@@ -88,6 +89,7 @@ describe("project-add-issue", () => {
       'if [ "$1 $2" = "auth status" ]; then exit 0; fi',
       "case \"$*\" in",
       '  *"issue view"* | *"issue view --json"*) echo "https://example.test/issues/42"; exit 0;;',
+      '  *"projectsV2"*) echo "false "; echo "9";;',
       "esac",
     ]);
     const r = runTool(["Board", "42"]);

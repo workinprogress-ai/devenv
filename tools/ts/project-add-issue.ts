@@ -16,6 +16,7 @@ import { issuesView } from "../lib/providers/github/issues.ts";
 import {
   projectsItemAdd,
   projectsIdByName,
+  projectsNumberByName,
   projectsItemIdForIssue,
   projectsFieldOptionIds,
   projectsFieldSet,
@@ -177,9 +178,22 @@ async function addIssueToProject(issueNum: string): Promise<void> {
     return;
   }
 
+  // `gh project item-add` takes the project NUMBER, not its title —
+  // resolve once here so both <title> and <number> inputs behave the same.
+  let projectNumber = "";
+  try {
+    projectNumber = projectsNumberByName(owner, projectName);
+  } catch (err) {
+    logError(`Could not resolve project '${projectName}' to a number`);
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg !== "") logError(`provider: ${msg}`);
+    logInfo("Pass the project by number, or check the title and org");
+    throw err;
+  }
+
   logWarn(`Adding issue #${issueNum} to project '${projectName}'`);
   try {
-    projectsItemAdd(undefined, projectName, issueUrl, ["--owner", owner]);
+    projectsItemAdd(undefined, projectNumber, issueUrl, ["--owner", owner]);
   } catch (err) {
     logError(`Failed to add issue #${issueNum} to project '${projectName}'`);
     const msg = err instanceof Error ? err.message : String(err);

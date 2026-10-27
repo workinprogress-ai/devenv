@@ -8,12 +8,12 @@ import { tmpdir } from "node:os";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { changeIdGetFromCommit } from "../lib/core/change-id.ts";
-import { loadConfig, normalizeGitUrl, upstreamMatches } from "../lib/domain/fork.ts";
+import { loadConfig, normalizeGitUrl, upstreamMatches } from "../lib/domain/fork/index.ts";
 import {
   PICK_VERDICT_PICK, classifyPickRange, gitIn, mapAdd, mapGetPath,
   mapLookupLocal, mapPropose, mapRemove, patchesIdentical, type PickRow,
-} from "../lib/domain/fork-twin.ts";
-import { surfacesClassify, surfacesList, surfacesValidate } from "../lib/domain/fork-surfaces.ts";
+} from "../lib/domain/fork/twin.ts";
+import { surfacesClassify, surfacesList, surfacesValidate } from "../lib/domain/fork/surfaces.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 
 assertNodeFloor();

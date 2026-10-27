@@ -5,7 +5,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 import { join } from "node:path";
-import { changeIdGetFromCommit } from "../core/change-id.ts";
+import { changeIdGetFromCommit } from "../../core/change-id.ts";
 
 export const ADOPTION_MAP_FILE_NAME = "fork-adoption-map";
 export const PICK_VERDICT_PICK = "pick";

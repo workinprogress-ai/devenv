@@ -46,6 +46,43 @@ export function projectsFieldList(_repo: string | undefined, project: string, fl
   return r.stdout;
 }
 
+/** Resolve a project's numeric number from its title (paginated scan) or
+ * pass a numeric input through — the number form `gh project item-add`
+ * requires. Mirrors projectsIdByName's resolution rules (same named
+ * errors). */
+export function projectsNumberByName(owner: string, nameOrNumber: string): string {
+  providerRequireCapability("project-boards");
+  if (owner === "" || nameOrNumber === "") {
+    throw new Error("projectsNumberByName: owner and project required");
+  }
+  if (/^[0-9]+$/.test(nameOrNumber)) return nameOrNumber;
+  if (nameOrNumber.includes('"')) {
+    throw new Error(`projectsNumberByName: project title must not contain double quotes ('${nameOrNumber}')`);
+  }
+  const query = 'query($o:String!,$c:String){ organization(login:$o){ projectsV2(first:50, after:$c){ pageInfo{ hasNextPage endCursor } nodes{ number title } } } }';
+  const jqProgram =
+    '.data.organization.projectsV2 as $p ' +
+    '| "\\($p.pageInfo.hasNextPage) \\($p.pageInfo.endCursor // \"\")", ' +
+    `($p.nodes[] | select(.title == "${nameOrNumber}") | .number)`;
+  const numbers: string[] = [];
+  let cursor = "";
+  let hasMore = true;
+  while (hasMore) {
+    const args = ["-f", `query=${query}`, "-f", `o=${owner}`];
+    if (cursor !== "") args.push("-f", `c=${cursor}`);
+    const page = ghApiSync(["api", "graphql", ...args, "--jq", jqProgram], { tolerateFailure: true });
+    if (page.status !== 0) throw new Error(`projectsNumberByName: page scan failed for '${nameOrNumber}'`);
+    const parsed = parsePage(page.stdout);
+    hasMore = parsed.hasMore;
+    cursor = parsed.cursor;
+    numbers.push(...parsed.ids);
+  }
+  if (numbers.length === 0) {
+    throw new Error(`projectsNumberByName: no project titled '${nameOrNumber}' in org '${owner}'`);
+  }
+  return numbers[0] ?? "";
+}
+
 /** Add an item (issue URL or id) to a project. */
 export function projectsItemAdd(_repo: string | undefined, project: string, item: string, flags: string[] = []): void {
   providerRequireCapability("project-boards");

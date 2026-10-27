@@ -13,10 +13,8 @@ import {
   kubeInteractive,
   listNamespaces,
   namespaceExists,
-  listResources,
   listPods,
   listDeployments,
-  partialMatches,
   resolveNamespace,
   currentNamespaceDefault,
   resolveSingleMatch,
@@ -179,8 +177,8 @@ describe("domain/kube", () => {
       void o;
       return [];
     };
-    const single = (o: { filter?: string }): string[] => ["only-one"];
-    const multi = (o: { filter?: string }): string[] => ["a-1", "a-2"];
+    const single = (_o: { filter?: string }): string[] => ["only-one"];
+    const multi = (_o: { filter?: string }): string[] => ["a-1", "a-2"];
 
     expect(resolveSingleMatch(single, {})).toEqual({ kind: "single", name: "only-one" });
     const none = resolveSingleMatch(list, { filter: "nomatch" });
