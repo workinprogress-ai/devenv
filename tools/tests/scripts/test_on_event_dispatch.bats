@@ -9,17 +9,17 @@ load ../test_helper
 
 setup() {
     test_helper_setup
-    DISPATCH="$PROJECT_ROOT/tools/internal/_on_event_dispatch.sh"
+    DISPATCH="$PROJECT_ROOT/tools/internal/_on_event_dispatch.ts"
 }
 
 @test "dispatcher: no args is a usage error" {
-    run bash "$DISPATCH"
+    run node "$DISPATCH"
     [ "$status" -ne 0 ]
     [[ "$output" == *"Usage"* ]]
 }
 
 @test "dispatcher: unknown event warns and exits 0 (tolerance)" {
-    run bash "$DISPATCH" _on_unknown_event 42
+    run node "$DISPATCH" _on_unknown_event 42
     [ "$status" -eq 0 ]
     [[ "$output" == *"Unknown event"* ]]
 }
@@ -28,12 +28,12 @@ setup() {
     # The shim delegates to workflow_on_event: rc 0, no error output on the
     # happy path (write noise is suppressed; failures warn instead of
     # blocking skill work).
-    run bash "$DISPATCH" _on_begin_grooming 42
+    run node "$DISPATCH" _on_begin_grooming 42
     [ "$status" -eq 0 ]
     [[ "$output" != *"Unknown event"* ]]
 }
 
 @test "dispatcher: missing issue number is a usage error" {
-    run bash "$DISPATCH" _on_begin_grooming
+    run node "$DISPATCH" _on_begin_grooming
     [ "$status" -ne 0 ]
 }
