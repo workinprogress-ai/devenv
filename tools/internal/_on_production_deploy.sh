@@ -1,2 +1,2 @@
 #!/bin/bash
-exec bash "$(dirname "$0")/_on_event_dispatch.sh" "_on_production_deploy" "$@"
+exec node "$(dirname "$0")/_on_event_dispatch.ts" "_on_production_deploy" "$@"
