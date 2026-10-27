@@ -31,8 +31,6 @@ import {
   getTypePostCreationCommitHandling,
   getTypeDescription,
   getTypeNamingExample,
-  configureRulesetsForType,
-  configureMergeTypesForType,
 } from "../lib/domain/repos/types.ts";
 
 assertNodeFloor();

@@ -11,6 +11,27 @@ This design allows anyone forking this repository to:
 - Add their own bootstrap tasks
 - Create completely custom bootstrap flows
 
+## The two-stage bootstrap
+
+Provisioning runs in two stages:
+
+1. **bash stage** (`.devcontainer/bootstrap.bash`) — OS packages, dotnet,
+   nvm/node, pnpm dependencies. It needs no JavaScript toolchain, so it can
+   build one from nothing.
+2. **TypeScript stage** (`run_setup_first_run` →
+   `tools/ts/setup-first-run.ts --all`) — everything that composes the
+   workspace: env vars, bashrc integration, credentials, tool symlinks,
+   copilot/claude integration, side-repo syncs, package sources. It runs
+   non-interactively and idempotently; every step is safe to re-run, and
+   `run_update_tasks` re-executes it on container updates.
+
+The handoff point is deliberate: the TS stage only starts once `node` is
+installed. If node is missing or broken, `run_setup_first_run` prints the
+manual recovery path (`node tools/ts/setup-first-run.ts --all`) instead of
+failing obscurely. The step functions the TS stage calls live in
+`tools/lib/provision.bash`; they retire to TypeScript as their provisioning
+steps become TS-native.
+
 ## Architecture
 
 ### Files

@@ -5,7 +5,7 @@
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
-import { loadConfig, upstreamMatches } from "../lib/domain/fork.ts";
+import { loadConfig, upstreamMatches } from "../lib/domain/fork/index.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 
 assertNodeFloor();
