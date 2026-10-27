@@ -580,14 +580,14 @@ Also add a one-liner to each `SKILL.md` — usually in the Sibling skills sectio
 Skills maintain GitHub Project issue status as a side effect of their lifecycle by invoking deterministic **event-signal scripts**. This is a tooling class distinct from the CRUD wrappers:
 
 - **Skills know only the event name and the issue number.** Never read `tools/config/skill-events.yml`, never name projects, never contain Status vocabulary (hyphenated tokens like `To-Groom` live only in config and the wrappers).
-- **Invocation:** `_on_<event> <issue-number>` — thin entry points delegating to `tools/internal/_on_event_dispatch.sh`. Event scripts live in `tools/internal/` (machinery-invoked; no depth-1 stub).
+- **Invocation:** `bash tools/internal/_on_<event>.sh <issue-number>` — thin exec shims over the TS dispatcher. Underscore-prefixed and machinery-invoked: no depth-1 stub, so the bare event name is not on PATH — invoke by path (or via `workflow-signal` for interactive/batch firing).
 - **Events** (begin/end pairs per lifecycle phase): `_on_begin_grooming`, `_on_end_grooming`, `_on_begin_planning`, `_on_end_planning`, `_on_begin_implementation`, `_on_end_implementation`, `_on_begin_review`, `_on_end_review`, `_on_merge`.
 - **Best-effort guarantee:** event scripts always exit 0 for skill flows; failures print warnings and never block skill work. Transitions are idempotent — a later signal repairs drift.
 - **Visible, not gated:** the event signal is a side effect of a boundary the user already approved (opening the PR, completing the merge, closing the plan) — it never prompts for its own permission. But it is not silent: skills state the signal in their normal output (one line, e.g. `→ signalled _on_begin_review for #43`).
 - **Placement rule:** invoke at existing lifecycle boundaries (intake confirmation, phase handoffs, wrap-up) — do not create new interactive gates for status updates.
 - **Charter boundary:** events absorb deterministic, content-free, cross-cutting side effects — nothing that requires authored content or judgment. The moment an event handler would need to write prose or decide *whether* to act, that work belongs to the skill, not the event.
 
-Canonical tooling reference: the [wrapper protocol reference](./_shared/references/protocol-common.md#_on_event-skill-event-signals) (`_on_*` entry points, `_on_event_dispatch.sh`, `workflow-signal` for manual/interactive firing). The human-facing model — types, status semantics, parent rollup — is documented canonically in the repo's `docs/Issue-Workflow.md`.
+Canonical tooling reference: the [wrapper protocol reference](./_shared/references/protocol-common.md#_on_event-skill-event-signals) (`_on_*` entry points, `_on_event_dispatch.ts`, `workflow-signal` for manual/interactive firing). The human-facing model — types, status semantics, parent rollup — is documented canonically in the repo's `docs/Issue-Workflow.md`.
 
 ## Open Questions Log (Q-NNN)
 

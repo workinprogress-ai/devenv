@@ -8,7 +8,7 @@ load ../test_helper
 
 setup() {
     test_helper_setup
-    DISPATCH="$PROJECT_ROOT/tools/internal/_on_event_dispatch.sh"
+    DISPATCH="$PROJECT_ROOT/tools/internal/_on_event_dispatch.ts"
     stub_dir="$(mktemp -d)"
     export STUB_DIR="$stub_dir"
     printf '#!/usr/bin/env bash\nexit 0\n' > "$stub_dir/gh"
@@ -46,7 +46,7 @@ else
 fi
 STUB
     export STUB_CALLS="$stub_dir/calls.log"
-    run bash "$DISPATCH" _on_begin_grooming 44
+    run node "$DISPATCH" _on_begin_grooming 44
     [ "$status" -eq 0 ]
     grep -q "updateProjectV2ItemFieldValue" "$STUB_CALLS"
 }
@@ -93,7 +93,7 @@ STUB
     export RESOLVED_OWNER="$resolved_owner" RESOLVED_REPO="$resolved_repo"
     export STUB_CALLS="$stub_dir/calls2.log"
     # cwd is the devenv checkout (test_helper roots it there); no DEVENV_REPO.
-    run bash "$DISPATCH" _on_begin_grooming 44
+    run node "$DISPATCH" _on_begin_grooming 44
     [ "$status" -eq 0 ]
     [[ "$output" != *"workflow write"* ]]
     grep -q "updateProjectV2ItemFieldValue" "$STUB_CALLS"
@@ -106,7 +106,7 @@ STUB
 case "$1" in auth) exit 0 ;; *) exit 1 ;; esac
 STUB
     chmod +x "$STUB_DIR/gh"
-    run bash "$DISPATCH" _on_begin_grooming 44
+    run node "$DISPATCH" _on_begin_grooming 44
     [ "$status" -eq 0 ]
     # Contract: dispatcher exits 0 no matter what the wrapper did (D-008).
     # A read failure under --safe is a no-op success, so either outcome line
@@ -115,7 +115,7 @@ STUB
 }
 
 @test "unknown event: warn + exit 0 (schema tolerance)" {
-    run bash "$DISPATCH" _on_totally_unknown 44
+    run node "$DISPATCH" _on_totally_unknown 44
     [ "$status" -eq 0 ]
     [[ "$output" == *"Unknown event"* ]]
 }

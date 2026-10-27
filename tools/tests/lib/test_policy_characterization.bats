@@ -85,14 +85,14 @@ load ../test_helper
 # ============================================================================
 
 @test "policy: workflow fallback + delivery anchor resolve via policy accessors" {
-    # Post-extraction: workflow-core consumes WORKFLOW_POLICY_* variables fed
-    # by the workflow-policy module; the literals live there.
-    local core="$PROJECT_ROOT/tools/lib/workflow-core.bash"
-    grep -q 'WORKFLOW_POLICY_ANCHOR' "$core"
-    grep -q 'WORKFLOW_POLICY_FALLBACK' "$core"
+    # The TS graph consumes the knobs through config keys with the same
+    # defaults; the bash policy module keeps the literals for its stay-bash
+    # consumers.
+    local graph="$PROJECT_ROOT/tools/lib/domain/issues/graph.ts"
+    grep -q 'delivery_segment_anchor' "$graph"
+    grep -q 'status_fallback' "$graph"
     grep -q 'Implementing' "$PROJECT_ROOT/tools/lib/policy/workflow-policy.bash"
     grep -q 'Ready' "$PROJECT_ROOT/tools/lib/policy/workflow-policy.bash"
-    ! grep -qE 'st="Ready"' "$core"
 }
 
 # ============================================================================
