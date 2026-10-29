@@ -30,6 +30,8 @@ Each row should be independently deliverable to production.
 
 If any row cannot state `yes` for independent production target, split that row into smaller issues until each row is independently deliverable.
 
+Type follows placement: a row under a **Feature or Bug** parent is a **Task** (Features and Bugs are user-visible deliverables; Tasks are required work users don't see). Feature/Fix rows are legitimate only as top-level rows or rows under an Epic — name the parent's type when proposing row types.
+
 ## Design decisions
 
 ### Confirmed
@@ -49,6 +51,14 @@ If any row cannot state `yes` for independent production target, split that row 
 | #     | Decision | Reason | Revisit trigger |
 | ----- | -------- | ------ | --------------- |
 | D-NNN |          |        |                 |
+
+### Assumptions
+
+Facts the design relies on that nobody has verified in this work's context. Recorded the moment an assumption supports a decision — never retroactively. Major `Confirmed` decisions carry a falsifiability line in their rationale: what would prove the choice wrong, and would we find out before implementation?
+
+| #     | Assumption | Used by (decisions) | What if it's wrong | Verified how |
+| ----- | ---------- | ------------------- | ------------------ | ------------ |
+| A-001 |            |                     |                    | not yet      |
 
 ## Outstanding questions
 

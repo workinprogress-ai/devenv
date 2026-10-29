@@ -192,7 +192,19 @@ When an interview answer would rest on an **empirical unknown** — "can we do X
 
 Encoded shape:
 
-- `- [ ] **N.M [S|M] Research: <question>**` with `owner: User` — the research session runs in a **separate chat**, user-supervised (`/devenv-research` is empowered: destructive-class experiments, code modification with just-in-time permission), and the executor stops at this task and hands back rather than attempting it inline. The asymmetry with plan-encoded review is deliberate: review is read-only computation (safe to dispatch); research needs a user present.
+- `- [ ] **N.M [S|M] Research: <question>**` with `owner: User` — the research session runs in a **separate chat**, user-supervised (`/devenv-research` is empowered: destructive-class experiments, code modification with just-in-time permission), and the executor stops at this task and hands back rather than attempting it inline. **Dispatching a research subagent is not a shortcut around this:** research is not read-only computation, so the plan-encoded review asymmetry does not have a dispatch-safe lane here — just-in-time consent needs the user present to grant it, and a stateless subagent has no one to ask. The executor stops and hands back; the user decides whether to run the session themselves or route it elsewhere.
+- At the stop, the executor emits a copyable markdown handoff block the user can paste into a fresh `/devenv-research` invocation (same shape grooming's research handoff uses):
+
+  ```markdown
+  ## Research Handoff — <topic>
+
+  - **Question:** <the empirical unknown from the task line, stated so a fresh session can act on it>
+  - **Why it matters:** <which plan tasks/decisions this unblocks — the `depends on N.M` consumers>
+  - **Constraints:** <what's fixed — stack, performance envelope, compatibility>
+  - **Return route:** bring the findings doc back to this plan via `/devenv-refine-plan <plan-path>` — the answer folds in and resolves the open question
+  ```
+
+  The asymmetry with plan-encoded review is deliberate: review is read-only computation (safe to dispatch); research needs a user present.
 - `Additional context:` carries the return route — findings land in the research doc, then `/devenv-refine-plan` folds the answer back into this plan (resolving the open question that spawned it).
 - Downstream tasks that depended on the unknown get `depends on N.M` so the DAG shows the research task is load-bearing.
 

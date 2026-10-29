@@ -119,6 +119,8 @@ Use the knowledge repo's `orchestration.md` (resolve the knowledge repo location
 
 ### Phase 1: Classification interview (max 4 questions)
 
+The cap covers **routing** questions only — the four below that place this work on a track. Probing the design itself (unknowns, assumptions, gaps) is not capped; it is the scan's job (see [Empirical-unknown scan](#empirical-unknown-scan-before-closure)) and it is never skipped for brevity.
+
 Ask only what is missing (the grooming document may already answer some of these):
 
 1. Is the approach still undecided, or already chosen?
@@ -156,6 +158,10 @@ When the input includes an upstream design artifact (blueprint, specifications, 
 
 This pass is a checklist item, not a redesign loop — a few minutes per artifact at most. If it starts arguing with the whole blueprint, that is the existing escalation to `/devenv-design` (or an upstream-impact issue when the artifact itself is wrong), not this gate.
 
+### Falsifiability line per major decision
+
+When recording a **major** decision in `Confirmed` (one that shapes interfaces, data, or sequencing — not wording or internal mechanics), attach one falsifiability line to its rationale: *what would prove this choice wrong, and would we find out before implementation starts?* If the honest answer to the second half is "only mid-build," the decision is not actually settled — route it through the [empirical-unknown scan](#empirical-unknown-scan-before-closure) (research handoff or accepted-assumption entry) instead of confirming it on confidence alone. Keep it to one line; the [pressure-test pass](#optional-pressure-test-pass-user-gated) remains the deep interrogation when the user wants one — this line is the cheap always-on form.
+
 ## Routing guardrails
 
 - If the user primarily needs alternatives/trade-offs -> route to `/devenv-design`.
@@ -170,6 +176,7 @@ When grooming is active, propose a deliverable issue attack plan in issue-sized 
 - Use **Feature** for net-new user/business capability.
 - Use **Fix** for defect/risk remediation.
 - Use **Task** for enabling or operational work that does not stand as user-facing capability.
+- **Type follows placement.** A row placed under an existing **Feature or Bug** parent is a **Task** — Features and Bugs are user-visible deliverables; Tasks are required work users don't see, and a nested Feature under a Feature claims deliverable status the parent already carries. Feature/Fix rows are legitimate only as top-level rows or rows under an Epic. When proposing types, name the parent's type first; if the parent's type is unknown, resolve it before proposing types rather than drafting per-row and reconciling later.
 - Split by repo/component and independent production deliverability.
 - Avoid bundles that require multiple repos to be completed before anything can ship.
 
@@ -201,9 +208,17 @@ When creating child issues from grooming (user-gated):
 - Use deterministic, non-interactive invocation (no template/editor prompts):
 	- `issue-create --title "<title>" --type "<type>" --body-file <path> --no-template`
 	- add optional flags as needed (`--parent`, `--label`, `--assignee`, `--milestone`, `--project`, `--blocked-by`).
+- `--parent` resolution scope: a bare `N` resolves in the TARGET repo (the
+  repo the child is created in); `owner/repo#N` resolves in the named repo —
+  cross-repo sub-issue parenting works (the sub-issue API takes global node
+  IDs), and the child's body records the fully-qualified parent URL. For
+  epic-in-planning-repo + children-in-component-repo trees either form works;
+  keep the same form within one batch. Post-hoc linking of existing issues:
+  `issue-graph-link PARENT CHILD [--unlink]` (same reference forms,
+  idempotent add; removing an absent link is a no-op).
 - Type value source is explicit:
 	- if the grooming row already has an approved issue type, pass that exact value to `--type`.
-        - if type is not approved yet, list the allowed issue types (see the [deterministic issue creation recipe](../_shared/references/protocol-common.md#deterministic-issue-creation)), present the allowed list, and ask the user to choose one before running `issue-create`.
+        - if type is not approved yet, list the allowed issue types (see the [deterministic issue creation recipe](../_shared/references/protocol-common.md#deterministic-issue-creation)), present the allowed list, and ask the user to choose one before running `issue-create`. The **parent's type is part of that presentation** — name it alongside the allowed list so the placement rule above (Feature/Bug parents take Task children) can be applied with the choice, not after it.
 - Do not run `issue-create --help` or the raw provider CLI's issue-create help during child-issue creation flow. If command shape guidance is needed, use this section and `copilot/skills/_tools-reference.md` as the source of truth and proceed with the deterministic forms above.
 - Extract the created issue number from command output and update the matching attack-plan row.
 - Keep `TBD` for any row not created in the current session.
@@ -242,6 +257,30 @@ This flow updates the grooming document only; it does not modify the completed p
 - Route to `/devenv-plan` when architecture is settled and **no plan exists yet** for the groomed scope — plan generation from a grooming artifact always starts at create, not refine. If the attack plan has multiple rows, create the child issues first so each slice gets its own plan.
 - If uncertain between grooming and /devenv-design after Phase 1, ask one tie-breaker question: "Are we deciding between approaches broadly, or picking the fastest safe decision to unblock the current plan phase?"
 
+### Assumption sweep while drafting
+
+While drafting or updating the grooming document's design sections, catch silent assumptions as they form: every fact the session relies on that nobody has verified in this work's context — a library behaves as expected at the target scale, an API covers the needed operations, a format round-trips losslessly, an upstream system stays within documented limits. Record each in the grooming document's **Assumptions** table (A-NNN) the moment it is used to support a decision, not retroactively. An assumption that carries a Confirmed decision must carry its own entry; discovering it at closure is late.
+
+### Empirical-unknown scan (before closure)
+
+Before proposing decision closure or any implementation handoff, run one deliberate scan over the grooming document's Confirmed and Pending decisions plus the design notes. For each, ask against a fixed checklist of unknown **shapes**:
+
+- **Feasibility** — can X actually be done with the named components? Has anyone run it?
+- **Performance** — is the assumed speed/throughput/latency measured anywhere, or remembered?
+- **Dependency behavior** — does the library/service actually do what the design assumes (at our scale, in our configuration)?
+- **Scale/capacity** — do the data volumes, rates, or sizes fit the assumed limits with headroom?
+- **Compatibility** — do the versions/formats/contracts actually interoperate as drawn?
+- **Security posture** — are the assumed guarantees (isolation, sanitization, authz) attested by anything, or folklore?
+- **Data shape** — does the source data actually look like the design's model of it (checked against real samples)?
+
+Every hit is an empirical unknown, and each gets exactly one of three dispositions — decided by the user, never silently:
+
+1. **Research handoff** — issue the [research handoff block](#research-handoff-empirical-unknowns--offered) so a fresh `/devenv-research` session can answer it (feasibility-shaped only).
+2. **Accept as assumption** — record it in the Assumptions table with *what if it's wrong* and the blast radius if the design proceeds on it.
+3. **Resolve now** — answerable cheaply in this session (read the code, check the docs, run a read-only probe); do it, then update the decision.
+
+The scan is required, not optional — grooming's failure mode is confirming decisions that quietly rest on unverified truths. A scan that finds nothing is stated explicitly in chat ("scan clean: no empirical unknowns on the confirmed set") so its having run is visible.
+
 ### Research handoff (empirical unknowns — offered)
 
 When a grooming decision rests on an **empirical unknown** — feasibility, performance truth, what a dependency actually does — offer a research handoff via `vscode_askQuestions` (run a research session / decide without it / route to /devenv-design instead). Research is empowered (destructive-class experiments, code modification) and user-supervised by design, so it runs in a **separate session**: on agreement, output this copyable block (mirror of the redivision block) and let the user paste it into a fresh `/devenv-research` invocation:
@@ -255,7 +294,7 @@ When a grooming decision rests on an **empirical unknown** — feasibility, perf
 - **Return route:** bring the findings doc back to this grooming session — the classification and attack plan are redone with the answer in hand (`/devenv-groom <grooming-doc-path>`)
 ```
 
-Never run the research inside the grooming session. Scope rule: feasibility-shaped questions only — approach or preference choices route to `/devenv-design` (existing round trip), not research.
+Never run the research inside the grooming session — and **dispatching a research subagent is not a way around that:** research is not read-only computation (destructive-class experiments, code modification under just-in-time consent), so it has no dispatch-safe lane; the consent points need the user present, and a stateless subagent has no one to ask. The handoff block exists precisely so a fresh, user-supervised session picks the question up. Scope rule: feasibility-shaped questions only — approach or preference choices route to `/devenv-design` (existing round trip), not research.
 
 ### Artifact gate before any implementation handoff
 
@@ -274,8 +313,9 @@ If any of those checks fail, write or update the grooming document first. Never 
 Before final handoff to planning or execution, run a short carry-forward review in chat:
 
 - List the important points from this grooming pass (confirmed decisions, deferred decisions, non-negotiable constraints, explicit non-goals, and any rejected option that still matters to safe implementation).
-- For each point, show where it is recorded in the grooming document (`Confirmed`, `Pending`, `Deferred`, or question status).
+- For each point, show where it is recorded in the grooming document (`Confirmed`, `Pending`, `Deferred`, `Assumptions`, or question status).
 - For each point, state the expected downstream destination (`plan phase watch-outs`, `task-level decision metadata`, `appendix constraint`, `pending question`, or `intentionally excluded` with reason).
+- **Load-bearing-unknowns gate:** every open question (Q-NNN), pending decision (D-NNN), and unverified assumption (A-NNN) that a downstream plan would silently inherit must map to exactly one route: *resolved in this session*, *research handoff issued*, *inherited by a named plan task/phase (the plan text names it — an open question section the planner might read is not enough)*, or *explicitly accepted with reason*. Anything that maps to none of these blocks the handoff until it maps to one. This is the complement of the plan side's research-task encoding: grooming guarantees the handoff declares its unknowns; planning encodes them as tasks.
 
 Ask explicitly: "Any important point missing before we hand off?" Do not hand off until this review is shown and the user confirms or amends it.
 
@@ -292,6 +332,8 @@ Before final routing or decision closure on medium/high-impact design choices, o
 - Never run automatically; ask and wait for explicit consent.
 - Keep it bounded (max two passes per current grooming-doc state).
 - Use findings to either close decisions safely in grooming, route one bounded blocker to `/devenv-design`, or route broader drift to upstream design reshaping.
+- **Convergence is disposition, not count.** A pass is done when the protocol's disposition gate completes — every finding confirmed or vetoed by the user. Findings accepted with rationale are a successful pass, not open debt; pressure-tests are generative, so a findings-count bar (like plan-encoded review's blocker/concern gate) never converges and must not be imported here.
+- **Re-test only on material change.** After the fold-in, re-offer one more pass only if it materially changed the design — a Confirmed decision flipped, a new major decision appeared, or a finding was disposed in a way that reshapes interfaces/data/sequencing. Scope the re-offer to the delta since the last pass. A fold-in that only accepted or deferred findings changes nothing structural: the two-per-state cap holds and no re-test is offered.
 
 ### In-flight decision facilitation loop
 
