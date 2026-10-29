@@ -18,7 +18,7 @@ import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { providerOrgGet } from "../lib/providers/provider-core.ts";
 import { authStatusOk } from "../lib/providers/github/urls.ts";
-import { reposView, reposCreate, reposCommitsCount } from "../lib/providers/github/repos.ts";
+import { reposView, reposCreate, reposCommitsCount, reposTreeCount } from "../lib/providers/github/repos.ts";
 import {
   loadRepoTypesConfig,
   repoTypesConfigPath,
@@ -69,19 +69,39 @@ function usage(): never {
   process.exit(1);
 }
 
-// Wait for repository to be ready (has content/commits) — handles the race
-// where gh repo create returns before template files sync to the remote.
-async function waitForRepoReady(fullName: string): Promise<boolean> {
+// Wait for repository to be ready — handles the race where gh repo create
+// returns before template files sync to the remote. Two stages: the commits
+// probe distinguishes not-yet-created/404 from syncing; once any commit
+// exists, tree-count PARITY decides readiness (GitHub instantiates a
+// template repo exactly, so the new repo is ready only when its HEAD tree
+// entry count equals the template's). A truncated tree or a probe failure
+// reads as not-ready, never as ready.
+async function waitForRepoReady(fullName: string, templateFullName: string): Promise<boolean> {
   const maxAttempts = 30; // ~2.5 minutes with 5 second intervals
   const delay = 5;
   logInfo("Waiting for repository to be ready (template files syncing)...");
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    if (await reposCommitsCount(fullName)) {
-      logInfo("✓ Repository is ready");
-      return true;
+    if (!(await reposCommitsCount(fullName))) {
+      if (attempt < maxAttempts) {
+        console.error(`  Attempt ${attempt}/${maxAttempts}: repository not created yet, waiting ${delay}s...`);
+        spawnSync("sleep", [String(delay)], { stdio: "ignore" });
+      }
+      continue;
+    }
+    const [newCount, templateCount] = await Promise.all([
+      reposTreeCount(fullName),
+      reposTreeCount(templateFullName),
+    ]);
+    if (newCount !== null && templateCount !== null) {
+      if (newCount === templateCount) {
+        logInfo(`✓ Repository is ready (tree entries: ${newCount}, matches template)`);
+        return true;
+      }
+      console.error(`  Attempt ${attempt}/${maxAttempts}: syncing (${newCount} tree entries, template has ${templateCount}), waiting ${delay}s...`);
+    } else {
+      console.error(`  Attempt ${attempt}/${maxAttempts}: tree probe failed/truncated, waiting ${delay}s...`);
     }
     if (attempt < maxAttempts) {
-      console.error(`  Attempt ${attempt}/${maxAttempts}: Repository not ready yet, waiting ${delay}s...`);
       spawnSync("sleep", [String(delay)], { stdio: "ignore" });
     }
   }
@@ -241,7 +261,7 @@ async function createRepo(
   logInfo(`✓ Repository created: git@github.com:${fullName}.git`);
 
   if (template !== "") {
-    if (!(await waitForRepoReady(fullName))) {
+    if (!(await waitForRepoReady(fullName, `${org}/${template}`))) {
       logWarn("Repository may not be fully ready, but proceeding with clone...");
     }
   }
@@ -250,9 +270,9 @@ async function createRepo(
 
   if (!skipClone) {
     logInfo("Cloning repository locally...");
-    const repoGetScript = join(toolsDir, "scripts", "repo-get.ts");
-    if (existsSync(repoGetScript)) {
-      if (spawnSync("node", [repoGetScript, repoName], { stdio: "inherit" }).status === 0) {
+    const repoGetTool = join(toolsDir, "repo-get");
+    if (existsSync(repoGetTool)) {
+      if (spawnSync(repoGetTool, [repoName], { stdio: "inherit" }).status === 0) {
         logInfo(`✓ Repository cloned to ${reposDir}/${repoName}`);
 
         if (type !== undefined) createInitialBranch(repoName, repoType, reposDir, config);
@@ -263,9 +283,9 @@ async function createRepo(
 
         if (!skipProtection) {
           logInfo("Applying repository configuration...");
-          const updateConfigScript = join(toolsDir, "repo-update-config");
-          if (existsSync(updateConfigScript)) {
-            if (spawnSync(updateConfigScript, [join(reposDir, repoName)], { stdio: "inherit" }).status !== 0) {
+          const updateConfigTool = join(toolsDir, "repo-update-config");
+          if (existsSync(updateConfigTool)) {
+            if (spawnSync(updateConfigTool, [join(reposDir, repoName)], { stdio: "inherit" }).status !== 0) {
               logWarn("Repository configuration reported failures");
             }
           } else {

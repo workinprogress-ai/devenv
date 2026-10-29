@@ -15,7 +15,7 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { logWarn } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { providerOrgGet, providerRepoSplit } from "../lib/providers/provider-core.ts";
-import { gitTransportUrl, authStatusOk } from "../lib/providers/github/urls.ts";
+import { gitTransportUrl, authStatusOk, remoteToSpec } from "../lib/providers/github/urls.ts";
 import { reposList } from "../lib/providers/github/repos.ts";
 
 assertNodeFloor();
@@ -257,13 +257,27 @@ function configureGitRepo(dir: string, remoteUrl: string): void {
 }
 
 function isOrgMember(spec: string): boolean {
+  // Origin URLs arrive in every git form (HTTPS, SSH, with .git, with
+  // embedded credentials); providerRepoSplit expects bare owner/repo.
+  // Normalize through the provider's remote parser first — an unparseable
+  // form stays foreign (safety-first).
+  let normalized = "";
+  try {
+    normalized = remoteToSpec(spec) ?? "";
+  } catch {
+    return false;
+  }
+  // An unparseable remote is foreign BY DEFINITION — never fall back to a
+  // cwd-derived spec here: providerRepoSplit("") resolves from the working
+  // tree's own basename, which would judge the repo against itself and read
+  // any local-path origin as an org member.
+  if (normalized === "") return false;
   let owner = "";
   try {
-    owner = providerRepoSplit(spec).owner;
+    owner = providerRepoSplit(normalized).owner;
   } catch {
-    // Unparseable origin (local path, non owner/repo form) reads as foreign —
-    // the bash repo_url_owner returned non-zero and is_org_member treated
-    // that as foreign (safety-first).
+    // Unresolvable spec (no DEVENV_REPO, no git context) reads as foreign —
+    // safety-first, the same verdict the bash is_org_member gave.
     return false;
   }
   return owner !== "" && owner === org;

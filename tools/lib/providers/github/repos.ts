@@ -182,6 +182,21 @@ export async function reposCreate(name: string, opts: ReposCreateOptions = {}): 
  * syncing; the caller polls). False on transport failure, as bash returned
  * non-zero; a caller that must distinguish empty from unreachable probes
  * reposView first. */
+/** The repo's HEAD tree blob+entry count via the git trees API
+ * (recursive); null when the call fails OR the tree was truncated (a
+ * truncated tree reads as not-ready, never as ready — 15.13). */
+export async function reposTreeCount(repo: string): Promise<number | null> {
+  const r = ghApiSync(["api", `repos/${repo}/git/trees/HEAD?recursive=1`], { tolerateFailure: true });
+  if (r.status !== 0) return null;
+  try {
+    const parsed = JSON.parse(r.stdout) as { tree?: unknown[]; truncated?: boolean };
+    if (parsed.truncated === true) return null;
+    return Array.isArray(parsed.tree) ? parsed.tree.length : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function reposCommitsCount(repo: string): Promise<boolean> {
   const r = ghApiSync(["api", `repos/${repo}/commits?per_page=1`], { tolerateFailure: true });
   if (r.status !== 0) return false;
@@ -205,7 +220,19 @@ export function reposEdit(repo: string, flags: string[]): boolean {
 
 /** Patch repo settings (REST PATCH with the caller's -f/-F flags verbatim). */
 export function reposPatch(repo: string, flags: string[]): boolean {
-  return ghApiSync(["api", "-X", "PATCH", `repos/${repo}`, ...flags], { tolerateFailure: true }).status === 0;
+  return reposPatchWithError(repo, flags).ok;
+}
+
+/** reposPatch with the API error body surfaced: on failure `error` carries
+ * GitHub's own message (redacted by the transport) so callers can quote the
+ * real cause instead of guessing (15.11 — the allow_forking-on-public case
+ * reported as "may require admin access"). */
+export function reposPatchWithError(repo: string, flags: string[]): { ok: boolean; error: string } {
+  const r = ghApiSync(["api", "-X", "PATCH", `repos/${repo}`, ...flags], { tolerateFailure: true });
+  if (r.status === 0) return { ok: true, error: "" };
+  const first = r.stderr.trim().split("\n").find((l) => l.trim() !== "") ?? "";
+  const msg = first.replace(/^gh:/, "").replace(/\(HTTP \d+\)\s*$/, "").trim();
+  return { ok: false, error: msg };
 }
 
 /** Grant a team access to a repo (idempotent REST PUT). */

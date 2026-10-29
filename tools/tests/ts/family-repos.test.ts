@@ -6,7 +6,7 @@
 // TS surface the migrated tools call.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -152,6 +152,90 @@ describe("repos.ts facade", () => {
     expect(calls).toContain("gh repo edit org/repo --template");
     expect(calls).toContain("gh api -X PUT orgs/org/teams/team-slug/repos/org/repo -f permission=push");
     expect(calls).toContain("gh api -X PUT repos/org/repo/collaborators/someuser -f permission=triage");
+  });
+
+  it("reposPatchWithError surfaces the API error body on failure", () => {
+    // gh stub: fail with GitHub's real allow_forking message on stderr.
+    writeFileSync(
+      join(stubDir, "gh"),
+      [
+        "#!/usr/bin/env bash",
+        'printf \'%s\\n\' "gh $*" >> "' + join(stubDir, "calls.log") + '"',
+        'echo "gh: Allow forks setting can only be changed on org-owned private repositories. (HTTP 422)" >&2',
+        "exit 1",
+        "",
+      ].join("\n"),
+      { mode: 0o755 },
+    );
+    const r = runTs(REPOS_TS, `
+      const m = await import("__FILE__");
+      const res = m.reposPatchWithError("org/repo", ["-F", "allow_forking=true"]);
+      console.log(JSON.stringify(res));
+    `);
+    expect(r.status).toBe(0);
+    const res = JSON.parse(r.stdout.trim()) as { ok: boolean; error: string };
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain("Allow forks setting can only be changed");
+  });
+
+  it("configureRepositoryFeaturesForType retries without allow_forking when it rejects, and reports the skip", () => {
+    // Fail only when the PATCH carries allow_forking (the public-repo case);
+    // the retry without it must succeed and the warn must name the skip.
+    writeFileSync(
+      join(stubDir, "gh"),
+      [
+        "#!/usr/bin/env bash",
+        'printf \'%s\\n\' "gh $*" >> "' + join(stubDir, "calls.log") + '"',
+        'case "$*" in',
+        '  *allow_forking=*) echo "gh: Allow forks setting can only be changed on org-owned private repositories. (HTTP 422)" >&2; exit 1 ;;',
+        "  *) exit 0 ;;",
+        "esac",
+        "",
+      ].join("\n"),
+      { mode: 0o755 },
+    );
+    const typesTs = TYPES_TS;
+    const r = runTs(TYPES_TS, `
+      const m = await import("__FILE__");
+      const cfg = m.RepoTypesConfigSchema.parse({ types: {
+        service: { naming_pattern: ".*", naming_example: "x", has_wiki: true, has_issues: true, allow_auto_merge: true },
+      }});
+      m.configureRepositoryFeaturesForType("org/repo", "service", cfg);
+      console.log("done");
+    `.replaceAll("__FILE__", typesTs));
+    expect(r.status).toBe(0);
+    const calls = ghCalls().join("\n");
+    // probe PATCH carried forking; retry PATCH did not
+    expect(calls).toContain("allow_forking=");
+    const patchCalls = ghCalls().filter((c) => c.includes("-X PATCH"));
+    expect(patchCalls.length).toBe(2);
+    expect(patchCalls[1]).not.toContain("allow_forking");
+    // argv integrity: dropping allow_forking must not orphan its -F (an
+    // unpaired -F swallows the next flag as its value and gh fails with
+    // "accepts 1 arg(s), received 2" instead of reaching the API).
+    // The retry keeps exactly as many -F flags as key=value fields.
+    const retryArgs = patchCalls[1]?.split(" ") ?? [];
+    const fFlags = retryArgs.filter((a) => a === "-F").length;
+    const fValues = retryArgs.filter((a) => a.startsWith("has_") || a.startsWith("allow_")).length;
+    expect(fFlags).toBe(fValues);
+    expect(r.stdout + r.stderr).toContain("NOT applied");
+  });
+
+  it("a private repo path (full PATCH succeeds) keeps allow_forking and reports it", () => {
+    installGh("");
+    const r = runTs(TYPES_TS, `
+      const m = await import("__FILE__");
+      const cfg = m.RepoTypesConfigSchema.parse({ types: {
+        service: { naming_pattern: ".*", naming_example: "x", has_wiki: true, has_issues: true, allowForking: true },
+      }});
+      m.configureRepositoryFeaturesForType("org/repo", "service", cfg);
+      console.log("done");
+    `);
+    expect(r.status).toBe(0);
+    const patchCalls = ghCalls().filter((c) => c.includes("-X PATCH"));
+    expect(patchCalls.length).toBe(1);
+    expect(patchCalls[0]).toContain("allow_forking=true");
+    expect(r.stdout + r.stderr).toContain("Forking: true");
   });
 });
 
@@ -314,5 +398,41 @@ describe("domain/repos/types.ts", () => {
     const keys = r.stdout.trim();
     expect(keys).toContain("planning");
     expect(keys).toContain("service");
+  });
+
+  it("configureRulesetsForType survives a stale payload dir (double-run)", async () => {
+    // Regression: the payload dir was built from mkdirSync's return value,
+    // but recursive mkdirSync returns undefined when the directory already
+    // exists — a stale ruleset-payload- dir crashed every later run with
+    // ERR_INVALID_ARG_TYPE. The path must be constructed explicitly.
+    const toolsRoot = join(stubDir, "tools");
+    mkdirSync(join(toolsRoot, "config"), { recursive: true });
+    writeFileSync(join(toolsRoot, "config", "ruleset.json"), JSON.stringify({ name: "rs {{repo_name}}", rules: [{ type: "pull_request" }] }));
+    const cfgYaml = [
+      "types:",
+      "  service:",
+      '    naming_pattern: ".*"',
+      '    naming_example: "anything"',
+      "    rulesetConfigFile: ruleset.json",
+    ].join("\n");
+    const configPath = join(stubDir, "repo-types.yaml");
+    writeFileSync(configPath, cfgYaml);
+    // Pre-create the payload dir exactly as a previous run left it.
+    mkdirSync(join(tmpdir(), "ruleset-payload-"), { recursive: true });
+    const r = runTs(TYPES_TS, `
+      const m = await import("__FILE__");
+      const fs = await import("node:fs");
+      const cfg = m.RepoTypesConfigSchema.parse(m.parseYamlSubset(fs.readFileSync(${JSON.stringify(configPath)}, "utf8")));
+      // No gh stub answers the rulesets list: the lookup fails soft
+      // (existingId = "") and the create attempt rides the (failing) PATH
+      // gh — the contract under test is "no crash from the stale dir",
+      // not the ruleset write itself.
+      m.configureRulesetsForType("org/service.a", "service", cfg, ${JSON.stringify(toolsRoot)});
+      console.log("survived");
+    `);
+    rmSync(join(tmpdir(), "ruleset-payload-"), { recursive: true, force: true });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain("survived");
+    expect(r.stderr).not.toContain("ERR_INVALID_ARG_TYPE");
   });
 });

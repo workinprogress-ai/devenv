@@ -19,6 +19,7 @@ import {
 } from "../../providers/github/org.ts";
 import {
   reposPatch,
+  reposPatchWithError,
   reposEdit,
   reposTeamPut,
   reposCollaboratorPut,
@@ -410,7 +411,11 @@ export function configureRulesetsForType(
     existingId = "";
   }
 
-  const payloadDir = mkdirSync(join(tmpdir(), "ruleset-payload-"), { recursive: true }) as string;
+  // Build the payload dir path explicitly: recursive mkdirSync returns
+  // undefined when the directory already exists, so its return value is not
+  // a usable path (a once-created stale dir would crash every later run).
+  const payloadDir = join(tmpdir(), "ruleset-payload-");
+  mkdirSync(payloadDir, { recursive: true });
   const tmp = join(payloadDir, `payload-${process.pid}.json`);
   writeFileSync(tmp, payloadJson);
 
@@ -527,7 +532,7 @@ export function configureRepositoryFeaturesForType(fullName: string, repoType: s
     return;
   }
   logInfo("Configuring repository features...");
-  const ok = reposPatch(fullName, [
+  const baseFlags = [
     "-F", `has_wiki=${getTypeHasWiki(type)}`,
     "-F", `has_issues=${getTypeHasIssues(type)}`,
     "-F", `has_discussions=${getTypeHasDiscussions(type)}`,
@@ -537,14 +542,41 @@ export function configureRepositoryFeaturesForType(fullName: string, repoType: s
     "-F", `allow_forking=${getTypeAllowForking(type)}`,
     "-f", `squash_merge_commit_title=${getTypeSquashMergeCommitTitle(type)}`,
     "-f", `squash_merge_commit_message=${getTypeSquashMergeCommitMessage(type)}`,
-  ]);
-  if (ok) {
+  ];
+  // One rejected field kills the whole PATCH, and GitHub rejects
+  // allow_forking on org-owned PUBLIC repositories. Probe with the full
+  // set; on failure retry without allow_forking so the other flags still
+  // land, and report exactly what was skipped (and why, quoting the API).
+  let result = reposPatchWithError(fullName, baseFlags);
+  let forkSkipped = false;
+  if (!result.ok) {
+    // baseFlags is a flat [flag, value, ...] array: dropping only the value
+    // would orphan its -F and corrupt the argv (gh: "accepts 1 arg(s),
+    // received 2"). Drop the flag token and its value as a pair.
+    const withoutFork = baseFlags.filter((f, i) => {
+      if (f === "-F" && baseFlags[i + 1]?.startsWith("allow_forking=")) return false;
+      return f !== "allow_forking=false";
+    });
+    const retry = reposPatchWithError(fullName, withoutFork);
+    if (retry.ok) {
+      forkSkipped = true;
+      result = retry;
+    } else {
+      result = retry.error !== "" ? retry : result;
+    }
+  }
+  if (result.ok) {
     logInfo("✓ Repository features configured:");
     logInfo(`  - Wiki: ${getTypeHasWiki(type)}, Issues: ${getTypeHasIssues(type)}, Discussions: ${getTypeHasDiscussions(type)}, Projects: ${getTypeHasProjects(type)}`);
-    logInfo(`  - Auto-merge: ${getTypeAllowAutoMerge(type)}, Update branch: ${getTypeAllowUpdateBranch(type)}, Forking: ${getTypeAllowForking(type)}`);
+    if (forkSkipped) {
+      logWarn(`  - Forking: NOT applied — allow_forking cannot be set on this repository (org-owned public repos reject it)`);
+    } else {
+      logInfo(`  - Auto-merge: ${getTypeAllowAutoMerge(type)}, Update branch: ${getTypeAllowUpdateBranch(type)}, Forking: ${getTypeAllowForking(type)}`);
+    }
     logInfo(`  - Squash merge: title=${getTypeSquashMergeCommitTitle(type)}, message=${getTypeSquashMergeCommitMessage(type)}`);
   } else {
-    logWarn("Could not configure repository features (may require admin access)");
+    const why = result.error !== "" ? ` GitHub said: ${result.error}` : "";
+    logWarn(`Could not configure repository features${why}`);
   }
 }
 
