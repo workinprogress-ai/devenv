@@ -40,7 +40,7 @@ load ../test_helper
 }
 
 @test "repo-bump-version carries the git equivalent (repo-get + core spawn)" {
-  run grep "repo-get.ts" "$PROJECT_ROOT/tools/ts/repo-bump-version.ts"
+  run grep "repo-get" "$PROJECT_ROOT/tools/ts/repo-bump-version.ts"
   [ "$status" -eq 0 ]
 }
 

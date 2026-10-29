@@ -90,7 +90,7 @@ function updateSingleRepo(repoName: string): Promise<number> {
     const repoPath = join(reposDir, repoName);
     console.error(`[${repoName}] Starting update...`);
     // pipefail analogue: repo-get's exit status decides, never the sed pipe.
-    const child = spawn("node", [join(toolsDir, "scripts", "repo-get.ts")], { cwd: repoPath });
+    const child = spawn(join(toolsDir, "repo-get"), [], { cwd: repoPath });
     // Both streams stream live through the [repo] prefixer (clone progress
     // visible; bash's sed-pipe equivalent).
     for (const stream of [child.stdout, child.stderr]) {

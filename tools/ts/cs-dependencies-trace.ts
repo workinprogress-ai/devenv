@@ -82,7 +82,7 @@ if (!existsSync(targetDir)) {
 const hasSln = hasSlnFile(targetDir);
 function hasSlnFile(dir: string): boolean {
   try {
-    for (const e of readdirSync(dir)) if (e.endsWith(".sln")) return true;
+    for (const e of readdirSync(dir)) if (e.endsWith(".sln") || e.endsWith(".slnx")) return true;
     return false;
   } catch {
     return false;
