@@ -15,7 +15,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { checkTargetRepo, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsThreadCreate, prsView } from "../lib/providers/github/prs.ts";
 import { authStatusOk } from "../lib/providers/github/urls.ts";
 
@@ -149,7 +149,7 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_API_FAILURE;
   }
 
-  const repo = providerRepoTarget("");
+  const repo = requireRepoTarget(providerRepoTarget(""), "pr-review-comment", "pr");
   const body = bodyFile !== "" ? readFileSync(bodyFile, "utf8") : bodyText;
   if (body.replace(/\s/g, "") === "") {
     logError("Comment body is empty — aborting");

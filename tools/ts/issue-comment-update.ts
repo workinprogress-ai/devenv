@@ -16,7 +16,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { checkTargetRepo, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesCommentGet, issuesCommentEdit } from "../lib/providers/github/issues.ts";
 
 assertNodeFloor();
@@ -153,7 +153,7 @@ async function main(argv: string[]): Promise<number> {
 
   checkTargetRepo(devenv);
 
-  const repo = providerRepoTarget(repoOverride);
+  const repo = requireRepoTarget(providerRepoTarget(repoOverride), "issue-comment-update", "issues");
 
   // Existence check rides the facade's comment_get verb (skip on dry-run).
   if (!dryRun) {

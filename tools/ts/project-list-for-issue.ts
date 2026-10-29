@@ -9,7 +9,7 @@ import { parseArgs } from "node:util";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
-import { ensureProviderAuth, isDevenvRepoGated, providerOrgGet, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { ensureProviderAuth, isDevenvRepoGated, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { issueWebUrl } from "../lib/providers/github/issues.ts";
 import { projectsForIssue } from "../lib/providers/github/projects.ts";
 
@@ -68,7 +68,7 @@ if (providerOrgGet() === "") {
 }
 
 // resolve_target_repo applies the devenv-repo gate to an implicit target.
-const repoSpec = providerRepoTarget();
+const repoSpec = requireRepoTarget(providerRepoTarget(), "project-list-for-issue", "project");
 if (repoSpec === "") {
   logError("Cannot resolve the target repository — pass DEVENV_REPO or run inside a repository.");
   process.exit(EXIT_GENERAL_ERROR);

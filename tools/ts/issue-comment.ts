@@ -20,7 +20,7 @@ import { spawnSync } from "node:child_process";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { checkTargetRepo, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesComment } from "../lib/providers/github/issues.ts";
 
 assertNodeFloor();
@@ -206,7 +206,7 @@ async function main(argv: string[]): Promise<number> {
     body = args.body;
   }
 
-  const repo = providerRepoTarget("");
+  const repo = requireRepoTarget(providerRepoTarget(""), "issue-comment", "issues");
 
   if (args.dryRun) {
     logInfo(`[DRY RUN] Would post comment on issue #${issueNumber}:`);
