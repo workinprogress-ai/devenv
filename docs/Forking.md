@@ -8,7 +8,7 @@ The essentials live in `devenv.config`; repository-creation standards live in `t
 
 - ✅ Read [The fork-stable surfaces contract](#the-fork-stable-surfaces-contract) below — it defines what you may change without carrying maintenance burden
 - ✅ Update `devenv.config` for org identity (`org` key), provider name, container name, workflows, and bootstrap defaults
-- ✅ (If you customize the issue workflow) Read [Issue Workflow](./Issue-Workflow.md) first — the `[workflows]` vocabulary carries engine contracts, documented in its section below. You will need to re-write [Issue Workflow](./Issue-Workflow.md) to reflect your workflow.
+- ✅ (If you customize the issue workflow) Read [Issue Workflow](./Issue-Workflow.md) first — the `[workflows]` vocabulary carries engine contracts, documented in its Workflow customization section. The contract: config renames the board column names (with `tools/config/skill-events.yml` updated in the same change); redesigning the workflow itself — reordering, adding/removing states, changing phases — is a fork of the skills, and you will need to re-write the skill prose to match.
 - ✅ (If you use issue creation tooling) Update `tools/config/issues-config.yml` with your organization's issue types and provider issue-type IDs
 - ✅ (If you adapt to a non-GitHub provider) Follow [Adapting to Azure DevOps](#adapting-to-azure-devops) — provider modules, protocol reference, and config keys
 - ✅ (If you use repo creation tooling) Update `tools/config/repo-types.yaml` for naming, templates, branch protection, and post-creation scripts
@@ -513,7 +513,7 @@ All four are read via `config-read workflows <key>` — never hard-coded in skil
 This is **not a free-form list**: the engine derives behavior from the vocabulary's shape. If you customize it, keep the contract:
 
 1. **Two ordered halves.** Workflow states first (planning and implementation states), delivery states after (merge/deploy states). The split is the delivery boundary.
-2. **`Implementing` is the load-bearing boundary token.** The engine locates the delivery boundary by looking up `Implementing` in this list — it drives the rollup floor (pre-delivery children of an active parent count as Implementing) and the "workflow states cannot be forced" gate. Keep the token name, or update both lookups in `tools/lib/workflow-core.bash`.
+2. **`Implementing` is the load-bearing boundary token.** The engine locates the delivery boundary by looking up `Implementing` in this list — it drives the rollup floor (pre-delivery children of an active parent count as Implementing) and the "workflow states cannot be forced" gate. Keep the token name, or update both lookups in `tools/lib/domain/issues/graph.ts`.
 3. **`TBD` and `Ready` are the birth tokens.** New issues are born at `TBD`; a Task created under a parent is born `Ready`. Renaming either requires updating the birth rule in `tools/ts/issue-create.ts`.
 4. **`tools/config/skill-events.yml` names statuses too.** Every event's `status:` value must exist in `status_workflow` — rename there in the same change or signals will write statuses no board defines.
 
@@ -521,7 +521,7 @@ Safe rename/reorder procedure:
 
 1. Edit `status_workflow` in `devenv.config`.
 2. Update the matching `status:` values in `tools/config/skill-events.yml`.
-3. If you renamed `Implementing`, `Ready`, or `TBD`, update the boundary lookups in `tools/lib/workflow-core.bash` and the birth rule in `tools/ts/issue-create.ts`.
+3. If you renamed `Implementing`, `Ready`, or `TBD`, update the boundary lookups in `tools/lib/domain/issues/graph.ts` and the birth rule in `tools/ts/issue-create.ts`.
 4. Migrate live board cards to the new names (project fields hold the old strings — the engine treats foreign values as unreadable).
 5. Run the test suites (`bats tools/tests/lib tools/tests/scripts`) — the workflow suites fail loudly on contract breaks.
 6. Re-write [Issue Workflow](./Issue-Workflow.md) to reflect the updated status workflow.

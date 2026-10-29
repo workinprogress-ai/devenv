@@ -11,6 +11,7 @@ import {
   workflowOrder,
   workflowPolicy,
 } from "../../lib/domain/issues/graph.ts";
+import { eventNames, eventStatusFor, skillEventsConfigPath } from "../../lib/domain/events.ts";
 
 const VOCAB = "TBD,To-Groom,Groomed,Ready,Implementing,Staged,Staging,Production";
 
@@ -81,5 +82,31 @@ describe("computeRollup", () => {
   it("sanctioned regression propagates (a child moved back moves the parent back)", () => {
     expect(computeRollup(["Staged"], root)).toBe("Staged");
     expect(computeRollup(["Implementing"], root)).toBe("Implementing");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 15.19 drift gate: skill-events.yml statuses are members of [workflows]
+// ---------------------------------------------------------------------------
+
+describe("skill-events binding gate", () => {
+  it("every skill-events.yml status is a [workflows] status_workflow member", () => {
+    // The REAL repo config + skill-events.yml (no overrides): this gate
+    // exists to catch a [workflows] rename that missed skill-events.yml.
+    const vocab = new Set(workflowOrder());
+    expect(vocab.size).toBeGreaterThan(0);
+    const events = eventNames();
+    expect(events.length).toBeGreaterThan(0);
+    const drift: string[] = [];
+    for (const e of events) {
+      const status = eventStatusFor(e);
+      if (status !== null && !vocab.has(status)) {
+        drift.push(`${e}: '${status}' not in status_workflow`);
+      }
+    }
+    expect(drift).toEqual([]);
+  });
+  it("skill-events.yml is discoverable via the self-root contract", () => {
+    expect(skillEventsConfigPath()).toContain("skill-events.yml");
   });
 });

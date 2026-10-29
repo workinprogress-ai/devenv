@@ -3,6 +3,11 @@
 # Consumed by the _on_* event scripts (tools/internal/_on_event_dispatch.sh);
 # skills call the events and never read this file or know Status vocabulary.
 #
+# DRIFT RULE: this file is the ONLY binding between skill lifecycle events
+# and board state names. Renaming a state in devenv.config [workflows]
+# applies here IN THE SAME CHANGE (a rename that misses this file fails the
+# workflow-model vitest gate instead of silently no-oping event writes).
+#
 # Event names follow the begin/end pair convention, one event per lifecycle
 # phase, plus _on_triage_complete (backlog triage done -> candidate for
 # design grooming): _on_begin_grooming, _on_end_grooming, _on_begin_planning,

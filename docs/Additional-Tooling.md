@@ -29,26 +29,41 @@ work). Returns the pre-rewrite tip so the `Devenv-Action` trailer scan can be
 bounded to genuinely new upstream commits. Consumers: `git-update`,
 `check-update-devenv-repo.sh`, `devenv-update`.
 
-### `workflow-core.bash`
+### `lib/domain/issues/graph.ts` (workflow state engine)
 
-The workflow state engine: policy and orchestration for issue status. Zero direct I/O — all reads go through `issue-graph.bash`, all writes through the `project-update-issue` fan-out (grep-enforced by test). Sourced by `_on_event_dispatch.sh`, `workflow-signal.sh`, and the status tooling.
+Policy and orchestration for issue status: the vocabulary model, rollup
+computation, and the write/propagation path. Zero direct I/O in the pure
+model — reads go through the issue-hierarchy helpers, writes fan out through
+the `project-update-issue` wrapper (`--status --all-projects --safe`, with
+`--devenv` added only when `DEVENV_REPO` is unset).
 
-Public functions:
+Public surface:
 
-- `workflow_order` / `workflow_status_order <token>`
-  - Vocabulary from `devenv.config [workflows] status_workflow` (or a `WORKFLOW_ORDER_OVERRIDE`), and a token's 1-based position in it.
-- `workflow_compute_rollup <status>...`
-  - Pure min-rollup over child statuses: all pre-delivery → non-zero (parent keeps own state); any delivery state → minimum, pre-delivery children floored at `Implementing`.
-- `workflow_on_event <event> <issue>`
-  - Resolves an event via `tools/config/skill-events.yml` and writes the mapped status (the dispatcher's entire job).
-- `workflow_apply_status <issue> <status> [child|parent]`
-  - Forced/statused writes. `child` (default) rolls the parent up; `parent` cascades to children once and rejects gated (pre-delivery) statuses.
-- `workflow_recompute_parent <issue>`
-  - Re-derives and writes a parent's status from its children (fired on sub-issue linking).
-- `_workflow_write` / `_workflow_rollup_parent_of` / `_workflow_derive_parent_status`
-  - Internal: single guarded write choke point (suppress flag = no upward propagation), change-gated recursive climb.
+- `workflowOrder(devenvRoot?)` — the status vocabulary from
+  `devenv.config [workflows] status_workflow` (or a `WORKFLOW_ORDER_OVERRIDE`).
+- `statusOrder(token)` — a token's position in the vocabulary (-1 unknown).
+- `computeRollup(statuses)` — pure min-rollup: all pre-delivery → undefined
+  (parent keeps own state); otherwise the minimum with pre-delivery children
+  floored at the configured delivery anchor.
+- `workflowPolicy(devenvRoot?)` — the delivery anchor + status fallback knobs
+  (`[workflows] delivery_segment_anchor` / `status_fallback`).
+- `onEvent(event, issue)` — resolves an event via
+  `tools/config/skill-events.yml` and writes the mapped status (the
+  `_on_*` dispatcher's entire job).
+- `applyStatus(issue, status, ctx, direction)` — forced/statused writes.
+  `child` (default) rolls the parent up; `parent` cascades to children once
+  and rejects gated (pre-delivery) statuses.
+- `recomputeParent(issue)` — re-derives and writes a parent's status from
+  its children (fired on sub-issue linking).
+- `writeStatus(issue, status, ctx, mode)` — the single guarded write choke
+  point (suppress mode = no upward propagation), change-gated recursive
+  climb via `rollupParentOf`.
 
-Tests: `tools/tests/lib/test_workflow_core.bats`, `test_workflow_rollup.bats`.
+Tests: `tools/tests/ts/workflow-model.test.ts`,
+`tools/tests/ts/workflow-orchestration.test.ts` (vitest, over this module);
+the dispatcher contract lives in
+`tools/tests/scripts/test_on_event_dispatch.bats` and
+`tools/tests/scripts/test_on_events_write.bats`.
 
 ### `issue-graph.bash`
 
@@ -61,7 +76,7 @@ Public functions:
 - `issue_parent <issue>` — native `Issue.parent` first, `Part of #N` body-text fallback for pre-native issues.
 - `issue_read_status <issue>` — first vocabulary-valid Status across the issue's projects; foreign-board values count as unreadable.
 
-Test seam: `ISSUE_GRAPH_TOOLS` overrides where the board-reading script is found. Tests: `tools/tests/lib/test_provider_loading.bats` (sources `issue-graph.bash`), `tools/tests/lib/test_workflow_core.bats`.
+Test seam: `ISSUE_GRAPH_TOOLS` overrides where the board-reading script is found. Tests: `tools/tests/lib/test_provider_loading.bats` (sources `issue-graph.bash`), `tools/tests/ts/workflow-model.test.ts`.
 
 ## Diagnostics
 
@@ -2812,10 +2827,12 @@ githook backing scripts, CI-only checkers, lifecycle event entry points.
 - **`commit-action-check.sh`** — commit-message trailer linter run by the
   `commit-messages` CI job (`.github/workflows/test.yml`) and the
   `.husky/commit-msg` hook.
-- **`_on_*.sh`** — lifecycle event entry points fired by
-  `workflow-signal` / `pr-events.bash` via `_on_event_dispatch.sh` (begin/end
-  planning, implementation, review, grooming; merge; triage-complete; staging
-  and production deploy). Events are configured in
+- **`_on_*.sh`** — lifecycle event entry points (one-line exec shims) firing
+  `_on_event_dispatch.ts`, which resolves the event via
+  `tools/config/skill-events.yml` and writes the mapped Status through
+  `lib/domain/issues/graph.ts` (begin/end planning, implementation, review,
+  grooming; merge; triage-complete; staging and production deploy). Manual
+  firing goes through `workflow-signal`. Events are configured in
   `tools/config/skill-events.yml`.
 - **`csharp-debug.sh`** — drives the bootstrap-installed vsdbg .NET debugger
   (`.debug/remote_debugger/`): `launch <app.dll>` / `attach <pid>` enter DAP

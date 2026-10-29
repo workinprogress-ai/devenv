@@ -157,6 +157,18 @@ flowchart LR
 
 Everything is local: your provider authentication, your machine. Signals are best-effort (a failed write never blocks work) and idempotent (re-signaling heals drift). Skills never know status vocabulary, project names, or where cards live — they know event names, and the engine does the rest.
 
+## Workflow customization
+
+`devenv.config [workflows]` owns the board column **names** — and only the names.
+Renaming a state is supported: update `status_workflow` and apply the same rename
+to `tools/config/skill-events.yml` in the same change (it is the single binding
+between skill events and board states; a rename that misses it makes event writes
+fail a test, not silently no-op). Everything beyond names is not configuration:
+reordering states, adding or removing semantic states, or changing the phase
+structure means the workflow itself changed — fork the skills that embody it.
+Skill prose names states concretely on purpose; those names illustrate the default
+vocabulary and are meant to be read as the corresponding states after a rename.
+
 ## Related
 
 - *Derived Status Rollup* — the methodology as a generalizable pattern (engineering pattern library, `docs.engineering` → Work Management Patterns; referenced, not linked: the pattern library lives in a separate repo)

@@ -52,7 +52,7 @@ For board scoping: resolve the project(s) from the org's configuration (`[organi
 
 ## Answer (read-only)
 
-**Board status.** Counts by state, WIP by column, delivery-half vs. workflow-half split — all derived from the `status_workflow` config vocabulary (read with `config-read workflows status_workflow`; never hard-code state names). For **unprojected tickets** (no project card), state semantics come from the issue itself: open/closed, labels, linked PRs — report them as a distinct population, never mixed silently into carded counts.
+**Board status.** Counts by state, WIP by column, delivery-half vs. workflow-half split — all derived from the `status_workflow` config vocabulary (read with `config-read workflows status_workflow`; never hard-code state names). State names below illustrate the default `[workflows]` vocabulary; after a config rename, read them as the corresponding states. For **unprojected tickets** (no project card), state semantics come from the issue itself: open/closed, labels, linked PRs — report them as a distinct population, never mixed silently into carded counts.
 
 **Skill-artifact signals.** The board reads more than issues: skill outputs are status evidence. Recognize and report — research docs (`research-NNN-*.md` under `.local-artifacts/`), review reports, pairing state files, and grooming documents — as signals of in-flight or recently-finished work per repo, each labeled with its provenance ("research findings exist, no plan yet" = work stalled between investigation and planning). Artifact presence without a matching board card is itself a drift signal worth surfacing.
 
