@@ -25,8 +25,8 @@ import { logDebug, logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { openInEditor } from "../lib/core/editor.ts";
 import { isInteractive } from "../lib/ui/prompts.ts";
-import { checkTargetRepo, ghApiSync, providerRepoSplit, providerRepoTarget } from "../lib/providers/provider-core.ts";
-import { issuesCreate, issuesSetType, issueGraphLink } from "../lib/providers/github/issues.ts";
+import { checkTargetRepo, requireRepoTarget, ghApiSync, providerRepoSplit, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { issuesCreate, issuesSetType, issueGraphLink, issuesView } from "../lib/providers/github/issues.ts";
 
 assertNodeFloor();
 
@@ -153,6 +153,80 @@ function issuesConfigPath(): string {
   return join(TOOLS_ROOT, "config", "issues-config.yml");
 }
 
+/** The type -> allowed-parent-types map from issues-config.yml's child_of
+ * keys (the org-convention hierarchy, 15.15). Missing key = no restriction. */
+function childOfMap(): Map<string, string[]> {
+  const path = issuesConfigPath();
+  const map = new Map<string, string[]>();
+  if (!existsSync(path)) return map;
+  let inTypes = false;
+  let current = "";
+  let inChildOf = false;
+  for (const line of readFileSync(path, "utf8").split("\n")) {
+    if (/^types:\s*$/.test(line)) {
+      inTypes = true;
+      continue;
+    }
+    if (inTypes && /^\S/.test(line) && !/^types:/.test(line)) {
+      inTypes = false;
+      inChildOf = false;
+    }
+    if (!inTypes) continue;
+    const name = /^\s*-\s*name:\s*(.+)$/.exec(line);
+    if (name?.[1] !== undefined) {
+      current = name[1].replace(/^["']|["']$/g, "").trim();
+      continue;
+    }
+    if (/^\s*child_of:\s*\[/.test(line)) {
+      const list = /\[(.*)\]/.exec(line)?.[1] ?? "";
+      map.set(
+        current,
+        list.split(",").map((x) => x.replace(/^["'\s]+|["'\s]+$/g, "")).filter((x) => x !== ""),
+      );
+      inChildOf = false;
+      continue;
+    }
+    if (/^\s*child_of:\s*$/.test(line)) {
+      inChildOf = true;
+      continue;
+    }
+    if (inChildOf && /^\s*-\s*\S/.test(line)) {
+      const item = map.get(current) ?? [];
+      item.push(line.replace(/^\s*-\s*/, "").replace(/^["']|["']$/g, "").trim());
+      map.set(current, item);
+      continue;
+    }
+    if (inChildOf && /^\s*\S/.test(line)) inChildOf = false;
+  }
+  return map;
+}
+
+/** 15.15 placement validation: when --parent is given, the parent's type
+ * must appear in the requested type's child_of list (org convention from
+ * issues-config.yml). Rejects BEFORE any create, naming the tool, the
+ * parent type, the requested type, and the rule. */
+async function validatePlacement(
+  spec: string,
+  parentNumber: string,
+  requestedType: string,
+): Promise<void> {
+  const allowed = childOfMap().get(requestedType);
+  if (allowed === undefined) return; // no rule for this type
+  const parentTypeRaw = await issuesView(spec, Number.parseInt(parentNumber, 10), {
+    json: "issueType",
+    jq: ".issueType.name // empty",
+  });
+  const parentType = parentTypeRaw.trim();
+  if (parentType !== "" && !allowed.includes(parentType)) {
+    logError(
+      `issue-create: a ${requestedType} cannot be parented under a ${parentType} — ` +
+        `child_of rule for ${requestedType} allows: [${allowed.join(", ")}] ` +
+        `(issues-config.yml)`,
+    );
+    process.exit(EXIT_MISUSE);
+  }
+}
+
 /** Minimal `types[].name` reader for the config's flat list shape. */
 function issueTypeNames(): string[] {
   const path = issuesConfigPath();
@@ -230,17 +304,46 @@ function selectTemplateInteractive(dir: string): string | null {
 
 // --- Creation flow ---------------------------------------------------------
 
-/** Parent and blocked-by references become real body lines before the content. */
-function buildBody(refs: { parent?: string | undefined; blockedBy: string[] }, content: string): string {
+/** Parent and blocked-by references become real body lines before the content.
+ * A cross-repo parent (`owner/repo#N`) renders as a fully-qualified work-item
+ * URL - a bare `Part of #N` would point into the child's own repo and mislead.
+ */
+function buildBody(
+  refs: { parent?: string | undefined; parentSpec?: string | undefined; blockedBy: string[] },
+  content: string,
+): string {
   let body = "";
   if (refs.parent !== undefined && refs.parent !== "") {
-    body += `Part of #${refs.parent}\n\n`;
+    if (refs.parentSpec !== undefined && refs.parentSpec !== "") {
+      body += `Part of https://github.com/${refs.parentSpec}/issues/${refs.parent}\n\n`;
+    } else {
+      body += `Part of #${refs.parent}\n\n`;
+    }
   }
   for (const blocker of refs.blockedBy) {
     body += `Blocked by #${blocker}\n`;
   }
   if (refs.blockedBy.length > 0) body += "\n";
   return body + content;
+}
+
+/** A --parent reference: bare `N` (same repo) or `owner/repo#N` (cross-repo
+ * sub-issue parenting — the API takes global node IDs, verified live). */
+interface ParentRef {
+  number: number;
+  repoSpec?: string | undefined;
+}
+
+function parseParentRef(raw: string): ParentRef | null {
+  const trimmed = raw.trim();
+  if (/^[0-9]+$/.test(trimmed)) {
+    return { number: Number.parseInt(trimmed, 10) };
+  }
+  const m = /^([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+)#([0-9]+)$/.exec(trimmed);
+  if (m?.[1] !== undefined && m[2] !== undefined && m[3] !== undefined) {
+    return { number: Number.parseInt(m[3], 10), repoSpec: `${m[1]}/${m[2]}` };
+  }
+  return null;
 }
 
 /** Bare id (Azure shape) or the trailing number of an issue/work-item URL. */
@@ -261,7 +364,7 @@ function checkAuth(): void {
 
 /** Fail fast on a wrong or unreachable target, before any prompt. */
 function probeTargetRepo(): void {
-  const spec = providerRepoTarget("");
+  const spec = requireRepoTarget(providerRepoTarget(""), "issue-create", "issues");
   if (spec === "") return;
   if (ghApiSync(["repo", "view", spec, "--json", "name", "-q", ".name"], { tolerateFailure: true }).status !== 0) {
     logError(`Target repository not found or inaccessible: ${spec}`);
@@ -279,6 +382,7 @@ interface CreateState {
   milestone: string;
   project: string;
   parent?: string | undefined;
+  parentSpec?: string | undefined;
   blockedBy: string[];
   dryRun: boolean;
 }
@@ -334,8 +438,8 @@ function applyBirthStatus(issue: number, status: string): void {
 }
 
 async function createIssue(st: CreateState): Promise<number> {
-  const spec = providerRepoTarget("");
-  const finalBody = buildBody({ parent: st.parent, blockedBy: st.blockedBy }, st.body);
+  const spec = requireRepoTarget(providerRepoTarget(""), "issue-create", "issues");
+  const finalBody = buildBody({ parent: st.parent, parentSpec: st.parentSpec, blockedBy: st.blockedBy }, st.body);
 
   if (st.dryRun) {
     logInfo("[DRY RUN] Would create issue via provider_issues_create:");
@@ -392,7 +496,7 @@ async function createIssue(st: CreateState): Promise<number> {
   // by the wrapper's own child-write path.
   if (st.parent !== undefined && st.parent !== "") {
     try {
-      await issueGraphLink(spec, Number.parseInt(st.parent, 10), issueNumber);
+      await issueGraphLink(spec, Number.parseInt(st.parent, 10), issueNumber, st.parentSpec);
       logDebug(`Linked sub-issue #${issueNumber} -> #${st.parent}`);
     } catch (err) {
       logDebug(`sub-issue link failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -466,6 +570,21 @@ async function main(argv: string[]): Promise<number> {
   checkAuth();
   checkTargetRepo(values["devenv"] === true);
   probeTargetRepo();
+
+  // 15.15 placement validation: --parent must satisfy the requested type's
+  // child_of rule (org hierarchy from issues-config.yml) BEFORE any create.
+  const parentValue = values["parent"];
+  let parentRef: ParentRef | null = null;
+  if (typeof parentValue === "string" && parentValue !== "") {
+    parentRef = parseParentRef(parentValue);
+    if (parentRef === null) {
+      logError(`Invalid --parent reference: ${parentValue} (expected N or owner/repo#N)`);
+      return EXIT_MISUSE;
+    }
+    if (issueType !== "" && parentRef.repoSpec === undefined) {
+      await validatePlacement(requireRepoTarget(providerRepoTarget(""), "issue-create", "issues"), String(parentRef.number), issueType);
+    }
+  }
 
   // Type selection: deterministic mode errors on a missing type; interactive
   // mode picks from the config vocabulary (needs a terminal under this build).
@@ -564,7 +683,8 @@ async function main(argv: string[]): Promise<number> {
     assignees,
     milestone: values["milestone"] ?? "",
     project: values["project"] ?? "",
-    parent: values["parent"],
+    parent: parentRef === null ? values["parent"] : String(parentRef.number),
+    parentSpec: parentRef?.repoSpec,
     blockedBy,
     dryRun: values["dry-run"] === true,
   });

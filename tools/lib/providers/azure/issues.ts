@@ -17,7 +17,8 @@
 // pairing from bash becomes explicit trim here, keeping round trips
 // byte-stable. Contract: throw ProviderError on failure; never process.exit.
 
-import { ProviderError, unknownOption, needValue } from "../provider-core.ts";
+import { ProviderError, providerConfigPath, unknownOption, needValue } from "../provider-core.ts";
+import { configGetRaw } from "../../core/config.ts";
 import { azureHttp } from "./http.ts";
 import { azureOrgProject, azureUri } from "./urls.ts";
 
@@ -147,10 +148,24 @@ function decodeDescription(item: AzureWorkItem): string {
 
 /** The full seam record for one work item (view's projection contract: every
  * field present and non-null — absent Azure data maps to typed empties). */
+/** The {number, title} of the work item's parent (the Hierarchy-Reverse
+ * relation), or null. The parent's title needs a second fetch, so only the
+ * number is surfaced inline; the record carries `{number, title: null}` and
+ * callers wanting the title resolve it themselves. */
+function seamParent(item: AzureWorkItem): Record<string, unknown> | null {
+  const rel = (item.relations ?? []).find(
+    (r) => r.rel === "System.LinkTypes.Hierarchy-Reverse",
+  );
+  if (rel === undefined) return null;
+  const n = Number((rel.url ?? "").split("/").pop());
+  return Number.isFinite(n) ? { number: n, title: null } : null;
+}
+
 function mapItem(item: AzureWorkItem, comments?: Array<{ id: string; url: string; body: string; created_at: string; updated_at: string }>): Record<string, unknown> {
   const number = item.id ?? 0;
   return {
     number,
+    parent: seamParent(item),
     title: strField(item, "System.Title"),
     state: seamState(item),
     body: decodeDescription(item),
@@ -174,11 +189,19 @@ function mapItem(item: AzureWorkItem, comments?: Array<{ id: string; url: string
 // Type mapping + states
 // ---------------------------------------------------------------------------
 
-/** Map a devenv issue type onto the Azure work item type. Built-ins: Epic/
- * Feature/Bug on their own types, Task and untyped on User Story (every item
- * lands on a board); a [azure_issue_types] block overrides or extends. */
-export function workItemTypeFor(type: string): string {
+/** A devenv.config value from an arbitrary section; "" when absent. (The
+ * bash seam's azure_config_get parity — section-scoped, not [provider].) */
+function issueTypesConfig(key: string): string {
+  return configGetRaw(providerConfigPath(), "azure_issue_types", key) ?? "";
+}
+
+/** The mapped Azure work item type for a devenv issue type, resolving
+ * [azure_issue_types] overrides first (bash azure_work_item_type_for
+ * parity), then the built-in map. */
+function mappedWorkItemType(type: string): string {
   const key = type.toLowerCase();
+  const override = key === "" ? "" : issueTypesConfig(key);
+  if (override !== "") return override;
   const builtin: Record<string, string> = {
     epic: "Epic",
     feature: "Feature",
@@ -191,6 +214,32 @@ export function workItemTypeFor(type: string): string {
   throw new ProviderError(
     `no Azure work item type is mapped for '${type}' — add '${key}=<Azure type>' under [azure_issue_types] in devenv.config`,
   );
+}
+
+/** Map a devenv issue type onto the Azure work item type, then verify the
+ * project actually offers that type — a create against a disabled type
+ * (forks routinely disable User Story) fails server-side with a message
+ * that never reaches the caller. Failing here names the mapped type and
+ * the [azure_issue_types] key to adjust instead. */
+export async function workItemTypeFor(type: string): Promise<string> {
+  const mapped = mappedWorkItemType(type);
+  const { base } = witBase();
+  try {
+    await azureHttp<{ value?: unknown[] }>(
+      "GET",
+      `${base}/_apis/wit/workitemtypes/${azureUri(mapped)}`,
+    );
+  } catch (err) {
+    // The probe names one type; a failure there means the project does not
+    // offer it (absent or disabled — the create would die server-side with
+    // a message callers could not act on). Fail here with the remediation.
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new ProviderError(
+      `work item type '${mapped}' (mapped from '${type || "untyped"}') is not available in this project (${detail}) — ` +
+        `set '${type.toLowerCase() || "untyped"}=<enabled Azure type>' under [azure_issue_types] in devenv.config`,
+    );
+  }
+  return mapped;
 }
 
 /** The first state of a work item type whose category matches (tried in
@@ -331,7 +380,7 @@ async function workItemsBatch(base: string, ids: number[]): Promise<AzureWorkIte
   for (let offset = 0; offset < ids.length; offset += AZURE_BATCH_MAX) {
     const chunk = {
       ids: ids.slice(offset, offset + AZURE_BATCH_MAX),
-      $expand: "fields",
+      $expand: "fields,relations",
     };
     const r = await azureHttp<{ value?: AzureWorkItem[] }>("POST", `${base}/workitemsbatch`, {
       body: JSON.stringify(chunk),
@@ -350,6 +399,7 @@ function mapBatch(items: AzureWorkItem[]): Array<Record<string, unknown>> {
     const raw = strField(item, "System.Description");
     return {
       number: item.id ?? 0,
+      parent: seamParent(item),
       title: strField(item, "System.Title"),
       state: seamState(item),
       labels: seamTags(item),
@@ -384,7 +434,7 @@ export async function issuesList(
     throw new ProviderError(`--state must be open, closed or all, got '${state}'`);
   }
   let type = "";
-  if (opts.type !== undefined && opts.type !== "") type = workItemTypeFor(opts.type);
+  if (opts.type !== undefined && opts.type !== "") type = await workItemTypeFor(opts.type);
   const stateFilter =
     state === "open"
       ? "AND [System.State] NOT IN ('Closed','Removed','Done')"
@@ -481,7 +531,10 @@ export async function issuesView(
     throw new ProviderError("issues_view requires an issue number");
   }
   const { base } = witBase();
-  const raw = await azureHttp<AzureWorkItem>("GET", `${base}/workitems/${number}`);
+  const raw = await azureHttp<AzureWorkItem>(
+    "GET",
+    `${base}/workitems/${number}?$expand=relations`,
+  );
   return mapItem(raw);
 }
 
@@ -546,7 +599,7 @@ export async function issuesCreate(
 ): Promise<number> {
   void repo;
   if (opts.title === "") throw new ProviderError("issues_create requires --title");
-  const witType = workItemTypeFor(opts.type ?? "");
+  const witType = await workItemTypeFor(opts.type ?? "");
   const ops: PatchOp[] = [
     { op: "add", path: "/fields/System.Title", from: null, value: opts.title },
   ];
@@ -720,7 +773,7 @@ export async function issuesSetType(
   if (number === undefined || typeName === "") {
     throw new ProviderError("issues_set_type: number and type required");
   }
-  const witType = workItemTypeFor(typeName);
+  const witType = await workItemTypeFor(typeName);
   const { base } = witBase();
   await azureHttp("PATCH", `${base}/workitems/${number}`, {
     body: JSON.stringify([{ op: "replace", path: "/fields/System.WorkItemType", value: witType }]),
@@ -950,6 +1003,79 @@ export async function issueGraphParent(
   if (rel === undefined) return null;
   const n = Number((rel.url ?? "").split("/").pop());
   return Number.isFinite(n) ? n : null;
+}
+
+// ---------------------------------------------------------------------------
+// Dependency links (blocked-by = predecessor/successor, NOT the hierarchy)
+// ---------------------------------------------------------------------------
+
+/** Azure's relation type for "ISSUE is blocked by BLOCKER": ISSUE carries a
+ * Dependency-Forward link pointing at BLOCKER (predecessor). */
+const DEPENDENCY_FORWARD = "System.LinkTypes.Dependency-Forward";
+
+function dependencyUrl(org: string, project: string, blocker: number): string {
+  return `https://dev.azure.com/${azureUri(org)}/${azureUri(project)}/_apis/wit/workItems/${blocker}`;
+}
+
+function azureWitBase(): { base: string; org: string; project: string } {
+  return witBase();
+}
+
+/** Record ISSUE as blocked by BLOCKER (Dependency-Forward relation).
+ * Idempotent: an existing identical link is a no-op success. */
+export async function issueDependencyLink(
+  repo: string,
+  issue: number,
+  blocker: number,
+): Promise<void> {
+  void repo;
+  const { base, org, project } = azureWitBase();
+  const item = await azureHttp<AzureWorkItem>(
+    "GET",
+    `${base}/workitems/${issue}?$expand=relations`,
+  );
+  const suffix = `/_apis/wit/workItems/${blocker}`;
+  const exists = (item.relations ?? []).some(
+    (r) => r.rel === DEPENDENCY_FORWARD && (r.url ?? "").endsWith(suffix),
+  );
+  if (exists) return; // idempotent add
+  await azureHttp("PATCH", `${base}/workitems/${issue}`, {
+    body: JSON.stringify([
+      {
+        op: "add",
+        path: "/relations/-",
+        value: {
+          rel: DEPENDENCY_FORWARD,
+          url: dependencyUrl(org, project, blocker),
+        },
+      },
+    ]),
+    contentType: "application/json-patch+json",
+  });
+}
+
+/** Remove ISSUE's blocked-by link to BLOCKER. Removing an absent link is a
+ * no-op success. */
+export async function issueDependencyUnlink(
+  repo: string,
+  issue: number,
+  blocker: number,
+): Promise<void> {
+  void repo;
+  const { base } = azureWitBase();
+  const item = await azureHttp<AzureWorkItem>(
+    "GET",
+    `${base}/workitems/${issue}?$expand=relations`,
+  );
+  const suffix = `/_apis/wit/workItems/${blocker}`;
+  const index = (item.relations ?? []).findIndex(
+    (r) => r.rel === DEPENDENCY_FORWARD && (r.url ?? "").endsWith(suffix),
+  );
+  if (index === -1) return; // absent = no-op
+  await azureHttp("PATCH", `${base}/workitems/${issue}`, {
+    body: JSON.stringify([{ op: "remove", path: `/relations/${index}` }]),
+    contentType: "application/json-patch+json",
+  });
 }
 
 // keep the strict-option helpers referenced (github module parity).

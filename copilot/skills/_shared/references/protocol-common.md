@@ -199,7 +199,7 @@ Key flags:
 - `--pretty` — human-readable indented JSON
 - `--format FIELD` — print one field as raw text (`title`, `body`, `state`, `url`, `number`, `author`; `labels` joins label names with commas) — replaces `jq -r` pipelines
 
-Output fields: `number`, `title`, `body`, `state`, `labels[]`, `assignees[]`, `milestone`, `author`, `createdAt`, `updatedAt`, `url`, `comments`
+Output fields: `number`, `parent` (`{number, title}` or null — the hierarchy parent, set by `issue-create --parent`), `title`, `body`, `state`, `labels[]`, `assignees[]`, `milestone`, `author`, `createdAt`, `updatedAt`, `url`, `comments`
 
 Examples:
 
@@ -229,10 +229,14 @@ Key flags:
 - `-f, --format` — `table` (default), `json`, `simple`
 - `-n, --limit` — default 30
 
+`--format json` rows include `parent` (`{number, title}` or null — the
+hierarchy parent), so created hierarchies are verifiable post-create.
+
 Examples:
 
 ```bash
 issue-list --format json | jq -r '.[] | "\(.number) \(.title)"'
+issue-list --format json | jq -r '.[] | select(.parent != null) | "\(.number) under \(.parent.number)"'
 issue-list --type Bug --assignee @me
 issue-list --state all --label "priority:high"
 ```
@@ -480,7 +484,10 @@ Key flags:
 
 - `--type TYPE` — GitHub native issue type; **required for deterministic runs** (validated against `tools/config/issues-config.yml`: Bug, Feature, Task, Epic). Without it the tool prompts via `fzf`. Type semantics: Epic is reserved for long-lived orchestration issues coordinating multiple repos/efforts — single deliverables are Feature or Task.
 - **No template by default** — the issue is created with the body you supply; template selection is opt-in via `--template FILE` (fixed template) or `--select-template` (interactive fzf over `.github/ISSUE_TEMPLATE/`). `--no-template` is accepted as a no-op.
-- `--parent ISSUE_NUM` — links as child of an epic
+- `--parent ISSUE_NUM` — links as child of an epic; `owner/repo#N` parents
+  cross-repo (the sub-issue API takes global node IDs; the child's body then
+  records the fully-qualified parent URL). Existing issues link post-hoc via
+  `issue-graph-link PARENT CHILD [--unlink]` (same reference forms).
 - `--blocked-by ISSUE_NUM` — repeatable
 
 Deterministic call shape (no editor, no fzf, no template):
@@ -1165,6 +1172,11 @@ Example: `issue-types --format json`
 
 ## Canonical recipes
 
+Provider-specific calling requirements (identifier scoping, repo-target
+needs, credentials) are not encoded here — run `provider-explain <family>`
+for the active provider's own statement, and see
+`provider-protocols/<provider>.md` for the provider's deep page.
+
 ### Deterministic issue creation
 
 ```bash
@@ -1172,7 +1184,7 @@ DEVENV_REPO=<owner>/<repo> issue-create --no-template --no-interactive \
     --title "..." --body-file /tmp/body.md --type Task|Bug|Feature|Epic
 ```
 
-- `DEVENV_REPO` prefix is required (workspace safety gate); no `--repo` flag
+- `DEVENV_REPO` prefix resolves the target through the wrapper's own git-context gate (it exempts the devenv-repo refusal). Whether the recipe needs a repo target at all is provider-specific — `provider-explain issues` states it for the active provider, and `provider-protocols/<provider>.md` carries the deep page.
   exists.
 - Types come from `tools/config/issues-config.yml` (Bug/Feature/Task/Epic);
   `--type` must match configured names.
