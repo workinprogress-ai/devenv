@@ -26,6 +26,7 @@ assertNodeFloor();
 
 const SCRIPT_VERSION = "1.1.0";
 const SCRIPT_NAME = basename(process.argv[1] ?? "issue-create-batch.ts");
+const TOOLS_ROOT = process.env["DEVENV_TOOLS"] ?? join(import.meta.dirname ?? ".", "..");
 
 function showUsage(): never {
   const s = SCRIPT_NAME;
@@ -469,14 +470,57 @@ function manifestEntry(item: { [key: string]: YamlValue }, d: Defaults): ParsedE
 
 function previewBatch(ctx: BatchCtx, buildEntry: (index: number) => ParsedEntry | null, count: number): number {
   console.log("index|mode|title|command");
+  // 15.15: flag child_of placement violations in the preview (static
+  // config check — the authoritative rejection happens inside issue-create
+  // at create time, resolving the parent's live type).
+  const childOf = childOfMapFrom(
+    process.env.ISSUES_CONFIG ?? join(TOOLS_ROOT, "config", "issues-config.yml"),
+  );
   for (let index = 0; index < count; index++) {
     const entry = buildEntry(index);
     if (entry === null) return 1;
     const built = assemble(ctx, index, ctx.mode, entry);
     if (built === null) return 1;
     console.log(`${index}|${built.mode}|${built.title}|${built.cmd.join(" ")}`);
+    const rowType = (entry.type !== "" ? entry.type : ctx.defaults.type).trim();
+    const rowParent = (entry.parent !== "" ? entry.parent : ctx.defaults.parent).trim();
+    if (rowType !== "" && rowParent !== "" && /^\d+$/.test(rowParent)) {
+      const allowed = childOf.get(rowType);
+      if (allowed !== undefined) {
+        console.log(`${index}|WARN|child_of: ${rowType} may only be parented under [${allowed.join(", ")}] — placement validated against the live parent type at create time`);
+      }
+    }
   }
   return 0;
+}
+
+/** The type -> allowed-parent-types map from an issues-config.yml (the
+ * static preview check; issue-create's create-time check is authoritative). */
+function childOfMapFrom(path: string): Map<string, string[]> {
+  const map = new Map<string, string[]>();
+  let inTypes = false;
+  let current = "";
+  for (const line of readFileSync(path, "utf8").split("\n")) {
+    if (/^types:\s*$/.test(line)) {
+      inTypes = true;
+      continue;
+    }
+    if (inTypes && /^\S/.test(line) && !/^types:/.test(line)) inTypes = false;
+    if (!inTypes) continue;
+    const name = /^\s*-\s*name:\s*(.+)$/.exec(line);
+    if (name?.[1] !== undefined) {
+      current = name[1].replace(/^["']|["']$/g, "").trim();
+      continue;
+    }
+    const list = /^\s*child_of:\s*\[(.*)\]/.exec(line);
+    if (list?.[1] !== undefined) {
+      map.set(
+        current,
+        list[1].split(",").map((x) => x.replace(/^["'\s]+|["'\s]+$/g, "")).filter((x) => x !== ""),
+      );
+    }
+  }
+  return map;
 }
 
 function createBatch(ctx: BatchCtx, buildEntry: (index: number) => ParsedEntry | null, count: number): number {
@@ -501,21 +545,43 @@ function createBatch(ctx: BatchCtx, buildEntry: (index: number) => ParsedEntry |
       if (ctx.continueOnError) continue;
       return 1;
     }
-    // The creation result is the LAST non-empty line issue-create prints: a
-    // URL on some providers, a bare issue id on others (the child's log lines
-    // share the stream, so earlier lines — even ones containing URLs — are
-    // not the result).
-    const lines = output.split("\n").filter((l) => l.trim() !== "");
-    const last = (lines[lines.length - 1] ?? "").replace(/\r$/, "");
-    const number = issueNumberFromRef(last);
-    if (last === "" || number === null) {
+    // The creation result is the LAST non-empty line of the child's STDOUT:
+    // a URL on some providers, a bare issue id on others. Stdout is parsed
+    // BEFORE stderr — issue-create logs its progress lines to stderr, so the
+    // joined stream's last line is a timestamped log record, not the result
+    // (the parse miss that aborted batches after row 1). Stderr is only
+    // consulted when stdout yields nothing (provider result-on-stderr shapes).
+    const resultNumber = (stream: string | undefined): number | null => {
+      const lines = (stream ?? "").split("\n").filter((l) => l.trim() !== "");
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const candidate = (lines[i] ?? "").replace(/\r$/, "");
+        const n = issueNumberFromRef(candidate);
+        if (n !== null) return n;
+      }
+      return null;
+    };
+    const number = resultNumber(r.stdout) ?? resultNumber(r.stderr);
+    // The result REF for the report line: the stdout line that yielded the
+    // number (URL or bare id), so the table echoes what the provider said.
+    const resultRef = ((): string => {
+      const stdoutLines = (r.stdout ?? "").split("\n").filter((l) => l.trim() !== "");
+      const stderrLines = (r.stderr ?? "").split("\n").filter((l) => l.trim() !== "");
+      for (const line of [...stdoutLines].reverse()) {
+        if (issueNumberFromRef(line.replace(/\r$/, "")) !== null) return line.replace(/\r$/, "");
+      }
+      for (const line of [...stderrLines].reverse()) {
+        if (issueNumberFromRef(line.replace(/\r$/, "")) !== null) return line.replace(/\r$/, "");
+      }
+      return "";
+    })();
+    if (number === null) {
       logError(`Issue[${index}] created but could not parse URL/number`);
       console.log(output);
       failed++;
       if (ctx.continueOnError) continue;
       return 1;
     }
-    console.log(`${index}|${number}|${built.title}|${last}`);
+    console.log(`${index}|${number}|${built.title}|${resultRef}`);
     created++;
   }
   logInfo(`Batch complete: created=${created} failed=${failed}`);

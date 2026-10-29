@@ -36,6 +36,7 @@ function installStubs(): void {
 interface RunOpts {
   args: string[];
   createOut?: string;
+  issuesConfig?: string;
 }
 
 function runTool(opts: RunOpts): { status: number; stdout: string; stderr: string; output: string } {
@@ -47,6 +48,7 @@ function runTool(opts: RunOpts): { status: number; stdout: string; stderr: strin
       PATH: `${stubDir}:${process.env.PATH ?? ""}`,
       DEVENV_REPO: "org/repo",
       ...(opts.createOut !== undefined ? { FAKE_CREATE_OUT: opts.createOut } : {}),
+      ...(opts.issuesConfig !== undefined ? { ISSUES_CONFIG: opts.issuesConfig } : {}),
     },
   });
   const stdout = r.stdout ?? "";
@@ -279,5 +281,24 @@ describe("issue-create-batch", () => {
     const r = runTool({ args: ["--type", "Task", "--issue", "One"] });
     expect(r.status).toBe(0);
     expect(r.output).not.toContain("command not found");
+  });
+
+  it("preview flags a child_of violation without touching the provider", () => {
+    const cfg = join(workDir, "issues-config.yml");
+    writeFileSync(cfg, "types:\n  - name: Task\n    child_of: [Epic]\n  - name: Bug\n");
+    const r = runTool({ args: ["--issue", "T|type=Task|parent=5", "--issue", "U|type=Bug"], issuesConfig: cfg });
+    expect(r.status).toBe(0);
+    expect(r.output).toContain("0|WARN|child_of");
+    expect(r.output).toContain("Task may only be parented under [Epic]");
+    // No WARN for Bug: no rule for that type.
+    expect(r.output.split("\n").filter((l) => l.includes("WARN")).length).toBe(1);
+  });
+
+  it("preview emits no WARN when no child_of rule or no parent applies", () => {
+    const cfg = join(workDir, "issues-config.yml");
+    writeFileSync(cfg, "types:\n  - name: Task\n    child_of: [Epic]\n  - name: Bug\n");
+    const r = runTool({ args: ["--issue", "T|type=Task", "--issue", "U|type=Bug"], issuesConfig: cfg });
+    expect(r.status).toBe(0);
+    expect(r.output).not.toContain("|WARN|");
   });
 });

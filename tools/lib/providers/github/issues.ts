@@ -414,8 +414,17 @@ export async function issuesLabelUpdate(
 // ---------------------------------------------------------------------------
 
 /** Link a child issue under a parent via native sub-issues. */
-export async function issueGraphLink(spec: string | undefined, parent: number, child: number): Promise<void> {
-  const pid = issueNodeId(parent, spec);
+export async function issueGraphLink(
+  spec: string | undefined,
+  parent: number,
+  child: number,
+  parentSpec?: string,
+): Promise<void> {
+  // addSubIssue takes global node IDs (repo-agnostic — verified live
+  // 2026-10-28: a devenv parent links a directed-graph child and the child
+  // lists in the parent's subIssues with its fully-qualified URL). The
+  // parent may therefore resolve in a DIFFERENT repo than the child.
+  const pid = issueNodeId(parent, parentSpec ?? spec);
   const cid = issueNodeId(child, spec);
   await ghApi([
     "api",
@@ -430,8 +439,13 @@ export async function issueGraphLink(spec: string | undefined, parent: number, c
 }
 
 /** Unlink a child issue from its parent. */
-export async function issueGraphUnlink(spec: string | undefined, parent: number, child: number): Promise<void> {
-  const pid = issueNodeId(parent, spec);
+export async function issueGraphUnlink(
+  spec: string | undefined,
+  parent: number,
+  child: number,
+  parentSpec?: string,
+): Promise<void> {
+  const pid = issueNodeId(parent, parentSpec ?? spec);
   const cid = issueNodeId(child, spec);
   await ghApi([
     "api",
@@ -539,6 +553,46 @@ export async function orgIssueTypes(org: string): Promise<OrgIssueType[]> {
   return edges
     .map((e) => e.node)
     .filter((n): n is OrgIssueType => n !== undefined && n !== null);
+}
+
+// ---------------------------------------------------------------------------
+// Blocked-by relations (the body-section convention; create-time parity)
+// ---------------------------------------------------------------------------
+
+/** Record ISSUE as blocked by BLOCKERS via the body-section convention
+ * (`Blocked by #N` lines under `## Blocked by`). Idempotent: an already-
+ * listed blocker is a no-op. No-op overall when nothing changes (no body
+ * write is issued for an unchanged body). */
+export async function issueBlockedByLink(
+  spec: string | undefined,
+  issue: number,
+  blockers: number[],
+): Promise<void> {
+  const { blockedByAdd } = await import("../../domain/issues/relations.ts");
+  const view = JSON.parse(
+    await issuesView(spec, issue, { json: "body" }),
+  ) as { body?: string | null };
+  const updated = blockedByAdd(view.body ?? "", blockers);
+  if (updated === (view.body ?? "")) return; // idempotent: nothing to write
+  await ghApi(["issue", "edit", String(issue), ...repoArgs(spec),
+    "--body-file", "-"], { input: updated });
+}
+
+/** Remove BLOCKERS from ISSUE's blocked-by section. Removing an absent
+ * blocker is a no-op success; emptying the section removes it. */
+export async function issueBlockedByUnlink(
+  spec: string | undefined,
+  issue: number,
+  blockers: number[],
+): Promise<void> {
+  const { blockedByRemove } = await import("../../domain/issues/relations.ts");
+  const view = JSON.parse(
+    await issuesView(spec, issue, { json: "body" }),
+  ) as { body?: string | null };
+  const updated = blockedByRemove(view.body ?? "", blockers);
+  if (updated === (view.body ?? "")) return; // absent = no-op
+  await ghApi(["issue", "edit", String(issue), ...repoArgs(spec),
+    "--body-file", "-"], { input: updated });
 }
 
 // Re-exports for callers that want one import surface for the seam errors.
