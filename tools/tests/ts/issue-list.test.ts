@@ -102,6 +102,17 @@ describe("issue-list", () => {
     expect(r.stdout).toContain("#9 - Other");
   });
 
+  it("json format requests the parent field alongside the standard set", () => {
+    installGhStub('[{"number":7,"title":"W","parent":{"number":3,"title":"P"}}]');
+    const r = runTool(["--format", "json"]);
+    expect(r.status).toBe(0);
+    expect(ghCalls().join("\n")).toContain(
+      "--json number,title,parent,state,labels,assignees,milestone,createdAt,updatedAt,url",
+    );
+    const rows = JSON.parse(r.stdout) as Array<{ parent: { number: number; title: string } | null }>;
+    expect(rows[0]?.parent).toEqual({ number: 3, title: "P" });
+  });
+
   it("an invalid format is a named usage error", () => {
     const r = runTool(["--format", "yaml"]);
     expect(r.status).toBe(2);

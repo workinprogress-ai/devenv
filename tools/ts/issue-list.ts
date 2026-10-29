@@ -18,7 +18,7 @@ import {} from "node:fs";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { checkTargetRepo, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { formatTable } from "../lib/ui/panels.ts";
 import { issuesList } from "../lib/providers/github/issues.ts";
 import { normalizeIssueType } from "../lib/domain/issues/types.ts";
@@ -140,7 +140,7 @@ async function main(argv: string[]): Promise<number> {
 
   checkTargetRepo(devenv);
 
-  const repo = providerRepoTarget("");
+  const repo = requireRepoTarget(providerRepoTarget(""), "issue-list", "issues");
 
   if (web) {
     try {
@@ -170,7 +170,7 @@ async function main(argv: string[]): Promise<number> {
       ...(format === "table"
         ? { json: "number,title,labels,updatedAt" }
         : format === "json"
-          ? { json: "number,title,state,labels,assignees,milestone,createdAt,updatedAt,url" }
+          ? { json: "number,title,parent,state,labels,assignees,milestone,createdAt,updatedAt,url" }
           : { json: "number,title" }),
     });
     if (format === "simple") {

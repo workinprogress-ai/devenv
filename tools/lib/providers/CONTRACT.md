@@ -50,7 +50,7 @@ the provider; callers see only these.
 
 | Record | Fields |
 |---|---|
-| Issue | `number`, `title`, `body`, `state` (`OPEN`/`CLOSED`), `labels` `[{name}]`, `assignees` `[{login}]`, `milestone` (`{title}` or `""`), `author` `{login}`, `createdAt`, `updatedAt`, `closedAt`, `url`, `comments` |
+| Issue | `number`, `parent` (`{number, title}` or null; Azure surfaces the number with `title: null`), `title`, `body`, `state` (`OPEN`/`CLOSED`), `labels` `[{name}]`, `assignees` `[{login}]`, `milestone` (`{title}` or `""`), `author` `{login}`, `createdAt`, `updatedAt`, `closedAt`, `url`, `comments` |
 | Pull request | `number`, `id`, `title`, `body`, `state` (`OPEN`/`CLOSED`/`MERGED`), `isDraft`, `headRefName`, `baseRefName`, `headRefOid`, `author` `{login}`, `labels` `[{name}]`, `mergeable`, `mergeStateStatus`, `url`, `createdAt`, `updatedAt`, `closedAt`, `mergedAt` |
 | Run | `id` (number), `workflowName`, `name`, `event`, `status` (`queued`/`in_progress`/`completed`), `conclusion` (`success`/`failure`/`cancelled`/`null`), `headBranch`, `headSha`, `createdAt`, `updatedAt`, `url` |
 | Workflow | `id`, `name`, `path`, `state` (`active`/`disabled`) |

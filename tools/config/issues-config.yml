@@ -9,14 +9,17 @@ types:
   - name: Bug
     description: "A bug or defect that needs fixing"
     id: "IT_kwDOCk-E0c4BWVJJ"
+    child_of: [Epic]
   
   - name: Feature
     description: "A new feature or enhancement"
     id: "IT_kwDOCk-E0c4BWVJK"
+    child_of: [Epic]
   
   - name: Task
     description: "A task or work item"
     id: "IT_kwDOCk-E0c4BWVJI"
+    child_of: [Epic, Feature, Bug]
 
   - name: Epic
     description: "Long-lived orchestration issue coordinating work across multiple repos or efforts — not for single deliverables (use Feature)"

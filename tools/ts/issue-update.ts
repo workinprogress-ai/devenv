@@ -20,8 +20,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { checkTargetRepo, providerRepoTarget } from "../lib/providers/provider-core.ts";
-import { issuesExists, issuesEdit, issuesClose, issuesReopen } from "../lib/providers/github/issues.ts";
+import { checkTargetRepo, requireRepoTarget, providerRepoTarget, providerDetect } from "../lib/providers/provider-core.ts";
+import { issuesExists, issuesEdit, issuesClose, issuesReopen, issueBlockedByLink, issueBlockedByUnlink } from "../lib/providers/github/issues.ts";
+import { issueDependencyLink, issueDependencyUnlink } from "../lib/providers/azure/issues.ts";
 
 assertNodeFloor();
 
@@ -53,6 +54,11 @@ Options:
     --remove-assignee USER      Remove an assignee (repeatable)
     -m, --milestone NAME        Set milestone ("none" clears)
     -s, --state STATE           close|closed closes; open|reopen reopens
+    --add-blocked-by N          Record N as blocking this issue (repeatable;
+                                idempotent). GitHub: the blocked-by body
+                                section; Azure: predecessor links.
+    --remove-blocked-by N       Un-record N (repeatable; removing an absent
+                                link is a no-op)
     -n, --dry-run               Show what would be done without updating
     --devenv                    Safety override to update issues in devenv repo
 
@@ -83,6 +89,8 @@ async function main(argv: string[]): Promise<number> {
   const removeLabels: string[] = [];
   const addAssignees: string[] = [];
   const removeAssignees: string[] = [];
+  const addBlockedBy: string[] = [];
+  const removeBlockedBy: string[] = [];
   let newMilestone = "";
   let newState = "";
   let dryRun = false;
@@ -111,6 +119,8 @@ async function main(argv: string[]): Promise<number> {
         "remove-label": { type: "string" },
         "add-assignee": { type: "string" },
         "remove-assignee": { type: "string" },
+        "add-blocked-by": { type: "string" },
+        "remove-blocked-by": { type: "string" },
         milestone: { type: "string", short: "m" },
         state: { type: "string", short: "s" },
         devenv: { type: "boolean", default: false },
@@ -125,7 +135,7 @@ async function main(argv: string[]): Promise<number> {
     newBodyFile = values["body-file"] ?? "";
     newType = values["type"] ?? "";
     removeType = Boolean(values["remove-type"]);
-    const pull = (k: "add-label" | "remove-label" | "add-assignee" | "remove-assignee"): string[] => {
+    const pull = (k: "add-label" | "remove-label" | "add-assignee" | "remove-assignee" | "add-blocked-by" | "remove-blocked-by"): string[] => {
       const v = values[k];
       if (v === undefined) return [];
       return Array.isArray(v) ? v.map(String) : [String(v)];
@@ -134,6 +144,8 @@ async function main(argv: string[]): Promise<number> {
     removeLabels.push(...pull("remove-label"));
     addAssignees.push(...pull("add-assignee"));
     removeAssignees.push(...pull("remove-assignee"));
+    addBlockedBy.push(...pull("add-blocked-by"));
+    removeBlockedBy.push(...pull("remove-blocked-by"));
     newMilestone = values["milestone"] ?? "";
     newState = values["state"] ?? "";
   } catch (err) {
@@ -156,7 +168,7 @@ async function main(argv: string[]): Promise<number> {
 
   checkTargetRepo(devenv);
 
-  const repo = providerRepoTarget("");
+  const repo = requireRepoTarget(providerRepoTarget(""), "issue-update", "issues");
   const num = Number.parseInt(issueNumber, 10);
 
   // Type validation is parse-level: a wrong type is refused before any
@@ -175,6 +187,31 @@ async function main(argv: string[]): Promise<number> {
     logError(`Issue #${issueNumber} not found`);
     return EXIT_API_FAILURE;
   }
+
+  // Blocked-by validation: numbers must parse and the blockers must exist.
+  // Parse errors are misuse; a missing blocker is an API failure — both
+  // refuse BEFORE any mutation.
+  const parseBlockers = (raw: string[]): number[] | null => {
+    const out: number[] = [];
+    for (const r of raw) {
+      if (!/^[0-9]+$/.test(r)) {
+        logError(`Invalid blocked-by reference: ${r} (expected an issue number)`);
+        return null;
+      }
+      out.push(Number.parseInt(r, 10));
+    }
+    return out;
+  };
+  const addBlockers = parseBlockers(addBlockedBy);
+  const removeBlockers = parseBlockers(removeBlockedBy);
+  if (addBlockers === null || removeBlockers === null) return EXIT_MISUSE;
+  for (const b of [...addBlockers, ...removeBlockers]) {
+    if (!(await issuesExists(repo, b))) {
+      logError(`Blocked-by target #${b} not found`);
+      return EXIT_API_FAILURE;
+    }
+  }
+  const blockedByGiven = addBlockers.length > 0 || removeBlockers.length > 0;
 
   let hasUpdates = false;
   if (newTitle !== "") hasUpdates = true;
@@ -205,6 +242,7 @@ async function main(argv: string[]): Promise<number> {
   const milestoneGiven = newMilestone !== "";
   if (newMilestone === "none") newMilestone = "";
   if (milestoneGiven) hasUpdates = true;
+  if (blockedByGiven) hasUpdates = true;
 
   if (!hasUpdates && newState === "") {
     if (!process.stdin.isTTY) {
@@ -240,6 +278,45 @@ async function main(argv: string[]): Promise<number> {
         logInfo(`Updated issue #${issueNumber}`);
       } catch (err) {
         logError(`Failed to update issue #${issueNumber}: ${err instanceof Error ? err.message : String(err)}`);
+        return 1;
+      }
+    }
+  }
+
+  if (blockedByGiven) {
+    const isAzure = (() => {
+      try {
+        return providerDetect() === "azure";
+      } catch {
+        return false;
+      }
+    })();
+    if (dryRun) {
+      for (const b of addBlockers) logInfo(`[DRY RUN] Would record #${issueNumber} blocked by #${b}`);
+      for (const b of removeBlockers) logInfo(`[DRY RUN] Would un-record #${issueNumber} blocked by #${b}`);
+    } else {
+      try {
+        if (isAzure) {
+          for (const b of addBlockers) {
+            await issueDependencyLink(repo, num, b);
+            logInfo(`Recorded #${issueNumber} blocked by #${b}`);
+          }
+          for (const b of removeBlockers) {
+            await issueDependencyUnlink(repo, num, b);
+            logInfo(`Un-recorded #${issueNumber} blocked by #${b}`);
+          }
+        } else {
+          if (addBlockers.length > 0) {
+            await issueBlockedByLink(repo, num, addBlockers);
+            for (const b of addBlockers) logInfo(`Recorded #${issueNumber} blocked by #${b}`);
+          }
+          if (removeBlockers.length > 0) {
+            await issueBlockedByUnlink(repo, num, removeBlockers);
+            for (const b of removeBlockers) logInfo(`Un-recorded #${issueNumber} blocked by #${b}`);
+          }
+        }
+      } catch (err) {
+        logError(`Failed to update blocked-by on #${issueNumber}: ${err instanceof Error ? err.message : String(err)}`);
         return 1;
       }
     }

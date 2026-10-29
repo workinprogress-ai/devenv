@@ -12,7 +12,7 @@ import {} from "node:fs";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { checkTargetRepo, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesView } from "../lib/providers/github/issues.ts";
 
 assertNodeFloor();
@@ -20,7 +20,7 @@ assertNodeFloor();
 const SCRIPT_VERSION = "1.0.0";
 const SCRIPT_NAME = basename(process.argv[1] ?? "issue-get.ts");
 
-const DEFAULT_FIELDS = "number,title,body,state,labels,assignees,milestone,author,createdAt,updatedAt,closedAt,url,comments";
+const DEFAULT_FIELDS = "number,title,parent,body,state,labels,assignees,milestone,author,createdAt,updatedAt,closedAt,url,comments";
 
 function showUsage(): never {
   console.log(`Usage: ${SCRIPT_NAME} ISSUE_NUMBER [OPTIONS]
@@ -99,7 +99,7 @@ async function main(argv: string[]): Promise<number> {
 
   checkTargetRepo(devenv);
 
-  const repo = providerRepoTarget("");
+  const repo = requireRepoTarget(providerRepoTarget(""), "issue-get", "issues");
 
   let json: string;
   try {

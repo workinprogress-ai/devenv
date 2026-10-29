@@ -156,6 +156,21 @@ function authError(code: number): never {
   );
 }
 
+/** Azure's own error message from a response body, redacted and bounded —
+ * appended to thrown HTTP errors so 5xx failures name what Azure said
+ * (parity with the 400-class path). */
+function buildBodySuffix(body: string): string {
+  try {
+    const parsed = JSON.parse(body) as { message?: unknown };
+    if (typeof parsed.message === "string" && parsed.message !== "") {
+      return `: ${azureRedact(parsed.message).slice(0, 500)}`;
+    }
+  } catch {
+    // non-JSON body: no message to surface
+  }
+  return "";
+}
+
 /** One Azure DevOps REST call; resolves with the parsed JSON body on 2xx.
  * Retries: 429 always (Azure rejected before acting; Retry-After honored);
  * 5xx/connection failure only for idempotent requests. 203/401 and sign-in
@@ -219,7 +234,8 @@ export async function azureHttp<T = unknown>(
         continue;
       }
       throw new ProviderError(
-        `azure http ${r.status}: gave up after ${attempt} attempt(s)`,
+        `azure http ${r.status}: gave up after ${attempt} attempt(s)` +
+          buildBodySuffix(r.body),
       );
     }
     // Non-retryable HTTP error (400/403/404...). Surface the Azure error

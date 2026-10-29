@@ -4,7 +4,7 @@
 // projection (cursor contract). The transport (fetch) is exercised live in
 // the azure smoke harness, not here.
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   azureRedact,
   azureUrlIsProviderHost,
@@ -34,6 +34,7 @@ import {
   splitCommentRef,
   azureMarkerTransform,
   workItemTypeFor,
+  issuesCreate,
 } from "../../lib/providers/azure/issues.ts";
 import {
   identitySddl,
@@ -201,12 +202,109 @@ describe("azure issues text round-trip", () => {
     expect(azureMarkerTransform("plain body")).toBe("plain body");
   });
 
-  it("work-item type map: built-ins pass, unknown throws", () => {
-    expect(workItemTypeFor("Bug")).toBe("Bug");
-    expect(workItemTypeFor("")).toBe("User Story");
-    expect(workItemTypeFor("task")).toBe("User Story");
-    expect(workItemTypeFor("EPIC")).toBe("Epic");
-    expect(() => workItemTypeFor("mystery")).toThrow(/azure_issue_types/);
+  it("work-item type map: built-ins pass, unknown throws", async () => {
+    // The mapped-type availability check rides azureHttp; these stub the
+    // transport and the org/project env so the map semantics stay testable
+    // without a live org or a devenv.config.
+    process.env.AZURE_DEVOPS_ORG = "test-org";
+    process.env.AZURE_DEVOPS_PROJECT = "test-project";
+    process.env.AZURE_PAT = "test-pat";
+    const fetchMock = ((): typeof fetch => {
+      const fn = (async () =>
+        new Response(JSON.stringify({ value: [{ name: "Proposed" }], count: 1 }), {
+          status: 200,
+        })) as unknown as typeof fetch;
+      return fn;
+    })();
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      await expect(workItemTypeFor("Bug")).resolves.toBe("Bug");
+      await expect(workItemTypeFor("")).resolves.toBe("User Story");
+      await expect(workItemTypeFor("task")).resolves.toBe("User Story");
+      await expect(workItemTypeFor("EPIC")).resolves.toBe("Epic");
+      await expect(workItemTypeFor("mystery")).rejects.toThrow(/azure_issue_types/);
+    } finally {
+      vi.unstubAllGlobals();
+      delete process.env.AZURE_DEVOPS_ORG;
+      delete process.env.AZURE_DEVOPS_PROJECT;
+      delete process.env.AZURE_PAT;
+    }
+  });
+
+  it("a mapped type the project does not offer fails naming the config key", async () => {
+    process.env.AZURE_DEVOPS_ORG = "test-org";
+    process.env.AZURE_DEVOPS_PROJECT = "test-project";
+    process.env.AZURE_PAT = "test-pat";
+    const fetchMock = ((): typeof fetch => {
+      const fn = (async () =>
+        // The availability probe: the type is absent from this project (404
+        // with Azure's message shape).
+        new Response(JSON.stringify({ message: "type absent" }), { status: 404 })) as unknown as typeof fetch;
+      return fn;
+    })();
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      // User Story disabled in this project (the fork's exact state): the
+      // untyped create fails early naming the [azure_issue_types] remediation.
+      await expect(workItemTypeFor("")).rejects.toThrow(/azure_issue_types/);
+      await expect(workItemTypeFor("")).rejects.toThrow(/User Story/);
+    } finally {
+      vi.unstubAllGlobals();
+      delete process.env.AZURE_DEVOPS_ORG;
+      delete process.env.AZURE_DEVOPS_PROJECT;
+      delete process.env.AZURE_PAT;
+    }
+  });
+
+  it("issuesCreate carries the mapped type on the create URL", async () => {
+    process.env.AZURE_DEVOPS_ORG = "test-org";
+    process.env.AZURE_DEVOPS_PROJECT = "test-project";
+    process.env.AZURE_PAT = "test-pat";
+    const urls: string[] = [];
+    const fetchMock = ((): typeof fetch => {
+      const fn = (async (url: string | URL | Request) => {
+        urls.push(String(url));
+        return new Response(JSON.stringify({ id: 42 }), { status: 200 });
+      }) as unknown as typeof fetch;
+      return fn;
+    })();
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const id = await issuesCreate("", {
+        title: "t",
+        type: "task",
+      });
+      expect(id).toBe(42);
+      expect(urls.some((u) => u.includes("/workitems/$User%20Story"))).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+      delete process.env.AZURE_DEVOPS_ORG;
+      delete process.env.AZURE_DEVOPS_PROJECT;
+      delete process.env.AZURE_PAT;
+    }
+  });
+
+  it("a 5xx after retries surfaces Azure's message (redacted)", async () => {
+    process.env.AZURE_DEVOPS_ORG = "test-org";
+    process.env.AZURE_DEVOPS_PROJECT = "test-project";
+    process.env.AZURE_PAT = "test-pat";
+    const fetchMock = ((): typeof fetch => {
+      const fn = (async () =>
+        new Response(
+          JSON.stringify({ message: "TF400000: server-side boom secret=AzurePat" }),
+          { status: 500 },
+        )) as unknown as typeof fetch;
+      return fn;
+    })();
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      await expect(issuesCreate("", { title: "t" })).rejects.toThrow(/server-side boom/);
+    } finally {
+      vi.unstubAllGlobals();
+      delete process.env.AZURE_DEVOPS_ORG;
+      delete process.env.AZURE_DEVOPS_PROJECT;
+      delete process.env.AZURE_PAT;
+    }
   });
 });
 

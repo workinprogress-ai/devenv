@@ -24,6 +24,9 @@ function installGhStub(opts: { createOut?: string; repoViewFails?: boolean } = {
     `  *"repo view"*)`,
     `    if [[ "$*" == *"owner"* ]]; then echo '{"owner":{"login":"org"}}'; else echo '{"name":"repo"}'; fi`,
     `    ;;`,
+    `  *"issue view"*issueType*)`,
+    `    echo "\${PARENT_TYPE:-Epic}"`,
+    `    ;;`,
     `  *"issue create"*)`,
     `    echo "${createOut}"`,
     `    ;;`,
@@ -60,6 +63,7 @@ interface RunOpts {
   createOut?: string;
   repoViewFails?: boolean;
   issuesConfig?: string;
+  parentType?: string;
 }
 
 function runTool(opts: RunOpts): { status: number; stdout: string; stderr: string; output: string } {
@@ -73,6 +77,7 @@ function runTool(opts: RunOpts): { status: number; stdout: string; stderr: strin
       DEVENV_REPO: "org/repo",
       WORKFLOW_CORE_TOOLS: "/nonexistent-workflow-tools",
       ...(opts.issuesConfig !== undefined ? { ISSUES_CONFIG: opts.issuesConfig } : {}),
+      ...(opts.parentType !== undefined ? { PARENT_TYPE: opts.parentType } : {}),
     },
   });
   const stdout = r.stdout ?? "";
@@ -205,6 +210,42 @@ describe("issue-create", () => {
     const r = runTool({ args: ["--title", "T", "--type", "Task", "--no-interactive"], input: "piped body text\n", issuesConfig: cfg });
     expect(r.status).toBe(0);
     expect(ghCalls().join("\n")).toContain("--body piped body text");
+  });
+
+  it("placement: a Task under an Epic parent is allowed and creates", () => {
+    const cfg = join(workDir, "issues-config.yml");
+    writeFileSync(cfg, "types:\n  - name: Bug\n  - name: Task\n    child_of: [Epic]\n");
+    const r = runTool({ args: ["--title", "T", "--type", "Task", "--no-interactive", "--body", "b", "--parent", "12"], issuesConfig: cfg, parentType: "Epic" });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain("https://github.com/org/repo/issues/777");
+  });
+
+  it("placement: a Task under a Bug parent is rejected before create", () => {
+    const cfg = join(workDir, "issues-config.yml");
+    writeFileSync(cfg, "types:\n  - name: Bug\n  - name: Task\n    child_of: [Epic]\n");
+    const r = runTool({ args: ["--title", "T", "--type", "Task", "--no-interactive", "--body", "b", "--parent", "12"], issuesConfig: cfg, parentType: "Bug" });
+    expect(r.status).toBe(2);
+    expect(r.output).toContain("cannot be parented under a Bug");
+    expect(r.output).toContain("child_of rule for Task allows: [Epic]");
+    expect(ghCalls().some((c) => c.includes("issue create"))).toBe(false);
+  });
+
+  it("placement: a cross-repo parent skips the live type probe and links", () => {
+    const cfg = writeTypesConfig();
+    const r = runTool({ args: ["--title", "T", "--type", "Task", "--no-interactive", "--body", "b", "--parent", "org/other#50"], issuesConfig: cfg, parentType: "Bug" });
+    expect(r.status).toBe(0);
+    // The body carries the fully-qualified parent URL (never a misleading
+    // bare "Part of #50").
+    const bodyCalls = ghCalls().filter((c) => c.includes("issue create"));
+    expect(bodyCalls.length).toBe(1);
+    expect(r.stdout).toContain("https://github.com/org/repo/issues/777");
+  });
+
+  it("an unparseable --parent reference is a usage error", () => {
+    const cfg = writeTypesConfig();
+    const r = runTool({ args: ["--title", "T", "--type", "Task", "--no-interactive", "--body", "b", "--parent", "not-a-ref"], issuesConfig: cfg });
+    expect(r.status).toBe(2);
+    expect(r.output).toContain("Invalid --parent reference: not-a-ref");
   });
 
   it("an empty piped stdin body is refused", () => {
