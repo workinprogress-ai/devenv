@@ -205,6 +205,18 @@ A same-named file in a higher folder wins: custom over fork over ts over scripts
 The sync runs at bootstrap; re-run it after adding or removing an override. See
 [Forking](./Forking.md#adding-and-overriding-tools-toolsfork-and-toolscustom).
 
+When one tool invokes another devenv tool, it names an **exact path inside the
+tools root** — never a bare name for PATH lookup. The default form is the
+depth-1 stub, `join(toolsDir, "<tool>")`, which honors the override chain
+(a fork's `tools/fork/<tool>` wins, exactly as for users). One exception: the
+repo-get dispatcher family (`git-repo`) invokes its same-layer source,
+`join(toolsDir, "ts", "repo-get.ts")`, preserving the bash-era same-directory
+dispatch contract. External CLIs (`git`, `node`, `dotnet`, …) keep PATH
+invocation — the rule covers devenv tools only. The
+`sibling-dispatch.test.ts` suite enforces both halves: no devenv tool is
+spawned by bare name, and every constructed stub path resolves to a real
+file.
+
 A fourth folder, `tools/internal/`, is **not** part of that override chain:
 it holds machinery scripts that the devenv or githook machinery invokes —
 scripts a user would generally never run by hand (lifecycle event entry

@@ -57,18 +57,18 @@ teardown() {
     [[ "$output" == *"Usage"* ]]
 }
 
-@test "git-repo hands its arguments to the repo-get script next to it, not to whatever is on PATH" {
+@test "git-repo hands its arguments to the same-layer repo-get source, not to whatever is on PATH" {
     # The port dispatches to its same-layer sibling (spawn node
-    # <own-tools>/scripts/repo-get.ts) — never a PATH lookup. Fake tools root
-    # carries the lib tree so the copied source runs; its repo-get.ts wins
+    # <own-tools>/ts/repo-get.ts) — never a PATH lookup. Fake tools root
+    # carries the lib tree so the copied source runs; its ts/repo-get.ts wins
     # over any PATH repo-get.
-    local fake="$TEST_TEMP_DIR/fake"; mkdir -p "$fake/scripts" "$fake/path"
+    local fake="$TEST_TEMP_DIR/fake"; mkdir -p "$fake/ts" "$fake/path"
     cp -r "$PROJECT_ROOT/tools/lib" "$fake/lib"
-    cp "$PROJECT_ROOT/tools/ts/git-repo.ts" "$fake/scripts/"
-    printf 'const { spawnSync } = await import("node:child_process");\nconst r = spawnSync("echo", ["next-to-it", ...process.argv.slice(2)], { stdio: "inherit" });\nprocess.exit(r.status ?? 1);\n' > "$fake/scripts/repo-get.ts"
+    cp "$PROJECT_ROOT/tools/ts/git-repo.ts" "$fake/ts/"
+    printf 'const { spawnSync } = await import("node:child_process");\nconst r = spawnSync("echo", ["next-to-it", ...process.argv.slice(2)], { stdio: "inherit" });\nprocess.exit(r.status ?? 1);\n' > "$fake/ts/repo-get.ts"
     printf '#!/bin/bash\necho "from-path: $*"\n' > "$fake/path/repo-get"
     chmod +x "$fake/path/"*
-    PATH="$fake/path:$PATH" run node "$fake/scripts/git-repo.ts" some-repo
+    PATH="$fake/path:$PATH" run node "$fake/ts/git-repo.ts" some-repo
     [ "$status" -eq 0 ]
     [ "$output" = "next-to-it some-repo" ]
 }

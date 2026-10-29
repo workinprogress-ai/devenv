@@ -342,7 +342,7 @@ function parseArgs_main(): WizardArgs {
 
 function hasSln(dir: string): boolean {
   try {
-    for (const e of readdirSync(dir)) if (e.endsWith(".sln")) return true;
+    for (const e of readdirSync(dir)) if (e.endsWith(".sln") || e.endsWith(".slnx")) return true;
     return false;
   } catch {
     return false;

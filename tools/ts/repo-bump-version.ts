@@ -111,9 +111,10 @@ for (const repo of repos) {
 
   const repoPath = join(reposDir, repo);
 
-  // Step 1: Ensure repo is up to date using repo-get (same-layer source).
+  // Step 1: Ensure repo is up to date using repo-get (depth-1 stub —
+  // exact path, never a PATH lookup; honors fork/custom overrides).
   logInfo("Ensuring repository is up to date...");
-  const get = run(["node", join(toolsDir, "scripts", "repo-get.ts"), repo]);
+  const get = run([join(toolsDir, "repo-get"), repo]);
   if (get.status !== 0) {
     logError(`Failed to update repository: ${repo}`);
     failedRepos.push(`${repo} (update failed)`);

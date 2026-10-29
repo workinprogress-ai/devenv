@@ -8,6 +8,11 @@ load ../test_helper
 setup() {
     test_helper_setup
 
+    # PATH dir for the git push shadow only (git is an external CLI —
+    # PATH invocation by design; devenv sibling tools go by exact path).
+    mkdir -p "$TEST_TEMP_DIR/bin"
+    export PATH="$TEST_TEMP_DIR/bin:$PATH"
+
     # Sandbox DEVENV_ROOT to a github-provider config: provider_extract_url
     # resolves through whichever provider the REAL devenv.config names (this
     # workspace may be an Azure-provider fork), but every pr-create/git mock
@@ -40,30 +45,36 @@ CSPROJ
     git update-ref refs/remotes/origin/master HEAD
     git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/master
 
-    # Set up mock bin directory on PATH
-    export PATH="$TEST_TEMP_DIR/bin:$PATH"
-    mkdir -p "$TEST_TEMP_DIR/bin"
+    # The wizard invokes sibling tools by exact stub path (never PATH),
+    # so the fakes go into a fake tools root: the wizard source copied there
+    # spawns <fake-root>/cs-references-update|pr-create|pr-merge. The lib
+    # tree sits next to the fake root so the copy's ../lib imports resolve.
+    export FAKE_TOOLS="$TEST_TEMP_DIR/fake-tools"
+    mkdir -p "$FAKE_TOOLS/ts"
+    cp -r "$PROJECT_ROOT/tools/lib" "$FAKE_TOOLS/lib"
+    cp "$PROJECT_ROOT/tools/ts/cs-references-update-wizard.ts" "$FAKE_TOOLS/ts/wizard.ts"
+    WIZARD() { node "$FAKE_TOOLS/ts/wizard.ts" "$@"; }
 
     # Mock cs-references-update (no-op by default — leaves files unchanged)
-    cat > "$TEST_TEMP_DIR/bin/cs-references-update" <<'EOF'
+    cat > "$FAKE_TOOLS/cs-references-update" <<'EOF'
 #!/usr/bin/env bash
 exit 0
 EOF
-    chmod +x "$TEST_TEMP_DIR/bin/cs-references-update"
+    chmod +x "$FAKE_TOOLS/cs-references-update"
 
     # Mock pr-create
-    cat > "$TEST_TEMP_DIR/bin/pr-create" <<'EOF'
+    cat > "$FAKE_TOOLS/pr-create" <<'EOF'
 #!/usr/bin/env bash
 echo "https://github.com/test-org/test-repo/pull/1"
 EOF
-    chmod +x "$TEST_TEMP_DIR/bin/pr-create"
+    chmod +x "$FAKE_TOOLS/pr-create"
 
     # Mock pr-merge
-    cat > "$TEST_TEMP_DIR/bin/pr-merge" <<'EOF'
+    cat > "$FAKE_TOOLS/pr-merge" <<'EOF'
 #!/usr/bin/env bash
 exit 0
 EOF
-    chmod +x "$TEST_TEMP_DIR/bin/pr-merge"
+    chmod +x "$FAKE_TOOLS/pr-merge"
 
     cd "$REPO_DIR"
 }
@@ -130,12 +141,12 @@ teardown() {
 
 @test "cs-references-update-wizard.sh exits 10 when cs-references-update makes no changes" {
     # cs-references-update mock does nothing → no diff → should exit 10
-    run "$PROJECT_ROOT/tools/cs-references-update-wizard" "$REPO_DIR"
+    run node "$FAKE_TOOLS/ts/wizard.ts" "$REPO_DIR"
     [ "$status" -eq 10 ]
 }
 
 @test "cs-references-update-wizard.sh cleans up branch on no-op" {
-    run "$PROJECT_ROOT/tools/cs-references-update-wizard" "$REPO_DIR"
+    run node "$FAKE_TOOLS/ts/wizard.ts" "$REPO_DIR"
     [ "$status" -eq 10 ]
     # Branch should have been deleted; master should be current
     run git -C "$REPO_DIR" branch
@@ -145,20 +156,20 @@ teardown() {
 # ── cs-references-update failure (exit 21) ────────────────────────────────
 
 @test "cs-references-update-wizard.sh exits 21 when cs-references-update fails" {
-    cat > "$TEST_TEMP_DIR/bin/cs-references-update" <<'EOF'
+    cat > "$FAKE_TOOLS/cs-references-update" <<'EOF'
 #!/usr/bin/env bash
 exit 1
 EOF
-    run "$PROJECT_ROOT/tools/cs-references-update-wizard" "$REPO_DIR"
+    run node "$FAKE_TOOLS/ts/wizard.ts" "$REPO_DIR"
     [ "$status" -eq 21 ]
 }
 
 @test "cs-references-update-wizard.sh cleans up branch on cs-references-update failure" {
-    cat > "$TEST_TEMP_DIR/bin/cs-references-update" <<'EOF'
+    cat > "$FAKE_TOOLS/cs-references-update" <<'EOF'
 #!/usr/bin/env bash
 exit 1
 EOF
-    run "$PROJECT_ROOT/tools/cs-references-update-wizard" "$REPO_DIR"
+    run node "$FAKE_TOOLS/ts/wizard.ts" "$REPO_DIR"
     [ "$status" -eq 21 ]
     run git -C "$REPO_DIR" branch
     [[ ! "$output" =~ "auto-update-references" ]]
@@ -169,7 +180,7 @@ EOF
 @test "cs-references-update-wizard.sh accepts custom --branch name" {
     # Override cs-references-update to actually change a file so the script
     # progresses past the no-op check
-    cat > "$TEST_TEMP_DIR/bin/cs-references-update" <<'EOF'
+    cat > "$FAKE_TOOLS/cs-references-update" <<'EOF'
 #!/usr/bin/env bash
 repo_dir="${1:-$PWD}"
 sed -i 's/Version="1\.0\.0"/Version="2.0.0"/' "$repo_dir/src/MyLib.csproj" 2>/dev/null || true
@@ -205,30 +216,30 @@ EOF
 # ── Framework / language flags ─────────────────────────────────────────────
 
 @test "cs-references-update-wizard.sh forwards --framework to cs-references-update" {
-    cat > "$TEST_TEMP_DIR/bin/cs-references-update" <<'EOF'
+    cat > "$FAKE_TOOLS/cs-references-update" <<'EOF'
 #!/usr/bin/env bash
 echo "ARGS: $*" > "${CAPTURE_FILE:?}"
 exit 0
 EOF
     run env CAPTURE_FILE="$TEST_TEMP_DIR/captured.args" \
-        "$PROJECT_ROOT/tools/cs-references-update-wizard" --framework net10.0 "$REPO_DIR"
+        node "$FAKE_TOOLS/ts/wizard.ts" --framework net10.0 "$REPO_DIR"
     [ "$status" -eq 10 ]  # mock changes nothing → no-op exit, but flags were forwarded
     grep -q -- "--framework net10.0" "$TEST_TEMP_DIR/captured.args"
 }
 
 @test "cs-references-update-wizard.sh forwards --lang-version and --lang-default" {
-    cat > "$TEST_TEMP_DIR/bin/cs-references-update" <<'EOF'
+    cat > "$FAKE_TOOLS/cs-references-update" <<'EOF'
 #!/usr/bin/env bash
 echo "ARGS: $*" > "${CAPTURE_FILE:?}"
 exit 0
 EOF
     run env CAPTURE_FILE="$TEST_TEMP_DIR/captured.args" \
-        "$PROJECT_ROOT/tools/cs-references-update-wizard" --lang-version 14.0 "$REPO_DIR"
+        node "$FAKE_TOOLS/ts/wizard.ts" --lang-version 14.0 "$REPO_DIR"
     [ "$status" -eq 10 ]
     grep -q -- "--lang-version 14.0" "$TEST_TEMP_DIR/captured.args"
 
     run env CAPTURE_FILE="$TEST_TEMP_DIR/captured2.args" \
-        "$PROJECT_ROOT/tools/cs-references-update-wizard" --lang-default "$REPO_DIR"
+        node "$FAKE_TOOLS/ts/wizard.ts" --lang-default "$REPO_DIR"
     [ "$status" -eq 10 ]
     grep -q -- "--lang-default" "$TEST_TEMP_DIR/captured2.args"
 }
@@ -244,7 +255,7 @@ EOF
 
 @test "wizard forces major + framework PR title when TFM changes" {
     # Mock cs-references-update to retarget the csproj TFM (like the real one does)
-    cat > "$TEST_TEMP_DIR/bin/cs-references-update" <<'EOF'
+    cat > "$FAKE_TOOLS/cs-references-update" <<'EOF'
 #!/usr/bin/env bash
 repo_dir="${1:-$PWD}"
 find "$repo_dir/src" -name '*.csproj' -exec sed -i 's|net8.0|net10.0|g; s|<LangVersion>12.0</LangVersion>|<LangVersion>14.0</LangVersion>|' {} +
@@ -258,7 +269,7 @@ EOF
     git -C "$REPO_DIR" update-ref refs/remotes/origin/master HEAD
 
     # Real pr-create wrapper is mocked in setup; capture the title
-    cat > "$TEST_TEMP_DIR/bin/pr-create" <<'EOF'
+    cat > "$FAKE_TOOLS/pr-create" <<'EOF'
 #!/usr/bin/env bash
 echo "TITLE: $*" >> "${CAPTURE_FILE:?}"
 echo "https://github.com/test-org/test-repo/pull/1"
@@ -277,20 +288,20 @@ EOF
 
     # No run-tests script → tests skipped
     run env CAPTURE_FILE="$TEST_TEMP_DIR/pr.args" \
-        "$PROJECT_ROOT/tools/cs-references-update-wizard" --framework net10.0 "$REPO_DIR"
+        node "$FAKE_TOOLS/ts/wizard.ts" --framework net10.0 "$REPO_DIR"
     [ "$status" -eq 0 ]
     grep -q "major: update references and target framework" "$TEST_TEMP_DIR/pr.args"
     rm -f "$TEST_TEMP_DIR/bin/git"
 }
 
 @test "wizard keeps plain title when no TFM change" {
-    cat > "$TEST_TEMP_DIR/bin/cs-references-update" <<'EOF'
+    cat > "$FAKE_TOOLS/cs-references-update" <<'EOF'
 #!/usr/bin/env bash
 repo_dir="${1:-$PWD}"
 sed -i 's/Version="1\.0\.0"/Version="1.1.0"/' "$repo_dir/src/MyLib.csproj" 2>/dev/null || true
 exit 0
 EOF
-    cat > "$TEST_TEMP_DIR/bin/pr-create" <<'EOF'
+    cat > "$FAKE_TOOLS/pr-create" <<'EOF'
 #!/usr/bin/env bash
 echo "TITLE: $*" >> "${CAPTURE_FILE:?}"
 echo "https://github.com/test-org/test-repo/pull/1"
@@ -307,7 +318,7 @@ EOF
     chmod +x "$TEST_TEMP_DIR/bin/git"
 
     run env CAPTURE_FILE="$TEST_TEMP_DIR/pr.args" \
-        "$PROJECT_ROOT/tools/cs-references-update-wizard" "$REPO_DIR"
+        node "$FAKE_TOOLS/ts/wizard.ts" "$REPO_DIR"
     [ "$status" -eq 0 ]
     grep -q "patch: update references" "$TEST_TEMP_DIR/pr.args"
     run ! grep -q "and target framework" "$TEST_TEMP_DIR/pr.args"
@@ -328,14 +339,14 @@ CSPROJ
     git -C "$REPO_DIR" add -A && git -C "$REPO_DIR" commit -q -m "add test project"
     git -C "$REPO_DIR" update-ref refs/remotes/origin/master HEAD
 
-    cat > "$TEST_TEMP_DIR/bin/cs-references-update" <<'EOF'
+    cat > "$FAKE_TOOLS/cs-references-update" <<'EOF'
 #!/usr/bin/env bash
 repo_dir="${1:-$PWD}"
 sed -i 's/Version="1\.0\.0"/Version="2.1.0"/' "$repo_dir/tests/MyLib.Tests.csproj"
 exit 0
 EOF
 
-    cat > "$TEST_TEMP_DIR/bin/pr-create" <<'EOF'
+    cat > "$FAKE_TOOLS/pr-create" <<'EOF'
 #!/usr/bin/env bash
 echo "TITLE: $*" >> "${CAPTURE_FILE:?}"
 echo "https://github.com/test-org/test-repo/pull/1"
@@ -352,7 +363,7 @@ EOF
     chmod +x "$TEST_TEMP_DIR/bin/git"
 
     run env CAPTURE_FILE="$TEST_TEMP_DIR/pr.args" \
-        "$PROJECT_ROOT/tools/cs-references-update-wizard" "$REPO_DIR"
+        node "$FAKE_TOOLS/ts/wizard.ts" "$REPO_DIR"
     [ "$status" -eq 0 ]
     grep -q "chore(tests): update references" "$TEST_TEMP_DIR/pr.args"
     run ! grep -q "major:" "$TEST_TEMP_DIR/pr.args"
@@ -374,14 +385,14 @@ CSPROJ
     git -C "$REPO_DIR" add -A && git -C "$REPO_DIR" commit -q -m "add test project"
     git -C "$REPO_DIR" update-ref refs/remotes/origin/master HEAD
 
-    cat > "$TEST_TEMP_DIR/bin/cs-references-update" <<'EOF'
+    cat > "$FAKE_TOOLS/cs-references-update" <<'EOF'
 #!/usr/bin/env bash
 repo_dir="${1:-$PWD}"
 sed -i 's/Version="1\.0\.0"/Version="1.1.0"/' "$repo_dir/src/MyLib.csproj" "$repo_dir/tests/MyLib.Tests.csproj"
 exit 0
 EOF
 
-    cat > "$TEST_TEMP_DIR/bin/pr-create" <<'EOF'
+    cat > "$FAKE_TOOLS/pr-create" <<'EOF'
 #!/usr/bin/env bash
 echo "TITLE: $*" >> "${CAPTURE_FILE:?}"
 echo "https://github.com/test-org/test-repo/pull/1"
@@ -398,7 +409,7 @@ EOF
     chmod +x "$TEST_TEMP_DIR/bin/git"
 
     run env CAPTURE_FILE="$TEST_TEMP_DIR/pr.args" \
-        "$PROJECT_ROOT/tools/cs-references-update-wizard" "$REPO_DIR"
+        node "$FAKE_TOOLS/ts/wizard.ts" "$REPO_DIR"
     [ "$status" -eq 0 ]
     grep -q "patch: update references" "$TEST_TEMP_DIR/pr.args"
     run ! grep -q "chore(tests)" "$TEST_TEMP_DIR/pr.args"
