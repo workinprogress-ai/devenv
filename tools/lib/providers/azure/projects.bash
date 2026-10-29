@@ -153,6 +153,12 @@ provider_projects_list() {
 provider_projects_id_by_name() {
     local _owner="$1" name="$2"
     [ -n "$name" ] || { log_error "provider_projects_id_by_name: project name required"; return 1; }
+    # Numeric input passes through (mirrors the TS verb): the shared fan-out
+    # feeds work-item ids here, not board names.
+    case "$name" in
+        ''|*[!0-9]*) ;;          # not numeric: fall through to the lookup
+        *) printf '%s\n' "$name"; return 0 ;;
+    esac
     local op team
     op=$(azure_org_project) || return 1
     team=$(azure_default_team_id) || return 1

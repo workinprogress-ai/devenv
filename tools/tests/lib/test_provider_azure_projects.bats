@@ -167,3 +167,22 @@ queue_responses() {
     grep -q '_apis/projects/my%20proj?' "$STUB_CALL_LOG"
     grep -q '_apis/projects/guid-proj/teams' "$STUB_CALL_LOG"
 }
+
+@test "provider_projects_id_by_name passes numeric input through without HTTP (15.14)" {
+    # The shared fan-out feeds work-item ids here (for_issue column 2), not
+    # board names — numeric input must short-circuit before the boards
+    # lookup (a lookup would fail "no board named '<work-item-id>'").
+    stub_dir="$(mktemp -d)"
+    printf '#!/usr/bin/env bash\necho "HTTP $*" >> "%s/calls.log"\nexit 1\n' "$stub_dir" > "$stub_dir/azure_http_request"
+    chmod +x "$stub_dir/azure_http_request"
+    export PATH="$stub_dir:$PATH"
+    run bash -c "
+        source '$DEVENV_TOOLS/lib/providers/provider-core.bash'
+        source '$DEVENV_TOOLS/lib/providers/azure/http.bash'
+        source '$DEVENV_TOOLS/lib/providers/azure/projects.bash'
+        provider_projects_id_by_name org 101383
+    "
+    [ "$status" -eq 0 ]
+    [ "$output" = "101383" ]
+    [ ! -f "$stub_dir/calls.log" ]
+}

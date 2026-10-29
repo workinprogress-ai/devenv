@@ -13,16 +13,25 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { configGetArray } from "../lib/core/config.ts";
-import { ensureProviderAuth, isDevenvRepoGated, providerConfigPath, providerOrgGet, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { ensureProviderAuth, isDevenvRepoGated, providerConfigPath, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { issueWebUrl } from "../lib/providers/github/issues.ts";
 import {
-  projectsIdByName,
-  projectsItemIdForIssue,
-  projectsFieldOptionIds,
-  projectsFieldSet,
-  projectsForIssue,
-  projectsFieldList,
+  projectsIdByName as ghProjectsIdByName,
+  projectsItemIdForIssue as ghProjectsItemIdForIssue,
+  projectsFieldOptionIds as ghProjectsFieldOptionIds,
+  projectsFieldSet as ghProjectsFieldSet,
+  projectsForIssue as ghProjectsForIssue,
+  projectsFieldList as ghProjectsFieldList,
 } from "../lib/providers/github/projects.ts";
+import {
+  projectsIdByName as azProjectsIdByName,
+  projectsItemIdForIssue as azProjectsItemIdForIssue,
+  projectsFieldOptionIds as azProjectsFieldOptionIds,
+  projectsFieldSet as azProjectsFieldSet,
+  projectsForIssue as azProjectsForIssue,
+  projectsFieldList as azProjectsFieldList,
+} from "../lib/providers/azure/projects.ts";
+import { providerDetect } from "../lib/providers/provider-core.ts";
 
 assertNodeFloor();
 
@@ -128,7 +137,7 @@ if (providerOrgGet() === "") {
   process.exit(EXIT_MISUSE);
 }
 
-const repoSpec = providerRepoTarget();
+const repoSpec = requireRepoTarget(providerRepoTarget(), "project-update-issue", "project");
 if (repoSpec === "") {
   logError("Cannot resolve the target repository — pass DEVENV_REPO or run inside a repository.");
   process.exit(EXIT_GENERAL_ERROR);
@@ -145,12 +154,90 @@ if (isDevenvRepoGated() && (process.env["DEVENV_REPO"] === undefined || process.
 const owner = repoSpec.split("/")[0] ?? "";
 const repo = repoSpec.split("/")[1] ?? "";
 
+// Provider dispatch for the projects family (15.14): the tool picks the
+// active provider's module once — under [provider] name=azure the azure
+// verbs run (boards/columns semantics), github keeps its module. Async-
+// normalized: azure's verbs are Promise-returning, github's sync, so every
+// call site awaits.
+const isAzure = (() => {
+  try {
+    return providerDetect() === "azure";
+  } catch {
+    return false;
+  }
+})();
+
+interface ProjectsOps {
+  idByName(owner: string, name: string): Promise<string>;
+  itemIdForIssue(projectId: string, issueNumber: string, owner: string, repo: string): Promise<string>;
+  fieldOptionIds(projectId: string, field: string, word: string): Promise<{ fieldId: string; optionId: string }>;
+  fieldSet(projectId: string, item: string, fieldId: string, optionId: string): Promise<boolean>;
+  forIssue(issueUrl: string, owner: string): Promise<Array<{ title: string; number: string; status: string }>>;
+  fieldList(projectName: string, owner: string): Promise<string>;
+}
+
+const ghOps: ProjectsOps = {
+  async idByName(owner, name) {
+    return ghProjectsIdByName(owner, name);
+  },
+  async itemIdForIssue(projectId, issueNumber, owner, repo) {
+    return ghProjectsItemIdForIssue(projectId, issueNumber, owner, repo);
+  },
+  async fieldOptionIds(projectId, field, word) {
+    return ghProjectsFieldOptionIds(projectId, field, word);
+  },
+  async fieldSet(projectId, item, fieldId, optionId) {
+    return ghProjectsFieldSet(projectId, item, fieldId, optionId);
+  },
+  async forIssue(issueUrl, owner) {
+    return ghProjectsForIssue(issueUrl, owner) as unknown as Promise<Array<{ title: string; number: string; status: string }>>;
+  },
+  async fieldList(projectName, owner) {
+    return ghProjectsFieldList(undefined, projectName, ["--owner", owner]);
+  },
+};
+
+const azOps: ProjectsOps = {
+  async idByName(owner, name) {
+    return azProjectsIdByName(owner, name);
+  },
+  async itemIdForIssue(projectId, issueNumber) {
+    return azProjectsItemIdForIssue(projectId, issueNumber);
+  },
+  async fieldOptionIds(projectId, field, word) {
+    return azProjectsFieldOptionIds(projectId, field, word);
+  },
+  async fieldSet(projectId, item, fieldId, optionId) {
+    await azProjectsFieldSet(projectId, item, fieldId, optionId);
+    return true;
+  },
+  async forIssue(issueUrl, owner) {
+    const raw = await azProjectsForIssue(issueUrl, owner);
+    // Azure's verb returns one tab-separated line per project:
+    // boardName\tWORK-ITEM-ID\tstatus (column 2 is the work-item id — the
+    // value the Status write feeds to idByName's numeric pass-through).
+    // Parse to the row objects the shared fan-out iterates.
+    return raw
+      .split("\n")
+      .filter((l) => l.trim() !== "")
+      .map((l) => {
+        const [title, number, status] = l.split("\t");
+        return { title: title ?? "", number: number ?? "", status: status ?? "" };
+      });
+  },
+  async fieldList(projectName) {
+    return azProjectsFieldList("", projectName);
+  },
+};
+
+const ops: ProjectsOps = isAzure ? azOps : ghOps;
+
 if (listFields) {
   logInfo(`Listing fields for project: ${projectName}`);
   logInfo(`Owner: ${owner}`);
   logInfo("");
   try {
-    const out = projectsFieldList(undefined, projectName, ["--owner", owner]);
+    const out = await ops.fieldList(projectName, owner);
     process.stdout.write(out);
   } catch {
     logWarn("Could not list fields automatically");
@@ -166,7 +253,7 @@ if (issueNumber === "") {
 
 const issueUrl = issueWebUrl(repoSpec, Number(issueNumber));
 
-function updateStatus(status: string): boolean {
+async function updateStatus(status: string): Promise<boolean> {
   if (!validateStatus(status)) return false;
 
   if (dryRun) {
@@ -176,14 +263,14 @@ function updateStatus(status: string): boolean {
 
   let projectId: string;
   try {
-    projectId = projectsIdByName(owner, projectName);
+    projectId = await ops.idByName(owner, projectName);
   } catch {
     logError(`Project '${projectName}' not found for owner '${owner}'`);
     return false;
   }
   let itemId: string;
   try {
-    itemId = projectsItemIdForIssue(projectId, issueNumber, owner, repo);
+    itemId = await ops.itemIdForIssue(projectId, issueNumber, owner, repo);
   } catch {
     logError(`Issue #${issueNumber} (${owner}/${repo}) is not (uniquely) in project '${projectName}'`);
     return false;
@@ -191,12 +278,12 @@ function updateStatus(status: string): boolean {
   let fieldId = "";
   let optionId = "";
   try {
-    ({ fieldId, optionId } = projectsFieldOptionIds(projectId, "Status", status));
+    ({ fieldId, optionId } = await ops.fieldOptionIds(projectId, "Status", status));
   } catch (err) {
     logError(err instanceof Error ? err.message : `Status option '${status}' not found in project '${projectName}'`);
     return false;
   }
-  if (!projectsFieldSet(projectId, itemId, fieldId, optionId)) {
+  if (!(await ops.fieldSet(projectId, itemId, fieldId, optionId))) {
     logError(`Failed to set Status='${status}' for issue #${issueNumber} in '${projectName}'`);
     return false;
   }
@@ -204,10 +291,10 @@ function updateStatus(status: string): boolean {
   return true;
 }
 
-function updateStatusAllProjects(status: string): boolean {
+async function updateStatusAllProjects(status: string): Promise<boolean> {
   let rows: Array<{ title: string; number: string; status: string }>;
   try {
-    rows = projectsForIssue(issueUrl, owner);
+    rows = await ops.forIssue(issueUrl, owner);
   } catch {
     if (safeMode) {
       logWarn(`project lookup failed for issue #${issueNumber} - skipping status update (--safe reports, never lies)`);
@@ -235,7 +322,7 @@ function updateStatusAllProjects(status: string): boolean {
       continue;
     }
     projectName = row.number;
-    if (updateStatus(status)) updated += 1;
+    if (await updateStatus(status)) updated += 1;
     else failed += 1;
   }
 
@@ -247,7 +334,7 @@ function updateStatusAllProjects(status: string): boolean {
   return true;
 }
 
-function updateField(fieldName: string, fieldValue: string): boolean {
+async function updateField(fieldName: string, fieldValue: string): Promise<boolean> {
   if (dryRun) {
     logInfo(`[DRY RUN] Would set ${fieldName}='${fieldValue}' for issue #${issueNumber} in project '${projectName}'`);
     return true;
@@ -257,16 +344,16 @@ function updateField(fieldName: string, fieldValue: string): boolean {
   let fieldId: string;
   let optionId: string;
   try {
-    projectId = projectsIdByName(owner, projectName);
-    itemId = projectsItemIdForIssue(projectId, issueNumber, owner, repo);
-    ({ fieldId, optionId } = projectsFieldOptionIds(projectId, fieldName, fieldValue));
+    projectId = await ops.idByName(owner, projectName);
+    itemId = await ops.itemIdForIssue(projectId, issueNumber, owner, repo);
+    ({ fieldId, optionId } = await ops.fieldOptionIds(projectId, fieldName, fieldValue));
   } catch (err) {
     // Lib throws route through the established script-level wording — never
     // a raw stack trace, and later --field entries still get attempted.
     logError(err instanceof Error ? err.message : `Failed to resolve ${fieldName}='${fieldValue}' in '${projectName}'`);
     return false;
   }
-  if (!projectsFieldSet(projectId, itemId, fieldId, optionId)) {
+  if (!(await ops.fieldSet(projectId, itemId, fieldId, optionId))) {
     logError(`Failed to set ${fieldName}='${fieldValue}' for issue #${issueNumber} in '${projectName}'`);
     return false;
   }
@@ -277,7 +364,7 @@ function updateField(fieldName: string, fieldValue: string): boolean {
 let ok = true;
 
 if (statusValue !== "") {
-  ok = allProjects ? updateStatusAllProjects(statusValue) : updateStatus(statusValue);
+  ok = allProjects ? await updateStatusAllProjects(statusValue) : await updateStatus(statusValue);
 }
 
 // Update custom fields (single-project only: fan-out is Status-only).
@@ -296,7 +383,7 @@ if (fieldUpdates.length > 0) {
       fieldsFailed = true;
       continue;
     }
-    if (!updateField(fieldName, fieldValue)) fieldsFailed = true;
+    if (!(await updateField(fieldName, fieldValue))) fieldsFailed = true;
   }
 }
 
