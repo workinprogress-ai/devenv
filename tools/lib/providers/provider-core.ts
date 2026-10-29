@@ -22,6 +22,8 @@ import { execFileSync } from "node:child_process";
 import { configGetRaw } from "../core/config.ts";
 import { EXIT_GENERAL_ERROR } from "../core/exit-codes.ts";
 import { selfRoot } from "../core/self-root.ts";
+import { githubExplain } from "./github/explain.ts";
+import { azureExplain } from "./azure/explain.ts";
 
 /** The devenv checkout root this module operates on. Derived from this
  * file's own location (self-root contract); DEVENV_TOOLBOX_ROOT is a
@@ -64,7 +66,18 @@ let detected: ProviderName | undefined;
  * seam (a typo, not a supported provider). */
 export function providerDetect(force = false): ProviderName {
   if (detected !== undefined && !force) return detected;
-  const raw = configGetRaw(providerConfigPath(), "provider", "name") ?? "";
+  const configPath = providerConfigPath();
+  if (!existsSync(configPath)) {
+    // A resolved-but-missing config must not silently default: the default
+    // is wrong for forks that override [provider] name by definition, and
+    // the resulting "provider CLI is not authenticated" misleads every
+    // credential fix attempt. Fail naming the path we resolved.
+    throw new ProviderError(
+      `devenv.config not found at ${configPath} — provider detection refused to default; ` +
+        `set DEVENV_ROOT to the checkout root or restore the config`,
+    );
+  }
+  const raw = configGetRaw(configPath, "provider", "name") ?? "";
   const name = raw.trim() === "" ? "github" : (raw.trim() as ProviderName);
   if (!TS_PROVIDERS.includes(name)) {
     throw new ProviderError(
@@ -106,6 +119,39 @@ export function providerRepoTarget(spec?: string): string {
   const name = root.split("/").pop() ?? "";
   return name === "" ? "" : `${org}/${name}`;
 }
+
+/** Fail loud on an unresolvable repo target (15.8): a wrapper whose provider
+ * verb consumes a repo spec calls this right after providerRepoTarget. Empty
+ * resolved target -> named error naming the tool, the failed resolution, and
+ * the remediation — the 14.10 named-error-with-remediation pattern. When the
+ * active provider's explain data says the family needs no repo target at all
+ * (project-scoped providers, per 15.5's qualifier), the guard passes empty
+ * targets through: those families resolve org+project from config instead. */
+export function requireRepoTarget(
+  spec: string,
+  action: string,
+  family: string,
+): string {
+  if (spec !== "") return spec;
+  let need: "required" | "optional" | "never" = "required";
+  try {
+    const provider = providerDetect();
+    const factory = EXPLAIN_REGISTRY[provider];
+    const f = factory?.().families.find((x) => x.family === family || family.startsWith(x.family));
+    if (f) need = f.repoTarget.reads === "never" ? "never" : f.repoTarget.reads;
+  } catch {
+    // explain data unavailable: default to the strict reading
+  }
+  if (need === "never") return spec;
+  throw new ProviderError(
+    `no repository target resolved for ${action} — set DEVENV_REPO=owner/repo, run inside the target repository, or pass the repo explicitly`,
+  );
+}
+
+const EXPLAIN_REGISTRY: Record<string, () => { families: Array<{ family: string; repoTarget: { reads: "required" | "optional" | "never" } }> }> = {
+  github: () => githubExplain(),
+  azure: () => azureExplain(),
+};
 
 /** Org identity: devenv.config `[organization] org` → the setup seed file.
  * Empty (with guidance already logged by the caller) when unresolvable —

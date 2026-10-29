@@ -22,7 +22,7 @@ import { basename } from "node:path";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_CONFLICT } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesComments } from "../lib/providers/github/issues.ts";
 
 assertNodeFloor();
@@ -222,7 +222,7 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_MISUSE;
   }
 
-  const repo = providerRepoTarget(args.repo);
+  const repo = requireRepoTarget(providerRepoTarget(args.repo), "issue-artifact-select", "issues");
   if (repo === "") {
     logError("Repository is required: pass --repo or set DEVENV_REPO");
     return EXIT_MISUSE;

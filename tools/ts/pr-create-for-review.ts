@@ -14,7 +14,7 @@ import { spawnSync, execFileSync } from "node:child_process";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsCreate } from "../lib/providers/github/prs.ts";
 import { extractUrl } from "../lib/providers/github/urls.ts";
 
@@ -171,7 +171,7 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_GENERAL_ERROR;
   }
 
-  const repo = providerRepoTarget("");
+  const repo = requireRepoTarget(providerRepoTarget(""), "pr-create-for-review", "pr");
   console.error("Creating draft PR for review comparison...");
   let prUrl: string | null = null;
   try {

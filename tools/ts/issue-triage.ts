@@ -23,7 +23,7 @@ import { fileURLToPath } from "node:url";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { checkTargetRepo, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesEdit } from "../lib/providers/github/issues.ts";
 
 assertNodeFloor();
@@ -186,7 +186,7 @@ async function main(argv: string[]): Promise<number> {
   checkTargetRepo(devenv);
 
   if (issues.length > 0) {
-    const repo = providerRepoTarget("");
+    const repo = requireRepoTarget(providerRepoTarget(""), "issue-triage", "issues");
     let rc = 0;
     for (const issue of issues) {
       logInfo(`Applying triage bundle to issue #${issue}...`);

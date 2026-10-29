@@ -17,7 +17,7 @@ import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/e
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { openInEditor } from "../lib/core/editor.ts";
-import { checkTargetRepo, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsThreadReply } from "../lib/providers/github/prs.ts";
 import { authStatusOk, remoteToSpec } from "../lib/providers/github/urls.ts";
 
@@ -71,7 +71,7 @@ Examples:
  * spec keeps the LAST component as the repository (bash's tail-slice parity:
  * an azure-shaped acme/proj/widgets names the repo widgets). */
 function resolveOwnerName(): { owner: string; name: string } | null {
-  const spec = providerRepoTarget("");
+  const spec = requireRepoTarget(providerRepoTarget(""), "pr-thread-reply", "pr");
   if (spec.includes("/")) {
     const owner = spec.split("/")[0] ?? "";
     const name = spec.split("/").pop() ?? "";

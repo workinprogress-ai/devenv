@@ -17,7 +17,7 @@ import { basename } from "node:path";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 
 assertNodeFloor();
 
@@ -190,7 +190,7 @@ async function main(argv: string[]): Promise<number> {
     slug = basename(args.sourceFile).replace(/\.[^.]*$/, "");
   }
 
-  const ownerRepo = providerRepoTarget(args.repo === undefined ? "" : args.repo);
+  const ownerRepo = requireRepoTarget(providerRepoTarget(args.repo === undefined ? "" : args.repo), "issue-artifact-doc-id", "issues");
   if (ownerRepo === "") {
     logError("Repository is required: pass --repo or set DEVENV_REPO");
     return EXIT_MISUSE;

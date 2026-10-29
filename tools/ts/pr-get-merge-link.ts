@@ -11,7 +11,7 @@ import { spawnSync } from "node:child_process";
 
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsList } from "../lib/providers/github/prs.ts";
 
 assertNodeFloor();
@@ -74,7 +74,7 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_GENERAL_ERROR;
   }
 
-  const repo = providerRepoTarget("");
+  const repo = requireRepoTarget(providerRepoTarget(""), "pr-get-merge-link", "pr");
   let prUrl = "";
   try {
     const r = await prsList(repo, { state: "open", head: currentBranch, json: "url", jq: ".[0].url" });

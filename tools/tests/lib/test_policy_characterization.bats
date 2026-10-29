@@ -114,6 +114,34 @@ load ../test_helper
     rm -rf "$t"
 }
 
+@test "characterize: provider_detect with DEVENV_ROOT unset resolves the checkout's own config" {
+    # Regression (fork report): an unset DEVENV_ROOT used to build
+    # /devenv.config — nonexistent everywhere — so detection silently took
+    # the default path even on forks whose config sets a non-default
+    # provider. The no-env default must be the checkout's own devenv.config.
+    local t
+    t=$(mktemp -d)
+    mkdir -p "$t/lib/providers"
+    cp "$PROJECT_ROOT/tools/lib/providers/provider-core.bash" "$t/lib/providers/"
+    # The lib sources its INI reader from its own parent directory, and the
+    # shipped-provider check iterates the providers dir — mirror both.
+    cp "$PROJECT_ROOT/tools/lib/config-reader.bash" "$t/lib/"
+    ln -s "$PROJECT_ROOT/tools/lib/providers/github" "$t/lib/providers/github"
+    ln -s "$PROJECT_ROOT/tools/lib/providers/azure" "$t/lib/providers/azure"
+    ln -s "$PROJECT_ROOT/tools/lib/providers/provider-core.bash" "$t/lib/providers/provider-core.bash" 2>/dev/null || true
+    printf '[provider]\nname=azure\n' > "$t/devenv.config"
+    run bash -c "
+        cd '$t'
+        unset DEVENV_ROOT
+        source '$t/lib/providers/provider-core.bash'
+        provider_detect >/dev/null 2>&1
+        echo \"\$PROVIDER_NAME\"
+    "
+    [ "$status" -eq 0 ]
+    [ "$output" = "azure" ]
+    rm -rf "$t"
+}
+
 # ============================================================================
 # policy_org chain lock: the POLICY_ORG -> config org precedence must
 # hold regardless of whether the config leg resolves directly or through the

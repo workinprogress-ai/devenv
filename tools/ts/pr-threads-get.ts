@@ -13,7 +13,7 @@ import { spawnSync } from "node:child_process";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logWarn } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { checkTargetRepo, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsThreadsPage } from "../lib/providers/github/prs.ts";
 import type { GhThread } from "../lib/providers/github/prs.ts";
 import { authStatusOk, remoteToWeb } from "../lib/providers/github/urls.ts";
@@ -71,7 +71,7 @@ Examples:
 function ownerName(): { owner: string; name: string } {
   // DEVENV_REPO / cwd spec first; origin remote through the URL seam as the
   // fallback leg (same chain as the bash tool).
-  const spec = providerRepoTarget("");
+  const spec = requireRepoTarget(providerRepoTarget(""), "pr-threads-get", "pr");
   if (spec.includes("/")) {
     const [owner, name] = spec.split("/");
     if (owner !== undefined && name !== undefined && owner !== "" && name !== "") {
