@@ -9,12 +9,15 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, basename } from "node:path";
+import { dirname, join, basename } from "node:path";
+import { fileURLToPath } from "node:url";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 
 assertNodeFloor();
+
+const toolsDir = dirname(dirname(fileURLToPath(import.meta.url)));
 
 const SCRIPT_VERSION = "1.0.0";
 const DEFAULT_UPDATE_BRANCH = "auto-update-references";
@@ -316,9 +319,8 @@ function main(): void {
     if (langVersion !== "") updateArgs.push("--lang-version", langVersion);
     if (langDefault) updateArgs.push("--lang-default");
     logInfo(`Updating NuGet references in ${repoName}...`);
-    // Bare name: PATH-resolved, so the test harness's stub intercepts —
-    // exactly the bash bare-name call contract.
-    const upd = spawnSync("cs-references-update", updateArgs, { stdio: "inherit" });
+    // Depth-1 stub, exact path — never a PATH lookup.
+    const upd = spawnSync(join(toolsDir, "cs-references-update"), updateArgs, { stdio: "inherit" });
     if (upd.status !== 0) {
       logError(`cs-references-update failed for ${repoName}`);
       git(repoDir, ["checkout", "-f", defaultBranch], { quiet: true });
@@ -437,7 +439,7 @@ function main(): void {
   let prUrl = "";
   for (let attempt = 1; attempt <= 5; attempt++) {
     const r = spawnSync(
-      "pr-create",
+      join(toolsDir, "pr-create"),
       ["--no-issue", "--repo-dir", repoDir, "--branch", updateBranch, "--label", "automated", prTitle],
       { encoding: "utf8" },
     );
@@ -463,7 +465,7 @@ function main(): void {
 
   // ── Merge PR (via the pr-merge wrapper) ──
   logInfo(`Merging PR for ${repoName}...`);
-  const merge = spawnSync("pr-merge", ["--force", "--no-issue-id", prTitle], {
+  const merge = spawnSync(join(toolsDir, "pr-merge"), ["--force", "--no-issue-id", prTitle], {
     cwd: repoDir,
     stdio: "inherit",
   });

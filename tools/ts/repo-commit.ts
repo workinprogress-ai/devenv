@@ -185,11 +185,9 @@ while (argv.length > 0) {
 // --- WIP lane: delegate to git-wip; WIP commit shape lives there alone.
 if (wipLane) {
   if (msgfileArg !== "") wipArgs.push("--file", msgfileArg);
-  const sibling = join(toolsDir, "scripts", "git-wip.ts");
-  const target = existsSync(sibling)
-    ? [process.execPath, sibling]
-    : ["git-wip"];
-  const r = spawnSync(target[0] ?? "", target.slice(1).concat(wipArgs), { stdio: "inherit" });
+  const stub = join(toolsDir, "git-wip");
+  if (!existsSync(stub)) die(`git-wip stub not found next to repo-commit: ${stub}`);
+  const r = spawnSync(stub, wipArgs, { stdio: "inherit" });
   process.exit(r.status ?? EXIT_GENERAL_ERROR);
 }
 

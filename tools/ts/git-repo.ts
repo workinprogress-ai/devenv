@@ -15,7 +15,7 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 assertNodeFloor();
 
 const toolsDir = dirname(dirname(fileURLToPath(import.meta.url)));
-const r = spawnSync("node", [join(toolsDir, "scripts", "repo-get.ts"), ...process.argv.slice(2)], {
+const r = spawnSync(process.execPath, [join(toolsDir, "ts", "repo-get.ts"), ...process.argv.slice(2)], {
   stdio: "inherit",
 });
 process.exit(r.status ?? 1);

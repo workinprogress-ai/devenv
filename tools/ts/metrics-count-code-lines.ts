@@ -11,7 +11,7 @@ assertNodeFloor();
 const globs = [
   "*/*.cs", "*.cs", "*/*.html", "*.html", "*/*.js", "*.js", "*/*.ts", "*.ts",
   "*/*.json", "*.json", "*/*.xml", "*.xml", "*/*.csproj", "*.csproj",
-  "*/*.sln", "*.sln", "*/*.sh", "*.sh",
+  "*/*.sln", "*.sln", "*/*.slnx", "*.slnx", "*/*.sh", "*.sh",
 ];
 
 const ls = spawnSync("git", ["ls-files", ...globs], { encoding: "utf8" });
