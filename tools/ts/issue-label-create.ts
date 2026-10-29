@@ -19,7 +19,7 @@ import { execFileSync } from "node:child_process";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { checkTargetRepo, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesLabelList, issuesLabelCreate, issuesLabelUpdate } from "../lib/providers/github/issues.ts";
 
 assertNodeFloor();
@@ -118,7 +118,7 @@ async function main(argv: string[]): Promise<number> {
 
   checkTargetRepo(devenv);
 
-  const repo = providerRepoTarget("");
+  const repo = requireRepoTarget(providerRepoTarget(""), "issue-label-create", "issues");
 
   async function ensureOneLabel(name: string, labelColor: string, labelDescription: string): Promise<number> {
     let listed: string;
@@ -171,7 +171,7 @@ async function main(argv: string[]): Promise<number> {
   }
 
   if (seed) {
-    const config = join(providerRepoTarget("") !== "" ? process.cwd() : process.cwd(), "tools/config/labels-config.yml");
+    const config = join(requireRepoTarget(providerRepoTarget(""), "issue-label-create", "issues") !== "" ? process.cwd() : process.cwd(), "tools/config/labels-config.yml");
     if (!existsSync(config)) {
       logError(`Seed config not found: ${config}`);
       return EXIT_API_FAILURE;

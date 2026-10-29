@@ -71,8 +71,8 @@ describe("issue-artifact-doc-id", () => {
       cwd: tmpdir(),
       env: { ...process.env, DEVENV_REPO: "", GH_REPO: "" },
     });
-    expect(r.status).toBe(2);
-    expect((r.stdout ?? "") + (r.stderr ?? "")).toContain("Repository is required");
+    expect(r.status).toBe(1);
+    expect((r.stdout ?? "") + (r.stderr ?? "")).toContain("no repository target resolved");
   });
 
   it("DEVENV_REPO resolves the repo when --repo is absent", () => {

@@ -32,7 +32,10 @@ When the user hands over an issue number asking which skill should handle it:
 read-only fetch + classify + recommend. No labels, no type, no priority, no
 comments, no writes — full metadata triage stays with `/devenv-triage`.
 
-1. Fetch the issue via `issue-get <N>` (title, body, labels).
+1. Fetch the issue via `issue-get <N>` (title, body, labels). A bare number
+   is fine to try read-only — `provider-explain issues` states whether the
+   active provider needs a repo target (the repo-targeting guard is the
+   fallback). A not-found read is reported, never guessed past.
 2. Classify the issue shape using the workflow routing table in
    `/devenv-triage` — it is the canonical issue-shape → skill mapping.
    Do not duplicate or re-derive it here. Check `upstream-impact` labels first;

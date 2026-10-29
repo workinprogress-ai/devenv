@@ -11,13 +11,14 @@
 // "improvements".
 
 import { parseArgs } from "node:util";
-import { basename } from "node:path";
+import { basename, dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsList, prsMerge, prsView } from "../lib/providers/github/prs.ts";
 import { prWebUrl } from "../lib/providers/github/urls.ts";
 import { signalPrEvents } from "../lib/domain/events.ts";
@@ -217,7 +218,8 @@ async function main(argv: string[]): Promise<number> {
       return EXIT_MISUSE;
     }
     logInfo("Selecting issue interactively...");
-    const sel = spawnSync("issue-select", { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] });
+    // Depth-1 stub, exact path — never a PATH lookup.
+    const sel = spawnSync(join(dirname(dirname(fileURLToPath(import.meta.url))), "issue-select"), { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] });
     issueNumber = (sel.stdout ?? "").trim();
     if (issueNumber === "") {
       logError("No issue selected.");
@@ -260,7 +262,7 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_API_FAILURE;
   }
 
-  const repo = providerRepoTarget("");
+  const repo = requireRepoTarget(providerRepoTarget(""), "pr-merge", "pr");
 
   logInfo(`Looking for an open PR from '${current}' -> '${targetBranch}'...`);
   let prId = "";

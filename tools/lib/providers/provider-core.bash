@@ -104,7 +104,15 @@ provider_detect() {
     local config_file="${1:-}"
 
     if [ -z "$config_file" ]; then
-        config_file="${DEVENV_ROOT:-}/devenv.config"
+        if [ -n "$DEVENV_ROOT" ]; then
+            config_file="$DEVENV_ROOT/devenv.config"
+        else
+            # No DEVENV_ROOT: resolve this checkout's own config (an empty
+            # root would name /devenv.config, which never exists — the
+            # detection would silently take the default-provider path even
+            # on forks whose config sets a non-default provider).
+            config_file="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/devenv.config"
+        fi
     fi
 
     local name=""

@@ -13,7 +13,7 @@ import {} from "node:fs";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { checkTargetRepo, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesLabelList } from "../lib/providers/github/issues.ts";
 
 assertNodeFloor();
@@ -82,7 +82,7 @@ async function main(argv: string[]): Promise<number> {
 
   checkTargetRepo(devenv);
 
-  const repo = providerRepoTarget("");
+  const repo = requireRepoTarget(providerRepoTarget(""), "issue-label-list", "issues");
 
   let raw: string;
   try {

@@ -12,7 +12,7 @@ import { spawnSync } from "node:child_process";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { checkTargetRepo, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsDiff } from "../lib/providers/github/prs.ts";
 
 assertNodeFloor();
@@ -138,7 +138,7 @@ async function main(argv: string[]): Promise<number> {
 
   checkTargetRepo(devenv);
 
-  const repo = providerRepoTarget("");
+  const repo = requireRepoTarget(providerRepoTarget(""), "pr-diff", "pr");
   try {
     const r = await prsDiff(repo, Number.parseInt(prNumber, 10), nameOnly ? { nameOnly: true } : {});
     process.stdout.write(r.stdout);

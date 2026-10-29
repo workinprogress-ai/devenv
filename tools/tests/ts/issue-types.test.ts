@@ -111,8 +111,10 @@ describe("issue-types", () => {
   it("an unresolvable org is a defined failure", () => {
     rmSync(join(stubDir, "devenv.config"));
     const r = runTool([], { DEVENV_REPO: "" });
+    // 15.8: the requireRepoTarget guard fires before the org lookup; the
+    // wrapper's own catch prints the named remediation error and exits 1.
     expect(r.status).toBe(1);
-    expect(r.output).toContain("Cannot resolve organization");
+    expect(r.output).toContain("no repository target resolved");
   });
 
   it("an empty type list is a named failure (org without issue types)", () => {

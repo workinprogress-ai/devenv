@@ -10,7 +10,7 @@ import { writeFileSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
-import { ensureProviderAuth, isDevenvRepoGated, providerOrgGet, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { ensureProviderAuth, isDevenvRepoGated, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { orgRulesetsList, orgRulesetGet } from "../lib/providers/github/org.ts";
 
 assertNodeFloor();
@@ -72,7 +72,7 @@ if (providerOrgGet() === "") {
   process.exit(EXIT_MISUSE);
 }
 
-const ownerRepo = providerRepoTarget();
+const ownerRepo = requireRepoTarget(providerRepoTarget(), "policy-export", "pipelines");
 if (ownerRepo === "") {
   logError("Cannot resolve target repository — set DEVENV_REPO");
   process.exit(EXIT_GENERAL_ERROR);

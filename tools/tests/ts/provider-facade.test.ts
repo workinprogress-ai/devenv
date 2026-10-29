@@ -104,6 +104,24 @@ describe("provider-core (TS facade core)", () => {
     expect(core.providerDetect()).toBe("github");
   });
 
+  it("a resolved-but-missing config hard-errors naming the path (no silent default)", async () => {
+    // The fork's failure mode: DEVENV_ROOT (set-but-stale) or a broken
+    // checkout resolved to a nonexistent devenv.config, detection silently
+    // defaulted to github, and every credential fix chased the wrong
+    // provider. Policy (user): hard-error naming the resolved path.
+    const { core } = await loadFacade();
+    rmSync(join(process.env.DEVENV_ROOT ?? "", "devenv.config"), { force: true });
+    expect(() => core.providerDetect(true)).toThrow(/devenv\.config not found/);
+  });
+
+  it("an existing config without a [provider] section still defaults to github", async () => {
+    // The default is org policy for a PRESENT config; only the missing
+    // file is an error.
+    const { core } = await loadFacade();
+    writeFileSync(join(process.env.DEVENV_ROOT ?? "", "devenv.config"), "[organization]\norg=x\n");
+    expect(core.providerDetect(true)).toBe("github");
+  });
+
   it("a provider name that ships nothing throws a named error", async () => {
     const { core } = await loadFacade({ provider: "gitea" });
     expect(() => core.providerDetect(true)).toThrow(/is not shipped/);

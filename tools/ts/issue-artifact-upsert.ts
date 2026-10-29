@@ -23,7 +23,7 @@ import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_CONFLICT } from "../lib/core/exit
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { select } from "../lib/ui/prompts.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { providerRepoTarget, isDevenvRepoGated } from "../lib/providers/provider-core.ts";
+import { providerRepoTarget, requireRepoTarget, isDevenvRepoGated } from "../lib/providers/provider-core.ts";
 import { issuesComments, issuesCommentAdd, issuesCommentEdit } from "../lib/providers/github/issues.ts";
 
 assertNodeFloor();
@@ -295,7 +295,7 @@ async function main(argv: string[]): Promise<number> {
   // resolve_target_repo contract. The gate judges intent: an explicit --repo
   // or DEVENV_REPO names the target on purpose and is not second-guessed.
   const explicit = args.repo !== "" || (process.env["DEVENV_REPO"] !== undefined && process.env["DEVENV_REPO"] !== "");
-  const repo = providerRepoTarget(args.repo);
+  const repo = requireRepoTarget(providerRepoTarget(args.repo), "issue-artifact-upsert", "issues");
   if (repo === "") {
     logError("Unable to resolve target repository");
     logInfo("Prefix the command with DEVENV_REPO=<owner>/<repo> or run from within the target repo");

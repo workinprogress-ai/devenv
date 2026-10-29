@@ -11,7 +11,7 @@ import { parseArgs } from "node:util";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
-import { ensureProviderAuth, isDevenvRepoGated, providerOrgGet, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { ensureProviderAuth, isDevenvRepoGated, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesView } from "../lib/providers/github/issues.ts";
 import {
   projectsItemAdd,
@@ -111,7 +111,7 @@ if (providerOrgGet() === "") {
   process.exit(EXIT_MISUSE);
 }
 
-const repoSpec = providerRepoTarget();
+const repoSpec = requireRepoTarget(providerRepoTarget(), "project-add-issue", "project");
 
 // Devenv-repo safety gate (resolve_target_repo parity): applies to implicit
 // (cwd-inferred) targets only — an explicit DEVENV_REPO or --devenv bypasses.

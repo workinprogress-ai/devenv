@@ -15,7 +15,7 @@ import { existsSync, readFileSync } from "node:fs";
 
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { orgIssueTypes } from "../lib/providers/github/issues.ts";
 
 assertNodeFloor();
@@ -56,7 +56,7 @@ function resolveOrg(): string {
     const m = readFileSync(cfg, "utf8").match(/^\s*org\s*=\s*(\S+)/m);
     if (m?.[1]) return m[1];
   }
-  const repo = providerRepoTarget("");
+  const repo = requireRepoTarget(providerRepoTarget(""), "issue-types", "issues");
   if (repo !== "") return repo.split("/")[0] ?? "";
   logError("Cannot resolve organization — configure [organization] org in devenv.config or set DEVENV_REPO");
   return "";

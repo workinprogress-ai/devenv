@@ -12,7 +12,7 @@ import { spawnSync } from "node:child_process";
 
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsList } from "../lib/providers/github/prs.ts";
 
 assertNodeFloor();
@@ -61,7 +61,7 @@ async function main(argv: string[]): Promise<number> {
   }
 
   // Repo spec: DEVENV_REPO > cwd resolution (get_repo_spec's chain).
-  const repo = providerRepoTarget("");
+  const repo = requireRepoTarget(providerRepoTarget(""), "pr-get-review-link", "pr");
 
   // Primary: an open PR titled "REVIEW: ...".
   const primary = await prsList(repo, {

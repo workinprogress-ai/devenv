@@ -17,7 +17,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { EXIT_API_FAILURE, EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { providerRepoTarget, ghApi } from "../lib/providers/provider-core.ts";
+import { providerRepoTarget, requireRepoTarget, ghApi } from "../lib/providers/provider-core.ts";
 import { prsCreate, prsList } from "../lib/providers/github/prs.ts";
 import { issuesView, issuesLabelEnsure } from "../lib/providers/github/issues.ts";
 import { extractUrl, remoteToSpec } from "../lib/providers/github/urls.ts";
@@ -200,7 +200,7 @@ async function main(argv: string[]): Promise<number> {
   // provider resolver.
   const originUrl = spawnSync("git", ["-C", repoDir, "remote", "get-url", "origin"], { encoding: "utf8" });
   let repoSpec = originUrl.status === 0 ? (remoteToSpec((originUrl.stdout ?? "").trim()) ?? "") : "";
-  if (repoSpec === "") repoSpec = providerRepoTarget("");
+  if (repoSpec === "") repoSpec = requireRepoTarget(providerRepoTarget(""), "pr-create", "pr");
 
   // allowSquashMerge rides the provider repos seam (jq kept in argv: the
   // field decision uses gh's own projection, matching the bash-era shape).
