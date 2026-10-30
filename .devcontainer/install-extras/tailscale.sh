@@ -59,6 +59,13 @@ else
     export TS_AUTHKEY="$INPUT_AUTH_KEY"
 fi
 
+# DEVENV_TOOLS is unguarded below (set -u): resolve it once with a named
+# failure — a fork/fresh container may not export it.
+if [ -z "${DEVENV_TOOLS:-}" ]; then
+    echo "ERROR: DEVENV_TOOLS is not set — run this from the devenv workspace (or export DEVENV_TOOLS=<checkout>/tools)" >&2
+    exit 1
+fi
+
 # Ask for Hostname to inject (suggest a default)
 # Tailscale machine-user: seed file first (runs before the provider seam
 # exists), then the plain unix user.

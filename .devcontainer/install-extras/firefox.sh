@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+: "${HOME:=/root}"   # set -u guard: menu snippets read ${HOME}
+
 # Install Firefox ESR web browser
 # Firefox Extended Support Release - a stable version of Firefox.
 # Useful for testing and web development in the container desktop environment.
