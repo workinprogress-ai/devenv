@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+: "${HOME:=/root}"   # set -u guard: menu snippets read ${HOME}
+
 # Install MongoDB Compass GUI
 # MongoDB Compass provides a graphical interface for exploring and managing MongoDB databases.
 # Note: Only available for AMD64 architecture (not ARM).
