@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+: "${HOME:=/root}"   # set -u guard: zshrc paths read ${HOME}
+
 # Install and configure Zsh shell
 # Installs zsh and configures it to use the devenv environment setup.
 # Sets zsh as the default shell and creates a custom prompt matching the bash style.
