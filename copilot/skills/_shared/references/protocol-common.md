@@ -1119,6 +1119,30 @@ Key flags: `--repo OWNER/REPO` (required), `--download` (download instead of lis
 
 ## Repository inspection tools
 
+### repo-stage
+
+The sanitized staging surface — stages or unstages exactly the named literal repo-root-relative paths; the content-selection half of the commit-batching family (`repo-stage` fills the index, `repo-commit` commits it).
+
+```
+repo-stage <path>...                        # stage exactly these
+repo-stage --unstage <path>...              # unstage exactly these
+repo-stage --batch <manifest>               # validate + summary only
+repo-stage --batch <manifest> --group N     # validate, stage group N, echo stat
+repo-stage ... --dry-run                    # full validation, no mutation
+```
+
+Batch mode validates a strict commit-batch manifest (`# Commit batch: <title>` / `## group N — <subject>` / `- <path>` entries / optional `## excluded`) against the live tree on **every** invocation, refusing rather than warning: strict parse, literal paths only (no globs/dirs/absolute/traversal), deletion-aware existence, duplicate membership, coverage (every changed file claimed or excluded), index purity (nothing staged outside the manifest; staged-and-manifested passes). Manifests live outside the worktree or under gitignored `.local-artifacts/`. Exit 0 success/no-op, 1 validation, 2 usage. Named errors with remediation; never prompts.
+
+### repo-batch-draft
+
+Drafts a commit-batch manifest from a plan's `Files:` claims × the live changed set. Read-only outside `.local-artifacts/` (output: `batch-draft-N.md`, next free suffix).
+
+```
+repo-batch-draft [--plan <plan-file>]
+```
+
+Groups ordered by plan task order (subjects from `commit:` bullets when present, else task titles); unclaimed files park in an unassigned bucket; multi-claimed files park in conflicts with every claimant named; groups carry hold/ready readiness annotations. The generator makes zero content decisions — parking lots are resolved by hand in the reviewed artifact. Stdout summary: `groups N · assigned N · unassigned N · conflicts N` plus the unassigned list. Without `--plan`, everything lands in unassigned.
+
 ### release-list
 
 List GitHub releases for the target repository (tag, name, published date, prerelease/draft flags). Read-only. Note: repos that use plain git tags without GitHub Releases return empty.

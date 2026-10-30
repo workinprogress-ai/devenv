@@ -82,7 +82,7 @@ workspace modules.
 | `lib/core/versioning.ts` | version comparison (numeric core, suffixes ignored) |
 | `lib/core/change-id.ts` | Change-Id trailer generation/parsing + O_EXCL locking |
 | `lib/core/editor.ts` | editor selection (PREF_EDITOR → FALLBACK_EDITOR → nano) |
-| `lib/core/git.ts` | git plumbing (state, branches, WIP guards, rewrite detection) |
+| `lib/core/git.ts` | git plumbing (state, branches, WIP guards, rewrite detection) + `changedFiles` changed-set enumeration (`-z` porcelain, rename pairs split) |
 | `lib/ui/` | prompts, progress, panels (clack + picocolors) |
 | `lib/domain/events.ts` | lifecycle event signals (PR + skill events); reads the PR body through the provider facade |
 | `lib/domain/issues/` | issue type/label config model + issue graph |
@@ -91,6 +91,7 @@ workspace modules.
 | `lib/domain/kube/` | kubectl listing/state helpers |
 | `lib/domain/cs/` | .NET dependency graph |
 | `lib/domain/markdown.ts` | markdown read/manipulate + body resolution |
+| `lib/domain/commit-batch.ts` | commit-batch manifest model: strict parse + validators (coverage, index purity, duplicate membership, literal/deletion-aware existence) |
 | `lib/domain/fork/` | fork family: config/URI basics (`index`), patch identity (`twin`), surfaces |
 | `lib/domain/scratchpad.ts` | sandbox lifecycle state |
 | `lib/domain/artifacts.ts` | issue-artifact header/census model |
