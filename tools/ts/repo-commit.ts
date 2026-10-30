@@ -40,6 +40,8 @@ function git(args: string[], opts: { cwd?: string } = {}): { status: number; out
 function usage(): void {
   console.log(`Usage: repo-commit "<suggested commit message>"
        repo-commit --file <message-file>
+       repo-commit --amend [--dry-run]
+       repo-commit --fix [<ref>] [--dry-run]
        repo-commit --wip ["<wip message words...>"] [--file <message-file>] [--staged-only]
 
 Opens the user's configured git editor pre-loaded with the suggested message.
@@ -47,6 +49,13 @@ Commits the existing index only if the editor session yields a non-empty message
 
   --file <path>   Read the suggested message from a file (verbatim; use for long
                   messages instead of a giant argv string).
+  --amend         Fold staged content into unpushed HEAD under the editor gate
+                  (HEAD's message preloaded; refuses a pushed HEAD).
+  --fix [<ref>]   Fold staged content into an earlier local commit as ONE
+                  editorless operation: preflight -> backup branch -> fixup
+                  commit -> autosquash rebase -> verify -> report. Bare --fix on
+                  a TTY opens the eligible-target picker.
+  --dry-run       With --amend/--fix: print what would happen, mutate nothing.
   --wip           WIP snapshot lane: delegates to git-wip (stages everything unless
                   --staged-only, hooks bypassed, "WIP: " prefix added by git-wip,
                   pushes, records refs/wip/last). No editor step — the invocation is
@@ -127,6 +136,50 @@ export function editorIsNoninteractive(candidate: string): boolean {
   return true;
 }
 
+let editor = "";
+
+/** Resolve the interactive editor once (shared by the normal and amend
+ * lanes): non-interactive values are treated as UNSET — automation hosts
+ * inject no-op editors; the user's own config must outrank them. */
+function resolveEditor(): void {
+  const candidates: string[] = [
+    process.env.GIT_EDITOR ?? "",
+    git(["config", "--get", "core.editor"]).out.trim(),
+    commandExists("code") ? "code --wait" : "",
+    commandExists("nano") ? "nano" : "",
+    process.env.VISUAL ?? "",
+    process.env.EDITOR ?? "",
+  ];
+  for (const candidate of candidates) {
+    if (candidate === "") continue;
+    if (!editorIsNoninteractive(candidate)) {
+      editor = candidate;
+      break;
+    }
+  }
+  if (editor === "") {
+    die("refusing non-interactive editor — the editor save is the permission gate");
+  }
+}
+
+// --- Staged-stat echo: the save/abort decision sees content size, not just
+// the message. +A −B from the staged numstat (binary files excluded).
+function stagedStat(): string {
+  const r = git(["diff", "--cached", "--numstat"]);
+  let add = 0;
+  let del = 0;
+  let files = 0;
+  for (const line of r.out.split("\n")) {
+    if (line === "") continue;
+    const [a, d] = line.split("\t");
+    if (a === "-" || d === "-") continue; // binary
+    add += Number.parseInt(a ?? "0", 10) || 0;
+    del += Number.parseInt(d ?? "0", 10) || 0;
+    files += 1;
+  }
+  return `${files} file${files === 1 ? "" : "s"}, +${add} −${del}`;
+}
+
 // --- Scratchpad refusal: repo-commit is blocked while a scratchpad is active in
 // this repo — sandbox commits belong on the scratch branch via `repo-scratchpad
 // commit`, and the WIP lane would push. Standalone implementation (this tool has
@@ -143,9 +196,14 @@ if (git(["rev-parse", "--is-inside-work-tree"]).status === 0) {
   }
 }
 
-// --- Argument parsing: message via argv or --file; --wip delegates to git-wip.
+// --- Argument parsing: message via argv or --file; --wip delegates to git-wip;
+// --amend rewrites unpushed HEAD under the editor gate.
 let msgfileArg = "";
 let wipLane = false;
+let amendLane = false;
+let fixLane = false;
+let fixRef = "";
+let dryRun = false;
 const wipArgs: string[] = [];
 const rest: string[] = [];
 
@@ -167,6 +225,18 @@ while (argv.length > 0) {
     case "--wip":
       wipLane = true;
       break;
+    case "--amend":
+      amendLane = true;
+      break;
+    case "--fix": {
+      fixLane = true;
+      const v = argv[0] ?? "";
+      if (v !== "" && !v.startsWith("-")) fixRef = argv.shift() ?? "";
+      break;
+    }
+    case "--dry-run":
+      dryRun = true; // context validated after the argv loop (order-free)
+      break;
     case "--staged-only":
       if (wipLane) wipArgs.push(arg);
       else die(`options are refused by design ('${arg}'); there is no non-interactive path`);
@@ -182,6 +252,21 @@ while (argv.length > 0) {
   }
 }
 
+// --- Lane-flag validation: exclusivity + --dry-run context, checked after
+// the full argv is parsed (order-free) and before ANY lane runs (a late
+// guard after the wip/amend lanes would be dead code — those lanes exit
+// first, silently swallowing the other flag).
+{
+  if (dryRun && !fixLane && !amendLane) {
+    die("--dry-run applies to the --amend and --fix lanes only");
+  }
+  const lanes = [wipLane, amendLane, fixLane].filter(Boolean).length;
+  if (lanes > 1) die("--wip, --amend, and --fix are mutually exclusive");
+  if (fixLane && (msgfileArg !== "" || rest.length > 0)) {
+    die("--fix takes no message (its fixup! subject is machine-written and consumed by the fold)");
+  }
+}
+
 // --- WIP lane: delegate to git-wip; WIP commit shape lives there alone.
 if (wipLane) {
   if (msgfileArg !== "") wipArgs.push("--file", msgfileArg);
@@ -189,6 +274,190 @@ if (wipLane) {
   if (!existsSync(stub)) die(`git-wip stub not found next to repo-commit: ${stub}`);
   const r = spawnSync(stub, wipArgs, { stdio: "inherit" });
   process.exit(r.status ?? EXIT_GENERAL_ERROR);
+}
+
+// --- Amend lane: rewrite unpushed HEAD. The editor preloads HEAD's existing
+// message (the user is editing it, not replacing it); hooks run; the save is
+// the permission gate exactly as the normal lane. Refuses fail-closed when
+// HEAD is on any remote ref — amending pushed history must never happen
+// silently (remediation: --fix for an earlier commit, or a plain fix commit).
+if (amendLane) {
+  if (git(["diff", "--cached", "--quiet"]).status === 0) {
+    die("nothing is staged — amend folds staged content into HEAD; stage first");
+  }
+  const pushed = git(["branch", "-r", "--contains", "HEAD"]).out.trim();
+  if (pushed !== "") {
+    die(
+      `HEAD is on remote ref(s) ${pushed.split("\n").join(", ")} — amending pushed history is refused`,
+      "remediation: use --fix <ref> for an earlier commit, or land a plain fix commit",
+    );
+  }
+  const headMsg = git(["log", "-1", "--format=%B"]).out;
+  if (headMsg.trim() === "") die("HEAD has no message to preload — refusing to amend blindly");
+  if (dryRun) {
+    console.log(`repo-commit: --amend dry-run`);
+    console.log(`  would fold staged content into HEAD and open the editor with its current message`);
+    console.log(`  staged: ${stagedStat()}`);
+    process.exit(0);
+  }
+  resolveEditor();
+  console.log(`repo-commit: staged: ${stagedStat()}`);
+  console.log(`repo-commit: opening editor: ${editor}  (amend: save & close to fold staged content into HEAD; empty/abort cancels)`);
+  const amendTmp = mkdtempSync(join(tmpdir(), "repo-commit-msg-"));
+  const amendMsgfile = join(amendTmp, "message");
+  writeFileSync(amendMsgfile, headMsg.endsWith("\n") ? headMsg : `${headMsg}\n`);
+  const amend = spawnSync("git", ["commit", "--cleanup=strip", "--amend", "--edit", "-F", amendMsgfile], {
+    stdio: "inherit",
+    env: { ...process.env, GIT_EDITOR: editor },
+  });
+  rmSync(amendTmp, { recursive: true, force: true });
+  if (amend.status !== 0) {
+    die("amend did not complete (editor session aborted or git failed) — index left untouched");
+  }
+  const amendLog = git(["log", "-1", "--format=%h %s"]).out.trim();
+  console.log(`repo-commit: amended. ${amendLog}`);
+  process.exit(0);
+}
+
+// --- Fix lane: fold staged content into an EARLIER commit as one operation,
+// batteries included, editorless by design (the fixup message is machine-
+// written and consumed by the fold; consent is the explicit invocation plus
+// the preflight refusals, the backup branch, and hooks — which run).
+// Sequence: preflight -> backup branch -> fixup commit -> autosquash rebase
+// -> verify -> report. Any surprise auto-aborts to a git-status-describable
+// state with the work preserved as an ordinary commit.
+if (fixLane) {
+  if (git(["diff", "--cached", "--quiet"]).status === 0) {
+    die("nothing is staged — --fix folds staged content into an earlier commit; stage first");
+  }
+  // Resolve the target: explicit ref, or the interactive picker over
+  // eligible commits (local ancestors of HEAD, not on any remote).
+  let target = fixRef;
+  if (target === "") {
+    const interactive = process.stdin.isTTY === true && process.stdout.isTTY === true;
+    if (!interactive) {
+      die("--fix without a ref needs a TTY for the target picker — pass a ref (--fix <commit-ish>)");
+    }
+    let select: <T>(opts: { message: string; fallback: T; options: { value: T; label: string; hint?: string }[] }) => Promise<T>;
+    try {
+      ({ select } = await import("../lib/ui/prompts.ts"));
+    } catch {
+      die("the interactive picker is unavailable (@clack/prompts not resolvable) — pass a ref (--fix <commit-ish>)");
+    }
+    const head = git(["rev-parse", "HEAD"]).out.trim();
+    // eligible: local-only ancestors of HEAD (per-commit --contains check)
+    const log = git(["log", "--format=%H%x09%h%x09%s", "-n", "50"]).out.split("\n").filter((l) => l !== "");
+    const eligible: { value: string; label: string; hint?: string }[] = [];
+    for (const line of log) {
+      const [full, short, subject] = line.split("\t");
+      if (full === undefined || short === undefined || subject === undefined) continue;
+      const contained = git(["branch", "-r", "--contains", full]).out.trim();
+      if (contained !== "") continue; // pushed: not foldable
+      if (full === head) continue; // HEAD routes to --amend
+      eligible.push({ value: full, label: `${short} ${subject}` });
+    }
+    if (eligible.length === 0) {
+      die("no eligible targets: every ancestor is pushed or HEAD (use --amend for HEAD)");
+    }
+    target = await select({
+      message: "Fold staged content into which commit?",
+      fallback: "",
+      options: eligible,
+    });
+    if (target === "") die("no target selected — aborting");
+  }
+  // Resolve + preflight the target ref.
+  const resolved = git(["rev-parse", "--verify", `${target}^{commit}`]);
+  if (resolved.status !== 0) die(`cannot resolve '${target}' as a commit`);
+  const targetSha = resolved.out.trim();
+  const isAncestor = git(["merge-base", "--is-ancestor", targetSha, "HEAD"]).status === 0;
+  if (!isAncestor) die(`'${target}' is not an ancestor of HEAD — you can only fold into your own stack`);
+  const targetPushed = git(["branch", "-r", "--contains", targetSha]).out.trim();
+  const targetTagged = git(["tag", "--contains", targetSha]).out.trim();
+  if (targetPushed !== "" || targetTagged !== "") {
+    die(
+      `'${target}' is reachable from remote ref(s) ${targetPushed.split("\n").join(", ")} or tag(s) ${targetTagged.split("\n").join(", ")} — folding shared history is refused`,
+      "remediation: land a plain fix: commit instead",
+    );
+  }
+  if (targetSha === git(["rev-parse", "HEAD"]).out.trim()) {
+    die("target is HEAD — use --amend instead");
+  }
+  const hasParent = git(["rev-parse", "--verify", "--quiet", `${targetSha}^`]).status === 0;
+  if (!hasParent) {
+    die(
+      `target '${target}' is the root commit — folding into it would rewrite the entire history start`,
+      "remediation: land a plain fix: commit instead",
+    );
+  }
+  const targetSubject = git(["log", "-1", "--format=%s", targetSha]).out.trim();
+  const oldHead = git(["rev-parse", "HEAD"]).out.trim();
+  const oldHeadShort = git(["rev-parse", "--short", oldHead]).out.trim();
+
+  if (dryRun) {
+    const rehashed = git(["rev-list", "--count", `${targetSha}..HEAD`]).out.trim();
+    console.log(`repo-commit: --fix dry-run`);
+    console.log(`  target:   ${targetSha.slice(0, 8)} ${targetSubject}`);
+    console.log(`  staged:   ${stagedStat()}`);
+    console.log(`  rehash:   ${rehashed} commit(s) after the target would be rewritten`);
+    console.log(`  backup:   backup/pre-fixup-${oldHeadShort} would be created`);
+    process.exit(0);
+  }
+
+  // Backup branch: the recovery point, reported with a one-line recipe.
+  const backup = `backup/pre-fixup-${oldHeadShort}`;
+  const bk = git(["branch", backup, oldHead]);
+  if (bk.status !== 0) die(`failed to create backup branch ${backup}: ${bk.out.trim()}`);
+  console.log(`repo-commit: backup branch ${backup} (recovery: git reset --hard ${backup})`);
+
+  // Fixup commit: machine message, hooks run (the commitlint ignores entry
+  // exists precisely so this passes).
+  const fixup = git(["commit", "--fixup=" + targetSha]);
+  if (fixup.status !== 0) {
+    die(`fixup commit failed (hooks?): ${fixup.out.trim()}`, `recovery: the backup branch ${backup} holds the old stack`);
+  }
+
+  // Autosquash fold: GIT_SEQUENCE_EDITOR=: runs the todo-list editor as a
+  // no-op — the standard non-interactive autosquash. --autostash preserves
+  // unstaged work (built to be reversible).
+  const fold = spawnSync(
+    "git",
+    ["rebase", "--autosquash", "--autostash", "-i", `${targetSha}~1`],
+    { encoding: "utf8", env: { ...process.env, GIT_SEQUENCE_EDITOR: ":" } },
+  );
+  if (fold.status !== 0) {
+    // Fail to a describable state: abort the rebase (the fixup commit
+    // survives at HEAD — the work is an ordinary commit, nothing lost).
+    spawnSync("git", ["rebase", "--abort"], { encoding: "utf8" });
+    const fixupAtHead = git(["log", "-1", "--format=%s"]).out.trim().startsWith("fixup!");
+    die(
+      `autosquash rebase failed (conflict) — rebase aborted${fixupAtHead ? "; the fixup commit is preserved at HEAD" : ""}`,
+      `resolve manually or recover: git reset --hard ${backup}`,
+    );
+  }
+
+  // Verify + report. The fixup! grep is scoped to the rewritten range —
+  // an unscoped scan would flag pre-existing fixup! subjects anywhere in
+  // history and "fail" after a successful fold.
+  const newHead = git(["rev-parse", "HEAD"]).out.trim();
+  const foldedSubject = git(["log", "--format=%s", `--grep=^fixup!`, `${targetSha}..HEAD`]).out.trim();
+  if (newHead === oldHead || foldedSubject !== "") {
+    die(
+      "fold verification failed (HEAD unchanged or a fixup! commit remains) — inspect manually",
+      `recovery: git reset --hard ${backup}`,
+    );
+  }
+  const newTarget = git(["log", "--format=%h %s", `--grep=${escapeGrep(targetSubject)}`, "-1", `${targetSha}..HEAD`]).out.trim();
+  console.log(`repo-commit: folded staged content into ${newTarget || targetSubject}`);
+  console.log(`  old stack: ${backup}`);
+  const diverged = git(["status", "-sb"]).out.includes("ahead");
+  console.log(`  note: ${diverged ? "branch diverged from its remote — push with --force-with-lease when ready" : "no remote tracking"}`);
+  process.exit(0);
+}
+
+/** Escape regex metacharacters for --grep (subjects may contain them). */
+function escapeGrep(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // --- Resolve the suggested message.
@@ -220,28 +489,11 @@ function commandExists(cmd: string): boolean {
   return spawnSync("sh", ["-c", `command -v ${cmd} >/dev/null 2>&1`]).status === 0;
 }
 
-let editor = "";
-const candidates: string[] = [
-  process.env.GIT_EDITOR ?? "",
-  git(["config", "--get", "core.editor"]).out.trim(),
-  commandExists("code") ? "code --wait" : "",
-  commandExists("nano") ? "nano" : "",
-  process.env.VISUAL ?? "",
-  process.env.EDITOR ?? "",
-];
-for (const candidate of candidates) {
-  if (candidate === "") continue;
-  if (!editorIsNoninteractive(candidate)) {
-    editor = candidate;
-    break;
-  }
-}
 
-if (editor === "") {
-  die("refusing non-interactive editor — the editor save is the permission gate");
-}
 
 // --- Launch the editor with the suggested message; commit only on save.
+resolveEditor();
+console.log(`repo-commit: staged: ${stagedStat()}`);
 // msgfile is a temp file for the editor session — removed afterwards.
 const tmpDir = mkdtempSync(join(tmpdir(), "repo-commit-msg-"));
 const msgfile = join(tmpDir, "message");
