@@ -17,7 +17,17 @@ This is the only skill in the workspace permitted to create a commit — and it 
 
 **Checks lane** — the historical behavior, kept intact: run the project's quality gates (lint, format, type-check, tests) against changed files, report all failures together, suggest (never silently apply) auto-fixes. Trigger phrases: "run pre-commit checks", "is this ready to commit". **The checks lane never commits.**
 
-**Commit lane** — review the staged work lightly, craft the message, and create the commit through `repo-commit` (normal editor lane or WIP lane). Deep pre-commit code review is `/devenv-review`'s job — invoke it ("review uncommitted") when the user wants the diff attacked before landing; this skill keeps only the glance it needs to judge the commit itself.
+**Commit lane** — review the staged work lightly, craft the message, and create the commit through `repo-commit` (normal editor lane, amend lane, fix lane, or WIP lane). Deep pre-commit code review is `/devenv-review`'s job — invoke it ("review uncommitted") when the user wants the diff attacked before landing; this skill keeps only the glance it needs to judge the commit itself.
+
+## Multi-commit lane (batch work)
+
+When the tree holds several concerns destined for separate commits, the batch flow makes the safe path the fast path:
+
+1. **Propose groups** in chat (files + suggested subject per group); the user's approval of the shown groups is the grouping consent.
+2. **Generate or write the manifest**: `repo-batch-draft [--plan <plan-file>]` drafts it from the plan's `Files:` claims × the live changed set (unassigned bucket, conflicts named, hold/ready annotations); resolve parking lots by hand in the reviewed artifact under `.local-artifacts/`.
+3. **Per group**: `repo-stage --batch <manifest> --group N` (always-on validation: coverage, index purity, literal paths) → marker gate on the **actual staged diff** → `repo-commit --file <msg>` → editor save → report the landed hash → next. An editor abort stops that commit; the remaining groups simply never stage — no sequence bookkeeping.
+
+**Late-content doctrine.** Attribution is file-level and timeless: a finding in a file already assigned to an uncommitted group rides along for free (hold the group, execute late — after any phase that can still feed it, per the manifest's readiness annotations). Already committed? HEAD → `repo-commit --amend`; an earlier local commit → `repo-commit --fix <ref>` (one operation: backup branch, autosquash fold, conflict auto-abort); pushed/merged → a plain master-relative `fix:` commit. Never raw `git rebase`.
 
 ## Invocation interview (commit lane, always)
 
@@ -132,7 +142,7 @@ After the commit — and only on the tool's own success output ("commit created"
 ## What this skill never does
 
 - **Never runs `git commit` directly** — commits go through `repo-commit`, whose editor gate makes every normal commit human-confirmed.
-- **Never runs `git add`** — staging is the user's decision, always (the `--wip` lane's stage-all happens inside git-wip, on the user's explicit WIP choice, not as a skill action).
+- **Never stages with raw git** — staging goes through `repo-stage` on the approved batch (batch mode) or the user's explicit request (path mode); raw `git add` / `git restore --staged` stay forbidden (the `--wip` lane's stage-all happens inside git-wip, on the user's explicit WIP choice, not as a skill action).
 - **Never bypasses with `--no-verify`** or equivalent skip flags; the normal lane doesn't, and the WIP lane's hook bypass lives inside git-wip where it's documented.
 - **Never runs tests as a commit prerequisite** and never checks whether hooks are installed — infrastructure owns enforcement; the commit lane's gates are the marker gate and message hygiene, not test re-runs.
 - **Never modifies hooks** (`.git/hooks/`, `.husky/`, …).

@@ -48,6 +48,60 @@ export function isWorkingDirectoryClean(repo?: string): boolean {
   return git(repo ?? null, ["status", "--porcelain"]).out.trim() === "";
 }
 
+/** One entry of the working tree's changed set. `state` carries the
+ * porcelain XY pair; `origin` is set only for rename/copy pairs (the
+ * previous path). A rename enumerates as two entries: the deletion of
+ * the old path plus the addition of the new one. */
+export interface ChangedFile {
+  path: string;
+  state: string;
+  origin?: string;
+}
+
+/** The working tree's full changed set (unstaged, staged, untracked,
+ * deleted) with untracked files expanded (`-uall`) and rename pairs
+ * split into both paths — the enumeration commit-batch coverage checks
+ * and batch-draft expansion run against. Parsed from `-z` porcelain with
+ * `core.quotePath=false`: NUL-delimited fields carry paths verbatim — no
+ * quoting, no octal escapes, and a rename's two paths cannot be confused
+ * with a path that merely contains " -> ". */
+export function changedFiles(repo?: string): ChangedFile[] {
+  const { status, out } = git(repo ?? null, [
+    "-c",
+    "core.quotePath=false",
+    "status",
+    "--porcelain",
+    "-z",
+    "-uall",
+    "--find-renames",
+  ]);
+  if (status !== 0) return [];
+  const entries: ChangedFile[] = [];
+  // -z format: records are NUL-terminated; a rename/copy record carries a
+  // SECOND NUL-terminated field (the origin path) right after the first.
+  const fields = out.split("\0");
+  let i = 0;
+  while (i < fields.length) {
+    const record = fields[i] ?? "";
+    i += 1;
+    if (record === "") continue;
+    const state = record.slice(0, 2);
+    const path = record.slice(3);
+    if (state.startsWith("R") || state.startsWith("C")) {
+      const origin = fields[i] ?? "";
+      i += 1;
+      // The record reports only the NEW path; the old path would never
+      // enumerate on its own, and coverage must see it (a claimed old path
+      // with no entry reads as an orphan). Split into both entries.
+      entries.push({ path: origin, state: "D " });
+      entries.push({ path, state, origin });
+    } else {
+      entries.push({ path, state });
+    }
+  }
+  return entries;
+}
+
 /** The repository work-tree root (absolute), or null outside a repo. */
 export function getRepoRoot(repo?: string): string | null {
   const { status, out } = git(repo ?? null, ["rev-parse", "--show-toplevel"]);

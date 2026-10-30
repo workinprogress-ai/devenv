@@ -352,7 +352,11 @@ git repo <repository-name>
 
 ### `repo-commit`
 
-The single sanctioned commit wrapper (source: `tools/ts/repo-commit.ts`; invoke via the `tools/repo-commit` entry on `PATH`). Interactive-only by design: the suggested message arrives on argv or via `--file <path>` (preferred for anything longer than a one-line subject — immune to shell mangling), and the user's configured git editor always opens with it — a commit is created from the existing index only if the user saves the editor with a non-empty message. Refuses options (`-m`, `--yes`), non-interactive editors, and an empty index. Never stages (except via `--wip`), never bypasses hooks on the normal lane, never runs tests.
+The single sanctioned commit wrapper (source: `tools/ts/repo-commit.ts`; invoke via the `tools/repo-commit` entry on `PATH`). Interactive-only by design on the gated lanes: the suggested message arrives on argv or via `--file <path>` (preferred for anything longer than a one-line subject — immune to shell mangling), and the user's configured git editor always opens with it — a commit is created from the existing index only if the user saves the editor with a non-empty message. Refuses options (`-m`, `--yes`), non-interactive editors, and an empty index. Never stages (except via `--wip`), never bypasses hooks on gated lanes, never runs tests. A staged-stat echo (`staged: N files, +A −B`) prints before the editor so the save/abort decision sees content size.
+
+The `--amend` lane folds staged content into unpushed HEAD under the same editor gate, preloading HEAD's existing message; refuses fail-closed when HEAD is on any remote ref (remediation named: `--fix` or a plain fix commit).
+
+The `--fix <ref>` lane folds staged content into an earlier local commit as one editorless operation: preflight (staged required; target an ancestor of HEAD; not on any remote; HEAD redirects to `--amend`) → backup branch `backup/pre-fixup-<head>` → fixup commit (hooks run; this repo's commitlint config ignores `fixup!`/`squash!` subjects — a target repo without that ignores entry fails closed at the fixup commit, with the backup-branch recovery printed) → `GIT_SEQUENCE_EDITOR=: git rebase --autosquash --autostash -i <target>~1` → verify → report (folded target, backup ref, `--force-with-lease` reminder; never pushes). A conflict auto-aborts the rebase — the fixup commit survives at HEAD, nothing lost, state fully `git status`-describable. Bare `--fix` on a TTY opens an eligible-target picker (local-only ancestors, HEAD excluded); without a TTY it refuses with "pass a ref". `--dry-run` resolves and prints the target, staged stat, and rehash range without touching anything.
 
 Scratchpad refusal: blocked (exit 3) while a scratchpad is active in the repo — sandbox commits belong on the scratch branch via `repo-scratchpad commit`; salvage via `repo-scratchpad promote`.
 
@@ -365,6 +369,35 @@ repo-commit --wip "checkpoint before refactor"   # WIP lane (delegates to git-wi
 ```
 
 Governance: only the `/devenv-commit` skill invokes this tool (see `copilot-instructions.md` §7). All other skills hand off to that skill when the user says "commit this".
+
+### `repo-stage`
+
+The sanitized staging surface (source: `tools/ts/repo-stage.ts`): stages or unstages exactly the named literal repo-root-relative paths — the content-selection half of the commit-batching family (`repo-stage` fills the index, `repo-commit` commits it). Modes: bare paths (stage), `--unstage <paths>`, `--batch <manifest>` (validate + summary), `--batch <manifest> --group N` (validate, stage group N, echo stat), `--dry-run` on any mutating mode. Never prompts.
+
+A commit-batch manifest is a strict markdown artifact (`.local-artifacts/` or outside the worktree — an in-tree manifest is itself untracked and coverage demands it be claimed): `# Commit batch: <title>`, `## group N — <subject>` sections (sequential from 1), `- <path>` file entries only, optional trailing `## excluded`. Subjects are informational echoes; `repo-commit` owns messages and never reads the manifest.
+
+Batch validation runs on every invocation, before any mutation, refusing rather than warning: strict parse (any construct outside the grammar names its line), literal paths only (no globs, directories, absolute, or traversal), deletion-aware existence (a deleted file is stageable), duplicate membership (names both sections), coverage (every changed/untracked/deleted file must be claimed by a group or `## excluded` — computed against the live tree each run, so it self-heals as groups commit), and index purity (nothing staged outside the manifest union; staged-and-manifested content passes, so stage-several-then-commit orderings work). Rename pairs count both paths.
+
+```bash
+repo-stage tools/ts/repo-stage.ts          # stage exactly this file
+repo-stage --unstage tools/ts/repo-stage.ts
+repo-stage --batch .local-artifacts/batch-1.md            # validate + summary
+repo-stage --batch .local-artifacts/batch-1.md --group 2  # stage group 2
+repo-stage --batch .local-artifacts/batch-1.md --group 2 --dry-run
+```
+
+Exit 0 success/no-op, 1 validation failure, 2 usage error.
+
+### `repo-batch-draft`
+
+The commit-batch manifest generator (source: `tools/ts/repo-batch-draft.ts`): plan claims × live changed set → a draft manifest under `.local-artifacts/`. Read-only outside that folder; zero content decisions — unassigned and conflict parking lots are resolved by hand in the reviewed artifact.
+
+```bash
+repo-batch-draft --plan .local-artifacts/Plan-issue-42-001.md
+repo-batch-draft                              # no plan: everything unassigned
+```
+
+Groups follow plan task order (subjects from `commit:` bullets when present); readiness annotations mark held groups (their own task open, or open-task overlap — which parks as a conflict first). Summary line reports groups / assigned / unassigned / conflicts.
 
 ### `git wip` / `git unwip` / `git wip-recover`
 
