@@ -8,6 +8,19 @@ set -euo pipefail
 # at this same checkout). Export for child bats processes, which read it from
 # the environment; without export, a CI-like invocation leaves them unset.
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"
+
+# F42: bats suites invoke gitignored depth-1 stubs by absolute path —
+# generate them up front via entry-stubs-sync.sh (bootstrap does this too;
+# CI needs it explicitly). This runner also self-generates the stubs it
+# needs before the bats sweep starts. Resolution is fail-safe: a bare
+# checkout (no .devcontainer/) skips stub sync instead of aborting under
+# set -e.
+DEVCONTAINER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.devcontainer" 2>/dev/null && pwd || true)"
+STUB_SYNC="$DEVCONTAINER_DIR/entry-stubs-sync.sh"
+if [ -x "$STUB_SYNC" ]; then
+    bash "$STUB_SYNC" >/dev/null 2>&1 || true
+fi
+
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 export DEVENV_TOOLS
 
