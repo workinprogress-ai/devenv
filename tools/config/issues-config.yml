@@ -1,5 +1,5 @@
 # Issue Type Configuration
-# Defines available issue types for issue-create.sh
+# Defines available issue types for issue-create
 # Uses GitHub's native issue type field (Bug, Feature, Task)
 #
 # To get issue type IDs:

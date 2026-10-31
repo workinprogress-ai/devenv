@@ -28,6 +28,14 @@ while (argv.length > 0) {
       process.exit(1);
     }
     parallelJobs = Number(v);
+    // A zero pool never launches a job and never fires the completion tail:
+    // the await hangs forever with no output (bash xargs -P 0 meant
+    // UNLIMITED — not honored here; the TS pool floors at 1 implicitly by
+    // refusing 0).
+    if (parallelJobs === 0) {
+      console.error("ERROR: --jobs 0 would deadlock the spawn pool (use 1 or more)");
+      process.exit(1);
+    }
   } else if (arg === "-h" || arg === "--help") {
     console.log("Usage: repo-update-all [--jobs N]\nUpdate all repositories in repos directory in parallel.");
     process.exit(0);

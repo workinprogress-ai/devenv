@@ -25,6 +25,14 @@ import {
   reposCollaboratorPut,
 } from "../../providers/github/repos.ts";
 
+/** The repo-creation readiness decision (15.13's two-stage parity probe):
+ * ready only when BOTH tree counts are known and equal — null (a truncated
+ * or failed probe) never counts as ready. repo-create's waitForRepoReady
+ * loops on this. */
+export function repoTreeParityReady(newCount: number | null, templateCount: number | null): boolean {
+  return newCount !== null && templateCount !== null && newCount === templateCount;
+}
+
 // ---------------------------------------------------------------------------
 // Config model (zod)
 // ---------------------------------------------------------------------------

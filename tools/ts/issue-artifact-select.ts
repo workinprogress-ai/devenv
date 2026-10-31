@@ -19,7 +19,7 @@
 import { parseArgs } from "node:util";
 import { basename } from "node:path";
 
-import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_CONFLICT } from "../lib/core/exit-codes.ts";
+import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_CONFLICT, EXIT_API_FAILURE, EXIT_AMBIGUITY } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
@@ -231,7 +231,7 @@ async function main(argv: string[]): Promise<number> {
   const artifacts = await listArtifacts(repo, Number.parseInt(args.issue, 10), args.artifactType);
   if (artifacts === null) {
     logError("Failed to list artifacts");
-    return 5;
+    return EXIT_API_FAILURE;
   }
 
   let selected: Artifact;
@@ -272,7 +272,7 @@ async function main(argv: string[]): Promise<number> {
           url: a.url,
         })),
       }));
-      return 5;
+      return EXIT_AMBIGUITY;
     }
   }
 

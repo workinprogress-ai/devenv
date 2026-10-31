@@ -158,7 +158,7 @@ function stage(pathsToStage: string[]): void {
       // diff already carries it). Re-adding staged content is a no-op.
       // A staged rename lists only the new path under --name-only; the old
       // path appears in --name-status as "R<score>\told -> new".
-      const carried = git(["diff", "--cached", "--name-status"]).out
+      const carried = git(["-c", "core.quotePath=false", "diff", "--cached", "--name-status"]).out
         .split("\n")
         .some((l) => {
           const parts = l.split("\t");
@@ -196,7 +196,10 @@ function stagedStat(pathsToStat: string[]): string {
 }
 
 function stagedPathsNow(): string[] {
-  const r = git(["diff", "--cached", "--name-only"]);
+  // quotePath=false: unicode paths must round-trip unquoted (the embedded-
+  // repo guard and batch purity compare these against literal user paths —
+  // octal-quoted names would falsely reject a correctly staged file).
+  const r = git(["-c", "core.quotePath=false", "diff", "--cached", "--name-only"]);
   return r.out.split("\n").filter((l) => l !== "");
 }
 

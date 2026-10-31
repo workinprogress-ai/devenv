@@ -8,7 +8,7 @@
   "scripts": {
     "prepare": "husky",
     "ci:release": "semantic-release",
-    "test": "bash tools/tests/run-devenv-tests.sh",
+    "test": "bash tools/tests/run-devenv-tests.sh && vitest run",
     "test:ts": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "bash tools/scripts/lint-scripts.sh",

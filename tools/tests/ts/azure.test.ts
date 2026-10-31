@@ -4,7 +4,10 @@
 // projection (cursor contract). The transport (fetch) is exercised live in
 // the azure smoke harness, not here.
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   azureRedact,
   azureUrlIsProviderHost,
@@ -35,6 +38,8 @@ import {
   azureMarkerTransform,
   workItemTypeFor,
   issuesCreate,
+  issuesEdit,
+  bodyFieldFor,
 } from "../../lib/providers/azure/issues.ts";
 import {
   identitySddl,
@@ -264,6 +269,9 @@ describe("azure issues text round-trip", () => {
     const fetchMock = ((): typeof fetch => {
       const fn = (async (url: string | URL | Request) => {
         urls.push(String(url));
+        if (String(url).includes("?$fields=System.Rev")) {
+          return new Response(JSON.stringify({ fields: { "System.Rev": 1, "System.ChangedDate": "2026-10-30T00:00:00Z" } }), { status: 200 });
+        }
         return new Response(JSON.stringify({ id: 42 }), { status: 200 });
       }) as unknown as typeof fetch;
       return fn;
@@ -448,5 +456,196 @@ describe("azure policies ruleset translation", () => {
 
   it("translate: no translatable rules emits nothing", () => {
     expect(translateRuleset({ rules: [{ type: "unknown_kind" }] }, "g", "main")).toEqual([]);
+  });
+
+
+});
+// ---------------------------------------------------------------------------
+// 15.22 [azure_body_fields]: per-type body field + write verification
+// ---------------------------------------------------------------------------
+
+describe("azure body fields ([azure_body_fields], 15.22)", () => {
+  it("bodyFieldFor: absent key defaults to System.Description; configured key wins", () => {
+    const root = mkdtempSync(join(tmpdir(), "azbf-"));
+    writeFileSync(
+      join(root, "devenv.config"),
+      "[azure_body_fields]\nBug=Microsoft.VSTS.TCM.ReproSteps\n",
+    );
+    const prev = process.env.DEVENV_ROOT;
+    process.env.DEVENV_ROOT = root;
+    try {
+      expect(bodyFieldFor("bug")).toBe("Microsoft.VSTS.TCM.ReproSteps");
+      expect(bodyFieldFor("Bug")).toBe("Microsoft.VSTS.TCM.ReproSteps");
+      expect(bodyFieldFor("feature")).toBe("System.Description"); // absent key
+      expect(bodyFieldFor("")).toBe("System.Description"); // untyped
+    } finally {
+      if (prev === undefined) delete process.env.DEVENV_ROOT;
+      else process.env.DEVENV_ROOT = prev;
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("issuesCreate writes the body to the configured field for the type", async () => {
+    const root = mkdtempSync(join(tmpdir(), "azbf2-"));
+    writeFileSync(
+      join(root, "devenv.config"),
+      "[azure_body_fields]\nBug=Microsoft.VSTS.TCM.ReproSteps\n",
+    );
+    const prev = process.env.DEVENV_ROOT;
+    process.env.DEVENV_ROOT = root;
+    process.env.AZURE_DEVOPS_ORG = "test-org";
+    process.env.AZURE_DEVOPS_PROJECT = "test-project";
+    process.env.AZURE_PAT = "test-pat";
+    const bodies: string[] = [];
+    const fetchMock = (async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url).includes("?$fields=System.Rev")) {
+        return new Response(JSON.stringify({ fields: { "System.Rev": 1, "System.ChangedDate": "2026-10-30T00:00:00Z" } }), { status: 200 });
+      }
+      if (init?.body !== undefined) bodies.push(String(init.body));
+      return new Response(JSON.stringify({ id: 42 }), { status: 200 });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const id = await issuesCreate("", { title: "t", type: "bug", body: "repro text" });
+      expect(id).toBe(42);
+      const patch = JSON.parse(bodies[0] ?? "[]") as Array<{ path: string }>;
+      expect(patch.some((op) => op.path === "/fields/Microsoft.VSTS.TCM.ReproSteps")).toBe(true);
+      expect(patch.some((op) => op.path === "/multilineFieldsFormat/Microsoft.VSTS.TCM.ReproSteps")).toBe(true);
+      expect(patch.some((op) => op.path === "/fields/System.Description")).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+      if (prev === undefined) delete process.env.DEVENV_ROOT; else process.env.DEVENV_ROOT = prev;
+      delete process.env.AZURE_DEVOPS_ORG;
+      delete process.env.AZURE_DEVOPS_PROJECT;
+      delete process.env.AZURE_PAT;
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("unconfigured type writes System.Description (default unchanged)", async () => {
+    process.env.AZURE_DEVOPS_ORG = "test-org";
+    process.env.AZURE_DEVOPS_PROJECT = "test-project";
+    process.env.AZURE_PAT = "test-pat";
+    const bodies: string[] = [];
+    const fetchMock = (async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url).includes("?$fields=System.Rev")) {
+        return new Response(JSON.stringify({ fields: { "System.Rev": 1, "System.ChangedDate": "2026-10-30T00:00:00Z" } }), { status: 200 });
+      }
+      if (init?.body !== undefined) bodies.push(String(init.body));
+      return new Response(JSON.stringify({ id: 43 }), { status: 200 });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      await issuesCreate("", { title: "t", type: "feature", body: "text" });
+      const patch = JSON.parse(bodies[0] ?? "[]") as Array<{ path: string }>;
+      expect(patch.some((op) => op.path === "/fields/System.Description")).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+      delete process.env.AZURE_DEVOPS_ORG;
+      delete process.env.AZURE_DEVOPS_PROJECT;
+      delete process.env.AZURE_PAT;
+    }
+  });
+
+  it("issuesEdit writes the body to the configured field and verifies the write", async () => {
+    const root = mkdtempSync(join(tmpdir(), "azbf3-"));
+    writeFileSync(
+      join(root, "devenv.config"),
+      "[azure_body_fields]\nBug=Microsoft.VSTS.TCM.ReproSteps\n",
+    );
+    const prev = process.env.DEVENV_ROOT;
+    process.env.DEVENV_ROOT = root;
+    process.env.AZURE_DEVOPS_ORG = "test-org";
+    process.env.AZURE_DEVOPS_PROJECT = "test-project";
+    process.env.AZURE_PAT = "test-pat";
+    const bodies: string[] = [];
+    let revServed = 1;
+    let changedServed = "2026-10-30T00:00:00Z";
+    const fetchMock = (async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url).includes("?$fields=System.Rev")) {
+        return new Response(JSON.stringify({ fields: { "System.Rev": revServed, "System.ChangedDate": changedServed } }), { status: 200 });
+      }
+      if (String(url).includes("/workitems/9") && init?.method === "PATCH") {
+        bodies.push(String(init?.body ?? ""));
+        revServed = 2; // reflect the PATCH on the verification readback
+        changedServed = "2026-10-30T00:01:00Z";
+        return new Response(JSON.stringify({ id: 9, rev: 2 }), { status: 200 });
+      }
+      return new Response("{}", { status: 200 });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      await issuesEdit("", 9, { body: "new body", type: "bug" });
+      const patch = JSON.parse(bodies[0] ?? "[]") as Array<{ path: string }>;
+      expect(patch.some((op) => op.path === "/fields/Microsoft.VSTS.TCM.ReproSteps")).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+      if (prev === undefined) delete process.env.DEVENV_ROOT; else process.env.DEVENV_ROOT = prev;
+      delete process.env.AZURE_DEVOPS_ORG;
+      delete process.env.AZURE_DEVOPS_PROJECT;
+      delete process.env.AZURE_PAT;
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("a write not reflected after PATCH fails loud", async () => {
+    process.env.AZURE_DEVOPS_ORG = "test-org";
+    process.env.AZURE_DEVOPS_PROJECT = "test-project";
+    process.env.AZURE_PAT = "test-pat";
+    const fetchMock = (async () =>
+      // Every readback returns the same rev 5 (the PATCH never reflected).
+      new Response(JSON.stringify({ fields: { "System.Rev": 5, "System.ChangedDate": "2026-10-30T00:00:00Z" } }), { status: 200 })) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      await expect(issuesEdit("", 9, { body: "x" })).rejects.toThrow(/not reflected after PATCH/);
+    } finally {
+      vi.unstubAllGlobals();
+      delete process.env.AZURE_DEVOPS_ORG;
+      delete process.env.AZURE_DEVOPS_PROJECT;
+      delete process.env.AZURE_PAT;
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// azureHttp withHeaders envelope (F20): header/body shapes are distinct and
+// the envelope carries the real response headers.
+// ---------------------------------------------------------------------------
+
+describe("azureHttp withHeaders envelope", () => {
+  const savedEnv = { org: process.env.AZURE_DEVOPS_ORG, project: process.env.AZURE_DEVOPS_PROJECT, pat: process.env.AZURE_PAT };
+  beforeEach(() => {
+    process.env.AZURE_DEVOPS_ORG = "test-org";
+    process.env.AZURE_DEVOPS_PROJECT = "test-project";
+    process.env.AZURE_PAT = "test-pat";
+  });
+  afterEach(() => {
+    if (savedEnv.org === undefined) delete process.env.AZURE_DEVOPS_ORG; else process.env.AZURE_DEVOPS_ORG = savedEnv.org;
+    if (savedEnv.project === undefined) delete process.env.AZURE_DEVOPS_PROJECT; else process.env.AZURE_DEVOPS_PROJECT = savedEnv.project;
+    if (savedEnv.pat === undefined) delete process.env.AZURE_PAT; else process.env.AZURE_PAT = savedEnv.pat;
+    vi.unstubAllGlobals();
+  });
+
+  it("withHeaders: true returns {body, headers} with the response's headers", async () => {
+    const { azureHttp } = await import("../../lib/providers/azure/http.ts");
+    vi.stubGlobal("fetch", (async () =>
+      new Response(JSON.stringify({ count: 2, value: [1, 2] }), {
+        status: 200,
+        headers: { "x-ms-continuation-token": "tok-9", "content-type": "application/json" },
+      })) as unknown as typeof fetch);
+    const page = await azureHttp<{ count: number; value: number[] }>("GET", "https://dev.azure.com/test-org/test-project/_apis/wit/wiql", { withHeaders: true });
+    expect(page.body.count).toBe(2);
+    const contKey = Object.keys(page.headers).find((k) => k.toLowerCase() === "x-ms-continuation-token");
+    expect(contKey).toBeDefined();
+    expect(page.headers[contKey as string]).toBe("tok-9");
+  });
+
+  it("plain call returns the parsed body alone (no envelope wrapper)", async () => {
+    const { azureHttp } = await import("../../lib/providers/azure/http.ts");
+    vi.stubGlobal("fetch", (async () =>
+      new Response(JSON.stringify({ id: 7 }), { status: 200 })) as unknown as typeof fetch);
+    const body = await azureHttp<{ id: number }>("GET", "https://dev.azure.com/test-org/test-project/_apis/wit/workitems/7");
+    expect(body).toEqual({ id: 7 });
+    expect((body as unknown as { headers?: unknown }).headers).toBeUndefined();
   });
 });

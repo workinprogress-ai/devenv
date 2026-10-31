@@ -64,6 +64,7 @@ function runTool(args: string[], env: Record<string, string> = {}): { status: nu
 }
 
 describe("issue-types", () => {
+  const savedPath_issue_types = process.env.PATH;
   beforeEach(() => {
     stubDir = mkdtempSync(join(tmpdir(), "it-stub-"));
     responses = join(stubDir, "responses.tsv");
@@ -76,6 +77,7 @@ describe("issue-types", () => {
 
   afterEach(() => {
     rmSync(stubDir, { recursive: true, force: true });
+    process.env.PATH = savedPath_issue_types;
   });
 
   it("table format lists name + id rows", () => {

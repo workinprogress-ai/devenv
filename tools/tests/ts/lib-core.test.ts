@@ -4,6 +4,8 @@
 // exposes.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { selfRoot, resolveToolsRoot } from "../../lib/core/self-root.ts";
 import { EXIT_MISUSE, EXIT_CONFLICT, EXIT_API_FAILURE } from "../../lib/core/exit-codes.ts";
 import { logWarn } from "../../lib/core/logging.ts";
@@ -14,7 +16,12 @@ const HERE = new URL(".", import.meta.url).pathname;
 describe("self-root", () => {
   it("derives the checkout root from a lib path", () => {
     const root = selfRoot(HERE);
-    expect(root.endsWith("devenv")).toBe(true);
+    // Structural assertion, not a clone-name coupling: the root is the
+    // checkout (owns devenv.config + copilot/ + tools/), HERE lives under
+    // <root>/tools/tests/ts/.
+    expect(existsSync(join(root, "devenv.config"))).toBe(true);
+    expect(existsSync(join(root, "copilot"))).toBe(true);
+    expect(HERE.startsWith(root)).toBe(true);
   });
 
   it("rejects a foreign DEVENV_TOOLS export", () => {

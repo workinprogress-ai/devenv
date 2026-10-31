@@ -77,6 +77,7 @@ function runTool(args: string[]): { status: number; stdout: string; stderr: stri
 }
 
 describe("issue-get", () => {
+  const savedPath_issue_get = process.env.PATH;
   beforeEach(() => {
     stubDir = mkdtempSync(join(tmpdir(), "ig-stub-"));
     responses = join(stubDir, "responses.tsv");
@@ -89,6 +90,7 @@ describe("issue-get", () => {
   afterEach(() => {
     rmSync(stubDir, { recursive: true, force: true });
     rmSync(repoRoot, { recursive: true, force: true });
+    process.env.PATH = savedPath_issue_get;
   });
 
   it("emits the issue JSON with the default field list", () => {
@@ -100,13 +102,22 @@ describe("issue-get", () => {
     expect(out["state"]).toBe("OPEN");
   });
 
+  it("provider-neutral type: github issueType {name} flattens to a string", () => {
+    writeFileSync(responses, `issue view 42\t${JSON.stringify({ number: 42, title: "t", issueType: { name: "Task" }, body: "", state: "OPEN" })}\n`);
+    const r = runTool(["42"]);
+    expect(r.status).toBe(0);
+    const out = JSON.parse(r.stdout) as Record<string, unknown>;
+    expect(out["type"]).toBe("Task");
+    expect(out).not.toHaveProperty("issueType");
+  });
+
   it("the default field list includes parent, surfaced as an object or null", () => {
     const r = runTool(["42"]);
     expect(r.status).toBe(0);
     // The stub returns the fixture verbatim; the assertion is that gh was
     // ASKED for the parent field.
     expect(ghCalls().join("\n")).toContain(
-      "--json number,title,parent,body,state,labels,assignees,milestone,author,createdAt,updatedAt,closedAt,url,comments",
+      "--json number,title,parent,issueType,body,state,labels,assignees,milestone,author,createdAt,updatedAt,closedAt,url,comments",
     );
   });
 

@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
-import { onEvent } from "../lib/domain/issues/graph.ts";
+import { onEvent, type WorkflowWriteContext } from "../lib/domain/issues/graph.ts";
 import { eventNames } from "../lib/domain/events.ts";
 import { select } from "../lib/ui/prompts.ts";
 
@@ -186,8 +186,7 @@ async function runGroups(groups: EventIssueGroup[], root: string): Promise<void>
         rc = 1;
         continue;
       }
-      const warnings: string[] = [];
-      let signalErr = "";
+      let warnings: string[] = [];
       // Two dispatch modes: with the WORKFLOW_SIGNAL_TOOLS seam set, exec
       // the _on_*.sh entry scripts (the test contract — fakes log their
       // argv); on the real path, dispatch in-process through the graph
@@ -198,31 +197,37 @@ async function runGroups(groups: EventIssueGroup[], root: string): Promise<void>
         const { spawnSync } = await import("node:child_process");
         const script = join(seam, `${group.event}.sh`);
         const r = spawnSync("bash", [script, String(issue)], { encoding: "utf8" });
-        signalErr = (r.stderr ?? "").trim();
-        failed = r.status !== 0 || signalErr.includes("workflow write ");
+        if ((r.stderr ?? "").trim() !== "") process.stderr.write(`${(r.stderr ?? "").trim()}\n`);
+        // Structural failure signal: the entry script's exit status. (The
+        // old stderr string-match for "workflow write " was the vocabulary
+        // of one warning producer, not a contract — a seam script that
+        // failed a write but exited 0 reported success.)
+        failed = r.status !== 0;
       } else {
         try {
-          await onEvent(group.event, issue, {
+          const ctx: WorkflowWriteContext = {
             onWarning: (m) => {
               warnings.push(m);
-              signalErr = m;
             },
-          });
-          failed = signalErr.includes("workflow write ");
+          };
+          await onEvent(group.event, issue, ctx);
+          // Structural failure flag (F34) — never a stderr string-match.
+          failed = ctx.failed === true;
         } catch {
           failed = true;
         }
       }
+      // Surface ALL collected warnings (they were void-ed before).
+      for (const w of warnings) process.stderr.write(`${w}\n`);
+      warnings = [];
       if (!failed) {
         console.log(`signalled ${group.event} for issue #${issue}`);
       } else {
-        if (signalErr !== "") process.stderr.write(`${signalErr}\n`);
         console.error(
           `WARNING: signal ${group.event} failed for issue #${issue} (best-effort, continuing)`,
         );
         rc = 1;
       }
-      void warnings;
     }
   }
   if (!didAny) {

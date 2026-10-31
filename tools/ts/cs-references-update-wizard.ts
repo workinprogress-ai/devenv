@@ -127,6 +127,7 @@ function snapshotVersions(repoDir: string): Snapshot {
       const p = join(dir, e.name);
       if (e.isDirectory()) {
         if (e.name === "test" || e.name === "tests" || e.name === "bin" || e.name === "obj") continue;
+        if (!p.includes("/src/")) continue; // bash original scoped csproj discovery to src/
         walk(p);
       } else if (e.name.endsWith(".csproj")) {
         const content = readFileSync(p, "utf8");

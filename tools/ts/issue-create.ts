@@ -114,7 +114,15 @@ function resolveBody(opts: { text?: string | undefined; file?: string | undefine
     logError("Only one body source may be specified");
     process.exit(EXIT_MISUSE);
   }
-  if (opts.text !== undefined) return { body: opts.text };
+  if (opts.text !== undefined) {
+    // --body "" is an explicit empty body — same refusal as empty stdin
+    // (an empty body is never valid; silence is how caller bugs hide).
+    if (opts.text.trim() === "") {
+      logError("Refusing empty --body");
+      process.exit(EXIT_MISUSE);
+    }
+    return { body: opts.text };
+  }
   if (opts.file !== undefined) {
     if (opts.file === "-") {
       if (stdinIsTty()) {
@@ -209,10 +217,11 @@ async function validatePlacement(
   spec: string,
   parentNumber: string,
   requestedType: string,
+  parentSpec?: string,
 ): Promise<void> {
   const allowed = childOfMap().get(requestedType);
   if (allowed === undefined) return; // no rule for this type
-  const parentTypeRaw = await issuesView(spec, Number.parseInt(parentNumber, 10), {
+  const parentTypeRaw = await issuesView(parentSpec ?? spec, Number.parseInt(parentNumber, 10), {
     json: "issueType",
     jq: ".issueType.name // empty",
   });
@@ -389,6 +398,13 @@ interface CreateState {
 
 /** Project membership via the provider CLI's project verbs (name -> number). */
 function addToProject(issueUrl: string, project: string): boolean {
+  // Titles are interpolated into a jq select program downstream — a quote
+  // would break out of the literal (the projectsNumberByName facade rejects
+  // them for the same reason).
+  if (project.includes('"')) {
+    logError(`--project: title must not contain double quotes ('${project}')`);
+    process.exit(EXIT_MISUSE);
+  }
   const { owner } = providerRepoSplit("");
   let projectNumber = project;
   if (!/^[0-9]+$/.test(projectNumber)) {
@@ -581,13 +597,29 @@ async function main(argv: string[]): Promise<number> {
       logError(`Invalid --parent reference: ${parentValue} (expected N or owner/repo#N)`);
       return EXIT_MISUSE;
     }
-    if (issueType !== "" && parentRef.repoSpec === undefined) {
-      await validatePlacement(requireRepoTarget(providerRepoTarget(""), "issue-create", "issues"), String(parentRef.number), issueType);
+    if (issueType !== "") {
+      // Cross-repo parents validate against their own repo (issuesView
+      // takes a spec; the child_of rule still applies — the parent's type
+      // is a process fact, not a repo-local one).
+      await validatePlacement(
+        requireRepoTarget(providerRepoTarget(""), "issue-create", "issues"),
+        String(parentRef.number),
+        issueType,
+        parentRef.repoSpec,
+      );
     }
   }
 
   // Type selection: deterministic mode errors on a missing type; interactive
   // mode picks from the config vocabulary (needs a terminal under this build).
+  // F21: --select-template is an explicit opt-in to interactive selection —
+  // when it cannot be honored, refuse (a plain create would silently degrade
+  // the requested behavior).
+  if (useTemplate && values["select-template"] === true && !isInteractive()) {
+    logError("--select-template requires an interactive terminal (use --template FILE or drop the flag)");
+    return EXIT_MISUSE;
+  }
+
   if (issueType === "") {
     if (!useEditor) {
       logError("Issue type is required when using --no-interactive (use --type)");

@@ -12,7 +12,8 @@ import { createHash } from "node:crypto";
 import { configGetRaw } from "../../core/config.ts";
 import { selfRoot } from "../../core/self-root.ts";
 import { logError, logInfo, logWarn } from "../../core/logging.ts";
-import { providerOrgGet, ensureProviderAuth, ghApiSync } from "../../providers/provider-core.ts";
+import { providerOrgGet, ensureProviderAuth, requireGithubProvider } from "../../providers/provider-core.ts";
+import { reposList } from "../../providers/github/repos.ts";
 import { gitTransportUrl } from "../../providers/github/urls.ts";
 
 /** The repo cache root (repo-cache.bash's location contract). Read at
@@ -333,21 +334,26 @@ export function listRepoDependencies(repoName: string): string[] {
     .filter((p): p is string => p !== undefined);
 }
 
-/** Parallelism for cache clones/updates (repo-cache.bash's env override). */
-const REPO_CACHE_PARALLEL = Number(process.env.REPO_CACHE_PARALLEL ?? 5);
+// REPO_CACHE_PARALLEL (bash parity) is accepted but inert: the pool's jobs
+// run through synchronous spawns, so each job blocks the event loop and
+// execution is sequential regardless of the value. True parallelism needs an
+// async spawn - out of scope here; the env knob is honored read-only so
+// forks that export it don't break.
+const REPO_CACHE_PARALLEL = 1;
 
 /**
  * The cache's repo-refresh (refresh_repo_cache port): clone-or-update every
  * org repo as a shallow single-branch clone, then write the staleness
  * timestamp. Returns 0 ok, 2 partial (some repos failed), 1 total failure.
  */
-export function refreshRepoCache(): number {
+export async function refreshRepoCache(): Promise<number> {
+  requireGithubProvider("refreshRepoCache");
   const org = providerOrgGet();
   if (org === "") return 1;
   ensureProviderAuth();
   let listed = "";
   try {
-    listed = ghApiSync(["repos", "list", org, "--limit", "1000", "--json", "name", "--jq", ".[].name"]).stdout;
+    listed = await reposList(org, { limit: 1000, json: "name", jq: ".[].name" });
   } catch {
     logError("Failed to list organization repositories");
     return 1;
@@ -360,7 +366,7 @@ export function refreshRepoCache(): number {
   const cache = repoCacheDir();
   mkdirSync(cache, { recursive: true });
 
-  logInfo(`Caching ${repos.length} repositories (${REPO_CACHE_PARALLEL} parallel)...`);
+  logInfo(`Caching ${repos.length} repositories (sequential)...`);
   const failed: string[] = [];
   let index = 0;
   let active = 0;

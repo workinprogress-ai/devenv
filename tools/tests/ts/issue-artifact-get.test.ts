@@ -89,8 +89,10 @@ describe("issue-artifact-get", () => {
     process.env.PATH = `${stubDir}:${process.env.PATH ?? ""}`;
   });
 
+  const savedPath = process.env.PATH;
   afterEach(() => {
     rmSync(stubDir, { recursive: true, force: true });
+    process.env.PATH = savedPath;
   });
 
   it("resolves a single artifact and emits the exact bash field set (preview mode)", () => {
