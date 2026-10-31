@@ -9,7 +9,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { remoteToWeb } from "../lib/providers/github/urls.ts";
+import { remoteToWeb } from "../lib/providers/facade/urls.ts";
 
 assertNodeFloor();
 

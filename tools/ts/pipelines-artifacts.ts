@@ -11,18 +11,19 @@ import { readSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
-import { ensureProviderAuth, providerRequireCapability } from "../lib/providers/provider-core.ts";
+import { ensureProviderAuth, } from "../lib/providers/provider-core.ts";
+import { requireFamilyCapability } from "../lib/providers/facade/provider-loader.ts";
 import { formatTable } from "../lib/ui/panels.ts";
 import {
   pipelinesRunArtifacts,
   pipelinesRunDownload,
-} from "../lib/providers/github/pipelines.ts";
+} from "../lib/providers/facade/pipelines.ts";
 
 assertNodeFloor();
 
 ensureProviderAuth();
 
-providerRequireCapability("pipelines");
+await requireFamilyCapability("pipelines", "pipelines");
 
 const DOWNLOAD_SIZE_WARN_BYTES = 104857600;
 
@@ -108,9 +109,9 @@ interface Artifact {
   created_at?: string;
 }
 
-function fetchArtifacts(): Artifact[] {
+async function fetchArtifacts(): Promise<Artifact[]> {
   try {
-    return JSON.parse(pipelinesRunArtifacts(repo, runId)) as Artifact[];
+    return JSON.parse(await pipelinesRunArtifacts(repo, runId)) as Artifact[];
   } catch (err) {
     logError(`Failed to fetch artifacts for run ${runId} in ${repo}`);
     if (err instanceof Error && err.message !== "") logError(err.message);
@@ -119,7 +120,7 @@ function fetchArtifacts(): Artifact[] {
 }
 
 if (!download) {
-  const artifacts = fetchArtifacts();
+  const artifacts = await fetchArtifacts();
   if (artifacts.length === 0) {
     logInfo(`No artifacts found for run ${runId}`);
     process.exit(0);
@@ -146,7 +147,7 @@ if (artifactName === "") {
   // Warn on large bulk downloads; confirm on a TTY (bash read from /dev/tty).
   let totalBytes = 0;
   try {
-    const artifacts = fetchArtifacts();
+    const artifacts = await fetchArtifacts();
     totalBytes = artifacts.reduce((sum, a) => sum + (a.size_in_bytes ?? 0), 0);
   } catch {
     totalBytes = 0;

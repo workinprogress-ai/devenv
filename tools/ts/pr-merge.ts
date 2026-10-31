@@ -19,8 +19,8 @@ import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/e
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
-import { prsList, prsMerge, prsView } from "../lib/providers/github/prs.ts";
-import { prWebUrl } from "../lib/providers/github/urls.ts";
+import { prsList, prsMerge, prsView } from "../lib/providers/facade/prs.ts";
+import { prWebUrl } from "../lib/providers/facade/urls.ts";
 import { signalPrEvents } from "../lib/domain/events.ts";
 
 assertNodeFloor();
@@ -404,7 +404,7 @@ async function main(argv: string[]): Promise<number> {
     // best-effort: body fetch or signal failures never fail the merge
   }
 
-  const prUrl = prWebUrl(repo, Number.parseInt(prId, 10));
+  const prUrl = await prWebUrl(repo, Number.parseInt(prId, 10));
   console.log(`Pull request #${prId} merged successfully (${mergeMethod}).`);
   logInfo(prUrl);
   return 0;

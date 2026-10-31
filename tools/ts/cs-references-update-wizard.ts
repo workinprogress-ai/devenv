@@ -127,7 +127,10 @@ function snapshotVersions(repoDir: string): Snapshot {
       const p = join(dir, e.name);
       if (e.isDirectory()) {
         if (e.name === "test" || e.name === "tests" || e.name === "bin" || e.name === "obj") continue;
-        if (!p.includes("/src/")) continue; // bash original scoped csproj discovery to src/
+        // Scoped to src/ trees (bash original). The trailing separator makes
+        // the repo's own src/ directory match — ".../src" alone does not
+        // contain "/src/", which silently skipped every top-level csproj.
+        if (!`${p}/`.includes("/src/")) continue;
         walk(p);
       } else if (e.name.endsWith(".csproj")) {
         const content = readFileSync(p, "utf8");

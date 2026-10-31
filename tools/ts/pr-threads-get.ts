@@ -14,9 +14,9 @@ import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/e
 import { logError, logWarn } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
-import { prsThreadsPage } from "../lib/providers/github/prs.ts";
-import type { GhThread } from "../lib/providers/github/prs.ts";
-import { authStatusOk, remoteToWeb } from "../lib/providers/github/urls.ts";
+import { prsThreadsPage } from "../lib/providers/facade/prs.ts";
+import type { GhThread } from "../lib/providers/facade/prs.ts";
+import { authStatusOk, remoteToWeb } from "../lib/providers/facade/urls.ts";
 
 assertNodeFloor();
 
@@ -68,19 +68,19 @@ Examples:
   process.exit(0);
 }
 
-function ownerName(): { owner: string; name: string } {
+async function ownerName(): Promise<{ owner: string; name: string }> {
   // DEVENV_REPO / cwd spec first; origin remote through the URL seam as the
   // fallback leg (same chain as the bash tool).
   const spec = requireRepoTarget(providerRepoTarget(""), "pr-threads-get", "pr");
   if (spec.includes("/")) {
     const [owner, name] = spec.split("/");
     if (owner !== undefined && name !== undefined && owner !== "" && name !== "") {
-      return { owner: name === "" ? owner : owner, name: name.replace(/\.git$/, "") };
+      return { owner, name: name.replace(/\.git$/, "") };
     }
   }
   const remote = spawnSync("git", ["remote", "get-url", "origin"], { encoding: "utf8" });
   if (remote.status === 0) {
-    const web = remoteToWeb((remote.stdout ?? "").trim());
+    const web = await remoteToWeb((remote.stdout ?? "").trim());
     if (web !== null) {
       const rest = web.replace("https://github.com/", "");
       const [owner, nameRaw] = rest.split("/");
@@ -139,13 +139,13 @@ async function main(argv: string[]): Promise<number> {
 
   checkTargetRepo(devenv);
 
-  if (!authStatusOk()) {
+  if (!(await authStatusOk())) {
     logError("Not authenticated with the active provider");
     process.stderr.write("Run: key-update-provider\n");
     return EXIT_API_FAILURE;
   }
 
-  const { owner, name } = ownerName();
+  const { owner, name } = await ownerName();
 
   const allThreads: GhThread[] = [];
   let cursor: string | undefined = undefined;

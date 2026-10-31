@@ -159,6 +159,18 @@ describe("issue-get", () => {
     expect(runTool([]).status).toBe(2);
   });
 
+  it("a null issueType is flattened, never leaked into the output", () => {
+    // Regression: the type normalization must drop the `issueType`
+    // projection key even when null (the common typeless-issue shape) —
+    // output parity with the pre-facade tool.
+    writeFileSync(responses, `issue view 42\t${JSON.stringify({ number: 42, title: "t", issueType: null, body: "", state: "OPEN" })}\n`);
+    const r = runTool(["42"]);
+    expect(r.status).toBe(0);
+    const out = JSON.parse(r.stdout) as Record<string, unknown>;
+    expect("issueType" in out).toBe(false);
+    expect(out["type"]).toBe("");
+  });
+
   it("an unknown flag exits 2", () => {
     expect(runTool(["42", "--bogus"]).status).toBe(2);
   });

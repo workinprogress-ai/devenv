@@ -15,8 +15,8 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { logWarn } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { providerOrgGet, providerRepoSplit } from "../lib/providers/provider-core.ts";
-import { gitTransportUrl, authStatusOk, remoteToSpec } from "../lib/providers/github/urls.ts";
-import { reposList } from "../lib/providers/github/repos.ts";
+import { gitTransportUrl, authStatusOk, remoteToSpec } from "../lib/providers/facade/urls.ts";
+import { reposList } from "../lib/providers/facade/repos.ts";
 
 assertNodeFloor();
 
@@ -109,7 +109,7 @@ function validateRepositoryName(name: string): boolean {
 // Org identity + auth gates (same order as the bash script's flow).
 const org = providerOrgGet();
 if (org === "") process.exit(EXIT_GENERAL_ERROR);
-if (!authStatusOk()) {
+if (!(await authStatusOk())) {
   console.error("ERROR: provider CLI is not authenticated. Run 'key-update-provider' first.");
   process.exit(EXIT_GENERAL_ERROR);
 }
@@ -218,7 +218,7 @@ if (foreignUrl !== "") {
 // --- org mode --------------------------------------------------------------
 
 let gitUrl = "";
-if (!allMode) gitUrl = gitTransportUrl(org, repoName);
+if (!allMode) gitUrl = await gitTransportUrl(org, repoName);
 
 function detectDefaultBranch(dir: string): string {
   const ref = git(["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"], dir).out.trim();
@@ -240,7 +240,7 @@ function addGitSafeDirectory(dir: string): void {
 // Local settings + remote URL maintenance. Never rewrites a foreign repo's
 // remote: an existing origin whose owner does not match the configured org is
 // left alone (ambiguity treated as foreign, safety-first).
-function configureGitRepo(dir: string, remoteUrl: string): void {
+async function configureGitRepo(dir: string, remoteUrl: string): Promise<void> {
   addGitSafeDirectory(dir);
   spawnSync("git", ["config", "core.autocrlf", "false"], { cwd: dir, stdio: "ignore" });
   spawnSync("git", ["config", "core.eol", "lf"], { cwd: dir, stdio: "ignore" });
@@ -248,7 +248,7 @@ function configureGitRepo(dir: string, remoteUrl: string): void {
   if (remoteUrl !== "") {
     const current = spawnSync("git", ["remote", "get-url", "origin"], { encoding: "utf8", cwd: dir });
     const currentUrl = (current.stdout ?? "").trim();
-    if (currentUrl !== "" && !isOrgMember(currentUrl)) {
+    if (currentUrl !== "" && !(await isOrgMember(currentUrl))) {
       logWarn(`configure_git_repo: foreign repo (origin '${currentUrl}') — skipping remote URL rewrite`);
     } else {
       spawnSync("git", ["remote", "set-url", "origin", remoteUrl], { cwd: dir, stdio: "ignore" });
@@ -256,14 +256,14 @@ function configureGitRepo(dir: string, remoteUrl: string): void {
   }
 }
 
-function isOrgMember(spec: string): boolean {
+async function isOrgMember(spec: string): Promise<boolean> {
   // Origin URLs arrive in every git form (HTTPS, SSH, with .git, with
   // embedded credentials); providerRepoSplit expects bare owner/repo.
   // Normalize through the provider's remote parser first — an unparseable
   // form stays foreign (safety-first).
   let normalized = "";
   try {
-    normalized = remoteToSpec(spec) ?? "";
+    normalized = (await remoteToSpec(spec)) ?? "";
   } catch {
     return false;
   }
@@ -283,9 +283,9 @@ function isOrgMember(spec: string): boolean {
   return owner !== "" && owner === org;
 }
 
-function updateExistingRepo(dir: string, url: string, name: string): number {
+async function updateExistingRepo(dir: string, url: string, name: string): Promise<number> {
   console.error(`Repository '${name}' already exists. Fetching latest changes...`);
-  configureGitRepo(dir, url);
+  await configureGitRepo(dir, url);
   if (git(["fetch", "--all", "--tags", "-f"], dir).status !== 0) return 1;
 
   const defaultBranch = detectDefaultBranch(dir);
@@ -324,13 +324,13 @@ function updateExistingRepo(dir: string, url: string, name: string): number {
   return 0;
 }
 
-function cloneRepo(url: string, dir: string, name: string): number {
+async function cloneRepo(url: string, dir: string, name: string): Promise<number> {
   console.error(`Repository '${name}' does not exist. Attempting to clone...`);
   // Explicit returns: --all calls this inside a failure branch — a failed
   // clone must never fall through and run configure/fetch in the caller's
   // directory, reporting success.
   if (git(["clone", url, dir]).status !== 0) return 1;
-  configureGitRepo(dir, url);
+  await configureGitRepo(dir, url);
   if (git(["fetch", "--all", "--tags", "-f"], dir).status !== 0) return 1;
   const initScript = join(dir, ".repo", "init.sh");
   if (existsSync(initScript)) {
@@ -350,8 +350,8 @@ if (allMode) {
   const failed: string[] = [];
   for (const repo of available) {
     console.error(`==> Cloning ${repo}...`);
-    const url = gitTransportUrl(org, repo);
-    if (cloneRepo(url, join(reposDir, repo), repo) !== 0) {
+    const url = await gitTransportUrl(org, repo);
+    if ((await cloneRepo(url, join(reposDir, repo), repo)) !== 0) {
       console.error(`WARNING: Failed to clone ${repo}`);
       failed.push(repo);
     }
@@ -366,7 +366,7 @@ if (allMode) {
 }
 
 if (existsSync(targetDir)) {
-  process.exit(updateExistingRepo(targetDir, gitUrl, repoName));
+  process.exit(await updateExistingRepo(targetDir, gitUrl, repoName));
 } else {
-  process.exit(cloneRepo(gitUrl, targetDir, repoName));
+  process.exit(await cloneRepo(gitUrl, targetDir, repoName));
 }

@@ -17,8 +17,8 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { providerOrgGet } from "../lib/providers/provider-core.ts";
-import { authStatusOk } from "../lib/providers/github/urls.ts";
-import { reposView, reposCreate, reposCommitsCount, reposTreeCount } from "../lib/providers/github/repos.ts";
+import { authStatusOk } from "../lib/providers/facade/urls.ts";
+import { reposView, reposCreate, reposCommitsCount, reposTreeCount } from "../lib/providers/facade/repos.ts";
 import {
   loadRepoTypesConfig,
   repoTypesConfigPath,

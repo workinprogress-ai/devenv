@@ -105,7 +105,11 @@ describe("issue-types", () => {
   });
 
   it("org resolves from DEVENV_REPO's owner when config org is absent", () => {
-    rmSync(join(stubDir, "devenv.config"));
+    // Provider detection (the facade's dispatch) needs the config FILE to
+    // exist — a missing config refuses to default rather than silently
+    // speaking github. Absent [organization] org is the scenario: the
+    // owner segment of DEVENV_REPO is the fallback.
+    writeFileSync(join(stubDir, "devenv.config"), "[provider]\nname=github\n");
     const r = runTool([], { DEVENV_REPO: "myorg/whatever" });
     expect(r.status).toBe(0);
   });

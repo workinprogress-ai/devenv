@@ -263,7 +263,7 @@ teardown() {
 @test "git-wip-recover --show prints saved WIP commit summary" {
   cd "$TEST_REPO"
   echo "recover-me" > recover.txt
-  bash "$DEVENV_TOOLS/git-wip" "recovery test" 2>/dev/null || true
+  bash "$DEVENV_TOOLS/git-wip" --allow-non-tty "recovery test" 2>/dev/null || true
   run bash "$DEVENV_TOOLS/git-wip-recover" --show
   [ "$status" -eq 0 ]
   [[ "$output" == *"Saved WIP commit"* ]]
@@ -273,7 +273,7 @@ teardown() {
 @test "git-wip-recover --branch creates a branch at the WIP commit" {
   cd "$TEST_REPO"
   echo "recover-branch" > recover2.txt
-  bash "$DEVENV_TOOLS/git-wip" "branch test" 2>/dev/null || true
+  bash "$DEVENV_TOOLS/git-wip" --allow-non-tty "branch test" 2>/dev/null || true
   wip_commit=$(git rev-parse refs/wip/last)
   # unwip so HEAD moves away from the WIP commit
   git checkout -q -b feature/recover-test
@@ -290,7 +290,7 @@ teardown() {
 @test "git-wip-recover --branch uses default name when none supplied" {
   cd "$TEST_REPO"
   echo "default-name" > default.txt
-  bash "$DEVENV_TOOLS/git-wip" "default name test" 2>/dev/null || true
+  bash "$DEVENV_TOOLS/git-wip" --allow-non-tty "default name test" 2>/dev/null || true
   git checkout -q -b feature/default-name-test
   git push -q -u origin HEAD 2>/dev/null || true
   bash "$DEVENV_TOOLS/git-unwip" 2>/dev/null || true
@@ -304,7 +304,7 @@ teardown() {
   git checkout -q -b feature/survive-test
   git push -q -u origin HEAD 2>/dev/null || true
   echo "survive" > survive.txt
-  bash "$DEVENV_TOOLS/git-wip" "survive test" 2>/dev/null || true
+  bash "$DEVENV_TOOLS/git-wip" --allow-non-tty "survive test" 2>/dev/null || true
   wip_commit=$(git rev-parse refs/wip/last)
   bash "$DEVENV_TOOLS/git-unwip" 2>/dev/null || true
   # ref must still exist and point to the WIP commit

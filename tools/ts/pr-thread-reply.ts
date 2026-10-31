@@ -18,8 +18,8 @@ import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { openInEditor } from "../lib/core/editor.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
-import { prsThreadReply } from "../lib/providers/github/prs.ts";
-import { authStatusOk, remoteToSpec } from "../lib/providers/github/urls.ts";
+import { prsThreadReply } from "../lib/providers/facade/prs.ts";
+import { authStatusOk, remoteToSpec } from "../lib/providers/facade/urls.ts";
 
 assertNodeFloor();
 
@@ -70,7 +70,7 @@ Examples:
  * the origin remote normalized through the provider URL seam. A multi-part
  * spec keeps the LAST component as the repository (bash's tail-slice parity:
  * an azure-shaped acme/proj/widgets names the repo widgets). */
-function resolveOwnerName(): { owner: string; name: string } | null {
+async function resolveOwnerName(): Promise<{ owner: string; name: string } | null> {
   const spec = requireRepoTarget(providerRepoTarget(""), "pr-thread-reply", "pr");
   if (spec.includes("/")) {
     const owner = spec.split("/")[0] ?? "";
@@ -79,7 +79,7 @@ function resolveOwnerName(): { owner: string; name: string } | null {
   }
   const remote = spawnSync("git", ["remote", "get-url", "origin"], { encoding: "utf8" });
   if (remote.status === 0) {
-    const specFromRemote = remoteToSpec((remote.stdout ?? "").trim());
+    const specFromRemote = await remoteToSpec((remote.stdout ?? "").trim());
     if (specFromRemote !== null) {
       const owner = specFromRemote.split("/")[0] ?? "";
       const name = specFromRemote.split("/").pop() ?? "";
@@ -214,7 +214,7 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_API_FAILURE;
   }
 
-  const repo = resolveOwnerName();
+  const repo = await resolveOwnerName();
   if (repo === null) {
     logError("Cannot resolve the target repository (no DEVENV_REPO, no cwd spec, no origin remote)");
     return EXIT_GENERAL_ERROR;

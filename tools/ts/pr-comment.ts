@@ -18,8 +18,8 @@ import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/e
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { checkTargetRepo } from "../lib/providers/provider-core.ts";
-import { prsComment } from "../lib/providers/github/prs.ts";
-import { authStatusOk } from "../lib/providers/github/urls.ts";
+import { prsComment } from "../lib/providers/facade/prs.ts";
+import { authStatusOk } from "../lib/providers/facade/urls.ts";
 import { openInEditor } from "../lib/core/editor.ts";
 
 assertNodeFloor();
@@ -180,7 +180,7 @@ async function main(argv: string[]): Promise<number> {
     bodyFile = "";
   }
 
-  if (!authStatusOk()) {
+  if (!(await authStatusOk())) {
     logError("Not authenticated with the active provider");
     process.stderr.write("Run: key-update-provider\n");
     return EXIT_API_FAILURE;
@@ -201,7 +201,15 @@ async function main(argv: string[]): Promise<number> {
   }
 
   try {
-    await prsComment("", Number.parseInt(prNumber, 10), bodyFile === "-" ? readStdinSync() : bodyFile !== "" ? readFileSync(bodyFile, "utf8") : bodyText);
+    // --body-file rides the facade's bodyFile option (github reads it here,
+    // including `-` for stdin; azure's verb reads it natively — the file
+    // PATH posted as the comment body is the old azure bug, fixed by both
+    // sides reading CONTENT). --body/--edit arrive as bodyText.
+    await prsComment(
+      "",
+      Number.parseInt(prNumber, 10),
+      bodyFile !== "" ? { bodyFile } : { body: bodyText },
+    );
     logInfo(`Comment posted on PR #${prNumber}`);
     return 0;
   } catch (err) {

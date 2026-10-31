@@ -10,8 +10,8 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { ensureProviderAuth, isDevenvRepoGated, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
-import { issueWebUrl } from "../lib/providers/github/issues.ts";
-import { projectsForIssue } from "../lib/providers/github/projects.ts";
+import { issueWebUrl } from "../lib/providers/facade/issues.ts";
+import { projectsOps } from "../lib/providers/facade/projects.ts";
 
 assertNodeFloor();
 
@@ -81,9 +81,9 @@ if (isDevenvRepoGated() && (process.env["DEVENV_REPO"] === undefined || process.
   process.exit(EXIT_GENERAL_ERROR);
 }
 const owner = repoSpec.split("/")[0] ?? "";
-const issueUrl = issueWebUrl(repoSpec, Number(issueNumber));
+const issueUrl = await issueWebUrl(repoSpec, Number(issueNumber));
 
-const rows = projectsForIssue(issueUrl, owner);
+const rows = await projectsOps().then((ops) => ops.forIssue(issueUrl, owner));
 for (const row of rows) {
   console.log(`${row.title}\t${row.number}\t${row.status}`);
 }
