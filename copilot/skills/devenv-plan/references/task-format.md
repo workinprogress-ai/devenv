@@ -109,6 +109,7 @@ Rules:
 - Second number = task within the phase, starting at 1.
 - Sub-tasks extend the series: `1.3.1`, `1.3.2`, `1.3.3`.
 - **Phase-gate tasks are pegged at `.100`.** A task that always sits last in its phase — a phase gate (run the declared verification, close the phase) — is numbered `.100` (e.g. `1.100`); a second and third such gate-adjacent task take `.101`, `.102`. The reserved range keeps ordinary appended work (`.4`, `.5`, ...) collision-free below the gate for the plan's lifetime — appending never renumbers the gate.
+- **Gate tasks are reopenable by nature.** When new tasks thread into a phase that has already closed (tasks requested reviewing a phase handback, or a review fold-in), the phase's `.100+` gate tasks are unchecked and re-executed — the phase re-closes only when they pass again. That reopen is explicit and sanctioned, never the forbidden silent uncheck.
 - Task numbering is numeric-only. Do not use alphabetic suffixes such as `1.3a` or `2.4b`.
 - Numbering is stable unless a structural revision inserts work in the middle of an existing task series. In that case, renumber downstream tasks from the insertion point onward and update in-plan references; otherwise, prefer inserting with a sub-number instead (e.g. add `1.3.4` rather than reflowing `1.4`).
 

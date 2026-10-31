@@ -32,10 +32,11 @@ exports `DEVENV_ROOT` pointing at the running environment (`/workspaces/<REPO>`)
 
 ## Tool entry points: stubs, not symlinks
 
-The short-name commands in `tools/` (e.g. `issue-get`, `plan-parse`) are **generated stub files**, each one line of dispatch:
+The short-name commands in `tools/` (e.g. `issue-get`, `plan-parse`) are **generated stub files**, each one line of dispatch to the TypeScript implementation:
 
 ```bash
-exec bash "$(dirname "$0")/scripts/issue-get.sh" "$@"
+#!/bin/bash
+exec node "$(dirname "$0")/ts/issue-get.ts" "$@"
 ```
 
 They are owned by the idempotent `.devcontainer/entry-stubs-sync.sh`, which bootstrap runs: it creates a stub for every script in `tools/scripts/` (the provided tools), `tools/fork/` (a fork's own or overriding tools) and `tools/custom/` (a user's machine-local tools), with a same-named file in a higher folder winning (custom over fork over ts over scripts). It skips underscore-prefixed internal scripts (`_*.sh`: those are invoked via their path directly and get no depth-1 entry, and stale stubs for them are removed), skips a name that is not a plain tool name or that is an existing `tools/` directory (with a warning), replaces stale symlinks, links the test runner as `tools/run-devenv-tests`, and is a no-op when everything is in sync. Never hand-edit a stub: edit the real script and re-run the sync after adding or removing one.

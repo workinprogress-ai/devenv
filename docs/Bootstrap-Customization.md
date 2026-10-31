@@ -58,44 +58,33 @@ steps become TS-native.
 
 ## Default Bootstrap Flow
 
-The default bootstrap process executes these tasks in order (mirrors `run_bootstrap_tasks` in `.devcontainer/bootstrap.bash` — that function is the source of truth):
+The default bootstrap process executes these tasks in order (mirrors the
+`default_tasks` array in `run_bootstrap_tasks` in `.devcontainer/bootstrap.bash`
+— that array is the source of truth):
 
-1. `init_bootstrap_run_time` - Clear the run-time markers, so a failed run is never read as completed
-2. `initialize_paths` - Set up core path variables
-3. `detect_architecture` - Detect ARM vs x86
-4. `ensure_home_is_set` - Ensure HOME variable is set
-5. `ensure_bash_is_default_shell` - Verify bash is the login shell
-6. `load_version_info` - Load version from git tags
-7. `load_config` - Load and validate devenv.config
-8. `prepare_install_directories` - Create installation directories
-9. `reset_bashrc_to_original` - Reset bashrc to clean state (set `PRESERVE_BASHRC=1` to keep direct edits)
-10. `install_yq` - Install the yq YAML processor
-11. `install_os_packages_round1` - Install base OS packages
-12. `add_specialized_repositories` - Add HashiCorp, Kubernetes repos
-13. `install_os_packages_round2` - Install specialized packages
-14. `install_dotnet` - Install .NET SDK
-15. `load_setup_credentials` - Load credentials from .setup/
-16. `write_bash_functions_file` - Create bash functions
-17. `generate_env_vars_file` - Generate environment variables
-18. `create_tool_symlinks` - Create tool symlinks
-19. `write_devenvrc` - Write shell configuration
-20. `append_bashrc` - Update .bashrc
-21. `install_or_configure_nvm` - Install/configure nvm
-22. `configure_dotnet_tools` - Configure .NET tools
-23. `install_node_packages` - Install Node.js packages
-24. `configure_git` - Configure git globally
-25. `install_copilot_instructions` - Symlink `copilot/copilot-instructions.md` to `~/.copilot/copilot-instructions.md`
-26. `install_claude_code_integration` - Symlink `copilot/copilot-instructions.md` to `~/.claude/CLAUDE.md` and `copilot/skills` to `~/.claude/skills`
-27. `sync_copilot_knowledge` - Clone/pull configured Copilot knowledge repo and link `~/.copilot/knowledge`
-28. `sync_copilot_engineering` - Clone/pull configured engineering standards repo and link `~/.copilot/engineering`
-29. `ensure_directories_and_settings` - Create required directories
-30. `install_repo_dependencies` - Install devenv repo dependencies
-31. `configure_nuget_sources` - Configure NuGet sources
-32. `configure_user_npmrc` - Configure npm registry auth
-33. `run_custom_bootstrap_if_present` - Run custom bootstrap if exists
-34. `cleanup_packages` - Clean up apt packages
-35. `record_bootstrap_run_time` - Record completion time
-36. `finish_message` - Display completion message
+1. `init_bootstrap_run_time` — clear the run-time markers, so a failed run is never read as completed
+2. `initialize_paths` — set up core path variables
+3. `require_setup_files` — verify the .setup/ prerequisites exist
+4. `detect_architecture` — detect ARM vs x86
+5. `ensure_home_is_set` — ensure HOME variable is set
+6. `ensure_bash_is_default_shell` — verify bash is the login shell
+7. `load_version_info` — load version from git tags
+8. `load_config` — load and validate devenv.config
+9. `require_provider_token` — verify a provider credential is present
+10. `prepare_install_directories` — create installation directories
+11. `reset_bashrc_to_original` — reset bashrc to clean state (set `PRESERVE_BASHRC=1` to keep direct edits)
+12. `install_yq` — install the yq YAML processor
+13. `install_os_packages_round1` — install base OS packages
+14. `add_specialized_repositories` — add HashiCorp, Kubernetes repos
+15. `install_os_packages_round2` — install specialized packages
+16. `install_dotnet` — install .NET SDK
+17. `install_or_configure_nvm` — install or configure nvm
+18. `configure_dotnet_tools` — configure .NET tooling
+19. `install_node_packages` — install global node packages
+20. `install_repo_dependencies` — install repo dependencies (pnpm)
+21. `run_setup_first_run` — run the first-run setup handoff
+22. `record_bootstrap_run_time` — stamp the completed marker
+23. `finish_message` — print the completion summary
 
 ## Update Bootstrap Flow
 

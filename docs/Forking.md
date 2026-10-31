@@ -633,13 +633,13 @@ Your ruleset JSON file can use these tokens, which are replaced during applicati
 - `{{type_name}}` - Repository type (e.g., `service`, `documentation`)
 - `{{type_description}}` - Type description from config
 
-## Issue Types Configuration (issue-create.sh)
+## Issue Types Configuration (issue-create)
 
 > **Provider capability note:** native issue types are a GitHub-provider capability (`native-issue-types`). A fork without the capability runs the same type vocabulary as labels via the `[issues] types` policy knob — see the [policy library README](../tools/lib/policy/README.md). The `IT_kwDO…` IDs and the GraphQL discovery recipe in `issues-config.yml`'s header are GitHub-specific values.
 
-The `issue-create.sh` tool supports native issue types on providers that declare the capability. Issue types are configured in `tools/config/issues-config.yml`, which is the single source of truth for type names, descriptions, and provider API IDs.
+The `issue-create` tool supports native issue types on providers that declare the capability. Issue types are configured in `tools/config/issues-config.yml`, which is the single source of truth for type names, descriptions, and provider API IDs.
 
-Type names are **load-bearing** for the workflow model: Features and Bugs are deliverables, Tasks are work toward someone else's change (the only type that nests, and the only one born `Ready` under a parent — `issue-create.sh` string-matches `Task` for that birth rule), and Epics group deliverables. Keep these four names, or update the birth rule and the `planning.type_mapping` consumers when renaming. See [Issue Workflow](./Issue-Workflow.md) for the roles.
+Type names are **load-bearing** for the workflow model: Features and Bugs are deliverables, Tasks are work toward someone else's change (the only type that nests, and the only one born `Ready` under a parent — `issue-create` string-matches `Task` for that birth rule), and Epics group deliverables. Keep these four names, or update the birth rule and the `planning.type_mapping` consumers when renaming. See [Issue Workflow](./Issue-Workflow.md) for the roles.
 
 ### Configure Issue Types
 
@@ -861,7 +861,7 @@ For the current shared-library catalog, see [Additional Tooling](./Additional-To
 ### Adding a new script
 
 Scripts live in `tools/scripts/<name>.sh` (bash) or `tools/ts/<name>.ts`
-(TypeScript). Depth-1 entries at `tools/<name>` (without the `.sh` extension) are generated — not hand-made: `.devcontainer/entry-stubs-sync.sh` (run by bootstrap and by the test runner) creates a stub for every `tools/scripts/` and `tools/ts/` script. Never hand-edit or hand-create a stub.
+(TypeScript). Depth-1 entries at `tools/<name>` (without the `.sh` extension) are generated — not hand-made: `.devcontainer/entry-stubs-sync.sh` (run by bootstrap and by the test runner) creates a stub for every `tools/scripts/` and `tools/ts/` script. Never hand-edit or hand-create a stub. (the test runner also runs stub generation up front, so CI only needs the checkout + bash — but if your CI invokes bats directly without the runner, add the stub-generation step first.) (the test runner also runs stub generation up front, so CI only needs the checkout + bash — but if your CI invokes bats directly without the runner, add the stub-generation step first.)
 
 Scripts that only the devenv or githook machinery invokes (never run by users) belong in `tools/internal/` instead — they get no stub, are not on `PATH`, and are not part of the custom-over-fork-over-provided override chain. See [Additional Tooling — Internal machinery scripts](./Additional-Tooling.md#internal-machinery-scripts-toolsinternal).
 
@@ -886,12 +886,17 @@ Scripts that only the devenv or githook machinery invokes (never run by users) b
 
 ### Adding a new tool category
 
-When adding a group of related tools (e.g. `markdown-*`), follow these steps:
+When adding a group of related tools (e.g. `markdown-*`), follow the
+[Tooling Standards](./Tooling-Standards.md#bash-vs-typescript-which-tools-stay-bash)
+— new tools are TypeScript. Steps:
 
-1. Create the bash library at `tools/lib/<category>.bash` following the conventions above.
-2. Create scripts in `tools/scripts/<category>-<action>.sh`.
-3. Create symlinks in `tools/` for each script.
-4. Write library tests in `tools/tests/lib/test_<category>.bats`.
+1. Create the TS modules at `tools/lib/` (core/domain/providers per the
+   dependency-direction rules) following the conventions above.
+2. Create the tool entry at `tools/ts/<category>-<action>.ts` per the TS
+   template.
+3. The depth-1 stub at `tools/<name>` is generated (`entry-stubs-sync`) —
+   never hand-made.
+4. Write vitest suites in `tools/tests/ts/`.
 5. If any third-party packages are required (e.g. Python packages via `pip`, Node packages via `pnpm`), install them in `.devcontainer/bootstrap.bash` inside the appropriate `install_*` function so the dependency survives container rebuilds.
 6. Document the new tools in `docs/Additional-Tooling.md` under an appropriate section heading, following the existing format (usage, options, examples, features).
 

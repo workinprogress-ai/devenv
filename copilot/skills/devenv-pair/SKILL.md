@@ -917,7 +917,7 @@ Surface the issue, name the plan impact, offer options:
 >
 > *"I found two fresh TODOs in the files we just touched that look like real follow-up work, not noise. I can add them to the plan now if you want."*
 
-**Where to place new tasks:** Never add to a phase that is fully complete (`[x]` all tasks). Add to an open phase, or propose a new phase numbered after the last. Name the placement when raising the revision.
+**Where to place new tasks:** A phase closed at a handback may be reopened by user review — requested tasks thread directly into it: **below the phase's reserved `.100+` gate range** (the next free `2.8`, never `2.100+`; gate tasks never move or renumber), then **uncheck the phase's gate/closeout tasks so they re-execute** — that reopenability is the gate's nature, and the phase re-closes only when the gates pass again over the new work. Never leave a closed phase's gate ticked over unverified additions. A phase that stays closed takes no additions — propose a new phase numbered after the last instead. Name the placement when raising the revision.
 
 **Phase numbering is structural, and task numbering may reflow when needed:** if the user wants a new phase inserted before a later existing phase, treat that as a structural revision. Renumber the later phase headings sequentially (`Phase 5` becomes `Phase 6`, and so on), update any in-plan references that mention those phase numbers, and renumber affected downstream task series if the insertion lands in the middle of them.
 
