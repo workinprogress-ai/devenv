@@ -9,14 +9,15 @@ import { parseArgs } from "node:util";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
-import { ensureProviderAuth, providerRequireCapability } from "../lib/providers/provider-core.ts";
-import { pipelinesRunRerun, pipelinesRunView } from "../lib/providers/github/pipelines.ts";
+import { ensureProviderAuth, } from "../lib/providers/provider-core.ts";
+import { requireFamilyCapability } from "../lib/providers/facade/provider-loader.ts";
+import { pipelinesRunRerun, pipelinesRunView } from "../lib/providers/facade/pipelines.ts";
 
 assertNodeFloor();
 
 ensureProviderAuth();
 
-providerRequireCapability("pipelines");
+await requireFamilyCapability("pipelines", "pipelines");
 
 let runId = "";
 let repo = "";

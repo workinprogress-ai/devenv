@@ -14,7 +14,7 @@ import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
-import { issuesLabelList } from "../lib/providers/github/issues.ts";
+import { issuesLabelList } from "../lib/providers/facade/issues.ts";
 
 assertNodeFloor();
 

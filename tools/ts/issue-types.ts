@@ -16,7 +16,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
-import { orgIssueTypes } from "../lib/providers/github/issues.ts";
+import { orgIssueTypes } from "../lib/providers/facade/issues.ts";
 
 assertNodeFloor();
 

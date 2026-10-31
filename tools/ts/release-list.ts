@@ -10,7 +10,7 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { ensureProviderAuth, isDevenvRepoGated, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
-import { orgReleasesList } from "../lib/providers/github/org.ts";
+import { orgReleasesList } from "../lib/providers/facade/org.ts";
 
 assertNodeFloor();
 
@@ -94,7 +94,7 @@ interface Release {
 
 let releases: Release[] = [];
 try {
-  const raw = orgReleasesList(repoSpec, [
+  const raw = await orgReleasesList(repoSpec, [
     "--limit", limit,
     "--json", "tagName,name,publishedAt,isPrerelease,isDraft",
   ]);

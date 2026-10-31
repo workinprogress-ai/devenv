@@ -22,7 +22,7 @@ import { logError, logInfo } from "../lib/core/logging.ts";
 import { resolveToolsRoot } from "../lib/core/self-root.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
-import { issuesLabelList, issuesLabelCreate, issuesLabelUpdate } from "../lib/providers/github/issues.ts";
+import { issuesLabelList, issuesLabelCreate, issuesLabelUpdate } from "../lib/providers/facade/issues.ts";
 
 assertNodeFloor();
 
@@ -163,7 +163,10 @@ async function main(argv: string[]): Promise<number> {
       return 0;
     }
     try {
-      await issuesLabelCreate(repo, name, labelColor !== "" ? labelColor : undefined, labelDescription !== "" ? labelDescription : undefined);
+      await issuesLabelCreate(repo, name, {
+        ...(labelColor !== "" ? { color: labelColor } : {}),
+        ...(labelDescription !== "" ? { description: labelDescription } : {}),
+      });
       logInfo(`Created label: ${name}`);
       return 0;
     } catch (err) {

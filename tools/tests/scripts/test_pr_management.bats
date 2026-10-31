@@ -59,7 +59,7 @@ load ../test_helper
 
 @test "pr scripts source the provider facade" {
   for script in pr-get.ts pr-comment.ts pr-diff.ts pr-list.ts; do
-    run grep 'providers/github' "$PROJECT_ROOT/tools/ts/$script"
+    run grep 'providers/facade' "$PROJECT_ROOT/tools/ts/$script"
     [ "$status" -eq 0 ]
   done
 }
@@ -194,7 +194,7 @@ EOF
   for script in pr-threads-get.ts pr-thread-reply.ts pr-thread-resolve.ts; do
     run grep 'core/exit-codes.ts' "$PROJECT_ROOT/tools/ts/$script"
     [ "$status" -eq 0 ]
-    run grep 'providers/github' "$PROJECT_ROOT/tools/ts/$script"
+    run grep 'providers/facade' "$PROJECT_ROOT/tools/ts/$script"
     [ "$status" -eq 0 ]
   done
 }

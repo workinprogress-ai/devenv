@@ -16,8 +16,8 @@ import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/e
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
-import { prsThreadCreate, prsView } from "../lib/providers/github/prs.ts";
-import { authStatusOk } from "../lib/providers/github/urls.ts";
+import { prsThreadCreate, prsView } from "../lib/providers/facade/prs.ts";
+import { authStatusOk } from "../lib/providers/facade/urls.ts";
 
 assertNodeFloor();
 
@@ -143,7 +143,7 @@ async function main(argv: string[]): Promise<number> {
 
   checkTargetRepo(devenv);
 
-  if (!authStatusOk()) {
+  if (!(await authStatusOk())) {
     logError("Not authenticated with the active provider");
     process.stderr.write("Run: key-update-provider\n");
     return EXIT_API_FAILURE;

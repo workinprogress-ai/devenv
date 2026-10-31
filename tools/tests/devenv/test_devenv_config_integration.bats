@@ -150,7 +150,7 @@ EOF
     # gets the same seams from the provider facade imports.
     run grep 'provider-core.ts' "$PROJECT_ROOT/tools/ts/issue-triage.ts"
     [ "$status" -eq 0 ]
-    run grep 'github/issues.ts' "$PROJECT_ROOT/tools/ts/issue-triage.ts"
+    run grep 'providers/facade/issues.ts' "$PROJECT_ROOT/tools/ts/issue-triage.ts"
     [ "$status" -eq 0 ]
 }
 

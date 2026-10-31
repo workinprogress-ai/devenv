@@ -12,8 +12,8 @@ import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { checkTargetRepo } from "../lib/providers/provider-core.ts";
-import { prsView } from "../lib/providers/github/prs.ts";
-import { authStatusOk } from "../lib/providers/github/urls.ts";
+import { prsView } from "../lib/providers/facade/prs.ts";
+import { authStatusOk } from "../lib/providers/facade/urls.ts";
 
 assertNodeFloor();
 
@@ -89,7 +89,7 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_MISUSE;
   }
 
-  if (!authStatusOk()) {
+  if (!(await authStatusOk())) {
     logError("Not authenticated with the active provider");
     logInfo("Run: key-update-provider");
     return EXIT_API_FAILURE;

@@ -26,7 +26,7 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { openInEditor } from "../lib/core/editor.ts";
 import { isInteractive } from "../lib/ui/prompts.ts";
 import { checkTargetRepo, requireRepoTarget, ghApiSync, providerRepoSplit, providerRepoTarget } from "../lib/providers/provider-core.ts";
-import { issuesCreate, issuesSetType, issueGraphLink, issuesView } from "../lib/providers/github/issues.ts";
+import { issuesCreate, issuesSetType, issueGraphLink, issuesView } from "../lib/providers/facade/issues.ts";
 
 assertNodeFloor();
 
@@ -493,8 +493,7 @@ async function createIssue(st: CreateState): Promise<number> {
   // Native type-set. Owner/name come from the same spec the create used —
   // never re-derived from the cwd, so create and type-set cannot disagree.
   try {
-    const { owner, name } = providerRepoSplit(spec);
-    await issuesSetType(owner, name, issueNumber, st.type);
+    await issuesSetType(spec, issueNumber, st.type);
   } catch (err) {
     logError("Issue created but type could not be set");
     logError(`Remediation: issue-update ${issueNumber} --type ${st.type}`);

@@ -20,7 +20,7 @@ import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { normalizeIssueType } from "../lib/domain/issues/types.ts";
-import { issuesList, issuesView } from "../lib/providers/github/issues.ts";
+import { issuesList, issuesView } from "../lib/providers/facade/issues.ts";
 import { select, multiSelect, isInteractive } from "../lib/ui/prompts.ts";
 
 assertNodeFloor();

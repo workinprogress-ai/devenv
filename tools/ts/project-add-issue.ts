@@ -12,15 +12,8 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { ensureProviderAuth, isDevenvRepoGated, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
-import { issuesView } from "../lib/providers/github/issues.ts";
-import {
-  projectsItemAdd,
-  projectsIdByName,
-  projectsNumberByName,
-  projectsItemIdForIssue,
-  projectsFieldOptionIds,
-  projectsFieldSet,
-} from "../lib/providers/github/projects.ts";
+import { issuesView } from "../lib/providers/facade/issues.ts";
+import { projectsOps, projectsNumberByName } from "../lib/providers/facade/projects.ts";
 
 assertNodeFloor();
 
@@ -139,8 +132,9 @@ async function setFieldValues(issueNum: string): Promise<void> {
   const owner = specParts[0] ?? "";
   const repo = specParts[1] ?? "";
 
-  const projectId = projectsIdByName(owner, projectName);
-  const itemId = projectsItemIdForIssue(projectId, issueNum, owner, repo);
+  const ops = await projectsOps();
+  const projectId = await ops.idByName(owner, projectName);
+  const itemId = await ops.itemIdForIssue(projectId, issueNum, owner, repo);
 
   for (const fieldValue of fieldValues) {
     const eq = fieldValue.indexOf("=");
@@ -151,8 +145,8 @@ async function setFieldValues(issueNum: string): Promise<void> {
       throw new Error(`Invalid field format: ${fieldValue} (expected NAME=VALUE)`);
     }
 
-    const { fieldId, optionId } = projectsFieldOptionIds(projectId, fieldName, fieldVal);
-    if (!projectsFieldSet(projectId, itemId, fieldId, optionId)) {
+    const { fieldId, optionId } = await ops.fieldOptionIds(projectId, fieldName, fieldVal);
+    if (!(await ops.fieldSet(projectId, itemId, fieldId, optionId))) {
       throw new Error(`Failed to set ${fieldName}='${fieldVal}' for issue #${issueNum} in '${projectName}'`);
     }
     logInfo(`Set ${fieldName}='${fieldVal}' for issue #${issueNum} in project '${projectName}'`);
@@ -182,7 +176,7 @@ async function addIssueToProject(issueNum: string): Promise<void> {
   // resolve once here so both <title> and <number> inputs behave the same.
   let projectNumber = "";
   try {
-    projectNumber = projectsNumberByName(owner, projectName);
+    projectNumber = await projectsNumberByName(owner, projectName);
   } catch (err) {
     logError(`Could not resolve project '${projectName}' to a number`);
     const msg = err instanceof Error ? err.message : String(err);
@@ -193,7 +187,8 @@ async function addIssueToProject(issueNum: string): Promise<void> {
 
   logWarn(`Adding issue #${issueNum} to project '${projectName}'`);
   try {
-    projectsItemAdd(undefined, projectNumber, issueUrl, ["--owner", owner]);
+    const ops = await projectsOps();
+    await ops.itemAdd(projectNumber, issueUrl, owner);
   } catch (err) {
     logError(`Failed to add issue #${issueNum} to project '${projectName}'`);
     const msg = err instanceof Error ? err.message : String(err);

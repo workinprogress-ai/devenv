@@ -20,9 +20,15 @@ import { existsSync, readFileSync } from "node:fs";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { checkTargetRepo, requireRepoTarget, providerRepoTarget, providerDetect } from "../lib/providers/provider-core.ts";
-import { issuesExists, issuesEdit, issuesClose, issuesReopen, issueBlockedByLink, issueBlockedByUnlink } from "../lib/providers/github/issues.ts";
-import { issueDependencyLink, issueDependencyUnlink, issuesEdit as azIssuesEdit } from "../lib/providers/azure/issues.ts";
+import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import {
+  issuesExists,
+  issuesEdit,
+  issuesClose,
+  issuesReopen,
+  blockedByAdd,
+  blockedByRemove,
+} from "../lib/providers/facade/issues.ts";
 
 assertNodeFloor();
 
@@ -265,14 +271,7 @@ async function main(argv: string[]): Promise<number> {
       logInfo(`[DRY RUN] Would edit issue #${issueNumber}`);
     } else {
       try {
-        const isAzure = (() => {
-          try {
-            return providerDetect() === "azure";
-          } catch {
-            return false;
-          }
-        })();
-        const editOpts = {
+        await issuesEdit(repo, num, {
           ...(newTitle !== "" ? { title: newTitle } : {}),
           ...(removeType ? {} : normalizedType !== null ? { type: normalizedType } : {}),
           ...(newBody !== "" ? { body: newBody } : {}),
@@ -281,34 +280,7 @@ async function main(argv: string[]): Promise<number> {
           ...(addAssignees.length > 0 ? { addAssignee: addAssignees } : {}),
           ...(removeAssignees.length > 0 ? { removeAssignee: removeAssignees } : {}),
           ...(milestoneGiven ? { milestone: newMilestone } : {}),
-        };
-        if (isAzure) {
-          // Azure's IssuesEditOptions has no assignee or milestone surface
-          // and takes single label strings. Silently dropping a requested
-          // mutation would report success on a no-op — refuse the
-          // unrepresentable fields with named errors instead.
-          if (addAssignees.length > 0 || removeAssignees.length > 0) {
-            logError("--add-assignee/--remove-assignee is not implemented for provider 'azure' yet (github-only seam)");
-            return EXIT_GENERAL_ERROR;
-          }
-          if (milestoneGiven) {
-            logError("--milestone is not implemented for provider 'azure' yet (github-only seam)");
-            return EXIT_GENERAL_ERROR;
-          }
-          if (addLabels.length > 1 || removeLabels.length > 1) {
-            logError("provider 'azure' takes at most one --add-label/--remove-label per edit");
-            return EXIT_MISUSE;
-          }
-          await azIssuesEdit(repo, num, {
-            ...(newTitle !== "" ? { title: newTitle } : {}),
-            ...(newBody !== "" ? { body: newBody } : {}),
-            ...(addLabels[0] !== undefined ? { addLabel: addLabels[0] } : {}),
-            ...(removeLabels[0] !== undefined ? { removeLabel: removeLabels[0] } : {}),
-            ...(normalizedType !== null ? { type: normalizedType } : {}),
-          });
-        } else {
-          await issuesEdit(repo, num, editOpts);
-        }
+        });
         logInfo(`Updated issue #${issueNumber}`);
       } catch (err) {
         logError(`Failed to update issue #${issueNumber}: ${err instanceof Error ? err.message : String(err)}`);
@@ -318,36 +290,18 @@ async function main(argv: string[]): Promise<number> {
   }
 
   if (blockedByGiven) {
-    const isAzure = (() => {
-      try {
-        return providerDetect() === "azure";
-      } catch {
-        return false;
-      }
-    })();
     if (dryRun) {
       for (const b of addBlockers) logInfo(`[DRY RUN] Would record #${issueNumber} blocked by #${b}`);
       for (const b of removeBlockers) logInfo(`[DRY RUN] Would un-record #${issueNumber} blocked by #${b}`);
     } else {
       try {
-        if (isAzure) {
-          for (const b of addBlockers) {
-            await issueDependencyLink(repo, num, b);
-            logInfo(`Recorded #${issueNumber} blocked by #${b}`);
-          }
-          for (const b of removeBlockers) {
-            await issueDependencyUnlink(repo, num, b);
-            logInfo(`Un-recorded #${issueNumber} blocked by #${b}`);
-          }
-        } else {
-          if (addBlockers.length > 0) {
-            await issueBlockedByLink(repo, num, addBlockers);
-            for (const b of addBlockers) logInfo(`Recorded #${issueNumber} blocked by #${b}`);
-          }
-          if (removeBlockers.length > 0) {
-            await issueBlockedByUnlink(repo, num, removeBlockers);
-            for (const b of removeBlockers) logInfo(`Un-recorded #${issueNumber} blocked by #${b}`);
-          }
+        if (addBlockers.length > 0) {
+          await blockedByAdd(repo, num, addBlockers);
+          for (const b of addBlockers) logInfo(`Recorded #${issueNumber} blocked by #${b}`);
+        }
+        if (removeBlockers.length > 0) {
+          await blockedByRemove(repo, num, removeBlockers);
+          for (const b of removeBlockers) logInfo(`Un-recorded #${issueNumber} blocked by #${b}`);
         }
       } catch (err) {
         logError(`Failed to update blocked-by on #${issueNumber}: ${err instanceof Error ? err.message : String(err)}`);

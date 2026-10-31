@@ -11,7 +11,7 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { ensureProviderAuth, isDevenvRepoGated, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
-import { orgRulesetsList, orgRulesetGet } from "../lib/providers/github/org.ts";
+import { orgRulesetsList, orgRulesetGet } from "../lib/providers/facade/org.ts";
 
 assertNodeFloor();
 
@@ -90,7 +90,7 @@ if (isDevenvRepoGated() && (process.env["DEVENV_REPO"] === undefined || process.
 if (rulesetId === "") {
   let raw: string;
   try {
-    raw = orgRulesetsList(ownerRepo);
+    raw = await orgRulesetsList(ownerRepo);
   } catch {
     logError("Failed to list rulesets");
     process.exit(EXIT_GENERAL_ERROR);
@@ -110,7 +110,7 @@ if (rulesetId === "") {
 
 let raw: string;
 try {
-  raw = orgRulesetGet(ownerRepo, rulesetId);
+  raw = await orgRulesetGet(ownerRepo, rulesetId);
 } catch {
   logError(`Failed to fetch ruleset ${rulesetId}`);
   process.exit(EXIT_GENERAL_ERROR);
