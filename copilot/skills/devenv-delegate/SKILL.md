@@ -325,7 +325,7 @@ Before execution starts, refresh the current phase task list against reality usi
 - Preserve valid tasks.
 - Tighten vague tasks into concise step entries.
 - Remove or strike obsolete tasks with a short reason.
-- Add newly required unchecked tasks in the current phase (or add a new phase only if necessary).
+- Add newly required unchecked tasks in the current phase (or add a new phase only if necessary) — threaded **below the phase's reserved `.100+` gate range**, the gate/closeout tasks (next free `2.8`, never `2.100+`); gate tasks never move or renumber. When this reopens a phase that had already closed (tasks requested at its handback review), uncheck its gate/closeout tasks — they re-execute and the phase re-closes through them; that reopenability is the gate's nature.
 - Keep the phase list concise (typically 3-7 active tasks) and phase-local.
 - Ask for a quick confirm before starting implementation — present via the structured interview per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections) when the choice is bounded.
 
