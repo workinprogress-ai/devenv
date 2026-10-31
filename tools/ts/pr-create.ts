@@ -18,9 +18,9 @@ import { EXIT_API_FAILURE, EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { providerRepoTarget, requireRepoTarget, ghApi } from "../lib/providers/provider-core.ts";
-import { prsCreate, prsList } from "../lib/providers/github/prs.ts";
-import { issuesView, issuesLabelEnsure } from "../lib/providers/github/issues.ts";
-import { extractUrl, remoteToSpec } from "../lib/providers/github/urls.ts";
+import { prsCreate, prsList } from "../lib/providers/facade/prs.ts";
+import { issuesView, issuesLabelEnsure } from "../lib/providers/facade/issues.ts";
+import { extractUrl, remoteToSpec } from "../lib/providers/facade/urls.ts";
 import { signalPrEventsForPr } from "../lib/domain/events.ts";
 
 assertNodeFloor();
@@ -199,7 +199,7 @@ async function main(argv: string[]): Promise<number> {
   // Repo spec: origin remote through the provider URL seam, else the
   // provider resolver.
   const originUrl = spawnSync("git", ["-C", repoDir, "remote", "get-url", "origin"], { encoding: "utf8" });
-  let repoSpec = originUrl.status === 0 ? (remoteToSpec((originUrl.stdout ?? "").trim()) ?? "") : "";
+  let repoSpec = originUrl.status === 0 ? ((await remoteToSpec((originUrl.stdout ?? "").trim())) ?? "") : "";
   if (repoSpec === "") repoSpec = requireRepoTarget(providerRepoTarget(""), "pr-create", "pr");
 
   // allowSquashMerge rides the provider repos seam (jq kept in argv: the
@@ -387,7 +387,7 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_API_FAILURE;
   }
 
-  const prUrl = extractUrl(createOut);
+  const prUrl = await extractUrl(createOut);
   if (prUrl === null) {
     console.error("The provider reported success but printed no PR URL.");
     return EXIT_API_FAILURE;

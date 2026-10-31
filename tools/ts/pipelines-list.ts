@@ -10,16 +10,17 @@ import { parseArgs } from "node:util";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logWarn } from "../lib/core/logging.ts";
-import { ensureProviderAuth, providerOrgGet, providerRequireCapability } from "../lib/providers/provider-core.ts";
+import { ensureProviderAuth, providerOrgGet, } from "../lib/providers/provider-core.ts";
+import { requireFamilyCapability } from "../lib/providers/facade/provider-loader.ts";
 import { formatTable } from "../lib/ui/panels.ts";
-import { reposList } from "../lib/providers/github/repos.ts";
-import { pipelinesWorkflowList } from "../lib/providers/github/pipelines.ts";
+import { reposList } from "../lib/providers/facade/repos.ts";
+import { pipelinesWorkflowList } from "../lib/providers/facade/pipelines.ts";
 
 assertNodeFloor();
 
 ensureProviderAuth();
 
-providerRequireCapability("pipelines");
+await requireFamilyCapability("pipelines", "pipelines");
 
 interface WorkflowRow {
   repo: string;

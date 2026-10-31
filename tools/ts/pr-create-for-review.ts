@@ -15,8 +15,8 @@ import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/e
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
-import { prsCreate } from "../lib/providers/github/prs.ts";
-import { extractUrl } from "../lib/providers/github/urls.ts";
+import { prsCreate } from "../lib/providers/facade/prs.ts";
+import { extractUrl } from "../lib/providers/facade/urls.ts";
 
 assertNodeFloor();
 
@@ -184,7 +184,7 @@ async function main(argv: string[]): Promise<number> {
         draft: true,
       })
     ).stdout;
-    prUrl = extractUrl(out);
+    prUrl = (await extractUrl(out)) ?? "";
   } catch (err) {
     console.error(err instanceof Error ? err.message : String(err));
   }

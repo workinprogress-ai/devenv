@@ -14,24 +14,8 @@ import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { configGetArray } from "../lib/core/config.ts";
 import { ensureProviderAuth, isDevenvRepoGated, providerConfigPath, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
-import { issueWebUrl } from "../lib/providers/github/issues.ts";
-import {
-  projectsIdByName as ghProjectsIdByName,
-  projectsItemIdForIssue as ghProjectsItemIdForIssue,
-  projectsFieldOptionIds as ghProjectsFieldOptionIds,
-  projectsFieldSet as ghProjectsFieldSet,
-  projectsForIssue as ghProjectsForIssue,
-  projectsFieldList as ghProjectsFieldList,
-} from "../lib/providers/github/projects.ts";
-import {
-  projectsIdByName as azProjectsIdByName,
-  projectsItemIdForIssue as azProjectsItemIdForIssue,
-  projectsFieldOptionIds as azProjectsFieldOptionIds,
-  projectsFieldSet as azProjectsFieldSet,
-  projectsForIssue as azProjectsForIssue,
-  projectsFieldList as azProjectsFieldList,
-} from "../lib/providers/azure/projects.ts";
-import { providerDetect } from "../lib/providers/provider-core.ts";
+import { issueWebUrl } from "../lib/providers/facade/issues.ts";
+import { projectsOps } from "../lib/providers/facade/projects.ts";
 
 assertNodeFloor();
 
@@ -178,83 +162,11 @@ if (isDevenvRepoGated() && (process.env["DEVENV_REPO"] === undefined || process.
 const owner = repoSpec.split("/")[0] ?? "";
 const repo = repoSpec.split("/")[1] ?? "";
 
-// Provider dispatch for the projects family (15.14): the tool picks the
-// active provider's module once — under [provider] name=azure the azure
-// verbs run (boards/columns semantics), github keeps its module. Async-
-// normalized: azure's verbs are Promise-returning, github's sync, so every
-// call site awaits.
-const isAzure = (() => {
-  try {
-    return providerDetect() === "azure";
-  } catch {
-    return false;
-  }
-})();
-
-interface ProjectsOps {
-  idByName(owner: string, name: string): Promise<string>;
-  itemIdForIssue(projectId: string, issueNumber: string, owner: string, repo: string): Promise<string>;
-  fieldOptionIds(projectId: string, field: string, word: string): Promise<{ fieldId: string; optionId: string }>;
-  fieldSet(projectId: string, item: string, fieldId: string, optionId: string): Promise<boolean>;
-  forIssue(issueUrl: string, owner: string): Promise<Array<{ title: string; number: string; status: string }>>;
-  fieldList(projectName: string, owner: string): Promise<string>;
-}
-
-const ghOps: ProjectsOps = {
-  async idByName(owner, name) {
-    return ghProjectsIdByName(owner, name);
-  },
-  async itemIdForIssue(projectId, issueNumber, owner, repo) {
-    return ghProjectsItemIdForIssue(projectId, issueNumber, owner, repo);
-  },
-  async fieldOptionIds(projectId, field, word) {
-    return ghProjectsFieldOptionIds(projectId, field, word);
-  },
-  async fieldSet(projectId, item, fieldId, optionId) {
-    return ghProjectsFieldSet(projectId, item, fieldId, optionId);
-  },
-  async forIssue(issueUrl, owner) {
-    return ghProjectsForIssue(issueUrl, owner) as unknown as Promise<Array<{ title: string; number: string; status: string }>>;
-  },
-  async fieldList(projectName, owner) {
-    return ghProjectsFieldList(undefined, projectName, ["--owner", owner]);
-  },
-};
-
-const azOps: ProjectsOps = {
-  async idByName(owner, name) {
-    return azProjectsIdByName(owner, name);
-  },
-  async itemIdForIssue(projectId, issueNumber) {
-    return azProjectsItemIdForIssue(projectId, issueNumber);
-  },
-  async fieldOptionIds(projectId, field, word) {
-    return azProjectsFieldOptionIds(projectId, field, word);
-  },
-  async fieldSet(projectId, item, fieldId, optionId) {
-    await azProjectsFieldSet(projectId, item, fieldId, optionId);
-    return true;
-  },
-  async forIssue(issueUrl, owner) {
-    const raw = await azProjectsForIssue(issueUrl, owner);
-    // Azure's verb returns one tab-separated line per project:
-    // boardName\tWORK-ITEM-ID\tstatus (column 2 is the work-item id — the
-    // value the Status write feeds to idByName's numeric pass-through).
-    // Parse to the row objects the shared fan-out iterates.
-    return raw
-      .split("\n")
-      .filter((l) => l.trim() !== "")
-      .map((l) => {
-        const [title, number, status] = l.split("\t");
-        return { title: title ?? "", number: number ?? "", status: status ?? "" };
-      });
-  },
-  async fieldList(projectName) {
-    return azProjectsFieldList("", projectName);
-  },
-};
-
-const ops: ProjectsOps = isAzure ? azOps : ghOps;
+// Provider dispatch for the projects family lives in the facade (the
+// hoisted 15.14 ops-object): one async-neutral verb set, resolved lazily
+// on first use. The `isAzure` probe and both per-provider op tables are
+// gone — the tool no longer knows providers exist.
+const ops = await projectsOps();
 
 if (listFields) {
   logInfo(`Listing fields for project: ${projectName}`);
@@ -275,7 +187,7 @@ if (issueNumber === "") {
   process.exit(EXIT_GENERAL_ERROR);
 }
 
-const issueUrl = issueWebUrl(repoSpec, Number(issueNumber));
+const issueUrl = await issueWebUrl(repoSpec, Number(issueNumber));
 
 async function updateStatus(status: string): Promise<boolean> {
   if (!validateStatus(status)) return false;

@@ -237,7 +237,7 @@ function runPipelinesListSync(repo: string, branch: string, limit: number, json:
   // applyJq's supported subset, so every poll threw and the CI-wait was
   // structurally dead. The wizard filters in-process (status) or reads
   // fields directly (conclusion).
-  const script = `import { pipelinesRunList } from "${join(toolsRoot, "lib/providers/github/pipelines.ts")}";
+  const script = `import { pipelinesRunList } from "${join(toolsRoot, "lib/providers/facade/pipelines.ts")}";
   const out = await pipelinesRunList(${JSON.stringify(repo)}, { branch: ${JSON.stringify(branch)}, limit: ${limit}, json: ${JSON.stringify(json === "status" ? "status,conclusion" : "conclusion")} });
   process.stdout.write(out);`;
   const r = spawnSync("node", ["--input-type=module", "-e", script], { encoding: "utf8" });
@@ -259,7 +259,7 @@ function defaultBranch(repoFull: string): string {
   try {
     // Sync bridge over the async facade verb (same mechanism as the run list).
     const toolsRoot = process.env.DEVENV_TOOLS ?? resolveToolsRoot(fileURLToPath(import.meta.url));
-    const script = `import { reposView } from "${join(toolsRoot, "lib/providers/github/repos.ts")}";
+    const script = `import { reposView } from "${join(toolsRoot, "lib/providers/facade/repos.ts")}";
     const out = await reposView(${JSON.stringify(repoFull)}, { json: "defaultBranch" });
     const j = JSON.parse(out) as { defaultBranch?: string };
     process.stdout.write(j.defaultBranch ?? "");`;

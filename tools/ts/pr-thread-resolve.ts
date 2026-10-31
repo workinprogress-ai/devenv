@@ -12,8 +12,8 @@ import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/e
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { checkTargetRepo } from "../lib/providers/provider-core.ts";
-import { prsThreadResolve } from "../lib/providers/github/prs.ts";
-import { authStatusOk } from "../lib/providers/github/urls.ts";
+import { prsThreadResolve } from "../lib/providers/facade/prs.ts";
+import { authStatusOk } from "../lib/providers/facade/urls.ts";
 
 assertNodeFloor();
 
@@ -94,7 +94,7 @@ async function main(argv: string[]): Promise<number> {
 
   checkTargetRepo(devenv);
 
-  if (!authStatusOk()) {
+  if (!(await authStatusOk())) {
     logError("Not authenticated with the active provider");
     process.stderr.write("Run: key-update-provider\n");
     return EXIT_API_FAILURE;
@@ -107,7 +107,7 @@ async function main(argv: string[]): Promise<number> {
 
   let isResolved: string;
   try {
-    isResolved = await prsThreadResolve(threadId);
+    isResolved = (await prsThreadResolve(threadId)).stdout.trim();
   } catch {
     logError(`Failed to resolve thread: ${threadId}`);
     return EXIT_API_FAILURE;

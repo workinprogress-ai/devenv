@@ -50,6 +50,9 @@ organized by role, never by language.
   marked with a `❯` cursor column — never by color alone, which dies in
   color-less profiles; checked/unchecked stay `◼`/`◻`.
 - `lib/providers/` — the provider facade implementing `CONTRACT.md`.
+  TypeScript tools import `lib/providers/facade/<family>.ts`, never a
+  provider module directly (`provider-explain.ts` excepted — it
+  introspects); `provider-boundary.test.ts` enforces the rule.
 - `lib/domain/` — headless pure logic (issues, repos, fork, markdown, …).
   Never imports `ui/`; only tool scripts orchestrate interaction.
 

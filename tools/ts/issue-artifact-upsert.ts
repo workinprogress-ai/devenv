@@ -24,7 +24,7 @@ import { logError, logInfo } from "../lib/core/logging.ts";
 import { select } from "../lib/ui/prompts.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { providerRepoTarget, requireRepoTarget, isDevenvRepoGated } from "../lib/providers/provider-core.ts";
-import { issuesComments, issuesCommentAdd, issuesCommentEdit } from "../lib/providers/github/issues.ts";
+import { issuesComments, issuesCommentAdd, issuesCommentEdit } from "../lib/providers/facade/issues.ts";
 
 assertNodeFloor();
 

@@ -18,7 +18,7 @@ import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
-import { issuesComments } from "../lib/providers/github/issues.ts";
+import { issuesComments } from "../lib/providers/facade/issues.ts";
 
 assertNodeFloor();
 

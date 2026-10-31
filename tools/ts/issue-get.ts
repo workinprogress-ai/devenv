@@ -12,9 +12,8 @@ import {} from "node:fs";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { checkTargetRepo, requireRepoTarget, providerRepoTarget, providerDetect } from "../lib/providers/provider-core.ts";
-import { issuesView } from "../lib/providers/github/issues.ts";
-import { issuesView as azIssuesView } from "../lib/providers/azure/issues.ts";
+import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { issuesView } from "../lib/providers/facade/issues.ts";
 
 assertNodeFloor();
 
@@ -102,45 +101,28 @@ async function main(argv: string[]): Promise<number> {
 
   const repo = requireRepoTarget(providerRepoTarget(""), "issue-get", "issues");
 
-  const isAzure = (() => {
-    try {
-      return providerDetect() === "azure";
-    } catch {
-      return false;
-    }
-  })();
-
   let json: string;
   try {
-    if (isAzure) {
-      // Azure: the mapped seam record already carries every default field
-      // (including the work-item type, 15.22c) — project to the list.
-      const rec = await azIssuesView(repo, Number.parseInt(issueNumber, 10));
-      const projection: Record<string, unknown> = {};
-      for (const f of DEFAULT_FIELDS.split(",")) projection[f] = rec[f] ?? null;
-      json = JSON.stringify(projection);
-    } else {
-      json = await issuesView(repo, Number.parseInt(issueNumber, 10), { json: DEFAULT_FIELDS });
-    }
+    json = await issuesView(repo, Number.parseInt(issueNumber, 10), { json: DEFAULT_FIELDS });
   } catch (err) {
     logError(`Issue #${issueNumber} not found — ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
     return EXIT_API_FAILURE;
   }
 
   const issue = JSON.parse(json) as Record<string, unknown>;
-  // Provider-neutral `type`: GitHub's issueType {name} object flattens to a
-  // string; Azure's mapped record already carries the string. The branch is
-  // provider-based, NOT record-shape-based: the Azure projection above
-  // fills every DEFAULT_FIELDS entry with `?? null`, so an Azure record
-  // carries `issueType: null` (never undefined) and a shape probe would
-  // misroute it into the GitHub arm — wiping its real `type` to "".
-  if (isAzure) {
-    issue["type"] = typeof issue["type"] === "string" ? issue["type"] : "";
-  } else {
-    const it = issue["issueType"] as { name?: string } | null | undefined;
-    issue["type"] = it?.name ?? "";
-    delete issue["issueType"];
+  // Provider-neutral `type`: GitHub's view projects `issueType` as {name}
+  // (null when the issue has no native type); Azure's mapped record carries
+  // `type` as a string (with `issueType: null` from the facade's `?? null`
+  // projection). Flatten only a real object — a null `issueType` must never
+  // wipe a real `type` string — and always drop the projection key: the
+  // github output shape never carried `issueType` after this point.
+  const it = issue["issueType"];
+  if (it !== null && it !== undefined && typeof it === "object") {
+    issue["type"] = (it as { name?: string }).name ?? "";
+  } else if (typeof issue["type"] !== "string") {
+    issue["type"] = "";
   }
+  delete issue["issueType"];
 
   if (formatField !== "") {
     if (formatField === "labels") {

@@ -24,7 +24,7 @@ import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
-import { issuesEdit } from "../lib/providers/github/issues.ts";
+import { issuesEdit } from "../lib/providers/facade/issues.ts";
 
 assertNodeFloor();
 

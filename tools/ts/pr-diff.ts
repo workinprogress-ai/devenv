@@ -13,7 +13,7 @@ import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/e
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
-import { prsDiff } from "../lib/providers/github/prs.ts";
+import { prsDiff } from "../lib/providers/facade/prs.ts";
 
 assertNodeFloor();
 
