@@ -176,6 +176,27 @@ EOF
     [ "$(git -C "$TESTREPO" rev-list --count HEAD 2>/dev/null || echo 0)" -le 1 ]
 }
 
+# A failing pre-commit hook is NOT an editor abort: the tool must name the hook
+# as the cause (the hook's own diagnostics are already on the terminal via
+# stdio inherit), so a red suite is never misread as a cancelled commit.
+@test "failing pre-commit hook is reported as a hook rejection" {
+    stage_one_file
+    SAVE_EDITOR="$TESTREPO/save-editor.sh"
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$SAVE_EDITOR"
+    chmod +x "$SAVE_EDITOR"
+    HOOK="$TESTREPO/.git/hooks/pre-commit"
+    printf '#!/usr/bin/env bash\necho "Test suite failed! (mode: parallel)" >&2\necho "husky - pre-commit script failed (code 1)" >&2\nexit 1\n' > "$HOOK"
+    chmod +x "$HOOK"
+    GIT_EDITOR="$SAVE_EDITOR" run "$REPO_COMMIT" "hook should reject this"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"rejected by a pre-commit hook"* ]]
+    [[ "$output" == *"Test suite failed"* ]]   # hook's own diagnostics surfaced
+    [[ "$output" != *"editor session aborted"* ]]
+    # Nothing committed; staged state preserved.
+    run git -C "$TESTREPO" diff --cached --quiet
+    [ "$status" -eq 1 ]
+}
+
 @test "unstaged files are never swept into the commit" {
     echo "staged" > "$TESTREPO/staged.txt"
     echo "unstaged" > "$TESTREPO/unstaged.txt"

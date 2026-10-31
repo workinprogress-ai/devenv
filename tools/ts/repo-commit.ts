@@ -455,7 +455,13 @@ if (fixLane) {
   process.exit(0);
 }
 
-/** Escape regex metacharacters for --grep (subjects may contain them). */
+/** Escape ERE metacharacters for --grep (subjects may contain them).
+ *
+ * git log --grep matches with basic/extended regex (basic by default),
+ * not fixed strings, so metacharacters in a subject would otherwise be
+ * interpreted. (The report line below is the only match-sensitive consumer.)
+ * For callers wanting literal matching, `git log -F --grep=<s>` is the
+ * honest alternative; kept as escaping here so --grep stays consistent. */
 function escapeGrep(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -507,12 +513,26 @@ writeFileSync(msgfile, `${suggested}\n`);
 // editors draw their UI on the TTY. The one-line notice says which editor is
 // taking over the terminal.
 console.log(`repo-commit: opening editor: ${editor}  (save & close to commit; empty/abort cancels)`);
+console.log("repo-commit: pre-commit hooks run after the editor closes; on this repo the suite takes minutes — wait for the final line, do not assume a hang.");
+// stdin/stdout stay inherited (terminal editors draw their UI there); stderr is
+// piped so a HOOK rejection can be told apart from an editor abort — with full
+// inherit, spawnSync captures nothing and the two failures are indistinguishable.
 const commit = spawnSync("git", ["commit", "--cleanup=strip", "--edit", "-F", msgfile], {
-  stdio: "inherit",
+  stdio: ["inherit", "inherit", "pipe"],
   env: { ...process.env, GIT_EDITOR: editor },
 });
+const commitStderr = commit.stderr instanceof Buffer
+  ? commit.stderr.toString()
+  : typeof commit.stderr === "string" ? commit.stderr : "";
+if (commitStderr !== "") process.stderr.write(commitStderr);
 rmSync(tmpDir, { recursive: true, force: true });
 if (commit.status !== 0) {
+  // Distinguish the two abort classes honestly: a HOOK rejection prints its
+  // own diagnostics (reprinted above from the captured stderr) — naming it
+  // prevents misreading a failed suite as an editor abort.
+  if (/hook|Test suite failed|Tests failed/i.test(commitStderr)) {
+    die("commit rejected by a pre-commit hook — no commit exists, index untouched (the failure's output is above)");
+  }
   die("commit did not complete (editor session aborted or git failed) — index left untouched");
 }
 
