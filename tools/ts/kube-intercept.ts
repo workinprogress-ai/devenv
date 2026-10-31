@@ -8,6 +8,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import { parseArgs } from "node:util";
+import { EXIT_CONFLICT } from "../lib/core/exit-codes.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { logError } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
@@ -112,6 +113,17 @@ for (const mapping of mappings) {
     console.error(`Failed to select pod for deployment: ${depId}`);
     process.exit(EXIT_GENERAL_ERROR);
   }
+  if (pods.length > 1) {
+    // Same contract as kube-forward-ports: an intercept replacing the wrong
+    // pod among several matches is a silent wrong-target action — refuse,
+    // even under KUBE_NO_INTERACTIVE=1 (blind picking is not safe here).
+    if (process.env.KUBE_NO_INTERACTIVE === "1") {
+      console.error(`KUBE_NO_INTERACTIVE=1 cannot pick among ${pods.length} pods matching '${depId}' — pin the exact pod name.`);
+      process.exit(EXIT_CONFLICT);
+    }
+    console.error(`Multiple pods match '${depId}' (${pods.length} found) — be more specific.`);
+    process.exit(EXIT_CONFLICT);
+  }
   const pod = pods[0] as string;
 
   const portArgs: string[] = [];
@@ -210,12 +222,16 @@ for (const it of intercepts) {
   if (r.status !== 0) {
     console.error(`telepresence replace failed for pod ${it.pod}`);
     cleanup();
+    // A failed intercept must not report success (cleanup alone exited 0).
+    process.exit(EXIT_GENERAL_ERROR);
   }
 }
 
 if (watchdog === undefined) {
-  console.log("Watchdog is running in the background.  No need to stay running.");
-  console.log("Mission accomplished.  To exit the intercept, kill the process where the connection watchdog is running.");
+  // Reachable only when telepresence was already connected (no watchdog was
+  // started). The old bash wording claimed a watchdog was running — it was not.
+  console.log("Telepresence already connected; no connection watchdog needed.");
+  console.log("Intercepts are active.  To exit the intercept, run telepresence leave (or quit the daemon).");
   process.exit(0);
 }
 

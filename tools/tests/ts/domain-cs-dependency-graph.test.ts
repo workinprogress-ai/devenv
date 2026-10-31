@@ -7,6 +7,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type * as graphModule from "../../lib/domain/cs/dependency-graph.ts";
 type Graph = typeof graphModule;
 async function loadGraph(): Promise<Graph> {
@@ -177,5 +178,68 @@ describe("domain/cs dependency-graph", () => {
     writeFileSync(join(idx, ".index_prefix"), "WIP.");
     const gens = g.getTopologicalGenerations();
     expect(gens).toEqual([]);
+  });
+
+
+});
+// ---------------------------------------------------------------------------
+// 15.103: refreshRepoCache lists via `gh repo list` (the `repos list`
+// subcommand does not exist in gh and killed every cache refresh).
+// ---------------------------------------------------------------------------
+
+describe("refreshRepoCache argv shape", () => {
+  it("issues `gh repo list <org>` (never `gh repos list`)", async () => {
+    const { spawnSync } = await import("node:child_process");
+    const { existsSync, readFileSync } = await import("node:fs");
+    const stubDir = mkdtempSync(join(tmpdir(), "f1-stub-"));
+    const workDir = mkdtempSync(join(tmpdir(), "f1-root-"));
+    writeFileSync(
+      join(stubDir, "gh"),
+      [
+        "#!/usr/bin/env bash",
+        'printf \'%s\\n\' "gh $*" >> "__LOG__"',
+        'if [ "$1 $2" = "auth status" ]; then exit 0; fi',
+        'case "$*" in',
+        '  *"repo list"*) echo "repo-one"; echo "repo-two";;',
+        "  *) ;;",
+        "esac",
+        "exit 0",
+        "",
+      ].join("\n").replaceAll("__LOG__", join(stubDir, "calls.log")),
+      { mode: 0o755 },
+    );
+    writeFileSync(join(workDir, "devenv.config"), "[organization]\norg=test-org\n");
+    const savedRoot = process.env.DEVENV_ROOT;
+    const savedRepo = process.env.DEVENV_REPO;
+    const savedPathDomainCs = process.env.PATH;
+    try {
+      process.env.DEVENV_ROOT = workDir;
+      process.env.DEVENV_REPO = "test-org/repo-one";
+      const r = spawnSync("node", ["-e", `
+        process.env.PATH = ${JSON.stringify(stubDir)} + ":" + process.env.PATH;
+        const m = await import(${JSON.stringify(join(fileURLToPath(new URL(".", import.meta.url)), "../../lib/domain/cs/dependency-graph.ts"))});
+        process.exitCode = await m.refreshRepoCache();
+      `], {
+        encoding: "utf8",
+        cwd: workDir,
+        env: { ...process.env, PATH: `${stubDir}:${process.env.PATH ?? ""}` },
+        timeout: 30000,
+      });
+      const log = join(stubDir, "calls.log");
+      const calls = existsSync(log)
+        ? readFileSync(log, "utf8").split("\n").filter((l) => l.startsWith("gh "))
+        : [];
+      expect(calls.some((c) => c.includes("repo list"))).toBe(true);
+      expect(calls.some((c) => c.includes("repos list"))).toBe(false);
+      void r;
+    } finally {
+      process.env.PATH = savedPathDomainCs;
+      if (savedRoot === undefined) delete process.env.DEVENV_ROOT;
+      else process.env.DEVENV_ROOT = savedRoot;
+      if (savedRepo === undefined) delete process.env.DEVENV_REPO;
+      else process.env.DEVENV_REPO = savedRepo;
+      rmSync(stubDir, { recursive: true, force: true });
+      rmSync(workDir, { recursive: true, force: true });
+    }
   });
 });

@@ -33,12 +33,14 @@ const backupDir = process.argv[3] as string;
 
 mkdirSync(backupDir, { recursive: true });
 
-// Unique timestamped subfolder (date +%Y%m%d_%H%M%S shape).
+// Unique timestamped subfolder in local time (the bash original's
+// `date +%Y%m%d_%H%M%S` was local; UTC here produced folder names that
+// drift from the operator's wall clock).
 const now = new Date();
 const pad = (n: number): string => String(n).padStart(2, "0");
 const timestamp =
-  `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}` +
-  `_${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}`;
+  `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
+  `_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
 const outputDir = join(backupDir, timestamp);
 mkdirSync(outputDir, { recursive: true });
 

@@ -708,5 +708,3 @@ if (applyTo !== "") {
     console.log(`Applied patch series to ${targetRoot}; patch sequence finalized`);
   }
 }
-void existsSync;
-void config;

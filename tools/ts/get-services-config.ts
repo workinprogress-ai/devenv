@@ -1,7 +1,7 @@
 // get-services-config — clone a config repository and extract it into the
 // local config folder. Port of get-services-config.sh.
 
-import { execSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { existsSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
@@ -44,16 +44,24 @@ if (existsSync(targetFolder)) {
 mkdirSync(targetFolder, { recursive: true });
 
 logInfo(`Cloning config repository: ${repoUrl}`);
-try {
-  execSync(`git clone ${JSON.stringify(repoUrl)} ${JSON.stringify(targetFolder)}`, { stdio: "pipe" });
-} catch (err) {
-  logError(`Failed to clone config repository from: ${repoUrl} (${err instanceof Error ? err.message : err})`);
-  process.exit(EXIT_GENERAL_ERROR);
+{
+  // spawnSync never throws on a failed clone (the old execSync's throw was
+  // the failure signal) — the status must be checked explicitly, or a
+  // failed clone would "succeed" into an empty config folder.
+  const r = spawnSync("git", ["clone", repoUrl, targetFolder], { stdio: "pipe", encoding: "utf8" });
+  if (r.status !== 0 || r.error !== undefined) {
+    logError(`Failed to clone config repository from: ${repoUrl} (${r.stderr?.trim() || r.error?.message || "git clone failed"})`);
+    process.exit(EXIT_GENERAL_ERROR);
+  }
 }
 
 if (branch !== "") {
   logInfo(`Checking out branch: ${branch}`);
-  execSync(`git checkout ${JSON.stringify(branch)}`, { cwd: targetFolder, stdio: "pipe" });
+  const r = spawnSync("git", ["checkout", branch], { cwd: targetFolder, stdio: "pipe", encoding: "utf8" });
+  if (r.status !== 0 || r.error !== undefined) {
+    logError(`Failed to check out branch '${branch}' (${r.stderr?.trim() || r.error?.message || "git checkout failed"})`);
+    process.exit(EXIT_GENERAL_ERROR);
+  }
 }
 
 // Remove git and build artifacts.

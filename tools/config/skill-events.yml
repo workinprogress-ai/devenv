@@ -1,6 +1,6 @@
 # Skill Event Configuration
 # Maps skill lifecycle events to GitHub Project Status transitions.
-# Consumed by the _on_* event scripts (tools/internal/_on_event_dispatch.sh);
+# Consumed by the _on_* event scripts (tools/internal/_on_event_dispatch.ts, execed via the _on_*.sh entry stubs);
 # skills call the events and never read this file or know Status vocabulary.
 #
 # DRIFT RULE: this file is the ONLY binding between skill lifecycle events

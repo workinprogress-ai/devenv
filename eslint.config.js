@@ -4,7 +4,10 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["node_modules/", "tmp/", "playground/", "write_file/", ".local-artifacts/"],
+    ignores: ["node_modules/", "tmp/", "playground/", "write_file/", ".local-artifacts/",
+      // Machine-managed repo cache (refreshed by repo-cache-update) can hold
+      // third-party TS snapshots — never lint them.
+      "tools/cache/"],
   },
   ...tseslint.configs.recommended,
   {

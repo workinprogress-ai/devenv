@@ -70,6 +70,7 @@ function installKubectlStub(opts: {
   );
 }
 
+const savedPath_domain_kube = process.env.PATH;
 beforeEach(() => {
   stubDir = mkdtempSync(join(tmpdir(), "kubedom-stub-"));
   process.env.PATH = `${stubDir}:${process.env.PATH ?? ""}`;
@@ -77,6 +78,7 @@ beforeEach(() => {
 
 afterEach(() => {
   rmSync(stubDir, { recursive: true, force: true });
+  process.env.PATH = savedPath_domain_kube;
 });
 
 describe("domain/kube", () => {

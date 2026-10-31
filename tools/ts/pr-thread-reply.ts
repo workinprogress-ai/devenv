@@ -193,6 +193,7 @@ async function main(argv: string[]): Promise<number> {
     writeFileSync(tmpFile, "");
     const ed = openInEditor(tmpFile);
     if (!ed.ok) {
+      rmSync(tmp, { recursive: true, force: true });
       logError("Editor exited with error");
       return EXIT_GENERAL_ERROR;
     }

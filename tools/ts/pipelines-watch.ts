@@ -78,7 +78,7 @@ if (repo === "" || !repo.includes("/")) {
 if (runId === "") {
   logInfo(`No RUN_ID provided — detecting latest in-progress run for ${repo}...`);
   try {
-    const raw = await pipelinesRunList(repo, { json: "id", jq: ".[0].id", status: "in_progress" });
+    const raw = await pipelinesRunList(repo, { json: "id", jq: ".[0].id // empty", status: "in_progress" });
     runId = raw.trim().split("\n")[0] ?? "";
   } catch {
     runId = "";

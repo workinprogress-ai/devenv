@@ -22,6 +22,7 @@ import { execFileSync } from "node:child_process";
 import { configGetRaw } from "../core/config.ts";
 import { EXIT_GENERAL_ERROR } from "../core/exit-codes.ts";
 import { selfRoot } from "../core/self-root.ts";
+import { fileURLToPath } from "node:url";
 import { githubExplain } from "./github/explain.ts";
 import { azureExplain } from "./azure/explain.ts";
 
@@ -30,11 +31,8 @@ import { azureExplain } from "./azure/explain.ts";
  * test-only override, exactly as in setup-first-run. */
 const TOOLS_ROOT = process.env.DEVENV_TOOLBOX_ROOT
   ? join(process.env.DEVENV_TOOLBOX_ROOT, "tools")
-  : join(selfRoot(join(dirname(import.meta.url), "..")), "tools");
+  : join(selfRoot(fileURLToPath(import.meta.url)), "tools");
 
-function dirname(p: string): string {
-  return p.replace(/\/[^/]*\/?$/, "").replace(/\/$/, "") || "/";
-}
 
 /** The devenv.config path provider detection reads. */
 export function providerConfigPath(): string {
@@ -118,6 +116,19 @@ export function providerRepoTarget(spec?: string): string {
   if (root === "") return "";
   const name = root.split("/").pop() ?? "";
   return name === "" ? "" : `${org}/${name}`;
+}
+
+/** Require the github provider (the seam functions only github implements
+ * today). A non-github checkout gets a named error instead of silently
+ * running the github transport against the wrong host (the F10 class).
+ * The typed dispatch facade replaces this guard when it lands. */
+export function requireGithubProvider(action: string): void {
+  if (providerDetect() !== "github") {
+    throw new ProviderError(
+      `${action} is not implemented for provider '${providerDetect()}' yet — ` +
+        `github-only seam; the provider dispatch facade is tracked separately`,
+    );
+  }
 }
 
 /** Fail loud on an unresolvable repo target (15.8): a wrapper whose provider

@@ -385,21 +385,32 @@ function locked<T>(repo: string, fn: (path: string) => T): T | { ok: false; erro
       }
       // Reclaim only when the holder is provably gone: PID probe first;
       // unparseable content falls back to an age check (a crashed writer's
-      // file may be truncated or empty).
+      // file may be truncated or empty). A LIVE holder gets the bounded
+      // wait below — it is expected to release on its own, and the deadline
+      // exists for exactly this case (returning busy-immediate made the
+      // wait contract dead code).
       const pid = lockHolderPid(lockPath);
-      if (pid !== null && pidIsAlive(pid)) {
-        // A live holder will release on its own; waiting cannot help (it
-        // never times out to a reclaimable state) — report busy immediately.
-        return { ok: false, error: "skip-list lock busy" };
-      }
-      const holderDead = pid === null
-        ? Date.now() - statSyncSafe(lockPath) > LOCK_LIVENESS_MS
-        : true; // PID recorded but dead
-      if (holderDead) {
+      const holderLive = pid !== null && pidIsAlive(pid);
+      // Dead: no parseable pid and the file is past the liveness age (a
+      // crashed writer's file may be truncated or empty), or a recorded pid
+      // that no longer exists.
+      const holderDead =
+        pid === null
+          ? Date.now() - statSyncSafe(lockPath) > LOCK_LIVENESS_MS
+          : !holderLive;
+      if (holderDead && !holderLive) {
         if (!reclaimStaleLock(lockPath)) {
           return { ok: false, error: "skip-list lock busy (undeletable)" };
         }
         continue; // lock gone — retry the create immediately
+      }
+      if (holderLive) {
+        // Live holder: wait within the deadline, then report busy.
+        if (Date.now() >= deadline) {
+          return { ok: false, error: "skip-list lock busy" };
+        }
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
+        continue;
       }
       if (Date.now() >= deadline) {
         return { ok: false, error: "skip-list lock busy" };

@@ -112,6 +112,10 @@ async function main(argv: string[]): Promise<number> {
     format = values["format"] ?? "table";
     limit = Number.parseInt(values["limit"] ?? "30", 10);
     fetchLimit = Number.parseInt(values["fetch-limit"] ?? "200", 10);
+    if (!Number.isFinite(fetchLimit) || fetchLimit <= 0) {
+      logError(`Invalid --fetch-limit: ${values["fetch-limit"]} (expected a positive number)`);
+      return EXIT_MISUSE;
+    }
     devenv = Boolean(values["devenv"]);
     terms.push(...positionals);
   } catch (err) {

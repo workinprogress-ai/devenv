@@ -18,9 +18,10 @@ const ls = spawnSync("git", ["ls-files", ...globs], { encoding: "utf8" });
 const files = (ls.stdout ?? "").split("\n").filter((f) => f !== "");
 if (files.length === 0) process.exit(0);
 
-// Chunk argv: a huge file list can exceed the exec limit (the E2BIG lesson
-// from the provider layer). wc prints a per-file block plus a `total` block
-// per invocation; with chunking, sum the totals ourselves to keep one total.
+// A huge file list can exceed the exec argv limit (the E2BIG lesson from the
+// provider layer). A single `wc -l` prints per-file blocks plus one `total`
+// block. This port passes the whole list unchunked — a very large tree can
+// regress to E2BIG; chunk (summing per-chunk totals) if that ever bites.
 const wc = spawnSync("wc", ["-l", ...files], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 process.stdout.write(wc.stdout ?? "");
 process.exit(wc.status ?? 1);

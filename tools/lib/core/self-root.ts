@@ -28,6 +28,10 @@ function canonical(p: string): string {
  * upward walk looking for a directory containing tools/.
  */
 export function selfRoot(fromPath: string): string {
+  // A file:// URL (an import.meta.url passed straight through) converts
+  // first — the string form has no meaning to fs/realpath, and silently
+  // resolving via the cwd walk below can adopt the WRONG checkout.
+  if (fromPath.startsWith("file://")) fromPath = fileURLToPath(fromPath);
   const scriptPath = canonical(fromPath);
   const scriptDir = canonical(dirname(scriptPath));
 

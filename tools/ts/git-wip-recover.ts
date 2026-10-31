@@ -4,8 +4,10 @@
 // Description: refs/wip/last is written by git-wip after each push and is
 //              intentionally NOT deleted by git-unwip, so the WIP commit
 //              remains reachable for recovery. A failed --branch checkout
-//              exits 1 (bash printed success unconditionally — a bug the
-//              port fixed; anything asserting the old exit 0 must change).
+//              forwards git checkout's own status (typically 128 for a
+//              conflicting branch name; bash printed success
+//              unconditionally — a bug the port fixed; anything asserting
+//              the old exit 0 or a fixed 1 must match the forwarded code).
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
 import { spawnSync } from "node:child_process";

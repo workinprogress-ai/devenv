@@ -115,8 +115,11 @@ if (localSha === remoteSha) {
         `or 'git reset --hard origin/${currentBranch}' manually.`,
       );
     }
-    process.env.GIT_UPDATE_SCAN_BASE = pastTip;
+    // The parent env cannot be mutated from a child process — emit the scan
+    // base as a parseable line for the consumers (provision devenv-update,
+    // check-update-devenv-repo.sh): GIT_UPDATE_SCAN_BASE=<sha>.
     console.log(`Reset to origin/${currentBranch} complete.`);
+    console.log(`GIT_UPDATE_SCAN_BASE=${pastTip}`);
     process.exit(0);
   }
   // diverged: unique local commits exist. A rebase replays them on the
@@ -155,8 +158,8 @@ if (localSha === remoteSha) {
     }
     process.exit(1);
   }
-  process.env.GIT_UPDATE_SCAN_BASE = pastTip;
   console.log(`Replayed local commits on the rewritten origin/${currentBranch}.`);
+  console.log(`GIT_UPDATE_SCAN_BASE=${pastTip}`);
   process.exit(0);
 }
 

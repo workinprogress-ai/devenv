@@ -204,6 +204,9 @@ export interface WorkflowWriteContext {
   devenvRoot?: string;
   /** Capture warnings instead of emitting to stderr (tests). */
   onWarning?: (message: string) => void;
+  /** Set by the write path when a write failed (mutated object, F34: failure
+   * detection is structural, never a stderr string-match). */
+  failed?: boolean;
 }
 
 function workflowToolsRoot(ctx?: WorkflowWriteContext): string {
@@ -238,6 +241,7 @@ export async function writeStatus(
     { encoding: "utf8" },
   );
   if (r.status !== 0) {
+    ctx.failed = true;
     const warn = ctx.onWarning ?? ((m: string) => console.error(m));
     warn(`WARNING: workflow write '${status}' failed for issue #${issue} (best-effort, continuing)`);
     return false;
@@ -285,6 +289,7 @@ export async function onEvent(
   const { eventStatusFor } = await import("../events.ts");
   const status = eventStatusFor(event);
   if (status === null) {
+    ctx.failed = true;
     const warn = ctx.onWarning ?? ((m: string) => console.error(m));
     warn(`Unknown event '${event}' - no transition configured (best-effort, continuing)`);
     return;
@@ -304,6 +309,7 @@ export async function applyStatus(
 ): Promise<boolean> {
   const policy = workflowPolicy(ctx.devenvRoot);
   if (statusOrder(status, ctx.devenvRoot) === -1) {
+    ctx.failed = true;
     const warn = ctx.onWarning ?? ((m: string) => console.error(m));
     warn(`Unknown status token '${status}' (vocabulary mismatch)`);
     return false;
@@ -312,6 +318,7 @@ export async function applyStatus(
     const anchorIdx = statusOrder(policy.anchor, ctx.devenvRoot);
     const idx = statusOrder(status, ctx.devenvRoot);
     if (idx < anchorIdx) {
+      ctx.failed = true;
       const warn = ctx.onWarning ?? ((m: string) => console.error(m));
       warn(`Status '${status}' is gated - it cannot be forced; workflow states advance by their own signals`);
       return false;

@@ -24,7 +24,7 @@ import { cwd as getCwd } from "node:process";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logInfo, logWarn, logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { isInteractive, multiSelect } from "../lib/ui/index.ts";
+import { confirm, isInteractive, multiSelect } from "../lib/ui/index.ts";
 
 assertNodeFloor();
 
@@ -71,12 +71,13 @@ interface SweepOptions {
   keepTmp: boolean;
 }
 
-function confirmFiles(label: string, files: string[]): boolean {
+async function confirmFiles(label: string, files: string[]): Promise<boolean> {
   console.log(`  ${label}:`);
   for (const f of files) console.log(`    - ${basename(f)}`);
-  // The non-TTY confirm path never happens here: callers check
-  // isInteractive()/assumeYes before reaching this function.
-  return false;
+  // Interactive-only (callers gate on isInteractive()/assumeYes first): a
+  // real y/n confirm — the always-false stub made interactive flag-mode
+  // unable to delete anything.
+  return await confirm({ message: `Delete ${files.length} file(s)?`, fallback: false });
 }
 
 async function sweepRoot(root: string, opts: SweepOptions): Promise<number> {
@@ -165,7 +166,7 @@ async function sweepRoot(root: string, opts: SweepOptions): Promise<number> {
         deleted += files.length;
         logInfo(`[${family}] deleted ${files.length} file(s) (-y)`);
       } else if (isInteractive()) {
-        if (confirmFiles(`[${family}] (--keep-tmp)`, files)) {
+        if (await confirmFiles(`[${family}] (--keep-tmp)`, files)) {
           for (const f of files) rmSync(f);
           deleted += files.length;
           logInfo(`[${family}] deleted ${files.length} file(s) (--keep-tmp)`);
@@ -183,7 +184,7 @@ async function sweepRoot(root: string, opts: SweepOptions): Promise<number> {
       deleted += files.length;
       logInfo(`[${family}] deleted ${files.length} file(s) (-y)`);
     } else if (isInteractive()) {
-      if (confirmFiles(`[${family}]`, files)) {
+      if (await confirmFiles(`[${family}]`, files)) {
         for (const f of files) rmSync(f);
         deleted += files.length;
         logInfo(`[${family}] deleted ${files.length} file(s)`);

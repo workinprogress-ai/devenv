@@ -52,7 +52,7 @@ for (const a of argv) {
 // 0 ok · 2 partial (some repos failed; the index still builds) · 1 failure.
 if (!skipRefresh) {
   logInfo("Refreshing repository cache...");
-  const rc = refreshRepoCache();
+  const rc = await refreshRepoCache();
   if (rc === 2) {
     logWarn("Some repositories failed to cache (continuing with partial cache)");
   } else if (rc !== 0) {

@@ -81,7 +81,11 @@ function issueNodeId(number: number, spec?: string): string {
     ".data.repository.issue.id",
   ]);
   const id = r.stdout.trim();
-  if (id === "") throw new ProviderError(`could not resolve issue #${number}'s node id`);
+  // A missing issue resolves to the literal "null" under --jq (the sibling
+  // orgIssueTypes shape guard) — not an empty string.
+  if (id === "" || id === "null") {
+    throw new ProviderError(`could not resolve issue #${number}'s node id`);
+  }
   return id;
 }
 
