@@ -2805,15 +2805,19 @@ way, in priority order:
 Examples:
 
 ```bash
-kube-logs.sh api -n prod              # exact namespace via flag
-kube-logs.sh api -n prod-eu           # partial: resolves if unique
-NAMESPACE=prod kube-logs.sh api       # env form
-kube-pod-delete.sh api -n prod        # destructive scripts honor the flag
-KUBE_NO_INTERACTIVE=1 kube-logs.sh api  # force non-interactive (scripts/CI)
+kube-logs api -n prod              # exact namespace via flag
+kube-logs api -n prod-eu           # partial: resolves if unique
+NAMESPACE=prod kube-logs api       # env form
+kube-pod-delete api -n prod        # destructive scripts honor the flag
+KUBE_NO_INTERACTIVE=1 kube-logs api  # force non-interactive (scripts/CI)
 ```
 
 Set `KUBE_NO_INTERACTIVE=1` to disable the interactive picker entirely
-(assumed by scripts and CI); interactive pickers require a TTY and `fzf`.
+(assumed by scripts and CI; interactive pickers require a TTY). Picking under
+that env is recorded/CI-only: a single match is taken; several matches are a
+`kube-forward-ports`/`kube-intercept` conflict — pin the exact pod name there,
+since blind-picking a port-forward or intercept target is a wrong-target
+action.
 
 Destructive scripts (`kube-pod-delete`, `kube-pod-restart`, `kube-pod-scale`)
 keep their consent gates regardless of how the namespace was supplied.

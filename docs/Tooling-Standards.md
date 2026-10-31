@@ -116,14 +116,13 @@ kinds and the current members):
 | editor entry | `editor` | `EDITOR`/`VISUAL` target — the plain-`git commit` recovery hatch must open with node broken |
 | bootstrap repair | `devenv-add-custom-bootstrap`, `devenv-add-custom-startup`, `devenv-add-env-vars` | used precisely when the toolchain is broken |
 | credential rotation | `_key-update-do`, `_key-update-tailscale` | emergency path; off-PATH internal contract |
-| bash quality gate | `lint-scripts` | stays independent of the TS toolchain it co-gates |
+| bash quality gate | `lint-scripts`, `lint-skills`, `lint-documentation` | stay independent of the TS toolchain they co-gate (they lint the toolchain's own output) |
 | tiny CLI shims | `dependencies-up`, `dependencies-down`, `docker-restart`, `get-public-ip`, `container-enable-dotnet-debugger` | single-command pass-throughs; no logic to standardize |
 
 Adding a tool to this list is a deliberate act: name the reason in the table,
 not just the tool. Anything not listed and not a tiny shim is TypeScript.
 
-`tools/internal/` machinery (`_on_*.sh`, git-hook helpers, `csharp-debug.sh`)
-stays bash: hook paths and event signals run pre-toolchain by design. The
+`tools/internal/` machinery (`_on_*.sh`, git-hook helpers) stays bash: git hooks are executable files by git's contract, and event entry points are spawned as external commands. The
 `tools/run-devenv-tests` wrapper is bash for the same reason (it execs the
 stay-bash harness). TS tools that drive these entry points (for example
 `workflow-signal` invoking `tools/internal/_on_*`) spawn them as external
