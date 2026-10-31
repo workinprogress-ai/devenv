@@ -43,7 +43,7 @@ teardown() {
 @test "git-wip creates a WIP commit" {
   cd "$TEST_REPO"
   echo "work" > work.txt
-  run bash "$DEVENV_TOOLS/git-wip" "my note"
+  run bash "$DEVENV_TOOLS/git-wip" --allow-non-tty "my note"
   [ "$status" -eq 0 ]
   msg=$(git log -1 --format=%s)
   [[ "$msg" == WIP:* ]]
@@ -52,7 +52,7 @@ teardown() {
 @test "git-wip stages all untracked files" {
   cd "$TEST_REPO"
   echo "untracked" > new_file.txt
-  run bash "$DEVENV_TOOLS/git-wip"
+  run bash "$DEVENV_TOOLS/git-wip" --allow-non-tty
   [ "$status" -eq 0 ]
   # new_file.txt should now be in the last commit
   run git show --name-only HEAD
@@ -62,7 +62,7 @@ teardown() {
 @test "git-wip sets refs/wip/last to HEAD after pushing" {
   cd "$TEST_REPO"
   echo "work" > work.txt
-  bash "$DEVENV_TOOLS/git-wip" "save" 2>/dev/null || true
+  bash "$DEVENV_TOOLS/git-wip" --allow-non-tty "save" 2>/dev/null || true
   wip_ref=$(git rev-parse refs/wip/last 2>/dev/null)
   head_ref=$(git rev-parse HEAD)
   [ "$wip_ref" = "$head_ref" ]
@@ -71,16 +71,64 @@ teardown() {
 @test "git-wip overwrites refs/wip/last on subsequent calls" {
   cd "$TEST_REPO"
   echo "first" > first.txt
-  bash "$DEVENV_TOOLS/git-wip" "first" 2>/dev/null || true
+  bash "$DEVENV_TOOLS/git-wip" --allow-non-tty "first" 2>/dev/null || true
   first_ref=$(git rev-parse refs/wip/last)
 
   echo "second" > second.txt
-  bash "$DEVENV_TOOLS/git-wip" "second" 2>/dev/null || true
+  bash "$DEVENV_TOOLS/git-wip" --allow-non-tty "second" 2>/dev/null || true
   second_ref=$(git rev-parse refs/wip/last)
   head_ref=$(git rev-parse HEAD)
 
   [ "$second_ref" = "$head_ref" ]
   [ "$second_ref" != "$first_ref" ]
+}
+
+# --dry-run is the safe probe path (incident-driven): it must print the plan
+# and never stage, commit, push, or move refs/wip/last. Works without a TTY.
+@test "git-wip --dry-run prints the plan and touches nothing" {
+  cd "$TEST_REPO"
+  git update-ref refs/wip/last HEAD
+  before="$(git rev-parse refs/wip/last)"
+  echo "probe" > probe.txt
+  run bash -c '"$0" --dry-run "probe test" < /dev/null' "$PROJECT_ROOT/tools/git-wip"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"DRY RUN"* ]]
+  # the flag itself must not leak into the message (same class as the -n trap)
+  [[ "$output" == *"Would commit: WIP: probe test"* ]]
+  # nothing happened: probe.txt still untracked, no new commit, ref unmoved
+  run git status --porcelain
+  [[ "$output" == *"?? probe.txt"* ]]
+  [ "$(git log -1 --format=%s)" = "initial" ]
+  [ "$(git rev-parse refs/wip/last)" = "$before" ]
+}
+
+# Incident guard: two accidental non-interactive executions published
+# hook-bypass commits. Without a TTY (and without the override) it must refuse.
+@test "git-wip refuses to run without a TTY" {
+  cd "$TEST_REPO"
+  echo "sneak" > sneak.txt
+  run bash -c '"$0" "not a probe" < /dev/null' "$PROJECT_ROOT/tools/git-wip"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"interactive terminal"* ]]
+  [[ "$output" == *"--dry-run"* ]]
+  # nothing happened
+  run git status --porcelain
+  [[ "$output" == *"?? sneak.txt"* ]]
+  [ "$(git log -1 --format=%s)" = "initial" ]
+}
+
+@test "git-wip --allow-non-tty overrides the TTY gate" {
+  cd "$TEST_REPO"
+  echo "deliberate" > deliberate.txt
+  run bash -c '"$0" --allow-non-tty "scripted save" < /dev/null' "$PROJECT_ROOT/tools/git-wip"
+  [ "$status" -eq 0 ]
+  [ "$(git log -1 --format=%s)" = "WIP: scripted save" ]
+}
+
+@test "git-wip --help works non-interactively" {
+  run bash -c '"$0" --help < /dev/null' "$PROJECT_ROOT/tools/git-wip"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Usage: git-wip"* ]]
 }
 
 # ---------------------------------------------------------------------------
@@ -92,7 +140,7 @@ teardown() {
 @test "git-wip --file uses the file's content verbatim after the WIP: prefix" {
   echo "change" >> file.txt
   printf 'saved the parser work\n\nwith a body line' > "$TEST_REPO/msg.txt"
-  run "$PROJECT_ROOT/tools/git-wip" --file "$TEST_REPO/msg.txt"
+  run "$PROJECT_ROOT/tools/git-wip" --allow-non-tty --file "$TEST_REPO/msg.txt"
   [ "$status" -eq 0 ]
   [ "$(git log -1 --format=%s)" = "WIP: saved the parser work" ]
   [[ "$(git log -1 --format=%B)" == *"with a body line"* ]]
@@ -119,7 +167,7 @@ teardown() {
   git update-ref refs/wip/last HEAD
   before="$(git rev-parse refs/wip/last)"
   rm -rf "$REMOTE_REPO"   # remote gone: the push cannot succeed
-  run "$PROJECT_ROOT/tools/git-wip" "scratch"
+  run "$PROJECT_ROOT/tools/git-wip" --allow-non-tty "scratch"
   [ "$status" -ne 0 ]
   [ "$(git rev-parse refs/wip/last)" = "$before" ]
 }
@@ -127,7 +175,7 @@ teardown() {
 @test "git-wip: nothing to commit exits non-zero instead of re-pushing an old commit" {
   git update-ref refs/wip/last HEAD
   before="$(git rev-parse refs/wip/last)"
-  run "$PROJECT_ROOT/tools/git-wip" "nothing changed"
+  run "$PROJECT_ROOT/tools/git-wip" --allow-non-tty "nothing changed"
   [ "$status" -ne 0 ]
   [ "$(git rev-parse refs/wip/last)" = "$before" ]
 }
@@ -145,7 +193,7 @@ teardown() {
   cd "$TEST_REPO"
   git checkout -q -b feature/test-unwip
   echo "work" > work.txt
-  bash "$DEVENV_TOOLS/git-wip" "temp" 2>/dev/null || true
+  bash "$DEVENV_TOOLS/git-wip" --allow-non-tty "temp" 2>/dev/null || true
   run bash "$DEVENV_TOOLS/git-unwip"
   [ "$status" -eq 0 ]
   # HEAD should no longer be a WIP commit
@@ -157,7 +205,7 @@ teardown() {
   cd "$TEST_REPO"
   git checkout -q -b feature/test-restage
   echo "work" > work.txt
-  bash "$DEVENV_TOOLS/git-wip" "temp" 2>/dev/null || true
+  bash "$DEVENV_TOOLS/git-wip" --allow-non-tty "temp" 2>/dev/null || true
   bash "$DEVENV_TOOLS/git-unwip" 2>/dev/null || true
   # work.txt should be staged (index has changes vs HEAD)
   run git diff --cached --name-only
@@ -172,7 +220,7 @@ teardown() {
     skip "test repo default branch is not master"
   fi
   echo "work" > work.txt
-  bash "$DEVENV_TOOLS/git-wip" "temp" 2>/dev/null || true
+  bash "$DEVENV_TOOLS/git-wip" --allow-non-tty "temp" 2>/dev/null || true
   run bash "$DEVENV_TOOLS/git-unwip"
   [ "$status" -eq 1 ]
   [[ "$output" == *"protected branch"* ]]

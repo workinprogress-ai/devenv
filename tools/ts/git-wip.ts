@@ -40,14 +40,19 @@ function git(args: string[]): { status: number; out: string } {
 }
 
 function usage(): never {
-  console.log(`Usage: git-wip [--staged-only] [--file <path>] ["<message words...>"]
+  console.log(`Usage: git-wip [--staged-only] [--dry-run] [--file <path>] ["<message words...>"]
 
 Stage everything (or --staged-only to skip staging) and push a WIP snapshot
 commit prefixed with "WIP: ".
 
   --staged-only   Do not run \`git add -A\`; commit the existing index.
+  --dry-run       Print what would happen (stage set, commit, push) and exit
+                  without touching anything — the safe probe path.
   --file <path>   Read the message from a file (used verbatim after the
-                  WIP: prefix). Mutually exclusive with positional words.`);
+                  WIP: prefix). Mutually exclusive with positional words.
+
+Commit and push require an interactive terminal (or --allow-non-tty): an
+accidental non-interactive invocation must not publish a hook-bypass commit.`);
   process.exit(0);
 }
 
@@ -89,23 +94,31 @@ function checkScratchpadRefusals(tool: string): void {
 // --- argument parsing (positional words + --file, mutually exclusive) ---
 
 let stagedOnly = false;
+let dryRun = false;
+let allowNonTty = false;
 let msgFile = "";
 const words: string[] = [];
 
-const { values, positionals } = parseArgs({
+const { values } = parseArgs({
   args: process.argv.slice(2),
   options: {
     "staged-only": { type: "boolean", default: false },
+    "dry-run": { type: "boolean", default: false },
+    "allow-non-tty": { type: "boolean", default: false },
     file: { type: "string" },
     help: { type: "boolean", default: false },
   },
-  allowPositionals: true,
+  allowPositionals: true, // positionals unused: message words come from raw-token reconstruction
   // bash refused unknown flags with exit 1 + a named message; parseArgs'
   // throw would leak a stack trace instead.
   strict: false,
 });
+// parseArgs (strict:false) silently treats single-dash tokens like `-n` as
+// boolean flags, dropping them from positionals — `git-wip -n oops` would
+// lose the token from the WIP message. Only long flags are recognized; a
+// single-dash token that is not -h is a message word (bash carried it through).
 for (const a of process.argv.slice(2)) {
-  if (a.startsWith("--") && a !== "--staged-only" && a !== "--file" && a !== "--help" && a !== "-h" && a !== "--") {
+  if (a.startsWith("--") && a !== "--staged-only" && a !== "--dry-run" && a !== "--allow-non-tty" && a !== "--file" && a !== "--help" && a !== "-h" && a !== "--") {
     console.error(`Error: unknown flag '${a}'`);
     process.exit(EXIT_GENERAL_ERROR);
   }
@@ -124,8 +137,21 @@ if (fileFlagIdx !== -1) {
 
 if (values.help) usage();
 stagedOnly = values["staged-only"] === true;
+dryRun = values["dry-run"] === true;
+allowNonTty = values["allow-non-tty"] === true;
 msgFile = typeof values.file === "string" ? values.file : "";
-words.push(...positionals);
+// Reconstruct message words from the raw tokens instead of parseArgs
+// positionals: single-dash tokens (e.g. `-n`) parse as boolean flags and
+// would vanish from the message; raw reconstruction keeps order and content.
+// Known flags (incl. the new --dry-run / --allow-non-tty) are skipped so they
+// never leak into the message.
+const rawTokens = process.argv.slice(2);
+for (let i = 0; i < rawTokens.length; i++) {
+  const a: string = rawTokens[i] ?? "";
+  if (a === "--staged-only" || a === "--dry-run" || a === "--allow-non-tty" || a === "--help" || a === "-h" || a === "--") continue;
+  if (a === "--file") { i++; continue; } // skip the file path value
+  words.push(a);
+}
 
 if (msgFile !== "" && words.length > 0) {
   console.error("Error: --file and a positional message are mutually exclusive");
@@ -145,7 +171,35 @@ if (msgFile !== "") {
 
 // --- refusals before any mutation ---
 
+// Specific guards precede the general TTY gate: a scratchpad-branch refusal
+// (EXIT_CONFLICT, names the salvage path) must win over the non-interactive
+// refusal (EXIT_MISUSE), or the scratchpad diagnostic is masked.
 checkScratchpadRefusals("git-wip");
+
+// TTY gate (incident-driven): two sessions ran git-wip as a probe and each
+// published a hook-bypass commit to the remote. Commit + push require an
+// interactive terminal unless explicitly overridden — an accidental
+// non-interactive invocation fails here instead of on the remote.
+if (!dryRun && !allowNonTty && !process.stdin.isTTY) {
+  console.error(
+    "Error: git-wip commits and pushes; it requires an interactive terminal.\n" +
+      "Probe safely with --dry-run, or force non-interactive use with --allow-non-tty.",
+  );
+  process.exit(EXIT_MISUSE);
+}
+
+// --- dry-run: report the plan, touch nothing ---
+
+if (dryRun) {
+  console.log("DRY RUN — nothing was staged, committed, or pushed.");
+  console.log(`  Would ${stagedOnly ? "skip staging (commit the existing index)" : "run: git add -A"}`);
+  console.log(`  Would commit: WIP: ${msg}`);
+  const tracked = git(["ls-files", "--others", "--modified", "--exclude-standard"]);
+  const count = tracked.out.split("\n").filter((l) => l.trim() !== "").length;
+  console.log(`  Files the snapshot would include (tracked + untracked, modified or new): ${count}`);
+  console.log("  Would push to origin.");
+  process.exit(0);
+}
 
 // --- stage, commit (hook-bypass by design), push, then move the ref ---
 
