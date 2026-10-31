@@ -99,7 +99,7 @@ const repoName = basename(targetDir);
 // Step 1: refresh repo cache (unless --no-refresh).
 if (!skipRefresh) {
   logInfo("Refreshing repository cache...");
-  const rc = refreshRepoCache();
+  const rc = await refreshRepoCache();
   if (rc === 2) logWarn("Some repositories failed to cache (continuing with partial cache)");
   else if (rc !== 0) {
     logError("Failed to refresh repository cache");

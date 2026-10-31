@@ -77,7 +77,7 @@ async function main(argv: string[]): Promise<number> {
   const repo = requireRepoTarget(providerRepoTarget(""), "pr-get-merge-link", "pr");
   let prUrl = "";
   try {
-    const r = await prsList(repo, { state: "open", head: currentBranch, json: "url", jq: ".[0].url" });
+    const r = await prsList(repo, { state: "open", head: currentBranch, json: "url", jq: ".[0].url // empty" });
     prUrl = r.stdout.trim().split("\n")[0] ?? "";
   } catch {
     prUrl = "";

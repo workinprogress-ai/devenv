@@ -230,15 +230,30 @@ describe("issue-create", () => {
     expect(ghCalls().some((c) => c.includes("issue create"))).toBe(false);
   });
 
-  it("placement: a cross-repo parent skips the live type probe and links", () => {
-    const cfg = writeTypesConfig();
-    const r = runTool({ args: ["--title", "T", "--type", "Task", "--no-interactive", "--body", "b", "--parent", "org/other#50"], issuesConfig: cfg, parentType: "Bug" });
+  it("placement: a cross-repo parent validates the type against its own repo, then links", () => {
+    // The child_of probe runs against the PARENT's repo (org/other#50) — the
+    // stub serves PARENT_TYPE for any `issue view ... issueType` call, so the
+    // asserts are: the view was ASKED with the parent's spec, and the link
+    // still lands when the parent's type satisfies the rule.
+    const cfg = join(workDir, "issues-config.yml");
+    writeFileSync(cfg, "types:\n  - name: Bug\n  - name: Task\n    child_of: [Epic]\n");
+    const r = runTool({ args: ["--title", "T", "--type", "Task", "--no-interactive", "--body", "b", "--parent", "org/other#50"], issuesConfig: cfg, parentType: "Epic" });
     expect(r.status).toBe(0);
-    // The body carries the fully-qualified parent URL (never a misleading
-    // bare "Part of #50").
+    expect(ghCalls().some((c) => c.includes("issue view 50") && c.includes("-R org/other"))).toBe(true);
     const bodyCalls = ghCalls().filter((c) => c.includes("issue create"));
     expect(bodyCalls.length).toBe(1);
     expect(r.stdout).toContain("https://github.com/org/repo/issues/777");
+  });
+
+  it("placement: a cross-repo parent violating the child_of rule is refused", () => {
+    // Same probe against the parent's own repo; the parent's type violates
+    // Task's child_of [Epic] — refused before any create.
+    const cfg = join(workDir, "issues-config.yml");
+    writeFileSync(cfg, "types:\n  - name: Bug\n  - name: Task\n    child_of: [Epic]\n");
+    const r = runTool({ args: ["--title", "T", "--type", "Task", "--no-interactive", "--body", "b", "--parent", "org/other#50"], issuesConfig: cfg, parentType: "Bug" });
+    expect(r.status).toBe(2);
+    expect(r.output).toContain("cannot be parented under a Bug");
+    expect(ghCalls().some((c) => c.includes("issue create"))).toBe(false);
   });
 
   it("an unparseable --parent reference is a usage error", () => {

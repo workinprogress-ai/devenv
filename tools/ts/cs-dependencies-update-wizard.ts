@@ -9,7 +9,8 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, basename } from "node:path";
-import { selfRoot } from "../lib/core/self-root.ts";
+import { fileURLToPath } from "node:url";
+import { resolveToolsRoot, selfRoot } from "../lib/core/self-root.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
@@ -181,6 +182,7 @@ function waitForWorkflowRuns(repo: string, branch: string, interval: number, tim
     try {
       const out = runPipelinesListSync(repo, branch, 10, "status");
       const parsed = JSON.parse(out) as Array<{ status?: string }>;
+      if (!Array.isArray(parsed)) throw new Error("run list returned a non-array payload");
       activeCount = parsed.filter((r) =>
         r.status === "queued" || r.status === "in_progress" || r.status === "waiting" || r.status === "pending" || r.status === "requested",
       ).length;
@@ -227,12 +229,16 @@ function waitForWorkflowRuns(repo: string, branch: string, interval: number, tim
 /** Sync wrapper over the facade's run list (the wizard is a top-level
  * script; the facade verb is async — bridge with spawnSync on the stub). */
 function runPipelinesListSync(repo: string, branch: string, limit: number, json: string): string {
-  const toolsRoot = process.env.DEVENV_TOOLS ?? join(process.cwd(), "tools");
+  const toolsRoot = process.env.DEVENV_TOOLS ?? resolveToolsRoot(fileURLToPath(import.meta.url));
   // Through the provider facade verb via its own module import in-process is
   // async; the wizard's sync flow bridges through the facade-backed lib with
   // a subprocess import — the provider seam stays the only gh caller.
+  // Plain --json only: the jq programs this used to pass are outside
+  // applyJq's supported subset, so every poll threw and the CI-wait was
+  // structurally dead. The wizard filters in-process (status) or reads
+  // fields directly (conclusion).
   const script = `import { pipelinesRunList } from "${join(toolsRoot, "lib/providers/github/pipelines.ts")}";
-  const out = await pipelinesRunList(${JSON.stringify(repo)}, { branch: ${JSON.stringify(branch)}, limit: ${limit}, json: ${JSON.stringify(json)}, jq: ${JSON.stringify(json === "status" ? '[.[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "pending" or .status == "requested")] | length' : ".[0].conclusion // empty")} });
+  const out = await pipelinesRunList(${JSON.stringify(repo)}, { branch: ${JSON.stringify(branch)}, limit: ${limit}, json: ${JSON.stringify(json === "status" ? "status,conclusion" : "conclusion")} });
   process.stdout.write(out);`;
   const r = spawnSync("node", ["--input-type=module", "-e", script], { encoding: "utf8" });
   if (r.status !== 0) throw new Error(r.stderr ?? "pipelines run list failed");
@@ -252,7 +258,7 @@ function getFullRepoName(repoDir: string): string {
 function defaultBranch(repoFull: string): string {
   try {
     // Sync bridge over the async facade verb (same mechanism as the run list).
-    const toolsRoot = process.env.DEVENV_TOOLS ?? join(process.cwd(), "tools");
+    const toolsRoot = process.env.DEVENV_TOOLS ?? resolveToolsRoot(fileURLToPath(import.meta.url));
     const script = `import { reposView } from "${join(toolsRoot, "lib/providers/github/repos.ts")}";
     const out = await reposView(${JSON.stringify(repoFull)}, { json: "defaultBranch" });
     const j = JSON.parse(out) as { defaultBranch?: string };
@@ -368,7 +374,7 @@ function countNonTestCsproj(dir: string): number {
 }
 
 function runSingleRepoWizard(args: WizardArgs, repoDir: string): number {
-  const toolsRoot = process.env.DEVENV_TOOLS ?? join(process.cwd(), "tools");
+  const toolsRoot = process.env.DEVENV_TOOLS ?? resolveToolsRoot(fileURLToPath(import.meta.url));
   const wizardArgs = ["--branch", UPDATE_BRANCH];
   if (args.framework !== "") wizardArgs.push("--framework", args.framework);
   if (args.langVersion !== "") wizardArgs.push("--lang-version", args.langVersion);
@@ -405,7 +411,7 @@ async function main(): Promise<void> {
   // ── Step 1: cache refresh ──
   if (!args.skipRefresh) {
     logInfo("Refreshing repository cache...");
-    const rc = refreshRepoCache();
+    const rc = await refreshRepoCache();
     if (rc === 2) logWarn("Some repositories failed to cache (continuing with partial cache)");
     else if (rc !== 0) {
       logError("Failed to refresh repository cache");
@@ -634,7 +640,7 @@ async function main(): Promise<void> {
         }
       }
       logInfo("Refreshing repository cache for next generation...");
-      refreshRepoCache();
+      await refreshRepoCache();
       // Rebuild the tree state against the refreshed index? The bash wizard
       // reuses the in-memory tree; parity: keep the in-memory state.
     }

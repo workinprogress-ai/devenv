@@ -204,8 +204,6 @@ if (linkLocal !== "" || proposeLinks) {
   }
   process.exit(0);
 }
-void linkUpstream;
-
 // --- --drift ---
 if (drift) {
   if (surfacesValidate().length > 0) die("fork-surfaces declaration is invalid", EXIT_GENERAL_ERROR);
@@ -438,7 +436,11 @@ let unrecognizedBehind = 0;
 // Local commits upstream appears to already have (patch-equivalent via cherry,
 // same Change-Id, or same subject on upstream).
 {
-  const upstreamSubjects = g(["-C", repoRoot, "log", "--format=%s", `${baseSha}..${upstreamRef}`]).out;
+  // Exact-line subjects (F25): a substring match on the joined blob turns a
+  // subject that merely CONTAINS another into a false "already upstream".
+  const upstreamSubjects = new Set(
+    g(["-C", repoRoot, "log", "--format=%s", `${baseSha}..${upstreamRef}`]).out.split("\n").filter((l) => l !== ""),
+  );
   const upstreamIds = collectChangeIds(`${baseSha}..${upstreamRef}`);
   let found = false;
   const cherryUp = g(["-C", repoRoot, "cherry", upstreamRef, "HEAD"]).out;
@@ -448,7 +450,7 @@ let unrecognizedBehind = 0;
     const sha = line.slice(2);
     const subject = g(["-C", repoRoot, "log", "-1", "--format=%s", sha]).out;
     const id = changeIdGetFromCommit(repoRoot, sha) ?? "";
-    if (status === "-" || (id !== "" && upstreamIds.has(id)) || upstreamSubjects.includes(subject)) {
+    if (status === "-" || (id !== "" && upstreamIds.has(id)) || upstreamSubjects.has(subject)) {
       if (!found) {
         console.log("Local commits that look already upstream (patch-equivalent, same Change-Id, or the same subject on upstream):");
         found = true;
@@ -463,7 +465,9 @@ let unrecognizedBehind = 0;
 // Upstream-only commits that look like your own work coming back (a squash-
 // or rebase-merge of a local contribution). Unrecognized ones drive action-needed.
 {
-  const localSubjects = g(["-C", repoRoot, "log", "--format=%s", `${baseSha}..HEAD`]).out;
+  const localSubjects = new Set(
+    g(["-C", repoRoot, "log", "--format=%s", `${baseSha}..HEAD`]).out.split("\n").filter((l) => l !== ""),
+  );
   const localIds = collectChangeIds(`${baseSha}..HEAD`);
   const cherry = g(["-C", repoRoot, "cherry", "HEAD", upstreamRef]).out;
   let found = false;
@@ -473,7 +477,7 @@ let unrecognizedBehind = 0;
     const sha = line.slice(2);
     const subject = g(["-C", repoRoot, "log", "-1", "--format=%s", sha]).out;
     const id = changeIdGetFromCommit(repoRoot, sha) ?? "";
-    const recognized = status === "-" || (id !== "" && localIds.has(id)) || localSubjects.includes(subject) || knownByOtherRef(sha);
+    const recognized = status === "-" || (id !== "" && localIds.has(id)) || localSubjects.has(subject) || knownByOtherRef(sha);
     if (recognized) {
       if (!found) {
         console.log("Upstream commits that look like your own work (patch-equivalent, same Change-Id, same subject locally, or already reachable from a local branch/tag):");
@@ -514,12 +518,13 @@ if (replay && !dryRun) {
     snapshotPaths = surfacesList().map((s) => s.glob);
     if (snapshotPaths.length > 0) {
       const snapshotIndex = join(tmpdir(), `fork-sync-snapidx.${process.pid}-${Math.random().toString(36).slice(2, 8)}`);
-      const idx = (file: string): string[] => ["--no-pager", "-c", `GIT_INDEX_FILE=${file}`];
-      void idx;
       const readTree = spawnSync("git", ["-C", repoRoot, "read-tree", "HEAD"], {
         env: { ...process.env, GIT_INDEX_FILE: snapshotIndex },
       });
-      void readTree;
+      if (readTree.status !== 0) {
+        console.error(`fork-sync: read-tree failed for snapshot index: ${readTree.stderr ?? ""}`);
+        process.exit(EXIT_GENERAL_ERROR);
+      }
       const add = spawnSync("git", ["-C", repoRoot, "add", "-A", "--", ...snapshotPaths], {
         env: { ...process.env, GIT_INDEX_FILE: snapshotIndex },
         stdio: "ignore",

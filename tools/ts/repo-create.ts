@@ -31,6 +31,7 @@ import {
   getTypePostCreationCommitHandling,
   getTypeDescription,
   getTypeNamingExample,
+  repoTreeParityReady,
 } from "../lib/domain/repos/types.ts";
 
 assertNodeFloor();
@@ -92,11 +93,11 @@ async function waitForRepoReady(fullName: string, templateFullName: string): Pro
       reposTreeCount(fullName),
       reposTreeCount(templateFullName),
     ]);
+    if (repoTreeParityReady(newCount, templateCount)) {
+      logInfo(`✓ Repository is ready (tree entries: ${newCount}, matches template)`);
+      return true;
+    }
     if (newCount !== null && templateCount !== null) {
-      if (newCount === templateCount) {
-        logInfo(`✓ Repository is ready (tree entries: ${newCount}, matches template)`);
-        return true;
-      }
       console.error(`  Attempt ${attempt}/${maxAttempts}: syncing (${newCount} tree entries, template has ${templateCount}), waiting ${delay}s...`);
     } else {
       console.error(`  Attempt ${attempt}/${maxAttempts}: tree probe failed/truncated, waiting ${delay}s...`);

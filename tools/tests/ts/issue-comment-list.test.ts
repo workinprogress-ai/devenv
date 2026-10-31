@@ -76,9 +76,11 @@ describe("issue-comment-list", () => {
     process.env.PATH = `${stubDir}:${process.env.PATH ?? ""}`;
   });
 
+  const savedPath = process.env.PATH;
   afterEach(() => {
     rmSync(stubDir, { recursive: true, force: true });
     rmSync(repoRoot, { recursive: true, force: true });
+    process.env.PATH = savedPath;
   });
 
   it("emits one JSON object per comment with the bash field set (preview default)", () => {

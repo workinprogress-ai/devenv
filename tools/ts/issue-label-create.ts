@@ -13,11 +13,13 @@
 
 import { parseArgs } from "node:util";
 import { basename, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
+import { resolveToolsRoot } from "../lib/core/self-root.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesLabelList, issuesLabelCreate, issuesLabelUpdate } from "../lib/providers/github/issues.ts";
@@ -171,7 +173,10 @@ async function main(argv: string[]): Promise<number> {
   }
 
   if (seed) {
-    const config = join(requireRepoTarget(providerRepoTarget(""), "issue-label-create", "issues") !== "" ? process.cwd() : process.cwd(), "tools/config/labels-config.yml");
+    // The seed config lives in THIS checkout's tools/ (self-root contract)
+    // — the old cwd ternary (cond ? cwd : cwd) bound it to wherever the
+    // tool happened to run.
+    const config = join(resolveToolsRoot(fileURLToPath(import.meta.url)), "config", "labels-config.yml");
     if (!existsSync(config)) {
       logError(`Seed config not found: ${config}`);
       return EXIT_API_FAILURE;

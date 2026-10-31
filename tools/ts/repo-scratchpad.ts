@@ -9,7 +9,7 @@ import { EXIT_API_FAILURE, EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from
 import {
   SCRATCHPAD_BRANCH_PREFIX, SCRATCHPAD_STATE_REF, activeBranch, baseCommit,
   bisectInFlight, clearState, git, isActive, isDirty, onScratchBranch,
-  recordState, returnToBase, snapshotCarry, syncStateRef, validateSlug,
+  recordState, returnToBaseChecked, snapshotCarry, syncStateRef, validateSlug,
   workingBranch,
 } from "../lib/domain/scratchpad.ts";
 
@@ -236,7 +236,12 @@ if (cmd === "promote") {
     console.error(`Error: '${sha}' is not a commit on the scratchpad branch`);
     process.exit(EXIT_API_FAILURE);
   }
-  returnToBase();
+  const rb = returnToBaseChecked();
+  if (!rb.ok) {
+    // F23: never cherry-pick onto the scratch branch because checkout failed.
+    console.error(`Error: could not leave the scratch branch — ${rb.error}. Promote aborted; nothing changed.`);
+    process.exit(EXIT_GENERAL_ERROR);
+  }
   if (!git(["cherry-pick", "--no-commit", sha]).ok) {
     git(["cherry-pick", "--quit"]);
     git(["reset", "--hard", "-q", base]);
@@ -271,7 +276,14 @@ if (cmd === "exit") {
   const base = baseCommit();
   const tip = git(["rev-parse", "--verify", `refs/heads/${branch}`]).out;
   const commits = git(["rev-list", "--count", `${base}..${branch}`]).out || "0";
-  returnToBase();
+  // Same F23 rule as promote: never mutate further after a failed checkout.
+  // The next line deletes the branch — a failed checkout would leave us on
+  // it and -D would drop the tip.
+  const rb = returnToBaseChecked();
+  if (!rb.ok) {
+    console.error(`Error: could not leave the scratch branch — ${rb.error}. Exit aborted; nothing deleted.`);
+    process.exit(EXIT_GENERAL_ERROR);
+  }
   git(["branch", "-q", "-D", branch]);
   clearState();
   console.log(`Scratchpad exited; branch ${branch} deleted (${commits} scratch commit(s)).`);

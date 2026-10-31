@@ -78,5 +78,9 @@ if (selected === "") {
   process.exit(EXIT_GENERAL_ERROR);
 }
 
-kubectl(["config", "use-context", selected]);
+const use = kubectl(["config", "use-context", selected]);
+if (use.status !== 0) {
+  console.error(`ERROR: failed to switch to context '${selected}'`);
+  process.exit(EXIT_GENERAL_ERROR);
+}
 console.error(`Switched to context: ${kubectl(["config", "current-context"]).stdout.trim()}`);

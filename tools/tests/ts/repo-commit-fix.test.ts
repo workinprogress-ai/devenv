@@ -143,27 +143,23 @@ describe("repo-commit --fix", () => {
   });
 
   it("conflict auto-aborts: fixup preserved at HEAD, stack intact", () => {
-    const second = seedCommit("feat: second", "conflict.txt", "original\n");
-    seedCommit("feat: third", "c7.txt");
-    // staged change conflicting with the fold: rewrite the same line the
-    // later commit also touches
-    writeFileSync(join(repo, "conflict.txt"), "rewritten\n");
-    git("add", "--", "conflict.txt");
-    writeFileSync(join(repo, "conflict.txt"), "competing\n");
-    git("add", "--", "conflict.txt");
-    git("commit", "-q", "--no-verify", "-m", "feat: competing edit");
-    writeFileSync(join(repo, "conflict.txt"), "later\n");
-    git("add", "--", "conflict.txt");
+    // GUARANTEED textual conflict: the fixup target ("second") writes line A;
+    // a LATER commit rewrites line A to something different. Folding "second"
+    // (which introduces line A) into a history where HEAD already says
+    // something else conflicts textually — 3-way cannot merge identical
+    // additions. (The old fixture's either-outcome branch tested nothing.)
+    seedCommit("feat: base", "conflict.txt", "base\n");
+    const second = seedCommit("feat: second", "conflict.txt", "line-from-second\n");
+    seedCommit("feat: third", "conflict.txt", "line-from-third\n");
+    stageFile("conflict.txt", "staged-for-fixup\n");
     const r = runTool(["--fix", second]);
-    // either the fold succeeds trivially (no textual conflict) or it
-    // auto-aborts with the fixup preserved — never a stuck rebase
-    if (r.status !== 0) {
-      expect(r.out).toContain("rebase aborted");
-      expect(git("log", "-1", "--format=%s")).toContain("fixup!");
-      expect(git("status", "--porcelain")).not.toContain("rebase-i");
-    } else {
-      expect(git("log", "--format=%s", "-5")).not.toContain("fixup!");
-    }
+    expect(r.status).not.toBe(0);
+    expect(r.out).toContain("rebase aborted");
+    expect(git("log", "-1", "--format=%s")).toContain("fixup!");
+    expect(git("status", "--porcelain")).not.toContain("rebase-i");
+    // Stack intact: base and third still present, in order.
+    const subjects = git("log", "--format=%s", "-5");
+    expect(subjects).toContain("feat: third");
   });
 
   it("dry-run: resolves and prints, touches nothing", () => {

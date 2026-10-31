@@ -92,15 +92,30 @@ export function syncStateRef(): void {
 }
 
 export function returnToBase(): void {
+  const r = returnToBaseChecked();
+  if (!r.ok) {
+    // F23: a failed checkout silently proceeding was the promote-reset hazard.
+    console.error(`returnToBase failed: ${r.error}`);
+  }
+}
+
+/** returnToBase with an honest result: {ok} plus the named error. The
+ * destructive callers (promote/exit) MUST check it before mutating further —
+ * a cherry-pick or branch -D on the wrong branch drops scratch commits. */
+export function returnToBaseChecked(): { ok: boolean; error?: string } {
   const base = baseCommit();
   const origin = originBranch();
+  let r: { out: string; ok: boolean };
   if (origin !== "" && git(["show-ref", "--verify", "--quiet", `refs/heads/${origin}`]).ok) {
-    git(["checkout", "-q", origin]);
+    r = git(["checkout", "-q", origin]);
+    if (!r.ok) return { ok: false, error: `checkout ${origin} failed` };
     console.log(`Returned to branch ${origin}`);
-  } else {
-    git(["checkout", "-q", base]);
-    console.log(`Returned to base commit ${base.slice(0, 7)} (detached — entry was from a detached HEAD)`);
+    return { ok: true };
   }
+  r = git(["checkout", "-q", base]);
+  if (!r.ok) return { ok: false, error: `checkout ${base.slice(0, 7)} failed (dirty tree?)` };
+  console.log(`Returned to base commit ${base.slice(0, 7)} (detached — entry was from a detached HEAD)`);
+  return { ok: true };
 }
 
 export function clearState(): void {

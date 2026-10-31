@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+import { repoTreeParityReady } from "../../lib/domain/repos/types.ts";
 // Tests for the 15.13 readiness probe: reposTreeCount's truncated/null
 // contract, and the parity decision waitForRepoReady applies (parity =
 // ready; template-ahead or probe failure = keep waiting, never ready).
@@ -7,7 +9,6 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 const REPOS = join(fileURLToPath(new URL(".", import.meta.url)), "../../lib/providers/github/repos.ts");
 
@@ -64,13 +65,11 @@ describe("reposTreeCount", () => {
   });
 });
 
-describe("parity decision (waitForRepoReady's table)", () => {
-  // The tool's waitForRepoReady sleeps between attempts (2.5 min worst
-  // case) — the decision table is pinned as the same comparison it performs
-  // against the same reposTreeCount contract above.
-  function decide(newCount: number | null, templateCount: number | null): "ready" | "waiting" {
-    if (newCount !== null && templateCount !== null && newCount === templateCount) return "ready";
-    return "waiting";
+describe("parity decision (the domain's repoTreeParityReady)", () => {
+  // F36: the REAL predicate, now in domain/repos (the tool imports it; the
+  // test imports the same function — no replica).
+  function decide(a: number | null, b: number | null): "ready" | "waiting" {
+    return repoTreeParityReady(a, b) ? "ready" : "waiting";
   }
 
   it("parity declares ready", () => {

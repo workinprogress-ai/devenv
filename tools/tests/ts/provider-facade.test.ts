@@ -92,11 +92,13 @@ describe("provider-core (TS facade core)", () => {
     process.env.PATH = `${stubDir}:${process.env.PATH ?? ""}`;
   });
 
+  const savedPath = process.env.PATH;
   afterEach(() => {
     for (const r of configRoots.splice(0)) rmSync(r, { recursive: true, force: true });
     rmSync(stubDir, { recursive: true, force: true });
     delete process.env.FACADE_GH_FAIL;
     delete process.env.DEVENV_REPO;
+    process.env.PATH = savedPath;
   });
 
   it("providerDetect reads [provider] name, defaulting to github", async () => {
@@ -228,6 +230,11 @@ describe("artifacts domain (byte-faithful header)", () => {
     ({ artifacts } = await loadFacade());
   });
 
+  const savedPathArtifacts = process.env.PATH;
+  afterEach(() => {
+    process.env.PATH = savedPathArtifacts;
+  });
+
   const header = [
     "<!-- DEVENV_ARTIFACT_V1",
     "doc_id: dv1:org/repo:local:plan:issue-42-001",
@@ -324,7 +331,10 @@ describe("prs verbs (call-shape contract over the gh stub)", () => {
     for (const r of configRoots.splice(0)) rmSync(r, { recursive: true, force: true });
     rmSync(stubDir, { recursive: true, force: true });
     delete process.env.DEVENV_REPO;
+    process.env.PATH = savedPathPrs;
   });
+
+  const savedPathPrs = process.env.PATH;
 
   it("prsMerge sends the method, subject/body, delete-branch and admin flags in order", async () => {
     const { prs } = await loadFacade();
@@ -469,7 +479,10 @@ describe("pipelines verbs (seam projection contract over the gh stub)", () => {
     for (const r of configRoots.splice(0)) rmSync(r, { recursive: true, force: true });
     rmSync(stubDir, { recursive: true, force: true });
     delete process.env.DEVENV_REPO;
+    process.env.PATH = savedPathPipelines;
   });
+
+  const savedPathPipelines = process.env.PATH;
 
   it("runList json+jq: seam rename happens first, the jq projection applies to renamed records", async () => {
     const { pipelines } = await loadFacade();
@@ -494,5 +507,22 @@ describe("pipelines verbs (seam projection contract over the gh stub)", () => {
     const call = ghCalls().find((c) => c.includes("run list")) ?? "";
     expect(call).toContain("--status in_progress");
     expect(call).toContain("--json databaseId");
+  });
+
+  it("runList json+jq: the '// empty' jq form is inside the seam subset (watch/run URL contracts)", async () => {
+    const { pipelines } = await loadFacade();
+    // pipelines-watch and pipelines-run pass '.[0].id // empty' / '.[0].url
+    // // empty' — these must parse, not throw (an applyJq throw turned the
+    // watcher's no-run detection into a permanent failure).
+    writeFileSync(responses, `run list\t[{"databaseId":55,"url":"https://ci/run/55"}]\n`);
+    const id = await pipelines.pipelinesRunList("o/r", { json: "id", jq: ".[0].id // empty", status: "in_progress" });
+    expect(id).toBe("55");
+    const url = await pipelines.pipelinesRunList("o/r", { json: "url", jq: ".[0].url // empty" });
+    expect(url).toBe("https://ci/run/55");
+    // Missing record + '// empty' stays silent (the exact "no in-progress
+    // run" shape the watcher relies on).
+    writeFileSync(responses, `run list\t[]\n`);
+    const empty = await pipelines.pipelinesRunList("o/r", { json: "id", jq: ".[0].id // empty", status: "in_progress" });
+    expect(empty).toBe("");
   });
 });

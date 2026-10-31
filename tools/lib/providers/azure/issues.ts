@@ -139,11 +139,28 @@ function seamAssignees(item: AzureWorkItem): Array<{ login: string }> {
 
 /** Decode a description per its storage format: markdown-held text is raw;
  * HTML-held text is entity-decoded. */
-function decodeDescription(item: AzureWorkItem): string {
-  const raw = strField(item, "System.Description");
+/** Decode one long-text field honoring its multilineFieldsFormat entry. */
+function decodeLongText(item: AzureWorkItem, field: string): string {
+  const raw = strField(item, field);
   const isMarkdown =
-    (item.multilineFieldsFormat?.["System.Description"] ?? "") === "markdown";
+    (item.multilineFieldsFormat?.[field] ?? "") === "markdown";
   return isMarkdown ? raw : azureTextDecode(raw);
+}
+
+/** The body for a work item whose devenv type maps to CONFIGURED_FIELD:
+ * read the configured field first; when empty, fall back to the other
+ * candidate (System.Description) so pre-config items stay wrapper-readable
+ * (e.g. #101791's body lives in Description while its Bug form shows
+ * ReproSteps). */
+function decodeConfiguredBody(
+  item: AzureWorkItem,
+  configuredField: string,
+): string {
+  const primary = decodeLongText(item, configuredField);
+  if (primary.trim() !== "" || configuredField === DEFAULT_BODY_FIELD) {
+    return primary;
+  }
+  return decodeLongText(item, DEFAULT_BODY_FIELD);
 }
 
 /** The full seam record for one work item (view's projection contract: every
@@ -161,14 +178,32 @@ function seamParent(item: AzureWorkItem): Record<string, unknown> | null {
   return Number.isFinite(n) ? { number: n, title: null } : null;
 }
 
+/** The devenv issue type for a work item's Azure WIT: [azure_issue_types]
+ * overrides first (a configured value equal to this WIT maps to the devenv
+ * type), then the built-in map inverted. Unmapped WITs surface verbatim
+ * (issue-get's type field is diagnostic, not a write input). */
+function seamTypeFor(item: AzureWorkItem): string {
+  const wit = strField(item, "System.WorkItemType");
+  if (wit === "") return "";
+  for (const key of ["epic", "feature", "bug", "task"]) {
+    if (issueTypesConfig(key) === wit) return key.charAt(0).toUpperCase() + key.slice(1);
+  }
+  const builtinInverse: Record<string, string> = {
+    Epic: "Epic", Feature: "Feature", Bug: "Bug", "User Story": "Task",
+  };
+  return builtinInverse[wit] ?? wit;
+}
+
 function mapItem(item: AzureWorkItem, comments?: Array<{ id: string; url: string; body: string; created_at: string; updated_at: string }>): Record<string, unknown> {
   const number = item.id ?? 0;
+  const devenvType = seamTypeFor(item);
   return {
     number,
+    type: devenvType,
     parent: seamParent(item),
     title: strField(item, "System.Title"),
     state: seamState(item),
-    body: decodeDescription(item),
+    body: decodeConfiguredBody(item, bodyFieldFor(devenvType)),
     labels: seamTags(item),
     assignees: seamAssignees(item),
     milestone: seamMilestone(item),
@@ -193,6 +228,31 @@ function mapItem(item: AzureWorkItem, comments?: Array<{ id: string; url: string
  * bash seam's azure_config_get parity — section-scoped, not [provider].) */
 function issueTypesConfig(key: string): string {
   return configGetRaw(providerConfigPath(), "azure_issue_types", key) ?? "";
+}
+
+/** The Azure field the issue BODY is written to and read from for a devenv
+ * issue type ([azure_body_fields] override, key = devenv type; absent key
+ * defaults to System.Description). The field choice is an org/process fact —
+ * different Azure processes put the working body in different fields (the
+ * Bug form often displays ReproSteps and can hide Description) — so it is
+ * config, not wrapper code. One authoritative field per type avoids the
+ * dual-write read-ambiguity. */
+const DEFAULT_BODY_FIELD = "System.Description";
+
+export function bodyFieldFor(type: string): string {
+  if (type === "") return DEFAULT_BODY_FIELD;
+  const section = providerConfigPath();
+  // Config keys are case-sensitive: try the canonical devenv type first
+  // (Bug), then the lowercase form users commonly write (bug).
+  for (const key of [
+    type,
+    type.toLowerCase(),
+    type.charAt(0).toUpperCase() + type.slice(1).toLowerCase(),
+  ]) {
+    const raw = configGetRaw(section, "azure_body_fields", key) ?? "";
+    if (raw !== "") return raw;
+  }
+  return DEFAULT_BODY_FIELD;
 }
 
 /** The mapped Azure work item type for a devenv issue type, resolving
@@ -394,17 +454,19 @@ async function workItemsBatch(base: string, ids: number[]): Promise<AzureWorkIte
 /** Project batch details to seam records with decoded bodies. */
 function mapBatch(items: AzureWorkItem[]): Array<Record<string, unknown>> {
   return items.map((item) => {
-    const isMarkdown =
-      (item.multilineFieldsFormat?.["System.Description"] ?? "") === "markdown";
-    const raw = strField(item, "System.Description");
+    const devenvType = seamTypeFor(item);
+    // One bodyFieldFor resolution per item (each call costs up to three
+    // config file scans — a batch of hundreds would multiply that).
+    const bodyField = bodyFieldFor(devenvType);
     return {
       number: item.id ?? 0,
+      type: devenvType,
       parent: seamParent(item),
       title: strField(item, "System.Title"),
       state: seamState(item),
       labels: seamTags(item),
-      body: isMarkdown ? raw : azureTextDecode(raw),
-      markdown: isMarkdown,
+      body: decodeConfiguredBody(item, bodyField),
+      markdown: (item.multilineFieldsFormat?.[bodyField] ?? "") === "markdown",
       url: item.url ?? "",
       createdAt: strField(item, "System.CreatedDate"),
       updatedAt: strField(item, "System.ChangedDate"),
@@ -592,6 +654,32 @@ interface PatchOp {
   value: unknown;
 }
 
+/** Write verification (15.22b): read back rev + System.ChangedDate after a
+ * PATCH and confirm the server reflects the write (rev advanced past
+ * PRIOR_REV when known, ChangedDate advanced). A successful mutation exit
+ * must imply persistence, not just an accepted request — the accepted-
+ * request-but-not-displayed class (#101791) surfaces as a named warning. */
+async function verifyWriteReflected(
+  number: number,
+  prior: { rev?: number | undefined; changedDate?: string | undefined } = {},
+): Promise<void> {
+  const { base } = witBase();
+  const r = await azureHttp<AzureWorkItem>(
+    "GET",
+    `${base}/workitems/${number}?$fields=System.Rev,System.ChangedDate`,
+  );
+  const rev = typeof r.fields?.["System.Rev"] === "number" ? (r.fields["System.Rev"] as number) : 0;
+  const changedDate = strField(r, "System.ChangedDate");
+  const revOk = prior.rev === undefined ? rev > 0 : rev > prior.rev;
+  const dateOk = prior.changedDate === undefined || prior.changedDate === "" ? changedDate !== "" : changedDate > prior.changedDate;
+  if (!revOk || !dateOk) {
+    throw new ProviderError(
+      `write to work item ${number} not reflected after PATCH ` +
+        `(rev ${prior.rev ?? "?"}->${rev}, ChangedDate '${prior.changedDate ?? "?"}'->'${changedDate}')`,
+    );
+  }
+}
+
 /** Create a work item. Returns the new work item's id. */
 export async function issuesCreate(
   repo: string,
@@ -600,19 +688,20 @@ export async function issuesCreate(
   void repo;
   if (opts.title === "") throw new ProviderError("issues_create requires --title");
   const witType = await workItemTypeFor(opts.type ?? "");
+  const bodyField = bodyFieldFor(opts.type ?? "");
   const ops: PatchOp[] = [
     { op: "add", path: "/fields/System.Title", from: null, value: opts.title },
   ];
   if (opts.body !== undefined && opts.body !== "") {
     ops.push({
       op: "add",
-      path: "/fields/System.Description",
+      path: `/fields/${bodyField}`,
       from: null,
       value: azureTextNormalize(issuesArtifactBodyTransform(opts.body)),
     });
     ops.push({
       op: "add",
-      path: "/multilineFieldsFormat/System.Description",
+      path: `/multilineFieldsFormat/${bodyField}`,
       value: "markdown",
     });
   }
@@ -632,7 +721,9 @@ export async function issuesCreate(
     `${base}/workitems/$${azureUri(witType)}`,
     { body: JSON.stringify(ops), contentType: "application/json-patch+json" },
   );
-  return r.id ?? 0;
+  const id = r.id ?? 0;
+  if (id !== 0) await verifyWriteReflected(id);
+  return id;
 }
 
 export interface IssuesCommentOptions {
@@ -648,7 +739,13 @@ export async function issuesComment(
   opts: IssuesCommentOptions,
 ): Promise<string> {
   void repo;
-  const text = opts.body ?? opts.commentBody ?? "";
+  // --body-file posts the FILE's CONTENT (F8: it was ignored entirely and
+  // the comment posted empty).
+  let text = opts.body ?? opts.commentBody ?? "";
+  if (text === "" && opts.bodyFile !== undefined) {
+    const { readFileSync } = await import("node:fs");
+    text = opts.bodyFile === "-" ? readFileSync(0, "utf8") : readFileSync(opts.bodyFile, "utf8");
+  }
   const { base } = witBase();
   const r = await azureHttp<{ id?: number | string }>(
     "POST",
@@ -702,6 +799,9 @@ export interface IssuesEditOptions {
   body?: string;
   addLabel?: string;
   removeLabel?: string;
+  /** The devenv issue type (resolves the [azure_body_fields] body field).
+   * Absent/empty falls back to System.Description. */
+  type?: string;
 }
 
 /** Edit a work item: title/body/labels. */
@@ -711,6 +811,7 @@ export async function issuesEdit(
   opts: IssuesEditOptions,
 ): Promise<void> {
   void repo;
+  const bodyField = bodyFieldFor(opts.type ?? "");
   const ops: PatchOp[] = [];
   if (opts.title !== undefined) {
     ops.push({ op: "add", path: "/fields/System.Title", from: null, value: opts.title });
@@ -718,13 +819,13 @@ export async function issuesEdit(
   if (opts.body !== undefined) {
     ops.push({
       op: "add",
-      path: "/fields/System.Description",
+      path: `/fields/${bodyField}`,
       from: null,
       value: azureTextNormalize(issuesArtifactBodyTransform(opts.body)),
     });
     ops.push({
       op: "add",
-      path: "/multilineFieldsFormat/System.Description",
+      path: `/multilineFieldsFormat/${bodyField}`,
       value: "markdown",
     });
   }
@@ -736,10 +837,18 @@ export async function issuesEdit(
   }
   if (ops.length === 0) return;
   const { base } = witBase();
+  // Prior rev/ChangedDate for the write-verification readback.
+  const prior = await azureHttp<AzureWorkItem>(
+    "GET",
+    `${base}/workitems/${number}?$fields=System.Rev,System.ChangedDate`,
+  );
+  const priorRev = typeof prior.fields?.["System.Rev"] === "number" ? (prior.fields["System.Rev"] as number) : undefined;
+  const priorDate = strField(prior, "System.ChangedDate");
   await azureHttp("PATCH", `${base}/workitems/${number}`, {
     body: JSON.stringify(ops),
     contentType: "application/json-patch+json",
   });
+  await verifyWriteReflected(number, { rev: priorRev, changedDate: priorDate });
 }
 
 /** The work item's own type (System.WorkItemType). */

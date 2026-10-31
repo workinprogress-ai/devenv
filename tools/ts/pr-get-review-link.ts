@@ -82,7 +82,7 @@ async function main(argv: string[]): Promise<number> {
     state: "open",
     search: "head:review/",
     json: "url",
-    jq: ".[0].url",
+    jq: ".[0].url // empty",
   }).catch(() => null);
   const fallbackUrl = (fallback?.stdout ?? "").trim().split("\n")[0] ?? "";
   if (fallbackUrl !== "") {

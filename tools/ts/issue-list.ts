@@ -130,6 +130,10 @@ async function main(argv: string[]): Promise<number> {
     mention = values["mention"] ?? "";
     format = values["format"] ?? "table";
     limit = Number.parseInt(values["limit"] ?? "30", 10);
+    if (!Number.isFinite(limit) || limit <= 0) {
+      logError(`Invalid --limit: ${values["limit"]} (expected a positive number)`);
+      return EXIT_MISUSE;
+    }
     web = Boolean(values["web"]);
     devenv = Boolean(values["devenv"]);
   } catch (err) {
@@ -144,7 +148,7 @@ async function main(argv: string[]): Promise<number> {
 
   if (web) {
     try {
-      await issuesList(undefined, { web: true });
+      await issuesList(repo, { web: true });
     } catch (err) {
       logError(`Failed to open the issue list: ${err instanceof Error ? err.message : String(err)}`);
       return 1;

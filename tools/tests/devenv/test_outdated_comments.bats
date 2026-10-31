@@ -28,19 +28,19 @@ load ../test_helper
 @test "scripts have no stale Azure DevOps references outside the azure provider" {
   # Azure is a supported provider (#40): key-update-azure legitimately
   # references it. Forbidden: Azure vocabulary in provider-unrelated scripts.
-  run bash -c "grep -ril 'Azure DevOps\\|azure-devops\\|AzDO' '$PROJECT_ROOT/tools/scripts/' --include='*.sh' | grep -vE '_key-update-azure|providers/azure|providers/github'"
+  run bash -c "grep -ril 'Azure DevOps\\|azure-devops\\|AzDO' '$PROJECT_ROOT/tools/ts/' '$PROJECT_ROOT/tools/lib/domain/' '$PROJECT_ROOT/tools/lib/core/' 2>/dev/null | grep -vE 'providers/azure|providers/github|domain/fork/'"
   [ "$status" -ne 0 ]
 }
 
 @test "scripts have no Azure PAT references outside the azure provider" {
-  run bash -c "grep -ril 'AZURE.*TOKEN.*PAT\\|AZURE_DEVOPS_PAT' '$PROJECT_ROOT/tools/scripts/' --include='*.sh' | grep -vE '_key-update-azure|providers/azure|providers/github'"
+  run bash -c "grep -ril 'AZURE.*TOKEN.*PAT\\|AZURE_DEVOPS_PAT' '$PROJECT_ROOT/tools/ts/' '$PROJECT_ROOT/tools/lib/domain/' '$PROJECT_ROOT/tools/lib/core/' 2>/dev/null | grep -vE 'providers/azure|providers/github|domain/fork/'"
   [ "$status" -ne 0 ]
 }
 
 @test "scripts have no work item references outside the azure provider" {
   # Azure work-item mapping lives in the provider domain modules; wrappers
   # stay transport-blind.
-  run bash -c "grep -ril 'work.*item\\|workitem' '$PROJECT_ROOT/tools/scripts/' --include='*.sh' | grep -vE '_key-update-azure|providers/azure|providers/github'"
+  run bash -c "grep -rilE 'wiql|workitemsbatch|azureHttp|dev\.azure\.com' '$PROJECT_ROOT/tools/ts/' '$PROJECT_ROOT/tools/lib/domain/' '$PROJECT_ROOT/tools/lib/core/' 2>/dev/null | grep -vE 'providers/azure|providers/github|domain/fork/'"
   [ "$status" -ne 0 ]
 }
 
@@ -67,22 +67,3 @@ load ../test_helper
   [ "$status" -ne 0 ]
 }
 
-@test "no commented-out code in key scripts" {
-  # Check that key scripts don't have extensive commented-out code
-  local key_scripts=(
-    "$PROJECT_ROOT/tools/scripts/repo-get.sh"
-    "$PROJECT_ROOT/tools/scripts/repo-update-all.sh"
-    "$PROJECT_ROOT/tools/scripts/pr-merge.sh"
-  )
-  
-  for script in "${key_scripts[@]}"; do
-    if [ -f "$script" ]; then
-      # Should have fewer than 5 consecutive commented lines
-      run bash -c "awk '/^[[:space:]]*#[^!]/{c++; if(c>5) exit 0} c>0 && !/^[[:space:]]*#/{c=0} END{exit 1}' $script"
-      [ "$status" -ne 0 ] || {
-        echo "Script $script has too many consecutive commented lines"
-        return 1
-      }
-    fi
-  done
-}

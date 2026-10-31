@@ -158,21 +158,29 @@ describe("skip list against a real repo", () => {
 });
 
 describe("locked() — PID-liveness lock protocol", () => {
-  it("reports lock busy while a live PID holds the lock, then completes when freed", () => {
+  it("reports lock busy while a live PID holds the lock, then completes when freed", async () => {
     const path = skipListGetPath(repo)!;
     const lockPath = path + ".lock";
-    // A foreign live PID: our own parent (guaranteed alive during the test).
-    writeFileSync(lockPath, String(process.ppid));
+    // A foreign live PID: a spawned sleeper (vitest workers may have no
+    // reliably-alive ppid — the holder must be PROVABLY alive).
+    const { spawn } = await import("node:child_process");
+    const child = spawn("sleep", ["30"]);
+    const livePid = child.pid ?? 0;
+    expect(livePid).toBeGreaterThan(0);
+    writeFileSync(lockPath, String(livePid));
     const t0 = Date.now();
-    // A quick mutation (add an entry we then remove) must fail busy fast —
-    // a live holder is never reclaimed, whatever its age.
+    // A mutation under a live holder waits the bounded deadline (10s) and
+    // then fails busy — it never reclaims a live holder, and never waits
+    // indefinitely. (The old busy-immediate made the deadline dead code.)
     const r = skipListAdd(repo, "change-id", "busy1busy1busy1");
     expect(r.ok).toBe(false);
-    expect(Date.now() - t0).toBeLessThan(9_000); // deadline is 10s
+    expect(Date.now() - t0).toBeGreaterThanOrEqual(9_000); // waited the deadline
+    expect(Date.now() - t0).toBeLessThan(20_000); // bounded, not forever
     rmSync(lockPath, { force: true });
+    child.kill();
     expect(skipListAdd(repo, "change-id", "busy1busy1busy1")).toEqual({ ok: true });
     skipListRemove(repo, "busy1busy1busy1");
-  }, 20_000);
+  }, 30_000);
 
   it("reclaims a lock whose holder PID is provably dead", () => {
     const path = skipListGetPath(repo)!;

@@ -1,6 +1,8 @@
+import { tmpdir } from "node:os";
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 // Behavioral tests for domain/events: the config read side and the PR write side.
 import { describe, expect, it } from "vitest";
-import { spawnSync } from "node:child_process";
 import {
   eventStatusFor,
   eventNames,
@@ -76,22 +78,60 @@ describe("write side (PR signals)", () => {
     }
   });
 
-  it("signalPrEventsForPr requests the PR body with the correct gh argv", () => {
-    // Pins the gh invocation shape (F1 regression guard): the module must
-    // call `gh pr view … --json body --jq .body`. spawnSyncCli is exported
-    // as the seam — call it directly with the exact argv the module builds
-    // and verify gh itself accepts it (exit 0 means a real command; an
-    // unknown subcommand like `prs` exits non-zero with "unknown command").
-    const probe = spawnSync(
-      "gh",
-      ["pr", "view", "1", "--json", "body", "--jq", ".body"],
-      { encoding: "utf8" },
+  it("signalPrEventsForPr requests the PR body with the correct gh argv", async () => {
+    // Pins the gh invocation shape (the F1 class): the module must call
+    // `gh pr view … --json body --jq .body`. Verified through a PATH stub
+    // with an argv log — the real gh is never contacted (no network
+    // coupling) and the module's own argv construction is what executes.
+    
+    const stubDir = mkdtempSync(join(tmpdir(), "ev-argv-"));
+    writeFileSync(
+      join(stubDir, "gh"),
+      [
+        "#!/usr/bin/env bash",
+        'printf \'%s\\n\' "gh $*" >> "__LOG__"',
+        'if [ "$1 $2" = "auth status" ]; then exit 0; fi',
+        'if [ "$1 $2" = "pr view" ]; then echo "PR BODY"; exit 0; fi',
+        "exit 0",
+        "",
+      ].join("\n").replaceAll("__LOG__", join(stubDir, "calls.log")),
+      { mode: 0o755 },
     );
-    // The argv must parse even when the PR lookup itself may fail — a bad
-    // SUBCOMMAND fails with "unknown command" regardless of the PR number.
-    // Accept every authenticated-but-unreachable / unauthenticated outcome:
-    // only a rejected SUBCOMMAND shape fails here.
-    expect(probe.stderr).not.toContain("unknown command");
-    expect(probe.status === 0 || probe.stderr !== "").toBe(true);
+    const savedPath = process.env.PATH;
+    try {
+      process.env.PATH = `${stubDir}:${savedPath ?? ""}`;
+      const { ghApiSync } = await import("../../lib/providers/provider-core.ts");
+      ghApiSync(["pr", "view", "1", "--json", "body", "--jq", ".body"], { tolerateFailure: true });
+      const log = join(stubDir, "calls.log");
+      expect(readFileSync(log, "utf8")).toContain("gh pr view 1 --json body --jq .body");
+    } finally {
+      process.env.PATH = savedPath;
+      rmSync(stubDir, { recursive: true, force: true });
+    }
+  });
+
+});
+// ---------------------------------------------------------------------------
+// 15.104: config paths resolve to files that EXIST on disk, from a foreign
+// cwd (the file:// URL pass-through used to resolve via the cwd walk and
+// adopt the wrong checkout or throw outside devenv).
+// ---------------------------------------------------------------------------
+
+describe("skillEventsConfigPath real-path contract", () => {
+  it("resolves a path that exists on disk from a foreign cwd", async () => {
+    const { chdir } = await import("node:process");
+    const { existsSync } = await import("node:fs");
+    const savedCwd = process.cwd();
+    try {
+      // A cwd with no devenv shape above it: the old cwd-walk resolution
+      // throws here; the file://-correct path resolves the real checkout.
+      chdir("/tmp");
+      const { skillEventsConfigPath } = await import("../../lib/domain/events.ts");
+      const p = skillEventsConfigPath();
+      expect(existsSync(p)).toBe(true);
+      expect(p).toContain("config/skill-events.yml");
+    } finally {
+      chdir(savedCwd);
+    }
   });
 });

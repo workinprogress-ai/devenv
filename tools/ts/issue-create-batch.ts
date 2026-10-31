@@ -202,7 +202,13 @@ function parseBlock(lines: Line[], pos: { i: number }, indent: number): YamlValu
         item[key] = deeper ? parseBlock(lines, pos, lines[pos.i]!.indent) : "";
       }
       while (pos.i < lines.length && lines[pos.i]!.indent >= itemIndent && !lines[pos.i]!.text.startsWith("- ")) {
+        const before = pos.i;
         Object.assign(item, parseBlock(lines, pos, lines[pos.i]!.indent) as { [key: string]: YamlValue });
+        if (pos.i === before) {
+          // parseBlock consumed nothing: the line is unadvanceable (malformed
+          // shape). Park-and-spin would hang the parse forever.
+          throw new Error(`manifest: unparseable structure at line ${pos.i + 1}: "${lines[pos.i]?.text ?? ""}"`);
+        }
       }
       arr.push(item);
     }
@@ -218,7 +224,11 @@ function parseBlock(lines: Line[], pos: { i: number }, indent: number): YamlValu
     }
     const line = lines[pos.i]!;
     const kv = /^([^:]+):(.*)$/.exec(line.text);
-    if (kv === null) break;
+    if (kv === null) {
+      // Unparseable structural line: breaking would leave pos.i parked on it
+      // and the caller's loop re-testing it forever. Named error instead.
+      throw new Error(`manifest: unparseable line ${pos.i + 1}: "${line.text}"`);
+    }
     const key = unquote(kv[1]!.trim());
     const rest = kv[2]!.trim();
     pos.i++;

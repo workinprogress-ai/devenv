@@ -62,9 +62,11 @@ describe("issue-select (non-interactive refusals)", () => {
     process.env.PATH = `${stubDir}:${process.env.PATH ?? ""}`;
   });
 
+  const savedPath = process.env.PATH;
   afterEach(() => {
     rmSync(stubDir, { recursive: true, force: true });
     rmSync(repoRoot, { recursive: true, force: true });
+    process.env.PATH = savedPath;
   });
 
   it("no TTY is a defined misuse failure (picker cannot render)", () => {

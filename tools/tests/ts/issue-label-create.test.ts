@@ -73,9 +73,11 @@ describe("issue-label-create", () => {
     process.env.PATH = `${stubDir}:${process.env.PATH ?? ""}`;
   });
 
+  const savedPath = process.env.PATH;
   afterEach(() => {
     rmSync(stubDir, { recursive: true, force: true });
     rmSync(repoRoot, { recursive: true, force: true });
+    process.env.PATH = savedPath;
   });
 
   it("a new label is created with color and description", () => {

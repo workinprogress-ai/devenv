@@ -45,13 +45,15 @@ export function renameJsonKeys(raw: string, inverse: Record<string, string>): st
 
 /** Apply a caller's `-q` jq program to the renamed records. Supports the
  * projection programs the facade's verbs document (`.field`, `.[].field`,
- * `.[N].field`); anything else passes the program through to gh instead (the
- * verb forwards `--jq` untouched when no field mapping is needed). Throws
- * naming the unsupported program — fail loud, never silent. */
+ * `.[N].field`, each optionally suffixed with `// empty` — jq's
+ * empty-on-missing alternative, which the pipelines callers use to keep
+ * empty results silent); anything else throws naming the unsupported
+ * program — fail loud, never silent. */
 export function applyJq(recordsJson: string, program: string): string {
-  const eachField = /^\.\[\]\.([A-Za-z_][A-Za-z0-9_]*)$/.exec(program.trim());
-  const oneField = /^\.([A-Za-z_][A-Za-z0-9_]*)$/.exec(program.trim());
-  const indexField = /^\.\[(\d+)\]\.([A-Za-z_][A-Za-z0-9_]*)$/.exec(program.trim());
+  const base = program.trim().replace(/\/\/\s*empty$/, "").trim();
+  const eachField = /^\.\[\]\.([A-Za-z_][A-Za-z0-9_]*)$/.exec(base);
+  const oneField = /^\.([A-Za-z_][A-Za-z0-9_]*)$/.exec(base);
+  const indexField = /^\.\[(\d+)\]\.([A-Za-z_][A-Za-z0-9_]*)$/.exec(base);
   let parsed: unknown;
   try {
     parsed = JSON.parse(recordsJson);
@@ -59,7 +61,9 @@ export function applyJq(recordsJson: string, program: string): string {
     throw new Error(`applyJq: invalid JSON records for program '${program}'`);
   }
   // Null results produce no output line, matching the bash seam's trailing
-  // `| select(. != null)` on every projection.
+  // `| select(. != null)` on every projection. `// empty` keeps that
+  // silence explicit at the call site (a jq-native spelling of the same
+  // contract) — the behavior is identical to the bare form.
   const value = (rec: unknown, field: string): string | null => {
     const v = (rec as Record<string, unknown> | null)?.[field];
     if (v === undefined || v === null) return null;
@@ -81,7 +85,7 @@ export function applyJq(recordsJson: string, program: string): string {
     return value(rec, indexField[2]) ?? "";
   }
   throw new Error(
-    `applyJq: unsupported jq program '${program}' — the seam supports '.field', '.[].field' and '.[N].field'; pass other programs through to gh --jq`,
+    `applyJq: unsupported jq program '${program}' — the seam supports '.field', '.[].field' and '.[N].field' (each optionally with '// empty')`,
   );
 }
 
@@ -179,9 +183,8 @@ export async function reposCreate(name: string, opts: ReposCreateOptions = {}): 
 }
 
 /** Whether a repository has at least one commit (templates may 409 while
- * syncing; the caller polls). False on transport failure, as bash returned
- * non-zero; a caller that must distinguish empty from unreachable probes
- * reposView first. */
+ * syncing; the caller polls). See reposCommitsCount below — that predicate
+ * owns the has-at-least-one-commit contract described here. */
 /** The repo's HEAD tree blob+entry count via the git trees API
  * (recursive); null when the call fails OR the tree was truncated (a
  * truncated tree reads as not-ready, never as ready — 15.13). */
@@ -197,6 +200,10 @@ export async function reposTreeCount(repo: string): Promise<number | null> {
   }
 }
 
+/** Whether a repository has at least one commit (templates may 409 while
+ * syncing; the caller polls). False on transport failure, as bash returned
+ * non-zero; a caller that must distinguish empty from unreachable probes
+ * reposView first. */
 export async function reposCommitsCount(repo: string): Promise<boolean> {
   const r = ghApiSync(["api", `repos/${repo}/commits?per_page=1`], { tolerateFailure: true });
   if (r.status !== 0) return false;

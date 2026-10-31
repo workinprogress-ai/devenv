@@ -84,22 +84,46 @@ function validateStatus(status: string): boolean {
   return false;
 }
 
-const parsed = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    help: { type: "boolean", default: false },
-    version: { type: "boolean", default: false },
-    "dry-run": { type: "boolean", default: false },
-    status: { type: "string" },
-    "all-projects": { type: "boolean", default: false },
-    safe: { type: "boolean", default: false },
-    field: { type: "string", multiple: true },
-    "list-fields": { type: "boolean", default: false },
-    devenv: { type: "boolean", default: false },
-  },
-  allowPositionals: true,
-  strict: false,
-});
+interface ParsedArgs {
+  values: {
+    help?: boolean;
+    version?: boolean;
+    "dry-run"?: boolean;
+    status?: string;
+    "all-projects"?: boolean;
+    safe?: boolean;
+    field?: string | string[];
+    "list-fields"?: boolean;
+    devenv?: boolean;
+    [key: string]: string | boolean | (string | boolean)[] | undefined;
+  };
+  positionals: string[];
+}
+let parsed: ParsedArgs;
+try {
+  parsed = parseArgs({
+    args: process.argv.slice(2),
+    options: {
+      help: { type: "boolean", default: false },
+      version: { type: "boolean", default: false },
+      "dry-run": { type: "boolean", default: false },
+      status: { type: "string" },
+      "all-projects": { type: "boolean", default: false },
+      safe: { type: "boolean", default: false },
+      field: { type: "string", multiple: true },
+      "list-fields": { type: "boolean", default: false },
+      devenv: { type: "boolean", default: false },
+    },
+    allowPositionals: true,
+    strict: true,
+  });
+} catch (err) {
+  // strict:true throws on an unknown flag — a named one-liner instead of a
+  // raw Node stack trace (the suite's stated unknown-flag contract).
+  logError(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
+}
 
 if (parsed.values.help) usage();
 if (parsed.values.version) {
@@ -385,6 +409,13 @@ if (fieldUpdates.length > 0) {
     }
     if (!(await updateField(fieldName, fieldValue))) fieldsFailed = true;
   }
+}
+
+// Zero-action runs are a mistake (a typo'd flag would otherwise silently do
+// nothing): refuse before the exit-code check.
+if (statusValue === "" && fieldUpdates.length === 0) {
+  logError("Nothing to do: pass --status and/or --field");
+  process.exit(EXIT_MISUSE);
 }
 
 // A failed update must never exit 0, even when other updates succeeded.

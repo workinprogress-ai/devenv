@@ -15,6 +15,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { ghApiSync } from "../providers/provider-core.ts";
 import { resolveToolsRoot } from "../core/self-root.ts";
+import { fileURLToPath } from "node:url";
 
 // ---------------------------------------------------------------------------
 // read side: the event → Status map (config/skill-events.yml)
@@ -27,7 +28,7 @@ export interface EventConfig {
 
 /** The skill-events.yml path, resolved via the self-root contract. */
 export function skillEventsConfigPath(): string {
-  return join(resolveToolsRoot(import.meta.url), "config", "skill-events.yml");
+  return join(resolveToolsRoot(fileURLToPath(import.meta.url)), "config", "skill-events.yml");
 }
 
 /**
@@ -129,7 +130,7 @@ export function signalPrEvents(
   const issues = parseLinkedIssues(prBody);
   if (issues.length === 0) return result;
 
-  const toolsDir = resolveToolsRoot(import.meta.url);
+  const toolsDir = resolveToolsRoot(fileURLToPath(import.meta.url));
   for (const issue of issues) {
     const script = join(toolsDir, "internal", `${event}.sh`);
     const r = spawnSignal(script, issue);

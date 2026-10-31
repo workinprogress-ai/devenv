@@ -69,7 +69,7 @@ write_bash_functions_file() {
 alias ll='ls -lah'
 
 repo-get() {
-    bash "$DEVENV_ROOT/tools/scripts/repo-get.sh" "$@"
+    bash "$DEVENV_ROOT/tools/repo-get" "$@"
     if [ -d "$DEVENV_ROOT/repos/$1" ]; then
         cd "$DEVENV_ROOT/repos/$1" || return
     fi
@@ -93,24 +93,20 @@ devenv-update() {
     cd "$DEVENV_ROOT" || return
     pre_update_hash=$(git rev-parse HEAD 2>/dev/null)
 
-    # git-update exports GIT_UPDATE_SCAN_BASE when the update crossed a
-    # rewritten remote (fork sync): the scan then covers exactly the new
-    # upstream commits, not the whole rewritten span. Capture and unset it
-    # immediately — the export would otherwise leak into the user's shell and
-    # mis-scope a later update's scan (a stale base can mask real trailers).
-    local scan_base=""
-    if [ -n "${GIT_UPDATE_SCAN_BASE:-}" ]; then
-        scan_base="$GIT_UPDATE_SCAN_BASE"
-        unset GIT_UPDATE_SCAN_BASE
-    fi
-    if ! git-update; then
+    # git-update emits GIT_UPDATE_SCAN_BASE=<sha> on stdout when the update
+    # crossed a rewritten remote (fork sync): the scan then covers exactly
+    # the new upstream commits, not the whole rewritten span. A child
+    # process cannot set this shell's environment, so the base is captured
+    # by parsing the tool's stdout — never read from env. The tool's own
+    # output passes through (the line is stripped); its exit status gates
+    # the failure path as before.
+    local scan_base="" update_out
+    if ! update_out=$(git-update); then
         cd "$current_dir" || return
         return 1
     fi
-    if [ -n "${GIT_UPDATE_SCAN_BASE:-}" ]; then
-        scan_base="$GIT_UPDATE_SCAN_BASE"
-        unset GIT_UPDATE_SCAN_BASE
-    fi
+    scan_base=$(printf '%s\n' "$update_out" | sed -n 's/^GIT_UPDATE_SCAN_BASE=//p' | tail -1)
+    printf '%s\n' "$update_out" | grep -v '^GIT_UPDATE_SCAN_BASE=' || true
 
     "$DEVENV_ROOT/.devcontainer/bootstrap.sh" run_update_tasks
     # shellcheck source=/dev/null

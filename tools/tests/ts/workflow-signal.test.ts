@@ -195,16 +195,21 @@ describe("signal dispatch (seam mode)", () => {
   });
 
   it("failed write is reported as failed with the warning shown", () => {
-    // The stub reports the failed write itself (best-effort dispatcher
-    // contract): WARNING on stderr, exit 0 — the tool must not claim success.
+    // F34 structural contract: the onEvent ctx carries failed=true when the
+    // underlying status write fails (the fake event script runs fine; the
+    // WRITE fails because the wrapper path is unreachable in the harness).
+    // The tool must not claim success and must surface the warning.
+    // Seam mode: failure is the entry script's exit status (structural —
+    // the old "workflow write" string-match is gone per F34). The fake
+    // emits its warning on stderr and exits 1.
     makeFakeEvent(
       "_on_production_deploy",
-      `#!/usr/bin/env bash\necho "WARNING: workflow write 'Production' failed for issue #105 (best-effort, continuing)" >&2\nexit 0\n`,
+      `#!/usr/bin/env bash\necho "WARNING: write to issue #105 failed" >&2\nexit 1\n`,
     );
     const r = runTool(["production-deploy", "105"]);
     expect(r.status).not.toBe(0);
     expect(r.output).not.toContain("signalled _on_production_deploy for issue #105");
-    expect(r.output).toContain("workflow write 'Production' failed");
+    expect(r.output).toContain("WARNING: signal _on_production_deploy failed");
   });
 
   it("successful write is reported as signalled", () => {

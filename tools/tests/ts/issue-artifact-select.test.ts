@@ -81,8 +81,10 @@ describe("issue-artifact-select", () => {
     process.env.PATH = `${stubDir}:${process.env.PATH ?? ""}`;
   });
 
+  const savedPath = process.env.PATH;
   afterEach(() => {
     rmSync(stubDir, { recursive: true, force: true });
+    process.env.PATH = savedPath;
   });
 
   it("rule 1: --doc-id selects that exact artifact (json format)", () => {

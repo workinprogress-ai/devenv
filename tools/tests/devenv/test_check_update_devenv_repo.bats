@@ -320,6 +320,26 @@ rewrite_origin() {
     git -C "$CLONE" log --format=%s -2 | grep -q "tools: use real git-update"
 }
 
+@test "rewritten: the real git-update emits GIT_UPDATE_SCAN_BASE=<pre-rewrite tip> on stdout (producer contract)" {
+    # Producer half of the scan-base contract: the tool prints the machine-
+    # parseable line (the consumers capture stdout and sed it out — a child
+    # cannot set the consumer's env). The value is the PRE-rewrite tip.
+    rewrite_origin
+    PAST_TIP="$(git -C "$CLONE" rev-parse HEAD)"   # clone is untouched pre-update
+    cp "$PROJECT_ROOT/tools/git-update" "$CLONE/tools/git-update"
+    mkdir -p "$CLONE/tools/ts" "$CLONE/tools/lib"
+    cp "$PROJECT_ROOT/tools/ts/git-update.ts" "$CLONE/tools/ts/"
+    cp -r "$PROJECT_ROOT/tools/lib/." "$CLONE/tools/lib/"
+    git -C "$CLONE" add tools/git-update tools/ts/git-update.ts tools/lib
+    git -C "$CLONE" commit -q -m "tools: use real git-update"
+    run run_check "y"
+    [ "$status" -eq 0 ]
+    printf '%s\n' "$output" | grep -q "^GIT_UPDATE_SCAN_BASE="
+    emitted="$(printf '%s\n' "$output" | sed -n 's/^GIT_UPDATE_SCAN_BASE=//p' | tail -1)"
+    [ -n "$emitted" ]
+    git -C "$CLONE" cat-file -t "$emitted" > /dev/null 2>&1
+}
+
 # ── End-to-end scenarios: fork rewritten → consumer updates (task 4.2) ──────
 # These drive the whole flow with the real git-update: the check classifies,
 # prompts, delegates, and the post-update scan runs on the tight base. The

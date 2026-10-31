@@ -7,6 +7,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import { parseArgs } from "node:util";
+import { EXIT_CONFLICT } from "../lib/core/exit-codes.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { logError } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
@@ -122,7 +123,21 @@ for (const mapping of mappings) {
     console.error(`No matching pods found for '${podId}'.`);
     process.exit(EXIT_GENERAL_ERROR);
   }
-  const pod = pods.length === 1 ? (pods[0] as string) : (pods[0] as string); // first match: kube-pod-select's non-TTY contract
+  if (pods.length > 1) {
+    // A forward attaching to the wrong pod among several matches is a silent
+    // wrong-target action — refuse (kube-pod-select owns interactive picking).
+    // Divergence from kube-pod-select's non-TTY contract is deliberate:
+    // KUBE_NO_INTERACTIVE=1 keeps first-match only for the single-match
+    // case; among several matches even that env picks blind, so it errors
+    // too. CI/recorded flows must pin the pod name exactly.
+    if (process.env.KUBE_NO_INTERACTIVE === "1") {
+      console.error(`KUBE_NO_INTERACTIVE=1 cannot pick among ${pods.length} pods matching '${podId}' — pin the exact pod name.`);
+      process.exit(EXIT_CONFLICT);
+    }
+    console.error(`Multiple pods match '${podId}' (${pods.length} found) — be more specific.`);
+    process.exit(EXIT_CONFLICT);
+  }
+  const pod = pods[0] as string;
   console.log(`Mapping: local port ${localPort} to pod '${pod}' on port ${podPort}.`);
   forwards.push({ pod, localPort, podPort });
 }

@@ -249,7 +249,7 @@ if (framework !== "" || langMode !== "none") {
 
 if (rewroteAnything) {
   console.log("Running 'dotnet restore' gate after rewrite...");
-  const r = spawnSync("dotnet", ["restore"], { stdio: "inherit" });
+  const r = spawnSync("dotnet", ["restore"], { stdio: "inherit", cwd: targetDir });
   if (r.status !== 0) {
     console.error(
       "ERROR: 'dotnet restore' failed after rewriting TFM/LangVersion — the new target is invalid or some packages have no assets for it. No package updates were attempted.",
@@ -263,13 +263,13 @@ if (rewroteAnything) {
 // Tree state before updating: the boilerplate chain must only fire when THIS
 // script changed something — not when the tree was already dirty with
 // unrelated in-flight work.
-const treeStatusBefore = spawnSync("git", ["status", "--porcelain"], { encoding: "utf8" });
+const treeStatusBefore = spawnSync("git", ["status", "--porcelain"], { encoding: "utf8", cwd: targetDir });
 const treeWasDirtyBefore = (treeStatusBefore.stdout ?? "").trim() !== "";
 
 const updatesLines: string[] = [];
 for (const csproj of csprojs) {
   updatesLines.push(`<<<PROJECT ${csproj}>>>`);
-  const r = spawnSync("dotnet", ["outdated", csproj, "--upgrade"], { stdio: "inherit" });
+  const r = spawnSync("dotnet", ["outdated", csproj, "--upgrade"], { stdio: "inherit", cwd: targetDir });
   void r;
 }
 
@@ -307,7 +307,7 @@ if (process.env.CS_REF_SUMMARY !== "0") {
 // run's own upgrades. Pre-existing dirt means the chain is skipped with a
 // NOTE. Unattended-safe: non-fatal when absent or failing.
 
-const repoRoot = spawnSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).stdout.trim();
+const repoRoot = spawnSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8", cwd: targetDir }).stdout.trim();
 if (repoRoot !== "" && existsSync(`${repoRoot}/.repo/update.sh`)) {
   const chainArgs = ["--no-refresh"];
   if (treeWasDirtyBefore) {
@@ -316,6 +316,7 @@ if (repoRoot !== "" && existsSync(`${repoRoot}/.repo/update.sh`)) {
     chainArgs.push("--force");
   }
   const r = spawnSync("bash", [`${repoRoot}/.repo/update.sh`, ...chainArgs], {
+    cwd: targetDir,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });

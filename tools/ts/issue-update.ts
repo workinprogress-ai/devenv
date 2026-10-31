@@ -22,7 +22,7 @@ import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget, providerDetect } from "../lib/providers/provider-core.ts";
 import { issuesExists, issuesEdit, issuesClose, issuesReopen, issueBlockedByLink, issueBlockedByUnlink } from "../lib/providers/github/issues.ts";
-import { issueDependencyLink, issueDependencyUnlink } from "../lib/providers/azure/issues.ts";
+import { issueDependencyLink, issueDependencyUnlink, issuesEdit as azIssuesEdit } from "../lib/providers/azure/issues.ts";
 
 assertNodeFloor();
 
@@ -265,7 +265,14 @@ async function main(argv: string[]): Promise<number> {
       logInfo(`[DRY RUN] Would edit issue #${issueNumber}`);
     } else {
       try {
-        await issuesEdit(repo, num, {
+        const isAzure = (() => {
+          try {
+            return providerDetect() === "azure";
+          } catch {
+            return false;
+          }
+        })();
+        const editOpts = {
           ...(newTitle !== "" ? { title: newTitle } : {}),
           ...(removeType ? {} : normalizedType !== null ? { type: normalizedType } : {}),
           ...(newBody !== "" ? { body: newBody } : {}),
@@ -274,7 +281,34 @@ async function main(argv: string[]): Promise<number> {
           ...(addAssignees.length > 0 ? { addAssignee: addAssignees } : {}),
           ...(removeAssignees.length > 0 ? { removeAssignee: removeAssignees } : {}),
           ...(milestoneGiven ? { milestone: newMilestone } : {}),
-        });
+        };
+        if (isAzure) {
+          // Azure's IssuesEditOptions has no assignee or milestone surface
+          // and takes single label strings. Silently dropping a requested
+          // mutation would report success on a no-op — refuse the
+          // unrepresentable fields with named errors instead.
+          if (addAssignees.length > 0 || removeAssignees.length > 0) {
+            logError("--add-assignee/--remove-assignee is not implemented for provider 'azure' yet (github-only seam)");
+            return EXIT_GENERAL_ERROR;
+          }
+          if (milestoneGiven) {
+            logError("--milestone is not implemented for provider 'azure' yet (github-only seam)");
+            return EXIT_GENERAL_ERROR;
+          }
+          if (addLabels.length > 1 || removeLabels.length > 1) {
+            logError("provider 'azure' takes at most one --add-label/--remove-label per edit");
+            return EXIT_MISUSE;
+          }
+          await azIssuesEdit(repo, num, {
+            ...(newTitle !== "" ? { title: newTitle } : {}),
+            ...(newBody !== "" ? { body: newBody } : {}),
+            ...(addLabels[0] !== undefined ? { addLabel: addLabels[0] } : {}),
+            ...(removeLabels[0] !== undefined ? { removeLabel: removeLabels[0] } : {}),
+            ...(normalizedType !== null ? { type: normalizedType } : {}),
+          });
+        } else {
+          await issuesEdit(repo, num, editOpts);
+        }
         logInfo(`Updated issue #${issueNumber}`);
       } catch (err) {
         logError(`Failed to update issue #${issueNumber}: ${err instanceof Error ? err.message : String(err)}`);

@@ -1080,20 +1080,20 @@ ASKPASS
     # issue-create, issue-artifact-doc-id and issue-artifact-upsert (create, then
     # update). DEVENV_REPO is the explicit target the devenv-repo gate requires.
     wrap_repo="${project}/${SMOKE_REPO}"
-    wrap_out=$(DEVENV_REPO="$wrap_repo" bash "$DEVENV_TOOLS/scripts/issue-create.sh" --title "[SMOKE-DELETEME] wrapper flow" --body "created by the smoke test" --type Task --no-interactive --no-template 2>&1) || wrap_out="${wrap_out:-failed}"
+    wrap_out=$(DEVENV_REPO="$wrap_repo" bash "$DEVENV_TOOLS/issue-create" --title "[SMOKE-DELETEME] wrapper flow" --body "created by the smoke test" --type Task --no-interactive --no-template 2>&1) || wrap_out="${wrap_out:-failed}"
     wrap_id=$(printf '%s' "$wrap_out" | grep -oE 'Created issue: *[^ ]*' | grep -oE '[0-9]+$' | tail -1 || true)
     if [ -n "$wrap_id" ]; then
         smoke_on_teardown "azure_http_request DELETE \"$(azure_wit_base)/workitems/$wrap_id?destroy=true\""
         probe "issue-create wrapper (id $wrap_id)" 0
         probe_outcome "issue-create stored the title and body" "$(azure_http_request GET "$(azure_wit_base)/workitems/${wrap_id}?api-version=7.1" 2>/dev/null || true)" '.fields["System.Title"] == "[SMOKE-DELETEME] wrapper flow" and ((.fields["System.Description"] // "") | contains("created by the smoke test"))'
-        wrap_doc=$(DEVENV_REPO="$wrap_repo" bash "$DEVENV_TOOLS/scripts/issue-artifact-doc-id.sh" --issue "$wrap_id" --artifact-type plan --slug "smoke wrapper flow" --repo "$wrap_repo" 2>&1) || wrap_doc="${wrap_doc:-failed}"
+        wrap_doc=$(DEVENV_REPO="$wrap_repo" bash "$DEVENV_TOOLS/issue-artifact-doc-id" --issue "$wrap_id" --artifact-type plan --slug "smoke wrapper flow" --repo "$wrap_repo" 2>&1) || wrap_doc="${wrap_doc:-failed}"
         probe_outcome "issue-artifact-doc-id emits a project/repo doc_id" "$(jq -nc --arg d "$wrap_doc" '{d: $d}')" ".d == \"dv1:${wrap_repo}:issue-${wrap_id}:plan:smoke-wrapper-flow\""
         wrap_body=$(printf 'doc_id: %s\nissue_number: %s\n\nfirst revision' "$wrap_doc" "$wrap_id")
-        wrap_created=$(DEVENV_REPO="$wrap_repo" bash "$DEVENV_TOOLS/scripts/issue-artifact-upsert.sh" --issue "$wrap_id" --no-stamp --body "$wrap_body" 2>/dev/null) || true
+        wrap_created=$(DEVENV_REPO="$wrap_repo" bash "$DEVENV_TOOLS/issue-artifact-upsert" --issue "$wrap_id" --no-stamp --body "$wrap_body" 2>/dev/null) || true
         probe_outcome "issue-artifact-upsert creates the artifact comment" "$wrap_created" '.action == "created" and (.comment_id != null)'
         wrap_comment=$(printf '%s' "$wrap_created" | jq -r '.comment_id // empty' 2>/dev/null || true)
         wrap_body2=$(printf 'doc_id: %s\nissue_number: %s\n\nsecond revision' "$wrap_doc" "$wrap_id")
-        wrap_updated=$(DEVENV_REPO="$wrap_repo" bash "$DEVENV_TOOLS/scripts/issue-artifact-upsert.sh" --issue "$wrap_id" --no-stamp --body "$wrap_body2" 2>/dev/null) || true
+        wrap_updated=$(DEVENV_REPO="$wrap_repo" bash "$DEVENV_TOOLS/issue-artifact-upsert" --issue "$wrap_id" --no-stamp --body "$wrap_body2" 2>/dev/null) || true
         probe_outcome "issue-artifact-upsert updates the same comment" "$wrap_updated" ".action == \"updated\" and ((.comment_id | tostring) == \"${wrap_comment:-none}\")"
     else
         probe "issue-create wrapper" 1 "$(printf '%s' "$wrap_out" | head -c 240)"

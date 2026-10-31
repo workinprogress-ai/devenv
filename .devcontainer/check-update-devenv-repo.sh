@@ -65,15 +65,24 @@ if [ "$LOCAL_HASH" != "$BASE_HASH" ]; then
                 * )
                     exit 1;;
             esac
-            if ! "$devenv/tools/git-update"; then
+            # The scan base for Devenv-Action trailers: the pre-rewrite tip,
+            # so the scan covers exactly the new upstream commits — not the
+            # whole rewritten span. git-update emits GIT_UPDATE_SCAN_BASE=<sha>
+            # on stdout (a child cannot set this shell's env, so the env
+            # variable never propagates); capture the tool's stdout, parse
+            # the line, pass the rest through, fall back to the
+            # classifier's tip.
+            exec 3>&1
+            update_out=$("$devenv/tools/git-update" 2>&1 1>&3) || {
+                exec 3>&-
+                printf '%s\n' "$update_out" >&2
                 echo "Error updating the repository. Please update manually (e.g., run 'git rebase origin/${CURRENT_BRANCH}')."
                 exit 1
-            fi
-            # The scan base for Devenv-Action trailers: the pre-rewrite tip, so
-            # the scan covers exactly the new upstream commits — not the whole
-            # rewritten span. git-update exports GIT_UPDATE_SCAN_BASE; fall back
-            # to the classifier's tip if the tool did not set it.
-            SCAN_BASE="${GIT_UPDATE_SCAN_BASE:-$PAST_TIP}"
+            }
+            exec 3>&-
+            printf '%s\n' "$update_out"
+            SCAN_BASE="$(printf '%s\n' "$update_out" | sed -n 's/^GIT_UPDATE_SCAN_BASE=//p' | tail -1)"
+            SCAN_BASE="${SCAN_BASE:-$PAST_TIP}"
             # shellcheck source=./post-update.bash
             source "$script_folder/post-update.bash"
             # Ceiling = origin/<branch>: upstream commits only — the consumer's

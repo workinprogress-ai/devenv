@@ -452,7 +452,7 @@ export async function prsMerge(
   }
   const completionOptions: Record<string, unknown> = {
     mergeStrategy: method,
-    deleteSourceBranch: opts.deleteBranch === true,
+    deleteSourceBranch: opts.deleteBranch !== false,
   };
   if (opts.admin === true) {
     completionOptions.bypassPolicy = true;
@@ -510,7 +510,12 @@ export async function prsComment(
   opts: PrsCommentOptions,
 ): Promise<string> {
   let text = opts.body ?? opts.commentBody ?? "";
-  if (text === "" && opts.bodyFile !== undefined) text = opts.bodyFile;
+  // --body-file posts the FILE's CONTENT, not its path (the port posted the
+  // path string as the comment body).
+  if (text === "" && opts.bodyFile !== undefined) {
+    const { readFileSync } = await import("node:fs");
+    text = opts.bodyFile === "-" ? readFileSync(0, "utf8") : readFileSync(opts.bodyFile, "utf8");
+  }
   if (text === "") throw new ProviderError("prs_comment requires a body");
   const r = await azureHttp<{ id?: number }>(
     "POST",

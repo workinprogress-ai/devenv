@@ -108,8 +108,10 @@ describe("issue-artifact-upsert", () => {
     process.env.PATH = `${stubDir}:${process.env.PATH ?? ""}`;
   });
 
+  const savedPath = process.env.PATH;
   afterEach(() => {
     rmSync(stubDir, { recursive: true, force: true });
+    process.env.PATH = savedPath;
   });
 
   it("create path: no existing match posts a new comment and reports created", () => {

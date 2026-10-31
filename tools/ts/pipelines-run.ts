@@ -103,7 +103,7 @@ spawnSleep(2);
 
 let runUrl = "";
 try {
-  const raw = await pipelinesRunList(repo, { json: "url", jq: ".[0].url" });
+  const raw = await pipelinesRunList(repo, { json: "url", jq: ".[0].url // empty" });
   runUrl = raw.trim();
 } catch {
   runUrl = "";

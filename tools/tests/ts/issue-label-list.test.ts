@@ -65,6 +65,7 @@ function runTool(args: string[]): { status: number; stdout: string; stderr: stri
 }
 
 describe("issue-label-list", () => {
+  const savedPath_issue_label_list = process.env.PATH;
   beforeEach(() => {
     stubDir = mkdtempSync(join(tmpdir(), "ill-stub-"));
     responses = join(stubDir, "responses.tsv");
@@ -77,6 +78,7 @@ describe("issue-label-list", () => {
   afterEach(() => {
     rmSync(stubDir, { recursive: true, force: true });
     rmSync(repoRoot, { recursive: true, force: true });
+    process.env.PATH = savedPath_issue_label_list;
   });
 
   it("table format lists name/color/description", () => {

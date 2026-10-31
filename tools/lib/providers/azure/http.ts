@@ -71,9 +71,13 @@ function authHeader(pat: string): string {
  * or a log (http.bash azure_redact parity). */
 export function azureRedact(text: string): string {
   let out = text;
-  const token = process.env.AZURE_PAT ?? "";
-  if (token !== "") {
-    out = out.split(token).join("***REDACTED***");
+  // Redact every active credential form: the env PAT and the file-based PAT
+  // (F13: azurePatGet serves the file form, whose value never reaches env —
+  // an env-only redaction left file-mode redaction inert).
+  for (const token of [process.env.AZURE_PAT ?? "", azurePatGet()]) {
+    if (token !== "" && out.includes(token)) {
+      out = out.split(token).join("***REDACTED***");
+    }
   }
   // Defensive: redact base64 Basic credentials if one leaks in.
   out = out.replace(
@@ -99,6 +103,118 @@ export interface AzureHttpOptions {
   idempotent?: boolean;
 }
 
+/** The `{body, headers}` envelope `azureHttp` returns when callers need the
+ * response headers (pagination's header-first continuation token). The
+ * plain call returns the parsed body alone; the overload keeps the two
+ * shapes distinct at the type level so a caller can't read `page.body` off
+ * a headerless response. */
+export interface AzureHttpEnvelope<T = unknown> {
+  body: T;
+  headers: Record<string, string>;
+}
+
+/** Headerless form: the parsed body itself. */
+export async function azureHttp<T = unknown>(
+  method: string,
+  url: string,
+  opts?: AzureHttpOptions,
+): Promise<T>;
+/** Envelope form (`withHeaders: true`): body + response headers. */
+export async function azureHttp<T = unknown>(
+  method: string,
+  url: string,
+  opts: AzureHttpOptions & { withHeaders: true },
+): Promise<AzureHttpEnvelope<T>>;
+export async function azureHttp<T = unknown>(
+  method: string,
+  url: string,
+  opts: AzureHttpOptions & { withHeaders?: boolean } = {},
+): Promise<T | AzureHttpEnvelope<T>> {
+  const pat = azurePatGet();
+  if (pat === "") {
+    throw new ProviderError(
+      "no stored azure credential — run key-update-azure",
+    );
+  }
+  const wantHeaders = opts.withHeaders === true;
+  let retryOk = ["GET", "HEAD", "PUT", "DELETE"].includes(method);
+  if (opts.idempotent === true) retryOk = true;
+
+  const fullUrl = withApiVersion(url);
+  let lastError = "";
+  for (let attempt = 1; attempt <= AZURE_HTTP_MAX_RETRIES; attempt++) {
+    const r = await oneAttempt(method, fullUrl, pat, opts);
+    if (r.error !== undefined && r.status === 0) {
+      // connection-level failure
+      lastError = r.error.message;
+      if (retryOk && attempt < AZURE_HTTP_MAX_RETRIES) {
+        await sleep(attempt * 2000);
+        continue;
+      }
+      throw new ProviderError(
+        `curl-equivalent request failed after ${attempt} attempt(s): ${lastError}`,
+      );
+    }
+    if (r.status === 203 || r.status === 401) authError(r.status);
+    if (r.status >= 200 && r.status < 300) {
+      if (r.body.trim() !== "") {
+        let parsedBody: unknown;
+        try {
+          parsedBody = JSON.parse(r.body) as unknown;
+        } catch {
+          // A sign-in page served as a 200 (unauthenticated call redirected to
+          // the login form) is an auth failure, not a malformed response.
+          if (/sign in|_signin|login\.microsoftonline/i.test(r.body)) {
+            authError(r.status);
+          }
+          throw new ProviderError("response was not valid JSON");
+        }
+        if (wantHeaders) {
+          return {
+            body: parsedBody,
+            headers: Object.fromEntries(r.headers.entries()),
+          } as AzureHttpEnvelope<T>;
+        }
+        return parsedBody as T;
+      }
+      // 2xx with an empty body: some APIs (DELETE) answer 204/empty.
+      return undefined as T;
+    }
+    if ([429, 500, 502, 503, 504].includes(r.status)) {
+      const canRetry = r.status === 429 || retryOk;
+      if (canRetry && attempt < AZURE_HTTP_MAX_RETRIES) {
+        const ra = r.headers.get("Retry-After");
+        if (ra !== null && r.status === 429) {
+          await sleep(Number(ra) * 1000);
+        } else {
+          await sleep(attempt * 2000);
+        }
+        continue;
+      }
+      throw new ProviderError(
+        `azure http ${r.status}: gave up after ${attempt} attempt(s)` +
+          buildBodySuffix(r.body),
+      );
+    }
+    // Non-retryable HTTP error (400/403/404...). Surface the Azure error
+    // payload when present; redact regardless (server-controlled text).
+    let message = `HTTP ${r.status}`;
+    try {
+      const parsed = JSON.parse(r.body) as { message?: string };
+      if (typeof parsed.message === "string" && parsed.message !== "") {
+        message = parsed.message;
+      }
+    } catch {
+      // keep the HTTP-code fallback
+    }
+    throw new ProviderError(azureRedact(message).slice(0, 500));
+  }
+  throw new ProviderError(lastError === "" ? "azure http: exhausted retries" : lastError);
+}
+
+// ---------------------------------------------------------------------------
+// Pagination
+// ---------------------------------------------------------------------------
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -176,87 +292,11 @@ function buildBodySuffix(body: string): string {
  * 5xx/connection failure only for idempotent requests. 203/401 and sign-in
  * pages are typed auth errors. Non-retryable HTTP errors surface the Azure
  * error payload, redacted. */
-export async function azureHttp<T = unknown>(
-  method: string,
-  url: string,
-  opts: AzureHttpOptions = {},
-): Promise<T> {
-  const pat = azurePatGet();
-  if (pat === "") {
-    throw new ProviderError(
-      "no stored azure credential — run key-update-azure",
-    );
-  }
-  let retryOk = ["GET", "HEAD", "PUT", "DELETE"].includes(method);
-  if (opts.idempotent === true) retryOk = true;
-
-  const fullUrl = withApiVersion(url);
-  let lastError = "";
-  for (let attempt = 1; attempt <= AZURE_HTTP_MAX_RETRIES; attempt++) {
-    const r = await oneAttempt(method, fullUrl, pat, opts);
-    if (r.error !== undefined && r.status === 0) {
-      // connection-level failure
-      lastError = r.error.message;
-      if (retryOk && attempt < AZURE_HTTP_MAX_RETRIES) {
-        await sleep(attempt * 2000);
-        continue;
-      }
-      throw new ProviderError(
-        `curl-equivalent request failed after ${attempt} attempt(s): ${lastError}`,
-      );
-    }
-    if (r.status === 203 || r.status === 401) authError(r.status);
-    if (r.status >= 200 && r.status < 300) {
-      if (r.body.trim() !== "") {
-        try {
-          return JSON.parse(r.body) as T;
-        } catch {
-          // A sign-in page served as a 200 (unauthenticated call redirected to
-          // the login form) is an auth failure, not a malformed response.
-          if (/sign in|_signin|login\.microsoftonline/i.test(r.body)) {
-            authError(r.status);
-          }
-          throw new ProviderError("response was not valid JSON");
-        }
-      }
-      // 2xx with an empty body: some APIs (DELETE) answer 204/empty.
-      return undefined as T;
-    }
-    if ([429, 500, 502, 503, 504].includes(r.status)) {
-      const canRetry = r.status === 429 || retryOk;
-      if (canRetry && attempt < AZURE_HTTP_MAX_RETRIES) {
-        const ra = r.headers.get("Retry-After");
-        if (ra !== null && r.status === 429) {
-          await sleep(Number(ra) * 1000);
-        } else {
-          await sleep(attempt * 2000);
-        }
-        continue;
-      }
-      throw new ProviderError(
-        `azure http ${r.status}: gave up after ${attempt} attempt(s)` +
-          buildBodySuffix(r.body),
-      );
-    }
-    // Non-retryable HTTP error (400/403/404...). Surface the Azure error
-    // payload when present; redact regardless (server-controlled text).
-    let message = `HTTP ${r.status}`;
-    try {
-      const parsed = JSON.parse(r.body) as { message?: string };
-      if (typeof parsed.message === "string" && parsed.message !== "") {
-        message = parsed.message;
-      }
-    } catch {
-      // keep the HTTP-code fallback
-    }
-    throw new ProviderError(azureRedact(message).slice(0, 500));
-  }
-  throw new ProviderError(lastError === "" ? "azure http: exhausted retries" : lastError);
-}
-
-// ---------------------------------------------------------------------------
-// Pagination
-// ---------------------------------------------------------------------------
+/** One Azure DevOps REST call; resolves with the parsed JSON body on 2xx.
+ * Retries: 429 always (Azure rejected before acting; Retry-After honored);
+ * 5xx/connection failure only for idempotent requests. 203/401 and sign-in
+ * pages are typed auth errors. Non-retryable HTTP errors surface the Azure
+ * error payload, redacted. */
 
 /** Fetch the pages of a list endpoint and return one combined array
  * (http.bash azure_http_paginate parity). The continuation token comes from
@@ -280,15 +320,21 @@ export async function azureHttpPaginate<T = unknown>(
       pageUrl += (pageUrl.includes("?") ? "&" : "?") + `continuationToken=${enc}`;
     }
     // Pagination is a GET — idempotent, retryable by the transport's rules.
-    const page = await azureHttp<{ value?: T[]; continuationToken?: string }>(
-      "GET",
-      pageUrl,
-    );
-    if (Array.isArray(page.value)) items.push(...page.value);
+    // The continuation token comes from the x-ms-continuationtoken HEADER
+    // first (header-only endpoints), else the body's continuationToken field.
+    const page = await azureHttp<
+      { value?: T[]; continuationToken?: string }
+    >("GET", pageUrl, { withHeaders: true });
+    const body = page.body ?? {};
+    if (Array.isArray(body.value)) items.push(...body.value);
+    const headerToken = Object.entries(page.headers)
+      .find(([k]) => k.toLowerCase() === "x-ms-continuationtoken")?.[1] ?? "";
     continuation =
-      page.continuationToken && page.continuationToken !== ""
-        ? page.continuationToken
-        : "";
+      headerToken !== ""
+        ? headerToken
+        : body.continuationToken && body.continuationToken !== ""
+          ? body.continuationToken
+          : "";
     if (continuation === "") break;
     if (maxItems !== undefined && items.length >= maxItems) break;
   }
