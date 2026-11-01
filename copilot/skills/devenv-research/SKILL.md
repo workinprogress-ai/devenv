@@ -44,11 +44,13 @@ The user provides one of:
 
 Before any in-repo inspection or modification, run `devenv-marker-check --todo-report <target-scope>`. Every reported TODO is a prior session's cross-plan message: surface it in chat and honor its condition — or explicitly resolve it with the user — before that file is touched.
 
-Restate the question in one sentence. Confirm with the user before investigating:
+Confirm the intake before investigating — a structured interview (option-style queries), three parts:
 
-> "I'll investigate: **<one-sentence framing>**. Anything to add or narrow before I start?"
+1. **Objective** — restate the question in one sentence: *"I'll investigate: **<one-sentence framing>** — right?"*
+2. **Clarifications** — if the framing is fuzzy, ask the focused questions now (one query per ambiguity, option-style where possible). Research sessions work best when the question is clear before the clock starts.
+3. **Budget** — confirm the wall-clock budget: *"Timebox: **<N minutes/hours>** — stop and report findings at the wall even if inconclusive. OK?"*
 
-If the framing is fuzzy, ask one focused clarifying question. Don't run a full interview — research sessions work best when the question is clear.
+Don't run a full interview beyond these three — but never skip the budget: an unconfirmed timebox is the difference between a timeboxed spike and a sprawl.
 
 ### 2. Plan the investigation (briefly)
 
@@ -205,7 +207,7 @@ Per the shared [next-step offer](../common/references/execution-gates.md#next-st
 - **Unmarked in-repo edits** — empowered changes without `FIXME:DEVENV[research]: ...` markers can slip into a commit; the marker keeps the reset clean and intentional.
 - **Running the reset yourself** — the research session never runs mutating git commands. Recovery is the user's hands, every time.
 - **Hiding the throwaway-ness** — every artifact must carry the "NOT FOR PRODUCTION" header. No exceptions.
-- **Skipping the framing step** — an unframed research session sprawls. Restate the question in one sentence before starting.
+- **Skipping the intake step** — an unframed research session sprawls, and an unconfirmed budget sprawls longer. Restate the question, clear ambiguities, and confirm the timebox before starting.
 - **Burying findings in chat** — always write the doc. Chat is ephemeral; the doc is the deliverable.
 - **Recommending without evidence** — every recommendation traces back to a finding, and every finding to a citable source (code path, external doc, or captured output — the doc's References section is where those sources live). If you can't show your work, you didn't research it, you guessed.
 - **Skipping the recommendation** — even "more investigation needed" is a real answer. The doc must end with a verdict.
