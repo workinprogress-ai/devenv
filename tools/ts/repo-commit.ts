@@ -487,6 +487,10 @@ if (git(["diff", "--cached", "--quiet"]).status === 0) {
   die("nothing is staged — staging is manual; use git add yourself, then re-run");
 }
 
+// User-authored via --file: validated below, never rewritten (the wrap at the
+// write site applies only to the tool-crafted argv message).
+const wrapEligible = msgfileArg === "";
+
 // --- Resolve the editor: VS Code first, nano fallback (user ruling).
 // Non-interactive values are treated as UNSET: automation hosts inject no-op
 // editors (GIT_EDITOR=:) into terminals; the user's own core.editor must outrank
@@ -497,13 +501,67 @@ function commandExists(cmd: string): boolean {
 
 
 
+// --- Wrap the suggested BODY at 72 columns (git-standard width) so the
+// crafter sees the final shape in the editor — nothing to fix after the fact.
+// The header (line 0) is NEVER wrapped: a folded header is not a header — and
+// wrapping it would hide an over-long subject from the commitlint check below
+// (validate-then-wrap, in that order, at the call site). Comment lines
+// (#-leading) and trailer-shaped lines (`Key: value` — wrapping a trailer
+// breaks git's trailer parsing) pass through untouched.
+export function wrapBodyAt72(message: string): string {
+  const lines = message.replace(/\n+$/, "").split("\n");
+  const out: string[] = [];
+  for (let idx = 0; idx < lines.length; idx++) {
+    const line = lines[idx] ?? "";
+    if (idx === 0 || line.length <= 72 || line.startsWith("#") || line.trim() === "" || /^[A-Za-z][A-Za-z-]*: /.test(line)) {
+      out.push(line);
+      continue;
+    }
+    let rest = line;
+    while (rest.length > 72) {
+      let cut = rest.lastIndexOf(" ", 72);
+      if (cut <= 0) cut = 72; // one unbreakable token longer than the width
+      out.push(rest.slice(0, cut));
+      rest = "  " + rest.slice(cut).replace(/^ +/, ""); // hanging indent
+    }
+    out.push(rest);
+  }
+  return out.join("\n");
+}
+
+// --- Validate the message against the CURRENT repo's commitlint rules BEFORE
+// git runs: hook order runs pre-commit (the multi-minute test suite) before
+// commit-msg (the message rules), so a hook-time rejection burns the whole
+// suite on a bad message; a rejection here costs nothing. Runs only when the
+// current repo has a commitlint setup (config + local install at its toplevel)
+// — foreign repos without one keep working, matching the hook's own no-config
+// pass-through. Runs the LOCAL install via its exact bin path (never a
+// bare-PATH spawn); failures carry commitlint's own rule report so the fix is
+// obvious without a rerun.
+function validateWithCommitlint(message: string): void {
+  const root = git(["rev-parse", "--show-toplevel"]).out.trim();
+  if (root === "") return; // not in a repo (unreachable here — index was checked)
+  const config = existsSync(join(root, "commitlint.config.js"));
+  const bin = join(root, "node_modules", ".bin", "commitlint");
+  if (!config || !existsSync(bin)) return; // no commitlint setup: nothing to enforce
+  const r = spawnSync(bin, [], { encoding: "utf8", input: message, cwd: root });
+  if (r.status !== 0) {
+    console.error((r.stdout ?? "") + (r.stderr ?? ""));
+    die("commit message rejected by commitlint (pre-git validation — fix the message above; no test time was spent)");
+  }
+}
+
 // --- Launch the editor with the suggested message; commit only on save.
 resolveEditor();
 console.log(`repo-commit: staged: ${stagedStat()}`);
 // msgfile is a temp file for the editor session — removed afterwards.
 const tmpDir = mkdtempSync(join(tmpdir(), "repo-commit-msg-"));
 const msgfile = join(tmpDir, "message");
-writeFileSync(msgfile, `${suggested}\n`);
+// Order matters: validate the RAW message first (a too-long header must die
+// here, not be laundered into a folded "legal" header by the wrap), then
+// wrap the body for the editor view — argv-crafted messages only.
+validateWithCommitlint(suggested);
+writeFileSync(msgfile, `${wrapEligible ? wrapBodyAt72(suggested) : suggested}\n`);
 
 // GIT_EDITOR must win over any config for this invocation; export explicitly.
 // --edit forces the editor open on the supplied message; without it git skips
