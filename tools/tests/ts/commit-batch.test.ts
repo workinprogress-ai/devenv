@@ -301,3 +301,52 @@ describe("renderDraft", () => {
     expect(text).toContain("<!-- unassigned: x.txt -->");
   });
 });
+
+describe("validateCommitBatch consumedGroups exemption", () => {
+  // 15.23: a batch manifest re-validated across --group runs judges its own
+  // committed groups against the live tree. A fully consumed group's paths
+  // may have been renamed or deleted by LATER commits — the stale entries
+  // must not fail validation (consumption evidence, not a typo).
+  const MANIFEST = `# Commit batch: consumed-group sweep
+
+## group 1 — already committed, later renamed away
+- old/path/thing.txt
+
+## group 2 — pending work
+- live.txt
+
+## excluded
+- scratch.md
+`;
+
+  function opts(over: Partial<Parameters<typeof validateCommitBatch>[1]> = {}) {
+    return {
+      changedPaths: ["live.txt"],
+      stagedPaths: [],
+      exists: new Set(["live.txt", "scratch.md"]),
+      ...over,
+    };
+  }
+
+  const batch = (() => {
+    const r = ok(MANIFEST);
+    if ("errors" in r) throw new Error(`fixture must parse: ${errs(r).join("; ")}`);
+    return r.batch;
+  })();
+
+  it("without the exemption, a renamed consumed path is a validation error (the 15.23 hit)", () => {
+    const messages = validateCommitBatch(batch, opts()).map((e) => e.message);
+    expect(messages.some((m) => m.includes("old/path/thing.txt"))).toBe(true);
+  });
+
+  it("consumedGroups exempts the group's files from existence validation", () => {
+    const messages = validateCommitBatch(batch, opts({ consumedGroups: new Set([1]) })).map((e) => e.message);
+    expect(messages.some((m) => m.includes("old/path/thing.txt"))).toBe(false);
+    expect(messages).toEqual([]);
+  });
+
+  it("the exemption is per-group: a non-consumed group's missing path still errors", () => {
+    const messages = validateCommitBatch(batch, opts({ consumedGroups: new Set([1]), changedPaths: [], exists: new Set(["scratch.md"]) })).map((e) => e.message);
+    expect(messages.some((m) => m.startsWith("group 2:") && m.includes("live.txt"))).toBe(true);
+  });
+});
