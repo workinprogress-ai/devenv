@@ -134,6 +134,15 @@ commands.
 **Test format:** suites exercising fzf pickers, real TTY flows, or
 hook/signal machinery stay bats; other tool suites are vitest.
 
+**Fixture-only testing for side-effecting tools:** a tool that mutates
+world state (staging, committing, pushing, tracker writes, plan mutations,
+installers) is tested only against fixtures — a temp-repo scaffold, a
+scripted editor, a stub binary on `PATH` — never by invoking it live in the
+real repo. Read-only verification against the real repo (status, log, list,
+config reads) remains fine. The real-repo invocation of a side-effecting
+tool is by definition a production action: it goes through its normal
+workflow path with review, never through a test.
+
 **Interprocess locking:** serialize access to shared local files with an
 `O_EXCL` lockfile: atomic create, wait-with-deadline, reclaim a lock older
 than 30s (crashed writer). Kernel locks (`flock`) are unavailable to
