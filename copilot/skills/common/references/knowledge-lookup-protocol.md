@@ -43,6 +43,10 @@ The engineering repo's `Standards/Design-Principles/` library — index at `~/.c
 3. **Cite what you used.** When a knowledge entry or engineering standard materially shaped a decision, cite it (file + section) in the artifact or conversation — downstream skills and the user should be able to follow the trail.
 4. **Contributions flow through the write side.** If a session learns something that belongs in either source, capture it via the [Knowledge Distillation Protocol](knowledge-distillation-protocol.md) (knowledge) or an upstream-impact issue (engineering standards) — never edit these sources as a side effect of a design or execution session.
 
+## Re-derive, never inherit (apply intensity)
+
+At apply intensity (both execution skills), the executor **re-derives** the component classification and routed knowledge files from the knowledge repo's `orchestration.md` before the first code-writing phase — even when the plan records a knowledge conclusion (its Knowledge-context text, classification notes, or "unclassified / context pending" claims). A plan's recorded claim is an input to verify, not a substitute for the lookup: routing disagreement is silent compliance, and only a **mismatch** is surfaced — correct the plan text in place, note the mismatch one line, and follow the routing either way. Planning-time consult alone does not survive into execution otherwise: a false conclusion frozen into the plan inherits false authority into every later session that reads it.
+
 ## Boundaries
 
 - Lookup is a **background input**, not a phase: it never adds interview questions or blocks progression. If a source is missing, note and continue.
