@@ -255,10 +255,26 @@ for (const p of batchClaimedPaths(batch)) {
 }
 const stagedNow = stagedPathsNow();
 
+// A group is consumed when every file's worktree content matches HEAD — the
+// group was committed and its files untouched since. Consumed groups are
+// exempt from existence validation (their paths may have been renamed or
+// deleted by later commits — consumption evidence, not a typo) and reported
+// as done.
+const consumedGroups = new Set<number>();
+const changedPathSet = new Set(changedSet);
+for (const g of batch.groups) {
+  // Consumed = none of the group's files remain in the changed set: the
+  // work the manifest described was committed (a later commit renaming or
+  // deleting a consumed file is that commit's business, not a manifest typo).
+  const untouched = g.files.every((p) => !changedPathSet.has(p));
+  if (untouched) consumedGroups.add(g.number);
+}
+
 const validationErrors = validateCommitBatch(batch, {
   changedPaths: changedSet,
   stagedPaths: stagedNow,
   exists: existsOnDisk,
+  consumedGroups,
 });
 if (validationErrors.length > 0) {
   logError(`batch validation refused (${validationErrors.length} error(s)):`);
@@ -272,13 +288,21 @@ logInfo(`batch ok: ${total} group(s), ${batch.groups.reduce((n, g) => n + g.file
 if (groupOpt === null) {
   // summary-only mode
   for (const g of batch.groups) {
-    logInfo(`  group ${g.number}/${total} · ${g.files.length} file(s) · ${g.subject}`);
+    if (consumedGroups.has(g.number)) {
+      logInfo(`  group ${g.number}/${total} · done (consumed — committed, files unchanged since)`);
+    } else {
+      logInfo(`  group ${g.number}/${total} · ${g.files.length} file(s) · ${g.subject}`);
+    }
   }
   process.exit(0);
 }
 
 const group = batch.groups.find((g) => g.number === groupOpt);
 if (!group) die(`group ${groupOpt} not in batch (groups 1..${total})`);
+if (consumedGroups.has(group.number)) {
+  logInfo(`group ${group.number}/${total} is already consumed (committed, files unchanged since) — nothing to stage`);
+  process.exit(0);
+}
 
 logInfo(`staging group ${group.number}/${total} · ${group.files.length} file(s) · ${group.subject}`);
 if (dryRun) {

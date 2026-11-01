@@ -159,6 +159,12 @@ export interface ValidateOptions {
    * counts as existing even when absent from this set (deleted files are
    * stageable). */
   exists?: Set<string>;
+  /** Group numbers whose files are fully consumed — every file's worktree
+   * content matches HEAD (committed and untouched since). A consumed group
+   * is exempt from the existence check: its paths may have since been
+   * renamed or deleted by later commits, which is evidence of consumption,
+   * not a manifest typo. */
+  consumedGroups?: Set<number>;
 }
 
 /** Run every validator over a parsed batch: literal paths, deletion-aware
@@ -197,9 +203,12 @@ export function validateCommitBatch(batch: CommitBatch, opts: ValidateOptions): 
   }
 
   // existence, deletion-aware: on disk OR in the changed set (a deleted
-  // file is stageable — the changed set carries it)
+  // file is stageable — the changed set carries it). A consumed group's
+  // paths are exempt: the group was already committed, so a missing path
+  // (renamed/deleted by later work) is consumption evidence, not a typo.
   const claimed = new Set(batchClaimedPaths(batch));
   for (const g of batch.groups) {
+    if (opts.consumedGroups?.has(g.number)) continue;
     for (const p of g.files) {
       if (!opts.exists?.has(p) && !changed.has(p)) {
         errors.push({ message: `group ${g.number}: '${p}' exists neither on disk nor as a changed/deleted file — typo?` });
