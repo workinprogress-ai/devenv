@@ -113,7 +113,7 @@ Write `research-NNN-<topic>.md` under the target repo's `.local-artifacts/` fold
 
 ## Findings
 
-<What was learned. Each finding is a bullet with evidence — code snippet, perf number, file link, or external reference. Every finding carries an explicit evidence class: **verified-by-execution** (ran and observed), **measured-with-spread** (benchmark protocol: baseline, N runs, variance), or **inferred-from-docs** (not tried — stated as such). A perf claim without its measurement spread is an anecdote, not a finding. When comparing options, emit a decision matrix — a criteria × options table with the criteria that actually drove the answer (e.g. correctness risk, integration cost, perf, maintainability), each cell backed by its evidence class; grooming and design consume this shape directly.>
+<What was learned. Each finding is a bullet with evidence — code snippet, perf number, file link, or external reference. Every finding carries an explicit evidence class: **verified-by-execution** (ran and observed), **measured-with-spread** (benchmark protocol: baseline, N runs, variance), or **inferred-from-docs** (not tried — stated as such). A perf claim without its measurement spread is an anecdote, not a finding. Every finding cites the source carrying the detail — a code path, an external URL, or an entry in the doc's References section — so the body stays readable while every claim stays traceable. When comparing options, emit a decision matrix — a criteria × options table with the criteria that actually drove the answer (e.g. correctness risk, integration cost, perf, maintainability), each cell backed by its evidence class; grooming and design consume this shape directly.>
 
 ## Recommendation
 
@@ -121,11 +121,21 @@ Write `research-NNN-<topic>.md` under the target repo's `.local-artifacts/` fold
 - Do X (with rationale)
 - Don't do Y (with rationale)
 - More investigation needed (with the specific next question)
+
+Each recommendation cites what its case rests on — the findings and References entries supporting it. Research often guides important decisions downstream; a recommendation whose support cannot be traced (recommendation → finding(s) → reference(s)) is an opinion, not a conclusion.
 >
 
 ## Open questions
 
 <Anything the research surfaced but didn't answer. These are inputs to follow-up research or to `/devenv-plan`.>
+
+## References
+
+<Every source the conclusions rest on — one entry each, stating what it established: code paths (`<file:line>` + the relevant fact observed there), external docs (URL + the claim it supports), issues/discussions, captured command output. The test: a reader can re-derive any conclusion in the doc by following these entries.>
+
+## Appendix (optional — supplementary evidence)
+
+<Supporting material that would clutter the body: raw benchmark tables, full command output, code excerpts, experiment logs. Body sections point here by name ("see Appendix: benchmark data") rather than inlining bulk. Evidence lives here; narrative stays in the body.>
 ```
 
 ### 5. Summarise to chat
@@ -197,7 +207,7 @@ Per the shared [next-step offer](../common/references/execution-gates.md#next-st
 - **Hiding the throwaway-ness** — every artifact must carry the "NOT FOR PRODUCTION" header. No exceptions.
 - **Skipping the framing step** — an unframed research session sprawls. Restate the question in one sentence before starting.
 - **Burying findings in chat** — always write the doc. Chat is ephemeral; the doc is the deliverable.
-- **Recommending without evidence** — every recommendation traces back to a finding. If you can't show your work, you didn't research it, you guessed.
+- **Recommending without evidence** — every recommendation traces back to a finding, and every finding to a citable source (code path, external doc, or captured output — the doc's References section is where those sources live). If you can't show your work, you didn't research it, you guessed.
 - **Skipping the recommendation** — even "more investigation needed" is a real answer. The doc must end with a verdict.
 
 ## Sibling skills
