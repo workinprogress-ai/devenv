@@ -147,7 +147,7 @@ describe("repo-commit 72-column body wrap", () => {
     const longBullet = "- " + "word ".repeat(24);
     runTool([`patch: short subject\n\n${longBullet}`]);
     const captured = readFileSync(join(root, "captured-message"), "utf8");
-    const wrapped = captured.split("\n").filter((l) => l !== "");
+    const wrapped = captured.split("\n").filter((l) => l !== "" && !l.startsWith("#"));
     // First physical line of every logical line ≤ 72; continuation lines indented.
     for (const line of wrapped) {
       if (line.startsWith("  ")) continue;
@@ -162,7 +162,9 @@ describe("repo-commit 72-column body wrap", () => {
     setEditorMode("capture");
     runTool([LONG_HEADER]);
     const captured = readFileSync(join(root, "captured-message"), "utf8");
-    expect(captured.split("\n")[0]).toBe(LONG_HEADER); // verbatim, unfolded
+    const bodyStart = captured.indexOf(LONG_HEADER);
+    expect(bodyStart).toBeGreaterThanOrEqual(0); // message present, banner precedes it
+    expect(captured.slice(bodyStart).split("\n")[0]).toBe(LONG_HEADER); // verbatim, unfolded
   });
 
   it("does NOT rewrite --file content (validated only), still commits it", () => {

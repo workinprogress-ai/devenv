@@ -37,25 +37,56 @@ function git(args: string[], opts: { cwd?: string } = {}): { status: number; out
   return { status: r.status ?? 1, out: r.stdout ?? "" };
 }
 
+// --- The fold-window boundary: master-reachability, not remote-ref presence.
+// This workflow's PR branches are rebased and force-pushed routinely, so a
+// pushed-but-unlanded commit stays foldable; master (local branch or its
+// remote-tracking ref) and tags are the permanent record. One helper serves
+// both fold lanes (--amend HEAD check, --fix target check) and the picker's
+// eligibility filter, so the boundary cannot drift between them.
+function foldWindowClosed(shaOrRef: string): boolean {
+  const sha = git(["rev-parse", "--verify", `${shaOrRef}^{commit}`]).out.trim() || shaOrRef;
+  const tagged = git(["tag", "--contains", sha]).out.trim() !== "";
+  if (tagged) return true;
+  const remoteMaster = git(["rev-parse", "--verify", "--quiet", "refs/remotes/origin/master"]);
+  if (remoteMaster.status === 0) {
+    // The permanent record is the remote-tracking master: a commit it reaches
+    // has landed, one it does not reach is unlanded even if a local master
+    // branch (or a pushed feature branch) contains it. The local branch ref is
+    // skipped here deliberately — HEAD sitting on master is always trivially
+    // "contained" by it, which would refuse every amend on a master checkout.
+    return git(["merge-base", "--is-ancestor", sha, "refs/remotes/origin/master"]).status === 0;
+  }
+  // No remote-tracking master (local-only repo): local master is the record.
+  const localMaster = git(["rev-parse", "--verify", "--quiet", "master"]);
+  return localMaster.status === 0
+    && git(["merge-base", "--is-ancestor", sha, "master"]).status === 0;
+}
+
 function usage(): void {
   console.log(`Usage: repo-commit "<suggested commit message>"
        repo-commit --file <message-file>
        repo-commit --amend [--dry-run]
        repo-commit --fix [<ref>] [--dry-run]
        repo-commit --wip ["<wip message words...>"] [--file <message-file>] [--staged-only]
+       repo-commit --fold-window
 
 Opens the user's configured git editor pre-loaded with the suggested message.
 Commits the existing index only if the editor session yields a non-empty message.
 
   --file <path>   Read the suggested message from a file (verbatim; use for long
                   messages instead of a giant argv string).
-  --amend         Fold staged content into unpushed HEAD under the editor gate
-                  (HEAD's message preloaded; refuses a pushed HEAD).
+  --amend         Fold staged content into HEAD not yet landed in master, under
+                  the editor gate (HEAD's message preloaded; refuses HEAD that
+                  master already reached).
   --fix [<ref>]   Fold staged content into an earlier local commit as ONE
                   editorless operation: preflight -> backup branch -> fixup
                   commit -> autosquash rebase -> verify -> report. Bare --fix on
                   a TTY opens the eligible-target picker.
   --dry-run       With --amend/--fix: print what would happen, mutate nothing.
+  --fold-window   Read-only report: the branch's foldable commits (not landed
+                  in master) newest-first with the files each touched, plus a
+                  cross-check of staged/working changes that overlap a foldable
+                  commit's files. No staging requirement, no mutation.
   --wip           WIP snapshot lane: delegates to git-wip (stages everything unless
                   --staged-only, hooks bypassed, "WIP: " prefix added by git-wip,
                   pushes, records refs/wip/last). No editor step — the invocation is
@@ -66,7 +97,6 @@ Refuses (normal lane):
   - a finally resolved editor that is a non-interactive command (true, :, echo, cat, exit),
     also behind a wrapper (env, nice, timeout, ...) or a shell (sh -c ...)
   - an empty index (nothing staged)
-
 A non-interactive GIT_EDITOR/core.editor value inherited from the environment is
 TREATED AS UNSET (resolution falls through to the next source) — automation hosts
 inject no-op editors like ':' into terminals; the user's own git config must
@@ -197,11 +227,17 @@ if (git(["rev-parse", "--is-inside-work-tree"]).status === 0) {
 }
 
 // --- Argument parsing: message via argv or --file; --wip delegates to git-wip;
-// --amend rewrites unpushed HEAD under the editor gate.
+// --amend rewrites HEAD not yet landed in master under the editor gate.
+// The fold window closes when origin/master reaches the commit, or a tag
+// names it — the remote-tracking master is the permanent record (local
+// master governs only in repos without one).
+// Remote-only branch membership (pushed feature branches, routine in this
+// rebase-and-force-push workflow) keeps the commit foldable.
 let msgfileArg = "";
 let wipLane = false;
 let amendLane = false;
 let fixLane = false;
+let foldWindowLane = false;
 let fixRef = "";
 let dryRun = false;
 const wipArgs: string[] = [];
@@ -234,6 +270,9 @@ while (argv.length > 0) {
       if (v !== "" && !v.startsWith("-")) fixRef = argv.shift() ?? "";
       break;
     }
+    case "--fold-window":
+      foldWindowLane = true;
+      break;
     case "--dry-run":
       dryRun = true; // context validated after the argv loop (order-free)
       break;
@@ -260,11 +299,62 @@ while (argv.length > 0) {
   if (dryRun && !fixLane && !amendLane) {
     die("--dry-run applies to the --amend and --fix lanes only");
   }
-  const lanes = [wipLane, amendLane, fixLane].filter(Boolean).length;
-  if (lanes > 1) die("--wip, --amend, and --fix are mutually exclusive");
+  const lanes = [wipLane, amendLane, fixLane, foldWindowLane].filter(Boolean).length;
+  if (lanes > 1) die("--wip, --amend, --fix, and --fold-window are mutually exclusive");
+  if (foldWindowLane && (msgfileArg !== "" || rest.length > 0 || dryRun)) {
+    die("--fold-window takes no message, no --file, and no --dry-run (read-only report)");
+  }
   if (fixLane && (msgfileArg !== "" || rest.length > 0)) {
     die("--fix takes no message (its fixup! subject is machine-written and consumed by the fold)");
   }
+}
+
+// --- Fold-window report: read-only map of the branch's foldable commits.
+if (foldWindowLane) {
+  const log = git(["log", "--format=%h%x09%H%x09%s", "--name-only", "-n", "50"]).out.split("\n");
+  // Parse the interleaved format: header line, then file lines, then blank.
+  type Entry = { short: string; full: string; subject: string; files: string[] };
+  const entries: Entry[] = [];
+  let current: Entry | undefined;
+  for (const line of log) {
+    if (line === "") continue; // separator between entries; next header rebinds
+    const [short, full, subject] = line.split("\t");
+    if (short !== undefined && full !== undefined && subject !== undefined) {
+      current = { short, full, subject, files: [] };
+      entries.push(current);
+    } else if (current !== undefined && line.trim() !== "") {
+      current.files.push(line);
+    }
+  }
+  const foldable = entries.filter((e) => !foldWindowClosed(e.full));
+  if (foldable.length === 0) {
+    console.log("repo-commit: fold window is empty — every commit on this branch has landed in master (or is tagged)");
+    process.exit(0);
+  }
+  console.log(`repo-commit: fold window (${foldable.length} foldable commit(s), newest first):`);
+  for (const e of foldable) {
+    console.log(`  ${e.short} ${e.subject}`);
+    for (const f of e.files) console.log(`      ${f}`);
+  }
+  // Overlap cross-check: staged/working changes that touch a foldable commit's
+  // files — purely presentational; the commit skill's interview decides folds.
+  // Staged + unstaged + untracked paths, statuses stripped (XY + space).
+  const working = new Set(
+    git(["status", "--porcelain"]).out.split("\n")
+      .filter((l) => l.trim() !== "")
+      .map((l) => l.replace(/^..\s+/, "").replace(/^"|"$/g, "").trim()),
+  );
+  const overlaps = foldable.filter((e) => e.files.some((f) => working.has(f)));
+  if (overlaps.length > 0) {
+    console.log("repo-commit: staged/working changes overlap foldable commit(s):");
+    for (const e of overlaps) {
+      const hit = e.files.filter((f) => working.has(f)).join(", ");
+      console.log(`  fold candidate: ${e.short} ${e.subject} — ${hit}`);
+    }
+  } else {
+    console.log("repo-commit: no staged/working overlap with the fold window");
+  }
+  process.exit(0);
 }
 
 // --- WIP lane: delegate to git-wip; WIP commit shape lives there alone.
@@ -276,19 +366,20 @@ if (wipLane) {
   process.exit(r.status ?? EXIT_GENERAL_ERROR);
 }
 
-// --- Amend lane: rewrite unpushed HEAD. The editor preloads HEAD's existing
+// --- Amend lane: rewrite HEAD not yet landed in master. The editor preloads HEAD's existing
 // message (the user is editing it, not replacing it); hooks run; the save is
 // the permission gate exactly as the normal lane. Refuses fail-closed when
-// HEAD is on any remote ref — amending pushed history must never happen
+// master already reached HEAD — amending landed history must never happen
 // silently (remediation: --fix for an earlier commit, or a plain fix commit).
+// A commit reachable from a remote branch but NOT from master stays foldable:
+// pushed-but-unlanded is the normal state of PR branches here.
 if (amendLane) {
   if (git(["diff", "--cached", "--quiet"]).status === 0) {
     die("nothing is staged — amend folds staged content into HEAD; stage first");
   }
-  const pushed = git(["branch", "-r", "--contains", "HEAD"]).out.trim();
-  if (pushed !== "") {
+  if (foldWindowClosed("HEAD")) {
     die(
-      `HEAD is on remote ref(s) ${pushed.split("\n").join(", ")} — amending pushed history is refused`,
+      "HEAD is already landed in master (or named by a tag) — its fold window is closed",
       "remediation: use --fix <ref> for an earlier commit, or land a plain fix commit",
     );
   }
@@ -301,11 +392,20 @@ if (amendLane) {
     process.exit(0);
   }
   resolveEditor();
+  const headSha = git(["log", "-1", "--format=%h %s"]).out.trim();
   console.log(`repo-commit: staged: ${stagedStat()}`);
   console.log(`repo-commit: opening editor: ${editor}  (amend: save & close to fold staged content into HEAD; empty/abort cancels)`);
   const amendTmp = mkdtempSync(join(tmpdir(), "repo-commit-msg-"));
   const amendMsgfile = join(amendTmp, "message");
-  writeFileSync(amendMsgfile, headMsg.endsWith("\n") ? headMsg : `${headMsg}\n`);
+  // Leading # comments make the re-edit unmistakable in the editor; git's
+  // --cleanup=strip removes every comment line before the message is used.
+  const amendBanner = [
+    `# EDIT of a previous commit — this is NOT a new commit.`,
+    `# Re-editing: ${headSha}`,
+    `# Save & close to fold the staged content into it; empty the message to cancel.`,
+    "",
+  ].join("\n");
+  writeFileSync(amendMsgfile, `${amendBanner}${headMsg.endsWith("\n") ? headMsg : `${headMsg}\n`}`);
   const amend = spawnSync("git", ["commit", "--cleanup=strip", "--amend", "--edit", "-F", amendMsgfile], {
     stdio: "inherit",
     env: { ...process.env, GIT_EDITOR: editor },
@@ -331,7 +431,7 @@ if (fixLane) {
     die("nothing is staged — --fix folds staged content into an earlier commit; stage first");
   }
   // Resolve the target: explicit ref, or the interactive picker over
-  // eligible commits (local ancestors of HEAD, not on any remote).
+  // eligible commits (ancestors of HEAD whose fold window is still open).
   let target = fixRef;
   if (target === "") {
     const interactive = process.stdin.isTTY === true && process.stdout.isTTY === true;
@@ -346,18 +446,19 @@ if (fixLane) {
     }
     const head = git(["rev-parse", "HEAD"]).out.trim();
     // eligible: local-only ancestors of HEAD (per-commit --contains check)
+    // eligible: ancestors of HEAD with an open fold window (not reachable
+    // from master, not named by a tag — per-commit check)
     const log = git(["log", "--format=%H%x09%h%x09%s", "-n", "50"]).out.split("\n").filter((l) => l !== "");
     const eligible: { value: string; label: string; hint?: string }[] = [];
     for (const line of log) {
       const [full, short, subject] = line.split("\t");
       if (full === undefined || short === undefined || subject === undefined) continue;
-      const contained = git(["branch", "-r", "--contains", full]).out.trim();
-      if (contained !== "") continue; // pushed: not foldable
+      if (foldWindowClosed(full)) continue; // landed: not foldable
       if (full === head) continue; // HEAD routes to --amend
       eligible.push({ value: full, label: `${short} ${subject}` });
     }
     if (eligible.length === 0) {
-      die("no eligible targets: every ancestor is pushed or HEAD (use --amend for HEAD)");
+      die("no eligible targets: every ancestor has landed in master or is HEAD (use --amend for HEAD)");
     }
     target = await select({
       message: "Fold staged content into which commit?",
@@ -372,22 +473,22 @@ if (fixLane) {
   const targetSha = resolved.out.trim();
   const isAncestor = git(["merge-base", "--is-ancestor", targetSha, "HEAD"]).status === 0;
   if (!isAncestor) die(`'${target}' is not an ancestor of HEAD — you can only fold into your own stack`);
-  const targetPushed = git(["branch", "-r", "--contains", targetSha]).out.trim();
-  const targetTagged = git(["tag", "--contains", targetSha]).out.trim();
-  if (targetPushed !== "" || targetTagged !== "") {
-    die(
-      `'${target}' is reachable from remote ref(s) ${targetPushed.split("\n").join(", ")} or tag(s) ${targetTagged.split("\n").join(", ")} — folding shared history is refused`,
-      "remediation: land a plain fix: commit instead",
-    );
-  }
   if (targetSha === git(["rev-parse", "HEAD"]).out.trim()) {
     die("target is HEAD — use --amend instead");
   }
+  // Root-commit refusal precedes the fold-window check: the structural reason
+  // (no parent to autosquash onto) is the truer one for a landed root commit.
   const hasParent = git(["rev-parse", "--verify", "--quiet", `${targetSha}^`]).status === 0;
   if (!hasParent) {
     die(
       `target '${target}' is the root commit — folding into it would rewrite the entire history start`,
-      "remediation: land a plain fix: commit instead",
+      "remediation: land a plain fix commit instead",
+    );
+  }
+  if (foldWindowClosed(targetSha)) {
+    die(
+      `'${target}' is already landed in master (or named by a tag) — its fold window is closed`,
+      "remediation: land a plain fix commit instead",
     );
   }
   const targetSubject = git(["log", "-1", "--format=%s", targetSha]).out.trim();
@@ -554,6 +655,19 @@ function validateWithCommitlint(message: string): void {
 // --- Launch the editor with the suggested message; commit only on save.
 resolveEditor();
 console.log(`repo-commit: staged: ${stagedStat()}`);
+// A suggested message identical to HEAD's is almost never intended for a NEW
+// commit — it is the signature of a stale suggestion (the previous commit's
+// message reused verbatim). The editor save is the permission gate — a
+// duplicate is a judgment call, not a structural impossibility — so this
+// warns loudly instead of refusing, and the banner below shows the message
+// directly above HEAD's for the save decision.
+const headMsg = git(["log", "-1", "--format=%B"]).out.trim();
+const duplicateOfHead = suggested.trim() === headMsg && headMsg !== "";
+if (duplicateOfHead) {
+  console.warn(`repo-commit: WARNING — the suggested message is byte-identical to HEAD's (${git(["log", "-1", "--format=%h"]).out.trim()}).`);
+  console.warn("repo-commit:   if this is a re-edit, abort and use --amend (or --fix <ref>); if a true duplicate is wanted, save as-is.");
+}
+const headShort = git(["log", "-1", "--format=%h %s"]).out.trim();
 // msgfile is a temp file for the editor session — removed afterwards.
 const tmpDir = mkdtempSync(join(tmpdir(), "repo-commit-msg-"));
 const msgfile = join(tmpDir, "message");
@@ -561,7 +675,15 @@ const msgfile = join(tmpDir, "message");
 // here, not be laundered into a folded "legal" header by the wrap), then
 // wrap the body for the editor view — argv-crafted messages only.
 validateWithCommitlint(suggested);
-writeFileSync(msgfile, `${wrapEligible ? wrapBodyAt72(suggested) : suggested}\n`);
+// Context banner: what this commit lands on, so a stale prefill is visible
+// against its neighbor. # comments are stripped by --cleanup=strip.
+const contextBanner = [
+  `# NEW commit on top of: ${headShort}`,
+  ...(duplicateOfHead
+    ? ["# WARNING: this message is identical to the commit above — abort or edit unless a verbatim duplicate is intended.", ""]
+    : [""]),
+].join("\n");
+writeFileSync(msgfile, `${contextBanner}${wrapEligible ? wrapBodyAt72(suggested) : suggested}\n`);
 
 // GIT_EDITOR must win over any config for this invocation; export explicitly.
 // --edit forces the editor open on the supplied message; without it git skips
