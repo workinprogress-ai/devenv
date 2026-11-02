@@ -116,15 +116,35 @@ describe("repo-commit --fix", () => {
     expect(r.out).toContain("not an ancestor of HEAD");
   });
 
-  it("refuses a pushed target fail-closed", () => {
+  it("refuses a master-landed target fail-closed", () => {
     seedCommit("feat: second", "b5.txt");
-    git("push", "-q", "origin", "master");
+    git("push", "-q", "origin", "master"); // origin/master now reaches b5's commit
     seedCommit("feat: third", "c5.txt");
     stageFile("b5.txt", "changed\n");
     const r = runTool(["--fix", "HEAD~1"]);
     expect(r.status).not.toBe(0);
-    expect(r.out).toContain("folding shared history is refused");
+    expect(r.out).toContain("fold window is closed");
     expect(r.out).toContain("plain fix");
+  });
+
+  it("folds into a pushed-but-unlanded target (remote-only membership keeps the window open)", () => {
+    const second = seedCommit("feat: second", "b5p.txt");
+    seedCommit("feat: third", "c5p.txt");
+    git("push", "-q", "origin", "HEAD:refs/heads/pr-branch"); // remote branch, NOT master
+    stageFile("b5p.txt", "changed\n");
+    const r = runTool(["--fix", second]);
+    expect(r.status).toBe(0);
+    expect(r.out).toContain("folded staged content into");
+  });
+
+  it("refuses a target named by a tag even though master has not reached it", () => {
+    const second = seedCommit("feat: second", "b5t.txt");
+    seedCommit("feat: third", "c5t.txt");
+    git("tag", "v9-fix-closed");
+    stageFile("b5t.txt", "changed\n");
+    const r = runTool(["--fix", second]);
+    expect(r.status).not.toBe(0);
+    expect(r.out).toContain("fold window is closed");
   });
 
   it("redirects to --amend when the target is HEAD", () => {
