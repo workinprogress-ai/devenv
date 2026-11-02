@@ -170,10 +170,27 @@ async function main(argv: string[]): Promise<number> {
 
   let comments: CommentRecord[];
   try {
-    comments = JSON.parse(raw) as CommentRecord[];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) throw new Error("not an array");
+    comments = parsed as CommentRecord[];
   } catch {
-    logError("Failed to parse issue comments");
-    return 4;
+    // Tolerate a newline-delimited JSON stream (one object per comment —
+    // the shape some provider emissions produce): concatenate the objects.
+    const records: CommentRecord[] = [];
+    let streamed = false;
+    for (const line of raw.split("\n")) {
+      const t = line.trim();
+      if (t === "" || t === "[" || t === "]" || t === ",") { continue; }
+      try {
+        const obj = JSON.parse(t) as CommentRecord;
+        if (obj !== null && typeof obj === "object") { records.push(obj); streamed = true; }
+      } catch { /* not NDJSON either — fall through to the named error */ }
+    }
+    if (!streamed || records.length === 0) {
+      logError("Failed to parse issue comments");
+      return 4;
+    }
+    comments = records;
   }
 
   const results: Array<Record<string, unknown>> = [];

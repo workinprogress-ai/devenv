@@ -207,6 +207,41 @@ describe("azure issues text round-trip", () => {
     expect(azureMarkerTransform("plain body")).toBe("plain body");
   });
 
+  it("marker transform preserves EVERY header field as bare key lines (15.46)", () => {
+    // Azure storage strips HTML comments; downstream consumers route on
+    // planning_repo/artifact_type, so the full header must survive as a
+    // bare key-line block — not just doc_id.
+    const body = [
+      "<!-- DEVENV_ARTIFACT_V1",
+      "artifact_type: implementation-plan",
+      "doc_id: dv1:org/repo:issue-72:plan-1",
+      "issue_number: 72",
+      "planning_repo: org/planning",
+      "source_file: .local-artifacts/Plan-1.md",
+      "updated_at_utc: 2026-11-02T00:00:00Z",
+      "-->",
+      "body content here",
+    ].join("\n");
+    const t = azureMarkerTransform(body);
+    for (const line of [
+      "artifact_type: implementation-plan",
+      "doc_id: dv1:org/repo:issue-72:plan-1",
+      "issue_number: 72",
+      "planning_repo: org/planning",
+      "source_file: .local-artifacts/Plan-1.md",
+      "updated_at_utc: 2026-11-02T00:00:00Z",
+    ]) {
+      expect(t).toContain(line);
+    }
+    expect(t).toContain("body content here");
+    expect(t).not.toContain("<!--");
+    expect(azureMarkerTransform(t)).toBe(t); // idempotent
+  });
+
+  it("marker transform keeps content-only bodies untouched", () => {
+    expect(azureMarkerTransform("no marker at all")).toBe("no marker at all");
+  });
+
   it("work-item type map: built-ins pass, unknown throws", async () => {
     // The mapped-type availability check rides azureHttp; these stub the
     // transport and the org/project env so the map semantics stay testable
