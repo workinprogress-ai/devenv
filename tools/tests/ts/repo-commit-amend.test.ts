@@ -1,9 +1,10 @@
-// Black-box tests for repo-commit --amend: folds staged content into unpushed
-// HEAD under the editor gate (HEAD's message preloaded), refuses a pushed
-// HEAD fail-closed, refuses an empty index, and an aborted editor leaves
-// HEAD and the index untouched. Same harness shape as the baseline suite:
-// copied tool fixture, real temp git repo, scripted GIT_EDITOR, and a local
-// bare remote for pushed/unpushed scenarios.
+// Black-box tests for repo-commit --amend: folds staged content into HEAD
+// whose fold window is still open (not landed in master) under the editor
+// gate (HEAD's message preloaded), refuses a master-landed HEAD fail-closed,
+// refuses an empty index, and an aborted editor leaves HEAD and the index
+// untouched. Same harness shape as the baseline suite: copied tool fixture,
+// real temp git repo, scripted GIT_EDITOR, and a local bare remote for
+// pushed/unlanded vs landed scenarios.
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { spawnSync } from "node:child_process";
 import { cpSync, mkdtempSync, rmSync, writeFileSync, chmodSync } from "node:fs";
@@ -85,15 +86,36 @@ describe("repo-commit --amend", () => {
     expect(git("show", "--stat", "--format=", "HEAD")).toContain("extra.txt");
   });
 
-  it("refuses a pushed HEAD fail-closed with remediation", () => {
-    // HEAD (chore: base) is pushed by the fixture
+  it("folds staged content into a pushed-but-unlanded HEAD (remote-only membership does not close the window)", () => {
+    seedCommit("feat: pushed pr work", "pushed.txt");
+    git("push", "-q", "origin", "HEAD:refs/heads/pr-branch"); // on a remote branch, NOT master
+    stageFile("extra.txt", "e\n");
+    const before = git("rev-parse", "HEAD").trim();
+    const r = runTool(["--amend"]);
+    expect(r.status).toBe(0);
+    expect(r.out).toContain("amended.");
+    expect(git("rev-parse", "HEAD").trim()).not.toBe(before); // rewritten
+  });
+
+  it("refuses a master-landed HEAD fail-closed with remediation", () => {
+    // HEAD (chore: base) is on master and pushed: the remote-tracking ref
+    // (origin/master) reaches it — the fold window is closed.
     stageFile("late.txt", "l\n");
     const before = git("rev-parse", "HEAD").trim();
     const r = runTool(["--amend"]);
     expect(r.status).not.toBe(0);
-    expect(r.out).toContain("amending pushed history is refused");
+    expect(r.out).toContain("fold window is closed");
     expect(r.out).toContain("--fix");
     expect(git("rev-parse", "HEAD").trim()).toBe(before); // untouched
+  });
+
+  it("refuses a HEAD named by a tag even though master has not reached it", () => {
+    seedCommit("feat: tagged side work", "tagged.txt");
+    git("tag", "v9-fold-closed");
+    stageFile("extra2.txt", "e\n");
+    const r = runTool(["--amend"]);
+    expect(r.status).not.toBe(0);
+    expect(r.out).toContain("fold window is closed");
   });
 
   it("refuses an empty index before any editor opens", () => {
