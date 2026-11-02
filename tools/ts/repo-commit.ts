@@ -16,7 +16,7 @@
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -69,6 +69,7 @@ function usage(): void {
        repo-commit --fix [<ref>] [--dry-run]
        repo-commit --wip ["<wip message words...>"] [--file <message-file>] [--staged-only]
        repo-commit --fold-window
+       repo-commit --reword <ref> [--dry-run]
 
 Opens the user's configured git editor pre-loaded with the suggested message.
 Commits the existing index only if the editor session yields a non-empty message.
@@ -87,6 +88,10 @@ Commits the existing index only if the editor session yields a non-empty message
                   in master) newest-first with the files each touched, plus a
                   cross-check of staged/working changes that overlap a foldable
                   commit's files. No staging requirement, no mutation.
+  --reword <ref>  Change an earlier commit's message only (no content folds):
+                  preflight -> backup branch -> editor gate on the new message
+                  -> autosquash reword -> verify -> report. Staged content is
+                  irrelevant and untouched. HEAD routes to --amend.
   --wip           WIP snapshot lane: delegates to git-wip (stages everything unless
                   --staged-only, hooks bypassed, "WIP: " prefix added by git-wip,
                   pushes, records refs/wip/last). No editor step — the invocation is
@@ -238,7 +243,9 @@ let wipLane = false;
 let amendLane = false;
 let fixLane = false;
 let foldWindowLane = false;
+let rewordLane = false;
 let fixRef = "";
+let rewordRef = "";
 let dryRun = false;
 const wipArgs: string[] = [];
 const rest: string[] = [];
@@ -273,6 +280,12 @@ while (argv.length > 0) {
     case "--fold-window":
       foldWindowLane = true;
       break;
+    case "--reword": {
+      rewordLane = true;
+      const v = argv[0] ?? "";
+      if (v !== "" && !v.startsWith("-")) rewordRef = argv.shift() ?? "";
+      break;
+    }
     case "--dry-run":
       dryRun = true; // context validated after the argv loop (order-free)
       break;
@@ -296,11 +309,12 @@ while (argv.length > 0) {
 // guard after the wip/amend lanes would be dead code — those lanes exit
 // first, silently swallowing the other flag).
 {
-  if (dryRun && !fixLane && !amendLane) {
-    die("--dry-run applies to the --amend and --fix lanes only");
+  if (dryRun && !fixLane && !amendLane && !rewordLane) {
+    die("--dry-run applies to the --amend, --fix, and --reword lanes only");
   }
-  const lanes = [wipLane, amendLane, fixLane, foldWindowLane].filter(Boolean).length;
-  if (lanes > 1) die("--wip, --amend, --fix, and --fold-window are mutually exclusive");
+  const lanes = [wipLane, amendLane, fixLane, foldWindowLane, rewordLane].filter(Boolean).length;
+  if (lanes > 1) die("--wip, --amend, --fix, --fold-window, and --reword are mutually exclusive");
+  if (rewordLane && rewordRef === "") die("--reword requires a target ref (--reword <commit-ish>)");
   if (foldWindowLane && (msgfileArg !== "" || rest.length > 0 || dryRun)) {
     die("--fold-window takes no message, no --file, and no --dry-run (read-only report)");
   }
@@ -550,6 +564,120 @@ if (fixLane) {
   }
   const newTarget = git(["log", "--format=%h %s", `--grep=${escapeGrep(targetSubject)}`, "-1", `${targetSha}..HEAD`]).out.trim();
   console.log(`repo-commit: folded staged content into ${newTarget || targetSubject}`);
+  console.log(`  old stack: ${backup}`);
+  const diverged = git(["status", "-sb"]).out.includes("ahead");
+  console.log(`  note: ${diverged ? "branch diverged from its remote — push with --force-with-lease when ready" : "no remote tracking"}`);
+  process.exit(0);
+}
+
+// --- Reword lane: change an earlier commit's message only. No staged content
+// required (a reword changes no content); the editor gate on the new message
+// is the permission gate, exactly as the normal/amend lanes. Safety spine
+// mirrors --fix: preflight -> backup branch -> reword -> verify -> report.
+if (rewordLane) {
+  // Preflight. Staged content is explicitly NOT required — a reword rewrites
+  // messages only; requiring staging would fail-closed on nothing.
+  const resolved = git(["rev-parse", "--verify", `${rewordRef}^{commit}`]);
+  if (resolved.status !== 0) die(`cannot resolve '${rewordRef}' as a commit`);
+  const targetSha = resolved.out.trim();
+  const isAncestor = git(["merge-base", "--is-ancestor", targetSha, "HEAD"]).status === 0;
+  if (!isAncestor) die(`'${rewordRef}' is not an ancestor of HEAD — you can only reword your own stack`);
+  if (targetSha === git(["rev-parse", "HEAD"]).out.trim()) {
+    die("target is HEAD — use --amend instead");
+  }
+  const hasParent = git(["rev-parse", "--verify", "--quiet", `${targetSha}^`]).status === 0;
+  if (!hasParent) {
+    die(
+      `target '${rewordRef}' is the root commit — rewording it would rewrite the entire history start`,
+      "remediation: rebase -i manually, or accept the history start as-is",
+    );
+  }
+  if (foldWindowClosed(targetSha)) {
+    die(
+      `'${rewordRef}' is already landed in master (or named by a tag) — its fold window is closed`,
+      "remediation: land a plain docs/fix commit noting the correction instead",
+    );
+  }
+  const targetSubject = git(["log", "-1", "--format=%s", targetSha]).out.trim();
+  const oldHead = git(["rev-parse", "HEAD"]).out.trim();
+  const oldHeadShort = git(["rev-parse", "--short", oldHead]).out.trim();
+
+  if (dryRun) {
+    const rehashed = git(["rev-list", "--count", `${targetSha}..HEAD`]).out.trim();
+    console.log(`repo-commit: --reword dry-run`);
+    console.log(`  target:   ${targetSha.slice(0, 8)} ${targetSubject}`);
+    console.log(`  rehash:   ${rehashed} commit(s) after the target would be rewritten`);
+    console.log(`  backup:   backup/pre-reword-${oldHeadShort} would be created`);
+    process.exit(0);
+  }
+
+  // Editor resolution FIRST (before any mutation): the editor save is the
+  // permission gate, so a non-interactive editor must refuse pre-backup.
+  resolveEditor();
+
+  const backup = `backup/pre-reword-${oldHeadShort}`;
+  const bk = git(["branch", backup, oldHead]);
+  if (bk.status !== 0) die(`failed to create backup branch ${backup}: ${bk.out.trim()}`);
+  console.log(`repo-commit: backup branch ${backup} (recovery: git reset --hard ${backup})`);
+
+  // The reword: one rebase whose GIT_SEQUENCE_EDITOR script flips the target's
+  // todo entry from "pick" to "reword" and lets git open the user's editor on
+  // the message file. The editor save is the permission gate; git aborts the
+  // rebase when the editor session empties the message (the cancel path).
+  // Todo shas vary in length across git versions (short here, full elsewhere);
+  // ask git how IT abbreviates this sha (core.abbrev resolves to the same
+  // uniqueness length the todo uses) and match on that. The edit is verified
+  // (grep -q) so a non-match aborts loudly instead of silently rewording the
+  // wrong commit.
+  const todoSha = git(["rev-parse", "--short=7", targetSha]).out.trim();
+  const seqEditor = join(mkdtempSync(join(tmpdir(), "repo-commit-reword-")), "seq.sh");
+  writeFileSync(
+    seqEditor,
+    [
+      "#!/bin/sh",
+      `if sed -i "s/^pick ${todoSha} /reword ${todoSha} /" "$1" && grep -q "^reword ${todoSha} " "$1"; then`,
+      "  exit 0",
+      "fi",
+      'echo "repo-commit: reword preflight failed — target entry not found in the rebase todo" >&2',
+      "exit 1",
+      "",
+    ].join("\n"),
+  );
+  chmodSync(seqEditor, 0o755);
+  const reword = spawnSync(
+    "git",
+    ["rebase", "--autostash", "-i", `${targetSha}~1`],
+    { stdio: "inherit", env: { ...process.env, GIT_SEQUENCE_EDITOR: seqEditor } },
+  );
+  rmSync(dirname(seqEditor), { recursive: true, force: true });
+  if (reword.status !== 0) {
+    spawnSync("git", ["rebase", "--abort"], { encoding: "utf8" });
+    die(
+      "reword rebase failed (conflict or editor abort) — rebase aborted; the stack is unchanged",
+      `recovery: git reset --hard ${backup}`,
+    );
+  }
+
+  // Verify: after the rebase, the OLD sha is orphaned — locate the target by
+  // its position in the new stack instead (parent-of-target's parent count is
+  // unchanged; the target sits at the same ancestry depth). The surest check:
+  // the subject AT the target's depth must differ from the old subject, and
+  // the content tree must be untouched (a reword rewrites messages only).
+  const depth = git(["rev-list", "--count", `${targetSha}~1..${oldHead}`]).out.trim();
+  const newTarget = git(["log", "--format=%H %s", `-n ${depth}`, "HEAD"]).out.split("\n").filter((l) => l.trim() !== "");
+  // newTarget is newest-first over the rewritten range; the target is the
+  // OLDEST entry in that range (depth-th from HEAD).
+  const targetLine = newTarget[newTarget.length - 1] ?? "";
+  const newSubject = targetLine.split(" ").slice(1).join(" ");
+  if (newSubject === targetSubject) {
+    die("reword verification failed (message unchanged) — inspect manually", `recovery: git reset --hard ${backup}`);
+  }
+  const treeDiff = git(["diff", "--stat", `${backup}`, "HEAD"]).out.trim();
+  if (treeDiff !== "") {
+    die("reword verification failed (content changed — a reword must not touch the tree)", `recovery: git reset --hard ${backup}`);
+  }
+  console.log(`repo-commit: reworded. was: ${targetSubject}`);
+  console.log(`  now: ${newSubject}`);
   console.log(`  old stack: ${backup}`);
   const diverged = git(["status", "-sb"]).out.includes("ahead");
   console.log(`  note: ${diverged ? "branch diverged from its remote — push with --force-with-lease when ready" : "no remote tracking"}`);

@@ -145,4 +145,28 @@ describe("issue-artifact-list", () => {
   it("an unknown flag exits 2", () => {
     expect(runTool(["--bogus"]).status).toBe(2);
   });
+
+  it("tolerates a newline-delimited JSON comment stream (2+ comments, 15.46)", () => {
+    // The downstream-fork emission: one object per line instead of one
+    // array document. A verbatim-printing gh stub carries the real
+    // multi-line stream (the TSV response table cannot hold newlines).
+    const ndjson = [
+      artifactComment({ id: 1, docId: "dv1:old", updatedAt: "2026-01-02T00:00:00Z" }),
+      artifactComment({ id: 2, docId: "dv1:new", updatedAt: "2026-01-03T00:00:00Z", title: "Newest Plan" }),
+      '{"id":3,"body":"not an artifact","user":{"login":"x"},"created_at":"c","updated_at":"u","url":"u3","issue_url":"https://github.com/org/repo/issues/42"}',
+    ].join("\n");
+    writeFileSync(join(stubDir, "ndjson.txt"), ndjson + "\n");
+    writeFileSync(
+      join(stubDir, "gh"),
+      '#!/usr/bin/env bash\n' +
+        '[ "$1" = auth ] && exit 0\n' +
+        'cat "' + join(stubDir, "ndjson.txt") + '"\n',
+      { mode: 0o755 },
+    );
+    const r = runTool(["--issue", "42"]);
+    expect(r.status).toBe(0);
+    const rows = JSON.parse(r.stdout) as Array<Record<string, unknown>>;
+    expect(rows).toHaveLength(2); // the non-artifact comment is ignored
+    expect(rows[0]?.doc_id).toBe("dv1:new"); // newest first
+  });
 });

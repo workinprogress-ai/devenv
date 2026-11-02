@@ -195,6 +195,31 @@ describe("provider-core (TS facade core)", () => {
     expect(parsed[0] && "html_url" in parsed[0]).toBe(false);
   });
 
+  it("comments tolerate an NDJSON transport stream (2+ comments, 15.46)", async () => {
+    // Concatenated page output / proxy transports can emit one object per
+    // line; the provider normalizes it to the same seam array. The gh stub
+    // prints the raw stream verbatim (multi-line cannot ride the TSV table).
+    const { issues } = await loadFacade();
+    const stream = [
+      '{"id":1,"html_url":"https://x/c1","body":"one"}',
+      '{"id":2,"html_url":"https://x/c2","body":"two"}',
+    ].join("\n");
+    writeFileSync(join(stubDir, "comments-nd.json"), stream + "\n");
+    writeFileSync(
+      join(stubDir, "gh"),
+      '#!/usr/bin/env bash\n' +
+        'printf \'gh %s\\n\' "$*" >> ' + JSON.stringify(callLog) + '\n' +
+        'if [ "$1" = auth ]; then exit 0; fi\n' +
+        'cat ' + JSON.stringify(join(stubDir, "comments-nd.json")) + '\n',
+      { mode: 0o755 },
+    );
+    const out = await issues.issuesComments("org/repo", 9);
+    const parsed = JSON.parse(out) as Array<{ id?: number; body?: string }>;
+    expect(parsed).toHaveLength(2);
+    expect(parsed[0]?.body).toBe("one");
+    expect(parsed[1]?.body).toBe("two");
+  });
+
   it("issuesSetType is capability-gated and invokes gh with GH_REPO set", async () => {
     const { issues } = await loadFacade();
     await issues.issuesSetType("org", "repo", 5, "Bug");

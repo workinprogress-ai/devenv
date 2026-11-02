@@ -412,7 +412,35 @@ export function azureMarkerTransform(body: string): string {
     .join("\n");
   const bareRe = new RegExp(`^[ \\t]*doc_id:[ \\t]*${docId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[ \\t]*$`, "m");
   if (bareRe.test(stripped)) return body;
-  return `doc_id: ${docId}\n${stripped}`;
+  // Preserve every DEVENV_ARTIFACT_V1 field as a bare `key: value` block:
+  // Azure storage strips HTML comments, and downstream consumers route on
+  // planning_repo/artifact_type — dropping them (the old doc_id-only form)
+  // silently broke identity. Bare key lines survive Azure storage and are
+  // read back by the artifact tools' headerValue parser.
+  const headerKeys = [
+    "artifact_type",
+    "doc_id",
+    "issue_number",
+    "planning_repo",
+    "source_file",
+    "updated_at_utc",
+  ];
+  const lines = body.split("\n");
+  const header: string[] = [];
+  let inHeaderComment = false;
+  for (const line of lines) {
+    if (inHeaderComment) {
+      if (line.startsWith("-->")) inHeaderComment = false;
+      const kv = /^([a-z_]+):[ \t]*(.+)$/.exec(line);
+      if (kv && headerKeys.includes(kv[1] as string)) {
+        header.push(`${kv[1]}: ${kv[2]}`);
+      }
+      continue;
+    }
+    if (line.startsWith("<!-- DEVENV_ARTIFACT_V1")) inHeaderComment = true;
+  }
+  if (header.length === 0) return `doc_id: ${docId}\n${stripped}`;
+  return `${header.join("\n")}\n${stripped}`;
 }
 
 /** Upsert-hook shape: issue-artifact-upsert calls this around its doc_id
@@ -583,7 +611,10 @@ function renderListFlags(
   return JSON.stringify(out);
 }
 
-/** View a single issue as the full mapped record. */
+/** View a single issue as the full mapped record. comments carries the
+ * comment COUNT (the seam's number form — github --json comments returns a
+ * count): a work item with comments must not project an empty/missing value
+ * there (downstream identity reads the field to decide "no discussion"). */
 export async function issuesView(
   repo: string,
   number: number,
@@ -597,7 +628,20 @@ export async function issuesView(
     "GET",
     `${base}/workitems/${number}?$expand=relations`,
   );
-  return mapItem(raw);
+  const record = mapItem(raw);
+  let commentCount = 0;
+  try {
+    const page = await azureHttp<{ comments?: unknown[] }>(
+      "GET",
+      `${base}/workitems/${number}/comments?$top=1&api-version=${AZURE_COMMENTS_API_VERSION}`,
+    );
+    const total = (page as { totalCount?: unknown }).totalCount;
+    commentCount = typeof total === "number" ? total : (page.comments ?? []).length;
+  } catch {
+    // comment-count read is best-effort metadata; never fail the view on it
+  }
+  record["comments"] = commentCount;
+  return record;
 }
 
 /** Check an issue exists (presence test). */
