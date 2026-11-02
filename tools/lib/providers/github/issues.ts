@@ -153,8 +153,32 @@ export async function issuesExists(spec: string | undefined, number: number): Pr
 export async function issuesComments(spec: string | undefined, number: number): Promise<string> {
   const repo = spec ?? "{owner}/{repo}";
   const r = await ghApiPaginate(["api", `repos/${repo}/issues/${number}/comments`]);
-  const parsed: unknown = JSON.parse(r.stdout);
-  return JSON.stringify(neutralComment(parsed));
+  return JSON.stringify(neutralComment(parseCommentsPayload(r.stdout)));
+}
+
+/** Parse the comments-list transport payload: a single JSON document (gh's
+ * normal array reply) OR a newline-delimited stream of objects (the shape
+ * concatenated page output and some proxy transports produce — one object
+ * per comment). The seam verb returns JSON text either way; the 2+-comment
+ * parse failure (downstream work item 101892) was this exact divergence. */
+export function parseCommentsPayload(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const records: unknown[] = [];
+    for (const line of raw.split("\n")) {
+      const t = line.trim();
+      if (t === "" || t === "[" || t === "]" || t === ",") continue;
+      try {
+        records.push(JSON.parse(t));
+      } catch {
+        throw new ProviderError(
+          `comments payload is neither a JSON document nor NDJSON (first 80 chars: ${raw.slice(0, 80)})`,
+        );
+      }
+    }
+    return records;
+  }
 }
 
 /** List milestones (raw gh REST JSON — the bash verb's pass-through). */
