@@ -32,11 +32,10 @@ Task lists should be compact and current-state friendly:
 
 - Prefer 3-6 tasks per phase.
 - Each task line should read like one concrete execution step.
-- Include `Files:` by default; add other metadata only when needed for handoff clarity.
+- Include `Files:` by default; add other metadata only when needed for handoff clarity (`Docs:` on documented-surface tasks per the documentation doctrine; `decision:` and `depends on` when they materially improve execution clarity).
 - Keep any extra detail under `Additional context:` for that task instead of creating separate context sections.
 
 If a task description needs multiple implementation bullets to be understandable, split it into separate tasks or move the extra detail into linked additional context.
-
 ### `Files:` bullet
 
 List every file the task **reads or modifies** (including test files), using paths relative to the **workspace root** (the top-level folder open in VS Code). Example:
@@ -51,6 +50,20 @@ Rules:
 - Include test files. Omit files the task merely reads without changing.
 - New files that don't exist yet are listed with a `(new)` suffix: `` `repos/.../IRetryPolicy.cs` (new) ``.
 - Used by pair-programming and delegation to auto-generate **Files in scope** links at phase kickoff.
+
+### `Docs:` bullet
+
+Add a `Docs:` bullet when the task touches a **documented surface** (tool flag, skill guidance, config format, public API, user-facing behavior) — it names the documentation files the task updates, per the [documentation doctrine](phase-rules.md#documentation-doctrine-surface-docs-ride-with-the-change):
+
+```
+- Docs: `docs/Additional-Tooling.md`, `copilot/skills/devenv-commit/SKILL.md`
+```
+
+Rules:
+
+- Workspace-root-relative paths, same form as `Files:`; the doc files also appear in `Files:` (that bullet stays the complete read/modify list).
+- `Docs:` is the doctrine-compliance signal, not a duplicate: the phase-close surface-docs check verifies it — a documented-surface task without a `Docs:` line (or an explicit deferral note in the phase) fails the check.
+- Omit when the task touches no documented surface; a deferral (doc can't be written until a later phase) is stated in the phase, not on the task.
 
 ### `decision:` bullet
 

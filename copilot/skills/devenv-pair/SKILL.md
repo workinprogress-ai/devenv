@@ -604,8 +604,9 @@ When a phase is ready to close, do one final review sweep before marking it comp
 3. If Phase 1 discovery exposed high-blast-radius assumptions, boundary risks, failure modes, or sequencing hazards, add explicit pressure-test tasks/checkpoints to the current or next appropriate phase instead of leaving that risk only in narration.
 4. If an important task appears to be left undone, stop and surface it to the user with the concrete choice: complete it now, defer it, or add it as a new task / phase.
 5. Run the shared [foreign-comment scan](../common/references/execution-gates.md#foreign-comment-scan-user-fixmetodo-sweep) over the phase's changed files — the user may have left `FIXME`/`TODO` review comments while reviewing between turns; sweep, route, and report them per that protocol.
-6. Re-check the plan delta written this phase against the living-record rule: dated headings, run-scoped test/build/coverage counts, and per-run narration must be rewritten as current state (reproduction-grade execution knowledge belongs in the phase's **Phase Notes** block or the section it amends; history belongs in the handback). The write itself is sanctioned — only its shape can drift.
-7. Only when the ledger matches reality should the phase be considered closed and eligible for the phase-completion gate.
+6. **Surface-docs check:** each change task that touched a documented surface carries a `Docs:` bullet (per [task-format.md](../devenv-plan/references/task-format.md)), or its deferral is noted in the plan per the [documentation doctrine](../devenv-plan/references/phase-rules.md#documentation-doctrine-surface-docs-ride-with-the-change) — a phase-close with first-time docs still owed on landed changes is incomplete.
+7. Re-check the plan delta written this phase against the living-record rule: dated headings, run-scoped test/build/coverage counts, and per-run narration must be rewritten as current state (reproduction-grade execution knowledge belongs in the phase's **Phase Notes** block or the section it amends; history belongs in the handback). The write itself is sanctioned — only its shape can drift.
+8. Only when the ledger matches reality should the phase be considered closed and eligible for the phase-completion gate.
 
 For cleanup tasks involving temporary scaffolding/escape-hatch artifacts, run these extra gates before closure:
 
