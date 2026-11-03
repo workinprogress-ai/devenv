@@ -147,6 +147,12 @@ When two or more patterns are viable, surface the options and a recommendation d
 - The Cleanup phase must include an explicit task to remove all transitional scaffolding — stubs, `FooOld` classes, transitional interfaces.
 - No phase may end with tests failing due to stub behaviour — stubs and their corresponding test updates go in the same phase.
 
+## Documentation doctrine: surface docs ride with the change
+
+A task that changes a documented surface (tool flag, skill guidance, config format, public API, user-facing behavior) carries its documentation update as part of the same task, in the same phase — the `Docs:` line on the task names the files. Docs written alongside the change are accurate while the reasoning is alive; docs deferred to an end phase are written after context decay and are the first thing a tight phase drops.
+
+The final documentation/cleanup phase keeps its job but is **re-scoped**: polish, finalize, coherence passes, integrative docs that describe the finished whole (overview rewrites, migration guides), and the stale-doc sweep invalidated by the plan as a whole — **not first-time documentation of already-landed changes**. Where a doc genuinely cannot be written until later phases land, the phase that owns the change notes it explicitly as deferred (one line naming the doc and the phase that completes it) — nothing silently slides to the end. Docs whose change touches no documented surface need no `Docs:` line.
+
 ## Committability checklist (use at end of each phase)
 
 - [ ] All tests pass locally
@@ -154,13 +160,14 @@ When two or more patterns are viable, surface the options and a recommendation d
 - [ ] Tests added this phase assert observable behaviour (not just execute code)
 - [ ] No TODOs left that block the next phase
 - [ ] Phase delivered something of clear, standalone value (feature, scaffold, docs, tests) — not only intermediate steps to support a future phase
+- [ ] Surface docs for this phase's documented-surface changes are written (each change task carried its `Docs:` line, or the deferral is noted in the phase per the documentation doctrine)
 - [ ] Any temporary scaffolding code added is either still needed, or scheduled for removal in a later phase's task list
 
 ## Anti-patterns
 
 - A "Phase 0: setup" that just does config — fold it into Phase 1.
 - A "final phase" that adds new behaviour instead of cleaning up — that's a real phase; add Cleanup after it.
-- A standalone "write tests" phase at the end of the plan — tests belong inside each phase alongside the code they cover.
+- A standalone "write tests" phase at the end of the plan — tests belong inside each phase alongside the code they cover. The same holds for docs (see the documentation doctrine above): a final phase writing first-time docs for changes long since landed is the docs-flavored version of this anti-pattern; only polish/integrative/stale-sweep belongs there.
 - Phases that depend on **future** phases (cyclic) — re-order tasks until the dependency graph is a DAG flowing forward.
 - Skipping the coverage check because "it's just a refactor" — refactors are exactly when regressions sneak in.
 - Tests that hit lines without asserting anything — these inflate coverage numbers but catch nothing.
