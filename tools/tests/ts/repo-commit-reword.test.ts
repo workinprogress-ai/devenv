@@ -30,6 +30,11 @@ function seedCommit(msg: string, file: string): string {
   return git("rev-parse", "HEAD").trim();
 }
 
+function stageFile(name: string, content: string): void {
+  writeFileSync(join(repo, name), content);
+  git("add", "--", name);
+}
+
 /** Scripted message editor: the rebase hands it the message file ($1). Modes:
  * save a new subject, save the SAME subject (no-op reword), empty (cancel). */
 function setMessageEditorMode(mode: "save" | "same" | "empty", newSubject = "feat: first work REWORDED"): void {
@@ -117,10 +122,18 @@ describe("repo-commit --reword", () => {
   it("refuses HEAD (redirect to --amend), the root commit, and a landed target", () => {
     seedCommit("chore: base2", "base2.txt");
     seedCommit("feat: first work", "a.txt");
-    // HEAD redirect
+    // HEAD on a CLEAN index is a valid reword target (message-only); HEAD
+    // with STAGED content refuses — folding it needs --amend.
+    setMessageEditorMode("save", "feat: first work HEAD-REWORDED");
     const rHead = runTool(["--reword", "HEAD"]);
-    expect(rHead.status).not.toBe(0);
-    expect(rHead.out).toContain("use --amend instead");
+    expect(rHead.status).toBe(0);
+    expect(rHead.out).toContain("feat: first work HEAD-REWORDED");
+    // HEAD with staged content
+    stageFile("staged.txt", "s\n");
+    const rHeadStaged = runTool(["--reword", "HEAD"]);
+    expect(rHeadStaged.status).not.toBe(0);
+    expect(rHeadStaged.out).toContain("folding staged content needs --amend");
+    git("restore", "--staged", "staged.txt");
     // Root commit (the fixture's very first commit)
     const rootSha = git("rev-list", "--max-parents=0", "HEAD").trim();
     const rRoot = runTool(["--reword", rootSha]);
@@ -130,10 +143,12 @@ describe("repo-commit --reword", () => {
     const mid = seedCommit("feat: pushed work", "p.txt");
     git("push", "-q", "origin", "master");
     seedCommit("feat: tip work", "t.txt");
+    const backupsBefore = git("branch", "--format=%(refname:short)", "--list", "backup/*");
     const rLanded = runTool(["--reword", mid]);
     expect(rLanded.status).not.toBe(0);
     expect(rLanded.out).toContain("fold window is closed");
-    expect(git("branch", "--list", "backup/*").trim()).toBe(""); // no mutation on refusals
+    // No NEW backup: the refusals above must not mutate anything.
+    expect(git("branch", "--format=%(refname:short)", "--list", "backup/*")).toBe(backupsBefore);
   });
 
   it("refuses to combine with other lanes", () => {

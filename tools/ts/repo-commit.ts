@@ -78,7 +78,9 @@ Commits the existing index only if the editor session yields a non-empty message
                   messages instead of a giant argv string).
   --amend         Fold staged content into HEAD not yet landed in master, under
                   the editor gate (HEAD's message preloaded; refuses HEAD that
-                  master already reached).
+                  master already reached). With a clean index this is a
+                  message-only rewrite of HEAD — the sanctioned route for
+                  editing HEAD's message when nothing is staged.
   --fix [<ref>]   Fold staged content into an earlier local commit as ONE
                   editorless operation: preflight -> backup branch -> fixup
                   commit -> autosquash rebase -> verify -> report. Bare --fix on
@@ -91,7 +93,8 @@ Commits the existing index only if the editor session yields a non-empty message
   --reword <ref>  Change an earlier commit's message only (no content folds):
                   preflight -> backup branch -> editor gate on the new message
                   -> autosquash reword -> verify -> report. Staged content is
-                  irrelevant and untouched. HEAD routes to --amend.
+                  irrelevant for earlier targets and untouched; <ref> may be
+                  HEAD on a clean index (with staged content, use --amend).
   --wip           WIP snapshot lane: delegates to git-wip (stages everything unless
                   --staged-only, hooks bypassed, "WIP: " prefix added by git-wip,
                   pushes, records refs/wip/last). No editor step — the invocation is
@@ -388,9 +391,13 @@ if (wipLane) {
 // A commit reachable from a remote branch but NOT from master stays foldable:
 // pushed-but-unlanded is the normal state of PR branches here.
 if (amendLane) {
-  if (git(["diff", "--cached", "--quiet"]).status === 0) {
-    die("nothing is staged — amend folds staged content into HEAD; stage first");
-  }
+  // Empty index is ALLOWED: an amend with nothing staged is a message-only
+  // rewrite (git replaces the message; the tree is untouched) — the one
+  // sanctioned route for editing HEAD's message on a clean tree. Staged
+  // content folds as usual. The staged-stat echo below makes which case this
+  // is visible at the save decision, and the editor banner already labels the
+  // session as a re-edit of an existing commit.
+  const hasStaged = git(["diff", "--cached", "--quiet"]).status !== 0;
   if (foldWindowClosed("HEAD")) {
     die(
       "HEAD is already landed in master (or named by a tag) — its fold window is closed",
@@ -401,13 +408,15 @@ if (amendLane) {
   if (headMsg.trim() === "") die("HEAD has no message to preload — refusing to amend blindly");
   if (dryRun) {
     console.log(`repo-commit: --amend dry-run`);
-    console.log(`  would fold staged content into HEAD and open the editor with its current message`);
+    console.log(hasStaged
+      ? `  would fold staged content into HEAD and open the editor with its current message`
+      : `  message-only rewrite (index clean): opens the editor with HEAD's current message; no content changes`);
     console.log(`  staged: ${stagedStat()}`);
     process.exit(0);
   }
   resolveEditor();
   const headSha = git(["log", "-1", "--format=%h %s"]).out.trim();
-  console.log(`repo-commit: staged: ${stagedStat()}`);
+  console.log(`repo-commit: staged: ${stagedStat()}${hasStaged ? "" : "  (index clean: this amend rewrites HEAD's message only)"}`);
   console.log(`repo-commit: opening editor: ${editor}  (amend: save & close to fold staged content into HEAD; empty/abort cancels)`);
   const amendTmp = mkdtempSync(join(tmpdir(), "repo-commit-msg-"));
   const amendMsgfile = join(amendTmp, "message");
@@ -583,8 +592,21 @@ if (rewordLane) {
   const isAncestor = git(["merge-base", "--is-ancestor", targetSha, "HEAD"]).status === 0;
   if (!isAncestor) die(`'${rewordRef}' is not an ancestor of HEAD — you can only reword your own stack`);
   if (targetSha === git(["rev-parse", "HEAD"]).out.trim()) {
-    die("target is HEAD — use --amend instead");
+    // HEAD is a valid reword target when the index is clean (message-only
+    // rewrite, same semantics as the clean-index amend): run the same rebase
+    // lane — the machinery below handles a HEAD target identically (rebase
+    // -i <HEAD~1> with the entry marked reword). With staged content, refuse:
+    // folding it would breach the reword's message-only contract — --amend is
+    // the deliberate-fold route.
+    if (git(["diff", "--cached", "--quiet"]).status !== 0) {
+      die(
+        "target is HEAD and content is staged — folding staged content needs --amend (a reword is message-only)",
+        "remediation: --amend with the content staged, or unstage and re-run --reword HEAD",
+      );
+    }
   }
+  // Root-commit refusal precedes the fold-window check: the structural reason
+  // (no parent to reword onto) is the truer one for a landed root commit.
   const hasParent = git(["rev-parse", "--verify", "--quiet", `${targetSha}^`]).status === 0;
   if (!hasParent) {
     die(
