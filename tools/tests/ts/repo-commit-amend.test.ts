@@ -118,12 +118,28 @@ describe("repo-commit --amend", () => {
     expect(r.out).toContain("fold window is closed");
   });
 
-  it("refuses an empty index before any editor opens", () => {
+  it("amends with a CLEAN index as a message-only rewrite (no content fold)", () => {
     seedCommit("feat: unpushed work", "work2.txt");
-    const r = runTool(["--amend"]);
-    expect(r.status).not.toBe(0);
-    expect(r.out).toContain("nothing is staged");
-    expect(r.out).not.toContain("opening editor");
+    const before = git("rev-parse", "HEAD").trim();
+    const r = runTool(["--amend"]); // nothing staged: message-only; save-mode editor keeps the preload
+    expect(r.status).toBe(0);
+    expect(r.out).toContain("amended.");
+    expect(r.out).toContain("rewrites HEAD's message only"); // the clean-index notice
+    // Tree untouched: the amended commit has the same tree as before.
+    expect(git("rev-parse", "HEAD^{tree}")).toBe(git("rev-parse", `${before}^{tree}`));
+    // The preload survived (save-mode editor kept HEAD's message).
+    expect(git("log", "-1", "--format=%s")).toContain("feat: unpushed work");
+    // A changed message produces a new commit (message-only amend rewrites):
+    writeFileSync(join(repo, "ed2.sh"), "#!/bin/sh\nprintf 'feat: unpushed work (reworded via clean amend)\\n' > \"$1\"\n");
+    chmodSync(join(repo, "ed2.sh"), 0o755);
+    const r2 = spawnSync("node", [tool, "--amend"], {
+      encoding: "utf8",
+      cwd: repo,
+      env: { ...process.env, GIT_EDITOR: join(repo, "ed2.sh") },
+    });
+    expect(r2.status).toBe(0);
+    expect(git("rev-parse", "HEAD").trim()).not.toBe(before); // rewritten
+    expect(git("log", "-1", "--format=%s")).toContain("(reworded via clean amend)");
   });
 
   it("an aborted editor session leaves HEAD and index untouched", () => {
