@@ -15,7 +15,7 @@ test_helper_setup() {
     
     # Source the project root - handle both test locations (tests/ and tests/lib/ or tests/scripts/ or tests/devenv/)
     # If we're in a subdirectory (lib, scripts, or devenv), go up one more level
-    if [[ "$BATS_TEST_DIRNAME" =~ /tests/(lib|scripts|devenv)$ ]]; then
+    if [[ "$BATS_TEST_DIRNAME" =~ /tests/(lib|scripts|devenv|skills|live)$ ]]; then
         export PROJECT_ROOT="${BATS_TEST_DIRNAME}/../../.."
     else
         export PROJECT_ROOT="${BATS_TEST_DIRNAME}/../.."

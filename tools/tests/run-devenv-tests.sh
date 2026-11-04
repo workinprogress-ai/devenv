@@ -88,8 +88,14 @@ for dir in lib scripts devenv skills; do
 done
 
 if [ "${#test_files[@]}" -eq 0 ]; then
-    echo "Error: No test files found under $TESTS_DIR"
-    exit 1
+    # lib/ is legitimately empty at this point in the migration; the vitest
+    # lane below still runs, so an empty bats corpus is not fatal — only a
+    # completely empty tests tree is.
+    if [ ! -d "$TESTS_DIR/ts" ]; then
+        echo "Error: No test files found under $TESTS_DIR"
+        exit 1
+    fi
+    echo "Note: no bats files collected (migration in flight); running the vitest lane only."
 fi
 
 mode_label="parallel (jobs=$parallel_jobs)"
@@ -103,20 +109,59 @@ fi
 echo "Running Devenv test suite..."
 echo "======================================"
 echo "Mode: $mode_label"
-echo "Test files: ${#test_files[@]}"
+if [ "${#test_files[@]}" -gt 0 ]; then
+    echo "Bats test files: ${#test_files[@]}"
+fi
 start_time=$(date +%s)
 
 # --verbose-run: failing tests print their captured output — without it a
 # failed grep-style assertion hides the actual error text, which is the
 # only root-cause signal for environment-dependent failures.
-if ! bats --verbose-run "${bats_args[@]}" "${test_files[@]}"; then
+if [ "${#test_files[@]}" -gt 0 ] && ! bats --verbose-run "${bats_args[@]}" "${test_files[@]}"; then
     end_time=$(date +%s)
     echo "======================================"
-    echo "❌ Test suite failed! (duration: $((end_time - start_time))s, mode: $mode_label)"
+    echo "❌ Bats suite failed! (duration: $((end_time - start_time))s, mode: $mode_label)"
     exit 1
 fi
 
+bats_end_time=$(date +%s)
+echo "======================================"
+echo "✅ Bats sweep passed (duration: $((bats_end_time - start_time))s, mode: $mode_label)"
+
+# ── vitest lane ────────────────────────────────────────────────────────────
+# The TS corpus under tests/ts/ is the other half of the gate: every ported
+# suite lives there and grows as the bats→vitest migration lands. node_modules
+# is required; the bootstrap and CI both install before invoking this script.
+# Worker cap: an unbounded pool pthread-exhausts this container when it runs
+# after (or beside) the bats sweep — pass --sequential through as a single
+# worker, otherwise cap at the same MAX_PARALLEL_JOBS as bats.
+vitest_args=()
+if [ "$parallel_jobs" -gt 1 ]; then
+    vitest_args+=(--maxWorkers="$parallel_jobs")
+else
+    vitest_args+=(--maxWorkers=1 --minWorkers=1)
+fi
+echo ""
+echo "Running vitest lane (tests/ts/)..."
+# pnpm exec resolves the vitest binary from the checkout root's node_modules;
+# invoked from a subdirectory (tools/tests) pnpm's cwd-based resolution fails.
+# The include path is repo-root-relative, so run from the root.
+RUN_ROOT="$(dirname "$DEVENV_TOOLS")"
+# On the runtime workspace (this checkout hosts repos/devenv), the vitest
+# config excludes clone-context suites — the dev-clone layout invariants
+# they assert cannot hold here. They still run in the dev clone, per the
+# nested-clone workflow (docs/Nested-Devenv-Development.md).
+if [ -d "$RUN_ROOT/repos/devenv" ]; then
+    echo "Runtime workspace detected (this checkout hosts repos/devenv): clone-context vitest suites are skipped here — run the full gate from repos/devenv."
+fi
+vitest_start_time=$(date +%s)
+if ! (cd "$RUN_ROOT" && pnpm exec vitest run "${vitest_args[@]}"); then
+    end_time=$(date +%s)
+    echo "======================================"
+    echo "❌ Vitest suite failed! (duration: $((end_time - vitest_start_time))s)"
+    exit 1
+fi
 end_time=$(date +%s)
 echo "======================================"
-echo "✅ All tests passed! (duration: $((end_time - start_time))s, mode: $mode_label)"
+echo "✅ All tests passed! (bats: $((bats_end_time - start_time))s, vitest: $((end_time - vitest_start_time))s)"
 exit 0

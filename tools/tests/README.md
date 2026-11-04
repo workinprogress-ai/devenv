@@ -5,29 +5,29 @@ Two lanes, one gate:
 - **BATS** ([bats-core](https://github.com/bats-core/bats-core), installed
   during bootstrap) — `tools/tests/**/*.bats`. During the bash-minimum
   migration these move to vitest at coverage parity (see the
-  coverage-parity ledger in `.local-artifacts/`); suites exercising fzf
-  pickers, real TTY flows, or hook/signal machinery stay bats per the
-  Tooling-Standards test-format rule.
+  coverage-parity ledger in `.local-artifacts/`); the stay-bats set is
+  suites driving a real pty (`script -qec`), real git-hook execution, or
+  bats-in-bats machinery per the Tooling-Standards test-format rule —
+  stub-based fzf tests are vitest-portable like any other suite.
 - **vitest** — `tools/tests/ts/**/*.test.ts`, run by `pnpm test:ts`.
 
 `bash tools/tests/run-devenv-tests.sh` runs the bats sweep and then the
 vitest lane — one command is the whole gate; `pnpm test` aliases it.
 
-## Overview
-
-Tests are written using [BATS (Bash Automated Testing System)](https://github.com/bats-core/bats-core), which is installed automatically during the bootstrap process.
-
 ## Running Tests
 
-### Run all tests (parallel — the default)
+### Run all tests (the default)
 
 ```bash
 ./tools/tests/run-devenv-tests.sh
 ```
 
-The runner executes the whole suite (`lib/`, `scripts/`, `devenv/`, `skills/`) in a single
-`bats --jobs` invocation. Jobs default to `nproc`, capped by `MAX_PARALLEL_JOBS`
-(currently 8).
+The runner executes the bats corpus (`lib/`, `scripts/`, `devenv/`, `skills/`) in a single
+`bats --jobs` invocation, then the vitest lane (`tests/ts/`). Jobs default to `nproc`,
+capped by `MAX_PARALLEL_JOBS` (currently 8); `--jobs` sizes the bats pool, and the same
+cap bounds vitest's workers (`--sequential` runs both lanes single-worker) so the two
+sweeps cannot jointly exhaust the container's thread limit. An empty bats corpus
+(mid-migration) degrades to a vitest-only run instead of failing.
 
 `skills/` holds the provider-neutral skill-prose gate (skill bodies must not
 name a provider's transport), so it runs with everything else.

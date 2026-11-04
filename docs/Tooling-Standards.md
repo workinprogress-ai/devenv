@@ -156,10 +156,12 @@ complete list; a new member needs a named reason in review, and a ported
 surface keeps its black-box contract. This rule is standing guidance — it
 does not run in CI.
 
-**Test format:** suites exercising fzf pickers, real TTY flows, or
-hook/signal machinery stay bats; other tool suites are vitest. Ported
-surfaces' tests move to vitest — the bats assertions are the oracle until
-each family's port lands, and no net coverage loss is the acceptance bar.
+**Test format:** suites exercising fzf pickers, real TTY flows (a real
+`script -qec` pty), real git-hook execution, or bats-in-bats machinery stay
+bats; other tool suites are vitest. Stub-based fzf tests are
+vitest-portable (the corpus stubs fzf deliberately) and follow the normal
+port rule — the bats assertions are the oracle until each family's port
+lands, and no net coverage loss is the acceptance bar.
 
 **Fixture-only testing for side-effecting tools:** a tool that mutates
 world state (staging, committing, pushing, tracker writes, plan mutations,
@@ -432,12 +434,15 @@ provider stub dispatch harnesses). A bats file for a migrated tool is a
 delete candidate once its coverage exists in vitest; a bats file backing a
 stay-bash tool stays.
 
-Every tool gets a bats file at `tools/tests/scripts/test_<tool>.bats` while
-while its older bats coverage remains:
+New tools get a vitest suite at `tools/tests/ts/<tool>.test.ts` (the shape
+above). The bats-per-tool rule below is bash-era guidance: it applied to
+tools whose coverage already lived in bats, pending their vitest port.
 
-- Syntax test (`bash -n`), `--help` test (rc 0, prints "Usage:")
+- ~~Syntax test (`bash -n`), `--help` test (rc 0, prints "Usage:")~~ — for
+  TS subjects, `tsc` + the lint gates supersede the syntax check; keep one
+  behavioral `--help` assertion in vitest
 - At least one behavioral test per mode, using stub commands on `PATH` for
-  external dependencies (see `test_issue_artifact_upsert.bats` for the gh-stub
+  external dependencies (see any `tools/tests/ts/*.test.ts` for the stub
   pattern)
 - Exit-code assertions for each error class your tool emits
 - Tests must pass with `DEVENV_REPO`, `GH_REPO`, `DEVENV_ROOT`, and

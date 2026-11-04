@@ -290,6 +290,15 @@ export PREF_EDITOR="${PREF_EDITOR:-${FALLBACK_EDITOR}}"
 # Point EDITOR/VISUAL to the tool wrapper, which blocks until closed
 export EDITOR="${EDITOR:-$toolbox_root/tools/editor}"
 export VISUAL="${VISUAL:-$toolbox_root/tools/editor}"
+# Scrub a no-op GIT_EDITOR (":" or "true") injected by automation wrappers:
+# git honors GIT_EDITOR over core.editor, so a leftover no-op silently turns
+# an interactive commit into an instant commit with no editor. Unsetting
+# restores the core.editor fallback (the devenv editor wrapper / VS Code).
+# NOTE: inside this unquoted heredoc, \$ must stay escaped so the case reads
+# the RUNTIME GIT_EDITOR, not the generator's.
+case "\${GIT_EDITOR:-}" in
+    ""|":"|"true") unset GIT_EDITOR ;;
+esac
 EOF
     # Sourced, never executed, and it accumulates secrets (tokens, auth keys):
     # owner-only, not executable.
