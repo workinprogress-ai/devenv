@@ -28,42 +28,6 @@ setup() {
     export DEVENV_TOOLS="$PROJECT_ROOT/tools"
 }
 
-@test "kube-selection: resolve_single_match returns the single match" {
-    source "$DEVENV_TOOLS/lib/error-handling.bash"
-    source "$DEVENV_TOOLS/lib/kube-selection.bash"
-    export STUB_KUBECTL_PODS="web-1"
-    run resolve_single_match list_pods --filter "web"
-    assert_success
-    [ "$output" = "web-1" ]
-}
-
-@test "kube-selection: resolve_single_match exits 3 listing multiple candidates" {
-    source "$DEVENV_TOOLS/lib/error-handling.bash"
-    source "$DEVENV_TOOLS/lib/kube-selection.bash"
-    export STUB_KUBECTL_PODS=$'web-1\nweb-2'
-    run resolve_single_match list_pods --filter "web"
-    [ "$status" -eq 3 ]
-    [[ "$output" == *"web-1"* ]]
-    [[ "$output" == *"web-2"* ]]
-}
-
-@test "kube-selection: resolve_single_match exits 2 on zero matches" {
-    source "$DEVENV_TOOLS/lib/error-handling.bash"
-    source "$DEVENV_TOOLS/lib/kube-selection.bash"
-    export STUB_KUBECTL_PODS="web-1"
-    run resolve_single_match list_pods --filter "nomatch"
-    [ "$status" -eq 2 ]
-}
-
-@test "kube-selection: filter regex metacharacters do not break the jq program" {
-    source "$DEVENV_TOOLS/lib/error-handling.bash"
-    source "$DEVENV_TOOLS/lib/kube-selection.bash"
-    export STUB_KUBECTL_PODS=$'web(1)\nweb-2'
-    run resolve_single_match list_pods --filter 'web\(1\)'
-    assert_success
-    [ "$output" = "web(1)" ]
-}
-
 @test "kube-pod-delete: refuses multi-match without deleting anything" {
     export STUB_KUBECTL_PODS=$'api-1\napi-2'
     run "$DEVENV_TOOLS/kube-pod-delete" api <<< ""
@@ -177,24 +141,6 @@ run_on_tty() {
     grep -qx "api-1" "$STUB_KUBECTL_DELETED"
 }
 
-@test "kube-selection: confirm_or_fail returns its status instead of exiting its caller" {
-    source "$DEVENV_TOOLS/lib/error-handling.bash"
-    run bash -c "
-        source '$DEVENV_TOOLS/lib/error-handling.bash'
-        source '$DEVENV_TOOLS/lib/kube-selection.bash'
-        confirm_or_fail 'Delete things' < /dev/null
-        echo \"still-running rc=\$?\"
-    "
-    # The non-interactive refusal used to exit the whole shell; it now returns
-    # 2 and leaves the caller in charge of stopping.
-    [[ "$output" == *"Refusing to proceed without confirmation"* ]]
-    [[ "$output" == *"still-running rc=2"* ]]
-}
-
-# =========================================================================
-# Namespace flag (-n|--namespace) wiring
-# =========================================================================
-
 @test "kube-pod-delete: -n flag reaches the destructive call (records ns via stub)" {
     export STUB_KUBECTL_PODS="api-1"
     export YES=1
@@ -244,40 +190,3 @@ run_on_tty() {
     [[ "$output" == *"Could not determine the current number of replicas"* ]]
 }
 
-@test "kube-selection: parse_namespace_flag extracts -n and shifts args" {
-    source "$DEVENV_TOOLS/lib/error-handling.bash"
-    source "$DEVENV_TOOLS/lib/kube-selection.bash"
-    local argv=("api" "-n" "web" "extra")
-    parse_namespace_flag argv
-    [ "$NAMESPACE_FLAG_VALUE" = "web" ]
-    [ "${#argv[@]}" -eq 2 ]
-    [ "${argv[0]}" = "api" ]
-    [ "${argv[1]}" = "extra" ]
-}
-
-@test "kube-selection: parse_namespace_flag absent leaves args untouched" {
-    source "$DEVENV_TOOLS/lib/error-handling.bash"
-    source "$DEVENV_TOOLS/lib/kube-selection.bash"
-    local argv=("api" "extra")
-    parse_namespace_flag argv || true
-    [ -z "$NAMESPACE_FLAG_VALUE" ]
-    [ "${#argv[@]}" -eq 2 ]
-}
-
-@test "kube-selection: parse_namespace_flag --ns=value form" {
-    source "$DEVENV_TOOLS/lib/error-handling.bash"
-    source "$DEVENV_TOOLS/lib/kube-selection.bash"
-    local argv=("api" "--namespace=web")
-    parse_namespace_flag argv
-    [ "$NAMESPACE_FLAG_VALUE" = "web" ]
-    [ "${#argv[@]}" -eq 1 ]
-}
-
-@test "kube-selection: parse_namespace_flag missing value is an error" {
-    source "$DEVENV_TOOLS/lib/error-handling.bash"
-    source "$DEVENV_TOOLS/lib/kube-selection.bash"
-    local argv=("-n")
-    local rc=0
-    parse_namespace_flag argv 2>/dev/null || rc=$?
-    [ "$rc" -eq 2 ]
-}

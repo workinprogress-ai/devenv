@@ -17,7 +17,8 @@ arms_missing_check() {
         /^[[:space:]]*-[^)[:space:]]*(\|-[^)[:space:]]*)*\)/ { arm = $0; start = FNR; in_arm = 1; if ($0 ~ /;;/) check(); next }
         in_arm { arm = arm "\n" $0; if ($0 ~ /;;/) check() }
         function check() {
-            if (arm ~ /"\$2"/ && arm ~ /shift 2/ && arm !~ /require_option_value/) print FILENAME ":" start
+            guard = arm ~ /require_option_value/ || (arm ~ /"\$\{2:-\}"/ && arm ~ /\[\[? -n/ )
+            if (arm ~ /"\$2"/ && arm ~ /shift 2/ && !guard) print FILENAME ":" start
             in_arm = 0; arm = ""
         }
     ' "$@"
@@ -27,7 +28,23 @@ arms_missing_check() {
     local offenders
     # The bash-era wrappers live in scripts/ (the .sh layer); the TS
     # tools use requireString/parseArgs, not the $2 arms convention.
-    offenders="$(arms_missing_check "$BATS_TEST_DIRNAME/../../scripts"/*.sh 2>/dev/null)"
+    # The scripts/ corpus moved to tools/ts (bash minimum); the sweep
+    # continues over the shell that remains (template, harness). compgen -G
+    # builds the list so an empty layer degrades to "nothing to check".
+    local files=()
+    local f
+    for f in "$BATS_TEST_DIRNAME/../../templates/script-template.sh" "$BATS_TEST_DIRNAME/../run-devenv-tests.sh"; do
+        [ -f "$f" ] && files+=("$f")
+    done
+    # The check targets scripts that source error-handling.bash (where
+    # require_option_value lives). The template demonstrates the inline
+    # pattern and the harness is self-contained — both validate $2 without
+    # the lib, so they are outside this convention's scope.
+    local lib_files=()
+    for f in "${files[@]:-}"; do
+        grep -qE '^[[:space:]]*source .*error-handling\.bash' "$f" && lib_files+=("$f")
+    done
+    offenders="$(arms_missing_check "${lib_files[@]:-}" 2>/dev/null)"
     [ -z "$offenders" ] || { echo "option arms without require_option_value:"; echo "$offenders"; false; }
 }
 

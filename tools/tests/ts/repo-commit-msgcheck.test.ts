@@ -5,28 +5,24 @@
 // scripted fake `.bin/commitlint` whose mode each test sets (pass / reject /
 // absent), so no real commitlint or network is involved.
 import { describe, expect, it, beforeAll, afterAll } from "vitest";
-import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, chmodSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import {
+  createRepoCommitHarness,
+  harnessSetEditorMode,
+  type Harness,
+} from "./harness/repo-commit.ts";
+import { readFileSync, rmSync, writeFileSync, chmodSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 
-const REPO_TOOLS = fileURLToPath(new URL(".", import.meta.url)).replace("tests/ts/", "");
-
-let root: string;
-let repo: string;
-let tool: string;
-let editorScript: string;
-let commitlintBin: string;
 
 function git(...args: string[]): string {
-  const r = spawnSync("git", ["-C", repo, ...args], { encoding: "utf8" });
+  const r = spawnSync("git", ["-C", h.repo, ...args], { encoding: "utf8" });
   if (r.status !== 0) throw new Error(`git ${args.join(" ")}: ${r.stderr}`);
   return r.stdout;
 }
 
 function stageFile(name: string, content: string): void {
-  writeFileSync(join(repo, name), content);
+  writeFileSync(join(h.repo, name), content);
   git("add", "--", name);
 }
 
@@ -34,77 +30,51 @@ function setEditorMode(mode: "save" | "capture" | "empty" | "abort"): void {
   if (mode === "capture") {
     // Capture the message file the editor session receives — the wrap must be
     // observed there (that is exactly what the user sees in their editor).
-    writeFileSync(editorScript, `#!/bin/sh\ncp "$1" "${join(root, "captured-message")}"\nexit 0\n`);
+    writeFileSync(h.editorScript, `#!/bin/sh\ncp "$1" "${join(h.root, "captured-message")}"\nexit 0\n`);
   } else {
-    writeFileSync(editorScript, `#!/bin/sh\ncase "${mode}" in\n  save) exit 0 ;;\n  empty) : > "$1" ; exit 0 ;;\n  abort) exit 1 ;;\nesac\n`);
+    writeFileSync(h.editorScript, `#!/bin/sh\ncase "${mode}" in\n  save) exit 0 ;;\n  empty) : > "$1" ; exit 0 ;;\n  abort) exit 1 ;;\nesac\n`);
   }
-  chmodSync(editorScript, 0o755);
+  chmodSync(h.editorScript, 0o755);
 }
 
 /** Scriptable fake commitlint: `reject` mode exits 1 with a rule report, all
  * other modes exit 0. `absent` removes the fake entirely (the no-setup case). */
 function setCommitlintMode(mode: "pass" | "reject" | "absent"): void {
   if (mode === "absent") {
-    rmSync(commitlintBin, { force: true });
+    rmSync(h.commitlintBin!, { force: true });
     return;
   }
   const body = mode === "reject"
     ? `#!/bin/sh\necho "⧗   input\necho marker" >&2\necho "✖   header must not be longer than 100 characters, current length is 145 [header-max-length]"\nexit 1\n`
     : `#!/bin/sh\nexit 0\n`;
-  writeFileSync(commitlintBin, body);
-  chmodSync(commitlintBin, 0o755);
+  writeFileSync(h.commitlintBin!, body);
+  chmodSync(h.commitlintBin!, 0o755);
 }
 
 function runTool(args: string[]): { status: number; out: string } {
-  const r = spawnSync("node", [tool, ...args], {
+  const r = spawnSync("node", [h.tool, ...args], {
     encoding: "utf8",
-    cwd: repo,
-    env: { ...process.env, GIT_EDITOR: editorScript },
+    cwd: h.repo,
+    env: { ...process.env, GIT_EDITOR: h.editorScript },
   });
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
 const LONG_HEADER = "patch: this subject line is deliberately made far too long so it exceeds the one hundred character ceiling and must be rejected by commitlint";
 
+let h: Harness;
+
+
 beforeAll(() => {
-  root = mkdtempSync(join(tmpdir(), "repo-commit-msgcheck-"));
-
-  // Tool fixture: private copy of tools/ (ts/repo-commit.ts + lib/), fake
-  // git-wip sibling stub, and a commitlint SETUP: commitlint.config.js + a
-  // scripted fake bin (repo-commit's gate requires both to engage).
-  cpSync(join(REPO_TOOLS, "lib"), join(root, "tools", "lib"), { recursive: true });
-  cpSync(join(REPO_TOOLS, "ts", "repo-commit.ts"), join(root, "tools", "ts", "repo-commit.ts"));
-  tool = join(root, "tools", "ts", "repo-commit.ts");
-  writeFileSync(join(root, "tools", "git-wip"), "#!/bin/sh\nexit 42\n");
-  chmodSync(join(root, "tools", "git-wip"), 0o755);
-
-  repo = join(root, "repo");
-  mkdirSync(repo, { recursive: true });
-  spawnSync("git", ["-C", repo, "init", "-q", "-b", "master"], { encoding: "utf8" });
-  git("config", "user.email", "t@example.com");
-  git("config", "user.name", "T");
-
-  // The commitlint SETUP lives in the repo being committed to (the gate asks
-  // the repo's toplevel): commitlint.config.js + a scripted fake bin whose
-  // mode each test sets.
-  writeFileSync(join(repo, "commitlint.config.js"), "export default { rules: {} };\n");
-  mkdirSync(join(repo, "node_modules", ".bin"), { recursive: true });
-  commitlintBin = join(repo, "node_modules", ".bin", "commitlint");
-  setCommitlintMode("pass");
-
-  writeFileSync(join(repo, "seed.txt"), "seed\n");
-  git("add", "--", "seed.txt");
-  git("commit", "-q", "--no-verify", "-m", "seed: initial");
-  editorScript = join(root, "editor.sh");
-  setEditorMode("save");
-
-  // cleanup() must never restore staged state in the real repo.
-  cleanup = () => rmSync(root, { recursive: true, force: true });
+  h = createRepoCommitHarness({
+    commitlint: true,
+    seed: { subject: "seed: initial", file: "seed.txt" },
+    extraToolStubs: [{ name: "git-wip", body: "#!/bin/sh\nexit 42\n" }],
+  });
+  harnessSetEditorMode(h, "save");
 });
 
-let cleanup: () => void;
-
-afterAll(() => cleanup());
+afterAll(() => h.dispose());
 
 describe("repo-commit pre-git commitlint gate", () => {
   it("rejects an over-long header BEFORE any git/editor runs, naming the rule", () => {
@@ -146,7 +116,7 @@ describe("repo-commit 72-column body wrap", () => {
     setEditorMode("capture");
     const longBullet = "- " + "word ".repeat(24);
     runTool([`patch: short subject\n\n${longBullet}`]);
-    const captured = readFileSync(join(root, "captured-message"), "utf8");
+    const captured = readFileSync(join(h.root, "captured-message"), "utf8");
     const wrapped = captured.split("\n").filter((l) => l !== "" && !l.startsWith("#"));
     // First physical line of every logical line ≤ 72; continuation lines indented.
     for (const line of wrapped) {
@@ -161,7 +131,7 @@ describe("repo-commit 72-column body wrap", () => {
     setCommitlintMode("pass"); // fake says fine — watch the wrap behave
     setEditorMode("capture");
     runTool([LONG_HEADER]);
-    const captured = readFileSync(join(root, "captured-message"), "utf8");
+    const captured = readFileSync(join(h.root, "captured-message"), "utf8");
     const bodyStart = captured.indexOf(LONG_HEADER);
     expect(bodyStart).toBeGreaterThanOrEqual(0); // message present, banner precedes it
     expect(captured.slice(bodyStart).split("\n")[0]).toBe(LONG_HEADER); // verbatim, unfolded
@@ -169,13 +139,13 @@ describe("repo-commit 72-column body wrap", () => {
 
   it("does NOT rewrite --file content (validated only), still commits it", () => {
     stageFile("f.txt", "six\n");
-    const fileMsg = join(root, "user-message.txt");
+    const fileMsg = join(h.root, "user-message.txt");
     const longBullet = "- " + "word ".repeat(24);
     writeFileSync(fileMsg, `patch: user authored\n\n${longBullet}\n`);
     setEditorMode("capture");
     const r = runTool(["--file", fileMsg]);
     expect(r.status).toBe(0);
-    const captured = readFileSync(join(root, "captured-message"), "utf8");
+    const captured = readFileSync(join(h.root, "captured-message"), "utf8");
     expect(captured).toContain(longBullet.trim()); // the long line survived intact
   });
 });

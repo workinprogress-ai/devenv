@@ -163,7 +163,7 @@ When execution uncovers a bug that was not already documented in the plan's know
 
 When a pairing session needs to *investigate* rather than implement — reproducing a defect, stepping through unfamiliar behavior, answering "why is it broken?" — these hunt-built powers are available inline:
 
-- **Real debuggers (Rung-3-safe).** C#: [`csharp-debug`](../../tools/internal/csharp-debug.sh) drives the bootstrap-installed vsdbg (`launch <app.dll>` / `attach <pid>` — breakpoints, stepping, watch, evaluate over DAP). TS/Node: `node --inspect-brk <script>` + VS Code's built-in js-debugger. Python: debugpy. Scratchpad-compatible, no working-tree mutation.
+- **Real debuggers (Rung-3-safe).** C#: [`csharp-debug`](../../tools/internal/csharp-debug.ts) drives the bootstrap-installed vsdbg (`launch <app.dll>` / `attach <pid>` — breakpoints, stepping, watch, evaluate over DAP). TS/Node: `node --inspect-brk <script>` + VS Code's built-in js-debugger. Python: debugpy. Scratchpad-compatible, no working-tree mutation.
 - **Scratchpad probes.** When mid-implementation calls for "what if I temporarily change X," the [scratchpad sandbox](../devenv-hunt/SKILL.md) makes it AI-safe: `repo-scratchpad enter` → probe → `commit`/`reset` — destructive experiments without endangering the working tree.
 - **Ladder pointer.** When debugging stalls, don't freelance: the [escalation ladder](../devenv-hunt/SKILL.md) in hunt's verify mode (read → synthetic inputs → instrument → bisect → throwaway repro → …) is the menu of next moves, cheapest-discriminating-first.
 

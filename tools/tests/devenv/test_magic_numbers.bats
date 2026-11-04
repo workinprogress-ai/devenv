@@ -84,7 +84,9 @@ load ../test_helper
   # Constants should be in UPPER_CASE with descriptive names.
   # Scan the full corpus (not a head-slice): which files glob-first must not
   # decide whether descriptive names exist.
-  run bash -c "grep -h 'readonly [A-Z_]*=' $PROJECT_ROOT/tools/lib/*.bash $PROJECT_ROOT/tools/scripts/*.sh 2>/dev/null"
+  # The scripts/ corpus moved to tools/ts (bash minimum); the sweep
+  # continues over the shell that remains (libs, template, harness).
+  run bash -c "grep -h 'readonly [A-Z_]*=' $PROJECT_ROOT/tools/lib/*.bash $PROJECT_ROOT/tools/templates/*.sh $PROJECT_ROOT/tools/tests/run-devenv-tests.sh 2>/dev/null"
   [ "$status" -eq 0 ]
   [[ "$output" =~ VERSION|TIMEOUT|DELAY|MAX|DEFAULT ]]
 }

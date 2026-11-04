@@ -1,0 +1,4 @@
+#!/bin/sh
+# csharp-debug — shim. Logic lives in tools/internal/csharp-debug.ts (bash
+# minimum: logic in TS; entry points are exec glue).
+exec node "$(dirname "$0")/csharp-debug.ts" "$@"

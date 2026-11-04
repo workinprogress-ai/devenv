@@ -100,8 +100,11 @@ SCOPE RULES:
 - Every finding must cite file:line that you have verified exists in the
   current working tree.
 - Read `KNOWLEDGE ROOT`/`orchestration.md` before classifying the diff's
-  surface (it routes which knowledge docs matter). Judge the diff against the
-  ratified patterns in `ENGINEERING ROOT` (e.g. `Standards/Design-Principles/`)
+  surface, then load the routed entries it names for the diff's component type
+  and judge the diff against their conventions: a diff that violates a routed
+  convention is a Concern (Blocker when the violation is structural); cite the
+  knowledge file + section it violates. Judge the diff against the ratified
+  patterns in `ENGINEERING ROOT` (e.g. `Standards/Design-Principles/`)
   the way /devenv-pair and /devenv-delegate apply them: a diff that violates a
   ratified pattern is a Concern (Blocker when the principle's adherence level
   makes it mandatory and the violation is structural); cite the pattern name.

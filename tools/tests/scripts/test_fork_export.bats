@@ -28,7 +28,7 @@ _setup_fork_export_fixture() {
     git -C "$FORK_FIXTURE_WORKING_CLONE" fetch -q upstream
     # Source commits get a Change-Id the way real ones do, through the hook.
     mkdir -p "$FORK_FIXTURE_WORKING_CLONE/.git/hooks"
-    printf '#!/bin/sh\nexec bash "%s/internal/prepare-commit-msg.sh" "$@"\n' "$DEVENV_TOOLS" > "$FORK_FIXTURE_WORKING_CLONE/.git/hooks/prepare-commit-msg"
+    printf '#!/bin/sh\nexec "%s/internal/prepare-commit-msg" "$@"\n' "$DEVENV_TOOLS" > "$FORK_FIXTURE_WORKING_CLONE/.git/hooks/prepare-commit-msg"
     chmod +x "$FORK_FIXTURE_WORKING_CLONE/.git/hooks/prepare-commit-msg"
     cd "$FORK_FIXTURE_WORKING_CLONE"
 }
@@ -714,44 +714,6 @@ _head_of_source() {
     [[ "$output" == *"Commits: 2"* ]]
 }
 
-@test "fork-export: skip-list entries by Change-Id and by SHA exclude commits" {
-    _setup_fork_export_fixture
-    source "$DEVENV_TOOLS/lib/change-id.bash"
-    _add_export_commit "Keep"
-    _add_export_commit "Skip by id"
-    skip_list_add "$FORK_FIXTURE_WORKING_CLONE" change-id "$(change_id_get_from_commit "$FORK_FIXTURE_WORKING_CLONE" HEAD)"
-    _add_export_commit "Skip by sha"
-    skip_list_add "$FORK_FIXTURE_WORKING_CLONE" sha HEAD
-
-    run "$SCRIPT" --all --export-only
-    [ "$status" -eq 0 ]
-    [[ "$output" == *"skipped 2 commit(s)"* ]]
-    [[ "$output" == *"Commits: 1"* ]]
-
-    run "$SCRIPT" --all --export-only --include-skipped
-    [[ "$output" == *"Commits: 3"* ]]
-}
-
-@test "fork-export: a Change-Id already in the target excludes the commit even when the patch differs" {
-    _setup_fork_export_fixture
-    source "$DEVENV_TOOLS/lib/change-id.bash"
-    _add_export_commit "Shared change"
-    shared_id="$(change_id_get_from_commit "$FORK_FIXTURE_WORKING_CLONE" HEAD)"
-    printf 'fresh\n' > "$FORK_FIXTURE_WORKING_CLONE/fresh.txt"
-    git -C "$FORK_FIXTURE_WORKING_CLONE" add fresh.txt
-    git -C "$FORK_FIXTURE_WORKING_CLONE" commit -q -m "Fresh change"
-    printf 'different\n' > "$FORK_FIXTURE_GH_CLONE/other.txt"
-    git -C "$FORK_FIXTURE_GH_CLONE" add other.txt
-    git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "Reworked copy" -m "Change-Id: $shared_id"
-
-    run "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
-    [ "$status" -eq 0 ]
-    [[ "$output" == *"excluded 1 commit(s) already present in target by Change-Id"* ]]
-    [[ "$output" == *"Commits: 1"* ]]
-    [ "$(cat "$FORK_FIXTURE_GH_CLONE/fresh.txt")" = "fresh" ]
-    [ ! -e "$FORK_FIXTURE_GH_CLONE/changes.txt" ]
-}
-
 @test "fork-export --dry-run: reports the same commit count the real run exports" {
     _setup_fork_export_fixture
     _add_export_commit "Tracked"
@@ -835,17 +797,6 @@ _head_of_source() {
     run "$SCRIPT" --skip < /dev/null
     [ "$status" -ne 0 ]
     [[ "$output" == *"needs an explicit commit"* ]]
-}
-
-@test "fork-export: --list-skipped prunes an entry whose commit no longer exists" {
-    _setup_fork_export_fixture
-    source "$DEVENV_TOOLS/lib/change-id.bash"
-    printf 'sha 0000000000000000000000000000000000000000 # gone\n' >> "$(skip_list_get_path "$FORK_FIXTURE_WORKING_CLONE")"
-
-    run "$SCRIPT" --list-skipped
-    [ "$status" -eq 0 ]
-    [[ "$output" == *"pruned stale entry"* ]]
-    [[ "$output" == *"no skipped commits"* ]]
 }
 
 @test "fork-export: a hidden commit makes the export a subset, so it cherry-picks instead of fast-forwarding" {
@@ -1014,23 +965,6 @@ _head_of_source() {
     [ "$(cat "$FORK_FIXTURE_GH_CLONE/second.txt")" = "second" ]
 }
 
-@test "fork-export: --unskip by Change-Id restores a commit skipped by --skip" {
-    _setup_fork_export_fixture
-    source "$DEVENV_TOOLS/lib/change-id.bash"
-    _add_export_commit "One"
-    id="$(change_id_get_from_commit "$FORK_FIXTURE_WORKING_CLONE" HEAD)"
-
-    run "$SCRIPT" --skip HEAD
-    [ "$status" -eq 0 ]
-    run "$SCRIPT" --unskip "$id"
-    [ "$status" -eq 0 ]
-    run "$SCRIPT" --list-skipped
-    [ "$output" = "no skipped commits" ]
-    run "$SCRIPT" --all --export-only
-    [ "$status" -eq 0 ]
-    [[ "$output" == *"Commits: 1"* ]]
-}
-
 @test "fork-export: skip management is refused with --dry-run and leaves the list untouched" {
     _setup_fork_export_fixture
     _add_export_commit "One"
@@ -1042,25 +976,6 @@ _head_of_source() {
     [ "$output" = "no skipped commits" ]
     run "$SCRIPT" --dry-run --list-skipped
     [ "$status" -ne 0 ]
-}
-
-@test "fork-export --dry-run: counts the same commits as the real run when the target already has a Change-Id" {
-    _setup_fork_export_fixture
-    source "$DEVENV_TOOLS/lib/change-id.bash"
-    _add_file_commit shared
-    shared_id="$(change_id_get_from_commit "$FORK_FIXTURE_WORKING_CLONE" HEAD)"
-    _add_file_commit fresh
-    printf 'different\n' > "$FORK_FIXTURE_GH_CLONE/other.txt"
-    git -C "$FORK_FIXTURE_GH_CLONE" add other.txt
-    git -C "$FORK_FIXTURE_GH_CLONE" commit -q -m "Reworked copy" -m "Change-Id: $shared_id"
-
-    run "$SCRIPT" --dry-run --apply-to "$FORK_FIXTURE_GH_CLONE"
-    [ "$status" -eq 0 ]
-    [[ "$output" == *"excluded 1 commit(s) already present in target by Change-Id"* ]]
-    [[ "$output" == *"would export 1 commit(s)"* ]]
-
-    run "$SCRIPT" --all --apply-to "$FORK_FIXTURE_GH_CLONE"
-    [[ "$output" == *"Commits: 1"* ]]
 }
 
 @test "fork-export: ctrl-x with --include-skipped still removes the skipped row from the reopened picker" {

@@ -78,7 +78,7 @@ introduce-then-reverse pair reaching `master` would momentarily break it.
 
 Every commit also carries a `Devenv-Action` trailer (see
 [Dev-container-environment.md](Dev-container-environment.md#devenv-action-commit-trailer)).
-It is enforced twice from one script, `tools/internal/commit-action-check.sh`: locally by
+It is enforced twice from one checker, `tools/internal/commit-action-check` (TS body): locally by
 the commit-msg hook, and in CI by the `commit-messages` job — the check a clone without
 hooks cannot bypass.
 
@@ -89,7 +89,7 @@ to every new commit and, when an editor opens, an empty `Devenv-Action:` line to
 in. The ID is the commit's stable identity for `fork-export` (see
 [Forking.md](Forking.md#commit-identity-fork-only-commits-and-the-skip-list)): it
 survives amend, rebase and cherry-pick, and an existing ID is never replaced.
-`commit-action-check.sh` only warns about commits without one, locally and in CI; it
+`commit-action-check` only warns about commits without one, locally and in CI; it
 never fails them. A `Fork-Only: yes` trailer keeps a commit out of every `fork-export`.
 A `WIP:` commit gets no `Change-Id`: it is temporary, and the commit made when it is
 unwound with `git-unwip` receives one.

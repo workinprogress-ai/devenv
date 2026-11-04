@@ -2,12 +2,14 @@
 // layer. The provider layer (tools/lib/providers/, plus the test stubs) owns
 // its CLI; everything else goes through the facade verbs. Mirrors the
 // strip-only lint ban: a violation fails CI rather than relying on convention.
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const REPO = join(import.meta.dirname, "../../..");
-const SRC_DIRS = ["tools/ts", "tools/scripts", "tools/lib", "tools/internal"] as const;
+// tools/scripts no longer exists (the bash->TS port removed it); absent dirs
+// are skipped so this list survives the port without a special case.
+const SRC_DIRS = ["tools/ts", "tools/scripts", "tools/lib", "tools/internal"].filter((d) => existsSync(join(REPO, d)));
 
 // gh/az invocation shapes: a spawn/exec family call whose first argument is
 // the CLI name. String-template and variable first args are not matched (they

@@ -304,7 +304,7 @@ _fork_scenario_commit() {
 
 _fork_scenario_install_change_id_hook_gh() {
     mkdir -p "$FORK_FIXTURE_GH_CLONE/.git/hooks"
-    printf '#!/bin/sh\nexec bash "%s/internal/prepare-commit-msg.sh" "$@"\n' "$DEVENV_TOOLS" \
+    printf '#!/bin/sh\nexec "%s/internal/prepare-commit-msg" "$@"\n' "$DEVENV_TOOLS" \
         > "$FORK_FIXTURE_GH_CLONE/.git/hooks/prepare-commit-msg"
     chmod +x "$FORK_FIXTURE_GH_CLONE/.git/hooks/prepare-commit-msg"
 }
@@ -312,7 +312,7 @@ _fork_scenario_install_change_id_hook_gh() {
 _fork_scenario_install_change_id_hook() {
     # Commits with Change-Ids the way real ones get them: the hook.
     mkdir -p "$FORK_FIXTURE_WORKING_CLONE/.git/hooks"
-    printf '#!/bin/sh\nexec bash "%s/internal/prepare-commit-msg.sh" "$@"\n' "$DEVENV_TOOLS" \
+    printf '#!/bin/sh\nexec "%s/internal/prepare-commit-msg" "$@"\n' "$DEVENV_TOOLS" \
         > "$FORK_FIXTURE_WORKING_CLONE/.git/hooks/prepare-commit-msg"
     chmod +x "$FORK_FIXTURE_WORKING_CLONE/.git/hooks/prepare-commit-msg"
 }

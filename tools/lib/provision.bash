@@ -6,9 +6,7 @@
 # step functions in bootstrap order. Function-by-function this library
 # retires as its steps port to TypeScript in the migration's cleanup phase.
 #
-# TODO:DEVENV[Plan-issue-72-001]: retire this library when every
-# provisioning step is TS-native and setup-first-run no longer sources it
-# — remove when the migration's cleanup phase deletes the bridge
+# TODO:DEVENV[Plan-issue-72-001]: retire this library when the bootstrap is TS-native and setup-first-run no longer sources it — remove when Phase 17 deletes the bridge
 
 # Step functions below consume bootstrap-owned environment (dotnet_cmd,
 # email_file, name_file, setup_dir, toolbox_root) defined in
@@ -122,7 +120,7 @@ devenv-update() {
 }
 
 key-update-tailscale() {
-    "$DEVENV_ROOT/tools/scripts/_key-update-tailscale.sh" "$@"
+    "node" "$DEVENV_ROOT/tools/ts/_key-update-tailscale.ts" "$@"
     if [ -f "$DEVENV_ROOT/.runtime/env-vars.sh" ]; then
         source "$DEVENV_ROOT/.runtime/env-vars.sh"
     fi
@@ -180,7 +178,7 @@ _key_update_define_provider_commands() {
 _key_update_define_provider_commands
 
 key-update-do() {
-    "$DEVENV_ROOT/tools/scripts/_key-update-do.sh" "$@"
+    "node" "$DEVENV_ROOT/tools/ts/_key-update-do.ts" "$@"
     if [ -f "$DEVENV_ROOT/.runtime/env-vars.sh" ]; then
         source "$DEVENV_ROOT/.runtime/env-vars.sh"
     fi

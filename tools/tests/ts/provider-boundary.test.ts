@@ -48,8 +48,8 @@ import { familyManifestModules } from "../../lib/providers/facade/provider-loade
 // (provider facade Phases 2-3). Each entry names the phase that REMOVES it;
 // the list shrinks monotonically to empty. An entry here is a debt marker,
 // not a permission — a new tool must never be added.
-const PHASE_2_PROJECTS = "facade Phase 2 (projects family migration)";
-const PHASE_2_PRS = "facade Phase 2 (prs family migration)";
+// (The historical PHASE_2 markers were removed when their debts discharged;
+// re-add none — the allowlist only shrinks.)
 // The allowlist may only shrink. CAP is the current entry count: removing
 // an entry (a phase migration landing) decrements it; appending grows the
 // list past CAP and this test fails — adding a provider-importing tool is a

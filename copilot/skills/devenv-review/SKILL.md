@@ -59,6 +59,7 @@ When a review completes with changes merged or approved-for-merge, signal `_on_e
 
 - **Focus only on what changed.** Do not review unchanged code surrounding the diff unless context is needed to judge a change.
 - Read each changed file's diff and any relevant unchanged context.
+- **Org-knowledge pass:** classify the diff's component per the knowledge repo's `orchestration.md` (resolve both roots from `devenv.config` `[copilot]`; canonical links `~/.copilot/knowledge` and `~/.copilot/engineering`), load the routed entries it names for that component, and judge the diff against their conventions and the engineering repo's ratified patterns (e.g. `Standards/Design-Principles/`): a violation is a Concern (Blocker when the principle's adherence level makes it mandatory and the violation is structural); cite the knowledge file + section or pattern name. Missing roots or docs → note the gap in the report — never skip the pass silently.
 - Identify: new behavior, removed behavior, behavior changes, refactors, dead code removal, dependency changes, test changes.
 
 ### 3. Build the review

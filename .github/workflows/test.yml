@@ -91,10 +91,10 @@ jobs:
         run: ./tools/tests/run-devenv-tests.sh
 
       - name: Lint scripts
-        run: ./tools/scripts/lint-scripts.sh
+        run: node tools/ts/lint-scripts.ts
 
       - name: Lint skills
-        run: ./tools/scripts/lint-skills.sh
+        run: node tools/ts/lint-skills.ts
 
   lint-markdown:
     name: Lint Markdown (changed files)
@@ -141,7 +141,7 @@ jobs:
           # lint-documentation runs markdownlint AND checks that relative .md
           # links resolve — including in-page anchors (GitHub-style heading
           # fragments), the stale-write failure class.
-          ./tools/scripts/lint-documentation.sh ${{ steps.changed.outputs.files }}
+          node tools/ts/lint-documentation.ts ${{ steps.changed.outputs.files }}
 
       - name: Check links on changed files
         if: steps.changed.outputs.files != ''
@@ -182,4 +182,4 @@ jobs:
         run: pnpm exec commitlint --from "${{ github.event.pull_request.base.sha }}" --to "${{ github.event.pull_request.head.sha }}"
 
       - name: Devenv-Action trailer
-        run: ./tools/internal/commit-action-check.sh "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"
+        run: ./tools/internal/commit-action-check "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"

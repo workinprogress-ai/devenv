@@ -44,30 +44,6 @@ provider_load issues prs auth" \
         provider_org_releases_list provider_auth_status_impl
 }
 
-@test "loader: every migrated lib provides its domain verbs" {
-    compose_functions_defined \
-        "source $DEVENV_TOOLS/lib/issue-graph.bash" \
-        provider_issues_list provider_repos_view
-    compose_functions_defined \
-        "source $DEVENV_TOOLS/lib/issues-config.bash" \
-        provider_org_issue_types
-    compose_functions_defined \
-        "source $DEVENV_TOOLS/lib/artifact-operations.bash" \
-        provider_repos_view
-    compose_functions_defined \
-        "source $DEVENV_TOOLS/lib/repo-types.bash" \
-        provider_repos_view provider_org_rulesets_list
-    compose_functions_defined \
-        "source $DEVENV_TOOLS/lib/repo-operations.bash" \
-        provider_repos_list provider_git_transport_url
-    compose_functions_defined \
-        "source $DEVENV_TOOLS/lib/pr-events.bash" \
-        provider_prs_view
-    compose_functions_defined \
-        "source $DEVENV_TOOLS/lib/issue-operations.bash" \
-        provider_issues_list provider_issues_set_type
-}
-
 @test "loader: key-update-provider sources the auth lifecycle via provider_load" {
     compose_functions_defined \
         "source $DEVENV_TOOLS/lib/providers/provider-core.bash

@@ -19,6 +19,7 @@
 import {
   ProviderError,
   providerDetect,
+  type Capability,
   type ProviderName,
 } from "../provider-core.ts";
 
@@ -136,7 +137,7 @@ export function clearProviderModuleCache(): void {
  * declare the capabilities), then run the capability gate. A tool's
  * capability check becomes `await loadProviderModules("pipelines").then(() =>
  * providerRequireCapability("pipelines"))` — or, simpler, this wrapper. */
-export async function requireFamilyCapability(family: string, cap: Parameters<typeof import("../provider-core.ts").providerRequireCapability>[0]): Promise<void> {
+export async function requireFamilyCapability(family: string, cap: Capability): Promise<void> {
   await loadProviderModules(family);
   const { providerRequireCapability } = await import("../provider-core.ts");
   providerRequireCapability(cap);

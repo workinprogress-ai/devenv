@@ -82,12 +82,6 @@ EOF
     [[ "$output" == "docs/" ]]
 }
 
-@test "issues-config.yml: has issue types defined" {
-    run bash -c "source $PROJECT_ROOT/tools/lib/issues-config.bash && get_issue_types $PROJECT_ROOT/tools/config/issues-config.yml"
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ Bug ]]
-}
-
 @test "config-reader.bash: library exists" {
     [ -f "$PROJECT_ROOT/tools/lib/config-reader.bash" ]
 }
@@ -106,12 +100,6 @@ EOF
     run bash -c "source $PROJECT_ROOT/tools/lib/config-reader.bash && declare -f config_read_array"
     [ "$status" -eq 0 ]
 }
-
-@test "issue-operations.bash: library exists" {
-    [ -f "$PROJECT_ROOT/tools/lib/issue-operations.bash" ]
-}
-
-
 
 @test "bootstrap.bash: has load_config function" {
     run grep -n "^load_config()" "$PROJECT_ROOT/.devcontainer/bootstrap.bash"
