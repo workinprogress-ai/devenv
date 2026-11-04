@@ -10,7 +10,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { drivePty } from "./harness/pty.ts";
 
-const TOOLS = join(__dirname, "../../.."); // tools/tests/ts → devenv root: ts→tests→tools→root
+const ROOT = join(__dirname, "../../.."); // tools/tests/ts → devenv root
+const TOOLS = join(ROOT, "tools");
 const SCRIPT = join(TOOLS, "ts/fork-export.ts");
 
 let root: string;

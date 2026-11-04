@@ -14,22 +14,9 @@ bats_require_minimum_version 1.5.0
 
 load ../test_helper
 
-# Repo-relative scan targets: skill bodies + shared reference prose.
-SCAN_TARGETS=(
-    "copilot/skills/*/SKILL.md"
-    "copilot/skills/common/references/*.md"
-    "copilot/skills/_conventions.md"
-    "copilot/copilot-instructions.md"
-)
-
-# Paths where GitHub transport detail is SANCTIONED (the protocol reference,
-# the neutral tool reference, shared docs mirror, and this gate itself).
-ALLOWED_PATHS=(
-    "copilot/skills/_shared/references/provider-protocols/"
-    "copilot/skills/_tools-reference.md"
-    "copilot/skills/_shared/docs/"
-    "tools/tests/skills/"
-)
+# Scan targets: skill bodies + shared reference prose. Rooted at PROJECT_ROOT
+# and built INSIDE setup_file_list — PROJECT_ROOT is exported by test_helper
+# only at test time, so a file-scope array would bake an empty prefix at load.
 
 # Forbidden transport tokens in skill bodies.
 FORBIDDEN_PATTERNS=(
@@ -42,8 +29,24 @@ FORBIDDEN_PATTERNS=(
 )
 
 setup_file_list() {
+    local scan_targets=(
+        "$PROJECT_ROOT/copilot/skills/*/SKILL.md"
+        "$PROJECT_ROOT/copilot/skills/common/references/*.md"
+        "$PROJECT_ROOT/copilot/skills/_conventions.md"
+        "$PROJECT_ROOT/copilot/copilot-instructions.md"
+    )
+    # Rooted allowlist: candidates are rooted paths, so a bare relative
+    # fragment ("tools/tests/skills/") would substring-match EVERY path —
+    # each rooted candidate carries .../tools/tests/skills/... en route to
+    # copilot/ via the ../.. hop. Rooted prefixes match only what they name.
+    local allowed_paths=(
+        "$PROJECT_ROOT/copilot/skills/_shared/references/provider-protocols/"
+        "$PROJECT_ROOT/copilot/skills/_tools-reference.md"
+        "$PROJECT_ROOT/copilot/skills/_shared/docs/"
+        "$PROJECT_ROOT/tools/tests/skills/"
+    )
     local all=""
-    for t in "${SCAN_TARGETS[@]}"; do
+    for t in "${scan_targets[@]}"; do
         # Expand the glob directly (nullglob-safe: unmatched globs yield the
         # literal string, which compgen filters out below).
         for f in $t; do
@@ -55,7 +58,7 @@ setup_file_list() {
     while IFS= read -r f; do
         [ -z "$f" ] && continue
         local skip=0
-        for a in "${ALLOWED_PATHS[@]}"; do
+        for a in "${allowed_paths[@]}"; do
             if [[ "$f" == *"$a"* ]]; then skip=1; break; fi
         done
         [ "$skip" -eq 0 ] && filtered+="$f"$'\n'
@@ -96,7 +99,7 @@ scan_violations() {
 }
 
 @test "decoupling gate: copilot-instructions.md is actually scanned" {
-    setup_file_list | grep -qx "copilot/copilot-instructions.md"
+    setup_file_list | grep -qx "$PROJECT_ROOT/copilot/copilot-instructions.md"
 }
 
 @test "decoupling gate: a line matching overlapping patterns is reported once" {
@@ -115,9 +118,10 @@ scan_violations() {
 
 @test "decoupling gate: protocol references exist with required sections" {
     # Two-file contract: protocol-common.md (neutral) + per-provider transport
-    local common="copilot/skills/_shared/references/protocol-common.md"
-    local gh="copilot/skills/_shared/references/provider-protocols/github.md"
-    local az="copilot/skills/_shared/references/provider-protocols/azure.md"
+    local shared="copilot/skills/_shared/references"
+    local common="$PROJECT_ROOT/$shared/protocol-common.md"
+    local gh="$PROJECT_ROOT/$shared/provider-protocols/github.md"
+    local az="$PROJECT_ROOT/$shared/provider-protocols/azure.md"
     [ -f "$common" ]
     [ -f "$gh" ]
     [ -f "$az" ]
