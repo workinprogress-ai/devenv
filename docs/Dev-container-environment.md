@@ -48,7 +48,7 @@ After updating, the update script determines what action — if any — is requi
 
 ### Devenv-Action commit trailer
 
-Every commit to this repository **must** include a `Devenv-Action` trailer in the commit body. This trailer tells the update script what the consumer needs to do after pulling the change. The commit hook will reject commits that omit it, and so will the `commit-messages` CI job on every pull request (both run `tools/internal/commit-action-check.sh`, so a clone without hooks cannot land a trailer-less commit).
+Every commit to this repository **must** include a `Devenv-Action` trailer in the commit body. This trailer tells the update script what the consumer needs to do after pulling the change. The commit hook will reject commits that omit it, and so will the `commit-messages` CI job on every pull request (both run `tools/internal/commit-action-check`, so a clone without hooks cannot land a trailer-less commit).
 
 Valid values, in ascending order of severity:
 

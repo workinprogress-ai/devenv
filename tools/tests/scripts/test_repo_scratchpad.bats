@@ -260,18 +260,6 @@ sp() {
     [ "$status" -eq 1 ]
 }
 
-@test "lib: scratchpad_on_scratch_branch detects prefix without state refs" {
-    git checkout -q -b scratchpad/orphan2
-    # is_scratchpad_active says no (no refs)...
-    run bash -c "source '$DEVENV_TOOLS/lib/scratchpad.bash' && is_scratchpad_active && echo ACTIVE || echo INACTIVE"
-    [[ "$output" == *"INACTIVE"* ]]
-    # ...but the branch-layer check says yes.
-    run bash -c "source '$DEVENV_TOOLS/lib/scratchpad.bash' && scratchpad_on_scratch_branch && echo BRANCHLAYER || echo NOMATCH"
-    [[ "$output" == *"BRANCHLAYER"* ]]
-}
-
-# --- Round 1 review fixes (Plan-004 Phase 8) ---
-
 @test "B1: commit refuses when HEAD is off the scratch branch (post-promote pause)" {
     sp enter >/dev/null
     echo fix > fix.txt && git add -A && sp commit "the fix" >/dev/null

@@ -44,7 +44,10 @@ script_version_constant() {
 }
 
 @test "no script calls script_version, and the library no longer gates output on SHOW_VERSION" {
-    run grep -lE '^[[:space:]]*script_version[[:space:]]' "$PROJECT_ROOT"/tools/scripts/*.sh "$PROJECT_ROOT"/tools/templates/*.sh
+    # The scripts/ corpus moved to tools/ts (bash minimum); the sweep
+    # continues over the shell that remains (template, harness). A missing
+    # file in the list would exit 2, not the wanted 1 (no matches).
+    run grep -lE '^[[:space:]]*script_version[[:space:]]' "$PROJECT_ROOT"/tools/templates/script-template.sh "$PROJECT_ROOT"/tools/tests/run-devenv-tests.sh
     [ "$status" -eq 1 ] || { echo "$output"; return 1; }
     run grep -n 'SHOW_VERSION\|^script_version()' "$PROJECT_ROOT/tools/lib/versioning.bash"
     [ "$status" -eq 1 ] || { echo "$output"; return 1; }

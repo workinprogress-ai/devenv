@@ -1,0 +1,5 @@
+#!/bin/sh
+# prepare-commit-msg — the git hook shim. Logic lives in
+# tools/internal/prepare-commit-msg.ts (bash minimum: logic in TS; hooks are
+# exec glue by contract). git invokes this file by path; it execs the TS body.
+exec node "$(dirname "$0")/prepare-commit-msg.ts" "$@"

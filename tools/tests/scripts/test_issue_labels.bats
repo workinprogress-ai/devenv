@@ -74,23 +74,6 @@ load ../test_helper
   [[ "$output" =~ "--remove-type" ]]
 }
 
-@test "issue-update.sh normalizes canonical types case-insensitively" {
-  # ensure_gh_login precedes update_issue, so without auth the run exits
-  # before normalization. Assert the normalize path via the shared lib instead.
-  # The normalizer is policy-backed (tools/lib/policy) — it needs the policy
-  # core, which resolves config from DEVENV_ROOT.
-  export DEVENV_ROOT="$PROJECT_ROOT"
-  run bash -c "source '$PROJECT_ROOT/tools/lib/issue-operations.bash'; normalize_issue_type EPIC"
-  [ "$status" -eq 0 ]
-  [ "$output" = "Epic" ]
-  run bash -c "source '$PROJECT_ROOT/tools/lib/issue-operations.bash'; normalize_issue_type bug"
-  [ "$status" -eq 0 ]
-  [ "$output" = "Bug" ]
-  # 'story' is not in the policy alias set.
-  run bash -c "source '$PROJECT_ROOT/tools/lib/issue-operations.bash'; normalize_issue_type story"
-  [ "$status" -eq 1 ]
-}
-
 @test "issue-update.sh rejects invalid type" {
   # Validation fires before auth in the arg-parse path? No — normalize runs in
   # update_issue after auth. With no auth in bats env this may exit earlier;

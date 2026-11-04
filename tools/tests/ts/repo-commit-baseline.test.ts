@@ -8,100 +8,42 @@
 // The copy exists so the --wip delegation test can provide a fake sibling
 // git-wip stub instead of invoking the real one (which stages and pushes).
 import { describe, expect, it, beforeAll, afterAll } from "vitest";
-import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync, chmodSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import {
+  createRepoCommitHarness,
+  harnessGit,
+  harnessRunTool,
+  harnessSeedCommit,
+  harnessSetEditorMode,
+  harnessStageFile,
+  harnessHeadSubject,
+  harnessHeadCount,
+  type Harness,
+} from "./harness/repo-commit.ts";
 
-const REPO_TOOLS = fileURLToPath(new URL(".", import.meta.url)).replace("tests/ts/", "");
 
-let root: string;
-let repo: string;
-let tool: string;
-let editorScript: string;
-let binDir: string;
-let cleanup: () => void;
+let h: Harness;
 
-function git(...args: string[]): string {
-  const r = spawnSync("git", ["-C", repo, ...args], { encoding: "utf8" });
-  if (r.status !== 0) throw new Error(`git ${args.join(" ")}: ${r.stderr}`);
-  return r.stdout;
-}
 
-function stageFile(name: string, content: string): void {
-  writeFileSync(join(repo, name), content);
-  git("add", "--", name);
-}
-
-function headSubject(): string {
-  return git("log", "-1", "--format=%s").trim();
-}
-
-function headCount(): number {
-  return Number.parseInt(git("rev-list", "--count", "HEAD").trim(), 10);
-}
-
-/** The scripted editor: repo-commit hands it the message file ($1); the mode
- * decides the session outcome — save verbatim, empty (the cancel path), or
- * exit non-zero (the abort path). */
-function setEditorMode(mode: "save" | "empty" | "abort"): void {
-  writeFileSync(editorScript, `#!/bin/sh\ncase "${mode}" in\n  save) exit 0 ;;\n  empty) : > "$1" ; exit 0 ;;\n  abort) exit 1 ;;\nesac\n`);
-  chmodSync(editorScript, 0o755);
-}
-
-function runTool(
+// Local aliases over the shared harness: the test bodies read against the
+// historical helper names.
+const git = (...args: string[]) => harnessGit(h, ...args);
+const stageFile = (name: string, content: string) => harnessStageFile(h, name, content);
+const headSubject = () => harnessHeadSubject(h);
+const headCount = () => harnessHeadCount(h);
+const setEditorMode = (m: "save" | "empty" | "abort") => harnessSetEditorMode(h, m);
+const seedCommit = (msg: string, file: string) => harnessSeedCommit(h, msg, file);
+const runTool = (
   args: string[],
   opts: { envEditor?: string; barePath?: boolean; env?: Record<string, string> } = {},
-): { status: number; out: string } {
-  const env: Record<string, string | undefined> = { ...process.env, GIT_EDITOR: editorScript };
-  if (opts.envEditor !== undefined) env.GIT_EDITOR = opts.envEditor;
-  if (opts.barePath) env.PATH = binDir;
-  if (opts.env !== undefined) for (const [k, v] of Object.entries(opts.env)) env[k] = v;
-  const r = spawnSync("node", [tool, ...args], { encoding: "utf8", cwd: repo, env });
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
-}
-
-/** An initial commit made directly (bypassing the tool — it seeds state). */
-function seedCommit(msg: string, file: string): void {
-  writeFileSync(join(repo, file), `${msg}\n`);
-  git("add", "--", file);
-  git("commit", "-q", "--no-verify", "-m", msg);
-}
-
+) => harnessRunTool(h, args, opts);
 beforeAll(() => {
-  root = mkdtempSync(join(tmpdir(), "repo-commit-baseline-"));
-
-  // Tool fixture: a private copy of tools/ (ts/repo-commit.ts + lib/) with a
-  // fake git-wip sibling stub so the delegation test never touches the real
-  // staging/pushing git-wip.
-  cpSync(join(REPO_TOOLS, "lib"), join(root, "tools", "lib"), { recursive: true });
-  cpSync(join(REPO_TOOLS, "ts", "repo-commit.ts"), join(root, "tools", "ts", "repo-commit.ts"));
-  tool = join(root, "tools", "ts", "repo-commit.ts");
-  writeFileSync(join(root, "tools", "git-wip"), "#!/bin/sh\necho git-wip: fake delegate ran\nexit 42\n");
-  chmodSync(join(root, "tools", "git-wip"), 0o755);
-
-  // Bare-PATH bin for the refusal test: the editor chain's commandExists
-  // probes must find nothing (no code, no nano) while node/git/sh still run.
-  binDir = join(root, "bin");
-  mkdirSync(binDir, { recursive: true });
-  for (const c of ["node", "git", "sh"]) {
-    const abs = spawnSync("sh", ["-c", `command -v ${c}`], { encoding: "utf8" }).stdout.trim();
-    if (abs !== "") symlinkSync(abs, join(binDir, c));
-  }
-
-  repo = join(root, "repo");
-  mkdirSync(repo, { recursive: true });
-  spawnSync("git", ["-C", repo, "init", "-q", "-b", "master"], { encoding: "utf8" });
-  git("config", "user.email", "t@example.com");
-  git("config", "user.name", "T");
-  seedCommit("initial: baseline", "seed.txt");
-  editorScript = join(root, "editor.sh");
-  setEditorMode("save");
-  cleanup = () => rmSync(root, { recursive: true, force: true });
+  h = createRepoCommitHarness({ barePathBin: true, seed: { subject: "initial: baseline", file: "seed.txt" } });
+  harnessSetEditorMode(h, "save");
 });
 
-afterAll(() => cleanup());
+afterAll(() => h.dispose());
 
 describe("repo-commit baseline (real git, scripted editor)", () => {
   it("a saved editor session commits the staged index with the suggested message", () => {
@@ -157,7 +99,7 @@ describe("repo-commit baseline (real git, scripted editor)", () => {
 
   it("--file carries a long message verbatim into the commit", () => {
     stageFile("longmsg.txt", "y\n");
-    const msgfile = join(root, "long-message.txt");
+    const msgfile = join(h.root, "long-message.txt");
     writeFileSync(msgfile, "feat(test): file-carried subject\n\n- body line one\n- body line two\n");
     setEditorMode("save");
     const r = runTool(["--file", msgfile]);
@@ -170,7 +112,7 @@ describe("repo-commit baseline (real git, scripted editor)", () => {
 
   it("a non-interactive env editor is treated as unset; a usable config editor still works", () => {
     stageFile("cfg.txt", "z\n");
-    git("config", "core.editor", editorScript);
+    git("config", "core.editor", h.editorScript);
     const r = runTool(["feat(test): config editor path"], { envEditor: ":" });
     git("config", "--unset", "core.editor");
     expect(r.status).toBe(0);

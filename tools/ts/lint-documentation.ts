@@ -1,0 +1,189 @@
+// lint-documentation — run markdownlint-cli2 over the workspace docs (or
+// explicit files) and check relative .md links + their in-page anchors.
+// Port of lint-documentation.sh: --fix mode applies autofixes and reports
+// which files changed; the link check is GitHub-anchor-shaped.
+
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import { basename, dirname, join, relative, resolve } from "node:path";
+import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { selfRoot } from "../lib/core/self-root.ts";
+
+assertNodeFloor();
+
+// Derive the checkout root from this file's own location; an exported
+// DEVENV_ROOT pointing elsewhere is ignored (self-root contract).
+const devenvRoot = selfRoot(import.meta.url);
+
+let fixMode = false;
+const files: string[] = [];
+
+const argv = process.argv.slice(2);
+for (let i = 0; i < argv.length; i++) {
+  const a = argv[i]!;
+  if (a === "--fix") fixMode = true;
+  else if (a === "--help" || a === "-h") {
+    console.log("Usage: lint-documentation [--fix] [file ...]");
+    console.log("");
+    console.log("Without file arguments, lints README.md and docs/**/*.md");
+    console.log("Also checks relative .md links and their in-page anchors");
+    console.log("(GitHub-style fragments) in the linted files.");
+    console.log("--fix    Apply markdown autofixes where possible");
+    process.exit(0);
+  } else files.push(a);
+}
+
+function gitRoot(): string | null {
+  const r = spawnSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" });
+  return r.status === 0 ? (r.stdout ?? "").trim() : null;
+}
+
+function lsFiles(root: string, ...patterns: string[]): string[] {
+  const r = spawnSync("git", ["-C", root, "ls-files", ...patterns], { encoding: "utf8" });
+  return r.status === 0 ? (r.stdout ?? "").split("\n").filter((l) => l !== "") : [];
+}
+
+let targetRoot: string;
+if (files.length === 0) {
+  // Inside a git repo under repos/, lint that repo; otherwise devenv docs.
+  const gr = gitRoot();
+  if (gr && gr.includes("/repos/") && resolve(gr) !== resolve(devenvRoot)) {
+    targetRoot = gr;
+    files.push(...lsFiles(targetRoot, "*.md"));
+  } else {
+    targetRoot = devenvRoot;
+    files.push(...lsFiles(targetRoot, "README.md", "docs/*.md", "docs/**/*.md"));
+  }
+} else {
+  targetRoot = gitRoot() ?? devenvRoot;
+  // For the devenv root, only README.md and docs/** are in scope.
+  if (resolve(targetRoot) === resolve(devenvRoot)) {
+    const kept = files.filter((f) => f === "README.md" || f.startsWith("docs/"));
+    files.length = 0;
+    files.push(...kept);
+  }
+}
+
+// Session memory and plan files carry free-form AI content that does not
+// conform to doc lint rules.
+const filtered = files.filter((f) => {
+  const b = basename(f);
+  return !(b.startsWith("session_") && b.includes("memory")) && !/^Plan-.*\.md$/.test(b) && !/^Implementation_plan-.*\.md$/.test(b);
+});
+files.length = 0;
+files.push(...filtered);
+
+if (files.length === 0) {
+  console.log("No markdown files to lint.");
+  process.exit(0);
+}
+
+console.log("Running markdown linting on:");
+for (const f of files) console.log(` - ${f}`);
+console.log("");
+
+// markdownlint-cli2 resolves config per-directory (walks up from each file),
+// so per-folder .markdownlint.json overrides are honoured automatically.
+const markdownlintBin = join(devenvRoot, "node_modules", ".bin", "markdownlint-cli2");
+if (!existsSync(markdownlintBin)) {
+  console.log(`Error: markdownlint-cli2 is not installed in devenv at ${markdownlintBin}`);
+  console.log(`Install it with: pnpm install (in ${devenvRoot})`);
+  process.exit(1);
+}
+
+const cmd = [markdownlintBin, ...(fixMode ? ["--fix"] : []), ...files];
+const before = new Map<string, string>();
+if (fixMode) {
+  for (const f of files) {
+    const full = join(targetRoot, f);
+    if (existsSync(full)) before.set(f, createHash("md5").update(readFileSync(full)).digest("hex"));
+  }
+}
+
+const lint = spawnSync(cmd[0]!, cmd.slice(1), { cwd: targetRoot, stdio: "inherit" });
+
+let fixedAny = false;
+if (fixMode) {
+  for (const f of files) {
+    const full = join(targetRoot, f);
+    if (existsSync(full)) {
+      const after = createHash("md5").update(readFileSync(full)).digest("hex");
+      if (before.get(f) !== after) fixedAny = true;
+    }
+  }
+}
+
+if ((lint.status ?? 1) !== 0) {
+  console.log("");
+  console.log("⚠ Some linting issues could not be auto-fixed.");
+  console.log("Please review the errors above and fix them manually.");
+  process.exit(1);
+}
+
+console.log("");
+console.log("✓ Markdown linting completed successfully!");
+if (fixMode && fixedAny) {
+  console.log("");
+  console.log(`Review the changes with: git -C '${targetRoot}' diff`);
+  console.log(`Stage the changes with: git -C '${targetRoot}' add -A`);
+}
+
+// ---------------------------------------------------------------------------
+// Relative .md link + anchor check: for every relative .md link in the linted
+// files, verify the target file exists and — when the link carries a
+// #fragment — that a heading matching the anchor (GitHub-style: lowercased,
+// spaces as dashes, punctuation stripped) exists in the target. External URLs
+// are markdown-link-check's job (CI), not ours.
+// ---------------------------------------------------------------------------
+
+function anchorOfHeading(heading: string): string {
+  let h = heading;
+  h = h.replace(/\|.*$/, ""); // strip table-row remainder
+  h = h.replace(/^#+\s*/, ""); // strip leading hashes + space
+  h = h.replace(/^.*?\]\s*/, ""); // strip link text prefix like `[x] `
+  h = h.replace(/^(?:[-*+]\s+)+/, ""); // strip list markers
+  h = h.replace(/^(?:>\s*)+/, ""); // strip blockquote markers
+  h = h.toLowerCase();
+  h = h.replace(/ /g, "-");
+  h = h.replace(/[`*_.,:;!?()[\]&/—–“”‘’#]/g, "");
+  return h;
+}
+
+let linkFailures = 0;
+let linksChecked = 0;
+
+for (const mdFile of files) {
+  const full = join(targetRoot, mdFile);
+  if (!existsSync(full)) continue;
+  const fileRel = mdFile.replace(/^\.\//, "");
+  const relDir = dirname(fileRel);
+  const content = readFileSync(full, "utf8");
+  const links = [...new Set([...content.matchAll(/\]\(([^)\s]+\.md[^)]*)\)/g)].map((m) => m[1]!))].sort();
+  for (const link of links) {
+    const hash = link.indexOf("#");
+    const target = hash === -1 ? link : link.slice(0, hash);
+    const anchor = hash === -1 ? "" : link.slice(hash + 1);
+    if (!target) continue;
+    const resolvedAbs = resolve(targetRoot, relDir, target);
+    const resolved = relative(targetRoot, resolvedAbs);
+    linksChecked++;
+    if (!existsSync(resolvedAbs)) {
+      console.error(`BROKEN LINK: ${fileRel} -> ${link} (file not found)`);
+      linkFailures++;
+      continue;
+    }
+    if (!anchor) continue;
+    const headings = readFileSync(resolvedAbs, "utf8")
+      .split("\n")
+      .filter((l) => /^#{1,6} /.test(l))
+      .map(anchorOfHeading);
+    if (!headings.includes(anchor)) {
+      console.error(`DANGLING ANCHOR: ${fileRel} -> ${resolved}#${anchor}`);
+      linkFailures++;
+    }
+  }
+}
+
+console.log(`Checked ${linksChecked} relative .md link(s); ${linkFailures} failure(s).`);
+process.exit(linkFailures === 0 ? 0 : 1);

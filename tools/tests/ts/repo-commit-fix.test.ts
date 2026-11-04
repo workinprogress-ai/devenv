@@ -7,61 +7,54 @@
 // seeding keeps fixtures independent of that config).
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import {
+  createRepoCommitHarness,
+  harnessGit,
+  harnessSetEditorMode,
+  type Harness,
+} from "./harness/repo-commit.ts";
 
-const REPO_TOOLS = fileURLToPath(new URL(".", import.meta.url)).replace("tests/ts/", "");
 
-let root: string;
-let repo: string;
-let tool: string;
+
 
 function git(...args: string[]): string {
-  const r = spawnSync("git", ["-C", repo, ...args], { encoding: "utf8" });
+  const r = spawnSync("git", ["-C", h.repo, ...args], { encoding: "utf8" });
   if (r.status !== 0) throw new Error(`git ${args.join(" ")}: ${r.stderr}`);
   return r.stdout;
 }
 
 function seedCommit(msg: string, file: string, content = "x\n"): string {
-  writeFileSync(join(repo, file), content);
+  writeFileSync(join(h.repo, file), content);
   git("add", "--", file);
   git("commit", "-q", "--no-verify", "-m", msg);
   return git("rev-parse", "HEAD").trim();
 }
 
 function stageFile(name: string, content: string): void {
-  writeFileSync(join(repo, name), content);
+  writeFileSync(join(h.repo, name), content);
   git("add", "--", name);
 }
 
 function runTool(args: string[], env: Record<string, string | undefined> = {}): { status: number; out: string } {
-  const r = spawnSync("node", [tool, ...args], {
+  const r = spawnSync("node", [h.tool, ...args], {
     encoding: "utf8",
-    cwd: repo,
+    cwd: h.repo,
     env: { ...process.env, GIT_SEQUENCE_EDITOR: ":", ...env },
   });
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
-beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), "repo-commit-fix-"));
-  cpSync(join(REPO_TOOLS, "lib"), join(root, "tools", "lib"), { recursive: true });
-  cpSync(join(REPO_TOOLS, "ts", "repo-commit.ts"), join(root, "tools", "ts", "repo-commit.ts"));
-  tool = join(root, "tools", "ts", "repo-commit.ts");
+let h: Harness;
 
-  const remote = join(root, "remote.git");
-  spawnSync("git", ["init", "-q", "--bare", "-b", "master", remote], { encoding: "utf8" });
-  repo = join(root, "work");
-  spawnSync("git", ["clone", "-q", remote, repo], { encoding: "utf8" });
-  git("config", "user.email", "t@example.com");
-  git("config", "user.name", "T");
-  seedCommit("chore: base", "base.txt");
-  git("push", "-q", "origin", "master");
+beforeEach(() => {
+  h = createRepoCommitHarness({ bareRemote: true, seed: { subject: "chore: base", file: "base.txt" } });
+  harnessGit(h, "push", "-q", "origin", "master");
+  harnessSetEditorMode(h, "save");
 });
 
-afterEach(() => rmSync(root, { recursive: true, force: true }));
+afterEach(() => h.dispose());
 
 describe("repo-commit --fix", () => {
   it("folds staged content into an earlier commit as one operation", () => {
@@ -201,7 +194,7 @@ describe("repo-commit --fix", () => {
     seedCommit("feat: third", "c9.txt");
     stageFile("b9.txt", "staged-change\n");
     // unstaged work in an untouched file — autostash must round-trip it
-    writeFileSync(join(repo, "unrelated-wip.txt"), "wip\n");
+    writeFileSync(join(h.repo, "unrelated-wip.txt"), "wip\n");
     const r = runTool(["--fix", second]);
     expect(r.status).toBe(0);
     expect(git("status", "--porcelain")).toContain("?? unrelated-wip.txt");
@@ -210,7 +203,7 @@ describe("repo-commit --fix", () => {
   it("refuses the root commit as target (no mislabeled conflict)", () => {
     // fresh unpushed repo: the cloned fixture's root is the pushed base,
     // so pushed-preflight would fire first there
-    const fixtureRoot = root; // the suite's root var stays untouched
+    const fixtureRoot = h.root;
     const fresh = join(fixtureRoot, "fresh");
     spawnSync("git", ["init", "-q", "-b", "master", fresh], { encoding: "utf8" });
     spawnSync("git", ["-C", fresh, "config", "user.email", "t@example.com"], { encoding: "utf8" });
@@ -220,7 +213,7 @@ describe("repo-commit --fix", () => {
     writeFileSync(join(fresh, "s.txt"), "s\n");
     spawnSync("git", ["-C", fresh, "add", "--", "s.txt"], { encoding: "utf8" });
     const rootSha = spawnSync("git", ["-C", fresh, "rev-list", "--max-parents=0", "HEAD"], { encoding: "utf8" }).stdout.trim();
-    const r = spawnSync("node", [tool, "--fix", rootSha], {
+    const r = spawnSync("node", [h.tool, "--fix", rootSha], {
       encoding: "utf8",
       cwd: fresh,
       env: { ...process.env, GIT_SEQUENCE_EDITOR: ":" },

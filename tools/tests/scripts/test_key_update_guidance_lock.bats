@@ -24,6 +24,7 @@ teardown() {
     local offenders
     offenders=$(grep -rn "key-update-git" \
         "$DEVENV_TOOLS/scripts" \
+        "$DEVENV_TOOLS/ts" \
         "$DEVENV_TOOLS/lib/provider-loader.bash" \
         "$DEVENV_TOOLS/lib/providers/github/key-update.sh" \
         "$DEVENV_ROOT/.devcontainer/bootstrap.bash" \

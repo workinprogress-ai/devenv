@@ -1,0 +1,5 @@
+#!/bin/sh
+# commit-action-check — shim. Logic lives in tools/internal/commit-action-check.ts
+# (bash minimum: logic in TS; entry points are exec glue). Callers: the husky
+# commit-msg hook and the CI commit-messages job.
+exec node "$(dirname "$0")/commit-action-check.ts" "$@"

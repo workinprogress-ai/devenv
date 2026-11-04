@@ -4,83 +4,55 @@
 // suites: copied tool fixture in a real temp git repo with a local bare
 // remote, scripted GIT_EDITOR, real rebase mechanics.
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, rmSync, writeFileSync, chmodSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { chmodSync, writeFileSync } from "node:fs";
+import {
+  createRepoCommitHarness,
+  harnessGit,
+  harnessRunTool,
+  harnessSeedCommit,
+  harnessSetEditorMode,
+  harnessStageFile,
+  type Harness,
+} from "./harness/repo-commit.ts";
 
-const REPO_TOOLS = fileURLToPath(new URL(".", import.meta.url)).replace("tests/ts/", "");
 
-let root: string;
-let repo: string;
-let tool: string;
-let editorScript: string;
 
-function git(...args: string[]): string {
-  const r = spawnSync("git", ["-C", repo, ...args], { encoding: "utf8" });
-  if (r.status !== 0) throw new Error(`git ${args.join(" ")}: ${r.stderr}`);
-  return r.stdout;
-}
 
-function seedCommit(msg: string, file: string): string {
-  writeFileSync(join(repo, file), `${msg}\n`);
-  git("add", "--", file);
-  git("commit", "-q", "--no-verify", "-m", msg);
-  return git("rev-parse", "HEAD").trim();
-}
+let h: Harness;
 
-function stageFile(name: string, content: string): void {
-  writeFileSync(join(repo, name), content);
-  git("add", "--", name);
-}
 
-/** Scripted message editor: the rebase hands it the message file ($1). Modes:
- * save a new subject, save the SAME subject (no-op reword), empty (cancel). */
-function setMessageEditorMode(mode: "save" | "same" | "empty", newSubject = "feat: first work REWORDED"): void {
-  const body = mode === "empty"
-    ? ': > "$1"'
-    : mode === "same"
-      ? 'git log --format=%B -1 HEAD~1 > /dev/null; cp "$1" /dev/null; true' // keep as-is
-      : `printf '${newSubject}\\n' > "$1"`;
-  // "same" mode simply leaves the file untouched (editor that saves no change).
-  const script = mode === "same" ? "#!/bin/sh\n" : `#!/bin/sh\n${body}\n`;
-  writeFileSync(editorScript, script);
-  chmodSync(editorScript, 0o755);
-}
-
-function runTool(args: string[]): { status: number; out: string } {
-  const r = spawnSync("node", [tool, ...args], {
-    encoding: "utf8",
-    cwd: repo,
-    env: { ...process.env, GIT_EDITOR: editorScript },
-  });
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
-}
-
+// Local aliases over the shared harness: the test bodies read against the
+// historical helper names.
+const git = (...args: string[]) => harnessGit(h, ...args);
+const stageFile = (name: string, content: string) => harnessStageFile(h, name, content);
+const seedCommit = (msg: string, file: string) => harnessSeedCommit(h, msg, file);
+/** Scripted message editor for reword: save a new subject, save the SAME
+ * subject (no-op reword), or empty (cancel). */
+const setMessageEditorMode = (mode: "save" | "same" | "empty", newSubject = "feat: first work REWORDED"): void => {
+  const script =
+    mode === "same"
+      ? "#!/bin/sh\n" // "same": leave the file untouched (no-op reword)
+      : `#!/bin/sh\n${mode === "empty" ? ': > "$1"' : `printf '${newSubject}\n' > "$1"`}\n`;
+  writeFileSync(h.editorScript, script);
+  chmodSync(h.editorScript, 0o755);
+};
+const runTool = (
+  args: string[],
+  opts: { envEditor?: string; barePath?: boolean; env?: Record<string, string> } = {},
+) => harnessRunTool(h, args, opts);
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), "repo-commit-reword-"));
-  cpSync(join(REPO_TOOLS, "lib"), join(root, "tools", "lib"), { recursive: true });
-  cpSync(join(REPO_TOOLS, "ts", "repo-commit.ts"), join(root, "tools", "ts", "repo-commit.ts"));
-  tool = join(root, "tools", "ts", "repo-commit.ts");
-  const remote = join(root, "remote.git");
-  spawnSync("git", ["init", "-q", "--bare", "-b", "master", remote], { encoding: "utf8" });
-  repo = join(root, "work");
-  spawnSync("git", ["clone", "-q", remote, repo], { encoding: "utf8" });
-  git("config", "user.email", "t@example.com");
-  git("config", "user.name", "T");
-  seedCommit("chore: base", "base.txt");
-  git("push", "-q", "origin", "master");
-  editorScript = join(root, "editor.sh");
-  setMessageEditorMode("save");
+  h = createRepoCommitHarness({ bareRemote: true, seed: { subject: "chore: base", file: "base.txt" } });
+  harnessGit(h, "push", "-q", "origin", "master");
+  harnessSetEditorMode(h, "save");
 });
 
-afterEach(() => rmSync(root, { recursive: true, force: true }));
+afterEach(() => h.dispose());
 
 describe("repo-commit --reword", () => {
   it("rewords an earlier commit's message and leaves the tree untouched", () => {
     seedCommit("feat: first work", "a.txt");
     seedCommit("feat: second work", "b.txt");
+    setMessageEditorMode("save");
     const treeBefore = git("rev-parse", "HEAD^{tree}");
     const r = runTool(["--reword", "HEAD~1"]);
     expect(r.status).toBe(0);
@@ -100,6 +72,7 @@ describe("repo-commit --reword", () => {
   it("does not require staged content (a reword changes messages only)", () => {
     seedCommit("feat: first work", "a.txt");
     seedCommit("feat: second work", "b.txt");
+    setMessageEditorMode("save");
     const r = runTool(["--reword", "HEAD~1"]);
     expect(r.status).toBe(0);
     expect(r.out).toContain("reworded.");

@@ -28,6 +28,9 @@ setup() {
     # Isolated DEVENV_ROOT so .setup/.runtime writes stay in the sandbox.
     export DEVENV_ROOT="$TEST_TEMP_DIR/devroot"
     mkdir -p "$DEVENV_ROOT/.setup" "$DEVENV_ROOT/.runtime"
+    # The real updater requires the env-vars file to pre-exist (the
+    # bootstrap creates it before any key rotation can run).
+    printf '#!/bin/bash\n# generated\n' > "$DEVENV_ROOT/.runtime/env-vars.sh"
 
     CALL_LOG="$TEST_TEMP_DIR/calls.log"
     export CALL_LOG
@@ -79,16 +82,16 @@ EOF
     # scripts self-locate there (self-root contract: an exported foreign
     # DEVENV_TOOLS no longer redirects them). The fake root's lib/ symlink
     # resolves their lib sources; the updater stubs above record calls.
-    mkdir -p "$FAKE_TOOLS/scripts"
-    cp "$PROJECT_ROOT/tools/scripts/_key-update-do.sh" "$FAKE_TOOLS/scripts/"
-    # The github key-update script needs no copy: $FAKE_TOOLS/lib symlinks
-    # the project lib, so the real script is reachable at its provider path
-    # and self-locates its libs from there.
-    cp "$PROJECT_ROOT/tools/scripts/_key-update-tailscale.sh" "$FAKE_TOOLS/scripts/"
+    # Phase 16: the key-update scripts are TypeScript; the fake tools root
+    # symlinks the real ts/ (the symlink must not be preceded by a mkdir:
+    # ln -s onto an existing dir would nest). The github key-update script
+    # needs no copy: $FAKE_TOOLS/lib symlinks the project lib, so the real
+    # script is reachable at its provider path and self-locates its libs.
+    ln -s "$PROJECT_ROOT/tools/ts" "$FAKE_TOOLS/ts"
 }
 
 @test "key-update-do: no argument with closed stdin refuses without hanging" {
-    run bash "$PROJECT_ROOT/tools/scripts/_key-update-do.sh" < /dev/null
+    run node "$PROJECT_ROOT/tools/ts/_key-update-do.ts" < /dev/null
     [ "$status" -ne 0 ]
     [[ "$output" == *"No token provided"* ]]
     [ ! -s "$CALL_LOG" ]
@@ -96,12 +99,14 @@ EOF
 }
 
 @test "key-update-do: argument path stores token with 600 and calls the updater" {
-    run bash "$FAKE_TOOLS/scripts/_key-update-do.sh" "d0token1234567890abcdef1234567890"
+    run node "$FAKE_TOOLS/ts/_key-update-do.ts" "d0token1234567890abcdef1234567890"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Success"* ]]
     [ "$(stat -c '%a' "$DEVENV_ROOT/.setup/do_token.txt")" = "600" ]
     grep -q "^d0token1234567890abcdef1234567890$" "$DEVENV_ROOT/.setup/do_token.txt"
-    grep -q "devenv-add-env-vars.sh DO_TOKEN=d0token1234567890abcdef1234567890" "$CALL_LOG"
+    # The updater runs for real (exact-path invocation, self-root contract);
+    # assert its persisted effect in the sandbox instead of a stub's log.
+    grep -q "export DO_TOKEN=d0token1234567890abcdef1234567890" "$DEVENV_ROOT/.runtime/env-vars.sh"
 }
 
 @test "key-update-provider: no argument with closed stdin refuses without hanging" {
@@ -204,7 +209,7 @@ define_key_update_commands() {   # <fake devenv root> -> runs the generated func
 }
 
 @test "key-update-tailscale: closed stdin refuses without hanging" {
-    run bash "$PROJECT_ROOT/tools/scripts/_key-update-tailscale.sh" < /dev/null
+    run node "$PROJECT_ROOT/tools/ts/_key-update-tailscale.ts" < /dev/null
     [ "$status" -ne 0 ]
     [[ "$output" == *"No key provided"* ]]
     ! grep -q "tailscale up" "$CALL_LOG"
@@ -213,7 +218,7 @@ define_key_update_commands() {   # <fake devenv root> -> runs the generated func
 @test "key-update-tailscale: non-tskey input refuses before any daemon call" {
     KEYFILE="$TEST_TEMP_DIR/key.txt"
     printf 'not-a-tskey\n' > "$KEYFILE"
-    run bash "$PROJECT_ROOT/tools/scripts/_key-update-tailscale.sh" < "$KEYFILE"
+    run node "$PROJECT_ROOT/tools/ts/_key-update-tailscale.ts" < "$KEYFILE"
     [ "$status" -ne 0 ]
     [[ "$output" == *"Invalid key format"* ]]
     ! grep -q "sudo tailscale up" "$CALL_LOG"
@@ -222,11 +227,11 @@ define_key_update_commands() {   # <fake devenv root> -> runs the generated func
 @test "key-update-tailscale: valid key re-auths the daemon and persists the value" {
     KEYFILE="$TEST_TEMP_DIR/key.txt"
     printf 'tskey-abc123def456\n' > "$KEYFILE"
-    run bash "$FAKE_TOOLS/scripts/_key-update-tailscale.sh" < "$KEYFILE"
+    run node "$FAKE_TOOLS/ts/_key-update-tailscale.ts" < "$KEYFILE"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Success"* ]]
     grep -q "sudo tailscale up --authkey=tskey-abc123def456" "$CALL_LOG"
-    grep -q "devenv-add-env-vars.sh TS_AUTHKEY=tskey-abc123def456" "$CALL_LOG"
+    grep -q "export TS_AUTHKEY=tskey-abc123def456" "$DEVENV_ROOT/.runtime/env-vars.sh"
 }
 
 # The documented non-interactive form is `key-update-tailscale AUTH_KEY`; the
@@ -234,29 +239,29 @@ define_key_update_commands() {   # <fake devenv root> -> runs the generated func
 # waiting for a key that had already been given.
 
 @test "key-update-tailscale: a positional key is used without prompting, even if stdin never answers" {
-    run timeout 8 bash -c "bash '$FAKE_TOOLS/scripts/_key-update-tailscale.sh' tskey-posarg123 < <(sleep 20 >/dev/null 2>&1)"
+    run timeout 8 bash -c "node '$FAKE_TOOLS/ts/_key-update-tailscale.ts' tskey-posarg123 < <(sleep 20 >/dev/null 2>&1)"
     # 124 would mean it sat waiting on the silent stdin.
     [ "$status" -eq 0 ]
     [[ "$output" == *"Success"* ]]
     grep -q "sudo tailscale up --authkey=tskey-posarg123" "$CALL_LOG"
-    grep -q "devenv-add-env-vars.sh TS_AUTHKEY=tskey-posarg123" "$CALL_LOG"
+    grep -q "export TS_AUTHKEY=tskey-posarg123" "$DEVENV_ROOT/.runtime/env-vars.sh"
 }
 
 @test "key-update-tailscale: a positional key works with closed stdin" {
-    run bash "$FAKE_TOOLS/scripts/_key-update-tailscale.sh" tskey-posarg123 < /dev/null
+    run node "$FAKE_TOOLS/ts/_key-update-tailscale.ts" tskey-posarg123 < /dev/null
     [ "$status" -eq 0 ]
     grep -q "sudo tailscale up --authkey=tskey-posarg123" "$CALL_LOG"
 }
 
 @test "key-update-tailscale: a positional key wins over anything on stdin" {
-    run bash -c "printf 'tskey-fromstdin\n' | bash '$FAKE_TOOLS/scripts/_key-update-tailscale.sh' tskey-fromarg"
+    run bash -c "printf 'tskey-fromstdin\n' | node '$FAKE_TOOLS/ts/_key-update-tailscale.ts' tskey-fromarg"
     [ "$status" -eq 0 ]
     grep -q "sudo tailscale up --authkey=tskey-fromarg" "$CALL_LOG"
     run ! grep -q "tskey-fromstdin" "$CALL_LOG"
 }
 
 @test "key-update-tailscale: a positional key is validated like a prompted one" {
-    run bash "$FAKE_TOOLS/scripts/_key-update-tailscale.sh" not-a-tskey < /dev/null
+    run node "$FAKE_TOOLS/ts/_key-update-tailscale.ts" not-a-tskey < /dev/null
     [ "$status" -ne 0 ]
     [[ "$output" == *"Invalid key format"* ]]
     run ! grep -q "sudo tailscale up" "$CALL_LOG"
@@ -273,13 +278,13 @@ define_key_update_commands() {   # <fake devenv root> -> runs the generated func
 # as a token/key by the scripts that read positional secrets.
 
 @test "key-update-do --help exits 0 without prompting" {
-    run bash "$PROJECT_ROOT/tools/scripts/_key-update-do.sh" --help < /dev/null
+    run node "$PROJECT_ROOT/tools/ts/_key-update-do.ts" --help < /dev/null
     [ "$status" -eq 0 ]
     [[ "$output" =~ "Usage: key-update-do" ]]
 }
 
 @test "key-update-tailscale --help exits 0 without prompting" {
-    run bash "$PROJECT_ROOT/tools/scripts/_key-update-tailscale.sh" --help < /dev/null
+    run node "$PROJECT_ROOT/tools/ts/_key-update-tailscale.ts" --help < /dev/null
     [ "$status" -eq 0 ]
     [[ "$output" =~ "Usage: key-update-tailscale" ]]
 }
@@ -295,10 +300,13 @@ define_key_update_commands() {   # <fake devenv root> -> runs the generated func
 @test "key-update family -h short flag also exits 0" {
     local script_path
     for script_path in \
-        "$PROJECT_ROOT/tools/scripts/_key-update-do.sh" \
-        "$PROJECT_ROOT/tools/scripts/_key-update-tailscale.sh" \
+        "$PROJECT_ROOT/tools/ts/_key-update-do.ts" \
+        "$PROJECT_ROOT/tools/ts/_key-update-tailscale.ts" \
         "$PROJECT_ROOT/tools/lib/providers/github/key-update.sh"; do
-        run bash "$script_path" -h < /dev/null
+        case "$script_path" in
+            *.ts) run node "$script_path" -h ;;
+            *)    run bash "$script_path" -h < /dev/null ;;
+        esac
         [ "$status" -eq 0 ]
         [[ "$output" =~ "Usage:" ]]
     done

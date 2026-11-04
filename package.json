@@ -11,7 +11,7 @@
     "test": "bash tools/tests/run-devenv-tests.sh && vitest run",
     "test:ts": "vitest run",
     "typecheck": "tsc --noEmit",
-    "lint": "bash tools/scripts/lint-scripts.sh",
+    "lint": "node tools/ts/lint-scripts.ts",
     "lint:ts": "eslint tools",
     "lint:skills": "lint-skills"
   },
