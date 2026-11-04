@@ -887,7 +887,7 @@ Scripts that only the devenv or githook machinery invokes (never run by users) b
 ### Adding a new tool category
 
 When adding a group of related tools (e.g. `markdown-*`), follow the
-[Tooling Standards](./Tooling-Standards.md#bash-vs-typescript-which-tools-stay-bash)
+[Tooling Standards](./Tooling-Standards.md#bash-minimum-the-doctrine)
 — new tools are TypeScript. Steps:
 
 1. Create the TS modules at `tools/lib/` (core/domain/providers per the

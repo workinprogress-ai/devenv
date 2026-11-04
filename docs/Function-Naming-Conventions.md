@@ -19,12 +19,11 @@ All bash functions MUST use **snake_case** naming convention for consistency and
 | Prefix | Purpose | Example |
 |--------|---------|---------|
 | `get_` | Retrieve a value | `get_bash_version()` |
-| `set_` | Assign a value | `set_issue_type()` |
 | `check_` | Verify condition (returns 0/1) | `check_bash_version()` |
 | `validate_` | Check input validity | `validate_positive_integer()` |
 | `require_` | Assert specification item or fail | `require_command()` |
 | `is_` | Boolean check | `is_strict_mode_enabled()` |
-| `has_` | Check for existence | `has_existing_issue()` |
+| `has_` | Check for existence | `hasExistingIssue()` (TS, `lib/domain`) |
 | `add_` | Add an item | `add_git_safe_directory()` |
 | `create_` | Create something new | `create_temp_file()` |
 | `remove_` | Remove something | `safe_remove()` |

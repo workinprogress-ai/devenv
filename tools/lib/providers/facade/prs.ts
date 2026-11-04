@@ -34,10 +34,7 @@ import type { GhResult } from "../provider-core.ts";
 import { loadProviderModules } from "./provider-loader.ts";
 import type * as ghTypes from "../github/prs.ts";
 import type * as azTypes from "../azure/prs.ts";
-import type {
-  PrsListOptions as GhPrsListOptions,
-  PrsCreateOptions as GhPrsCreateOptions,
-} from "../github/prs.ts";
+import type { PrsCreateOptions as GhPrsCreateOptions } from "../github/prs.ts";
 import type { PrsCreateOptions as AzPrsCreateOptions } from "../azure/prs.ts";
 import type { PrsListOptions as AzPrsListOptions } from "../azure/prs.ts";
 

@@ -12,7 +12,6 @@ setup() {
     create_fork_fixture_trio "$TEST_TEMP_DIR/fork-fixture"
     export FORK_TWIN_LOCAL_REPO="$FORK_FIXTURE_WORKING_CLONE"
     export FORK_TWIN_UPSTREAM_REPO="$FORK_FIXTURE_GH_CLONE"
-    source "$DEVENV_TOOLS/lib/fork-twin.bash"
     git -C "$FORK_FIXTURE_WORKING_CLONE" remote add upstream "$FORK_FIXTURE_UPSTREAM"
     git -C "$FORK_FIXTURE_WORKING_CLONE" fetch -q upstream
     export DEVENV_ROOT="$TEST_TEMP_DIR/config-root"
@@ -36,7 +35,9 @@ teardown() {
     run "$SCRIPT" --link "$local_l" "$local_u"
     [ "$status" -eq 0 ]
     [[ "$output" == *"recorded adoption pair"* ]]
-    MAP="$(fork_twin_map_get_path "$FORK_FIXTURE_WORKING_CLONE")"
+    # fork_twin_map_get_path moved to TS (lib/domain/repos/twin); the map
+    # path contract is <git-common-dir>/fork-adoption-map.
+    MAP="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse --path-format=absolute --git-common-dir)/fork-adoption-map"
     grep -q "$local_l $local_u" "$MAP"
 }
 

@@ -103,36 +103,63 @@ workspace modules.
 New tools use the TS template and this section. Gaps in the catalog are
 filled as modules land; when a module's role changes, update its row here.
 
-## Bash vs TypeScript: which tools stay bash
+## Bash minimum: the doctrine
 
-The deciding question for every tool: **must this script run when node
-is absent or broken?** Yes → stays bash. Everything else is TypeScript
-behind the standard stub. Tiny pure shims (a single CLI pass-through with
-no data logic) may also stay bash — standardization gains nothing there.
+**TypeScript is the default for anything with logic.** Bash persists only in
+the stay-bash categories below — each exists because bash is genuinely the
+better tool there, not by inertia. Porting preserves the black-box contract
+(argv, exit codes, output wording); behavior changes are separate commits,
+never bundled with a port. Adding a tool to a stay-bash category — or a new
+category — is a deliberate act: name why bash is the better tool there, in
+the table, not just the tool. Anything not listed is TypeScript.
 
-The stay-bash set (the working tree is authoritative; this table names the
-kinds and the current members):
+The stay-bash categories (the working tree is authoritative; this table names
+the kinds and the current members):
 
 | Kind | Members | Reason |
 |---|---|---|
+| exec glue | `tools/<name>` depth-1 stubs, git-hook shims, `tools/internal/` entry points (`_on_*.sh`, `prepare-commit-msg` hook shim), `tools/run-devenv-tests` wrapper | an entry point must be an executable file; a stub holds no logic — it execs |
 | test harness | `run-devenv-tests` | validates the TS toolchain; cannot depend on what it validates |
-| editor entry | `editor` | `EDITOR`/`VISUAL` target — the plain-`git commit` recovery hatch must open with node broken |
-| bootstrap repair | `devenv-add-custom-bootstrap`, `devenv-add-custom-startup`, `devenv-add-env-vars` | used precisely when the toolchain is broken |
-| credential rotation | `_key-update-do`, `_key-update-tailscale` | emergency path; off-PATH internal contract |
-| bash quality gate | `lint-scripts`, `lint-skills`, `lint-documentation` | stay independent of the TS toolchain they co-gate (they lint the toolchain's own output) |
-| tiny CLI shims | `dependencies-up`, `dependencies-down`, `docker-restart`, `get-public-ip`, `container-enable-dotnet-debugger` | single-command pass-throughs; no logic to standardize |
+| shell runtime artifacts | `git-completion.bash`, `bash_completion_custom`, `bash-prompt.sh`, `zsh-prompt.sh` | files that ARE bash by their nature |
+| host-side setup | the `setup` script | runs before a container — and before node — exists |
+| provider bootstrap-side modules | `tools/lib/providers/*/` bash modules | the provider-port phase's non-goal; the TS facade consumed their logic |
 
-Adding a tool to this list is a deliberate act: name the reason in the table,
-not just the tool. Anything not listed and not a tiny shim is TypeScript.
+Tool bodies whose historical bash-ness rested on "must run when the toolchain
+is broken" (`editor`, bootstrap repair, credential rotation, the lint gates,
+tiny CLI shims) moved to TypeScript in the bash-minimum phase: they keep
+their depth-1 stubs (exec glue) and their black-box contracts. A broken node
+is not preserved as a fallback for tool bodies.
 
-`tools/internal/` machinery (`_on_*.sh`, git-hook helpers) stays bash: git hooks are executable files by git's contract, and event entry points are spawned as external commands. The
-`tools/run-devenv-tests` wrapper is bash for the same reason (it execs the
-stay-bash harness). TS tools that drive these entry points (for example
-`workflow-signal` invoking `tools/internal/_on_*`) spawn them as external
-commands.
+**Stay-bash category definitions:**
+
+- **Exec glue** — an entry point that must be an executable file: depth-1
+  stubs, git-hook shims (git's contract), and `tools/internal/` machinery
+  invoked as external commands (`_on_*.sh` entry points, the
+  `prepare-commit-msg` hook shim). A shim holds no logic of its own; its
+  logic lives in TypeScript and it execs.
+- **Shell runtime artifacts** — files that ARE bash by their nature:
+  `git-completion.bash`, `bash_completion_custom`, `bash-prompt.sh`,
+  `zsh-prompt.sh`.
+- **Host-side setup** — the `setup` script: it runs before a container (and
+  therefore before node) exists.
+- **Provider bootstrap-side bash modules** — `tools/lib/providers/*/`
+  bootstrap-side modules (the provider-port phase's non-goal; the TS facade
+  consumed their logic).
+- **Toolchain-independent tooling** — tools whose value is being runnable
+  when the TS toolchain itself is broken or unbootstrapped: the test
+  harness, the editor recovery hatch, bootstrap repair, credential
+  rotation, and the lint gates that co-gate the toolchain's own output.
+
+**Doctrine, not a CI gate.** Stay-bash membership is enforced by review, not
+by a build failing on the sight of a `.sh` file. The categories above are the
+complete list; a new member needs a named reason in review, and a ported
+surface keeps its black-box contract. This rule is standing guidance — it
+does not run in CI.
 
 **Test format:** suites exercising fzf pickers, real TTY flows, or
-hook/signal machinery stay bats; other tool suites are vitest.
+hook/signal machinery stay bats; other tool suites are vitest. Ported
+surfaces' tests move to vitest — the bats assertions are the oracle until
+each family's port lands, and no net coverage loss is the acceptance bar.
 
 **Fixture-only testing for side-effecting tools:** a tool that mutates
 world state (staging, committing, pushing, tracker writes, plan mutations,

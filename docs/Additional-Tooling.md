@@ -2863,9 +2863,9 @@ githook backing scripts, CI-only checkers, lifecycle event entry points.
 
 **Current contents:**
 
-- **`prepare-commit-msg.sh`** — backing script for the `.husky/prepare-commit-msg`
+- **`prepare-commit-msg`** — hook shim (TS body `prepare-commit-msg.ts`) backing the `.husky/prepare-commit-msg`
   githook; generates `Change-Id` trailers used by fork export/sync twin detection.
-- **`commit-action-check.sh`** — commit-message trailer linter run by the
+- **`commit-action-check`** — commit-message trailer linter (TS body) run by the
   `commit-messages` CI job (`.github/workflows/test.yml`) and the
   `.husky/commit-msg` hook.
 - **`_on_*.sh`** — lifecycle event entry points (one-line exec shims) firing
@@ -2875,7 +2875,7 @@ githook backing scripts, CI-only checkers, lifecycle event entry points.
   grooming; merge; triage-complete; staging and production deploy). Manual
   firing goes through `workflow-signal`. Events are configured in
   `tools/config/skill-events.yml`.
-- **`csharp-debug.sh`** — drives the bootstrap-installed vsdbg .NET debugger
+- **`csharp-debug`** — drives the bootstrap-installed vsdbg .NET debugger
   (`.debug/remote_debugger/`): `launch <app.dll>` / `attach <pid>` enter DAP
   mode (`--interpreter=vscode`) for breakpoints, stepping, watch, and
   expression evaluation; `version` prints the debugger version. Invoked by
@@ -3350,7 +3350,7 @@ markdown-plan-complete-task --uncomplete 2.3 2.4
   it and continues with the remaining tasks, then exits non-zero.
 - The operation is idempotent: marking an already-complete task as complete
   (or incomplete as incomplete) produces no error and no file change.
-- Relies on `tools/lib/markdown.bash` for all checkbox manipulation logic.
+- Relies on `tools/lib/domain/markdown.ts` for all checkbox manipulation logic.
 
 ---
 
@@ -3410,7 +3410,7 @@ markdown-plan-complete-ac --uncomplete AC-3 AC-4
   (completed / total criteria) once.
 - Partial failures are reported individually; the tool exits non-zero if any
   criterion could not be updated.
-- Relies on `tools/lib/markdown.bash` for all checkbox manipulation logic.
+- Relies on `tools/lib/domain/markdown.ts` for all checkbox manipulation logic.
 
 ### `plan-parse`
 

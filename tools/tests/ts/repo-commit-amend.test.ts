@@ -6,70 +6,60 @@
 // real temp git repo, scripted GIT_EDITOR, and a local bare remote for
 // pushed/unlanded vs landed scenarios.
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { writeFileSync, chmodSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, rmSync, writeFileSync, chmodSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import {
+  createRepoCommitHarness,
+  harnessGit,
+  harnessSetEditorMode,
+  type Harness,
+} from "./harness/repo-commit.ts";
 
-const REPO_TOOLS = fileURLToPath(new URL(".", import.meta.url)).replace("tests/ts/", "");
 
-let root: string;
-let repo: string;
-let tool: string;
-let editorScript: string;
+
 
 function git(...args: string[]): string {
-  const r = spawnSync("git", ["-C", repo, ...args], { encoding: "utf8" });
+  const r = spawnSync("git", ["-C", h.repo, ...args], { encoding: "utf8" });
   if (r.status !== 0) throw new Error(`git ${args.join(" ")}: ${r.stderr}`);
   return r.stdout;
 }
 
 function stageFile(name: string, content: string): void {
-  writeFileSync(join(repo, name), content);
+  writeFileSync(join(h.repo, name), content);
   git("add", "--", name);
 }
 
 function seedCommit(msg: string, file: string): void {
-  writeFileSync(join(repo, file), `${msg}\n`);
+  writeFileSync(join(h.repo, file), `${msg}\n`);
   git("add", "--", file);
   git("commit", "-q", "--no-verify", "-m", msg);
 }
 
 function setEditorMode(mode: "save" | "empty" | "abort"): void {
-  writeFileSync(editorScript, `#!/bin/sh\ncase "${mode}" in\n  save) exit 0 ;;\n  empty) : > "$1" ; exit 0 ;;\n  abort) exit 1 ;;\nesac\n`);
-  chmodSync(editorScript, 0o755);
+  writeFileSync(h.editorScript, `#!/bin/sh\ncase "${mode}" in\n  save) exit 0 ;;\n  empty) : > "$1" ; exit 0 ;;\n  abort) exit 1 ;;\nesac\n`);
+  chmodSync(h.editorScript, 0o755);
 }
 
 function runTool(args: string[]): { status: number; out: string } {
-  const r = spawnSync("node", [tool, ...args], {
+  const r = spawnSync("node", [h.tool, ...args], {
     encoding: "utf8",
-    cwd: repo,
-    env: { ...process.env, GIT_EDITOR: editorScript },
+    cwd: h.repo,
+    env: { ...process.env, GIT_EDITOR: h.editorScript },
   });
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
-beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), "repo-commit-amend-"));
-  cpSync(join(REPO_TOOLS, "lib"), join(root, "tools", "lib"), { recursive: true });
-  cpSync(join(REPO_TOOLS, "ts", "repo-commit.ts"), join(root, "tools", "ts", "repo-commit.ts"));
-  tool = join(root, "tools", "ts", "repo-commit.ts");
-  editorScript = join(root, "editor.sh");
-  setEditorMode("save");
+let h: Harness;
 
-  // repo with a local bare remote: pushed/unpushed HEAD both constructible
-  const remote = join(root, "remote.git");
-  spawnSync("git", ["init", "-q", "--bare", "-b", "master", remote], { encoding: "utf8" });
-  repo = join(root, "work");
-  spawnSync("git", ["clone", "-q", remote, repo], { encoding: "utf8" });
-  git("config", "user.email", "t@example.com");
-  git("config", "user.name", "T");
-  seedCommit("chore: base", "base.txt");
-  git("push", "-q", "origin", "master");
+
+beforeEach(() => {
+  h = createRepoCommitHarness({ bareRemote: true, seed: { subject: "chore: base", file: "base.txt" } });
+  harnessGit(h, "push", "-q", "origin", "master");
+  harnessSetEditorMode(h, "save");
 });
 
-afterEach(() => rmSync(root, { recursive: true, force: true }));
+afterEach(() => h.dispose());
 
 describe("repo-commit --amend", () => {
   it("folds staged content into unpushed HEAD, message preserved via preload", () => {
@@ -130,12 +120,12 @@ describe("repo-commit --amend", () => {
     // The preload survived (save-mode editor kept HEAD's message).
     expect(git("log", "-1", "--format=%s")).toContain("feat: unpushed work");
     // A changed message produces a new commit (message-only amend rewrites):
-    writeFileSync(join(repo, "ed2.sh"), "#!/bin/sh\nprintf 'feat: unpushed work (reworded via clean amend)\\n' > \"$1\"\n");
-    chmodSync(join(repo, "ed2.sh"), 0o755);
-    const r2 = spawnSync("node", [tool, "--amend"], {
+    writeFileSync(join(h.repo, "ed2.sh"), "#!/bin/sh\nprintf 'feat: unpushed work (reworded via clean amend)\\n' > \"$1\"\n");
+    chmodSync(join(h.repo, "ed2.sh"), 0o755);
+    const r2 = spawnSync("node", [h.tool, "--amend"], {
       encoding: "utf8",
-      cwd: repo,
-      env: { ...process.env, GIT_EDITOR: join(repo, "ed2.sh") },
+      cwd: h.repo,
+      env: { ...process.env, GIT_EDITOR: join(h.repo, "ed2.sh") },
     });
     expect(r2.status).toBe(0);
     expect(git("rev-parse", "HEAD").trim()).not.toBe(before); // rewritten

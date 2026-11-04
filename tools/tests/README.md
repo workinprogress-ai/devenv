@@ -1,6 +1,17 @@
 # Devenv Test Suite
 
-This directory contains automated tests for the Devenv development environment scripts.
+Two lanes, one gate:
+
+- **BATS** ([bats-core](https://github.com/bats-core/bats-core), installed
+  during bootstrap) — `tools/tests/**/*.bats`. During the bash-minimum
+  migration these move to vitest at coverage parity (see the
+  coverage-parity ledger in `.local-artifacts/`); suites exercising fzf
+  pickers, real TTY flows, or hook/signal machinery stay bats per the
+  Tooling-Standards test-format rule.
+- **vitest** — `tools/tests/ts/**/*.test.ts`, run by `pnpm test:ts`.
+
+`bash tools/tests/run-devenv-tests.sh` runs the bats sweep and then the
+vitest lane — one command is the whole gate; `pnpm test` aliases it.
 
 ## Overview
 

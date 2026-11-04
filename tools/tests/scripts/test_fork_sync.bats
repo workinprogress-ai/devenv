@@ -951,11 +951,10 @@ _setup_sync_fixture() {
     local_twin="$(git -C "$FORK_FIXTURE_WORKING_CLONE" log --format=%H --grep="Change-Id: $id" -1)"
     [ -n "$local_twin" ]
     # The map records the pair: lookup by upstream SHA resolves the local copy.
-    source "$DEVENV_TOOLS/lib/fork-twin.bash"
-    export FORK_TWIN_UPSTREAM_REPO="$FORK_FIXTURE_GH_CLONE"
+    # fork_twin_map_lookup_upstream moved to TS (lib/domain/repos/twin); the
+    # map file is a plain pair list — assert by grep on the recorded shas.
     MAP="$(git -C "$FORK_FIXTURE_WORKING_CLONE" rev-parse --path-format=absolute --git-common-dir)/fork-adoption-map"
-    found="$(fork_twin_map_lookup_upstream "$MAP" "$up_sha")"
-    [ "$found" = "$local_twin" ]
+    grep -q "$up_sha" "$MAP" && grep -q "$local_twin" "$MAP"
     # And an immediate re-sync drops the commit as already present.
     run "$SCRIPT" --replay --yes
     [ "$status" -eq 0 ]

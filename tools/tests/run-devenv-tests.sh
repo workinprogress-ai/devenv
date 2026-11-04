@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Run all BATS tests (parallel by default, sequential escape hatch)
+# Run the full devenv test suite: the bats sweep first (parallel by default,
+# sequential escape hatch), then the vitest lane — one command is the whole
+# gate; `pnpm test` aliases this script.
 
 set -euo pipefail
 
