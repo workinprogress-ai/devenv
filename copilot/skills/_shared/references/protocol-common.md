@@ -18,10 +18,26 @@ as tooling gaps, not worked around with raw CLI calls.
 Resolution order for repo-targeted wrappers: explicit repo argument (where a
 wrapper takes one) → `DEVENV_REPO` env (`owner/repo`; the only repo-targeting
 env var) → provider-specific repo env (if the provider defines one) → org
-identity + current repo basename → cwd git context. Prefer `DEVENV_REPO=<owner>/<repo>` for cross-repo operations; the
-devenv-repo safety gate rejects devenv-repo mutations without a repo target.
+identity + current repo basename → cwd git context.
+
+**Skill sessions must not rely on the lower legs.** Every repo-targeted call
+carries an explicit target: `DEVENV_REPO=<owner>/<repo>` env-prefixed on the
+call — per call, or once per command block when the whole block targets one
+repo (re-stated at every new target). Env-prefix is the standard because it
+is scoped, visible in the command line, and works from any cwd; cwd fallback
+is the resolver's last resort for ad-hoc human use, never something a skill
+session relies on by silence — an unset `DEVENV_REPO` has caused actions on
+unrelated repos (colliding issue numbers across same-org repos).
+`cd` into a repo root positions the terminal for file work; it is not a
+targeting mechanism. The devenv-repo safety gate rejects devenv-repo
+mutations without a repo target.
 Resolution lives in `provider_repo_target`; wrapper code never re-implements
 the chain.
+
+**Examples in this reference elide the prefix for brevity** (`issue-get 42`,
+`issue-artifact-upsert --issue 7 …`) — before running any such command,
+prefix it with `DEVENV_REPO=<owner>/<repo>`. The elision is readability, not
+permission to run untargeted.
 
 ---
 
