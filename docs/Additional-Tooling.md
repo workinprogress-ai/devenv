@@ -62,8 +62,7 @@ Public surface:
 Tests: `tools/tests/ts/workflow-model.test.ts`,
 `tools/tests/ts/workflow-orchestration.test.ts` (vitest, over this module);
 the dispatcher contract lives in
-`tools/tests/scripts/test_on_event_dispatch.bats` and
-`tools/tests/scripts/test_on_events_write.bats`.
+`tools/tests/ts/on-event-dispatch.test.ts`.
 
 ### `issue-graph.bash`
 
@@ -76,7 +75,7 @@ Public functions:
 - `issue_parent <issue>` — native `Issue.parent` first, `Part of #N` body-text fallback for pre-native issues.
 - `issue_read_status <issue>` — first vocabulary-valid Status across the issue's projects; foreign-board values count as unreadable.
 
-Test seam: `ISSUE_GRAPH_TOOLS` overrides where the board-reading script is found. Tests: `tools/tests/lib/test_provider_loading.bats` (sources `issue-graph.bash`), `tools/tests/ts/workflow-model.test.ts`.
+Test seam: `ISSUE_GRAPH_TOOLS` overrides where the board-reading script is found. Tests: `tools/tests/ts/provider-loading.test.ts`, `tools/tests/ts/workflow-model.test.ts`.
 
 ## Diagnostics
 
@@ -3511,7 +3510,10 @@ The following environment variables should be configured for full functionality:
   - `project` (full control of projects)
 - `DEVENV_ROOT`: Path to devenv root directory (auto-set)
 - `DEVENV_TOOLS`: Path to the `tools/` directory (auto-set; bash sources under `tools/scripts/`, TS tools under `tools/ts/`, libs under `tools/lib/`)
-- `DEVENV_REPO`: Canonical (and only) repo target for repo-scoped wrappers, `owner/repo` form. Preferred for cross-repo operations. See [Tooling Standards](./Tooling-Standards.md) for the full resolution order.
+- `DEVENV_REPO`: Canonical (and only) repo target for repo-scoped wrappers,
+  `owner/repo` form. Skill sessions env-prefix every call with it (see the
+  wrapper protocol reference); cwd fallback serves interactive human use. See
+  [Tooling Standards](./Tooling-Standards.md) for the full resolution order.
 - `devenv`: Lowercase alias for DEVENV_ROOT (auto-set)
 - `SSH_AUTH_SOCK`: SSH agent socket (auto-configured with host forwarding)
 

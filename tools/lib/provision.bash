@@ -2,11 +2,11 @@
 # provision.bash — the provisioning library: env vars, bashrc, credentials,
 # tool symlinks, copilot/claude integration, side-repo syncs, package
 # sources. Invoked by the bootstrap's run_setup_first_run task THROUGH
-# tools/ts/setup-first-run.ts, which sources this file and calls the
+# tools/ts/setup.ts, which sources this file and calls the
 # step functions in bootstrap order. Function-by-function this library
 # retires as its steps port to TypeScript in the migration's cleanup phase.
 #
-# TODO:DEVENV[Plan-issue-72-001]: retire this library when the bootstrap is TS-native and setup-first-run no longer sources it — remove when Phase 17 deletes the bridge
+# TODO:DEVENV[Plan-issue-72-001]: retire this library when the bootstrap is TS-native and setup.ts no longer sources it — remove when Phase 17 deletes the bridge
 
 # Step functions below consume bootstrap-owned environment (dotnet_cmd,
 # email_file, name_file, setup_dir, toolbox_root) defined in

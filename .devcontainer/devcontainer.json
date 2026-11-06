@@ -59,7 +59,14 @@
             "password": "vscode"
 		},
 		"ghcr.io/devcontainers/features/docker-in-docker:2": {},
-		"ghcr.io/devcontainers/features/node:1": {},
+		"ghcr.io/devcontainers/features/node:1": {
+			// The image must guarantee Node >= the TS tooling floor
+			// (tools/lib/core/node-floor.ts) at a known location: the thin
+			// bootstrap resolves the feature's nvm dir onto PATH and hands off
+			// to the TS setup orchestrator. NODE_VERSION in tool-versions.bash
+			// must stay equal to this pin.
+			"version": "24.18.0"
+		},
         "ghcr.io/devcontainers/features/github-cli:1": {}
 	},
 

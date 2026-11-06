@@ -1,4 +1,4 @@
-// Tests for setup-first-run.ts — the bootstrap handoff contract (AC-12).
+// Tests for setup.ts — the bootstrap handoff contract (AC-12) + install stage.
 // Non-interactive by contract: tests assert the dispatch surface (step
 // selection, unknown-step rejection, --list, no-args contract) and the
 // failure-sequencing behavior. The bash steps themselves are exercised by
@@ -14,7 +14,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, cpSync } fro
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/setup-first-run.ts");
+const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/setup.ts");
 const REPO_ROOT = join(dirname(fileURLToPath(new URL(".", import.meta.url))), "../..");
 
 interface RunResult {
@@ -35,7 +35,7 @@ function runTool(args: string[]): RunResult {
   return { status: r.status ?? 1, stdout, stderr, output: stdout + stderr };
 }
 
-describe("setup-first-run (bootstrap handoff contract)", () => {
+describe("setup (bootstrap handoff contract)", () => {
   it("--list enumerates the provisioning steps", () => {
     const r = runTool(["--list"]);
     expect(r.status).toBe(0);
@@ -63,7 +63,7 @@ describe("setup-first-run (bootstrap handoff contract)", () => {
   it("help documents the non-interactive contract", () => {
     const r = runTool(["--help"]);
     expect(r.status).toBe(0);
-    expect(r.stdout).toContain("Non-interactive by contract");
+    expect(r.stdout).toContain("Non-interactive by");
     expect(r.stdout).toContain("--all");
     expect(r.stdout).toContain("idempotent");
   });
@@ -71,7 +71,12 @@ describe("setup-first-run (bootstrap handoff contract)", () => {
   it("step order matches the historical bootstrap sequence", () => {
     const r = runTool(["--list"]);
     const lines = r.stdout.trim().split("\n").map((l) => l.split(/\s+/)[0]);
+    // Install stage precedes the configure half (nuget-sources/npmrc need
+    // dotnet; repo-deps provides pnpm), then provisioning in its historical
+    // order — the bash bootstrap's install_* before run_setup_first_run.
     const expectedOrder = [
+      "apt-packages", "apt-repos", "apt-packages-extra", "dotnet",
+      "node-globals", "dotnet-tools", "repo-deps",
       "credentials", "bash-functions", "env-vars", "tool-symlinks",
       "devenvrc", "bashrc", "git-config", "copilot-instructions",
       "claude-integration", "knowledge-sync", "engineering-sync",
@@ -102,11 +107,12 @@ describe("setup-first-run (bootstrap handoff contract)", () => {
     const status = r.status ?? 1;
     expect(status).toBe(0);
     const results = JSON.parse(stdout) as { step: string; status: string }[];
-    expect(results.length).toBe(16);
+    expect(results.length).toBe(23);
     expect(results.every((x) => x.status === "ok")).toBe(true);
-    expect(results[0]?.step).toBe("credentials");
-    expect(results[15]?.step).toBe("cleanup");
-  }, 120_000);
+    expect(results[0]?.step).toBe("apt-packages");
+    expect(results[7]?.step).toBe("credentials");
+    expect(results[22]?.step).toBe("cleanup");
+  }, 240_000);
 });
 
 // The TS→bash seam, exercised against a fixture toolbox: the tool must give
@@ -114,7 +120,7 @@ describe("setup-first-run (bootstrap handoff contract)", () => {
 // one invocation's steps in a single bash session (cross-step shell state:
 // credentials seeds HUMAN_NAME/USER_EMAIL; git-config consumes them). The
 // fake HOME keeps every write inside the fixture.
-describe("setup-first-run seam (fixture toolbox)", () => {
+describe("setup seam (fixture toolbox)", () => {
   const tempRoots: string[] = [];
 
   function makeToolbox(): { root: string; home: string } {
