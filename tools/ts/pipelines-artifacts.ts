@@ -21,8 +21,6 @@ import {
 
 assertNodeFloor();
 
-ensureProviderAuth();
-
 await requireFamilyCapability("pipelines", "pipelines");
 
 const DOWNLOAD_SIZE_WARN_BYTES = 104857600;
@@ -101,6 +99,10 @@ if (repo === "" || !/^[^/]+\/[^/]+$/.test(repo)) {
   logError(`Invalid --repo format: '${repo}' (expected OWNER/REPO)`);
   process.exit(EXIT_API_FAILURE);
 }
+
+// Auth after argv validation: a usage error must exit 2 without touching gh
+// (no network probe on the misuse path).
+ensureProviderAuth();
 
 interface Artifact {
   name?: string;
