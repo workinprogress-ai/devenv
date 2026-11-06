@@ -64,7 +64,8 @@ At plan approval (file written / artifact published), signal `_on_end_planning <
 
 ### 1. Identify inputs and target repo
 
-- Determine which repo the plan applies to (the plan file is written to **that** repo's `.local-artifacts/` folder, not necessarily the current workspace root). For mechanical cross-repo objectives (updating many repos with new files plus follow-ups), the plan declares its target repo set up front — that set becomes the agreed change-scope for execution; feature delivery spanning multiple components still routes through blueprint/roadmap first.
+- Determine which repo the plan applies to (the plan file is written to **that** repo's `.local-artifacts/` folder, not necessarily the current workspace root). **A coding plan targets exactly one repo — the default, no confirmation exception.** Writing to any additional repo requires explicit, loudly-obvious permission at the interview (see the cross-repo deviation gate below). Cross-repo coding work follows the standard shape: one grooming artifact coordinating the work, plus one plan per repo — the user may deliberately attach multiple plans to one issue, which is their prerogative; either way the plan-per-repo shape is unchanged. For mechanical cross-repo objectives (updating many repos with new files plus follow-ups), the plan declares its target repo set up front — that set becomes the agreed change-scope for execution; feature delivery spanning multiple components still routes through blueprint/roadmap first.
+- **Cross-repo deviation gate (coding plans — hard stop):** if the drafted `Files:` or phase scope for a code objective spans more than one repository, do **not** treat that as ambient detail. Ask one dedicated question naming every repository the plan writes to, even when the set seems obvious from the issue — the user must explicitly choose either (a) split into per-repo plans (the default shape) or (b) proceed with this single cross-repo plan. Multi-repo visibility in an artifact (issue ACs, a grooming row, a phase title, or `Files:` lists) is not permission: each layer approving an artifact that happens to mention a second repo has never settled this question. Only the user's explicit answer does. This gate is specific to **coding** plans — docs objectives, mechanical file work across a declared repo set, and skills with their own multi-repo mandates (research, unplanned ad-hoc work) are out of its scope.
 - If a issue number/URL is provided, fetch the issue body and all comments. Treat comments as first-class source material; design docs often live there. Capture the issue number for later.
 - Capture any pasted story / linked docs.
 - Classify the objective type: **code** (default), **docs**, **mechanical file work**, **ops/runbook**, or **mixed**. This drives the verification declaration (step 4).
@@ -95,7 +96,7 @@ Use `vscode_askQuestions` to confirm/fill gaps. Every interview in this skill fo
 - Scope boundaries and explicit non-goals
 - Known risks / unknowns
 - Decision points / pending questions — try to resolve as many as possible during planning. Leave questions pending only when they are implementation-level details or the user explicitly asks to defer.
-- Target repo path (confirm; for multi-repo mechanical objectives confirm the declared repo set)
+- Target repo path (confirm). For coding plans this is a one-repo fact plus the [cross-repo deviation gate](#1-identify-inputs-and-target-repo) when scope spans repos — never skipped as "obvious from the issue"; for multi-repo mechanical objectives confirm the declared repo set
 - Any preferred phase breakdown or constraints
 - Whether throwaway scaffolding tests are expected (code declaration; for non-code declarations, what temporary scaffolding — if any — is acceptable)
 
@@ -341,6 +342,8 @@ In the target repo's `.local-artifacts/` (the [standard local markdown folder](.
 Write the approved plan to `<target-repo>/.local-artifacts/<resolved-filename>.md`.
 
 Header stamping at write time: set `commit_alignment:` per the interview answer — `commit-aligned` (code default) or `commit-free`. A `commit-free` declaration records the user's explicit opt-out, the same pattern as `artifact_sync: off`; under `commit-free`, no `commit:` bullets appear anywhere in the plan.
+
+Stamp the **Target repo** line (template) from the interview answer: the single repo for a one-repo coding plan, or the declared repo set for a multi-repo plan that passed the cross-repo deviation gate or a mechanical objective — so the write surface is visible at the top of the plan, not buried in phase bodies.
 
 Revision policy: do not create, append, or normalize `## Revision History` in the plan. If an existing plan already contains that section, leave it unchanged unless the user explicitly asks to edit it.
 
