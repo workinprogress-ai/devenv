@@ -24,6 +24,11 @@ docs | mechanical file work | ops-runbook | custom — how phases in this plan p
 committable; see phase-rules.md. Must be deterministic, observable, runnable at
 phase end.>
 
+**Target repo**: <the single repository this plan writes to; for multi-repo
+plans (cross-repo deviation gate passed, or a mechanical cross-repo objective)
+the declared repo set, comma-separated. Every `Files:` entry must live inside
+this repo/set.>
+
 **Commit alignment**: `commit-aligned` (code-plan default — tasks that close intended commit units carry a `commit:` bullet per [task-format.md](./task-format.md); composition concentrates related changes into individually mergeable units) or `commit-free` (no declared points; `/devenv-commit` judges granularity from the diff post-hoc). Non-code plans may declare either.
 
 ## Goals and Acceptance Criteria
