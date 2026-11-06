@@ -14,6 +14,16 @@ Two lanes, one gate:
 `bash tools/tests/run-devenv-tests.sh` runs the bats sweep and then the
 vitest lane — one command is the whole gate; `pnpm test` aliases it.
 
+## Test hygiene: scratch artifacts live in tmp, never in the repo
+
+Suites that execute extracted bash functions or stub CLIs must route every
+fixture path through a scratch-dir guard: a helper that throws unless the
+base directory is absolute and under `os.tmpdir()`. A lost/unset temp root
+would otherwise resolve fixture paths relative to the CWD and scatter (or
+overwrite) files in the repo — this has happened once, which is why the rule
+is a guard, not a convention. `tools/tests/ts/bootstrap-functions.test.ts`
+(`tmpPath`) is the reference implementation.
+
 ## Running Tests
 
 ### Run all tests (the default)
@@ -237,7 +247,7 @@ The following environment variables are available in tests:
 
 ### Bootstrap & Container
 
-- `test_bootstrap_functions.bats` - Bootstrap script functions and error handling
+- `bootstrap-functions.test.ts` - Bootstrap script functions and error handling (ported from `test_bootstrap_functions.bats`)
 - `test_container_start.bats` - Container startup locking and coordination
 - `test_install_extras.bats` - Install-extras script validation
 - `test_background_updates.bats` - Background update checker
