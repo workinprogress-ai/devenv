@@ -115,7 +115,11 @@ describe("run tests local (runner contract)", () => {
   it("the runner collects the skills/ suite", () => {
     const r = runnerCollectedFiles();
     expect(r.status).toBe(0);
-    expect(r.out).toContain("/tests/skills/test_provider_protocol_decoupling.bats");
+    // test_provider_protocol_decoupling ported to TS (16.5); the skills corpus
+    // is drained — the runner must tolerate an empty skills/ directory (no
+    // bats args reference it, and the sweep must not fail on the absent file).
+    expect(r.out).not.toContain("/tests/skills/");
+    expect(r.status).toBe(0);
   });
 
   it("the runner still collects scripts/ and devenv/", () => {
@@ -126,8 +130,8 @@ describe("run tests local (runner contract)", () => {
     // that remain at the time of writing; each pin updates as its suite ports.
     expect(r.out).toContain("/tests/scripts/");
     // self-reference: this suite ported to TS still has the runner collect the
-    // devenv corpus — assert on a suite that remains.
-    expect(r.out).toContain("/tests/devenv/test_bootstrap_functions.bats");
+    // devenv corpus — assert on the canary, which stays bats by design.
+    expect(r.out).toContain("/tests/devenv/test_helper_isolation_canary.bats");
   });
 
   it("the runner runs the vitest lane after the bats sweep", () => {
