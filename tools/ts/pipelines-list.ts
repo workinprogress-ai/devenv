@@ -18,8 +18,6 @@ import { pipelinesWorkflowList } from "../lib/providers/facade/pipelines.ts";
 
 assertNodeFloor();
 
-ensureProviderAuth();
-
 await requireFamilyCapability("pipelines", "pipelines");
 
 interface WorkflowRow {
@@ -81,6 +79,10 @@ if (values.json) outputFormat = "json";
 if (values.pretty) outputFormat = "pretty";
 repoRegex = typeof values.repo === "string" ? values.repo : "";
 if (typeof values.state === "string" && values.state !== "") stateFilter = values.state;
+
+// Auth after argv validation: a usage error must exit 2 without touching gh
+// (no network probe on the misuse path).
+ensureProviderAuth();
 
 if (providerOrgGet() === "") {
   logError("Organization identity unresolved. Configure [organization] org in devenv.config or run setup.");

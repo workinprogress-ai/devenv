@@ -16,8 +16,6 @@ import { pipelinesRunList, pipelinesRunWatch } from "../lib/providers/facade/pip
 
 assertNodeFloor();
 
-ensureProviderAuth();
-
 await requireFamilyCapability("pipelines", "pipelines");
 
 let runId = "";
@@ -75,6 +73,10 @@ if (repo === "" || !repo.includes("/")) {
   logError("--repo OWNER/REPO is required");
   process.exit(EXIT_MISUSE);
 }
+
+// Auth after argv validation: a usage error must exit 2 without touching gh
+// (no network probe on the misuse path).
+ensureProviderAuth();
 
 if (runId === "") {
   logInfo(`No RUN_ID provided — detecting latest in-progress run for ${repo}...`);

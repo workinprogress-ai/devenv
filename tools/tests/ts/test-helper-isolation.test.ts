@@ -11,7 +11,6 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const HELPER = join(ROOT, "tools/tests/test_helper.bash");
-const TOOLS = join(ROOT, "tools");
 
 function sh(script: string, env: Record<string, string> = {}): { status: number; out: string } {
   const r = spawnSync("bash", ["-c", script], { encoding: "utf8", env: { ...process.env, ...env } });
@@ -20,24 +19,44 @@ function sh(script: string, env: Record<string, string> = {}): { status: number;
 
 describe("test helper isolation", () => {
   it("default provider detection is isolated from the real repo config", () => {
-    // Drive the helper the way a bats test does: a scratch DEVENV_ROOT with
-    // its own devenv.config, then provider_detect must answer github.
-    const scratch = mkdtempSync(join(tmpdir(), `thelp-${Date.now()}-${Math.random().toString(36).slice(2)}`));
-    try {
-      const r = sh(
-        `source '${HELPER}'\n` +
-        `export DEVENV_TOOLS='${TOOLS}'\nunset _PROVIDER_CORE_LOADED PROVIDER_NAME\n` +
-        `source '${TOOLS}/lib/providers/provider-core.bash'\nprovider_detect\n` +
+    // Drive the helper the way a bats test does: test_helper_setup creates a
+    // scratch TEST_TEMP_DIR with its own devenv.config and points DEVENV_ROOT
+    // at it; provider_detect must then answer github from the FIXTURE config,
+    // never from the real tree. The child env drops an inherited DEVENV_ROOT
+    // (the runtime workspace exports one; the helper must not depend on it —
+    // that is exactly the leak this test pins).
+    const r = spawnSync(
+      "bash",
+      [
+        "-c",
+        `source "$1"\ntest_helper_setup\ntrap test_helper_teardown EXIT\n` +
+        `unset _PROVIDER_CORE_LOADED PROVIDER_NAME\n` +
+        `source "$PROJECT_ROOT/tools/lib/providers/provider-core.bash"\nprovider_detect\n` +
         `echo "root=\$DEVENV_ROOT"\necho "provider=\$PROVIDER_NAME"`,
-        { BATS_TEST_DIRNAME: join(ROOT, "tools/tests/lib") },
-      );
-      expect(r.out).toContain("provider=github");
-      // DEVENV_ROOT (the scratch fixture) must differ from PROJECT_ROOT (real tree)
-      expect(r.out).toMatch(/root=/);
-      expect(r.out).not.toContain(`root=${ROOT}`);
-    } finally {
-      rmSync(scratch, { recursive: true, force: true });
-    }
+        "bash",
+        HELPER,
+      ],
+      {
+        encoding: "utf8",
+        env: (() => {
+          const e: Record<string, string> = {};
+          for (const [k, v] of Object.entries(process.env)) {
+            if (v !== undefined && k !== "DEVENV_ROOT" && k !== "DEVENV_TOOLS" && k !== "DEVENV_ROOT_SET") e[k] = v;
+          }
+          e["BATS_TEST_DIRNAME"] = join(ROOT, "tools/tests/lib");
+          return e;
+        })(),
+      },
+    );
+    const out = (r.stdout ?? "") + (r.stderr ?? "");
+    expect(out).toContain("provider=github");
+    // DEVENV_ROOT (the scratch fixture) must differ from PROJECT_ROOT (real tree)
+    expect(out).toMatch(/root=/);
+    expect(out).not.toContain(`root=${ROOT}`);
+    // The detection ran against the fixture config: DEVENV_ROOT lives under
+    // the helper's per-run TEST_TEMP_DIR (/tmp/…/devenv-root), never the
+    // checkout — regardless of what the calling shell exported.
+    expect(out).toMatch(/root=.*\/devenv-root/);
   });
 
   it("inherited Azure selection cannot override GitHub fixture URL matching", () => {

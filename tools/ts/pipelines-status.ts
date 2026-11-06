@@ -18,8 +18,6 @@ import { pipelinesRunList } from "../lib/providers/facade/pipelines.ts";
 
 assertNodeFloor();
 
-ensureProviderAuth();
-
 await requireFamilyCapability("pipelines", "pipelines");
 
 interface RunRow {
@@ -100,6 +98,10 @@ if (values.limit !== undefined) {
   }
   limit = limitRaw;
 }
+
+// Auth after argv validation: a usage error must exit 2 without touching gh
+// (no network probe on the misuse path).
+ensureProviderAuth();
 
 if (providerOrgGet() === "") {
   logError("Organization identity unresolved. Configure [organization] org in devenv.config or run setup.");

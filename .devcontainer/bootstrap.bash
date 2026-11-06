@@ -665,20 +665,22 @@ finish_message() {
     echo "Please restart the container to complete the setup."
 }
 
-# Provisioning handoff: run the TypeScript first-time setup non-interactively
-# (idempotent steps, safe unattended). When node deps are absent (broken
-# install), print the manual recovery path instead of failing obscurely.
+# Setup handoff: run the TypeScript setup orchestrator non-interactively
+# (idempotent steps, safe unattended) — first-run provisioning AND the
+# post-node install stage (setup.ts registries). When node itself is absent
+# (broken image), print the manual recovery path instead of failing obscurely.
 run_setup_first_run() {
-    local setup_tool="$toolbox_root/tools/ts/setup-first-run.ts"
+    local setup_tool="$toolbox_root/tools/ts/setup.ts"
     if [ ! -f "$setup_tool" ]; then
-        echo "setup-first-run tool missing: $setup_tool"
+        echo "setup tool missing: $setup_tool"
         return 1
     fi
     if ! command -v node >/dev/null 2>&1; then
-        echo "node not available — cannot run the TS provisioning setup."
+        echo "node not available — cannot run the TS setup orchestrator."
         echo "Manual recovery:"
-        echo "  1. install node (see .devcontainer/tool-versions.bash)"
-        echo "  2. node tools/ts/setup-first-run.ts --all"
+        echo "  1. ensure the container image provides node >= the TS floor"
+        echo "     (devcontainer.json pins the node feature version)"
+        echo "  2. node tools/ts/setup.ts --all"
         return 1
     fi
     # The tool composes its own prelude from DEVENV_TOOLBOX_ROOT; hand the

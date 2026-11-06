@@ -36,7 +36,7 @@ const POST_UPDATE = join(ROOT, ".devcontainer", "post-update.bash");
 const PROVISION = join(ROOT, "tools", "lib", "provision.bash");
 const COPILOT_KNOWLEDGE = join(ROOT, "tools", "lib", "copilot-knowledge.bash");
 const CONFIG_READER = join(ROOT, "tools", "lib", "config-reader.bash");
-const SETUP_FIRST_RUN = join(ROOT, "tools", "ts", "setup-first-run.ts");
+const SETUP_FIRST_RUN = join(ROOT, "tools", "ts", "setup.ts");
 const CUSTOMIZATION_DOC = join(ROOT, "docs", "Bootstrap-Customization.md");
 
 let TMP = "";
@@ -649,9 +649,9 @@ describe("bootstrap: devenv-update flow", () => {
   });
 });
 
-// ── setup-first-run step ordering ───────────────────────────────────────────
+// ── setup.ts step ordering ──────────────────────────────────────────────────
 
-describe("bootstrap: setup-first-run ordering", () => {
+describe("bootstrap: setup ordering", () => {
   it("[provisioning step] load_setup_credentials runs before sync_copilot_knowledge", () => {
     const r = spawnSync("node", [SETUP_FIRST_RUN, "--list"], { encoding: "utf8" });
     expect(r.status).toBe(0);

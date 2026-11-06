@@ -28,7 +28,7 @@ import { azureExplain } from "./azure/explain.ts";
 
 /** The devenv checkout root this module operates on. Derived from this
  * file's own location (self-root contract); DEVENV_TOOLBOX_ROOT is a
- * test-only override, exactly as in setup-first-run. */
+ * test-only override, exactly as in setup. */
 const TOOLS_ROOT = process.env.DEVENV_TOOLBOX_ROOT
   ? join(process.env.DEVENV_TOOLBOX_ROOT, "tools")
   : join(selfRoot(fileURLToPath(import.meta.url)), "tools");
